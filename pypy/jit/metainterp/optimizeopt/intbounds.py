@@ -1,7 +1,8 @@
-from pypy.jit.metainterp.optimizeopt.optimizer import Optimization, CONST_1, CONST_0
-from pypy.jit.metainterp.optimizeutil import _findall
-from pypy.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded, \
-    IntLowerBound, IntUpperBound
+from pypy.jit.metainterp.optimizeopt.optimizer import Optimization, CONST_1, CONST_0, \
+                                                  MODE_ARRAY, MODE_STR, MODE_UNICODE
+from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
+from pypy.jit.metainterp.optimizeopt.intutils import (IntBound, IntUnbounded,
+    IntLowerBound, IntUpperBound)
 from pypy.jit.metainterp.history import Const, ConstInt
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 
@@ -13,6 +14,10 @@ class OptIntBounds(Optimization):
         self.posponedop = None
         self.nextop = None
 
+    def new(self):
+        assert self.posponedop is None
+        return OptIntBounds()
+        
     def reconstruct_for_next_iteration(self,  short_boxes, surviving_boxes, optimizer,
                                        valuemap):
         assert self.posponedop is None
@@ -20,7 +25,11 @@ class OptIntBounds(Optimization):
 
     def flush(self):
         assert self.posponedop is None
-        
+
+    def setup(self):
+        self.posponedop = None
+        self.nextop = None
+
     def propagate_forward(self, op):
         if op.is_ovf():
             self.posponedop = op
@@ -30,14 +39,11 @@ class OptIntBounds(Optimization):
             op = self.posponedop
             self.posponedop = None
 
-        opnum = op.getopnum()
-        for value, func in optimize_ops:
-            if opnum == value:
-                func(self, op)
-                break
-        else:
-            assert not op.is_ovf()
-            self.emit_operation(op)
+        dispatch_opt(self, op)
+
+    def opt_default(self, op):
+        assert not op.is_ovf()
+        self.emit_operation(op)
 
 
     def propagate_bounds_backward(self, box):
@@ -53,11 +59,7 @@ class OptIntBounds(Optimization):
             op = self.optimizer.producer[box]
         except KeyError:
             return
-        opnum = op.getopnum()
-        for value, func in propagate_bounds_ops:
-            if opnum == value:
-                func(self, op)
-                break
+        dispatch_bounds_ops(self, op)
 
     def optimize_GUARD_TRUE(self, op):
         self.emit_operation(op)
@@ -190,7 +192,7 @@ class OptIntBounds(Optimization):
                 # Synthesize the reverse ops for optimize_default to reuse
                 self.pure(rop.INT_ADD, [op.result, op.getarg(1)], op.getarg(0))
                 self.pure(rop.INT_SUB, [op.getarg(0), op.result], op.getarg(1))
-                
+
 
     def optimize_INT_MUL_OVF(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -277,16 +279,38 @@ class OptIntBounds(Optimization):
 
     def optimize_ARRAYLEN_GC(self, op):
         self.emit_operation(op)
-        v1 = self.getvalue(op.result)
-        v1.intbound.make_ge(IntLowerBound(0))
+        array  = self.getvalue(op.getarg(0))
+        result = self.getvalue(op.result)
+        array.make_len_gt(MODE_ARRAY, op.getdescr(), -1)
+        array.lenbound.bound.intersect(result.intbound)
+        result.intbound = array.lenbound.bound
 
-    optimize_STRLEN = optimize_UNICODELEN = optimize_ARRAYLEN_GC
+    def optimize_STRLEN(self, op):
+        self.emit_operation(op)
+        array  = self.getvalue(op.getarg(0))
+        result = self.getvalue(op.result)
+        array.make_len_gt(MODE_STR, op.getdescr(), -1)
+        array.lenbound.bound.intersect(result.intbound)
+        result.intbound = array.lenbound.bound
+
+    def optimize_UNICODELEN(self, op):
+        self.emit_operation(op)
+        array  = self.getvalue(op.getarg(0))
+        result = self.getvalue(op.result)
+        array.make_len_gt(MODE_UNICODE, op.getdescr(), -1)
+        array.lenbound.bound.intersect(result.intbound)
+        result.intbound = array.lenbound.bound
 
     def optimize_STRGETITEM(self, op):
         self.emit_operation(op)
         v1 = self.getvalue(op.result)
         v1.intbound.make_ge(IntLowerBound(0))
         v1.intbound.make_lt(IntUpperBound(256))
+
+    def optimize_UNICODEGETITEM(self, op):
+        self.emit_operation(op)
+        v1 = self.getvalue(op.result)
+        v1.intbound.make_ge(IntLowerBound(0))
 
     def make_int_lt(self, box1, box2):
         v1 = self.getvalue(box1)
@@ -364,6 +388,27 @@ class OptIntBounds(Optimization):
                 if v2.intbound.intersect(v1.intbound):
                     self.propagate_bounds_backward(op.getarg(1))
 
+    def propagate_bounds_INT_IS_TRUE(self, op):
+        r = self.getvalue(op.result)
+        if r.is_constant():
+            if r.box.same_constant(CONST_1):
+                v1 = self.getvalue(op.getarg(0))
+                if v1.intbound.known_ge(IntBound(0, 0)):
+                    v1.intbound.make_gt(IntBound(0, 0))
+                    self.propagate_bounds_backward(op.getarg(0))
+
+    def propagate_bounds_INT_IS_ZERO(self, op):
+        r = self.getvalue(op.result)
+        if r.is_constant():
+            if r.box.same_constant(CONST_1):
+                v1 = self.getvalue(op.getarg(0))
+                # Clever hack, we can't use self.make_constant_int yet because
+                # the args aren't in the values dictionary yet so it runs into
+                # an assert, this is a clever way of expressing the same thing.
+                v1.intbound.make_ge(IntBound(0, 0))
+                v1.intbound.make_lt(IntBound(1, 1))
+                self.propagate_bounds_backward(op.getarg(0))
+
     def propagate_bounds_INT_ADD(self, op):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
@@ -409,5 +454,7 @@ class OptIntBounds(Optimization):
     propagate_bounds_INT_SUB_OVF  = propagate_bounds_INT_SUB
     propagate_bounds_INT_MUL_OVF  = propagate_bounds_INT_MUL
 
-optimize_ops = _findall(OptIntBounds, 'optimize_')
-propagate_bounds_ops = _findall(OptIntBounds, 'propagate_bounds_')
+
+dispatch_opt = make_dispatcher_method(OptIntBounds, 'optimize_',
+        default=OptIntBounds.opt_default)
+dispatch_bounds_ops = make_dispatcher_method(OptIntBounds, 'propagate_bounds_')

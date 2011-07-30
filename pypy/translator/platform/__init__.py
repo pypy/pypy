@@ -38,6 +38,7 @@ class Platform(object):
     c_environ = None
 
     relevant_environ = ()
+    log_errors = True
 
     so_prefixes = ('',)
 
@@ -120,11 +121,12 @@ class Platform(object):
         if returncode != 0:
             errorfile = outname.new(ext='errors')
             errorfile.write(stderr, 'wb')
-            stderrlines = stderr.splitlines()
-            for line in stderrlines:
-                log.Error(line)
-            # ^^^ don't use ERROR, because it might actually be fine.
-            # Also, ERROR confuses lib-python/conftest.py.
+            if self.log_errors:
+                stderrlines = stderr.splitlines()
+                for line in stderrlines:
+                    log.Error(line)
+                # ^^^ don't use ERROR, because it might actually be fine.
+                # Also, ERROR confuses lib-python/conftest.py.
             raise CompilationError(stdout, stderr)
         else:
             for line in stderr.splitlines():
@@ -160,7 +162,7 @@ class Platform(object):
             extra = self.shared_only
         cflags = list(self.cflags) + list(extra)
         return (cflags + list(eci.compile_extra) + args)
-    
+
     def preprocess_library_dirs(self, library_dirs):
         if 'PYPY_LOCALBASE' in os.environ:
             dirs = list(self._preprocess_library_dirs(library_dirs))
@@ -222,13 +224,13 @@ class Platform(object):
         raise NotImplementedError("Needs to be overwritten")
 
     def _library_dirs_for_libffi(self):
-        raise NotImplementedError("Needs to be overwritten")        
+        raise NotImplementedError("Needs to be overwritten")
 
     def check___thread(self):
         return True
 
-    
-if sys.platform == 'linux2':
+
+if sys.platform.startswith('linux'):
     from pypy.translator.platform.linux import Linux, Linux64
     import platform
     if platform.architecture()[0] == '32bit':

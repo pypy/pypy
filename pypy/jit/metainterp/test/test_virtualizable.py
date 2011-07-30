@@ -5,13 +5,13 @@ from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.rclass import IR_IMMUTABLE, IR_IMMUTABLE_ARRAY
 from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.jit.codewriter import heaptracker
-from pypy.rlib.jit import JitDriver, hint, dont_look_inside
+from pypy.rlib.jit import JitDriver, hint, dont_look_inside, promote
 from pypy.rlib.rarithmetic import intmask
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from pypy.rpython.rclass import FieldListAccessor
 from pypy.jit.metainterp.warmspot import get_stats, get_translator
 from pypy.jit.metainterp import history
-from pypy.jit.metainterp.test.test_optimizeutil import LLtypeMixin
+from pypy.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 
 def promote_virtualizable(*args):
     pass
@@ -197,8 +197,8 @@ class ExplicitVirtualizableTests:
             return xy.inst_x
         res = self.meta_interp(f, [20])
         assert res == 134
-        self.check_loops(getfield_gc=1, setfield_gc=1)
-        self.check_loops(getfield_gc=2, setfield_gc=2, everywhere=True)
+        self.check_loops(getfield_gc=0, setfield_gc=1)
+        self.check_loops(getfield_gc=1, setfield_gc=2, everywhere=True)
 
     # ------------------------------
 
@@ -377,7 +377,7 @@ class ExplicitVirtualizableTests:
         expected = f(20)
         res = self.meta_interp(f, [20], enable_opts='')
         assert res == expected
-        self.check_loops(getfield_gc=3, setfield_gc=0,
+        self.check_loops(getfield_gc=1, setfield_gc=0,
                          arraylen_gc=1, getarrayitem_gc=1, setarrayitem_gc=1)
 
     # ------------------------------
@@ -480,7 +480,7 @@ class ImplicitVirtualizableTests:
             while n > 0:
                 myjitdriver.can_enter_jit(frame=frame, n=n, x=x)
                 myjitdriver.jit_merge_point(frame=frame, n=n, x=x)
-                frame.s = hint(frame.s, promote=True)
+                frame.s = promote(frame.s)
                 n -= 1
                 s = frame.s
                 assert s >= 0
@@ -1133,6 +1133,7 @@ class ImplicitVirtualizableTests:
          res = self.meta_interp(f, [10])
          assert res == 55
          self.check_loops(new_with_vtable=0, ptr_eq=1, everywhere=True)
+         self.check_history(ptr_eq=2)
 
     def test_virtual_child_frame_with_arrays(self):
         myjitdriver = JitDriver(greens = [], reds = ['frame'],

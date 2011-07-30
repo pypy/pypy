@@ -283,7 +283,7 @@ def mem_reg_plus_scaled_reg_plus_const(argnum):
 # with immediate(argnum)).
 
 def encode_abs(mc, _1, _2, orbyte):
-    # expands to either '\x05' on 32-bit, or '\x04\x25' or 64-bit
+    # expands to either '\x05' on 32-bit, or '\x04\x25' on 64-bit
     if mc.WORD == 8:
         mc.writechar(chr(0x04 | orbyte))
         mc.writechar(chr(0x25))
@@ -370,6 +370,8 @@ def common_modes(group):
     INSN_rj = insn(rex_w, chr(base+3), register(1,8), abs_, immediate(2))
     INSN_ji8 = insn(rex_w, '\x83', orbyte(base), abs_, immediate(1),
                     immediate(2,'b'))
+    INSN_mi8 = insn(rex_w, '\x83', orbyte(base), mem_reg_plus_const(1),
+                    immediate(2,'b'))
     INSN_bi8 = insn(rex_w, '\x83', orbyte(base), stack_bp(1), immediate(2,'b'))
     INSN_bi32= insn(rex_w, '\x81', orbyte(base), stack_bp(1), immediate(2))
 
@@ -388,7 +390,7 @@ def common_modes(group):
     INSN_bi._always_inline_ = True      # try to constant-fold single_byte()
 
     return (INSN_ri, INSN_rr, INSN_rb, INSN_bi, INSN_br, INSN_rm, INSN_rj,
-            INSN_ji8)
+            INSN_ji8, INSN_mi8)
 
 def select_8_or_32_bit_immed(insn_8, insn_32):
     def INSN(*args):
@@ -462,18 +464,18 @@ class AbstractX86CodeBuilder(object):
 
     # ------------------------------ MOV ------------------------------
 
-    MOV_ri = insn(rex_w, register(1), '\xB8', immediate(2, 'q'))
+    MOV_ri = insn(register(1), '\xB8', immediate(2))
     MOV8_ri = insn(rex_fw, byte_register(1), '\xB0', immediate(2, 'b'))
 
     # ------------------------------ Arithmetic ------------------------------
 
-    ADD_ri, ADD_rr, ADD_rb, _, _, ADD_rm, ADD_rj, _ = common_modes(0)
-    OR_ri,  OR_rr,  OR_rb,  _, _, OR_rm,  OR_rj,  _ = common_modes(1)
-    AND_ri, AND_rr, AND_rb, _, _, AND_rm, AND_rj, _ = common_modes(4)
-    SUB_ri, SUB_rr, SUB_rb, _, _, SUB_rm, SUB_rj, SUB_ji8 = common_modes(5)
-    SBB_ri, SBB_rr, SBB_rb, _, _, SBB_rm, SBB_rj, _ = common_modes(3)
-    XOR_ri, XOR_rr, XOR_rb, _, _, XOR_rm, XOR_rj, _ = common_modes(6)
-    CMP_ri, CMP_rr, CMP_rb, CMP_bi, CMP_br, CMP_rm, CMP_rj, _ = common_modes(7)
+    ADD_ri,ADD_rr,ADD_rb,_,_,ADD_rm,ADD_rj,_,_ = common_modes(0)
+    OR_ri, OR_rr, OR_rb, _,_,OR_rm, OR_rj, _,_ = common_modes(1)
+    AND_ri,AND_rr,AND_rb,_,_,AND_rm,AND_rj,_,_ = common_modes(4)
+    SUB_ri,SUB_rr,SUB_rb,_,_,SUB_rm,SUB_rj,SUB_ji8,SUB_mi8 = common_modes(5)
+    SBB_ri,SBB_rr,SBB_rb,_,_,SBB_rm,SBB_rj,_,_ = common_modes(3)
+    XOR_ri,XOR_rr,XOR_rb,_,_,XOR_rm,XOR_rj,_,_ = common_modes(6)
+    CMP_ri,CMP_rr,CMP_rb,CMP_bi,CMP_br,CMP_rm,CMP_rj,_,_ = common_modes(7)
 
     CMP_mi8 = insn(rex_w, '\x83', orbyte(7<<3), mem_reg_plus_const(1), immediate(2, 'b'))
     CMP_mi32 = insn(rex_w, '\x81', orbyte(7<<3), mem_reg_plus_const(1), immediate(2))
@@ -494,6 +496,10 @@ class AbstractX86CodeBuilder(object):
     AND8_rr = insn(rex_fw, '\x20', byte_register(1), byte_register(2,8), '\xC0')
 
     OR8_rr = insn(rex_fw, '\x08', byte_register(1), byte_register(2,8), '\xC0')
+    OR8_mi = insn(rex_fw, '\x80', orbyte(1<<3), mem_reg_plus_const(1),
+                  immediate(2, 'b'))
+    OR8_ji = insn(rex_fw, '\x80', orbyte(1<<3), abs_, immediate(1),
+                  immediate(2, 'b'))
 
     NEG_r = insn(rex_w, '\xF7', register(1), '\xD8')
 
@@ -530,6 +536,7 @@ class AbstractX86CodeBuilder(object):
     POP_b = insn(rex_nw, '\x8F', orbyte(0<<3), stack_bp(1))
 
     LEA_rb = insn(rex_w, '\x8D', register(1,8), stack_bp(2))
+    LEA_rs = insn(rex_w, '\x8D', register(1,8), stack_sp(2))
     LEA32_rb = insn(rex_w, '\x8D', register(1,8),stack_bp(2,force_32bits=True))
     LEA_ra = insn(rex_w, '\x8D', register(1, 8), mem_reg_plus_scaled_reg_plus_const(2))
     LEA_rm = insn(rex_w, '\x8D', register(1, 8), mem_reg_plus_const(2))
@@ -561,6 +568,9 @@ class AbstractX86CodeBuilder(object):
     TEST8_mi = insn(rex_nw, '\xF6', orbyte(0<<3), mem_reg_plus_const(1), immediate(2, 'b'))
     TEST8_ji = insn(rex_nw, '\xF6', orbyte(0<<3), abs_, immediate(1), immediate(2, 'b'))
     TEST_rr = insn(rex_w, '\x85', register(2,8), register(1), '\xC0')
+
+    BTS_mr = insn(rex_w, '\x0F\xAB', register(2,8), mem_reg_plus_const(1))
+    BTS_jr = insn(rex_w, '\x0F\xAB', register(2,8), abs_, immediate(1))
 
     # x87 instructions
     FSTP_b = insn('\xDD', orbyte(3<<3), stack_bp(1))
@@ -629,16 +639,20 @@ class X86_64_CodeBuilder(AbstractX86CodeBuilder):
 
     CQO = insn(rex_w, '\x99')
 
-    # MOV_ri from the parent class is not wrong, but here is a better encoding
-    # for the common case where the immediate fits in 32 bits
+    # Three different encodings... following what gcc does.  From the
+    # shortest encoding to the longest one.
+    MOV_riu32 = insn(rex_nw, register(1), '\xB8', immediate(2, 'i'))
     MOV_ri32 = insn(rex_w, '\xC7', register(1), '\xC0', immediate(2, 'i'))
-    MOV_ri64 = AbstractX86CodeBuilder.MOV_ri
+    MOV_ri64 = insn(rex_w, register(1), '\xB8', immediate(2, 'q'))
 
     def MOV_ri(self, reg, immed):
-        if fits_in_32bits(immed):
+        if 0 <= immed <= 4294967295:
+            immed = intmask(rffi.cast(rffi.INT, immed))
+            self.MOV_riu32(reg, immed)
+        elif fits_in_32bits(immed):    # for negative values that fit in 32 bit
             self.MOV_ri32(reg, immed)
         else:
-            AbstractX86CodeBuilder.MOV_ri(self, reg, immed)
+            self.MOV_ri64(reg, immed)
 
 def define_modrm_modes(insnname_template, before_modrm, after_modrm=[], regtype='GPR'):
     def add_insn(code, *modrm):

@@ -563,15 +563,6 @@ class LLFrame(object):
     def op_hint(self, x, hints):
         return x
 
-    def op_resume_point(self, *args):
-        pass
-
-    def op_resume_state_create(self, *args):
-        raise RuntimeError("resume_state_create can not be called.")
-
-    def op_resume_state_invoke(self, *args):
-        raise RuntimeError("resume_state_invoke can not be called.")
-
     def op_decode_arg(self, fname, i, name, vargs, vkwds):
         raise NotImplementedError("decode_arg")
 
@@ -746,9 +737,12 @@ class LLFrame(object):
     def op_zero_gc_pointers_inside(self, obj):
         raise NotImplementedError("zero_gc_pointers_inside")
 
-    def op_gc_writebarrier_before_copy(self, source, dest):
+    def op_gc_writebarrier_before_copy(self, source, dest,
+                                       source_start, dest_start, length):
         if hasattr(self.heap, 'writebarrier_before_copy'):
-            return self.heap.writebarrier_before_copy(source, dest)
+            return self.heap.writebarrier_before_copy(source, dest,
+                                                      source_start, dest_start,
+                                                      length)
         else:
             return True
 
@@ -1230,6 +1224,12 @@ class LLFrame(object):
             return ootype.ooparse_float(s)
         except ValueError:
             self.make_llexception()
+
+    def op_oobox_int(self, i):
+        return ootype.oobox_int(i)
+
+    def op_oounbox_int(self, x):
+        return ootype.oounbox_int(x)
 
 class Tracer(object):
     Counter = 0

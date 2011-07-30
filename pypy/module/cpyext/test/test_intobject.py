@@ -50,3 +50,19 @@ class AppTestIntObject(AppTestCpythonExtensionBase):
             ])
         assert module.from_string() == 0x1234
         assert type(module.from_string()) is int
+
+    def test_size_t(self):
+        module = self.import_extension('foo', [
+            ("values", "METH_NOARGS",
+             """
+                 return Py_BuildValue("NNNN",
+                     PyInt_FromSize_t(123),
+                     PyInt_FromSize_t((size_t)-1),
+                     PyInt_FromSsize_t(123),
+                     PyInt_FromSsize_t((size_t)-1));
+             """),
+            ])
+        values = module.values()
+        types = [type(x) for x in values]
+        assert types == [int, long, int, int]
+        

@@ -140,6 +140,14 @@ def get_address_stack(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
             self.foreach(_add_in_dict, result)
             return result
 
+        def tolist(self):
+            """NOT_RPYTHON.  Returns the content as a list."""
+            lst = []
+            def _add(obj, lst):
+                lst.append(obj)
+            self.foreach(_add, lst)
+            return lst
+
         def remove(self, addr):
             """Remove 'addr' from the stack.  The addr *must* be in the list,
             and preferrably near the top.

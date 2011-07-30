@@ -55,7 +55,7 @@ def llexternal(name, args, result, _callable=None,
                compilation_info=ExternalCompilationInfo(),
                sandboxsafe=False, threadsafe='auto',
                _nowrapper=False, calling_conv='c',
-               oo_primitive=None, pure_function=False,
+               oo_primitive=None, elidable_function=False,
                macro=None):
     """Build an external function that will invoke the C function 'name'
     with the given 'args' types and 'result' type.
@@ -87,8 +87,8 @@ def llexternal(name, args, result, _callable=None,
                 name, macro, ext_type, compilation_info)
         else:
             _callable = ll2ctypes.LL2CtypesCallable(ext_type, calling_conv)
-    if pure_function:
-        _callable._pure_function_ = True
+    if elidable_function:
+        _callable._elidable_function_ = True
     kwds = {}
     if oo_primitive:
         kwds['oo_primitive'] = oo_primitive
@@ -102,19 +102,6 @@ def llexternal(name, args, result, _callable=None,
     else:
         callbackholder = None
 
-    funcptr = lltype.functionptr(ext_type, name, external='C',
-                                 compilation_info=compilation_info,
-                                 _callable=_callable,
-                                 _safe_not_sandboxed=sandboxsafe,
-                                 _debugexc=True, # on top of llinterp
-                                 canraise=False,
-                                 **kwds)
-    if isinstance(_callable, ll2ctypes.LL2CtypesCallable):
-        _callable.funcptr = funcptr
-
-    if _nowrapper:
-        return funcptr
-
     if threadsafe in (False, True):
         # invoke the around-handlers, which release the GIL, if and only if
         # the C function is thread-safe.
@@ -124,6 +111,21 @@ def llexternal(name, args, result, _callable=None,
         # invoke the around-handlers only for "not too small" external calls;
         # sandboxsafe is a hint for "too-small-ness" (e.g. math functions).
         invoke_around_handlers = not sandboxsafe
+
+    funcptr = lltype.functionptr(ext_type, name, external='C',
+                                 compilation_info=compilation_info,
+                                 _callable=_callable,
+                                 _safe_not_sandboxed=sandboxsafe,
+                                 _debugexc=True, # on top of llinterp
+                                 canraise=False,
+                                 releases_gil=invoke_around_handlers,
+                                 **kwds)
+    if isinstance(_callable, ll2ctypes.LL2CtypesCallable):
+        _callable.funcptr = funcptr
+
+    if _nowrapper:
+        return funcptr
+
 
     if invoke_around_handlers:
         # The around-handlers are releasing the GIL in a threaded pypy.
@@ -139,10 +141,10 @@ def llexternal(name, args, result, _callable=None,
         source = py.code.Source("""
             def call_external_function(%(argnames)s):
                 before = aroundstate.before
-                after = aroundstate.after
                 if before: before()
                 # NB. it is essential that no exception checking occurs here!
                 res = funcptr(%(argnames)s)
+                after = aroundstate.after
                 if after: after()
                 return res
         """ % locals())
@@ -244,7 +246,7 @@ class CallbackHolder:
     def __init__(self):
         self.callbacks = {}
 
-def _make_wrapper_for(TP, callable, callbackholder, aroundstate=None):
+def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
     """ Function creating wrappers for callbacks. Note that this is
     cheating as we assume constant callbacks and we just memoize wrappers
     """
@@ -253,21 +255,18 @@ def _make_wrapper_for(TP, callable, callbackholder, aroundstate=None):
     if hasattr(callable, '_errorcode_'):
         errorcode = callable._errorcode_
     else:
-        errorcode = TP.TO.RESULT._example()
+        errorcode = TP.TO.RESULT._defl()
     callable_name = getattr(callable, '__name__', '?')
-    callbackholder.callbacks[callable] = True
+    if callbackholder is not None:
+        callbackholder.callbacks[callable] = True
     args = ', '.join(['a%d' % i for i in range(len(TP.TO.ARGS))])
     source = py.code.Source(r"""
         def wrapper(%s):    # no *args - no GIL for mallocing the tuple
             llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
             if aroundstate is not None:
-                before = aroundstate.before
                 after = aroundstate.after
-            else:
-                before = None
-                after = None
-            if after:
-                after()
+                if after:
+                    after()
             # from now on we hold the GIL
             stackcounter.stacks_counter += 1
             try:
@@ -281,8 +280,10 @@ def _make_wrapper_for(TP, callable, callbackholder, aroundstate=None):
                     traceback.print_exc()
                 result = errorcode
             stackcounter.stacks_counter -= 1
-            if before:
-                before()
+            if aroundstate is not None:
+                before = aroundstate.before
+                if before:
+                    before()
             # here we don't hold the GIL any more. As in the wrapper() produced
             # by llexternal, it is essential that no exception checking occurs
             # after the call to before().

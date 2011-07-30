@@ -283,3 +283,13 @@ class TestString(BaseApiTest):
         self.raises(space, api, TypeError, api.PyString_AsEncodedObject,
             space.wrap(2), lltype.nullptr(rffi.CCHARP.TO), lltype.nullptr(rffi.CCHARP.TO)
         )
+
+    def test_eq(self, space, api):
+        assert 1 == api._PyString_Eq(space.wrap("hello"), space.wrap("hello"))
+        assert 0 == api._PyString_Eq(space.wrap("hello"), space.wrap("world"))
+
+    def test_join(self, space, api):
+        w_sep = space.wrap('<sep>')
+        w_seq = space.wrap(['a', 'b'])
+        w_joined = api._PyString_Join(w_sep, w_seq)
+        assert space.unwrap(w_joined) == 'a<sep>b'

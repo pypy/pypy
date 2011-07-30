@@ -125,13 +125,13 @@ class AppTestPosix:
         assert st.st_size == 14
         assert st.st_nlink == 1
 
-        #if sys.platform.startswith('linux2'):
+        #if sys.platform.startswith('linux'):
         #    # expects non-integer timestamps - it's unlikely that they are
         #    # all three integers
         #    assert ((st.st_atime, st.st_mtime, st.st_ctime) !=
         #            (st[7],       st[8],       st[9]))
         #    assert st.st_blksize * st.st_blocks >= st.st_size
-        if sys.platform.startswith('linux2'):
+        if sys.platform.startswith('linux'):
             assert hasattr(st, 'st_rdev')
 
     def test_stat_float_times(self):
@@ -846,6 +846,21 @@ class AppTestPosix:
                     assert os.path.dirname(s2) == dir
                 assert os.path.basename(s1).startswith(prefix or 'tmp')
                 assert os.path.basename(s2).startswith(prefix or 'tmp')
+
+    def test_tmpnam_warning(self):
+        import warnings, os
+        #
+        def f_tmpnam_warning(): os.tmpnam()    # a single line
+        #
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            f_tmpnam_warning()
+            assert len(w) == 1
+            assert issubclass(w[-1].category, RuntimeWarning)
+            assert "potential security risk" in str(w[-1].message)
+            # check that the warning points to the call to os.tmpnam(),
+            # not to some code inside app_posix.py
+            assert w[-1].lineno == f_tmpnam_warning.func_code.co_firstlineno
 
 
 class AppTestEnvironment(object):

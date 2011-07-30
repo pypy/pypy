@@ -521,10 +521,6 @@ LL_OPERATIONS = {
                                                     RuntimeError)),
     #                               can always unwind, not just if stackless gc
 
-    'resume_point':         LLOp(canraise=(Exception,)),
-    'resume_state_create':  LLOp(canraise=(MemoryError,), canunwindgc=True),
-    'resume_state_invoke':  LLOp(canraise=(Exception, StackException,
-                                           RuntimeError)),
     'stack_frames_depth':   LLOp(sideeffects=False, canraise=(StackException,
                                                               RuntimeError)),
     'stack_switch':         LLOp(canraise=(StackException, RuntimeError)),
@@ -589,6 +585,8 @@ LL_OPERATIONS = {
     'classof':              LLOp(oo=True, canfold=True),
     'subclassof':           LLOp(oo=True, canfold=True),
     'oostring':             LLOp(oo=True, sideeffects=False),
+    'oobox_int':            LLOp(oo=True, sideeffects=False),
+    'oounbox_int':          LLOp(oo=True, sideeffects=False),
     'ooparse_int':          LLOp(oo=True, canraise=(ValueError,)),
     'ooparse_float':        LLOp(oo=True, canraise=(ValueError,)),
     'oounicode':            LLOp(oo=True, canraise=(UnicodeDecodeError,)),

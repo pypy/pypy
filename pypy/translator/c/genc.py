@@ -13,6 +13,7 @@ from pypy.translator.c.support import log, c_string_constant
 from pypy.rpython.typesystem import getfunctionptr
 from pypy.translator.c import gc
 from pypy.rlib import exports
+from pypy.tool.nullpath import NullPyPathLocal
 
 def import_module_from_directory(dir, modname):
     file, pathname, description = imp.find_module(modname, [str(dir)])
@@ -237,7 +238,9 @@ class CBuilder(object):
             self.modulename = uniquemodulename('testing')
         modulename = self.modulename
         targetdir = udir.ensure(modulename, dir=1)
-        
+        if self.config.translation.dont_write_c_files:
+            targetdir = NullPyPathLocal(targetdir)
+
         self.targetdir = targetdir
         defines = defines.copy()
         if self.config.translation.countmallocs:
@@ -248,12 +251,8 @@ class CBuilder(object):
             CBuilder.have___thread = self.translator.platform.check___thread()
         if not self.standalone:
             assert not self.config.translation.instrument
-            self.eci, cfile, extra = gen_source(db, modulename, targetdir,
-                                                self.eci,
-                                                defines = defines,
-                                                split=self.split)
         else:
-            pfname = db.get(pf)
+            defines['PYPY_STANDALONE'] = db.get(pf)
             if self.config.translation.instrument:
                 defines['INSTRUMENT'] = 1
             if CBuilder.have___thread:
@@ -263,11 +262,9 @@ class CBuilder(object):
                 defines['PYPY_MAIN_FUNCTION'] = "pypy_main_startup"
                 self.eci = self.eci.merge(ExternalCompilationInfo(
                     export_symbols=["pypy_main_startup"]))
-            self.eci, cfile, extra = gen_source_standalone(db, modulename,
-                                                 targetdir,
-                                                 self.eci,
-                                                 entrypointname = pfname,
-                                                 defines = defines)
+        self.eci, cfile, extra = gen_source(db, modulename, targetdir,
+                                            self.eci, defines=defines,
+                                            split=self.split)
         self.c_source_filename = py.path.local(cfile)
         self.extrafiles = self.eventually_copy(extra)
         self.gen_makefile(targetdir, exe_name=exe_name)
@@ -432,6 +429,7 @@ _rpython_startup()
 
 class CStandaloneBuilder(CBuilder):
     standalone = True
+    split = True
     executable_name = None
     shared_library_name = None
 
@@ -570,7 +568,10 @@ class CStandaloneBuilder(CBuilder):
             mk.definition('ASMFILES', sfiles)
             mk.definition('ASMLBLFILES', lblsfiles)
             mk.definition('GCMAPFILES', gcmapfiles)
-            mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g')
+            if sys.platform == 'win32':
+                mk.definition('DEBUGFLAGS', '/Zi')
+            else:
+                mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g')
 
             if self.config.translation.shared:
                 mk.definition('PYPY_MAIN_FUNCTION', "pypy_main_startup")
@@ -602,7 +603,7 @@ class CStandaloneBuilder(CBuilder):
                         'cmd /c $(MASM) /nologo /Cx /Cp /Zm /coff /Fo$@ /c $< $(INCLUDEDIRS)')
                 mk.rule('.c.gcmap', '',
                         ['$(CC) /nologo $(ASM_CFLAGS) /c /FAs /Fa$*.s $< $(INCLUDEDIRS)',
-                         'cmd /c ' + python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc -m$(PYPY_MAIN_FUNCTION) -t $*.s > $@']
+                         'cmd /c ' + python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc -t $*.s > $@']
                         )
                 mk.rule('gcmaptable.c', '$(GCMAPFILES)',
                         'cmd /c ' + python + '$(PYPYDIR)/translator/c/gcc/trackgcroot.py -fmsvc $(GCMAPFILES) > $@')
@@ -613,7 +614,7 @@ class CStandaloneBuilder(CBuilder):
                 mk.rule('%.lbl.s %.gcmap', '%.s',
                         [python +
                              '$(PYPYDIR)/translator/c/gcc/trackgcroot.py '
-                             '-m$(PYPY_MAIN_FUNCTION) -t $< > $*.gctmp',
+                             '-t $< > $*.gctmp',
                          'mv $*.gctmp $*.gcmap'])
                 mk.rule('gcmaptable.s', '$(GCMAPFILES)',
                         [python +
@@ -623,7 +624,10 @@ class CStandaloneBuilder(CBuilder):
                 mk.rule('.PRECIOUS', '%.s', "# don't remove .s files if Ctrl-C'ed")
 
         else:
-            mk.definition('DEBUGFLAGS', '-O1 -g')
+            if sys.platform == 'win32':
+                mk.definition('DEBUGFLAGS', '/Zi')
+            else:
+                mk.definition('DEBUGFLAGS', '-O1 -g')
         mk.write()
         #self.translator.platform,
         #                           ,
@@ -682,28 +686,54 @@ class SourceGenerator:
     def getothernodes(self):
         return self.othernodes[:]
 
+    def getbasecfilefornode(self, node, basecname):
+        # For FuncNode instances, use the python source filename (relative to
+        # the top directory):
+        if hasattr(node.obj, 'graph'):
+            g = node.obj.graph
+            # Lookup the filename from the function.
+            # However, not all FunctionGraph objs actually have a "func":
+            if hasattr(g, 'func'):
+                if g.filename.endswith('.py'):
+                    localpath = py.path.local(g.filename)
+                    pypkgpath = localpath.pypkgpath()
+                    if pypkgpath:
+                        relpypath =  localpath.relto(pypkgpath)
+                        return relpypath.replace('.py', '.c')
+        return basecname
+
     def splitnodesimpl(self, basecname, nodes, nextra, nbetween,
                        split_criteria=SPLIT_CRITERIA):
+        # Gather nodes by some criteria:
+        nodes_by_base_cfile = {}
+        for node in nodes:
+            c_filename = self.getbasecfilefornode(node, basecname)
+            if c_filename in nodes_by_base_cfile:
+                nodes_by_base_cfile[c_filename].append(node)
+            else:
+                nodes_by_base_cfile[c_filename] = [node]
+
         # produce a sequence of nodes, grouped into files
         # which have no more than SPLIT_CRITERIA lines
-        iternodes = iter(nodes)
-        done = [False]
-        def subiter():
-            used = nextra
-            for node in iternodes:
-                impl = '\n'.join(list(node.implementation())).split('\n')
-                if not impl:
-                    continue
-                cost = len(impl) + nbetween
-                yield node, impl
-                del impl
-                if used + cost > split_criteria:
-                    # split if criteria met, unless we would produce nothing.
-                    raise StopIteration
-                used += cost
-            done[0] = True
-        while not done[0]:
-            yield self.uniquecname(basecname), subiter()
+        for basecname in nodes_by_base_cfile:
+            iternodes = iter(nodes_by_base_cfile[basecname])
+            done = [False]
+            def subiter():
+                used = nextra
+                for node in iternodes:
+                    impl = '\n'.join(list(node.implementation())).split('\n')
+                    if not impl:
+                        continue
+                    cost = len(impl) + nbetween
+                    yield node, impl
+                    del impl
+                    if used + cost > split_criteria:
+                        # split if criteria met, unless we would produce nothing.
+                        raise StopIteration
+                    used += cost
+                done[0] = True
+            while not done[0]:
+                yield self.uniquecname(basecname), subiter()
 
     def gen_readable_parts_of_source(self, f):
         split_criteria_big = SPLIT_CRITERIA
@@ -900,8 +930,9 @@ def gen_startupcode(f, database):
     print >> f, '}'
 
 def commondefs(defines):
-    from pypy.rlib.rarithmetic import LONG_BIT
+    from pypy.rlib.rarithmetic import LONG_BIT, LONGLONG_BIT
     defines['PYPY_LONG_BIT'] = LONG_BIT
+    defines['PYPY_LONGLONG_BIT'] = LONGLONG_BIT
 
 def add_extra_files(eci):
     srcdir = py.path.local(autopath.pypydir).join('translator', 'c', 'src')
@@ -911,64 +942,12 @@ def add_extra_files(eci):
     ]
     return eci.merge(ExternalCompilationInfo(separate_module_files=files))
 
-def gen_source_standalone(database, modulename, targetdir, eci,
-                          entrypointname, defines={}): 
-    assert database.standalone
+
+def gen_source(database, modulename, targetdir,
+               eci, defines={}, split=False):
     if isinstance(targetdir, str):
         targetdir = py.path.local(targetdir)
-    filename = targetdir.join(modulename + '.c')
-    f = filename.open('w')
-    incfilename = targetdir.join('common_header.h')
-    fi = incfilename.open('w')
 
-    #
-    # Header
-    #
-    print >> f, '#include "common_header.h"'
-    print >> f
-    commondefs(defines)
-    defines['PYPY_STANDALONE'] = entrypointname
-    for key, value in defines.items():
-        print >> fi, '#define %s %s' % (key, value)
-
-    eci.write_c_header(fi)
-    print >> fi, '#include "src/g_prerequisite.h"'
-
-    fi.close()
-
-    preimplementationlines = list(
-        pre_include_code_lines(database, database.translator.rtyper))
-
-    #
-    # 1) All declarations
-    # 2) Implementation of functions and global structures and arrays
-    #
-    sg = SourceGenerator(database, preimplementationlines)
-    sg.set_strategy(targetdir)
-    database.prepare_inline_helpers()
-    sg.gen_readable_parts_of_source(f)
-
-    # 3) start-up code
-    print >> f
-    gen_startupcode(f, database)
-
-    f.close()
-
-    if 'INSTRUMENT' in defines:
-        fi = incfilename.open('a')
-        n = database.instrument_ncounter
-        print >>fi, "#define INSTRUMENT_NCOUNTER %d" % n
-        fi.close()
-
-    eci = add_extra_files(eci)
-    eci = eci.convert_sources_to_files(being_main=True)
-    files, eci = eci.get_module_files()
-    return eci, filename, sg.getextrafiles() + list(files)
-
-def gen_source(database, modulename, targetdir, eci, defines={}, split=False):
-    assert not database.standalone
-    if isinstance(targetdir, str):
-        targetdir = py.path.local(targetdir)
     filename = targetdir.join(modulename + '.c')
     f = filename.open('w')
     incfilename = targetdir.join('common_header.h')
@@ -1006,6 +985,12 @@ def gen_source(database, modulename, targetdir, eci, defines={}, split=False):
 
     gen_startupcode(f, database)
     f.close()
+
+    if 'INSTRUMENT' in defines:
+        fi = incfilename.open('a')
+        n = database.instrument_ncounter
+        print >>fi, "#define INSTRUMENT_NCOUNTER %d" % n
+        fi.close()
 
     eci = add_extra_files(eci)
     eci = eci.convert_sources_to_files(being_main=True)

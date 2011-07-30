@@ -77,6 +77,8 @@ opcodes = _proc_dict({
     'oosend':                   [JvmCallMethod, StoreResult],
     'ooupcast':                 DoNothing,
     'oodowncast':               [DownCast, StoreResult],
+    'oobox_int':                jvm.PYPYBOXINT,
+    'oounbox_int':              jvm.PYPYUNBOXINT,
     'cast_to_object':           DoNothing,
     'cast_from_object':         [DownCast, StoreResult],
     'instanceof':               [CastTo, StoreResult],
@@ -95,10 +97,10 @@ opcodes = _proc_dict({
 
     'gc__collect':              jvm.SYSTEMGC,
     'gc_set_max_heap_size':     Ignore,
-    'resume_point':             Ignore,
     'jit_marker':               Ignore,
     'jit_force_virtualizable':  Ignore,
     'jit_force_virtual':        DoNothing,
+    'jit_force_quasi_immutable': Ignore,
 
     'debug_assert':              [], # TODO: implement?
     'debug_start_traceback':    Ignore,

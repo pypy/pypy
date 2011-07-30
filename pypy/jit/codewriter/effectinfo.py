@@ -9,7 +9,7 @@ class EffectInfo(object):
     _cache = {}
 
     # the 'extraeffect' field is one of the following values:
-    EF_PURE                            = 0 #pure function (and cannot raise)
+    EF_ELIDABLE                        = 0 #elidable function (and cannot raise)
     EF_LOOPINVARIANT                   = 1 #special: call it only once per loop
     EF_CANNOT_RAISE                    = 2 #a function which cannot raise
     EF_CAN_RAISE                       = 3 #normal function (can raise)
@@ -75,22 +75,26 @@ class EffectInfo(object):
     #
     OS_MATH_SQRT                = 100
 
-    def __new__(cls, readonly_descrs_fields,
+    def __new__(cls, readonly_descrs_fields, readonly_descrs_arrays,
                 write_descrs_fields, write_descrs_arrays,
                 extraeffect=EF_CAN_RAISE,
                 oopspecindex=OS_NONE,
-                can_invalidate=False):
+                can_invalidate=False, can_release_gil=False):
         key = (frozenset(readonly_descrs_fields),
+               frozenset(readonly_descrs_arrays),
                frozenset(write_descrs_fields),
                frozenset(write_descrs_arrays),
                extraeffect,
-               oopspecindex)
+               oopspecindex,
+               can_invalidate,
+               can_release_gil)
         if key in cls._cache:
             return cls._cache[key]
         result = object.__new__(cls)
         result.readonly_descrs_fields = readonly_descrs_fields
+        result.readonly_descrs_arrays = readonly_descrs_arrays
         if extraeffect == EffectInfo.EF_LOOPINVARIANT or \
-           extraeffect == EffectInfo.EF_PURE:            
+           extraeffect == EffectInfo.EF_ELIDABLE:
             result.write_descrs_fields = []
             result.write_descrs_arrays = []
         else:
@@ -98,6 +102,7 @@ class EffectInfo(object):
             result.write_descrs_arrays = write_descrs_arrays
         result.extraeffect = extraeffect
         result.can_invalidate = can_invalidate
+        result.can_release_gil = can_release_gil
         result.oopspecindex = oopspecindex
         cls._cache[key] = result
         return result
@@ -108,15 +113,19 @@ class EffectInfo(object):
     def check_forces_virtual_or_virtualizable(self):
         return self.extraeffect >= self.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE
 
+    def has_random_effects(self):
+        return self.oopspecindex == self.OS_LIBFFI_CALL or self.can_release_gil
+
 def effectinfo_from_writeanalyze(effects, cpu,
                                  extraeffect=EffectInfo.EF_CAN_RAISE,
                                  oopspecindex=EffectInfo.OS_NONE,
-                                 can_invalidate=False):
+                                 can_invalidate=False,
+                                 can_release_gil=False):
     from pypy.translator.backendopt.writeanalyze import top_set
     if effects is top_set:
         return None
     readonly_descrs_fields = []
-    # readonly_descrs_arrays = [] --- not enabled for now
+    readonly_descrs_arrays = []
     write_descrs_fields = []
     write_descrs_arrays = []
 
@@ -142,15 +151,19 @@ def effectinfo_from_writeanalyze(effects, cpu,
         elif tup[0] == "array":
             add_array(write_descrs_arrays, tup)
         elif tup[0] == "readarray":
-            pass
+            tupw = ("array",) + tup[1:]
+            if tupw not in effects:
+                add_array(readonly_descrs_arrays, tup)
         else:
             assert 0
     return EffectInfo(readonly_descrs_fields,
+                      readonly_descrs_arrays,
                       write_descrs_fields,
                       write_descrs_arrays,
                       extraeffect,
                       oopspecindex,
-                      can_invalidate)
+                      can_invalidate,
+                      can_release_gil)
 
 def consider_struct(TYPE, fieldname):
     if fieldType(TYPE, fieldname) is lltype.Void:
@@ -185,6 +198,16 @@ class VirtualizableAnalyzer(BoolGraphAnalyzer):
 class QuasiImmutAnalyzer(BoolGraphAnalyzer):
     def analyze_simple_operation(self, op, graphinfo):
         return op.opname == 'jit_force_quasi_immutable'
+
+class CanReleaseGILAnalyzer(BoolGraphAnalyzer):
+    def analyze_direct_call(self, graph, seen=None):
+        releases_gil = False
+        if hasattr(graph, "func") and hasattr(graph.func, "_ptr"):
+            releases_gil = graph.func._ptr._obj.releases_gil
+        return releases_gil or super(CanReleaseGILAnalyzer, self).analyze_direct_call(graph, seen)
+
+    def analyze_simple_operation(self, op, graphinfo):
+        return False
 
 # ____________________________________________________________
 

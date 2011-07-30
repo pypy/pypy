@@ -1,14 +1,15 @@
 from pypy.jit.metainterp.optimizeopt.optimizer import *
-from pypy.jit.metainterp.optimizeopt.virtualstate import VirtualStateAdder
+from pypy.jit.metainterp.optimizeopt.virtualstate import VirtualStateAdder, ShortBoxes
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.compile import ResumeGuardDescr
 from pypy.jit.metainterp.resume import Snapshot
 from pypy.jit.metainterp.history import TreeLoop, LoopToken
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
-from pypy.jit.metainterp.optimizeutil import InvalidLoop, RetraceLoop
+from pypy.jit.metainterp.optimize import InvalidLoop, RetraceLoop
 from pypy.jit.metainterp.jitexc import JitException
 from pypy.jit.metainterp.history import make_hashable_int
 from pypy.jit.codewriter.effectinfo import EffectInfo
+from pypy.jit.metainterp.optimizeopt.generalize import KillHugeIntBounds
 
 # Assumptions
 # ===========
@@ -83,7 +84,10 @@ class Inliner(object):
         assert len(inputargs) == len(jump_args)
         self.argmap = {}
         for i in range(len(inputargs)):
-           self.argmap[inputargs[i]] = jump_args[i]
+            if inputargs[i] in self.argmap:
+                assert self.argmap[inputargs[i]] == jump_args[i]
+            else:
+                self.argmap[inputargs[i]] = jump_args[i]
         self.snapshot_map = {None: None}
 
     def inline_op(self, newop, ignore_result=False, clone=True,
@@ -139,6 +143,17 @@ class UnrollOptimizer(Optimization):
         for op in self.optimizer.loop.operations:
             newop = op.clone()
             self.cloned_operations.append(newop)
+
+    def fix_snapshot(self, loop, jump_args, snapshot):
+        if snapshot is None:
+            return None
+        snapshot_args = snapshot.boxes 
+        new_snapshot_args = []
+        for a in snapshot_args:
+            a = self.getvalue(a).get_key_box()
+            new_snapshot_args.append(a)
+        prev = self.fix_snapshot(loop, jump_args, snapshot.prev)
+        return Snapshot(prev, new_snapshot_args)
             
     def propagate_all_forward(self):
         loop = self.optimizer.loop
@@ -157,12 +172,23 @@ class UnrollOptimizer(Optimization):
             jumpop.initarglist([])
             self.optimizer.flush()
 
+            KillHugeIntBounds(self.optimizer).apply()
+            
             loop.preamble.operations = self.optimizer.newoperations
+            jump_args = [self.getvalue(a).get_key_box() for a in jump_args]
+
+            start_resumedescr = loop.preamble.start_resumedescr.clone_if_mutable()
+            self.start_resumedescr = start_resumedescr
+            assert isinstance(start_resumedescr, ResumeGuardDescr)
+            start_resumedescr.rd_snapshot = self.fix_snapshot(loop, jump_args,
+                                                              start_resumedescr.rd_snapshot)
 
             modifier = VirtualStateAdder(self.optimizer)
             virtual_state = modifier.get_virtual_state(jump_args)
+            
             values = [self.getvalue(arg) for arg in jump_args]
             inputargs = virtual_state.make_inputargs(values)
+            short_inputargs = virtual_state.make_inputargs(values, keyboxes=True)
 
             self.constant_inputargs = {}
             for box in jump_args: 
@@ -170,37 +196,71 @@ class UnrollOptimizer(Optimization):
                 if const:
                     self.constant_inputargs[box] = const
 
-            sb = self.optimizer.produce_short_preamble_ops(inputargs +
-                                                 self.constant_inputargs.keys())
+            sb = ShortBoxes(self.optimizer, inputargs + self.constant_inputargs.keys())
             self.short_boxes = sb
             preamble_optimizer = self.optimizer
             loop.preamble.quasi_immutable_deps = (
                 self.optimizer.quasi_immutable_deps)
-            self.optimizer = self.optimizer.reconstruct_for_next_iteration(sb, jump_args)
+            self.optimizer = self.optimizer.new()
             loop.quasi_immutable_deps = self.optimizer.quasi_immutable_deps
-        
+
+            logops = self.optimizer.loop.logops
+            if logops:
+                args = ", ".join([logops.repr_of_arg(arg) for arg in inputargs])
+                debug_print('inputargs:       ' + args)
+                args = ", ".join([logops.repr_of_arg(arg) for arg in short_inputargs])
+                debug_print('short inputargs: ' + args)
+                self.short_boxes.debug_print(logops)            
+
+            # Force virtuals amoung the jump_args of the preamble to get the
+            # operations needed to setup the proper state of those virtuals
+            # in the peeled loop
+            inputarg_setup_ops = []
+            preamble_optimizer.newoperations = []
+            seen = {}
+            for box in inputargs:
+                if box in seen:
+                    continue
+                seen[box] = True
+                value = preamble_optimizer.getvalue(box)
+                inputarg_setup_ops.extend(value.make_guards(box))
+            for box in short_inputargs:
+                if box in seen:
+                    continue
+                seen[box] = True
+                value = preamble_optimizer.getvalue(box)
+                value.force_box()
+            preamble_optimizer.flush()
+            inputarg_setup_ops += preamble_optimizer.newoperations
+
+            # Setup the state of the new optimizer by emiting the
+            # short preamble operations and discarding the result
+            self.optimizer.emitting_dissabled = True
+            for op in inputarg_setup_ops:
+                self.optimizer.send_extra_operation(op)
+            # XXX Hack to prevent previos loop from updateing pure_operations
+            self.optimizer.pure_operations = args_dict()
+            seen = {}
+            for op in self.short_boxes.operations():
+                self.ensure_short_op_emitted(op, self.optimizer, seen)
+                if op and op.result:
+                    value = preamble_optimizer.getvalue(op.result)
+                    for guard in value.make_guards(op.result):
+                        self.optimizer.send_extra_operation(guard)
+                    newresult = self.optimizer.getvalue(op.result).get_key_box()
+                    if newresult is not op.result:
+                        self.short_boxes.alias(newresult, op.result)
+
+            self.optimizer.flush()
+            self.optimizer.emitting_dissabled = False
+
             initial_inputargs_len = len(inputargs)
             self.inliner = Inliner(loop.inputargs, jump_args)
 
-            start_resumedescr = loop.preamble.start_resumedescr.clone_if_mutable()
-            self.start_resumedescr = start_resumedescr
-            assert isinstance(start_resumedescr, ResumeGuardDescr)
-            snapshot = start_resumedescr.rd_snapshot
-            while snapshot is not None:
-                snapshot_args = snapshot.boxes 
-                new_snapshot_args = []
-                for a in snapshot_args:
-                    if not isinstance(a, Const):
-                        a = loop.preamble.inputargs[jump_args.index(a)]
-                    a = self.inliner.inline_arg(a)
-                    a = self.getvalue(a).get_key_box()
-                    new_snapshot_args.append(a)
-                snapshot.boxes = new_snapshot_args
-                snapshot = snapshot.prev
 
-            inputargs, short_inputargs, short = self.inline(self.cloned_operations,
-                                           loop.inputargs, jump_args,
-                                           virtual_state)
+            short = self.inline(inputargs, self.cloned_operations,
+                                loop.inputargs, short_inputargs,
+                                virtual_state)
             
             #except KeyError:
             #    debug_print("Unrolling failed.")
@@ -209,7 +269,9 @@ class UnrollOptimizer(Optimization):
             #    preamble_optimizer.send_extra_operation(jumpop)
             #    return
             loop.inputargs = inputargs
-            jmp = ResOperation(rop.JUMP, loop.inputargs[:], None)
+            args = [preamble_optimizer.getvalue(self.short_boxes.original(a)).force_box()\
+                    for a in inputargs]
+            jmp = ResOperation(rop.JUMP, args, None)
             jmp.setdescr(loop.token)
             loop.preamble.operations.append(jmp)
 
@@ -234,8 +296,16 @@ class UnrollOptimizer(Optimization):
                 short_loop.inputargs = short_inputargs
                 short_loop.operations = short
 
-                # Clone ops and boxes to get private versions and 
-                newargs = [a.clonebox() for a in short_loop.inputargs]
+                # Clone ops and boxes to get private versions and
+                boxmap = {}
+                newargs = [None] * len(short_loop.inputargs)
+                for i in range(len(short_loop.inputargs)):
+                    a = short_loop.inputargs[i]
+                    if a in boxmap:
+                        newargs[i] = boxmap[a]
+                    else:
+                        newargs[i] = a.clonebox()
+                        boxmap[a] = newargs[i]
                 inliner = Inliner(short_loop.inputargs, newargs)
                 for box, const in self.constant_inputargs.items():
                     inliner.argmap[box] = const
@@ -260,13 +330,20 @@ class UnrollOptimizer(Optimization):
                     if op.result:
                         op.result.forget_value()
                 
-    def inline(self, loop_operations, loop_args, jump_args, virtual_state):
+    def inline(self, inputargs, loop_operations, loop_args, short_inputargs, virtual_state):
         inliner = self.inliner
 
-        values = [self.getvalue(arg) for arg in jump_args]
-        inputargs = virtual_state.make_inputargs(values)
         short_jumpargs = inputargs[:]
-        short_inputargs = virtual_state.make_inputargs(values, keyboxes=True)
+
+        short = []
+        short_seen = {}
+        for box, const in self.constant_inputargs.items():
+            short_seen[box] = True
+
+        for op in self.short_boxes.operations():
+            if op is not None:
+                if len(self.getvalue(op.result).make_guards(op.result)) > 0:
+                    self.add_op_to_short(op, short, short_seen, False, True)
 
         # This loop is equivalent to the main optimization loop in
         # Optimizer.propagate_all_forward
@@ -290,39 +367,40 @@ class UnrollOptimizer(Optimization):
         jmp_to_short_args = virtual_state.make_inputargs(values, keyboxes=True)
         self.short_inliner = Inliner(short_inputargs, jmp_to_short_args)
         
-        short = []
-        short_seen = {}
         for box, const in self.constant_inputargs.items():
-            short_seen[box] = True
             self.short_inliner.argmap[box] = const
-        
-        for result, op in self.short_boxes.items():
-            if op is not None:
-                for op in self.getvalue(result).make_guards(result):
-                    self.add_op_to_short(op, short, short_seen)
 
+        for op in short:
+            newop = self.short_inliner.inline_op(op)
+            self.optimizer.send_extra_operation(newop)
+        
         self.optimizer.flush()
+                    
 
         i = j = 0
-        while i < len(self.optimizer.newoperations):
-            op = self.optimizer.newoperations[i]
-            
-            self.boxes_created_this_iteration[op.result] = True
-            args = op.getarglist()
-            if op.is_guard():
-                args = args + op.getfailargs()
-            
-            for a in args:
-                self.import_box(a, inputargs, short, short_jumpargs,
-                                jumpargs, short_seen)
-            i += 1
-
+        while i < len(self.optimizer.newoperations) or j < len(jumpargs):
             if i == len(self.optimizer.newoperations):
                 while j < len(jumpargs):
                     a = jumpargs[j]
                     self.import_box(a, inputargs, short, short_jumpargs,
                                     jumpargs, short_seen)
                     j += 1
+            else:
+                op = self.optimizer.newoperations[i]
+
+                self.boxes_created_this_iteration[op.result] = True
+                args = op.getarglist()
+                if op.is_guard():
+                    args = args + op.getfailargs()
+
+                if self.optimizer.loop.logops:
+                    debug_print('OP: ' + self.optimizer.loop.logops.repr_of_resop(op))
+                for a in args:
+                    if self.optimizer.loop.logops:
+                        debug_print('A:  ' + self.optimizer.loop.logops.repr_of_arg(a))
+                    self.import_box(a, inputargs, short, short_jumpargs,
+                                    jumpargs, short_seen)
+                i += 1
 
         jumpop.initarglist(jumpargs)
         self.optimizer.send_extra_operation(jumpop)
@@ -345,41 +423,71 @@ class UnrollOptimizer(Optimization):
             raise InvalidLoop
         debug_stop('jit-log-virtualstate')
         
-        return inputargs, short_inputargs, short
+        return short
 
-    def add_op_to_short(self, op, short, short_seen):
+    def ensure_short_op_emitted(self, op, optimizer, seen):
         if op is None:
             return
+        if op.result is not None and op.result in seen:
+            return
+        for a in op.getarglist():
+            if not isinstance(a, Const) and a not in seen:
+                self.ensure_short_op_emitted(self.short_boxes.producer(a), optimizer, seen)
+        optimizer.send_extra_operation(op)
+        seen[op.result] = True
+        if op.is_ovf():
+            guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
+            optimizer.send_extra_operation(guard)
+        
+    def add_op_to_short(self, op, short, short_seen, emit=True, guards_needed=False):
+        if op is None:
+            return None
         if op.result is not None and op.result in short_seen:
-            return self.short_inliner.inline_arg(op.result)
+            if emit:
+                return self.short_inliner.inline_arg(op.result)
+            else:
+                return None
+        
         for a in op.getarglist():
             if not isinstance(a, Const) and a not in short_seen:
-                self.add_op_to_short(self.short_boxes[a], short, short_seen)
+                self.add_op_to_short(self.short_boxes.producer(a), short, short_seen,
+                                     emit, guards_needed)
         if op.is_guard():
             descr = self.start_resumedescr.clone_if_mutable()
             op.setdescr(descr)
-            
+
+        if guards_needed and self.short_boxes.has_producer(op.result):
+            value_guards = self.getvalue(op.result).make_guards(op.result)
+        else:
+            value_guards = []            
+
         short.append(op)
         short_seen[op.result] = True
-        newop = self.short_inliner.inline_op(op)
-        self.optimizer.send_extra_operation(newop)
+        if emit:
+            newop = self.short_inliner.inline_op(op)
+            self.optimizer.send_extra_operation(newop)
+        else:
+            newop = None
 
         if op.is_ovf():
             # FIXME: ensure that GUARD_OVERFLOW:ed ops not end up here
             guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
-            self.add_op_to_short(guard, short, short_seen)
+            self.add_op_to_short(guard, short, short_seen, emit, guards_needed)
+        for guard in value_guards:
+            self.add_op_to_short(guard, short, short_seen, emit, guards_needed)
 
-        return newop.result
+        if newop:
+            return newop.result
+        return None
         
     def import_box(self, box, inputargs, short, short_jumpargs,
                    jumpargs, short_seen):
-
         if isinstance(box, Const) or box in inputargs:
             return
         if box in self.boxes_created_this_iteration:
             return
 
-        short_op = self.short_boxes[box]
+        short_op = self.short_boxes.producer(box)
         newresult = self.add_op_to_short(short_op, short, short_seen)
         
         short_jumpargs.append(short_op.result)
@@ -545,7 +653,7 @@ class ExeState(object):
             effectinfo = descr.get_extra_info()
             if effectinfo is not None:
                 if effectinfo.extraeffect == EffectInfo.EF_LOOPINVARIANT or \
-                   effectinfo.extraeffect == EffectInfo.EF_PURE:
+                   effectinfo.extraeffect == EffectInfo.EF_ELIDABLE:
                     return True
         return False
     
@@ -625,9 +733,10 @@ class BoxMap(object):
 class OptInlineShortPreamble(Optimization):
     def __init__(self, retraced):
         self.retraced = retraced
-        self.inliner = None
+
+    def new(self):
+        return OptInlineShortPreamble(self.retraced)
         
-    
     def reconstruct_for_next_iteration(self,  short_boxes, surviving_boxes,
                                        optimizer, valuemap):
         return OptInlineShortPreamble(self.retraced)
@@ -673,30 +782,28 @@ class OptInlineShortPreamble(Optimization):
                     
                     if ok:
                         debug_stop('jit-log-virtualstate')
-                        # FIXME: Do we still need the dry run
-                        #if self.inline(sh.operations, sh.inputargs,
-                        #               op.getarglist(), dryrun=True):
+
+                        values = [self.getvalue(arg)
+                                  for arg in op.getarglist()]
+                        args = sh.virtual_state.make_inputargs(values,
+                                                               keyboxes=True)
+                        inliner = Inliner(sh.inputargs, args)
+                        
+                        for guard in extra_guards:
+                            if guard.is_guard():
+                                descr = sh.start_resumedescr.clone_if_mutable()
+                                inliner.inline_descr_inplace(descr)
+                                guard.setdescr(descr)
+                            self.emit_operation(guard)
+                        
                         try:
-                            values = [self.getvalue(arg)
-                                      for arg in op.getarglist()]
-                            args = sh.virtual_state.make_inputargs(values,
-                                                                   keyboxes=True)
-                            self.inline(sh.operations, sh.inputargs, args)
+                            for shop in sh.operations:
+                                newop = inliner.inline_op(shop)
+                                self.emit_operation(newop)
                         except InvalidLoop:
                             debug_print("Inlining failed unexpectedly",
                                         "jumping to preamble instead")
                             self.emit_operation(op)
-                        else:
-                            jumpop = self.optimizer.newoperations.pop()
-                            assert jumpop.getopnum() == rop.JUMP
-                            for guard in extra_guards:
-                                if guard.is_guard():
-                                    descr = sh.start_resumedescr.clone_if_mutable()
-                                    self.inliner.inline_descr_inplace(descr)
-                                    guard.setdescr(descr)
-                                    
-                                self.emit_operation(guard)
-                            self.optimizer.newoperations.append(jumpop)
                         return
                 debug_stop('jit-log-virtualstate')
                 retraced_count = loop_token.retraced_count
@@ -721,23 +828,3 @@ class OptInlineShortPreamble(Optimization):
                     else:
                         loop_token.failed_states.append(virtual_state)
         self.emit_operation(op)
-                
-        
-        
-    def inline(self, loop_operations, loop_args, jump_args, dryrun=False):
-        self.inliner = inliner = Inliner(loop_args, jump_args)
-
-        for op in loop_operations:
-            newop = inliner.inline_op(op)
-            if not dryrun:
-                self.emit_operation(newop)
-            else:
-                if not self.is_emittable(newop):
-                    return False
-        
-        return True
-
-    #def inline_arg(self, arg):
-    #    if isinstance(arg, Const):
-    #        return arg
-    #    return self.argmap[arg]

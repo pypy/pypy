@@ -140,6 +140,9 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
     def visit_c_nonnegint(self, el, app_sig):
         self.checked_space_method(el, app_sig)
 
+    def visit_truncatedint(self, el, app_sig):
+        self.checked_space_method(el, app_sig)
+
     def visit__Wrappable(self, el, app_sig):
         name = el.__name__
         argname = self.orig_arg()
@@ -256,6 +259,9 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 
     def visit_c_nonnegint(self, typ):
         self.run_args.append("space.c_nonnegint_w(%s)" % (self.scopenext(),))
+
+    def visit_truncatedint(self, typ):
+        self.run_args.append("space.truncatedint(%s)" % (self.scopenext(),))
 
     def _make_unwrap_activation_class(self, unwrap_spec, cache={}):
         try:
@@ -387,6 +393,9 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
     def visit_c_nonnegint(self, typ):
         self.unwrap.append("space.c_nonnegint_w(%s)" % (self.nextarg(),))
 
+    def visit_truncatedint(self, typ):
+        self.unwrap.append("space.truncatedint(%s)" % (self.nextarg(),))
+
     def make_fastfunc(unwrap_spec, func):
         unwrap_info = UnwrapSpec_FastFunc_Unwrap()
         unwrap_info.apply_over(unwrap_spec)
@@ -396,11 +405,14 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
             fastfunc = func
         else:
             # try to avoid excessive bloat
-            if func.__module__ == 'pypy.interpreter.astcompiler.ast':
+            mod = func.__module__
+            if mod is None:
+                mod = ""
+            if mod == 'pypy.interpreter.astcompiler.ast':
                 raise FastFuncNotSupported
-            if (not func.__module__.startswith('pypy.module.__builtin__') and
-                not func.__module__.startswith('pypy.module.sys') and
-                not func.__module__.startswith('pypy.module.math')):
+            if (not mod.startswith('pypy.module.__builtin__') and
+                not mod.startswith('pypy.module.sys') and
+                not mod.startswith('pypy.module.math')):
                 if not func.__name__.startswith('descr'):
                     raise FastFuncNotSupported
             d = {}

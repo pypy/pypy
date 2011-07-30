@@ -20,7 +20,6 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.extfunc import ExtRegistryEntry
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.tool.uid import fixid
-from pypy.tool.tls import tlsobject
 from pypy.rlib.rarithmetic import r_uint, r_singlefloat, r_longfloat, intmask
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter, LLException
@@ -28,6 +27,7 @@ from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
 from pypy.rpython import raddress
 from pypy.translator.platform import platform
 from array import array
+from thread import _local as tlsobject
 
 # ____________________________________________________________
 
@@ -37,7 +37,9 @@ def allocate_ctypes(ctype):
     if far_regions:
         import random
         pieces = far_regions._ll2ctypes_pieces
-        num = random.randrange(len(pieces))
+        num = random.randrange(len(pieces)+1)
+        if num == len(pieces):
+            return ctype()
         i1, stop = pieces[num]
         i2 = i1 + ((ctypes.sizeof(ctype) or 1) + 7) & ~7
         if i2 > stop:
@@ -170,17 +172,6 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
     assert max_n >= 0
     ITEM = A.OF
     ctypes_item = get_ctypes_type(ITEM, delayed_builders)
-    # Python 2.5 ctypes can raise OverflowError on 64-bit builds
-    for n in [sys.maxint, 2**31]:
-        MAX_SIZE = n/64
-        try:
-            PtrType = ctypes.POINTER(MAX_SIZE * ctypes_item)
-        except OverflowError, e:
-            pass
-        else:
-            break
-    else:
-        raise e
 
     class CArray(ctypes.Structure):
         if not A._hints.get('nolength'):
@@ -189,6 +180,7 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
         else:
             _fields_ = [('items',  max_n * ctypes_item)]
 
+        @classmethod
         def _malloc(cls, n=None):
             if not isinstance(n, int):
                 raise TypeError, "array length must be an int"
@@ -197,10 +189,29 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
             if hasattr(bigarray, 'length'):
                 bigarray.length = n
             return bigarray
-        _malloc = classmethod(_malloc)
+
+        _ptrtype = None
+
+        @classmethod
+        def _get_ptrtype(cls):
+            if cls._ptrtype:
+                return cls._ptrtype
+            # ctypes can raise OverflowError on 64-bit builds
+            for n in [sys.maxint, 2**31]:
+                cls.MAX_SIZE = n/64
+                try:
+                    cls._ptrtype = ctypes.POINTER(cls.MAX_SIZE * ctypes_item)
+                except OverflowError, e:
+                    pass
+                else:
+                    break
+            else:
+                raise e
+            return cls._ptrtype
 
         def _indexable(self, index):
-            assert index + 1 < MAX_SIZE
+            PtrType = self._get_ptrtype()
+            assert index + 1 < self.MAX_SIZE
             p = ctypes.cast(ctypes.pointer(self.items), PtrType)
             return p.contents
 
@@ -418,6 +429,9 @@ def add_storage(instance, mixin_cls, ctypes_storage):
     instance._storage = ctypes_storage
     assert ctypes_storage   # null pointer?
 
+class NotCtypesAllocatedStructure(ValueError):
+    pass
+
 class _parentable_mixin(object):
     """Mixin added to _parentable containers when they become ctypes-based.
     (This is done by changing the __class__ of the instance to reference
@@ -436,7 +450,7 @@ class _parentable_mixin(object):
     def _addressof_storage(self):
         "Returns the storage address as an int"
         if self._storage is None or self._storage is True:
-            raise ValueError("Not a ctypes allocated structure")
+            raise NotCtypesAllocatedStructure("Not a ctypes allocated structure")
         return intmask(ctypes.cast(self._storage, ctypes.c_void_p).value)
 
     def _free(self):
@@ -539,7 +553,7 @@ class _array_of_unknown_length(_parentable_mixin, lltype._parentable):
                 return _items
             _items.append(nextitem)
             i += 1
-        
+
     items = property(getitems)
 
 class _array_of_known_length(_array_of_unknown_length):
@@ -920,7 +934,7 @@ if ctypes:
             return clibname+'.dll'
         else:
             return ctypes.util.find_library('c')
-        
+
     libc_name = get_libc_name()     # Make sure the name is determined during import, not at runtime
     # XXX is this always correct???
     standard_c_lib = ctypes.CDLL(get_libc_name(), **load_library_kwargs)
@@ -966,7 +980,7 @@ def get_ctypes_callable(funcptr, calling_conv):
             return lib[elem]
         except AttributeError:
             pass
-    
+
     old_eci = funcptr._obj.compilation_info
     funcname = funcptr._obj._name
     if hasattr(old_eci, '_with_ctypes'):
@@ -1317,7 +1331,7 @@ else:
             def _where_is_errno():
                 return standard_c_lib._errno()
 
-        elif sys.platform in ('linux2', 'freebsd6'):
+        elif sys.platform.startswith('linux') or sys.platform == 'freebsd6':
             standard_c_lib.__errno_location.restype = ctypes.POINTER(ctypes.c_int)
             def _where_is_errno():
                 return standard_c_lib.__errno_location()

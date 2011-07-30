@@ -4,13 +4,12 @@ Interp-level definition of frequently used functionals.
 """
 
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import NoneNotWrapped, applevel
+from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.objectmodel import specialize
-from inspect import getsource, getfile
 from pypy.rlib.rbigint import rbigint
 
 
@@ -294,7 +293,7 @@ def map_single_user_function(code, w_func, w_iter):
             break
         new_frame = space.createframe(code, w_func.w_func_globals,
                                       w_func.closure)
-        new_frame.fastlocals_w[0] = w_item
+        new_frame.locals_stack_w[0] = w_item
         w_res = new_frame.run()
         result_w.append(w_res)
     return result_w
@@ -451,40 +450,6 @@ def _filter_string(space, w_func, w_string, w_str_type):
             result_w.append(w_item)
     w_empty = space.call_function(w_str_type)
     return space.call_method(w_empty, "join", space.newlist(result_w))
-
-def all(space, w_S):
-    """all(iterable) -> bool
-
-Return True if bool(x) is True for all values x in the iterable."""
-    w_iter = space.iter(w_S)
-    while True:
-        try:
-            w_next = space.next(w_iter)
-        except OperationError, e:
-            if not e.match(space, space.w_StopIteration):
-                raise       # re-raise other app-level exceptions
-            break
-        if not space.is_true(w_next):
-            return space.w_False
-    return space.w_True
-
-
-def any(space, w_S):
-    """any(iterable) -> bool
-
-Return True if bool(x) is True for any x in the iterable."""
-    w_iter = space.iter(w_S)
-    while True:
-        try:
-            w_next = space.next(w_iter)
-        except OperationError, e:
-            if not e.match(space, space.w_StopIteration):
-                raise       # re-raise other app-level exceptions
-            break
-        if space.is_true(w_next):
-            return space.w_True
-    return space.w_False
-
 
 class W_Enumerate(Wrappable):
 
@@ -696,7 +661,6 @@ class W_XRangeIterator(Wrappable):
 
     def descr_reduce(self):
         from pypy.interpreter.mixedmodule import MixedModule
-        from pypy.module._pickle_support import maker # helper fns
         space    = self.space
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)

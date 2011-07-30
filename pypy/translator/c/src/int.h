@@ -73,15 +73,28 @@
 
 /* NB. shifting has same limitations as C: the shift count must be
        >= 0 and < LONG_BITS. */
-#define OP_INT_RSHIFT(x,y,r)    r = Py_ARITHMETIC_RIGHT_SHIFT(long, x, y)
-#define OP_UINT_RSHIFT(x,y,r)   r = (x) >> (y)
-#define OP_LLONG_RSHIFT(x,y,r)  r = Py_ARITHMETIC_RIGHT_SHIFT(PY_LONG_LONG,x,y)
-#define OP_ULLONG_RSHIFT(x,y,r) r = (x) >> (y)
+#define CHECK_SHIFT_RANGE(y, bits) RPyAssert(y >= 0 && y < bits, \
+	       "The shift count is outside of the supported range")
 
-#define OP_INT_LSHIFT(x,y,r)    r = (x) << (y)
-#define OP_UINT_LSHIFT(x,y,r)   r = (x) << (y)
-#define OP_LLONG_LSHIFT(x,y,r)  r = (x) << (y)
-#define OP_ULLONG_LSHIFT(x,y,r) r = (x) << (y)
+
+#define OP_INT_RSHIFT(x,y,r)    CHECK_SHIFT_RANGE(y, PYPY_LONG_BIT); \
+						r = Py_ARITHMETIC_RIGHT_SHIFT(long, x, (y))
+#define OP_UINT_RSHIFT(x,y,r)   CHECK_SHIFT_RANGE(y, PYPY_LONG_BIT); \
+						r = (x) >> (y)
+#define OP_LLONG_RSHIFT(x,y,r)  CHECK_SHIFT_RANGE(y, PYPY_LONGLONG_BIT); \
+						r = Py_ARITHMETIC_RIGHT_SHIFT(PY_LONG_LONG,x, (y))
+#define OP_ULLONG_RSHIFT(x,y,r) CHECK_SHIFT_RANGE(y, PYPY_LONGLONG_BIT); \
+						r = (x) >> (y)
+
+
+#define OP_INT_LSHIFT(x,y,r)    CHECK_SHIFT_RANGE(y, PYPY_LONG_BIT); \
+							r = (x) << (y)
+#define OP_UINT_LSHIFT(x,y,r)   CHECK_SHIFT_RANGE(y, PYPY_LONG_BIT); \
+							r = (x) << (y)
+#define OP_LLONG_LSHIFT(x,y,r)  CHECK_SHIFT_RANGE(y, PYPY_LONGLONG_BIT); \
+							r = (x) << (y)
+#define OP_ULLONG_LSHIFT(x,y,r) CHECK_SHIFT_RANGE(y, PYPY_LONGLONG_BIT); \
+							r = (x) << (y)
 
 #define OP_INT_LSHIFT_OVF(x,y,r) \
 	OP_INT_LSHIFT(x,y,r); \

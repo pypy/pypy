@@ -1,3 +1,5 @@
+import py
+from pypy.jit.metainterp.optimizeutil import InvalidLoop
 from pypy.jit.metainterp.optimizeopt.virtualstate import VirtualStateInfo, VStructStateInfo, \
      VArrayStateInfo, NotVirtualStateInfo
 from pypy.jit.metainterp.optimizeopt.optimizer import OptValue
@@ -95,6 +97,28 @@ class TestBasic:
         fldtst(VStructStateInfo(42, [7]), VStructStateInfo(42, [7]))
         fldtst(VirtualStateInfo(ConstInt(42), [7]), VirtualStateInfo(ConstInt(42), [7]))
 
+    def test_known_class_generalization(self):
+        knownclass1 = OptValue(BoxPtr())
+        knownclass1.make_constant_class(ConstPtr(self.someptr1), 0)
+        info1 = NotVirtualStateInfo(knownclass1)
+        info1.position = 0
+        knownclass2 = OptValue(BoxPtr())
+        knownclass2.make_constant_class(ConstPtr(self.someptr1), 0)
+        info2 = NotVirtualStateInfo(knownclass2)
+        info2.position = 0
+        assert info1.generalization_of(info2, {}, {})
+        assert info2.generalization_of(info1, {}, {})
+
+        knownclass3 = OptValue(BoxPtr())
+        knownclass3.make_constant_class(ConstPtr(self.someptr2), 0)
+        info3 = NotVirtualStateInfo(knownclass3)
+        info3.position = 0
+        assert not info1.generalization_of(info3, {}, {})
+        assert not info2.generalization_of(info3, {}, {})
+        assert not info3.generalization_of(info2, {}, {})
+        assert not info3.generalization_of(info1, {}, {})
+
+
     def test_circular_generalization(self):
         for info in (VArrayStateInfo(42), VStructStateInfo(42, [7]),
                      VirtualStateInfo(ConstInt(42), [7])):
@@ -102,17 +126,20 @@ class TestBasic:
             info.fieldstate = [info]
             assert info.generalization_of(info, {}, {})
 
-class BaseTestGenerateGuards(BaseTest):            
+class BaseTestGenerateGuards(BaseTest):
+    def guards(self, info1, info2, box, expected):
+        info1.position = info2.position = 0
+        guards = []
+        info1.generate_guards(info2, box, self.cpu, guards, {})
+        loop = self.parse(expected)
+        assert equaloplists(guards, loop.operations, False,
+                            {loop.inputargs[0]: box})        
     def test_intbounds(self):
         value1 = OptValue(BoxInt())
         value1.intbound.make_ge(IntBound(0, 10))
         value1.intbound.make_le(IntBound(20, 30))
         info1 = NotVirtualStateInfo(value1)
         info2 = NotVirtualStateInfo(OptValue(BoxInt()))
-        info1.position = info2.position = 0
-        guards = []
-        box = BoxInt(15)
-        info1.generate_guards(info2, box, None, guards, {})
         expected = """
         [i0]
         i1 = int_ge(i0, 0)
@@ -120,9 +147,42 @@ class BaseTestGenerateGuards(BaseTest):
         i2 = int_le(i0, 30)
         guard_true(i2) []
         """
+        self.guards(info1, info2, BoxInt(15), expected)
+        py.test.raises(InvalidLoop, self.guards,
+                       info1, info2, BoxInt(50), expected)
+
+
+    def test_known_class(self):
+        value1 = OptValue(self.nodebox)
+        classbox = self.cpu.ts.cls_of_box(self.nodebox)
+        value1.make_constant_class(classbox, -1)
+        info1 = NotVirtualStateInfo(value1)
+        info2 = NotVirtualStateInfo(OptValue(self.nodebox))
+        expected = """
+        [p0]
+        guard_nonnull(p0) []        
+        guard_class(p0, ConstClass(node_vtable)) []
+        """
+        self.guards(info1, info2, self.nodebox, expected)
+        py.test.raises(InvalidLoop, self.guards,
+                       info1, info2, BoxPtr(), expected)
+
+    def test_known_class_value(self):
+        value1 = OptValue(self.nodebox)
+        classbox = self.cpu.ts.cls_of_box(self.nodebox)
+        value1.make_constant_class(classbox, -1)
+        box = self.nodebox
+        guards = value1.make_guards(box)
+        expected = """
+        [p0]
+        guard_nonnull(p0) []        
+        guard_class(p0, ConstClass(node_vtable)) []
+        """
         loop = self.parse(expected)
         assert equaloplists(guards, loop.operations, False,
-                            {loop.inputargs[0]: box})
+                            {loop.inputargs[0]: box})        
+        
+    
 
     def test_nonnull(self):
         ops1 = """

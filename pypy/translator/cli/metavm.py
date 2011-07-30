@@ -1,6 +1,6 @@
 from pypy.translator.cli import oopspec
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.lltypesystem import rffi
+from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.translator.oosupport.metavm import Generator, InstructionList, MicroInstruction,\
      PushAllArgs, StoreResult, GetField, SetField, DownCast
 from pypy.translator.oosupport.metavm import _Call as _OOCall
@@ -173,6 +173,16 @@ class _Unbox(MicroInstruction):
         generator.load(v_obj)
         generator.ilasm.opcode('unbox.any', boxtype)
 
+class _UnboxType(MicroInstruction):
+    def __init__(self, TO):
+        self.TO = TO
+
+    def render(self, generator, op):
+        v_obj, = op.args
+        boxtype = generator.cts.lltype_to_cts(self.TO)
+        generator.load(v_obj)
+        generator.ilasm.opcode('unbox.any', boxtype)
+
 class _NewArray(MicroInstruction):
     def render(self, generator, op):
         v_type, v_length = op.args
@@ -312,6 +322,7 @@ NewCustomDict = _NewCustomDict()
 #CastWeakAdrToPtr = _CastWeakAdrToPtr()
 Box = _Box()
 Unbox = _Unbox()
+UnboxInt = _UnboxType(lltype.Signed)
 NewArray = _NewArray()
 GetArrayElem = _GetArrayElem()
 SetArrayElem = _SetArrayElem()

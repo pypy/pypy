@@ -337,7 +337,7 @@ SYMBOLS_C = [
     'PyCapsule_SetContext', 'PyCapsule_Import', 'PyCapsule_Type', 'init_capsule',
 
     'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
-    
+
     'PyOS_getsig', 'PyOS_setsig',
 
     'PyStructSequence_InitType', 'PyStructSequence_New',
@@ -348,6 +348,7 @@ GLOBALS = { # this needs to include all prebuilt pto, otherwise segfaults occur
     '_Py_TrueStruct#': ('PyObject*', 'space.w_True'),
     '_Py_ZeroStruct#': ('PyObject*', 'space.w_False'),
     '_Py_NotImplementedStruct#': ('PyObject*', 'space.w_NotImplemented'),
+    '_Py_EllipsisObject#': ('PyObject*', 'space.w_Ellipsis'),
     'PyDateTimeAPI': ('PyDateTime_CAPI*', 'None'),
     }
 FORWARD_DECLS = []
@@ -561,7 +562,8 @@ def make_wrapper(space, callable):
             elif callable.api_func.restype is not lltype.Void:
                 retval = rffi.cast(callable.api_func.restype, result)
         except Exception, e:
-            print 'Fatal error in cpyext, calling', callable.__name__
+            print 'Fatal error in cpyext, CPython compatibility layer, calling', callable.__name__
+            print 'Either report a bug or consider not using this particular extension'
             if not we_are_translated():
                 import traceback
                 traceback.print_exc()
@@ -743,7 +745,7 @@ def build_bridge(space):
             ctypes.c_void_p)
 
     setup_va_functions(eci)
-   
+
     setup_init_functions(eci)
     return modulename.new(ext='')
 
@@ -769,7 +771,7 @@ def generate_macros(export_symbols, rename=True, do_deref=True):
         export_symbols[:] = renamed_symbols
     else:
         export_symbols[:] = [sym.replace("#", "") for sym in export_symbols]
-    
+
     # Generate defines
     for macro_name, size in [
         ("SIZEOF_LONG_LONG", rffi.LONGLONG),
@@ -782,7 +784,7 @@ def generate_macros(export_symbols, rename=True, do_deref=True):
     ]:
         pypy_macros.append("#define %s %s" % (macro_name, rffi.sizeof(size)))
     pypy_macros.append('')
-    
+
     pypy_macros_h = udir.join('pypy_macros.h')
     pypy_macros_h.write('\n'.join(pypy_macros))
 
@@ -850,7 +852,7 @@ def build_eci(building_bridge, export_symbols, code):
             # Sometimes the library is wrapped into another DLL, ensure that
             # the correct bootstrap code is installed
             kwds["link_extra"] = ["msvcrt.lib"]
-        elif sys.platform == 'linux2':
+        elif sys.platform.startswith('linux'):
             compile_extra.append("-Werror=implicit-function-declaration")
         export_symbols_eci.append('pypyAPI')
     else:
@@ -966,6 +968,7 @@ def load_extension_module(space, path, name):
     state = space.fromcache(State)
     if state.find_extension(name, path) is not None:
         return
+    old_context = state.package_context
     state.package_context = name, path
     try:
         from pypy.rlib import rdynload
@@ -991,7 +994,7 @@ def load_extension_module(space, path, name):
         generic_cpy_call(space, initfunc)
         state.check_and_raise_exception()
     finally:
-        state.package_context = None, None
+        state.package_context = old_context
     state.fixup_extension(name, path)
 
 @specialize.ll()
@@ -1004,7 +1007,7 @@ def generic_cpy_call_dont_decref(space, func, *args):
     FT = lltype.typeOf(func).TO
     return make_generic_cpy_call(FT, False, False)(space, func, *args)
 
-@specialize.ll()    
+@specialize.ll()
 def generic_cpy_call_expect_null(space, func, *args):
     FT = lltype.typeOf(func).TO
     return make_generic_cpy_call(FT, True, True)(space, func, *args)

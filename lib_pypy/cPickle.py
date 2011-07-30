@@ -27,9 +27,9 @@ class Pickler(PythonPickler):
             PythonPickler.__init__(self, self.__f, args[0], **kw)
         else:
             PythonPickler.__init__(self, *args, **kw)
-            
+
     def memoize(self, obj):
-        self.memo[None] = None   # cPickle starts counting at one
+        self.memo[id(None)] = None   # cPickle starts counting at one
         return PythonPickler.memoize(self, obj)
 
     def getvalue(self):

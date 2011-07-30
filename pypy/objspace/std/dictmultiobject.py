@@ -1,18 +1,20 @@
 import py, sys
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
+from pypy.objspace.std.settype import set_typedef as settypedef
 from pypy.interpreter import gateway
 from pypy.interpreter.argument import Signature
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.module.__builtin__.__init__ import BUILTIN_TO_INDEX, OPTIMIZED_BUILTINS
 
-from pypy.rlib.objectmodel import r_dict, we_are_translated
-from pypy.objspace.std.settype import set_typedef as settypedef
+from pypy.rlib.objectmodel import r_dict, we_are_translated, specialize
+from pypy.rlib.debug import mark_dict_non_null
+
+from pypy.rlib import rerased
 
 def _is_str(space, w_key):
     return space.is_w(space.type(w_key), space.w_str)
 
-def _is_sane_hash(space, w_lookup_type):
+def _never_equal_to_string(space, w_lookup_type):
     """ Handles the case of a non string key lookup.
     Types that have a sane hash/eq function should allow us to return True
     directly to signal that the key is not in the dict in any case.
@@ -28,48 +30,38 @@ def _is_sane_hash(space, w_lookup_type):
 class W_DictMultiObject(W_Object):
     from pypy.objspace.std.dicttype import dict_typedef as typedef
 
-    r_dict_content = None
-
     @staticmethod
     def allocate_and_init_instance(space, w_type=None, module=False,
                                    instance=False, classofinstance=None,
                                    strdict=False):
+
         if space.config.objspace.std.withcelldict and module:
-            from pypy.objspace.std.celldict import ModuleDictImplementation
+            from pypy.objspace.std.celldict import ModuleDictStrategy
             assert w_type is None
-            return ModuleDictImplementation(space)
-        elif space.config.objspace.opcodes.CALL_LIKELY_BUILTIN and module:
-            assert w_type is None
-            return WaryDictImplementation(space)
-        elif space.config.objspace.std.withdictmeasurement:
-            assert w_type is None
-            return MeasuringDictImplementation(space)
+            strategy = space.fromcache(ModuleDictStrategy)
+
         elif instance or strdict or module:
             assert w_type is None
-            return StrDictImplementation(space)
+            strategy = space.fromcache(StringDictStrategy)
+
         else:
-            if w_type is None:
-                w_type = space.w_dict
-            w_self = space.allocate_instance(W_DictMultiObject, w_type)
-            W_DictMultiObject.__init__(w_self, space)
-            return w_self
+            strategy = space.fromcache(EmptyDictStrategy)
 
-    def __init__(self, space):
+        if w_type is None:
+            w_type = space.w_dict
+        storage = strategy.get_empty_storage()
+        w_self = space.allocate_instance(W_DictMultiObject, w_type)
+        W_DictMultiObject.__init__(w_self, space, strategy, storage)
+        return w_self
+
+    def __init__(self, space, strategy, storage):
         self.space = space
-
-    def initialize_as_rdict(self):
-        assert self.r_dict_content is None
-        self.r_dict_content = r_dict(self.space.eq_w, self.space.hash_w)
-        return self.r_dict_content
-
-
-    def initialize_content(w_self, list_pairs_w):
-        for w_k, w_v in list_pairs_w:
-            w_self.setitem(w_k, w_v)
+        self.strategy = strategy
+        self.dstorage = storage
 
     def __repr__(w_self):
         """ representation for debugging purposes """
-        return "%s()" % (w_self.__class__.__name__, )
+        return "%s(%s)" % (w_self.__class__.__name__, w_self.strategy)
 
     def unwrap(w_dict, space):
         result = {}
@@ -88,51 +80,38 @@ class W_DictMultiObject(W_Object):
         else:
             return None
 
-    # _________________________________________________________________
-    # implementation methods
-    def impl_getitem(self, w_key):
-        #return w_value or None
-        # in case the key is unhashable, try to hash it
-        self.space.hash(w_key)
-        # return None anyway
-        return None
+    def initialize_content(w_self, list_pairs_w):
+        for w_k, w_v in list_pairs_w:
+            w_self.setitem(w_k, w_v)
 
-    def impl_getitem_str(self, key):
-        #return w_value or None
-        return None
+def _add_indirections():
+    dict_methods = "setitem setitem_str getitem \
+                    getitem_str delitem length \
+                    clear keys values \
+                    items iter setdefault \
+                    popitem".split()
 
-    def impl_setdefault(self, w_key, w_default):
-        # here the dict is always empty
-        self._as_rdict().impl_fallback_setitem(w_key, w_default)
-        return w_default
+    def make_method(method):
+        def f(self, *args):
+            return getattr(self.strategy, method)(self, *args)
+        f.func_name = method
+        return f
 
-    def impl_setitem(self, w_key, w_value):
-        self._as_rdict().impl_fallback_setitem(w_key, w_value)
+    for method in dict_methods:
+        setattr(W_DictMultiObject, method, make_method(method))
 
-    def impl_setitem_str(self, key, w_value):
-        self._as_rdict().impl_fallback_setitem_str(key, w_value)
+_add_indirections()
 
-    def impl_delitem(self, w_key):
-        # in case the key is unhashable, try to hash it
-        self.space.hash(w_key)
-        raise KeyError
+class DictStrategy(object):
 
-    def impl_length(self):
-        return 0
+    def __init__(self, space):
+        self.space = space
 
-    def impl_iter(self):
-        # XXX I guess it's not important to be fast in this case?
-        return self._as_rdict().impl_fallback_iter()
+    def get_empty_storage(self):
+        raise NotImplementedError
 
-    def impl_clear(self):
-        self.r_dict_content = None
-
-    def _as_rdict(self):
-        r_dict_content = self.initialize_as_rdict()
-        return self
-
-    def impl_keys(self):
-        iterator = self.impl_iter()
+    def keys(self, w_dict):
+        iterator = self.iter(w_dict)
         result = []
         while 1:
             w_key, w_value = iterator.next()
@@ -140,8 +119,9 @@ class W_DictMultiObject(W_Object):
                 result.append(w_key)
             else:
                 return result
-    def impl_values(self):
-        iterator = self.impl_iter()
+
+    def values(self, w_dict):
+        iterator = self.iter(w_dict)
         result = []
         while 1:
             w_key, w_value = iterator.next()
@@ -149,8 +129,9 @@ class W_DictMultiObject(W_Object):
                 result.append(w_value)
             else:
                 return result
-    def impl_items(self):
-        iterator = self.impl_iter()
+
+    def items(self, w_dict):
+        iterator = self.iter(w_dict)
         result = []
         while 1:
             w_key, w_value = iterator.next()
@@ -159,106 +140,101 @@ class W_DictMultiObject(W_Object):
             else:
                 return result
 
-    # the following method only makes sense when the option to use the
-    # CALL_LIKELY_BUILTIN opcode is set. Otherwise it won't even be seen
-    # by the annotator
-    def impl_get_builtin_indexed(self, i):
-        key = OPTIMIZED_BUILTINS[i]
-        return self.impl_getitem_str(key)
-
-    def impl_popitem(self):
-        # default implementation
-        space = self.space
-        iterator = self.impl_iter()
-        w_key, w_value = iterator.next()
-        if w_key is None:
-            raise KeyError
-        self.impl_delitem(w_key)
-        return w_key, w_value
-
-    # _________________________________________________________________
-    # fallback implementation methods
-
-    def impl_fallback_setdefault(self, w_key, w_default):
-        return self.r_dict_content.setdefault(w_key, w_default)
-
-    def impl_fallback_setitem(self, w_key, w_value):
-        self.r_dict_content[w_key] = w_value
-
-    def impl_fallback_setitem_str(self, key, w_value):
-        return self.impl_fallback_setitem(self.space.wrap(key), w_value)
-
-    def impl_fallback_delitem(self, w_key):
-        del self.r_dict_content[w_key]
-
-    def impl_fallback_length(self):
-        return len(self.r_dict_content)
-
-    def impl_fallback_getitem(self, w_key):
-        return self.r_dict_content.get(w_key, None)
-
-    def impl_fallback_getitem_str(self, key):
-        return self.r_dict_content.get(self.space.wrap(key), None)
-
-    def impl_fallback_iter(self):
-        return RDictIteratorImplementation(self.space, self)
-
-    def impl_fallback_keys(self):
-        return self.r_dict_content.keys()
-    def impl_fallback_values(self):
-        return self.r_dict_content.values()
-    def impl_fallback_items(self):
-        return [self.space.newtuple([w_key, w_val])
-                    for w_key, w_val in self.r_dict_content.iteritems()]
-
-    def impl_fallback_clear(self):
-        self.r_dict_content.clear()
-
-    def impl_fallback_get_builtin_indexed(self, i):
-        key = OPTIMIZED_BUILTINS[i]
-        return self.impl_fallback_getitem_str(key)
-
-    def impl_fallback_popitem(self):
-        return self.r_dict_content.popitem()
+    def clear(self, w_dict):
+        strategy = self.space.fromcache(EmptyDictStrategy)
+        storage = strategy.get_empty_storage()
+        w_dict.strategy = strategy
+        w_dict.dstorage = storage
 
 
-implementation_methods = [
-    ("getitem", 1),
-    ("getitem_str", 1),
-    ("length", 0),
-    ("setitem_str", 2),
-    ("setitem", 2),
-    ("setdefault", 2),
-    ("delitem", 1),
-    ("iter", 0),
-    ("items", 0),
-    ("values", 0),
-    ("keys", 0),
-    ("clear", 0),
-    ("get_builtin_indexed", 1),
-    ("popitem", 0),
-]
+class EmptyDictStrategy(DictStrategy):
 
+    erase, unerase = rerased.new_erasing_pair("empty")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
 
-def _make_method(name, implname, fallback, numargs):
-    args = ", ".join(["a" + str(i) for i in range(numargs)])
-    code = """def %s(self, %s):
-        if self.r_dict_content is not None:
-            return self.%s(%s)
-        return self.%s(%s)""" % (name, args, fallback, args, implname, args)
-    d = {}
-    exec py.code.Source(code).compile() in d
-    implementation_method = d[name]
-    implementation_method.func_defaults = getattr(W_DictMultiObject, implname).func_defaults
-    return implementation_method
+    def get_empty_storage(self):
+       return self.erase(None)
 
-def _install_methods():
-    for name, numargs in implementation_methods:
-        implname = "impl_" + name
-        fallbackname = "impl_fallback_" + name
-        func = _make_method(name, implname, fallbackname, numargs)
-        setattr(W_DictMultiObject, name, func)
-_install_methods()
+    def switch_to_correct_strategy(self, w_dict, w_key):
+        withidentitydict = self.space.config.objspace.std.withidentitydict
+        if type(w_key) is self.space.StringObjectCls:
+            self.switch_to_string_strategy(w_dict)
+            return
+        w_type = self.space.type(w_key)
+        if self.space.is_w(w_type, self.space.w_int):
+            self.switch_to_int_strategy(w_dict)
+        elif withidentitydict and w_type.compares_by_identity():
+            self.switch_to_identity_strategy(w_dict)
+        else:
+            self.switch_to_object_strategy(w_dict)
+
+    def switch_to_string_strategy(self, w_dict):
+        strategy = self.space.fromcache(StringDictStrategy)
+        storage = strategy.get_empty_storage()
+        w_dict.strategy = strategy
+        w_dict.dstorage = storage
+
+    def switch_to_int_strategy(self, w_dict):
+        strategy = self.space.fromcache(IntDictStrategy)
+        storage = strategy.get_empty_storage()
+        w_dict.strategy = strategy
+        w_dict.dstorage = storage
+
+    def switch_to_identity_strategy(self, w_dict):
+        from pypy.objspace.std.identitydict import IdentityDictStrategy
+        strategy = self.space.fromcache(IdentityDictStrategy)
+        storage = strategy.get_empty_storage()
+        w_dict.strategy = strategy
+        w_dict.dstorage = storage
+
+    def switch_to_object_strategy(self, w_dict):
+        strategy = self.space.fromcache(ObjectDictStrategy)
+        storage = strategy.get_empty_storage()
+        w_dict.strategy = strategy
+        w_dict.dstorage = storage
+
+    def getitem(self, w_dict, w_key):
+        #return w_value or None
+        # in case the key is unhashable, try to hash it
+        self.space.hash(w_key)
+        # return None anyway
+        return None
+
+    def getitem_str(self, w_dict, key):
+        #return w_value or None
+        return None
+
+    def setdefault(self, w_dict, w_key, w_default):
+        # here the dict is always empty
+        self.switch_to_correct_strategy(w_dict, w_key)
+        w_dict.setitem(w_key, w_default)
+        return w_default
+
+    def setitem(self, w_dict, w_key, w_value):
+        self.switch_to_correct_strategy(w_dict, w_key)
+        w_dict.setitem(w_key, w_value)
+
+    def setitem_str(self, w_dict, key, w_value):
+        self.switch_to_string_strategy(w_dict)
+        w_dict.setitem_str(key, w_value)
+
+    def delitem(self, w_dict, w_key):
+        # in case the key is unhashable, try to hash it
+        self.space.hash(w_key)
+        raise KeyError
+
+    def length(self, w_dict):
+        return 0
+
+    def iter(self, w_dict):
+        return EmptyIteratorImplementation(self.space, w_dict)
+
+    def clear(self, w_dict):
+        return
+
+    def popitem(self, w_dict):
+        raise KeyError
 
 registerimplementation(W_DictMultiObject)
 
@@ -300,320 +276,255 @@ class IteratorImplementation(object):
             return self.len - self.pos
         return 0
 
+class EmptyIteratorImplementation(IteratorImplementation):
+    def next(self):
+        return (None, None)
+
 
 
 # concrete subclasses of the above
 
-class StrDictImplementation(W_DictMultiObject):
-    def __init__(self, space):
-        self.space = space
-        self.content = {}
+class AbstractTypedStrategy(object):
+    _mixin_ = True
 
-    def impl_setitem(self, w_key, w_value):
+    @staticmethod
+    def erase(storage):
+        raise NotImplementedError("abstract base class")
+
+    @staticmethod
+    def unerase(obj):
+        raise NotImplementedError("abstract base class")
+
+    def wrap(self, unwrapped):
+        raise NotImplementedError
+
+    def unwrap(self, wrapped):
+        raise NotImplementedError
+
+    def is_correct_type(self, w_obj):
+        raise NotImplementedError("abstract base class")
+
+    def get_empty_storage(self):
+        raise NotImplementedError("abstract base class")
+
+    def _never_equal_to(self, w_lookup_type):
+        raise NotImplementedError("abstract base class")
+
+    def setitem(self, w_dict, w_key, w_value):
         space = self.space
-        if space.is_w(space.type(w_key), space.w_str):
-            self.impl_setitem_str(self.space.str_w(w_key), w_value)
+        if self.is_correct_type(w_key):
+            self.unerase(w_dict.dstorage)[self.unwrap(w_key)] = w_value
+            return
         else:
-            self._as_rdict().impl_fallback_setitem(w_key, w_value)
+            self.switch_to_object_strategy(w_dict)
+            w_dict.setitem(w_key, w_value)
 
-    def impl_setitem_str(self, key, w_value):
-        self.content[key] = w_value
+    def setitem_str(self, w_dict, key, w_value):
+        self.switch_to_object_strategy(w_dict)
+        w_dict.setitem(self.space.wrap(key), w_value)
 
-    def impl_setdefault(self, w_key, w_default):
+    def setdefault(self, w_dict, w_key, w_default):
         space = self.space
-        if space.is_w(space.type(w_key), space.w_str):
-            return self.content.setdefault(space.str_w(w_key), w_default)
+        if self.is_correct_type(w_key):
+            return self.unerase(w_dict.dstorage).setdefault(self.unwrap(w_key), w_default)
         else:
-            return self._as_rdict().impl_fallback_setdefault(w_key, w_default)
+            self.switch_to_object_strategy(w_dict)
+            return w_dict.setdefault(w_key, w_default)
 
-
-    def impl_delitem(self, w_key):
+    def delitem(self, w_dict, w_key):
         space = self.space
         w_key_type = space.type(w_key)
-        if space.is_w(w_key_type, space.w_str):
-            del self.content[space.str_w(w_key)]
+        if self.is_correct_type(w_key):
+            del self.unerase(w_dict.dstorage)[self.unwrap(w_key)]
             return
-        elif _is_sane_hash(space, w_key_type):
-            raise KeyError
         else:
-            self._as_rdict().impl_fallback_delitem(w_key)
+            self.switch_to_object_strategy(w_dict)
+            return w_dict.delitem(w_key)
 
-    def impl_length(self):
-        return len(self.content)
+    def length(self, w_dict):
+        return len(self.unerase(w_dict.dstorage))
 
-    def impl_getitem_str(self, key):
-        return self.content.get(key, None)
+    def getitem_str(self, w_dict, key):
+        return self.getitem(w_dict, self.space.wrap(key))
 
-    def impl_getitem(self, w_key):
+    def getitem(self, w_dict, w_key):
+        space = self.space
+        if self.is_correct_type(w_key):
+            return self.unerase(w_dict.dstorage).get(self.unwrap(w_key), None)
+        elif self._never_equal_to(space.type(w_key)):
+            return None
+        else:
+            self.switch_to_object_strategy(w_dict)
+            return w_dict.getitem(w_key)
+
+    def keys(self, w_dict):
+        return [self.wrap(key) for key in self.unerase(w_dict.dstorage).iterkeys()]
+
+    def values(self, w_dict):
+        return self.unerase(w_dict.dstorage).values()
+
+    def items(self, w_dict):
+        space = self.space
+        dict_w = self.unerase(w_dict.dstorage)
+        return [space.newtuple([self.wrap(key), w_value])
+                    for (key, w_value) in dict_w.iteritems()]
+
+    def popitem(self, w_dict):
+        key, value = self.unerase(w_dict.dstorage).popitem()
+        return (self.wrap(key), value)
+
+    def clear(self, w_dict):
+        self.unerase(w_dict.dstorage).clear()
+
+    def switch_to_object_strategy(self, w_dict):
+        d = self.unerase(w_dict.dstorage)
+        strategy = self.space.fromcache(ObjectDictStrategy)
+        d_new = strategy.unerase(strategy.get_empty_storage())
+        for key, value in d.iteritems():
+            d_new[self.wrap(key)] = value
+        w_dict.strategy = strategy
+        w_dict.dstorage = strategy.erase(d_new)
+
+class ObjectDictStrategy(AbstractTypedStrategy, DictStrategy):
+
+    erase, unerase = rerased.new_erasing_pair("object")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def wrap(self, unwrapped):
+        return unwrapped
+
+    def unwrap(self, wrapped):
+        return wrapped
+
+    def is_correct_type(self, w_obj):
+        return True
+
+    def get_empty_storage(self):
+       new_dict = r_dict(self.space.eq_w, self.space.hash_w,
+                         force_non_null=True)
+       return self.erase(new_dict)
+
+    def _never_equal_to(self, w_lookup_type):
+        return False
+
+    def iter(self, w_dict):
+        return ObjectIteratorImplementation(self.space, self, w_dict)
+
+    def keys(self, w_dict):
+        return self.unerase(w_dict.dstorage).keys()
+
+
+class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
+
+    erase, unerase = rerased.new_erasing_pair("string")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def wrap(self, unwrapped):
+        return self.space.wrap(unwrapped)
+
+    def unwrap(self, wrapped):
+        return self.space.str_w(wrapped)
+
+    def is_correct_type(self, w_obj):
+        space = self.space
+        return space.is_w(space.type(w_obj), space.w_str)
+
+    def get_empty_storage(self):
+        res = {}
+        mark_dict_non_null(res)
+        return self.erase(res)
+
+    def _never_equal_to(self, w_lookup_type):
+        return _never_equal_to_string(self.space, w_lookup_type)
+
+    def setitem_str(self, w_dict, key, w_value):
+        assert key is not None
+        self.unerase(w_dict.dstorage)[key] = w_value
+
+    def getitem(self, w_dict, w_key):
         space = self.space
         # -- This is called extremely often.  Hack for performance --
         if type(w_key) is space.StringObjectCls:
-            return self.impl_getitem_str(w_key.unwrap(space))
+            return self.getitem_str(w_dict, w_key.unwrap(space))
         # -- End of performance hack --
-        w_lookup_type = space.type(w_key)
-        if space.is_w(w_lookup_type, space.w_str):
-            return self.impl_getitem_str(space.str_w(w_key))
-        elif _is_sane_hash(space, w_lookup_type):
-            return None
-        else:
-            return self._as_rdict().impl_fallback_getitem(w_key)
+        return AbstractTypedStrategy.getitem(self, w_dict, w_key)
 
-    def impl_iter(self):
-        return StrIteratorImplementation(self.space, self)
+    def getitem_str(self, w_dict, key):
+        assert key is not None
+        return self.unerase(w_dict.dstorage).get(key, None)
 
-    def impl_keys(self):
-        space = self.space
-        return [space.wrap(key) for key in self.content.iterkeys()]
-
-    def impl_values(self):
-        return self.content.values()
-
-    def impl_items(self):
-        space = self.space
-        return [space.newtuple([space.wrap(key), w_value])
-                    for (key, w_value) in self.content.iteritems()]
-
-    def impl_clear(self):
-        self.content.clear()
+    def iter(self, w_dict):
+        return StrIteratorImplementation(self.space, self, w_dict)
 
 
-    def _as_rdict(self):
-        r_dict_content = self.initialize_as_rdict()
-        for k, w_v in self.content.items():
-            r_dict_content[self.space.wrap(k)] = w_v
-        self._clear_fields()
-        return self
+class _WrappedIteratorMixin(object):
+    _mixin_ = True
 
-    def _clear_fields(self):
-        self.content = None
-
-class StrIteratorImplementation(IteratorImplementation):
-    def __init__(self, space, dictimplementation):
+    def __init__(self, space, strategy, dictimplementation):
         IteratorImplementation.__init__(self, space, dictimplementation)
-        self.iterator = dictimplementation.content.iteritems()
+        self.iterator = strategy.unerase(dictimplementation.dstorage).iteritems()
 
     def next_entry(self):
         # note that this 'for' loop only runs once, at most
-        for str, w_value in self.iterator:
-            return self.space.wrap(str), w_value
+        for key, w_value in self.iterator:
+            return self.space.wrap(key), w_value
+        else:
+            return None, None
+
+class _UnwrappedIteratorMixin:
+    _mixin_ = True
+    
+    def __init__(self, space, strategy, dictimplementation):
+        IteratorImplementation.__init__(self, space, dictimplementation)
+        self.iterator = strategy.unerase(dictimplementation.dstorage).iteritems()
+
+    def next_entry(self):
+        # note that this 'for' loop only runs once, at most
+        for w_key, w_value in self.iterator:
+            return w_key, w_value
         else:
             return None, None
 
 
-class WaryDictImplementation(StrDictImplementation):
-    def __init__(self, space):
-        StrDictImplementation.__init__(self, space)
-        self.shadowed = [None] * len(BUILTIN_TO_INDEX)
+class StrIteratorImplementation(_WrappedIteratorMixin, IteratorImplementation):
+    pass
 
-    def impl_setitem_str(self, key, w_value):
-        i = BUILTIN_TO_INDEX.get(key, -1)
-        if i != -1:
-            self.shadowed[i] = w_value
-        self.content[key] = w_value
+class IntDictStrategy(AbstractTypedStrategy, DictStrategy):
+    erase, unerase = rerased.new_erasing_pair("int")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
 
-    def impl_delitem(self, w_key):
+    def wrap(self, unwrapped):
+        return self.space.wrap(unwrapped)
+
+    def unwrap(self, wrapped):
+        return self.space.int_w(wrapped)
+
+    def get_empty_storage(self):
+        return self.erase({})
+
+    def is_correct_type(self, w_obj):
         space = self.space
-        w_key_type = space.type(w_key)
-        if space.is_w(w_key_type, space.w_str):
-            key = space.str_w(w_key)
-            del self.content[key]
-            i = BUILTIN_TO_INDEX.get(key, -1)
-            if i != -1:
-                self.shadowed[i] = None
-        elif _is_sane_hash(space, w_key_type):
-            raise KeyError
-        else:
-            self._as_rdict().impl_fallback_delitem(w_key)
+        return space.is_w(space.type(w_obj), space.w_int)
 
-    def impl_get_builtin_indexed(self, i):
-        return self.shadowed[i]
-
-
-class RDictIteratorImplementation(IteratorImplementation):
-    def __init__(self, space, dictimplementation):
-        IteratorImplementation.__init__(self, space, dictimplementation)
-        self.iterator = dictimplementation.r_dict_content.iteritems()
-
-    def next_entry(self):
-        # note that this 'for' loop only runs once, at most
-        for item in self.iterator:
-            return item
-        else:
-            return None, None
-
-
-
-# XXX fix this thing
-import time
-
-class DictInfo(object):
-    _dict_infos = []
-    def __init__(self):
-        self.id = len(self._dict_infos)
-
-        self.setitem_strs = 0; self.setitems = 0;  self.delitems = 0
-        self.lengths = 0;   self.gets = 0
-        self.iteritems = 0; self.iterkeys = 0; self.itervalues = 0
-        self.keys = 0;      self.values = 0;   self.items = 0
-
-        self.maxcontents = 0
-
-        self.reads = 0
-        self.hits = self.misses = 0
-        self.writes = 0
-        self.iterations = 0
-        self.listings = 0
-
-        self.seen_non_string_in_write = 0
-        self.seen_non_string_in_read_first = 0
-        self.size_on_non_string_seen_in_read = -1
-        self.size_on_non_string_seen_in_write = -1
-
-        self.createtime = time.time()
-        self.lifetime = -1.0
-
-        if not we_are_translated():
-            # very probable stack from here:
-            # 0 - us
-            # 1 - MeasuringDictImplementation.__init__
-            # 2 - W_DictMultiObject.__init__
-            # 3 - space.newdict
-            # 4 - newdict's caller.  let's look at that
-            try:
-                frame = sys._getframe(4)
-            except ValueError:
-                pass # might be at import time
-            else:
-                self.sig = '(%s:%s)%s'%(frame.f_code.co_filename, frame.f_lineno, frame.f_code.co_name)
-
-        self._dict_infos.append(self)
-    def __repr__(self):
-        args = []
-        for k in sorted(self.__dict__):
-            v = self.__dict__[k]
-            if v != 0:
-                args.append('%s=%r'%(k, v))
-        return '<DictInfo %s>'%(', '.join(args),)
-
-class OnTheWayOut:
-    def __init__(self, info):
-        self.info = info
-    def __del__(self):
-        self.info.lifetime = time.time() - self.info.createtime
-
-class MeasuringDictImplementation(W_DictMultiObject):
-    def __init__(self, space):
-        self.space = space
-        self.content = r_dict(space.eq_w, space.hash_w)
-        self.info = DictInfo()
-        self.thing_with_del = OnTheWayOut(self.info)
-
-    def __repr__(self):
-        return "%s<%s>" % (self.__class__.__name__, self.content)
-
-    def _is_str(self, w_key):
+    def _never_equal_to(self, w_lookup_type):
         space = self.space
-        return space.is_true(space.isinstance(w_key, space.w_str))
-    def _read(self, w_key):
-        self.info.reads += 1
-        if not self.info.seen_non_string_in_write \
-               and not self.info.seen_non_string_in_read_first \
-               and not self._is_str(w_key):
-            self.info.seen_non_string_in_read_first = True
-            self.info.size_on_non_string_seen_in_read = len(self.content)
-        hit = w_key in self.content
-        if hit:
-            self.info.hits += 1
-        else:
-            self.info.misses += 1
+        # XXX there are many more types
+        return (space.is_w(w_lookup_type, space.w_NoneType) or
+                space.is_w(w_lookup_type, space.w_str) or
+                space.is_w(w_lookup_type, space.w_unicode)
+                )
 
-    def impl_setitem(self, w_key, w_value):
-        if not self.info.seen_non_string_in_write and not self._is_str(w_key):
-            self.info.seen_non_string_in_write = True
-            self.info.size_on_non_string_seen_in_write = len(self.content)
-        self.info.setitems += 1
-        self.info.writes += 1
-        self.content[w_key] = w_value
-        self.info.maxcontents = max(self.info.maxcontents, len(self.content))
-    def impl_setitem_str(self, key, w_value):
-        self.info.setitem_strs += 1
-        self.impl_setitem(self.space.wrap(key), w_value)
-    def impl_delitem(self, w_key):
-        if not self.info.seen_non_string_in_write \
-               and not self.info.seen_non_string_in_read_first \
-               and not self._is_str(w_key):
-            self.info.seen_non_string_in_read_first = True
-            self.info.size_on_non_string_seen_in_read = len(self.content)
-        self.info.delitems += 1
-        self.info.writes += 1
-        del self.content[w_key]
+    def iter(self, w_dict):
+        return IntIteratorImplementation(self.space, self, w_dict)
 
-    def impl_length(self):
-        self.info.lengths += 1
-        return len(self.content)
-    def impl_getitem_str(self, key):
-        return self.impl_getitem(self.space.wrap(key))
-    def impl_getitem(self, w_key):
-        self.info.gets += 1
-        self._read(w_key)
-        return self.content.get(w_key, None)
+class IntIteratorImplementation(_WrappedIteratorMixin, IteratorImplementation):
+    pass
 
-    def impl_iteritems(self):
-        self.info.iteritems += 1
-        self.info.iterations += 1
-        return RDictItemIteratorImplementation(self.space, self)
-    def impl_iterkeys(self):
-        self.info.iterkeys += 1
-        self.info.iterations += 1
-        return RDictKeyIteratorImplementation(self.space, self)
-    def impl_itervalues(self):
-        self.info.itervalues += 1
-        self.info.iterations += 1
-        return RDictValueIteratorImplementation(self.space, self)
-
-    def impl_keys(self):
-        self.info.keys += 1
-        self.info.listings += 1
-        return self.content.keys()
-    def impl_values(self):
-        self.info.values += 1
-        self.info.listings += 1
-        return self.content.values()
-    def impl_items(self):
-        self.info.items += 1
-        self.info.listings += 1
-        return [self.space.newtuple([w_key, w_val])
-                    for w_key, w_val in self.content.iteritems()]
-
-
-_example = DictInfo()
-del DictInfo._dict_infos[-1]
-tmpl = 'os.write(fd, "%(attr)s" + ": " + str(info.%(attr)s) + "\\n")'
-bodySrc = []
-for attr in sorted(_example.__dict__):
-    if attr == 'sig':
-        continue
-    bodySrc.append(tmpl%locals())
-exec py.code.Source('''
-from pypy.rlib.objectmodel import current_object_addr_as_int
-def _report_one(fd, info):
-    os.write(fd, "_address" + ": " + str(current_object_addr_as_int(info))
-                 + "\\n")
-    %s
-'''%'\n    '.join(bodySrc)).compile()
-
-def report():
-    if not DictInfo._dict_infos:
-        return
-    os.write(2, "Starting multidict report.\n")
-    fd = os.open('dictinfo.txt', os.O_CREAT|os.O_WRONLY|os.O_TRUNC, 0644)
-    for info in DictInfo._dict_infos:
-        os.write(fd, '------------------\n')
-        _report_one(fd, info)
-    os.close(fd)
-    os.write(2, "Reporting done.\n")
-
-
+class ObjectIteratorImplementation(_UnwrappedIteratorMixin, IteratorImplementation):
+    pass
 
 init_signature = Signature(['seq_or_map'], None, 'kwargs')
 init_defaults = [None]
@@ -835,6 +746,8 @@ VALUESITER = 2
 class W_DictMultiIterObject(W_Object):
     from pypy.objspace.std.dicttype import dictiter_typedef as typedef
 
+    _immutable_fields_ = ["iteratorimplementation", "itertype"]
+
     def __init__(w_self, space, iteratorimplementation, itertype):
         w_self.space = space
         w_self.iteratorimplementation = iteratorimplementation
@@ -919,7 +832,7 @@ eq__DictViewItems_settypedef = eq__DictViewItems_DictViewItems
 def repr__DictViewKeys(space, w_dictview):
     w_seq = space.call_function(space.w_list, w_dictview)
     w_repr = space.repr(w_seq)
-    return space.wrap("%s(%s)" % (space.type(w_dictview).getname(space, "?"),
+    return space.wrap("%s(%s)" % (space.type(w_dictview).getname(space),
                                   space.str_w(w_repr)))
 repr__DictViewItems  = repr__DictViewKeys
 repr__DictViewValues = repr__DictViewKeys

@@ -565,7 +565,7 @@ class ClassDesc(Desc):
         if self.is_exception_class():
             if self.pyobj.__module__ == 'exceptions':
                 return True
-            if self.pyobj is py.code._AssertionError:
+            if issubclass(self.pyobj, AssertionError):
                 return True
         return False
 

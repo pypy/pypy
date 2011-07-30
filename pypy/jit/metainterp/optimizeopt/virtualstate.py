@@ -6,7 +6,7 @@ from pypy.jit.metainterp.optimizeopt.optimizer import LEVEL_CONSTANT, \
                                                       LEVEL_UNKNOWN, \
                                                       MININT, MAXINT, OptValue
 from pypy.jit.metainterp.history import BoxInt, ConstInt, BoxPtr, Const
-from pypy.jit.metainterp.optimizeutil import InvalidLoop
+from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.rlib.objectmodel import we_are_translated
@@ -56,8 +56,8 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
 
     def debug_header(self, indent):
         raise NotImplementedError
-    
-    
+
+
 class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
     def __init__(self, fielddescrs):
         self.fielddescrs = fielddescrs
@@ -201,6 +201,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         else:
             self.constbox = None
         self.position_in_notvirtuals = -1
+        self.lenbound = value.lenbound
 
     def generalization_of(self, other, renum, bad):
         # XXX This will always retrace instead of forcing anything which
@@ -227,14 +228,32 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                 bad[other] = True
                 return False
         elif self.level == LEVEL_KNOWNCLASS:
-            if self.known_class != other.known_class: # FIXME: use issubclass?
+            if not self.known_class.same_constant(other.known_class):
                 bad[self] = True
                 bad[other] = True
                 return False
-        return self.intbound.contains_bound(other.intbound)
+        if not self.intbound.contains_bound(other.intbound):
+            bad[self] = True
+            bad[other] = True
+            return False
+        if self.lenbound and other.lenbound:
+            if self.lenbound.mode != other.lenbound.mode or \
+               self.lenbound.descr != other.lenbound.descr or \
+               not self.lenbound.bound.contains_bound(other.lenbound.bound):
+                bad[self] = True
+                bad[other] = True
+                return False
+        elif self.lenbound:
+            bad[self] = True
+            bad[other] = True
+            return False
+        return True
 
     def _generate_guards(self, other, box, cpu, extra_guards):
         if not isinstance(other, NotVirtualStateInfo):
+            raise InvalidLoop
+
+        if self.lenbound or other.lenbound:
             raise InvalidLoop
 
         if self.level == LEVEL_KNOWNCLASS and \
@@ -247,6 +266,8 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             # excisting compiled loop or retracing the loop. Both
             # alternatives will always generate correct behaviour, but
             # performace will differ.
+            op = ResOperation(rop.GUARD_NONNULL, [box], None)
+            extra_guards.append(op)
             op = ResOperation(rop.GUARD_CLASS, [box, self.known_class], None)
             extra_guards.append(op)
             return
@@ -317,9 +338,13 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                  LEVEL_KNOWNCLASS: 'KnownClass(%r)' % self.known_class,
                  LEVEL_CONSTANT: 'Constant(%r)' % self.constbox,
                  }[self.level]
-            
+
+        lb = ''
+        if self.lenbound:
+            lb = ', ' + self.lenbound.bound.__repr__()
+        
         debug_print(indent + mark + 'NotVirtualInfo(%d' % self.position +
-                    ', ' + l + ', ' + self.intbound.__repr__() + ')')
+                    ', ' + l + ', ' + self.intbound.__repr__() + lb + ')')
 
 class VirtualState(object):
     def __init__(self, state):
@@ -425,3 +450,78 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
     def make_varray(self, arraydescr):
         return VArrayStateInfo(arraydescr)
 
+class BoxNotProducable(Exception):
+    pass
+
+class ShortBoxes(object):
+    def __init__(self, optimizer, surviving_boxes):
+        self.potential_ops = {}
+        self.duplicates = {}
+        self.optimizer = optimizer
+        for box in surviving_boxes:
+            self.potential_ops[box] = None
+        optimizer.produce_potential_short_preamble_ops(self)
+
+        self.aliases = {}
+        self.short_boxes = {}
+
+        for box in self.potential_ops.keys():
+            try:
+                self.produce_short_preamble_box(box)
+            except BoxNotProducable:
+                pass
+
+    def produce_short_preamble_box(self, box):
+        if box in self.short_boxes:
+            return 
+        if isinstance(box, Const):
+            return 
+        if box in self.potential_ops:
+            op = self.potential_ops[box]
+            if op:
+                for arg in op.getarglist():
+                    self.produce_short_preamble_box(arg)
+            self.short_boxes[box] = op
+        else:
+            raise BoxNotProducable
+
+    def add_potential(self, op):
+        if op.result not in self.potential_ops:
+            self.potential_ops[op.result] = op
+            return op
+        newop = op.clone()
+        newop.result = op.result.clonebox()
+        self.potential_ops[newop.result] = newop
+        if op.result in self.duplicates:
+            self.duplicates[op.result].append(newop.result)
+        else:
+            self.duplicates[op.result] = [newop.result]
+        self.optimizer.make_equal_to(newop.result, self.optimizer.getvalue(op.result))
+        return newop
+
+    def debug_print(self, logops):
+        debug_start('jit-short-boxes')
+        for box, op in self.short_boxes.items():
+            if op:
+                debug_print(logops.repr_of_arg(box) + ': ' + logops.repr_of_resop(op))
+            else:
+                debug_print(logops.repr_of_arg(box) + ': None')
+        debug_stop('jit-short-boxes')
+        
+    def operations(self):
+        return self.short_boxes.values()
+
+    def producer(self, box):
+        return self.short_boxes[box]
+
+    def has_producer(self, box):
+        return box in self.short_boxes
+
+    def alias(self, newbox, oldbox):
+        self.short_boxes[newbox] = self.short_boxes[oldbox]
+        self.aliases[newbox] = oldbox
+        
+    def original(self, box):
+        while box in self.aliases:
+            box = self.aliases[box]
+        return box

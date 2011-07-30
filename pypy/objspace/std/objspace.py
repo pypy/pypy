@@ -11,7 +11,7 @@ from pypy.rlib.objectmodel import instantiate, r_dict, specialize
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.rarithmetic import base_int, widen
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.jit import hint
+from pypy.rlib import jit
 from pypy.rlib.rbigint import rbigint
 from pypy.tool.sourcetools import func_with_new_name
 
@@ -38,7 +38,6 @@ from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.stringtype import wrapstr
 from pypy.objspace.std.unicodetype import wrapunicode
-
 
 class StdObjSpace(ObjSpace, DescrOperation):
     """The standard object space, implementing a general-purpose object
@@ -255,7 +254,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             w_result = self.wrap_exception_cls(x)
             if w_result is not None:
                 return w_result
-        from fake import fake_object
+        from pypy.objspace.std.fake import fake_object
         return fake_object(self, x)
 
     def wrap_exception_cls(self, x):
@@ -296,9 +295,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return newlong(self, val)
 
     def newtuple(self, list_w):
+        from pypy.objspace.std.tupletype import wraptuple
         assert isinstance(list_w, list)
         make_sure_not_resized(list_w)
-        return W_TupleObject(list_w)
+        return wraptuple(self, list_w)
 
     def newlist(self, list_w):
         return W_ListObject(list_w)
@@ -310,6 +310,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 classofinstance=classofinstance,
                 strdict=strdict)
 
+    def newset(self):
+        from pypy.objspace.std.setobject import newset
+        return W_SetObject(self, newset(self))
+
     def newslice(self, w_start, w_end, w_step):
         return W_SliceObject(w_start, w_end, w_step)
 
@@ -317,7 +321,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return W_SeqIterObject(w_obj)
 
     def type(self, w_obj):
-        hint(w_obj.__class__, promote=True)
+        jit.promote(w_obj.__class__)
         return w_obj.getclass(self)
 
     def lookup(self, w_obj, name):
@@ -564,3 +568,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if isinstance(w_sub, W_TypeObject) and isinstance(w_type, W_TypeObject):
             return self.wrap(w_sub.issubtype(w_type))
         raise OperationError(self.w_TypeError, self.wrap("need type objects"))
+
+    def _type_isinstance(self, w_inst, w_type):
+        if isinstance(w_type, W_TypeObject):
+            return self.wrap(self.type(w_inst).issubtype(w_type))
+        raise OperationError(self.w_TypeError, self.wrap("need type object"))

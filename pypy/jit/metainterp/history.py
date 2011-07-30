@@ -4,7 +4,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.objectmodel import we_are_translated, r_dict, Symbolic
 from pypy.rlib.objectmodel import compute_unique_id
-from pypy.rlib.rarithmetic import intmask, r_int64
+from pypy.rlib.rarithmetic import r_int64
 from pypy.conftest import option
 
 from pypy.jit.metainterp.resoperation import ResOperation, rop
@@ -712,10 +712,14 @@ def dc_hash(c):
         return -2      # xxx risk of changing hash...
 
 def make_hashable_int(i):
+    from pypy.rpython.lltypesystem.ll2ctypes import NotCtypesAllocatedStructure
     if not we_are_translated() and isinstance(i, llmemory.AddressAsInt):
         # Warning: such a hash changes at the time of translation
         adr = heaptracker.int2adr(i)
-        return llmemory.cast_adr_to_int(adr, "emulated")
+        try:
+            return llmemory.cast_adr_to_int(adr, "emulated")
+        except NotCtypesAllocatedStructure:
+            return 12345 # use an arbitrary number for the hash
     return i
 
 def get_const_ptr_for_string(s):
@@ -788,11 +792,13 @@ class LoopToken(AbstractDescr):
 
     def dump(self):
         self.compiled_loop_token.cpu.dump_loop_token(self)
+
 class TreeLoop(object):
     inputargs = None
     operations = None
     token = None
     call_pure_results = None
+    logops = None
     quasi_immutable_deps = None
 
     def __init__(self, name):

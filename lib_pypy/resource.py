@@ -7,7 +7,7 @@ from ctypes_config_cache._resource_cache import *
 
 from ctypes_support import standard_c_lib as libc
 from ctypes_support import get_errno
-from ctypes import Structure, c_int, c_long, byref, sizeof
+from ctypes import Structure, c_int, c_long, byref, sizeof, POINTER
 from errno import EINVAL, EPERM
 import _structseq
 
@@ -25,6 +25,8 @@ _getrlimit = libc.getrlimit
 _setrlimit = libc.setrlimit
 try:
     _getpagesize = libc.getpagesize
+    _getpagesize.argtypes = ()
+    _getpagesize.restype = c_int
 except AttributeError:
     from os import sysconf
     _getpagesize = None
@@ -61,6 +63,10 @@ class _struct_rusage(Structure):
         ("ru_nivcsw", c_long),
     )
 
+_getrusage.argtypes = (c_int, POINTER(_struct_rusage))
+_getrusage.restype = c_int
+
+
 class struct_rusage:
     __metaclass__ = _structseq.structseqtype
 
@@ -93,6 +99,12 @@ class rlimit(Structure):
         ("rlim_cur", rlim_t),
         ("rlim_max", rlim_t),
     )
+
+_getrlimit.argtypes = (c_int, POINTER(rlimit))
+_getrlimit.restype = c_int
+_setrlimit.argtypes = (c_int, POINTER(rlimit))
+_setrlimit.restype = c_int
+
 
 @builtinify
 def getrusage(who):

@@ -1,6 +1,6 @@
 import py
 from pypy.objspace.flow.model import SpaceOperation, Constant, Variable
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.translator.unsimplify import varoftype
 from pypy.rlib import jit
 from pypy.jit.codewriter.call import CallControl
@@ -103,7 +103,7 @@ def test_guess_call_kind_and_calls_from_graphs():
 
     op = SpaceOperation('direct_call', [Constant(object())],
                         Variable())
-    assert cc.guess_call_kind(op) == 'residual'        
+    assert cc.guess_call_kind(op) == 'residual'
 
     class funcptr:
         class graph:
@@ -118,7 +118,7 @@ def test_guess_call_kind_and_calls_from_graphs():
     op = SpaceOperation('direct_call', [Constant(funcptr)],
                         Variable())
     res = cc.graphs_from(op)
-    assert res == [g]        
+    assert res == [g]
     assert cc.guess_call_kind(op) == 'regular'
 
     class funcptr:
@@ -126,7 +126,7 @@ def test_guess_call_kind_and_calls_from_graphs():
     op = SpaceOperation('direct_call', [Constant(funcptr)],
                         Variable())
     res = cc.graphs_from(op)
-    assert res is None        
+    assert res is None
     assert cc.guess_call_kind(op) == 'residual'
 
     h = object()
@@ -142,7 +142,7 @@ def test_guess_call_kind_and_calls_from_graphs():
                         Variable())
     res = cc.graphs_from(op)
     assert res is None
-    assert cc.guess_call_kind(op) == 'residual'        
+    assert cc.guess_call_kind(op) == 'residual'
 
 # ____________________________________________________________
 
@@ -171,3 +171,24 @@ def test_get_jitcode():
 
 def test_jit_force_virtualizable_effectinfo():
     py.test.skip("XXX add a test for CallControl.getcalldescr() -> EF_xxx")
+
+def test_releases_gil_analyzer():
+    from pypy.jit.backend.llgraph.runner import LLtypeCPU
+
+    T = rffi.CArrayPtr(rffi.TIME_T)
+    external = rffi.llexternal("time", [T], rffi.TIME_T, threadsafe=True)
+
+    @jit.dont_look_inside
+    def f():
+        return external(lltype.nullptr(T.TO))
+
+    rtyper = support.annotate(f, [])
+    jitdriver_sd = FakeJitDriverSD(rtyper.annotator.translator.graphs[0])
+    cc = CallControl(LLtypeCPU(rtyper), jitdrivers_sd=[jitdriver_sd])
+    res = cc.find_all_graphs(FakePolicy())
+
+    [f_graph] = [x for x in res if x.func is f]
+    [block, _] = list(f_graph.iterblocks())
+    [op] = block.operations
+    call_descr = cc.getcalldescr(op)
+    assert call_descr.extrainfo.can_release_gil

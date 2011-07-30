@@ -53,8 +53,6 @@ extern FILE *pypy_debug_file;
 #  ifdef _WIN32
 #    define READ_TIMESTAMP(val) QueryPerformanceCounter((LARGE_INTEGER*)&(val))
 #  else
-#    include <time.h>
-#    include <sys/time.h>
 
 long long pypy_read_timestamp();
 

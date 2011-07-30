@@ -78,15 +78,17 @@ class AppTestZlib(object):
     def test_crc32_negative_long_start(self):
         v = self.zlib.crc32('', -1L)
         assert v == -1
+        assert self.zlib.crc32('foo', -99999999999999999999999) == 1611238463
 
     def test_crc32_long_start(self):
         import sys
         v = self.zlib.crc32('', sys.maxint*2)
         assert v == -2
+        assert self.zlib.crc32('foo', 99999999999999999999999) == 1635107045
 
     def test_adler32(self):
         """
-        When called with a string, zlib.crc32 should compute its adler 32
+        When called with a string, zlib.adler32() should compute its adler 32
         checksum and return it as a signed 32 bit integer.
         On 64-bit machines too
         (it is a bug in CPython < 2.6 to return unsigned values in this case).
@@ -112,6 +114,9 @@ class AppTestZlib(object):
         world = 'world.'
         helloworldsum = self.zlib.adler32(world, hellosum)
         assert helloworldsum == self.zlib.adler32(hello + world)
+
+        assert self.zlib.adler32('foo', -1) == 45547858
+        assert self.zlib.adler32('foo', 99999999999999999999999) == -114818734
 
 
     def test_invalidLevel(self):

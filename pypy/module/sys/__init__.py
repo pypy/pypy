@@ -7,6 +7,8 @@ _WIN = sys.platform == 'win32'
 
 class Module(MixedModule):
     """Sys Builtin Module. """
+    _immutable_fields_ = ["defaultencoding?"]
+
     def __init__(self, space, w_name):
         """NOT_RPYTHON""" # because parent __init__ isn't
         if space.config.translating:
@@ -150,7 +152,7 @@ class Module(MixedModule):
             if operror is None:
                 return space.w_None
             else:
-                return space.wrap(operror.application_traceback)
+                return space.wrap(operror.get_traceback())
         return None 
 
     def get_w_default_encoder(self):

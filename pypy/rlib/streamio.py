@@ -141,7 +141,8 @@ def decode_mode(mode):
 def construct_stream_tower(stream, buffering, universal, reading, writing,
                            binary):
     if buffering == 0:   # no buffering
-        pass
+        if reading:      # force some minimal buffering for readline()
+            stream = ReadlineInputStream(stream)
     elif buffering == 1:   # line-buffering
         if writing:
             stream = LineBufferingOutputStream(stream)
@@ -749,6 +750,113 @@ class BufferingInputStream(Stream):
                                               flush_buffers=False)
 
 
+class ReadlineInputStream(Stream):
+
+    """Minimal buffering input stream.
+
+    Only does buffering for readline().  The other kinds of reads, and
+    all writes, are not buffered at all.
+    """
+
+    bufsize = 2**13 # 8 K
+
+    def __init__(self, base, bufsize=-1):
+        self.base = base
+        self.do_read = base.read   # function to fill buffer some more
+        self.do_seek = base.seek   # seek to a byte offset
+        if bufsize == -1:     # Get default from the class
+            bufsize = self.bufsize
+        self.bufsize = bufsize  # buffer size (hint only)
+        self.buf = None         # raw data (may contain "\n")
+        self.bufstart = 0
+
+    def flush_buffers(self):
+        if self.buf is not None:
+            try:
+                self.do_seek(self.bufstart-len(self.buf), 1)
+            except MyNotImplementedError:
+                pass
+            else:
+                self.buf = None
+                self.bufstart = 0
+
+    def readline(self):
+        if self.buf is not None:
+            i = self.buf.find('\n', self.bufstart)
+        else:
+            self.buf = ''
+            i = -1
+        #
+        if i < 0:
+            self.buf = self.buf[self.bufstart:]
+            self.bufstart = 0
+            while True:
+                bufsize = max(self.bufsize, len(self.buf) >> 2)
+                data = self.do_read(bufsize)
+                if not data:
+                    result = self.buf              # end-of-file reached
+                    self.buf = None
+                    return result
+                startsearch = len(self.buf)   # there is no '\n' in buf so far
+                self.buf += data
+                i = self.buf.find('\n', startsearch)
+                if i >= 0:
+                    break
+        #
+        i += 1
+        result = self.buf[self.bufstart:i]
+        self.bufstart = i
+        return result
+
+    def peek(self):
+        if self.buf is None:
+            return ''
+        if self.bufstart > 0:
+            self.buf = self.buf[self.bufstart:]
+            self.bufstart = 0
+        return self.buf
+
+    def tell(self):
+        pos = self.base.tell()
+        if self.buf is not None:
+            pos -= (len(self.buf) - self.bufstart)
+        return pos
+
+    def readall(self):
+        result = self.base.readall()
+        if self.buf is not None:
+            result = self.buf[self.bufstart:] + result
+            self.buf = None
+            self.bufstart = 0
+        return result
+
+    def read(self, n):
+        if self.buf is None:
+            return self.do_read(n)
+        else:
+            m = n - (len(self.buf) - self.bufstart)
+            start = self.bufstart
+            if m > 0:
+                result = self.buf[start:] + self.do_read(m)
+                self.buf = None
+                self.bufstart = 0
+                return result
+            elif n >= 0:
+                self.bufstart = start + n
+                return self.buf[start : self.bufstart]
+            else:
+                return ''
+
+    seek       = PassThrough("seek",      flush_buffers=True)
+    write      = PassThrough("write",     flush_buffers=True)
+    truncate   = PassThrough("truncate",  flush_buffers=True)
+    flush      = PassThrough("flush",     flush_buffers=True)
+    flushable  = PassThrough("flushable", flush_buffers=False)
+    close      = PassThrough("close",     flush_buffers=False)
+    try_to_find_file_descriptor = PassThrough("try_to_find_file_descriptor",
+                                              flush_buffers=False)
+
+
 class BufferingOutputStream(Stream):
 
     """Standard buffering output stream.
@@ -767,28 +875,32 @@ class BufferingOutputStream(Stream):
         if bufsize == -1:     # Get default from the class
             bufsize = self.bufsize
         self.bufsize = bufsize  # buffer size (hint only)
-        self.buf = ""
+        self.buf = []
+        self.buflen = 0
 
     def flush_buffers(self):
         if self.buf:
-            self.do_write(self.buf)
-            self.buf = ""
+            self.do_write(''.join(self.buf))
+            self.buf = []
+            self.buflen = 0
 
     def tell(self):
-        return self.do_tell() + len(self.buf)
+        return self.do_tell() + self.buflen
 
     def write(self, data):
-        buflen = len(self.buf)
+        buflen = self.buflen
         datalen = len(data)
         if datalen + buflen < self.bufsize:
-            self.buf += data
+            self.buf.append(data)
+            self.buflen += datalen
         elif buflen:
-            slice = self.bufsize - buflen
-            assert slice >= 0
-            self.buf += data[:slice]
-            self.do_write(self.buf)
-            self.buf = ""
-            self.write(data[slice:])
+            i = self.bufsize - buflen
+            assert i >= 0
+            self.buf.append(data[:i])
+            self.do_write(''.join(self.buf))
+            self.buf = []
+            self.buflen = 0
+            self.write(data[i:])
         else:
             self.do_write(data)
 
@@ -814,11 +926,27 @@ class LineBufferingOutputStream(BufferingOutputStream):
     """
 
     def write(self, data):
-        BufferingOutputStream.write(self, data)
-        p = self.buf.rfind('\n') + 1
-        if p >= 0:
-            self.do_write(self.buf[:p])
-            self.buf = self.buf[p:]
+        p = data.rfind('\n') + 1
+        assert p >= 0
+        if self.buflen + len(data) < self.bufsize:
+            if p == 0:
+                self.buf.append(data)
+                self.buflen += len(data)
+            else:
+                if self.buflen:
+                    self.do_write(''.join(self.buf))
+                self.do_write(data[:p])
+                self.buf = [data[p:]]
+                self.buflen = len(self.buf[0])
+        else:
+            if self.buflen + p < self.bufsize:
+                p = self.bufsize - self.buflen
+            if self.buflen:
+                self.do_write(''.join(self.buf))
+            assert p >= 0
+            self.do_write(data[:p])
+            self.buf = [data[p:]]
+            self.buflen = len(self.buf[0])
 
 
 # ____________________________________________________________

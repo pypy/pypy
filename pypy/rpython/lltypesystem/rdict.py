@@ -9,6 +9,7 @@ from pypy.rlib.objectmodel import hlinvoke
 from pypy.rpython import robject
 from pypy.rlib import objectmodel, jit
 from pypy.rpython import rmodel
+from pypy.rpython.error import TyperError
 
 HIGHEST_BIT = intmask(1 << (LONG_BIT - 1))
 MASK = intmask(HIGHEST_BIT - 1)
@@ -42,7 +43,7 @@ MASK = intmask(HIGHEST_BIT - 1)
 class DictRepr(AbstractDictRepr):
 
     def __init__(self, rtyper, key_repr, value_repr, dictkey, dictvalue,
-                 custom_eq_hash=None):
+                 custom_eq_hash=None, force_non_null=False):
         self.rtyper = rtyper
         self.DICT = lltype.GcForwardReference()
         self.lowleveltype = lltype.Ptr(self.DICT)
@@ -61,6 +62,7 @@ class DictRepr(AbstractDictRepr):
         self.dictvalue = dictvalue
         self.dict_cache = {}
         self._custom_eq_hash_repr = custom_eq_hash
+        self.force_non_null = force_non_null
         # setup() needs to be called to finish this initialization
 
     def _externalvsinternal(self, rtyper, item_repr):
@@ -97,6 +99,13 @@ class DictRepr(AbstractDictRepr):
             s_value = self.dictvalue.s_value
             nullkeymarker = not self.key_repr.can_ll_be_null(s_key)
             nullvaluemarker = not self.value_repr.can_ll_be_null(s_value)
+            if self.force_non_null:
+                if not nullkeymarker:
+                    rmodel.warning("%s can be null, but forcing non-null in dict key" % s_key)
+                    nullkeymarker = True
+                if not nullvaluemarker:
+                    rmodel.warning("%s can be null, but forcing non-null in dict value" % s_value)
+                    nullvaluemarker = True
             dummykeyobj = self.key_repr.get_ll_dummyval_obj(self.rtyper,
                                                             s_key)
             dummyvalueobj = self.value_repr.get_ll_dummyval_obj(self.rtyper,
@@ -206,7 +215,7 @@ class DictRepr(AbstractDictRepr):
         if dictobj is None:
             return lltype.nullptr(self.DICT)
         if not isinstance(dictobj, (dict, objectmodel.r_dict)):
-            raise TyperError("expected a dict: %r" % (dictobj,))
+            raise TypeError("expected a dict: %r" % (dictobj,))
         try:
             key = Constant(dictobj)
             return self.dict_cache[key]
@@ -492,9 +501,6 @@ def _ll_dict_del(d, i):
     ENTRY = ENTRIES.OF
     entry = d.entries[i]
     if ENTRIES.must_clear_key:
-        key = entry.key   # careful about destructor side effects:
-                          # keep key alive until entry.value has also
-                          # been zeroed (if it must be)
         entry.key = lltype.nullptr(ENTRY.key.TO)
     if ENTRIES.must_clear_value:
         entry.value = lltype.nullptr(ENTRY.value.TO)
@@ -640,12 +646,15 @@ def _ll_free_entries(entries):
     pass
 
 
-def rtype_r_dict(hop):
+def rtype_r_dict(hop, i_force_non_null=None):
     r_dict = hop.r_result
     if not r_dict.custom_eq_hash:
         raise TyperError("r_dict() call does not return an r_dict instance")
-    v_eqfn, v_hashfn = hop.inputargs(r_dict.r_rdict_eqfn,
-                                     r_dict.r_rdict_hashfn)
+    v_eqfn = hop.inputarg(r_dict.r_rdict_eqfn, arg=0)
+    v_hashfn = hop.inputarg(r_dict.r_rdict_hashfn, arg=1)
+    if i_force_non_null is not None:
+        assert i_force_non_null == 2
+        hop.inputarg(lltype.Void, arg=2)
     cDICT = hop.inputconst(lltype.Void, r_dict.DICT)
     hop.exception_cannot_occur()
     v_result = hop.gendirectcall(ll_newdict, cDICT)
@@ -833,10 +842,16 @@ def ll_contains(d, key):
 POPITEMINDEX = lltype.Struct('PopItemIndex', ('nextindex', lltype.Signed))
 global_popitem_index = lltype.malloc(POPITEMINDEX, zero=True, immortal=True)
 
-def ll_popitem(ELEM, dic):
+def _ll_getnextitem(dic):
     entries = dic.entries
+    ENTRY = lltype.typeOf(entries).TO.OF
     dmask = len(entries) - 1
-    base = global_popitem_index.nextindex
+    if hasattr(ENTRY, 'f_hash'):
+        if entries.valid(0):
+            return 0
+        base = entries[0].f_hash
+    else:
+        base = global_popitem_index.nextindex
     counter = 0
     while counter <= dmask:
         i = (base + counter) & dmask
@@ -845,8 +860,16 @@ def ll_popitem(ELEM, dic):
             break
     else:
         raise KeyError
-    global_popitem_index.nextindex += counter
-    entry = entries[i]
+    if hasattr(ENTRY, 'f_hash'):
+        entries[0].f_hash = base + counter
+    else:
+        global_popitem_index.nextindex = base + counter
+    return i
+
+@jit.dont_look_inside
+def ll_popitem(ELEM, dic):
+    i = _ll_getnextitem(dic)
+    entry = dic.entries[i]
     r = lltype.malloc(ELEM.TO)
     r.item0 = recast(ELEM.TO.item0, entry.key)
     r.item1 = recast(ELEM.TO.item1, entry.value)

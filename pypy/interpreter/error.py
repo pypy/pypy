@@ -11,14 +11,14 @@ class OperationError(Exception):
     """Interpreter-level exception that signals an exception that should be
     sent to the application level.
 
-    OperationError instances have three public attributes (and no .args),
-    w_type, w_value and application_traceback, which contain the wrapped
+    OperationError instances have three attributes (and no .args),
+    w_type, _w_value and _application_traceback, which contain the wrapped
     type and value describing the exception, and a chained list of
     PyTraceback objects making the application-level traceback.
     """
 
     _w_value = None
-    application_traceback = None
+    _application_traceback = None
 
     def __init__(self, w_type, w_value, tb=None):
         if not we_are_translated() and w_type is None:
@@ -26,7 +26,7 @@ class OperationError(Exception):
             raise FlowingError(w_value)
         self.setup(w_type)
         self._w_value = w_value
-        self.application_traceback = tb
+        self._application_traceback = tb
 
     def setup(self, w_type):
         self.w_type = w_type
@@ -37,7 +37,7 @@ class OperationError(Exception):
         # for sys.exc_clear()
         self.w_type = space.w_None
         self._w_value = space.w_None
-        self.application_traceback = None
+        self._application_traceback = None
         if not we_are_translated():
             del self.debug_excs[:]
 
@@ -103,7 +103,7 @@ class OperationError(Exception):
 
     def print_app_tb_only(self, file):
         "NOT_RPYTHON"
-        tb = self.application_traceback
+        tb = self._application_traceback
         if tb:
             import linecache
             print >> file, "Traceback (application-level):"
@@ -189,7 +189,7 @@ class OperationError(Exception):
             if space.is_w(w_value, space.w_None):
                 # raise Type: we assume we have to instantiate Type
                 w_value = space.call_function(w_type)
-                w_type = space.exception_getclass(w_value)
+                w_type = self._exception_getclass(space, w_value)
             else:
                 w_valuetype = space.exception_getclass(w_value)
                 if space.exception_issubclass_w(w_valuetype, w_type):
@@ -204,18 +204,12 @@ class OperationError(Exception):
                     else:
                         # raise Type, X: assume X is the constructor argument
                         w_value = space.call_function(w_type, w_value)
-                    w_type = space.exception_getclass(w_value)
+                    w_type = self._exception_getclass(space, w_value)
 
         else:
             # the only case left here is (inst, None), from a 'raise inst'.
             w_inst = w_type
-            w_instclass = space.exception_getclass(w_inst)
-            if not space.exception_is_valid_class_w(w_instclass):
-                instclassname = w_instclass.getname(space)
-                msg = ("exceptions must be old-style classes or derived "
-                       "from BaseException, not %s")
-                raise operationerrfmt(space.w_TypeError, msg, instclassname)
-
+            w_instclass = self._exception_getclass(space, w_inst)
             if not space.is_w(w_value, space.w_None):
                 raise OperationError(space.w_TypeError,
                                      space.wrap("instance exception may not "
@@ -225,6 +219,15 @@ class OperationError(Exception):
 
         self.w_type   = w_type
         self._w_value = w_value
+
+    def _exception_getclass(self, space, w_inst):
+        w_type = space.exception_getclass(w_inst)
+        if not space.exception_is_valid_class_w(w_type):
+            typename = w_type.getname(space)
+            msg = ("exceptions must be old-style classes or derived "
+                   "from BaseException, not %s")
+            raise operationerrfmt(space.w_TypeError, msg, typename)
+        return w_type
 
     def write_unraisable(self, space, where, w_object=None):
         if w_object is None:
@@ -250,6 +253,30 @@ class OperationError(Exception):
 
     def _compute_value(self):
         raise NotImplementedError
+
+    def get_traceback(self):
+        """Calling this marks the PyTraceback as escaped, i.e. it becomes
+        accessible and inspectable by app-level Python code.  For the JIT.
+        Note that this has no effect if there are already several traceback
+        frames recorded, because in this case they are already marked as
+        escaping by executioncontext.leave() being called with
+        got_exception=True.
+        """
+        from pypy.interpreter.pytraceback import PyTraceback
+        tb = self._application_traceback
+        if tb is not None and isinstance(tb, PyTraceback):
+            tb.frame.mark_as_escaped()
+        return tb
+
+    def set_traceback(self, traceback):
+        """Set the current traceback.  It should either be a traceback
+        pointing to some already-escaped frame, or a traceback for the
+        current frame.  To support the latter case we do not mark the
+        frame as escaped.  The idea is that it will be marked as escaping
+        only if the exception really propagates out of this frame, by
+        executioncontext.leave() being called with got_exception=True.
+        """
+        self._application_traceback = traceback
 
 # ____________________________________________________________
 # optimization only: avoid the slowest operation -- the string

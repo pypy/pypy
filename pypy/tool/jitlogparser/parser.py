@@ -1,9 +1,13 @@
 import re, sys
-from pypy.jit.metainterp.resoperation import rop, opname
+
+from pypy.jit.metainterp.resoperation import opname
 from pypy.jit.tool.oparser import OpParser
+from pypy.tool.logparser import parse_log_file, extract_category
 
 class Op(object):
     bridge = None
+    offset = None
+    asm = None
 
     def __init__(self, name, args, res, descr):
         self.name = name
@@ -26,6 +30,9 @@ class Op(object):
     def getres(self):
         return self._getvar(self.res)
 
+    def getdescr(self):
+        return self.descr
+
     def _getvar(self, v):
         return v
 
@@ -35,7 +42,7 @@ class Op(object):
     def repr(self):
         args = self.getargs()
         if self.descr is not None:
-            args.append('descr=%s' % self.descr)
+            args.append('descr=%s' % self.getdescr())
         arglist = ', '.join(args)
         if self.res is not None:
             return '%s = %s(%s)' % (self.getres(), self.name, arglist)
@@ -51,17 +58,61 @@ class SimpleParser(OpParser):
 
     # factory method
     Op = Op
+    use_mock_model = True
+
+    def postprocess(self, loop, backend_dump=None, backend_tp=None,
+                    dump_start=0):
+        if backend_dump is not None:
+            raw_asm = self._asm_disassemble(backend_dump.decode('hex'),
+                                            backend_tp, dump_start)
+            asm = []
+            start = 0
+            for elem in raw_asm:
+                if len(elem.split("\t")) != 3:
+                    continue
+                adr, _, v = elem.split("\t")
+                if not start:
+                    start = int(adr.strip(":"), 16)
+                ofs = int(adr.strip(":"), 16) - start
+                if ofs >= 0:
+                    asm.append((ofs, v.strip("\n")))
+            asm_index = 0
+            for i, op in enumerate(loop.operations):
+                end = 0
+                j = i + 1
+                while end == 0:
+                    if j == len(loop.operations):
+                        end = loop.last_offset
+                        break
+                    if loop.operations[j].offset is None:
+                        j += 1
+                    else:
+                        end = loop.operations[j].offset
+                if op.offset is not None:
+                    while asm[asm_index][0] < op.offset:
+                        asm_index += 1
+                    end_index = asm_index
+                    while asm[end_index][0] < end and end_index < len(asm) - 1:
+                        end_index += 1
+                    op.asm = '\n'.join([asm[i][1] for i in range(asm_index, end_index)])
+        return loop
+                    
+    def _asm_disassemble(self, d, origin_addr, tp):
+        from pypy.jit.backend.x86.tool.viewcode import machine_code_dump
+        return list(machine_code_dump(d, tp, origin_addr))
 
     @classmethod
-    def parse_from_input(cls, input):
-        return cls(input, None, {}, 'lltype', None,
-                   nonstrict=True).parse()
+    def parse_from_input(cls, input, **kwds):
+        parser = cls(input, None, {}, 'lltype', None,
+                     nonstrict=True)
+        loop = parser.parse()
+        return parser.postprocess(loop, **kwds)
 
     def parse_args(self, opname, argspec):
         if not argspec.strip():
             return [], None
         if opname == 'debug_merge_point':
-            return argspec.rsplit(", ", 1), None
+            return argspec.split(", ", 1), None
         else:
             args = argspec.split(', ')
             descr = None
@@ -95,12 +146,12 @@ class TraceForOpcode(object):
 
     def __init__(self, operations, storage):
         if operations[0].name == 'debug_merge_point':
-            self.inline_level = int(operations[0].args[1])
-            m = re.search('<code object ([<>\w]+), file \'(.+?)\', line (\d+)> #(\d+) (\w+)',
-                         operations[0].getarg(0))
+            self.inline_level = int(operations[0].args[0])
+            m = re.search('<code object ([<>\w]+)\. file \'(.+?)\'\. line (\d+)> #(\d+) (\w+)',
+                         operations[0].args[1])
             if m is None:
                 # a non-code loop, like StrLiteralSearch or something
-                self.bytecode_name = operations[0].args[0].split(" ")[0][1:]
+                self.bytecode_name = operations[0].args[1][1:-1]
             else:
                 self.name, self.filename, lineno, bytecode_no, self.bytecode_name = m.groups()
                 self.startlineno = int(lineno)
@@ -118,6 +169,9 @@ class TraceForOpcode(object):
 
     def getcode(self):
         return self.code
+
+    def has_valid_code(self):
+        return self.code is not None
 
     def getopcode(self):
         if self.code is None:
@@ -220,6 +274,12 @@ class Function(object):
         return self._lineset
     lineset = property(getlineset)
 
+    def has_valid_code(self):
+        for chunk in self.chunks:
+            if not chunk.has_valid_code():
+                return False
+        return True
+
     def _compute_linerange(self):
         self._lineset = set()
         minline = sys.maxint
@@ -275,3 +335,51 @@ def adjust_bridges(loop, bridges):
             res.append(op)
             i += 1
     return res
+
+
+def import_log(logname, ParserCls=SimpleParser):
+    log = parse_log_file(logname)
+    addrs = {}
+    for entry in extract_category(log, 'jit-backend-addr'):
+        m = re.search('bootstrap ([-\da-f]+)', entry)
+        if not m:
+            # a bridge
+            m = re.search('has address ([-\da-f]+)', entry)
+            addr = int(m.group(1), 16)
+            entry = entry.lower()
+            m = re.search('guard \d+', entry)
+            name = m.group(0)
+        else:
+            name = entry[:entry.find('(') - 1].lower()
+            addr = int(m.group(1), 16)
+        addrs.setdefault(addr, []).append(name)
+    dumps = {}
+    for entry in extract_category(log, 'jit-backend-dump'):
+        backend, _, dump, _ = entry.split("\n")
+        _, addr, _, data = re.split(" +", dump)
+        backend_name = backend.split(" ")[1]
+        addr = int(addr[1:], 16)
+        if addr in addrs and addrs[addr]:
+            name = addrs[addr].pop(0) # they should come in order
+            dumps[name] = (backend_name, addr, data)
+    loops = []
+    for entry in extract_category(log, 'jit-log-opt'):
+        parser = ParserCls(entry, None, {}, 'lltype', None,
+                           nonstrict=True)
+        loop = parser.parse()
+        comm = loop.comment
+        comm = comm.lower()
+        if comm.startswith('# bridge'):
+            m = re.search('guard \d+', comm)
+            name = m.group(0)
+        else:
+            name = comm[2:comm.find(':')-1]
+        if name in dumps:
+            bname, start_ofs, dump = dumps[name]
+            loop.force_asm = (lambda dump=dump, start_ofs=start_ofs,
+                              bname=bname, loop=loop:
+                              parser.postprocess(loop, backend_tp=bname,
+                                                 backend_dump=dump,
+                                                 dump_start=start_ofs))
+        loops.append(loop)
+    return log, loops

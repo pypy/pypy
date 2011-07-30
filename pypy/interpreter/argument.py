@@ -17,7 +17,7 @@ class Signature(object):
         self.varargname = varargname
         self.kwargname = kwargname
 
-    @jit.purefunction
+    @jit.elidable
     def find_argname(self, name):
         try:
             return self.argnames.index(name)
@@ -90,15 +90,18 @@ class Arguments(object):
     ###  Construction  ###
 
     def __init__(self, space, args_w, keywords=None, keywords_w=None,
-                 w_stararg=None, w_starstararg=None):
+                 w_stararg=None, w_starstararg=None, keyword_names_w=None):
         self.space = space
         assert isinstance(args_w, list)
         self.arguments_w = args_w
         self.keywords = keywords
         self.keywords_w = keywords_w
+        self.keyword_names_w = keyword_names_w  # matches the tail of .keywords
         if keywords is not None:
             assert keywords_w is not None
             assert len(keywords_w) == len(keywords)
+            assert (keyword_names_w is None or
+                    len(keyword_names_w) <= len(keywords))
             make_sure_not_resized(self.keywords)
             make_sure_not_resized(self.keywords_w)
 
@@ -132,7 +135,8 @@ class Arguments(object):
 
     def replace_arguments(self, args_w):
         "Return a new Arguments with a args_w as positional arguments."
-        return Arguments(self.space, args_w, self.keywords, self.keywords_w)
+        return Arguments(self.space, args_w, self.keywords, self.keywords_w,
+                         keyword_names_w = self.keyword_names_w)
 
     def prepend(self, w_firstarg):
         "Return a new Arguments with a new argument inserted first."
@@ -201,15 +205,16 @@ class Arguments(object):
                         space.w_TypeError,
                         space.wrap("keywords must be strings"))
                 if e.match(space, space.w_UnicodeEncodeError):
-                    raise OperationError(
-                        space.w_TypeError,
-                        space.wrap("keyword cannot be encoded to ascii"))
-                raise
-            if self.keywords and key in self.keywords:
-                raise operationerrfmt(self.space.w_TypeError,
-                                      "got multiple values "
-                                      "for keyword argument "
-                                      "'%s'", key)
+                    # Allow this to pass through
+                    key = None
+                else:
+                    raise
+            else:
+                if self.keywords and key in self.keywords:
+                    raise operationerrfmt(self.space.w_TypeError,
+                                          "got multiple values "
+                                          "for keyword argument "
+                                          "'%s'", key)
             keywords[i] = key
             keywords_w[i] = space.getitem(w_starstararg, w_key)
             i += 1
@@ -219,6 +224,7 @@ class Arguments(object):
         else:
             self.keywords = self.keywords + keywords
             self.keywords_w = self.keywords_w + keywords_w
+        self.keyword_names_w = keys_w
 
     def fixedunpack(self, argcount):
         """The simplest argument parsing: get the 'argcount' arguments,
@@ -339,6 +345,10 @@ class Arguments(object):
             used_keywords = [False] * num_kwds
             for i in range(num_kwds):
                 name = keywords[i]
+                # If name was not encoded as a string, it could be None. In that
+                # case, it's definitely not going to be in the signature.
+                if name is None:
+                    continue
                 j = signature.find_argname(name)
                 if j < 0:
                     continue
@@ -374,17 +384,26 @@ class Arguments(object):
         if has_kwarg:
             w_kwds = self.space.newdict()
             if num_remainingkwds:
+                #
+                limit = len(keywords)
+                if self.keyword_names_w is not None:
+                    limit -= len(self.keyword_names_w)
                 for i in range(len(keywords)):
                     if not used_keywords[i]:
-                        key = keywords[i]
-                        self.space.setitem(w_kwds, self.space.wrap(key), keywords_w[i])
+                        if i < limit:
+                            w_key = self.space.wrap(keywords[i])
+                        else:
+                            w_key = self.keyword_names_w[i - limit]
+                        self.space.setitem(w_kwds, w_key, keywords_w[i])
+                #
             scope_w[co_argcount + has_vararg] = w_kwds
         elif num_remainingkwds:
             if co_argcount == 0:
                 raise ArgErrCount(avail, num_kwds,
                               co_argcount, has_vararg, has_kwarg,
                               defaults_w, missing)
-            raise ArgErrUnknownKwds(num_remainingkwds, keywords, used_keywords)
+            raise ArgErrUnknownKwds(self.space, num_remainingkwds, keywords,
+                                    used_keywords, self.keyword_names_w)
 
         if missing:
             raise ArgErrCount(avail, num_kwds,
@@ -443,9 +462,15 @@ class Arguments(object):
         w_args = space.newtuple(self.arguments_w)
         w_kwds = space.newdict()
         if self.keywords is not None:
+            limit = len(self.keywords)
+            if self.keyword_names_w is not None:
+                limit -= len(self.keyword_names_w)
             for i in range(len(self.keywords)):
-                space.setitem(w_kwds, space.wrap(self.keywords[i]),
-                                      self.keywords_w[i])
+                if i < limit:
+                    w_key = space.wrap(self.keywords[i])
+                else:
+                    w_key = self.keyword_names_w[i - limit]
+                space.setitem(w_kwds, w_key, self.keywords_w[i])
         return w_args, w_kwds
 
 class ArgumentsForTranslation(Arguments):
@@ -666,14 +691,33 @@ class ArgErrMultipleValues(ArgErr):
 
 class ArgErrUnknownKwds(ArgErr):
 
-    def __init__(self, num_remainingkwds, keywords, used_keywords):
-        self.kwd_name = ''
+    def __init__(self, space, num_remainingkwds, keywords, used_keywords,
+                 keyword_names_w):
+        name = ''
         self.num_kwds = num_remainingkwds
         if num_remainingkwds == 1:
             for i in range(len(keywords)):
                 if not used_keywords[i]:
-                    self.kwd_name = keywords[i]
+                    name = keywords[i]
+                    if name is None:
+                        # We'll assume it's unicode. Encode it.
+                        # Careful, I *think* it should not be possible to
+                        # get an IndexError here but you never know.
+                        try:
+                            if keyword_names_w is None:
+                                raise IndexError
+                            # note: negative-based indexing from the end
+                            w_name = keyword_names_w[i - len(keywords)]
+                        except IndexError:
+                            name = '?'
+                        else:
+                            w_enc = space.wrap(space.sys.defaultencoding)
+                            w_err = space.wrap("replace")
+                            w_name = space.call_method(w_name, "encode", w_enc,
+                                                       w_err)
+                            name = space.str_w(w_name)
                     break
+        self.kwd_name = name
 
     def getmsg(self, fnname):
         if self.num_kwds == 1:

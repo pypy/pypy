@@ -200,14 +200,15 @@ def register_stackless_primitive(thang, retval_expr='None'):
     # I can't think of a better solution without a real transform.
 
 def rewrite_stackless_primitive(coro_state, alive, tempval):
-    flags, state, thunk, parent = coro_state
-    for i, frame in enumerate(state):
+    flags, frame, thunk, parent = coro_state
+    while frame is not None:
         retval_expr = _stackless_primitive_registry.get(frame.f_code)
         if retval_expr:
             # this tasklet needs to stop pickling here and return its value.
             tempval = eval(retval_expr, globals(), frame.f_locals)
-            state = state[:i]
-            coro_state = flags, state, thunk, parent
+            coro_state = flags, frame, thunk, parent
+            break
+        frame = frame.f_back
     return coro_state, alive, tempval
 
 #
@@ -492,23 +493,22 @@ class tasklet(coroutine):
         assert two == ()
         # we want to get rid of the parent thing.
         # for now, we just drop it
-        a, b, c, d = coro_state
-        
+        a, frame, c, d = coro_state
+
         # Removing all frames related to stackless.py.
         # They point to stuff we don't want to be pickled.
-        frame_list = list(b)
-        new_frame_list = []
-        for frame in frame_list:
+
+        pickleframe = frame
+        while frame is not None:
             if frame.f_code == schedule.func_code:
                 # Removing everything including and after the
                 # call to stackless.schedule()
+                pickleframe = frame.f_back
                 break
-            new_frame_list.append(frame)
-        b = tuple(new_frame_list)
-        
+            frame = frame.f_back
         if d:
             assert isinstance(d, coroutine)
-        coro_state = a, b, c, None
+        coro_state = a, pickleframe, c, None
         coro_state, alive, tempval = rewrite_stackless_primitive(coro_state, self.alive, self.tempval)
         inst_dict = self.__dict__.copy()
         inst_dict.pop('tempval', None)

@@ -18,7 +18,7 @@ from pypy.rpython import llinterp
 
 class DictRepr(AbstractDictRepr):
     def __init__(self, rtyper, key_repr, value_repr, dictkey, dictvalue,
-                 custom_eq_hash=None):
+                 custom_eq_hash=None, force_non_null=False):
         self.rtyper = rtyper
         self.custom_eq_hash = custom_eq_hash is not None
 
@@ -255,7 +255,7 @@ def _get_call_args(hop, r_func, arg, params_annotation):
         methodname = None
     return fn, v_obj, methodname
 
-def rtype_r_dict(hop):
+def rtype_r_dict(hop, i_force_non_null=None):
     from pypy.rlib import jit
 
     r_dict = hop.r_result

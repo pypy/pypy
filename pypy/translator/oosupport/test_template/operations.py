@@ -1,3 +1,6 @@
+from pypy.rpython.lltypesystem.lloperation import llop
+from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, ovfcheck
 from pypy.rlib import rstack
 from pypy.annotation import model as annmodel
@@ -106,12 +109,6 @@ class BaseTestOperations(object):
                 res += 1
             return res
         assert self.interpret(fn, [sys.maxint, 2]) == 1
-
-    def test_ignore_resume_point(self):
-        def fn(x):
-            rstack.resume_point('hello world', x)
-            return x
-        assert self.interpret(fn, [42]) == 42
 
     def test_rshift(self):
         def fn(x, y):

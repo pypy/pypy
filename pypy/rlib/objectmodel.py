@@ -448,10 +448,11 @@ class r_dict(object):
     The functions key_eq() and key_hash() are used by the key comparison
     algorithm."""
 
-    def __init__(self, key_eq, key_hash):
+    def __init__(self, key_eq, key_hash, force_non_null=False):
         self._dict = {}
         self.key_eq = key_eq
         self.key_hash = key_hash
+        self.force_non_null = force_non_null
 
     def __getitem__(self, key):
         return self._dict[_r_dictkey(self, key)]
