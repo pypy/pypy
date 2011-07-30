@@ -1390,6 +1390,29 @@ class TestMiniMarkGC(TestSemiSpaceGC):
     def test_gc_heap_stats(self):
         py.test.skip("not implemented")
 
+    def define_nongc_attached_to_gc(cls):
+        from pypy.rpython.lltypesystem import rffi
+        ARRAY = rffi.CArray(rffi.INT)
+        class A:
+            def __init__(self, n):
+                self.buf = lltype.malloc(ARRAY, n, flavor='raw',
+                                         track_allocation=False)
+            def __del__(self):
+                lltype.free(self.buf, flavor='raw', track_allocation=False)
+        def f():
+            # allocate a total of ~77GB, but if the automatic gc'ing works,
+            # it should never need more than a few MBs at once
+            am1 = am2 = am3 = None
+            for i in range(100000):
+                am3 = am2
+                am2 = am1
+                am1 = A(i * 4)
+            return 42
+        return f
+
+    def test_nongc_attached_to_gc(self):
+        self.run("nongc_attached_to_gc")
+
 # ____________________________________________________________________
 
 class TaggedPointersTest(object):
