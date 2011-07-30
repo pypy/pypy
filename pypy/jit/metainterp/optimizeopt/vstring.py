@@ -466,6 +466,9 @@ class OptString(optimizer.Optimization):
         srcstart = self.getvalue(op.getarg(2))
         dststart = self.getvalue(op.getarg(3))
         length = self.getvalue(op.getarg(4))
+
+        if length.is_constant() and length.box.getint() == 0:
+            return
         copy_str_content(self.optimizer,
             src.force_box(),
             dst.force_box(),
