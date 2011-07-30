@@ -123,6 +123,22 @@ class BaseTestGenerateGuards(BaseTest):
         loop = self.parse(expected)
         assert equaloplists(guards, loop.operations, False,
                             {loop.inputargs[0]: box})
+
+    def test_nonnull(self):
+        ops1 = """
+        [p0]
+        jump(p0)
+        """
+        ops2 = """
+        [p0]
+        p1 = getfield_gc(p0, descr=nextdescr]
+        jump(p0)
+        """
+        self.general_order(ops1, ops2)
+
+    def general_order(self, ops1, ops2):
+        loop1 = self.parse(ops1)
+        loop2 = self.parse(ops2)
         
 class TestLLtype(BaseTestGenerateGuards, LLtypeMixin):
     pass
