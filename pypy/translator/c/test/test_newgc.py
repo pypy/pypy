@@ -1403,15 +1403,20 @@ class TestMiniMarkGC(TestSemiSpaceGC):
             # allocate a total of ~77GB, but if the automatic gc'ing works,
             # it should never need more than a few MBs at once
             am1 = am2 = am3 = None
-            for i in range(100000):
+            res = 0
+            for i in range(1, 100001):
+                if am3 is not None:
+                    res += rffi.cast(lltype.Signed, am3.buf[0])
                 am3 = am2
                 am2 = am1
                 am1 = A(i * 4)
-            return 42
+                am1.buf[0] = rffi.cast(rffi.INT, i-50000)
+            return res
         return f
 
     def test_nongc_attached_to_gc(self):
-        self.run("nongc_attached_to_gc")
+        res = self.run("nongc_attached_to_gc")
+        assert res == -99997
 
 # ____________________________________________________________________
 

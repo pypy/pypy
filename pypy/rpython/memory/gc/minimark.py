@@ -390,6 +390,11 @@ class MiniMarkGC(MovingGCBase):
         # initialize the threshold
         self.min_heap_size = max(self.min_heap_size, self.nursery_size *
                                               self.major_collection_threshold)
+        # the following two values are usually equal, but during raw mallocs
+        # of arrays, next_major_collection_threshold is decremented to make
+        # the next major collection arrive earlier.
+        # See translator/c/test/test_newgc, test_nongc_attached_to_gc
+        self.next_major_collection_initial = self.min_heap_size
         self.next_major_collection_threshold = self.min_heap_size
         self.set_major_threshold_from(0.0)
         debug_stop("gc-set-nursery-size")
@@ -397,7 +402,7 @@ class MiniMarkGC(MovingGCBase):
 
     def set_major_threshold_from(self, threshold, reserving_size=0):
         # Set the next_major_collection_threshold.
-        threshold_max = (self.next_major_collection_threshold *
+        threshold_max = (self.next_major_collection_initial *
                          self.growth_rate_max)
         if threshold > threshold_max:
             threshold = threshold_max
@@ -412,6 +417,7 @@ class MiniMarkGC(MovingGCBase):
         else:
             bounded = False
         #
+        self.next_major_collection_initial = threshold
         self.next_major_collection_threshold = threshold
         return bounded
 
@@ -718,8 +724,17 @@ class MiniMarkGC(MovingGCBase):
     def set_max_heap_size(self, size):
         self.max_heap_size = float(size)
         if self.max_heap_size > 0.0:
+            if self.max_heap_size < self.next_major_collection_initial:
+                self.next_major_collection_initial = self.max_heap_size
             if self.max_heap_size < self.next_major_collection_threshold:
                 self.next_major_collection_threshold = self.max_heap_size
+
+    def raw_malloc_varsize_hint(self, sizehint):
+        self.next_major_collection_threshold -= sizehint
+        if self.next_major_collection_threshold < 0:
+            # cannot trigger a full collection now, but we can ensure
+            # that one will occur very soon
+            self.nursery_free = self.nursery_top
 
     def can_malloc_nonmovable(self):
         return True
@@ -1600,7 +1615,7 @@ class MiniMarkGC(MovingGCBase):
         # Max heap size: gives an upper bound on the threshold.  If we
         # already have at least this much allocated, raise MemoryError.
         if bounded and (float(self.get_total_memory_used()) + reserving_size >=
-                        self.next_major_collection_threshold):
+                        self.next_major_collection_initial):
             #
             # First raise MemoryError, giving the program a chance to
             # quit cleanly.  It might still allocate in the nursery,

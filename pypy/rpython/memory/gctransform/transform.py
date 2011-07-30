@@ -590,6 +590,16 @@ class GCTransformer(BaseGCTransformer):
 
     def gct_fv_raw_malloc_varsize(self, hop, flags, TYPE, v_length, c_const_size, c_item_size,
                                                                     c_offset_to_length):
+        track_allocation = flags.get('track_allocation', True)
+        if not track_allocation:
+            # idea: raw mallocs with track_allocation=False correspond
+            # generally to raw mallocs of stuff that we store in GC objects.
+            # So we tell the GC about such raw mallocs, so that it can
+            # adjust its total size estimate.
+            if hasattr(self, 'raw_malloc_varsize_hint_ptr'):
+                hop.genop("direct_call",
+                          [self.raw_malloc_varsize_hint_ptr,
+                           v_length, c_item_size])
         if c_offset_to_length is None:
             if flags.get('zero'):
                 fnptr = self.raw_malloc_varsize_no_length_zero_ptr
@@ -605,7 +615,7 @@ class GCTransformer(BaseGCTransformer):
                                [self.raw_malloc_varsize_ptr, v_length,
                                 c_const_size, c_item_size, c_offset_to_length],
                                resulttype=llmemory.Address)
-        if flags.get('track_allocation', True):
+        if track_allocation:
             hop.genop("track_alloc_start", [v_raw])
         return v_raw
 
