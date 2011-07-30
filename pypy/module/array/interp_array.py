@@ -226,7 +226,8 @@ def make_array(mytype):
                     some += size >> 3
                     self.allocated = size + some
                     new_buffer = lltype.malloc(mytype.arraytype,
-                                               self.allocated, flavor='raw')
+                                               self.allocated, flavor='raw',
+                                               track_allocation=False)
                     for i in range(min(size, self.len)):
                         new_buffer[i] = self.buffer[i]
                 else:
