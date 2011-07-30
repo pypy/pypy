@@ -93,23 +93,21 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
 
     @staticmethod
     def ll_append_multiple_char(ll_builder, char, times):
-        used = ll_builder.used
-        if times + used > ll_builder.allocated:
+        use = ll_builder.used + times
+        if use > ll_builder.allocated:
             ll_builder.grow(ll_builder, times)
-        for i in range(times):
-            ll_builder.buf.chars[used] = char
-            used += 1
-        ll_builder.used = used
+        for i in range(ll_builder.used, use):
+            ll_builder.buf.chars[i] = char
+        ll_builder.used = use
 
     @staticmethod
     def ll_append_charpsize(ll_builder, charp, size):
-        used = ll_builder.used
-        if used + size > ll_builder.allocated:
+        use = ll_builder.used + size
+        if use > ll_builder.allocated:
             ll_builder.grow(ll_builder, size)
-        for i in xrange(size):
-            ll_builder.buf.chars[used] = charp[i]
-            used += 1
-        ll_builder.used = used
+        for i in xrange(ll_builder.used, use):
+            ll_builder.buf.chars[i] = charp[i]
+        ll_builder.used = use
 
     @staticmethod
     def ll_getlength(ll_builder):

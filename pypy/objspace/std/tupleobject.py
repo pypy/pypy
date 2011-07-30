@@ -154,7 +154,7 @@ def hash_tuple(space, wrappeditems):
     x = 0x345678
     z = len(wrappeditems)
     for w_item in wrappeditems:
-        y = space.int_w(space.hash(w_item))
+        y = space.hash_w(w_item)
         x = (x ^ y) * mult
         z -= 1
         mult += 82520 + z + z
