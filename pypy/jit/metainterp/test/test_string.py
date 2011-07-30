@@ -26,7 +26,7 @@ class StringTests:
             return i
         res = self.meta_interp(f, [10, True, _str('h')], listops=True)
         assert res == 5
-        self.check_loops(**{self.CALL: 1, self.CALL_PURE: 0})
+        self.check_loops(**{self.CALL: 1, self.CALL_PURE: 0, 'everywhere': True})
 
     def test_eq_folded(self):
         _str = self._str
@@ -355,7 +355,7 @@ class TestLLtypeUnicode(TestLLtype):
                 m -= 1
             return 42
         self.meta_interp(f, [6, 7])
-        self.check_loops(call=3,    # str(), _str(), escape()
+        self.check_loops(call=1,    # escape()
                          newunicode=1, unicodegetitem=0,
                          unicodesetitem=1, copyunicodecontent=1)
 

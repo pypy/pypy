@@ -484,8 +484,12 @@ class Optimizer(Optimization):
 
     def make_args_key(self, op):
         n = op.numargs()
-        args = [None] * (n + 2)
-        for i in range(n):
+        if op.getopnum() == rop.CALL_PURE:
+            start = 1
+        else:
+            start = 0
+        args = [None] * (n + 2 - start)
+        for i in range(start, n):
             arg = op.getarg(i)
             try:
                 value = self.values[arg]
@@ -493,9 +497,9 @@ class Optimizer(Optimization):
                 pass
             else:
                 arg = value.get_key_box()
-            args[i] = arg
-        args[n] = ConstInt(op.getopnum())
-        args[n+1] = op.getdescr()
+            args[i - start] = arg
+        args[n - start] = ConstInt(op.getopnum())
+        args[n + 1 - start] = op.getdescr()
         return args
 
     def optimize_default(self, op):

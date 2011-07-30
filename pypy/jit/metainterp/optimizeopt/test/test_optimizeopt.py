@@ -2932,13 +2932,17 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p1, i4, i3)
         '''
         expected = '''
+        [p1, i4, i3]
+        jump(p1, i3, i3)
+        '''
+        preamble = '''
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
         i3 = call(p1, descr=plaincalldescr)
         setfield_gc(p1, i3, descr=valuedescr)
         jump(p1, i4, i3)
         '''
-        self.optimize_loop(ops, expected, expected)
+        self.optimize_loop(ops, expected, preamble)
 
     def test_call_pure_invalidates_heap_knowledge(self):
         # CALL_PURE should still force the setfield_gc() to occur before it
@@ -2950,21 +2954,20 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p1, i4, i3)
         '''
         expected = '''
+        [p1, i4, i3]
+        setfield_gc(p1, i4, descr=valuedescr)
+        jump(p1, i3, i3)
+        '''
+        preamble = '''
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
         i3 = call(p1, descr=plaincalldescr)
         setfield_gc(p1, i1, descr=valuedescr)
         jump(p1, i4, i3)
         '''
-        self.optimize_loop(ops, expected, expected)
+        self.optimize_loop(ops, expected, preamble)
 
     def test_call_pure_constant_folding(self):
-        # CALL_PURE is not marked as is_always_pure(), because it is wrong
-        # to call the function arbitrary many times at arbitrary points in
-        # time.  Check that it is either constant-folded (and replaced by
-        # the result of the call, recorded as the first arg), or turned into
-        # a regular CALL.
-        # XXX can this test be improved with unrolling?
         arg_consts = [ConstInt(i) for i in (123456, 4, 5, 6)]
         call_pure_results = {tuple(arg_consts): ConstInt(42)}
         ops = '''
@@ -2983,10 +2986,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(i0, i4)
         '''
         expected = '''
-        [i0, i2]
+        [i0, i4]
         escape(42)
-        escape(i2)
-        i4 = call(123456, 4, i0, 6, descr=plaincalldescr)
+        escape(i4)
         jump(i0, i4)
         '''
         self.optimize_loop(ops, expected, preamble, call_pure_results)
@@ -3017,9 +3019,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i0, i2]
         escape(42)
         escape(i2)
-        i4 = call(123456, 4, i0, 6, descr=plaincalldescr)
-        guard_no_exception() []
-        jump(i0, i4)
+        jump(i0, i2)
         '''
         self.optimize_loop(ops, expected, preamble, call_pure_results)
 

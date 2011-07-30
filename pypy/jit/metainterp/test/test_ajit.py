@@ -2712,6 +2712,22 @@ class BaseLLtypeTests(BasicTests):
         assert res == main(1, 10, 2)
         self.check_loops(call=0)
 
+    def test_reuse_elidable_result(self):
+        driver = JitDriver(reds=['n', 's'], greens = [])
+        def main(n):
+            s = 0
+            while n > 0:
+                driver.jit_merge_point(s=s, n=n)
+                s += len(str(n)) + len(str(n))
+                n -= 1
+            return s
+        res = self.meta_interp(main, [10])
+        assert res == main(10)
+        self.check_loops({
+            'call': 1, 'guard_no_exception': 1, 'guard_true': 1, 'int_add': 2,
+            'int_gt': 1, 'int_sub': 1, 'strlen': 1, 'jump': 1,
+        })
+
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
     pass
