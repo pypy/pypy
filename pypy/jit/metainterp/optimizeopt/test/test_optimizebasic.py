@@ -4637,6 +4637,19 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_strunicode_loop(ops, expected)
 
+    def test_empty_copystrunicontent_virtual(self):
+        ops = """
+        [p0]
+        p1 = newstr(23)
+        copystrcontent(p0, p1, 0, 0, 0)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        jump(p0)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass
