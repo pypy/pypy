@@ -466,7 +466,14 @@ class OptString(optimizer.Optimization):
         srcstart = self.getvalue(op.getarg(2))
         dststart = self.getvalue(op.getarg(3))
         length = self.getvalue(op.getarg(4))
-        copy_str_content(self.optimizer, src.box, dst.box, srcstart.box, dststart.box, length.box, mode, need_next_offset=False)
+        copy_str_content(self.optimizer,
+            src.force_box(),
+            dst.force_box(),
+            srcstart.force_box(),
+            dststart.force_box(),
+            length.force_box(),
+            mode, need_next_offset=False
+        )
 
     def optimize_CALL(self, op):
         # dispatch based on 'oopspecindex' to a method that handles
