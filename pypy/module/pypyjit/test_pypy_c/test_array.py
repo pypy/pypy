@@ -1,4 +1,4 @@
-import py
+import py, sys
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 
 class TestArray(BaseTestPyPyC):
@@ -132,24 +132,28 @@ class TestArray(BaseTestPyPyC):
         log = self.run(main, [])
         assert log.result == 321
         loop, = log.loops_by_filename(self.filepath)
+        if sys.maxint == 2147483647:
+            arraydescr = 'UnsignedArrayNoLengthDescr'
+        else:
+            arraydescr = 'UINTArrayNoLengthDescr'
         assert loop.match("""
             i10 = int_lt(i6, 1000)
             guard_true(i10, descr=...)
             i11 = int_lt(i6, i7)
             guard_true(i11, descr=...)
-            i13 = getarrayitem_raw(i8, i6, descr=<UnsignedArrayNoLengthDescr>)
+            i13 = getarrayitem_raw(i8, i6, descr=<%s>)
             f14 = cast_singlefloat_to_float(i13)
             f16 = float_add(f14, 20.500000)
             i17 = cast_float_to_singlefloat(f16)
-            setarrayitem_raw(i8, i6,i17, descr=<UnsignedArrayNoLengthDescr>)
-            i18 = getarrayitem_raw(i8, i6, descr=<UnsignedArrayNoLengthDescr>)
+            setarrayitem_raw(i8, i6,i17, descr=<%s>)
+            i18 = getarrayitem_raw(i8, i6, descr=<%s>)
             f19 = cast_singlefloat_to_float(i18)
             i21 = float_eq(f19, 42.000000)
             guard_true(i21, descr=...)
             i23 = int_add(i6, 1)
             --TICK--
             jump(..., descr=<Loop0>)
-        """)
+        """ % (arraydescr, arraydescr, arraydescr))
 
 
     def test_zeropadded(self):
