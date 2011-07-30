@@ -686,6 +686,10 @@ class LLHelpers(AbstractLLHelpers):
     @jit.unroll_if(lambda length, items: jit.isconstant(length) and length <= 2)
     @enforceargs(int, None)
     def ll_join_strs(length, items):
+        # Special case for length 1 items, helps both the JIT and other code
+        if length == 1:
+            return items[0]
+
         num_items = length
         itemslen = 0
         i = 0
