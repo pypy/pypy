@@ -3,10 +3,10 @@
 import string
 
 from pypy.interpreter.error import OperationError
-from pypy.tool import sourcetools
 from pypy.rlib import rstring, runicode, rlocale, rarithmetic, rfloat, jit
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rfloat import copysign, formatd
+from pypy.tool import sourcetools
 
 
 @specialize.argtype(1)
