@@ -62,10 +62,11 @@ def test_decodeex_hz_incomplete():
            u'\u73b7',   # h
            ]):
         buf += c
-        incompletepos = [len(buf)]
-        u = c_codecs.decodeex(decodebuf, buf, incompletepos=incompletepos)
+        u = c_codecs.decodeex(decodebuf, buf,
+                              ignore_error = c_codecs.MBERR_TOOFEW)
         assert u == output
-        buf = buf[incompletepos[0]:]
+        incompletepos = c_codecs.pypy_cjk_dec_inbuf_consumed(decodebuf)
+        buf = buf[incompletepos:]
     assert buf == ''
     c_codecs.pypy_cjk_dec_free(decodebuf)
 

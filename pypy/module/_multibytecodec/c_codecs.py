@@ -126,7 +126,7 @@ def decode(codec, stringdata, errors="strict", errorcb=None, namecb=None):
         pypy_cjk_dec_free(decodebuf)
 
 def decodeex(decodebuf, stringdata, errors="strict", errorcb=None, namecb=None,
-             incompletepos=None):
+             ignore_error=0):
     inleft = len(stringdata)
     inbuf = rffi.get_nonmovingbuffer(stringdata)
     try:
@@ -134,10 +134,7 @@ def decodeex(decodebuf, stringdata, errors="strict", errorcb=None, namecb=None,
             raise MemoryError
         while True:
             r = pypy_cjk_dec_chunk(decodebuf)
-            if r == 0:
-                break
-            if incompletepos is not None and r == MBERR_TOOFEW:
-                incompletepos[0] = pypy_cjk_dec_inbuf_consumed(decodebuf)
+            if r == 0 or r == ignore_error:
                 break
             multibytecodec_decerror(decodebuf, r, errors,
                                     errorcb, namecb, stringdata)
