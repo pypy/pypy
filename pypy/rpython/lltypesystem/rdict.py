@@ -6,6 +6,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rlib.rarithmetic import r_uint, intmask, LONG_BIT
 from pypy.rlib.objectmodel import hlinvoke
 from pypy.rlib import objectmodel
+from pypy.rlib import jit
 from pypy.rpython import rmodel
 from pypy.rpython.error import TyperError
 
