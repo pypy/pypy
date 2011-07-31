@@ -27,7 +27,7 @@ MASK = intmask(HIGHEST_BIT - 1)
 #        DICTVALUE value;
 #        int f_hash;        # (optional) key hash, if hard to recompute
 #    }
-#    
+#
 #    struct dicttable {
 #        int num_items;
 #        int num_pristine_entries;  # never used entries
@@ -48,12 +48,12 @@ class DictRepr(AbstractDictRepr):
         self.custom_eq_hash = custom_eq_hash is not None
         if not isinstance(key_repr, rmodel.Repr):  # not computed yet, done by setup()
             assert callable(key_repr)
-            self._key_repr_computer = key_repr 
+            self._key_repr_computer = key_repr
         else:
             self.external_key_repr, self.key_repr = self.pickkeyrepr(key_repr)
         if not isinstance(value_repr, rmodel.Repr):  # not computed yet, done by setup()
             assert callable(value_repr)
-            self._value_repr_computer = value_repr 
+            self._value_repr_computer = value_repr
         else:
             self.external_value_repr, self.value_repr = self.pickrepr(value_repr)
         self.dictkey = dictkey
@@ -174,7 +174,7 @@ class DictRepr(AbstractDictRepr):
             self.DICTENTRYARRAY = lltype.GcArray(self.DICTENTRY,
                                                  adtmeths=entrymeths)
             fields =          [ ("num_items", lltype.Signed),
-                                ("num_pristine_entries", lltype.Signed), 
+                                ("num_pristine_entries", lltype.Signed),
                                 ("entries", lltype.Ptr(self.DICTENTRYARRAY)) ]
             if self.custom_eq_hash:
                 self.r_rdict_eqfn, self.r_rdict_hashfn = self._custom_eq_hash_repr()
@@ -209,7 +209,7 @@ class DictRepr(AbstractDictRepr):
     def convert_const(self, dictobj):
         from pypy.rpython.lltypesystem import llmemory
         # get object from bound dict methods
-        #dictobj = getattr(dictobj, '__self__', dictobj) 
+        #dictobj = getattr(dictobj, '__self__', dictobj)
         if dictobj is None:
             return lltype.nullptr(self.DICT)
         if not isinstance(dictobj, (dict, objectmodel.r_dict)):
@@ -220,7 +220,7 @@ class DictRepr(AbstractDictRepr):
         except KeyError:
             self.setup()
             l_dict = ll_newdict_size(self.DICT, len(dictobj))
-            self.dict_cache[key] = l_dict 
+            self.dict_cache[key] = l_dict
             r_key = self.key_repr
             if r_key.lowleveltype == llmemory.Address:
                 raise TypeError("No prebuilt dicts of address keys")
@@ -272,7 +272,7 @@ class DictRepr(AbstractDictRepr):
         hop.exception_cannot_occur()
         v_res = hop.gendirectcall(ll_setdefault, v_dict, v_key, v_default)
         return self.recast_value(hop.llops, v_res)
-    
+
     def rtype_method_copy(self, hop):
         v_dict, = hop.inputargs(self)
         hop.exception_cannot_occur()
@@ -323,7 +323,7 @@ class DictRepr(AbstractDictRepr):
         hop.exception_is_here()
         return hop.gendirectcall(ll_popitem, cTUPLE, v_dict)
 
-class __extend__(pairtype(DictRepr, rmodel.Repr)): 
+class __extend__(pairtype(DictRepr, rmodel.Repr)):
 
     def rtype_getitem((r_dict, r_key), hop):
         v_dict, v_key = hop.inputargs(r_dict, r_dict.key_repr)
@@ -336,7 +336,7 @@ class __extend__(pairtype(DictRepr, rmodel.Repr)):
     def rtype_delitem((r_dict, r_key), hop):
         v_dict, v_key = hop.inputargs(r_dict, r_dict.key_repr)
         if not r_dict.custom_eq_hash:
-            hop.has_implicit_exception(KeyError)   # record that we know about it        
+            hop.has_implicit_exception(KeyError)   # record that we know about it
         hop.exception_is_here()
         return hop.gendirectcall(ll_dict_delitem, v_dict, v_key)
 
@@ -352,11 +352,11 @@ class __extend__(pairtype(DictRepr, rmodel.Repr)):
         v_dict, v_key = hop.inputargs(r_dict, r_dict.key_repr)
         hop.exception_is_here()
         return hop.gendirectcall(ll_contains, v_dict, v_key)
-        
+
 class __extend__(pairtype(DictRepr, DictRepr)):
     def convert_from_to((r_dict1, r_dict2), v, llops):
         # check that we don't convert from Dicts with
-        # different key/value types 
+        # different key/value types
         if r_dict1.dictkey is None or r_dict2.dictkey is None:
             return NotImplemented
         if r_dict1.dictkey is not r_dict2.dictkey:
@@ -427,7 +427,7 @@ def ll_keyeq_custom(d, key1, key2):
     return hlinvoke(DICT.r_rdict_eqfn, d.fnkeyeq, key1, key2)
 
 def ll_dict_len(d):
-    return d.num_items 
+    return d.num_items
 
 def ll_dict_is_true(d):
     # check if a dict is True, allowing for None
@@ -487,7 +487,6 @@ def ll_dict_delitem(d, key):
     if i & HIGHEST_BIT:
         raise KeyError
     _ll_dict_del(d, i)
-ll_dict_delitem.oopspec = 'dict.delitem(d, key)'
 
 def _ll_dict_del(d, i):
     d.entries.mark_deleted(i)
@@ -506,7 +505,7 @@ def _ll_dict_del(d, i):
 
 def ll_dict_resize(d):
     old_entries = d.entries
-    old_size = len(old_entries) 
+    old_size = len(old_entries)
     # make a 'new_size' estimate and shrink it if there are many
     # deleted entry markers
     new_size = old_size * 2
@@ -534,7 +533,7 @@ def ll_dict_lookup(d, key, hash):
     direct_compare = not hasattr(ENTRIES, 'no_direct_compare')
     mask = len(entries) - 1
     i = hash & mask
-    # do the first try before any looping 
+    # do the first try before any looping
     if entries.valid(i):
         checkingkey = entries[i].key
         if direct_compare and checkingkey == key:
@@ -594,7 +593,7 @@ def _ll_dict_lookup_slowpath(d, key, hash, freeslot):
                 if found:
                     return i   # found the entry
         elif freeslot == -1:
-            freeslot = i 
+            freeslot = i
         perturb >>= PERTURB_SHIFT
 
 def ll_dict_lookup_clean(d, hash):
@@ -604,7 +603,7 @@ def ll_dict_lookup_clean(d, hash):
     entries = d.entries
     mask = len(entries) - 1
     i = hash & mask
-    perturb = r_uint(hash) 
+    perturb = r_uint(hash)
     while entries.everused(i):
         i = r_uint(i)
         i = (i << 2) + i + perturb + 1
@@ -690,7 +689,6 @@ def ll_dictiter(ITERPTR, d):
     iter.dict = d
     iter.index = 0
     return iter
-ll_dictiter.oopspec = 'newdictiter(d)'
 
 def _make_ll_dictnext(kind):
     # make three versions of the following function: keys, values, items

@@ -226,7 +226,7 @@ def descr_set___abstractmethods__(space, w_type, w_new):
 
 def descr_del___abstractmethods__(space, w_type):
     w_type = _check(space, w_type)
-    if not w_type.deldictvalue(space, space.wrap("__abstractmethods__")):
+    if not w_type.deldictvalue(space, "__abstractmethods__"):
         raise OperationError(space.w_AttributeError,
                              space.wrap("__abstractmethods__"))
     w_type.set_abstract(False)

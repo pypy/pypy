@@ -46,6 +46,18 @@ class TestFastpath(BaseCTypesTestChecker):
         tf_b.argtypes = (c_byte,)
         assert tf_b(-126) == -42
 
+    def test_undeclared_restype(self):
+        # make sure we get a fresh function
+        try:
+            del dll.tf_i
+        except AttributeError:
+            pass
+        tf_i = dll.tf_i
+        assert not tf_i._is_fastpath
+        tf_i.argtypes = (c_int,)
+        assert tf_i._is_fastpath
+        assert tf_i(12) == 4
+
     def test_pointer_args(self):
         f = dll._testfunc_p_p
         f.restype = POINTER(c_int)
@@ -63,13 +75,10 @@ class TestFastpath(BaseCTypesTestChecker):
         result = f(mystr, ord("b"))
         assert result == "bcd"
 
-    @py.test.mark.xfail
     def test_strings(self):
         f = dll.my_strchr
         f.argtypes = [c_char_p, c_int]
         f.restype = c_char_p
-        # python strings need to be converted to c_char_p, but this is
-        # supported only in the slow path so far
         result = f("abcd", ord("b"))
         assert result == "bcd"
 

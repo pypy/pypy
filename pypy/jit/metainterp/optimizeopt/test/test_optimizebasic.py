@@ -693,7 +693,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         expected = """
         [i]
-        guard_no_exception() []
         i1 = int_add(i, 3)
         i2 = call(i1, descr=nonwritedescr)
         guard_no_exception() [i1, i2]
@@ -4532,7 +4531,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         escape(i1)
         jump(p0, i0)
         """
-        self.optimize_loop(ops, expected)
+        self.optimize_strunicode_loop(ops, expected)
 
     def test_int_is_true_bounds(self):
         ops = """
@@ -4551,7 +4550,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         guard_true(i1) []
         jump(p0)
         """
-        self.optimize_loop(ops, expected)
+        self.optimize_strunicode_loop(ops, expected)
 
     def test_strslice_subtraction_folds(self):
         ops = """
@@ -4585,6 +4584,42 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         jump(f2, f2)
         """
         self.optimize_loop(ops, expected)
+
+    def test_null_char_str(self):
+        ops = """
+        [p0]
+        p1 = newstr(4)
+        setfield_gc(p0, p1, descr=valuedescr)
+        jump(p0)
+        """
+        # It used to be the case that this would have a series of
+        # strsetitem(p1, idx, 0), which was silly because memory is 0 filled
+        # when allocated.
+        expected = """
+        [p0]
+        p1 = newstr(4)
+        setfield_gc(p0, p1, descr=valuedescr)
+        jump(p0)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
+    def test_newstr_strlen(self):
+        ops = """
+        [i0]
+        p0 = newstr(i0)
+        escape(p0)
+        i1 = strlen(p0)
+        i2 = int_add(i1, 1)
+        jump(i2)
+        """
+        expected = """
+        [i0]
+        p0 = newstr(i0)
+        escape(p0)
+        i1 = int_add(i0, 1)
+        jump(i1)
+        """
+        self.optimize_strunicode_loop(ops, expected)
 
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):

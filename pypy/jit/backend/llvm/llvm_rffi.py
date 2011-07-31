@@ -3,7 +3,7 @@ import pypy
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.translator.tool.cbuild import ExternalCompilationInfo, log
 
-if sys.platform != 'linux2':
+if not sys.platform.startswith('linux'):
     py.test.skip("Linux only for now")
 
 # ____________________________________________________________

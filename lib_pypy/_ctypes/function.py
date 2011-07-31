@@ -78,8 +78,6 @@ class CFuncPtr(_CData):
     _com_iid = None
     _is_fastpath = False
 
-    __restype_set = False
-
     def _getargtypes(self):
         return self._argtypes_
 
@@ -149,7 +147,6 @@ class CFuncPtr(_CData):
         return self._restype_
 
     def _setrestype(self, restype):
-        self.__restype_set = True
         self._ptr = None
         if restype is int:
             from ctypes import c_int
@@ -296,13 +293,12 @@ class CFuncPtr(_CData):
                     "This function takes %d argument%s (%s given)"
                     % (len(self._argtypes_), plural, len(args)))
 
-            # check that arguments are convertible
-            ## XXX Not as long as ctypes.cast is a callback function with
-            ## py_object arguments...
-            ## self._convert_args(self._argtypes_, args, {})
-
             try:
-                res = self.callable(*args)
+                newargs = self._convert_args_for_callback(argtypes, args)
+            except (UnicodeError, TypeError, ValueError), e:
+                raise ArgumentError(str(e))
+            try:
+                res = self.callable(*newargs)
             except:
                 exc_info = sys.exc_info()
                 traceback.print_tb(exc_info[2], file=sys.stderr)
@@ -316,10 +312,6 @@ class CFuncPtr(_CData):
             warnings.warn('C function without declared arguments called',
                           RuntimeWarning, stacklevel=2)
             argtypes = []
-            
-        if not self.__restype_set:
-            warnings.warn('C function without declared return type called',
-                          RuntimeWarning, stacklevel=2)
 
         if self._com_index:
             from ctypes import cast, c_void_p, POINTER
@@ -366,7 +358,10 @@ class CFuncPtr(_CData):
             if self._flags_ & _rawffi.FUNCFLAG_USE_LASTERROR:
                 set_last_error(_rawffi.get_last_error())
         #
-        return self._build_result(self._restype_, result, newargs)
+        try:
+            return self._build_result(self._restype_, result, newargs)
+        finally:
+            funcptr.free_temp_buffers()
 
     def _do_errcheck(self, result, args):
         # The 'errcheck' protocol
@@ -466,6 +461,18 @@ class CFuncPtr(_CData):
 
         return cobj, cobj._to_ffi_param(), type(cobj)
 
+    def _convert_args_for_callback(self, argtypes, args):
+        assert len(argtypes) == len(args)
+        newargs = []
+        for argtype, arg in zip(argtypes, args):
+            param = argtype.from_param(arg)
+            if argtype._type_ == 'P': # special-case for c_void_p
+                param = param._get_buffer_value()
+            elif self._is_primitive(argtype):
+                param = param.value
+            newargs.append(param)
+        return newargs
+
     def _convert_args(self, argtypes, args, kwargs, marker=object()):
         newargs = []
         outargs = []
@@ -556,6 +563,9 @@ class CFuncPtr(_CData):
                 newargtypes.append(newargtype)
         return keepalives, newargs, newargtypes, outargs
 
+    @staticmethod
+    def _is_primitive(argtype):
+        return argtype.__bases__[0] is _SimpleCData
     
     def _wrap_result(self, restype, result):
         """
@@ -564,7 +574,7 @@ class CFuncPtr(_CData):
         """
         # hack for performance: if restype is a "simple" primitive type, don't
         # allocate the buffer because it's going to be thrown away immediately
-        if restype.__bases__[0] is _SimpleCData and not restype._is_pointer_like():
+        if self._is_primitive(restype) and not restype._is_pointer_like():
             return result
         #
         shape = restype._ffishape
@@ -680,7 +690,7 @@ def make_fastpath_subclass(CFuncPtr):
             try:
                 result = self._call_funcptr(funcptr, *args)
                 result = self._do_errcheck(result, args)
-            except (TypeError, ArgumentError): # XXX, should be FFITypeError
+            except (TypeError, ArgumentError, UnicodeDecodeError):
                 assert self._slowpath_allowed
                 return CFuncPtr.__call__(self, *args)
             return result

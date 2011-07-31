@@ -9,10 +9,11 @@ class EffectInfo(object):
     _cache = {}
 
     # the 'extraeffect' field is one of the following values:
-    EF_ELIDABLE                        = 0 #elidable function (and cannot raise)
+    EF_ELIDABLE_CANNOT_RAISE           = 0 #elidable function (and cannot raise)
     EF_LOOPINVARIANT                   = 1 #special: call it only once per loop
     EF_CANNOT_RAISE                    = 2 #a function which cannot raise
-    EF_CAN_RAISE                       = 3 #normal function (can raise)
+    EF_ELIDABLE_CAN_RAISE              = 3 #elidable function (but can raise)
+    EF_CAN_RAISE                       = 4 #normal function (can raise)
     EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE = 5 #can raise and force virtualizables
 
     # the 'oopspecindex' field is one of the following values:
@@ -94,7 +95,8 @@ class EffectInfo(object):
         result.readonly_descrs_fields = readonly_descrs_fields
         result.readonly_descrs_arrays = readonly_descrs_arrays
         if extraeffect == EffectInfo.EF_LOOPINVARIANT or \
-           extraeffect == EffectInfo.EF_ELIDABLE:
+           extraeffect == EffectInfo.EF_ELIDABLE_CANNOT_RAISE or \
+           extraeffect == EffectInfo.EF_ELIDABLE_CAN_RAISE:
             result.write_descrs_fields = []
             result.write_descrs_arrays = []
         else:

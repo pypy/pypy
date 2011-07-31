@@ -11,6 +11,7 @@ from pypy.rlib import jit
 from pypy.rlib import libffi
 from pypy.rlib.rdynload import DLOpenError
 from pypy.rlib.rarithmetic import intmask, r_uint
+from pypy.rlib.objectmodel import we_are_translated
 
 class W_FFIType(Wrappable):
 
@@ -74,6 +75,13 @@ class W_FFIType(Wrappable):
     def is_struct(self):
         return libffi.types.is_struct(self.ffitype)
 
+    def is_char_p(self):
+        return self is app_types.char_p
+
+    def is_unichar_p(self):
+        return self is app_types.unichar_p
+
+
 W_FFIType.typedef = TypeDef(
     'FFIType',
     __repr__ = interp2app(W_FFIType.repr),
@@ -115,7 +123,12 @@ def build_ffi_types():
         ## 'Z' : ffi_type_pointer,
 
         ]
-    return dict([(t.name, t) for t in types])
+    d = dict([(t.name, t) for t in types])
+    w_char = d['char']
+    w_unichar = d['unichar']
+    d['char_p'] = W_FFIType('char_p', libffi.types.pointer, w_pointer_to = w_char)
+    d['unichar_p'] = W_FFIType('unichar_p', libffi.types.pointer, w_pointer_to = w_unichar)
+    return d
 
 class app_types:
     pass
@@ -125,9 +138,14 @@ def descr_new_pointer(space, w_cls, w_pointer_to):
     try:
         return descr_new_pointer.cache[w_pointer_to]
     except KeyError:
-        w_pointer_to = space.interp_w(W_FFIType, w_pointer_to)
-        name = '(pointer to %s)' % w_pointer_to.name
-        w_result = W_FFIType(name, libffi.types.pointer, w_pointer_to = w_pointer_to)
+        if w_pointer_to is app_types.char:
+            w_result = app_types.char_p
+        elif w_pointer_to is app_types.unichar:
+            w_result = app_types.unichar_p
+        else:
+            w_pointer_to = space.interp_w(W_FFIType, w_pointer_to)
+            name = '(pointer to %s)' % w_pointer_to.name
+            w_result = W_FFIType(name, libffi.types.pointer, w_pointer_to = w_pointer_to)
         descr_new_pointer.cache[w_pointer_to] = w_result
         return w_result
 descr_new_pointer.cache = {}
@@ -164,6 +182,7 @@ class W_FuncPtr(Wrappable):
         self.func = func
         self.argtypes_w = argtypes_w
         self.w_restype = w_restype
+        self.to_free = []
 
     @jit.unroll_safe
     def build_argchain(self, space, args_w):
@@ -188,6 +207,9 @@ class W_FuncPtr(Wrappable):
                 self.arg_longlong(space, argchain, w_arg)
             elif w_argtype.is_signed():
                 argchain.arg(unwrap_truncate_int(rffi.LONG, space, w_arg))
+            elif self.add_char_p_maybe(space, argchain, w_arg, w_argtype):
+                # the argument is added to the argchain direcly by the method above
+                pass
             elif w_argtype.is_pointer():
                 w_arg = self.convert_pointer_arg_maybe(space, w_arg, w_argtype)
                 argchain.arg(intmask(space.uint_w(w_arg)))
@@ -212,6 +234,29 @@ class W_FuncPtr(Wrappable):
                 assert False, "Argument shape '%s' not supported" % w_argtype
         return argchain
 
+    def add_char_p_maybe(self, space, argchain, w_arg, w_argtype):
+        """
+        Automatic conversion from string to char_p. The allocated buffer will
+        be automatically freed after the call.
+        """
+        w_type = jit.promote(space.type(w_arg))
+        if w_argtype.is_char_p() and w_type is space.w_str:
+            strval = space.str_w(w_arg)
+            buf = rffi.str2charp(strval)
+            self.to_free.append(rffi.cast(rffi.VOIDP, buf))
+            addr = rffi.cast(rffi.ULONG, buf)
+            argchain.arg(addr)
+            return True
+        elif w_argtype.is_unichar_p() and (w_type is space.w_str or
+                                           w_type is space.w_unicode):
+            unicodeval = space.unicode_w(w_arg)
+            buf = rffi.unicode2wcharp(unicodeval)
+            self.to_free.append(rffi.cast(rffi.VOIDP, buf))
+            addr = rffi.cast(rffi.ULONG, buf)
+            argchain.arg(addr)
+            return True
+        return False
+
     def convert_pointer_arg_maybe(self, space, w_arg, w_argtype):
         """
         Try to convert the argument by calling _as_ffi_pointer_()
@@ -235,6 +280,17 @@ class W_FuncPtr(Wrappable):
     def call(self, space, args_w):
         self = jit.promote(self)
         argchain = self.build_argchain(space, args_w)
+        return self._do_call(space, argchain)
+
+    def free_temp_buffers(self, space):
+        for buf in self.to_free:
+            if not we_are_translated():
+                buf[0] = '\00' # invalidate the buffer, so that
+                               # test_keepalive_temp_buffer can fail
+            lltype.free(buf, flavor='raw')
+        self.to_free = []
+
+    def _do_call(self, space, argchain):
         w_restype = self.w_restype
         if w_restype.is_longlong():
             # note that we must check for longlong first, because either
@@ -372,6 +428,7 @@ W_FuncPtr.typedef = TypeDef(
     '_ffi.FuncPtr',
     __call__ = interp2app(W_FuncPtr.call),
     getaddr = interp2app(W_FuncPtr.getaddr),
+    free_temp_buffers = interp2app(W_FuncPtr.free_temp_buffers),
     fromaddr = interp2app(descr_fromaddr, as_classmethod=True)
     )
 

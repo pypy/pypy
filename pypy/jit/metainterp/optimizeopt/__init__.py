@@ -55,7 +55,7 @@ def build_opt_chain(metainterp_sd, enable_opts,
 
 
 def optimize_loop_1(metainterp_sd, loop, enable_opts,
-                    inline_short_preamble=True, retraced=False):
+                    inline_short_preamble=True, retraced=False, bridge=False):
     """Optimize loop.operations to remove internal overheadish operations.
     """
 
@@ -64,7 +64,7 @@ def optimize_loop_1(metainterp_sd, loop, enable_opts,
     if unroll:
         optimize_unroll(metainterp_sd, loop, optimizations)
     else:
-        optimizer = Optimizer(metainterp_sd, loop, optimizations)
+        optimizer = Optimizer(metainterp_sd, loop, optimizations, bridge)
         optimizer.propagate_all_forward()
 
 def optimize_bridge_1(metainterp_sd, bridge, enable_opts,
@@ -76,7 +76,7 @@ def optimize_bridge_1(metainterp_sd, bridge, enable_opts,
     except KeyError:
         pass
     optimize_loop_1(metainterp_sd, bridge, enable_opts,
-                    inline_short_preamble, retraced)
+                    inline_short_preamble, retraced, bridge=True)
 
 if __name__ == '__main__':
     print ALL_OPTS_NAMES

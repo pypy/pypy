@@ -180,6 +180,7 @@ class Assembler386(object):
         # instructions in assembler, with a mark_gc_roots in between.
         # With shadowstack, this is not needed, so we produce a single helper.
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        shadow_stack = (gcrootmap is not None and gcrootmap.is_shadow_stack)
         #
         # ---------- first helper for the slow path of malloc ----------
         mc = codebuf.MachineCodeBlockWrapper()
@@ -189,10 +190,19 @@ class Assembler386(object):
         mc.SUB_rr(edx.value, eax.value)       # compute the size we want
         addr = self.cpu.gc_ll_descr.get_malloc_slowpath_addr()
         #
-        if gcrootmap is not None and gcrootmap.is_shadow_stack:
+        # The registers to save in the copy area: with shadowstack, most
+        # registers need to be saved.  With asmgcc, the callee-saved registers
+        # don't need to.
+        save_in_copy_area = gpr_reg_mgr_cls.REGLOC_TO_COPY_AREA_OFS.items()
+        if not shadow_stack:
+            save_in_copy_area = [(reg, ofs) for (reg, ofs) in save_in_copy_area
+                   if reg not in gpr_reg_mgr_cls.REGLOC_TO_GCROOTMAP_REG_INDEX]
+        #
+        for reg, ofs in save_in_copy_area:
+            mc.MOV_br(ofs, reg.value)
+        #
+        if shadow_stack:
             # ---- shadowstack ----
-            for reg, ofs in gpr_reg_mgr_cls.REGLOC_TO_COPY_AREA_OFS.items():
-                mc.MOV_br(ofs, reg.value)
             mc.SUB_ri(esp.value, 16 - WORD)      # stack alignment of 16 bytes
             if IS_X86_32:
                 mc.MOV_sr(0, edx.value)          # push argument
@@ -200,21 +210,23 @@ class Assembler386(object):
                 mc.MOV_rr(edi.value, edx.value)
             mc.CALL(imm(addr))
             mc.ADD_ri(esp.value, 16 - WORD)
-            for reg, ofs in gpr_reg_mgr_cls.REGLOC_TO_COPY_AREA_OFS.items():
-                mc.MOV_rb(reg.value, ofs)
         else:
             # ---- asmgcc ----
             if IS_X86_32:
                 mc.MOV_sr(WORD, edx.value)       # save it as the new argument
             elif IS_X86_64:
-                # rdi can be clobbered: its content was forced to the stack
-                # by _fastpath_malloc(), like all other save_around_call_regs.
+                # rdi can be clobbered: its content was saved in the
+                # copy area of the stack
                 mc.MOV_rr(edi.value, edx.value)
             mc.JMP(imm(addr))                    # tail call to the real malloc
             rawstart = mc.materialize(self.cpu.asmmemmgr, [])
             self.malloc_slowpath1 = rawstart
             # ---------- second helper for the slow path of malloc ----------
             mc = codebuf.MachineCodeBlockWrapper()
+        #
+        for reg, ofs in save_in_copy_area:
+            mc.MOV_rb(reg.value, ofs)
+            assert reg is not eax and reg is not edx
         #
         if self.cpu.supports_floats:          # restore the XMM registers
             for i in range(self.cpu.NUM_REGS):# from where they were saved
@@ -2258,10 +2270,12 @@ class Assembler386(object):
         if opnum == rop.COND_CALL_GC_WB:
             N = 2
             func = descr.get_write_barrier_fn(self.cpu)
+            card_marking = False
         elif opnum == rop.COND_CALL_GC_WB_ARRAY:
             N = 3
             func = descr.get_write_barrier_from_array_fn(self.cpu)
             assert func != 0
+            card_marking = descr.jit_wb_cards_set != 0
         else:
             raise AssertionError(opnum)
         #
@@ -2270,6 +2284,18 @@ class Assembler386(object):
                       imm(descr.jit_wb_if_flag_singlebyte))
         self.mc.J_il8(rx86.Conditions['Z'], 0) # patched later
         jz_location = self.mc.get_relative_pos()
+
+        # for cond_call_gc_wb_array, also add another fast path:
+        # if GCFLAG_CARDS_SET, then we can just set one bit and be done
+        if card_marking:
+            self.mc.TEST8(addr_add_const(loc_base,
+                                         descr.jit_wb_cards_set_byteofs),
+                          imm(descr.jit_wb_cards_set_singlebyte))
+            self.mc.J_il8(rx86.Conditions['NZ'], 0) # patched later
+            jnz_location = self.mc.get_relative_pos()
+        else:
+            jnz_location = 0
+
         # the following is supposed to be the slow path, so whenever possible
         # we choose the most compact encoding over the most efficient one.
         if IS_X86_32:
@@ -2309,6 +2335,43 @@ class Assembler386(object):
             loc = arglocs[i]
             assert isinstance(loc, RegLoc)
             self.mc.POP_r(loc.value)
+
+        # if GCFLAG_CARDS_SET, then we can do the whole thing that would
+        # be done in the CALL above with just four instructions, so here
+        # is an inline copy of them
+        if card_marking:
+            self.mc.JMP_l8(0) # jump to the exit, patched later
+            jmp_location = self.mc.get_relative_pos()
+            # patch the JNZ above
+            offset = self.mc.get_relative_pos() - jnz_location
+            assert 0 < offset <= 127
+            self.mc.overwrite(jnz_location-1, chr(offset))
+            #
+            loc_index = arglocs[1]
+            if isinstance(loc_index, RegLoc):
+                # choose a scratch register
+                tmp1 = loc_index
+                self.mc.PUSH_r(tmp1.value)
+                # SHR tmp, card_page_shift
+                self.mc.SHR_ri(tmp1.value, descr.jit_wb_card_page_shift)
+                # XOR tmp, -8
+                self.mc.XOR_ri(tmp1.value, -8)
+                # BTS [loc_base], tmp
+                self.mc.BTS(addr_add_const(loc_base, 0), tmp1)
+                # done
+                self.mc.POP_r(tmp1.value)
+            elif isinstance(loc_index, ImmedLoc):
+                byte_index = loc_index.value >> descr.jit_wb_card_page_shift
+                byte_ofs = ~(byte_index >> 3)
+                byte_val = 1 << (byte_index & 7)
+                self.mc.OR8(addr_add_const(loc_base, byte_ofs), imm(byte_val))
+            else:
+                raise AssertionError("index is neither RegLoc nor ImmedLoc")
+            # patch the JMP above
+            offset = self.mc.get_relative_pos() - jmp_location
+            assert 0 < offset <= 127
+            self.mc.overwrite(jmp_location-1, chr(offset))
+        #
         # patch the JZ above
         offset = self.mc.get_relative_pos() - jz_location
         assert 0 < offset <= 127
@@ -2385,8 +2448,7 @@ class Assembler386(object):
             # there are two helpers to call only with asmgcc
             slowpath_addr1 = self.malloc_slowpath1
             self.mc.CALL(imm(slowpath_addr1))
-        self.mark_gc_roots(self.write_new_force_index(),
-                           use_copy_area=shadow_stack)
+        self.mark_gc_roots(self.write_new_force_index(), use_copy_area=True)
         slowpath_addr2 = self.malloc_slowpath2
         self.mc.CALL(imm(slowpath_addr2))
 

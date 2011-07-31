@@ -14,8 +14,6 @@ from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython.lltypesystem import lltype, rffi
 
 
-memcpy = rffi.llexternal("memcpy", [rffi.VOIDP, rffi.VOIDP, rffi.SIZE_T], lltype.Void)
-
 @unwrap_spec(typecode=str)
 def w_array(space, w_cls, typecode, __args__):
     if len(__args__.arguments_w) > 1:
@@ -228,7 +226,8 @@ def make_array(mytype):
                     some += size >> 3
                     self.allocated = size + some
                     new_buffer = lltype.malloc(mytype.arraytype,
-                                               self.allocated, flavor='raw')
+                                               self.allocated, flavor='raw',
+                                               track_allocation=False)
                     for i in range(min(size, self.len)):
                         new_buffer[i] = self.buffer[i]
                 else:
@@ -617,7 +616,7 @@ def make_array(mytype):
     def array_copy__Array(space, self):
         w_a = mytype.w_class(self.space)
         w_a.setlen(self.len)
-        memcpy(
+        rffi.c_memcpy(
             rffi.cast(rffi.VOIDP, w_a.buffer),
             rffi.cast(rffi.VOIDP, self.buffer),
             self.len * mytype.bytes

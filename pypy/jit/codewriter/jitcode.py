@@ -101,7 +101,7 @@ class JitCode(AbstractDescr):
 
     def _clone_if_mutable(self):
         raise NotImplementedError
-    
+
 class MissingLiveness(Exception):
     pass
 

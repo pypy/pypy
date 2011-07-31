@@ -121,9 +121,9 @@ class FakeBuiltinCallControl:
             assert argtypes[0] == [v.concretetype for v in op.args[1:]]
             assert argtypes[1] == op.result.concretetype
             if oopspecindex == EI.OS_STR2UNICODE:
-                assert extraeffect == None    # not pure, can raise!
+                assert extraeffect == EI.EF_ELIDABLE_CAN_RAISE
             else:
-                assert extraeffect == EI.EF_ELIDABLE
+                assert extraeffect == EI.EF_ELIDABLE_CANNOT_RAISE
         return 'calldescr-%d' % oopspecindex
     def calldescr_canraise(self, calldescr):
         return False
@@ -803,7 +803,7 @@ def test_getfield_gc_greenfield():
         def get_vinfo(self, v):
             return None
         def could_be_green_field(self, S1, name1):
-            assert S1 is S
+            assert S1 == S
             assert name1 == 'x'
             return True
     S = lltype.GcStruct('S', ('x', lltype.Char),

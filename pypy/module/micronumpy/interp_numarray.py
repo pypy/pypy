@@ -187,17 +187,17 @@ class BaseArray(Wrappable):
     def _getnums(self, comma):
         if self.find_size() > 1000:
             nums = [
-                float2string(self.getitem(index))
+                float2string(self.eval(index))
                 for index in range(3)
             ]
             nums.append("..." + "," * comma)
             nums.extend([
-                float2string(self.getitem(index))
+                float2string(self.eval(index))
                 for index in range(self.find_size() - 3, self.find_size())
             ])
         else:
             nums = [
-                float2string(self.getitem(index))
+                float2string(self.eval(index))
                 for index in range(self.find_size())
             ]
         return nums
@@ -229,7 +229,7 @@ class BaseArray(Wrappable):
         start, stop, step, slice_length = space.decode_index4(w_idx, self.find_size())
         if step == 0:
             # Single index
-            return space.wrap(self.get_concrete().getitem(start))
+            return space.wrap(self.get_concrete().eval(start))
         else:
             # Slice
             res = SingleDimSlice(start, stop, step, slice_length, self, self.signature.transition(SingleDimSlice.static_signature))
@@ -416,13 +416,11 @@ class ViewArray(BaseArray):
         # in fact, ViewArray never gets "concrete" as it never stores data.
         # This implementation is needed for BaseArray getitem/setitem to work,
         # can be refactored.
+        self.parent.get_concrete()
         return self
 
     def eval(self, i):
         return self.parent.eval(self.calc_index(i))
-
-    def getitem(self, item):
-        return self.parent.getitem(self.calc_index(item))
 
     @unwrap_spec(item=int, value=float)
     def setitem(self, item, value):
@@ -497,9 +495,6 @@ class SingleDimArray(BaseArray):
     def descr_len(self, space):
         return space.wrap(self.size)
 
-    def getitem(self, item):
-        return self.storage[item]
-
     def setitem(self, item, value):
         self.invalidated()
         self.storage[item] = value
@@ -511,7 +506,7 @@ class SingleDimArray(BaseArray):
             self._sliceloop2(start, stop, step, arr, self)
 
     def __del__(self):
-        lltype.free(self.storage, flavor='raw')
+        lltype.free(self.storage, flavor='raw', track_allocation=False)
 
 def new_numarray(space, w_size_or_iterable):
     l = space.listview(w_size_or_iterable)

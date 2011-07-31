@@ -409,6 +409,7 @@ class WarmRunnerDesc(object):
         jd.warmstate = state
 
         def crash_in_jit(e):
+            tb = not we_are_translated() and sys.exc_info()[2]
             try:
                 raise e
             except JitException:
@@ -422,8 +423,8 @@ class WarmRunnerDesc(object):
                     print "~~~ Crash in JIT!"
                     print '~~~ %s: %s' % (e.__class__, e)
                     if sys.stdout == sys.__stdout__:
-                        import pdb; pdb.post_mortem(sys.exc_info()[2])
-                    raise
+                        import pdb; pdb.post_mortem(tb)
+                    raise e.__class__, e, tb
                 fatalerror('~~~ Crash in JIT! %s' % (e,), traceback=True)
         crash_in_jit._dont_inline_ = True
 
@@ -468,6 +469,9 @@ class WarmRunnerDesc(object):
                 onlygreens=False)
             jd._can_never_inline_ptr = self._make_hook_graph(jd,
                 annhelper, jd.jitdriver.can_never_inline, annmodel.s_Bool)
+            jd._should_unroll_one_iteration_ptr = self._make_hook_graph(jd,
+                annhelper, jd.jitdriver.should_unroll_one_iteration,
+                annmodel.s_Bool)
         annhelper.finish()
 
     def _make_hook_graph(self, jitdriver_sd, annhelper, func,
