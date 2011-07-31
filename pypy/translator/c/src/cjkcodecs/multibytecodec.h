@@ -94,8 +94,9 @@ struct pypy_cjk_dec_s {
   Py_UNICODE *outbuf_start, *outbuf, *outbuf_end;
 };
 
-struct pypy_cjk_dec_s *pypy_cjk_dec_init(const MultibyteCodec *codec,
-                                         char *inbuf, Py_ssize_t inlen);
+struct pypy_cjk_dec_s *pypy_cjk_dec_new(const MultibyteCodec *codec);
+Py_ssize_t pypy_cjk_dec_init(struct pypy_cjk_dec_s *d,
+                             char *inbuf, Py_ssize_t inlen);
 void pypy_cjk_dec_free(struct pypy_cjk_dec_s *);
 Py_ssize_t pypy_cjk_dec_chunk(struct pypy_cjk_dec_s *);
 Py_UNICODE *pypy_cjk_dec_outbuf(struct pypy_cjk_dec_s *);

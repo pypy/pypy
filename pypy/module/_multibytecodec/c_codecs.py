@@ -52,11 +52,13 @@ eci = ExternalCompilationInfo(
     includes = ['src/cjkcodecs/multibytecodec.h'],
     include_dirs = [str(srcdir)],
     export_symbols = [
+        "pypy_cjk_dec_new",
         "pypy_cjk_dec_init", "pypy_cjk_dec_free", "pypy_cjk_dec_chunk",
         "pypy_cjk_dec_outbuf", "pypy_cjk_dec_outlen",
         "pypy_cjk_dec_inbuf_remaining", "pypy_cjk_dec_inbuf_consumed",
         "pypy_cjk_dec_replace_on_error",
 
+        "pypy_cjk_enc_new",
         "pypy_cjk_enc_init", "pypy_cjk_enc_free", "pypy_cjk_enc_chunk",
         "pypy_cjk_enc_reset", "pypy_cjk_enc_outbuf", "pypy_cjk_enc_outlen",
         "pypy_cjk_enc_inbuf_remaining", "pypy_cjk_enc_inbuf_consumed",
@@ -92,9 +94,11 @@ def getcodec(name):
 # Decoding
 
 DECODEBUF_P = rffi.COpaquePtr('struct pypy_cjk_dec_s', compilation_info=eci)
+pypy_cjk_dec_new = llexternal('pypy_cjk_dec_new',
+                              [MULTIBYTECODEC_P], DECODEBUF_P)
 pypy_cjk_dec_init = llexternal('pypy_cjk_dec_init',
-                               [MULTIBYTECODEC_P, rffi.CCHARP, rffi.SSIZE_T],
-                               DECODEBUF_P)
+                               [DECODEBUF_P, rffi.CCHARP, rffi.SSIZE_T],
+                               rffi.SSIZE_T)
 pypy_cjk_dec_free = llexternal('pypy_cjk_dec_free', [DECODEBUF_P],
                                lltype.Void)
 pypy_cjk_dec_chunk = llexternal('pypy_cjk_dec_chunk', [DECODEBUF_P],
@@ -113,25 +117,33 @@ pypy_cjk_dec_replace_on_error = llexternal('pypy_cjk_dec_replace_on_error',
                                            rffi.SSIZE_T)
 
 def decode(codec, stringdata, errors="strict", errorcb=None, namecb=None):
+    decodebuf = pypy_cjk_dec_new(codec)
+    if not decodebuf:
+        raise MemoryError
+    try:
+        return decodeex(decodebuf, stringdata, errors, errorcb, namecb)
+    finally:
+        pypy_cjk_dec_free(decodebuf)
+
+def decodeex(decodebuf, stringdata, errors="strict", errorcb=None, namecb=None,
+             incompletepos=None):
     inleft = len(stringdata)
     inbuf = rffi.get_nonmovingbuffer(stringdata)
     try:
-        decodebuf = pypy_cjk_dec_init(codec, inbuf, inleft)
-        if not decodebuf:
+        if pypy_cjk_dec_init(decodebuf, inbuf, inleft) < 0:
             raise MemoryError
-        try:
-            while True:
-                r = pypy_cjk_dec_chunk(decodebuf)
-                if r == 0:
-                    break
-                multibytecodec_decerror(decodebuf, r, errors,
-                                        errorcb, namecb, stringdata)
-            src = pypy_cjk_dec_outbuf(decodebuf)
-            length = pypy_cjk_dec_outlen(decodebuf)
-            return rffi.wcharpsize2unicode(src, length)
-        #
-        finally:
-            pypy_cjk_dec_free(decodebuf)
+        while True:
+            r = pypy_cjk_dec_chunk(decodebuf)
+            if r == 0:
+                break
+            if incompletepos is not None and r == MBERR_TOOFEW:
+                incompletepos[0] = pypy_cjk_dec_inbuf_consumed(decodebuf)
+                break
+            multibytecodec_decerror(decodebuf, r, errors,
+                                    errorcb, namecb, stringdata)
+        src = pypy_cjk_dec_outbuf(decodebuf)
+        length = pypy_cjk_dec_outlen(decodebuf)
+        return rffi.wcharpsize2unicode(src, length)
     #
     finally:
         rffi.free_nonmovingbuffer(stringdata, inbuf)

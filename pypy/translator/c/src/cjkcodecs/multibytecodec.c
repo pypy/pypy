@@ -3,31 +3,38 @@
 #include "src/cjkcodecs/multibytecodec.h"
 
 
-struct pypy_cjk_dec_s *pypy_cjk_dec_init(const MultibyteCodec *codec,
-                                         char *inbuf, Py_ssize_t inlen)
+struct pypy_cjk_dec_s *pypy_cjk_dec_new(const MultibyteCodec *codec)
 {
   struct pypy_cjk_dec_s *d = malloc(sizeof(struct pypy_cjk_dec_s));
   if (!d)
     return NULL;
   if (codec->decinit != NULL && codec->decinit(&d->state, codec->config) != 0)
-    goto errorexit;
-
+    {
+      free(d);
+      return NULL;
+    }
   d->codec = codec;
+  d->outbuf_start = NULL;
+  return d;
+}
+
+Py_ssize_t pypy_cjk_dec_init(struct pypy_cjk_dec_s *d,
+                             char *inbuf, Py_ssize_t inlen)
+{
   d->inbuf_start = inbuf;
   d->inbuf = inbuf;
   d->inbuf_end = inbuf + inlen;
-  d->outbuf_start = (inlen <= (PY_SSIZE_T_MAX / sizeof(Py_UNICODE)) ?
-                     malloc(inlen * sizeof(Py_UNICODE)) :
-                     NULL);
-  if (!d->outbuf_start)
-    goto errorexit;
+  if (d->outbuf_start == NULL)
+    {
+      d->outbuf_start = (inlen <= (PY_SSIZE_T_MAX / sizeof(Py_UNICODE)) ?
+                         malloc(inlen * sizeof(Py_UNICODE)) :
+                         NULL);
+      if (d->outbuf_start == NULL)
+        return -1;
+      d->outbuf_end = d->outbuf_start + inlen;
+    }
   d->outbuf = d->outbuf_start;
-  d->outbuf_end = d->outbuf_start + inlen;
-  return d;
-
- errorexit:
-  free(d);
-  return NULL;
+  return 0;
 }
 
 void pypy_cjk_dec_free(struct pypy_cjk_dec_s *d)
