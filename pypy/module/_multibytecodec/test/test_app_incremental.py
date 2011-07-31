@@ -49,3 +49,17 @@ class AppTestClasses:
         assert r == u''
         raises(UnicodeDecodeError, d.decode, "~", True)
         raises(UnicodeDecodeError, d.decode, "~{a", True)
+
+    def test_decode_hz_reset(self):
+        d = self.IncrementalHzDecoder()
+        r = d.decode("ab")
+        assert r == u'ab'
+        r = d.decode("~{")
+        assert r == u''
+        r = d.decode("ab")
+        assert r == u'\u5f95'
+        r = d.decode("ab")
+        assert r == u'\u5f95'
+        d.reset()
+        r = d.decode("ab")
+        assert r == u'ab'

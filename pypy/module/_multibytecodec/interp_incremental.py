@@ -28,8 +28,8 @@ class MultibyteIncrementalDecoder(Wrappable):
     def _free(self):
         self.pending = None
         if self.decodebuf:
-            pypy_cjk_dec_free(self.decodebuf)
-            self.decodebuf = lltype.nullptr(DECODEBUF_P.TO)
+            c_codecs.pypy_cjk_dec_free(self.decodebuf)
+            self.decodebuf = lltype.nullptr(c_codecs.DECODEBUF_P.TO)
 
     def __del__(self):
         self._free()
