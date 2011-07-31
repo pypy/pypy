@@ -63,3 +63,14 @@ class AppTestClasses:
         d.reset()
         r = d.decode("ab")
         assert r == u'ab'
+
+    def test_decode_hz_error(self):
+        d = self.IncrementalHzDecoder()
+        raises(UnicodeDecodeError, d.decode, "~{abc", True)
+        d = self.IncrementalHzDecoder("ignore")
+        r = d.decode("~{abc", True)
+        assert r == u'\u5f95'
+        d = self.IncrementalHzDecoder()
+        d.errors = "replace"
+        r = d.decode("~{abc", True)
+        assert r == u'\u5f95\ufffd'

@@ -4,7 +4,7 @@ from pypy.module._multibytecodec.interp_multibytecodec import (
     MultibyteCodec, wrap_unicodedecodeerror, wrap_runtimeerror)
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module._codecs.interp_codecs import CodecState
 
 
@@ -57,6 +57,12 @@ class MultibyteIncrementalDecoder(Wrappable):
         self.pending = object[pos:]
         return space.wrap(output)
 
+    def fget_errors(self, space):
+        return space.wrap(self.errors)
+
+    def fset_errors(self, space, w_errors):
+        self.errors = space.str_w(w_errors)
+
 
 @unwrap_spec(errors="str_or_None")
 def mbidecoder_new(space, w_subtype, errors=None):
@@ -70,6 +76,8 @@ MultibyteIncrementalDecoder.typedef = TypeDef(
     __new__ = interp2app(mbidecoder_new),
     decode  = interp2app(MultibyteIncrementalDecoder.decode_w),
     reset   = interp2app(MultibyteIncrementalDecoder.reset_w),
+    errors  = GetSetProperty(MultibyteIncrementalDecoder.fget_errors,
+                             MultibyteIncrementalDecoder.fset_errors),
     )
 
 
