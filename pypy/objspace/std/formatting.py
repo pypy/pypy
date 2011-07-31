@@ -175,6 +175,9 @@ def make_formatter_subclass(do_unicode):
                 raise OperationError(space.w_ValueError,
                                      space.wrap("incomplete format"))
 
+        # Only shows up if we've already started inlining format(), so just
+        # unconditionally unroll this.
+        @jit.unroll_safe
         def getmappingkey(self):
             # return the mapping key in a '%(key)s' specifier
             fmt = self.fmt
@@ -235,8 +238,7 @@ def make_formatter_subclass(do_unicode):
 
             return w_value
 
-        # Only shows up if we've already started inlining format(), so just
-        # unconditionally unroll this.
+        # Same as getmappingkey
         @jit.unroll_safe
         def peel_flags(self):
             self.f_ljust = False
@@ -260,7 +262,7 @@ def make_formatter_subclass(do_unicode):
                     break
                 self.forward()
 
-        # Same as peel_flags.
+        # Same as getmappingkey
         @jit.unroll_safe
         def peel_num(self):
             space = self.space
