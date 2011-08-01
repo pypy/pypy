@@ -13,13 +13,11 @@ class MultibyteStreamReader(MultibyteIncrementalDecoder):
         return self
 
     def __read(self, read, size):
+        if size is None or size < 0:
+            return MultibyteIncrementalDecoder.decode(self, read(), True)
         while True:
-            if size is None:
-                data = read()
-                final = True
-            else:
-                data = read(size)
-                final = not data
+            data = read(size)
+            final = not data
             output = MultibyteIncrementalDecoder.decode(self, data, final)
             if output or final:
                 return output
