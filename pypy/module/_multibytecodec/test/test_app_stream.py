@@ -40,6 +40,23 @@ class AppTestStreams:
         c = r.read(1)
         assert c == ''
 
+    def test_reader_replace(self):
+        class FakeFile:
+            def __init__(self, data):
+                self.data = data
+            def read(self):
+                return self.data
+        #
+        r = self.HzStreamReader(FakeFile("!~{a"), "replace")
+        c = r.read()
+        assert c == u'!\ufffd'
+        #
+        r = self.HzStreamReader(FakeFile("!~{a"))
+        r.errors = "replace"
+        assert r.errors == "replace"
+        c = r.read()
+        assert c == u'!\ufffd'
+
     def test_writer(self):
         class FakeFile:
             def __init__(self):

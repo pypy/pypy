@@ -16,9 +16,10 @@ class MultibyteStreamReader(MultibyteIncrementalDecoder):
         while True:
             if size is None:
                 data = read()
+                final = True
             else:
                 data = read(size)
-            final = not data
+                final = not data
             output = MultibyteIncrementalDecoder.decode(self, data, final)
             if output or final:
                 return output
@@ -41,7 +42,7 @@ class MultibyteStreamWriter(MultibyteIncrementalEncoder):
         return self
 
     def write(self, data):
-        self.stream.write(MultibyteIncrementalEncoder.encode(self, data))
+        self.stream.write(MultibyteIncrementalEncoder.encode(self, data, True))
 
     def writelines(self, lines):
         for data in lines:
