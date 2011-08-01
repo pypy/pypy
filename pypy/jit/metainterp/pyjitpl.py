@@ -390,16 +390,14 @@ class MIFrame(object):
     def opimpl_new_array(self, itemsizedescr, countbox):
         return self.execute_with_descr(rop.NEW_ARRAY, itemsizedescr, countbox)
 
-    @arguments("box", "descr", "box")
-    def _opimpl_getarrayitem_gc_any(self, arraybox, arraydescr, indexbox):
+    def _do_getarrayitem_gc_any(self, op, arraybox, arraydescr, indexbox):
         cache = self.metainterp.heap_array_cache.get(arraydescr, None)
         if cache and isinstance(indexbox, ConstInt):
             index = indexbox.getint()
             frombox, tobox = cache.get(index, (None, None))
             if frombox is arraybox:
                 return tobox
-        resbox = self.execute_with_descr(rop.GETARRAYITEM_GC,
-                                         arraydescr, arraybox, indexbox)
+        resbox = self.execute_with_descr(op, arraydescr, arraybox, indexbox)
         if isinstance(indexbox, ConstInt):
             if not cache:
                 cache = self.metainterp.heap_array_cache[arraydescr] = {}
@@ -407,6 +405,9 @@ class MIFrame(object):
             cache[index] = arraybox, resbox
         return resbox
 
+    @arguments("box", "descr", "box")
+    def _opimpl_getarrayitem_gc_any(self, arraybox, arraydescr, indexbox):
+        return self._do_getarrayitem_gc_any(rop.GETARRAYITEM_GC, arraybox, arraydescr, indexbox)
 
     opimpl_getarrayitem_gc_i = _opimpl_getarrayitem_gc_any
     opimpl_getarrayitem_gc_r = _opimpl_getarrayitem_gc_any
@@ -422,8 +423,7 @@ class MIFrame(object):
 
     @arguments("box", "descr", "box")
     def _opimpl_getarrayitem_gc_pure_any(self, arraybox, arraydescr, indexbox):
-        return self.execute_with_descr(rop.GETARRAYITEM_GC_PURE,
-                                       arraydescr, arraybox, indexbox)
+        return self._do_getarrayitem_gc_any(rop.GETARRAYITEM_GC_PURE, arraybox, arraydescr, indexbox)
 
     opimpl_getarrayitem_gc_pure_i = _opimpl_getarrayitem_gc_pure_any
     opimpl_getarrayitem_gc_pure_r = _opimpl_getarrayitem_gc_pure_any

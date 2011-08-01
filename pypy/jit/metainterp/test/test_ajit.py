@@ -2728,6 +2728,41 @@ class BaseLLtypeTests(BasicTests):
             'int_gt': 1, 'int_sub': 1, 'strlen': 1, 'jump': 1,
         })
 
+    def test_unroll_if_const_getarrayitem_gc_pure(self):
+        driver = JitDriver(greens=['unroll'], reds=['s', 'n'])
+
+        class A(object):
+            _immutable_fields_ = ["x[*]"]
+            def __init__(self, x):
+                self.x = [x]
+
+        @unroll_if(lambda x: isconstant(x))
+        def f(x):
+            i = 0
+            for c in x:
+                i += 1
+            return i
+
+        def main(unroll, n):
+            s = 0
+            while n > 0:
+                driver.jit_merge_point(s=s, n=n, unroll=unroll)
+                if unroll:
+                    x = A("xx")
+                else:
+                    x = A("x" * n)
+                s += f(x.x[0])
+                n -= 1
+            return s
+
+        res = self.meta_interp(main, [0, 10])
+        assert res == main(0, 10)
+        # 2 calls, one for f() and one for char_mul
+        self.check_loops(call=2)
+        res = self.meta_interp(main, [1, 10])
+        assert res == main(1, 10)
+        self.check_loops(call=0)
+
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
     pass
