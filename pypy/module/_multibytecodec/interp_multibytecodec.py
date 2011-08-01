@@ -22,17 +22,9 @@ class MultibyteCodec(Wrappable):
             output = c_codecs.decode(self.codec, input, errors,
                                      state.decode_error_handler, self.name)
         except c_codecs.EncodeDecodeError, e:
-            raise OperationError(
-                space.w_UnicodeDecodeError,
-                space.newtuple([
-                    space.wrap(self.name),
-                    space.wrap(input),
-                    space.wrap(e.start),
-                    space.wrap(e.end),
-                    space.wrap(e.reason)]))
+            raise wrap_unicodedecodeerror(space, e, input, self.name)
         except RuntimeError:
-            raise OperationError(space.w_RuntimeError,
-                                 space.wrap("internal codec error"))
+            raise wrap_runtimeerror(space)
         return space.newtuple([space.wrap(output),
                                space.wrap(len(input))])
 
@@ -46,17 +38,9 @@ class MultibyteCodec(Wrappable):
             output = c_codecs.encode(self.codec, input, errors,
                                      state.encode_error_handler, self.name)
         except c_codecs.EncodeDecodeError, e:
-            raise OperationError(
-                space.w_UnicodeEncodeError,
-                space.newtuple([
-                    space.wrap(self.name),
-                    space.wrap(input),
-                    space.wrap(e.start),
-                    space.wrap(e.end),
-                    space.wrap(e.reason)]))
+            raise wrap_unicodeencodeerror(space, e, input, self.name)
         except RuntimeError:
-            raise OperationError(space.w_RuntimeError,
-                                 space.wrap("internal codec error"))
+            raise wrap_runtimeerror(space)
         return space.newtuple([space.wrap(output),
                                space.wrap(len(input))])
 
@@ -78,3 +62,28 @@ def getcodec(space, name):
         raise OperationError(space.w_LookupError,
                              space.wrap("no such codec is supported."))
     return space.wrap(MultibyteCodec(name, codec))
+
+
+def wrap_unicodedecodeerror(space, e, input, name):
+    return OperationError(
+        space.w_UnicodeDecodeError,
+        space.newtuple([
+            space.wrap(name),
+            space.wrap(input),
+            space.wrap(e.start),
+            space.wrap(e.end),
+            space.wrap(e.reason)]))
+
+def wrap_unicodeencodeerror(space, e, input, name):
+    raise OperationError(
+        space.w_UnicodeEncodeError,
+        space.newtuple([
+            space.wrap(name),
+            space.wrap(input),
+            space.wrap(e.start),
+            space.wrap(e.end),
+            space.wrap(e.reason)]))
+
+def wrap_runtimeerror(space):
+    raise OperationError(space.w_RuntimeError,
+                         space.wrap("internal codec error"))
