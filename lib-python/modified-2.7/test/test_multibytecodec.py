@@ -148,7 +148,8 @@ class Test_IncrementalDecoder(unittest.TestCase):
 class Test_StreamReader(unittest.TestCase):
     def test_bug1728403(self):
         try:
-            open(TESTFN, 'w').write('\xa1')
+            with open(TESTFN, 'w') as f:
+                f.write('\xa1')
             f = codecs.open(TESTFN, encoding='cp949')
             self.assertRaises(UnicodeDecodeError, f.read, 2)
         finally:
