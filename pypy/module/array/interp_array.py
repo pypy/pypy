@@ -239,7 +239,7 @@ def make_array(mytype):
                 new_buffer = lltype.nullptr(mytype.arraytype)
 
             if self.buffer:
-                lltype.free(self.buffer, flavor='raw')
+                lltype.free(self.buffer, flavor='raw', track_allocation=False)
             self.buffer = new_buffer
             self.len = size
 
