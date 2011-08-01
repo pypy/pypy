@@ -29,6 +29,16 @@ class Assembler(object):
                 return ln
             i += 1
 
+    def get_number_of_ops(self):
+        return len(self.insts)
+
+    def get_relative_pos(self):
+        return 4 * len(self.insts)
+
+    def patch_op(self, index):
+        last = self.insts.pop()
+        self.insts[index] = last
+
     def assemble0(self, dump=os.environ.has_key('PPY_DEBUG')):
         for i, inst in enumerate(self.insts):
             for f in inst.lfields:

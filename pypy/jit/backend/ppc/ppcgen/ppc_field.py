@@ -66,8 +66,7 @@ class IField(Field):
             v = self.decode(i)
             if pc+v in labels:
                 return "%s (%r)"%(v, ', '.join(labels[pc+v]))
-        else:
-            return self.decode(i)
+        return self.decode(i)
 
 
 class spr(Field):

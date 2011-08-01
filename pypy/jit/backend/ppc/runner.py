@@ -29,25 +29,50 @@ class PPC_64_CPU(AbstractLLCPU):
 
         # pointer to an array of ints
         # XXX length of the integer array is 1000 for now
-        self.arg_to_box = {}
         self.fail_boxes_int = values_array(lltype.Signed, 1000)
-        self.saved_descr = {}
 
         # floats are not supported yet
         self.supports_floats = False
 
     # compile a given trace
     def compile_loop(self, inputargs, operations, looptoken, log=True):
+        self.saved_descr = {}
+        self.patch_list = []
+        self.reg_map = {}
+        self.inputargs = inputargs
+        
         codebuilder = PPCBuilder()
-        self.saved_descr[len(self.saved_descr)] = operations[-1].getdescr()
-
+        
+        self.next_free_register = 3
         for index, arg in enumerate(inputargs):
-            self.arg_to_box[arg] = index
-            
-        self._walk_trace_ops(codebuilder, operations)
+            self.reg_map[arg] = self.next_free_register
+            addr = self.fail_boxes_int.get_addr_for_num(index)
+            codebuilder.load_from(self.next_free_register, addr)
+            self.next_free_register += 1
+        
+        self.startpos = codebuilder.get_relative_pos()
 
-        f = codebuilder.assemble()
+        self._walk_trace_ops(codebuilder, operations)
+        self._make_epilogue(codebuilder)
+
+        f = codebuilder.assemble(True)
         looptoken.ppc_code = f
+
+    def _make_epilogue(self, codebuilder):
+        for op_index, fail_index, guard, reglist in self.patch_list:
+            curpos = codebuilder.get_relative_pos()
+            offset = curpos - (4 * op_index)
+            assert (1 << 15) > offset
+            codebuilder.beq(offset)
+            codebuilder.patch_op(op_index)
+
+            # store return parameters in memory
+            for index, reg in enumerate(reglist):
+                addr = self.fail_boxes_int.get_addr_for_num(index)
+                codebuilder.store_reg(reg, addr)
+
+            codebuilder.li(3, fail_index)            
+            codebuilder.blr()
 
     def set_future_value_int(self, index, value_int):
         self.fail_boxes_int.setitem(index, value_int)
