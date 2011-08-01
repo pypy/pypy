@@ -1194,6 +1194,19 @@ class TestAnnotateTestCase:
         assert len(executedesc._cache[(0, 'star', 2)].startblock.inputargs) == 4
         assert len(executedesc._cache[(1, 'star', 3)].startblock.inputargs) == 5
 
+    def test_specialize_call_location(self):
+        def g(a):
+            return a
+        g._annspecialcase_ = "specialize:call_location"
+        def f(x):
+            return g(x)
+        f._annspecialcase_ = "specialize:argtype(0)"
+        def h(y):
+            w = f(y)
+            return int(f(str(y))) + w
+        a = self.RPythonAnnotator()
+        assert a.build_types(h, [int]) == annmodel.SomeInteger()
+
     def test_assert_list_doesnt_lose_info(self):
         class T(object):
             pass

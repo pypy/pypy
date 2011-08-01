@@ -370,3 +370,7 @@ def specialize_arglistitemtype(funcdesc, args_s, i):
     else:
         key = s.listdef.listitem.s_value.knowntype
     return maybe_star_args(funcdesc, key, args_s)
+
+def specialize_call_location(funcdesc, args_s):
+    key = funcdesc.bookkeeper.position_key
+    return maybe_star_args(funcdesc, key, args_s)
