@@ -517,17 +517,17 @@ class MiniMarkGC(MovingGCBase):
         # constant-folded because self.nonlarge_max, size and itemsize
         # are all constants (the arguments are constant due to
         # inlining).
-        if not raw_malloc_usage(itemsize):
-            too_many_items = raw_malloc_usage(nonvarsize) > self.nonlarge_max
-        else:
+        too_many_items = raw_malloc_usage(nonvarsize) > self.nonlarge_max
+        if not too_many_items and raw_malloc_usage(itemsize) > 0:
             maxlength = self.nonlarge_max - raw_malloc_usage(nonvarsize)
             maxlength = maxlength // raw_malloc_usage(itemsize)
-            too_many_items = length > maxlength
+            too_many_items = r_uint(length) > r_uint(maxlength)
 
         if too_many_items:
             #
             # If the total size of the object would be larger than
-            # 'nonlarge_max', then allocate it externally.
+            # 'nonlarge_max', then allocate it externally.  We also
+            # go there if 'length' is actually negative.
             obj = self.external_malloc(typeid, length)
             #
         else:
@@ -610,13 +610,18 @@ class MiniMarkGC(MovingGCBase):
             # this includes the case of fixed-size objects, for which we
             # should not even ask for the varsize_item_sizes().
             totalsize = nonvarsize
-        else:
+        elif length > 0:
+            # var-sized allocation with at least one item
             itemsize = self.varsize_item_sizes(typeid)
             try:
                 varsize = ovfcheck(itemsize * length)
                 totalsize = ovfcheck(nonvarsize + varsize)
             except OverflowError:
                 raise MemoryError
+        else:
+            # negative length!  This likely comes from an overflow
+            # earlier.  We will just raise MemoryError here.
+            raise MemoryError
         #
         # If somebody calls this function a lot, we must eventually
         # force a full collection.
