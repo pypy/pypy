@@ -55,6 +55,7 @@ class TemplateFormatter(object):
         self.auto_numbering_state = ANS_INIT
         return self._build_string(0, len(self.template), 2)
 
+    @jit.unroll_if(lambda self, start, end, level: jit.isconstant(self.template))
     def _build_string(self, start, end, level):
         space = self.space
         if self.is_unicode:
@@ -66,12 +67,6 @@ class TemplateFormatter(object):
                                  space.wrap("Recursion depth exceeded"))
         level -= 1
         s = self.template
-        if jit.isconstant(s):
-            return self._do_build_string_unroll(start, end, level, out, s)
-        else:
-            return self._do_build_string(start, end, level, out, s)
-
-    def _do_build_string(self, start, end, level, out, s):
         space = self.space
         last_literal = i = start
         while i < end:
@@ -122,11 +117,6 @@ class TemplateFormatter(object):
 
         out.append_slice(s, last_literal, end)
         return out.build()
-
-    f = sourcetools.func_with_new_name(_do_build_string,
-                                       "_do_build_string_unroll")
-    _do_build_string_unroll = jit.unroll_safe(f)
-    del f
 
     def _parse_field(self, start, end):
         s = self.template
