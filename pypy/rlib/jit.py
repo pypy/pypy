@@ -111,7 +111,8 @@ def purefunction_promote(*args, **kwargs):
 def unroll_if(predicate):
     def inner(func):
         func_unroll = unroll_safe(func_with_new_name(func, func.__name__ + "_unroll"))
-        predicate._annspecialcase_ = "specialize:call_location"
+        for thing in func, func_unroll, predicate:
+            thing._annspecialcase_ = "specialize:call_location"
 
         def f(*args):
             if predicate(*args):
