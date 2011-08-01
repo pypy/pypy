@@ -215,6 +215,7 @@ class MIFrame(object):
 
     for _opimpl in ['int_is_true', 'int_is_zero', 'int_neg', 'int_invert',
                     'cast_float_to_int', 'cast_int_to_float',
+                    'cast_float_to_singlefloat', 'cast_singlefloat_to_float',
                     'float_neg', 'float_abs',
                     ]:
         exec py.code.Source('''
@@ -1242,7 +1243,7 @@ class MIFrame(object):
         src_i = src_r = src_f = 0
         i = 1
         for kind in descr.get_arg_types():
-            if kind == history.INT:
+            if kind == history.INT or kind == 'S':        # single float
                 while True:
                     box = argboxes[src_i]
                     src_i += 1

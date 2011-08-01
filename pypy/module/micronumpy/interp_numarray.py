@@ -477,7 +477,8 @@ class SingleDimArray(BaseArray):
         BaseArray.__init__(self)
         self.size = size
         self.storage = lltype.malloc(TP, size, zero=True,
-                                     flavor='raw', track_allocation=False)
+                                     flavor='raw', track_allocation=False,
+                                     add_memory_pressure=True)
         # XXX find out why test_zjit explodes with trackign of allocations
 
     def get_concrete(self):
@@ -506,7 +507,7 @@ class SingleDimArray(BaseArray):
             self._sliceloop2(start, stop, step, arr, self)
 
     def __del__(self):
-        lltype.free(self.storage, flavor='raw')
+        lltype.free(self.storage, flavor='raw', track_allocation=False)
 
 def new_numarray(space, w_size_or_iterable):
     l = space.listview(w_size_or_iterable)

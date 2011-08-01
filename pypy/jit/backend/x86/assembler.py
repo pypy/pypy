@@ -56,7 +56,9 @@ class GuardToken(object):
         self.exc = exc
         self.is_guard_not_invalidated = is_guard_not_invalidated
 
-DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER', ('i', lltype.Signed))
+DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER', ('i', lltype.Signed),
+                              ('bridge', lltype.Signed), # 0 or 1
+                              ('number', lltype.Signed))
 
 class Assembler386(object):
     _regalloc = None
@@ -155,9 +157,12 @@ class Assembler386(object):
     def finish_once(self):
         if self._debug:
             debug_start('jit-backend-counts')
-            for i in range(len(self.loop_run_counters)):
-                struct = self.loop_run_counters[i]
-                debug_print(str(i) + ':' + str(struct.i))
+            for struct in self.loop_run_counters:
+                if struct.bridge:
+                    prefix = 'bridge '
+                else:
+                    prefix = 'loop '
+                debug_print(prefix + str(struct.number) + ':' + str(struct.i))
             debug_stop('jit-backend-counts')
 
     def _build_float_constants(self):
@@ -404,7 +409,7 @@ class Assembler386(object):
         self.setup(looptoken)
         self.currently_compiling_loop = looptoken
         if log:
-            self._register_counter()
+            self._register_counter(False, looptoken.number)
             operations = self._inject_debugging_code(looptoken, operations)
 
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
@@ -473,7 +478,7 @@ class Assembler386(object):
 
         self.setup(original_loop_token)
         if log:
-            self._register_counter()
+            self._register_counter(True, descr_number)
             operations = self._inject_debugging_code(faildescr, operations)
 
         arglocs = self.rebuild_faillocs_from_descr(failure_recovery)
@@ -570,7 +575,7 @@ class Assembler386(object):
         return self.mc.materialize(self.cpu.asmmemmgr, allblocks,
                                    self.cpu.gc_ll_descr.gcrootmap)
 
-    def _register_counter(self):
+    def _register_counter(self, bridge, number):
         if self._debug:
             # YYY very minor leak -- we need the counters to stay alive
             # forever, just because we want to report them at the end
@@ -578,6 +583,8 @@ class Assembler386(object):
             struct = lltype.malloc(DEBUG_COUNTER, flavor='raw',
                                    track_allocation=False)
             struct.i = 0
+            struct.bridge = int(bridge)
+            struct.number = number
             self.loop_run_counters.append(struct)
 
     def _find_failure_recovery_bytecode(self, faildescr):
@@ -1068,9 +1075,10 @@ class Assembler386(object):
                     self.implement_guard(guard_token, checkfalsecond)
         return genop_cmp_guard_float
 
-    def _emit_call(self, force_index, x, arglocs, start=0, tmp=eax):
+    def _emit_call(self, force_index, x, arglocs, start=0, tmp=eax,
+                   argtypes=None):
         if IS_X86_64:
-            return self._emit_call_64(force_index, x, arglocs, start)
+            return self._emit_call_64(force_index, x, arglocs, start, argtypes)
 
         p = 0
         n = len(arglocs)
@@ -1098,12 +1106,13 @@ class Assembler386(object):
         self.mc.CALL(x)
         self.mark_gc_roots(force_index)
 
-    def _emit_call_64(self, force_index, x, arglocs, start):
+    def _emit_call_64(self, force_index, x, arglocs, start, argtypes):
         src_locs = []
         dst_locs = []
         xmm_src_locs = []
         xmm_dst_locs = []
         pass_on_stack = []
+        singlefloats = None
 
         # In reverse order for use with pop()
         unused_gpr = [r9, r8, ecx, edx, esi, edi]
@@ -1123,6 +1132,11 @@ class Assembler386(object):
                     xmm_dst_locs.append(unused_xmm.pop())
                 else:
                     pass_on_stack.append(loc)
+            elif (argtypes is not None and argtypes[i-start] == 'S' and
+                  len(unused_xmm) > 0):
+                # Singlefloat argument
+                if singlefloats is None: singlefloats = []
+                singlefloats.append((loc, unused_xmm.pop()))
             else:
                 if len(unused_gpr) > 0:
                     src_locs.append(loc)
@@ -1150,9 +1164,15 @@ class Assembler386(object):
                 else:
                     self.mc.MOV_sr(i*WORD, loc.value)
 
-        # Handle register arguments
+        # Handle register arguments: first remap the xmm arguments
+        remap_frame_layout(self, xmm_src_locs, xmm_dst_locs,
+                           X86_64_XMM_SCRATCH_REG)
+        # Load the singlefloat arguments from main regs or stack to xmm regs
+        if singlefloats is not None:
+            for src, dst in singlefloats:
+                self.mc.MOVD(dst, src)
+        # Finally remap the arguments in the main regs
         remap_frame_layout(self, src_locs, dst_locs, X86_64_SCRATCH_REG)
-        remap_frame_layout(self, xmm_src_locs, xmm_dst_locs, X86_64_XMM_SCRATCH_REG)
 
         self._regalloc.reserve_param(len(pass_on_stack))
         self.mc.CALL(x)
@@ -1266,6 +1286,20 @@ class Assembler386(object):
 
     def genop_cast_int_to_float(self, op, arglocs, resloc):
         self.mc.CVTSI2SD(resloc, arglocs[0])
+
+    def genop_cast_float_to_singlefloat(self, op, arglocs, resloc):
+        loc0, loctmp = arglocs
+        self.mc.CVTSD2SS(loctmp, loc0)
+        assert isinstance(resloc, RegLoc)
+        assert isinstance(loctmp, RegLoc)
+        self.mc.MOVD_rx(resloc.value, loctmp.value)
+
+    def genop_cast_singlefloat_to_float(self, op, arglocs, resloc):
+        loc0, = arglocs
+        assert isinstance(resloc, RegLoc)
+        assert isinstance(loc0, RegLoc)
+        self.mc.MOVD_xr(resloc.value, loc0.value)
+        self.mc.CVTSS2SD_xx(resloc.value, resloc.value)
 
     def genop_guard_int_is_true(self, op, guard_op, guard_token, arglocs, resloc):
         guard_opnum = guard_op.getopnum()
@@ -2025,7 +2059,8 @@ class Assembler386(object):
         else:
             tmp = eax
 
-        self._emit_call(force_index, x, arglocs, 3, tmp=tmp)
+        self._emit_call(force_index, x, arglocs, 3, tmp=tmp,
+                        argtypes=op.getdescr().get_arg_types())
 
         if IS_X86_32 and isinstance(resloc, StackLoc) and resloc.width == 8:
             # a float or a long long return
@@ -2037,7 +2072,19 @@ class Assembler386(object):
                 #     and this way is simpler also because the result loc
                 #     can just be always a stack location
             else:
-                self.mc.FSTP_b(resloc.value)   # float return
+                self.mc.FSTPL_b(resloc.value)   # float return
+        elif op.getdescr().get_return_type() == 'S':
+            # singlefloat return
+            assert resloc is eax
+            if IS_X86_32:
+                # must convert ST(0) to a 32-bit singlefloat and load it into EAX
+                # mess mess mess
+                self.mc.SUB_ri(esp.value, 4)
+                self.mc.FSTPS_s(0)
+                self.mc.POP_r(eax.value)
+            elif IS_X86_64:
+                # must copy from the lower 32 bits of XMM0 into eax
+                self.mc.MOVD_rx(eax.value, xmm0.value)
         elif size == WORD:
             assert resloc is eax or resloc is xmm0    # a full word
         elif size == 0:
@@ -2195,7 +2242,7 @@ class Assembler386(object):
         self._emit_call(fail_index, imm(asm_helper_adr), [eax, arglocs[1]], 0,
                         tmp=ecx)
         if IS_X86_32 and isinstance(result_loc, StackLoc) and result_loc.type == FLOAT:
-            self.mc.FSTP_b(result_loc.value)
+            self.mc.FSTPL_b(result_loc.value)
         #else: result_loc is already either eax or None, checked below
         self.mc.JMP_l8(0) # jump to done, patched later
         jmp_location = self.mc.get_relative_pos()
