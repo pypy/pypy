@@ -22,6 +22,15 @@ class AppTestClasses:
 
             return IncrementalHzEncoder
         """)
+        cls.w_IncrementalBig5hkscsEncoder = cls.space.appexec([], """():
+            import _codecs_cn
+            from _multibytecodec import MultibyteIncrementalEncoder
+
+            class IncrementalBig5hkscsEncoder(MultibyteIncrementalEncoder):
+                codec = _codecs_cn.getcodec('big5hkscs')
+
+            return IncrementalBig5hkscsEncoder
+        """)
 
     def test_decode_hz(self):
         d = self.IncrementalHzDecoder()
@@ -136,3 +145,19 @@ class AppTestClasses:
         for i in range(13):
             r = e.encode(u"a" * (2**i))
             assert r == "a" * (2**i)
+
+    def test_encode_big5hkscs(self):
+        #e = self.IncrementalBig5hkscsEncoder()
+        #r = e.encode(u'\xca', True)
+        #assert r == '\x88f'
+        #r = e.encode(u'\xca', True)
+        #assert r == '\x88f'
+        #raises(UnicodeEncodeError, e.encode, u'\u0304', True)
+        #
+        e = self.IncrementalBig5hkscsEncoder()
+        r = e.encode(u'\xca')
+        assert r == ''
+        r = e.encode(u'\xca')
+        assert r == '\x88f'
+        r = e.encode(u'\u0304')
+        assert r == '\x88b'

@@ -180,11 +180,8 @@ static int expand_encodebuffer(struct pypy_cjk_enc_s *d, Py_ssize_t esize)
   return 0;
 }
 
-#define MBENC_RESET     MBENC_MAX<<1
-
-Py_ssize_t pypy_cjk_enc_chunk(struct pypy_cjk_enc_s *d)
+Py_ssize_t pypy_cjk_enc_chunk(struct pypy_cjk_enc_s *d, Py_ssize_t flags)
 {
-  int flags = MBENC_FLUSH | MBENC_RESET;   /* XXX always, for now */
   while (1)
     {
       Py_ssize_t r;

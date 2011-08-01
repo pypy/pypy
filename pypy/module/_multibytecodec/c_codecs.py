@@ -190,8 +190,8 @@ pypy_cjk_enc_init = llexternal('pypy_cjk_enc_init',
                                rffi.SSIZE_T)
 pypy_cjk_enc_free = llexternal('pypy_cjk_enc_free', [ENCODEBUF_P],
                                lltype.Void)
-pypy_cjk_enc_chunk = llexternal('pypy_cjk_enc_chunk', [ENCODEBUF_P],
-                                rffi.SSIZE_T)
+pypy_cjk_enc_chunk = llexternal('pypy_cjk_enc_chunk',
+                                [ENCODEBUF_P, rffi.SSIZE_T], rffi.SSIZE_T)
 pypy_cjk_enc_reset = llexternal('pypy_cjk_enc_reset', [ENCODEBUF_P],
                                 rffi.SSIZE_T)
 pypy_cjk_enc_outbuf = llexternal('pypy_cjk_enc_outbuf', [ENCODEBUF_P],
@@ -208,6 +208,8 @@ pypy_cjk_enc_replace_on_error = llexternal('pypy_cjk_enc_replace_on_error',
                                            rffi.SSIZE_T)
 pypy_cjk_enc_getcodec = llexternal('pypy_cjk_enc_getcodec',
                                    [ENCODEBUF_P], MULTIBYTECODEC_P)
+MBENC_FLUSH = 1
+MBENC_RESET = 2
 
 def encode(codec, unicodedata, errors="strict", errorcb=None, namecb=None):
     encodebuf = pypy_cjk_enc_new(codec)
@@ -225,8 +227,12 @@ def encodeex(encodebuf, unicodedata, errors="strict", errorcb=None,
     try:
         if pypy_cjk_enc_init(encodebuf, inbuf, inleft) < 0:
             raise MemoryError
+        if ignore_error == 0:
+            flags = MBENC_FLUSH | MBENC_RESET
+        else:
+            flags = MBENC_RESET
         while True:
-            r = pypy_cjk_enc_chunk(encodebuf)
+            r = pypy_cjk_enc_chunk(encodebuf, flags)
             if r == 0 or r == ignore_error:
                 break
             multibytecodec_encerror(encodebuf, r, errors,
