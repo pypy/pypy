@@ -88,9 +88,51 @@ class AppTestClasses:
         d = self.IncrementalHzDecoder()
         for i in range(13):
             r = d.decode("a" * (2**i))
-            assert r == unicode("a" * (2**i))
+            assert r == u"a" * (2**i)
 
     def test_encode_hz(self):
         e = self.IncrementalHzEncoder()
         r = e.encode("abcd")
-        assert r == u'abcd'
+        assert r == 'abcd'
+        r = e.encode(u"\u5f95\u6c85")
+        assert r == '~{abcd~}'
+        r = e.encode(u"\u5f50")
+        assert r == '~{ef~}'
+        r = e.encode(u"\u73b7")
+        assert r == '~{gh~}'
+
+    def test_encode_hz_final(self):
+        e = self.IncrementalHzEncoder()
+        r = e.encode(u"xyz\u5f95\u6c85", True)
+        assert r == 'xyz~{abcd~}'
+        # This is a bit hard to test, because the only way I can see that
+        # encoders can return MBERR_TOOFEW is with surrogates, which only
+        # occur with 2-byte unicode characters...  We will just have to
+        # trust that the logic works, because it is exactly the same one
+        # as in the decode case :-/
+
+    def test_encode_hz_reset(self):
+        # Same issue as with test_encode_hz_final
+        e = self.IncrementalHzEncoder()
+        r = e.encode(u"xyz\u5f95\u6c85", True)
+        assert r == 'xyz~{abcd~}'
+        e.reset()
+        r = e.encode(u"xyz\u5f95\u6c85")
+        assert r == 'xyz~{abcd~}'
+
+    def test_encode_hz_error(self):
+        e = self.IncrementalHzEncoder()
+        raises(UnicodeEncodeError, e.encode, u"\u4321", True)
+        e = self.IncrementalHzEncoder("ignore")
+        r = e.encode(u"xy\u4321z", True)
+        assert r == 'xyz'
+        e = self.IncrementalHzEncoder()
+        e.errors = "replace"
+        r = e.encode(u"xy\u4321z", True)
+        assert r == 'xy?z'
+
+    def test_encode_hz_buffer_grow(self):
+        e = self.IncrementalHzEncoder()
+        for i in range(13):
+            r = e.encode(u"a" * (2**i))
+            assert r == "a" * (2**i)
