@@ -130,14 +130,14 @@ class MethodsPBCRepr(AbstractMethodsPBCRepr):
     def call(self, opname, hop):
         s_pbc = hop.args_s[0]   # possibly more precise than self.s_pbc        
         args_s = hop.args_s[1:]
-        shape, index, callfamily = self._get_shape_index_callfamily(opname, s_pbc, args_s)
+        shape, index, callfamily = self._get_shape_index_callfamily(opname, s_pbc, args_s, hop)
         row_of_graphs = callfamily.calltables[shape][index]
         anygraph = row_of_graphs.itervalues().next()  # pick any witness
         hop2 = self.add_instance_arg_to_hop(hop, opname == "call_args")
         vlist = callparse.callparse(self.rtyper, anygraph, hop2, opname,
                                     r_self = self.r_im_self)
         rresult = callparse.getrresult(self.rtyper, anygraph)
-        derived_mangled = self._get_method_name(opname, s_pbc, args_s)
+        derived_mangled = self._get_method_name(opname, s_pbc, args_s, hop)
         cname = hop.inputconst(ootype.Void, derived_mangled)
         hop.exception_is_here()
         # sanity check: make sure that INSTANCE has the method
@@ -151,18 +151,18 @@ class MethodsPBCRepr(AbstractMethodsPBCRepr):
         else:
             return hop.llops.convertvar(v, rresult, hop.r_result)
 
-    def _get_shape_index_callfamily(self, opname, s_pbc, args_s):
+    def _get_shape_index_callfamily(self, opname, s_pbc, args_s, hop):
         bk = self.rtyper.annotator.bookkeeper
         args = bk.build_args(opname, args_s)
         args = args.prepend(self.s_im_self)
         descs = [desc.funcdesc for desc in s_pbc.descriptions]
         callfamily = descs[0].getcallfamily()
         shape, index = description.FunctionDesc.variant_for_call_site(
-                bk, callfamily, descs, args)
+                bk, callfamily, descs, args, hop.spaceop)
         return shape, index, callfamily
 
-    def _get_method_name(self, opname, s_pbc, args_s):
-        shape, index, callfamily = self._get_shape_index_callfamily(opname, s_pbc, args_s)
+    def _get_method_name(self, opname, s_pbc, args_s, hop):
+        shape, index, callfamily = self._get_shape_index_callfamily(opname, s_pbc, args_s, hop)
         mangled = mangle(self.methodname, self.rtyper.getconfig())
         row = self.concretetable[shape, index]
         derived_mangled = row_method_name(mangled, row.attrname)
