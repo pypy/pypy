@@ -22,6 +22,15 @@ class AppTestStreams:
 
             return HzStreamWriter
         """)
+        cls.w_ShiftJisx0213StreamWriter = cls.space.appexec([], """():
+            import _codecs_jp
+            from _multibytecodec import MultibyteStreamWriter
+
+            class ShiftJisx0213StreamWriter(MultibyteStreamWriter):
+                codec = _codecs_jp.getcodec('shift_jisx0213')
+
+            return ShiftJisx0213StreamWriter
+        """)
 
     def test_reader(self):
         class FakeFile:
@@ -69,3 +78,16 @@ class AppTestStreams:
             w.write(input)
         assert w.stream.output == ['!', '~{ab~}', '~{cd~}', 'x', 'y', 'z',
                                    '~{ef~}', '~{gh~}']
+
+    def test_no_flush(self):
+        class FakeFile:
+            def __init__(self):
+                self.output = []
+            def write(self, data):
+                self.output.append(data)
+        #
+        w = self.ShiftJisx0213StreamWriter(FakeFile())
+        w.write(u'\u30ce')
+        w.write(u'\u304b')
+        w.write(u'\u309a')
+        assert w.stream.output == ['\x83m', '', '\x82\xf5']
