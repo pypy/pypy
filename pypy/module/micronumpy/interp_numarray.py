@@ -506,7 +506,7 @@ class SingleDimArray(BaseArray):
             self._sliceloop2(start, stop, step, arr, self)
 
     def __del__(self):
-        lltype.free(self.storage, flavor='raw', track_allocation=False)
+        lltype.free(self.storage, flavor='raw')
 
 def new_numarray(space, w_size_or_iterable):
     l = space.listview(w_size_or_iterable)
