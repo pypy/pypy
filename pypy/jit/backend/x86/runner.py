@@ -19,6 +19,7 @@ py.log.setconsumer('jitbackend', ansi_log)
 class AbstractX86CPU(AbstractLLCPU):
     debug = True
     supports_floats = True
+    supports_singlefloats = True
 
     BOOTSTRAP_TP = lltype.FuncType([], lltype.Signed)
     dont_keepalive_stuff = False # for tests
