@@ -1,10 +1,10 @@
-
-from pypy.rlib.rstruct.nativefmttable import native_is_bigendian
-from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib import jit
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.rstruct.error import StructError
+from pypy.rlib.rstruct.nativefmttable import native_is_bigendian, native_fmttable
 from pypy.rlib.rstruct.standardfmttable import standard_fmttable
-from pypy.rlib.rstruct.nativefmttable import native_fmttable
+from pypy.rlib.unroll import unrolling_iterable
+
 
 class FormatIterator(object):
     """
@@ -16,6 +16,7 @@ class FormatIterator(object):
     _mixin_ = True
     _operate_is_specialized_ = False
 
+    # @jit.unroll_if(lambda self, fmt: jit.isconstant(fmt))
     def interpret(self, fmt):
         # decode the byte order, size and alignment based on the 1st char
         table = unroll_native_fmtdescs
