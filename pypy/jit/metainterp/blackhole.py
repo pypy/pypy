@@ -623,6 +623,19 @@ class BlackholeInterpreter(object):
         x = float(a)
         return longlong.getfloatstorage(x)
 
+    @arguments("f", returns="i")
+    def bhimpl_cast_float_to_singlefloat(a):
+        from pypy.rlib.rarithmetic import r_singlefloat
+        a = longlong.getrealfloat(a)
+        a = r_singlefloat(a)
+        return longlong.singlefloat2int(a)
+
+    @arguments("i", returns="f")
+    def bhimpl_cast_singlefloat_to_float(a):
+        a = longlong.int2singlefloat(a)
+        a = float(a)
+        return longlong.getfloatstorage(a)
+
     # ----------
     # control flow operations
 

@@ -91,6 +91,7 @@ history.TreeLoop._compiled_version = lltype.nullptr(llimpl.COMPILEDLOOP.TO)
 class BaseCPU(model.AbstractCPU):
     supports_floats = True
     supports_longlong = llimpl.IS_32_BIT
+    supports_singlefloats = True
 
     def __init__(self, rtyper, stats=None, opts=None,
                  translate_support_code=False,
@@ -327,12 +328,16 @@ class LLtypeCPU(BaseCPU):
 
     def calldescrof_dynamic(self, ffi_args, ffi_result, extrainfo=None):
         from pypy.jit.backend.llsupport.ffisupport import get_ffi_type_kind
+        from pypy.jit.backend.llsupport.ffisupport import UnsupportedKind
         arg_types = []
-        for arg in ffi_args:
-            kind = get_ffi_type_kind(arg)
-            if kind != history.VOID:
-                arg_types.append(kind)
-        reskind = get_ffi_type_kind(ffi_result)
+        try:
+            for arg in ffi_args:
+                kind = get_ffi_type_kind(self, arg)
+                if kind != history.VOID:
+                    arg_types.append(kind)
+            reskind = get_ffi_type_kind(self, ffi_result)
+        except UnsupportedKind:
+            return None
         return self.getdescr(0, reskind, extrainfo=extrainfo,
                              arg_types=''.join(arg_types))
 

@@ -424,6 +424,15 @@ class TestStructure(BaseCTypesTestChecker):
             sys.settrace(oldtrace)
             events = None
 
+    def test_large_fields(self):
+        # make sure that large fields are not "confused" with bitfields
+        # (because the bitfields use the higher bits of the "size" attribute)
+        Array = c_long * 8192
+        class X(Structure):
+            _fields_ = [('items', Array)]
+        obj = X()
+        assert isinstance(obj.items, Array)
+
 class TestPointerMember(BaseCTypesTestChecker):
 
     def test_1(self):

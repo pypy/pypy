@@ -230,3 +230,18 @@ class TestLongLong:
             assert list(op1.args[3]) == []
             assert list(op1.args[4]) == vlist
             assert op1.result == v_result
+
+
+##def test_singlefloat_constants():
+##    v_x = varoftype(TYPE)
+##    vlist = [v_x, const(rffi.cast(TYPE, 7))]
+##    v_result = varoftype(TYPE)
+##    op = SpaceOperation('llong_add', vlist, v_result)
+##    tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+##    op1 = tr.rewrite_operation(op)
+##    #
+##    assert op1.opname == 'residual_call_irf_f'
+##    assert list(op1.args[2]) == []
+##    assert list(op1.args[3]) == []
+##    assert list(op1.args[4]) == vlist
+##    assert op1.result == v_result

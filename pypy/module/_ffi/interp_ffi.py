@@ -222,9 +222,9 @@ class W_FuncPtr(Wrappable):
                 w_arg = space.ord(w_arg)
                 argchain.arg(space.int_w(w_arg))
             elif w_argtype.is_double():
-                argchain.arg(space.float_w(w_arg))
+                self.arg_float(space, argchain, w_arg)
             elif w_argtype.is_singlefloat():
-                argchain.arg_singlefloat(space.float_w(w_arg))
+                self.arg_singlefloat(space, argchain, w_arg)
             elif w_argtype.is_struct():
                 # arg_raw directly takes value to put inside ll_args
                 w_arg = space.interp_w(W_StructureInstance, w_arg)
@@ -267,15 +267,26 @@ class W_FuncPtr(Wrappable):
         else:
             return w_arg
 
-    @jit.dont_look_inside
+    def arg_float(self, space, argchain, w_arg):
+        # a separate function, which can be seen by the jit or not,
+        # depending on whether floats are supported
+        argchain.arg(space.float_w(w_arg))
+
     def arg_longlong(self, space, argchain, w_arg):
+        # a separate function, which can be seen by the jit or not,
+        # depending on whether longlongs are supported
         bigarg = space.bigint_w(w_arg)
         ullval = bigarg.ulonglongmask()
         llval = rffi.cast(rffi.LONGLONG, ullval)
-        # this is a hack: we store the 64 bits of the long long into the
-        # 64 bits of a float (i.e., a C double)
-        floatval = libffi.longlong2float(llval)
-        argchain.arg_longlong(floatval)
+        argchain.arg(llval)
+
+    def arg_singlefloat(self, space, argchain, w_arg):
+        # a separate function, which can be seen by the jit or not,
+        # depending on whether singlefloats are supported
+        from pypy.rlib.rarithmetic import r_singlefloat
+        fval = space.float_w(w_arg)
+        sfval = r_singlefloat(fval)
+        argchain.arg(sfval)
 
     def call(self, space, args_w):
         self = jit.promote(self)
@@ -296,8 +307,7 @@ class W_FuncPtr(Wrappable):
             # note that we must check for longlong first, because either
             # is_signed or is_unsigned returns true anyway
             assert libffi.IS_32_BIT
-            reskind = libffi.types.getkind(self.func.restype) # XXX: remove the kind
-            return self._call_longlong(space, argchain, reskind)
+            return self._call_longlong(space, argchain)
         elif w_restype.is_signed():
             return self._call_int(space, argchain)
         elif w_restype.is_unsigned() or w_restype.is_pointer():
@@ -309,12 +319,9 @@ class W_FuncPtr(Wrappable):
             intres = self.func.call(argchain, rffi.WCHAR_T)
             return space.wrap(unichr(intres))
         elif w_restype.is_double():
-            floatres = self.func.call(argchain, rffi.DOUBLE)
-            return space.wrap(floatres)
+            return self._call_float(space, argchain)
         elif w_restype.is_singlefloat():
-            # the result is a float, but widened to be inside a double
-            floatres = self.func.call(argchain, rffi.FLOAT)
-            return space.wrap(floatres)
+            return self._call_singlefloat(space, argchain)
         elif w_restype.is_struct():
             w_datashape = w_restype.w_datashape
             assert isinstance(w_datashape, W_Structure)
@@ -383,19 +390,32 @@ class W_FuncPtr(Wrappable):
                                  space.wrap('Unsupported restype'))
         return space.wrap(intres)
 
-    @jit.dont_look_inside
-    def _call_longlong(self, space, argchain, reskind):
-        # this is a hack: we store the 64 bits of the long long into the 64
-        # bits of a float (i.e., a C double)
-        floatres = self.func.call(argchain, rffi.LONGLONG)
-        llres = libffi.float2longlong(floatres)
-        if reskind == 'I':
+    def _call_float(self, space, argchain):
+        # a separate function, which can be seen by the jit or not,
+        # depending on whether floats are supported
+        floatres = self.func.call(argchain, rffi.DOUBLE)
+        return space.wrap(floatres)
+
+    def _call_longlong(self, space, argchain):
+        # a separate function, which can be seen by the jit or not,
+        # depending on whether longlongs are supported
+        restype = self.func.restype
+        call = self.func.call
+        if restype is libffi.types.slonglong:
+            llres = call(argchain, rffi.LONGLONG)
             return space.wrap(llres)
-        elif reskind == 'U':
-            ullres = rffi.cast(rffi.ULONGLONG, llres)
+        elif restype is libffi.types.ulonglong:
+            ullres = call(argchain, rffi.ULONGLONG)
             return space.wrap(ullres)
         else:
-            assert False
+            raise OperationError(space.w_ValueError,
+                                 space.wrap('Unsupported longlong restype'))
+
+    def _call_singlefloat(self, space, argchain):
+        # a separate function, which can be seen by the jit or not,
+        # depending on whether singlefloats are supported
+        sfres = self.func.call(argchain, rffi.FLOAT)
+        return space.wrap(float(sfres))
 
     def getaddr(self, space):
         """

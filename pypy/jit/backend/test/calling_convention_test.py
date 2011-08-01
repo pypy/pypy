@@ -290,3 +290,58 @@ class TestCallingConv(Runner):
                 assert abs(x - expected_result) < 0.0001
             finally:
                 del self.cpu.done_with_this_frame_float_v
+
+    def test_call_with_singlefloats(self):
+        cpu = self.cpu
+        if not cpu.supports_floats or not cpu.supports_singlefloats:
+            py.test.skip('requires floats and singlefloats')
+
+        import random
+        from pypy.rlib.libffi import types
+        from pypy.rlib.rarithmetic import r_singlefloat
+
+        def func(*args):
+            res = 0.0
+            for i, x in enumerate(args):
+                res += (i + 1.1) * float(x)
+            return res
+
+        F = lltype.Float
+        S = lltype.SingleFloat
+        I = lltype.Signed
+        floats = [random.random() - 0.5 for i in range(8)]
+        singlefloats = [r_singlefloat(random.random() - 0.5) for i in range(8)]
+        ints = [random.randrange(-99, 99) for i in range(8)]
+        for repeat in range(100):
+            args = []
+            argvalues = []
+            argslist = []
+            local_floats = list(floats)
+            local_singlefloats = list(singlefloats)
+            local_ints = list(ints)
+            for i in range(8):
+                case = random.randrange(0, 3)
+                if case == 0:
+                    args.append(F)
+                    arg = local_floats.pop()
+                    argslist.append(boxfloat(arg))
+                elif case == 1:
+                    args.append(S)
+                    arg = local_singlefloats.pop()
+                    argslist.append(BoxInt(longlong.singlefloat2int(arg)))
+                else:
+                    args.append(I)
+                    arg = local_ints.pop()
+                    argslist.append(BoxInt(arg))
+                argvalues.append(arg)
+            FUNC = self.FuncType(args, F)
+            FPTR = self.Ptr(FUNC)
+            func_ptr = llhelper(FPTR, func)
+            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+            funcbox = self.get_funcbox(cpu, func_ptr)
+
+            res = self.execute_operation(rop.CALL,
+                                         [funcbox] + argslist,
+                                         'float', descr=calldescr)
+            expected = func(*argvalues)
+            assert abs(res.getfloat() - expected) < 0.0001

@@ -1396,9 +1396,10 @@ class TestMiniMarkGC(TestSemiSpaceGC):
         class A:
             def __init__(self, n):
                 self.buf = lltype.malloc(ARRAY, n, flavor='raw',
-                                         track_allocation=False)
+                                         add_memory_pressure=True)
             def __del__(self):
-                lltype.free(self.buf, flavor='raw', track_allocation=False)
+                lltype.free(self.buf, flavor='raw')
+        A(6)
         def f():
             # allocate a total of ~77GB, but if the automatic gc'ing works,
             # it should never need more than a few MBs at once
