@@ -57,8 +57,7 @@ def _new_copy_contents_fun(TP, CHAR_TP, name):
                 llmemory.itemoffsetof(TP.chars, 0) +
                 llmemory.sizeof(CHAR_TP) * item)
 
-    # It'd be nice to be able to look inside this function.
-    @jit.dont_look_inside
+    @jit.oopspec('stroruni.copy_contents(src, dst, srcstart, dststart, length)')
     @enforceargs(None, None, int, int, int)
     def copy_string_contents(src, dst, srcstart, dststart, length):
         assert srcstart >= 0
@@ -68,8 +67,6 @@ def _new_copy_contents_fun(TP, CHAR_TP, name):
         dst = llmemory.cast_ptr_to_adr(dst) + _str_ofs(dststart)
         llmemory.raw_memcopy(src, dst, llmemory.sizeof(CHAR_TP) * length)
     copy_string_contents._always_inline_ = True
-    copy_string_contents.oopspec = (
-       'stroruni.copy_contents(src, dst, srcstart, dststart, length)')
     return func_with_new_name(copy_string_contents, 'copy_%s_contents' % name)
 
 copy_string_contents = _new_copy_contents_fun(STR, Char, 'string')
