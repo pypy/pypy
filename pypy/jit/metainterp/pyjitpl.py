@@ -390,6 +390,7 @@ class MIFrame(object):
     def opimpl_new_array(self, itemsizedescr, countbox):
         return self.execute_with_descr(rop.NEW_ARRAY, itemsizedescr, countbox)
 
+    @specialize.arg(1)
     def _do_getarrayitem_gc_any(self, op, arraybox, arraydescr, indexbox):
         cache = self.metainterp.heap_array_cache.get(arraydescr, None)
         if cache and isinstance(indexbox, ConstInt):
