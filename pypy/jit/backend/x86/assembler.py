@@ -56,7 +56,9 @@ class GuardToken(object):
         self.exc = exc
         self.is_guard_not_invalidated = is_guard_not_invalidated
 
-DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER', ('i', lltype.Signed))
+DEBUG_COUNTER = lltype.Struct('DEBUG_COUNTER', ('i', lltype.Signed),
+                              ('bridge', lltype.Signed), # 0 or 1
+                              ('number', lltype.Signed))
 
 class Assembler386(object):
     _regalloc = None
@@ -155,9 +157,12 @@ class Assembler386(object):
     def finish_once(self):
         if self._debug:
             debug_start('jit-backend-counts')
-            for i in range(len(self.loop_run_counters)):
-                struct = self.loop_run_counters[i]
-                debug_print(str(i) + ':' + str(struct.i))
+            for struct in self.loop_run_counters:
+                if struct.bridge:
+                    prefix = 'bridge '
+                else:
+                    prefix = 'loop '
+                debug_print(prefix + str(struct.number) + ':' + str(struct.i))
             debug_stop('jit-backend-counts')
 
     def _build_float_constants(self):
@@ -404,7 +409,7 @@ class Assembler386(object):
         self.setup(looptoken)
         self.currently_compiling_loop = looptoken
         if log:
-            self._register_counter()
+            self._register_counter(False, looptoken.number)
             operations = self._inject_debugging_code(looptoken, operations)
 
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
@@ -473,7 +478,7 @@ class Assembler386(object):
 
         self.setup(original_loop_token)
         if log:
-            self._register_counter()
+            self._register_counter(True, descr_number)
             operations = self._inject_debugging_code(faildescr, operations)
 
         arglocs = self.rebuild_faillocs_from_descr(failure_recovery)
@@ -570,7 +575,7 @@ class Assembler386(object):
         return self.mc.materialize(self.cpu.asmmemmgr, allblocks,
                                    self.cpu.gc_ll_descr.gcrootmap)
 
-    def _register_counter(self):
+    def _register_counter(self, bridge, number):
         if self._debug:
             # YYY very minor leak -- we need the counters to stay alive
             # forever, just because we want to report them at the end
@@ -578,6 +583,8 @@ class Assembler386(object):
             struct = lltype.malloc(DEBUG_COUNTER, flavor='raw',
                                    track_allocation=False)
             struct.i = 0
+            struct.bridge = int(bridge)
+            struct.number = number
             self.loop_run_counters.append(struct)
 
     def _find_failure_recovery_bytecode(self, faildescr):
