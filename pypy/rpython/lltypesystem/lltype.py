@@ -1939,7 +1939,7 @@ class _pyobject(Hashable, _container):
 
 
 def malloc(T, n=None, flavor='gc', immortal=False, zero=False,
-           track_allocation=True):
+           track_allocation=True, add_memory_pressure=False):
     assert flavor in ('gc', 'raw')
     if zero or immortal:
         initialization = 'example'

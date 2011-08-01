@@ -729,7 +729,7 @@ class MiniMarkGC(MovingGCBase):
             if self.max_heap_size < self.next_major_collection_threshold:
                 self.next_major_collection_threshold = self.max_heap_size
 
-    def raw_malloc_varsize_hint(self, sizehint):
+    def raw_malloc_memory_pressure(self, sizehint):
         self.next_major_collection_threshold -= sizehint
         if self.next_major_collection_threshold < 0:
             # cannot trigger a full collection now, but we can ensure
