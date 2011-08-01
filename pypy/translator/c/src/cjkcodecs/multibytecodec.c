@@ -119,34 +119,40 @@ Py_ssize_t pypy_cjk_dec_replace_on_error(struct pypy_cjk_dec_s* d,
 
 /************************************************************/
 
-struct pypy_cjk_enc_s *pypy_cjk_enc_init(const MultibyteCodec *codec,
-                                         Py_UNICODE *inbuf, Py_ssize_t inlen)
+struct pypy_cjk_enc_s *pypy_cjk_enc_new(const MultibyteCodec *codec)
 {
-  Py_ssize_t outlen;
   struct pypy_cjk_enc_s *d = malloc(sizeof(struct pypy_cjk_enc_s));
   if (!d)
     return NULL;
   if (codec->encinit != NULL && codec->encinit(&d->state, codec->config) != 0)
-    goto errorexit;
-
+    {
+      free(d);
+      return NULL;
+    }
   d->codec = codec;
+  d->outbuf_start = NULL;
+  return d;
+}
+
+Py_ssize_t pypy_cjk_enc_init(struct pypy_cjk_enc_s *d,
+                             Py_UNICODE *inbuf, Py_ssize_t inlen)
+{
+  Py_ssize_t outlen;
   d->inbuf_start = inbuf;
   d->inbuf = inbuf;
   d->inbuf_end = inbuf + inlen;
-
-  if (inlen > (PY_SSIZE_T_MAX - 16) / 2)
-    goto errorexit;
-  outlen = inlen * 2 + 16;
-  d->outbuf_start = malloc(outlen);
-  if (!d->outbuf_start)
-    goto errorexit;
+  if (d->outbuf_start == NULL)
+    {
+      if (inlen > (PY_SSIZE_T_MAX - 16) / 2)
+        return -1;
+      outlen = inlen * 2 + 16;
+      d->outbuf_start = malloc(outlen);
+      if (d->outbuf_start == NULL)
+        return -1;
+      d->outbuf_end = d->outbuf_start + outlen;
+    }
   d->outbuf = d->outbuf_start;
-  d->outbuf_end = d->outbuf_start + outlen;
-  return d;
-
- errorexit:
-  free(d);
-  return NULL;
+  return 0;
 }
 
 void pypy_cjk_enc_free(struct pypy_cjk_enc_s *d)
@@ -248,4 +254,9 @@ Py_ssize_t pypy_cjk_enc_replace_on_error(struct pypy_cjk_enc_s* d,
     }
   d->inbuf = d->inbuf_start + in_offset;
   return 0;
+}
+
+const MultibyteCodec *pypy_cjk_enc_getcodec(struct pypy_cjk_enc_s *d)
+{
+  return d->codec;
 }

@@ -13,6 +13,15 @@ class AppTestClasses:
 
             return IncrementalHzDecoder
         """)
+        cls.w_IncrementalHzEncoder = cls.space.appexec([], """():
+            import _codecs_cn
+            from _multibytecodec import MultibyteIncrementalEncoder
+
+            class IncrementalHzEncoder(MultibyteIncrementalEncoder):
+                codec = _codecs_cn.getcodec('hz')
+
+            return IncrementalHzEncoder
+        """)
 
     def test_decode_hz(self):
         d = self.IncrementalHzDecoder()
@@ -74,3 +83,14 @@ class AppTestClasses:
         d.errors = "replace"
         r = d.decode("~{abc", True)
         assert r == u'\u5f95\ufffd'
+
+    def test_decode_hz_buffer_grow(self):
+        d = self.IncrementalHzDecoder()
+        for i in range(13):
+            r = d.decode("a" * (2**i))
+            assert r == unicode("a" * (2**i))
+
+    def test_encode_hz(self):
+        e = self.IncrementalHzEncoder()
+        r = e.encode("abcd")
+        assert r == u'abcd'

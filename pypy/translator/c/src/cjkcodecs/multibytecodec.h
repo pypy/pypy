@@ -113,8 +113,9 @@ struct pypy_cjk_enc_s {
   unsigned char *outbuf_start, *outbuf, *outbuf_end;
 };
 
-struct pypy_cjk_enc_s *pypy_cjk_enc_init(const MultibyteCodec *codec,
-                                         Py_UNICODE *inbuf, Py_ssize_t inlen);
+struct pypy_cjk_enc_s *pypy_cjk_enc_new(const MultibyteCodec *codec);
+Py_ssize_t pypy_cjk_enc_init(struct pypy_cjk_enc_s *d,
+                             Py_UNICODE *inbuf, Py_ssize_t inlen);
 void pypy_cjk_enc_free(struct pypy_cjk_enc_s *);
 Py_ssize_t pypy_cjk_enc_chunk(struct pypy_cjk_enc_s *);
 Py_ssize_t pypy_cjk_enc_reset(struct pypy_cjk_enc_s *);
@@ -124,6 +125,7 @@ Py_ssize_t pypy_cjk_enc_inbuf_remaining(struct pypy_cjk_enc_s *d);
 Py_ssize_t pypy_cjk_enc_inbuf_consumed(struct pypy_cjk_enc_s* d);
 Py_ssize_t pypy_cjk_enc_replace_on_error(struct pypy_cjk_enc_s* d,
                                          char *, Py_ssize_t, Py_ssize_t);
+const MultibyteCodec *pypy_cjk_enc_getcodec(struct pypy_cjk_enc_s *);
 
 /* list of codecs defined in the .c files */
 

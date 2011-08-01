@@ -10,11 +10,11 @@ class Module(MixedModule):
 
         'MultibyteIncrementalDecoder':
             'interp_incremental.MultibyteIncrementalDecoder',
+        'MultibyteIncrementalEncoder':
+            'interp_incremental.MultibyteIncrementalEncoder',
     }
 
     appleveldefs = {
-        'MultibyteIncrementalEncoder':
-            'app_multibytecodec.MultibyteIncrementalEncoder',
         'MultibyteStreamReader':
             'app_multibytecodec.MultibyteStreamReader',
         'MultibyteStreamWriter':
