@@ -1099,8 +1099,8 @@ class TestAnnotateTestCase:
         allocdesc = a.bookkeeper.getdesc(alloc)
         s_C1 = a.bookkeeper.immutablevalue(C1)
         s_C2 = a.bookkeeper.immutablevalue(C2)
-        graph1 = allocdesc.specialize([s_C1])
-        graph2 = allocdesc.specialize([s_C2])
+        graph1 = allocdesc.specialize([s_C1], None)
+        graph2 = allocdesc.specialize([s_C2], None)
         assert a.binding(graph1.getreturnvar()).classdef == C1df
         assert a.binding(graph2.getreturnvar()).classdef == C2df
         assert graph1 in a.translator.graphs
@@ -1135,8 +1135,8 @@ class TestAnnotateTestCase:
         allocdesc = a.bookkeeper.getdesc(alloc)
         s_C1 = a.bookkeeper.immutablevalue(C1)
         s_C2 = a.bookkeeper.immutablevalue(C2)
-        graph1 = allocdesc.specialize([s_C1, s_C2])
-        graph2 = allocdesc.specialize([s_C2, s_C2])
+        graph1 = allocdesc.specialize([s_C1, s_C2], None)
+        graph2 = allocdesc.specialize([s_C2, s_C2], None)
         assert a.binding(graph1.getreturnvar()).classdef == C1df
         assert a.binding(graph2.getreturnvar()).classdef == C2df
         assert graph1 in a.translator.graphs

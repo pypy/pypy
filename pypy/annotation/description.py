@@ -255,7 +255,11 @@ class FunctionDesc(Desc):
             raise TypeError, "signature mismatch: %s" % e.getmsg(self.name)
         return inputcells
 
-    def specialize(self, inputcells):
+    def specialize(self, inputcells, op=None):
+        if (op is None and
+            getattr(self.bookkeeper, "position_key", None) is not None):
+            _, block, i = self.bookkeeper.position_key
+            op = block.operations[i]
         if self.specializer is None:
             # get the specializer based on the tag of the 'pyobj'
             # (if any), according to the current policy
@@ -269,11 +273,14 @@ class FunctionDesc(Desc):
                 enforceargs = Sig(*enforceargs)
                 self.pyobj._annenforceargs_ = enforceargs
             enforceargs(self, inputcells) # can modify inputcells in-place
-        return self.specializer(self, inputcells)
+        if getattr(self.pyobj, '_annspecialcase_', '').endswith("call_location"):
+            return self.specializer(self, inputcells, op)
+        else:
+            return self.specializer(self, inputcells)
 
-    def pycall(self, schedule, args, s_previous_result):
+    def pycall(self, schedule, args, s_previous_result, op=None):
         inputcells = self.parse_arguments(args)
-        result = self.specialize(inputcells)
+        result = self.specialize(inputcells, op)
         if isinstance(result, FunctionGraph):
             graph = result         # common case
             # if that graph has a different signature, we need to re-parse
@@ -296,17 +303,17 @@ class FunctionDesc(Desc):
                                              None,       # selfclassdef
                                              name)
 
-    def consider_call_site(bookkeeper, family, descs, args, s_result):
+    def consider_call_site(bookkeeper, family, descs, args, s_result, op):
         shape = rawshape(args)
-        row = FunctionDesc.row_to_consider(descs, args)
+        row = FunctionDesc.row_to_consider(descs, args, op)
         family.calltable_add_row(shape, row)
     consider_call_site = staticmethod(consider_call_site)
 
-    def variant_for_call_site(bookkeeper, family, descs, args):
+    def variant_for_call_site(bookkeeper, family, descs, args, op):
         shape = rawshape(args)
         bookkeeper.enter(None)
         try:
-            row = FunctionDesc.row_to_consider(descs, args)
+            row = FunctionDesc.row_to_consider(descs, args, op)
         finally:
             bookkeeper.leave()
         index = family.calltable_lookup_row(shape, row)
@@ -316,7 +323,7 @@ class FunctionDesc(Desc):
     def rowkey(self):
         return self
 
-    def row_to_consider(descs, args):
+    def row_to_consider(descs, args, op):
         # see comments in CallFamily
         from pypy.annotation.model import s_ImpossibleValue
         row = {}
@@ -324,7 +331,7 @@ class FunctionDesc(Desc):
             def enlist(graph, ignore):
                 row[desc.rowkey()] = graph
                 return s_ImpossibleValue   # meaningless
-            desc.pycall(enlist, args, s_ImpossibleValue)
+            desc.pycall(enlist, args, s_ImpossibleValue, op)
         return row
     row_to_consider = staticmethod(row_to_consider)
 
@@ -514,7 +521,7 @@ class ClassDesc(Desc):
                             "specialization" % (self.name,))
         return self.getclassdef(None)
 
-    def pycall(self, schedule, args, s_previous_result):
+    def pycall(self, schedule, args, s_previous_result, op=None):
         from pypy.annotation.model import SomeInstance, SomeImpossibleValue
         if self.specialize:
             if self.specialize == 'specialize:ctr_location':
@@ -657,7 +664,7 @@ class ClassDesc(Desc):
             cdesc = cdesc.basedesc
         return s_result     # common case
 
-    def consider_call_site(bookkeeper, family, descs, args, s_result):
+    def consider_call_site(bookkeeper, family, descs, args, s_result, op):
         from pypy.annotation.model import SomeInstance, SomePBC, s_None
         if len(descs) == 1:
             # call to a single class, look at the result annotation
@@ -702,7 +709,7 @@ class ClassDesc(Desc):
             initdescs[0].mergecallfamilies(*initdescs[1:])
             initfamily = initdescs[0].getcallfamily()
             MethodDesc.consider_call_site(bookkeeper, initfamily, initdescs,
-                                          args, s_None)
+                                          args, s_None, op)
     consider_call_site = staticmethod(consider_call_site)
 
     def getallbases(self):
@@ -775,13 +782,13 @@ class MethodDesc(Desc):
     def getuniquegraph(self):
         return self.funcdesc.getuniquegraph()
 
-    def pycall(self, schedule, args, s_previous_result):
+    def pycall(self, schedule, args, s_previous_result, op=None):
         from pypy.annotation.model import SomeInstance
         if self.selfclassdef is None:
             raise Exception("calling %r" % (self,))
         s_instance = SomeInstance(self.selfclassdef, flags = self.flags)
         args = args.prepend(s_instance)
-        return self.funcdesc.pycall(schedule, args, s_previous_result)
+        return self.funcdesc.pycall(schedule, args, s_previous_result, op)
 
     def bind_under(self, classdef, name):
         self.bookkeeper.warning("rebinding an already bound %r" % (self,))
@@ -794,10 +801,10 @@ class MethodDesc(Desc):
                                              self.name,
                                              flags)
 
-    def consider_call_site(bookkeeper, family, descs, args, s_result):
+    def consider_call_site(bookkeeper, family, descs, args, s_result, op):
         shape = rawshape(args, nextra=1)     # account for the extra 'self'
         funcdescs = [methoddesc.funcdesc for methoddesc in descs]
-        row = FunctionDesc.row_to_consider(descs, args)
+        row = FunctionDesc.row_to_consider(descs, args, op)
         family.calltable_add_row(shape, row)
     consider_call_site = staticmethod(consider_call_site)
 
@@ -949,16 +956,16 @@ class MethodOfFrozenDesc(Desc):
         return '<MethodOfFrozenDesc %r of %r>' % (self.funcdesc,
                                                   self.frozendesc)
 
-    def pycall(self, schedule, args, s_previous_result):
+    def pycall(self, schedule, args, s_previous_result, op=None):
         from pypy.annotation.model import SomePBC
         s_self = SomePBC([self.frozendesc])
         args = args.prepend(s_self)
-        return self.funcdesc.pycall(schedule, args, s_previous_result)
+        return self.funcdesc.pycall(schedule, args, s_previous_result, op)
 
-    def consider_call_site(bookkeeper, family, descs, args, s_result):
+    def consider_call_site(bookkeeper, family, descs, args, s_result, op):
         shape = rawshape(args, nextra=1)    # account for the extra 'self'
         funcdescs = [mofdesc.funcdesc for mofdesc in descs]
-        row = FunctionDesc.row_to_consider(descs, args)
+        row = FunctionDesc.row_to_consider(descs, args, op)
         family.calltable_add_row(shape, row)
     consider_call_site = staticmethod(consider_call_site)
 
