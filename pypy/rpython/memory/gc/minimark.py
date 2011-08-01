@@ -517,13 +517,15 @@ class MiniMarkGC(MovingGCBase):
         # constant-folded because self.nonlarge_max, size and itemsize
         # are all constants (the arguments are constant due to
         # inlining).
-        too_many_items = raw_malloc_usage(nonvarsize) > self.nonlarge_max
-        if not too_many_items and raw_malloc_usage(itemsize) > 0:
-            maxlength = self.nonlarge_max - raw_malloc_usage(nonvarsize)
-            maxlength = maxlength // raw_malloc_usage(itemsize)
-            too_many_items = r_uint(length) > r_uint(maxlength)
+        maxsize = self.nonlarge_max - raw_malloc_usage(nonvarsize)
+        if maxsize < 0:
+            toobig = r_uint(0)    # the nonvarsize alone is too big
+        elif raw_malloc_usage(itemsize):
+            toobig = r_uint(maxsize // raw_malloc_usage(itemsize)) + 1
+        else:
+            toobig = r_uint(sys.maxint) + 1
 
-        if too_many_items:
+        if r_uint(length) >= r_uint(toobig):
             #
             # If the total size of the object would be larger than
             # 'nonlarge_max', then allocate it externally.  We also
