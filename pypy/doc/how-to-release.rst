@@ -21,8 +21,8 @@ An important thing is to get the documentation into an up-to-date state!
 Release Steps
 ----------------
 
-* at code freeze make a release branch under
-  http://codepeak.net/svn/pypy/release/x.y(.z). IMPORTANT: bump the
+* at code freeze make a release branch using release-x.x.x in mercurial
+  IMPORTANT: bump the
   pypy version number in module/sys/version.py and in
   module/cpyext/include/patchlevel.h, notice that the branch
   will capture the revision number of this change for the release;
