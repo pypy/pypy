@@ -908,7 +908,6 @@ def mul_list_times(space, w_list, w_times):
             raise FailedToImplement
         raise
     return w_list.mul(times)
-    return W_ListObject(space, w_list.getitems() * times)
 
 def mul__List_ANY(space, w_list, w_times):
     return mul_list_times(space, w_list, w_times)
@@ -928,6 +927,16 @@ def inplace_mul__List_ANY(space, w_list, w_times):
 
 def eq__List_List(space, w_list1, w_list2):
     # needs to be safe against eq_w() mutating the w_lists behind our back
+    if w_list1.length() != w_list2.length():
+        return space.w_False
+
+    #XXX fast path with strategies: not equal => False (except one is ObjectStr)
+    i = 0
+    while i < w_list1.length() and i < w_list2.length():
+        if not space.eq_w(w_list1.getitem(i), w_list2.getitem(i)):
+            return space.w_False
+        i += 1
+    return space.w_True
     items1_w = w_list1.getitems()
     items2_w = w_list2.getitems()
     return equal_wrappeditems(space, items1_w, items2_w)
