@@ -317,6 +317,9 @@ class FakeMetaInterpStaticData(object):
         self.config = get_pypy_config(translating=True)
         self.config.translation.jit_ffi = True
 
+    class warmrunnerdesc:
+        class memory_manager:
+            retrace_limit = 5
 
 class Storage(compile.ResumeGuardDescr):
     "for tests."

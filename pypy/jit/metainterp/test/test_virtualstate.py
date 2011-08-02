@@ -5,9 +5,11 @@ from pypy.jit.metainterp.optimizeopt.virtualstate import VirtualStateInfo, VStru
 from pypy.jit.metainterp.optimizeopt.optimizer import OptValue
 from pypy.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr, ConstInt, ConstPtr
 from pypy.rpython.lltypesystem import lltype
-from pypy.jit.metainterp.test.test_optimizeutil import LLtypeMixin, BaseTest
+from pypy.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin, BaseTest, equaloplists
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound
-from pypy.jit.metainterp.test.test_optimizebasic import equaloplists
+from pypy.jit.metainterp.history import TreeLoop, LoopToken
+from pypy.jit.metainterp.optimizeopt.test.test_optimizeopt import FakeDescr, FakeMetaInterpStaticData
+from pypy.jit.metainterp.optimize import RetraceLoop
 
 class TestBasic:
     someptr1 = LLtypeMixin.myptr
@@ -181,24 +183,83 @@ class BaseTestGenerateGuards(BaseTest):
         loop = self.parse(expected)
         assert equaloplists(guards, loop.operations, False,
                             {loop.inputargs[0]: box})        
+
+class BaseTestBridges(BaseTest):
+    enable_opts = "intbounds:rewrite:virtualize:string:heap:unroll"
+
+    def _do_optimize_bridge(self, bridge, call_pure_results):
+        from pypy.jit.metainterp.optimizeopt import optimize_bridge_1, build_opt_chain
+        from pypy.jit.metainterp.optimizeopt.util import args_dict
+
+        self.bridge = bridge
+        bridge.call_pure_results = args_dict()
+        if call_pure_results is not None:
+            for k, v in call_pure_results.items():
+                bridge.call_pure_results[list(k)] = v
+        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
+        if hasattr(self, 'vrefinfo'):
+            metainterp_sd.virtualref_info = self.vrefinfo
+        if hasattr(self, 'callinfocollection'):
+            metainterp_sd.callinfocollection = self.callinfocollection
+        #
+        d = {}
+        for name in self.enable_opts.split(":"):
+            d[name] = None
+        optimize_bridge_1(metainterp_sd, bridge,  d)
         
-    
+    def optimize_bridge(self, loop, bridge, expected, expected_target='Loop', **boxvalues):
+        loop = self.parse(loop)
+        bridge = self.parse(bridge)
+        loop.preamble = TreeLoop('preamble')
+        loop.preamble.inputargs = loop.inputargs
+        loop.preamble.token = LoopToken()
+        loop.preamble.start_resumedescr = FakeDescr()        
+        self._do_optimize_loop(loop, None)
+
+        boxes = {}
+        for b in bridge.inputargs + [op.result for op in bridge.operations]:
+            boxes[str(b)] = b
+        for b, v in boxvalues.items():
+            boxes[b].value = v
+        bridge.operations[-1].setdescr(loop.preamble.token)
+        try:
+            self._do_optimize_bridge(bridge, None)
+        except RetraceLoop:
+            assert expected == 'RETRACE'
+            return
+
+        print '\n'.join([str(o) for o in bridge.operations])
+        expected = self.parse(expected)
+        self.assert_equal(bridge, expected)
+
+        if expected_target == 'Preamble':
+            assert bridge.operations[-1].getdescr() is loop.preamble.token
+        elif expected_target == 'Loop':
+            assert bridge.operations[-1].getdescr() is loop.token
+        else:
+            assert False
 
     def test_nonnull(self):
-        ops1 = """
+        loop = """
+        [p0]
+        p1 = getfield_gc(p0, descr=nextdescr)
+        jump(p0)
+        """
+        bridge = """
         [p0]
         jump(p0)
         """
-        ops2 = """
+        expected = """
         [p0]
-        p1 = getfield_gc(p0, descr=nextdescr]
+        guard_nonnull(p0) []
         jump(p0)
         """
-        self.general_order(ops1, ops2)
+        self.optimize_bridge(loop, bridge, 'RETRACE')
+        self.optimize_bridge(loop, bridge, expected, p0=self.node)
 
-    def general_order(self, ops1, ops2):
-        loop1 = self.parse(ops1)
-        loop2 = self.parse(ops2)
-        
-class TestLLtype(BaseTestGenerateGuards, LLtypeMixin):
+class TestLLtypeGuards(BaseTestGenerateGuards, LLtypeMixin):
     pass
+
+class TestLLtypeBridges(BaseTestBridges, LLtypeMixin):
+    pass
+
