@@ -68,8 +68,10 @@ class PPC_64_CPU(AbstractLLCPU):
 
             # store return parameters in memory
             for index, reg in enumerate(reglist):
-                addr = self.fail_boxes_int.get_addr_for_num(index)
-                codebuilder.store_reg(reg, addr)
+                # if reg is None, then there is a hole in the failargs
+                if reg is not None:
+                    addr = self.fail_boxes_int.get_addr_for_num(index)
+                    codebuilder.store_reg(reg, addr)
 
             codebuilder.li(3, fail_index)            
             codebuilder.blr()

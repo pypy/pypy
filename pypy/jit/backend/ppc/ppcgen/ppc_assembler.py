@@ -885,7 +885,10 @@ class PPCBuilder(PPCAssembler):
         failargs = op.getfailargs()
         reglist = []
         for failarg in failargs:
-            reglist.append(cpu.reg_map[failarg])
+            if failarg is None:
+                reglist.append(None)
+            else:
+                reglist.append(cpu.reg_map[failarg])
 
         cpu.patch_list.append((numops, fail_index, op, reglist))
 
