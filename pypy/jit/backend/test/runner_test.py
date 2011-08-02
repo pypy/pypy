@@ -392,6 +392,8 @@ class BaseBackendTest(Runner):
         
     def test_float_operations(self):
         from pypy.jit.metainterp.test.test_executor import get_float_tests
+        if not self.cpu.supports_floats:
+            py.test.skip("requires floats")
         for opnum, boxargs, rettype, retvalue in get_float_tests(self.cpu):
             res = self.execute_operation(opnum, boxargs, rettype)
             if isinstance(res, BoxFloat):
