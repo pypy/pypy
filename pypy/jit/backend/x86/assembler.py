@@ -91,6 +91,7 @@ class Assembler386(object):
         self._current_depths_cache = (0, 0)
         self.datablockwrapper = None
         self.stack_check_slowpath = 0
+        self.propagate_exception_path = 0
         self.teardown()
 
     def leave_jitted_hook(self):
@@ -129,6 +130,7 @@ class Assembler386(object):
             self._build_float_constants()
         if gc_ll_descr.get_malloc_slowpath_addr is not None:
             self._build_malloc_slowpath()
+        self._build_propagate_exception_path()
         self._build_stack_check_slowpath()
         if gc_ll_descr.gcrootmap:
             self._build_release_gil(gc_ll_descr.gcrootmap)
@@ -242,6 +244,20 @@ class Assembler386(object):
         mc.RET()
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.malloc_slowpath2 = rawstart
+
+    def _build_propagate_exception_path(self):
+        if self.cpu.propagate_exception_v < 0:
+            return      # not supported (for tests, or non-translated)
+        #
+        self.mc = codebuf.MachineCodeBlockWrapper()
+        # call on_leave_jitted_save_exc()
+        addr = self.cpu.get_on_leave_jitted_int(save_exception=True)
+        self.mc.CALL(imm(addr))
+        self.mc.MOV_ri(eax.value, self.cpu.propagate_exception_v)
+        self._call_footer()
+        rawstart = self.mc.materialize(self.cpu.asmmemmgr, [])
+        self.propagate_exception_path = rawstart
+        self.mc = None
 
     def _build_stack_check_slowpath(self):
         _, _, slowpathaddr = self.cpu.insert_stack_check()
@@ -1433,6 +1449,7 @@ class Assembler386(object):
     def genop_new(self, op, arglocs, result_loc):
         assert result_loc is eax
         self.call(self.malloc_func_addr, arglocs, eax)
+        self.propagate_memoryerror_if_eax_is_null()
 
     def genop_new_array(self, op, arglocs, result_loc):
         assert result_loc is eax
@@ -1445,6 +1462,14 @@ class Assembler386(object):
     def genop_newunicode(self, op, arglocs, result_loc):
         assert result_loc is eax
         self.call(self.malloc_unicode_func_addr, arglocs, eax)
+
+    def propagate_memoryerror_if_eax_is_null(self):
+        # if self.propagate_exception_path == 0 (tests), this may jump to 0
+        # and segfaults.  too bad.  the alternative is to continue anyway
+        # with eax==0, but that will segfault too.
+        self.mc.TEST_rr(eax.value, eax.value)
+        self.mc.J_il(rx86.Conditions['Z'], self.propagate_exception_path)
+        self.mc.add_pending_relocation()
 
     # ----------
 

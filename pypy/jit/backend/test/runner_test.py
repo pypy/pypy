@@ -2811,6 +2811,8 @@ class LLtypeBackendTest(BaseBackendTest):
         excdescr = BasicFailDescr(666)
         self.cpu.propagate_exception_v = self.cpu.get_fail_descr_number(
             excdescr)
+        self.cpu.setup_once()    # xxx redo it, because we added
+                                 # propagate_exception_v
         i0 = BoxInt()
         p0 = BoxPtr()
         operations = [
@@ -2828,7 +2830,6 @@ class LLtypeBackendTest(BaseBackendTest):
             self.cpu.set_future_value_int(0, big)
             fail = self.cpu.execute_token(looptoken)
             assert fail.identifier == excdescr.identifier
-            assert self.cpu.grab_exc_value() == 42    # XXX
 
 
 class OOtypeBackendTest(BaseBackendTest):
