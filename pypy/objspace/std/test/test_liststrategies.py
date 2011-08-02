@@ -250,7 +250,7 @@ class TestW_ListStrategies(TestW_ListObject):
         x = l.pop(0)
         assert self.space.eq_w(x, self.space.wrap(1))
         assert isinstance(l.strategy, RangeListStrategy)
-        l.pop(-1)
+        l.pop(l.length()-1)
         assert isinstance(l.strategy, RangeListStrategy)
         l.append(self.space.wrap(5))
         assert isinstance(l.strategy, RangeListStrategy)
@@ -269,7 +269,7 @@ class TestW_ListStrategies(TestW_ListObject):
         print l.getitems()
         for i in l.getitems():
             assert isinstance(l.strategy, RangeListStrategy)
-            l.pop(-1)
+            l.pop(l.length()-1)
 
         assert isinstance(l.strategy, EmptyListStrategy)
 
