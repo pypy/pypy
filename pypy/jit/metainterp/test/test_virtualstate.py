@@ -298,6 +298,31 @@ class BaseTestBridges(BaseTest):
         """
         self.optimize_bridge(loops, bridge, expected, 'Loop0', p0=self.myptr)
 
+    def test_constant(self):
+        loops = """
+        [p0]
+        p1 = same_as(ConstPtr(myptr))
+        jump(p1)
+        """, """
+        [p0]
+        p1 = same_as(ConstPtr(myptr2))
+        jump(p1)
+        """, """
+        [p0]
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        jump()
+        """
+        self.optimize_bridge(loops, loops[0], expected, 'Loop0')
+        self.optimize_bridge(loops, loops[1], expected, 'Loop1')
+        expected = """
+        [p0]
+        jump(p0)
+        """
+        self.optimize_bridge(loops, loops[2], expected, 'Loop2')
+
 class TestLLtypeGuards(BaseTestGenerateGuards, LLtypeMixin):
     pass
 
