@@ -323,6 +323,38 @@ class BaseTestBridges(BaseTest):
         """
         self.optimize_bridge(loops, loops[2], expected, 'Loop2')
 
+    def test_virtual(self):
+        loops = """
+        [p0, p1]
+        p2 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p2, p1, descr=nextdescr)
+        setfield_gc(p2, 7, descr=adescr)
+        setfield_gc(p2, 42, descr=bdescr)
+        jump(p2, p1)
+        """
+        expected = """
+        [p0, p1]
+        jump(p1)
+        """
+        self.optimize_bridge(loops, loops, expected, 'Loop0')
+        bridge = """
+        [p0, p1]
+        p2 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p2, p1, descr=nextdescr)
+        setfield_gc(p2, 42, descr=adescr)
+        setfield_gc(p2, 7, descr=bdescr)
+        jump(p2, p1)
+        """
+        self.optimize_bridge(loops, bridge, "RETRACE")
+        bridge = """
+        [p0, p1]
+        p2 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p2, p1, descr=nextdescr)
+        setfield_gc(p2, 7, descr=adescr)
+        jump(p2, p1)
+        """
+        self.optimize_bridge(loops, bridge, "RETRACE")
+
 class TestLLtypeGuards(BaseTestGenerateGuards, LLtypeMixin):
     pass
 
