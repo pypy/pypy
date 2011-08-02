@@ -207,13 +207,13 @@ def _init_timezone(space):
         t = (((c_time(lltype.nullptr(rffi.TIME_TP.TO))) / YEAR) * YEAR)
         # we cannot have reference to stack variable, put it on the heap
         t_ref = lltype.malloc(rffi.TIME_TP.TO, 1, flavor='raw')
-        t_ref[0] = t
+        t_ref[0] = rffi.cast(rffi.TIME_T, t)
         p = c_localtime(t_ref)
         janzone = -p.c_tm_gmtoff
         tm_zone = rffi.charp2str(p.c_tm_zone)
         janname = ["   ", tm_zone][bool(tm_zone)]
         tt = t + YEAR / 2
-        t_ref[0] = tt
+        t_ref[0] = rffi.cast(rffi.TIME_T, tt)
         p = c_localtime(t_ref)
         lltype.free(t_ref, flavor='raw')
         tm_zone = rffi.charp2str(p.c_tm_zone)
@@ -292,11 +292,14 @@ def _get_inttime(space, w_seconds):
     else:
         seconds = space.float_w(w_seconds)
     try:
-        ovfcheck_float_to_int(seconds)
+        seconds = ovfcheck_float_to_int(seconds)
+        t = rffi.r_time_t(seconds)
+        if rffi.cast(lltype.Signed, t) != seconds:
+            raise OverflowError
     except OverflowError:
         raise OperationError(space.w_ValueError,
                              space.wrap("time argument too large"))
-    return rffi.r_time_t(seconds)
+    return t
 
 def _tm_to_tuple(space, t):
     time_tuple = [
