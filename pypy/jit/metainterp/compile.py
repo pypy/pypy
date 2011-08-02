@@ -668,6 +668,7 @@ class PropagateExceptionDescr(AbstractFailDescr):
     def handle_fail(self, metainterp_sd, jitdriver_sd):
         cpu = metainterp_sd.cpu
         exception = cpu.grab_exc_value()
+        assert exception, "PropagateExceptionDescr: no exception??"
         raise metainterp_sd.ExitFrameWithExceptionRef(cpu, exception)
 
 propagate_exception_descr = PropagateExceptionDescr()
