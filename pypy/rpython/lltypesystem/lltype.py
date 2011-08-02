@@ -1149,7 +1149,7 @@ class _abstract_ptr(object):
         try:
             return self._lookup_adtmeth(field_name)
         except AttributeError:
-            raise AttributeError("%r instance has no field %r" % (self._T,
+            raise AttributeError("%r instance has no field %r" % (self._T._name,
                                                                   field_name))
 
     def __setattr__(self, field_name, val):
