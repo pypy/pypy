@@ -1,5 +1,5 @@
 import py
-from pypy.jit.metainterp.optimizeutil import InvalidLoop
+from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp.optimizeopt.virtualstate import VirtualStateInfo, VStructStateInfo, \
      VArrayStateInfo, NotVirtualStateInfo
 from pypy.jit.metainterp.optimizeopt.optimizer import OptValue
@@ -134,6 +134,9 @@ class BaseTestGenerateGuards(BaseTest):
         guards = []
         info1.generate_guards(info2, box, self.cpu, guards, {})
         loop = self.parse(expected)
+        for op in loop.operations:
+            if op.is_guard():
+                op.setdescr(None)
         assert equaloplists(guards, loop.operations, False,
                             {loop.inputargs[0]: box})        
     def test_intbounds(self):
@@ -181,6 +184,9 @@ class BaseTestGenerateGuards(BaseTest):
         guard_class(p0, ConstClass(node_vtable)) []
         """
         loop = self.parse(expected)
+        for op in loop.operations:
+            if op.is_guard():
+                op.setdescr(None)
         assert equaloplists(guards, loop.operations, False,
                             {loop.inputargs[0]: box})        
 
