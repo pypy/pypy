@@ -207,21 +207,27 @@ class BaseTestBridges(BaseTest):
             d[name] = None
         optimize_bridge_1(metainterp_sd, bridge,  d)
         
-    def optimize_bridge(self, loop, bridge, expected, expected_target='Loop', **boxvalues):
-        loop = self.parse(loop)
+    def optimize_bridge(self, loops, bridge, expected, expected_target='Loop', **boxvalues):
+        if isinstance(loops, str):
+            loops = (loops, )
+        loops = [self.parse(loop) for loop in loops]
         bridge = self.parse(bridge)
-        loop.preamble = TreeLoop('preamble')
-        loop.preamble.inputargs = loop.inputargs
-        loop.preamble.token = LoopToken()
-        loop.preamble.start_resumedescr = FakeDescr()        
-        self._do_optimize_loop(loop, None)
+        for loop in loops:
+            loop.preamble = TreeLoop('preamble')
+            loop.preamble.inputargs = loop.inputargs
+            loop.preamble.token = LoopToken()
+            loop.preamble.start_resumedescr = FakeDescr()        
+            self._do_optimize_loop(loop, None)
+        preamble = loops[0].preamble
+        for loop in loops[1:]:
+            preamble.token.short_preamble.extend(loop.preamble.token.short_preamble)
 
         boxes = {}
         for b in bridge.inputargs + [op.result for op in bridge.operations]:
             boxes[str(b)] = b
         for b, v in boxvalues.items():
             boxes[b].value = v
-        bridge.operations[-1].setdescr(loop.preamble.token)
+        bridge.operations[-1].setdescr(preamble.token)
         try:
             self._do_optimize_bridge(bridge, None)
         except RetraceLoop:
@@ -233,9 +239,13 @@ class BaseTestBridges(BaseTest):
         self.assert_equal(bridge, expected)
 
         if expected_target == 'Preamble':
-            assert bridge.operations[-1].getdescr() is loop.preamble.token
+            assert bridge.operations[-1].getdescr() is preamble.token
         elif expected_target == 'Loop':
-            assert bridge.operations[-1].getdescr() is loop.token
+            assert len(loops) == 1
+            assert bridge.operations[-1].getdescr() is loops[0].token
+        elif expected_target.startswith('Loop'):
+            n = int(expected_target[4:])
+            assert bridge.operations[-1].getdescr() is loops[n].token
         else:
             assert False
 
@@ -254,8 +264,33 @@ class BaseTestBridges(BaseTest):
         guard_nonnull(p0) []
         jump(p0)
         """
-        self.optimize_bridge(loop, bridge, 'RETRACE')
-        self.optimize_bridge(loop, bridge, expected, p0=self.node)
+        self.optimize_bridge(loop, bridge, 'RETRACE', p0=self.nullptr)
+        self.optimize_bridge(loop, bridge, expected, p0=self.myptr)
+
+    def test_multiple_nonnull(self):
+        loops = """
+        [p0]
+        p1 = getfield_gc(p0, descr=nextdescr)
+        jump(p0)
+        """, """
+        [p0]
+        jump(p0)
+        """
+        bridge = """
+        [p0]
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        jump(p0)
+        """
+        self.optimize_bridge(loops, bridge, expected, 'Loop1', p0=self.nullptr)
+        expected = """
+        [p0]
+        guard_nonnull(p0) []
+        jump(p0)
+        """
+        self.optimize_bridge(loops, bridge, expected, 'Loop0', p0=self.myptr)
 
 class TestLLtypeGuards(BaseTestGenerateGuards, LLtypeMixin):
     pass
