@@ -132,7 +132,10 @@ class AbstractAttribute(object):
             cache[selector] = attr
         return attr
 
-    @jit.unroll_safe
+    @jit.unroll_if(lambda self, obj, selector, w_value:
+            jit.isconstant(self) and
+            jit.isconstant(selector[0]) and
+            jit.isconstant(selector[1]))
     def add_attr(self, obj, selector, w_value):
         # grumble, jit needs this
         attr = self._get_new_attr(selector[0], selector[1])
