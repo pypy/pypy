@@ -392,9 +392,12 @@ def print_summary(log, out):
         outfile = open(out, "w")
     l = totaltimes.items()
     l.sort(cmp=lambda a, b: cmp(b[1], a[1]))
-    for a, b in l[1:]:
+    total = sum([b for a, b in l])
+    for a, b in l:
+        if a is None:
+            a = 'interpret'
         s = " " * (50 - len(a))
-        print >>outfile, a, s, str(b*100/l[0][1]) + "%"
+        print >>outfile, a, s, str(b*100/total) + "%"
     if out != '-':
         outfile.close()
 
