@@ -74,14 +74,6 @@ class OptFfiCall(Optimization):
         else:
             self.logops = None
 
-    def propagate_begin_forward(self):
-        debug_start('jit-log-ffiopt')
-        Optimization.propagate_begin_forward(self)
-
-    def propagate_end_forward(self):
-        debug_stop('jit-log-ffiopt')
-        Optimization.propagate_end_forward(self)
-
     def reconstruct_for_next_iteration(self, optimizer, valuemap):
         return OptFfiCall()
         # FIXME: Should any status be saved for next iteration?
