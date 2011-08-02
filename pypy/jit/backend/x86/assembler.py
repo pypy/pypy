@@ -142,6 +142,9 @@ class Assembler386(object):
         assert self.memcpy_addr != 0, "setup_once() not called?"
         self.current_clt = looptoken.compiled_loop_token
         self.pending_guard_tokens = []
+        if WORD == 8:
+            self.pending_memoryerror_trampoline_from = []
+            self.error_trampoline_64 = 0
         self.mc = codebuf.MachineCodeBlockWrapper()
         #assert self.datablockwrapper is None --- but obscure case
         # possible, e.g. getting MemoryError and continuing
@@ -151,6 +154,8 @@ class Assembler386(object):
 
     def teardown(self):
         self.pending_guard_tokens = None
+        if WORD == 8:
+            self.pending_memoryerror_trampoline_from = None
         self.mc = None
         self.looppos = -1
         self.currently_compiling_loop = None
@@ -533,6 +538,8 @@ class Assembler386(object):
         # at the end of self.mc.
         for tok in self.pending_guard_tokens:
             tok.pos_recovery_stub = self.generate_quick_failure(tok)
+        if WORD == 8 and len(self.pending_memoryerror_trampoline_from) > 0:
+            self.error_trampoline_64 = self.generate_propagate_error_64()
 
     def patch_pending_failure_recoveries(self, rawstart):
         # after we wrote the assembler to raw memory, set up
@@ -569,6 +576,12 @@ class Assembler386(object):
                 # less, we would run into the issue that overwriting the
                 # 5 bytes here might get a few nonsense bytes at the
                 # return address of the following CALL.
+        if WORD == 8:
+            for pos_after_jz in self.pending_memoryerror_trampoline_from:
+                assert self.error_trampoline_64 != 0     # only if non-empty
+                mc = codebuf.MachineCodeBlockWrapper()
+                mc.writeimm32(self.error_trampoline_64 - pos_after_jz)
+                mc.copy_to_raw_memory(rawstart + pos_after_jz - 4)
 
     def get_asmmemmgr_blocks(self, looptoken):
         clt = looptoken.compiled_loop_token
@@ -1468,8 +1481,13 @@ class Assembler386(object):
         # and segfaults.  too bad.  the alternative is to continue anyway
         # with eax==0, but that will segfault too.
         self.mc.TEST_rr(eax.value, eax.value)
-        self.mc.J_il(rx86.Conditions['Z'], self.propagate_exception_path)
-        self.mc.add_pending_relocation()
+        if WORD == 4:
+            self.mc.J_il(rx86.Conditions['Z'], self.propagate_exception_path)
+            self.mc.add_pending_relocation()
+        elif WORD == 8:
+            self.mc.J_il(rx86.Conditions['Z'], 0)
+            pos = self.mc.get_relative_pos()
+            self.pending_memoryerror_trampoline_from.append(pos)
 
     # ----------
 
@@ -1740,6 +1758,14 @@ class Assembler386(object):
         is_guard_not_invalidated = guard_opnum == rop.GUARD_NOT_INVALIDATED
         return GuardToken(faildescr, failargs, fail_locs, exc,
                           is_guard_not_invalidated)
+
+    def generate_propagate_error_64(self):
+        assert WORD == 8
+        mc = self.mc
+        startpos = mc.get_relative_pos()
+        mc.MOV_ri(X86_64_SCRATCH_REG.value, self.propagate_exception_path)
+        mc.JMP_r(X86_64_SCRATCH_REG.value)
+        return startpos
 
     def generate_quick_failure(self, guardtok):
         """Generate the initial code for handling a failure.  We try to
