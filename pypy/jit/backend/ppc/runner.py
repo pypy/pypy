@@ -57,6 +57,7 @@ class PPC_64_CPU(AbstractLLCPU):
 
         f = codebuilder.assemble(True)
         looptoken.ppc_code = f
+        self.teardown()
 
     def _make_epilogue(self, codebuilder):
         for op_index, fail_index, guard, reglist in self.patch_list:
@@ -96,3 +97,8 @@ class PPC_64_CPU(AbstractLLCPU):
                 
     def get_box_index(self, box):
         return self.arg_to_box[box]
+
+    def teardown(self):
+        self.patch_list = None
+        self.reg_map = None
+        self.inputargs = None
