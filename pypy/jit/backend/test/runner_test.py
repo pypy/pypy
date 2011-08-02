@@ -2822,14 +2822,10 @@ class LLtypeBackendTest(BaseBackendTest):
         inputargs = [i0]
         looptoken = LoopToken()
         self.cpu.compile_loop(inputargs, operations, looptoken)
-        # overflowing values:
-        for big in [
-                sys.maxint // 4 + 1,              # just too large
-                int(2*(sys.maxint+1) // 4) + 3,   # intmask(this * 4) == 3
-                ]:
-            self.cpu.set_future_value_int(0, big)
-            fail = self.cpu.execute_token(looptoken)
-            assert fail.identifier == excdescr.identifier
+        # overflowing value:
+        self.cpu.set_future_value_int(0, sys.maxint // 4 + 1)
+        fail = self.cpu.execute_token(looptoken)
+        assert fail.identifier == excdescr.identifier
 
 
 class OOtypeBackendTest(BaseBackendTest):

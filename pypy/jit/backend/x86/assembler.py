@@ -128,9 +128,9 @@ class Assembler386(object):
             self._build_failure_recovery(True, withfloats=True)
             support.ensure_sse2_floats()
             self._build_float_constants()
+        self._build_propagate_exception_path()
         if gc_ll_descr.get_malloc_slowpath_addr is not None:
             self._build_malloc_slowpath()
-        self._build_propagate_exception_path()
         self._build_stack_check_slowpath()
         if gc_ll_descr.gcrootmap:
             self._build_release_gil(gc_ll_descr.gcrootmap)
@@ -244,9 +244,27 @@ class Assembler386(object):
         if self.cpu.supports_floats:          # restore the XMM registers
             for i in range(self.cpu.NUM_REGS):# from where they were saved
                 mc.MOVSD_xs(i, (WORD*2)+8*i)
+        #
+        # Note: we check this after the code above, just because the code
+        # above is more than 127 bytes on 64-bits...
+        mc.TEST_rr(eax.value, eax.value)
+        mc.J_il8(rx86.Conditions['Z'], 0) # patched later
+        jz_location = mc.get_relative_pos()
+        #
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
         mc.MOV(edx, heap(nursery_free_adr))   # load this in EDX
         mc.RET()
+        #
+        # If the slowpath malloc failed, we raise a MemoryError that
+        # always interrupts the current loop, as a "good enough"
+        # approximation.  Also note that we didn't RET from this helper;
+        # but the code we jump to will actually restore the stack
+        # position based on EBP, which will get us out of here for free.
+        offset = mc.get_relative_pos() - jz_location
+        assert 0 < offset <= 127
+        mc.overwrite(jz_location-1, chr(offset))
+        mc.JMP(imm(self.propagate_exception_path))
+        #
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.malloc_slowpath2 = rawstart
 
@@ -1443,7 +1461,7 @@ class Assembler386(object):
         assert isinstance(loc_vtable, ImmedLoc)
         arglocs = arglocs[:-1]
         self.call(self.malloc_func_addr, arglocs, eax)
-        # xxx ignore NULL returns for now
+        self.propagate_memoryerror_if_eax_is_null()
         self.set_vtable(eax, loc_vtable)
 
     def set_vtable(self, loc, loc_vtable):
@@ -1467,14 +1485,17 @@ class Assembler386(object):
     def genop_new_array(self, op, arglocs, result_loc):
         assert result_loc is eax
         self.call(self.malloc_array_func_addr, arglocs, eax)
+        self.propagate_memoryerror_if_eax_is_null()
 
     def genop_newstr(self, op, arglocs, result_loc):
         assert result_loc is eax
         self.call(self.malloc_str_func_addr, arglocs, eax)
+        self.propagate_memoryerror_if_eax_is_null()
 
     def genop_newunicode(self, op, arglocs, result_loc):
         assert result_loc is eax
         self.call(self.malloc_unicode_func_addr, arglocs, eax)
+        self.propagate_memoryerror_if_eax_is_null()
 
     def propagate_memoryerror_if_eax_is_null(self):
         # if self.propagate_exception_path == 0 (tests), this may jump to 0
@@ -1761,10 +1782,8 @@ class Assembler386(object):
 
     def generate_propagate_error_64(self):
         assert WORD == 8
-        mc = self.mc
-        startpos = mc.get_relative_pos()
-        mc.MOV_ri(X86_64_SCRATCH_REG.value, self.propagate_exception_path)
-        mc.JMP_r(X86_64_SCRATCH_REG.value)
+        startpos = self.mc.get_relative_pos()
+        self.mc.JMP(imm(self.propagate_exception_path))
         return startpos
 
     def generate_quick_failure(self, guardtok):
