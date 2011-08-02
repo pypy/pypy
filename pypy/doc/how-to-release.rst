@@ -48,12 +48,6 @@ Release Steps
   the release announcement should contain a direct link to the download page
 * update pypy.org (under extradoc/pypy.org), rebuild and commit
 
-* update http://codespeak.net/pypy/trunk:
-   code0> + chmod -R yourname:users /www/codespeak.net/htdocs/pypy/trunk
-   local> cd ..../pypy/doc && py.test
-   local> cd ..../pypy
-   local> rsync -az doc codespeak.net:/www/codespeak.net/htdocs/pypy/trunk/pypy/
-
 * post announcement on morepypy.blogspot.com
 * send announcements to pypy-dev, python-list,
   python-announce, python-dev ...
