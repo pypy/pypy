@@ -245,7 +245,7 @@ class Assembler386(object):
 
     def _build_stack_check_slowpath(self):
         _, _, slowpathaddr = self.cpu.insert_stack_check()
-        if slowpathaddr == 0 or self.cpu.exit_frame_with_exception_v < 0:
+        if slowpathaddr == 0 or self.cpu.propagate_exception_v < 0:
             return      # no stack check (for tests, or non-translated)
         #
         # make a "function" that is called immediately at the start of
@@ -301,19 +301,11 @@ class Assembler386(object):
         offset = mc.get_relative_pos() - jnz_location
         assert 0 < offset <= 127
         mc.overwrite(jnz_location-1, chr(offset))
-        # clear the exception from the global position
-        mc.MOV(eax, heap(self.cpu.pos_exc_value()))
-        mc.MOV(heap(self.cpu.pos_exception()), imm0)
-        mc.MOV(heap(self.cpu.pos_exc_value()), imm0)
-        # save the current exception instance into fail_boxes_ptr[0]
-        adr = self.fail_boxes_ptr.get_addr_for_num(0)
-        mc.MOV(heap(adr), eax)
-        # call the helper function to set the GC flag on the fail_boxes_ptr
-        # array (note that there is no exception any more here)
-        addr = self.cpu.get_on_leave_jitted_int(save_exception=False)
+        # call on_leave_jitted_save_exc()
+        addr = self.cpu.get_on_leave_jitted_int(save_exception=True)
         mc.CALL(imm(addr))
         #
-        mc.MOV_ri(eax.value, self.cpu.exit_frame_with_exception_v)
+        mc.MOV_ri(eax.value, self.cpu.propagate_exception_v)
         #
         # footer -- note the ADD, which skips the return address of this
         # function, and will instead return to the caller's caller.  Note
