@@ -406,10 +406,15 @@ class RangeListStrategy(ListStrategy):
         w_list.append(w_item)
 
     def mul(self, w_list, times):
-        l = self._getitems_range(w_list, False)
-        l *= times
-        strategy = self.space.fromcache(IntegerListStrategy)
-        storage = strategy.cast_to_void_star(l)
+        #XXX is this faster?
+        if times == 0:
+            strategy = self.space.fromcache(EmptyListStrategy)
+            storage = strategy.emptylist
+        else:
+            l = self._getitems_range(w_list, False)
+            l *= times
+            strategy = self.space.fromcache(IntegerListStrategy)
+            storage = strategy.cast_to_void_star(l)
         w_newlist = W_ListObject.from_storage_and_strategy(self.space, storage, strategy)
         return w_newlist
 
