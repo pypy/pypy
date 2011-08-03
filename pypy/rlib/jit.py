@@ -108,10 +108,15 @@ def purefunction_promote(*args, **kwargs):
     warnings.warn("purefunction_promote is deprecated, use elidable_promote instead", DeprecationWarning)
     return elidable_promote(*args, **kwargs)
 
-def unroll_if(predicate):
+def look_inside_iff(predicate):
+    """
+    look inside (including unrolling loops) the target function, if and only if
+    predicate(*args) returns True
+    """
     def inner(func):
         func_unroll = unroll_safe(func_with_new_name(func, func.__name__ + "_unroll"))
-        for thing in func, func_unroll, predicate:
+        func = dont_look_inside(func)
+        for thing in [func, func_unroll, predicate]:
             thing._annspecialcase_ = "specialize:call_location"
 
         def f(*args):
@@ -120,7 +125,7 @@ def unroll_if(predicate):
             else:
                 return func(*args)
 
-        f.func_name = func.func_name + "_unroll_if"
+        f.func_name = func.func_name + "_look_inside_iff"
         return f
     return inner
 
@@ -136,7 +141,7 @@ def isconstant(value):
     """
     While tracing, returns whether or not the value is currently known to be
     constant. This is not perfect, values can become constant later. Mostly for
-    use with @unroll_if.
+    use with @look_inside_iff.
     """
     # I hate the annotator so much.
     if NonConstant(False):

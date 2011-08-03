@@ -132,7 +132,7 @@ class AbstractAttribute(object):
             cache[selector] = attr
         return attr
 
-    @jit.unroll_if(lambda self, obj, selector, w_value:
+    @jit.look_inside_iff(lambda self, obj, selector, w_value:
             jit.isconstant(self) and
             jit.isconstant(selector[0]) and
             jit.isconstant(selector[1]))

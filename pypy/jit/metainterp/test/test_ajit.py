@@ -12,7 +12,7 @@ from pypy.jit.metainterp.warmspot import get_stats
 from pypy.jit.metainterp.warmstate import set_future_value
 from pypy.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
     loop_invariant, elidable, promote, jit_debug, assert_green,
-    AssertGreenFailed, unroll_safe, current_trace_length, unroll_if, isconstant)
+    AssertGreenFailed, unroll_safe, current_trace_length, look_inside_iff, isconstant)
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.ootypesystem import ootype
@@ -2683,8 +2683,8 @@ class BaseLLtypeTests(BasicTests):
 
         self.meta_interp(f, [10], repeat=3)
 
-    def test_unroll_if_const(self):
-        @unroll_if(lambda arg: isconstant(arg))
+    def test_look_inside_iff_const(self):
+        @look_inside_iff(lambda arg: isconstant(arg))
         def f(arg):
             s = 0
             while arg > 0:
@@ -2728,7 +2728,7 @@ class BaseLLtypeTests(BasicTests):
             'int_gt': 1, 'int_sub': 1, 'strlen': 1, 'jump': 1,
         })
 
-    def test_unroll_if_const_getarrayitem_gc_pure(self):
+    def test_look_inside_iff_const_getarrayitem_gc_pure(self):
         driver = JitDriver(greens=['unroll'], reds=['s', 'n'])
 
         class A(object):
@@ -2736,7 +2736,7 @@ class BaseLLtypeTests(BasicTests):
             def __init__(self, x):
                 self.x = [x]
 
-        @unroll_if(lambda x: isconstant(x))
+        @look_inside_iff(lambda x: isconstant(x))
         def f(x):
             i = 0
             for c in x:

@@ -285,7 +285,7 @@ def make_formatter_subclass(do_unicode):
                 c = self.peekchr()
             return result
 
-        @jit.unroll_if(lambda self: jit.isconstant(self.fmt))
+        @jit.look_inside_iff(lambda self: jit.isconstant(self.fmt))
         def format(self):
             lgt = len(self.fmt) + 4 * len(self.values_w) + 10
             if do_unicode:

@@ -16,7 +16,7 @@ class FormatIterator(object):
     _mixin_ = True
     _operate_is_specialized_ = False
 
-    @jit.unroll_if(lambda self, fmt: jit.isconstant(fmt))
+    @jit.look_inside_iff(lambda self, fmt: jit.isconstant(fmt))
     def interpret(self, fmt):
         # decode the byte order, size and alignment based on the 1st char
         table = unroll_native_fmtdescs
