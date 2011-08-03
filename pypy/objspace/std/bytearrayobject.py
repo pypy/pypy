@@ -250,7 +250,8 @@ def str_translate__Bytearray_ANY_ANY(space, w_bytearray1, w_table, w_deletechars
 def repr__Bytearray(space, w_bytearray):
     s = w_bytearray.data
 
-    buf = StringBuilder(50)
+    # Good default if there are no replacements.
+    buf = StringBuilder(len("bytearray(b'')") + len(s))
 
     buf.append("bytearray(b'")
 
