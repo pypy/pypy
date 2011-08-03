@@ -53,7 +53,7 @@ def default_fail_descr(model, fail_args=None):
 class OpParser(object):
 
     use_mock_model = False
-    
+
     def __init__(self, input, cpu, namespace, type_system, boxkinds,
                  invent_fail_descr=default_fail_descr,
                  nonstrict=False):
@@ -187,7 +187,7 @@ class OpParser(object):
             poss_descr = allargs[-1].strip()
             if poss_descr.startswith('descr='):
                 descr = self.get_descr(poss_descr[len('descr='):])
-                allargs = allargs[:-1]        
+                allargs = allargs[:-1]
             for arg in allargs:
                 arg = arg.strip()
                 try:

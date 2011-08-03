@@ -4621,6 +4621,29 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_strunicode_loop(ops, expected)
 
+    def test_intmod_bounds(self):
+        ops = """
+        [i0, i1]
+        i2 = int_mod(i0, 12)
+        i3 = int_gt(i2, 12)
+        guard_false(i3) []
+        i4 = int_lt(i2, 0)
+        guard_false(i4) []
+        i5 = int_mod(i1, -12)
+        i6 = int_lt(i5, -12)
+        guard_false(i6) []
+        i7 = int_gt(i5, 0)
+        guard_false(i7) []
+        jump(i2, i5)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_mod(i0, 12)
+        i5 = int_mod(i1, -12)
+        jump(i2, i5)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass
