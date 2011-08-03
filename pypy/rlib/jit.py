@@ -16,7 +16,8 @@ def elidable(func):
 
     Most importantly it doesn't mean that an elidable function has no observable
     side effect, but those side effects are idempotent (ie caching).
-    For now, such a function should never raise an exception.
+    If a particular call to this function ends up raising an exception, then it
+    is handled like a normal function call (this decorator is ignored).
     """
     func._elidable_function_ = True
     return func
@@ -315,7 +316,7 @@ class JitDriver(object):
     def __init__(self, greens=None, reds=None, virtualizables=None,
                  get_jitcell_at=None, set_jitcell_at=None,
                  get_printable_location=None, confirm_enter_jit=None,
-                 can_never_inline=None):
+                 can_never_inline=None, should_unroll_one_iteration=None):
         if greens is not None:
             self.greens = greens
         if reds is not None:
@@ -334,6 +335,7 @@ class JitDriver(object):
         self.get_printable_location = get_printable_location
         self.confirm_enter_jit = confirm_enter_jit
         self.can_never_inline = can_never_inline
+        self.should_unroll_one_iteration = should_unroll_one_iteration
 
     def _freeze_(self):
         return True

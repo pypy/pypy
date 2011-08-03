@@ -221,8 +221,9 @@ class ASTVisitorVisitor(ASDLVisitor):
         self.emit("class ASTVisitor(object):")
         self.emit("")
         self.emit("def visit_sequence(self, seq):", 1)
-        self.emit("for node in seq:", 2)
-        self.emit("node.walkabout(self)", 3)
+        self.emit("if seq is not None:", 2)
+        self.emit("for node in seq:", 3)
+        self.emit("node.walkabout(self)", 4)
         self.emit("")
         self.emit("def default_visitor(self, node):", 1)
         self.emit("raise NodeVisitorNotImplemented", 2)
@@ -280,15 +281,13 @@ class GenericASTVisitorVisitor(ASDLVisitor):
     def visitField(self, field):
         if field.type.value not in asdl.builtin_types and \
                 field.type.value not in self.data.simple_types:
-            if field.seq or field.opt:
-                self.emit("if node.%s:" % (field.name,), 2)
-                level = 3
-            else:
-                level = 2
+            level = 2
+            template = "node.%s.walkabout(self)"
             if field.seq:
                 template = "self.visit_sequence(node.%s)"
-            else:
-                template = "node.%s.walkabout(self)"
+            elif field.opt:
+                self.emit("if node.%s:" % (field.name,), 2)
+                level = 3
             self.emit(template % (field.name,), level)
             return True
         return False
@@ -446,6 +445,7 @@ class AppExposeVisitor(ASDLVisitor):
         if field.seq:
             self.emit("w_self.w_%s = w_new_value" % (field.name,), 1)
         else:
+            save_original_object = False
             self.emit("try:", 1)
             if field.type.value not in asdl.builtin_types:
                 # These are always other AST nodes.
@@ -454,9 +454,7 @@ class AppExposeVisitor(ASDLVisitor):
                                   (field.type,), 2)
                     self.emit("w_self.%s = obj.to_simple_int(space)" %
                               (field.name,), 2)
-                    self.emit("# need to save the original object too", 2)
-                    self.emit("w_self.setdictvalue(space, '%s', w_new_value)"
-                              % (field.name,), 2)
+                    save_original_object = True
                 else:
                     config = (field.name, field.type, repr(field.opt))
                     self.emit("w_self.%s = space.interp_w(%s, w_new_value, %s)" %
@@ -480,6 +478,12 @@ class AppExposeVisitor(ASDLVisitor):
             self.emit("    w_self.setdictvalue(space, '%s', w_new_value)"
                       % (field.name,), 1)
             self.emit("    return", 1)
+            if save_original_object:
+                self.emit("# need to save the original object too", 1)
+                self.emit("w_self.setdictvalue(space, '%s', w_new_value)"
+                          % (field.name,), 1)
+            else:
+                self.emit("w_self.deldictvalue(space, '%s')" %(field.name,), 1)
         self.emit("w_self.initialization_state |= %s" % (flag,), 1)
         self.emit("")
 

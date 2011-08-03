@@ -11,9 +11,8 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode
-from pypy.rlib import streamio, jit, rposix
+from pypy.rlib import streamio, jit
 from pypy.rlib.streamio import StreamErrors
-from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.module.sys.version import PYPY_VERSION
 
@@ -86,7 +85,7 @@ def find_modtype(space, filepart):
 
     return SEARCH_ERROR, None, None
 
-if sys.platform == 'linux2' or 'freebsd' in sys.platform:
+if sys.platform.startswith('linux') or 'freebsd' in sys.platform:
     def case_ok(filename):
         return True
 else:

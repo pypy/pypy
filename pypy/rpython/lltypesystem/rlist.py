@@ -14,7 +14,6 @@ from pypy.rpython.lltypesystem.lltype import \
 from pypy.rpython.lltypesystem import rstr
 from pypy.rpython import robject
 from pypy.rlib.debug import ll_assert
-from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.lltypesystem import rffi
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib import rgc
@@ -200,12 +199,11 @@ def _ll_list_resize_really(l, newsize):
         else:
             some = 6
         some += newsize >> 3
-        try:
-            new_allocated = ovfcheck(newsize + some)
-        except OverflowError:
-            raise MemoryError
+        new_allocated = newsize + some
     # new_allocated is a bit more than newsize, enough to ensure an amortized
-    # linear complexity for e.g. repeated usage of l.append().
+    # linear complexity for e.g. repeated usage of l.append().  In case
+    # it overflows sys.maxint, it is guaranteed negative, and the following
+    # malloc() will fail.
     items = l.items
     newitems = malloc(typeOf(l).TO.items.TO, new_allocated)
     before_len = l.length

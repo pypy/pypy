@@ -189,7 +189,7 @@ class OperationError(Exception):
             if space.is_w(w_value, space.w_None):
                 # raise Type: we assume we have to instantiate Type
                 w_value = space.call_function(w_type)
-                w_type = space.exception_getclass(w_value)
+                w_type = self._exception_getclass(space, w_value)
             else:
                 w_valuetype = space.exception_getclass(w_value)
                 if space.exception_issubclass_w(w_valuetype, w_type):
@@ -204,18 +204,12 @@ class OperationError(Exception):
                     else:
                         # raise Type, X: assume X is the constructor argument
                         w_value = space.call_function(w_type, w_value)
-                    w_type = space.exception_getclass(w_value)
+                    w_type = self._exception_getclass(space, w_value)
 
         else:
             # the only case left here is (inst, None), from a 'raise inst'.
             w_inst = w_type
-            w_instclass = space.exception_getclass(w_inst)
-            if not space.exception_is_valid_class_w(w_instclass):
-                instclassname = w_instclass.getname(space)
-                msg = ("exceptions must be old-style classes or derived "
-                       "from BaseException, not %s")
-                raise operationerrfmt(space.w_TypeError, msg, instclassname)
-
+            w_instclass = self._exception_getclass(space, w_inst)
             if not space.is_w(w_value, space.w_None):
                 raise OperationError(space.w_TypeError,
                                      space.wrap("instance exception may not "
@@ -225,6 +219,15 @@ class OperationError(Exception):
 
         self.w_type   = w_type
         self._w_value = w_value
+
+    def _exception_getclass(self, space, w_inst):
+        w_type = space.exception_getclass(w_inst)
+        if not space.exception_is_valid_class_w(w_type):
+            typename = w_type.getname(space)
+            msg = ("exceptions must be old-style classes or derived "
+                   "from BaseException, not %s")
+            raise operationerrfmt(space.w_TypeError, msg, typename)
+        return w_type
 
     def write_unraisable(self, space, where, w_object=None):
         if w_object is None:

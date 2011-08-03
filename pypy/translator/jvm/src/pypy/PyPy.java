@@ -307,6 +307,14 @@ public class PyPy implements Constants {
         return result;
     }
 
+    public static Object box_integer(int x) {
+        return new Integer(x);
+    }
+
+    public static int unbox_integer(Object o) {
+        Integer x = (Integer)o;
+        return x.intValue();
+    }
     // Used in testing the JVM backend:
     //
     //    A series of methods which serve a similar purpose to repr() in Python:
@@ -791,6 +799,20 @@ public class PyPy implements Constants {
         return str.substring(start,start+cnt);
     }
 
+    public static boolean ll_startswith_char(String str, char c) {
+        if (str.length() == 0) {
+            return false;
+        }
+        return str.charAt(0) == c;
+    }
+
+    public static boolean ll_endswith_char(String str, char c) {
+        if (str.length() == 0) {
+            return false;
+        }
+        return str.charAt(str.length() - 1) == c;
+    }
+
     // ----------------------------------------------------------------------
     // StringBuffer
 
@@ -1078,9 +1100,9 @@ public class PyPy implements Constants {
         if (Double.isNaN(x))
             return interlink.recordFloatSigned(x, 0);
 
-        // Infinity: Python throws exception
+        // Infinity: Python returns (inf, 0)
         if (Double.isInfinite(x))
-            interlink.throwOverflowError();
+            return interlink.recordFloatSigned(x, 0);
 
         // Extract the various parts of the format:
         final long e=11, f=52; // number of bits in IEEE format

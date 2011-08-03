@@ -102,19 +102,6 @@ def llexternal(name, args, result, _callable=None,
     else:
         callbackholder = None
 
-    funcptr = lltype.functionptr(ext_type, name, external='C',
-                                 compilation_info=compilation_info,
-                                 _callable=_callable,
-                                 _safe_not_sandboxed=sandboxsafe,
-                                 _debugexc=True, # on top of llinterp
-                                 canraise=False,
-                                 **kwds)
-    if isinstance(_callable, ll2ctypes.LL2CtypesCallable):
-        _callable.funcptr = funcptr
-
-    if _nowrapper:
-        return funcptr
-
     if threadsafe in (False, True):
         # invoke the around-handlers, which release the GIL, if and only if
         # the C function is thread-safe.
@@ -124,6 +111,21 @@ def llexternal(name, args, result, _callable=None,
         # invoke the around-handlers only for "not too small" external calls;
         # sandboxsafe is a hint for "too-small-ness" (e.g. math functions).
         invoke_around_handlers = not sandboxsafe
+
+    funcptr = lltype.functionptr(ext_type, name, external='C',
+                                 compilation_info=compilation_info,
+                                 _callable=_callable,
+                                 _safe_not_sandboxed=sandboxsafe,
+                                 _debugexc=True, # on top of llinterp
+                                 canraise=False,
+                                 releases_gil=invoke_around_handlers,
+                                 **kwds)
+    if isinstance(_callable, ll2ctypes.LL2CtypesCallable):
+        _callable.funcptr = funcptr
+
+    if _nowrapper:
+        return funcptr
+
 
     if invoke_around_handlers:
         # The around-handlers are releasing the GIL in a threaded pypy.
@@ -787,8 +789,7 @@ def make_string_mappings(strtype):
     # char* and size -> str (which can contain null bytes)
     def charpsize2str(cp, size):
         b = builder_class(size)
-        for i in xrange(size):
-            b.append(cp[i])
+        b.append_charpsize(cp, size)
         return b.build()
     charpsize2str._annenforceargs_ = [None, int]
 
@@ -1060,3 +1061,11 @@ class scoped_alloc_unicodebuffer:
         keep_unicodebuffer_alive_until_here(self.raw, self.gc_buf)
     def str(self, length):
         return unicode_from_buffer(self.raw, self.gc_buf, self.size, length)
+
+# You would have to have a *huge* amount of data for this to block long enough
+# to be worth it to release the GIL.
+c_memcpy = llexternal("memcpy",
+    [VOIDP, VOIDP, SIZE_T],
+    lltype.Void,
+    threadsafe=False
+)

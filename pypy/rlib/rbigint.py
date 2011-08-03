@@ -40,7 +40,7 @@ KARATSUBA_SQUARE_CUTOFF = 2 * KARATSUBA_CUTOFF
 # In that case, do 5 bits at a time.  The potential drawback is that
 # a table of 2**5 intermediate results is computed.
 
-FIVEARY_CUTOFF = 8
+## FIVEARY_CUTOFF = 8   disabled for now
 
 
 def _mask_digit(x):
@@ -456,7 +456,7 @@ class rbigint(object):
 
         # python adaptation: moved macros REDUCE(X) and MULT(X, Y, result)
         # into helper function result = _help_mult(x, y, c)
-        if b.numdigits() <= FIVEARY_CUTOFF:
+        if 1:   ## b.numdigits() <= FIVEARY_CUTOFF:
             # Left-to-right binary exponentiation (HAC Algorithm 14.79)
             # http://www.cacr.math.uwaterloo.ca/hac/about/chap14.pdf
             i = b.numdigits() - 1
@@ -469,26 +469,30 @@ class rbigint(object):
                         z = _help_mult(z, a, c)
                     j >>= 1
                 i -= 1
-        else:
-            # Left-to-right 5-ary exponentiation (HAC Algorithm 14.82)
-            # This is only useful in the case where c != None.
-            # z still holds 1L
-            table = [z] * 32
-            table[0] = z
-            for i in range(1, 32):
-                table[i] = _help_mult(table[i-1], a, c)
-            i = b.numdigits() - 1
-            while i >= 0:
-                bi = b.digit(i)
-                j = SHIFT - 5
-                while j >= 0:
-                    index = (bi >> j) & 0x1f
-                    for k in range(5):
-                        z = _help_mult(z, z, c)
-                    if index:
-                        z = _help_mult(z, table[index], c)
-                    j -= 5
-                i -= 1
+##        else:
+##            This code is disabled for now, because it assumes that
+##            SHIFT is a multiple of 5.  It could be fixed but it looks
+##            like it's more troubles than benefits...
+##
+##            # Left-to-right 5-ary exponentiation (HAC Algorithm 14.82)
+##            # This is only useful in the case where c != None.
+##            # z still holds 1L
+##            table = [z] * 32
+##            table[0] = z
+##            for i in range(1, 32):
+##                table[i] = _help_mult(table[i-1], a, c)
+##            i = b.numdigits() - 1
+##            while i >= 0:
+##                bi = b.digit(i)
+##                j = SHIFT - 5
+##                while j >= 0:
+##                    index = (bi >> j) & 0x1f
+##                    for k in range(5):
+##                        z = _help_mult(z, z, c)
+##                    if index:
+##                        z = _help_mult(z, table[index], c)
+##                    j -= 5
+##                i -= 1
 
         if negativeOutput and z.sign != 0:
             z = z.sub(c)

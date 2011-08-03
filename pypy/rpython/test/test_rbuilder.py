@@ -1,8 +1,10 @@
 import py
-from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
-from pypy.rpython.lltypesystem.rbuilder import *
-from pypy.rpython.annlowlevel import llstr, hlstr
+
 from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
+from pypy.rpython.annlowlevel import llstr, hlstr
+from pypy.rpython.lltypesystem import rffi
+from pypy.rpython.lltypesystem.rbuilder import *
+from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 
 
 class TestStringBuilderDirect(object):
@@ -73,6 +75,15 @@ class BaseTestStringBuilder(BaseRtypingTest):
         res = self.interpret(func, [])
         assert res == 4
 
+    def test_append_charpsize(self):
+        def func(l):
+            s = StringBuilder()
+            with rffi.scoped_str2charp("hello world") as x:
+                s.append_charpsize(x, l)
+            return s.build()
+        res = self.ll_to_string(self.interpret(func, [5]))
+        assert res == "hello"
+
 class TestLLtype(BaseTestStringBuilder, LLRtypeMixin):
     pass
 
@@ -81,3 +92,5 @@ class TestOOtype(BaseTestStringBuilder, OORtypeMixin):
         py.test.skip("getlength(): not implemented on ootype")
     def test_unicode_getlength(self):
         py.test.skip("getlength(): not implemented on ootype")
+    def test_append_charpsize(self):
+        py.test.skip("append_charpsize(): not implemented on ootype")

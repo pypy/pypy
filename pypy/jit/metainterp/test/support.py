@@ -277,3 +277,15 @@ class OOJitMixin(JitMixin):
         NODE._add_fields({'value': ootype.Signed,
                           'next': NODE})
         return NODE
+
+# ____________________________________________________________
+
+class _Foo:
+    pass
+
+def noConst(x):
+    """Helper function for tests, returning 'x' as a BoxInt/BoxPtr
+    even if it is a ConstInt/ConstPtr."""
+    f1 = _Foo(); f2 = _Foo()
+    f1.x = x; f2.x = 0
+    return f1.x

@@ -898,6 +898,7 @@ class Config:
             withsmalldicts = False
             withcelldict = False
             withmethodcache = False
+            withidentitydict = False
 
 FakeSpace.config = Config()
 
@@ -1105,3 +1106,4 @@ def test_module_uses_strdict():
     fakespace = FakeSpace()
     d = fakespace.newdict(module=True)
     assert type(d.strategy) is StringDictStrategy
+

@@ -2,14 +2,13 @@ from __future__ import with_statement
 
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib.objectmodel import specialize, enforceargs, we_are_translated
-from pypy.rlib.rarithmetic import intmask, r_uint, r_singlefloat
+from pypy.rlib.rarithmetic import intmask, r_uint, r_singlefloat, r_longlong
 from pypy.rlib import jit
 from pypy.rlib import clibffi
 from pypy.rlib.clibffi import get_libc_name, FUNCFLAG_CDECL, AbstractFuncPtr, \
     push_arg_as_ffiptr, c_ffi_call, FFI_TYPE_STRUCT
 from pypy.rlib.rdynload import dlopen, dlclose, dlsym, dlsym_byordinal
 from pypy.rlib.rdynload import DLLHANDLE
-from pypy.rlib.longlong2float import longlong2float, float2longlong
 
 class types(object):
     """
@@ -122,9 +121,10 @@ class ArgChain(object):
         elif TYPE is rffi.DOUBLE:
             cls = FloatArg
         elif TYPE is rffi.LONGLONG or TYPE is rffi.ULONGLONG:
-            raise TypeError, 'r_(u)longlong not supported by arg(), use arg_(u)longlong()'
+            cls = LongLongArg
+            val = rffi.cast(rffi.LONGLONG, val)
         elif TYPE is rffi.FLOAT:
-            raise TypeError, 'r_singlefloat not supported by arg(), use arg_singlefloat()'
+            cls = SingleFloatArg
         else:
             raise TypeError, 'Unsupported argument type: %s' % TYPE
         self._append(cls(val))
@@ -132,25 +132,6 @@ class ArgChain(object):
 
     def arg_raw(self, val):
         self._append(RawArg(val))
-
-    def arg_longlong(self, val):
-        """
-        Note: this is a hack. So far, the JIT does not support long longs, so
-        you must pass it as if it were a python Float (rffi.DOUBLE).  You can
-        use the convenience functions longlong2float and float2longlong to do
-        the conversions.  Note that if you use long longs, the call won't
-        be jitted at all.
-        """
-        assert IS_32_BIT      # use a normal integer on 64-bit platforms
-        self._append(LongLongArg(val))
-
-    def arg_singlefloat(self, val):
-        """
-        Note: you must pass a python Float (rffi.DOUBLE), not a r_singlefloat
-        (else the jit complains).  Note that if you use single floats, the
-        call won't be jitted at all.
-        """
-        self._append(SingleFloatArg(val))
 
     def _append(self, arg):
         if self.first is None:
@@ -196,25 +177,25 @@ class RawArg(AbstractArg):
         func._push_raw(self.ptrval, ll_args, i)
 
 class SingleFloatArg(AbstractArg):
-    """ An argument representing a C float (but holding a C double)
+    """ An argument representing a C float
     """
 
-    def __init__(self, floatval):
-        self.floatval = floatval
+    def __init__(self, singlefloatval):
+        self.singlefloatval = singlefloatval
 
     def push(self, func, ll_args, i):
-        func._push_single_float(self.floatval, ll_args, i)
+        func._push_singlefloat(self.singlefloatval, ll_args, i)
 
 
 class LongLongArg(AbstractArg):
-    """ An argument representing a C long long (but holding a C double)
+    """ An argument representing a C long long
     """
 
-    def __init__(self, floatval):
-        self.floatval = floatval
+    def __init__(self, longlongval):
+        self.longlongval = longlongval
 
     def push(self, func, ll_args, i):
-        func._push_longlong(self.floatval, ll_args, i)
+        func._push_longlong(self.longlongval, ll_args, i)
 
 
 # ======================================================================
@@ -274,15 +255,10 @@ class Func(AbstractFuncPtr):
         elif RESULT is rffi.DOUBLE:
             return self._do_call_float(self.funcsym, ll_args)
         elif RESULT is rffi.FLOAT:
-            # XXX: even if RESULT is FLOAT, we still return a DOUBLE, else the
-            # jit complains. Note that the jit is disabled in this case
-            return self._do_call_single_float(self.funcsym, ll_args)
+            return self._do_call_singlefloat(self.funcsym, ll_args)
         elif RESULT is rffi.LONGLONG or RESULT is rffi.ULONGLONG:
-            # XXX: even if RESULT is LONGLONG, we still return a DOUBLE, else the
-            # jit complains. Note that the jit is disabled in this case
-            # (it's not a typo, we really return a DOUBLE)
             assert IS_32_BIT
-            return self._do_call_longlong(self.funcsym, ll_args)
+            res = self._do_call_longlong(self.funcsym, ll_args)
         elif RESULT is lltype.Void:
             return self._do_call_void(self.funcsym, ll_args)
         else:
@@ -320,16 +296,15 @@ class Func(AbstractFuncPtr):
     def _push_float(self, value, ll_args, i):
         self._push_arg(value, ll_args, i)
 
-    @jit.dont_look_inside
-    def _push_single_float(self, value, ll_args, i):
-        self._push_arg(r_singlefloat(value), ll_args, i)
+    @jit.oopspec('libffi_push_singlefloat(self, value, ll_args, i)')
+    @enforceargs(None, r_singlefloat, None, int) # fix the annotation for tests
+    def _push_singlefloat(self, value, ll_args, i):
+        self._push_arg(value, ll_args, i)
 
-    @jit.dont_look_inside
-    def _push_longlong(self, floatval, ll_args, i):
-        """
-        Takes a longlong represented as a python Float. It's a hack for the
-        jit, else we could not see the whole libffi module at all"""  
-        self._push_arg(float2longlong(floatval), ll_args, i)
+    @jit.oopspec('libffi_push_longlong(self, value, ll_args, i)')
+    @enforceargs(None, r_longlong, None, int) # fix the annotation for tests
+    def _push_longlong(self, value, ll_args, i):
+        self._push_arg(value, ll_args, i)
 
     @jit.oopspec('libffi_call_int(self, funcsym, ll_args)')
     def _do_call_int(self, funcsym, ll_args):
@@ -339,20 +314,18 @@ class Func(AbstractFuncPtr):
     def _do_call_float(self, funcsym, ll_args):
         return self._do_call(funcsym, ll_args, rffi.DOUBLE)
 
-    @jit.dont_look_inside
-    def _do_call_single_float(self, funcsym, ll_args):
-        single_res = self._do_call(funcsym, ll_args, rffi.FLOAT)
-        return float(single_res)
+    @jit.oopspec('libffi_call_singlefloat(self, funcsym, ll_args)')
+    def _do_call_singlefloat(self, funcsym, ll_args):
+        return self._do_call(funcsym, ll_args, rffi.FLOAT)
 
     @jit.dont_look_inside
     def _do_call_raw(self, funcsym, ll_args):
         # same as _do_call_int, but marked as jit.dont_look_inside
         return self._do_call(funcsym, ll_args, rffi.LONG)
 
-    @jit.dont_look_inside
+    @jit.oopspec('libffi_call_longlong(self, funcsym, ll_args)')
     def _do_call_longlong(self, funcsym, ll_args):
-        llres = self._do_call(funcsym, ll_args, rffi.LONGLONG)
-        return longlong2float(llres)
+        return self._do_call(funcsym, ll_args, rffi.LONGLONG)
 
     @jit.oopspec('libffi_call_void(self, funcsym, ll_args)')
     def _do_call_void(self, funcsym, ll_args):

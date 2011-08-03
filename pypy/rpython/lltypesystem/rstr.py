@@ -345,6 +345,8 @@ class LLHelpers(AbstractLLHelpers):
     def ll_strconcat(s1, s2):
         len1 = len(s1.chars)
         len2 = len(s2.chars)
+        # a single '+' like this is allowed to overflow: it gets
+        # a negative result, and the gc will complain
         newstr = s1.malloc(len1 + len2)
         s1.copy_contents(s1, newstr, 0, 0, len1)
         s1.copy_contents(s2, newstr, 0, len1, len2)
@@ -412,9 +414,18 @@ class LLHelpers(AbstractLLHelpers):
         itemslen = 0
         i = 0
         while i < num_items:
-            itemslen += len(items[i].chars)
+            try:
+                itemslen = ovfcheck(itemslen + len(items[i].chars))
+            except OverflowError:
+                raise MemoryError
             i += 1
-        result = s.malloc(itemslen + s_len * (num_items - 1))
+        try:
+            seplen = ovfcheck(s_len * (num_items - 1))
+        except OverflowError:
+            raise MemoryError
+        # a single '+' at the end is allowed to overflow: it gets
+        # a negative result, and the gc will complain
+        result = s.malloc(itemslen + seplen)
         res_index = len(items[0].chars)
         s.copy_contents(items[0], result, 0, 0, res_index)
         i = 1
@@ -688,7 +699,10 @@ class LLHelpers(AbstractLLHelpers):
         itemslen = 0
         i = 0
         while i < num_items:
-            itemslen += len(items[i].chars)
+            try:
+                itemslen = ovfcheck(itemslen + len(items[i].chars))
+            except OverflowError:
+                raise MemoryError
             i += 1
         if typeOf(items).TO.OF.TO == STR:
             malloc = mallocstr

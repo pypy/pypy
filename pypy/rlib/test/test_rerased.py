@@ -5,8 +5,10 @@ from pypy.annotation import model as annmodel
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.lltypesystem.rclass import OBJECTPTR
+from pypy.rpython.ootypesystem.rclass import OBJECT
 from pypy.rpython.lltypesystem import lltype, llmemory
 
+from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 
 class X(object):
     pass
@@ -78,136 +80,6 @@ def test_annotate_3():
     a = RPythonAnnotator()
     s = a.build_types(f, [])
     assert isinstance(s, annmodel.SomeInteger)
-
-def test_rtype_1():
-    def f():
-        return eraseX(X())
-    x = interpret(f, [])
-    assert lltype.typeOf(x) == llmemory.GCREF
-
-def test_rtype_2():
-    def f():
-        x1 = X()
-        e = eraseX(x1)
-        #assert not is_integer(e)
-        x2 = uneraseX(e)
-        return x2
-    x = interpret(f, [])
-    assert lltype.castable(OBJECTPTR, lltype.typeOf(x)) > 0
-
-def test_rtype_3():
-    def f():
-        e = erase_int(16)
-        #assert is_integer(e)
-        x2 = unerase_int(e)
-        return x2
-    x = interpret(f, [])
-    assert x == 16
-
-
-def test_prebuilt_erased():
-    e1 = erase_int(16)
-    x1 = X()
-    x1.foobar = 42
-    e2 = eraseX(x1)
-
-    def f():
-        #assert is_integer(e1)
-        #assert not is_integer(e2)
-        x1.foobar += 1
-        x2 = unerase_int(e1) + uneraseX(e2).foobar
-        return x2
-    x = interpret(f, [])
-    assert x == 16 + 42 + 1
-
-def test_prebuilt_erased_in_instance():
-    erase_empty, unerase_empty = new_erasing_pair("empty")
-    class FakeList(object):
-        pass
-
-    x1 = X()
-    x1.foobar = 42
-    l1 = FakeList()
-    l1.storage = eraseX(x1)
-    l2 = FakeList()
-    l2.storage = erase_empty(None)
-
-    def f():
-        #assert is_integer(e1)
-        #assert not is_integer(e2)
-        x1.foobar += 1
-        x2 = uneraseX(l1.storage).foobar + (unerase_empty(l2.storage) is None)
-        return x2
-    x = interpret(f, [])
-    assert x == 43 + True
-
-
-def test_overflow():
-    def f(i):
-        try:
-            e = erase_int(i)
-        except OverflowError:
-            return -1
-        #assert is_integer(e)
-        return unerase_int(e)
-    x = interpret(f, [16])
-    assert x == 16
-    x = interpret(f, [sys.maxint])
-    assert x == -1
-
-def test_none():
-    def foo():
-        return uneraseX(eraseX(None))
-    assert foo() is None
-    res = interpret(foo, [])
-    assert not res
-    #
-    def foo():
-        eraseX(X())
-        return uneraseX(eraseX(None))
-    assert foo() is None
-    res = interpret(foo, [])
-    assert not res
-
-def test_union():
-    s_e1 = SomeErased()
-    s_e1.const = 1
-    s_e2 = SomeErased()
-    s_e2.const = 3
-    assert not annmodel.pair(s_e1, s_e2).union().is_constant()
-
-
-def test_rtype_list():
-    prebuilt_l = [X()]
-    prebuilt_e = erase_list_X(prebuilt_l)
-    def l(flag):
-        if flag == 1:
-            l = [X()]
-            e = erase_list_X(l)
-        elif flag == 2:
-            l = prebuilt_l
-            e = erase_list_X(l)
-        else:
-            l = prebuilt_l
-            e = prebuilt_e
-        #assert is_integer(e) is False
-        assert unerase_list_X(e) is l
-    interpret(l, [0])
-    interpret(l, [1])
-    interpret(l, [2])
-
-# ____________________________________________________________
-
-def test_erasing_pair():
-    erase, unerase = new_erasing_pair("test1")
-    class X:
-        pass
-    x = X()
-    erased = erase(x)
-    assert unerase(erased) is x
-    #
-    erase2, unerase2 = new_erasing_pair("test2")
-    py.test.raises(AssertionError, unerase2, erased)
 
 def test_annotate_erasing_pair():
     erase, unerase = new_erasing_pair("test1")
@@ -296,3 +168,148 @@ def test_annotate_prebuilt_int():
     a = RPythonAnnotator()
     s = a.build_types(f, [int])
     assert isinstance(s, annmodel.SomeInteger)
+
+class BaseTestRErased(BaseRtypingTest):
+    def test_rtype_1(self):
+        def f():
+            return eraseX(X())
+        x = self.interpret(f, [])
+        assert lltype.typeOf(x) == self.ERASED_TYPE
+
+    def test_rtype_2(self):
+        def f():
+            x1 = X()
+            e = eraseX(x1)
+            #assert not is_integer(e)
+            x2 = uneraseX(e)
+            return x2
+        x = self.interpret(f, [])
+        assert self.castable(self.UNERASED_TYPE, x)
+
+    def test_rtype_3(self):
+        def f():
+            e = erase_int(16)
+            #assert is_integer(e)
+            x2 = unerase_int(e)
+            return x2
+        x = self.interpret(f, [])
+        assert x == 16
+
+    def test_prebuilt_erased(self):
+        e1 = erase_int(16)
+        x1 = X()
+        x1.foobar = 42
+        e2 = eraseX(x1)
+
+        def f():
+            #assert is_integer(e1)
+            #assert not is_integer(e2)
+            x1.foobar += 1
+            x2 = unerase_int(e1) + uneraseX(e2).foobar
+            return x2
+        x = self.interpret(f, [])
+        assert x == 16 + 42 + 1
+
+    def test_prebuilt_erased_in_instance(self):
+        erase_empty, unerase_empty = new_erasing_pair("empty")
+        class FakeList(object):
+            pass
+
+        x1 = X()
+        x1.foobar = 42
+        l1 = FakeList()
+        l1.storage = eraseX(x1)
+        l2 = FakeList()
+        l2.storage = erase_empty(None)
+
+        def f():
+            #assert is_integer(e1)
+            #assert not is_integer(e2)
+            x1.foobar += 1
+            x2 = uneraseX(l1.storage).foobar + (unerase_empty(l2.storage) is None)
+            return x2
+        x = self.interpret(f, [])
+        assert x == 43 + True
+
+    def test_overflow(self):
+        def f(i):
+            try:
+                e = erase_int(i)
+            except OverflowError:
+                return -1
+            #assert is_integer(e)
+            return unerase_int(e)
+        x = self.interpret(f, [16])
+        assert x == 16
+        x = self.interpret(f, [sys.maxint])
+        assert x == -1
+
+    def test_none(self):
+        def foo():
+            return uneraseX(eraseX(None))
+        assert foo() is None
+        res = self.interpret(foo, [])
+        assert not res
+        #
+        def foo():
+            eraseX(X())
+            return uneraseX(eraseX(None))
+        assert foo() is None
+        res = self.interpret(foo, [])
+        assert not res
+
+    def test_rtype_list(self):
+        prebuilt_l = [X()]
+        prebuilt_e = erase_list_X(prebuilt_l)
+        def l(flag):
+            if flag == 1:
+                l = [X()]
+                e = erase_list_X(l)
+            elif flag == 2:
+                l = prebuilt_l
+                e = erase_list_X(l)
+            else:
+                l = prebuilt_l
+                e = prebuilt_e
+            #assert is_integer(e) is False
+            assert unerase_list_X(e) is l
+        self.interpret(l, [0])
+        self.interpret(l, [1])
+        self.interpret(l, [2])
+
+class TestLLtype(BaseTestRErased, LLRtypeMixin):
+    ERASED_TYPE = llmemory.GCREF
+    UNERASED_TYPE = OBJECTPTR
+    def castable(self, TO, var):
+        return lltype.castable(TO, lltype.typeOf(var)) > 0
+
+from pypy.rpython.ootypesystem.ootype import Object
+
+class TestOOtype(BaseTestRErased, OORtypeMixin):
+    ERASED_TYPE = Object
+    UNERASED_TYPE = OBJECT
+    def castable(self, TO, var):
+        return ootype.isSubclass(lltype.typeOf(var), TO)
+    @py.test.mark.xfail
+    def test_prebuilt_erased(self):
+        super(TestOOtype, self).test_prebuilt_erased()
+
+def test_union():
+    s_e1 = SomeErased()
+    s_e1.const = 1
+    s_e2 = SomeErased()
+    s_e2.const = 3
+    assert not annmodel.pair(s_e1, s_e2).union().is_constant()
+
+# ____________________________________________________________
+
+def test_erasing_pair():
+    erase, unerase = new_erasing_pair("test1")
+    class X:
+        pass
+    x = X()
+    erased = erase(x)
+    assert unerase(erased) is x
+    #
+    erase2, unerase2 = new_erasing_pair("test2")
+    py.test.raises(AssertionError, unerase2, erased)

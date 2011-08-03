@@ -408,6 +408,8 @@ _oplist = [
     'FLOAT_ABS/1',
     'CAST_FLOAT_TO_INT/1',
     'CAST_INT_TO_FLOAT/1',
+    'CAST_FLOAT_TO_SINGLEFLOAT/1',
+    'CAST_SINGLEFLOAT_TO_FLOAT/1',
     #
     'INT_LT/2b',
     'INT_LE/2b',

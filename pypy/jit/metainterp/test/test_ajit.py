@@ -11,10 +11,10 @@ from pypy.jit.codewriter.policy import JitPolicy, StopAtXPolicy
 from pypy import conftest
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.ootypesystem import ootype
 from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT
-from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin, noConst
 
 class BasicTests:
 
@@ -407,6 +407,58 @@ class BasicTests:
         # the CALL_PURE is constant-folded away by optimizeopt.py
         self.check_loops(int_sub=1, call=0, call_pure=0, getfield_gc=0)
 
+    def test_elidable_raising(self):
+        myjitdriver = JitDriver(greens = ['m'], reds = ['n'])
+        @elidable
+        def externfn(x):
+            if x <= 0:
+                raise ValueError
+            return x - 1
+        def f(n, m):
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, m=m)
+                myjitdriver.jit_merge_point(n=n, m=m)
+                try:
+                    n -= externfn(m)
+                except ValueError:
+                    n -= 1
+            return n
+        res = self.meta_interp(f, [22, 6])
+        assert res == -3
+        # the CALL_PURE is constant-folded away during tracing
+        self.check_loops(int_sub=1, call=0, call_pure=0)
+        #
+        res = self.meta_interp(f, [22, -5])
+        assert res == 0
+        # raises: becomes CALL and is not constant-folded away
+        self.check_loops(int_sub=1, call=1, call_pure=0)
+
+    def test_elidable_raising_2(self):
+        myjitdriver = JitDriver(greens = ['m'], reds = ['n'])
+        @elidable
+        def externfn(x):
+            if x <= 0:
+                raise ValueError
+            return x - 1
+        def f(n, m):
+            while n > 0:
+                myjitdriver.can_enter_jit(n=n, m=m)
+                myjitdriver.jit_merge_point(n=n, m=m)
+                try:
+                    n -= externfn(noConst(m))
+                except ValueError:
+                    n -= 1
+            return n
+        res = self.meta_interp(f, [22, 6])
+        assert res == -3
+        # the CALL_PURE is constant-folded away by optimizeopt.py
+        self.check_loops(int_sub=1, call=0, call_pure=0)
+        #
+        res = self.meta_interp(f, [22, -5])
+        assert res == 0
+        # raises: becomes CALL and is not constant-folded away
+        self.check_loops(int_sub=1, call=1, call_pure=0)
+
     def test_constant_across_mp(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])
         class X(object):
@@ -507,6 +559,32 @@ class BasicTests:
         res = self.meta_interp(f, [60, 84], repeat=7)
         assert res == 84 - 61 - 62
         self.check_history(call=1)   # because the trace starts immediately
+
+    def test_unroll_one_loop_iteration(self):
+        def unroll(code):
+            return code == 0
+        myjitdriver = JitDriver(greens = ['code'],
+                                reds = ['loops', 'inner_loops', 's'],
+                                should_unroll_one_iteration=unroll)
+
+        def f(code, loops, inner_loops):
+            s = 0
+            while loops > 0:
+                myjitdriver.jit_merge_point(code=code, loops=loops,
+                                            inner_loops=inner_loops, s=s)
+                if code == 1:
+                    s += f(0, inner_loops, 0)
+                loops -= 1
+                s += 1
+            return s
+
+        res = self.meta_interp(f, [1, 4, 1], enable_opts="", inline=True)
+        assert res == f(1, 4, 1)
+        self.check_history(call_assembler=0)
+
+        res = self.meta_interp(f, [1, 4, 2], enable_opts="", inline=True)
+        assert res == f(1, 4, 2)
+        self.check_history(call_assembler=1)
 
     def test_format(self):
         def f(n):
@@ -1024,69 +1102,6 @@ class BasicTests:
         res = self.meta_interp(main, [])
         assert res == 55
 
-    def test_dont_record_repeated_guard_class(self):
-        class A:
-            pass
-        class B(A):
-            pass
-        @dont_look_inside
-        def extern(n):
-            if n == -7:
-                return None
-            elif n:
-                return A()
-            else:
-                return B()
-        def fn(n):
-            obj = extern(n)
-            return isinstance(obj, B) + isinstance(obj, B) + isinstance(obj, B) + isinstance(obj, B)
-        res = self.interp_operations(fn, [0])
-        assert res == 4
-        self.check_operations_history(guard_class=1, guard_nonnull=1)
-        res = self.interp_operations(fn, [1])
-        assert not res
-
-    def test_dont_record_guard_class_after_new(self):
-        class A:
-            pass
-        class B(A):
-            pass
-        def fn(n):
-            if n == -7:
-                obj = None
-            elif n:
-                obj = A()
-            else:
-                obj = B()
-            return isinstance(obj, B) + isinstance(obj, B) + isinstance(obj, B) + isinstance(obj, B)
-        res = self.interp_operations(fn, [0])
-        assert res == 4
-        self.check_operations_history(guard_class=0, guard_nonnull=0)
-        res = self.interp_operations(fn, [1])
-        assert not res
-
-    def test_guard_isnull_nullifies(self):
-        class A:
-            pass
-        a = A()
-        a.x = None
-        def fn(n):
-            if n == -7:
-                a.x = ""
-            obj = a.x
-            res = 0
-            if not obj:
-                res += 1
-            if obj:
-                res += 1
-            if obj is None:
-                res += 1
-            if obj is not None:
-                res += 1
-            return res
-        res = self.interp_operations(fn, [0])
-        assert res == 2
-        self.check_operations_history(guard_isnull=1)
 
     def test_assert_isinstance(self):
         class A:
@@ -1248,7 +1263,7 @@ class BasicTests:
             return tup[1]
         res = self.interp_operations(f, [3, 5])
         assert res == 5
-        self.check_operations_history(setfield_gc=2, getfield_gc_pure=1)
+        self.check_operations_history(setfield_gc=2, getfield_gc_pure=0)
 
     def test_oosend_look_inside_only_one(self):
         class A:
@@ -1616,8 +1631,6 @@ class BasicTests:
         assert res == 1
 
     def test_raw_malloc_and_access(self):
-        from pypy.rpython.lltypesystem import rffi
-
         TP = rffi.CArray(lltype.Signed)
 
         def f(n):
@@ -1631,8 +1644,6 @@ class BasicTests:
         assert res == 10
 
     def test_raw_malloc_and_access_float(self):
-        from pypy.rpython.lltypesystem import rffi
-
         TP = rffi.CArray(lltype.Float)
 
         def f(n, f):
@@ -2061,7 +2072,7 @@ class BasicTests:
                 myjitdriver.jit_merge_point(a=a, b=b, n=n, sa=sa)
                 if 0 < a <= 5: pass
                 if 0 < b <= 5: pass
-                sa += (((((a << b) << b) << b) >> b) >> b) >> b                
+                sa += (((((a << b) << b) << b) >> b) >> b) >> b
                 n += 1
             return sa
 
@@ -2071,10 +2082,10 @@ class BasicTests:
                 myjitdriver.jit_merge_point(a=a, b=b, n=n, sa=sa)
                 if 0 < a < promote(sys.maxint/2): pass
                 if 0 < b < 100: pass
-                sa += (((((a << b) << b) << b) >> b) >> b) >> b                
+                sa += (((((a << b) << b) << b) >> b) >> b) >> b
                 n += 1
             return sa
-        
+
         assert self.meta_interp(f1, [5, 5]) == 50
         self.check_loops(int_rshift=0, everywhere=True)
 
@@ -2106,7 +2117,7 @@ class BasicTests:
                 myjitdriver.jit_merge_point(a=a, b=b, n=n, sa=sa)
                 if -5 <= a < 0: pass
                 if 0 < b <= 5: pass
-                sa += (((((a << b) << b) << b) >> b) >> b) >> b                
+                sa += (((((a << b) << b) << b) >> b) >> b) >> b
                 n += 1
             return sa
 
@@ -2116,10 +2127,10 @@ class BasicTests:
                 myjitdriver.jit_merge_point(a=a, b=b, n=n, sa=sa)
                 if -promote(sys.maxint/2) < a < 0: pass
                 if 0 < b < 100: pass
-                sa += (((((a << b) << b) << b) >> b) >> b) >> b                
+                sa += (((((a << b) << b) << b) >> b) >> b) >> b
                 n += 1
             return sa
-        
+
         assert self.meta_interp(f1, [-5, 5]) == -50
         self.check_loops(int_rshift=0, everywhere=True)
 
@@ -2190,7 +2201,7 @@ class BasicTests:
 
         def get_printable_location(i):
             return str(i)
-        
+
         myjitdriver = JitDriver(greens = ['i'], reds = ['j', 'c', 'a'],
                                 get_printable_location=get_printable_location)
         bytecode = "0j10jc20a3"
@@ -2299,7 +2310,7 @@ class BasicTests:
         assert self.meta_interp(build, []) == 7
         self.check_loops(getfield_gc_pure=0)
         self.check_loops(getfield_gc_pure=2, everywhere=True)
-        
+
     def test_frame_finished_during_retrace(self):
         class Base(object):
             pass
@@ -2330,7 +2341,7 @@ class BasicTests:
             return sa
         res = self.meta_interp(f, [])
         assert res == f()
-        
+
     def test_frame_finished_during_continued_retrace(self):
         class Base(object):
             pass
@@ -2381,7 +2392,7 @@ class BasicTests:
         assert res == -2
         #self.check_loops(getarrayitem_gc=0, setarrayitem_gc=0) -- xxx?
 
-    def test_retrace_ending_up_retrazing_another_loop(self):
+    def test_retrace_ending_up_retracing_another_loop(self):
 
         myjitdriver = JitDriver(greens = ['pc'], reds = ['n', 'i', 'sa'])
         bytecode = "0+sI0+SI"
@@ -2414,12 +2425,12 @@ class BasicTests:
         def g(n1, n2):
             for i in range(10):
                 f(n1)
-            for i in range(10):                
+            for i in range(10):
                 f(n2)
 
         nn = [10, 3]
         assert self.meta_interp(g, nn) == g(*nn)
-        
+
         # The attempts of retracing first loop will end up retracing the
         # second and thus fail 5 times, saturating the retrace_count. Instead a
         # bridge back to the preamble of the first loop is produced. A guard in
@@ -2430,7 +2441,7 @@ class BasicTests:
         self.check_tree_loop_count(2 + 3)
 
         # FIXME: Add a gloabl retrace counter and test that we are not trying more than 5 times.
-        
+
         def g(n):
             for i in range(n):
                 for j in range(10):
@@ -2618,6 +2629,58 @@ class BaseLLtypeTests(BasicTests):
         self.check_loops(new_with_vtable=0)
         self.meta_interp(f, [], enable_opts='')
         self.check_loops(new_with_vtable=1)
+
+    def test_release_gil_flush_heap_cache(self):
+        T = rffi.CArrayPtr(rffi.TIME_T)
+
+        external = rffi.llexternal("time", [T], rffi.TIME_T, threadsafe=True)
+        # Not a real lock, has all the same properties with respect to GIL
+        # release though, so good for this test.
+        class Lock(object):
+            @dont_look_inside
+            def acquire(self):
+                external(lltype.nullptr(T.TO))
+            @dont_look_inside
+            def release(self):
+                external(lltype.nullptr(T.TO))
+        class X(object):
+            def __init__(self, idx):
+                self.field = idx
+        @dont_look_inside
+        def get_obj(z):
+            return X(z)
+        myjitdriver = JitDriver(greens=[], reds=["n", "l", "z", "lock"])
+        def f(n, z):
+            lock = Lock()
+            l = 0
+            while n > 0:
+                myjitdriver.jit_merge_point(lock=lock, l=l, n=n, z=z)
+                x = get_obj(z)
+                l += x.field
+                lock.acquire()
+                # This must not reuse the previous one.
+                n -= x.field
+                lock.release()
+            return n
+        res = self.meta_interp(f, [10, 1])
+        self.check_loops(getfield_gc=2)
+        assert res == f(10, 1)
+
+    def test_jit_merge_point_with_raw_pointer(self):
+        driver = JitDriver(greens = [], reds = ['n', 'x'])
+
+        TP = lltype.Array(lltype.Signed, hints={'nolength': True})
+
+        def f(n):
+            x = lltype.malloc(TP, 10, flavor='raw')
+            x[0] = 1
+            while n > 0:
+                driver.jit_merge_point(n=n, x=x)
+                n -= x[0]
+            lltype.free(x, flavor='raw')
+            return n
+
+        self.meta_interp(f, [10], repeat=3)
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
     pass

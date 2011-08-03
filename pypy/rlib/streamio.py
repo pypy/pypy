@@ -875,28 +875,29 @@ class BufferingOutputStream(Stream):
         if bufsize == -1:     # Get default from the class
             bufsize = self.bufsize
         self.bufsize = bufsize  # buffer size (hint only)
-        self.buf = ""
+        self.buf = []
+        self.buflen = 0
 
     def flush_buffers(self):
         if self.buf:
-            self.do_write(self.buf)
-            self.buf = ""
+            self.do_write(''.join(self.buf))
+            self.buf = []
+            self.buflen = 0
 
     def tell(self):
-        return self.do_tell() + len(self.buf)
+        return self.do_tell() + self.buflen
 
     def write(self, data):
-        buflen = len(self.buf)
+        buflen = self.buflen
         datalen = len(data)
         if datalen + buflen < self.bufsize:
-            self.buf += data
+            self.buf.append(data)
+            self.buflen += datalen
         elif buflen:
-            slice = self.bufsize - buflen
-            assert slice >= 0
-            self.buf += data[:slice]
-            self.do_write(self.buf)
-            self.buf = ""
-            self.write(data[slice:])
+            self.buf.append(data)
+            self.do_write(''.join(self.buf))
+            self.buf = []
+            self.buflen = 0
         else:
             self.do_write(data)
 
@@ -922,11 +923,27 @@ class LineBufferingOutputStream(BufferingOutputStream):
     """
 
     def write(self, data):
-        BufferingOutputStream.write(self, data)
-        p = self.buf.rfind('\n') + 1
-        if p >= 0:
-            self.do_write(self.buf[:p])
-            self.buf = self.buf[p:]
+        p = data.rfind('\n') + 1
+        assert p >= 0
+        if self.buflen + len(data) < self.bufsize:
+            if p == 0:
+                self.buf.append(data)
+                self.buflen += len(data)
+            else:
+                if self.buflen:
+                    self.do_write(''.join(self.buf))
+                self.do_write(data[:p])
+                self.buf = [data[p:]]
+                self.buflen = len(self.buf[0])
+        else:
+            if self.buflen + p < self.bufsize:
+                p = self.bufsize - self.buflen
+            if self.buflen:
+                self.do_write(''.join(self.buf))
+            assert p >= 0
+            self.do_write(data[:p])
+            self.buf = [data[p:]]
+            self.buflen = len(self.buf[0])
 
 
 # ____________________________________________________________

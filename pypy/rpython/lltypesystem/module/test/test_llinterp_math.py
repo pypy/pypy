@@ -1,6 +1,4 @@
-
-""" Just another bunch of tests for llmath, run on top of llinterp
-"""
+"""Just another bunch of tests for llmath, run on top of llinterp."""
 
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin
 from pypy.rpython.lltypesystem.module import ll_math
@@ -38,21 +36,21 @@ class TestMath(BaseRtypingTest, LLRtypeMixin):
                 return getattr(math, name)(x, y)
             assert self.interpret(f, [0.3, 0.4]) == f(0.3, 0.4)
         return next_test
-    
-    for name in ll_math.unary_math_functions:
+
+    for name in ll_math.unary_math_functions + ['log', 'log10', 'sin', 'cos', 'sqrt']:
         func_name = 'test_%s' % (name,)
         next_test = new_unary_test(name)
         next_test.func_name = func_name
         locals()[func_name] = next_test
         del next_test
-        
+
     for name in ['atan2', 'fmod', 'hypot', 'pow']:
         func_name = 'test_%s' % (name,)
         next_test = new_binary_test(name)
         next_test.func_name = func_name
         locals()[func_name] = next_test
         del next_test
-    
+
     def test_ldexp(self):
         def f(x, y):
             return math.ldexp(x, y)

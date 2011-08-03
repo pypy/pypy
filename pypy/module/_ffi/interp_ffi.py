@@ -1,9 +1,8 @@
-import sys
-from pypy.interpreter.baseobjspace import Wrappable, Arguments
+from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, wrap_oserror, \
     operationerrfmt
-from pypy.interpreter.gateway import interp2app, NoneNotWrapped, unwrap_spec
-from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.typedef import TypeDef
 from pypy.module._rawffi.structure import W_StructureInstance, W_Structure
 #
 from pypy.rpython.lltypesystem import lltype, rffi
@@ -12,11 +11,12 @@ from pypy.rlib import jit
 from pypy.rlib import libffi
 from pypy.rlib.rdynload import DLOpenError
 from pypy.rlib.rarithmetic import intmask, r_uint
+from pypy.rlib.objectmodel import we_are_translated
 
 class W_FFIType(Wrappable):
 
     _immutable_fields_ = ['name', 'ffitype', 'w_datashape', 'w_pointer_to']
-    
+
     def __init__(self, name, ffitype, w_datashape=None, w_pointer_to=None):
         self.name = name
         self.ffitype = ffitype
@@ -75,6 +75,13 @@ class W_FFIType(Wrappable):
     def is_struct(self):
         return libffi.types.is_struct(self.ffitype)
 
+    def is_char_p(self):
+        return self is app_types.char_p
+
+    def is_unichar_p(self):
+        return self is app_types.unichar_p
+
+
 W_FFIType.typedef = TypeDef(
     'FFIType',
     __repr__ = interp2app(W_FFIType.repr),
@@ -83,7 +90,6 @@ W_FFIType.typedef = TypeDef(
 
 
 def build_ffi_types():
-    from pypy.rlib.clibffi import FFI_TYPE_P
     types = [
         # note: most of the type name directly come from the C equivalent,
         # with the exception of bytes: in C, ubyte and char are equivalent,
@@ -117,7 +123,12 @@ def build_ffi_types():
         ## 'Z' : ffi_type_pointer,
 
         ]
-    return dict([(t.name, t) for t in types])
+    d = dict([(t.name, t) for t in types])
+    w_char = d['char']
+    w_unichar = d['unichar']
+    d['char_p'] = W_FFIType('char_p', libffi.types.pointer, w_pointer_to = w_char)
+    d['unichar_p'] = W_FFIType('unichar_p', libffi.types.pointer, w_pointer_to = w_unichar)
+    return d
 
 class app_types:
     pass
@@ -127,9 +138,14 @@ def descr_new_pointer(space, w_cls, w_pointer_to):
     try:
         return descr_new_pointer.cache[w_pointer_to]
     except KeyError:
-        w_pointer_to = space.interp_w(W_FFIType, w_pointer_to)
-        name = '(pointer to %s)' % w_pointer_to.name
-        w_result = W_FFIType(name, libffi.types.pointer, w_pointer_to = w_pointer_to)
+        if w_pointer_to is app_types.char:
+            w_result = app_types.char_p
+        elif w_pointer_to is app_types.unichar:
+            w_result = app_types.unichar_p
+        else:
+            w_pointer_to = space.interp_w(W_FFIType, w_pointer_to)
+            name = '(pointer to %s)' % w_pointer_to.name
+            w_result = W_FFIType(name, libffi.types.pointer, w_pointer_to = w_pointer_to)
         descr_new_pointer.cache[w_pointer_to] = w_result
         return w_result
 descr_new_pointer.cache = {}
@@ -161,11 +177,12 @@ unwrap_truncate_int._annspecialcase_ = 'specialize:arg(0)'
 class W_FuncPtr(Wrappable):
 
     _immutable_fields_ = ['func', 'argtypes_w[*]', 'w_restype']
-    
+
     def __init__(self, func, argtypes_w, w_restype):
         self.func = func
         self.argtypes_w = argtypes_w
         self.w_restype = w_restype
+        self.to_free = []
 
     @jit.unroll_safe
     def build_argchain(self, space, args_w):
@@ -190,6 +207,9 @@ class W_FuncPtr(Wrappable):
                 self.arg_longlong(space, argchain, w_arg)
             elif w_argtype.is_signed():
                 argchain.arg(unwrap_truncate_int(rffi.LONG, space, w_arg))
+            elif self.add_char_p_maybe(space, argchain, w_arg, w_argtype):
+                # the argument is added to the argchain direcly by the method above
+                pass
             elif w_argtype.is_pointer():
                 w_arg = self.convert_pointer_arg_maybe(space, w_arg, w_argtype)
                 argchain.arg(intmask(space.uint_w(w_arg)))
@@ -202,17 +222,40 @@ class W_FuncPtr(Wrappable):
                 w_arg = space.ord(w_arg)
                 argchain.arg(space.int_w(w_arg))
             elif w_argtype.is_double():
-                argchain.arg(space.float_w(w_arg))
+                self.arg_float(space, argchain, w_arg)
             elif w_argtype.is_singlefloat():
-                argchain.arg_singlefloat(space.float_w(w_arg))
+                self.arg_singlefloat(space, argchain, w_arg)
             elif w_argtype.is_struct():
                 # arg_raw directly takes value to put inside ll_args
-                w_arg = space.interp_w(W_StructureInstance, w_arg)                
+                w_arg = space.interp_w(W_StructureInstance, w_arg)
                 ptrval = w_arg.ll_buffer
                 argchain.arg_raw(ptrval)
             else:
                 assert False, "Argument shape '%s' not supported" % w_argtype
         return argchain
+
+    def add_char_p_maybe(self, space, argchain, w_arg, w_argtype):
+        """
+        Automatic conversion from string to char_p. The allocated buffer will
+        be automatically freed after the call.
+        """
+        w_type = jit.promote(space.type(w_arg))
+        if w_argtype.is_char_p() and w_type is space.w_str:
+            strval = space.str_w(w_arg)
+            buf = rffi.str2charp(strval)
+            self.to_free.append(rffi.cast(rffi.VOIDP, buf))
+            addr = rffi.cast(rffi.ULONG, buf)
+            argchain.arg(addr)
+            return True
+        elif w_argtype.is_unichar_p() and (w_type is space.w_str or
+                                           w_type is space.w_unicode):
+            unicodeval = space.unicode_w(w_arg)
+            buf = rffi.unicode2wcharp(unicodeval)
+            self.to_free.append(rffi.cast(rffi.VOIDP, buf))
+            addr = rffi.cast(rffi.ULONG, buf)
+            argchain.arg(addr)
+            return True
+        return False
 
     def convert_pointer_arg_maybe(self, space, w_arg, w_argtype):
         """
@@ -224,26 +267,47 @@ class W_FuncPtr(Wrappable):
         else:
             return w_arg
 
-    @jit.dont_look_inside
+    def arg_float(self, space, argchain, w_arg):
+        # a separate function, which can be seen by the jit or not,
+        # depending on whether floats are supported
+        argchain.arg(space.float_w(w_arg))
+
     def arg_longlong(self, space, argchain, w_arg):
+        # a separate function, which can be seen by the jit or not,
+        # depending on whether longlongs are supported
         bigarg = space.bigint_w(w_arg)
         ullval = bigarg.ulonglongmask()
         llval = rffi.cast(rffi.LONGLONG, ullval)
-        # this is a hack: we store the 64 bits of the long long into the
-        # 64 bits of a float (i.e., a C double)
-        floatval = libffi.longlong2float(llval)
-        argchain.arg_longlong(floatval)
+        argchain.arg(llval)
+
+    def arg_singlefloat(self, space, argchain, w_arg):
+        # a separate function, which can be seen by the jit or not,
+        # depending on whether singlefloats are supported
+        from pypy.rlib.rarithmetic import r_singlefloat
+        fval = space.float_w(w_arg)
+        sfval = r_singlefloat(fval)
+        argchain.arg(sfval)
 
     def call(self, space, args_w):
         self = jit.promote(self)
         argchain = self.build_argchain(space, args_w)
+        return self._do_call(space, argchain)
+
+    def free_temp_buffers(self, space):
+        for buf in self.to_free:
+            if not we_are_translated():
+                buf[0] = '\00' # invalidate the buffer, so that
+                               # test_keepalive_temp_buffer can fail
+            lltype.free(buf, flavor='raw')
+        self.to_free = []
+
+    def _do_call(self, space, argchain):
         w_restype = self.w_restype
         if w_restype.is_longlong():
             # note that we must check for longlong first, because either
             # is_signed or is_unsigned returns true anyway
             assert libffi.IS_32_BIT
-            reskind = libffi.types.getkind(self.func.restype) # XXX: remove the kind
-            return self._call_longlong(space, argchain, reskind)
+            return self._call_longlong(space, argchain)
         elif w_restype.is_signed():
             return self._call_int(space, argchain)
         elif w_restype.is_unsigned() or w_restype.is_pointer():
@@ -255,12 +319,9 @@ class W_FuncPtr(Wrappable):
             intres = self.func.call(argchain, rffi.WCHAR_T)
             return space.wrap(unichr(intres))
         elif w_restype.is_double():
-            floatres = self.func.call(argchain, rffi.DOUBLE)
-            return space.wrap(floatres)
+            return self._call_float(space, argchain)
         elif w_restype.is_singlefloat():
-            # the result is a float, but widened to be inside a double
-            floatres = self.func.call(argchain, rffi.FLOAT)
-            return space.wrap(floatres)
+            return self._call_singlefloat(space, argchain)
         elif w_restype.is_struct():
             w_datashape = w_restype.w_datashape
             assert isinstance(w_datashape, W_Structure)
@@ -329,19 +390,32 @@ class W_FuncPtr(Wrappable):
                                  space.wrap('Unsupported restype'))
         return space.wrap(intres)
 
-    @jit.dont_look_inside
-    def _call_longlong(self, space, argchain, reskind):
-        # this is a hack: we store the 64 bits of the long long into the 64
-        # bits of a float (i.e., a C double)
-        floatres = self.func.call(argchain, rffi.LONGLONG)
-        llres = libffi.float2longlong(floatres)
-        if reskind == 'I':
+    def _call_float(self, space, argchain):
+        # a separate function, which can be seen by the jit or not,
+        # depending on whether floats are supported
+        floatres = self.func.call(argchain, rffi.DOUBLE)
+        return space.wrap(floatres)
+
+    def _call_longlong(self, space, argchain):
+        # a separate function, which can be seen by the jit or not,
+        # depending on whether longlongs are supported
+        restype = self.func.restype
+        call = self.func.call
+        if restype is libffi.types.slonglong:
+            llres = call(argchain, rffi.LONGLONG)
             return space.wrap(llres)
-        elif reskind == 'U':
-            ullres = rffi.cast(rffi.ULONGLONG, llres)
+        elif restype is libffi.types.ulonglong:
+            ullres = call(argchain, rffi.ULONGLONG)
             return space.wrap(ullres)
         else:
-            assert False
+            raise OperationError(space.w_ValueError,
+                                 space.wrap('Unsupported longlong restype'))
+
+    def _call_singlefloat(self, space, argchain):
+        # a separate function, which can be seen by the jit or not,
+        # depending on whether singlefloats are supported
+        sfres = self.func.call(argchain, rffi.FLOAT)
+        return space.wrap(float(sfres))
 
     def getaddr(self, space):
         """
@@ -374,6 +448,7 @@ W_FuncPtr.typedef = TypeDef(
     '_ffi.FuncPtr',
     __call__ = interp2app(W_FuncPtr.call),
     getaddr = interp2app(W_FuncPtr.getaddr),
+    free_temp_buffers = interp2app(W_FuncPtr.free_temp_buffers),
     fromaddr = interp2app(descr_fromaddr, as_classmethod=True)
     )
 
@@ -404,7 +479,7 @@ class W_CDLL(Wrappable):
         except KeyError:
             raise operationerrfmt(space.w_AttributeError,
                                   "No symbol %s found in library %s", name, self.name)
-            
+
         return W_FuncPtr(func, argtypes_w, w_restype)
 
     @unwrap_spec(name=str)
