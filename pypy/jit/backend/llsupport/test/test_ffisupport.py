@@ -1,4 +1,5 @@
 from pypy.rlib.libffi import types
+from pypy.jit.codewriter.longlong import is_64_bit
 from pypy.jit.backend.llsupport.ffisupport import *
 
 
@@ -34,11 +35,14 @@ def test_call_descr_dynamic():
     assert descr.get_result_size(False) == 1
     assert descr.is_result_signed() == False
 
-    descr = get_call_descr_dynamic(FakeCPU(), [], types.slonglong)
-    assert descr is None   # missing longlongs
-    descr = get_call_descr_dynamic(FakeCPU(supports_longlong=True),
-                                   [], types.slonglong)
-    assert isinstance(descr, LongLongCallDescr)
+    if not is_64_bit:
+        descr = get_call_descr_dynamic(FakeCPU(), [], types.slonglong)
+        assert descr is None   # missing longlongs
+        descr = get_call_descr_dynamic(FakeCPU(supports_longlong=True),
+                                       [], types.slonglong)
+        assert isinstance(descr, LongLongCallDescr)
+    else:
+        assert types.slonglong is types.slong
 
     descr = get_call_descr_dynamic(FakeCPU(), [], types.float)
     assert descr is None   # missing singlefloats
