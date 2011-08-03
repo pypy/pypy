@@ -177,11 +177,11 @@ class FloatExecutor(FunctionExecutor):
 
     def execute(self, space, w_returntype, func, cppthis, num_args, args):
         result = capi.c_call_f(func.cpptype.handle, func.method_index, cppthis, num_args, args)
-        return space.wrap(result)
+        return space.wrap(float(result))
 
     def execute_libffi(self, space, w_returntype, libffifunc, argchain):
         result = libffifunc.call(argchain, rffi.FLOAT)
-        return space.wrap(result)
+        return space.wrap(float(result))
 
 class DoubleExecutor(FunctionExecutor):
     _immutable_ = True

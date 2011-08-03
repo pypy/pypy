@@ -524,6 +524,7 @@ W_CPPInstance.typedef = TypeDef(
     cppclass = interp_attrproperty('cppclass', W_CPPInstance),
     destruct = interp2app(W_CPPInstance.destruct, unwrap_spec=['self']),
 )
+W_CPPInstance.typedef.acceptable_as_base_class = True
 
 def new_instance(space, w_type, cpptype, rawptr, owns):
     w_instance = space.allocate_instance(W_CPPInstance, w_type)

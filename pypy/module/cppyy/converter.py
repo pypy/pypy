@@ -346,8 +346,10 @@ class FloatConverter(TypeConverter):
         x[0] = self._unwrap_object(space, w_obj)
 
     def convert_argument_libffi(self, space, w_obj, argchain):
-        # it's required to sent an rffi.DOUBLE not r_singlefloat
-        argchain.arg_singlefloat(space.float_w(w_obj))
+        from pypy.rlib.rarithmetic import r_singlefloat
+        fval = space.float_w(w_obj)
+        sfval = r_singlefloat(fval)
+        argchain.arg(sfval)
 
     def from_memory(self, space, w_obj, w_type, offset):
         address = self._get_raw_address(space, w_obj, offset)
