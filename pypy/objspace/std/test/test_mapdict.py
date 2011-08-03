@@ -210,6 +210,12 @@ def test_slots():
     assert obj2.storage == [501, 601, 701, 51, 61, 71]
     assert obj.map is obj2.map
 
+    assert obj2.getslotvalue(b) == 601
+    assert obj2.delslotvalue(b)
+    assert obj2.getslotvalue(b) is None
+    assert obj2.storage == [501, 701, 51, 61, 71]
+    assert not obj2.delslotvalue(b)
+
 
 def test_slots_no_dict():
     cls = Class(hasdict=False)
@@ -631,6 +637,14 @@ class AppTestWithMapDict(object):
         a.__dict__ = {}
         a.__dict__ = {}
 
+    def test_delete_slot(self):
+        class A(object):
+            __slots__ = ['x']
+        
+        a = A()
+        a.x = 42
+        del a.x
+        raises(AttributeError, "a.x")
 
 class AppTestWithMapDictAndCounters(object):
     def setup_class(cls):
