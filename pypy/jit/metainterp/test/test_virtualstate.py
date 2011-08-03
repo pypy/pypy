@@ -362,7 +362,6 @@ class BaseTestBridges(BaseTest):
         """
         self.optimize_bridge(loops, bridge, "RETRACE")
 
-
     def test_known_class(self):
         loops = """
         [p0]
@@ -382,6 +381,44 @@ class BaseTestBridges(BaseTest):
         self.optimize_bridge(loops[0], bridge, 'RETRACE', p0=self.nodebox2.value)
         self.optimize_bridge(loops, loops[0], loops[0], 'Loop0', p0=self.nullptr)
         self.optimize_bridge(loops, loops[1], loops[1], 'Loop1', p0=self.nullptr)
+
+    def test_lenbound_array(self):
+        loop = """
+        [p0]
+        i2 = getarrayitem_gc(p0, 10, descr=arraydescr)
+        call(i2, descr=nonwritedescr)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        i2 = getarrayitem_gc(p0, 10, descr=arraydescr)
+        call(i2, descr=nonwritedescr)
+        jump(p0, i2)
+        """
+        self.optimize_bridge(loop, loop, expected, 'Loop0')
+        bridge = """
+        [p0]
+        i2 = getarrayitem_gc(p0, 15, descr=arraydescr)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        i2 = getarrayitem_gc(p0, 15, descr=arraydescr)
+        i3 = getarrayitem_gc(p0, 10, descr=arraydescr)
+        jump(p0, i3)
+        """        
+        self.optimize_bridge(loop, bridge, expected, 'Loop0')
+        bridge = """
+        [p0]
+        i2 = getarrayitem_gc(p0, 5, descr=arraydescr)
+        jump(p0)
+        """
+        self.optimize_bridge(loop, bridge, 'RETRACE')
+        bridge = """
+        [p0]
+        jump(p0)
+        """
+        self.optimize_bridge(loop, bridge, 'RETRACE')
 
 class TestLLtypeGuards(BaseTestGenerateGuards, LLtypeMixin):
     pass
