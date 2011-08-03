@@ -320,7 +320,7 @@ def _tm_to_tuple(space, t):
 def _gettmarg(space, w_tup, allowNone=True):
     if allowNone and space.is_w(w_tup, space.w_None):
         # default to the current local time
-        tt = rffi.r_time_t(pytime.time())
+        tt = rffi.r_time_t(int(pytime.time()))
         t_ref = lltype.malloc(rffi.TIME_TP.TO, 1, flavor='raw')
         t_ref[0] = tt
         pbuf = c_localtime(t_ref)
