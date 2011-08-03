@@ -61,7 +61,7 @@ class FakeDescr(compile.ResumeGuardDescr):
             boxes = []
         boxes = []
     def clone_if_mutable(self):
-        return self
+        return FakeDescr()
     def __eq__(self, other):
         return isinstance(other, Storage) or isinstance(other, FakeDescr)
 

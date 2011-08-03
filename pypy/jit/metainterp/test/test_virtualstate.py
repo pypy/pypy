@@ -272,6 +272,64 @@ class BaseTestBridges(BaseTest):
         """
         self.optimize_bridge(loop, bridge, 'RETRACE', p0=self.nullptr)
         self.optimize_bridge(loop, bridge, expected, p0=self.myptr)
+        self.optimize_bridge(loop, expected, expected, p0=self.myptr)
+        self.optimize_bridge(loop, expected, expected, p0=self.nullptr)
+
+    def test_cached_nonnull(self):
+        loop = """
+        [p0]
+        p1 = getfield_gc(p0, descr=nextdescr)
+        guard_nonnull(p1) []
+        call(p1, descr=nonwritedescr)
+        jump(p0)
+        """
+        bridge = """
+        [p0]
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        guard_nonnull(p0) []
+        p1 = getfield_gc(p0, descr=nextdescr)
+        guard_nonnull(p1) []
+        jump(p0, p1)
+        """
+        self.optimize_bridge(loop, bridge, expected, p0=self.myptr)
+
+    def test_cached_unused_nonnull(self):        
+        loop = """
+        [p0]
+        p1 = getfield_gc(p0, descr=nextdescr)
+        guard_nonnull(p1) []
+        jump(p0)
+        """
+        bridge = """
+        [p0]
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        guard_nonnull(p0) []
+        p1 = getfield_gc(p0, descr=nextdescr)
+        guard_nonnull(p1) []
+        jump(p0)
+        """        
+        self.optimize_bridge(loop, bridge, expected, p0=self.myptr)
+
+    def test_cached_invalid_nonnull(self):        
+        loop = """
+        [p0]
+        p1 = getfield_gc(p0, descr=nextdescr)
+        guard_nonnull(p1) []
+        jump(p0)
+        """
+        bridge = """
+        [p0]
+        p1 = getfield_gc(p0, descr=nextdescr)
+        guard_value(p1, ConstPtr(nullptr)) []        
+        jump(p0)
+        """
+        self.optimize_bridge(loop, bridge, bridge, 'Preamble', p0=self.myptr)
 
     def test_multiple_nonnull(self):
         loops = """
@@ -322,6 +380,26 @@ class BaseTestBridges(BaseTest):
         jump(p0)
         """
         self.optimize_bridge(loops, loops[2], expected, 'Loop2')
+
+    def test_cached_constant(self):
+        loop = """
+        [p0]
+        p1 = getfield_gc(p0, descr=nextdescr)
+        guard_value(p1, ConstPtr(myptr)) []
+        jump(p0)
+        """
+        bridge = """
+        [p0]
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        guard_nonnull(p0) []
+        p1 = getfield_gc(p0, descr=nextdescr)
+        guard_value(p1, ConstPtr(myptr)) []       
+        jump(p0)
+        """
+        self.optimize_bridge(loop, bridge, expected, p0=self.myptr)
 
     def test_virtual(self):
         loops = """
@@ -382,6 +460,27 @@ class BaseTestBridges(BaseTest):
         self.optimize_bridge(loops, loops[0], loops[0], 'Loop0', p0=self.nullptr)
         self.optimize_bridge(loops, loops[1], loops[1], 'Loop1', p0=self.nullptr)
 
+    def test_cached_known_class(self):
+        loop = """
+        [p0]
+        p1 = getfield_gc(p0, descr=nextdescr)
+        guard_class(p1, ConstClass(node_vtable)) []
+        jump(p0)
+        """
+        bridge = """
+        [p0]
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        guard_nonnull(p0) []
+        p1 = getfield_gc(p0, descr=nextdescr)
+        guard_nonnull_class(p1, ConstClass(node_vtable)) []
+        jump(p0)        
+        """
+        self.optimize_bridge(loop, bridge, expected, p0=self.myptr)
+
+
     def test_lenbound_array(self):
         loop = """
         [p0]
@@ -419,6 +518,72 @@ class BaseTestBridges(BaseTest):
         jump(p0)
         """
         self.optimize_bridge(loop, bridge, 'RETRACE')
+
+    def test_cached_lenbound_array(self):
+        loop = """
+        [p0]
+        p1 = getfield_gc(p0, descr=nextdescr)
+        i2 = getarrayitem_gc(p1, 10, descr=arraydescr)
+        call(i2, descr=nonwritedescr)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        p1 = getfield_gc(p0, descr=nextdescr)
+        i2 = getarrayitem_gc(p1, 10, descr=arraydescr)
+        call(i2, descr=nonwritedescr)
+        i3 = arraylen_gc(p1, descr=arraydescr) # Should be killed by backend
+        jump(p0, i2)
+        """
+        self.optimize_bridge(loop, loop, expected)
+        bridge = """
+        [p0]
+        p1 = getfield_gc(p0, descr=nextdescr)
+        i2 = getarrayitem_gc(p1, 15, descr=arraydescr)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        p1 = getfield_gc(p0, descr=nextdescr)
+        i2 = getarrayitem_gc(p1, 15, descr=arraydescr)
+        i3 = arraylen_gc(p1, descr=arraydescr) # Should be killed by backend        
+        i4 = getarrayitem_gc(p1, 10, descr=arraydescr)
+        jump(p0, i4)
+        """        
+        self.optimize_bridge(loop, bridge, expected)
+        bridge = """
+        [p0]
+        p1 = getfield_gc(p0, descr=nextdescr)
+        i2 = getarrayitem_gc(p1, 5, descr=arraydescr)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        p1 = getfield_gc(p0, descr=nextdescr)
+        i2 = getarrayitem_gc(p1, 5, descr=arraydescr)
+        i3 = arraylen_gc(p1, descr=arraydescr) # Should be killed by backend
+        i4 = int_ge(i3, 11)
+        guard_true(i4) []
+        i5 = getarrayitem_gc(p1, 10, descr=arraydescr)
+        jump(p0, i5)
+        """        
+        self.optimize_bridge(loop, bridge, expected)
+        bridge = """
+        [p0]
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        guard_nonnull(p0) []
+        p1 = getfield_gc(p0, descr=nextdescr)
+        guard_nonnull(p1) []
+        i3 = arraylen_gc(p1, descr=arraydescr) # Should be killed by backend
+        i4 = int_ge(i3, 11)
+        guard_true(i4) []
+        i5 = getarrayitem_gc(p1, 10, descr=arraydescr)
+        jump(p0, i5)
+        """        
+        self.optimize_bridge(loop, bridge, expected, p0=self.myptr)
 
 class TestLLtypeGuards(BaseTestGenerateGuards, LLtypeMixin):
     pass
