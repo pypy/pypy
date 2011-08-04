@@ -240,7 +240,7 @@ class OpParser(object):
             fail_args = None
             if opnum == rop.FINISH:
                 if descr is None and self.invent_fail_descr:
-                    descr = self.invent_fail_descr(self.model)
+                    descr = self.invent_fail_descr(self.model, fail_args)
             elif opnum == rop.JUMP:
                 if descr is None and self.invent_fail_descr:
                     descr = self.looptoken

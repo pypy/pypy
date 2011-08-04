@@ -4644,6 +4644,24 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+        # This the sequence of resoperations that is generated for a Python
+        # app-level int % int, when the modulus is constant it should be
+        # optimized to a single CPU instruction.
+        # ops = """
+        # [i0]
+        # i1 = int_mod(i0, 2)
+        # i2 = int_rshift(i1, 63)
+        # i3 = int_and(2, i2)
+        # i4 = int_add(i1, i3)
+        # finish(i4)
+        # """
+        # expected = """
+        # [i0]
+        # i1 = int_mod(i0, 2)
+        # finish(i1)
+        # """
+        # self.optimize_loop(ops, expected)
+
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass
