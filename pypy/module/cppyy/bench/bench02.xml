@@ -5,11 +5,14 @@
      <!-- ROOT classes -->
      <class pattern="T[A-Z]*" />
      <class pattern="ROOT::T[A-Z]*" />
+     <class pattern="ROOT::Fit::*" />
 
      <!-- STL classes actually used -->
+     <class name="std::string" />
      <class name="std::ostream" />
      <class name="std::type_info" />
-     <class pattern="std::_Vector_base<*> >" />
+     <class pattern="std::vector<*>" />
+     <class pattern="std::_Vector_base<*>" />
 
      <!-- helper -->
      <class name="Bench02RootApp" />
@@ -18,14 +21,12 @@
 
   <exclusion>
 
+     <struct pattern="TString::*" />
      <class name="TString" >
          <field name="fRep" transient="true"/>
      </class>
 
      <class name="TUUID::uuid_time_t" />
-
-     <class pattern="TString::*" />
-     <class name="TString::Rep_t" />
 
      <class name="TClass::TNameMapNode" />
      <class name="TFileOpenHandle" />

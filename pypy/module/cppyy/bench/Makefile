@@ -24,6 +24,6 @@ else
 endif
 
 
-bench02Dict_reflex.so: bench02.h bench02.xml
+bench02Dict_reflex.so: bench02.h bench02.cxx bench02.xml
 	$(genreflex) bench02.h $(genreflexflags) --selection=bench02.xml -I$(ROOTSYS)/include
 	g++ -o $@ bench02.cxx bench02_rflx.cpp -I$(ROOTSYS)/include -shared -lReflex -lHistPainter `root-config --libs` $(cppflags) $(cppflags2)

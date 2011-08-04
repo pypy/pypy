@@ -15,6 +15,7 @@
 #include "TBasket.h"
 #include "TBox.h"
 #include "TBranchRef.h"
+#include "TBrowser.h"
 #include "TClassGenerator.h"
 #include "TClassRef.h"
 #include "TClassStreamer.h"

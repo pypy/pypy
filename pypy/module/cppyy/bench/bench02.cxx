@@ -15,6 +15,10 @@
 
 #include <iostream>
 
+TClass *TClass::GetClass(const char*, Bool_t, Bool_t) {
+   static TClass dummy("dummy");
+   return &dummy;
+}
 
 class TTestApplication : public TApplication {
 public:
@@ -53,7 +57,7 @@ Bench02RootApp::Bench02RootApp() {
     if (!gApplication) {
         int argc = 1;
         char* argv[1]; argv[0] = (char*)appname;
-        gApplication = new TTestApplication(appname, &argc, argv, kTRUE);
+        gApplication = new TTestApplication(appname, &argc, argv, kFALSE);
     }
 }
 

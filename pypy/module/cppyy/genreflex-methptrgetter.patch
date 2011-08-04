@@ -1,6 +1,6 @@
 Index: cint/reflex/python/genreflex/gendict.py
 ===================================================================
---- cint/reflex/python/genreflex/gendict.py	(revision 40173)
+--- cint/reflex/python/genreflex/gendict.py	(revision 40448)
 +++ cint/reflex/python/genreflex/gendict.py	(working copy)
 @@ -52,6 +52,7 @@
      self.typedefs_for_usr = []
@@ -10,7 +10,25 @@ Index: cint/reflex/python/genreflex/gendict.py
      # The next is to avoid a known problem with gccxml that it generates a
      # references to id equal '_0' which is not defined anywhere
      self.xref['_0'] = {'elem':'Unknown', 'attrs':{'id':'_0','name':''}, 'subelems':[]}
-@@ -1956,8 +1957,15 @@
+@@ -1281,6 +1282,8 @@
+     bases = self.getBases( attrs['id'] )
+     if inner and attrs.has_key('demangled') and self.isUnnamedType(attrs['demangled']) :
+       cls = attrs['demangled']
++      if self.xref[attrs['id']]['elem'] == 'Union':
++         return 80*' '
+       clt = ''
+     else:
+       cls = self.genTypeName(attrs['id'],const=True,colon=True)
+@@ -1318,7 +1321,7 @@
+       # Inner class/struct/union/enum.
+       for m in memList :
+         member = self.xref[m]
+-        if member['elem'] in ('Class','Struct','Union','Enumeration') \
++        if member['elem'] in ('Class','Struct','Enumeration') \
+            and member['attrs'].get('access') in ('private','protected') \
+            and not self.isUnnamedType(member['attrs'].get('demangled')):
+           cmem = self.genTypeName(member['attrs']['id'],const=True,colon=True)
+@@ -1956,8 +1959,15 @@
      else    : params  = '0'
      s = '  .AddFunctionMember(%s, Reflex::Literal("%s"), %s%s, 0, %s, %s)' % (self.genTypeID(id), name, type, id, params, mod)
      s += self.genCommentProperty(attrs)
@@ -26,7 +44,7 @@ Index: cint/reflex/python/genreflex/gendict.py
    def genMCODef(self, type, name, attrs, args):
      id       = attrs['id']
      cl       = self.genTypeName(attrs['context'],colon=True)
-@@ -2024,8 +2032,44 @@
+@@ -2024,8 +2034,44 @@
            if returns == 'void' : body += '  }\n'
            else :                 body += '  }\n'
      body += '}\n'
@@ -74,7 +92,7 @@ Index: cint/reflex/python/genreflex/gendict.py
      for a in args :
 Index: cint/reflex/python/genreflex/genreflex.py
 ===================================================================
---- cint/reflex/python/genreflex/genreflex.py	(revision 40173)
+--- cint/reflex/python/genreflex/genreflex.py	(revision 40448)
 +++ cint/reflex/python/genreflex/genreflex.py	(working copy)
 @@ -108,6 +108,10 @@
           Print extra debug information while processing. Keep intermediate files\n
