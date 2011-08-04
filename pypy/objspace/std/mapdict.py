@@ -424,6 +424,14 @@ class BaseMapdictObject: # slightly evil to make it inherit from W_Root
         key = ("slot", SLOTS_STARTING_FROM + index)
         self._get_mapdict_map().write(self, key, w_value)
 
+    def delslotvalue(self, index):
+        key = ("slot", SLOTS_STARTING_FROM + index)
+        new_obj = self._get_mapdict_map().delete(self, key)
+        if new_obj is None:
+            return False
+        self._become(new_obj)
+        return True
+
     # used by _weakref implemenation
 
     def getweakref(self):

@@ -91,7 +91,12 @@ class TestString(BaseTestPyPyC):
             i46 = call(ConstClass(ll_startswith__rpy_stringPtr_rpy_stringPtr), p28, ConstPtr(ptr45), descr=<BoolCallDescr>)
             guard_false(i46, descr=...)
             p51 = new_with_vtable(21136408)
-            ...
+            setfield_gc(p51, _, descr=...)    # 6 setfields, but the order is dict-order-dependent
+            setfield_gc(p51, _, descr=...)
+            setfield_gc(p51, _, descr=...)
+            setfield_gc(p51, _, descr=...)
+            setfield_gc(p51, _, descr=...)
+            setfield_gc(p51, _, descr=...)
             p55 = call(ConstClass(parse_digit_string), p51, descr=<GcPtrCallDescr>)
             guard_no_exception(descr=...)
             i57 = call(ConstClass(rbigint.toint), p55, descr=<SignedCallDescr>)

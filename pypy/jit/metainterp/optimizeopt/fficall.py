@@ -1,7 +1,7 @@
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.libffi import Func
-from pypy.rlib.debug import debug_start, debug_stop, debug_print
+from pypy.rlib.debug import debug_print
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
@@ -73,14 +73,6 @@ class OptFfiCall(Optimization):
             self.logops = self.optimizer.loop.logops
         else:
             self.logops = None
-
-    def propagate_begin_forward(self):
-        debug_start('jit-log-ffiopt')
-        Optimization.propagate_begin_forward(self)
-
-    def propagate_end_forward(self):
-        debug_stop('jit-log-ffiopt')
-        Optimization.propagate_end_forward(self)
 
     def reconstruct_for_next_iteration(self, optimizer, valuemap):
         return OptFfiCall()

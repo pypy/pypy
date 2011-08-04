@@ -517,17 +517,19 @@ class MiniMarkGC(MovingGCBase):
         # constant-folded because self.nonlarge_max, size and itemsize
         # are all constants (the arguments are constant due to
         # inlining).
-        if not raw_malloc_usage(itemsize):
-            too_many_items = raw_malloc_usage(nonvarsize) > self.nonlarge_max
+        maxsize = self.nonlarge_max - raw_malloc_usage(nonvarsize)
+        if maxsize < 0:
+            toobig = r_uint(0)    # the nonvarsize alone is too big
+        elif raw_malloc_usage(itemsize):
+            toobig = r_uint(maxsize // raw_malloc_usage(itemsize)) + 1
         else:
-            maxlength = self.nonlarge_max - raw_malloc_usage(nonvarsize)
-            maxlength = maxlength // raw_malloc_usage(itemsize)
-            too_many_items = length > maxlength
+            toobig = r_uint(sys.maxint) + 1
 
-        if too_many_items:
+        if r_uint(length) >= r_uint(toobig):
             #
             # If the total size of the object would be larger than
-            # 'nonlarge_max', then allocate it externally.
+            # 'nonlarge_max', then allocate it externally.  We also
+            # go there if 'length' is actually negative.
             obj = self.external_malloc(typeid, length)
             #
         else:
@@ -610,13 +612,18 @@ class MiniMarkGC(MovingGCBase):
             # this includes the case of fixed-size objects, for which we
             # should not even ask for the varsize_item_sizes().
             totalsize = nonvarsize
-        else:
+        elif length > 0:
+            # var-sized allocation with at least one item
             itemsize = self.varsize_item_sizes(typeid)
             try:
                 varsize = ovfcheck(itemsize * length)
                 totalsize = ovfcheck(nonvarsize + varsize)
             except OverflowError:
                 raise MemoryError
+        else:
+            # negative length!  This likely comes from an overflow
+            # earlier.  We will just raise MemoryError here.
+            raise MemoryError
         #
         # If somebody calls this function a lot, we must eventually
         # force a full collection.

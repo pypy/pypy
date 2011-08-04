@@ -111,6 +111,9 @@ class W_Root(object):
     def setslotvalue(self, index, w_val):
         raise NotImplementedError
 
+    def delslotvalue(self, index):
+        raise NotImplementedError
+
     def descr_call_mismatch(self, space, opname, RequiredClass, args):
         if RequiredClass is None:
             classname = '?'

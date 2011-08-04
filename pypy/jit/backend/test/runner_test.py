@@ -2807,6 +2807,26 @@ class LLtypeBackendTest(BaseBackendTest):
         assert mem2 < mem1
         assert mem2 == mem0
 
+    def test_memoryerror(self):
+        excdescr = BasicFailDescr(666)
+        self.cpu.propagate_exception_v = self.cpu.get_fail_descr_number(
+            excdescr)
+        self.cpu.setup_once()    # xxx redo it, because we added
+                                 # propagate_exception_v
+        i0 = BoxInt()
+        p0 = BoxPtr()
+        operations = [
+            ResOperation(rop.NEWUNICODE, [i0], p0),
+            ResOperation(rop.FINISH, [p0], None, descr=BasicFailDescr(1))
+            ]
+        inputargs = [i0]
+        looptoken = LoopToken()
+        self.cpu.compile_loop(inputargs, operations, looptoken)
+        # overflowing value:
+        self.cpu.set_future_value_int(0, sys.maxint // 4 + 1)
+        fail = self.cpu.execute_token(looptoken)
+        assert fail.identifier == excdescr.identifier
+
 
 class OOtypeBackendTest(BaseBackendTest):
 
