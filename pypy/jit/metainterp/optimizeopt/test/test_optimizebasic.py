@@ -4627,12 +4627,12 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i2 = int_mod(i0, 12)
         i3 = int_gt(i2, 12)
         guard_false(i3) []
-        i4 = int_lt(i2, 0)
+        i4 = int_lt(i2, -12)
         guard_false(i4) []
         i5 = int_mod(i1, -12)
         i6 = int_lt(i5, -12)
         guard_false(i6) []
-        i7 = int_gt(i5, 0)
+        i7 = int_gt(i5, 12)
         guard_false(i7) []
         jump(i2, i5)
         """

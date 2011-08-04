@@ -131,14 +131,10 @@ class OptIntBounds(Optimization):
         if v2.is_constant():
             val = v2.box.getint()
             r = self.getvalue(op.result)
-            if val > 0:
-                r.intbound.make_ge(IntBound(0, 0))
-                r.intbound.make_lt(IntBound(val, val))
-            elif val < 0:
-                r.intbound.make_gt(IntBound(val, val))
-                r.intbound.make_le(IntBound(0, 0))
-            # No optimizations if val == 0, that should probably even be an
-            # error, that should never happen.
+            if val < 0:
+                val = -val
+            r.intbound.make_gt(IntBound(-val, -val))
+            r.intbound.make_lt(IntBound(val, val))
 
     def optimize_INT_LSHIFT(self, op):
         v1 = self.getvalue(op.getarg(0))
