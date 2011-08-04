@@ -4645,22 +4645,47 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         self.optimize_loop(ops, expected)
 
         # This the sequence of resoperations that is generated for a Python
-        # app-level int % int, when the modulus is constant it should be
-        # optimized to a single CPU instruction.
-        # ops = """
-        # [i0]
-        # i1 = int_mod(i0, 2)
-        # i2 = int_rshift(i1, 63)
-        # i3 = int_and(2, i2)
-        # i4 = int_add(i1, i3)
-        # finish(i4)
-        # """
-        # expected = """
-        # [i0]
-        # i1 = int_mod(i0, 2)
-        # finish(i1)
-        # """
-        # self.optimize_loop(ops, expected)
+        # app-level int % int.  When the modulus is constant and when i0
+        # is known non-negative it should be optimized to a single int_mod.
+        ops = """
+        [i0]
+        i5 = int_ge(i0, 0)
+        guard_true(i5) []
+        i1 = int_mod(i0, 42)
+        i2 = int_rshift(i1, 63)
+        i3 = int_and(42, i2)
+        i4 = int_add(i1, i3)
+        finish(i4)
+        """
+        expected = """
+        [i0]
+        i5 = int_ge(i0, 0)
+        guard_true(i5) []
+        i1 = int_mod(i0, 42)
+        finish(i1)
+        """
+        py.test.skip("in-progress")
+        self.optimize_loop(ops, expected)
+
+        # Also, 'n % power-of-two' can be turned into int_and(),
+        # but that's a bit harder to detect here because it turns into
+        # several operations, and of course it is wrong to just turn
+        # int_mod(i0, 16) into int_and(i0, 15).
+        ops = """
+        [i0]
+        i1 = int_mod(i0, 16)
+        i2 = int_rshift(i1, 63)
+        i3 = int_and(16, i2)
+        i4 = int_add(i1, i3)
+        finish(i4)
+        """
+        expected = """
+        [i0]
+        i4 = int_and(i0, 15)
+        finish(i4)
+        """
+        py.test.skip("harder")
+        self.optimize_loop(ops, expected)
 
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
