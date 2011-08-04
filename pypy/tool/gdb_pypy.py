@@ -1,12 +1,11 @@
 """
-Some convenience macros for gdb.  Load them by putting this file somewhere in
-the path and then, from gdb:
+Some convenience macros for gdb.  If you have pypy in your path, you can simply do:
 
-(gdb) python import pypy_gdb
+(gdb) python import pypy.tool.gdb_pypy
 
 Or, alternatively:
 
-(gdb) python execfile('/path/to/pypy_gdb.py')
+(gdb) python execfile('/path/to/gdb_pypy.py')
 """
 
 import sys
