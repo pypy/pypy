@@ -10,9 +10,48 @@ Or, alternatively:
 
 import sys
 import os.path
-import gdb
 
-class RPyType (gdb.Command):
+try:
+    # when running inside gdb
+    from gdb import Command
+except ImportError:
+    # whenn running outside gdb: mock class for testing
+    class Command(object):
+        def __init__(self, name, command_class):
+            pass
+
+
+def find_field_with_suffix(val, suffix):
+    """
+    Return ``val[field]``, where ``field`` is the only one whose name ends
+    with ``suffix``.  If there is no such field, or more than one, raise KeyError.
+    """
+    names = []
+    for field in val.type.fields():
+        if field.name.endswith(suffix):
+            names.append(field.name)
+    #
+    if len(names) == 1:
+        return val[names[0]]
+    elif len(names) == 0:
+        raise KeyError, "cannot find field *%s" % suffix
+    else:
+        raise KeyError, "too many matching fields: %s" % ', '.join(names)
+
+def lookup(val, suffix):
+    """
+    Lookup a field which ends with ``suffix`` following the rpython struct
+    inheritance hierarchy (i.e., looking both at ``val`` and
+    ``val['*_super']``, recursively.
+    """
+    try:
+        return find_field_with_suffix(val, suffix)
+    except KeyError:
+        baseobj = find_field_with_suffix(val, '_super')
+        return lookup(baseobj, suffix)
+
+
+class RPyType(Command):
     """
     Prints the RPython type of the expression (remember to dereference it!)
     It assumes to find ``typeids.txt`` in the current directory.
@@ -24,8 +63,12 @@ class RPyType (gdb.Command):
 
     prog2typeids = {}
  
-    def __init__(self):
-        gdb.Command.__init__(self, "rpy_type", gdb.COMMAND_NONE)
+    def __init__(self, gdb=None):
+        # dependency injection, for tests
+        if gdb is None:
+            import gdb
+        self.gdb = gdb
+        Command.__init__(self, "rpy_type", self.gdb.COMMAND_NONE)
 
     # some magic code to automatically reload the python file while developing
     def invoke(self, arg, from_tty):
@@ -36,8 +79,8 @@ class RPyType (gdb.Command):
         self.do_invoke(arg, from_tty)
 
     def do_invoke(self, arg, from_tty):
-        obj = gdb.parse_and_eval(arg)
-        hdr = self.get_gc_header(obj)
+        obj = self.gdb.parse_and_eval(arg)
+        hdr = lookup(obj, '_gcheader')
         tid = hdr['h_tid']
         offset = tid & 0xFFFFFFFF # 64bit only
         offset = int(offset) # convert from gdb.Value to python int
@@ -48,7 +91,7 @@ class RPyType (gdb.Command):
             print 'Cannot find the type with offset %d' % offset
 
     def get_typeids(self):
-        progspace = gdb.current_progspace()
+        progspace = self.gdb.current_progspace()
         try:
             return self.prog2typeids[progspace]
         except KeyError:
@@ -68,26 +111,12 @@ class RPyType (gdb.Command):
         for line in open('typeids.txt'):
             member, descr = map(str.strip, line.split(None, 1))
             expr = "((char*)(&pypy_g_typeinfo.%s)) - (char*)&pypy_g_typeinfo" % member
-            offset = int(gdb.parse_and_eval(expr))
+            offset = int(self.gdb.parse_and_eval(expr))
             typeids[offset] = descr
         return typeids
 
-    def get_first_field_if(self, obj, suffix):
-        ctype = obj.type
-        field = ctype.fields()[0]
-        if field.name.endswith(suffix):
-            return obj[field.name]
-        return None
-
-    def get_super(self, obj):
-        return self.get_first_field_if(obj, '_super')
-
-    def get_gc_header(self, obj):
-        while True:
-            sup = self.get_super(obj)
-            if sup is None:
-                break
-            obj = sup
-        return self.get_first_field_if(obj, '_gcheader')
-
-RPyType() # side effects
+try:
+    import gdb
+    RPyType() # side effects
+except ImportError:
+    pass
