@@ -8,6 +8,8 @@ Or, alternatively:
 (gdb) python execfile('/path/to/gdb_pypy.py')
 """
 
+from __future__ import with_statement
+
 import sys
 import os.path
 
@@ -108,11 +110,12 @@ class RPyType(Command):
         typeids_txt = os.path.join(root, 'typeids.txt')
         print 'loading', typeids_txt
         typeids = {}
-        for line in open(typeids_txt):
-            member, descr = map(str.strip, line.split(None, 1))
-            expr = "((char*)(&pypy_g_typeinfo.%s)) - (char*)&pypy_g_typeinfo" % member
-            offset = int(self.gdb.parse_and_eval(expr))
-            typeids[offset] = descr
+        with open(typeids_txt) as f:
+            for line in f:
+                member, descr = map(str.strip, line.split(None, 1))
+                expr = "((char*)(&pypy_g_typeinfo.%s)) - (char*)&pypy_g_typeinfo" % member
+                offset = int(self.gdb.parse_and_eval(expr))
+                typeids[offset] = descr
         return typeids
 
 try:
