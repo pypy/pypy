@@ -4687,6 +4687,30 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         py.test.skip("harder")
         self.optimize_loop(ops, expected)
 
+    def test_bounded_lazy_setfield(self):
+        ops = """
+        [p0, i0]
+        i1 = int_gt(i0, 2)
+        guard_true(i1) []
+        setarrayitem_gc(p0, 0, 3)
+        setarrayitem_gc(p0, 2, 4)
+        setarrayitem_gc(p0, i0, 15)
+        i2 = getarrayitem_gc(p0, 2)
+        jump(p0, i2)
+        """
+        # Remove the getarrayitem_gc, because we know that p[i0] does not alias
+        # p0[2]
+        expected = """
+        [p0, i0]
+        i1 = int_gt(i0, 2)
+        guard_true(i1) []
+        setarrayitem_gc(p0, i0, 15)
+        setarrayitem_gc(p0, 0, 3)
+        setarrayitem_gc(p0, 2, 4)
+        jump(p0, 4)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass
