@@ -1,6 +1,21 @@
 import py
 from pypy.tool import gdb_pypy
 
+class FakeGdb(object):
+
+    COMMAND_NONE = -1
+
+    def __init__(self, exprs, progspace=None):
+        self.exprs = exprs
+        self.progspace = progspace
+
+    def parse_and_eval(self, expr):
+        return self.exprs[expr]
+
+    def current_progspace(self):
+        return self.progspace
+
+
 class Mock(object):
     def __init__(self, **attrs):
         self.__dict__.update(attrs)
@@ -60,3 +75,31 @@ def test_lookup():
     assert gdb_pypy.lookup(obj, 'foo') == 42
     hdr = gdb_pypy.lookup(obj, 'gcheader')
     assert hdr['h_tid'] == 123
+
+def test_RPyType(tmpdir):
+    exe = tmpdir.join('pypy-c')
+    typeids = tmpdir.join('typeids.txt')
+    typeids.write("""
+member0    GcStruct xxx {}
+member1    GcStruct yyy {}
+member2    GcStruct zzz {}
+""".strip())
+    #
+    progspace = Mock(filename=str(exe))
+    d = {'r_super': {
+            '_gcheader': {
+                'h_tid': 123,
+                }
+            },
+         'r_foo': 42,
+         }
+    myvar = Value(d)
+    exprs = {
+        '*myvar': myvar,
+        '((char*)(&pypy_g_typeinfo.member0)) - (char*)&pypy_g_typeinfo': 0,
+        '((char*)(&pypy_g_typeinfo.member1)) - (char*)&pypy_g_typeinfo': 123,
+        '((char*)(&pypy_g_typeinfo.member2)) - (char*)&pypy_g_typeinfo': 456,
+        }
+    gdb = FakeGdb(exprs, progspace)
+    cmd = gdb_pypy.RPyType(gdb)
+    assert cmd.do_invoke('*myvar', True) == 'GcStruct yyy {}'

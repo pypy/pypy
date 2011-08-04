@@ -70,13 +70,13 @@ class RPyType(Command):
         self.gdb = gdb
         Command.__init__(self, "rpy_type", self.gdb.COMMAND_NONE)
 
-    # some magic code to automatically reload the python file while developing
     def invoke(self, arg, from_tty):
-        from pypy.tool import gdb_pypy
-        reload(gdb_pypy)
-        gdb_pypy.RPyType.prog2typeids = self.prog2typeids # persist the cache
-        self.__class__ = gdb_pypy.RPyType
-        self.do_invoke(arg, from_tty)
+        # some magic code to automatically reload the python file while developing
+        ## from pypy.tool import gdb_pypy
+        ## reload(gdb_pypy)
+        ## gdb_pypy.RPyType.prog2typeids = self.prog2typeids # persist the cache
+        ## self.__class__ = gdb_pypy.RPyType
+        print self.do_invoke(arg, from_tty)
 
     def do_invoke(self, arg, from_tty):
         obj = self.gdb.parse_and_eval(arg)
@@ -86,9 +86,9 @@ class RPyType(Command):
         offset = int(offset) # convert from gdb.Value to python int
         typeids = self.get_typeids()
         if offset in typeids:
-            print typeids[offset]
+            return typeids[offset]
         else:
-            print 'Cannot find the type with offset %d' % offset
+            return 'Cannot find the type with offset %d' % offset
 
     def get_typeids(self):
         progspace = self.gdb.current_progspace()
@@ -108,7 +108,7 @@ class RPyType(Command):
         typeids_txt = os.path.join(root, 'typeids.txt')
         print 'loading', typeids_txt
         typeids = {}
-        for line in open('typeids.txt'):
+        for line in open(typeids_txt):
             member, descr = map(str.strip, line.split(None, 1))
             expr = "((char*)(&pypy_g_typeinfo.%s)) - (char*)&pypy_g_typeinfo" % member
             offset = int(self.gdb.parse_and_eval(expr))
