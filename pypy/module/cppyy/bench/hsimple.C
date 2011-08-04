@@ -14,6 +14,7 @@
 
 TFile *hsimple(Int_t get=0)
 {
+   gROOT->SetBatch();
 //  This program creates :
 //    - a one dimensional histogram
 //    - a two dimensional histogram
@@ -26,14 +27,14 @@ TFile *hsimple(Int_t get=0)
 //  The file "hsimple.root" is created in $ROOTSYS/tutorials if the caller has
 //  write access to this directory, otherwise the file is created in $PWD
 
-   TString filename = "hsimple.root";
 /*
+   TString filename = "hsimple.root";
    TString dir = gSystem->UnixPathName(gInterpreter->GetCurrentMacroName());
    dir.ReplaceAll("hsimple.C","");
    dir.ReplaceAll("/./","/");
-*/
+
    TFile *hfile = 0;
-/*
+
    if (get) {
       // if the argument get =1 return the file "hsimple.root"
       // if the file does not exist, it is created
@@ -60,10 +61,11 @@ TFile *hsimple(Int_t get=0)
    }
    hfile = (TFile*)gROOT->FindObject(filename); if (hfile) hfile->Close();
 */
-   hfile = new TFile(filename,"RECREATE","Demo ROOT file with histograms");
+//   hfile = new TFile(filename,"RECREATE","Demo ROOT file with histograms");
 
    // Create some histograms, a profile histogram and an ntuple
    TH1F *hpx = new TH1F("hpx","This is the px distribution",100,-4,4);
+   hpx->Print();
 /*
    hpx->SetFillColor(48);
    TH2F *hpxpy = new TH2F("hpxpy","py vs px",40,-4,4,40,-4,4);
@@ -111,7 +113,8 @@ TFile *hsimple(Int_t get=0)
    hpx->SetFillColor(48);
    c1->Modified();
 */
-   return hfile;
+   hpx->Print();
+   return 0;//hfile;
   
 // Note that the file is automatically close when application terminates
 // or when the file destructor is called.

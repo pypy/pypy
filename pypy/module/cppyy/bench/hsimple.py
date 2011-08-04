@@ -11,22 +11,26 @@
 #*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
 
 try:
-   import cppyy, random
-   cppyy.load_lib('bench02Dict_reflex.so')
+    import warnings
+    warnings.simplefilter("ignore")
 
-   app      = cppyy.gbl.Bench02RootApp()
-   TCanvas  = cppyy.gbl.TCanvas
-   TFile    = cppyy.gbl.TFile
-   TProfile = cppyy.gbl.TProfile
-   TNtuple  = cppyy.gbl.TNtuple
-   TH1F     = cppyy.gbl.TH1F
-   TH2F     = cppyy.gbl.TH2F
-   TRandom  = cppyy.gbl.TRandom
+    import cppyy, random
+    cppyy.load_lib('bench02Dict_reflex.so')
+
+    app      = cppyy.gbl.Bench02RootApp()
+    TCanvas  = cppyy.gbl.TCanvas
+    TFile    = cppyy.gbl.TFile
+    TProfile = cppyy.gbl.TProfile
+    TNtuple  = cppyy.gbl.TNtuple
+    TH1F     = cppyy.gbl.TH1F
+    TH2F     = cppyy.gbl.TH2F
+    TRandom  = cppyy.gbl.TRandom
 except ImportError:
-   from ROOT import TCanvas, TFile, TProfile, TNtuple, TH1F, TH2F, TRandom
-   import random
+    from ROOT import TCanvas, TFile, TProfile, TNtuple, TH1F, TH2F, TRandom
+    import random
 
 import math
+
 #gROOT      = cppyy.gbl.gROOT
 #gBenchmark = cppyy.gbl.gBenchmark
 #gRandom    = cppyy.gbl.gRandom
@@ -49,10 +53,11 @@ import math
 #hfile = gROOT.FindObject( 'hsimple.root' )
 #if hfile:
 #   hfile.Close()
-hfile = TFile( 'hsimple.root', 'RECREATE', 'Demo ROOT file with histograms' )
+#hfile = TFile( 'hsimple.root', 'RECREATE', 'Demo ROOT file with histograms' )
 
 # Create some histograms, a profile histogram and an ntuple
-hpx    = TH1F( 'hpx', 'This is the px distribution', 100, -4, 4 )
+hpx    = TH1F('hpx', 'This is the px distribution', 100, -4, 4)
+hpx.Print()
 #hpxpy  = TH2F( 'hpxpy', 'py vs px', 40, -4, 4, 40, -4, 4 )
 #hprof  = TProfile( 'hprof', 'Profile of pz versus px', 100, -4, 4, 0, 20 )
 #ntuple = TNtuple( 'ntuple', 'Demo ntuple', 'px:py:pz:random:i' )
@@ -66,22 +71,23 @@ hpx    = TH1F( 'hpx', 'This is the px distribution', 100, -4, 4 )
 #gRandom.SetSeed()
 #rannor, rndm = gRandom.Rannor, gRandom.Rndm
 
-#random = TRandom()
+random = TRandom()
+random.SetSeed(0)
 
 # Fill histograms randomly.
 #px, py = Double(), Double()
 kUPDATE = 1000
-for i in xrange( 2500000 ):
+for i in xrange(2500000):
  # Generate random values.
-   px, py = random.gauss(0, 1), random.gauss(0, 1)
-#   px, py = random.Gaus(0, 1), random.Gaus(0, 1)
+#   px, py = random.gauss(0, 1), random.gauss(0, 1)
+   px, py = random.Gaus(0, 1), random.Gaus(0, 1)
 #   pt = (px*px + py*py)**0.5
    pt = math.sqrt(px*px + py*py)
 #   pt = (px*px + py*py)
 #   random = rndm(1)
 
  # Fill histograms.
-   hpx.Fill( pt )
+   hpx.Fill(pt)
 #   hpxpyFill( px, py )
 #   hprofFill( px, pz )
 #   ntupleFill( px, py, pz, random, i )
@@ -99,16 +105,16 @@ for i in xrange( 2500000 ):
 
 #gBenchmark.Show( 'hsimple' )
 
+hpx.Print() 
+
 # Save all objects in this file.
 #hpx.SetFillColor( 0 )
 #hfile.Write()
-hfile.Close()
+#hfile.Close()
 #hpx.SetFillColor( 48 )
 #c1.Modified()
 #c1.Update()
 #c1.Draw()
-#import gc
-#gc.collect()
-  
+
 # Note that the file is automatically closed when application terminates
 # or when the file destructor is called.

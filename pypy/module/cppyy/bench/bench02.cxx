@@ -16,8 +16,8 @@
 #include <iostream>
 
 TClass *TClass::GetClass(const char*, Bool_t, Bool_t) {
-   static TClass dummy("dummy");
-   return &dummy;
+    static TClass* dummy = new TClass("__dummy__", kTRUE);
+    return dummy;  // is deleted by gROOT at shutdown
 }
 
 class TTestApplication : public TApplication {
@@ -54,6 +54,7 @@ TTestApplication::~TTestApplication() {}
 static const char* appname = "pypy-cppyy";
 
 Bench02RootApp::Bench02RootApp() {
+    gROOT->SetBatch(kTRUE);
     if (!gApplication) {
         int argc = 1;
         char* argv[1]; argv[0] = (char*)appname;
