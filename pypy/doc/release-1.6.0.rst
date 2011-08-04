@@ -17,7 +17,7 @@ PyPy is a very compliant Python interpreter, almost a drop-in replacement for
 CPython 2.7.1. It's fast (`pypy 1.5 and cpython 2.6.2`_ performance comparison)
 due to its integrated tracing JIT compiler. XXX: compare to 2.7.1
 
-This release supports Intel machines running Linux 32/64 or Mac OS X.  Windows
+This release supports x86 machines running Linux 32/64 or Mac OS X.  Windows 32
 is beta (it roughly works but a lot of small issues have not been fixed so
 far).  Windows 64 is not yet supported.
 
@@ -69,11 +69,11 @@ Highlights
 * Multibyte encoding support: this was of of the last areas in which we were
   still behind CPython, but now we fully support them. (XXX: is that true?)
 
-* Preliminary support for numpy: this release includes a preview of a very
-  fast numpy module integrated with the PyPy JIT.  Unfortunately, this does
-  not mean that you can expect to take an existing numpy program and run it on
+* Preliminary support for NumPy: this release includes a preview of a very
+  fast NumPy module integrated with the PyPy JIT.  Unfortunately, this does
+  not mean that you can expect to take an existing NumPy program and run it on
   PyPy, because the module is still unfinished and supports only some of the
-  numpy API.  However, what works is blaizingly fast :-)
+  numpy API.  However, what works is blazingly fast :-)
 
 * Bugfixes: since the 1.5 release we fixed 53 bugs in our `bug tracker`_, not
   counting the numerous bugs that were found and reported through other
