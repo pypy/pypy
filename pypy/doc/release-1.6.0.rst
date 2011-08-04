@@ -78,3 +78,8 @@ Highlights
 * Bugfixes: since the 1.5 release we fixed 53 bugs in our `bug tracker`_, not
   counting the numerous bugs that were found and reported through other
   channels than the bug tracker.
+
+Cheers,
+
+Carl Friedrich Bolz, Laura Creighton, Antonio Cuni, Maciej Fijalkowski,
+Amaury Forgeot d'Arc, Alex Gaynor, Armin Rigo and the PyPy team
