@@ -585,6 +585,33 @@ class BaseTestBridges(BaseTest):
         """        
         self.optimize_bridge(loop, bridge, expected, p0=self.myptr)
 
+    def test_cached_setarrayitem_gc(self):
+        loop = """
+        [p0, p1]
+        p2 = getfield_gc(p0, descr=nextdescr)
+        pp = getarrayitem_gc(p2, 0, descr=arraydescr)
+        call(pp, descr=nonwritedescr)
+        p3 = getfield_gc(p1, descr=nextdescr)
+        setarrayitem_gc(p2, 0, p3, descr=arraydescr)
+        jump(p0, p3)
+        """
+        bridge = """
+        [p0, p1]
+        jump(p0, p1)
+        """
+        expected = """
+        [p0, p1]
+        guard_nonnull(p0) []
+        p2 = getfield_gc(p0, descr=nextdescr)
+        guard_nonnull(p2) []
+        i5 = arraylen_gc(p2, descr=arraydescr)
+        i6 = int_ge(i5, 1)
+        guard_true(i6) []
+        jump(p0, p1, p2)
+        """
+        self.optimize_bridge(loop, bridge, expected, p0=self.myptr)
+
+
 class TestLLtypeGuards(BaseTestGenerateGuards, LLtypeMixin):
     pass
 
