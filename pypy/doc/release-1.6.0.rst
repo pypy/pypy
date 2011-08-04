@@ -3,10 +3,10 @@ PyPy 1.6 - faster than ever
 ===========================
 
 We're pleased to announce the 1.6 release of PyPy. This release brings a lot
-of bugfixes and performance improvements over 1.5, and improves
-support for Windows 32bit and OS X 64bit. This version fully implements
-Python 2.7.1 and has beta level support for loading CPython C extensions.
-You can download it here:
+of bugfixes and performance improvements over 1.5, and improves support for
+Windows 32bit and OS X 64bit. This version fully implements Python 2.7.1 and
+has beta level support for loading CPython C extensions.  You can download it
+here:
 
     http://pypy.org/download.html
 
