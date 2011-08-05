@@ -76,6 +76,21 @@ def test_lookup():
     hdr = gdb_pypy.lookup(obj, 'gcheader')
     assert hdr['h_tid'] == 123
 
+def test_load_typeids(tmpdir):
+    exe = tmpdir.join('testing_1').join('pypy-c')
+    typeids = tmpdir.join('typeids.txt')
+    typeids.write("""
+member0    GcStruct xxx {}
+""".strip())
+    progspace = Mock(filename=str(exe))
+    exprs = {
+        '((char*)(&pypy_g_typeinfo.member0)) - (char*)&pypy_g_typeinfo': 0,
+        }
+    gdb = FakeGdb(exprs, progspace)
+    cmd = gdb_pypy.RPyType(gdb)
+    typeids = cmd.load_typeids(progspace)
+    assert typeids[0] == 'GcStruct xxx {}'
+
 def test_RPyType(tmpdir):
     exe = tmpdir.join('pypy-c')
     typeids = tmpdir.join('typeids.txt')

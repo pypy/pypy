@@ -108,6 +108,9 @@ class RPyType(Command):
         exename = progspace.filename
         root = os.path.dirname(exename)
         typeids_txt = os.path.join(root, 'typeids.txt')
+        if not os.path.exists(typeids_txt):
+            newroot = os.path.dirname(root)
+            typeids_txt = os.path.join(newroot, 'typeids.txt')
         print 'loading', typeids_txt
         typeids = {}
         with open(typeids_txt) as f:
