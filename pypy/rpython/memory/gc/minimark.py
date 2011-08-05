@@ -49,6 +49,7 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.lltypesystem.llmemory import raw_malloc_usage
 from pypy.rpython.memory.gc.base import GCBase, MovingGCBase
 from pypy.rpython.memory.gc import minimarkpage, env
+from pypy.rpython.memory.support import mangle_hash
 from pypy.rlib.rarithmetic import ovfcheck, LONG_BIT, intmask, r_uint
 from pypy.rlib.rarithmetic import LONG_BIT_SHIFT
 from pypy.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
@@ -389,6 +390,11 @@ class MiniMarkGC(MovingGCBase):
         # initialize the threshold
         self.min_heap_size = max(self.min_heap_size, self.nursery_size *
                                               self.major_collection_threshold)
+        # the following two values are usually equal, but during raw mallocs
+        # of arrays, next_major_collection_threshold is decremented to make
+        # the next major collection arrive earlier.
+        # See translator/c/test/test_newgc, test_nongc_attached_to_gc
+        self.next_major_collection_initial = self.min_heap_size
         self.next_major_collection_threshold = self.min_heap_size
         self.set_major_threshold_from(0.0)
         debug_stop("gc-set-nursery-size")
@@ -396,7 +402,7 @@ class MiniMarkGC(MovingGCBase):
 
     def set_major_threshold_from(self, threshold, reserving_size=0):
         # Set the next_major_collection_threshold.
-        threshold_max = (self.next_major_collection_threshold *
+        threshold_max = (self.next_major_collection_initial *
                          self.growth_rate_max)
         if threshold > threshold_max:
             threshold = threshold_max
@@ -411,6 +417,7 @@ class MiniMarkGC(MovingGCBase):
         else:
             bounded = False
         #
+        self.next_major_collection_initial = threshold
         self.next_major_collection_threshold = threshold
         return bounded
 
@@ -510,17 +517,19 @@ class MiniMarkGC(MovingGCBase):
         # constant-folded because self.nonlarge_max, size and itemsize
         # are all constants (the arguments are constant due to
         # inlining).
-        if not raw_malloc_usage(itemsize):
-            too_many_items = raw_malloc_usage(nonvarsize) > self.nonlarge_max
+        maxsize = self.nonlarge_max - raw_malloc_usage(nonvarsize)
+        if maxsize < 0:
+            toobig = r_uint(0)    # the nonvarsize alone is too big
+        elif raw_malloc_usage(itemsize):
+            toobig = r_uint(maxsize // raw_malloc_usage(itemsize)) + 1
         else:
-            maxlength = self.nonlarge_max - raw_malloc_usage(nonvarsize)
-            maxlength = maxlength // raw_malloc_usage(itemsize)
-            too_many_items = length > maxlength
+            toobig = r_uint(sys.maxint) + 1
 
-        if too_many_items:
+        if r_uint(length) >= r_uint(toobig):
             #
             # If the total size of the object would be larger than
-            # 'nonlarge_max', then allocate it externally.
+            # 'nonlarge_max', then allocate it externally.  We also
+            # go there if 'length' is actually negative.
             obj = self.external_malloc(typeid, length)
             #
         else:
@@ -603,13 +612,18 @@ class MiniMarkGC(MovingGCBase):
             # this includes the case of fixed-size objects, for which we
             # should not even ask for the varsize_item_sizes().
             totalsize = nonvarsize
-        else:
+        elif length > 0:
+            # var-sized allocation with at least one item
             itemsize = self.varsize_item_sizes(typeid)
             try:
                 varsize = ovfcheck(itemsize * length)
                 totalsize = ovfcheck(nonvarsize + varsize)
             except OverflowError:
                 raise MemoryError
+        else:
+            # negative length!  This likely comes from an overflow
+            # earlier.  We will just raise MemoryError here.
+            raise MemoryError
         #
         # If somebody calls this function a lot, we must eventually
         # force a full collection.
@@ -717,8 +731,17 @@ class MiniMarkGC(MovingGCBase):
     def set_max_heap_size(self, size):
         self.max_heap_size = float(size)
         if self.max_heap_size > 0.0:
+            if self.max_heap_size < self.next_major_collection_initial:
+                self.next_major_collection_initial = self.max_heap_size
             if self.max_heap_size < self.next_major_collection_threshold:
                 self.next_major_collection_threshold = self.max_heap_size
+
+    def raw_malloc_memory_pressure(self, sizehint):
+        self.next_major_collection_threshold -= sizehint
+        if self.next_major_collection_threshold < 0:
+            # cannot trigger a full collection now, but we can ensure
+            # that one will occur very soon
+            self.nursery_free = self.nursery_top
 
     def can_malloc_nonmovable(self):
         return True
@@ -1599,7 +1622,7 @@ class MiniMarkGC(MovingGCBase):
         # Max heap size: gives an upper bound on the threshold.  If we
         # already have at least this much allocated, raise MemoryError.
         if bounded and (float(self.get_total_memory_used()) + reserving_size >=
-                        self.next_major_collection_threshold):
+                        self.next_major_collection_initial):
             #
             # First raise MemoryError, giving the program a chance to
             # quit cleanly.  It might still allocate in the nursery,
@@ -1732,7 +1755,7 @@ class MiniMarkGC(MovingGCBase):
     # ----------
     # id() and identityhash() support
 
-    def id_or_identityhash(self, gcobj, special_case_prebuilt):
+    def id_or_identityhash(self, gcobj, is_hash):
         """Implement the common logic of id() and identityhash()
         of an object, given as a GCREF.
         """
@@ -1775,7 +1798,7 @@ class MiniMarkGC(MovingGCBase):
                 # The answer is the address of the shadow.
                 obj = shadow
                 #
-            elif special_case_prebuilt:
+            elif is_hash:
                 if self.header(obj).tid & GCFLAG_HAS_SHADOW:
                     #
                     # For identityhash(), we need a special case for some
@@ -1784,10 +1807,14 @@ class MiniMarkGC(MovingGCBase):
                     # after the object.  But we cannot use it for id()
                     # because the stored value might clash with a real one.
                     size = self.get_size(obj)
-                    return (obj + size).signed[0]
+                    i = (obj + size).signed[0]
+                    # Important: the returned value is not mangle_hash()ed!
+                    return i
         #
-        return llmemory.cast_adr_to_int(obj)
-
+        i = llmemory.cast_adr_to_int(obj)
+        if is_hash:
+            i = mangle_hash(i)
+        return i
 
     def id(self, gcobj):
         return self.id_or_identityhash(gcobj, False)

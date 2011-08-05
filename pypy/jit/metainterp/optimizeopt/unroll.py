@@ -1,15 +1,14 @@
-from pypy.jit.metainterp.optimizeopt.optimizer import *
-from pypy.jit.metainterp.optimizeopt.virtualstate import VirtualStateAdder, ShortBoxes
-from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.metainterp.compile import ResumeGuardDescr
-from pypy.jit.metainterp.resume import Snapshot
-from pypy.jit.metainterp.history import TreeLoop, LoopToken
-from pypy.rlib.debug import debug_start, debug_stop, debug_print
-from pypy.jit.metainterp.optimize import InvalidLoop, RetraceLoop
-from pypy.jit.metainterp.jitexc import JitException
-from pypy.jit.metainterp.history import make_hashable_int
 from pypy.jit.codewriter.effectinfo import EffectInfo
+from pypy.jit.metainterp.optimizeopt.virtualstate import VirtualStateAdder, ShortBoxes
+from pypy.jit.metainterp.compile import ResumeGuardDescr
+from pypy.jit.metainterp.history import TreeLoop, LoopToken
+from pypy.jit.metainterp.jitexc import JitException
+from pypy.jit.metainterp.optimize import InvalidLoop, RetraceLoop
+from pypy.jit.metainterp.optimizeopt.optimizer import *
 from pypy.jit.metainterp.optimizeopt.generalize import KillHugeIntBounds
+from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.jit.metainterp.resume import Snapshot
+from pypy.rlib.debug import debug_print
 
 # Assumptions
 # ===========
@@ -23,7 +22,7 @@ from pypy.jit.metainterp.optimizeopt.generalize import KillHugeIntBounds
 # are also recreated to allow virtuals not supported to be forced.
 #
 # First of all, the optimizations are not allowed to introduce new
-# boxes. It is the unoptimized version of the trace that is inlined to 
+# boxes. It is the unoptimized version of the trace that is inlined to
 # form the second iteration of the loop. Otherwise the
 # state of the virtuals would not be updated correctly. Whenever some
 # box from the first iteration is reused in the second iteration, it
@@ -58,7 +57,7 @@ from pypy.jit.metainterp.optimizeopt.generalize import KillHugeIntBounds
 # be absorbed into the virtual p2 and never seen by the heap
 # optimizer. At the end of the loop both p2 and p3 are virtuals, but
 # the loop needs p2 to be a pointer to be able to call itself. So it
-# is forced producing the operations 
+# is forced producing the operations
 #
 #         p2 = new_with_vtable(ConstClass(node_vtable))
 #         setfield_gc(p2, i2, descr=nextdescr)
@@ -69,7 +68,7 @@ from pypy.jit.metainterp.optimizeopt.generalize import KillHugeIntBounds
 # the trace were optimized under the wrong assumption that the
 # setfield_gc was store sinked which could lead to errors. In this
 # case what would happen is that it would be inserted once more in
-# front of the guard. 
+# front of the guard.
 
 
 
@@ -116,7 +115,7 @@ class Inliner(object):
     def inline_descr_inplace(self, descr):
         if isinstance(descr, ResumeGuardDescr):
             descr.rd_snapshot = self.inline_snapshot(descr.rd_snapshot)
-            
+
     def inline_arg(self, arg):
         if arg is None:
             return None
@@ -132,11 +131,12 @@ class Inliner(object):
         self.snapshot_map[snapshot] = new_snapshot
         return new_snapshot
 
+
 class UnrollOptimizer(Optimization):
     """Unroll the loop into two iterations. The first one will
     become the preamble or entry bridge (don't think there is a
     distinction anymore)"""
-    
+
     def __init__(self, metainterp_sd, loop, optimizations):
         self.optimizer = Optimizer(metainterp_sd, loop, optimizations)
         self.cloned_operations = []
@@ -329,7 +329,7 @@ class UnrollOptimizer(Optimization):
                 for op in short_loop.operations:
                     if op.result:
                         op.result.forget_value()
-                
+
     def inline(self, inputargs, loop_operations, loop_args, short_inputargs, virtual_state):
         inliner = self.inliner
 
@@ -546,7 +546,7 @@ class UnrollOptimizer(Optimization):
                             "at preamble position: ", preamble_i,
                             "loop position: ", loop_i)
                 return None
-                
+
             if self.sameop(newop, loop_ops[loop_i]) \
                and loop_i < len(loop_ops):
                 try:
@@ -567,7 +567,7 @@ class UnrollOptimizer(Optimization):
                                 "loop position: ", loop_i)
                     return None
                 short_preamble.append(op)
-                
+
             state.update(op)
             preamble_i += 1
 
@@ -577,7 +577,7 @@ class UnrollOptimizer(Optimization):
                         "at position", loop_i)
             return None
 
-        
+
         jumpargs = []
         for i in range(len(loop.inputargs)):
             try:
@@ -605,7 +605,7 @@ class UnrollOptimizer(Optimization):
                     return None
             if op.result:
                 seen[op.result] = True
-        
+
         return short_preamble
 
 class ExeState(object):
@@ -615,13 +615,16 @@ class ExeState(object):
         self.unsafe_getitem = {}
         self.unsafe_getarrayitem = {}
         self.unsafe_getarrayitem_indexes = {}
-        
+
     # Make sure it is safe to move the instrucions in short_preamble
     # to the top making short_preamble followed by loop equvivalent
     # to preamble
     def safe_to_move(self, op):
         opnum = op.getopnum()
         descr = op.getdescr()
+        for box in op.getarglist():
+            if self.optimizer.getvalue(box) in self.optimizer.opaque_pointers:
+                return False
         if op.is_always_pure() or op.is_foldable_guard():
             return True
         elif opnum == rop.JUMP:
@@ -652,15 +655,17 @@ class ExeState(object):
         elif opnum == rop.CALL:
             effectinfo = descr.get_extra_info()
             if effectinfo is not None:
-                if effectinfo.extraeffect == EffectInfo.EF_LOOPINVARIANT or \
-                   effectinfo.extraeffect == EffectInfo.EF_ELIDABLE:
+                ef = effectinfo.extraeffect
+                if ef == EffectInfo.EF_LOOPINVARIANT or \
+                   ef == EffectInfo.EF_ELIDABLE_CANNOT_RAISE or \
+                   ef == EffectInfo.EF_ELIDABLE_CAN_RAISE:
                     return True
         return False
-    
+
     def update(self, op):
         if (op.has_no_side_effect() or
             op.is_ovf() or
-            op.is_guard()): 
+            op.is_guard()):
             return
         opnum = op.getopnum()
         descr = op.getdescr()
@@ -673,7 +678,7 @@ class ExeState(object):
         if (opnum == rop.SETARRAYITEM_GC or
             opnum == rop.SETARRAYITEM_RAW):
             index = op.getarg(1)
-            if isinstance(index, Const):                
+            if isinstance(index, Const):
                 d = self.unsafe_getarrayitem_indexes.get(descr, None)
                 if d is None:
                     d = self.unsafe_getarrayitem_indexes[descr] = {}
@@ -699,7 +704,7 @@ class BoxMap(object):
     def __init__(self):
         self.map = {}
 
-    
+
     def link_ops(self, preambleop, loopop):
         pargs = preambleop.getarglist()
         largs = loopop.getarglist()
@@ -713,7 +718,7 @@ class BoxMap(object):
             if not loopop.result:
                 raise ImpossibleLink
             self.link_boxes(preambleop.result, loopop.result)
-        
+
 
     def link_boxes(self, pbox, lbox):
         if lbox in self.map:
@@ -736,11 +741,11 @@ class OptInlineShortPreamble(Optimization):
 
     def new(self):
         return OptInlineShortPreamble(self.retraced)
-        
+
     def reconstruct_for_next_iteration(self,  short_boxes, surviving_boxes,
                                        optimizer, valuemap):
         return OptInlineShortPreamble(self.retraced)
-    
+
     def propagate_forward(self, op):
         if op.getopnum() == rop.JUMP:
             loop_token = op.getdescr()
@@ -773,7 +778,7 @@ class OptInlineShortPreamble(Optimization):
                             sh.virtual_state.generate_guards(virtual_state,
                                                              args, cpu,
                                                              extra_guards)
-                            
+
                             ok = True
                             debugmsg = 'Guarded to match '
                         except InvalidLoop:
@@ -821,6 +826,7 @@ class OptInlineShortPreamble(Optimization):
                     else:
                         debug_print("Retracing (%d of %d)" % (retraced_count,
                                                               limit))
+
                         raise RetraceLoop
                 else:
                     if not loop_token.failed_states:
@@ -828,3 +834,7 @@ class OptInlineShortPreamble(Optimization):
                     else:
                         loop_token.failed_states.append(virtual_state)
         self.emit_operation(op)
+
+
+
+

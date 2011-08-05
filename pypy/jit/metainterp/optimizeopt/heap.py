@@ -1,10 +1,11 @@
 import os
-from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
-from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.rlib.objectmodel import we_are_translated
+
 from pypy.jit.metainterp.jitexc import JitException
 from pypy.jit.metainterp.optimizeopt.optimizer import Optimization, MODE_ARRAY
 from pypy.jit.metainterp.history import ConstInt, Const
+from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
+from pypy.jit.metainterp.resoperation import rop
+from pypy.rlib.objectmodel import we_are_translated
 
 
 class CachedField(object):
@@ -284,13 +285,14 @@ class OptHeap(Optimization):
             return
         cf.force_lazy_setfield(self, can_cache)
 
-    def force_lazy_setarrayitem(self, arraydescr, can_cache=True):
+    def force_lazy_setarrayitem(self, arraydescr, indexvalue=None, can_cache=True):
         try:
             submap = self.cached_arrayitems[arraydescr]
         except KeyError:
             return
-        for cf in submap.values():
-            cf.force_lazy_setfield(self, can_cache)
+        for idx, cf in submap.iteritems():
+            if indexvalue is None or indexvalue.intbound.contains(idx):
+                cf.force_lazy_setfield(self, can_cache)
 
     def fixup_guard_situation(self):
         # hackish: reverse the order of the last two operations if it makes
@@ -403,7 +405,7 @@ class OptHeap(Optimization):
                 return
         else:
             # variable index, so make sure the lazy setarrayitems are done
-            self.force_lazy_setarrayitem(op.getdescr())
+            self.force_lazy_setarrayitem(op.getdescr(), indexvalue=indexvalue)
         # default case: produce the operation
         arrayvalue.ensure_nonnull()
         self.emit_operation(op)
@@ -429,7 +431,7 @@ class OptHeap(Optimization):
             cf.do_setfield(self, op)
         else:
             # variable index, so make sure the lazy setarrayitems are done
-            self.force_lazy_setarrayitem(op.getdescr(), can_cache=False)
+            self.force_lazy_setarrayitem(op.getdescr(), indexvalue=indexvalue, can_cache=False)
             # and then emit the operation
             self.emit_operation(op)
 

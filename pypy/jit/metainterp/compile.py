@@ -673,9 +673,8 @@ class PropagateExceptionDescr(AbstractFailDescr):
     def handle_fail(self, metainterp_sd, jitdriver_sd):
         cpu = metainterp_sd.cpu
         exception = cpu.grab_exc_value()
+        assert exception, "PropagateExceptionDescr: no exception??"
         raise metainterp_sd.ExitFrameWithExceptionRef(cpu, exception)
-
-propagate_exception_descr = PropagateExceptionDescr()
 
 def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redboxes,
                          memory_manager=None):
@@ -710,7 +709,7 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redboxes,
         finishargs = []
     #
     jd = jitdriver_sd
-    faildescr = propagate_exception_descr
+    faildescr = PropagateExceptionDescr()
     operations = [
         ResOperation(rop.CALL, callargs, result, descr=jd.portal_calldescr),
         ResOperation(rop.GUARD_NO_EXCEPTION, [], None, descr=faildescr),

@@ -228,8 +228,10 @@ class CallControl(object):
             elif loopinvariant:
                 extraeffect = EffectInfo.EF_LOOPINVARIANT
             elif elidable:
-                # XXX check what to do about exceptions (also MemoryError?)
-                extraeffect = EffectInfo.EF_ELIDABLE
+                if self._canraise(op):
+                    extraeffect = EffectInfo.EF_ELIDABLE_CAN_RAISE
+                else:
+                    extraeffect = EffectInfo.EF_ELIDABLE_CANNOT_RAISE
             elif self._canraise(op):
                 extraeffect = EffectInfo.EF_CAN_RAISE
             else:
@@ -263,7 +265,7 @@ class CallControl(object):
     def calldescr_canraise(self, calldescr):
         effectinfo = calldescr.get_extra_info()
         return (effectinfo is None or
-                effectinfo.extraeffect >= EffectInfo.EF_CAN_RAISE)
+                effectinfo.extraeffect > EffectInfo.EF_CANNOT_RAISE)
 
     def jitdriver_sd_from_portal_graph(self, graph):
         for jd in self.jitdrivers_sd:

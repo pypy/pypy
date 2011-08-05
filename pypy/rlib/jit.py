@@ -18,7 +18,8 @@ def elidable(func):
 
     Most importantly it doesn't mean that an elidable function has no observable
     side effect, but those side effects are idempotent (ie caching).
-    For now, such a function should never raise an exception.
+    If a particular call to this function ends up raising an exception, then it
+    is handled like a normal function call (this decorator is ignored).
     """
     func._elidable_function_ = True
     return func

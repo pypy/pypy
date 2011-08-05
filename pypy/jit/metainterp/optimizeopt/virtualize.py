@@ -1,12 +1,12 @@
-from pypy.jit.metainterp.history import Const, ConstInt, BoxInt
-from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
-from pypy.jit.metainterp.optimizeopt.util import descrlist_dict, sort_descrs
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.jit.metainterp.optimizeopt import optimizer
-from pypy.jit.metainterp.optimizeopt.optimizer import OptValue
-from pypy.jit.metainterp.executor import execute
 from pypy.jit.codewriter.heaptracker import vtable2descr
+from pypy.jit.metainterp.executor import execute
+from pypy.jit.metainterp.history import Const, ConstInt, BoxInt
+from pypy.jit.metainterp.optimizeopt import optimizer
+from pypy.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
+    descrlist_dict, sort_descrs)
+from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.rlib.objectmodel import we_are_translated
+from pypy.jit.metainterp.optimizeopt.optimizer import OptValue
 
 
 class AbstractVirtualValue(optimizer.OptValue):

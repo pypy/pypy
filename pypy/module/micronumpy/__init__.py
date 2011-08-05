@@ -31,6 +31,9 @@ class Module(MixedModule):
         'sin': 'interp_ufuncs.sin',
         'cos': 'interp_ufuncs.cos',
         'tan': 'interp_ufuncs.tan',
+        'arcsin': 'interp_ufuncs.arcsin',
+        'arccos': 'interp_ufuncs.arccos',
+        'arctan': 'interp_ufuncs.arctan',
     }
 
     appleveldefs = {

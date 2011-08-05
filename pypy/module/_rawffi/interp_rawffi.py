@@ -268,7 +268,7 @@ class W_DataInstance(Wrappable):
             self.ll_buffer = rffi.cast(rffi.VOIDP, address)
         else:
             self.ll_buffer = lltype.malloc(rffi.VOIDP.TO, size, flavor='raw',
-                                           zero=True)
+                                           zero=True, add_memory_pressure=True)
             if tracker.DO_TRACING:
                 ll_buf = rffi.cast(lltype.Signed, self.ll_buffer)
                 tracker.trace_allocation(ll_buf, self)

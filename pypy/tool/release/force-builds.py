@@ -22,7 +22,7 @@ BUILDERS = [
 #    'own-macosx-x86-32',
 #    'pypy-c-app-level-linux-x86-32',
 #    'pypy-c-app-level-linux-x86-64',
-    'pypy-c-stackless-app-level-linux-x86-32',
+#    'pypy-c-stackless-app-level-linux-x86-32',
     'pypy-c-app-level-win-x86-32',
     'pypy-c-jit-linux-x86-32',
     'pypy-c-jit-linux-x86-64',

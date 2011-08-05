@@ -1,12 +1,11 @@
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.libffi import Func
-from pypy.rlib.debug import debug_start, debug_stop, debug_print, have_debug_prints
+from pypy.rlib.debug import debug_print
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from pypy.jit.metainterp.optimizeopt.optimizer import Optimization
-from pypy.jit.backend.llsupport.ffisupport import UnsupportedKind
 
 
 class FuncInfo(object):
@@ -20,11 +19,8 @@ class FuncInfo(object):
         self.funcval = funcval
         self.opargs = []
         argtypes, restype = self._get_signature(funcval)
-        try:
-            self.descr = cpu.calldescrof_dynamic(argtypes, restype)
-        except UnsupportedKind:
-            # e.g., I or U for long longs
-            self.descr = None
+        self.descr = cpu.calldescrof_dynamic(argtypes, restype)
+        # ^^^ may be None if unsupported
         self.prepare_op = prepare_op
         self.delayed_ops = []
 
@@ -48,7 +44,7 @@ class FuncInfo(object):
           inst_argtypes is actually a low-level array, but we can use it
           directly since the only thing we do with it is to read its items
         """
-        
+
         llfunc = funcval.box.getref_base()
         if we_are_translated():
             func = cast_base_ptr_to_instance(Func, llfunc)
@@ -77,14 +73,6 @@ class OptFfiCall(Optimization):
             self.logops = self.optimizer.loop.logops
         else:
             self.logops = None
-
-    def propagate_begin_forward(self):
-        debug_start('jit-log-ffiopt')
-        Optimization.propagate_begin_forward(self)
-
-    def propagate_end_forward(self):
-        debug_stop('jit-log-ffiopt')
-        Optimization.propagate_end_forward(self)
 
     def new(self):
         return OptFfiCall()
@@ -188,7 +176,8 @@ class OptFfiCall(Optimization):
     def do_call(self, op):
         funcval = self._get_funcval(op)
         funcinfo = self.funcinfo
-        if not funcinfo or funcinfo.funcval is not funcval:
+        if (not funcinfo or funcinfo.funcval is not funcval or
+            funcinfo.descr is None):
             return [op] # cannot optimize
         funcsymval = self.getvalue(op.getarg(2))
         arglist = [funcsymval.force_box()]

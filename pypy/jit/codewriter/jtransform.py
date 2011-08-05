@@ -1,18 +1,16 @@
-import py, sys
-from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rclass
-from pypy.rpython import rlist
-from pypy.jit.metainterp.history import getkind
-from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
-from pypy.objspace.flow.model import Block, Link, c_last_exception
-from pypy.jit.codewriter.flatten import ListOfKind, IndirectCallTargets
+import py
 from pypy.jit.codewriter import support, heaptracker, longlong
 from pypy.jit.codewriter.effectinfo import EffectInfo
+from pypy.jit.codewriter.flatten import ListOfKind, IndirectCallTargets
 from pypy.jit.codewriter.policy import log
-from pypy.jit.metainterp.typesystem import deref, arrayItem
 from pypy.jit.metainterp import quasiimmut
-from pypy.rpython.rclass import IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY
+from pypy.jit.metainterp.history import getkind
+from pypy.jit.metainterp.typesystem import deref, arrayItem
+from pypy.objspace.flow.model import SpaceOperation, Variable, Constant, c_last_exception
 from pypy.rlib import objectmodel
 from pypy.rlib.jit import _we_are_jitted
+from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rclass, rffi
+from pypy.rpython.rclass import IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY
 from pypy.translator.simplify import get_funcobj
 from pypy.translator.unsimplify import varoftype
 
@@ -200,7 +198,6 @@ class Transformer(object):
             self.vable_array_vars[op.result]= self.vable_array_vars[op.args[0]]
 
     rewrite_op_cast_pointer = rewrite_op_same_as
-    rewrite_op_cast_opaque_ptr = rewrite_op_same_as   # rlib.rerased
     def rewrite_op_cast_bool_to_int(self, op): pass
     def rewrite_op_cast_bool_to_uint(self, op): pass
     def rewrite_op_cast_char_to_int(self, op): pass
@@ -787,7 +784,6 @@ class Transformer(object):
             op2.result = op.result
             return op2
         elif toll:
-            from pypy.rpython.lltypesystem import rffi
             size, unsigned = rffi.size_and_sign(op.args[0].concretetype)
             if unsigned:
                 INTERMEDIATE = lltype.Unsigned
@@ -809,21 +805,27 @@ class Transformer(object):
             return self.force_cast_without_longlong(op.args[0], op.result)
 
     def force_cast_without_longlong(self, v_arg, v_result):
-        from pypy.rpython.lltypesystem.rffi import size_and_sign, sizeof, FLOAT
-        from pypy.rlib.rarithmetic import intmask
-        #
-        if (v_result.concretetype in (FLOAT, lltype.Float) or
-            v_arg.concretetype in (FLOAT, lltype.Float)):
-            assert (v_result.concretetype == lltype.Float and
-                    v_arg.concretetype == lltype.Float), "xxx unsupported cast"
+        if v_result.concretetype == v_arg.concretetype:
             return
-        #
-        size2, unsigned2 = size_and_sign(v_result.concretetype)
-        assert size2 <= sizeof(lltype.Signed)
-        if size2 == sizeof(lltype.Signed):
+        if v_arg.concretetype == rffi.FLOAT:
+            assert v_result.concretetype == lltype.Float, "cast %s -> %s" % (
+                v_arg.concretetype, v_result.concretetype)
+            return SpaceOperation('cast_singlefloat_to_float', [v_arg],
+                                  v_result)
+        if v_result.concretetype == rffi.FLOAT:
+            assert v_arg.concretetype == lltype.Float, "cast %s -> %s" % (
+                v_arg.concretetype, v_result.concretetype)
+            return SpaceOperation('cast_float_to_singlefloat', [v_arg],
+                                  v_result)
+        return self.force_cast_without_singlefloat(v_arg, v_result)
+
+    def force_cast_without_singlefloat(self, v_arg, v_result):
+        size2, unsigned2 = rffi.size_and_sign(v_result.concretetype)
+        assert size2 <= rffi.sizeof(lltype.Signed)
+        if size2 == rffi.sizeof(lltype.Signed):
             return     # the target type is LONG or ULONG
-        size1, unsigned1 = size_and_sign(v_arg.concretetype)
-        assert size1 <= sizeof(lltype.Signed)
+        size1, unsigned1 = rffi.size_and_sign(v_arg.concretetype)
+        assert size1 <= rffi.sizeof(lltype.Signed)
         #
         def bounds(size, unsigned):
             if unsigned:
@@ -852,7 +854,6 @@ class Transformer(object):
         return result
 
     def rewrite_op_direct_ptradd(self, op):
-        from pypy.rpython.lltypesystem import rffi
         # xxx otherwise, not implemented:
         assert op.args[0].concretetype == rffi.CCHARP
         #
@@ -905,7 +906,7 @@ class Transformer(object):
                 op1 = self.prepare_builtin_call(op, "llong_%s", args)
                 op2 = self._handle_oopspec_call(op1, args,
                                                 EffectInfo.OS_LLONG_%s,
-                                                EffectInfo.EF_ELIDABLE)
+                                           EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
                 if %r == "TO_INT":
                     assert op2.result.concretetype == lltype.Signed
                 return op2
@@ -1366,15 +1367,15 @@ class Transformer(object):
                     otherindex += EffectInfo._OS_offset_uni
                 self._register_extra_helper(otherindex, othername,
                                             argtypes, resulttype,
-                                            EffectInfo.EF_ELIDABLE)
+                                           EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
         #
         return self._handle_oopspec_call(op, args, dict[oopspec_name],
-                                         EffectInfo.EF_ELIDABLE)
+                                         EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
 
     def _handle_str2unicode_call(self, op, oopspec_name, args):
-        # ll_str2unicode is not EF_ELIDABLE, because it can raise
-        # UnicodeDecodeError...
-        return self._handle_oopspec_call(op, args, EffectInfo.OS_STR2UNICODE)
+        # ll_str2unicode can raise UnicodeDecodeError
+        return self._handle_oopspec_call(op, args, EffectInfo.OS_STR2UNICODE,
+                                         EffectInfo.EF_ELIDABLE_CAN_RAISE)
 
     # ----------
     # VirtualRefs.
@@ -1412,13 +1413,13 @@ class Transformer(object):
         assert vinfo is not None
         self.vable_flags[op.args[0]] = op.args[2].value
         return []
-        
+
     # ---------
     # ll_math.sqrt_nonneg()
-    
+
     def _handle_math_sqrt_call(self, op, oopspec_name, args):
         return self._handle_oopspec_call(op, args, EffectInfo.OS_MATH_SQRT,
-                                         EffectInfo.EF_ELIDABLE)
+                                         EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
 
     def rewrite_op_jit_force_quasi_immutable(self, op):
         v_inst, c_fieldname = op.args

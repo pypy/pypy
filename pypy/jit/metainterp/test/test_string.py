@@ -515,3 +515,22 @@ class TestLLtypeUnicode(TestLLtype):
         self.check_loops(call=3,    # str(), _str(), escape()
                          newunicode=1, unicodegetitem=0,
                          unicodesetitem=1, copyunicodecontent=1)
+
+    def test_str2unicode_fold(self):
+        _str = self._str
+        jitdriver = JitDriver(greens = ['g'], reds = ['m'])
+        @dont_look_inside
+        def escape(x):
+            print str(x)
+        def f(g, m):
+            g = str(g)
+            while m >= 0:
+                jitdriver.can_enter_jit(g=g, m=m)
+                jitdriver.jit_merge_point(g=g, m=m)
+                escape(_str(g))
+                m -= 1
+            return 42
+        self.meta_interp(f, [6, 7])
+        self.check_loops(call_pure=0, call=1,
+                         newunicode=0, unicodegetitem=0,
+                         unicodesetitem=0, copyunicodecontent=0)

@@ -800,6 +800,37 @@ class LoopTest(object):
 
         res = self.meta_interp(f, [200])        
 
+
+    def test_unerased_pointers_in_short_preamble(self):
+        from pypy.rlib.rerased import new_erasing_pair
+        from pypy.rpython.lltypesystem import lltype
+        class A(object):
+            def __init__(self, val):
+                self.val = val
+        erase_A, unerase_A = new_erasing_pair('A')
+        erase_TP, unerase_TP = new_erasing_pair('TP')
+        TP = lltype.GcArray(lltype.Signed)
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'm', 'i', 'j', 'sa', 'p'])
+        def f(n, m, j):
+            i = sa = 0
+            p = erase_A(A(7))
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, m=m, i=i, j=j, sa=sa, p=p)
+                if i < m:
+                    sa += unerase_A(p).val
+                elif i == m:
+                    a = lltype.malloc(TP, 5)
+                    a[0] = 42
+                    p = erase_TP(a)
+                else:
+                    sa += unerase_TP(p)[0]
+                sa += A(i).val
+                assert n>0 and m>0
+                i += j
+            return sa
+        res = self.meta_interp(f, [20, 10, 1])
+        assert res == f(20, 10, 1)
+
 class TestOOtype(LoopTest, OOJitMixin):
     pass
 
