@@ -3,6 +3,8 @@
 
 #include "Api.h"
 
+#include "TROOT.h"
+#include "TError.h"
 #include "TList.h"
 
 #include "TBaseClass.h"
@@ -31,6 +33,19 @@ static ClassRefs_t g_classrefs(1);
 typedef std::map<std::string, ClassRefs_t::size_type> ClassRefIndices_t;
 static ClassRefIndices_t g_classref_indices;
 
+class ClassRefsInit {
+public:
+    ClassRefsInit() {   // setup dummy holder for global namespace
+	ClassRefs_t::size_type sz = g_classrefs.size();
+        g_classref_indices[""] = sz;
+        g_classrefs.push_back(TClassRef(""));
+    }
+};
+static ClassRefsInit _classrefs_init;
+
+typedef std::vector<TFunction*> GlobalFuncs_t;
+static GlobalFuncs_t g_globalfuncs;
+
 
 /* local helpers ---------------------------------------------------------- */
 static inline char* cppstring_to_cstring(const std::string& name) {
@@ -49,12 +64,26 @@ static inline TClassRef type_from_handle(cppyy_typehandle_t handle) {
     return g_classrefs[(ClassRefs_t::size_type)handle];
 }
 
+static inline TFunction* type_get_method(cppyy_typehandle_t handle, int method_index) {
+    TClassRef cr = type_from_handle(handle);
+    if (cr.GetClass())
+        return (TFunction*)cr->GetListOfMethods()->At(method_index);
+    return g_globalfuncs[method_index];
+}
+
 
 /* name to handle --------------------------------------------------------- */
 cppyy_typehandle_t cppyy_get_typehandle(const char* class_name) {
     ClassRefIndices_t::iterator icr = g_classref_indices.find(class_name);
     if (icr != g_classref_indices.end())
-       return (cppyy_typehandle_t)icr->second;
+        return (cppyy_typehandle_t)icr->second;
+
+    TClassRef cr(class_name);
+    if (!cr.GetClass())
+        return (cppyy_typehandle_t)NULL;
+
+    if (!G__TypeInfo(class_name).IsValid())
+        return (cppyy_typehandle_t)NULL;
 
     ClassRefs_t::size_type sz = g_classrefs.size();
     g_classref_indices[class_name] = sz;
@@ -191,7 +220,7 @@ void* cppyy_allocate_function_args(size_t nargs) {
     G__param* libp = (G__param*)malloc(
         offsetof(G__param, para) + nargs*sizeof(CPPYY_G__value));
     libp->paran = (int)nargs;
-    for (int i = 0; i < nargs; ++i)
+    for (size_t i = 0; i < nargs; ++i)
         libp->para[i].type = 'l';
     return (void*)libp->para;
 }
@@ -212,10 +241,10 @@ size_t cppyy_function_arg_typeoffset() {
 /* scope reflection information ------------------------------------------- */
 int cppyy_is_namespace(cppyy_typehandle_t handle) {
     TClassRef cr = type_from_handle(handle);
-    if (cr.GetClass() && cr->Property())
-       return cr->Property() & G__BIT_ISNAMESPACE;
+    if (cr.GetClass() && cr->GetClassInfo())
+        return cr->Property() & G__BIT_ISNAMESPACE;
     if (strcmp(cr.GetClassName(), "") == 0)
-       return true;
+        return true;
     return false;
 }
 
@@ -223,15 +252,15 @@ int cppyy_is_namespace(cppyy_typehandle_t handle) {
 /* type/class reflection information -------------------------------------- */
 char* cppyy_final_name(cppyy_typehandle_t handle) {
     TClassRef cr = type_from_handle(handle);
-    if (cr.GetClass() && cr->Property())
-       return type_cppstring_to_cstring(cr->GetName());
+    if (cr.GetClass() && cr->GetClassInfo())
+        return type_cppstring_to_cstring(cr->GetName());
     return cppstring_to_cstring(cr.GetClassName());
 }
 
 int cppyy_num_bases(cppyy_typehandle_t handle) {
     TClassRef cr = type_from_handle(handle);
     if (cr.GetClass() && cr->GetListOfBases() != 0)
-       return cr->GetListOfBases()->GetSize();
+        return cr->GetListOfBases()->GetSize();
     return 0;
 }
 
@@ -262,38 +291,47 @@ size_t cppyy_base_offset(cppyy_typehandle_t dh, cppyy_typehandle_t bh) {
 int cppyy_num_methods(cppyy_typehandle_t handle) {
     TClassRef cr = type_from_handle(handle);
     if (cr.GetClass() && cr->GetListOfMethods())
-       return cr->GetListOfMethods()->GetSize();
+        return cr->GetListOfMethods()->GetSize();
+    else if (strcmp(cr.GetClassName(), "") == 0) {
+        TCollection* funcs = gROOT->GetListOfGlobalFunctions(kTRUE);
+	if (g_globalfuncs.size() != (GlobalFuncs_t::size_type)funcs->GetSize()) {
+            /*g_globalfuncs.clear();
+	    g_globalfuncs.reserve(funcs->GetSize());
+
+            TIter ifunc(funcs);
+
+            TFunction* func = 0;
+            while ((func = (TFunction*)ifunc.Next()))
+                g_globalfuncs.push_back(func);*/
+        }
+	return (int)g_globalfuncs.size();
+    }
     return 0;
 }
 
 char* cppyy_method_name(cppyy_typehandle_t handle, int method_index) {
-    TClassRef cr = type_from_handle(handle);
-    TMethod* m = (TMethod*)cr->GetListOfMethods()->At(method_index);
-    return cppstring_to_cstring(m->GetName());
+    TFunction* f = type_get_method(handle, method_index);
+    return cppstring_to_cstring(f->GetName());
 }
 
 char* cppyy_method_result_type(cppyy_typehandle_t handle, int method_index) {
-    TClassRef cr = type_from_handle(handle);
-    TMethod* m = (TMethod*)cr->GetListOfMethods()->At(method_index);
-    return type_cppstring_to_cstring(m->GetReturnTypeName());
+    TFunction* f = type_get_method(handle, method_index);
+    return type_cppstring_to_cstring(f->GetReturnTypeName());
 }
 
 int cppyy_method_num_args(cppyy_typehandle_t handle, int method_index) {
-    TClassRef cr = type_from_handle(handle);
-    TMethod* m = (TMethod*)cr->GetListOfMethods()->At(method_index);
-    return m->GetNargs();
+    TFunction* f = type_get_method(handle, method_index);
+    return f->GetNargs();
 }
 
 int cppyy_method_req_args(cppyy_typehandle_t handle, int method_index) {
-    TClassRef cr = type_from_handle(handle);
-    TMethod* m = (TMethod*)cr->GetListOfMethods()->At(method_index);
-    return m->GetNargs() - m->GetNargsOpt();
+    TFunction* f = type_get_method(handle, method_index);
+    return f->GetNargs() - f->GetNargsOpt();
 }
 
 char* cppyy_method_arg_type(cppyy_typehandle_t handle, int method_index, int arg_index) {
-    TClassRef cr = type_from_handle(handle);
-    TMethod* m = (TMethod*)cr->GetListOfMethods()->At(method_index);
-    TMethodArg* arg = (TMethodArg*)m->GetListOfMethodArgs()->At(arg_index);
+    TFunction* f = type_get_method(handle, method_index);
+    TMethodArg* arg = (TMethodArg*)f->GetListOfMethodArgs()->At(arg_index);
     return type_cppstring_to_cstring(arg->GetFullTypeName());
 }
 

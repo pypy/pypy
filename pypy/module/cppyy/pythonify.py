@@ -44,8 +44,6 @@ class CppyyTemplateType(object):
         return getattr(self._scope, fullname)
 
 
-
-
 def make_static_function(cpptype, func_name, cppol):
     rettype = cppol.get_returntype()
     if not rettype:                              # return builtin type

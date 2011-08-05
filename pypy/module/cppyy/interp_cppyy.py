@@ -20,7 +20,7 @@ NULL_VOIDP  = lltype.nullptr(rffi.VOIDP.TO)
 def load_lib(space, name):
     # TODO: the following uses a hacked CDLL that won't work on Windows
     try:
-        cdll = libffi.CDLL(name, 0x100 | 0x02)
+        cdll = libffi.CDLL(name, rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW)
     except rdynload.DLOpenError, e:
         raise OperationError(space.w_RuntimeError, space.wrap(str(e)))
     return W_CPPLibrary(space, cdll)

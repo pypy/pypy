@@ -19,7 +19,7 @@ eci = ExternalCompilationInfo(
     include_dirs=[incpath] + rootincpath,
     includes=["cintcwrapper.h"],
     library_dirs=rootlibpath,
-    link_extra=["-lCore", "-lCint"],
+    link_extra=["-lRIO", "-lThread", "-lCore", "-lCint", "-lm", "-ldl", "-rdynamic"],
     use_cpp_linker=True,
 )
 

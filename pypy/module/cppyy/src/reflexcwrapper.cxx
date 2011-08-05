@@ -34,7 +34,8 @@ static inline std::vector<void*> build_args(int numargs, void* args) {
     std::vector<void*> arguments;
     arguments.reserve(numargs);
     for (int i=0; i < numargs; ++i) {
-        if (((CPPYY_G__value*)args)[i].type != 'a')
+	char tc = ((CPPYY_G__value*)args)[i].type;
+        if (tc != 'a' && tc != 'o')
             arguments.push_back(&((CPPYY_G__value*)args)[i]);
         else
             arguments.push_back((void*)(*(long*)&((CPPYY_G__value*)args)[i]));
