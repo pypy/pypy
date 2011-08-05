@@ -27,6 +27,7 @@ fields = { # bit margins are *inclusive*! (and bit 0 is
     "LK":     (31, 31),
     "MB":     (21, 25),
     "ME":     (26, 30),
+    "mbe":    (21, 26),
     "NB":     (16, 20),
     "OE":     (21, 21),
     "rA":     (11, 15, 'unsigned', regname._R),
@@ -35,7 +36,9 @@ fields = { # bit margins are *inclusive*! (and bit 0 is
     "rD":     ( 6, 10, 'unsigned', regname._R),
     "rS":     ( 6, 10, 'unsigned', regname._R),
     "SH":     (16, 20),
+    "sh":     (30, 30),
     "SIMM":   (16, 31, 'signed'),
+    "SIMM14": (16, 29, 'signed'),
     "SR":     (12, 15),
     "spr":    (11, 20),
     "TO":     ( 6, 10),
@@ -43,6 +46,9 @@ fields = { # bit margins are *inclusive*! (and bit 0 is
     "XO1":    (21, 30),
     "XO2":    (22, 30),
     "XO3":    (26, 30),
+    "XO4":    (30, 31),
+    "XO5":    (27, 29),
+    "XO6":    (21, 29),
 }
 
 

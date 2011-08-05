@@ -21,6 +21,7 @@ B = Form("BO", "BI", "BD", "AA", "LK")
 SC = Form("AA") # fudge
 
 DD = Form("rD", "rA", "SIMM")
+DDO = Form("rD", "rA", "SIMM14", "XO4")
 DS = Form("rA", "rS", "UIMM")
 
 X = Form("XO1")
@@ -42,7 +43,8 @@ XFX = Form("CRM", "rS", "XO1")
 
 MI = Form("rA", "rS", "SH", "MB", "ME", "Rc")
 MB = Form("rA", "rS", "rB", "MB", "ME", "Rc")
-
+MDI = Form("rA", "rS", "SH", "mbe", "XO5", "sh", "Rc")
+MDS = Form("rA", "rS", "rB", "mbe", "XO5", "Rc")
 
 class BasicPPCAssembler(Assembler):
 
@@ -99,6 +101,8 @@ class BasicPPCAssembler(Assembler):
 
     lbz  = DD(34)
     lbzu = DD(35)
+    ld   = DDO(58, XO4=0)
+    ldu  = DDO(58, XO4=1)
     lfd  = DD(50)
     lfdu = DD(51)
     lfs  = DD(48)
@@ -108,6 +112,7 @@ class BasicPPCAssembler(Assembler):
     lhz  = DD(40)
     lhzu = DD(41)
     lmw  = DD(46)
+    lwa  = DDO(58, XO4=2)
     lwz  = DD(32)
     lwzu = DD(33)
 
@@ -117,6 +122,8 @@ class BasicPPCAssembler(Assembler):
 
     stb   = DD(38)
     stbu  = DD(39)
+    std   = DDO(62, XO4=0)
+    stdu  = DDO(62, XO4=1)
     stfd  = DD(54)
     stfdu = DD(55)
     stfs  = DD(52)
@@ -128,6 +135,7 @@ class BasicPPCAssembler(Assembler):
     stwu  = DD(37)
 
     subfic = DD(8)
+    tdi    = Form("TO", "rA", "SIMM")(2)
     twi    = Form("TO", "rA", "SIMM")(3)
     xori   = DS(26)
     xoris  = DS(27)
@@ -146,6 +154,8 @@ class BasicPPCAssembler(Assembler):
     cmpl = Form("crfD", "L", "rA", "rB", "XO1")(31, XO1=32)
     cmpl.default(L=0).default(crfD=0)
 
+    cntlzd  = XS0(31, XO1=58, Rc=0)
+    cntlzdx = XS0(31, XO1=58, Rc=1)
     cntlzw  = XS0(31, XO1=26, Rc=0)
     cntlzwx = XS0(31, XO1=26, Rc=1)
 
@@ -171,17 +181,29 @@ class BasicPPCAssembler(Assembler):
     extsh  = XS0(31, XO1=922, Rc=0)
     extshx = XS0(31, XO1=922, Rc=1)
 
+    extsw  = XS0(31, XO1=986, Rc=0)
+    extswx = XS0(31, XO1=986, Rc=1)
+
     fabs  = XDB(63, XO1=264, Rc=0)
     fabsx = XDB(63, XO1=264, Rc=1)
 
     fcmpo = XcAB(63, XO1=32)
     fcmpu = XcAB(63, XO1=0)
 
+    fcfid  = XDB(63, XO1=846, Rc=0)
+    fcfidx = XDB(63, XO1=846, Rc=1)
+
+    fctid  = XDB(63, XO1=814, Rc=0)
+    fctidx = XDB(63, XO1=814, Rc=1)
+
+    fctidz  = XDB(63, XO1=815, Rc=0)
+    fctidzx = XDB(63, XO1=815, Rc=1)
+
     fctiw  = XDB(63, XO1=14, Rc=0)
     fctiwx = XDB(63, XO1=14, Rc=1)
 
-    fctiwz  = XDB(63, XO1=14, Rc=0)
-    fctiwzx = XDB(63, XO1=14, Rc=1)
+    fctiwz  = XDB(63, XO1=15, Rc=0)
+    fctiwzx = XDB(63, XO1=15, Rc=1)
 
     fmr  = XDB(63, XO1=72, Rc=0)
     fmrx = XDB(63, XO1=72, Rc=1)
@@ -201,6 +223,9 @@ class BasicPPCAssembler(Assembler):
 
     lbzux = XD(31, XO1=119)
     lbzx  = XD(31, XO1=87)
+    ldarx = XD(31, XO1=84)
+    ldux  = XD(31, XO1=53)
+    ldx   = XD(31, XO1=21)
     lfdux = XD(31, XO1=631)
     lfdx  = XD(31, XO1=599)
     lfsux = XD(31, XO1=567)
@@ -213,6 +238,8 @@ class BasicPPCAssembler(Assembler):
     lswi  = XD(31, XO1=597)
     lswx  = XD(31, XO1=533)
     lwarx = XD(31, XO1=20)
+    lwaux = XD(31, XO1=373)
+    lwax  = XD(31, XO1=341)
     lwbrx = XD(31, XO1=534)
     lwzux = XD(31, XO1=55)
     lwzx  = XD(31, XO1=23)
@@ -265,6 +292,16 @@ class BasicPPCAssembler(Assembler):
     cror   = XL(19, XO1=449)
     crorc  = XL(19, XO1=417)
     crxor  = XL(19, XO1=193)
+
+    divd    = XO(31, XO2=489, OE=0, Rc=0)
+    divdx   = XO(31, XO2=489, OE=0, Rc=1)
+    divdo   = XO(31, XO2=489, OE=1, Rc=0)
+    divdox  = XO(31, XO2=489, OE=1, Rc=1)
+
+    divdu   = XO(31, XO2=457, OE=0, Rc=0)
+    divdux  = XO(31, XO2=457, OE=0, Rc=1)
+    divduo  = XO(31, XO2=457, OE=1, Rc=0)
+    divduox = XO(31, XO2=457, OE=1, Rc=1)
 
     divw    = XO(31, XO2=491, OE=0, Rc=0)
     divwx   = XO(31, XO2=491, OE=0, Rc=1)
@@ -360,6 +397,17 @@ class BasicPPCAssembler(Assembler):
     mtsr   = Form("rS", "SR", "XO1")(31, XO1=210)
     mtsrin = Form("rS", "rB", "XO1")(31, XO1=242)
 
+    mulhd   = XO(31, OE=0, XO2=73, Rc=0)
+    mulhdx  = XO(31, OE=0, XO2=73, Rc=1)
+
+    mulhdu  = XO(31, OE=0, XO2=9, Rc=0)
+    mulhdux = XO(31, OE=0, XO2=9, Rc=1)
+
+    mulld   = XO(31, OE=0, XO2=233, Rc=0)
+    mulldx  = XO(31, OE=0, XO2=233, Rc=1)
+    mulldo  = XO(31, OE=1, XO2=233, Rc=0)
+    mulldox = XO(31, OE=1, XO2=233, Rc=1)
+
     mulhw   = XO(31, OE=0, XO2=75, Rc=0)
     mulhwx  = XO(31, OE=0, XO2=75, Rc=1)
 
@@ -390,6 +438,22 @@ class BasicPPCAssembler(Assembler):
 
     rfi   = X(19, XO1=50)
 
+    rfid  = X(19, XO1=18)
+
+    rldcl   = MDS(30, XO5=8, Rc=0)
+    rldclx  = MDS(30, XO5=8, Rc=1)
+    rldcr   = MDS(30, XO5=9, Rc=0)
+    rldcrx  = MDS(30, XO5=9, Rc=1)
+
+    rldic   = MDI(30, XO5=2, Rc=0)
+    rldicx  = MDI(30, XO5=2, Rc=1)
+    rldicl  = MDI(30, XO5=0, Rc=0)
+    rldiclx = MDI(30, XO5=0, Rc=1)
+    rldicr  = MDI(30, XO5=1, Rc=0)
+    rldicrx = MDI(30, XO5=1, Rc=1)
+    rldimi  = MDI(30, XO5=3, Rc=0)
+    rldimix = MDI(30, XO5=3, Rc=1)
+
     rlwimi  = MI(20, Rc=0)
     rlwimix = MI(20, Rc=1)
 
@@ -399,8 +463,17 @@ class BasicPPCAssembler(Assembler):
     rlwnm   = MB(23, Rc=0)
     rlwnmx  = MB(23, Rc=1)
 
+    sld     = XS(31, XO1=27, Rc=0)
+    sldx    = XS(31, XO1=27, Rc=1)
+
     slw     = XS(31, XO1=24, Rc=0)
     slwx    = XS(31, XO1=24, Rc=1)
+
+    srad    = XS(31, XO1=794, Rc=0)
+    sradx   = XS(31, XO1=794, Rc=1)
+
+    sradi   = Form("rA", "rS", "SH", "XO6", "sh", "Rc")(31, XO6=413, Rc=0)
+    sradix  = Form("rA", "rS", "SH", "XO6", "sh", "Rc")(31, XO6=413, Rc=1)
 
     sraw    = XS(31, XO1=792, Rc=0)
     srawx   = XS(31, XO1=792, Rc=1)
@@ -413,6 +486,9 @@ class BasicPPCAssembler(Assembler):
 
     stbux   = XSO(31, XO1=247)
     stbx    = XSO(31, XO1=215)
+    stdcxx  = Form("rS", "rA", "rB", "XO1", "Rc")(31, XO1=214, Rc=1)
+    stdux   = XSO(31, XO1=181)
+    stdx    = XSO(31, XO1=149)
     stfdux  = XSO(31, XO1=759)
     stfdx   = XSO(31, XO1=727)
     stfiwx  = XSO(31, XO1=983)
@@ -459,6 +535,7 @@ class BasicPPCAssembler(Assembler):
     tlbie = Form("rB", "XO1")(31, XO1=306)
     tlbsync = X(31, XO1=566)
 
+    td = Form("TO", "rA", "rB", "XO1")(31, XO1=68)
     tw = Form("TO", "rA", "rB", "XO1")(31, XO1=4)
 
     xor = XS(31, XO1=316, Rc=0)

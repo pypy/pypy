@@ -267,6 +267,38 @@ class TestAssemble(object):
         f = a.assemble()
         assert f() == word1 + word2
 
+    def test_load_from(self):
+        a = PPCBuilder()
+        
+        p = lltype.malloc(rffi.CArray(rffi.INT), 1, flavor="raw")
+        addr = rffi.cast(lltype.Signed, p)
+        p[0] = rffi.cast(rffi.INT, 200)
+
+        a.load_from(3, addr)
+        a.blr()
+        f = a.assemble()
+        assert f() == 200
+        p[0] = rffi.cast(rffi.INT, 300)
+        assert f() == 300
+        lltype.free(p, flavor="raw")
+
+    def test_ld(self):
+        py.test.skip("maybe works on 64 bit?")
+        a = PPCBuilder()
+
+        p = lltype.malloc(rffi.CArray(rffi.INT), 1, flavor="raw")
+        addr = rffi.cast(lltype.Signed, p)
+        p[0] = rffi.cast(rffi.INT, 200)
+
+        a.load_word(3, addr)
+        a.ld(3, 3, 0)
+        a.blr()
+
+        f = a.assemble()
+        assert f() == 200
+        lltype.free(p, flavor="raw")
+
+
 class AsmCode(object):
     def __init__(self, size):
         self.code = MachineCodeBlockWrapper()
@@ -280,7 +312,6 @@ class AsmCode(object):
         i = self.code.materialize(AsmMemoryManager(), [])
         t = lltype.FuncType([], lltype.Signed)
         return rffi.cast(lltype.Ptr(t), i)
-
 
 
 def func(arg):
