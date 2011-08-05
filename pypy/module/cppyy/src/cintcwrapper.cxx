@@ -122,6 +122,8 @@ long cppyy_call_o(cppyy_typehandle_t handle, int method_index,
     G__InterfaceMethod meth = (G__InterfaceMethod)m->InterfaceMethod();
     G__param* libp = (G__param*)((char*)args - offsetof(G__param, para));
     assert(libp->paran == numargs);
+    for (int i = 0; i < numargs; ++i)
+        libp->para[i].ref = libp->para[i].obj.i;
 
     // TODO: access to store_struct_offset won't work on Windows
     G__setgvp((long)self);
@@ -134,7 +136,7 @@ long cppyy_call_o(cppyy_typehandle_t handle, int method_index,
 
     G__store_struct_offset = store_struct_offset;
 
-    // G__pop_tempobject_nodel();      # TODO: not sure ...
+    G__pop_tempobject_nodel();
     return G__int(result);
 }
 
@@ -146,6 +148,8 @@ static inline G__value cppyy_call_T(cppyy_typehandle_t handle,
     G__InterfaceMethod meth = (G__InterfaceMethod)m->InterfaceMethod();
     G__param* libp = (G__param*)((char*)args - offsetof(G__param, para));
     assert(libp->paran == numargs);
+    for (int i = 0; i < numargs; ++i)
+        libp->para[i].ref = libp->para[i].obj.i;
 
     // TODO: access to store_struct_offset won't work on Windows
     G__setgvp((long)self);
