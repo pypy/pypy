@@ -264,6 +264,7 @@ class Optimizer(Optimization):
         self.posponedop = None
         self.exception_might_have_happened = False
         self.quasi_immutable_deps = None
+        self.opaque_pointers = {}
         self.newoperations = []
         if loop is not None:
             self.call_pure_results = loop.call_pure_results
@@ -554,6 +555,11 @@ class Optimizer(Optimization):
 
     def optimize_DEBUG_MERGE_POINT(self, op):
         self.emit_operation(op)
+
+    def optimize_CAST_OPAQUE_PTR(self, op):
+        value = self.getvalue(op.getarg(0))
+        self.opaque_pointers[value] = True
+        self.make_equal_to(op.result, value)
 
 dispatch_opt = make_dispatcher_method(Optimizer, 'optimize_',
         default=Optimizer.optimize_default)

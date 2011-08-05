@@ -233,6 +233,10 @@ class MIFrame(object):
         return self.execute(rop.PTR_EQ, box, history.CONST_NULL)
 
     @arguments("box")
+    def opimpl_cast_opaque_ptr(self, box):
+        return self.execute(rop.CAST_OPAQUE_PTR, box)
+
+    @arguments("box")
     def _opimpl_any_return(self, box):
         self.metainterp.finishframe(box)
 
