@@ -382,6 +382,8 @@ class UnrollOptimizer(Optimization):
             if i == len(self.optimizer.newoperations):
                 while j < len(jumpargs):
                     a = jumpargs[j]
+                    if self.optimizer.loop.logops:
+                        debug_print('J:  ' + self.optimizer.loop.logops.repr_of_arg(a))
                     self.import_box(a, inputargs, short, short_jumpargs,
                                     jumpargs, short_seen)
                     j += 1
