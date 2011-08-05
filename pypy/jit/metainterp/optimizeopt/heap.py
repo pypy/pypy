@@ -127,6 +127,8 @@ class CachedField(object):
             return
         for structvalue in self._cached_fields_getfield_op.keys():
             op = self._cached_fields_getfield_op[structvalue]
+            if optimizer.getvalue(op.getarg(0)) in optimizer.opaque_pointers:
+                continue
             if op and structvalue in self._cached_fields:
                 if op.getopnum() == rop.SETFIELD_GC:
                     result = op.getarg(1)
