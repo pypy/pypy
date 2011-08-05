@@ -1,7 +1,8 @@
 import py, os
 
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rpython.lltypesystem import rffi, lltype, ll2ctypes
+from pypy.rlib import rdynload
 
 pkgpath = py.path.local(__file__).dirpath().join(os.pardir)
 srcpath = pkgpath.join("src")
@@ -14,12 +15,14 @@ else:
     rootincpath = []
     rootlibpath = []
 
+ll2ctypes.load_library_kwargs['mode'] = rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW
+
 eci = ExternalCompilationInfo(
     separate_module_files=[srcpath.join("cintcwrapper.cxx")],
     include_dirs=[incpath] + rootincpath,
     includes=["cintcwrapper.h"],
     library_dirs=rootlibpath,
-    link_extra=["-lRIO", "-lThread", "-lCore", "-lCint", "-lm", "-ldl", "-rdynamic"],
+    libraries=["Cint", "Core"],
     use_cpp_linker=True,
 )
 
