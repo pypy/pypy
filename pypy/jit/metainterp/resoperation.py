@@ -437,6 +437,7 @@ _oplist = [
     #
     'PTR_EQ/2b',
     'PTR_NE/2b',
+    'CAST_OPAQUE_PTR/1b',
     #
     'ARRAYLEN_GC/1d',
     'STRLEN/1',
