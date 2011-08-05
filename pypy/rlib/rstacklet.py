@@ -23,20 +23,22 @@ def llexternal(name, args, result):
 
 # ----- types -----
 
-handle = lltype.Signed
-thread_handle = lltype.Signed
-run_fn = lltype.Ptr(lltype.FuncType([handle, lltype.Signed], handle))
+handle = rffi.COpaquePtr(typedef='stacklet_handle', compilation_info=eci)
+thread_handle = rffi.COpaquePtr(typedef='stacklet_thread_handle',
+                                compilation_info=eci)
+run_fn = lltype.Ptr(lltype.FuncType([handle, rffi.VOIDP], handle))
 
 # ----- constants -----
 
-EMPTY_STACK_HANDLE = -1
+def is_empty_handle(h):
+    return rffi.cast(lltype.Signed, h) == -1
 
 # ----- functions -----
 
 newthread = llexternal('stacklet_newthread', [], thread_handle)
 deletethread = llexternal('stacklet_deletethread',[thread_handle], lltype.Void)
 
-new = llexternal('stacklet_new', [thread_handle, run_fn, lltype.Signed],
+new = llexternal('stacklet_new', [thread_handle, run_fn, rffi.VOIDP],
                  handle)
 switch = llexternal('stacklet_switch', [thread_handle, handle], handle)
 destroy = llexternal('stacklet_destroy', [thread_handle, handle], lltype.Void)
