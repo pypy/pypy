@@ -94,11 +94,35 @@ stacklet_handle variousdepths_callback(stacklet_handle h, void *arg)
   return h;
 }
 
+typedef struct foo_s {
+  int self;
+  float d;
+  struct foo_s *next;
+} foo_t;
+
 int withdepth(int self, float d)
 {
   int res = 0;
   if (d > 0.0)
-    res = withdepth(self, d - 1.1);
+    {
+      foo_t *foo = malloc(sizeof(foo_t));
+      foo_t *foo2 = malloc(sizeof(foo_t));
+      foo->self = self;
+      foo->d = d;
+      foo->next = foo2;
+      foo2->self = self + 100;
+      foo2->d = d;
+      foo2->next = NULL;
+      res = withdepth(self, d - 1.1);
+      assert(foo->self == self);
+      assert(foo->d    == d);
+      assert(foo->next == foo2);
+      assert(foo2->self == self + 100);
+      assert(foo2->d    == d);
+      assert(foo2->next == NULL);
+      free(foo2);
+      free(foo);
+    }
   else
     {
       stacklet_handle h;

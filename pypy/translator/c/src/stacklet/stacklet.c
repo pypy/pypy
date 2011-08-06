@@ -69,7 +69,11 @@ struct stacklet_thread_s {
 
 /***************************************************************/
 
-static void g_save(struct stacklet_s* g, char* stop)
+static void g_save(struct stacklet_s* g, char* stop
+#ifdef DEBUG_DUMP
+                   , int overwrite_stack_for_debug
+#endif
+                   )
 {
     /* Save more of g's stack into the heap -- at least up to 'stop'
 
@@ -96,6 +100,10 @@ static void g_save(struct stacklet_s* g, char* stop)
         char *c = (char *)(g + 1);
 #if STACK_DIRECTION == 0
         memcpy(c+sz1, g->stack_start+sz1, sz2-sz1);
+#  ifdef DEBUG_DUMP
+        if (overwrite_stack_for_debug)
+          memset(g->stack_start+sz1, 0xdb, sz2-sz1);
+#  endif
 #else
         xxx;
 #endif
@@ -139,13 +147,21 @@ static void g_clear_stack(char *target_stop, struct stacklet_thread_s *thrd)
     while (current != NULL && current->stack_stop <= target_stop) {
         struct stacklet_s *prev = current->stack_prev;
         current->stack_prev = NULL;
-        g_save(current, current->stack_stop);
+        g_save(current, current->stack_stop
+#ifdef DEBUG_DUMP
+               , 1
+#endif
+               );
         current = prev;
     }
 
     /* save a partial stack */
     if (current != NULL && current->stack_start < target_stop)
-        g_save(current, target_stop);
+        g_save(current, target_stop
+#ifdef DEBUG_DUMP
+               , 1
+#endif
+               );
 
     thrd->g_stack_chain_head = current;
 }
@@ -170,7 +186,11 @@ static void *g_initial_save_state(void *old_stack_pointer, void *rawthrd)
 {
     struct stacklet_thread_s *thrd = (struct stacklet_thread_s *)rawthrd;
     if (g_allocate_source_stacklet(old_stack_pointer, thrd) == 0)
-        g_save(thrd->g_source, thrd->g_current_stack_marker);
+        g_save(thrd->g_source, thrd->g_current_stack_marker
+#ifdef DEBUG_DUMP
+               , 0
+#endif
+               );
     return NULL;
 }
 

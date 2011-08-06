@@ -12,7 +12,7 @@ clean:
 	rm -fr run_tests_*_[go]
 
 
-DEBUG = #-DDEBUG_DUMP
+DEBUG = -DDEBUG_DUMP
 
 tests: clean
 	make -j1 run-all-tests
