@@ -25,6 +25,8 @@ class SThread(object):
     def __del__(self):
         thrd = self.thrd
         if thrd:
+            if self.main_stacklet is not None:
+                self.main_stacklet.__del__()
             self.thrd = lltype.nullptr(rstacklet.thread_handle.TO)
             rstacklet.deletethread(thrd)
 
@@ -55,6 +57,12 @@ class W_Stacklet(Wrappable):
     def __init__(self, sthread, h):
         self.sthread = sthread
         self.h = h
+
+    def __del__(self):
+        h = self.h
+        if h:
+            self.h = NULLHANDLE
+            rstacklet.destroy(self.sthread.thrd, h)
 
     def consume_handle(self):
         h = self.h
