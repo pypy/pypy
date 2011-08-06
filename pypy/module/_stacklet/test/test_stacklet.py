@@ -43,3 +43,21 @@ class AppTestStacklet:
         raises(ValueError, newstacklet, empty_callback)
         assert len(seen) == 1
         assert not seen[0].is_pending()
+
+    def test_callback_with_arguments(self):
+        from _stacklet import newstacklet
+        #
+        def empty_callback(h, *args, **kwds):
+            assert h.is_pending()
+            seen.append(h)
+            seen.append(args)
+            seen.append(kwds)
+            return h
+        #
+        seen = []
+        h = newstacklet(empty_callback, 42, 43, foo=44, bar=45)
+        assert h is None
+        assert len(seen) == 3
+        assert not seen[0].is_pending()
+        assert seen[1] == (42, 43)
+        assert seen[2] == {'foo': 44, 'bar': 45}
