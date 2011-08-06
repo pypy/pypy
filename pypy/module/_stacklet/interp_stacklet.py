@@ -1,6 +1,6 @@
 import sys
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rlib import rstacklet
+from pypy.rlib import rstacklet, jit
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.executioncontext import ExecutionContext
@@ -146,6 +146,7 @@ def stacklet_new(space, w_callable, __args__):
     start_state.w_callable = w_callable
     start_state.args = __args__
     saved_frame_top = ec.topframeref
+    ec.topframeref = jit.vref_None
     h = rstacklet.new(sthread.thrd, new_stacklet_callback,
                       lltype.nullptr(rffi.VOIDP.TO))
     ec.topframeref = saved_frame_top
