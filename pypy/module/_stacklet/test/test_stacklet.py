@@ -73,3 +73,23 @@ class AppTestStacklet:
         h = newstacklet(empty_callback)
         assert h is None
         assert seen[0] is Stacklet
+
+    def test_switch(self):
+        from _stacklet import newstacklet
+        #
+        def switchbackonce_callback(h):
+            seen.append(1)
+            assert h.is_pending()
+            h2 = h.switch()
+            seen.append(3)
+            assert not h.is_pending()
+            assert h2.is_pending()
+            return h2
+        #
+        seen = []
+        h = newstacklet(switchbackonce_callback)
+        seen.append(2)
+        assert h.is_pending()
+        h2 = h.switch()
+        assert h2 is None
+        assert seen == [1, 2, 3]

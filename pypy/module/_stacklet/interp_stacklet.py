@@ -28,7 +28,7 @@ class SThread(object):
             self.thrd = lltype.nullptr(rstacklet.thread_handle.TO)
             rstacklet.deletethread(thrd)
 
-    def new_stacklet_object(self, space, h):
+    def new_stacklet_object(self, h):
         if self.pending_exception is not None:
             e = self.pending_exception
             self.pending_exception = None
@@ -44,7 +44,7 @@ class SThread(object):
             start_state.args = None
             raise MemoryError
         elif rstacklet.is_empty_handle(h):
-            return space.w_None
+            return self.space.w_None
         else:
             return W_Stacklet(self, h)
 
@@ -69,12 +69,19 @@ class W_Stacklet(Wrappable):
                 self.sthread.w_error,
                 space.wrap("stacklet has already been resumed"))
 
+    def switch(self, space):
+        h = self.consume_handle()
+        sthread = self.sthread
+        h = rstacklet.switch(sthread.thrd, h)
+        return sthread.new_stacklet_object(h)
+
     def is_pending(self, space):
         return space.newbool(bool(self.h))
 
 W_Stacklet.typedef = TypeDef(
     'Stacklet',
     __module__ = '_stacklet',
+    switch     = interp2app(W_Stacklet.switch),
     is_pending = interp2app(W_Stacklet.is_pending),
     )
 W_Stacklet.acceptable_as_base_class = False
@@ -128,4 +135,4 @@ def stacklet_new(space, w_callable, __args__):
     start_state.args = __args__
     h = rstacklet.new(sthread.thrd, new_stacklet_callback,
                       lltype.nullptr(rffi.VOIDP.TO))
-    return sthread.new_stacklet_object(space, h)
+    return sthread.new_stacklet_object(h)
