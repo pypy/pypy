@@ -12,9 +12,10 @@ NULLHANDLE = lltype.nullptr(rstacklet.handle.TO)
 
 
 class SThread(object):
-    def __init__(self, space):
+    def __init__(self, space, ec):
         w_module = space.getbuiltinmodule('_stacklet')
         self.space = space
+        self.ec = ec
         self.w_error = space.getattr(w_module, space.wrap('error'))
         self.pending_exception = None
         self.main_stacklet = None
@@ -80,7 +81,10 @@ class W_Stacklet(Wrappable):
     def switch(self, space):
         h = self.consume_handle()
         sthread = self.sthread
+        ec = sthread.ec
+        saved_frame_top = ec.topframeref
         h = rstacklet.switch(sthread.thrd, h)
+        ec.topframeref = saved_frame_top
         return sthread.new_stacklet_object(h)
 
     def is_pending(self, space):
@@ -137,10 +141,12 @@ def stacklet_new(space, w_callable, __args__):
     ec = space.getexecutioncontext()
     sthread = ec.stacklet_thread
     if not sthread:
-        sthread = ec.stacklet_thread = SThread(space)
+        sthread = ec.stacklet_thread = SThread(space, ec)
     start_state.sthread = sthread
     start_state.w_callable = w_callable
     start_state.args = __args__
+    saved_frame_top = ec.topframeref
     h = rstacklet.new(sthread.thrd, new_stacklet_callback,
                       lltype.nullptr(rffi.VOIDP.TO))
+    ec.topframeref = saved_frame_top
     return sthread.new_stacklet_object(h)

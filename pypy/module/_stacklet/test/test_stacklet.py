@@ -99,7 +99,9 @@ class AppTestStacklet:
         assert seen == [1, 2, 3]
 
     def test_various_depths(self):
+        skip("may fail on top of CPython")
         # run it from test_translated, but not while being actually translated
         d = {}
         execfile(self.translated, d)
-        d['test_various_depths'](max=100)
+        d['set_fast_mode']()
+        d['test_various_depths']()

@@ -7,6 +7,18 @@ import random
 
 # ____________________________________________________________
 
+STATUS_MAX = 50000
+MAIN_RECURSION_MAX = 50
+SUB_RECURSION_MAX = 20
+
+def set_fast_mode():
+    global STATUS_MAX, MAIN_RECURSION_MAX, SUB_RECURSION_MAX
+    STATUS_MAX = 100
+    MAIN_RECURSION_MAX = 7
+    SUB_RECURSION_MAX = 3
+
+# ____________________________________________________________
+
 class Task:
     def __init__(self, n):
         self.n = n
@@ -18,7 +30,7 @@ class Task:
         else:
             res = 0
             n = random.randrange(10)
-            if n == self.n or (Task.status >= Task.max and
+            if n == self.n or (Task.status >= STATUS_MAX and
                                not Task.tasks[n].h):
                 return 1
 
@@ -75,7 +87,7 @@ def variousstackdepths_callback(h, arg):
     Task.comefrom = -1
     Task.gointo = -1
 
-    while self.withdepth(random.randrange(20)) == 0:
+    while self.withdepth(random.randrange(SUB_RECURSION_MAX)) == 0:
         pass
 
     assert self.h is None
@@ -94,15 +106,16 @@ def variousstackdepths_callback(h, arg):
     print "LEAVING %d to go to %d" % (self.n, n)
     return h
 
+def any_alive():
+    return any([task.h is not None for task in Task.tasks])
 
-def test_various_depths(max=50000):
+def test_various_depths():
     Task.tasks = [Task(i) for i in range(10)]
     Task.nextstep = -1
     Task.comefrom = -1
     Task.status = 0
-    Task.max = max
-    while Task.status < max or any_alive():
-        Task.tasks[0].withdepth(random.randrange(0, 50))
+    while Task.status < STATUS_MAX or any_alive():
+        Task.tasks[0].withdepth(random.randrange(MAIN_RECURSION_MAX))
 
 # ____________________________________________________________
 
