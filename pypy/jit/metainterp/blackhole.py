@@ -500,9 +500,6 @@ class BlackholeInterpreter(object):
     @arguments("r", returns="i")
     def bhimpl_ptr_nonzero(a):
         return bool(a)
-    @arguments("r", returns="r")
-    def bhimpl_cast_opaque_ptr(a):
-        return a
 
     @arguments("i", returns="i")
     def bhimpl_int_copy(a):
