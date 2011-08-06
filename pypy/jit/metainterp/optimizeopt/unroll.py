@@ -494,7 +494,7 @@ class UnrollOptimizer(Optimization):
 
         short_op = self.short_boxes.producer(box)
         newresult = self.add_op_to_short(short_op, short, short_seen)
-        
+
         short_jumpargs.append(short_op.result)
         inputargs.append(box)
         box = newresult

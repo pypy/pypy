@@ -457,12 +457,12 @@ class ShortBoxes(object):
     def __init__(self, optimizer, surviving_boxes):
         self.potential_ops = {}
         self.duplicates = {}
+        self.aliases = {}
         self.optimizer = optimizer
         for box in surviving_boxes:
             self.potential_ops[box] = None
         optimizer.produce_potential_short_preamble_ops(self)
 
-        self.aliases = {}
         self.short_boxes = {}
 
         for box in self.potential_ops.keys():
@@ -518,7 +518,8 @@ class ShortBoxes(object):
         return box in self.short_boxes
 
     def alias(self, newbox, oldbox):
-        self.short_boxes[newbox] = self.short_boxes[oldbox]
+        if not isinstance(oldbox, Const):
+            self.short_boxes[newbox] = self.short_boxes[oldbox]
         self.aliases[newbox] = oldbox
         
     def original(self, box):

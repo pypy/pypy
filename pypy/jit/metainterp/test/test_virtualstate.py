@@ -533,7 +533,7 @@ class BaseTestBridges(BaseTest):
         i2 = getarrayitem_gc(p1, 10, descr=arraydescr)
         call(i2, descr=nonwritedescr)
         i3 = arraylen_gc(p1, descr=arraydescr) # Should be killed by backend
-        jump(p0, i2)
+        jump(p0, i2, p1)
         """
         self.optimize_bridge(loop, loop, expected)
         bridge = """
@@ -548,7 +548,7 @@ class BaseTestBridges(BaseTest):
         i2 = getarrayitem_gc(p1, 15, descr=arraydescr)
         i3 = arraylen_gc(p1, descr=arraydescr) # Should be killed by backend        
         i4 = getarrayitem_gc(p1, 10, descr=arraydescr)
-        jump(p0, i4)
+        jump(p0, i4, p1)
         """        
         self.optimize_bridge(loop, bridge, expected)
         bridge = """
@@ -565,7 +565,7 @@ class BaseTestBridges(BaseTest):
         i4 = int_ge(i3, 11)
         guard_true(i4) []
         i5 = getarrayitem_gc(p1, 10, descr=arraydescr)
-        jump(p0, i5)
+        jump(p0, i5, p1)
         """        
         self.optimize_bridge(loop, bridge, expected)
         bridge = """
@@ -581,7 +581,7 @@ class BaseTestBridges(BaseTest):
         i4 = int_ge(i3, 11)
         guard_true(i4) []
         i5 = getarrayitem_gc(p1, 10, descr=arraydescr)
-        jump(p0, i5)
+        jump(p0, i5, p1)
         """        
         self.optimize_bridge(loop, bridge, expected, p0=self.myptr)
 
@@ -611,6 +611,37 @@ class BaseTestBridges(BaseTest):
         """
         self.optimize_bridge(loop, bridge, expected, p0=self.myptr)
 
+    def test_cache_constant_setfield(self):
+        loop = """
+        [p5]
+        i10 = getfield_gc(p5, descr=valuedescr)
+        call(i10, descr=nonwritedescr) 
+        setfield_gc(p5, 1, descr=valuedescr)
+        jump(p5)
+        """
+        bridge = """
+        [p0]
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        guard_nonnull(p0) []
+        i10 = getfield_gc(p0, descr=valuedescr)
+        jump(p0, i10)
+        """
+        self.optimize_bridge(loop, bridge, expected, p0=self.myptr)        
+        bridge = """
+        [p0]
+        setfield_gc(p0, 7, descr=valuedescr)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        setfield_gc(p0, 7, descr=valuedescr)
+        jump(p0, 7)
+        """
+        self.optimize_bridge(loop, bridge, expected, p0=self.myptr)        
+        
 
 class TestLLtypeGuards(BaseTestGenerateGuards, LLtypeMixin):
     pass

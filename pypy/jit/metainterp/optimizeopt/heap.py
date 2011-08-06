@@ -134,6 +134,10 @@ class CachedField(object):
             if structvalue in self._cached_fields:
                 if op.getopnum() == rop.SETFIELD_GC:
                     result = op.getarg(1)
+                    if isinstance(result, Const):
+                        newresult = result.clonebox()
+                        shortboxes.alias(newresult, result)
+                        result = newresult
                     getop = ResOperation(rop.GETFIELD_GC, [op.getarg(0)],
                                          result, op.getdescr())
                     getop = shortboxes.add_potential(getop)

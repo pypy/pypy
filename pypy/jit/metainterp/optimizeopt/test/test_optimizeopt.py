@@ -6903,6 +6903,30 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_cache_constant_setfield(self):
+        ops = """
+        [p5]
+        i10 = getfield_gc(p5, descr=valuedescr)
+        call(i10, descr=nonwritedescr) 
+        setfield_gc(p5, 1, descr=valuedescr)
+        jump(p5)
+        """
+        preamble = """
+        [p5]
+        i10 = getfield_gc(p5, descr=valuedescr)
+        call(i10, descr=nonwritedescr) 
+        setfield_gc(p5, 1, descr=valuedescr)
+        jump(p5, 1)
+        """
+        expected = """
+        [p5, i10]
+        call(i10, descr=nonwritedescr) 
+        setfield_gc(p5, 1, descr=valuedescr)
+        jump(p5, 1)
+        """
+        
+        self.optimize_loop(ops, expected, preamble)
+        
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
         
