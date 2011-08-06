@@ -61,3 +61,15 @@ class AppTestStacklet:
         assert not seen[0].is_pending()
         assert seen[1] == (42, 43)
         assert seen[2] == {'foo': 44, 'bar': 45}
+
+    def test_type_of_h(self):
+        from _stacklet import newstacklet, Stacklet
+        #
+        def empty_callback(h):
+            seen.append(type(h))
+            return h
+        #
+        seen = []
+        h = newstacklet(empty_callback)
+        assert h is None
+        assert seen[0] is Stacklet
