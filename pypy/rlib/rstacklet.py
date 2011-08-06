@@ -1,3 +1,5 @@
+import py
+from pypy.tool.autopath import pypydir
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
@@ -10,14 +12,13 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 ###
 
 
-#cdir = py.path.local(pypydir) / 'translator' / 'c'
-cdir = '/home/arigo/hg/arigo/hack/pypy-hack/stacklet'    # XXX FIXME
+cdir = py.path.local(pypydir) / 'translator' / 'c'
 
 
 eci = ExternalCompilationInfo(
     include_dirs = [cdir],
-    includes = ['stacklet.h'],
-    separate_module_sources = ['#include "stacklet.c"\n'],
+    includes = ['src/stacklet/stacklet.h'],
+    separate_module_sources = ['#include "src/stacklet/stacklet.c"\n'],
 )
 
 def llexternal(name, args, result):
