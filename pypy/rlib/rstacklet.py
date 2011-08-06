@@ -47,7 +47,7 @@ deletethread = llexternal('stacklet_deletethread',[thread_handle], lltype.Void)
 _new = llexternal('stacklet_new', [thread_handle, run_fn, rffi.VOIDP],
                   handle)
 _switch = llexternal('stacklet_switch', [thread_handle, handle], handle)
-_destroy = llexternal('stacklet_destroy', [thread_handle, handle], lltype.Void)
+destroy = llexternal('stacklet_destroy', [thread_handle, handle], lltype.Void)
 
 _translate_pointer = llexternal("_stacklet_translate_pointer",
                                 [handle, llmemory.Address],

@@ -7,7 +7,7 @@ from pypy.rpython.memory import gctypelayout
 from pypy.rpython.memory.gc import marksweep
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rlib.rarithmetic import ovfcheck
-from pypy.rlib import rstack, rgc
+from pypy.rlib import rgc
 from pypy.rlib.debug import ll_assert
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.translator.backendopt import graphanalyze
@@ -33,8 +33,6 @@ class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
         except AttributeError:
             pass
         else:
-            if func is rstack.stack_check:
-                return self.translator.config.translation.stackless
             if getattr(func, '_gctransformer_hint_cannot_collect_', False):
                 return False
             if getattr(func, '_gctransformer_hint_close_stack_', False):
@@ -134,7 +132,6 @@ def find_clean_setarrayitems(collect_analyzer, graph):
     return result
 
 class FrameworkGCTransformer(GCTransformer):
-    use_stackless = False
     root_stack_depth = 163840
 
     def __init__(self, translator):
