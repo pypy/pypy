@@ -3,12 +3,15 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 ###
 ### Note: stacklets do not reliably work on top of CPython, but well,
-### they seem to work fine after being translated...
+### they seem to work fine after being translated...  This is due
+### to the fact that on CPython, you get strange effects because the
+### PyThreadState is not explicitly handled when we start a new
+### stacklet or switch to another one, notably the 'frame' field.
 ###
 
 
 #cdir = py.path.local(pypydir) / 'translator' / 'c'
-cdir = '/home/arigo/hg/arigo/hack/pypy-hack/stacklet'
+cdir = '/home/arigo/hg/arigo/hack/pypy-hack/stacklet'    # XXX FIXME
 
 
 eci = ExternalCompilationInfo(
@@ -18,8 +21,8 @@ eci = ExternalCompilationInfo(
 )
 
 def llexternal(name, args, result):
-    return rffi.llexternal(name, args, result, compilation_info=eci)
-
+    return rffi.llexternal(name, args, result, compilation_info=eci,
+                           sandboxsafe=True)
 
 # ----- types -----
 
