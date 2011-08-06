@@ -24,10 +24,10 @@ PLATFORMS = [
 
 translation_optiondescription = OptionDescription(
         "translation", "Translation Options", [
-    BoolOption("stackless", "enable stackless features during compilation",
-               default=False, cmdline="--stackless",
+    BoolOption("stacklet", "enable stackless features during compilation",
+               default=False, cmdline="--stacklet",
                requires=[("translation.type_system", "lltype"),
-                         ("translation.gcremovetypeptr", False)]),  # XXX?
+                         ("translation.gcrootfinder", "asmgcc")]), # XXX temp
     ChoiceOption("type_system", "Type system to use when RTyping",
                  ["lltype", "ootype"], cmdline=None, default="lltype",
                  requires={
@@ -385,8 +385,6 @@ def set_opt_level(config, level):
             config.translation.suggest(withsmallfuncsets=5)
         elif word == 'jit':
             config.translation.suggest(jit=True)
-            if config.translation.stackless:
-                raise NotImplementedError("JIT conflicts with stackless for now")
         elif word == 'removetypeptr':
             config.translation.suggest(gcremovetypeptr=True)
         else:

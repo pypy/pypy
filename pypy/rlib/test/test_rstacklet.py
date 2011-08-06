@@ -6,6 +6,8 @@ from pypy.translator.c.test.test_standalone import StandaloneTests
 
 STATUSMAX = 5000
 
+GCROOTFINDER = "n/a"
+
 
 class Runner:
 
@@ -24,7 +26,7 @@ class Runner:
     @here_is_a_test
     def test_new(self):
         print 'start'
-        h = rstacklet.new(self.thrd, empty_callback,
+        h = rstacklet.new(GCROOTFINDER, self.thrd, empty_callback,
                           rffi.cast(rffi.VOIDP, 123))
         print 'end', h
         assert rstacklet.is_empty_handle(h)
@@ -38,11 +40,11 @@ class Runner:
     @here_is_a_test
     def test_simple_switch(self):
         self.status = 0
-        h = rstacklet.new(self.thrd, switchbackonce_callback,
+        h = rstacklet.new(GCROOTFINDER, self.thrd, switchbackonce_callback,
                           rffi.cast(rffi.VOIDP, 321))
         assert not rstacklet.is_empty_handle(h)
         self.nextstatus(2)
-        h = rstacklet.switch(runner.thrd, h)
+        h = rstacklet.switch(GCROOTFINDER, runner.thrd, h)
         self.nextstatus(4)
         print 'end', h
         assert rstacklet.is_empty_handle(h)
@@ -89,14 +91,15 @@ class Task:
             if not task.h:
                 # start a new stacklet
                 print "NEW", n
-                h = rstacklet.new(runner.thrd, variousstackdepths_callback,
+                h = rstacklet.new(GCROOTFINDER, runner.thrd,
+                                  variousstackdepths_callback,
                                   rffi.cast(rffi.VOIDP, n))
             else:
                 # switch to this stacklet
                 print "switch to", n
                 h = task.h
                 task.h = lltype.nullptr(rstacklet.handle.TO)
-                h = rstacklet.switch(runner.thrd, h)
+                h = rstacklet.switch(GCROOTFINDER, runner.thrd, h)
 
             print "back in self.n = %d, coming from %d" % (self.n,
                                                            runner.comefrom)
@@ -131,7 +134,7 @@ def switchbackonce_callback(h, arg):
     assert rffi.cast(lltype.Signed, arg) == 321
     runner.nextstatus(1)
     assert not rstacklet.is_empty_handle(h)
-    h = rstacklet.switch(runner.thrd, h)
+    h = rstacklet.switch(GCROOTFINDER, runner.thrd, h)
     runner.nextstatus(3)
     assert not rstacklet.is_empty_handle(h)
     return h
@@ -189,16 +192,19 @@ def entry_point(argv):
 class BaseTestStacklet(StandaloneTests):
 
     def setup_class(cls):
+        global GCROOTFINDER
         from pypy.config.pypyoption import get_pypy_config
         config = get_pypy_config(translating=True)
         config.translation.gc = cls.gc
         if cls.gcrootfinder is not None:
+            config.translation.stacklet = True
             config.translation.gcrootfinder = cls.gcrootfinder
-        #try:
-        #    config.translation.tealet = True
-        #except ConflictConfigError, e:
-        #    py.test.skip(str(e))
+            GCROOTFINDER = cls.gcrootfinder
         cls.config = config
+
+    def teardown_class(cls):
+        global GCROOTFINDER
+        GCROOTFINDER = 'n/a'
 
     def test_demo1(self):
         t, cbuilder = self.compile(entry_point)
@@ -214,6 +220,10 @@ class BaseTestStacklet(StandaloneTests):
 class TestStackletBoehm(BaseTestStacklet):
     gc = 'boehm'
     gcrootfinder = None
+
+class TestStackletAsmGcc(BaseTestStacklet):
+    gc = 'minimark'
+    gcrootfinder = 'asmgcc'
 
 
 def target(*args):

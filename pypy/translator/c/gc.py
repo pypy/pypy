@@ -11,7 +11,6 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 class BasicGcPolicy(object):
-    requires_stackless = False
     stores_hash_at_the_end = False
 
     def __init__(self, db, thread_enabled=False):

@@ -147,6 +147,11 @@ class AsmStackRootWalker(BaseRootWalker):
             self._extra_gcmapend    = lambda: llmemory.NULL
             self._extra_mark_sorted = lambda: True
 
+    def need_stacklet_support(self):
+        # stacklet support: BIG HACK for rlib.rstacklet
+        from pypy.rlib import _stacklet_asmgcc
+        _stacklet_asmgcc._asmstackrootwalker = self     # as a global! argh
+
     def need_thread_support(self, gctransformer, getfn):
         # Threads supported "out of the box" by the rest of the code.
         # The whole code in this function is only there to support

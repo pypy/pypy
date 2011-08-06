@@ -288,7 +288,7 @@ void stacklet_destroy(stacklet_thread_handle thrd, stacklet_handle target)
     free(target);
 }
 
-char **_tealet_translate_pointer(stacklet_handle context, char **ptr)
+char **_stacklet_translate_pointer(stacklet_handle context, char **ptr)
 {
   char *p = (char *)ptr;
   long delta = p - context->stack_start;

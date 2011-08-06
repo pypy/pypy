@@ -475,6 +475,8 @@ class FrameworkGCTransformer(GCTransformer):
                                     annmodel.SomeInteger())
 
         # thread support
+        if translator.config.translation.stacklet:
+            root_walker.need_stacklet_support()
         if translator.config.translation.thread:
             root_walker.need_thread_support(self, getfn)
 
@@ -1296,6 +1298,10 @@ class BaseRootWalker(object):
                 addr += sizeofaddr
         if collect_stack_root:
             self.walk_stack_roots(collect_stack_root)     # abstract
+
+    def need_stacklet_support(self):
+        raise Exception("%s does not support stacklets" % (
+            self.__class__.__name__,))
 
     def need_thread_support(self, gctransformer, getfn):
         raise Exception("%s does not support threads" % (
