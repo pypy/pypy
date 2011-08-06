@@ -446,7 +446,7 @@ class MarkSweepGC(GCBase):
                 hdr.next = self.malloced_objects
                 self.malloced_objects = hdr
                 #llop.debug_view(lltype.Void, self.malloced_objects, self.malloced_objects_with_finalizer, size_gc_header)
-                finalizer(obj)
+                finalizer(obj, llmemory.NULL)
                 if not self.collect_in_progress: # another collection was caused?
                     debug_print("outer collect interrupted "
                                 "by recursive collect")
