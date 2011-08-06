@@ -1,9 +1,13 @@
+import os
 from pypy.conftest import gettestobjspace
 
 
 class AppTestStacklet:
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=['_stacklet'])
+        cls.w_translated = cls.space.wrap(
+            os.path.join(os.path.dirname(__file__),
+                         'test_translated.py'))
 
     def test_new_empty(self):
         from _stacklet import newstacklet
@@ -93,3 +97,9 @@ class AppTestStacklet:
         h2 = h.switch()
         assert h2 is None
         assert seen == [1, 2, 3]
+
+    def test_various_depths(self):
+        # run it from test_translated, but not while being actually translated
+        d = {}
+        execfile(self.translated, d)
+        d['test_various_depths'](max=100)

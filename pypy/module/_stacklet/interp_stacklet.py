@@ -48,7 +48,7 @@ class SThread(object):
         elif rstacklet.is_empty_handle(h):
             return self.space.w_None
         else:
-            return W_Stacklet(self, h)
+            return self.space.wrap(W_Stacklet(self, h))
 
 ExecutionContext.stacklet_thread = None
 
