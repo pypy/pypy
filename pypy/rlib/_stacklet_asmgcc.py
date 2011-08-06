@@ -194,6 +194,9 @@ class StackletGcRootFinder:
     @staticmethod
     def set_handle_on_most_recent(h):
         index = suspendedstacks.current_index
-        if index >= 0:
+        if not h or rstacklet.is_empty_handle(h):
+            assert index == -1
+        else:
+            assert index >= 0
             suspendedstacks.lst[index].handle = h
             suspendedstacks.current_index = -1

@@ -192,7 +192,8 @@ def entry_point(argv):
 class BaseTestStacklet(StandaloneTests):
 
     def setup_class(cls):
-        global GCROOTFINDER
+        global GCROOTFINDER, STATUSMAX
+        cls.old_values = GCROOTFINDER, STATUSMAX
         from pypy.config.pypyoption import get_pypy_config
         config = get_pypy_config(translating=True)
         config.translation.gc = cls.gc
@@ -201,16 +202,19 @@ class BaseTestStacklet(StandaloneTests):
             config.translation.gcrootfinder = cls.gcrootfinder
             GCROOTFINDER = cls.gcrootfinder
         cls.config = config
+        STATUSMAX = 25000
 
     def teardown_class(cls):
-        global GCROOTFINDER
-        GCROOTFINDER = 'n/a'
+        global GCROOTFINDER, STATUSMAX
+        GCROOTFINDER, STATUSMAX = cls.old_values
 
     def test_demo1(self):
         t, cbuilder = self.compile(entry_point)
 
         expected_data = "----- all done -----\n"
-        for i in range(20):
+        for i in range(20, 3):
+            print 'running %s/%s with argument %d' % (
+                self.gc, self.gcrootfinder, i)
             data = cbuilder.cmdexec('%d' % i, env={})
             assert data.endswith(expected_data)
             #data = cbuilder.cmdexec('%d' % i, env={'PYPY_GC_NURSERY': '10k'})

@@ -78,15 +78,15 @@ def new(gcrootfinder, thrd, runfn, arg):
 new._annspecialcase_ = 'specialize:arg(2)'
 
 def _new_callback():
-    return _new(starter.thrd, llhelper(run_fn, _new_runfn),
-                lltype.nullptr(rffi.VOIDP.TO))
+    h = _new(starter.thrd, llhelper(run_fn, _new_runfn),
+             lltype.nullptr(rffi.VOIDP.TO))
+    starter.c.set_handle_on_most_recent(h)
+    return h
 
 def _new_runfn(h, arg):
     llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
     starter.c.set_handle_on_most_recent(h)
-    h = starter.runfn(h, starter.arg)
-    starter.c.set_handle_on_most_recent(h)
-    return h
+    return starter.runfn(h, starter.arg)
 
 def switch(gcrootfinder, thrd, h):
     starter.thrd = thrd
