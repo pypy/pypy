@@ -1,10 +1,14 @@
+import sys
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib import rstacklet
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
+
+NULLHANDLE = lltype.nullptr(rstacklet.handle.TO)
 
 
 class SThread(object):
@@ -12,6 +16,8 @@ class SThread(object):
         w_module = space.getbuiltinmodule('_stacklet')
         self.space = space
         self.w_error = space.getattr(w_module, space.wrap('error'))
+        self.pending_exception = None
+        self.main_stacklet = None
         self.thrd = rstacklet.newthread()
         if not self.thrd:
             raise MemoryError
@@ -23,6 +29,15 @@ class SThread(object):
             rstacklet.deletethread(thrd)
 
     def new_stacklet_object(self, space, h):
+        if self.pending_exception is not None:
+            e = self.pending_exception
+            self.pending_exception = None
+            if we_are_translated():
+                raise e
+            else:
+                tb = self.pending_tb
+                del self.pending_tb
+                raise e.__class__, e, tb
         if not h:
             start_state.sthread = None
             start_state.w_callable = None
@@ -44,7 +59,9 @@ class W_Stacklet(Wrappable):
     def consume_handle(self):
         h = self.h
         if h:
-            self.h = lltype.nullptr(rstacklet.handle.TO)
+            self.h = NULLHANDLE
+            if self is self.sthread.main_stacklet:
+                self.sthread.main_stacklet = None
             return h
         else:
             space = self.sthread.space
@@ -60,6 +77,7 @@ W_Stacklet.typedef = TypeDef(
     __module__ = '_stacklet',
     is_pending = interp2app(W_Stacklet.is_pending),
     )
+W_Stacklet.acceptable_as_base_class = False
 
 
 class StartState:
@@ -76,12 +94,29 @@ def new_stacklet_callback(h, arg):
     start_state.w_callable = None
     start_state.args = None
     #
-    space = sthread.space
-    args = args.prepend(space.wrap(W_Stacklet(sthread, h)))
-    w_result = space.call_args(w_callable, args)
+    try:
+        space = sthread.space
+        stacklet = W_Stacklet(sthread, h)
+        if sthread.main_stacklet is None:
+            sthread.main_stacklet = stacklet
+        args = args.prepend(space.wrap(stacklet))
+        w_result = space.call_args(w_callable, args)
+        #
+        result = space.interp_w(W_Stacklet, w_result)
+        return result.consume_handle()
     #
-    assert isinstance(w_result, W_Stacklet)
-    return w_result.consume_handle()
+    except Exception, e:
+        sthread.pending_exception = e
+        if not we_are_translated():
+            sthread.pending_tb = sys.exc_info()[2]
+        if sthread.main_stacklet is None:
+            main_stacklet_handle = h
+        else:
+            main_stacklet_handle = sthread.main_stacklet.h
+            sthread.main_stacklet.h = NULLHANDLE
+            sthread.main_stacklet = None
+        assert main_stacklet_handle
+        return main_stacklet_handle
 
 def stacklet_new(space, w_callable, __args__):
     ec = space.getexecutioncontext()

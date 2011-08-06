@@ -12,4 +12,5 @@ class Module(MixedModule):
 
     interpleveldefs = {
         'newstacklet': 'interp_stacklet.stacklet_new',
+        'Stacklet': 'interp_stacklet.W_Stacklet',
     }
