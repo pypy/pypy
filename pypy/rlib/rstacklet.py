@@ -1,7 +1,6 @@
 import py
 from pypy.tool.autopath import pypydir
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.annlowlevel import llhelper
 

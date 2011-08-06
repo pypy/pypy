@@ -205,9 +205,12 @@ def _new_callback():
     return h
 
 def _new_runfn(h, arg):
-    llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
     set_handle_on_most_recent(h)
-    return suspendedstacks._runfn(h, suspendedstacks._arg)
+    r = suspendedstacks._runfn(h, suspendedstacks._arg)
+    llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
+    # ^^^ also, xxx, place it here to prevent the call from being
+    # considered a tail call
+    return r
 
 def _switch_callback():
     h = rstacklet._switch(suspendedstacks._thrd,
