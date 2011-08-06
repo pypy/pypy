@@ -214,11 +214,13 @@ static void *g_restore_state(void *new_stack_pointer, void *rawthrd)
     struct stacklet_s *g = thrd->g_target;
     ptrdiff_t stack_saved = g->stack_saved;
 
+    assert(new_stack_pointer == g->stack_start);
 #if STACK_DIRECTION == 0
     memcpy(g->stack_start, g+1, stack_saved);
 #else
     memcpy(g->stack_start - stack_saved, g+1, stack_saved);
 #endif
+    thrd->g_current_stack_stop = g->stack_stop;
     free(g);
     return EMPTY_STACKLET_HANDLE;
 }
@@ -235,6 +237,7 @@ static void g_initialstub(struct stacklet_thread_s *thrd,
     if (result == NULL && thrd->g_source != NULL) {
         /* First time it returns.  Only g_initial_save_state() has run
            and has created 'g_source'.  Call run(). */
+        thrd->g_current_stack_stop = thrd->g_current_stack_marker;
         result = run(thrd->g_source, run_arg);
 
         /* Then switch to 'result'. */
