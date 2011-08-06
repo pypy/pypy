@@ -801,6 +801,8 @@ class LoopTest(object):
         res = self.meta_interp(f, [200])
 
     def test_regular_pointers_in_short_preamble(self):
+        # XXX do we really care about this case?  If not, we should
+        # at least detect it and complain during codewriter/jtransform
         from pypy.rpython.lltypesystem import lltype
         BASE = lltype.GcStruct('BASE')
         A = lltype.GcStruct('A', ('parent', BASE), ('val', lltype.Signed))
