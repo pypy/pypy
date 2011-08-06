@@ -13,14 +13,14 @@ from pypy.rpython.memory.gc.base import GCBase
 
 import sys, os
 
-X_POOL = lltype.GcOpaqueType('gc.pool')
-X_POOL_PTR = lltype.Ptr(X_POOL)
-X_CLONE = lltype.GcStruct('CloneData', ('gcobjectptr', llmemory.GCREF),
-                                       ('pool',        X_POOL_PTR))
-X_CLONE_PTR = lltype.Ptr(X_CLONE)
+##X_POOL = lltype.GcOpaqueType('gc.pool')
+##X_POOL_PTR = lltype.Ptr(X_POOL)
+##X_CLONE = lltype.GcStruct('CloneData', ('gcobjectptr', llmemory.GCREF),
+##                                       ('pool',        X_POOL_PTR))
+##X_CLONE_PTR = lltype.Ptr(X_CLONE)
 
 FL_WITHHASH = 0x01
-FL_CURPOOL  = 0x02
+##FL_CURPOOL  = 0x02
 
 memoryError = MemoryError()
 class MarkSweepGC(GCBase):
@@ -92,10 +92,9 @@ class MarkSweepGC(GCBase):
     def write_free_statistics(self, typeid16, result):
         pass
 
-    def malloc_fixedsize(self, typeid16, size, can_collect,
+    def malloc_fixedsize(self, typeid16, size,
                          has_finalizer=False, contains_weakptr=False):
-        if can_collect:
-            self.maybe_collect()
+        self.maybe_collect()
         size_gc_header = self.gcheaderbuilder.size_gc_header
         try:
             tot_size = size_gc_header + size
@@ -128,10 +127,9 @@ class MarkSweepGC(GCBase):
         return llmemory.cast_adr_to_ptr(result, llmemory.GCREF)
     malloc_fixedsize._dont_inline_ = True
 
-    def malloc_fixedsize_clear(self, typeid16, size, can_collect,
+    def malloc_fixedsize_clear(self, typeid16, size,
                                has_finalizer=False, contains_weakptr=False):
-        if can_collect:
-            self.maybe_collect()
+        self.maybe_collect()
         size_gc_header = self.gcheaderbuilder.size_gc_header
         try:
             tot_size = size_gc_header + size
@@ -166,9 +164,8 @@ class MarkSweepGC(GCBase):
     malloc_fixedsize_clear._dont_inline_ = True
 
     def malloc_varsize(self, typeid16, length, size, itemsize,
-                       offset_to_length, can_collect):
-        if can_collect:
-            self.maybe_collect()
+                       offset_to_length):
+        self.maybe_collect()
         size_gc_header = self.gcheaderbuilder.size_gc_header
         try:
             fixsize = size_gc_header + size
@@ -200,9 +197,8 @@ class MarkSweepGC(GCBase):
     malloc_varsize._dont_inline_ = True
 
     def malloc_varsize_clear(self, typeid16, length, size, itemsize,
-                             offset_to_length, can_collect):
-        if can_collect:
-            self.maybe_collect()
+                             offset_to_length):
+        self.maybe_collect()
         size_gc_header = self.gcheaderbuilder.size_gc_header
         try:
             fixsize = size_gc_header + size
@@ -526,178 +522,10 @@ class MarkSweepGC(GCBase):
 
     # experimental support for thread cloning
     def x_swap_pool(self, newpool):
-        # Set newpool as the current pool (create one if newpool == NULL).
-        # All malloc'ed objects are put into the current pool;this is a
-        # way to separate objects depending on when they were allocated.
-        size_gc_header = self.gcheaderbuilder.size_gc_header
-        # invariant: each POOL GcStruct is at the _front_ of a linked list
-        # of malloced objects.
-        oldpool = self.curpool
-        #llop.debug_print(lltype.Void, 'x_swap_pool',
-        #                 lltype.cast_ptr_to_int(oldpool),
-        #                 lltype.cast_ptr_to_int(newpool))
-        if not oldpool:
-            # make a fresh pool object, which is automatically inserted at the
-            # front of the current list
-            oldpool = lltype.malloc(self.POOL)
-            addr = llmemory.cast_ptr_to_adr(oldpool)
-            addr -= size_gc_header
-            hdr = llmemory.cast_adr_to_ptr(addr, self.HDRPTR)
-            # put this new POOL object in the poolnodes list
-            node = lltype.malloc(self.POOLNODE, flavor="raw")
-            node.linkedlist = hdr
-            node.nextnode = self.poolnodes
-            self.poolnodes = node
-        else:
-            # manually insert oldpool at the front of the current list
-            addr = llmemory.cast_ptr_to_adr(oldpool)
-            addr -= size_gc_header
-            hdr = llmemory.cast_adr_to_ptr(addr, self.HDRPTR)
-            hdr.next = self.malloced_objects
-
-        newpool = lltype.cast_opaque_ptr(self.POOLPTR, newpool)
-        if newpool:
-            # newpool is at the front of the new linked list to install
-            addr = llmemory.cast_ptr_to_adr(newpool)
-            addr -= size_gc_header
-            hdr = llmemory.cast_adr_to_ptr(addr, self.HDRPTR)
-            self.malloced_objects = hdr.next
-            # invariant: now that objects in the hdr.next list are accessible
-            # through self.malloced_objects, make sure they are not accessible
-            # via poolnodes (which has a node pointing to newpool):
-            hdr.next = lltype.nullptr(self.HDR)
-        else:
-            # start a fresh new linked list
-            self.malloced_objects = lltype.nullptr(self.HDR)
-        self.curpool = newpool
-        return lltype.cast_opaque_ptr(X_POOL_PTR, oldpool)
+        raise NotImplementedError("old operation deprecated")
 
     def x_clone(self, clonedata):
-        # Recursively clone the gcobject and everything it points to,
-        # directly or indirectly -- but stops at objects that are not
-        # in the specified pool.  A new pool is built to contain the
-        # copies, and the 'gcobjectptr' and 'pool' fields of clonedata
-        # are adjusted to refer to the result.
-
-        # install a new pool into which all the mallocs go
-        curpool = self.x_swap_pool(lltype.nullptr(X_POOL))
-
-        size_gc_header = self.gcheaderbuilder.size_gc_header
-        oldobjects = self.AddressStack()
-        # if no pool specified, use the current pool as the 'source' pool
-        oldpool = clonedata.pool or curpool
-        oldpool = lltype.cast_opaque_ptr(self.POOLPTR, oldpool)
-        addr = llmemory.cast_ptr_to_adr(oldpool)
-        addr -= size_gc_header
-
-        hdr = llmemory.cast_adr_to_ptr(addr, self.HDRPTR)
-        hdr = hdr.next   # skip the POOL object itself
-        while hdr:
-            next = hdr.next
-            # mark all objects from malloced_list
-            hdr.flags = chr(ord(hdr.flags) | FL_CURPOOL)
-            hdr.next = lltype.nullptr(self.HDR)  # abused to point to the copy
-            oldobjects.append(llmemory.cast_ptr_to_adr(hdr))
-            hdr = next
-
-        # a stack of addresses of places that still points to old objects
-        # and that must possibly be fixed to point to a new copy
-        stack = self.AddressStack()
-        stack.append(llmemory.cast_ptr_to_adr(clonedata)
-                     + llmemory.offsetof(X_CLONE, 'gcobjectptr'))
-        while stack.non_empty():
-            gcptr_addr = stack.pop()
-            oldobj_addr = gcptr_addr.address[0]
-            if not oldobj_addr:
-                continue   # pointer is NULL
-            oldhdr = llmemory.cast_adr_to_ptr(oldobj_addr - size_gc_header,
-                                              self.HDRPTR)
-            if not (ord(oldhdr.flags) & FL_CURPOOL):
-                continue   # ignore objects that were not in the malloced_list
-            newhdr = oldhdr.next      # abused to point to the copy
-            if not newhdr:
-                typeid = oldhdr.typeid16
-                size = self.fixed_size(typeid)
-                # XXX! collect() at the beginning if the free heap is low
-                if self.is_varsize(typeid):
-                    itemsize = self.varsize_item_sizes(typeid)
-                    offset_to_length = self.varsize_offset_to_length(typeid)
-                    length = (oldobj_addr + offset_to_length).signed[0]
-                    newobj = self.malloc_varsize(typeid, length, size,
-                                                 itemsize, offset_to_length,
-                                                 False)
-                    size += length*itemsize
-                else:
-                    newobj = self.malloc_fixedsize(typeid, size, False)
-                    length = -1
-
-                newobj_addr = llmemory.cast_ptr_to_adr(newobj)
-
-                #llop.debug_print(lltype.Void, 'clone',
-                #                 llmemory.cast_adr_to_int(oldobj_addr),
-                #                 '->', llmemory.cast_adr_to_int(newobj_addr),
-                #                 'typeid', typeid,
-                #                 'length', length)
-
-                newhdr_addr = newobj_addr - size_gc_header
-                newhdr = llmemory.cast_adr_to_ptr(newhdr_addr, self.HDRPTR)
-
-                saved_id   = newhdr.typeid16  # XXX hack needed for genc
-                saved_flg1 = newhdr.mark
-                saved_flg2 = newhdr.flags
-                saved_next = newhdr.next      # where size_gc_header == 0
-                raw_memcopy(oldobj_addr, newobj_addr, size)
-                newhdr.typeid16 = saved_id
-                newhdr.mark     = saved_flg1
-                newhdr.flags    = saved_flg2
-                newhdr.next     = saved_next
-
-                offsets = self.offsets_to_gc_pointers(typeid)
-                i = 0
-                while i < len(offsets):
-                    pointer_addr = newobj_addr + offsets[i]
-                    stack.append(pointer_addr)
-                    i += 1
-
-                if length > 0:
-                    offsets = self.varsize_offsets_to_gcpointers_in_var_part(
-                        typeid)
-                    itemlength = self.varsize_item_sizes(typeid)
-                    offset = self.varsize_offset_to_variable_part(typeid)
-                    itembaseaddr = newobj_addr + offset
-                    i = 0
-                    while i < length:
-                        item = itembaseaddr + itemlength * i
-                        j = 0
-                        while j < len(offsets):
-                            pointer_addr = item + offsets[j]
-                            stack.append(pointer_addr)
-                            j += 1
-                        i += 1
-
-                oldhdr.next = newhdr
-            newobj_addr = llmemory.cast_ptr_to_adr(newhdr) + size_gc_header
-            gcptr_addr.address[0] = newobj_addr
-        stack.delete()
-
-        # re-create the original linked list
-        next = lltype.nullptr(self.HDR)
-        while oldobjects.non_empty():
-            hdr = llmemory.cast_adr_to_ptr(oldobjects.pop(), self.HDRPTR)
-            hdr.flags = chr(ord(hdr.flags) &~ FL_CURPOOL)  # reset the flag
-            hdr.next = next
-            next = hdr
-        oldobjects.delete()
-
-        # consistency check
-        addr = llmemory.cast_ptr_to_adr(oldpool)
-        addr -= size_gc_header
-        hdr = llmemory.cast_adr_to_ptr(addr, self.HDRPTR)
-        assert hdr.next == next
-
-        # build the new pool object collecting the new objects, and
-        # reinstall the pool that was current at the beginning of x_clone()
-        clonedata.pool = self.x_swap_pool(curpool)
+        raise NotImplementedError("old operation deprecated")
 
     def identityhash(self, obj):
         obj = llmemory.cast_ptr_to_adr(obj)

@@ -551,7 +551,7 @@ class GcLLDescr_framework(GcLLDescription):
             check_typeid(type_id)
             try:
                 res = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
-                                                      type_id, size, True,
+                                                      type_id, size,
                                                       has_finalizer, False)
             except MemoryError:
                 fatalerror("out of memory (from JITted code)")
@@ -575,7 +575,7 @@ class GcLLDescr_framework(GcLLDescription):
                 return llop1.do_malloc_varsize_clear(
                     llmemory.GCREF,
                     type_id, num_elem, self.array_basesize, itemsize,
-                    self.array_length_ofs, True)
+                    self.array_length_ofs)
             except MemoryError:
                 fatalerror("out of memory (from JITted code)")
                 return lltype.nullptr(llmemory.GCREF.TO)
@@ -595,7 +595,7 @@ class GcLLDescr_framework(GcLLDescription):
                 return llop1.do_malloc_varsize_clear(
                     llmemory.GCREF,
                     str_type_id, length, str_basesize, str_itemsize,
-                    str_ofs_length, True)
+                    str_ofs_length)
             except MemoryError:
                 fatalerror("out of memory (from JITted code)")
                 return lltype.nullptr(llmemory.GCREF.TO)
@@ -604,7 +604,7 @@ class GcLLDescr_framework(GcLLDescription):
                 return llop1.do_malloc_varsize_clear(
                     llmemory.GCREF,
                     unicode_type_id, length, unicode_basesize,unicode_itemsize,
-                    unicode_ofs_length, True)
+                    unicode_ofs_length)
             except MemoryError:
                 fatalerror("out of memory (from JITted code)")
                 return lltype.nullptr(llmemory.GCREF.TO)
@@ -634,7 +634,7 @@ class GcLLDescr_framework(GcLLDescription):
                 # also use it to allocate varsized objects.  The tid
                 # and possibly the length are both set afterward.
                 gcref = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
-                                            0, size, True, False, False)
+                                            0, size, False, False)
             except MemoryError:
                 fatalerror("out of memory (from JITted code)")
                 return 0

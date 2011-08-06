@@ -50,7 +50,7 @@ class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
     def analyze_simple_operation(self, op, graphinfo):
         if op.opname in ('malloc', 'malloc_varsize'):
             flags = op.args[1].value
-            return flags['flavor'] == 'gc' and not flags.get('nocollect', False)
+            return flags['flavor'] == 'gc'
         else:
             return (op.opname in LL_OPERATIONS and
                     LL_OPERATIONS[op.opname].canmallocgc)
@@ -265,7 +265,7 @@ class FrameworkGCTransformer(GCTransformer):
             malloc_fixedsize_clear_meth,
             [s_gc, s_typeid16,
              annmodel.SomeInteger(nonneg=True),
-             annmodel.SomeBool(), annmodel.SomeBool(),
+             annmodel.SomeBool(),
              annmodel.SomeBool()], s_gcref,
             inline = False)
         if hasattr(GCClass, 'malloc_fixedsize'):
@@ -274,7 +274,7 @@ class FrameworkGCTransformer(GCTransformer):
                 malloc_fixedsize_meth,
                 [s_gc, s_typeid16,
                  annmodel.SomeInteger(nonneg=True),
-                 annmodel.SomeBool(), annmodel.SomeBool(),
+                 annmodel.SomeBool(),
                  annmodel.SomeBool()], s_gcref,
                 inline = False)
         else:
@@ -283,12 +283,11 @@ class FrameworkGCTransformer(GCTransformer):
 ##         self.malloc_varsize_ptr = getfn(
 ##             GCClass.malloc_varsize.im_func,
 ##             [s_gc] + [annmodel.SomeInteger(nonneg=True) for i in range(5)]
-##             + [annmodel.SomeBool(), annmodel.SomeBool()], s_gcref)
+##             + [annmodel.SomeBool()], s_gcref)
         self.malloc_varsize_clear_ptr = getfn(
             GCClass.malloc_varsize_clear.im_func,
             [s_gc, s_typeid16]
-            + [annmodel.SomeInteger(nonneg=True) for i in range(4)]
-            + [annmodel.SomeBool()], s_gcref)
+            + [annmodel.SomeInteger(nonneg=True) for i in range(4)], s_gcref)
         self.collect_ptr = getfn(GCClass.collect.im_func,
             [s_gc, annmodel.SomeInteger()], annmodel.s_None)
         self.can_move_ptr = getfn(GCClass.can_move.im_func,
@@ -342,13 +341,11 @@ class FrameworkGCTransformer(GCTransformer):
                 malloc_fast_meth,
                 "malloc_fast")
             s_False = annmodel.SomeBool(); s_False.const = False
-            s_True  = annmodel.SomeBool(); s_True .const = True
             self.malloc_fast_ptr = getfn(
                 malloc_fast,
                 [s_gc, s_typeid16,
                  annmodel.SomeInteger(nonneg=True),
-                 s_True, s_False,
-                 s_False], s_gcref,
+                 s_False, s_False], s_gcref,
                 inline = True)
         else:
             self.malloc_fast_ptr = None
@@ -362,15 +359,13 @@ class FrameworkGCTransformer(GCTransformer):
                 GCClass.malloc_varsize_clear.im_func,
                 "malloc_varsize_clear_fast")
             s_False = annmodel.SomeBool(); s_False.const = False
-            s_True  = annmodel.SomeBool(); s_True .const = True
             self.malloc_varsize_clear_fast_ptr = getfn(
                 malloc_varsize_clear_fast,
                 [s_gc, s_typeid16,
                  annmodel.SomeInteger(nonneg=True),
                  annmodel.SomeInteger(nonneg=True),
                  annmodel.SomeInteger(nonneg=True),
-                 annmodel.SomeInteger(nonneg=True),
-                 s_True], s_gcref,
+                 annmodel.SomeInteger(nonneg=True)], s_gcref,
                 inline = True)
         else:
             self.malloc_varsize_clear_fast_ptr = None
@@ -478,20 +473,6 @@ class FrameworkGCTransformer(GCTransformer):
         self.statistics_ptr = getfn(GCClass.statistics.im_func,
                                     [s_gc, annmodel.SomeInteger()],
                                     annmodel.SomeInteger())
-
-        # experimental gc_x_* operations
-        s_x_pool  = annmodel.SomePtr(marksweep.X_POOL_PTR)
-        s_x_clone = annmodel.SomePtr(marksweep.X_CLONE_PTR)
-        # the x_*() methods use some regular mallocs that must be
-        # transformed in the normal way
-        self.x_swap_pool_ptr = getfn(GCClass.x_swap_pool.im_func,
-                                     [s_gc, s_x_pool],
-                                     s_x_pool,
-                                     minimal_transform = False)
-        self.x_clone_ptr = getfn(GCClass.x_clone.im_func,
-                                 [s_gc, s_x_clone],
-                                 annmodel.s_None,
-                                 minimal_transform = False)
 
         # thread support
         if translator.config.translation.thread:
@@ -670,7 +651,6 @@ class FrameworkGCTransformer(GCTransformer):
     def gct_fv_gc_malloc(self, hop, flags, TYPE, *args):
         op = hop.spaceop
         flavor = flags['flavor']
-        c_can_collect = rmodel.inputconst(lltype.Bool, not flags.get('nocollect', False))
 
         PTRTYPE = op.result.concretetype
         assert PTRTYPE.TO == TYPE
@@ -686,14 +666,14 @@ class FrameworkGCTransformer(GCTransformer):
             #malloc_ptr = self.malloc_fixedsize_ptr
             zero = flags.get('zero', False)
             if (self.malloc_fast_ptr is not None and
-                c_can_collect.value and not c_has_finalizer.value and
+                not c_has_finalizer.value and
                 (self.malloc_fast_is_clearing or not zero)):
                 malloc_ptr = self.malloc_fast_ptr
             elif zero:
                 malloc_ptr = self.malloc_fixedsize_clear_ptr
             else:
                 malloc_ptr = self.malloc_fixedsize_ptr
-            args = [self.c_const_gc, c_type_id, c_size, c_can_collect,
+            args = [self.c_const_gc, c_type_id, c_size,
                     c_has_finalizer, rmodel.inputconst(lltype.Bool, False)]
         else:
             assert not c_has_finalizer.value
@@ -706,17 +686,15 @@ class FrameworkGCTransformer(GCTransformer):
             if flags.get('nonmovable') and self.malloc_varsize_nonmovable_ptr:
                 # we don't have tests for such cases, let's fail
                 # explicitely
-                assert c_can_collect.value
                 malloc_ptr = self.malloc_varsize_nonmovable_ptr
                 args = [self.c_const_gc, c_type_id, v_length]
             else:
-                if (self.malloc_varsize_clear_fast_ptr is not None and
-                    c_can_collect.value):
+                if self.malloc_varsize_clear_fast_ptr is not None:
                     malloc_ptr = self.malloc_varsize_clear_fast_ptr
                 else:
                     malloc_ptr = self.malloc_varsize_clear_ptr
                 args = [self.c_const_gc, c_type_id, v_length, c_size,
-                        c_varitemsize, c_ofstolength, c_can_collect]
+                        c_varitemsize, c_ofstolength]
         livevars = self.push_roots(hop)
         v_result = hop.genop("direct_call", [malloc_ptr] + args,
                              resulttype=llmemory.GCREF)
@@ -808,36 +786,21 @@ class FrameworkGCTransformer(GCTransformer):
         hop.genop('adr_add', [v_gcdata_adr, c_ofs], resultvar=op.result)
 
     def gct_gc_x_swap_pool(self, hop):
-        op = hop.spaceop
-        [v_malloced] = op.args
-        hop.genop("direct_call",
-                  [self.x_swap_pool_ptr, self.c_const_gc, v_malloced],
-                  resultvar=op.result)
-
+        raise NotImplementedError("old operation deprecated")
     def gct_gc_x_clone(self, hop):
-        op = hop.spaceop
-        [v_clonedata] = op.args
-        hop.genop("direct_call",
-                  [self.x_clone_ptr, self.c_const_gc, v_clonedata],
-                  resultvar=op.result)
-
+        raise NotImplementedError("old operation deprecated")
     def gct_gc_x_size_header(self, hop):
-        op = hop.spaceop
-        c_result = rmodel.inputconst(lltype.Signed,
-                                     self.gcdata.gc.size_gc_header())
-        hop.genop("same_as",
-                  [c_result],
-                  resultvar=op.result)
+        raise NotImplementedError("old operation deprecated")
 
     def gct_do_malloc_fixedsize_clear(self, hop):
         # used by the JIT (see pypy.jit.backend.llsupport.gc)
         op = hop.spaceop
-        [v_typeid, v_size, v_can_collect,
+        [v_typeid, v_size,
          v_has_finalizer, v_contains_weakptr] = op.args
         livevars = self.push_roots(hop)
         hop.genop("direct_call",
                   [self.malloc_fixedsize_clear_ptr, self.c_const_gc,
-                   v_typeid, v_size, v_can_collect,
+                   v_typeid, v_size,
                    v_has_finalizer, v_contains_weakptr],
                   resultvar=op.result)
         self.pop_roots(hop, livevars)
@@ -846,12 +809,12 @@ class FrameworkGCTransformer(GCTransformer):
         # used by the JIT (see pypy.jit.backend.llsupport.gc)
         op = hop.spaceop
         [v_typeid, v_length, v_size, v_itemsize,
-         v_offset_to_length, v_can_collect] = op.args
+         v_offset_to_length] = op.args
         livevars = self.push_roots(hop)
         hop.genop("direct_call",
                   [self.malloc_varsize_clear_ptr, self.c_const_gc,
                    v_typeid, v_length, v_size, v_itemsize,
-                   v_offset_to_length, v_can_collect],
+                   v_offset_to_length],
                   resultvar=op.result)
         self.pop_roots(hop, livevars)
 
@@ -899,8 +862,8 @@ class FrameworkGCTransformer(GCTransformer):
         c_size = rmodel.inputconst(lltype.Signed, info.fixedsize)
         malloc_ptr = self.malloc_fixedsize_ptr
         c_has_finalizer = rmodel.inputconst(lltype.Bool, False)
-        c_has_weakptr = c_can_collect = rmodel.inputconst(lltype.Bool, True)
-        args = [self.c_const_gc, c_type_id, c_size, c_can_collect,
+        c_has_weakptr = rmodel.inputconst(lltype.Bool, True)
+        args = [self.c_const_gc, c_type_id, c_size,
                 c_has_finalizer, c_has_weakptr]
 
         # push and pop the current live variables *including* the argument

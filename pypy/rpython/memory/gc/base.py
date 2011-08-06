@@ -145,13 +145,13 @@ class GCBase(object):
             else:
                 malloc_varsize = self.malloc_varsize
             ref = malloc_varsize(typeid, length, size, itemsize,
-                                 offset_to_length, True)
+                                 offset_to_length)
         else:
             if zero or not hasattr(self, 'malloc_fixedsize'):
                 malloc_fixedsize = self.malloc_fixedsize_clear
             else:
                 malloc_fixedsize = self.malloc_fixedsize
-            ref = malloc_fixedsize(typeid, size, True, needs_finalizer,
+            ref = malloc_fixedsize(typeid, size, needs_finalizer,
                                    contains_weakptr)
         # lots of cast and reverse-cast around...
         return llmemory.cast_ptr_to_adr(ref)

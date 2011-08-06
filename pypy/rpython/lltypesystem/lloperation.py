@@ -482,12 +482,6 @@ LL_OPERATIONS = {
     'gc_adr_of_root_stack_top': LLOp(),
     # ^^^ returns the address of gcdata.root_stack_top (for shadowstack only)
 
-    # experimental operations in support of thread cloning, only
-    # implemented by the Mark&Sweep GC
-    'gc_x_swap_pool':       LLOp(canmallocgc=True),
-    'gc_x_clone':           LLOp(canraise=(RuntimeError,), canmallocgc=True),
-    'gc_x_size_header':     LLOp(),
-
     # for asmgcroot support to get the address of various static structures
     # see translator/c/src/mem.h for the valid indices
     'gc_asmgcroot_static':  LLOp(sideeffects=False),
