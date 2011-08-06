@@ -800,6 +800,38 @@ class LoopTest(object):
 
         res = self.meta_interp(f, [200])
 
+    def test_regular_pointers_in_short_preamble(self):
+        from pypy.rpython.lltypesystem import lltype
+        class Base(object):
+            pass
+        class A(Base):
+            def __init__(self, val):
+                self.val = val
+        class B(Base):
+            def __init__(self, charval):
+                self.charval = charval
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'm', 'i', 'j', 'sa', 'p'])
+        def f(n, m, j):
+            i = sa = 0
+            p = A(7)
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, m=m, i=i, j=j, sa=sa, p=p)
+                if i < m:
+                    assert isinstance(p, A)
+                    sa += p.val
+                elif i == m:
+                    p = B('x')
+                    p.charval = 'y'
+                else:
+                    assert isinstance(p, B)
+                    sa += ord(p.charval)
+                sa += A(i).val
+                assert n>0 and m>0
+                i += j
+            return sa
+        expected = f(20, 10, 1)
+        res = self.meta_interp(f, [20, 10, 1])
+        assert res == expected
 
     def test_unerased_pointers_in_short_preamble(self):
         from pypy.rlib.rerased import new_erasing_pair
