@@ -53,7 +53,7 @@ class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
             return flags['flavor'] == 'gc' and not flags.get('nocollect', False)
         else:
             return (op.opname in LL_OPERATIONS and
-                    LL_OPERATIONS[op.opname].canunwindgc)
+                    LL_OPERATIONS[op.opname].canmallocgc)
 
 def find_initializing_stores(collect_analyzer, graph):
     from pypy.objspace.flow.model import mkentrymap

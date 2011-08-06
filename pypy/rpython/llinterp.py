@@ -675,21 +675,6 @@ class LLFrame(object):
             #log.warn("op_indirect_call with graphs=None:", f)
         return self.op_direct_call(f, *args)
 
-    def op_adr_call(self, TGT, f, *inargs):
-        checkadr(f)
-        obj = self.llinterpreter.typer.type_system.deref(f.ref())
-        assert hasattr(obj, 'graph') # don't want to think about that
-        graph = obj.graph
-        args = []
-        for inarg, arg in zip(inargs, obj.graph.startblock.inputargs):
-            args.append(lltype._cast_whatever(arg.concretetype, inarg))
-        frame = self.newsubframe(graph, args)
-        result = frame.eval()
-        from pypy.translator.stackless.frame import storage_type
-        assert storage_type(lltype.typeOf(result)) == TGT
-        return lltype._cast_whatever(TGT, result)
-    op_adr_call.need_result_type = True
-
     def op_malloc(self, obj, flags):
         flavor = flags['flavor']
         zero = flags.get('zero', False)
@@ -930,27 +915,6 @@ class LLFrame(object):
     def op_get_write_barrier_from_array_failing_case(self):
         raise NotImplementedError("get_write_barrier_from_array_failing_case")
 
-    def op_yield_current_frame_to_caller(self):
-        raise NotImplementedError("yield_current_frame_to_caller")
-
-    def op_stack_frames_depth(self):
-        return len(self.llinterpreter.frame_stack)
-
-    def op_stack_switch(self, frametop):
-        raise NotImplementedError("stack_switch")
-
-    def op_stack_unwind(self):
-        raise NotImplementedError("stack_unwind")
-
-    def op_stack_capture(self):
-        raise NotImplementedError("stack_capture")
-
-    def op_get_stack_depth_limit(self):
-        raise NotImplementedError("get_stack_depth_limit")
-
-    def op_set_stack_depth_limit(self):
-        raise NotImplementedError("set_stack_depth_limit")
-
     def op_stack_current(self):
         return 0
 
@@ -1130,16 +1094,6 @@ class LLFrame(object):
         # a TypeError -- unless __nonzero__ has been explicitly overridden.
         assert isinstance(x, (int, Symbolic))
         return bool(x)
-
-    # read frame var support
-
-    def op_get_frame_base(self):
-        self._obj0 = self        # hack
-        return llmemory.fakeaddress(self)
-
-    def op_frame_info(self, *vars):
-        pass
-    op_frame_info.specialform = True
 
     # hack for jit.codegen.llgraph
 
