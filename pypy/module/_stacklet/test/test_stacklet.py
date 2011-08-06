@@ -30,3 +30,16 @@ class AppTestStacklet:
         raises(TypeError, newstacklet, empty_callback)
         assert len(seen) == 1
         assert not seen[0].is_pending()
+
+    def test_propagate_exception(self):
+        from _stacklet import error, newstacklet
+        #
+        def empty_callback(h):
+            assert h.is_pending()
+            seen.append(h)
+            raise ValueError
+        #
+        seen = []
+        raises(ValueError, newstacklet, empty_callback)
+        assert len(seen) == 1
+        assert not seen[0].is_pending()
