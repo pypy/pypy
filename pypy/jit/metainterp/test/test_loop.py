@@ -802,30 +802,28 @@ class LoopTest(object):
 
     def test_regular_pointers_in_short_preamble(self):
         from pypy.rpython.lltypesystem import lltype
-        class Base(object):
-            pass
-        class A(Base):
-            def __init__(self, val):
-                self.val = val
-        class B(Base):
-            def __init__(self, charval):
-                self.charval = charval
+        BASE = lltype.GcStruct('BASE')
+        A = lltype.GcStruct('A', ('parent', BASE), ('val', lltype.Signed))
+        B = lltype.GcStruct('B', ('parent', BASE), ('charval', lltype.Char))
         myjitdriver = JitDriver(greens = [], reds = ['n', 'm', 'i', 'j', 'sa', 'p'])
         def f(n, m, j):
             i = sa = 0
-            p = A(7)
+            pa = lltype.malloc(A)
+            pa.val = 7
+            p = pa.parent
             while i < n:
                 myjitdriver.jit_merge_point(n=n, m=m, i=i, j=j, sa=sa, p=p)
                 if i < m:
-                    assert isinstance(p, A)
-                    sa += p.val
+                    pa = lltype.cast_pointer(lltype.Ptr(A), p)
+                    sa += pa.val
                 elif i == m:
-                    p = B('x')
-                    p.charval = 'y'
+                    pb = lltype.malloc(B)
+                    pb.charval = 'y'
+                    p = pb.parent
                 else:
-                    assert isinstance(p, B)
-                    sa += ord(p.charval)
-                sa += A(i).val
+                    pb = lltype.cast_pointer(lltype.Ptr(B), p)
+                    sa += ord(pb.charval)
+                sa += 100
                 assert n>0 and m>0
                 i += j
             return sa
