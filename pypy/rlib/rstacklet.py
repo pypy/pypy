@@ -47,7 +47,7 @@ deletethread = llexternal('stacklet_deletethread',[thread_handle], lltype.Void)
 _new = llexternal('stacklet_new', [thread_handle, run_fn, rffi.VOIDP],
                   handle)
 _switch = llexternal('stacklet_switch', [thread_handle, handle], handle)
-destroy = llexternal('stacklet_destroy', [thread_handle, handle], lltype.Void)
+_destroy = llexternal('stacklet_destroy', [thread_handle, handle], lltype.Void)
 
 _translate_pointer = llexternal("_stacklet_translate_pointer",
                                 [handle, llmemory.Address],
@@ -62,39 +62,15 @@ def getgcclass(gcrootfinder):
     return module.StackletGcRootFinder
 getgcclass._annspecialcase_ = 'specialize:memo'
 
-FUNCNOARG_P = lltype.Ptr(lltype.FuncType([], handle))
-
-class Starter:
-    pass
-starter = Starter()
-
 def new(gcrootfinder, thrd, runfn, arg):
-    starter.thrd = thrd
-    starter.runfn = llhelper(run_fn, runfn)
-    starter.arg = arg
     c = getgcclass(gcrootfinder)
-    starter.c = c
-    return c.stack_protected_call(llhelper(FUNCNOARG_P, _new_callback))
+    return c.new(thrd, llhelper(run_fn, runfn), arg)
 new._annspecialcase_ = 'specialize:arg(2)'
 
-def _new_callback():
-    h = _new(starter.thrd, llhelper(run_fn, _new_runfn),
-             lltype.nullptr(rffi.VOIDP.TO))
-    starter.c.set_handle_on_most_recent(h)
-    return h
-
-def _new_runfn(h, arg):
-    llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
-    starter.c.set_handle_on_most_recent(h)
-    return starter.runfn(h, starter.arg)
-
 def switch(gcrootfinder, thrd, h):
-    starter.thrd = thrd
-    starter.switchto = h
     c = getgcclass(gcrootfinder)
-    return c.stack_protected_call(llhelper(FUNCNOARG_P, _switch_callback))
+    return c.switch(thrd, h)
 
-def _switch_callback():
-    h = _switch(starter.thrd, starter.switchto)
-    starter.c.set_handle_on_most_recent(h)
-    return h
+def destroy(gcrootfinder, thrd, h):
+    c = getgcclass(gcrootfinder)
+    c.destroy(thrd, h)

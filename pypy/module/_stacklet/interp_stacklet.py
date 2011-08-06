@@ -68,7 +68,7 @@ class W_Stacklet(Wrappable):
         h = self.h
         if h:
             self.h = NULLHANDLE
-            rstacklet.destroy(self.sthread.thrd, h)
+            rstacklet.destroy(self.sthread.gcrootfinder, self.sthread.thrd, h)
 
     def consume_handle(self):
         h = self.h

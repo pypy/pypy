@@ -179,24 +179,56 @@ pypy_asm_stackwalk2 = rffi.llexternal('pypy_asm_stackwalk',
                                       rstacklet.handle, sandboxsafe=True,
                                       _nowrapper=True)
 
+def stack_protected_call(callback):
+    p = suspendedstacks.acquire()
+    llop.gc_assume_young_pointers(lltype.Void,
+                                  llmemory.cast_ptr_to_adr(p))
+    r = pypy_asm_stackwalk2(callback, p.anchor)
+    p.handle = lltype.nullptr(rstacklet.handle.TO)
+    suspendedstacks.release(p)
+    return r
+
+def set_handle_on_most_recent(h):
+    index = suspendedstacks.current_index
+    if not h or rstacklet.is_empty_handle(h):
+        assert index == -1
+    else:
+        assert index >= 0
+        suspendedstacks.lst[index].handle = h
+        suspendedstacks.current_index = -1
+
+def _new_callback():
+    h = rstacklet._new(suspendedstacks._thrd,
+                       llhelper(rstacklet.run_fn, _new_runfn),
+                       lltype.nullptr(rffi.VOIDP.TO))
+    set_handle_on_most_recent(h)
+    return h
+
+def _new_runfn(h, arg):
+    llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
+    set_handle_on_most_recent(h)
+    return suspendedstacks._runfn(h, suspendedstacks._arg)
+
+def _switch_callback():
+    h = rstacklet._switch(suspendedstacks._thrd,
+                          suspendedstacks._switchto)
+    set_handle_on_most_recent(h)
+    return h
+
+
 class StackletGcRootFinder:
 
     @staticmethod
-    def stack_protected_call(callback):
-        p = suspendedstacks.acquire()
-        llop.gc_assume_young_pointers(lltype.Void,
-                                      llmemory.cast_ptr_to_adr(p))
-        r = pypy_asm_stackwalk2(callback, p.anchor)
-        p.handle = lltype.nullptr(rstacklet.handle.TO)
-        suspendedstacks.release(p)
-        return r
+    def new(thrd, runfn, arg):
+        suspendedstacks._thrd = thrd
+        suspendedstacks._runfn = runfn
+        suspendedstacks._arg = arg
+        return stack_protected_call(llhelper(FUNCNOARG_P, _new_callback))
 
     @staticmethod
-    def set_handle_on_most_recent(h):
-        index = suspendedstacks.current_index
-        if not h or rstacklet.is_empty_handle(h):
-            assert index == -1
-        else:
-            assert index >= 0
-            suspendedstacks.lst[index].handle = h
-            suspendedstacks.current_index = -1
+    def switch(thrd, h):
+        suspendedstacks._thrd = thrd
+        suspendedstacks._switchto = h
+        return stack_protected_call(llhelper(FUNCNOARG_P, _switch_callback))
+
+    destroy = staticmethod(rstacklet._destroy)
