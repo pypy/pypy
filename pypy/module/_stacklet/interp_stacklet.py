@@ -15,11 +15,6 @@ class SThread(object):
     def __init__(self, space, ec):
         w_module = space.getbuiltinmodule('_stacklet')
         self.space = space
-        if (space.config.translation.gc == 'boehm'
-            or space.config.translation.gc == 'ref'):
-            self.gcrootfinder = 'n/a'
-        else:
-            self.gcrootfinder = space.config.translation.gcrootfinder
         self.ec = ec
         self.w_error = space.getattr(w_module, space.wrap('error'))
         self.pending_exception = None
@@ -68,7 +63,8 @@ class W_Stacklet(Wrappable):
         h = self.h
         if h:
             self.h = NULLHANDLE
-            rstacklet.destroy(self.sthread.gcrootfinder, self.sthread.thrd, h)
+            space = self.sthread.space
+            rstacklet.destroy(space.config, self.sthread.thrd, h)
 
     def consume_handle(self):
         h = self.h
@@ -88,7 +84,7 @@ class W_Stacklet(Wrappable):
         sthread = self.sthread
         ec = sthread.ec
         saved_frame_top = ec.topframeref
-        h = rstacklet.switch(sthread.gcrootfinder, sthread.thrd, h)
+        h = rstacklet.switch(space.config, sthread.thrd, h)
         ec.topframeref = saved_frame_top
         return sthread.new_stacklet_object(h)
 
@@ -152,8 +148,7 @@ def stacklet_new(space, w_callable, __args__):
     start_state.args = __args__
     saved_frame_top = ec.topframeref
     ec.topframeref = jit.vref_None
-    h = rstacklet.new(sthread.gcrootfinder, sthread.thrd,
-                      new_stacklet_callback,
+    h = rstacklet.new(space.config, sthread.thrd, new_stacklet_callback,
                       lltype.nullptr(rffi.VOIDP.TO))
     ec.topframeref = saved_frame_top
     return sthread.new_stacklet_object(h)

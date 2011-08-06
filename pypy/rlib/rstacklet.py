@@ -55,22 +55,27 @@ _translate_pointer = llexternal("_stacklet_translate_pointer",
 
 # ____________________________________________________________
 
-def getgcclass(gcrootfinder):
+def getgcclass(config):
+    if (config is None or
+        config.translation.gc in ('ref', 'boehm', 'none')):   # for tests
+        gcrootfinder = 'n/a'
+    else:
+        gcrootfinder = config.translation.gcrootfinder
     gcrootfinder = gcrootfinder.replace('/', '_')
     module = __import__('pypy.rlib._stacklet_%s' % gcrootfinder,
                         None, None, ['__doc__'])
     return module.StackletGcRootFinder
 getgcclass._annspecialcase_ = 'specialize:memo'
 
-def new(gcrootfinder, thrd, runfn, arg):
-    c = getgcclass(gcrootfinder)
+def new(config, thrd, runfn, arg):
+    c = getgcclass(config)
     return c.new(thrd, llhelper(run_fn, runfn), arg)
 new._annspecialcase_ = 'specialize:arg(2)'
 
-def switch(gcrootfinder, thrd, h):
-    c = getgcclass(gcrootfinder)
+def switch(config, thrd, h):
+    c = getgcclass(config)
     return c.switch(thrd, h)
 
-def destroy(gcrootfinder, thrd, h):
-    c = getgcclass(gcrootfinder)
+def destroy(config, thrd, h):
+    c = getgcclass(config)
     c.destroy(thrd, h)

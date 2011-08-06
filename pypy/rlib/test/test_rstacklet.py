@@ -4,12 +4,10 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.translator.c.test.test_standalone import StandaloneTests
 
 
-STATUSMAX = 5000
-
-GCROOTFINDER = "n/a"
-
 
 class Runner:
+    STATUSMAX = 5000
+    config = None
 
     def init(self, seed):
         self.thrd = rstacklet.newthread()
@@ -26,7 +24,7 @@ class Runner:
     @here_is_a_test
     def test_new(self):
         print 'start'
-        h = rstacklet.new(GCROOTFINDER, self.thrd, empty_callback,
+        h = rstacklet.new(self.config, self.thrd, empty_callback,
                           rffi.cast(rffi.VOIDP, 123))
         print 'end', h
         assert rstacklet.is_empty_handle(h)
@@ -40,11 +38,11 @@ class Runner:
     @here_is_a_test
     def test_simple_switch(self):
         self.status = 0
-        h = rstacklet.new(GCROOTFINDER, self.thrd, switchbackonce_callback,
+        h = rstacklet.new(self.config, self.thrd, switchbackonce_callback,
                           rffi.cast(rffi.VOIDP, 321))
         assert not rstacklet.is_empty_handle(h)
         self.nextstatus(2)
-        h = rstacklet.switch(GCROOTFINDER, runner.thrd, h)
+        h = rstacklet.switch(self.config, runner.thrd, h)
         self.nextstatus(4)
         print 'end', h
         assert rstacklet.is_empty_handle(h)
@@ -55,7 +53,7 @@ class Runner:
         self.nextstep = -1
         self.comefrom = -1
         self.status = 0
-        while self.status < STATUSMAX or self.any_alive():
+        while self.status < self.STATUSMAX or self.any_alive():
             self.tasks[0].withdepth(self.random.genrand32() % 50)
 
     def any_alive(self):
@@ -76,7 +74,7 @@ class Task:
         else:
             res = 0
             n = intmask(runner.random.genrand32() % 10)
-            if n == self.n or (runner.status >= STATUSMAX and
+            if n == self.n or (runner.status >= runner.STATUSMAX and
                                not runner.tasks[n].h):
                 return 1
 
@@ -91,7 +89,7 @@ class Task:
             if not task.h:
                 # start a new stacklet
                 print "NEW", n
-                h = rstacklet.new(GCROOTFINDER, runner.thrd,
+                h = rstacklet.new(runner.config, runner.thrd,
                                   variousstackdepths_callback,
                                   rffi.cast(rffi.VOIDP, n))
             else:
@@ -99,7 +97,7 @@ class Task:
                 print "switch to", n
                 h = task.h
                 task.h = lltype.nullptr(rstacklet.handle.TO)
-                h = rstacklet.switch(GCROOTFINDER, runner.thrd, h)
+                h = rstacklet.switch(runner.config, runner.thrd, h)
 
             print "back in self.n = %d, coming from %d" % (self.n,
                                                            runner.comefrom)
@@ -134,7 +132,7 @@ def switchbackonce_callback(h, arg):
     assert rffi.cast(lltype.Signed, arg) == 321
     runner.nextstatus(1)
     assert not rstacklet.is_empty_handle(h)
-    h = rstacklet.switch(GCROOTFINDER, runner.thrd, h)
+    h = rstacklet.switch(runner.config, runner.thrd, h)
     runner.nextstatus(3)
     assert not rstacklet.is_empty_handle(h)
     return h
@@ -192,8 +190,6 @@ def entry_point(argv):
 class BaseTestStacklet(StandaloneTests):
 
     def setup_class(cls):
-        global GCROOTFINDER, STATUSMAX
-        cls.old_values = GCROOTFINDER, STATUSMAX
         from pypy.config.pypyoption import get_pypy_config
         config = get_pypy_config(translating=True)
         config.translation.gc = cls.gc
@@ -202,11 +198,12 @@ class BaseTestStacklet(StandaloneTests):
             config.translation.gcrootfinder = cls.gcrootfinder
             GCROOTFINDER = cls.gcrootfinder
         cls.config = config
-        STATUSMAX = 25000
+        cls.old_values = Runner.config, Runner.STATUSMAX
+        Runner.config = config
+        Runner.STATUSMAX = 25000
 
     def teardown_class(cls):
-        global GCROOTFINDER, STATUSMAX
-        GCROOTFINDER, STATUSMAX = cls.old_values
+        Runner.config, Runner.STATUSMAX = cls.old_values
 
     def test_demo1(self):
         t, cbuilder = self.compile(entry_point)
