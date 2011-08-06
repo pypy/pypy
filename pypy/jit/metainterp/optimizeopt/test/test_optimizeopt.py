@@ -6683,12 +6683,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i2 = int_ge(i1, 8)
         guard_true(i2) []
         p2 = getarrayitem_gc(p1, 7, descr=<GcPtrArrayDescr>)
-        jump(p0, p2)
+        jump(p0, p2, p1)
         """
         expected = """
-        [p0, p2]
+        [p0, p2, p1]
         call(p2, descr=nonwritedescr)
-        jump(p0, p2)
+        i3 = arraylen_gc(p1) # Should be killed by backend
+        jump(p0, p2, p1)
         """
         self.optimize_loop(ops, expected, expected_short=short)
 
@@ -6760,12 +6761,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i2 = int_ge(i1, 8)
         guard_true(i2) []
         p2 = getarrayitem_gc_pure(p1, 7, descr=<GcPtrArrayDescr>)
-        jump(p0, p2)
+        jump(p0, p2, p1)
         """
         expected = """
-        [p0, p2]
+        [p0, p2, p1]
         call(p2, descr=nonwritedescr)
-        jump(p0, p2)
+        i3 = arraylen_gc(p1) # Should be killed by backend
+        jump(p0, p2, p1)
         """
         self.optimize_loop(ops, expected, expected_short=short)
         
@@ -6790,12 +6792,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_true(i8) []
         i9 = int_le(i22, 255)
         guard_true(i9) []
-        jump(p0, i22)
+        jump(p0, i22, p1)
         """
         expected = """
-        [p0, i22]
+        [p0, i22, p1]
         call(i22, descr=nonwritedescr)
-        jump(p0, i22)
+        i3 = strlen(p1) # Should be killed by backend
+        jump(p0, i22, p1)
         """
         self.optimize_loop(ops, expected, expected_short=short)
 
@@ -6817,12 +6820,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i22 = unicodegetitem(p1, 7, descr=<GcPtrArrayDescr>)
         i8 = int_ge(i22, 0)
         guard_true(i8) []
-        jump(p0, i22)
+        jump(p0, i22, p1)
         """
         expected = """
-        [p0, i22]
+        [p0, i22, p1]
         call(i22, descr=nonwritedescr)
-        jump(p0, i22)
+        i3 = unicodelen(p1) # Should be killed by backend        
+        jump(p0, i22, p1)
         """
         self.optimize_loop(ops, expected, expected_short=short)
         
@@ -6878,7 +6882,26 @@ class OptimizeOptTest(BaseTestWithUnroll):
         call(p1, descr=writeadescr)
         jump(p1, p1)
         """
-        self.optimize_loop(ops, expected)        
+        self.optimize_loop(ops, expected)
+
+    def test_value_guard_arraylen_reused(self):
+        ops = """
+        [p0, p1]
+        p10 = getfield_gc(p0, descr=nextdescr)
+        p11 = getfield_gc(p1, descr=nextdescr)
+        i1 = arraylen_gc(p10, descr=arraydescr)
+        getarrayitem_gc(p11, 1, descr=arraydescr)
+        call(i1, descr=nonwritedescr)
+        jump(p1, p0)
+        """
+        expected = """
+        [p0, p1, p10, p11]
+        i1 = arraylen_gc(p10, descr=arraydescr)
+        getarrayitem_gc(p11, 1, descr=arraydescr)
+        call(i1, descr=nonwritedescr)        
+        jump(p1, p0, p11, p10)
+        """
+        self.optimize_loop(ops, expected)
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass

@@ -2934,7 +2934,7 @@ class BasicTests:
                 i += 1
         res = self.meta_interp(f, [32])
         assert res == f(32)
-        self.check_loops(arraylen_gc=1)
+        self.check_loops(arraylen_gc=2)
         
 class TestOOtype(BasicTests, OOJitMixin):
 
@@ -3203,7 +3203,7 @@ class BaseLLtypeTests(BasicTests):
             return sa
         res = self.meta_interp(f, [32])
         assert res == f(32)
-        self.check_loops(arraylen_gc=1, everywhere=True)
+        self.check_loops(arraylen_gc=2, everywhere=True)
         
     def test_release_gil_flush_heap_cache(self):
         T = rffi.CArrayPtr(rffi.TIME_T)

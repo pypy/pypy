@@ -210,7 +210,7 @@ class UnrollOptimizer(Optimization):
                 debug_print('inputargs:       ' + args)
                 args = ", ".join([logops.repr_of_arg(arg) for arg in short_inputargs])
                 debug_print('short inputargs: ' + args)
-                self.short_boxes.debug_print(logops)            
+                self.short_boxes.debug_print(logops)
 
             # Force virtuals amoung the jump_args of the preamble to get the
             # operations needed to setup the proper state of those virtuals
@@ -238,8 +238,6 @@ class UnrollOptimizer(Optimization):
             self.optimizer.emitting_dissabled = True
             for op in inputarg_setup_ops:
                 self.optimizer.send_extra_operation(op)
-            # XXX Hack to prevent previos loop from updateing pure_operations
-            self.optimizer.pure_operations = args_dict()
             seen = {}
             for op in self.short_boxes.operations():
                 self.ensure_short_op_emitted(op, self.optimizer, seen)
@@ -253,6 +251,12 @@ class UnrollOptimizer(Optimization):
 
             self.optimizer.flush()
             self.optimizer.emitting_dissabled = False
+
+            # XXX Hack to prevent the arraylen/strlen/unicodelen ops generated
+            #     by value.make_guards() from ending up in pure_operations
+            for key, op in self.optimizer.pure_operations.items():
+                if not self.short_boxes.has_producer(op.result):
+                    del self.optimizer.pure_operations[key]
 
             initial_inputargs_len = len(inputargs)
             self.inliner = Inliner(loop.inputargs, jump_args)
@@ -375,7 +379,6 @@ class UnrollOptimizer(Optimization):
             self.optimizer.send_extra_operation(newop)
         
         self.optimizer.flush()
-                    
 
         i = j = 0
         while i < len(self.optimizer.newoperations) or j < len(jumpargs):
