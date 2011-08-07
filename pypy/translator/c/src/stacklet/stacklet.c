@@ -315,6 +315,8 @@ char **_stacklet_translate_pointer(stacklet_handle context, char **ptr)
 {
   char *p = (char *)ptr;
   long delta = p - context->stack_start;
+  assert(((unsigned long)delta) <
+         (unsigned long)(context->stack_stop - context->stack_start));
   if (((unsigned long)delta) < ((unsigned long)context->stack_saved)) {
     /* a pointer to a saved away word */
     char *c = (char *)(context + 1);
