@@ -15,7 +15,7 @@ def get_stackletrootwalker():
         return _stackletrootwalker
 
     from pypy.rpython.memory.gctransform.asmgcroot import (
-        WALKFRAME, CALLEE_SAVED_REGS, sizeofaddr)
+        WALKFRAME, CALLEE_SAVED_REGS, INDEX_OF_EBP, sizeofaddr)
 
     assert _asmstackrootwalker is not None, "should have been monkey-patched"
     basewalker = _asmstackrootwalker
@@ -83,11 +83,15 @@ def get_stackletrootwalker():
                 # not really a loop, but kept this way for similarity
                 # with asmgcroot:
                 callee = self.curframe
+                ebp_in_caller = callee.regs_stored_at[INDEX_OF_EBP]
+                ebp_in_caller = self.translateptr(ebp_in_caller)
+                ebp_in_caller = ebp_in_caller.address[0]
                 while True:
                     location = basewalker._shape_decompressor.next()
                     if location == 0:
                         break
-                    addr = basewalker.getlocation(callee, location)
+                    addr = basewalker.getlocation(callee, ebp_in_caller,
+                                                  location)
                     # yield the translated addr of the next GCREF in the stack
                     return self.translateptr(addr)
                 #
@@ -96,12 +100,15 @@ def get_stackletrootwalker():
                 reg = CALLEE_SAVED_REGS - 1
                 while reg >= 0:
                     location = basewalker._shape_decompressor.next()
-                    addr = basewalker.getlocation(callee, location)
+                    addr = basewalker.getlocation(callee, ebp_in_caller,
+                                                  location)
                     caller.regs_stored_at[reg] = addr   # non-translated
                     reg -= 1
 
                 location = basewalker._shape_decompressor.next()
-                caller.frame_address = basewalker.getlocation(callee, location)
+                caller.frame_address = basewalker.getlocation(callee,
+                                                              ebp_in_caller,
+                                                              location)
                 # ^^^ non-translated
                 if caller.frame_address == llmemory.NULL:
                     return self.teardown()    # completely done with this stack
