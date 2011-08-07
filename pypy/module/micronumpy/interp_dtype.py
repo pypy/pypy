@@ -41,11 +41,14 @@ class LowLevelDtype(object):
         return rffi.cast(VOID_TP, storage)
 
     def unerase(self, storage):
-        return rffi.cast(lltype.Ptr(self.TP), storage)
+        return rffi.cast(self.TP, storage)
+
+    def unwrap(self, space, w_item):
+        raise NotImplementedError
 
     def malloc(self, size):
         # XXX find out why test_zjit explodes with tracking of allocations
-        return self.erase(lltype.malloc(self.TP, size,
+        return self.erase(lltype.malloc(self.TP.TO, size,
             zero=True, flavor="raw",
             track_allocation=False, add_memory_pressure=True
         ))
@@ -59,35 +62,41 @@ class LowLevelDtype(object):
     def setitem_w(self, space, storage, i, w_item):
         self.setitem(storage, i, self.unwrap(space, w_item))
 
+def make_array_ptr(T):
+    return lltype.Ptr(lltype.Array(T, hints={"nolength": True}))
 
-VOID_TP = lltype.Ptr(lltype.Array(lltype.Void, hints={"nolength": True}))
+VOID_TP = make_array_ptr(lltype.Void)
 
 class W_Int8Dtype(W_Dtype, LowLevelDtype):
     num = 1
     kind = SIGNEDLTR
     aliases = ["int8"]
+    TP = make_array_ptr(rffi.SIGNEDCHAR)
 
 class W_Int32Dtype(W_Dtype, LowLevelDtype):
     num = 5
     kind = SIGNEDLTR
     aliases = ["i"]
+    TP = make_array_ptr(rffi.INT)
 
 class W_Int64Dtype(W_Dtype, LowLevelDtype):
     num = 9
     applevel_types = ["long"]
+    TP = make_array_ptr(rffi.LONGLONG)
 
 class W_LongDtype(W_Dtype, LowLevelDtype):
     num = 7
     kind = SIGNEDLTR
     aliases = ["l"]
     applevel_types = ["int"]
+    TP = make_array_ptr(rffi.LONG)
 
 class W_BoolDtype(W_Dtype, LowLevelDtype):
     num = 0
     name = "bool"
     aliases = ["?"]
     applevel_types = ["bool"]
-    TP = lltype.Array(lltype.Bool, hints={'nolength': True})
+    TP = make_array_ptr(lltype.Bool)
 
     def unwrap(self, space, w_item):
         return space.is_true(w_item)
@@ -95,7 +104,7 @@ class W_BoolDtype(W_Dtype, LowLevelDtype):
 class W_Float64Dtype(W_Dtype, LowLevelDtype):
     num = 12
     applevel_types = ["float"]
-    TP = lltype.Array(lltype.Float, hints={'nolength': True})
+    TP = make_array_ptr(lltype.Float)
 
     def unwrap(self, space, w_item):
         return space.float_w(space.float(w_item))
