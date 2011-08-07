@@ -38,7 +38,7 @@ class LowLevelDtype(object):
     _mixin_ = True
 
     def erase(self, storage):
-        return rffi.cast(rffi.VOIDP, storage)
+        return rffi.cast(VOID_TP, storage)
     def unerase(self, storage):
         return rffi.cast(self.TP, storage)
 
@@ -58,6 +58,7 @@ class LowLevelDtype(object):
     def setitem_w(self, space, storage, i, w_item):
         self.setitem(storage, i, self.unwrap(space, w_item))
 
+VOID_TP = lltype.Array(lltype.Void, hints={'nolength': True})
 
 class W_Int8Dtype(W_Dtype, LowLevelDtype):
     num = 1
