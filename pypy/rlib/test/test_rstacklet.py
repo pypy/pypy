@@ -1,3 +1,4 @@
+import gc
 from pypy.rlib import rstacklet, rrandom
 from pypy.rlib.rarithmetic import intmask
 from pypy.rpython.lltypesystem import lltype, rffi
@@ -10,11 +11,12 @@ class Runner:
     config = None
 
     def init(self, seed):
-        self.thrd = rstacklet.newthread()
+        self.sthread = rstacklet.StackletThread(self.config)
         self.random = rrandom.Random(seed)
 
     def done(self):
-        rstacklet.deletethread(self.thrd)
+        self.sthread = None
+        gc.collect(); gc.collect(); gc.collect()
 
     TESTS = []
     def here_is_a_test(fn, TESTS=TESTS):
@@ -24,10 +26,9 @@ class Runner:
     @here_is_a_test
     def test_new(self):
         print 'start'
-        h = rstacklet.new(self.config, self.thrd, empty_callback,
-                          rffi.cast(rffi.VOIDP, 123))
+        h = self.sthread.new(empty_callback, rffi.cast(rffi.VOIDP, 123))
         print 'end', h
-        assert rstacklet.is_empty_handle(h)
+        assert self.sthread.is_empty_handle(h)
 
     def nextstatus(self, nextvalue):
         print 'expected nextvalue to be %d, got %d' % (nextvalue,
@@ -38,14 +39,14 @@ class Runner:
     @here_is_a_test
     def test_simple_switch(self):
         self.status = 0
-        h = rstacklet.new(self.config, self.thrd, switchbackonce_callback,
-                          rffi.cast(rffi.VOIDP, 321))
-        assert not rstacklet.is_empty_handle(h)
+        h = self.sthread.new(switchbackonce_callback,
+                             rffi.cast(rffi.VOIDP, 321))
+        assert not self.sthread.is_empty_handle(h)
         self.nextstatus(2)
-        h = rstacklet.switch(self.config, runner.thrd, h)
+        h = self.sthread.switch(h)
         self.nextstatus(4)
         print 'end', h
-        assert rstacklet.is_empty_handle(h)
+        assert self.sthread.is_empty_handle(h)
 
     @here_is_a_test
     def test_various_depths(self):
@@ -74,7 +75,7 @@ class FooObj:
 class Task:
     def __init__(self, n):
         self.n = n
-        self.h = lltype.nullptr(rstacklet.handle.TO)
+        self.h = runner.sthread.get_null_handle()
         self.lst = []
 
     def withdepth(self, d):
@@ -108,15 +109,14 @@ class Task:
             if not task.h:
                 # start a new stacklet
                 print "NEW", n
-                h = rstacklet.new(runner.config, runner.thrd,
-                                  variousstackdepths_callback,
-                                  rffi.cast(rffi.VOIDP, n))
+                h = runner.sthread.new(variousstackdepths_callback,
+                                       rffi.cast(rffi.VOIDP, n))
             else:
                 # switch to this stacklet
                 print "switch to", n
                 h = task.h
-                task.h = lltype.nullptr(rstacklet.handle.TO)
-                h = rstacklet.switch(runner.config, runner.thrd, h)
+                task.h = runner.sthread.get_null_handle()
+                h = runner.sthread.switch(h)
 
             print "back in self.n = %d, coming from %d" % (self.n,
                                                            runner.comefrom)
@@ -131,7 +131,7 @@ class Task:
                 assert not task.h
                 task.h = h
             else:
-                assert rstacklet.is_empty_handle(h)
+                assert runner.sthread.is_empty_handle(h)
             runner.comefrom = -1
             runner.gointo = -1
         assert (res & (res-1)) == 0   # to prevent a tail-call to withdepth()
@@ -150,10 +150,10 @@ def switchbackonce_callback(h, arg):
     print 'in switchbackonce_callback:', h, arg
     assert rffi.cast(lltype.Signed, arg) == 321
     runner.nextstatus(1)
-    assert not rstacklet.is_empty_handle(h)
-    h = rstacklet.switch(runner.config, runner.thrd, h)
+    assert not runner.sthread.is_empty_handle(h)
+    h = runner.sthread.switch(h)
     runner.nextstatus(3)
-    assert not rstacklet.is_empty_handle(h)
+    assert not runner.sthread.is_empty_handle(h)
     return h
 
 def variousstackdepths_callback(h, arg):
@@ -167,7 +167,7 @@ def variousstackdepths_callback(h, arg):
     assert 0 <= runner.comefrom < 10
     task = runner.tasks[runner.comefrom]
     assert not task.h
-    assert bool(h) and not rstacklet.is_empty_handle(h)
+    assert bool(h) and not runner.sthread.is_empty_handle(h)
     task.h = h
     runner.comefrom = -1
     runner.gointo = -1
@@ -183,8 +183,8 @@ def variousstackdepths_callback(h, arg):
         if h:
             break
 
-    assert not rstacklet.is_empty_handle(h)
-    runner.tasks[n].h = lltype.nullptr(rstacklet.handle.TO)
+    assert not runner.sthread.is_empty_handle(h)
+    runner.tasks[n].h = runner.sthread.get_null_handle()
     runner.comefrom = -42
     runner.gointo = n
     assert runner.nextstep == -1

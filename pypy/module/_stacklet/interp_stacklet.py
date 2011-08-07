@@ -1,6 +1,7 @@
 import sys
 from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rlib import rstacklet, jit
+from pypy.rlib import jit
+from pypy.rlib.rstacklet import StackletThread
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.executioncontext import ExecutionContext
@@ -8,48 +9,40 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
 
-NULLHANDLE = lltype.nullptr(rstacklet.handle.TO)
 
+class SThread(StackletThread):
 
-class SThread(object):
     def __init__(self, space, ec):
+        StackletThread.__init__(self, space.config)
         w_module = space.getbuiltinmodule('_stacklet')
         self.space = space
         self.ec = ec
         self.w_error = space.getattr(w_module, space.wrap('error'))
         self.pending_exception = None
         self.main_stacklet = None
-        self.thrd = rstacklet.newthread()
-        if not self.thrd:
-            raise MemoryError
 
     def __del__(self):
-        thrd = self.thrd
-        if thrd:
-            if self.main_stacklet is not None:
-                self.main_stacklet.__del__()
-            self.thrd = lltype.nullptr(rstacklet.thread_handle.TO)
-            rstacklet.deletethread(thrd)
+        if self.main_stacklet is not None:
+            self.main_stacklet.__del__()
+        StackletThread.__del__(self)
 
     def new_stacklet_object(self, h):
-        if self.pending_exception is not None:
+        if self.pending_exception is None:
+            if self.is_empty_handle(h):
+                return self.space.w_None
+            else:
+                return self.space.wrap(W_Stacklet(self, h))
+        else:
             e = self.pending_exception
             self.pending_exception = None
+            if not self.is_empty_handle(h):
+                self.destroy(h)
             if we_are_translated():
                 raise e
             else:
                 tb = self.pending_tb
                 del self.pending_tb
                 raise e.__class__, e, tb
-        if not h:
-            start_state.sthread = None
-            start_state.w_callable = None
-            start_state.args = None
-            raise MemoryError
-        elif rstacklet.is_empty_handle(h):
-            return self.space.w_None
-        else:
-            return self.space.wrap(W_Stacklet(self, h))
 
 ExecutionContext.stacklet_thread = None
 
@@ -62,14 +55,13 @@ class W_Stacklet(Wrappable):
     def __del__(self):
         h = self.h
         if h:
-            self.h = NULLHANDLE
-            space = self.sthread.space
-            rstacklet.destroy(space.config, self.sthread.thrd, h)
+            self.h = self.get_null_handle()
+            self.sthread.destroy(h)
 
     def consume_handle(self):
         h = self.h
         if h:
-            self.h = NULLHANDLE
+            self.h = self.get_null_handle()
             if self is self.sthread.main_stacklet:
                 self.sthread.main_stacklet = None
             return h
@@ -84,7 +76,7 @@ class W_Stacklet(Wrappable):
         sthread = self.sthread
         ec = sthread.ec
         saved_frame_top = ec.topframeref
-        h = rstacklet.switch(space.config, sthread.thrd, h)
+        h = sthread.switch(h)
         ec.topframeref = saved_frame_top
         return sthread.new_stacklet_object(h)
 
@@ -148,7 +140,6 @@ def stacklet_new(space, w_callable, __args__):
     start_state.args = __args__
     saved_frame_top = ec.topframeref
     ec.topframeref = jit.vref_None
-    h = rstacklet.new(space.config, sthread.thrd, new_stacklet_callback,
-                      lltype.nullptr(rffi.VOIDP.TO))
+    h = sthread.new(new_stacklet_callback)
     ec.topframeref = saved_frame_top
     return sthread.new_stacklet_object(h)
