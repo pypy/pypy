@@ -1,5 +1,5 @@
 import sys
-from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rpython.lltypesystem import lltype
 from pypy.rlib import jit
 from pypy.rlib.rstacklet import StackletThread
 from pypy.rlib.objectmodel import we_are_translated
@@ -55,13 +55,13 @@ class W_Stacklet(Wrappable):
     def __del__(self):
         h = self.h
         if h:
-            self.h = self.get_null_handle()
+            self.h = self.sthread.get_null_handle()
             self.sthread.destroy(h)
 
     def consume_handle(self):
         h = self.h
         if h:
-            self.h = self.get_null_handle()
+            self.h = self.sthread.get_null_handle()
             if self is self.sthread.main_stacklet:
                 self.sthread.main_stacklet = None
             return h
@@ -76,8 +76,10 @@ class W_Stacklet(Wrappable):
         sthread = self.sthread
         ec = sthread.ec
         saved_frame_top = ec.topframeref
-        h = sthread.switch(h)
-        ec.topframeref = saved_frame_top
+        try:
+            h = sthread.switch(h)
+        finally:
+            ec.topframeref = saved_frame_top
         return sthread.new_stacklet_object(h)
 
     def is_pending(self, space):
@@ -125,7 +127,7 @@ def new_stacklet_callback(h, arg):
             main_stacklet_handle = h
         else:
             main_stacklet_handle = sthread.main_stacklet.h
-            sthread.main_stacklet.h = NULLHANDLE
+            sthread.main_stacklet.h = sthread.get_null_handle()
             sthread.main_stacklet = None
         assert main_stacklet_handle
         return main_stacklet_handle
@@ -139,7 +141,9 @@ def stacklet_new(space, w_callable, __args__):
     start_state.w_callable = w_callable
     start_state.args = __args__
     saved_frame_top = ec.topframeref
-    ec.topframeref = jit.vref_None
-    h = sthread.new(new_stacklet_callback)
-    ec.topframeref = saved_frame_top
+    try:
+        ec.topframeref = jit.vref_None
+        h = sthread.new(new_stacklet_callback)
+    finally:
+        ec.topframeref = saved_frame_top
     return sthread.new_stacklet_object(h)

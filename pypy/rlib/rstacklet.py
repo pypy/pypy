@@ -1,5 +1,5 @@
 from pypy.rlib import _rffi_stacklet as _c
-from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rpython.lltypesystem import lltype, llmemory
 
 
 class StackletThread(object):
@@ -16,7 +16,7 @@ class StackletThread(object):
             self._thrd = lltype.nullptr(_c.thread_handle.TO)
             _c.deletethread(thrd)
 
-    def new(self, callback, arg=lltype.nullptr(rffi.VOIDP.TO)):
+    def new(self, callback, arg=llmemory.NULL):
         return self._gcrootfinder.new(self._thrd, callback, arg)
     new._annspecialcase_ = 'specialize:arg(1)'
 
