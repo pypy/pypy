@@ -279,8 +279,8 @@ stacklet_handle stacklet_new(stacklet_thread_handle thrd,
 {
     long stackmarker;
     assert((char *)NULL < (char *)&stackmarker);
-    if (thrd->g_current_stack_stop < (char *)&stackmarker)
-        thrd->g_current_stack_stop = (char *)&stackmarker;
+    if (thrd->g_current_stack_stop <= (char *)&stackmarker)
+        thrd->g_current_stack_stop = ((char *)&stackmarker) + 1;
 
     thrd->g_current_stack_marker = (char *)&stackmarker;
     _stacklet_initialstub(thrd, run, run_arg);
@@ -291,8 +291,8 @@ stacklet_handle stacklet_switch(stacklet_thread_handle thrd,
                                 stacklet_handle target)
 {
     long stackmarker;
-    if (thrd->g_current_stack_stop < (char *)&stackmarker)
-        thrd->g_current_stack_stop = (char *)&stackmarker;
+    if (thrd->g_current_stack_stop <= (char *)&stackmarker)
+        thrd->g_current_stack_stop = ((char *)&stackmarker) + 1;
 
     thrd->g_target = target;
     _stacklet_switchstack(g_save_state, g_restore_state, thrd);
@@ -315,12 +315,18 @@ char **_stacklet_translate_pointer(stacklet_handle context, char **ptr)
 {
   char *p = (char *)ptr;
   long delta = p - context->stack_start;
-  assert(((unsigned long)delta) <
-         (unsigned long)(context->stack_stop - context->stack_start));
   if (((unsigned long)delta) < ((unsigned long)context->stack_saved)) {
-    /* a pointer to a saved away word */
-    char *c = (char *)(context + 1);
-    return (char **)(c + delta);
+      /* a pointer to a saved away word */
+      char *c = (char *)(context + 1);
+      return (char **)(c + delta);
+  }
+  if (((unsigned long)delta) >=
+      (unsigned long)(context->stack_stop - context->stack_start)) {
+      /* out-of-stack pointer!  it's only ok if we are the main stacklet
+         and we are reading past the end, because the main stacklet's
+         stack stop is not exactly known. */
+      assert(delta >= 0);
+      assert(((long)context->stack_stop) & 1);
   }
   return ptr;
 }
