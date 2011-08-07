@@ -1,17 +1,17 @@
+import math
+
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
+from pypy.module.micronumpy import interp_ufuncs, interp_dtype
 from pypy.module.micronumpy.interp_support import Signature
-from pypy.module.micronumpy import interp_ufuncs
 from pypy.objspace.std.floatobject import float2string as float2string_orig
 from pypy.rlib import jit
 from pypy.rlib.rfloat import DTSF_STR_PRECISION
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.sourcetools import func_with_new_name
-import math
 
-TP = lltype.Array(lltype.Float, hints={'nolength': True})
 
 numpy_driver = jit.JitDriver(greens = ['signature'],
                              reds = ['result_size', 'i', 'self', 'result'])
@@ -44,6 +44,20 @@ class BaseArray(Wrappable):
         for arr in self.invalidates:
             arr.force_if_needed()
         del self.invalidates[:]
+
+    def descr__new__(space, w_subtype, w_size_or_iterable, w_dtype=NoneNotWrapped):
+        if w_dtype is None:
+            w_dtype = space.w_float
+        dtype = space.interp_w(interp_dtype.W_Dtype,
+            space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
+        )
+        l = space.listview(w_size_or_iterable)
+        arr = SingleDimArray(len(l), dtype=dtype)
+        i = 0
+        for w_elem in l:
+            dtype.setitem_w(space, arr.storage, i, w_elem)
+            i += 1
+        return arr
 
     def _unaryop_impl(w_ufunc):
         def impl(self, space):
@@ -206,7 +220,7 @@ class BaseArray(Wrappable):
         raise NotImplementedError
 
     def descr_copy(self, space):
-        return new_numarray(space, self)
+        return space.call_function(space.gettypefor(BaseArray), self)
 
     def descr_get_shape(self, space):
         return space.newtuple([self.descr_len(space)])
@@ -242,18 +256,18 @@ class BaseArray(Wrappable):
                                                               self.find_size())
         if step == 0:
             # Single index
-            self.get_concrete().setitem(start, space.float_w(w_value))
+            self.get_concrete().setitem(space, start, w_value)
         else:
             concrete = self.get_concrete()
             if isinstance(w_value, BaseArray):
-                # for now we just copy if setting part of an array from 
+                # for now we just copy if setting part of an array from
                 # part of itself. can be improved.
                 if (concrete.get_root_storage() ==
                     w_value.get_concrete().get_root_storage()):
-                    w_value = new_numarray(space, w_value)
+                    w_value = space.call_function(space.gettypefor(BaseArray), w_value)
             else:
                 w_value = convert_to_array(space, w_value)
-            concrete.setslice(space, start, stop, step, 
+            concrete.setslice(space, start, stop, step,
                                                slice_length, w_value)
 
     def descr_mean(self, space):
@@ -266,7 +280,7 @@ class BaseArray(Wrappable):
             slice_driver1.jit_merge_point(signature=source.signature,
                     step=step, stop=stop, i=i, j=j, source=source,
                     dest=dest)
-            dest.storage[i] = source.eval(j)
+            dest.dtype.setitem(dest.storage, i, source.eval(j))
             j += 1
             i += step
 
@@ -277,7 +291,7 @@ class BaseArray(Wrappable):
             slice_driver2.jit_merge_point(signature=source.signature,
                     step=step, stop=stop, i=i, j=j, source=source,
                     dest=dest)
-            dest.storage[i] = source.eval(j)
+            dest.dtype.setitem(dest.storage, i, source.eval(j))
             j += 1
             i += step
 
@@ -286,7 +300,7 @@ def convert_to_array (space, w_obj):
         return w_obj
     elif space.issequence_w(w_obj):
         # Convert to array.
-        return new_numarray(space, w_obj)
+        return space.call_function(space.gettypefor(BaseArray), w_obj)
     else:
         # If it's a scalar
         return FloatWrapper(space.float_w(w_obj))
@@ -303,6 +317,9 @@ class FloatWrapper(BaseArray):
         self.float_value = float_value
 
     def find_size(self):
+        raise ValueError
+
+    def find_dtype(self):
         raise ValueError
 
     def eval(self, i):
@@ -325,12 +342,12 @@ class VirtualArray(BaseArray):
         i = 0
         signature = self.signature
         result_size = self.find_size()
-        result = SingleDimArray(result_size)
+        result = SingleDimArray(result_size, self.find_dtype())
         while i < result_size:
             numpy_driver.jit_merge_point(signature=signature,
                                          result_size=result_size, i=i,
                                          self=self, result=result)
-            result.storage[i] = self.eval(i)
+            result.dtype.setitem(result.storage, i, self.eval(i))
             i += 1
         return result
 
@@ -354,6 +371,11 @@ class VirtualArray(BaseArray):
             return self.forced_result.find_size()
         return self._find_size()
 
+    def find_dtype(self):
+        if self.forced_result is not None:
+            return self.forced_result.find_dtype()
+        return self._find_dtype()
+
 
 class Call1(VirtualArray):
     _immutable_fields_ = ["function", "values"]
@@ -368,6 +390,9 @@ class Call1(VirtualArray):
 
     def _find_size(self):
         return self.values.find_size()
+
+    def _find_dtype(self):
+        return self.values.find_dtype()
 
     def _eval(self, i):
         return self.function(self.values.eval(i))
@@ -399,6 +424,27 @@ class Call2(VirtualArray):
         lhs, rhs = self.left.eval(i), self.right.eval(i)
         return self.function(lhs, rhs)
 
+    def _find_dtype(self):
+        lhs_dtype = None
+        rhs_dtype = None
+        try:
+            lhs_dtype = self.left.find_dtype()
+        except ValueError:
+            pass
+        try:
+            rhs_dtype = self.right.find_dtype()
+        except ValueError:
+            pass
+        if lhs_dtype is not None and rhs_dtype is not None:
+            assert lhs_dtype is rhs_dtype
+            return lhs_dtype
+        elif lhs_dtype is not None:
+            return lhs_dtype
+        elif rhs_dtype is not None:
+            return rhs_dtype
+        else:
+            raise ValueError
+
 class ViewArray(BaseArray):
     """
     Class for representing views of arrays, they will reflect changes of parent
@@ -422,9 +468,9 @@ class ViewArray(BaseArray):
     def eval(self, i):
         return self.parent.eval(self.calc_index(i))
 
-    @unwrap_spec(item=int, value=float)
-    def setitem(self, item, value):
-        return self.parent.setitem(self.calc_index(item), value)
+    @unwrap_spec(item=int)
+    def setitem(self, space, item, w_value):
+        return self.parent.setitem(space, self.calc_index(item), w_value)
 
     def descr_len(self, space):
         return space.wrap(self.find_size())
@@ -456,6 +502,9 @@ class SingleDimSlice(ViewArray):
     def find_size(self):
         return self.size
 
+    def find_dtype(self):
+        return self.parent.find_dtype()
+
     def setslice(self, space, start, stop, step, slice_length, arr):
         start = self.calc_index(start)
         if stop != -1:
@@ -473,13 +522,11 @@ class SingleDimSlice(ViewArray):
 class SingleDimArray(BaseArray):
     signature = Signature()
 
-    def __init__(self, size):
+    def __init__(self, size, dtype):
         BaseArray.__init__(self)
         self.size = size
-        self.storage = lltype.malloc(TP, size, zero=True,
-                                     flavor='raw', track_allocation=False,
-                                     add_memory_pressure=True)
-        # XXX find out why test_zjit explodes with trackign of allocations
+        self.dtype = dtype
+        self.storage = dtype.malloc(size)
 
     def get_concrete(self):
         return self
@@ -490,15 +537,18 @@ class SingleDimArray(BaseArray):
     def find_size(self):
         return self.size
 
+    def find_dtype(self):
+        return self.dtype
+
     def eval(self, i):
-        return self.storage[i]
+        return self.dtype.getitem(self.storage, i)
 
     def descr_len(self, space):
         return space.wrap(self.size)
 
-    def setitem(self, item, value):
+    def setitem(self, space, item, w_value):
         self.invalidated()
-        self.storage[item] = value
+        self.dtype.setitem_w(space, self.storage, item, w_value)
 
     def setslice(self, space, start, stop, step, slice_length, arr):
         if step > 0:
@@ -509,32 +559,20 @@ class SingleDimArray(BaseArray):
     def __del__(self):
         lltype.free(self.storage, flavor='raw', track_allocation=False)
 
-def new_numarray(space, w_size_or_iterable):
-    l = space.listview(w_size_or_iterable)
-    arr = SingleDimArray(len(l))
-    i = 0
-    for w_elem in l:
-        arr.storage[i] = space.float_w(space.float(w_elem))
-        i += 1
-    return arr
-
-def descr_new_numarray(space, w_type, w_size_or_iterable):
-    return space.wrap(new_numarray(space, w_size_or_iterable))
-
 @unwrap_spec(size=int)
 def zeros(space, size):
-    return space.wrap(SingleDimArray(size))
+    return space.wrap(SingleDimArray(size, dtype=space.fromcache(interp_dtype.W_Float64Dtype)))
 
 @unwrap_spec(size=int)
 def ones(space, size):
-    arr = SingleDimArray(size)
+    arr = SingleDimArray(size, dtype=space.fromcache(interp_dtype.W_Float64Dtype))
     for i in xrange(size):
-        arr.storage[i] = 1.0
+        arr.dtype.setitem(arr.storage, i, 1.0)
     return space.wrap(arr)
 
 BaseArray.typedef = TypeDef(
     'numarray',
-    __new__ = interp2app(descr_new_numarray),
+    __new__ = interp2app(BaseArray.descr__new__.im_func),
 
     copy = interp2app(BaseArray.descr_copy),
     shape = GetSetProperty(BaseArray.descr_get_shape),

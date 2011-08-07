@@ -1,11 +1,13 @@
 from pypy.jit.metainterp.test.support import LLJitMixin
-from pypy.rpython.test.test_llinterp import interpret
+from pypy.module.micronumpy.compile import numpy_compile
+from pypy.module.micronumpy.interp_dtype import W_Float64Dtype
 from pypy.module.micronumpy.interp_numarray import (SingleDimArray, Signature,
     FloatWrapper, Call2, SingleDimSlice, add, mul, Call1)
 from pypy.module.micronumpy.interp_ufuncs import negative
-from pypy.module.micronumpy.compile import numpy_compile
-from pypy.rlib.objectmodel import specialize
 from pypy.rlib.nonconst import NonConstant
+from pypy.rlib.objectmodel import specialize
+from pypy.rpython.test.test_llinterp import interpret
+
 
 class FakeSpace(object):
     w_ValueError = None
@@ -23,12 +25,14 @@ class FakeSpace(object):
 class TestNumpyJIt(LLJitMixin):
     def setup_class(cls):
         cls.space = FakeSpace()
+        cls.float64_dtype = W_Float64Dtype(cls.space)
 
     def test_add(self):
         def f(i):
-            ar = SingleDimArray(i)
+            ar = SingleDimArray(i, dtype=self.float64_dtype)
             v = Call2(add, ar, ar, Signature())
-            return v.get_concrete().storage[3]
+            concrete = v.get_concrete()
+            return concrete.dtype.getitem(concrete.storage, 3)
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
         self.check_loops({'getarrayitem_raw': 2, 'float_add': 1,
@@ -40,7 +44,7 @@ class TestNumpyJIt(LLJitMixin):
         def f(i):
             ar = SingleDimArray(i)
             v = Call2(add, ar, FloatWrapper(4.5), Signature())
-            return v.get_concrete().storage[3]
+            return v.dtype.getitem(v.get_concrete().storage, 3)
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
         self.check_loops({"getarrayitem_raw": 1, "float_add": 1,
@@ -88,7 +92,7 @@ class TestNumpyJIt(LLJitMixin):
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
         self.check_loops({"getarrayitem_raw": 2, "float_add": 1,
                           "float_gt": 1, "int_add": 1,
-                          "int_lt": 1, "guard_true": 1, 
+                          "int_lt": 1, "guard_true": 1,
                           "guard_false": 1, "jump": 1})
         assert result == f(5)
 
@@ -269,10 +273,10 @@ class TestTranslation(object):
         assert x.size == 10
         assert x.storage[0] == 0
         assert x.storage[1] == ((1 + 1) * 1.2) / 1.2 - 1
-    
+
     def test_translation(self):
         # we import main to check if the target compiles
         from pypy.translator.goal.targetnumpystandalone import main
         from pypy.rpython.annlowlevel import llstr
-        
+
         interpret(main, [llstr('af+'), 100])
