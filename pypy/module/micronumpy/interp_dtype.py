@@ -67,6 +67,16 @@ def make_array_ptr(T):
 
 VOID_TP = make_array_ptr(lltype.Void)
 
+class W_BoolDtype(LowLevelDtype, W_Dtype):
+    num = 0
+    name = "bool"
+    aliases = ["?"]
+    applevel_types = ["bool"]
+    TP = make_array_ptr(lltype.Bool)
+
+    def unwrap(self, space, w_item):
+        return space.is_true(w_item)
+
 class W_Int8Dtype(LowLevelDtype, W_Dtype):
     num = 1
     kind = SIGNEDLTR
@@ -79,11 +89,6 @@ class W_Int32Dtype(LowLevelDtype, W_Dtype):
     aliases = ["i"]
     TP = make_array_ptr(rffi.INT)
 
-class W_Int64Dtype(LowLevelDtype, W_Dtype):
-    num = 9
-    applevel_types = ["long"]
-    TP = make_array_ptr(rffi.LONGLONG)
-
 class W_LongDtype(LowLevelDtype, W_Dtype):
     num = 7
     kind = SIGNEDLTR
@@ -91,15 +96,10 @@ class W_LongDtype(LowLevelDtype, W_Dtype):
     applevel_types = ["int"]
     TP = make_array_ptr(rffi.LONG)
 
-class W_BoolDtype(LowLevelDtype, W_Dtype):
-    num = 0
-    name = "bool"
-    aliases = ["?"]
-    applevel_types = ["bool"]
-    TP = make_array_ptr(lltype.Bool)
-
-    def unwrap(self, space, w_item):
-        return space.is_true(w_item)
+class W_Int64Dtype(LowLevelDtype, W_Dtype):
+    num = 9
+    applevel_types = ["long"]
+    TP = make_array_ptr(rffi.LONGLONG)
 
 class W_Float64Dtype(LowLevelDtype, W_Dtype):
     num = 12
@@ -111,7 +111,7 @@ class W_Float64Dtype(LowLevelDtype, W_Dtype):
 
 
 ALL_DTYPES = [
-    W_Int8Dtype, W_Int32Dtype, W_Int64Dtype, W_LongDtype, W_BoolDtype, W_Float64Dtype
+    W_BoolDtype, W_Int8Dtype, W_Int32Dtype, W_LongDtype, W_Int64Dtype, W_Float64Dtype
 ]
 
 dtypes_by_alias = unrolling_iterable([
