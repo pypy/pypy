@@ -2,7 +2,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rpython.lltypesystem import lltype, llmemory
 
 
 SIGNEDLTR = "i"
@@ -38,9 +38,9 @@ class LowLevelDtype(object):
     _mixin_ = True
 
     def erase(self, storage):
-        return rffi.cast(VOID_TP, storage)
+        return llmemory.cast_ptr_to_adr(storage)
     def unerase(self, storage):
-        return rffi.cast(self.TP, storage)
+        return llmemory.cast_adr_to_ptr(storage, lltype.Ptr(self.TP))
 
     def malloc(self, size):
         # XXX find out why test_zjit explodes with tracking of allocations
@@ -57,8 +57,6 @@ class LowLevelDtype(object):
 
     def setitem_w(self, space, storage, i, w_item):
         self.setitem(storage, i, self.unwrap(space, w_item))
-
-VOID_TP = lltype.Array(lltype.Void, hints={'nolength': True})
 
 class W_Int8Dtype(W_Dtype, LowLevelDtype):
     num = 1
