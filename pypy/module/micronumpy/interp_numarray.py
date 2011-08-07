@@ -300,7 +300,9 @@ def convert_to_array (space, w_obj):
         return w_obj
     elif space.issequence_w(w_obj):
         # Convert to array.
-        return space.call_function(space.gettypefor(BaseArray), w_obj)
+        w_obj = space.call_function(space.gettypefor(BaseArray), w_obj)
+        assert isinstance(w_obj, BaseArray)
+        return w_obj
     else:
         # If it's a scalar
         return FloatWrapper(space.float_w(w_obj))
