@@ -1,13 +1,14 @@
 from pypy.rpython.test.test_llinterp import interpret
-from pypy.rpython.lltypesystem import lltype, llmemory, rstr
+from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.annlowlevel import llhelper
-from pypy.jit.metainterp.warmstate import wrap, unwrap
+from pypy.jit.metainterp.warmstate import wrap, unwrap, specialize_value
 from pypy.jit.metainterp.warmstate import equal_whatever, hash_whatever
 from pypy.jit.metainterp.warmstate import WarmEnterState, JitCell
 from pypy.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr
 from pypy.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr
 from pypy.jit.codewriter import longlong
+from pypy.rlib.rarithmetic import r_singlefloat
 
 def boxfloat(x):
     return BoxFloat(longlong.getfloatstorage(x))
@@ -40,6 +41,28 @@ def test_wrap():
     assert _is(wrap(None, 42, in_const_box=True), ConstInt(42))
     assert _is(wrap(None, 42.5, in_const_box=True), constfloat(42.5))
     assert _is(wrap(None, p, in_const_box=True), ConstPtr(po))
+    if longlong.supports_longlong:
+        import sys
+        from pypy.rlib.rarithmetic import r_longlong, r_ulonglong
+        value = r_longlong(-sys.maxint*17)
+        assert _is(wrap(None, value), BoxFloat(value))
+        assert _is(wrap(None, value, in_const_box=True), ConstFloat(value))
+        value_unsigned = r_ulonglong(-sys.maxint*17)
+        assert _is(wrap(None, value_unsigned), BoxFloat(value))
+    sfval = r_singlefloat(42.5)
+    ival = longlong.singlefloat2int(sfval)
+    assert _is(wrap(None, sfval), BoxInt(ival))
+    assert _is(wrap(None, sfval, in_const_box=True), ConstInt(ival))
+
+def test_specialize_value():
+    assert specialize_value(lltype.Char, 0x41) == '\x41'
+    if longlong.supports_longlong:
+        import sys
+        value = longlong.r_float_storage(sys.maxint*17)
+        assert specialize_value(lltype.SignedLongLong, value) == sys.maxint*17
+    sfval = r_singlefloat(42.5)
+    ival = longlong.singlefloat2int(sfval)
+    assert specialize_value(rffi.FLOAT, ival) == sfval
 
 def test_hash_equal_whatever_lltype():
     s1 = rstr.mallocstr(2)

@@ -25,6 +25,8 @@ class OptSimplify(Optimization):
         #     but it's a bit hard to implement robustly if heap.py is also run
         pass
 
+    optimize_CAST_OPAQUE_PTR = optimize_VIRTUAL_REF
+
 
 dispatch_opt = make_dispatcher_method(OptSimplify, 'optimize_',
         default=OptSimplify.emit_operation)

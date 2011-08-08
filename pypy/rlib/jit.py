@@ -1,14 +1,10 @@
-import functools
-import sys
-
 import py
-
-from pypy.rlib.nonconst import NonConstant
-from pypy.rlib.objectmodel import (CDefinedIntSymbolic, keepalive_until_here,
-    specialize)
-from pypy.rlib.unroll import unrolling_iterable
+import sys
 from pypy.rpython.extregistry import ExtRegistryEntry
-
+from pypy.rlib.objectmodel import CDefinedIntSymbolic
+from pypy.rlib.objectmodel import keepalive_until_here, specialize
+from pypy.rlib.unroll import unrolling_iterable
+from pypy.rlib.nonconst import NonConstant
 
 def elidable(func):
     """ Decorate a function as "trace-elidable". This means precisely that:
@@ -95,7 +91,7 @@ def elidable_promote(promote_args='all'):
         d = {"func": func, "hint": hint}
         exec py.code.Source("\n".join(code)).compile() in d
         result = d["f"]
-        functools.wraps(func)(result)
+        result.func_name = func.func_name + "_promote"
         return result
     return decorator
 
@@ -119,7 +115,7 @@ class Entry(ExtRegistryEntry):
         s_x = annmodel.not_const(s_x)
         access_directly = 's_access_directly' in kwds_s
         fresh_virtualizable = 's_fresh_virtualizable' in kwds_s
-        if  access_directly or fresh_virtualizable:
+        if access_directly or fresh_virtualizable:
             assert access_directly, "lone fresh_virtualizable hint"
             if isinstance(s_x, annmodel.SomeInstance):
                 from pypy.objspace.flow.model import Constant
@@ -575,7 +571,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
                 c_llname = hop.inputconst(lltype.Void, mangled_name)
                 getfield_op = self.get_getfield_op(hop.rtyper)
                 v_green = hop.genop(getfield_op, [v_red, c_llname],
-                                    resulttype = r_field)
+                                    resulttype=r_field)
                 s_green = s_red.classdef.about_attribute(fieldname)
                 assert s_green is not None
                 hop.rtyper.annotator.setbinding(v_green, s_green)

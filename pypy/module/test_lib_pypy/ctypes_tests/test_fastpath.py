@@ -1,4 +1,4 @@
-from ctypes import CDLL, POINTER, pointer, c_byte, c_int, c_char_p
+from ctypes import CDLL, POINTER, pointer, c_byte, c_int, c_char_p, CFUNCTYPE, c_void_p, c_size_t
 import sys
 import py
 from support import BaseCTypesTestChecker
@@ -45,6 +45,12 @@ class TestFastpath(BaseCTypesTestChecker):
         tf_b.restype = c_byte
         tf_b.argtypes = (c_byte,)
         assert tf_b(-126) == -42
+
+    def test_from_cfunctype(self):
+        from _ctypes import _memmove_addr
+        functype = CFUNCTYPE(c_void_p, c_void_p, c_void_p, c_size_t)
+        my_memmove = functype(_memmove_addr)
+        assert my_memmove._is_fastpath
 
     def test_undeclared_restype(self):
         # make sure we get a fresh function

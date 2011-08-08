@@ -64,7 +64,7 @@ class UnwrapSpecRecipe(object):
                 self.visit_self(el[1], *args)
             else:
                 self.visit_function(el, *args)
-        else:
+        elif isinstance(el, type):
             for typ in self.bases_order:
                 if issubclass(el, typ):
                     visit = getattr(self, "visit__%s" % (typ.__name__,))
@@ -73,6 +73,8 @@ class UnwrapSpecRecipe(object):
             else:
                 raise Exception("%s: no match for unwrap_spec element %s" % (
                     self.__class__.__name__, el))
+        else:
+            raise Exception("unable to dispatch, %s, perhaps your parameter should have started with w_?" % el)
 
     def apply_over(self, unwrap_spec, *extra):
         dispatch = self.dispatch

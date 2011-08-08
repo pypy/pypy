@@ -521,6 +521,8 @@ class LocationCodeBuilder(object):
     UCOMISD = _binaryop('UCOMISD')
     CVTSI2SD = _binaryop('CVTSI2SD')
     CVTTSD2SI = _binaryop('CVTTSD2SI')
+    CVTSD2SS = _binaryop('CVTSD2SS')
+    CVTSS2SD = _binaryop('CVTSS2SD')
     
     SQRTSD = _binaryop('SQRTSD')
 
@@ -533,6 +535,8 @@ class LocationCodeBuilder(object):
     POR   = _binaryop('POR')
     PXOR  = _binaryop('PXOR')
     PCMPEQD = _binaryop('PCMPEQD')
+
+    MOVD = _binaryop('MOVD')
 
     CALL = _relative_unaryop('CALL')
     JMP = _relative_unaryop('JMP')

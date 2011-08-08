@@ -173,6 +173,7 @@ class WarmRunnerDesc(object):
             policy = JitPolicy()
         policy.set_supports_floats(self.cpu.supports_floats)
         policy.set_supports_longlong(self.cpu.supports_longlong)
+        policy.set_supports_singlefloats(self.cpu.supports_singlefloats)
         graphs = self.codewriter.find_all_graphs(policy)
         policy.dump_unsafe_loops()
         self.check_access_directly_sanity(graphs)
@@ -283,7 +284,9 @@ class WarmRunnerDesc(object):
         auto_inline_graphs(self.translator, graphs, 0.01)
 
     def build_cpu(self, CPUClass, translate_support_code=False,
-                  no_stats=False, **kwds):
+                  no_stats=False, supports_floats=True,
+                  supports_longlong=True, supports_singlefloats=True,
+                  **kwds):
         assert CPUClass is not None
         self.opt = history.Options(**kwds)
         if no_stats:
@@ -295,6 +298,9 @@ class WarmRunnerDesc(object):
             self.annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
         cpu = CPUClass(self.translator.rtyper, self.stats, self.opt,
                        translate_support_code, gcdescr=self.gcdescr)
+        if not supports_floats:       cpu.supports_floats       = False
+        if not supports_longlong:     cpu.supports_longlong     = False
+        if not supports_singlefloats: cpu.supports_singlefloats = False
         self.cpu = cpu
 
     def build_meta_interp(self, ProfilerClass):

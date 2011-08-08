@@ -62,7 +62,7 @@ def test_relocation():
             assert mc.relocations == [5]
             expected = "\xE8" + struct.pack('<i', target - (rawstart + 5))
         elif IS_X86_64:
-            assert mc.relocations == []
+            assert mc.relocations is None
             if 0 <= target <= 0xffffffff:
                 assert length == 9
                 expected = (
