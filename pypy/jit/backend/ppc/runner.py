@@ -33,14 +33,15 @@ class PPC_64_CPU(AbstractLLCPU):
 
         # floats are not supported yet
         self.supports_floats = False
+        self.total_compiled_loops = 0
+        self.total_compiled_bridges = 0
 
     # compile a given trace
     def compile_loop(self, inputargs, operations, looptoken, log=True):
         self.saved_descr = {}
         self.patch_list = []
         self.reg_map = {}
-        self.inputargs = inputargs
-        
+
         codebuilder = PPCBuilder()
         
         self.next_free_register = 3
@@ -55,8 +56,38 @@ class PPC_64_CPU(AbstractLLCPU):
         self._walk_trace_ops(codebuilder, operations)
         self._make_epilogue(codebuilder)
 
+        f = codebuilder.assemble()
+        looptoken.ppc_code = f
+        looptoken.codebuilder = codebuilder
+        self.total_compiled_loops += 1
+        self.teardown()
+
+    def compile_bridge(self, descr, inputargs, operations, looptoken):
+        self.saved_descr = {}
+        self.patch_list = []
+        self.reg_map = {}
+
+        codebuilder = looptoken.codebuilder
+        current_pos = codebuilder.get_relative_pos()
+        offset = current_pos - descr.patch_pos
+        codebuilder.b(offset)
+        codebuilder.patch_op(descr.patch_op)
+
+        self.next_free_register = 3
+        for index, arg in enumerate(inputargs):
+            self.reg_map[arg] = self.next_free_register
+            addr = self.fail_boxes_int.get_addr_for_num(index)
+            codebuilder.load_from(self.next_free_register, addr)
+            self.next_free_register += 1
+            
+        self._walk_trace_ops(codebuilder, operations)
+        self._make_epilogue(codebuilder)
+
         f = codebuilder.assemble(True)
         looptoken.ppc_code = f
+        looptoken.codebuilder = codebuilder
+
+        self.total_compiled_bridges += 1
         self.teardown()
 
     def _make_epilogue(self, codebuilder):
@@ -73,6 +104,12 @@ class PPC_64_CPU(AbstractLLCPU):
                 if reg is not None:
                     addr = self.fail_boxes_int.get_addr_for_num(index)
                     codebuilder.store_reg(reg, addr)
+
+            patch_op = codebuilder.get_number_of_ops()
+            patch_pos = codebuilder.get_relative_pos()
+            descr = self.saved_descr[fail_index]
+            descr.patch_op = patch_op
+            descr.patch_pos = patch_pos
 
             codebuilder.li(3, fail_index)            
             codebuilder.blr()
@@ -101,4 +138,3 @@ class PPC_64_CPU(AbstractLLCPU):
     def teardown(self):
         self.patch_list = None
         self.reg_map = None
-        self.inputargs = None

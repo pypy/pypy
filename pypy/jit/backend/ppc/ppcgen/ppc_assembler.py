@@ -954,7 +954,9 @@ class PPCBuilder(PPCAssembler):
         self.cmpi(0, 1, regnum, 0)              # result of comparison
         
         fail_index = len(cpu.saved_descr)
-        cpu.saved_descr[fail_index] = op.getdescr()
+        fail_descr = op.getdescr()
+        fail_descr.index = fail_index
+        cpu.saved_descr[fail_index] = fail_descr
 
         numops = self.get_number_of_ops()
         self.beq(0)
