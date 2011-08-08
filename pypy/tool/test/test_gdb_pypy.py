@@ -118,3 +118,18 @@ member2    GcStruct zzz {}
     gdb = FakeGdb(exprs, progspace)
     cmd = gdb_pypy.RPyType(gdb)
     assert cmd.do_invoke('*myvar', True) == 'GcStruct yyy {}'
+
+def test_pprint_string():
+    d = {'_gcheader': {
+            'h_tid': 123
+            },
+         'rs_hash': 456,
+         'rs_chars': {
+            'length': 6,
+            'items': map(ord, 'foobar'),
+            }
+         }
+    string = Value(d)
+    string.type.tag = 'pypy_rpy_string0'
+    printer = gdb_pypy.rpy_string_lookup(string)
+    assert printer.to_string() == "'foobar' (rpy)"

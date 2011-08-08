@@ -121,8 +121,31 @@ class RPyType(Command):
                 typeids[offset] = descr
         return typeids
 
+
+
+class RpyStringPrinter(object):
+    
+    def __init__(self, val):
+        self.val = val
+        
+    def to_string(self):
+        chars = self.val['rs_chars']
+        length = int(chars['length'])
+        items = chars['items']
+        res = [chr(items[i]) for i in range(length)]
+        string = ''.join(res)
+        return repr(string) + " (rpy)"
+
+
+def rpy_string_lookup(val):
+    if val.type.tag == 'pypy_rpy_string0':
+        return RpyStringPrinter(val)
+    return None
+
+
 try:
     import gdb
     RPyType() # side effects
+    gdb.pretty_printers.append(rpy_string_lookup)
 except ImportError:
     pass
