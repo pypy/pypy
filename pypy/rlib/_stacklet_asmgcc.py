@@ -264,10 +264,8 @@ class StackletGcRootFinder(object):
 
     def destroy(self, thrd, suspstack):
         h = suspstack.handle
-        a = suspstack.anchor
         suspstack.handle = _c.null_handle
         _c.destroy(thrd, h)
-        lltype.free(a, flavor='raw')
 
     def is_empty_handle(self, suspstack):
         return not suspstack
