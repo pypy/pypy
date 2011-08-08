@@ -1,9 +1,10 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
+from pypy.objspace.std.floatobject import float2string
+from pypy.rlib.rfloat import DTSF_STR_PRECISION
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
-
 
 SIGNEDLTR = "i"
 
@@ -62,6 +63,9 @@ class LowLevelDtype(object):
     def setitem_w(self, space, storage, i, w_item):
         self.setitem(storage, i, self.unwrap(space, w_item))
 
+    def str_format(self, item):
+        return str(item)
+
 def make_array_ptr(T):
     return lltype.Ptr(lltype.Array(T, hints={"nolength": True}))
 
@@ -96,6 +100,9 @@ class W_LongDtype(LowLevelDtype, W_Dtype):
     applevel_types = ["int"]
     TP = make_array_ptr(rffi.LONG)
 
+    def unwrap(self, space, w_item):
+        return space.int_w(space.int(w_item))
+
 class W_Int64Dtype(LowLevelDtype, W_Dtype):
     num = 9
     applevel_types = ["long"]
@@ -108,6 +115,9 @@ class W_Float64Dtype(LowLevelDtype, W_Dtype):
 
     def unwrap(self, space, w_item):
         return space.float_w(space.float(w_item))
+
+    def str_format(self, item):
+        return float2string(item, 'g', DTSF_STR_PRECISION)
 
 
 ALL_DTYPES = [

@@ -6,7 +6,6 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.micronumpy import interp_ufuncs, interp_dtype
 from pypy.module.micronumpy.interp_support import Signature
-from pypy.objspace.std.floatobject import float2string as float2string_orig
 from pypy.rlib import jit
 from pypy.rlib.rfloat import DTSF_STR_PRECISION
 from pypy.rpython.lltypesystem import lltype
@@ -28,9 +27,6 @@ def maximum(v1, v2):
     return max(v1, v2)
 def minimum(v1, v2):
     return min(v1, v2)
-
-def float2string(x):
-    return float2string_orig(x, 'g', DTSF_STR_PRECISION)
 
 class BaseArray(Wrappable):
     def __init__(self):
@@ -199,19 +195,20 @@ class BaseArray(Wrappable):
             return self.descr_mul(space, w_other)
 
     def _getnums(self, comma):
+        dtype = self.find_dtype()
         if self.find_size() > 1000:
             nums = [
-                float2string(self.eval(index))
+                dtype.str_format(self.eval(index))
                 for index in range(3)
             ]
             nums.append("..." + "," * comma)
             nums.extend([
-                float2string(self.eval(index))
+                dtype.str_format(self.eval(index))
                 for index in range(self.find_size() - 3, self.find_size())
             ])
         else:
             nums = [
-                float2string(self.eval(index))
+                dtype.str_format(self.eval(index))
                 for index in range(self.find_size())
             ]
         return nums
