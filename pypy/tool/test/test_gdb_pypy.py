@@ -155,7 +155,7 @@ def test_pprint_string():
          }
     p_string = PtrValue(d, type_tag='pypy_rpy_string0')
     printer = gdb_pypy.RPyStringPrinter.lookup(p_string, FakeGdb)
-    assert printer.to_string() == "'foobar' (rpy)"
+    assert printer.to_string() == "r'foobar'"
 
 def test_pprint_list():
     d = {'_gcheader': {
@@ -173,4 +173,4 @@ def test_pprint_list():
          }
     mylist = PtrValue(d, type_tag='pypy_list0')
     printer = gdb_pypy.RPyListPrinter.lookup(mylist, FakeGdb)
-    assert printer.to_string() == '[40, 41, 42] (length=3, allocated=5, rpy)'
+    assert printer.to_string() == 'r[40, 41, 42] (len=3, alloc=5)'

@@ -153,7 +153,7 @@ class RPyStringPrinter(object):
         items = chars['items']
         res = [chr(items[i]) for i in range(length)]
         string = ''.join(res)
-        return repr(string) + " (rpy)"
+        return 'r' + repr(string)
 
 
 class RPyListPrinter(object):
@@ -185,7 +185,7 @@ class RPyListPrinter(object):
             item = items[i]
             itemlist.append(str(item))
         str_items = ', '.join(itemlist)
-        return '[%s] (length=%d, allocated=%d, rpy)' % (str_items, length, allocated)
+        return 'r[%s] (len=%d, alloc=%d)' % (str_items, length, allocated)
 
 
 try:
