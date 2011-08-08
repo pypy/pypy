@@ -22,11 +22,6 @@ class SThread(StackletThread):
         self.pending_exception = None
         self.current_stack = StackTreeNode(None)
 
-    def __del__(self):
-        if self.main_stacklet is not None:
-            self.main_stacklet.__del__()
-        StackletThread.__del__(self)
-
     def new_stacklet_object(self, h, in_new_stack):
         # Called when we switched somewhere else.  'h' is the handle of
         # the new stacklet, i.e. what we just switched away from.
