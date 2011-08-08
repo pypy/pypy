@@ -155,7 +155,6 @@ static void g_clear_stack(struct stacklet_s *g_target,
             g_save(current, current->stack_stop
 #ifdef DEBUG_DUMP
                    , 1
-               
 #endif
                    );
         }
