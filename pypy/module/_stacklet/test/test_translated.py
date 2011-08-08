@@ -63,6 +63,7 @@ class Task:
             if Task.comefrom != -42:
                 assert 0 <= Task.comefrom < 10
                 task = Task.tasks[Task.comefrom]
+                print "setting %r.h = %r" % (task, h)
                 assert task.h is None
                 task.h = h
             else:
@@ -81,6 +82,7 @@ def variousstackdepths_callback(h, arg):
     assert self.h is None
     assert 0 <= Task.comefrom < 10
     task = Task.tasks[Task.comefrom]
+    print "initializing %r.h = %r" % (task, h)
     assert task.h is None
     assert type(h) is _stacklet.Stacklet
     task.h = h

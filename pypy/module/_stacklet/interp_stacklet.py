@@ -8,6 +8,7 @@ from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
+from pypy.rlib.debug import ll_assert
 
 
 class SThread(StackletThread):
@@ -19,20 +20,39 @@ class SThread(StackletThread):
         self.ec = ec
         self.w_error = space.getattr(w_module, space.wrap('error'))
         self.pending_exception = None
-        self.main_stacklet = None
+        self.current_stack = StackTreeNode(None)
 
     def __del__(self):
         if self.main_stacklet is not None:
             self.main_stacklet.__del__()
         StackletThread.__del__(self)
 
-    def new_stacklet_object(self, h):
+    def new_stacklet_object(self, h, in_new_stack):
+        # Called when we switched somewhere else.  'h' is the handle of
+        # the new stacklet, i.e. what we just switched away from.
+        # (Important: only called when the switch was successful, not
+        # when it raises MemoryError.)
+        #
+        # Update self.current_stack.
+        in_old_stack = self.current_stack
+        ll_assert(in_old_stack.current_stacklet is None,
+                  "in_old_stack should not have a current_stacklet")
+        ll_assert(in_new_stack is not in_old_stack,
+                  "stack switch: switch to itself")
+        in_new_stack.current_stacklet = None
+        self.current_stack = in_new_stack
+        #
         if self.pending_exception is None:
+            #
+            # Normal case.
             if self.is_empty_handle(h):
                 return self.space.w_None
             else:
-                return self.space.wrap(W_Stacklet(self, h))
+                res = W_Stacklet(self, h)
+                in_old_stack.current_stacklet = res
+                return self.space.wrap(res)
         else:
+            # Got an exception; re-raise it.
             e = self.pending_exception
             self.pending_exception = None
             if not self.is_empty_handle(h):
@@ -45,6 +65,41 @@ class SThread(StackletThread):
                 raise e.__class__, e, tb
 
 ExecutionContext.stacklet_thread = None
+
+
+class StackTreeNode(object):
+    # When one stacklet gets an exception, it is propagated to the
+    # "parent" stacklet.  Parents make a tree.  Each stacklet is
+    # conceptually part of a stack that doesn't change when we switch
+    # away and back.  The "parent stack" is the stack from which we
+    # created the new() stack.  (This part works like greenlets.)
+    #
+    # It is important that we have *no* app-level access to this tree.
+    # It would break the 'composability' of stacklets.
+    #
+    def __init__(self, parent):
+        self.parent = parent
+        self.current_stacklet = None
+
+    def raising_exception(self):
+        while self.current_stacklet is None:
+            self = self.parent
+            ll_assert(self is not None, "StackTreeNode chain is empty!")
+        res = self.current_stacklet
+        self.current_stacklet = None
+        try:
+            return res.consume_handle()
+        except OperationError:
+            ll_assert(False, "StackTreeNode contains an empty stacklet")
+
+    def __repr__(self):
+        s = '|>'
+        k = self
+        while k:
+            s = hex(id(k)) + ' ' + s
+            k = k.parent
+        s = '<StackTreeNode |' + s
+        return s
 
 
 class W_Stacklet(Wrappable):
@@ -62,8 +117,6 @@ class W_Stacklet(Wrappable):
         h = self.h
         if h:
             self.h = self.sthread.get_null_handle()
-            if self is self.sthread.main_stacklet:
-                self.sthread.main_stacklet = None
             return h
         else:
             space = self.sthread.space
@@ -72,15 +125,20 @@ class W_Stacklet(Wrappable):
                 space.wrap("stacklet has already been resumed"))
 
     def switch(self, space):
-        h = self.consume_handle()
         sthread = self.sthread
         ec = sthread.ec
+        stack = sthread.current_stack
         saved_frame_top = ec.topframeref
         try:
-            h = sthread.switch(h)
+            h1 = self.consume_handle()
+            try:
+                h = sthread.switch(h1)
+            except MemoryError:
+                self.h = h1    # try to restore
+                raise
         finally:
             ec.topframeref = saved_frame_top
-        return sthread.new_stacklet_object(h)
+        return sthread.new_stacklet_object(h, stack)
 
     def is_pending(self, space):
         return space.newbool(bool(self.h))
@@ -107,30 +165,39 @@ def new_stacklet_callback(h, arg):
     start_state.sthread = None
     start_state.w_callable = None
     start_state.args = None
+    ready = False
+    parentstacknode = sthread.current_stack
     #
     try:
         space = sthread.space
-        stacklet = W_Stacklet(sthread, h)
-        if sthread.main_stacklet is None:
-            sthread.main_stacklet = stacklet
-        args = args.prepend(space.wrap(stacklet))
+        stacknode = StackTreeNode(parentstacknode)
+        stacklet = sthread.new_stacklet_object(h, stacknode)
+        ready = True
+        args = args.prepend(stacklet)
         w_result = space.call_args(w_callable, args)
         #
-        result = space.interp_w(W_Stacklet, w_result)
-        return result.consume_handle()
+        try:
+            result = space.interp_w(W_Stacklet, w_result)
+            return result.consume_handle()
+        except OperationError, e:
+            w_value = e.get_w_value(space)
+            msg = 'returning from new stacklet: ' + space.str_w(w_value)
+            raise OperationError(e.w_type, space.wrap(msg))
     #
     except Exception, e:
         sthread.pending_exception = e
         if not we_are_translated():
+            print >> sys.stderr
+            print >> sys.stderr, '*** exception in stacklet ***'
             sthread.pending_tb = sys.exc_info()[2]
-        if sthread.main_stacklet is None:
-            main_stacklet_handle = h
+            import traceback
+            traceback.print_exc(sthread.pending_tb)
+            print >> sys.stderr, '***'
+            #import pdb; pdb.post_mortem(sthread.pending_tb)
+        if ready:
+            return parentstacknode.raising_exception()
         else:
-            main_stacklet_handle = sthread.main_stacklet.h
-            sthread.main_stacklet.h = sthread.get_null_handle()
-            sthread.main_stacklet = None
-        assert main_stacklet_handle
-        return main_stacklet_handle
+            return h      # corner case, try with just returning h...
 
 def stacklet_new(space, w_callable, __args__):
     ec = space.getexecutioncontext()
@@ -140,10 +207,11 @@ def stacklet_new(space, w_callable, __args__):
     start_state.sthread = sthread
     start_state.w_callable = w_callable
     start_state.args = __args__
+    stack = sthread.current_stack
     saved_frame_top = ec.topframeref
     try:
         ec.topframeref = jit.vref_None
         h = sthread.new(new_stacklet_callback)
     finally:
         ec.topframeref = saved_frame_top
-    return sthread.new_stacklet_object(h)
+    return sthread.new_stacklet_object(h, stack)

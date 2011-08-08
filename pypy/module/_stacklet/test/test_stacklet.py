@@ -98,6 +98,87 @@ class AppTestStacklet:
         assert h2 is None
         assert seen == [1, 2, 3]
 
+    def test_go_depth2(self):
+        from _stacklet import newstacklet
+        #
+        def depth2(h):
+            seen.append(2)
+            return h
+        #
+        def depth1(h):
+            seen.append(1)
+            h2 = newstacklet(depth2)
+            assert h2 is None
+            seen.append(3)
+            return h
+        #
+        seen = []
+        h = newstacklet(depth1)
+        assert h is None
+        assert seen == [1, 2, 3]
+
+    def test_exception_depth2(self):
+        from _stacklet import newstacklet
+        #
+        def depth2(h):
+            seen.append(2)
+            raise ValueError
+        #
+        def depth1(h):
+            seen.append(1)
+            try:
+                newstacklet(depth2)
+            except ValueError:
+                seen.append(3)
+            return h
+        #
+        seen = []
+        h = newstacklet(depth1)
+        assert h is None
+        assert seen == [1, 2, 3]
+
+    def test_exception_with_switch(self):
+        from _stacklet import newstacklet
+        #
+        def depth1(h):
+            seen.append(1)
+            h = h.switch()
+            seen.append(3)
+            raise ValueError
+        #
+        seen = []
+        h = newstacklet(depth1)
+        seen.append(2)
+        raises(ValueError, h.switch)
+        assert seen == [1, 2, 3]
+
+    def test_exception_with_switch_depth2(self):
+        from _stacklet import newstacklet
+        #
+        def depth2(h):
+            seen.append(4)
+            h = h.switch()
+            seen.append(6)
+            raise ValueError
+        #
+        def depth1(h):
+            seen.append(1)
+            h = h.switch()
+            seen.append(3)
+            h2 = newstacklet(depth2)
+            seen.append(5)
+            raises(ValueError, h2.switch)
+            assert not h2.is_pending()
+            seen.append(7)
+            raise KeyError
+        #
+        seen = []
+        h = newstacklet(depth1)
+        seen.append(2)
+        raises(KeyError, h.switch)
+        assert not h.is_pending()
+        assert seen == [1, 2, 3, 4, 5, 6, 7]
+
     def test_various_depths(self):
         skip("may fail on top of CPython")
         # run it from test_translated, but not while being actually translated
