@@ -108,6 +108,10 @@ class EffectInfo(object):
         result.has_random_consequences_on_gc_objects = (
             has_random_consequences_on_gc_objects)
         result.oopspecindex = oopspecindex
+        #
+        if oopspecindex == EffectInfo.OS_LIBFFI_CALL:
+            assert has_random_consequences_on_gc_objects
+        #
         cls._cache[key] = result
         return result
 

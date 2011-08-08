@@ -305,6 +305,7 @@ else:
 c_ffi_call = external('ffi_call', [FFI_CIFP, rffi.VOIDP, rffi.VOIDP,
                                    VOIDPP], c_ffi_call_return_type,
                       has_random_consequences_on_gc_objects=True)
+                      #^^^ but should be automatic for now: it releases the GIL
 CALLBACK_TP = rffi.CCallback([FFI_CIFP, rffi.VOIDP, rffi.VOIDPP, rffi.VOIDP],
                              lltype.Void)
 c_ffi_prep_closure = external('ffi_prep_closure', [FFI_CLOSUREP, FFI_CIFP,
