@@ -513,6 +513,9 @@ class ExeState(object):
     def safe_to_move(self, op):
         opnum = op.getopnum()
         descr = op.getdescr()
+        for box in op.getarglist():
+            if self.optimizer.getvalue(box) in self.optimizer.opaque_pointers:
+                return False
         if op.is_always_pure() or op.is_foldable_guard():
             return True
         elif opnum == rop.JUMP:
