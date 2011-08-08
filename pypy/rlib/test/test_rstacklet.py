@@ -199,7 +199,7 @@ def entry_point(argv):
     if len(argv) > 1:
         seed = int(argv[1])
     runner.init(seed)
-    for name, meth in runner.TESTS:
+    for name, meth in Runner.TESTS:
         print '-----', name, '-----'
         meth(runner)
     print '----- all done -----'
@@ -228,7 +228,6 @@ class BaseTestStacklet(StandaloneTests):
     def test_demo1(self):
         t, cbuilder = self.compile(entry_point)
 
-        expected_data = "----- all done -----\n"
         for i in range(15):
             if (i & 1) == 0:
                 env = {}
@@ -237,7 +236,9 @@ class BaseTestStacklet(StandaloneTests):
             print 'running %s/%s with arg=%d and env=%r' % (
                 self.gc, self.gcrootfinder, i, env)
             data = cbuilder.cmdexec('%d' % i, env=env)
-            assert data.endswith(expected_data)
+            assert data.endswith("----- all done -----\n")
+            for name, meth in Runner.TESTS:
+                assert ('----- %s -----\n' % name) in data
 
 
 class DONTTestStackletBoehm(BaseTestStacklet):
