@@ -122,12 +122,31 @@ class RPyType(Command):
         return typeids
 
 
+def is_ptr(type, gdb):
+    if gdb is None:
+        import gdb # so we can pass a fake one from the tests
+    return type.code == gdb.TYPE_CODE_PTR
 
-class RpyStringPrinter(object):
+
+class RPyStringPrinter(object):
+    """
+    Pretty printer for rpython strings.
+
+    Note that this pretty prints *pointers* to strings: this way you can do "p
+    val" and see the nice string, and "p *val" to see the underyling struct
+    fields
+    """
     
     def __init__(self, val):
         self.val = val
-        
+
+    @classmethod
+    def lookup(cls, val, gdb=None):
+        t = val.type
+        if is_ptr(t, gdb) and t.target().tag == 'pypy_rpy_string0':
+            return cls(val)
+        return None
+
     def to_string(self):
         chars = self.val['rs_chars']
         length = int(chars['length'])
@@ -137,15 +156,44 @@ class RpyStringPrinter(object):
         return repr(string) + " (rpy)"
 
 
-def rpy_string_lookup(val):
-    if val.type.tag == 'pypy_rpy_string0':
-        return RpyStringPrinter(val)
-    return None
+class RPyListPrinter(object):
+    """
+    Pretty printer for rpython lists
+
+    Note that this pretty prints *pointers* to lists: this way you can do "p
+    val" and see the nice repr, and "p *val" to see the underyling struct
+    fields
+    """
+
+    def __init__(self, val):
+        self.val = val
+
+    @classmethod
+    def lookup(cls, val, gdb=None):
+        t = val.type
+        if is_ptr(t, gdb) and t.target().tag == 'pypy_list0':
+            return cls(val)
+        return None
+
+    def to_string(self):
+        length = int(self.val['l_length'])
+        array = self.val['l_items']
+        allocated = int(array['length'])
+        items = array['items']
+        itemlist = []
+        for i in range(length):
+            item = items[i]
+            itemlist.append(str(item))
+        str_items = ', '.join(itemlist)
+        return '[%s] (length=%d, allocated=%d, rpy)' % (str_items, length, allocated)
 
 
 try:
     import gdb
     RPyType() # side effects
-    gdb.pretty_printers.append(rpy_string_lookup)
+    gdb.pretty_printers += [
+        RPyStringPrinter.lookup,
+        RPyListPrinter.lookup
+        ]
 except ImportError:
     pass
