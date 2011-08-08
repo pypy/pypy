@@ -9,12 +9,7 @@ class StackletThread(object):
         self._thrd = _c.newthread()
         if not self._thrd:
             raise MemoryError
-
-    def __del__(self):
-        thrd = self._thrd
-        if thrd:
-            self._thrd = lltype.nullptr(_c.thread_handle.TO)
-            _c.deletethread(thrd)
+        self._thrd_deleter = StackletThreadDeleter(self._thrd)
 
     def new(self, callback, arg=llmemory.NULL):
         return self._gcrootfinder.new(self._thrd, callback, arg)
@@ -31,6 +26,20 @@ class StackletThread(object):
 
     def get_null_handle(self):
         return self._gcrootfinder.get_null_handle()
+
+
+class StackletThreadDeleter(object):
+    # quick hack: the __del__ is on another object, so that
+    # if the main StackletThread ends up in random circular
+    # references, on pypy deletethread() is only called
+    # when all that circular reference mess is gone.
+    def __init__(self, thrd):
+        self._thrd = thrd
+    def __del__(self):
+        thrd = self._thrd
+        if thrd:
+            self._thrd = lltype.nullptr(_c.thread_handle.TO)
+            _c.deletethread(thrd)
 
 # ____________________________________________________________
 
