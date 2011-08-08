@@ -13,9 +13,9 @@ eci = ExternalCompilationInfo(
     separate_module_sources = ['#include "src/stacklet/stacklet.c"\n'],
 )
 
-def llexternal(name, args, result):
+def llexternal(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, compilation_info=eci,
-                           _nowrapper=True)
+                           _nowrapper=True, **kwds)
 
 # ----- types -----
 
@@ -37,8 +37,9 @@ newthread = llexternal('stacklet_newthread', [], thread_handle)
 deletethread = llexternal('stacklet_deletethread',[thread_handle], lltype.Void)
 
 new = llexternal('stacklet_new', [thread_handle, run_fn, llmemory.Address],
-                 handle)
-switch = llexternal('stacklet_switch', [thread_handle, handle], handle)
+                 handle, has_random_consequences_on_gc_objects=True)
+switch = llexternal('stacklet_switch', [thread_handle, handle], handle,
+                    has_random_consequences_on_gc_objects=True)
 destroy = llexternal('stacklet_destroy', [thread_handle, handle], lltype.Void)
 
 _translate_pointer = llexternal("_stacklet_translate_pointer",
