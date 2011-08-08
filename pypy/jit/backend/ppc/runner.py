@@ -44,6 +44,7 @@ class PPC_64_CPU(AbstractLLCPU):
 
         codebuilder = PPCBuilder()
         
+        # initialize registers from memory
         self.next_free_register = 3
         for index, arg in enumerate(inputargs):
             self.reg_map[arg] = self.next_free_register
@@ -68,22 +69,27 @@ class PPC_64_CPU(AbstractLLCPU):
         self.reg_map = {}
 
         codebuilder = looptoken.codebuilder
+        # jump to the bridge
         current_pos = codebuilder.get_relative_pos()
         offset = current_pos - descr.patch_pos
         codebuilder.b(offset)
         codebuilder.patch_op(descr.patch_op)
 
+        # initialize registers from memory
         self.next_free_register = 3
+        use_index = 0
         for index, arg in enumerate(inputargs):
             self.reg_map[arg] = self.next_free_register
-            addr = self.fail_boxes_int.get_addr_for_num(index)
+            addr = self.fail_boxes_int.get_addr_for_num(
+                    descr.used_mem_indices[use_index])
             codebuilder.load_from(self.next_free_register, addr)
             self.next_free_register += 1
+            use_index += 1
             
         self._walk_trace_ops(codebuilder, operations)
         self._make_epilogue(codebuilder)
 
-        f = codebuilder.assemble(True)
+        f = codebuilder.assemble()
         looptoken.ppc_code = f
         looptoken.codebuilder = codebuilder
 
@@ -99,17 +105,20 @@ class PPC_64_CPU(AbstractLLCPU):
             codebuilder.patch_op(op_index)
 
             # store return parameters in memory
+            used_mem_indices = []
             for index, reg in enumerate(reglist):
                 # if reg is None, then there is a hole in the failargs
                 if reg is not None:
                     addr = self.fail_boxes_int.get_addr_for_num(index)
                     codebuilder.store_reg(reg, addr)
+                    used_mem_indices.append(index)
 
             patch_op = codebuilder.get_number_of_ops()
             patch_pos = codebuilder.get_relative_pos()
             descr = self.saved_descr[fail_index]
             descr.patch_op = patch_op
             descr.patch_pos = patch_pos
+            descr.used_mem_indices = used_mem_indices
 
             codebuilder.li(3, fail_index)            
             codebuilder.blr()
