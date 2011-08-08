@@ -115,7 +115,7 @@ class Entry(ExtRegistryEntry):
         s_x = annmodel.not_const(s_x)
         access_directly = 's_access_directly' in kwds_s
         fresh_virtualizable = 's_fresh_virtualizable' in kwds_s
-        if  access_directly or fresh_virtualizable:
+        if access_directly or fresh_virtualizable:
             assert access_directly, "lone fresh_virtualizable hint"
             if isinstance(s_x, annmodel.SomeInstance):
                 from pypy.objspace.flow.model import Constant
@@ -280,7 +280,7 @@ class Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         pass
-    
+
 vref_None = non_virtual_ref(None)
 
 # ____________________________________________________________
@@ -290,7 +290,7 @@ class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
 
 PARAMETERS = {'threshold': 1032, # just above 1024
-              'function_threshold': 1617, # slightly more than one above 
+              'function_threshold': 1617, # slightly more than one above
               'trace_eagerness': 200,
               'trace_limit': 12000,
               'inlining': 1,
@@ -400,7 +400,7 @@ class JitDriver(object):
                             raise
     set_user_param._annspecialcase_ = 'specialize:arg(0)'
 
-    
+
     def on_compile(self, logger, looptoken, operations, type, *greenargs):
         """ A hook called when loop is compiled. Overwrite
         for your own jitdriver if you want to do something special, like
@@ -571,7 +571,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
                 c_llname = hop.inputconst(lltype.Void, mangled_name)
                 getfield_op = self.get_getfield_op(hop.rtyper)
                 v_green = hop.genop(getfield_op, [v_red, c_llname],
-                                    resulttype = r_field)
+                                    resulttype=r_field)
                 s_green = s_red.classdef.about_attribute(fieldname)
                 assert s_green is not None
                 hop.rtyper.annotator.setbinding(v_green, s_green)
