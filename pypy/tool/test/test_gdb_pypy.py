@@ -174,3 +174,7 @@ def test_pprint_list():
     mylist = PtrValue(d, type_tag='pypy_list0')
     printer = gdb_pypy.RPyListPrinter.lookup(mylist, FakeGdb)
     assert printer.to_string() == 'r[40, 41, 42] (len=3, alloc=5)'
+    #
+    mylist.type.target().tag = 'pypy_list1234'
+    printer = gdb_pypy.RPyListPrinter.lookup(mylist, FakeGdb)
+    assert printer.to_string() == 'r[40, 41, 42] (len=3, alloc=5)'

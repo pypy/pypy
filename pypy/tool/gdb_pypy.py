@@ -10,6 +10,7 @@ Or, alternatively:
 
 from __future__ import with_statement
 
+import re
 import sys
 import os.path
 
@@ -171,7 +172,7 @@ class RPyListPrinter(object):
     @classmethod
     def lookup(cls, val, gdb=None):
         t = val.type
-        if is_ptr(t, gdb) and t.target().tag == 'pypy_list0':
+        if is_ptr(t, gdb) and re.match(r'pypy_list\d*', t.target().tag):
             return cls(val)
         return None
 
