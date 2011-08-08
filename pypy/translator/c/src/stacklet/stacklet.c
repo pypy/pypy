@@ -138,20 +138,27 @@ static int g_allocate_source_stacklet(void *old_stack_pointer,
 
 /* Save more of the C stack away, up to 'target_stop'.
  */
-static void g_clear_stack(char *target_stop, struct stacklet_thread_s *thrd)
+static void g_clear_stack(struct stacklet_s *g_target,
+                          struct stacklet_thread_s *thrd)
 {
     struct stacklet_s *current = thrd->g_stack_chain_head;
+    char *target_stop = g_target->stack_stop;
 
     /* save and unlink tealets that are completely within
        the area to clear. */
     while (current != NULL && current->stack_stop <= target_stop) {
         struct stacklet_s *prev = current->stack_prev;
         current->stack_prev = NULL;
-        g_save(current, current->stack_stop
+        if (current != g_target) {
+            /* don't bother saving away g_target, because
+               it would be immediately restored */
+            g_save(current, current->stack_stop
 #ifdef DEBUG_DUMP
-               , 1
+                   , 1
+               
 #endif
-               );
+                   );
+        }
         current = prev;
     }
 
@@ -175,7 +182,7 @@ static void *g_save_state(void *old_stack_pointer, void *rawthrd)
     struct stacklet_thread_s *thrd = (struct stacklet_thread_s *)rawthrd;
     if (g_allocate_source_stacklet(old_stack_pointer, thrd) < 0)
         return NULL;
-    g_clear_stack(thrd->g_target->stack_stop, thrd);
+    g_clear_stack(thrd->g_target, thrd);
     return thrd->g_target->stack_start;
 }
 
@@ -200,7 +207,7 @@ static void *g_destroy_state(void *old_stack_pointer, void *rawthrd)
 {
     struct stacklet_thread_s *thrd = (struct stacklet_thread_s *)rawthrd;
     thrd->g_source = EMPTY_STACKLET_HANDLE;
-    g_clear_stack(thrd->g_target->stack_stop, thrd);
+    g_clear_stack(thrd->g_target, thrd);
     return thrd->g_target->stack_start;
 }
 
