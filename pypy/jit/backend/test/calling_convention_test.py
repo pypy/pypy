@@ -17,6 +17,7 @@ from pypy.jit.codewriter import heaptracker, longlong
 from pypy.rlib.rarithmetic import intmask
 from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.backend.test.runner_test import Runner
+import py
 
 def boxfloat(x):
     return BoxFloat(longlong.getfloatstorage(x))
