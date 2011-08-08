@@ -1,3 +1,6 @@
+from pypy.rpython.lltypesystem.lloperation import llop
+from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, ovfcheck
 from pypy.rlib import rstack
 from pypy.annotation import model as annmodel

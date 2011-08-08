@@ -339,16 +339,21 @@ class W_ISlice(Wrappable):
                 start = 0
             else:
                 start = space.int_w(w_startstop)
+                if start < 0:
+                    raise OperationError(space.w_ValueError, space.wrap(
+                       "Indicies for islice() must be non-negative integers."))
             w_stop = args_w[0]
         else:
             raise OperationError(space.w_TypeError, space.wrap("islice() takes at most 4 arguments (" + str(num_args) + " given)"))
 
         if space.is_w(w_stop, space.w_None):
             stop = -1
-            stoppable = False
         else:
             stop = space.int_w(w_stop)
-            stoppable = True
+            if stop < 0:
+                raise OperationError(space.w_ValueError, space.wrap(
+                    "Stop argument must be a non-negative integer or None."))
+            stop = max(start, stop)    # for obscure CPython compatibility
 
         if num_args == 2:
             w_step = args_w[1]
@@ -356,39 +361,45 @@ class W_ISlice(Wrappable):
                 step = 1
             else:
                 step = space.int_w(w_step)
+                if step < 1:
+                    raise OperationError(space.w_ValueError, space.wrap(
+                        "Step must be one or lager for islice()."))
         else:
             step = 1
 
-        if start < 0:
-            raise OperationError(space.w_ValueError, space.wrap("Indicies for islice() must be non-negative integers."))
-        if stoppable and stop < 0:
-            raise OperationError(space.w_ValueError, space.wrap("Stop argument must be a non-negative integer or None."))
-        if step < 1:
-            raise OperationError(space.w_ValueError, space.wrap("Step must be one or lager for islice()."))
-
+        self.ignore = step - 1
         self.start = start
         self.stop = stop
-        self.step = step
 
     def iter_w(self):
         return self.space.wrap(self)
 
     def next_w(self):
         if self.start >= 0:               # first call only
-            consume = self.start + 1
+            ignore = self.start
             self.start = -1
         else:                             # all following calls
-            consume = self.step
-        if self.stop >= 0:
-            if self.stop < consume:
+            ignore = self.ignore
+        stop = self.stop
+        if stop >= 0:
+            if stop <= ignore:
+                self.stop = 0   # reset the state so that a following next_w()
+                                # has no effect any more
+                if stop > 0:
+                    self._ignore_items(stop)
                 raise OperationError(self.space.w_StopIteration,
                                      self.space.w_None)
-            self.stop -= consume
+            self.stop = stop - (ignore + 1)
+        if ignore > 0:
+            self._ignore_items(ignore)
+        return self.space.next(self.iterable)
+
+    def _ignore_items(self, num):
         while True:
-            w_obj = self.space.next(self.iterable)
-            consume -= 1
-            if consume <= 0:
-                return w_obj
+            self.space.next(self.iterable)
+            num -= 1
+            if num <= 0:
+                break
 
 def W_ISlice___new__(space, w_subtype, w_iterable, w_startstop, args_w):
     r = space.allocate_instance(W_ISlice, w_subtype)

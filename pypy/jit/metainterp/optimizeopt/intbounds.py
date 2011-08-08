@@ -1,9 +1,10 @@
+from pypy.jit.metainterp.history import ConstInt
+from pypy.jit.metainterp.optimizeopt.intutils import (IntBound, IntLowerBound,
+    IntUpperBound)
 from pypy.jit.metainterp.optimizeopt.optimizer import Optimization, CONST_1, CONST_0
 from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
-from pypy.jit.metainterp.optimizeopt.intutils import (IntBound, IntUnbounded,
-    IntLowerBound, IntUpperBound)
-from pypy.jit.metainterp.history import Const, ConstInt
-from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.jit.metainterp.resoperation import rop
+
 
 class OptIntBounds(Optimization):
     """Keeps track of the bounds placed on integers by guards and remove
@@ -123,6 +124,17 @@ class OptIntBounds(Optimization):
         self.emit_operation(op)
         r = self.getvalue(op.result)
         r.intbound.intersect(v1.intbound.div_bound(v2.intbound))
+
+    def optimize_INT_MOD(self, op):
+        self.emit_operation(op)
+        v2 = self.getvalue(op.getarg(1))
+        if v2.is_constant():
+            val = v2.box.getint()
+            r = self.getvalue(op.result)
+            if val < 0:
+                val = -val
+            r.intbound.make_gt(IntBound(-val, -val))
+            r.intbound.make_lt(IntBound(val, val))
 
     def optimize_INT_LSHIFT(self, op):
         v1 = self.getvalue(op.getarg(0))

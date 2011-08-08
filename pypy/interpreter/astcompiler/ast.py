@@ -2541,8 +2541,9 @@ class alias(AST):
 class ASTVisitor(object):
 
     def visit_sequence(self, seq):
-        for node in seq:
-            node.walkabout(self)
+        if seq is not None:
+            for node in seq:
+                node.walkabout(self)
 
     def default_visitor(self, node):
         raise NodeVisitorNotImplemented
@@ -2673,46 +2674,36 @@ class ASTVisitor(object):
 class GenericASTVisitor(ASTVisitor):
 
     def visit_Module(self, node):
-        if node.body:
-            self.visit_sequence(node.body)
+        self.visit_sequence(node.body)
 
     def visit_Interactive(self, node):
-        if node.body:
-            self.visit_sequence(node.body)
+        self.visit_sequence(node.body)
 
     def visit_Expression(self, node):
         node.body.walkabout(self)
 
     def visit_Suite(self, node):
-        if node.body:
-            self.visit_sequence(node.body)
+        self.visit_sequence(node.body)
 
     def visit_FunctionDef(self, node):
         node.args.walkabout(self)
-        if node.body:
-            self.visit_sequence(node.body)
-        if node.decorator_list:
-            self.visit_sequence(node.decorator_list)
+        self.visit_sequence(node.body)
+        self.visit_sequence(node.decorator_list)
 
     def visit_ClassDef(self, node):
-        if node.bases:
-            self.visit_sequence(node.bases)
-        if node.body:
-            self.visit_sequence(node.body)
-        if node.decorator_list:
-            self.visit_sequence(node.decorator_list)
+        self.visit_sequence(node.bases)
+        self.visit_sequence(node.body)
+        self.visit_sequence(node.decorator_list)
 
     def visit_Return(self, node):
         if node.value:
             node.value.walkabout(self)
 
     def visit_Delete(self, node):
-        if node.targets:
-            self.visit_sequence(node.targets)
+        self.visit_sequence(node.targets)
 
     def visit_Assign(self, node):
-        if node.targets:
-            self.visit_sequence(node.targets)
+        self.visit_sequence(node.targets)
         node.value.walkabout(self)
 
     def visit_AugAssign(self, node):
@@ -2722,37 +2713,29 @@ class GenericASTVisitor(ASTVisitor):
     def visit_Print(self, node):
         if node.dest:
             node.dest.walkabout(self)
-        if node.values:
-            self.visit_sequence(node.values)
+        self.visit_sequence(node.values)
 
     def visit_For(self, node):
         node.target.walkabout(self)
         node.iter.walkabout(self)
-        if node.body:
-            self.visit_sequence(node.body)
-        if node.orelse:
-            self.visit_sequence(node.orelse)
+        self.visit_sequence(node.body)
+        self.visit_sequence(node.orelse)
 
     def visit_While(self, node):
         node.test.walkabout(self)
-        if node.body:
-            self.visit_sequence(node.body)
-        if node.orelse:
-            self.visit_sequence(node.orelse)
+        self.visit_sequence(node.body)
+        self.visit_sequence(node.orelse)
 
     def visit_If(self, node):
         node.test.walkabout(self)
-        if node.body:
-            self.visit_sequence(node.body)
-        if node.orelse:
-            self.visit_sequence(node.orelse)
+        self.visit_sequence(node.body)
+        self.visit_sequence(node.orelse)
 
     def visit_With(self, node):
         node.context_expr.walkabout(self)
         if node.optional_vars:
             node.optional_vars.walkabout(self)
-        if node.body:
-            self.visit_sequence(node.body)
+        self.visit_sequence(node.body)
 
     def visit_Raise(self, node):
         if node.type:
@@ -2763,18 +2746,13 @@ class GenericASTVisitor(ASTVisitor):
             node.tback.walkabout(self)
 
     def visit_TryExcept(self, node):
-        if node.body:
-            self.visit_sequence(node.body)
-        if node.handlers:
-            self.visit_sequence(node.handlers)
-        if node.orelse:
-            self.visit_sequence(node.orelse)
+        self.visit_sequence(node.body)
+        self.visit_sequence(node.handlers)
+        self.visit_sequence(node.orelse)
 
     def visit_TryFinally(self, node):
-        if node.body:
-            self.visit_sequence(node.body)
-        if node.finalbody:
-            self.visit_sequence(node.finalbody)
+        self.visit_sequence(node.body)
+        self.visit_sequence(node.finalbody)
 
     def visit_Assert(self, node):
         node.test.walkabout(self)
@@ -2782,12 +2760,10 @@ class GenericASTVisitor(ASTVisitor):
             node.msg.walkabout(self)
 
     def visit_Import(self, node):
-        if node.names:
-            self.visit_sequence(node.names)
+        self.visit_sequence(node.names)
 
     def visit_ImportFrom(self, node):
-        if node.names:
-            self.visit_sequence(node.names)
+        self.visit_sequence(node.names)
 
     def visit_Exec(self, node):
         node.body.walkabout(self)
@@ -2812,8 +2788,7 @@ class GenericASTVisitor(ASTVisitor):
         pass
 
     def visit_BoolOp(self, node):
-        if node.values:
-            self.visit_sequence(node.values)
+        self.visit_sequence(node.values)
 
     def visit_BinOp(self, node):
         node.left.walkabout(self)
@@ -2832,35 +2807,28 @@ class GenericASTVisitor(ASTVisitor):
         node.orelse.walkabout(self)
 
     def visit_Dict(self, node):
-        if node.keys:
-            self.visit_sequence(node.keys)
-        if node.values:
-            self.visit_sequence(node.values)
+        self.visit_sequence(node.keys)
+        self.visit_sequence(node.values)
 
     def visit_Set(self, node):
-        if node.elts:
-            self.visit_sequence(node.elts)
+        self.visit_sequence(node.elts)
 
     def visit_ListComp(self, node):
         node.elt.walkabout(self)
-        if node.generators:
-            self.visit_sequence(node.generators)
+        self.visit_sequence(node.generators)
 
     def visit_SetComp(self, node):
         node.elt.walkabout(self)
-        if node.generators:
-            self.visit_sequence(node.generators)
+        self.visit_sequence(node.generators)
 
     def visit_DictComp(self, node):
         node.key.walkabout(self)
         node.value.walkabout(self)
-        if node.generators:
-            self.visit_sequence(node.generators)
+        self.visit_sequence(node.generators)
 
     def visit_GeneratorExp(self, node):
         node.elt.walkabout(self)
-        if node.generators:
-            self.visit_sequence(node.generators)
+        self.visit_sequence(node.generators)
 
     def visit_Yield(self, node):
         if node.value:
@@ -2868,15 +2836,12 @@ class GenericASTVisitor(ASTVisitor):
 
     def visit_Compare(self, node):
         node.left.walkabout(self)
-        if node.comparators:
-            self.visit_sequence(node.comparators)
+        self.visit_sequence(node.comparators)
 
     def visit_Call(self, node):
         node.func.walkabout(self)
-        if node.args:
-            self.visit_sequence(node.args)
-        if node.keywords:
-            self.visit_sequence(node.keywords)
+        self.visit_sequence(node.args)
+        self.visit_sequence(node.keywords)
         if node.starargs:
             node.starargs.walkabout(self)
         if node.kwargs:
@@ -2902,12 +2867,10 @@ class GenericASTVisitor(ASTVisitor):
         pass
 
     def visit_List(self, node):
-        if node.elts:
-            self.visit_sequence(node.elts)
+        self.visit_sequence(node.elts)
 
     def visit_Tuple(self, node):
-        if node.elts:
-            self.visit_sequence(node.elts)
+        self.visit_sequence(node.elts)
 
     def visit_Const(self, node):
         pass
@@ -2924,8 +2887,7 @@ class GenericASTVisitor(ASTVisitor):
             node.step.walkabout(self)
 
     def visit_ExtSlice(self, node):
-        if node.dims:
-            self.visit_sequence(node.dims)
+        self.visit_sequence(node.dims)
 
     def visit_Index(self, node):
         node.value.walkabout(self)
@@ -2933,22 +2895,18 @@ class GenericASTVisitor(ASTVisitor):
     def visit_comprehension(self, node):
         node.target.walkabout(self)
         node.iter.walkabout(self)
-        if node.ifs:
-            self.visit_sequence(node.ifs)
+        self.visit_sequence(node.ifs)
 
     def visit_ExceptHandler(self, node):
         if node.type:
             node.type.walkabout(self)
         if node.name:
             node.name.walkabout(self)
-        if node.body:
-            self.visit_sequence(node.body)
+        self.visit_sequence(node.body)
 
     def visit_arguments(self, node):
-        if node.args:
-            self.visit_sequence(node.args)
-        if node.defaults:
-            self.visit_sequence(node.defaults)
+        self.visit_sequence(node.args)
+        self.visit_sequence(node.defaults)
 
     def visit_keyword(self, node):
         node.value.walkabout(self)
@@ -3069,6 +3027,7 @@ def Expression_set_body(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'body', w_new_value)
         return
+    w_self.deldictvalue(space, 'body')
     w_self.initialization_state |= 1
 
 _Expression_field_unroller = unrolling_iterable(['body'])
@@ -3157,6 +3116,7 @@ def stmt_set_lineno(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'lineno', w_new_value)
         return
+    w_self.deldictvalue(space, 'lineno')
     w_self.initialization_state |= w_self._lineno_mask
 
 def stmt_get_col_offset(space, w_self):
@@ -3178,6 +3138,7 @@ def stmt_set_col_offset(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'col_offset', w_new_value)
         return
+    w_self.deldictvalue(space, 'col_offset')
     w_self.initialization_state |= w_self._col_offset_mask
 
 stmt.typedef = typedef.TypeDef("stmt",
@@ -3208,6 +3169,7 @@ def FunctionDef_set_name(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'name', w_new_value)
         return
+    w_self.deldictvalue(space, 'name')
     w_self.initialization_state |= 1
 
 def FunctionDef_get_args(space, w_self):
@@ -3229,6 +3191,7 @@ def FunctionDef_set_args(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'args', w_new_value)
         return
+    w_self.deldictvalue(space, 'args')
     w_self.initialization_state |= 2
 
 def FunctionDef_get_body(space, w_self):
@@ -3315,6 +3278,7 @@ def ClassDef_set_name(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'name', w_new_value)
         return
+    w_self.deldictvalue(space, 'name')
     w_self.initialization_state |= 1
 
 def ClassDef_get_bases(space, w_self):
@@ -3420,6 +3384,7 @@ def Return_set_value(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
         return
+    w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 1
 
 _Return_field_unroller = unrolling_iterable(['value'])
@@ -3526,6 +3491,7 @@ def Assign_set_value(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
         return
+    w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 2
 
 _Assign_field_unroller = unrolling_iterable(['targets', 'value'])
@@ -3573,6 +3539,7 @@ def AugAssign_set_target(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'target', w_new_value)
         return
+    w_self.deldictvalue(space, 'target')
     w_self.initialization_state |= 1
 
 def AugAssign_get_op(space, w_self):
@@ -3590,13 +3557,13 @@ def AugAssign_set_op(space, w_self, w_new_value):
     try:
         obj = space.interp_w(operator, w_new_value)
         w_self.op = obj.to_simple_int(space)
-        # need to save the original object too
-        w_self.setdictvalue(space, 'op', w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'op', w_new_value)
         return
+    # need to save the original object too
+    w_self.setdictvalue(space, 'op', w_new_value)
     w_self.initialization_state |= 2
 
 def AugAssign_get_value(space, w_self):
@@ -3618,6 +3585,7 @@ def AugAssign_set_value(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
         return
+    w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 4
 
 _AugAssign_field_unroller = unrolling_iterable(['target', 'op', 'value'])
@@ -3665,6 +3633,7 @@ def Print_set_dest(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'dest', w_new_value)
         return
+    w_self.deldictvalue(space, 'dest')
     w_self.initialization_state |= 1
 
 def Print_get_values(space, w_self):
@@ -3704,6 +3673,7 @@ def Print_set_nl(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'nl', w_new_value)
         return
+    w_self.deldictvalue(space, 'nl')
     w_self.initialization_state |= 4
 
 _Print_field_unroller = unrolling_iterable(['dest', 'values', 'nl'])
@@ -3752,6 +3722,7 @@ def For_set_target(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'target', w_new_value)
         return
+    w_self.deldictvalue(space, 'target')
     w_self.initialization_state |= 1
 
 def For_get_iter(space, w_self):
@@ -3773,6 +3744,7 @@ def For_set_iter(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'iter', w_new_value)
         return
+    w_self.deldictvalue(space, 'iter')
     w_self.initialization_state |= 2
 
 def For_get_body(space, w_self):
@@ -3859,6 +3831,7 @@ def While_set_test(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'test', w_new_value)
         return
+    w_self.deldictvalue(space, 'test')
     w_self.initialization_state |= 1
 
 def While_get_body(space, w_self):
@@ -3944,6 +3917,7 @@ def If_set_test(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'test', w_new_value)
         return
+    w_self.deldictvalue(space, 'test')
     w_self.initialization_state |= 1
 
 def If_get_body(space, w_self):
@@ -4029,6 +4003,7 @@ def With_set_context_expr(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'context_expr', w_new_value)
         return
+    w_self.deldictvalue(space, 'context_expr')
     w_self.initialization_state |= 1
 
 def With_get_optional_vars(space, w_self):
@@ -4050,6 +4025,7 @@ def With_set_optional_vars(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'optional_vars', w_new_value)
         return
+    w_self.deldictvalue(space, 'optional_vars')
     w_self.initialization_state |= 2
 
 def With_get_body(space, w_self):
@@ -4116,6 +4092,7 @@ def Raise_set_type(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'type', w_new_value)
         return
+    w_self.deldictvalue(space, 'type')
     w_self.initialization_state |= 1
 
 def Raise_get_inst(space, w_self):
@@ -4137,6 +4114,7 @@ def Raise_set_inst(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'inst', w_new_value)
         return
+    w_self.deldictvalue(space, 'inst')
     w_self.initialization_state |= 2
 
 def Raise_get_tback(space, w_self):
@@ -4158,6 +4136,7 @@ def Raise_set_tback(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'tback', w_new_value)
         return
+    w_self.deldictvalue(space, 'tback')
     w_self.initialization_state |= 4
 
 _Raise_field_unroller = unrolling_iterable(['type', 'inst', 'tback'])
@@ -4351,6 +4330,7 @@ def Assert_set_test(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'test', w_new_value)
         return
+    w_self.deldictvalue(space, 'test')
     w_self.initialization_state |= 1
 
 def Assert_get_msg(space, w_self):
@@ -4372,6 +4352,7 @@ def Assert_set_msg(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'msg', w_new_value)
         return
+    w_self.deldictvalue(space, 'msg')
     w_self.initialization_state |= 2
 
 _Assert_field_unroller = unrolling_iterable(['test', 'msg'])
@@ -4464,6 +4445,7 @@ def ImportFrom_set_module(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'module', w_new_value)
         return
+    w_self.deldictvalue(space, 'module')
     w_self.initialization_state |= 1
 
 def ImportFrom_get_names(space, w_self):
@@ -4503,6 +4485,7 @@ def ImportFrom_set_level(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'level', w_new_value)
         return
+    w_self.deldictvalue(space, 'level')
     w_self.initialization_state |= 4
 
 _ImportFrom_field_unroller = unrolling_iterable(['module', 'names', 'level'])
@@ -4551,6 +4534,7 @@ def Exec_set_body(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'body', w_new_value)
         return
+    w_self.deldictvalue(space, 'body')
     w_self.initialization_state |= 1
 
 def Exec_get_globals(space, w_self):
@@ -4572,6 +4556,7 @@ def Exec_set_globals(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'globals', w_new_value)
         return
+    w_self.deldictvalue(space, 'globals')
     w_self.initialization_state |= 2
 
 def Exec_get_locals(space, w_self):
@@ -4593,6 +4578,7 @@ def Exec_set_locals(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'locals', w_new_value)
         return
+    w_self.deldictvalue(space, 'locals')
     w_self.initialization_state |= 4
 
 _Exec_field_unroller = unrolling_iterable(['body', 'globals', 'locals'])
@@ -4683,6 +4669,7 @@ def Expr_set_value(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
         return
+    w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 1
 
 _Expr_field_unroller = unrolling_iterable(['value'])
@@ -4779,6 +4766,7 @@ def expr_set_lineno(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'lineno', w_new_value)
         return
+    w_self.deldictvalue(space, 'lineno')
     w_self.initialization_state |= w_self._lineno_mask
 
 def expr_get_col_offset(space, w_self):
@@ -4800,6 +4788,7 @@ def expr_set_col_offset(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'col_offset', w_new_value)
         return
+    w_self.deldictvalue(space, 'col_offset')
     w_self.initialization_state |= w_self._col_offset_mask
 
 expr.typedef = typedef.TypeDef("expr",
@@ -4826,13 +4815,13 @@ def BoolOp_set_op(space, w_self, w_new_value):
     try:
         obj = space.interp_w(boolop, w_new_value)
         w_self.op = obj.to_simple_int(space)
-        # need to save the original object too
-        w_self.setdictvalue(space, 'op', w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'op', w_new_value)
         return
+    # need to save the original object too
+    w_self.setdictvalue(space, 'op', w_new_value)
     w_self.initialization_state |= 1
 
 def BoolOp_get_values(space, w_self):
@@ -4898,6 +4887,7 @@ def BinOp_set_left(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'left', w_new_value)
         return
+    w_self.deldictvalue(space, 'left')
     w_self.initialization_state |= 1
 
 def BinOp_get_op(space, w_self):
@@ -4915,13 +4905,13 @@ def BinOp_set_op(space, w_self, w_new_value):
     try:
         obj = space.interp_w(operator, w_new_value)
         w_self.op = obj.to_simple_int(space)
-        # need to save the original object too
-        w_self.setdictvalue(space, 'op', w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'op', w_new_value)
         return
+    # need to save the original object too
+    w_self.setdictvalue(space, 'op', w_new_value)
     w_self.initialization_state |= 2
 
 def BinOp_get_right(space, w_self):
@@ -4943,6 +4933,7 @@ def BinOp_set_right(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'right', w_new_value)
         return
+    w_self.deldictvalue(space, 'right')
     w_self.initialization_state |= 4
 
 _BinOp_field_unroller = unrolling_iterable(['left', 'op', 'right'])
@@ -4986,13 +4977,13 @@ def UnaryOp_set_op(space, w_self, w_new_value):
     try:
         obj = space.interp_w(unaryop, w_new_value)
         w_self.op = obj.to_simple_int(space)
-        # need to save the original object too
-        w_self.setdictvalue(space, 'op', w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'op', w_new_value)
         return
+    # need to save the original object too
+    w_self.setdictvalue(space, 'op', w_new_value)
     w_self.initialization_state |= 1
 
 def UnaryOp_get_operand(space, w_self):
@@ -5014,6 +5005,7 @@ def UnaryOp_set_operand(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'operand', w_new_value)
         return
+    w_self.deldictvalue(space, 'operand')
     w_self.initialization_state |= 2
 
 _UnaryOp_field_unroller = unrolling_iterable(['op', 'operand'])
@@ -5060,6 +5052,7 @@ def Lambda_set_args(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'args', w_new_value)
         return
+    w_self.deldictvalue(space, 'args')
     w_self.initialization_state |= 1
 
 def Lambda_get_body(space, w_self):
@@ -5081,6 +5074,7 @@ def Lambda_set_body(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'body', w_new_value)
         return
+    w_self.deldictvalue(space, 'body')
     w_self.initialization_state |= 2
 
 _Lambda_field_unroller = unrolling_iterable(['args', 'body'])
@@ -5127,6 +5121,7 @@ def IfExp_set_test(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'test', w_new_value)
         return
+    w_self.deldictvalue(space, 'test')
     w_self.initialization_state |= 1
 
 def IfExp_get_body(space, w_self):
@@ -5148,6 +5143,7 @@ def IfExp_set_body(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'body', w_new_value)
         return
+    w_self.deldictvalue(space, 'body')
     w_self.initialization_state |= 2
 
 def IfExp_get_orelse(space, w_self):
@@ -5169,6 +5165,7 @@ def IfExp_set_orelse(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'orelse', w_new_value)
         return
+    w_self.deldictvalue(space, 'orelse')
     w_self.initialization_state |= 4
 
 _IfExp_field_unroller = unrolling_iterable(['test', 'body', 'orelse'])
@@ -5322,6 +5319,7 @@ def ListComp_set_elt(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'elt', w_new_value)
         return
+    w_self.deldictvalue(space, 'elt')
     w_self.initialization_state |= 1
 
 def ListComp_get_generators(space, w_self):
@@ -5387,6 +5385,7 @@ def SetComp_set_elt(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'elt', w_new_value)
         return
+    w_self.deldictvalue(space, 'elt')
     w_self.initialization_state |= 1
 
 def SetComp_get_generators(space, w_self):
@@ -5452,6 +5451,7 @@ def DictComp_set_key(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'key', w_new_value)
         return
+    w_self.deldictvalue(space, 'key')
     w_self.initialization_state |= 1
 
 def DictComp_get_value(space, w_self):
@@ -5473,6 +5473,7 @@ def DictComp_set_value(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
         return
+    w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 2
 
 def DictComp_get_generators(space, w_self):
@@ -5539,6 +5540,7 @@ def GeneratorExp_set_elt(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'elt', w_new_value)
         return
+    w_self.deldictvalue(space, 'elt')
     w_self.initialization_state |= 1
 
 def GeneratorExp_get_generators(space, w_self):
@@ -5604,6 +5606,7 @@ def Yield_set_value(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
         return
+    w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 1
 
 _Yield_field_unroller = unrolling_iterable(['value'])
@@ -5649,6 +5652,7 @@ def Compare_set_left(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'left', w_new_value)
         return
+    w_self.deldictvalue(space, 'left')
     w_self.initialization_state |= 1
 
 def Compare_get_ops(space, w_self):
@@ -5734,6 +5738,7 @@ def Call_set_func(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'func', w_new_value)
         return
+    w_self.deldictvalue(space, 'func')
     w_self.initialization_state |= 1
 
 def Call_get_args(space, w_self):
@@ -5791,6 +5796,7 @@ def Call_set_starargs(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'starargs', w_new_value)
         return
+    w_self.deldictvalue(space, 'starargs')
     w_self.initialization_state |= 8
 
 def Call_get_kwargs(space, w_self):
@@ -5812,6 +5818,7 @@ def Call_set_kwargs(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'kwargs', w_new_value)
         return
+    w_self.deldictvalue(space, 'kwargs')
     w_self.initialization_state |= 16
 
 _Call_field_unroller = unrolling_iterable(['func', 'args', 'keywords', 'starargs', 'kwargs'])
@@ -5863,6 +5870,7 @@ def Repr_set_value(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
         return
+    w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 1
 
 _Repr_field_unroller = unrolling_iterable(['value'])
@@ -5908,6 +5916,7 @@ def Num_set_n(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'n', w_new_value)
         return
+    w_self.deldictvalue(space, 'n')
     w_self.initialization_state |= 1
 
 _Num_field_unroller = unrolling_iterable(['n'])
@@ -5953,6 +5962,7 @@ def Str_set_s(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 's', w_new_value)
         return
+    w_self.deldictvalue(space, 's')
     w_self.initialization_state |= 1
 
 _Str_field_unroller = unrolling_iterable(['s'])
@@ -5998,6 +6008,7 @@ def Attribute_set_value(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
         return
+    w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 1
 
 def Attribute_get_attr(space, w_self):
@@ -6019,6 +6030,7 @@ def Attribute_set_attr(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'attr', w_new_value)
         return
+    w_self.deldictvalue(space, 'attr')
     w_self.initialization_state |= 2
 
 def Attribute_get_ctx(space, w_self):
@@ -6036,13 +6048,13 @@ def Attribute_set_ctx(space, w_self, w_new_value):
     try:
         obj = space.interp_w(expr_context, w_new_value)
         w_self.ctx = obj.to_simple_int(space)
-        # need to save the original object too
-        w_self.setdictvalue(space, 'ctx', w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'ctx', w_new_value)
         return
+    # need to save the original object too
+    w_self.setdictvalue(space, 'ctx', w_new_value)
     w_self.initialization_state |= 4
 
 _Attribute_field_unroller = unrolling_iterable(['value', 'attr', 'ctx'])
@@ -6090,6 +6102,7 @@ def Subscript_set_value(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
         return
+    w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 1
 
 def Subscript_get_slice(space, w_self):
@@ -6111,6 +6124,7 @@ def Subscript_set_slice(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'slice', w_new_value)
         return
+    w_self.deldictvalue(space, 'slice')
     w_self.initialization_state |= 2
 
 def Subscript_get_ctx(space, w_self):
@@ -6128,13 +6142,13 @@ def Subscript_set_ctx(space, w_self, w_new_value):
     try:
         obj = space.interp_w(expr_context, w_new_value)
         w_self.ctx = obj.to_simple_int(space)
-        # need to save the original object too
-        w_self.setdictvalue(space, 'ctx', w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'ctx', w_new_value)
         return
+    # need to save the original object too
+    w_self.setdictvalue(space, 'ctx', w_new_value)
     w_self.initialization_state |= 4
 
 _Subscript_field_unroller = unrolling_iterable(['value', 'slice', 'ctx'])
@@ -6182,6 +6196,7 @@ def Name_set_id(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'id', w_new_value)
         return
+    w_self.deldictvalue(space, 'id')
     w_self.initialization_state |= 1
 
 def Name_get_ctx(space, w_self):
@@ -6199,13 +6214,13 @@ def Name_set_ctx(space, w_self, w_new_value):
     try:
         obj = space.interp_w(expr_context, w_new_value)
         w_self.ctx = obj.to_simple_int(space)
-        # need to save the original object too
-        w_self.setdictvalue(space, 'ctx', w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'ctx', w_new_value)
         return
+    # need to save the original object too
+    w_self.setdictvalue(space, 'ctx', w_new_value)
     w_self.initialization_state |= 2
 
 _Name_field_unroller = unrolling_iterable(['id', 'ctx'])
@@ -6266,13 +6281,13 @@ def List_set_ctx(space, w_self, w_new_value):
     try:
         obj = space.interp_w(expr_context, w_new_value)
         w_self.ctx = obj.to_simple_int(space)
-        # need to save the original object too
-        w_self.setdictvalue(space, 'ctx', w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'ctx', w_new_value)
         return
+    # need to save the original object too
+    w_self.setdictvalue(space, 'ctx', w_new_value)
     w_self.initialization_state |= 2
 
 _List_field_unroller = unrolling_iterable(['elts', 'ctx'])
@@ -6334,13 +6349,13 @@ def Tuple_set_ctx(space, w_self, w_new_value):
     try:
         obj = space.interp_w(expr_context, w_new_value)
         w_self.ctx = obj.to_simple_int(space)
-        # need to save the original object too
-        w_self.setdictvalue(space, 'ctx', w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
         w_self.setdictvalue(space, 'ctx', w_new_value)
         return
+    # need to save the original object too
+    w_self.setdictvalue(space, 'ctx', w_new_value)
     w_self.initialization_state |= 2
 
 _Tuple_field_unroller = unrolling_iterable(['elts', 'ctx'])
@@ -6388,6 +6403,7 @@ def Const_set_value(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
         return
+    w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 1
 
 _Const_field_unroller = unrolling_iterable(['value'])
@@ -6506,6 +6522,7 @@ def Slice_set_lower(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'lower', w_new_value)
         return
+    w_self.deldictvalue(space, 'lower')
     w_self.initialization_state |= 1
 
 def Slice_get_upper(space, w_self):
@@ -6527,6 +6544,7 @@ def Slice_set_upper(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'upper', w_new_value)
         return
+    w_self.deldictvalue(space, 'upper')
     w_self.initialization_state |= 2
 
 def Slice_get_step(space, w_self):
@@ -6548,6 +6566,7 @@ def Slice_set_step(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'step', w_new_value)
         return
+    w_self.deldictvalue(space, 'step')
     w_self.initialization_state |= 4
 
 _Slice_field_unroller = unrolling_iterable(['lower', 'upper', 'step'])
@@ -6638,6 +6657,7 @@ def Index_set_value(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
         return
+    w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 1
 
 _Index_field_unroller = unrolling_iterable(['value'])
@@ -6907,6 +6927,7 @@ def comprehension_set_target(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'target', w_new_value)
         return
+    w_self.deldictvalue(space, 'target')
     w_self.initialization_state |= 1
 
 def comprehension_get_iter(space, w_self):
@@ -6928,6 +6949,7 @@ def comprehension_set_iter(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'iter', w_new_value)
         return
+    w_self.deldictvalue(space, 'iter')
     w_self.initialization_state |= 2
 
 def comprehension_get_ifs(space, w_self):
@@ -6994,6 +7016,7 @@ def excepthandler_set_lineno(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'lineno', w_new_value)
         return
+    w_self.deldictvalue(space, 'lineno')
     w_self.initialization_state |= w_self._lineno_mask
 
 def excepthandler_get_col_offset(space, w_self):
@@ -7015,6 +7038,7 @@ def excepthandler_set_col_offset(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'col_offset', w_new_value)
         return
+    w_self.deldictvalue(space, 'col_offset')
     w_self.initialization_state |= w_self._col_offset_mask
 
 excepthandler.typedef = typedef.TypeDef("excepthandler",
@@ -7045,6 +7069,7 @@ def ExceptHandler_set_type(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'type', w_new_value)
         return
+    w_self.deldictvalue(space, 'type')
     w_self.initialization_state |= 1
 
 def ExceptHandler_get_name(space, w_self):
@@ -7066,6 +7091,7 @@ def ExceptHandler_set_name(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'name', w_new_value)
         return
+    w_self.deldictvalue(space, 'name')
     w_self.initialization_state |= 2
 
 def ExceptHandler_get_body(space, w_self):
@@ -7153,6 +7179,7 @@ def arguments_set_vararg(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'vararg', w_new_value)
         return
+    w_self.deldictvalue(space, 'vararg')
     w_self.initialization_state |= 2
 
 def arguments_get_kwarg(space, w_self):
@@ -7177,6 +7204,7 @@ def arguments_set_kwarg(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'kwarg', w_new_value)
         return
+    w_self.deldictvalue(space, 'kwarg')
     w_self.initialization_state |= 4
 
 def arguments_get_defaults(space, w_self):
@@ -7245,6 +7273,7 @@ def keyword_set_arg(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'arg', w_new_value)
         return
+    w_self.deldictvalue(space, 'arg')
     w_self.initialization_state |= 1
 
 def keyword_get_value(space, w_self):
@@ -7266,6 +7295,7 @@ def keyword_set_value(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'value', w_new_value)
         return
+    w_self.deldictvalue(space, 'value')
     w_self.initialization_state |= 2
 
 _keyword_field_unroller = unrolling_iterable(['arg', 'value'])
@@ -7312,6 +7342,7 @@ def alias_set_name(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'name', w_new_value)
         return
+    w_self.deldictvalue(space, 'name')
     w_self.initialization_state |= 1
 
 def alias_get_asname(space, w_self):
@@ -7336,6 +7367,7 @@ def alias_set_asname(space, w_self, w_new_value):
             raise
         w_self.setdictvalue(space, 'asname', w_new_value)
         return
+    w_self.deldictvalue(space, 'asname')
     w_self.initialization_state |= 2
 
 _alias_field_unroller = unrolling_iterable(['name', 'asname'])

@@ -889,12 +889,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = call(i2, descr=nonwritedescr)
         jump(i1)       # the exception is considered lost when we loop back
         """
-        # note that 'guard_no_exception' at the very start must be kept
-        # around: bridges may start with one.  (In case of loops we could
-        # remove it, but we probably don't care.)
+        # note that 'guard_no_exception' at the very start is kept around
+        # for bridges, but not for loops
         preamble = """
         [i]
-        guard_no_exception() []
         i1 = int_add(i, 3)
         i2 = call(i1, descr=nonwritedescr)
         guard_no_exception() [i1, i2]
@@ -2820,11 +2818,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_residual_call_invalidate_some_arrays(self):
         ops = """
         [p1, p2, i1]
-        p3 = getarrayitem_gc(p1, 0, descr=arraydescr2)
+        p3 = getarrayitem_gc(p2, 0, descr=arraydescr2)
         p4 = getarrayitem_gc(p2, 1, descr=arraydescr2)
         i2 = getarrayitem_gc(p1, 1, descr=arraydescr)
         i3 = call(i1, descr=writearraydescr)
-        p5 = getarrayitem_gc(p1, 0, descr=arraydescr2)
+        p5 = getarrayitem_gc(p2, 0, descr=arraydescr2)
         p6 = getarrayitem_gc(p2, 1, descr=arraydescr2)
         i4 = getarrayitem_gc(p1, 1, descr=arraydescr)
         escape(p3)
@@ -2837,7 +2835,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [p1, p2, i1]
-        p3 = getarrayitem_gc(p1, 0, descr=arraydescr2)
+        p3 = getarrayitem_gc(p2, 0, descr=arraydescr2)
         p4 = getarrayitem_gc(p2, 1, descr=arraydescr2)
         i2 = getarrayitem_gc(p1, 1, descr=arraydescr)
         i3 = call(i1, descr=writearraydescr)
@@ -2989,6 +2987,38 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape(42)
         escape(i2)
         i4 = call(123456, 4, i0, 6, descr=plaincalldescr)
+        jump(i0, i4)
+        '''
+        self.optimize_loop(ops, expected, preamble, call_pure_results)
+
+    def test_call_pure_constant_folding_exc(self):
+        # CALL_PURE may be followed by GUARD_NO_EXCEPTION
+        arg_consts = [ConstInt(i) for i in (123456, 4, 5, 6)]
+        call_pure_results = {tuple(arg_consts): ConstInt(42)}
+        ops = '''
+        [i0, i1, i2]
+        escape(i1)
+        escape(i2)
+        i3 = call_pure(123456, 4, 5, 6, descr=plaincalldescr)
+        guard_no_exception() []
+        i4 = call_pure(123456, 4, i0, 6, descr=plaincalldescr)
+        guard_no_exception() []
+        jump(i0, i3, i4)
+        '''
+        preamble = '''
+        [i0, i1, i2]
+        escape(i1)
+        escape(i2)
+        i4 = call(123456, 4, i0, 6, descr=plaincalldescr)
+        guard_no_exception() []
+        jump(i0, i4)
+        '''
+        expected = '''
+        [i0, i2]
+        escape(42)
+        escape(i2)
+        i4 = call(123456, 4, i0, 6, descr=plaincalldescr)
+        guard_no_exception() []
         jump(i0, i4)
         '''
         self.optimize_loop(ops, expected, preamble, call_pure_results)

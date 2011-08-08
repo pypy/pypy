@@ -404,7 +404,7 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.extfunc import register_external
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
 
-if sys.platform == 'linux2':
+if sys.platform.startswith('linux'):
     # This only works with linux's madvise(), which is really not a memory
     # usage hint but a real command.  It guarantees that after MADV_DONTNEED
     # the pages are cleared again.

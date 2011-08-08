@@ -268,3 +268,7 @@ def PyString_AsEncodedObject(space, w_str, encoding, errors):
     if errors:
         w_errors = space.wrap(rffi.charp2str(errors))
     return space.call_method(w_str, 'encode', w_encoding, w_errors)
+
+@cpython_api([PyObject, PyObject], PyObject)
+def _PyString_Join(space, w_sep, w_seq):
+    return space.call_method(w_sep, 'join', w_seq)

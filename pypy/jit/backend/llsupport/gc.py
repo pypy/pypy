@@ -453,21 +453,33 @@ class GcRootMap_shadowstack(object):
 
 class WriteBarrierDescr(AbstractDescr):
     def __init__(self, gc_ll_descr):
+        GCClass = gc_ll_descr.GCClass
         self.llop1 = gc_ll_descr.llop1
         self.WB_FUNCPTR = gc_ll_descr.WB_FUNCPTR
         self.WB_ARRAY_FUNCPTR = gc_ll_descr.WB_ARRAY_FUNCPTR
-        self.fielddescr_tid = get_field_descr(gc_ll_descr,
-                                              gc_ll_descr.GCClass.HDR, 'tid')
-        self.jit_wb_if_flag = gc_ll_descr.GCClass.JIT_WB_IF_FLAG
-        # if convenient for the backend, we also compute the info about
+        self.fielddescr_tid = get_field_descr(gc_ll_descr, GCClass.HDR, 'tid')
+        #
+        self.jit_wb_if_flag = GCClass.JIT_WB_IF_FLAG
+        self.jit_wb_if_flag_byteofs, self.jit_wb_if_flag_singlebyte = (
+            self.extract_flag_byte(self.jit_wb_if_flag))
+        #
+        if hasattr(GCClass, 'JIT_WB_CARDS_SET'):
+            self.jit_wb_cards_set = GCClass.JIT_WB_CARDS_SET
+            self.jit_wb_card_page_shift = GCClass.JIT_WB_CARD_PAGE_SHIFT
+            self.jit_wb_cards_set_byteofs, self.jit_wb_cards_set_singlebyte = (
+                self.extract_flag_byte(self.jit_wb_cards_set))
+        else:
+            self.jit_wb_cards_set = 0
+
+    def extract_flag_byte(self, flag_word):
+        # if convenient for the backend, we compute the info about
         # the flag as (byte-offset, single-byte-flag).
         import struct
-        value = struct.pack("l", self.jit_wb_if_flag)
+        value = struct.pack("l", flag_word)
         assert value.count('\x00') == len(value) - 1    # only one byte is != 0
         i = 0
         while value[i] == '\x00': i += 1
-        self.jit_wb_if_flag_byteofs = i
-        self.jit_wb_if_flag_singlebyte = struct.unpack('b', value[i])[0]
+        return (i, struct.unpack('b', value[i])[0])
 
     def get_write_barrier_fn(self, cpu):
         llop1 = self.llop1
@@ -532,19 +544,20 @@ class GcLLDescr_framework(GcLLDescription):
         assert self.GCClass.inline_simple_malloc
         assert self.GCClass.inline_simple_malloc_varsize
 
-        # make a malloc function, with three arguments
+        # make a malloc function, with two arguments
         def malloc_basic(size, tid):
             assert size > 0, 'size should be > 0'
             type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
             has_finalizer = bool(tid & (1<<llgroup.HALFSHIFT))
             check_typeid(type_id)
-            try:
-                res = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
-                                                      type_id, size, True,
-                                                      has_finalizer, False)
-            except MemoryError:
-                fatalerror("out of memory (from JITted code)")
-                res = lltype.nullptr(llmemory.GCREF.TO)
+            res = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
+                                                  type_id, size, True,
+                                                  has_finalizer, False)
+            # In case the operation above failed, we are returning NULL
+            # from this function to assembler.  There is also an RPython
+            # exception set, typically MemoryError; but it's easier and
+            # faster to check for the NULL return value, as done by
+            # translator/exceptiontransform.py.
             #llop.debug_print(lltype.Void, "\tmalloc_basic", size, type_id,
             #                 "-->", res)
             return res
@@ -561,14 +574,10 @@ class GcLLDescr_framework(GcLLDescription):
             assert num_elem >= 0, 'num_elem should be >= 0'
             type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
             check_typeid(type_id)
-            try:
-                return llop1.do_malloc_varsize_clear(
-                    llmemory.GCREF,
-                    type_id, num_elem, self.array_basesize, itemsize,
-                    self.array_length_ofs, True)
-            except MemoryError:
-                fatalerror("out of memory (from JITted code)")
-                return lltype.nullptr(llmemory.GCREF.TO)
+            return llop1.do_malloc_varsize_clear(
+                llmemory.GCREF,
+                type_id, num_elem, self.array_basesize, itemsize,
+                self.array_length_ofs, True)
         self.malloc_array = malloc_array
         self.GC_MALLOC_ARRAY = lltype.Ptr(lltype.FuncType(
             [lltype.Signed] * 3, llmemory.GCREF))
@@ -581,25 +590,15 @@ class GcLLDescr_framework(GcLLDescription):
         unicode_type_id = self.layoutbuilder.get_type_id(rstr.UNICODE)
         #
         def malloc_str(length):
-            assert length >= 0, 'length should be >= 0'
-            try:
-                return llop1.do_malloc_varsize_clear(
-                    llmemory.GCREF,
-                    str_type_id, length, str_basesize, str_itemsize,
-                    str_ofs_length, True)
-            except MemoryError:
-                fatalerror("out of memory (from JITted code)")
-                return lltype.nullptr(llmemory.GCREF.TO)
+            return llop1.do_malloc_varsize_clear(
+                llmemory.GCREF,
+                str_type_id, length, str_basesize, str_itemsize,
+                str_ofs_length, True)
         def malloc_unicode(length):
-            assert length >= 0, 'length should be >= 0'
-            try:
-                return llop1.do_malloc_varsize_clear(
-                    llmemory.GCREF,
-                    unicode_type_id, length, unicode_basesize,unicode_itemsize,
-                    unicode_ofs_length, True)
-            except MemoryError:
-                fatalerror("out of memory (from JITted code)")
-                return lltype.nullptr(llmemory.GCREF.TO)
+            return llop1.do_malloc_varsize_clear(
+                llmemory.GCREF,
+                unicode_type_id, length, unicode_basesize,unicode_itemsize,
+                unicode_ofs_length, True)
         self.malloc_str = malloc_str
         self.malloc_unicode = malloc_unicode
         self.GC_MALLOC_STR_UNICODE = lltype.Ptr(lltype.FuncType(
@@ -620,16 +619,12 @@ class GcLLDescr_framework(GcLLDescription):
             if self.DEBUG:
                 random_usage_of_xmm_registers()
             assert size >= self.minimal_size_in_nursery
-            try:
-                # NB. although we call do_malloc_fixedsize_clear() here,
-                # it's a bit of a hack because we set tid to 0 and may
-                # also use it to allocate varsized objects.  The tid
-                # and possibly the length are both set afterward.
-                gcref = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
-                                            0, size, True, False, False)
-            except MemoryError:
-                fatalerror("out of memory (from JITted code)")
-                return 0
+            # NB. although we call do_malloc_fixedsize_clear() here,
+            # it's a bit of a hack because we set tid to 0 and may
+            # also use it to allocate varsized objects.  The tid
+            # and possibly the length are both set afterward.
+            gcref = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
+                                        0, size, True, False, False)
             return rffi.cast(lltype.Signed, gcref)
         self.malloc_slowpath = malloc_slowpath
         self.MALLOC_SLOWPATH = lltype.FuncType([lltype.Signed], lltype.Signed)

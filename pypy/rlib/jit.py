@@ -16,7 +16,8 @@ def elidable(func):
 
     Most importantly it doesn't mean that an elidable function has no observable
     side effect, but those side effects are idempotent (ie caching).
-    For now, such a function should never raise an exception.
+    If a particular call to this function ends up raising an exception, then it
+    is handled like a normal function call (this decorator is ignored).
     """
     func._elidable_function_ = True
     return func
@@ -114,7 +115,7 @@ class Entry(ExtRegistryEntry):
         s_x = annmodel.not_const(s_x)
         access_directly = 's_access_directly' in kwds_s
         fresh_virtualizable = 's_fresh_virtualizable' in kwds_s
-        if  access_directly or fresh_virtualizable:
+        if access_directly or fresh_virtualizable:
             assert access_directly, "lone fresh_virtualizable hint"
             if isinstance(s_x, annmodel.SomeInstance):
                 from pypy.objspace.flow.model import Constant
@@ -279,7 +280,7 @@ class Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         pass
-    
+
 vref_None = non_virtual_ref(None)
 
 # ____________________________________________________________
@@ -289,7 +290,7 @@ class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
 
 PARAMETERS = {'threshold': 1032, # just above 1024
-              'function_threshold': 1617, # slightly more than one above 
+              'function_threshold': 1617, # slightly more than one above
               'trace_eagerness': 200,
               'trace_limit': 12000,
               'inlining': 1,
@@ -315,7 +316,7 @@ class JitDriver(object):
     def __init__(self, greens=None, reds=None, virtualizables=None,
                  get_jitcell_at=None, set_jitcell_at=None,
                  get_printable_location=None, confirm_enter_jit=None,
-                 can_never_inline=None):
+                 can_never_inline=None, should_unroll_one_iteration=None):
         if greens is not None:
             self.greens = greens
         if reds is not None:
@@ -334,6 +335,7 @@ class JitDriver(object):
         self.get_printable_location = get_printable_location
         self.confirm_enter_jit = confirm_enter_jit
         self.can_never_inline = can_never_inline
+        self.should_unroll_one_iteration = should_unroll_one_iteration
 
     def _freeze_(self):
         return True
@@ -398,7 +400,7 @@ class JitDriver(object):
                             raise
     set_user_param._annspecialcase_ = 'specialize:arg(0)'
 
-    
+
     def on_compile(self, logger, looptoken, operations, type, *greenargs):
         """ A hook called when loop is compiled. Overwrite
         for your own jitdriver if you want to do something special, like
@@ -569,7 +571,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
                 c_llname = hop.inputconst(lltype.Void, mangled_name)
                 getfield_op = self.get_getfield_op(hop.rtyper)
                 v_green = hop.genop(getfield_op, [v_red, c_llname],
-                                    resulttype = r_field)
+                                    resulttype=r_field)
                 s_green = s_red.classdef.about_attribute(fieldname)
                 assert s_green is not None
                 hop.rtyper.annotator.setbinding(v_green, s_green)

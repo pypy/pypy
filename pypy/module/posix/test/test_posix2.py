@@ -125,13 +125,13 @@ class AppTestPosix:
         assert st.st_size == 14
         assert st.st_nlink == 1
 
-        #if sys.platform.startswith('linux2'):
+        #if sys.platform.startswith('linux'):
         #    # expects non-integer timestamps - it's unlikely that they are
         #    # all three integers
         #    assert ((st.st_atime, st.st_mtime, st.st_ctime) !=
         #            (st[7],       st[8],       st[9]))
         #    assert st.st_blksize * st.st_blocks >= st.st_size
-        if sys.platform.startswith('linux2'):
+        if sys.platform.startswith('linux'):
             assert hasattr(st, 'st_rdev')
 
     def test_stat_float_times(self):

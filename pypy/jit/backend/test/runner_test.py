@@ -1734,6 +1734,7 @@ class LLtypeBackendTest(BaseBackendTest):
             jit_wb_if_flag = 4096
             jit_wb_if_flag_byteofs = struct.pack("i", 4096).index('\x10')
             jit_wb_if_flag_singlebyte = 0x10
+            jit_wb_cards_set = 0
             def get_write_barrier_from_array_fn(self, cpu):
                 return funcbox.getint()
         #
@@ -1754,6 +1755,72 @@ class LLtypeBackendTest(BaseBackendTest):
                 assert record == [(s, 123, s)]
             else:
                 assert record == []
+
+    def test_cond_call_gc_wb_array_card_marking_fast_path(self):
+        def func_void(a, b, c):
+            record.append((a, b, c))
+        record = []
+        #
+        S = lltype.Struct('S', ('tid', lltype.Signed))
+        S_WITH_CARDS = lltype.Struct('S_WITH_CARDS',
+                                     ('card0', lltype.Char),
+                                     ('card1', lltype.Char),
+                                     ('card2', lltype.Char),
+                                     ('card3', lltype.Char),
+                                     ('card4', lltype.Char),
+                                     ('card5', lltype.Char),
+                                     ('card6', lltype.Char),
+                                     ('card7', lltype.Char),
+                                     ('data',  S))
+        FUNC = self.FuncType([lltype.Ptr(S), lltype.Signed, lltype.Ptr(S)],
+                             lltype.Void)
+        func_ptr = llhelper(lltype.Ptr(FUNC), func_void)
+        funcbox = self.get_funcbox(self.cpu, func_ptr)
+        class WriteBarrierDescr(AbstractDescr):
+            jit_wb_if_flag = 4096
+            jit_wb_if_flag_byteofs = struct.pack("i", 4096).index('\x10')
+            jit_wb_if_flag_singlebyte = 0x10
+            jit_wb_cards_set = 8192
+            jit_wb_cards_set_byteofs = struct.pack("i", 8192).index('\x20')
+            jit_wb_cards_set_singlebyte = 0x20
+            jit_wb_card_page_shift = 7
+            def get_write_barrier_from_array_fn(self, cpu):
+                return funcbox.getint()
+        #
+        for BoxIndexCls in [BoxInt, ConstInt]:
+            for cond in [False, True]:
+                print
+                print '_'*79
+                print 'BoxIndexCls =', BoxIndexCls
+                print 'JIT_WB_CARDS_SET =', cond
+                print
+                value = random.randrange(-sys.maxint, sys.maxint)
+                value |= 4096
+                if cond:
+                    value |= 8192
+                else:
+                    value &= ~8192
+                s = lltype.malloc(S_WITH_CARDS, immortal=True, zero=True)
+                s.data.tid = value
+                sgcref = rffi.cast(llmemory.GCREF, s.data)
+                del record[:]
+                box_index = BoxIndexCls((9<<7) + 17)
+                self.execute_operation(rop.COND_CALL_GC_WB_ARRAY,
+                           [BoxPtr(sgcref), box_index, BoxPtr(sgcref)],
+                           'void', descr=WriteBarrierDescr())
+                if cond:
+                    assert record == []
+                    assert s.card6 == '\x02'
+                else:
+                    assert record == [(s.data, (9<<7) + 17, s.data)]
+                    assert s.card6 == '\x00'
+                assert s.card0 == '\x00'
+                assert s.card1 == '\x00'
+                assert s.card2 == '\x00'
+                assert s.card3 == '\x00'
+                assert s.card4 == '\x00'
+                assert s.card5 == '\x00'
+                assert s.card7 == '\x00'
 
     def test_force_operations_returning_void(self):
         values = []
@@ -2715,6 +2782,65 @@ class LLtypeBackendTest(BaseBackendTest):
                                      'float', descr=calldescr)
         assert res.getfloatstorage() == expected
 
+    def test_singlefloat_result_of_call_direct(self):
+        if not self.cpu.supports_singlefloats:
+            py.test.skip("singlefloat test")
+        from pypy.translator.tool.cbuild import ExternalCompilationInfo
+        from pypy.rlib.rarithmetic import r_singlefloat
+        eci = ExternalCompilationInfo(
+            separate_module_sources=["""
+            float fn_test_result_of_call(float x)
+            {
+                return x / 2.0f;
+            }
+            """],
+            export_symbols=['fn_test_result_of_call'])
+        f = rffi.llexternal('fn_test_result_of_call', [lltype.SingleFloat],
+                            lltype.SingleFloat,
+                            compilation_info=eci, _nowrapper=True)
+        value = r_singlefloat(-42.5)
+        expected = r_singlefloat(-21.25)
+        assert f(value) == expected
+        #
+        FUNC = self.FuncType([lltype.SingleFloat], lltype.SingleFloat)
+        FPTR = self.Ptr(FUNC)
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+        ivalue = longlong.singlefloat2int(value)
+        iexpected = longlong.singlefloat2int(expected)
+        x = self.cpu.bh_call_i(self.get_funcbox(self.cpu, f).value,
+                               calldescr, [ivalue], None, None)
+        assert x == iexpected
+
+    def test_singlefloat_result_of_call_compiled(self):
+        if not self.cpu.supports_singlefloats:
+            py.test.skip("test of singlefloat result")
+        from pypy.translator.tool.cbuild import ExternalCompilationInfo
+        from pypy.rlib.rarithmetic import r_singlefloat
+        eci = ExternalCompilationInfo(
+            separate_module_sources=["""
+            float fn_test_result_of_call(float x)
+            {
+                return x / 2.0f;
+            }
+            """],
+            export_symbols=['fn_test_result_of_call'])
+        f = rffi.llexternal('fn_test_result_of_call', [lltype.SingleFloat],
+                            lltype.SingleFloat,
+                            compilation_info=eci, _nowrapper=True)
+        value = r_singlefloat(-42.5)
+        expected = r_singlefloat(-21.25)
+        assert f(value) == expected
+        #
+        FUNC = self.FuncType([lltype.SingleFloat], lltype.SingleFloat)
+        FPTR = self.Ptr(FUNC)
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+        funcbox = self.get_funcbox(self.cpu, f)
+        ivalue = longlong.singlefloat2int(value)
+        iexpected = longlong.singlefloat2int(expected)
+        res = self.execute_operation(rop.CALL, [funcbox, BoxInt(ivalue)],
+                                     'int', descr=calldescr)
+        assert res.value == iexpected
+
     def test_free_loop_and_bridges(self):
         from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
         if not isinstance(self.cpu, AbstractLLCPU):
@@ -2729,6 +2855,25 @@ class LLtypeBackendTest(BaseBackendTest):
         assert mem2 < mem1
         assert mem2 == mem0
 
+    def test_memoryerror(self):
+        excdescr = BasicFailDescr(666)
+        self.cpu.propagate_exception_v = self.cpu.get_fail_descr_number(
+            excdescr)
+        self.cpu.setup_once()    # xxx redo it, because we added
+                                 # propagate_exception_v
+        i0 = BoxInt()
+        p0 = BoxPtr()
+        operations = [
+            ResOperation(rop.NEWUNICODE, [i0], p0),
+            ResOperation(rop.FINISH, [p0], None, descr=BasicFailDescr(1))
+            ]
+        inputargs = [i0]
+        looptoken = LoopToken()
+        self.cpu.compile_loop(inputargs, operations, looptoken)
+        # overflowing value:
+        self.cpu.set_future_value_int(0, sys.maxint // 4 + 1)
+        fail = self.cpu.execute_token(looptoken)
+        assert fail.identifier == excdescr.identifier
     def test_math_sqrt(self):
         if not self.cpu.supports_floats:
             py.test.skip("requires floats")
