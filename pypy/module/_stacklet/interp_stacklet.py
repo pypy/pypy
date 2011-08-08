@@ -8,7 +8,7 @@ from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
-from pypy.rlib.debug import ll_assert
+from pypy.rlib.debug import ll_assert, fatalerror
 
 
 class SThread(StackletThread):
@@ -84,13 +84,15 @@ class StackTreeNode(object):
     def raising_exception(self):
         while self.current_stacklet is None:
             self = self.parent
-            ll_assert(self is not None, "StackTreeNode chain is empty!")
+            if self is None:
+                fatalerror("StackTreeNode chain is empty!")
         res = self.current_stacklet
         self.current_stacklet = None
         try:
             return res.consume_handle()
         except OperationError:
-            ll_assert(False, "StackTreeNode contains an empty stacklet")
+            fatalerror("StackTreeNode contains an empty stacklet")
+            raise ValueError    # annotator hack, but cannot return
 
     def __repr__(self):
         s = '|>'
