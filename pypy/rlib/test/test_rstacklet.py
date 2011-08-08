@@ -1,7 +1,7 @@
 import gc
 from pypy.rlib import rstacklet, rrandom
 from pypy.rlib.rarithmetic import intmask
-from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.translator.c.test.test_standalone import StandaloneTests
 
 
@@ -26,7 +26,7 @@ class Runner:
     @here_is_a_test
     def test_new(self):
         print 'start'
-        h = self.sthread.new(empty_callback, rffi.cast(rffi.VOIDP, 123))
+        h = self.sthread.new(empty_callback, rffi.cast(llmemory.Address, 123))
         print 'end', h
         assert self.sthread.is_empty_handle(h)
 
@@ -40,7 +40,7 @@ class Runner:
     def test_simple_switch(self):
         self.status = 0
         h = self.sthread.new(switchbackonce_callback,
-                             rffi.cast(rffi.VOIDP, 321))
+                             rffi.cast(llmemory.Address, 321))
         assert not self.sthread.is_empty_handle(h)
         self.nextstatus(2)
         h = self.sthread.switch(h)
@@ -110,7 +110,7 @@ class Task:
                 # start a new stacklet
                 print "NEW", n
                 h = runner.sthread.new(variousstackdepths_callback,
-                                       rffi.cast(rffi.VOIDP, n))
+                                       rffi.cast(llmemory.Address, n))
             else:
                 # switch to this stacklet
                 print "switch to", n
@@ -250,6 +250,10 @@ class DONTTestStackletBoehm(BaseTestStacklet):
 class TestStackletAsmGcc(BaseTestStacklet):
     gc = 'minimark'
     gcrootfinder = 'asmgcc'
+
+class TestStackletShadowStack(BaseTestStacklet):
+    gc = 'minimark'
+    gcrootfinder = 'shadowstack'
 
 
 def target(*args):

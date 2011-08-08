@@ -64,6 +64,9 @@ class ShadowStackRootWalker(BaseRootWalker):
         if self.collect_stacks_from_other_threads is not None:
             self.collect_stacks_from_other_threads(collect_stack_root)
 
+    def need_stacklet_support(self):
+        pass     # no special code needed here
+
     def need_thread_support(self, gctransformer, getfn):
         from pypy.module.thread import ll_thread    # xxx fish
         from pypy.rpython.memory.support import AddressDict

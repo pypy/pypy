@@ -7,19 +7,20 @@ class StackletGcRootFinder:
     __metaclass__ = StaticMethods
 
     def new(thrd, callback, arg):
-        h = _c.new(thrd, llhelper(_c.run_fn, callback), arg)
+        h = _c.new(thrd._thrd, llhelper(_c.run_fn, callback), arg)
         if not h:
             raise MemoryError
         return h
     new._annspecialcase_ = 'specialize:arg(1)'
 
     def switch(thrd, h):
-        h = _c.switch(thrd, h)
+        h = _c.switch(thrd._thrd, h)
         if not h:
             raise MemoryError
         return h
 
-    destroy = _c.destroy
+    def destroy(thrd, h):
+        _c.destroy(thrd._thrd, h)
 
     is_empty_handle = _c.is_empty_handle
 

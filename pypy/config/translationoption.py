@@ -26,8 +26,7 @@ translation_optiondescription = OptionDescription(
         "translation", "Translation Options", [
     BoolOption("stacklet", "enable stackless features during compilation",
                default=False, cmdline="--stacklet",
-               requires=[("translation.type_system", "lltype"),
-                         ("translation.gcrootfinder", "asmgcc")]), # XXX temp
+               requires=[("translation.type_system", "lltype")]),
     ChoiceOption("type_system", "Type system to use when RTyping",
                  ["lltype", "ootype"], cmdline=None, default="lltype",
                  requires={

@@ -223,7 +223,7 @@ class StackletGcRootFinder(object):
     suspstack = NULL_SUSPSTACK
 
     def new(self, thrd, callback, arg):
-        self.thrd = thrd
+        self.thrd = thrd._thrd
         self.runfn = callback
         self.arg = arg
         # make a fresh new clean SUSPSTACK
@@ -236,7 +236,7 @@ class StackletGcRootFinder(object):
         return self.get_result_suspstack(h)
 
     def switch(self, thrd, suspstack):
-        self.thrd = thrd
+        self.thrd = thrd._thrd
         self.suspstack = suspstack
         h = pypy_asm_stackwalk2(llhelper(FUNCNOARG_P, _switch_callback),
                                 alternateanchor)
@@ -264,16 +264,14 @@ class StackletGcRootFinder(object):
 
     def destroy(self, thrd, suspstack):
         h = suspstack.handle
-        a = suspstack.anchor
         suspstack.handle = _c.null_handle
-        _c.destroy(thrd, h)
-        lltype.free(a, flavor='raw')
+        _c.destroy(thrd._thrd, h)
 
     def is_empty_handle(self, suspstack):
         return not suspstack
 
     def get_null_handle(self):
-        return lltype.nullptr(SUSPSTACK)
+        return NULL_SUSPSTACK
 
 
 gcrootfinder = StackletGcRootFinder()

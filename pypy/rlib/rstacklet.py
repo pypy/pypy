@@ -17,14 +17,14 @@ class StackletThread(object):
             _c.deletethread(thrd)
 
     def new(self, callback, arg=llmemory.NULL):
-        return self._gcrootfinder.new(self._thrd, callback, arg)
+        return self._gcrootfinder.new(self, callback, arg)
     new._annspecialcase_ = 'specialize:arg(1)'
 
     def switch(self, stacklet):
-        return self._gcrootfinder.switch(self._thrd, stacklet)
+        return self._gcrootfinder.switch(self, stacklet)
 
     def destroy(self, stacklet):
-        self._gcrootfinder.destroy(self._thrd, stacklet)
+        self._gcrootfinder.destroy(self, stacklet)
 
     def is_empty_handle(self, stacklet):
         return self._gcrootfinder.is_empty_handle(stacklet)
