@@ -113,7 +113,9 @@ def llexternal(name, args, result, _callable=None,
         invoke_around_handlers = not sandboxsafe
 
     if random_effects_on_gcobjs not in (False, True):
-        random_effects_on_gcobjs = invoke_around_handlers or has_callback
+        random_effects_on_gcobjs = (
+            invoke_around_handlers or   # because it can release the GIL
+            has_callback)               # because the callback can do it
 
     funcptr = lltype.functionptr(ext_type, name, external='C',
                                  compilation_info=compilation_info,
