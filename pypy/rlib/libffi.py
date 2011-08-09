@@ -392,11 +392,11 @@ class Func(AbstractFuncPtr):
 
 # XXX: it partially duplicate the code in clibffi.py
 class CDLL(object):
-    def __init__(self, libname, mode=-1):
+    def __init__(self, libname):
         """Load the library, or raises DLOpenError."""
         self.lib = rffi.cast(DLLHANDLE, 0)
         with rffi.scoped_str2charp(libname) as ll_libname:
-            self.lib = dlopen(ll_libname, mode)
+            self.lib = dlopen(ll_libname)
 
     def __del__(self):
         if self.lib:

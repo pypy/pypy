@@ -4,7 +4,7 @@ from pypy.module.cppyy import interp_cppyy, executor
 
 
 currpath = py.path.local(__file__).dirpath()
-shared_lib = str(currpath.join("example01Dict.so"))
+test_dct = str(currpath.join("example01Dict.so"))
 
 space = gettestobjspace(usemodules=['cppyy'])
 
@@ -17,7 +17,7 @@ def setup_module(mod):
 
 class TestCPPYYImplementation:
     def test_class_query(self):
-        lib = interp_cppyy.load_lib(space, shared_lib)
+        dct = interp_cppyy.load_dictionary(space, test_dct)
         w_cppyyclass = interp_cppyy.type_byname(space, "example01")
         w_cppyyclass2 = interp_cppyy.type_byname(space, "example01")
         assert space.is_w(w_cppyyclass, w_cppyyclass2)
@@ -33,8 +33,8 @@ class AppTestCPPYY:
         env = os.environ
         cls.w_example01, cls.w_payload = cls.space.unpackiterable(cls.space.appexec([], """():
             import cppyy
-            cppyy.load_lib(%r)
-            return cppyy._type_byname('example01'), cppyy._type_byname('payload')""" % (shared_lib, )))
+            cppyy.load_reflection_info(%r)
+            return cppyy._type_byname('example01'), cppyy._type_byname('payload')""" % (test_dct, )))
 
     def test01_static_int(self):
         """Test passing of an int, returning of an int, and overloading on a

@@ -251,14 +251,14 @@ def _pythonize(pyclass):
         pyclass.__iter__ = __iter__
 
 
-_loaded_shared_libs = {}
-def load_lib(name):
+_loaded_dictionaries = {}
+def load_reflection_info(name):
     try:
-        return _loaded_shared_libs[name]
+        return _loaded_dictionaries[name]
     except KeyError:
-        lib = cppyy._load_lib(name)
-        _loaded_shared_libs[name] = lib
-        return lib
+        dct = cppyy._load_dictionary(name)
+        _loaded_dictionaries[name] = dct
+        return dct
     
 
 # user interface objects

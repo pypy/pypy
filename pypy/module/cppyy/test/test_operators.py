@@ -3,7 +3,7 @@ from pypy.conftest import gettestobjspace
 
 
 currpath = py.path.local(__file__).dirpath()
-shared_lib = str(currpath.join("operatorsDict.so"))
+test_dct = str(currpath.join("operatorsDict.so"))
 
 space = gettestobjspace(usemodules=['cppyy'])
 
@@ -19,10 +19,10 @@ class AppTestOPERATORS:
         cls.space = space
         env = os.environ
         cls.w_N = space.wrap(5)    # should be imported from the dictionary
-        cls.w_shared_lib = space.wrap(shared_lib)
+        cls.w_test_dct  = space.wrap(test_dct)
         cls.w_datatypes = cls.space.appexec([], """():
             import cppyy
-            return cppyy.load_lib(%r)""" % (shared_lib, ))
+            return cppyy.load_reflection_info(%r)""" % (test_dct, ))
 
     def teardown_method(self, meth):
         import gc

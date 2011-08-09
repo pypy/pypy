@@ -119,7 +119,7 @@ class TestFastPathJIT(LLJitMixin):
         space = FakeSpace()
         drv = jit.JitDriver(greens=[], reds=["i", "inst", "addDataToInt"])
         def f():
-            lib = interp_cppyy.load_lib(space, "./example01Dict.so")
+            lib = interp_cppyy.load_dictionary(space, "./example01Dict.so")
             cls  = interp_cppyy.type_byname(space, "example01")
             inst = cls.get_overload("example01").call(None, "stuff", [FakeInt(0)])
             addDataToInt = cls.get_overload("addDataToInt")

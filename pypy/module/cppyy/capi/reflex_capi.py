@@ -2,6 +2,7 @@ import py, os
 
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rlib import libffi
 
 pkgpath = py.path.local(__file__).dirpath().join(os.pardir)
 srcpath = pkgpath.join("src")
@@ -220,3 +221,6 @@ def charp2str_free(charp):
     voidp = rffi.cast(rffi.VOIDP, charp)
     c_free(voidp)
     return string
+
+def c_load_dictionary(name):
+    return libffi.CDLL(name)

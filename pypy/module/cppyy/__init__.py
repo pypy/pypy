@@ -4,7 +4,7 @@ class Module(MixedModule):
     """    """
 
     interpleveldefs = {
-        '_load_lib'              : 'interp_cppyy.load_lib',
+        '_load_dictionary'       : 'interp_cppyy.load_dictionary',
         '_type_byname'           : 'interp_cppyy.type_byname',
         '_template_byname'       : 'interp_cppyy.template_byname',
         'CPPInstance'            : 'interp_cppyy.W_CPPInstance',
@@ -12,5 +12,5 @@ class Module(MixedModule):
 
     appleveldefs = {
         'gbl'                    : 'pythonify.gbl',
-        'load_lib'               : 'pythonify.load_lib',
+        'load_reflection_info'   : 'pythonify.load_reflection_info',
     }

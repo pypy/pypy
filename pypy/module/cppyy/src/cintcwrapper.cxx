@@ -6,6 +6,7 @@
 #include "TROOT.h"
 #include "TError.h"
 #include "TList.h"
+#include "TSystem.h"
 
 #include "TBaseClass.h"
 #include "TClass.h"
@@ -387,7 +388,11 @@ int cppyy_is_staticdata(cppyy_typehandle_t handle, int data_member_index) {
 }
 
 
-/* misc helper ------------------------------------------------------------ */
+/* misc helpers ----------------------------------------------------------- */
 void cppyy_free(void* ptr) {
     free(ptr);
+}
+
+void* cppyy_load_dictionary(const char* lib_name) {
+   gSystem->Load(lib_name);
 }

@@ -3,7 +3,7 @@ from pypy.conftest import gettestobjspace
 
 
 currpath = py.path.local(__file__).dirpath()
-shared_lib = str(currpath.join("fragileDict.so"))
+test_dct = str(currpath.join("fragileDict.so"))
 
 space = gettestobjspace(usemodules=['cppyy'])
 
@@ -18,16 +18,16 @@ class AppTestFRAGILE:
     def setup_class(cls):
         cls.space = space
         env = os.environ
-        cls.w_shared_lib = space.wrap(shared_lib)
+        cls.w_test_dct  = space.wrap(test_dct)
         cls.w_datatypes = cls.space.appexec([], """():
             import cppyy
-            return cppyy.load_lib(%r)""" % (shared_lib, ))
+            return cppyy.load_reflection_info(%r)""" % (test_dct, ))
 
     def test01_load_failure(self):
         """Test failure to load dictionary"""
 
         import cppyy
-        raises(RuntimeError, cppyy.load_lib, "does_not_exist.so")
+        raises(RuntimeError, cppyy.load_reflection_info, "does_not_exist.so")
 
     def test02_missing_classes(self):
         """Test (non-)access to missing classes"""

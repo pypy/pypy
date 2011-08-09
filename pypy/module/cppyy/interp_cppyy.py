@@ -17,14 +17,13 @@ class FastCallNotPossible(Exception):
 
 NULL_VOIDP  = lltype.nullptr(rffi.VOIDP.TO)
 
-def load_lib(space, name):
-    # TODO: the following uses a hacked CDLL that won't work on Windows
+def load_dictionary(space, name):
     try:
-        cdll = libffi.CDLL(name, rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW)
+        cdll = capi.c_load_dictionary(name)
     except rdynload.DLOpenError, e:
         raise OperationError(space.w_RuntimeError, space.wrap(str(e)))
     return W_CPPLibrary(space, cdll)
-load_lib.unwrap_spec = [ObjSpace, str]
+load_dictionary.unwrap_spec = [ObjSpace, str]
 
 class State(object):
     def __init__(self, space):

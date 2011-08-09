@@ -31,10 +31,10 @@ endif
 	$(genreflex) $< $(genreflexflags) --selection=$*.xml
 
 # rootcint -f example01_cint.cxx -c example01.h example01_LinkDef.h
-# g++ -I$ROOTSYS/include example01_cint.cxx example01.cxx -shared -o example01Dict.so -L$ROOTSYS/lib -lCore -lCint
+# g++ -I$ROOTSYS/include example01_cint.cxx example01.cxx -shared -o example01Dict.so -rdynamic
 #
 # rootcint -f operators_cint.cxx -c operators.h operators_LinkDef.h
-# g++ -I$ROOTSYS/include operators_cint.cxx operators.cxx -shared -o operatorsDict.so -L$ROOTSYS/lib -lCore -lCint
+# g++ -I$ROOTSYS/include operators_cint.cxx operators.cxx -shared -o operatorsDict.os -rdynamic
 
 
 # TODO: methptrgetter causes these tests to crash, so don't use it for now

@@ -15,14 +15,20 @@ else:
     rootincpath = []
     rootlibpath = []
 
-ll2ctypes.load_library_kwargs['mode'] = rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW
+# force loading in global mode of core libraries, rather than linking with
+# them as PyPy uses various version of dlopen in various places; note that
+# this isn't going to fly on Windows (note that locking them in objects and
+# calling dlclose in __del__ seems to come too late, so this'll do for now)
+with rffi.scoped_str2charp('libCint.so') as ll_libname:
+    _cintdll = rdynload.dlopen(ll_libname, rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW)
+with rffi.scoped_str2charp('libCore.so') as ll_libname:
+    _coredll = rdynload.dlopen(ll_libname, rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW)
 
 eci = ExternalCompilationInfo(
     separate_module_files=[srcpath.join("cintcwrapper.cxx")],
     include_dirs=[incpath] + rootincpath,
     includes=["cintcwrapper.h"],
     library_dirs=rootlibpath,
-    libraries=["Cint", "Core"],
     use_cpp_linker=True,
 )
 
@@ -31,6 +37,11 @@ C_OBJECT = rffi.VOIDP
 
 C_METHPTRGETTER = lltype.FuncType([C_OBJECT], rffi.VOIDP)
 C_METHPTRGETTER_PTR = lltype.Ptr(C_METHPTRGETTER)
+
+c_load_dictionary = rffi.llexternal(
+    "cppyy_load_dictionary",
+    [rffi.CCHARP], rdynload.DLLHANDLE,
+    compilation_info=eci)
 
 c_get_typehandle = rffi.llexternal(
     "cppyy_get_typehandle",

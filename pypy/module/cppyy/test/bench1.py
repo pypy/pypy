@@ -52,7 +52,7 @@ class CppyyInterpBench1(object):
     scale = 1
     def __init__(self):
         import cppyy
-        self.lib = cppyy.load_lib("./example01Dict.so")
+        self.lib = cppyy.load_reflection_info("./example01Dict.so")
 
         self.cls  = cppyy._type_byname("example01")
         self.inst = self.cls.get_overload(self.cls.type_name).call(None, cppyy.CPPInstance, 0)
@@ -68,7 +68,7 @@ class CppyyPythonBench1(object):
     scale = 1
     def __init__(self):
         import cppyy
-        self.lib = cppyy.load_lib("./example01Dict.so")
+        self.lib = cppyy.load_reflection_info("./example01Dict.so")
 
         self.cls = cppyy.gbl.example01
         self.inst = self.cls(0)
