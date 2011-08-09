@@ -456,8 +456,8 @@ class OptString(optimizer.Optimization):
         # specifically the given oopspec call.  For non-oopspec calls,
         # oopspecindex is just zero.
         effectinfo = op.getdescr().get_extra_info()
-        if effectinfo is not None:
-            oopspecindex = effectinfo.oopspecindex
+        oopspecindex = effectinfo.oopspecindex
+        if oopspecindex != EffectInfo.OS_NONE:
             for value, meth in opt_call_oopspec_ops:
                 if oopspecindex == value:      # a match with the OS_STR_xxx
                     if meth(self, op, mode_string):

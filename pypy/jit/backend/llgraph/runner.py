@@ -312,7 +312,7 @@ class LLtypeCPU(BaseCPU):
         token = history.getkind(getattr(S, fieldname))
         return self.getdescr(ofs, token[0], name=fieldname)
 
-    def calldescrof(self, FUNC, ARGS, RESULT, extrainfo=None):
+    def calldescrof(self, FUNC, ARGS, RESULT, extrainfo):
         arg_types = []
         for ARG in ARGS:
             token = history.getkind(ARG)
@@ -326,7 +326,7 @@ class LLtypeCPU(BaseCPU):
         return self.getdescr(0, token[0], extrainfo=extrainfo,
                              arg_types=''.join(arg_types))
 
-    def calldescrof_dynamic(self, ffi_args, ffi_result, extrainfo=None):
+    def calldescrof_dynamic(self, ffi_args, ffi_result, extrainfo):
         from pypy.jit.backend.llsupport.ffisupport import get_ffi_type_kind
         from pypy.jit.backend.llsupport.ffisupport import UnsupportedKind
         arg_types = []
@@ -522,7 +522,7 @@ class OOtypeCPU_xxx_disabled(BaseCPU):
         return FieldDescr.new(T1, fieldname)
 
     @staticmethod
-    def calldescrof(FUNC, ARGS, RESULT, extrainfo=None):
+    def calldescrof(FUNC, ARGS, RESULT, extrainfo):
         return StaticMethDescr.new(FUNC, ARGS, RESULT, extrainfo)
 
     @staticmethod

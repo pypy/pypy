@@ -545,12 +545,11 @@ class ExeState(object):
             return True
         elif opnum == rop.CALL:
             effectinfo = descr.get_extra_info()
-            if effectinfo is not None:
-                ef = effectinfo.extraeffect
-                if ef == EffectInfo.EF_LOOPINVARIANT or \
-                   ef == EffectInfo.EF_ELIDABLE_CANNOT_RAISE or \
-                   ef == EffectInfo.EF_ELIDABLE_CAN_RAISE:
-                    return True
+            ef = effectinfo.extraeffect
+            if ef == EffectInfo.EF_LOOPINVARIANT or \
+               ef == EffectInfo.EF_ELIDABLE_CANNOT_RAISE or \
+               ef == EffectInfo.EF_ELIDABLE_CAN_RAISE:
+                return True
         return False
 
     def update(self, op):
@@ -579,7 +578,7 @@ class ExeState(object):
             return
         if opnum == rop.CALL:
             effectinfo = descr.get_extra_info()
-            if effectinfo is not None:
+            if not effectinfo.has_random_effects():
                 for fielddescr in effectinfo.write_descrs_fields:
                     self.unsafe_getitem[fielddescr] = True
                 for arraydescr in effectinfo.write_descrs_arrays:

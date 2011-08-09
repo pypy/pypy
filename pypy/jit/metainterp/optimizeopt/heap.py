@@ -194,31 +194,33 @@ class OptHeap(Optimization):
             opnum == rop.CALL_RELEASE_GIL or
             opnum == rop.CALL_ASSEMBLER):
             if opnum == rop.CALL_ASSEMBLER:
-                effectinfo = None
+                self._seen_guard_not_invalidated = False
             else:
                 effectinfo = op.getdescr().get_extra_info()
-            if effectinfo is None or effectinfo.check_can_invalidate():
-                self._seen_guard_not_invalidated = False
-            if effectinfo is not None and not effectinfo.has_random_effects():
-                # XXX we can get the wrong complexity here, if the lists
-                # XXX stored on effectinfo are large
-                for fielddescr in effectinfo.readonly_descrs_fields:
-                    self.force_lazy_setfield(fielddescr)
-                for arraydescr in effectinfo.readonly_descrs_arrays:
-                    self.force_lazy_setarrayitem(arraydescr)
-                for fielddescr in effectinfo.write_descrs_fields:
-                    self.force_lazy_setfield(fielddescr, can_cache=False)
-                for arraydescr in effectinfo.write_descrs_arrays:
-                    self.force_lazy_setarrayitem(arraydescr, can_cache=False)
-                if effectinfo.check_forces_virtual_or_virtualizable():
-                    vrefinfo = self.optimizer.metainterp_sd.virtualref_info
-                    self.force_lazy_setfield(vrefinfo.descr_forced)
-                    # ^^^ we only need to force this field; the other fields
-                    # of virtualref_info and virtualizable_info are not gcptrs.
-                return
+                if effectinfo.check_can_invalidate():
+                    self._seen_guard_not_invalidated = False
+                if not effectinfo.has_random_effects():
+                    self.force_from_effectinfo(effectinfo)
+                    return
         self.force_all_lazy_setfields_and_arrayitems()
         self.clean_caches()
 
+    def force_from_effectinfo(self, effectinfo):
+        # XXX we can get the wrong complexity here, if the lists
+        # XXX stored on effectinfo are large
+        for fielddescr in effectinfo.readonly_descrs_fields:
+            self.force_lazy_setfield(fielddescr)
+        for arraydescr in effectinfo.readonly_descrs_arrays:
+            self.force_lazy_setarrayitem(arraydescr)
+        for fielddescr in effectinfo.write_descrs_fields:
+            self.force_lazy_setfield(fielddescr, can_cache=False)
+        for arraydescr in effectinfo.write_descrs_arrays:
+            self.force_lazy_setarrayitem(arraydescr, can_cache=False)
+        if effectinfo.check_forces_virtual_or_virtualizable():
+            vrefinfo = self.optimizer.metainterp_sd.virtualref_info
+            self.force_lazy_setfield(vrefinfo.descr_forced)
+            # ^^^ we only need to force this field; the other fields
+            # of virtualref_info and virtualizable_info are not gcptrs.
 
     def turned_constant(self, value):
         assert value.is_constant()

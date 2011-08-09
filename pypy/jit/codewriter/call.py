@@ -187,7 +187,7 @@ class CallControl(object):
             fnaddr = llmemory.cast_ptr_to_adr(fnptr)
         NON_VOID_ARGS = [ARG for ARG in FUNC.ARGS if ARG is not lltype.Void]
         calldescr = self.cpu.calldescrof(FUNC, tuple(NON_VOID_ARGS),
-                                         FUNC.RESULT)
+                                         FUNC.RESULT, EffectInfo.MOST_GENERAL)
         return (fnaddr, calldescr)
 
     def getcalldescr(self, op, oopspecindex=EffectInfo.OS_NONE,
@@ -220,6 +220,8 @@ class CallControl(object):
                                            "loop-invariant function!")
         # build the extraeffect
         can_release_gil = self.canreleasegil_analyzer.analyze(op)
+        if can_release_gil:
+            extraeffect = EffectInfo.EF_RANDOM_EFFECTS
         # can_release_gil implies can_invalidate
         can_invalidate = can_release_gil or self.quasiimmut_analyzer.analyze(op)
         if extraeffect is None:
@@ -239,12 +241,10 @@ class CallControl(object):
         #
         effectinfo = effectinfo_from_writeanalyze(
             self.readwrite_analyzer.analyze(op), self.cpu, extraeffect,
-            oopspecindex, can_invalidate, can_release_gil)
+            oopspecindex, can_invalidate)
         #
-        if oopspecindex != EffectInfo.OS_NONE:
-            assert effectinfo is not None
+        assert effectinfo is not None
         if elidable or loopinvariant:
-            assert effectinfo is not None
             assert extraeffect != EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE
             # XXX this should also say assert not can_invalidate, but
             #     it can't because our analyzer is not good enough for now
@@ -264,8 +264,7 @@ class CallControl(object):
 
     def calldescr_canraise(self, calldescr):
         effectinfo = calldescr.get_extra_info()
-        return (effectinfo is None or
-                effectinfo.extraeffect > EffectInfo.EF_CANNOT_RAISE)
+        return effectinfo.check_can_raise()
 
     def jitdriver_sd_from_portal_graph(self, graph):
         for jd in self.jitdrivers_sd:
