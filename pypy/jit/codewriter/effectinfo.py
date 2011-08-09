@@ -228,12 +228,13 @@ class QuasiImmutAnalyzer(BoolGraphAnalyzer):
     def analyze_simple_operation(self, op, graphinfo):
         return op.opname == 'jit_force_quasi_immutable'
 
-class CanReleaseGILAnalyzer(BoolGraphAnalyzer):
+class RandomEffectsAnalyzer(BoolGraphAnalyzer):
     def analyze_direct_call(self, graph, seen=None):
-        releases_gil = False
         if hasattr(graph, "func") and hasattr(graph.func, "_ptr"):
-            releases_gil = graph.func._ptr._obj.releases_gil
-        return releases_gil or super(CanReleaseGILAnalyzer, self).analyze_direct_call(graph, seen)
+            if graph.func._ptr._obj.random_effects_on_gcobjs:
+                return True
+        return super(RandomEffectsAnalyzer, self).analyze_direct_call(graph,
+                                                                      seen)
 
     def analyze_simple_operation(self, op, graphinfo):
         return False
