@@ -65,7 +65,7 @@ class RPyType(Command):
     """
 
     prog2typeids = {}
- 
+
     def __init__(self, gdb=None):
         # dependency injection, for tests
         if gdb is None:
@@ -137,7 +137,7 @@ class RPyStringPrinter(object):
     val" and see the nice string, and "p *val" to see the underyling struct
     fields
     """
-    
+
     def __init__(self, val):
         self.val = val
 
@@ -172,7 +172,8 @@ class RPyListPrinter(object):
     @classmethod
     def lookup(cls, val, gdb=None):
         t = val.type
-        if is_ptr(t, gdb) and re.match(r'pypy_list\d*', t.target().tag):
+        if (is_ptr(t, gdb) and t.target().tag is not None and
+            re.match(r'pypy_list\d*', t.target().tag)):
             return cls(val)
         return None
 
