@@ -6,8 +6,8 @@
 from pypy.jit.codewriter import support
 from pypy.jit.codewriter.jitcode import JitCode
 from pypy.jit.codewriter.effectinfo import (VirtualizableAnalyzer,
-    QuasiImmutAnalyzer, HasRandomConsequencesOnGcObjectsAnalyzer,
-    effectinfo_from_writeanalyze, EffectInfo, CallInfoCollection)
+    QuasiImmutAnalyzer, CanReleaseGILAnalyzer, effectinfo_from_writeanalyze,
+    EffectInfo, CallInfoCollection)
 from pypy.translator.simplify import get_funcobj, get_functype
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.translator.backendopt.canraise import RaiseAnalyzer
@@ -31,8 +31,7 @@ class CallControl(object):
             self.readwrite_analyzer = ReadWriteAnalyzer(translator)
             self.virtualizable_analyzer = VirtualizableAnalyzer(translator)
             self.quasiimmut_analyzer = QuasiImmutAnalyzer(translator)
-            self.hasrandomconsequencesongcobject_analyzer = (
-                HasRandomConsequencesOnGcObjectsAnalyzer(translator))
+            self.canreleasegil_analyzer = CanReleaseGILAnalyzer(translator)
         #
         for index, jd in enumerate(jitdrivers_sd):
             jd.index = index
@@ -220,9 +219,9 @@ class CallControl(object):
                 assert not NON_VOID_ARGS, ("arguments not supported for "
                                            "loop-invariant function!")
         # build the extraeffect
-        has_random_c = self.hasrandomconsequencesongcobject_analyzer.analyze(op)
-        # has_random_c implies can_invalidate
-        can_invalidate = has_random_c or self.quasiimmut_analyzer.analyze(op)
+        can_release_gil = self.canreleasegil_analyzer.analyze(op)
+        # can_release_gil implies can_invalidate
+        can_invalidate = can_release_gil or self.quasiimmut_analyzer.analyze(op)
         if extraeffect is None:
             if self.virtualizable_analyzer.analyze(op):
                 extraeffect = EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE
@@ -240,7 +239,7 @@ class CallControl(object):
         #
         effectinfo = effectinfo_from_writeanalyze(
             self.readwrite_analyzer.analyze(op), self.cpu, extraeffect,
-            oopspecindex, can_invalidate, has_random_c)
+            oopspecindex, can_invalidate, can_release_gil)
         #
         if oopspecindex != EffectInfo.OS_NONE:
             assert effectinfo is not None
