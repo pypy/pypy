@@ -56,7 +56,7 @@ def llexternal(name, args, result, _callable=None,
                sandboxsafe=False, threadsafe='auto',
                _nowrapper=False, calling_conv='c',
                oo_primitive=None, elidable_function=False,
-               macro=None):
+               macro=None, random_effects_on_gcobjs='auto'):
     """Build an external function that will invoke the C function 'name'
     with the given 'args' types and 'result' type.
 
@@ -112,13 +112,19 @@ def llexternal(name, args, result, _callable=None,
         # sandboxsafe is a hint for "too-small-ness" (e.g. math functions).
         invoke_around_handlers = not sandboxsafe
 
+    if random_effects_on_gcobjs not in (False, True):
+        random_effects_on_gcobjs = (
+            invoke_around_handlers or   # because it can release the GIL
+            has_callback)               # because the callback can do it
+
     funcptr = lltype.functionptr(ext_type, name, external='C',
                                  compilation_info=compilation_info,
                                  _callable=_callable,
                                  _safe_not_sandboxed=sandboxsafe,
                                  _debugexc=True, # on top of llinterp
                                  canraise=False,
-                                 releases_gil=invoke_around_handlers,
+                                 random_effects_on_gcobjs=
+                                     random_effects_on_gcobjs,
                                  **kwds)
     if isinstance(_callable, ll2ctypes.LL2CtypesCallable):
         _callable.funcptr = funcptr

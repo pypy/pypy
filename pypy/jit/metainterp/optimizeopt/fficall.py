@@ -19,7 +19,8 @@ class FuncInfo(object):
         self.funcval = funcval
         self.opargs = []
         argtypes, restype = self._get_signature(funcval)
-        self.descr = cpu.calldescrof_dynamic(argtypes, restype)
+        self.descr = cpu.calldescrof_dynamic(argtypes, restype,
+                                             EffectInfo.MOST_GENERAL)
         # ^^^ may be None if unsupported
         self.prepare_op = prepare_op
         self.delayed_ops = []
@@ -196,9 +197,7 @@ class OptFfiCall(Optimization):
 
     def _get_oopspec(self, op):
         effectinfo = op.getdescr().get_extra_info()
-        if effectinfo is not None:
-            return effectinfo.oopspecindex
-        return EffectInfo.OS_NONE
+        return effectinfo.oopspecindex
 
     def _get_funcval(self, op):
         return self.getvalue(op.getarg(1))
