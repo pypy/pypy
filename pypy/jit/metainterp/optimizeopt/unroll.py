@@ -242,13 +242,14 @@ class UnrollOptimizer(Optimization):
             for op in self.short_boxes.operations():
                 self.ensure_short_op_emitted(op, self.optimizer, seen)
                 if op and op.result:
+                    # The order of these guards is not important as 
+                    # self.optimizer.emitting_dissabled is False
                     value = preamble_optimizer.getvalue(op.result)
                     for guard in value.make_guards(op.result):
                         self.optimizer.send_extra_operation(guard)
                     newresult = self.optimizer.getvalue(op.result).get_key_box()
                     if newresult is not op.result:
                         self.short_boxes.alias(newresult, op.result)
-
             self.optimizer.flush()
             self.optimizer.emitting_dissabled = False
 

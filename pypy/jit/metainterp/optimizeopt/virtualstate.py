@@ -11,6 +11,7 @@ from pypy.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
+from pypy.rlib.objectmodel import we_are_translated
 
 class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
     position = -1
@@ -509,6 +510,10 @@ class ShortBoxes(object):
         debug_stop('jit-short-boxes')
         
     def operations(self):
+        if not we_are_translated(): # For tests
+            ops = self.short_boxes.values()
+            ops.sort(key=str, reverse=True)
+            return ops
         return self.short_boxes.values()
 
     def producer(self, box):
@@ -518,7 +523,7 @@ class ShortBoxes(object):
         return box in self.short_boxes
 
     def alias(self, newbox, oldbox):
-        if not isinstance(oldbox, Const):
+        if not isinstance(oldbox, Const) and newbox not in self.short_boxes:
             self.short_boxes[newbox] = self.short_boxes[oldbox]
         self.aliases[newbox] = oldbox
         

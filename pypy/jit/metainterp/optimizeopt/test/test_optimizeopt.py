@@ -6924,9 +6924,26 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p5, 1, descr=valuedescr)
         jump(p5, 1)
         """
-        
         self.optimize_loop(ops, expected, preamble)
-        
+
+    def test_dont_mixup_equal_boxes(self):
+        ops = """
+        [p8]
+        i9 = getfield_gc_pure(p8, descr=valuedescr)
+        i10 = int_gt(i9, 0)
+        guard_true(i10) []
+        i29 = int_lshift(i9, 1)
+        i30 = int_rshift(i29, 1)
+        i40 = int_ne(i30, i9)
+        guard_false(i40) []
+        jump(p8)
+        """
+        expected = """
+        [p8]
+        jump(p8)
+        """
+        self.optimize_loop(ops, expected)
+
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
         
