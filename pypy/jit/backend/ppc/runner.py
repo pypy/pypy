@@ -41,6 +41,7 @@ class PPC_64_CPU(AbstractLLCPU):
         self.saved_descr = {}
         self.patch_list = []
         self.reg_map = {}
+        self.fail_box_count = 0
 
         codebuilder = PPCBuilder()
         
@@ -67,6 +68,7 @@ class PPC_64_CPU(AbstractLLCPU):
         self.saved_descr = {}
         self.patch_list = []
         self.reg_map = {}
+        self.fail_box_count = 0
 
         codebuilder = looptoken.codebuilder
         # jump to the bridge
@@ -107,6 +109,7 @@ class PPC_64_CPU(AbstractLLCPU):
             # store return parameters in memory
             used_mem_indices = []
             for index, reg in enumerate(reglist):
+                self.fail_box_count += 1
                 # if reg is None, then there is a hole in the failargs
                 if reg is not None:
                     addr = self.fail_boxes_int.get_addr_for_num(index)
@@ -123,13 +126,22 @@ class PPC_64_CPU(AbstractLLCPU):
             codebuilder.li(3, fail_index)            
             codebuilder.blr()
 
+    # set value in fail_boxes_int
     def set_future_value_int(self, index, value_int):
         self.fail_boxes_int.setitem(index, value_int)
+
+    def clear_latest_values(self, count):
+        for index in range(count):
+            self.fail_boxes_int.setitem(index, 0)
 
     # executes the stored machine code in the token
     def execute_token(self, looptoken):   
         descr_index = looptoken.ppc_code()
         return self.saved_descr[descr_index]
+
+    # return the number of values that can be returned
+    def get_latest_value_count(self):
+        return self.fail_box_count
 
     # fetch the result of the computation and return it
     def get_latest_value_int(self, index):
