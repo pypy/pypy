@@ -21,7 +21,7 @@ B = Form("BO", "BI", "BD", "AA", "LK")
 SC = Form("AA") # fudge
 
 DD = Form("rD", "rA", "SIMM")
-DDO = Form("rD", "rA", "SIMM14", "XO4")
+DDO = Form("rD", "rA", "ds", "XO4")
 DS = Form("rA", "rS", "UIMM")
 
 X = Form("XO1")
