@@ -136,7 +136,7 @@ class CachedField(object):
                     result = op.getarg(1)
                     if isinstance(result, Const):
                         newresult = result.clonebox()
-                        shortboxes.alias(newresult, result)
+                        optimizer.make_constant(newresult, result)
                         result = newresult
                     getop = ResOperation(rop.GETFIELD_GC, [op.getarg(0)],
                                          result, op.getdescr())

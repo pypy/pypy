@@ -6916,13 +6916,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i10 = getfield_gc(p5, descr=valuedescr)
         call(i10, descr=nonwritedescr) 
         setfield_gc(p5, 1, descr=valuedescr)
-        jump(p5, 1)
+        jump(p5)
         """
         expected = """
-        [p5, i10]
-        call(i10, descr=nonwritedescr) 
+        [p5]
+        call(1, descr=nonwritedescr) 
         setfield_gc(p5, 1, descr=valuedescr)
-        jump(p5, 1)
+        jump(p5)
         """
         self.optimize_loop(ops, expected, preamble)
 
@@ -6941,6 +6941,61 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [p8]
         jump(p8)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_specialized_to_cached_constant_guard(self):
+        ops = """
+        [p9]
+        i16 = getfield_gc(p9, descr=valuedescr)
+        i17 = int_is_true(i16)
+        guard_false(i17) []
+        call_assembler(i17, descr=asmdescr)
+        i18 = getfield_gc(p9, descr=valuedescr)
+        guard_value(i18, 0) []
+        jump(p9)
+        """
+        expected = """
+        [p9]
+        call_assembler(0, descr=asmdescr)
+        i18 = getfield_gc(p9, descr=valuedescr)
+        guard_value(i18, 0) []        
+        jump(p9)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_specialized_to_cached_constant_setfield(self):
+        ops = """
+        [p9]
+        i16 = getfield_gc(p9, descr=valuedescr)
+        i17 = int_is_true(i16)
+        guard_false(i17) []
+        call_assembler(i17, descr=asmdescr)
+        i18 = setfield_gc(p9, 0, descr=valuedescr)
+        jump(p9)
+        """
+        expected = """
+        [p9]
+        call_assembler(0, descr=asmdescr)
+        i18 = setfield_gc(p9, 0, descr=valuedescr)
+        jump(p9)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_cached_equal_fields(self):
+        ops = """
+        [p5, p6]
+        i10 = getfield_gc(p5, descr=valuedescr)
+        i11 = getfield_gc(p6, descr=nextdescr)
+        call(i10, i11, descr=nonwritedescr)
+        setfield_gc(p6, i10, descr=nextdescr)        
+        jump(p5, p6)
+        """
+        expected = """
+        [p5, p6, i10, i11]
+        call(i10, i11, descr=nonwritedescr)
+        setfield_gc(p6, i10, descr=nextdescr)        
+        jump(p5, p6, i10, i10)
         """
         self.optimize_loop(ops, expected)
 

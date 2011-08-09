@@ -627,7 +627,8 @@ class BaseTestBridges(BaseTest):
         [p0]
         guard_nonnull(p0) []
         i10 = getfield_gc(p0, descr=valuedescr)
-        jump(p0, i10)
+        guard_value(i10, 1) []
+        jump(p0)
         """
         self.optimize_bridge(loop, bridge, expected, p0=self.myptr)        
         bridge = """
@@ -638,10 +639,32 @@ class BaseTestBridges(BaseTest):
         expected = """
         [p0]
         setfield_gc(p0, 7, descr=valuedescr)
-        jump(p0, 7)
+        jump(p0)
         """
-        self.optimize_bridge(loop, bridge, expected, p0=self.myptr)        
-        
+        self.optimize_bridge(loop, bridge, expected, 'Preamble', p0=self.myptr)
+
+    def test_cached_equal_fields(self):
+        loop = """
+        [p5, p6]
+        i10 = getfield_gc(p5, descr=valuedescr)
+        i11 = getfield_gc(p6, descr=nextdescr)
+        call(i10, i11, descr=nonwritedescr)
+        setfield_gc(p6, i10, descr=nextdescr)        
+        jump(p5, p6)
+        """
+        bridge = """
+        [p5, p6]
+        jump(p5, p6)
+        """
+        expected = """
+        [p5, p6]
+        guard_nonnull(p5) []
+        guard_nonnull(p6) []
+        i10 = getfield_gc(p5, descr=valuedescr)
+        i11 = getfield_gc(p6, descr=nextdescr)
+        jump(p5, p6, i10, i11)
+        """
+        self.optimize_bridge(loop, bridge, expected, p5=self.myptr, p6=self.myptr2)
 
 class TestLLtypeGuards(BaseTestGenerateGuards, LLtypeMixin):
     pass
