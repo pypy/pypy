@@ -1,10 +1,12 @@
 from pypy.rlib import _rffi_stacklet as _c
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rlib import rstacklet
-from pypy.rlib.debug import ll_assert
+from pypy.rlib import rstacklet, rgc
+from pypy.rlib.debug import ll_assert, debug_print
 from pypy.rpython.annlowlevel import llhelper
 
+
+DEBUG = False
 
 PTR_SUSPSTACK = lltype.Ptr(lltype.GcForwardReference())
 SUSPSTACK = lltype.GcStruct('SuspStack',
@@ -24,12 +26,15 @@ NULL_SUSPSTACK = lltype.nullptr(SUSPSTACK)
 sizeofaddr = llmemory.sizeof(llmemory.Address)
 
 def repr_suspstack(suspstack):
-    return '<SuspStack %d: stop=%d, start=%d, saved=%d>' % (
-        rffi.cast(lltype.Signed, suspstack.handle),
-        rffi.cast(lltype.Signed, suspstack.shadowstack_stop),
-        rffi.cast(lltype.Signed, suspstack.shadowstack_start),
-        suspstack.shadowstack_saved)
-
+    debug_print('<SuspStack',
+                rffi.cast(lltype.Signed, suspstack.handle),
+                ': stop',
+                rffi.cast(lltype.Signed, suspstack.shadowstack_stop),
+                'start',
+                rffi.cast(lltype.Signed, suspstack.shadowstack_start),
+                'saved',
+                suspstack.shadowstack_saved,
+                '>')
 
 # every thread has a 'current stack stop', which is like
 # g_current_stack_stop in stacklet.c but about the shadowstack
@@ -47,94 +52,129 @@ def set_root_stack_top(newaddr):
 
 
 def _new_runfn(h, arg):
-    gcrootfinder.thrd._current_shadowstack_stop = root_stack_top()
+    thrd = gcrootfinder.thrd
+    thrd._current_shadowstack_stop = root_stack_top()
     suspstack = gcrootfinder.attach_handle_on_suspstack(h)
+    #
     suspstack = gcrootfinder.runfn(suspstack, arg)
-    return gcrootfinder.consume_suspstack(suspstack)
+    #
+    gcrootfinder.thrd = thrd
+    gcrootfinder.g_source = NULL_SUSPSTACK
+    gcrootfinder.g_target = suspstack
+    return gcrootfinder.consume_suspstack()
 
 
 class StackletGcRootFinder(object):
-    suspstack = NULL_SUSPSTACK
+    g_source = NULL_SUSPSTACK
+    g_target = NULL_SUSPSTACK
 
     def new(self, thrd, callback, arg):
-        if thrd._current_shadowstack_stop == llmemory.NULL:
-            thrd._current_shadowstack_stop = root_stack_top()
-        self.allocate_source_suspstack(thrd)
+        rst = root_stack_top()
+        if (thrd._current_shadowstack_stop == llmemory.NULL or
+                thrd._current_shadowstack_stop > rst):
+            thrd._current_shadowstack_stop = rst
+        self.allocate_source_suspstack(rst, thrd)
         self.runfn = callback
         h = _c.new(thrd._thrd, llhelper(_c.run_fn, _new_runfn), arg)
-        return self.get_result_suspstack(h)
+        return self.get_result_suspstack(h, False)
 
     def switch(self, thrd, suspstack):
-        self.allocate_source_suspstack(thrd)
-        h = self.consume_suspstack(suspstack)
-        h2 = _c.switch(thrd._thrd, h)
-        return self.get_result_suspstack(h2)
-
-    def allocate_source_suspstack(self, thrd):
-        # Attach to 'self.suspstack' a SUSPSTACK that represents the
-        # old, but still current, stacklet.  All that is left to
-        # fill is 'self.suspstack.handle', done later by a call
-        # to attach_handle_on_suspstack().
         rst = root_stack_top()
         if thrd._current_shadowstack_stop > rst:
             thrd._current_shadowstack_stop = rst
+        self.allocate_source_suspstack(rst, thrd)
+        self.g_target = suspstack
+        h = self.consume_suspstack()
+        h2 = _c.switch(thrd._thrd, h)
+        return self.get_result_suspstack(h2, True)
+
+    def allocate_source_suspstack(self, rst, thrd):
+        # Attach to 'self' a SUSPSTACK that represents the
+        # old, but still current, stacklet.  All that is left to
+        # fill is 'self.g_source.handle', done later by a call
+        # to attach_handle_on_suspstack().
         count = (rst - thrd._current_shadowstack_stop) // sizeofaddr
         newsuspstack = lltype.malloc(SUSPSTACK, count)
         newsuspstack.shadowstack_stop = thrd._current_shadowstack_stop
         newsuspstack.shadowstack_start = rst
         newsuspstack.shadowstack_saved = 0
         newsuspstack.shadowstack_prev = thrd._shadowstack_chain_head
+        #
+        newsuspstack.handle = _c.null_handle
+        if DEBUG:
+            debug_print("NEW")
+            repr_suspstack(newsuspstack)
+        #
         thrd._shadowstack_chain_head = newsuspstack
-        self.suspstack = newsuspstack
+        self.g_source = newsuspstack
         self.thrd = thrd
+    allocate_source_suspstack._dont_inline_ = True
+    # ^^^ dont_inline because it has a malloc, so we want its effects on
+    #     the root_stack_top to be isolated
 
+    @rgc.no_collect
     def attach_handle_on_suspstack(self, handle):
-        s = self.suspstack
-        self.suspstack = NULL_SUSPSTACK
+        s = self.g_source
+        self.g_source = NULL_SUSPSTACK
         s.handle = handle
-        print 'ATTACH HANDLE', repr_suspstack(s)
+        if DEBUG:
+            debug_print('ATTACH HANDLE')
+            repr_suspstack(s)
         return s
 
-    def get_result_suspstack(self, h):
+    @rgc.no_collect
+    def get_result_suspstack(self, h, restore_if_out_of_memory):
         #
         # Return from a new() or a switch(): 'h' is a handle, possibly
         # an empty one, that says from where we switched to.
         if not h:
             # oups, we didn't actually switch anywhere, but just got
             # an out-of-memory condition.  Restore the current suspstack.
-            self.consume_suspstack(self.suspstack)
-            self.suspstack = NULL_SUSPSTACK
+            if restore_if_out_of_memory:
+                self.g_target = self.g_source
+                self.consume_suspstack()
+            self.g_source = NULL_SUSPSTACK
+            self.g_target = NULL_SUSPSTACK
             self.thrd = None
             raise MemoryError
         #
+        ll_assert(self.g_target == NULL_SUSPSTACK, "g_target must be cleared")
+        #
         if _c.is_empty_handle(h):
+            ll_assert(self.g_source == NULL_SUSPSTACK,
+                      "g_source must be cleared")
             self.thrd = None
             return NULL_SUSPSTACK
         else:
             # This is a return that gave us a real handle.  Store it.
             return self.attach_handle_on_suspstack(h)
 
-    def consume_suspstack(self, suspstack):
-        print 'CONSUME', repr_suspstack(suspstack)
+    @rgc.no_collect
+    def consume_suspstack(self):
+        if DEBUG:
+            debug_print('CONSUME')
+            repr_suspstack(self.g_target)
         #
         # We want to switch to or return to 'suspstack'.  First get
         # how far we have to clean up the shadowstack.
-        target = suspstack.shadowstack_stop
+        target = self.possibly_move_back()
         #
         # Clean the shadowstack up to that position.
-        self.clear_shadowstack(target, suspstack)
+        self.clear_shadowstack(target)
         #
         # Now restore data from suspstack.shadowstack_copy.
-        self.restore_suspstack(suspstack)
+        self.restore_suspstack()
         #
         # Set the new root stack bounds.
+        suspstack = self.g_target
         self.thrd._current_shadowstack_stop = target
         set_root_stack_top(suspstack.shadowstack_start)
         #
         # Now the real shadowstack is ready for 'suspstack'.
+        self.g_target = NULL_SUSPSTACK
         return suspstack.handle
 
-    def clear_shadowstack(self, target_stop, targetsuspstack):
+    def clear_shadowstack(self, target_stop):
         # NB. see also g_clear_stack() in stacklet.c.
         #
         current = self.thrd._shadowstack_chain_head
@@ -144,7 +184,7 @@ class StackletGcRootFinder(object):
         while bool(current) and current.shadowstack_stop >= target_stop:
             prev = current.shadowstack_prev
             current.shadowstack_prev = NULL_SUSPSTACK
-            if current != targetsuspstack:
+            if current != self.g_target:
                 # don't bother saving away targetsuspstack, because
                 # it would be immediately restored
                 self._save(current, current.shadowstack_stop)
@@ -170,7 +210,8 @@ class StackletGcRootFinder(object):
             num1 += 1
         suspstack.shadowstack_saved = num1
 
-    def restore_suspstack(self, suspstack):
+    def restore_suspstack(self):
+        suspstack = self.g_target
         target = suspstack.shadowstack_start
         saved = suspstack.shadowstack_saved
         suspstack.shadowstack_saved = 0
@@ -180,6 +221,25 @@ class StackletGcRootFinder(object):
             target -= sizeofaddr
             target.address[0] = addr
             i += 1
+
+    def possibly_move_back(self):
+        # if suspstack.shadowstack_stop is after root_stack_top, then
+        # restoring it there would leave an uninitialized gap containing
+        # garbage in the real shadowstack.  Avoid this by shifting
+        # susp.shadowstack_{stop,start}.
+        suspstack = self.g_target
+        rst = root_stack_top()
+        delta = suspstack.shadowstack_stop - rst
+        if delta > 0:
+            # completely saved in this case
+            ll_assert(suspstack.shadowstack_start - suspstack.shadowstack_stop
+                      == suspstack.shadowstack_saved * sizeofaddr,
+                      "not completely saved shadowstack?")
+            if DEBUG:
+                debug_print('moving to the left by', delta)
+            suspstack.shadowstack_stop -= delta
+            suspstack.shadowstack_start -= delta
+        return suspstack.shadowstack_stop
 
     def destroy(self, thrd, suspstack):
         h = suspstack.handle
