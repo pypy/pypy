@@ -6998,6 +6998,32 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p5, p6, i10, i10)
         """
         self.optimize_loop(ops, expected)
+        
+    def test_forced_counter(self):
+        ops = """
+        [p5, p8]
+        i9 = getfield_gc_pure(p5, descr=valuedescr)
+        call(i9, descr=nonwritedescr)
+        i11 = getfield_gc_pure(p8, descr=valuedescr)
+        i13 = int_add_ovf(i11, 1)
+        guard_no_overflow() []
+        p22 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p22, i13, descr=valuedescr)
+        setfield_gc(ConstPtr(myptr), p22, descr=adescr)
+        jump(p22, p22)
+        """
+        expected = """
+        [p8, i9]
+        call(i9, descr=nonwritedescr)
+        i13 = int_add_ovf(i9, 1)
+        guard_no_overflow() []
+        p22 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p22, i13, descr=valuedescr)
+        setfield_gc(ConstPtr(myptr), p22, descr=adescr)
+        jump(p22, i13)
+        """
+        self.optimize_loop(ops, expected)
+        
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
