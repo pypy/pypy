@@ -283,7 +283,8 @@ class TestAssemble(object):
         lltype.free(p, flavor="raw")
 
     def test_ld(self):
-        py.test.skip("maybe works on 64 bit?")
+        if not is_64_bit_arch():
+            py.test.skip("maybe works on 64 bit?")
         a = PPCBuilder()
 
         p = lltype.malloc(rffi.CArray(rffi.INT), 1, flavor="raw")
@@ -316,6 +317,11 @@ class AsmCode(object):
 
 def func(arg):
     return arg + 15
+
+def is_64_bit_arch():
+    import sys
+    return sys.maxint == 9223372036854775807
+       
 """
 class TestAssemble(object):
         
