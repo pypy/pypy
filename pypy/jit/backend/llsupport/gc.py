@@ -336,18 +336,18 @@ class GcRootMap_shadowstack(object):
     This is the class supporting --gcrootfinder=shadowstack.
     """
     is_shadow_stack = True
-    MARKER = 8
+    MARKER = -43   # cannot possibly be a valid header for a gc object
 
     # The "shadowstack" is a portable way in which the GC finds the
     # roots that live in the stack.  Normally it is just a list of
     # pointers to GC objects.  The pointers may be moved around by a GC
-    # collection.  But with the JIT, an entry can also be MARKER, in
-    # which case the next entry points to an assembler stack frame.
-    # During a residual CALL from the assembler (which may indirectly
-    # call the GC), we use the force_index stored in the assembler
-    # stack frame to identify the call: we can go from the force_index
-    # to a list of where the GC pointers are in the frame (this is the
-    # purpose of the present class).
+    # collection.  But with the JIT, an entry can also points to an
+    # assembler stack frame --- more precisely, to a MARKER word in it,
+    # so that we can tell.  During a residual CALL from the assembler
+    # (which may indirectly call the GC), we use the force_index stored
+    # in the assembler stack frame to identify the call: we can go from
+    # the force_index to a list of where the GC pointers are in the
+    # frame (this is the purpose of the present class).
     #
     # Note that across CALL_MAY_FORCE or CALL_ASSEMBLER, we can also go
     # from the force_index to a ResumeGuardForcedDescr instance, which
@@ -363,27 +363,36 @@ class GcRootMap_shadowstack(object):
         self._callshapes = lltype.nullptr(self.CALLSHAPES_ARRAY)
         self._callshapes_maxlength = 0
         self.force_index_ofs = gcdescr.force_index_ofs
+        self.marker_ofs      = gcdescr.marker_ofs
 
     def add_jit2gc_hooks(self, jit2gc):
         #
         def collect_jit_stack_root(callback, gc, addr):
-            if addr.signed[0] != GcRootMap_shadowstack.MARKER:
-                # common case
-                if gc.points_to_valid_gc_object(addr):
+            # Note: first check with 'points_to_valid_gc_object' if the
+            # addr.address[0] appears to be a valid pointer.  It returns
+            # False if it's NULL, and may also check for tagged integers.
+            # The important part here is that it will return True for a
+            # pointer to a MARKER (which is word-aligned), even though it's
+            # not pointing to a valid GC object.
+            if gc.points_to_valid_gc_object(addr):
+                if addr.address[0].signed[0] != GcRootMap_shadowstack.MARKER:
+                    # common case
                     callback(gc, addr)
-                return WORD
-            else:
-                # case of a MARKER followed by an assembler stack frame
-                follow_stack_frame_of_assembler(callback, gc, addr)
-                return 2 * WORD
+                else:
+                    # points to a MARKER
+                    follow_stack_frame_of_assembler(callback, gc, addr)
         #
         def follow_stack_frame_of_assembler(callback, gc, addr):
-            frame_addr = addr.signed[1]
+            frame_addr = addr.signed[0] - self.marker_ofs
             addr = llmemory.cast_int_to_adr(frame_addr + self.force_index_ofs)
             force_index = addr.signed[0]
             if force_index < 0:
                 force_index = ~force_index
             callshape = self._callshapes[force_index]
+            # NB: the previous line reads a still-alive _callshapes,
+            # because we ensure that just before we called this piece of
+            # assembler, we put on the (same) stack a pointer to a
+            # loop_token that keeps the force_index alive.
             n = 0
             while True:
                 offset = rffi.cast(lltype.Signed, callshape[n])

@@ -32,7 +32,6 @@ class ShadowStackRootWalker(BaseRootWalker):
             def collect_stack_root(callback, gc, addr):
                 if gc.points_to_valid_gc_object(addr):
                     callback(gc, addr)
-                return sizeofaddr
             self.rootstackhook = collect_stack_root
 
     def push_stack(self, addr):
@@ -60,7 +59,8 @@ class ShadowStackRootWalker(BaseRootWalker):
         addr = gcdata.root_stack_base
         end = gcdata.root_stack_top
         while addr != end:
-            addr += rootstackhook(collect_stack_root, gc, addr)
+            rootstackhook(collect_stack_root, gc, addr)
+            addr += sizeofaddr
         if self.collect_stacks_from_other_threads is not None:
             self.collect_stacks_from_other_threads(collect_stack_root)
 
@@ -175,7 +175,8 @@ class ShadowStackRootWalker(BaseRootWalker):
                 end = stacktop - sizeofaddr
                 addr = end.address[0]
                 while addr != end:
-                    addr += rootstackhook(callback, gc, addr)
+                    rootstackhook(callback, gc, addr)
+                    addr += sizeofaddr
 
         def collect_more_stacks(callback):
             ll_assert(get_aid() == gcdata.active_thread,
