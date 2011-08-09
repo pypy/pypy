@@ -37,8 +37,9 @@ newthread = llexternal('stacklet_newthread', [], thread_handle)
 deletethread = llexternal('stacklet_deletethread',[thread_handle], lltype.Void)
 
 new = llexternal('stacklet_new', [thread_handle, run_fn, llmemory.Address],
-                 handle)
-switch = llexternal('stacklet_switch', [thread_handle, handle], handle)
+                 handle, random_effects_on_gcobjs=True)
+switch = llexternal('stacklet_switch', [thread_handle, handle], handle,
+                    random_effects_on_gcobjs=True)
 destroy = llexternal('stacklet_destroy', [thread_handle, handle], lltype.Void)
 
 _translate_pointer = llexternal("_stacklet_translate_pointer",
