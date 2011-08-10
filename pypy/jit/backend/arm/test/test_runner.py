@@ -112,3 +112,6 @@ class TestARM(LLtypeBackendTest):
         a = lltype.cast_opaque_ptr(lltype.Ptr(A), r1.value)
         assert a[0] == 0
         assert len(a) == 6
+
+    def test_cond_call_gc_wb_array_card_marking_fast_path(self):
+        py.test.skip('ignore this fast path for now')
