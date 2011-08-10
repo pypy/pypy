@@ -55,7 +55,8 @@ Highlights
   - optimized dictionaries: the internal representation of dictionaries is now
     dynamically selected depending on the type of stored objects, resulting in
     faster code and smaller memory footprint.  For example, dictionaries whose
-    keys are all strings, or all integers.
+    keys are all strings, or all integers. Other dictionaries are also smaller
+    due to bugfixes.
 
 * JitViewer: this is the first official release which includes the JitViewer,
   a web-based tool which helps you to see which parts of your Python code have
@@ -67,7 +68,7 @@ Highlights
   our `compatibility wiki`_.
 
 * Multibyte encoding support: this was of of the last areas in which we were
-  still behind CPython, but now we fully support them. (XXX: is that true?)
+  still behind CPython, but now we fully support them.
 
 * Preliminary support for NumPy: this release includes a preview of a very
   fast NumPy module integrated with the PyPy JIT.  Unfortunately, this does
@@ -81,5 +82,6 @@ Highlights
 
 Cheers,
 
-Carl Friedrich Bolz, Laura Creighton, Antonio Cuni, Maciej Fijalkowski,
-Amaury Forgeot d'Arc, Alex Gaynor, Armin Rigo and the PyPy team
+Hakan Ardo, Carl Friedrich Bolz, Laura Creighton, Antonio Cuni,
+Maciej Fijalkowski, Amaury Forgeot d'Arc, Alex Gaynor,
+Armin Rigo and the PyPy team
