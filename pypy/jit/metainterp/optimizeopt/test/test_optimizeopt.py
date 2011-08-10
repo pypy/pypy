@@ -7023,7 +7023,37 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p22, i13)
         """
         self.optimize_loop(ops, expected)
-        
+
+    def test_samebox_getfield_setfield(self):
+        ops = """
+        [p0]
+        p10 = getfield_gc(ConstPtr(myptr), descr=valuedescr)
+        call(p10, descr=nonwritedescr)
+        setfield_gc(ConstPtr(myptr), p10, descr=valuedescr)
+        jump(p0)
+        """
+        expected = """
+        [p0, p10]
+        call(p10, descr=nonwritedescr)
+        jump(p0, p10)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_constptr_getfield_setfield(self):
+        ops = """
+        [p0]
+        p10 = getfield_gc(ConstPtr(myptr), descr=valuedescr)
+        guard_value(p10, ConstPtr(myptr2)) []
+        call(p10, descr=nonwritedescr)
+        setfield_gc(ConstPtr(myptr), ConstPtr(myptr2), descr=valuedescr)
+        jump(p0)
+        """
+        expected = """
+        [p0, p10]
+        call(p10, descr=nonwritedescr)
+        jump(p0, p10)
+        """
+        self.optimize_loop(ops, expected)
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
