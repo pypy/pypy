@@ -214,7 +214,7 @@ class BaseTestStacklet(StandaloneTests):
         config = get_pypy_config(translating=True)
         config.translation.gc = cls.gc
         if cls.gcrootfinder is not None:
-            config.translation.stacklet = True
+            config.translation.continuation = True
             config.translation.gcrootfinder = cls.gcrootfinder
             GCROOTFINDER = cls.gcrootfinder
         cls.config = config

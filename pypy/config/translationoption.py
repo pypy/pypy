@@ -28,8 +28,8 @@ PLATFORMS = [
 
 translation_optiondescription = OptionDescription(
         "translation", "Translation Options", [
-    BoolOption("stacklet", "enable stackless features during compilation",
-               default=False, cmdline="--stacklet",
+    BoolOption("continuation", "enable single-shot continuations",
+               default=False, cmdline="--continuation",
                requires=[("translation.type_system", "lltype")]),
     ChoiceOption("type_system", "Type system to use when RTyping",
                  ["lltype", "ootype"], cmdline=None, default="lltype",

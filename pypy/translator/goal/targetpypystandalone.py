@@ -173,15 +173,10 @@ class PyPyTarget(object):
                 # command-line directly instead of via --allworkingmodules.
                 config.objspace.usemodules.thread = False
 
-        if config.translation.stacklet:
+        if config.translation.continuation:
             config.objspace.usemodules._stacklet = True
         elif config.objspace.usemodules._stacklet:
-            try:
-                config.translation.stacklet = True
-            except ConflictConfigError:
-                raise ConflictConfigError("please use the --stacklet option "
-                                          "to translate.py instead of "
-                                          "--withmod-_stacklet directly")
+            config.translation.continuation = True
 
         if not config.translation.rweakref:
             config.objspace.usemodules._weakref = False

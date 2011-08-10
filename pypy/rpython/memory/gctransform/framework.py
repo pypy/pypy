@@ -484,7 +484,7 @@ class FrameworkGCTransformer(GCTransformer):
                                     annmodel.SomeInteger())
 
         # thread support
-        if translator.config.translation.stacklet:
+        if translator.config.translation.continuation:
             root_walker.need_stacklet_support()
         if translator.config.translation.thread:
             root_walker.need_thread_support(self, getfn)

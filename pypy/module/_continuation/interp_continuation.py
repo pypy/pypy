@@ -10,12 +10,15 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
 from pypy.rlib.debug import ll_assert, fatalerror
 
+#
+# Note: a "continuation" at app-level is called a "stacklet" here.
+#
 
 class SThread(StackletThread):
 
     def __init__(self, space, ec):
         StackletThread.__init__(self, space.config)
-        w_module = space.getbuiltinmodule('_stacklet')
+        w_module = space.getbuiltinmodule('_continuation')
         self.space = space
         self.ec = ec
         self.w_error = space.getattr(w_module, space.wrap('error'))
@@ -119,7 +122,7 @@ class W_Stacklet(Wrappable):
             space = self.sthread.space
             raise OperationError(
                 self.sthread.w_error,
-                space.wrap("stacklet has already been resumed"))
+                space.wrap("continuation has already been resumed"))
 
     def switch(self, space):
         sthread = self.sthread
@@ -141,8 +144,8 @@ class W_Stacklet(Wrappable):
         return space.newbool(bool(self.h))
 
 W_Stacklet.typedef = TypeDef(
-    'Stacklet',
-    __module__ = '_stacklet',
+    'Continuation',
+    __module__ = '_continuation',
     switch     = interp2app(W_Stacklet.switch),
     is_pending = interp2app(W_Stacklet.is_pending),
     )
@@ -178,7 +181,7 @@ def new_stacklet_callback(h, arg):
             return result.consume_handle()
         except OperationError, e:
             w_value = e.get_w_value(space)
-            msg = 'returning from new stacklet: ' + space.str_w(w_value)
+            msg = 'returning from _continuation.new: ' + space.str_w(w_value)
             raise OperationError(e.w_type, space.wrap(msg))
     #
     except Exception, e:

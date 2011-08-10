@@ -4,13 +4,13 @@ from pypy.conftest import gettestobjspace
 
 class AppTestStacklet:
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_stacklet'])
+        cls.space = gettestobjspace(usemodules=['_continuation'])
         cls.w_translated = cls.space.wrap(
             os.path.join(os.path.dirname(__file__),
                          'test_translated.py'))
 
     def test_new_empty(self):
-        from _stacklet import newstacklet
+        from _continuation import new, callcc
         #
         def empty_callback(h):
             assert h.is_pending()
@@ -18,12 +18,15 @@ class AppTestStacklet:
             return h
         #
         seen = []
-        h = newstacklet(empty_callback)
+        h = new(empty_callback)
         assert h is None
         assert seen == [1]
+        h = callcc(empty_callback)
+        assert h is None
+        assert seen == [1, 1]
 
     def test_bogus_return_value(self):
-        from _stacklet import error, newstacklet
+        from _continuation import new
         #
         def empty_callback(h):
             assert h.is_pending()
@@ -31,12 +34,12 @@ class AppTestStacklet:
             return 42
         #
         seen = []
-        raises(TypeError, newstacklet, empty_callback)
+        raises(TypeError, new, empty_callback)
         assert len(seen) == 1
         assert not seen[0].is_pending()
 
     def test_propagate_exception(self):
-        from _stacklet import error, newstacklet
+        from _continuation import new
         #
         def empty_callback(h):
             assert h.is_pending()
@@ -44,12 +47,12 @@ class AppTestStacklet:
             raise ValueError
         #
         seen = []
-        raises(ValueError, newstacklet, empty_callback)
+        raises(ValueError, new, empty_callback)
         assert len(seen) == 1
         assert not seen[0].is_pending()
 
     def test_callback_with_arguments(self):
-        from _stacklet import newstacklet
+        from _continuation import new
         #
         def empty_callback(h, *args, **kwds):
             assert h.is_pending()
@@ -59,7 +62,7 @@ class AppTestStacklet:
             return h
         #
         seen = []
-        h = newstacklet(empty_callback, 42, 43, foo=44, bar=45)
+        h = new(empty_callback, 42, 43, foo=44, bar=45)
         assert h is None
         assert len(seen) == 3
         assert not seen[0].is_pending()
@@ -67,19 +70,22 @@ class AppTestStacklet:
         assert seen[2] == {'foo': 44, 'bar': 45}
 
     def test_type_of_h(self):
-        from _stacklet import newstacklet, Stacklet
+        from _continuation import new, Continuation
         #
         def empty_callback(h):
             seen.append(type(h))
             return h
         #
         seen = []
-        h = newstacklet(empty_callback)
+        h = new(empty_callback)
         assert h is None
-        assert seen[0] is Stacklet
+        assert seen[0] is Continuation
+        # cannot directly instantiate this class
+        raises(TypeError, Continuation)
+        raises(TypeError, Continuation, None)
 
     def test_switch(self):
-        from _stacklet import newstacklet
+        from _continuation import new
         #
         def switchbackonce_callback(h):
             seen.append(1)
@@ -91,15 +97,30 @@ class AppTestStacklet:
             return h2
         #
         seen = []
-        h = newstacklet(switchbackonce_callback)
+        h = new(switchbackonce_callback)
         seen.append(2)
         assert h.is_pending()
         h2 = h.switch()
         assert h2 is None
         assert seen == [1, 2, 3]
 
+    def test_continuation_error(self):
+        from _continuation import new, error
+        #
+        def empty_callback(h):
+            assert h.is_pending()
+            seen.append(h)
+            return h
+        #
+        seen = []
+        h = new(empty_callback)
+        assert h is None
+        [h] = seen
+        assert not h.is_pending()
+        raises(error, h.switch)
+
     def test_go_depth2(self):
-        from _stacklet import newstacklet
+        from _continuation import new
         #
         def depth2(h):
             seen.append(2)
@@ -107,18 +128,18 @@ class AppTestStacklet:
         #
         def depth1(h):
             seen.append(1)
-            h2 = newstacklet(depth2)
+            h2 = new(depth2)
             assert h2 is None
             seen.append(3)
             return h
         #
         seen = []
-        h = newstacklet(depth1)
+        h = new(depth1)
         assert h is None
         assert seen == [1, 2, 3]
 
     def test_exception_depth2(self):
-        from _stacklet import newstacklet
+        from _continuation import new
         #
         def depth2(h):
             seen.append(2)
@@ -127,18 +148,18 @@ class AppTestStacklet:
         def depth1(h):
             seen.append(1)
             try:
-                newstacklet(depth2)
+                new(depth2)
             except ValueError:
                 seen.append(3)
             return h
         #
         seen = []
-        h = newstacklet(depth1)
+        h = new(depth1)
         assert h is None
         assert seen == [1, 2, 3]
 
     def test_exception_with_switch(self):
-        from _stacklet import newstacklet
+        from _continuation import new
         #
         def depth1(h):
             seen.append(1)
@@ -147,13 +168,13 @@ class AppTestStacklet:
             raise ValueError
         #
         seen = []
-        h = newstacklet(depth1)
+        h = new(depth1)
         seen.append(2)
         raises(ValueError, h.switch)
         assert seen == [1, 2, 3]
 
     def test_exception_with_switch_depth2(self):
-        from _stacklet import newstacklet
+        from _continuation import new
         #
         def depth2(h):
             seen.append(4)
@@ -165,7 +186,7 @@ class AppTestStacklet:
             seen.append(1)
             h = h.switch()
             seen.append(3)
-            h2 = newstacklet(depth2)
+            h2 = new(depth2)
             seen.append(5)
             raises(ValueError, h2.switch)
             assert not h2.is_pending()
@@ -173,7 +194,7 @@ class AppTestStacklet:
             raise KeyError
         #
         seen = []
-        h = newstacklet(depth1)
+        h = new(depth1)
         seen.append(2)
         raises(KeyError, h.switch)
         assert not h.is_pending()
