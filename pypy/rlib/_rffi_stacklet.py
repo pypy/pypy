@@ -13,9 +13,9 @@ eci = ExternalCompilationInfo(
     separate_module_sources = ['#include "src/stacklet/stacklet.c"\n'],
 )
 
-def llexternal(name, args, result):
+def llexternal(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, compilation_info=eci,
-                           _nowrapper=True)
+                           _nowrapper=True, **kwds)
 
 # ----- types -----
 
