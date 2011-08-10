@@ -60,6 +60,7 @@ def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
         names = resnames
     self._names = names
     self._fieldtypes = fields
+    self.__dict__.update(fields)
 
 class Field(object):
     def __init__(self, name, offset, size, ctype, num, is_bitfield):
@@ -73,6 +74,35 @@ class Field(object):
         return "<Field '%s' offset=%d size=%d>" % (self.name, self.offset,
                                                    self.size)
 
+    def __get__(self, obj, cls=None):
+        if obj is None:
+            return self
+        if self.is_bitfield:
+            # bitfield member, use direct access
+            return obj._buffer.__getattr__(self.name)
+        else:
+            fieldtype = self.ctype
+            offset = self.num
+            suba = obj._subarray(fieldtype, self.name)
+            return fieldtype._CData_output(suba, obj, offset)
+
+
+    def __set__(self, obj, value):
+        fieldtype = self.ctype
+        cobj = fieldtype.from_param(value)
+        if ensure_objects(cobj) is not None:
+            key = keepalive_key(self.num)
+            store_reference(obj, key, cobj._objects)
+        arg = cobj._get_buffer_value()
+        if fieldtype._fficompositesize is not None:
+            from ctypes import memmove
+            dest = obj._buffer.fieldaddress(self.name)
+            memmove(dest, arg, fieldtype._fficompositesize)
+        else:
+            obj._buffer.__setattr__(self.name, arg)
+
+
+
 # ________________________________________________________________
 
 def _set_shape(tp, rawfields, is_union=False):
@@ -81,11 +111,6 @@ def _set_shape(tp, rawfields, is_union=False):
     tp._ffiargshape = tp._ffishape = (tp._ffistruct, 1)
     tp._fficompositesize = tp._ffistruct.size
 
-def struct_getattr(self, name):
-    if name not in ('_fields_', '_fieldtypes'):
-        if hasattr(self, '_fieldtypes') and name in self._fieldtypes:
-            return self._fieldtypes[name]
-    return _CDataMeta.__getattribute__(self, name)
 
 def struct_setattr(self, name, value):
     if name == '_fields_':
@@ -132,7 +157,6 @@ class StructOrUnionMeta(_CDataMeta):
             self._fieldtypes = {}
             _set_shape(self, [], self._is_union)
 
-    __getattr__ = struct_getattr
     __setattr__ = struct_setattr
 
     def from_address(self, address):
@@ -201,40 +225,6 @@ class StructOrUnion(_CData):
         address = self._buffer.fieldaddress(name)
         A = _rawffi.Array(fieldtype._ffishape)
         return A.fromaddress(address, 1)
-
-    def __setattr__(self, name, value):
-        try:
-            field = self._fieldtypes[name]
-        except KeyError:
-            return _CData.__setattr__(self, name, value)
-        fieldtype = field.ctype
-        cobj = fieldtype.from_param(value)
-        if ensure_objects(cobj) is not None:
-            key = keepalive_key(field.num)
-            store_reference(self, key, cobj._objects)
-        arg = cobj._get_buffer_value()
-        if fieldtype._fficompositesize is not None:
-            from ctypes import memmove
-            dest = self._buffer.fieldaddress(name)
-            memmove(dest, arg, fieldtype._fficompositesize)
-        else:
-            self._buffer.__setattr__(name, arg)
-
-    def __getattribute__(self, name):
-        if name == '_fieldtypes':
-            return _CData.__getattribute__(self, '_fieldtypes')
-        try:
-            field = self._fieldtypes[name]
-        except KeyError:
-            return _CData.__getattribute__(self, name)
-        if field.is_bitfield:
-            # bitfield member, use direct access
-            return self._buffer.__getattr__(name)
-        else:
-            fieldtype = field.ctype
-            offset = field.num
-            suba = self._subarray(fieldtype, name)
-            return fieldtype._CData_output(suba, self, offset)
 
     def _get_buffer_for_param(self):
         return self
