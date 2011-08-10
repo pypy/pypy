@@ -21,9 +21,9 @@ This release supports x86 machines running Linux 32/64 or Mac OS X.  Windows 32
 is beta (it roughly works but a lot of small issues have not been fixed so
 far).  Windows 64 is not yet supported.
 
-The main topics of this release are speed and stability: on average, PyPy 1.6
-is between 20% and 30% faster than PyPy 1.5, and overall it's 4.3 times faster
-than CPython when running our set of benchmarks.
+The main topics of this release are speed and stability: on average on
+our benchmark suite, PyPy 1.6 is between 20% and 30% faster than PyPy 1.5,
+which was already much faster than CPython on our set of benchmarks.
 
 The speed improvements have been made possible by optimizing many of the
 layers which compose PyPy.  In particular, we improved: the Garbage Collector,
