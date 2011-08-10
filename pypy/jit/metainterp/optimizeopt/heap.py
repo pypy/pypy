@@ -103,13 +103,16 @@ class CachedField(object):
         self._cached_fields_getfield_op.clear()
 
     def turned_constant(self, newvalue, value):
-        if newvalue not in self._cached_fields:
+        if newvalue not in self._cached_fields and value in self._cached_fields:
             self._cached_fields[newvalue] = self._cached_fields[value]
             op = self._cached_fields_getfield_op[value].clone()
             constbox = value.box
             assert isinstance(constbox, Const)
             op.setarg(0, constbox)
             self._cached_fields_getfield_op[newvalue] = op
+        for structvalue in self._cached_fields.keys():
+            if self._cached_fields[structvalue] is value:
+                self._cached_fields[structvalue] = newvalue
 
     def get_cloned(self, optimizer, valuemap, short_boxes):
         assert self._lazy_setfield is None
@@ -279,12 +282,10 @@ class OptHeap(Optimization):
         newvalue = self.getvalue(value.box)
         if value is not newvalue:
             for cf in self.cached_fields.itervalues():
-                if value in cf._cached_fields:
-                    cf.turned_constant(newvalue, value)
+                cf.turned_constant(newvalue, value)
             for submap in self.cached_arrayitems.itervalues():
                 for cf in submap.itervalues():
-                    if value in cf._cached_fields:
-                        cf.turned_constant(newvalue, value)
+                    cf.turned_constant(newvalue, value)
 
     def force_lazy_setfield(self, descr, can_cache=True):
         try:
