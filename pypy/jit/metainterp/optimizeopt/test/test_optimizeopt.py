@@ -7024,7 +7024,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
-    def test_samebox_getfield_setfield(self):
+    def test_constptr_samebox_getfield_setfield(self):
         ops = """
         [p0]
         p10 = getfield_gc(ConstPtr(myptr), descr=valuedescr)
@@ -7039,7 +7039,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
-    def test_constptr_getfield_setfield(self):
+    def test_constptr_constptr_getfield_setfield(self):
         ops = """
         [p0]
         p10 = getfield_gc(ConstPtr(myptr), descr=valuedescr)
@@ -7049,11 +7049,44 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p0)
         """
         expected = """
+        [p0]
+        call(ConstPtr(myptr2), descr=nonwritedescr)
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_box_samebox_getfield_setfield(self):
+        ops = """
+        [p0]
+        p10 = getfield_gc(p0, descr=valuedescr)
+        call(p10, descr=nonwritedescr)
+        setfield_gc(p0, p10, descr=valuedescr)
+        jump(p0)
+        """
+        expected = """
         [p0, p10]
         call(p10, descr=nonwritedescr)
         jump(p0, p10)
         """
         self.optimize_loop(ops, expected)
+
+    def test_box_constptr_getfield_setfield(self):
+        ops = """
+        [p0]
+        p10 = getfield_gc(p0, descr=valuedescr)
+        guard_value(p10, ConstPtr(myptr2)) []
+        call(p10, descr=nonwritedescr)
+        setfield_gc(p0, ConstPtr(myptr2), descr=valuedescr)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        call(ConstPtr(myptr2), descr=nonwritedescr)
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected)
+
+        
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
