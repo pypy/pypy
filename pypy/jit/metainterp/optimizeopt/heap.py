@@ -114,17 +114,6 @@ class CachedField(object):
             if self._cached_fields[structvalue] is value:
                 self._cached_fields[structvalue] = newvalue
 
-    def get_cloned(self, optimizer, valuemap, short_boxes):
-        assert self._lazy_setfield is None
-        cf = CachedField()
-        for structvalue, fieldvalue in self._cached_fields.iteritems():
-            op = self._cached_fields_getfield_op.get(structvalue, None)            
-            if op and op.result in short_boxes and short_boxes[op.result] is op:
-                structvalue2 = structvalue.get_cloned(optimizer, valuemap)
-                fieldvalue2  = fieldvalue .get_cloned(optimizer, valuemap)
-                cf._cached_fields[structvalue2] = fieldvalue2
-        return cf
-
     def produce_potential_short_preamble_ops(self, optimizer, shortboxes, descr):
         if self._lazy_setfield is not None:
             return
@@ -175,21 +164,6 @@ class OptHeap(Optimization):
     def new(self):
         return OptHeap()
         
-    def reconstruct_for_next_iteration(self,  short_boxes, surviving_boxes,
-                                       optimizer, valuemap):
-        new = OptHeap()
-
-        for descr, d in self.cached_fields.items():
-            new.cached_fields[descr] = d.get_cloned(optimizer, valuemap, short_boxes)
-        
-        for descr, submap in self.cached_arrayitems.items():
-            newdict = {}
-            for index, d in submap.items():
-                newdict[index] = d.get_cloned(optimizer, valuemap, short_boxes)
-            new.cached_arrayitems[descr] = newdict
-
-        return new
-
     def produce_potential_short_preamble_ops(self, sb):
         for descr, d in self.cached_fields.items():
             d.produce_potential_short_preamble_ops(self.optimizer, sb, descr)

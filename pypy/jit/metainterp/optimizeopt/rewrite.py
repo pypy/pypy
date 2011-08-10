@@ -20,14 +20,6 @@ class OptRewrite(Optimization):
     def new(self):
         return OptRewrite()
         
-    def reconstruct_for_next_iteration(self, short_boxes, surviving_boxes,
-                                       optimizer, valuemap):
-        new = OptRewrite()
-        for key, value in self.loop_invariant_results.items():
-            new.loop_invariant_results[key] = \
-                                 value.get_cloned(new, valuemap)
-        return new
-
     def produce_potential_short_preamble_ops(self, sb):
         for op in self.loop_invariant_producer.values():
             sb.add_potential(op)

@@ -77,11 +77,6 @@ class OptFfiCall(Optimization):
     def new(self):
         return OptFfiCall()
     
-    def reconstruct_for_next_iteration(self, short_boxes, surviving_boxes,
-                                       optimizer, valuemap):
-        return OptFfiCall()
-        # FIXME: Should any status be saved for next iteration?
-
     def begin_optimization(self, funcval, op):
         self.rollback_maybe('begin_optimization', op)
         self.funcinfo = FuncInfo(funcval, self.optimizer.cpu, op)

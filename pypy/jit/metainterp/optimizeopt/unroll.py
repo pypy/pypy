@@ -748,10 +748,6 @@ class OptInlineShortPreamble(Optimization):
     def new(self):
         return OptInlineShortPreamble(self.retraced)
 
-    def reconstruct_for_next_iteration(self,  short_boxes, surviving_boxes,
-                                       optimizer, valuemap):
-        return OptInlineShortPreamble(self.retraced)
-
     def propagate_forward(self, op):
         if op.getopnum() == rop.JUMP:
             loop_token = op.getdescr()

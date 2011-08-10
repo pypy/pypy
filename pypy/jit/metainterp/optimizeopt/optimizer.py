@@ -100,32 +100,6 @@ class OptValue(object):
     def force_at_end_of_preamble(self, already_forced):
         return self
 
-    def get_cloned(self, optimizer, valuemap, force_if_needed=True):
-        if self in valuemap:
-            return valuemap[self]
-        new = self.clone_for_next_iteration(optimizer)
-        if new is None:
-            if force_if_needed:
-                # It is too late to force things here it must have been
-                # done already in force_at_end_of_preamble()
-                assert self.box
-                new = OptValue(self.box)
-            else:
-                return None
-        else:
-            assert new.__class__ is self.__class__
-            assert new.is_virtual() == self.is_virtual()            
-        valuemap[self] = new
-        self.clone_childs(new, valuemap)
-        return new
-
-    def clone_for_next_iteration(self, optimizer):
-        return OptValue(self.box, self.level, self.known_class,
-                        self.intbound.clone())
-
-    def clone_childs(self, new, valuemap):
-        pass
-
     def get_args_for_fail(self, modifier):
         pass
 
@@ -226,9 +200,6 @@ class ConstantValue(OptValue):
     def __init__(self, box):
         self.make_constant(box)
 
-    def clone_for_next_iteration(self, optimizer):
-        return self
-
 CONST_0      = ConstInt(0)
 CONST_1      = ConstInt(1)
 CVAL_ZERO    = ConstantValue(CONST_0)
@@ -318,10 +289,6 @@ class Optimization(object):
     def new(self):
         raise NotImplementedError
 
-    def reconstruct_for_next_iteration(self, short_boxes, surviving_boxes=None,
-                                       optimizer=None, valuemap=None):
-        raise NotImplementedError
-
     # Called after last operation has been propagated to flush out any posponed ops
     def flush(self):
         pass
@@ -387,59 +354,6 @@ class Optimizer(Optimization):
         new.quasi_immutable_deps = self.quasi_immutable_deps
         return new
         
-    def reconstruct_for_next_iteration(self, short_boxes, surviving_boxes=None,
-                                       optimizer=None, valuemap=None):
-        assert optimizer is None
-        assert valuemap is None
-        if surviving_boxes is None:
-            surviving_boxes = []
-
-        for box in surviving_boxes:
-            if box not in short_boxes:
-                short_boxes[box] = None
-
-        valuemap = {}
-        new = Optimizer(self.metainterp_sd, self.loop)
-        optimizations = [o.reconstruct_for_next_iteration(short_boxes,
-                                                          surviving_boxes,
-                                                          new, valuemap)
-                         for o in self.optimizations]
-        new.set_optimizations(optimizations)
-
-        for ref, box in self.interned_refs.items():
-            value = self.getvalue(box)
-            assert value.is_constant()
-            new.interned_refs[ref] = box
-            new.values[box] = value.get_cloned(new, valuemap)
-            
-        new.pure_operations = args_dict()
-        for key, op in self.pure_operations.items():
-            if op.result in short_boxes and short_boxes[op.result] is op:
-                new.pure_operations[key] = op
-        new.producer = self.producer
-        assert self.posponedop is None
-        new.quasi_immutable_deps = self.quasi_immutable_deps
-
-        for box in short_boxes:
-            box = new.getinterned(box)
-            value = self.getvalue(box)
-            bool_box = value in self.bool_boxes
-            force = box in surviving_boxes
-            value = value.get_cloned(new, valuemap,
-                                     force_if_needed=force)
-            if value is not None:
-                new.values[box] = value
-                if bool_box:
-                    new.bool_boxes[value] = None
-
-        for value in valuemap.values():
-            box = value.get_key_box()
-            box = new.getinterned(box)
-            if box not in new.values:
-                new.values[box] = value
-
-        return new
-
     def produce_potential_short_preamble_ops(self, sb):
         for op in self.emitted_pure_operations:
             if op.getopnum() == rop.GETARRAYITEM_GC_PURE or \

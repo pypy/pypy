@@ -366,10 +366,6 @@ class OptString(optimizer.Optimization):
     def new(self):
         return OptString()
     
-    def reconstruct_for_next_iteration(self, short_boxes, surviving_boxes,
-                                       optimizer, valuemap):
-        return OptString()
-
     def make_vstring_plain(self, box, source_op, mode):
         vvalue = VStringPlainValue(self.optimizer, box, source_op, mode)
         self.make_equal_to(box, vvalue)
