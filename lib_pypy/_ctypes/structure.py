@@ -14,6 +14,15 @@ def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
             raise TypeError("Expected CData subclass, got %s" % (tp,))
         if isinstance(tp, StructOrUnionMeta):
             tp._make_final()
+        if len(f) == 3:
+            if (not hasattr(tp, '_type_')
+                or not isinstance(tp._type_, str)
+                or tp._type_ not in "iIhHbBlL"):
+                #XXX: are those all types?
+                #     we just dont get the type name
+                #     in the interp levle thrown TypeError
+                #     from rawffi if there are more
+                raise TypeError('bit fields not allowed for type ' + tp.__name__)
 
     all_fields = []
     for cls in reversed(inspect.getmro(superclass)):
@@ -116,7 +125,7 @@ def struct_setattr(self, name, value):
     if name == '_fields_':
         if self.__dict__.get('_fields_', None) is not None:
             raise AttributeError("_fields_ is final")
-        if self in [v for k, v in value]:
+        if self in [f[1] for f in value]:
             raise AttributeError("Structure or union cannot contain itself")
         names_and_fields(
             self,

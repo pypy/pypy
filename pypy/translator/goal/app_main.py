@@ -33,11 +33,9 @@ def handle_sys_exit(e):
         except:
             # not an integer: print it to stderr
             try:
-                stderr = sys.stderr
-            except AttributeError:
+                print >> sys.stderr, exitcode
+            except:
                 pass   # too bad
-            else:
-                stderr.write(exitcode)
             exitcode = 1
     raise SystemExit(exitcode)
 
