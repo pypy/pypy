@@ -107,7 +107,6 @@ class TestMisc(BaseTestPyPyC):
         assert log.result == 1000 * 999 / 2
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
-            i11 = getfield_gc(p4, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)        
             i16 = int_ge(i11, i12)
             guard_false(i16, descr=...)
             i17 = int_mul(i11, i14)
@@ -165,7 +164,6 @@ class TestMisc(BaseTestPyPyC):
         assert log.result == 1000000
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
-            i12 = getfield_gc(p4, descr=...)
             i16 = int_ge(i12, i13)
             guard_false(i16, descr=...)
             p17 = getarrayitem_gc(p15, i12, descr=<GcPtrArrayDescr>)
@@ -182,7 +180,6 @@ class TestMisc(BaseTestPyPyC):
             i28 = int_add_ovf(i10, i25)
             guard_no_overflow(descr=...)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, p6, p7, p8, p9, i28, i25, i13, p14, p15, descr=<Loop0>)
             jump(p0, p1, p2, p3, p4, p5, p6, i28, i25, p9, p10, p11, i19, i13, p14, p15, descr=<Loop0>)
         """)
 
