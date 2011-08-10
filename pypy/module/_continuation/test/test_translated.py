@@ -1,5 +1,5 @@
 try:
-    import _stacklet
+    import _continuation
 except ImportError:
     import py; py.test.skip("to run on top of a translated pypy-c")
 
@@ -45,7 +45,7 @@ class Task:
             if not task.h:
                 # start a new stacklet
                 print "NEW", n
-                h = _stacklet.newstacklet(variousstackdepths_callback, n)
+                h = _continuation.new(variousstackdepths_callback, n)
             else:
                 # switch to this stacklet
                 print "switch to", n
@@ -84,7 +84,7 @@ def variousstackdepths_callback(h, arg):
     task = Task.tasks[Task.comefrom]
     print "initializing %r.h = %r" % (task, h)
     assert task.h is None
-    assert type(h) is _stacklet.Stacklet
+    assert type(h) is _continuation.Continuation
     task.h = h
     Task.comefrom = -1
     Task.gointo = -1
