@@ -50,8 +50,9 @@ def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
             if name in anonymous_fields:
                 for subname in value._names:
                     resnames.append(subname)
-                    relpos = startpos + value._fieldtypes[subname].offset
-                    subvalue = value._fieldtypes[subname].ctype
+                    subfield = getattr(value, subname)
+                    relpos = startpos + subfield.offset
+                    subvalue = subfield.ctype
                     fields[subname] = Field(subname,
                                             relpos, subvalue._sizeofinstances(),
                                             subvalue, i, is_bitfield)
@@ -59,7 +60,6 @@ def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
                 resnames.append(name)
         names = resnames
     self._names = names
-    self._fieldtypes = fields
     self.__dict__.update(fields)
 
 class Field(object):
@@ -154,7 +154,6 @@ class StructOrUnionMeta(_CDataMeta):
         if '_fields_' not in self.__dict__:
             self._fields_ = []
             self._names = []
-            self._fieldtypes = {}
             _set_shape(self, [], self._is_union)
 
     __setattr__ = struct_setattr
