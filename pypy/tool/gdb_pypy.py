@@ -10,6 +10,7 @@ Or, alternatively:
 
 from __future__ import with_statement
 
+import re
 import sys
 import os.path
 
@@ -64,7 +65,7 @@ class RPyType(Command):
     """
 
     prog2typeids = {}
- 
+
     def __init__(self, gdb=None):
         # dependency injection, for tests
         if gdb is None:
@@ -108,6 +109,9 @@ class RPyType(Command):
         exename = progspace.filename
         root = os.path.dirname(exename)
         typeids_txt = os.path.join(root, 'typeids.txt')
+        if not os.path.exists(typeids_txt):
+            newroot = os.path.dirname(root)
+            typeids_txt = os.path.join(newroot, 'typeids.txt')
         print 'loading', typeids_txt
         typeids = {}
         with open(typeids_txt) as f:
@@ -118,8 +122,80 @@ class RPyType(Command):
                 typeids[offset] = descr
         return typeids
 
+
+def is_ptr(type, gdb):
+    if gdb is None:
+        import gdb # so we can pass a fake one from the tests
+    return type.code == gdb.TYPE_CODE_PTR
+
+
+class RPyStringPrinter(object):
+    """
+    Pretty printer for rpython strings.
+
+    Note that this pretty prints *pointers* to strings: this way you can do "p
+    val" and see the nice string, and "p *val" to see the underyling struct
+    fields
+    """
+
+    def __init__(self, val):
+        self.val = val
+
+    @classmethod
+    def lookup(cls, val, gdb=None):
+        t = val.type
+        if is_ptr(t, gdb) and t.target().tag == 'pypy_rpy_string0':
+            return cls(val)
+        return None
+
+    def to_string(self):
+        chars = self.val['rs_chars']
+        length = int(chars['length'])
+        items = chars['items']
+        res = [chr(items[i]) for i in range(length)]
+        string = ''.join(res)
+        return 'r' + repr(string)
+
+
+class RPyListPrinter(object):
+    """
+    Pretty printer for rpython lists
+
+    Note that this pretty prints *pointers* to lists: this way you can do "p
+    val" and see the nice repr, and "p *val" to see the underyling struct
+    fields
+    """
+
+    def __init__(self, val):
+        self.val = val
+
+    @classmethod
+    def lookup(cls, val, gdb=None):
+        t = val.type
+        if (is_ptr(t, gdb) and t.target().tag is not None and
+            re.match(r'pypy_list\d*', t.target().tag)):
+            return cls(val)
+        return None
+
+    def to_string(self):
+        length = int(self.val['l_length'])
+        array = self.val['l_items']
+        allocated = int(array['length'])
+        items = array['items']
+        itemlist = []
+        for i in range(length):
+            item = items[i]
+            itemlist.append(str(item))
+        str_items = ', '.join(itemlist)
+        return 'r[%s] (len=%d, alloc=%d)' % (str_items, length, allocated)
+
+
 try:
     import gdb
     RPyType() # side effects
+    gdb.pretty_printers += [
+        RPyStringPrinter.lookup,
+        RPyListPrinter.lookup
+        ]
 except ImportError:
     pass

@@ -800,6 +800,38 @@ class LoopTest(object):
 
         res = self.meta_interp(f, [200])        
 
+    def test_regular_pointers_in_short_preamble(self):
+        # XXX do we really care about this case?  If not, we should
+        # at least detect it and complain during codewriter/jtransform
+        from pypy.rpython.lltypesystem import lltype
+        BASE = lltype.GcStruct('BASE')
+        A = lltype.GcStruct('A', ('parent', BASE), ('val', lltype.Signed))
+        B = lltype.GcStruct('B', ('parent', BASE), ('charval', lltype.Char))
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'm', 'i', 'j', 'sa', 'p'])
+        def f(n, m, j):
+            i = sa = 0
+            pa = lltype.malloc(A)
+            pa.val = 7
+            p = pa.parent
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, m=m, i=i, j=j, sa=sa, p=p)
+                if i < m:
+                    pa = lltype.cast_pointer(lltype.Ptr(A), p)
+                    sa += pa.val
+                elif i == m:
+                    pb = lltype.malloc(B)
+                    pb.charval = 'y'
+                    p = pb.parent
+                else:
+                    pb = lltype.cast_pointer(lltype.Ptr(B), p)
+                    sa += ord(pb.charval)
+                sa += 100
+                assert n>0 and m>0
+                i += j
+            return sa
+        expected = f(20, 10, 1)
+        res = self.meta_interp(f, [20, 10, 1])
+        assert res == expected
 
     def test_unerased_pointers_in_short_preamble(self):
         from pypy.rlib.rerased import new_erasing_pair
