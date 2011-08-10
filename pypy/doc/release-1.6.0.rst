@@ -1,6 +1,6 @@
-===========================
-PyPy 1.6 - faster than ever
-===========================
+=========================================================
+PyPy 1.6 - XXX thing something out (I like kickass panda)
+=========================================================
 
 We're pleased to announce the 1.6 release of PyPy. This release brings a lot
 of bugfixes and performance improvements over 1.5, and improves support for
