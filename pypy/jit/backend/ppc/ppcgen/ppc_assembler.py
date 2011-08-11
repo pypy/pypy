@@ -972,14 +972,20 @@ class PPCBuilder(PPCAssembler):
         cpu.patch_list.append((numops, fail_index, op, reglist))
 
     def emit_finish(self, op, cpu):
+        from pypy.jit.metainterp.history import ConstInt, BoxInt
         fail_index = len(cpu.saved_descr)
         cpu.saved_descr[fail_index] = op.getdescr()
 
         args = op.getarglist()
         for index, arg in enumerate(args):
-            regnum = cpu.reg_map[arg]
-            addr = cpu.fail_boxes_int.get_addr_for_num(index)
-            self.store_reg(regnum, addr)
+            if isinstance(arg, BoxInt):
+                regnum = cpu.reg_map[arg]
+                addr = cpu.fail_boxes_int.get_addr_for_num(index)
+                self.store_reg(regnum, addr)
+            elif isinstance(arg, ConstInt):
+                addr = cpu.fail_boxes_int.get_addr_for_num(index)
+                self.load_word(cpu.next_free_register, arg.value)
+                self.store_reg(cpu.next_free_register, addr)
 
         self.load_word(3, 0)
         self.blr()
