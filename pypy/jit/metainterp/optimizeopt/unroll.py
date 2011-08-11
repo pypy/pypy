@@ -434,31 +434,6 @@ class UnrollOptimizer(Optimization):
             box = self.optimizer.values[box].force_box()
         jumpargs.append(box)
         
-    def sameop(self, op1, op2):
-        if op1.getopnum() != op2.getopnum():
-            return False
-
-        args1 = op1.getarglist()
-        args2 = op2.getarglist()
-        if len(args1) != len(args2):
-            return False
-        for i in range(len(args1)):
-            box1, box2 = args1[i], args2[i]
-            val1 = self.optimizer.getvalue(box1)
-            val2 = self.optimizer.getvalue(box2)
-            if val1.is_constant() and val2.is_constant():
-                if not val1.box.same_constant(val2.box):
-                    return False
-            elif val1 is not val2:
-                return False
-
-        if not op1.is_guard():
-            descr1 = op1.getdescr()
-            descr2 = op2.getdescr()
-            if descr1 is not descr2:
-                return False
-
-        return True
 
 class OptInlineShortPreamble(Optimization):
     def __init__(self, retraced):
