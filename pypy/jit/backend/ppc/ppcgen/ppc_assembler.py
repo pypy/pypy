@@ -897,9 +897,6 @@ class PPCBuilder(PPCAssembler):
         self.load_word(10, addr)
         self.stw(source_reg, 10, 0)
 
-    def nop(self):
-        self.ori(0, 0, 0)
-
     # translate a trace operation to corresponding machine code
     def build_op(self, trace_op, cpu):
         opnum = trace_op.getopnum()
