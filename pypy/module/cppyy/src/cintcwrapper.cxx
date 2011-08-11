@@ -24,8 +24,9 @@
 #include <utility>
 
 
-/*  CINT internal (won't work on Windwos) -------------------------------- */
+/*  CINT internals (won't work on Windwos) ------------------------------- */
 extern long G__store_struct_offset;
+extern "C" void* G__GetShlHandle();
 
 /* data for life time management ------------------------------------------ */
 typedef std::vector<TClassRef> ClassRefs_t;
@@ -394,5 +395,7 @@ void cppyy_free(void* ptr) {
 }
 
 void* cppyy_load_dictionary(const char* lib_name) {
-   gSystem->Load(lib_name);
+    if (gSystem->Load(lib_name))
+       return (void*)G__GetShlHandle();
+    return (void*)0;
 }

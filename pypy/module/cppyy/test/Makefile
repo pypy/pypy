@@ -34,8 +34,10 @@ endif
 # g++ -I$ROOTSYS/include example01_cint.cxx example01.cxx -shared -o example01Dict.so -rdynamic
 #
 # rootcint -f operators_cint.cxx -c operators.h operators_LinkDef.h
-# g++ -I$ROOTSYS/include operators_cint.cxx operators.cxx -shared -o operatorsDict.os -rdynamic
-
+# g++ -I$ROOTSYS/include operators_cint.cxx operators.cxx -shared -o operatorsDict.so -rdynamic
+#
+# rootcint -f datatypes_cint.cxx -c datatypes.h datatypes_LinkDef.h
+# g++ -I$ROOTSYS/include datatypes_cint.cxx datatypes.cxx -shared -o datatypesDict.so -rdynamic
 
 # TODO: methptrgetter causes these tests to crash, so don't use it for now
 stltypesDict.so: stltypes.cxx stltypes.h stltypes.xml
