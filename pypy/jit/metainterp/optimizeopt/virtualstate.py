@@ -156,6 +156,10 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
             bad[other] = True
             return False
         renum[self.position] = other.position
+        if not isinstance(other, VArrayStateInfo):
+            bad[self] = True
+            bad[other] = True
+            return False
         if self.arraydescr is not other.arraydescr:
             bad[self] = True
             bad[other] = True

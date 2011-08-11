@@ -1,7 +1,7 @@
 import py
 from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp.optimizeopt.virtualstate import VirtualStateInfo, VStructStateInfo, \
-     VArrayStateInfo, NotVirtualStateInfo
+     VArrayStateInfo, NotVirtualStateInfo, VirtualState
 from pypy.jit.metainterp.optimizeopt.optimizer import OptValue
 from pypy.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr, ConstInt, ConstPtr
 from pypy.rpython.lltypesystem import lltype
@@ -133,12 +133,19 @@ class BaseTestGenerateGuards(BaseTest):
         info1.position = info2.position = 0
         guards = []
         info1.generate_guards(info2, box, self.cpu, guards, {})
+        self.compare(guards, expected, [box])
+
+    def compare(self, guards, expected, inputargs):
         loop = self.parse(expected)
+        boxmap = {}
+        assert len(loop.inputargs) == len(inputargs)
+        for a, b in zip(loop.inputargs, inputargs):
+            boxmap[a] = b
         for op in loop.operations:
             if op.is_guard():
                 op.setdescr(None)
         assert equaloplists(guards, loop.operations, False,
-                            {loop.inputargs[0]: box})        
+                            boxmap)        
     def test_intbounds(self):
         value1 = OptValue(BoxInt())
         value1.intbound.make_ge(IntBound(0, 10))
@@ -183,12 +190,242 @@ class BaseTestGenerateGuards(BaseTest):
         guard_nonnull(p0) []        
         guard_class(p0, ConstClass(node_vtable)) []
         """
-        loop = self.parse(expected)
-        for op in loop.operations:
-            if op.is_guard():
-                op.setdescr(None)
-        assert equaloplists(guards, loop.operations, False,
-                            {loop.inputargs[0]: box})        
+        self.compare(guards, expected, [box])
+
+    def test_equal_inputargs(self):
+        value = OptValue(self.nodebox)        
+        classbox = self.cpu.ts.cls_of_box(self.nodebox)
+        value.make_constant_class(classbox, -1)
+        knownclass_info = NotVirtualStateInfo(value)
+        vstate1 = VirtualState([knownclass_info, knownclass_info])
+        assert vstate1.generalization_of(vstate1)
+
+        unknown_info1 = NotVirtualStateInfo(OptValue(self.nodebox))
+        vstate2 = VirtualState([unknown_info1, unknown_info1])
+        assert vstate2.generalization_of(vstate2)
+        assert not vstate1.generalization_of(vstate2)
+        assert vstate2.generalization_of(vstate1)
+
+        unknown_info1 = NotVirtualStateInfo(OptValue(self.nodebox))
+        unknown_info2 = NotVirtualStateInfo(OptValue(self.nodebox))
+        vstate3 = VirtualState([unknown_info1, unknown_info2])
+        assert vstate3.generalization_of(vstate2)
+        assert vstate3.generalization_of(vstate1)
+        assert not vstate2.generalization_of(vstate3)
+        assert not vstate1.generalization_of(vstate3)
+
+        expected = """
+        [p0]
+        guard_nonnull(p0) []        
+        guard_class(p0, ConstClass(node_vtable)) []
+        """
+        guards = []
+        vstate1.generate_guards(vstate2, [self.nodebox, self.nodebox], self.cpu, guards)
+        self.compare(guards, expected, [self.nodebox])
+
+        with py.test.raises(InvalidLoop):
+            guards = []
+            vstate1.generate_guards(vstate3, [self.nodebox, self.nodebox],
+                                    self.cpu, guards)
+        with py.test.raises(InvalidLoop):
+            guards = []
+            vstate2.generate_guards(vstate3, [self.nodebox, self.nodebox],
+                                    self.cpu, guards)
+        
+    def test_virtuals_with_equal_fields(self):
+        info1 = VirtualStateInfo(ConstInt(42), [1, 2])
+        value = OptValue(self.nodebox)
+        classbox = self.cpu.ts.cls_of_box(self.nodebox)
+        value.make_constant_class(classbox, -1)
+        knownclass_info = NotVirtualStateInfo(value)
+        info1.fieldstate = [knownclass_info, knownclass_info]
+        vstate1 = VirtualState([info1])
+        assert vstate1.generalization_of(vstate1)
+
+        info2 = VirtualStateInfo(ConstInt(42), [1, 2])
+        unknown_info1 = NotVirtualStateInfo(OptValue(self.nodebox))
+        info2.fieldstate = [unknown_info1, unknown_info1]
+        vstate2 = VirtualState([info2])
+        assert vstate2.generalization_of(vstate2)
+        assert not vstate1.generalization_of(vstate2)
+        assert vstate2.generalization_of(vstate1)
+
+        info3 = VirtualStateInfo(ConstInt(42), [1, 2])
+        unknown_info1 = NotVirtualStateInfo(OptValue(self.nodebox))
+        unknown_info2 = NotVirtualStateInfo(OptValue(self.nodebox))
+        info3.fieldstate = [unknown_info1, unknown_info2]
+        vstate3 = VirtualState([info3])        
+        assert vstate3.generalization_of(vstate2)
+        assert vstate3.generalization_of(vstate1)
+        assert not vstate2.generalization_of(vstate3)
+        assert not vstate1.generalization_of(vstate3)
+
+    def test_virtuals_with_nonmatching_fields(self):
+        info1 = VirtualStateInfo(ConstInt(42), [1, 2])
+        value = OptValue(self.nodebox)
+        classbox = self.cpu.ts.cls_of_box(self.nodebox)
+        value.make_constant_class(classbox, -1)
+        knownclass_info = NotVirtualStateInfo(value)
+        info1.fieldstate = [knownclass_info, knownclass_info]
+        vstate1 = VirtualState([info1])
+        assert vstate1.generalization_of(vstate1)
+
+        info2 = VirtualStateInfo(ConstInt(42), [1, 2])
+        value = OptValue(self.nodebox2)
+        classbox = self.cpu.ts.cls_of_box(self.nodebox2)
+        value.make_constant_class(classbox, -1)
+        knownclass_info = NotVirtualStateInfo(value)
+        info2.fieldstate = [knownclass_info, knownclass_info]
+        vstate2 = VirtualState([info2])
+        assert vstate2.generalization_of(vstate2)
+
+        assert not vstate2.generalization_of(vstate1)
+        assert not vstate1.generalization_of(vstate2)
+
+    def test_virtuals_with_nonmatching_descrs(self):
+        info1 = VirtualStateInfo(ConstInt(42), [10, 20])
+        value = OptValue(self.nodebox)
+        classbox = self.cpu.ts.cls_of_box(self.nodebox)
+        value.make_constant_class(classbox, -1)
+        knownclass_info = NotVirtualStateInfo(value)
+        info1.fieldstate = [knownclass_info, knownclass_info]
+        vstate1 = VirtualState([info1])
+        assert vstate1.generalization_of(vstate1)
+
+        info2 = VirtualStateInfo(ConstInt(42), [1, 2])
+        value = OptValue(self.nodebox2)
+        classbox = self.cpu.ts.cls_of_box(self.nodebox2)
+        value.make_constant_class(classbox, -1)
+        knownclass_info = NotVirtualStateInfo(value)
+        info2.fieldstate = [knownclass_info, knownclass_info]
+        vstate2 = VirtualState([info2])
+        assert vstate2.generalization_of(vstate2)
+
+        assert not vstate2.generalization_of(vstate1)
+        assert not vstate1.generalization_of(vstate2)
+        
+    def test_virtuals_with_nonmatching_classes(self):
+        info1 = VirtualStateInfo(ConstInt(42), [1, 2])
+        value = OptValue(self.nodebox)
+        classbox = self.cpu.ts.cls_of_box(self.nodebox)
+        value.make_constant_class(classbox, -1)
+        knownclass_info = NotVirtualStateInfo(value)
+        info1.fieldstate = [knownclass_info, knownclass_info]
+        vstate1 = VirtualState([info1])
+        assert vstate1.generalization_of(vstate1)
+
+        info2 = VirtualStateInfo(ConstInt(7), [1, 2])
+        value = OptValue(self.nodebox2)
+        classbox = self.cpu.ts.cls_of_box(self.nodebox2)
+        value.make_constant_class(classbox, -1)
+        knownclass_info = NotVirtualStateInfo(value)
+        info2.fieldstate = [knownclass_info, knownclass_info]
+        vstate2 = VirtualState([info2])
+        assert vstate2.generalization_of(vstate2)
+
+        assert not vstate2.generalization_of(vstate1)
+        assert not vstate1.generalization_of(vstate2)
+        
+    def test_nonvirtual_is_not_virtual(self):
+        info1 = VirtualStateInfo(ConstInt(42), [1, 2])
+        value = OptValue(self.nodebox)
+        classbox = self.cpu.ts.cls_of_box(self.nodebox)
+        value.make_constant_class(classbox, -1)
+        knownclass_info = NotVirtualStateInfo(value)
+        info1.fieldstate = [knownclass_info, knownclass_info]
+        vstate1 = VirtualState([info1])
+        assert vstate1.generalization_of(vstate1)
+
+        info2 = NotVirtualStateInfo(value)
+        vstate2 = VirtualState([info2])
+        assert vstate2.generalization_of(vstate2)
+
+        assert not vstate2.generalization_of(vstate1)
+        assert not vstate1.generalization_of(vstate2)
+
+    def test_arrays_with_nonmatching_fields(self):
+        info1 = VArrayStateInfo(42)
+        value = OptValue(self.nodebox)
+        classbox = self.cpu.ts.cls_of_box(self.nodebox)
+        value.make_constant_class(classbox, -1)
+        knownclass_info = NotVirtualStateInfo(value)
+        info1.fieldstate = [knownclass_info, knownclass_info]
+        vstate1 = VirtualState([info1])
+        assert vstate1.generalization_of(vstate1)
+
+        info2 = VArrayStateInfo(42)
+        value = OptValue(self.nodebox2)
+        classbox = self.cpu.ts.cls_of_box(self.nodebox2)
+        value.make_constant_class(classbox, -1)
+        knownclass_info = NotVirtualStateInfo(value)
+        info2.fieldstate = [knownclass_info, knownclass_info]
+        vstate2 = VirtualState([info2])
+        assert vstate2.generalization_of(vstate2)
+
+        assert not vstate2.generalization_of(vstate1)
+        assert not vstate1.generalization_of(vstate2)
+
+    def test_arrays_of_different_sizes(self):
+        info1 = VArrayStateInfo(42)
+        value = OptValue(self.nodebox)
+        classbox = self.cpu.ts.cls_of_box(self.nodebox)
+        value.make_constant_class(classbox, -1)
+        knownclass_info = NotVirtualStateInfo(value)
+        info1.fieldstate = [knownclass_info, knownclass_info]
+        vstate1 = VirtualState([info1])
+        assert vstate1.generalization_of(vstate1)
+
+        info2 = VArrayStateInfo(42)
+        value = OptValue(self.nodebox)
+        classbox = self.cpu.ts.cls_of_box(self.nodebox)
+        value.make_constant_class(classbox, -1)
+        knownclass_info = NotVirtualStateInfo(value)
+        info2.fieldstate = [knownclass_info]
+        vstate2 = VirtualState([info2])
+        assert vstate2.generalization_of(vstate2)
+
+        assert not vstate2.generalization_of(vstate1)
+        assert not vstate1.generalization_of(vstate2)
+
+    def test_arrays_with_nonmatching_types(self):
+        info1 = VArrayStateInfo(42)
+        value = OptValue(self.nodebox)
+        classbox = self.cpu.ts.cls_of_box(self.nodebox)
+        value.make_constant_class(classbox, -1)
+        knownclass_info = NotVirtualStateInfo(value)
+        info1.fieldstate = [knownclass_info, knownclass_info]
+        vstate1 = VirtualState([info1])
+        assert vstate1.generalization_of(vstate1)
+
+        info2 = VArrayStateInfo(7)
+        value = OptValue(self.nodebox2)
+        classbox = self.cpu.ts.cls_of_box(self.nodebox2)
+        value.make_constant_class(classbox, -1)
+        knownclass_info = NotVirtualStateInfo(value)
+        info2.fieldstate = [knownclass_info, knownclass_info]
+        vstate2 = VirtualState([info2])
+        assert vstate2.generalization_of(vstate2)
+
+        assert not vstate2.generalization_of(vstate1)
+        assert not vstate1.generalization_of(vstate2)
+        
+    def test_nonvirtual_is_not_array(self):
+        info1 = VArrayStateInfo(42)
+        value = OptValue(self.nodebox)
+        classbox = self.cpu.ts.cls_of_box(self.nodebox)
+        value.make_constant_class(classbox, -1)
+        knownclass_info = NotVirtualStateInfo(value)
+        info1.fieldstate = [knownclass_info, knownclass_info]
+        vstate1 = VirtualState([info1])
+        assert vstate1.generalization_of(vstate1)
+
+        info2 = NotVirtualStateInfo(value)
+        vstate2 = VirtualState([info2])
+        assert vstate2.generalization_of(vstate2)
+
+        assert not vstate2.generalization_of(vstate1)
+        assert not vstate1.generalization_of(vstate2)
+        
 
 class BaseTestBridges(BaseTest):
     enable_opts = "intbounds:rewrite:virtualize:string:heap:unroll"
