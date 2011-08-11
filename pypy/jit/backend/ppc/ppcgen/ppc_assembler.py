@@ -8,6 +8,7 @@ from pypy.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from pypy.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.jit.metainterp.resoperation import rop
+from pypy.jit.metainterp.history import BoxInt, ConstInt
 
 A = Form("frD", "frA", "frB", "XO3", "Rc")
 A1 = Form("frD", "frB", "XO3", "Rc")
@@ -904,14 +905,20 @@ class PPCBuilder(PPCAssembler):
         opnum = trace_op.getopnum()
         if opnum == rop.INT_ADD:
             self.emit_int_add(trace_op, cpu)
+        elif opnum == rop.INT_SUB:
+            self.emit_int_sub(trace_op, cpu)
         elif opnum == rop.FINISH:
             self.emit_finish(trace_op, cpu)
         elif opnum == rop.INT_LE:
             self.emit_int_le(trace_op, cpu)
+        elif opnum == rop.INT_EQ:
+            self.emit_int_eq(trace_op, cpu)
         elif opnum == rop.JUMP:
             self.emit_jump(trace_op, cpu)
         elif opnum == rop.GUARD_TRUE:
-            self.emit_guard_true(trace_op, cpu)
+            self.emit_guard(trace_op, cpu, 0)
+        elif opnum == rop.GUARD_FALSE:
+            self.emit_guard(trace_op, cpu, 1)
         else:
             assert 0, "Don't know this opcode"
 
@@ -922,36 +929,60 @@ class PPCBuilder(PPCAssembler):
     def emit_int_add(self, op, cpu):
         arg0 = op.getarg(0)
         arg1 = op.getarg(1)
-
         regnum = cpu.reg_map[arg0]
-
-        self.addi(cpu.next_free_register, regnum, arg1.value)
-
+        if isinstance(arg1, ConstInt):
+            self.addi(cpu.next_free_register, regnum, arg1.value)
+        elif isinstance(arg1, BoxInt):
+            regnum2 = cpu.reg_map[arg1]
+            self.add(cpu.next_free_register, regnum, regnum2)
         result = op.result
         cpu.reg_map[result] = cpu.next_free_register
+        cpu.next_free_register += 1
+
+    def emit_int_sub(self, op, cpu):
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
+        regnum = cpu.reg_map[arg0]
+        if isinstance(arg1, ConstInt):
+            self.addi(cpu.next_free_register, regnum, -arg1.value)
+        elif isinstance(arg1, BoxInt):
+            regnum2 = cpu.reg_map[arg1]
+            self.sub(cpu.next_free_register, regnum, regnum2)
+        result = op.result
+        cpu.reg_map[result] = cpu.next_free_register
+        cpu.next_free_register += 1
+
+    def emit_int_eq(self, op, cpu):
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
+        free_reg = cpu.next_free_register
+        regnum = cpu.reg_map[arg0]
+        self.load_word(free_reg, arg1.value)
+        self.xor(free_reg, regnum, free_reg)
+        self.cntlzw(free_reg, free_reg)
+        self.srwi(free_reg, free_reg, 5)
+        result = op.result
+        cpu.reg_map[result] = free_reg
         cpu.next_free_register += 1
 
     def emit_int_le(self, op, cpu):
         arg0 = op.getarg(0)
         arg1 = op.getarg(1)
-
         regnum = cpu.reg_map[arg0]
-        
         free_reg = cpu.next_free_register
         self.load_word(free_reg, arg1.value)
         self.cmp(7, 1, regnum, free_reg)
         self.crnot(30, 29)
         self.mfcr(free_reg)
         self.rlwinm(free_reg, free_reg, 31, 31, 31)
-
         result = op.result
         cpu.reg_map[result] = cpu.next_free_register
         cpu.next_free_register += 1
 
-    def emit_guard_true(self, op, cpu):
+    def emit_guard(self, op, cpu, guard_type):
         arg0 = op.getarg(0)
         regnum = cpu.reg_map[arg0]
-        self.cmpi(0, 1, regnum, 0)              # result of comparison
+        self.cmpi(0, 1, regnum, guard_type)           # result of comparison
         
         fail_index = len(cpu.saved_descr)
         fail_descr = op.getdescr()
@@ -972,7 +1003,6 @@ class PPCBuilder(PPCAssembler):
         cpu.patch_list.append((numops, fail_index, op, reglist))
 
     def emit_finish(self, op, cpu):
-        from pypy.jit.metainterp.history import ConstInt, BoxInt
         fail_index = len(cpu.saved_descr)
         cpu.saved_descr[fail_index] = op.getdescr()
 
