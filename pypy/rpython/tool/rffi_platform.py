@@ -780,14 +780,16 @@ def configure_boehm(platform=None):
         from pypy.translator.platform import platform
     if sys.platform == 'win32':
         library_dir = 'Release'
+        libraries = ['gc']
         includes=['gc.h']
     else:
         library_dir = ''
+        libraries = ['gc', 'dl']
         includes=['gc/gc.h']
     eci = ExternalCompilationInfo(
         platform=platform,
         includes=includes,
-        libraries=['gc', 'dl'],
+        libraries=libraries,
         )
     return configure_external_library(
         'gc', eci,
