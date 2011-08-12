@@ -215,6 +215,7 @@ class rbigint(object):
         # then modify the result.
         return _decimalstr_to_bigint(s)
 
+    @jit.elidable
     def toint(self):
         """
         Get an integer from a bigint object.
@@ -1603,7 +1604,7 @@ def _format(a, digits, prefix='', suffix=''):
     elif (base & (base - 1)) == 0:
         # JRH: special case for power-of-2 bases
         accum = 0
-        accumbits = 0  # # of bits in accum 
+        accumbits = 0  # # of bits in accum
         basebits = 1   # # of bits in base-1
         i = base
         while 1:
