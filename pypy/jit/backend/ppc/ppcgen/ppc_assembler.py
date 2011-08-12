@@ -900,44 +900,7 @@ class PPCBuilder(PPCAssembler):
     # translate a trace operation to corresponding machine code
     def build_op(self, trace_op, cpu):
         opnum = trace_op.getopnum()
-        if opnum == rop.INT_ADD:
-            self.emit_int_add(trace_op, cpu)
-        elif opnum == rop.INT_SUB:
-            self.emit_int_sub(trace_op, cpu)
-        elif opnum == rop.INT_MUL:
-            self.emit_int_mul(trace_op, cpu)
-        elif opnum == rop.INT_FLOORDIV:
-            self.emit_int_floordiv(trace_op, cpu)
-        elif opnum == rop.UINT_FLOORDIV:
-            self.emit_uint_floordiv(trace_op, cpu)
-        elif opnum == rop.INT_MOD:
-            self.emit_int_mod(trace_op, cpu)
-        elif opnum == rop.INT_AND:
-            self.emit_int_and(trace_op, cpu)
-        elif opnum == rop.INT_OR:
-            self.emit_int_or(trace_op, cpu)
-        elif opnum == rop.INT_XOR:
-            self.emit_int_xor(trace_op, cpu)
-        elif opnum == rop.INT_LSHIFT:
-            self.emit_int_shift(trace_op, cpu)
-        elif opnum == rop.INT_RSHIFT:
-            self.emit_int_shift(trace_op, cpu, False)
-        elif opnum == rop.UINT_RSHIFT:
-            self.emit_uint_rshift(trace_op, cpu)
-        elif opnum == rop.FINISH:
-            self.emit_finish(trace_op, cpu)
-        elif opnum == rop.INT_LE:
-            self.emit_int_le(trace_op, cpu)
-        elif opnum == rop.INT_EQ:
-            self.emit_int_eq(trace_op, cpu)
-        elif opnum == rop.JUMP:
-            self.emit_jump(trace_op, cpu)
-        elif opnum == rop.GUARD_TRUE:
-            self.emit_guard(trace_op, cpu, 0)
-        elif opnum == rop.GUARD_FALSE:
-            self.emit_guard(trace_op, cpu, 1)
-        else:
-            assert 0, "Don't know this opcode"
+        self.oplist[opnum](self, trace_op, cpu)
 
     # --------------------------------------- #
     #             CODE GENERATION             #
@@ -1089,7 +1052,7 @@ class PPCBuilder(PPCAssembler):
         cpu.reg_map[result] = cpu.next_free_register
         cpu.next_free_register += 1
 
-    def emit_int_shift(self, op, cpu, dir_left=True):
+    def emit_int_lshift(self, op, cpu):
         arg0 = op.getarg(0)
         arg1 = op.getarg(1)
         if isinstance(arg0, BoxInt):
@@ -1102,10 +1065,25 @@ class PPCBuilder(PPCAssembler):
         else:
             reg1 = cpu.get_next_register()
             self.load_word(reg1, arg1.value)
-        if dir_left:
-            self.slw(cpu.next_free_register, reg0, reg1)
+        self.slw(cpu.next_free_register, reg0, reg1)
+        result = op.result
+        cpu.reg_map[result] = cpu.next_free_register
+        cpu.next_free_register += 1
+
+    def emit_int_rshift(self, op, cpu):
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
+        if isinstance(arg0, BoxInt):
+            reg0 = cpu.reg_map[arg0]
         else:
-            self.sraw(cpu.next_free_register, reg0, reg1)
+            reg0 = cpu.get_next_register()
+            self.load_word(reg0, arg0.value)
+        if isinstance(arg1, BoxInt):
+            reg1 = cpu.reg_map[arg1]
+        else:
+            reg1 = cpu.get_next_register()
+            self.load_word(reg1, arg1.value)
+        self.sraw(cpu.next_free_register, reg0, reg1)
         result = op.result
         cpu.reg_map[result] = cpu.next_free_register
         cpu.next_free_register += 1
@@ -1145,7 +1123,6 @@ class PPCBuilder(PPCAssembler):
         result = op.result
         cpu.reg_map[result] = cpu.next_free_register
         cpu.next_free_register += 1
-        
 
     def emit_int_eq(self, op, cpu):
         arg0 = op.getarg(0)
@@ -1174,10 +1151,33 @@ class PPCBuilder(PPCAssembler):
         cpu.reg_map[result] = cpu.next_free_register
         cpu.next_free_register += 1
 
-    def emit_guard(self, op, cpu, guard_type):
+    def emit_guard_true(self, op, cpu):
         arg0 = op.getarg(0)
         regnum = cpu.reg_map[arg0]
-        self.cmpi(0, 1, regnum, guard_type)           # result of comparison
+        self.cmpi(0, 1, regnum, 0)
+        
+        fail_index = len(cpu.saved_descr)
+        fail_descr = op.getdescr()
+        fail_descr.index = fail_index
+        cpu.saved_descr[fail_index] = fail_descr
+
+        numops = self.get_number_of_ops()
+        self.beq(0)
+
+        failargs = op.getfailargs()
+        reglist = []
+        for failarg in failargs:
+            if failarg is None:
+                reglist.append(None)
+            else:
+                reglist.append(cpu.reg_map[failarg])
+
+        cpu.patch_list.append((numops, fail_index, op, reglist))
+
+    def emit_guard_false(self, op, cpu):
+        arg0 = op.getarg(0)
+        regnum = cpu.reg_map[arg0]
+        self.cmpi(0, 1, regnum, 1)
         
         fail_index = len(cpu.saved_descr)
         fail_descr = op.getdescr()
@@ -1278,6 +1278,24 @@ def main():
     tb = a.assemble(True)
     t0 = tb()
     print [tb() - t0 for i in range(10)]
+
+def make_operations():
+    def not_implemented(builder, trace_op, cpu):
+        raise NotImplementedError, trace_op
+
+    oplist = [None] * (rop._LAST + 1)
+    for key, val in rop.__dict__.items():
+        if key.startswith("_"):
+            continue
+        opname = key.lower()
+        methname = "emit_%s" % opname
+        if hasattr(PPCBuilder, methname):
+            oplist[val] = getattr(PPCBuilder, methname).im_func
+        else:
+            oplist[val] = not_implemented
+    return oplist
+
+PPCBuilder.oplist = make_operations()
 
 if __name__ == '__main__':
     main()
