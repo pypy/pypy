@@ -926,12 +926,22 @@ class PPCBuilder(PPCAssembler):
     def emit_int_add(self, op, cpu):
         arg0 = op.getarg(0)
         arg1 = op.getarg(1)
-        regnum = cpu.reg_map[arg0]
-        if isinstance(arg1, ConstInt):
-            self.addi(cpu.next_free_register, regnum, arg1.value)
-        elif isinstance(arg1, BoxInt):
-            regnum2 = cpu.reg_map[arg1]
-            self.add(cpu.next_free_register, regnum, regnum2)
+        if isinstance(arg0, BoxInt):
+            regnum = cpu.reg_map[arg0]
+            if isinstance(arg1, ConstInt):
+                self.addi(cpu.next_free_register, regnum, arg1.value)
+            elif isinstance(arg1, BoxInt):
+                regnum2 = cpu.reg_map[arg1]
+                self.add(cpu.next_free_register, regnum, regnum2)
+        else:
+            regnum = cpu.get_next_register()
+            self.load_word(regnum, arg0.value)
+            if isinstance(arg1, ConstInt):
+                self.addi(cpu.next_free_register, regnum, arg1.value)
+            elif isinstance(arg1, BoxInt):
+                regnum2 = cpu.reg_map[arg1]
+                self.add(cpu.next_free_register, regnum, regnum2)
+            
         result = op.result
         cpu.reg_map[result] = cpu.next_free_register
         cpu.next_free_register += 1
