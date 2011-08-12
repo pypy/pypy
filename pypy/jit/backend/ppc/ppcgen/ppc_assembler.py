@@ -906,6 +906,24 @@ class PPCBuilder(PPCAssembler):
             self.emit_int_sub(trace_op, cpu)
         elif opnum == rop.INT_MUL:
             self.emit_int_mul(trace_op, cpu)
+        elif opnum == rop.INT_FLOORDIV:
+            self.emit_int_floordiv(trace_op, cpu)
+        elif opnum == rop.UINT_FLOORDIV:
+            self.emit_uint_floordiv(trace_op, cpu)
+        elif opnum == rop.INT_MOD:
+            self.emit_int_mod(trace_op, cpu)
+        elif opnum == rop.INT_AND:
+            self.emit_int_and(trace_op, cpu)
+        elif opnum == rop.INT_OR:
+            self.emit_int_or(trace_op, cpu)
+        elif opnum == rop.INT_XOR:
+            self.emit_int_xor(trace_op, cpu)
+        elif opnum == rop.INT_LSHIFT:
+            self.emit_int_shift(trace_op, cpu)
+        elif opnum == rop.INT_RSHIFT:
+            self.emit_int_shift(trace_op, cpu, False)
+        elif opnum == rop.UINT_RSHIFT:
+            self.emit_uint_rshift(trace_op, cpu)
         elif opnum == rop.FINISH:
             self.emit_finish(trace_op, cpu)
         elif opnum == rop.INT_LE:
@@ -977,6 +995,157 @@ class PPCBuilder(PPCAssembler):
         result = op.result
         cpu.reg_map[result] = cpu.next_free_register
         cpu.next_free_register += 1
+
+    def emit_int_floordiv(self, op, cpu):
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
+        if isinstance(arg0, BoxInt):
+            reg0 = cpu.reg_map[arg0]
+        else:
+            reg0 = cpu.get_next_register()
+            self.load_word(reg0, arg0.value)
+        if isinstance(arg1, BoxInt):
+            reg1 = cpu.reg_map[arg1]
+        else:
+            reg1 = cpu.get_next_register()
+            self.load_word(reg1, arg1.value)
+        self.divw(cpu.next_free_register, reg0, reg1)
+        result = op.result
+        cpu.reg_map[result] = cpu.next_free_register
+        cpu.next_free_register += 1
+
+    def emit_int_mod(self, op, cpu):
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
+        if isinstance(arg0, BoxInt):
+            reg0 = cpu.reg_map[arg0]
+        else:
+            reg0 = cpu.get_next_register()
+            self.load_word(reg0, arg0.value)
+        if isinstance(arg1, BoxInt):
+            reg1 = cpu.reg_map[arg1]
+        else:
+            reg1 = cpu.get_next_register()
+            self.load_word(reg1, arg1.value)
+        divreg = cpu.next_free_register
+        self.divw(divreg, reg0, reg1)
+        self.mullw(divreg, divreg, reg1)
+        self.subf(divreg, divreg, reg0)
+        result = op.result
+        cpu.reg_map[result] = divreg
+        cpu.next_free_register += 1
+
+    def emit_int_and(self, op, cpu):
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
+        if isinstance(arg0, BoxInt):
+            reg0 = cpu.reg_map[arg0]
+        else:
+            reg0 = cpu.get_next_register()
+            self.load_word(reg0, arg0.value)
+        if isinstance(arg1, BoxInt):
+            reg1 = cpu.reg_map[arg1]
+        else:
+            reg1 = cpu.get_next_register()
+            self.load_word(reg1, arg1.value)
+        self.and_(cpu.next_free_register, reg0, reg1)
+        result = op.result
+        cpu.reg_map[result] = cpu.next_free_register
+        cpu.next_free_register += 1
+
+    def emit_int_or(self, op, cpu):
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
+        if isinstance(arg0, BoxInt):
+            reg0 = cpu.reg_map[arg0]
+        else:
+            reg0 = cpu.get_next_register()
+            self.load_word(reg0, arg0.value)
+        if isinstance(arg1, BoxInt):
+            reg1 = cpu.reg_map[arg1]
+        else:
+            reg1 = cpu.get_next_register()
+            self.load_word(reg1, arg1.value)
+        self.or_(cpu.next_free_register, reg0, reg1)
+        result = op.result
+        cpu.reg_map[result] = cpu.next_free_register
+        cpu.next_free_register += 1
+
+    def emit_int_xor(self, op, cpu):
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
+        if isinstance(arg0, BoxInt):
+            reg0 = cpu.reg_map[arg0]
+        else:
+            reg0 = cpu.get_next_register()
+            self.load_word(reg0, arg0.value)
+        if isinstance(arg1, BoxInt):
+            reg1 = cpu.reg_map[arg1]
+        else:
+            reg1 = cpu.get_next_register()
+            self.load_word(reg1, arg1.value)
+        self.xor(cpu.next_free_register, reg0, reg1)
+        result = op.result
+        cpu.reg_map[result] = cpu.next_free_register
+        cpu.next_free_register += 1
+
+    def emit_int_shift(self, op, cpu, dir_left=True):
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
+        if isinstance(arg0, BoxInt):
+            reg0 = cpu.reg_map[arg0]
+        else:
+            reg0 = cpu.get_next_register()
+            self.load_word(reg0, arg0.value)
+        if isinstance(arg1, BoxInt):
+            reg1 = cpu.reg_map[arg1]
+        else:
+            reg1 = cpu.get_next_register()
+            self.load_word(reg1, arg1.value)
+        if dir_left:
+            self.slw(cpu.next_free_register, reg0, reg1)
+        else:
+            self.sraw(cpu.next_free_register, reg0, reg1)
+        result = op.result
+        cpu.reg_map[result] = cpu.next_free_register
+        cpu.next_free_register += 1
+
+    def emit_uint_rshift(self, op, cpu):
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
+        if isinstance(arg0, BoxInt):
+            reg0 = cpu.reg_map[arg0]
+        else:
+            reg0 = cpu.get_next_register()
+            self.load_word(reg0, arg0.value)
+        if isinstance(arg1, BoxInt):
+            reg1 = cpu.reg_map[arg1]
+        else:
+            reg1 = cpu.get_next_register()
+            self.load_word(reg1, arg1.value)
+        self.srw(cpu.next_free_register, reg0, reg1)
+        result = op.result
+        cpu.reg_map[result] = cpu.next_free_register
+        cpu.next_free_register += 1
+
+    def emit_uint_floordiv(self, op, cpu):
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
+        if isinstance(arg0, BoxInt):
+            reg0 = cpu.reg_map[arg0]
+        else:
+            reg0 = cpu.get_next_register()
+            self.load_word(reg0, arg0.value)
+        if isinstance(arg1, BoxInt):
+            reg1 = cpu.reg_map[arg1]
+        else:
+            reg1 = cpu.get_next_register()
+            self.load_word(reg1, arg1.value)
+        self.divwu(cpu.next_free_register, reg0, reg1)
+        result = op.result
+        cpu.reg_map[result] = cpu.next_free_register
+        cpu.next_free_register += 1
+        
 
     def emit_int_eq(self, op, cpu):
         arg0 = op.getarg(0)
