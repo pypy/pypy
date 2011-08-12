@@ -77,17 +77,27 @@ class IField(Field):
 
 class spr(Field):
     def encode(self, value):
-        value = (value&31) << 5 | (value >> 5 & 31)
+        value = (value & 31) << 5 | (value >> 5 & 31)
         return super(spr, self).encode(value)
     def decode(self, inst):
         value = super(spr, self).decode(inst)
-        return (value&31) << 5 | (value >> 5 & 31)
+        return (value & 31) << 5 | (value >> 5 & 31)
+
+class mbe(Field):
+    def encode(self, value):
+        value = (value & 31) << 1 | (value & 32) >> 5
+        return super(spr, self).encode(value)
+    def decode(self, inst):
+        value = super(mbe, self).decode(inst)
+        return (value & 1) << 5 | (value >> 1 & 31)
 
 # other special fields?
 
 ppc_fields = {
     "LI":  IField("LI", *fields["LI"]),
     "BD":  IField("BD", *fields["BD"]),
+    "ds":  IField("ds", *fields["ds"]),
+    "mbe": mbe("mbe", *fields["mbe"]),
     "spr": spr("spr",   *fields["spr"]),
 }
 
