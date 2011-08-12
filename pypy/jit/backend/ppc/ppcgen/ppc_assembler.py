@@ -904,6 +904,8 @@ class PPCBuilder(PPCAssembler):
             self.emit_int_add(trace_op, cpu)
         elif opnum == rop.INT_SUB:
             self.emit_int_sub(trace_op, cpu)
+        elif opnum == rop.INT_MUL:
+            self.emit_int_mul(trace_op, cpu)
         elif opnum == rop.FINISH:
             self.emit_finish(trace_op, cpu)
         elif opnum == rop.INT_LE:
@@ -953,6 +955,25 @@ class PPCBuilder(PPCAssembler):
         elif isinstance(arg1, BoxInt):
             regnum2 = cpu.reg_map[arg1]
             self.sub(cpu.next_free_register, regnum, regnum2)
+        result = op.result
+        cpu.reg_map[result] = cpu.next_free_register
+        cpu.next_free_register += 1
+
+    def emit_int_mul(self, op, cpu):
+        # XXX need to care about factors whose product needs 64 bit
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
+        if isinstance(arg0, BoxInt):
+            reg0 = cpu.reg_map[arg0]
+        else:
+            reg0 = cpu.get_next_register()
+            self.load_word(reg0, arg0.value)
+        if isinstance(arg1, BoxInt):
+            reg1 = cpu.reg_map[arg1]
+        else:
+            reg1 = cpu.get_next_register()
+            self.load_word(reg1, arg1.value)
+        self.mullw(cpu.next_free_register, reg0, reg1)
         result = op.result
         cpu.reg_map[result] = cpu.next_free_register
         cpu.next_free_register += 1
