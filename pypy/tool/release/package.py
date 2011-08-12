@@ -50,8 +50,8 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
             pypy_c_dir = py.path.local(override_pypy_c).dirname
         else:
             pypy_c_dir = basedir.join('pypy', 'translator', 'goal')
-        pypy_c = pypy_c_dir.join(rename_pypy_c + '-c' + '.exe')
-        libpypy_c = pypy_c_dir.join('lib' + rename_pypy_c + '-c' + '.dll')
+        pypy_c = pypy_c_dir.join('pypy-c.exe')
+        libpypy_c = pypy_c_dir.join('libpypy-c.dll')
         binaries = [(pypy_c, pypy_c.basename),
                     (libpypy_c, libpypy_c.basename),
                     (pypy_c_dir.join('libexpat.dll'), 'libexpat.dll')]
