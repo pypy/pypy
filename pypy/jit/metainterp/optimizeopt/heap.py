@@ -165,7 +165,17 @@ class OptHeap(Optimization):
         return OptHeap()
         
     def produce_potential_short_preamble_ops(self, sb):
-        for descr, d in self.cached_fields.items():
+        descrkeys = self.cached_fields.keys()
+        if not we_are_translated():
+            # XXX Pure operation of boxes that are cached in several places will
+            #     only be removed from the peeled loop when red from the first
+            #     place discovered here. This is far from ideal, as it makes
+            #     the effectiveness of our optimization a bit random. It should
+            #     howevere always generate correct results. For tests we dont
+            #     want this randomness.
+            descrkeys.sort(key=str, reverse=True)
+        for descr in descrkeys:
+            d = self.cached_fields[descr]
             d.produce_potential_short_preamble_ops(self.optimizer, sb, descr)
 
         for descr, submap in self.cached_arrayitems.items():
