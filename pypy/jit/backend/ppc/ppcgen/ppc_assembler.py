@@ -44,7 +44,7 @@ XFX = Form("CRM", "rS", "XO1")
 
 MI = Form("rA", "rS", "SH", "MB", "ME", "Rc")
 MB = Form("rA", "rS", "rB", "MB", "ME", "Rc")
-MDI = Form("rA", "rS", "SH", "mbe", "XO5", "sh", "Rc")
+MDI = Form("rA", "rS", "sh", "mbe", "XO5", "Rc")
 MDS = Form("rA", "rS", "rB", "mbe", "XO5", "Rc")
 
 class BasicPPCAssembler(Assembler):

@@ -17,7 +17,7 @@ ValueError: field 'test' can't accept value 65536
 
 
 class Field(object):
-    def __init__(self, name, left, right, signedness=False, valclass=int):
+    def __init__(self, name, left, right, signedness=False, valclass=int, overlap=False):
         self.name = name
         self.left = left
         self.right = right
@@ -26,6 +26,7 @@ class Field(object):
         self.mask = 2**width - 1
         self.signed = signedness == 'signed'
         self.valclass = valclass
+        self.overlap = overlap == 'overlap'
     def __repr__(self):
         return '<Field %r>'%(self.name,)
     def encode(self, value):

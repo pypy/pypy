@@ -37,7 +37,7 @@ fields = { # bit margins are *inclusive*! (and bit 0 is
     "rD":     ( 6, 10, 'unsigned', regname._R),
     "rS":     ( 6, 10, 'unsigned', regname._R),
     "SH":     (16, 20),
-    "sh":     (30, 30),
+    "sh":     (16, 30, 'unsigned', int, 'overlap'),
     "SIMM":   (16, 31, 'signed'),
     "SR":     (12, 15),
     "spr":    (11, 20),
@@ -91,13 +91,21 @@ class mbe(Field):
         value = super(mbe, self).decode(inst)
         return (value & 1) << 5 | (value >> 1 & 31)
 
+class sh(Field):
+    def encode(self, value):
+        value = (value & 31) << 10 | (value & 32) >> 5
+        return super(spr, self).encode(value)
+    def decode(self, inst):
+        value = super(mbe, self).decode(inst)
+        return (value & 32) << 5 | (value >> 10 & 31)
 # other special fields?
 
 ppc_fields = {
     "LI":  IField("LI", *fields["LI"]),
     "BD":  IField("BD", *fields["BD"]),
     "ds":  IField("ds", *fields["ds"]),
-    "mbe": mbe("mbe", *fields["mbe"]),
+    "mbe": mbe("mbe",   *fields["mbe"]),
+    "sh":  sh("sh",     *fields["sh"]),
     "spr": spr("spr",   *fields["spr"]),
 }
 

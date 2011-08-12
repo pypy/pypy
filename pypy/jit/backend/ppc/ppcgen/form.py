@@ -165,13 +165,16 @@ class Form(object):
     def __init__(self, *fnames):
         self.fields = []
         bits = {}
+        overlap = False
         for fname in fnames:
             if isinstance(fname, str):
                 field = self.fieldmap[fname]
             else:
                 field = fname
+            if field.overlap:
+                overlap = True
             for b in range(field.left, field.right+1):
-                if b in bits:
+                if not overlap and b in bits:
                     raise FormException, "'%s' and '%s' clash at bit '%s'"%(
                         bits[b], fname, b)
                 else:
