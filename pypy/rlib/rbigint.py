@@ -295,6 +295,7 @@ class rbigint(object):
     def ne(self, other):
         return not self.eq(other)
 
+    @jit.elidable
     def lt(self, other):
         if self.sign > other.sign:
             return False
