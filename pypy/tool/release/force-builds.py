@@ -26,7 +26,7 @@ BUILDERS = [
     'pypy-c-app-level-win-x86-32',
     'pypy-c-jit-linux-x86-32',
     'pypy-c-jit-linux-x86-64',
-#    'pypy-c-jit-macosx-x86-32',
+    'pypy-c-jit-macosx-x86-64',
     'pypy-c-jit-win-x86-32',
 ]
 

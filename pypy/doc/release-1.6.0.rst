@@ -1,6 +1,6 @@
-===========================
-PyPy 1.6 - faster than ever
-===========================
+=========================================================
+PyPy 1.6 - XXX thing something out (I like kickass panda)
+=========================================================
 
 We're pleased to announce the 1.6 release of PyPy. This release brings a lot
 of bugfixes and performance improvements over 1.5, and improves support for
@@ -15,15 +15,15 @@ What is PyPy?
 
 PyPy is a very compliant Python interpreter, almost a drop-in replacement for
 CPython 2.7.1. It's fast (`pypy 1.5 and cpython 2.6.2`_ performance comparison)
-due to its integrated tracing JIT compiler. XXX: compare to 2.7.1
+due to its integrated tracing JIT compiler.
 
 This release supports x86 machines running Linux 32/64 or Mac OS X.  Windows 32
 is beta (it roughly works but a lot of small issues have not been fixed so
 far).  Windows 64 is not yet supported.
 
-The main topics of this release are speed and stability: on average, PyPy 1.6
-is between 20% and 30% faster than PyPy 1.5, and overall it's 4.3 times faster
-than CPython when running our set of benchmarks.
+The main topics of this release are speed and stability: on average on
+our benchmark suite, PyPy 1.6 is between 20% and 30% faster than PyPy 1.5,
+which was already much faster than CPython on our set of benchmarks.
 
 The speed improvements have been made possible by optimizing many of the
 layers which compose PyPy.  In particular, we improved: the Garbage Collector,
@@ -55,7 +55,8 @@ Highlights
   - optimized dictionaries: the internal representation of dictionaries is now
     dynamically selected depending on the type of stored objects, resulting in
     faster code and smaller memory footprint.  For example, dictionaries whose
-    keys are all strings, or all integers.
+    keys are all strings, or all integers. Other dictionaries are also smaller
+    due to bugfixes.
 
 * JitViewer: this is the first official release which includes the JitViewer,
   a web-based tool which helps you to see which parts of your Python code have
@@ -67,13 +68,14 @@ Highlights
   our `compatibility wiki`_.
 
 * Multibyte encoding support: this was of of the last areas in which we were
-  still behind CPython, but now we fully support them. (XXX: is that true?)
+  still behind CPython, but now we fully support them.
 
 * Preliminary support for NumPy: this release includes a preview of a very
   fast NumPy module integrated with the PyPy JIT.  Unfortunately, this does
   not mean that you can expect to take an existing NumPy program and run it on
   PyPy, because the module is still unfinished and supports only some of the
-  numpy API.  However, what works is blazingly fast :-)
+  numpy API. However, barring some details, what works should be
+  blazingly fast :-)
 
 * Bugfixes: since the 1.5 release we fixed 53 bugs in our `bug tracker`_, not
   counting the numerous bugs that were found and reported through other
@@ -81,5 +83,6 @@ Highlights
 
 Cheers,
 
-Carl Friedrich Bolz, Laura Creighton, Antonio Cuni, Maciej Fijalkowski,
-Amaury Forgeot d'Arc, Alex Gaynor, Armin Rigo and the PyPy team
+Hakan Ardo, Carl Friedrich Bolz, Laura Creighton, Antonio Cuni,
+Maciej Fijalkowski, Amaury Forgeot d'Arc, Alex Gaynor,
+Armin Rigo and the PyPy team

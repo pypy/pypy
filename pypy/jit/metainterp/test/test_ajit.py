@@ -3206,6 +3206,8 @@ class BaseLLtypeTests(BasicTests):
         self.check_loops(arraylen_gc=2, everywhere=True)
         
     def test_release_gil_flush_heap_cache(self):
+        if sys.platform == "win32":
+            py.test.skip("needs 'time'")
         T = rffi.CArrayPtr(rffi.TIME_T)
 
         external = rffi.llexternal("time", [T], rffi.TIME_T, threadsafe=True)
