@@ -92,6 +92,7 @@ class Assembler386(object):
         self.datablockwrapper = None
         self.stack_check_slowpath = 0
         self.propagate_exception_path = 0
+        self.gcrootmap_retaddr_forced = 0
         self.teardown()
 
     def leave_jitted_hook(self):
@@ -357,6 +358,7 @@ class Assembler386(object):
         self.stack_check_slowpath = rawstart
 
     @staticmethod
+    @rgc.no_collect
     def _release_gil_asmgcc(css):
         # similar to trackgcroot.py:pypy_asm_stackwalk, first part
         from pypy.rpython.memory.gctransform import asmgcroot
@@ -372,6 +374,7 @@ class Assembler386(object):
             before()
 
     @staticmethod
+    @rgc.no_collect
     def _reacquire_gil_asmgcc(css):
         # first reacquire the GIL
         after = rffi.aroundstate.after
@@ -386,12 +389,14 @@ class Assembler386(object):
         next.prev = prev
 
     @staticmethod
+    @rgc.no_collect
     def _release_gil_shadowstack():
         before = rffi.aroundstate.before
         if before:
             before()
 
     @staticmethod
+    @rgc.no_collect
     def _reacquire_gil_shadowstack():
         after = rffi.aroundstate.after
         if after:
@@ -2218,13 +2223,27 @@ class Assembler386(object):
                 css = get_ebp_ofs(pos + use_words - 1)
                 self._regalloc.close_stack_struct = css
             # The location where the future CALL will put its return address
-            # will be [ESP-WORD], so save that as the next frame's top address
-            self.mc.LEA_rs(eax.value, -WORD)        # LEA EAX, [ESP-4]
+            # will be [ESP-WORD].  But we can't use that as the next frame's
+            # top address!  As the code after releasegil() runs without the
+            # GIL, it might not be set yet by the time we need it (very
+            # unlikely), or it might be overwritten by the following call
+            # to reaquiregil() (much more likely).  So we hack even more
+            # and use a dummy location containing a dummy value (a pointer
+            # to itself) which we pretend is the return address :-/ :-/ :-/
+            # It prevents us to store any %esp-based stack locations but we
+            # don't so far.
+            adr = self.datablockwrapper.malloc_aligned(WORD, WORD)
+            rffi.cast(rffi.CArrayPtr(lltype.Signed), adr)[0] = adr
+            self.gcrootmap_retaddr_forced = adr
             frame_ptr = css + WORD * (2+asmgcroot.FRAME_PTR)
-            self.mc.MOV_br(frame_ptr, eax.value)    # MOV [css.frame], EAX
+            if rx86.fits_in_32bits(adr):
+                self.mc.MOV_bi(frame_ptr, adr)          # MOV [css.frame], adr
+            else:
+                self.mc.MOV_ri(eax.value, adr)          # MOV EAX, adr
+                self.mc.MOV_br(frame_ptr, eax.value)    # MOV [css.frame], EAX
             # Save ebp
             index_of_ebp = css + WORD * (2+asmgcroot.INDEX_OF_EBP)
-            self.mc.MOV_br(index_of_ebp, ebp.value) # MOV [css.ebp], EBP
+            self.mc.MOV_br(index_of_ebp, ebp.value)     # MOV [css.ebp], EBP
             # Call the closestack() function (also releasing the GIL)
             if IS_X86_32:
                 reg = eax
@@ -2252,6 +2271,9 @@ class Assembler386(object):
         if gcrootmap.is_shadow_stack:
             args = []
         else:
+            assert self.gcrootmap_retaddr_forced == -1, (
+                      "missing mark_gc_roots() in CALL_RELEASE_GIL")
+            self.gcrootmap_retaddr_forced = 0
             css = self._regalloc.close_stack_struct
             assert css != 0
             if IS_X86_32:
@@ -2502,7 +2524,13 @@ class Assembler386(object):
             if gcrootmap.is_shadow_stack:
                 gcrootmap.write_callshape(mark, force_index)
             else:
-                self.mc.insert_gcroot_marker(mark)
+                if self.gcrootmap_retaddr_forced == 0:
+                    self.mc.insert_gcroot_marker(mark)   # common case
+                else:
+                    assert self.gcrootmap_retaddr_forced != -1, (
+                              "two mark_gc_roots() in a CALL_RELEASE_GIL")
+                    gcrootmap.put(self.gcrootmap_retaddr_forced, mark)
+                    self.gcrootmap_retaddr_forced = -1
 
     def target_arglocs(self, loop_token):
         return loop_token._x86_arglocs
