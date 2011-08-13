@@ -901,7 +901,8 @@ class Statement(object):
             raise self.con._get_exception(ret)
         self.con._remember_statement(self)
         if _check_remaining_sql(next_char.value):
-            raise Warning, "One and only one statement required"
+            raise Warning, "One and only one statement required: %r" % (
+                next_char.value,)
 
         self._build_row_cast_map()
 
