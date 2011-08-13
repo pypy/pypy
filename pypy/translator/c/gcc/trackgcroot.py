@@ -163,6 +163,9 @@ class FunctionGcRootTracker(object):
         # Add the instruction to the list, and link it to the previous one.
         previnsn = self.insns[-1]
         self.insns.append(insn)
+        if (isinstance(insn, (InsnSetLocal, InsnCopyLocal)) and
+            insn.target == self.tested_for_zero):
+            self.tested_for_zero = None
 
         try:
             lst = insn.previous_insns
