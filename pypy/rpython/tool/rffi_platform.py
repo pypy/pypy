@@ -704,7 +704,7 @@ PYPY_EXTERNAL_DIR = py.path.local(pypydir).join('..', '..')
 # XXX make this configurable
 if sys.platform == 'win32':
     libdir = py.path.local('c:/buildslave/support') # on the bigboard buildbot
-    if libdir.exists():
+    if libdir.check():
         PYPY_EXTERNAL_DIR = libdir
 
 def configure_external_library(name, eci, configurations,
