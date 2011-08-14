@@ -891,7 +891,8 @@ class Statement(object):
 
         self.statement = c_void_p()
         next_char = c_char_p()
-        ret = sqlite.sqlite3_prepare_v2(self.con.db, sql, -1, byref(self.statement), byref(next_char))
+        sql_char = c_char_p(sql)
+        ret = sqlite.sqlite3_prepare_v2(self.con.db, sql_char, -1, byref(self.statement), byref(next_char))
         if ret == SQLITE_OK and self.statement.value is None:
             # an empty statement, we work around that, as it's the least trouble
             ret = sqlite.sqlite3_prepare_v2(self.con.db, "select 42", -1, byref(self.statement), byref(next_char))
@@ -901,7 +902,9 @@ class Statement(object):
             raise self.con._get_exception(ret)
         self.con._remember_statement(self)
         if _check_remaining_sql(next_char.value):
-            raise Warning, "One and only one statement required"
+            raise Warning, "One and only one statement required: %r" % (
+                next_char.value,)
+        # sql_char should remain alive until here
 
         self._build_row_cast_map()
 
