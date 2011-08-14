@@ -197,7 +197,7 @@ ssl_external('X509_NAME_get_entry', [X509_NAME, rffi.INT], X509_NAME_ENTRY)
 ssl_external('X509_NAME_ENTRY_get_object', [X509_NAME_ENTRY], ASN1_OBJECT)
 ssl_external('X509_NAME_ENTRY_get_data', [X509_NAME_ENTRY], ASN1_STRING)
 ssl_external('i2d_X509', [X509, rffi.CCHARPP], rffi.INT)
-ssl_external('X509_free', [X509], lltype.Void)
+ssl_external('X509_free', [X509], lltype.Void, threadsafe=False)
 ssl_external('X509_get_notBefore', [X509], ASN1_TIME, macro=True)
 ssl_external('X509_get_notAfter', [X509], ASN1_TIME, macro=True)
 ssl_external('X509_get_serialNumber', [X509], ASN1_INTEGER)
@@ -232,9 +232,9 @@ ssl_external('SSL_CIPHER_get_bits', [SSL_CIPHER, rffi.INTP], rffi.INT)
 ssl_external('ERR_get_error', [], rffi.INT)
 ssl_external('ERR_error_string', [rffi.ULONG, rffi.CCHARP], rffi.CCHARP)
 
-ssl_external('SSL_free', [SSL], lltype.Void)
-ssl_external('SSL_CTX_free', [SSL_CTX], lltype.Void)
-ssl_external('CRYPTO_free', [rffi.VOIDP], lltype.Void)
+ssl_external('SSL_free', [SSL], lltype.Void, threadsafe=False)
+ssl_external('SSL_CTX_free', [SSL_CTX], lltype.Void, threadsafe=False)
+ssl_external('CRYPTO_free', [rffi.VOIDP], lltype.Void, threadsafe=False)
 libssl_OPENSSL_free = libssl_CRYPTO_free
 
 ssl_external('SSL_write', [SSL, rffi.CCHARP, rffi.INT], rffi.INT)
@@ -246,7 +246,7 @@ ssl_external('BIO_s_mem', [], BIO_METHOD)
 ssl_external('BIO_s_file', [], BIO_METHOD)
 ssl_external('BIO_new', [BIO_METHOD], BIO)
 ssl_external('BIO_set_nbio', [BIO, rffi.INT], rffi.INT, macro=True)
-ssl_external('BIO_free', [BIO], rffi.INT)
+ssl_external('BIO_free', [BIO], rffi.INT, threadsafe=False)
 ssl_external('BIO_reset', [BIO], rffi.INT, macro=True)
 ssl_external('BIO_read_filename', [BIO, rffi.CCHARP], rffi.INT, macro=True)
 ssl_external('BIO_gets', [BIO, rffi.CCHARP, rffi.INT], rffi.INT)
@@ -273,7 +273,7 @@ EVP_DigestFinal = external(
 EVP_MD_CTX_copy = external(
     'EVP_MD_CTX_copy', [EVP_MD_CTX, EVP_MD_CTX], rffi.INT)
 EVP_MD_CTX_cleanup = external(
-    'EVP_MD_CTX_cleanup', [EVP_MD_CTX], rffi.INT)
+    'EVP_MD_CTX_cleanup', [EVP_MD_CTX], rffi.INT, threadsafe=False)
 
 def init_ssl():
     libssl_SSL_load_error_strings()
