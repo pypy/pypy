@@ -93,7 +93,7 @@ if WIN32:
     INVALID_HANDLE_VALUE = rffi.cast(HANDLE, -1)
     PFILETIME = rffi.CArrayPtr(FILETIME)
 
-    GetLastError = winexternal('GetLastError', [], DWORD)
+    GetLastError = winexternal('GetLastError', [], DWORD, threadsafe=False)
     SetLastError = winexternal('SetLastError', [DWORD], lltype.Void)
 
     # In tests, the first call to GetLastError is always wrong, because error
