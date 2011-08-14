@@ -7,6 +7,7 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.micronumpy import interp_ufuncs, interp_dtype
 from pypy.module.micronumpy.interp_support import Signature
 from pypy.rlib import jit
+from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rfloat import DTSF_STR_PRECISION
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.sourcetools import func_with_new_name
@@ -18,15 +19,6 @@ all_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self'])
 any_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self'])
 slice_driver1 = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop', 'source', 'dest'])
 slice_driver2 = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop', 'source', 'dest'])
-
-def add(v1, v2):
-    return v1 + v2
-def mul(v1, v2):
-    return v1 * v2
-def maximum(v1, v2):
-    return max(v1, v2)
-def minimum(v1, v2):
-    return min(v1, v2)
 
 class BaseArray(Wrappable):
     def __init__(self):
@@ -78,7 +70,7 @@ class BaseArray(Wrappable):
 
     def _binop_right_impl(w_ufunc):
         def impl(self, space, w_other):
-            w_other = FloatWrapper(space.float_w(w_other))
+            w_other = scalar_w(space, interp_dtype.W_Float64Dtype, w_other)
             return w_ufunc(space, w_other, self)
         return func_with_new_name(impl, "binop_right_%s_impl" % w_ufunc.__name__)
 
@@ -89,34 +81,36 @@ class BaseArray(Wrappable):
     descr_rpow = _binop_right_impl(interp_ufuncs.power)
     descr_rmod = _binop_right_impl(interp_ufuncs.mod)
 
-    def _reduce_sum_prod_impl(function, init):
+    def _reduce_sum_prod_impl(op_name, init):
         reduce_driver = jit.JitDriver(greens=['signature'],
                          reds = ['i', 'size', 'self', 'result'])
 
-        def loop(self, result, size):
+        def loop(self, res_dtype, result, size):
             i = 0
             while i < size:
                 reduce_driver.jit_merge_point(signature=self.signature,
                                               self=self, size=size, i=i,
                                               result=result)
-                result = function(result, self.eval(i))
+                result = getattr(res_dtype, op_name)(result, self.eval(i))
                 i += 1
             return result
 
         def impl(self, space):
-            return space.wrap(loop(self, init, self.find_size()))
-        return func_with_new_name(impl, "reduce_%s_impl" % function.__name__)
+            result = space.fromcache(interp_dtype.W_Float64Dtype).Box(init).convert_to(self.find_dtype())
+            return loop(self, self.find_dtype(), result, self.find_size()).wrap(space)
+        return func_with_new_name(impl, "reduce_%s_impl" % op_name)
 
-    def _reduce_max_min_impl(function):
+    def _reduce_max_min_impl(op_name):
         reduce_driver = jit.JitDriver(greens=['signature'],
                          reds = ['i', 'size', 'self', 'result'])
         def loop(self, result, size):
             i = 1
+            dtype = self.find_dtype()
             while i < size:
                 reduce_driver.jit_merge_point(signature=self.signature,
                                               self=self, size=size, i=i,
                                               result=result)
-                result = function(result, self.eval(i))
+                result = getattr(dtype, op_name)(result, self.eval(i))
                 i += 1
             return result
 
@@ -125,23 +119,24 @@ class BaseArray(Wrappable):
             if size == 0:
                 raise OperationError(space.w_ValueError,
                     space.wrap("Can't call %s on zero-size arrays" \
-                            % function.__name__))
-            return space.wrap(loop(self, self.eval(0), size))
-        return func_with_new_name(impl, "reduce_%s_impl" % function.__name__)
+                            % op_name))
+            return loop(self, self.eval(0), size).wrap(space)
+        return func_with_new_name(impl, "reduce_%s_impl" % op_name)
 
-    def _reduce_argmax_argmin_impl(function):
+    def _reduce_argmax_argmin_impl(op_name):
         reduce_driver = jit.JitDriver(greens=['signature'],
                          reds = ['i', 'size', 'result', 'self', 'cur_best'])
         def loop(self, size):
             result = 0
             cur_best = self.eval(0)
             i = 1
+            dtype = self.find_dtype()
             while i < size:
                 reduce_driver.jit_merge_point(signature=self.signature,
                                               self=self, size=size, i=i,
                                               result=result, cur_best=cur_best)
-                new_best = function(cur_best, self.eval(i))
-                if new_best != cur_best:
+                new_best = getattr(dtype, op_name)(cur_best, self.eval(i))
+                if dtype.ne(new_best, cur_best):
                     result = i
                     cur_best = new_best
                 i += 1
@@ -151,16 +146,17 @@ class BaseArray(Wrappable):
             if size == 0:
                 raise OperationError(space.w_ValueError,
                     space.wrap("Can't call %s on zero-size arrays" \
-                            % function.__name__))
+                            % op_name))
             return space.wrap(loop(self, size))
-        return func_with_new_name(impl, "reduce_arg%s_impl" % function.__name__)
+        return func_with_new_name(impl, "reduce_arg%s_impl" % op_name)
 
     def _all(self):
         size = self.find_size()
+        dtype = self.find_dtype()
         i = 0
         while i < size:
             all_driver.jit_merge_point(signature=self.signature, self=self, size=size, i=i)
-            if not self.eval(i):
+            if not dtype.bool(self.eval(i)):
                 return False
             i += 1
         return True
@@ -169,22 +165,23 @@ class BaseArray(Wrappable):
 
     def _any(self):
         size = self.find_size()
+        dtype = self.find_dtype()
         i = 0
         while i < size:
             any_driver.jit_merge_point(signature=self.signature, self=self, size=size, i=i)
-            if self.eval(i):
+            if dtype.bool(self.eval(i)):
                 return True
             i += 1
         return False
     def descr_any(self, space):
         return space.wrap(self._any())
 
-    descr_sum = _reduce_sum_prod_impl(add, 0.0)
-    descr_prod = _reduce_sum_prod_impl(mul, 1.0)
-    descr_max = _reduce_max_min_impl(maximum)
-    descr_min = _reduce_max_min_impl(minimum)
-    descr_argmax = _reduce_argmax_argmin_impl(maximum)
-    descr_argmin = _reduce_argmax_argmin_impl(minimum)
+    descr_sum = _reduce_sum_prod_impl("add", 0.0)
+    descr_prod = _reduce_sum_prod_impl("mul", 1.0)
+    descr_max = _reduce_max_min_impl("max")
+    descr_min = _reduce_max_min_impl("min")
+    descr_argmax = _reduce_argmax_argmin_impl("max")
+    descr_argmin = _reduce_argmax_argmin_impl("min")
 
     def descr_dot(self, space, w_other):
         if isinstance(w_other, BaseArray):
@@ -240,7 +237,7 @@ class BaseArray(Wrappable):
         start, stop, step, slice_length = space.decode_index4(w_idx, self.find_size())
         if step == 0:
             # Single index
-            return space.wrap(self.get_concrete().eval(start))
+            return self.get_concrete().eval(start).wrap(space)
         else:
             # Slice
             res = SingleDimSlice(start, stop, step, slice_length, self, self.signature.transition(SingleDimSlice.static_signature))
@@ -302,18 +299,27 @@ def convert_to_array (space, w_obj):
         return w_obj
     else:
         # If it's a scalar
-        return FloatWrapper(space.float_w(w_obj))
+        return scalar_w(space, interp_dtype.W_Float64Dtype, w_obj)
 
-class FloatWrapper(BaseArray):
+@specialize.arg(1)
+def scalar_w(space, dtype, w_obj):
+    return Scalar(scalar(space, dtype, w_obj))
+
+@specialize.arg(1)
+def scalar(space, dtype, w_obj):
+    dtype = space.fromcache(dtype)
+    return dtype.Box(dtype.unwrap(space, w_obj))
+
+class Scalar(BaseArray):
     """
     Intermediate class representing a float literal.
     """
-    _immutable_fields_ = ["float_value"]
+    _immutable_fields_ = ["value"]
     signature = Signature()
 
-    def __init__(self, float_value):
+    def __init__(self, value):
         BaseArray.__init__(self)
-        self.float_value = float_value
+        self.value = value
 
     def find_size(self):
         raise ValueError
@@ -322,7 +328,7 @@ class FloatWrapper(BaseArray):
         raise ValueError
 
     def eval(self, i):
-        return self.float_value
+        return self.value
 
 class VirtualArray(BaseArray):
     """
@@ -394,7 +400,7 @@ class Call1(VirtualArray):
         return self.values.find_dtype()
 
     def _eval(self, i):
-        return self.function(self.values.eval(i))
+        return self.function(self.find_dtype(), self.values.eval(i))
 
 class Call2(VirtualArray):
     """
@@ -420,8 +426,10 @@ class Call2(VirtualArray):
         return self.right.find_size()
 
     def _eval(self, i):
+        dtype = self.find_dtype()
         lhs, rhs = self.left.eval(i), self.right.eval(i)
-        return self.function(lhs, rhs)
+        lhs, rhs = lhs.convert_to(dtype), rhs.convert_to(dtype)
+        return self.function(dtype, lhs, rhs)
 
     def _find_dtype(self):
         lhs_dtype = None
@@ -564,9 +572,11 @@ def zeros(space, size):
 
 @unwrap_spec(size=int)
 def ones(space, size):
-    arr = SingleDimArray(size, dtype=space.fromcache(interp_dtype.W_Float64Dtype))
+    dtype = space.fromcache(interp_dtype.W_Float64Dtype)
+    arr = SingleDimArray(size, dtype=dtype)
+    one = dtype.Box(1.0)
     for i in xrange(size):
-        arr.dtype.setitem(arr.storage, i, 1.0)
+        arr.dtype.setitem(arr.storage, i, one)
     return space.wrap(arr)
 
 BaseArray.typedef = TypeDef(

@@ -3,7 +3,8 @@
 It should not be imported by the module itself
 """
 
-from pypy.module.micronumpy.interp_numarray import FloatWrapper, SingleDimArray, BaseArray
+from pypy.module.micronumpy.interp_numarray import Scalar, SingleDimArray, BaseArray
+
 
 class BogusBytecode(Exception):
     pass
@@ -35,7 +36,7 @@ def numpy_compile(bytecode, array_size):
             stack.append(create_array(array_size))
             i += 1
         elif b == 'f':
-            stack.append(FloatWrapper(1.2))
+            stack.append(Scalar(1.2))
         elif b == '+':
             right = stack.pop()
             stack.append(stack.pop().descr_add(space, right))

@@ -1,10 +1,15 @@
+import functools
+import math
+
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.objspace.std.floatobject import float2string
+from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rfloat import DTSF_STR_PRECISION
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
+
 
 SIGNEDLTR = "i"
 
@@ -55,19 +60,103 @@ class LowLevelDtype(object):
         ))
 
     def getitem(self, storage, i):
-        return self.unerase(storage)[i]
+        return self.Box(self.unerase(storage)[i])
 
     def setitem(self, storage, i, item):
-        self.unerase(storage)[i] = item
+        self.unerase(storage)[i] = item.val
 
     def setitem_w(self, space, storage, i, w_item):
-        self.setitem(storage, i, self.unwrap(space, w_item))
+        self.setitem(storage, i, self.Box(self.unwrap(space, w_item)))
+
+    @specialize.argtype(1)
+    def adapt_val(self, val):
+        return self.Box(rffi.cast(self.TP.TO.OF, val))
 
     def str_format(self, item):
-        return str(item)
+        assert isinstance(item, self.Box)
+        return str(item.val)
+
+    # Operations.
+    def binop(func):
+        @functools.wraps(func)
+        def impl(self, v1, v2):
+            assert isinstance(v1, self.Box)
+            assert isinstance(v2, self.Box)
+            return self.Box(func(self, v1.val, v2.val))
+        return impl
+    def unaryop(func):
+        @functools.wraps(func)
+        def impl(self, v):
+            assert isinstance(v, self.Box)
+            return self.Box(func(self, v.val))
+        return impl
+
+    @binop
+    def add(self, v1, v2):
+        return v1 + v2
+    @binop
+    def sub(self, v1, v2):
+        return v1 - v2
+    @binop
+    def mul(self, v1, v2):
+        return v1 * v2
+    @binop
+    def div(self, v1, v2):
+        return v1 / v2
+    @binop
+    def mod(self, v1, v2):
+        return math.fmod(v1, v2)
+    @binop
+    def pow(self, v1, v2):
+        return math.pow(v1, v2)
+    @unaryop
+    def neg(self, v):
+        return -v
+    @unaryop
+    def pos(self, v):
+        return v
+    @unaryop
+    def abs(self, v):
+        return abs(v)
+    @binop
+    def max(self, v1, v2):
+        return max(v1, v2)
+    @binop
+    def min(self, v1, v2):
+        return min(v1, v2)
+
+    # Comparisons, they return unwraped results (for now)
+    def ne(self, v1, v2):
+        assert isinstance(v1, self.Box)
+        assert isinstance(v2, self.Box)
+        return v1.val != v2.val
+    def bool(self, v):
+        assert isinstance(v, self.Box)
+        return bool(v.val)
+
 
 def make_array_ptr(T):
     return lltype.Ptr(lltype.Array(T, hints={"nolength": True}))
+
+class BaseBox(object):
+    _mixin_ = True
+
+    def __init__(self, val):
+        if self.valtype is not None:
+            assert isinstance(val, self.valtype)
+        self.val = val
+
+    def wrap(self, space):
+        return space.wrap(self.val)
+
+    def convert_to(self, dtype):
+        return dtype.adapt_val(self.val)
+
+def make_box(TP, v=None):
+    class Box(BaseBox):
+        valtype = v
+    Box.__name__ = "%sBox" % TP.TO.OF._name
+    return Box
 
 VOID_TP = make_array_ptr(lltype.Void)
 
@@ -77,6 +166,7 @@ class W_BoolDtype(LowLevelDtype, W_Dtype):
     aliases = ["?"]
     applevel_types = ["bool"]
     TP = make_array_ptr(lltype.Bool)
+    Box = make_box(TP, bool)
 
     def unwrap(self, space, w_item):
         return space.is_true(w_item)
@@ -86,12 +176,14 @@ class W_Int8Dtype(LowLevelDtype, W_Dtype):
     kind = SIGNEDLTR
     aliases = ["int8"]
     TP = make_array_ptr(rffi.SIGNEDCHAR)
+    Box = make_box(TP)
 
 class W_Int32Dtype(LowLevelDtype, W_Dtype):
     num = 5
     kind = SIGNEDLTR
     aliases = ["i"]
     TP = make_array_ptr(rffi.INT)
+    Box = make_box(TP)
 
 class W_LongDtype(LowLevelDtype, W_Dtype):
     num = 7
@@ -99,6 +191,7 @@ class W_LongDtype(LowLevelDtype, W_Dtype):
     aliases = ["l"]
     applevel_types = ["int"]
     TP = make_array_ptr(rffi.LONG)
+    Box = make_box(TP)
 
     def unwrap(self, space, w_item):
         return space.int_w(space.int(w_item))
@@ -107,17 +200,19 @@ class W_Int64Dtype(LowLevelDtype, W_Dtype):
     num = 9
     applevel_types = ["long"]
     TP = make_array_ptr(rffi.LONGLONG)
+    Box = make_box(TP)
 
 class W_Float64Dtype(LowLevelDtype, W_Dtype):
     num = 12
     applevel_types = ["float"]
     TP = make_array_ptr(lltype.Float)
+    Box = make_box(TP)
 
     def unwrap(self, space, w_item):
         return space.float_w(space.float(w_item))
 
     def str_format(self, item):
-        return float2string(item, 'g', DTSF_STR_PRECISION)
+        return float2string(item.val, 'g', DTSF_STR_PRECISION)
 
 
 ALL_DTYPES = [

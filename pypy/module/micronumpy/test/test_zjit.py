@@ -2,8 +2,8 @@ from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.module.micronumpy.compile import numpy_compile
 from pypy.module.micronumpy.interp_dtype import W_Float64Dtype
 from pypy.module.micronumpy.interp_numarray import (SingleDimArray, Signature,
-    FloatWrapper, Call2, SingleDimSlice, add, mul, Call1)
-from pypy.module.micronumpy.interp_ufuncs import negative
+    Scalar, Call2, SingleDimSlice, Call1)
+from pypy.module.micronumpy.interp_ufuncs import negative, add
 from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.objectmodel import specialize
 from pypy.rpython.test.test_llinterp import interpret
@@ -30,7 +30,7 @@ class TestNumpyJIt(LLJitMixin):
     def test_add(self):
         def f(i):
             ar = SingleDimArray(i, dtype=self.float64_dtype)
-            v = Call2(add, ar, ar, Signature())
+            v = add(self.float64_dtype, ar, ar)
             concrete = v.get_concrete()
             return concrete.dtype.getitem(concrete.storage, 3)
 
@@ -43,7 +43,7 @@ class TestNumpyJIt(LLJitMixin):
     def test_floatadd(self):
         def f(i):
             ar = SingleDimArray(i)
-            v = Call2(add, ar, FloatWrapper(4.5), Signature())
+            v = Call2(add, ar, Scalar(4.5), Signature())
             return v.dtype.getitem(v.get_concrete().storage, 3)
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
@@ -164,8 +164,8 @@ class TestNumpyJIt(LLJitMixin):
     def test_already_forecd(self):
         def f(i):
             ar = SingleDimArray(i)
-            v1 = Call2(add, ar, FloatWrapper(4.5), Signature())
-            v2 = Call2(mul, v1, FloatWrapper(4.5), Signature())
+            v1 = Call2(add, ar, Scalar(4.5), Signature())
+            v2 = Call2(mul, v1, Scalar(4.5), Signature())
             v1.force_if_needed()
             return v2.get_concrete().storage[3]
 
