@@ -892,16 +892,16 @@ class __extend__(pyframe.PyFrame):
         raise BytecodeCorruption, "old opcode, no longer in use"
 
     def SETUP_LOOP(self, offsettoend, next_instr):
-        block = LoopBlock(self, next_instr + offsettoend)
-        self.append_block(block)
+        block = LoopBlock(self, next_instr + offsettoend, self.lastblock)
+        self.lastblock = block
 
     def SETUP_EXCEPT(self, offsettoend, next_instr):
-        block = ExceptBlock(self, next_instr + offsettoend)
-        self.append_block(block)
+        block = ExceptBlock(self, next_instr + offsettoend, self.lastblock)
+        self.lastblock = block
 
     def SETUP_FINALLY(self, offsettoend, next_instr):
-        block = FinallyBlock(self, next_instr + offsettoend)
-        self.append_block(block)
+        block = FinallyBlock(self, next_instr + offsettoend, self.lastblock)
+        self.lastblock = block
 
     def SETUP_WITH(self, offsettoend, next_instr):
         w_manager = self.peekvalue()
@@ -915,8 +915,8 @@ class __extend__(pyframe.PyFrame):
         w_exit = self.space.get(w_descr, w_manager)
         self.settopvalue(w_exit)
         w_result = self.space.get_and_call_function(w_enter, w_manager)
-        block = WithBlock(self, next_instr + offsettoend)
-        self.append_block(block)
+        block = WithBlock(self, next_instr + offsettoend, self.lastblock)
+        self.lastblock = block
         self.pushvalue(w_result)
 
     def WITH_CLEANUP(self, oparg, next_instr):
@@ -1247,10 +1247,10 @@ class FrameBlock(object):
 
     _immutable_ = True
 
-    def __init__(self, frame, handlerposition):
+    def __init__(self, frame, handlerposition, previous):
         self.handlerposition = handlerposition
         self.valuestackdepth = frame.valuestackdepth
-        self.previous = None # this makes a linked list of blocks
+        self.previous = previous   # this makes a linked list of blocks
 
     def __eq__(self, other):
         return (self.__class__ is other.__class__ and

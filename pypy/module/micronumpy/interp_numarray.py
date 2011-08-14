@@ -295,7 +295,6 @@ class FloatWrapper(BaseArray):
     """
     Intermediate class representing a float literal.
     """
-    _immutable_fields_ = ["float_value"]
     signature = Signature()
 
     def __init__(self, float_value):
@@ -356,8 +355,6 @@ class VirtualArray(BaseArray):
 
 
 class Call1(VirtualArray):
-    _immutable_fields_ = ["function", "values"]
-
     def __init__(self, function, values, signature):
         VirtualArray.__init__(self, signature)
         self.function = function
@@ -376,8 +373,6 @@ class Call2(VirtualArray):
     """
     Intermediate class for performing binary operations.
     """
-    _immutable_fields_ = ["function", "left", "right"]
-
     def __init__(self, function, left, right, signature):
         VirtualArray.__init__(self, signature)
         self.function = function
@@ -404,8 +399,6 @@ class ViewArray(BaseArray):
     Class for representing views of arrays, they will reflect changes of parent
     arrays. Example: slices
     """
-    _immutable_fields_ = ["parent"]
-
     def __init__(self, parent, signature):
         BaseArray.__init__(self)
         self.signature = signature
@@ -433,7 +426,6 @@ class ViewArray(BaseArray):
         raise NotImplementedError
 
 class SingleDimSlice(ViewArray):
-    _immutable_fields_ = ["start", "stop", "step", "size"]
     static_signature = Signature()
 
     def __init__(self, start, stop, step, slice_length, parent, signature):
