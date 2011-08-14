@@ -317,6 +317,7 @@ class Optimizer(Optimization):
         self.opaque_pointers = {}
         self.newoperations = []
         self.emitting_dissabled = False
+        self.emitted_guards = 0        
         if loop is not None:
             self.call_pure_results = loop.call_pure_results
 
@@ -491,6 +492,7 @@ class Optimizer(Optimization):
         self.metainterp_sd.profiler.count(jitprof.OPT_OPS)
         if op.is_guard():
             self.metainterp_sd.profiler.count(jitprof.OPT_GUARDS)
+            self.emitted_guards += 1 # FIXME: can we reuse above counter?
             op = self.store_final_boxes_in_guard(op)
         elif op.can_raise():
             self.exception_might_have_happened = True

@@ -9,6 +9,7 @@ from pypy.jit.metainterp.optimizeopt.generalize import KillHugeIntBounds
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.resume import Snapshot
 from pypy.rlib.debug import debug_print
+import sys
 
 # FIXME: Introduce some VirtualOptimizer super class instead
 
@@ -213,6 +214,8 @@ class UnrollOptimizer(Optimization):
             loop.preamble.operations.append(jmp)
 
             loop.operations = self.optimizer.newoperations
+            if self.optimizer.emitted_guards > 100:
+                loop.preamble.token.retraced_count = sys.maxint
 
             if short:
                 assert short[-1].getopnum() == rop.JUMP
