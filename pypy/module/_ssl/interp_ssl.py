@@ -142,6 +142,7 @@ class SSLObject(Wrappable):
                                      '__del__() method of ')
 
     def destructor(self):
+        assert isinstance(self, SSLObject)
         if self.peer_cert:
             libssl_X509_free(self.peer_cert)
         if self.ssl:
