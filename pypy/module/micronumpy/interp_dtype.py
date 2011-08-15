@@ -66,7 +66,7 @@ class LowLevelDtype(object):
         self.unerase(storage)[i] = item.val
 
     def setitem_w(self, space, storage, i, w_item):
-        self.setitem(storage, i, self.Box(self.unwrap(space, w_item)))
+        self.setitem(storage, i, self.unwrap(space, w_item))
 
     @specialize.argtype(1)
     def adapt_val(self, val):
@@ -200,7 +200,7 @@ class BaseBox(object):
         return dtype.adapt_val(self.val)
 
 def make_box(TP, v=None):
-    class Box(BaseBox):
+    class Box(BaseBox, object):
         valtype = v
     Box.__name__ = "%sBox" % TP.TO.OF._name
     return Box
@@ -216,7 +216,7 @@ class W_BoolDtype(LowLevelDtype, W_Dtype):
     Box = make_box(TP, bool)
 
     def unwrap(self, space, w_item):
-        return space.is_true(w_item)
+        return self.Box(space.is_true(w_item))
 
 class W_Int8Dtype(LowLevelDtype, W_Dtype):
     num = 1
@@ -241,7 +241,7 @@ class W_LongDtype(LowLevelDtype, W_Dtype):
     Box = make_box(TP)
 
     def unwrap(self, space, w_item):
-        return space.int_w(space.int(w_item))
+        return self.Box(space.int_w(space.int(w_item)))
 
 class W_Int64Dtype(LowLevelDtype, W_Dtype):
     num = 9
@@ -256,7 +256,7 @@ class W_Float64Dtype(LowLevelDtype, W_Dtype):
     Box = make_box(TP)
 
     def unwrap(self, space, w_item):
-        return space.float_w(space.float(w_item))
+        return self.Box(space.float_w(space.float(w_item)))
 
     def str_format(self, item):
         return float2string(item.val, 'g', rfloat.DTSF_STR_PRECISION)

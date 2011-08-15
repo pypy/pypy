@@ -308,7 +308,7 @@ def scalar_w(space, dtype, w_obj):
 @specialize.arg(1)
 def scalar(space, dtype, w_obj):
     dtype = space.fromcache(dtype)
-    return dtype.Box(dtype.unwrap(space, w_obj))
+    return dtype.unwrap(space, w_obj)
 
 class Scalar(BaseArray):
     """
