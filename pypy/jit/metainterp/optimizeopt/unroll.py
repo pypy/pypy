@@ -9,7 +9,7 @@ from pypy.jit.metainterp.optimizeopt.generalize import KillHugeIntBounds
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.resume import Snapshot
 from pypy.rlib.debug import debug_print
-import sys
+import sys, os
 
 # FIXME: Introduce some VirtualOptimizer super class instead
 
@@ -214,7 +214,12 @@ class UnrollOptimizer(Optimization):
             loop.preamble.operations.append(jmp)
 
             loop.operations = self.optimizer.newoperations
-            if self.optimizer.emitted_guards > 100:
+            maxguards_str = os.environ.get('PYPY_MAX_RETRACE_GUARDS')
+            if maxguards_str:
+                maxguards = int(maxguards_str)
+            else:
+                maxguards = 100
+            if self.optimizer.emitted_guards > maxguards:
                 loop.preamble.token.retraced_count = sys.maxint
 
             if short:
