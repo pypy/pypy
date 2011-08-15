@@ -7,8 +7,8 @@ from pypy.objspace.flow.model import Constant, Variable
 import sys
 
 import py
-log = py.log.Producer("error") 
-py.log.setconsumer("error", ansi_log) 
+log = py.log.Producer("error")
+py.log.setconsumer("error", ansi_log)
 
 SHOW_TRACEBACK = False
 SHOW_ANNOTATIONS = True
@@ -125,8 +125,16 @@ def format_simple_call(annotator, oper, what, msg):
         if func is None:
             r = repr(desc)
         else:
-            r = "function %s <%s, line %s>" % (func.func_name,
-                   func.func_code.co_filename, func.func_code.co_firstlineno)
+            try:
+                if isinstance(func, type):
+                    func_name = "%s.__init__" % func.__name__
+                    func = func.__init__.im_func
+                else:
+                    func_name = func.func_name
+                r = "function %s <%s, line %s>" % (func_name,
+                       func.func_code.co_filename, func.func_code.co_firstlineno)
+            except (AttributeError, TypeError):
+                r = repr(desc)
         msg.append("  %s returning" % (r,))
         if hasattr(desc, 'getuniquegraph'):
             graph = desc.getuniquegraph()
@@ -155,7 +163,7 @@ def format_someobject_error(annotator, position_key, what, s_value, called_from_
                 msg.append("%8s: %s" % (v, s_v))
         msg.append('')
         msg += source_lines(graph, block, operindex, long=True)
-        
+
     if called_from_graph is not None:
         msg.append(".. called from %r" % (called_from_graph,))
     if s_value.origin is not None:
@@ -184,7 +192,7 @@ def debug(drv, use_pdb=True):
     import traceback
     errmsg = ["Error:\n"]
     exc, val, tb = sys.exc_info()
-    
+
     errmsg.extend([" %s" % line for line in traceback.format_exception(exc, val, [])])
     block = getattr(val, '__annotator_block', None)
     if block:
