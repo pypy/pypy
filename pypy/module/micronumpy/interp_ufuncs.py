@@ -16,13 +16,14 @@ def ufunc(func):
             w_obj_arr.invalidates.append(w_res)
             return w_res
         else:
-            return func(scalar(interp_dtype.W_Float64_Dtype, w_obj)).wrap(space)
+            res_dtype = space.fromcache(interp_dtype.W_Float64Dtype)
+            return func(res_dtype, scalar(space, interp_dtype.W_Float64Dtype, w_obj)).wrap(space)
     return func_with_new_name(impl, "%s_dispatcher" % func.__name__)
 
 def ufunc2(func):
     signature = Signature()
     def impl(space, w_lhs, w_rhs):
-        from pypy.module.micronumpy.interp_numarray import Call2, convert_to_array
+        from pypy.module.micronumpy.interp_numarray import Call2, convert_to_array, scalar
         if space.issequence_w(w_lhs) or space.issequence_w(w_rhs):
             w_lhs_arr = convert_to_array(space, w_lhs)
             w_rhs_arr = convert_to_array(space, w_rhs)
@@ -32,7 +33,12 @@ def ufunc2(func):
             w_rhs_arr.invalidates.append(w_res)
             return w_res
         else:
-            return space.wrap(func(space.float_w(w_lhs), space.float_w(w_rhs)))
+            res_dtype = space.fromcache(interp_dtype.W_Float64Dtype)
+            return func(
+                res_dtype,
+                scalar(space, interp_dtype.W_Float64Dtype, w_lhs),
+                scalar(space, interp_dtype.W_Float64Dtype, w_rhs),
+            ).wrap(space)
     return func_with_new_name(impl, "%s_dispatcher" % func.__name__)
 
 def ufunc_dtype_caller(ufunc_name, op_name, argcount):
@@ -54,82 +60,26 @@ for ufunc_name, op_name, argcount in [
     ("divide", "div", 2),
     ("mod", "mod", 2),
     ("power", "pow", 2),
+
+    ("maximum", "max", 2),
+    ("minimum", "min", 2),
+
+    ("copysign", "copysign", 2),
+
     ("negative", "neg", 1),
     ("positive", "pos", 1),
     ("absolute", "abs", 1),
+    ("sign", "sign", 1),
+    ("fabs", "fabs", 1),
+    ("reciprocal", "reciprocal", 1),
+    ("floor", "floor", 1),
+
+    ("exp", "exp", 1),
+    ("sin", "sin", 1),
+    ("cos", "cos", 1),
+    ("tan", "tan", 1),
+    ("arcsin", "arcsin", 1),
+    ("arccos", "arccos", 1),
+    ("arctan", "arctan", 1),
 ]:
     globals()[ufunc_name] = ufunc_dtype_caller(ufunc_name, op_name, argcount)
-
-@ufunc2
-def copysign(lvalue, rvalue):
-    return rfloat.copysign(lvalue, rvalue)
-
-
-@ufunc
-def exp(value):
-    try:
-        return math.exp(value)
-    except OverflowError:
-        return rfloat.INFINITY
-
-@ufunc
-def fabs(value):
-    return math.fabs(value)
-
-@ufunc2
-def maximum(lvalue, rvalue):
-    return max(lvalue, rvalue)
-
-@ufunc2
-def minimum(lvalue, rvalue):
-    return min(lvalue, rvalue)
-
-
-
-
-
-@ufunc
-def reciprocal(value):
-    if value == 0.0:
-        return rfloat.copysign(rfloat.INFINITY, value)
-    return 1.0 / value
-
-@ufunc
-def floor(value):
-    return math.floor(value)
-
-@ufunc
-def sign(value):
-    if value == 0.0:
-        return 0.0
-    return rfloat.copysign(1.0, value)
-
-@ufunc
-def sin(value):
-    return math.sin(value)
-
-@ufunc
-def cos(value):
-    return math.cos(value)
-
-@ufunc
-def tan(value):
-    return math.tan(value)
-
-
-
-@ufunc
-def arcsin(value):
-    if value < -1.0 or  value > 1.0:
-        return rfloat.NAN
-    return math.asin(value)
-
-@ufunc
-def arccos(value):
-    if value < -1.0 or  value > 1.0:
-        return rfloat.NAN
-    return math.acos(value)
-
-@ufunc
-def arctan(value):
-    return math.atan(value)

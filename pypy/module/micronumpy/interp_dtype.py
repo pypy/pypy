@@ -5,8 +5,8 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.objspace.std.floatobject import float2string
+from pypy.rlib import rfloat
 from pypy.rlib.objectmodel import specialize
-from pypy.rlib.rfloat import DTSF_STR_PRECISION
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 
@@ -109,6 +109,15 @@ class LowLevelDtype(object):
     @binop
     def pow(self, v1, v2):
         return math.pow(v1, v2)
+    @binop
+    def max(self, v1, v2):
+        return max(v1, v2)
+    @binop
+    def min(self, v1, v2):
+        return min(v1, v2)
+    @binop
+    def copysign(self, v1, v2):
+        return math.copysign(v1, v2)
     @unaryop
     def neg(self, v):
         return -v
@@ -118,12 +127,50 @@ class LowLevelDtype(object):
     @unaryop
     def abs(self, v):
         return abs(v)
-    @binop
-    def max(self, v1, v2):
-        return max(v1, v2)
-    @binop
-    def min(self, v1, v2):
-        return min(v1, v2)
+    @unaryop
+    def sign(self, v):
+        if v == 0.0:
+            return 0.0
+        return rfloat.copysign(1.0, v)
+    @unaryop
+    def fabs(self, v):
+        return math.fabs(v)
+    @unaryop
+    def reciprocal(self, v):
+        if v == 0.0:
+            return rfloat.copysign(rfloat.INFINITY, v)
+        return 1.0 / v
+    @unaryop
+    def floor(self, v):
+        return math.floor(v)
+    @unaryop
+    def exp(self, v):
+        try:
+            return math.exp(v)
+        except OverflowError:
+            return rfloat.INFINITY
+    @unaryop
+    def sin(self, v):
+        return math.sin(v)
+    @unaryop
+    def cos(self, v):
+        return math.cos(v)
+    @unaryop
+    def tan(self, v):
+        return math.tan(v)
+    @unaryop
+    def arcsin(self, v):
+        if v < -1.0 or  v > 1.0:
+            return rfloat.NAN
+        return math.asin(v)
+    @unaryop
+    def arccos(self, v):
+        if v < -1.0 or v > 1.0:
+            return rfloat.NAN
+        return math.acos(v)
+    @unaryop
+    def arctan(self, v):
+        return math.atan(v)
 
     # Comparisons, they return unwraped results (for now)
     def ne(self, v1, v2):
@@ -212,7 +259,7 @@ class W_Float64Dtype(LowLevelDtype, W_Dtype):
         return space.float_w(space.float(w_item))
 
     def str_format(self, item):
-        return float2string(item.val, 'g', DTSF_STR_PRECISION)
+        return float2string(item.val, 'g', rfloat.DTSF_STR_PRECISION)
 
 
 ALL_DTYPES = [

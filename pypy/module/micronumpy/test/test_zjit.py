@@ -30,7 +30,7 @@ class TestNumpyJIt(LLJitMixin):
     def test_add(self):
         def f(i):
             ar = SingleDimArray(i, dtype=self.float64_dtype)
-            v = add(self.float64_dtype, ar, ar)
+            v = add(self.space, ar, ar)
             concrete = v.get_concrete()
             return concrete.dtype.getitem(concrete.storage, 3)
 
