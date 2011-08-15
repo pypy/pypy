@@ -1403,7 +1403,26 @@ _expectations = {
         test_zipimport
         test_zlib
         """,
-    'openbsd3':
+    'openbsd4':
+        """
+        test_ascii_formatd
+        test_bsddb
+        test_bsddb3
+        test_ctypes
+        test_dl
+        test_epoll
+        test_gdbm
+        test_locale
+        test_normalization
+        test_ossaudiodev
+        test_pep277
+        test_tcl
+        test_tk
+        test_ttk_guionly
+        test_ttk_textonly
+        test_multiprocessing
+        """,
+    'openbsd5':
         """
         test_ascii_formatd
         test_bsddb
