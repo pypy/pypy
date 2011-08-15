@@ -43,7 +43,7 @@ static inline std::vector<void*> build_args(int numargs, void* args) {
     return arguments;
 }
 
-static inline size_t base_offset(const Reflex::Type& td, const Reflex::Type& tb) {
+static inline size_t base_offset(const Reflex::Type& td, const Reflex::Type& tb, void* address) {
     // when dealing with virtual inheritance the only (reasonably) well-defined info is
     // in a Reflex internal base table, that contains all offsets within the hierarchy
     Reflex::Member getbases = td.FunctionMemberByName(
@@ -56,13 +56,12 @@ static inline size_t base_offset(const Reflex::Type& td, const Reflex::Type& tb)
 
         for (Bases_t::iterator ibase = bases->begin(); ibase != bases->end(); ++ibase) {
             if (ibase->first.ToType() == tb) {
-                if (ibase->first.IsVirtual()) {
-                    Reflex::Object o = td.Construct();
+                if (ibase->first.IsVirtual() && address != NULL) {
+                    Reflex::Object o(td, address);
                     size_t offset = ibase->first.Offset(o.Address());
-                    o.Destruct();
                     return offset;
                 } else
-                   return ibase->first.Offset(0);
+                    return ibase->first.Offset(0);
             }
         }
 
@@ -256,12 +255,12 @@ int cppyy_is_subtype(cppyy_typehandle_t dh, cppyy_typehandle_t bh) {
     return (int)td.HasBase(tb);
 }
 
-size_t cppyy_base_offset(cppyy_typehandle_t dh, cppyy_typehandle_t bh) {
+size_t cppyy_base_offset(cppyy_typehandle_t dh, cppyy_typehandle_t bh, cppyy_object_t address) {
     if (dh == bh)
         return 0;
     Reflex::Type td = type_from_handle(dh);
     Reflex::Type tb = type_from_handle(bh);
-    return (size_t)base_offset(td, tb);
+    return (size_t)base_offset(td, tb, (void*)address);
 }
 
 
@@ -327,40 +326,33 @@ int cppyy_is_staticmethod(cppyy_typehandle_t handle, int method_index) {
 /* data member reflection information ------------------------------------- */
 int cppyy_num_data_members(cppyy_typehandle_t handle) {
     Reflex::Scope s = scope_from_handle(handle);
-    return s.DataMemberSize(Reflex::INHERITEDMEMBERS_ALSO);
+    return s.DataMemberSize();
 }
 
 char* cppyy_data_member_name(cppyy_typehandle_t handle, int data_member_index) {
     Reflex::Scope s = scope_from_handle(handle);
-    Reflex::Member m = s.DataMemberAt(data_member_index, Reflex::INHERITEDMEMBERS_ALSO);
+    Reflex::Member m = s.DataMemberAt(data_member_index);
     std::string name = m.Name();
     return cppstring_to_cstring(name);
 }
 
 char* cppyy_data_member_type(cppyy_typehandle_t handle, int data_member_index) {
     Reflex::Scope s = scope_from_handle(handle);
-    Reflex::Member m = s.DataMemberAt(data_member_index, Reflex::INHERITEDMEMBERS_ALSO);
+    Reflex::Member m = s.DataMemberAt(data_member_index);
     std::string name = m.TypeOf().Name(Reflex::FINAL|Reflex::SCOPED|Reflex::QUALIFIED);
     return cppstring_to_cstring(name);
 }
 
 size_t cppyy_data_member_offset(cppyy_typehandle_t handle, int data_member_index) {
     Reflex::Scope s = scope_from_handle(handle);
-    Reflex::Member m = s.DataMemberAt(data_member_index, Reflex::INHERITEDMEMBERS_ALSO);
-
-    if (s != m.DeclaringScope()) {
-        // in case this data member is part of a base class, the offset is complicated
-        // when dealing with virtual inheritance and needs to be calculated
-        return base_offset(s, m.DeclaringType()) + m.Offset();
-    }
-
+    Reflex::Member m = s.DataMemberAt(data_member_index);
     return m.Offset();
 }
 
 
 int cppyy_is_staticdata(cppyy_typehandle_t handle, int data_member_index) {
     Reflex::Scope s = scope_from_handle(handle);
-    Reflex::Member m = s.DataMemberAt(data_member_index, Reflex::INHERITEDMEMBERS_ALSO);
+    Reflex::Member m = s.DataMemberAt(data_member_index);
     return m.IsStatic();
 }
 

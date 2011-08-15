@@ -284,7 +284,7 @@ int cppyy_is_subtype(cppyy_typehandle_t dh, cppyy_typehandle_t bh) {
     return crd->GetBaseClass(crb) != 0;
 }
 
-size_t cppyy_base_offset(cppyy_typehandle_t dh, cppyy_typehandle_t bh) {
+size_t cppyy_base_offset(cppyy_typehandle_t dh, cppyy_typehandle_t bh, cppyy_object_t) {
     if (dh == bh)
         return 0;
     TClassRef crd = type_from_handle(dh);

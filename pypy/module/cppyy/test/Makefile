@@ -1,4 +1,4 @@
-dicts = example01Dict.so datatypesDict.so advancedcppDict.so stltypesDict.so operatorsDict.so fragileDict.so
+dicts = example01Dict.so datatypesDict.so advancedcppDict.so stltypesDict.so operatorsDict.so fragileDict.so std_streamsDict.so
 all : $(dicts)
 
 ROOTSYS := ${ROOTSYS}
@@ -18,10 +18,10 @@ endif
 
 ifeq ($(shell $(genreflex) --help | grep -- --with-methptrgetter),)
   genreflexflags=
-  cppflags2=-O3
+  cppflags2=-O3 -fPIC
 else
   genreflexflags=--with-methptrgetter
-  cppflags2=-Wno-pmf-conversions -O3
+  cppflags2=-Wno-pmf-conversions -O3 -fPIC
 endif
 
 %Dict.so: %_rflx.cpp %.cxx
@@ -43,6 +43,10 @@ endif
 stltypesDict.so: stltypes.cxx stltypes.h stltypes.xml
 	$(genreflex) stltypes.h --selection=stltypes.xml
 	g++ -o $@ stltypes_rflx.cpp stltypes.cxx -shared -lReflex $(cppflags) $(cppflags2)
+
+std_streamsDict.so: std_streams.cxx std_streams.h std_streams.xml
+	$(genreflex) std_streams.h --selection=std_streams.xml
+	g++ -o $@ std_streams_rflx.cpp std_streams.cxx -shared -lReflex $(cppflags) $(cppflags2)
 
 operatorsDict.so: operators.cxx operators.h operators.xml
 	$(genreflex) operators.h --selection=operators.xml

@@ -46,7 +46,7 @@ extern "C" {
     int cppyy_num_bases(cppyy_typehandle_t handle);
     char* cppyy_base_name(cppyy_typehandle_t handle, int base_index);
     int cppyy_is_subtype(cppyy_typehandle_t dh, cppyy_typehandle_t bh);
-    size_t cppyy_base_offset(cppyy_typehandle_t dh, cppyy_typehandle_t bh);
+    size_t cppyy_base_offset(cppyy_typehandle_t dh, cppyy_typehandle_t bh, cppyy_object_t address);
 
     /* method/function reflection information */
     int cppyy_num_methods(cppyy_typehandle_t handle);

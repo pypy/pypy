@@ -96,7 +96,7 @@ c_is_subtype = rffi.llexternal(
     elidable_function=True)
 c_base_offset = rffi.llexternal(
     "cppyy_base_offset",
-    [C_TYPEHANDLE, C_TYPEHANDLE], rffi.SIZE_T,
+    [C_TYPEHANDLE, C_TYPEHANDLE, C_OBJECT], rffi.SIZE_T,
     compilation_info=eci,
     elidable_function=True)
 

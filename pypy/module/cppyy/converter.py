@@ -484,7 +484,8 @@ class InstancePtrConverter(TypeConverter):
         obj = space.interpclass_w(w_obj)
         if isinstance(obj, W_CPPInstance):
             if capi.c_is_subtype(obj.cppclass.handle, self.cpptype.handle):
-                offset = capi.c_base_offset(obj.cppclass.handle, self.cpptype.handle)
+                offset = capi.c_base_offset(
+                    obj.cppclass.handle, self.cpptype.handle, obj.rawobject)
                 obj_address = _direct_ptradd(obj.rawobject, offset)
                 return rffi.cast(rffi.VOIDP, obj_address)
         raise OperationError(space.w_TypeError,
