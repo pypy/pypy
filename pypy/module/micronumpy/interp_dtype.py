@@ -67,6 +67,7 @@ def create_low_level_dtype(num, kind, name, aliases, applevel_types, T, valtype=
         def unerase(self, storage):
             return rffi.cast(TP, storage)
 
+        @specialize.argtype(1)
         def box(self, value):
             return Box(value)
 
