@@ -158,8 +158,8 @@ def allocate_ll_lock():
     return ll_lock
 
 def free_ll_lock(ll_lock):
-    c_thread_acquirelock_NOAUTO(ll_lock, 0)
-    c_thread_releaselock_NOAUTO(ll_lock)
+    acquire_NOAUTO(ll_lock, False)
+    release_NOAUTO(ll_lock)
     c_thread_lock_dealloc_NOAUTO(ll_lock)
     lltype.free(ll_lock, flavor='raw', track_allocation=False)
 
