@@ -21,7 +21,7 @@ from pypy.rpython.annlowlevel import hlstr
 #   sub-second timestamps.
 # - TIMESPEC is defined when the "struct stat" contains st_atim field.
 
-if sys.platform.startswith('linux'):
+if sys.platform.startswith('linux') or sys.platform.startswith('openbsd'):
     TIMESPEC = platform.Struct('struct timespec',
                                [('tv_sec', rffi.TIME_T),
                                 ('tv_nsec', rffi.LONG)])
@@ -185,9 +185,9 @@ if sys.platform != 'win32':
 def build_stat_result(st):
     # only for LL backends
     if TIMESPEC is not None:
-        atim = st.c_st_atim; atime = atim.c_tv_sec + 1E-9 * atim.c_tv_nsec
-        mtim = st.c_st_mtim; mtime = mtim.c_tv_sec + 1E-9 * mtim.c_tv_nsec
-        ctim = st.c_st_ctim; ctime = ctim.c_tv_sec + 1E-9 * ctim.c_tv_nsec
+        atim = st.c_st_atim; atime = int(atim.c_tv_sec) + 1E-9 * int(atim.c_tv_nsec)
+        mtim = st.c_st_mtim; mtime = int(mtim.c_tv_sec) + 1E-9 * int(mtim.c_tv_nsec)
+        ctim = st.c_st_ctim; ctime = int(ctim.c_tv_sec) + 1E-9 * int(ctim.c_tv_nsec)
     else:
         atime = st.c_st_atime
         mtime = st.c_st_mtime
