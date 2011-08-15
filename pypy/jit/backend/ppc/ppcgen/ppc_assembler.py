@@ -1127,12 +1127,21 @@ class PPCBuilder(PPCAssembler):
     def emit_int_eq(self, op, cpu):
         arg0 = op.getarg(0)
         arg1 = op.getarg(1)
+        if isinstance(arg0, BoxInt):
+            reg0 = cpu.reg_map[arg0]
+        else:
+            reg0 = cpu.get_next_register()
+            self.load_word(reg0, arg0.value)
+        if isinstance(arg1, BoxInt):
+            reg1 = cpu.reg_map[arg1]
+        else:
+            reg1 = cpu.get_next_register()
+            self.load_word(reg1, arg1.value)
+
         free_reg = cpu.next_free_register
-        regnum = cpu.reg_map[arg0]
-        self.load_word(free_reg, arg1.value)
-        self.xor(free_reg, regnum, free_reg)
-        self.cntlzw(free_reg, free_reg)
-        self.srwi(free_reg, free_reg, 5)
+        self.cmpw(7, reg0, reg1)
+        self.mfcr(free_reg)
+        self.rlwinm(free_reg, free_reg, 31, 31, 31)
         result = op.result
         cpu.reg_map[result] = free_reg
         cpu.next_free_register += 1
@@ -1140,15 +1149,69 @@ class PPCBuilder(PPCAssembler):
     def emit_int_le(self, op, cpu):
         arg0 = op.getarg(0)
         arg1 = op.getarg(1)
-        regnum = cpu.reg_map[arg0]
+        if isinstance(arg0, BoxInt):
+            reg0 = cpu.reg_map[arg0]
+        else:
+            reg0 = cpu.get_next_register()
+            self.load_word(reg0, arg0.value)
+        if isinstance(arg1, BoxInt):
+            reg1 = cpu.reg_map[arg1]
+        else:
+            reg1 = cpu.get_next_register()
+            self.load_word(reg1, arg1.value)
+
         free_reg = cpu.next_free_register
-        self.load_word(free_reg, arg1.value)
-        self.cmp(7, 1, regnum, free_reg)
-        self.crnot(30, 29)
+        self.cmpw(7, reg0, reg1)
+        self.cror(31, 30, 28)
+        self.mfcr(free_reg)
+        self.rlwinm(free_reg, free_reg, 0, 31, 31)
+        result = op.result
+        cpu.reg_map[result] = free_reg
+        cpu.next_free_register += 1
+
+    def emit_int_lt(self, op, cpu):
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
+        if isinstance(arg0, BoxInt):
+            reg0 = cpu.reg_map[arg0]
+        else:
+            reg0 = cpu.get_next_register()
+            self.load_word(reg0, arg0.value)
+        if isinstance(arg1, BoxInt):
+            reg1 = cpu.reg_map[arg1]
+        else:
+            reg1 = cpu.get_next_register()
+            self.load_word(reg1, arg1.value)
+
+        free_reg = cpu.next_free_register
+        self.cmpw(7, reg0, reg1)
+        self.mfcr(free_reg)
+        self.rlwinm(free_reg, free_reg, 29, 31, 31)
+        result = op.result
+        cpu.reg_map[result] = free_reg
+        cpu.next_free_register += 1
+
+    def emit_int_ne(self, op, cpu):
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
+        if isinstance(arg0, BoxInt):
+            reg0 = cpu.reg_map[arg0]
+        else:
+            reg0 = cpu.get_next_register()
+            self.load_word(reg0, arg0.value)
+        if isinstance(arg1, BoxInt):
+            reg1 = cpu.reg_map[arg1]
+        else:
+            reg1 = cpu.get_next_register()
+            self.load_word(reg1, arg1.value)
+        
+        free_reg = cpu.next_free_register
+        self.cmpw(7, reg0, reg1)
+        self.crnot(30, 30)
         self.mfcr(free_reg)
         self.rlwinm(free_reg, free_reg, 31, 31, 31)
         result = op.result
-        cpu.reg_map[result] = cpu.next_free_register
+        cpu.reg_map[result] = free_reg
         cpu.next_free_register += 1
 
     def emit_guard_true(self, op, cpu):
@@ -1281,7 +1344,7 @@ def main():
 
 def make_operations():
     def not_implemented(builder, trace_op, cpu):
-        raise NotImplementedError, trace_op
+        import pdb; pdb.set_trace()
 
     oplist = [None] * (rop._LAST + 1)
     for key, val in rop.__dict__.items():
