@@ -96,7 +96,7 @@ class BaseArray(Wrappable):
             return result
 
         def impl(self, space):
-            result = space.fromcache(interp_dtype.W_Float64Dtype).Box(init).convert_to(self.find_dtype())
+            result = space.fromcache(interp_dtype.W_Float64Dtype).box(init).convert_to(self.find_dtype())
             return loop(self, self.find_dtype(), result, self.find_size()).wrap(space)
         return func_with_new_name(impl, "reduce_%s_impl" % op_name)
 
@@ -574,7 +574,7 @@ def zeros(space, size):
 def ones(space, size):
     dtype = space.fromcache(interp_dtype.W_Float64Dtype)
     arr = SingleDimArray(size, dtype=dtype)
-    one = dtype.Box(1.0)
+    one = dtype.box(1.0)
     for i in xrange(size):
         arr.dtype.setitem(arr.storage, i, one)
     return space.wrap(arr)

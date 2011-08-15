@@ -25,7 +25,7 @@ def fromstring(space, s):
     i = 0
     while i < number:
         part = s[start:end]
-        a.dtype.setitem(a.storage, i, a.dtype.Box(runpack('d', part)))
+        a.dtype.setitem(a.storage, i, a.dtype.box(runpack('d', part)))
         i += 1
         start += FLOAT_SIZE
         end += FLOAT_SIZE
