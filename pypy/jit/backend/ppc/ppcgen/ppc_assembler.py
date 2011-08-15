@@ -1214,6 +1214,139 @@ class PPCBuilder(PPCAssembler):
         cpu.reg_map[result] = free_reg
         cpu.next_free_register += 1
 
+    def emit_int_gt(self, op, cpu):
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
+        if isinstance(arg0, BoxInt):
+            reg0 = cpu.reg_map[arg0]
+        else:
+            reg0 = cpu.get_next_register()
+            self.load_word(reg0, arg0.value)
+        if isinstance(arg1, BoxInt):
+            reg1 = cpu.reg_map[arg1]
+        else:
+            reg1 = cpu.get_next_register()
+            self.load_word(reg1, arg1.value)
+        
+        free_reg = cpu.next_free_register
+        self.cmpw(7, reg0, reg1)
+        self.mfcr(free_reg)
+        self.rlwinm(free_reg, free_reg, 30, 31, 31)
+        result = op.result
+        cpu.reg_map[result] = free_reg
+        cpu.next_free_register += 1
+
+    def emit_int_ge(self, op, cpu):
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
+        if isinstance(arg0, BoxInt):
+            reg0 = cpu.reg_map[arg0]
+        else:
+            reg0 = cpu.get_next_register()
+            self.load_word(reg0, arg0.value)
+        if isinstance(arg1, BoxInt):
+            reg1 = cpu.reg_map[arg1]
+        else:
+            reg1 = cpu.get_next_register()
+            self.load_word(reg1, arg1.value)
+        
+        free_reg = cpu.next_free_register
+        self.cmpw(7, reg0, reg1)
+        self.cror(31, 30, 29)
+        self.mfcr(free_reg)
+        self.rlwinm(free_reg, free_reg, 0, 31, 31)
+        result = op.result
+        cpu.reg_map[result] = free_reg
+        cpu.next_free_register += 1
+
+    def emit_uint_lt(self, op, cpu):
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
+        if isinstance(arg0, BoxInt):
+            reg0 = cpu.reg_map[arg0]
+        else:
+            reg0 = cpu.get_next_register()
+            self.load_word(reg0, arg0.value)
+        if isinstance(arg1, BoxInt):
+            reg1 = cpu.reg_map[arg1]
+        else:
+            reg1 = cpu.get_next_register()
+            self.load_word(reg1, arg1.value)
+        
+        free_reg = cpu.next_free_register
+        self.subfc(free_reg, reg1, reg0)
+        self.subfe(free_reg, free_reg, free_reg)
+        self.neg(free_reg, free_reg)
+        result = op.result
+        cpu.reg_map[result] = free_reg
+        cpu.next_free_register += 1
+
+    def emit_uint_le(self, op, cpu):
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
+        if isinstance(arg0, BoxInt):
+            reg0 = cpu.reg_map[arg0]
+        else:
+            reg0 = cpu.get_next_register()
+            self.load_word(reg0, arg0.value)
+        if isinstance(arg1, BoxInt):
+            reg1 = cpu.reg_map[arg1]
+        else:
+            reg1 = cpu.get_next_register()
+            self.load_word(reg1, arg1.value)
+        
+        free_reg = cpu.next_free_register
+        self.subfc(free_reg, reg0, reg1)
+        self.li(free_reg, 0)
+        self.adde(free_reg, free_reg, free_reg)
+        result = op.result
+        cpu.reg_map[result] = free_reg
+        cpu.next_free_register += 1
+
+    def emit_uint_gt(self, op, cpu):
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
+        if isinstance(arg0, BoxInt):
+            reg0 = cpu.reg_map[arg0]
+        else:
+            reg0 = cpu.get_next_register()
+            self.load_word(reg0, arg0.value)
+        if isinstance(arg1, BoxInt):
+            reg1 = cpu.reg_map[arg1]
+        else:
+            reg1 = cpu.get_next_register()
+            self.load_word(reg1, arg1.value)
+        
+        free_reg = cpu.next_free_register
+        self.subfc(free_reg, reg0, reg1)
+        self.subfe(free_reg, free_reg, free_reg)
+        self.neg(free_reg, free_reg)
+        result = op.result
+        cpu.reg_map[result] = free_reg
+        cpu.next_free_register += 1
+
+    def emit_uint_ge(self, op, cpu):
+        arg0 = op.getarg(0)
+        arg1 = op.getarg(1)
+        if isinstance(arg0, BoxInt):
+            reg0 = cpu.reg_map[arg0]
+        else:
+            reg0 = cpu.get_next_register()
+            self.load_word(reg0, arg0.value)
+        if isinstance(arg1, BoxInt):
+            reg1 = cpu.reg_map[arg1]
+        else:
+            reg1 = cpu.get_next_register()
+            self.load_word(reg1, arg1.value)
+        
+        free_reg = cpu.next_free_register
+        self.subfc(free_reg, reg1, reg0)
+        self.li(free_reg, 0)
+        self.adde(free_reg, free_reg, free_reg)
+        result = op.result
+        cpu.reg_map[result] = free_reg
+        cpu.next_free_register += 1
+
     def emit_guard_true(self, op, cpu):
         arg0 = op.getarg(0)
         regnum = cpu.reg_map[arg0]
