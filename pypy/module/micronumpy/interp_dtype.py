@@ -63,6 +63,7 @@ class LowLevelDtype(object):
         return self.Box(self.unerase(storage)[i])
 
     def setitem(self, storage, i, item):
+        assert isinstance(item, self.Box)
         self.unerase(storage)[i] = item.val
 
     def setitem_w(self, space, storage, i, w_item):
@@ -186,22 +187,21 @@ def make_array_ptr(T):
     return lltype.Ptr(lltype.Array(T, hints={"nolength": True}))
 
 class BaseBox(object):
-    _mixin_ = True
+    pass
 
-    def __init__(self, val):
-        if self.valtype is not None:
-            assert isinstance(val, self.valtype)
-        self.val = val
+def make_box(TP, valtype=None):
+    class Box(BaseBox):
+        def __init__(self, val):
+            if valtype is not None:
+                assert isinstance(val, valtype  )
+            self.val = val
 
-    def wrap(self, space):
-        return space.wrap(self.val)
+        def wrap(self, space):
+            return space.wrap(self.val)
 
-    def convert_to(self, dtype):
-        return dtype.adapt_val(self.val)
+        def convert_to(self, dtype):
+            return dtype.adapt_val(self.val)
 
-def make_box(TP, v=None):
-    class Box(BaseBox, object):
-        valtype = v
     Box.__name__ = "%sBox" % TP.TO.OF._name
     return Box
 
