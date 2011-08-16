@@ -59,8 +59,8 @@ static inline char* cppstring_to_cstring(const std::string& name) {
 
 static inline char* type_cppstring_to_cstring(const std::string& tname) {
     G__TypeInfo ti(tname.c_str());
-    std::string name = ti.IsValid() ? ti.TrueName() : tname;
-    return cppstring_to_cstring(name);
+    std::string true_name = ti.IsValid() ? ti.TrueName() : tname;
+    return cppstring_to_cstring(true_name);
 }
 
 static inline TClassRef type_from_handle(cppyy_typehandle_t handle) {
@@ -270,8 +270,13 @@ int cppyy_is_namespace(cppyy_typehandle_t handle) {
 /* type/class reflection information -------------------------------------- */
 char* cppyy_final_name(cppyy_typehandle_t handle) {
     TClassRef cr = type_from_handle(handle);
-    if (cr.GetClass() && cr->GetClassInfo())
-        return type_cppstring_to_cstring(cr->GetName());
+    if (cr.GetClass() && cr->GetClassInfo()) {
+        std::string true_name = G__TypeInfo(cr->GetName()).TrueName();
+        std::string::size_type pos = true_name.rfind("::");
+        if (pos != std::string::npos)
+            return cppstring_to_cstring(true_name.substr(pos+2, std::string::npos));
+        return cppstring_to_cstring(true_name);
+    }
     return cppstring_to_cstring(cr.GetClassName());
 }
 

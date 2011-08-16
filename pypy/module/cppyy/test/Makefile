@@ -38,6 +38,9 @@ endif
 #
 # rootcint -f datatypes_cint.cxx -c datatypes.h datatypes_LinkDef.h
 # g++ -I$ROOTSYS/include datatypes_cint.cxx datatypes.cxx -shared -o datatypesDict.so -rdynamic
+#
+# rootcint -f advancedcpp_cint.cxx -c advancedcpp.h advancedcpp_LinkDef.h
+# g++ -I$ROOTSYS/include advancedcpp_cint.cxx advancedcpp.cxx -shared -o advancedcppDict.so -rdynamic
 
 # TODO: methptrgetter causes these tests to crash, so don't use it for now
 stltypesDict.so: stltypes.cxx stltypes.h stltypes.xml

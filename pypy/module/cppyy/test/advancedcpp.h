@@ -87,10 +87,10 @@ public:
    int m_d;
 };
 
-int get_a( a_class& a );
-int get_b( b_class& b );
-int get_c( c_class& c );
-int get_d( d_class& d );
+int get_a(a_class& a);
+int get_b(b_class& b);
+int get_c(c_class& c);
+int get_d(d_class& d);
 
 
 //===========================================================================
