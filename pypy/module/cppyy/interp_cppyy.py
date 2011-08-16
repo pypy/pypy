@@ -296,7 +296,6 @@ class W_CPPDataMember(Wrappable):
     def is_static(self):
         return self.space.newbool(self._is_static)
 
-    @jit.elidable_promote()
     def _get_offset(self, w_cppinstance):
         cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
         if cppinstance:
