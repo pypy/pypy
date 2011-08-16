@@ -98,6 +98,11 @@ class PPC_64_CPU(AbstractLLCPU):
         self.total_compiled_bridges += 1
         self.teardown()
 
+    def get_next_register(self):
+        reg = self.next_free_register
+        self.next_free_register += 1
+        return reg
+
     def _make_epilogue(self, codebuilder):
         for op_index, fail_index, guard, reglist in self.patch_list:
             curpos = codebuilder.get_relative_pos()
