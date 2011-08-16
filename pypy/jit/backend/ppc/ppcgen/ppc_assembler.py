@@ -613,6 +613,8 @@ class PPCAssembler(BasicPPCAssembler):
     def srwi(self, rA, rS, n):
         self.rlwinm(rA, rS, 32-n, n, 31)
 
+    def sldi(self, rA, rS, n):
+        self.rldicr(rA, rS, n, 63-n)
 
     # F.5 Simplified Mnemonics for Branch Instructions
 
@@ -881,6 +883,15 @@ def la(w):
         return -((v ^ 0xFFFF) + 1) # "sign extend" to 32 bits
     return v
 
+def highest(w):
+    return w >> 48
+
+def higher(w):
+    return (w >> 32) & 0x0000FFFF
+
+def high(w):
+    return (w >> 16) & 0x0000FFFF
+
 class PPCBuilder(PPCAssembler):
     def __init__(self):
         PPCAssembler.__init__(self)
@@ -896,6 +907,13 @@ class PPCBuilder(PPCAssembler):
     def store_reg(self, source_reg, addr):
         self.load_word(10, addr)
         self.stw(source_reg, 10, 0)
+
+    def load_dword(self, rD, dword):
+        self.addis(rD, 0, highest(dword))
+        self.ori(rD, rD, higher(dword))
+        self.sldi(rD, rD, 32)
+        self.oris(rD, rD, high(dword))
+        self.ori(rD, rD, lo(dword))
 
     # translate a trace operation to corresponding machine code
     def build_op(self, trace_op, cpu):

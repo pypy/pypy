@@ -86,7 +86,7 @@ class spr(Field):
 class mbe(Field):
     def encode(self, value):
         value = (value & 31) << 1 | (value & 32) >> 5
-        return super(spr, self).encode(value)
+        return super(mbe, self).encode(value)
     def decode(self, inst):
         value = super(mbe, self).decode(inst)
         return (value & 1) << 5 | (value >> 1 & 31)
@@ -94,9 +94,9 @@ class mbe(Field):
 class sh(Field):
     def encode(self, value):
         value = (value & 31) << 10 | (value & 32) >> 5
-        return super(spr, self).encode(value)
+        return super(sh, self).encode(value)
     def decode(self, inst):
-        value = super(mbe, self).decode(inst)
+        value = super(sh, self).decode(inst)
         return (value & 32) << 5 | (value >> 10 & 31)
 # other special fields?
 
