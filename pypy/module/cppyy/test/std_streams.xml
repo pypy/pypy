@@ -1,0 +1,7 @@
+<lcgdict>
+
+  <class name = "std::ostream"/>
+  <class name = "std::ios_base"/>
+  <class name = "std::basic_ios<char,std::char_traits<char> >"/>
+
+</lcgdict>
