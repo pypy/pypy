@@ -88,6 +88,13 @@ List of extension modules that we support:
 
     _stackless
 
+  Note that only some of these modules are built-in in a typical
+  CPython installation, and the rest is from non built-in extension
+  modules.  This means that e.g. ``import parser`` will, on CPython,
+  find a local file ``parser.py``, while ``import sys`` will not find a
+  local file ``sys.py``.  In PyPy the difference does not exist: all
+  these modules are built-in.
+
 * Supported by being rewritten in pure Python (possibly using ``ctypes``):
   see the `lib_pypy/`_ directory.  Examples of modules that we
   support this way: ``ctypes``, ``cPickle``, ``cmath``, ``dbm``, ``datetime``...

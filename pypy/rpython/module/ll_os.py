@@ -877,7 +877,8 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering(os.close)
     def register_os_close(self):
-        os_close = self.llexternal(underscore_on_windows+'close', [rffi.INT], rffi.INT)
+        os_close = self.llexternal(underscore_on_windows+'close', [rffi.INT],
+                                   rffi.INT, threadsafe=False)
         
         def close_llimpl(fd):
             error = rffi.cast(lltype.Signed, os_close(rffi.cast(rffi.INT, fd)))
