@@ -281,7 +281,7 @@ W_CPPOverload.typedef = TypeDef(
 
 
 class W_CPPDataMember(Wrappable):
-    _immutable_fields_ = ["scope", "converter", "offset", "_is_static"]
+    _immutable_fields_ = ["scope_handle", "converter", "offset", "_is_static"]
 
     def __init__(self, space, scope, type_name, offset, is_static):
         self.space = space
@@ -298,9 +298,10 @@ class W_CPPDataMember(Wrappable):
 
     @jit.elidable_promote()
     def _get_offset(self, w_cppinstance):
-        if self.space.is_true(w_cppinstance):
+        cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
+        if cppinstance:
             offset = self.offset + capi.c_base_offset(
-                w_cppinstance.cppclass.handle, self.scope_handle, w_cppinstance.rawobject)
+                cppinstance.cppclass.handle, self.scope_handle, cppinstance.rawobject)
         else:
             offset = self.offset
         return offset
@@ -514,7 +515,6 @@ class W_CPPInstance(Wrappable):
         self.rawobject = rawobject
         self.python_owns = python_owns
 
-
     def _nullcheck(self):
         if not self.rawobject:
             raise OperationError(self.space.w_ReferenceError,
@@ -532,13 +532,13 @@ class W_CPPInstance(Wrappable):
 
 W_CPPInstance.typedef = TypeDef(
     'CPPInstance',
-    cppclass = interp_attrproperty('cppclass', W_CPPInstance),
+    cppclass = interp_attrproperty('cppclass', cls=W_CPPInstance),
     destruct = interp2app(W_CPPInstance.destruct, unwrap_spec=['self']),
 )
 W_CPPInstance.typedef.acceptable_as_base_class = True
 
 def new_instance(space, w_type, cpptype, rawptr, owns):
-    w_instance = space.allocate_instance(W_CPPInstance, w_type)
-    instance = space.interp_w(W_CPPInstance, w_instance)
-    W_CPPInstance.__init__(instance, space, cpptype, rawptr, owns)
-    return w_instance
+    w_cppinstance = space.allocate_instance(W_CPPInstance, w_type)
+    cppinstance = space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=False)
+    W_CPPInstance.__init__(cppinstance, space, cpptype, rawptr, owns)
+    return w_cppinstance

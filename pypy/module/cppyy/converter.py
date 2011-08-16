@@ -14,10 +14,10 @@ from pypy.module.cppyy import helper, capi
 
 def get_rawobject(space, w_obj):
     from pypy.module.cppyy.interp_cppyy import W_CPPInstance
-    cpp_instance = space.interp_w(W_CPPInstance, w_obj, can_be_None=True)
-    if cpp_instance:
-        assert lltype.typeOf(cpp_instance.rawobject) == rffi.VOIDP
-        return cpp_instance.rawobject
+    cppinstance = space.interp_w(W_CPPInstance, w_obj, can_be_None=True)
+    if cppinstance:
+        assert lltype.typeOf(cppinstance.rawobject) == rffi.VOIDP
+        return cppinstance.rawobject
     return lltype.nullptr(rffi.VOIDP.TO)
 
 def _direct_ptradd(ptr, offset):
