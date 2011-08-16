@@ -1372,8 +1372,40 @@ class PPCBuilder(PPCAssembler):
             self.load_word(reg0, arg0.value)
 
         free_reg = cpu.next_free_register
-        self.load_word(free_reg, 0)
+        self.xor(free_reg, free_reg, free_reg)
         self.sub(free_reg, free_reg, reg0)
+        result = op.result
+        cpu.reg_map[result] = free_reg
+        cpu.next_free_register += 1
+
+    def emit_int_invert(self, op, cpu):
+        arg0 = op.getarg(0)
+        if isinstance(arg0, BoxInt):
+            reg0 = cpu.reg_map[arg0]
+        else:
+            reg0 = cpu.get_next_register()
+            self.load_word(reg0, arg0.value)
+
+        free_reg = cpu.next_free_register
+        self.load_word(free_reg, -1)
+        self.xor(free_reg, free_reg, reg0)
+        result = op.result
+        cpu.reg_map[result] = free_reg
+        cpu.next_free_register += 1
+
+    def emit_int_is_zero(self, op, cpu):
+        arg0 = op.getarg(0)
+        if isinstance(arg0, BoxInt):
+            reg0 = cpu.reg_map[arg0]
+        else:
+            reg0 = cpu.get_next_register()
+            self.load_word(reg0, arg0.value)
+    
+        free_reg = cpu.next_free_register
+        self.xor(free_reg, free_reg, free_reg)
+        self.cmp(7, free_reg, reg0)
+        self.mfcr(free_reg)
+        self.rlwinm(free_reg, free_reg, 31, 31, 31)
         result = op.result
         cpu.reg_map[result] = free_reg
         cpu.next_free_register += 1
