@@ -20,6 +20,7 @@
 #include <string.h>
 #include <iostream>
 #include <map>
+#include <sstream>
 #include <string>
 #include <utility>
 
@@ -74,6 +75,19 @@ static inline TFunction* type_get_method(cppyy_typehandle_t handle, int method_i
 }
 
 
+static inline void fixup_args(G__param* libp) {
+    for (int i = 0; i < libp->paran; ++i) {
+        libp->para[i].ref = libp->para[i].obj.i;
+        if (libp->para[i].type == 'f') {
+            assert(sizeof(float) <= sizeof(long));
+            long val = libp->para[i].obj.i;
+            void* pval = (void*)&val;
+            libp->para[i].obj.d = *(float*)pval;
+        }
+    }
+}
+
+
 /* name to handle --------------------------------------------------------- */
 cppyy_typehandle_t cppyy_get_typehandle(const char* class_name) {
     ClassRefIndices_t::iterator icr = g_classref_indices.find(class_name);
@@ -124,8 +138,7 @@ long cppyy_call_o(cppyy_typehandle_t handle, int method_index,
     G__InterfaceMethod meth = (G__InterfaceMethod)m->InterfaceMethod();
     G__param* libp = (G__param*)((char*)args - offsetof(G__param, para));
     assert(libp->paran == numargs);
-    for (int i = 0; i < numargs; ++i)
-        libp->para[i].ref = libp->para[i].obj.i;
+    fixup_args(libp);
 
     // TODO: access to store_struct_offset won't work on Windows
     G__setgvp((long)self);
@@ -150,8 +163,7 @@ static inline G__value cppyy_call_T(cppyy_typehandle_t handle,
     G__InterfaceMethod meth = (G__InterfaceMethod)m->InterfaceMethod();
     G__param* libp = (G__param*)((char*)args - offsetof(G__param, para));
     assert(libp->paran == numargs);
-    for (int i = 0; i < numargs; ++i)
-        libp->para[i].ref = libp->para[i].obj.i;
+    fixup_args(libp);
 
     // TODO: access to store_struct_offset won't work on Windows
     G__setgvp((long)self);
@@ -372,13 +384,21 @@ char* cppyy_data_member_name(cppyy_typehandle_t handle, int data_member_index) {
 char* cppyy_data_member_type(cppyy_typehandle_t handle, int data_member_index) {
     TClassRef cr = type_from_handle(handle);
     TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(data_member_index);
-    return cppstring_to_cstring(m->GetFullTypeName());
+    std::string fullType = m->GetFullTypeName();
+    if ((int)m->GetArrayDim() > 1 || (!m->IsBasic() && m->IsaPointer()))
+        fullType.append("*");
+    else if ((int)m->GetArrayDim() == 1) {
+        std::ostringstream s;
+        s << '[' << m->GetMaxIndex(0) << ']' << std::ends;
+        fullType.append(s.str());
+    }
+    return cppstring_to_cstring(fullType);
 }
 
 size_t cppyy_data_member_offset(cppyy_typehandle_t handle, int data_member_index) {
     TClassRef cr = type_from_handle(handle);
     TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(data_member_index);
-    return m->GetOffset();
+    return m->GetOffsetCint();
 }
 
 

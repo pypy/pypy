@@ -344,6 +344,8 @@ class FloatConverter(TypeConverter):
     def convert_argument(self, space, w_obj, address):
         x = rffi.cast(rffi.FLOATP, address)
         x[0] = self._unwrap_object(space, w_obj)
+        typecode = _direct_ptradd(address, capi.c_function_arg_typeoffset())
+        typecode[0] = 'f'
 
     def convert_argument_libffi(self, space, w_obj, argchain):
         from pypy.rlib.rarithmetic import r_singlefloat
