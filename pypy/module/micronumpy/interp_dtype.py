@@ -45,11 +45,10 @@ class BaseBox(object):
 
 VOID_TP = lltype.Ptr(lltype.Array(lltype.Void, hints={'nolength': True}))
 
-def create_low_level_dtype(num, kind, name, aliases, applevel_types, T, valtype=None):
+def create_low_level_dtype(num, kind, name, aliases, applevel_types, T, valtype):
     class Box(BaseBox):
         def __init__(self, val):
-            if valtype is not None:
-                assert isinstance(val, valtype)
+            assert isinstance(val, valtype)
             self.val = val
 
         def wrap(self, space):
@@ -218,6 +217,7 @@ W_BoolDtype = create_low_level_dtype(
     aliases = ["?"],
     applevel_types = ["bool"],
     T = lltype.Bool,
+    valtype = bool,
 )
 class W_BoolDtype(W_BoolDtype):
     def unwrap(self, space, w_item):
@@ -228,18 +228,21 @@ W_Int8Dtype = create_low_level_dtype(
     aliases = ["int8"],
     applevel_types = [],
     T = rffi.SIGNEDCHAR,
+    valtype = rffi.SIGNEDCHAR._type,
 )
 W_Int32Dtype = create_low_level_dtype(
     num = 5, kind = SIGNEDLTR, name = "int32",
     aliases = ["i"],
     applevel_types = [],
     T = rffi.INT,
+    valtype = rffi.INT._type,
 )
 W_LongDtype = create_low_level_dtype(
     num = 7, kind = SIGNEDLTR, name = "???",
     aliases = ["l"],
     applevel_types = ["int"],
-    T = rffi.LONG
+    T = rffi.LONG,
+    valtype = int,
 )
 class W_LongDtype(W_LongDtype):
     def unwrap(self, space, w_item):
@@ -249,13 +252,15 @@ W_Int64Dtype = create_low_level_dtype(
     num = 9, kind = SIGNEDLTR, name = "int64",
     aliases = [],
     applevel_types = ["long"],
-    T = rffi.LONGLONG
+    T = rffi.LONGLONG,
+    valtype = int,
 )
 W_Float64Dtype = create_low_level_dtype(
     num = 12, kind = FLOATINGLTR, name = "float64",
     aliases = [],
     applevel_types = ["float"],
     T = lltype.Float,
+    valtype = float,
 )
 class W_Float64Dtype(W_Float64Dtype):
     def unwrap(self, space, w_item):
