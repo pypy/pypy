@@ -18,6 +18,8 @@ class TestString(BaseTestPyPyC):
             i14 = int_lt(i6, i9)
             guard_true(i14, descr=...)
             guard_not_invalidated(descr=...)
+            i16 = int_eq(i6, -9223372036854775808)
+            guard_false(i16, descr=...)
             i15 = int_mod(i6, i10)
             i17 = int_rshift(i15, 63)
             i18 = int_and(i10, i17)

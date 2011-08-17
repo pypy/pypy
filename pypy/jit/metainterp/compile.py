@@ -137,6 +137,10 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start,
             jitdriver_sd.warmstate.attach_unoptimized_bridge_from_interp(
                 greenkey, loop.preamble.token)
             record_loop_or_bridge(metainterp_sd, loop.preamble)
+        elif token.short_preamble:
+            short = token.short_preamble[-1]
+            metainterp_sd.logger_ops.log_short_preamble(short.inputargs,
+                                                        short.operations)
         return token
     else:
         send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop,
@@ -637,6 +641,7 @@ def compile_new_bridge(metainterp, old_loop_tokens, resumekey, retraced=False):
         debug_print("compile_new_bridge: got an InvalidLoop")
         # XXX I am fairly convinced that optimize_bridge cannot actually raise
         # InvalidLoop
+        debug_print('InvalidLoop in compile_new_bridge')
         return None
     # Did it work?
     if target_loop_token is not None:

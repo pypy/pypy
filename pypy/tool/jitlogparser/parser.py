@@ -174,6 +174,8 @@ class TraceForOpcode(object):
         return self.code is not None
 
     def getopcode(self):
+        if self.code is None:
+            return None
         return self.code.map[self.bytecode_no]
 
     def getlineno(self):
