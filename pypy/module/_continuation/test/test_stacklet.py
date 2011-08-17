@@ -102,6 +102,19 @@ class AppTestStacklet:
         assert res == 'c'
         assert seen == [0, 1, 2, 3]
 
+    def test_initial_switch_must_give_None(self):
+        from _continuation import continuation
+        #
+        def empty_callback(c):
+            return 'ok'
+        #
+        c = continuation(empty_callback)
+        res = c.switch(None)
+        assert res == 'ok'
+        #
+        c = continuation(empty_callback)
+        raises(TypeError, c.switch, 'foo')
+
     def test_continuation_error(self):
         from _continuation import continuation, error
         #

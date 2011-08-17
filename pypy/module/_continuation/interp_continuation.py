@@ -146,6 +146,9 @@ def new_stacklet_callback(h, arg):
     try:
         ec = self.sthread.ec
         ec.topframeref = jit.vref_None
+        if start_state.w_value is not space.w_None:
+            raise OperationError(space.w_TypeError, space.wrap(
+                "can't send non-None value to a just-started continuation"))
         args = args.prepend(space.wrap(self))
         w_result = space.call_args(w_callable, args)
     except Exception, e:
