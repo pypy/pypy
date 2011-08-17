@@ -54,31 +54,18 @@ class AppTestStacklet:
         assert res == 42
         raises(error, c.__init__, empty_callback)
 
-    def test_bogus_return_value(self):
-        from _continuation import new
-        #
-        def empty_callback(h):
-            assert h.is_pending()
-            seen.append(h)
-            return 42
-        #
-        seen = []
-        raises(TypeError, new, empty_callback)
-        assert len(seen) == 1
-        assert not seen[0].is_pending()
-
     def test_propagate_exception(self):
-        from _continuation import new
+        from _continuation import continuation
         #
-        def empty_callback(h):
-            assert h.is_pending()
-            seen.append(h)
+        def empty_callback(c1):
+            assert c1 is c
+            seen.append(42)
             raise ValueError
         #
         seen = []
-        raises(ValueError, new, empty_callback)
-        assert len(seen) == 1
-        assert not seen[0].is_pending()
+        c = continuation(empty_callback)
+        raises(ValueError, c.switch)
+        assert seen == [42]
 
     def test_callback_with_arguments(self):
         from _continuation import new

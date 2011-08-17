@@ -35,17 +35,27 @@ class W_Continuation(Wrappable):
 
     def descr_init(self, w_callable):
         if self.h:
-            raise geterror(self.space, "continuation already filled")
+            raise geterror(self.space, "continuation already __init__ialized")
         sthread = self.build_sthread()
         start_state.origin = self
         start_state.w_callable = w_callable
-        self.h = self.sthread.new(new_stacklet_callback)
-        if not self.h:
+        try:
+            self.h = sthread.new(new_stacklet_callback)
+            if sthread.is_empty_handle(self.h):    # early return
+                raise MemoryError
+        except MemoryError:
             raise getmemoryerror(self.space)
 
     def descr_switch(self, w_value=None):
         start_state.w_value = w_value
-        self.h = self.sthread.switch(self.h)
+        try:
+            self.h = self.sthread.switch(self.h)
+        except MemoryError:
+            raise getmemoryerror(self.space)
+        if start_state.propagate_exception:
+            e = start_state.propagate_exception
+            start_state.propagate_exception = None
+            raise e
         w_value = start_state.w_value
         start_state.w_value = None
         return w_value
@@ -118,6 +128,7 @@ class StartState:   # xxx a single global to pass around the function to start
         self.w_callable = None
         self.args = None
         self.w_value = None
+        self.propagate_exception = None
 start_state = StartState()
 start_state.clear()
 
@@ -126,10 +137,17 @@ def new_stacklet_callback(h, arg):
     self = start_state.origin
     w_callable = start_state.w_callable
     start_state.clear()
-    self.h = self.sthread.switch(h)
+    try:
+        self.h = self.sthread.switch(h)
+    except MemoryError:
+        return h       # oups!  do an early return in this case
     #
     space = self.space
-    w_result = space.call_function(w_callable, space.wrap(self))
-    #
-    start_state.w_value = w_result
-    return self.h
+    try:
+        w_result = space.call_function(w_callable, space.wrap(self))
+    except Exception, e:
+        start_state.propagate_exception = e
+        return self.h
+    else:
+        start_state.w_value = w_result
+        return self.h
