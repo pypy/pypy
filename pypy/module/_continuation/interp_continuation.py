@@ -48,6 +48,10 @@ class W_Continuation(Wrappable):
             raise getmemoryerror(self.space)
 
     def descr_switch(self, w_value=None):
+        if not self.h:
+            raise geterror(self.space, "continuation not initialized yet")
+        if self.sthread.is_empty_handle(self.h):
+            raise geterror(self.space, "continuation already finished")
         start_state.w_value = w_value
         try:
             self.h = self.sthread.switch(self.h)

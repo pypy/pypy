@@ -82,55 +82,40 @@ class AppTestStacklet:
         assert res == 42
         assert seen == [c, (42, 43), {'foo': 44, 'bar': 45}]
 
-    def test_type_of_h(self):
-        from _continuation import new, Continuation
-        #
-        def empty_callback(h):
-            seen.append(type(h))
-            return h
-        #
-        seen = []
-        h = new(empty_callback)
-        assert h is None
-        assert seen[0] is Continuation
-        # cannot directly instantiate this class
-        raises(TypeError, Continuation)
-        raises(TypeError, Continuation, None)
-
     def test_switch(self):
-        from _continuation import new
+        from _continuation import continuation
         #
-        def switchbackonce_callback(h):
+        def switchbackonce_callback(c):
             seen.append(1)
-            assert h.is_pending()
-            h2 = h.switch()
+            res = c.switch('a')
+            assert res == 'b'
             seen.append(3)
-            assert not h.is_pending()
-            assert h2.is_pending()
-            return h2
+            return 'c'
         #
         seen = []
-        h = new(switchbackonce_callback)
+        c = continuation(switchbackonce_callback)
+        seen.append(0)
+        res = c.switch()
+        assert res == 'a'
         seen.append(2)
-        assert h.is_pending()
-        h2 = h.switch()
-        assert h2 is None
-        assert seen == [1, 2, 3]
+        res = c.switch('b')
+        assert res == 'c'
+        assert seen == [0, 1, 2, 3]
 
     def test_continuation_error(self):
-        from _continuation import new, error
+        from _continuation import continuation, error
         #
-        def empty_callback(h):
-            assert h.is_pending()
-            seen.append(h)
-            return h
+        def empty_callback(c):
+            return 42
         #
-        seen = []
-        h = new(empty_callback)
-        assert h is None
-        [h] = seen
-        assert not h.is_pending()
-        raises(error, h.switch)
+        c = continuation(empty_callback)
+        c.switch()
+        raises(error, c.switch)
+
+    def test_not_initialized_yet(self):
+        from _continuation import continuation, error
+        c = continuation.__new__(continuation)
+        raises(error, c.switch)
 
     def test_go_depth2(self):
         from _continuation import new
