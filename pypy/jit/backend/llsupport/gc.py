@@ -367,44 +367,91 @@ class GcRootMap_shadowstack(object):
 
     def add_jit2gc_hooks(self, jit2gc):
         #
-        def collect_jit_stack_root(callback, gc, addr):
-            # Note: first check with 'points_to_valid_gc_object' if the
-            # addr.address[0] appears to be a valid pointer.  It returns
-            # False if it's NULL, and may also check for tagged integers.
-            # The important part here is that it will return True for a
-            # pointer to a MARKER (which is word-aligned), even though it's
-            # not pointing to a valid GC object.
-            if gc.points_to_valid_gc_object(addr):
-                if addr.address[0].signed[0] != GcRootMap_shadowstack.MARKER:
-                    # common case
-                    callback(gc, addr)
-                else:
-                    # points to a MARKER
-                    follow_stack_frame_of_assembler(callback, gc, addr)
+        # ---------------
+        # This is used to enumerate the shadowstack in the presence
+        # of the JIT.  It is also used by the stacklet support in
+        # rlib/_stacklet_shadowstack.  That's why it is written as
+        # an iterator that can also be used with a custom_trace.
         #
-        def follow_stack_frame_of_assembler(callback, gc, addr):
-            frame_addr = addr.signed[0] - self.marker_ofs
-            addr = llmemory.cast_int_to_adr(frame_addr + self.force_index_ofs)
-            force_index = addr.signed[0]
-            if force_index < 0:
-                force_index = ~force_index
-            callshape = self._callshapes[force_index]
-            # NB: the previous line reads a still-alive _callshapes,
-            # because we ensure that just before we called this piece of
-            # assembler, we put on the (same) stack a pointer to a
-            # loop_token that keeps the force_index alive.
-            n = 0
+        def iterator_setup():
+            self._iter_frame_addr = llmemory.NULL
+            self._iter_callshape = llmemory.NULL
+            self._iter_saved_prev = llmemory.NULL
+        #
+        def iterator_next(gc, prev, range_lowest):
+            # Return the "next" valid GC object' address.  "prev" is the
+            # previous result (or the highest end of the shadowstack to start
+            # with), and "range_lowest" is the lowest end of the shadowstack.
+            # We enumerating backwards, starting from the higher addresses.
+            #
             while True:
-                offset = rffi.cast(lltype.Signed, callshape[n])
-                if offset == 0:
-                    break
-                addr = llmemory.cast_int_to_adr(frame_addr + offset)
-                if gc.points_to_valid_gc_object(addr):
-                    callback(gc, addr)
-                n += 1
+                #
+                # If we are not iterating right now in a JIT frame
+                if self._iter_frame_addr == llmemory.NULL:
+                    #
+                    # Look for the previous shadowstack address that contains
+                    # a valid pointer
+                    while prev != range_lowest:
+                        prev -= llmemory.sizeof(llmemory.Address)
+                        if gc.points_to_valid_gc_object(prev):
+                            break
+                    else:
+                        return llmemory.NULL
+                    #
+                    # Now a "valid" pointer can be either really valid, or it
+                    # can be a pointer to a JIT frame in the stack.  The
+                    # important part here is that 'points_to_valid_gc_object'
+                    # above returns True even for a pointer to a MARKER
+                    # (which is word-aligned).
+                    if prev.address[0].signed[0] != self.MARKER:
+                        return prev
+                    #
+                    # It's a JIT frame.  Save away 'prev' for later, and
+                    # go into JIT-frame-exploring mode.
+                    self._iter_saved_prev = prev
+                    frame_addr = prev.signed[0] - self.marker_ofs
+                    self._iter_frame_addr = frame_addr
+                    addr = llmemory.cast_int_to_adr(frame_addr +
+                                                    self.force_index_ofs)
+                    force_index = addr.signed[0]
+                    if force_index < 0:
+                        force_index = ~force_index
+                    # NB: the next line reads a still-alive _callshapes,
+                    # because we ensure that just before we called this piece
+                    # of assembler, we put on the (same) stack a pointer to a
+                    # loop_token that keeps the force_index alive.
+                    callshape = self._callshapes[force_index]
+                else:
+                    # Continuing to explore this JIT frame
+                    callshape = self._iter_callshape
+                #
+                # 'callshape' points to the next INT of the callshape.
+                # If it's zero we are done with the JIT frame.
+                while callshape[0] != 0:
+                    #
+                    # Non-zero: it's an offset inside the JIT frame.
+                    # Read it and increment 'callshape'.
+                    offset = callshape[0]
+                    callshape = lltype.direct_ptradd(callshape, 1)
+                    addr = llmemory.cast_int_to_adr(self._iter_frame_addr +
+                                                    offset)
+                    if gc.points_to_valid_gc_object(addr):
+                        #
+                        # The JIT frame contains a valid GC pointer at
+                        # this address (and not e.g. NULL).  Save 'callshape'
+                        # for the next call, and return it.
+                        self._iter_callshape = callshape
+                        return addr
+                #
+                # Restore 'prev' and loop back to the start.
+                prev = self._iter_saved_prev
+                self._iter_frame_addr = llmemory.NULL
+
+        # ---------------
         #
         jit2gc.update({
-            'rootstackhook': collect_jit_stack_root,
+            'root_iterator_setup': iterator_setup,
+            'root_iterator_next': iterator_next,
             })
 
     def initialize(self):

@@ -27,12 +27,27 @@ class ShadowStackRootWalker(BaseRootWalker):
             return top
         self.decr_stack = decr_stack
 
-        self.rootstackhook = gctransformer.root_stack_jit_hook
-        if self.rootstackhook is None:
-            def collect_stack_root(callback, gc, addr):
-                if gc.points_to_valid_gc_object(addr):
-                    callback(gc, addr)
-            self.rootstackhook = collect_stack_root
+        translator = gctransformer.translator
+        if hasattr(translator, '_jit2gc'):
+            iterator_setup = translator._jit2gc['root_iterator_setup']
+            iterator_next  = translator._jit2gc['root_iterator_next']
+            def jit_walk_stack_root(callback, addr, end):
+                gc = self.gc
+                iterator_setup()
+                while True:
+                    end = iterator_next(end, addr)
+                    if end == llmemory.NULL:
+                        return
+                    callback(gc, end)
+            self.rootstackhook = jit_walk_stack_root
+        else:
+            def default_walk_stack_root(callback, addr, end):
+                gc = self.gc
+                while addr != end:
+                    if gc.points_to_valid_gc_object(addr):
+                        callback(gc, addr)
+                    addr += sizeofaddr
+            self.rootstackhook = default_walk_stack_root
 
     def push_stack(self, addr):
         top = self.incr_stack(1)
@@ -54,20 +69,18 @@ class ShadowStackRootWalker(BaseRootWalker):
 
     def walk_stack_roots(self, collect_stack_root):
         gcdata = self.gcdata
-        gc = self.gc
-        rootstackhook = self.rootstackhook
-        addr = gcdata.root_stack_base
-        end = gcdata.root_stack_top
-        while addr != end:
-            rootstackhook(collect_stack_root, gc, addr)
-            addr += sizeofaddr
+        self.rootstackhook(collect_stack_root,
+                           gcdata.root_stack_base, gcdata.root_stack_top)
         if self.collect_stacks_from_other_threads is not None:
             self.collect_stacks_from_other_threads(collect_stack_root)
 
     def need_stacklet_support(self):
-        pass     # no special code needed here
+        # stacklet support: BIG HACK for rlib.rstacklet
+        from pypy.rlib import _stacklet_shadowstack
+        _stacklet_shadowstack._shadowstackrootwalker = self # as a global! argh
 
     def need_thread_support(self, gctransformer, getfn):
+        XXXXXX   # FIXME
         from pypy.module.thread import ll_thread    # xxx fish
         from pypy.rpython.memory.support import AddressDict
         from pypy.rpython.memory.support import copy_without_null_values

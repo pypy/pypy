@@ -174,9 +174,14 @@ class PyPyTarget(object):
                 config.objspace.usemodules.thread = False
 
         if config.translation.continuation:
-            config.objspace.usemodules._stacklet = True
-        elif config.objspace.usemodules._stacklet:
-            config.translation.continuation = True
+            config.objspace.usemodules._continuation = True
+        elif config.objspace.usemodules._continuation:
+            try:
+                config.translation.continuation = True
+            except ConflictConfigError:
+                # Same as above: try to auto-disable the _continuation
+                # module if translation.continuation cannot be enabled
+                config.objspace.usemodules._continuation = False
 
         if not config.translation.rweakref:
             config.objspace.usemodules._weakref = False
