@@ -312,6 +312,31 @@ class AppTestStacklet:
         assert f4 is None
         raises(ValueError, c.switch)    # "call stack is not deep enough"
 
+    def test_traceback_is_complete(self):
+        import sys
+        from _continuation import continuation
+        #
+        def g():
+            raise KeyError
+        def f(c):
+            g()
+        #
+        def do(c):
+            c.switch()
+        #
+        c = continuation(f)
+        try:
+            do(c)
+        except KeyError:
+            tb = sys.exc_info()[2]
+        else:
+            raise AssertionError("should have raised!")
+        #
+        assert tb.tb_next.tb_frame.f_code.co_name == 'do'
+        assert tb.tb_next.tb_next.tb_frame.f_code.co_name == 'f'
+        assert tb.tb_next.tb_next.tb_next.tb_frame.f_code.co_name == 'g'
+        assert tb.tb_next.tb_next.tb_next.tb_next is None
+
     def test_various_depths(self):
         skip("may fail on top of CPython")
         # run it from test_translated, but not while being actually translated
