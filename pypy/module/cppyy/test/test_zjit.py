@@ -28,7 +28,15 @@ class FakeType(FakeBase):
     def getname(self, space, name):
         return self.name
 
+class FakeUserDelAction(object):
+    def __init__(self, space):
+        pass
 
+    def register_callback(self, w_obj, callback, descrname):
+        pass
+
+    def perform(self, executioncontext, frame):
+        pass
 
 
 class FakeSpace(object):
@@ -48,6 +56,7 @@ class FakeSpace(object):
 
     def __init__(self):
         self.fromcache = InternalSpaceCache(self).getorbuild
+        self.user_del_action = FakeUserDelAction(self)
 
     def issequence_w(self, w_obj):
         return True
