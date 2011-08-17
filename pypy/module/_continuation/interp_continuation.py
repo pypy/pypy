@@ -33,12 +33,13 @@ class W_Continuation(Wrappable):
         if ec.stacklet_thread is not self.sthread:
             raise geterror(self.space, "inter-thread support is missing")
 
-    def descr_init(self, w_callable):
+    def descr_init(self, w_callable, __args__):
         if self.h:
             raise geterror(self.space, "continuation already __init__ialized")
         sthread = self.build_sthread()
         start_state.origin = self
         start_state.w_callable = w_callable
+        start_state.args = __args__
         try:
             self.h = sthread.new(new_stacklet_callback)
             if sthread.is_empty_handle(self.h):    # early return
@@ -134,8 +135,9 @@ start_state.clear()
 
 
 def new_stacklet_callback(h, arg):
-    self = start_state.origin
+    self       = start_state.origin
     w_callable = start_state.w_callable
+    args       = start_state.args
     start_state.clear()
     try:
         self.h = self.sthread.switch(h)
@@ -144,7 +146,8 @@ def new_stacklet_callback(h, arg):
     #
     space = self.space
     try:
-        w_result = space.call_function(w_callable, space.wrap(self))
+        args = args.prepend(space.wrap(self))
+        w_result = space.call_args(w_callable, args)
     except Exception, e:
         start_state.propagate_exception = e
         return self.h

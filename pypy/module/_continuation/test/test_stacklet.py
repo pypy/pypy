@@ -68,22 +68,19 @@ class AppTestStacklet:
         assert seen == [42]
 
     def test_callback_with_arguments(self):
-        from _continuation import new
+        from _continuation import continuation
         #
-        def empty_callback(h, *args, **kwds):
-            assert h.is_pending()
-            seen.append(h)
+        def empty_callback(c1, *args, **kwds):
+            seen.append(c1)
             seen.append(args)
             seen.append(kwds)
-            return h
+            return 42
         #
         seen = []
-        h = new(empty_callback, 42, 43, foo=44, bar=45)
-        assert h is None
-        assert len(seen) == 3
-        assert not seen[0].is_pending()
-        assert seen[1] == (42, 43)
-        assert seen[2] == {'foo': 44, 'bar': 45}
+        c = continuation(empty_callback, 42, 43, foo=44, bar=45)
+        res = c.switch()
+        assert res == 42
+        assert seen == [c, (42, 43), {'foo': 44, 'bar': 45}]
 
     def test_type_of_h(self):
         from _continuation import new, Continuation
