@@ -1,22 +1,16 @@
-import sys
-from pypy.rpython.lltypesystem import lltype
-from pypy.rlib import jit
 from pypy.rlib.rstacklet import StackletThread, get_null_handle
-from pypy.rlib.objectmodel import we_are_translated
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
-from pypy.interpreter.pycode import PyCode
-from pypy.rlib.debug import ll_assert, fatalerror
 
 
 class W_Continuation(Wrappable):
+    sthread = None
 
     def __init__(self, space):
         self.space = space
-        self.sthread = None
         self.h = get_null_handle(space.config)
 
     def build_sthread(self):
@@ -46,6 +40,7 @@ class W_Continuation(Wrappable):
             if sthread.is_empty_handle(self.h):    # early return
                 raise MemoryError
         except MemoryError:
+            start_state.clear()
             raise getmemoryerror(self.space)
 
     def descr_switch(self, w_value=None):
@@ -54,14 +49,15 @@ class W_Continuation(Wrappable):
         if self.sthread.is_empty_handle(self.h):
             raise geterror(self.space, "continuation already finished")
         ec = self.check_sthread()
-        saved_frame_top = ec.topframeref
+        saved_topframeref = ec.topframeref
         start_state.w_value = w_value
         try:
             self.h = self.sthread.switch(self.h)
         except MemoryError:
+            start_state.clear()
             raise getmemoryerror(self.space)
         ec = self.sthread.ec
-        ec.topframeref = saved_frame_top
+        ec.topframeref = saved_topframeref
         if start_state.propagate_exception:
             e = start_state.propagate_exception
             start_state.propagate_exception = None
@@ -93,33 +89,21 @@ W_Continuation.typedef = TypeDef(
 
 # ____________________________________________________________
 
-# Continuation objects maintain a dummy frame object in order to ensure
-# that the 'f_back' chain is consistent.  We hide this dummy frame
-# object by having a dummy code object with hidden_applevel=True.
 
-class ContinuationState:
+class State:
     def __init__(self, space):
         self.space = space 
         w_module = space.getbuiltinmodule('_continuation')
         self.w_error = space.getattr(w_module, space.wrap('error'))
-        self.dummy_pycode = PyCode(space, 0, 0, 0, 0,
-                                   '', [], [], [], '',
-                                   '', 0, '', [], [],
-                                   hidden_applevel=True)
-        self.w_dummy_globals = space.newdict()
-
-def make_fresh_frame(space):
-    cs = space.fromcache(ContinuationState)
-    return space.FrameClass(space, cs.dummy_pycode,
-                            cs.w_dummy_globals, closure=None)
+        self.w_memoryerror = OperationError(space.w_MemoryError, space.w_None)
 
 def geterror(space, message):
-    cs = space.fromcache(ContinuationState)
+    cs = space.fromcache(State)
     return OperationError(cs.w_error, space.wrap(message))
 
 def getmemoryerror(space):
-    return OperationError(space.w_MemoryError, space.w_None)
-getmemoryerror._annlowlevel_ = 'specialize:memo'
+    cs = space.fromcache(State)
+    return cs.w_memoryerror
 
 # ____________________________________________________________
 
