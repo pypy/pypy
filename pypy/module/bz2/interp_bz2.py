@@ -123,9 +123,9 @@ else:
     def _bzs_total_out(bzs):
         return bzs.total_out
 
-def external(name, args, result):
+def external(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, compilation_info=
-                           CConfig._compilation_info_)
+                           CConfig._compilation_info_, **kwds)
 
 # the least but one parameter should be rffi.VOIDP but it's not used
 # so I trick the compiler to not complain about constanst pointer passed
@@ -143,11 +143,13 @@ BZ2_bzWrite = external('BZ2_bzWrite', [rffi.INTP, BZFILE, rffi.CCHARP,
                                        rffi.INT], lltype.Void)
 BZ2_bzCompressInit = external('BZ2_bzCompressInit', [bz_stream, rffi.INT,
                               rffi.INT, rffi.INT], rffi.INT)
-BZ2_bzCompressEnd = external('BZ2_bzCompressEnd', [bz_stream], rffi.INT)
+BZ2_bzCompressEnd = external('BZ2_bzCompressEnd', [bz_stream], rffi.INT,
+                             threadsafe=False)
 BZ2_bzCompress = external('BZ2_bzCompress', [bz_stream, rffi.INT], rffi.INT)
 BZ2_bzDecompressInit = external('BZ2_bzDecompressInit', [bz_stream, rffi.INT,
                                                          rffi.INT], rffi.INT)
-BZ2_bzDecompressEnd = external('BZ2_bzDecompressEnd', [bz_stream], rffi.INT)
+BZ2_bzDecompressEnd = external('BZ2_bzDecompressEnd', [bz_stream], rffi.INT,
+                               threadsafe=False)
 BZ2_bzDecompress = external('BZ2_bzDecompress', [bz_stream], rffi.INT)
 
 def _catch_bz2_error(space, bzerror):

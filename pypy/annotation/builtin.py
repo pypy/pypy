@@ -308,9 +308,6 @@ def robjmodel_instantiate(s_clspbc):
             clsdef = clsdef.commonbase(cdef)
     return SomeInstance(clsdef)
 
-def robjmodel_we_are_translated():
-    return immutablevalue(True)
-
 def robjmodel_r_dict(s_eqfn, s_hashfn, s_force_non_null=None):
     if s_force_non_null is None:
         force_non_null = False
@@ -376,8 +373,6 @@ for name, value in globals().items():
 
 BUILTIN_ANALYZERS[pypy.rlib.rarithmetic.intmask] = rarith_intmask
 BUILTIN_ANALYZERS[pypy.rlib.objectmodel.instantiate] = robjmodel_instantiate
-BUILTIN_ANALYZERS[pypy.rlib.objectmodel.we_are_translated] = (
-    robjmodel_we_are_translated)
 BUILTIN_ANALYZERS[pypy.rlib.objectmodel.r_dict] = robjmodel_r_dict
 BUILTIN_ANALYZERS[pypy.rlib.objectmodel.hlinvoke] = robjmodel_hlinvoke
 BUILTIN_ANALYZERS[pypy.rlib.objectmodel.keepalive_until_here] = robjmodel_keepalive_until_here

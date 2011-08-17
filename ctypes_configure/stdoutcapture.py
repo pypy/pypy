@@ -15,6 +15,15 @@ class Capture:
             not hasattr(os, 'fdopen')):
             self.dummy = 1
         else:
+            try:
+                self.tmpout = os.tmpfile()
+                if mixed_out_err:
+                    self.tmperr = self.tmpout
+                else:
+                    self.tmperr = os.tmpfile()
+            except OSError:     # bah?  on at least one Windows box
+                self.dummy = 1
+                return
             self.dummy = 0
             # make new stdout/stderr files if needed
             self.localoutfd = os.dup(1)
@@ -29,11 +38,6 @@ class Capture:
                 sys.stderr = os.fdopen(self.localerrfd, 'w', 0)
             else:
                 self.saved_stderr = None
-            self.tmpout = os.tmpfile()
-            if mixed_out_err:
-                self.tmperr = self.tmpout
-            else:
-                self.tmperr = os.tmpfile()
             os.dup2(self.tmpout.fileno(), 1)
             os.dup2(self.tmperr.fileno(), 2)
 

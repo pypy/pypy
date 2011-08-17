@@ -1697,8 +1697,8 @@ class MiniMarkGC(MovingGCBase):
         #
         # Add the roots from the other sources.
         self.root_walker.walk_roots(
-            MiniMarkGC._collect_ref,  # stack roots
-            MiniMarkGC._collect_ref,  # static in prebuilt non-gc structures
+            MiniMarkGC._collect_ref_stk, # stack roots
+            MiniMarkGC._collect_ref_stk, # static in prebuilt non-gc structures
             None)   # we don't need the static in all prebuilt gc objects
         #
         # If we are in an inner collection caused by a call to a finalizer,
@@ -1715,8 +1715,10 @@ class MiniMarkGC(MovingGCBase):
     def _collect_obj(obj, objects_to_trace):
         objects_to_trace.append(obj)
 
-    def _collect_ref(self, root):
-        self.objects_to_trace.append(root.address[0])
+    def _collect_ref_stk(self, root):
+        obj = root.address[0]
+        llop.debug_nonnull_pointer(lltype.Void, obj)
+        self.objects_to_trace.append(obj)
 
     def _collect_ref_rec(self, root, ignored):
         self.objects_to_trace.append(root.address[0])

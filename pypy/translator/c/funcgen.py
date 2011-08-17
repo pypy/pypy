@@ -820,6 +820,11 @@ class FunctionCodeGenerator(object):
                                          cdecl(typename, ''))
         return result
 
+    def OP_DEBUG_NONNULL_POINTER(self, op):
+        expr = self.expr(op.args[0])
+        return 'if ((-8192 <= (long)%s) && (((long)%s) < 8192)) abort();' % (
+            expr, expr)
+
     def OP_INSTRUMENT_COUNT(self, op):
         counter_label = op.args[1].value
         self.db.instrument_ncounter = max(self.db.instrument_ncounter,
