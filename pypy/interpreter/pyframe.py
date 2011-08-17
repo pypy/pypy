@@ -80,7 +80,7 @@ class PyFrame(eval.Frame):
         self.escaped = True
 
     def append_block(self, block):
-        block.previous = self.lastblock
+        assert block.previous is self.lastblock
         self.lastblock = block
 
     def pop_block(self):
@@ -106,7 +106,8 @@ class PyFrame(eval.Frame):
         while i >= 0:
             block = lst[i]
             i -= 1
-            self.append_block(block)
+            block.previous = self.lastblock
+            self.lastblock = block
 
     def get_builtin(self):
         if self.space.config.objspace.honor__builtins__:

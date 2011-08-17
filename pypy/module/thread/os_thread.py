@@ -252,4 +252,6 @@ thread to exit silently unless the exception is caught."""
 def interrupt_main(space):
     """Raise a KeyboardInterrupt in the main thread.
 A subthread can use this function to interrupt the main thread."""
+    if space.check_signal_action is None:   # no signal module!
+        raise OperationError(space.w_KeyboardInterrupt, space.w_None)
     space.check_signal_action.set_interrupt()

@@ -32,7 +32,10 @@ Windows, see the `windows document`_)
 .. _`windows document`: windows.html
 
 You can translate the whole of PyPy's Python interpreter to low level C code,
-or `CLI code`_.
+or `CLI code`_.  If you intend to build using gcc, check to make sure that
+the version you have is not 4.2 or you will run into `this bug`_.
+
+.. _`this bug`: https://bugs.launchpad.net/ubuntu/+source/gcc-4.2/+bug/187391
 
 1. First `download a pre-built PyPy`_ for your architecture which you will
    use to translate your Python interpreter.  It is, of course, possible to

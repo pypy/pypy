@@ -98,6 +98,7 @@ def before_external_call():
     thread.release_NOAUTO(spacestate.ll_GIL)
     set_errno(e)
 before_external_call._gctransformer_hint_cannot_collect_ = True
+before_external_call._dont_reach_me_in_del_ = True
 
 def after_external_call():
     e = get_errno()
@@ -106,6 +107,7 @@ def after_external_call():
     spacestate.after_thread_switch()
     set_errno(e)
 after_external_call._gctransformer_hint_cannot_collect_ = True
+after_external_call._dont_reach_me_in_del_ = True
 
 # The _gctransformer_hint_cannot_collect_ hack is needed for
 # translations in which the *_external_call() functions are not inlined.

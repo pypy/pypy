@@ -29,7 +29,7 @@ class Field(Mock):
 
 class Struct(object):
     code = FakeGdb.TYPE_CODE_STRUCT
-    
+
     def __init__(self, fieldnames, tag):
         self._fields = [Field(name=name) for name in fieldnames]
         self.tag = tag
@@ -178,3 +178,6 @@ def test_pprint_list():
     mylist.type.target().tag = 'pypy_list1234'
     printer = gdb_pypy.RPyListPrinter.lookup(mylist, FakeGdb)
     assert printer.to_string() == 'r[40, 41, 42] (len=3, alloc=5)'
+
+    mylist.type.target().tag = None
+    assert gdb_pypy.RPyListPrinter.lookup(mylist, FakeGdb) is None
