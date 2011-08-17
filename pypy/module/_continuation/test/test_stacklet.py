@@ -118,43 +118,47 @@ class AppTestStacklet:
         raises(error, c.switch)
 
     def test_go_depth2(self):
-        from _continuation import new
+        from _continuation import continuation
         #
-        def depth2(h):
-            seen.append(2)
-            return h
-        #
-        def depth1(h):
-            seen.append(1)
-            h2 = new(depth2)
-            assert h2 is None
+        def depth2(c):
             seen.append(3)
-            return h
+            return 4
+        #
+        def depth1(c):
+            seen.append(1)
+            c2 = continuation(depth2)
+            seen.append(2)
+            res = c2.switch()
+            seen.append(res)
+            return 5
         #
         seen = []
-        h = new(depth1)
-        assert h is None
-        assert seen == [1, 2, 3]
+        c = continuation(depth1)
+        seen.append(0)
+        res = c.switch()
+        seen.append(res)
+        assert seen == [0, 1, 2, 3, 4, 5]
 
     def test_exception_depth2(self):
-        from _continuation import new
+        from _continuation import continuation
         #
-        def depth2(h):
+        def depth2(c):
             seen.append(2)
             raise ValueError
         #
-        def depth1(h):
+        def depth1(c):
             seen.append(1)
             try:
-                new(depth2)
+                continuation(depth2).switch()
             except ValueError:
                 seen.append(3)
-            return h
+            return 4
         #
         seen = []
-        h = new(depth1)
-        assert h is None
-        assert seen == [1, 2, 3]
+        c = continuation(depth1)
+        res = c.switch()
+        seen.append(res)
+        assert seen == [1, 2, 3, 4]
 
     def test_exception_with_switch(self):
         from _continuation import new
