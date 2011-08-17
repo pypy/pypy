@@ -70,7 +70,7 @@ class AppTestSSL:
         ss = _ssl.sslwrap(s, 0)
         exc = raises(_socket.error, ss.do_handshake)
         if sys.platform == 'win32':
-            assert exc.value.errno == 2 # Cannot find file (=not a socket)
+            assert exc.value.errno == 10057 # WSAENOTCONN
         else:
             assert exc.value.errno == 32 # Broken pipe
         del exc, ss, s
