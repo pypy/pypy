@@ -41,6 +41,22 @@ def ufunc2(func):
             ).wrap(space)
     return func_with_new_name(impl, "%s_dispatcher" % func.__name__)
 
+def find_binop_result_dtype(space, dt1, dt2, promote_bools=False):
+    # dt1.num should be <= dt2.num
+    if dt1.num > dt2.num:
+        dt1, dt2 = dt2, dt1
+    # Some operations promote op(bool, bool) to return int8, rather than bool
+    if promote_bools and (dt1.kind == dt2.kind == interp_dtype.BOOLLTR):
+        return space.fromcache(interp_dtype.W_Int8Dtype)
+    # If they're the same kind, choose the greater one.
+    if dt1.kind == dt2.kind:
+        return dt2
+
+    # Everything promotes to float, and bool promotes to everything.
+    if dt2.kind == interp_dtype.FLOATINGLTR or dt1.kind == interp_dtype.BOOLLTR:
+        return dt2
+
+
 def ufunc_dtype_caller(ufunc_name, op_name, argcount):
     if argcount == 1:
         @ufunc

@@ -175,6 +175,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         for i in range(5):
             assert b[i] == i + i
 
+        a = array([True, False, True, False], dtype="?")
+        b = array([True, True, False, False], dtype="?")
+        c = a + b
+        for i in range(4):
+            assert c[i] == bool(a[i] + b[i])
+
     def test_add_other(self):
         from numpy import array
         a = array(range(5))
@@ -463,7 +469,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array(range(5))
         b = a.dot(2.5)
         for i in xrange(5):
-            assert b[i] == 2.5*a[i]
+            assert b[i] == 2.5 * a[i]
 
 
 class AppTestSupport(object):
