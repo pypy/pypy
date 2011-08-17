@@ -45,10 +45,9 @@ class BaseBox(object):
 
 VOID_TP = lltype.Ptr(lltype.Array(lltype.Void, hints={'nolength': True}))
 
-def create_low_level_dtype(num, kind, name, aliases, applevel_types, T, valtype):
+def create_low_level_dtype(num, kind, name, aliases, applevel_types, T):
     class Box(BaseBox):
         def __init__(self, val):
-            assert isinstance(val, valtype)
             self.val = val
 
         def wrap(self, space):
@@ -70,6 +69,10 @@ def create_low_level_dtype(num, kind, name, aliases, applevel_types, T, valtype)
         def box(self, value):
             return Box(value)
 
+        def unbox(self, box):
+            assert isinstance(box, Box)
+            return box.val
+
         def unwrap(self, space, w_item):
             raise NotImplementedError
 
@@ -84,33 +87,28 @@ def create_low_level_dtype(num, kind, name, aliases, applevel_types, T, valtype)
             return Box(self.unerase(storage)[i])
 
         def setitem(self, storage, i, item):
-            assert isinstance(item, Box)
-            self.unerase(storage)[i] = item.val
+            self.unerase(storage)[i] = self.unbox(item)
 
         def setitem_w(self, space, storage, i, w_item):
             self.setitem(storage, i, self.unwrap(space, w_item))
 
         @specialize.argtype(1)
         def adapt_val(self, val):
-            return Box(rffi.cast(TP.TO.OF, val))
+            return self.box(rffi.cast(TP.TO.OF, val))
 
         def str_format(self, item):
-            assert isinstance(item, Box)
-            return str(item.val)
+            return str(self.unbox(item))
 
         # Operations.
         def binop(func):
             @functools.wraps(func)
             def impl(self, v1, v2):
-                assert isinstance(v1, Box)
-                assert isinstance(v2, Box)
-                return Box(func(self, v1.val, v2.val))
+                return self.box(func(self, self.unbox(v1), self.unbox(v2)))
             return impl
         def unaryop(func):
             @functools.wraps(func)
             def impl(self, v):
-                assert isinstance(v, Box)
-                return Box(func(self, v.val))
+                return self.box(func(self, self.unbox(v)))
             return impl
 
         @binop
@@ -196,12 +194,9 @@ def create_low_level_dtype(num, kind, name, aliases, applevel_types, T, valtype)
 
         # Comparisons, they return unwraped results (for now)
         def ne(self, v1, v2):
-            assert isinstance(v1, Box)
-            assert isinstance(v2, Box)
-            return v1.val != v2.val
+            return self.unbox(v1) != self.unbox(v2)
         def bool(self, v):
-            assert isinstance(v, Box)
-            return bool(v.val)
+            return bool(self.unbox(v))
 
     W_LowLevelDtype.__name__ = "W_%sDtype" % name.capitalize()
     W_LowLevelDtype.num = num
@@ -217,57 +212,54 @@ W_BoolDtype = create_low_level_dtype(
     aliases = ["?"],
     applevel_types = ["bool"],
     T = lltype.Bool,
-    valtype = bool,
 )
 class W_BoolDtype(W_BoolDtype):
     def unwrap(self, space, w_item):
-        return self.box(space.is_true(w_item))
+        return self.adapt_val(space.is_true(w_item))
 
 W_Int8Dtype = create_low_level_dtype(
     num = 1, kind = SIGNEDLTR, name = "int8",
     aliases = ["int8"],
     applevel_types = [],
     T = rffi.SIGNEDCHAR,
-    valtype = rffi.SIGNEDCHAR._type,
 )
 W_Int32Dtype = create_low_level_dtype(
     num = 5, kind = SIGNEDLTR, name = "int32",
     aliases = ["i"],
     applevel_types = [],
     T = rffi.INT,
-    valtype = rffi.INT._type,
 )
 W_LongDtype = create_low_level_dtype(
     num = 7, kind = SIGNEDLTR, name = "???",
     aliases = ["l"],
     applevel_types = ["int"],
     T = rffi.LONG,
-    valtype = int,
 )
 class W_LongDtype(W_LongDtype):
     def unwrap(self, space, w_item):
-        return self.box(space.int_w(space.int(w_item)))
+        return self.adapt_val(space.int_w(space.int(w_item)))
 
 W_Int64Dtype = create_low_level_dtype(
     num = 9, kind = SIGNEDLTR, name = "int64",
     aliases = [],
     applevel_types = ["long"],
     T = rffi.LONGLONG,
-    valtype = int,
 )
+class W_Int64Dtype(W_Int64Dtype):
+    def unwrap(self, space, w_item):
+        return self.adapt_val(space.int_w(space.int(w_item)))
 W_Float64Dtype = create_low_level_dtype(
     num = 12, kind = FLOATINGLTR, name = "float64",
     aliases = [],
     applevel_types = ["float"],
     T = lltype.Float,
-    valtype = float,
 )
 class W_Float64Dtype(W_Float64Dtype):
     def unwrap(self, space, w_item):
-        return self.box(space.float_w(space.float(w_item)))
+        return self.adapt_val(space.float_w(space.float(w_item)))
 
     def str_format(self, item):
-        return float2string(item.val, 'g', rfloat.DTSF_STR_PRECISION)
+        return float2string(self.unbox(item), 'g', rfloat.DTSF_STR_PRECISION)
 
 
 ALL_DTYPES = [
