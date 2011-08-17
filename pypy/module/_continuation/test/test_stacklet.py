@@ -260,6 +260,58 @@ class AppTestStacklet:
         assert not c.is_pending()
         assert seen == [1, 2, 3, 4, 5, 6, 7]
 
+    def test_random_switching(self):
+        from _continuation import continuation
+        #
+        def t1(c1):
+            return c1.switch()
+        def s1(c1, n):
+            assert n == 123
+            c2 = t1(c1)
+            return c1.switch('a') + 1
+        #
+        def s2(c2, c1):
+            res = c1.switch(c2)
+            assert res == 'a'
+            return c2.switch('b') + 2
+        #
+        def f():
+            c1 = continuation(s1, 123)
+            c2 = continuation(s2, c1)
+            c1.switch()
+            res = c2.switch()
+            assert res == 'b'
+            res = c1.switch(1000)
+            assert res == 1001
+            return c2.switch(2000)
+        #
+        res = f()
+        assert res == 2002
+
+    def test_f_back_is_None_for_now(self):
+        import sys
+        from _continuation import continuation
+        #
+        def g(c):
+            c.switch(sys._getframe(0))
+            c.switch(sys._getframe(0).f_back)
+            c.switch(sys._getframe(1))
+            c.switch(sys._getframe(1).f_back)
+            c.switch(sys._getframe(2))
+        def f(c):
+            g(c)
+        #
+        c = continuation(f)
+        f1 = c.switch()
+        assert f1.f_code.co_name == 'g'
+        f2 = c.switch()
+        assert f2.f_code.co_name == 'f'
+        f3 = c.switch()
+        assert f3.f_code.co_name == 'f'
+        f4 = c.switch()
+        assert f4 is None
+        raises(ValueError, c.switch)    # "call stack is not deep enough"
+
     def test_various_depths(self):
         skip("may fail on top of CPython")
         # run it from test_translated, but not while being actually translated

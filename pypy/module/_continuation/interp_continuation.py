@@ -1,4 +1,5 @@
 from pypy.rlib.rstacklet import StackletThread, get_null_handle
+from pypy.rlib import jit
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.executioncontext import ExecutionContext
 from pypy.interpreter.baseobjspace import Wrappable
@@ -143,6 +144,8 @@ def new_stacklet_callback(h, arg):
     #
     space = self.space
     try:
+        ec = self.sthread.ec
+        ec.topframeref = jit.vref_None
         args = args.prepend(space.wrap(self))
         w_result = space.call_args(w_callable, args)
     except Exception, e:
