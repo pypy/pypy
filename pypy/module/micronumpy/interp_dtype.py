@@ -223,12 +223,20 @@ W_Int8Dtype = create_low_level_dtype(
     applevel_types = [],
     T = rffi.SIGNEDCHAR,
 )
+class W_Int8Dtype(W_Int8Dtype):
+    def unwrap(self, space, w_item):
+        return self.adapt_val(space.int_w(space.int(w_item)))
+
 W_Int32Dtype = create_low_level_dtype(
     num = 5, kind = SIGNEDLTR, name = "int32",
     aliases = ["i"],
     applevel_types = [],
     T = rffi.INT,
 )
+class W_Int32Dtype(W_Int32Dtype):
+    def unwrap(self, space, w_item):
+        return self.adapt_val(space.int_w(space.int(w_item)))
+
 W_LongDtype = create_low_level_dtype(
     num = 7, kind = SIGNEDLTR, name = "???",
     aliases = ["l"],
@@ -248,6 +256,7 @@ W_Int64Dtype = create_low_level_dtype(
 class W_Int64Dtype(W_Int64Dtype):
     def unwrap(self, space, w_item):
         return self.adapt_val(space.int_w(space.int(w_item)))
+
 W_Float64Dtype = create_low_level_dtype(
     num = 12, kind = FLOATINGLTR, name = "float64",
     aliases = [],
