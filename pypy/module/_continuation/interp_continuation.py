@@ -146,9 +146,15 @@ def new_stacklet_callback(h, arg):
     try:
         ec = self.sthread.ec
         ec.topframeref = jit.vref_None
+
+        # I think we can't have start_state.propagate_exception here for
+        # now, but in order to be future-proof...
+        if start_state.propagate_exception is not None:
+            return self.h    # just propagate it further
         if start_state.w_value is not space.w_None:
             raise OperationError(space.w_TypeError, space.wrap(
                 "can't send non-None value to a just-started continuation"))
+
         args = args.prepend(space.wrap(self))
         w_result = space.call_args(w_callable, args)
     except Exception, e:

@@ -113,7 +113,7 @@ class AppTestStacklet:
         assert res == 'ok'
         #
         c = continuation(empty_callback)
-        raises(TypeError, c.switch, 'foo')
+        raises(TypeError, c.switch, 'foo')  # "can't send non-None value"
 
     def test_continuation_error(self):
         from _continuation import continuation, error
