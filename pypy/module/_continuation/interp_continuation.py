@@ -32,6 +32,7 @@ class W_Continuation(Wrappable):
         ec = self.space.getexecutioncontext()
         if ec.stacklet_thread is not self.sthread:
             raise geterror(self.space, "inter-thread support is missing")
+        return ec
 
     def descr_init(self, w_callable, __args__):
         if self.h:
@@ -52,11 +53,15 @@ class W_Continuation(Wrappable):
             raise geterror(self.space, "continuation not initialized yet")
         if self.sthread.is_empty_handle(self.h):
             raise geterror(self.space, "continuation already finished")
+        ec = self.check_sthread()
+        saved_frame_top = ec.topframeref
         start_state.w_value = w_value
         try:
             self.h = self.sthread.switch(self.h)
         except MemoryError:
             raise getmemoryerror(self.space)
+        ec = self.sthread.ec
+        ec.topframeref = saved_frame_top
         if start_state.propagate_exception:
             e = start_state.propagate_exception
             start_state.propagate_exception = None
@@ -64,6 +69,10 @@ class W_Continuation(Wrappable):
         w_value = start_state.w_value
         start_state.w_value = None
         return w_value
+
+    def descr_is_pending(self):
+        valid = bool(self.h) and not self.sthread.is_empty_handle(self.h)
+        return self.space.newbool(valid)
 
 
 def W_Continuation___new__(space, w_subtype, __args__):
@@ -78,7 +87,7 @@ W_Continuation.typedef = TypeDef(
     __new__     = interp2app(W_Continuation___new__),
     __init__    = interp2app(W_Continuation.descr_init),
     switch      = interp2app(W_Continuation.descr_switch),
-    #is_pending = interp2app(W_Stacklet.is_pending),
+    is_pending  = interp2app(W_Continuation.descr_is_pending),
     )
 
 
