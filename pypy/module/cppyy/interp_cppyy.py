@@ -520,13 +520,15 @@ class W_CPPInstance(Wrappable):
                                  self.space.wrap("trying to access a NULL pointer"))
 
     def destruct(self):
+        assert isinstance(self, W_CPPInstance)
         if self.rawobject:
             capi.c_destruct(self.cppclass.handle, self.rawobject)
             self.rawobject = NULL_VOIDP
 
     def __del__(self):
         if self.python_owns:
-            self.destruct()
+            self.enqueue_for_destruction(self.space, W_CPPInstance.destruct,
+                                         '__del__() method of ')
 
 
 W_CPPInstance.typedef = TypeDef(
