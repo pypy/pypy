@@ -167,7 +167,8 @@ class W_Variable(Wrappable):
         self.initialize(self.environment.space, cursor)
 
     def __del__(self):
-        self.enqueue_for_destruction(self.space, W_Variable.destructor,
+        self.enqueue_for_destruction(self.environment.space,
+                                     W_Variable.destructor,
                                      '__del__ method of ')
 
     def destructor(self):

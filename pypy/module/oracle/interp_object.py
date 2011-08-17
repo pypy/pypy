@@ -16,7 +16,8 @@ class W_ObjectType(Wrappable):
         self.initialize(connection, param)
 
     def __del__(self):
-        self.enqueue_for_destruction(self.space, W_ObjectType.destructor,
+        self.enqueue_for_destruction(self.environment.space,
+                                     W_ObjectType.destructor,
                                      '__del__ method of ')
 
     def destructor(self):
