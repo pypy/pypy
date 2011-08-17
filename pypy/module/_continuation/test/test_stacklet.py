@@ -10,20 +10,49 @@ class AppTestStacklet:
                          'test_translated.py'))
 
     def test_new_empty(self):
-        from _continuation import new, callcc
+        from _continuation import continuation
         #
-        def empty_callback(h):
-            assert h.is_pending()
+        def empty_callback(c):
+            pass
+        #
+        c = continuation(empty_callback)
+        assert type(c) is continuation
+
+    def test_call_empty(self):
+        from _continuation import continuation
+        #
+        def empty_callback(c1):
+            assert c1 is c
             seen.append(1)
-            return h
+            return 42
         #
         seen = []
-        h = new(empty_callback)
-        assert h is None
+        c = continuation(empty_callback)
+        res = c.switch()
+        assert res == 42
         assert seen == [1]
-        h = callcc(empty_callback)
-        assert h is None
-        assert seen == [1, 1]
+
+    def test_no_init_after_started(self):
+        from _continuation import continuation, error
+        #
+        def empty_callback(c1):
+            raises(error, c1.__init__, empty_callback)
+            return 42
+        #
+        c = continuation(empty_callback)
+        res = c.switch()
+        assert res == 42
+
+    def test_no_init_after_finished(self):
+        from _continuation import continuation, error
+        #
+        def empty_callback(c1):
+            return 42
+        #
+        c = continuation(empty_callback)
+        res = c.switch()
+        assert res == 42
+        raises(error, c.__init__, empty_callback)
 
     def test_bogus_return_value(self):
         from _continuation import new

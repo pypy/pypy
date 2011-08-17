@@ -3,7 +3,7 @@ class error(Exception):
     "Usage error of the _continuation module."
 
 
-from _continuation import flexibleframe
+import _continuation
 
 
 class generator(object):
@@ -18,7 +18,7 @@ class generator(object):
         return genlet(self.__func__, *args, **kwds)
 
 
-class genlet(flexibleframe):
+class genlet(_continuation.continuation):
 
     def __iter__(self):
         return self
