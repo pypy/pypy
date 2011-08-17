@@ -2,6 +2,7 @@
 
   <class name="payload" />
   <class name="example01" />
+  <class name="z_" />
 
   <function name="globalAddOneToInt" />
 

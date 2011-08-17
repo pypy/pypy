@@ -135,3 +135,7 @@ int globalAddOneToInt(int a) {
 int ns_example01::globalAddOneToInt(int a) {
    return ::globalAddOneToInt(a);
 }
+
+
+// special case naming
+z_& z_::gime_z_(z_& z) { return z; }

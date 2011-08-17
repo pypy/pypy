@@ -58,3 +58,11 @@ int globalAddOneToInt(int a);
 namespace ns_example01 {
     int globalAddOneToInt(int a);
 }
+
+
+// special case naming
+class z_ {
+public:
+   z_& gime_z_(z_& z);
+   int myint;
+};

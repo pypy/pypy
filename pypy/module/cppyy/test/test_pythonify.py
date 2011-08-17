@@ -201,6 +201,8 @@ class AppTestPYTHONIFY:
         assert cppyy.gbl.ns_example01.globalAddOneToInt(4) == 5
 
     def test09_memory(self):
+        """Test proper C++ destruction by the garbage collector"""
+
         import cppyy, gc
         example01_class = cppyy.gbl.example01
         payload_class = cppyy.gbl.payload
@@ -240,3 +242,16 @@ class AppTestPYTHONIFY:
         assert payload_class.count == 0
 
         # TODO: need ReferenceError on touching pl_a
+
+    def test10_underscore_in_class_name(self):
+        """Test recognition of '_' as part of a valid class name"""
+
+        import cppyy
+
+        assert cppyy.gbl.z_ == cppyy.gbl.z_
+
+        z = cppyy.gbl.z_()
+
+        assert hasattr(z, 'myint')
+        assert z.gime_z_(z)
+

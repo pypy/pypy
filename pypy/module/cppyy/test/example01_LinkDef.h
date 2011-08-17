@@ -6,5 +6,6 @@
 
 #pragma link C++ class example01;
 #pragma link C++ class payload;
+#pragma link C++ class z_;
 
 #endif
