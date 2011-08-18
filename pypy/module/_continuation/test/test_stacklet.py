@@ -362,24 +362,124 @@ class AppTestStacklet:
         assert tb.tb_next.tb_next.tb_next.tb_next is None
 
     def test_switch2_simple(self):
-        skip("in-progress")
         from _continuation import continulet
         #
         def f1(c1):
-            res = c1.switch_to(c2)
+            res = c1.switch('started 1')
             assert res == 'a'
+            res = c1.switch('b', to=c2)
+            assert res == 'c'
+            return 42
+        def f2(c2):
+            res = c2.switch('started 2')
+            assert res == 'b'
+            res = c2.switch('c', to=c1)
+            not_reachable
+        #
+        c1 = continulet(f1)
+        c2 = continulet(f2)
+        res = c1.switch()
+        assert res == 'started 1'
+        res = c2.switch()
+        assert res == 'started 2'
+        res = c1.switch('a')
+        assert res == 42
+
+    def test_switch2_pingpong(self):
+        from _continuation import continulet
+        #
+        def f1(c1):
+            res = c1.switch('started 1')
+            assert res == 'go'
+            for i in range(10):
+                res = c1.switch(i, to=c2)
+                assert res == 100 + i
+            return 42
+        def f2(c2):
+            res = c2.switch('started 2')
+            for i in range(10):
+                assert res == i
+                res = c2.switch(100 + i, to=c1)
+            not_reachable
+        #
+        c1 = continulet(f1)
+        c2 = continulet(f2)
+        res = c1.switch()
+        assert res == 'started 1'
+        res = c2.switch()
+        assert res == 'started 2'
+        res = c1.switch('go')
+        assert res == 42
+
+    def test_switch2_more_complex(self):
+        from _continuation import continulet
+        #
+        def f1(c1):
+            res = c1.switch(to=c2)
+            assert res == 'a'
+            res = c1.switch('b', to=c2)
+            assert res == 'c'
             return 41
         def f2(c2):
-            c2.switch_to(c1, 'a')
+            res = c2.switch('a', to=c1)
+            assert res == 'b'
             return 42
         #
         c1 = continulet(f1)
         c2 = continulet(f2)
         res = c1.switch()
-        assert res == 41
-        assert c2.is_pending()    # already
-        res = c2.switch()
         assert res == 42
+        assert not c2.is_pending()
+        res = c1.switch('c')
+        assert res == 41
+
+    def test_switch2_no_op(self):
+        from _continuation import continulet
+        #
+        def f1(c1):
+            res = c1.switch('a', to=c1)
+            assert res == 'a'
+            return 42
+        #
+        c1 = continulet(f1)
+        res = c1.switch()
+        assert res == 42
+
+    def test_switch2_immediately_away(self):
+        from _continuation import continulet
+        #
+        def f1(c1):
+            return 'm'
+        #
+        def f2(c2):
+            res = c2.switch('z')
+            assert res == 'a'
+            return None
+        #
+        c1 = continulet(f1)
+        c2 = continulet(f2)
+        res = c2.switch()
+        assert res == 'z'
+        res = c1.switch('a', to=c2)
+        assert res == 'm'
+
+    def test_switch2_immediately_away_corner_case(self):
+        from _continuation import continulet
+        #
+        def f1(c1):
+            this_is_never_seen
+        #
+        def f2(c2):
+            res = c2.switch('z')
+            assert res is None
+            return 'b'    # this goes back into the caller, which is f1,
+                          # but f1 didn't start yet, so a None-value value
+                          # has nowhere to go to...
+        c1 = continulet(f1)
+        c2 = continulet(f2)
+        res = c2.switch()
+        assert res == 'z'
+        raises(TypeError, c1.switch, to=c2)  # "can't send non-None value"
 
     def test_various_depths(self):
         skip("may fail on top of CPython")
