@@ -54,30 +54,27 @@ class W_Continulet(Wrappable):
         if self.sthread.is_empty_handle(self.h):
             raise geterror(self.space, "continulet already finished")
         ec = self.check_sthread()
+        if self is to:    # double-switch to myself: no-op
+            return w_value
         saved_topframeref = ec.topframeref
         start_state.w_value = w_value
         #
+        start_state.origin = self
         if to is None:
-            start_state.origin = None
-            h = self.h      # simple switch: going to self.h
+            # simple switch: going to self.h
+            start_state.destination = self
         else:
-            start_state.origin = self
-            h = to.h        # double switch: the final destination is to.h
+            # double switch: the final destination is to.h
+            start_state.destination = to
         #
         try:
-            h = self.sthread.switch(h)
+            sthread = self.sthread
+            do_switch(sthread, start_state.destination.h)
         except MemoryError:
             start_state.clear()
             raise getmemoryerror(self.space)
         #
-        origin = start_state.origin
-        if origin is not None:
-            # double switch ('self' is now the final destination)
-            start_state.origin = None
-            h, origin.h = origin.h, h
-        self.h = h
-        #
-        ec = self.sthread.ec
+        ec = sthread.ec
         ec.topframeref = saved_topframeref
         if start_state.propagate_exception:
             e = start_state.propagate_exception
@@ -145,6 +142,7 @@ ExecutionContext.stacklet_thread = None
 class StartState:   # xxx a single global to pass around the function to start
     def clear(self):
         self.origin = None
+        self.destination = None
         self.w_callable = None
         self.args = None
         self.w_value = None
@@ -159,7 +157,7 @@ def new_stacklet_callback(h, arg):
     args       = start_state.args
     start_state.clear()
     try:
-        self.h = self.sthread.switch(h)
+        do_switch(self.sthread, h)
     except MemoryError:
         return h       # oups!  do an early return in this case
     #
@@ -176,11 +174,21 @@ def new_stacklet_callback(h, arg):
             raise OperationError(space.w_TypeError, space.wrap(
                 "can't send non-None value to a just-started continulet"))
 
-        args = args.prepend(space.wrap(self))
+        args = args.prepend(self.space.wrap(self))
         w_result = space.call_args(w_callable, args)
     except Exception, e:
         start_state.propagate_exception = e
-        return self.h
     else:
         start_state.w_value = w_result
-        return self.h
+    start_state.origin = self
+    start_state.destination = self
+    return self.h
+
+
+def do_switch(sthread, h):
+    h = sthread.switch(h)
+    origin = start_state.origin
+    self = start_state.destination
+    start_state.origin = None
+    start_state.destination = None
+    self.h, origin.h = origin.h, h

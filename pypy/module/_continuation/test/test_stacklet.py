@@ -429,7 +429,7 @@ class AppTestStacklet:
         c2 = continulet(f2)
         res = c1.switch()
         assert res == 42
-        assert not c2.is_pending()
+        assert not c2.is_pending()    # finished by returning 42
         res = c1.switch('c')
         assert res == 41
 
@@ -449,10 +449,12 @@ class AppTestStacklet:
         from _continuation import continulet
         #
         def f1(c1):
+            print 'in f1'
             return 'm'
         #
         def f2(c2):
             res = c2.switch('z')
+            print 'got there!'
             assert res == 'a'
             return None
         #
@@ -460,7 +462,11 @@ class AppTestStacklet:
         c2 = continulet(f2)
         res = c2.switch()
         assert res == 'z'
+        assert c1.is_pending()
+        assert c2.is_pending()
+        print 'calling!'
         res = c1.switch('a', to=c2)
+        print 'back'
         assert res == 'm'
 
     def test_switch2_immediately_away_corner_case(self):
