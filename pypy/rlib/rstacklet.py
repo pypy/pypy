@@ -22,13 +22,12 @@ class StackletThread(object):
         self._gcrootfinder.destroy(self, stacklet)
 
     def is_empty_handle(self, stacklet):
+        # note that "being an empty handle" and being equal to
+        # "get_null_handle()" may be the same, or not; don't rely on it
         return self._gcrootfinder.is_empty_handle(stacklet)
 
     def get_null_handle(self):
         return self._gcrootfinder.get_null_handle()
-
-def get_null_handle(config):
-    return _getgcrootfinder(config).get_null_handle()
 
 
 class StackletThreadDeleter(object):

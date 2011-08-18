@@ -1,4 +1,4 @@
-from pypy.rlib.rstacklet import StackletThread, get_null_handle
+from pypy.rlib.rstacklet import StackletThread
 from pypy.rlib import jit
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.executioncontext import ExecutionContext
@@ -12,7 +12,10 @@ class W_Continuation(Wrappable):
 
     def __init__(self, space):
         self.space = space
-        self.h = get_null_handle(space.config)
+        # states:
+        #  - not init'ed: self.sthread == None
+        #  - normal:      self.sthread != None, not is_empty_handle(self.h)
+        #  - finished:    self.sthread != None, is_empty_handle(self.h)
 
     def build_sthread(self):
         space = self.space
@@ -21,7 +24,6 @@ class W_Continuation(Wrappable):
         if not sthread:
             sthread = ec.stacklet_thread = SThread(space, ec)
         self.sthread = sthread
-        return sthread
 
     def check_sthread(self):
         ec = self.space.getexecutioncontext()
@@ -30,22 +32,23 @@ class W_Continuation(Wrappable):
         return ec
 
     def descr_init(self, w_callable, __args__):
-        if self.h != get_null_handle(self.space.config):
+        if self.sthread is not None:
             raise geterror(self.space, "continuation already __init__ialized")
-        sthread = self.build_sthread()
         start_state.origin = self
         start_state.w_callable = w_callable
         start_state.args = __args__
+        self.build_sthread()
         try:
-            self.h = sthread.new(new_stacklet_callback)
-            if sthread.is_empty_handle(self.h):    # early return
+            self.h = self.sthread.new(new_stacklet_callback)
+            if self.sthread.is_empty_handle(self.h):    # early return
                 raise MemoryError
         except MemoryError:
+            self.sthread = None
             start_state.clear()
             raise getmemoryerror(self.space)
 
     def descr_switch(self, w_value=None):
-        if self.h == get_null_handle(self.space.config):
+        if self.sthread is None:
             raise geterror(self.space, "continuation not initialized yet")
         if self.sthread.is_empty_handle(self.h):
             raise geterror(self.space, "continuation already finished")
@@ -68,7 +71,7 @@ class W_Continuation(Wrappable):
         return w_value
 
     def descr_is_pending(self):
-        valid = (self.h != get_null_handle(self.space.config)
+        valid = (self.sthread is not None
                  and not self.sthread.is_empty_handle(self.h))
         return self.space.newbool(valid)
 
