@@ -32,6 +32,15 @@ class AppTestStacklet:
         assert res == 42
         assert seen == [1]
 
+    def test_no_double_init(self):
+        from _continuation import continuation, error
+        #
+        def empty_callback(c1):
+            pass
+        #
+        c = continuation(empty_callback)
+        raises(error, c.__init__, empty_callback)
+
     def test_no_init_after_started(self):
         from _continuation import continuation, error
         #
