@@ -408,11 +408,31 @@ class Call2(VirtualArray):
     """
     _immutable_fields_ = ["function", "left", "right"]
 
-    def __init__(self, function, left, right, signature):
+    def __init__(self, space, function, left, right, signature):
         VirtualArray.__init__(self, signature)
         self.function = function
         self.left = left
         self.right = right
+
+        lhs_dtype = rhs_dtype = None
+        try:
+            lhs_dtype = self.left.find_dtype()
+        except ValueError:
+            pass
+        try:
+            rhs_dtype = self.right.find_dtype()
+        except ValueError:
+            pass
+        if lhs_dtype is not None and rhs_dtype is not None:
+            self.res_dtype = interp_ufuncs.find_binop_result_dtype(space,
+                lhs_dtype, rhs_dtype
+            )
+        elif lhs_dtype is not None:
+            self.res_dtype = lhs_dtype
+        elif rhs_dtype is not None:
+            self.res_dtype = rhs_dtype
+        else:
+            self.res_dtype = None
 
     def _del_sources(self):
         self.left = None
@@ -432,25 +452,9 @@ class Call2(VirtualArray):
         return self.function(dtype, lhs, rhs)
 
     def _find_dtype(self):
-        lhs_dtype = None
-        rhs_dtype = None
-        try:
-            lhs_dtype = self.left.find_dtype()
-        except ValueError:
-            pass
-        try:
-            rhs_dtype = self.right.find_dtype()
-        except ValueError:
-            pass
-        if lhs_dtype is not None and rhs_dtype is not None:
-            assert lhs_dtype is rhs_dtype
-            return lhs_dtype
-        elif lhs_dtype is not None:
-            return lhs_dtype
-        elif rhs_dtype is not None:
-            return rhs_dtype
-        else:
-            raise ValueError
+        if self.res_dtype is not None:
+            return self.res_dtype
+        raise ValueError
 
 class ViewArray(BaseArray):
     """

@@ -7,9 +7,9 @@ class AppTestDtypes(BaseNumpyAppTest):
     def test_dtype(self):
         from numpy import dtype
 
-        d = dtype('l')
-        assert d.num == 7
-        assert d.kind == 'i'
+        d = dtype('?')
+        assert d.num == 0
+        assert d.kind == 'b'
         assert dtype('int8').num == 1
         assert dtype(d) is d
 
@@ -17,7 +17,6 @@ class AppTestDtypes(BaseNumpyAppTest):
         from numpy import dtype
 
         assert dtype(bool).num == 0
-        assert dtype(int).num == 7
         assert dtype(long).num == 9
         assert dtype(float).num == 12
 

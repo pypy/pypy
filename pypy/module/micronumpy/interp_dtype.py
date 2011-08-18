@@ -99,112 +99,82 @@ def create_low_level_dtype(num, kind, name, aliases, applevel_types, T):
         def str_format(self, item):
             return str(self.unbox(item))
 
-        # Operations.
-        def binop(func):
-            @functools.wraps(func)
-            def impl(self, v1, v2):
-                return self.box(func(self, self.unbox(v1), self.unbox(v2)))
-            return impl
-        def unaryop(func):
-            @functools.wraps(func)
-            def impl(self, v):
-                return self.box(func(self, self.unbox(v)))
-            return impl
-
-        @binop
-        def add(self, v1, v2):
-            return v1 + v2
-        @binop
-        def sub(self, v1, v2):
-            return v1 - v2
-        @binop
-        def mul(self, v1, v2):
-            return v1 * v2
-        @binop
-        def div(self, v1, v2):
-            return v1 / v2
-        @binop
-        def mod(self, v1, v2):
-            return math.fmod(v1, v2)
-        @binop
-        def pow(self, v1, v2):
-            return math.pow(v1, v2)
-        @binop
-        def max(self, v1, v2):
-            return max(v1, v2)
-        @binop
-        def min(self, v1, v2):
-            return min(v1, v2)
-        @binop
-        def copysign(self, v1, v2):
-            return math.copysign(v1, v2)
-        @unaryop
-        def neg(self, v):
-            return -v
-        @unaryop
-        def pos(self, v):
-            return v
-        @unaryop
-        def abs(self, v):
-            return abs(v)
-        @unaryop
-        def sign(self, v):
-            if v == 0.0:
-                return 0.0
-            return rfloat.copysign(1.0, v)
-        @unaryop
-        def fabs(self, v):
-            return math.fabs(v)
-        @unaryop
-        def reciprocal(self, v):
-            if v == 0.0:
-                return rfloat.copysign(rfloat.INFINITY, v)
-            return 1.0 / v
-        @unaryop
-        def floor(self, v):
-            return math.floor(v)
-        @unaryop
-        def exp(self, v):
-            try:
-                return math.exp(v)
-            except OverflowError:
-                return rfloat.INFINITY
-        @unaryop
-        def sin(self, v):
-            return math.sin(v)
-        @unaryop
-        def cos(self, v):
-            return math.cos(v)
-        @unaryop
-        def tan(self, v):
-            return math.tan(v)
-        @unaryop
-        def arcsin(self, v):
-            if v < -1.0 or  v > 1.0:
-                return rfloat.NAN
-            return math.asin(v)
-        @unaryop
-        def arccos(self, v):
-            if v < -1.0 or v > 1.0:
-                return rfloat.NAN
-            return math.acos(v)
-        @unaryop
-        def arctan(self, v):
-            return math.atan(v)
-
-        # Comparisons, they return unwraped results (for now)
-        def ne(self, v1, v2):
-            return self.unbox(v1) != self.unbox(v2)
-        def bool(self, v):
-            return bool(self.unbox(v))
-
     W_LowLevelDtype.__name__ = "W_%sDtype" % name.capitalize()
     W_LowLevelDtype.num = num
     W_LowLevelDtype.kind = kind
     W_LowLevelDtype.name = name
     W_LowLevelDtype.aliases = aliases
     W_LowLevelDtype.applevel_types = applevel_types
+    W_LowLevelDtype.num_bytes = rffi.sizeof(T)
     return W_LowLevelDtype
+
+
+def binop(func):
+    @functools.wraps(func)
+    def impl(self, v1, v2):
+        return self.box(func(self, self.unbox(v1), self.unbox(v2)))
+    return impl
+
+def unaryop(func):
+    @functools.wraps(func)
+    def impl(self, v):
+        return self.box(func(self, self.unbox(v)))
+    return impl
+
+class FloatArithmeticDtype(object):
+    _mixin_ = True
+
+    @binop
+    def add(self, v1, v2):
+        return v1 + v2
+    @binop
+    def sub(self, v1, v2):
+        return v1 - v2
+    @binop
+    def mul(self, v1, v2):
+        return v1 * v2
+    @binop
+    def div(self, v1, v2):
+        return v1 / v2
+    @binop
+    def mod(self, v1, v2):
+        return math.fmod(v1, v2)
+    @binop
+    def pow(self, v1, v2):
+        return math.pow(v1, v2)
+
+    @unaryop
+    def pos(self, v):
+        return +v
+    @unaryop
+    def neg(self, v):
+        return -v
+    @unaryop
+    def abs(self, v):
+        return abs(v)
+    @unaryop
+    def sign(self, v):
+        if v == 0.0:
+            return 0.0
+        return rfloat.copysign(1.0, v)
+    @unaryop
+    def reciprocal(self, v):
+        if v == 0.0:
+            return rfloat.copysign(rfloat.INFINITY, v)
+        return 1.0 / v
+
+    @binop
+    def max(self, v1, v2):
+        return max(v1, v2)
+    @binop
+    def min(self, v1, v2):
+        return min(v1, v2)
+
+
+    def ne(self, v1, v2):
+        return self.unbox(v1) != self.unbox(v2)
+    def bool(self, v):
+        return bool(self.unbox(v))
 
 
 W_BoolDtype = create_low_level_dtype(
@@ -216,6 +186,10 @@ W_BoolDtype = create_low_level_dtype(
 class W_BoolDtype(W_BoolDtype):
     def unwrap(self, space, w_item):
         return self.adapt_val(space.is_true(w_item))
+
+    @binop
+    def add(self, v1, v2):
+        return bool(int(v1) + int(v2))
 
 W_Int8Dtype = create_low_level_dtype(
     num = 1, kind = SIGNEDLTR, name = "int8",
@@ -237,16 +211,6 @@ class W_Int32Dtype(W_Int32Dtype):
     def unwrap(self, space, w_item):
         return self.adapt_val(space.int_w(space.int(w_item)))
 
-W_LongDtype = create_low_level_dtype(
-    num = 7, kind = SIGNEDLTR, name = "???",
-    aliases = ["l"],
-    applevel_types = ["int"],
-    T = rffi.LONG,
-)
-class W_LongDtype(W_LongDtype):
-    def unwrap(self, space, w_item):
-        return self.adapt_val(space.int_w(space.int(w_item)))
-
 W_Int64Dtype = create_low_level_dtype(
     num = 9, kind = SIGNEDLTR, name = "int64",
     aliases = [],
@@ -263,16 +227,24 @@ W_Float64Dtype = create_low_level_dtype(
     applevel_types = ["float"],
     T = lltype.Float,
 )
-class W_Float64Dtype(W_Float64Dtype):
+class W_Float64Dtype(W_Float64Dtype, FloatArithmeticDtype):
     def unwrap(self, space, w_item):
         return self.adapt_val(space.float_w(space.float(w_item)))
 
     def str_format(self, item):
         return float2string(self.unbox(item), 'g', rfloat.DTSF_STR_PRECISION)
 
+W_Float16Dtype = create_low_level_dtype(
+    num = 23, kind = FLOATINGLTR, name = "float16",
+    aliases = [],
+    applevel_types =[],
+    T = rffi.USHORT,
+)
 
 ALL_DTYPES = [
-    W_BoolDtype, W_Int8Dtype, W_Int32Dtype, W_LongDtype, W_Int64Dtype, W_Float64Dtype
+    W_BoolDtype,
+    W_Int8Dtype, W_Int32Dtype, W_Int64Dtype,
+    W_Float64Dtype, W_Float16Dtype
 ]
 
 dtypes_by_alias = unrolling_iterable([
@@ -285,6 +257,10 @@ dtypes_by_apptype = unrolling_iterable([
     for dtype in ALL_DTYPES
     for apptype in dtype.applevel_types
 ])
+dtypes_by_num_bytes = unrolling_iterable(sorted([
+    (dtype.num_bytes, dtype)
+    for dtype in ALL_DTYPES
+]))
 
 W_Dtype.typedef = TypeDef("dtype",
     __new__ = interp2app(W_Dtype.descr__new__.im_func),

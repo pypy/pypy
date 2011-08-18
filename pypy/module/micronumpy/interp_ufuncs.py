@@ -28,7 +28,7 @@ def ufunc2(func):
             w_lhs_arr = convert_to_array(space, w_lhs)
             w_rhs_arr = convert_to_array(space, w_rhs)
             new_sig = w_lhs_arr.signature.transition(signature).transition(w_rhs_arr.signature)
-            w_res = Call2(func, w_lhs_arr, w_rhs_arr, new_sig)
+            w_res = Call2(space, func, w_lhs_arr, w_rhs_arr, new_sig)
             w_lhs_arr.invalidates.append(w_res)
             w_rhs_arr.invalidates.append(w_res)
             return w_res
@@ -56,6 +56,15 @@ def find_binop_result_dtype(space, dt1, dt2, promote_bools=False):
     if dt2.kind == interp_dtype.FLOATINGLTR or dt1.kind == interp_dtype.BOOLLTR:
         return dt2
 
+    assert False
+
+def find_unaryop_result_dtype(space, dt, promote_to_float=False):
+    if promote_to_float:
+        for bytes, dtype in interp_dtype.dtypes_by_num_bytes:
+            if dtype.kind == interp_dtype.FLOATINGLTR and dtype.num_bytes >= dt.num_bytes:
+                return space.fromcache(dtype)
+    return dt
+
 
 def ufunc_dtype_caller(ufunc_name, op_name, argcount):
     if argcount == 1:
@@ -80,22 +89,10 @@ for ufunc_name, op_name, argcount in [
     ("maximum", "max", 2),
     ("minimum", "min", 2),
 
-    ("copysign", "copysign", 2),
-
-    ("negative", "neg", 1),
     ("positive", "pos", 1),
+    ("negative", "neg", 1),
     ("absolute", "abs", 1),
     ("sign", "sign", 1),
-    ("fabs", "fabs", 1),
     ("reciprocal", "reciprocal", 1),
-    ("floor", "floor", 1),
-
-    ("exp", "exp", 1),
-    ("sin", "sin", 1),
-    ("cos", "cos", 1),
-    ("tan", "tan", 1),
-    ("arcsin", "arcsin", 1),
-    ("arccos", "arccos", 1),
-    ("arctan", "arctan", 1),
 ]:
     globals()[ufunc_name] = ufunc_dtype_caller(ufunc_name, op_name, argcount)
