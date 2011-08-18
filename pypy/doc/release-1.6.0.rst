@@ -63,7 +63,7 @@ Highlights
   been compiled by the JIT, down until the assembler. XXX: publish a public
   demo?
 
-- The CPython extension module API has been improved and now supports many
+* The CPython extension module API has been improved and now supports many
   more extensions. For information on which one are supported, please refer to
   our `compatibility wiki`_.
 
