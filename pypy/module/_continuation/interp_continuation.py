@@ -48,7 +48,14 @@ class W_Continulet(Wrappable):
             start_state.clear()
             raise getmemoryerror(self.space)
 
-    def switch(self, to=None):
+    def switch(self, w_to):
+        to = self.space.interp_w(W_Continulet, w_to, can_be_None=True)
+        if to is not None:
+            if self is to:    # double-switch to myself: no-op
+                return get_result()
+            if to.sthread is None:
+                start_state.clear()
+                raise geterror(self.space, "continulet not initialized yet")
         if self.sthread is None:
             start_state.clear()
             raise geterror(self.space, "continulet not initialized yet")
@@ -77,26 +84,13 @@ class W_Continulet(Wrappable):
         #
         ec = sthread.ec
         ec.topframeref = saved_topframeref
-        if start_state.propagate_exception:
-            e = start_state.propagate_exception
-            start_state.propagate_exception = None
-            raise e
-        w_value = start_state.w_value
-        start_state.w_value = None
-        return w_value
+        return get_result()
 
     def descr_switch(self, w_value=None, w_to=None):
-        to = self.space.interp_w(W_Continulet, w_to, can_be_None=True)
-        if to is not None:
-            if self is to:    # double-switch to myself: no-op
-                return w_value
-            if to.sthread is None:
-                start_state.clear()
-                raise geterror(self.space, "continulet not initialized yet")
         start_state.w_value = w_value
-        return self.switch(to)
+        return self.switch(w_to)
 
-    def descr_throw(self, w_type, w_val=None, w_tb=None):
+    def descr_throw(self, w_type, w_val=None, w_tb=None, w_to=None):
         from pypy.interpreter.pytraceback import check_traceback
         space = self.space
         #
@@ -108,8 +102,9 @@ class W_Continulet(Wrappable):
         #
         operr = OperationError(w_type, w_val, tb)
         operr.normalize_exception(space)
+        start_state.w_value = None
         start_state.propagate_exception = operr
-        return self.switch()
+        return self.switch(w_to)
 
     def descr_is_pending(self):
         valid = (self.sthread is not None
@@ -218,3 +213,12 @@ def do_switch(sthread, h):
     start_state.origin = None
     start_state.destination = None
     self.h, origin.h = origin.h, h
+
+def get_result():
+    if start_state.propagate_exception:
+        e = start_state.propagate_exception
+        start_state.propagate_exception = None
+        raise e
+    w_value = start_state.w_value
+    start_state.w_value = None
+    return w_value

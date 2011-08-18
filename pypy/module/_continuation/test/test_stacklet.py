@@ -576,6 +576,38 @@ class AppTestStacklet:
         c1 = continulet(f1)
         raises(IndexError, c1.throw, IndexError)
 
+    def test_throw2_simple(self):
+        from _continuation import continulet
+        #
+        def f1(c1):
+            not_reached
+        def f2(c2):
+            try:
+                c2.switch("ready")
+            except IndexError:
+                raise ValueError
+        #
+        c1 = continulet(f1)
+        c2 = continulet(f2)
+        res = c2.switch()
+        assert res == "ready"
+        assert c1.is_pending()
+        assert c2.is_pending()
+        raises(ValueError, c1.throw, IndexError, to=c2)
+        assert not c1.is_pending()
+        assert not c2.is_pending()
+
+    def test_throw2_no_op(self):
+        from _continuation import continulet
+        #
+        def f1(c1):
+            raises(ValueError, c1.throw, ValueError, to=c1)
+            return "ok"
+        #
+        c1 = continulet(f1)
+        res = c1.switch()
+        assert res == "ok"
+
     def test_various_depths(self):
         skip("may fail on top of CPython")
         # run it from test_translated, but not while being actually translated
