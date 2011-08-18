@@ -28,6 +28,7 @@ class W_Continulet(Wrappable):
     def check_sthread(self):
         ec = self.space.getexecutioncontext()
         if ec.stacklet_thread is not self.sthread:
+            start_state.clear()
             raise geterror(self.space, "inter-thread support is missing")
         return ec
 
@@ -47,17 +48,15 @@ class W_Continulet(Wrappable):
             start_state.clear()
             raise getmemoryerror(self.space)
 
-    def descr_switch(self, w_value=None, w_to=None):
-        to = self.space.interp_w(W_Continulet, w_to, can_be_None=True)
+    def switch(self, to=None):
         if self.sthread is None:
+            start_state.clear()
             raise geterror(self.space, "continulet not initialized yet")
         if self.sthread.is_empty_handle(self.h):
+            start_state.clear()
             raise geterror(self.space, "continulet already finished")
         ec = self.check_sthread()
-        if self is to:    # double-switch to myself: no-op
-            return w_value
         saved_topframeref = ec.topframeref
-        start_state.w_value = w_value
         #
         start_state.origin = self
         if to is None:
@@ -84,6 +83,28 @@ class W_Continulet(Wrappable):
         start_state.w_value = None
         return w_value
 
+    def descr_switch(self, w_value=None, w_to=None):
+        to = self.space.interp_w(W_Continulet, w_to, can_be_None=True)
+        if self is to:    # double-switch to myself: no-op
+            return w_value
+        start_state.w_value = w_value
+        return self.switch(to)
+
+    def descr_throw(self, w_type, w_val=None, w_tb=None):
+        from pypy.interpreter.pytraceback import check_traceback
+        space = self.space
+        #
+        msg = "throw() third argument must be a traceback object"
+        if space.is_w(w_tb, space.w_None):
+            tb = None
+        else:
+            tb = check_traceback(space, w_tb, msg)
+        #
+        operr = OperationError(w_type, w_val, tb)
+        operr.normalize_exception(space)
+        start_state.propagate_exception = operr
+        return self.switch()
+
     def descr_is_pending(self):
         valid = (self.sthread is not None
                  and not self.sthread.is_empty_handle(self.h))
@@ -102,6 +123,7 @@ W_Continulet.typedef = TypeDef(
     __new__     = interp2app(W_Continulet___new__),
     __init__    = interp2app(W_Continulet.descr_init),
     switch      = interp2app(W_Continulet.descr_switch),
+    throw       = interp2app(W_Continulet.descr_throw),
     is_pending  = interp2app(W_Continulet.descr_is_pending),
     )
 

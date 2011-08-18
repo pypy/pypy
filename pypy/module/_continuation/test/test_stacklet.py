@@ -487,6 +487,61 @@ class AppTestStacklet:
         assert res == 'z'
         raises(TypeError, c1.switch, to=c2)  # "can't send non-None value"
 
+    def test_throw(self):
+        import sys
+        from _continuation import continulet
+        #
+        def f1(c1):
+            try:
+                c1.switch()
+            except KeyError:
+                res = "got keyerror"
+            try:
+                c1.switch(res)
+            except IndexError, e:
+                pass
+            try:
+                c1.switch(e)
+            except IndexError, e2:
+                pass
+            try:
+                c1.switch(e2)
+            except IndexError:
+                c1.throw(*sys.exc_info())
+            should_never_reach_here
+        #
+        c1 = continulet(f1)
+        c1.switch()
+        res = c1.throw(KeyError)
+        assert res == "got keyerror"
+        class FooError(IndexError):
+            pass
+        foo = FooError()
+        res = c1.throw(foo)
+        assert res is foo
+        res = c1.throw(IndexError, foo)
+        assert res is foo
+        #
+        def main():
+            def do_raise():
+                raise foo
+            try:
+                do_raise()
+            except IndexError:
+                tb = sys.exc_info()[2]
+            try:
+                c1.throw(IndexError, foo, tb)
+            except IndexError:
+                tb = sys.exc_info()[2]
+            return tb
+        #
+        tb = main()
+        assert tb.tb_frame.f_code.co_name == 'main'
+        assert tb.tb_next.tb_frame.f_code.co_name == 'f1'
+        assert tb.tb_next.tb_next.tb_frame.f_code.co_name == 'main'
+        assert tb.tb_next.tb_next.tb_next.tb_frame.f_code.co_name == 'do_raise'
+        assert tb.tb_next.tb_next.tb_next.tb_next is None
+
     def test_various_depths(self):
         skip("may fail on top of CPython")
         # run it from test_translated, but not while being actually translated
