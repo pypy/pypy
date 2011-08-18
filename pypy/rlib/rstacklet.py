@@ -27,6 +27,9 @@ class StackletThread(object):
     def get_null_handle(self):
         return self._gcrootfinder.get_null_handle()
 
+def get_null_handle(config):
+    return _getgcrootfinder(config).get_null_handle()
+
 
 class StackletThreadDeleter(object):
     # quick hack: the __del__ is on another object, so that
