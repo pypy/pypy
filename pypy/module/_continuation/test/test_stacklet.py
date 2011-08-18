@@ -487,6 +487,31 @@ class AppTestStacklet:
         assert res == 'z'
         raises(TypeError, c1.switch, to=c2)  # "can't send non-None value"
 
+    def test_switch2_not_initialized_yet(self):
+        from _continuation import continulet, error
+        #
+        def f1(c1):
+            not_reachable
+        #
+        c1 = continulet(f1)
+        c2 = continulet.__new__(continulet)
+        e = raises(error, c1.switch, to=c2)
+        assert str(e.value) == "continulet not initialized yet"
+
+    def test_switch2_already_finished(self):
+        from _continuation import continulet, error
+        #
+        def f1(c1):
+            not_reachable
+        def empty_callback(c):
+            return 42
+        #
+        c1 = continulet(f1)
+        c2 = continulet(empty_callback)
+        c2.switch()
+        e = raises(error, c1.switch, to=c2)
+        assert str(e.value) == "continulet already finished"
+
     def test_throw(self):
         import sys
         from _continuation import continulet

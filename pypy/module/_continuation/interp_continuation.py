@@ -52,9 +52,6 @@ class W_Continulet(Wrappable):
         if self.sthread is None:
             start_state.clear()
             raise geterror(self.space, "continulet not initialized yet")
-        if self.sthread.is_empty_handle(self.h):
-            start_state.clear()
-            raise geterror(self.space, "continulet already finished")
         ec = self.check_sthread()
         saved_topframeref = ec.topframeref
         #
@@ -66,9 +63,14 @@ class W_Continulet(Wrappable):
             # double switch: the final destination is to.h
             start_state.destination = to
         #
+        h = start_state.destination.h
+        sthread = self.sthread
+        if sthread.is_empty_handle(h):
+            start_state.clear()
+            raise geterror(self.space, "continulet already finished")
+        #
         try:
-            sthread = self.sthread
-            do_switch(sthread, start_state.destination.h)
+            do_switch(sthread, h)
         except MemoryError:
             start_state.clear()
             raise getmemoryerror(self.space)
@@ -85,8 +87,12 @@ class W_Continulet(Wrappable):
 
     def descr_switch(self, w_value=None, w_to=None):
         to = self.space.interp_w(W_Continulet, w_to, can_be_None=True)
-        if self is to:    # double-switch to myself: no-op
-            return w_value
+        if to is not None:
+            if self is to:    # double-switch to myself: no-op
+                return w_value
+            if to.sthread is None:
+                start_state.clear()
+                raise geterror(self.space, "continulet not initialized yet")
         start_state.w_value = w_value
         return self.switch(to)
 
