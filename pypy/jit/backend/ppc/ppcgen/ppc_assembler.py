@@ -921,7 +921,6 @@ class PPCBuilder(PPCAssembler):
         opname = trace_op.getopname()
         op_method = self.oplist[opnum]
         if trace_op.is_guard():
-            #self.oplist[opnum](self, trace_op, cpu)
             op_method(self, trace_op, cpu)
         else:
             if opname.startswith("int_") or opname.startswith("uint_"):
@@ -970,6 +969,22 @@ class PPCBuilder(PPCAssembler):
         cpu.reg_map[result] = result_reg
         cpu.next_free_register += 1
 
+    # Fetches the identifier from a descr object.
+    # If it has no identifier, then an unused identifier
+    # is generated
+    # XXX could be overwritten later on, better approach?
+    def _get_identifier_from_descr(self, descr, cpu):
+        try:
+            identifier = descr.identifier
+        except AttributeError:
+            identifier = None
+        if identifier is not None:
+            return identifier
+        keys = cpu.saved_descr.keys()
+        if keys == []:
+            return 1
+        return max(keys) + 1
+
     # --------------------------------------- #
     #             CODE GENERATION             #
     # --------------------------------------- #
@@ -977,12 +992,21 @@ class PPCBuilder(PPCAssembler):
     def emit_int_add(self, op, cpu, reg0, reg1, free_reg):
         self.add(free_reg, reg0, reg1)
 
+    def emit_int_add_ovf(self, op, cpu, reg0, reg1, free_reg):
+        self.addo(free_reg, reg0, reg1)
+
     def emit_int_sub(self, op, cpu, reg0, reg1, free_reg):
         self.sub(free_reg, reg0, reg1)
+
+    def emit_int_sub_ovf(self, op, cpu, reg0, reg1, free_reg):
+        self.subfo(free_reg, reg1, reg0)
 
     def emit_int_mul(self, op, cpu, reg0, reg1, free_reg):
         # XXX need to care about factors whose product needs 64 bit
         self.mullw(free_reg, reg0, reg1)
+
+    def emit_int_mul_ovf(self, op, cpu, reg0, reg1, free_reg):
+        self.mullwo(free_reg, reg0, reg1)
 
     def emit_int_floordiv(self, op, cpu, reg0, reg1, free_reg):
         self.divw(free_reg, reg0, reg1)
@@ -1093,15 +1117,12 @@ class PPCBuilder(PPCAssembler):
         arg0 = op.getarg(0)
         regnum = cpu.reg_map[arg0]
         self.cmpi(0, 1, regnum, 0)
-        
-        fail_index = len(cpu.saved_descr)
         fail_descr = op.getdescr()
+        fail_index = self._get_identifier_from_descr(fail_descr, cpu)
         fail_descr.index = fail_index
         cpu.saved_descr[fail_index] = fail_descr
-
         numops = self.get_number_of_ops()
         self.beq(0)
-
         failargs = op.getfailargs()
         reglist = []
         for failarg in failargs:
@@ -1109,22 +1130,18 @@ class PPCBuilder(PPCAssembler):
                 reglist.append(None)
             else:
                 reglist.append(cpu.reg_map[failarg])
-
         cpu.patch_list.append((numops, fail_index, op, reglist))
 
     def emit_guard_false(self, op, cpu):
         arg0 = op.getarg(0)
         regnum = cpu.reg_map[arg0]
         self.cmpi(0, 1, regnum, 1)
-        
-        fail_index = len(cpu.saved_descr)
         fail_descr = op.getdescr()
+        fail_index = self._get_identifier_from_descr(fail_descr, cpu)
         fail_descr.index = fail_index
         cpu.saved_descr[fail_index] = fail_descr
-
         numops = self.get_number_of_ops()
         self.beq(0)
-
         failargs = op.getfailargs()
         reglist = []
         for failarg in failargs:
@@ -1132,13 +1149,32 @@ class PPCBuilder(PPCAssembler):
                 reglist.append(None)
             else:
                 reglist.append(cpu.reg_map[failarg])
+        cpu.patch_list.append((numops, fail_index, op, reglist))
 
+    def emit_guard_no_overflow(self, op, cpu):
+        free_reg = cpu.next_free_register
+        self.mfxer(free_reg)
+        self.rlwinm(free_reg, free_reg, 2, 31, 31)
+        self.cmpi(0, 1, free_reg, 1)
+        fail_descr = op.getdescr()
+        fail_index = fail_descr.identifier
+        fail_descr.index = fail_index
+        cpu.saved_descr[fail_index] = fail_descr
+        numops = self.get_number_of_ops()
+        self.beq(0)
+        failargs = op.getfailargs()
+        reglist = []
+        for failarg in failargs:
+            if failarg is None:
+                reglist.append(None)
+            else:
+                reglist.append(cpu.reg_map[failarg])
         cpu.patch_list.append((numops, fail_index, op, reglist))
 
     def emit_finish(self, op, cpu):
-        fail_index = len(cpu.saved_descr)
-        cpu.saved_descr[fail_index] = op.getdescr()
-
+        descr = op.getdescr()
+        identifier = self._get_identifier_from_descr(descr, cpu)
+        cpu.saved_descr[identifier] = descr
         args = op.getarglist()
         for index, arg in enumerate(args):
             if isinstance(arg, BoxInt):
@@ -1149,8 +1185,7 @@ class PPCBuilder(PPCAssembler):
                 addr = cpu.fail_boxes_int.get_addr_for_num(index)
                 self.load_word(cpu.next_free_register, arg.value)
                 self.store_reg(cpu.next_free_register, addr)
-
-        self.load_word(3, 0)
+        self.load_word(3, identifier)
         self.blr()
 
     def emit_jump(self, op, cpu):
@@ -1218,7 +1253,7 @@ def main():
     print [tb() - t0 for i in range(10)]
 
 def make_operations():
-    def not_implemented(builder, trace_op, cpu):
+    def not_implemented(builder, trace_op, cpu, *rest_args):
         import pdb; pdb.set_trace()
 
     oplist = [None] * (rop._LAST + 1)
