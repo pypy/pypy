@@ -567,6 +567,15 @@ class AppTestStacklet:
         assert tb.tb_next.tb_next.tb_next.tb_frame.f_code.co_name == 'do_raise'
         assert tb.tb_next.tb_next.tb_next.tb_next is None
 
+    def test_throw_to_starting(self):
+        from _continuation import continulet
+        #
+        def f1(c1):
+            not_reached
+        #
+        c1 = continulet(f1)
+        raises(IndexError, c1.throw, IndexError)
+
     def test_various_depths(self):
         skip("may fail on top of CPython")
         # run it from test_translated, but not while being actually translated
