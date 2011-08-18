@@ -25,9 +25,11 @@ class genlet(_continuation.continuation):
 
     def next(self, value=None):
         res = self.switch(value)
-        if self.is_alive():
+        if self.is_pending():
             return res
         else:
+            if res is not None:
+                raise TypeError("_continuation.generator must return None")
             raise StopIteration
 
     send = next
