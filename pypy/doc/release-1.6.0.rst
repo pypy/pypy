@@ -65,7 +65,7 @@ Highlights
   been compiled by the JIT, down until the assembler. The `jitviewer`_ 0.1 has
   already been release and works well with PyPy 1.6.
 
-- The CPython extension module API has been improved and now supports many
+* The CPython extension module API has been improved and now supports many
   more extensions. For information on which one are supported, please refer to
   our `compatibility wiki`_.
 
