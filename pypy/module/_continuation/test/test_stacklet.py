@@ -132,12 +132,14 @@ class AppTestStacklet:
         #
         c = continuation(empty_callback)
         c.switch()
-        raises(error, c.switch)
+        e = raises(error, c.switch)
+        assert str(e.value) == "continuation already finished"
 
     def test_not_initialized_yet(self):
         from _continuation import continuation, error
         c = continuation.__new__(continuation)
-        raises(error, c.switch)
+        e = raises(error, c.switch)
+        assert str(e.value) == "continuation not initialized yet"
 
     def test_go_depth2(self):
         from _continuation import continuation
