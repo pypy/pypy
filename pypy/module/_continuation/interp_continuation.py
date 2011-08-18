@@ -7,7 +7,7 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
 
 
-class W_Continuation(Wrappable):
+class W_Continulet(Wrappable):
     sthread = None
 
     def __init__(self, space):
@@ -33,7 +33,7 @@ class W_Continuation(Wrappable):
 
     def descr_init(self, w_callable, __args__):
         if self.sthread is not None:
-            raise geterror(self.space, "continuation already __init__ialized")
+            raise geterror(self.space, "continulet already __init__ialized")
         start_state.origin = self
         start_state.w_callable = w_callable
         start_state.args = __args__
@@ -49,9 +49,9 @@ class W_Continuation(Wrappable):
 
     def descr_switch(self, w_value=None):
         if self.sthread is None:
-            raise geterror(self.space, "continuation not initialized yet")
+            raise geterror(self.space, "continulet not initialized yet")
         if self.sthread.is_empty_handle(self.h):
-            raise geterror(self.space, "continuation already finished")
+            raise geterror(self.space, "continulet already finished")
         ec = self.check_sthread()
         saved_topframeref = ec.topframeref
         start_state.w_value = w_value
@@ -76,19 +76,19 @@ class W_Continuation(Wrappable):
         return self.space.newbool(valid)
 
 
-def W_Continuation___new__(space, w_subtype, __args__):
-    r = space.allocate_instance(W_Continuation, w_subtype)
+def W_Continulet___new__(space, w_subtype, __args__):
+    r = space.allocate_instance(W_Continulet, w_subtype)
     r.__init__(space)
     return space.wrap(r)
 
 
-W_Continuation.typedef = TypeDef(
-    'continuation',
+W_Continulet.typedef = TypeDef(
+    'continulet',
     __module__ = '_continuation',
-    __new__     = interp2app(W_Continuation___new__),
-    __init__    = interp2app(W_Continuation.descr_init),
-    switch      = interp2app(W_Continuation.descr_switch),
-    is_pending  = interp2app(W_Continuation.descr_is_pending),
+    __new__     = interp2app(W_Continulet___new__),
+    __init__    = interp2app(W_Continulet.descr_init),
+    switch      = interp2app(W_Continulet.descr_switch),
+    is_pending  = interp2app(W_Continulet.descr_is_pending),
     )
 
 
@@ -157,7 +157,7 @@ def new_stacklet_callback(h, arg):
             return self.h    # just propagate it further
         if start_state.w_value is not space.w_None:
             raise OperationError(space.w_TypeError, space.wrap(
-                "can't send non-None value to a just-started continuation"))
+                "can't send non-None value to a just-started continulet"))
 
         args = args.prepend(space.wrap(self))
         w_result = space.call_args(w_callable, args)

@@ -32,5 +32,5 @@ that idea only works in C, not in Python, notably because of exceptions.
     }
 
     interpleveldefs = {
-        'continuation': 'interp_continuation.W_Continuation',
+        'continulet': 'interp_continuation.W_Continulet',
     }

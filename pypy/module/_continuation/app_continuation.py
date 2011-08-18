@@ -18,7 +18,7 @@ class generator(object):
         return genlet(self.__func__, *args, **kwds)
 
 
-class genlet(_continuation.continuation):
+class genlet(_continuation.continulet):
 
     def __iter__(self):
         return self
