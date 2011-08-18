@@ -922,6 +922,7 @@ class PPCBuilder(PPCAssembler):
         op_method = self.oplist[opnum]
         if trace_op.is_guard():
             op_method(self, trace_op, cpu)
+            self._guard_epilog(trace_op, cpu)
         else:
             if opname.startswith("int_") or opname.startswith("uint_"):
                 numargs = trace_op.numargs()
@@ -968,6 +969,22 @@ class PPCBuilder(PPCAssembler):
         result = op.result
         cpu.reg_map[result] = result_reg
         cpu.next_free_register += 1
+
+    def _guard_epilog(self, op, cpu):
+        fail_descr = op.getdescr()
+        fail_index = self._get_identifier_from_descr(fail_descr, cpu)
+        fail_descr.index = fail_index
+        cpu.saved_descr[fail_index] = fail_descr
+        numops = self.get_number_of_ops()
+        self.beq(0)
+        failargs = op.getfailargs()
+        reglist = []
+        for failarg in failargs:
+            if failarg is None:
+                reglist.append(None)
+            else:
+                reglist.append(cpu.reg_map[failarg])
+        cpu.patch_list.append((numops, fail_index, op, reglist))
 
     # Fetches the identifier from a descr object.
     # If it has no identifier, then an unused identifier
@@ -1117,79 +1134,23 @@ class PPCBuilder(PPCAssembler):
         arg0 = op.getarg(0)
         regnum = cpu.reg_map[arg0]
         self.cmpi(0, 1, regnum, 0)
-        fail_descr = op.getdescr()
-        fail_index = self._get_identifier_from_descr(fail_descr, cpu)
-        fail_descr.index = fail_index
-        cpu.saved_descr[fail_index] = fail_descr
-        numops = self.get_number_of_ops()
-        self.beq(0)
-        failargs = op.getfailargs()
-        reglist = []
-        for failarg in failargs:
-            if failarg is None:
-                reglist.append(None)
-            else:
-                reglist.append(cpu.reg_map[failarg])
-        cpu.patch_list.append((numops, fail_index, op, reglist))
 
     def emit_guard_false(self, op, cpu):
         arg0 = op.getarg(0)
         regnum = cpu.reg_map[arg0]
         self.cmpi(0, 1, regnum, 1)
-        fail_descr = op.getdescr()
-        fail_index = self._get_identifier_from_descr(fail_descr, cpu)
-        fail_descr.index = fail_index
-        cpu.saved_descr[fail_index] = fail_descr
-        numops = self.get_number_of_ops()
-        self.beq(0)
-        failargs = op.getfailargs()
-        reglist = []
-        for failarg in failargs:
-            if failarg is None:
-                reglist.append(None)
-            else:
-                reglist.append(cpu.reg_map[failarg])
-        cpu.patch_list.append((numops, fail_index, op, reglist))
 
     def emit_guard_no_overflow(self, op, cpu):
         free_reg = cpu.next_free_register
         self.mfxer(free_reg)
         self.rlwinm(free_reg, free_reg, 2, 31, 31)
         self.cmpi(0, 1, free_reg, 1)
-        fail_descr = op.getdescr()
-        fail_index = fail_descr.identifier
-        fail_descr.index = fail_index
-        cpu.saved_descr[fail_index] = fail_descr
-        numops = self.get_number_of_ops()
-        self.beq(0)
-        failargs = op.getfailargs()
-        reglist = []
-        for failarg in failargs:
-            if failarg is None:
-                reglist.append(None)
-            else:
-                reglist.append(cpu.reg_map[failarg])
-        cpu.patch_list.append((numops, fail_index, op, reglist))
 
     def emit_guard_overflow(self, op, cpu):
         free_reg = cpu.next_free_register
         self.mfxer(free_reg)
         self.rlwinm(free_reg, free_reg, 2, 31, 31)
         self.cmpi(0, 1, free_reg, 0)
-        fail_descr = op.getdescr()
-        fail_index = fail_descr.identifier
-        fail_descr.index = fail_index
-        cpu.saved_descr[fail_index] = fail_descr
-        numops = self.get_number_of_ops()
-        self.beq(0)
-        failargs = op.getfailargs()
-        reglist = []
-        for failarg in failargs:
-            if failarg is None:
-                reglist.append(None)
-            else:
-                reglist.append(cpu.reg_map[failarg])
-        cpu.patch_list.append((numops, fail_index, op, reglist))
 
     def emit_finish(self, op, cpu):
         descr = op.getdescr()
