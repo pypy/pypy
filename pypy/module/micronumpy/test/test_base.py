@@ -49,6 +49,9 @@ class TestUfuncCoerscion(object):
         assert find_binop_result_dtype(space, bool_dtype, bool_dtype, promote_bools=True) is int8_dtype
         assert find_binop_result_dtype(space, bool_dtype, float64_dtype, promote_bools=True) is float64_dtype
 
+        # Coerce to floats
+        assert find_binop_result_dtype(space, bool_dtype, float64_dtype, promote_to_float=True) is float64_dtype
+
     def test_unaryops(self, space):
         bool_dtype = space.fromcache(interp_dtype.W_BoolDtype)
         int8_dtype = space.fromcache(interp_dtype.W_Int8Dtype)

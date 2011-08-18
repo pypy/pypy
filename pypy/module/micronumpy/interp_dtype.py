@@ -162,6 +162,12 @@ class FloatArithmeticDtype(object):
         if v == 0.0:
             return rfloat.copysign(rfloat.INFINITY, v)
         return 1.0 / v
+    @unaryop
+    def fabs(self, v):
+        return math.fabs(v)
+    @unaryop
+    def floor(self, v):
+        return math.floor(v)
 
     @binop
     def max(self, v1, v2):
@@ -169,7 +175,37 @@ class FloatArithmeticDtype(object):
     @binop
     def min(self, v1, v2):
         return min(v1, v2)
-
+    @binop
+    def copysign(self, v1, v2):
+        return math.copysign(v1, v2)
+    @unaryop
+    def exp(self, v):
+        try:
+            return math.exp(v)
+        except OverflowError:
+            return rfloat.INFINITY
+    @unaryop
+    def sin(self, v):
+        return math.sin(v)
+    @unaryop
+    def cos(self, v):
+        return math.cos(v)
+    @unaryop
+    def tan(self, v):
+        return math.tan(v)
+    @unaryop
+    def arcsin(self, v):
+        if v < -1.0 or  v > 1.0:
+            return rfloat.NAN
+        return math.asin(v)
+    @unaryop
+    def arccos(self, v):
+        if v < -1.0 or v > 1.0:
+            return rfloat.NAN
+        return math.acos(v)
+    @unaryop
+    def arctan(self, v):
+        return math.atan(v)
 
     def ne(self, v1, v2):
         return self.unbox(v1) != self.unbox(v2)

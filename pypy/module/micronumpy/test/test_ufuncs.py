@@ -84,8 +84,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert c[i] == a[i] / b[i]
 
     def test_fabs(self):
-        skip("broke float-type ufuncs")
-
         from numpy import array, fabs
         from math import fabs as math_fabs
 
@@ -149,7 +147,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert c[i] == a[i] - b[i]
 
     def test_floor(self):
-        skip("broke float-type ufuncs")
         from numpy import array, floor
 
         reference = [-2.0, -1.0, 0.0, 1.0, 1.0]
@@ -159,7 +156,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert b[i] == reference[i]
 
     def test_copysign(self):
-        skip("broke float-type ufuncs")
         from numpy import array, copysign
 
         reference = [5.0, -0.0, 0.0, -6.0]
@@ -169,8 +165,12 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(4):
             assert c[i] == reference[i]
 
+        b = array([True, True, True, True], dtype=bool)
+        c = copysign(a, b)
+        for i in range(4):
+            assert c[i] == abs(a[i])
+
     def test_exp(self):
-        skip("broke float-type ufuncs")
         import math
         from numpy import array, exp
 
@@ -185,7 +185,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert b[i] == res
 
     def test_sin(self):
-        skip("broke float-type ufuncs")
         import math
         from numpy import array, sin
 
@@ -195,7 +194,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert b[i] == math.sin(a[i])
 
     def test_cos(self):
-        skip("broke float-type ufuncs")
         import math
         from numpy import array, cos
 
@@ -205,7 +203,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert b[i] == math.cos(a[i])
 
     def test_tan(self):
-        skip("broke float-type ufuncs")
         import math
         from numpy import array, tan
 
@@ -216,7 +213,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
 
     def test_arcsin(self):
-        skip("broke float-type ufuncs")
         import math
         from numpy import array, arcsin
 
@@ -231,7 +227,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert math.isnan(f)
 
     def test_arccos(self):
-        skip("broke float-type ufuncs")
         import math
         from numpy import array, arccos
 
@@ -247,7 +242,6 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert math.isnan(f)
 
     def test_arctan(self):
-        skip("broke float-type ufuncs")
         import math
         from numpy import array, arctan
 
