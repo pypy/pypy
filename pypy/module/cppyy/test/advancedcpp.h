@@ -277,3 +277,20 @@ public:
 
    some_data m_data;
 };
+
+
+//===========================================================================
+class pointer_pass {             // for testing passing of void*'s
+public:
+    long gime_address_ptr(void* obj) {
+        return (long)obj;
+    }
+
+    long gime_address_ptr_ptr(void** obj) {
+        return (long)*((long**)obj);
+    }
+
+    long gime_address_ptr_ref(void*& obj) {
+        return (long)obj;
+    }
+};

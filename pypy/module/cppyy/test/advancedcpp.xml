@@ -27,4 +27,6 @@
   <class name="some_abstract_class" />
   <class name="some_concrete_class" />
 
+  <class name="pointer_pass" />
+
 </lcgdict>

@@ -68,6 +68,12 @@ def template_byname(space, name):
     return None
 template_byname.unwrap_spec = [ObjSpace, str]
 
+def addressof(space, w_cppinstance):
+     cppinstance = space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=False)
+     address = rffi.cast(rffi.LONG, cppinstance.rawobject)
+     return space.wrap(address)
+addressof.unwrap_spec = [ObjSpace, W_Root]
+
 
 class W_CPPLibrary(Wrappable):
     _immutable_fields_ = ["cdll"]

@@ -8,6 +8,7 @@ class Module(MixedModule):
         '_type_byname'           : 'interp_cppyy.type_byname',
         '_template_byname'       : 'interp_cppyy.template_byname',
         'CPPInstance'            : 'interp_cppyy.W_CPPInstance',
+        'addressof'              : 'interp_cppyy.addressof',
     }
 
     appleveldefs = {

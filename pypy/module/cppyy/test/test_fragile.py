@@ -86,3 +86,23 @@ class AppTestFRAGILE:
         e = fragile.E()
         raises(TypeError, e.overload, None)
         raises(NotImplementedError, getattr, e, 'm_pp_no_such')
+
+    def test05_wrong_arg_addressof(self):
+        """Test addressof() error reporting"""
+
+        import cppyy
+
+        assert cppyy.gbl.fragile == cppyy.gbl.fragile
+        fragile = cppyy.gbl.fragile
+
+        assert fragile.F == fragile.F
+        assert fragile.F().check() == ord('F')
+
+        f = fragile.F()
+        o = object()
+
+        cppyy.addressof(f)
+        raises(TypeError, cppyy.addressof, o)
+        raises(TypeError, cppyy.addressof, 0)
+        raises(TypeError, cppyy.addressof, 1)
+        raises(TypeError, cppyy.addressof, None)

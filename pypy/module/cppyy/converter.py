@@ -409,6 +409,38 @@ class CStringConverter(TypeConverter):
         lltype.free(rffi.cast(rffi.CCHARPP, arg)[0], flavor='raw')
 
 
+class VoidPtrConverter(TypeConverter):
+    _immutable_ = True
+
+    def convert_argument(self, space, w_obj, address):
+        x = rffi.cast(rffi.VOIDPP, address)
+        obj_address = get_rawobject(space, w_obj)
+        x[0] = obj_address
+        typecode = _direct_ptradd(address, capi.c_function_arg_typeoffset())
+        typecode[0] = 'a'
+
+    def convert_argument_libffi(self, space, w_obj, argchain):
+        argchain.arg(get_rawobject(space, w_obj))
+
+
+class VoidPtrPtrConverter(TypeConverter):
+    _immutable_ = True
+
+    def convert_argument(self, space, w_obj, address):
+        x = rffi.cast(rffi.VOIDPP, address)
+        obj_address = get_rawobject(space, w_obj)
+        x[0] = obj_address
+
+
+class VoidPtrRefConverter(TypeConverter):
+    _immutable_ = True
+
+    def convert_argument(self, space, w_obj, address):
+        x = rffi.cast(rffi.VOIDPP, address)
+        obj_address = get_rawobject(space, w_obj)
+        x[0] = obj_address
+
+
 class ShortArrayConverter(ArrayTypeConverterMixin, TypeConverter):
     _immutable_ = True
     typecode = 'h'
@@ -528,6 +560,7 @@ def get_converter(space, name):
     from pypy.module.cppyy import interp_cppyy
 
     #   1) full, exact match
+    print 'asking for: ', 
     try:
         return _converters[name](space, -1)
     except KeyError, k:
@@ -609,3 +642,6 @@ _converters["double*"]                  = DoublePtrConverter
 _converters["double[]"]                 = DoubleArrayConverter
 _converters["const char*"]              = CStringConverter
 _converters["char*"]                    = CStringConverter
+_converters["void*"]                    = VoidPtrConverter
+_converters["void**"]                   = VoidPtrPtrConverter
+_converters["void*&"]                   = VoidPtrRefConverter

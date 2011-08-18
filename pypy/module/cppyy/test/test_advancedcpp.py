@@ -321,3 +321,17 @@ class AppTestADVANCEDCPP:
         assert gbl.get_c(d) == 33
         assert gbl.get_d(d) == 44
         d.destruct()
+
+    def test08_void_pointer_passing( self ):
+        """Test passing of variants of void pointer arguments"""
+
+        import cppyy
+        pointer_pass        = cppyy.gbl.pointer_pass
+        some_concrete_class = cppyy.gbl.some_concrete_class
+
+        pp = pointer_pass()
+        o = some_concrete_class()
+
+        assert cppyy.addressof(o) == pp.gime_address_ptr(o)
+        assert cppyy.addressof(o) == pp.gime_address_ptr_ptr(o)
+        assert cppyy.addressof(o) == pp.gime_address_ptr_ref(o)

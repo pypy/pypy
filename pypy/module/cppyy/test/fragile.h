@@ -39,4 +39,11 @@ public:
     A** m_pp_a;
 };
 
+class F {
+public:
+    F() : m_int(0) {}
+    virtual int check() { return (int)'F'; }
+    int m_int;
+};
+
 } // namespace fragile
