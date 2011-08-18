@@ -350,6 +350,26 @@ class AppTestStacklet:
         assert tb.tb_next.tb_next.tb_next.tb_frame.f_code.co_name == 'g'
         assert tb.tb_next.tb_next.tb_next.tb_next is None
 
+    def test_switch2_simple(self):
+        skip("in-progress")
+        from _continuation import continuation
+        #
+        def f1(c1):
+            res = c1.switch_to(c2)
+            assert res == 'a'
+            return 41
+        def f2(c2):
+            c2.switch_to(c1, 'a')
+            return 42
+        #
+        c1 = continuation(f1)
+        c2 = continuation(f2)
+        res = c1.switch()
+        assert res == 41
+        assert c2.is_pending()    # already
+        res = c2.switch()
+        assert res == 42
+
     def test_various_depths(self):
         skip("may fail on top of CPython")
         # run it from test_translated, but not while being actually translated
