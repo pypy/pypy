@@ -6,6 +6,7 @@ from pypy.jit.backend.ppc.ppcgen.symbol_lookup import lookup
 from pypy.jit.backend.ppc.ppcgen.regname import *
 from pypy.jit.backend.ppc.ppcgen import form, pystructs
 from pypy.jit.backend.detect_cpu import autodetect_main_model
+from pypy.jit.backend.ppc.ppcgen.arch import WORD
 
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.annlowlevel import llhelper
@@ -256,8 +257,14 @@ class TestAssemble(object):
         a = PPCBuilder()
         word1 = 1000
         word2 = 2000
+        p = lltype.malloc(rffi.CArray(lltype.Signed), 2, flavor="raw")
+
         a.load_word(10, word1)
         a.load_word(11, word2)
+
+        a.load_word(8, rffi.cast(lltype.Signed, p))
+        a.load_word(9, rffi.cast(lltype.Signed, p) + WORD)
+
         a.stw(10, 8, 0)
         a.stw(11, 9, 0)
         a.lwz(4, 8, 0)
@@ -266,6 +273,7 @@ class TestAssemble(object):
         a.blr()
         f = a.assemble()
         assert f() == word1 + word2
+        lltype.free(p, flavor="raw")
 
     def test_load_from(self):
         a = PPCBuilder()
