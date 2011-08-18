@@ -2619,6 +2619,25 @@ class BasicTests:
         assert self.meta_interp(f, [20, 3]) == f(20, 3)
         self.check_tree_loop_count(5)
 
+    def test_max_retrace_guards(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a'])
+
+        def f(n, limit):
+            myjitdriver.set_param('retrace_limit', 3)
+            myjitdriver.set_param('max_retrace_guards', limit)
+            sa = i = a = 0
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, i=i, sa=sa, a=a)
+                a = i/4
+                a = hint(a, promote=True)
+                sa += a
+                i += 1
+            return sa
+        assert self.meta_interp(f, [20, 1]) == f(20, 1)
+        self.check_tree_loop_count(2)
+        assert self.meta_interp(f, [20, 10]) == f(20, 10)
+        self.check_tree_loop_count(5)
+
 
     def test_retrace_limit_with_extra_guards(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a',

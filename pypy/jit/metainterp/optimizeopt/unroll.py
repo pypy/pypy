@@ -214,11 +214,8 @@ class UnrollOptimizer(Optimization):
             loop.preamble.operations.append(jmp)
 
             loop.operations = self.optimizer.newoperations
-            maxguards_str = os.environ.get('PYPY_MAX_RETRACE_GUARDS')
-            if maxguards_str:
-                maxguards = int(maxguards_str)
-            else:
-                maxguards = 100
+            maxguards = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.max_retrace_guards
+            
             if self.optimizer.emitted_guards > maxguards:
                 loop.preamble.token.retraced_count = sys.maxint
 

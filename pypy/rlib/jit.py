@@ -298,6 +298,7 @@ PARAMETERS = {'threshold': 1032, # just above 1024
               'inlining': 1,
               'loop_longevity': 1000,
               'retrace_limit': 5,
+              'max_retrace_guards': 15,
               'enable_opts': 'all',
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())

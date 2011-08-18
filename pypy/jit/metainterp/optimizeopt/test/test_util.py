@@ -323,6 +323,7 @@ class FakeMetaInterpStaticData(object):
     class warmrunnerdesc:
         class memory_manager:
             retrace_limit = 5
+            max_retrace_guards = 15
 
 class Storage(compile.ResumeGuardDescr):
     "for tests."
