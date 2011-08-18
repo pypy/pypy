@@ -276,6 +276,9 @@ W_Float16Dtype = create_low_level_dtype(
     applevel_types =[],
     T = rffi.USHORT,
 )
+class W_Float16Dtype(W_Float16Dtype):
+    def unwrap(self, space, w_item):
+        return self.adapt_val(space.float_w(space.float(w_item)))
 
 ALL_DTYPES = [
     W_BoolDtype,

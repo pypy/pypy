@@ -21,6 +21,8 @@ slice_driver1 = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'sto
 slice_driver2 = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop', 'source', 'dest'])
 
 class BaseArray(Wrappable):
+    signature = None
+
     def __init__(self):
         self.invalidates = []
 
