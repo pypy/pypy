@@ -516,9 +516,9 @@ class OptInlineShortPreamble(Optimization):
                         return
                 debug_stop('jit-log-virtualstate')
                 retraced_count = loop_token.retraced_count
-                loop_token.retraced_count += 1
                 limit = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.retrace_limit
                 if not self.retraced and retraced_count<limit:
+                    loop_token.retraced_count += 1
                     if not loop_token.failed_states:
                         debug_print("Retracing (%d of %d)" % (retraced_count,
                                                               limit))
