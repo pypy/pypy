@@ -30,7 +30,7 @@ class W_Continuation(Wrappable):
         return ec
 
     def descr_init(self, w_callable, __args__):
-        if self.h:
+        if self.h != get_null_handle(self.space.config):
             raise geterror(self.space, "continuation already __init__ialized")
         sthread = self.build_sthread()
         start_state.origin = self
@@ -45,7 +45,7 @@ class W_Continuation(Wrappable):
             raise getmemoryerror(self.space)
 
     def descr_switch(self, w_value=None):
-        if not self.h:
+        if self.h == get_null_handle(self.space.config):
             raise geterror(self.space, "continuation not initialized yet")
         if self.sthread.is_empty_handle(self.h):
             raise geterror(self.space, "continuation already finished")
@@ -68,7 +68,8 @@ class W_Continuation(Wrappable):
         return w_value
 
     def descr_is_pending(self):
-        valid = bool(self.h) and not self.sthread.is_empty_handle(self.h)
+        valid = (self.h != get_null_handle(self.space.config)
+                 and not self.sthread.is_empty_handle(self.h))
         return self.space.newbool(valid)
 
 
