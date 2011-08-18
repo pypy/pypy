@@ -105,7 +105,7 @@ executable. The executable behaves mostly like a normal Python interpreter::
 
     $ ./pypy-c
     Python 2.7.0 (61ef2a11b56a, Mar 02 2011, 03:00:11)
-    [PyPy 1.5.0-alpha0 with GCC 4.4.3] on linux2
+    [PyPy 1.6.0 with GCC 4.4.3] on linux2
     Type "help", "copyright", "credits" or "license" for more information.
     And now for something completely different: ``this sentence is false''
     >>>> 46 - 4
@@ -165,7 +165,7 @@ the convenience ./pypy-cli script::
 
     $ ./pypy-cli
     Python 2.7.0 (61ef2a11b56a, Mar 02 2011, 03:00:11)
-    [PyPy 1.5.0-alpha0] on linux2
+    [PyPy 1.6.0] on linux2
     Type "help", "copyright", "credits" or "license" for more information.
     And now for something completely different: ``distopian and utopian chairs''
     >>>> 
@@ -202,7 +202,7 @@ clr_ module.
 
         $ ./pypy-jvm 
         Python 2.7.0 (61ef2a11b56a, Mar 02 2011, 03:00:11)
-        [PyPy 1.5.0-alpha0] on linux2
+        [PyPy 1.6.0] on linux2
         Type "help", "copyright", "credits" or "license" for more information.
         And now for something completely different: ``# assert did not crash''
         >>>> 
@@ -241,7 +241,7 @@ correct hierarchy, so to run PyPy it's enough to unpack the archive, and run
 the ``bin/pypy`` executable.
 
 To install PyPy system wide on unix-like systems, it is recommended to put the
-whole hierarchy alone (e.g. in ``/opt/pypy1.5``) and put a symlink to the
+whole hierarchy alone (e.g. in ``/opt/pypy1.6``) and put a symlink to the
 ``pypy`` executable into ``/usr/bin`` or ``/usr/local/bin``
 
 If the executable fails to find suitable libraries, it will report
