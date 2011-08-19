@@ -187,7 +187,7 @@ class TestCall(BaseTestPyPyC):
             guard_no_overflow(descr=...)
             i18 = force_token()
             --TICK--
-            jump(p0, p1, p2, p3, p4, i8, p7, i17, p8, i9, p10, p11, p12, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, i8, p7, i17, p8, i9, i17, p10, p11, p12, descr=<Loop0>)
         """)
 
     def test_default_and_kw(self):
@@ -205,6 +205,7 @@ class TestCall(BaseTestPyPyC):
         assert log.result == 1000
         loop, = log.loops_by_id('call')
         assert loop.match_by_id('call', """
+            p14 = getarrayitem_gc_pure(p8, i9, descr=<GcPtrArrayDescr>)
             i14 = force_token()
             i16 = force_token()
         """)

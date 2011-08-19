@@ -156,6 +156,60 @@ def test_hybrid_gc():
     rescode = pipe.wait()
     assert rescode == 0
 
+def test_segfault_1():
+    class A:
+        def __init__(self, m):
+            self.m = m
+    def g(m):
+        if m < 10:
+            return None
+        return A(m)
+    def entry_point(argv):
+        x = g(len(argv))
+        return int(x.m)
+
+    exe = compile(entry_point)
+    g, f, e = os.popen3(exe, "t", 0)
+    g.close()
+    tail = f.read()
+    f.close()
+    assert tail == ""
+    errors = e.read()
+    e.close()
+    assert 'Invalid RPython operation' in errors
+
+def test_segfault_2():
+    py.test.skip("hum, this is one example, but we need to be very careful")
+    class Base:
+        pass
+    class A(Base):
+        def __init__(self, m):
+            self.m = m
+        def getm(self):
+            return self.m
+    class B(Base):
+        def __init__(self, a):
+            self.a = a
+    def g(m):
+        a = A(m)
+        if m < 10:
+            a = B(a)
+        return a
+    def entry_point(argv):
+        x = g(len(argv))
+        os.write(2, str(x.getm()))
+        return 0
+
+    exe = compile(entry_point)
+    g, f, e = os.popen3(exe, "t", 0)
+    g.close()
+    tail = f.read(23)
+    f.close()
+    assert tail == ""    # and not ll_os.ll_os_write
+    errors = e.read()
+    e.close()
+    assert '...think what kind of errors to get...' in errors
+
 def test_safe_alloc():
     from pypy.rlib.rmmap import alloc, free
 

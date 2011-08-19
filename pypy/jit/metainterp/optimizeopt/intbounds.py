@@ -1,7 +1,8 @@
+from pypy.jit.metainterp.optimizeopt.optimizer import Optimization, CONST_1, CONST_0, \
+                                                  MODE_ARRAY, MODE_STR, MODE_UNICODE
 from pypy.jit.metainterp.history import ConstInt
 from pypy.jit.metainterp.optimizeopt.intutils import (IntBound, IntLowerBound,
     IntUpperBound)
-from pypy.jit.metainterp.optimizeopt.optimizer import Optimization, CONST_1, CONST_0
 from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from pypy.jit.metainterp.resoperation import rop
 
@@ -14,17 +15,16 @@ class OptIntBounds(Optimization):
         self.posponedop = None
         self.nextop = None
 
-    def reconstruct_for_next_iteration(self, optimizer, valuemap):
+    def new(self):
         assert self.posponedop is None
-        return self
+        return OptIntBounds()
+        
+    def flush(self):
+        assert self.posponedop is None
 
     def setup(self):
         self.posponedop = None
         self.nextop = None
-
-    def reconstruct_for_next_iteration(self, optimizer, valuemap):
-        assert self.posponedop is None
-        return self
 
     def propagate_forward(self, op):
         if op.is_ovf():
@@ -286,10 +286,27 @@ class OptIntBounds(Optimization):
 
     def optimize_ARRAYLEN_GC(self, op):
         self.emit_operation(op)
-        v1 = self.getvalue(op.result)
-        v1.intbound.make_ge(IntLowerBound(0))
+        array  = self.getvalue(op.getarg(0))
+        result = self.getvalue(op.result)
+        array.make_len_gt(MODE_ARRAY, op.getdescr(), -1)
+        array.lenbound.bound.intersect(result.intbound)
+        result.intbound = array.lenbound.bound
 
-    optimize_STRLEN = optimize_UNICODELEN = optimize_ARRAYLEN_GC
+    def optimize_STRLEN(self, op):
+        self.emit_operation(op)
+        array  = self.getvalue(op.getarg(0))
+        result = self.getvalue(op.result)
+        array.make_len_gt(MODE_STR, op.getdescr(), -1)
+        array.lenbound.bound.intersect(result.intbound)
+        result.intbound = array.lenbound.bound
+
+    def optimize_UNICODELEN(self, op):
+        self.emit_operation(op)
+        array  = self.getvalue(op.getarg(0))
+        result = self.getvalue(op.result)
+        array.make_len_gt(MODE_UNICODE, op.getdescr(), -1)
+        array.lenbound.bound.intersect(result.intbound)
+        result.intbound = array.lenbound.bound
 
     def optimize_STRGETITEM(self, op):
         self.emit_operation(op)

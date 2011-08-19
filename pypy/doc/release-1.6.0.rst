@@ -1,6 +1,6 @@
-=========================================================
-PyPy 1.6 - XXX thing something out (I like kickass panda)
-=========================================================
+========================
+PyPy 1.6 - kickass panda
+========================
 
 We're pleased to announce the 1.6 release of PyPy. This release brings a lot
 of bugfixes and performance improvements over 1.5, and improves support for
@@ -22,13 +22,15 @@ is beta (it roughly works but a lot of small issues have not been fixed so
 far).  Windows 64 is not yet supported.
 
 The main topics of this release are speed and stability: on average on
-our benchmark suite, PyPy 1.6 is between 20% and 30% faster than PyPy 1.5,
+our benchmark suite, PyPy 1.6 is between **20% and 30%** faster than PyPy 1.5,
 which was already much faster than CPython on our set of benchmarks.
 
 The speed improvements have been made possible by optimizing many of the
 layers which compose PyPy.  In particular, we improved: the Garbage Collector,
 the JIT warmup time, the optimizations performed by the JIT, the quality of
 the generated machine code and the implementation of our Python interpreter.
+
+.. _`pypy 1.5 and cpython 2.6.2`: http://speed.pypy.org
 
 
 Highlights
@@ -38,7 +40,7 @@ Highlights
 
   - better GC behavior when dealing with very large objects and arrays
 
-  - `fast ctypes`_: now calls to ctypes functions are seen and optimized
+  - **fast ctypes:** now calls to ctypes functions are seen and optimized
     by the JIT, and they are up to 60 times faster than PyPy 1.5 and 10 times
     faster than CPython
 
@@ -60,10 +62,10 @@ Highlights
 
 * JitViewer: this is the first official release which includes the JitViewer,
   a web-based tool which helps you to see which parts of your Python code have
-  been compiled by the JIT, down until the assembler. XXX: publish a public
-  demo?
+  been compiled by the JIT, down until the assembler. The `jitviewer`_ 0.1 has
+  already been release and works well with PyPy 1.6.
 
-- The CPython extension module API has been improved and now supports many
+* The CPython extension module API has been improved and now supports many
   more extensions. For information on which one are supported, please refer to
   our `compatibility wiki`_.
 
@@ -86,3 +88,8 @@ Cheers,
 Hakan Ardo, Carl Friedrich Bolz, Laura Creighton, Antonio Cuni,
 Maciej Fijalkowski, Amaury Forgeot d'Arc, Alex Gaynor,
 Armin Rigo and the PyPy team
+
+.. _`jitviewer`: http://morepypy.blogspot.com/2011/08/visualization-of-jitted-code.html
+.. _`bug tracker`: https://bugs.pypy.org
+.. _`compatibility wiki`: https://bitbucket.org/pypy/compatibility/wiki/Home
+
