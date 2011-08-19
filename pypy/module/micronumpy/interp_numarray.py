@@ -16,7 +16,7 @@ from pypy.tool.sourcetools import func_with_new_name
 numpy_driver = jit.JitDriver(greens = ['signature'],
                              reds = ['result_size', 'i', 'self', 'result'])
 all_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self', 'dtype'])
-any_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self'])
+any_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self', 'dtype'])
 slice_driver1 = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop', 'source', 'dest'])
 slice_driver2 = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop', 'source', 'dest'])
 
@@ -85,14 +85,14 @@ class BaseArray(Wrappable):
 
     def _reduce_sum_prod_impl(op_name, init):
         reduce_driver = jit.JitDriver(greens=['signature'],
-                         reds = ['i', 'size', 'self', 'result'])
+                         reds = ['i', 'size', 'self', 'result', 'res_dtype'])
 
         def loop(self, res_dtype, result, size):
             i = 0
             while i < size:
                 reduce_driver.jit_merge_point(signature=self.signature,
-                                              self=self, size=size, i=i,
-                                              result=result)
+                                              self=self, res_dtype=res_dtype,
+                                              size=size, i=i, result=result)
                 result = getattr(res_dtype, op_name)(result, self.eval(i))
                 i += 1
             return result
@@ -104,14 +104,14 @@ class BaseArray(Wrappable):
 
     def _reduce_max_min_impl(op_name):
         reduce_driver = jit.JitDriver(greens=['signature'],
-                         reds = ['i', 'size', 'self', 'result'])
+                         reds = ['i', 'size', 'self', 'result', 'dtype'])
         def loop(self, result, size):
             i = 1
             dtype = self.find_dtype()
             while i < size:
                 reduce_driver.jit_merge_point(signature=self.signature,
-                                              self=self, size=size, i=i,
-                                              result=result)
+                                              self=self, dtype=dtype,
+                                              size=size, i=i, result=result)
                 result = getattr(dtype, op_name)(result, self.eval(i))
                 i += 1
             return result
@@ -127,7 +127,7 @@ class BaseArray(Wrappable):
 
     def _reduce_argmax_argmin_impl(op_name):
         reduce_driver = jit.JitDriver(greens=['signature'],
-                         reds = ['i', 'size', 'result', 'self', 'cur_best'])
+                         reds = ['i', 'size', 'result', 'self', 'cur_best', 'dtype'])
         def loop(self, size):
             result = 0
             cur_best = self.eval(0)
@@ -135,8 +135,9 @@ class BaseArray(Wrappable):
             dtype = self.find_dtype()
             while i < size:
                 reduce_driver.jit_merge_point(signature=self.signature,
-                                              self=self, size=size, i=i,
-                                              result=result, cur_best=cur_best)
+                                              self=self, dtype=dtype,
+                                              size=size, i=i, result=result,
+                                              cur_best=cur_best)
                 new_best = getattr(dtype, op_name)(cur_best, self.eval(i))
                 if dtype.ne(new_best, cur_best):
                     result = i
@@ -170,7 +171,7 @@ class BaseArray(Wrappable):
         dtype = self.find_dtype()
         i = 0
         while i < size:
-            any_driver.jit_merge_point(signature=self.signature, self=self, size=size, i=i)
+            any_driver.jit_merge_point(signature=self.signature, self=self, size=size, dtype=dtype, i=i)
             if dtype.bool(self.eval(i)):
                 return True
             i += 1
