@@ -1048,37 +1048,6 @@ def PyImport_ImportModuleLevel(space, name, globals, locals, fromlist, level):
     """
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP, PyObject], PyObject)
-def PyImport_ExecCodeModule(space, name, co):
-    """Given a module name (possibly of the form package.module) and a code
-    object read from a Python bytecode file or obtained from the built-in
-    function compile(), load the module.  Return a new reference to the module
-    object, or NULL with an exception set if an error occurred.  Before Python
-    2.4, the module could still be created in error cases.  Starting with Python
-    2.4, name is removed from sys.modules in error cases, and even if name was
-    already in sys.modules on entry to PyImport_ExecCodeModule().  Leaving
-    incompletely initialized modules in sys.modules is dangerous, as imports of
-    such modules have no way to know that the module object is an unknown (and
-    probably damaged with respect to the module author's intents) state.
-
-    The module's __file__ attribute will be set to the code object's
-    co_filename.
-
-    This function will reload the module if it was already imported.  See
-    PyImport_ReloadModule() for the intended way to reload a module.
-
-    If name points to a dotted name of the form package.module, any package
-    structures not already created will still not be created.
-
-    name is removed from sys.modules in error cases."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, PyObject, rffi.CCHARP], PyObject)
-def PyImport_ExecCodeModuleEx(space, name, co, pathname):
-    """Like PyImport_ExecCodeModule(), but the __file__ attribute of
-    the module object is set to pathname if it is non-NULL."""
-    raise NotImplementedError
-
 @cpython_api([], lltype.Signed, error=CANNOT_FAIL)
 def PyImport_GetMagicNumber(space):
     """Return the magic number for Python bytecode files (a.k.a. .pyc and
@@ -2990,23 +2959,6 @@ def PyRun_FileExFlags(space, fp, filename, start, globals, locals, closeit, flag
     fp instead of an in-memory string. filename should be the name of the file.
     If closeit is true, the file is closed before PyRun_FileExFlags()
     returns."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, rffi.CCHARP, rffi.INT_real], PyObject)
-def Py_CompileString(space, str, filename, start):
-    """This is a simplified interface to Py_CompileStringFlags() below, leaving
-    flags set to NULL."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, rffi.CCHARP, rffi.INT_real, PyCompilerFlags], PyObject)
-def Py_CompileStringFlags(space, str, filename, start, flags):
-    """Parse and compile the Python source code in str, returning the resulting code
-    object.  The start token is given by start; this can be used to constrain the
-    code which can be compiled and should be Py_eval_input,
-    Py_file_input, or Py_single_input.  The filename specified by
-    filename is used to construct the code object and may appear in tracebacks or
-    SyntaxError exception messages.  This returns NULL if the code cannot
-    be parsed or compiled."""
     raise NotImplementedError
 
 @cpython_api([PyCodeObject, PyObject, PyObject], PyObject)
