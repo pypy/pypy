@@ -41,12 +41,19 @@ class greenlet(_continulet):
     def switch(self, *args):
         "Switch execution to this greenlet, optionally passing the values "
         "given as argument(s).  Returns the value passed when switching back."
+        return self.__switch(_continulet.switch, args)
+
+    def throw(self, typ=GreenletExit, val=None, tb=None):
+        "raise exception in greenlet, return value passed when switching back"
+        return self.__switch(_continulet.throw, typ, val, tb)
+
+    def __switch(self, unbound_method, *args):
         current = getcurrent()
         target = self
         if not target.is_pending() and not target.__main:
             if not target.__started:
-                _continulet.__init__(target, _greenlet_start, args)
-                args = None
+                _continulet.__init__(target, _greenlet_start, *args)
+                args = (None,)
                 target.__started = True
             else:
                 # already done, go to main instead... xxx later
@@ -56,17 +63,18 @@ class greenlet(_continulet):
             if current.__main:
                 if target.__main:
                     # switch from main to main
-                    pass
+                    if unbound_method == _continulet.throw:
+                        raise args[0], args[1], args[2]
                 else:
                     # enter from main to target
-                    args = _continulet.switch(target, args)
+                    args = unbound_method(target, *args)
             else:
                 if target.__main:
                     # leave to go to target=main
-                    args = _continulet.switch(current, args)
+                    args = unbound_method(current, *args)
                 else:
                     # switch from non-main to non-main
-                    args = _continulet.switch(current, args, to=target)
+                    args = unbound_method(current, *args, to=target)
         except GreenletExit, e:
             args = (e,)
         finally:
@@ -76,10 +84,6 @@ class greenlet(_continulet):
             return args[0]
         else:
             return args
-
-    def throw(self, typ=GreenletExit, val=None, tb=None):
-        "raise exception in greenlet, return value passed when switching back"
-        XXX
 
     __nonzero__ = _continulet.is_pending
 

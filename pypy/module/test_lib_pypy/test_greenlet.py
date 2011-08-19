@@ -81,3 +81,52 @@ class AppTestGreenlet:
         g1 = greenlet(fmain)
         res = g1.switch('foo', 'bar')
         assert isinstance(res, GreenletExit) and res.args == ('foo', 'bar')
+
+    def test_throw_1(self):
+        from greenlet import greenlet
+        gmain = greenlet.getcurrent()
+        #
+        def f():
+            try:
+                gmain.switch()
+            except ValueError:
+                return "ok"
+        #
+        g = greenlet(f)
+        g.switch()
+        res = g.throw(ValueError)
+        assert res == "ok"
+
+    def test_throw_2(self):
+        from greenlet import greenlet
+        gmain = greenlet.getcurrent()
+        #
+        def f():
+            gmain.throw(ValueError)
+        #
+        g = greenlet(f)
+        raises(ValueError, g.switch)
+
+    def test_throw_3(self):
+        from greenlet import greenlet
+        gmain = greenlet.getcurrent()
+        raises(ValueError, gmain.throw, ValueError)
+
+    def test_throw_4(self):
+        from greenlet import greenlet
+        gmain = greenlet.getcurrent()
+        #
+        def f1():
+            g2.throw(ValueError)
+        #
+        def f2():
+            try:
+                gmain.switch()
+            except ValueError:
+                return "ok"
+        #
+        g1 = greenlet(f1)
+        g2 = greenlet(f2)
+        g2.switch()
+        res = g1.switch()
+        assert res == "ok"
