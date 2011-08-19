@@ -261,6 +261,7 @@ class BaseArray(Wrappable):
                 if (concrete.get_root_storage() ==
                     w_value.get_concrete().get_root_storage()):
                     w_value = space.call_function(space.gettypefor(BaseArray), w_value)
+                    assert isinstance(w_value, BaseArray)
             else:
                 w_value = convert_to_array(space, w_value)
             concrete.setslice(space, start, stop, step,
