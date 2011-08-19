@@ -49,9 +49,8 @@ class greenlet(_continulet):
                 args = None
                 target.__started = True
             else:
-                # already done, go to main instead
-                xxxx
-                target = _tls.main
+                # already done, go to main instead... xxx later
+                raise error("greenlet execution already finished")
         #
         try:
             if current.__main:
@@ -68,6 +67,8 @@ class greenlet(_continulet):
                 else:
                     # switch from non-main to non-main
                     args = _continulet.switch(current, args, to=target)
+        except GreenletExit, e:
+            args = (e,)
         finally:
             _tls.current = current
         #

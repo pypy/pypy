@@ -64,3 +64,13 @@ class AppTestGreenlet:
         assert not g1 and not g1.dead
         g1.switch()
         assert not g1 and g1.dead
+
+    def test_GreenletExit(self):
+        from greenlet import greenlet, GreenletExit
+        #
+        def fmain(*args):
+            raise GreenletExit(*args)
+        #
+        g1 = greenlet(fmain)
+        res = g1.switch('foo', 'bar')
+        assert isinstance(res, GreenletExit) and res.args == ('foo', 'bar')
