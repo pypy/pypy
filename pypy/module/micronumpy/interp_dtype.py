@@ -6,6 +6,7 @@ from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.objspace.std.floatobject import float2string
 from pypy.rlib import rfloat
+from pypy.rlib.rarithmetic import widen
 from pypy.rlib.objectmodel import specialize, enforceargs
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
@@ -96,9 +97,6 @@ def create_low_level_dtype(num, kind, name, aliases, applevel_types, T, valtype)
         @specialize.argtype(1)
         def adapt_val(self, val):
             return self.box(rffi.cast(TP.TO.OF, val))
-
-        def str_format(self, item):
-            return str(self.unbox(item))
 
     W_LowLevelDtype.__name__ = "W_%sDtype" % name.capitalize()
     W_LowLevelDtype.num = num
@@ -213,6 +211,11 @@ class FloatArithmeticDtype(object):
     def bool(self, v):
         return bool(self.unbox(v))
 
+class IntegerArithmeticDtype(object):
+    _mixin_ = True
+
+    def str_format(self, item):
+        return str(widen(self.unbox(item)))
 
 W_BoolDtype = create_low_level_dtype(
     num = 0, kind = BOOLLTR, name = "bool",
@@ -225,6 +228,9 @@ class W_BoolDtype(W_BoolDtype):
     def unwrap(self, space, w_item):
         return self.adapt_val(space.is_true(w_item))
 
+    def str_format(self, item):
+        return str(self.unbox(item))
+
     @binop
     def add(self, v1, v2):
         return bool(int(v1) + int(v2))
@@ -236,7 +242,7 @@ W_Int8Dtype = create_low_level_dtype(
     T = rffi.SIGNEDCHAR,
     valtype = rffi.SIGNEDCHAR._type,
 )
-class W_Int8Dtype(W_Int8Dtype):
+class W_Int8Dtype(IntegerArithmeticDtype, W_Int8Dtype):
     def unwrap(self, space, w_item):
         return self.adapt_val(space.int_w(space.int(w_item)))
 
@@ -247,7 +253,7 @@ W_Int32Dtype = create_low_level_dtype(
     T = rffi.INT,
     valtype = rffi.INT._type,
 )
-class W_Int32Dtype(W_Int32Dtype):
+class W_Int32Dtype(IntegerArithmeticDtype, W_Int32Dtype):
     def unwrap(self, space, w_item):
         return self.adapt_val(space.int_w(space.int(w_item)))
 
@@ -258,7 +264,7 @@ W_Int64Dtype = create_low_level_dtype(
     T = rffi.LONGLONG,
     valtype = rffi.LONGLONG._type,
 )
-class W_Int64Dtype(W_Int64Dtype):
+class W_Int64Dtype(IntegerArithmeticDtype, W_Int64Dtype):
     def unwrap(self, space, w_item):
         return self.adapt_val(space.int_w(space.int(w_item)))
 

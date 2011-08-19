@@ -77,10 +77,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert str((2*a)[:]) == "[0.0 2.0 4.0 6.0 8.0]"
         a = zeros(1001)
         assert str(a) == "[0.0 0.0 0.0 ..., 0.0 0.0 0.0]"
-        a = array(range(5), long)
+
+        a = array(range(5), dtype=long)
         assert str(a) == "[0 1 2 3 4]"
-        a = array([True, False, True, False], "?")
+        a = array([True, False, True, False], dtype="?")
         assert str(a) == "[True False True False]"
+
+        a = array(range(5), dtype="int8")
+        assert str(a) == "[0 1 2 3 4]"
 
     def test_str_slice(self):
         from numpy import array, zeros

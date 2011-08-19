@@ -15,7 +15,7 @@ from pypy.tool.sourcetools import func_with_new_name
 
 numpy_driver = jit.JitDriver(greens = ['signature'],
                              reds = ['result_size', 'i', 'self', 'result'])
-all_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self'])
+all_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self', 'dtype'])
 any_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self'])
 slice_driver1 = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop', 'source', 'dest'])
 slice_driver2 = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop', 'source', 'dest'])
@@ -157,7 +157,7 @@ class BaseArray(Wrappable):
         dtype = self.find_dtype()
         i = 0
         while i < size:
-            all_driver.jit_merge_point(signature=self.signature, self=self, size=size, i=i)
+            all_driver.jit_merge_point(signature=self.signature, self=self, dtype=dtype, size=size, i=i)
             if not dtype.bool(self.eval(i)):
                 return False
             i += 1
