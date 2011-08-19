@@ -878,7 +878,8 @@ def load_source_module(space, w_modulename, w_mod, pathname, source,
         code_w = parse_source_module(space, pathname, source)
 
         if space.config.objspace.usepycfiles and write_pyc:
-            write_compiled_module(space, code_w, cpathname, mode, mtime)
+            if not space.is_true(space.sys.get('dont_write_bytecode')):
+                write_compiled_module(space, code_w, cpathname, mode, mtime)
 
     update_code_filenames(space, code_w, pathname)
     exec_code_module(space, w_mod, code_w)

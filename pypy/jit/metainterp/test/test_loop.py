@@ -1,5 +1,5 @@
 import py
-from pypy.rlib.jit import JitDriver
+from pypy.rlib.jit import JitDriver, hint
 from pypy.rlib.objectmodel import compute_hash
 from pypy.jit.metainterp.warmspot import ll_meta_interp, get_stats
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
@@ -798,7 +798,7 @@ class LoopTest(object):
                 some_fn(Stuff(n), k, z)
             return 0
 
-        res = self.meta_interp(f, [200])
+        res = self.meta_interp(f, [200])        
 
     def test_regular_pointers_in_short_preamble(self):
         # XXX do we really care about this case?  If not, we should

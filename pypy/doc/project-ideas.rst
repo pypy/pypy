@@ -48,12 +48,6 @@ as shown by the screenshot below:
 
 .. image:: image/jitviewer.png
 
-We would like to add one level to this hierarchy, by showing the generated
-machine code for each jit operation.  The necessary information is already in
-the log file produced by the JIT, so it is "only" a matter of teaching the
-jitviewer to display it.  Ideally, the machine code should be hidden by
-default and viewable on request.
-
 The jitviewer is a web application based on flask and jinja2 (and jQuery on
 the client): if you have great web developing skills and want to help PyPy,
 this is an ideal task to get started, because it does not require any deep

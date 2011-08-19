@@ -271,8 +271,12 @@ class AppTestPosix:
         f.close()
 
         # Ensure that fcntl is not faked
-        import fcntl
-        assert fcntl.__file__.endswith('pypy/module/fcntl')
+        try:
+            import fcntl
+        except ImportError:
+            pass
+        else:
+            assert fcntl.__file__.endswith('pypy/module/fcntl')
         exc = raises(OSError, posix.fdopen, fd)
         assert exc.value.errno == errno.EBADF
 

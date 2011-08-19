@@ -33,11 +33,9 @@ def handle_sys_exit(e):
         except:
             # not an integer: print it to stderr
             try:
-                stderr = sys.stderr
-            except AttributeError:
+                print >> sys.stderr, exitcode
+            except:
                 pass   # too bad
-            else:
-                stderr.write(exitcode)
             exitcode = 1
     raise SystemExit(exitcode)
 
@@ -424,8 +422,11 @@ def parse_command_line(argv):
     # (relevant in case of "reload(sys)")
     sys.argv[:] = argv
 
-    if (PYTHON26 and not options["ignore_environment"] and os.getenv('PYTHONNOUSERSITE')):
-        options["no_user_site"] = True
+    if PYTHON26 and not options["ignore_environment"]:
+        if os.getenv('PYTHONNOUSERSITE'):
+            options["no_user_site"] = True
+        if os.getenv('PYTHONDONTWRITEBYTECODE'):
+            options["dont_write_bytecode"] = True
 
     if (options["interactive"] or
         (not options["ignore_environment"] and os.getenv('PYTHONINSPECT'))):
@@ -434,7 +435,8 @@ def parse_command_line(argv):
     if PYTHON26 and we_are_translated():
         flags = [options[flag] for flag in sys_flags]
         sys.flags = type(sys.flags)(flags)
-        sys.py3kwarning = sys.flags.py3k_warning
+        sys.py3kwarning = bool(sys.flags.py3k_warning)
+        sys.dont_write_bytecode = bool(sys.flags.dont_write_bytecode)
 
         if sys.py3kwarning:
             print >> sys.stderr, (

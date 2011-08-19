@@ -229,7 +229,7 @@ class BoehmGcPolicy(BasicGcPolicy):
         if sys.platform.startswith('linux'):
             pre_include_bits += ["#define _REENTRANT 1",
                                  "#define GC_LINUX_THREADS 1"]
-        if sys.platform != "win32":
+        if sys.platform != "win32" and not sys.platform.startswith("openbsd"):
             # GC_REDIRECT_TO_LOCAL is not supported on Win32 by gc6.8
             pre_include_bits += ["#define GC_REDIRECT_TO_LOCAL 1"]
 
