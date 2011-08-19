@@ -550,6 +550,7 @@ class BufferingInputStream(Stream):
             self.do_seek(offset, 2)
             self.pos = 0
             self.buf = ""
+            return
             # We'll comment all of this for now unless someone really wants
             # something like it
             #try:
