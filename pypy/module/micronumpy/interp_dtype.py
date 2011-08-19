@@ -100,16 +100,6 @@ def create_low_level_dtype(num, kind, name, aliases, applevel_types, T, valtype)
         def str_format(self, item):
             return str(self.unbox(item))
 
-        def _unimplemented_binop(self, v1, v2):
-            self.unbox(v1)
-            self.unbox(v2)
-            raise NotImplementedError
-        def _unimplemented_unaryop(self, v):
-            self.unbox(v)
-            raise NotImplementedError
-        add = sub = mul = dev = mod = pow = max = min = copysign = ne = _unimplemented_binop
-        pos = neg = abs = sign = reciprocal = fabs = floor = exp = sin = cos = tan = arcsin = arccos = arctan = bool = _unimplemented_unaryop
-
     W_LowLevelDtype.__name__ = "W_%sDtype" % name.capitalize()
     W_LowLevelDtype.num = num
     W_LowLevelDtype.kind = kind
