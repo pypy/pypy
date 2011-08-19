@@ -401,6 +401,12 @@ class VirtualState(object):
         for s in self.state:
             s.debug_print("    ", seen, bad)
 
+    def contains_virtuals(self):
+        for s in self.state:
+            if not isinstance(s, NotVirtualStateInfo):
+                return True
+        return False
+
 class VirtualStateAdder(resume.ResumeDataVirtualAdder):
     def __init__(self, optimizer):
         self.fieldboxes = {}

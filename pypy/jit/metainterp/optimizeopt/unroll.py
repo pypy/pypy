@@ -205,6 +205,17 @@ class UnrollOptimizer(Optimization):
             short = self.inline(inputargs, self.cloned_operations,
                                 loop.inputargs, short_inputargs,
                                 virtual_state)
+            if not virtual_state.contains_virtuals():
+                ops_in_loop = len(self.optimizer.newoperations)
+                ops_in_preamble = len(loop.preamble.operations) + 1
+                amount_saved = ((ops_in_preamble - ops_in_loop) * 100) / ops_in_preamble
+                th = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.limit_peeling
+                if amount_saved <= th:
+                    jumpop.initarglist(jump_args)
+                    loop.preamble.operations.append(jumpop)
+                    loop.operations = loop.preamble.operations
+                    loop.preamble.operations = None
+                    return
             
             loop.inputargs = inputargs
             args = [preamble_optimizer.getvalue(self.short_boxes.original(a)).force_box()\

@@ -2637,6 +2637,25 @@ class BasicTests:
         assert self.meta_interp(f, [20, 10]) == f(20, 10)
         self.check_tree_loop_count(5)
 
+    def test_limit_peeling(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a'])
+
+        def f(n, limit):
+            myjitdriver.set_param('limit_peeling', limit)
+            sa = i = 0
+            a = n + 1
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, i=i, sa=sa, a=a)
+                sa += a * a
+                i += 1
+            return sa
+        assert self.meta_interp(f, [20, 0]) == f(20, 0)
+        self.check_tree_loop_count(2)
+        assert self.meta_interp(f, [20, 10]) == f(20, 10)
+        self.check_tree_loop_count(2)
+        assert self.meta_interp(f, [20, 20]) == f(20, 20)
+        self.check_tree_loop_count(1)
+
 
     def test_retrace_limit_with_extra_guards(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a',

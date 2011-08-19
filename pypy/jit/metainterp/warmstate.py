@@ -275,6 +275,11 @@ class WarmEnterState(object):
             if self.warmrunnerdesc.memory_manager:
                 self.warmrunnerdesc.memory_manager.max_retrace_guards = value
 
+    def set_param_limit_peeling(self, value):
+        if self.warmrunnerdesc:
+            if self.warmrunnerdesc.memory_manager:
+                self.warmrunnerdesc.memory_manager.limit_peeling = value
+
     def disable_noninlinable_function(self, greenkey):
         cell = self.jit_cell_at_key(greenkey)
         cell.dont_trace_here = True

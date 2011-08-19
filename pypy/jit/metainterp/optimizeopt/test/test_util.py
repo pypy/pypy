@@ -324,6 +324,7 @@ class FakeMetaInterpStaticData(object):
         class memory_manager:
             retrace_limit = 5
             max_retrace_guards = 15
+            limit_peeling = 0
 
 class Storage(compile.ResumeGuardDescr):
     "for tests."
