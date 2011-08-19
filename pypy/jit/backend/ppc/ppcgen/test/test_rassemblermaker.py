@@ -1,5 +1,5 @@
-from pypy.jit.codegen.ppc.ppcgen.rassemblermaker import make_rassembler
-from pypy.jit.codegen.ppc.ppcgen.ppc_assembler import PPCAssembler
+from pypy.jit.backend.ppc.ppcgen.rassemblermaker import make_rassembler
+from pypy.jit.backend.ppc.ppcgen.ppc_assembler import PPCAssembler
 
 RPPCAssembler = make_rassembler(PPCAssembler)
 

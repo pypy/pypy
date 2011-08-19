@@ -1,11 +1,11 @@
 import autopath
-from pypy.jit.codegen.ppc.ppcgen.ppc_assembler import b
+from pypy.jit.backend.ppc.ppcgen.ppc_assembler import b
 import random
 import sys
 
-from pypy.jit.codegen.ppc.ppcgen.form import Form, FormException
-from pypy.jit.codegen.ppc.ppcgen.field import Field
-from pypy.jit.codegen.ppc.ppcgen.assembler import Assembler
+from pypy.jit.backend.ppc.ppcgen.form import Form, FormException
+from pypy.jit.backend.ppc.ppcgen.field import Field
+from pypy.jit.backend.ppc.ppcgen.assembler import Assembler
 
 # 0                              31
 # +-------------------------------+
