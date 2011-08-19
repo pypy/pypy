@@ -60,22 +60,17 @@ class greenlet(_continulet):
                     pass
                 else:
                     # enter from main to target
-                    print 'main -> target =', target
                     args = _continulet.switch(target, args)
             else:
                 if target.__main:
                     # leave to go to target=main
-                    print 'current =', current, '-> main'
                     args = _continulet.switch(current, args)
                 else:
                     # switch from non-main to non-main
-                    print 'current =', current, '-> target =', target
                     args = _continulet.switch(current, args, to=target)
         finally:
             _tls.current = current
-            print 'current is now', current
         #
-        print 'got args =', args
         if len(args) == 1:
             return args[0]
         else:
@@ -129,7 +124,6 @@ def _green_create_main():
     _tls.current = gmain
 
 def _greenlet_start(greenlet, args):
-    print 'starting', greenlet, 'with args =', args
     _tls.current = greenlet
     res = greenlet.run(*args)
     return (res,)
