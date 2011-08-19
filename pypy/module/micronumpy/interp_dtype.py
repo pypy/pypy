@@ -6,7 +6,7 @@ from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.objspace.std.floatobject import float2string
 from pypy.rlib import rfloat
-from pypy.rlib.objectmodel import specialize
+from pypy.rlib.objectmodel import specialize, enforceargs
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 
@@ -45,7 +45,7 @@ class BaseBox(object):
 
 VOID_TP = lltype.Ptr(lltype.Array(lltype.Void, hints={'nolength': True}))
 
-def create_low_level_dtype(num, kind, name, aliases, applevel_types, T):
+def create_low_level_dtype(num, kind, name, aliases, applevel_types, T, valtype):
     class Box(BaseBox):
         def __init__(self, val):
             self.val = val
@@ -66,6 +66,7 @@ def create_low_level_dtype(num, kind, name, aliases, applevel_types, T):
             return rffi.cast(TP, storage)
 
         @specialize.argtype(1)
+        @enforceargs(None, valtype)
         def box(self, value):
             return Box(value)
 
@@ -228,6 +229,7 @@ W_BoolDtype = create_low_level_dtype(
     aliases = ["?"],
     applevel_types = ["bool"],
     T = lltype.Bool,
+    valtype = bool,
 )
 class W_BoolDtype(W_BoolDtype):
     def unwrap(self, space, w_item):
@@ -242,6 +244,7 @@ W_Int8Dtype = create_low_level_dtype(
     aliases = ["int8"],
     applevel_types = [],
     T = rffi.SIGNEDCHAR,
+    valtype = rffi.SIGNEDCHAR._type,
 )
 class W_Int8Dtype(W_Int8Dtype):
     def unwrap(self, space, w_item):
@@ -252,6 +255,7 @@ W_Int32Dtype = create_low_level_dtype(
     aliases = ["i"],
     applevel_types = [],
     T = rffi.INT,
+    valtype = rffi.INT._type,
 )
 class W_Int32Dtype(W_Int32Dtype):
     def unwrap(self, space, w_item):
@@ -262,6 +266,7 @@ W_Int64Dtype = create_low_level_dtype(
     aliases = [],
     applevel_types = ["long"],
     T = rffi.LONGLONG,
+    valtype = rffi.LONGLONG._type,
 )
 class W_Int64Dtype(W_Int64Dtype):
     def unwrap(self, space, w_item):
@@ -272,8 +277,9 @@ W_Float64Dtype = create_low_level_dtype(
     aliases = [],
     applevel_types = ["float"],
     T = lltype.Float,
+    valtype = float,
 )
-class W_Float64Dtype(W_Float64Dtype, FloatArithmeticDtype):
+class W_Float64Dtype(FloatArithmeticDtype, W_Float64Dtype):
     def unwrap(self, space, w_item):
         return self.adapt_val(space.float_w(space.float(w_item)))
 
@@ -285,6 +291,7 @@ W_Float16Dtype = create_low_level_dtype(
     aliases = [],
     applevel_types =[],
     T = rffi.USHORT,
+    valtype = rffi.USHORT._type,
 )
 class W_Float16Dtype(W_Float16Dtype):
     def unwrap(self, space, w_item):
