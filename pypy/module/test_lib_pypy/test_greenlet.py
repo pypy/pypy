@@ -44,3 +44,12 @@ class AppTestGreenlet:
         seen.append(g.switch())
         #
         assert seen == [(40, 'x'), (), (41, 'y'), 42, 43, (44, 'z'), 45, None]
+
+    def test_exception_simple(self):
+        from greenlet import greenlet
+        #
+        def fmain():
+            raise ValueError
+        #
+        g1 = greenlet(fmain)
+        raises(ValueError, g1.switch)
