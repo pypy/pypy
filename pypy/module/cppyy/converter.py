@@ -560,7 +560,6 @@ def get_converter(space, name):
     from pypy.module.cppyy import interp_cppyy
 
     #   1) full, exact match
-    print 'asking for: ', 
     try:
         return _converters[name](space, -1)
     except KeyError, k:

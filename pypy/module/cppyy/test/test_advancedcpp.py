@@ -335,3 +335,24 @@ class AppTestADVANCEDCPP:
         assert cppyy.addressof(o) == pp.gime_address_ptr(o)
         assert cppyy.addressof(o) == pp.gime_address_ptr_ptr(o)
         assert cppyy.addressof(o) == pp.gime_address_ptr_ref(o)
+
+    def test09_opaque_pointer_assing( self ):
+        """Test passing around of opaque pointers"""
+
+        import cppyy
+        some_concrete_class = cppyy.gbl.some_concrete_class
+
+        o = some_concrete_class()
+
+        #cobj = cppyy.as_cobject(o)
+        addr = cppyy.addressof(o)
+
+        #assert o == cppyy.bind_object(cobj, some_concrete_class)
+        #assert o == cppyy.bind_object(cobj, type(o))
+        #assert o == cppyy.bind_object(cobj, o.__class__)
+        #assert o == cppyy.bind_object(cobj, "some_concrete_class")
+        assert cppyy.addressof(o) == cppyy.addressof(cppyy.bind_object(addr, some_concrete_class))
+        assert o == cppyy.bind_object(addr, some_concrete_class)
+        assert o == cppyy.bind_object(addr, type(o))
+        assert o == cppyy.bind_object(addr, o.__class__)
+        #assert o == cppyy.bind_object(addr, "some_concrete_class")

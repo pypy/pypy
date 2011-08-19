@@ -1,7 +1,7 @@
 import pypy.module.cppyy.capi as capi
 
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import ObjSpace, interp2app
+from pypy.interpreter.gateway import ObjSpace, interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.baseobjspace import Wrappable, W_Root
 
@@ -17,19 +17,20 @@ class FastCallNotPossible(Exception):
 
 NULL_VOIDP  = lltype.nullptr(rffi.VOIDP.TO)
 
+@unwrap_spec(name=str)
 def load_dictionary(space, name):
     try:
         cdll = capi.c_load_dictionary(name)
     except rdynload.DLOpenError, e:
         raise OperationError(space.w_RuntimeError, space.wrap(str(e)))
     return W_CPPLibrary(space, cdll)
-load_dictionary.unwrap_spec = [ObjSpace, str]
 
 class State(object):
     def __init__(self, space):
         self.cpptype_cache = { "void" : W_CPPType(space, "void", NULL_VOIDP) }
         self.cpptemplatetype_cache = {}
 
+@unwrap_spec(name=str)
 def type_byname(space, name):
     state = space.fromcache(State)
     try:
@@ -50,8 +51,8 @@ def type_byname(space, name):
         return cpptype
 
     return None
-type_byname.unwrap_spec = [ObjSpace, str]
 
+@unwrap_spec(name=str)
 def template_byname(space, name):
     state = space.fromcache(State)
     try:
@@ -66,13 +67,6 @@ def template_byname(space, name):
         return template
 
     return None
-template_byname.unwrap_spec = [ObjSpace, str]
-
-def addressof(space, w_cppinstance):
-     cppinstance = space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=False)
-     address = rffi.cast(rffi.LONG, cppinstance.rawobject)
-     return space.wrap(address)
-addressof.unwrap_spec = [ObjSpace, W_Root]
 
 
 class W_CPPLibrary(Wrappable):
@@ -525,6 +519,14 @@ class W_CPPInstance(Wrappable):
             raise OperationError(self.space.w_ReferenceError,
                                  self.space.wrap("trying to access a NULL pointer"))
 
+    def instance__eq__(self, w_other):
+        other = self.space.interp_w(W_CPPInstance, w_other, can_be_None=False)
+        iseq = self.rawobject == other.rawobject
+        return self.space.wrap(iseq)
+
+    def instance__ne__(self, w_other):
+        return self.space.not_(self.instance__eq__(w_other))
+
     def destruct(self):
         assert isinstance(self, W_CPPInstance)
         if self.rawobject:
@@ -540,6 +542,8 @@ class W_CPPInstance(Wrappable):
 W_CPPInstance.typedef = TypeDef(
     'CPPInstance',
     cppclass = interp_attrproperty('cppclass', cls=W_CPPInstance),
+    __eq__ = interp2app(W_CPPInstance.instance__eq__, unwrap_spec=['self', W_Root]),
+    __ne__ = interp2app(W_CPPInstance.instance__ne__, unwrap_spec=['self', W_Root]),
     destruct = interp2app(W_CPPInstance.destruct, unwrap_spec=['self']),
 )
 W_CPPInstance.typedef.acceptable_as_base_class = True
@@ -549,3 +553,16 @@ def new_instance(space, w_type, cpptype, rawptr, owns):
     cppinstance = space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=False)
     W_CPPInstance.__init__(cppinstance, space, cpptype, rawptr, owns)
     return w_cppinstance
+
+
+@unwrap_spec(cppinstance=W_CPPInstance)
+def addressof(space, cppinstance):
+     address = rffi.cast(rffi.LONG, cppinstance.rawobject)
+     return space.wrap(address)
+
+@unwrap_spec(address=int, owns=bool)
+def bind_object(space, address, w_type, owns=False):
+    rawobject = rffi.cast(rffi.VOIDP, address)
+    w_cpptype = space.findattr(w_type, space.wrap("_cpp_proxy"))
+    cpptype = space.interp_w(W_CPPType, w_cpptype, can_be_None=False)
+    return new_instance(space, w_type, cpptype, rawobject, owns)
