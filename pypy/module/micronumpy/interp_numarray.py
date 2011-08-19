@@ -187,17 +187,17 @@ class BaseArray(Wrappable):
     def _getnums(self, comma):
         if self.find_size() > 1000:
             nums = [
-                float2string(self.getitem(index))
+                float2string(self.eval(index))
                 for index in range(3)
             ]
             nums.append("..." + "," * comma)
             nums.extend([
-                float2string(self.getitem(index))
+                float2string(self.eval(index))
                 for index in range(self.find_size() - 3, self.find_size())
             ])
         else:
             nums = [
-                float2string(self.getitem(index))
+                float2string(self.eval(index))
                 for index in range(self.find_size())
             ]
         return nums
@@ -229,7 +229,7 @@ class BaseArray(Wrappable):
         start, stop, step, slice_length = space.decode_index4(w_idx, self.find_size())
         if step == 0:
             # Single index
-            return space.wrap(self.get_concrete().getitem(start))
+            return space.wrap(self.get_concrete().eval(start))
         else:
             # Slice
             res = SingleDimSlice(start, stop, step, slice_length, self, self.signature.transition(SingleDimSlice.static_signature))
@@ -295,7 +295,6 @@ class FloatWrapper(BaseArray):
     """
     Intermediate class representing a float literal.
     """
-    _immutable_fields_ = ["float_value"]
     signature = Signature()
 
     def __init__(self, float_value):
@@ -356,8 +355,6 @@ class VirtualArray(BaseArray):
 
 
 class Call1(VirtualArray):
-    _immutable_fields_ = ["function", "values"]
-
     def __init__(self, function, values, signature):
         VirtualArray.__init__(self, signature)
         self.function = function
@@ -376,8 +373,6 @@ class Call2(VirtualArray):
     """
     Intermediate class for performing binary operations.
     """
-    _immutable_fields_ = ["function", "left", "right"]
-
     def __init__(self, function, left, right, signature):
         VirtualArray.__init__(self, signature)
         self.function = function
@@ -404,8 +399,6 @@ class ViewArray(BaseArray):
     Class for representing views of arrays, they will reflect changes of parent
     arrays. Example: slices
     """
-    _immutable_fields_ = ["parent"]
-
     def __init__(self, parent, signature):
         BaseArray.__init__(self)
         self.signature = signature
@@ -416,13 +409,11 @@ class ViewArray(BaseArray):
         # in fact, ViewArray never gets "concrete" as it never stores data.
         # This implementation is needed for BaseArray getitem/setitem to work,
         # can be refactored.
+        self.parent.get_concrete()
         return self
 
     def eval(self, i):
         return self.parent.eval(self.calc_index(i))
-
-    def getitem(self, item):
-        return self.parent.getitem(self.calc_index(item))
 
     @unwrap_spec(item=int, value=float)
     def setitem(self, item, value):
@@ -435,7 +426,6 @@ class ViewArray(BaseArray):
         raise NotImplementedError
 
 class SingleDimSlice(ViewArray):
-    _immutable_fields_ = ["start", "stop", "step", "size"]
     static_signature = Signature()
 
     def __init__(self, start, stop, step, slice_length, parent, signature):
@@ -479,7 +469,8 @@ class SingleDimArray(BaseArray):
         BaseArray.__init__(self)
         self.size = size
         self.storage = lltype.malloc(TP, size, zero=True,
-                                     flavor='raw', track_allocation=False)
+                                     flavor='raw', track_allocation=False,
+                                     add_memory_pressure=True)
         # XXX find out why test_zjit explodes with trackign of allocations
 
     def get_concrete(self):
@@ -497,9 +488,6 @@ class SingleDimArray(BaseArray):
     def descr_len(self, space):
         return space.wrap(self.size)
 
-    def getitem(self, item):
-        return self.storage[item]
-
     def setitem(self, item, value):
         self.invalidated()
         self.storage[item] = value
@@ -511,7 +499,7 @@ class SingleDimArray(BaseArray):
             self._sliceloop2(start, stop, step, arr, self)
 
     def __del__(self):
-        lltype.free(self.storage, flavor='raw')
+        lltype.free(self.storage, flavor='raw', track_allocation=False)
 
 def new_numarray(space, w_size_or_iterable):
     l = space.listview(w_size_or_iterable)

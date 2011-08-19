@@ -2734,6 +2734,65 @@ class LLtypeBackendTest(BaseBackendTest):
                                      'float', descr=calldescr)
         assert res.getfloatstorage() == expected
 
+    def test_singlefloat_result_of_call_direct(self):
+        if not self.cpu.supports_singlefloats:
+            py.test.skip("singlefloat test")
+        from pypy.translator.tool.cbuild import ExternalCompilationInfo
+        from pypy.rlib.rarithmetic import r_singlefloat
+        eci = ExternalCompilationInfo(
+            separate_module_sources=["""
+            float fn_test_result_of_call(float x)
+            {
+                return x / 2.0f;
+            }
+            """],
+            export_symbols=['fn_test_result_of_call'])
+        f = rffi.llexternal('fn_test_result_of_call', [lltype.SingleFloat],
+                            lltype.SingleFloat,
+                            compilation_info=eci, _nowrapper=True)
+        value = r_singlefloat(-42.5)
+        expected = r_singlefloat(-21.25)
+        assert f(value) == expected
+        #
+        FUNC = self.FuncType([lltype.SingleFloat], lltype.SingleFloat)
+        FPTR = self.Ptr(FUNC)
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+        ivalue = longlong.singlefloat2int(value)
+        iexpected = longlong.singlefloat2int(expected)
+        x = self.cpu.bh_call_i(self.get_funcbox(self.cpu, f).value,
+                               calldescr, [ivalue], None, None)
+        assert x == iexpected
+
+    def test_singlefloat_result_of_call_compiled(self):
+        if not self.cpu.supports_singlefloats:
+            py.test.skip("test of singlefloat result")
+        from pypy.translator.tool.cbuild import ExternalCompilationInfo
+        from pypy.rlib.rarithmetic import r_singlefloat
+        eci = ExternalCompilationInfo(
+            separate_module_sources=["""
+            float fn_test_result_of_call(float x)
+            {
+                return x / 2.0f;
+            }
+            """],
+            export_symbols=['fn_test_result_of_call'])
+        f = rffi.llexternal('fn_test_result_of_call', [lltype.SingleFloat],
+                            lltype.SingleFloat,
+                            compilation_info=eci, _nowrapper=True)
+        value = r_singlefloat(-42.5)
+        expected = r_singlefloat(-21.25)
+        assert f(value) == expected
+        #
+        FUNC = self.FuncType([lltype.SingleFloat], lltype.SingleFloat)
+        FPTR = self.Ptr(FUNC)
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+        funcbox = self.get_funcbox(self.cpu, f)
+        ivalue = longlong.singlefloat2int(value)
+        iexpected = longlong.singlefloat2int(expected)
+        res = self.execute_operation(rop.CALL, [funcbox, BoxInt(ivalue)],
+                                     'int', descr=calldescr)
+        assert res.value == iexpected
+
     def test_free_loop_and_bridges(self):
         from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
         if not isinstance(self.cpu, AbstractLLCPU):
@@ -2747,6 +2806,26 @@ class LLtypeBackendTest(BaseBackendTest):
         mem2 = self.cpu.asmmemmgr.total_mallocs
         assert mem2 < mem1
         assert mem2 == mem0
+
+    def test_memoryerror(self):
+        excdescr = BasicFailDescr(666)
+        self.cpu.propagate_exception_v = self.cpu.get_fail_descr_number(
+            excdescr)
+        self.cpu.setup_once()    # xxx redo it, because we added
+                                 # propagate_exception_v
+        i0 = BoxInt()
+        p0 = BoxPtr()
+        operations = [
+            ResOperation(rop.NEWUNICODE, [i0], p0),
+            ResOperation(rop.FINISH, [p0], None, descr=BasicFailDescr(1))
+            ]
+        inputargs = [i0]
+        looptoken = LoopToken()
+        self.cpu.compile_loop(inputargs, operations, looptoken)
+        # overflowing value:
+        self.cpu.set_future_value_int(0, sys.maxint // 4 + 1)
+        fail = self.cpu.execute_token(looptoken)
+        assert fail.identifier == excdescr.identifier
 
 
 class OOtypeBackendTest(BaseBackendTest):

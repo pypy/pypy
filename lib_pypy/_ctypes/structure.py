@@ -14,6 +14,15 @@ def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
             raise TypeError("Expected CData subclass, got %s" % (tp,))
         if isinstance(tp, StructOrUnionMeta):
             tp._make_final()
+        if len(f) == 3:
+            if (not hasattr(tp, '_type_')
+                or not isinstance(tp._type_, str)
+                or tp._type_ not in "iIhHbBlL"):
+                #XXX: are those all types?
+                #     we just dont get the type name
+                #     in the interp levle thrown TypeError
+                #     from rawffi if there are more
+                raise TypeError('bit fields not allowed for type ' + tp.__name__)
 
     all_fields = []
     for cls in reversed(inspect.getmro(superclass)):
@@ -34,34 +43,37 @@ def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
     for i, field in enumerate(all_fields):
         name = field[0]
         value = field[1]
+        is_bitfield = (len(field) == 3)
         fields[name] = Field(name,
                              self._ffistruct.fieldoffset(name),
                              self._ffistruct.fieldsize(name),
-                             value, i)
+                             value, i, is_bitfield)
 
     if anonymous_fields:
         resnames = []
         for i, field in enumerate(all_fields):
             name = field[0]
             value = field[1]
+            is_bitfield = (len(field) == 3)
             startpos = self._ffistruct.fieldoffset(name)
             if name in anonymous_fields:
                 for subname in value._names:
                     resnames.append(subname)
-                    relpos = startpos + value._fieldtypes[subname].offset
-                    subvalue = value._fieldtypes[subname].ctype
+                    subfield = getattr(value, subname)
+                    relpos = startpos + subfield.offset
+                    subvalue = subfield.ctype
                     fields[subname] = Field(subname,
                                             relpos, subvalue._sizeofinstances(),
-                                            subvalue, i)
+                                            subvalue, i, is_bitfield)
             else:
                 resnames.append(name)
         names = resnames
     self._names = names
-    self._fieldtypes = fields
+    self.__dict__.update(fields)
 
 class Field(object):
-    def __init__(self, name, offset, size, ctype, num):
-        for k in ('name', 'offset', 'size', 'ctype', 'num'):
+    def __init__(self, name, offset, size, ctype, num, is_bitfield):
+        for k in ('name', 'offset', 'size', 'ctype', 'num', 'is_bitfield'):
             self.__dict__[k] = locals()[k]
 
     def __setattr__(self, name, value):
@@ -71,6 +83,35 @@ class Field(object):
         return "<Field '%s' offset=%d size=%d>" % (self.name, self.offset,
                                                    self.size)
 
+    def __get__(self, obj, cls=None):
+        if obj is None:
+            return self
+        if self.is_bitfield:
+            # bitfield member, use direct access
+            return obj._buffer.__getattr__(self.name)
+        else:
+            fieldtype = self.ctype
+            offset = self.num
+            suba = obj._subarray(fieldtype, self.name)
+            return fieldtype._CData_output(suba, obj, offset)
+
+
+    def __set__(self, obj, value):
+        fieldtype = self.ctype
+        cobj = fieldtype.from_param(value)
+        if ensure_objects(cobj) is not None:
+            key = keepalive_key(self.num)
+            store_reference(obj, key, cobj._objects)
+        arg = cobj._get_buffer_value()
+        if fieldtype._fficompositesize is not None:
+            from ctypes import memmove
+            dest = obj._buffer.fieldaddress(self.name)
+            memmove(dest, arg, fieldtype._fficompositesize)
+        else:
+            obj._buffer.__setattr__(self.name, arg)
+
+
+
 # ________________________________________________________________
 
 def _set_shape(tp, rawfields, is_union=False):
@@ -79,17 +120,12 @@ def _set_shape(tp, rawfields, is_union=False):
     tp._ffiargshape = tp._ffishape = (tp._ffistruct, 1)
     tp._fficompositesize = tp._ffistruct.size
 
-def struct_getattr(self, name):
-    if name not in ('_fields_', '_fieldtypes'):
-        if hasattr(self, '_fieldtypes') and name in self._fieldtypes:
-            return self._fieldtypes[name]
-    return _CDataMeta.__getattribute__(self, name)
 
 def struct_setattr(self, name, value):
     if name == '_fields_':
         if self.__dict__.get('_fields_', None) is not None:
             raise AttributeError("_fields_ is final")
-        if self in [v for k, v in value]:
+        if self in [f[1] for f in value]:
             raise AttributeError("Structure or union cannot contain itself")
         names_and_fields(
             self,
@@ -127,10 +163,8 @@ class StructOrUnionMeta(_CDataMeta):
         if '_fields_' not in self.__dict__:
             self._fields_ = []
             self._names = []
-            self._fieldtypes = {}
             _set_shape(self, [], self._is_union)
 
-    __getattr__ = struct_getattr
     __setattr__ = struct_setattr
 
     def from_address(self, address):
@@ -199,40 +233,6 @@ class StructOrUnion(_CData):
         address = self._buffer.fieldaddress(name)
         A = _rawffi.Array(fieldtype._ffishape)
         return A.fromaddress(address, 1)
-
-    def __setattr__(self, name, value):
-        try:
-            field = self._fieldtypes[name]
-        except KeyError:
-            return _CData.__setattr__(self, name, value)
-        fieldtype = field.ctype
-        cobj = fieldtype.from_param(value)
-        if ensure_objects(cobj) is not None:
-            key = keepalive_key(field.num)
-            store_reference(self, key, cobj._objects)
-        arg = cobj._get_buffer_value()
-        if fieldtype._fficompositesize is not None:
-            from ctypes import memmove
-            dest = self._buffer.fieldaddress(name)
-            memmove(dest, arg, fieldtype._fficompositesize)
-        else:
-            self._buffer.__setattr__(name, arg)
-
-    def __getattribute__(self, name):
-        if name == '_fieldtypes':
-            return _CData.__getattribute__(self, '_fieldtypes')
-        try:
-            field = self._fieldtypes[name]
-        except KeyError:
-            return _CData.__getattribute__(self, name)
-        if field.size >> 16:
-            # bitfield member, use direct access
-            return self._buffer.__getattr__(name)
-        else:
-            fieldtype = field.ctype
-            offset = field.num
-            suba = self._subarray(fieldtype, name)
-            return fieldtype._CData_output(suba, self, offset)
 
     def _get_buffer_for_param(self):
         return self

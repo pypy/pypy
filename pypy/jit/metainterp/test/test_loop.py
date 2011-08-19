@@ -1,5 +1,5 @@
 import py
-from pypy.rlib.jit import JitDriver
+from pypy.rlib.jit import JitDriver, hint
 from pypy.rlib.objectmodel import compute_hash
 from pypy.jit.metainterp.warmspot import ll_meta_interp, get_stats
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
@@ -798,7 +798,70 @@ class LoopTest(object):
                 some_fn(Stuff(n), k, z)
             return 0
 
-        res = self.meta_interp(f, [200])
+        res = self.meta_interp(f, [200])        
+
+    def test_regular_pointers_in_short_preamble(self):
+        # XXX do we really care about this case?  If not, we should
+        # at least detect it and complain during codewriter/jtransform
+        from pypy.rpython.lltypesystem import lltype
+        BASE = lltype.GcStruct('BASE')
+        A = lltype.GcStruct('A', ('parent', BASE), ('val', lltype.Signed))
+        B = lltype.GcStruct('B', ('parent', BASE), ('charval', lltype.Char))
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'm', 'i', 'j', 'sa', 'p'])
+        def f(n, m, j):
+            i = sa = 0
+            pa = lltype.malloc(A)
+            pa.val = 7
+            p = pa.parent
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, m=m, i=i, j=j, sa=sa, p=p)
+                if i < m:
+                    pa = lltype.cast_pointer(lltype.Ptr(A), p)
+                    sa += pa.val
+                elif i == m:
+                    pb = lltype.malloc(B)
+                    pb.charval = 'y'
+                    p = pb.parent
+                else:
+                    pb = lltype.cast_pointer(lltype.Ptr(B), p)
+                    sa += ord(pb.charval)
+                sa += 100
+                assert n>0 and m>0
+                i += j
+            return sa
+        expected = f(20, 10, 1)
+        res = self.meta_interp(f, [20, 10, 1])
+        assert res == expected
+
+    def test_unerased_pointers_in_short_preamble(self):
+        from pypy.rlib.rerased import new_erasing_pair
+        from pypy.rpython.lltypesystem import lltype
+        class A(object):
+            def __init__(self, val):
+                self.val = val
+        erase_A, unerase_A = new_erasing_pair('A')
+        erase_TP, unerase_TP = new_erasing_pair('TP')
+        TP = lltype.GcArray(lltype.Signed)
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'm', 'i', 'j', 'sa', 'p'])
+        def f(n, m, j):
+            i = sa = 0
+            p = erase_A(A(7))
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, m=m, i=i, j=j, sa=sa, p=p)
+                if i < m:
+                    sa += unerase_A(p).val
+                elif i == m:
+                    a = lltype.malloc(TP, 5)
+                    a[0] = 42
+                    p = erase_TP(a)
+                else:
+                    sa += unerase_TP(p)[0]
+                sa += A(i).val
+                assert n>0 and m>0
+                i += j
+            return sa
+        res = self.meta_interp(f, [20, 10, 1])
+        assert res == f(20, 10, 1)
 
 class TestOOtype(LoopTest, OOJitMixin):
     pass

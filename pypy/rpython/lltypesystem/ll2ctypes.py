@@ -27,7 +27,11 @@ from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
 from pypy.rpython import raddress
 from pypy.translator.platform import platform
 from array import array
-from thread import _local as tlsobject
+try:
+    from thread import _local as tlsobject
+except ImportError:
+    class tlsobject(object):
+        pass
 
 # ____________________________________________________________
 
@@ -688,6 +692,8 @@ def lltype2ctypes(llobj, normalize=True):
                     res = ctypes.cast(res, ctypes.c_void_p).value
                     if res is None:
                         return 0
+                if T.TO.RESULT == lltype.SingleFloat:
+                    res = res.value     # baaaah, cannot return a c_float()
                 return res
 
             def callback(*cargs):

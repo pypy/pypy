@@ -38,12 +38,10 @@ def w_array(space, w_cls, typecode, __args__):
                 w_initializer = __args__.arguments_w[0]
                 if space.type(w_initializer) is space.w_str:
                     a.fromstring(space.str_w(w_initializer))
-                elif space.type(w_initializer) is space.w_unicode:
-                    a.fromsequence(w_initializer)
                 elif space.type(w_initializer) is space.w_list:
                     a.fromlist(w_initializer)
                 else:
-                    a.extend(w_initializer)
+                    a.extend(w_initializer, True)
             break
     else:
         msg = 'bad typecode (must be c, b, B, u, h, H, i, I, l, L, f or d)'
@@ -226,7 +224,8 @@ def make_array(mytype):
                     some += size >> 3
                     self.allocated = size + some
                     new_buffer = lltype.malloc(mytype.arraytype,
-                                               self.allocated, flavor='raw')
+                                               self.allocated, flavor='raw',
+                                               add_memory_pressure=True)
                     for i in range(min(size, self.len)):
                         new_buffer[i] = self.buffer[i]
                 else:
@@ -286,7 +285,7 @@ def make_array(mytype):
                 self.setlen(s)
                 raise
 
-        def extend(self, w_iterable):
+        def extend(self, w_iterable, accept_different_array=False):
             space = self.space
             if isinstance(w_iterable, W_Array):
                 oldlen = self.len
@@ -299,7 +298,8 @@ def make_array(mytype):
                     self.buffer[oldlen + i] = w_iterable.buffer[i]
                     i += 1
                 self.setlen(oldlen + i)
-            elif isinstance(w_iterable, W_ArrayBase):
+            elif (not accept_different_array
+                  and isinstance(w_iterable, W_ArrayBase)):
                 msg = "can only extend with array of same kind"
                 raise OperationError(space.w_TypeError, space.wrap(msg))
             else:

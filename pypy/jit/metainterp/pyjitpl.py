@@ -15,7 +15,7 @@ from pypy.jit.metainterp.logger import Logger
 from pypy.jit.metainterp.jitprof import EmptyProfiler
 from pypy.jit.metainterp.jitprof import GUARDS, RECORDED_OPS, ABORT_ESCAPE
 from pypy.jit.metainterp.jitprof import ABORT_TOO_LONG, ABORT_BRIDGE, \
-                                        ABORT_FORCE_QUASIIMMUT
+                                        ABORT_FORCE_QUASIIMMUT, ABORT_BAD_LOOP
 from pypy.jit.metainterp.jitexc import JitException, get_llexception
 from pypy.rlib.objectmodel import specialize
 from pypy.jit.codewriter.jitcode import JitCode, SwitchDictDescr
@@ -215,6 +215,7 @@ class MIFrame(object):
 
     for _opimpl in ['int_is_true', 'int_is_zero', 'int_neg', 'int_invert',
                     'cast_float_to_int', 'cast_int_to_float',
+                    'cast_float_to_singlefloat', 'cast_singlefloat_to_float',
                     'float_neg', 'float_abs',
                     ]:
         exec py.code.Source('''
@@ -230,6 +231,10 @@ class MIFrame(object):
     @arguments("box")
     def opimpl_ptr_iszero(self, box):
         return self.execute(rop.PTR_EQ, box, history.CONST_NULL)
+
+    @arguments("box")
+    def opimpl_cast_opaque_ptr(self, box):
+        return self.execute(rop.CAST_OPAQUE_PTR, box)
 
     @arguments("box")
     def _opimpl_any_return(self, box):
@@ -1227,7 +1232,7 @@ class MIFrame(object):
         src_i = src_r = src_f = 0
         i = 1
         for kind in descr.get_arg_types():
-            if kind == history.INT:
+            if kind == history.INT or kind == 'S':        # single float
                 while True:
                     box = argboxes[src_i]
                     src_i += 1
@@ -1378,9 +1383,9 @@ class MetaInterpStaticData(object):
             num = self.cpu.get_fail_descr_number(tokens[0].finishdescr)
             setattr(self.cpu, 'done_with_this_frame_%s_v' % name, num)
         #
-        tokens = self.loop_tokens_exit_frame_with_exception_ref
-        num = self.cpu.get_fail_descr_number(tokens[0].finishdescr)
-        self.cpu.exit_frame_with_exception_v = num
+        exc_descr = compile.PropagateExceptionDescr()
+        num = self.cpu.get_fail_descr_number(exc_descr)
+        self.cpu.propagate_exception_v = num
         #
         self.globaldata = MetaInterpGlobalData(self)
 
@@ -1424,6 +1429,7 @@ class MetaInterpStaticData(object):
                 # can change from run to run.
                 d = {}
                 for jitcode in self.indirectcalltargets:
+                    assert jitcode.fnaddr not in d
                     d[jitcode.fnaddr] = jitcode
                 self.globaldata.indirectcall_dict = d
             return d.get(fnaddress, None)

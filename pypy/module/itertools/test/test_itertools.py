@@ -266,6 +266,13 @@ class AppTestItertools:
         raises(StopIteration, islc.next)  # drops the 6th and raise
         assert it.next() == "j"
 
+        it = iter("abcdefghij")
+        islc = itertools.islice(it, 3, 4, 3)
+        assert islc.next() == "d"    # drops 0, 1, 2, returns item #3
+        assert it.next() == "e"
+        raises(StopIteration, islc.next)  # item #4 is 'stop', so just raise
+        assert it.next() == "f"
+
     def test_islice_overflow(self):
         import itertools
         import sys

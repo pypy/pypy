@@ -19,8 +19,9 @@ def convert_error(space, error):
     w_exception_class = space.fromcache(Cache).w_error
     return wrap_oserror(space, error, w_exception_class=w_exception_class)
 
-@unwrap_spec(fd=int, when=int)
-def tcsetattr(space, fd, when, w_attributes):
+@unwrap_spec(when=int)
+def tcsetattr(space, w_fd, when, w_attributes):
+    fd = space.c_filedescriptor_w(w_fd)
     w_iflag, w_oflag, w_cflag, w_lflag, w_ispeed, w_ospeed, w_cc = \
              space.unpackiterable(w_attributes, expected_length=7)
     w_builtin = space.getbuiltinmodule('__builtin__')
@@ -40,8 +41,8 @@ def tcsetattr(space, fd, when, w_attributes):
     except OSError, e:
         raise convert_error(space, e)
 
-@unwrap_spec(fd=int)
-def tcgetattr(space, fd):
+def tcgetattr(space, w_fd):
+    fd = space.c_filedescriptor_w(w_fd)
     try:
         tup = rtermios.tcgetattr(fd)
     except OSError, e:
@@ -57,29 +58,32 @@ def tcgetattr(space, fd):
     l_w.append(w_cc)
     return space.newlist(l_w)
 
-@unwrap_spec(fd=int, duration=int)
-def tcsendbreak(space, fd, duration):
+@unwrap_spec(duration=int)
+def tcsendbreak(space, w_fd, duration):
+    fd = space.c_filedescriptor_w(w_fd)
     try:
         termios.tcsendbreak(fd, duration)
     except OSError, e:
         raise convert_error(space, e)
 
-@unwrap_spec(fd=int)
-def tcdrain(space, fd):
+def tcdrain(space, w_fd):
+    fd = space.c_filedescriptor_w(w_fd)
     try:
         termios.tcdrain(fd)
     except OSError, e:
         raise convert_error(space, e)
 
-@unwrap_spec(fd=int, queue=int)
-def tcflush(space, fd, queue):
+@unwrap_spec(queue=int)
+def tcflush(space, w_fd, queue):
+    fd = space.c_filedescriptor_w(w_fd)
     try:
         termios.tcflush(fd, queue)
     except OSError, e:
         raise convert_error(space, e)
 
-@unwrap_spec(fd=int, action=int)
-def tcflow(space, fd, action):
+@unwrap_spec(action=int)
+def tcflow(space, w_fd, action):
+    fd = space.c_filedescriptor_w(w_fd)
     try:
         termios.tcflow(fd, action)
     except OSError, e:

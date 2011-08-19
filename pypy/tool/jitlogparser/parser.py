@@ -174,6 +174,8 @@ class TraceForOpcode(object):
         return self.code is not None
 
     def getopcode(self):
+        if self.code is None:
+            return None
         return self.code.map[self.bytecode_no]
 
     def getlineno(self):
@@ -328,6 +330,8 @@ def adjust_bridges(loop, bridges):
         if op.is_guard() and bridges.get('loop-' + str(op.guard_no), None):
             res.append(op)
             i = 0
+            if hasattr(op.bridge, 'force_asm'):
+                op.bridge.force_asm()
             ops = op.bridge.operations
         else:
             res.append(op)

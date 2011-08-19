@@ -390,6 +390,11 @@ class MiniMarkGC(MovingGCBase):
         # initialize the threshold
         self.min_heap_size = max(self.min_heap_size, self.nursery_size *
                                               self.major_collection_threshold)
+        # the following two values are usually equal, but during raw mallocs
+        # of arrays, next_major_collection_threshold is decremented to make
+        # the next major collection arrive earlier.
+        # See translator/c/test/test_newgc, test_nongc_attached_to_gc
+        self.next_major_collection_initial = self.min_heap_size
         self.next_major_collection_threshold = self.min_heap_size
         self.set_major_threshold_from(0.0)
         debug_stop("gc-set-nursery-size")
@@ -397,7 +402,7 @@ class MiniMarkGC(MovingGCBase):
 
     def set_major_threshold_from(self, threshold, reserving_size=0):
         # Set the next_major_collection_threshold.
-        threshold_max = (self.next_major_collection_threshold *
+        threshold_max = (self.next_major_collection_initial *
                          self.growth_rate_max)
         if threshold > threshold_max:
             threshold = threshold_max
@@ -412,6 +417,7 @@ class MiniMarkGC(MovingGCBase):
         else:
             bounded = False
         #
+        self.next_major_collection_initial = threshold
         self.next_major_collection_threshold = threshold
         return bounded
 
@@ -511,17 +517,19 @@ class MiniMarkGC(MovingGCBase):
         # constant-folded because self.nonlarge_max, size and itemsize
         # are all constants (the arguments are constant due to
         # inlining).
-        if not raw_malloc_usage(itemsize):
-            too_many_items = raw_malloc_usage(nonvarsize) > self.nonlarge_max
+        maxsize = self.nonlarge_max - raw_malloc_usage(nonvarsize)
+        if maxsize < 0:
+            toobig = r_uint(0)    # the nonvarsize alone is too big
+        elif raw_malloc_usage(itemsize):
+            toobig = r_uint(maxsize // raw_malloc_usage(itemsize)) + 1
         else:
-            maxlength = self.nonlarge_max - raw_malloc_usage(nonvarsize)
-            maxlength = maxlength // raw_malloc_usage(itemsize)
-            too_many_items = length > maxlength
+            toobig = r_uint(sys.maxint) + 1
 
-        if too_many_items:
+        if r_uint(length) >= r_uint(toobig):
             #
             # If the total size of the object would be larger than
-            # 'nonlarge_max', then allocate it externally.
+            # 'nonlarge_max', then allocate it externally.  We also
+            # go there if 'length' is actually negative.
             obj = self.external_malloc(typeid, length)
             #
         else:
@@ -604,13 +612,18 @@ class MiniMarkGC(MovingGCBase):
             # this includes the case of fixed-size objects, for which we
             # should not even ask for the varsize_item_sizes().
             totalsize = nonvarsize
-        else:
+        elif length > 0:
+            # var-sized allocation with at least one item
             itemsize = self.varsize_item_sizes(typeid)
             try:
                 varsize = ovfcheck(itemsize * length)
                 totalsize = ovfcheck(nonvarsize + varsize)
             except OverflowError:
                 raise MemoryError
+        else:
+            # negative length!  This likely comes from an overflow
+            # earlier.  We will just raise MemoryError here.
+            raise MemoryError
         #
         # If somebody calls this function a lot, we must eventually
         # force a full collection.
@@ -718,8 +731,17 @@ class MiniMarkGC(MovingGCBase):
     def set_max_heap_size(self, size):
         self.max_heap_size = float(size)
         if self.max_heap_size > 0.0:
+            if self.max_heap_size < self.next_major_collection_initial:
+                self.next_major_collection_initial = self.max_heap_size
             if self.max_heap_size < self.next_major_collection_threshold:
                 self.next_major_collection_threshold = self.max_heap_size
+
+    def raw_malloc_memory_pressure(self, sizehint):
+        self.next_major_collection_threshold -= sizehint
+        if self.next_major_collection_threshold < 0:
+            # cannot trigger a full collection now, but we can ensure
+            # that one will occur very soon
+            self.nursery_free = self.nursery_top
 
     def can_malloc_nonmovable(self):
         return True
@@ -1600,7 +1622,7 @@ class MiniMarkGC(MovingGCBase):
         # Max heap size: gives an upper bound on the threshold.  If we
         # already have at least this much allocated, raise MemoryError.
         if bounded and (float(self.get_total_memory_used()) + reserving_size >=
-                        self.next_major_collection_threshold):
+                        self.next_major_collection_initial):
             #
             # First raise MemoryError, giving the program a chance to
             # quit cleanly.  It might still allocate in the nursery,
@@ -1677,8 +1699,8 @@ class MiniMarkGC(MovingGCBase):
         #
         # Add the roots from the other sources.
         self.root_walker.walk_roots(
-            MiniMarkGC._collect_ref,  # stack roots
-            MiniMarkGC._collect_ref,  # static in prebuilt non-gc structures
+            MiniMarkGC._collect_ref_stk, # stack roots
+            MiniMarkGC._collect_ref_stk, # static in prebuilt non-gc structures
             None)   # we don't need the static in all prebuilt gc objects
         #
         # If we are in an inner collection caused by a call to a finalizer,
@@ -1695,8 +1717,10 @@ class MiniMarkGC(MovingGCBase):
     def _collect_obj(obj, objects_to_trace):
         objects_to_trace.append(obj)
 
-    def _collect_ref(self, root):
-        self.objects_to_trace.append(root.address[0])
+    def _collect_ref_stk(self, root):
+        obj = root.address[0]
+        llop.debug_nonnull_pointer(lltype.Void, obj)
+        self.objects_to_trace.append(obj)
 
     def _collect_ref_rec(self, root, ignored):
         self.objects_to_trace.append(root.address[0])

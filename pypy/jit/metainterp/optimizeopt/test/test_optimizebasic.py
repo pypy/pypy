@@ -2742,11 +2742,11 @@ class BaseTestOptimizeBasic(BaseTestBasic):
     def test_residual_call_invalidate_some_arrays(self):
         ops = """
         [p1, p2, i1]
-        p3 = getarrayitem_gc(p1, 0, descr=arraydescr2)
+        p3 = getarrayitem_gc(p2, 0, descr=arraydescr2)
         p4 = getarrayitem_gc(p2, 1, descr=arraydescr2)
         i2 = getarrayitem_gc(p1, 1, descr=arraydescr)
         i3 = call(i1, descr=writearraydescr)
-        p5 = getarrayitem_gc(p1, 0, descr=arraydescr2)
+        p5 = getarrayitem_gc(p2, 0, descr=arraydescr2)
         p6 = getarrayitem_gc(p2, 1, descr=arraydescr2)
         i4 = getarrayitem_gc(p1, 1, descr=arraydescr)
         escape(p3)
@@ -2759,7 +2759,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         expected = """
         [p1, p2, i1]
-        p3 = getarrayitem_gc(p1, 0, descr=arraydescr2)
+        p3 = getarrayitem_gc(p2, 0, descr=arraydescr2)
         p4 = getarrayitem_gc(p2, 1, descr=arraydescr2)
         i2 = getarrayitem_gc(p1, 1, descr=arraydescr)
         i3 = call(i1, descr=writearraydescr)
@@ -4620,6 +4620,96 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         jump(i1)
         """
         self.optimize_strunicode_loop(ops, expected)
+
+    def test_intmod_bounds(self):
+        ops = """
+        [i0, i1]
+        i2 = int_mod(i0, 12)
+        i3 = int_gt(i2, 12)
+        guard_false(i3) []
+        i4 = int_lt(i2, -12)
+        guard_false(i4) []
+        i5 = int_mod(i1, -12)
+        i6 = int_lt(i5, -12)
+        guard_false(i6) []
+        i7 = int_gt(i5, 12)
+        guard_false(i7) []
+        jump(i2, i5)
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_mod(i0, 12)
+        i5 = int_mod(i1, -12)
+        jump(i2, i5)
+        """
+        self.optimize_loop(ops, expected)
+
+        # This the sequence of resoperations that is generated for a Python
+        # app-level int % int.  When the modulus is constant and when i0
+        # is known non-negative it should be optimized to a single int_mod.
+        ops = """
+        [i0]
+        i5 = int_ge(i0, 0)
+        guard_true(i5) []
+        i1 = int_mod(i0, 42)
+        i2 = int_rshift(i1, 63)
+        i3 = int_and(42, i2)
+        i4 = int_add(i1, i3)
+        finish(i4)
+        """
+        expected = """
+        [i0]
+        i5 = int_ge(i0, 0)
+        guard_true(i5) []
+        i1 = int_mod(i0, 42)
+        finish(i1)
+        """
+        py.test.skip("in-progress")
+        self.optimize_loop(ops, expected)
+
+        # Also, 'n % power-of-two' can be turned into int_and(),
+        # but that's a bit harder to detect here because it turns into
+        # several operations, and of course it is wrong to just turn
+        # int_mod(i0, 16) into int_and(i0, 15).
+        ops = """
+        [i0]
+        i1 = int_mod(i0, 16)
+        i2 = int_rshift(i1, 63)
+        i3 = int_and(16, i2)
+        i4 = int_add(i1, i3)
+        finish(i4)
+        """
+        expected = """
+        [i0]
+        i4 = int_and(i0, 15)
+        finish(i4)
+        """
+        py.test.skip("harder")
+        self.optimize_loop(ops, expected)
+
+    def test_bounded_lazy_setfield(self):
+        ops = """
+        [p0, i0]
+        i1 = int_gt(i0, 2)
+        guard_true(i1) []
+        setarrayitem_gc(p0, 0, 3)
+        setarrayitem_gc(p0, 2, 4)
+        setarrayitem_gc(p0, i0, 15)
+        i2 = getarrayitem_gc(p0, 2)
+        jump(p0, i2)
+        """
+        # Remove the getarrayitem_gc, because we know that p[i0] does not alias
+        # p0[2]
+        expected = """
+        [p0, i0]
+        i1 = int_gt(i0, 2)
+        guard_true(i1) []
+        setarrayitem_gc(p0, i0, 15)
+        setarrayitem_gc(p0, 0, 3)
+        setarrayitem_gc(p0, 2, 4)
+        jump(p0, 4)
+        """
+        self.optimize_loop(ops, expected)
 
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
