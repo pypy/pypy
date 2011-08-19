@@ -71,6 +71,9 @@ class AppTestGreenlet:
         assert not g1 and not g1.dead
         g1.switch()
         assert not g1 and g1.dead
+        #
+        gmain = greenlet.getcurrent()
+        assert gmain and not gmain.dead
 
     def test_GreenletExit(self):
         from greenlet import greenlet, GreenletExit

@@ -50,7 +50,7 @@ class greenlet(_continulet):
     def __switch(self, unbound_method, *args):
         current = getcurrent()
         target = self
-        if not target.is_pending() and not target.__main:
+        if not target:
             if not target.__started:
                 _continulet.__init__(target, _greenlet_start, *args)
                 args = (None,)
@@ -85,7 +85,8 @@ class greenlet(_continulet):
         else:
             return args
 
-    __nonzero__ = _continulet.is_pending
+    def __nonzero__(self):
+        return self.__main or _continulet.is_pending(self)
 
     @property
     def dead(self):
