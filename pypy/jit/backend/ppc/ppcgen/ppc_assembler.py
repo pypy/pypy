@@ -4,6 +4,7 @@ from pypy.jit.backend.ppc.ppcgen.ppc_form import PPCForm as Form
 from pypy.jit.backend.ppc.ppcgen.ppc_field import ppc_fields
 from pypy.jit.backend.ppc.ppcgen.assembler import Assembler
 from pypy.jit.backend.ppc.ppcgen.symbol_lookup import lookup
+from pypy.jit.backend.ppc.ppcgen.arch import IS_PPC_32
 from pypy.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from pypy.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 from pypy.rpython.lltypesystem import lltype, rffi
@@ -901,7 +902,13 @@ class PPCBuilder(PPCAssembler):
         self.ori(rD, rD, lo(word))
 
     def load_from(self, rD, addr):
-        self.addis(rD, 0, ha(addr))
+        if IS_PPC_32:
+            self.addis(rD, 0, ha(addr))
+        else:
+            self.addis(rD, 0, highest(addr))
+            self.ori(rD, rD, higher(addr))
+            self.sldi(rD, rD, 32)
+            self.oris(rD, rD, high(addr))
         self.lwz(rD, rD, la(addr))
 
     def store_reg(self, source_reg, addr):

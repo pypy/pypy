@@ -6,7 +6,7 @@ from pypy.jit.backend.ppc.ppcgen.symbol_lookup import lookup
 from pypy.jit.backend.ppc.ppcgen.regname import *
 from pypy.jit.backend.ppc.ppcgen import form, pystructs
 from pypy.jit.backend.detect_cpu import autodetect_main_model
-from pypy.jit.backend.ppc.ppcgen.arch import WORD
+from pypy.jit.backend.ppc.ppcgen.arch import IS_PPC_32, IS_PPC_64, WORD
 
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.annlowlevel import llhelper
@@ -140,6 +140,8 @@ class TestAssemble(object):
         a.load_word(5, word)
         a.load_word(6, word)
         a.mullw(3, 5, 6)
+        if IS_PPC_64:
+            a.extsw(3, 3)
         a.blr()
 
     # 1000000 * 1000000 = 0b1110100011010100101001010001000000000000
@@ -150,6 +152,8 @@ class TestAssemble(object):
         a.load_word(5, word)
         a.load_word(6, word)
         a.mulhw(3, 5, 6)
+        if IS_PPC_64:
+            a.extsw(3, 3)
         a.blr()
 
     # 1000000 * 1000000 = 0b1110100011010100101001010001000000000000
@@ -160,6 +164,8 @@ class TestAssemble(object):
         a.load_word(5, word)
         a.load_word(6, word)
         a.mulhwu(3, 5, 6)
+        if IS_PPC_64:
+            a.extsw(3, 3)
         a.blr()
 
     @asmtest(expected=10000)
@@ -172,6 +178,8 @@ class TestAssemble(object):
         a.blr()
 
     def test_call_function(self):
+        if is_64_bit_arch():
+            py.test.skip("call 64 bit")
         functype =  lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
         call_addr = rffi.cast(lltype.Signed, llhelper(functype, func))
         a = PPCBuilder()
@@ -262,8 +270,12 @@ class TestAssemble(object):
         a.load_word(10, word1)
         a.load_word(11, word2)
 
-        a.load_word(8, rffi.cast(lltype.Signed, p))
-        a.load_word(9, rffi.cast(lltype.Signed, p) + WORD)
+        if IS_PPC_64:
+            a.load_dword(8, rffi.cast(lltype.Signed, p))
+            a.load_dword(9, rffi.cast(lltype.Signed, p) + WORD)
+        else:
+            a.load_word(8, rffi.cast(lltype.Signed, p))
+            a.load_word(9, rffi.cast(lltype.Signed, p) + WORD)
 
         a.stw(10, 8, 0)
         a.stw(11, 9, 0)
@@ -292,14 +304,14 @@ class TestAssemble(object):
 
     def test_ld(self):
         if not is_64_bit_arch():
-            py.test.skip("maybe works on 64 bit?")
+            py.test.skip("works on 64 bit")
         a = PPCBuilder()
 
-        p = lltype.malloc(rffi.CArray(rffi.INT), 1, flavor="raw")
+        p = lltype.malloc(rffi.CArray(rffi.LONG), 1, flavor="raw")
         addr = rffi.cast(lltype.Signed, p)
-        p[0] = rffi.cast(rffi.INT, 200)
+        p[0] = rffi.cast(rffi.LONG, 200)
 
-        a.load_word(3, addr)
+        a.load_dword(3, addr)
         a.ld(3, 3, 0)
         a.blr()
 
