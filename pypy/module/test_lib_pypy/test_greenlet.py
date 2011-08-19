@@ -53,3 +53,14 @@ class AppTestGreenlet:
         #
         g1 = greenlet(fmain)
         raises(ValueError, g1.switch)
+
+    def test_dead(self):
+        from greenlet import greenlet
+        #
+        def fmain():
+            assert g1 and not g1.dead
+        #
+        g1 = greenlet(fmain)
+        assert not g1 and not g1.dead
+        g1.switch()
+        assert not g1 and g1.dead

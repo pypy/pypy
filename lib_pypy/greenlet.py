@@ -78,23 +78,13 @@ class greenlet(_continulet):
 
     def throw(self, typ=GreenletExit, val=None, tb=None):
         "raise exception in greenlet, return value passed when switching back"
-        if self.__state_dead():
-            # dead greenlet: turn GreenletExit into a regular return
-            if (isinstance(typ, type(GreenletExit)) and
-                issubclass(typ, GreenletExit)):
-                if val is None:
-                    return self.switch(typ())
-                if isinstance(val, GreenletExit):
-                    return self.switch(val)
-            if isinstance(typ, GreenletExit):
-                return self.switch(typ)
-        #
-        _tls.passaround_exception = (typ, val, tb)
-        return self.switch()
+        XXX
 
     __nonzero__ = _continulet.is_pending
 
-##    dead     = property(__state_dead)
+    @property
+    def dead(self):
+        return self.__started and not self
 
     @property
     def parent(self):
