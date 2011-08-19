@@ -20,6 +20,13 @@ class AppTestGreenlet:
         lst.append(4)
         assert lst == range(5)
 
+    def test_parent(self):
+        from greenlet import greenlet
+        gmain = greenlet.getcurrent()
+        assert gmain.parent is None
+        g = greenlet(lambda: None)
+        assert g.parent is gmain
+
     def test_pass_around(self):
         from greenlet import greenlet
         seen = []
