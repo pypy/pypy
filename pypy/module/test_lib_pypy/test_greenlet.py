@@ -133,3 +133,54 @@ class AppTestGreenlet:
         g2.switch()
         res = g1.switch()
         assert res == "ok"
+
+    def test_nondefault_parent(self):
+        from greenlet import greenlet
+        gmain = greenlet.getcurrent()
+        #
+        def f1():
+            g2 = greenlet(f2)
+            res = g2.switch()
+            assert res == "from 2"
+            return "from 1"
+        #
+        def f2():
+            return "from 2"
+        #
+        g1 = greenlet(f1)
+        res = g1.switch()
+        assert res == "from 1"
+
+    def test_change_parent(self):
+        from greenlet import greenlet
+        gmain = greenlet.getcurrent()
+        #
+        def f1():
+            res = g2.switch()
+            assert res == "from 2"
+            return "from 1"
+        #
+        def f2():
+            return "from 2"
+        #
+        g1 = greenlet(f1)
+        g2 = greenlet(f2)
+        g2.parent = g1
+        res = g1.switch()
+        assert res == "from 1"
+
+    def test_raises_through_parent_chain(self):
+        from greenlet import greenlet
+        gmain = greenlet.getcurrent()
+        #
+        def f1():
+            raises(IndexError, g2.switch)
+            raise ValueError
+        #
+        def f2():
+            raise IndexError
+        #
+        g1 = greenlet(f1)
+        g2 = greenlet(f2)
+        g2.parent = g1
+        raises(ValueError, g1.switch)

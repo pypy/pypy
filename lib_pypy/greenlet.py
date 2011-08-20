@@ -34,9 +34,12 @@ class greenlet(_continulet):
     __main = False
     __started = False
 
-    def __init__(self, run=None):
+    def __init__(self, run=None, parent=None):
         if run is not None:
             self.run = run
+        if parent is None:
+            parent = getcurrent()
+        self.parent = parent
 
     def switch(self, *args):
         "Switch execution to this greenlet, optionally passing the values "
@@ -92,14 +95,6 @@ class greenlet(_continulet):
     def dead(self):
         return self.__started and not self
 
-    @property
-    def parent(self):
-        # Don't support nesting for now.
-        if self.__main:
-            return None
-        else:
-            return _tls.main
-
 # ____________________________________________________________
 # Internal stuff
 
@@ -116,10 +111,15 @@ def _green_create_main():
     gmain = greenlet.__new__(greenlet)
     gmain._greenlet__main = True
     gmain._greenlet__started = True
+    gmain.parent = None
     _tls.main = gmain
     _tls.current = gmain
 
 def _greenlet_start(greenlet, args):
     _tls.current = greenlet
-    res = greenlet.run(*args)
+    try:
+        res = greenlet.run(*args)
+    finally:
+        if greenlet.parent is not _tls.main:
+            _continuation.permute(greenlet, greenlet.parent)
     return (res,)
