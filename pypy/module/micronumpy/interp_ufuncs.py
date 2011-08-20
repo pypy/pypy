@@ -1,7 +1,6 @@
 import math
 
-from pypy.module.micronumpy import interp_dtype
-from pypy.module.micronumpy.interp_support import Signature
+from pypy.module.micronumpy import interp_dtype, signature
 from pypy.rlib import rfloat
 from pypy.tool.sourcetools import func_with_new_name
 
@@ -9,7 +8,7 @@ from pypy.tool.sourcetools import func_with_new_name
 def ufunc(func=None, promote_to_float=False):
     if func is None:
         return lambda func: ufunc(func, promote_to_float)
-    signature = Signature()
+    call_sig = signature.Call1(func)
     def impl(space, w_obj):
         from pypy.module.micronumpy.interp_numarray import (Call1,
             convert_to_array, Scalar)
@@ -17,18 +16,19 @@ def ufunc(func=None, promote_to_float=False):
         w_obj = convert_to_array(space, w_obj)
         if isinstance(w_obj, Scalar):
             res_dtype = space.fromcache(interp_dtype.W_Float64Dtype)
-            return func(res_dtype, w_obj).wrap(space)
+            return func(res_dtype, w_obj.value).wrap(space)
 
-        w_res = Call1(func, w_obj, w_obj.signature.transition(signature))
-        w_obj.invalidates.append(w_res)
+        new_sig = signature.Signature.find_sig([call_sig, w_obj.signature])
+        w_res = Call1(new_sig, w_obj)
+        w_obj.add_invalidates(w_res)
         return w_res
     return func_with_new_name(impl, "%s_dispatcher" % func.__name__)
 
 def ufunc2(func=None, promote_to_float=False):
     if func is None:
-        return lambda func: ufunc2(func)
+        return lambda func: ufunc2(func, promote_to_float)
 
-    signature = Signature()
+    call_sig = signature.Call2(func)
     def impl(space, w_lhs, w_rhs):
         from pypy.module.micronumpy.interp_numarray import (Call2,
             convert_to_array, Scalar)
@@ -37,12 +37,12 @@ def ufunc2(func=None, promote_to_float=False):
         w_rhs = convert_to_array(space, w_rhs)
         if isinstance(w_lhs, Scalar) and isinstance(w_rhs, Scalar):
             res_dtype = space.fromcache(interp_dtype.W_Float64Dtype)
-            return func(res_dtype, w_lhs, w_rhs).wrap(space)
+            return func(res_dtype, w_lhs.value, w_rhs.value).wrap(space)
 
-        new_sig = w_lhs.signature.transition(signature).transition(w_rhs.signature)
-        w_res = Call2(space, func, w_lhs, w_rhs, new_sig)
-        w_lhs.invalidates.append(w_res)
-        w_rhs.invalidates.append(w_res)
+        new_sig = signature.Signature.find_sig([call_sig, w_lhs.signature, w_rhs.signature])
+        w_res = Call2(space, new_sig, w_lhs, w_rhs)
+        w_lhs.add_invalidates(w_res)
+        w_rhs.add_invalidates(w_res)
         return w_res
     return func_with_new_name(impl, "%s_dispatcher" % func.__name__)
 
@@ -82,8 +82,7 @@ def ufunc_dtype_caller(ufunc_name, op_name, argcount, **kwargs):
         @ufunc2(**kwargs)
         def impl(res_dtype, lvalue, rvalue):
             return getattr(res_dtype, op_name)(lvalue, rvalue)
-    impl.__name__ = ufunc_name
-    return impl
+    return func_with_new_name(impl, ufunc_name)
 
 for ufunc_def in [
     ("add", "add", 2),

@@ -1,8 +1,8 @@
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.module.micronumpy.compile import numpy_compile
 from pypy.module.micronumpy.interp_dtype import W_Float64Dtype
-from pypy.module.micronumpy.interp_numarray import (SingleDimArray, Signature,
-    Scalar, Call2, SingleDimSlice, Call1)
+from pypy.module.micronumpy.interp_numarray import (SingleDimArray, Scalar,
+    Call2, SingleDimSlice, Call1)
 from pypy.module.micronumpy.interp_ufuncs import negative, add
 from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.objectmodel import specialize

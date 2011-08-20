@@ -4,6 +4,7 @@ import math
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
+from pypy.module.micronumpy import signature
 from pypy.objspace.std.floatobject import float2string
 from pypy.rlib import rfloat
 from pypy.rlib.rarithmetic import widen
@@ -60,6 +61,8 @@ def create_low_level_dtype(num, kind, name, aliases, applevel_types, T, valtype)
 
     TP = lltype.Ptr(lltype.Array(T, hints={'nolength': True}))
     class W_LowLevelDtype(W_Dtype):
+        signature = signature.BaseSignature()
+
         def erase(self, storage):
             return rffi.cast(VOID_TP, storage)
 

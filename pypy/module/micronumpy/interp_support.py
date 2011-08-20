@@ -32,13 +32,3 @@ def fromstring(space, s):
         end += FLOAT_SIZE
 
     return space.wrap(a)
-
-class Signature(object):
-    def __init__(self):
-        self.transitions = {}
-
-    def transition(self, target):
-        if target in self.transitions:
-            return self.transitions[target]
-        self.transitions[target] = new = Signature()
-        return new

@@ -4,8 +4,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
-from pypy.module.micronumpy import interp_ufuncs, interp_dtype
-from pypy.module.micronumpy.interp_support import Signature
+from pypy.module.micronumpy import interp_ufuncs, interp_dtype, signature
 from pypy.rlib import jit
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rfloat import DTSF_STR_PRECISION
@@ -21,8 +20,6 @@ slice_driver1 = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'sto
 slice_driver2 = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop', 'source', 'dest'])
 
 class BaseArray(Wrappable):
-    signature = None
-
     def __init__(self):
         self.invalidates = []
 
@@ -34,6 +31,9 @@ class BaseArray(Wrappable):
         for arr in self.invalidates:
             arr.force_if_needed()
         del self.invalidates[:]
+
+    def add_invalidates(self, other):
+        self.invalidates.append(other)
 
     def descr__new__(space, w_subtype, w_size_or_iterable, w_dtype=NoneNotWrapped):
         if w_dtype is None:
@@ -243,7 +243,10 @@ class BaseArray(Wrappable):
             return self.get_concrete().eval(start).wrap(space)
         else:
             # Slice
-            res = SingleDimSlice(start, stop, step, slice_length, self, self.signature.transition(SingleDimSlice.static_signature))
+            new_sig = signature.Signature.find_sig([
+                SingleDimSlice.signature, self.signature
+            ])
+            res = SingleDimSlice(start, stop, step, slice_length, self, new_sig)
             return space.wrap(res)
 
     def descr_setitem(self, space, w_idx, w_value):
@@ -318,7 +321,7 @@ class Scalar(BaseArray):
     """
     Intermediate class representing a float literal.
     """
-    signature = Signature()
+    signature = signature.BaseSignature()
 
     def __init__(self, value):
         BaseArray.__init__(self)
@@ -386,9 +389,8 @@ class VirtualArray(BaseArray):
 
 
 class Call1(VirtualArray):
-    def __init__(self, function, values, signature):
+    def __init__(self, signature, values):
         VirtualArray.__init__(self, signature)
-        self.function = function
         self.values = values
 
     def _del_sources(self):
@@ -401,15 +403,16 @@ class Call1(VirtualArray):
         return self.values.find_dtype()
 
     def _eval(self, i):
-        return self.function(self.find_dtype(), self.values.eval(i))
+        call_sig = self.signature.components[0]
+        assert isinstance(call_sig, signature.Call1)
+        return call_sig.func(self.find_dtype(), self.values.eval(i))
 
 class Call2(VirtualArray):
     """
     Intermediate class for performing binary operations.
     """
-    def __init__(self, space, function, left, right, signature):
+    def __init__(self, space, signature, left, right):
         VirtualArray.__init__(self, signature)
-        self.function = function
         self.left = left
         self.right = right
 
@@ -448,7 +451,9 @@ class Call2(VirtualArray):
         dtype = self.find_dtype()
         lhs, rhs = self.left.eval(i), self.right.eval(i)
         lhs, rhs = lhs.convert_to(dtype), rhs.convert_to(dtype)
-        return self.function(dtype, lhs, rhs)
+        call_sig = self.signature.components[0]
+        assert isinstance(call_sig, signature.Call2)
+        return call_sig.func(dtype, lhs, rhs)
 
     def _find_dtype(self):
         if self.res_dtype is not None:
@@ -487,7 +492,7 @@ class ViewArray(BaseArray):
         raise NotImplementedError
 
 class SingleDimSlice(ViewArray):
-    static_signature = Signature()
+    signature = signature.BaseSignature()
 
     def __init__(self, start, stop, step, slice_length, parent, signature):
         ViewArray.__init__(self, parent, signature)
@@ -527,13 +532,12 @@ class SingleDimSlice(ViewArray):
 
 
 class SingleDimArray(BaseArray):
-    signature = Signature()
-
     def __init__(self, size, dtype):
         BaseArray.__init__(self)
         self.size = size
         self.dtype = dtype
         self.storage = dtype.malloc(size)
+        self.signature = dtype.signature
 
     def get_concrete(self):
         return self
