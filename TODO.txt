@@ -1,0 +1,13 @@
+TODO for mering numpy-dtype-alt
+===============================
+
+* Fix signatures
+* Fix sin(<bool array>)
+* Fix for raw memory with the JIT under llgraph.
+* More operations on more dtypes
+* Any more attributes that need to be exposed at app-level
+
+For later
+=========
+
+* More APIs need dtype arguments (zeros, ones, etc.)
