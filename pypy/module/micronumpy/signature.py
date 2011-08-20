@@ -45,9 +45,3 @@ class Call2(BaseSignature):
 
     def __init__(self, func):
         self.func = func
-
-    def eq(self, other):
-        return self.func is other.func
-
-    def hash(self):
-        return compute_identity_hash(self.func)
