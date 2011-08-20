@@ -20,6 +20,13 @@ class TestSignature(object):
         v4 = ar.descr_add(space, ar)
         assert v1.signature is v4.signature
 
+        bool_ar = SingleDimArray(10, dtype=space.fromcache(interp_dtype.W_BoolDtype))
+        v5 = ar.descr_add(space, bool_ar)
+        assert v5.signature is not v1.signature
+        assert v5.signature is not v2.signature
+        v6 = ar.descr_add(space, bool_ar)
+        assert v5.signature is v6.signature
+
     def test_slice_signature(self, space):
         ar = SingleDimArray(10, dtype=space.fromcache(interp_dtype.W_Float64Dtype))
         v1 = ar.descr_getitem(space, space.wrap(slice(1, 5, 1)))

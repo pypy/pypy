@@ -11,38 +11,39 @@ def ufunc(func=None, promote_to_float=False):
         return lambda func: ufunc(func, promote_to_float)
     signature = Signature()
     def impl(space, w_obj):
-        from pypy.module.micronumpy.interp_numarray import Call1, convert_to_array, scalar
-        if space.issequence_w(w_obj):
-            w_obj_arr = convert_to_array(space, w_obj)
-            w_res = Call1(func, w_obj_arr, w_obj_arr.signature.transition(signature))
-            w_obj_arr.invalidates.append(w_res)
-            return w_res
-        else:
+        from pypy.module.micronumpy.interp_numarray import (Call1,
+            convert_to_array, Scalar)
+
+        w_obj = convert_to_array(space, w_obj)
+        if isinstance(w_obj, Scalar):
             res_dtype = space.fromcache(interp_dtype.W_Float64Dtype)
-            return func(res_dtype, scalar(space, interp_dtype.W_Float64Dtype, w_obj)).wrap(space)
+            return func(res_dtype, w_obj).wrap(space)
+
+        w_res = Call1(func, w_obj, w_obj.signature.transition(signature))
+        w_obj.invalidates.append(w_res)
+        return w_res
     return func_with_new_name(impl, "%s_dispatcher" % func.__name__)
 
 def ufunc2(func=None, promote_to_float=False):
     if func is None:
         return lambda func: ufunc2(func)
+
     signature = Signature()
     def impl(space, w_lhs, w_rhs):
-        from pypy.module.micronumpy.interp_numarray import Call2, convert_to_array, scalar
-        if space.issequence_w(w_lhs) or space.issequence_w(w_rhs):
-            w_lhs_arr = convert_to_array(space, w_lhs)
-            w_rhs_arr = convert_to_array(space, w_rhs)
-            new_sig = w_lhs_arr.signature.transition(signature).transition(w_rhs_arr.signature)
-            w_res = Call2(space, func, w_lhs_arr, w_rhs_arr, new_sig)
-            w_lhs_arr.invalidates.append(w_res)
-            w_rhs_arr.invalidates.append(w_res)
-            return w_res
-        else:
+        from pypy.module.micronumpy.interp_numarray import (Call2,
+            convert_to_array, Scalar)
+
+        w_lhs = convert_to_array(space, w_lhs)
+        w_rhs = convert_to_array(space, w_rhs)
+        if isinstance(w_lhs, Scalar) and isinstance(w_rhs, Scalar):
             res_dtype = space.fromcache(interp_dtype.W_Float64Dtype)
-            return func(
-                res_dtype,
-                scalar(space, interp_dtype.W_Float64Dtype, w_lhs),
-                scalar(space, interp_dtype.W_Float64Dtype, w_rhs),
-            ).wrap(space)
+            return func(res_dtype, w_lhs, w_rhs).wrap(space)
+
+        new_sig = w_lhs.signature.transition(signature).transition(w_rhs.signature)
+        w_res = Call2(space, func, w_lhs, w_rhs, new_sig)
+        w_lhs.invalidates.append(w_res)
+        w_rhs.invalidates.append(w_res)
+        return w_res
     return func_with_new_name(impl, "%s_dispatcher" % func.__name__)
 
 def find_binop_result_dtype(space, dt1, dt2, promote_bools=False, promote_to_float=False):
