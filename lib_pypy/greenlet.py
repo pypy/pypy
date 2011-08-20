@@ -34,12 +34,16 @@ class greenlet(_continulet):
     __main = False
     __started = False
 
+    def __new__(cls, *args, **kwds):
+        self = _continulet.__new__(cls)
+        self.parent = getcurrent()
+        return self
+
     def __init__(self, run=None, parent=None):
         if run is not None:
             self.run = run
-        if parent is None:
-            parent = getcurrent()
-        self.parent = parent
+        if parent is not None:
+            self.parent = parent
 
     def switch(self, *args):
         "Switch execution to this greenlet, optionally passing the values "
@@ -116,10 +120,11 @@ _tls = _local()
 
 def _green_create_main():
     # create the main greenlet for this thread
+    _tls.current = None
     gmain = greenlet.__new__(greenlet)
     gmain._greenlet__main = True
     gmain._greenlet__started = True
-    gmain.parent = None
+    assert gmain.parent is None
     _tls.main = gmain
     _tls.current = gmain
 
