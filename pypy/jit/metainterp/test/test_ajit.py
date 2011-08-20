@@ -2660,6 +2660,24 @@ class BasicTests:
         assert self.meta_interp(f, [20, 20, 10]) == f(20, 20, 10)
         self.check_tree_loop_count(2)
 
+    def test_excessive_bridgeing(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa'])
+
+        def f(n):
+            sa = i = 0
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, i=i, sa=sa)
+                if i & 8:
+                    sa += 2
+                if i & 16:
+                    sa += 3
+                if i & 32:
+                    sa *= 3
+                i += 1
+            return sa
+        assert self.meta_interp(f, [64]) == f(64)
+        self.check_loop_count(15)
+        self.check_loops(int_mul=8, everywhere=True)
 
     def test_retrace_limit_with_extra_guards(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a',
