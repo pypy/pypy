@@ -1994,15 +1994,6 @@ def PySet_GET_SIZE(space, anyset):
     raise NotImplementedError
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
-def PySet_Contains(space, anyset, key):
-    """Return 1 if found, 0 if not found, and -1 if an error is encountered.  Unlike
-    the Python __contains__() method, this function does not automatically
-    convert unhashable sets into temporary frozensets.  Raise a TypeError if
-    the key is unhashable. Raise PyExc_SystemError if anyset is not a
-    set, frozenset, or an instance of a subtype."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
 def PySet_Add(space, set, key):
     """Add key to a set instance.  Does not apply to frozenset
     instances.  Return 0 on success or -1 on failure. Raise a TypeError if

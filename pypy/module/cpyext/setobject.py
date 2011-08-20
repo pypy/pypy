@@ -44,3 +44,13 @@ def PySet_Size(space, ref):
         raise OperationError(space.w_TypeError,
                              space.wrap("expected set object"))
     return PySet_GET_SIZE(space, ref)
+
+@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
+def PySet_Contains(space, w_obj, w_key):
+    """Return 1 if found, 0 if not found, and -1 if an error is encountered.  Unlike
+    the Python __contains__() method, this function does not automatically
+    convert unhashable sets into temporary frozensets.  Raise a TypeError if
+    the key is unhashable. Raise PyExc_SystemError if anyset is not a
+    set, frozenset, or an instance of a subtype."""
+    w_res = space.contains(w_obj, w_key)
+    return space.int_w(w_res)
