@@ -2193,29 +2193,6 @@ def Py_UNICODE_ISALPHA(space, ch):
     """Return 1 or 0 depending on whether ch is an alphabetic character."""
     raise NotImplementedError
 
-@cpython_api([Py_UNICODE], Py_UNICODE, error=CANNOT_FAIL)
-def Py_UNICODE_TOTITLE(space, ch):
-    """Return the character ch converted to title case."""
-    raise NotImplementedError
-
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
-def Py_UNICODE_TODECIMAL(space, ch):
-    """Return the character ch converted to a decimal positive integer.  Return
-    -1 if this is not possible.  This macro does not raise exceptions."""
-    raise NotImplementedError
-
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
-def Py_UNICODE_TODIGIT(space, ch):
-    """Return the character ch converted to a single digit integer. Return -1 if
-    this is not possible.  This macro does not raise exceptions."""
-    raise NotImplementedError
-
-@cpython_api([Py_UNICODE], rffi.DOUBLE, error=CANNOT_FAIL)
-def Py_UNICODE_TONUMERIC(space, ch):
-    """Return the character ch converted to a double. Return -1.0 if this is not
-    possible.  This macro does not raise exceptions."""
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP], PyObject)
 def PyUnicode_FromFormat(space, format):
     """Take a C printf()-style format string and a variable number of
