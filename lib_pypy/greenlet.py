@@ -53,7 +53,7 @@ class greenlet(_continulet):
         if not target:
             if not target.__started:
                 _continulet.__init__(target, _greenlet_start, *args)
-                args = (None,)
+                args = ()
                 target.__started = True
             else:
                 # already done, go to main instead... xxx later
