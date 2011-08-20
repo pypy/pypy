@@ -136,7 +136,6 @@ class AppTestGreenlet:
 
     def test_nondefault_parent(self):
         from greenlet import greenlet
-        gmain = greenlet.getcurrent()
         #
         def f1():
             g2 = greenlet(f2)
@@ -153,7 +152,6 @@ class AppTestGreenlet:
 
     def test_change_parent(self):
         from greenlet import greenlet
-        gmain = greenlet.getcurrent()
         #
         def f1():
             res = g2.switch()
@@ -171,7 +169,6 @@ class AppTestGreenlet:
 
     def test_raises_through_parent_chain(self):
         from greenlet import greenlet
-        gmain = greenlet.getcurrent()
         #
         def f1():
             raises(IndexError, g2.switch)
@@ -184,3 +181,53 @@ class AppTestGreenlet:
         g2 = greenlet(f2)
         g2.parent = g1
         raises(ValueError, g1.switch)
+
+    def test_switch_to_dead_1(self):
+        from greenlet import greenlet
+        #
+        def f1():
+            return "ok"
+        #
+        g1 = greenlet(f1)
+        res = g1.switch()
+        assert res == "ok"
+        res = g1.switch("goes to gmain instead")
+        assert res == "goes to gmain instead"
+
+    def test_switch_to_dead_2(self):
+        from greenlet import greenlet
+        #
+        def f1():
+            g2 = greenlet(f2)
+            return g2.switch()
+        #
+        def f2():
+            return "ok"
+        #
+        g1 = greenlet(f1)
+        res = g1.switch()
+        assert res == "ok"
+        res = g1.switch("goes to gmain instead")
+        assert res == "goes to gmain instead"
+
+    def test_switch_to_dead_3(self):
+        from greenlet import greenlet
+        gmain = greenlet.getcurrent()
+        #
+        def f1():
+            res = g2.switch()
+            assert res == "ok"
+            res = gmain.switch("next step")
+            assert res == "goes to f1 instead"
+            return "all ok"
+        #
+        def f2():
+            return "ok"
+        #
+        g1 = greenlet(f1)
+        g2 = greenlet(f2)
+        g2.parent = g1
+        res = g1.switch()
+        assert res == "next step"
+        res = g2.switch("goes to f1 instead")
+        assert res == "all ok"

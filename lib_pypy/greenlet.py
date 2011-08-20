@@ -50,17 +50,20 @@ class greenlet(_continulet):
         "raise exception in greenlet, return value passed when switching back"
         return self.__switch(_continulet.throw, typ, val, tb)
 
-    def __switch(self, unbound_method, *args):
+    def __switch(target, unbound_method, *args):
         current = getcurrent()
-        target = self
-        if not target:
+        #
+        while not target:
             if not target.__started:
                 _continulet.__init__(target, _greenlet_start, *args)
                 args = ()
                 target.__started = True
-            else:
-                # already done, go to main instead... xxx later
-                raise error("greenlet execution already finished")
+                break
+            # already done, go to the parent instead
+            # (NB. infinite loop possible, but unlikely, unless you mess
+            # up the 'parent' explicitly.  Good enough, because a Ctrl-C
+            # will show that the program is caught in this loop here.)
+            target = target.parent
         #
         try:
             if current.__main:
@@ -68,6 +71,7 @@ class greenlet(_continulet):
                     # switch from main to main
                     if unbound_method == _continulet.throw:
                         raise args[0], args[1], args[2]
+                    (args,) = args
                 else:
                     # enter from main to target
                     args = unbound_method(target, *args)
@@ -94,6 +98,10 @@ class greenlet(_continulet):
     @property
     def dead(self):
         return self.__started and not self
+
+    @property
+    def gr_frame(self):
+        raise NotImplementedError("attribute 'gr_frame' of greenlet objects")
 
 # ____________________________________________________________
 # Internal stuff
