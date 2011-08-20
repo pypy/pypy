@@ -19,7 +19,11 @@ def ufunc(func=None, promote_to_float=False):
             return func(res_dtype, w_obj.value).wrap(space)
 
         new_sig = signature.Signature.find_sig([call_sig, w_obj.signature])
-        w_res = Call1(new_sig, w_obj)
+        res_dtype = find_unaryop_result_dtype(space,
+            w_obj.find_dtype(),
+            promote_to_float=promote_to_float,
+        )
+        w_res = Call1(new_sig, res_dtype, w_obj)
         w_obj.add_invalidates(w_res)
         return w_res
     return func_with_new_name(impl, "%s_dispatcher" % func.__name__)
@@ -40,7 +44,11 @@ def ufunc2(func=None, promote_to_float=False):
             return func(res_dtype, w_lhs.value, w_rhs.value).wrap(space)
 
         new_sig = signature.Signature.find_sig([call_sig, w_lhs.signature, w_rhs.signature])
-        w_res = Call2(space, new_sig, w_lhs, w_rhs)
+        res_dtype = find_binop_result_dtype(space,
+            w_lhs.find_dtype(), w_rhs.find_dtype(),
+            promote_to_float=promote_to_float,
+        )
+        w_res = Call2(new_sig, res_dtype, w_lhs, w_rhs)
         w_lhs.add_invalidates(w_res)
         w_rhs.add_invalidates(w_res)
         return w_res

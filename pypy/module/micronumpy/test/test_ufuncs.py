@@ -193,6 +193,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(len(a)):
             assert b[i] == math.sin(a[i])
 
+        a = sin(array([True, False], dtype=bool))
+        assert a[0] == sin(1)
+        assert a[1] == 0.0
+
     def test_cos(self):
         import math
         from numpy import array, cos

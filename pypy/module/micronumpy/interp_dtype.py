@@ -69,7 +69,6 @@ def create_low_level_dtype(num, kind, name, aliases, applevel_types, T, valtype)
         def unerase(self, storage):
             return rffi.cast(TP, storage)
 
-        @specialize.argtype(1)
         @enforceargs(None, valtype)
         def box(self, value):
             return Box(value)
@@ -286,21 +285,10 @@ class W_Float64Dtype(FloatArithmeticDtype, W_Float64Dtype):
     def str_format(self, item):
         return float2string(self.unbox(item), 'g', rfloat.DTSF_STR_PRECISION)
 
-W_Float16Dtype = create_low_level_dtype(
-    num = 23, kind = FLOATINGLTR, name = "float16",
-    aliases = [],
-    applevel_types =[],
-    T = rffi.USHORT,
-    valtype = rffi.USHORT._type,
-)
-class W_Float16Dtype(W_Float16Dtype):
-    def unwrap(self, space, w_item):
-        return self.adapt_val(space.float_w(space.float(w_item)))
-
 ALL_DTYPES = [
     W_BoolDtype,
     W_Int8Dtype, W_Int32Dtype, W_Int64Dtype,
-    W_Float64Dtype, W_Float16Dtype
+    W_Float64Dtype
 ]
 
 dtypes_by_alias = unrolling_iterable([

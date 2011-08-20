@@ -11,11 +11,13 @@ class BaseNumpyAppTest(object):
 
 class TestSignature(object):
     def test_binop_signature(self, space):
-        ar = SingleDimArray(10, dtype=space.fromcache(interp_dtype.W_Float64Dtype))
+        float64_dtype = space.fromcache(interp_dtype.W_Float64Dtype)
+
+        ar = SingleDimArray(10, dtype=float64_dtype)
         v1 = ar.descr_add(space, ar)
-        v2 = ar.descr_add(space, Scalar(2.0))
+        v2 = ar.descr_add(space, Scalar(float64_dtype, 2.0))
         assert v1.signature is not v2.signature
-        v3 = ar.descr_add(space, Scalar(1.0))
+        v3 = ar.descr_add(space, Scalar(float64_dtype, 1.0))
         assert v2.signature is v3.signature
         v4 = ar.descr_add(space, ar)
         assert v1.signature is v4.signature
@@ -63,7 +65,6 @@ class TestUfuncCoerscion(object):
         bool_dtype = space.fromcache(interp_dtype.W_BoolDtype)
         int8_dtype = space.fromcache(interp_dtype.W_Int8Dtype)
         int32_dtype = space.fromcache(interp_dtype.W_Int32Dtype)
-        float16_dtype = space.fromcache(interp_dtype.W_Float16Dtype)
         float64_dtype = space.fromcache(interp_dtype.W_Float64Dtype)
 
         # Normal rules, everythign returns itself
@@ -72,8 +73,9 @@ class TestUfuncCoerscion(object):
         assert find_unaryop_result_dtype(space, int32_dtype) is int32_dtype
         assert find_unaryop_result_dtype(space, float64_dtype) is float64_dtype
 
-        # Coerce to floats
-        assert find_unaryop_result_dtype(space, bool_dtype, promote_to_float=True) is float16_dtype
-        assert find_unaryop_result_dtype(space, int8_dtype, promote_to_float=True) is float16_dtype
+        # Coerce to floats, some of these will eventually be float16, or
+        # whatever our smallest float type is.
+        assert find_unaryop_result_dtype(space, bool_dtype, promote_to_float=True) is float64_dtype
+        assert find_unaryop_result_dtype(space, int8_dtype, promote_to_float=True) is float64_dtype
         assert find_unaryop_result_dtype(space, int32_dtype, promote_to_float=True) is float64_dtype
         assert find_unaryop_result_dtype(space, float64_dtype, promote_to_float=True) is float64_dtype

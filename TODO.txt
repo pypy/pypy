@@ -1,9 +1,9 @@
 TODO for mering numpy-dtype-alt
 ===============================
 
-* Fix sin(<bool array>)
 * Fix for raw memory with the JIT under llgraph.
 * More operations on more dtypes
+* dtype guessing
 * Any more attributes that need to be exposed at app-level
 
 For later

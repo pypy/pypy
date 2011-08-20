@@ -310,7 +310,7 @@ def convert_to_array (space, w_obj):
 
 @specialize.arg(1)
 def scalar_w(space, dtype, w_obj):
-    return Scalar(scalar(space, dtype, w_obj))
+    return Scalar(space.fromcache(dtype), scalar(space, dtype, w_obj))
 
 @specialize.arg(1)
 def scalar(space, dtype, w_obj):
@@ -323,15 +323,16 @@ class Scalar(BaseArray):
     """
     signature = signature.BaseSignature()
 
-    def __init__(self, value):
+    def __init__(self, dtype, value):
         BaseArray.__init__(self)
+        self.dtype = dtype
         self.value = value
 
     def find_size(self):
         raise ValueError
 
     def find_dtype(self):
-        raise ValueError
+        return self.dtype
 
     def eval(self, i):
         return self.value
@@ -340,10 +341,11 @@ class VirtualArray(BaseArray):
     """
     Class for representing virtual arrays, such as binary ops or ufuncs
     """
-    def __init__(self, signature):
+    def __init__(self, signature, res_dtype):
         BaseArray.__init__(self)
         self.forced_result = None
         self.signature = signature
+        self.res_dtype = res_dtype
 
     def _del_sources(self):
         # Function for deleting references to source arrays, to allow garbage-collecting them
@@ -383,14 +385,12 @@ class VirtualArray(BaseArray):
         return self._find_size()
 
     def find_dtype(self):
-        if self.forced_result is not None:
-            return self.forced_result.find_dtype()
-        return self._find_dtype()
+        return self.res_dtype
 
 
 class Call1(VirtualArray):
-    def __init__(self, signature, values):
-        VirtualArray.__init__(self, signature)
+    def __init__(self, signature, res_dtype, values):
+        VirtualArray.__init__(self, signature, res_dtype)
         self.values = values
 
     def _del_sources(self):
@@ -400,41 +400,22 @@ class Call1(VirtualArray):
         return self.values.find_size()
 
     def _find_dtype(self):
-        return self.values.find_dtype()
+        return self.res_dtype
 
     def _eval(self, i):
         call_sig = self.signature.components[0]
         assert isinstance(call_sig, signature.Call1)
-        return call_sig.func(self.find_dtype(), self.values.eval(i))
+        val = self.values.eval(i).convert_to(self.res_dtype)
+        return call_sig.func(self.res_dtype, val)
 
 class Call2(VirtualArray):
     """
     Intermediate class for performing binary operations.
     """
-    def __init__(self, space, signature, left, right):
-        VirtualArray.__init__(self, signature)
+    def __init__(self, signature, res_dtype, left, right):
+        VirtualArray.__init__(self, signature, res_dtype)
         self.left = left
         self.right = right
-
-        lhs_dtype = rhs_dtype = None
-        try:
-            lhs_dtype = self.left.find_dtype()
-        except ValueError:
-            pass
-        try:
-            rhs_dtype = self.right.find_dtype()
-        except ValueError:
-            pass
-        if lhs_dtype is not None and rhs_dtype is not None:
-            self.res_dtype = interp_ufuncs.find_binop_result_dtype(space,
-                lhs_dtype, rhs_dtype
-            )
-        elif lhs_dtype is not None:
-            self.res_dtype = lhs_dtype
-        elif rhs_dtype is not None:
-            self.res_dtype = rhs_dtype
-        else:
-            self.res_dtype = None
 
     def _del_sources(self):
         self.left = None
@@ -448,17 +429,11 @@ class Call2(VirtualArray):
         return self.right.find_size()
 
     def _eval(self, i):
-        dtype = self.find_dtype()
-        lhs, rhs = self.left.eval(i), self.right.eval(i)
-        lhs, rhs = lhs.convert_to(dtype), rhs.convert_to(dtype)
+        lhs = self.left.eval(i).convert_to(self.res_dtype)
+        rhs = self.right.eval(i).convert_to(self.res_dtype)
         call_sig = self.signature.components[0]
         assert isinstance(call_sig, signature.Call2)
-        return call_sig.func(dtype, lhs, rhs)
-
-    def _find_dtype(self):
-        if self.res_dtype is not None:
-            return self.res_dtype
-        raise ValueError
+        return call_sig.func(self.res_dtype, lhs, rhs)
 
 class ViewArray(BaseArray):
     """
