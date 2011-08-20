@@ -608,6 +608,24 @@ class AppTestStacklet:
         res = c1.switch()
         assert res == "ok"
 
+    def test_permute(self):
+        from _continuation import continulet, permute
+        #
+        def f1(c1):
+            res = c1.switch()
+            assert res == "ok"
+            return "done"
+        #
+        def f2(c2):
+            permute(c1, c2)
+            return "ok"
+        #
+        c1 = continulet(f1)
+        c2 = continulet(f2)
+        c1.switch()
+        res = c2.switch()
+        assert res == "done"
+
     def test_various_depths(self):
         skip("may fail on top of CPython")
         # run it from test_translated, but not while being actually translated

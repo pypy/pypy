@@ -33,4 +33,5 @@ that idea only works in C, not in Python, notably because of exceptions.
 
     interpleveldefs = {
         'continulet': 'interp_continuation.W_Continulet',
+        'permute': 'interp_continuation.permute',
     }

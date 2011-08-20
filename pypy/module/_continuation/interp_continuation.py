@@ -17,14 +17,6 @@ class W_Continulet(Wrappable):
         #  - normal:      self.sthread != None, not is_empty_handle(self.h)
         #  - finished:    self.sthread != None, is_empty_handle(self.h)
 
-    def build_sthread(self):
-        space = self.space
-        ec = space.getexecutioncontext()
-        sthread = ec.stacklet_thread
-        if not sthread:
-            sthread = ec.stacklet_thread = SThread(space, ec)
-        self.sthread = sthread
-
     def check_sthread(self):
         ec = self.space.getexecutioncontext()
         if ec.stacklet_thread is not self.sthread:
@@ -38,7 +30,7 @@ class W_Continulet(Wrappable):
         start_state.origin = self
         start_state.w_callable = w_callable
         start_state.args = __args__
-        self.build_sthread()
+        self.sthread = build_sthread(self.space)
         try:
             self.h = self.sthread.new(new_stacklet_callback)
             if self.sthread.is_empty_handle(self.h):    # early return
@@ -222,3 +214,32 @@ def get_result():
     w_value = start_state.w_value
     start_state.w_value = None
     return w_value
+
+def build_sthread(space):
+    ec = space.getexecutioncontext()
+    sthread = ec.stacklet_thread
+    if not sthread:
+        sthread = ec.stacklet_thread = SThread(space, ec)
+    return sthread
+
+# ____________________________________________________________
+
+def permute(space, args_w):
+    sthread = build_sthread(space)
+    #
+    contlist = []
+    for w_cont in args_w:
+        cont = space.interp_w(W_Continulet, w_cont)
+        if cont.sthread is not sthread:
+            if cont.sthread is None:
+                raise geterror(space, "got a non-initialized continulet")
+            else:
+                raise geterror(space, "inter-thread support is missing")
+        elif sthread.is_empty_handle(cont.h):
+            raise geterror(space, "got an already-finished continulet")
+        contlist.append(cont)
+    #
+    if len(contlist) > 1:
+        other = contlist[-1].h
+        for cont in contlist:
+            other, cont.h = cont.h, other
