@@ -558,8 +558,12 @@ def Py_UNICODE_COPY(space, target, source, length):
 
 @cpython_api([PyObject, PyObject], PyObject)
 def PyUnicode_Format(space, w_format, w_args):
+    """Return a new string object from format and args; this is analogous to
+    format % args.  The args argument must be a tuple."""
     return space.mod(w_format, w_args)
 
 @cpython_api([PyObject, PyObject], PyObject)
 def PyUnicode_Join(space, w_sep, w_seq):
+    """Join a sequence of strings using the given separator and return the resulting
+    Unicode string."""
     return space.call_method(w_sep, 'join', w_seq)

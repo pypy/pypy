@@ -1927,12 +1927,6 @@ def PySequence_Fast_ITEMS(space, o):
     raise NotImplementedError
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PySet_Check(space, p):
-    """Return true if p is a set object or an instance of a subtype.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyFrozenSet_Check(space, p):
     """Return true if p is a frozenset object or an instance of a
     subtype.
@@ -1958,15 +1952,6 @@ def PyFrozenSet_CheckExact(space, p):
     raise NotImplementedError
 
 @cpython_api([PyObject], PyObject)
-def PySet_New(space, iterable):
-    """Return a new set containing objects returned by the iterable.  The
-    iterable may be NULL to create a new empty set.  Return the new set on
-    success or NULL on failure.  Raise TypeError if iterable is not
-    actually iterable.  The constructor is also useful for copying a set
-    (c=set(s))."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
 def PyFrozenSet_New(space, iterable):
     """Return a new frozenset containing objects returned by the iterable.
     The iterable may be NULL to create a new empty frozenset.  Return the new
@@ -1976,44 +1961,6 @@ def PyFrozenSet_New(space, iterable):
     Now guaranteed to return a brand-new frozenset.  Formerly,
     frozensets of zero-length were a singleton.  This got in the way of
     building-up new frozensets with PySet_Add()."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], Py_ssize_t, error=-1)
-def PySet_Size(space, anyset):
-    """Return the length of a set or frozenset object. Equivalent to
-    len(anyset).  Raises a PyExc_SystemError if anyset is not a set, frozenset,
-    or an instance of a subtype.
-
-    This function returned an int. This might require changes in
-    your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], Py_ssize_t, error=-1)
-def PySet_GET_SIZE(space, anyset):
-    """Macro form of PySet_Size() without error checking."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
-def PySet_Add(space, set, key):
-    """Add key to a set instance.  Does not apply to frozenset
-    instances.  Return 0 on success or -1 on failure. Raise a TypeError if
-    the key is unhashable. Raise a MemoryError if there is no room to grow.
-    Raise a SystemError if set is an not an instance of set or its
-    subtype.
-
-    Now works with instances of frozenset or its subtypes.
-    Like PyTuple_SetItem() in that it can be used to fill-in the
-    values of brand new frozensets before they are exposed to other code."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
-def PySet_Discard(space, set, key):
-    """Return 1 if found and removed, 0 if not found (no action taken), and -1 if an
-    error is encountered.  Does not raise KeyError for missing keys.  Raise a
-    TypeError if the key is unhashable.  Unlike the Python discard()
-    method, this function does not automatically convert unhashable sets into
-    temporary frozensets. Raise PyExc_SystemError if set is an not an
-    instance of set or its subtype."""
     raise NotImplementedError
 
 @cpython_api([PyObject], PyObject)
@@ -2669,12 +2616,6 @@ def PyUnicode_Translate(space, str, table, errors):
     use the default error handling."""
     raise NotImplementedError
 
-@cpython_api([PyObject, PyObject], PyObject)
-def PyUnicode_Join(space, separator, seq):
-    """Join a sequence of strings using the given separator and return the resulting
-    Unicode string."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, PyObject, Py_ssize_t, Py_ssize_t, rffi.INT_real], rffi.INT_real, error=-1)
 def PyUnicode_Tailmatch(space, str, substr, start, end, direction):
     """Return 1 if substr matches str*[*start:end] at the given tail end
@@ -2735,12 +2676,6 @@ def PyUnicode_RichCompare(space, left, right, op):
 
     Possible values for op are Py_GT, Py_GE, Py_EQ,
     Py_NE, Py_LT, and Py_LE."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject], PyObject)
-def PyUnicode_Format(space, format, args):
-    """Return a new string object from format and args; this is analogous to
-    format % args.  The args argument must be a tuple."""
     raise NotImplementedError
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
@@ -2995,12 +2930,4 @@ def PyWeakref_NewProxy(space, ob, callback):
     is not a weakly-referencable object, or if callback is not callable,
     None, or NULL, this will return NULL and raise TypeError.
     """
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
-def PyWeakref_GET_OBJECT(space, ref):
-    """Similar to PyWeakref_GetObject(), but implemented as a macro that does no
-    error checking.
-    """
-    borrow_from()
     raise NotImplementedError
