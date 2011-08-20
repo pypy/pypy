@@ -1,7 +1,6 @@
 TODO for mering numpy-dtype-alt
 ===============================
 
-* Fix signatures
 * Fix sin(<bool array>)
 * Fix for raw memory with the JIT under llgraph.
 * More operations on more dtypes
