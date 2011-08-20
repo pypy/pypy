@@ -205,7 +205,9 @@ class UnrollOptimizer(Optimization):
             short = self.inline(inputargs, self.cloned_operations,
                                 loop.inputargs, short_inputargs,
                                 virtual_state)
-            if not virtual_state.contains_virtuals():
+
+            maxguards = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.max_retrace_guards
+            if not virtual_state.contains_virtuals() and self.optimizer.emitted_guards > maxguards:
                 ops_in_loop = len(self.optimizer.newoperations)
                 ops_in_preamble = len(loop.preamble.operations) + 1
                 amount_saved = ((ops_in_preamble - ops_in_loop) * 100) / ops_in_preamble
@@ -225,7 +227,6 @@ class UnrollOptimizer(Optimization):
             loop.preamble.operations.append(jmp)
 
             loop.operations = self.optimizer.newoperations
-            maxguards = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.max_retrace_guards
             
             if self.optimizer.emitted_guards > maxguards:
                 loop.preamble.token.retraced_count = sys.maxint

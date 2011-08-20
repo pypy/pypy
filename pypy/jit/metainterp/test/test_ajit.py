@@ -2622,6 +2622,7 @@ class BasicTests:
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a'])
 
         def f(n, limit):
+            myjitdriver.set_param('limit_peeling', -1)
             myjitdriver.set_param('retrace_limit', 3)
             myjitdriver.set_param('max_retrace_guards', limit)
             sa = i = a = 0
@@ -2640,8 +2641,9 @@ class BasicTests:
     def test_limit_peeling(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a'])
 
-        def f(n, limit):
+        def f(n, limit, maxguards):
             myjitdriver.set_param('limit_peeling', limit)
+            myjitdriver.set_param('max_retrace_guards', maxguards)
             sa = i = 0
             a = n + 1
             while i < n:
@@ -2649,12 +2651,14 @@ class BasicTests:
                 sa += a * a
                 i += 1
             return sa
-        assert self.meta_interp(f, [20, 0]) == f(20, 0)
+        assert self.meta_interp(f, [20, 0, 0]) == f(20, 0, 0)
         self.check_tree_loop_count(2)
-        assert self.meta_interp(f, [20, 10]) == f(20, 10)
+        assert self.meta_interp(f, [20, 10, 0]) == f(20, 10, 0)
         self.check_tree_loop_count(2)
-        assert self.meta_interp(f, [20, 20]) == f(20, 20)
+        assert self.meta_interp(f, [20, 20, 0]) == f(20, 20, 0)
         self.check_tree_loop_count(1)
+        assert self.meta_interp(f, [20, 20, 10]) == f(20, 20, 10)
+        self.check_tree_loop_count(2)
 
 
     def test_retrace_limit_with_extra_guards(self):
