@@ -229,7 +229,8 @@ class W_BoolDtype(W_BoolDtype):
         return self.adapt_val(space.is_true(w_item))
 
     def str_format(self, item):
-        return str(self.unbox(item))
+        v = self.unbox(item)
+        return "True" if v else "False"
 
     @binop
     def add(self, v1, v2):
