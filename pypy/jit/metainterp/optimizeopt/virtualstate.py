@@ -476,8 +476,7 @@ class ShortBoxes(object):
                 self.produce_short_preamble_box(box)
             except BoxNotProducable:
                 pass
-        if not os.getenv('DONT_DUPLICATE'):
-            self.duplicate_short_boxes_if_needed()
+        self.duplicate_short_boxes_if_needed()
 
     def produce_short_preamble_box(self, box):
         if box in self.short_boxes:

@@ -143,12 +143,8 @@ class UnrollOptimizer(Optimization):
                 if const:
                     self.constant_inputargs[box] = const
 
-            if os.getenv('FULLSHORT'):
-                sb = ShortBoxes(self.optimizer,
-                                inputargs + self.constant_inputargs.keys())
-            else:
-                sb = ShortBoxes(self.optimizer,
-                                loop_invariants + self.constant_inputargs.keys())
+            sb = ShortBoxes(self.optimizer,
+                            loop_invariants + self.constant_inputargs.keys())
             self.short_boxes = sb
             preamble_optimizer = self.optimizer
             loop.preamble.quasi_immutable_deps = (
