@@ -476,6 +476,8 @@ class ShortBoxes(object):
             except BoxNotProducable:
                 pass
 
+        self.duplicate_short_boxes_if_needed()
+
     def produce_short_preamble_box(self, box):
         if box in self.short_boxes:
             return 
@@ -494,15 +496,44 @@ class ShortBoxes(object):
         if op.result not in self.potential_ops:
             self.potential_ops[op.result] = op
             return op
+        return self.duplicate(self.potential_ops, op)
+
+    def duplicate(self, destination, op):
         newop = op.clone()
         newop.result = op.result.clonebox()
-        self.potential_ops[newop.result] = newop
+        destination[newop.result] = newop
         if op.result in self.duplicates:
             self.duplicates[op.result].append(newop.result)
         else:
             self.duplicates[op.result] = [newop.result]
         self.optimizer.make_equal_to(newop.result, self.optimizer.getvalue(op.result))
         return newop
+
+    def duplicate_short_boxes_if_needed(self):
+        may_need_duplication = {}
+        for op in self.short_boxes.values():
+            if op:
+                may_need_duplication[op] = True
+        while may_need_duplication:
+            op, _ = may_need_duplication.popitem()
+            self.maybe_duplicate_op(op, may_need_duplication)
+
+    def maybe_duplicate_op(self, op, may_need_duplication):
+        for arg in op.getarglist():
+            if arg in self.short_boxes:
+                producer = self.producer(arg)
+                if producer in may_need_duplication:
+                    del may_need_duplication[producer]
+                    self.maybe_duplicate_op(producer, may_need_duplication)
+        for i in range(len(op.getarglist())):
+            arg = op.getarg(i)
+            if arg in self.duplicates:
+                for box in self.duplicates[arg]:
+                    if box in self.short_boxes:
+                        newop = self.duplicate(self.short_boxes, op)
+                        newop.setarg(i, box)
+            # XXX If more than one arg is duplicated this does not give
+            #     all combinations as each argument is treated separately
 
     def debug_print(self, logops):
         debug_start('jit-short-boxes')

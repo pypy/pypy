@@ -1,7 +1,7 @@
 import py
 from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp.optimizeopt.virtualstate import VirtualStateInfo, VStructStateInfo, \
-     VArrayStateInfo, NotVirtualStateInfo, VirtualState
+     VArrayStateInfo, NotVirtualStateInfo, VirtualState, ShortBoxes
 from pypy.jit.metainterp.optimizeopt.optimizer import OptValue
 from pypy.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr, ConstInt, ConstPtr
 from pypy.rpython.lltypesystem import lltype
@@ -10,6 +10,7 @@ from pypy.jit.metainterp.optimizeopt.intutils import IntBound
 from pypy.jit.metainterp.history import TreeLoop, LoopToken
 from pypy.jit.metainterp.optimizeopt.test.test_optimizeopt import FakeDescr, FakeMetaInterpStaticData
 from pypy.jit.metainterp.optimize import RetraceLoop
+from pypy.jit.metainterp.resoperation import ResOperation, rop
 
 class TestBasic:
     someptr1 = LLtypeMixin.myptr
@@ -127,6 +128,7 @@ class TestBasic:
             info.position = 0
             info.fieldstate = [info]
             assert info.generalization_of(info, {}, {})
+
 
 class BaseTestGenerateGuards(BaseTest):
     def guards(self, info1, info2, box, expected):
@@ -909,3 +911,88 @@ class TestLLtypeGuards(BaseTestGenerateGuards, LLtypeMixin):
 class TestLLtypeBridges(BaseTestBridges, LLtypeMixin):
     pass
 
+class FakeOptimizer:
+    def make_equal_to(*args):
+        pass
+    def getvalue(*args):
+        pass
+
+class TestShortBoxes:
+    p1 = BoxPtr()
+    p2 = BoxPtr()
+    i1 = BoxInt()
+    i2 = BoxInt()
+    i3 = BoxInt()
+    
+    def test_short_box_duplication_direct(self):
+        class Optimizer(FakeOptimizer):
+            def produce_potential_short_preamble_ops(_self, sb):
+                sb.add_potential(ResOperation(rop.GETFIELD_GC, [self.p1], self.i1))
+                sb.add_potential(ResOperation(rop.GETFIELD_GC, [self.p2], self.i1))
+        sb = ShortBoxes(Optimizer(), [self.p1, self.p2])
+        assert len(sb.short_boxes) == 4
+        assert self.i1 in sb.short_boxes
+        assert sum([op.result is self.i1 for op in sb.short_boxes.values() if op]) == 1
+
+    def test_short_box_duplication_indirect1(self):
+        class Optimizer(FakeOptimizer):
+            def produce_potential_short_preamble_ops(_self, sb):
+                sb.add_potential(ResOperation(rop.GETFIELD_GC, [self.p1], self.i1))
+                sb.add_potential(ResOperation(rop.GETFIELD_GC, [self.p2], self.i1))
+                sb.add_potential(ResOperation(rop.INT_NEG, [self.i1], self.i2))
+        sb = ShortBoxes(Optimizer(), [self.p1, self.p2])
+        assert len(sb.short_boxes) == 6
+        for i in (self.i1, self.i2):
+            assert i in sb.short_boxes
+            assert sum([op.result is i for op in sb.short_boxes.values() if op]) == 1
+        op1, op2 = [op for op in sb.short_boxes.values()
+                    if op and op.getopnum() == rop.INT_NEG]
+        assert op1.result is not op2.result
+        pr1, pr2 = sb.producer(op1.getarg(0)), sb.producer(op2.getarg(0))
+        assert pr1 is not pr2
+        assert pr1.getopnum() == rop.GETFIELD_GC
+        assert pr2.getopnum() == rop.GETFIELD_GC
+        assert set([pr1.getarg(0), pr2.getarg(0)]) == set([self.p1, self.p2])
+        
+    def test_short_box_duplication_indirect2(self):
+        class Optimizer(FakeOptimizer):
+            def produce_potential_short_preamble_ops(_self, sb):
+                sb.add_potential(ResOperation(rop.GETFIELD_GC, [self.p1], self.i1))
+                sb.add_potential(ResOperation(rop.GETFIELD_GC, [self.p2], self.i1))
+                sb.add_potential(ResOperation(rop.INT_NEG, [self.i1], self.i2))
+                sb.add_potential(ResOperation(rop.INT_ADD, [ConstInt(7), self.i2],
+                                              self.i3))
+        sb = ShortBoxes(Optimizer(), [self.p1, self.p2])
+        assert len(sb.short_boxes) == 8
+        for i in (self.i1, self.i2):
+            assert i in sb.short_boxes
+            assert sum([op.result is i for op in sb.short_boxes.values() if op]) == 1
+        op1, op2 = [op for op in sb.short_boxes.values()
+                    if op and op.getopnum() == rop.INT_NEG]
+        assert op1.result is not op2.result
+        pr1, pr2 = sb.producer(op1.getarg(0)), sb.producer(op2.getarg(0))
+        assert pr1 is not pr2
+        assert pr1.getopnum() == rop.GETFIELD_GC
+        assert pr2.getopnum() == rop.GETFIELD_GC
+        assert set([pr1.getarg(0), pr2.getarg(0)]) == set([self.p1, self.p2])
+        op1, op2 = [op for op in sb.short_boxes.values()
+                    if op and op.getopnum() == rop.INT_ADD]
+        assert op1.result is not op2.result
+        pr1, pr2 = sb.producer(op1.getarg(1)), sb.producer(op2.getarg(1))
+        assert pr1 is not pr2
+        assert pr1.getopnum() == rop.INT_NEG
+        assert pr2.getopnum() == rop.INT_NEG
+        negargs = set([pr1.getarg(0), pr2.getarg(0)])
+        assert len(negargs) == 2
+        assert self.i1 in negargs
+        
+    def test_dont_duplicate_potential_boxes(self):
+        class Optimizer(FakeOptimizer):
+            def produce_potential_short_preamble_ops(_self, sb):
+                sb.add_potential(ResOperation(rop.GETFIELD_GC, [self.p1], self.i1))
+                sb.add_potential(ResOperation(rop.GETFIELD_GC, [BoxPtr()], self.i1))
+                sb.add_potential(ResOperation(rop.INT_NEG, [self.i1], self.i2))
+                sb.add_potential(ResOperation(rop.INT_ADD, [ConstInt(7), self.i2],
+                                              self.i3))
+        sb = ShortBoxes(Optimizer(), [self.p1, self.p2])
+        assert len(sb.short_boxes) == 5
