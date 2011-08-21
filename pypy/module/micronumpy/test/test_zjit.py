@@ -1,9 +1,9 @@
 from pypy.interpreter.baseobjspace import InternalSpaceCache
 from pypy.jit.metainterp.test.support import LLJitMixin
+from pypy.module.micronumpy import interp_ufuncs, signature
 from pypy.module.micronumpy.compile import numpy_compile
 from pypy.module.micronumpy.interp_dtype import W_Float64Dtype
-from pypy.module.micronumpy.interp_numarray import SingleDimArray, scalar_w
-from pypy.module.micronumpy.interp_ufuncs import negative, add
+from pypy.module.micronumpy.interp_numarray import SingleDimArray, SingleDimSlice, scalar_w
 from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.objectmodel import specialize
 from pypy.rpython.test.test_llinterp import interpret
@@ -36,7 +36,7 @@ class TestNumpyJIt(LLJitMixin):
     def test_add(self):
         def f(i):
             ar = SingleDimArray(i, dtype=self.float64_dtype)
-            v = add(self.space, ar, ar)
+            v = interp_ufuncs.add(self.space, ar, ar)
             concrete = v.get_concrete()
             return concrete.dtype.getitem(concrete.storage, 3).val
 
@@ -49,7 +49,7 @@ class TestNumpyJIt(LLJitMixin):
     def test_floatadd(self):
         def f(i):
             ar = SingleDimArray(i, dtype=self.float64_dtype)
-            v = add(self.space, ar, scalar_w(self.space, W_Float64Dtype, 4.5))
+            v = interp_ufuncs.add(self.space, ar, scalar_w(self.space, W_Float64Dtype, 4.5))
             return v.dtype.getitem(v.get_concrete().storage, 3)
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
@@ -62,7 +62,7 @@ class TestNumpyJIt(LLJitMixin):
         space = self.space
 
         def f(i):
-            ar = SingleDimArray(i)
+            ar = SingleDimArray(i, dtype=self.float64_dtype)
             return ar.descr_add(space, ar).descr_sum(space)
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
@@ -75,7 +75,7 @@ class TestNumpyJIt(LLJitMixin):
         space = self.space
 
         def f(i):
-            ar = SingleDimArray(i)
+            ar = SingleDimArray(i, dtype=self.float64_dtype)
             return ar.descr_add(space, ar).descr_prod(space)
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
@@ -88,7 +88,7 @@ class TestNumpyJIt(LLJitMixin):
         space = self.space
 
         def f(i):
-            ar = SingleDimArray(i)
+            ar = SingleDimArray(i, dtype=self.float64_dtype)
             j = 0
             while j < i:
                 ar.get_concrete().storage[j] = float(j)
@@ -106,7 +106,7 @@ class TestNumpyJIt(LLJitMixin):
         space = self.space
 
         def f(i):
-            ar = SingleDimArray(i)
+            ar = SingleDimArray(i, dtype=self.float64_dtype)
             j = 0
             while j < i:
                 ar.get_concrete().storage[j] = float(j)
@@ -124,7 +124,7 @@ class TestNumpyJIt(LLJitMixin):
         space = self.space
 
         def f(i):
-            ar = SingleDimArray(i)
+            ar = SingleDimArray(i, dtype=self.float64_dtype)
             j = 0
             while j < i:
                 ar.get_concrete().storage[j] = float(j)
@@ -142,7 +142,7 @@ class TestNumpyJIt(LLJitMixin):
         space = self.space
 
         def f(i):
-            ar = SingleDimArray(i)
+            ar = SingleDimArray(i, dtype=self.float64_dtype)
             j = 0
             while j < i:
                 ar.get_concrete().storage[j] = 1.0
@@ -158,7 +158,7 @@ class TestNumpyJIt(LLJitMixin):
         space = self.space
 
         def f(i):
-            ar = SingleDimArray(i)
+            ar = SingleDimArray(i, dtype=self.float64_dtype)
             return ar.descr_add(space, ar).descr_any(space)
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
@@ -167,11 +167,11 @@ class TestNumpyJIt(LLJitMixin):
                           "int_lt": 1, "guard_true": 1, "jump": 1})
         assert result == f(5)
 
-    def test_already_forecd(self):
+    def test_already_forced(self):
         def f(i):
-            ar = SingleDimArray(i)
-            v1 = Call2(add, ar, Scalar(4.5), Signature())
-            v2 = Call2(mul, v1, Scalar(4.5), Signature())
+            ar = SingleDimArray(i, dtype=self.float64_dtype)
+            v1 = interp_ufuncs.add(self.space, ar, scalar_w(self.space, W_Float64Dtype, 4.5))
+            v2 = interp_ufuncs.mul(self.space, v1, scalar_w(self.space, W_Float64Dtype, 4.5))
             v1.force_if_needed()
             return v2.get_concrete().storage[3]
 
@@ -187,9 +187,9 @@ class TestNumpyJIt(LLJitMixin):
     def test_ufunc(self):
         space = self.space
         def f(i):
-            ar = SingleDimArray(i)
-            v1 = Call2(add, ar, ar, Signature())
-            v2 = negative(space, v1)
+            ar = SingleDimArray(i, dtype=self.float64_dtype)
+            v1 = interp_ufuncs.add(space, ar, ar)
+            v2 = interp_ufuncs.negative(space, v1)
             return v2.get_concrete().storage[3]
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
@@ -202,16 +202,14 @@ class TestNumpyJIt(LLJitMixin):
     def test_appropriate_specialization(self):
         space = self.space
         def f(i):
-            add_sig = Signature()
-            mul_sig = Signature()
-            ar = SingleDimArray(i)
+            ar = SingleDimArray(i, dtype=self.float64_dtype)
 
-            v1 = Call2(add, ar, ar, ar.signature.transition(add_sig))
-            v2 = negative(space, v1)
+            v1 = interp_ufuncs.add(space, ar, ar)
+            v2 = interp_ufuncs.negative(space, v1)
             v2.get_concrete()
 
             for i in xrange(5):
-                v1 = Call2(mul, ar, ar, ar.signature.transition(mul_sig))
+                v1 = interp_ufuncs.mul(space, ar, ar)
                 v2 = negative(space, v1)
                 v2.get_concrete()
 
@@ -222,9 +220,12 @@ class TestNumpyJIt(LLJitMixin):
     def test_slice(self):
         def f(i):
             step = 3
-            ar = SingleDimArray(step*i)
-            s = SingleDimSlice(0, step*i, step, i, ar, ar.signature.transition(SingleDimSlice.static_signature))
-            v = Call2(add, s, s, Signature())
+            ar = SingleDimArray(step*i, dtype=self.float64_dtype)
+            new_sig = signature.Signature.find_sig([
+                SingleDimSlice.signature, ar.signature
+            ])
+            s = SingleDimSlice(0, step*i, step, i, ar, new_sig)
+            v = interp_ufuncs.add(self.space, s, s)
             return v.get_concrete().storage[3]
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
@@ -254,8 +255,8 @@ class TestNumpyJIt(LLJitMixin):
 
         def f(i):
             step = NonConstant(3)
-            ar = SingleDimArray(step*i)
-            ar2 = SingleDimArray(i)
+            ar = SingleDimArray(step*i, dtype=self.float64_dtype)
+            ar2 = SingleDimArray(i, dtype=self.float64_dtype)
             ar2.storage[1] = 5.5
             if NonConstant(False):
                 arg = ar2
