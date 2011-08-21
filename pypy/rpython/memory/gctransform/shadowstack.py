@@ -83,6 +83,7 @@ class ShadowStackRootWalker(BaseRootWalker):
         # gc_thread_run and gc_thread_die.  See docstrings below.
 
         shadow_stack_pool = self.shadow_stack_pool
+        SHADOWSTACKREF = make_shadowstackref(gctransformer)
 
         # this is a dict {tid: SHADOWSTACKREF}, where the tid for the
         # current thread may be missing so far
@@ -137,12 +138,12 @@ class ShadowStackRootWalker(BaseRootWalker):
                     raise KeyError
                 new_ref = thread_stacks[new_tid]
             except KeyError:
-                new_ref = NULL_SHADOWSTACKREF
+                new_ref = lltype.nullptr(SHADOWSTACKREF)
             try:
                 old_ref = thread_stacks[gcdata.active_tid]
             except KeyError:
                 # first time we ask for a SHADOWSTACKREF for this active_tid
-                old_ref = shadow_stack_pool.allocate()
+                old_ref = shadow_stack_pool.allocate(SHADOWSTACKREF)
                 thread_stacks[gcdata.active_tid] = old_ref
             #
             # no GC operation from here -- switching shadowstack!
@@ -208,7 +209,7 @@ class ShadowStackPool(object):
         self._prepare_unused_stack()
         self.start_fresh_new_state()
 
-    def allocate(self):
+    def allocate(self, SHADOWSTACKREF):
         """Allocate an empty SHADOWSTACKREF object."""
         return lltype.malloc(SHADOWSTACKREF, zero=True)
 
@@ -250,25 +251,38 @@ class ShadowStackPool(object):
                 raise MemoryError
 
 
-SHADOWSTACKREFPTR = lltype.Ptr(lltype.GcForwardReference())
-SHADOWSTACKREF = lltype.GcStruct('ShadowStackRef',
-                                 ('base', llmemory.Address),
-                                 ('top', llmemory.Address),
-                                 #('fullstack', lltype.Bool),
-                                 rtti=True)
-SHADOWSTACKREFPTR.TO.become(SHADOWSTACKREF)
-NULL_SHADOWSTACKREF = lltype.nullptr(SHADOWSTACKREF)
+def make_shadowstackref(gctransformer):
+    SHADOWSTACKREFPTR = lltype.Ptr(lltype.GcForwardReference())
+    SHADOWSTACKREF = lltype.GcStruct('ShadowStackRef',
+                                     ('base', llmemory.Address),
+                                     ('top', llmemory.Address),
+                                     #('fullstack', lltype.Bool),
+                                     rtti=True)
+    SHADOWSTACKREFPTR.TO.become(SHADOWSTACKREF)
 
-def customtrace(obj, prev):
-    # a simple but not JIT-ready version
-    if not prev:
-        prev = llmemory.cast_adr_to_ptr(obj, SHADOWSTACKREFPTR).top
-    if prev != llmemory.cast_adr_to_ptr(obj, SHADOWSTACKREFPTR).base:
-        return prev - sizeofaddr
+    translator = gctransformer.translator
+    if hasattr(translator, '_jit2gc'):
+        iterator_setup = translator._jit2gc['root_iterator_setup']
+        iterator_next  = translator._jit2gc['root_iterator_next']
+        def customtrace(obj, prev):
+            if not prev:
+                iterator_setup()
+                prev = llmemory.cast_adr_to_ptr(obj, SHADOWSTACKREFPTR).top
+            base = llmemory.cast_adr_to_ptr(obj, SHADOWSTACKREFPTR).base
+            return iterator_next(prev, base)
     else:
-        return llmemory.NULL
+        def customtrace(obj, prev):
+            # a simple but not JIT-ready version
+            if not prev:
+                prev = llmemory.cast_adr_to_ptr(obj, SHADOWSTACKREFPTR).top
+            if prev != llmemory.cast_adr_to_ptr(obj, SHADOWSTACKREFPTR).base:
+                return prev - sizeofaddr
+            else:
+                return llmemory.NULL
 
-CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
-                                  llmemory.Address)
-customtraceptr = llhelper(lltype.Ptr(CUSTOMTRACEFUNC), customtrace)
-lltype.attachRuntimeTypeInfo(SHADOWSTACKREF, customtraceptr=customtraceptr)
+    CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
+                                      llmemory.Address)
+    customtraceptr = llhelper(lltype.Ptr(CUSTOMTRACEFUNC), customtrace)
+    lltype.attachRuntimeTypeInfo(SHADOWSTACKREF, customtraceptr=customtraceptr)
+
+    return SHADOWSTACKREF
