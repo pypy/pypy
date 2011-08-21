@@ -1,7 +1,7 @@
 TODO for mering numpy-dtype-alt
 ===============================
 
-* Fix for raw memory with the JIT under llgraph.
+* Fix test_zjit
 * More operations on more dtypes
 * dtype guessing
 * Any more attributes that need to be exposed at app-level
