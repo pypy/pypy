@@ -28,13 +28,11 @@ class ShadowStackRootWalker(BaseRootWalker):
 
         translator = gctransformer.translator
         if hasattr(translator, '_jit2gc'):
-            iterator_setup = translator._jit2gc['root_iterator_setup']
-            iterator_next  = translator._jit2gc['root_iterator_next']
+            root_iterator = translator._jit2gc['root_iterator']
             def jit_walk_stack_root(callback, addr, end):
                 gc = self.gc
-                iterator_setup()
                 while True:
-                    end = iterator_next(end, addr)
+                    end = root_iterator.next(gc, end, addr)
                     if end == llmemory.NULL:
                         return
                     callback(gc, end)
@@ -262,14 +260,13 @@ def make_shadowstackref(gctransformer):
 
     translator = gctransformer.translator
     if hasattr(translator, '_jit2gc'):
-        iterator_setup = translator._jit2gc['root_iterator_setup']
-        iterator_next  = translator._jit2gc['root_iterator_next']
+        gc = gctransformer.gcdata.gc
+        root_iterator = translator._jit2gc['root_iterator']
         def customtrace(obj, prev):
             if not prev:
-                iterator_setup()
                 prev = llmemory.cast_adr_to_ptr(obj, SHADOWSTACKREFPTR).top
             base = llmemory.cast_adr_to_ptr(obj, SHADOWSTACKREFPTR).base
-            return iterator_next(prev, base)
+            return root_iterator.next(gc, prev, base)
     else:
         def customtrace(obj, prev):
             # a simple but not JIT-ready version
