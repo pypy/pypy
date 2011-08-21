@@ -129,13 +129,26 @@ class UnrollOptimizer(Optimization):
             inputargs = virtual_state.make_inputargs(values)
             short_inputargs = virtual_state.make_inputargs(values, keyboxes=True)
 
+            loop_invariants = []
+            assert len(jump_args) == len(loop.inputargs)
+            for i in range(len(jump_args)):
+                v1 = self.getvalue(jump_args[i])
+                v2 = self.getvalue(loop.inputargs[i])
+                if v1 is v2:
+                    loop_invariants.append(jump_args[i])
+
             self.constant_inputargs = {}
             for box in jump_args: 
                 const = self.get_constant_box(box)
                 if const:
                     self.constant_inputargs[box] = const
 
-            sb = ShortBoxes(self.optimizer, inputargs + self.constant_inputargs.keys())
+            if os.getenv('FULLSHORT'):
+                sb = ShortBoxes(self.optimizer,
+                                inputargs + self.constant_inputargs.keys())
+            else:
+                sb = ShortBoxes(self.optimizer,
+                                loop_invariants + self.constant_inputargs.keys())
             self.short_boxes = sb
             preamble_optimizer = self.optimizer
             loop.preamble.quasi_immutable_deps = (

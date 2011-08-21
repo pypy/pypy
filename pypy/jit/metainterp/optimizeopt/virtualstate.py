@@ -12,6 +12,7 @@ from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
 from pypy.rlib.objectmodel import we_are_translated
+import os
 
 class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
     position = -1
@@ -475,8 +476,8 @@ class ShortBoxes(object):
                 self.produce_short_preamble_box(box)
             except BoxNotProducable:
                 pass
-
-        self.duplicate_short_boxes_if_needed()
+        if not os.getenv('DONT_DUPLICATE'):
+            self.duplicate_short_boxes_if_needed()
 
     def produce_short_preamble_box(self, box):
         if box in self.short_boxes:

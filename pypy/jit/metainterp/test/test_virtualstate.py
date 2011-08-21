@@ -996,3 +996,10 @@ class TestShortBoxes:
                                               self.i3))
         sb = ShortBoxes(Optimizer(), [self.p1, self.p2])
         assert len(sb.short_boxes) == 5
+
+    def duplicate_duplicaded_box(self):
+        pass
+
+    def duplucate_on_both_arguments(self):
+        pass
+    
