@@ -6997,6 +6997,25 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
         
+    def test_cached_pure_func_of_equal_fields(self):
+        ops = """
+        [p5, p6]
+        i10 = getfield_gc(p5, descr=valuedescr)
+        i11 = getfield_gc(p6, descr=nextdescr)
+        i12 = int_add(i10, 7)
+        i13 = int_add(i11, 7)
+        call(i12, i13, descr=nonwritedescr)
+        setfield_gc(p6, i10, descr=nextdescr)        
+        jump(p5, p6)
+        """
+        expected = """
+        [p5, p6, i12, i13, i10]
+        call(i12, i13, descr=nonwritedescr)
+        setfield_gc(p6, i10, descr=nextdescr)        
+        jump(p5, p6, i12, i12, i10)
+        """
+        self.optimize_loop(ops, expected)
+        
     def test_forced_counter(self):
         # XXX: VIRTUALHEAP (see above)
         py.test.skip("would be fixed by make heap optimizer aware of virtual setfields")
