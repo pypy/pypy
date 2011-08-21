@@ -2,7 +2,7 @@ from pypy.interpreter.baseobjspace import InternalSpaceCache
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.module.micronumpy.compile import numpy_compile
 from pypy.module.micronumpy.interp_dtype import W_Float64Dtype
-from pypy.module.micronumpy.interp_numarray import SingleDimArray, Scalar
+from pypy.module.micronumpy.interp_numarray import SingleDimArray, scalar_w
 from pypy.module.micronumpy.interp_ufuncs import negative, add
 from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.objectmodel import specialize
@@ -21,6 +21,9 @@ class FakeSpace(object):
     @specialize.argtype(1)
     def wrap(self, w_obj):
         return w_obj
+
+    def float(self, w_obj):
+        return float(w_obj)
 
     def float_w(self, w_obj):
         return float(w_obj)
@@ -46,7 +49,7 @@ class TestNumpyJIt(LLJitMixin):
     def test_floatadd(self):
         def f(i):
             ar = SingleDimArray(i, dtype=self.float64_dtype)
-            v = add(self.space, ar, Scalar(self.float64_dtype, self.float64_dtype.box(4.5)))
+            v = add(self.space, ar, scalar_w(self.space, W_Float64Dtype, 4.5))
             return v.dtype.getitem(v.get_concrete().storage, 3)
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
