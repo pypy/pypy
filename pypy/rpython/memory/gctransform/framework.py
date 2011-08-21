@@ -132,7 +132,6 @@ def find_clean_setarrayitems(collect_analyzer, graph):
     return result
 
 class FrameworkGCTransformer(GCTransformer):
-    root_stack_depth = 163840
 
     def __init__(self, translator):
         from pypy.rpython.memory.gc.base import choose_gc_from_config
@@ -742,8 +741,13 @@ class FrameworkGCTransformer(GCTransformer):
                   resultvar=op.result)
 
     def gct_gc_assume_young_pointers(self, hop):
+        if not hasattr(self, 'assume_young_pointers_ptr'):
+            return
         op = hop.spaceop
         v_addr = op.args[0]
+        if v_addr.concretetype != llmemory.Address:
+            v_addr = hop.genop('cast_ptr_to_adr',
+                               [v_addr], resulttype=llmemory.Address)
         hop.genop("direct_call", [self.assume_young_pointers_ptr,
                                   self.c_const_gc, v_addr])
 
@@ -762,36 +766,36 @@ class FrameworkGCTransformer(GCTransformer):
         hop.genop("direct_call", [self.get_member_index_ptr, self.c_const_gc,
                                   v_typeid], resultvar=op.result)
 
+    def _gc_adr_of_gc_attr(self, hop, attrname):
+        if getattr(self.gcdata.gc, attrname, None) is None:
+            raise NotImplementedError("gc_adr_of_%s only for generational gcs"
+                                      % (attrname,))
+        op = hop.spaceop
+        ofs = llmemory.offsetof(self.c_const_gc.concretetype.TO,
+                                'inst_' + attrname)
+        c_ofs = rmodel.inputconst(lltype.Signed, ofs)
+        v_gc_adr = hop.genop('cast_ptr_to_adr', [self.c_const_gc],
+                             resulttype=llmemory.Address)
+        hop.genop('adr_add', [v_gc_adr, c_ofs], resultvar=op.result)
+
     def gct_gc_adr_of_nursery_free(self, hop):
-        if getattr(self.gcdata.gc, 'nursery_free', None) is None:
-            raise NotImplementedError("gc_adr_of_nursery_free only for generational gcs")
-        op = hop.spaceop
-        ofs = llmemory.offsetof(self.c_const_gc.concretetype.TO,
-                                'inst_nursery_free')
-        c_ofs = rmodel.inputconst(lltype.Signed, ofs)
-        v_gc_adr = hop.genop('cast_ptr_to_adr', [self.c_const_gc],
-                             resulttype=llmemory.Address)
-        hop.genop('adr_add', [v_gc_adr, c_ofs], resultvar=op.result)
-
+        self._gc_adr_of_gc_attr(hop, 'nursery_free')
     def gct_gc_adr_of_nursery_top(self, hop):
-        if getattr(self.gcdata.gc, 'nursery_top', None) is None:
-            raise NotImplementedError("gc_adr_of_nursery_top only for generational gcs")
-        op = hop.spaceop
-        ofs = llmemory.offsetof(self.c_const_gc.concretetype.TO,
-                                'inst_nursery_top')
-        c_ofs = rmodel.inputconst(lltype.Signed, ofs)
-        v_gc_adr = hop.genop('cast_ptr_to_adr', [self.c_const_gc],
-                             resulttype=llmemory.Address)
-        hop.genop('adr_add', [v_gc_adr, c_ofs], resultvar=op.result)
+        self._gc_adr_of_gc_attr(hop, 'nursery_top')
 
-    def gct_gc_adr_of_root_stack_top(self, hop):
+    def _gc_adr_of_gcdata_attr(self, hop, attrname):
         op = hop.spaceop
         ofs = llmemory.offsetof(self.c_const_gcdata.concretetype.TO,
-                                'inst_root_stack_top')
+                                'inst_' + attrname)
         c_ofs = rmodel.inputconst(lltype.Signed, ofs)
         v_gcdata_adr = hop.genop('cast_ptr_to_adr', [self.c_const_gcdata],
                                  resulttype=llmemory.Address)
         hop.genop('adr_add', [v_gcdata_adr, c_ofs], resultvar=op.result)
+
+    def gct_gc_adr_of_root_stack_base(self, hop):
+        self._gc_adr_of_gcdata_attr(hop, 'root_stack_base')
+    def gct_gc_adr_of_root_stack_top(self, hop):
+        self._gc_adr_of_gcdata_attr(hop, 'root_stack_top')
 
     def gct_gc_x_swap_pool(self, hop):
         raise NotImplementedError("old operation deprecated")
@@ -938,24 +942,28 @@ class FrameworkGCTransformer(GCTransformer):
                                   v_size])
 
     def gct_gc_thread_prepare(self, hop):
-        assert self.translator.config.translation.thread
-        if hasattr(self.root_walker, 'thread_prepare_ptr'):
-            hop.genop("direct_call", [self.root_walker.thread_prepare_ptr])
+        pass   # no effect any more
 
     def gct_gc_thread_run(self, hop):
         assert self.translator.config.translation.thread
         if hasattr(self.root_walker, 'thread_run_ptr'):
+            livevars = self.push_roots(hop)
             hop.genop("direct_call", [self.root_walker.thread_run_ptr])
+            self.pop_roots(hop, livevars)
 
     def gct_gc_thread_start(self, hop):
         assert self.translator.config.translation.thread
         if hasattr(self.root_walker, 'thread_start_ptr'):
+            # only with asmgcc.  Note that this is actually called after
+            # the first gc_thread_run() in the new thread.
             hop.genop("direct_call", [self.root_walker.thread_start_ptr])
 
     def gct_gc_thread_die(self, hop):
         assert self.translator.config.translation.thread
         if hasattr(self.root_walker, 'thread_die_ptr'):
+            livevars = self.push_roots(hop)
             hop.genop("direct_call", [self.root_walker.thread_die_ptr])
+            self.pop_roots(hop, livevars)
 
     def gct_gc_thread_before_fork(self, hop):
         if (self.translator.config.translation.thread
@@ -970,8 +978,10 @@ class FrameworkGCTransformer(GCTransformer):
     def gct_gc_thread_after_fork(self, hop):
         if (self.translator.config.translation.thread
             and hasattr(self.root_walker, 'thread_after_fork_ptr')):
+            livevars = self.push_roots(hop)
             hop.genop("direct_call", [self.root_walker.thread_after_fork_ptr]
                                      + hop.spaceop.args)
+            self.pop_roots(hop, livevars)
 
     def gct_gc_get_type_info_group(self, hop):
         return hop.cast_result(self.c_type_info_group)
