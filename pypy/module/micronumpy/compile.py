@@ -3,24 +3,29 @@
 It should not be imported by the module itself
 """
 
+from pypy.interpreter.baseobjspace import InternalSpaceCache
+from pypy.module.micronumpy.interp_dtype import W_Float64Dtype
 from pypy.module.micronumpy.interp_numarray import Scalar, SingleDimArray, BaseArray
 
 
 class BogusBytecode(Exception):
     pass
 
-def create_array(size):
-    a = SingleDimArray(size)
+def create_array(dtype, size):
+    a = SingleDimArray(size, dtype=dtype)
     for i in range(size):
-        a.storage[i] = float(i % 10)
+        dtype.setitem(a.storage, i, dtype.box(float(i % 10)))
     return a
 
 class TrivialSpace(object):
+    def __init__(self):
+        self.fromcache = InternalSpaceCache(self).getorbuild
+
     def wrap(self, x):
         return x
 
     def issequence_w(self, w_obj):
-        # Completley wrong in the general case, but good enough for this.
+        # Completely wrong in the general case, but good enough for this.
         return isinstance(w_obj, BaseArray)
 
     def float_w(self, w_obj):
@@ -31,12 +36,13 @@ def numpy_compile(bytecode, array_size):
     space = TrivialSpace()
     stack = []
     i = 0
+    dtype = space.fromcache(W_Float64Dtype)
     for b in bytecode:
         if b == 'a':
-            stack.append(create_array(array_size))
+            stack.append(create_array(dtype, array_size))
             i += 1
         elif b == 'f':
-            stack.append(Scalar(1.2))
+            stack.append(Scalar(dtype, dtype.box(1.2)))
         elif b == '+':
             right = stack.pop()
             stack.append(stack.pop().descr_add(space, right))

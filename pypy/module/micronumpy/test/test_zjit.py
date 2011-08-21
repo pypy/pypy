@@ -1,8 +1,8 @@
+from pypy.interpreter.baseobjspace import InternalSpaceCache
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.module.micronumpy.compile import numpy_compile
 from pypy.module.micronumpy.interp_dtype import W_Float64Dtype
-from pypy.module.micronumpy.interp_numarray import (SingleDimArray, Scalar,
-    Call2, SingleDimSlice, Call1)
+from pypy.module.micronumpy.interp_numarray import SingleDimArray, Scalar
 from pypy.module.micronumpy.interp_ufuncs import negative, add
 from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.objectmodel import specialize
@@ -11,6 +11,9 @@ from pypy.rpython.test.test_llinterp import interpret
 
 class FakeSpace(object):
     w_ValueError = None
+
+    def __init__(self):
+        self.fromcache = InternalSpaceCache(self).getorbuild
 
     def issequence_w(self, w_obj):
         return True
@@ -32,7 +35,7 @@ class TestNumpyJIt(LLJitMixin):
             ar = SingleDimArray(i, dtype=self.float64_dtype)
             v = add(self.space, ar, ar)
             concrete = v.get_concrete()
-            return concrete.dtype.getitem(concrete.storage, 3)
+            return concrete.dtype.getitem(concrete.storage, 3).val
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
         self.check_loops({'getarrayitem_raw': 2, 'float_add': 1,
@@ -42,8 +45,8 @@ class TestNumpyJIt(LLJitMixin):
 
     def test_floatadd(self):
         def f(i):
-            ar = SingleDimArray(i)
-            v = Call2(add, ar, Scalar(4.5), Signature())
+            ar = SingleDimArray(i, dtype=self.float64_dtype)
+            v = add(self.space, ar, Scalar(self.float64_dtype, self.float64_dtype.box(4.5)))
             return v.dtype.getitem(v.get_concrete().storage, 3)
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)

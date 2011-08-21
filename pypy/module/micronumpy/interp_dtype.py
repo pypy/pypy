@@ -45,7 +45,7 @@ class W_Dtype(Wrappable):
 class BaseBox(object):
     pass
 
-VOID_TP = lltype.Ptr(lltype.Array(lltype.Void, hints={'nolength': True}))
+VOID_TP = lltype.Ptr(lltype.Array(lltype.Void, hints={'nolength': True, "uncast_on_llgraph": True}))
 
 def create_low_level_dtype(num, kind, name, aliases, applevel_types, T, valtype):
     class Box(BaseBox):

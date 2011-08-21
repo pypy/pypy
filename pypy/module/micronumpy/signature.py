@@ -27,6 +27,8 @@ class BaseSignature(object):
 class Signature(BaseSignature):
     _known_sigs = r_dict(components_eq, components_hash)
 
+    _immutable_fields_ = ["components[*]"]
+
     def __init__(self, components):
         self.components = components
 

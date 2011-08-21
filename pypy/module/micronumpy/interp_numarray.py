@@ -403,7 +403,8 @@ class Call1(VirtualArray):
         return self.res_dtype
 
     def _eval(self, i):
-        call_sig = self.signature.components[0]
+        sig = jit.promote(self.signature)
+        call_sig = sig.components[0]
         assert isinstance(call_sig, signature.Call1)
         val = self.values.eval(i).convert_to(self.res_dtype)
         return call_sig.func(self.res_dtype, val)
@@ -431,7 +432,8 @@ class Call2(VirtualArray):
     def _eval(self, i):
         lhs = self.left.eval(i).convert_to(self.res_dtype)
         rhs = self.right.eval(i).convert_to(self.res_dtype)
-        call_sig = self.signature.components[0]
+        sig = jit.promote(self.signature)
+        call_sig = sig.components[0]
         assert isinstance(call_sig, signature.Call2)
         return call_sig.func(self.res_dtype, lhs, rhs)
 
