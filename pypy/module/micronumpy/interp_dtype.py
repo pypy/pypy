@@ -22,7 +22,9 @@ class W_Dtype(Wrappable):
         pass
 
     def descr__new__(space, w_subtype, w_dtype):
-        if space.isinstance_w(w_dtype, space.w_str):
+        if space.is_w(w_dtype, space.w_None):
+            return space.fromcache(W_Float64Dtype)
+        elif space.isinstance_w(w_dtype, space.w_str):
             dtype = space.str_w(w_dtype)
             for alias, dtype_class in dtypes_by_alias:
                 if alias == dtype:

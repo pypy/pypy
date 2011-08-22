@@ -2,7 +2,7 @@ import math
 
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.micronumpy import interp_ufuncs, interp_dtype, signature
 from pypy.rlib import jit
@@ -36,9 +36,7 @@ class BaseArray(Wrappable):
     def add_invalidates(self, other):
         self.invalidates.append(other)
 
-    def descr__new__(space, w_subtype, w_size_or_iterable, w_dtype=NoneNotWrapped):
-        if w_dtype is None:
-            w_dtype = space.w_float
+    def descr__new__(space, w_subtype, w_size_or_iterable, w_dtype=None):
         dtype = space.interp_w(interp_dtype.W_Dtype,
             space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
         )
