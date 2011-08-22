@@ -34,3 +34,15 @@ class AppTestDtypes(BaseNumpyAppTest):
         assert a[0] is False
         for i in xrange(1, 4):
             assert a[i] is True
+
+    def test_copy_array_with_dtype(self):
+        from numpy import array
+        a = array([0, 1, 2, 3], dtype=long)
+        assert isinstance(a[0], int)
+        b = a.copy()
+        assert isinstance(b[0], int)
+
+        a = array([0, 1, 2, 3], dtype=bool)
+        assert isinstance(a[0], bool)
+        b = a.copy()
+        assert isinstance(b[0], bool)

@@ -218,7 +218,7 @@ class BaseArray(Wrappable):
         raise NotImplementedError
 
     def descr_copy(self, space):
-        return space.call_function(space.gettypefor(BaseArray), self)
+        return space.call_function(space.gettypefor(BaseArray), self, self.find_dtype())
 
     def descr_get_shape(self, space):
         return space.newtuple([self.descr_len(space)])
