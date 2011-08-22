@@ -3,7 +3,7 @@ from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.module.micronumpy import interp_ufuncs, signature
 from pypy.module.micronumpy.compile import (numpy_compile, FakeSpace,
     FloatObject, IntObject, BoolObject)
-from pypy.module.micronumpy.interp_dtype import W_Float64Dtype
+from pypy.module.micronumpy.interp_dtype import W_Float64Dtype, W_Int64Dtype
 from pypy.module.micronumpy.interp_numarray import (BaseArray, SingleDimArray,
     SingleDimSlice, scalar_w)
 from pypy.rlib.nonconst import NonConstant
@@ -15,6 +15,7 @@ class TestNumpyJIt(LLJitMixin):
     def setup_class(cls):
         cls.space = FakeSpace()
         cls.float64_dtype = cls.space.fromcache(W_Float64Dtype)
+        cls.int64_dtype = cls.space.fromcache(W_Int64Dtype)
 
     def test_add(self):
         def f(i):
@@ -47,9 +48,14 @@ class TestNumpyJIt(LLJitMixin):
     def test_sum(self):
         space = self.space
         float64_dtype = self.float64_dtype
+        int64_dtype = self.int64_dtype
 
         def f(i):
-            ar = SingleDimArray(i, dtype=NonConstant(float64_dtype))
+            if NonConstant(False):
+                dtype = int64_dtype
+            else:
+                dtype = float64_dtype
+            ar = SingleDimArray(i, dtype=dtype)
             v = ar.descr_add(space, ar).descr_sum(space)
             assert isinstance(v, FloatObject)
             return v.floatval
@@ -63,9 +69,14 @@ class TestNumpyJIt(LLJitMixin):
     def test_prod(self):
         space = self.space
         float64_dtype = self.float64_dtype
+        int64_dtype = self.int64_dtype
 
         def f(i):
-            ar = SingleDimArray(i, dtype=NonConstant(float64_dtype))
+            if NonConstant(False):
+                dtype = int64_dtype
+            else:
+                dtype = float64_dtype
+            ar = SingleDimArray(i, dtype=dtype)
             v = ar.descr_add(space, ar).descr_prod(space)
             assert isinstance(v, FloatObject)
             return v.floatval
