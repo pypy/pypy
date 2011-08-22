@@ -483,6 +483,9 @@ class BasicPPCAssembler(Assembler):
     srawi   = Form("rA", "rS", "SH", "XO1", "Rc")(31, XO1=824, Rc=0)
     srawix  = Form("rA", "rS", "SH", "XO1", "Rc")(31, XO1=824, Rc=1)
 
+    srd     = XS(31, XO1=539, Rc=0)
+    srdx    = XS(31, XO1=539, Rc=1)
+
     srw     = XS(31, XO1=536, Rc=0)
     srwx    = XS(31, XO1=536, Rc=1)
 
@@ -580,9 +583,13 @@ class PPCAssembler(BasicPPCAssembler):
 
     # F.3 Simplified Mnemonics for Compare Instructions
 
+    cmpdi  = BA.cmpi(L=1)
     cmpwi  = BA.cmpi(L=0)
+    cmpldi = BA.cmpli(L=1)
     cmplwi = BA.cmpli(L=0)
+    cmpd   = BA.cmp(L=1)
     cmpw   = BA.cmp(L=0)
+    cmpld  = BA.cmpl(L=1)
     cmplw  = BA.cmpl(L=0)
 
     # F.4 Simplified Mnemonics for Rotate and Shift Instructions
@@ -616,6 +623,9 @@ class PPCAssembler(BasicPPCAssembler):
 
     def sldi(self, rA, rS, n):
         self.rldicr(rA, rS, n, 63-n)
+
+    def srdi(self, rA, rS, n):
+        self.rldicl(rA, rS, 64-n, n)
 
     # F.5 Simplified Mnemonics for Branch Instructions
 
@@ -899,10 +909,10 @@ class PPCBuilder(PPCAssembler):
 
     def load_word(self, rD, word):
         if IS_PPC_32:
-            self.addis(rD, 0, hi(word))
+            self.lis(rD, hi(word))
             self.ori(rD, rD, lo(word))
         else:
-            self.addis(rD, 0, highest(word))
+            self.lis(rD, highest(word))
             self.ori(rD, rD, higher(word))
             self.sldi(rD, rD, 32)
             self.oris(rD, rD, high(word))
