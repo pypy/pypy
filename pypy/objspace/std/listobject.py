@@ -537,11 +537,15 @@ class AbstractUnwrappedStrategy(object):
             return W_ListObject.from_storage_and_strategy(self.space, storage, self)
         else:
             subitems_w = [None] * length
-            # XXX wrap/unwrap
+            l = self.cast_from_void_star(w_list.lstorage)
             for i in range(length):
-                subitems_w[i] = w_list.getitem(start)
-                start += step
-            return W_ListObject(self.space, subitems_w)
+                try:
+                    subitems_w[i] = l[start]
+                    start += step
+                except IndexError:
+                    raise
+            storage = self.cast_to_void_star(subitems_w)
+            return W_ListObject.from_storage_and_strategy(self.space, storage, self)
 
     def append(self,  w_list, w_item):
 
