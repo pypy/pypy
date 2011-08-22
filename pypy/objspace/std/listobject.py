@@ -946,19 +946,6 @@ def eq__List_List(space, w_list1, w_list2):
             return space.w_False
         i += 1
     return space.w_True
-    items1_w = w_list1.getitems()
-    items2_w = w_list2.getitems()
-    return equal_wrappeditems(space, items1_w, items2_w)
-
-def equal_wrappeditems(space, items1_w, items2_w):
-    if len(items1_w) != len(items2_w):
-        return space.w_False
-    i = 0
-    while i < len(items1_w) and i < len(items2_w):
-        if not space.eq_w(items1_w[i], items2_w[i]):
-            return space.w_False
-        i += 1
-    return space.w_True
 
 def lessthan_unwrappeditems(space, items1_w, items2_w):
     # needs to be safe against eq_w() mutating the w_lists behind our back
