@@ -1,54 +1,15 @@
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.module.micronumpy import interp_ufuncs, signature
-from pypy.module.micronumpy.compile import numpy_compile
+from pypy.module.micronumpy.compile import (numpy_compile, FakeSpace,
+    FloatObject, IntObject, BoolObject)
 from pypy.module.micronumpy.interp_dtype import W_Float64Dtype
 from pypy.module.micronumpy.interp_numarray import (BaseArray, SingleDimArray,
     SingleDimSlice, scalar_w)
 from pypy.rlib.nonconst import NonConstant
-from pypy.rlib.objectmodel import specialize
 from pypy.rpython.annlowlevel import llstr
 from pypy.rpython.test.test_llinterp import interpret
 
-
-class FakeSpace(object):
-    w_ValueError = None
-
-    def __init__(self):
-        self.fromcache = InternalSpaceCache(self).getorbuild
-
-    def issequence_w(self, w_obj):
-        return True
-
-    @specialize.argtype(1)
-    def wrap(self, obj):
-        if isinstance(obj, float):
-            return FloatObject(obj)
-        elif isinstance(obj, bool):
-            return BoolObject(obj)
-        elif isinstance(obj, int):
-            return IntObject(obj)
-        raise Exception
-
-    def float(self, w_obj):
-        assert isinstance(w_obj, FloatObject)
-        return w_obj
-
-    def float_w(self, w_obj):
-        return w_obj.floatval
-
-
-class FloatObject(W_Root):
-    def __init__(self, floatval):
-        self.floatval = floatval
-
-class BoolObject(W_Root):
-    def __init__(self, boolval):
-        self.boolval = boolval
-
-class IntObject(W_Root):
-    def __init__(self, intval):
-        self.intval = intval
 
 class TestNumpyJIt(LLJitMixin):
     def setup_class(cls):
