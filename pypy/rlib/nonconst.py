@@ -24,6 +24,12 @@ class NonConstant(object):
     def __add__(self, other):
         return self.__dict__['constant'] + other
 
+    def __radd__(self, other):
+        return other + self.__dict__['constant']
+
+    def __mul__(self, other):
+        return self.__dict__['constant'] * other
+
 class EntryNonConstant(ExtRegistryEntry):
     _about_ = NonConstant
 
