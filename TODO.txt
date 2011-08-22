@@ -3,5 +3,4 @@ TODO for mering numpy-dtype-alt
 
 * More operations on more dtypes
 * dtype guessing
-* fix sum() and prod() types
 * Any more attributes that need to be exposed at app-level
