@@ -1,9 +1,10 @@
 TODO for mering numpy-dtype-alt
 ===============================
 
-* Fix test_zjit
+* Fix the last test_zjit
 * More operations on more dtypes
 * dtype guessing
+* fix sum() and prod() types
 * Any more attributes that need to be exposed at app-level
 
 For later

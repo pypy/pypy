@@ -20,6 +20,8 @@ slice_driver1 = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'sto
 slice_driver2 = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop', 'source', 'dest'])
 
 class BaseArray(Wrappable):
+    _attrs_ = ["invalidates", "signature"]
+
     def __init__(self):
         self.invalidates = []
 
@@ -322,6 +324,8 @@ class Scalar(BaseArray):
     Intermediate class representing a float literal.
     """
     signature = signature.BaseSignature()
+
+    _attrs_ = ["dtype", "value"]
 
     def __init__(self, dtype, value):
         BaseArray.__init__(self)
