@@ -92,13 +92,19 @@ class BaseArray(Wrappable):
                 reduce_driver.jit_merge_point(signature=self.signature,
                                               self=self, res_dtype=res_dtype,
                                               size=size, i=i, result=result)
-                result = getattr(res_dtype, op_name)(result, self.eval(i))
+                result = getattr(res_dtype, op_name)(
+                    result,
+                    self.eval(i).convert_to(res_dtype)
+                )
                 i += 1
             return result
 
         def impl(self, space):
-            result = space.fromcache(interp_dtype.W_Float64Dtype).box(init).convert_to(self.find_dtype())
-            return loop(self, self.find_dtype(), result, self.find_size()).wrap(space)
+            dtype = interp_ufuncs.find_unaryop_result_dtype(
+                space, self.find_dtype(), promote_to_largest=True
+            )
+            result = dtype.adapt_val(init)
+            return loop(self, dtype, result, self.find_size()).wrap(space)
         return func_with_new_name(impl, "reduce_%s_impl" % op_name)
 
     def _reduce_max_min_impl(op_name):
@@ -178,8 +184,8 @@ class BaseArray(Wrappable):
     def descr_any(self, space):
         return space.wrap(self._any())
 
-    descr_sum = _reduce_sum_prod_impl("add", 0.0)
-    descr_prod = _reduce_sum_prod_impl("mul", 1.0)
+    descr_sum = _reduce_sum_prod_impl("add", 0)
+    descr_prod = _reduce_sum_prod_impl("mul", 1)
     descr_max = _reduce_max_min_impl("max")
     descr_min = _reduce_max_min_impl("min")
     descr_argmax = _reduce_argmax_argmin_impl("max")

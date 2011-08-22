@@ -73,11 +73,19 @@ def find_binop_result_dtype(space, dt1, dt2, promote_bools=False, promote_to_flo
 
     assert False
 
-def find_unaryop_result_dtype(space, dt, promote_to_float=False):
+def find_unaryop_result_dtype(space, dt, promote_to_float=False,
+    promote_to_largest=False):
     if promote_to_float:
         for bytes, dtype in interp_dtype.dtypes_by_num_bytes:
             if dtype.kind == interp_dtype.FLOATINGLTR and dtype.num_bytes >= dt.num_bytes:
                 return space.fromcache(dtype)
+    if promote_to_largest:
+        if dt.kind == interp_dtype.BOOLLTR or dt.kind == interp_dtype.SIGNEDLTR:
+            return space.fromcache(interp_dtype.W_Int64Dtype)
+        elif dt.kind == interp_dtype.FLOATINGLTR:
+            return space.fromcache(interp_dtype.W_Float64Dtype)
+        else:
+            assert False
     return dt
 
 

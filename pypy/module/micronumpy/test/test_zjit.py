@@ -14,7 +14,7 @@ from pypy.rpython.test.test_llinterp import interpret
 class TestNumpyJIt(LLJitMixin):
     def setup_class(cls):
         cls.space = FakeSpace()
-        cls.float64_dtype = W_Float64Dtype(cls.space)
+        cls.float64_dtype = cls.space.fromcache(W_Float64Dtype)
 
     def test_add(self):
         def f(i):

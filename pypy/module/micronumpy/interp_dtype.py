@@ -218,6 +218,10 @@ class FloatArithmeticDtype(object):
 class IntegerArithmeticDtype(object):
     _mixin_ = True
 
+    @binop
+    def add(self, v1, v2):
+        return v1 + v2
+
     def str_format(self, item):
         return str(widen(self.unbox(item)))
 

@@ -412,6 +412,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.sum() == 10.0
         assert a[:4].sum() == 6.0
 
+        a = array([True] * 5, bool)
+        assert a.sum() == 5
+
     def test_prod(self):
         from numpy import array
         a = array(range(1,6))
