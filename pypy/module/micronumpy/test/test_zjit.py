@@ -7,6 +7,7 @@ from pypy.module.micronumpy.interp_numarray import (BaseArray, SingleDimArray,
     SingleDimSlice, scalar_w)
 from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.objectmodel import specialize
+from pypy.rpython.annlowlevel import llstr
 from pypy.rpython.test.test_llinterp import interpret
 
 
@@ -327,6 +328,5 @@ class TestTranslation(object):
     def test_translation(self):
         # we import main to check if the target compiles
         from pypy.translator.goal.targetnumpystandalone import main
-        from pypy.rpython.annlowlevel import llstr
 
         interpret(main, [llstr('af+'), 100])

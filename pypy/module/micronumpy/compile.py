@@ -19,7 +19,11 @@ def create_array(dtype, size):
 
 class TrivialSpace(object):
     def __init__(self):
+        "NOT_RPYTHON"
         self.fromcache = InternalSpaceCache(self).getorbuild
+
+    def _freeze_(self):
+        return True
 
     def wrap(self, x):
         return x
