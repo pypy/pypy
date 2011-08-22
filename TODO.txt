@@ -5,8 +5,3 @@ TODO for mering numpy-dtype-alt
 * dtype guessing
 * fix sum() and prod() types
 * Any more attributes that need to be exposed at app-level
-
-For later
-=========
-
-* More APIs need dtype arguments (zeros, ones, etc.)

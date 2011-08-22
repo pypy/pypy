@@ -47,3 +47,29 @@ class AppTestDtypes(BaseNumpyAppTest):
         assert isinstance(a[0], bool)
         b = a.copy()
         assert isinstance(b[0], bool)
+
+    def test_zeros_bool(self):
+        from numpy import zeros
+        a = zeros(10, dtype=bool)
+        for i in range(10):
+            assert a[i] is False
+
+    def test_ones_bool(self):
+        from numpy import ones
+        a = ones(10, dtype=bool)
+        for i in range(10):
+            assert a[i] is True
+
+    def test_zeros_long(self):
+        from numpy import zeros
+        a = zeros(10, dtype=long)
+        for i in range(10):
+            assert isinstance(a[i], int)
+            assert a[1] == 0
+
+    def test_ones_long(self):
+        from numpy import ones
+        a = ones(10, dtype=bool)
+        for i in range(10):
+            assert isinstance(a[i], int)
+            assert a[1] == 1

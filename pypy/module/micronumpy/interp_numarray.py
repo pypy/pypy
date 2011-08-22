@@ -546,14 +546,20 @@ class SingleDimArray(BaseArray):
         lltype.free(self.storage, flavor='raw', track_allocation=False)
 
 @unwrap_spec(size=int)
-def zeros(space, size):
-    return space.wrap(SingleDimArray(size, dtype=space.fromcache(interp_dtype.W_Float64Dtype)))
+def zeros(space, size, w_dtype=None):
+    dtype = space.interp_w(interp_dtype.W_Dtype,
+        space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
+    )
+    return space.wrap(SingleDimArray(size, dtype=dtype))
 
 @unwrap_spec(size=int)
-def ones(space, size):
-    dtype = space.fromcache(interp_dtype.W_Float64Dtype)
+def ones(space, size, w_dtype=None):
+    dtype = space.interp_w(interp_dtype.W_Dtype,
+        space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
+    )
+
     arr = SingleDimArray(size, dtype=dtype)
-    one = dtype.box(1.0)
+    one = dtype.adapt_val(1)
     for i in xrange(size):
         arr.dtype.setitem(arr.storage, i, one)
     return space.wrap(arr)
