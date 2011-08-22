@@ -898,29 +898,31 @@ class PPCBuilder(PPCAssembler):
         PPCAssembler.__init__(self)
 
     def load_word(self, rD, word):
-        self.addis(rD, 0, hi(word))
-        self.ori(rD, rD, lo(word))
+        if IS_PPC_32:
+            self.addis(rD, 0, hi(word))
+            self.ori(rD, rD, lo(word))
+        else:
+            self.addis(rD, 0, highest(word))
+            self.ori(rD, rD, higher(word))
+            self.sldi(rD, rD, 32)
+            self.oris(rD, rD, high(word))
+            self.ori(rD, rD, lo(word))
 
     def load_from(self, rD, addr):
         if IS_PPC_32:
             self.addis(rD, 0, ha(addr))
+            self.lwz(rD, rD, la(addr))
         else:
-            self.addis(rD, 0, highest(addr))
-            self.ori(rD, rD, higher(addr))
-            self.sldi(rD, rD, 32)
-            self.oris(rD, rD, high(addr))
-        self.lwz(rD, rD, la(addr))
+            self.load_word(rD, addr)
+            self.ld(rD, rD, 0)
 
     def store_reg(self, source_reg, addr):
-        self.load_word(10, addr)
-        self.stw(source_reg, 10, 0)
-
-    def load_dword(self, rD, dword):
-        self.addis(rD, 0, highest(dword))
-        self.ori(rD, rD, higher(dword))
-        self.sldi(rD, rD, 32)
-        self.oris(rD, rD, high(dword))
-        self.ori(rD, rD, lo(dword))
+        if IS_PPC_32:
+            self.addis(10, 0, ha(addr))
+            self.stw(source_reg, 10, la(addr))
+        else:
+            self.load_word(10, addr)
+            self.std(source_reg, 10, 0)
 
     # translate a trace operation to corresponding machine code
     def build_op(self, trace_op, cpu):
@@ -1027,17 +1029,31 @@ class PPCBuilder(PPCAssembler):
 
     def emit_int_mul(self, op, cpu, reg0, reg1, free_reg):
         # XXX need to care about factors whose product needs 64 bit
-        self.mullw(free_reg, reg0, reg1)
+        if IS_PPC_32:
+            self.mullw(free_reg, reg0, reg1)
+        else:
+            self.mulld(free_reg, reg0, reg1)
 
     def emit_int_mul_ovf(self, op, cpu, reg0, reg1, free_reg):
-        self.mullwo(free_reg, reg0, reg1)
+        if IS_PPC_32:
+            self.mullwo(free_reg, reg0, reg1)
+        else:
+            self.mulldo(free_reg, reg0, reg1)
 
     def emit_int_floordiv(self, op, cpu, reg0, reg1, free_reg):
-        self.divw(free_reg, reg0, reg1)
+        if IS_PPC_32:
+            self.divw(free_reg, reg0, reg1)
+        else:
+            self.divd(free_reg, reg0, reg1)
 
     def emit_int_mod(self, op, cpu, reg0, reg1, free_reg):
-        self.divw(free_reg, reg0, reg1)
-        self.mullw(free_reg, free_reg, reg1)
+        if IS_PPC_32:
+            self.divw(free_reg, reg0, reg1)
+            # use shift left of log2
+            self.mullw(free_reg, free_reg, reg1)
+        else:
+            self.divd(free_reg, reg0, reg1)
+            self.mulld(free_reg, free_reg, reg1)
         self.subf(free_reg, free_reg, reg0)
 
     def emit_int_and(self, op, cpu, reg0, reg1, free_reg):
@@ -1050,21 +1066,37 @@ class PPCBuilder(PPCAssembler):
         self.xor(free_reg, reg0, reg1)
 
     def emit_int_lshift(self, op, cpu, reg0, reg1, free_reg):
-        self.slw(free_reg, reg0, reg1)
+        if IS_PPC_32:
+            self.slw(free_reg, reg0, reg1)
+        else:
+            self.sld(free_reg, reg0, reg1)
 
     def emit_int_rshift(self, op, cpu, reg0, reg1, free_reg):
-        self.sraw(free_reg, reg0, reg1)
+        if IS_PPC_32:
+            self.sraw(free_reg, reg0, reg1)
+        else:
+            self.srad(free_reg, reg0, reg1)
 
     def emit_uint_rshift(self, op, cpu, reg0, reg1, free_reg):
-        self.srw(free_reg, reg0, reg1)
+        if IS_PPC_32:
+            self.srw(free_reg, reg0, reg1)
+        else:
+            self.srd(free_reg, reg0, reg1)
 
     def emit_uint_floordiv(self, op, cpu, reg0, reg1, free_reg):
-        self.divwu(free_reg, reg0, reg1)
+        if IS_PPC_32:
+            self.divwu(free_reg, reg0, reg1)
+        else:
+            self.divdu(free_reg, reg0, reg1)
 
     def emit_int_eq(self, op, cpu, reg0, reg1, free_reg):
-        self.cmpw(7, reg0, reg1)
-        self.mfcr(free_reg)
-        self.rlwinm(free_reg, free_reg, 31, 31, 31)
+        self.xor(free_reg, reg0, reg1)
+        if IS_PPC_32:
+            self.cntlzw(free_reg, free_reg)
+            self.srwi(free_reg, free_reg, 5)
+        else:
+            self.cntlzd(free_reg, free_reg)
+            self.srdi(free_reg, free_reg, 6)
 
     def emit_int_le(self, op, cpu, reg0, reg1, free_reg):
         self.cmpw(7, reg0, reg1)
@@ -1078,10 +1110,8 @@ class PPCBuilder(PPCAssembler):
         self.rlwinm(free_reg, free_reg, 29, 31, 31)
 
     def emit_int_ne(self, op, cpu, reg0, reg1, free_reg):
-        self.cmpw(7, reg0, reg1)
-        self.crnot(30, 30)
-        self.mfcr(free_reg)
-        self.rlwinm(free_reg, free_reg, 31, 31, 31)
+        self.emit_int_eq(self, op, cpu, reg0, reg1, free_reg)
+        self.xori(free_reg, free_reg, 1)
 
     def emit_int_gt(self, op, cpu, reg0, reg1, free_reg):
         self.cmpw(7, reg0, reg1)
@@ -1128,7 +1158,7 @@ class PPCBuilder(PPCAssembler):
         self.sub(free_reg, free_reg, reg0)
 
     def emit_int_invert(self, op, cpu, reg0, free_reg):
-        self.load_word(free_reg, -1)
+        self.li(free_reg, -1)
         self.xor(free_reg, free_reg, reg0)
 
     def emit_int_is_zero(self, op, cpu, reg0, free_reg):
