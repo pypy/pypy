@@ -16,8 +16,7 @@ numpy_driver = jit.JitDriver(greens = ['signature'],
                              reds = ['result_size', 'i', 'self', 'result'])
 all_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self', 'dtype'])
 any_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self', 'dtype'])
-slice_driver1 = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop', 'source', 'dest'])
-slice_driver2 = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop', 'source', 'dest'])
+slice_driver = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop', 'source', 'dest'])
 
 class BaseArray(Wrappable):
     _attrs_ = ["invalidates", "signature"]
@@ -258,7 +257,7 @@ class BaseArray(Wrappable):
                                                               self.find_size())
         if step == 0:
             # Single index
-            self.get_concrete().setitem(space, start, w_value)
+            self.get_concrete().setitem_w(space, start, w_value)
         else:
             concrete = self.get_concrete()
             if isinstance(w_value, BaseArray):
@@ -276,25 +275,14 @@ class BaseArray(Wrappable):
     def descr_mean(self, space):
         return space.wrap(space.float_w(self.descr_sum(space))/self.find_size())
 
-    def _sliceloop1(self, start, stop, step, source, dest):
+    def _sliceloop(self, start, stop, step, source, dest):
         i = start
         j = 0
-        while i < stop:
-            slice_driver1.jit_merge_point(signature=source.signature,
-                    step=step, stop=stop, i=i, j=j, source=source,
-                    dest=dest)
-            dest.dtype.setitem(dest.storage, i, source.eval(j))
-            j += 1
-            i += step
-
-    def _sliceloop2(self, start, stop, step, source, dest):
-        i = start
-        j = 0
-        while i > stop:
-            slice_driver2.jit_merge_point(signature=source.signature,
-                    step=step, stop=stop, i=i, j=j, source=source,
-                    dest=dest)
-            dest.dtype.setitem(dest.storage, i, source.eval(j))
+        while (step > 0 and i < stop) or (step < 0 and i > stop):
+            slice_driver.jit_merge_point(signature=source.signature, step=step,
+                                         stop=stop, i=i, j=j, source=source,
+                                         dest=dest)
+            dest.setitem(i, source.eval(j))
             j += 1
             i += step
 
@@ -382,6 +370,9 @@ class VirtualArray(BaseArray):
             return self.forced_result.eval(i)
         return self._eval(i)
 
+    def setitem(self, item, value):
+        return self.get_concrete().setitem(item, value)
+
     def find_size(self):
         if self.forced_result is not None:
             # The result has been computed and sources may be unavailable
@@ -467,8 +458,11 @@ class ViewArray(BaseArray):
         return self.parent.eval(self.calc_index(i))
 
     @unwrap_spec(item=int)
-    def setitem(self, space, item, w_value):
-        return self.parent.setitem(space, self.calc_index(item), w_value)
+    def setitem_w(self, space, item, w_value):
+        return self.parent.setitem_w(space, self.calc_index(item), w_value)
+
+    def setitem(self, item, value):
+        return self.parent.setitem(self.calc_index(item), value)
 
     def descr_len(self, space):
         return space.wrap(self.find_size())
@@ -494,7 +488,7 @@ class SingleDimSlice(ViewArray):
         self.size = slice_length
 
     def get_root_storage(self):
-        return self.parent.storage
+        return self.parent.get_concrete().get_root_storage()
 
     def find_size(self):
         return self.size
@@ -507,10 +501,7 @@ class SingleDimSlice(ViewArray):
         if stop != -1:
             stop = self.calc_index(stop)
         step = self.step * step
-        if step > 0:
-            self._sliceloop1(start, stop, step, arr, self.parent)
-        else:
-            self._sliceloop2(start, stop, step, arr, self.parent)
+        self._sliceloop(start, stop, step, arr, self.parent)
 
     def calc_index(self, item):
         return (self.start + item * self.step)
@@ -542,15 +533,16 @@ class SingleDimArray(BaseArray):
     def descr_len(self, space):
         return space.wrap(self.size)
 
-    def setitem(self, space, item, w_value):
+    def setitem_w(self, space, item, w_value):
         self.invalidated()
         self.dtype.setitem_w(space, self.storage, item, w_value)
 
+    def setitem(self, item, value):
+        self.invalidated()
+        self.dtype.setitem(self.storage, item, value)
+
     def setslice(self, space, start, stop, step, slice_length, arr):
-        if step > 0:
-            self._sliceloop1(start, stop, step, arr, self)
-        else:
-            self._sliceloop2(start, stop, step, arr, self)
+        self._sliceloop(start, stop, step, arr, self)
 
     def __del__(self):
         lltype.free(self.storage, flavor='raw', track_allocation=False)

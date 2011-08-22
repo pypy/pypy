@@ -84,7 +84,7 @@ class TestNumpyJIt(LLJitMixin):
             ar = SingleDimArray(i, dtype=NonConstant(float64_dtype))
             j = 0
             while j < i:
-                ar.get_concrete().setitem(space, j, space.wrap(float(j)))
+                ar.get_concrete().setitem(j, float64_dtype.box(float(j)))
                 j += 1
             return ar.descr_add(space, ar).descr_max(space).floatval
 
@@ -103,7 +103,7 @@ class TestNumpyJIt(LLJitMixin):
             ar = SingleDimArray(i, dtype=NonConstant(float64_dtype))
             j = 0
             while j < i:
-                ar.get_concrete().setitem(space, j, space.wrap(float(j)))
+                ar.get_concrete().setitem(j, float64_dtype.box(float(j)))
                 j += 1
             return ar.descr_add(space, ar).descr_min(space).floatval
 
@@ -122,7 +122,7 @@ class TestNumpyJIt(LLJitMixin):
             ar = SingleDimArray(i, dtype=NonConstant(float64_dtype))
             j = 0
             while j < i:
-                ar.get_concrete().setitem(space, j, space.wrap(float(j)))
+                ar.get_concrete().setitem(j, float64_dtype.box(float(j)))
                 j += 1
             return ar.descr_add(space, ar).descr_argmin(space).intval
 
@@ -141,7 +141,7 @@ class TestNumpyJIt(LLJitMixin):
             ar = SingleDimArray(i, dtype=NonConstant(float64_dtype))
             j = 0
             while j < i:
-                ar.get_concrete().setitem(space, j, space.wrap(1.0))
+                ar.get_concrete().setitem(j, float64_dtype.box(1.0))
                 j += 1
             return ar.descr_add(space, ar).descr_all(space).boolval
 
@@ -260,12 +260,13 @@ class TestNumpyJIt(LLJitMixin):
 
     def test_setslice(self):
         space = self.space
+        float64_dtype = self.float64_dtype
 
         def f(i):
             step = NonConstant(3)
-            ar = SingleDimArray(step*i, dtype=self.float64_dtype)
-            ar2 = SingleDimArray(i, dtype=self.float64_dtype)
-            ar2.get_concrete().setitem(space, 1, space.wrap(5.5))
+            ar = SingleDimArray(step*i, dtype=float64_dtype)
+            ar2 = SingleDimArray(i, dtype=float64_dtype)
+            ar2.get_concrete().setitem(1, float64_dtype.box(5.5))
             arg = ar2.descr_add(space, ar2)
             ar.setslice(space, 0, step*i, step, i, arg)
             return ar.get_concrete().eval(3).val

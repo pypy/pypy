@@ -361,6 +361,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         for i in range(4):
             assert s[i] == a[i+1]
 
+        s = (a + a)[1:2]
+        assert len(s) == 1
+        assert s[0] == 2
+        s[:1] = array([5])
+        assert s[0] == 5
+
     def test_getslice_step(self):
         from numpy import array
         a = array(range(10))
