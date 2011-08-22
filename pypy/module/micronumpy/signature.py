@@ -18,6 +18,8 @@ def components_hash(components):
     return res
 
 class BaseSignature(object):
+    _attrs_ = []
+
     def eq(self, other):
         return self is other
 
@@ -27,6 +29,7 @@ class BaseSignature(object):
 class Signature(BaseSignature):
     _known_sigs = r_dict(components_eq, components_hash)
 
+    _attrs_ = ["components"]
     _immutable_fields_ = ["components[*]"]
 
     def __init__(self, components):
