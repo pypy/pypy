@@ -2,7 +2,7 @@ from pypy.rpython.memory.gctransform.framework import BaseRootWalker
 from pypy.rpython.memory.gctransform.framework import sizeofaddr
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype, llmemory
-from pypy.rpython.lltypesystem.lloperation import llop
+from pypy.rlib.debug import ll_assert
 from pypy.annotation import model as annmodel
 
 
@@ -65,12 +65,6 @@ class ShadowStackRootWalker(BaseRootWalker):
         self.rootstackhook(collect_stack_root,
                            gcdata.root_stack_base, gcdata.root_stack_top)
 
-    def need_stacklet_support(self):
-        XXXXXX   # FIXME
-        # stacklet support: BIG HACK for rlib.rstacklet
-        from pypy.rlib import _stacklet_shadowstack
-        _stacklet_shadowstack._shadowstackrootwalker = self # as a global! argh
-
     def need_thread_support(self, gctransformer, getfn):
         from pypy.module.thread import ll_thread    # xxx fish
         from pypy.rpython.memory.support import AddressDict
@@ -81,7 +75,7 @@ class ShadowStackRootWalker(BaseRootWalker):
         # gc_thread_run and gc_thread_die.  See docstrings below.
 
         shadow_stack_pool = self.shadow_stack_pool
-        SHADOWSTACKREF = make_shadowstackref(gctransformer)
+        SHADOWSTACKREF = get_shadowstackref(gctransformer)
 
         # this is a dict {tid: SHADOWSTACKREF}, where the tid for the
         # current thread may be missing so far
@@ -182,7 +176,41 @@ class ShadowStackRootWalker(BaseRootWalker):
                                             annmodel.SomeAddress()],
                                            annmodel.s_None,
                                            minimal_transform=False)
-        self.has_thread_support = True
+
+    def need_stacklet_support(self, gctransformer, getfn):
+        shadow_stack_pool = self.shadow_stack_pool
+        SHADOWSTACKREF = get_shadowstackref(gctransformer)
+
+        def gc_new_shadowstackref():
+            ssref = shadow_stack_pool.allocate(SHADOWSTACKREF)
+            return lltype.cast_opaque_ptr(llmemory.GCREF, ssref)
+
+        def gc_save_current_state_away(gcref):
+            ssref = lltype.cast_opaque_ptr(lltype.Ptr(SHADOWSTACKREF), gcref)
+            shadow_stack_pool.save_current_state_away(ssref)
+
+        def gc_forget_current_state():
+            shadow_stack_pool.forget_current_state()
+
+        def gc_restore_state_from(gcref):
+            ssref = lltype.cast_opaque_ptr(lltype.Ptr(SHADOWSTACKREF), gcref)
+            shadow_stack_pool.restore_state_from(ssref)
+
+        def gc_start_fresh_new_state():
+            shadow_stack_pool.start_fresh_new_state()
+
+        s_gcref = annmodel.SomePtr(llmemory.GCREF)
+        self.gc_new_shadowstackref_ptr = getfn(gc_new_shadowstackref,
+                                               [], s_gcref,
+                                               minimal_transform=False)
+        self.gc_save_current_state_away_ptr = getfn(gc_save_current_state_away,
+                                                    [s_gcref], annmodel.s_None)
+        self.gc_forget_current_state_ptr = getfn(gc_forget_current_state,
+                                                 [], annmodel.s_None)
+        self.gc_restore_state_from_ptr = getfn(gc_restore_state_from,
+                                               [s_gcref], annmodel.s_None)
+        self.gc_start_fresh_new_state_ptr = getfn(gc_start_fresh_new_state,
+                                                  [], annmodel.s_None)
 
 # ____________________________________________________________
 
@@ -221,8 +249,17 @@ class ShadowStackPool(object):
         self._prepare_unused_stack()
         shadowstackref.base = self.gcdata.root_stack_base
         shadowstackref.top  = self.gcdata.root_stack_top
+        ll_assert(shadowstackref.base <= shadowstackref.top,
+                  "save_current_state_away: broken shadowstack")
         #shadowstackref.fullstack = True
-        llop.gc_assume_young_pointers(lltype.Void, shadowstackref)
+        #
+        # cannot use llop.gc_assume_young_pointers() here, because
+        # we are in a minimally-transformed GC helper :-/
+        gc = self.gcdata.gc
+        if hasattr(gc.__class__, 'assume_young_pointers'):
+            shadowstackadr = llmemory.cast_ptr_to_adr(shadowstackref)
+            gc.assume_young_pointers(shadowstackadr)
+        #
         self.gcdata.root_stack_top = llmemory.NULL  # to detect missing restore
 
     def forget_current_state(self):
@@ -232,6 +269,9 @@ class ShadowStackPool(object):
         self.gcdata.root_stack_top = llmemory.NULL  # to detect missing restore
 
     def restore_state_from(self, shadowstackref):
+        ll_assert(bool(shadowstackref.base), "empty shadowstackref!")
+        ll_assert(shadowstackref.base <= shadowstackref.top,
+                  "restore_state_from: broken shadowstack")
         self.gcdata.root_stack_base = shadowstackref.base
         self.gcdata.root_stack_top  = shadowstackref.top
         shadowstackref.base = llmemory.NULL
@@ -249,7 +289,10 @@ class ShadowStackPool(object):
                 raise MemoryError
 
 
-def make_shadowstackref(gctransformer):
+def get_shadowstackref(gctransformer):
+    if hasattr(gctransformer, '_SHADOWSTACKREF'):
+        return gctransformer._SHADOWSTACKREF
+
     SHADOWSTACKREFPTR = lltype.Ptr(lltype.GcForwardReference())
     SHADOWSTACKREF = lltype.GcStruct('ShadowStackRef',
                                      ('base', llmemory.Address),
@@ -282,4 +325,5 @@ def make_shadowstackref(gctransformer):
     customtraceptr = llhelper(lltype.Ptr(CUSTOMTRACEFUNC), customtrace)
     lltype.attachRuntimeTypeInfo(SHADOWSTACKREF, customtraceptr=customtraceptr)
 
+    gctransformer._SHADOWSTACKREF = SHADOWSTACKREF
     return SHADOWSTACKREF

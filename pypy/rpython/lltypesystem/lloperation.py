@@ -488,6 +488,13 @@ LL_OPERATIONS = {
     'gc_asmgcroot_static':  LLOp(sideeffects=False),
     'gc_stack_bottom':      LLOp(canrun=True),
 
+    # for stacklet+shadowstack support
+    'gc_new_shadowstackref':      LLOp(canmallocgc=True),
+    'gc_save_current_state_away': LLOp(),
+    'gc_forget_current_state':    LLOp(),
+    'gc_restore_state_from':      LLOp(),
+    'gc_start_fresh_new_state':   LLOp(),
+
     # NOTE NOTE NOTE! don't forget *** canmallocgc=True *** for anything that
     # can malloc a GC object.
 

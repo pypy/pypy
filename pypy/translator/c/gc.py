@@ -392,6 +392,9 @@ class FrameworkGcPolicy(BasicGcPolicy):
                fieldname,
                funcgen.expr(c_skipoffset)))
 
+    def OP_GC_ASSUME_YOUNG_POINTERS(self, funcgen, op):
+        raise Exception("the FramewokGCTransformer should handle this")
+
 class AsmGcRootFrameworkGcPolicy(FrameworkGcPolicy):
     transformerclass = asmgcroot.AsmGcRootFrameworkGCTransformer
 

@@ -479,7 +479,7 @@ class FrameworkGCTransformer(GCTransformer):
 
         # thread support
         if translator.config.translation.continuation:
-            root_walker.need_stacklet_support()
+            root_walker.need_stacklet_support(self, getfn)
         if translator.config.translation.thread:
             root_walker.need_thread_support(self, getfn)
 
@@ -796,6 +796,33 @@ class FrameworkGCTransformer(GCTransformer):
         self._gc_adr_of_gcdata_attr(hop, 'root_stack_base')
     def gct_gc_adr_of_root_stack_top(self, hop):
         self._gc_adr_of_gcdata_attr(hop, 'root_stack_top')
+
+    def gct_gc_new_shadowstackref(self, hop):
+        op = hop.spaceop
+        livevars = self.push_roots(hop)
+        hop.genop("direct_call", [self.root_walker.gc_new_shadowstackref_ptr],
+                  resultvar=op.result)
+        self.pop_roots(hop, livevars)
+
+    def gct_gc_save_current_state_away(self, hop):
+        op = hop.spaceop
+        hop.genop("direct_call",
+                  [self.root_walker.gc_save_current_state_away_ptr,
+                   op.args[0]])
+
+    def gct_gc_forget_current_state(self, hop):
+        hop.genop("direct_call",
+                  [self.root_walker.gc_forget_current_state_ptr])
+
+    def gct_gc_restore_state_from(self, hop):
+        op = hop.spaceop
+        hop.genop("direct_call",
+                  [self.root_walker.gc_restore_state_from_ptr,
+                   op.args[0]])
+
+    def gct_gc_start_fresh_new_state(self, hop):
+        hop.genop("direct_call",
+                  [self.root_walker.gc_start_fresh_new_state_ptr])
 
     def gct_gc_x_swap_pool(self, hop):
         raise NotImplementedError("old operation deprecated")

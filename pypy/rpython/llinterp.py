@@ -825,10 +825,11 @@ class LLFrame(object):
 
     def op_gc_adr_of_nursery_top(self):
         raise NotImplementedError
-
     def op_gc_adr_of_nursery_free(self):
         raise NotImplementedError
 
+    def op_gc_adr_of_root_stack_base(self):
+        raise NotImplementedError
     def op_gc_adr_of_root_stack_top(self):
         raise NotImplementedError
 
@@ -878,6 +879,17 @@ class LLFrame(object):
 
     def op_gc_stack_bottom(self):
         pass       # marker for trackgcroot.py
+
+    def op_gc_new_shadowstackref(self):   # stacklet+shadowstack
+        raise NotImplementedError("gc_new_shadowstackref")
+    def op_gc_save_current_state_away(self):
+        raise NotImplementedError("gc_save_current_state_away")
+    def op_gc_forget_current_state(self):
+        raise NotImplementedError("gc_forget_current_state")
+    def op_gc_restore_state_from(self):
+        raise NotImplementedError("gc_restore_state_from")
+    def op_gc_start_fresh_new_state(self):
+        raise NotImplementedError("gc_start_fresh_new_state")
 
     def op_gc_get_type_info_group(self):
         raise NotImplementedError("gc_get_type_info_group")
