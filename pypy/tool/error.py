@@ -17,7 +17,7 @@ SHOW_DEFAULT_LINES_OF_CODE = 0
 from pypy.interpreter.pytraceback import offset2lineno
 import traceback
 
-def source_lines(graph, block, operindex=None, offset=None, long=False, \
+def source_lines1(graph, block, operindex=None, offset=None, long=False, \
     show_lines_of_code=SHOW_DEFAULT_LINES_OF_CODE):
     if block is not None:
         if block is graph.returnblock:
@@ -60,6 +60,10 @@ def source_lines(graph, block, operindex=None, offset=None, long=False, \
             lines.append(prefix + graph_lines[n-graph.startline])
         lines.append("")
         return lines
+
+def source_lines(graph, *args, **kwds):
+    lines = source_lines1(graph, *args, **kwds)
+    return ['In %r:' % (graph,)] + lines
 
 class FlowingError(Exception):
     pass
