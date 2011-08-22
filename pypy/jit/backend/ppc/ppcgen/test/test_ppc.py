@@ -178,8 +178,6 @@ class TestAssemble(object):
         a.blr()
 
     def test_call_function(self):
-        if is_64_bit_arch():
-            py.test.skip("call 64 bit")
         functype =  lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
         call_addr = rffi.cast(lltype.Signed, llhelper(functype, func))
         a = PPCBuilder()
@@ -192,7 +190,12 @@ class TestAssemble(object):
         # - Do jump
 
         a.li(3, 50)
-        a.load_word(10, call_addr)
+        if IS_PPC_32:
+            a.load_word(10, call_addr)
+        else:
+            a.load_from(10, call_addr)
+            a.load_from(2, call_addr+WORD)
+            a.load_from(11, call_addr+2*WORD)
         a.mtctr(10)
         a.bctr()
         a.blr()
@@ -320,7 +323,7 @@ def func(arg):
 def is_64_bit_arch():
     import sys
     return sys.maxint == 9223372036854775807
-       
+
 """
 class TestAssemble(object):
         
