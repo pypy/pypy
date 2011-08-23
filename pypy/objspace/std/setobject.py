@@ -456,7 +456,6 @@ class AbstractUnwrappedSetStrategy(object):
         if w_set.strategy is w_other.strategy:
             self.symmetric_difference_update_match(w_set, w_other)
             return
-        #XXX no wrapping when strategies are equal
         newsetdata = newset(self.space)
         for w_key in w_set.getkeys():
             if not w_other.has_key(w_key):
