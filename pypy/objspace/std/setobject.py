@@ -1085,9 +1085,7 @@ set_isdisjoint__Frozenset_Frozenset = set_isdisjoint__Set_Set
 set_isdisjoint__Frozenset_Set = set_isdisjoint__Set_Set
 
 def set_isdisjoint__Set_ANY(space, w_left, w_other):
-    #XXX maybe checking if type fits strategy first (before comparing) speeds this up a bit
-    #    since this will be used in many other functions -> general function for that
-    # if w_left.strategy != w_other.strategy => return w_False
+    #XXX may be optimized when other strategies are added
     for w_key in space.listview(w_other):
         if w_left.has_key(w_key):
             return space.w_False
@@ -1112,8 +1110,6 @@ xor__Frozenset_Frozenset = set_symmetric_difference__Set_Set
 
 
 def set_symmetric_difference__Set_ANY(space, w_left, w_other):
-    #XXX since we need to iterate over both objects, create set
-    #    from w_other so looking up items is fast
     w_other_as_set = w_left._newobj(space, w_other)
     w_result = w_left.symmetric_difference(w_other_as_set)
     return w_result
