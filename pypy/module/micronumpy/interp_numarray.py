@@ -221,11 +221,14 @@ class BaseArray(Wrappable):
     def get_concrete(self):
         raise NotImplementedError
 
-    def descr_copy(self, space):
-        return space.call_function(space.gettypefor(BaseArray), self, self.find_dtype())
+    def descr_get_dtype(self, space):
+        return space.wrap(self.find_dtype())
 
     def descr_get_shape(self, space):
         return space.newtuple([self.descr_len(space)])
+
+    def descr_copy(self, space):
+        return space.call_function(space.gettypefor(BaseArray), self, self.find_dtype())
 
     def descr_len(self, space):
         return self.get_concrete().descr_len(space)
@@ -233,7 +236,13 @@ class BaseArray(Wrappable):
     def descr_repr(self, space):
         # Simple implementation so that we can see the array. Needs work.
         concrete = self.get_concrete()
-        return space.wrap("array([" + ", ".join(concrete._getnums(False)) + "])")
+        res = "array([" + ", ".join(concrete._getnums(False)) + "]"
+        dtype = concrete.find_dtype()
+        if (dtype is not space.fromcache(interp_dtype.W_Float64Dtype) and
+            dtype is not space.fromcache(interp_dtype.W_Int64Dtype)):
+            res += ", dtype=" + dtype.name
+        res += ")"
+        return space.wrap(res)
 
     def descr_str(self, space):
         # Simple implementation so that we can see the array. Needs work.
@@ -574,8 +583,6 @@ BaseArray.typedef = TypeDef(
     'numarray',
     __new__ = interp2app(BaseArray.descr__new__.im_func),
 
-    copy = interp2app(BaseArray.descr_copy),
-    shape = GetSetProperty(BaseArray.descr_get_shape),
 
     __len__ = interp2app(BaseArray.descr_len),
     __getitem__ = interp2app(BaseArray.descr_getitem),
@@ -599,6 +606,9 @@ BaseArray.typedef = TypeDef(
     __repr__ = interp2app(BaseArray.descr_repr),
     __str__ = interp2app(BaseArray.descr_str),
 
+    dtype = GetSetProperty(BaseArray.descr_get_dtype),
+    shape = GetSetProperty(BaseArray.descr_get_shape),
+
     mean = interp2app(BaseArray.descr_mean),
     sum = interp2app(BaseArray.descr_sum),
     prod = interp2app(BaseArray.descr_prod),
@@ -609,4 +619,6 @@ BaseArray.typedef = TypeDef(
     all = interp2app(BaseArray.descr_all),
     any = interp2app(BaseArray.descr_any),
     dot = interp2app(BaseArray.descr_dot),
+
+    copy = interp2app(BaseArray.descr_copy),
 )

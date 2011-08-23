@@ -21,6 +21,12 @@ class AppTestDtypes(BaseNumpyAppTest):
         assert dtype(long).num == 9
         assert dtype(float).num == 12
 
+    def test_array_dtype_attr(self):
+        from numpy import array, dtype
+
+        a = array(range(5), long)
+        assert a.dtype is dtype(long)
+
     def test_repr_str(self):
         from numpy import dtype
 

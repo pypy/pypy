@@ -59,7 +59,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array(range(5), long)
         assert repr(a) == "array([0, 1, 2, 3, 4])"
         a = array([True, False, True, False], "?")
-        assert repr(a) == "array([True, False, True, False])"
+        assert repr(a) == "array([True, False, True, False], dtype=bool)"
 
     def test_repr_slice(self):
         from numpy import array, zeros
