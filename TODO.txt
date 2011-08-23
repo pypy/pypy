@@ -1,4 +1,4 @@
-TODO for mering numpy-dtype-alt
-===============================
+TODO for merging numpy-dtype-alt
+================================
 
-* More operations on more dtypes (including copy-paste reduction)
+* More operations on more dtypes
