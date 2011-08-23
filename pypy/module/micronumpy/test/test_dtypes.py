@@ -73,3 +73,11 @@ class AppTestDtypes(BaseNumpyAppTest):
         for i in range(10):
             assert isinstance(a[i], int)
             assert a[1] == 1
+
+    def test_add_int8(self):
+        from numpy import array
+
+        a = array(range(5), dtype="int8")
+        b = a + a
+        for i in range(5):
+            assert b[i] == i * 2

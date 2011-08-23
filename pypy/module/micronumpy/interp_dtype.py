@@ -115,7 +115,7 @@ def create_low_level_dtype(num, kind, name, aliases, applevel_types, T, valtype)
 def binop(func):
     @functools.wraps(func)
     def impl(self, v1, v2):
-        return self.box(func(self, self.unbox(v1), self.unbox(v2)))
+        return self.adapt_val(func(self, self.unbox(v1), self.unbox(v2)))
     return impl
 
 def unaryop(func):
@@ -220,7 +220,7 @@ class IntegerArithmeticDtype(object):
 
     @binop
     def add(self, v1, v2):
-        return v1 + v2
+        return widen(v1) + widen(v2)
 
     def str_format(self, item):
         return str(widen(self.unbox(item)))
