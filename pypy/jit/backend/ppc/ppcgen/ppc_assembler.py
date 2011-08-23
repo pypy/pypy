@@ -1184,10 +1184,12 @@ class PPCBuilder(PPCAssembler):
         self.xor(free_reg, free_reg, reg0)
 
     def emit_int_is_zero(self, op, cpu, reg0, free_reg):
-        self.xor(free_reg, free_reg, free_reg)
-        self.cmp(7, free_reg, reg0)
-        self.mfcr(free_reg)
-        self.rlwinm(free_reg, free_reg, 31, 31, 31)
+        if IS_PPC_32:
+            self.cntlzw(free_reg, reg0)
+            self.srwi(free_reg, free_reg, 5)
+        else:
+            self.cntlzd(free_reg, reg0)
+            self.srdi(free_reg, free_reg, 6)
 
     def emit_guard_true(self, op, cpu):
         arg0 = op.getarg(0)
