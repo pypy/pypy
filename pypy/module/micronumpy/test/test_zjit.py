@@ -34,7 +34,7 @@ class TestNumpyJIt(LLJitMixin):
             ar = SingleDimArray(i, dtype=self.float64_dtype)
             v = interp_ufuncs.add(self.space,
                 ar,
-                scalar_w(self.space, W_Float64Dtype, self.space.wrap(4.5))
+                scalar_w(self.space, self.float64_dtype, self.space.wrap(4.5))
             )
             assert isinstance(v, BaseArray)
             return v.get_concrete().eval(3).val
@@ -181,9 +181,9 @@ class TestNumpyJIt(LLJitMixin):
 
         def f(i):
             ar = SingleDimArray(i, dtype=self.float64_dtype)
-            v1 = interp_ufuncs.add(space, ar, scalar_w(space, W_Float64Dtype, space.wrap(4.5)))
+            v1 = interp_ufuncs.add(space, ar, scalar_w(space, self.float64_dtype, space.wrap(4.5)))
             assert isinstance(v1, BaseArray)
-            v2 = interp_ufuncs.multiply(space, v1, scalar_w(space, W_Float64Dtype, space.wrap(4.5)))
+            v2 = interp_ufuncs.multiply(space, v1, scalar_w(space, self.float64_dtype, space.wrap(4.5)))
             v1.force_if_needed()
             assert isinstance(v2, BaseArray)
             return v2.get_concrete().eval(3).val

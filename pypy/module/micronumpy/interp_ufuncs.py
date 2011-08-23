@@ -13,15 +13,14 @@ def ufunc(func=None, promote_to_float=False):
             convert_to_array, Scalar)
 
         w_obj = convert_to_array(space, w_obj)
-        if isinstance(w_obj, Scalar):
-            res_dtype = space.fromcache(interp_dtype.W_Float64Dtype)
-            return func(res_dtype, w_obj.value).wrap(space)
-
-        new_sig = signature.Signature.find_sig([call_sig, w_obj.signature])
         res_dtype = find_unaryop_result_dtype(space,
             w_obj.find_dtype(),
             promote_to_float=promote_to_float,
         )
+        if isinstance(w_obj, Scalar):
+            return func(res_dtype, w_obj.value.convert_to(res_dtype)).wrap(space)
+
+        new_sig = signature.Signature.find_sig([call_sig, w_obj.signature])
         w_res = Call1(new_sig, res_dtype, w_obj)
         w_obj.add_invalidates(w_res)
         return w_res
@@ -38,15 +37,16 @@ def ufunc2(func=None, promote_to_float=False):
 
         w_lhs = convert_to_array(space, w_lhs)
         w_rhs = convert_to_array(space, w_rhs)
-        if isinstance(w_lhs, Scalar) and isinstance(w_rhs, Scalar):
-            res_dtype = space.fromcache(interp_dtype.W_Float64Dtype)
-            return func(res_dtype, w_lhs.value, w_rhs.value).wrap(space)
-
-        new_sig = signature.Signature.find_sig([call_sig, w_lhs.signature, w_rhs.signature])
         res_dtype = find_binop_result_dtype(space,
             w_lhs.find_dtype(), w_rhs.find_dtype(),
             promote_to_float=promote_to_float,
         )
+        if isinstance(w_lhs, Scalar) and isinstance(w_rhs, Scalar):
+            return func(res_dtype, w_lhs.value, w_rhs.value).wrap(space)
+
+        new_sig = signature.Signature.find_sig([
+            call_sig, w_lhs.signature, w_rhs.signature
+        ])
         w_res = Call2(new_sig, res_dtype, w_lhs, w_rhs)
         w_lhs.add_invalidates(w_res)
         w_rhs.add_invalidates(w_res)
@@ -86,6 +86,21 @@ def find_unaryop_result_dtype(space, dt, promote_to_float=False,
         else:
             assert False
     return dt
+
+def find_dtype_for_scalar(space, w_obj, current_guess=None):
+    w_type = space.type(w_obj)
+
+    bool_dtype = space.fromcache(interp_dtype.W_BoolDtype)
+    int64_dtype = space.fromcache(interp_dtype.W_Int64Dtype)
+
+    if space.is_w(w_type, space.w_bool):
+        if current_guess is None:
+            return bool_dtype
+    elif space.is_w(w_type, space.w_int):
+        if (current_guess is None or current_guess is bool_dtype or
+            current_guess is int64_dtype):
+            return int64_dtype
+    return space.fromcache(interp_dtype.W_Float64Dtype)
 
 
 def ufunc_dtype_caller(ufunc_name, op_name, argcount, **kwargs):

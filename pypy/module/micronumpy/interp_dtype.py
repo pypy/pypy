@@ -218,9 +218,29 @@ class FloatArithmeticDtype(object):
 class IntegerArithmeticDtype(object):
     _mixin_ = True
 
+    # XXX: reduce the copy paste
     @binop
     def add(self, v1, v2):
         return widen(v1) + widen(v2)
+    @binop
+    def sub(self, v1, v2):
+        return widen(v1) - widen(v2)
+    @binop
+    def mul(self, v1, v2):
+        return widen(v1) * widen(v2)
+    @binop
+    def div(self, v1, v2):
+        return widen(v1) / widen(v2)
+    @binop
+    def mod(self, v1, v2):
+        return widen(v1) % widen(v2)
+
+    @binop
+    def max(self, v1, v2):
+        return max(widen(v1), widen(v2))
+
+    def bool(self, v):
+        return bool(widen(self.unbox(v)))
 
     def str_format(self, item):
         return str(widen(self.unbox(item)))

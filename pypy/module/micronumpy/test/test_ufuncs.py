@@ -110,6 +110,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(3):
             assert c[i] == max(a[i], b[i])
 
+        x = maximum(2, 3)
+        assert x == 3
+        assert type(x) is int
+
     def test_multiply(self):
         from numpy import array, multiply
 

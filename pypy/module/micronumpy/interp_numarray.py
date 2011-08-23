@@ -37,10 +37,19 @@ class BaseArray(Wrappable):
         self.invalidates.append(other)
 
     def descr__new__(space, w_subtype, w_size_or_iterable, w_dtype=None):
+        l = space.listview(w_size_or_iterable)
+        if space.is_w(w_dtype, space.w_None):
+            w_dtype = None
+            for w_item in l:
+                w_dtype = interp_ufuncs.find_dtype_for_scalar(space, w_item, w_dtype)
+                if w_dtype is space.fromcache(interp_dtype.W_Float64Dtype):
+                    break
+            if w_dtype is None:
+                w_dtype = space.w_None
+
         dtype = space.interp_w(interp_dtype.W_Dtype,
             space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
         )
-        l = space.listview(w_size_or_iterable)
         arr = SingleDimArray(len(l), dtype=dtype)
         i = 0
         for w_elem in l:
@@ -71,7 +80,10 @@ class BaseArray(Wrappable):
 
     def _binop_right_impl(w_ufunc):
         def impl(self, space, w_other):
-            w_other = scalar_w(space, interp_dtype.W_Float64Dtype, w_other)
+            w_other = scalar_w(space,
+                interp_ufuncs.find_dtype_for_scalar(space, w_other, self.find_dtype()),
+                w_other
+            )
             return w_ufunc(space, w_other, self)
         return func_with_new_name(impl, "binop_right_%s_impl" % w_ufunc.__name__)
 
@@ -295,11 +307,11 @@ class BaseArray(Wrappable):
             slice_driver.jit_merge_point(signature=source.signature, step=step,
                                          stop=stop, i=i, j=j, source=source,
                                          dest=dest)
-            dest.setitem(i, source.eval(j))
+            dest.setitem(i, source.eval(j).convert_to(dest.find_dtype()))
             j += 1
             i += step
 
-def convert_to_array (space, w_obj):
+def convert_to_array(space, w_obj):
     if isinstance(w_obj, BaseArray):
         return w_obj
     elif space.issequence_w(w_obj):
@@ -309,16 +321,11 @@ def convert_to_array (space, w_obj):
         return w_obj
     else:
         # If it's a scalar
-        return scalar_w(space, interp_dtype.W_Float64Dtype, w_obj)
+        dtype = interp_ufuncs.find_dtype_for_scalar(space, w_obj)
+        return scalar_w(space, dtype, w_obj)
 
-@specialize.arg(1)
 def scalar_w(space, dtype, w_obj):
-    return Scalar(space.fromcache(dtype), scalar(space, dtype, w_obj))
-
-@specialize.arg(1)
-def scalar(space, dtype, w_obj):
-    dtype = space.fromcache(dtype)
-    return dtype.unwrap(space, w_obj)
+    return Scalar(dtype, dtype.unwrap(space, w_obj))
 
 class Scalar(BaseArray):
     """
