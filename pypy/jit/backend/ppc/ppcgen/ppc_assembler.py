@@ -1109,27 +1109,39 @@ class PPCBuilder(PPCAssembler):
             self.srdi(free_reg, free_reg, 6)
 
     def emit_int_le(self, op, cpu, reg0, reg1, free_reg):
-        self.cmpw(7, reg0, reg1)
+        if IS_PPC_32:
+            self.cmpw(7, reg0, reg1)
+        else:
+            self.cmpd(7, reg0, reg1)
         self.cror(31, 30, 28)
         self.mfcr(free_reg)
         self.rlwinm(free_reg, free_reg, 0, 31, 31)
 
     def emit_int_lt(self, op, cpu, reg0, reg1, free_reg):
-        self.cmpw(7, reg0, reg1)
+        if IS_PPC_32:
+            self.cmpw(7, reg0, reg1)
+        else:
+            self.cmpd(7, reg0, reg1)
         self.mfcr(free_reg)
         self.rlwinm(free_reg, free_reg, 29, 31, 31)
 
     def emit_int_ne(self, op, cpu, reg0, reg1, free_reg):
-        self.emit_int_eq(self, op, cpu, reg0, reg1, free_reg)
+        self.emit_int_eq(op, cpu, reg0, reg1, free_reg)
         self.xori(free_reg, free_reg, 1)
 
     def emit_int_gt(self, op, cpu, reg0, reg1, free_reg):
-        self.cmpw(7, reg0, reg1)
+        if IS_PPC_32:
+            self.cmpw(7, reg0, reg1)
+        else:
+            self.cmpd(7, reg0, reg1)
         self.mfcr(free_reg)
         self.rlwinm(free_reg, free_reg, 30, 31, 31)
 
     def emit_int_ge(self, op, cpu, reg0, reg1, free_reg):
-        self.cmpw(7, reg0, reg1)
+        if IS_PPC_32:
+            self.cmpw(7, reg0, reg1)
+        else:
+            self.cmpd(7, reg0, reg1)
         self.cror(31, 30, 29)
         self.mfcr(free_reg)
         self.rlwinm(free_reg, free_reg, 0, 31, 31)
