@@ -669,7 +669,6 @@ class AppTestAppSetTest:
         s = set([1,2,3,4])
         raises(TypeError, s.discard, [1])
 
-
     def test_discard_evil_compare(self):
         class Evil(object):
             def __init__(self, value):
@@ -685,3 +684,9 @@ class AppTestAppSetTest:
         s = set([1,2, Evil(frozenset([1]))])
         raises(TypeError, s.discard, set([1]))
 
+    def test_create_set_from_set(self):
+        x = set([1,2,3])
+        y = set(x)
+        x.pop()
+        assert x == set([2,3])
+        assert y == set([1,2,3])

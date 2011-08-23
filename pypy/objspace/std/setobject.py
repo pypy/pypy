@@ -727,8 +727,7 @@ def set_strategy_and_setdata(space, w_set, w_iterable):
 
     if isinstance(w_iterable, W_BaseSetObject):
         w_set.strategy = w_iterable.strategy
-        #XXX need to make copy here
-        w_set.sstorage = w_iterable.sstorage
+        w_set.sstorage = w_iterable.get_storage_copy()
         return
 
     if not isinstance(w_iterable, list):
