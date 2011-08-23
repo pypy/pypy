@@ -330,6 +330,7 @@ class W_CPPScope(Wrappable):
     def __init__(self, space, name, handle):
         self.space = space
         self.name = name
+        assert lltype.typeOf(handle) == rffi.VOIDP
         self.handle = handle
         self.methods = {}
         # Do not call "self._find_methods()" here, so that a distinction can
@@ -490,6 +491,7 @@ class W_CPPTemplateType(Wrappable):
     def __init__(self, space, name, handle):
         self.space = space
         self.name = name
+        assert lltype.typeOf(handle) == rffi.VOIDP
         self.handle = handle
 
     def __call__(self, args_w):

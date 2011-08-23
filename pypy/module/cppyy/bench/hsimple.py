@@ -15,7 +15,7 @@ try:
     warnings.simplefilter("ignore")
 
     import cppyy, random
-    cppyy.load_lib('bench02Dict_reflex.so')
+    cppyy.load_reflection_info('bench02Dict_reflex.so')
 
     app      = cppyy.gbl.Bench02RootApp()
     TCanvas  = cppyy.gbl.TCanvas
