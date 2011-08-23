@@ -611,6 +611,12 @@ class AppTestAppSetTest:
                 yield i
         set([1,2,3,4,5]).issuperset(foo())
 
+    def test_isdisjoint_with_generator(self):
+        def foo():
+            for i in [1,2,3]:
+                yield i
+        set([1,2,3,4,5]).isdisjoint(foo())
+
     def test_fakeint_and_equals(self):
         s1 = set([1,2,3,4])
         s2 = set([1,2,self.FakeInt(3), 4])

@@ -520,7 +520,9 @@ class AbstractUnwrappedSetStrategy(object):
         w_set.sstorage = result.sstorage
 
     def issuperset(self, w_set, w_other):
-        #XXX always True if other is empty
+        if w_other.length() == 0:
+            return True
+
         w_iter = self.space.iter(w_other)
         while True:
             try:
@@ -965,7 +967,11 @@ def set_issuperset__Set_ANY(space, w_left, w_other):
     if space.is_w(w_left, w_other):
         return space.w_True
 
-    return space.wrap(w_left.issuperset(w_other))
+    w_other_as_set = w_left._newobj(space, w_other)
+
+    if w_left.length() < w_other_as_set.length():
+        return space.w_False
+    return space.wrap(w_left.issuperset(w_other_as_set))
 
 frozenset_issuperset__Frozenset_ANY = set_issuperset__Set_ANY
 
