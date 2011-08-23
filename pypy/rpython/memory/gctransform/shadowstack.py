@@ -33,10 +33,11 @@ class ShadowStackRootWalker(BaseRootWalker):
                 root_iterator.context = llmemory.NULL
                 gc = self.gc
                 while True:
-                    end = root_iterator.next(gc, end, addr)
-                    if end == llmemory.NULL:
+                    addr = root_iterator.next(gc, addr, end)
+                    if addr == llmemory.NULL:
                         return
-                    callback(gc, end)
+                    callback(gc, addr)
+                    addr += sizeofaddr
             self.rootstackhook = jit_walk_stack_root
         else:
             def default_walk_stack_root(callback, addr, end):
@@ -341,18 +342,21 @@ def get_shadowstackref(gctransformer):
         def customtrace(obj, prev):
             obj = llmemory.cast_adr_to_ptr(obj, SHADOWSTACKREFPTR)
             if not prev:
-                prev = obj.top
                 root_iterator.context = obj.context
-            return root_iterator.next(gc, prev, obj.base)
+                next = obj.base
+            else:
+                next = prev + sizeofaddr
+            return root_iterator.next(gc, next, obj.top)
     else:
         def customtrace(obj, prev):
             # a simple but not JIT-ready version
             if not prev:
-                prev = llmemory.cast_adr_to_ptr(obj, SHADOWSTACKREFPTR).top
-            if prev != llmemory.cast_adr_to_ptr(obj, SHADOWSTACKREFPTR).base:
-                return prev - sizeofaddr
+                next = llmemory.cast_adr_to_ptr(obj, SHADOWSTACKREFPTR).base
             else:
-                return llmemory.NULL
+                next = prev + sizeofaddr
+            if next == llmemory.cast_adr_to_ptr(obj, SHADOWSTACKREFPTR).top:
+                next = llmemory.NULL
+            return next
 
     CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
                                       llmemory.Address)

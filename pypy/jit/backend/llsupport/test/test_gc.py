@@ -218,7 +218,6 @@ class TestGcRootMapAsmGcc:
 class TestGcRootMapShadowStack:
     class FakeGcDescr:
         force_index_ofs = 92
-        marker_ofs = 80
 
     def test_make_shapes(self):
         gcrootmap = GcRootMap_shadowstack(self.FakeGcDescr())

@@ -8,21 +8,18 @@
 import sys
 if sys.maxint == (2**31 - 1):
     WORD = 4
-    # ebp + ebx + esi + edi + MARKER + force_index + 4 extra words = 10 words
-    FRAME_FIXED_SIZE = 10
-    MARKER_OFS      = -4*WORD
-    FORCE_INDEX_OFS = -5*WORD
-    MY_COPY_OF_REGS = -9*WORD
+    # ebp + ebx + esi + edi + 4 extra words + force_index = 9 words
+    FRAME_FIXED_SIZE = 9
+    FORCE_INDEX_OFS = -8*WORD
+    MY_COPY_OF_REGS = -7*WORD
     IS_X86_32 = True
     IS_X86_64 = False
 else:
     WORD = 8
-    # rbp + rbx + r12 + r13 + r14 + r15 + MARKER + force_index + 11 extra words
-    # = 19
-    FRAME_FIXED_SIZE = 19
-    MARKER_OFS      = -6*WORD
-    FORCE_INDEX_OFS = -7*WORD
-    MY_COPY_OF_REGS = -18*WORD
+    # rbp + rbx + r12 + r13 + r14 + r15 + 11 extra words + force_index = 18
+    FRAME_FIXED_SIZE = 18
+    FORCE_INDEX_OFS = -17*WORD
+    MY_COPY_OF_REGS = -16*WORD
     IS_X86_32 = False
     IS_X86_64 = True
 

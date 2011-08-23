@@ -767,10 +767,8 @@ class Assembler386(object):
         self.mc.RET()
 
     def _call_header_shadowstack(self, gcrootmap):
-        # we need to push a MARKER here, and to put into the shadowstack
-        # the address of this MARKER.
-        self.mc.PUSH_i32(gcrootmap.MARKER)
-        #
+        # we need to put two words into the shadowstack: the MARKER
+        # and the address of the frame (ebp, actually)
         rst = gcrootmap.get_root_stack_top_addr()
         if rx86.fits_in_32bits(rst):
             self.mc.MOV_rj(eax.value, rst)            # MOV eax, [rootstacktop]
@@ -778,8 +776,9 @@ class Assembler386(object):
             self.mc.MOV_ri(r13.value, rst)            # MOV r13, rootstacktop
             self.mc.MOV_rm(eax.value, (r13.value, 0)) # MOV eax, [r13]
         #
-        self.mc.LEA_rm(ebx.value, (eax.value, WORD))  # LEA ebx, [eax+WORD]
-        self.mc.MOV_mr((eax.value, 0), esp.value)     # MOV [eax], esp
+        self.mc.LEA_rm(ebx.value, (eax.value, 2*WORD))  # LEA ebx, [eax+2*WORD]
+        self.mc.MOV_mi((eax.value, 0), gcrootmap.MARKER)    # MOV [eax], MARKER
+        self.mc.MOV_mr((eax.value, WORD), ebp.value)      # MOV [eax+WORD], ebp
         #
         if rx86.fits_in_32bits(rst):
             self.mc.MOV_jr(rst, ebx.value)            # MOV [rootstacktop], ebx
@@ -789,10 +788,10 @@ class Assembler386(object):
     def _call_footer_shadowstack(self, gcrootmap):
         rst = gcrootmap.get_root_stack_top_addr()
         if rx86.fits_in_32bits(rst):
-            self.mc.SUB_ji8(rst, WORD)               # SUB [rootstacktop], WORD
+            self.mc.SUB_ji8(rst, 2*WORD)       # SUB [rootstacktop], 2*WORD
         else:
             self.mc.MOV_ri(ebx.value, rst)           # MOV ebx, rootstacktop
-            self.mc.SUB_mi8((ebx.value, 0), WORD)    # SUB [ebx], WORD
+            self.mc.SUB_mi8((ebx.value, 0), 2*WORD)  # SUB [ebx], 2*WORD
 
     def _assemble_bootstrap_direct_call(self, arglocs, jmppos, stackdepth):
         if IS_X86_64:

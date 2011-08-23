@@ -336,18 +336,18 @@ class GcRootMap_shadowstack(object):
     This is the class supporting --gcrootfinder=shadowstack.
     """
     is_shadow_stack = True
-    MARKER = -43   # cannot possibly be a valid header for a gc object
+    MARKER = 8
 
     # The "shadowstack" is a portable way in which the GC finds the
     # roots that live in the stack.  Normally it is just a list of
     # pointers to GC objects.  The pointers may be moved around by a GC
-    # collection.  But with the JIT, an entry can also points to an
-    # assembler stack frame --- more precisely, to a MARKER word in it,
-    # so that we can tell.  During a residual CALL from the assembler
-    # (which may indirectly call the GC), we use the force_index stored
-    # in the assembler stack frame to identify the call: we can go from
-    # the force_index to a list of where the GC pointers are in the
-    # frame (this is the purpose of the present class).
+    # collection.  But with the JIT, an entry can also be MARKER, in
+    # which case the next entry points to an assembler stack frame.
+    # During a residual CALL from the assembler (which may indirectly
+    # call the GC), we use the force_index stored in the assembler
+    # stack frame to identify the call: we can go from the force_index
+    # to a list of where the GC pointers are in the frame (this is the
+    # purpose of the present class).
     #
     # Note that across CALL_MAY_FORCE or CALL_ASSEMBLER, we can also go
     # from the force_index to a ResumeGuardForcedDescr instance, which
@@ -363,7 +363,6 @@ class GcRootMap_shadowstack(object):
         self._callshapes = lltype.nullptr(self.CALLSHAPES_ARRAY)
         self._callshapes_maxlength = 0
         self.force_index_ofs = gcdescr.force_index_ofs
-        self.marker_ofs      = gcdescr.marker_ofs
 
     def add_jit2gc_hooks(self, jit2gc):
         #
@@ -376,40 +375,33 @@ class GcRootMap_shadowstack(object):
         class RootIterator:
             _alloc_flavor_ = "raw"
 
-            def next(iself, gc, prev, range_lowest):
-                # Return the "next" valid GC object' address.  We enumerating
-                # backwards, starting from the high addresses, until we reach
-                # the 'range_lowest'.  The 'prev' argument is the previous
-                # result (or the high end of the shadowstack to start with).
+            def next(iself, gc, next, range_highest):
+                # Return the "next" valid GC object' address.  This usually
+                # means just returning "next", until we reach "range_highest",
+                # except that we are skipping NULLs.  If "next" contains a
+                # MARKER instead, then we go into JIT-frame-lookup mode.
                 #
                 while True:
                     #
                     # If we are not iterating right now in a JIT frame
                     if iself.frame_addr == 0:
                         #
-                        # Look for the previous shadowstack address that
+                        # Look for the next shadowstack address that
                         # contains a valid pointer
-                        while prev != range_lowest:
-                            prev -= llmemory.sizeof(llmemory.Address)
-                            if gc.points_to_valid_gc_object(prev):
+                        while next != range_highest:
+                            if next.signed[0] == self.MARKER:
                                 break
+                            if gc.points_to_valid_gc_object(next):
+                                return next
+                            next += llmemory.sizeof(llmemory.Address)
                         else:
-                            return llmemory.NULL
+                            return llmemory.NULL     # done
                         #
-                        # Now a "valid" pointer can be either really valid, or
-                        # it can be a pointer to a JIT frame in the stack.  The
-                        # important part here is that points_to_valid_gc_object
-                        # above returns True even for a pointer to a MARKER
-                        # (which is word-aligned).
-                        addr = prev.address[0]
-                        addr = iself.translateptr(iself.context, addr)
-                        if addr.signed[0] != self.MARKER:
-                            return prev
-                        #
-                        # It's a JIT frame.  Save away 'prev' for later, and
+                        # It's a JIT frame.  Save away 'next' for later, and
                         # go into JIT-frame-exploring mode.
-                        iself.saved_prev = prev
-                        frame_addr = prev.signed[0] - self.marker_ofs
+                        next += llmemory.sizeof(llmemory.Address)
+                        frame_addr = next.signed[0]
+                        iself.saved_next = next
                         iself.frame_addr = frame_addr
                         addr = llmemory.cast_int_to_adr(frame_addr +
                                                         self.force_index_ofs)
@@ -448,8 +440,9 @@ class GcRootMap_shadowstack(object):
                             return addr
                     #
                     # Restore 'prev' and loop back to the start.
-                    prev = iself.saved_prev
                     iself.frame_addr = 0
+                    next = iself.saved_next
+                    next += llmemory.sizeof(llmemory.Address)
 
         # ---------------
         #
