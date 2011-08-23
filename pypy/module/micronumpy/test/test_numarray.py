@@ -447,6 +447,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = array([])
         raises(ValueError, "b.argmax()")
 
+        a = array(range(-5, 5))
+        assert a.argmax() == 9
+
     def test_argmin(self):
         from numpy import array
         a = array([-1.2, 3.4, 5.7, -3.0, 2.7])

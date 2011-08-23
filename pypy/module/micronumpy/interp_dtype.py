@@ -149,6 +149,8 @@ class ArithmaticTypeMixin(object):
 
     def bool(self, v):
         return bool(self.unbox(v))
+    def ne(self, v1, v2):
+        return self.for_computation(self.unbox(v1)) != self.for_computation(self.unbox(v2))
 
 
 class FloatArithmeticDtype(ArithmaticTypeMixin):
@@ -224,9 +226,6 @@ class FloatArithmeticDtype(ArithmaticTypeMixin):
     @unaryop
     def arctan(self, v):
         return math.atan(v)
-
-    def ne(self, v1, v2):
-        return self.unbox(v1) != self.unbox(v2)
 
 class IntegerArithmeticDtype(ArithmaticTypeMixin):
     _mixin_ = True
