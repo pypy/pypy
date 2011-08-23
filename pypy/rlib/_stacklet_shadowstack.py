@@ -6,20 +6,15 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.tool.staticmethods import StaticMethods
 
 
-SUSPSTACK = lltype.GcStruct('SuspStack',
-                            ('handle', _c.handle),
-                            ('shadowstackref', llmemory.GCREF))
-NULL_SUSPSTACK = lltype.nullptr(SUSPSTACK)
-NULL_GCREF = lltype.nullptr(llmemory.GCREF.TO)
+NULL_SUSPSTACK = lltype.nullptr(llmemory.GCREF.TO)
 
 
 def _new_callback(h, arg):
     # We still have the old shadowstack active at this point; save it
     # away, and start a fresh new one
     oldsuspstack = gcrootfinder.oldsuspstack
-    oldsuspstack.handle = h
     llop.gc_save_current_state_away(lltype.Void,
-                                    oldsuspstack.shadowstackref)
+                                    oldsuspstack, h)
     llop.gc_start_fresh_new_state(lltype.Void)
     gcrootfinder.oldsuspstack = NULL_SUSPSTACK
     #
@@ -28,15 +23,15 @@ def _new_callback(h, arg):
     # Finishing this stacklet.
     gcrootfinder.oldsuspstack = NULL_SUSPSTACK
     gcrootfinder.newsuspstack = newsuspstack
-    return newsuspstack.handle
+    h = llop.gc_shadowstackref_context(llmemory.Address, newsuspstack)
+    return llmemory.cast_adr_to_ptr(h, _c.handle)
 
 def prepare_old_suspstack():
     if not gcrootfinder.oldsuspstack:   # else reuse the one still there
         _allocate_old_suspstack()
 
 def _allocate_old_suspstack():
-    suspstack = lltype.malloc(SUSPSTACK)
-    suspstack.shadowstackref = llop.gc_new_shadowstackref(llmemory.GCREF)
+    suspstack = llop.gc_shadowstackref_new(llmemory.GCREF)
     gcrootfinder.oldsuspstack = suspstack
 _allocate_old_suspstack._dont_inline_ = True
 
@@ -55,14 +50,12 @@ def get_result_suspstack(h):
     # away, and restore the new one
     if oldsuspstack:
         ll_assert(not _c.is_empty_handle(h),"unexpected empty stacklet handle")
-        oldsuspstack.handle = h
-        llop.gc_save_current_state_away(lltype.Void,
-                                        oldsuspstack.shadowstackref)
+        llop.gc_save_current_state_away(lltype.Void, oldsuspstack, h)
     else:
         ll_assert(_c.is_empty_handle(h),"unexpected non-empty stacklet handle")
         llop.gc_forget_current_state(lltype.Void)
     #
-    llop.gc_restore_state_from(lltype.Void, newsuspstack.shadowstackref)
+    llop.gc_restore_state_from(lltype.Void, newsuspstack)
     #
     # From this point on, 'newsuspstack' is consumed and done, its
     # shadow stack installed as the current one.  It should not be
@@ -90,16 +83,17 @@ class StackletGcRootFinder:
                   "stacklet: invalid use")
         gcrootfinder.newsuspstack = suspstack
         thread_handle = thrd._thrd
-        h = suspstack.handle
+        h = llop.gc_shadowstackref_context(llmemory.Address, suspstack)
+        h = llmemory.cast_adr_to_ptr(h, _c.handle)
         prepare_old_suspstack()
         h = _c.switch(thread_handle, h)
         return get_result_suspstack(h)
     switch._dont_inline_ = True
 
     def destroy(thrd, suspstack):
-        h = suspstack.handle
-        suspstack.handle = _c.null_handle
-        suspstack.shadowstackref = NULL_GCREF
+        h = llop.gc_shadowstackref_context(llmemory.Address, suspstack)
+        h = llmemory.cast_adr_to_ptr(h, _c.handle)
+        llop.gc_shadowstackref_destroy(lltype.Void, suspstack)
         _c.destroy(thrd._thrd, h)
 
     def is_empty_handle(suspstack):

@@ -797,18 +797,28 @@ class FrameworkGCTransformer(GCTransformer):
     def gct_gc_adr_of_root_stack_top(self, hop):
         self._gc_adr_of_gcdata_attr(hop, 'root_stack_top')
 
-    def gct_gc_new_shadowstackref(self, hop):
+    def gct_gc_shadowstackref_new(self, hop):
         op = hop.spaceop
         livevars = self.push_roots(hop)
-        hop.genop("direct_call", [self.root_walker.gc_new_shadowstackref_ptr],
+        hop.genop("direct_call", [self.root_walker.gc_shadowstackref_new_ptr],
                   resultvar=op.result)
         self.pop_roots(hop, livevars)
+
+    def gct_gc_shadowstackref_context(self, hop):
+        op = hop.spaceop
+        hop.genop("direct_call",
+                  [self.root_walker.gc_shadowstackref_context_ptr, op.args[0]],
+                  resultvar=op.result)
+
+    def gct_gc_shadowstackref_destroy(self, hop):
+        hop.genop("direct_call",
+                  [self.root_walker.gc_shadowstackref_destroy_ptr, op.args[0]])
 
     def gct_gc_save_current_state_away(self, hop):
         op = hop.spaceop
         hop.genop("direct_call",
                   [self.root_walker.gc_save_current_state_away_ptr,
-                   op.args[0]])
+                   op.args[0], op.args[1]])
 
     def gct_gc_forget_current_state(self, hop):
         hop.genop("direct_call",

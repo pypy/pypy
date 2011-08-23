@@ -319,6 +319,8 @@ void stacklet_destroy(stacklet_thread_handle thrd, stacklet_handle target)
 
 char **_stacklet_translate_pointer(stacklet_handle context, char **ptr)
 {
+  if (context == NULL)
+    return ptr;
   char *p = (char *)ptr;
   long delta = p - context->stack_start;
   if (((unsigned long)delta) < ((unsigned long)context->stack_saved)) {
@@ -326,6 +328,7 @@ char **_stacklet_translate_pointer(stacklet_handle context, char **ptr)
       char *c = (char *)(context + 1);
       return (char **)(c + delta);
   }
+#if 0
   if (((unsigned long)delta) >=
       (unsigned long)(context->stack_stop - context->stack_start)) {
       /* out-of-stack pointer!  it's only ok if we are the main stacklet
@@ -334,5 +337,6 @@ char **_stacklet_translate_pointer(stacklet_handle context, char **ptr)
       assert(delta >= 0);
       assert(((long)context->stack_stop) & 1);
   }
+#endif
   return ptr;
 }

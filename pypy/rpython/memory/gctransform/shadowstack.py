@@ -30,6 +30,7 @@ class ShadowStackRootWalker(BaseRootWalker):
         if hasattr(translator, '_jit2gc'):
             root_iterator = translator._jit2gc['root_iterator']
             def jit_walk_stack_root(callback, addr, end):
+                root_iterator.context = llmemory.NULL
                 gc = self.gc
                 while True:
                     end = root_iterator.next(gc, end, addr)
@@ -139,7 +140,7 @@ class ShadowStackRootWalker(BaseRootWalker):
                 thread_stacks[gcdata.active_tid] = old_ref
             #
             # no GC operation from here -- switching shadowstack!
-            shadow_stack_pool.save_current_state_away(old_ref)
+            shadow_stack_pool.save_current_state_away(old_ref, llmemory.NULL)
             if new_ref:
                 shadow_stack_pool.restore_state_from(new_ref)
             else:
@@ -181,13 +182,21 @@ class ShadowStackRootWalker(BaseRootWalker):
         shadow_stack_pool = self.shadow_stack_pool
         SHADOWSTACKREF = get_shadowstackref(gctransformer)
 
-        def gc_new_shadowstackref():
+        def gc_shadowstackref_new():
             ssref = shadow_stack_pool.allocate(SHADOWSTACKREF)
             return lltype.cast_opaque_ptr(llmemory.GCREF, ssref)
 
-        def gc_save_current_state_away(gcref):
+        def gc_shadowstackref_context(gcref):
             ssref = lltype.cast_opaque_ptr(lltype.Ptr(SHADOWSTACKREF), gcref)
-            shadow_stack_pool.save_current_state_away(ssref)
+            return ssref.context
+
+        def gc_shadowstackref_destroy(gcref):
+            ssref = lltype.cast_opaque_ptr(lltype.Ptr(SHADOWSTACKREF), gcref)
+            shadow_stack_pool.destroy(ssref)
+
+        def gc_save_current_state_away(gcref, ncontext):
+            ssref = lltype.cast_opaque_ptr(lltype.Ptr(SHADOWSTACKREF), gcref)
+            shadow_stack_pool.save_current_state_away(ssref, ncontext)
 
         def gc_forget_current_state():
             shadow_stack_pool.forget_current_state()
@@ -200,17 +209,35 @@ class ShadowStackRootWalker(BaseRootWalker):
             shadow_stack_pool.start_fresh_new_state()
 
         s_gcref = annmodel.SomePtr(llmemory.GCREF)
-        self.gc_new_shadowstackref_ptr = getfn(gc_new_shadowstackref,
+        s_addr = annmodel.SomeAddress()
+        self.gc_shadowstackref_new_ptr = getfn(gc_shadowstackref_new,
                                                [], s_gcref,
                                                minimal_transform=False)
+        self.gc_shadowstackref_context_ptr = getfn(gc_shadowstackref_context,
+                                                   [s_gcref], s_addr,
+                                                   inline=True)
+        self.gc_shadowstackref_destroy_ptr = getfn(gc_shadowstackref_destroy,
+                                                   [s_gcref], annmodel.s_None,
+                                                   inline=True)
         self.gc_save_current_state_away_ptr = getfn(gc_save_current_state_away,
-                                                    [s_gcref], annmodel.s_None)
+                                                    [s_gcref, s_addr],
+                                                    annmodel.s_None,
+                                                    inline=True)
         self.gc_forget_current_state_ptr = getfn(gc_forget_current_state,
-                                                 [], annmodel.s_None)
+                                                 [], annmodel.s_None,
+                                                 inline=True)
         self.gc_restore_state_from_ptr = getfn(gc_restore_state_from,
-                                               [s_gcref], annmodel.s_None)
+                                               [s_gcref], annmodel.s_None,
+                                               inline=True)
         self.gc_start_fresh_new_state_ptr = getfn(gc_start_fresh_new_state,
-                                                  [], annmodel.s_None)
+                                                  [], annmodel.s_None,
+                                                  inline=True)
+        # fish...
+        translator = gctransformer.translator
+        if hasattr(translator, '_jit2gc'):
+            from pypy.rlib._rffi_stacklet import _translate_pointer
+            root_iterator = translator._jit2gc['root_iterator']
+            root_iterator.translateptr = _translate_pointer
 
 # ____________________________________________________________
 
@@ -219,7 +246,7 @@ class ShadowStackPool(object):
     shadowstacks are fully allocated and can be directly jumped into.
     The rest are stored in a more virtual-memory-friendly way, i.e.
     with just the right amount malloced.  Before they can run, they
-    must be copied into a full shadowstack.
+    must be copied into a full shadowstack.  XXX NOT IMPLEMENTED SO FAR!
     """
     _alloc_flavor_ = "raw"
     root_stack_depth = 163840
@@ -239,7 +266,7 @@ class ShadowStackPool(object):
         """Allocate an empty SHADOWSTACKREF object."""
         return lltype.malloc(SHADOWSTACKREF, zero=True)
 
-    def save_current_state_away(self, shadowstackref):
+    def save_current_state_away(self, shadowstackref, ncontext):
         """Save the current state away into 'shadowstackref'.
         This either works, or raise MemoryError and nothing is done.
         To do a switch, first call save_current_state_away() or
@@ -249,6 +276,7 @@ class ShadowStackPool(object):
         self._prepare_unused_stack()
         shadowstackref.base = self.gcdata.root_stack_base
         shadowstackref.top  = self.gcdata.root_stack_top
+        shadowstackref.context = ncontext
         ll_assert(shadowstackref.base <= shadowstackref.top,
                   "save_current_state_away: broken shadowstack")
         #shadowstackref.fullstack = True
@@ -274,13 +302,17 @@ class ShadowStackPool(object):
                   "restore_state_from: broken shadowstack")
         self.gcdata.root_stack_base = shadowstackref.base
         self.gcdata.root_stack_top  = shadowstackref.top
-        shadowstackref.base = llmemory.NULL
-        shadowstackref.top  = llmemory.NULL
+        self.destroy(shadowstackref)
 
     def start_fresh_new_state(self):
         self.gcdata.root_stack_base = self.unused_full_stack
         self.gcdata.root_stack_top  = self.unused_full_stack
         self.unused_full_stack = llmemory.NULL
+
+    def destroy(self, shadowstackref):
+        shadowstackref.base = llmemory.NULL
+        shadowstackref.top = llmemory.NULL
+        shadowstackref.context = llmemory.NULL
 
     def _prepare_unused_stack(self):
         if self.unused_full_stack == llmemory.NULL:
@@ -297,6 +329,7 @@ def get_shadowstackref(gctransformer):
     SHADOWSTACKREF = lltype.GcStruct('ShadowStackRef',
                                      ('base', llmemory.Address),
                                      ('top', llmemory.Address),
+                                     ('context', llmemory.Address),
                                      #('fullstack', lltype.Bool),
                                      rtti=True)
     SHADOWSTACKREFPTR.TO.become(SHADOWSTACKREF)
@@ -306,10 +339,11 @@ def get_shadowstackref(gctransformer):
         gc = gctransformer.gcdata.gc
         root_iterator = translator._jit2gc['root_iterator']
         def customtrace(obj, prev):
+            obj = llmemory.cast_adr_to_ptr(obj, SHADOWSTACKREFPTR)
             if not prev:
-                prev = llmemory.cast_adr_to_ptr(obj, SHADOWSTACKREFPTR).top
-            base = llmemory.cast_adr_to_ptr(obj, SHADOWSTACKREFPTR).base
-            return root_iterator.next(gc, prev, base)
+                prev = obj.top
+                root_iterator.context = obj.context
+            return root_iterator.next(gc, prev, obj.base)
     else:
         def customtrace(obj, prev):
             # a simple but not JIT-ready version

@@ -375,7 +375,6 @@ class GcRootMap_shadowstack(object):
         #
         class RootIterator:
             _alloc_flavor_ = "raw"
-            frame_addr = 0
 
             def next(iself, gc, prev, range_lowest):
                 # Return the "next" valid GC object' address.  We enumerating
@@ -402,7 +401,9 @@ class GcRootMap_shadowstack(object):
                         # important part here is that points_to_valid_gc_object
                         # above returns True even for a pointer to a MARKER
                         # (which is word-aligned).
-                        if prev.address[0].signed[0] != self.MARKER:
+                        addr = prev.address[0]
+                        addr = iself.translateptr(iself.context, addr)
+                        if addr.signed[0] != self.MARKER:
                             return prev
                         #
                         # It's a JIT frame.  Save away 'prev' for later, and
@@ -412,6 +413,7 @@ class GcRootMap_shadowstack(object):
                         iself.frame_addr = frame_addr
                         addr = llmemory.cast_int_to_adr(frame_addr +
                                                         self.force_index_ofs)
+                        addr = iself.translateptr(iself.context, addr)
                         force_index = addr.signed[0]
                         if force_index < 0:
                             force_index = ~force_index
@@ -435,6 +437,7 @@ class GcRootMap_shadowstack(object):
                         callshape = lltype.direct_ptradd(callshape, 1)
                         addr = llmemory.cast_int_to_adr(iself.frame_addr +
                                                         offset)
+                        addr = iself.translateptr(iself.context, addr)
                         if gc.points_to_valid_gc_object(addr):
                             #
                             # The JIT frame contains a valid GC pointer at
@@ -450,8 +453,12 @@ class GcRootMap_shadowstack(object):
 
         # ---------------
         #
+        root_iterator = RootIterator()
+        root_iterator.frame_addr = 0
+        root_iterator.context = llmemory.NULL
+        root_iterator.translateptr = lambda context, addr: addr
         jit2gc.update({
-            'root_iterator': RootIterator(),
+            'root_iterator': root_iterator,
             })
 
     def initialize(self):
