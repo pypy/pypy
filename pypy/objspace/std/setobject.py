@@ -567,12 +567,13 @@ class AbstractUnwrappedSetStrategy(object):
     def popitem(self, w_set):
         storage = self.cast_from_void_star(w_set.sstorage)
         try:
+            # this returns a tuple because internally sets are dicts
             result = storage.popitem()
         except KeyError:
             # strategy may still be the same even if dict is empty
             raise OperationError(self.space.w_KeyError,
                             self.space.wrap('pop from an empty set'))
-        return self.wrap(result)
+        return self.wrap(result[0])
 
 class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("integer")
@@ -1044,17 +1045,7 @@ def hash__Frozenset(space, w_set):
     return space.wrap(hash)
 
 def set_pop__Set(space, w_left):
-    #XXX move this to strategy so we don't have to
-    #    wrap all items only to get the first one
-    #XXX use popitem
     return w_left.popitem()
-    for w_key in w_left.getkeys():
-        break
-    else:
-        raise OperationError(space.w_KeyError,
-                                space.wrap('pop from an empty set'))
-    w_left.delitem(w_key)
-    return w_key
 
 def and__Set_Set(space, w_left, w_other):
     new_set = w_left.intersect(w_other)

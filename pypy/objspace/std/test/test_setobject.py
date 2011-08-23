@@ -640,7 +640,7 @@ class AppTestAppSetTest:
         assert self.FakeInt(5) in s
 
     def test_fakeobject_and_pop(self):
-        s = set([1,2,3,self.FakeInt(4), 5])
+        s = set([1,2,3,self.FakeInt(4),5])
         assert s.pop()
         assert s.pop()
         assert s.pop()
