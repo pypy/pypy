@@ -115,7 +115,10 @@ def create_low_level_dtype(num, kind, name, aliases, applevel_types, T, valtype)
 def binop(func):
     @functools.wraps(func)
     def impl(self, v1, v2):
-        return self.adapt_val(func(self, self.unbox(v1), self.unbox(v2)))
+        return self.adapt_val(func(self,
+            self.for_computation(self.unbox(v1)),
+            self.for_computation(self.unbox(v2)),
+        ))
     return impl
 
 def unaryop(func):
@@ -124,7 +127,7 @@ def unaryop(func):
         return self.box(func(self, self.unbox(v)))
     return impl
 
-class FloatArithmeticDtype(object):
+class ArithmaticTypeMixin(object):
     _mixin_ = True
 
     @binop
@@ -139,6 +142,21 @@ class FloatArithmeticDtype(object):
     @binop
     def div(self, v1, v2):
         return v1 / v2
+
+    @binop
+    def max(self, v1, v2):
+        return max(v1, v2)
+
+    def bool(self, v):
+        return bool(self.unbox(v))
+
+
+class FloatArithmeticDtype(ArithmaticTypeMixin):
+    _mixin_ = True
+
+    def for_computation(self, v):
+        return v
+
     @binop
     def mod(self, v1, v2):
         return math.fmod(v1, v2)
@@ -172,9 +190,6 @@ class FloatArithmeticDtype(object):
     def floor(self, v):
         return math.floor(v)
 
-    @binop
-    def max(self, v1, v2):
-        return max(v1, v2)
     @binop
     def min(self, v1, v2):
         return min(v1, v2)
@@ -212,35 +227,16 @@ class FloatArithmeticDtype(object):
 
     def ne(self, v1, v2):
         return self.unbox(v1) != self.unbox(v2)
-    def bool(self, v):
-        return bool(self.unbox(v))
 
-class IntegerArithmeticDtype(object):
+class IntegerArithmeticDtype(ArithmaticTypeMixin):
     _mixin_ = True
 
-    # XXX: reduce the copy paste
-    @binop
-    def add(self, v1, v2):
-        return widen(v1) + widen(v2)
-    @binop
-    def sub(self, v1, v2):
-        return widen(v1) - widen(v2)
-    @binop
-    def mul(self, v1, v2):
-        return widen(v1) * widen(v2)
-    @binop
-    def div(self, v1, v2):
-        return widen(v1) / widen(v2)
+    def for_computation(self, v):
+        return widen(v)
+
     @binop
     def mod(self, v1, v2):
-        return widen(v1) % widen(v2)
-
-    @binop
-    def max(self, v1, v2):
-        return max(widen(v1), widen(v2))
-
-    def bool(self, v):
-        return bool(widen(self.unbox(v)))
+        return v1 % v2
 
     def str_format(self, item):
         return str(widen(self.unbox(item)))
@@ -260,9 +256,12 @@ class W_BoolDtype(W_BoolDtype):
         v = self.unbox(item)
         return "True" if v else "False"
 
+    def for_computation(self, v):
+        return int(v)
+
     @binop
     def add(self, v1, v2):
-        return bool(int(v1) + int(v2))
+        return bool(v1 + v2)
 
 W_Int8Dtype = create_low_level_dtype(
     num = 1, kind = SIGNEDLTR, name = "int8",
