@@ -5,11 +5,12 @@ from pypy.jit.backend.ppc.ppcgen.ppc_field import ppc_fields
 from pypy.jit.backend.ppc.ppcgen.assembler import Assembler
 from pypy.jit.backend.ppc.ppcgen.symbol_lookup import lookup
 from pypy.jit.backend.ppc.ppcgen.arch import IS_PPC_32
+from pypy.jit.metainterp.history import Const, ConstPtr
 from pypy.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from pypy.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.metainterp.history import BoxInt, ConstInt
+from pypy.jit.metainterp.history import BoxInt, ConstInt, Box
 
 A = Form("frD", "frA", "frB", "XO3", "Rc")
 A1 = Form("frD", "frB", "XO3", "Rc")
@@ -948,7 +949,7 @@ class PPCBuilder(PPCAssembler):
         
     def _unary_int_op_prolog(self, op, cpu):
         arg0 = op.getarg(0)
-        if isinstance(arg0, BoxInt):
+        if isinstance(arg0, Box):
             reg0 = cpu.reg_map[arg0]
         else:
             reg0 = cpu.get_next_register()
@@ -959,12 +960,12 @@ class PPCBuilder(PPCAssembler):
     def _binary_int_op_prolog(self, op, cpu):
         arg0 = op.getarg(0)
         arg1 = op.getarg(1)
-        if isinstance(arg0, BoxInt):
+        if isinstance(arg0, Box):
             reg0 = cpu.reg_map[arg0]
         else:
             reg0 = cpu.get_next_register()
             self.load_word(reg0, arg0.value)
-        if isinstance(arg1, BoxInt):
+        if isinstance(arg1, Box):
             reg1 = cpu.reg_map[arg1]
         else:
             reg1 = cpu.get_next_register()
@@ -1114,6 +1115,53 @@ class PPCBuilder(PPCAssembler):
         self.li(free_reg, 0)
         self.adde(free_reg, free_reg, free_reg)
 
+    def emit_setfield_gc(self, op, cpu):
+        args = op.getarglist()
+        fptr = args[0]
+        value = args[1]
+        fdescr = op.getdescr()
+        offset = fdescr.offset
+        width = fdescr.get_field_size(0)
+        addr_reg = cpu.reg_map[fptr]
+
+        if isinstance(value, Box):
+            value_reg = cpu.reg_map[args[1]]
+        elif isinstance(value, Const):
+            value_reg = cpu.get_next_register()
+            if isinstance(value, ConstInt):
+                self.load_word(value_reg, value.value)
+            elif isinstance(value, ConstPtr):
+                self.load_word(value_reg, rffi.cast(lltype.Signed, value.value))
+            else:
+                assert 0, "%s not supported" % value
+        else:
+            assert 0, "%s not supported" % value
+
+        if width == 4:
+            self.stw(value_reg, addr_reg, offset)
+        elif width == 2:
+            self.sth(value_reg, addr_reg, offset)
+        elif width == 1:
+            self.stb(value_reg, addr_reg, offset)
+
+    def emit_getfield_gc(self, op, cpu):
+        args = op.getarglist()
+        fptr = args[0]
+        fdescr = op.getdescr()
+        offset = fdescr.offset
+        width = fdescr.get_field_size(0)
+        free_reg = cpu.next_free_register
+        field_addr_reg = cpu.reg_map[fptr]
+        if width == 4:
+            self.lwz(free_reg, field_addr_reg, offset)
+        elif width == 2:
+            self.lhz(free_reg, field_addr_reg, offset)
+        elif width == 1:
+            self.lbz(free_reg, field_addr_reg, offset)
+        result = op.result
+        cpu.reg_map[result] = cpu.next_free_register
+        cpu.next_free_register += 1
+
     ############################
     # unary integer operations #
     ############################
@@ -1165,7 +1213,7 @@ class PPCBuilder(PPCAssembler):
         cpu.saved_descr[identifier] = descr
         args = op.getarglist()
         for index, arg in enumerate(args):
-            if isinstance(arg, BoxInt):
+            if isinstance(arg, Box):
                 regnum = cpu.reg_map[arg]
                 addr = cpu.fail_boxes_int.get_addr_for_num(index)
                 self.store_reg(regnum, addr)
@@ -1173,6 +1221,8 @@ class PPCBuilder(PPCAssembler):
                 addr = cpu.fail_boxes_int.get_addr_for_num(index)
                 self.load_word(cpu.next_free_register, arg.value)
                 self.store_reg(cpu.next_free_register, addr)
+            else:
+                assert 0, "arg type not suported"
         self.load_word(3, identifier)
         self.blr()
 

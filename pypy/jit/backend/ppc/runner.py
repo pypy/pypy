@@ -4,6 +4,7 @@ from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp import history, compile
+from pypy.jit.metainterp.history import BoxPtr
 from pypy.jit.backend.x86.assembler import Assembler386
 from pypy.jit.backend.x86.arch import FORCE_INDEX_OFS
 from pypy.jit.backend.x86.profagent import ProfileAgent
@@ -135,6 +136,10 @@ class PPC_64_CPU(AbstractLLCPU):
     def set_future_value_int(self, index, value_int):
         self.fail_boxes_int.setitem(index, value_int)
 
+    def set_future_value_ref(self, index, pointer):
+        sign_ptr = rffi.cast(lltype.Signed, pointer)
+        self.fail_boxes_int.setitem(index, sign_ptr)
+
     def clear_latest_values(self, count):
         for index in range(count):
             self.fail_boxes_int.setitem(index, 0)
@@ -153,6 +158,10 @@ class PPC_64_CPU(AbstractLLCPU):
         value = self.fail_boxes_int.getitem(index)
         return value
 
+    def get_latest_value_ref(self, index):
+        value = self.fail_boxes_int.getitem(index)
+        return rffi.cast(llmemory.GCREF, value)
+    
     # walk through the given trace and generate machine code
     def _walk_trace_ops(self, codebuilder, operations):
         for op in operations:

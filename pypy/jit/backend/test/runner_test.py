@@ -457,7 +457,89 @@ class BaseBackendTest(Runner):
 
     def test_ovf_operations_reversed(self):
         self.test_ovf_operations(reversed=True)
-        
+    
+    def test_return_pointer(self):
+        u_box, U_box = self.alloc_instance(self.U)
+        i0 = BoxInt()
+        i1 = BoxInt()
+        ptr = BoxPtr()
+
+        operations = [
+            ResOperation(rop.FINISH, [ptr], None, descr=BasicFailDescr(1))
+            ]
+        inputargs = [i0, ptr, i1]
+        looptoken = LoopToken()
+        self.cpu.compile_loop(inputargs, operations, looptoken)
+        self.cpu.set_future_value_int(0, 10)
+        self.cpu.set_future_value_ref(1, u_box.value)
+        self.cpu.set_future_value_int(2, 20)
+        fail = self.cpu.execute_token(looptoken)
+        result = self.cpu.get_latest_value_ref(0)
+        assert result == u_box.value
+
+    def test_field_basic(self):
+        t_box, T_box = self.alloc_instance(self.T)
+        fielddescr = self.cpu.fielddescrof(self.S, 'value')
+        assert not fielddescr.is_pointer_field()
+        #
+        res = self.execute_operation(rop.SETFIELD_GC, [t_box, BoxInt(39082)],
+                                     'void', descr=fielddescr)
+        assert res is None
+        res = self.execute_operation(rop.GETFIELD_GC, [t_box],
+                                     'int', descr=fielddescr)
+        assert res.value == 39082 
+        #
+        fielddescr1 = self.cpu.fielddescrof(self.S, 'chr1')
+        fielddescr2 = self.cpu.fielddescrof(self.S, 'chr2')
+        shortdescr = self.cpu.fielddescrof(self.S, 'short')
+        self.execute_operation(rop.SETFIELD_GC, [t_box, BoxInt(250)],
+                               'void', descr=fielddescr2)
+        self.execute_operation(rop.SETFIELD_GC, [t_box, BoxInt(133)],
+                               'void', descr=fielddescr1)
+        self.execute_operation(rop.SETFIELD_GC, [t_box, BoxInt(1331)],
+                               'void', descr=shortdescr)
+        res = self.execute_operation(rop.GETFIELD_GC, [t_box],
+                                     'int', descr=fielddescr2)
+        assert res.value == 250
+        res = self.execute_operation(rop.GETFIELD_GC, [t_box],
+                                     'int', descr=fielddescr1)
+        assert res.value == 133
+        res = self.execute_operation(rop.GETFIELD_GC, [t_box],
+                                     'int', descr=shortdescr)
+        assert res.value == 1331
+        #
+        u_box, U_box = self.alloc_instance(self.U)
+        fielddescr2 = self.cpu.fielddescrof(self.S, 'next')
+        assert fielddescr2.is_pointer_field()
+        res = self.execute_operation(rop.SETFIELD_GC, [t_box, u_box],
+                                     'void', descr=fielddescr2)
+        assert res is None
+        res = self.execute_operation(rop.GETFIELD_GC, [t_box],
+                                     'ref', descr=fielddescr2)
+        assert res.value == u_box.value
+        #
+        fielddescr2 = self.cpu.fielddescrof(self.S, 'next')
+        null_const = self.null_instance().constbox()
+        res = self.execute_operation(rop.SETFIELD_GC, [t_box, null_const],
+                                     'void', descr=fielddescr2)
+        assert res is None
+        res = self.execute_operation(rop.GETFIELD_GC, [t_box],
+                                     'ref', descr=fielddescr2)
+        assert res.value == null_const.value
+        if self.cpu.supports_floats:
+            floatdescr = self.cpu.fielddescrof(self.S, 'float')
+            self.execute_operation(rop.SETFIELD_GC, [t_box, boxfloat(3.4)],
+                                   'void', descr=floatdescr)
+            res = self.execute_operation(rop.GETFIELD_GC, [t_box],
+                                         'float', descr=floatdescr)
+            assert res.getfloat() == 3.4
+            #
+            self.execute_operation(rop.SETFIELD_GC, [t_box, constfloat(-3.6)],
+                                   'void', descr=floatdescr)
+            res = self.execute_operation(rop.GETFIELD_GC, [t_box],
+                                         'float', descr=floatdescr)
+            assert res.getfloat() == -3.6
+
     def test_bh_call(self):
         cpu = self.cpu
         #
@@ -619,71 +701,6 @@ class BaseBackendTest(Runner):
                                                 constfloat(2.5)], 'float',
                                      descr=calldescr)
         assert res.getfloat() == 4.0
-
-
-    def test_field_basic(self):
-        t_box, T_box = self.alloc_instance(self.T)
-        fielddescr = self.cpu.fielddescrof(self.S, 'value')
-        assert not fielddescr.is_pointer_field()
-        #
-        res = self.execute_operation(rop.SETFIELD_GC, [t_box, BoxInt(39082)],
-                                     'void', descr=fielddescr)
-        assert res is None
-        res = self.execute_operation(rop.GETFIELD_GC, [t_box],
-                                     'int', descr=fielddescr)
-        assert res.value == 39082
-        #
-        fielddescr1 = self.cpu.fielddescrof(self.S, 'chr1')
-        fielddescr2 = self.cpu.fielddescrof(self.S, 'chr2')
-        shortdescr = self.cpu.fielddescrof(self.S, 'short')
-        self.execute_operation(rop.SETFIELD_GC, [t_box, BoxInt(250)],
-                               'void', descr=fielddescr2)
-        self.execute_operation(rop.SETFIELD_GC, [t_box, BoxInt(133)],
-                               'void', descr=fielddescr1)
-        self.execute_operation(rop.SETFIELD_GC, [t_box, BoxInt(1331)],
-                               'void', descr=shortdescr)
-        res = self.execute_operation(rop.GETFIELD_GC, [t_box],
-                                     'int', descr=fielddescr2)
-        assert res.value == 250
-        res = self.execute_operation(rop.GETFIELD_GC, [t_box],
-                                     'int', descr=fielddescr1)
-        assert res.value == 133
-        res = self.execute_operation(rop.GETFIELD_GC, [t_box],
-                                     'int', descr=shortdescr)
-        assert res.value == 1331
-        
-        #
-        u_box, U_box = self.alloc_instance(self.U)
-        fielddescr2 = self.cpu.fielddescrof(self.S, 'next')
-        assert fielddescr2.is_pointer_field()
-        res = self.execute_operation(rop.SETFIELD_GC, [t_box, u_box],
-                                     'void', descr=fielddescr2)
-        assert res is None
-        res = self.execute_operation(rop.GETFIELD_GC, [t_box],
-                                     'ref', descr=fielddescr2)
-        assert res.value == u_box.value
-        #
-        null_const = self.null_instance().constbox()
-        res = self.execute_operation(rop.SETFIELD_GC, [t_box, null_const],
-                                     'void', descr=fielddescr2)
-        assert res is None
-        res = self.execute_operation(rop.GETFIELD_GC, [t_box],
-                                     'ref', descr=fielddescr2)
-        assert res.value == null_const.value
-        if self.cpu.supports_floats:
-            floatdescr = self.cpu.fielddescrof(self.S, 'float')
-            self.execute_operation(rop.SETFIELD_GC, [t_box, boxfloat(3.4)],
-                                   'void', descr=floatdescr)
-            res = self.execute_operation(rop.GETFIELD_GC, [t_box],
-                                         'float', descr=floatdescr)
-            assert res.getfloat() == 3.4
-            #
-            self.execute_operation(rop.SETFIELD_GC, [t_box, constfloat(-3.6)],
-                                   'void', descr=floatdescr)
-            res = self.execute_operation(rop.GETFIELD_GC, [t_box],
-                                         'float', descr=floatdescr)
-            assert res.getfloat() == -3.6
-
 
     def test_passing_guards(self):
         t_box, T_box = self.alloc_instance(self.T)
