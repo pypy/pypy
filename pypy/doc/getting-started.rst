@@ -73,7 +73,7 @@ install distribute_ and pip_:
 
     $ curl -O http://python-distribute.org/distribute_setup.py
 
-    $ curl -O https://github.com/pypa/pip/raw/master/contrib/get-pip.py
+    $ curl -O https://raw.github.com/pypa/pip/master/contrib/get-pip.py
 
     $ ./pypy-1.6/bin/pypy distribute_setup.py
 

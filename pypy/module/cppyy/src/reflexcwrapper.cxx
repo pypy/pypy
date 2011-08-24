@@ -61,7 +61,7 @@ static inline size_t base_offset(const Reflex::Type& td, const Reflex::Type& tb,
                     size_t offset = ibase->first.Offset(o.Address());
                     return offset;
                 } else
-                    return ibase->first.Offset(0);
+                    return ibase->first.Offset(address);
             }
         }
 
@@ -349,6 +349,12 @@ size_t cppyy_data_member_offset(cppyy_typehandle_t handle, int data_member_index
     return m.Offset();
 }
 
+
+int cppyy_is_publicdata(cppyy_typehandle_t handle, int data_member_index) {
+    Reflex::Scope s = scope_from_handle(handle);
+    Reflex::Member m = s.DataMemberAt(data_member_index);
+    return m.IsPublic();
+}
 
 int cppyy_is_staticdata(cppyy_typehandle_t handle, int data_member_index) {
     Reflex::Scope s = scope_from_handle(handle);

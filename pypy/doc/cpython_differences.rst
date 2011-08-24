@@ -287,7 +287,14 @@ Miscellaneous
   never a dictionary as it sometimes is in CPython. Assigning to
   ``__builtins__`` has no effect.
 
-* object identity of immutable keys in dictionaries is not necessarily preserved.
-  Never compare immutable objects with ``is``.
+* Do not compare immutable objects with ``is``.  For example on CPython
+  it is true that ``x is 0`` works, i.e. does the same as ``type(x) is
+  int and x == 0``, but it is so by accident.  If you do instead
+  ``x is 1000``, then it stops working, because 1000 is too large and
+  doesn't come from the internal cache.  In PyPy it fails to work in
+  both cases, because we have no need for a cache at all.
+
+* Also, object identity of immutable keys in dictionaries is not necessarily
+  preserved.
 
 .. include:: _ref.txt

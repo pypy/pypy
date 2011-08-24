@@ -24,13 +24,13 @@ class AppTestDATATYPES:
             import cppyy
             return cppyy.load_reflection_info(%r)""" % (test_dct, ))
 
-    def test0_load_reflection_cache(self):
+    def test01_load_reflection_cache(self):
         """Test whether loading a refl. info twice results in the same object."""
         import cppyy
         lib2 = cppyy.load_reflection_info(self.test_dct)
         assert self.datatypes is lib2
 
-    def test1_instance_data_read_access(self):
+    def test02_instance_data_read_access(self):
         """Test read access to instance public data and verify values"""
 
         import cppyy, sys
@@ -104,7 +104,7 @@ class AppTestDATATYPES:
 
         c.destruct()
 
-    def test2_instance_data_write_access(self):
+    def test03_instance_data_write_access(self):
         """Test write access to instance public data and verify values"""
 
         import cppyy, sys
@@ -185,7 +185,20 @@ class AppTestDATATYPES:
 
         c.destruct()
 
-    def test3_class_read_access(self):
+    def test04_respect_privacy(self):
+        """Test that privacy settings are respected"""
+
+        import cppyy
+        cppyy_test_data = cppyy.gbl.cppyy_test_data
+
+        c = cppyy_test_data()
+        assert isinstance(c, cppyy_test_data)
+
+        raises(AttributeError, getattr, c, 'm_owns_arrays')
+
+        c.destruct()
+
+    def test05_class_read_access(self):
         """Test read access to class public data and verify values"""
 
         import cppyy, sys
@@ -222,7 +235,7 @@ class AppTestDATATYPES:
 
         c.destruct()
 
-    def test4_class_data_write_access(self):
+    def test06_class_data_write_access(self):
         """Test write access to class public data and verify values"""
 
         import cppyy, sys
@@ -286,7 +299,7 @@ class AppTestDATATYPES:
 
         c.destruct()
 
-    def test5_range_access(self):
+    def test07_range_access(self):
         """Test the ranges of integer types"""
 
         import cppyy, sys
@@ -302,7 +315,7 @@ class AppTestDATATYPES:
 
         c.destruct()
 
-    def test6_type_conversions(self):
+    def test08_type_conversions(self):
         """Test conversions between builtin types"""
 
         import cppyy, sys

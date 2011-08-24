@@ -17,6 +17,10 @@ class FastCallNotPossible(Exception):
 
 NULL_VOIDP  = lltype.nullptr(rffi.VOIDP.TO)
 
+def _direct_ptradd(ptr, offset):        # TODO: factor out with convert.py
+    address = rffi.cast(rffi.CCHARP, ptr)
+    return rffi.cast(rffi.VOIDP, lltype.direct_ptradd(address, offset))
+
 @unwrap_spec(name=str)
 def load_dictionary(space, name):
     try:
@@ -104,6 +108,7 @@ class CPPMethod(object):
         self.methgetter = methgetter
         self._libffifunc_cache = {}
 
+    @jit.unroll_safe
     def call(self, cppthis, w_type, args_w):
         assert lltype.typeOf(cppthis) == rffi.VOIDP
         if self.executor is None:
@@ -225,10 +230,12 @@ class CPPConstructor(CPPMethod):
 
 
 class W_CPPOverload(Wrappable):
-    _immutable_fields_ = ["func_name", "functions[*]"]
+    _immutable_fields_ = ["scope_handle", "func_name", "functions[*]"]
 
-    def __init__(self, space, func_name, functions):
+    def __init__(self, space, scope_handle, func_name, functions):
         self.space = space
+        assert lltype.typeOf(scope_handle) == rffi.VOIDP
+        self.scope_handle = scope_handle
         self.func_name = func_name
         self.functions = debug.make_sure_not_resized(functions)
 
@@ -243,7 +250,9 @@ class W_CPPOverload(Wrappable):
         cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
         if cppinstance is not None:
             cppinstance._nullcheck()
-            cppthis = cppinstance.rawobject
+            offset = capi.c_base_offset(
+                cppinstance.cppclass.handle, self.scope_handle, cppinstance.rawobject)
+            cppthis = _direct_ptradd(cppinstance.rawobject, offset)
         else:
             cppthis = NULL_VOIDP
         assert lltype.typeOf(cppthis) == rffi.VOIDP
@@ -283,9 +292,10 @@ W_CPPOverload.typedef = TypeDef(
 class W_CPPDataMember(Wrappable):
     _immutable_fields_ = ["scope_handle", "converter", "offset", "_is_static"]
 
-    def __init__(self, space, scope, type_name, offset, is_static):
+    def __init__(self, space, scope_handle, type_name, offset, is_static):
         self.space = space
-        self.scope_handle = scope.handle
+        assert lltype.typeOf(scope_handle) == rffi.VOIDP
+        self.scope_handle = scope_handle
         self.converter = converter.get_converter(self.space, type_name)
         self.offset = offset
         self._is_static = is_static
@@ -354,7 +364,7 @@ class W_CPPScope(Wrappable):
                 overload = args_temp.setdefault(pymethod_name, [])
                 overload.append(cppfunction)
         for name, functions in args_temp.iteritems():
-            overload = W_CPPOverload(self.space, name, functions[:])
+            overload = W_CPPOverload(self.space, self.handle, name, functions[:])
             self.methods[name] = overload
 
     def get_method_names(self):
@@ -404,11 +414,13 @@ class W_CPPNamespace(W_CPPScope):
     def _find_data_members(self):
         num_data_members = capi.c_num_data_members(self.handle)
         for i in range(num_data_members):
+            if not capi.c_is_publicdata(self.handle, i):
+                continue
             data_member_name = capi.charp2str_free(capi.c_data_member_name(self.handle, i))
             if not data_member_name in self.data_members:
                 type_name = capi.charp2str_free(capi.c_data_member_type(self.handle, i))
                 offset = capi.c_data_member_offset(self.handle, i)
-                data_member = W_CPPDataMember(self.space, self, type_name, offset, True)
+                data_member = W_CPPDataMember(self.space, self.handle, type_name, offset, True)
                 self.data_members[data_member_name] = data_member
 
     def update(self):
@@ -454,11 +466,13 @@ class W_CPPType(W_CPPScope):
     def _find_data_members(self):
         num_data_members = capi.c_num_data_members(self.handle)
         for i in range(num_data_members):
+            if not capi.c_is_publicdata(self.handle, i):
+                continue
             data_member_name = capi.charp2str_free(capi.c_data_member_name(self.handle, i))
             type_name = capi.charp2str_free(capi.c_data_member_type(self.handle, i))
             offset = capi.c_data_member_offset(self.handle, i)
             is_static = bool(capi.c_is_staticdata(self.handle, i))
-            data_member = W_CPPDataMember(self.space, self, type_name, offset, is_static)
+            data_member = W_CPPDataMember(self.space, self.handle, type_name, offset, is_static)
             self.data_members[data_member_name] = data_member
 
     def is_namespace(self):

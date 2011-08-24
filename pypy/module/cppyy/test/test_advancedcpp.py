@@ -322,7 +322,7 @@ class AppTestADVANCEDCPP:
         assert gbl.get_d(d) == 44
         d.destruct()
 
-    def test08_void_pointer_passing( self ):
+    def test08_void_pointer_passing(self):
         """Test passing of variants of void pointer arguments"""
 
         import cppyy
@@ -336,7 +336,7 @@ class AppTestADVANCEDCPP:
         assert cppyy.addressof(o) == pp.gime_address_ptr_ptr(o)
         assert cppyy.addressof(o) == pp.gime_address_ptr_ref(o)
 
-    def test09_opaque_pointer_assing( self ):
+    def test09_opaque_pointer_assing(self):
         """Test passing around of opaque pointers"""
 
         import cppyy
@@ -356,3 +356,22 @@ class AppTestADVANCEDCPP:
         assert o == cppyy.bind_object(addr, type(o))
         assert o == cppyy.bind_object(addr, o.__class__)
         #assert o == cppyy.bind_object(addr, "some_concrete_class")
+
+    def test10_multi_methods(self):
+        """Test calling of methods from multiple inheritance"""
+
+        import cppyy
+        multi = cppyy.gbl.multi
+
+        assert cppyy.gbl.multi1 is multi.__bases__[0]
+        assert cppyy.gbl.multi2 is multi.__bases__[1]
+
+        dict_keys = multi.__dict__.keys()
+        assert dict_keys.count('get_my_own_int') == 1
+        assert dict_keys.count('get_multi1_int') == 0
+        assert dict_keys.count('get_multi2_int') == 0
+
+        m = multi(1, 2, 3)
+        assert m.get_multi1_int() == 1
+        assert m.get_multi2_int() == 2
+        assert m.get_my_own_int() == 3

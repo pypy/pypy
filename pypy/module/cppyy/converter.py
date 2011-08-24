@@ -20,7 +20,7 @@ def get_rawobject(space, w_obj):
         return cppinstance.rawobject
     return lltype.nullptr(rffi.VOIDP.TO)
 
-def _direct_ptradd(ptr, offset):
+def _direct_ptradd(ptr, offset):        # TODO: factor out with interp_cppyy.py
     address = rffi.cast(rffi.CCHARP, ptr)
     return rffi.cast(rffi.CCHARP, lltype.direct_ptradd(address, offset))
 

@@ -29,4 +29,6 @@
 
   <class name="pointer_pass" />
 
+  <class pattern="multi*" />
+
 </lcgdict>

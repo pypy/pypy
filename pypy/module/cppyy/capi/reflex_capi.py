@@ -206,6 +206,11 @@ c_data_member_offset = rffi.llexternal(
     [C_TYPEHANDLE, rffi.INT], rffi.SIZE_T,
     compilation_info=eci)
 
+c_is_publicdata = rffi.llexternal(
+    "cppyy_is_publicdata",
+    [C_TYPEHANDLE, rffi.INT], rffi.INT,
+    compilation_info=eci)
+
 c_is_staticdata = rffi.llexternal(
     "cppyy_is_staticdata",
     [C_TYPEHANDLE, rffi.INT], rffi.INT,

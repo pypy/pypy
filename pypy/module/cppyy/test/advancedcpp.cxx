@@ -62,3 +62,9 @@ double my_global_array[500];
 
 // for life-line testing
 int some_class_with_data::some_data::s_num_data = 0;
+
+
+// for testing multiple inheritance
+multi1::~multi1() {}
+multi2::~multi2() {}
+multi::~multi() {}

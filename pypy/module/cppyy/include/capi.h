@@ -67,6 +67,7 @@ extern "C" {
     size_t cppyy_data_member_offset(cppyy_typehandle_t handle, int data_member_index);
 
     /* data member properties */
+    int cppyy_is_publicdata(cppyy_typehandle_t handle, int data_member_index);
     int cppyy_is_staticdata(cppyy_typehandle_t handle, int data_member_index);
 
     /* misc helper */

@@ -1,7 +1,7 @@
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.rlib.objectmodel import specialize, instantiate
 from pypy.rlib import rarithmetic, jit
-from pypy.rpython.lltypesystem import rffi
+from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
 
 from pypy.module.cppyy import interp_cppyy
@@ -27,6 +27,12 @@ class FakeType(FakeBase):
         self.name = name
     def getname(self, space, name):
         return self.name
+
+@jit.dont_look_inside
+def _opaque_direct_ptradd(ptr, offset):
+    address = rffi.cast(rffi.CCHARP, ptr)
+    return rffi.cast(rffi.VOIDP, lltype.direct_ptradd(address, offset))
+interp_cppyy._direct_ptradd = _opaque_direct_ptradd
 
 class FakeUserDelAction(object):
     def __init__(self, space):
@@ -141,6 +147,10 @@ class TestFastPathJIT(LLJitMixin):
             return 7
         f()
         space = FakeSpace()
+        # This test is not that constrained anymore, now that there are left-over
+        # calls (to opaque ptr add (above) and to capi offset (the latter could be
+        # eaten by the JIT, since it is elidable ... )), but it's the best that
+        # can be done for now.
         result = self.meta_interp(f, [], listops=True, backendopt=True, listcomp=True)
-        self.check_loops(call=0, call_release_gil=1)
+        self.check_loops(call=2, call_release_gil=1)
         self.check_loops(getarrayitem_gc_pure=0, everywhere=True)
