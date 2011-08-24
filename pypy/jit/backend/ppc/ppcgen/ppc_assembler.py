@@ -909,9 +909,12 @@ class PPCBuilder(PPCAssembler):
         PPCAssembler.__init__(self)
 
     def load_word(self, rD, word):
-        if IS_PPC_32:
+        if word < 32768 and word > -32769:
+            self.li(rD, word)
+        elif IS_PPC_32 or (word < 2147483648 and word > -2147483649):
             self.lis(rD, hi(word))
-            self.ori(rD, rD, lo(word))
+            if word & 0xFFFF != 0:
+                self.ori(rD, rD, lo(word))
         else:
             self.lis(rD, highest(word))
             self.ori(rD, rD, higher(word))
@@ -1189,7 +1192,9 @@ class PPCBuilder(PPCAssembler):
         else:
             assert 0, "%s not supported" % value
 
-        if width == 4:
+        if width == 8:
+            self.std(value_reg, addr_reg, offset)
+        elif width == 4:
             self.stw(value_reg, addr_reg, offset)
         elif width == 2:
             self.sth(value_reg, addr_reg, offset)
@@ -1202,14 +1207,25 @@ class PPCBuilder(PPCAssembler):
         fdescr = op.getdescr()
         offset = fdescr.offset
         width = fdescr.get_field_size(0)
+        sign = fdescr.is_field_signed()
         free_reg = cpu.next_free_register
         field_addr_reg = cpu.reg_map[fptr]
+        if width == 8:
+            self.ld(free_reg, field_addr_reg, offset)
         if width == 4:
-            self.lwz(free_reg, field_addr_reg, offset)
+            if IS_PPC_32 or not sign:
+                self.lwz(free_reg, field_addr_reg, offset)
+            else:
+                self.lwa(free_reg, field_addr_reg, offset)
         elif width == 2:
-            self.lhz(free_reg, field_addr_reg, offset)
+            if sign:
+                self.lha(free_reg, field_addr_reg, offset)
+            else:
+                self.lhz(free_reg, field_addr_reg, offset)
         elif width == 1:
             self.lbz(free_reg, field_addr_reg, offset)
+            if sign:
+                self.extsb(free_reg, free_reg)
         result = op.result
         cpu.reg_map[result] = cpu.next_free_register
         cpu.next_free_register += 1
@@ -1267,7 +1283,10 @@ class PPCBuilder(PPCAssembler):
         reg0 = cpu.reg_map[args[0]]
         const = args[1]
         self.load_word(free_reg, const.value)
-        self.cmpw(0, free_reg, reg0)
+        if IS_PPC_32:
+            self.cmpw(0, free_reg, reg0)
+        else:
+            self.cmpd(0, free_reg, reg0)
         self.cror(3, 0, 1)
         self.mfcr(free_reg)
         self.rlwinm(free_reg, free_reg, 4, 31, 31)
