@@ -178,8 +178,6 @@ class TestAssemble(object):
         a.blr()
 
     def test_call_function(self):
-        if is_64_bit_arch():
-            py.test.skip("call 64 bit")
         functype =  lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
         call_addr = rffi.cast(lltype.Signed, llhelper(functype, func))
         a = PPCBuilder()
@@ -192,7 +190,12 @@ class TestAssemble(object):
         # - Do jump
 
         a.li(3, 50)
-        a.load_word(10, call_addr)
+        if IS_PPC_32:
+            a.load_word(10, call_addr)
+        else:
+            a.load_from(10, call_addr)
+            a.load_from(2, call_addr+WORD)
+            a.load_from(11, call_addr+2*WORD)
         a.mtctr(10)
         a.bctr()
         a.blr()
@@ -270,12 +273,8 @@ class TestAssemble(object):
         a.load_word(10, word1)
         a.load_word(11, word2)
 
-        if IS_PPC_64:
-            a.load_dword(8, rffi.cast(lltype.Signed, p))
-            a.load_dword(9, rffi.cast(lltype.Signed, p) + WORD)
-        else:
-            a.load_word(8, rffi.cast(lltype.Signed, p))
-            a.load_word(9, rffi.cast(lltype.Signed, p) + WORD)
+        a.load_word(8, rffi.cast(lltype.Signed, p))
+        a.load_word(9, rffi.cast(lltype.Signed, p) + WORD)
 
         a.stw(10, 8, 0)
         a.stw(11, 9, 0)
@@ -290,33 +289,16 @@ class TestAssemble(object):
     def test_load_from(self):
         a = PPCBuilder()
         
-        p = lltype.malloc(rffi.CArray(rffi.INT), 1, flavor="raw")
+        p = lltype.malloc(rffi.CArray(rffi.LONG), 1, flavor="raw")
         addr = rffi.cast(lltype.Signed, p)
-        p[0] = rffi.cast(rffi.INT, 200)
+        p[0] = rffi.cast(rffi.LONG, 200)
 
         a.load_from(3, addr)
         a.blr()
         f = a.assemble()
         assert f() == 200
-        p[0] = rffi.cast(rffi.INT, 300)
+        p[0] = rffi.cast(rffi.LONG, 300)
         assert f() == 300
-        lltype.free(p, flavor="raw")
-
-    def test_ld(self):
-        if not is_64_bit_arch():
-            py.test.skip("works on 64 bit")
-        a = PPCBuilder()
-
-        p = lltype.malloc(rffi.CArray(rffi.LONG), 1, flavor="raw")
-        addr = rffi.cast(lltype.Signed, p)
-        p[0] = rffi.cast(rffi.LONG, 200)
-
-        a.load_dword(3, addr)
-        a.ld(3, 3, 0)
-        a.blr()
-
-        f = a.assemble()
-        assert f() == 200
         lltype.free(p, flavor="raw")
 
 
@@ -341,7 +323,7 @@ def func(arg):
 def is_64_bit_arch():
     import sys
     return sys.maxint == 9223372036854775807
-       
+
 """
 class TestAssemble(object):
         
