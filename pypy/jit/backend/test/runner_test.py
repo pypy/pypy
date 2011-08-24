@@ -720,7 +720,6 @@ class BaseBackendTest(Runner):
             assert self.execute_operation(opname, args, 'void') == None
             assert not self.guard_failed
 
-
     def test_passing_guard_class(self):
         t_box, T_box = self.alloc_instance(self.T)
         #null_box = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, lltype.nullptr(T)))
@@ -739,7 +738,8 @@ class BaseBackendTest(Runner):
         if not self.avoid_instances:
             all.extend([
                (rop.GUARD_NONNULL, [nullbox]),
-               (rop.GUARD_ISNULL, [t_box])])
+               (rop.GUARD_ISNULL, [t_box])
+               ])
         if self.cpu.supports_floats:
             all.append((rop.GUARD_VALUE, [boxfloat(-1.0), constfloat(1.0)]))
         for opname, args in all:

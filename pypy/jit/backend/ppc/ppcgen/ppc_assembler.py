@@ -1261,6 +1261,32 @@ class PPCBuilder(PPCAssembler):
         self.rlwinm(free_reg, free_reg, 2, 31, 31)
         self.cmpi(0, 1, free_reg, 0)
 
+    def emit_guard_value(self, op, cpu):
+        free_reg = cpu.next_free_register
+        args = op.getarglist()
+        reg0 = cpu.reg_map[args[0]]
+        const = args[1]
+        self.load_word(free_reg, const.value)
+        self.cmpw(0, free_reg, reg0)
+        self.cror(3, 0, 1)
+        self.mfcr(free_reg)
+        self.rlwinm(free_reg, free_reg, 4, 31, 31)
+        self.cmpi(0, 1, free_reg, 1)
+
+    def emit_guard_nonnull(self, op, cpu):
+        arg0 = op.getarg(0)
+        regnum = cpu.reg_map[arg0]
+        self.cmpi(0, 1, regnum, 0)
+
+    def emit_guard_isnull(self, op, cpu):
+        free_reg = cpu.next_free_register
+        arg0 = op.getarg(0)
+        regnum = cpu.reg_map[arg0]
+        self.cmpi(0, 1, regnum, 0)
+        self.mfcr(free_reg)
+        self.rlwinm(free_reg, free_reg, 3, 31, 31)
+        self.cmpi(0, 1, free_reg, 0)
+
     def emit_finish(self, op, cpu):
         descr = op.getdescr()
         identifier = self._get_identifier_from_descr(descr, cpu)
