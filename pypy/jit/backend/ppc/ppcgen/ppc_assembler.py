@@ -1212,7 +1212,7 @@ class PPCBuilder(PPCAssembler):
         field_addr_reg = cpu.reg_map[fptr]
         if width == 8:
             self.ld(free_reg, field_addr_reg, offset)
-        if width == 4:
+        elif width == 4:
             if IS_PPC_32 or not sign:
                 self.lwz(free_reg, field_addr_reg, offset)
             else:
