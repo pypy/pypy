@@ -177,15 +177,10 @@ class BaseArray(Wrappable):
     descr_argmin = _reduce_argmax_argmin_impl(minimum)
 
     def descr_sort(self, space):
-        sort_driver = jit.JitDriver(greens=['signature'],
-                         reds = ['first', 'last', 'stack', 'splitpoint', 'size', 'self'])
         size = self.find_size()
 	stack = [(0,size-1)]
 	first=0; last=size-1; splitpoint=first;
         while (len(stack) > 0):
-            sort_driver.jit_merge_point(signature=self.signature, first=first,
-                                          last=last, stack=stack, splitpoint=splitpoint,
-                                          size=size, self=self)
             first, last = stack.pop()
             while last>first:
                 #splitpoint = split(first,last)
