@@ -148,7 +148,7 @@ class ArithmaticTypeMixin(object):
         return max(v1, v2)
 
     def bool(self, v):
-        return bool(self.unbox(v))
+        return bool(self.for_computation(self.unbox(v)))
     def ne(self, v1, v2):
         return self.for_computation(self.unbox(v1)) != self.for_computation(self.unbox(v2))
 
