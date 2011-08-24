@@ -176,6 +176,43 @@ class BaseArray(Wrappable):
     descr_argmax = _reduce_argmax_argmin_impl(maximum)
     descr_argmin = _reduce_argmax_argmin_impl(minimum)
 
+    def descr_sort(self, space):
+        sort_driver = jit.JitDriver(greens=['signature'],
+                         reds = ['first', 'last', 'stack', 'splitpoint', 'size', 'self'])
+        size = self.find_size()
+	stack = [(0,size-1)]
+	first=0; last=size-1; splitpoint=first;
+        while (len(stack) > 0):
+            sort_driver.jit_merge_point(signature=self.signature, first=first,
+                                          last=last, stack=stack, splitpoint=splitpoint,
+                                          size=size, self=self)
+            first, last = stack.pop()
+            while last>first:
+                #splitpoint = split(first,last)
+                x = self.eval(first)
+                splitpoint = first
+                unknown = first+1
+                while (unknown<=last):
+                    if (self.eval(unknown)<x):
+                        splitpoint = splitpoint + 1
+                        #interchange(splitpoint,unknown)
+                        temp = self.eval(splitpoint)
+                        self.storage[splitpoint] = self.eval(unknown)
+                        self.storage[unknown] = temp
+                    unknown = unknown + 1
+                #interchange(first,splitpoint)
+                temp = self.eval(splitpoint)
+                self.storage[splitpoint] = self.eval(first)
+                self.storage[first] = temp
+
+                if (last-splitpoint<splitpoint-first):
+                    stack.append((first,splitpoint-1));
+                    first = splitpoint + 1
+                else:
+                    stack.append((splitpoint+1,last));
+                    last = splitpoint - 1
+
+
     def descr_dot(self, space, w_other):
         if isinstance(w_other, BaseArray):
             w_res = self.descr_mul(space, w_other)
@@ -563,4 +600,5 @@ BaseArray.typedef = TypeDef(
     all = interp2app(BaseArray.descr_all),
     any = interp2app(BaseArray.descr_any),
     dot = interp2app(BaseArray.descr_dot),
+    sort = interp2app(BaseArray.descr_sort),
 )
