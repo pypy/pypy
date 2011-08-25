@@ -1306,6 +1306,26 @@ class PPCBuilder(PPCAssembler):
         self.rlwinm(free_reg, free_reg, 3, 31, 31)
         self.cmpi(0, 1, free_reg, 0)
 
+    def emit_guard_class(self, op, cpu):
+        field_addr_reg = cpu.reg_map[op.getarg(0)]
+        class_addr = rffi.cast(lltype.Signed, op.getarg(1).value)
+        offset = cpu.vtable_offset
+        free_reg = cpu.get_next_register()
+        class_reg = cpu.next_free_register
+        self.load_word(free_reg, offset)
+        self.load_word(class_reg, class_addr)
+        self.lwz(free_reg, field_addr_reg, offset)
+        self.cmpw(0, free_reg, class_reg)
+        self.cror(3, 0, 1)
+        self.mfcr(free_reg)
+        self.rlwinm(free_reg, free_reg, 4, 31, 31)
+        self.cmpi(0, 1, free_reg, 1)
+
+    def emit_guard_nonnull_class(self, op, cpu):
+        self.emit_guard_nonnull(op, cpu)
+        self._guard_epilog(op, cpu)
+        self.emit_guard_class(op, cpu)
+
     def emit_finish(self, op, cpu):
         descr = op.getdescr()
         identifier = self._get_identifier_from_descr(descr, cpu)
