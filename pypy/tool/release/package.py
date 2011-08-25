@@ -133,6 +133,8 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     if copy_to_dir is not None:
         print "Copying %s to %s" % (archive, copy_to_dir)
         shutil.copy(archive, str(copy_to_dir))
+    else:
+        print "Ready in %s" % (builddir,)
     return builddir # for tests
 
 if __name__ == '__main__':
