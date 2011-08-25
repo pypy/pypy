@@ -27,3 +27,8 @@ class TestTupleObject(BaseApiTest):
         assert api.PySet_Size(w_set) == 5
         api.PySet_Discard(w_set, space.wrap(6))
         assert api.PySet_Size(w_set) == 4
+
+    def test_set_contains(self, space, api):
+        w_set = api.PySet_New(space.wrap([1,2,3,4]))
+        assert api.PySet_Contains(w_set, space.wrap(1))
+        assert not api.PySet_Contains(w_set, space.wrap(0))

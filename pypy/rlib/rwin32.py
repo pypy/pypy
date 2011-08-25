@@ -79,8 +79,9 @@ class CConfig:
 for k, v in rffi_platform.configure(CConfig).items():
     globals()[k] = v
 
-def winexternal(name, args, result):
-    return rffi.llexternal(name, args, result, compilation_info=eci, calling_conv='win')
+def winexternal(name, args, result, **kwds):
+    return rffi.llexternal(name, args, result, compilation_info=eci,
+                           calling_conv='win', **kwds)
 
 if WIN32:
     HANDLE = rffi.COpaquePtr(typedef='HANDLE')
@@ -92,7 +93,7 @@ if WIN32:
     INVALID_HANDLE_VALUE = rffi.cast(HANDLE, -1)
     PFILETIME = rffi.CArrayPtr(FILETIME)
 
-    GetLastError = winexternal('GetLastError', [], DWORD)
+    GetLastError = winexternal('GetLastError', [], DWORD, threadsafe=False)
     SetLastError = winexternal('SetLastError', [DWORD], lltype.Void)
 
     # In tests, the first call to GetLastError is always wrong, because error
@@ -103,10 +104,10 @@ if WIN32:
     GetProcAddress = winexternal('GetProcAddress',
                                  [HMODULE, rffi.CCHARP],
                                  rffi.VOIDP)
-    FreeLibrary = winexternal('FreeLibrary', [HMODULE], BOOL)
+    FreeLibrary = winexternal('FreeLibrary', [HMODULE], BOOL, threadsafe=False)
 
     LocalFree = winexternal('LocalFree', [HLOCAL], DWORD)
-    CloseHandle = winexternal('CloseHandle', [HANDLE], BOOL)
+    CloseHandle = winexternal('CloseHandle', [HANDLE], BOOL, threadsafe=False)
 
     FormatMessage = winexternal(
         'FormatMessageA',

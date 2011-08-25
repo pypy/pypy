@@ -13,6 +13,8 @@ def elidable(func):
         the same (same numbers or same pointers)
     (2) it's fine to remove the call completely if we can guess the result
     according to rule 1
+    (3) the function call can be moved around by optimizer,
+        but only so it'll be called earlier and not later.
 
     Most importantly it doesn't mean that an elidable function has no observable
     side effect, but those side effects are idempotent (ie caching).
@@ -296,6 +298,7 @@ PARAMETERS = {'threshold': 1032, # just above 1024
               'inlining': 1,
               'loop_longevity': 1000,
               'retrace_limit': 5,
+              'max_retrace_guards': 15,
               'enable_opts': 'all',
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())

@@ -11,6 +11,7 @@ from pypy.tool.gcc_cache import build_executable_cache, try_compile_cache
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import CompilationError
 from pypy.tool.udir import udir
+from pypy.tool.autopath import pypydir
 from pypy.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask
 
 # ____________________________________________________________
@@ -699,6 +700,13 @@ def run_example_code(filepath, eci):
 
 # ____________________________________________________________
 
+PYPY_EXTERNAL_DIR = py.path.local(pypydir).join('..', '..')
+# XXX make this configurable
+if sys.platform == 'win32':
+    libdir = py.path.local('c:/buildslave/support') # on the bigboard buildbot
+    if libdir.check():
+        PYPY_EXTERNAL_DIR = libdir
+
 def configure_external_library(name, eci, configurations,
                                symbol=None, _cache={}):
     """try to find the external library.
@@ -740,11 +748,7 @@ def configure_external_library(name, eci, configurations,
             if prefix and not os.path.isabs(prefix):
                 import glob
 
-                # XXX make this a global option?
-                from pypy.tool.autopath import pypydir
-                external_dir = py.path.local(pypydir).join('..', '..')
-
-                entries = glob.glob(str(external_dir.join(prefix + '*')))
+                entries = glob.glob(str(PYPY_EXTERNAL_DIR.join(prefix + '*')))
                 if entries:
                     # Get last version
                     prefix = sorted(entries)[-1]
@@ -780,14 +784,16 @@ def configure_boehm(platform=None):
         from pypy.translator.platform import platform
     if sys.platform == 'win32':
         library_dir = 'Release'
+        libraries = ['gc']
         includes=['gc.h']
     else:
         library_dir = ''
+        libraries = ['gc', 'dl']
         includes=['gc/gc.h']
     eci = ExternalCompilationInfo(
         platform=platform,
         includes=includes,
-        libraries=['gc', 'dl'],
+        libraries=libraries,
         )
     return configure_external_library(
         'gc', eci,

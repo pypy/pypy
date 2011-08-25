@@ -1,4 +1,9 @@
 from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift, LONG_BIT
+from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.jit.metainterp.history import BoxInt, ConstInt
+import sys
+MAXINT = sys.maxint
+MININT = -sys.maxint - 1
 
 class IntBound(object):
     _attrs_ = ('has_upper', 'has_lower', 'upper', 'lower')
@@ -210,11 +215,11 @@ class IntBound(object):
         
     def __repr__(self):
         if self.has_lower:
-            l = '%4d' % self.lower
+            l = '%d' % self.lower
         else:
             l = '-Inf'
         if self.has_upper:
-            u = '%3d' % self.upper
+            u = '%d' % self.upper
         else:
             u = 'Inf'
         return '%s <= x <= %s' % (l, u)
@@ -224,7 +229,24 @@ class IntBound(object):
         res.has_lower = self.has_lower
         res.has_upper = self.has_upper
         return res
+
+    def make_guards(self, box, guards):
+        if self.has_lower and self.lower > MININT:
+            bound = self.lower
+            res = BoxInt()
+            op = ResOperation(rop.INT_GE, [box, ConstInt(bound)], res)
+            guards.append(op)
+            op = ResOperation(rop.GUARD_TRUE, [res], None)
+            guards.append(op)
+        if self.has_upper and self.upper < MAXINT:
+            bound = self.upper
+            res = BoxInt()
+            op = ResOperation(rop.INT_LE, [box, ConstInt(bound)], res)
+            guards.append(op)
+            op = ResOperation(rop.GUARD_TRUE, [res], None)
+            guards.append(op)
     
+
 class IntUpperBound(IntBound):
     def __init__(self, upper):
         self.has_upper = True
@@ -244,7 +266,23 @@ class IntUnbounded(IntBound):
         self.has_upper = False
         self.has_lower = False
         self.upper = 0
-        self.lower = 0        
+        self.lower = 0
+
+class ImmutableIntUnbounded(IntUnbounded):
+    def _raise(self):
+        raise TypeError('ImmutableIntUnbounded is immutable')
+    def make_le(self, other):
+        self._raise()
+    def make_lt(self, other):
+        self._raise()
+    def make_ge(self, other):
+        self._raise()
+    def make_gt(self, other):
+        self._raise()
+    def make_constant(self, value):
+        self._raise()
+    def intersect(self, other):        
+        self._raise()
 
 def min4(t):
     return min(min(t[0], t[1]), min(t[2], t[3]))

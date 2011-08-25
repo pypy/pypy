@@ -33,10 +33,6 @@ def build_opt_chain(metainterp_sd, enable_opts,
         if name in enable_opts:
             if opt is not None:
                 o = opt()
-                if unroll and name == 'string':
-                    o.enabled = False
-                # FIXME: Workaround to disable string optimisation
-                # during preamble but to keep it during the loop
                 optimizations.append(o)
             elif name == 'ffi' and config.translation.jit_ffi:
                 # we cannot put the class directly in the unrolling_iterable,

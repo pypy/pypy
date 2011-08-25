@@ -88,6 +88,13 @@ List of extension modules that we support:
 
     _stackless
 
+  Note that only some of these modules are built-in in a typical
+  CPython installation, and the rest is from non built-in extension
+  modules.  This means that e.g. ``import parser`` will, on CPython,
+  find a local file ``parser.py``, while ``import sys`` will not find a
+  local file ``sys.py``.  In PyPy the difference does not exist: all
+  these modules are built-in.
+
 * Supported by being rewritten in pure Python (possibly using ``ctypes``):
   see the `lib_pypy/`_ directory.  Examples of modules that we
   support this way: ``ctypes``, ``cPickle``, ``cmath``, ``dbm``, ``datetime``...
@@ -280,7 +287,14 @@ Miscellaneous
   never a dictionary as it sometimes is in CPython. Assigning to
   ``__builtins__`` has no effect.
 
-* object identity of immutable keys in dictionaries is not necessarily preserved.
-  Never compare immutable objects with ``is``.
+* Do not compare immutable objects with ``is``.  For example on CPython
+  it is true that ``x is 0`` works, i.e. does the same as ``type(x) is
+  int and x == 0``, but it is so by accident.  If you do instead
+  ``x is 1000``, then it stops working, because 1000 is too large and
+  doesn't come from the internal cache.  In PyPy it fails to work in
+  both cases, because we have no need for a cache at all.
+
+* Also, object identity of immutable keys in dictionaries is not necessarily
+  preserved.
 
 .. include:: _ref.txt

@@ -86,9 +86,11 @@ def extract_category(log, catprefix='', toplevel=False):
     for entry in log:
         if entry[0] == 'debug_print':
             resulttext.append(entry[1])
-        else:
+        elif len(entry) == 4:
             got.extend(extract_category(
                 entry[3], catprefix, toplevel=entry[0].startswith(catprefix)))
+        else:
+            resulttext.append('... LOG TRUCATED ...')
     if toplevel:
         resulttext.append('')
         got.insert(0, '\n'.join(resulttext))

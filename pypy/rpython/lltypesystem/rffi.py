@@ -749,21 +749,18 @@ def make_string_mappings(strtype):
             return hlstrtype(gc_buf)
 
         new_buf = lltype.malloc(STRTYPE, needed_size)
-        try:
-            str_chars_offset = (offsetof(STRTYPE, 'chars') + \
-                                itemoffsetof(STRTYPE.chars, 0))
-            if gc_buf:
-                src = cast_ptr_to_adr(gc_buf) + str_chars_offset
-            else:
-                src = cast_ptr_to_adr(raw_buf) + itemoffsetof(TYPEP.TO, 0)
-            dest = cast_ptr_to_adr(new_buf) + str_chars_offset
-            ## FIXME: This is bad, because dest could potentially move
-            ## if there are threads involved.
-            raw_memcopy(src, dest,
-                        llmemory.sizeof(ll_char_type) * needed_size)
-            return hlstrtype(new_buf)
-        finally:
-            keepalive_until_here(new_buf)
+        str_chars_offset = (offsetof(STRTYPE, 'chars') + \
+                            itemoffsetof(STRTYPE.chars, 0))
+        if gc_buf:
+            src = cast_ptr_to_adr(gc_buf) + str_chars_offset
+        else:
+            src = cast_ptr_to_adr(raw_buf) + itemoffsetof(TYPEP.TO, 0)
+        dest = cast_ptr_to_adr(new_buf) + str_chars_offset
+        raw_memcopy(src, dest,
+                    llmemory.sizeof(ll_char_type) * needed_size)
+        keepalive_until_here(gc_buf)
+        keepalive_until_here(new_buf)
+        return hlstrtype(new_buf)
 
     # (char*, str) -> None
     def keep_buffer_alive_until_here(raw_buf, gc_buf):

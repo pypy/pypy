@@ -118,7 +118,7 @@ if _POSIX:
     has_mremap = cConfig['has_mremap']
     c_mmap, c_mmap_safe = external('mmap', [PTR, size_t, rffi.INT, rffi.INT,
                                rffi.INT, off_t], PTR)
-    c_munmap, c_munmap_safe = external('munmap', [PTR, size_t], rffi.INT)
+    _, c_munmap_safe = external('munmap', [PTR, size_t], rffi.INT)
     c_msync, _ = external('msync', [PTR, size_t, rffi.INT], rffi.INT)
     if has_mremap:
         c_mremap, _ = external('mremap',
@@ -174,7 +174,8 @@ elif _MS_WINDOWS:
     DuplicateHandle = winexternal('DuplicateHandle', [HANDLE, HANDLE, HANDLE, LPHANDLE, DWORD, BOOL, DWORD], BOOL)
     CreateFileMapping = winexternal('CreateFileMappingA', [HANDLE, rwin32.LPSECURITY_ATTRIBUTES, DWORD, DWORD, DWORD, LPCSTR], HANDLE)
     MapViewOfFile = winexternal('MapViewOfFile', [HANDLE, DWORD, DWORD, DWORD, SIZE_T], LPCSTR)##!!LPVOID)
-    UnmapViewOfFile = winexternal('UnmapViewOfFile', [LPCVOID], BOOL)
+    UnmapViewOfFile = winexternal('UnmapViewOfFile', [LPCVOID], BOOL,
+                                  threadsafe=False)
     FlushViewOfFile = winexternal('FlushViewOfFile', [LPCVOID, SIZE_T], BOOL)
     SetFilePointer = winexternal('SetFilePointer', [HANDLE, LONG, PLONG, DWORD], DWORD)
     SetEndOfFile = winexternal('SetEndOfFile', [HANDLE], BOOL)
@@ -294,7 +295,7 @@ class MMap(object):
                 os.close(self.fd)
                 self.fd = -1
             if self.size > 0:
-                c_munmap(self.getptr(0), self.size)
+                c_munmap_safe(self.getptr(0), self.size)
                 self.setdata(NODATA, 0)
 
     def __del__(self):

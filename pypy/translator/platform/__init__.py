@@ -252,6 +252,13 @@ elif "freebsd" in sys.platform:
         host_factory = Freebsd
     else:
         host_factory = Freebsd_64
+elif "openbsd" in sys.platform:
+    from pypy.translator.platform.openbsd import OpenBSD, OpenBSD_64
+    import platform
+    if platform.architecture()[0] == '32bit':
+        host_factory = OpenBSD
+    else:
+        host_factory = OpenBSD_64
 elif os.name == 'nt':
     from pypy.translator.platform.windows import Windows
     host_factory = Windows
