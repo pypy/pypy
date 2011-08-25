@@ -147,10 +147,6 @@ class TestFastPathJIT(LLJitMixin):
             return 7
         f()
         space = FakeSpace()
-        # This test is not that constrained anymore, now that there are left-over
-        # calls (to opaque ptr add (above) and to capi offset (the latter could be
-        # eaten by the JIT, since it is elidable ... )), but it's the best that
-        # can be done for now.
         result = self.meta_interp(f, [], listops=True, backendopt=True, listcomp=True)
-        self.check_loops(call=2, call_release_gil=1)
+        self.check_loops(call=0, call_release_gil=1)
         self.check_loops(getarrayitem_gc_pure=0, everywhere=True)

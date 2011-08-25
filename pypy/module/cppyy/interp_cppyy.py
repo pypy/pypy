@@ -245,9 +245,8 @@ class W_CPPOverload(Wrappable):
     def get_returntype(self):
         return self.space.wrap(self.functions[0].executor.name)
 
-    @jit.unroll_safe
-    def call(self, w_cppinstance, w_type, args_w):
-        cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
+    @jit.elidable_promote()
+    def _get_cppthis(self, cppinstance):
         if cppinstance is not None:
             cppinstance._nullcheck()
             offset = capi.c_base_offset(
@@ -255,6 +254,12 @@ class W_CPPOverload(Wrappable):
             cppthis = _direct_ptradd(cppinstance.rawobject, offset)
         else:
             cppthis = NULL_VOIDP
+        return cppthis
+
+    @jit.unroll_safe
+    def call(self, w_cppinstance, w_type, args_w):
+        cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
+        cppthis = self._get_cppthis(cppinstance)
         assert lltype.typeOf(cppthis) == rffi.VOIDP
 
         space = self.space

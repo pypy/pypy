@@ -55,14 +55,8 @@ static inline size_t base_offset(const Reflex::Type& td, const Reflex::Type& tb,
         getbases.Invoke(&bases_holder);
 
         for (Bases_t::iterator ibase = bases->begin(); ibase != bases->end(); ++ibase) {
-            if (ibase->first.ToType() == tb) {
-                if (ibase->first.IsVirtual() && address != NULL) {
-                    Reflex::Object o(td, address);
-                    size_t offset = ibase->first.Offset(o.Address());
-                    return offset;
-                } else
-                    return ibase->first.Offset(address);
-            }
+            if (ibase->first.ToType() == tb)
+                return ibase->first.Offset(address);
         }
 
         // contrary to typical invoke()s, the result of the internal getbases function

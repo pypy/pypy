@@ -2,7 +2,7 @@ import py, os
 
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rlib import libffi
+from pypy.rlib import libffi, jit
 
 pkgpath = py.path.local(__file__).dirpath().join(os.pardir)
 srcpath = pkgpath.join("src")
@@ -76,16 +76,29 @@ c_base_name = rffi.llexternal(
     [C_TYPEHANDLE, rffi.INT], rffi.CCHARP,
     compilation_info=eci)
 
-c_is_subtype = rffi.llexternal(
+_c_is_subtype = rffi.llexternal(
     "cppyy_is_subtype",
     [C_TYPEHANDLE, C_TYPEHANDLE], rffi.INT,
     compilation_info=eci,
     elidable_function=True)
-c_base_offset = rffi.llexternal(
+
+@jit.elidable_promote()
+def c_is_subtype(td, tb):
+    if td == tb:
+        return 1
+    return _c_is_subtype(td, tb)
+
+_c_base_offset = rffi.llexternal(
     "cppyy_base_offset",
     [C_TYPEHANDLE, C_TYPEHANDLE, C_OBJECT], rffi.SIZE_T,
     compilation_info=eci,
     elidable_function=True)
+
+@jit.elidable_promote()
+def c_base_offset(td, tb, address):
+    if td == tb:
+        return 0
+    return _c_base_offset(td, tb, address)
 
 
 c_call_v = rffi.llexternal(
