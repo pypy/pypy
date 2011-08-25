@@ -1,8 +1,7 @@
-from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.module.micronumpy import interp_ufuncs, signature
 from pypy.module.micronumpy.compile import (numpy_compile, FakeSpace,
-    FloatObject, IntObject, BoolObject)
+    FloatObject)
 from pypy.module.micronumpy.interp_dtype import W_Float64Dtype, W_Int64Dtype
 from pypy.module.micronumpy.interp_numarray import (BaseArray, SingleDimArray,
     SingleDimSlice, scalar_w)

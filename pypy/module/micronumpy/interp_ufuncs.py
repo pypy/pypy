@@ -1,5 +1,3 @@
-import math
-
 from pypy.module.micronumpy import interp_dtype, signature
 from pypy.tool.sourcetools import func_with_new_name
 

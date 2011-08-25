@@ -11,7 +11,7 @@ from pypy.rlib import rfloat
 from pypy.rlib.rarithmetic import widen
 from pypy.rlib.objectmodel import specialize, enforceargs
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rpython.lltypesystem import lltype, llmemory, rffi
+from pypy.rpython.lltypesystem import lltype, rffi
 
 
 SIGNEDLTR = "i"
