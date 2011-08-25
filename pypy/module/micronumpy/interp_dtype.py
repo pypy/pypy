@@ -124,7 +124,7 @@ def binop(func):
 def unaryop(func):
     @functools.wraps(func)
     def impl(self, v):
-        return self.box(func(self, self.unbox(v)))
+        return self.adapt_val(func(self, self.for_computation(self.unbox(v))))
     return impl
 
 class ArithmaticTypeMixin(object):
@@ -143,9 +143,22 @@ class ArithmaticTypeMixin(object):
     def div(self, v1, v2):
         return v1 / v2
 
+    @unaryop
+    def pos(self, v):
+        return +v
+    @unaryop
+    def neg(self, v):
+        return -v
+    @unaryop
+    def abs(self, v):
+        return abs(v)
+
     @binop
     def max(self, v1, v2):
         return max(v1, v2)
+    @binop
+    def min(self, v1, v2):
+        return min(v1, v2)
 
     def bool(self, v):
         return bool(self.for_computation(self.unbox(v)))
@@ -167,15 +180,6 @@ class FloatArithmeticDtype(ArithmaticTypeMixin):
         return math.pow(v1, v2)
 
     @unaryop
-    def pos(self, v):
-        return +v
-    @unaryop
-    def neg(self, v):
-        return -v
-    @unaryop
-    def abs(self, v):
-        return abs(v)
-    @unaryop
     def sign(self, v):
         if v == 0.0:
             return 0.0
@@ -192,9 +196,6 @@ class FloatArithmeticDtype(ArithmaticTypeMixin):
     def floor(self, v):
         return math.floor(v)
 
-    @binop
-    def min(self, v1, v2):
-        return min(v1, v2)
     @binop
     def copysign(self, v1, v2):
         return math.copysign(v1, v2)
@@ -236,6 +237,10 @@ class IntegerArithmeticDtype(ArithmaticTypeMixin):
     @binop
     def mod(self, v1, v2):
         return v1 % v2
+
+    @unaryop
+    def sign(self, v):
+        return cmp(v, 0)
 
     def str_format(self, item):
         return str(widen(self.unbox(item)))

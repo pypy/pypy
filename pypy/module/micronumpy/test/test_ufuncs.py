@@ -132,6 +132,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(4):
             assert b[i] == reference[i]
 
+        a = sign(array(range(-5, 5)))
+        ref = [-1, -1, -1, -1, -1, 0, 1, 1, 1, 1]
+        for i in range(10):
+            assert a[i] == ref[i]
+
     def test_reciporocal(self):
         from numpy import array, reciprocal
 
