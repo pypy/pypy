@@ -909,9 +909,9 @@ class PPCBuilder(PPCAssembler):
         PPCAssembler.__init__(self)
 
     def load_word(self, rD, word):
-        if word < 32768 and word > -32769:
+        if word <= 32767 and word >= -32768:
             self.li(rD, word)
-        elif IS_PPC_32 or (word < 2147483648 and word > -2147483649):
+        elif IS_PPC_32 or (word <= 2147483647 and word >= -2147483648):
             self.lis(rD, hi(word))
             if word & 0xFFFF != 0:
                 self.ori(rD, rD, lo(word))
@@ -1314,8 +1314,12 @@ class PPCBuilder(PPCAssembler):
         class_reg = cpu.next_free_register
         self.load_word(free_reg, offset)
         self.load_word(class_reg, class_addr)
-        self.lwz(free_reg, field_addr_reg, offset)
-        self.cmpw(0, free_reg, class_reg)
+        if IS_PPC_32:
+            self.lwz(free_reg, field_addr_reg, offset)
+            self.cmpw(0, free_reg, class_reg)
+        else:
+            self.ld(free_reg, field_addr_reg, offset)
+            self.cmpd(0, free_reg, class_reg)
         self.cror(3, 0, 1)
         self.mfcr(free_reg)
         self.rlwinm(free_reg, free_reg, 4, 31, 31)
