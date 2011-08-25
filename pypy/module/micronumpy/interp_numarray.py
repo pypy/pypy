@@ -200,12 +200,13 @@ class BaseArray(Wrappable):
     descr_argmin = _reduce_argmax_argmin_impl("min")
 
     def descr_dot(self, space, w_other):
-        if isinstance(w_other, BaseArray):
+        w_other = convert_to_array(space, w_other)
+        if isinstance(w_other, Scalar):
+            return self.descr_mul(space, w_other)
+        else:
             w_res = self.descr_mul(space, w_other)
             assert isinstance(w_res, BaseArray)
             return w_res.descr_sum(space)
-        else:
-            return self.descr_mul(space, w_other)
 
     def _getnums(self, comma):
         dtype = self.find_dtype()

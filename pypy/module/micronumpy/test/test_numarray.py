@@ -490,6 +490,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array(range(5))
         assert a.dot(a) == 30.0
 
+        a = array(range(5))
+        assert a.dot(range(5)) == 30
+
     def test_dot_constant(self):
         from numpy import array
         a = array(range(5))
