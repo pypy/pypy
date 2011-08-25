@@ -240,7 +240,13 @@ class IntegerArithmeticDtype(ArithmaticTypeMixin):
 
     @unaryop
     def sign(self, v):
-        return cmp(v, 0)
+        if v > 0:
+            return 1
+        elif v < 0:
+            return -1
+        else:
+            assert v == 0
+            return 0
 
     def str_format(self, item):
         return str(widen(self.unbox(item)))
