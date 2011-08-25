@@ -2,6 +2,7 @@ import functools
 import math
 
 from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.module.micronumpy import signature
@@ -35,7 +36,7 @@ class W_Dtype(Wrappable):
             for typename, dtype_class in dtypes_by_apptype:
                 if space.is_w(getattr(space, "w_%s" % typename), w_dtype):
                     return space.fromcache(dtype_class)
-        assert False
+        raise OperationError(space.w_TypeError, space.wrap("data type not understood"))
 
     def descr_repr(self, space):
         return space.wrap("dtype('%s')" % self.name)
