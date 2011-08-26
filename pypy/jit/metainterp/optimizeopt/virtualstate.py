@@ -510,6 +510,8 @@ class ShortBoxes(object):
         return newop
 
     def duplicate_short_boxes_if_needed(self):
+        if os.environ.get('DONT_DUPLICATE'):
+            return
         may_need_duplication = {}
         for op in self.short_boxes.values():
             if op:
