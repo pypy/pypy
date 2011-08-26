@@ -981,6 +981,34 @@ class AppTestOldstyle(object):
         assert a.x == 2
         raises(TypeError, descr.__delete__, a)
 
+    def test_eq_order(self):
+        class A:
+            def __eq__(self, other): return True
+            def __ne__(self, other): return True
+            def __lt__(self, other): return True
+            def __le__(self, other): return True
+            def __gt__(self, other): return True
+            def __ge__(self, other): return True
+        class B:
+            def __eq__(self, other): return False
+            def __ne__(self, other): return False
+            def __lt__(self, other): return False
+            def __le__(self, other): return False
+            def __gt__(self, other): return False
+            def __ge__(self, other): return False
+        assert A() == B()
+        assert A() != B()
+        assert A() <  B()
+        assert A() <= B()
+        assert A() >  B()
+        assert A() >= B()
+        assert not (B() == A())
+        assert not (B() != A())
+        assert not (B() <  A())
+        assert not (B() <= A())
+        assert not (B() >  A())
+        assert not (B() >= A())
+
 
 class AppTestOldStyleClassStrDict(object):
     def setup_class(cls):
