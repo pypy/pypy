@@ -40,7 +40,7 @@ class FakeEnviron:
         return self._value
 
 def test_cpuinfo_linux():
-    if sys.platform != 'linux2':
+    if not sys.platform.startswith('linux'):
         py.test.skip("linux only")
     saved = os.environ
     try:

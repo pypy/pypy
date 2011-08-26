@@ -455,9 +455,9 @@ timeval = cConfig.timeval
 #    eci = ExternalCompilationInfo(includes=includes, libraries=libraries,
 #                                  separate_module_sources=sources)
 
-def external(name, args, result):
+def external(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, compilation_info=eci,
-                           calling_conv=calling_conv)
+                           calling_conv=calling_conv, **kwds)
 
 def external_c(name, args, result, **kwargs):
     return rffi.llexternal(name, args, result, compilation_info=eci,
@@ -476,9 +476,9 @@ if _POSIX:
 socket = external('socket', [rffi.INT, rffi.INT, rffi.INT], socketfd_type)
 
 if WIN32:
-    socketclose = external('closesocket', [socketfd_type], rffi.INT)
+    socketclose = external('closesocket', [socketfd_type], rffi.INT, threadsafe=False)
 else:
-    socketclose = external('close', [socketfd_type], rffi.INT)
+    socketclose = external('close', [socketfd_type], rffi.INT, threadsafe=False)
 
 socketconnect = external('connect', [socketfd_type, sockaddr_ptr, socklen_t], rffi.INT)
 

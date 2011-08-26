@@ -273,7 +273,7 @@ EVP_DigestFinal = external(
 EVP_MD_CTX_copy = external(
     'EVP_MD_CTX_copy', [EVP_MD_CTX, EVP_MD_CTX], rffi.INT)
 EVP_MD_CTX_cleanup = external(
-    'EVP_MD_CTX_cleanup', [EVP_MD_CTX], rffi.INT)
+    'EVP_MD_CTX_cleanup', [EVP_MD_CTX], rffi.INT, threadsafe=False)
 
 def init_ssl():
     libssl_SSL_load_error_strings()

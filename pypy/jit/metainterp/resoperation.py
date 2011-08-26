@@ -408,6 +408,8 @@ _oplist = [
     'FLOAT_ABS/1',
     'CAST_FLOAT_TO_INT/1',
     'CAST_INT_TO_FLOAT/1',
+    'CAST_FLOAT_TO_SINGLEFLOAT/1',
+    'CAST_SINGLEFLOAT_TO_FLOAT/1',
     #
     'INT_LT/2b',
     'INT_LE/2b',
@@ -435,6 +437,7 @@ _oplist = [
     #
     'PTR_EQ/2b',
     'PTR_NE/2b',
+    'CAST_OPAQUE_PTR/1b',
     #
     'ARRAYLEN_GC/1d',
     'STRLEN/1',

@@ -145,7 +145,7 @@ def test_hybrid_gc():
     g = pipe.stdin
     f = pipe.stdout
     expect(f, g, "ll_os.ll_os_getenv", ("PYPY_GENERATIONGC_NURSERY",), None)
-    if sys.platform == 'linux2':  # on Mac, uses another (sandboxsafe) approach
+    if sys.platform.startswith('linux'):  # on Mac, uses another (sandboxsafe) approach
         expect(f, g, "ll_os.ll_os_open", ("/proc/cpuinfo", 0, 420),
                OSError(5232, "xyz"))
     expect(f, g, "ll_os.ll_os_getenv", ("PYPY_GC_DEBUG",), None)
@@ -156,9 +156,63 @@ def test_hybrid_gc():
     rescode = pipe.wait()
     assert rescode == 0
 
+def test_segfault_1():
+    class A:
+        def __init__(self, m):
+            self.m = m
+    def g(m):
+        if m < 10:
+            return None
+        return A(m)
+    def entry_point(argv):
+        x = g(len(argv))
+        return int(x.m)
+
+    exe = compile(entry_point)
+    g, f, e = os.popen3(exe, "t", 0)
+    g.close()
+    tail = f.read()
+    f.close()
+    assert tail == ""
+    errors = e.read()
+    e.close()
+    assert 'Invalid RPython operation' in errors
+
+def test_segfault_2():
+    py.test.skip("hum, this is one example, but we need to be very careful")
+    class Base:
+        pass
+    class A(Base):
+        def __init__(self, m):
+            self.m = m
+        def getm(self):
+            return self.m
+    class B(Base):
+        def __init__(self, a):
+            self.a = a
+    def g(m):
+        a = A(m)
+        if m < 10:
+            a = B(a)
+        return a
+    def entry_point(argv):
+        x = g(len(argv))
+        os.write(2, str(x.getm()))
+        return 0
+
+    exe = compile(entry_point)
+    g, f, e = os.popen3(exe, "t", 0)
+    g.close()
+    tail = f.read(23)
+    f.close()
+    assert tail == ""    # and not ll_os.ll_os_write
+    errors = e.read()
+    e.close()
+    assert '...think what kind of errors to get...' in errors
+
 def test_safe_alloc():
     from pypy.rlib.rmmap import alloc, free
-    
+
     def entry_point(argv):
         one = alloc(1024)
         free(one, 1024)
@@ -180,7 +234,7 @@ def test_unsafe_mmap():
     py.test.skip("Since this stuff is unimplemented, it won't work anyway "
                  "however, the day it starts working, it should pass test")
     from pypy.rlib.rmmap import mmap
-    
+
     def entry_point(argv):
         try:
             res = mmap(0, 1024)

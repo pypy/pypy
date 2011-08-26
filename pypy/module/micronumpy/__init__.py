@@ -15,14 +15,25 @@ class Module(MixedModule):
         # ufuncs
         'abs': 'interp_ufuncs.absolute',
         'absolute': 'interp_ufuncs.absolute',
+        'add': 'interp_ufuncs.add',
         'copysign': 'interp_ufuncs.copysign',
+        'divide': 'interp_ufuncs.divide',
         'exp': 'interp_ufuncs.exp',
+        'fabs': 'interp_ufuncs.fabs',
         'floor': 'interp_ufuncs.floor',
         'maximum': 'interp_ufuncs.maximum',
         'minimum': 'interp_ufuncs.minimum',
+        'multiply': 'interp_ufuncs.multiply',
         'negative': 'interp_ufuncs.negative',
         'reciprocal': 'interp_ufuncs.reciprocal',
         'sign': 'interp_ufuncs.sign',
+        'subtract': 'interp_ufuncs.subtract',
+        'sin': 'interp_ufuncs.sin',
+        'cos': 'interp_ufuncs.cos',
+        'tan': 'interp_ufuncs.tan',
+        'arcsin': 'interp_ufuncs.arcsin',
+        'arccos': 'interp_ufuncs.arccos',
+        'arctan': 'interp_ufuncs.arctan',
     }
 
     appleveldefs = {

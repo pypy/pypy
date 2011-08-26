@@ -31,7 +31,8 @@ class Function(Wrappable):
     _immutable_fields_ = ['code?',
                           'w_func_globals?',
                           'closure?[*]',
-                          'defs_w?[*]']
+                          'defs_w?[*]',
+                          'name?']
 
     def __init__(self, space, code, w_globals=None, defs_w=[], closure=None,
                  forcename=None):

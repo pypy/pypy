@@ -147,7 +147,7 @@ influence the GC.  (Their default value should be ok for most usages.)
 You can read more about them at the start of
 `pypy/rpython/memory/gc/minimark.py`_.
 
-In more details:
+In more detail:
 
 - The small newly malloced objects are allocated in the nursery (case 1).
   All objects living in the nursery are "young".

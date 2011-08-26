@@ -28,6 +28,20 @@ def object_delattr(space):
     return w_delattr
 object_delattr._annspecialcase_ = 'specialize:memo'
 
+def object_hash(space):
+    "Utility that returns the app-level descriptor object.__hash__."
+    w_src, w_hash = space.lookup_in_type_where(space.w_object,
+                                                  '__hash__')
+    return w_hash
+object_hash._annspecialcase_ = 'specialize:memo'
+
+def type_eq(space):
+    "Utility that returns the app-level descriptor type.__eq__."
+    w_src, w_eq = space.lookup_in_type_where(space.w_type,
+                                             '__eq__')
+    return w_eq
+type_eq._annspecialcase_ = 'specialize:memo'
+
 def raiseattrerror(space, w_obj, name, w_descr=None):
     w_type = space.type(w_obj)
     typename = w_type.getname(space)
@@ -89,7 +103,7 @@ class Object(object):
             if space.is_data_descr(w_descr):
                 space.delete(w_descr, w_obj)
                 return
-        if w_obj.deldictvalue(space, w_name):
+        if w_obj.deldictvalue(space, name):
             return
         raiseattrerror(space, w_obj, name, w_descr)
 
@@ -490,22 +504,25 @@ class DescrOperation(object):
                                  space.wrap("coercion should return None or 2-tuple"))
         return w_res
 
-    def issubtype(space, w_sub, w_type, allow_override=False):
-        if allow_override:
-            w_check = space.lookup(w_type, "__subclasscheck__")
-            if w_check is None:
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("issubclass not supported here"))
-            return space.get_and_call_function(w_check, w_type, w_sub)
+    def issubtype(space, w_sub, w_type):
         return space._type_issubtype(w_sub, w_type)
 
-    def isinstance(space, w_inst, w_type, allow_override=False):
-        if allow_override:
-            w_check = space.lookup(w_type, "__instancecheck__")
-            if w_check is not None:
-                return space.get_and_call_function(w_check, w_type, w_inst)
-        return space.issubtype(space.type(w_inst), w_type, allow_override)
+    def isinstance(space, w_inst, w_type):
+        return space._type_isinstance(w_inst, w_type)
 
+    def issubtype_allow_override(space, w_sub, w_type):
+        w_check = space.lookup(w_type, "__subclasscheck__")
+        if w_check is None:
+            raise OperationError(space.w_TypeError,
+                                 space.wrap("issubclass not supported here"))
+        return space.get_and_call_function(w_check, w_type, w_sub)
+
+    def isinstance_allow_override(space, w_inst, w_type):
+        w_check = space.lookup(w_type, "__instancecheck__")
+        if w_check is not None:
+            return space.get_and_call_function(w_check, w_type, w_inst)
+        else:
+            return space.isinstance(w_inst, w_type)
 
 
 # helpers
@@ -707,13 +724,22 @@ def _make_comparison_impl(symbol, specialnames):
         w_left_src, w_left_impl = space.lookup_in_type_where(w_typ1, left)
         w_first = w_obj1
         w_second = w_obj2
-
-        if _same_class_w(space, w_obj1, w_obj2, w_typ1, w_typ2):
+        #
+        if left == right and _same_class_w(space, w_obj1, w_obj2,
+                                           w_typ1, w_typ2):
+            # for __eq__ and __ne__, if the objects have the same
+            # (old-style or new-style) class, then don't try the
+            # opposite method, which is the same one.
             w_right_impl = None
         else:
-            w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2, right)
-            # XXX see binop_impl
-            if space.is_true(space.issubtype(w_typ2, w_typ1)):
+            # in all other cases, try the opposite method.
+            w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2,right)
+            if space.is_w(w_typ1, w_typ2):
+                # if the type is the same, *or* if both are old-style classes,
+                # then don't reverse: try left first, right next.
+                pass
+            elif space.is_true(space.issubtype(w_typ2, w_typ1)):
+                # for new-style classes, if typ2 is a subclass of typ1.
                 w_obj1, w_obj2 = w_obj2, w_obj1
                 w_left_impl, w_right_impl = w_right_impl, w_left_impl
 
