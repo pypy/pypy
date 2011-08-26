@@ -29,6 +29,7 @@ class AppTestDtypes(BaseNumpyAppTest):
     def test_repr_str(self):
         from numpy import dtype
 
+        assert repr(dtype) == "<type 'numpy.dtype'>"
         d = dtype('?')
         assert repr(d) == "dtype('bool')"
         assert str(d) == "bool"
@@ -86,3 +87,8 @@ class AppTestDtypes(BaseNumpyAppTest):
         b = a + a
         for i in range(5):
             assert b[i] == i * 2
+
+    def test_shape(self):
+        from numpy import dtype
+
+        assert dtype(long).shape == ()

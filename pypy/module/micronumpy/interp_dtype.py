@@ -4,7 +4,7 @@ import math
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app
-from pypy.interpreter.typedef import TypeDef, interp_attrproperty
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty, GetSetProperty
 from pypy.module.micronumpy import signature
 from pypy.objspace.std.floatobject import float2string
 from pypy.rlib import rfloat
@@ -43,6 +43,9 @@ class W_Dtype(Wrappable):
 
     def descr_str(self, space):
         return space.wrap(self.name)
+
+    def descr_get_shape(self, space):
+        return space.newtuple([])
 
 
 class BaseBox(object):
@@ -343,6 +346,7 @@ dtypes_by_num_bytes = unrolling_iterable(sorted([
 ]))
 
 W_Dtype.typedef = TypeDef("dtype",
+    __module__ = "numpy",
     __new__ = interp2app(W_Dtype.descr__new__.im_func),
 
     __repr__ = interp2app(W_Dtype.descr_repr),
@@ -350,4 +354,5 @@ W_Dtype.typedef = TypeDef("dtype",
 
     num = interp_attrproperty("num", cls=W_Dtype),
     kind = interp_attrproperty("kind", cls=W_Dtype),
+    shape = GetSetProperty(W_Dtype.descr_get_shape),
 )
