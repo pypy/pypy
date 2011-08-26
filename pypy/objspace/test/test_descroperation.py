@@ -377,7 +377,26 @@ class AppTest_Descroperation:
 
         setattr(P, "__weakref__", 0)
 
+    def test_subclass_addition(self):
+        # the __radd__ is never called (compare with the next test)
+        l = []
+        class A(object):
+            def __add__(self, other):
+                l.append(self.__class__)
+                l.append(other.__class__)
+                return 123
+            def __radd__(self, other):
+                # should never be called!
+                return 456
+        class B(A):
+            pass
+        res1 = A() + B()
+        res2 = B() + A()
+        assert res1 == res2 == 123
+        assert l == [A, B, B, A]
+
     def test_subclass_comparison(self):
+        # the __eq__ *is* called with reversed arguments
         l = []
         class A(object):
             def __eq__(self, other):
@@ -395,7 +414,27 @@ class AppTest_Descroperation:
 
         A() == B()
         A() < B()
-        assert l == [B, A, A, B]
+        B() < A()
+        assert l == [B, A, A, B, B, A]
+
+    def test_subclass_comparison_more(self):
+        # similarly, __gt__(b,a) is called instead of __lt__(a,b)
+        l = []
+        class A(object):
+            def __lt__(self, other):
+                l.append(self.__class__)
+                l.append(other.__class__)
+                return '<'
+            def __gt__(self, other):
+                l.append(self.__class__)
+                l.append(other.__class__)
+                return '>'
+        class B(A):
+            pass
+        res1 = A() < B()
+        res2 = B() < A()
+        assert res1 == '>' and res2 == '<'
+        assert l == [B, A, B, A]
 
     def test_rich_comparison(self):
         # Old-style
