@@ -1231,6 +1231,90 @@ class PPCBuilder(PPCAssembler):
         cpu.reg_map[result] = cpu.next_free_register
         cpu.next_free_register += 1
 
+    def emit_arraylen_gc(self, op, cpu):
+        args = op.getarglist()
+        fptr = args[0]
+        free_reg = cpu.next_free_register
+        base_addr_reg = cpu.reg_map[fptr]
+        if IS_PPC_32:
+            self.lwz(free_reg, base_addr_reg, 0)
+        else:
+            self.ld(free_reg, base_addr_reg, 0)
+        result = op.result
+        cpu.reg_map[result] = cpu.next_free_register
+        cpu.next_free_register += 1
+
+    def emit_setarrayitem_gc(self, op, cpu):
+        args = op.getarglist()
+        fptr = args[0]
+        optr = args[1]
+        vptr = args[2]
+        fdescr = op.getdescr()
+        width = fdescr.get_item_size(0)
+        ofs = fdescr.get_base_size(0)
+        field_addr_reg = cpu.reg_map[fptr]
+        offset_reg = cpu.reg_map[optr]
+        value_reg = cpu.reg_map[vptr]
+        self.addi(field_addr_reg, field_addr_reg, ofs)
+        if width == 8:
+            self.sldi(offset_reg, offset_reg, 3)
+            self.stdx(value_reg, field_addr_reg, offset_reg)
+        elif width == 4:
+            if IS_PPC_32:
+                self.slwi(offset_reg, offset_reg, 2)
+            else:
+                self.sldi(offset_reg, offset_reg, 2)
+            self.stwx(value_reg, field_addr_reg, offset_reg)
+        elif width == 2:
+            if IS_PPC_32:
+                self.slwi(offset_reg, offset_reg, 1)
+            else:
+                self.sldi(offset_reg, offset_reg, 1)
+            self.sthx(value_reg, field_addr_reg, offset_reg)
+        elif width == 1:
+            self.stbx(value_reg, field_addr_reg, offset_reg)
+
+    def emit_getarrayitem_gc(self, op, cpu):
+        args = op.getarglist()
+        fptr = args[0]
+        optr = args[1]
+        fdescr = op.getdescr()
+        width = fdescr.get_item_size(0)
+        ofs = fdescr.get_base_size(0)
+        sign = fdescr.is_item_signed()
+        free_reg = cpu.next_free_register
+        field_addr_reg = cpu.reg_map[fptr]
+        offset_reg = cpu.reg_map[optr]
+        self.addi(field_addr_reg, field_addr_reg, ofs)
+        if width == 8:
+            self.sldi(offset_reg, offset_reg, 3)
+            self.ldx(free_reg, field_addr_reg, offset_reg)
+        elif width == 4:
+            if IS_PPC_32:
+                self.slwi(offset_reg, offset_reg, 2)
+            else:
+                self.sldi(offset_reg, offset_reg, 2)
+            if IS_PPC_32 or not sign:
+                self.lwzx(free_reg, field_addr_reg, offset_reg)
+            else:
+                self.lwax(free_reg, field_addr_reg, offset_reg)
+        elif width == 2:
+            if IS_PPC_32:
+                self.slwi(offset_reg, offset_reg, 1)
+            else:
+                self.sldi(offset_reg, offset_reg, 1)
+            if sign:
+                self.lhax(free_reg, field_addr_reg, offset_reg)
+            else:
+                self.lhzx(free_reg, field_addr_reg, offset_reg)
+        elif width == 1:
+            self.lbzx(free_reg, field_addr_reg, offset_reg)
+            if sign:
+                self.extsb(free_reg, free_reg)
+        result = op.result
+        cpu.reg_map[result] = cpu.next_free_register
+        cpu.next_free_register += 1
+
     ############################
     # unary integer operations #
     ############################
