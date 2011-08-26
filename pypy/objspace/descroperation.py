@@ -725,28 +725,21 @@ def _make_comparison_impl(symbol, specialnames):
         w_first = w_obj1
         w_second = w_obj2
         #
-        # special-case... :-(
-        if (space.is_oldstyle_instance(w_obj1) and
-            space.is_oldstyle_instance(w_obj2)):
-            assert isinstance(w_obj1, W_InstanceObject)
-            assert isinstance(w_obj2, W_InstanceObject)
-            w_class1 = w_obj1.w_class
-            w_class2 = w_obj2.w_class
-            if left == right and w_class1 is w_class2:
-                w_right_impl = None
-            else:
-                # Note that there is no revertion logic in this case.
-                w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2,
-                                                                       right)
-        # end of the special case
-        #
-        elif left == right and space.is_w(w_typ1, w_typ2):
+        if left == right and _same_class_w(space, w_obj1, w_obj2,
+                                           w_typ1, w_typ2):
+            # for __eq__ and __ne__, if the objects have the same
+            # (old-style or new-style) class, then don't try the
+            # opposite method, which is the same one.
             w_right_impl = None
         else:
-            w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2, right)
-            if left != right and space.is_w(w_typ1, w_typ2):
+            # in all other cases, try the opposite method.
+            w_right_src, w_right_impl = space.lookup_in_type_where(w_typ2,right)
+            if space.is_w(w_typ1, w_typ2):
+                # if the type is the same, *or* if both are old-style classes,
+                # then don't reverse: try left first, right next.
                 pass
             elif space.is_true(space.issubtype(w_typ2, w_typ1)):
+                # for new-style classes, if typ2 is a subclass of typ1.
                 w_obj1, w_obj2 = w_obj2, w_obj1
                 w_left_impl, w_right_impl = w_right_impl, w_left_impl
 
