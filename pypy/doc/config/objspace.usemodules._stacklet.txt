@@ -1,3 +1,0 @@
-Use the '_stacklet' module. 
-
-Exposes the `stacklet` primitives.  See also :config:`translation.stacklet`.
