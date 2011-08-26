@@ -27,7 +27,8 @@ class ShadowStackRootWalker(BaseRootWalker):
         self.decr_stack = decr_stack
 
         translator = gctransformer.translator
-        if hasattr(translator, '_jit2gc'):
+        if (hasattr(translator, '_jit2gc') and
+                'root_iterator' in translator._jit2gc):
             root_iterator = translator._jit2gc['root_iterator']
             def jit_walk_stack_root(callback, addr, end):
                 root_iterator.context = llmemory.NULL
