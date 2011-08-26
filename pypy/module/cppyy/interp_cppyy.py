@@ -311,8 +311,8 @@ class W_CPPDataMember(Wrappable):
     def is_static(self):
         return self.space.newbool(self._is_static)
 
-    def _get_offset(self, w_cppinstance):
-        cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
+    @jit.elidable_promote()
+    def _get_offset(self, cppinstance):
         if cppinstance:
             offset = self.offset + capi.c_base_offset(
                 cppinstance.cppclass.handle, self.scope_handle, cppinstance.rawobject)
@@ -321,11 +321,13 @@ class W_CPPDataMember(Wrappable):
         return offset
 
     def get(self, w_cppinstance, w_type):
-        offset = self._get_offset(w_cppinstance)
+        cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
+        offset = self._get_offset(cppinstance)
         return self.converter.from_memory(self.space, w_cppinstance, w_type, offset)
 
     def set(self, w_cppinstance, w_value):
-        offset = self._get_offset(w_cppinstance)
+        cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
+        offset = self._get_offset(cppinstance)
         self.converter.to_memory(self.space, w_cppinstance, w_value, offset)
         return self.space.w_None
 
