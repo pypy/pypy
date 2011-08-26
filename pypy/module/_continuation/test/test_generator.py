@@ -1,9 +1,7 @@
-from pypy.conftest import gettestobjspace
+from pypy.module._continuation.test.support import BaseAppTest
 
 
-class AppTestGenerator:
-    def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_continuation'])
+class AppTestGenerator(BaseAppTest):
 
     def test_simple(self):
         from _continuation import generator

@@ -1,5 +1,12 @@
 import gc
-from pypy.rlib import rstacklet, rrandom
+import py
+from pypy.rpython.tool.rffi_platform import CompilationError
+try:
+    from pypy.rlib import rstacklet
+except CompilationError, e:
+    py.test.skip("cannot import rstacklet: %s" % e)
+
+from pypy.rlib import rrandom
 from pypy.rlib.rarithmetic import intmask
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.translator.c.test.test_standalone import StandaloneTests

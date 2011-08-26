@@ -1,10 +1,10 @@
 import os
-from pypy.conftest import gettestobjspace
+from pypy.module._continuation.test.support import BaseAppTest
 
 
-class AppTestStacklet:
+class AppTestStacklet(BaseAppTest):
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_continuation'])
+        BaseAppTest.setup_class.im_func(cls)
         cls.w_translated = cls.space.wrap(
             os.path.join(os.path.dirname(__file__),
                          'test_translated.py'))

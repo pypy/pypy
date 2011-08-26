@@ -2,6 +2,7 @@ import py
 from pypy.tool.autopath import pypydir
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.rpython.tool import rffi_platform
 
 
 cdir = py.path.local(pypydir) / 'translator' / 'c'
@@ -12,6 +13,7 @@ eci = ExternalCompilationInfo(
     includes = ['src/stacklet/stacklet.h'],
     separate_module_sources = ['#include "src/stacklet/stacklet.c"\n'],
 )
+rffi_platform.verify_eci(eci.convert_sources_to_files())
 
 def llexternal(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, compilation_info=eci,
