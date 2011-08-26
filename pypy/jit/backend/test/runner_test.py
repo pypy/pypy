@@ -1030,7 +1030,6 @@ class BaseBackendTest(Runner):
     def test_jump(self):
         # this test generates small loops where the JUMP passes many
         # arguments of various types, shuffling them around.
-        py.test.skip("1")
         if self.cpu.supports_floats:
             numkinds = 3
         else:
@@ -2130,7 +2129,6 @@ class LLtypeBackendTest(BaseBackendTest):
         lltype.free(x, flavor='raw')
 
     def test_assembler_call(self):
-        py.test.skip("1")
         called = []
         def assembler_helper(failindex, virtualizable):
             assert self.cpu.get_latest_value_int(0) == 97
