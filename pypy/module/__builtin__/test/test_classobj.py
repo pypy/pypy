@@ -986,7 +986,7 @@ class AppTestOldstyle(object):
         # CPython **for old-style classes**.  This test passes on CPython2.7
         # but fails on PyPy.  If you run the same test with new-style classes,
         # it fails on CPython too.
-        py.test.skip("far too obscure")
+        skip("far too obscure")
         class A:
             def __eq__(self, other): return True
             def __ne__(self, other): return True
