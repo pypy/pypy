@@ -1202,6 +1202,9 @@ class PPCBuilder(PPCAssembler):
         elif width == 1:
             self.stb(value_reg, addr_reg, offset)
 
+    def emit_setfield_raw(self, op, cpu):
+        self.emit_setfield_gc(op, cpu)
+
     def emit_getfield_gc(self, op, cpu):
         args = op.getarglist()
         fptr = args[0]
@@ -1230,6 +1233,15 @@ class PPCBuilder(PPCAssembler):
         result = op.result
         cpu.reg_map[result] = cpu.next_free_register
         cpu.next_free_register += 1
+
+    def emit_getfield_raw(self, op, cpu):
+        self.emit_getfield_gc(op, cpu)
+
+    def emit_getfield_raw_pure(self, op, cpu):
+        self.emit_getfield_gc(op, cpu)
+
+    def emit_getfield_gc_pure(self, op, cpu):
+        self.emit_getfield_gc(op, cpu)
 
     def emit_arraylen_gc(self, op, cpu):
         args = op.getarglist()
@@ -1274,6 +1286,9 @@ class PPCBuilder(PPCAssembler):
         elif width == 1:
             self.stbx(value_reg, field_addr_reg, offset_reg)
 
+    def emit_setarrayitem_raw(self, op, cpu):
+        self.emit_setarrayitem_gc(op, cpu)
+
     def emit_getarrayitem_gc(self, op, cpu):
         args = op.getarglist()
         fptr = args[0]
@@ -1314,6 +1329,12 @@ class PPCBuilder(PPCAssembler):
         result = op.result
         cpu.reg_map[result] = cpu.next_free_register
         cpu.next_free_register += 1
+
+    def emit_getarrayitem_raw(self, op, cpu):
+        self.emit_getarrayitem_gc(op, cpu)
+
+    def emit_getarrayitem_gc_pure(self, op, cpu):
+        self.emit_getarrayitem_gc(op, cpu)
 
     ############################
     # unary integer operations #
