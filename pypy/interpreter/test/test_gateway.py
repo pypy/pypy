@@ -704,7 +704,7 @@ y = a.m(33)
 class TestPassThroughArguments_CALL_METHOD(TestPassThroughArguments):
 
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_stacklet',), **{
+        space = gettestobjspace(usemodules=('itertools',), **{
             "objspace.opcodes.CALL_METHOD": True
             })
         cls.space = space
