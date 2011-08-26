@@ -54,6 +54,7 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
         libpypy_c = pypy_c_dir.join('libpypy-c.dll')
         binaries = [(pypy_c, pypy_c.basename),
                     (libpypy_c, libpypy_c.basename),
+                    (pypy_c_dir.join('msvcr90.dll'), 'msvcr90.dll'),
                     (pypy_c_dir.join('libexpat.dll'), 'libexpat.dll')]
     else:
         basename = 'pypy-c'
