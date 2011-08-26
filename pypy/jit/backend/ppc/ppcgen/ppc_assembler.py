@@ -947,7 +947,8 @@ class PPCBuilder(PPCAssembler):
             op_method(self, trace_op, cpu)
             self._guard_epilog(trace_op, cpu)
         else:
-            if opname.startswith("int_") or opname.startswith("uint_"):
+            if opname.startswith("int_") or opname.startswith("uint_")\
+                    or opname.startswith("ptr_"):
                 numargs = trace_op.numargs()
                 if numargs == 1:
                     free_reg, reg0 = self._unary_int_op_prolog(trace_op, cpu)
@@ -1255,6 +1256,10 @@ class PPCBuilder(PPCAssembler):
             self.cntlzd(free_reg, reg0)
             self.srdi(free_reg, free_reg, 6)
 
+    #******************************
+    #      GUARD  OPERATIONS      *
+    #******************************
+
     def emit_guard_true(self, op, cpu):
         arg0 = op.getarg(0)
         regnum = cpu.reg_map[arg0]
@@ -1325,6 +1330,29 @@ class PPCBuilder(PPCAssembler):
         self.emit_guard_nonnull(op, cpu)
         self._guard_epilog(op, cpu)
         self.emit_guard_class(op, cpu)
+
+    #*************************************
+    #        POINTER  OPERATIONS         *     
+    #*************************************
+
+    def emit_ptr_eq(self, op, cpu, reg0, reg1, free_reg):
+        if IS_PPC_32:
+            self.cmpw(0, reg0, reg1)
+        else:
+            self.cmpd(0, reg0, reg1)
+        self.cror(3, 0, 1)
+        self.crnot(3, 3)
+        self.mfcr(free_reg)
+        self.rlwinm(free_reg, free_reg, 4, 31, 31)
+
+    def emit_ptr_ne(self, op, cpu, reg0, reg1, free_reg):
+        if IS_PPC_32:
+            self.cmpw(0, reg0, reg1)
+        else:
+            self.cmpd(0, reg0, reg1)
+        self.cror(3, 0, 1)
+        self.mfcr(free_reg)
+        self.rlwinm(free_reg, free_reg, 4, 31, 31)
 
     def emit_finish(self, op, cpu):
         descr = op.getdescr()
