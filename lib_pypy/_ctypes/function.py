@@ -78,8 +78,6 @@ class CFuncPtr(_CData):
     _com_iid = None
     _is_fastpath = False
 
-    __restype_set = False
-
     def _getargtypes(self):
         return self._argtypes_
 
@@ -93,12 +91,14 @@ class CFuncPtr(_CData):
                     raise TypeError(
                         "item %d in _argtypes_ has no from_param method" % (
                             i + 1,))
-            #
-            if all([hasattr(argtype, '_ffiargshape') for argtype in argtypes]):
-                fastpath_cls = make_fastpath_subclass(self.__class__)
-                fastpath_cls.enable_fastpath_maybe(self)
             self._argtypes_ = list(argtypes)
+            self._check_argtypes_for_fastpath()
     argtypes = property(_getargtypes, _setargtypes)
+
+    def _check_argtypes_for_fastpath(self):
+        if all([hasattr(argtype, '_ffiargshape') for argtype in self._argtypes_]):
+            fastpath_cls = make_fastpath_subclass(self.__class__)
+            fastpath_cls.enable_fastpath_maybe(self)
 
     def _getparamflags(self):
         return self._paramflags
@@ -149,7 +149,6 @@ class CFuncPtr(_CData):
         return self._restype_
 
     def _setrestype(self, restype):
-        self.__restype_set = True
         self._ptr = None
         if restype is int:
             from ctypes import c_int
@@ -219,6 +218,7 @@ class CFuncPtr(_CData):
                 import ctypes
                 restype = ctypes.c_int
             self._ptr = self._getfuncptr_fromaddress(self._argtypes_, restype)
+            self._check_argtypes_for_fastpath()
             return
 
         
@@ -296,13 +296,12 @@ class CFuncPtr(_CData):
                     "This function takes %d argument%s (%s given)"
                     % (len(self._argtypes_), plural, len(args)))
 
-            # check that arguments are convertible
-            ## XXX Not as long as ctypes.cast is a callback function with
-            ## py_object arguments...
-            ## self._convert_args(self._argtypes_, args, {})
-
             try:
-                res = self.callable(*args)
+                newargs = self._convert_args_for_callback(argtypes, args)
+            except (UnicodeError, TypeError, ValueError), e:
+                raise ArgumentError(str(e))
+            try:
+                res = self.callable(*newargs)
             except:
                 exc_info = sys.exc_info()
                 traceback.print_tb(exc_info[2], file=sys.stderr)
@@ -316,26 +315,22 @@ class CFuncPtr(_CData):
             warnings.warn('C function without declared arguments called',
                           RuntimeWarning, stacklevel=2)
             argtypes = []
-            
-        if not self.__restype_set:
-            warnings.warn('C function without declared return type called',
-                          RuntimeWarning, stacklevel=2)
 
         if self._com_index:
-            assert False, 'TODO2'
             from ctypes import cast, c_void_p, POINTER
             if not args:
                 raise ValueError(
                     "native COM method call without 'this' parameter"
                     )
-            thisarg = cast(args[0], POINTER(POINTER(c_void_p))).contents
-            argtypes = [c_void_p] + list(argtypes)
-            args = list(args)
-            args[0] = args[0].value
+            thisarg = cast(args[0], POINTER(POINTER(c_void_p)))
+            keepalives, newargs, argtypes, outargs = self._convert_args(argtypes,
+                                                                        args[1:], kwargs)
+            newargs.insert(0, args[0].value)
+            argtypes.insert(0, c_void_p)
         else:
             thisarg = None
-            
-        newargs, argtypes, outargs = self._convert_args(argtypes, args, kwargs)
+            keepalives, newargs, argtypes, outargs = self._convert_args(argtypes,
+                                                                        args, kwargs)
 
         funcptr = self._getfuncptr(argtypes, self._restype_, thisarg)
         result = self._call_funcptr(funcptr, *newargs)
@@ -343,6 +338,11 @@ class CFuncPtr(_CData):
 
         if not outargs:
             return result
+
+        simple_cdata = type(c_void_p()).__bases__[0]
+        outargs = [x.value if type(x).__bases__[0] is simple_cdata else x
+                   for x in outargs]
+
         if len(outargs) == 1:
             return outargs[0]
         return tuple(outargs)
@@ -361,7 +361,10 @@ class CFuncPtr(_CData):
             if self._flags_ & _rawffi.FUNCFLAG_USE_LASTERROR:
                 set_last_error(_rawffi.get_last_error())
         #
-        return self._build_result(self._restype_, result, newargs)
+        try:
+            return self._build_result(self._restype_, result, newargs)
+        finally:
+            funcptr.free_temp_buffers()
 
     def _do_errcheck(self, result, args):
         # The 'errcheck' protocol
@@ -398,10 +401,10 @@ class CFuncPtr(_CData):
             # extract the address from the object's virtual table
             if not thisarg:
                 raise ValueError("COM method call without VTable")
-            ptr = thisarg[self._com_index - 0x1000]
-            argshapes = [arg._ffiargshape for arg in argtypes]
-            resshape = restype._ffiargshape
-            return _rawffi.FuncPtr(ptr, argshapes, resshape, self._flags_)
+            ptr = thisarg[0][self._com_index - 0x1000]
+            ffiargs = [argtype.get_ffi_argtype() for argtype in argtypes]
+            ffires = restype.get_ffi_argtype()
+            return _ffi.FuncPtr.fromaddr(ptr, '', ffiargs, ffires)
         
         cdll = self.dll._handle
         try:
@@ -434,16 +437,15 @@ class CFuncPtr(_CData):
     @classmethod
     def _conv_param(cls, argtype, arg):
         if isinstance(argtype, _CDataMeta):
-            #arg = argtype.from_param(arg)
-            arg = argtype.get_ffi_param(arg)
-            return arg, argtype
+            cobj, ffiparam = argtype.get_ffi_param(arg)
+            return cobj, ffiparam, argtype
         
         if argtype is not None:
             arg = argtype.from_param(arg)
         if hasattr(arg, '_as_parameter_'):
             arg = arg._as_parameter_
         if isinstance(arg, _CData):
-            return arg._to_ffi_param(), type(arg)
+            return arg, arg._to_ffi_param(), type(arg)
         #
         # non-usual case: we do the import here to save a lot of code in the
         # jit trace of the normal case
@@ -460,19 +462,28 @@ class CFuncPtr(_CData):
         else:
             raise TypeError("Don't know how to handle %s" % (arg,))
 
-        return cobj._to_ffi_param(), type(cobj)
+        return cobj, cobj._to_ffi_param(), type(cobj)
+
+    def _convert_args_for_callback(self, argtypes, args):
+        assert len(argtypes) == len(args)
+        newargs = []
+        for argtype, arg in zip(argtypes, args):
+            param = argtype.from_param(arg)
+            if argtype._type_ == 'P': # special-case for c_void_p
+                param = param._get_buffer_value()
+            elif self._is_primitive(argtype):
+                param = param.value
+            newargs.append(param)
+        return newargs
 
     def _convert_args(self, argtypes, args, kwargs, marker=object()):
         newargs = []
         outargs = []
+        keepalives = []
         newargtypes = []
         total = len(args)
         paramflags = self._paramflags
-
-        if self._com_index:
-            inargs_idx = 1
-        else:
-            inargs_idx = 0
+        inargs_idx = 0
 
         if not paramflags and total < len(argtypes):
             raise TypeError("not enough arguments")
@@ -496,7 +507,8 @@ class CFuncPtr(_CData):
                     val = defval
                     if val is marker:
                         val = 0
-                    newarg, newargtype = self._conv_param(argtype, val)
+                    keepalive, newarg, newargtype = self._conv_param(argtype, val)
+                    keepalives.append(keepalive)
                     newargs.append(newarg)
                     newargtypes.append(newargtype)
                 elif flag in (0, PARAMFLAG_FIN):
@@ -512,28 +524,32 @@ class CFuncPtr(_CData):
                         raise TypeError("required argument '%s' missing" % name)
                     else:
                         raise TypeError("not enough arguments")
-                    newarg, newargtype = self._conv_param(argtype, val)
+                    keepalive, newarg, newargtype = self._conv_param(argtype, val)
+                    keepalives.append(keepalive)
                     newargs.append(newarg)
                     newargtypes.append(newargtype)
                 elif flag == PARAMFLAG_FOUT:
                     if defval is not marker:
                         outargs.append(defval)
-                        newarg, newargtype = self._conv_param(argtype, defval)
+                        keepalive, newarg, newargtype = self._conv_param(argtype, defval)
                     else:
                         import ctypes
                         val = argtype._type_()
                         outargs.append(val)
+                        keepalive = None
                         newarg = ctypes.byref(val)
                         newargtype = type(newarg)
+                    keepalives.append(keepalive)
                     newargs.append(newarg)
                     newargtypes.append(newargtype)
                 else:
                     raise ValueError("paramflag %d not yet implemented" % flag)
             else:
                 try:
-                    newarg, newargtype = self._conv_param(argtype, args[i])
+                    keepalive, newarg, newargtype = self._conv_param(argtype, args[i])
                 except (UnicodeError, TypeError, ValueError), e:
                     raise ArgumentError(str(e))
+                keepalives.append(keepalive)
                 newargs.append(newarg)
                 newargtypes.append(newargtype)
                 inargs_idx += 1
@@ -542,13 +558,17 @@ class CFuncPtr(_CData):
             extra = args[len(newargs):]
             for i, arg in enumerate(extra):
                 try:
-                    newarg, newargtype = self._conv_param(None, arg)
+                    keepalive, newarg, newargtype = self._conv_param(None, arg)
                 except (UnicodeError, TypeError, ValueError), e:
                     raise ArgumentError(str(e))
+                keepalives.append(keepalive)
                 newargs.append(newarg)
                 newargtypes.append(newargtype)
-        return newargs, newargtypes, outargs
+        return keepalives, newargs, newargtypes, outargs
 
+    @staticmethod
+    def _is_primitive(argtype):
+        return argtype.__bases__[0] is _SimpleCData
     
     def _wrap_result(self, restype, result):
         """
@@ -557,7 +577,7 @@ class CFuncPtr(_CData):
         """
         # hack for performance: if restype is a "simple" primitive type, don't
         # allocate the buffer because it's going to be thrown away immediately
-        if restype.__bases__[0] is _SimpleCData and not restype._is_pointer_like():
+        if self._is_primitive(restype) and not restype._is_pointer_like():
             return result
         #
         shape = restype._ffishape
@@ -587,13 +607,7 @@ class CFuncPtr(_CData):
 
         retval = None
 
-        if self._com_index:
-            if resbuffer[0] & 0x80000000:
-                raise get_com_error(resbuffer[0],
-                                    self._com_iid, argsandobjs[0])
-            else:
-                retval = int(resbuffer[0])
-        elif restype is not None:
+        if restype is not None:
             checker = getattr(self.restype, '_check_retval_', None)
             if checker:
                 val = restype(result)
@@ -601,7 +615,13 @@ class CFuncPtr(_CData):
                 # classes defining a new type, and their subclasses
                 if '_type_' in restype.__dict__:
                     val = val.value
-                retval = checker(val)
+                # XXX Raise a COMError when restype is HRESULT and
+                # checker(val) fails.  How to check for restype == HRESULT?
+                if self._com_index:
+                    if result & 0x80000000:
+                        raise get_com_error(result, None, None)
+                else:
+                    retval = checker(val)
             elif not isinstance(restype, _CDataMeta):
                 retval = restype(result)
             else:
@@ -673,7 +693,7 @@ def make_fastpath_subclass(CFuncPtr):
             try:
                 result = self._call_funcptr(funcptr, *args)
                 result = self._do_errcheck(result, args)
-            except (TypeError, ArgumentError): # XXX, should be FFITypeError
+            except (TypeError, ArgumentError, UnicodeDecodeError):
                 assert self._slowpath_allowed
                 return CFuncPtr.__call__(self, *args)
             return result

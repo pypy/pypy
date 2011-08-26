@@ -1,8 +1,8 @@
 """ String builder interface and string functions
 """
 
-from pypy.annotation.model import SomeObject, SomeString, s_None,\
-     SomeChar, SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString
+from pypy.annotation.model import (SomeObject, SomeString, s_None, SomeChar,
+    SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString, SomePtr)
 from pypy.rpython.extregistry import ExtRegistryEntry
 
 
@@ -65,6 +65,12 @@ class AbstractStringBuilder(object):
         assert isinstance(c, self.tp)
         self.l.append(c * times)
 
+    def append_charpsize(self, s, size):
+        l = []
+        for i in xrange(size):
+            l.append(s[i])
+        self.l.append(self.tp("").join(l))
+
     def build(self):
         return self.tp("").join(self.l)
 
@@ -100,6 +106,11 @@ class SomeStringBuilder(SomeObject):
         assert isinstance(s_times, SomeInteger)
         return s_None
 
+    def method_append_charpsize(self, s_ptr, s_size):
+        assert isinstance(s_ptr, SomePtr)
+        assert isinstance(s_size, SomeInteger)
+        return s_None
+
     def method_getlength(self):
         return SomeInteger(nonneg=True)
 
@@ -125,6 +136,11 @@ class SomeUnicodeBuilder(SomeObject):
     def method_append_multiple_char(self, s_char, s_times):
         assert isinstance(s_char, SomeUnicodeCodePoint)
         assert isinstance(s_times, SomeInteger)
+        return s_None
+
+    def method_append_charpsize(self, s_ptr, s_size):
+        assert isinstance(s_ptr, SomePtr)
+        assert isinstance(s_size, SomeInteger)
         return s_None
 
     def method_getlength(self):

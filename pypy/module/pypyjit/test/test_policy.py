@@ -37,8 +37,10 @@ def test_thread_local():
     assert pypypolicy.look_inside_function(Local.getdict.im_func)
 
 def test_pypy_module():
+    from pypy.module._collections.interp_deque import W_Deque
     from pypy.module._random.interp_random import W_Random
     assert not pypypolicy.look_inside_function(W_Random.random)
+    assert pypypolicy.look_inside_function(W_Deque.length)
     assert not pypypolicy.look_inside_pypy_module('select.interp_epoll')
     assert pypypolicy.look_inside_pypy_module('__builtin__.operation')
     assert pypypolicy.look_inside_pypy_module('__builtin__.abstractinst')

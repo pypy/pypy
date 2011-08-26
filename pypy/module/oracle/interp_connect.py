@@ -82,6 +82,12 @@ class W_Connection(Wrappable):
         return space.wrap(self)
 
     def __del__(self):
+        self.enqueue_for_destruction(self.environment.space,
+                                     W_Connection.destructor,
+                                     '__del__ method of ')
+
+    def destructor(self):
+        assert isinstance(self, W_Connection)
         if self.release:
             roci.OCITransRollback(
                 self.handle, self.environment.errorHandle,

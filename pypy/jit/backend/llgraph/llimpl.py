@@ -1071,6 +1071,8 @@ def cast_to_int(x):
         return heaptracker.adr2int(llmemory.cast_ptr_to_adr(x))
     if TP == llmemory.Address:
         return heaptracker.adr2int(x)
+    if TP is lltype.SingleFloat:
+        return longlong.singlefloat2int(x)
     return lltype.cast_primitive(lltype.Signed, x)
 
 def cast_from_int(TYPE, x):
@@ -1086,6 +1088,9 @@ def cast_from_int(TYPE, x):
             x = llmemory.cast_int_to_adr(x)
         assert lltype.typeOf(x) == llmemory.Address
         return x
+    elif TYPE is lltype.SingleFloat:
+        assert lltype.typeOf(x) is lltype.Signed
+        return longlong.int2singlefloat(x)
     else:
         if lltype.typeOf(x) == llmemory.Address:
             x = heaptracker.adr2int(x)
@@ -1140,6 +1145,7 @@ def frame_clear(frame, loop):
     del _future_values[:]
 
 def set_future_value_int(index, value):
+    assert lltype.typeOf(value) is lltype.Signed
     set_future_value_ref(index, value)
 
 def set_future_value_float(index, value):
@@ -1488,6 +1494,7 @@ kind2TYPE = {
     'i': lltype.Signed,
     'f': lltype.Float,
     'L': lltype.SignedLongLong,
+    'S': lltype.SingleFloat,
     'v': lltype.Void,
     }
 

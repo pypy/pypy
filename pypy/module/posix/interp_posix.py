@@ -473,7 +473,7 @@ def getstatfields(space):
         FIELDS = PORTABLE_STAT_FIELDS
     else:
         FIELDS = STAT_FIELDS    # also when not translating at all
-    return space.newlist([space.wrap(name) for name, _ in FIELDS])
+    return space.newlist([space.wrap(name) for _, (name, _) in FIELDS])
 
 
 class State:

@@ -22,10 +22,10 @@ class TestInstance(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
             i7 = int_lt(i5, i6)
-            guard_true(i7, descr=<Guard3>)
-            guard_not_invalidated(descr=<Guard4>)
+            guard_true(i7, descr=...)
+            guard_not_invalidated(descr=...)
             i9 = int_add_ovf(i5, 2)
-            guard_no_overflow(descr=<Guard5>)
+            guard_no_overflow(descr=...)
             --TICK--
             jump(p0, p1, p2, p3, p4, i9, i6, descr=<Loop0>)
         """)
@@ -47,10 +47,10 @@ class TestInstance(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
             i9 = int_lt(i5, i6)
-            guard_true(i9, descr=<Guard3>)
-            guard_not_invalidated(descr=<Guard4>)
+            guard_true(i9, descr=...)
+            guard_not_invalidated(descr=...)
             i10 = int_add_ovf(i5, i7)
-            guard_no_overflow(descr=<Guard5>)
+            guard_no_overflow(descr=...)
             --TICK--
             jump(p0, p1, p2, p3, p4, i10, i6, i7, p8, descr=<Loop0>)
         """)
@@ -115,16 +115,19 @@ class TestInstance(BaseTestPyPyC):
         # ----------------------
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
-            i9 = int_lt(i7, i8)
+            i8 = getfield_gc_pure(p5, descr=...)
+            i9 = int_lt(i8, i7)
             guard_true(i9, descr=.*)
             guard_not_invalidated(descr=.*)
-            i11 = int_add(i7, 1)
+            i82 = getfield_gc_pure(p8, descr=...)
+            i11 = int_add_ovf(i82, 1)
+            guard_no_overflow(descr=...)
             i12 = force_token()
             --TICK--
             p20 = new_with_vtable(ConstClass(W_IntObject))
             setfield_gc(p20, i11, descr=<SignedFieldDescr.*W_IntObject.inst_intval .*>)
             setfield_gc(ConstPtr(ptr21), p20, descr=<GcPtrFieldDescr .*TypeCell.inst_w_value .*>)
-            jump(p0, p1, p2, p3, p4, p20, p6, i11, i8, descr=<Loop.>)
+            jump(p0, p1, p2, p3, p4, p20, p6, i7, p20, descr=<Loop.>)
         """)
 
     def test_oldstyle_newstyle_mix(self):

@@ -15,7 +15,6 @@ from pypy.interpreter.pyopcode import ExitFrame
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from opcode import opmap
-from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.nonconst import NonConstant
 from pypy.jit.metainterp.resoperation import rop
 from pypy.module.pypyjit.interp_resop import debug_merge_point_from_boxes
@@ -46,8 +45,10 @@ def confirm_enter_jit(next_instr, is_being_profiled, bytecode, frame, ec):
             ec.w_tracefunc is None)
 
 def can_never_inline(next_instr, is_being_profiled, bytecode):
-    return (bytecode.co_flags & CO_GENERATOR) != 0
+    return False
 
+def should_unroll_one_iteration(next_instr, is_being_profiled, bytecode):
+    return (bytecode.co_flags & CO_GENERATOR) != 0
 
 def wrap_oplist(space, logops, operations):
     list_w = []
@@ -67,7 +68,7 @@ class PyPyJitDriver(JitDriver):
     def on_compile(self, logger, looptoken, operations, type, next_instr,
                    is_being_profiled, ll_pycode):
         from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
-        
+
         space = self.space
         cache = space.fromcache(Cache)
         if cache.in_recursion:
@@ -112,7 +113,9 @@ pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
                               get_jitcell_at = get_jitcell_at,
                               set_jitcell_at = set_jitcell_at,
                               confirm_enter_jit = confirm_enter_jit,
-                              can_never_inline = can_never_inline)
+                              can_never_inline = can_never_inline,
+                              should_unroll_one_iteration =
+                              should_unroll_one_iteration)
 
 class __extend__(PyFrame):
 
@@ -171,7 +174,7 @@ class __extend__(PyCode):
 
 # ____________________________________________________________
 #
-# Public interface    
+# Public interface
 
 def set_param(space, __args__):
     '''Configure the tunable JIT parameters.
@@ -213,7 +216,7 @@ def residual_call(space, w_callable, __args__):
 
 class Cache(object):
     in_recursion = False
-    
+
     def __init__(self, space):
         self.w_compile_hook = space.w_None
 

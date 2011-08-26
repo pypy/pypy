@@ -3,6 +3,7 @@ from pypy.tool.pairtype import pairtype
 from pypy.rpython.error import TyperError
 from pypy.rlib.objectmodel import malloc_zero_filled, we_are_translated
 from pypy.rlib.objectmodel import _hash_string, enforceargs
+from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib.debug import ll_assert
 from pypy.rlib.jit import elidable, we_are_jitted, dont_look_inside
 from pypy.rlib.rarithmetic import ovfcheck
@@ -67,6 +68,8 @@ def _new_copy_contents_fun(TP, CHAR_TP, name):
         src = llmemory.cast_ptr_to_adr(src) + _str_ofs(srcstart)
         dst = llmemory.cast_ptr_to_adr(dst) + _str_ofs(dststart)
         llmemory.raw_memcopy(src, dst, llmemory.sizeof(CHAR_TP) * length)
+        keepalive_until_here(src)
+        keepalive_until_here(dst)
     copy_string_contents._always_inline_ = True
     #copy_string_contents.oopspec = (
     #    '%s.copy_contents(src, dst, srcstart, dststart, length)' % name)
@@ -345,6 +348,8 @@ class LLHelpers(AbstractLLHelpers):
     def ll_strconcat(s1, s2):
         len1 = len(s1.chars)
         len2 = len(s2.chars)
+        # a single '+' like this is allowed to overflow: it gets
+        # a negative result, and the gc will complain
         newstr = s1.malloc(len1 + len2)
         s1.copy_contents(s1, newstr, 0, 0, len1)
         s1.copy_contents(s2, newstr, 0, len1, len2)
@@ -412,9 +417,18 @@ class LLHelpers(AbstractLLHelpers):
         itemslen = 0
         i = 0
         while i < num_items:
-            itemslen += len(items[i].chars)
+            try:
+                itemslen = ovfcheck(itemslen + len(items[i].chars))
+            except OverflowError:
+                raise MemoryError
             i += 1
-        result = s.malloc(itemslen + s_len * (num_items - 1))
+        try:
+            seplen = ovfcheck(s_len * (num_items - 1))
+        except OverflowError:
+            raise MemoryError
+        # a single '+' at the end is allowed to overflow: it gets
+        # a negative result, and the gc will complain
+        result = s.malloc(itemslen + seplen)
         res_index = len(items[0].chars)
         s.copy_contents(items[0], result, 0, 0, res_index)
         i = 1
@@ -486,6 +500,11 @@ class LLHelpers(AbstractLLHelpers):
 
         return True
 
+    def ll_startswith_char(s, ch):
+        if not len(s.chars):
+            return False
+        return s.chars[0] == ch
+
     @elidable
     def ll_endswith(s1, s2):
         len1 = len(s1.chars)
@@ -502,6 +521,11 @@ class LLHelpers(AbstractLLHelpers):
             j += 1
 
         return True
+
+    def ll_endswith_char(s, ch):
+        if not len(s.chars):
+            return False
+        return s.chars[len(s.chars) - 1] == ch
 
     @elidable
     def ll_find_char(s, ch, start, end):
@@ -678,7 +702,10 @@ class LLHelpers(AbstractLLHelpers):
         itemslen = 0
         i = 0
         while i < num_items:
-            itemslen += len(items[i].chars)
+            try:
+                itemslen = ovfcheck(itemslen + len(items[i].chars))
+            except OverflowError:
+                raise MemoryError
             i += 1
         if typeOf(items).TO.OF.TO == STR:
             malloc = mallocstr

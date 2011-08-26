@@ -14,13 +14,26 @@ class TestCallbacks(BaseCTypesTestChecker):
         return args[-1]
 
     def check_type(self, typ, arg):
+        unwrapped_types = {
+            c_float: (float,),
+            c_double: (float,),
+            c_char: (str,),
+            c_char_p: (str,),
+            c_uint: (int, long),
+            c_ulong: (int, long),
+            }
+        
         PROTO = self.functype.im_func(typ, typ)
-        result = PROTO(self.callback)(arg)
+        cfunc = PROTO(self.callback)
+        result = cfunc(arg)
         if typ == c_float:
             assert abs(result - arg) < 0.000001
         else:
             assert self.got_args == (arg,)
             assert result == arg
+
+        result2 = cfunc(typ(arg))
+        assert type(result2) in unwrapped_types.get(typ, (int, long))
 
         PROTO = self.functype.im_func(typ, c_byte, typ)
         result = PROTO(self.callback)(-3, arg)
@@ -222,3 +235,20 @@ class TestMoreCallbacks(BaseCTypesTestChecker):
         out, err = capsys.readouterr()
         assert (out, err) == ("", "")
 
+
+    def test_callback_pyobject(self):
+        def callback(obj):
+            return obj
+
+        FUNC = CFUNCTYPE(py_object, py_object)
+        cfunc = FUNC(callback)
+        param = c_int(42)
+        assert cfunc(param) is param
+
+    def test_raise_argumenterror(self):
+        def callback(x):
+            pass
+        FUNC = CFUNCTYPE(None, c_void_p)
+        cfunc = FUNC(callback)
+        param = c_uint(42)
+        py.test.raises(ArgumentError, "cfunc(param)")

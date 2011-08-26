@@ -74,7 +74,7 @@ class TestCall(BaseTestPyPyC):
         assert log.opnames(ops) == ["guard_not_invalidated"]
         #
         assert entry_bridge.match_by_id('call', """
-            guard_not_invalidated(descr=<Guard16>)
+            guard_not_invalidated(descr=...)
             p38 = call(ConstClass(getexecutioncontext), descr=<GcPtrCallDescr>)
             p39 = getfield_gc(p38, descr=<GcPtrFieldDescr pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref .*>)
             i40 = force_token()
@@ -90,14 +90,14 @@ class TestCall(BaseTestPyPyC):
         # -----------------------------
         loop, = log.loops_by_id('call')
         assert loop.match("""
-            guard_not_invalidated(descr=<Guard3>)
+            guard_not_invalidated(descr=...)
             i9 = int_lt(i5, i6)
-            guard_true(i9, descr=<Guard4>)
+            guard_true(i9, descr=...)
             i10 = force_token()
             i12 = int_add(i5, 1)
             i13 = force_token()
             i15 = int_add_ovf(i12, 1)
-            guard_no_overflow(descr=<Guard5>)
+            guard_no_overflow(descr=...)
             --TICK--
             jump(p0, p1, p2, p3, p4, i15, i6, p7, p8, descr=<Loop0>)
         """)
@@ -133,14 +133,14 @@ class TestCall(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
             i15 = int_lt(i6, i9)
-            guard_true(i15, descr=<Guard3>)
-            guard_not_invalidated(descr=<Guard4>)
+            guard_true(i15, descr=...)
+            guard_not_invalidated(descr=...)
             i16 = force_token()
             i17 = int_add_ovf(i10, i6)
-            guard_no_overflow(descr=<Guard5>)
+            guard_no_overflow(descr=...)
             i18 = force_token()
             i19 = int_add_ovf(i10, i17)
-            guard_no_overflow(descr=<Guard6>)
+            guard_no_overflow(descr=...)
             --TICK--
             jump(p0, p1, p2, p3, p4, p5, i19, p7, i17, i9, i10, p11, p12, p13, descr=<Loop0>)
         """)
@@ -167,14 +167,14 @@ class TestCall(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
             i14 = int_lt(i6, i9)
-            guard_true(i14, descr=<Guard3>)
-            guard_not_invalidated(descr=<Guard4>)
+            guard_true(i14, descr=...)
+            guard_not_invalidated(descr=...)
             i15 = force_token()
             i17 = int_add_ovf(i8, 1)
-            guard_no_overflow(descr=<Guard5>)
+            guard_no_overflow(descr=...)
             i18 = force_token()
             --TICK--
-            jump(p0, p1, p2, p3, p4, i8, p7, i17, p8, i9, p10, p11, p12, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, i8, p7, i17, p8, i9, i17, p10, p11, p12, descr=<Loop0>)
         """)
 
     def test_default_and_kw(self):
@@ -192,6 +192,7 @@ class TestCall(BaseTestPyPyC):
         assert log.result == 1000
         loop, = log.loops_by_id('call')
         assert loop.match_by_id('call', """
+            p14 = getarrayitem_gc_pure(p8, i9, descr=<GcPtrArrayDescr>)
             i14 = force_token()
             i16 = force_token()
         """)
@@ -269,29 +270,29 @@ class TestCall(BaseTestPyPyC):
         assert loop0.match_by_id('g1', """
             i20 = force_token()
             i22 = int_add_ovf(i8, 3)
-            guard_no_overflow(descr=<Guard5>)
+            guard_no_overflow(descr=...)
         """)
         assert loop0.match_by_id('h1', """
             i20 = force_token()
             i22 = int_add_ovf(i8, 2)
-            guard_no_overflow(descr=<Guard6>)
+            guard_no_overflow(descr=...)
         """)
         assert loop0.match_by_id('g2', """
             i27 = force_token()
             i29 = int_add_ovf(i26, 3)
-            guard_no_overflow(descr=<Guard7>)
+            guard_no_overflow(descr=...)
         """)
         #
         loop1, = log.loops_by_id('g3')
         assert loop1.match_by_id('g3', """
             i21 = force_token()
             i23 = int_add_ovf(i9, 3)
-            guard_no_overflow(descr=<Guard41>)
+            guard_no_overflow(descr=...)
         """)
         assert loop1.match_by_id('h2', """
             i25 = force_token()
             i27 = int_add_ovf(i23, 2)
-            guard_no_overflow(descr=<Guard42>)
+            guard_no_overflow(descr=...)
         """)
 
     def test_stararg(self):
@@ -337,7 +338,7 @@ class TestCall(BaseTestPyPyC):
             i13 = getfield_gc(p8, descr=<SignedFieldDescr list.length .*>)
             i15 = int_add(i13, 1)
             call(ConstClass(_ll_list_resize_ge__listPtr_Signed), p8, i15, descr=<VoidCallDescr>)
-            guard_no_exception(descr=<Guard4>)
+            guard_no_exception(descr=...)
             p17 = getfield_gc(p8, descr=<GcPtrFieldDescr list.items .*>)
             p19 = new_with_vtable(ConstClass(W_IntObject))
             setfield_gc(p19, i12, descr=<SignedFieldDescr .*W_IntObject.inst_intval .*>)
@@ -389,8 +390,8 @@ class TestCall(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
             i10 = int_lt(i5, i6)
-            guard_true(i10, descr=<Guard3>)
-            guard_not_invalidated(descr=<Guard4>)
+            guard_true(i10, descr=...)
+            guard_not_invalidated(descr=...)
             i120 = int_add(i5, 1)
             --TICK--
             jump(..., descr=<Loop0>)

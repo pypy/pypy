@@ -162,7 +162,7 @@ class Platform(object):
             extra = self.shared_only
         cflags = list(self.cflags) + list(extra)
         return (cflags + list(eci.compile_extra) + args)
-    
+
     def preprocess_library_dirs(self, library_dirs):
         if 'PYPY_LOCALBASE' in os.environ:
             dirs = list(self._preprocess_library_dirs(library_dirs))
@@ -224,13 +224,13 @@ class Platform(object):
         raise NotImplementedError("Needs to be overwritten")
 
     def _library_dirs_for_libffi(self):
-        raise NotImplementedError("Needs to be overwritten")        
+        raise NotImplementedError("Needs to be overwritten")
 
     def check___thread(self):
         return True
 
-    
-if sys.platform == 'linux2':
+
+if sys.platform.startswith('linux'):
     from pypy.translator.platform.linux import Linux, Linux64
     import platform
     if platform.architecture()[0] == '32bit':
@@ -252,6 +252,13 @@ elif "freebsd" in sys.platform:
         host_factory = Freebsd
     else:
         host_factory = Freebsd_64
+elif "openbsd" in sys.platform:
+    from pypy.translator.platform.openbsd import OpenBSD, OpenBSD_64
+    import platform
+    if platform.architecture()[0] == '32bit':
+        host_factory = OpenBSD
+    else:
+        host_factory = OpenBSD_64
 elif os.name == 'nt':
     from pypy.translator.platform.windows import Windows
     host_factory = Windows

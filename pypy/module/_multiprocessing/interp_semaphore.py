@@ -15,7 +15,6 @@ RECURSIVE_MUTEX, SEMAPHORE = range(2)
 
 if sys.platform == 'win32':
     from pypy.rlib import rwin32
-    from pypy.interpreter.error import wrap_windowserror
     from pypy.module._multiprocessing.interp_win32 import (
         handle_w, _GetTickCount)
 

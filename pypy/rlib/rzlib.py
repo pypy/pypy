@@ -1,8 +1,11 @@
 import sys
+
+from pypy.rlib.rstring import StringBuilder
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.tool import rffi_platform
-from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import platform as compiler, CompilationError
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
+
 
 if compiler.name == "msvc":
     libname = 'zlib'
@@ -128,7 +131,8 @@ _deflateInit2_ = zlib_external(
     rffi.INT)
 _deflate = zlib_external('deflate', [z_stream_p, rffi.INT], rffi.INT)
 
-_deflateEnd = zlib_external('deflateEnd', [z_stream_p], rffi.INT)
+_deflateEnd = zlib_external('deflateEnd', [z_stream_p], rffi.INT,
+                            threadsafe=False)
 
 def _deflateInit2(stream, level, method, wbits, memlevel, strategy):
     size = rffi.sizeof(z_stream)
@@ -146,7 +150,8 @@ _inflateInit2_ = zlib_external(
     rffi.INT)
 _inflate = zlib_external('inflate', [z_stream_p, rffi.INT], rffi.INT)
 
-_inflateEnd = zlib_external('inflateEnd', [z_stream_p], rffi.INT)
+_inflateEnd = zlib_external('inflateEnd', [z_stream_p], rffi.INT,
+                            threadsafe=False)
 
 def _inflateInit2(stream, wbits):
     size = rffi.sizeof(z_stream)
@@ -337,23 +342,18 @@ def _operate(stream, data, flush, max_length, cfunc, while_doing):
     """Common code for compress() and decompress().
     """
     # Prepare the input buffer for the stream
-    inbuf = lltype.malloc(rffi.CCHARP.TO, len(data), flavor='raw')
-    try:
+    with lltype.scoped_alloc(rffi.CCHARP.TO, len(data)) as inbuf:
         for i in xrange(len(data)):
             inbuf[i] = data[i]
         stream.c_next_in = rffi.cast(Bytefp, inbuf)
         rffi.setintfield(stream, 'c_avail_in', len(data))
 
         # Prepare the output buffer
-        outbuf = lltype.malloc(rffi.CCHARP.TO, OUTPUT_BUFFER_SIZE,
-                               flavor='raw')
-        try:
-            # Strategy: we call deflate() to get as much output data as
-            # fits in the buffer, then accumulate all output into a list
-            # of characters 'result'.  We don't need to gradually
-            # increase the output buffer size because there is no
-            # quadratic factor.
-            result = []
+        with lltype.scoped_alloc(rffi.CCHARP.TO, OUTPUT_BUFFER_SIZE) as outbuf:
+            # Strategy: we call deflate() to get as much output data as fits in
+            # the buffer, then accumulate all output into a StringBuffer
+            # 'result'.
+            result = StringBuilder()
 
             while True:
                 stream.c_next_out = rffi.cast(Bytefp, outbuf)
@@ -369,8 +369,7 @@ def _operate(stream, data, flush, max_length, cfunc, while_doing):
                 if err == Z_OK or err == Z_STREAM_END:
                     # accumulate data into 'result'
                     avail_out = rffi.cast(lltype.Signed, stream.c_avail_out)
-                    for i in xrange(bufsize - avail_out):
-                        result.append(outbuf[i])
+                    result.append_charpsize(outbuf, bufsize - avail_out)
                     # if the output buffer is full, there might be more data
                     # so we need to try again.  Otherwise, we're done.
                     if avail_out > 0:
@@ -393,14 +392,9 @@ def _operate(stream, data, flush, max_length, cfunc, while_doing):
                 # fallback case: report this error
                 raise RZlibError.fromstream(stream, err, while_doing)
 
-        finally:
-            lltype.free(outbuf, flavor='raw')
-    finally:
-        lltype.free(inbuf, flavor='raw')
-
     # When decompressing, if the compressed stream of data was truncated,
     # then the zlib simply returns Z_OK and waits for more.  If it is
     # complete it returns Z_STREAM_END.
-    return (''.join(result),
+    return (result.build(),
             err,
             rffi.cast(lltype.Signed, stream.c_avail_in))

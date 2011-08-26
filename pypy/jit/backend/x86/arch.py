@@ -27,3 +27,6 @@ else:
 # which are used in the malloc itself.  They are:
 #   ecx, ebx, esi, edi               [32 and 64 bits]
 #   r8, r9, r10, r12, r13, r14, r15    [64 bits only]
+#
+# Note that with asmgcc, the locations corresponding to callee-save registers
+# are never used.

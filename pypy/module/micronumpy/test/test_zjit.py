@@ -1,20 +1,30 @@
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.module.micronumpy.interp_numarray import (SingleDimArray, Signature,
-    FloatWrapper, Call1, Call2, SingleDimSlice, add, mul)
+    FloatWrapper, Call2, SingleDimSlice, add, mul, Call1)
 from pypy.module.micronumpy.interp_ufuncs import negative
 from pypy.module.micronumpy.compile import numpy_compile
+from pypy.rlib.objectmodel import specialize
+from pypy.rlib.nonconst import NonConstant
 
 class FakeSpace(object):
-    pass
+    w_ValueError = None
+
+    def issequence_w(self, w_obj):
+        return True
+
+    @specialize.argtype(1)
+    def wrap(self, w_obj):
+        return w_obj
+
+    def float_w(self, w_obj):
+        return float(w_obj)
 
 class TestNumpyJIt(LLJitMixin):
     def setup_class(cls):
         cls.space = FakeSpace()
 
     def test_add(self):
-        space = self.space
-
         def f(i):
             ar = SingleDimArray(i)
             v = Call2(add, ar, ar, Signature())
@@ -27,8 +37,6 @@ class TestNumpyJIt(LLJitMixin):
         assert result == f(5)
 
     def test_floatadd(self):
-        space = self.space
-
         def f(i):
             ar = SingleDimArray(i)
             v = Call2(add, ar, FloatWrapper(4.5), Signature())
@@ -40,9 +48,116 @@ class TestNumpyJIt(LLJitMixin):
                           "int_lt": 1, "guard_true": 1, "jump": 1})
         assert result == f(5)
 
-    def test_already_forecd(self):
+    def test_sum(self):
         space = self.space
 
+        def f(i):
+            ar = SingleDimArray(i)
+            return ar.descr_add(space, ar).descr_sum(space)
+
+        result = self.meta_interp(f, [5], listops=True, backendopt=True)
+        self.check_loops({"getarrayitem_raw": 2, "float_add": 2,
+                          "int_add": 1,
+                          "int_lt": 1, "guard_true": 1, "jump": 1})
+        assert result == f(5)
+
+    def test_prod(self):
+        space = self.space
+
+        def f(i):
+            ar = SingleDimArray(i)
+            return ar.descr_add(space, ar).descr_prod(space)
+
+        result = self.meta_interp(f, [5], listops=True, backendopt=True)
+        self.check_loops({"getarrayitem_raw": 2, "float_add": 1,
+                          "float_mul": 1, "int_add": 1,
+                          "int_lt": 1, "guard_true": 1, "jump": 1})
+        assert result == f(5)
+
+    def test_max(self):
+        space = self.space
+
+        def f(i):
+            ar = SingleDimArray(i)
+            j = 0
+            while j < i:
+                ar.get_concrete().storage[j] = float(j)
+                j += 1
+            return ar.descr_add(space, ar).descr_max(space)
+
+        result = self.meta_interp(f, [5], listops=True, backendopt=True)
+        self.check_loops({"getarrayitem_raw": 2, "float_add": 1,
+                          "float_gt": 1, "int_add": 1,
+                          "int_lt": 1, "guard_true": 1, 
+                          "guard_false": 1, "jump": 1})
+        assert result == f(5)
+
+    def test_min(self):
+        space = self.space
+
+        def f(i):
+            ar = SingleDimArray(i)
+            j = 0
+            while j < i:
+                ar.get_concrete().storage[j] = float(j)
+                j += 1
+            return ar.descr_add(space, ar).descr_min(space)
+
+        result = self.meta_interp(f, [5], listops=True, backendopt=True)
+        self.check_loops({"getarrayitem_raw": 2, "float_add": 1,
+                           "float_lt": 1, "int_add": 1,
+                           "int_lt": 1, "guard_true": 2,
+                           "jump": 1})
+        assert result == f(5)
+
+    def test_argmin(self):
+        space = self.space
+
+        def f(i):
+            ar = SingleDimArray(i)
+            j = 0
+            while j < i:
+                ar.get_concrete().storage[j] = float(j)
+                j += 1
+            return ar.descr_add(space, ar).descr_argmin(space)
+
+        result = self.meta_interp(f, [5], listops=True, backendopt=True)
+        self.check_loops({"getarrayitem_raw": 2, "float_add": 1,
+                           "float_lt": 1, "int_add": 1,
+                           "int_lt": 1, "guard_true": 2,
+                           "jump": 1})
+        assert result == f(5)
+
+    def test_all(self):
+        space = self.space
+
+        def f(i):
+            ar = SingleDimArray(i)
+            j = 0
+            while j < i:
+                ar.get_concrete().storage[j] = 1.0
+                j += 1
+            return ar.descr_add(space, ar).descr_all(space)
+        result = self.meta_interp(f, [5], listops=True, backendopt=True)
+        self.check_loops({"getarrayitem_raw": 2, "float_add": 1,
+                          "int_add": 1, "float_ne": 1,
+                          "int_lt": 1, "guard_true": 2, "jump": 1})
+        assert result == f(5)
+
+    def test_any(self):
+        space = self.space
+
+        def f(i):
+            ar = SingleDimArray(i)
+            return ar.descr_add(space, ar).descr_any(space)
+
+        result = self.meta_interp(f, [5], listops=True, backendopt=True)
+        self.check_loops({"getarrayitem_raw": 2, "float_add": 1,
+                          "int_add": 1, "float_ne": 1, "guard_false": 1,
+                          "int_lt": 1, "guard_true": 1, "jump": 1})
+        assert result == f(5)
+
+    def test_already_forecd(self):
         def f(i):
             ar = SingleDimArray(i)
             v1 = Call2(add, ar, FloatWrapper(4.5), Signature())
@@ -95,8 +210,6 @@ class TestNumpyJIt(LLJitMixin):
         self.check_loop_count(3)
 
     def test_slice(self):
-        space = self.space
-
         def f(i):
             step = 3
             ar = SingleDimArray(step*i)
@@ -111,8 +224,6 @@ class TestNumpyJIt(LLJitMixin):
         assert result == f(5)
 
     def test_slice2(self):
-        space = self.space
-
         def f(i):
             step1 = 2
             step2 = 3
@@ -127,6 +238,28 @@ class TestNumpyJIt(LLJitMixin):
                           'setarrayitem_raw': 1, 'int_add': 1,
                           'int_lt': 1, 'guard_true': 1, 'jump': 1})
         assert result == f(5)
+
+    def test_setslice(self):
+        space = self.space
+
+        def f(i):
+            step = NonConstant(3)
+            ar = SingleDimArray(step*i)
+            ar2 = SingleDimArray(i)
+            ar2.storage[1] = 5.5
+            if NonConstant(False):
+                arg = ar2
+            else:
+                arg = ar2.descr_add(space, ar2)
+            ar.setslice(space, 0, step*i, step, i, arg)
+            return ar.get_concrete().storage[3]
+
+        result = self.meta_interp(f, [5], listops=True, backendopt=True)
+        self.check_loops({'getarrayitem_raw': 2,
+                          'float_add' : 1,
+                          'setarrayitem_raw': 1, 'int_add': 2,
+                          'int_lt': 1, 'guard_true': 1, 'jump': 1})
+        assert result == 11.0
 
 class TestTranslation(object):
     def test_compile(self):

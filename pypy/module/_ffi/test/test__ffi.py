@@ -111,7 +111,6 @@ class AppTestFfi:
                                types.double)
         assert pow(2, 3) == 8
 
-
     def test_int_args(self):
         """
             DLLEXPORT int sum_xy(int x, int y)
@@ -119,10 +118,12 @@ class AppTestFfi:
                 return x+y;
             }
         """
+        import sys
         from _ffi import CDLL, types
         libfoo = CDLL(self.libfoo_name)
         sum_xy = libfoo.getfunc('sum_xy', [types.sint, types.sint], types.sint)
         assert sum_xy(30, 12) == 42
+        assert sum_xy(sys.maxint*2, 0) == -2
 
     def test_void_result(self):
         """
@@ -187,6 +188,75 @@ class AppTestFfi:
         assert get_dummy() == 123
         set_val_to_ptr(ptr2, 0)
 
+    def test_convert_strings_to_char_p(self):
+        """
+            long mystrlen(char* s)
+            {
+                long len = 0;
+                while(*s++)
+                    len++;
+                return len;
+            }
+        """
+        from _ffi import CDLL, types
+        import _rawffi
+        libfoo = CDLL(self.libfoo_name)
+        mystrlen = libfoo.getfunc('mystrlen', [types.char_p], types.slong)
+        #
+        # first, try automatic conversion from a string
+        assert mystrlen('foobar') == 6
+        # then, try to pass an explicit pointer
+        CharArray = _rawffi.Array('c')
+        mystr = CharArray(7, 'foobar')
+        assert mystrlen(mystr.buffer) == 6
+        mystr.free()
+        mystrlen.free_temp_buffers()
+
+    def test_convert_unicode_to_unichar_p(self):
+        """
+            #include <wchar.h>
+            long mystrlen_u(wchar_t* s)
+            {
+                long len = 0;
+                while(*s++)
+                    len++;
+                return len;
+            }
+        """
+        from _ffi import CDLL, types
+        import _rawffi
+        libfoo = CDLL(self.libfoo_name)
+        mystrlen = libfoo.getfunc('mystrlen_u', [types.unichar_p], types.slong)
+        #
+        # first, try automatic conversion from strings and unicode
+        assert mystrlen('foobar') == 6
+        assert mystrlen(u'foobar') == 6
+        assert mystrlen(u'ab\u2070') == 3
+        # then, try to pass an explicit pointer
+        UniCharArray = _rawffi.Array('u')
+        mystr = UniCharArray(7, u'foobar')
+        assert mystrlen(mystr.buffer) == 6
+        mystr.free()
+        mystrlen.free_temp_buffers()
+
+    def test_keepalive_temp_buffer(self):
+        """
+            char* do_nothing(char* s)
+            {
+                return s;
+            }
+        """
+        from _ffi import CDLL, types
+        import _rawffi
+        libfoo = CDLL(self.libfoo_name)
+        do_nothing = libfoo.getfunc('do_nothing', [types.char_p], types.char_p)
+        CharArray = _rawffi.Array('c')
+        #
+        ptr = do_nothing('foobar')
+        array = CharArray.fromaddress(ptr, 7)
+        assert list(array) == list('foobar\00')
+        do_nothing.free_temp_buffers()
+
     def test_typed_pointer(self):
         from _ffi import types
         intptr = types.Pointer(types.sint) # create a typed pointer to sint
@@ -202,6 +272,13 @@ class AppTestFfi:
         z = types.Pointer(types.char)
         assert x is y
         assert x is not z
+
+    def test_char_p_cached(self):
+        from _ffi import types
+        x = types.Pointer(types.char)
+        assert x is types.char_p
+        x = types.Pointer(types.unichar)
+        assert x is types.unichar_p
 
     def test_typed_pointer_args(self):
         """
@@ -247,6 +324,9 @@ class AppTestFfi:
                                 types.ulong)
         assert sum_xy(sys.maxint, 12) == sys.maxint+12
         assert sum_xy(sys.maxint+1, 12) == sys.maxint+13
+        #
+        res = sum_xy(sys.maxint*2+3, 0)
+        assert res == 1
 
     def test_unsigned_short_args(self):
         """
@@ -375,6 +455,9 @@ class AppTestFfi:
         res = sum_xy(x, y)
         expected = maxint64 + 3
         assert res == expected
+        #
+        res = sum_xy(maxint64*2+3, 0)
+        assert res == 1
 
     def test_byval_argument(self):
         """

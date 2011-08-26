@@ -132,6 +132,16 @@ class TestFunctions(BaseCTypesTestChecker):
         # You cannot assing character format codes as restype any longer
         raises(TypeError, setattr, f, "restype", "i")
 
+
+    def test_truncate_python_longs(self):
+        f = dll._testfunc_i_bhilfd
+        f.argtypes = [c_byte, c_short, c_int, c_long, c_float, c_double]
+        f.restype = c_int
+        x = sys.maxint * 2
+        result = f(x, x, x, x, 0, 0)
+        assert result == -8
+
+
     def test_floatresult(self):
         f = dll._testfunc_f_bhilfd
         f.argtypes = [c_byte, c_short, c_int, c_long, c_float, c_double]
@@ -411,6 +421,23 @@ class TestFunctions(BaseCTypesTestChecker):
         result = f("abcd", ord("b"))
         assert result == "bcd"
 
+    def test_keepalive_buffers(self, monkeypatch):
+        import gc
+        f = dll.my_strchr
+        f.argtypes = [c_char_p]
+        f.restype = c_char_p
+        #
+        orig__call_funcptr = f._call_funcptr
+        def _call_funcptr(funcptr, *newargs):
+            gc.collect()
+            gc.collect()
+            gc.collect()
+            return orig__call_funcptr(funcptr, *newargs)
+        monkeypatch.setattr(f, '_call_funcptr', _call_funcptr)
+        #
+        result = f("abcd", ord("b"))
+        assert result == "bcd"
+
     def test_caching_bug_1(self):
         # the same test as test_call_some_args, with two extra lines
         # in the middle that trigger caching in f._ptr, which then
@@ -461,11 +488,9 @@ class TestFunctions(BaseCTypesTestChecker):
         warnings.simplefilter("always")
         with warnings.catch_warnings(record=True) as w:
             dll.get_an_integer()
-            assert len(w) == 2
+            assert len(w) == 1
             assert issubclass(w[0].category, RuntimeWarning)
-            assert issubclass(w[1].category, RuntimeWarning)
             assert "C function without declared arguments called" in str(w[0].message)
-            assert "C function without declared return type called" in str(w[1].message)
 
     def test_errcheck(self):
         py.test.skip('fixme')

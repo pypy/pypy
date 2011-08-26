@@ -52,6 +52,9 @@ class PyFrame(eval.Frame):
     escaped                  = False  # see mark_as_escaped()
 
     def __init__(self, space, code, w_globals, closure):
+        if not we_are_translated():
+            assert type(self) in (space.FrameClass, CPythonFrame), (
+                "use space.FrameClass(), not directly PyFrame()")
         self = hint(self, access_directly=True, fresh_virtualizable=True)
         assert isinstance(code, pycode.PyCode)
         self.pycode = code
@@ -80,7 +83,7 @@ class PyFrame(eval.Frame):
         self.escaped = True
 
     def append_block(self, block):
-        block.previous = self.lastblock
+        assert block.previous is self.lastblock
         self.lastblock = block
 
     def pop_block(self):
@@ -106,7 +109,8 @@ class PyFrame(eval.Frame):
         while i >= 0:
             block = lst[i]
             i -= 1
-            self.append_block(block)
+            block.previous = self.lastblock
+            self.lastblock = block
 
     def get_builtin(self):
         if self.space.config.objspace.honor__builtins__:

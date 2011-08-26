@@ -10,6 +10,8 @@ from _ctypes.basics import _CData, _CDataMeta, cdata_from_address,\
 from _ctypes.builtin import ConvMode
 from _ctypes.array import Array
 from _ctypes.pointer import _Pointer, as_ffi_pointer
+#from _ctypes.function import CFuncPtr # this import is moved at the bottom
+                                       # because else it's circular
 
 class NULL(object):
     pass
@@ -86,7 +88,7 @@ def from_param_void_p(cls, value):
         return res
     if isinstance(value, Array):
         return value
-    if isinstance(value, _Pointer):
+    if isinstance(value, (_Pointer, CFuncPtr)):
         return cls.from_address(value._buffer.buffer)
     if isinstance(value, (int, long)):
         return cls(value)
@@ -216,10 +218,15 @@ class SimpleType(_CDataMeta):
             result.value = property(_getvalue, _setvalue)
 
         elif tp == 'X':
-            from ctypes import windll
-            SysAllocStringLen = windll.oleaut32.SysAllocStringLen
-            SysStringLen = windll.oleaut32.SysStringLen
-            SysFreeString = windll.oleaut32.SysFreeString
+            from ctypes import WinDLL
+            # Use WinDLL("oleaut32") instead of windll.oleaut32
+            # because the latter is a shared (cached) object; and
+            # other code may set their own restypes. We need out own
+            # restype here.
+            oleaut32 = WinDLL("oleaut32")
+            SysAllocStringLen = oleaut32.SysAllocStringLen
+            SysStringLen = oleaut32.SysStringLen
+            SysFreeString = oleaut32.SysFreeString
             def _getvalue(self):
                 addr = self._buffer[0]
                 if addr == 0:
@@ -333,3 +340,5 @@ class _SimpleCData(_CData):
 
     def __nonzero__(self):
         return self._buffer[0] not in (0, '\x00')
+
+from _ctypes.function import CFuncPtr

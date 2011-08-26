@@ -13,6 +13,10 @@ DEFL_CLEVER_MALLOC_REMOVAL_INLINE_THRESHOLD = 32.4
 DEFL_LOW_INLINE_THRESHOLD = DEFL_INLINE_THRESHOLD / 2.0
 
 DEFL_GC = "minimark"
+if sys.platform.startswith("linux"):
+    DEFL_ROOTFINDER_WITHJIT = "asmgcc"
+else:
+    DEFL_ROOTFINDER_WITHJIT = "shadowstack"
 
 IS_64_BITS = sys.maxint > 2147483647
 
@@ -109,7 +113,7 @@ translation_optiondescription = OptionDescription(
     BoolOption("jit", "generate a JIT",
                default=False,
                suggests=[("translation.gc", DEFL_GC),
-                         ("translation.gcrootfinder", "asmgcc"),
+                         ("translation.gcrootfinder", DEFL_ROOTFINDER_WITHJIT),
                          ("translation.list_comprehension_operations", True)]),
     ChoiceOption("jit_backend", "choose the backend for the JIT",
                  ["auto", "x86", "x86-without-sse2", "llvm"],
@@ -140,7 +144,10 @@ translation_optiondescription = OptionDescription(
                  ["annotate", "rtype", "backendopt", "database", "source",
                   "pyjitpl"],
                  default=None, cmdline="--fork-before"),
-
+    BoolOption("dont_write_c_files",
+               "Make the C backend write everyting to /dev/null. " +
+               "Useful for benchmarking, so you don't actually involve the disk",
+               default=False, cmdline="--dont-write-c-files"),
     ArbitraryOption("instrumentctl", "internal",
                default=None),
     StrOption("output", "Output file name", cmdline="--output"),

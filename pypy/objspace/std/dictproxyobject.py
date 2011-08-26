@@ -61,7 +61,8 @@ class DictProxyStrategy(DictStrategy):
         space = self.space
         w_key_type = space.type(w_key)
         if space.is_w(w_key_type, space.w_str):
-            if not self.unerase(w_dict.dstorage).deldictvalue(space, w_key):
+            key = self.space.str_w(w_key)
+            if not self.unerase(w_dict.dstorage).deldictvalue(space, key):
                 raise KeyError
         else:
             raise KeyError
@@ -86,7 +87,7 @@ class DictProxyStrategy(DictStrategy):
 
     def clear(self, w_dict):
         self.unerase(w_dict.dstorage).dict_w.clear()
-        self.unerase(w_dict.dstorage).mutated()
+        self.unerase(w_dict.dstorage).mutated(None)
 
 class DictProxyIteratorImplementation(IteratorImplementation):
     def __init__(self, space, strategy, dictimplementation):

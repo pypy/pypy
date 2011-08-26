@@ -36,6 +36,15 @@ class FloatTests:
         res = self.interp_operations(f, [x])
         assert res == -x
 
+    def test_singlefloat(self):
+        from pypy.rlib.rarithmetic import r_singlefloat
+        def f(a):
+            a = float(r_singlefloat(a))
+            a *= 4.25
+            return float(r_singlefloat(a))
+        res = self.interp_operations(f, [-2.0])
+        assert res == -8.5
+
 
 class TestOOtype(FloatTests, OOJitMixin):
     pass

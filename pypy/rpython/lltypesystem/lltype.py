@@ -1,7 +1,7 @@
 import py
 from pypy.rlib.rarithmetic import (r_int, r_uint, intmask, r_singlefloat,
                                    r_ulonglong, r_longlong, r_longfloat,
-                                   base_int, normalizedinttype)
+                                   base_int, normalizedinttype, longlongmask)
 from pypy.rlib.objectmodel import Symbolic
 from pypy.tool.uid import Hashable
 from pypy.tool.identity_dict import identity_dict
@@ -654,6 +654,9 @@ class Number(Primitive):
 
 _numbertypes = {int: Number("Signed", int, intmask)}
 _numbertypes[r_int] = _numbertypes[int]
+if r_longlong is not r_int:
+    _numbertypes[r_longlong] = Number("SignedLongLong", r_longlong,
+                                      longlongmask)
 
 def build_number(name, type):
     try:
@@ -1146,7 +1149,7 @@ class _abstract_ptr(object):
         try:
             return self._lookup_adtmeth(field_name)
         except AttributeError:
-            raise AttributeError("%r instance has no field %r" % (self._T,
+            raise AttributeError("%r instance has no field %r" % (self._T._name,
                                                                   field_name))
 
     def __setattr__(self, field_name, val):
@@ -1936,7 +1939,7 @@ class _pyobject(Hashable, _container):
 
 
 def malloc(T, n=None, flavor='gc', immortal=False, zero=False,
-           track_allocation=True):
+           track_allocation=True, add_memory_pressure=False):
     assert flavor in ('gc', 'raw')
     if zero or immortal:
         initialization = 'example'

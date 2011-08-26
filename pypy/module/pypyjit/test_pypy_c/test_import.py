@@ -15,9 +15,7 @@ class TestImport(BaseTestPyPyC):
         assert log.result == 500
         loop, = log.loops_by_id('import')
         assert loop.match_by_id('import', """
-            guard_not_invalidated(descr=<Guard4>)
-            p10 = getfield_gc(ConstPtr(ptr9), descr=<GcPtrFieldDescr pypy.objspace.std.celldict.ModuleCell.inst_w_value 8>)
-            guard_value(p10, ConstPtr(ptr11), descr=<Guard5>)
+            guard_not_invalidated(descr=...)
         """)
 
     def test_import_fast_path(self, tmpdir):

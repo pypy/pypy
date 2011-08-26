@@ -51,13 +51,13 @@ Installing PyPy
 ---------------
 
 PyPy is ready to be executed as soon as you unpack the tarball or the zip
-file, with no need install it in any specific location::
+file, with no need to install it in any specific location::
 
-    $ tar xf pypy-1.5-linux.tar.bz2
+    $ tar xf pypy-1.6-linux.tar.bz2
 
-    $ ./pypy-1.5-linux/bin/pypy
+    $ ./pypy-1.6/bin/pypy
     Python 2.7.1 (?, Apr 27 2011, 12:44:21)
-    [PyPy 1.5.0-alpha0 with GCC 4.4.3] on linux2
+    [PyPy 1.6.0 with GCC 4.4.3] on linux2
     Type "help", "copyright", "credits" or "license" for more information.
     And now for something completely different: ``implementing LOGO in LOGO:
     "turtles all the way down"''
@@ -73,16 +73,16 @@ install distribute_ and pip_:
 
     $ curl -O http://python-distribute.org/distribute_setup.py
 
-    $ curl -O https://github.com/pypa/pip/raw/master/contrib/get-pip.py
+    $ curl -O https://raw.github.com/pypa/pip/master/contrib/get-pip.py
 
-    $ ./pypy-1.5-linux/bin/pypy distribute_setup.py
+    $ ./pypy-1.6/bin/pypy distribute_setup.py
 
-    $ ./pypy-1.5-linux/bin/pypy get-pip.py
+    $ ./pypy-1.6/bin/pypy get-pip.py
 
-    $ ./pypy-1.5-linux/bin/pip install pygments  # for example
+    $ ./pypy-1.6/bin/pip install pygments  # for example
 
-3rd party libraries will be installed in ``pypy-1.5-linux/site-packages``, and
-the scripts in ``pypy-1.5-linux/bin``.
+3rd party libraries will be installed in ``pypy-1.6/site-packages``, and
+the scripts in ``pypy-1.6/bin``.
 
 Installing using virtualenv
 ---------------------------

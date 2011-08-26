@@ -12,24 +12,30 @@ def test_contains_unsupported_variable_type():
     graph = support.getgraph(f, [5])
     for sf in [False, True]:
         for sll in [False, True]:
-            assert not contains_unsupported_variable_type(graph, sf, sll)
+            for ssf in [False, True]:
+                assert not contains_unsupported_variable_type(graph, sf,
+                                                              sll, ssf)
     #
     graph = support.getgraph(f, [5.5])
     for sf in [False, True]:
         for sll in [False, True]:
-            res = contains_unsupported_variable_type(graph, sf, sll)
-            assert res is not sf
+            for ssf in [False, True]:
+                res = contains_unsupported_variable_type(graph, sf, sll, ssf)
+                assert res is not sf
     #
     graph = support.getgraph(f, [r_singlefloat(5.5)])
     for sf in [False, True]:
         for sll in [False, True]:
-            assert contains_unsupported_variable_type(graph, sf, sll)
+            for ssf in [False, True]:
+                res = contains_unsupported_variable_type(graph, sf, sll, ssf)
+                assert res == (not ssf)
     #
     graph = support.getgraph(f, [r_longlong(5)])
     for sf in [False, True]:
         for sll in [False, True]:
-            res = contains_unsupported_variable_type(graph, sf, sll)
-            assert res == (sys.maxint == 2147483647 and not sll)
+            for ssf in [False, True]:
+                res = contains_unsupported_variable_type(graph, sf, sll, ssf)
+                assert res == (sys.maxint == 2147483647 and not sll)
 
 
 def test_regular_function():

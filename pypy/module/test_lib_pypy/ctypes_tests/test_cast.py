@@ -90,3 +90,8 @@ class TestCast(BaseCTypesTestChecker):
         assert sqrt._objects is my_sqrt._objects   # on CPython too
         my_sqrt._objects.clear()
         my_sqrt._objects.update(saved_objects)
+
+    def test_cast_argumenterror(self):
+        param = c_uint(42)
+        py.test.raises(ArgumentError, "cast(param, c_void_p)")
+        

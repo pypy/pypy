@@ -53,7 +53,7 @@ def default_fail_descr(model, fail_args=None):
 class OpParser(object):
 
     use_mock_model = False
-    
+
     def __init__(self, input, cpu, namespace, type_system, boxkinds,
                  invent_fail_descr=default_fail_descr,
                  nonstrict=False):
@@ -187,7 +187,7 @@ class OpParser(object):
             poss_descr = allargs[-1].strip()
             if poss_descr.startswith('descr='):
                 descr = self.get_descr(poss_descr[len('descr='):])
-                allargs = allargs[:-1]        
+                allargs = allargs[:-1]
             for arg in allargs:
                 arg = arg.strip()
                 try:
@@ -240,7 +240,7 @@ class OpParser(object):
             fail_args = None
             if opnum == rop.FINISH:
                 if descr is None and self.invent_fail_descr:
-                    descr = self.invent_fail_descr(self.model)
+                    descr = self.invent_fail_descr(self.model, fail_args)
             elif opnum == rop.JUMP:
                 if descr is None and self.invent_fail_descr:
                     descr = self.looptoken
@@ -336,6 +336,11 @@ class OpParser(object):
                     ops.append(op)
                 num += 1
         return num, ops, last_offset
+
+    def postprocess(self, loop):
+        """ A hook that can be overloaded to do some postprocessing
+        """
+        return loop
 
     def parse_offset(self, line):
         if line.startswith('+'):

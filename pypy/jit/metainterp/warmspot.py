@@ -10,6 +10,7 @@ from pypy.objspace.flow.model import checkgraph, Link, copygraph
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.debug import fatalerror
+from pypy.rlib.rstackovf import StackOverflow
 from pypy.translator.simplify import get_functype
 from pypy.translator.unsimplify import call_final_function
 
@@ -62,7 +63,7 @@ def jittify_and_run(interp, graph, args, repeat=1,
                     backendopt=False, trace_limit=sys.maxint,
                     inline=False, loop_longevity=0, retrace_limit=5,
                     function_threshold=4,
-                    enable_opts=ALL_OPTS_NAMES, **kwds):
+                    enable_opts=ALL_OPTS_NAMES, max_retrace_guards=15, **kwds):
     from pypy.config.config import ConfigError
     translator = interp.typer.annotator.translator
     try:
@@ -86,6 +87,7 @@ def jittify_and_run(interp, graph, args, repeat=1,
         jd.warmstate.set_param_inlining(inline)
         jd.warmstate.set_param_loop_longevity(loop_longevity)
         jd.warmstate.set_param_retrace_limit(retrace_limit)
+        jd.warmstate.set_param_max_retrace_guards(max_retrace_guards)
         jd.warmstate.set_param_enable_opts(enable_opts)
     warmrunnerdesc.finish()
     res = interp.eval_graph(graph, args)
@@ -172,6 +174,7 @@ class WarmRunnerDesc(object):
             policy = JitPolicy()
         policy.set_supports_floats(self.cpu.supports_floats)
         policy.set_supports_longlong(self.cpu.supports_longlong)
+        policy.set_supports_singlefloats(self.cpu.supports_singlefloats)
         graphs = self.codewriter.find_all_graphs(policy)
         policy.dump_unsafe_loops()
         self.check_access_directly_sanity(graphs)
@@ -282,7 +285,9 @@ class WarmRunnerDesc(object):
         auto_inline_graphs(self.translator, graphs, 0.01)
 
     def build_cpu(self, CPUClass, translate_support_code=False,
-                  no_stats=False, **kwds):
+                  no_stats=False, supports_floats=True,
+                  supports_longlong=True, supports_singlefloats=True,
+                  **kwds):
         assert CPUClass is not None
         self.opt = history.Options(**kwds)
         if no_stats:
@@ -294,6 +299,9 @@ class WarmRunnerDesc(object):
             self.annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
         cpu = CPUClass(self.translator.rtyper, self.stats, self.opt,
                        translate_support_code, gcdescr=self.gcdescr)
+        if not supports_floats:       cpu.supports_floats       = False
+        if not supports_longlong:     cpu.supports_longlong     = False
+        if not supports_singlefloats: cpu.supports_singlefloats = False
         self.cpu = cpu
 
     def build_meta_interp(self, ProfilerClass):
@@ -408,21 +416,29 @@ class WarmRunnerDesc(object):
         jd.warmstate = state
 
         def crash_in_jit(e):
-            if not we_are_translated():
-                print "~~~ Crash in JIT!"
-                print '~~~ %s: %s' % (e.__class__, e)
-                if sys.stdout == sys.__stdout__:
-                    import pdb; pdb.post_mortem(sys.exc_info()[2])
-                raise
-            fatalerror('~~~ Crash in JIT! %s' % (e,), traceback=True)
+            tb = not we_are_translated() and sys.exc_info()[2]
+            try:
+                raise e
+            except JitException:
+                raise     # go through
+            except MemoryError:
+                raise     # go through
+            except StackOverflow:
+                raise     # go through
+            except Exception, e:
+                if not we_are_translated():
+                    print "~~~ Crash in JIT!"
+                    print '~~~ %s: %s' % (e.__class__, e)
+                    if sys.stdout == sys.__stdout__:
+                        import pdb; pdb.post_mortem(tb)
+                    raise e.__class__, e, tb
+                fatalerror('~~~ Crash in JIT! %s' % (e,), traceback=True)
         crash_in_jit._dont_inline_ = True
 
         if self.translator.rtyper.type_system.name == 'lltypesystem':
             def maybe_enter_jit(*args):
                 try:
                     maybe_compile_and_run(state.increment_threshold, *args)
-                except JitException:
-                    raise     # go through
                 except Exception, e:
                     crash_in_jit(e)
             maybe_enter_jit._always_inline_ = True
@@ -460,6 +476,9 @@ class WarmRunnerDesc(object):
                 onlygreens=False)
             jd._can_never_inline_ptr = self._make_hook_graph(jd,
                 annhelper, jd.jitdriver.can_never_inline, annmodel.s_Bool)
+            jd._should_unroll_one_iteration_ptr = self._make_hook_graph(jd,
+                annhelper, jd.jitdriver.should_unroll_one_iteration,
+                annmodel.s_Bool)
         annhelper.finish()
 
     def _make_hook_graph(self, jitdriver_sd, annhelper, func,

@@ -1,6 +1,7 @@
 import py
 
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
+from pypy.conftest import gettestobjspace
 
 
 class AppTestNumArray(BaseNumpyAppTest):
@@ -37,10 +38,50 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[2] = 4
         assert a[2] == 4
 
+    def test_copy(self):
+        from numpy import array
+        a = array(range(5))
+        b = a.copy()
+        for i in xrange(5):
+            assert b[i] == a[i]
+
     def test_iterator_init(self):
         from numpy import array
         a = array(range(5))
         assert a[3] == 3
+
+    def test_repr(self):
+        from numpy import array, zeros
+        a = array(range(5))
+        assert repr(a) == "array([0.0, 1.0, 2.0, 3.0, 4.0])"
+        a = zeros(1001)
+        assert repr(a) == "array([0.0, 0.0, 0.0, ..., 0.0, 0.0, 0.0])"
+
+    def test_repr_slice(self):
+        from numpy import array, zeros
+        a = array(range(5))
+        b = a[1::2]
+        assert repr(b) == "array([1.0, 3.0])"
+        a = zeros(2002)
+        b = a[::2]
+        assert repr(b) == "array([0.0, 0.0, 0.0, ..., 0.0, 0.0, 0.0])"
+
+    def test_str(self):
+        from numpy import array, zeros
+        a = array(range(5))
+        assert str(a) == "[0.0 1.0 2.0 3.0 4.0]"
+        assert str((2*a)[:]) == "[0.0 2.0 4.0 6.0 8.0]"
+        a = zeros(1001)
+        assert str(a) == "[0.0 0.0 0.0 ..., 0.0 0.0 0.0]"
+
+    def test_str_slice(self):
+        from numpy import array, zeros
+        a = array(range(5))
+        b = a[1::2]
+        assert str(b) == "[1.0 3.0]"
+        a = zeros(2002)
+        b = a[::2]
+        assert str(b) == "[0.0 0.0 0.0 ..., 0.0 0.0 0.0]"
 
     def test_getitem(self):
         from numpy import array
@@ -58,6 +99,51 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[4] == 5.0
         raises(IndexError, "a[5] = 0.0")
         raises(IndexError, "a[-6] = 3.0")
+
+    def test_setslice_array(self):
+        from numpy import array
+        a = array(range(5))
+        b = array(range(2))
+        a[1:4:2] = b
+        assert a[1] == 0.
+        assert a[3] == 1.
+        b[::-1] = b
+        assert b[0] == 1.
+        assert b[1] == 0.
+
+    def test_setslice_of_slice_array(self):
+        from numpy import array, zeros
+        a = zeros(5)
+        a[::2] = array([9., 10., 11.])
+        assert a[0] == 9.
+        assert a[2] == 10.
+        assert a[4] == 11.
+        a[1:4:2][::-1] = array([1., 2.])
+        assert a[0] == 9.
+        assert a[1] == 2.
+        assert a[2] == 10.
+        assert a[3] == 1.
+        assert a[4] == 11.
+        a = zeros(10)
+        a[::2][::-1][::2] = array(range(1,4))
+        assert a[8] == 1.
+        assert a[4] == 2.
+        assert a[0] == 3.
+
+    def test_setslice_list(self):
+        from numpy import array
+        a = array(range(5))
+        b = [0., 1.]
+        a[1:4:2] = b
+        assert a[1] == 0.
+        assert a[3] == 1.
+
+    def test_setslice_constant(self):
+        from numpy import array
+        a = array(range(5))
+        a[1:4:2] = 0.
+        assert a[1] == 0.
+        assert a[3] == 0.
 
     def test_len(self):
         from numpy import array
@@ -95,6 +181,21 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = a + 5
         for i in range(5):
             assert b[i] == i + 5
+
+    def test_radd(self):
+        from numpy import array
+        r = 3 + array(range(3))
+        for i in range(3):
+            assert r[i] == i + 3
+
+    def test_add_list(self):
+        from numpy import array
+        a = array(range(5))
+        b = list(reversed(range(5)))
+        c = a + b
+        assert isinstance(c, array)
+        for i in range(5):
+            assert c[i] == 4
 
     def test_subtract(self):
         from numpy import array
@@ -154,6 +255,72 @@ class AppTestNumArray(BaseNumpyAppTest):
         for i in range(5):
             assert b[i] == i / 5.0
 
+    def test_pow(self):
+        from numpy import array
+        a = array(range(5))
+        b = a ** a
+        for i in range(5):
+            print b[i], i**i
+            assert b[i] == i**i
+
+    def test_pow_other(self):
+        from numpy import array
+        a = array(range(5))
+        b = array([2, 2, 2, 2, 2])
+        c = a ** b
+        for i in range(5):
+            assert c[i] == i ** 2
+
+    def test_pow_constant(self):
+        from numpy import array
+        a = array(range(5))
+        b = a ** 2
+        for i in range(5):
+            assert b[i] == i ** 2
+
+    def test_mod(self):
+        from numpy import array
+        a = array(range(1,6))
+        b = a % a
+        for i in range(5):
+            assert b[i] == 0
+
+    def test_mod_other(self):
+        from numpy import array
+        a = array(range(5))
+        b = array([2, 2, 2, 2, 2])
+        c = a % b
+        for i in range(5):
+            assert c[i] == i % 2
+
+    def test_mod_constant(self):
+        from numpy import array
+        a = array(range(5))
+        b = a % 2
+        for i in range(5):
+            assert b[i] == i % 2
+
+    def test_pos(self):
+        from numpy import array
+        a = array([1.,-2.,3.,-4.,-5.])
+        b = +a
+        for i in range(5):
+            assert b[i] == a[i]
+
+    def test_neg(self):
+        from numpy import array
+        a = array([1.,-2.,3.,-4.,-5.])
+        b = -a
+        for i in range(5):
+            assert b[i] == -a[i]
+
+    def test_abs(self):
+        from numpy import array
+        a = array([1.,-2.,3.,-4.,-5.])
+        b = abs(a)
+        for i in range(5):
+            assert b[i] == abs(a[i])
+
     def test_auto_force(self):
         from numpy import array
         a = array(range(5))
@@ -210,7 +377,115 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert d[1] == 12
 
     def test_mean(self):
-        from numpy import array, mean
+        from numpy import array
         a = array(range(5))
         assert a.mean() == 2.0
         assert a[:4].mean() == 1.5
+
+    def test_sum(self):
+        from numpy import array
+        a = array(range(5))
+        assert a.sum() == 10.0
+        assert a[:4].sum() == 6.0
+
+    def test_prod(self):
+        from numpy import array
+        a = array(range(1,6))
+        assert a.prod() == 120.0
+        assert a[:4].prod() == 24.0
+
+    def test_max(self):
+        from numpy import array
+        a = array([-1.2, 3.4, 5.7, -3.0, 2.7])
+        assert a.max() == 5.7
+        b = array([])
+        raises(ValueError, "b.max()")
+
+    def test_max_add(self):
+        from numpy import array
+        a = array([-1.2, 3.4, 5.7, -3.0, 2.7])
+        assert (a+a).max() == 11.4
+
+    def test_min(self):
+        from numpy import array
+        a = array([-1.2, 3.4, 5.7, -3.0, 2.7])
+        assert a.min() == -3.0
+        b = array([])
+        raises(ValueError, "b.min()")
+
+    def test_argmax(self):
+        from numpy import array
+        a = array([-1.2, 3.4, 5.7, -3.0, 2.7])
+        assert a.argmax() == 2
+        b = array([])
+        raises(ValueError, "b.argmax()")
+
+    def test_argmin(self):
+        from numpy import array
+        a = array([-1.2, 3.4, 5.7, -3.0, 2.7])
+        assert a.argmin() == 3
+        b = array([])
+        raises(ValueError, "b.argmin()")
+
+    def test_sort(self):
+        from numpy import array
+        a = [3.0,4.0,0.0,-1.0]
+        b = array(a)
+        a.sort()
+	b.sort()
+        assert(len(a)==len(b))
+        for i in range(len(a)):
+            assert(a[i]==b[i])
+	a = array(list(reversed(range(6))))
+	b = array(range(6))
+	a.sort()
+        assert(len(a)==len(b))
+        for i in range(len(a)):
+            assert(a[i]==b[i])
+
+
+
+    def test_all(self):
+        from numpy import array
+        a = array(range(5))
+        assert a.all() == False
+        a[0] = 3.0
+        assert a.all() == True
+        b = array([])
+        assert b.all() == True
+
+    def test_any(self):
+        from numpy import array, zeros
+        a = array(range(5))
+        assert a.any() == True
+        b = zeros(5)
+        assert b.any() == False
+        c = array([])
+        assert c.any() == False
+
+    def test_dot(self):
+        from numpy import array
+        a = array(range(5))
+        assert a.dot(a) == 30.0
+
+    def test_dot_constant(self):
+        from numpy import array
+        a = array(range(5))
+        b = a.dot(2.5)
+        for i in xrange(5):
+            assert b[i] == 2.5*a[i]
+
+
+class AppTestSupport(object):
+    def setup_class(cls):
+        import struct
+        cls.space = gettestobjspace(usemodules=('micronumpy',))
+        cls.w_data = cls.space.wrap(struct.pack('dddd', 1, 2, 3, 4))
+
+    def test_fromstring(self):
+        from numpy import fromstring
+        a = fromstring(self.data)
+        for i in range(4):
+            assert a[i] == i + 1
+        raises(ValueError, fromstring, "abc")
+

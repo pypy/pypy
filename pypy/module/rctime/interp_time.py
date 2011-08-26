@@ -6,7 +6,6 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rlib.rarithmetic import ovfcheck_float_to_int
 from pypy.rlib import rposix
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
-import math
 import os
 import sys
 import time as pytime
@@ -102,7 +101,7 @@ class CConfig:
     CLOCKS_PER_SEC = platform.ConstantInteger("CLOCKS_PER_SEC")
     clock_t = platform.SimpleType("clock_t", rffi.ULONG)
     has_gettimeofday = platform.Has('gettimeofday')
-    
+
 if _POSIX:
     calling_conv = 'c'
     CConfig.timeval = platform.Struct("struct timeval",
@@ -208,13 +207,13 @@ def _init_timezone(space):
         t = (((c_time(lltype.nullptr(rffi.TIME_TP.TO))) / YEAR) * YEAR)
         # we cannot have reference to stack variable, put it on the heap
         t_ref = lltype.malloc(rffi.TIME_TP.TO, 1, flavor='raw')
-        t_ref[0] = t
+        t_ref[0] = rffi.cast(rffi.TIME_T, t)
         p = c_localtime(t_ref)
         janzone = -p.c_tm_gmtoff
         tm_zone = rffi.charp2str(p.c_tm_zone)
         janname = ["   ", tm_zone][bool(tm_zone)]
         tt = t + YEAR / 2
-        t_ref[0] = tt
+        t_ref[0] = rffi.cast(rffi.TIME_T, tt)
         p = c_localtime(t_ref)
         lltype.free(t_ref, flavor='raw')
         tm_zone = rffi.charp2str(p.c_tm_zone)
@@ -235,7 +234,7 @@ def _init_timezone(space):
 
     _set_module_object(space, "timezone", space.wrap(timezone))
     _set_module_object(space, 'daylight', space.wrap(daylight))
-    tzname_w = [space.wrap(tzname[0]), space.wrap(tzname[1])] 
+    tzname_w = [space.wrap(tzname[0]), space.wrap(tzname[1])]
     _set_module_object(space, 'tzname', space.newtuple(tzname_w))
     _set_module_object(space, 'altzone', space.wrap(altzone))
 
@@ -293,11 +292,14 @@ def _get_inttime(space, w_seconds):
     else:
         seconds = space.float_w(w_seconds)
     try:
-        ovfcheck_float_to_int(seconds)
+        seconds = ovfcheck_float_to_int(seconds)
+        t = rffi.r_time_t(seconds)
+        if rffi.cast(lltype.Signed, t) != seconds:
+            raise OverflowError
     except OverflowError:
         raise OperationError(space.w_ValueError,
                              space.wrap("time argument too large"))
-    return rffi.r_time_t(seconds)
+    return t
 
 def _tm_to_tuple(space, t):
     time_tuple = [
@@ -310,7 +312,7 @@ def _tm_to_tuple(space, t):
         space.wrap((rffi.getintfield(t, 'c_tm_wday') + 6) % 7), # want monday == 0
         space.wrap(rffi.getintfield(t, 'c_tm_yday') + 1), # want january, 1 == 1
         space.wrap(rffi.getintfield(t, 'c_tm_isdst'))]
-    
+
     w_struct_time = _get_module_object(space, 'struct_time')
     w_time_tuple = space.newtuple(time_tuple)
     return space.call_function(w_struct_time, w_time_tuple)
@@ -318,7 +320,7 @@ def _tm_to_tuple(space, t):
 def _gettmarg(space, w_tup, allowNone=True):
     if allowNone and space.is_w(w_tup, space.w_None):
         # default to the current local time
-        tt = rffi.r_time_t(pytime.time())
+        tt = rffi.r_time_t(int(pytime.time()))
         t_ref = lltype.malloc(rffi.TIME_TP.TO, 1, flavor='raw')
         t_ref[0] = tt
         pbuf = c_localtime(t_ref)
@@ -330,7 +332,7 @@ def _gettmarg(space, w_tup, allowNone=True):
 
     tup_w = space.fixedview(w_tup)
     if len(tup_w) != 9:
-        raise operationerrfmt(space.w_TypeError, 
+        raise operationerrfmt(space.w_TypeError,
                               "argument must be sequence of "
                               "length 9, not %d", len(tup_w))
 
@@ -359,7 +361,7 @@ def _gettmarg(space, w_tup, allowNone=True):
 
     w_accept2dyear = _get_module_object(space, "accept2dyear")
     accept2dyear = space.int_w(w_accept2dyear)
-    
+
     if y < 1900:
         if not accept2dyear:
             raise OperationError(space.w_ValueError,
@@ -392,7 +394,7 @@ def time(space):
 
     Return the current time in seconds since the Epoch.
     Fractions of a second may be present if the system clock provides them."""
-    
+
     secs = pytime.time()
     return space.wrap(secs)
 
@@ -420,7 +422,7 @@ def ctime(space, w_seconds=None):
     not present, current time as returned by localtime() is used."""
 
     seconds = _get_inttime(space, w_seconds)
-    
+
     t_ref = lltype.malloc(rffi.TIME_TP.TO, 1, flavor='raw')
     t_ref[0] = seconds
     p = c_ctime(t_ref)
@@ -444,7 +446,7 @@ def asctime(space, w_tup=None):
     if not p:
         raise OperationError(space.w_ValueError,
             space.wrap("unconvertible time"))
-    
+
     return space.wrap(rffi.charp2str(p)[:-1]) # get rid of new line
 
 def gmtime(space, w_seconds=None):
@@ -462,7 +464,7 @@ def gmtime(space, w_seconds=None):
     t_ref[0] = seconds
     p = c_gmtime(t_ref)
     lltype.free(t_ref, flavor='raw')
-    
+
     if not p:
         raise OperationError(space.w_ValueError, space.wrap(_get_error_msg()))
     return _tm_to_tuple(space, p)
@@ -479,7 +481,7 @@ def localtime(space, w_seconds=None):
     t_ref[0] = seconds
     p = c_localtime(t_ref)
     lltype.free(t_ref, flavor='raw')
-    
+
     if not p:
         raise OperationError(space.w_ValueError, space.wrap(_get_error_msg()))
     return _tm_to_tuple(space, p)
@@ -524,7 +526,7 @@ def strftime(space, format, w_tup=None):
     See the library reference manual for formatting codes. When the time tuple
     is not present, current time as returned by localtime() is used."""
     buf_value = _gettmarg(space, w_tup)
-    
+
     # Checks added to make sure strftime() does not crash Python by
     # indexing blindly into some array for a textual representation
     # by some bad index (fixes bug #897625).
