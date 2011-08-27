@@ -248,5 +248,4 @@ class TestMisc(BaseTestPyPyC):
         """, [1000])
 
         loop, = log.loops_by_id("globalread", is_entry_bridge=True)
-        op, = loop.ops_by_id("globalread")
-        assert op.name == "guard_not_invalidated"
+        assert len(loop.ops_by_id("globalread")) == 0

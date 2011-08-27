@@ -66,23 +66,23 @@ class TestCall(BaseTestPyPyC):
         ops = entry_bridge.ops_by_id('cond', opcode='LOAD_GLOBAL')
         assert log.opnames(ops) == ["guard_value",
                                     "getfield_gc", "guard_value",
-                                    "getfield_gc", "guard_value"]
+                                    "getfield_gc", "guard_value",
+                                    "guard_not_invalidated"]
         ops = entry_bridge.ops_by_id('add', opcode='LOAD_GLOBAL')
         assert log.opnames(ops) == ["guard_not_invalidated"]
         #
         ops = entry_bridge.ops_by_id('call', opcode='LOAD_GLOBAL')
-        assert log.opnames(ops) == ["guard_not_invalidated"]
+        assert log.opnames(ops) == []
         #
         assert entry_bridge.match_by_id('call', """
-            guard_not_invalidated(descr=...)
             p38 = call(ConstClass(getexecutioncontext), descr=<GcPtrCallDescr>)
             p39 = getfield_gc(p38, descr=<GcPtrFieldDescr pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref .*>)
             i40 = force_token()
             p41 = getfield_gc(p38, descr=<GcPtrFieldDescr pypy.interpreter.executioncontext.ExecutionContext.inst_w_tracefunc .*>)
-            guard_isnull(p41, descr=<Guard17>)
+            guard_isnull(p41, descr=...)
             i42 = getfield_gc(p38, descr=<NonGcPtrFieldDescr pypy.interpreter.executioncontext.ExecutionContext.inst_profilefunc .*>)
             i43 = int_is_zero(i42)
-            guard_true(i43, descr=<Guard18>)
+            guard_true(i43, descr=...)
             i50 = force_token()
         """)
         #
