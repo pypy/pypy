@@ -547,10 +547,41 @@ class BufferingInputStream(Stream):
                 self.read(intoffset)
             return
         if whence == 2:
-            self.do_seek(offset, 2)
-            self.pos = 0
+            try:
+                self.do_seek(offset, 2)
+            except MyNotImplementedError:
+                pass
+            else:
+                self.pos = 0
+                self.buf = ""
+                return
+            # Skip relative to EOF by reading and saving only just as
+            # much as needed
+            intoffset = offset2int(offset)
+            pos = self.pos
+            assert pos >= 0
+            buffers = [self.buf[pos:]]
+            total = len(buffers[0])
             self.buf = ""
+            self.pos = 0
+            while 1:
+                data = self.do_read(self.bufsize)
+                if not data:
+                    break
+                buffers.append(data)
+                total += len(data)
+                while buffers and total >= len(buffers[0]) - intoffset:
+                    total -= len(buffers[0])
+                    del buffers[0]
+            cutoff = total + intoffset
+            if cutoff < 0:
+                raise StreamError("cannot seek back")
+            if buffers:
+                assert cutoff >= 0
+                buffers[0] = buffers[0][cutoff:]
+            self.buf = "".join(buffers)
             return
+
         raise StreamError("whence should be 0, 1 or 2")
 
     def readall(self):
