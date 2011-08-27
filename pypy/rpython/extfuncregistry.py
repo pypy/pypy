@@ -56,10 +56,16 @@ _register = [  # (module, [(method name, arg types, return type), ...], ...)
 for module, methods in _register:
     for name, arg_types, return_type in methods:
         method_name = 'll_math_%s' % name
+        oofake = None
+        # Things with a tuple return type have a fake impl for RPython, check
+        # to see if the method has one.
+        if hasattr(oo_math, method_name):
+          oofake = getattr(oo_math, method_name)
         register_external(getattr(module, name), arg_types, return_type,
                           export_name='ll_math.%s' % method_name,
                           sandboxsafe=True,
-                          llimpl=getattr(ll_math, method_name))
+                          llimpl=getattr(ll_math, method_name),
+                          oofakeimpl=oofake)
 
 # ___________________________
 # os.path functions

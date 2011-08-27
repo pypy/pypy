@@ -2,42 +2,111 @@ import py
 from pypy.conftest import gettestobjspace, option
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 from pypy.objspace.std.celldict import ModuleCell, ModuleDictStrategy
-from pypy.objspace.std.test.test_dictmultiobject import FakeSpace
+from pypy.objspace.std.test.test_dictmultiobject import FakeSpace, \
+        BaseTestRDictImplementation, BaseTestDevolvedDictImplementation
 from pypy.interpreter import gateway
+
+from pypy.conftest import gettestobjspace, option
 
 space = FakeSpace()
 
 class TestCellDict(object):
-    def test_basic_property(self):
+    def test_basic_property_cells(self):
         strategy = ModuleDictStrategy(space)
         storage = strategy.get_empty_storage()
         d = W_DictMultiObject(space, strategy, storage)
 
-        # replace getcell with getcell from strategy
-        def f(key, makenew):
-            return strategy.getcell(d, key, makenew)
-        d.getcell = f
-
+        v1 = strategy.version
         d.setitem("a", 1)
-        assert d.getcell("a", False) is d.getcell("a", False)
-        acell = d.getcell("a", False)
-        d.setitem("b", 2)
-        assert d.getcell("b", False) is d.getcell("b", False)
-        assert d.getcell("c", True) is d.getcell("c", True)
-
+        v2 = strategy.version
+        assert v1 is not v2
         assert d.getitem("a") == 1
-        assert d.getitem("b") == 2
+        assert d.strategy.getdictvalue_no_unwrapping(d, "a") == 1
+
+        d.setitem("a", 2)
+        v3 = strategy.version
+        assert v2 is not v3
+        assert d.getitem("a") == 2
+        assert d.strategy.getdictvalue_no_unwrapping(d, "a").w_value == 2
+
+        d.setitem("a", 3)
+        v4 = strategy.version
+        assert v3 is v4
+        assert d.getitem("a") == 3
+        assert d.strategy.getdictvalue_no_unwrapping(d, "a").w_value == 3
 
         d.delitem("a")
-        py.test.raises(KeyError, d.delitem, "a")
+        v5 = strategy.version
+        assert v5 is not v4
         assert d.getitem("a") is None
-        assert d.getcell("a", False) is acell
-        assert d.length() == 1
+        assert d.strategy.getdictvalue_no_unwrapping(d, "a") is None
 
-        d.clear()
-        assert d.getitem("a") is None
-        assert d.getcell("a", False) is acell
-        assert d.length() == 0
+class AppTestModuleDict(object):
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.std.withcelldict": True})
+
+    def w_impl_used(self, obj):
+        if option.runappdirect:
+            py.test.skip("__repr__ doesn't work on appdirect")
+        import __pypy__
+        assert "ModuleDictStrategy" in __pypy__.internal_repr(obj)
+
+    def test_check_module_uses_module_dict(self):
+        m = type(__builtins__)("abc")
+        self.impl_used(m.__dict__)
+
+    def test_key_not_there(self):
+        d = type(__builtins__)("abc").__dict__
+        raises(KeyError, "d['def']")
+
+    def test_fallback_evil_key(self):
+        class F(object):
+            def __hash__(self):
+                return hash("s")
+            def __eq__(self, other):
+                return other == "s"
+        d = type(__builtins__)("abc").__dict__
+        d["s"] = 12
+        assert d["s"] == 12
+        assert d[F()] == d["s"]
+
+        d = type(__builtins__)("abc").__dict__
+        x = d.setdefault("s", 12)
+        assert x == 12
+        x = d.setdefault(F(), 12)
+        assert x == 12
+
+        d = type(__builtins__)("abc").__dict__
+        x = d.setdefault(F(), 12)
+        assert x == 12
+
+        d = type(__builtins__)("abc").__dict__
+        d["s"] = 12
+        del d[F()]
+
+        assert "s" not in d
+        assert F() not in d
+
+
+class TestModuleDictImplementation(BaseTestRDictImplementation):
+    StrategyClass = ModuleDictStrategy
+
+class TestModuleDictImplementationWithBuiltinNames(BaseTestRDictImplementation):
+    StrategyClass = ModuleDictStrategy
+
+    string = "int"
+    string2 = "isinstance"
+
+
+class TestDevolvedModuleDictImplementation(BaseTestDevolvedDictImplementation):
+    StrategyClass = ModuleDictStrategy
+
+class TestDevolvedModuleDictImplementationWithBuiltinNames(BaseTestDevolvedDictImplementation):
+    StrategyClass = ModuleDictStrategy
+
+    string = "int"
+    string2 = "isinstance"
+
 
 class AppTestCellDict(object):
     OPTIONS = {"objspace.std.withcelldict": True}
