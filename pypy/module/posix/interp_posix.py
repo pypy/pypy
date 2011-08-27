@@ -464,6 +464,15 @@ def strerror(space, errno):
                              space.wrap("strerror() argument out of range"))
     return space.wrap(text)
 
+def getlogin(space):
+    """Return the currently logged in user."""
+    try:
+        cur = os.getlogin()
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    else:
+        return space.wrap(cur)
+
 # ____________________________________________________________
 
 def getstatfields(space):
