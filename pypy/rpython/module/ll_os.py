@@ -383,7 +383,7 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([int, int], s_None, llimpl=dup2_llimpl,
                       export_name="ll_os.ll_os_dup2")
 
-    @registering(os.getlogin, condition=not _WIN32)
+    @registering_if(os, "getlogin", condition=not _WIN32)
     def register_os_getlogin(self):
         os_getlogin = self.llexternal('getlogin', [], rffi.CCHARP)
 
