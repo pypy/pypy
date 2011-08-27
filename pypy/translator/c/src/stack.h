@@ -15,7 +15,6 @@ extern char *_LLstacktoobig_stack_end;
 extern long _LLstacktoobig_stack_length;
 extern char _LLstacktoobig_report_error;
 
-void LL_stack_unwind(void);
 char LL_stack_too_big_slowpath(long);    /* returns 0 (ok) or 1 (too big) */
 void LL_stack_set_length_fraction(double);
 

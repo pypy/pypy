@@ -1417,7 +1417,7 @@ class Transformer(object):
             extraeffect = EffectInfo.EF_CANNOT_RAISE
         elif oopspec_name.startswith('libffi_call_'):
             oopspecindex = EffectInfo.OS_LIBFFI_CALL
-            extraeffect = EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE
+            extraeffect = EffectInfo.EF_RANDOM_EFFECTS
         else:
             assert False, 'unsupported oopspec: %s' % oopspec_name
         return self._handle_oopspec_call(op, args, oopspecindex, extraeffect)
