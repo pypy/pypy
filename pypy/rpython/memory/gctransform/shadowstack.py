@@ -50,6 +50,9 @@ class ShadowStackRootWalker(BaseRootWalker):
             self.rootstackhook = default_walk_stack_root
 
         self.shadow_stack_pool = ShadowStackPool(gcdata)
+        rsd = gctransformer.root_stack_depth
+        if rsd is not None:
+            self.shadow_stack_pool.root_stack_depth = rsd
 
     def push_stack(self, addr):
         top = self.incr_stack(1)
@@ -252,7 +255,6 @@ class ShadowStackPool(object):
     """
     _alloc_flavor_ = "raw"
     root_stack_depth = 163840
-    root_stack_size = sizeofaddr * root_stack_depth
 
     #MAX = 20  not implemented yet
 
@@ -318,7 +320,8 @@ class ShadowStackPool(object):
 
     def _prepare_unused_stack(self):
         if self.unused_full_stack == llmemory.NULL:
-            self.unused_full_stack = llmemory.raw_malloc(self.root_stack_size)
+            root_stack_size = sizeofaddr * self.root_stack_depth
+            self.unused_full_stack = llmemory.raw_malloc(root_stack_size)
             if self.unused_full_stack == llmemory.NULL:
                 raise MemoryError
 

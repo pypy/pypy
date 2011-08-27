@@ -132,6 +132,7 @@ def find_clean_setarrayitems(collect_analyzer, graph):
     return result
 
 class FrameworkGCTransformer(GCTransformer):
+    root_stack_depth = None    # for tests to override
 
     def __init__(self, translator):
         from pypy.rpython.memory.gc.base import choose_gc_from_config
