@@ -421,11 +421,11 @@ class GcRootMap_shadowstack(object):
                     #
                     # 'callshape' points to the next INT of the callshape.
                     # If it's zero we are done with the JIT frame.
-                    while callshape[0] != 0:
+                    while rffi.cast(lltype.Signed, callshape[0]) != 0:
                         #
                         # Non-zero: it's an offset inside the JIT frame.
                         # Read it and increment 'callshape'.
-                        offset = callshape[0]
+                        offset = rffi.cast(lltype.Signed, callshape[0])
                         callshape = lltype.direct_ptradd(callshape, 1)
                         addr = llmemory.cast_int_to_adr(iself.frame_addr +
                                                         offset)
