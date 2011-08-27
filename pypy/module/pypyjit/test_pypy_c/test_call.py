@@ -67,24 +67,14 @@ class TestCall(BaseTestPyPyC):
         assert log.opnames(ops) == ["guard_value",
                                     "getfield_gc", "guard_value",
                                     "getfield_gc", "guard_value",
-                                    "getfield_gc", "guard_nonnull_class"]
-        # LOAD_GLOBAL of OFFSET but in different function partially folded
-        # away
-        # XXX could be improved
+                                    "guard_not_invalidated"]
         ops = entry_bridge.ops_by_id('add', opcode='LOAD_GLOBAL')
-        assert log.opnames(ops) == ["guard_value", "getfield_gc", "guard_value"]
+        assert log.opnames(ops) == ["guard_not_invalidated"]
         #
-        # two LOAD_GLOBAL of f, the second is folded away
         ops = entry_bridge.ops_by_id('call', opcode='LOAD_GLOBAL')
-        assert log.opnames(ops) == ["getfield_gc", "guard_nonnull_class"]
+        assert log.opnames(ops) == []
         #
         assert entry_bridge.match_by_id('call', """
-            p29 = getfield_gc(ConstPtr(ptr28), descr=<GcPtrFieldDescr pypy.objspace.std.celldict.ModuleCell.inst_w_value .*>)
-            guard_nonnull_class(p29, ConstClass(Function), descr=...)
-            p33 = getfield_gc(p29, descr=<GcPtrFieldDescr pypy.interpreter.function.Function.inst_code .*>)
-            guard_value(p33, ConstPtr(ptr34), descr=...)
-            p35 = getfield_gc(p29, descr=<GcPtrFieldDescr pypy.interpreter.function.Function.inst_w_func_globals .*>)
-            p36 = getfield_gc(p29, descr=<GcPtrFieldDescr pypy.interpreter.function.Function.inst_closure .*>)
             p38 = call(ConstClass(getexecutioncontext), descr=<GcPtrCallDescr>)
             p39 = getfield_gc(p38, descr=<GcPtrFieldDescr pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref .*>)
             i40 = force_token()
@@ -100,19 +90,16 @@ class TestCall(BaseTestPyPyC):
         # -----------------------------
         loop, = log.loops_by_id('call')
         assert loop.match("""
-            i12 = int_lt(i5, i6)
-            guard_true(i12, descr=...)
+            guard_not_invalidated(descr=...)
+            i9 = int_lt(i5, i6)
+            guard_true(i9, descr=...)
+            i10 = force_token()
+            i12 = int_add(i5, 1)
             i13 = force_token()
-            i15 = int_add(i5, 1)
-            i16 = int_add_ovf(i15, i7)
-            guard_no_overflow(descr=...)
-            i18 = force_token()
-            i20 = int_add_ovf(i16, 1)
-            guard_no_overflow(descr=...)
-            i21 = int_add_ovf(i20, i7)
+            i15 = int_add_ovf(i12, 1)
             guard_no_overflow(descr=...)
             --TICK--
-            jump(p0, p1, p2, p3, p4, i21, i6, i7, p8, p9, p10, p11, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, i15, i6, p7, p8, descr=<Loop0>)
         """)
 
     def test_method_call(self):

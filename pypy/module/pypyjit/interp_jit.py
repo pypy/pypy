@@ -24,6 +24,7 @@ PyFrame._virtualizable2_ = ['last_instr', 'pycode',
                             'last_exception',
                             'lastblock',
                             'is_being_profiled',
+                            'w_globals',
                             ]
 
 JUMP_ABSOLUTE = opmap['JUMP_ABSOLUTE']
