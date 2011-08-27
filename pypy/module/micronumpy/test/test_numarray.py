@@ -432,13 +432,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = [3.0,4.0,0.0,-1.0]
         b = array(a)
         a.sort()
-	b.sort()
+        b.sort()
         assert(len(a)==len(b))
         for i in range(len(a)):
             assert(a[i]==b[i])
-	a = array(list(reversed(range(6))))
-	b = array(range(6))
-	a.sort()
+        a = array(list(reversed(range(6))))
+        b = array(range(6))
+        a.sort()
         assert(len(a)==len(b))
         for i in range(len(a)):
             assert(a[i]==b[i])
