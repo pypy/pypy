@@ -9,6 +9,7 @@ from pypy.rlib.unroll import unrolling_iterable
 
 from pypy.rpython.tool import rffi_platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.translator.platform import platform
 
 import sys
 import py
@@ -19,7 +20,9 @@ else:
     libname = 'expat'
 eci = ExternalCompilationInfo(
     libraries=[libname],
+    library_dirs=platform.preprocess_library_dirs([]),
     includes=['expat.h'],
+    include_dirs=platform.preprocess_include_dirs([]),
     )
 
 eci = rffi_platform.configure_external_library(

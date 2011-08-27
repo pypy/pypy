@@ -427,6 +427,24 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = array([])
         raises(ValueError, "b.argmin()")
 
+    def test_sort(self):
+        from numpy import array
+        a = [3.0,4.0,0.0,-1.0]
+        b = array(a)
+        a.sort()
+	b.sort()
+        assert(len(a)==len(b))
+        for i in range(len(a)):
+            assert(a[i]==b[i])
+	a = array(list(reversed(range(6))))
+	b = array(range(6))
+	a.sort()
+        assert(len(a)==len(b))
+        for i in range(len(a)):
+            assert(a[i]==b[i])
+
+
+
     def test_all(self):
         from numpy import array
         a = array(range(5))

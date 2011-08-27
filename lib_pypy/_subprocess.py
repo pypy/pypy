@@ -35,7 +35,7 @@ _DuplicateHandle.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_int,
 _DuplicateHandle.restype = ctypes.c_int
     
 _WaitForSingleObject = _kernel32.WaitForSingleObject
-_WaitForSingleObject.argtypes = [ctypes.c_int, ctypes.c_int]
+_WaitForSingleObject.argtypes = [ctypes.c_int, ctypes.c_uint]
 _WaitForSingleObject.restype = ctypes.c_int
 
 _GetExitCodeProcess = _kernel32.GetExitCodeProcess

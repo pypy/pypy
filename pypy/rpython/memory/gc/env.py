@@ -116,6 +116,10 @@ elif sys.platform == 'darwin':
     def get_total_memory():
         return get_total_memory_darwin(get_darwin_sysctl_signed('hw.memsize'))
 
+elif sys.platform.startswith('freebsd'):
+    def get_total_memory():
+        return get_total_memory_darwin(get_darwin_sysctl_signed('hw.usermem'))
+
 else:
     def get_total_memory():
         return addressable_size       # XXX implement me for other platforms
