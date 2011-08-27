@@ -324,7 +324,7 @@ class TestFlatten:
     def test_exc_exitswitch(self):
         def g(i):
             pass
-        
+
         def f(i):
             try:
                 g(i)
@@ -860,6 +860,13 @@ class TestFlatten:
             return rffi.cast(lltype.Float, n)
         self.encoding_test(f, [12.456], """
             float_return %f0
+        """, transform=True)
+
+        def g(n):
+            return rffi.cast(lltype.SingleFloat, n)
+        self.encoding_test(g, [12.456], """
+            cast_float_to_singlefloat %f0 -> %i0
+            int_return %i0
         """, transform=True)
 
     def test_direct_ptradd(self):
