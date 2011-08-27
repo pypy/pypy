@@ -805,8 +805,8 @@ class Transformer(object):
             assert False
 
     def _int_to_int_cast(self, v_arg, v_result):
-        longlong_arg = longlong.is_longlong(v_arg)
-        longlong_res = longlong.is_longlong(v_result)
+        longlong_arg = longlong.is_longlong(v_arg.concretetype)
+        longlong_res = longlong.is_longlong(v_result.concretetype)
 
         if longlong_arg and longlong_res:
             return
