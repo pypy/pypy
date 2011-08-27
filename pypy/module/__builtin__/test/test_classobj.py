@@ -981,6 +981,86 @@ class AppTestOldstyle(object):
         assert a.x == 2
         raises(TypeError, descr.__delete__, a)
 
+    def test_partial_ordering(self):
+        class A:
+            def __lt__(self, other):
+                return self
+        a1 = A()
+        a2 = A()
+        assert (a1 < a2) is a1
+        assert (a1 > a2) is a2
+
+    def test_eq_order(self):
+        # this gives the ordering of equality-related functions on top of
+        # CPython **for old-style classes**.
+        class A:
+            def __eq__(self, other): return self.__class__.__name__+':A.eq'
+            def __ne__(self, other): return self.__class__.__name__+':A.ne'
+            def __lt__(self, other): return self.__class__.__name__+':A.lt'
+            def __le__(self, other): return self.__class__.__name__+':A.le'
+            def __gt__(self, other): return self.__class__.__name__+':A.gt'
+            def __ge__(self, other): return self.__class__.__name__+':A.ge'
+        class B:
+            def __eq__(self, other): return self.__class__.__name__+':B.eq'
+            def __ne__(self, other): return self.__class__.__name__+':B.ne'
+            def __lt__(self, other): return self.__class__.__name__+':B.lt'
+            def __le__(self, other): return self.__class__.__name__+':B.le'
+            def __gt__(self, other): return self.__class__.__name__+':B.gt'
+            def __ge__(self, other): return self.__class__.__name__+':B.ge'
+        #
+        assert (A() == B()) == 'A:A.eq'
+        assert (A() != B()) == 'A:A.ne'
+        assert (A() <  B()) == 'A:A.lt'
+        assert (A() <= B()) == 'A:A.le'
+        assert (A() >  B()) == 'A:A.gt'
+        assert (A() >= B()) == 'A:A.ge'
+        #
+        assert (B() == A()) == 'B:B.eq'
+        assert (B() != A()) == 'B:B.ne'
+        assert (B() <  A()) == 'B:B.lt'
+        assert (B() <= A()) == 'B:B.le'
+        assert (B() >  A()) == 'B:B.gt'
+        assert (B() >= A()) == 'B:B.ge'
+        #
+        class C(A):
+            def __eq__(self, other): return self.__class__.__name__+':C.eq'
+            def __ne__(self, other): return self.__class__.__name__+':C.ne'
+            def __lt__(self, other): return self.__class__.__name__+':C.lt'
+            def __le__(self, other): return self.__class__.__name__+':C.le'
+            def __gt__(self, other): return self.__class__.__name__+':C.gt'
+            def __ge__(self, other): return self.__class__.__name__+':C.ge'
+        #
+        assert (A() == C()) == 'A:A.eq'
+        assert (A() != C()) == 'A:A.ne'
+        assert (A() <  C()) == 'A:A.lt'
+        assert (A() <= C()) == 'A:A.le'
+        assert (A() >  C()) == 'A:A.gt'
+        assert (A() >= C()) == 'A:A.ge'
+        #
+        assert (C() == A()) == 'C:C.eq'
+        assert (C() != A()) == 'C:C.ne'
+        assert (C() <  A()) == 'C:C.lt'
+        assert (C() <= A()) == 'C:C.le'
+        assert (C() >  A()) == 'C:C.gt'
+        assert (C() >= A()) == 'C:C.ge'
+        #
+        class D(A):
+            pass
+        #
+        assert (A() == D()) == 'A:A.eq'
+        assert (A() != D()) == 'A:A.ne'
+        assert (A() <  D()) == 'A:A.lt'
+        assert (A() <= D()) == 'A:A.le'
+        assert (A() >  D()) == 'A:A.gt'
+        assert (A() >= D()) == 'A:A.ge'
+        #
+        assert (D() == A()) == 'D:A.eq'
+        assert (D() != A()) == 'D:A.ne'
+        assert (D() <  A()) == 'D:A.lt'
+        assert (D() <= A()) == 'D:A.le'
+        assert (D() >  A()) == 'D:A.gt'
+        assert (D() >= A()) == 'D:A.ge'
+
 
 class AppTestOldStyleClassStrDict(object):
     def setup_class(cls):

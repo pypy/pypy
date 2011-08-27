@@ -540,6 +540,13 @@ def _prepare_module(space, w_mod, filename, pkgdir):
     if pkgdir is not None:
         space.setattr(w_mod, w('__path__'), space.newlist([w(pkgdir)]))
 
+def add_module(space, w_name):
+    w_mod = check_sys_modules(space, w_name)
+    if w_mod is None:
+        w_mod = space.wrap(Module(space, w_name))
+        space.sys.setmodule(w_mod)
+    return w_mod
+
 def load_c_extension(space, filename, modulename):
     # the next line is mandatory to init cpyext
     space.getbuiltinmodule("cpyext")

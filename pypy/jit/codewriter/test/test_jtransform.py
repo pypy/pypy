@@ -1014,3 +1014,13 @@ def test_quasi_immutable_setfield():
         assert op1.opname == 'jit_force_quasi_immutable'
         assert op1.args[0] == v_x
         assert op1.args[1] == ('fielddescr', STRUCT, 'mutate_x')
+
+def test_no_gcstruct_nesting_outside_of_OBJECT():
+    PARENT = lltype.GcStruct('parent')
+    STRUCT = lltype.GcStruct('struct', ('parent', PARENT),
+                                       ('x', lltype.Signed))
+    v_x = varoftype(lltype.Ptr(STRUCT))
+    op = SpaceOperation('getfield', [v_x, Constant('x', lltype.Void)],
+                        varoftype(lltype.Signed))
+    tr = Transformer(None, None)
+    raises(NotImplementedError, tr.rewrite_operation, op)
