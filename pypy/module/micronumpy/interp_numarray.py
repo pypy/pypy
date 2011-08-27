@@ -178,8 +178,8 @@ class BaseArray(Wrappable):
 
     def descr_sort(self, space):
         size = self.find_size()
-	stack = [(0,size-1)]
-	first=0; last=size-1; splitpoint=first;
+        stack = [(0,size-1)]
+        first=0; last=size-1; splitpoint=first;
         while (len(stack) > 0):
             first, last = stack.pop()
             while last>first:
