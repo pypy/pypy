@@ -807,6 +807,8 @@ class Transformer(object):
     def _int_to_int_cast(self, v_arg, v_result):
         longlong_arg = longlong.is_longlong(v_arg.concretetype)
         longlong_res = longlong.is_longlong(v_result.concretetype)
+        size1, unsigned1 = rffi.size_and_sign(v_arg.concretetype)
+        size2, unsigned2 = rffi.size_and_sign(v_result.concretetype)
 
         if longlong_arg and longlong_res:
             return
@@ -822,10 +824,27 @@ class Transformer(object):
                 oplist = []
             return [op1] + oplist
         elif longlong_res:
-            assert False
+            if unsigned1:
+                INTERMEDIATE = lltype.Unsigned
+            else:
+                INTERMEDIATE = lltype.Signed
+            v = varoftype(INTERMEDIATE)
+            op1 = SpaceOperation('force_cast', [v_arg], v)
+            oplist = self.rewrite_operation(op1)
+            if not oplist:
+                v = v_arg
+                oplist = []
+            if unsigned1:
+                opname = 'cast_uint_to_longlong'
+            else:
+                opname = 'cast_int_to_longlong'
+            op2 = self.rewrite_operation(
+                SpaceOperation(opname [v], v_result)
+            )
+            return oplist + [op2]
 
-        size1, unsigned1 = rffi.size_and_sign(v_arg.concretetype)
-        size2, unsigned2 = rffi.size_and_sign(v_result.concretetype)
+        # We've now, ostensibly, dealt with the longlongs, everything should be
+        # a Signed or smaller
         assert size1 <= rffi.sizeof(lltype.Signed)
         assert size2 <= rffi.sizeof(lltype.Signed)
 
