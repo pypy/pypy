@@ -45,9 +45,10 @@ class AppTestDtypes(BaseNumpyAppTest):
     def test_copy_array_with_dtype(self):
         from numpy import array
         a = array([0, 1, 2, 3], dtype=long)
-        assert isinstance(a[0], int)
+        # int on 64-bit, long in 32-bit
+        assert isinstance(a[0], (int, long))
         b = a.copy()
-        assert isinstance(b[0], int)
+        assert isinstance(b[0], (int, long))
 
         a = array([0, 1, 2, 3], dtype=bool)
         assert isinstance(a[0], bool)
@@ -70,14 +71,14 @@ class AppTestDtypes(BaseNumpyAppTest):
         from numpy import zeros
         a = zeros(10, dtype=long)
         for i in range(10):
-            assert isinstance(a[i], int)
+            assert isinstance(a[i], (int, long))
             assert a[1] == 0
 
     def test_ones_long(self):
         from numpy import ones
         a = ones(10, dtype=bool)
         for i in range(10):
-            assert isinstance(a[i], int)
+            assert isinstance(a[i], (int, long))
             assert a[1] == 1
 
     def test_add_int8(self):
