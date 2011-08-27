@@ -120,8 +120,6 @@ class CBuilder(object):
         self.originalentrypoint = entrypoint
         self.config = config
         self.gcpolicy = gcpolicy    # for tests only, e.g. rpython/memory/
-        if gcpolicy is not None and gcpolicy.requires_stackless:
-            config.translation.stackless = True
         self.eci = self.get_eci()
         self.secondary_entrypoints = secondary_entrypoints
 
@@ -139,21 +137,8 @@ class CBuilder(object):
             if not self.standalone:
                 raise NotImplementedError("--gcrootfinder=asmgcc requires standalone")
 
-        if self.config.translation.stackless:
-            if not self.standalone:
-                raise Exception("stackless: only for stand-alone builds")
-            
-            from pypy.translator.stackless.transform import StacklessTransformer
-            stacklesstransformer = StacklessTransformer(
-                translator, self.originalentrypoint,
-                stackless_gc=gcpolicyclass.requires_stackless)
-            self.entrypoint = stacklesstransformer.slp_entry_point
-        else:
-            stacklesstransformer = None
-
         db = LowLevelDatabase(translator, standalone=self.standalone,
                               gcpolicyclass=gcpolicyclass,
-                              stacklesstransformer=stacklesstransformer,
                               thread_enabled=self.config.translation.thread,
                               sandbox=self.config.translation.sandbox)
         self.db = db

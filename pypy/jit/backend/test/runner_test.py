@@ -9,6 +9,7 @@ from pypy.jit.metainterp.history import (AbstractFailDescr,
                                          ConstObj, BoxFloat, ConstFloat)
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.typesystem import deref
+from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.tool.oparser import parse
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi, rclass
 from pypy.rpython.ootypesystem import ootype
@@ -445,7 +446,8 @@ class BaseBackendTest(Runner):
             return chr(ord(c) + 1)
         FPTR = self.Ptr(self.FuncType([lltype.Char], lltype.Char))
         func_ptr = llhelper(FPTR, func)
-        calldescr = cpu.calldescrof(deref(FPTR), (lltype.Char,), lltype.Char)
+        calldescr = cpu.calldescrof(deref(FPTR), (lltype.Char,), lltype.Char,
+                                    EffectInfo.MOST_GENERAL)
         x = cpu.bh_call_i(self.get_funcbox(cpu, func_ptr).value,
                           calldescr, [ord('A')], None, None)
         assert x == ord('B')
@@ -458,7 +460,8 @@ class BaseBackendTest(Runner):
                                           lltype.Float))
             func_ptr = llhelper(FPTR, func)
             FTP = deref(FPTR)
-            calldescr = cpu.calldescrof(FTP, FTP.ARGS, FTP.RESULT)
+            calldescr = cpu.calldescrof(FTP, FTP.ARGS, FTP.RESULT,
+                                        EffectInfo.MOST_GENERAL)
             x = cpu.bh_call_f(self.get_funcbox(cpu, func_ptr).value,
                               calldescr,
                               [42], None, [longlong.getfloatstorage(3.5)])
@@ -486,13 +489,15 @@ class BaseBackendTest(Runner):
             FUNC = deref(FPTR)
             funcbox = self.get_funcbox(cpu, func_ptr)
             # first, try it with the "normal" calldescr
-            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                        EffectInfo.MOST_GENERAL)
             res = self.execute_operation(rop.CALL,
                                          [funcbox, BoxInt(num), BoxInt(num)],
                                          'int', descr=calldescr)
             assert res.value == 2 * num
             # then, try it with the dynamic calldescr
-            dyn_calldescr = cpu.calldescrof_dynamic([ffi_type, ffi_type], ffi_type)
+            dyn_calldescr = cpu.calldescrof_dynamic([ffi_type, ffi_type], ffi_type,
+                                                    EffectInfo.MOST_GENERAL)
             res = self.execute_operation(rop.CALL,
                                          [funcbox, BoxInt(num), BoxInt(num)],
                                          'int', descr=dyn_calldescr)
@@ -507,7 +512,8 @@ class BaseBackendTest(Runner):
             FUNC = self.FuncType([F] * 7 + [I] * 2 + [F] * 3, F)
             FPTR = self.Ptr(FUNC)
             func_ptr = llhelper(FPTR, func)
-            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                        EffectInfo.MOST_GENERAL)
             funcbox = self.get_funcbox(cpu, func_ptr)
             args = ([boxfloat(.1) for i in range(7)] +
                     [BoxInt(1), BoxInt(2), boxfloat(.2), boxfloat(.3),
@@ -529,7 +535,8 @@ class BaseBackendTest(Runner):
 
         FUNC = self.FuncType([lltype.Signed]*16, lltype.Signed)
         FPTR = self.Ptr(FUNC)
-        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                         EffectInfo.MOST_GENERAL)
         func_ptr = llhelper(FPTR, func)
         args = range(16)
         funcbox = self.get_funcbox(self.cpu, func_ptr)
@@ -552,7 +559,8 @@ class BaseBackendTest(Runner):
             FPTR = self.Ptr(self.FuncType([TP] * nb_args, TP))
             func_ptr = llhelper(FPTR, func_ints)
             FUNC = deref(FPTR)
-            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                        EffectInfo.MOST_GENERAL)
             funcbox = self.get_funcbox(cpu, func_ptr)
             args = [280-24*i for i in range(nb_args)]
             res = self.execute_operation(rop.CALL,
@@ -566,7 +574,8 @@ class BaseBackendTest(Runner):
 
         FUNC = self.FuncType([lltype.Float, lltype.Float], lltype.Float)
         FPTR = self.Ptr(FUNC)
-        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                         EffectInfo.MOST_GENERAL)
         func_ptr = llhelper(FPTR, func)
         funcbox = self.get_funcbox(self.cpu, func_ptr)
         res = self.execute_operation(rop.CALL, [funcbox, constfloat(1.5),
@@ -1589,7 +1598,8 @@ class LLtypeBackendTest(BaseBackendTest):
         '''
         FPTR = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Void))
         fptr = llhelper(FPTR, func)
-        calldescr = self.cpu.calldescrof(FPTR.TO, FPTR.TO.ARGS, FPTR.TO.RESULT)
+        calldescr = self.cpu.calldescrof(FPTR.TO, FPTR.TO.ARGS, FPTR.TO.RESULT,
+                                         EffectInfo.MOST_GENERAL)
 
         xtp = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
         xtp.subclassrange_min = 1
@@ -1807,7 +1817,8 @@ class LLtypeBackendTest(BaseBackendTest):
         FUNC = self.FuncType([lltype.Signed, lltype.Signed], lltype.Void)
         func_ptr = llhelper(lltype.Ptr(FUNC), maybe_force)
         funcbox = self.get_funcbox(self.cpu, func_ptr).constbox()
-        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                         EffectInfo.MOST_GENERAL)
         cpu = self.cpu
         i0 = BoxInt()
         i1 = BoxInt()
@@ -1850,7 +1861,8 @@ class LLtypeBackendTest(BaseBackendTest):
         FUNC = self.FuncType([lltype.Signed, lltype.Signed], lltype.Signed)
         func_ptr = llhelper(lltype.Ptr(FUNC), maybe_force)
         funcbox = self.get_funcbox(self.cpu, func_ptr).constbox()
-        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                         EffectInfo.MOST_GENERAL)
         cpu = self.cpu
         i0 = BoxInt()
         i1 = BoxInt()
@@ -1895,7 +1907,8 @@ class LLtypeBackendTest(BaseBackendTest):
         FUNC = self.FuncType([lltype.Signed, lltype.Signed], lltype.Float)
         func_ptr = llhelper(lltype.Ptr(FUNC), maybe_force)
         funcbox = self.get_funcbox(self.cpu, func_ptr).constbox()
-        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                         EffectInfo.MOST_GENERAL)
         cpu = self.cpu
         i0 = BoxInt()
         i1 = BoxInt()
@@ -1941,7 +1954,8 @@ class LLtypeBackendTest(BaseBackendTest):
         cpu = self.cpu
         func_adr = llmemory.cast_ptr_to_adr(c_tolower.funcsym)
         funcbox = ConstInt(heaptracker.adr2int(func_adr))
-        calldescr = cpu.calldescrof_dynamic([types.uchar], types.sint)
+        calldescr = cpu.calldescrof_dynamic([types.uchar], types.sint,
+                                            EffectInfo.MOST_GENERAL)
         i1 = BoxInt()
         i2 = BoxInt()
         tok = BoxInt()
@@ -1997,7 +2011,8 @@ class LLtypeBackendTest(BaseBackendTest):
         funcbox = ConstInt(heaptracker.adr2int(func_adr))
         calldescr = cpu.calldescrof_dynamic([types.pointer, types_size_t,
                                              types_size_t, types.pointer],
-                                            types.void)
+                                            types.void,
+                                            EffectInfo.MOST_GENERAL)
         i0 = BoxInt()
         i1 = BoxInt()
         i2 = BoxInt()
@@ -2292,7 +2307,8 @@ class LLtypeBackendTest(BaseBackendTest):
         ARGS = [lltype.Signed] * 10
         RES = lltype.Signed
         FakeJitDriverSD.portal_calldescr = self.cpu.calldescrof(
-            lltype.Ptr(lltype.FuncType(ARGS, RES)), ARGS, RES)
+            lltype.Ptr(lltype.FuncType(ARGS, RES)), ARGS, RES,
+            EffectInfo.MOST_GENERAL)
         for i in range(10):
             self.cpu.set_future_value_int(i, i+1)
         res = self.cpu.execute_token(looptoken)
@@ -2332,7 +2348,8 @@ class LLtypeBackendTest(BaseBackendTest):
         ARGS = [lltype.Float, lltype.Float]
         RES = lltype.Float
         FakeJitDriverSD.portal_calldescr = self.cpu.calldescrof(
-            lltype.Ptr(lltype.FuncType(ARGS, RES)), ARGS, RES)
+            lltype.Ptr(lltype.FuncType(ARGS, RES)), ARGS, RES,
+            EffectInfo.MOST_GENERAL)
         
         ops = '''
         [f0, f1]
@@ -2422,7 +2439,8 @@ class LLtypeBackendTest(BaseBackendTest):
         ARGS = [lltype.Float, lltype.Float]
         RES = lltype.Float
         FakeJitDriverSD.portal_calldescr = self.cpu.calldescrof(
-            lltype.Ptr(lltype.FuncType(ARGS, RES)), ARGS, RES)
+            lltype.Ptr(lltype.FuncType(ARGS, RES)), ARGS, RES,
+            EffectInfo.MOST_GENERAL)
         
         ops = '''
         [f0, f1]
@@ -2634,7 +2652,8 @@ class LLtypeBackendTest(BaseBackendTest):
             #
             FUNC = self.FuncType([lltype.Signed], RESTYPE)
             FPTR = self.Ptr(FUNC)
-            calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+            calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                             EffectInfo.MOST_GENERAL)
             x = self.cpu.bh_call_i(self.get_funcbox(self.cpu, f).value,
                                    calldescr, [value], None, None)
             assert x == expected, (
@@ -2667,7 +2686,8 @@ class LLtypeBackendTest(BaseBackendTest):
             #
             FUNC = self.FuncType([lltype.Signed], RESTYPE)
             FPTR = self.Ptr(FUNC)
-            calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+            calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                             EffectInfo.MOST_GENERAL)
             funcbox = self.get_funcbox(self.cpu, f)
             res = self.execute_operation(rop.CALL, [funcbox, BoxInt(value)],
                                          'int', descr=calldescr)
@@ -2701,7 +2721,8 @@ class LLtypeBackendTest(BaseBackendTest):
         #
         FUNC = self.FuncType([lltype.SignedLongLong], lltype.SignedLongLong)
         FPTR = self.Ptr(FUNC)
-        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                         EffectInfo.MOST_GENERAL)
         x = self.cpu.bh_call_f(self.get_funcbox(self.cpu, f).value,
                                calldescr, None, None, [value])
         assert x == expected
@@ -2728,7 +2749,8 @@ class LLtypeBackendTest(BaseBackendTest):
         #
         FUNC = self.FuncType([lltype.SignedLongLong], lltype.SignedLongLong)
         FPTR = self.Ptr(FUNC)
-        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                         EffectInfo.MOST_GENERAL)
         funcbox = self.get_funcbox(self.cpu, f)
         res = self.execute_operation(rop.CALL, [funcbox, BoxFloat(value)],
                                      'float', descr=calldescr)
@@ -2756,7 +2778,8 @@ class LLtypeBackendTest(BaseBackendTest):
         #
         FUNC = self.FuncType([lltype.SingleFloat], lltype.SingleFloat)
         FPTR = self.Ptr(FUNC)
-        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                         EffectInfo.MOST_GENERAL)
         ivalue = longlong.singlefloat2int(value)
         iexpected = longlong.singlefloat2int(expected)
         x = self.cpu.bh_call_i(self.get_funcbox(self.cpu, f).value,
@@ -2785,7 +2808,8 @@ class LLtypeBackendTest(BaseBackendTest):
         #
         FUNC = self.FuncType([lltype.SingleFloat], lltype.SingleFloat)
         FPTR = self.Ptr(FUNC)
-        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                         EffectInfo.MOST_GENERAL)
         funcbox = self.get_funcbox(self.cpu, f)
         ivalue = longlong.singlefloat2int(value)
         iexpected = longlong.singlefloat2int(expected)
