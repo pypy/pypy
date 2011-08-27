@@ -805,6 +805,25 @@ class Transformer(object):
             assert False
 
     def _int_to_int_cast(self, v_arg, v_result):
+        longlong_arg = longlong.is_longlong(v_arg)
+        longlong_res = longlong.is_longlong(v_result)
+
+        if longlong_arg and longlong_res:
+            return
+        elif longlong_arg:
+            v = varoftype(lltype.Signed)
+            op1 = self.rewrite_operation(
+                SpaceOperation('truncate_longlong_to_int', [v_arg], v)
+            )
+            op2 = SpaceOperation('force_cast', [v], v_result)
+            oplist = self.rewrite_operation(op2)
+            if not oplist:
+                op1.result = v
+                oplist = []
+            return [op1] + oplist
+        elif longlong_res:
+            assert False
+
         size1, unsigned1 = rffi.size_and_sign(v_arg.concretetype)
         size2, unsigned2 = rffi.size_and_sign(v_result.concretetype)
         assert size1 <= rffi.sizeof(lltype.Signed)
