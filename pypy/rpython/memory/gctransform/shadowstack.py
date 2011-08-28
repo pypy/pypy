@@ -162,7 +162,7 @@ class ShadowStackRootWalker(BaseRootWalker):
                 # We are in the child process.  Assumes that only the
                 # current thread survived, so frees the shadow stacks
                 # of all the other ones.
-                gcdata.thread_stacks.clear()
+                gcdata.thread_stacks = None
                 # Finally, reset the stored thread IDs, in case it
                 # changed because of fork().  Also change the main
                 # thread to the current one (because there is not any
