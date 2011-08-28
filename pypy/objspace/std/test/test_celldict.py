@@ -46,7 +46,7 @@ class AppTestModuleDict(object):
 
     def w_impl_used(self, obj):
         if self.runappdirect:
-            py.test.skip("__repr__ doesn't work on appdirect")
+            skip("__repr__ doesn't work on appdirect")
         import __pypy__
         assert "ModuleDictStrategy" in __pypy__.internal_repr(obj)
 
