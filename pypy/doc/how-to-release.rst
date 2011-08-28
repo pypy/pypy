@@ -42,7 +42,6 @@ Release Steps
     JIT: windows, linux, os/x
     no JIT: windows, linux, os/x
     sandbox: linux, os/x
-    stackless: windows, linux, os/x
 
 * write release announcement pypy/doc/release-x.y(.z).txt
   the release announcement should contain a direct link to the download page
