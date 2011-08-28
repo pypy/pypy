@@ -6,8 +6,6 @@ from pypy.objspace.std.test.test_dictmultiobject import FakeSpace, \
         BaseTestRDictImplementation, BaseTestDevolvedDictImplementation
 from pypy.interpreter import gateway
 
-from pypy.conftest import gettestobjspace, option
-
 space = FakeSpace()
 
 class TestCellDict(object):
@@ -44,9 +42,10 @@ class TestCellDict(object):
 class AppTestModuleDict(object):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withcelldict": True})
+        cls.w_runappdirect = cls.space.wrap(option.runappdirect)
 
     def w_impl_used(self, obj):
-        if option.runappdirect:
+        if self.runappdirect:
             py.test.skip("__repr__ doesn't work on appdirect")
         import __pypy__
         assert "ModuleDictStrategy" in __pypy__.internal_repr(obj)
