@@ -801,6 +801,54 @@ class Transformer(object):
         elif float_arg and float_res:
             # some float -> some float cast
             return self._float_to_float_cast(v_arg, v_result)
+        elif not float_arg and float_res:
+            # some int -> some float
+            ops = []
+            v1 = varoftype(lltype.Signed)
+            oplist = self.rewrite_operation(
+                SpaceOperation('force_cast', [v_arg], v1)
+            )
+            if oplist:
+                ops.extend(oplist)
+            else:
+                v1 = v_arg
+            v2 = varoftype(lltype.Float)
+            op = self.rewrite_operation(
+                SpaceOperation('cast_int_to_float', [v1], v2)
+            )
+            ops.append(op)
+            op2 = self.rewrite_operation(
+                SpaceOperation('force_cast', [v2], v_result)
+            )
+            if op2:
+                ops.append(op2)
+            else:
+                op.result = v_result
+            return ops
+        elif float_arg and not float_res:
+            # some float -> some int
+            ops = []
+            v1 = varoftype(lltype.Float)
+            op1 = self.rewrite_operation(
+                SpaceOperation('force_cast', [v_arg], v1)
+            )
+            if op1:
+                ops.append(op1)
+            else:
+                v1 = v_arg
+            v2 = varoftype(lltype.Signed)
+            op = self.rewrite_operation(
+                SpaceOperation('cast_float_to_int', [v1], v2)
+            )
+            ops.append(op)
+            oplist = self.rewrite_operation(
+                SpaceOperation('force_cast', [v2], v_result)
+            )
+            if oplist:
+                ops.extend(oplist)
+            else:
+                op.result = v_result
+            return ops
         else:
             assert False
 
