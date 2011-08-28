@@ -154,6 +154,13 @@ class UnpackFormatIterator(FormatIterator):
         self.inputpos = end
         return s
 
+    def get_pos_and_advance(self, count):
+        pos = self.inputpos
+        self.inputpos += count
+        if self.inputpos > len(self.input):
+            raise StructError("unpack str size too short for format")
+        return pos
+
     def appendobj(self, value):
         self.result_w.append(self.space.wrap(value))
     appendobj._annspecialcase_ = 'specialize:argtype(1)'
