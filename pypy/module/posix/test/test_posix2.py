@@ -805,6 +805,16 @@ class AppTestPosix:
                 data = f.read()
                 assert data == "who cares?"
 
+    try:
+        os.getlogin()
+    except (AttributeError, OSError):
+        pass
+    else:
+        def test_getlogin(self):
+            assert isinstance(self.posix.getlogin(), str)
+            # How else could we test that getlogin is properly
+            # working?
+
     def test_tmpfile(self):
         os = self.posix
         f = os.tmpfile()

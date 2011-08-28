@@ -13,6 +13,7 @@ def _new_callback(h, arg):
     # We still have the old shadowstack active at this point; save it
     # away, and start a fresh new one
     oldsuspstack = gcrootfinder.oldsuspstack
+    h = llmemory.cast_ptr_to_adr(h)
     llop.gc_save_current_state_away(lltype.Void,
                                     oldsuspstack, h)
     llop.gc_start_fresh_new_state(lltype.Void)
@@ -50,6 +51,7 @@ def get_result_suspstack(h):
     # away, and restore the new one
     if oldsuspstack:
         ll_assert(not _c.is_empty_handle(h),"unexpected empty stacklet handle")
+        h = llmemory.cast_ptr_to_adr(h)
         llop.gc_save_current_state_away(lltype.Void, oldsuspstack, h)
     else:
         ll_assert(_c.is_empty_handle(h),"unexpected non-empty stacklet handle")
