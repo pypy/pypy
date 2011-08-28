@@ -527,15 +527,21 @@ class ShortBoxes(object):
                 if producer in may_need_duplication:
                     del may_need_duplication[producer]
                     self.maybe_duplicate_op(producer, may_need_duplication)
+
+        allops = None
         for i in range(len(op.getarglist())):
             arg = op.getarg(i)
             if arg in self.duplicates:
-                for box in self.duplicates[arg]:
-                    if box in self.short_boxes:
-                        newop = self.duplicate(self.short_boxes, op)
-                        newop.setarg(i, box)
-            # XXX If more than one arg is duplicated this does not give
-            #     all combinations as each argument is treated separately
+                if not allops:
+                    allops = [op]
+                previous_ops = len(allops)
+                for o in range(previous_ops):
+                    for box in self.duplicates[arg]:
+                        if box in self.short_boxes:
+                            newop = self.duplicate(self.short_boxes, allops[0])
+                            newop.initarglist(allops[o].getarglist()[:])
+                            newop.setarg(i, box)
+                            allops.append(newop)
 
     def debug_print(self, logops):
         debug_start('jit-short-boxes')
