@@ -801,8 +801,6 @@ class LoopTest(object):
         res = self.meta_interp(f, [200])        
 
     def test_regular_pointers_in_short_preamble(self):
-        # XXX do we really care about this case?  If not, we should
-        # at least detect it and complain during codewriter/jtransform
         from pypy.rpython.lltypesystem import lltype
         BASE = lltype.GcStruct('BASE')
         A = lltype.GcStruct('A', ('parent', BASE), ('val', lltype.Signed))
@@ -829,9 +827,8 @@ class LoopTest(object):
                 assert n>0 and m>0
                 i += j
             return sa
-        expected = f(20, 10, 1)
-        res = self.meta_interp(f, [20, 10, 1])
-        assert res == expected
+        # This is detected as invalid by the codewriter, for now
+        py.test.raises(NotImplementedError, self.meta_interp, f, [20, 10, 1])
 
     def test_unerased_pointers_in_short_preamble(self):
         from pypy.rlib.rerased import new_erasing_pair
