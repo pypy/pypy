@@ -820,7 +820,7 @@ class Transformer(object):
             op2 = SpaceOperation('force_cast', [v], v_result)
             oplist = self.rewrite_operation(op2)
             if not oplist:
-                op1.result = v
+                op1.result = v_result
                 oplist = []
             return [op1] + oplist
         elif longlong_res:
