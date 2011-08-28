@@ -11,7 +11,6 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 class BasicGcPolicy(object):
-    requires_stackless = False
     stores_hash_at_the_end = False
 
     def __init__(self, db, thread_enabled=False):
@@ -320,8 +319,10 @@ class FrameworkGcPolicy(BasicGcPolicy):
             # still important to see it so that it can be followed as soon as
             # the mixlevelannotator resolves it.
             gctransf = self.db.gctransformer
-            fptr = gctransf.finalizer_funcptr_for_type(structdefnode.STRUCT)
-            self.db.get(fptr)
+            TYPE = structdefnode.STRUCT
+            kind_and_fptr = gctransf.special_funcptr_for_type(TYPE)
+            if kind_and_fptr:
+                self.db.get(kind_and_fptr[1])
 
     def array_setup(self, arraydefnode):
         pass
@@ -390,6 +391,9 @@ class FrameworkGcPolicy(BasicGcPolicy):
                funcgen.expr(v_obj),
                fieldname,
                funcgen.expr(c_skipoffset)))
+
+    def OP_GC_ASSUME_YOUNG_POINTERS(self, funcgen, op):
+        raise Exception("the FramewokGCTransformer should handle this")
 
 class AsmGcRootFrameworkGcPolicy(FrameworkGcPolicy):
     transformerclass = asmgcroot.AsmGcRootFrameworkGCTransformer
