@@ -839,7 +839,7 @@ class Transformer(object):
             else:
                 opname = 'cast_int_to_longlong'
             op2 = self.rewrite_operation(
-                SpaceOperation(opname [v], v_result)
+                SpaceOperation(opname, [v], v_result)
             )
             return oplist + [op2]
 
