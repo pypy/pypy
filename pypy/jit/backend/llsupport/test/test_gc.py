@@ -246,9 +246,8 @@ class FakeLLOp(object):
     def __init__(self):
         self.record = []
 
-    def do_malloc_fixedsize_clear(self, RESTYPE, type_id, size, can_collect,
+    def do_malloc_fixedsize_clear(self, RESTYPE, type_id, size,
                                   has_finalizer, contains_weakptr):
-        assert can_collect
         assert not contains_weakptr
         p = llmemory.raw_malloc(size)
         p = llmemory.cast_adr_to_ptr(p, RESTYPE)
@@ -258,8 +257,7 @@ class FakeLLOp(object):
         return p
 
     def do_malloc_varsize_clear(self, RESTYPE, type_id, length, size,
-                                itemsize, offset_to_length, can_collect):
-        assert can_collect
+                                itemsize, offset_to_length):
         p = llmemory.raw_malloc(size + itemsize * length)
         (p + offset_to_length).signed[0] = length
         p = llmemory.cast_adr_to_ptr(p, RESTYPE)

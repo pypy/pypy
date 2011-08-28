@@ -46,9 +46,6 @@ class FunctionCodeGenerator(object):
         self.gcpolicy = db.gcpolicy
         self.exception_policy = exception_policy
         self.functionname = functionname
-        # apply the stackless transformation
-        if db.stacklesstransformer:
-            db.stacklesstransformer.transform_graph(graph)
         # apply the exception transformation
         if self.db.exctransformer:
             self.db.exctransformer.create_exception_handling(self.graph)

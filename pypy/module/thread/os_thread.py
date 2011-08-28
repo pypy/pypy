@@ -15,11 +15,6 @@ from pypy.interpreter.gateway import unwrap_spec, NoneNotWrapped, Arguments
 # * The start-up data (the app-level callable and arguments) is
 #   stored in the global bootstrapper object.
 #
-# * The GC is notified that a new thread is about to start; in the
-#   framework GC with shadow stacks, this allocates a fresh new shadow
-#   stack (but doesn't use it yet).  See gc_thread_prepare().  This
-#   has no effect in asmgcc.
-#
 # * The new thread is launched at RPython level using an rffi call
 #   to the C function RPyThreadStart() defined in
 #   translator/c/src/thread*.h.  This RPython thread will invoke the
@@ -33,8 +28,8 @@ from pypy.interpreter.gateway import unwrap_spec, NoneNotWrapped, Arguments
 #   operation is called (this is all done by gil.after_external_call(),
 #   called from the rffi-generated wrapper).  The gc_thread_run()
 #   operation will automatically notice that the current thread id was
-#   not seen before, and start using the freshly prepared shadow stack.
-#   Again, this has no effect in asmgcc.
+#   not seen before, and (in shadowstack) it will allocate and use a
+#   fresh new stack.  Again, this has no effect in asmgcc.
 #
 # * Only then does bootstrap() really run.  The first thing it does
 #   is grab the start-up information (app-level callable and args)
@@ -180,7 +175,7 @@ printed unless the exception is SystemExit."""
     bootstrapper.acquire(space, w_callable, args)
     try:
         try:
-            thread.gc_thread_prepare()
+            thread.gc_thread_prepare()     # (this has no effect any more)
             ident = thread.start_new_thread(bootstrapper.bootstrap, ())
         except Exception, e:
             bootstrapper.release()     # normally called by the new thread
