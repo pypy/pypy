@@ -8,7 +8,6 @@ from pypy.jit.metainterp.history import (AbstractFailDescr,
                                          ConstObj, BoxFloat, ConstFloat)
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.typesystem import deref
-from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.tool.oparser import parse
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi, rclass
 from pypy.rpython.ootypesystem import ootype
@@ -97,8 +96,7 @@ class TestCallingConv(Runner):
             FUNC = self.FuncType(funcargs, F)
             FPTR = self.Ptr(FUNC)
             func_ptr = llhelper(FPTR, func)
-            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                        EffectInfo.MOST_GENERAL)
+            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
             funcbox = self.get_funcbox(cpu, func_ptr)
 
             ops = '[%s]\n' % arguments
@@ -150,8 +148,7 @@ class TestCallingConv(Runner):
             FUNC = self.FuncType(args, F)
             FPTR = self.Ptr(FUNC)
             func_ptr = llhelper(FPTR, func)
-            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                        EffectInfo.MOST_GENERAL)
+            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
             funcbox = self.get_funcbox(cpu, func_ptr)
 
             res = self.execute_operation(rop.CALL,
@@ -193,8 +190,7 @@ class TestCallingConv(Runner):
             FUNC = self.FuncType(args, F)
             FPTR = self.Ptr(FUNC)
             func_ptr = llhelper(FPTR, func)
-            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                        EffectInfo.MOST_GENERAL)
+            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
             funcbox = self.get_funcbox(cpu, func_ptr)
 
             res = self.execute_operation(rop.CALL,
@@ -272,8 +268,7 @@ class TestCallingConv(Runner):
                 else:
                     ARGS.append(lltype.Signed)
             FakeJitDriverSD.portal_calldescr = self.cpu.calldescrof(
-                lltype.Ptr(lltype.FuncType(ARGS, RES)), ARGS, RES,
-                EffectInfo.MOST_GENERAL)
+                lltype.Ptr(lltype.FuncType(ARGS, RES)), ARGS, RES)
             ops = '''
             [%s]
             f99 = call_assembler(%s, descr=called_looptoken)
@@ -342,8 +337,7 @@ class TestCallingConv(Runner):
             FUNC = self.FuncType(args, F)
             FPTR = self.Ptr(FUNC)
             func_ptr = llhelper(FPTR, func)
-            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                        EffectInfo.MOST_GENERAL)
+            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
             funcbox = self.get_funcbox(cpu, func_ptr)
 
             res = self.execute_operation(rop.CALL,

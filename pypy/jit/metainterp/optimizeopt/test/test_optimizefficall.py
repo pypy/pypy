@@ -51,18 +51,14 @@ class TestFfiCall(BaseTestBasic, LLtypeMixin):
                              restype=types.sint)
         #
         def calldescr(cpu, FUNC, oopspecindex, extraeffect=None):
-            if extraeffect == EffectInfo.EF_RANDOM_EFFECTS:
-                f = None   # means "can force all" really
-            else:
-                f = []
-            einfo = EffectInfo(f, f, f, f, oopspecindex=oopspecindex,
+            einfo = EffectInfo([], [], [], [], oopspecindex=oopspecindex,
                                extraeffect=extraeffect)
             return cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, einfo)
         #
         libffi_prepare =  calldescr(cpu, FUNC, EffectInfo.OS_LIBFFI_PREPARE)
         libffi_push_arg = calldescr(cpu, FUNC, EffectInfo.OS_LIBFFI_PUSH_ARG)
         libffi_call =     calldescr(cpu, FUNC, EffectInfo.OS_LIBFFI_CALL,
-                                    EffectInfo.EF_RANDOM_EFFECTS)
+                                 EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE)
     
     namespace = namespace.__dict__
 

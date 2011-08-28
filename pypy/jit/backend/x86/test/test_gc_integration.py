@@ -7,7 +7,6 @@ from pypy.jit.metainterp.history import BoxInt, ConstInt,\
      BoxPtr, ConstPtr, TreeLoop
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.codewriter import heaptracker
-from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.backend.llsupport.descr import GcCache
 from pypy.jit.backend.llsupport.gc import GcLLDescription
 from pypy.jit.backend.detect_cpu import getcpuclass
@@ -77,8 +76,7 @@ class TestRegallocDirectGcIntegration(object):
         for box in boxes:
             regalloc.rm.try_allocate_reg(box)
         TP = lltype.FuncType([], lltype.Signed)
-        calldescr = cpu.calldescrof(TP, TP.ARGS, TP.RESULT,
-                                    EffectInfo.MOST_GENERAL)
+        calldescr = cpu.calldescrof(TP, TP.ARGS, TP.RESULT)
         regalloc.rm._check_invariants()
         box = boxes[0]
         regalloc.position = 0

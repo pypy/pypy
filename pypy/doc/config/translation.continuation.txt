@@ -1,2 +1,0 @@
-Enable the use of a stackless-like primitive called "stacklet".
-In PyPy, this is exposed at app-level by the "_continuation" module.

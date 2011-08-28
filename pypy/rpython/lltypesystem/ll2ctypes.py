@@ -1098,8 +1098,6 @@ def get_ctypes_trampoline(FUNCTYPE, cfunc):
     for i in range(len(FUNCTYPE.ARGS)):
         if FUNCTYPE.ARGS[i] is lltype.Void:
             void_arguments.append(i)
-    def callme(cargs):   # an extra indirection: workaround for rlib.rstacklet
-        return cfunc(*cargs)
     def invoke_via_ctypes(*argvalues):
         global _callback_exc_info
         cargs = []
@@ -1111,7 +1109,7 @@ def get_ctypes_trampoline(FUNCTYPE, cfunc):
                 cargs.append(cvalue)
         _callback_exc_info = None
         _restore_c_errno()
-        cres = callme(cargs)
+        cres = cfunc(*cargs)
         _save_c_errno()
         if _callback_exc_info:
             etype, evalue, etb = _callback_exc_info

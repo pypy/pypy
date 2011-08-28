@@ -16,7 +16,6 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import rclass, rstr
 from pypy.jit.codewriter import longlong
-from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.backend.x86.rx86 import *
 
 def test_is_comparison_or_ovf_op():
@@ -93,8 +92,7 @@ class BaseTestRegalloc(object):
     zd_addr = cpu.cast_int_to_adr(zero_division_tp)
     zero_division_error = llmemory.cast_adr_to_ptr(zd_addr,
                                             lltype.Ptr(rclass.OBJECT_VTABLE))
-    raising_calldescr = cpu.calldescrof(FPTR.TO, FPTR.TO.ARGS, FPTR.TO.RESULT,
-                                        EffectInfo.MOST_GENERAL)
+    raising_calldescr = cpu.calldescrof(FPTR.TO, FPTR.TO.ARGS, FPTR.TO.RESULT)
 
     fdescr1 = BasicFailDescr(1)
     fdescr2 = BasicFailDescr(2)
@@ -117,12 +115,9 @@ class BaseTestRegalloc(object):
     f2ptr = llhelper(F2PTR, f2)
     f10ptr = llhelper(F10PTR, f10)
 
-    f1_calldescr = cpu.calldescrof(F1PTR.TO, F1PTR.TO.ARGS, F1PTR.TO.RESULT,
-                                   EffectInfo.MOST_GENERAL)
-    f2_calldescr = cpu.calldescrof(F2PTR.TO, F2PTR.TO.ARGS, F2PTR.TO.RESULT,
-                                   EffectInfo.MOST_GENERAL)
-    f10_calldescr= cpu.calldescrof(F10PTR.TO, F10PTR.TO.ARGS, F10PTR.TO.RESULT,
-                                   EffectInfo.MOST_GENERAL)
+    f1_calldescr = cpu.calldescrof(F1PTR.TO, F1PTR.TO.ARGS, F1PTR.TO.RESULT)
+    f2_calldescr = cpu.calldescrof(F2PTR.TO, F2PTR.TO.ARGS, F2PTR.TO.RESULT)
+    f10_calldescr = cpu.calldescrof(F10PTR.TO, F10PTR.TO.ARGS, F10PTR.TO.RESULT)
 
     namespace = locals().copy()
     type_system = 'lltype'

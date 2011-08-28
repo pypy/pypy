@@ -69,10 +69,7 @@ class GCBase(object):
                             varsize_offsets_to_gcpointers_in_var_part,
                             weakpointer_offset,
                             member_index,
-                            is_rpython_class,
-                            has_custom_trace,
-                            get_custom_trace,
-                            fast_path_tracing):
+                            is_rpython_class):
         self.getfinalizer = getfinalizer
         self.is_varsize = is_varsize
         self.has_gcptr_in_varsize = has_gcptr_in_varsize
@@ -86,9 +83,6 @@ class GCBase(object):
         self.weakpointer_offset = weakpointer_offset
         self.member_index = member_index
         self.is_rpython_class = is_rpython_class
-        self.has_custom_trace = has_custom_trace
-        self.get_custom_trace = get_custom_trace
-        self.fast_path_tracing = fast_path_tracing
 
     def get_member_index(self, type_id):
         return self.member_index(type_id)
@@ -151,13 +145,13 @@ class GCBase(object):
             else:
                 malloc_varsize = self.malloc_varsize
             ref = malloc_varsize(typeid, length, size, itemsize,
-                                 offset_to_length)
+                                 offset_to_length, True)
         else:
             if zero or not hasattr(self, 'malloc_fixedsize'):
                 malloc_fixedsize = self.malloc_fixedsize_clear
             else:
                 malloc_fixedsize = self.malloc_fixedsize
-            ref = malloc_fixedsize(typeid, size, needs_finalizer,
+            ref = malloc_fixedsize(typeid, size, True, needs_finalizer,
                                    contains_weakptr)
         # lots of cast and reverse-cast around...
         return llmemory.cast_ptr_to_adr(ref)
@@ -187,25 +181,16 @@ class GCBase(object):
         Typically, 'callback' is a bound method and 'arg' can be None.
         """
         typeid = self.get_type_id(obj)
-        #
-        # First, look if we need more than the simple fixed-size tracing
-        if not self.fast_path_tracing(typeid):
-            #
-            # Yes.  Two cases: either we are just a GcArray(gcptr), for
-            # which we have a special case for performance, or we call
-            # the slow path version.
-            if self.is_gcarrayofgcptr(typeid):
-                length = (obj + llmemory.gcarrayofptr_lengthoffset).signed[0]
-                item = obj + llmemory.gcarrayofptr_itemsoffset
-                while length > 0:
-                    if self.points_to_valid_gc_object(item):
-                        callback(item, arg)
-                    item += llmemory.gcarrayofptr_singleitemoffset
-                    length -= 1
-                return
-            self._trace_slow_path(obj, callback, arg)
-        #
-        # Do the tracing on the fixed-size part of the object.
+        if self.is_gcarrayofgcptr(typeid):
+            # a performance shortcut for GcArray(gcptr)
+            length = (obj + llmemory.gcarrayofptr_lengthoffset).signed[0]
+            item = obj + llmemory.gcarrayofptr_itemsoffset
+            while length > 0:
+                if self.points_to_valid_gc_object(item):
+                    callback(item, arg)
+                item += llmemory.gcarrayofptr_singleitemoffset
+                length -= 1
+            return
         offsets = self.offsets_to_gc_pointers(typeid)
         i = 0
         while i < len(offsets):
@@ -213,10 +198,6 @@ class GCBase(object):
             if self.points_to_valid_gc_object(item):
                 callback(item, arg)
             i += 1
-    trace._annspecialcase_ = 'specialize:arg(2)'
-
-    def _trace_slow_path(self, obj, callback, arg):
-        typeid = self.get_type_id(obj)
         if self.has_gcptr_in_varsize(typeid):
             item = obj + self.varsize_offset_to_variable_part(typeid)
             length = (obj + self.varsize_offset_to_length(typeid)).signed[0]
@@ -231,16 +212,7 @@ class GCBase(object):
                     j += 1
                 item += itemlength
                 length -= 1
-        if self.has_custom_trace(typeid):
-            generator = self.get_custom_trace(typeid)
-            item = llmemory.NULL
-            while True:
-                item = generator(obj, item)
-                if not item:
-                    break
-                if self.points_to_valid_gc_object(item):
-                    callback(item, arg)
-    _trace_slow_path._annspecialcase_ = 'specialize:arg(2)'
+    trace._annspecialcase_ = 'specialize:arg(2)'
 
     def trace_partial(self, obj, start, stop, callback, arg):
         """Like trace(), but only walk the array part, for indices in
@@ -345,7 +317,7 @@ class GCBase(object):
                     break
                 obj = self.run_finalizers.popleft()
                 finalizer = self.getfinalizer(self.get_type_id(obj))
-                finalizer(obj, llmemory.NULL)
+                finalizer(obj)
         finally:
             self.finalizer_lock_count -= 1
 

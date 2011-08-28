@@ -196,28 +196,17 @@ class DirectRunLayoutBuilder(gctypelayout.TypeLayoutBuilder):
             DESTR_ARG = lltype.typeOf(destrptr).TO.ARGS[0]
             destrgraph = destrptr._obj.graph
         else:
-            return None
+            return lltype.nullptr(gctypelayout.GCData.FINALIZERTYPE.TO)
 
         assert not type_contains_pyobjs(TYPE), "not implemented"
-        def ll_finalizer(addr, dummy):
-            assert dummy == llmemory.NULL
+        def ll_finalizer(addr):
             try:
                 v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)
                 self.llinterp.eval_graph(destrgraph, [v], recursive=True)
             except llinterp.LLException:
                 raise RuntimeError(
                     "a finalizer raised an exception, shouldn't happen")
-            return llmemory.NULL
-        return llhelper(gctypelayout.GCData.FINALIZER_OR_CT, ll_finalizer)
-
-    def make_custom_trace_funcptr_for_type(self, TYPE):
-        from pypy.rpython.memory.gctransform.support import get_rtti, \
-                type_contains_pyobjs
-        rtti = get_rtti(TYPE)
-        if rtti is not None and hasattr(rtti._obj, 'custom_trace_funcptr'):
-            return rtti._obj.custom_trace_funcptr
-        else:
-            return None
+        return llhelper(gctypelayout.GCData.FINALIZERTYPE, ll_finalizer)
 
 
 def collect_constants(graphs):

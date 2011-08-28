@@ -675,6 +675,21 @@ class LLFrame(object):
             #log.warn("op_indirect_call with graphs=None:", f)
         return self.op_direct_call(f, *args)
 
+    def op_adr_call(self, TGT, f, *inargs):
+        checkadr(f)
+        obj = self.llinterpreter.typer.type_system.deref(f.ref())
+        assert hasattr(obj, 'graph') # don't want to think about that
+        graph = obj.graph
+        args = []
+        for inarg, arg in zip(inargs, obj.graph.startblock.inputargs):
+            args.append(lltype._cast_whatever(arg.concretetype, inarg))
+        frame = self.newsubframe(graph, args)
+        result = frame.eval()
+        from pypy.translator.stackless.frame import storage_type
+        assert storage_type(lltype.typeOf(result)) == TGT
+        return lltype._cast_whatever(TGT, result)
+    op_adr_call.need_result_type = True
+
     def op_malloc(self, obj, flags):
         flavor = flags['flavor']
         zero = flags.get('zero', False)
@@ -825,11 +840,10 @@ class LLFrame(object):
 
     def op_gc_adr_of_nursery_top(self):
         raise NotImplementedError
+
     def op_gc_adr_of_nursery_free(self):
         raise NotImplementedError
 
-    def op_gc_adr_of_root_stack_base(self):
-        raise NotImplementedError
     def op_gc_adr_of_root_stack_top(self):
         raise NotImplementedError
 
@@ -880,21 +894,6 @@ class LLFrame(object):
     def op_gc_stack_bottom(self):
         pass       # marker for trackgcroot.py
 
-    def op_gc_shadowstackref_new(self):   # stacklet+shadowstack
-        raise NotImplementedError("gc_shadowstackref_new")
-    def op_gc_shadowstackref_context(self):
-        raise NotImplementedError("gc_shadowstackref_context")
-    def op_gc_shadowstackref_destroy(self):
-        raise NotImplementedError("gc_shadowstackref_destroy")
-    def op_gc_save_current_state_away(self):
-        raise NotImplementedError("gc_save_current_state_away")
-    def op_gc_forget_current_state(self):
-        raise NotImplementedError("gc_forget_current_state")
-    def op_gc_restore_state_from(self):
-        raise NotImplementedError("gc_restore_state_from")
-    def op_gc_start_fresh_new_state(self):
-        raise NotImplementedError("gc_start_fresh_new_state")
-
     def op_gc_get_type_info_group(self):
         raise NotImplementedError("gc_get_type_info_group")
 
@@ -930,6 +929,27 @@ class LLFrame(object):
 
     def op_get_write_barrier_from_array_failing_case(self):
         raise NotImplementedError("get_write_barrier_from_array_failing_case")
+
+    def op_yield_current_frame_to_caller(self):
+        raise NotImplementedError("yield_current_frame_to_caller")
+
+    def op_stack_frames_depth(self):
+        return len(self.llinterpreter.frame_stack)
+
+    def op_stack_switch(self, frametop):
+        raise NotImplementedError("stack_switch")
+
+    def op_stack_unwind(self):
+        raise NotImplementedError("stack_unwind")
+
+    def op_stack_capture(self):
+        raise NotImplementedError("stack_capture")
+
+    def op_get_stack_depth_limit(self):
+        raise NotImplementedError("get_stack_depth_limit")
+
+    def op_set_stack_depth_limit(self):
+        raise NotImplementedError("set_stack_depth_limit")
 
     def op_stack_current(self):
         return 0
@@ -1110,6 +1130,16 @@ class LLFrame(object):
         # a TypeError -- unless __nonzero__ has been explicitly overridden.
         assert isinstance(x, (int, Symbolic))
         return bool(x)
+
+    # read frame var support
+
+    def op_get_frame_base(self):
+        self._obj0 = self        # hack
+        return llmemory.fakeaddress(self)
+
+    def op_frame_info(self, *vars):
+        pass
+    op_frame_info.specialform = True
 
     # hack for jit.codegen.llgraph
 

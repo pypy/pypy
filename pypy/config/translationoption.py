@@ -28,9 +28,10 @@ PLATFORMS = [
 
 translation_optiondescription = OptionDescription(
         "translation", "Translation Options", [
-    BoolOption("continuation", "enable single-shot continuations",
-               default=False, cmdline="--continuation",
-               requires=[("translation.type_system", "lltype")]),
+    BoolOption("stackless", "enable stackless features during compilation",
+               default=False, cmdline="--stackless",
+               requires=[("translation.type_system", "lltype"),
+                         ("translation.gcremovetypeptr", False)]),  # XXX?
     ChoiceOption("type_system", "Type system to use when RTyping",
                  ["lltype", "ootype"], cmdline=None, default="lltype",
                  requires={
@@ -69,8 +70,7 @@ translation_optiondescription = OptionDescription(
                      "statistics": [("translation.gctransformer", "framework")],
                      "generation": [("translation.gctransformer", "framework")],
                      "hybrid": [("translation.gctransformer", "framework")],
-                     "boehm": [("translation.gctransformer", "boehm"),
-                               ("translation.continuation", False)],  # breaks
+                     "boehm": [("translation.gctransformer", "boehm")],
                      "markcompact": [("translation.gctransformer", "framework")],
                      "minimark": [("translation.gctransformer", "framework")],
                      },
@@ -389,6 +389,8 @@ def set_opt_level(config, level):
             config.translation.suggest(withsmallfuncsets=5)
         elif word == 'jit':
             config.translation.suggest(jit=True)
+            if config.translation.stackless:
+                raise NotImplementedError("JIT conflicts with stackless for now")
         elif word == 'removetypeptr':
             config.translation.suggest(gcremovetypeptr=True)
         else:

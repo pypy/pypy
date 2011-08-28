@@ -5,7 +5,7 @@ from pypy.jit.metainterp.history import AbstractDescr
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 
 class FakeCallDescr(AbstractDescr):
-    def __init__(self, FUNC, ARGS, RESULT, effectinfo):
+    def __init__(self, FUNC, ARGS, RESULT, effectinfo=None):
         self.FUNC = FUNC
         self.ARGS = ARGS
         self.RESULT = RESULT

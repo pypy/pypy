@@ -1257,8 +1257,10 @@ class MIFrame(object):
         assert i == len(allboxes)
         #
         effectinfo = descr.get_extra_info()
-        if (assembler_call or
-                effectinfo.check_forces_virtual_or_virtualizable()):
+        if (effectinfo is None or
+                effectinfo.extraeffect ==
+                             effectinfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE or
+                assembler_call):
             # residual calls require attention to keep virtualizables in-sync
             self.metainterp.clear_exception()
             self.metainterp.vable_and_vrefs_before_residual_call()
@@ -1691,11 +1693,12 @@ class MetaInterp(object):
             return
         if opnum == rop.CALL:
             effectinfo = descr.get_extra_info()
-            ef = effectinfo.extraeffect
-            if ef == effectinfo.EF_LOOPINVARIANT or \
-               ef == effectinfo.EF_ELIDABLE_CANNOT_RAISE or \
-               ef == effectinfo.EF_ELIDABLE_CAN_RAISE:
-                return
+            if effectinfo is not None:
+                ef = effectinfo.extraeffect
+                if ef == effectinfo.EF_LOOPINVARIANT or \
+                   ef == effectinfo.EF_ELIDABLE_CANNOT_RAISE or \
+                   ef == effectinfo.EF_ELIDABLE_CAN_RAISE:
+                    return
         if self.heap_cache:
             self.heap_cache.clear()
         if self.heap_array_cache:

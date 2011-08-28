@@ -7,6 +7,7 @@ from pypy.annotation import policy as annpolicy
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena, rffi, llgroup
 from pypy.rpython.memory.gctransform import framework
 from pypy.rpython.lltypesystem.lloperation import llop, void
+from pypy.rpython.memory.gc.marksweep import X_CLONE, X_POOL, X_POOL_PTR
 from pypy.rlib.objectmodel import compute_unique_id, we_are_translated
 from pypy.rlib.debug import ll_assert
 from pypy.rlib import rgc
@@ -17,13 +18,15 @@ from pypy.rlib.rarithmetic import LONG_BIT
 WORD = LONG_BIT // 8
 
 
-def rtype(func, inputtypes, specialize=True, gcname='ref',
+def rtype(func, inputtypes, specialize=True, gcname='ref', stacklessgc=False,
           backendopt=False, **extraconfigopts):
     from pypy.translator.translator import TranslationContext
     t = TranslationContext()
     # XXX XXX XXX mess
     t.config.translation.gc = gcname
     t.config.translation.gcremovetypeptr = True
+    if stacklessgc:
+        t.config.translation.gcrootfinder = "stackless"
     t.config.set(**extraconfigopts)
     ann = t.buildannotator(policy=annpolicy.StrictAnnotatorPolicy())
     ann.build_types(func, inputtypes)
@@ -41,6 +44,7 @@ ARGS = lltype.FixedSizeArray(lltype.Signed, 3)
 
 class GCTest(object):
     gcpolicy = None
+    stacklessgc = False
     GC_CAN_MOVE = False
     GC_CAN_MALLOC_NONMOVABLE = True
     taggedpointers = False
@@ -99,6 +103,7 @@ class GCTest(object):
 
         s_args = annmodel.SomePtr(lltype.Ptr(ARGS))
         t = rtype(entrypoint, [s_args], gcname=cls.gcname,
+                  stacklessgc=cls.stacklessgc,
                   taggedpointers=cls.taggedpointers)
 
         for fixup in mixlevelstuff:
@@ -404,40 +409,6 @@ class GenericGCTests(GCTest):
         run = self.runner("finalizer_resurrects")
         res = run([5, 42]) #XXX pure lazyness here too
         assert 160 <= res <= 165
-
-    def define_custom_trace(cls):
-        from pypy.rpython.annlowlevel import llhelper
-        from pypy.rpython.lltypesystem import llmemory
-        #
-        S = lltype.GcStruct('S', ('x', llmemory.Address), rtti=True)
-        T = lltype.GcStruct('T', ('z', lltype.Signed))
-        offset_of_x = llmemory.offsetof(S, 'x')
-        def customtrace(obj, prev):
-            if not prev:
-                return obj + offset_of_x
-            else:
-                return llmemory.NULL
-        CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
-                                          llmemory.Address)
-        customtraceptr = llhelper(lltype.Ptr(CUSTOMTRACEFUNC), customtrace)
-        lltype.attachRuntimeTypeInfo(S, customtraceptr=customtraceptr)
-        #
-        def setup():
-            s1 = lltype.malloc(S)
-            tx = lltype.malloc(T)
-            tx.z = 4243
-            s1.x = llmemory.cast_ptr_to_adr(tx)
-            return s1
-        def f():
-            s1 = setup()
-            llop.gc__collect(lltype.Void)
-            return llmemory.cast_adr_to_ptr(s1.x, lltype.Ptr(T)).z
-        return f
-
-    def test_custom_trace(self):
-        run = self.runner("custom_trace")
-        res = run([])
-        assert res == 4243
 
     def define_weakref(cls):
         import weakref, gc
@@ -806,6 +777,7 @@ class GenericMovingGCTests(GenericGCTests):
                 if op.opname == 'do_malloc_fixedsize_clear':
                     op.args = [Constant(type_id, llgroup.HALFWORD),
                                Constant(llmemory.sizeof(P), lltype.Signed),
+                               Constant(True, lltype.Bool),  # can_collect
                                Constant(False, lltype.Bool), # has_finalizer
                                Constant(False, lltype.Bool)] # contains_weakptr
                     break
@@ -842,6 +814,7 @@ class GenericMovingGCTests(GenericGCTests):
                 if op.opname == 'do_malloc_fixedsize_clear':
                     op.args = [Constant(type_id, llgroup.HALFWORD),
                                Constant(llmemory.sizeof(P), lltype.Signed),
+                               Constant(True, lltype.Bool),  # can_collect
                                Constant(False, lltype.Bool), # has_finalizer
                                Constant(False, lltype.Bool)] # contains_weakptr
                     break
@@ -935,6 +908,234 @@ class TestMarkSweepGC(GenericGCTests):
             GC_PARAMS = {'start_heap_size': 1024*WORD,
                          'translated_to_c': False}
             root_stack_depth = 200
+
+
+    def define_cloning(cls):
+        B = lltype.GcStruct('B', ('x', lltype.Signed))
+        A = lltype.GcStruct('A', ('b', lltype.Ptr(B)),
+                                 ('unused', lltype.Ptr(B)))
+        def make(n):
+            b = lltype.malloc(B)
+            b.x = n
+            a = lltype.malloc(A)
+            a.b = b
+            return a
+        def func():
+            a1 = make(111)
+            # start recording mallocs in a new pool
+            oldpool = llop.gc_x_swap_pool(X_POOL_PTR, lltype.nullptr(X_POOL))
+            # the following a2 goes into the new list
+            a2 = make(222)
+            # now put the old pool back and get the new pool
+            newpool = llop.gc_x_swap_pool(X_POOL_PTR, oldpool)
+            a3 = make(333)
+            # clone a2
+            a2ref = lltype.cast_opaque_ptr(llmemory.GCREF, a2)
+            clonedata = lltype.malloc(X_CLONE)
+            clonedata.gcobjectptr = a2ref
+            clonedata.pool = newpool
+            llop.gc_x_clone(lltype.Void, clonedata)
+            a2copyref = clonedata.gcobjectptr
+            a2copy = lltype.cast_opaque_ptr(lltype.Ptr(A), a2copyref)
+            a2copy.b.x = 444
+            return a1.b.x * 1000000 + a2.b.x * 1000 + a3.b.x
+
+        return func
+
+    def test_cloning(self):
+        run = self.runner("cloning")
+        res = run([])
+        assert res == 111222333
+
+    def define_cloning_varsize(cls):
+        B = lltype.GcStruct('B', ('x', lltype.Signed))
+        A = lltype.GcStruct('A', ('b', lltype.Ptr(B)),
+                                 ('more', lltype.Array(lltype.Ptr(B))))
+        def make(n):
+            b = lltype.malloc(B)
+            b.x = n
+            a = lltype.malloc(A, 2)
+            a.b = b
+            a.more[0] = lltype.malloc(B)
+            a.more[0].x = n*10
+            a.more[1] = lltype.malloc(B)
+            a.more[1].x = n*10+1
+            return a
+        def func():
+            oldpool = llop.gc_x_swap_pool(X_POOL_PTR, lltype.nullptr(X_POOL))
+            a2 = make(22)
+            newpool = llop.gc_x_swap_pool(X_POOL_PTR, oldpool)
+            # clone a2
+            a2ref = lltype.cast_opaque_ptr(llmemory.GCREF, a2)
+            clonedata = lltype.malloc(X_CLONE)
+            clonedata.gcobjectptr = a2ref
+            clonedata.pool = newpool
+            llop.gc_x_clone(lltype.Void, clonedata)
+            a2copyref = clonedata.gcobjectptr
+            a2copy = lltype.cast_opaque_ptr(lltype.Ptr(A), a2copyref)
+            a2copy.b.x = 44
+            a2copy.more[0].x = 440
+            a2copy.more[1].x = 441
+            return a2.b.x * 1000000 + a2.more[0].x * 1000 + a2.more[1].x
+
+        return func
+
+    def test_cloning_varsize(self):
+        run = self.runner("cloning_varsize")
+        res = run([])
+        assert res == 22220221
+
+    def define_cloning_highlevel(cls):
+        class A:
+            pass
+        class B(A):
+            pass
+        def func(n, dummy):
+            if n > 5:
+                x = A()
+            else:
+                x = B()
+                x.bvalue = 123
+            x.next = A()
+            x.next.next = x
+            y, newpool = rgc.gc_clone(x, None)
+            assert y is not x
+            assert y.next is not x
+            assert y is not x.next
+            assert y.next is not x.next
+            assert y is not y.next
+            assert y is y.next.next
+            if isinstance(y, B):
+                assert n <= 5
+                assert y.bvalue == 123
+            else:
+                assert n > 5
+            return 1
+
+        return func
+
+    def test_cloning_highlevel(self):
+        run = self.runner("cloning_highlevel")
+        res = run([3, 0])
+        assert res == 1
+        res = run([7, 0])
+        assert res == 1
+
+    def define_cloning_highlevel_varsize(cls):
+        class A:
+            pass
+        def func(n, dummy):
+            lst = [A() for i in range(n)]
+            for a in lst:
+                a.value = 1
+            lst2, newpool = rgc.gc_clone(lst, None)
+            for i in range(n):
+                a = A()
+                a.value = i
+                lst.append(a)
+                lst[i].value = 4 + i
+                lst2[i].value = 7 + i
+
+            n = 0
+            for a in lst:
+                n = n*10 + a.value
+            for a in lst2:
+                n = n*10 + a.value
+            return n
+
+        return func
+
+    def test_cloning_highlevel_varsize(self):
+        run = self.runner("cloning_highlevel_varsize")
+        res = run([3, 0])
+        assert res == 456012789
+
+    def define_tree_cloning(cls):
+        import os
+        # this makes a tree of calls.  Each leaf stores its path (a linked
+        # list) in 'result'.  Paths are mutated in-place but the leaves don't
+        # see each other's mutations because of x_clone.
+        STUFF = lltype.FixedSizeArray(lltype.Signed, 21)
+        NODE = lltype.GcForwardReference()
+        NODE.become(lltype.GcStruct('node', ('index', lltype.Signed),
+                                            ('counter', lltype.Signed),
+                                            ('next', lltype.Ptr(NODE)),
+                                            ('use_some_space', STUFF)))
+        PATHARRAY = lltype.GcArray(lltype.Ptr(NODE))
+        clonedata = lltype.malloc(X_CLONE)
+
+        def clone(node):
+            # that's for testing if the test is correct...
+            if not node:
+                return node
+            newnode = lltype.malloc(NODE)
+            newnode.index = node.index
+            newnode.counter = node.counter
+            newnode.next = clone(node.next)
+            return newnode
+
+        def do_call(result, path, index, remaining_depth):
+            # clone the while path
+            clonedata.gcobjectptr = lltype.cast_opaque_ptr(llmemory.GCREF,
+                                                           path)
+            clonedata.pool = lltype.nullptr(X_POOL)
+            llop.gc_x_clone(lltype.Void, clonedata)
+            # install the new pool as the current one
+            parentpool = llop.gc_x_swap_pool(X_POOL_PTR, clonedata.pool)
+            path = lltype.cast_opaque_ptr(lltype.Ptr(NODE),
+                                          clonedata.gcobjectptr)
+
+            # The above should have the same effect as:
+            #    path = clone(path)
+
+            # bump all the path node counters by one
+            p = path
+            while p:
+                p.counter += 1
+                p = p.next
+
+            if remaining_depth == 0:
+                llop.debug_print(lltype.Void, "setting", index, "with", path)
+                result[index] = path   # leaf
+            else:
+                node = lltype.malloc(NODE)
+                node.index = index * 2
+                node.counter = 0
+                node.next = path
+                do_call(result, node, index * 2, remaining_depth - 1)
+                node.index += 1    # mutation!
+                do_call(result, node, index * 2 + 1, remaining_depth - 1)
+
+            # restore the parent pool
+            llop.gc_x_swap_pool(X_POOL_PTR, parentpool)
+
+        def check(path, index, level, depth):
+            if level == depth:
+                assert index == 0
+                assert not path
+            else:
+                assert path.index == index
+                assert path.counter == level + 1
+                check(path.next, index >> 1, level + 1, depth)
+
+        def func(depth, dummy):
+            result = lltype.malloc(PATHARRAY, 1 << depth)
+            os.write(2, 'building tree... ')
+            do_call(result, lltype.nullptr(NODE), 0, depth)
+            os.write(2, 'checking tree... ')
+            #from pypy.rpython.lltypesystem.lloperation import llop
+            #llop.debug_view(lltype.Void, result,
+            #                llop.gc_x_size_header(lltype.Signed))
+            for i in range(1 << depth):
+                check(result[i], i, 0, depth)
+            os.write(2, 'ok\n')
+            return 1
+        return func
+
+    def test_tree_cloning(self):
+        run = self.runner("tree_cloning")
+        res = run([3, 0])
+        assert res == 1
 
 
 class TestPrintingGC(GenericGCTests):

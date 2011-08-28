@@ -3,6 +3,7 @@ from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.transform import insert_ll_stackcheck
 from pypy.rpython.memory.gctransform import framework
+from pypy.translator.stackless.transform import StacklessTransformer
 
 def _follow_path_naive(block, cur_path, accum):
     cur_path = (cur_path, block)
@@ -118,3 +119,54 @@ def test_gctransformed():
                 reload += 1
                 
         assert reload == 0
+        
+def test_stackless():
+    t = TranslationContext()
+    a = t.buildannotator()
+    a.build_types(g, [int])
+    a.simplify()
+    t.buildrtyper().specialize()        
+    backend_optimizations(t)
+    t.checkgraphs()
+    n = insert_ll_stackcheck(t)
+    t.checkgraphs()
+    assert n == 1
+
+    t.config.translation.stackless = True
+    stacklesstransf = StacklessTransformer(t, g)
+        
+    f_graph = graphof(t, f)
+    stacklesstransf.transform_graph(f_graph)
+    if conftest.option.view:
+        f_graph.show()
+
+    exctransf = t.getexceptiontransformer()
+    exctransf.create_exception_handling(f_graph)
+    if conftest.option.view:
+        f_graph.show()
+    check(f_graph, 'f', 'fetch_retval_void')    
+
+    class GCTransform(framework.FrameworkGCTransformer):
+        from pypy.rpython.memory.gc.generation import GenerationGC as \
+                                                          GCClass
+        GC_PARAMS = {}
+
+    gctransf = GCTransform(t)
+    gctransf.transform_graph(f_graph)
+    if conftest.option.view:
+        f_graph.show()
+    relevant = check(f_graph, 'f', 'fetch_retval_void')
+    for p in relevant:
+        in_between = False
+        reload = 0
+        for spaceop in p:
+            if spaceop.opname == 'direct_call':
+                target = direct_target(spaceop)
+                if target == 'f':
+                    in_between = False
+                elif target == 'stack_check___':
+                    in_between = True
+            if in_between and spaceop.opname == 'gc_reload_possibly_moved':
+                reload += 1
+                
+        assert reload == 1

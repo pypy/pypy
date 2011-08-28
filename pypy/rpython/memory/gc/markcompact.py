@@ -88,9 +88,6 @@ class MarkCompactGC(MovingGCBase):
 
     def __init__(self, config, space_size=4096,
                  min_next_collect_after=128, **kwds):
-        import py
-        py.test.skip("the 'markcompact' gc needs fixing for custom tracers")
-        #
         MovingGCBase.__init__(self, config, **kwds)
         self.space_size = space_size
         self.min_next_collect_after = min_next_collect_after
@@ -180,14 +177,14 @@ class MarkCompactGC(MovingGCBase):
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
     _setup_object._always_inline_ = True
 
-    def malloc_fixedsize(self, typeid16, size,
+    def malloc_fixedsize(self, typeid16, size, can_collect,
                          has_finalizer=False, contains_weakptr=False):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + size
         result = self._get_memory(totalsize)
         return self._setup_object(result, typeid16, has_finalizer)
 
-    def malloc_fixedsize_clear(self, typeid16, size,
+    def malloc_fixedsize_clear(self, typeid16, size, can_collect,
                                has_finalizer=False, contains_weakptr=False):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + size
@@ -196,7 +193,7 @@ class MarkCompactGC(MovingGCBase):
         return self._setup_object(result, typeid16, has_finalizer)
 
     def malloc_varsize_clear(self, typeid16, length, size, itemsize,
-                             offset_to_length):
+                             offset_to_length, can_collect):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         nonvarsize = size_gc_header + size
         totalsize = self._get_totalsize_var(nonvarsize, itemsize, length)

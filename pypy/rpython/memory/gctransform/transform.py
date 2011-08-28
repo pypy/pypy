@@ -307,6 +307,7 @@ class BaseGCTransformer(object):
             if backendopt:
                 self.mixlevelannotator.backend_optimize()
         # Make sure that the database also sees all finalizers now.
+        # XXX we need to think more about the interaction with stackless...
         # It is likely that the finalizers need special support there
         newgcdependencies = self.ll_finalizers_ptrs
         return newgcdependencies

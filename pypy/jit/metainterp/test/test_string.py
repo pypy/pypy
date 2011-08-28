@@ -1,6 +1,5 @@
 import py
 from pypy.rlib.jit import JitDriver, dont_look_inside, we_are_jitted
-from pypy.rlib.debug import debug_print
 from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.rpython.ootypesystem import ootype
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
@@ -522,8 +521,7 @@ class TestLLtypeUnicode(TestLLtype):
         jitdriver = JitDriver(greens = ['g'], reds = ['m'])
         @dont_look_inside
         def escape(x):
-            # a plain "print" would call os.write() and release the gil
-            debug_print(str(x))
+            print str(x)
         def f(g, m):
             g = str(g)
             while m >= 0:

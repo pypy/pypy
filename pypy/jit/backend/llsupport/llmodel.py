@@ -254,10 +254,10 @@ class AbstractLLCPU(AbstractCPU):
         return ofs, size, sign
     unpack_arraydescr_size._always_inline_ = True
 
-    def calldescrof(self, FUNC, ARGS, RESULT, extrainfo):
+    def calldescrof(self, FUNC, ARGS, RESULT, extrainfo=None):
         return get_call_descr(self.gc_ll_descr, ARGS, RESULT, extrainfo)
 
-    def calldescrof_dynamic(self, ffi_args, ffi_result, extrainfo):
+    def calldescrof_dynamic(self, ffi_args, ffi_result, extrainfo=None):
         from pypy.jit.backend.llsupport import ffisupport
         return ffisupport.get_call_descr_dynamic(self, ffi_args, ffi_result,
                                                  extrainfo)

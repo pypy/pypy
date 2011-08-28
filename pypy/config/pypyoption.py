@@ -33,8 +33,7 @@ working_modules.update(dict.fromkeys(
      "struct", "_hashlib", "_md5", "_sha", "_minimal_curses", "cStringIO",
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
      "_bisect", "binascii", "_multiprocessing", '_warnings',
-     "_collections", "_multibytecodec", "micronumpy", "_ffi",
-     "_continuation"]
+     "_collections", "_multibytecodec", "micronumpy", "_ffi"]
 ))
 
 translation_modules = default_modules.copy()
@@ -100,7 +99,6 @@ module_import_dependencies = {
     "_ssl"      : ["pypy.module._ssl.interp_ssl"],
     "_hashlib"  : ["pypy.module._ssl.interp_ssl"],
     "_minimal_curses": ["pypy.module._minimal_curses.fficurses"],
-    "_continuation": ["pypy.rlib.rstacklet"],
     }
 
 def get_module_validator(modname):

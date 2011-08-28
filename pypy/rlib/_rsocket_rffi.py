@@ -489,10 +489,10 @@ freeaddrinfo = external('freeaddrinfo', [addrinfo_ptr], lltype.Void)
 getnameinfo = external('getnameinfo', [sockaddr_ptr, socklen_t, CCHARP,
                        size_t, CCHARP, size_t, rffi.INT], rffi.INT)
 
-htonl = external('htonl', [rffi.UINT], rffi.UINT, threadsafe=False)
-htons = external('htons', [rffi.USHORT], rffi.USHORT, threadsafe=False)
-ntohl = external('ntohl', [rffi.UINT], rffi.UINT, threadsafe=False)
-ntohs = external('ntohs', [rffi.USHORT], rffi.USHORT, threadsafe=False)
+htonl = external('htonl', [rffi.UINT], rffi.UINT)
+htons = external('htons', [rffi.USHORT], rffi.USHORT)
+ntohl = external('ntohl', [rffi.UINT], rffi.UINT)
+ntohs = external('ntohs', [rffi.USHORT], rffi.USHORT)
 
 if _POSIX:
     inet_aton = external('inet_aton', [CCHARP, lltype.Ptr(in_addr)],

@@ -50,7 +50,7 @@ class FakeCPU:
     def __init__(self, rtyper):
         rtyper._builtin_func_for_spec_cache = FakeDict()
         self.rtyper = rtyper
-    def calldescrof(self, FUNC, ARGS, RESULT, effectinfo):
+    def calldescrof(self, FUNC, ARGS, RESULT):
         return FakeDescr()
     def fielddescrof(self, STRUCT, name):
         return FakeDescr()

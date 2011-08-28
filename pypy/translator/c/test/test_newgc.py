@@ -441,45 +441,6 @@ class TestUsingFramework(object):
     def test_del_raises(self):
         self.run('del_raises') # does not raise
 
-    def define_custom_trace(cls):
-        from pypy.rpython.annlowlevel import llhelper
-        from pypy.rpython.lltypesystem import llmemory
-        #
-        S = lltype.GcStruct('S', ('x', llmemory.Address), rtti=True)
-        offset_of_x = llmemory.offsetof(S, 'x')
-        def customtrace(obj, prev):
-            if not prev:
-                return obj + offset_of_x
-            else:
-                return llmemory.NULL
-        CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
-                                          llmemory.Address)
-        customtraceptr = llhelper(lltype.Ptr(CUSTOMTRACEFUNC), customtrace)
-        lltype.attachRuntimeTypeInfo(S, customtraceptr=customtraceptr)
-        #
-        def setup():
-            s = lltype.nullptr(S)
-            for i in range(10000):
-                t = lltype.malloc(S)
-                t.x = llmemory.cast_ptr_to_adr(s)
-                s = t
-            return s
-        def measure_length(s):
-            res = 0
-            while s:
-                res += 1
-                s = llmemory.cast_adr_to_ptr(s.x, lltype.Ptr(S))
-            return res
-        def f(n):
-            s1 = setup()
-            llop.gc__collect(lltype.Void)
-            return measure_length(s1)
-        return f
-
-    def test_custom_trace(self):
-        res = self.run('custom_trace', 0)
-        assert res == 10000
-
     def define_weakref(cls):
         import weakref
 

@@ -540,6 +540,7 @@ class OneShotInliner(BaseInliner):
 OP_WEIGHTS = {'same_as': 0,
               'cast_pointer': 0,
               'malloc': 2,
+              'yield_current_frame_to_caller': sys.maxint, # XXX bit extreme
               'instrument_count': 0,
               'debug_assert': -1,
               }

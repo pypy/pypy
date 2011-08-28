@@ -190,7 +190,7 @@ def test_compile_tmp_callback():
     class FakeJitDriverSD:
         portal_runner_ptr = llhelper(lltype.Ptr(FUNC), ll_portal_runner)
         portal_runner_adr = llmemory.cast_ptr_to_adr(portal_runner_ptr)
-        portal_calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, None)
+        portal_calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
         portal_finishtoken = compile.DoneWithThisFrameDescrInt()
         num_red_args = 2
         result_type = INT

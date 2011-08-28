@@ -147,11 +147,6 @@ class AsmStackRootWalker(BaseRootWalker):
             self._extra_gcmapend    = lambda: llmemory.NULL
             self._extra_mark_sorted = lambda: True
 
-    def need_stacklet_support(self, gctransformer, getfn):
-        # stacklet support: BIG HACK for rlib.rstacklet
-        from pypy.rlib import _stacklet_asmgcc
-        _stacklet_asmgcc._asmstackrootwalker = self     # as a global! argh
-
     def need_thread_support(self, gctransformer, getfn):
         # Threads supported "out of the box" by the rest of the code.
         # The whole code in this function is only there to support
@@ -366,13 +361,12 @@ class AsmStackRootWalker(BaseRootWalker):
         # found!  Enumerate the GC roots in the caller frame
         #
         collect_stack_root = self.gcdata._gc_collect_stack_root
-        ebp_in_caller = callee.regs_stored_at[INDEX_OF_EBP].address[0]
         gc = self.gc
         while True:
             location = self._shape_decompressor.next()
             if location == 0:
                 break
-            addr = self.getlocation(callee, ebp_in_caller, location)
+            addr = self.getlocation(callee, location)
             if gc.points_to_valid_gc_object(addr):
                 collect_stack_root(gc, addr)
         #
@@ -382,13 +376,12 @@ class AsmStackRootWalker(BaseRootWalker):
         reg = CALLEE_SAVED_REGS - 1
         while reg >= 0:
             location = self._shape_decompressor.next()
-            addr = self.getlocation(callee, ebp_in_caller, location)
+            addr = self.getlocation(callee, location)
             caller.regs_stored_at[reg] = addr
             reg -= 1
 
         location = self._shape_decompressor.next()
-        caller.frame_address = self.getlocation(callee, ebp_in_caller,
-                                                location)
+        caller.frame_address = self.getlocation(callee, location)
         # we get a NULL marker to mean "I'm the frame
         # of the entry point, stop walking"
         return caller.frame_address != llmemory.NULL
@@ -436,7 +429,7 @@ class AsmStackRootWalker(BaseRootWalker):
             return
         llop.debug_fatalerror(lltype.Void, "cannot find gc roots!")
 
-    def getlocation(self, callee, ebp_in_caller, location):
+    def getlocation(self, callee, location):
         """Get the location in the 'caller' frame of a variable, based
         on the integer 'location' that describes it.  All locations are
         computed based on information saved by the 'callee'.
@@ -454,8 +447,10 @@ class AsmStackRootWalker(BaseRootWalker):
             esp_in_caller = callee.frame_address + sizeofaddr
             return esp_in_caller + offset
         elif kind == LOC_EBP_PLUS:    # in the caller stack frame at N(%ebp)
+            ebp_in_caller = callee.regs_stored_at[INDEX_OF_EBP].address[0]
             return ebp_in_caller + offset
         else:  # kind == LOC_EBP_MINUS:   at -N(%ebp)
+            ebp_in_caller = callee.regs_stored_at[INDEX_OF_EBP].address[0]
             return ebp_in_caller - offset
 
 

@@ -166,9 +166,9 @@ class GenerationGC(SemiSpaceGC):
                 return False
         return self.nursery <= addr < self.nursery_top
 
-    def malloc_fixedsize_clear(self, typeid, size,
+    def malloc_fixedsize_clear(self, typeid, size, can_collect,
                                has_finalizer=False, contains_weakptr=False):
-        if (has_finalizer or
+        if (has_finalizer or not can_collect or
             (raw_malloc_usage(size) > self.lb_young_fixedsize and
              raw_malloc_usage(size) > self.largest_young_fixedsize)):
             # ^^^ we do two size comparisons; the first one appears redundant,
@@ -178,6 +178,7 @@ class GenerationGC(SemiSpaceGC):
             ll_assert(not contains_weakptr, "wrong case for mallocing weakref")
             # "non-simple" case or object too big: don't use the nursery
             return SemiSpaceGC.malloc_fixedsize_clear(self, typeid, size,
+                                                      can_collect,
                                                       has_finalizer,
                                                       contains_weakptr)
         size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -194,7 +195,7 @@ class GenerationGC(SemiSpaceGC):
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
 
     def malloc_varsize_clear(self, typeid, length, size, itemsize,
-                             offset_to_length):
+                             offset_to_length, can_collect):
         # Only use the nursery if there are not too many items.
         if not raw_malloc_usage(itemsize):
             too_many_items = False
@@ -213,7 +214,8 @@ class GenerationGC(SemiSpaceGC):
             maxlength = maxlength_for_minimal_nursery << self.nursery_scale
             too_many_items = length > maxlength
 
-        if (too_many_items or
+        if (not can_collect or
+            too_many_items or
             (raw_malloc_usage(size) > self.lb_young_var_basesize and
              raw_malloc_usage(size) > self.largest_young_var_basesize)):
             # ^^^ we do two size comparisons; the first one appears redundant,
@@ -221,7 +223,8 @@ class GenerationGC(SemiSpaceGC):
             #     it almost always folds down to False, which kills the
             #     second comparison as well.
             return SemiSpaceGC.malloc_varsize_clear(self, typeid, length, size,
-                                                    itemsize, offset_to_length)
+                                                    itemsize, offset_to_length,
+                                                    can_collect)
         # with the above checks we know now that totalsize cannot be more
         # than about half of the nursery size; in particular, the + and *
         # cannot overflow

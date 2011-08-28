@@ -433,10 +433,11 @@ class OptRewrite(Optimization):
         # specifically the given oopspec call.  For non-oopspec calls,
         # oopspecindex is just zero.
         effectinfo = op.getdescr().get_extra_info()
-        oopspecindex = effectinfo.oopspecindex
-        if oopspecindex == EffectInfo.OS_ARRAYCOPY:
-            if self._optimize_CALL_ARRAYCOPY(op):
-                return
+        if effectinfo is not None:
+            oopspecindex = effectinfo.oopspecindex
+            if oopspecindex == EffectInfo.OS_ARRAYCOPY:
+                if self._optimize_CALL_ARRAYCOPY(op):
+                    return
         self.emit_operation(op)
 
     def _optimize_CALL_ARRAYCOPY(self, op):
