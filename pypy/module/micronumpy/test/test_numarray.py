@@ -236,11 +236,18 @@ class AppTestNumArray(BaseNumpyAppTest):
             assert b[i] == i - 5
 
     def test_mul(self):
-        from numpy import array
+        from numpy import array, dtype
         a = array(range(5))
         b = a * a
         for i in range(5):
             assert b[i] == i * i
+
+        a = array(range(5), dtype=bool)
+        b = a * a
+        assert b.dtype is dtype(bool)
+        assert b[0] is False
+        for i in range(1, 5):
+            assert b[i] is True
 
     def test_mul_constant(self):
         from numpy import array
@@ -250,9 +257,15 @@ class AppTestNumArray(BaseNumpyAppTest):
             assert b[i] == i * 5
 
     def test_div(self):
-        from numpy import array
+        from numpy import array, dtype
         a = array(range(1, 6))
         b = a / a
+        for i in range(5):
+            assert b[i] == 1
+
+        a = array(range(1, 6), dtype=bool)
+        b = a / a
+        assert b.dtype is dtype("int8")
         for i in range(5):
             assert b[i] == 1
 

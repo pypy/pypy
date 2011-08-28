@@ -35,7 +35,7 @@ Translation Framework:
 
   * `Differences between PyPy and CPython`_
   * `What PyPy can do for your objects`_
-  * `Stackless and coroutines`_
+  * `Continulets and greenlets`_
   * `JIT Generation in PyPy`_ 
   * `Sandboxing Python code`_
 
@@ -292,8 +292,6 @@ Directory                          explanation/links
 
 `pypy/translator/jvm/`_            the Java backend
 
-`pypy/translator/stackless/`_      the `Stackless Transform`_
-
 `pypy/translator/tool/`_           helper tools for translation, including the Pygame
                                    `graph viewer`_
 
@@ -318,7 +316,7 @@ Directory                          explanation/links
 .. _`transparent proxies`: objspace-proxies.html#tproxy
 .. _`Differences between PyPy and CPython`: cpython_differences.html
 .. _`What PyPy can do for your objects`: objspace-proxies.html
-.. _`Stackless and coroutines`: stackless.html
+.. _`Continulets and greenlets`: stackless.html
 .. _StdObjSpace: objspace.html#the-standard-object-space 
 .. _`abstract interpretation`: http://en.wikipedia.org/wiki/Abstract_interpretation
 .. _`rpython`: coding-guide.html#rpython 
@@ -337,7 +335,6 @@ Directory                          explanation/links
 .. _`low-level type system`: rtyper.html#low-level-type
 .. _`object-oriented type system`: rtyper.html#oo-type
 .. _`garbage collector`: garbage_collection.html
-.. _`Stackless Transform`: translation.html#the-stackless-transform
 .. _`main PyPy-translation scripts`: getting-started-python.html#translating-the-pypy-python-interpreter
 .. _`.NET`: http://www.microsoft.com/net/
 .. _Mono: http://www.mono-project.com/

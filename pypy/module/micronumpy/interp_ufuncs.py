@@ -2,9 +2,9 @@ from pypy.module.micronumpy import interp_dtype, signature
 from pypy.tool.sourcetools import func_with_new_name
 
 
-def ufunc(func=None, promote_to_float=False):
+def ufunc(func=None, promote_to_float=False, promote_bools=False):
     if func is None:
-        return lambda func: ufunc(func, promote_to_float)
+        return lambda func: ufunc(func, promote_to_float, promote_bools)
     call_sig = signature.Call1(func)
     def impl(space, w_obj):
         from pypy.module.micronumpy.interp_numarray import (Call1,
@@ -14,6 +14,7 @@ def ufunc(func=None, promote_to_float=False):
         res_dtype = find_unaryop_result_dtype(space,
             w_obj.find_dtype(),
             promote_to_float=promote_to_float,
+            promote_bools=promote_bools,
         )
         if isinstance(w_obj, Scalar):
             return func(res_dtype, w_obj.value.convert_to(res_dtype)).wrap(space)
@@ -24,9 +25,9 @@ def ufunc(func=None, promote_to_float=False):
         return w_res
     return func_with_new_name(impl, "%s_dispatcher" % func.__name__)
 
-def ufunc2(func=None, promote_to_float=False):
+def ufunc2(func=None, promote_to_float=False, promote_bools=False):
     if func is None:
-        return lambda func: ufunc2(func, promote_to_float)
+        return lambda func: ufunc2(func, promote_to_float, promote_bools)
 
     call_sig = signature.Call2(func)
     def impl(space, w_lhs, w_rhs):
@@ -38,6 +39,7 @@ def ufunc2(func=None, promote_to_float=False):
         res_dtype = find_binop_result_dtype(space,
             w_lhs.find_dtype(), w_rhs.find_dtype(),
             promote_to_float=promote_to_float,
+            promote_bools=promote_bools,
         )
         if isinstance(w_lhs, Scalar) and isinstance(w_rhs, Scalar):
             return func(res_dtype, w_lhs.value, w_rhs.value).wrap(space)
@@ -51,7 +53,8 @@ def ufunc2(func=None, promote_to_float=False):
         return w_res
     return func_with_new_name(impl, "%s_dispatcher" % func.__name__)
 
-def find_binop_result_dtype(space, dt1, dt2, promote_bools=False, promote_to_float=False):
+def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
+    promote_bools=False):
     # dt1.num should be <= dt2.num
     if dt1.num > dt2.num:
         dt1, dt2 = dt2, dt1
@@ -71,7 +74,9 @@ def find_binop_result_dtype(space, dt1, dt2, promote_bools=False, promote_to_flo
     assert False
 
 def find_unaryop_result_dtype(space, dt, promote_to_float=False,
-    promote_to_largest=False):
+    promote_to_largest=False, promote_bools=False):
+    if promote_bools and (dt.kind == interp_dtype.BOOLLTR):
+        return space.fromcache(interp_dtype.W_Int8Dtype)
     if promote_to_float:
         for bytes, dtype in interp_dtype.dtypes_by_num_bytes:
             if dtype.kind == interp_dtype.FLOATINGLTR and dtype.num_bytes >= dt.num_bytes:
@@ -116,9 +121,9 @@ for ufunc_def in [
     ("add", "add", 2),
     ("subtract", "sub", 2),
     ("multiply", "mul", 2),
-    ("divide", "div", 2),
-    ("mod", "mod", 2),
-    ("power", "pow", 2),
+    ("divide", "div", 2, {"promote_bools": True}),
+    ("mod", "mod", 2, {"promote_bools": True}),
+    ("power", "pow", 2, {"promote_bools": True}),
 
     ("maximum", "max", 2),
     ("minimum", "min", 2),
@@ -128,7 +133,7 @@ for ufunc_def in [
     ("positive", "pos", 1),
     ("negative", "neg", 1),
     ("absolute", "abs", 1),
-    ("sign", "sign", 1),
+    ("sign", "sign", 1, {"promote_bools": True}),
     ("reciprocal", "reciprocal", 1),
 
     ("fabs", "fabs", 1, {"promote_to_float": True}),

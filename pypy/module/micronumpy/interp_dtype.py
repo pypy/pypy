@@ -235,6 +235,9 @@ class FloatArithmeticDtype(ArithmaticTypeMixin):
 class IntegerArithmeticDtype(ArithmaticTypeMixin):
     _mixin_ = True
 
+    def unwrap(self, space, w_item):
+        return self.adapt_val(space.int_w(space.int(w_item)))
+
     def for_computation(self, v):
         return widen(v)
 
@@ -262,7 +265,7 @@ W_BoolDtype = create_low_level_dtype(
     T = lltype.Bool,
     valtype = bool,
 )
-class W_BoolDtype(W_BoolDtype):
+class W_BoolDtype(IntegerArithmeticDtype, W_BoolDtype):
     def unwrap(self, space, w_item):
         return self.adapt_val(space.is_true(w_item))
 
@@ -272,10 +275,6 @@ class W_BoolDtype(W_BoolDtype):
 
     def for_computation(self, v):
         return int(v)
-
-    @binop
-    def add(self, v1, v2):
-        return bool(v1 + v2)
 
 W_Int8Dtype = create_low_level_dtype(
     num = 1, kind = SIGNEDLTR, name = "int8",
@@ -296,8 +295,7 @@ W_Int32Dtype = create_low_level_dtype(
     valtype = rffi.INT._type,
 )
 class W_Int32Dtype(IntegerArithmeticDtype, W_Int32Dtype):
-    def unwrap(self, space, w_item):
-        return self.adapt_val(space.int_w(space.int(w_item)))
+    pass
 
 W_Int64Dtype = create_low_level_dtype(
     num = 9, kind = SIGNEDLTR, name = "int64",
@@ -307,8 +305,7 @@ W_Int64Dtype = create_low_level_dtype(
     valtype = rffi.LONGLONG._type,
 )
 class W_Int64Dtype(IntegerArithmeticDtype, W_Int64Dtype):
-    def unwrap(self, space, w_item):
-        return self.adapt_val(space.int_w(space.int(w_item)))
+    pass
 
 W_Float64Dtype = create_low_level_dtype(
     num = 12, kind = FLOATINGLTR, name = "float64",

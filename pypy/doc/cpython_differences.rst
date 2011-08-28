@@ -24,6 +24,7 @@ List of extension modules that we support:
     _bisect
     _codecs
     _collections
+    `_continuation`_
     `_ffi`_
     _hashlib
     _io
@@ -84,10 +85,6 @@ List of extension modules that we support:
 
     _winreg
 
-  Extra module with Stackless_ only:
-
-    _stackless
-
   Note that only some of these modules are built-in in a typical
   CPython installation, and the rest is from non built-in extension
   modules.  This means that e.g. ``import parser`` will, on CPython,
@@ -108,11 +105,11 @@ that are neither mentioned above nor in `lib_pypy/`_ are not available in PyPy.
 
 .. the nonstandard modules are listed below...
 .. _`__pypy__`: __pypy__-module.html
+.. _`_continuation`: stackless.html
 .. _`_ffi`: ctypes-implementation.html
 .. _`_rawffi`: ctypes-implementation.html
 .. _`_minimal_curses`: config/objspace.usemodules._minimal_curses.html
 .. _`cpyext`: http://morepypy.blogspot.com/2010/04/using-cpython-extension-modules-with.html
-.. _Stackless: stackless.html
 
 
 Differences related to garbage collection strategies

@@ -124,7 +124,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert c[i] == a[i] * b[i]
 
     def test_sign(self):
-        from numpy import array, sign
+        from numpy import array, sign, dtype
 
         reference = [-1.0, 0.0, 0.0, 1.0]
         a = array([-5.0, -0.0, 0.0, 6.0])
@@ -136,6 +136,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
         ref = [-1, -1, -1, -1, -1, 0, 1, 1, 1, 1]
         for i in range(10):
             assert a[i] == ref[i]
+
+        a = sign(array([True, False], dtype=bool))
+        assert a.dtype == dtype("int8")
+        assert a[0] == 1
+        assert a[1] == 0
 
     def test_reciporocal(self):
         from numpy import array, reciprocal
