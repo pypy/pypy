@@ -112,7 +112,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
         x = maximum(2, 3)
         assert x == 3
-        assert type(x) is int
+        assert isinstance(x, (int, long))
 
     def test_multiply(self):
         from numpy import array, multiply
