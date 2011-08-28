@@ -91,8 +91,6 @@ class __extend__(pyframe.PyFrame):
     #     variables coming from a parent function in which i'm nested
     # 'closure' is a list of Cell instances: the received free vars.
 
-    cells = None
-
     @jit.unroll_safe
     def initialize_frame_scopes(self, outer_func, code):
         super_initialize_frame_scopes(self, outer_func, code)
@@ -100,6 +98,7 @@ class __extend__(pyframe.PyFrame):
         nfreevars = len(code.co_freevars)
         if not nfreevars:
             if not ncellvars:
+                self.cells = []
                 return            # no self.cells needed - fast path
         elif outer_func is None:
             space = self.space
