@@ -58,7 +58,7 @@ class AbstractVirtualValue(optimizer.OptValue):
     def _really_force(self):
         raise NotImplementedError("abstract base")
 
-    def import_from(self, other):
+    def import_from(self, other, optimizer):
         raise NotImplementedError("should not be called at this level")
     
 def get_fielddescrlist_cache(cpu):
