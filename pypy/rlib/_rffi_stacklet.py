@@ -45,5 +45,5 @@ switch = llexternal('stacklet_switch', [thread_handle, handle], handle,
 destroy = llexternal('stacklet_destroy', [thread_handle, handle], lltype.Void)
 
 _translate_pointer = llexternal("_stacklet_translate_pointer",
-                                [handle, llmemory.Address],
+                                [llmemory.Address, llmemory.Address],
                                 llmemory.Address)
