@@ -93,3 +93,9 @@ class AppTestDtypes(BaseNumpyAppTest):
         from numpy import dtype
 
         assert dtype(long).shape == ()
+
+    def test_cant_subclass(self):
+        from numpy import dtype
+
+        # You can't subclass dtype
+        raises(TypeError, type, "Foo", (dtype,), {})
