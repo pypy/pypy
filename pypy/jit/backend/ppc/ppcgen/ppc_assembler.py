@@ -1349,7 +1349,7 @@ class PPCBuilder(PPCAssembler):
         if IS_PPC_32:
             self.lwz(free_reg, base_reg, 4)
         else:
-            assert 0, "not implemented yet"
+            self.ld(free_reg, base_reg, 8)
         result = op.result
         cpu.reg_map[result] = free_reg
         cpu.next_free_register += 1
