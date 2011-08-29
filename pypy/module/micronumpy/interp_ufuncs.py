@@ -1,139 +1,158 @@
-import math
-
-from pypy.module.micronumpy.interp_support import Signature
-from pypy.rlib import rfloat
+from pypy.module.micronumpy import interp_dtype, signature
 from pypy.tool.sourcetools import func_with_new_name
 
-def ufunc(func):
-    signature = Signature()
+
+def ufunc(func=None, promote_to_float=False, promote_bools=False):
+    if func is None:
+        return lambda func: ufunc(func, promote_to_float, promote_bools)
+    call_sig = signature.Call1(func)
     def impl(space, w_obj):
-        from pypy.module.micronumpy.interp_numarray import Call1, convert_to_array
-        if space.issequence_w(w_obj):
-            w_obj_arr = convert_to_array(space, w_obj)
-            w_res = Call1(func, w_obj_arr, w_obj_arr.signature.transition(signature))
-            w_obj_arr.invalidates.append(w_res)
-            return w_res
-        else:
-            return space.wrap(func(space.float_w(w_obj)))
+        from pypy.module.micronumpy.interp_numarray import (Call1,
+            convert_to_array, Scalar)
+
+        w_obj = convert_to_array(space, w_obj)
+        res_dtype = find_unaryop_result_dtype(space,
+            w_obj.find_dtype(),
+            promote_to_float=promote_to_float,
+            promote_bools=promote_bools,
+        )
+        if isinstance(w_obj, Scalar):
+            return func(res_dtype, w_obj.value.convert_to(res_dtype)).wrap(space)
+
+        new_sig = signature.Signature.find_sig([call_sig, w_obj.signature])
+        w_res = Call1(new_sig, res_dtype, w_obj)
+        w_obj.add_invalidates(w_res)
+        return w_res
     return func_with_new_name(impl, "%s_dispatcher" % func.__name__)
 
-def ufunc2(func):
-    signature = Signature()
+def ufunc2(func=None, promote_to_float=False, promote_bools=False):
+    if func is None:
+        return lambda func: ufunc2(func, promote_to_float, promote_bools)
+
+    call_sig = signature.Call2(func)
     def impl(space, w_lhs, w_rhs):
-        from pypy.module.micronumpy.interp_numarray import Call2, convert_to_array
-        if space.issequence_w(w_lhs) or space.issequence_w(w_rhs):
-            w_lhs_arr = convert_to_array(space, w_lhs)
-            w_rhs_arr = convert_to_array(space, w_rhs)
-            new_sig = w_lhs_arr.signature.transition(signature).transition(w_rhs_arr.signature)
-            w_res = Call2(func, w_lhs_arr, w_rhs_arr, new_sig)
-            w_lhs_arr.invalidates.append(w_res)
-            w_rhs_arr.invalidates.append(w_res)
-            return w_res
-        else:
-            return space.wrap(func(space.float_w(w_lhs), space.float_w(w_rhs)))
+        from pypy.module.micronumpy.interp_numarray import (Call2,
+            convert_to_array, Scalar)
+
+        w_lhs = convert_to_array(space, w_lhs)
+        w_rhs = convert_to_array(space, w_rhs)
+        res_dtype = find_binop_result_dtype(space,
+            w_lhs.find_dtype(), w_rhs.find_dtype(),
+            promote_to_float=promote_to_float,
+            promote_bools=promote_bools,
+        )
+        if isinstance(w_lhs, Scalar) and isinstance(w_rhs, Scalar):
+            return func(res_dtype, w_lhs.value, w_rhs.value).wrap(space)
+
+        new_sig = signature.Signature.find_sig([
+            call_sig, w_lhs.signature, w_rhs.signature
+        ])
+        w_res = Call2(new_sig, res_dtype, w_lhs, w_rhs)
+        w_lhs.add_invalidates(w_res)
+        w_rhs.add_invalidates(w_res)
+        return w_res
     return func_with_new_name(impl, "%s_dispatcher" % func.__name__)
 
-@ufunc
-def absolute(value):
-    return abs(value)
+def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
+    promote_bools=False):
+    # dt1.num should be <= dt2.num
+    if dt1.num > dt2.num:
+        dt1, dt2 = dt2, dt1
+    # Some operations promote op(bool, bool) to return int8, rather than bool
+    if promote_bools and (dt1.kind == dt2.kind == interp_dtype.BOOLLTR):
+        return space.fromcache(interp_dtype.W_Int8Dtype)
+    if promote_to_float:
+        return find_unaryop_result_dtype(space, dt2, promote_to_float=True)
+    # If they're the same kind, choose the greater one.
+    if dt1.kind == dt2.kind:
+        return dt2
 
-@ufunc2
-def add(lvalue, rvalue):
-    return lvalue + rvalue
+    # Everything promotes to float, and bool promotes to everything.
+    if dt2.kind == interp_dtype.FLOATINGLTR or dt1.kind == interp_dtype.BOOLLTR:
+        return dt2
 
-@ufunc2
-def copysign(lvalue, rvalue):
-    return rfloat.copysign(lvalue, rvalue)
+    assert False
 
-@ufunc2
-def divide(lvalue, rvalue):
-    return lvalue / rvalue
+def find_unaryop_result_dtype(space, dt, promote_to_float=False,
+    promote_to_largest=False, promote_bools=False):
+    if promote_bools and (dt.kind == interp_dtype.BOOLLTR):
+        return space.fromcache(interp_dtype.W_Int8Dtype)
+    if promote_to_float:
+        for bytes, dtype in interp_dtype.dtypes_by_num_bytes:
+            if dtype.kind == interp_dtype.FLOATINGLTR and dtype.num_bytes >= dt.num_bytes:
+                return space.fromcache(dtype)
+    if promote_to_largest:
+        if dt.kind == interp_dtype.BOOLLTR or dt.kind == interp_dtype.SIGNEDLTR:
+            return space.fromcache(interp_dtype.W_Int64Dtype)
+        elif dt.kind == interp_dtype.FLOATINGLTR:
+            return space.fromcache(interp_dtype.W_Float64Dtype)
+        else:
+            assert False
+    return dt
 
-@ufunc
-def exp(value):
+def find_dtype_for_scalar(space, w_obj, current_guess=None):
+    w_type = space.type(w_obj)
+
+    bool_dtype = space.fromcache(interp_dtype.W_BoolDtype)
+    int64_dtype = space.fromcache(interp_dtype.W_Int64Dtype)
+
+    if space.is_w(w_type, space.w_bool):
+        if current_guess is None:
+            return bool_dtype
+    elif space.is_w(w_type, space.w_int):
+        if (current_guess is None or current_guess is bool_dtype or
+            current_guess is int64_dtype):
+            return int64_dtype
+    return space.fromcache(interp_dtype.W_Float64Dtype)
+
+
+def ufunc_dtype_caller(ufunc_name, op_name, argcount, **kwargs):
+    if argcount == 1:
+        @ufunc(**kwargs)
+        def impl(res_dtype, value):
+            return getattr(res_dtype, op_name)(value)
+    elif argcount == 2:
+        @ufunc2(**kwargs)
+        def impl(res_dtype, lvalue, rvalue):
+            return getattr(res_dtype, op_name)(lvalue, rvalue)
+    return func_with_new_name(impl, ufunc_name)
+
+for ufunc_def in [
+    ("add", "add", 2),
+    ("subtract", "sub", 2),
+    ("multiply", "mul", 2),
+    ("divide", "div", 2, {"promote_bools": True}),
+    ("mod", "mod", 2, {"promote_bools": True}),
+    ("power", "pow", 2, {"promote_bools": True}),
+
+    ("maximum", "max", 2),
+    ("minimum", "min", 2),
+
+    ("copysign", "copysign", 2, {"promote_to_float": True}),
+
+    ("positive", "pos", 1),
+    ("negative", "neg", 1),
+    ("absolute", "abs", 1),
+    ("sign", "sign", 1, {"promote_bools": True}),
+    ("reciprocal", "reciprocal", 1),
+
+    ("fabs", "fabs", 1, {"promote_to_float": True}),
+    ("floor", "floor", 1, {"promote_to_float": True}),
+    ("exp", "exp", 1, {"promote_to_float": True}),
+
+    ("sin", "sin", 1, {"promote_to_float": True}),
+    ("cos", "cos", 1, {"promote_to_float": True}),
+    ("tan", "tan", 1, {"promote_to_float": True}),
+    ("arcsin", "arcsin", 1, {"promote_to_float": True}),
+    ("arccos", "arccos", 1, {"promote_to_float": True}),
+    ("arctan", "arctan", 1, {"promote_to_float": True}),
+]:
+    ufunc_name = ufunc_def[0]
+    op_name = ufunc_def[1]
+    argcount = ufunc_def[2]
     try:
-        return math.exp(value)
-    except OverflowError:
-        return rfloat.INFINITY
+        extra_kwargs = ufunc_def[3]
+    except IndexError:
+        extra_kwargs = {}
 
-@ufunc
-def fabs(value):
-    return math.fabs(value)
-
-@ufunc2
-def maximum(lvalue, rvalue):
-    return max(lvalue, rvalue)
-
-@ufunc2
-def minimum(lvalue, rvalue):
-    return min(lvalue, rvalue)
-
-@ufunc2
-def multiply(lvalue, rvalue):
-    return lvalue * rvalue
-
-# Used by numarray for __pos__. Not visible from numpy application space.
-@ufunc
-def positive(value):
-    return value
-
-@ufunc
-def negative(value):
-    return -value
-
-@ufunc
-def reciprocal(value):
-    if value == 0.0:
-        return rfloat.copysign(rfloat.INFINITY, value)
-    return 1.0 / value
-
-@ufunc2
-def subtract(lvalue, rvalue):
-    return lvalue - rvalue
-
-@ufunc
-def floor(value):
-    return math.floor(value)
-
-@ufunc
-def sign(value):
-    if value == 0.0:
-        return 0.0
-    return rfloat.copysign(1.0, value)
-
-@ufunc
-def sin(value):
-    return math.sin(value)
-
-@ufunc
-def cos(value):
-    return math.cos(value)
-
-@ufunc
-def tan(value):
-    return math.tan(value)
-
-@ufunc2
-def power(lvalue, rvalue):
-    return math.pow(lvalue, rvalue)
-
-@ufunc2
-def mod(lvalue, rvalue):
-    return math.fmod(lvalue, rvalue)
-
-
-@ufunc
-def arcsin(value):
-    if value < -1.0 or  value > 1.0:
-        return rfloat.NAN
-    return math.asin(value)
-
-@ufunc
-def arccos(value):
-    if value < -1.0 or  value > 1.0:
-        return rfloat.NAN
-    return math.acos(value)
-
-@ufunc
-def arctan(value):
-    return math.atan(value)
+    globals()[ufunc_name] = ufunc_dtype_caller(ufunc_name, op_name, argcount, **extra_kwargs)

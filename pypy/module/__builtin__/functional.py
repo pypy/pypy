@@ -325,27 +325,6 @@ def map_multiple_collections(space, w_func, collections_w, none_func):
         result_w.append(w_res)
     return result_w
 
-def sum(space, w_sequence, w_start=0):
-    """sum(sequence[, start]) -> value
-
-Returns the sum of a sequence of numbers (NOT strings) plus the value
-of parameter 'start' (which defaults to 0).  When the sequence is
-empty, returns start."""
-    if space.is_true(space.isinstance(w_start, space.w_basestring)):
-        msg = "sum() can't sum strings"
-        raise OperationError(space.w_TypeError, space.wrap(msg))
-    w_iter = space.iter(w_sequence)
-    w_last = w_start
-    while True:
-        try:
-            w_next = space.next(w_iter)
-        except OperationError, e:
-            if not e.match(space, space.w_StopIteration):
-                raise
-            break
-        w_last = space.add(w_last, w_next)
-    return w_last
-
 @unwrap_spec(sequences_w="args_w")
 def zip(space, sequences_w):
     """Return a list of tuples, where the nth tuple contains every nth item of

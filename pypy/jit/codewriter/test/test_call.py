@@ -191,4 +191,4 @@ def test_releases_gil_analyzer():
     [block, _] = list(f_graph.iterblocks())
     [op] = block.operations
     call_descr = cc.getcalldescr(op)
-    assert call_descr.extrainfo.can_release_gil
+    assert call_descr.extrainfo.has_random_effects()

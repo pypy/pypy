@@ -34,3 +34,18 @@ Return True if bool(x) is True for all values x in the iterable."""
         if not x:
             return False
     return True
+
+def sum(sequence, start=0):
+    """sum(sequence[, start]) -> value
+
+Returns the sum of a sequence of numbers (NOT strings) plus the value
+of parameter 'start' (which defaults to 0).  When the sequence is
+empty, returns start."""
+    if isinstance(start, basestring):
+        raise TypeError("sum() can't sum strings")
+    last = start
+    for x in sequence:
+        # Very intentionally *not* +=, that would have different semantics if
+        # start was a mutable type, such as a list
+        last = last + x
+    return last

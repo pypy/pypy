@@ -21,6 +21,7 @@ from pypy.jit.metainterp.jitexc import JitException
 from pypy.jit.metainterp.jitdriver import JitDriverStaticData
 from pypy.jit.codewriter import support, codewriter, longlong
 from pypy.jit.codewriter.policy import JitPolicy
+from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.optimizeopt import ALL_OPTS_NAMES
 
 # ____________________________________________________________
@@ -746,7 +747,8 @@ class WarmRunnerDesc(object):
         jd.portal_calldescr = self.cpu.calldescrof(
             jd._PTR_PORTAL_FUNCTYPE.TO,
             jd._PTR_PORTAL_FUNCTYPE.TO.ARGS,
-            jd._PTR_PORTAL_FUNCTYPE.TO.RESULT)
+            jd._PTR_PORTAL_FUNCTYPE.TO.RESULT,
+            EffectInfo.MOST_GENERAL)
 
         vinfo = jd.virtualizable_info
 
