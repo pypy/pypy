@@ -8,7 +8,8 @@ from pypy.jit.backend.ppc.ppcgen.arch import IS_PPC_32
 from pypy.jit.metainterp.history import Const, ConstPtr
 from pypy.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from pypy.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
-from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.jit.backend.llsupport import symbolic
+from pypy.rpython.lltypesystem import lltype, rffi, rstr
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import BoxInt, ConstInt, Box
 
@@ -1171,6 +1172,10 @@ class PPCBuilder(PPCAssembler):
         self.li(free_reg, 0)
         self.adde(free_reg, free_reg, free_reg)
 
+    # *************************************************
+    #            FIELD  AND  ARRAY  OPS               *
+    # *************************************************
+
     def emit_setfield_gc(self, op, cpu):
         args = op.getarglist()
         fptr = args[0]
@@ -1336,6 +1341,50 @@ class PPCBuilder(PPCAssembler):
     def emit_getarrayitem_gc_pure(self, op, cpu):
         self.emit_getarrayitem_gc(op, cpu)
 
+    def emit_strlen(self, op, cpu):
+        args = op.getarglist()
+        base_box = args[0]
+        base_reg = cpu.reg_map[base_box]
+        free_reg = cpu.next_free_register
+        if IS_PPC_32:
+            self.lwz(free_reg, base_reg, 4)
+        else:
+            assert 0, "not implemented yet"
+        result = op.result
+        cpu.reg_map[result] = free_reg
+        cpu.next_free_register += 1
+
+    def emit_strgetitem(self, op, cpu):
+        args = op.getarglist()
+        ptr_box = args[0]
+        offset_box = args[1]
+        ptr_reg = cpu.reg_map[ptr_box]
+        offset_reg = cpu.reg_map[offset_box]
+        free_reg = cpu.next_free_register
+        basesize, itemsize, _ = symbolic.get_array_token(rstr.STR,
+                                cpu.translate_support_code)
+        assert itemsize == 1
+        self.addi(ptr_reg, ptr_reg, basesize)
+        self.lbzx(free_reg, ptr_reg, offset_reg)
+        result = op.result
+        cpu.reg_map[result] = free_reg
+        cpu.next_free_register += 1
+
+    def emit_strsetitem(self, op, cpu):
+        args = op.getarglist()
+        ptr_box = args[0]
+        offset_box = args[1]
+        value_box = args[2]
+
+        ptr_reg = cpu.reg_map[ptr_box]
+        offset_reg = cpu.reg_map[offset_box]
+        value_reg = cpu.reg_map[value_box]
+        basesize, itemsize, _ = symbolic.get_array_token(rstr.STR,
+                                cpu.translate_support_code)
+        assert itemsize == 1
+        self.addi(ptr_reg, ptr_reg, basesize)
+        self.stbx(value_reg, ptr_reg, offset_reg)
+
     ############################
     # unary integer operations #
     ############################
@@ -1462,6 +1511,8 @@ class PPCBuilder(PPCAssembler):
         self.cror(3, 0, 1)
         self.mfcr(free_reg)
         self.rlwinm(free_reg, free_reg, 4, 31, 31)
+
+    #_____________________________________
 
     def emit_finish(self, op, cpu):
         descr = op.getdescr()
