@@ -169,8 +169,6 @@ class StructOrUnionMeta(_CDataMeta):
 
     def from_address(self, address):
         instance = StructOrUnion.__new__(self)
-        if isinstance(address, _rawffi.StructureInstance):
-            address = address.buffer
         instance.__dict__['_buffer'] = self._ffistruct.fromaddress(address)
         return instance
 

@@ -166,28 +166,6 @@ class TestMoreCallbacks(BaseCTypesTestChecker):
 
         assert res == 1111
 
-    def test_callback_from_c_with_struct_argument(self):
-        import conftest
-        _ctypes_test = str(conftest.sofile)
-        dll = CDLL(_ctypes_test)
-
-        class RECT(Structure):
-            _fields_ = [("left", c_long), ("top", c_long),
-                        ("right", c_long), ("bottom", c_long)]
-
-        proto = CFUNCTYPE(c_int, RECT)
-        def callback(point):
-            return point.left+point.top+point.right+point.bottom
-
-        cbp = proto(callback)
-        rect = RECT(1000,100,10,1)
-
-        call_callback_with_rect = dll.call_callback_with_rect
-        call_callback_with_rect.restype = c_int
-        call_callback_with_rect.argtypes = [proto, RECT]
-        res = call_callback_with_rect(cbp, rect)
-        assert res == 1111
-
     def test_callback_unsupported_return_struct(self):
         class RECT(Structure):
             _fields_ = [("left", c_int), ("top", c_int),
