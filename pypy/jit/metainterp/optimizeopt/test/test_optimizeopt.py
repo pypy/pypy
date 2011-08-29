@@ -472,7 +472,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i0]
         jump(i0)
         """
-        self.optimize_loop(ops, expected, preamble)
+        short = """
+        [i0]
+        i1 = int_is_true(i0)
+        guard_value(i1, 1) []
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected, preamble, expected_short=short)
 
     def test_bound_int_is_true(self):
         ops = """

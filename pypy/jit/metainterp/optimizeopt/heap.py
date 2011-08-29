@@ -37,6 +37,12 @@ class CachedField(object):
             self.force_lazy_setfield(optheap)
             assert not self.possible_aliasing(optheap, structvalue)
         cached_fieldvalue = self._cached_fields.get(structvalue, None)
+
+        # Hack to ensure constants are imported from the preamble
+        if cached_fieldvalue and fieldvalue.is_constant(): 
+            optheap.getvalue(cached_fieldvalue.get_key_box())
+            cached_fieldvalue = self._cached_fields.get(structvalue, None)
+
         if cached_fieldvalue is not fieldvalue:
             # common case: store the 'op' as lazy_setfield, and register
             # myself in the optheap's _lazy_setfields_and_arrayitems list

@@ -181,22 +181,15 @@ class UnrollOptimizer(Optimization):
             for op in self.short_boxes.operations():
                 self.ensure_short_op_emitted(op, self.optimizer, seen)
                 if op and op.result:
-                    # The order of these guards is not important as 
-                    # self.optimizer.emitting_dissabled is False
-                    value = preamble_optimizer.getvalue(op.result)
-                    for guard in value.make_guards(op.result):
-                        self.optimizer.send_extra_operation(guard)
+                    preamble_value = preamble_optimizer.getvalue(op.result)
+                    value = self.optimizer.getvalue(op.result)
+                    imp = ValueImporter(self, preamble_value, op)
+                    self.optimizer.importable_values[value] = imp
                     newresult = self.optimizer.getvalue(op.result).get_key_box()
                     if newresult is not op.result:
                         self.short_boxes.alias(newresult, op.result)
             self.optimizer.flush()
             self.optimizer.emitting_dissabled = False
-
-            # XXX Hack to prevent the arraylen/strlen/unicodelen ops generated
-            #     by value.make_guards() from ending up in pure_operations
-            for key, op in self.optimizer.pure_operations.items():
-                if not self.short_boxes.has_producer(op.result):
-                    del self.optimizer.pure_operations[key]
 
             initial_inputargs_len = len(inputargs)
             self.inliner = Inliner(loop.inputargs, jump_args)
@@ -276,15 +269,10 @@ class UnrollOptimizer(Optimization):
 
         short_jumpargs = inputargs[:]
 
-        short = []
-        short_seen = {}
+        short = self.short = []
+        short_seen = self.short_seen = {}
         for box, const in self.constant_inputargs.items():
             short_seen[box] = True
-
-        for op in self.short_boxes.operations():
-            if op is not None:
-                if len(self.getvalue(op.result).make_guards(op.result)) > 0:
-                    self.add_op_to_short(op, short, short_seen, False, True)
 
         # This loop is equivalent to the main optimization loop in
         # Optimizer.propagate_all_forward
@@ -380,7 +368,7 @@ class UnrollOptimizer(Optimization):
         if op.is_ovf():
             guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
             optimizer.send_extra_operation(guard)
-        
+
     def add_op_to_short(self, op, short, short_seen, emit=True, guards_needed=False):
         if op is None:
             return None
@@ -536,6 +524,13 @@ class OptInlineShortPreamble(Optimization):
                         loop_token.failed_states.append(virtual_state)
         self.emit_operation(op)
 
+class ValueImporter(object):
+    def __init__(self, unroll, value, op):
+        self.unroll = unroll
+        self.preamble_value = value
+        self.op = op
 
-
-
+    def import_value(self, box, value):
+        value.import_from(self.preamble_value, self.unroll.optimizer)
+        self.unroll.add_op_to_short(self.op, self.unroll.short, self.unroll.short_seen, False, True)        
+        

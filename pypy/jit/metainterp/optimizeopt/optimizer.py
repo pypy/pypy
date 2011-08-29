@@ -25,6 +25,9 @@ class LenBound(object):
         self.descr = descr
         self.bound = bound
 
+    def clone(self):
+        return LenBound(self.mode, self.descr, self.bound.clone())
+
 class OptValue(object):
     __metaclass__ = extendabletype
     _attrs_ = ('box', 'known_class', 'last_guard_index', 'level', 'intbound', 'lenbound')
@@ -88,8 +91,27 @@ class OptValue(object):
                     assert False
                 guards.append(op)
                 self.lenbound.bound.make_guards(lenbox, guards)
-
         return guards
+
+    def import_from(self, other, optimizer):
+        assert self.level <= LEVEL_NONNULL
+        if other.level == LEVEL_CONSTANT:
+            self.make_constant(other.get_key_box())
+            optimizer.turned_constant(self)
+        elif other.level == LEVEL_KNOWNCLASS:
+            self.make_constant_class(other.known_class, -1)
+        else:
+            if other.level == LEVEL_NONNULL:
+                self.ensure_nonnull()
+            self.intbound.intersect(other.intbound)
+            if other.lenbound:
+                if self.lenbound:
+                    assert other.lenbound.mode == self.lenbound.mode
+                    assert other.lenbound.descr == self.lenbound.descr
+                    self.lenbound.bound.intersect(other.lenbound.bound)
+                else:
+                    self.lenbound = other.lenbound.clone()
+                    
 
     def force_box(self):
         return self.box
@@ -304,6 +326,7 @@ class Optimizer(Optimization):
         self.loop = loop
         self.bridge = bridge
         self.values = {}
+        self.importable_values = {}
         self.interned_refs = self.cpu.ts.new_ref_dict()
         self.resumedata_memo = resume.ResumeDataLoopMemo(metainterp_sd)
         self.bool_boxes = {}
@@ -392,6 +415,10 @@ class Optimizer(Optimization):
             value = self.values[box]
         except KeyError:
             value = self.values[box] = OptValue(box)
+        if not self.emitting_dissabled and value in self.importable_values:
+            imp = self.importable_values[value]
+            del self.importable_values[value]
+            imp.import_value(box, value)
         return value
 
     def get_constant_box(self, box):
@@ -487,7 +514,7 @@ class Optimizer(Optimization):
         for i in range(op.numargs()):
             arg = op.getarg(i)
             if arg in self.values:
-                box = self.values[arg].force_box()
+                box = self.getvalue(arg).force_box()
                 op.setarg(i, box)
         self.metainterp_sd.profiler.count(jitprof.OPT_OPS)
         if op.is_guard():
