@@ -376,7 +376,7 @@ main coroutine, which confuses the ``generator_iterator.next()`` method
 Thus the notion of coroutine is *not composable*.  By opposition, the
 primitive notion of continulets is composable: if you build two
 different interfaces on top of it, or have a program that uses twice the
-same interface in two parts, then assuming that both part independently
+same interface in two parts, then assuming that both parts independently
 work, the composition of the two parts still works.
 
 A full proof of that claim would require careful definitions, but let us
