@@ -20,7 +20,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.extfunc import ExtRegistryEntry
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.tool.uid import fixid
-from pypy.rlib.rarithmetic import r_uint, r_singlefloat, r_longfloat, intmask
+from pypy.rlib.rarithmetic import r_uint, r_singlefloat, r_longfloat, base_int, intmask
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter, LLException
 from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
@@ -113,7 +113,7 @@ def _setup_ctypes_cache():
         rffi.LONGLONG:   ctypes.c_longlong,
         rffi.ULONGLONG:  ctypes.c_ulonglong,
         rffi.SIZE_T:     ctypes.c_size_t,
-        lltype.Bool:     ctypes.c_long, # XXX
+        lltype.Bool:     ctypes.c_bool,
         llmemory.Address:  ctypes.c_void_p,
         llmemory.GCREF:    ctypes.c_void_p,
         llmemory.WeakRef:  ctypes.c_void_p, # XXX
@@ -1142,6 +1142,8 @@ def force_cast(RESTYPE, value):
             cvalue = 0
     elif isinstance(cvalue, (str, unicode)):
         cvalue = ord(cvalue)     # character -> integer
+    elif hasattr(RESTYPE, "_type") and issubclass(RESTYPE._type, base_int):
+        cvalue = int(cvalue)
 
     if not isinstance(cvalue, (int, long, float)):
         raise NotImplementedError("casting %r to %r" % (TYPE1, RESTYPE))
