@@ -203,13 +203,23 @@ are for the time being not supported any more:
 
 * Coroutines (could be rewritten at app-level)
 
-* Pickling and unpickling continulets (probably not too hard)
+* Pickling and unpickling continulets (*)
 
-* Continuing execution of a continulet in a different thread
+* Continuing execution of a continulet in a different thread (*)
 
 * Automatic unlimited stack (must be emulated__ so far)
 
 .. __: `recursion depth limit`_
+
+(*) Pickling, as well as changing threads, could be implemented by using
+a "soft" stack switching mode again.  We would get either "hard" or
+"soft" switches, similarly to Stackless Python 3rd version: you get a
+"hard" switch (like now) when the C stack contains non-trivial C frames
+to save, and a "soft" switch (like previously) when it contains only
+simple calls from Python to Python.  Soft-switched continulets would
+also consume a bit less RAM, at the possible expense of making the
+switch a bit slower (unsure about that; what is the Stackless Python
+experience?).
 
 
 Recursion depth limit
@@ -366,7 +376,7 @@ main coroutine, which confuses the ``generator_iterator.next()`` method
 Thus the notion of coroutine is *not composable*.  By opposition, the
 primitive notion of continulets is composable: if you build two
 different interfaces on top of it, or have a program that uses twice the
-same interface in two parts, then assuming that both part independently
+same interface in two parts, then assuming that both parts independently
 work, the composition of the two parts still works.
 
 A full proof of that claim would require careful definitions, but let us

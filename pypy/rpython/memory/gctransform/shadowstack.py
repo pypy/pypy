@@ -3,6 +3,7 @@ from pypy.rpython.memory.gctransform.framework import sizeofaddr
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rlib.debug import ll_assert
+from pypy.rlib.nonconst import NonConstant
 from pypy.annotation import model as annmodel
 
 
@@ -31,7 +32,7 @@ class ShadowStackRootWalker(BaseRootWalker):
                 'root_iterator' in translator._jit2gc):
             root_iterator = translator._jit2gc['root_iterator']
             def jit_walk_stack_root(callback, addr, end):
-                root_iterator.context = llmemory.NULL
+                root_iterator.context = NonConstant(llmemory.NULL)
                 gc = self.gc
                 while True:
                     addr = root_iterator.next(gc, addr, end)

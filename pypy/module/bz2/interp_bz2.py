@@ -351,6 +351,7 @@ class ReadBZ2Filter(Stream):
         self.decompressor = W_BZ2Decompressor(space)
         self.readlength = r_longlong(0)
         self.buffer = ""
+        self.pos = 0
         self.finished = False
         if buffering < 1024:
             buffering = 1024   # minimum amount of compressed data read at once
@@ -385,6 +386,7 @@ class ReadBZ2Filter(Stream):
             self.stream.seek(0, 0)
             self.decompressor = W_BZ2Decompressor(self.space)
             self.readlength = r_longlong(0)
+            self.pos = 0
             self.buffer = ""
             self.finished = False
         else:
@@ -410,15 +412,19 @@ class ReadBZ2Filter(Stream):
                                  self.space.wrap("compressed file ended before the logical end-of-the-stream was detected"))
         result = self.space.str_w(w_result)
         self.readlength += len(result)
-        result = self.buffer + result
+        if len(self.buffer) != self.pos:
+            pos = self.pos
+            assert pos >= 0
+            result = self.buffer[pos:] + result
         self.buffer = ''
+        self.pos = 0
         return result
 
     def read(self, n):
         # XXX not nice
         if n <= 0:
             return ''
-        while not self.buffer:
+        while self.pos == len(self.buffer):
             if self.finished:
                 return ""
             moredata = self.stream.read(max(self.buffering, n))
@@ -433,17 +439,23 @@ class ReadBZ2Filter(Stream):
                     return ""
                 raise
             self.buffer = self.space.str_w(w_read)
-        if len(self.buffer) >= n:
-            result = self.buffer[:n]
-            self.buffer = self.buffer[n:]
+            self.pos = 0
+        if len(self.buffer) - self.pos >= n:
+            pos = self.pos
+            assert pos >= 0
+            result = self.buffer[pos:pos + n]
+            self.pos += n
         else:
             result = self.buffer
+            self.pos = 0
             self.buffer = ""
         self.readlength += len(result)
         return result
 
     def peek(self):
-        return self.buffer
+        pos = self.pos
+        assert pos >= 0
+        return self.buffer[pos:]
 
     def try_to_find_file_descriptor(self):
         return self.stream.try_to_find_file_descriptor()
