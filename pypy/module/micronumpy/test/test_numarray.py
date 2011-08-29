@@ -314,6 +314,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         for i in range(5):
             assert b[i] == 0
 
+        a = array(range(1, 6), float)
+        b = (a + 1) % a
+        assert b[0] == 0
+        for i in range(1, 5):
+            assert b[i] == 1
+
     def test_mod_other(self):
         from numpy import array
         a = array(range(5))
