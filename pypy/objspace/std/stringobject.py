@@ -913,11 +913,15 @@ def getnewargs__String(space, w_str):
 def repr__String(space, w_str):
     s = w_str._value
 
-    buf = StringBuilder(len(s) + 2)
-
     quote = "'"
     if quote in s and '"' not in s:
         quote = '"'
+
+    return space.wrap(string_escape_encode(s, quote))
+
+def string_escape_encode(s, quote):
+
+    buf = StringBuilder(len(s) + 2)
 
     buf.append(quote)
     startslice = 0
@@ -959,7 +963,7 @@ def repr__String(space, w_str):
 
     buf.append(quote)
 
-    return space.wrap(buf.build())
+    return buf.build()
 
 
 DEFAULT_NOOP_TABLE = ''.join([chr(i) for i in range(256)])
