@@ -150,7 +150,6 @@ class TestSampleCallbacks(BaseCTypesTestChecker):
 class TestMoreCallbacks(BaseCTypesTestChecker):
 
     def test_callback_with_struct_argument(self):
-        py.test.skip("callbacks with struct arguments not implemented yet")
         class RECT(Structure):
             _fields_ = [("left", c_int), ("top", c_int),
                         ("right", c_int), ("bottom", c_int)]
