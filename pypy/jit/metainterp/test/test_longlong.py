@@ -1,6 +1,6 @@
 import py, sys
 from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint, intmask
-from pypy.jit.metainterp.test.test_basic import LLJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin
 
 class WrongResult(Exception):
     pass

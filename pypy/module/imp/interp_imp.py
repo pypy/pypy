@@ -3,9 +3,9 @@ from pypy.module._file.interp_file import W_File
 from pypy.rlib import streamio
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.module import Module
-from pypy.interpreter.gateway import NoneNotWrapped, unwrap_spec
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.module._file.interp_stream import StreamErrors, wrap_streamerror
-import struct
+
 
 def get_suffixes(space):
     w = space.wrap
@@ -125,8 +125,16 @@ def load_compiled(space, w_modulename, filename, w_file=None):
     _run_compiled_module(space, w_modulename, filename, w_file, w_mod)
     return w_mod
 
+@unwrap_spec(filename=str)
+def load_dynamic(space, w_modulename, filename, w_file=None):
+    if not space.config.objspace.usemodules.cpyext:
+        raise OperationError(space.w_ImportError, space.wrap(
+            "Not implemented"))
+    importing.load_c_extension(space, filename, space.str_w(w_modulename))
+    return importing.check_sys_modules(space, w_modulename)
+
 def new_module(space, w_name):
-    return space.wrap(Module(space, w_name))
+    return space.wrap(Module(space, w_name, add_package=False))
 
 def init_builtin(space, w_name):
     name = space.str_w(w_name)

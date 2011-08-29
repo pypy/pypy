@@ -1,9 +1,12 @@
+from pypy.jit.codewriter.heaptracker import vtable2descr
+from pypy.jit.metainterp.executor import execute
 from pypy.jit.metainterp.history import Const, ConstInt, BoxInt
-from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.metainterp.optimizeutil import _findall, sort_descrs
-from pypy.jit.metainterp.optimizeutil import descrlist_dict
-from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp.optimizeopt import optimizer
+from pypy.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
+    descrlist_dict, sort_descrs)
+from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.rlib.objectmodel import we_are_translated
+from pypy.jit.metainterp.optimizeopt.optimizer import OptValue
 
 
 class AbstractVirtualValue(optimizer.OptValue):
@@ -18,6 +21,9 @@ class AbstractVirtualValue(optimizer.OptValue):
         self.source_op = source_op  # the NEW_WITH_VTABLE/NEW_ARRAY operation
                                     # that builds this box
 
+    def is_forced_virtual(self):
+        return self.box is not None
+
     def get_key_box(self):
         if self.box is None:
             return self.keybox
@@ -28,6 +34,12 @@ class AbstractVirtualValue(optimizer.OptValue):
             self.optimizer.forget_numberings(self.keybox)
             self._really_force()
         return self.box
+
+    def force_at_end_of_preamble(self, already_forced):
+        value = already_forced.get(self, None)
+        if value:
+            return value
+        return OptValue(self.force_box())
 
     def make_virtual_info(self, modifier, fieldnums):
         if fieldnums is None:
@@ -45,9 +57,6 @@ class AbstractVirtualValue(optimizer.OptValue):
 
     def _really_force(self):
         raise NotImplementedError("abstract base")
-
-    def reconstruct_for_next_iteration(self, _optimizer):
-        return optimizer.OptValue(self.force_box())
 
 def get_fielddescrlist_cache(cpu):
     if not hasattr(cpu, '_optimizeopt_fielddescrlist_cache'):
@@ -72,28 +81,61 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
         assert isinstance(fieldvalue, optimizer.OptValue)
         self._fields[ofs] = fieldvalue
 
+    def _get_descr(self):
+        raise NotImplementedError
+
+    def _is_immutable_and_filled_with_constants(self):
+        count = self._get_descr().count_fields_if_immutable()
+        if count != len(self._fields):    # always the case if count == -1
+            return False
+        for value in self._fields.itervalues():
+            subbox = value.force_box()
+            if not isinstance(subbox, Const):
+                return False
+        return True
+
+    def force_at_end_of_preamble(self, already_forced):
+        if self in already_forced:
+            return self
+        already_forced[self] = self
+        if self._fields:
+            for ofs in self._fields.keys():
+                self._fields[ofs] = self._fields[ofs].force_at_end_of_preamble(already_forced)
+        return self
+
     def _really_force(self):
-        assert self.source_op is not None
+        op = self.source_op
+        assert op is not None
         # ^^^ This case should not occur any more (see test_bug_3).
         #
         if not we_are_translated():
-            self.source_op.name = 'FORCE ' + self.source_op.name
-        newoperations = self.optimizer.newoperations
-        newoperations.append(self.source_op)
-        self.box = box = self.source_op.result
-        #
-        iteritems = self._fields.iteritems()
-        if not we_are_translated(): #random order is fine, except for tests
-            iteritems = list(iteritems)
-            iteritems.sort(key = lambda (x,y): x.sort_key())
-        for ofs, value in iteritems:
-            if value.is_null():
-                continue
-            subbox = value.force_box()
-            op = ResOperation(rop.SETFIELD_GC, [box, subbox], None,
-                              descr=ofs)
+            op.name = 'FORCE ' + self.source_op.name
+
+        if self._is_immutable_and_filled_with_constants():
+            box = self.optimizer.constant_fold(op)
+            self.make_constant(box)
+            for ofs, value in self._fields.iteritems():
+                subbox = value.force_box()
+                assert isinstance(subbox, Const)
+                execute(self.optimizer.cpu, None, rop.SETFIELD_GC,
+                        ofs, box, subbox)
+            # keep self._fields, because it's all immutable anyway
+        else:
+            newoperations = self.optimizer.newoperations
             newoperations.append(op)
-        self._fields = None
+            self.box = box = op.result
+            #
+            iteritems = self._fields.iteritems()
+            if not we_are_translated(): #random order is fine, except for tests
+                iteritems = list(iteritems)
+                iteritems.sort(key = lambda (x,y): x.sort_key())
+            for ofs, value in iteritems:
+                if value.is_null():
+                    continue
+                subbox = value.force_box()
+                op = ResOperation(rop.SETFIELD_GC, [box, subbox], None,
+                                  descr=ofs)
+                newoperations.append(op)
 
     def _get_field_descr_list(self):
         _cached_sorted_fields = self._cached_sorted_fields
@@ -132,30 +174,6 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
                 fieldvalue = self._fields[ofs]
                 fieldvalue.get_args_for_fail(modifier)
 
-    def enum_forced_boxes(self, boxes, already_seen):
-        key = self.get_key_box()
-        if key in already_seen:
-            return
-        already_seen[key] = None
-        if self.box is None:
-            lst = self._get_field_descr_list()
-            for ofs in lst:
-                self._fields[ofs].enum_forced_boxes(boxes, already_seen)
-        else:
-            boxes.append(self.box)
-
-    def reconstruct_for_next_iteration(self, optimizer):
-        self.optimizer = optimizer
-        return self
-
-    def reconstruct_childs(self, new, valuemap):
-        assert isinstance(new, AbstractVirtualStructValue)
-        if new.box is None:
-            lst = self._get_field_descr_list()
-            for ofs in lst:
-                new._fields[ofs] = \
-                      self._fields[ofs].get_reconstructed(new.optimizer, valuemap)
-
 class VirtualValue(AbstractVirtualStructValue):
     level = optimizer.LEVEL_KNOWNCLASS
 
@@ -167,6 +185,9 @@ class VirtualValue(AbstractVirtualStructValue):
     def _make_virtual(self, modifier):
         fielddescrs = self._get_field_descr_list()
         return modifier.make_virtual(self.known_class, fielddescrs)
+
+    def _get_descr(self):
+        return vtable2descr(self.optimizer.cpu, self.known_class.getint())
 
     def __repr__(self):
         cls_name = self.known_class.value.adr.ptr._obj._TYPE._name
@@ -184,6 +205,10 @@ class VStructValue(AbstractVirtualStructValue):
     def _make_virtual(self, modifier):
         fielddescrs = self._get_field_descr_list()
         return modifier.make_vstruct(self.structdescr, fielddescrs)
+
+    def _get_descr(self):
+        return self.structdescr
+
 
 class VArrayValue(AbstractVirtualValue):
 
@@ -204,6 +229,14 @@ class VArrayValue(AbstractVirtualValue):
         assert isinstance(itemvalue, optimizer.OptValue)
         self._items[index] = itemvalue
 
+    def force_at_end_of_preamble(self, already_forced):
+        if self in already_forced:
+            return self
+        already_forced[self] = self
+        for index in range(len(self._items)):
+            self._items[index] = self._items[index].force_at_end_of_preamble(already_forced)
+        return self
+    
     def _really_force(self):
         assert self.source_op is not None
         if not we_are_translated():
@@ -236,34 +269,12 @@ class VArrayValue(AbstractVirtualValue):
     def _make_virtual(self, modifier):
         return modifier.make_varray(self.arraydescr)
 
-    def enum_forced_boxes(self, boxes, already_seen):
-        key = self.get_key_box()
-        if key in already_seen:
-            return
-        already_seen[key] = None
-        if self.box is None:
-            for itemvalue in self._items:
-                itemvalue.enum_forced_boxes(boxes, already_seen)
-        else:
-            boxes.append(self.box)
-
-    def reconstruct_for_next_iteration(self, optimizer):
-        self.optimizer = optimizer
-        return self
-
-    def reconstruct_childs(self, new, valuemap):
-        assert isinstance(new, VArrayValue)
-        if new.box is None:
-            for i in range(len(self._items)):
-                new._items[i] = self._items[i].get_reconstructed(new.optimizer,
-                                                                 valuemap)
-
 class OptVirtualize(optimizer.Optimization):
     "Virtualize objects until they escape."
 
-    def reconstruct_for_next_iteration(self, optimizer, valuemap):
-        return self
-
+    def new(self):
+        return OptVirtualize()
+        
     def make_virtual(self, known_class, box, source_op=None):
         vvalue = VirtualValue(self.optimizer, known_class, box, source_op)
         self.make_equal_to(box, vvalue)
@@ -286,7 +297,6 @@ class OptVirtualize(optimizer.Optimization):
         vrefinfo = self.optimizer.metainterp_sd.virtualref_info
         c_cls = vrefinfo.jit_virtual_ref_const_class
         descr_virtual_token = vrefinfo.descr_virtual_token
-        descr_virtualref_index = vrefinfo.descr_virtualref_index
         #
         # Replace the VIRTUAL_REF operation with a virtual structure of type
         # 'jit_virtual_ref'.  The jit_virtual_ref structure may be forced soon,
@@ -296,21 +306,30 @@ class OptVirtualize(optimizer.Optimization):
         tokenbox = BoxInt()
         self.emit_operation(ResOperation(rop.FORCE_TOKEN, [], tokenbox))
         vrefvalue.setfield(descr_virtual_token, self.getvalue(tokenbox))
-        vrefvalue.setfield(descr_virtualref_index, self.getvalue(indexbox))
 
     def optimize_VIRTUAL_REF_FINISH(self, op):
-        # Set the 'forced' field of the virtual_ref.
-        # In good cases, this is all virtual, so has no effect.
-        # Otherwise, this forces the real object -- but only now, as
-        # opposed to much earlier.  This is important because the object is
-        # typically a PyPy PyFrame, and now is the end of its execution, so
-        # forcing it now does not have catastrophic effects.
+        # This operation is used in two cases.  In normal cases, it
+        # is the end of the frame, and op.getarg(1) is NULL.  In this
+        # case we just clear the vref.virtual_token, because it contains
+        # a stack frame address and we are about to leave the frame.
+        # In that case vref.forced should still be NULL, and remains
+        # NULL; and accessing the frame through the vref later is
+        # *forbidden* and will raise InvalidVirtualRef.
+        #
+        # In the other (uncommon) case, the operation is produced
+        # earlier, because the vref was forced during tracing already.
+        # In this case, op.getarg(1) is the virtual to force, and we
+        # have to store it in vref.forced.
+        #
         vrefinfo = self.optimizer.metainterp_sd.virtualref_info
-        # op.getarg(1) should really never point to null here
-        # - set 'forced' to point to the real object
         seo = self.optimizer.send_extra_operation
-        seo(ResOperation(rop.SETFIELD_GC, op.getarglist(), None,
-                         descr = vrefinfo.descr_forced))
+
+        # - set 'forced' to point to the real object
+        objbox = op.getarg(1)
+        if not self.optimizer.cpu.ts.CONST_NULL.same_constant(objbox):
+            seo(ResOperation(rop.SETFIELD_GC, op.getarglist(), None,
+                             descr = vrefinfo.descr_forced))
+
         # - set 'virtual_token' to TOKEN_NONE
         args = [op.getarg(0), ConstInt(vrefinfo.TOKEN_NONE)]
         seo(ResOperation(rop.SETFIELD_GC, args, None,
@@ -324,6 +343,14 @@ class OptVirtualize(optimizer.Optimization):
 
     def optimize_GETFIELD_GC(self, op):
         value = self.getvalue(op.getarg(0))
+        # If this is an immutable field (as indicated by op.is_always_pure())
+        # then it's safe to reuse the virtual's field, even if it has been
+        # forced, because it should never be written to again.
+        if value.is_forced_virtual() and op.is_always_pure():
+            fieldvalue = value.getfield(op.getdescr(), None)
+            if fieldvalue is not None:
+                self.make_equal_to(op.result, fieldvalue)
+                return
         if value.is_virtual():
             assert isinstance(value, AbstractVirtualValue)
             fieldvalue = value.getfield(op.getdescr(), None)
@@ -341,6 +368,7 @@ class OptVirtualize(optimizer.Optimization):
 
     def optimize_SETFIELD_GC(self, op):
         value = self.getvalue(op.getarg(0))
+
         if value.is_virtual():
             fieldvalue = self.getvalue(op.getarg(1))
             value.setfield(op.getdescr(), fieldvalue)
@@ -404,13 +432,8 @@ class OptVirtualize(optimizer.Optimization):
         ###self.heap_op_optimizer.optimize_SETARRAYITEM_GC(op, value, fieldvalue)
         self.emit_operation(op)
 
-    def propagate_forward(self, op):
-        opnum = op.getopnum()
-        for value, func in optimize_ops:
-            if opnum == value:
-                func(self, op)
-                break
-        else:
-            self.emit_operation(op)
 
-optimize_ops = _findall(OptVirtualize, 'optimize_')
+dispatch_opt = make_dispatcher_method(OptVirtualize, 'optimize_',
+        default=OptVirtualize.emit_operation)
+
+OptVirtualize.propagate_forward = dispatch_opt

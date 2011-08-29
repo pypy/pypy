@@ -50,3 +50,12 @@ with which other PyPy features:
 .. _`overview`: commandline.html
 .. _`Standard Interpreter Optimizations`: ../interpreter-optimizations.html
 .. _`What PyPy can do for your objects`: ../objspace-proxies.html
+
+
+.. toctree::
+    :maxdepth: 2
+
+    commandline
+    translation
+    objspace
+    opt

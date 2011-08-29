@@ -4,6 +4,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython import rlist
 from pypy.rpython.lltypesystem import rstr as ll_rstr, rdict as ll_rdict
 from pypy.rpython.lltypesystem import rlist as lltypesystem_rlist
+from pypy.rpython.lltypesystem.module import ll_math
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.ootypesystem import rdict as oo_rdict
 from pypy.rpython.llinterp import LLInterpreter
@@ -19,6 +20,7 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.jit.metainterp.typesystem import deref
 from pypy.rlib import rgc
+from pypy.rlib.jit import elidable
 from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint, intmask
 
 def getargtypes(annotator, values):
@@ -166,9 +168,14 @@ _ll_1_list_len_foldable     = _ll_1_list_len
 
 _ll_5_list_ll_arraycopy = rgc.ll_arraycopy
 
+@elidable
 def _ll_1_gc_identityhash(x):
     return lltype.identityhash(x)
 
+# the following function should not be "@elidable": I can think of
+# a corner case in which id(const) is constant-folded, and then 'const'
+# disappears and is collected too early (possibly causing another object
+# with the same id() to appear).
 def _ll_1_gc_id(ptr):
     return llop.gc_id(lltype.Signed, ptr)
 
@@ -184,7 +191,7 @@ def _ll_2_int_floordiv_ovf_zer(x, y):
     return llop.int_floordiv(lltype.Signed, x, y)
 
 def _ll_2_int_floordiv_ovf(x, y):
-    if x == -sys.maxint - 1 and y == -1:        
+    if x == -sys.maxint - 1 and y == -1:
         raise OverflowError
     return llop.int_floordiv(lltype.Signed, x, y)
 
@@ -221,6 +228,11 @@ def _ll_1_int_abs(x):
         return -x
     else:
         return x
+
+# math support
+# ------------
+
+_ll_1_ll_math_ll_math_sqrt = ll_math.ll_math_sqrt
 
 
 # long long support
@@ -388,7 +400,8 @@ inline_calls_to = [
     ('int_mod_zer',          [lltype.Signed, lltype.Signed], lltype.Signed),
     ('int_lshift_ovf',       [lltype.Signed, lltype.Signed], lltype.Signed),
     ('int_abs',              [lltype.Signed],                lltype.Signed),
-    ]
+    ('ll_math.ll_math_sqrt', [lltype.Float],                 lltype.Float),
+]
 
 
 class LLtypeHelpers:
@@ -399,12 +412,7 @@ class LLtypeHelpers:
         return ll_rdict.ll_newdict(DICT)
     _ll_0_newdict.need_result_type = True
 
-    _ll_2_dict_getitem = ll_rdict.ll_dict_getitem
-    _ll_3_dict_setitem = ll_rdict.ll_dict_setitem
     _ll_2_dict_delitem = ll_rdict.ll_dict_delitem
-    _ll_3_dict_setdefault = ll_rdict.ll_setdefault
-    _ll_2_dict_contains = ll_rdict.ll_contains
-    _ll_3_dict_get = ll_rdict.ll_get
     _ll_1_dict_copy = ll_rdict.ll_copy
     _ll_1_dict_clear = ll_rdict.ll_clear
     _ll_2_dict_update = ll_rdict.ll_update
@@ -417,10 +425,6 @@ class LLtypeHelpers:
     _ll_1_dict_keys  .need_result_type = True
     _ll_1_dict_values.need_result_type = True
     _ll_1_dict_items .need_result_type = True
-
-    def _ll_1_newdictiter(ITER, d):
-        return ll_rdict.ll_dictiter(lltype.Ptr(ITER), d)
-    _ll_1_newdictiter.need_result_type = True
 
     _dictnext_keys   = staticmethod(ll_rdict.ll_dictnext_group['keys'])
     _dictnext_values = staticmethod(ll_rdict.ll_dictnext_group['values'])
@@ -571,10 +575,6 @@ class OOtypeHelpers:
     _ll_1_dict_keys  .need_result_type = True
     _ll_1_dict_values.need_result_type = True
     _ll_1_dict_items .need_result_type = True
-
-    def _ll_1_newdictiter(ITER, d):
-        return oo_rdict.ll_dictiter(ITER, d)
-    _ll_1_newdictiter.need_result_type = True
 
     _dictnext_keys   = staticmethod(oo_rdict.ll_dictnext_group['keys'])
     _dictnext_values = staticmethod(oo_rdict.ll_dictnext_group['values'])

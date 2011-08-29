@@ -1,5 +1,6 @@
 
 import _rawffi
+import _ffi
 import sys
 
 keepalive_key = str # XXX fix this when provided with test
@@ -45,6 +46,15 @@ class _CDataMeta(type):
                 self.__name__, type(value).__name__))
         else:
             return self.from_param(as_parameter)
+
+    def get_ffi_param(self, value):
+        cdata = self.from_param(value)
+        return cdata, cdata._to_ffi_param()
+
+    def get_ffi_argtype(self):
+        if self._ffiargtype:
+            return self._ffiargtype
+        return _shape_to_ffi_type(self._ffiargshape)
 
     def _CData_output(self, resbuffer, base=None, index=-1):
         #assert isinstance(resbuffer, _rawffi.ArrayInstance)
@@ -99,6 +109,7 @@ class _CData(object):
     """
     __metaclass__ = _CDataMeta
     _objects = None
+    _ffiargtype = None
 
     def __init__(self, *args, **kwds):
         raise TypeError("%s has no type" % (type(self),))
@@ -119,11 +130,20 @@ class _CData(object):
     def _get_buffer_value(self):
         return self._buffer[0]
 
+    def _to_ffi_param(self):
+        if self.__class__._is_pointer_like():
+            return self._get_buffer_value()
+        else:
+            return self.value
+
     def __buffer__(self):
         return buffer(self._buffer)
 
     def _get_b_base(self):
-        return self._base
+        try:
+            return self._base
+        except AttributeError:
+            return None
     _b_base_ = property(_get_b_base)
     _b_needsfree_ = False
 
@@ -150,7 +170,7 @@ def byref(cdata):
     return pointer(cdata)
 
 def cdata_from_address(self, address):
-    # fix the address, in case it's unsigned
+    # fix the address: turn it into as unsigned, in case it's a negative number
     address = address & (sys.maxint * 2 + 1)
     instance = self.__new__(self)
     lgt = getattr(self, '_length_', 1)
@@ -159,3 +179,50 @@ def cdata_from_address(self, address):
 
 def addressof(tp):
     return tp._buffer.buffer
+
+
+# ----------------------------------------------------------------------
+
+def is_struct_shape(shape):
+    # see the corresponding code to set the shape in
+    # _ctypes.structure._set_shape
+    return (isinstance(shape, tuple) and
+            len(shape) == 2 and
+            isinstance(shape[0], _rawffi.Structure) and
+            shape[1] == 1)
+
+def _shape_to_ffi_type(shape):
+    try:
+        return _shape_to_ffi_type.typemap[shape]
+    except KeyError:
+        pass
+    if is_struct_shape(shape):
+        return shape[0].get_ffi_type()
+    #
+    assert False, 'unknown shape %s' % (shape,)
+
+
+_shape_to_ffi_type.typemap =  {
+    'c' : _ffi.types.char,
+    'b' : _ffi.types.sbyte,
+    'B' : _ffi.types.ubyte,
+    'h' : _ffi.types.sshort,
+    'u' : _ffi.types.unichar,
+    'H' : _ffi.types.ushort,
+    'i' : _ffi.types.sint,
+    'I' : _ffi.types.uint,
+    'l' : _ffi.types.slong,
+    'L' : _ffi.types.ulong,
+    'q' : _ffi.types.slonglong,
+    'Q' : _ffi.types.ulonglong,
+    'f' : _ffi.types.float,
+    'd' : _ffi.types.double,
+    's' : _ffi.types.void_p,
+    'P' : _ffi.types.void_p,
+    'z' : _ffi.types.void_p,
+    'O' : _ffi.types.void_p,
+    'Z' : _ffi.types.void_p,
+    'X' : _ffi.types.void_p,
+    'v' : _ffi.types.sshort,
+    }
+

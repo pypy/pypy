@@ -143,11 +143,11 @@ class AbstractLLCPU(AbstractCPU):
         STACK_CHECK_SLOWPATH = lltype.Ptr(lltype.FuncType([lltype.Signed],
                                                           lltype.Void))
         def insert_stack_check():
-            startaddr = rstack._stack_get_start_adr()
-            length = rstack._stack_get_length()
+            endaddr = rstack._stack_get_end_adr()
+            lengthaddr = rstack._stack_get_length_adr()
             f = llhelper(STACK_CHECK_SLOWPATH, rstack.stack_check_slowpath)
             slowpathaddr = rffi.cast(lltype.Signed, f)
-            return startaddr, length, slowpathaddr
+            return endaddr, lengthaddr, slowpathaddr
 
         self.pos_exception = pos_exception
         self.pos_exc_value = pos_exc_value
@@ -259,7 +259,7 @@ class AbstractLLCPU(AbstractCPU):
 
     def calldescrof_dynamic(self, ffi_args, ffi_result, extrainfo=None):
         from pypy.jit.backend.llsupport import ffisupport
-        return ffisupport.get_call_descr_dynamic(ffi_args, ffi_result,
+        return ffisupport.get_call_descr_dynamic(self, ffi_args, ffi_result,
                                                  extrainfo)
 
     def get_overflow_error(self):
@@ -499,7 +499,7 @@ class AbstractLLCPU(AbstractCPU):
     def bh_call_i(self, func, calldescr, args_i, args_r, args_f):
         assert isinstance(calldescr, BaseIntCallDescr)
         if not we_are_translated():
-            calldescr.verify_types(args_i, args_r, args_f, history.INT)
+            calldescr.verify_types(args_i, args_r, args_f, history.INT + 'S')
         return calldescr.call_stub(func, args_i, args_r, args_f)
 
     def bh_call_r(self, func, calldescr, args_i, args_r, args_f):

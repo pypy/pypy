@@ -37,27 +37,29 @@ For explanations and examples see the `thunk object space docs`_.
 .. _`thunk object space docs`: objspace-proxies.html#thunk
 .. _`interface section of the thunk object space docs`: objspace-proxies.html#thunk-interface
 
-Taint Object Space Functionality
-================================
+.. broken:
 
-When the taint object space is used (choose with :config:`objspace.name`),
-the following names are put into ``__pypy__``:
+    Taint Object Space Functionality
+    ================================
 
- - ``taint``
- - ``is_tainted``
- - ``untaint``
- - ``taint_atomic``
- - ``_taint_debug``
- - ``_taint_look``
- - ``TaintError``
+    When the taint object space is used (choose with :config:`objspace.name`),
+    the following names are put into ``__pypy__``:
 
-Those are all described in the `interface section of the taint object space
-docs`_.
+     - ``taint``
+     - ``is_tainted``
+     - ``untaint``
+     - ``taint_atomic``
+     - ``_taint_debug``
+     - ``_taint_look``
+     - ``TaintError``
 
-For more detailed explanations and examples see the `taint object space docs`_.
+    Those are all described in the `interface section of the taint object space
+    docs`_.
 
-.. _`taint object space docs`: objspace-proxies.html#taint
-.. _`interface section of the taint object space docs`: objspace-proxies.html#taint-interface
+    For more detailed explanations and examples see the `taint object space docs`_.
+
+    .. _`taint object space docs`: objspace-proxies.html#taint
+    .. _`interface section of the taint object space docs`: objspace-proxies.html#taint-interface
 
 Transparent Proxy Functionality
 ===============================

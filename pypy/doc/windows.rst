@@ -13,13 +13,42 @@ preferred, but can also use the mingw32 port of gcc.
 Translating PyPy with Visual Studio
 -----------------------------------
 
-We routinely test the translation toolchain using Visual Studio .NET
+We routinely test the `RPython translation toolchain`_ using Visual Studio .NET
 2005, Professional Edition, and Visual Studio .NET 2008, Express
 Edition.  Other configurations may work as well.
+
+The translation scripts will set up the appropriate environment variables
+for the compiler.  They will attempt to locate the same compiler version that
+was used to build the Python interpreter doing the
+translation.  Failing that, they will pick the most recent Visual Studio
+compiler they can find.  In addition, the target architecture
+(32 bits, 64 bits) is automatically selected.  A 32 bit build can only be built
+using a 32 bit Python and vice versa.
+
+**Note:** PyPy is currently not supported for 64 bit Windows, and translation
+will be aborted in this case.
 
 The compiler is all you need to build pypy-c, but it will miss some
 modules that relies on third-party libraries.  See below how to get
 and build them.
+
+Preping Windows for the Large Build
+-----------------------------------
+
+Normally 32bit programs are limited to 2GB of memory on Windows. It is
+possible to raise this limit, to 3GB on Windows 32bit, and almost 4GB
+on Windows 64bit.
+
+On Windows 32bit, it is necessary to modify the system: follow
+http://usa.autodesk.com/adsk/servlet/ps/dl/item?siteID=123112&id=9583842&linkID=9240617
+to enable the "3GB" feature, and reboot. This step is not necessary on
+Windows 64bit.
+
+Then you need to execute::
+
+    editbin /largeaddressaware pypy.exe
+
+on the pypy.exe file you compiled.
 
 Installing external packages
 ----------------------------
@@ -111,3 +140,4 @@ them in the base directory.  Then run::
     cp .libs/libffi-5.dll <somewhere on the PATH>
 
 .. _`libffi source files`: http://sourceware.org/libffi/
+.. _`RPython translation toolchain`: translation.html

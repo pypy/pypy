@@ -513,13 +513,6 @@ class LLFrame(object):
         from pypy.translator.tool.lltracker import track
         track(*ll_objects)
 
-    def op_debug_pdb(self, *ll_args):
-        if self.llinterpreter.tracer:
-            self.llinterpreter.tracer.flush()
-        print "entering pdb...", ll_args
-        import pdb
-        pdb.set_trace()
-
     def op_debug_assert(self, x, msg):
         assert x, msg
 
@@ -532,7 +525,10 @@ class LLFrame(object):
             raise LLFatalError(msg, LLException(ll_exc_type, ll_exc))
 
     def op_debug_llinterpcall(self, pythonfunction, *args_ll):
-        return pythonfunction(*args_ll)
+        try:
+            return pythonfunction(*args_ll)
+        except:
+            self.make_llexception()
 
     def op_debug_start_traceback(self, *args):
         pass    # xxx write debugging code here?
@@ -566,15 +562,6 @@ class LLFrame(object):
 
     def op_hint(self, x, hints):
         return x
-
-    def op_resume_point(self, *args):
-        pass
-
-    def op_resume_state_create(self, *args):
-        raise RuntimeError("resume_state_create can not be called.")
-
-    def op_resume_state_invoke(self, *args):
-        raise RuntimeError("resume_state_invoke can not be called.")
 
     def op_decode_arg(self, fname, i, name, vargs, vkwds):
         raise NotImplementedError("decode_arg")
@@ -750,9 +737,12 @@ class LLFrame(object):
     def op_zero_gc_pointers_inside(self, obj):
         raise NotImplementedError("zero_gc_pointers_inside")
 
-    def op_gc_writebarrier_before_copy(self, source, dest):
+    def op_gc_writebarrier_before_copy(self, source, dest,
+                                       source_start, dest_start, length):
         if hasattr(self.heap, 'writebarrier_before_copy'):
-            return self.heap.writebarrier_before_copy(source, dest)
+            return self.heap.writebarrier_before_copy(source, dest,
+                                                      source_start, dest_start,
+                                                      length)
         else:
             return True
 
@@ -852,6 +842,9 @@ class LLFrame(object):
         raise NotImplementedError
 
     def op_gc_adr_of_nursery_free(self):
+        raise NotImplementedError
+
+    def op_gc_adr_of_root_stack_top(self):
         raise NotImplementedError
 
     def op_gc_call_rtti_destructor(self, rtti, addr):
@@ -1231,6 +1224,12 @@ class LLFrame(object):
             return ootype.ooparse_float(s)
         except ValueError:
             self.make_llexception()
+
+    def op_oobox_int(self, i):
+        return ootype.oobox_int(i)
+
+    def op_oounbox_int(self, x):
+        return ootype.oounbox_int(x)
 
 class Tracer(object):
     Counter = 0

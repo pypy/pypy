@@ -4,7 +4,7 @@ from pypy.jit.tool.oparser import pure_parse
 from pypy.jit.metainterp import logger
 from pypy.jit.metainterp.typesystem import llhelper
 from StringIO import StringIO
-from pypy.jit.metainterp.test.test_optimizeopt import equaloplists
+from pypy.jit.metainterp.optimizeopt.util import equaloplists
 from pypy.jit.metainterp.history import AbstractDescr, LoopToken, BasicFailDescr
 from pypy.jit.backend.model import AbstractCPU
 
@@ -31,24 +31,34 @@ def capturing(func, *args, **kwds):
     return log_stream.getvalue()
 
 class Logger(logger.Logger):
-    def log_loop(self, loop, namespace={}):
+    def log_loop(self, loop, namespace={}, ops_offset=None):
         self.namespace = namespace
         return capturing(logger.Logger.log_loop, self,
-                         loop.inputargs, loop.operations)
+                         loop.inputargs, loop.operations, ops_offset=ops_offset)
 
-    def repr_of_descr(self, descr):
-        for k, v in self.namespace.items():
-            if v == descr:
-                return k
-        return descr.repr_of_descr()
+    def _make_log_operations(self1):
+        class LogOperations(logger.LogOperations):
+            def repr_of_descr(self, descr):
+                for k, v in self1.namespace.items():
+                    if v == descr:
+                        return k
+                return descr.repr_of_descr()
+        logops = LogOperations(self1.metainterp_sd, self1.guard_number)
+        self1.logops = logops
+        return logops
 
 class TestLogger(object):
     ts = llhelper
 
     def make_metainterp_sd(self):
+        class FakeJitDriver(object):
+            class warmstate(object):
+                get_location_str = staticmethod(lambda args: "dupa")
+        
         class FakeMetaInterpSd:
             cpu = AbstractCPU()
             cpu.ts = self.ts
+            jitdrivers_sd = [FakeJitDriver()]
             def get_name_from_address(self, addr):
                 return 'Name'
         return FakeMetaInterpSd()
@@ -66,7 +76,7 @@ class TestLogger(object):
         if check_equal:
             equaloplists(loop.operations, oloop.operations)
             assert oloop.inputargs == loop.inputargs
-        return loop, oloop
+        return logger, loop, oloop
     
     def test_simple(self):
         inp = '''
@@ -106,18 +116,18 @@ class TestLogger(object):
     def test_debug_merge_point(self):
         inp = '''
         []
-        debug_merge_point("info", 0)
+        debug_merge_point(0, 0)
         '''
-        loop, oloop = self.reparse(inp, check_equal=False)
-        assert loop.operations[0].getarg(0)._get_str() == 'info'
-        assert oloop.operations[0].getarg(0)._get_str() == 'info'
+        _, loop, oloop = self.reparse(inp, check_equal=False)
+        assert loop.operations[0].getarg(1).getint() == 0
+        assert oloop.operations[0].getarg(1)._get_str() == "dupa"
         
     def test_floats(self):
         inp = '''
         [f0]
         f1 = float_add(3.5, f0)
         '''
-        loop, oloop = self.reparse(inp)
+        _, loop, oloop = self.reparse(inp)
         equaloplists(loop.operations, oloop.operations)
 
     def test_jump(self):
@@ -178,3 +188,38 @@ class TestLogger(object):
         output = capturing(bare_logger.log_bridge, [], [], 3)
         assert output.splitlines()[0] == "# bridge out of Guard 3 with 0 ops"
         pure_parse(output)
+
+    def test_repr_single_op(self):
+        inp = '''
+        [i0, i1, i2, p3, p4, p5]
+        i6 = int_add(i1, i2)
+        i8 = int_add(i6, 3)
+        jump(i0, i8, i6, p3, p4, p5)
+        '''
+        logger, loop, _ = self.reparse(inp)
+        op = loop.operations[1]
+        assert logger.logops.repr_of_resop(op) == "i8 = int_add(i6, 3)"
+
+    def test_ops_offset(self):
+        inp = '''
+        [i0]
+        i1 = int_add(i0, 1)
+        i2 = int_mul(i1, 2)
+        jump(i2)
+        '''
+        loop = pure_parse(inp)
+        ops = loop.operations
+        ops_offset = {
+            ops[0]: 10,
+            ops[2]: 30,
+            None: 40
+            }
+        logger = Logger(self.make_metainterp_sd())
+        output = logger.log_loop(loop, ops_offset=ops_offset)
+        assert output.strip() == """
+[i0]
++10: i2 = int_add(i0, 1)
+i4 = int_mul(i2, 2)
++30: jump(i4)
++40: --end of the loop--
+""".strip()

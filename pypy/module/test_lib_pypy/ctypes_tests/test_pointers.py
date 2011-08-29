@@ -12,6 +12,13 @@ def setup_module(mod):
     mod._ctypes_test = str(conftest.sofile)
 
 class TestPointers(BaseCTypesTestChecker):
+
+    def test_get_ffi_argtype(self):
+        P = POINTER(c_int)
+        ffitype = P.get_ffi_argtype()
+        assert P.get_ffi_argtype() is ffitype
+        assert ffitype.deref_pointer() is c_int.get_ffi_argtype()
+    
     def test_pointer_crash(self):
 
         class A(POINTER(c_ulong)):

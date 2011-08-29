@@ -113,18 +113,25 @@ class BasePosix(Platform):
         m.eci = eci
 
         def pypyrel(fpath):
-            rel = py.path.local(fpath).relto(pypypath)
+            lpath = py.path.local(fpath)
+            rel = lpath.relto(pypypath)
             if rel:
                 return os.path.join('$(PYPYDIR)', rel)
-            else:
-                return fpath
+            m_dir = m.makefile_dir
+            if m_dir == lpath:
+                return '.'
+            if m_dir.dirpath() == lpath:
+                return '..'
+            return fpath
 
         rel_cfiles = [m.pathrel(cfile) for cfile in cfiles]
         rel_ofiles = [rel_cfile[:-2]+'.o' for rel_cfile in rel_cfiles]
         m.cfiles = rel_cfiles
 
         rel_includedirs = [pypyrel(incldir) for incldir in
-                           self._preprocess_include_dirs(eci.include_dirs)]
+                           self.preprocess_include_dirs(eci.include_dirs)]
+        rel_libdirs = [pypyrel(libdir) for libdir in
+                       self.preprocess_library_dirs(eci.library_dirs)]
 
         m.comment('automatically generated makefile')
         definitions = [
@@ -134,7 +141,7 @@ class BasePosix(Platform):
             ('SOURCES', rel_cfiles),
             ('OBJECTS', rel_ofiles),
             ('LIBS', self._libs(eci.libraries)),
-            ('LIBDIRS', self._libdirs(eci.library_dirs)),
+            ('LIBDIRS', self._libdirs(rel_libdirs)),
             ('INCLUDEDIRS', self._includedirs(rel_includedirs)),
             ('CFLAGS', cflags),
             ('CFLAGSEXTRA', list(eci.compile_extra)),

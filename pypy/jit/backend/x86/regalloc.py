@@ -19,7 +19,8 @@ from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.descr import BaseCallDescr, BaseSizeDescr
 from pypy.jit.backend.llsupport.regalloc import FrameManager, RegisterManager,\
      TempBox
-from pypy.jit.backend.x86.arch import WORD, FRAME_FIXED_SIZE, IS_X86_32, IS_X86_64
+from pypy.jit.backend.x86.arch import WORD, FRAME_FIXED_SIZE
+from pypy.jit.backend.x86.arch import IS_X86_32, IS_X86_64, MY_COPY_OF_REGS
 from pypy.rlib.rarithmetic import r_longlong, r_uint
 
 class X86RegisterManager(RegisterManager):
@@ -33,6 +34,12 @@ class X86RegisterManager(RegisterManager):
         ebx: 1,
         esi: 2,
         edi: 3,
+    }
+    REGLOC_TO_COPY_AREA_OFS = {
+        ecx: MY_COPY_OF_REGS + 0 * WORD,
+        ebx: MY_COPY_OF_REGS + 1 * WORD,
+        esi: MY_COPY_OF_REGS + 2 * WORD,
+        edi: MY_COPY_OF_REGS + 3 * WORD,
     }
 
     def call_result_location(self, v):
@@ -60,6 +67,19 @@ class X86_64_RegisterManager(X86RegisterManager):
         r13: 3,
         r14: 4,
         r15: 5,
+    }
+    REGLOC_TO_COPY_AREA_OFS = {
+        ecx: MY_COPY_OF_REGS + 0 * WORD,
+        ebx: MY_COPY_OF_REGS + 1 * WORD,
+        esi: MY_COPY_OF_REGS + 2 * WORD,
+        edi: MY_COPY_OF_REGS + 3 * WORD,
+        r8:  MY_COPY_OF_REGS + 4 * WORD,
+        r9:  MY_COPY_OF_REGS + 5 * WORD,
+        r10: MY_COPY_OF_REGS + 6 * WORD,
+        r12: MY_COPY_OF_REGS + 7 * WORD,
+        r13: MY_COPY_OF_REGS + 8 * WORD,
+        r14: MY_COPY_OF_REGS + 9 * WORD,
+        r15: MY_COPY_OF_REGS + 10 * WORD,
     }
 
 class X86XMMRegisterManager(RegisterManager):
@@ -117,6 +137,16 @@ class X86FrameManager(FrameManager):
         else:
             return 1
 
+if WORD == 4:
+    gpr_reg_mgr_cls = X86RegisterManager
+    xmm_reg_mgr_cls = X86XMMRegisterManager
+elif WORD == 8:
+    gpr_reg_mgr_cls = X86_64_RegisterManager
+    xmm_reg_mgr_cls = X86_64_XMMRegisterManager
+else:
+    raise AssertionError("Word size should be 4 or 8")
+
+
 class RegAlloc(object):
 
     def __init__(self, assembler, translate_support_code=False):
@@ -126,44 +156,39 @@ class RegAlloc(object):
         self.translate_support_code = translate_support_code
         # to be read/used by the assembler too
         self.jump_target_descr = None
+        self.close_stack_struct = 0
 
-    def _prepare(self, inputargs, operations):
+    def _prepare(self, inputargs, operations, allgcrefs):
         self.fm = X86FrameManager()
         self.param_depth = 0
         cpu = self.assembler.cpu
-        cpu.gc_ll_descr.rewrite_assembler(cpu, operations)
+        operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
+                                                       allgcrefs)
         # compute longevity of variables
         longevity = self._compute_vars_longevity(inputargs, operations)
         self.longevity = longevity
-        # XXX
-        if cpu.WORD == 4:
-            gpr_reg_mgr_cls = X86RegisterManager
-            xmm_reg_mgr_cls = X86XMMRegisterManager
-        elif cpu.WORD == 8:
-            gpr_reg_mgr_cls = X86_64_RegisterManager
-            xmm_reg_mgr_cls = X86_64_XMMRegisterManager
-        else:
-            raise AssertionError("Word size should be 4 or 8")
-            
         self.rm = gpr_reg_mgr_cls(longevity,
                                   frame_manager = self.fm,
                                   assembler = self.assembler)
         self.xrm = xmm_reg_mgr_cls(longevity, frame_manager = self.fm,
                                    assembler = self.assembler)
+        return operations
 
-    def prepare_loop(self, inputargs, operations, looptoken):
-        self._prepare(inputargs, operations)
+    def prepare_loop(self, inputargs, operations, looptoken, allgcrefs):
+        operations = self._prepare(inputargs, operations, allgcrefs)
         jump = operations[-1]
         loop_consts = self._compute_loop_consts(inputargs, jump, looptoken)
         self.loop_consts = loop_consts
-        return self._process_inputargs(inputargs)
+        return self._process_inputargs(inputargs), operations
 
-    def prepare_bridge(self, prev_depths, inputargs, arglocs, operations):
-        self._prepare(inputargs, operations)
+    def prepare_bridge(self, prev_depths, inputargs, arglocs, operations,
+                       allgcrefs):
+        operations = self._prepare(inputargs, operations, allgcrefs)
         self.loop_consts = {}
         self._update_bindings(arglocs, inputargs)
         self.fm.frame_depth = prev_depths[0]
         self.param_depth = prev_depths[1]
+        return operations
 
     def reserve_param(self, n):
         self.param_depth = max(self.param_depth, n)
@@ -246,6 +271,12 @@ class RegAlloc(object):
             return self.rm.force_allocate_reg(var, forbidden_vars,
                                               selected_reg, need_lower_byte)
 
+    def force_spill_var(self, var):
+        if var.type == FLOAT:
+            return self.xrm.force_spill_var(var)
+        else:
+            return self.rm.force_spill_var(var)
+
     def load_xmm_aligned_16_bytes(self, var, forbidden_vars=[]):
         # Load 'var' in a register; but if it is a constant, we can return
         # a 16-bytes-aligned ConstFloatLoc.
@@ -309,6 +340,11 @@ class RegAlloc(object):
             self.assembler.dump('%s <- %s(%s)' % (result_loc, op, arglocs))
         self.assembler.regalloc_perform_llong(op, arglocs, result_loc)
 
+    def PerformMath(self, op, arglocs, result_loc):
+        if not we_are_translated():
+            self.assembler.dump('%s <- %s(%s)' % (result_loc, op, arglocs))
+        self.assembler.regalloc_perform_math(op, arglocs, result_loc)
+
     def locs_for_fail(self, guard_op):
         return [self.loc(v) for v in guard_op.getfailargs()]
 
@@ -347,7 +383,7 @@ class RegAlloc(object):
         self.assembler.regalloc_perform_guard(guard_op, faillocs, arglocs,
                                               result_loc,
                                               current_depths)
-        self.possibly_free_vars(guard_op.getfailargs())        
+        self.possibly_free_vars(guard_op.getfailargs())
 
     def PerformDiscard(self, op, arglocs):
         if not we_are_translated():
@@ -355,7 +391,9 @@ class RegAlloc(object):
         self.assembler.regalloc_perform_discard(op, arglocs)
 
     def can_merge_with_next_guard(self, op, i, operations):
-        if op.getopnum() == rop.CALL_MAY_FORCE or op.getopnum() == rop.CALL_ASSEMBLER:
+        if (op.getopnum() == rop.CALL_MAY_FORCE or
+            op.getopnum() == rop.CALL_ASSEMBLER or
+            op.getopnum() == rop.CALL_RELEASE_GIL):
             assert operations[i + 1].getopnum() == rop.GUARD_NOT_FORCED
             return True
         if not op.is_comparison():
@@ -381,6 +419,7 @@ class RegAlloc(object):
         #self.operations = operations
         while i < len(operations):
             op = operations[i]
+            self.assembler.mc.mark_op(op)
             self.rm.position = i
             self.xrm.position = i
             if op.has_no_side_effect() and op.result not in self.longevity:
@@ -390,6 +429,8 @@ class RegAlloc(object):
             if self.can_merge_with_next_guard(op, i, operations):
                 oplist_with_guard[op.getopnum()](self, op, operations[i + 1])
                 i += 1
+            elif not we_are_translated() and op.getopnum() == -124: 
+                self._consider_force_spill(op)
             else:
                 oplist[op.getopnum()](self, op)
             if op.result is not None:
@@ -399,6 +440,7 @@ class RegAlloc(object):
             i += 1
         assert not self.rm.reg_bindings
         assert not self.xrm.reg_bindings
+        self.assembler.mc.mark_op(None) # end of the loop
 
     def _compute_vars_longevity(self, inputargs, operations):
         # compute a dictionary that maps variables to index in
@@ -423,7 +465,7 @@ class RegAlloc(object):
                     assert isinstance(arg, Box)
                     if arg not in last_used:
                         last_used[arg] = i
-                        
+
         longevity = {}
         for arg in produced:
             if arg in last_used:
@@ -471,6 +513,8 @@ class RegAlloc(object):
 
     def consider_guard_no_exception(self, op):
         self.perform_guard(op, [], None)
+
+    consider_guard_not_invalidated = consider_guard_no_exception
 
     def consider_guard_exception(self, op):
         loc = self.rm.make_sure_var_in_reg(op.getarg(0))
@@ -641,15 +685,13 @@ class RegAlloc(object):
     consider_float_gt = _consider_float_cmp
     consider_float_ge = _consider_float_cmp
 
-    def consider_float_neg(self, op):
+    def _consider_float_unary_op(self, op):
         loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(0))
         self.Perform(op, [loc0], loc0)
         self.xrm.possibly_free_var(op.getarg(0))
 
-    def consider_float_abs(self, op):
-        loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(0))
-        self.Perform(op, [loc0], loc0)
-        self.xrm.possibly_free_var(op.getarg(0))
+    consider_float_neg = _consider_float_unary_op
+    consider_float_abs = _consider_float_unary_op
 
     def consider_cast_float_to_int(self, op):
         loc0 = self.xrm.make_sure_var_in_reg(op.getarg(0))
@@ -662,6 +704,17 @@ class RegAlloc(object):
         loc1 = self.xrm.force_allocate_reg(op.result)
         self.Perform(op, [loc0], loc1)
         self.rm.possibly_free_var(op.getarg(0))
+
+    def consider_cast_float_to_singlefloat(self, op):
+        loc0 = self.xrm.make_sure_var_in_reg(op.getarg(0))
+        loc1 = self.rm.force_allocate_reg(op.result)
+        self.xrm.possibly_free_var(op.getarg(0))
+        tmpxvar = TempBox()
+        loctmp = self.xrm.force_allocate_reg(tmpxvar)   # may be equal to loc0
+        self.xrm.possibly_free_var(tmpxvar)
+        self.Perform(op, [loc0, loctmp], loc1)
+
+    consider_cast_singlefloat_to_float = consider_cast_int_to_float
 
     def _consider_llong_binop_xx(self, op):
         # must force both arguments into xmm registers, because we don't
@@ -736,10 +789,32 @@ class RegAlloc(object):
         self.PerformLLong(op, [loc1], loc0)
         self.rm.possibly_free_vars_for_op(op)
 
+    def _consider_math_sqrt(self, op):
+        loc0 = self.xrm.force_result_in_reg(op.result, op.getarg(1))
+        self.PerformMath(op, [loc0], loc0)
+        self.xrm.possibly_free_var(op.getarg(1))
+
     def _call(self, op, arglocs, force_store=[], guard_not_forced_op=None):
+        # we need to save registers on the stack:
+        #
+        #  - at least the non-callee-saved registers
+        #
+        #  - for shadowstack, we assume that any call can collect, and we
+        #    save also the callee-saved registers that contain GC pointers,
+        #    so that they can be found by follow_stack_frame_of_assembler()
+        #
+        #  - for CALL_MAY_FORCE or CALL_ASSEMBLER, we have to save all regs
+        #    anyway, in case we need to do cpu.force().  The issue is that
+        #    grab_frame_values() would not be able to locate values in
+        #    callee-saved registers.
+        #
         save_all_regs = guard_not_forced_op is not None
-        self.rm.before_call(force_store, save_all_regs=save_all_regs)
         self.xrm.before_call(force_store, save_all_regs=save_all_regs)
+        if not save_all_regs:
+            gcrootmap = gc_ll_descr = self.assembler.cpu.gc_ll_descr.gcrootmap
+            if gcrootmap and gcrootmap.is_shadow_stack:
+                save_all_regs = 2
+        self.rm.before_call(force_store, save_all_regs=save_all_regs)
         if op.result is not None:
             if op.result.type == FLOAT:
                 resloc = self.xrm.after_call(op.result)
@@ -767,12 +842,12 @@ class RegAlloc(object):
                    guard_not_forced_op=guard_not_forced_op)
 
     def consider_call(self, op):
-        if IS_X86_32:
-            # support for some of the llong operations,
-            # which only exist on x86-32
-            effectinfo = op.getdescr().get_extra_info()
-            if effectinfo is not None:
-                oopspecindex = effectinfo.oopspecindex
+        effectinfo = op.getdescr().get_extra_info()
+        if effectinfo is not None:
+            oopspecindex = effectinfo.oopspecindex
+            if IS_X86_32:
+                # support for some of the llong operations,
+                # which only exist on x86-32
                 if oopspecindex in (EffectInfo.OS_LLONG_ADD,
                                     EffectInfo.OS_LLONG_SUB,
                                     EffectInfo.OS_LLONG_AND,
@@ -791,12 +866,15 @@ class RegAlloc(object):
                 if oopspecindex == EffectInfo.OS_LLONG_LT:
                     if self._maybe_consider_llong_lt(op):
                         return
-        #
+            if oopspecindex == EffectInfo.OS_MATH_SQRT:
+                return self._consider_math_sqrt(op)
         self._consider_call(op)
 
     def consider_call_may_force(self, op, guard_op):
         assert guard_op is not None
         self._consider_call(op, guard_op)
+
+    consider_call_release_gil = consider_call_may_force
 
     def consider_call_assembler(self, op, guard_op):
         descr = op.getdescr()
@@ -813,16 +891,16 @@ class RegAlloc(object):
         self._call(op, [imm(size), vable] +
                    [self.loc(op.getarg(i)) for i in range(op.numargs())],
                    guard_not_forced_op=guard_op)
-        
+
     def consider_cond_call_gc_wb(self, op):
         assert op.result is None
         args = op.getarglist()
-        loc_newvalue = self.rm.make_sure_var_in_reg(op.getarg(1), args)
-        # ^^^ we force loc_newvalue in a reg (unless it's a Const),
-        # because it will be needed anyway by the following setfield_gc.
-        # It avoids loading it twice from the memory.
-        loc_base = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        arglocs = [loc_base, loc_newvalue]
+        N = len(args)
+        # we force all arguments in a reg (unless they are Consts),
+        # because it will be needed anyway by the following setfield_gc
+        # or setarrayitem_gc. It avoids loading it twice from the memory.
+        arglocs = [self.rm.make_sure_var_in_reg(op.getarg(i), args)
+                   for i in range(N)]
         # add eax, ecx and edx as extra "arguments" to ensure they are
         # saved and restored.  Fish in self.rm to know which of these
         # registers really need to be saved (a bit of a hack).  Moreover,
@@ -836,31 +914,41 @@ class RegAlloc(object):
         self.PerformDiscard(op, arglocs)
         self.rm.possibly_free_vars_for_op(op)
 
-    def _fastpath_malloc(self, op, descr):
+    consider_cond_call_gc_wb_array = consider_cond_call_gc_wb
+
+    def fastpath_malloc_fixedsize(self, op, descr):
         assert isinstance(descr, BaseSizeDescr)
+        self._do_fastpath_malloc(op, descr.size, descr.tid)
+
+    def fastpath_malloc_varsize(self, op, arraydescr, num_elem):
+        assert isinstance(arraydescr, BaseArrayDescr)
+        ofs_length = arraydescr.get_ofs_length(self.translate_support_code)
+        basesize = arraydescr.get_base_size(self.translate_support_code)
+        itemsize = arraydescr.get_item_size(self.translate_support_code)
+        size = basesize + itemsize * num_elem
+        self._do_fastpath_malloc(op, size, arraydescr.tid)
+        self.assembler.set_new_array_length(eax, ofs_length, imm(num_elem))
+
+    def _do_fastpath_malloc(self, op, size, tid):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
         self.rm.force_allocate_reg(op.result, selected_reg=eax)
-        # We need to force-allocate each of save_around_call_regs now.
-        # The alternative would be to save and restore them around the
-        # actual call to malloc(), in the rare case where we need to do
-        # it; however, mark_gc_roots() would need to be adapted to know
-        # where the variables end up being saved.  Messy.
-        for reg in self.rm.save_around_call_regs:
-            if reg is not eax:
-                tmp_box = TempBox()
-                self.rm.force_allocate_reg(tmp_box, selected_reg=reg)
-                self.rm.possibly_free_var(tmp_box)
-
-        self.assembler.malloc_cond_fixedsize(
+        #
+        # We need edx as a temporary, but otherwise don't save any more
+        # register.  See comments in _build_malloc_slowpath().
+        tmp_box = TempBox()
+        self.rm.force_allocate_reg(tmp_box, selected_reg=edx)
+        self.rm.possibly_free_var(tmp_box)
+        #
+        self.assembler.malloc_cond(
             gc_ll_descr.get_nursery_free_addr(),
             gc_ll_descr.get_nursery_top_addr(),
-            descr.size, descr.tid,
+            size, tid,
             )
 
     def consider_new(self, op):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
         if gc_ll_descr.can_inline_malloc(op.getdescr()):
-            self._fastpath_malloc(op, op.getdescr())
+            self.fastpath_malloc_fixedsize(op, op.getdescr())
         else:
             args = gc_ll_descr.args_for_new(op.getdescr())
             arglocs = [imm(x) for x in args]
@@ -870,7 +958,7 @@ class RegAlloc(object):
         classint = op.getarg(0).getint()
         descrsize = heaptracker.vtable2descr(self.assembler.cpu, classint)
         if self.assembler.cpu.gc_ll_descr.can_inline_malloc(descrsize):
-            self._fastpath_malloc(op, descrsize)
+            self.fastpath_malloc_fixedsize(op, descrsize)
             self.assembler.set_vtable(eax, imm(classint))
             # result of fastpath malloc is in eax
         else:
@@ -929,16 +1017,25 @@ class RegAlloc(object):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
         if gc_ll_descr.get_funcptr_for_newarray is not None:
             # framework GC
-            args = self.assembler.cpu.gc_ll_descr.args_for_new_array(op.getdescr())
+            box_num_elem = op.getarg(0)
+            if isinstance(box_num_elem, ConstInt):
+                num_elem = box_num_elem.value
+                if gc_ll_descr.can_inline_malloc_varsize(op.getdescr(),
+                                                         num_elem):
+                    self.fastpath_malloc_varsize(op, op.getdescr(), num_elem)
+                    return
+            args = self.assembler.cpu.gc_ll_descr.args_for_new_array(
+                op.getdescr())
             arglocs = [imm(x) for x in args]
-            arglocs.append(self.loc(op.getarg(0)))
-            return self._call(op, arglocs)
+            arglocs.append(self.loc(box_num_elem))
+            self._call(op, arglocs)
+            return
         # boehm GC (XXX kill the following code at some point)
         itemsize, basesize, ofs_length, _, _ = (
             self._unpack_arraydescr(op.getdescr()))
         scale_of_field = _get_scale(itemsize)
-        return self._malloc_varsize(basesize, ofs_length, scale_of_field,
-                                    op.getarg(0), op.result)
+        self._malloc_varsize(basesize, ofs_length, scale_of_field,
+                             op.getarg(0), op.result)
 
     def _unpack_arraydescr(self, arraydescr):
         assert isinstance(arraydescr, BaseArrayDescr)
@@ -1132,7 +1229,7 @@ class RegAlloc(object):
         # call memcpy()
         self.rm.before_call()
         self.xrm.before_call()
-        self.assembler._emit_call(imm(self.assembler.memcpy_addr),
+        self.assembler._emit_call(-1, imm(self.assembler.memcpy_addr),
                                   [dstaddr_loc, srcaddr_loc, length_loc])
         self.rm.possibly_free_var(length_box)
         self.rm.possibly_free_var(dstaddr_box)
@@ -1162,6 +1259,29 @@ class RegAlloc(object):
         else:
             raise AssertionError("bad unicode item size")
 
+    def consider_read_timestamp(self, op):
+        tmpbox_high = TempBox()
+        self.rm.force_allocate_reg(tmpbox_high, selected_reg=eax)
+        if longlong.is_64_bit:
+            # on 64-bit, use rax as temporary register and returns the
+            # result in rdx
+            result_loc = self.rm.force_allocate_reg(op.result,
+                                                    selected_reg=edx)
+            self.Perform(op, [], result_loc)
+        else:
+            # on 32-bit, use both eax and edx as temporary registers,
+            # use a temporary xmm register, and returns the result in
+            # another xmm register.
+            tmpbox_low = TempBox()
+            self.rm.force_allocate_reg(tmpbox_low, selected_reg=edx)
+            xmmtmpbox = TempBox()
+            xmmtmploc = self.xrm.force_allocate_reg(xmmtmpbox)
+            result_loc = self.xrm.force_allocate_reg(op.result)
+            self.Perform(op, [xmmtmploc], result_loc)
+            self.xrm.possibly_free_var(xmmtmpbox)
+            self.rm.possibly_free_var(tmpbox_low)
+        self.rm.possibly_free_var(tmpbox_high)
+
     def consider_jump(self, op):
         assembler = self.assembler
         assert self.jump_target_descr is None
@@ -1178,12 +1298,12 @@ class RegAlloc(object):
         xmmtmploc = self.xrm.force_allocate_reg(box1, selected_reg=xmmtmp)
         # Part about non-floats
         # XXX we don't need a copy, we only just the original list
-        src_locations1 = [self.loc(op.getarg(i)) for i in range(op.numargs()) 
+        src_locations1 = [self.loc(op.getarg(i)) for i in range(op.numargs())
                          if op.getarg(i).type != FLOAT]
         assert tmploc not in nonfloatlocs
         dst_locations1 = [loc for loc in nonfloatlocs if loc is not None]
         # Part about floats
-        src_locations2 = [self.loc(op.getarg(i)) for i in range(op.numargs()) 
+        src_locations2 = [self.loc(op.getarg(i)) for i in range(op.numargs())
                          if op.getarg(i).type == FLOAT]
         dst_locations2 = [loc for loc in floatlocs if loc is not None]
         remap_frame_layout_mixed(assembler,
@@ -1200,18 +1320,40 @@ class RegAlloc(object):
     def consider_jit_debug(self, op):
         pass
 
-    def get_mark_gc_roots(self, gcrootmap):
+    def _consider_force_spill(self, op):
+        # This operation is used only for testing
+        self.force_spill_var(op.getarg(0))
+
+    def get_mark_gc_roots(self, gcrootmap, use_copy_area=False):
         shape = gcrootmap.get_basic_shape(IS_X86_64)
         for v, val in self.fm.frame_bindings.items():
             if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
                 assert isinstance(val, StackLoc)
-                gcrootmap.add_ebp_offset(shape, get_ebp_ofs(val.position))
+                gcrootmap.add_frame_offset(shape, get_ebp_ofs(val.position))
         for v, reg in self.rm.reg_bindings.items():
             if reg is eax:
                 continue      # ok to ignore this one
             if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
-                assert reg in self.rm.REGLOC_TO_GCROOTMAP_REG_INDEX
-                gcrootmap.add_callee_save_reg(shape, self.rm.REGLOC_TO_GCROOTMAP_REG_INDEX[reg])
+                #
+                # The register 'reg' is alive across this call.
+                gcrootmap = self.assembler.cpu.gc_ll_descr.gcrootmap
+                if gcrootmap is None or not gcrootmap.is_shadow_stack:
+                    #
+                    # Asmgcc: if reg is a callee-save register, we can
+                    # explicitly mark it as containing a BoxPtr.
+                    if reg in self.rm.REGLOC_TO_GCROOTMAP_REG_INDEX:
+                        gcrootmap.add_callee_save_reg(
+                            shape, self.rm.REGLOC_TO_GCROOTMAP_REG_INDEX[reg])
+                        continue
+                #
+                # Else, 'use_copy_area' must be True (otherwise this BoxPtr
+                # should not be in a register).  The copy area contains the
+                # real value of the register.
+                assert use_copy_area
+                assert reg in self.rm.REGLOC_TO_COPY_AREA_OFS
+                area_offset = self.rm.REGLOC_TO_COPY_AREA_OFS[reg]
+                gcrootmap.add_frame_offset(shape, area_offset)
+        #
         return gcrootmap.compress_callshape(shape,
                                             self.assembler.datablockwrapper)
 
@@ -1247,7 +1389,9 @@ for name, value in RegAlloc.__dict__.iteritems():
         name = name[len('consider_'):]
         num = getattr(rop, name.upper())
         if (is_comparison_or_ovf_op(num)
-            or num == rop.CALL_MAY_FORCE or num == rop.CALL_ASSEMBLER):
+            or num == rop.CALL_MAY_FORCE
+            or num == rop.CALL_ASSEMBLER
+            or num == rop.CALL_RELEASE_GIL):
             oplist_with_guard[num] = value
             oplist[num] = add_none_argument(value)
         else:

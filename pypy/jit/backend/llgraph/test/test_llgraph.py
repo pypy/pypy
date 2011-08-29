@@ -19,6 +19,9 @@ class TestLLTypeLLGraph(LLtypeBackendTest):
     def setup_method(self, _):
         self.cpu = self.cpu_type(None)
 
+    def test_memoryerror(self):
+        py.test.skip("does not make much sense on the llgraph backend")
+
 
 def test_cast_adr_to_int_and_back():
     X = lltype.Struct('X', ('foo', lltype.Signed))

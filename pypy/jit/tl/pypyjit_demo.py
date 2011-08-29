@@ -1,20 +1,25 @@
+import pypyjit
+pypyjit.set_param(threshold=200)
+
+
+def main(a, b):
+    i = sa = 0
+    while i < 300:
+        if a > 0: # Specialises the loop
+            pass
+        if b < 2 and b > 0:
+            pass
+        if (a >> b) >= 0:
+            sa += 1
+        if (a << b) > 2:
+            sa += 10000
+        i += 1
+    return sa
 
 try:
-    import pypyjit
-    pypyjit.set_param(threshold=3, inlining=True)
+    print main(2, 1)
 
-    def sqrt(y, n=10000):
-        x = y / 2
-        while n > 0:
-            #assert y > 0 and x > 0
-            if y > 0 and x > 0: pass
-            n -= 1
-            x = (x + y/x) / 2
-        return x
-
-    print sqrt(1234, 4)
-    
 except Exception, e:
     print "Exception: ", type(e)
     print e
-    
+

@@ -37,7 +37,7 @@ from pypy.rpython.lltypesystem.lloperation import llop
 DEBUG_WRAPPER = True
 
 # update these for other platforms
-Py_ssize_t = lltype.Signed
+Py_ssize_t = lltype.Typedef(rffi.SSIZE_T, 'Py_ssize_t')
 Py_ssize_tP = rffi.CArrayPtr(Py_ssize_t)
 size_t = rffi.ULONG
 ADDR = lltype.Signed
@@ -90,8 +90,8 @@ else:
 
 
 constant_names = """
-Py_TPFLAGS_READY Py_TPFLAGS_READYING
-METH_COEXIST METH_STATIC METH_CLASS 
+Py_TPFLAGS_READY Py_TPFLAGS_READYING Py_TPFLAGS_HAVE_GETCHARBUFFER
+METH_COEXIST METH_STATIC METH_CLASS
 METH_NOARGS METH_VARARGS METH_KEYWORDS METH_O
 Py_TPFLAGS_HEAPTYPE Py_TPFLAGS_HAVE_CLASS
 Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE
@@ -192,14 +192,19 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
     - set `external` to False to get a C function pointer, but not exported by
       the API headers.
     """
+    if isinstance(restype, lltype.Typedef):
+        real_restype = restype.OF
+    else:
+        real_restype = restype
+
     if error is _NOT_SPECIFIED:
-        if isinstance(restype, lltype.Ptr):
-            error = lltype.nullptr(restype.TO)
-        elif restype is lltype.Void:
+        if isinstance(real_restype, lltype.Ptr):
+            error = lltype.nullptr(real_restype.TO)
+        elif real_restype is lltype.Void:
             error = CANNOT_FAIL
     if type(error) is int:
-        error = rffi.cast(restype, error)
-    expect_integer = (isinstance(restype, lltype.Primitive) and
+        error = rffi.cast(real_restype, error)
+    expect_integer = (isinstance(real_restype, lltype.Primitive) and
                       rffi.cast(restype, 0) == 0)
 
     def decorate(func):
@@ -314,6 +319,7 @@ SYMBOLS_C = [
     'Py_BuildValue', 'Py_VaBuildValue', 'PyTuple_Pack',
 
     'PyErr_Format', 'PyErr_NewException', 'PyErr_NewExceptionWithDoc',
+    'PySys_WriteStdout', 'PySys_WriteStderr',
 
     'PyEval_CallFunction', 'PyEval_CallMethod', 'PyObject_CallFunction',
     'PyObject_CallMethod', 'PyObject_CallFunctionObjArgs', 'PyObject_CallMethodObjArgs',
@@ -331,7 +337,7 @@ SYMBOLS_C = [
     'PyCapsule_SetContext', 'PyCapsule_Import', 'PyCapsule_Type', 'init_capsule',
 
     'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
-    
+
     'PyOS_getsig', 'PyOS_setsig',
 
     'PyStructSequence_InitType', 'PyStructSequence_New',
@@ -342,6 +348,7 @@ GLOBALS = { # this needs to include all prebuilt pto, otherwise segfaults occur
     '_Py_TrueStruct#': ('PyObject*', 'space.w_True'),
     '_Py_ZeroStruct#': ('PyObject*', 'space.w_False'),
     '_Py_NotImplementedStruct#': ('PyObject*', 'space.w_NotImplemented'),
+    '_Py_EllipsisObject#': ('PyObject*', 'space.w_Ellipsis'),
     'PyDateTimeAPI': ('PyDateTime_CAPI*', 'None'),
     }
 FORWARD_DECLS = []
@@ -399,23 +406,28 @@ PyTypeObjectPtr = lltype.Ptr(PyTypeObject)
 # So we need a forward and backward mapping in our State instance
 PyObjectStruct = lltype.ForwardReference()
 PyObject = lltype.Ptr(PyObjectStruct)
-PyBufferProcs = lltype.ForwardReference()
 PyObjectFields = (("ob_refcnt", lltype.Signed), ("ob_type", PyTypeObjectPtr))
-def F(ARGS, RESULT=lltype.Signed):
-    return lltype.Ptr(lltype.FuncType(ARGS, RESULT))
-PyBufferProcsFields = (
-    ("bf_getreadbuffer", F([PyObject, lltype.Signed, rffi.VOIDPP])),
-    ("bf_getwritebuffer", F([PyObject, lltype.Signed, rffi.VOIDPP])),
-    ("bf_getsegcount", F([PyObject, rffi.INTP])),
-    ("bf_getcharbuffer", F([PyObject, lltype.Signed, rffi.CCHARPP])),
-# we don't support new buffer interface for now
-    ("bf_getbuffer", rffi.VOIDP),
-    ("bf_releasebuffer", rffi.VOIDP))
 PyVarObjectFields = PyObjectFields + (("ob_size", Py_ssize_t), )
 cpython_struct('PyObject', PyObjectFields, PyObjectStruct)
-cpython_struct('PyBufferProcs', PyBufferProcsFields, PyBufferProcs)
 PyVarObjectStruct = cpython_struct("PyVarObject", PyVarObjectFields)
 PyVarObject = lltype.Ptr(PyVarObjectStruct)
+
+Py_buffer = cpython_struct(
+    "Py_buffer", (
+        ('buf', rffi.VOIDP),
+        ('obj', PyObject),
+        ('len', Py_ssize_t),
+        # ('itemsize', Py_ssize_t),
+
+        # ('readonly', lltype.Signed),
+        # ('ndim', lltype.Signed),
+        # ('format', rffi.CCHARP),
+        # ('shape', Py_ssize_tP),
+        # ('strides', Py_ssize_tP),
+        # ('suboffets', Py_ssize_tP),
+        # ('smalltable', rffi.CFixedArray(Py_ssize_t, 2)),
+        # ('internal', rffi.VOIDP)
+        ))
 
 @specialize.memo()
 def is_PyObject(TYPE):
@@ -538,7 +550,8 @@ def make_wrapper(space, callable):
 
             elif is_PyObject(callable.api_func.restype):
                 if result is None:
-                    retval = make_ref(space, None)
+                    retval = rffi.cast(callable.api_func.restype,
+                                       make_ref(space, None))
                 elif isinstance(result, Reference):
                     retval = result.get_ref(space)
                 elif not rffi._isllptr(result):
@@ -549,6 +562,8 @@ def make_wrapper(space, callable):
             elif callable.api_func.restype is not lltype.Void:
                 retval = rffi.cast(callable.api_func.restype, result)
         except Exception, e:
+            print 'Fatal error in cpyext, CPython compatibility layer, calling', callable.__name__
+            print 'Either report a bug or consider not using this particular extension'
             if not we_are_translated():
                 import traceback
                 traceback.print_exc()
@@ -730,7 +745,7 @@ def build_bridge(space):
             ctypes.c_void_p)
 
     setup_va_functions(eci)
-   
+
     setup_init_functions(eci)
     return modulename.new(ext='')
 
@@ -756,7 +771,7 @@ def generate_macros(export_symbols, rename=True, do_deref=True):
         export_symbols[:] = renamed_symbols
     else:
         export_symbols[:] = [sym.replace("#", "") for sym in export_symbols]
-    
+
     # Generate defines
     for macro_name, size in [
         ("SIZEOF_LONG_LONG", rffi.LONGLONG),
@@ -769,7 +784,7 @@ def generate_macros(export_symbols, rename=True, do_deref=True):
     ]:
         pypy_macros.append("#define %s %s" % (macro_name, rffi.sizeof(size)))
     pypy_macros.append('')
-    
+
     pypy_macros_h = udir.join('pypy_macros.h')
     pypy_macros_h.write('\n'.join(pypy_macros))
 
@@ -837,7 +852,7 @@ def build_eci(building_bridge, export_symbols, code):
             # Sometimes the library is wrapped into another DLL, ensure that
             # the correct bootstrap code is installed
             kwds["link_extra"] = ["msvcrt.lib"]
-        elif sys.platform == 'linux2':
+        elif sys.platform.startswith('linux'):
             compile_extra.append("-Werror=implicit-function-declaration")
         export_symbols_eci.append('pypyAPI')
     else:
@@ -883,6 +898,7 @@ def build_eci(building_bridge, export_symbols, code):
                                source_dir / "stringobject.c",
                                source_dir / "mysnprintf.c",
                                source_dir / "pythonrun.c",
+                               source_dir / "sysmodule.c",
                                source_dir / "bufferobject.c",
                                source_dir / "object.c",
                                source_dir / "cobject.c",
@@ -952,6 +968,7 @@ def load_extension_module(space, path, name):
     state = space.fromcache(State)
     if state.find_extension(name, path) is not None:
         return
+    old_context = state.package_context
     state.package_context = name, path
     try:
         from pypy.rlib import rdynload
@@ -977,7 +994,7 @@ def load_extension_module(space, path, name):
         generic_cpy_call(space, initfunc)
         state.check_and_raise_exception()
     finally:
-        state.package_context = None, None
+        state.package_context = old_context
     state.fixup_extension(name, path)
 
 @specialize.ll()
@@ -990,7 +1007,7 @@ def generic_cpy_call_dont_decref(space, func, *args):
     FT = lltype.typeOf(func).TO
     return make_generic_cpy_call(FT, False, False)(space, func, *args)
 
-@specialize.ll()    
+@specialize.ll()
 def generic_cpy_call_expect_null(space, func, *args):
     FT = lltype.typeOf(func).TO
     return make_generic_cpy_call(FT, True, True)(space, func, *args)

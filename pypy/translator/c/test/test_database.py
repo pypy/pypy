@@ -5,7 +5,7 @@ from pypy.translator.c.database import LowLevelDatabase
 from pypy.objspace.flow.model import Constant, Variable, SpaceOperation
 from pypy.objspace.flow.model import Block, Link, FunctionGraph
 from pypy.rpython.typesystem import getfunctionptr
-from pypy.rpython.lltypesystem.rffi import VOIDP, INT_real, INT
+from pypy.rpython.lltypesystem.rffi import VOIDP, INT_real, INT, CArrayPtr
 
 
 def dump_on_stdout(database):
@@ -244,3 +244,15 @@ def test_recursive_struct():
     db.get(p)
     db.complete()
     dump_on_stdout(db)
+
+def test_typedef():
+    A = Typedef(Signed, 'test4')
+    db = LowLevelDatabase()
+    assert db.gettype(A) == "test4 @"
+
+    PA = CArrayPtr(A)
+    assert db.gettype(PA) == "test4 *@"
+
+    F = FuncType((A,), A)
+    assert db.gettype(F) == "test4 (@)(test4)"
+

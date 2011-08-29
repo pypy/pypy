@@ -1,13 +1,17 @@
 import py
 from pypy.rlib.jit import virtual_ref, virtual_ref_finish
-from pypy.rlib.jit import vref_None, non_virtual_ref
+from pypy.rlib.jit import vref_None, non_virtual_ref, InvalidVirtualRef
 from pypy.rlib._jit_vref import SomeVRef
 from pypy.annotation import model as annmodel
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.lltypesystem.rclass import OBJECTPTR
+from pypy.rpython.ootypesystem.rclass import OBJECT
 from pypy.rpython.lltypesystem import lltype
 
+from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
+
+from pypy.rpython.ootypesystem import ootype
 
 class X(object):
     pass
@@ -19,18 +23,23 @@ class Z(X):
     pass
 
 
-def test_direct_1():
+def test_direct_forced():
     x1 = X()
     vref = virtual_ref(x1)
+    assert vref._state == 'non-forced'
     assert vref() is x1
-    virtual_ref_finish(x1)
+    assert vref._state == 'forced'
+    virtual_ref_finish(vref, x1)
+    assert vref._state == 'forced'
     assert vref() is x1
 
-def test_direct_2():
+def test_direct_invalid():
     x1 = X()
     vref = virtual_ref(x1)
-    virtual_ref_finish(x1)
-    assert vref() is x1
+    assert vref._state == 'non-forced'
+    virtual_ref_finish(vref, x1)
+    assert vref._state == 'invalid'
+    py.test.raises(InvalidVirtualRef, "vref()")
 
 def test_annotate_1():
     def f():
@@ -46,7 +55,7 @@ def test_annotate_2():
         x1 = X()
         vref = virtual_ref(x1)
         x2 = vref()
-        virtual_ref_finish(x1)
+        virtual_ref_finish(vref, x1)
         return x2
     a = RPythonAnnotator()
     s = a.build_types(f, [])
@@ -79,37 +88,60 @@ def test_annotate_4():
     assert s.s_instance.can_be_None
     assert s.s_instance.classdef == a.bookkeeper.getuniqueclassdef(X)
 
-def test_rtype_1():
-    def f():
-        return virtual_ref(X())
-    x = interpret(f, [])
-    assert lltype.typeOf(x) == OBJECTPTR
-
-def test_rtype_2():
-    def f():
-        x1 = X()
-        vref = virtual_ref(x1)
-        x2 = vref()
-        virtual_ref_finish(x2)
-        return x2
-    x = interpret(f, [])
-    assert lltype.castable(OBJECTPTR, lltype.typeOf(x)) > 0
-
-def test_rtype_3():
-    def f(n):
-        if n > 0:
-            return virtual_ref(Y())
-        else:
-            return non_virtual_ref(Z())
-    x = interpret(f, [-5])
-    assert lltype.typeOf(x) == OBJECTPTR
-
-def test_rtype_4():
-    def f(n):
-        if n > 0:
+class BaseTestVRef(BaseRtypingTest):
+    def test_rtype_1(self):
+        def f():
             return virtual_ref(X())
-        else:
-            return vref_None
-    x = interpret(f, [-5])
-    assert lltype.typeOf(x) == OBJECTPTR
-    assert not x
+        x = self.interpret(f, [])
+        assert lltype.typeOf(x) == self.OBJECTTYPE
+
+    def test_rtype_2(self):
+        def f():
+            x1 = X()
+            vref = virtual_ref(x1)
+            x2 = vref()
+            virtual_ref_finish(vref, x2)
+            return x2
+        x = self.interpret(f, [])
+        assert self.castable(self.OBJECTTYPE, x)
+
+    def test_rtype_3(self):
+        def f(n):
+            if n > 0:
+                return virtual_ref(Y())
+            else:
+                return non_virtual_ref(Z())
+        x = self.interpret(f, [-5])
+        assert lltype.typeOf(x) == self.OBJECTTYPE
+
+    def test_rtype_4(self):
+        def f(n):
+            if n > 0:
+                return virtual_ref(X())
+            else:
+                return vref_None
+        x = self.interpret(f, [-5])
+        assert lltype.typeOf(x) == self.OBJECTTYPE
+        assert not x
+
+    def test_rtype_5(self):
+        def f():
+            vref = virtual_ref(X())
+            try:
+                vref()
+                return 42
+            except InvalidVirtualRef:
+                return -1
+        x = self.interpret(f, [])
+        assert x == 42
+
+
+class TestLLtype(BaseTestVRef, LLRtypeMixin):
+    OBJECTTYPE = OBJECTPTR
+    def castable(self, TO, var):
+        return lltype.castable(TO, lltype.typeOf(var)) > 0
+
+class TestOOtype(BaseTestVRef, OORtypeMixin):
+    OBJECTTYPE = OBJECT 
+    def castable(self, TO, var):
+        return ootype.isSubclass(lltype.typeOf(var), TO)

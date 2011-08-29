@@ -14,9 +14,7 @@ from pypy.rpython.lltypesystem.lltype import \
 from pypy.rpython.lltypesystem import rstr
 from pypy.rpython import robject
 from pypy.rlib.debug import ll_assert
-from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.lltypesystem import rffi
-from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib import rgc
 
@@ -201,12 +199,11 @@ def _ll_list_resize_really(l, newsize):
         else:
             some = 6
         some += newsize >> 3
-        try:
-            new_allocated = ovfcheck(newsize + some)
-        except OverflowError:
-            raise MemoryError
+        new_allocated = newsize + some
     # new_allocated is a bit more than newsize, enough to ensure an amortized
-    # linear complexity for e.g. repeated usage of l.append().
+    # linear complexity for e.g. repeated usage of l.append().  In case
+    # it overflows sys.maxint, it is guaranteed negative, and the following
+    # malloc() will fail.
     items = l.items
     newitems = malloc(typeOf(l).TO.items.TO, new_allocated)
     before_len = l.length
@@ -238,6 +235,7 @@ def _ll_list_resize_ge(l, newsize):
         l.length = newsize
     else:
         _ll_list_resize_really(l, newsize)
+_ll_list_resize_ge.oopspec = 'list._resize_ge(l, newsize)'
 
 def _ll_list_resize_le(l, newsize):
     if newsize >= (len(l.items) >> 1) - 5:
@@ -250,12 +248,11 @@ def ll_append_noresize(l, newitem):
     length = l.length
     l.length = length + 1
     l.ll_setitem_fast(length, newitem)
-ll_append_noresize.oopspec = 'list.append(l, newitem)'
 
 
 def ll_both_none(lst1, lst2):
     return not lst1 and not lst2
-        
+
 
 # ____________________________________________________________
 #

@@ -1,9 +1,8 @@
-from pypy.interpreter.gateway import NoneNotWrapped, unwrap_spec
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.module._socket.interp_socket import converted_error, W_RSocket
 from pypy.rlib import rsocket
 from pypy.rlib.rsocket import SocketError
-from pypy.rlib.rarithmetic import r_uint
-from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.error import OperationError
 
 def gethostname(space):
     """gethostname() -> string

@@ -1,5 +1,4 @@
-from pypy.interpreter.typedef import (
-    TypeDef, interp_attrproperty, interp_attrproperty_w, GetSetProperty)
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, wrap_oserror, wrap_oserror2
 from pypy.rlib.rarithmetic import r_longlong

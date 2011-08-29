@@ -1,6 +1,6 @@
 """Tests for multiple JitDrivers."""
 from pypy.rlib.jit import JitDriver, unroll_safe
-from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from pypy.jit.metainterp.warmspot import get_stats
 
 
@@ -10,8 +10,59 @@ def getloc1():
 def getloc2(g):
     return "in jitdriver2, with g=%d" % g
 
+class JitDriverTests(object):
+    def test_on_compile(self):
+        called = {}
+        
+        class MyJitDriver(JitDriver):
+            def on_compile(self, logger, looptoken, operations, type, n, m):
+                called[(m, n, type)] = looptoken
 
-class MultipleJitDriversTests:
+        driver = MyJitDriver(greens = ['n', 'm'], reds = ['i'])
+
+        def loop(n, m):
+            i = 0
+            while i < n + m:
+                driver.can_enter_jit(n=n, m=m, i=i)
+                driver.jit_merge_point(n=n, m=m, i=i)
+                i += 1
+
+        self.meta_interp(loop, [1, 4])
+        assert sorted(called.keys()) == [(4, 1, "entry bridge"), (4, 1, "loop")]
+        self.meta_interp(loop, [2, 4])
+        assert sorted(called.keys()) == [(4, 1, "entry bridge"), (4, 1, "loop"),
+                                         (4, 2, "entry bridge"), (4, 2, "loop")]
+
+    def test_on_compile_bridge(self):
+        called = {}
+        
+        class MyJitDriver(JitDriver):
+            def on_compile(self, logger, looptoken, operations, type, n, m):
+                called[(m, n, type)] = loop
+            def on_compile_bridge(self, logger, orig_token, operations, n):
+                assert 'bridge' not in called
+                called['bridge'] = orig_token
+
+        driver = MyJitDriver(greens = ['n', 'm'], reds = ['i'])
+
+        def loop(n, m):
+            i = 0
+            while i < n + m:
+                driver.can_enter_jit(n=n, m=m, i=i)
+                driver.jit_merge_point(n=n, m=m, i=i)
+                if i >= 4:
+                    i += 2
+                i += 1
+
+        self.meta_interp(loop, [1, 10])
+        assert sorted(called.keys()) == ['bridge', (10, 1, "entry bridge"),
+                                         (10, 1, "loop")]
+
+
+class TestLLtypeSingle(JitDriverTests, LLJitMixin):
+    pass
+
+class MultipleJitDriversTests(object):
 
     def test_simple(self):
         myjitdriver1 = JitDriver(greens=[], reds=['n', 'm'],
@@ -62,6 +113,7 @@ class MultipleJitDriversTests:
             return n
         #
         def loop2(g, r):
+            myjitdriver1.set_param('function_threshold', 0)
             while r > 0:
                 myjitdriver2.can_enter_jit(g=g, r=r)
                 myjitdriver2.jit_merge_point(g=g, r=r)
@@ -71,7 +123,11 @@ class MultipleJitDriversTests:
         res = self.meta_interp(loop2, [4, 40], repeat=7, inline=True)
         assert res == loop2(4, 40)
         # we expect no loop at all for 'loop1': it should always be inlined
-        self.check_tree_loop_count(2)    # 1 x loop, 1 x enter bridge
+        # we do however get several version of 'loop2', all of which contains
+        # at least one int_add, while there are no int_add's in 'loop1'
+        self.check_tree_loop_count(5)
+        for loop in get_stats().loops:
+            assert loop.summary()['int_add'] >= 1
 
     def test_inactive_jitdriver(self):
         myjitdriver1 = JitDriver(greens=[], reds=['n', 'm'],

@@ -274,8 +274,12 @@ feeling more loquacious than I am now."""
                         screeninfo.append((0, []))
                 self.lxy = p, ln
             prompt = self.get_prompt(ln, ll >= p >= 0)
+            while '\n' in prompt:
+                pre_prompt, _, prompt = prompt.partition('\n')
+                screen.append(pre_prompt)
+                screeninfo.append((0, []))
             p -= ll + 1
-            lp = len(prompt)
+            prompt, lp = self.process_prompt(prompt)
             l, l2 = disp_str(line)
             wrapcount = (len(l) + lp) / w
             if wrapcount == 0:
@@ -296,6 +300,31 @@ feeling more loquacious than I am now."""
                 screen.append(mline)
                 screeninfo.append((0, []))
         return screen
+
+    def process_prompt(self, prompt):
+        """ Process the prompt.
+        
+        This means calculate the length of the prompt. The character \x01
+        and \x02 are used to bracket ANSI control sequences and need to be
+        excluded from the length calculation.  So also a copy of the prompt
+        is returned with these control characters removed.  """
+
+        out_prompt = ''
+        l = len(prompt)
+        pos = 0
+        while True:
+            s = prompt.find('\x01', pos)
+            if s == -1:
+                break
+            e = prompt.find('\x02', s)
+            if e == -1:
+                break
+            # Found start and end brackets, subtract from string length
+            l = l - (e-s+1)
+            out_prompt += prompt[pos:s] + prompt[s+1:e]
+            pos = e+1
+        out_prompt += prompt[pos:]
+        return out_prompt, l
 
     def bow(self, p=None):
         """Return the 0-based index of the word break preceding p most

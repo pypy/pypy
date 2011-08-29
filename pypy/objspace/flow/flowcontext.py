@@ -311,8 +311,7 @@ class FlowExecutionContext(ExecutionContext):
         # EggBlocks reuse the variables of their previous block,
         # which is deemed not acceptable for simplicity of the operations
         # that will be performed later on the flow graph.
-        def fixegg(link):
-            if isinstance(link, Link):
+        for link in list(self.graph.iterlinks()):
                 block = link.target
                 if isinstance(block, EggBlock):
                     if (not block.operations and len(block.exits) == 1 and
@@ -324,15 +323,14 @@ class FlowExecutionContext(ExecutionContext):
                         link.args = list(link2.args)
                         link.target = link2.target
                         assert link2.exitcase is None
-                        fixegg(link)
                     else:
                         mapping = {}
                         for a in block.inputargs:
                             mapping[a] = Variable(a)
                         block.renamevariables(mapping)
-            elif isinstance(link, SpamBlock):
+        for block in self.graph.iterblocks():
+            if isinstance(link, SpamBlock):
                 del link.framestate     # memory saver
-        traverse(fixegg, self.graph)
 
     def mergeblock(self, currentblock, currentstate):
         next_instr = currentstate.next_instr
@@ -386,8 +384,9 @@ class FlowExecutionContext(ExecutionContext):
     # hack for unrolling iterables, don't use this
     def replace_in_stack(self, oldvalue, newvalue):
         w_new = Constant(newvalue)
-        stack_items_w = self.crnt_frame.valuestack_w
-        for i in range(self.crnt_frame.valuestackdepth-1, -1, -1):
+        f = self.crnt_frame
+        stack_items_w = f.locals_stack_w
+        for i in range(f.valuestackdepth-1, f.nlocals-1, -1):
             w_v = stack_items_w[i]
             if isinstance(w_v, Constant):
                 if w_v.value is oldvalue:
@@ -407,8 +406,8 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         w_exit = self.space.getattr(w_manager, self.space.wrap("__exit__"))
         self.settopvalue(w_exit)
         w_result = self.space.call_method(w_manager, "__enter__")
-        block = WithBlock(self, next_instr + offsettoend)
-        self.append_block(block)
+        block = WithBlock(self, next_instr + offsettoend, self.lastblock)
+        self.lastblock = block
         self.pushvalue(w_result)
 
     # XXX Unimplemented 2.7 opcodes ----------------

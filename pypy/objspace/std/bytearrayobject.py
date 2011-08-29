@@ -22,7 +22,6 @@ from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
 from pypy.interpreter.argument import Signature
 from pypy.interpreter.buffer import RWBuffer
-from pypy.interpreter.function import Defaults
 from pypy.objspace.std.bytearraytype import (
     makebytearraydata_w, getbytevalue,
     new_bytearray
@@ -43,7 +42,7 @@ class W_BytearrayObject(W_Object):
 registerimplementation(W_BytearrayObject)
 
 init_signature = Signature(['source', 'encoding', 'errors'], None, None)
-init_defaults = Defaults([None, None, None])
+init_defaults = [None, None, None]
 
 def init__Bytearray(space, w_bytearray, __args__):
     # this is on the silly side
@@ -283,8 +282,8 @@ def str__Bytearray(space, w_bytearray):
     return space.wrap(''.join(w_bytearray.data))
 
 def _convert_idx_params(space, w_self, w_start, w_stop):
-    start = slicetype._Eval_SliceIndex(space, w_start)
-    stop = slicetype._Eval_SliceIndex(space, w_stop)
+    start = slicetype.eval_slice_index(space, w_start)
+    stop = slicetype.eval_slice_index(space, w_stop)
     length = len(w_self.data)
     if start < 0:
         start += length
@@ -375,7 +374,7 @@ def str_join__Bytearray_ANY(space, w_self, w_list):
             raise operationerrfmt(
                 space.w_TypeError,
                 "sequence item %d: expected string, %s "
-                "found", i, space.type(w_s).getname(space, '?'))
+                "found", i, space.type(w_s).getname(space))
 
         if data and i != 0:
             newdata.extend(data)

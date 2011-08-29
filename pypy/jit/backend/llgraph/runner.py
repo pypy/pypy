@@ -25,12 +25,13 @@ class MiniStats:
 class Descr(history.AbstractDescr):
 
     def __init__(self, ofs, typeinfo, extrainfo=None, name=None,
-                 arg_types=None):
+                 arg_types=None, count_fields_if_immut=-1):
         self.ofs = ofs
         self.typeinfo = typeinfo
         self.extrainfo = extrainfo
         self.name = name
         self.arg_types = arg_types
+        self.count_fields_if_immut = count_fields_if_immut
 
     def get_arg_types(self):
         return self.arg_types
@@ -63,6 +64,9 @@ class Descr(history.AbstractDescr):
     def as_vtable_size_descr(self):
         return self
 
+    def count_fields_if_immutable(self):
+        return self.count_fields_if_immut
+
     def __lt__(self, other):
         raise TypeError("cannot use comparison on Descrs")
     def __le__(self, other):
@@ -87,6 +91,7 @@ history.TreeLoop._compiled_version = lltype.nullptr(llimpl.COMPILEDLOOP.TO)
 class BaseCPU(model.AbstractCPU):
     supports_floats = True
     supports_longlong = llimpl.IS_32_BIT
+    supports_singlefloats = True
 
     def __init__(self, rtyper, stats=None, opts=None,
                  translate_support_code=False,
@@ -109,12 +114,14 @@ class BaseCPU(model.AbstractCPU):
         return False
 
     def getdescr(self, ofs, typeinfo='?', extrainfo=None, name=None,
-                 arg_types=None):
-        key = (ofs, typeinfo, extrainfo, name, arg_types)
+                 arg_types=None, count_fields_if_immut=-1):
+        key = (ofs, typeinfo, extrainfo, name, arg_types,
+               count_fields_if_immut)
         try:
             return self._descrs[key]
         except KeyError:
-            descr = Descr(ofs, typeinfo, extrainfo, name, arg_types)
+            descr = Descr(ofs, typeinfo, extrainfo, name, arg_types,
+                          count_fields_if_immut)
             self._descrs[key] = descr
             return descr
 
@@ -128,7 +135,7 @@ class BaseCPU(model.AbstractCPU):
         old, oldindex = faildescr._compiled_fail
         llimpl.compile_redirect_fail(old, oldindex, c)
 
-    def compile_loop(self, inputargs, operations, looptoken, log=True):
+    def compile_loop(self, inputargs, operations, looptoken, log=True, name=''):
         """In a real assembler backend, this should assemble the given
         list of operations.  Here we just generate a similar CompiledLoop
         instance.  The code here is RPython, whereas the code in llimpl
@@ -203,7 +210,7 @@ class BaseCPU(model.AbstractCPU):
                         llimpl.compile_add_fail_arg(c, var2index[box])
                     else:
                         llimpl.compile_add_fail_arg(c, -1)
-                        
+
             x = op.result
             if x is not None:
                 if isinstance(x, history.BoxInt):
@@ -280,11 +287,16 @@ class BaseCPU(model.AbstractCPU):
             raise ValueError("CALL_ASSEMBLER not supported")
         llimpl.redirect_call_assembler(self, oldlooptoken, newlooptoken)
 
+    def invalidate_loop(self, looptoken):
+        for loop in looptoken.compiled_loop_token.loop_and_bridges:
+            loop._obj.externalobj.invalid = True
+
     # ----------
 
     def sizeof(self, S):
         assert not isinstance(S, lltype.Ptr)
-        return self.getdescr(symbolic.get_size(S))
+        count = heaptracker.count_fields_if_immutable(S)
+        return self.getdescr(symbolic.get_size(S), count_fields_if_immut=count)
 
 
 class LLtypeCPU(BaseCPU):
@@ -316,12 +328,16 @@ class LLtypeCPU(BaseCPU):
 
     def calldescrof_dynamic(self, ffi_args, ffi_result, extrainfo=None):
         from pypy.jit.backend.llsupport.ffisupport import get_ffi_type_kind
+        from pypy.jit.backend.llsupport.ffisupport import UnsupportedKind
         arg_types = []
-        for arg in ffi_args:
-            kind = get_ffi_type_kind(arg)
-            if kind != history.VOID:
-                arg_types.append(kind)
-        reskind = get_ffi_type_kind(ffi_result)
+        try:
+            for arg in ffi_args:
+                kind = get_ffi_type_kind(self, arg)
+                if kind != history.VOID:
+                    arg_types.append(kind)
+            reskind = get_ffi_type_kind(self, ffi_result)
+        except UnsupportedKind:
+            return None
         return self.getdescr(0, reskind, extrainfo=extrainfo,
                              arg_types=''.join(arg_types))
 

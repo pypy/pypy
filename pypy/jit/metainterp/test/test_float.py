@@ -1,5 +1,5 @@
 import math
-from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 
 
 class FloatTests:
@@ -35,6 +35,15 @@ class FloatTests:
         x = 281474976710656.31
         res = self.interp_operations(f, [x])
         assert res == -x
+
+    def test_singlefloat(self):
+        from pypy.rlib.rarithmetic import r_singlefloat
+        def f(a):
+            a = float(r_singlefloat(a))
+            a *= 4.25
+            return float(r_singlefloat(a))
+        res = self.interp_operations(f, [-2.0])
+        assert res == -8.5
 
 
 class TestOOtype(FloatTests, OOJitMixin):

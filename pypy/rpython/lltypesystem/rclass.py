@@ -322,6 +322,7 @@ class InstanceRepr(AbstractInstanceRepr):
         #       before they are fully built, to avoid strange bugs in case
         #       of recursion where other code would uses these
         #       partially-initialized dicts.
+        AbstractInstanceRepr._setup_repr(self)
         self.rclass = getclassrepr(self.rtyper, self.classdef)
         fields = {}
         allinstancefields = {}
@@ -370,6 +371,11 @@ class InstanceRepr(AbstractInstanceRepr):
             kwds = {}
             if self.gcflavor == 'gc':
                 kwds['rtti'] = True
+
+            for name, attrdef in attrs:
+                if not attrdef.readonly and self.is_quasi_immutable(name):
+                    llfields.append(('mutate_' + name, OBJECTPTR))
+
             object_type = MkStruct(self.classdef.name,
                                    ('super', self.rbase.object_type),
                                    hints=hints,
@@ -394,6 +400,7 @@ class InstanceRepr(AbstractInstanceRepr):
                 assert len(s_func.descriptions) == 1
                 funcdesc, = s_func.descriptions
                 graph = funcdesc.getuniquegraph()
+                self.check_graph_of_del_does_not_call_too_much(graph)
                 FUNCTYPE = FuncType([Ptr(source_repr.object_type)], Void)
                 destrptr = functionptr(FUNCTYPE, graph.name,
                                        graph=graph,
@@ -488,15 +495,13 @@ class InstanceRepr(AbstractInstanceRepr):
             if force_cast:
                 vinst = llops.genop('cast_pointer', [vinst], resulttype=self)
             self.hook_access_field(vinst, cname, llops, flags)
+            self.hook_setfield(vinst, attr, llops)
             llops.genop('setfield', [vinst, cname, vvalue])
         else:
             if self.classdef is None:
                 raise MissingRTypeAttribute(attr)
             self.rbase.setfield(vinst, attr, vvalue, llops, force_cast=True,
                                 flags=flags)
-
-    def hook_access_field(self, vinst, cname, llops, flags):
-        pass        # for virtualizables; see rvirtualizable2.py
 
     def new_instance(self, llops, classcallhop=None):
         """Build a new instance, without calling __init__."""

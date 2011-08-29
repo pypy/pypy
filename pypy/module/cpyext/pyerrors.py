@@ -39,6 +39,10 @@ def PyErr_Clear(space):
     state = space.fromcache(State)
     state.clear_exception()
 
+@cpython_api([PyObject], PyObject)
+def PyExceptionInstance_Class(space, w_obj):
+    return space.type(w_obj)
+
 @cpython_api([PyObjectP, PyObjectP, PyObjectP], lltype.Void)
 def PyErr_Fetch(space, ptype, pvalue, ptraceback):
     """Retrieve the error indicator into three variables whose addresses are passed.
@@ -53,7 +57,7 @@ def PyErr_Fetch(space, ptype, pvalue, ptraceback):
     if operror:
         ptype[0] = make_ref(space, operror.w_type)
         pvalue[0] = make_ref(space, operror.get_w_value(space))
-        ptraceback[0] = make_ref(space, space.wrap(operror.application_traceback))
+        ptraceback[0] = make_ref(space, space.wrap(operror.get_traceback()))
     else:
         ptype[0] = lltype.nullptr(PyObject.TO)
         pvalue[0] = lltype.nullptr(PyObject.TO)
@@ -75,6 +79,9 @@ def PyErr_Restore(space, w_type, w_value, w_traceback):
     error indicator temporarily; use PyErr_Fetch() to save the current
     exception state."""
     state = space.fromcache(State)
+    if w_type is None:
+        state.clear_exception()
+        return
     state.set_exception(OperationError(w_type, w_value))
     Py_DecRef(space, w_type)
     Py_DecRef(space, w_value)
@@ -261,7 +268,7 @@ def PyErr_PrintEx(space, set_sys_last_vars):
 
     w_type = operror.w_type
     w_value = operror.get_w_value(space)
-    w_tb = space.wrap(operror.application_traceback)
+    w_tb = space.wrap(operror.get_traceback())
 
     if rffi.cast(lltype.Signed, set_sys_last_vars):
         space.sys.setdictvalue(space, "last_type", w_type)
@@ -300,3 +307,11 @@ def PyErr_WriteUnraisable(space, w_where):
     operror = state.clear_exception()
     if operror:
         operror.write_unraisable(space, space.str_w(space.repr(w_where)))
+
+@cpython_api([], lltype.Void)
+def PyErr_SetInterrupt(space):
+    """This function simulates the effect of a SIGINT signal arriving --- the
+    next time PyErr_CheckSignals() is called, KeyboardInterrupt will be raised.
+    It may be called without holding the interpreter lock."""
+    space.check_signal_action.set_interrupt()
+

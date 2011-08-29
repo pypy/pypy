@@ -25,6 +25,7 @@ from pypy.jit.codewriter import longlong
 from pypy.rlib.objectmodel import ComputedIntSymbolic, we_are_translated
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint
+from pypy.rlib.rtimer import read_timestamp
 
 import py
 from pypy.tool.ansi_print import ansi_log
@@ -135,6 +136,7 @@ TYPES = {
     'call'            : (('ref', 'varargs'), 'intorptr'),
     'call_assembler'  : (('varargs',), 'intorptr'),
     'cond_call_gc_wb' : (('ptr', 'ptr'), None),
+    'cond_call_gc_wb_array': (('ptr', 'int', 'ptr'), None),
     'oosend'          : (('varargs',), 'intorptr'),
     'oosend_pure'     : (('varargs',), 'intorptr'),
     'guard_true'      : (('bool',), None),
@@ -167,6 +169,7 @@ TYPES = {
 
 class CompiledLoop(object):
     has_been_freed = False
+    invalid = False
 
     def __init__(self):
         self.inputargs = []
@@ -407,6 +410,13 @@ def compile_redirect_fail(old_loop, old_index, new_loop):
     guard_op = old_loop.operations[old_index]
     assert guard_op.is_guard()
     guard_op.jump_target = new_loop
+    # check that the bridge's inputargs are of the correct number and
+    # kind for the guard
+    if guard_op.fail_args is not None:
+        argkinds = [v.concretetype for v in guard_op.fail_args if v]
+    else:
+        argkinds = []
+    assert argkinds == [v.concretetype for v in new_loop.inputargs]
 
 # ------------------------------
 
@@ -506,7 +516,7 @@ class Frame(object):
                         ', '.join(map(str, args)),))
                 self.fail_args = args
                 return op.fail_index
- 
+
             else:
                 assert 0, "unknown final operation %d" % (op.opnum,)
 
@@ -591,15 +601,15 @@ class Frame(object):
         #
         return _op_default_implementation
 
-    def op_debug_merge_point(self, _, value, recdepth):
+    def op_debug_merge_point(self, _, *args):
         from pypy.jit.metainterp.warmspot import get_stats
-        loc = ConstPtr(value)._get_str()
         try:
             stats = get_stats()
         except AttributeError:
             pass
         else:
-            stats.add_merge_point_location(loc)
+            stats.add_merge_point_location(args[1:])
+        pass
 
     def op_guard_true(self, _, value):
         if not value:
@@ -811,6 +821,12 @@ class Frame(object):
             raise NotImplementedError
 
     def op_call(self, calldescr, func, *args):
+        return self._do_call(calldescr, func, args, call_with_llptr=False)
+
+    def op_call_release_gil(self, calldescr, func, *args):
+        return self._do_call(calldescr, func, args, call_with_llptr=True)
+
+    def _do_call(self, calldescr, func, args, call_with_llptr):
         global _last_exception
         assert _last_exception is None, "exception left behind"
         assert _call_args_i == _call_args_r == _call_args_f == []
@@ -829,7 +845,8 @@ class Frame(object):
             else:
                 raise TypeError(x)
         try:
-            return _do_call_common(func, args_in_order, calldescr)
+            return _do_call_common(func, args_in_order, calldescr,
+                                   call_with_llptr)
         except LLException, lle:
             _last_exception = lle
             d = {'v': None,
@@ -840,6 +857,9 @@ class Frame(object):
 
     def op_cond_call_gc_wb(self, descr, a, b):
         py.test.skip("cond_call_gc_wb not supported")
+
+    def op_cond_call_gc_wb_array(self, descr, a, b, c):
+        py.test.skip("cond_call_gc_wb_array not supported")
 
     def op_oosend(self, descr, obj, *args):
         raise NotImplementedError("oosend for lltype backend??")
@@ -855,6 +875,9 @@ class Frame(object):
     def op_force_token(self, descr):
         opaque_frame = _to_opaque(self)
         return llmemory.cast_ptr_to_adr(opaque_frame)
+
+    def op_read_timestamp(self, descr):
+        return read_timestamp()
 
     def op_call_may_force(self, calldescr, func, *args):
         assert not self._forced
@@ -933,11 +956,14 @@ class Frame(object):
         if forced:
             raise GuardFailed
 
+    def op_guard_not_invalidated(self, descr):
+        if self.loop.invalid:
+            raise GuardFailed
 
 class OOFrame(Frame):
 
     OPHANDLERS = [None] * (rop._LAST+1)
-    
+
     def op_new_with_vtable(self, descr, vtable):
         assert descr is None
         typedescr = get_class_size(self.memocast, vtable)
@@ -958,7 +984,7 @@ class OOFrame(Frame):
         return res
 
     op_getfield_gc_pure = op_getfield_gc
-    
+
     def op_setfield_gc(self, fielddescr, obj, newvalue):
         TYPE = fielddescr.TYPE
         fieldname = fielddescr.fieldname
@@ -1045,6 +1071,8 @@ def cast_to_int(x):
         return heaptracker.adr2int(llmemory.cast_ptr_to_adr(x))
     if TP == llmemory.Address:
         return heaptracker.adr2int(x)
+    if TP is lltype.SingleFloat:
+        return longlong.singlefloat2int(x)
     return lltype.cast_primitive(lltype.Signed, x)
 
 def cast_from_int(TYPE, x):
@@ -1060,6 +1088,9 @@ def cast_from_int(TYPE, x):
             x = llmemory.cast_int_to_adr(x)
         assert lltype.typeOf(x) == llmemory.Address
         return x
+    elif TYPE is lltype.SingleFloat:
+        assert lltype.typeOf(x) is lltype.Signed
+        return longlong.int2singlefloat(x)
     else:
         if lltype.typeOf(x) == llmemory.Address:
             x = heaptracker.adr2int(x)
@@ -1114,6 +1145,7 @@ def frame_clear(frame, loop):
     del _future_values[:]
 
 def set_future_value_int(index, value):
+    assert lltype.typeOf(value) is lltype.Signed
     set_future_value_ref(index, value)
 
 def set_future_value_float(index, value):
@@ -1462,20 +1494,24 @@ kind2TYPE = {
     'i': lltype.Signed,
     'f': lltype.Float,
     'L': lltype.SignedLongLong,
+    'S': lltype.SingleFloat,
     'v': lltype.Void,
     }
 
-def _do_call_common(f, args_in_order=None, calldescr=None):
+def _do_call_common(f, args_in_order=None, calldescr=None,
+                    call_with_llptr=False):
     ptr = llmemory.cast_int_to_adr(f).ptr
     PTR = lltype.typeOf(ptr)
     if PTR == rffi.VOIDP:
         # it's a pointer to a C function, so we don't have a precise
         # signature: create one from the descr
+        assert call_with_llptr is True
         ARGS = map(kind2TYPE.get, calldescr.arg_types)
         RESULT = kind2TYPE[calldescr.typeinfo]
         FUNC = lltype.FuncType(ARGS, RESULT)
         func_to_call = rffi.cast(lltype.Ptr(FUNC), ptr)
     else:
+        assert call_with_llptr is False
         FUNC = PTR.TO
         ARGS = FUNC.ARGS
         func_to_call = ptr._obj._callable

@@ -16,6 +16,12 @@ class W_ObjectType(Wrappable):
         self.initialize(connection, param)
 
     def __del__(self):
+        self.enqueue_for_destruction(self.environment.space,
+                                     W_ObjectType.destructor,
+                                     '__del__ method of ')
+
+    def destructor(self):
+        assert isinstance(self, W_ObjectType)
         if self.tdo:
             roci.OCIObjectUnpin(
                 self.environment.handle,
@@ -38,7 +44,7 @@ class W_ObjectType(Wrappable):
             self.environment.checkForError(
                 status,
                 "ObjectType_Initialize(): get schema name")
-            self.schema = rffi.charpsize2str(nameptr[0], lenptr[0])
+            self.schema = rffi.charpsize2str(nameptr[0], rffi.cast(lltype.Signed, lenptr[0]))
 
             # determine the name of the type
             status = roci.OCIAttrGet(
@@ -50,7 +56,7 @@ class W_ObjectType(Wrappable):
             self.environment.checkForError(
                 status,
                 "ObjectType_Initialize(): get schema name")
-            self.name = rffi.charpsize2str(nameptr[0], lenptr[0])
+            self.name = rffi.charpsize2str(nameptr[0], rffi.cast(lltype.Signed, lenptr[0]))
         finally:
             lltype.free(nameptr, flavor='raw')
             lltype.free(lenptr, flavor='raw')
@@ -301,7 +307,7 @@ class W_ObjectAttribute(Wrappable):
             connection.environment.checkForError(
                 status,
                 "ObjectAttribute_Initialize(): get name")
-            self.name = rffi.charpsize2str(nameptr[0], lenptr[0])
+            self.name = rffi.charpsize2str(nameptr[0], rffi.cast(lltype.Signed, lenptr[0]))
         finally:
             lltype.free(nameptr, flavor='raw')
             lltype.free(lenptr, flavor='raw')
@@ -428,7 +434,7 @@ def convertObject(space, environment, typeCode,
         strValue = rffi.cast(roci.Ptr(roci.OCIString), value)[0]
         ptr = roci.OCIStringPtr(environment.handle, strValue)
         size = roci.OCIStringSize(environment.handle, strValue)
-        return config.w_string(space, ptr, size)
+        return config.w_string(space, ptr, rffi.cast(lltype.Signed, size))
     elif typeCode == roci.OCI_TYPECODE_NUMBER:
         return transform.OracleNumberToPythonFloat(
             environment,

@@ -194,8 +194,8 @@ class TestString(BaseApiTest):
         c_buf = py_str.c_ob_type.c_tp_as_buffer
         assert c_buf
         py_obj = rffi.cast(PyObject, py_str)
-        assert c_buf.c_bf_getsegcount(py_obj, lltype.nullptr(rffi.INTP.TO)) == 1
-        ref = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+        assert c_buf.c_bf_getsegcount(py_obj, lltype.nullptr(Py_ssize_tP.TO)) == 1
+        ref = lltype.malloc(Py_ssize_tP.TO, 1, flavor='raw')
         assert c_buf.c_bf_getsegcount(py_obj, ref) == 1
         assert ref[0] == 10
         lltype.free(ref, flavor='raw')
@@ -283,3 +283,13 @@ class TestString(BaseApiTest):
         self.raises(space, api, TypeError, api.PyString_AsEncodedObject,
             space.wrap(2), lltype.nullptr(rffi.CCHARP.TO), lltype.nullptr(rffi.CCHARP.TO)
         )
+
+    def test_eq(self, space, api):
+        assert 1 == api._PyString_Eq(space.wrap("hello"), space.wrap("hello"))
+        assert 0 == api._PyString_Eq(space.wrap("hello"), space.wrap("world"))
+
+    def test_join(self, space, api):
+        w_sep = space.wrap('<sep>')
+        w_seq = space.wrap(['a', 'b'])
+        w_joined = api._PyString_Join(w_sep, w_seq)
+        assert space.unwrap(w_joined) == 'a<sep>b'

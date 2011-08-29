@@ -3,8 +3,10 @@ from pypy.tool.pairtype import pairtype
 from pypy.rpython.error import TyperError
 from pypy.rlib.objectmodel import malloc_zero_filled, we_are_translated
 from pypy.rlib.objectmodel import _hash_string, enforceargs
+from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib.debug import ll_assert
-from pypy.rlib.jit import purefunction, we_are_jitted
+from pypy.rlib.jit import elidable, we_are_jitted, dont_look_inside
+from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.robject import PyObjRepr, pyobj_repr
 from pypy.rpython.rmodel import inputconst, IntegerRepr
 from pypy.rpython.rstr import AbstractStringRepr,AbstractCharRepr,\
@@ -56,6 +58,8 @@ def _new_copy_contents_fun(TP, CHAR_TP, name):
                 llmemory.itemoffsetof(TP.chars, 0) +
                 llmemory.sizeof(CHAR_TP) * item)
 
+    # It'd be nice to be able to look inside this function.
+    @dont_look_inside
     @enforceargs(None, None, int, int, int)
     def copy_string_contents(src, dst, srcstart, dststart, length):
         assert srcstart >= 0
@@ -64,6 +68,8 @@ def _new_copy_contents_fun(TP, CHAR_TP, name):
         src = llmemory.cast_ptr_to_adr(src) + _str_ofs(srcstart)
         dst = llmemory.cast_ptr_to_adr(dst) + _str_ofs(dststart)
         llmemory.raw_memcopy(src, dst, llmemory.sizeof(CHAR_TP) * length)
+        keepalive_until_here(src)
+        keepalive_until_here(dst)
     copy_string_contents._always_inline_ = True
     #copy_string_contents.oopspec = (
     #    '%s.copy_contents(src, dst, srcstart, dststart, length)' % name)
@@ -141,7 +147,7 @@ class UnicodeRepr(BaseLLStringRepr, AbstractUnicodeRepr):
         self.ll = LLHelpers
         self.malloc = mallocunicode
 
-    @purefunction
+    @elidable
     def ll_str(self, s):
         # XXX crazy that this is here, but I don't want to break
         #     rmodel logic
@@ -156,7 +162,7 @@ class UnicodeRepr(BaseLLStringRepr, AbstractUnicodeRepr):
             result.chars[i] = cast_primitive(Char, c)
         return result
 
-    @purefunction
+    @elidable
     def ll_encode_latin1(self, s):
         length = len(s.chars)
         result = mallocstr(length)
@@ -255,8 +261,29 @@ def bloom(mask, c):
 
 
 class LLHelpers(AbstractLLHelpers):
+    @elidable
+    def ll_str_mul(s, times):
+        if times < 0:
+            times = 0
+        try:
+            size = ovfcheck(len(s.chars) * times)
+        except OverflowError:
+            raise MemoryError
+        newstr = s.malloc(size)
+        i = 0
+        if i < size:
+            s.copy_contents(s, newstr, 0, 0, len(s.chars))
+            i += len(s.chars)
+        while i < size:
+            if i <= size - i:
+                j = i
+            else:
+                j = size - i
+            s.copy_contents(newstr, newstr, 0, i, j)
+            i += j
+        return newstr
 
-    @purefunction
+    @elidable
     def ll_char_mul(ch, times):
         if typeOf(ch) is Char:
             malloc = mallocstr
@@ -301,6 +328,7 @@ class LLHelpers(AbstractLLHelpers):
         return s
     ll_str2unicode.oopspec = 'str.str2unicode(str)'
 
+    @elidable
     def ll_strhash(s):
         # unlike CPython, there is no reason to avoid to return -1
         # but our malloc initializes the memory to zero, so we use zero as the
@@ -312,22 +340,23 @@ class LLHelpers(AbstractLLHelpers):
                 x = 29872897
             s.hash = x
         return x
-    ll_strhash._pure_function_ = True # it's pure but it does not look like it
 
     def ll_strfasthash(s):
         return s.hash     # assumes that the hash is already computed
 
-    @purefunction
+    @elidable
     def ll_strconcat(s1, s2):
         len1 = len(s1.chars)
         len2 = len(s2.chars)
+        # a single '+' like this is allowed to overflow: it gets
+        # a negative result, and the gc will complain
         newstr = s1.malloc(len1 + len2)
         s1.copy_contents(s1, newstr, 0, 0, len1)
         s1.copy_contents(s2, newstr, 0, len1, len2)
         return newstr
     ll_strconcat.oopspec = 'stroruni.concat(s1, s2)'
 
-    @purefunction
+    @elidable
     def ll_strip(s, ch, left, right):
         s_len = len(s.chars)
         if s_len == 0:
@@ -345,7 +374,7 @@ class LLHelpers(AbstractLLHelpers):
         s.copy_contents(s, result, lpos, 0, r_len)
         return result
 
-    @purefunction
+    @elidable
     def ll_upper(s):
         s_chars = s.chars
         s_len = len(s_chars)
@@ -362,7 +391,7 @@ class LLHelpers(AbstractLLHelpers):
             i += 1
         return result
 
-    @purefunction
+    @elidable
     def ll_lower(s):
         s_chars = s.chars
         s_len = len(s_chars)
@@ -388,9 +417,18 @@ class LLHelpers(AbstractLLHelpers):
         itemslen = 0
         i = 0
         while i < num_items:
-            itemslen += len(items[i].chars)
+            try:
+                itemslen = ovfcheck(itemslen + len(items[i].chars))
+            except OverflowError:
+                raise MemoryError
             i += 1
-        result = s.malloc(itemslen + s_len * (num_items - 1))
+        try:
+            seplen = ovfcheck(s_len * (num_items - 1))
+        except OverflowError:
+            raise MemoryError
+        # a single '+' at the end is allowed to overflow: it gets
+        # a negative result, and the gc will complain
+        result = s.malloc(itemslen + seplen)
         res_index = len(items[0].chars)
         s.copy_contents(items[0], result, 0, 0, res_index)
         i = 1
@@ -403,7 +441,7 @@ class LLHelpers(AbstractLLHelpers):
             i += 1
         return result
 
-    @purefunction
+    @elidable
     def ll_strcmp(s1, s2):
         if not s1 and not s2:
             return True
@@ -426,7 +464,7 @@ class LLHelpers(AbstractLLHelpers):
             i += 1
         return len1 - len2
 
-    @purefunction
+    @elidable
     def ll_streq(s1, s2):
         if s1 == s2:       # also if both are NULLs
             return True
@@ -446,7 +484,7 @@ class LLHelpers(AbstractLLHelpers):
         return True
     ll_streq.oopspec = 'stroruni.equal(s1, s2)'
 
-    @purefunction
+    @elidable
     def ll_startswith(s1, s2):
         len1 = len(s1.chars)
         len2 = len(s2.chars)
@@ -462,7 +500,12 @@ class LLHelpers(AbstractLLHelpers):
 
         return True
 
-    @purefunction
+    def ll_startswith_char(s, ch):
+        if not len(s.chars):
+            return False
+        return s.chars[0] == ch
+
+    @elidable
     def ll_endswith(s1, s2):
         len1 = len(s1.chars)
         len2 = len(s2.chars)
@@ -479,7 +522,12 @@ class LLHelpers(AbstractLLHelpers):
 
         return True
 
-    @purefunction
+    def ll_endswith_char(s, ch):
+        if not len(s.chars):
+            return False
+        return s.chars[len(s.chars) - 1] == ch
+
+    @elidable
     def ll_find_char(s, ch, start, end):
         i = start
         if end > len(s.chars):
@@ -491,7 +539,7 @@ class LLHelpers(AbstractLLHelpers):
         return -1
     ll_find_char._annenforceargs_ = [None, None, int, int]
 
-    @purefunction
+    @elidable
     def ll_rfind_char(s, ch, start, end):
         if end > len(s.chars):
             end = len(s.chars)
@@ -502,7 +550,7 @@ class LLHelpers(AbstractLLHelpers):
                 return i
         return -1
 
-    @purefunction
+    @elidable
     def ll_count_char(s, ch, start, end):
         count = 0
         i = start
@@ -570,7 +618,7 @@ class LLHelpers(AbstractLLHelpers):
             res = 0
         return res
 
-    @purefunction
+    @elidable
     def ll_search(s1, s2, start, end, mode):
         count = 0
         n = end - start
@@ -654,7 +702,10 @@ class LLHelpers(AbstractLLHelpers):
         itemslen = 0
         i = 0
         while i < num_items:
-            itemslen += len(items[i].chars)
+            try:
+                itemslen = ovfcheck(itemslen + len(items[i].chars))
+            except OverflowError:
+                raise MemoryError
             i += 1
         if typeOf(items).TO.OF.TO == STR:
             malloc = mallocstr
@@ -693,7 +744,7 @@ class LLHelpers(AbstractLLHelpers):
             i += 1
         return result
 
-    @purefunction
+    @elidable
     def _ll_stringslice(s1, start, stop):
         lgt = stop - start
         assert start >= 0
@@ -722,32 +773,76 @@ class LLHelpers(AbstractLLHelpers):
         newlen = len(s1.chars) - 1
         return LLHelpers._ll_stringslice(s1, 0, newlen)
 
-    def ll_split_chr(LIST, s, c):
+    def ll_split_chr(LIST, s, c, max):
         chars = s.chars
         strlen = len(chars)
         count = 1
         i = 0
+        if max == 0:
+            i = strlen
         while i < strlen:
             if chars[i] == c:
                 count += 1
+                if max >= 0 and count > max:
+                    break
             i += 1
         res = LIST.ll_newlist(count)
         items = res.ll_items()
         i = 0
         j = 0
         resindex = 0
+        if max == 0:
+            j = strlen
         while j < strlen:
             if chars[j] == c:
                 item = items[resindex] = s.malloc(j - i)
                 item.copy_contents(s, item, i, 0, j - i)
                 resindex += 1
                 i = j + 1
+                if max >= 0 and resindex >= max:
+                    j = strlen
+                    break
             j += 1
         item = items[resindex] = s.malloc(j - i)
         item.copy_contents(s, item, i, 0, j - i)
         return res
 
-    @purefunction
+    def ll_rsplit_chr(LIST, s, c, max):
+        chars = s.chars
+        strlen = len(chars)
+        count = 1
+        i = 0
+        if max == 0:
+            i = strlen
+        while i < strlen:
+            if chars[i] == c:
+                count += 1
+                if max >= 0 and count > max:
+                    break
+            i += 1
+        res = LIST.ll_newlist(count)
+        items = res.ll_items()
+        i = strlen
+        j = strlen
+        resindex = count - 1
+        assert resindex >= 0
+        if max == 0:
+            j = 0
+        while j > 0:
+            j -= 1
+            if chars[j] == c:
+                item = items[resindex] = s.malloc(i - j - 1)
+                item.copy_contents(s, item, j + 1, 0, i - j - 1)
+                resindex -= 1
+                i = j
+                if resindex == 0:
+                    j = 0
+                    break
+        item = items[resindex] = s.malloc(i - j)
+        item.copy_contents(s, item, j, 0, i - j)
+        return res
+
+    @elidable
     def ll_replace_chr_chr(s, c1, c2):
         length = len(s.chars)
         newstr = s.malloc(length)
@@ -762,7 +857,7 @@ class LLHelpers(AbstractLLHelpers):
             j += 1
         return newstr
 
-    @purefunction
+    @elidable
     def ll_contains(s, c):
         chars = s.chars
         strlen = len(chars)
@@ -773,7 +868,7 @@ class LLHelpers(AbstractLLHelpers):
             i += 1
         return False
 
-    @purefunction
+    @elidable
     def ll_int(s, base):
         if not 2 <= base <= 36:
             raise ValueError

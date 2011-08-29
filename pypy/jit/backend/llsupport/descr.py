@@ -1,5 +1,6 @@
 import py
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory, rclass
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.jit.backend.llsupport import symbolic, support
 from pypy.jit.metainterp.history import AbstractDescr, getkind, BoxInt, BoxPtr
 from pypy.jit.metainterp.history import BasicFailDescr, LoopToken, BoxFloat
@@ -43,9 +44,16 @@ else:
 
 class SizeDescr(AbstractDescr):
     size = 0      # help translation
+    is_immutable = False
 
-    def __init__(self, size):
+    tid = llop.combine_ushort(lltype.Signed, 0, 0)
+
+    def __init__(self, size, count_fields_if_immut=-1):
         self.size = size
+        self.count_fields_if_immut = count_fields_if_immut
+
+    def count_fields_if_immutable(self):
+        return self.count_fields_if_immut
 
     def repr_of_descr(self):
         return '<SizeDescr %s>' % self.size
@@ -62,14 +70,14 @@ def get_size_descr(gccache, STRUCT):
         return cache[STRUCT]
     except KeyError:
         size = symbolic.get_size(STRUCT, gccache.translate_support_code)
+        count_fields_if_immut = heaptracker.count_fields_if_immutable(STRUCT)
         if heaptracker.has_gcstruct_a_vtable(STRUCT):
-            sizedescr = SizeDescrWithVTable(size)
+            sizedescr = SizeDescrWithVTable(size, count_fields_if_immut)
         else:
-            sizedescr = SizeDescr(size)
+            sizedescr = SizeDescr(size, count_fields_if_immut)
         gccache.init_size_descr(STRUCT, sizedescr)
         cache[STRUCT] = sizedescr
         return sizedescr
-
 
 # ____________________________________________________________
 # FieldDescrs
@@ -144,6 +152,7 @@ _AF = lltype.GcArray(lltype.Float)     # an array of C doubles
 
 class BaseArrayDescr(AbstractDescr):
     _clsname = ''
+    tid = llop.combine_ushort(lltype.Signed, 0, 0)
 
     def get_base_size(self, translate_support_code):
         basesize, _, _ = symbolic.get_array_token(_A, translate_support_code)
@@ -256,6 +265,22 @@ class BaseCallDescr(AbstractDescr):
         self.arg_classes = arg_classes    # string of "r" and "i" (ref/int)
         self.extrainfo = extrainfo
 
+    def __repr__(self):
+        res = '%s(%s)' % (self.__class__.__name__, self.arg_classes)
+        extraeffect = getattr(self.extrainfo, 'extraeffect', None)
+        if extraeffect is not None:
+            res += ' EF=%r' % extraeffect
+        oopspecindex = getattr(self.extrainfo, 'oopspecindex', 0)
+        if oopspecindex:
+            from pypy.jit.codewriter.effectinfo import EffectInfo
+            for key, value in EffectInfo.__dict__.items():
+                if key.startswith('OS_') and value == oopspecindex:
+                    break
+            else:
+                key = 'oopspecindex=%r' % oopspecindex
+            res += ' ' + key
+        return '<%s>' % res
+
     def get_extra_info(self):
         return self.extrainfo
 
@@ -278,6 +303,8 @@ class BaseCallDescr(AbstractDescr):
                 c = 'f'
             elif c == 'f' and longlong.supports_longlong:
                 return 'longlong.getrealfloat(%s)' % (process('L'),)
+            elif c == 'S':
+                return 'longlong.int2singlefloat(%s)' % (process('i'),)
             arg = 'args_%s[%d]' % (c, seen[c])
             seen[c] += 1
             return arg
@@ -293,6 +320,8 @@ class BaseCallDescr(AbstractDescr):
                 return lltype.Void
             elif arg == 'L':
                 return lltype.SignedLongLong
+            elif arg == 'S':
+                return lltype.SingleFloat
             else:
                 raise AssertionError(arg)
 
@@ -309,6 +338,8 @@ class BaseCallDescr(AbstractDescr):
             result = 'rffi.cast(lltype.SignedLongLong, res)'
         elif self.get_return_type() == history.VOID:
             result = 'None'
+        elif self.get_return_type() == 'S':
+            result = 'longlong.singlefloat2int(res)'
         else:
             assert 0
         source = py.code.Source("""
@@ -319,14 +350,15 @@ class BaseCallDescr(AbstractDescr):
         """ % locals())
         ARGS = [TYPE(arg) for arg in self.arg_classes]
         FUNC = lltype.FuncType(ARGS, RESULT)
-        d = locals().copy()
-        d.update(globals())
+        d = globals().copy()
+        d.update(locals())
         exec source.compile() in d
         self.call_stub = d['call_stub']
 
     def verify_types(self, args_i, args_r, args_f, return_type):
         assert self._return_type in return_type
-        assert self.arg_classes.count('i') == len(args_i or ())
+        assert (self.arg_classes.count('i') +
+                self.arg_classes.count('S')) == len(args_i or ())
         assert self.arg_classes.count('r') == len(args_r or ())
         assert (self.arg_classes.count('f') +
                 self.arg_classes.count('L')) == len(args_f or ())
@@ -403,23 +435,39 @@ class VoidCallDescr(BaseCallDescr):
     def get_result_size(self, translate_support_code):
         return 0
 
+_SingleFloatCallDescr = None   # built lazily
+
 def getCallDescrClass(RESULT):
     if RESULT is lltype.Void:
         return VoidCallDescr
     if RESULT is lltype.Float:
         return FloatCallDescr
+    if RESULT is lltype.SingleFloat:
+        global _SingleFloatCallDescr
+        if _SingleFloatCallDescr is None:
+            assert rffi.sizeof(rffi.UINT) == rffi.sizeof(RESULT)
+            class SingleFloatCallDescr(getCallDescrClass(rffi.UINT)):
+                _clsname = 'SingleFloatCallDescr'
+                _return_type = 'S'
+            _SingleFloatCallDescr = SingleFloatCallDescr
+        return _SingleFloatCallDescr
     if is_longlong(RESULT):
         return LongLongCallDescr
     return getDescrClass(RESULT, BaseIntCallDescr, GcPtrCallDescr,
                          NonGcPtrCallDescr, 'Call', 'get_result_size',
                          Ellipsis,  # <= floatattrname should not be used here
                          '_is_result_signed')
+getCallDescrClass._annspecialcase_ = 'specialize:memo'
 
 def get_call_descr(gccache, ARGS, RESULT, extrainfo=None):
     arg_classes = []
     for ARG in ARGS:
         kind = getkind(ARG)
-        if   kind == 'int': arg_classes.append('i')
+        if   kind == 'int':
+            if ARG is lltype.SingleFloat:
+                arg_classes.append('S')
+            else:
+                arg_classes.append('i')
         elif kind == 'ref': arg_classes.append('r')
         elif kind == 'float':
             if is_longlong(ARG):
@@ -451,6 +499,9 @@ def getDescrClass(TYPE, BaseDescr, GcPtrDescr, NonGcPtrDescr,
             return GcPtrDescr
         else:
             return NonGcPtrDescr
+    if TYPE is lltype.SingleFloat:
+        assert rffi.sizeof(rffi.UINT) == rffi.sizeof(TYPE)
+        TYPE = rffi.UINT
     try:
         return _cache[nameprefix, TYPE]
     except KeyError:

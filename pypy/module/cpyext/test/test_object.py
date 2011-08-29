@@ -3,9 +3,8 @@ import py
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import Py_LT, Py_LE, Py_NE, Py_EQ,\
-    Py_GE, Py_GT, fopen, fclose, fwrite
-from pypy.tool.udir import udir
+from pypy.module.cpyext.api import (
+    Py_LT, Py_LE, Py_NE, Py_EQ, Py_GE, Py_GT)
 
 class TestObject(BaseApiTest):
     def test_IsTrue(self, space, api):
@@ -175,57 +174,22 @@ class TestObject(BaseApiTest):
         assert api.PyObject_Compare(space.wrap(72), space.wrap(42)) == 1
         assert api.PyObject_Compare(space.wrap("a"), space.wrap("a")) == 0
 
+    def test_cmp(self, space, api):
+        w = space.wrap
+        with lltype.scoped_alloc(rffi.INTP.TO, 1) as ptr:
+            assert api.PyObject_Cmp(w(42), w(72), ptr) == 0
+            assert ptr[0] == -1
+            assert api.PyObject_Cmp(w("a"), w("a"), ptr) == 0
+            assert ptr[0] == 0
+            assert api.PyObject_Cmp(w(u"\xe9"), w("\xe9"), ptr) < 0
+            assert api.PyErr_Occurred()
+            api.PyErr_Clear()
+
     def test_unicode(self, space, api):
         assert space.unwrap(api.PyObject_Unicode(space.wrap([]))) == u"[]"
         assert space.unwrap(api.PyObject_Unicode(space.wrap("e"))) == u"e"
         assert api.PyObject_Unicode(space.wrap("\xe9")) is None
         api.PyErr_Clear()
-
-    def test_file_fromstring(self, space, api):
-        filename = rffi.str2charp(str(udir / "_test_file"))
-        mode = rffi.str2charp("wb")
-        w_file = api.PyFile_FromString(filename, mode)
-        rffi.free_charp(filename)
-        rffi.free_charp(mode)
-
-        assert api.PyFile_Check(w_file)
-        assert api.PyFile_CheckExact(w_file)
-        assert not api.PyFile_Check(space.wrap("text"))
-
-        space.call_method(w_file, "write", space.wrap("text"))
-        space.call_method(w_file, "close")
-        assert (udir / "_test_file").read() == "text"
-
-    def test_file_getline(self, space, api):
-        filename = rffi.str2charp(str(udir / "_test_file"))
-
-        mode = rffi.str2charp("w")
-        w_file = api.PyFile_FromString(filename, mode)
-        space.call_method(w_file, "write",
-                          space.wrap("line1\nline2\nline3\nline4"))
-        space.call_method(w_file, "close")
-
-        rffi.free_charp(mode)
-        mode = rffi.str2charp("r")
-        w_file = api.PyFile_FromString(filename, mode)
-        rffi.free_charp(filename)
-        rffi.free_charp(mode)
-
-        w_line = api.PyFile_GetLine(w_file, 0)
-        assert space.str_w(w_line) == "line1\n"
-
-        w_line = api.PyFile_GetLine(w_file, 4)
-        assert space.str_w(w_line) == "line"
-
-        w_line = api.PyFile_GetLine(w_file, 0)
-        assert space.str_w(w_line) == "2\n"
-
-        # XXX We ought to raise an EOFError here, but don't
-        w_line = api.PyFile_GetLine(w_file, -1)
-        # assert api.PyErr_Occurred() is space.w_EOFError
-        assert space.str_w(w_line) == "line3\n"
-
-        space.call_method(w_file, "close")
 
 class AppTestObject(AppTestCpythonExtensionBase):
     def setup_class(cls):
@@ -267,3 +231,135 @@ class AppTestObject(AppTestCpythonExtensionBase):
              """)])
         assert module.dump(self.tmpname, None)
         assert open(self.tmpname).read() == 'None'
+
+
+
+class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
+    """
+    PyBuffer_FillInfo populates the fields of a Py_buffer from its arguments.
+    """
+    def test_fillWithoutObject(self):
+        """
+        PyBuffer_FillInfo populates the C{buf} and C{length}fields of the
+        Py_buffer passed to it.
+        """
+        module = self.import_extension('foo', [
+                ("fillinfo", "METH_VARARGS",
+                 """
+    Py_buffer buf;
+    PyObject *str = PyString_FromString("hello, world.");
+    PyObject *result;
+
+    if (PyBuffer_FillInfo(&buf, NULL, PyString_AsString(str), 13, 0, 0)) {
+        return NULL;
+    }
+
+    /* Check a few things we want to have happened.
+     */
+    if (buf.buf != PyString_AsString(str)) {
+        PyErr_SetString(PyExc_ValueError, "buf field not initialized");
+        return NULL;
+    }
+
+    if (buf.len != 13) {
+        PyErr_SetString(PyExc_ValueError, "len field not initialized");
+        return NULL;
+    }
+
+    if (buf.obj != NULL) {
+        PyErr_SetString(PyExc_ValueError, "obj field not initialized");
+        return NULL;
+    }
+
+    /* Give back a new string to the caller, constructed from data in the
+     * Py_buffer.
+     */
+    if (!(result = PyString_FromStringAndSize(buf.buf, buf.len))) {
+        return NULL;
+    }
+
+    /* Free that string we allocated above.  result does not share storage with
+     * it.
+     */
+    Py_DECREF(str);
+
+    return result;
+                 """)])
+        result = module.fillinfo()
+        assert "hello, world." == result
+
+
+    def test_fillWithObject(self):
+        """
+        PyBuffer_FillInfo populates the C{buf}, C{length}, and C{obj} fields of
+        the Py_buffer passed to it and increments the reference count of the
+        object.
+        """
+        module = self.import_extension('foo', [
+                ("fillinfo", "METH_VARARGS",
+                 """
+    Py_buffer buf;
+    PyObject *str = PyString_FromString("hello, world.");
+    PyObject *result;
+
+    if (PyBuffer_FillInfo(&buf, str, PyString_AsString(str), 13, 0, 0)) {
+        return NULL;
+    }
+
+    /* Get rid of our own reference to the object, but the Py_buffer should
+     * still have a reference.
+     */
+    Py_DECREF(str);
+
+    /* Give back a new string to the caller, constructed from data in the
+     * Py_buffer.  It better still be valid.
+     */
+    if (!(result = PyString_FromStringAndSize(buf.buf, buf.len))) {
+        return NULL;
+    }
+
+    /* Now the data in the Py_buffer is really no longer needed, get rid of it
+     *(could use PyBuffer_Release here, but that would drag in more code than
+     * necessary).
+     */
+    Py_DECREF(buf.obj);
+
+    /* Py_DECREF can't directly signal error to us, but if it makes a reference
+     * count go negative, it will set an error.
+     */
+    if (PyErr_Occurred()) {
+        return NULL;
+    }
+
+    return result;
+                 """)])
+        result = module.fillinfo()
+        assert "hello, world." == result
+
+
+class AppTestPyBuffer_Release(AppTestCpythonExtensionBase):
+    """
+    PyBuffer_Release releases the resources held by a Py_buffer.
+    """
+    def test_decrefObject(self):
+        """
+        The PyObject referenced by Py_buffer.obj has its reference count
+        decremented by PyBuffer_Release.
+        """
+        module = self.import_extension('foo', [
+                ("release", "METH_VARARGS",
+                 """
+    Py_buffer buf;
+    buf.obj = PyString_FromString("release me!");
+    buf.buf = PyString_AsString(buf.obj);
+    buf.len = PyString_Size(buf.obj);
+
+    /* The Py_buffer owns the only reference to that string.  Release the
+     * Py_buffer and the string should be released as well.
+     */
+    PyBuffer_Release(&buf);
+
+    Py_RETURN_NONE;
+                 """)])
+        assert module.release() is None
+

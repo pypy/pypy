@@ -198,7 +198,6 @@ class SmallFunctionSetPBCRepr(Repr):
         inputargs = [varoftype(t) for t in [Char] + argtypes]
         startblock = Block(inputargs)
         startblock.exitswitch = inputargs[0]
-        #startblock.operations.append(SpaceOperation('debug_pdb', [], varoftype(Void)))
         graph = FunctionGraph("dispatcher", startblock, varoftype(resulttype))
         row_of_graphs = self.callfamily.calltables[shape][index]
         links = []

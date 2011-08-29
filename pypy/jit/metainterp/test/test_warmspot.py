@@ -6,7 +6,7 @@ from pypy.rlib.jit import unroll_safe
 from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp.history import BoxInt
 
-from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from pypy.jit.metainterp.optimizeopt import ALL_OPTS_NAMES
 
 
@@ -80,7 +80,7 @@ class WarmspotTests(object):
         self.meta_interp(f, [123, 10])
         assert len(get_stats().locations) >= 4
         for loc in get_stats().locations:
-            assert loc == 'GREEN IS 123.'
+            assert loc == (0, 123)
 
     def test_set_param_enable_opts(self):
         from pypy.rpython.annlowlevel import llstr, hlstr
@@ -303,6 +303,7 @@ class TestWarmspotDirect(object):
         class FakeCPU(object):
             supports_floats = False
             supports_longlong = False
+            supports_singlefloats = False
             ts = llhelper
             translate_support_code = False
             stats = "stats"

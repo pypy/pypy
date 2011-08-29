@@ -1117,6 +1117,7 @@ class TestUsingFramework(object):
         S = lltype.GcStruct('S', ('u', lltype.Ptr(U)))
         A = lltype.GcArray(lltype.Ptr(S))
         filename = self.filename_dump_typeids_z
+        open_flags = os.O_WRONLY | os.O_CREAT | getattr(os, 'O_BINARY', 0)
 
         def fn():
             s = lltype.malloc(S)
@@ -1128,7 +1129,7 @@ class TestUsingFramework(object):
             #
             p = rgc.get_typeids_z()
             s = ''.join([p[i] for i in range(len(p))])
-            fd = os.open(filename, os.O_WRONLY | os.O_CREAT, 0666)
+            fd = os.open(filename, open_flags, 0666)
             os.write(fd, s)
             os.close(fd)
             return 0
@@ -1137,7 +1138,7 @@ class TestUsingFramework(object):
 
     def test_write_typeids_z(self):
         self.run("write_typeids_z")
-        f = open(self.filename_dump_typeids_z)
+        f = open(self.filename_dump_typeids_z, 'rb')
         data_z = f.read()
         f.close()
         import zlib
@@ -1388,6 +1389,35 @@ class TestMiniMarkGC(TestSemiSpaceGC):
 
     def test_gc_heap_stats(self):
         py.test.skip("not implemented")
+
+    def define_nongc_attached_to_gc(cls):
+        from pypy.rpython.lltypesystem import rffi
+        ARRAY = rffi.CArray(rffi.INT)
+        class A:
+            def __init__(self, n):
+                self.buf = lltype.malloc(ARRAY, n, flavor='raw',
+                                         add_memory_pressure=True)
+            def __del__(self):
+                lltype.free(self.buf, flavor='raw')
+        A(6)
+        def f():
+            # allocate a total of ~77GB, but if the automatic gc'ing works,
+            # it should never need more than a few MBs at once
+            am1 = am2 = am3 = None
+            res = 0
+            for i in range(1, 100001):
+                if am3 is not None:
+                    res += rffi.cast(lltype.Signed, am3.buf[0])
+                am3 = am2
+                am2 = am1
+                am1 = A(i * 4)
+                am1.buf[0] = rffi.cast(rffi.INT, i-50000)
+            return res
+        return f
+
+    def test_nongc_attached_to_gc(self):
+        res = self.run("nongc_attached_to_gc")
+        assert res == -99997
 
 # ____________________________________________________________________
 

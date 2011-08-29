@@ -10,6 +10,7 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.rmmap import alloc
 from pypy.rlib.rdynload import dlopen, dlclose, dlsym, dlsym_byordinal
 from pypy.rlib.rdynload import DLOpenError, DLLHANDLE
+from pypy.rlib import jit
 from pypy.tool.autopath import pypydir
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import platform
@@ -17,6 +18,10 @@ import py
 import os
 import sys
 import ctypes.util
+
+from pypy.tool.ansi_print import ansi_log
+log = py.log.Producer("libffi")
+py.log.setconsumer("libffi", ansi_log)
 
 # maaaybe isinstance here would be better. Think
 _MSVC = platform.name == "msvc"
@@ -67,12 +72,17 @@ if not _WIN32:
             result = os.path.join(dir, 'libffi.a')
             if os.path.exists(result):
                 return result
-        raise ImportError("'libffi.a' not found in %s" % (dirlist,))
+        log.WARNING("'libffi.a' not found in %s" % (dirlist,))
+        log.WARNING("trying to use the dynamic library instead...")
+        return None
 
+    path_libffi_a = None
     if hasattr(platform, 'library_dirs_for_libffi_a'):
+        path_libffi_a = find_libffi_a()
+    if path_libffi_a is not None:
         # platforms on which we want static linking
         libraries = []
-        link_files = [find_libffi_a()]
+        link_files = [path_libffi_a]
     else:
         # platforms on which we want dynamic linking
         libraries = ['ffi']
@@ -261,6 +271,7 @@ if not _WIN32:
 elif _MSVC:
     get_libc_handle = external('pypy_get_libc_handle', [], DLLHANDLE)
 
+    @jit.dont_look_inside
     def get_libc_name():
         return rwin32.GetModuleFileName(get_libc_handle())
 

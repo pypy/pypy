@@ -5,9 +5,9 @@
 
 from pypy.jit.codewriter import support
 from pypy.jit.codewriter.jitcode import JitCode
-from pypy.jit.codewriter.effectinfo import VirtualizableAnalyzer
-from pypy.jit.codewriter.effectinfo import effectinfo_from_writeanalyze
-from pypy.jit.codewriter.effectinfo import EffectInfo, CallInfoCollection
+from pypy.jit.codewriter.effectinfo import (VirtualizableAnalyzer,
+    QuasiImmutAnalyzer, CanReleaseGILAnalyzer, effectinfo_from_writeanalyze,
+    EffectInfo, CallInfoCollection)
 from pypy.translator.simplify import get_funcobj, get_functype
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.translator.backendopt.canraise import RaiseAnalyzer
@@ -30,6 +30,8 @@ class CallControl(object):
             self.raise_analyzer = RaiseAnalyzer(translator)
             self.readwrite_analyzer = ReadWriteAnalyzer(translator)
             self.virtualizable_analyzer = VirtualizableAnalyzer(translator)
+            self.quasiimmut_analyzer = QuasiImmutAnalyzer(translator)
+            self.canreleasegil_analyzer = CanReleaseGILAnalyzer(translator)
         #
         for index, jd in enumerate(jitdrivers_sd):
             jd.index = index
@@ -206,25 +208,30 @@ class CallControl(object):
         assert NON_VOID_ARGS == [T for T in ARGS if T is not lltype.Void]
         assert RESULT == FUNC.RESULT
         # ok
-        # get the 'pure' and 'loopinvariant' flags from the function object
-        pure = False
+        # get the 'elidable' and 'loopinvariant' flags from the function object
+        elidable = False
         loopinvariant = False
         if op.opname == "direct_call":
             func = getattr(get_funcobj(op.args[0].value), '_callable', None)
-            pure = getattr(func, "_pure_function_", False)
+            elidable = getattr(func, "_elidable_function_", False)
             loopinvariant = getattr(func, "_jit_loop_invariant_", False)
             if loopinvariant:
                 assert not NON_VOID_ARGS, ("arguments not supported for "
                                            "loop-invariant function!")
         # build the extraeffect
+        can_release_gil = self.canreleasegil_analyzer.analyze(op)
+        # can_release_gil implies can_invalidate
+        can_invalidate = can_release_gil or self.quasiimmut_analyzer.analyze(op)
         if extraeffect is None:
             if self.virtualizable_analyzer.analyze(op):
                 extraeffect = EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE
             elif loopinvariant:
                 extraeffect = EffectInfo.EF_LOOPINVARIANT
-            elif pure:
-                # XXX check what to do about exceptions (also MemoryError?)
-                extraeffect = EffectInfo.EF_PURE
+            elif elidable:
+                if self._canraise(op):
+                    extraeffect = EffectInfo.EF_ELIDABLE_CAN_RAISE
+                else:
+                    extraeffect = EffectInfo.EF_ELIDABLE_CANNOT_RAISE
             elif self._canraise(op):
                 extraeffect = EffectInfo.EF_CAN_RAISE
             else:
@@ -232,11 +239,16 @@ class CallControl(object):
         #
         effectinfo = effectinfo_from_writeanalyze(
             self.readwrite_analyzer.analyze(op), self.cpu, extraeffect,
-            oopspecindex)
+            oopspecindex, can_invalidate, can_release_gil)
         #
-        if pure or loopinvariant:
+        if oopspecindex != EffectInfo.OS_NONE:
+            assert effectinfo is not None
+        if elidable or loopinvariant:
             assert effectinfo is not None
             assert extraeffect != EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE
+            # XXX this should also say assert not can_invalidate, but
+            #     it can't because our analyzer is not good enough for now
+            #     (and getexecutioncontext() can't really invalidate)
         #
         return self.cpu.calldescrof(FUNC, tuple(NON_VOID_ARGS), RESULT,
                                     effectinfo)
@@ -253,7 +265,7 @@ class CallControl(object):
     def calldescr_canraise(self, calldescr):
         effectinfo = calldescr.get_extra_info()
         return (effectinfo is None or
-                effectinfo.extraeffect >= EffectInfo.EF_CAN_RAISE)
+                effectinfo.extraeffect > EffectInfo.EF_CANNOT_RAISE)
 
     def jitdriver_sd_from_portal_graph(self, graph):
         for jd in self.jitdrivers_sd:

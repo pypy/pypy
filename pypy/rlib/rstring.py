@@ -1,9 +1,8 @@
 """ String builder interface and string functions
 """
 
-from pypy.annotation.model import SomeObject, SomeString, s_None,\
-     SomeChar, SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString
-from pypy.rlib.rarithmetic import ovfcheck
+from pypy.annotation.model import (SomeObject, SomeString, s_None, SomeChar,
+    SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString, SomePtr)
 from pypy.rpython.extregistry import ExtRegistryEntry
 
 
@@ -66,6 +65,12 @@ class AbstractStringBuilder(object):
         assert isinstance(c, self.tp)
         self.l.append(c * times)
 
+    def append_charpsize(self, s, size):
+        l = []
+        for i in xrange(size):
+            l.append(s[i])
+        self.l.append(self.tp("").join(l))
+
     def build(self):
         return self.tp("").join(self.l)
 
@@ -78,32 +83,6 @@ class StringBuilder(AbstractStringBuilder):
 class UnicodeBuilder(AbstractStringBuilder):
     tp = unicode
 
-
-# XXX: This does log(mul) mallocs, the GCs probably make that efficient, but
-# some measurement should be done at some point.
-def string_repeat(s, mul):
-    """Repeat a string or unicode.  Note that this assumes that 'mul' > 0."""
-    result = None
-    factor = 1
-    assert mul > 0
-    try:
-        ovfcheck(len(s) * mul)
-    except OverflowError:
-        raise MemoryError
-    
-    limit = mul >> 1
-    while True:
-        if mul & factor:
-            if result is None:
-                result = s
-            else:
-                result = s + result
-            if factor > limit:
-                break
-        s += s
-        factor *= 2
-    return result
-string_repeat._annspecialcase_ = 'specialize:argtype(0)'
 
 # ------------------------------------------------------------
 # ----------------- implementation details -------------------
@@ -125,6 +104,11 @@ class SomeStringBuilder(SomeObject):
     def method_append_multiple_char(self, s_char, s_times):
         assert isinstance(s_char, SomeChar)
         assert isinstance(s_times, SomeInteger)
+        return s_None
+
+    def method_append_charpsize(self, s_ptr, s_size):
+        assert isinstance(s_ptr, SomePtr)
+        assert isinstance(s_size, SomeInteger)
         return s_None
 
     def method_getlength(self):
@@ -154,12 +138,17 @@ class SomeUnicodeBuilder(SomeObject):
         assert isinstance(s_times, SomeInteger)
         return s_None
 
+    def method_append_charpsize(self, s_ptr, s_size):
+        assert isinstance(s_ptr, SomePtr)
+        assert isinstance(s_size, SomeInteger)
+        return s_None
+
     def method_getlength(self):
         return SomeInteger(nonneg=True)
 
     def method_build(self):
         return SomeUnicodeString()
-    
+
     def rtyper_makerepr(self, rtyper):
         return rtyper.type_system.rbuilder.unicodebuilder_repr
 
@@ -170,7 +159,7 @@ class BaseEntry(object):
         if self.use_unicode:
             return SomeUnicodeBuilder()
         return SomeStringBuilder()
-    
+
     def specialize_call(self, hop):
         return hop.r_result.rtyper_new(hop)
 

@@ -80,7 +80,7 @@ del struct_name
 
 pypysig_getaddr_occurred = external('pypysig_getaddr_occurred', [],
                                     lltype.Ptr(LONG_STRUCT), _nowrapper=True,
-                                    pure_function=True)
+                                    elidable_function=True)
 c_alarm = external('alarm', [rffi.INT], rffi.INT)
 c_pause = external('pause', [], rffi.INT)
 c_siginterrupt = external('siginterrupt', [rffi.INT, rffi.INT], rffi.INT)
@@ -145,6 +145,15 @@ class CheckSignalAction(PeriodicAsyncAction):
                     # running in another thread: we need to hack a bit
                     self.pending_signals[n] = None
                     self.reissue_signal_action.fire_after_thread_switch()
+
+    def set_interrupt(self):
+        "Simulates the effect of a SIGINT signal arriving"
+        n = cpy_signal.SIGINT
+        if self.reissue_signal_action is None:
+            self.report_signal(n)
+        else:
+            self.pending_signals[n] = None
+            self.reissue_signal_action.fire_after_thread_switch()
 
     def report_signal(self, n):
         try:

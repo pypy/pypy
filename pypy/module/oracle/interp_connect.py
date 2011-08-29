@@ -82,6 +82,12 @@ class W_Connection(Wrappable):
         return space.wrap(self)
 
     def __del__(self):
+        self.enqueue_for_destruction(self.environment.space,
+                                     W_Connection.destructor,
+                                     '__del__ method of ')
+
+    def destructor(self):
+        assert isinstance(self, W_Connection)
         if self.release:
             roci.OCITransRollback(
                 self.handle, self.environment.errorHandle,
@@ -159,9 +165,20 @@ class W_Connection(Wrappable):
         # set the internal and external names; these are needed for global
         # transactions but are limited in terms of the lengths of the strings
         if twophase:
-            raise OperationError(
-                interp_error.get(space).w_NotSupportedError,
-                space.wrap("XXX write me"))
+            status = roci.OCIAttrSet(
+                self.serverHandle, roci.OCI_HTYPE_SERVER,
+                "cx_Oracle", 0,
+                roci.OCI_ATTR_INTERNAL_NAME,
+                self.environment.errorHandle)
+            self.environment.checkForError(
+                status, "Connection_Connect(): set internal name")
+            status = roci.OCIAttrSet(
+                self.serverHandle, roci.OCI_HTYPE_SERVER,
+                "cx_Oracle", 0,
+                roci.OCI_ATTR_EXTERNAL_NAME,
+                self.environment.errorHandle)
+            self.environment.checkForError(
+                status, "Connection_Connect(): set external name")
 
         # allocate the session handle
         handleptr = lltype.malloc(rffi.CArrayPtr(roci.OCISession).TO,
@@ -371,6 +388,7 @@ class W_Connection(Wrappable):
         finally:
             stringBuffer.clear()
             lltype.free(foundptr, flavor='raw')
+            lltype.free(handleptr, flavor='raw')
 
         # eliminate the authorization handle immediately, if applicable
         if authInfo:

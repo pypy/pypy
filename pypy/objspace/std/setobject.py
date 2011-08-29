@@ -5,7 +5,6 @@ from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.interpreter.error import OperationError
 from pypy.interpreter import gateway
 from pypy.interpreter.argument import Signature
-from pypy.interpreter.function import Defaults
 from pypy.objspace.std.settype import set_typedef as settypedef
 from pypy.objspace.std.frozensettype import frozenset_typedef as frozensettypedef
 
@@ -32,31 +31,38 @@ class W_BaseSetObject(W_Object):
         reprlist = [repr(w_item) for w_item in w_self.setdata.keys()]
         return "<%s(%s)>" % (w_self.__class__.__name__, ', '.join(reprlist))
 
-    def _newobj(w_self, space, rdict_w=None):
-        """Make a new set or frozenset by taking ownership of 'rdict_w'."""
-        #return space.call(space.type(w_self),W_SetIterObject(rdict_w))
-        objtype = type(w_self)
-        if objtype is W_SetObject:
-            obj = W_SetObject(space, rdict_w)
-        elif objtype is W_FrozensetObject:
-            obj = W_FrozensetObject(space, rdict_w)
-        else:
-            itemiterator = space.iter(W_SetIterObject(rdict_w))
-            obj = space.call_function(space.type(w_self),itemiterator)
-        return obj
-
     _lifeline_ = None
     def getweakref(self):
         return self._lifeline_
     def setweakref(self, space, weakreflifeline):
         self._lifeline_ = weakreflifeline
+    def delweakref(self):
+        self._lifeline_ = None
 
 class W_SetObject(W_BaseSetObject):
     from pypy.objspace.std.settype import set_typedef as typedef
 
+    def _newobj(w_self, space, rdict_w):
+        """Make a new set by taking ownership of 'rdict_w'."""
+        if type(w_self) is W_SetObject:
+            return W_SetObject(space, rdict_w)
+        w_type = space.type(w_self)
+        w_obj = space.allocate_instance(W_SetObject, w_type)
+        W_SetObject.__init__(w_obj, space, rdict_w)
+        return w_obj
+
 class W_FrozensetObject(W_BaseSetObject):
     from pypy.objspace.std.frozensettype import frozenset_typedef as typedef
     hash = 0
+
+    def _newobj(w_self, space, rdict_w):
+        """Make a new frozenset by taking ownership of 'rdict_w'."""
+        if type(w_self) is W_FrozensetObject:
+            return W_FrozensetObject(space, rdict_w)
+        w_type = space.type(w_self)
+        w_obj = space.allocate_instance(W_FrozensetObject, w_type)
+        W_FrozensetObject.__init__(w_obj, space, rdict_w)
+        return w_obj
 
 registerimplementation(W_BaseSetObject)
 registerimplementation(W_SetObject)
@@ -108,7 +114,7 @@ def next__SetIterObject(space, w_setiter):
 # some helper functions
 
 def newset(space):
-    return r_dict(space.eq_w, space.hash_w)
+    return r_dict(space.eq_w, space.hash_w, force_non_null=True)
 
 def make_setdata_from_w_iterable(space, w_iterable=None):
     """Return a new r_dict with the content of w_iterable."""
@@ -310,7 +316,7 @@ ne__Frozenset_Set = ne__Set_Set
 
 def ne__Set_settypedef(space, w_left, w_other):
     rd = make_setdata_from_w_iterable(space, w_other)
-    return space.wrap(_is_eq(w_left.setdata, rd))
+    return space.wrap(not _is_eq(w_left.setdata, rd))
 
 ne__Set_frozensettypedef = ne__Set_settypedef
 ne__Frozenset_settypedef = ne__Set_settypedef
@@ -462,12 +468,11 @@ def hash__Frozenset(space, w_set):
     return space.wrap(hash)
 
 def set_pop__Set(space, w_left):
-    for w_key in w_left.setdata:
-        break
-    else:
+    try:
+        w_key, _ = w_left.setdata.popitem()
+    except KeyError:
         raise OperationError(space.w_KeyError,
                                 space.wrap('pop from an empty set'))
-    del w_left.setdata[w_key]
     return w_key
 
 def and__Set_Set(space, w_left, w_other):
@@ -620,7 +625,7 @@ cmp__Frozenset_settypedef = cmp__Set_settypedef
 cmp__Frozenset_frozensettypedef = cmp__Set_settypedef
 
 init_signature = Signature(['some_iterable'], None, None)
-init_defaults = Defaults([None])
+init_defaults = [None]
 def init__Set(space, w_set, __args__):
     w_iterable, = __args__.parse_obj(
             None, 'set',

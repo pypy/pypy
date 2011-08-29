@@ -32,13 +32,15 @@ from types import BuiltinFunctionType, MethodType, FunctionType
 import pypy
 from pypy.tool import descriptor
 from pypy.tool.pairtype import pair, extendabletype
-from pypy.tool.tls import tlsobject
 from pypy.rlib.rarithmetic import r_uint, r_ulonglong, base_int
 from pypy.rlib.rarithmetic import r_singlefloat, r_longfloat
 import inspect, weakref
 
 DEBUG = False    # set to False to disable recording of debugging information
-TLS = tlsobject()
+
+class State(object):
+    pass
+TLS = State()
 
 class SomeObject(object):
     """The set of all objects.  Each instance stands
@@ -641,6 +643,8 @@ def lltype_to_annotation(T):
     except TypeError:
         s = None    # unhashable T, e.g. a Ptr(GcForwardReference())
     if s is None:
+        if isinstance(T, lltype.Typedef):
+            return lltype_to_annotation(T.OF)
         if isinstance(T, lltype.Number):
             return SomeInteger(knowntype=T._type)
         if isinstance(T, (ootype.Instance, ootype.BuiltinType)):

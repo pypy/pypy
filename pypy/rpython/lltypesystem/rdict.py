@@ -4,11 +4,15 @@ from pypy.objspace.flow.model import Constant
 from pypy.rpython.rdict import AbstractDictRepr, AbstractDictIteratorRepr,\
      rtype_newdict
 from pypy.rpython.lltypesystem import lltype
-from pypy.rlib.rarithmetic import r_uint, intmask
+from pypy.rlib.rarithmetic import r_uint, intmask, LONG_BIT
 from pypy.rlib.objectmodel import hlinvoke
 from pypy.rpython import robject
-from pypy.rlib import objectmodel
+from pypy.rlib import objectmodel, jit
 from pypy.rpython import rmodel
+from pypy.rpython.error import TyperError
+
+HIGHEST_BIT = intmask(1 << (LONG_BIT - 1))
+MASK = intmask(HIGHEST_BIT - 1)
 
 # ____________________________________________________________
 #
@@ -25,7 +29,7 @@ from pypy.rpython import rmodel
 #        DICTVALUE value;
 #        int f_hash;        # (optional) key hash, if hard to recompute
 #    }
-#    
+#
 #    struct dicttable {
 #        int num_items;
 #        int num_pristine_entries;  # never used entries
@@ -39,25 +43,26 @@ from pypy.rpython import rmodel
 class DictRepr(AbstractDictRepr):
 
     def __init__(self, rtyper, key_repr, value_repr, dictkey, dictvalue,
-                 custom_eq_hash=None):
+                 custom_eq_hash=None, force_non_null=False):
         self.rtyper = rtyper
         self.DICT = lltype.GcForwardReference()
         self.lowleveltype = lltype.Ptr(self.DICT)
         self.custom_eq_hash = custom_eq_hash is not None
         if not isinstance(key_repr, rmodel.Repr):  # not computed yet, done by setup()
             assert callable(key_repr)
-            self._key_repr_computer = key_repr 
+            self._key_repr_computer = key_repr
         else:
             self.external_key_repr, self.key_repr = self.pickkeyrepr(key_repr)
         if not isinstance(value_repr, rmodel.Repr):  # not computed yet, done by setup()
             assert callable(value_repr)
-            self._value_repr_computer = value_repr 
+            self._value_repr_computer = value_repr
         else:
             self.external_value_repr, self.value_repr = self.pickrepr(value_repr)
         self.dictkey = dictkey
         self.dictvalue = dictvalue
         self.dict_cache = {}
         self._custom_eq_hash_repr = custom_eq_hash
+        self.force_non_null = force_non_null
         # setup() needs to be called to finish this initialization
 
     def _externalvsinternal(self, rtyper, item_repr):
@@ -94,6 +99,13 @@ class DictRepr(AbstractDictRepr):
             s_value = self.dictvalue.s_value
             nullkeymarker = not self.key_repr.can_ll_be_null(s_key)
             nullvaluemarker = not self.value_repr.can_ll_be_null(s_value)
+            if self.force_non_null:
+                if not nullkeymarker:
+                    rmodel.warning("%s can be null, but forcing non-null in dict key" % s_key)
+                    nullkeymarker = True
+                if not nullvaluemarker:
+                    rmodel.warning("%s can be null, but forcing non-null in dict value" % s_value)
+                    nullvaluemarker = True
             dummykeyobj = self.key_repr.get_ll_dummyval_obj(self.rtyper,
                                                             s_key)
             dummyvalueobj = self.value_repr.get_ll_dummyval_obj(self.rtyper,
@@ -164,7 +176,7 @@ class DictRepr(AbstractDictRepr):
             self.DICTENTRYARRAY = lltype.GcArray(self.DICTENTRY,
                                                  adtmeths=entrymeths)
             fields =          [ ("num_items", lltype.Signed),
-                                ("num_pristine_entries", lltype.Signed), 
+                                ("num_pristine_entries", lltype.Signed),
                                 ("entries", lltype.Ptr(self.DICTENTRYARRAY)) ]
             if self.custom_eq_hash:
                 self.r_rdict_eqfn, self.r_rdict_hashfn = self._custom_eq_hash_repr()
@@ -199,18 +211,18 @@ class DictRepr(AbstractDictRepr):
     def convert_const(self, dictobj):
         from pypy.rpython.lltypesystem import llmemory
         # get object from bound dict methods
-        #dictobj = getattr(dictobj, '__self__', dictobj) 
+        #dictobj = getattr(dictobj, '__self__', dictobj)
         if dictobj is None:
             return lltype.nullptr(self.DICT)
         if not isinstance(dictobj, (dict, objectmodel.r_dict)):
-            raise TyperError("expected a dict: %r" % (dictobj,))
+            raise TypeError("expected a dict: %r" % (dictobj,))
         try:
             key = Constant(dictobj)
             return self.dict_cache[key]
         except KeyError:
             self.setup()
             l_dict = ll_newdict_size(self.DICT, len(dictobj))
-            self.dict_cache[key] = l_dict 
+            self.dict_cache[key] = l_dict
             r_key = self.key_repr
             if r_key.lowleveltype == llmemory.Address:
                 raise TypeError("No prebuilt dicts of address keys")
@@ -262,7 +274,7 @@ class DictRepr(AbstractDictRepr):
         hop.exception_cannot_occur()
         v_res = hop.gendirectcall(ll_setdefault, v_dict, v_key, v_default)
         return self.recast_value(hop.llops, v_res)
-    
+
     def rtype_method_copy(self, hop):
         v_dict, = hop.inputargs(self)
         hop.exception_cannot_occur()
@@ -313,7 +325,7 @@ class DictRepr(AbstractDictRepr):
         hop.exception_is_here()
         return hop.gendirectcall(ll_popitem, cTUPLE, v_dict)
 
-class __extend__(pairtype(DictRepr, rmodel.Repr)): 
+class __extend__(pairtype(DictRepr, rmodel.Repr)):
 
     def rtype_getitem((r_dict, r_key), hop):
         v_dict, v_key = hop.inputargs(r_dict, r_dict.key_repr)
@@ -326,7 +338,7 @@ class __extend__(pairtype(DictRepr, rmodel.Repr)):
     def rtype_delitem((r_dict, r_key), hop):
         v_dict, v_key = hop.inputargs(r_dict, r_dict.key_repr)
         if not r_dict.custom_eq_hash:
-            hop.has_implicit_exception(KeyError)   # record that we know about it        
+            hop.has_implicit_exception(KeyError)   # record that we know about it
         hop.exception_is_here()
         return hop.gendirectcall(ll_dict_delitem, v_dict, v_key)
 
@@ -342,11 +354,11 @@ class __extend__(pairtype(DictRepr, rmodel.Repr)):
         v_dict, v_key = hop.inputargs(r_dict, r_dict.key_repr)
         hop.exception_is_here()
         return hop.gendirectcall(ll_contains, v_dict, v_key)
-        
+
 class __extend__(pairtype(DictRepr, DictRepr)):
     def convert_from_to((r_dict1, r_dict2), v, llops):
         # check that we don't convert from Dicts with
-        # different key/value types 
+        # different key/value types
         if r_dict1.dictkey is None or r_dict2.dictkey is None:
             return NotImplemented
         if r_dict1.dictkey is not r_dict2.dictkey:
@@ -405,6 +417,10 @@ def ll_hash_recomputed(entries, i):
     ENTRIES = lltype.typeOf(entries).TO
     return ENTRIES.fasthashfn(entries[i].key)
 
+@jit.dont_look_inside
+def ll_get_value(d, i):
+    return d.entries[i].value
+
 def ll_keyhash_custom(d, key):
     DICT = lltype.typeOf(d).TO
     return hlinvoke(DICT.r_rdict_hashfn, d.fnkeyhash, key)
@@ -414,7 +430,7 @@ def ll_keyeq_custom(d, key1, key2):
     return hlinvoke(DICT.r_rdict_eqfn, d.fnkeyeq, key1, key2)
 
 def ll_dict_len(d):
-    return d.num_items 
+    return d.num_items
 
 def ll_dict_is_true(d):
     # check if a dict is True, allowing for None
@@ -422,18 +438,21 @@ def ll_dict_is_true(d):
 
 def ll_dict_getitem(d, key):
     i = ll_dict_lookup(d, key, d.keyhash(key))
-    entries = d.entries
-    if entries.valid(i):
-        return entries[i].value 
-    else: 
-        raise KeyError 
-ll_dict_getitem.oopspec = 'dict.getitem(d, key)'
+    if not i & HIGHEST_BIT:
+        return ll_get_value(d, i)
+    else:
+        raise KeyError
 
 def ll_dict_setitem(d, key, value):
     hash = d.keyhash(key)
     i = ll_dict_lookup(d, key, hash)
+    return _ll_dict_setitem_lookup_done(d, key, value, hash, i)
+
+@jit.dont_look_inside
+def _ll_dict_setitem_lookup_done(d, key, value, hash, i):
+    valid = (i & HIGHEST_BIT) == 0
+    i = i & MASK
     everused = d.entries.everused(i)
-    valid    = d.entries.valid(i)
     # set up the new entry
     ENTRY = lltype.typeOf(d.entries).TO.OF
     entry = d.entries[i]
@@ -449,7 +468,6 @@ def ll_dict_setitem(d, key, value):
         d.num_pristine_entries -= 1
         if d.num_pristine_entries <= len(d.entries) / 3:
             ll_dict_resize(d)
-ll_dict_setitem.oopspec = 'dict.setitem(d, key, value)'
 
 def ll_dict_insertclean(d, key, value, hash):
     # Internal routine used by ll_dict_resize() to insert an item which is
@@ -470,11 +488,11 @@ def ll_dict_insertclean(d, key, value, hash):
 
 def ll_dict_delitem(d, key):
     i = ll_dict_lookup(d, key, d.keyhash(key))
-    if not d.entries.valid(i):
+    if i & HIGHEST_BIT:
         raise KeyError
     _ll_dict_del(d, i)
-ll_dict_delitem.oopspec = 'dict.delitem(d, key)'
 
+@jit.dont_look_inside
 def _ll_dict_del(d, i):
     d.entries.mark_deleted(i)
     d.num_items -= 1
@@ -483,9 +501,6 @@ def _ll_dict_del(d, i):
     ENTRY = ENTRIES.OF
     entry = d.entries[i]
     if ENTRIES.must_clear_key:
-        key = entry.key   # careful about destructor side effects:
-                          # keep key alive until entry.value has also
-                          # been zeroed (if it must be)
         entry.key = lltype.nullptr(ENTRY.key.TO)
     if ENTRIES.must_clear_value:
         entry.value = lltype.nullptr(ENTRY.value.TO)
@@ -495,7 +510,7 @@ def _ll_dict_del(d, i):
 
 def ll_dict_resize(d):
     old_entries = d.entries
-    old_size = len(old_entries) 
+    old_size = len(old_entries)
     # make a 'new_size' estimate and shrink it if there are many
     # deleted entry markers
     new_size = old_size * 2
@@ -512,6 +527,7 @@ def ll_dict_resize(d):
             ll_dict_insertclean(d, entry.key, entry.value, hash)
         i += 1
     old_entries.delete()
+ll_dict_resize.oopspec = 'dict.resize(d)'
 
 # ------- a port of CPython's dictobject.c's lookdict implementation -------
 PERTURB_SHIFT = 5
@@ -522,7 +538,7 @@ def ll_dict_lookup(d, key, hash):
     direct_compare = not hasattr(ENTRIES, 'no_direct_compare')
     mask = len(entries) - 1
     i = hash & mask
-    # do the first try before any looping 
+    # do the first try before any looping
     if entries.valid(i):
         checkingkey = entries[i].key
         if direct_compare and checkingkey == key:
@@ -542,12 +558,12 @@ def ll_dict_lookup(d, key, hash):
     elif entries.everused(i):
         freeslot = i
     else:
-        return i    # pristine entry -- lookup failed
+        return i | HIGHEST_BIT # pristine entry -- lookup failed
 
     # In the loop, a deleted entry (everused and not valid) is by far
     # (factor of 100s) the least likely outcome, so test for that last.
-    perturb = r_uint(hash) 
-    while 1: 
+    perturb = r_uint(hash)
+    while 1:
         # compute the next index using unsigned arithmetic
         i = r_uint(i)
         i = (i << 2) + i + perturb + 1
@@ -557,7 +573,7 @@ def ll_dict_lookup(d, key, hash):
         if not entries.everused(i):
             if freeslot == -1:
                 freeslot = i
-            return freeslot
+            return freeslot | HIGHEST_BIT
         elif entries.valid(i):
             checkingkey = entries[i].key
             if direct_compare and checkingkey == key:
@@ -575,7 +591,7 @@ def ll_dict_lookup(d, key, hash):
                 if found:
                     return i   # found the entry
         elif freeslot == -1:
-            freeslot = i 
+            freeslot = i
         perturb >>= PERTURB_SHIFT
 
 def ll_dict_lookup_clean(d, hash):
@@ -585,7 +601,7 @@ def ll_dict_lookup_clean(d, hash):
     entries = d.entries
     mask = len(entries) - 1
     i = hash & mask
-    perturb = r_uint(hash) 
+    perturb = r_uint(hash)
     while entries.everused(i):
         i = r_uint(i)
         i = (i << 2) + i + perturb + 1
@@ -630,12 +646,15 @@ def _ll_free_entries(entries):
     pass
 
 
-def rtype_r_dict(hop):
+def rtype_r_dict(hop, i_force_non_null=None):
     r_dict = hop.r_result
     if not r_dict.custom_eq_hash:
         raise TyperError("r_dict() call does not return an r_dict instance")
-    v_eqfn, v_hashfn = hop.inputargs(r_dict.r_rdict_eqfn,
-                                     r_dict.r_rdict_hashfn)
+    v_eqfn = hop.inputarg(r_dict.r_rdict_eqfn, arg=0)
+    v_hashfn = hop.inputarg(r_dict.r_rdict_hashfn, arg=1)
+    if i_force_non_null is not None:
+        assert i_force_non_null == 2
+        hop.inputarg(lltype.Void, arg=2)
     cDICT = hop.inputconst(lltype.Void, r_dict.DICT)
     hop.exception_cannot_occur()
     v_result = hop.gendirectcall(ll_newdict, cDICT)
@@ -668,7 +687,6 @@ def ll_dictiter(ITERPTR, d):
     iter.dict = d
     iter.index = 0
     return iter
-ll_dictiter.oopspec = 'newdictiter(d)'
 
 def _make_ll_dictnext(kind):
     # make three versions of the following function: keys, values, items
@@ -711,22 +729,19 @@ ll_dictnext_group = {'keys'  : _make_ll_dictnext('keys'),
 
 def ll_get(dict, key, default):
     i = ll_dict_lookup(dict, key, dict.keyhash(key))
-    entries = dict.entries
-    if entries.valid(i):
-        return entries[i].value
-    else: 
+    if not i & HIGHEST_BIT:
+        return ll_get_value(dict, i)
+    else:
         return default
-ll_get.oopspec = 'dict.get(dict, key, default)'
 
 def ll_setdefault(dict, key, default):
-    i = ll_dict_lookup(dict, key, dict.keyhash(key))
-    entries = dict.entries
-    if entries.valid(i):
-        return entries[i].value
+    hash = dict.keyhash(key)
+    i = ll_dict_lookup(dict, key, hash)
+    if not i & HIGHEST_BIT:
+        return ll_get_value(dict, i)
     else:
-        ll_dict_setitem(dict, key, default)
+        _ll_dict_setitem_lookup_done(dict, key, default, hash, i)
         return default
-ll_setdefault.oopspec = 'dict.setdefault(dict, key, default)'
 
 def ll_copy(dict):
     DICT = lltype.typeOf(dict).TO
@@ -768,7 +783,10 @@ def ll_update(dic1, dic2):
     while i < d2len:
         if entries.valid(i):
             entry = entries[i]
-            ll_dict_setitem(dic1, entry.key, entry.value)
+            hash = entries.hash(i)
+            key = entry.key
+            j = ll_dict_lookup(dic1, key, hash)
+            _ll_dict_setitem_lookup_done(dic1, key, entry.value, hash, j)
         i += 1
 ll_update.oopspec = 'dict.update(dic1, dic2)'
 
@@ -818,16 +836,21 @@ ll_dict_items  = _make_ll_keys_values_items('items')
 
 def ll_contains(d, key):
     i = ll_dict_lookup(d, key, d.keyhash(key))
-    return d.entries.valid(i)
-ll_contains.oopspec = 'dict.contains(d, key)'
+    return not i & HIGHEST_BIT
 
 POPITEMINDEX = lltype.Struct('PopItemIndex', ('nextindex', lltype.Signed))
 global_popitem_index = lltype.malloc(POPITEMINDEX, zero=True, immortal=True)
 
-def ll_popitem(ELEM, dic):
+def _ll_getnextitem(dic):
     entries = dic.entries
+    ENTRY = lltype.typeOf(entries).TO.OF
     dmask = len(entries) - 1
-    base = global_popitem_index.nextindex
+    if hasattr(ENTRY, 'f_hash'):
+        if entries.valid(0):
+            return 0
+        base = entries[0].f_hash
+    else:
+        base = global_popitem_index.nextindex
     counter = 0
     while counter <= dmask:
         i = (base + counter) & dmask
@@ -836,8 +859,16 @@ def ll_popitem(ELEM, dic):
             break
     else:
         raise KeyError
-    global_popitem_index.nextindex += counter
-    entry = entries[i]
+    if hasattr(ENTRY, 'f_hash'):
+        entries[0].f_hash = base + counter
+    else:
+        global_popitem_index.nextindex = base + counter
+    return i
+
+@jit.dont_look_inside
+def ll_popitem(ELEM, dic):
+    i = _ll_getnextitem(dic)
+    entry = dic.entries[i]
     r = lltype.malloc(ELEM.TO)
     r.item0 = recast(ELEM.TO.item0, entry.key)
     r.item1 = recast(ELEM.TO.item1, entry.value)

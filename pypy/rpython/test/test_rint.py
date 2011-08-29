@@ -4,10 +4,13 @@ from pypy.translator.translator import TranslationContext
 from pypy.annotation import model as annmodel
 from pypy.rpython.test import snippet
 from pypy.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
-from pypy.rlib.rarithmetic import ovfcheck, r_int64, intmask
+from pypy.rlib.rarithmetic import ovfcheck, r_int64, intmask, int_between
 from pypy.rlib import objectmodel
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 
+from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.lltypesystem.lloperation import llop
 
 class TestSnippet(object):
 
@@ -215,6 +218,14 @@ class BaseTestRint(BaseRtypingTest):
             assert res == f(inttype(0))
             assert type(res) == inttype
 
+    def test_and_or(self):
+        inttypes = [int, r_uint, r_int64, r_ulonglong]
+        for inttype in inttypes:
+            def f(a, b, c):
+                return a&b|c
+            res = self.interpret(f, [inttype(0x1234), inttype(0x00FF), inttype(0x5600)])
+            assert res == f(0x1234, 0x00FF, 0x5600)
+
     def test_neg_abs_ovf(self):
         for op in (operator.neg, abs):
             def f(x):
@@ -266,6 +277,8 @@ class BaseTestRint(BaseRtypingTest):
                 x = inttype(random.randint(-100000, 100000))
                 y = inttype(random.randint(-100000, 100000))
                 if not y: continue
+                if (i & 31) == 0:
+                    x = (x//y) * y      # case where x is exactly divisible by y
                 res = self.interpret(d, [x, y])
                 assert res == d(x, y)
 
@@ -276,6 +289,8 @@ class BaseTestRint(BaseRtypingTest):
                 x = inttype(random.randint(-100000, 100000))
                 y = inttype(random.randint(-100000, 100000))
                 if not y: continue
+                if (i & 31) == 0:
+                    x = (x//y) * y      # case where x is exactly divisible by y
                 res = self.interpret(m, [x, y])
                 assert res == m(x, y)
 
@@ -384,8 +399,24 @@ class BaseTestRint(BaseRtypingTest):
         else:
             assert res == 123456789012345678
 
+    def test_int_between(self):
+        def fn(a, b, c):
+            return int_between(a, b, c)
+        assert self.interpret(fn, [1, 1, 3])
+        assert self.interpret(fn, [1, 2, 3])
+        assert not self.interpret(fn, [1, 0, 2])
+        assert not self.interpret(fn, [1, 5, 2])
+        assert not self.interpret(fn, [1, 2, 2])
+        assert not self.interpret(fn, [1, 1, 1])
+
+
+
 class TestLLtype(BaseTestRint, LLRtypeMixin):
     pass
 
 class TestOOtype(BaseTestRint, OORtypeMixin):
-    pass
+    def test_oobox_int(self):
+        def f():
+            x = llop.oobox_int(ootype.Object, 42)
+            return llop.oounbox_int(lltype.Signed, x)
+        assert self.interpret(f, []) == 42

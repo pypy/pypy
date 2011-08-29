@@ -38,6 +38,10 @@ public class PyPy implements Constants {
     public final static int INT_MIN = Integer.MIN_VALUE;
     public final static double ULONG_MAX = 18446744073709551616.0;
 
+    public static boolean int_between(int a, int b, int c) {
+        return a <= b && b < c;
+    }
+
     /** 
      * Compares two unsigned integers (value1 and value2) and returns
      * a value greater than, equal to, or less than zero if value 1 is
@@ -162,6 +166,13 @@ public class PyPy implements Constants {
         else {
             return ULONG_MAX + value;
         }
+    }
+
+    public static long double_to_ulong(double value) {
+        if (value < 0)
+            return (long)(ULONG_MAX + value);
+        else
+            return (long)value;
     }
     
     public static int double_to_uint(double value) {
@@ -296,6 +307,14 @@ public class PyPy implements Constants {
         return result;
     }
 
+    public static Object box_integer(int x) {
+        return new Integer(x);
+    }
+
+    public static int unbox_integer(Object o) {
+        Integer x = (Integer)o;
+        return x.intValue();
+    }
     // Used in testing the JVM backend:
     //
     //    A series of methods which serve a similar purpose to repr() in Python:
@@ -746,11 +765,13 @@ public class PyPy implements Constants {
         return str.substring(start, end);
     }
 
-    public static Object[] ll_split_chr(String str, char c) {
+    public static Object[] ll_split_chr(String str, char c, int max) {
         ArrayList list = new ArrayList();
         int lastidx = 0, idx = 0;
         while ((idx = str.indexOf(c, lastidx)) != -1)
         {
+            if (max >= 0 && list.size() >= max)
+                break;
             String sub = str.substring(lastidx, idx);
             list.add(sub);
             lastidx = idx+1;
@@ -759,8 +780,37 @@ public class PyPy implements Constants {
         return list.toArray(new String[list.size()]);
     }
 
+    public static Object[] ll_rsplit_chr(String str, char c, int max) {
+        ArrayList list = new ArrayList();
+        int lastidx = str.length(), idx = 0;
+        while ((idx = str.lastIndexOf(c, lastidx - 1)) != -1)
+        {
+            if (max >= 0 && list.size() >= max)
+                break;
+            String sub = str.substring(idx + 1, lastidx);
+            list.add(0, sub);
+            lastidx = idx;
+        }
+        list.add(0, str.substring(0, lastidx));
+        return list.toArray(new String[list.size()]);
+    }
+
     public static String ll_substring(String str, int start, int cnt) {
         return str.substring(start,start+cnt);
+    }
+
+    public static boolean ll_startswith_char(String str, char c) {
+        if (str.length() == 0) {
+            return false;
+        }
+        return str.charAt(0) == c;
+    }
+
+    public static boolean ll_endswith_char(String str, char c) {
+        if (str.length() == 0) {
+            return false;
+        }
+        return str.charAt(str.length() - 1) == c;
     }
 
     // ----------------------------------------------------------------------
@@ -936,12 +986,15 @@ public class PyPy implements Constants {
         return a + File.separator + b;
     }
 
-    public String ll_strtod_formatd(String format, double d)
+    public String ll_strtod_formatd(double d, char code, int precision, int flags)
     {
         // XXX: this is really a quick hack to make things work.
         // it should disappear, because this function is not
         // supported by ootypesystem.
-        return Double.toString(d); // XXX: we are ignoring "format"
+        DecimalFormat format = new DecimalFormat("0.###");
+        format.setMinimumFractionDigits(precision);
+        format.setMaximumFractionDigits(precision);
+        return format.format(d);
     }
 
     // ----------------------------------------------------------------------
@@ -1047,9 +1100,9 @@ public class PyPy implements Constants {
         if (Double.isNaN(x))
             return interlink.recordFloatSigned(x, 0);
 
-        // Infinity: Python throws exception
+        // Infinity: Python returns (inf, 0)
         if (Double.isInfinite(x))
-            interlink.throwOverflowError();
+            return interlink.recordFloatSigned(x, 0);
 
         // Extract the various parts of the format:
         final long e=11, f=52; // number of bits in IEEE format
@@ -1158,6 +1211,22 @@ public class PyPy implements Constants {
         return Math.tanh(x);
     }
 
+    public double ll_math_copysign(double x, double y) {
+        return Math.copySign(x, y);
+    }
+
+    public boolean ll_math_isnan(double x) {
+        return Double.isNaN(x);
+    }
+
+    public boolean ll_math_isinf(double x) {
+        return Double.isInfinite(x);
+    }
+
+    public boolean ll_math_isfinite(double x) {
+        return !Double.isNaN(x) && !Double.isInfinite(x);
+    }
+
     private double check(double v) {
         if (Double.isNaN(v))
             interlink.throwValueError();
@@ -1170,8 +1239,41 @@ public class PyPy implements Constants {
         return Character.toLowerCase(c);
     }
 
+    public int locale_tolower(int chr)
+    {
+        return Character.toLowerCase(chr);
+    }
+
+    public int locale_isupper(int chr)
+    {
+        return boolean2int(Character.isUpperCase(chr));
+    }
+
+    public int locale_islower(int chr)
+    {
+        return boolean2int(Character.isLowerCase(chr));
+    }
+
+    public int locale_isalpha(int chr)
+    {
+        return boolean2int(Character.isLetter(chr));
+    }
+
+    public int locale_isalnum(int chr)
+    {
+        return boolean2int(Character.isLetterOrDigit(chr));
+    }
+
+
     // ----------------------------------------------------------------------
     // Self Test
+
+    public static int boolean2int(boolean b)
+    {
+        if (b)
+            return 1;
+        return 0;
+    }
 
     public static int __counter = 0, __failures = 0;
     public static void ensure(boolean f) {

@@ -184,7 +184,9 @@ class AsmStackRootWalker(BaseRootWalker):
             # old NULL entries
             gcdata.dead_threads_count += 1
             if (gcdata.dead_threads_count & 511) == 0:
-                gcdata.aid2stack = copy_without_null_values(gcdata.aid2stack)
+                copy = copy_without_null_values(gcdata.aid2stack)
+                gcdata.aid2stack.delete()
+                gcdata.aid2stack = copy
 
         def belongs_to_current_thread(framedata):
             # xxx obscure: the answer is Yes if, as a pointer, framedata

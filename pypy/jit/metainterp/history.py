@@ -4,7 +4,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.objectmodel import we_are_translated, r_dict, Symbolic
 from pypy.rlib.objectmodel import compute_unique_id
-from pypy.rlib.rarithmetic import intmask, r_int64
+from pypy.rlib.rarithmetic import r_int64
 from pypy.conftest import option
 
 from pypy.jit.metainterp.resoperation import ResOperation, rop
@@ -20,12 +20,16 @@ VOID  = 'v'
 
 FAILARGS_LIMIT = 1000
 
-def getkind(TYPE, supports_floats=True, supports_longlong=True):
+def getkind(TYPE, supports_floats=True,
+                  supports_longlong=True,
+                  supports_singlefloats=True):
     if TYPE is lltype.Void:
         return "void"
     elif isinstance(TYPE, lltype.Primitive):
         if TYPE is lltype.Float and supports_floats:
             return 'float'
+        if TYPE is lltype.SingleFloat and supports_singlefloats:
+            return 'int'     # singlefloats are stored in an int
         if TYPE in (lltype.Float, lltype.SingleFloat):
             raise NotImplementedError("type %s not supported" % TYPE)
         # XXX fix this for oo...
@@ -145,6 +149,7 @@ class AbstractDescr(AbstractValue):
         """ Implement in call descr.
         Must return INT, REF, FLOAT, or 'v' for void.
         On 32-bit (hack) it can also be 'L' for longlongs.
+        Additionally it can be 'S' for singlefloats.
         """
         raise NotImplementedError
 
@@ -178,6 +183,9 @@ class AbstractDescr(AbstractValue):
         Returns self.  (it's an annotation hack)
         """
         raise NotImplementedError
+
+    def count_fields_if_immutable(self):
+        return -1
 
     def _clone_if_mutable(self):
         return self
@@ -291,8 +299,8 @@ class ConstInt(Const):
         cpu.set_future_value_int(j, self.value)
 
     def same_constant(self, other):
-        if isinstance(other, Const):
-            return self.value == other.getint()
+        if isinstance(other, ConstInt):
+            return self.value == other.value
         return False
 
     def nonnull(self):
@@ -709,10 +717,14 @@ def dc_hash(c):
         return -2      # xxx risk of changing hash...
 
 def make_hashable_int(i):
+    from pypy.rpython.lltypesystem.ll2ctypes import NotCtypesAllocatedStructure
     if not we_are_translated() and isinstance(i, llmemory.AddressAsInt):
         # Warning: such a hash changes at the time of translation
         adr = heaptracker.int2adr(i)
-        return llmemory.cast_adr_to_int(adr, "emulated")
+        try:
+            return llmemory.cast_adr_to_int(adr, "emulated")
+        except NotCtypesAllocatedStructure:
+            return 12345 # use an arbitrary number for the hash
     return i
 
 def get_const_ptr_for_string(s):
@@ -758,6 +770,7 @@ class LoopToken(AbstractDescr):
     """
     short_preamble = None
     failed_states = None
+    retraced_count = 0
     terminating = False # see TerminatingLoopToken in compile.py
     outermost_jitdriver_sd = None
     # and more data specified by the backend when the loop is compiled
@@ -782,12 +795,16 @@ class LoopToken(AbstractDescr):
     def repr_of_descr(self):
         return '<Loop%d>' % self.number
 
+    def dump(self):
+        self.compiled_loop_token.cpu.dump_loop_token(self)
 
 class TreeLoop(object):
     inputargs = None
     operations = None
     token = None
     call_pure_results = None
+    logops = None
+    quasi_immutable_deps = None
 
     def __init__(self, name):
         self.name = name
@@ -951,7 +968,7 @@ class Stats(object):
     compiled_count = 0
     enter_count = 0
     aborted_count = 0
-    history = None
+    operations = None
 
     def __init__(self):
         self.loops = []
@@ -959,7 +976,7 @@ class Stats(object):
         self.aborted_keys = []
 
     def set_history(self, history):
-        self.history = history
+        self.operations = history.operations
 
     def aborted(self):
         self.aborted_count += 1
@@ -989,7 +1006,7 @@ class Stats(object):
 
     def check_history(self, expected=None, **check):
         insns = {}
-        for op in self.history.operations:
+        for op in self.operations:
             opname = op.getopname()
             insns[opname] = insns.get(opname, 0) + 1
         if expected is not None:

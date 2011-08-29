@@ -23,7 +23,7 @@ class AbstractResOp(object):
 
     # methods implemented by each concrete class
     # ------------------------------------------
-    
+
     def getopnum(self):
         raise NotImplementedError
 
@@ -191,9 +191,15 @@ class ResOpWithDescr(AbstractResOp):
         # of the operation.  It must inherit from AbstractDescr.  The
         # backend provides it with cpu.fielddescrof(), cpu.arraydescrof(),
         # cpu.calldescrof(), and cpu.typedescrof().
+        self._check_descr(descr)
+        self._descr = descr
+
+    def _check_descr(self, descr):
+        if not we_are_translated() and getattr(descr, 'I_am_a_descr', False):
+            return # needed for the mock case in oparser_model
         from pypy.jit.metainterp.history import check_descr
         check_descr(descr)
-        self._descr = descr
+
 
 class GuardResOp(ResOpWithDescr):
 
@@ -234,7 +240,7 @@ class NullaryOp(object):
 
     def getarg(self, i):
         raise IndexError
-    
+
     def setarg(self, i, box):
         raise IndexError
 
@@ -258,7 +264,7 @@ class UnaryOp(object):
             return self._arg0
         else:
             raise IndexError
-    
+
     def setarg(self, i, box):
         if i == 0:
             self._arg0 = box
@@ -275,9 +281,6 @@ class BinaryOp(object):
         assert len(args) == 2
         self._arg0, self._arg1 = args
 
-    def getarglist(self):
-        return [self._arg0, self._arg1, self._arg2]
-
     def numargs(self):
         return 2
 
@@ -288,7 +291,7 @@ class BinaryOp(object):
             return self._arg1
         else:
             raise IndexError
-    
+
     def setarg(self, i, box):
         if i == 0:
             self._arg0 = box
@@ -326,7 +329,7 @@ class TernaryOp(object):
             return self._arg2
         else:
             raise IndexError
-    
+
     def setarg(self, i, box):
         if i == 0:
             self._arg0 = box
@@ -352,7 +355,7 @@ class N_aryOp(object):
 
     def getarg(self, i):
         return self._args[i]
-    
+
     def setarg(self, i, box):
         self._args[i] = box
 
@@ -380,6 +383,7 @@ _oplist = [
     'GUARD_NO_OVERFLOW/0d',
     'GUARD_OVERFLOW/0d',
     'GUARD_NOT_FORCED/0d',
+    'GUARD_NOT_INVALIDATED/0d',
     '_GUARD_LAST', # ----- end of guard operations -----
 
     '_NOSIDEEFFECT_FIRST', # ----- start of no_side_effect operations -----
@@ -404,6 +408,8 @@ _oplist = [
     'FLOAT_ABS/1',
     'CAST_FLOAT_TO_INT/1',
     'CAST_INT_TO_FLOAT/1',
+    'CAST_FLOAT_TO_SINGLEFLOAT/1',
+    'CAST_SINGLEFLOAT_TO_FLOAT/1',
     #
     'INT_LT/2b',
     'INT_LE/2b',
@@ -431,6 +437,7 @@ _oplist = [
     #
     'PTR_EQ/2b',
     'PTR_NE/2b',
+    'CAST_OPAQUE_PTR/1b',
     #
     'ARRAYLEN_GC/1d',
     'STRLEN/1',
@@ -460,6 +467,7 @@ _oplist = [
     '_MALLOC_LAST',
     'FORCE_TOKEN/0',
     'VIRTUAL_REF/2',         # removed before it's passed to the backend
+    'READ_TIMESTAMP/0',
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
 
     'SETARRAYITEM_GC/3d',
@@ -468,13 +476,15 @@ _oplist = [
     'SETFIELD_RAW/2d',
     'STRSETITEM/3',
     'UNICODESETITEM/3',
-    #'RUNTIMENEW/1',     # ootype operation    
-    'COND_CALL_GC_WB/2d', # [objptr, newvalue]   (for the write barrier)
-    'DEBUG_MERGE_POINT/2',      # debugging only
+    #'RUNTIMENEW/1',     # ootype operation
+    'COND_CALL_GC_WB/2d', # [objptr, newvalue] (for the write barrier)
+    'COND_CALL_GC_WB_ARRAY/3d', # [objptr, arrayindex, newvalue] (write barr.)
+    'DEBUG_MERGE_POINT/*',      # debugging only
     'JIT_DEBUG/*',              # debugging only
     'VIRTUAL_REF_FINISH/2',   # removed before it's passed to the backend
     'COPYSTRCONTENT/5',       # src, dst, srcstart, dststart, length
     'COPYUNICODECONTENT/5',
+    'QUASIIMMUT_FIELD/1d',    # [objptr], descr=SlowMutateDescr
 
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
     '_CALL_FIRST',
@@ -482,6 +492,7 @@ _oplist = [
     'CALL_ASSEMBLER/*d',  # call already compiled assembler
     'CALL_MAY_FORCE/*d',
     'CALL_LOOPINVARIANT/*d',
+    'CALL_RELEASE_GIL/*d',  # release the GIL and "close the stack" for asmgcc
     #'OOSEND',                     # ootype operation
     #'OOSEND_PURE',                # ootype operation
     'CALL_PURE/*d',             # removed before it's passed to the backend
@@ -554,7 +565,7 @@ def create_class_for_op(name, opnum, arity, withdescr):
         2: BinaryOp,
         3: TernaryOp
         }
-    
+
     is_guard = name.startswith('GUARD')
     if is_guard:
         assert withdescr
@@ -623,3 +634,25 @@ opboolreflex = {
     rop.PTR_EQ: rop.PTR_EQ,
     rop.PTR_NE: rop.PTR_NE,
     }
+
+
+def get_deep_immutable_oplist(operations):
+    """
+    When not we_are_translated(), turns ``operations`` into a frozenlist and
+    monkey-patch its items to make sure they are not mutated.
+
+    When we_are_translated(), do nothing and just return the old list.
+    """
+    from pypy.tool.frozenlist import frozenlist
+    if we_are_translated():
+        return operations
+    #
+    def setarg(*args):
+        assert False, "operations cannot change at this point"
+    def setdescr(*args):
+        assert False, "operations cannot change at this point"
+    newops = frozenlist(operations)
+    for op in newops:
+        op.setarg = setarg
+        op.setdescr = setdescr
+    return newops

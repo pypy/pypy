@@ -114,6 +114,3 @@ def allocate_lock(space):
     """Create a new lock object.  (allocate() is an obsolete synonym.)
 See LockType.__doc__ for information about locks."""
     return space.wrap(Lock(space))
-
-def getlocktype(space):
-    return space.gettypeobject(Lock.typedef)

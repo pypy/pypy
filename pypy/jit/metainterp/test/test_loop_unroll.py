@@ -1,7 +1,7 @@
 import py
 from pypy.rlib.jit import JitDriver
 from pypy.jit.metainterp.test import test_loop
-from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from pypy.jit.metainterp.optimizeopt import ALL_OPTS_NAMES
 
 class LoopUnrollTest(test_loop.LoopTest):

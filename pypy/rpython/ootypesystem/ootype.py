@@ -268,13 +268,14 @@ class Instance(OOType):
         return self._superclass._get_fields_with_default() + self._fields_with_default
 
     def _immutable_field(self, field):
+        if self._hints.get('immutable'):
+            return True
         if 'immutable_fields' in self._hints:
             try:
-                s = self._hints['immutable_fields'].fields[field]
-                return s or True
+                return self._hints['immutable_fields'].fields[field]
             except KeyError:
                 pass
-        return self._hints.get('immutable', False)
+        return False
 
 
 class SpecializableType(OOType):
@@ -432,7 +433,9 @@ class AbstractString(BuiltinADTType):
             "ll_streq": Meth([self.SELFTYPE_T], Bool),
             "ll_strcmp": Meth([self.SELFTYPE_T], Signed),
             "ll_startswith": Meth([self.SELFTYPE_T], Bool),
+            "ll_startswith_char": Meth([self.CHAR], Bool),
             "ll_endswith": Meth([self.SELFTYPE_T], Bool),
+            "ll_endswith_char": Meth([self.CHAR], Bool),
             "ll_find": Meth([self.SELFTYPE_T, Signed, Signed], Signed),
             "ll_rfind": Meth([self.SELFTYPE_T, Signed, Signed], Signed),
             "ll_count": Meth([self.SELFTYPE_T, Signed, Signed], Signed),
@@ -443,7 +446,8 @@ class AbstractString(BuiltinADTType):
             "ll_upper": Meth([], self.SELFTYPE_T),
             "ll_lower": Meth([], self.SELFTYPE_T),
             "ll_substring": Meth([Signed, Signed], self.SELFTYPE_T), # ll_substring(start, count)
-            "ll_split_chr": Meth([self.CHAR], Array(self.SELFTYPE_T)), # XXX this is not pure!
+            "ll_split_chr": Meth([self.CHAR, Signed], Array(self.SELFTYPE_T)), # XXX this is not pure!
+            "ll_rsplit_chr": Meth([self.CHAR, Signed], Array(self.SELFTYPE_T)), # XXX this is not pure!
             "ll_contains": Meth([self.CHAR], Bool),
             "ll_replace_chr_chr": Meth([self.CHAR, self.CHAR], self.SELFTYPE_T),
             })
@@ -1427,9 +1431,17 @@ class _string(_builtin_type):
         # NOT_RPYTHON
         return self._str.startswith(s._str)
 
+    def ll_startswith_char(self, s):
+        # NOT_RPYTHON
+        return self._str.startswith(s)
+
     def ll_endswith(self, s):
         # NOT_RPYTHON
         return self._str.endswith(s._str)
+
+    def ll_endswith_char(self, s):
+        # NOT_RPYTHON
+        return self._str.endswith(s)
 
     def ll_find(self, s, start, end):
         # NOT_RPYTHON
@@ -1480,9 +1492,16 @@ class _string(_builtin_type):
         # NOT_RPYTHON
         return self.make_string(self._str[start:start+count])
 
-    def ll_split_chr(self, ch):
+    def ll_split_chr(self, ch, max):
         # NOT_RPYTHON
-        l = [self.make_string(s) for s in self._str.split(ch)]
+        l = [self.make_string(s) for s in self._str.split(ch, max)]
+        res = _array(Array(self._TYPE), len(l))
+        res._array[:] = l
+        return res
+
+    def ll_rsplit_chr(self, ch, max):
+        # NOT_RPYTHON
+        l = [self.make_string(s) for s in self._str.rsplit(ch, max)]
         res = _array(Array(self._TYPE), len(l))
         res._array[:] = l
         return res
@@ -1918,6 +1937,17 @@ def cast_to_object(whatever):
 def cast_from_object(EXPECTED_TYPE, obj):
     assert typeOf(obj) is Object
     return obj._cast_to(EXPECTED_TYPE)
+
+class Box(_object):
+    def __init__(self, i):
+        self._TYPE = Object
+        self.i = i
+
+def oobox_int(i):
+    return Box(i)
+
+def oounbox_int(x):
+    return x.i
 
 def oostring(obj, base):
     """

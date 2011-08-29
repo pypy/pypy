@@ -24,6 +24,8 @@ class ExecutionContext(object):
     # XXX [fijal] but they're not. is_being_profiled is guarded a bit all
     #     over the place as well as w_tracefunc
 
+    _immutable_fields_ = ['profilefunc?', 'w_tracefunc?']
+
     def __init__(self, space):
         self.space = space
         self.topframeref = jit.vref_None
@@ -56,13 +58,23 @@ class ExecutionContext(object):
         frame.f_backref = self.topframeref
         self.topframeref = jit.virtual_ref(frame)
 
-    def leave(self, frame):
+    def leave(self, frame, w_exitvalue, got_exception):
         try:
             if self.profilefunc:
-                self._trace(frame, 'leaveframe', self.space.w_None)
+                self._trace(frame, 'leaveframe', w_exitvalue)
         finally:
+            frame_vref = self.topframeref
             self.topframeref = frame.f_backref
-            jit.virtual_ref_finish(frame)
+            if frame.escaped or got_exception:
+                # if this frame escaped to applevel, we must ensure that also
+                # f_back does
+                f_back = frame.f_backref()
+                if f_back:
+                    f_back.mark_as_escaped()
+                # force the frame (from the JIT point of view), so that it can
+                # be accessed also later
+                frame_vref()
+            jit.virtual_ref_finish(frame_vref, frame)
 
         if self.w_tracefunc is not None and not frame.hide():
             self.space.frame_trace_action.fire()
@@ -100,18 +112,16 @@ class ExecutionContext(object):
 
         # the following interface is for pickling and unpickling
         def getstate(self, space):
-            # XXX we could just save the top frame, which brings
-            # the whole frame stack, but right now we get the whole stack
-            items = [space.wrap(f) for f in self.getframestack()]
-            return space.newtuple(items)
+            if self.topframe is None:
+                return space.w_None
+            return self.topframe
 
         def setstate(self, space, w_state):
             from pypy.interpreter.pyframe import PyFrame
-            frames_w = space.unpackiterable(w_state)
-            if len(frames_w) > 0:
-                self.topframe = space.interp_w(PyFrame, frames_w[-1])
-            else:
+            if space.is_w(w_state, space.w_None):
                 self.topframe = None
+            else:
+                self.topframe = space.interp_w(PyFrame, w_state)
 
         def getframestack(self):
             lst = []
@@ -276,7 +286,7 @@ class ExecutionContext(object):
             if operr is not None:
                 w_value = operr.get_w_value(space)
                 w_arg = space.newtuple([operr.w_type, w_value,
-                                     space.wrap(operr.application_traceback)])
+                                     space.wrap(operr.get_traceback())])
 
             frame.fast2locals()
             self.is_tracing += 1
@@ -298,8 +308,11 @@ class ExecutionContext(object):
 
         # Profile cases
         if self.profilefunc is not None:
-            if event not in ['leaveframe', 'call', 'c_call',
-                             'c_return', 'c_exception']:
+            if not (event == 'leaveframe' or
+                    event == 'call' or
+                    event == 'c_call' or
+                    event == 'c_return' or
+                    event == 'c_exception'):
                 return False
 
             last_exception = frame.last_exception
@@ -471,44 +484,31 @@ class UserDelAction(AsyncAction):
 
     def __init__(self, space):
         AsyncAction.__init__(self, space)
-        self.dying_objects_w = []
-        self.weakrefs_w = []
+        self.dying_objects = []
         self.finalizers_lock_count = 0
 
-    def register_dying_object(self, w_obj):
-        self.dying_objects_w.append(w_obj)
-        self.fire()
-
-    def register_weakref_callback(self, w_ref):
-        self.weakrefs_w.append(w_ref)
+    def register_callback(self, w_obj, callback, descrname):
+        self.dying_objects.append((w_obj, callback, descrname))
         self.fire()
 
     def perform(self, executioncontext, frame):
         if self.finalizers_lock_count > 0:
             return
-        # Each call to perform() first grabs the self.dying_objects_w
+        # Each call to perform() first grabs the self.dying_objects
         # and replaces it with an empty list.  We do this to try to
         # avoid too deep recursions of the kind of __del__ being called
         # while in the middle of another __del__ call.
-        pending_w = self.dying_objects_w
-        self.dying_objects_w = []
+        pending = self.dying_objects
+        self.dying_objects = []
         space = self.space
-        for i in range(len(pending_w)):
-            w_obj = pending_w[i]
-            pending_w[i] = None
+        for i in range(len(pending)):
+            w_obj, callback, descrname = pending[i]
+            pending[i] = (None, None, None)
             try:
-                space.userdel(w_obj)
+                callback(w_obj)
             except OperationError, e:
-                e.write_unraisable(space, 'method __del__ of ', w_obj)
+                e.write_unraisable(space, descrname, w_obj)
                 e.clear(space)   # break up reference cycles
-            # finally, this calls the interp-level destructor for the
-            # cases where there is both an app-level and a built-in __del__.
-            w_obj._call_builtin_destructor()
-        pending_w = self.weakrefs_w
-        self.weakrefs_w = []
-        for i in range(len(pending_w)):
-            w_ref = pending_w[i]
-            w_ref.activate_callback()
 
 class FrameTraceAction(AsyncAction):
     """An action that calls the local trace functions (w_f_trace)."""
@@ -519,7 +519,7 @@ class FrameTraceAction(AsyncAction):
             return
         code = frame.pycode
         if frame.instr_lb <= frame.last_instr < frame.instr_ub:
-            if frame.last_instr <= frame.instr_prev:
+            if frame.last_instr < frame.instr_prev_plus_one:
                 # We jumped backwards in the same line.
                 executioncontext._trace(frame, 'line', self.space.w_None)
         else:
@@ -557,5 +557,5 @@ class FrameTraceAction(AsyncAction):
                 frame.f_lineno = line
                 executioncontext._trace(frame, 'line', self.space.w_None)
 
-        frame.instr_prev = frame.last_instr
+        frame.instr_prev_plus_one = frame.last_instr + 1
         self.space.frame_trace_action.fire()     # continue tracing

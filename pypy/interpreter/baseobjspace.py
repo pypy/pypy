@@ -44,11 +44,11 @@ class W_Root(object):
             return True
         return False
 
-    def deldictvalue(self, space, w_name):
+    def deldictvalue(self, space, attr):
         w_dict = self.getdict(space)
         if w_dict is not None:
             try:
-                space.delitem(w_dict, w_name)
+                space.delitem(w_dict, space.wrap(attr))
                 return True
             except OperationError, ex:
                 if not ex.match(space, space.w_KeyError):
@@ -82,7 +82,7 @@ class W_Root(object):
             raise
 
     def getaddrstring(self, space):
-        # XXX slowish
+        # slowish
         w_id = space.id(self)
         w_4 = space.wrap(4)
         w_0x0F = space.wrap(0x0F)
@@ -111,6 +111,9 @@ class W_Root(object):
     def setslotvalue(self, index, w_val):
         raise NotImplementedError
 
+    def delslotvalue(self, index):
+        raise NotImplementedError
+
     def descr_call_mismatch(self, space, opname, RequiredClass, args):
         if RequiredClass is None:
             classname = '?'
@@ -130,6 +133,9 @@ class W_Root(object):
         raise operationerrfmt(space.w_TypeError,
             "cannot create weak reference to '%s' object", typename)
 
+    def delweakref(self):
+        pass
+
     def clear_all_weakrefs(self):
         """Call this at the beginning of interp-level __del__() methods
         in subclasses.  It ensures that weakrefs (if any) are cleared
@@ -143,29 +149,28 @@ class W_Root(object):
             # app-level, e.g. a user-defined __del__(), and this code
             # tries to use weakrefs again, it won't reuse the broken
             # (already-cleared) weakrefs from this lifeline.
-            self.setweakref(lifeline.space, None)
+            self.delweakref()
             lifeline.clear_all_weakrefs()
 
-    __already_enqueued_for_destruction = False
+    __already_enqueued_for_destruction = ()
 
-    def _enqueue_for_destruction(self, space, call_user_del=True):
+    def enqueue_for_destruction(self, space, callback, descrname):
         """Put the object in the destructor queue of the space.
-        At a later, safe point in time, UserDelAction will use
-        space.userdel() to call the object's app-level __del__ method.
+        At a later, safe point in time, UserDelAction will call
+        callback(self).  If that raises OperationError, prints it
+        to stderr with the descrname string.
+
+        Note that 'callback' will usually need to start with:
+            assert isinstance(self, W_SpecificClass)
         """
         # this function always resurect the object, so when
         # running on top of CPython we must manually ensure that
         # we enqueue it only once
         if not we_are_translated():
-            if self.__already_enqueued_for_destruction:
+            if callback in self.__already_enqueued_for_destruction:
                 return
-            self.__already_enqueued_for_destruction = True
-        self.clear_all_weakrefs()
-        if call_user_del:
-            space.user_del_action.register_dying_object(self)
-
-    def _call_builtin_destructor(self):
-        pass     # method overridden in typedef.py
+            self.__already_enqueued_for_destruction += (callback,)
+        space.user_del_action.register_callback(self, callback, descrname)
 
     # hooks that the mapdict implementations needs:
     def _get_mapdict_map(self):
@@ -237,7 +242,7 @@ wrappable_class_name._annspecialcase_ = 'specialize:memo'
 
 class ObjSpace(object):
     """Base class for the interpreter-level implementations of object spaces.
-    http://codespeak.net/pypy/dist/pypy/doc/objspace.html"""
+    http://pypy.readthedocs.org/en/latest/objspace.html"""
 
     full_exceptions = True  # full support for exceptions (normalization & more)
 
@@ -311,9 +316,6 @@ class ObjSpace(object):
             mod = self.interpclass_w(w_mod)
             if isinstance(mod, Module) and mod.startup_called:
                 mod.shutdown(self)
-        if self.config.objspace.std.withdictmeasurement:
-            from pypy.objspace.std.dictmultiobject import report
-            report()
         if self.config.objspace.logbytecodes:
             self.reportbytecodecounts()
         if self.config.objspace.std.logspaceoptypes:
@@ -365,7 +367,11 @@ class ObjSpace(object):
 
     def setbuiltinmodule(self, importname):
         """NOT_RPYTHON. load a lazy pypy/module and put it into sys.modules"""
-        fullname = "pypy.module.%s" % importname
+        if '.' in importname:
+            fullname = importname
+            importname = fullname.rsplit('.', 1)[1]
+        else:
+            fullname = "pypy.module.%s" % importname
 
         Module = __import__(fullname,
                             None, None, ["Module"]).Module
@@ -427,6 +433,11 @@ class ObjSpace(object):
         for name, value in self.config.objspace.usemodules:
             if value and name not in modules:
                 modules.append(name)
+
+        if self.config.objspace.extmodules:
+            for name in self.config.objspace.extmodules.split(','):
+                if name not in modules:
+                    modules.append(name)
 
         # a bit of custom logic: time2 or rctime take precedence over time
         # XXX this could probably be done as a "requires" in the config
@@ -607,7 +618,6 @@ class ObjSpace(object):
 
     def createcompiler(self):
         "Factory function creating a compiler object."
-        # XXX simple selection logic for now
         try:
             return self.default_compiler
         except AttributeError:
@@ -745,7 +755,12 @@ class ObjSpace(object):
         """Unpack an iterable object into a real (interpreter-level) list.
         Raise an OperationError(w_ValueError) if the length is wrong."""
         w_iterator = self.iter(w_iterable)
-        items = []
+        # If we know the expected length we can preallocate.
+        if expected_length == -1:
+            items = []
+        else:
+            items = [None] * expected_length
+        idx = 0
         while True:
             try:
                 w_item = self.next(w_iterator)
@@ -753,19 +768,22 @@ class ObjSpace(object):
                 if not e.match(self, self.w_StopIteration):
                     raise
                 break  # done
-            if expected_length != -1 and len(items) == expected_length:
+            if expected_length != -1 and idx == expected_length:
                 raise OperationError(self.w_ValueError,
                                      self.wrap("too many values to unpack"))
-            items.append(w_item)
-        if expected_length != -1 and len(items) < expected_length:
-            i = len(items)
-            if i == 1:
+            if expected_length == -1:
+                items.append(w_item)
+            else:
+                items[idx] = w_item
+            idx += 1
+        if expected_length != -1 and idx < expected_length:
+            if idx == 1:
                 plural = ""
             else:
                 plural = "s"
             raise OperationError(self.w_ValueError,
                       self.wrap("need more than %d value%s to unpack" %
-                                (i, plural)))
+                                (idx, plural)))
         return items
 
     unpackiterable_unroll = jit.unroll_safe(func_with_new_name(unpackiterable,
@@ -804,11 +822,11 @@ class ObjSpace(object):
 
     def call_obj_args(self, w_callable, w_obj, args):
         if not self.config.objspace.disable_call_speedhacks:
-            # XXX start of hack for performance
+            # start of hack for performance
             from pypy.interpreter.function import Function
             if isinstance(w_callable, Function):
                 return w_callable.call_obj_args(w_obj, args)
-            # XXX end of hack for performance
+            # end of hack for performance
         return self.call_args(w_callable, args.prepend(w_obj))
 
     def call(self, w_callable, w_args, w_kwds=None):
@@ -818,7 +836,7 @@ class ObjSpace(object):
     def call_function(self, w_func, *args_w):
         nargs = len(args_w) # used for pruning funccall versions
         if not self.config.objspace.disable_call_speedhacks and nargs < 5:
-            # XXX start of hack for performance
+            # start of hack for performance
             from pypy.interpreter.function import Function, Method
             if isinstance(w_func, Method):
                 w_inst = w_func.w_instance
@@ -833,7 +851,7 @@ class ObjSpace(object):
 
             if isinstance(w_func, Function):
                 return w_func.funccall(*args_w)
-            # XXX end of hack for performance
+            # end of hack for performance
 
         args = Arguments(self, list(args_w))
         return self.call_args(w_func, args)
@@ -847,7 +865,7 @@ class ObjSpace(object):
             return self.call_args_and_c_profile(frame, w_func, args)
 
         if not self.config.objspace.disable_call_speedhacks:
-            # XXX start of hack for performance
+            # start of hack for performance
             if isinstance(w_func, Method):
                 w_inst = w_func.w_instance
                 if w_inst is not None:
@@ -862,7 +880,7 @@ class ObjSpace(object):
 
             if isinstance(w_func, Function):
                 return w_func.funccall_valuestack(nargs, frame)
-            # XXX end of hack for performance
+            # end of hack for performance
 
         args = frame.make_arguments(nargs)
         return self.call_args(w_func, args)
@@ -873,8 +891,7 @@ class ObjSpace(object):
         try:
             w_res = self.call_args(w_func, args)
         except OperationError, e:
-            w_value = e.get_w_value(self)
-            ec.c_exception_trace(frame, w_value)
+            ec.c_exception_trace(frame, w_func)
             raise
         ec.c_return_trace(frame, w_func, args)
         return w_res
@@ -912,6 +929,9 @@ class ObjSpace(object):
             else:
                 return self.w_True
         return self.w_False
+
+    def issequence_w(self, w_obj):
+        return (self.findattr(w_obj, self.wrap("__getitem__")) is not None)
 
     def isinstance_w(self, w_obj, w_type):
         return self.is_true(self.isinstance(w_obj, w_type))
@@ -974,10 +994,7 @@ class ObjSpace(object):
             compiler = self.createcompiler()
             expression = compiler.compile(expression, '?', 'eval', 0,
                                          hidden_applevel=hidden_applevel)
-        if isinstance(expression, types.CodeType):
-            # XXX only used by appsupport
-            expression = PyCode._from_code(self, expression)
-        if not isinstance(expression, PyCode):
+        else:
             raise TypeError, 'space.eval(): expected a string, code or PyCode object'
         return expression.exec_code(self, w_globals, w_locals)
 
@@ -992,9 +1009,6 @@ class ObjSpace(object):
             compiler = self.createcompiler()
             statement = compiler.compile(statement, filename, 'exec', 0,
                                          hidden_applevel=hidden_applevel)
-        if isinstance(statement, types.CodeType):
-            # XXX only used by appsupport
-            statement = PyCode._from_code(self, statement)
         if not isinstance(statement, PyCode):
             raise TypeError, 'space.exec_(): expected a string, code or PyCode object'
         w_key = self.wrap('__builtins__')
@@ -1273,6 +1287,17 @@ class ObjSpace(object):
                                  self.wrap("expected a 32-bit integer"))
         return value
 
+    def truncatedint(self, w_obj):
+        # Like space.gateway_int_w(), but return the integer truncated
+        # instead of raising OverflowError.  For obscure cases only.
+        try:
+            return self.int_w(w_obj)
+        except OperationError, e:
+            if not e.match(self, self.w_OverflowError):
+                raise
+            from pypy.rlib.rarithmetic import intmask
+            return intmask(self.bigint_w(w_obj).uintmask())
+
     def c_filedescriptor_w(self, w_fd):
         # This is only used sometimes in CPython, e.g. for os.fsync() but
         # not os.close().  It's likely designed for 'select'.  It's irregular
@@ -1322,7 +1347,7 @@ class AppExecCache(SpaceCache):
         source = source.lstrip()
         assert source.startswith('('), "incorrect header in:\n%s" % (source,)
         source = py.code.Source("def anonymous%s\n" % source)
-        w_glob = space.newdict()
+        w_glob = space.newdict(module=True)
         space.exec_(str(source), w_glob, w_glob)
         return space.getitem(w_glob, space.wrap('anonymous'))
 
@@ -1333,6 +1358,11 @@ class DummyLock(object):
         pass
     def _freeze_(self):
         return True
+    def __enter__(self):
+        pass
+    def __exit__(self, *args):
+        pass
+
 dummy_lock = DummyLock()
 
 ## Table describing the regular part of the interface of object spaces,

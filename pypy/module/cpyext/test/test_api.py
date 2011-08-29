@@ -61,13 +61,43 @@ class BaseApiTest(LeakCheckingTest):
         except OperationError, e:
             print e.errorstr(self.space)
             raise
+
+        try:
+            del self.space.getexecutioncontext().cpyext_threadstate
+        except AttributeError:
+            pass
+
         if self.check_and_print_leaks():
             assert False, "Test leaks or loses object(s)."
+
+@api.cpython_api([api.Py_ssize_t], api.Py_ssize_t, error=-1)
+def PyPy_TypedefTest1(space, arg):
+    assert lltype.typeOf(arg) == api.Py_ssize_t
+    return 0
+
+@api.cpython_api([api.Py_ssize_tP], api.Py_ssize_tP)
+def PyPy_TypedefTest2(space, arg):
+    assert lltype.typeOf(arg) == api.Py_ssize_tP
+    return None
 
 class TestConversion(BaseApiTest):
     def test_conversions(self, space, api):
         api.PyPy_GetWrapped(space.w_None)
         api.PyPy_GetReference(space.w_None)
+
+    def test_typedef(self, space):
+        from pypy.translator.c.database import LowLevelDatabase
+        db = LowLevelDatabase()
+        assert (api.c_function_signature(db, api.FUNCTIONS['PyPy_TypedefTest1'])
+                == ('Py_ssize_t', 'Py_ssize_t arg0'))
+        assert (api.c_function_signature(db, api.FUNCTIONS['PyPy_TypedefTest2'])
+                == ('Py_ssize_t *', 'Py_ssize_t *arg0'))
+
+        PyPy_TypedefTest1(space, 0)
+        ppos = lltype.malloc(api.Py_ssize_tP.TO, 1, flavor='raw')
+        ppos[0] = 0
+        PyPy_TypedefTest2(space, ppos)
+        lltype.free(ppos, flavor='raw')
 
 
 def test_copy_header_files(tmpdir):

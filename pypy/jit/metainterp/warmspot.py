@@ -1,6 +1,5 @@
 import sys, py
-from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr
-from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.annlowlevel import llhelper, MixLevelHelperAnnotator,\
      cast_base_ptr_to_instance, hlstr
 from pypy.annotation import model as annmodel
@@ -10,16 +9,13 @@ from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.objspace.flow.model import checkgraph, Link, copygraph
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.rarithmetic import r_uint, intmask
-from pypy.rlib.debug import debug_print, fatalerror
-from pypy.rlib.debug import debug_start, debug_stop
-from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.translator.simplify import get_funcobj, get_functype
+from pypy.rlib.debug import fatalerror
+from pypy.rlib.rstackovf import StackOverflow
+from pypy.translator.simplify import get_functype
 from pypy.translator.unsimplify import call_final_function
 
 from pypy.jit.metainterp import history, pyjitpl, gc, memmgr
-from pypy.jit.metainterp.pyjitpl import MetaInterpStaticData, MetaInterp
-from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
+from pypy.jit.metainterp.pyjitpl import MetaInterpStaticData
 from pypy.jit.metainterp.jitprof import Profiler, EmptyProfiler
 from pypy.jit.metainterp.jitexc import JitException
 from pypy.jit.metainterp.jitdriver import JitDriverStaticData
@@ -66,7 +62,8 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
 def jittify_and_run(interp, graph, args, repeat=1,
                     backendopt=False, trace_limit=sys.maxint,
                     inline=False, loop_longevity=0, retrace_limit=5,
-                    enable_opts=ALL_OPTS_NAMES, **kwds):
+                    function_threshold=4,
+                    enable_opts=ALL_OPTS_NAMES, max_retrace_guards=15, **kwds):
     from pypy.config.config import ConfigError
     translator = interp.typer.annotator.translator
     try:
@@ -77,14 +74,20 @@ def jittify_and_run(interp, graph, args, repeat=1,
         translator.config.translation.list_comprehension_operations = True
     except ConfigError:
         pass
+    try:
+        translator.config.translation.jit_ffi = True
+    except ConfigError:
+        pass
     warmrunnerdesc = WarmRunnerDesc(translator, backendopt=backendopt, **kwds)
     for jd in warmrunnerdesc.jitdrivers_sd:
         jd.warmstate.set_param_threshold(3)          # for tests
+        jd.warmstate.set_param_function_threshold(function_threshold)
         jd.warmstate.set_param_trace_eagerness(2)    # for tests
         jd.warmstate.set_param_trace_limit(trace_limit)
         jd.warmstate.set_param_inlining(inline)
         jd.warmstate.set_param_loop_longevity(loop_longevity)
         jd.warmstate.set_param_retrace_limit(retrace_limit)
+        jd.warmstate.set_param_max_retrace_guards(max_retrace_guards)
         jd.warmstate.set_param_enable_opts(enable_opts)
     warmrunnerdesc.finish()
     res = interp.eval_graph(graph, args)
@@ -131,6 +134,16 @@ def find_jit_merge_points(graphs):
 def find_set_param(graphs):
     return _find_jit_marker(graphs, 'set_param')
 
+def find_force_quasi_immutable(graphs):
+    results = []
+    for graph in graphs:
+        for block in graph.iterblocks():
+            for i in range(len(block.operations)):
+                op = block.operations[i]
+                if op.opname == 'jit_force_quasi_immutable':
+                    results.append((graph, block, i))
+    return results
+
 def get_stats():
     return pyjitpl._warmrunnerdesc.stats
 
@@ -161,6 +174,7 @@ class WarmRunnerDesc(object):
             policy = JitPolicy()
         policy.set_supports_floats(self.cpu.supports_floats)
         policy.set_supports_longlong(self.cpu.supports_longlong)
+        policy.set_supports_singlefloats(self.cpu.supports_singlefloats)
         graphs = self.codewriter.find_all_graphs(policy)
         policy.dump_unsafe_loops()
         self.check_access_directly_sanity(graphs)
@@ -187,6 +201,7 @@ class WarmRunnerDesc(object):
         self.rewrite_can_enter_jits()
         self.rewrite_set_param()
         self.rewrite_force_virtual(vrefinfo)
+        self.rewrite_force_quasi_immutable()
         self.add_finish()
         self.metainterp_sd.finish_setup(self.codewriter)
 
@@ -270,7 +285,9 @@ class WarmRunnerDesc(object):
         auto_inline_graphs(self.translator, graphs, 0.01)
 
     def build_cpu(self, CPUClass, translate_support_code=False,
-                  no_stats=False, **kwds):
+                  no_stats=False, supports_floats=True,
+                  supports_longlong=True, supports_singlefloats=True,
+                  **kwds):
         assert CPUClass is not None
         self.opt = history.Options(**kwds)
         if no_stats:
@@ -280,11 +297,11 @@ class WarmRunnerDesc(object):
         self.stats = stats
         if translate_support_code:
             self.annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
-            annhelper = self.annhelper
-        else:
-            annhelper = None
         cpu = CPUClass(self.translator.rtyper, self.stats, self.opt,
                        translate_support_code, gcdescr=self.gcdescr)
+        if not supports_floats:       cpu.supports_floats       = False
+        if not supports_longlong:     cpu.supports_longlong     = False
+        if not supports_singlefloats: cpu.supports_singlefloats = False
         self.cpu = cpu
 
     def build_meta_interp(self, ProfilerClass):
@@ -399,35 +416,40 @@ class WarmRunnerDesc(object):
         jd.warmstate = state
 
         def crash_in_jit(e):
-            if not we_are_translated():
-                print "~~~ Crash in JIT!"
-                print '~~~ %s: %s' % (e.__class__, e)
-                if sys.stdout == sys.__stdout__:
-                    import pdb; pdb.post_mortem(sys.exc_info()[2])
-                raise
-            fatalerror('~~~ Crash in JIT! %s' % (e,), traceback=True)
+            tb = not we_are_translated() and sys.exc_info()[2]
+            try:
+                raise e
+            except JitException:
+                raise     # go through
+            except MemoryError:
+                raise     # go through
+            except StackOverflow:
+                raise     # go through
+            except Exception, e:
+                if not we_are_translated():
+                    print "~~~ Crash in JIT!"
+                    print '~~~ %s: %s' % (e.__class__, e)
+                    if sys.stdout == sys.__stdout__:
+                        import pdb; pdb.post_mortem(tb)
+                    raise e.__class__, e, tb
+                fatalerror('~~~ Crash in JIT! %s' % (e,), traceback=True)
         crash_in_jit._dont_inline_ = True
 
         if self.translator.rtyper.type_system.name == 'lltypesystem':
             def maybe_enter_jit(*args):
                 try:
-                    maybe_compile_and_run(*args)
-                except JitException:
-                    raise     # go through
+                    maybe_compile_and_run(state.increment_threshold, *args)
                 except Exception, e:
                     crash_in_jit(e)
             maybe_enter_jit._always_inline_ = True
         else:
             def maybe_enter_jit(*args):
-                maybe_compile_and_run(*args)
+                maybe_compile_and_run(state.increment_threshold, *args)
             maybe_enter_jit._always_inline_ = True
         jd._maybe_enter_jit_fn = maybe_enter_jit
 
-        can_inline = state.can_inline_greenargs
-        num_green_args = jd.num_green_args
         def maybe_enter_from_start(*args):
-            if not can_inline(*args[:num_green_args]):
-                maybe_compile_and_run(*args)
+            maybe_compile_and_run(state.increment_function_threshold, *args)
         maybe_enter_from_start._always_inline_ = True
         jd._maybe_enter_from_start_fn = maybe_enter_from_start
 
@@ -454,6 +476,9 @@ class WarmRunnerDesc(object):
                 onlygreens=False)
             jd._can_never_inline_ptr = self._make_hook_graph(jd,
                 annhelper, jd.jitdriver.can_never_inline, annmodel.s_Bool)
+            jd._should_unroll_one_iteration_ptr = self._make_hook_graph(jd,
+                annhelper, jd.jitdriver.should_unroll_one_iteration,
+                annmodel.s_Bool)
         annhelper.finish()
 
     def _make_hook_graph(self, jitdriver_sd, annhelper, func,
@@ -538,7 +563,6 @@ class WarmRunnerDesc(object):
             self.rewrite_can_enter_jit(jd, sublist)
 
     def rewrite_can_enter_jit(self, jd, can_enter_jits):
-        FUNC = jd._JIT_ENTER_FUNCTYPE
         FUNCPTR = jd._PTR_JIT_ENTER_FUNCTYPE
         jit_enter_fnptr = self.helper_func(FUNCPTR, jd._maybe_enter_jit_fn)
 
@@ -841,6 +865,28 @@ class WarmRunnerDesc(object):
             py.test.skip("rewrite_force_virtual: port it to ootype")
         all_graphs = self.translator.graphs
         vrefinfo.replace_force_virtual_with_call(all_graphs)
+
+    def replace_force_quasiimmut_with_direct_call(self, op):
+        ARG = op.args[0].concretetype
+        mutatefieldname = op.args[1].value
+        key = (ARG, mutatefieldname)
+        if key in self._cache_force_quasiimmed_funcs:
+            cptr = self._cache_force_quasiimmed_funcs[key]
+        else:
+            from pypy.jit.metainterp import quasiimmut
+            func = quasiimmut.make_invalidation_function(ARG, mutatefieldname)
+            FUNC = lltype.Ptr(lltype.FuncType([ARG], lltype.Void))
+            llptr = self.helper_func(FUNC, func)
+            cptr = Constant(llptr, FUNC)
+            self._cache_force_quasiimmed_funcs[key] = cptr
+        op.opname = 'direct_call'
+        op.args = [cptr, op.args[0]]
+
+    def rewrite_force_quasi_immutable(self):
+        self._cache_force_quasiimmed_funcs = {}
+        graphs = self.translator.graphs
+        for graph, block, i in find_force_quasi_immutable(graphs):
+            self.replace_force_quasiimmut_with_direct_call(block.operations[i])
 
     # ____________________________________________________________
 

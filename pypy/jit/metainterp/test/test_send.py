@@ -1,7 +1,7 @@
 import py
-from pypy.rlib.jit import JitDriver, hint, purefunction
+from pypy.rlib.jit import JitDriver, promote, elidable
 from pypy.jit.codewriter.policy import StopAtXPolicy
-from pypy.jit.metainterp.test.test_basic import LLJitMixin, OOJitMixin
+from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 
 class SendTests(object):
     
@@ -204,7 +204,6 @@ class SendTests(object):
         # InvalidLoop condition, and was then unrolled, giving two copies
         # of the body in a single bigger loop with no failing guard except
         # the final one.
-        py.test.skip('dissabled "try to trace some more when compile fails"')
         self.check_loop_count(1)
         self.check_loops(guard_class=0,
                                 int_add=2, int_sub=2)
@@ -231,6 +230,7 @@ class SendTests(object):
                 return self.y
         w1 = W1(10)
         w2 = W2(20)
+
         def f(x, y):
             if x & 1:
                 w = w1
@@ -246,7 +246,6 @@ class SendTests(object):
         assert res == f(3, 28)
         res = self.meta_interp(f, [4, 28])
         assert res == f(4, 28)
-        py.test.skip('dissabled "try to trace some more when compile fails"')
         self.check_loop_count(1)
         self.check_loops(guard_class=0,
                                 int_add=2, int_sub=2)
@@ -385,9 +384,9 @@ class SendTests(object):
         res = self.meta_interp(f, [198],
                                policy=StopAtXPolicy(State.externfn.im_func))
         assert res == f(198)
-        # we get two TreeLoops: an initial one, and one entering from
-        # the interpreter
-        self.check_tree_loop_count(2)
+        # we get four TreeLoops: one for each of the 3 getvalue functions,
+        # and one entering from the interpreter
+        self.check_tree_loop_count(4)
 
     def test_two_behaviors(self):
         py.test.skip("XXX fix me!!!!!!! problem in optimize.py")
@@ -437,10 +436,11 @@ class SendTests(object):
             return x.value
         res = self.meta_interp(f, [len(cases)])
         assert res == 200
-        # we expect 1 loop, 1 entry bridge, and 1 bridge going from the
+        # we expect 2 versions of the loop, 1 entry bridge,
+        # and 1 bridge going from the
         # loop back to the start of the entry bridge
-        self.check_loop_count(2)        # 1 loop + 1 bridge
-        self.check_tree_loop_count(2)   # 1 loop + 1 entry bridge  (argh)
+        self.check_loop_count(3)        # 2 loop + 1 bridge
+        self.check_tree_loop_count(3)   # 2 loop + 1 entry bridge  (argh)
         self.check_aborted_count(0)
 
     def test_three_cases(self):
@@ -605,7 +605,7 @@ class SendTests(object):
     def test_constfold_pure_oosend(self):
         myjitdriver = JitDriver(greens=[], reds = ['i', 'obj'])
         class A:
-            @purefunction
+            @elidable
             def foo(self):
                 return 42
         def fn(n, i):
@@ -614,7 +614,7 @@ class SendTests(object):
             while i > 0:
                 myjitdriver.can_enter_jit(i=i, obj=obj)
                 myjitdriver.jit_merge_point(i=i, obj=obj)
-                obj = hint(obj, promote=True)
+                promote(obj)
                 res = obj.foo()
                 i-=1
             return res

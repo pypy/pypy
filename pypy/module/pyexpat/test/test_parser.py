@@ -1,5 +1,6 @@
 from pypy.conftest import gettestobjspace
 from pypy.module.pyexpat.interp_pyexpat import global_storage
+from pytest import skip
 
 class AppTestPyexpat:
     def setup_class(cls):
@@ -28,7 +29,16 @@ class AppTestPyexpat:
         assert isinstance(pyexpat.version_info, tuple)
         assert isinstance(pyexpat.version_info[0], int)
 
-    def test_encoding(self):
+    def test_malformed_xml(self):
+        import sys
+        if sys.platform == "darwin":
+            skip("Fails with the version of expat on Mac OS 10.6.6")
+        import pyexpat
+        xml = "\0\r\n"
+        parser = pyexpat.ParserCreate()
+        raises(pyexpat.ExpatError, "parser.Parse(xml, True)")
+
+    def test_encoding_argument(self):
         import pyexpat
         for encoding_arg in (None, 'utf-8', 'iso-8859-1'):
             for namespace_arg in (None, '{'):
@@ -58,7 +68,7 @@ class AppTestPyexpat:
         assert p.buffer_size == 150
         raises(TypeError, setattr, p, 'buffer_size', sys.maxint + 1)
 
-    def test_encoding(self):
+    def test_encoding_xml(self):
         # use one of the few encodings built-in in expat
         xml = "<?xml version='1.0' encoding='iso-8859-1'?><s>caf\xe9</s>"
         import pyexpat
@@ -110,3 +120,14 @@ class AppTestPyexpat:
             return True
         p.ExternalEntityRefHandler = handler
         p.Parse(xml)
+
+    def test_errors(self):
+        import types
+        import pyexpat
+        assert isinstance(pyexpat.errors, types.ModuleType)
+        # check a few random errors
+        assert pyexpat.errors.XML_ERROR_SYNTAX == 'syntax error'
+        assert (pyexpat.errors.XML_ERROR_INCORRECT_ENCODING ==
+               'encoding specified in XML declaration is incorrect')
+        assert (pyexpat.errors.XML_ERROR_XML_DECL ==
+                'XML declaration not well-formed')

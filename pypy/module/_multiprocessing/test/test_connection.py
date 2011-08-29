@@ -10,7 +10,7 @@ class TestImport:
 
 class AppTestBufferTooShort:
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_multiprocessing', 'thread'))
+        space = gettestobjspace(usemodules=('_multiprocessing', 'thread', 'signal'))
         cls.space = space
 
         if option.runappdirect:
@@ -48,6 +48,7 @@ class BaseConnectionTest(object):
         assert rhandle.poll() == False
         assert rhandle.poll(1) == False
         whandle.send(1)
+        import time; time.sleep(0.1)  # give it time to arrive :-)
         assert rhandle.poll() == True
         assert rhandle.poll(None) == True
         assert rhandle.recv() == 1
@@ -88,7 +89,7 @@ class AppTestWinpipeConnection(BaseConnectionTest):
 
 class AppTestSocketConnection(BaseConnectionTest):
     def setup_class(cls):
-        space = gettestobjspace(usemodules=('_multiprocessing', 'thread'))
+        space = gettestobjspace(usemodules=('_multiprocessing', 'thread', 'signal'))
         cls.space = space
         cls.w_connections = space.newlist([])
 

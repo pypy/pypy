@@ -55,7 +55,7 @@ def read_float_from_env(varname):
 # will be huge on 64-bit systems.
 
 if sys.maxint == 2147483647:    # 32-bit
-    if sys.platform == 'linux2':
+    if sys.platform.startswith('linux'):
         addressable_size = float(2**32)     # 4GB
     elif sys.platform == 'win32':
         addressable_size = float(2**31)     # 2GB
@@ -65,7 +65,7 @@ else:
     addressable_size = float(2**63)    # 64-bit
 
 
-def get_total_memory_linux2(filename):
+def get_total_memory_linux(filename):
     debug_start("gc-hardware")
     result = -1.0
     try:
@@ -93,7 +93,7 @@ def get_total_memory_linux2(filename):
             result = addressable_size
     debug_stop("gc-hardware")
     return result
-
+get_total_memory_linux2 = get_total_memory_linux3 = get_total_memory_linux
 
 def get_total_memory_darwin(result):
     debug_start("gc-hardware")
@@ -108,7 +108,7 @@ def get_total_memory_darwin(result):
     return result
 
 
-if sys.platform == 'linux2':
+if sys.platform.startswith('linux'):
     def get_total_memory():
         return get_total_memory_linux2('/proc/meminfo')
 
@@ -259,7 +259,7 @@ def get_L2cache_darwin():
 get_L2cache = globals().get('get_L2cache_' + sys.platform,
                             lambda: -1)     # implement me for other platforms
 
-NURSERY_SIZE_UNKNOWN_CACHE = 1024*1024*1024
+NURSERY_SIZE_UNKNOWN_CACHE = 1024*1024
 # arbitrary 1M. better than default of 131k for most cases
 # in case it didn't work
 

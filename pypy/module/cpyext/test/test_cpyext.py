@@ -106,6 +106,11 @@ class LeakCheckingTest(object):
             del obj
         import gc; gc.collect()
 
+        try:
+            del space.getexecutioncontext().cpyext_threadstate
+        except AttributeError:
+            pass
+
         for w_obj in state.non_heaptypes_w:
             Py_DecRef(space, w_obj)
         state.non_heaptypes_w[:] = []
@@ -183,7 +188,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             kwds["compile_extra"] = ["/we4013"]
         else:
             kwds["link_files"] = [str(api_library + '.so')]
-            if sys.platform == 'linux2':
+            if sys.platform.startswith('linux'):
                 kwds["compile_extra"]=["-Werror=implicit-function-declaration"]
         return compile_module(self.space, name, **kwds)
 
@@ -299,7 +304,12 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             self.unimport_module(name)
         self.cleanup_references(self.space)
         if self.check_and_print_leaks():
-            assert False, "Test leaks or loses object(s)."
+            assert False, (
+                "Test leaks or loses object(s).  You should also check if "
+                "the test actually passed in the first place; if it failed "
+                "it is likely to reach this place.")
+            # XXX find out how to disable check_and_print_leaks() if the
+            # XXX test failed...
 
 
 class AppTestCpythonExtension(AppTestCpythonExtensionBase):
@@ -385,6 +395,19 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         assert module.__doc__ == "docstring"
         assert module.return_cookie() == 3.14
 
+    def test_load_dynamic(self):
+        import sys
+        init = """
+        if (Py_IsInitialized())
+            Py_InitModule("foo", NULL);
+        """
+        foo = self.import_module(name='foo', init=init)
+        assert 'foo' in sys.modules
+        del sys.modules['foo']
+        import imp
+        foo2 = imp.load_dynamic('foo', foo.__file__)
+        assert 'foo' in sys.modules
+        assert foo.__dict__ == foo2.__dict__
 
     def test_InitModule4_dotted(self):
         """

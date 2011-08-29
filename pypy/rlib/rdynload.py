@@ -63,7 +63,7 @@ class DLOpenError(Exception):
 
 if not _WIN32:
     c_dlopen = external('dlopen', [rffi.CCHARP, rffi.INT], rffi.VOIDP)
-    c_dlclose = external('dlclose', [rffi.VOIDP], rffi.INT)
+    c_dlclose = external('dlclose', [rffi.VOIDP], rffi.INT, threadsafe=False)
     c_dlerror = external('dlerror', [], rffi.CCHARP)
     c_dlsym = external('dlsym', [rffi.VOIDP, rffi.CCHARP], rffi.VOIDP)
 

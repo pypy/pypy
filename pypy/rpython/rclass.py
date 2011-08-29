@@ -3,7 +3,8 @@ from pypy.annotation import model as annmodel
 #from pypy.annotation.classdef import isclassdef
 from pypy.annotation import description
 from pypy.rpython.error import TyperError
-from pypy.rpython.rmodel import Repr, getgcflavor
+from pypy.rpython.rmodel import Repr, getgcflavor, inputconst
+from pypy.rpython.lltypesystem.lltype import Void
 
 
 class FieldListAccessor(object):
@@ -12,12 +13,29 @@ class FieldListAccessor(object):
         assert type(fields) is dict
         self.TYPE = TYPE
         self.fields = fields
+        for x in fields.itervalues():
+            assert isinstance(x, ImmutableRanking)
 
     def __repr__(self):
         return '<FieldListAccessor for %s>' % getattr(self, 'TYPE', '?')
 
     def _freeze_(self):
         return True
+
+class ImmutableRanking(object):
+    def __init__(self, name, is_immutable):
+        self.name = name
+        self.is_immutable = is_immutable
+    def __nonzero__(self):
+        return self.is_immutable
+    def __repr__(self):
+        return '<%s>' % self.name
+
+IR_MUTABLE              = ImmutableRanking('mutable', False)
+IR_IMMUTABLE            = ImmutableRanking('immutable', True)
+IR_IMMUTABLE_ARRAY      = ImmutableRanking('immutable_array', True)
+IR_QUASIIMMUTABLE       = ImmutableRanking('quasiimmutable', False)
+IR_QUASIIMMUTABLE_ARRAY = ImmutableRanking('quasiimmutable_array', False)
 
 class ImmutableConflictError(Exception):
     """Raised when the _immutable_ or _immutable_fields_ hints are
@@ -155,7 +173,8 @@ class AbstractInstanceRepr(Repr):
         self.classdef = classdef
 
     def _setup_repr(self):
-        pass
+        if self.classdef is None:
+            self.immutable_field_set = set()
 
     def _check_for_immutable_hints(self, hints):
         loc = self.classdef.classdesc.lookup('_immutable_')
@@ -167,13 +186,13 @@ class AbstractInstanceRepr(Repr):
                     self.classdef,))
             hints = hints.copy()
             hints['immutable'] = True
-        self.immutable_field_list = []  # unless overwritten below
+        self.immutable_field_set = set()  # unless overwritten below
         if self.classdef.classdesc.lookup('_immutable_fields_') is not None:
             hints = hints.copy()
             immutable_fields = self.classdef.classdesc.classdict.get(
                 '_immutable_fields_')
             if immutable_fields is not None:
-                self.immutable_field_list = immutable_fields.value
+                self.immutable_field_set = set(immutable_fields.value)
             accessor = FieldListAccessor()
             hints['immutable_fields'] = accessor
         return hints
@@ -201,33 +220,38 @@ class AbstractInstanceRepr(Repr):
         if "immutable_fields" in hints:
             accessor = hints["immutable_fields"]
             if not hasattr(accessor, 'fields'):
-                immutable_fields = []
+                immutable_fields = set()
                 rbase = self
                 while rbase.classdef is not None:
-                    immutable_fields += rbase.immutable_field_list
+                    immutable_fields.update(rbase.immutable_field_set)
                     rbase = rbase.rbase
                 self._parse_field_list(immutable_fields, accessor)
 
     def _parse_field_list(self, fields, accessor):
-        with_suffix = {}
+        ranking = {}
         for name in fields:
-            if name.endswith('[*]'):
+            if name.endswith('?[*]'):   # a quasi-immutable field pointing to
+                name = name[:-4]        # an immutable array
+                rank = IR_QUASIIMMUTABLE_ARRAY
+            elif name.endswith('[*]'):    # for virtualizables' lists
                 name = name[:-3]
-                suffix = '[*]'
-            else:
-                suffix = ''
+                rank = IR_IMMUTABLE_ARRAY
+            elif name.endswith('?'):    # a quasi-immutable field
+                name = name[:-1]
+                rank = IR_QUASIIMMUTABLE
+            else:                       # a regular immutable/green field
+                rank = IR_IMMUTABLE
             try:
                 mangled_name, r = self._get_field(name)
             except KeyError:
                 continue
-            with_suffix[mangled_name] = suffix
-        accessor.initialize(self.object_type, with_suffix)
-        return with_suffix
+            ranking[mangled_name] = rank
+        accessor.initialize(self.object_type, ranking)
+        return ranking
 
     def _check_for_immutable_conflicts(self):
         # check for conflicts, i.e. a field that is defined normally as
         # mutable in some parent class but that is now declared immutable
-        from pypy.rpython.lltypesystem.lltype import Void
         is_self_immutable = "immutable" in self.object_type._hints
         base = self
         while base.classdef is not None:
@@ -248,11 +272,31 @@ class AbstractInstanceRepr(Repr):
                         "class %r has _immutable_=True, but parent class %r "
                         "defines (at least) the mutable field %r" % (
                         self, base, fieldname))
-                if fieldname in self.immutable_field_list:
+                if (fieldname in self.immutable_field_set or
+                    (fieldname + '?') in self.immutable_field_set):
                     raise ImmutableConflictError(
                         "field %r is defined mutable in class %r, but "
                         "listed in _immutable_fields_ in subclass %r" % (
                         fieldname, base, self))
+
+    def hook_access_field(self, vinst, cname, llops, flags):
+        pass        # for virtualizables; see rvirtualizable2.py
+
+    def hook_setfield(self, vinst, fieldname, llops):
+        if self.is_quasi_immutable(fieldname):
+            c_fieldname = inputconst(Void, 'mutate_' + fieldname)
+            llops.genop('jit_force_quasi_immutable', [vinst, c_fieldname])
+
+    def is_quasi_immutable(self, fieldname):
+        search1 = fieldname + '?'
+        search2 = fieldname + '?[*]'
+        rbase = self
+        while rbase.classdef is not None:
+            if (search1 in rbase.immutable_field_set or
+                search2 in rbase.immutable_field_set):
+                return True
+            rbase = rbase.rbase
+        return False
 
     def new_instance(self, llops, classcallhop=None):
         raise NotImplementedError
@@ -329,6 +373,43 @@ class AbstractInstanceRepr(Repr):
 
     def can_ll_be_null(self, s_value):
         return s_value.can_be_none()
+
+    def check_graph_of_del_does_not_call_too_much(self, graph):
+        # RPython-level __del__() methods should not do "too much".
+        # In the PyPy Python interpreter, they usually do simple things
+        # like file.__del__() closing the file descriptor; or if they
+        # want to do more like call an app-level __del__() method, they
+        # enqueue the object instead, and the actual call is done later.
+        #
+        # Here, as a quick way to check "not doing too much", we check
+        # that from no RPython-level __del__() method we can reach a
+        # JitDriver.
+        #
+        # XXX wrong complexity, but good enough because the set of
+        # reachable graphs should be small
+        callgraph = self.rtyper.annotator.translator.callgraph.values()
+        seen = {graph: None}
+        while True:
+            oldlength = len(seen)
+            for caller, callee in callgraph:
+                if caller in seen and callee not in seen:
+                    func = getattr(callee, 'func', None)
+                    if getattr(func, '_dont_reach_me_in_del_', False):
+                        lst = [str(callee)]
+                        g = caller
+                        while g:
+                            lst.append(str(g))
+                            g = seen.get(g)
+                        lst.append('')
+                        raise TyperError("the RPython-level __del__() method "
+                                         "in %r calls:%s" % (
+                            graph, '\n\t'.join(lst[::-1])))
+                    if getattr(func, '_cannot_really_call_random_things_',
+                               False):
+                        continue
+                    seen[callee] = caller
+            if len(seen) == oldlength:
+                break
 
 # ____________________________________________________________
 

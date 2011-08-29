@@ -1,0 +1,24 @@
+Choose the Garbage Collector used by the translated program.
+The good performing collectors are "hybrid" and "minimark".
+The default is "minimark".
+
+  - "ref": reference counting. Takes very long to translate and the result is
+    slow.
+
+  - "marksweep": naive mark & sweep.
+
+  - "semispace": a copying semi-space GC.
+
+  - "generation": a generational GC using the semi-space GC for the
+    older generation.
+
+  - "boehm": use the Boehm conservative GC.
+
+  - "hybrid": a hybrid collector of "generation" together with a
+    mark-n-sweep old space
+
+  - "markcompact": a slow, but memory-efficient collector,
+    influenced e.g. by Smalltalk systems.
+
+  - "minimark": a generational mark-n-sweep collector with good
+    performance.  Includes page marking for large arrays.

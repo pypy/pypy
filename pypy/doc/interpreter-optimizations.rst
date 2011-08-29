@@ -79,7 +79,7 @@ A somewhat silly example of things you can do with them is this::
 
     $ bin/py.py --objspace-std-withrope
     faking <type 'module'>
-    PyPy 0.99.0 in StdObjSpace on top of Python 2.4.4c1 (startuptime: 17.24 secs)
+    PyPy 1.5.0-alpha0 in StdObjSpace on top of Python 2.7.1+ (startuptime: 11.38 secs)
     >>>> import sys
     >>>> sys.maxint
     2147483647
@@ -90,7 +90,8 @@ A somewhat silly example of things you can do with them is this::
 
 You can enable this feature with the :config:`objspace.std.withrope` option.
 
-.. _`"Ropes: An alternative to Strings."`: http://www.cs.ubc.ca/local/reading/proceedings/spe91-95/spe/vol25/issue12/spe986.pdf
+.. _`"Ropes: An alternative to Strings."`: http://citeseer.ist.psu.edu/viewdoc/download?doi=10.1.1.14.9450&rep=rep1&type=pdf
+
 
 Integer Optimizations
 ---------------------
@@ -103,7 +104,8 @@ not have to allocate all the time when doing simple arithmetic. Every time a new
 integer object is created it is checked whether the integer is small enough to
 be retrieved from the cache.
 
-This option is enabled by default.
+This option is disabled by default, you can enable this feature with the
+:config:`objspace.std.withprebuiltint` option.
 
 Integers as Tagged Pointers
 +++++++++++++++++++++++++++
@@ -134,7 +136,6 @@ for string-keyed dictionaries. In addition there are more specialized dictionary
 implementations for various purposes (see below).
 
 This is now the default implementation of dictionaries in the Python interpreter.
-option.
 
 Sharing Dicts
 +++++++++++++
@@ -155,32 +156,6 @@ the representation of the instance dict contains only a list of values.
 
 A more advanced version of sharing dicts, called *map dicts,* is available
 with the :config:`objspace.std.withmapdict` option.
-
-Builtin-Shadowing
-+++++++++++++++++
-
-Usually the calling of builtins in Python requires two dictionary lookups: first
-to see whether the current global dictionary contains an object with the same
-name, then a lookup in the ``__builtin__`` dictionary. This is somehow
-circumvented by storing an often used builtin into a local variable to get
-the fast local lookup (which is a rather strange and ugly hack).
-
-The same problem is solved in a different way by "wary" dictionaries. They are
-another dictionary representation used together with multidicts. This
-representation is used only for module dictionaries. The representation checks on
-every setitem whether the key that is used is the name of a builtin. If this is
-the case, the dictionary is marked as shadowing that particular builtin.
-
-To identify calls to builtins easily, a new bytecode (``CALL_LIKELY_BUILTIN``)
-is introduced. Whenever it is executed, the globals dictionary is checked
-to see whether it masks the builtin (which is possible without a dictionary
-lookup).  Then the ``__builtin__`` dict is checked in the same way,
-to see whether somebody replaced the real builtin with something else. In the
-common case, the program didn't do any of these; the proper builtin can then
-be called without using any dictionary lookup at all.
-
-You can enable this feature with the
-:config:`objspace.opcodes.CALL_LIKELY_BUILTIN` option.
 
 
 List Optimizations
@@ -205,28 +180,11 @@ option.
 User Class Optimizations
 ------------------------
 
-Shadow Tracking
-+++++++++++++++
-
-Shadow tracking is a general optimization that speeds up method calls for user
-classes (that don't have special meta-class). For this a special dict
-representation is used together with multidicts. This dict representation is
-used only for instance dictionaries. The instance dictionary tracks whether an
-instance attribute shadows an attribute of its class. This makes method calls
-slightly faster in the following way: When calling a method the first thing that
-is checked is the class dictionary to find descriptors. Normally, when a method
-is found, the instance dictionary is then checked for instance attributes
-shadowing the class attribute. If we know that there is no shadowing (since
-instance dict tells us that) we can save this lookup on the instance dictionary.
-
-*This was deprecated and is no longer available.*
-
 
 Method Caching
 ++++++++++++++
 
-Shadow tracking is also an important building block for the method caching
-optimization. A method cache is introduced where the result of a method lookup
+A method cache is introduced where the result of a method lookup
 is stored (which involves potentially many lookups in the base classes of a
 class). Entries in the method cache are stored using a hash computed from
 the name being looked up, the call site (i.e. the bytecode object and
@@ -305,34 +263,6 @@ argument in the call to the *im_func* object from the stack.
 You can enable this feature with the :config:`objspace.opcodes.CALL_METHOD`
 option.
 
-.. _`call likely builtin`:
-
-CALL_LIKELY_BUILTIN
-+++++++++++++++++++
-
-A often heard "tip" for speeding up Python programs is to give an often used
-builtin a local name, since local lookups are faster than lookups of builtins,
-which involve doing two dictionary lookups: one in the globals dictionary and
-one in the the builtins dictionary. PyPy approaches this problem at the
-implementation level, with the introduction of the new ``CALL_LIKELY_BUILTIN``
-bytecode. This bytecode is produced by the compiler for a call whose target is
-the name of a builtin.  Since such a syntactic construct is very often actually
-invoking the expected builtin at run-time, this information can be used to make
-the call to the builtin directly, without going through any dictionary lookup.
-
-However, it can occur that the name is shadowed by a global name from the
-current module.  To catch this case, a special dictionary implementation for
-multidicts is introduced, which is used for the dictionaries of modules. This
-implementation keeps track which builtin name is shadowed by it.  The
-``CALL_LIKELY_BUILTIN`` bytecode asks the dictionary whether it is shadowing the
-builtin that is about to be called and asks the dictionary of ``__builtin__``
-whether the original builtin was changed.  These two checks are cheaper than
-full lookups.  In the common case, neither of these cases is true, so the
-builtin can be directly invoked.
-
-You can enable this feature with the
-:config:`objspace.opcodes.CALL_LIKELY_BUILTIN` option.
-
 .. more here?
 
 Overall Effects
@@ -344,13 +274,11 @@ simply special cases string-keyed dictionaries is a clear win on all benchmarks,
 improving results by anything from 15-40 per cent.
 
 Another optimization, or rather set of optimizations, that has a uniformly good
-effect is the set of three 'method optimizations', i.e. shadow tracking, the
+effect are the two 'method optimizations', i.e. the
 method cache and the LOOKUP_METHOD and CALL_METHOD opcodes.  On a heavily
 object-oriented benchmark (richards) they combine to give a speed-up of nearly
 50%, and even on the extremely un-object-oriented pystone benchmark, the
 improvement is over 20%.
-
-.. waffles about ropes
 
 When building pypy, all generally useful optimizations are turned on by default
 unless you explicitly lower the translation optimization level with the

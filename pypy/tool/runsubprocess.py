@@ -3,7 +3,7 @@ with a hack to prevent bogus out-of-memory conditions in os.fork()
 if the current process already grew very large.
 """
 
-import sys
+import sys, gc
 import os
 from subprocess import PIPE, Popen
 
@@ -21,6 +21,11 @@ def _run(executable, args, env, cwd):   # unless overridden below
         else:
             args = [str(executable)] + args
         shell = False
+    # Just before spawning the subprocess, do a gc.collect().  This
+    # should help if we are running on top of PyPy, if the subprocess
+    # is going to need a lot of RAM and we are using a lot too.
+    gc.collect()
+    #
     pipe = Popen(args, stdout=PIPE, stderr=PIPE, shell=shell, env=env, cwd=cwd)
     stdout, stderr = pipe.communicate()
     return pipe.returncode, stdout, stderr

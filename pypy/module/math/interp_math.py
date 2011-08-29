@@ -5,11 +5,11 @@ from pypy.rlib import rfloat, unroll
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped
 
-class State: 
-    def __init__(self, space): 
+class State:
+    def __init__(self, space):
         self.w_e = space.wrap(math.e)
         self.w_pi = space.wrap(math.pi)
-def get(space): 
+def get(space):
     return space.fromcache(State)
 
 def _get_double(space, w_x):
@@ -153,7 +153,8 @@ def floor(space, w_x):
        Return the floor of x as a float.
        This is the largest integral value <= x.
     """
-    return math1(space, math.floor, w_x)
+    x = _get_double(space, w_x)
+    return space.wrap(math.floor(x))
 
 def sqrt(space, w_x):
     """sqrt(x)
@@ -371,22 +372,6 @@ def fsum(space, w_iterable):
             if y == yr:
                 hi = v
     return space.wrap(hi)
-
-def factorial(space, w_x):
-    """Find x!."""
-    if space.isinstance_w(w_x, space.w_float):
-        fl = space.float_w(w_x)
-        if math.floor(fl) != fl:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("float arguments must be integral"))
-        w_x = space.long(w_x)
-    x = space.int_w(w_x)
-    if x < 0:
-        raise OperationError(space.w_ValueError, space.wrap("x must be >= 0"))
-    w_res = space.wrap(1)
-    for i in range(1, x + 1):
-        w_res = space.mul(w_res, space.wrap(i))
-    return w_res
 
 def log1p(space, w_x):
     """Find log(x + 1)."""

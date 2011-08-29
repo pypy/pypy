@@ -2,7 +2,7 @@ from pypy.translator.cli.metavm import  Call, CallMethod, \
      IndirectCall, GetField, SetField, DownCast, NewCustomDict,\
      MapException, Box, Unbox, NewArray, GetArrayElem, SetArrayElem,\
      TypeOf, CastPrimitive, EventHandler, GetStaticField, SetStaticField, \
-     DebugPrint
+     DebugPrint, UnboxInt
 from pypy.translator.oosupport.metavm import PushArg, PushAllArgs, StoreResult, InstructionList,\
     New, RuntimeNew, CastTo, PushPrimitive, OOString, OOUnicode, OONewArray
 from pypy.translator.cli.cts import WEAKREF
@@ -48,6 +48,8 @@ misc_ops = {
     'cast_from_object':         [DownCast],
     'clibox':                   [Box],
     'cliunbox':                 [Unbox],
+    'oobox_int':                [Box],
+    'oounbox_int':              [UnboxInt],
     'cli_newarray':             [NewArray],
     'cli_getelem':              [GetArrayElem],
     'cli_setelem':              [SetArrayElem],
@@ -71,11 +73,12 @@ misc_ops = {
     'hint':                     [PushArg(0), StoreResult],
     'direct_call':              [Call],
     'indirect_call':            [IndirectCall],
+    'int_between':              [PushAllArgs, 'call bool [pypylib]pypy.runtime.Utils::IntBetween(int32, int32, int32)'],
+
 
     'cast_ptr_to_weakadr':      [PushAllArgs, 'newobj instance void class %s::.ctor(object)' % WEAKREF],
     'gc__collect':              'call void class [mscorlib]System.GC::Collect()',
     'gc_set_max_heap_size':     Ignore,
-    'resume_point':             Ignore,
     'debug_assert':             Ignore,
     'debug_start_traceback':    Ignore,
     'debug_record_traceback':   Ignore,
@@ -83,12 +86,15 @@ misc_ops = {
     'debug_reraise_traceback':  Ignore,
     'debug_print_traceback':    Ignore,
     'debug_print':              [DebugPrint],
+    'debug_flush':              [PushAllArgs, 'call void [pypylib]pypy.runtime.DebugPrint::DEBUG_FLUSH()'],
+    'debug_offset':             [PushAllArgs, 'call int32 [pypylib]pypy.runtime.DebugPrint::DEBUG_OFFSET()'],
     'debug_start':              [PushAllArgs, 'call void [pypylib]pypy.runtime.DebugPrint::DEBUG_START(string)'],
     'debug_stop':               [PushAllArgs, 'call void [pypylib]pypy.runtime.DebugPrint::DEBUG_STOP(string)'],
     'have_debug_prints':        [PushAllArgs, 'call bool [pypylib]pypy.runtime.DebugPrint::HAVE_DEBUG_PRINTS()'],
     'debug_fatalerror':         [PushAllArgs, 'call void [pypylib]pypy.runtime.Debug::DEBUG_FATALERROR(string)'],
     'keepalive':                Ignore,
     'jit_marker':               Ignore,
+    'jit_force_quasi_immutable':Ignore,
     'jit_force_virtualizable':  Ignore,
     'jit_force_virtual':        DoNothing,
     }
@@ -147,7 +153,10 @@ unary_ops = {
     'cast_float_to_uint':       'conv.u4',
     'cast_longlong_to_float':   'conv.r8',
     'cast_float_to_longlong':   'conv.i8',
+    'cast_ulonglong_to_float':  'conv.r8',
+    'cast_float_to_ulonglong':  'conv.u8',
     'cast_primitive':           [PushAllArgs, CastPrimitive],
+    'force_cast':               [PushAllArgs, CastPrimitive],
     'truncate_longlong_to_int': 'conv.i4',
     }
 
@@ -266,6 +275,8 @@ binary_ops = {
     'ullong_ge':                _not('clt.un'),
     'ullong_lshift':            [PushAllArgs, 'conv.u4', 'shl'],
     'ullong_rshift':            [PushAllArgs, 'conv.i4', 'shr'],
+    'ullong_and':               'and',
+    'ullong_or':                'or',
 
     'oois':                     'ceq',
     'ooisnot':                  _not('ceq'),

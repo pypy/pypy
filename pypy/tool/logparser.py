@@ -4,7 +4,8 @@ Syntax:
     python logparser.py <action> <logfilename> <output> <options...>
 
 Actions:
-    draw-time   draw a timeline image of the log (format PNG by default)
+    draw-time      draw a timeline image of the log (format PNG by default)
+    print-summary  print a summary of the log
 """
 import autopath
 import sys, re
@@ -85,9 +86,11 @@ def extract_category(log, catprefix='', toplevel=False):
     for entry in log:
         if entry[0] == 'debug_print':
             resulttext.append(entry[1])
-        else:
+        elif len(entry) == 4:
             got.extend(extract_category(
                 entry[3], catprefix, toplevel=entry[0].startswith(catprefix)))
+        else:
+            resulttext.append('... LOG TRUCATED ...')
     if toplevel:
         resulttext.append('')
         got.insert(0, '\n'.join(resulttext))
@@ -383,6 +386,23 @@ def draw_timeline_image(log, output=None, mainwidth=3000, mainheight=150,
     else:
         image.save(output)
 
+def print_summary(log, out):
+    totaltimes = gettotaltimes(log)
+    if out == '-':
+        outfile = sys.stdout
+    else:
+        outfile = open(out, "w")
+    l = totaltimes.items()
+    l.sort(cmp=lambda a, b: cmp(b[1], a[1]))
+    total = sum([b for a, b in l])
+    for a, b in l:
+        if a is None:
+            a = 'interpret'
+        s = " " * (50 - len(a))
+        print >>outfile, a, s, str(b*100/total) + "%"
+    if out != '-':
+        outfile.close()
+
 # ____________________________________________________________
 
 
@@ -391,6 +411,7 @@ ACTIONS = {
                                         'mainwidth=', 'mainheight=',
                                         'summarywidth=', 'summarybarheight=',
                                         ]),
+    'print-summary': (print_summary, []),
     }
 
 if __name__ == '__main__':

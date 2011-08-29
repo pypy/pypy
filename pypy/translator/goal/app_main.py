@@ -33,11 +33,9 @@ def handle_sys_exit(e):
         except:
             # not an integer: print it to stderr
             try:
-                stderr = sys.stderr
-            except AttributeError:
+                print >> sys.stderr, exitcode
+            except:
                 pass   # too bad
-            else:
-                stderr.write(exitcode)
             exitcode = 1
     raise SystemExit(exitcode)
 
@@ -143,6 +141,7 @@ def _print_jit_help():
     for key, value in items:
         print '  --jit %s=N %slow-level JIT parameter (default %s)' % (
             key, ' '*(18-len(key)), value)
+    print '  --jit off                  turn off the JIT'
 
 def print_version(*args):
     print "Python", sys.version
@@ -204,8 +203,11 @@ def get_library_path(executable):
         dirname = resolvedirof(search)
         if dirname == search:
             # not found!  let's hope that the compiled-in path is ok
-            print >> sys.stderr, ('debug: WARNING: library path not found, '
-                                  'using compiled-in sys.path')
+            print >> sys.stderr, """\
+debug: WARNING: Library path not found, using compiled-in sys.path.
+debug: WARNING: 'sys.prefix' will not be set.
+debug: WARNING: Make sure the pypy binary is kept inside its tree of files.
+debug: WARNING: It is ok to create a symlink to it from somewhere else."""
             newpath = sys.path[:]
             break
         newpath = sys.pypy_initial_path(dirname)
@@ -420,8 +422,11 @@ def parse_command_line(argv):
     # (relevant in case of "reload(sys)")
     sys.argv[:] = argv
 
-    if (PYTHON26 and not options["ignore_environment"] and os.getenv('PYTHONNOUSERSITE')):
-        options["no_user_site"] = True
+    if PYTHON26 and not options["ignore_environment"]:
+        if os.getenv('PYTHONNOUSERSITE'):
+            options["no_user_site"] = True
+        if os.getenv('PYTHONDONTWRITEBYTECODE'):
+            options["dont_write_bytecode"] = True
 
     if (options["interactive"] or
         (not options["ignore_environment"] and os.getenv('PYTHONINSPECT'))):
@@ -430,7 +435,8 @@ def parse_command_line(argv):
     if PYTHON26 and we_are_translated():
         flags = [options[flag] for flag in sys_flags]
         sys.flags = type(sys.flags)(flags)
-        sys.py3kwarning = sys.flags.py3k_warning
+        sys.py3kwarning = bool(sys.flags.py3k_warning)
+        sys.dont_write_bytecode = bool(sys.flags.dont_write_bytecode)
 
         if sys.py3kwarning:
             print >> sys.stderr, (

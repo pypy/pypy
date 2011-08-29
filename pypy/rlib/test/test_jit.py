@@ -1,6 +1,6 @@
 import py
 from pypy.conftest import option
-from pypy.rlib.jit import hint, we_are_jitted, JitDriver, purefunction_promote
+from pypy.rlib.jit import hint, we_are_jitted, JitDriver, elidable_promote
 from pypy.rlib.jit import JitHintError, oopspec
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
@@ -31,8 +31,8 @@ class BaseTestJIT(BaseRtypingTest):
         res = self.interpret(f, [4])
         assert res == 5
 
-    def test_purefunction_promote(self):
-        @purefunction_promote()
+    def test_elidable_promote(self):
+        @elidable_promote()
         def g(func):
             return func + 1
         def f(x):
@@ -40,8 +40,8 @@ class BaseTestJIT(BaseRtypingTest):
         res = self.interpret(f, [2])
         assert res == 5
 
-    def test_purefunction_promote_args(self):
-        @purefunction_promote(promote_args='0')
+    def test_elidable_promote_args(self):
+        @elidable_promote(promote_args='0')
         def g(func, x):
             return func + 1
         def f(x):
@@ -52,9 +52,12 @@ class BaseTestJIT(BaseRtypingTest):
         import sys
         
         s = StringIO()
+        prev = sys.stdout
         sys.stdout = s
-        dis.dis(g)
-        sys.stdout = sys.__stdout__
+        try:
+            dis.dis(g)
+        finally:
+            sys.stdout = prev
         x = s.getvalue().find('CALL_FUNCTION')
         assert x != -1
         x = s.getvalue().find('CALL_FUNCTION', x)
@@ -79,6 +82,9 @@ class BaseTestJIT(BaseRtypingTest):
             return n
 
         t, rtyper, fngraph = self.gengraph(fn, [int])
+
+        # added by compute_result_annotation()
+        assert fn._dont_reach_me_in_del_ == True
 
         def getargs(func):
             for graph in t.graphs:

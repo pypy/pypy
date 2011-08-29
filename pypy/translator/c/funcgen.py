@@ -705,7 +705,7 @@ class FunctionCodeGenerator(object):
         offset = self.expr(op.args[2])
         value = self.expr(op.args[3])
         typename = cdecl(self.db.gettype(TYPE).replace('@', '*@'), '')
-        return "*(((%(typename)s) %(addr)s ) + %(offset)s) = %(value)s;" % locals()
+        return "((%(typename)s) %(addr)s)[%(offset)s] = %(value)s;" % locals()
 
     def OP_RAW_LOAD(self, op):
         addr = self.expr(op.args[0])
@@ -713,7 +713,7 @@ class FunctionCodeGenerator(object):
         offset = self.expr(op.args[2])
         result = self.expr(op.result)
         typename = cdecl(self.db.gettype(TYPE).replace('@', '*@'), '')
-        return "%(result)s = *(((%(typename)s) %(addr)s ) + %(offset)s);" % locals()
+        return "%(result)s = ((%(typename)s) %(addr)s)[%(offset)s];" % locals()
 
     def OP_CAST_PRIMITIVE(self, op):
         TYPE = self.lltypemap(op.result)
@@ -823,6 +823,11 @@ class FunctionCodeGenerator(object):
                                          cdecl(typename, ''))
         return result
 
+    def OP_DEBUG_NONNULL_POINTER(self, op):
+        expr = self.expr(op.args[0])
+        return 'if ((-8192 <= (long)%s) && (((long)%s) < 8192)) abort();' % (
+            expr, expr)
+
     def OP_INSTRUMENT_COUNT(self, op):
         counter_label = op.args[1].value
         self.db.instrument_ncounter = max(self.db.instrument_ncounter,
@@ -842,6 +847,9 @@ class FunctionCodeGenerator(object):
     def OP_JIT_FORCE_VIRTUAL(self, op):
         return '%s = %s; /* JIT_FORCE_VIRTUAL */' % (self.expr(op.result),
                                                      self.expr(op.args[0]))
+
+    def OP_JIT_FORCE_QUASI_IMMUTABLE(self, op):
+        return '/* JIT_FORCE_QUASI_IMMUTABLE %s */' % op
 
     def OP_GET_GROUP_MEMBER(self, op):
         typename = self.db.gettype(op.result.concretetype)

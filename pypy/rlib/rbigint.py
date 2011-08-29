@@ -1,9 +1,10 @@
 from pypy.rlib.rarithmetic import LONG_BIT, intmask, r_uint, r_ulonglong
 from pypy.rlib.rarithmetic import ovfcheck, r_longlong, widen
 from pypy.rlib.rarithmetic import most_neg_value_of_same_type
-from pypy.rlib.rfloat import isinf, isnan
+from pypy.rlib.rfloat import isfinite
 from pypy.rlib.debug import make_sure_not_resized, check_regular_int
-from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated, specialize
+from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython import extregistry
 
@@ -39,7 +40,7 @@ KARATSUBA_SQUARE_CUTOFF = 2 * KARATSUBA_CUTOFF
 # In that case, do 5 bits at a time.  The potential drawback is that
 # a table of 2**5 intermediate results is computed.
 
-FIVEARY_CUTOFF = 8
+## FIVEARY_CUTOFF = 8   disabled for now
 
 
 def _mask_digit(x):
@@ -122,7 +123,11 @@ class rbigint(object):
     def numdigits(self):
         return len(self._digits)
 
+    @staticmethod
+    @jit.elidable
     def fromint(intval):
+        # This function is marked as pure, so you must not call it and
+        # then modify the result.
         check_regular_int(intval)
         if intval < 0:
             sign = -1
@@ -149,23 +154,34 @@ class rbigint(object):
             t >>= SHIFT
             p += 1
         return v
-    fromint = staticmethod(fromint)
 
+    @staticmethod
+    @jit.elidable
     def frombool(b):
+        # This function is marked as pure, so you must not call it and
+        # then modify the result.
         if b:
             return rbigint([ONEDIGIT], 1)
         return rbigint()
-    frombool = staticmethod(frombool)
 
+    @staticmethod
     def fromlong(l):
+        "NOT_RPYTHON"
         return rbigint(*args_from_long(l))
-    fromlong = staticmethod(fromlong)
 
+    @staticmethod
     def fromfloat(dval):
         """ Create a new bigint object from a float """
-        sign = 1
-        if isinf(dval) or isnan(dval):
+        # This function is not marked as pure because it can raise
+        if isfinite(dval):
+            return rbigint._fromfloat_finite(dval)
+        else:
             raise OverflowError
+
+    @staticmethod
+    @jit.elidable
+    def _fromfloat_finite(dval):
+        sign = 1
         if dval < 0.0:
             sign = -1
             dval = -dval
@@ -183,17 +199,23 @@ class rbigint(object):
             frac -= float(bits)
             frac = math.ldexp(frac, SHIFT)
         return v
-    fromfloat = staticmethod(fromfloat)
 
+    @staticmethod
+    @jit.elidable
+    @specialize.argtype(0)
     def fromrarith_int(i):
+        # This function is marked as pure, so you must not call it and
+        # then modify the result.
         return rbigint(*args_from_rarith_int(i))
-    fromrarith_int._annspecialcase_ = "specialize:argtype(0)"
-    fromrarith_int = staticmethod(fromrarith_int)
 
+    @staticmethod
+    @jit.elidable
     def fromdecimalstr(s):
+        # This function is marked as pure, so you must not call it and
+        # then modify the result.
         return _decimalstr_to_bigint(s)
-    fromdecimalstr = staticmethod(fromdecimalstr)
 
+    @jit.elidable
     def toint(self):
         """
         Get an integer from a bigint object.
@@ -273,6 +295,7 @@ class rbigint(object):
     def ne(self, other):
         return not self.eq(other)
 
+    @jit.elidable
     def lt(self, other):
         if self.sign > other.sign:
             return False
@@ -435,7 +458,7 @@ class rbigint(object):
 
         # python adaptation: moved macros REDUCE(X) and MULT(X, Y, result)
         # into helper function result = _help_mult(x, y, c)
-        if b.numdigits() <= FIVEARY_CUTOFF:
+        if 1:   ## b.numdigits() <= FIVEARY_CUTOFF:
             # Left-to-right binary exponentiation (HAC Algorithm 14.79)
             # http://www.cacr.math.uwaterloo.ca/hac/about/chap14.pdf
             i = b.numdigits() - 1
@@ -448,26 +471,30 @@ class rbigint(object):
                         z = _help_mult(z, a, c)
                     j >>= 1
                 i -= 1
-        else:
-            # Left-to-right 5-ary exponentiation (HAC Algorithm 14.82)
-            # This is only useful in the case where c != None.
-            # z still holds 1L
-            table = [z] * 32
-            table[0] = z
-            for i in range(1, 32):
-                table[i] = _help_mult(table[i-1], a, c)
-            i = b.numdigits() - 1
-            while i >= 0:
-                bi = b.digit(i)
-                j = SHIFT - 5
-                while j >= 0:
-                    index = (bi >> j) & 0x1f
-                    for k in range(5):
-                        z = _help_mult(z, z, c)
-                    if index:
-                        z = _help_mult(z, table[index], c)
-                    j -= 5
-                i -= 1
+##        else:
+##            This code is disabled for now, because it assumes that
+##            SHIFT is a multiple of 5.  It could be fixed but it looks
+##            like it's more troubles than benefits...
+##
+##            # Left-to-right 5-ary exponentiation (HAC Algorithm 14.82)
+##            # This is only useful in the case where c != None.
+##            # z still holds 1L
+##            table = [z] * 32
+##            table[0] = z
+##            for i in range(1, 32):
+##                table[i] = _help_mult(table[i-1], a, c)
+##            i = b.numdigits() - 1
+##            while i >= 0:
+##                bi = b.digit(i)
+##                j = SHIFT - 5
+##                while j >= 0:
+##                    index = (bi >> j) & 0x1f
+##                    for k in range(5):
+##                        z = _help_mult(z, z, c)
+##                    if index:
+##                        z = _help_mult(z, table[index], c)
+##                    j -= 5
+##                i -= 1
 
         if negativeOutput and z.sign != 0:
             z = z.sub(c)
@@ -1324,6 +1351,7 @@ def _AsScaledDouble(v):
 # XXX make sure that we don't ignore this!
 # YYY no, we decided to do ignore this!
 
+@jit.dont_look_inside
 def _AsDouble(n):
     """ Get a C double from a bigint object. """
     # This is a "correctly-rounded" version from Python 2.7.
@@ -1577,7 +1605,7 @@ def _format(a, digits, prefix='', suffix=''):
     elif (base & (base - 1)) == 0:
         # JRH: special case for power-of-2 bases
         accum = 0
-        accumbits = 0  # # of bits in accum 
+        accumbits = 0  # # of bits in accum
         basebits = 1   # # of bits in base-1
         i = base
         while 1:
@@ -1841,7 +1869,7 @@ def _decimalstr_to_bigint(s):
     elif s[p] == '+':
         p += 1
 
-    a = rbigint.fromint(0)
+    a = rbigint()
     tens = 1
     dig = 0
     ord0 = ord('0')
@@ -1859,7 +1887,7 @@ def _decimalstr_to_bigint(s):
 
 def parse_digit_string(parser):
     # helper for objspace.std.strutil
-    a = rbigint.fromint(0)
+    a = rbigint()
     base = parser.base
     digitmax = BASE_MAX[base]
     tens, dig = 1, 0

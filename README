@@ -15,10 +15,10 @@ The home page is:
 
 The getting-started document will help guide you:
 
-    http://codespeak.net/pypy/dist/pypy/doc/getting-started.html
+    http://doc.pypy.org/en/latest/getting-started.html
 
 It will also point you to the rest of the documentation which is generated
 from files in the pypy/doc directory within the source repositories. Enjoy
 and send us feedback!
 
-    the pypy-dev team <pypy-dev@codespeak.net>
+    the pypy-dev team <pypy-dev@python.org>
