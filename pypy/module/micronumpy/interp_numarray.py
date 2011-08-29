@@ -479,7 +479,8 @@ class ViewArray(BaseArray):
         return self.parent.setitem_w(space, self.calc_index(item), w_value)
 
     def setitem(self, item, value):
-        return self.parent.setitem(self.calc_index(item), value)
+        # This is currently not possible to be called from anywhere.
+        raise NotImplementedError
 
     def descr_len(self, space):
         return space.wrap(self.find_size())
