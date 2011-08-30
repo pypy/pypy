@@ -2,6 +2,7 @@ syntax: glob
 *.py[co]
 *~
 .*.swp
+*.so
 
 syntax: regexp
 ^testresult$

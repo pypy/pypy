@@ -108,7 +108,18 @@ cppyy_typehandle_t cppyy_get_typehandle(const char* class_name) {
 }
 
 cppyy_typehandle_t cppyy_get_templatehandle(const char* template_name) {
-   return cppyy_get_typehandle(template_name);
+    ClassRefIndices_t::iterator icr = g_classref_indices.find(template_name);
+    if (icr != g_classref_indices.end())
+        return (cppyy_typehandle_t)icr->second;
+
+    if (!G__defined_templateclass((char*)template_name))
+        return (cppyy_typehandle_t)NULL;
+
+    // the following yields a dummy TClassRef, but its name can be queried
+    ClassRefs_t::size_type sz = g_classrefs.size();
+    g_classref_indices[template_name] = sz;
+    g_classrefs.push_back(TClassRef(template_name));
+    return (cppyy_typehandle_t)sz;
 }
 
 
