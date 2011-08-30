@@ -13,6 +13,8 @@ reduce_driver = jit.JitDriver(
 )
 
 class W_Ufunc(Wrappable):
+    _attrs_ = ["name", "promote_to_float", "promote_bools", "identity"]
+
     def __init__(self, name, promote_to_float, promote_bools, identity):
         self.name = name
         self.promote_to_float = promote_to_float
@@ -43,6 +45,7 @@ class W_Ufunc(Wrappable):
         if self.identity is None:
             raise OperationError(space.w_NotImplementedError, space.wrap("%s is missing its identity value" % self.name))
 
+        assert isinstance(self, W_Ufunc2)
         obj = convert_to_array(space, w_obj)
         if isinstance(obj, Scalar):
             raise OperationError(space.w_TypeError, space.wrap("cannot reduce on a scalar"))
