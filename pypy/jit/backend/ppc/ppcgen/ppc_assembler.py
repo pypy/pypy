@@ -1206,6 +1206,8 @@ class PPCBuilder(PPCAssembler):
             self.sth(value_reg, addr_reg, offset)
         elif width == 1:
             self.stb(value_reg, addr_reg, offset)
+        else:
+            assert 0, "invalid width %s" % width
 
     def emit_setfield_raw(self, op, cpu):
         self.emit_setfield_gc(op, cpu)
@@ -1235,6 +1237,8 @@ class PPCBuilder(PPCAssembler):
             self.lbz(free_reg, field_addr_reg, offset)
             if sign:
                 self.extsb(free_reg, free_reg)
+        else:
+            assert 0, "invalid width %s" % width
         result = op.result
         cpu.reg_map[result] = cpu.next_free_register
         cpu.next_free_register += 1
@@ -1290,6 +1294,8 @@ class PPCBuilder(PPCAssembler):
             self.sthx(value_reg, field_addr_reg, offset_reg)
         elif width == 1:
             self.stbx(value_reg, field_addr_reg, offset_reg)
+        else:
+            assert 0, "invalid width %s" % width
 
     def emit_setarrayitem_raw(self, op, cpu):
         self.emit_setarrayitem_gc(op, cpu)
@@ -1331,6 +1337,8 @@ class PPCBuilder(PPCAssembler):
             self.lbzx(free_reg, field_addr_reg, offset_reg)
             if sign:
                 self.extsb(free_reg, free_reg)
+        else:
+            assert 0, "invalid width %s" % width
         result = op.result
         cpu.reg_map[result] = cpu.next_free_register
         cpu.next_free_register += 1
