@@ -29,6 +29,11 @@ This allows for peaceful co-existence of many concepts.
 The type of a switch is determined by the target's costate.
 """
 
+import py; py.test.skip("fixme: rewrite using rlib.rstacklet")
+# XXX ^^^ the reason it is not done is that pypy.rlib.rcoroutine
+# plus pypy/module/_stackless look like faaaaaar too much code
+# to me :-(
+
 from pypy.rlib.rstack import yield_current_frame_to_caller
 from pypy.rlib.objectmodel import we_are_translated
 

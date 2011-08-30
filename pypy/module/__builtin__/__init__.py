@@ -19,6 +19,7 @@ class Module(MixedModule):
         'sorted'        : 'app_functional.sorted',
         'any'           : 'app_functional.any',
         'all'           : 'app_functional.all',
+        'sum'           : 'app_functional.sum',
         'vars'          : 'app_inspect.vars',
         'dir'           : 'app_inspect.dir',
 
@@ -85,7 +86,6 @@ class Module(MixedModule):
         'enumerate'     : 'functional.W_Enumerate',
         'min'           : 'functional.min',
         'max'           : 'functional.max',
-        'sum'           : 'functional.sum',
         'map'           : 'functional.map',
         'zip'           : 'functional.zip',
         'reduce'        : 'functional.reduce',
@@ -118,7 +118,7 @@ class Module(MixedModule):
                 return module.Module(space, None, w_builtin)
            builtin = space.interpclass_w(w_builtin)
            if isinstance(builtin, module.Module):
-               return builtin   
+               return builtin
        # no builtin! make a default one.  Given them None, at least.
        builtin = module.Module(space, None)
        space.setitem(builtin.w_dict, space.wrap('None'), space.w_None)

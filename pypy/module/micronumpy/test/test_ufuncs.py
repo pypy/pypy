@@ -86,7 +86,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
     def test_fabs(self):
         from numpy import array, fabs
         from math import fabs as math_fabs
-        
+
         a = array([-5.0, -0.0, 1.0])
         b = fabs(a)
         for i in range(3):
@@ -110,6 +110,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(3):
             assert c[i] == max(a[i], b[i])
 
+        x = maximum(2, 3)
+        assert x == 3
+        assert isinstance(x, (int, long))
+
     def test_multiply(self):
         from numpy import array, multiply
 
@@ -120,13 +124,23 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert c[i] == a[i] * b[i]
 
     def test_sign(self):
-        from numpy import array, sign
+        from numpy import array, sign, dtype
 
         reference = [-1.0, 0.0, 0.0, 1.0]
         a = array([-5.0, -0.0, 0.0, 6.0])
         b = sign(a)
         for i in range(4):
             assert b[i] == reference[i]
+
+        a = sign(array(range(-5, 5)))
+        ref = [-1, -1, -1, -1, -1, 0, 1, 1, 1, 1]
+        for i in range(10):
+            assert a[i] == ref[i]
+
+        a = sign(array([True, False], dtype=bool))
+        assert a.dtype == dtype("int8")
+        assert a[0] == 1
+        assert a[1] == 0
 
     def test_reciporocal(self):
         from numpy import array, reciprocal
@@ -165,6 +179,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(4):
             assert c[i] == reference[i]
 
+        b = array([True, True, True, True], dtype=bool)
+        c = copysign(a, b)
+        for i in range(4):
+            assert c[i] == abs(a[i])
+
     def test_exp(self):
         import math
         from numpy import array, exp
@@ -187,6 +206,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = sin(a)
         for i in range(len(a)):
             assert b[i] == math.sin(a[i])
+
+        a = sin(array([True, False], dtype=bool))
+        assert a[0] == sin(1)
+        assert a[1] == 0.0
 
     def test_cos(self):
         import math
@@ -211,7 +234,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         import math
         from numpy import array, arcsin
 
-        a = array([-1, -0.5, -0.33, 0, 0.33, 0.5, 1])        
+        a = array([-1, -0.5, -0.33, 0, 0.33, 0.5, 1])
         b = arcsin(a)
         for i in range(len(a)):
             assert b[i] == math.asin(a[i])
@@ -230,7 +253,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(len(a)):
             assert b[i] == math.acos(a[i])
 
-        
+
         a = array([-10, -1.5, -1.01, 1.01, 1.5, 10, float('nan'), float('inf'), float('-inf')])
         b = arccos(a)
         for f in b:
