@@ -246,6 +246,8 @@ class GzipFile(io.BufferedIOBase):
                     readsize = min(self.max_read_chunk, readsize * 2)
             except EOFError:
                 size = self.extrasize
+        elif size == 0:
+            return ""
         else:               # just get some more of it
             try:
                 while size > self.extrasize:
@@ -418,6 +420,7 @@ class GzipFile(io.BufferedIOBase):
             self.write((count % 1024) * '\0')
         elif self.mode == READ:
             if offset == self.offset:
+                self.read(0) # to make sure that this file is open
                 return self.offset
             if offset < self.offset:
                 # for negative seek, rewind and do positive seek
