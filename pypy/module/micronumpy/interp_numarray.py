@@ -53,67 +53,50 @@ class BaseArray(Wrappable):
             i += 1
         return arr
 
-    def _unaryop_impl(w_ufunc):
+    def _unaryop_impl(ufunc_name):
         def impl(self, space):
-            return w_ufunc(space, self)
-        return func_with_new_name(impl, "unaryop_%s_impl" % w_ufunc.__name__)
+            return getattr(interp_ufuncs.get(space), ufunc_name).call(space, [self])
+        return func_with_new_name(impl, "unaryop_%s_impl" % ufunc_name)
 
-    descr_pos = _unaryop_impl(interp_ufuncs.positive)
-    descr_neg = _unaryop_impl(interp_ufuncs.negative)
-    descr_abs = _unaryop_impl(interp_ufuncs.absolute)
+    descr_pos = _unaryop_impl("positive")
+    descr_neg = _unaryop_impl("negative")
+    descr_abs = _unaryop_impl("absolute")
 
-    def _binop_impl(w_ufunc):
+    def _binop_impl(ufunc_name):
         def impl(self, space, w_other):
-            return w_ufunc(space, self, w_other)
-        return func_with_new_name(impl, "binop_%s_impl" % w_ufunc.__name__)
+            return getattr(interp_ufuncs.get(space), ufunc_name).call(space, [self, w_other])
+        return func_with_new_name(impl, "binop_%s_impl" % ufunc_name)
 
-    descr_add = _binop_impl(interp_ufuncs.add)
-    descr_sub = _binop_impl(interp_ufuncs.subtract)
-    descr_mul = _binop_impl(interp_ufuncs.multiply)
-    descr_div = _binop_impl(interp_ufuncs.divide)
-    descr_pow = _binop_impl(interp_ufuncs.power)
-    descr_mod = _binop_impl(interp_ufuncs.mod)
+    descr_add = _binop_impl("add")
+    descr_sub = _binop_impl("subtract")
+    descr_mul = _binop_impl("multiply")
+    descr_div = _binop_impl("divide")
+    descr_pow = _binop_impl("power")
+    descr_mod = _binop_impl("mod")
 
-    def _binop_right_impl(w_ufunc):
+    def _binop_right_impl(ufunc_name):
         def impl(self, space, w_other):
             w_other = scalar_w(space,
                 interp_ufuncs.find_dtype_for_scalar(space, w_other, self.find_dtype()),
                 w_other
             )
-            return w_ufunc(space, w_other, self)
-        return func_with_new_name(impl, "binop_right_%s_impl" % w_ufunc.__name__)
+            return getattr(interp_ufuncs.get(space), ufunc_name).call(space, [w_other, self])
+        return func_with_new_name(impl, "binop_right_%s_impl" % ufunc_name)
 
-    descr_radd = _binop_right_impl(interp_ufuncs.add)
-    descr_rsub = _binop_right_impl(interp_ufuncs.subtract)
-    descr_rmul = _binop_right_impl(interp_ufuncs.multiply)
-    descr_rdiv = _binop_right_impl(interp_ufuncs.divide)
-    descr_rpow = _binop_right_impl(interp_ufuncs.power)
-    descr_rmod = _binop_right_impl(interp_ufuncs.mod)
+    descr_radd = _binop_right_impl("add")
+    descr_rsub = _binop_right_impl("subtract")
+    descr_rmul = _binop_right_impl("multiply")
+    descr_rdiv = _binop_right_impl("divide")
+    descr_rpow = _binop_right_impl("power")
+    descr_rmod = _binop_right_impl("mod")
 
-    def _reduce_sum_prod_impl(op_name, init):
-        reduce_driver = jit.JitDriver(greens=['signature'],
-                         reds = ['i', 'size', 'self', 'result', 'res_dtype'])
-
-        def loop(self, res_dtype, result, size):
-            i = 0
-            while i < size:
-                reduce_driver.jit_merge_point(signature=self.signature,
-                                              self=self, res_dtype=res_dtype,
-                                              size=size, i=i, result=result)
-                result = getattr(res_dtype, op_name)(
-                    result,
-                    self.eval(i).convert_to(res_dtype)
-                )
-                i += 1
-            return result
-
+    def _reduce_ufunc_impl(ufunc_name):
         def impl(self, space):
-            dtype = interp_ufuncs.find_unaryop_result_dtype(
-                space, self.find_dtype(), promote_to_largest=True
-            )
-            result = dtype.adapt_val(init)
-            return loop(self, dtype, result, self.find_size()).wrap(space)
-        return func_with_new_name(impl, "reduce_%s_impl" % op_name)
+            return getattr(interp_ufuncs.get(space), ufunc_name).descr_reduce(space, self)
+        return func_with_new_name(impl, "reduce_%s_impl" % ufunc_name)
+
+    descr_sum = _reduce_ufunc_impl("add")
+    descr_prod = _reduce_ufunc_impl("multiply")
 
     def _reduce_max_min_impl(op_name):
         reduce_driver = jit.JitDriver(greens=['signature'],
@@ -192,8 +175,6 @@ class BaseArray(Wrappable):
     def descr_any(self, space):
         return space.wrap(self._any())
 
-    descr_sum = _reduce_sum_prod_impl("add", 0)
-    descr_prod = _reduce_sum_prod_impl("mul", 1)
     descr_max = _reduce_max_min_impl("max")
     descr_min = _reduce_max_min_impl("min")
     descr_argmax = _reduce_argmax_argmin_impl("max")
