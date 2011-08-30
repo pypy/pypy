@@ -782,7 +782,7 @@ class TestPycStuff:
                                                  w_modulename,
                                                  w_mod,
                                                  pathname,
-                                                 stream.readall())
+                                                 stream)
         finally:
             space.setattr(space.sys, space.wrap('dont_write_bytecode'),
                           space.w_False)
