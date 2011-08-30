@@ -56,7 +56,7 @@ class BaseArray(Wrappable):
     def _unaryop_impl(w_ufunc):
         def impl(self, space):
             return w_ufunc(space, self)
-        return func_with_new_name(impl, "unaryop_%s_impl" % w_ufunc.__name__)
+        return func_with_new_name(impl, "unaryop_%s_impl" % w_ufunc.name)
 
     descr_pos = _unaryop_impl(interp_ufuncs.positive)
     descr_neg = _unaryop_impl(interp_ufuncs.negative)
@@ -65,7 +65,7 @@ class BaseArray(Wrappable):
     def _binop_impl(w_ufunc):
         def impl(self, space, w_other):
             return w_ufunc(space, self, w_other)
-        return func_with_new_name(impl, "binop_%s_impl" % w_ufunc.__name__)
+        return func_with_new_name(impl, "binop_%s_impl" % w_ufunc.name)
 
     descr_add = _binop_impl(interp_ufuncs.add)
     descr_sub = _binop_impl(interp_ufuncs.subtract)
@@ -81,7 +81,7 @@ class BaseArray(Wrappable):
                 w_other
             )
             return w_ufunc(space, w_other, self)
-        return func_with_new_name(impl, "binop_right_%s_impl" % w_ufunc.__name__)
+        return func_with_new_name(impl, "binop_right_%s_impl" % w_ufunc.name)
 
     descr_radd = _binop_right_impl(interp_ufuncs.add)
     descr_rsub = _binop_right_impl(interp_ufuncs.subtract)

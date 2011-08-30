@@ -1,6 +1,40 @@
+from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.typedef import TypeDef
 from pypy.module.micronumpy import interp_dtype, signature
 from pypy.tool.sourcetools import func_with_new_name
 
+
+class W_Ufunc(Wrappable):
+    def __init__(self, name, promote_to_float, promote_bools, identity):
+        self.name = name
+        self.promote_to_float = promote_to_float
+        self.promote_bools = promote_bools
+
+        self.identity = identity
+
+    def descr_repr(self, space):
+        return space.wrap("<ufunc '%s'>" % self.name)
+
+class W_Ufunc1(W_Ufunc):
+    def __init__(self, func, name, promote_to_float=False, promote_bools=False,
+        identity=None):
+
+        W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity)
+        self.func = func
+
+class W_Ufunc2(W_Ufunc):
+    def __init__(self, func, name, promote_to_float=False, promote_bools=False,
+        identity=None):
+
+        W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity)
+        self.func = func
+
+W_Ufunc.typedef = TypeDef("ufunc",
+    __module__ = "numpy",
+
+    __repr__ = interp2app(W_Ufunc.descr_repr),
+)
 
 def ufunc(func=None, promote_to_float=False, promote_bools=False):
     if func is None:
@@ -74,7 +108,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
     assert False
 
 def find_unaryop_result_dtype(space, dt, promote_to_float=False,
-    promote_to_largest=False, promote_bools=False):
+    promote_bools=False, promote_to_largest=False):
     if promote_bools and (dt.kind == interp_dtype.BOOLLTR):
         return space.fromcache(interp_dtype.W_Int8Dtype)
     if promote_to_float:
@@ -108,17 +142,15 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
 
 def ufunc_dtype_caller(ufunc_name, op_name, argcount, **kwargs):
     if argcount == 1:
-        @ufunc(**kwargs)
         def impl(res_dtype, value):
             return getattr(res_dtype, op_name)(value)
     elif argcount == 2:
-        @ufunc2(**kwargs)
         def impl(res_dtype, lvalue, rvalue):
             return getattr(res_dtype, op_name)(lvalue, rvalue)
     return func_with_new_name(impl, ufunc_name)
 
 for ufunc_def in [
-    ("add", "add", 2),
+    ("add", "add", 2, {"identity": 0}),
     ("subtract", "sub", 2),
     ("multiply", "mul", 2),
     ("divide", "div", 2, {"promote_bools": True}),
@@ -155,4 +187,9 @@ for ufunc_def in [
     except IndexError:
         extra_kwargs = {}
 
-    globals()[ufunc_name] = ufunc_dtype_caller(ufunc_name, op_name, argcount, **extra_kwargs)
+    func = ufunc_dtype_caller(ufunc_name, op_name, argcount)
+    if argcount == 1:
+        ufunc = W_Ufunc1(func, ufunc_name, **extra_kwargs)
+    elif argcount == 2:
+        ufunc = W_Ufunc2(func, ufunc_name, **extra_kwargs)
+    globals()[ufunc_name] = ufunc

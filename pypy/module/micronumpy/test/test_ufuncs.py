@@ -3,6 +3,24 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 
 class AppTestUfuncs(BaseNumpyAppTest):
+    def test_ufunc_instance(self):
+        from numpy import add, ufunc
+
+        assert isinstance(add, ufunc)
+        assert repr(add) == "<ufunc 'add'>"
+        assert repr(ufunc) == "<type 'numpy.ufunc'>"
+
+    def test_ufunc_attrs(self):
+        from numpy import add, multiply, sin
+
+        assert add.identity == 0
+        assert multiply.identity == 1
+        assert sin.identity is None
+
+        assert add.nin == 2
+        assert multiply.nin == 2
+        assert sin.nin == 1
+
     def test_single_item(self):
         from numpy import negative, sign, minimum
 
