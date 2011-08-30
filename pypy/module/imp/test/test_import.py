@@ -695,9 +695,8 @@ class TestPycStuff:
         pathname = _testfilesource()
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
-            w_ret = importing.parse_source_module(space,
-                                                  pathname,
-                                                  stream.readall())
+            w_ret = importing.parse_source_file_module(
+                space, pathname, stream)
         finally:
             stream.close()
         pycode = space.interpclass_w(w_ret)
@@ -839,9 +838,8 @@ class TestPycStuff:
         os.chmod(pathname, 0777)
         stream = streamio.open_file_as_stream(pathname, "r")
         try:
-            w_ret = importing.parse_source_module(space,
-                                                  pathname,
-                                                  stream.readall())
+            w_ret = importing.parse_source_file_module(
+                space, pathname, stream)
         finally:
             stream.close()
         pycode = space.interpclass_w(w_ret)
