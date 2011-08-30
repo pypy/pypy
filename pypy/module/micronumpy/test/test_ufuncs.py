@@ -21,6 +21,14 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert multiply.nin == 2
         assert sin.nin == 1
 
+    def test_wrong_arguments(self):
+        from numpy import add, sin
+
+        raises(TypeError, add, 1)
+        raises(TypeError, add, 1, 2, 3)
+        raises(TypeError, sin, 1, 2)
+        raises(TypeError, sin)
+
     def test_single_item(self):
         from numpy import negative, sign, minimum
 

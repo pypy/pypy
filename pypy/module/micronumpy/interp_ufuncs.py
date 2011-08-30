@@ -1,4 +1,5 @@
 from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.module.micronumpy import interp_dtype, signature
@@ -22,7 +23,10 @@ class W_Ufunc(Wrappable):
         return self.identity.wrap(space)
 
     def descr_call(self, space, __args__):
-        args_w = __args__.fixedunpack(self.argcount)
+        try:
+            args_w = __args__.fixedunpack(self.argcount)
+        except ValueError, e:
+            raise OperationError(space.w_TypeError, space.wrap(str(e)))
         return self.call(space, args_w)
 
 class W_Ufunc1(W_Ufunc):
