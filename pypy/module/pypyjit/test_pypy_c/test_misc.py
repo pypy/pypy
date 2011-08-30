@@ -149,7 +149,6 @@ class TestMisc(BaseTestPyPyC):
             i21 = force_token()
             setfield_gc(p4, i20, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
             guard_not_invalidated(descr=...)
-            i26 = int_sub(i9, 1)
             i23 = int_lt(i18, 0)
             guard_false(i23, descr=...)
             i25 = int_ge(i18, i9)
