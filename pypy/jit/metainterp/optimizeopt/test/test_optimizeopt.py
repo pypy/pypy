@@ -7111,7 +7111,21 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
-        
+    def test_import_constants_when_folding_pure_operations(self):
+        ops = """
+        [p0]
+        f1 = getfield_gc(p0, descr=valuedescr)
+        f2 = float_abs(f1)
+        call(7.0, descr=nonwritedescr)
+        setfield_gc(p0, -7.0, descr=valuedescr)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        call(7.0, descr=nonwritedescr)
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected)
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass

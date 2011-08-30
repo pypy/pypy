@@ -425,7 +425,7 @@ class UnrollOptimizer(Optimization):
         inputargs.append(box)
         box = newresult
         if box in self.optimizer.values:
-            box = self.optimizer.values[box].force_box()
+            box = self.optimizer.getvalue(box).force_box()
         jumpargs.append(box)
         
 
@@ -531,7 +531,7 @@ class ValueImporter(object):
         self.preamble_value = value
         self.op = op
 
-    def import_value(self, box, value):
+    def import_value(self, value):
         value.import_from(self.preamble_value, self.unroll.optimizer)
         self.unroll.add_op_to_short(self.op, self.unroll.short, self.unroll.short_seen, False, True)        
         

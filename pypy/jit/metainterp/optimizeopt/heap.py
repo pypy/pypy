@@ -40,7 +40,7 @@ class CachedField(object):
 
         # Hack to ensure constants are imported from the preamble
         if cached_fieldvalue and fieldvalue.is_constant(): 
-            optheap.getvalue(cached_fieldvalue.get_key_box())
+            optheap.optimizer.ensure_imported(cached_fieldvalue)
             cached_fieldvalue = self._cached_fields.get(structvalue, None)
 
         if cached_fieldvalue is not fieldvalue:

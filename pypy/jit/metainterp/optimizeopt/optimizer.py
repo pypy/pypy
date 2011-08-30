@@ -415,17 +415,21 @@ class Optimizer(Optimization):
             value = self.values[box]
         except KeyError:
             value = self.values[box] = OptValue(box)
+        self.ensure_imported(value)
+        return value
+
+    def ensure_imported(self, value):
         if not self.emitting_dissabled and value in self.importable_values:
             imp = self.importable_values[value]
             del self.importable_values[value]
-            imp.import_value(box, value)
-        return value
+            imp.import_value(value)
 
     def get_constant_box(self, box):
         if isinstance(box, Const):
             return box
         try:
             value = self.values[box]
+            self.ensure_imported(value)
         except KeyError:
             return None
         if value.is_constant():
@@ -561,7 +565,7 @@ class Optimizer(Optimization):
         for i in range(n):
             arg = op.getarg(i)
             try:
-                value = self.values[arg]
+                value = self.getvalue(arg)
             except KeyError:
                 pass
             else:
