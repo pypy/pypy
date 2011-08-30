@@ -265,7 +265,6 @@ def copyfileobj(src, dst, length=None):
     if length is None:
         shutil.copyfileobj(src, dst)
         return
-
     BUFSIZE = 16 * 1024
     blocks, remainder = divmod(length, BUFSIZE)
     for b in xrange(blocks):
@@ -802,19 +801,19 @@ class ExFileObject(object):
         if self.closed:
             raise ValueError("I/O operation on closed file")
 
-        buf = ""
         if self.buffer:
             if size is None:
-                buf = self.buffer
+                buf = self.buffer + self.fileobj.read()
                 self.buffer = ""
             else:
                 buf = self.buffer[:size]
                 self.buffer = self.buffer[size:]
-
-        if size is None:
-            buf += self.fileobj.read()
+                buf += self.fileobj.read(size - len(buf))
         else:
-            buf += self.fileobj.read(size - len(buf))
+            if size is None:
+                buf = self.fileobj.read()
+            else:
+                buf = self.fileobj.read(size)
 
         self.position += len(buf)
         return buf
