@@ -78,7 +78,12 @@ static inline TFunction* type_get_method(cppyy_typehandle_t handle, int method_i
 static inline void fixup_args(G__param* libp) {
     for (int i = 0; i < libp->paran; ++i) {
         libp->para[i].ref = libp->para[i].obj.i;
-        if (libp->para[i].type == 'f') {
+        const char partype = libp->para[i].type;
+        if (partype == 'p')
+            libp->para[i].obj.i = (long)&libp->para[i].ref;
+        else if (partype == 'r')
+            libp->para[i].ref = (long)&libp->para[i].obj.i;
+        else if (partype == 'f') {
             assert(sizeof(float) <= sizeof(long));
             long val = libp->para[i].obj.i;
             void* pval = (void*)&val;

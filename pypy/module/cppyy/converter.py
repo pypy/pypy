@@ -430,6 +430,8 @@ class VoidPtrPtrConverter(TypeConverter):
         x = rffi.cast(rffi.VOIDPP, address)
         obj_address = get_rawobject(space, w_obj)
         x[0] = obj_address
+        typecode = _direct_ptradd(address, capi.c_function_arg_typeoffset())
+        typecode[0] = 'p'
 
 
 class VoidPtrRefConverter(TypeConverter):
@@ -439,6 +441,8 @@ class VoidPtrRefConverter(TypeConverter):
         x = rffi.cast(rffi.VOIDPP, address)
         obj_address = get_rawobject(space, w_obj)
         x[0] = obj_address
+        typecode = _direct_ptradd(address, capi.c_function_arg_typeoffset())
+        typecode[0] = 'r'
 
 
 class ShortArrayConverter(ArrayTypeConverterMixin, TypeConverter):
