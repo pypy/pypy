@@ -87,11 +87,6 @@ class W_ListObject(W_Object):
         strategy = self.strategy = self.space.fromcache(ObjectListStrategy)
         strategy.init_from_list_w(self, list_w)
 
-    def check_empty_strategy(self):
-        if self.length() == 0:
-            self.strategy = self.space.fromcache(EmptyListStrategy)
-            self.strategy.init_from_list_w(self, self.strategy.emptylist)
-
     def clone(self):
         return self.strategy.clone(self)
 
@@ -439,7 +434,6 @@ class RangeListStrategy(ListStrategy):
             else:
                 new = self.cast_to_void_star((l[0],l[1],l[2]-1))
             w_list.lstorage = new
-            w_list.check_empty_strategy()
             return r
 
         self.switch_to_integer_strategy(w_list)
@@ -657,15 +651,12 @@ class AbstractUnwrappedStrategy(object):
             items[start] = other_items[i]
             start += step
 
-        w_list.check_empty_strategy()
-
     def deleteitem(self, w_list, index):
         l = self.cast_from_void_star(w_list.lstorage)
         try:
             del l[index]
         except IndexError:
             raise
-        w_list.check_empty_strategy()
 
     def deleteslice(self, w_list, start, step, slicelength):
         items = self.cast_from_void_star(w_list.lstorage)
@@ -699,8 +690,6 @@ class AbstractUnwrappedStrategy(object):
             assert start >= 0 # annotator hint
             del items[start:]
 
-        w_list.check_empty_strategy()
-
     def pop(self, w_list, index):
         l = self.cast_from_void_star(w_list.lstorage)
         # not sure if RPython raises IndexError on pop
@@ -711,12 +700,9 @@ class AbstractUnwrappedStrategy(object):
             raise
 
         w_item = self.wrap(item)
-
-        w_list.check_empty_strategy()
         return w_item
 
     def mul(self, w_list, times):
-        # clone 
         w_newlist = w_list.clone()
         w_newlist.inplace_mul(times)
         return w_newlist
@@ -939,8 +925,8 @@ def eq__List_List(space, w_list1, w_list2):
     if w_list1.length() != w_list2.length():
         return space.w_False
 
-    #XXX fast path with strategies: not equal => False (except one is ObjectStr)
     i = 0
+                                   # is this necessary?
     while i < w_list1.length() and i < w_list2.length():
         if not space.eq_w(w_list1.getitem(i), w_list2.getitem(i)):
             return space.w_False
