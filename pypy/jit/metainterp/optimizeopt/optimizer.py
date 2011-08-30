@@ -63,7 +63,7 @@ class OptValue(object):
         else:
             self.lenbound = LenBound(mode, descr, IntLowerBound(val + 1))
 
-    def make_guards(self, box, ignore_lenbound=False):
+    def make_guards(self, box):
         guards = []
         if self.level == LEVEL_CONSTANT:
             op = ResOperation(rop.GUARD_VALUE, [box, self.box], None)
@@ -78,7 +78,7 @@ class OptValue(object):
                 op = ResOperation(rop.GUARD_NONNULL, [box], None)
                 guards.append(op)
             self.intbound.make_guards(box, guards)
-            if self.lenbound and not ignore_lenbound:
+            if self.lenbound:
                 lenbox = BoxInt()
                 if self.lenbound.mode == MODE_ARRAY:
                     op = ResOperation(rop.ARRAYLEN_GC, [box], lenbox, self.lenbound.descr)

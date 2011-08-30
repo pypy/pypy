@@ -161,9 +161,9 @@ class UnrollOptimizer(Optimization):
                 if box in seen:
                     continue
                 seen[box] = True
-                value = preamble_optimizer.getvalue(box)
-                inputarg_setup_ops.extend(value.make_guards(box, ignore_lenbound=True))
-                # FIXME: Use a ValueImporter instead of make_guards                
+                preamble_value = preamble_optimizer.getvalue(box)
+                value = self.optimizer.getvalue(box)
+                value.import_from(preamble_value, self.optimizer)
             for box in short_inputargs:
                 if box in seen:
                     continue
