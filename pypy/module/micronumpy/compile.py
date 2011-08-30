@@ -20,6 +20,7 @@ def create_array(dtype, size):
 
 class FakeSpace(object):
     w_ValueError = None
+    w_TypeError = None
 
     def __init__(self):
         """NOT_RPYTHON"""

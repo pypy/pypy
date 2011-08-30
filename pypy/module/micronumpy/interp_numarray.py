@@ -90,30 +90,13 @@ class BaseArray(Wrappable):
     descr_rpow = _binop_right_impl("power")
     descr_rmod = _binop_right_impl("mod")
 
-    def _reduce_sum_prod_impl(op_name, init):
-        reduce_driver = jit.JitDriver(greens=['signature'],
-                         reds = ['i', 'size', 'self', 'result', 'res_dtype'])
-
-        def loop(self, res_dtype, result, size):
-            i = 0
-            while i < size:
-                reduce_driver.jit_merge_point(signature=self.signature,
-                                              self=self, res_dtype=res_dtype,
-                                              size=size, i=i, result=result)
-                result = getattr(res_dtype, op_name)(
-                    result,
-                    self.eval(i).convert_to(res_dtype)
-                )
-                i += 1
-            return result
-
+    def _reduce_ufunc_impl(ufunc_name):
         def impl(self, space):
-            dtype = interp_ufuncs.find_unaryop_result_dtype(
-                space, self.find_dtype(), promote_to_largest=True
-            )
-            result = dtype.adapt_val(init)
-            return loop(self, dtype, result, self.find_size()).wrap(space)
-        return func_with_new_name(impl, "reduce_%s_impl" % op_name)
+            return getattr(interp_ufuncs.get(space), ufunc_name).descr_reduce(space, self)
+        return func_with_new_name(impl, "reduce_%s_impl" % ufunc_name)
+
+    descr_sum = _reduce_ufunc_impl("add")
+    descr_prod = _reduce_ufunc_impl("multiply")
 
     def _reduce_max_min_impl(op_name):
         reduce_driver = jit.JitDriver(greens=['signature'],
@@ -192,8 +175,6 @@ class BaseArray(Wrappable):
     def descr_any(self, space):
         return space.wrap(self._any())
 
-    descr_sum = _reduce_sum_prod_impl("add", 0)
-    descr_prod = _reduce_sum_prod_impl("mul", 1)
     descr_max = _reduce_max_min_impl("max")
     descr_min = _reduce_max_min_impl("min")
     descr_argmax = _reduce_argmax_argmin_impl("max")

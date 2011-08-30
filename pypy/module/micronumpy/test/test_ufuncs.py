@@ -298,3 +298,13 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = arctan(a)
         assert math.isnan(b[0])
 
+    def test_reduce_errors(self):
+        from numpy import sin, add
+
+        raises(ValueError, sin.reduce, [1, 2, 3])
+        raises(TypeError, add.reduce, 1)
+
+    def test_reduce(self):
+        from numpy import add
+
+        assert add.reduce([1, 2, 3]) == 6
