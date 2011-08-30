@@ -43,29 +43,6 @@ static inline std::vector<void*> build_args(int numargs, void* args) {
     return arguments;
 }
 
-static inline size_t base_offset(const Reflex::Type& td, const Reflex::Type& tb, void* address) {
-    // when dealing with virtual inheritance the only (reasonably) well-defined info is
-    // in a Reflex internal base table, that contains all offsets within the hierarchy
-    Reflex::Member getbases = td.FunctionMemberByName(
-           "__getBasesTable", Reflex::Type(), 0, Reflex::INHERITEDMEMBERS_NO, Reflex::DELAYEDLOAD_OFF);
-    if (getbases) {
-        typedef std::vector<std::pair<Reflex::Base, int> > Bases_t;
-        Bases_t* bases;
-        Reflex::Object bases_holder(Reflex::Type::ByTypeInfo(typeid(Bases_t)), &bases);
-        getbases.Invoke(&bases_holder);
-
-        for (Bases_t::iterator ibase = bases->begin(); ibase != bases->end(); ++ibase) {
-            if (ibase->first.ToType() == tb)
-                return ibase->first.Offset(address);
-        }
-
-        // contrary to typical invoke()s, the result of the internal getbases function
-        // is a pointer to a function static, so no delete
-    }
-
-    return 0;
-}
-
 
 /* name to handle --------------------------------------------------------- */
 cppyy_typehandle_t cppyy_get_typehandle(const char* class_name) {
@@ -242,19 +219,35 @@ char* cppyy_base_name(cppyy_typehandle_t handle, int base_index) {
 }
 
 int cppyy_is_subtype(cppyy_typehandle_t dh, cppyy_typehandle_t bh) {
-    if (dh == bh)
-        return 1;
     Reflex::Type td = type_from_handle(dh);
     Reflex::Type tb = type_from_handle(bh);
     return (int)td.HasBase(tb);
 }
 
 size_t cppyy_base_offset(cppyy_typehandle_t dh, cppyy_typehandle_t bh, cppyy_object_t address) {
-    if (dh == bh)
-        return 0;
     Reflex::Type td = type_from_handle(dh);
     Reflex::Type tb = type_from_handle(bh);
-    return (size_t)base_offset(td, tb, (void*)address);
+
+    // when dealing with virtual inheritance the only (reasonably) well-defined info is
+    // in a Reflex internal base table, that contains all offsets within the hierarchy
+    Reflex::Member getbases = td.FunctionMemberByName(
+           "__getBasesTable", Reflex::Type(), 0, Reflex::INHERITEDMEMBERS_NO, Reflex::DELAYEDLOAD_OFF);
+    if (getbases) {
+        typedef std::vector<std::pair<Reflex::Base, int> > Bases_t;
+        Bases_t* bases;
+        Reflex::Object bases_holder(Reflex::Type::ByTypeInfo(typeid(Bases_t)), &bases);
+        getbases.Invoke(&bases_holder);
+
+        for (Bases_t::iterator ibase = bases->begin(); ibase != bases->end(); ++ibase) {
+            if (ibase->first.ToType() == tb)
+                return (size_t)ibase->first.Offset(address);
+        }
+
+        // contrary to typical invoke()s, the result of the internal getbases function
+        // is a pointer to a function static, so no delete
+    }
+
+    return 0;
 }
 
 

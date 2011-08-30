@@ -305,19 +305,40 @@ char* cppyy_base_name(cppyy_typehandle_t handle, int base_index) {
 }
 
 int cppyy_is_subtype(cppyy_typehandle_t dh, cppyy_typehandle_t bh) {
-    if (dh == bh)
-        return 1;
     TClassRef crd = type_from_handle(dh);
     TClassRef crb = type_from_handle(bh);
     return crd->GetBaseClass(crb) != 0;
 }
 
-size_t cppyy_base_offset(cppyy_typehandle_t dh, cppyy_typehandle_t bh, cppyy_object_t) {
-    if (dh == bh)
-        return 0;
+size_t cppyy_base_offset(cppyy_typehandle_t dh, cppyy_typehandle_t bh, cppyy_object_t address) {
     TClassRef crd = type_from_handle(dh);
     TClassRef crb = type_from_handle(bh);
-    return (size_t)crd->GetBaseClassOffset(crb);
+
+    size_t offset = 0;
+
+    if (crd && crb) {
+        G__ClassInfo* bci = (G__ClassInfo*)crb->GetClassInfo();
+        G__ClassInfo* dci = (G__ClassInfo*)crd->GetClassInfo();
+
+        if (bci && dci) {
+#ifdef WIN32
+            // Windows cannot cast-to-derived for virtual inheritance
+            // with CINT's (or Reflex's) interfaces.
+            long baseprop = dci->IsBase(*bci);
+            if (!baseprop || (baseprop & G__BIT_ISVIRTUALBASE))
+                offset = (size_t)crd->GetBaseClassOffset(crb);
+            else
+#endif
+                offset = G__isanybase(bci->Tagnum(), dci->Tagnum(), (long)address);
+         } else {
+             offset = (size_t)crd->GetBaseClassOffset(crb);
+         }
+    }
+
+    if (offset < 0)      // error return of G__isanybase()
+        return 0;
+
+    return offset;
 }
 
 
