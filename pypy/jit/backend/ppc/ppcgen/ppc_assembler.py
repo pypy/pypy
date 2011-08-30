@@ -1354,10 +1354,12 @@ class PPCBuilder(PPCAssembler):
         base_box = args[0]
         base_reg = cpu.reg_map[base_box]
         free_reg = cpu.next_free_register
+        _, _, ofs_length = symbolic.get_array_token(rstr.STR, 
+                           cpu.translate_support_code)
         if IS_PPC_32:
-            self.lwz(free_reg, base_reg, 4)
+            self.lwz(free_reg, base_reg, ofs_length)
         else:
-            self.ld(free_reg, base_reg, 8)
+            self.ld(free_reg, base_reg, ofs_length)
         result = op.result
         cpu.reg_map[result] = free_reg
         cpu.next_free_register += 1
