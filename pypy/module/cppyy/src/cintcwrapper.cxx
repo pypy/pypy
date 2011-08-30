@@ -407,6 +407,12 @@ size_t cppyy_data_member_offset(cppyy_typehandle_t handle, int data_member_index
 }
 
 
+int cppyy_is_publicdata(cppyy_typehandle_t handle, int data_member_index) {
+    TClassRef cr = type_from_handle(handle);
+    TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(data_member_index);
+    return m->Property() & G__BIT_ISPUBLIC;
+}
+
 int cppyy_is_staticdata(cppyy_typehandle_t handle, int data_member_index) {
     TClassRef cr = type_from_handle(handle);
     TDataMember* m = (TDataMember*)cr->GetListOfDataMembers()->At(data_member_index);
