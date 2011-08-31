@@ -1153,7 +1153,11 @@ def force_cast(RESTYPE, value):
         # an OverflowError on the following line.
         cvalue = ctypes.cast(ctypes.c_void_p(cvalue), cresulttype)
     else:
-        cvalue = cresulttype(cvalue).value   # mask high bits off if needed
+        try:
+            cvalue = cresulttype(cvalue).value   # mask high bits off if needed
+        except TypeError:
+            cvalue = int(cvalue)   # float -> int
+            cvalue = cresulttype(cvalue).value   # try again
     return ctypes2lltype(RESTYPE, cvalue)
 
 class ForceCastEntry(ExtRegistryEntry):
