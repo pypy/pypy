@@ -468,7 +468,7 @@ class BaseBackendTest(Runner):
             assert longlong.getrealfloat(x) == 3.5 - 42
 
     def test_call(self):
-        from pypy.rlib.libffi import types
+        from pypy.rlib.libffi import types, FUNCFLAG_CDECL
 
         def func_int(a, b):
             return a + b
@@ -498,7 +498,7 @@ class BaseBackendTest(Runner):
             # then, try it with the dynamic calldescr
             dyn_calldescr = cpu.calldescrof_dynamic([ffi_type, ffi_type], ffi_type,
                                                     EffectInfo.MOST_GENERAL,
-                                                    ffi_flags=0)
+                                                    ffi_flags=FUNCFLAG_CDECL)
             res = self.execute_operation(rop.CALL,
                                          [funcbox, BoxInt(num), BoxInt(num)],
                                          'int', descr=dyn_calldescr)
@@ -1945,7 +1945,7 @@ class LLtypeBackendTest(BaseBackendTest):
         assert values == [1, 10]
 
     def test_call_to_c_function(self):
-        from pypy.rlib.libffi import CDLL, types, ArgChain
+        from pypy.rlib.libffi import CDLL, types, ArgChain, FUNCFLAG_CDECL
         from pypy.rpython.lltypesystem.ll2ctypes import libc_name
         libc = CDLL(libc_name)
         c_tolower = libc.getpointer('tolower', [types.uchar], types.sint)
@@ -1957,7 +1957,7 @@ class LLtypeBackendTest(BaseBackendTest):
         funcbox = ConstInt(heaptracker.adr2int(func_adr))
         calldescr = cpu.calldescrof_dynamic([types.uchar], types.sint,
                                             EffectInfo.MOST_GENERAL,
-                                            ffi_flags=0)
+                                            ffi_flags=FUNCFLAG_CDECL)
         i1 = BoxInt()
         i2 = BoxInt()
         tok = BoxInt()
@@ -2015,7 +2015,7 @@ class LLtypeBackendTest(BaseBackendTest):
                                              types_size_t, types.pointer],
                                             types.void,
                                             EffectInfo.MOST_GENERAL,
-                                            ffi_flags=0)
+                                            ffi_flags=clibffi.FUNCFLAG_CDECL)
         i0 = BoxInt()
         i1 = BoxInt()
         i2 = BoxInt()
