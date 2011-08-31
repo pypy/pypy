@@ -402,8 +402,8 @@ class ClosureHeap(object):
 
 closureHeap = ClosureHeap()
 
-FUNCFLAG_STDCALL   = 0
-FUNCFLAG_CDECL     = 1  # for WINAPI calls
+FUNCFLAG_STDCALL   = 0    # on Windows: for WINAPI calls
+FUNCFLAG_CDECL     = 1    # on Windows: for __cdecl calls
 FUNCFLAG_PYTHONAPI = 4
 FUNCFLAG_USE_ERRNO = 8
 FUNCFLAG_USE_LASTERROR = 16
