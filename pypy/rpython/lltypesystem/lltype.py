@@ -1283,6 +1283,8 @@ class _abstract_ptr(object):
         try:
             return p._obj._hash_cache_
         except AttributeError:
+            assert self._T._gckind == 'gc'
+            assert self      # not for NULL
             result = hash(p._obj)
             if cache:
                 try:

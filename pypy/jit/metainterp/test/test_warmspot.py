@@ -263,6 +263,29 @@ class WarmspotTests(object):
                     pass   # other case
         self.meta_interp(f1, [18])
 
+    def test_bug_constant_rawptrs(self):
+        from pypy.rpython.lltypesystem import lltype, rffi
+        mydriver = JitDriver(greens=['a'], reds=['m'])
+        def f1(m):
+            a = lltype.nullptr(rffi.VOIDP.TO)
+            while m > 0:
+                mydriver.jit_merge_point(a=a, m=m)
+                m = m - 1
+        self.meta_interp(f1, [18])
+
+    def test_bug_rawptrs(self):
+        from pypy.rpython.lltypesystem import lltype, rffi
+        mydriver = JitDriver(greens=['a'], reds=['m'])
+        def f1(m):
+            a = lltype.malloc(rffi.VOIDP.TO, 5, flavor='raw')
+            while m > 0:
+                mydriver.jit_merge_point(a=a, m=m)
+                m = m - 1
+                if m == 10:
+                    pass
+            lltype.free(a, flavor='raw')
+        self.meta_interp(f1, [18])
+
 
 class TestLLWarmspot(WarmspotTests, LLJitMixin):
     CPUClass = runner.LLtypeCPU
