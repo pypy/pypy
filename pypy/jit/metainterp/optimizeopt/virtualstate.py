@@ -531,6 +531,8 @@ class ShortBoxes(object):
         allops = None
         for i in range(len(op.getarglist())):
             arg = op.getarg(i)
+            if len(self.duplicates) > 5:
+                debug_print("Refusing to duplicate short box %d times." % len(self.duplicates))
             if arg in self.duplicates:
                 if not allops:
                     allops = [op]
