@@ -408,11 +408,12 @@ FUNCFLAG_PYTHONAPI = 4
 FUNCFLAG_USE_ERRNO = 8
 FUNCFLAG_USE_LASTERROR = 16
 
-def get_call_conv(flags):
+def get_call_conv(flags, from_jit):
     if _WIN32 and (flags & FUNCFLAG_CDECL == 0):
         return FFI_STDCALL
     else:
         return FFI_DEFAULT_ABI
+get_call_conv._annspecialcase_ = 'specialize:arg(1)'     # hack :-/
 
 
 class AbstractFuncPtr(object):
@@ -443,7 +444,7 @@ class AbstractFuncPtr(object):
                 elif restype.c_size <= 8:
                     restype = ffi_type_sint64
 
-        res = c_ffi_prep_cif(self.ll_cif, get_call_conv(flags),
+        res = c_ffi_prep_cif(self.ll_cif, get_call_conv(flags, False),
                              rffi.cast(rffi.UINT, argnum), restype,
                              self.ll_argtypes)
         if not res == FFI_OK:

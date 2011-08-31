@@ -433,6 +433,91 @@ class TestX86(LLtypeBackendTest):
                 ops_offset[operations[2]] <=
                 ops_offset[None])
 
+    def test_calling_convention(self):
+        if WORD != 4:
+            py.test.skip("32-bit only test")
+        from pypy.jit.backend.x86.regloc import eax, edx
+        from pypy.jit.backend.x86 import codebuf
+        from pypy.jit.codewriter.effectinfo import EffectInfo
+        from pypy.rlib.libffi import types, clibffi
+        had_stdcall = hasattr(clibffi, 'FFI_STDCALL')
+        if not had_stdcall:    # not running on Windows, but we can still test
+            clibffi.FFI_STDCALL = 12345
+        #
+        for ffi in [clibffi.FFI_DEFAULT_ABI, clibffi.FFI_STDCALL]:
+            cpu = self.cpu
+            mc = codebuf.MachineCodeBlockWrapper()
+            mc.MOV_rs(eax.value, 4)      # argument 1
+            mc.MOV_rs(edx.value, 40)     # argument 10
+            mc.SUB_rr(eax.value, edx.value)     # return arg1 - arg10
+            if ffi == clibffi.FFI_DEFAULT_ABI:
+                mc.RET()
+            else:
+                mc.RET16_i(40)
+            rawstart = mc.materialize(cpu.asmmemmgr, [])
+            #
+            calldescr = cpu.calldescrof_dynamic([types.slong] * 10,
+                                                types.slong,
+                                                EffectInfo.MOST_GENERAL,
+                                                ffi_flags=-1)
+            calldescr.get_call_conv = lambda: ffi      # <==== hack
+            funcbox = ConstInt(rawstart)
+            i1 = BoxInt()
+            i2 = BoxInt()
+            i3 = BoxInt()
+            i4 = BoxInt()
+            i5 = BoxInt()
+            i6 = BoxInt()
+            c = ConstInt(-1)
+            faildescr = BasicFailDescr(1)
+            # we must call it repeatedly: if the stack pointer gets increased
+            # by 40 bytes by the STDCALL call, and if we don't expect it,
+            # then we are going to get our stack emptied unexpectedly by
+            # several repeated calls
+            ops = [
+            ResOperation(rop.CALL_RELEASE_GIL,
+                         [funcbox, i1, c, c, c, c, c, c, c, c, i2],
+                         i3, descr=calldescr),
+            ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+
+            ResOperation(rop.CALL_RELEASE_GIL,
+                         [funcbox, i1, c, c, c, c, c, c, c, c, i2],
+                         i4, descr=calldescr),
+            ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+
+            ResOperation(rop.CALL_RELEASE_GIL,
+                         [funcbox, i1, c, c, c, c, c, c, c, c, i2],
+                         i5, descr=calldescr),
+            ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+
+            ResOperation(rop.CALL_RELEASE_GIL,
+                         [funcbox, i1, c, c, c, c, c, c, c, c, i2],
+                         i6, descr=calldescr),
+            ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+
+            ResOperation(rop.FINISH, [i3, i4, i5, i6], None,
+                         descr=BasicFailDescr(0))
+            ]
+            ops[1].setfailargs([])
+            ops[3].setfailargs([])
+            ops[5].setfailargs([])
+            ops[7].setfailargs([])
+            looptoken = LoopToken()
+            self.cpu.compile_loop([i1, i2], ops, looptoken)
+
+            self.cpu.set_future_value_int(0, 123450)
+            self.cpu.set_future_value_int(1, 123408)
+            fail = self.cpu.execute_token(looptoken)
+            assert fail.identifier == 0
+            assert self.cpu.get_latest_value_int(0) == 42
+            assert self.cpu.get_latest_value_int(1) == 42
+            assert self.cpu.get_latest_value_int(2) == 42
+            assert self.cpu.get_latest_value_int(3) == 42
+
+        if not had_stdcall:
+            del clibffi.FFI_STDCALL
+
+
 class TestDebuggingAssembler(object):
     def setup_method(self, meth):
         self.cpu = CPU(rtyper=None, stats=FakeStats())
