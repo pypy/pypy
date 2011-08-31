@@ -7127,6 +7127,24 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_exploding_duplicatipon(self):
+        ops = """
+        [i1, i2]
+        i3 = int_add(i1, i1)
+        i4 = int_add(i3, i3)
+        i5 = int_add(i4, i4)
+        i6 = int_add(i5, i5)
+        call(i6, descr=nonwritedescr)
+        jump(i1, i3)
+        """
+        expected = """
+        [i1, i3, i20, i18]
+        i26 = int_add(i20, i20)
+        call(i26, descr=nonwritedescr)
+        jump(i1, i18, i20, i18)
+        """
+        self.optimize_loop(ops, expected)
+
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
         
