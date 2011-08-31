@@ -408,6 +408,13 @@ FUNCFLAG_PYTHONAPI = 4
 FUNCFLAG_USE_ERRNO = 8
 FUNCFLAG_USE_LASTERROR = 16
 
+def get_call_conv(flags):
+    if _WIN32 and (flags & FUNCFLAG_CDECL == 0):
+        return FFI_STDCALL
+    else:
+        return FFI_DEFAULT_ABI
+
+
 class AbstractFuncPtr(object):
     ll_cif = lltype.nullptr(FFI_CIFP.TO)
     ll_argtypes = lltype.nullptr(FFI_TYPE_PP.TO)
@@ -427,11 +434,6 @@ class AbstractFuncPtr(object):
         self.ll_cif = lltype.malloc(FFI_CIFP.TO, flavor='raw',
                                     track_allocation=False) # freed by the __del__
 
-        if _WIN32 and (flags & FUNCFLAG_CDECL == 0):
-            cc = FFI_STDCALL
-        else:
-            cc = FFI_DEFAULT_ABI
-
         if _MSVC:
             # This little trick works correctly with MSVC.
             # It returns small structures in registers
@@ -441,7 +443,7 @@ class AbstractFuncPtr(object):
                 elif restype.c_size <= 8:
                     restype = ffi_type_sint64
 
-        res = c_ffi_prep_cif(self.ll_cif, cc,
+        res = c_ffi_prep_cif(self.ll_cif, get_call_conv(flags),
                              rffi.cast(rffi.UINT, argnum), restype,
                              self.ll_argtypes)
         if not res == FFI_OK:

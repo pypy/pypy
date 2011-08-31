@@ -289,6 +289,10 @@ class BaseCallDescr(AbstractDescr):
     def get_ffi_flags(self):
         return self.ffi_flags
 
+    def get_call_conv(self):
+        from pypy.rlib.clibffi import get_call_conv
+        return get_call_conv(self.ffi_flags)
+
     def get_arg_types(self):
         return self.arg_classes
 

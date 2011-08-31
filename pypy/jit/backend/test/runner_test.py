@@ -2041,6 +2041,57 @@ class LLtypeBackendTest(BaseBackendTest):
         assert len(glob.lst) > 0
         lltype.free(raw, flavor='raw')
 
+    def test_call_to_winapi_function(self):
+        from pypy.rlib.clibffi import _WIN32, FUNCFLAG_STDCALL
+        if not _WIN32:
+            py.test.skip("Windows test only")
+        from pypy.rlib.libffi import CDLL, types, ArgChain
+        from pypy.rlib.rwin32 import DWORD
+        libc = CDLL('KERNEL32')
+        c_GetCurrentDir = libc.getpointer('GetCurrentDirectoryA',
+                                          [types.ulong, types.pointer],
+                                          types.ulong)
+
+        cwd = os.getcwd()
+        buflen = len(cwd) + 10
+        buffer = lltype.malloc(rffi.CCHARP.TO, buflen, flavor='raw')
+        argchain = ArgChain().arg(rffi.cast(DWORD, buflen)).arg(buffer)
+        res = c_GetCurrentDir.call(argchain, DWORD)
+        assert rffi.cast(lltype.Signed, res) == len(cwd)
+        assert rffi.charp2strn(buffer, buflen) == cwd
+        lltype.free(buffer, flavor='raw')
+
+        cpu = self.cpu
+        func_adr = llmemory.cast_ptr_to_adr(c_GetCurrentDir.funcsym)
+        funcbox = ConstInt(heaptracker.adr2int(func_adr))
+        calldescr = cpu.calldescrof_dynamic([types.ulong, types.pointer],
+                                            types.ulong,
+                                            EffectInfo.MOST_GENERAL,
+                                            ffi_flags=FUNCFLAG_STDCALL)
+        i1 = BoxInt()
+        i2 = BoxInt()
+        i3 = BoxInt()
+        tok = BoxInt()
+        faildescr = BasicFailDescr(1)
+        ops = [
+        ResOperation(rop.CALL_RELEASE_GIL, [funcbox, i1, i2], i3,
+                     descr=calldescr),
+        ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+        ResOperation(rop.FINISH, [i3], None, descr=BasicFailDescr(0))
+        ]
+        ops[1].setfailargs([])
+        looptoken = LoopToken()
+        self.cpu.compile_loop([i1, i2], ops, looptoken)
+
+        buffer = lltype.malloc(rffi.CCHARP.TO, buflen, flavor='raw')
+        self.cpu.set_future_value_int(0, buflen)
+        self.cpu.set_future_value_int(1, rffi.cast(lltype.Signed, buffer))
+        fail = self.cpu.execute_token(looptoken)
+        assert fail.identifier == 0
+        assert self.cpu.get_latest_value_int(0) == len(cwd)
+        assert rffi.charp2strn(buffer, buflen) == cwd
+        lltype.free(buffer, flavor='raw')
+
     def test_guard_not_invalidated(self):
         cpu = self.cpu
         i0 = BoxInt()
