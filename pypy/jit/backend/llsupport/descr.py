@@ -260,10 +260,12 @@ class BaseCallDescr(AbstractDescr):
     _clsname = ''
     loop_token = None
     arg_classes = ''     # <-- annotation hack
+    ffi_flags = 0
 
-    def __init__(self, arg_classes, extrainfo=None):
+    def __init__(self, arg_classes, extrainfo=None, ffi_flags=0):
         self.arg_classes = arg_classes    # string of "r" and "i" (ref/int)
         self.extrainfo = extrainfo
+        self.ffi_flags = ffi_flags
 
     def __repr__(self):
         res = '%s(%s)' % (self.__class__.__name__, self.arg_classes)
@@ -283,6 +285,13 @@ class BaseCallDescr(AbstractDescr):
 
     def get_extra_info(self):
         return self.extrainfo
+
+    def get_ffi_flags(self):
+        return self.ffi_flags
+
+    def get_call_conv(self):
+        from pypy.rlib.clibffi import get_call_conv
+        return get_call_conv(self.ffi_flags)
 
     def get_arg_types(self):
         return self.arg_classes
@@ -391,8 +400,8 @@ class DynamicIntCallDescr(BaseIntCallDescr):
     """
     _clsname = 'DynamicIntCallDescr'
 
-    def __init__(self, arg_classes, result_size, result_sign, extrainfo=None):
-        BaseIntCallDescr.__init__(self, arg_classes, extrainfo)
+    def __init__(self, arg_classes, result_size, result_sign, extrainfo=None, ffi_flags=0):
+        BaseIntCallDescr.__init__(self, arg_classes, extrainfo, ffi_flags)
         assert isinstance(result_sign, bool)
         self._result_size = chr(result_size)
         self._result_sign = result_sign

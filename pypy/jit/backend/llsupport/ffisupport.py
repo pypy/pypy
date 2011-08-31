@@ -8,7 +8,7 @@ from pypy.jit.backend.llsupport.descr import (
 class UnsupportedKind(Exception):
     pass
 
-def get_call_descr_dynamic(cpu, ffi_args, ffi_result, extrainfo=None):
+def get_call_descr_dynamic(cpu, ffi_args, ffi_result, extrainfo=None, ffi_flags=0):
     """Get a call descr: the types of result and args are represented by
     rlib.libffi.types.*"""
     try:
@@ -20,18 +20,24 @@ def get_call_descr_dynamic(cpu, ffi_args, ffi_result, extrainfo=None):
     if reskind == history.INT:
         size = intmask(ffi_result.c_size)
         signed = is_ffi_type_signed(ffi_result)
-        return DynamicIntCallDescr(arg_classes, size, signed, extrainfo)
+        return DynamicIntCallDescr(arg_classes, size, signed, extrainfo,
+                                   ffi_flags=ffi_flags)
     elif reskind == history.REF:
-        return  NonGcPtrCallDescr(arg_classes, extrainfo)
+        return  NonGcPtrCallDescr(arg_classes, extrainfo,
+                                  ffi_flags=ffi_flags)
     elif reskind == history.FLOAT:
-        return FloatCallDescr(arg_classes, extrainfo)
+        return FloatCallDescr(arg_classes, extrainfo,
+                              ffi_flags=ffi_flags)
     elif reskind == history.VOID:
-        return VoidCallDescr(arg_classes, extrainfo)
+        return VoidCallDescr(arg_classes, extrainfo,
+                             ffi_flags=ffi_flags)
     elif reskind == 'L':
-        return LongLongCallDescr(arg_classes, extrainfo)
+        return LongLongCallDescr(arg_classes, extrainfo,
+                                 ffi_flags=ffi_flags)
     elif reskind == 'S':
         SingleFloatCallDescr = getCallDescrClass(rffi.FLOAT)
-        return SingleFloatCallDescr(arg_classes, extrainfo)
+        return SingleFloatCallDescr(arg_classes, extrainfo,
+                                    ffi_flags=ffi_flags)
     assert False
 
 def get_ffi_type_kind(cpu, ffi_type):
