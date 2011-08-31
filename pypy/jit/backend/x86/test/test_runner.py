@@ -439,20 +439,18 @@ class TestX86(LLtypeBackendTest):
         from pypy.jit.backend.x86.regloc import eax, edx
         from pypy.jit.backend.x86 import codebuf
         from pypy.jit.codewriter.effectinfo import EffectInfo
-        from pypy.rlib.libffi import types
-        from pypy.rlib.clibffi import FFI_DEFAULT_ABI
-        try:
-            from pypy.rlib.clibffi import FFI_STDCALL
-        except ImportError:
-            FFI_STDCALL = 12345     # not on Windows, but we can still test
-
-        for ffi in [FFI_DEFAULT_ABI, FFI_STDCALL]:
+        from pypy.rlib.libffi import types, clibffi
+        had_stdcall = hasattr(clibffi, 'FFI_STDCALL')
+        if not had_stdcall:    # not running on Windows, but we can still test
+            clibffi.FFI_STDCALL = 12345
+        #
+        for ffi in [clibffi.FFI_DEFAULT_ABI, clibffi.FFI_STDCALL]:
             cpu = self.cpu
             mc = codebuf.MachineCodeBlockWrapper()
             mc.MOV_rs(eax.value, 4)      # argument 1
             mc.MOV_rs(edx.value, 40)     # argument 10
             mc.SUB_rr(eax.value, edx.value)     # return arg1 - arg10
-            if ffi == FFI_DEFAULT_ABI:
+            if ffi == clibffi.FFI_DEFAULT_ABI:
                 mc.RET()
             else:
                 mc.RET16_i(40)
@@ -515,6 +513,9 @@ class TestX86(LLtypeBackendTest):
             assert self.cpu.get_latest_value_int(1) == 42
             assert self.cpu.get_latest_value_int(2) == 42
             assert self.cpu.get_latest_value_int(3) == 42
+
+        if not had_stdcall:
+            del clibffi.FFI_STDCALL
 
 
 class TestDebuggingAssembler(object):
