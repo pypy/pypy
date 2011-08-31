@@ -97,29 +97,8 @@ class BaseArray(Wrappable):
 
     descr_sum = _reduce_ufunc_impl("add")
     descr_prod = _reduce_ufunc_impl("multiply")
-
-    def _reduce_max_min_impl(op_name):
-        reduce_driver = jit.JitDriver(greens=['signature'],
-                         reds = ['i', 'size', 'self', 'result', 'dtype'])
-        def loop(self, result, size):
-            i = 1
-            dtype = self.find_dtype()
-            while i < size:
-                reduce_driver.jit_merge_point(signature=self.signature,
-                                              self=self, dtype=dtype,
-                                              size=size, i=i, result=result)
-                result = getattr(dtype, op_name)(result, self.eval(i))
-                i += 1
-            return result
-
-        def impl(self, space):
-            size = self.find_size()
-            if size == 0:
-                raise OperationError(space.w_ValueError,
-                    space.wrap("Can't call %s on zero-size arrays" \
-                            % op_name))
-            return loop(self, self.eval(0), size).wrap(space)
-        return func_with_new_name(impl, "reduce_%s_impl" % op_name)
+    descr_max = _reduce_ufunc_impl("maximum")
+    descr_min = _reduce_ufunc_impl("minimum")
 
     def _reduce_argmax_argmin_impl(op_name):
         reduce_driver = jit.JitDriver(greens=['signature'],
@@ -175,8 +154,6 @@ class BaseArray(Wrappable):
     def descr_any(self, space):
         return space.wrap(self._any())
 
-    descr_max = _reduce_max_min_impl("max")
-    descr_min = _reduce_max_min_impl("min")
     descr_argmax = _reduce_argmax_argmin_impl("max")
     descr_argmin = _reduce_argmax_argmin_impl("min")
 

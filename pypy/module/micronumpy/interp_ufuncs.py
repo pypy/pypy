@@ -1,5 +1,5 @@
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.module.micronumpy import interp_dtype, signature
@@ -41,28 +41,36 @@ class W_Ufunc(Wrappable):
         from pypy.module.micronumpy.interp_numarray import convert_to_array, Scalar
 
         if self.argcount != 2:
-            raise OperationError(space.w_ValueError, space.wrap("reduce only supported for binary functions"))
-        if self.identity is None:
-            raise OperationError(space.w_NotImplementedError, space.wrap("%s is missing its identity value" % self.name))
+            raise OperationError(space.w_ValueError, space.wrap("reduce only "
+                "supported for binary functions"))
 
         assert isinstance(self, W_Ufunc2)
         obj = convert_to_array(space, w_obj)
         if isinstance(obj, Scalar):
-            raise OperationError(space.w_TypeError, space.wrap("cannot reduce on a scalar"))
+            raise OperationError(space.w_TypeError, space.wrap("cannot reduce "
+                "on a scalar"))
 
         size = obj.find_size()
         dtype = find_unaryop_result_dtype(
             space, obj.find_dtype(),
             promote_to_largest=True
         )
-        value = self.identity.convert_to(dtype)
+        start = 0
+        if self.identity is None:
+            if size == 0:
+                raise operationerrfmt(space.w_ValueError, "zero-size array to "
+                    "%s.reduce without identity", self.name)
+            value = obj.eval(0).convert_to(dtype)
+            start += 1
+        else:
+            value = self.identity.convert_to(dtype)
         new_sig = signature.Signature.find_sig([
             self.reduce_signature, obj.signature
         ])
-        return self.reduce(new_sig, value, obj, dtype, size).wrap(space)
+        return self.reduce(new_sig, start, value, obj, dtype, size).wrap(space)
 
-    def reduce(self, signature, value, obj, dtype, size):
-        i = 0
+    def reduce(self, signature, start, value, obj, dtype, size):
+        i = start
         while i < size:
             reduce_driver.jit_merge_point(signature=signature, self=self,
                                           value=value, obj=obj, i=i,

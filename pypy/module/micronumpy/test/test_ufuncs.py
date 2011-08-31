@@ -305,6 +305,9 @@ class AppTestUfuncs(BaseNumpyAppTest):
         raises(TypeError, add.reduce, 1)
 
     def test_reduce(self):
-        from numpy import add
+        from numpy import add, maximum
 
         assert add.reduce([1, 2, 3]) == 6
+        assert maximum.reduce([1]) == 1
+        assert maximum.reduce([1, 2, 3]) == 3
+        raises(ValueError, maximum.reduce, [])

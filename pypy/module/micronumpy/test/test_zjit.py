@@ -90,14 +90,21 @@ class TestNumpyJIt(LLJitMixin):
     def test_max(self):
         space = self.space
         float64_dtype = self.float64_dtype
+        int64_dtype = self.int64_dtype
 
         def f(i):
-            ar = SingleDimArray(i, dtype=NonConstant(float64_dtype))
+            if NonConstant(False):
+                dtype = int64_dtype
+            else:
+                dtype = float64_dtype
+            ar = SingleDimArray(i, dtype=dtype)
             j = 0
             while j < i:
                 ar.get_concrete().setitem(j, float64_dtype.box(float(j)))
                 j += 1
-            return ar.descr_add(space, ar).descr_max(space).floatval
+            v = ar.descr_add(space, ar).descr_max(space)
+            assert isinstance(v, FloatObject)
+            return v.floatval
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
         self.check_loops({"getarrayitem_raw": 2, "float_add": 1,
@@ -109,14 +116,21 @@ class TestNumpyJIt(LLJitMixin):
     def test_min(self):
         space = self.space
         float64_dtype = self.float64_dtype
+        int64_dtype = self.int64_dtype
 
         def f(i):
-            ar = SingleDimArray(i, dtype=NonConstant(float64_dtype))
+            if NonConstant(False):
+                dtype = int64_dtype
+            else:
+                dtype = float64_dtype
+            ar = SingleDimArray(i, dtype=dtype)
             j = 0
             while j < i:
                 ar.get_concrete().setitem(j, float64_dtype.box(float(j)))
                 j += 1
-            return ar.descr_add(space, ar).descr_min(space).floatval
+            v = ar.descr_add(space, ar).descr_min(space)
+            assert isinstance(v, FloatObject)
+            return v.floatval
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
         self.check_loops({"getarrayitem_raw": 2, "float_add": 1,
