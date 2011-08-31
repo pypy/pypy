@@ -1395,6 +1395,23 @@ class PPCBuilder(PPCAssembler):
         self.addi(ptr_reg, ptr_reg, basesize)
         self.stbx(value_reg, ptr_reg, offset_reg)
 
+    def emit_call(self, op, cpu):
+        call_addr = rffi.cast(lltype.Signed, op.getarg(0).value)
+        args = op.getarglist()[1:]
+        descr = op.getdescr()
+
+        arg_reg = 3
+        for arg in args:
+            self.mr(arg_reg, cpu.reg_map[arg])
+            arg_reg += 1
+
+        self.load_word(0, call_addr)
+        self.mtctr(0)
+        self.bctrl()
+
+        result = op.result
+        cpu.reg_map[result] = 3
+
     ############################
     # unary integer operations #
     ############################
@@ -1540,6 +1557,9 @@ class PPCBuilder(PPCAssembler):
                 self.store_reg(cpu.next_free_register, addr)
             else:
                 assert 0, "arg type not suported"
+        self.lwz(0, 1, 36)
+        self.mtlr(0)
+        self.addi(1, 1, 32)
         self.load_word(3, identifier)
         self.blr()
 

@@ -56,10 +56,11 @@ class PPC_64_CPU(AbstractLLCPU):
         
         self.startpos = codebuilder.get_relative_pos()
 
+        self._make_prologue(codebuilder)
         self._walk_trace_ops(codebuilder, operations)
         self._make_epilogue(codebuilder)
 
-        f = codebuilder.assemble()
+        f = codebuilder.assemble(True)
         looptoken.ppc_code = f
         looptoken.codebuilder = codebuilder
         self.total_compiled_loops += 1
@@ -104,6 +105,11 @@ class PPC_64_CPU(AbstractLLCPU):
         self.next_free_register += 1
         return reg
 
+    def _make_prologue(self, codebuilder):
+        codebuilder.stwu(1, 1, -32)
+        codebuilder.mflr(0)
+        codebuilder.stw(0, 1, 36)
+
     def _make_epilogue(self, codebuilder):
         for op_index, fail_index, guard, reglist in self.patch_list:
             curpos = codebuilder.get_relative_pos()
@@ -128,6 +134,10 @@ class PPC_64_CPU(AbstractLLCPU):
             descr.patch_op = patch_op
             descr.patch_pos = patch_pos
             descr.used_mem_indices = used_mem_indices
+
+            codebuilder.lwz(0, 1, 36)
+            codebuilder.mtlr(0)
+            codebuilder.addi(1, 1, 32)
 
             codebuilder.li(3, fail_index)            
             codebuilder.blr()
