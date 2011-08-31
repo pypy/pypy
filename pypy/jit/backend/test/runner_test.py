@@ -2070,16 +2070,21 @@ class LLtypeBackendTest(BaseBackendTest):
                                             ffi_flags=FUNCFLAG_STDCALL)
         i1 = BoxInt()
         i2 = BoxInt()
-        i3 = BoxInt()
-        tok = BoxInt()
         faildescr = BasicFailDescr(1)
-        ops = [
-        ResOperation(rop.CALL_RELEASE_GIL, [funcbox, i1, i2], i3,
-                     descr=calldescr),
-        ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
-        ResOperation(rop.FINISH, [i3], None, descr=BasicFailDescr(0))
+        # if the stdcall convention is ignored, then ESP is wrong after the
+        # call: 8 bytes too much.  If we repeat the call often enough, crash.
+        ops = []
+        for i in range(50):
+            i3 = BoxInt()
+            ops += [
+                ResOperation(rop.CALL_RELEASE_GIL, [funcbox, i1, i2], i3,
+                             descr=calldescr),
+                ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+                ]
+            ops[-1].setfailargs([])
+        ops += [
+            ResOperation(rop.FINISH, [i3], None, descr=BasicFailDescr(0))
         ]
-        ops[1].setfailargs([])
         looptoken = LoopToken()
         self.cpu.compile_loop([i1, i2], ops, looptoken)
 
