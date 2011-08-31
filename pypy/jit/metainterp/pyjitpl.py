@@ -15,7 +15,7 @@ from pypy.jit.metainterp.logger import Logger
 from pypy.jit.metainterp.jitprof import EmptyProfiler
 from pypy.jit.metainterp.jitprof import GUARDS, RECORDED_OPS, ABORT_ESCAPE
 from pypy.jit.metainterp.jitprof import ABORT_TOO_LONG, ABORT_BRIDGE, \
-                                        ABORT_FORCE_QUASIIMMUT
+                                        ABORT_FORCE_QUASIIMMUT, ABORT_BAD_LOOP
 from pypy.jit.metainterp.jitexc import JitException, get_llexception
 from pypy.rlib.objectmodel import specialize
 from pypy.jit.codewriter.jitcode import JitCode, SwitchDictDescr
@@ -231,6 +231,10 @@ class MIFrame(object):
     @arguments("box")
     def opimpl_ptr_iszero(self, box):
         return self.execute(rop.PTR_EQ, box, history.CONST_NULL)
+
+    @arguments("box")
+    def opimpl_cast_opaque_ptr(self, box):
+        return self.execute(rop.CAST_OPAQUE_PTR, box)
 
     @arguments("box")
     def _opimpl_any_return(self, box):
@@ -1268,10 +1272,8 @@ class MIFrame(object):
         assert i == len(allboxes)
         #
         effectinfo = descr.get_extra_info()
-        if (effectinfo is None or
-                effectinfo.extraeffect ==
-                             effectinfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE or
-                assembler_call):
+        if (assembler_call or
+                effectinfo.check_forces_virtual_or_virtualizable()):
             # residual calls require attention to keep virtualizables in-sync
             self.metainterp.clear_exception()
             self.metainterp.vable_and_vrefs_before_residual_call()
@@ -1440,6 +1442,7 @@ class MetaInterpStaticData(object):
                 # can change from run to run.
                 d = {}
                 for jitcode in self.indirectcalltargets:
+                    assert jitcode.fnaddr not in d
                     d[jitcode.fnaddr] = jitcode
                 self.globaldata.indirectcall_dict = d
             return d.get(fnaddress, None)
@@ -1703,12 +1706,11 @@ class MetaInterp(object):
             return
         if opnum == rop.CALL:
             effectinfo = descr.get_extra_info()
-            if effectinfo is not None:
-                ef = effectinfo.extraeffect
-                if ef == effectinfo.EF_LOOPINVARIANT or \
-                   ef == effectinfo.EF_ELIDABLE_CANNOT_RAISE or \
-                   ef == effectinfo.EF_ELIDABLE_CAN_RAISE:
-                    return
+            ef = effectinfo.extraeffect
+            if ef == effectinfo.EF_LOOPINVARIANT or \
+               ef == effectinfo.EF_ELIDABLE_CANNOT_RAISE or \
+               ef == effectinfo.EF_ELIDABLE_CAN_RAISE:
+                return
         if self.heap_cache:
             self.heap_cache.clear()
         if self.heap_array_cache:

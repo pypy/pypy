@@ -13,9 +13,16 @@ class OptRewrite(Optimization):
     """Rewrite operations into equivalent, cheaper operations.
        This includes already executed operations and constants.
     """
+    def __init__(self):
+        self.loop_invariant_results = {}
+        self.loop_invariant_producer = {}
 
-    def reconstruct_for_next_iteration(self, optimizer, valuemap):
-        return self
+    def new(self):
+        return OptRewrite()
+        
+    def produce_potential_short_preamble_ops(self, sb):
+        for op in self.loop_invariant_producer.values():
+            sb.add_potential(op)
 
     def propagate_forward(self, op):
         args = self.optimizer.make_args_key(op)
@@ -354,16 +361,18 @@ class OptRewrite(Optimization):
         # expects a compile-time constant
         assert isinstance(arg, Const)
         key = make_hashable_int(arg.getint())
-        resvalue = self.optimizer.loop_invariant_results.get(key, None)
+        
+        resvalue = self.loop_invariant_results.get(key, None)
         if resvalue is not None:
             self.make_equal_to(op.result, resvalue)
             return
         # change the op to be a normal call, from the backend's point of view
         # there is no reason to have a separate operation for this
+        self.loop_invariant_producer[key] = op
         op = op.copy_and_change(rop.CALL)
         self.emit_operation(op)
         resvalue = self.getvalue(op.result)
-        self.optimizer.loop_invariant_results[key] = resvalue
+        self.loop_invariant_results[key] = resvalue
 
     def _optimize_nullness(self, op, box, expect_nonnull):
         value = self.getvalue(box)
@@ -434,11 +443,10 @@ class OptRewrite(Optimization):
         # specifically the given oopspec call.  For non-oopspec calls,
         # oopspecindex is just zero.
         effectinfo = op.getdescr().get_extra_info()
-        if effectinfo is not None:
-            oopspecindex = effectinfo.oopspecindex
-            if oopspecindex == EffectInfo.OS_ARRAYCOPY:
-                if self._optimize_CALL_ARRAYCOPY(op):
-                    return
+        oopspecindex = effectinfo.oopspecindex
+        if oopspecindex == EffectInfo.OS_ARRAYCOPY:
+            if self._optimize_CALL_ARRAYCOPY(op):
+                return
         self.emit_operation(op)
 
     def _optimize_CALL_ARRAYCOPY(self, op):

@@ -16,6 +16,8 @@ def elidable(func):
         the same (same numbers or same pointers)
     (2) it's fine to remove the call completely if we can guess the result
     according to rule 1
+    (3) the function call can be moved around by optimizer,
+        but only so it'll be called earlier and not later.
 
     Most importantly it doesn't mean that an elidable function has no observable
     side effect, but those side effects are idempotent (ie caching).
@@ -156,7 +158,7 @@ class Entry(ExtRegistryEntry):
         s_x = annmodel.not_const(s_x)
         access_directly = 's_access_directly' in kwds_s
         fresh_virtualizable = 's_fresh_virtualizable' in kwds_s
-        if  access_directly or fresh_virtualizable:
+        if access_directly or fresh_virtualizable:
             assert access_directly, "lone fresh_virtualizable hint"
             if isinstance(s_x, annmodel.SomeInstance):
                 from pypy.objspace.flow.model import Constant
@@ -337,6 +339,7 @@ PARAMETERS = {'threshold': 1032, # just above 1024
               'inlining': 1,
               'loop_longevity': 1000,
               'retrace_limit': 5,
+              'max_retrace_guards': 15,
               'enable_opts': 'all',
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
@@ -612,7 +615,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
                 c_llname = hop.inputconst(lltype.Void, mangled_name)
                 getfield_op = self.get_getfield_op(hop.rtyper)
                 v_green = hop.genop(getfield_op, [v_red, c_llname],
-                                    resulttype = r_field)
+                                    resulttype=r_field)
                 s_green = s_red.classdef.about_attribute(fieldname)
                 assert s_green is not None
                 hop.rtyper.annotator.setbinding(v_green, s_green)

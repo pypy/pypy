@@ -157,7 +157,7 @@ def instantiate(cls):
 
 def we_are_translated():
     return False
-# annotation -> True
+# annotation -> True (replaced by the flow objspace)
 
 def keepalive_until_here(*values):
     pass

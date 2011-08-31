@@ -57,7 +57,7 @@ class __extend__(optimizer.OptValue):
         self.ensure_nonnull()
         box = self.force_box()
         lengthbox = BoxInt()
-        optimization.optimize_default(ResOperation(mode.STRLEN, [box], lengthbox))
+        optimization.propagate_forward(ResOperation(mode.STRLEN, [box], lengthbox))
         return lengthbox
 
     @specialize.arg(1)
@@ -335,7 +335,7 @@ def _int_add(optimizer, box1, box2):
     if optimizer is None:
         return None
     resbox = BoxInt()
-    optimizer.optimize_default(ResOperation(rop.INT_ADD, [box1, box2], resbox))
+    optimizer.propagate_forward(ResOperation(rop.INT_ADD, [box1, box2], resbox))
     return resbox
 
 def _int_sub(optimizer, box1, box2):
@@ -345,7 +345,7 @@ def _int_sub(optimizer, box1, box2):
         if isinstance(box1, ConstInt):
             return ConstInt(box1.value - box2.value)
     resbox = BoxInt()
-    optimizer.optimize_default(ResOperation(rop.INT_SUB, [box1, box2], resbox))
+    optimizer.propagate_forward(ResOperation(rop.INT_SUB, [box1, box2], resbox))
     return resbox
 
 def _strgetitem(optimizer, strbox, indexbox, mode):
@@ -357,7 +357,7 @@ def _strgetitem(optimizer, strbox, indexbox, mode):
             s = strbox.getref(lltype.Ptr(rstr.UNICODE))
             return ConstInt(ord(s.chars[indexbox.getint()]))
     resbox = BoxInt()
-    optimizer.optimize_default(ResOperation(mode.STRGETITEM, [strbox, indexbox],
+    optimizer.propagate_forward(ResOperation(mode.STRGETITEM, [strbox, indexbox],
                                       resbox))
     return resbox
 
@@ -366,10 +366,9 @@ class OptString(optimizer.Optimization):
     "Handling of strings and unicodes."
     enabled = True
 
-    def reconstruct_for_next_iteration(self, optimizer, valuemap):
-        self.enabled = True
-        return self
-
+    def new(self):
+        return OptString()
+    
     def make_vstring_plain(self, box, source_op, mode):
         vvalue = VStringPlainValue(self.optimizer, box, source_op, mode)
         self.make_equal_to(box, vvalue)
@@ -483,8 +482,8 @@ class OptString(optimizer.Optimization):
         # specifically the given oopspec call.  For non-oopspec calls,
         # oopspecindex is just zero.
         effectinfo = op.getdescr().get_extra_info()
-        if effectinfo is not None:
-            oopspecindex = effectinfo.oopspecindex
+        oopspecindex = effectinfo.oopspecindex
+        if oopspecindex != EffectInfo.OS_NONE:
             for value, meth in opt_call_oopspec_ops:
                 if oopspecindex == value:      # a match with the OS_STR_xxx
                     if meth(self, op, mode_string):

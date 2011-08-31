@@ -500,7 +500,6 @@ class TranslationDriver(SimpleTaskEngine):
             cbuilder = CBuilder(self.translator, self.entry_point,
                                 config=self.config,
                                 secondary_entrypoints=self.secondary_entrypoints)
-            cbuilder.stackless = self.config.translation.stackless
         if not standalone:     # xxx more messy
             cbuilder.modulename = self.extmod_name
         database = cbuilder.build_database()

@@ -19,6 +19,8 @@ class TestString(BaseTestPyPyC):
             i14 = int_lt(i6, i9)
             guard_true(i14, descr=...)
             guard_not_invalidated(descr=...)
+            i16 = int_eq(i6, -9223372036854775808)
+            guard_false(i16, descr=...)
             i15 = int_mod(i6, i10)
             i17 = int_rshift(i15, 63)
             i18 = int_and(i10, i17)
@@ -33,9 +35,9 @@ class TestString(BaseTestPyPyC):
             i25 = unicodegetitem(p13, i19)
             p27 = newstr(1)
             strsetitem(p27, 0, i23)
-            p30 = call(ConstClass(ll_str2unicode__rpy_stringPtr), p27, descr=<GcPtrCallDescr>)
+            p30 = call(ConstClass(ll_str2unicode__rpy_stringPtr), p27, descr=...)
             guard_no_exception(descr=...)
-            i32 = call(ConstClass(_ll_2_str_eq_checknull_char__rpy_unicodePtr_UniChar), p30, i25, descr=<SignedCallDescr>)
+            i32 = call(ConstClass(_ll_2_str_eq_checknull_char__rpy_unicodePtr_UniChar), p30, i25, descr=...)
             guard_true(i32, descr=...)
             i34 = int_add(i6, 1)
             --TICK--
@@ -104,7 +106,7 @@ class TestString(BaseTestPyPyC):
             i58 = int_add_ovf(i6, i57)
             guard_no_overflow(descr=...)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, i58, i7, i8, p9, p10, descr=<Loop4>)
+            jump(p0, p1, p2, p3, p4, p5, i58, i7, descr=<Loop4>)
         """)
 
     def test_str_mod(self):

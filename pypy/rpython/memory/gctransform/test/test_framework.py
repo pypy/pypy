@@ -70,23 +70,6 @@ def test_cancollect():
     gg = graphof(t, g)
     assert not CollectAnalyzer(t).analyze_direct_call(gg)    
 
-def test_cancollect_stack_check():
-    from pypy.rlib import rstack
-
-    def with_check():
-        rstack.stack_check()
-
-    t = rtype(with_check, [])
-    with_check_graph = graphof(t, with_check)
-
-    assert not t.config.translation.stackless
-    can_collect = CollectAnalyzer(t).analyze_direct_call(with_check_graph)
-    assert not can_collect
-    
-    t.config.translation.stackless = True
-    can_collect = CollectAnalyzer(t).analyze_direct_call(with_check_graph)
-    assert can_collect
-
 def test_cancollect_external():
     fext1 = rffi.llexternal('fext1', [], lltype.Void, threadsafe=False)
     def g():

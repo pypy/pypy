@@ -4,6 +4,10 @@ from pypy.tool import gdb_pypy
 class FakeGdb(object):
 
     COMMAND_NONE = -1
+    #
+    TYPE_CODE_PTR = 1
+    TYPE_CODE_ARRAY = 2
+    TYPE_CODE_STRUCT = 3
 
     def __init__(self, exprs, progspace=None):
         self.exprs = exprs
@@ -24,19 +28,39 @@ class Field(Mock):
     pass
 
 class Struct(object):
-    def __init__(self, fieldnames):
+    code = FakeGdb.TYPE_CODE_STRUCT
+
+    def __init__(self, fieldnames, tag):
         self._fields = [Field(name=name) for name in fieldnames]
+        self.tag = tag
 
     def fields(self):
         return self._fields[:]
 
+class Pointer(object):
+    code = FakeGdb.TYPE_CODE_PTR
+
+    def __init__(self, target):
+        self._target = target
+
+    def target(self):
+        return self._target
+
 class Value(dict):
     def __init__(self, *args, **kwds):
+        type_tag = kwds.pop('type_tag', None)
         dict.__init__(self, *args, **kwds)
-        self.type = Struct(self.keys())
+        self.type = Struct(self.keys(), type_tag)
         for key, val in self.iteritems():
             if isinstance(val, dict):
                 self[key] = Value(val)
+
+class PtrValue(Value):
+    def __init__(self, *args, **kwds):
+        # in python gdb, we can use [] to access fields either if we have an
+        # actual struct or a pointer to it, so we just reuse Value here
+        Value.__init__(self, *args, **kwds)
+        self.type = Pointer(self.type)
 
 def test_mock_objects():
     d = {'a': 1,
@@ -76,6 +100,21 @@ def test_lookup():
     hdr = gdb_pypy.lookup(obj, 'gcheader')
     assert hdr['h_tid'] == 123
 
+def test_load_typeids(tmpdir):
+    exe = tmpdir.join('testing_1').join('pypy-c')
+    typeids = tmpdir.join('typeids.txt')
+    typeids.write("""
+member0    GcStruct xxx {}
+""".strip())
+    progspace = Mock(filename=str(exe))
+    exprs = {
+        '((char*)(&pypy_g_typeinfo.member0)) - (char*)&pypy_g_typeinfo': 0,
+        }
+    gdb = FakeGdb(exprs, progspace)
+    cmd = gdb_pypy.RPyType(gdb)
+    typeids = cmd.load_typeids(progspace)
+    assert typeids[0] == 'GcStruct xxx {}'
+
 def test_RPyType(tmpdir):
     exe = tmpdir.join('pypy-c')
     typeids = tmpdir.join('typeids.txt')
@@ -103,3 +142,42 @@ member2    GcStruct zzz {}
     gdb = FakeGdb(exprs, progspace)
     cmd = gdb_pypy.RPyType(gdb)
     assert cmd.do_invoke('*myvar', True) == 'GcStruct yyy {}'
+
+def test_pprint_string():
+    d = {'_gcheader': {
+            'h_tid': 123
+            },
+         'rs_hash': 456,
+         'rs_chars': {
+            'length': 6,
+            'items': map(ord, 'foobar'),
+            }
+         }
+    p_string = PtrValue(d, type_tag='pypy_rpy_string0')
+    printer = gdb_pypy.RPyStringPrinter.lookup(p_string, FakeGdb)
+    assert printer.to_string() == "r'foobar'"
+
+def test_pprint_list():
+    d = {'_gcheader': {
+            'h_tid': 123
+            },
+         'l_length': 3, # the lenght of the rpython list
+         'l_items':
+             # this is the array which contains the items
+             {'_gcheader': {
+                'h_tid': 456
+                },
+              'length': 5, # the lenght of the underlying array
+              'items': [40, 41, 42, -1, -2],
+              }
+         }
+    mylist = PtrValue(d, type_tag='pypy_list0')
+    printer = gdb_pypy.RPyListPrinter.lookup(mylist, FakeGdb)
+    assert printer.to_string() == 'r[40, 41, 42] (len=3, alloc=5)'
+    #
+    mylist.type.target().tag = 'pypy_list1234'
+    printer = gdb_pypy.RPyListPrinter.lookup(mylist, FakeGdb)
+    assert printer.to_string() == 'r[40, 41, 42] (len=3, alloc=5)'
+
+    mylist.type.target().tag = None
+    assert gdb_pypy.RPyListPrinter.lookup(mylist, FakeGdb) is None

@@ -33,7 +33,7 @@ from pyrepl.completing_reader import CompletingReader
 from pyrepl.unix_console import UnixConsole, _error
 
 
-ENCODING = 'latin1'     # XXX hard-coded
+ENCODING = sys.getfilesystemencoding() or 'latin1'     # XXX review
 
 __all__ = ['add_history',
            'clear_history',

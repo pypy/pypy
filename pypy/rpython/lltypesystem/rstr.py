@@ -3,6 +3,7 @@ from pypy.tool.pairtype import pairtype
 from pypy.rpython.error import TyperError
 from pypy.rlib.objectmodel import malloc_zero_filled, we_are_translated
 from pypy.rlib.objectmodel import _hash_string, enforceargs
+from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib.debug import ll_assert
 from pypy.rlib import jit
 from pypy.rlib.rarithmetic import ovfcheck
@@ -66,6 +67,8 @@ def _new_copy_contents_fun(TP, CHAR_TP, name):
         src = llmemory.cast_ptr_to_adr(src) + _str_ofs(srcstart)
         dst = llmemory.cast_ptr_to_adr(dst) + _str_ofs(dststart)
         llmemory.raw_memcopy(src, dst, llmemory.sizeof(CHAR_TP) * length)
+        keepalive_until_here(src)
+        keepalive_until_here(dst)
     copy_string_contents._always_inline_ = True
     return func_with_new_name(copy_string_contents, 'copy_%s_contents' % name)
 

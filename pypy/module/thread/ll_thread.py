@@ -51,9 +51,9 @@ TLOCKP = rffi.COpaquePtr('struct RPyOpaque_ThreadLock',
 
 c_thread_lock_init = llexternal('RPyThreadLockInit', [TLOCKP], rffi.INT,
                                 threadsafe=False)   # may add in a global list
-c_thread_lock_dealloc = llexternal('RPyOpaqueDealloc_ThreadLock', [TLOCKP],
-                                  lltype.Void,
-                                  threadsafe=True)
+c_thread_lock_dealloc_NOAUTO = llexternal('RPyOpaqueDealloc_ThreadLock',
+                                          [TLOCKP], lltype.Void,
+                                          _nowrapper=True)
 c_thread_acquirelock = llexternal('RPyThreadAcquireLock', [TLOCKP, rffi.INT],
                                   rffi.INT,
                                   threadsafe=True)    # release the GIL
@@ -158,9 +158,9 @@ def allocate_ll_lock():
     return ll_lock
 
 def free_ll_lock(ll_lock):
-    c_thread_acquirelock(ll_lock, 0)
-    c_thread_releaselock(ll_lock)
-    c_thread_lock_dealloc(ll_lock)
+    acquire_NOAUTO(ll_lock, False)
+    release_NOAUTO(ll_lock)
+    c_thread_lock_dealloc_NOAUTO(ll_lock)
     lltype.free(ll_lock, flavor='raw', track_allocation=False)
 
 def acquire_NOAUTO(ll_lock, flag):

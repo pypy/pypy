@@ -129,11 +129,7 @@ class HybridGC(GenerationGC):
     # 'large'.
 
     def malloc_varsize_clear(self, typeid, length, size, itemsize,
-                             offset_to_length, can_collect):
-        if not can_collect:
-            return SemiSpaceGC.malloc_varsize_clear(self, typeid, length, size,
-                                                    itemsize, offset_to_length,
-                                                    can_collect)
+                             offset_to_length):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         nonvarsize = size_gc_header + size
 
@@ -225,9 +221,9 @@ class HybridGC(GenerationGC):
             totalsize)
         return result
 
-    def _check_rawsize_alloced(self, size_estimate, can_collect=True):
+    def _check_rawsize_alloced(self, size_estimate):
         self.large_objects_collect_trigger -= size_estimate
-        if can_collect and self.large_objects_collect_trigger < 0:
+        if self.large_objects_collect_trigger < 0:
             debug_start("gc-rawsize-collect")
             debug_print("allocated", (self._initial_trigger -
                                       self.large_objects_collect_trigger),

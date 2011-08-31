@@ -42,7 +42,7 @@ config.objspace.usemodules._weakref = True
 config.objspace.usemodules._sre = False
 config.objspace.usemodules._lsprof = False
 #
-config.objspace.usemodules._ffi = False
+config.objspace.usemodules._ffi = True
 config.objspace.usemodules.micronumpy = False
 #
 set_pypy_opt_level(config, level='jit')
@@ -77,7 +77,7 @@ def readfile(filename):
 
 def read_code():
     from pypy.module.marshal.interp_marshal import dumps
-    
+
     filename = 'pypyjit_demo.py'
     source = readfile(filename)
     ec = space.getexecutioncontext()

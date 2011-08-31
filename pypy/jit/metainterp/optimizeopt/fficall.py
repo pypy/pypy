@@ -19,7 +19,8 @@ class FuncInfo(object):
         self.funcval = funcval
         self.opargs = []
         argtypes, restype = self._get_signature(funcval)
-        self.descr = cpu.calldescrof_dynamic(argtypes, restype)
+        self.descr = cpu.calldescrof_dynamic(argtypes, restype,
+                                             EffectInfo.MOST_GENERAL)
         # ^^^ may be None if unsupported
         self.prepare_op = prepare_op
         self.delayed_ops = []
@@ -74,10 +75,9 @@ class OptFfiCall(Optimization):
         else:
             self.logops = None
 
-    def reconstruct_for_next_iteration(self, optimizer, valuemap):
+    def new(self):
         return OptFfiCall()
-        # FIXME: Should any status be saved for next iteration?
-
+    
     def begin_optimization(self, funcval, op):
         self.rollback_maybe('begin_optimization', op)
         self.funcinfo = FuncInfo(funcval, self.optimizer.cpu, op)
@@ -196,9 +196,7 @@ class OptFfiCall(Optimization):
 
     def _get_oopspec(self, op):
         effectinfo = op.getdescr().get_extra_info()
-        if effectinfo is not None:
-            return effectinfo.oopspecindex
-        return EffectInfo.OS_NONE
+        return effectinfo.oopspecindex
 
     def _get_funcval(self, op):
         return self.getvalue(op.getarg(1))
