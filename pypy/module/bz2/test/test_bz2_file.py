@@ -274,14 +274,14 @@ class AppTestBZ2File: #(CheckAllocation):
             pass
         del bz2f   # delete from this frame, which is captured in the traceback
 
-    def test_read_chunk10(self):
+    def test_read_chunk9(self):
         from bz2 import BZ2File
         self.create_temp_file()
         
         bz2f = BZ2File(self.temppath)
         text_read = ""
         while True:
-            data = bz2f.read(10)
+            data = bz2f.read(9) # 9 doesn't divide evenly into data length
             if not data:
                 break
             text_read = "%s%s" % (text_read, data)
