@@ -41,6 +41,12 @@ endif
 #
 # rootcint -f advancedcpp_cint.cxx -c advancedcpp.h advancedcpp_LinkDef.h
 # g++ -I$ROOTSYS/include advancedcpp_cint.cxx advancedcpp.cxx -shared -o advancedcppDict.so -rdynamic
+#
+# rootcint -f fragile_cint.cxx -c fragile.h fragile_LinkDef.h
+# g++ -I$ROOTSYS/include fragile_cint.cxx fragile.cxx -shared -o fragileDict.so -rdynamic
+#
+# rootcint -f stltypes_cint.cxx -c stltypes.h stltypes_LinkDef.h
+# g++ -I$ROOTSYS/include stltypes_cint.cxx stltypes.cxx -shared -o stltypesDict.so -rdynamic
 
 # TODO: methptrgetter causes these tests to crash, so don't use it for now
 stltypesDict.so: stltypes.cxx stltypes.h stltypes.xml

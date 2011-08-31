@@ -2,7 +2,7 @@ import py, os
 
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.lltypesystem import rffi
-from pypy.rlib import rdynload
+from pypy.rlib import libffi, rdynload
 
 __all__ = ['eci', 'c_load_dictionary']
 
@@ -34,7 +34,14 @@ eci = ExternalCompilationInfo(
     use_cpp_linker=True,
 )
 
-c_load_dictionary = rffi.llexternal(
+_c_load_dictionary = rffi.llexternal(
     "cppyy_load_dictionary",
     [rffi.CCHARP], rdynload.DLLHANDLE,
     compilation_info=eci)
+
+def c_load_dictionary(name):
+    result = _c_load_dictionary(name)
+    if not result:
+        err = rdynload.dlerror()
+        raise rdynload.DLOpenError(err)
+    return libffi.CDLL(name)       # should return handle to already open file
