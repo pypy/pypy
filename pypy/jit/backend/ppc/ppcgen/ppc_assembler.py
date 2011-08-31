@@ -1402,7 +1402,12 @@ class PPCBuilder(PPCAssembler):
 
         arg_reg = 3
         for arg in args:
-            self.mr(arg_reg, cpu.reg_map[arg])
+            if isinstance(arg, Box):
+                self.mr(arg_reg, cpu.reg_map[arg])
+            elif isinstance(arg, Const):
+                self.load_word(arg_reg, arg.value)
+            else:
+                assert 0, "%s not supported yet" % arg
             arg_reg += 1
 
         self.load_word(0, call_addr)

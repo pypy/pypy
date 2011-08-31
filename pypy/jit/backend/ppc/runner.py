@@ -60,7 +60,7 @@ class PPC_64_CPU(AbstractLLCPU):
         self._walk_trace_ops(codebuilder, operations)
         self._make_epilogue(codebuilder)
 
-        f = codebuilder.assemble(True)
+        f = codebuilder.assemble()
         looptoken.ppc_code = f
         looptoken.codebuilder = codebuilder
         self.total_compiled_loops += 1
