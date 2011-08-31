@@ -252,6 +252,17 @@ class WarmspotTests(object):
         self.check_loops({'int_sub': 1, 'int_gt': 1, 'guard_true': 1,
                           'jump': 1})
 
+    def test_bug_continuerunningnormally(self):
+        mydriver = JitDriver(greens=['a'], reds=['m'])
+        def f1(m):
+            a = None
+            while m > 0:
+                mydriver.jit_merge_point(a=a, m=m)
+                m = m - 1
+                if m == 10:
+                    pass   # other case
+        self.meta_interp(f1, [18])
+
 
 class TestLLWarmspot(WarmspotTests, LLJitMixin):
     CPUClass = runner.LLtypeCPU
