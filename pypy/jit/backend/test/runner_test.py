@@ -497,7 +497,8 @@ class BaseBackendTest(Runner):
             assert res.value == 2 * num
             # then, try it with the dynamic calldescr
             dyn_calldescr = cpu.calldescrof_dynamic([ffi_type, ffi_type], ffi_type,
-                                                    EffectInfo.MOST_GENERAL)
+                                                    EffectInfo.MOST_GENERAL,
+                                                    ffi_flags=0)
             res = self.execute_operation(rop.CALL,
                                          [funcbox, BoxInt(num), BoxInt(num)],
                                          'int', descr=dyn_calldescr)
@@ -1955,7 +1956,8 @@ class LLtypeBackendTest(BaseBackendTest):
         func_adr = llmemory.cast_ptr_to_adr(c_tolower.funcsym)
         funcbox = ConstInt(heaptracker.adr2int(func_adr))
         calldescr = cpu.calldescrof_dynamic([types.uchar], types.sint,
-                                            EffectInfo.MOST_GENERAL)
+                                            EffectInfo.MOST_GENERAL,
+                                            ffi_flags=0)
         i1 = BoxInt()
         i2 = BoxInt()
         tok = BoxInt()
@@ -2012,7 +2014,8 @@ class LLtypeBackendTest(BaseBackendTest):
         calldescr = cpu.calldescrof_dynamic([types.pointer, types_size_t,
                                              types_size_t, types.pointer],
                                             types.void,
-                                            EffectInfo.MOST_GENERAL)
+                                            EffectInfo.MOST_GENERAL,
+                                            ffi_flags=0)
         i0 = BoxInt()
         i1 = BoxInt()
         i2 = BoxInt()
