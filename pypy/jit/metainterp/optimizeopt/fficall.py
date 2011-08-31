@@ -18,26 +18,27 @@ class FuncInfo(object):
     def __init__(self, funcval, cpu, prepare_op):
         self.funcval = funcval
         self.opargs = []
-        argtypes, restype = self._get_signature(funcval)
+        argtypes, restype, flags = self._get_signature(funcval)
         self.descr = cpu.calldescrof_dynamic(argtypes, restype,
-                                             EffectInfo.MOST_GENERAL)
+                                             EffectInfo.MOST_GENERAL,
+                                             ffi_flags=flags)
         # ^^^ may be None if unsupported
         self.prepare_op = prepare_op
         self.delayed_ops = []
 
     def _get_signature(self, funcval):
         """
-        given the funcval, return a tuple (argtypes, restype), where the
-        actuall types are libffi.types.*
+        given the funcval, return a tuple (argtypes, restype, flags), where
+        the actuall types are libffi.types.*
 
         The implementation is tricky because we have three possible cases:
 
         - translated: the easiest case, we can just cast back the pointer to
-          the original Func instance and read .argtypes and .restype
+          the original Func instance and read .argtypes, .restype and .flags
 
         - completely untranslated: this is what we get from test_optimizeopt
           tests. funcval contains a FakeLLObject whose _fake_class is Func,
-          and we can just get .argtypes and .restype
+          and we can just get .argtypes, .restype and .flags
 
         - partially translated: this happens when running metainterp tests:
           funcval contains the low-level equivalent of a Func, and thus we
@@ -49,10 +50,10 @@ class FuncInfo(object):
         llfunc = funcval.box.getref_base()
         if we_are_translated():
             func = cast_base_ptr_to_instance(Func, llfunc)
-            return func.argtypes, func.restype
+            return func.argtypes, func.restype, func.flags
         elif getattr(llfunc, '_fake_class', None) is Func:
             # untranslated
-            return llfunc.argtypes, llfunc.restype
+            return llfunc.argtypes, llfunc.restype, llfunc.flags
         else:
             # partially translated
             # llfunc contains an opaque pointer to something like the following:
@@ -63,7 +64,7 @@ class FuncInfo(object):
             # because we don't have the exact TYPE to cast to.  Instead, we
             # just fish it manually :-(
             f = llfunc._obj.container
-            return f.inst_argtypes, f.inst_restype
+            return f.inst_argtypes, f.inst_restype, f.inst_flags
 
 
 class OptFfiCall(Optimization):
