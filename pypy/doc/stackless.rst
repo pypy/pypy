@@ -215,6 +215,11 @@ are for the time being not supported any more:
 
 * Support for other CPUs than x86 and x86-64
 
+* The app-level ``f_back`` field of frames crossing continulet boundaries
+  is None for now, unlike what I explain in the theoretical overview
+  above.  It mostly means that in a ``pdb.set_trace()`` you cannot go
+  ``up`` past countinulet boundaries.  This could be fixed.
+
 .. __: `recursion depth limit`_
 
 (*) Pickling, as well as changing threads, could be implemented by using
