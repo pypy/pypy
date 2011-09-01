@@ -96,11 +96,10 @@ class AppTestDtypes(BaseNumpyAppTest):
     def test_bool_binop_types(self):
         from numpy import array, dtype
         types = ('?','b','B','h','H','i','I','l','L','q','Q','f','d','g')
-        dtypes = [dtype(t) for t in types]
         N = len(types)
         a = array([True], '?')
-        for i in xrange(N):
-            assert (a + array([0], types[i])).dtype is dtypes[i]
+        for t in types:
+            assert (a + array([0], t)).dtype is dtype(t)
 
     def test_binop_types(self):
         from numpy import array, dtype
@@ -108,7 +107,7 @@ class AppTestDtypes(BaseNumpyAppTest):
                  ('b','Q','d'), ('B','H','H'), ('B','I','I'), ('B','Q','Q'),
                  ('B','h','h'), ('h','H','i'), ('h','i','i'), ('H','i','i'),
                  ('H','I','I'), ('i','I','q'), ('I','q','q'), ('q','Q','d'),
-                 ('i','f','f'), ('q','f','d'), ('q','d','d'), ('Q','f','d'))
+                 ('i','f','d'), ('q','f','d'), ('q','d','d'), ('Q','f','d'))
         for d1, d2, dout in tests:
             assert (array([1], d1) + array([1], d2)).dtype is dtype(dout)
 

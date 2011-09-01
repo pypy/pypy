@@ -407,12 +407,14 @@ class W_Float64Dtype(FloatArithmeticDtype, W_Float64Dtype):
 class W_Float32Dtype(W_Float64Dtype):
     pass
 W_Float32Dtype.num = 11
+W_Float32Dtype.name = "float32"
 W_Float32Dtype.aliases = ["f"]
 W_Float32Dtype.applevel_types = []
 
 class W_Float96Dtype(W_Float64Dtype):
     pass
 W_Float96Dtype.num = 13
+W_Float96Dtype.name = "float96"
 W_Float96Dtype.aliases = ["g"]
 W_Float96Dtype.applevel_types = []
 

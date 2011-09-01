@@ -174,7 +174,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
     # Everything promotes to float, and bool promotes to everything.
     if dt2.kind == interp_dtype.FLOATINGLTR or dt1.kind == interp_dtype.BOOLLTR:
         if dt2.num == 11 and dt1.num_bytes >= 4:
-            return interp_dtype.W_Float64Dtype
+            return space.fromcache(interp_dtype.W_Float64Dtype)
         return dt2
 
     # for now this means mixing signed and unsigned
@@ -185,13 +185,19 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         dtypenum = dt2.num + 2
     else:
         dtypenum = dt2.num + 1
+        if dt2.num == 10:
+            dtypenum += 1
     newdtype = interp_dtype.ALL_DTYPES[dtypenum]
 
     if newdtype.num_bytes > dt2.num_bytes or newdtype.kind == interp_dtype.FLOATINGLTR:
-        return newdtype
+        return space.fromcache(newdtype)
     else:
         # we only promoted to long on 32-bit or to longlong on 64-bit
-        return interp_dtype.ALL_DTYPES[dtypenum + 2]
+        if LONG_BIT == 32:
+            dtypenum += 2
+        else:
+            dtypenum += 3
+        return space.fromcache(interp_dtype.ALL_DTYPES[dtypenum])
 
 def find_unaryop_result_dtype(space, dt, promote_to_float=False,
     promote_bools=False, promote_to_largest=False):
