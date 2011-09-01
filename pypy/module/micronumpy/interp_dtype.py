@@ -314,6 +314,17 @@ W_Int16Dtype = create_low_level_dtype(
 class W_Int16Dtype(IntegerArithmeticDtype, W_Int16Dtype):
     pass
 
+W_UInt16Dtype = create_low_level_dtype(
+    num = 3, kind = SIGNEDLTR, name = "uint16",
+    aliases = ["uint16"],
+    applevel_types = [],
+    T = rffi.USHORT,
+    valtype = rffi.USHORT._type,
+    expected_size = 2,
+)
+class W_UInt16Dtype(IntegerArithmeticDtype, W_UInt16Dtype):
+    pass
+
 W_Int32Dtype = create_low_level_dtype(
     num = 5, kind = SIGNEDLTR, name = "int32",
     aliases = ["i"],
