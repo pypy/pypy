@@ -14,6 +14,7 @@ from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython.lltypesystem import lltype, rffi
 
 
+UNSIGNEDLTR = "u"
 SIGNEDLTR = "i"
 BOOLLTR = "b"
 FLOATINGLTR = "f"
@@ -313,6 +314,17 @@ W_Int32Dtype = create_low_level_dtype(
 class W_Int32Dtype(IntegerArithmeticDtype, W_Int32Dtype):
     pass
 
+W_UInt32Dtype = create_low_level_dtype(
+    num = 6, kind = UNSIGNEDLTR, name = "uint32",
+    aliases = ["I"],
+    applevel_types = [],
+    T = rffi.UINT,
+    valtype = rffi.UINT._type,
+    expected_size = 4,
+)
+class W_UInt32Dtype(IntegerArithmeticDtype, W_UInt32Dtype):
+    pass
+
 W_Int64Dtype = create_low_level_dtype(
     num = 9, kind = SIGNEDLTR, name = "int64",
     aliases = [],
@@ -341,7 +353,8 @@ class W_Float64Dtype(FloatArithmeticDtype, W_Float64Dtype):
 
 ALL_DTYPES = [
     W_BoolDtype,
-    W_Int8Dtype, W_Int16Dtype, W_Int32Dtype, W_Int64Dtype,
+    W_Int8Dtype, W_Int16Dtype, W_Int32Dtype, W_UInt32Dtype,
+    W_Int64Dtype,
     W_Float64Dtype
 ]
 

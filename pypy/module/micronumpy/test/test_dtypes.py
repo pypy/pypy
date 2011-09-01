@@ -99,6 +99,15 @@ class AppTestDtypes(BaseNumpyAppTest):
         for i in range(5):
             assert b[i] == i * 2
 
+    def test_add_uint32(self):
+        from numpy import array, dtype
+
+        a = array(range(5), dtype="I")
+        b = a + a
+        assert b.dtype is dtype("I")
+        for i in range(5):
+            assert b[i] == i * 2
+
     def test_shape(self):
         from numpy import dtype
 
