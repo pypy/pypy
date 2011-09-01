@@ -102,6 +102,16 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[-1] == 8
         raises(IndexError, "a[-6]")
 
+    def test_getitem_tuple(self):
+        from numpy import array
+        a = array(range(5))
+        raises(IndexError, "a[(1,2)]")
+        for i in xrange(5):
+            assert a[(i,)] == i
+        b = a[()]
+        for i in xrange(5):
+            assert a[i] == b[i]
+
     def test_setitem(self):
         from numpy import array
         a = array(range(5))
@@ -109,6 +119,17 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[4] == 5.0
         raises(IndexError, "a[5] = 0.0")
         raises(IndexError, "a[-6] = 3.0")
+
+    def test_setitem_tuple(self):
+        from numpy import array
+        a = array(range(5))
+        raises(IndexError, "a[(1,2)] = [0,1]")
+        for i in xrange(5):
+            a[(i,)] = i+1
+            assert a[i] == i+1
+        a[()] = range(5)
+        for i in xrange(5):
+            assert a[i] == i
 
     def test_setslice_array(self):
         from numpy import array

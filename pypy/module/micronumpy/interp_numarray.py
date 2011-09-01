@@ -3,6 +3,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.micronumpy import interp_ufuncs, interp_dtype, signature
+from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.sourcetools import func_with_new_name
@@ -217,7 +218,15 @@ class BaseArray(Wrappable):
         return space.wrap("[" + " ".join(concrete._getnums(True)) + "]")
 
     def descr_getitem(self, space, w_idx):
-        # TODO: indexing by tuples
+        # TODO: indexing by arrays and lists
+        if space.isinstance_w(w_idx, space.w_tuple):
+            length = space.len_w(w_idx)
+            if length == 0:
+                return space.wrap(self)
+            if length > 1: # only one dimension for now.
+                raise OperationError(space.w_IndexError,
+                                     space.wrap("invalid index"))
+            w_idx = space.getitem(w_idx, space.wrap(0))
         start, stop, step, slice_length = space.decode_index4(w_idx, self.find_size())
         if step == 0:
             # Single index
@@ -231,8 +240,19 @@ class BaseArray(Wrappable):
             return space.wrap(res)
 
     def descr_setitem(self, space, w_idx, w_value):
-        # TODO: indexing by tuples and lists
+        # TODO: indexing by arrays and lists
         self.invalidated()
+        if space.isinstance_w(w_idx, space.w_tuple):
+            length = space.len_w(w_idx)
+            if length > 1: # only one dimension for now.
+                raise OperationError(space.w_IndexError,
+                                     space.wrap("invalid index"))
+            if length == 0:
+                w_idx = W_SliceObject(space.wrap(0),
+                                      space.wrap(self.find_size()),
+                                      space.wrap(1))
+            else:
+                w_idx = space.getitem(w_idx, space.wrap(0))
         start, stop, step, slice_length = space.decode_index4(w_idx,
                                                               self.find_size())
         if step == 0:
