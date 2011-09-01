@@ -319,10 +319,11 @@ void stacklet_destroy(stacklet_thread_handle thrd, stacklet_handle target)
 
 char **_stacklet_translate_pointer(stacklet_handle context, char **ptr)
 {
+  char *p = (char *)ptr;
+  long delta;
   if (context == NULL)
     return ptr;
-  char *p = (char *)ptr;
-  long delta = p - context->stack_start;
+  delta = p - context->stack_start;
   if (((unsigned long)delta) < ((unsigned long)context->stack_saved)) {
       /* a pointer to a saved away word */
       char *c = (char *)(context + 1);
