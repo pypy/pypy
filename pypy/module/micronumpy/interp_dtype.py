@@ -390,8 +390,8 @@ W_ULongDtype.aliases = ["L"]
 
 W_Float64Dtype = create_low_level_dtype(
     num = 12, kind = FLOATINGLTR, name = "float64",
-    aliases = [],
-    applevel_types = ["d", "float"],
+    aliases = ["d"],
+    applevel_types = ["float"],
     T = lltype.Float,
     valtype = float,
     expected_size = 8,
@@ -403,14 +403,25 @@ class W_Float64Dtype(FloatArithmeticDtype, W_Float64Dtype):
     def str_format(self, item):
         return float2string(self.unbox(item), 'g', rfloat.DTSF_STR_PRECISION)
 
+# these are really just stand-ins for now until we get them fully working
+class W_Float32Dtype(W_Float64Dtype):
+    pass
+W_Float32Dtype.num = 11
+W_Float32Dtype.aliases = ["f"]
+W_Float32Dtype.applevel_types = []
+
+class W_Float96Dtype(W_Float64Dtype):
+    pass
+W_Float96Dtype.num = 13
+W_Float96Dtype.aliases = ["g"]
+W_Float96Dtype.applevel_types = []
+
 ALL_DTYPES = [
     W_BoolDtype,
     W_Int8Dtype, W_UInt8Dtype, W_Int16Dtype, W_UInt16Dtype,
     W_Int32Dtype, W_UInt32Dtype, W_LongDtype, W_ULongDtype,
     W_Int64Dtype, W_UInt64Dtype,
-    W_Float64Dtype, #float32 fill-in for now
-    W_Float64Dtype,
-    W_Float64Dtype, #float96 fill-in for now
+    W_Float32Dtype, W_Float64Dtype, W_Float96Dtype,
 ]
 
 dtypes_by_alias = unrolling_iterable([

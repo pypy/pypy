@@ -17,6 +17,7 @@ class AppTestDtypes(BaseNumpyAppTest):
         from numpy import dtype
 
         assert dtype(bool).num == 0
+        assert dtype(int).num == 7
         assert dtype(long).num == 9
         assert dtype(float).num == 12
 
@@ -80,6 +81,36 @@ class AppTestDtypes(BaseNumpyAppTest):
         for i in range(10):
             assert isinstance(a[i], (int, long))
             assert a[1] == 1
+
+    def test_overflow(self):
+        from numpy import array
+        assert array([128], 'b')[0] == -128
+        assert array([256], 'B')[0] == 0
+        assert array([32768], 'h')[0] == -32768
+        assert array([65536], 'H')[0] == 0
+        raises(OverflowError, "array([2147483648], 'i')")
+        raises(OverflowError, "array([4294967296], 'I')")
+        raises(OverflowError, "array([9223372036854775808], 'q')")
+        raises(OverflowError, "array([18446744073709551616], 'Q')")
+
+    def test_bool_binop_types(self):
+        from numpy import array, dtype
+        types = ('?','b','B','h','H','i','I','l','L','q','Q','f','d','g')
+        dtypes = [dtype(t) for t in types]
+        N = len(types)
+        a = array([True], '?')
+        for i in xrange(N):
+            assert (a + array([0], types[i])).dtype is dtypes[i]
+
+    def test_binop_types(self):
+        from numpy import array, dtype
+        tests = (('b','B','h'), ('b','h','h'), ('b','H','i'), ('b','I','q'),
+                 ('b','Q','d'), ('B','H','H'), ('B','I','I'), ('B','Q','Q'),
+                 ('B','h','h'), ('h','H','i'), ('h','i','i'), ('H','i','i'),
+                 ('H','I','I'), ('i','I','q'), ('I','q','q'), ('q','Q','d'),
+                 ('i','f','f'), ('q','f','d'), ('q','d','d'), ('Q','f','d'))
+        for d1, d2, dout in tests:
+            assert (array([1], d1) + array([1], d2)).dtype is dtype(dout)
 
     def test_add_int8(self):
         from numpy import array, dtype

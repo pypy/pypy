@@ -178,20 +178,20 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         return dt2
 
     # for now this means mixing signed and unsigned
-    if dt2.kind == interp_dtype.SIGNEDLTR
+    if dt2.kind == interp_dtype.SIGNEDLTR:
         if dt1.num_bytes < dt2.num_bytes:
             return dt2
         # we need to promote both dtypes
         dtypenum = dt2.num + 2
     else:
         dtypenum = dt2.num + 1
-    newdtype = interp_dtype.ALL_DTYPE[dtypenum]
+    newdtype = interp_dtype.ALL_DTYPES[dtypenum]
 
     if newdtype.num_bytes > dt2.num_bytes or newdtype.kind == interp_dtype.FLOATINGLTR:
         return newdtype
     else:
         # we only promoted to long on 32-bit or to longlong on 64-bit
-        return interp_dtype.ALL_DTYPE[dtypenum + 2]
+        return interp_dtype.ALL_DTYPES[dtypenum + 2]
 
 def find_unaryop_result_dtype(space, dt, promote_to_float=False,
     promote_bools=False, promote_to_largest=False):
