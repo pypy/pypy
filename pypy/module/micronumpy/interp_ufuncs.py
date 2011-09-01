@@ -4,6 +4,7 @@ from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.module.micronumpy import interp_dtype, signature
 from pypy.rlib import jit
+from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
 
 
@@ -172,9 +173,25 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
 
     # Everything promotes to float, and bool promotes to everything.
     if dt2.kind == interp_dtype.FLOATINGLTR or dt1.kind == interp_dtype.BOOLLTR:
+        if dt2.num == 11 and dt1.num_bytes >= 4:
+            return interp_dtype.W_Float64Dtype
         return dt2
 
-    assert False
+    # for now this means mixing signed and unsigned
+    if dt2.kind == interp_dtype.SIGNEDLTR
+        if dt1.num_bytes < dt2.num_bytes:
+            return dt2
+        # we need to promote both dtypes
+        dtypenum = dt2.num + 2
+    else:
+        dtypenum = dt2.num + 1
+    newdtype = interp_dtype.ALL_DTYPE[dtypenum]
+
+    if newdtype.num_bytes > dt2.num_bytes or newdtype.kind == interp_dtype.FLOATINGLTR:
+        return newdtype
+    else:
+        # we only promoted to long on 32-bit or to longlong on 64-bit
+        return interp_dtype.ALL_DTYPE[dtypenum + 2]
 
 def find_unaryop_result_dtype(space, dt, promote_to_float=False,
     promote_bools=False, promote_to_largest=False):
