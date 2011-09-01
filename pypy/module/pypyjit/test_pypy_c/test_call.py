@@ -396,3 +396,70 @@ class TestCall(BaseTestPyPyC):
             --TICK--
             jump(..., descr=<Loop0>)
         """)
+
+    def test_global_closure_has_constant_cells(self):
+        log = self.run("""
+            def make_adder(n):
+                def add(x):
+                    return x + n
+                return add
+            add5 = make_adder(5)
+            def main():
+                i = 0
+                while i < 5000:
+                    i = add5(i) # ID: call
+            """, [])
+        loop, = log.loops_by_id('call', is_entry_bridge=True)
+        assert loop.match("""
+            guard_value(i6, 1, descr=...)
+            guard_nonnull_class(p8, ConstClass(W_IntObject), descr=...)
+            guard_value(i4, 0, descr=...)
+            guard_value(p3, ConstPtr(ptr14), descr=...)
+            i15 = getfield_gc_pure(p8, descr=<SignedFieldDescr pypy.objspace.std.intobject.W_IntObject.inst_intval 8>)
+            i17 = int_lt(i15, 5000)
+            guard_true(i17, descr=...)
+            p18 = getfield_gc(p0, descr=<GcPtrFieldDescr pypy.interpreter.eval.Frame.inst_w_globals 8>)
+            guard_value(p18, ConstPtr(ptr19), descr=...)
+            p20 = getfield_gc(p18, descr=<GcPtrFieldDescr pypy.objspace.std.dictmultiobject.W_DictMultiObject.inst_strategy 12>)
+            guard_value(p20, ConstPtr(ptr21), descr=...)
+            guard_not_invalidated(descr=...)
+            # most importantly, there is no getarrayitem_gc here
+            p23 = call(ConstClass(getexecutioncontext), descr=<GcPtrCallDescr>)
+            p24 = getfield_gc(p23, descr=<GcPtrFieldDescr pypy.interpreter.executioncontext.ExecutionContext.inst_topframeref 36>)
+            i25 = force_token()
+            p26 = getfield_gc(p23, descr=<GcPtrFieldDescr pypy.interpreter.executioncontext.ExecutionContext.inst_w_tracefunc 44>)
+            guard_isnull(p26, descr=...)
+            i27 = getfield_gc(p23, descr=<NonGcPtrFieldDescr pypy.interpreter.executioncontext.ExecutionContext.inst_profilefunc 24>)
+            i28 = int_is_zero(i27)
+            guard_true(i28, descr=...)
+            p30 = getfield_gc(ConstPtr(ptr29), descr=<GcPtrFieldDescr pypy.interpreter.nestedscope.Cell.inst_w_value 8>)
+            guard_nonnull_class(p30, ConstClass(W_IntObject), descr=...)
+            i32 = getfield_gc_pure(p30, descr=<SignedFieldDescr pypy.objspace.std.intobject.W_IntObject.inst_intval 8>)
+            i33 = int_add_ovf(i15, i32)
+            guard_no_overflow(descr=...)
+            --TICK--
+            jump(p0, p1, p2, p5, i33, i32, p23, p30, p24, descr=<Loop0>)
+        """)
+
+    def test_local_closure_is_virtual(self):
+        log = self.run("""
+            def main():
+                i = 0
+                while i < 5000:
+                    def add():
+                        return i + 1
+                    i = add() # ID: call
+            """, [])
+        loop, = log.loops_by_id('call')
+        assert loop.match("""
+            i8 = getfield_gc_pure(p6, descr=<SignedFieldDescr pypy.objspace.std.intobject.W_IntObject.inst_intval 8>)
+            i10 = int_lt(i8, 5000)
+            guard_true(i10, descr=...)
+            i11 = force_token()
+            i13 = int_add(i8, 1)
+            --TICK--
+            p22 = new_with_vtable(ConstClass(W_IntObject))
+            setfield_gc(p22, i13, descr=<SignedFieldDescr pypy.objspace.std.intobject.W_IntObject.inst_intval 8>)
+            setfield_gc(p4, p22, descr=<GcPtrFieldDescr pypy.interpreter.nestedscope.Cell.inst_w_value 8>)
+            jump(p0, p1, p2, p3, p4, p7, p22, p7, descr=<Loop0>)
+        """)
