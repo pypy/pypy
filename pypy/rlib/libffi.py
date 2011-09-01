@@ -75,7 +75,7 @@ class types(object):
     @staticmethod
     @jit.elidable
     def is_struct(ffi_type):
-        return intmask(ffi_type.c_type) == intmask(FFI_TYPE_STRUCT)
+        return intmask(ffi_type.c_type) == FFI_TYPE_STRUCT
 
 types._import()
 

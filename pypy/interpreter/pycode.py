@@ -198,7 +198,7 @@ class PyCode(eval.Code):
 
     def funcrun(self, func, args):
         frame = self.space.createframe(self, func.w_func_globals,
-                                  func.closure)
+                                  func)
         sig = self._signature
         # speed hack
         fresh_frame = jit.hint(frame, access_directly=True,
@@ -211,7 +211,7 @@ class PyCode(eval.Code):
 
     def funcrun_obj(self, func, w_obj, args):
         frame = self.space.createframe(self, func.w_func_globals,
-                                  func.closure)
+                                  func)
         sig = self._signature
         # speed hack
         fresh_frame = jit.hint(frame, access_directly=True,

@@ -527,6 +527,7 @@ class AbstractX86CodeBuilder(object):
 
     NOP = insn('\x90')
     RET = insn('\xC3')
+    RET16_i = insn('\xC2', immediate(1, 'h'))
 
     PUSH_r = insn(rex_nw, register(1), '\x50')
     PUSH_b = insn(rex_nw, '\xFF', orbyte(6<<3), stack_bp(1))

@@ -21,6 +21,7 @@ from pypy.module.pypyjit.interp_resop import debug_merge_point_from_boxes
 
 PyFrame._virtualizable2_ = ['last_instr', 'pycode',
                             'valuestackdepth', 'locals_stack_w[*]',
+                            'cells[*]',
                             'last_exception',
                             'lastblock',
                             'is_being_profiled',
