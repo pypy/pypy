@@ -388,6 +388,21 @@ W_LongDtype.applevel_types = ["int"]
 W_ULongDtype.num = 8
 W_ULongDtype.aliases = ["L"]
 
+W_Float32Dtype = create_low_level_dtype(
+    num = 11, kind = FLOATINGLTR, name = "float32",
+    aliases = ["f"],
+    applevel_types = [],
+    T = lltype.Float, # SingleFloat
+    valtype = float, # r_singlefloat
+    expected_size = 8, # 4
+)
+class W_Float32Dtype(FloatArithmeticDtype, W_Float32Dtype):
+    def unwrap(self, space, w_item):
+        return self.adapt_val(space.float_w(space.float(w_item)))
+
+    def str_format(self, item):
+        return float2string(self.unbox(item), 'g', rfloat.DTSF_STR_PRECISION)
+
 W_Float64Dtype = create_low_level_dtype(
     num = 12, kind = FLOATINGLTR, name = "float64",
     aliases = ["d"],
@@ -403,20 +418,20 @@ class W_Float64Dtype(FloatArithmeticDtype, W_Float64Dtype):
     def str_format(self, item):
         return float2string(self.unbox(item), 'g', rfloat.DTSF_STR_PRECISION)
 
-# these are really just stand-ins for now until we get them fully working
-class W_Float32Dtype(W_Float64Dtype):
-    pass
-W_Float32Dtype.num = 11
-W_Float32Dtype.name = "float32"
-W_Float32Dtype.aliases = ["f"]
-W_Float32Dtype.applevel_types = []
+W_Float96Dtype = create_low_level_dtype(
+    num = 13, kind = FLOATINGLTR, name = "float96",
+    aliases = ["g"],
+    applevel_types = [],
+    T = lltype.Float, # LongFloat
+    valtype = float, # r_longfloat
+    expected_size = 8, # 12
+)
+class W_Float96Dtype(FloatArithmeticDtype, W_Float96Dtype):
+    def unwrap(self, space, w_item):
+        return self.adapt_val(space.float_w(space.float(w_item)))
 
-class W_Float96Dtype(W_Float64Dtype):
-    pass
-W_Float96Dtype.num = 13
-W_Float96Dtype.name = "float96"
-W_Float96Dtype.aliases = ["g"]
-W_Float96Dtype.applevel_types = []
+    def str_format(self, item):
+        return float2string(self.unbox(item), 'g', rfloat.DTSF_STR_PRECISION)
 
 ALL_DTYPES = [
     W_BoolDtype,

@@ -64,7 +64,9 @@ class TestUfuncCoerscion(object):
     def test_unaryops(self, space):
         bool_dtype = space.fromcache(interp_dtype.W_BoolDtype)
         int8_dtype = space.fromcache(interp_dtype.W_Int8Dtype)
+        int16_dtype = space.fromcache(interp_dtype.W_Int16Dtype)
         int32_dtype = space.fromcache(interp_dtype.W_Int32Dtype)
+        float32_dtype = space.fromcache(interp_dtype.W_Float32Dtype)
         float64_dtype = space.fromcache(interp_dtype.W_Float64Dtype)
 
         # Normal rules, everythign returns itself
@@ -75,7 +77,8 @@ class TestUfuncCoerscion(object):
 
         # Coerce to floats, some of these will eventually be float16, or
         # whatever our smallest float type is.
-        assert find_unaryop_result_dtype(space, bool_dtype, promote_to_float=True) is float64_dtype
-        assert find_unaryop_result_dtype(space, int8_dtype, promote_to_float=True) is float64_dtype
+        assert find_unaryop_result_dtype(space, bool_dtype, promote_to_float=True) is float32_dtype # will be float16 if we ever put that in
+        assert find_unaryop_result_dtype(space, int8_dtype, promote_to_float=True) is float32_dtype # will be float16 if we ever put that in
+        assert find_unaryop_result_dtype(space, int16_dtype, promote_to_float=True) is float32_dtype
         assert find_unaryop_result_dtype(space, int32_dtype, promote_to_float=True) is float64_dtype
         assert find_unaryop_result_dtype(space, float64_dtype, promote_to_float=True) is float64_dtype
