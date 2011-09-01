@@ -265,7 +265,7 @@ class IntegerArithmeticDtype(ArithmaticTypeMixin):
 
 W_BoolDtype = create_low_level_dtype(
     num = 0, kind = BOOLLTR, name = "bool",
-    aliases = ["?"],
+    aliases = ["?", "bool", "bool8"],
     applevel_types = ["bool"],
     T = lltype.Bool,
     valtype = bool,
@@ -283,7 +283,7 @@ class W_BoolDtype(IntegerArithmeticDtype, W_BoolDtype):
 
 W_Int8Dtype = create_low_level_dtype(
     num = 1, kind = SIGNEDLTR, name = "int8",
-    aliases = ["int8"],
+    aliases = ["b", "int8"],
     applevel_types = [],
     T = rffi.SIGNEDCHAR,
     valtype = rffi.SIGNEDCHAR._type,
@@ -294,7 +294,7 @@ class W_Int8Dtype(IntegerArithmeticDtype, W_Int8Dtype):
 
 W_UInt8Dtype = create_low_level_dtype(
     num = 2, kind = UNSIGNEDLTR, name = "uint8",
-    aliases = ["uint8"],
+    aliases = ["B", "uint8"],
     applevel_types = [],
     T = rffi.UCHAR,
     valtype = rffi.UCHAR._type,
@@ -305,7 +305,7 @@ class W_UInt8Dtype(IntegerArithmeticDtype, W_UInt8Dtype):
 
 W_Int16Dtype = create_low_level_dtype(
     num = 3, kind = SIGNEDLTR, name = "int16",
-    aliases = ["int16"],
+    aliases = ["h", "int16"],
     applevel_types = [],
     T = rffi.SHORT,
     valtype = rffi.SHORT._type,
@@ -316,7 +316,7 @@ class W_Int16Dtype(IntegerArithmeticDtype, W_Int16Dtype):
 
 W_UInt16Dtype = create_low_level_dtype(
     num = 4, kind = UNSIGNEDLTR, name = "uint16",
-    aliases = ["uint16"],
+    aliases = ["H", "uint16"],
     applevel_types = [],
     T = rffi.USHORT,
     valtype = rffi.USHORT._type,
@@ -327,7 +327,7 @@ class W_UInt16Dtype(IntegerArithmeticDtype, W_UInt16Dtype):
 
 W_Int32Dtype = create_low_level_dtype(
     num = 5, kind = SIGNEDLTR, name = "int32",
-    aliases = ["i"],
+    aliases = ["i", "int32"],
     applevel_types = [],
     T = rffi.INT,
     valtype = rffi.INT._type,
@@ -338,7 +338,7 @@ class W_Int32Dtype(IntegerArithmeticDtype, W_Int32Dtype):
 
 W_UInt32Dtype = create_low_level_dtype(
     num = 6, kind = UNSIGNEDLTR, name = "uint32",
-    aliases = ["I"],
+    aliases = ["I", "uint32"],
     applevel_types = [],
     T = rffi.UINT,
     valtype = rffi.UINT._type,
@@ -349,7 +349,7 @@ class W_UInt32Dtype(IntegerArithmeticDtype, W_UInt32Dtype):
 
 W_Int64Dtype = create_low_level_dtype(
     num = 9, kind = SIGNEDLTR, name = "int64",
-    aliases = [],
+    aliases = ["q", "int64"],
     applevel_types = ["long"],
     T = rffi.LONGLONG,
     valtype = rffi.LONGLONG._type,
@@ -360,7 +360,7 @@ class W_Int64Dtype(IntegerArithmeticDtype, W_Int64Dtype):
 
 W_UInt64Dtype = create_low_level_dtype(
     num = 10, kind = UNSIGNEDLTR, name = "uint64",
-    aliases = [],
+    aliases = ["Q", "uint64"],
     applevel_types = [],
     T = rffi.ULONGLONG,
     valtype = rffi.ULONGLONG._type,
@@ -383,12 +383,15 @@ else:
         pass
 
 W_LongDtype.num = 7
+W_LongDtype.aliases = ["l"]
+W_LongDtype.applevel_types = ["int"]
 W_ULongDtype.num = 8
+W_ULongDtype.aliases = ["L"]
 
 W_Float64Dtype = create_low_level_dtype(
     num = 12, kind = FLOATINGLTR, name = "float64",
     aliases = [],
-    applevel_types = ["float"],
+    applevel_types = ["d", "float"],
     T = lltype.Float,
     valtype = float,
     expected_size = 8,
