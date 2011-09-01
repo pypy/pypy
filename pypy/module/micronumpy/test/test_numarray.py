@@ -84,6 +84,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array(range(5), dtype="int8")
         assert str(a) == "[0 1 2 3 4]"
 
+        a = array(range(5), dtype="int16")
+        assert str(a) == "[0 1 2 3 4]"
+
     def test_str_slice(self):
         from numpy import array, zeros
         a = array(range(5), float)
