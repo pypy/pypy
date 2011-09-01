@@ -433,7 +433,7 @@ class TestX86(LLtypeBackendTest):
                 ops_offset[operations[2]] <=
                 ops_offset[None])
 
-    def test_calling_convention(self):
+    def test_calling_convention(self, monkeypatch):
         if WORD != 4:
             py.test.skip("32-bit only test")
         from pypy.jit.backend.x86.regloc import eax, edx
@@ -442,7 +442,7 @@ class TestX86(LLtypeBackendTest):
         from pypy.rlib.libffi import types, clibffi
         had_stdcall = hasattr(clibffi, 'FFI_STDCALL')
         if not had_stdcall:    # not running on Windows, but we can still test
-            clibffi.FFI_STDCALL = 12345
+            monkeypatch.setattr(clibffi, 'FFI_STDCALL', 12345, raising=False)
         #
         for ffi in [clibffi.FFI_DEFAULT_ABI, clibffi.FFI_STDCALL]:
             cpu = self.cpu
@@ -513,9 +513,6 @@ class TestX86(LLtypeBackendTest):
             assert self.cpu.get_latest_value_int(1) == 42
             assert self.cpu.get_latest_value_int(2) == 42
             assert self.cpu.get_latest_value_int(3) == 42
-
-        if not had_stdcall:
-            del clibffi.FFI_STDCALL
 
 
 class TestDebuggingAssembler(object):

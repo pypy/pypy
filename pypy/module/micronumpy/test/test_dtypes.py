@@ -82,10 +82,20 @@ class AppTestDtypes(BaseNumpyAppTest):
             assert a[1] == 1
 
     def test_add_int8(self):
-        from numpy import array
+        from numpy import array, dtype
 
         a = array(range(5), dtype="int8")
         b = a + a
+        assert b.dtype is dtype("int8")
+        for i in range(5):
+            assert b[i] == i * 2
+
+    def test_add_int16(self):
+        from numpy import array, dtype
+
+        a = array(range(5), dtype="int16")
+        b = a + a
+        assert b.dtype is dtype("int16")
         for i in range(5):
             assert b[i] == i * 2
 
