@@ -56,6 +56,7 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
         if not libexpat.check():
             libexpat = py.path.local.sysfind('libexpat.dll')
             assert libexpat, "libexpat.dll not found"
+            print "Picking %s" % libexpat
         binaries = [(pypy_c, pypy_c.basename),
                     (libpypy_c, libpypy_c.basename),
                     (libexpat, libexpat.basename)]
