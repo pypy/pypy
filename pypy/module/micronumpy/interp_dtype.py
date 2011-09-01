@@ -8,7 +8,7 @@ from pypy.interpreter.typedef import TypeDef, interp_attrproperty, GetSetPropert
 from pypy.module.micronumpy import signature
 from pypy.objspace.std.floatobject import float2string
 from pypy.rlib import rfloat
-from pypy.rlib.rarithmetic import widen
+from pypy.rlib.rarithmetic import LONG_BIT, widen
 from pypy.rlib.objectmodel import specialize, enforceargs
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython.lltypesystem import lltype, rffi
@@ -369,7 +369,21 @@ W_UInt64Dtype = create_low_level_dtype(
 class W_UInt64Dtype(IntegerArithmeticDtype, W_UInt64Dtype):
     pass
 
+if LONG_BIT == 32:
+    class W_LongDtype(W_Int32Dtype):
+        pass
 
+    class W_ULongDtype(W_UInt32Dtype):
+        pass
+else:
+    class W_LongDtype(W_Int64Dtype):
+        pass
+
+    class W_ULongDtype(W_UInt64Dtype):
+        pass
+
+W_LongDtype.num = 7
+W_ULongDtype.num = 8
 
 W_Float64Dtype = create_low_level_dtype(
     num = 12, kind = FLOATINGLTR, name = "float64",
@@ -389,8 +403,11 @@ class W_Float64Dtype(FloatArithmeticDtype, W_Float64Dtype):
 ALL_DTYPES = [
     W_BoolDtype,
     W_Int8Dtype, W_UInt8Dtype, W_Int16Dtype, W_UInt16Dtype,
-    W_Int32Dtype, W_UInt32Dtype, W_Int64Dtype, W_UInt64Dtype,
-    W_Float64Dtype
+    W_Int32Dtype, W_UInt32Dtype, W_LongDtype, W_ULongDtype,
+    W_Int64Dtype, W_UInt64Dtype,
+    W_Float64Dtype, #float32 fill-in for now
+    W_Float64Dtype,
+    W_Float64Dtype, #float96 fill-in for now
 ]
 
 dtypes_by_alias = unrolling_iterable([
