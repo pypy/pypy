@@ -12,12 +12,12 @@ from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
 from pypy.jit.backend.x86 import regloc
 from pypy.jit.backend.x86.support import values_array
 from pypy.jit.backend.ppc.ppcgen.ppc_assembler import PPCBuilder
+from pypy.jit.backend.ppc.ppcgen.arch import NONVOLATILES
 import sys
 
 from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer('jitbackend')
 py.log.setconsumer('jitbackend', ansi_log)
-
 
 class PPC_64_CPU(AbstractLLCPU):
 
@@ -46,6 +46,9 @@ class PPC_64_CPU(AbstractLLCPU):
 
         codebuilder = PPCBuilder()
         
+        # function prologue
+        self._make_prologue(codebuilder)
+
         # initialize registers from memory
         self.next_free_register = 3
         for index, arg in enumerate(inputargs):
@@ -56,8 +59,10 @@ class PPC_64_CPU(AbstractLLCPU):
         
         self.startpos = codebuilder.get_relative_pos()
 
-        self._make_prologue(codebuilder)
+        # generate code for operations
         self._walk_trace_ops(codebuilder, operations)
+
+        # function epilogue
         self._make_epilogue(codebuilder)
 
         f = codebuilder.assemble()
@@ -106,9 +111,11 @@ class PPC_64_CPU(AbstractLLCPU):
         return reg
 
     def _make_prologue(self, codebuilder):
-        codebuilder.stwu(1, 1, -32)
+        framesize = 64 + 80
+        codebuilder.stwu(1, 1, -framesize)
         codebuilder.mflr(0)
-        codebuilder.stw(0, 1, 36)
+        codebuilder.stw(0, 1, framesize + 4)
+        codebuilder.save_nonvolatiles(framesize)
 
     def _make_epilogue(self, codebuilder):
         for op_index, fail_index, guard, reglist in self.patch_list:
@@ -135,9 +142,12 @@ class PPC_64_CPU(AbstractLLCPU):
             descr.patch_pos = patch_pos
             descr.used_mem_indices = used_mem_indices
 
-            codebuilder.lwz(0, 1, 36)
+            framesize = 64 + 80
+            codebuilder.restore_nonvolatiles(framesize)
+
+            codebuilder.lwz(0, 1, framesize + 4) # 36
             codebuilder.mtlr(0)
-            codebuilder.addi(1, 1, 32)
+            codebuilder.addi(1, 1, framesize)
 
             codebuilder.li(3, fail_index)            
             codebuilder.blr()

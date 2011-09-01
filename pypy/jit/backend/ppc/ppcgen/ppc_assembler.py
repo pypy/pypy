@@ -4,7 +4,7 @@ from pypy.jit.backend.ppc.ppcgen.ppc_form import PPCForm as Form
 from pypy.jit.backend.ppc.ppcgen.ppc_field import ppc_fields
 from pypy.jit.backend.ppc.ppcgen.assembler import Assembler
 from pypy.jit.backend.ppc.ppcgen.symbol_lookup import lookup
-from pypy.jit.backend.ppc.ppcgen.arch import IS_PPC_32
+from pypy.jit.backend.ppc.ppcgen.arch import IS_PPC_32, WORD, NONVOLATILES
 from pypy.jit.metainterp.history import Const, ConstPtr
 from pypy.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from pypy.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
@@ -932,12 +932,21 @@ class PPCBuilder(PPCAssembler):
             self.ld(rD, rD, 0)
 
     def store_reg(self, source_reg, addr):
+        self.load_word(0, addr)
         if IS_PPC_32:
-            self.addis(10, 0, ha(addr))
-            self.stw(source_reg, 10, la(addr))
+            self.stwx(source_reg, 0, 0)
         else:
-            self.load_word(10, addr)
-            self.std(source_reg, 10, 0)
+            # ? 
+            self.std(source_reg, 0, 10)
+
+    def save_nonvolatiles(self, framesize):
+        for i, reg in enumerate(NONVOLATILES):
+            self.stw(reg, 1, framesize - 4 * i)
+
+    def restore_nonvolatiles(self, framesize):
+        for i, reg in enumerate(NONVOLATILES):
+            self.lwz(reg, 1, framesize - i * 4)
+        
 
     # translate a trace operation to corresponding machine code
     def build_op(self, trace_op, cpu):
@@ -1399,7 +1408,9 @@ class PPCBuilder(PPCAssembler):
         call_addr = rffi.cast(lltype.Signed, op.getarg(0).value)
         args = op.getarglist()[1:]
         descr = op.getdescr()
+        num_args = len(args)
 
+        # pass first arguments in registers
         arg_reg = 3
         for arg in args:
             if isinstance(arg, Box):
@@ -1409,6 +1420,22 @@ class PPCBuilder(PPCAssembler):
             else:
                 assert 0, "%s not supported yet" % arg
             arg_reg += 1
+            if arg_reg == 11:
+                break
+
+        # if the function takes more than 8 arguments,
+        # pass remaining arguments on stack
+        if num_args > 8:
+            remaining_args = args[8:]
+            for i, arg in enumerate(remaining_args):
+                if isinstance(arg, Box):
+                    #self.mr(0, cpu.reg_map[arg])
+                    self.stw(cpu.reg_map[arg], 1, 8 + WORD * i)
+                elif isinstance(arg, Const):
+                    self.load_word(0, arg.value)
+                    self.stw(0, 1, 8 + WORD * i)
+                else:
+                    assert 0, "%s not supported yet" % arg
 
         self.load_word(0, call_addr)
         self.mtctr(0)
@@ -1562,9 +1589,14 @@ class PPCBuilder(PPCAssembler):
                 self.store_reg(cpu.next_free_register, addr)
             else:
                 assert 0, "arg type not suported"
-        self.lwz(0, 1, 36)
+
+        framesize = 64 + 80
+
+        self.restore_nonvolatiles(framesize)
+
+        self.lwz(0, 1, framesize + 4) # 36
         self.mtlr(0)
-        self.addi(1, 1, 32)
+        self.addi(1, 1, framesize)
         self.load_word(3, identifier)
         self.blr()
 

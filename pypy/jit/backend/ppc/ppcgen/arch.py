@@ -10,3 +10,5 @@ else:
     IS_PPC_32 = False
     IS_PPC_64 = True
 
+NONVOLATILES    = [2] + range(13, 32)
+VOLATILES       = [0] + range(3, 13)
