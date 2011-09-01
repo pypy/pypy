@@ -252,9 +252,9 @@ class FlowObjSpace(ObjSpace):
             raise TypeError("%r is a generator" % (func,))
         code = PyCode._from_code(self, code)
         if func.func_closure is None:
-            closure = None
+            cl = None
         else:
-            closure = [extract_cell_content(c) for c in func.func_closure]
+            cl = [extract_cell_content(c) for c in func.func_closure]
         # CallableFactory.pycall may add class_ to functions that are methods
         name = func.func_name
         class_ = getattr(func, 'class_', None)
@@ -262,8 +262,10 @@ class FlowObjSpace(ObjSpace):
             name = '%s.%s' % (class_.__name__, name)
         for c in "<>&!":
             name = name.replace(c, '_')
+        class outerfunc: # hack
+            closure = cl
         ec = flowcontext.FlowExecutionContext(self, code, func.func_globals,
-                                              constargs, closure, name)
+                                              constargs, outerfunc, name)
         graph = ec.graph
         graph.func = func
         # attach a signature and defaults to the graph
