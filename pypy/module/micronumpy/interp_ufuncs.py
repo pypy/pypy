@@ -206,6 +206,8 @@ def find_unaryop_result_dtype(space, dt, promote_to_float=False,
     if promote_to_float:
         if dt.kind == interp_dtype.FLOATINGLTR:
             return dt
+        if dt.num >= 5:
+            return space.fromcache(interp_dtype.W_Float64Dtype)
         for bytes, dtype in interp_dtype.dtypes_by_num_bytes:
             if dtype.kind == interp_dtype.FLOATINGLTR and dtype.num_bytes > dt.num_bytes:
                 return space.fromcache(dtype)
@@ -214,6 +216,8 @@ def find_unaryop_result_dtype(space, dt, promote_to_float=False,
             return space.fromcache(interp_dtype.W_Int64Dtype)
         elif dt.kind == interp_dtype.FLOATINGLTR:
             return space.fromcache(interp_dtype.W_Float64Dtype)
+        elif dt.kind == interp_dtype.UNSIGNEDLTR:
+            return space.fromcache(interp_dtype.W_UInt64Dtype)
         else:
             assert False
     return dt
