@@ -53,7 +53,9 @@ class BaseBox(object):
 
 VOID_TP = lltype.Ptr(lltype.Array(lltype.Void, hints={'nolength': True, "uncast_on_llgraph": True}))
 
-def create_low_level_dtype(num, kind, name, aliases, applevel_types, T, valtype):
+def create_low_level_dtype(num, kind, name, aliases, applevel_types, T, valtype,
+    expected_size=None):
+
     class Box(BaseBox):
         def __init__(self, val):
             self.val = val
@@ -113,6 +115,8 @@ def create_low_level_dtype(num, kind, name, aliases, applevel_types, T, valtype)
     W_LowLevelDtype.aliases = aliases
     W_LowLevelDtype.applevel_types = applevel_types
     W_LowLevelDtype.num_bytes = rffi.sizeof(T)
+    if expected_size is not None:
+        assert W_LowLevelDtype.num_bytes == expected_size
     return W_LowLevelDtype
 
 
@@ -282,11 +286,10 @@ W_Int8Dtype = create_low_level_dtype(
     applevel_types = [],
     T = rffi.SIGNEDCHAR,
     valtype = rffi.SIGNEDCHAR._type,
+    expected_size = 1,
 )
 class W_Int8Dtype(IntegerArithmeticDtype, W_Int8Dtype):
-    def unwrap(self, space, w_item):
-        return self.adapt_val(space.int_w(space.int(w_item)))
-assert W_Int8Dtype.num_bytes == 1
+    pass
 
 W_Int16Dtype = create_low_level_dtype(
     num = 3, kind = SIGNEDLTR, name = "int16",
@@ -294,11 +297,10 @@ W_Int16Dtype = create_low_level_dtype(
     applevel_types = [],
     T = rffi.SHORT,
     valtype = rffi.SHORT._type,
+    expected_size = 2,
 )
 class W_Int16Dtype(IntegerArithmeticDtype, W_Int16Dtype):
-    def unwrap(self, space, w_item):
-        return self.adapt_val(space.int_w(space.int(w_item)))
-assert W_Int16Dtype.num_bytes == 2
+    pass
 
 W_Int32Dtype = create_low_level_dtype(
     num = 5, kind = SIGNEDLTR, name = "int32",
@@ -306,6 +308,7 @@ W_Int32Dtype = create_low_level_dtype(
     applevel_types = [],
     T = rffi.INT,
     valtype = rffi.INT._type,
+    expected_size = 4,
 )
 class W_Int32Dtype(IntegerArithmeticDtype, W_Int32Dtype):
     pass
@@ -316,6 +319,7 @@ W_Int64Dtype = create_low_level_dtype(
     applevel_types = ["long"],
     T = rffi.LONGLONG,
     valtype = rffi.LONGLONG._type,
+    expected_size = 8,
 )
 class W_Int64Dtype(IntegerArithmeticDtype, W_Int64Dtype):
     pass
@@ -326,6 +330,7 @@ W_Float64Dtype = create_low_level_dtype(
     applevel_types = ["float"],
     T = lltype.Float,
     valtype = float,
+    expected_size = 8,
 )
 class W_Float64Dtype(FloatArithmeticDtype, W_Float64Dtype):
     def unwrap(self, space, w_item):
