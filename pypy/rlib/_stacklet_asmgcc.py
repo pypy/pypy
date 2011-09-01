@@ -30,7 +30,7 @@ def get_stackletrootwalker():
             p = llmemory.cast_adr_to_ptr(obj, lltype.Ptr(SUSPSTACK))
             if not p.handle:
                 return False
-            self.context = p.handle
+            self.context = llmemory.cast_ptr_to_adr(p.handle)
             anchor = p.anchor
             del p
             self.curframe = lltype.malloc(WALKFRAME, flavor='raw')
@@ -52,7 +52,7 @@ def get_stackletrootwalker():
         def teardown(self):
             lltype.free(self.curframe, flavor='raw')
             lltype.free(self.otherframe, flavor='raw')
-            self.context = lltype.nullptr(_c.handle.TO)
+            self.context = llmemory.NULL
             return llmemory.NULL
 
         def next(self, obj, prev):

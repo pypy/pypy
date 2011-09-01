@@ -324,7 +324,7 @@ class TestFlatten:
     def test_exc_exitswitch(self):
         def g(i):
             pass
-        
+
         def f(i):
             try:
                 g(i)
@@ -854,13 +854,51 @@ class TestFlatten:
             int_return %i0
         """, transform=True)
 
-    def test_force_cast_float(self):
+    def test_force_cast_floats(self):
         from pypy.rpython.lltypesystem import rffi
+        # Caststs to lltype.Float
         def f(n):
             return rffi.cast(lltype.Float, n)
         self.encoding_test(f, [12.456], """
             float_return %f0
         """, transform=True)
+        self.encoding_test(f, [rffi.cast(rffi.SIGNEDCHAR, 42)], """
+            cast_int_to_float %i0 -> %f0
+            float_return %f0
+        """, transform=True)
+
+        # Casts to lltype.SingleFloat
+        def g(n):
+            return rffi.cast(lltype.SingleFloat, n)
+        self.encoding_test(g, [12.456], """
+            cast_float_to_singlefloat %f0 -> %i0
+            int_return %i0
+        """, transform=True)
+        self.encoding_test(g, [rffi.cast(rffi.SIGNEDCHAR, 42)], """
+            cast_int_to_float %i0 -> %f0
+            cast_float_to_singlefloat %f0 -> %i1
+            int_return %i1
+        """, transform=True)
+
+        # Casts from floats
+        def f(n):
+            return rffi.cast(rffi.SIGNEDCHAR, n)
+        self.encoding_test(f, [12.456], """
+            cast_float_to_int %f0 -> %i0
+            int_sub %i0, $-128 -> %i1
+            int_and %i1, $255 -> %i2
+            int_add %i2, $-128 -> %i3
+            int_return %i3
+        """, transform=True)
+        self.encoding_test(f, [rffi.cast(lltype.SingleFloat, 12.456)], """
+            cast_singlefloat_to_float %i0 -> %f0
+            cast_float_to_int %f0 -> %i1
+            int_sub %i1, $-128 -> %i2
+            int_and %i2, $255 -> %i3
+            int_add %i3, $-128 -> %i4
+            int_return %i4
+        """, transform=True)
+
 
     def test_direct_ptradd(self):
         from pypy.rpython.lltypesystem import rffi

@@ -25,13 +25,14 @@ class MiniStats:
 class Descr(history.AbstractDescr):
 
     def __init__(self, ofs, typeinfo, extrainfo=None, name=None,
-                 arg_types=None, count_fields_if_immut=-1):
+                 arg_types=None, count_fields_if_immut=-1, ffi_flags=0):
         self.ofs = ofs
         self.typeinfo = typeinfo
         self.extrainfo = extrainfo
         self.name = name
         self.arg_types = arg_types
         self.count_fields_if_immut = count_fields_if_immut
+        self.ffi_flags = ffi_flags
 
     def get_arg_types(self):
         return self.arg_types
@@ -66,6 +67,9 @@ class Descr(history.AbstractDescr):
 
     def count_fields_if_immutable(self):
         return self.count_fields_if_immut
+
+    def get_ffi_flags(self):
+        return self.ffi_flags
 
     def __lt__(self, other):
         raise TypeError("cannot use comparison on Descrs")
@@ -114,14 +118,14 @@ class BaseCPU(model.AbstractCPU):
         return False
 
     def getdescr(self, ofs, typeinfo='?', extrainfo=None, name=None,
-                 arg_types=None, count_fields_if_immut=-1):
+                 arg_types=None, count_fields_if_immut=-1, ffi_flags=0):
         key = (ofs, typeinfo, extrainfo, name, arg_types,
-               count_fields_if_immut)
+               count_fields_if_immut, ffi_flags)
         try:
             return self._descrs[key]
         except KeyError:
             descr = Descr(ofs, typeinfo, extrainfo, name, arg_types,
-                          count_fields_if_immut)
+                          count_fields_if_immut, ffi_flags)
             self._descrs[key] = descr
             return descr
 
@@ -326,7 +330,7 @@ class LLtypeCPU(BaseCPU):
         return self.getdescr(0, token[0], extrainfo=extrainfo,
                              arg_types=''.join(arg_types))
 
-    def calldescrof_dynamic(self, ffi_args, ffi_result, extrainfo):
+    def calldescrof_dynamic(self, ffi_args, ffi_result, extrainfo, ffi_flags):
         from pypy.jit.backend.llsupport.ffisupport import get_ffi_type_kind
         from pypy.jit.backend.llsupport.ffisupport import UnsupportedKind
         arg_types = []
@@ -339,7 +343,8 @@ class LLtypeCPU(BaseCPU):
         except UnsupportedKind:
             return None
         return self.getdescr(0, reskind, extrainfo=extrainfo,
-                             arg_types=''.join(arg_types))
+                             arg_types=''.join(arg_types),
+                             ffi_flags=ffi_flags)
 
 
     def grab_exc_value(self):

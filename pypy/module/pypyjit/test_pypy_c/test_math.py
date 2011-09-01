@@ -78,6 +78,7 @@ class TestMath(BaseTestPyPyC):
         assert loop.match("""
             i1 = int_gt(i0, 0)
             guard_true(i1, descr=...)
+            guard_not_invalidated(descr=...)
             f1 = cast_int_to_float(i0)
             i2 = float_eq(f1, inf)
             i3 = float_eq(f1, -inf)

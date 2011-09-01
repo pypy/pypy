@@ -12,7 +12,7 @@ after this frame finishes.  The difference is that it will be changed
 
 To make a continulet object, call 'continulet' with a callable and
 optional extra arguments.  Later, the first time you switch() to the
-continulet, the callable is invoked wih the same continulet object as
+continulet, the callable is invoked with the same continulet object as
 the extra first argument.
 
 At this point, the one-shot continuation stored in the continulet points

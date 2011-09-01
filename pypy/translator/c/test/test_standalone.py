@@ -1019,6 +1019,27 @@ class TestThread(object):
                                      '5 ok']
 
 
+    def test_gc_with_fork_without_threads(self):
+        from pypy.rlib.objectmodel import invoke_around_extcall
+        if not hasattr(os, 'fork'):
+            py.test.skip("requires fork()")
+
+        def entry_point(argv):
+            childpid = os.fork()
+            if childpid == 0:
+                print "Testing..."
+            else:
+                pid, status = os.waitpid(childpid, 0)
+                assert pid == childpid
+                assert status == 0
+                print "OK."
+            return 0
+
+        t, cbuilder = self.compile(entry_point)
+        data = cbuilder.cmdexec('')
+        print repr(data)
+        assert data.startswith('Testing...\nOK.')
+
     def test_thread_and_gc_with_fork(self):
         # This checks that memory allocated for the shadow stacks of the
         # other threads is really released when doing a fork() -- or at

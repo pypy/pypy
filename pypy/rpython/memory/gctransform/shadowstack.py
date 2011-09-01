@@ -3,6 +3,7 @@ from pypy.rpython.memory.gctransform.framework import sizeofaddr
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rlib.debug import ll_assert
+from pypy.rlib.nonconst import NonConstant
 from pypy.annotation import model as annmodel
 
 
@@ -31,7 +32,7 @@ class ShadowStackRootWalker(BaseRootWalker):
                 'root_iterator' in translator._jit2gc):
             root_iterator = translator._jit2gc['root_iterator']
             def jit_walk_stack_root(callback, addr, end):
-                root_iterator.context = llmemory.NULL
+                root_iterator.context = NonConstant(llmemory.NULL)
                 gc = self.gc
                 while True:
                     addr = root_iterator.next(gc, addr, end)
@@ -162,7 +163,7 @@ class ShadowStackRootWalker(BaseRootWalker):
                 # We are in the child process.  Assumes that only the
                 # current thread survived, so frees the shadow stacks
                 # of all the other ones.
-                gcdata.thread_stacks.clear()
+                gcdata.thread_stacks = None
                 # Finally, reset the stored thread IDs, in case it
                 # changed because of fork().  Also change the main
                 # thread to the current one (because there is not any

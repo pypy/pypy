@@ -13,17 +13,19 @@ class FakeCPU:
 
 def test_call_descr_dynamic():
     args = [types.sint, types.pointer]
-    descr = get_call_descr_dynamic(FakeCPU(), args, types.sint)
+    descr = get_call_descr_dynamic(FakeCPU(), args, types.sint, ffi_flags=42)
     assert isinstance(descr, DynamicIntCallDescr)
     assert descr.arg_classes == 'ii'
+    assert descr.get_ffi_flags() == 42
 
     args = [types.sint, types.double, types.pointer]
     descr = get_call_descr_dynamic(FakeCPU(), args, types.void)
     assert descr is None    # missing floats
     descr = get_call_descr_dynamic(FakeCPU(supports_floats=True),
-                                   args, types.void)
+                                   args, types.void, ffi_flags=43)
     assert isinstance(descr, VoidCallDescr)
     assert descr.arg_classes == 'ifi'
+    assert descr.get_ffi_flags() == 43
 
     descr = get_call_descr_dynamic(FakeCPU(), [], types.sint8)
     assert isinstance(descr, DynamicIntCallDescr)
@@ -39,14 +41,16 @@ def test_call_descr_dynamic():
         descr = get_call_descr_dynamic(FakeCPU(), [], types.slonglong)
         assert descr is None   # missing longlongs
         descr = get_call_descr_dynamic(FakeCPU(supports_longlong=True),
-                                       [], types.slonglong)
+                                       [], types.slonglong, ffi_flags=43)
         assert isinstance(descr, LongLongCallDescr)
+        assert descr.get_ffi_flags() == 43
     else:
         assert types.slonglong is types.slong
 
     descr = get_call_descr_dynamic(FakeCPU(), [], types.float)
     assert descr is None   # missing singlefloats
     descr = get_call_descr_dynamic(FakeCPU(supports_singlefloats=True),
-                                   [], types.float)
+                                   [], types.float, ffi_flags=44)
     SingleFloatCallDescr = getCallDescrClass(rffi.FLOAT)
     assert isinstance(descr, SingleFloatCallDescr)
+    assert descr.get_ffi_flags() == 44
