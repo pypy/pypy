@@ -398,19 +398,14 @@ class MIFrame(object):
 
     @arguments("box", "descr", "box")
     def _opimpl_getarrayitem_gc_any(self, arraybox, arraydescr, indexbox):
-        cache = self.metainterp.heap_array_cache.get(arraydescr, None)
-        if cache and isinstance(indexbox, ConstInt):
-            index = indexbox.getint()
-            frombox, tobox = cache.get(index, (None, None))
-            if frombox is arraybox:
-                return tobox
+        tobox = self.metainterp.heapcache.getarrayitem(
+                arraybox, arraydescr, indexbox)
+        if tobox:
+            return tobox
         resbox = self.execute_with_descr(rop.GETARRAYITEM_GC,
                                          arraydescr, arraybox, indexbox)
-        if isinstance(indexbox, ConstInt):
-            if not cache:
-                cache = self.metainterp.heap_array_cache[arraydescr] = {}
-            index = indexbox.getint()
-            cache[index] = arraybox, resbox
+        self.metainterp.heapcache.setarrayitem(
+                arraybox, arraydescr, indexbox, resbox)
         return resbox
 
 
@@ -440,13 +435,8 @@ class MIFrame(object):
                                     indexbox, itembox):
         self.execute_with_descr(rop.SETARRAYITEM_GC, arraydescr, arraybox,
                                 indexbox, itembox)
-        if isinstance(indexbox, ConstInt):
-            cache = self.metainterp.heap_array_cache.setdefault(arraydescr, {})
-            cache[indexbox.getint()] = arraybox, itembox
-        else:
-            cache = self.metainterp.heap_array_cache.get(arraydescr, None)
-            if cache:
-                cache.clear()
+        self.metainterp.heapcache.setarrayitem(
+                arraybox, arraydescr, indexbox, itembox)
 
     opimpl_setarrayitem_gc_i = _opimpl_setarrayitem_gc_any
     opimpl_setarrayitem_gc_r = _opimpl_setarrayitem_gc_any
@@ -541,11 +531,11 @@ class MIFrame(object):
 
     @specialize.arg(1)
     def _opimpl_getfield_gc_any_pureornot(self, opnum, box, fielddescr):
-        frombox, tobox = self.metainterp.heap_cache.get(fielddescr, (None, None))
-        if frombox is box:
+        tobox = self.metainterp.heapcache.getfield(box, fielddescr)
+        if tobox is not None:
             return tobox
         resbox = self.execute_with_descr(opnum, fielddescr, box)
-        self.metainterp.heap_cache[fielddescr] = (box, resbox)
+        self.metainterp.heapcache.setfield(box, fielddescr, resbox)
         return resbox
 
     @arguments("orgpc", "box", "descr")
@@ -566,11 +556,11 @@ class MIFrame(object):
 
     @arguments("box", "descr", "box")
     def _opimpl_setfield_gc_any(self, box, fielddescr, valuebox):
-        frombox, tobox = self.metainterp.heap_cache.get(fielddescr, (None, None))
-        if frombox is box and tobox is valuebox:
+        tobox = self.metainterp.heapcache.getfield(box, fielddescr)
+        if tobox is valuebox:
             return
         self.execute_with_descr(rop.SETFIELD_GC, fielddescr, box, valuebox)
-        self.metainterp.heap_cache[fielddescr] = (box, valuebox)
+        self.metainterp.heapcache.setfield(box, fielddescr, valuebox)
     opimpl_setfield_gc_i = _opimpl_setfield_gc_any
     opimpl_setfield_gc_r = _opimpl_setfield_gc_any
     opimpl_setfield_gc_f = _opimpl_setfield_gc_any
@@ -1494,12 +1484,6 @@ class MetaInterp(object):
         self.retracing_loop_from = None
         self.call_pure_results = args_dict_box()
         self.heapcache = HeapCache()
-        # heap cache
-        # maps descrs to (from_box, to_box) tuples
-        self.heap_cache = {}
-        # heap array cache
-        # maps descrs to {index: (from_box, to_box)} dicts
-        self.heap_array_cache = {}
 
     def perform_call(self, jitcode, boxes, greenkey=None):
         # causes the metainterp to enter the given subfunction
@@ -1675,29 +1659,11 @@ class MetaInterp(object):
         # record the operation
         profiler = self.staticdata.profiler
         profiler.count_ops(opnum, RECORDED_OPS)
-        self._invalidate_caches(opnum, descr)
+        self.heapcache.invalidate_caches(opnum, descr)
         op = self.history.record(opnum, argboxes, resbox, descr)
         self.attach_debug_info(op)
         return resbox
 
-    def _invalidate_caches(self, opnum, descr):
-        if opnum == rop.SETFIELD_GC:
-            return
-        if opnum == rop.SETARRAYITEM_GC:
-            return
-        if rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST:
-            return
-        if opnum == rop.CALL:
-            effectinfo = descr.get_extra_info()
-            ef = effectinfo.extraeffect
-            if ef == effectinfo.EF_LOOPINVARIANT or \
-               ef == effectinfo.EF_ELIDABLE_CANNOT_RAISE or \
-               ef == effectinfo.EF_ELIDABLE_CAN_RAISE:
-                return
-        if self.heap_cache:
-            self.heap_cache.clear()
-        if self.heap_array_cache:
-            self.heap_array_cache.clear()
 
     def attach_debug_info(self, op):
         if (not we_are_translated() and op is not None
@@ -1861,8 +1827,6 @@ class MetaInterp(object):
 
     def reached_loop_header(self, greenboxes, redboxes, resumedescr):
         self.heapcache.reset()
-        self.heap_cache = {}
-        self.heap_array_cache = {}
 
         duplicates = {}
         self.remove_consts_and_duplicates(redboxes, len(redboxes),
@@ -2370,17 +2334,7 @@ class MetaInterp(object):
             for i in range(len(boxes)):
                 if boxes[i] is oldbox:
                     boxes[i] = newbox
-        for descr, (frombox, tobox) in self.heap_cache.iteritems():
-            change = False
-            if frombox is oldbox:
-                change = True
-                frombox = newbox
-            if tobox is oldbox:
-                change = True
-                tobox = newbox
-            if change:
-                self.heap_cache[descr] = frombox, tobox
-        # XXX what about self.heap_array_cache?
+        self.heapcache.replace_box(oldbox, newbox)
 
     def find_biggest_function(self):
         start_stack = []
