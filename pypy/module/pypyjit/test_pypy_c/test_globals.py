@@ -23,6 +23,4 @@ class TestGlobals(BaseTestPyPyC):
             guard_not_invalidated(descr=...)
             p19 = getfield_gc(ConstPtr(p17), descr=<GcPtrFieldDescr .*W_DictMultiObject.inst_strategy .*>)
             guard_value(p19, ConstPtr(ptr20), descr=...)
-            p22 = getfield_gc(ConstPtr(ptr21), descr=<GcPtrFieldDescr .*ModuleCell.inst_w_value .*>)
-            guard_nonnull(p22, descr=...)
         """)
