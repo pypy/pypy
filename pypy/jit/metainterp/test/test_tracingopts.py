@@ -416,15 +416,15 @@ class TestLLtype(LLJitMixin):
         def fn(n):
             a1 = A()
             g.a = a1
-            a1.x = n - 2
+            a1.x = n
             a2 = A()
             g.a = a2
-            a2.x = n - 3
-            return a1.x + a2.x
+            a2.x = n - 1
+            return a1.x + a2.x + a1.x + a2.x
         res = self.interp_operations(fn, [7])
-        assert res == 2 * 7 - 5
-        self.check_operations_history(getfield_gc=0)
+        assert res == 2 * 7 + 2 * 6
+        self.check_operations_history(getfield_gc=2)
         res = self.interp_operations(fn, [-7])
-        assert res == 2 * -7 - 5
-        self.check_operations_history(getfield_gc=0)
+        assert res == 2 * -7 + 2 * -8
+        self.check_operations_history(getfield_gc=2)
 

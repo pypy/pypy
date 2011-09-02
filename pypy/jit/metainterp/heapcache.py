@@ -11,7 +11,7 @@ class HeapCache(object):
         # contains frame boxes that are not virtualizables
         self.nonstandard_virtualizables = {}
         # heap cache
-        # maps descrs to (from_box, to_box) tuples
+        # maps descrs to {from_box, to_box} dicts
         self.heap_cache = {}
         # heap array cache
         # maps descrs to {index: (from_box, to_box)} dicts
@@ -48,13 +48,18 @@ class HeapCache(object):
 
 
     def getfield(self, box, descr):
-        frombox, tobox = self.heap_cache.get(descr, (None, None))
-        if box is frombox:
-            return tobox
+        d = self.heap_cache.get(descr, None)
+        if d:
+            tobox = d.get(box, None)
+            if tobox:
+                return tobox
         return None
 
+    def getfield_now_known(self, box, descr, fieldbox):
+        self.heap_cache.setdefault(descr, {})[box] = fieldbox
+
     def setfield(self, box, descr, fieldbox):
-        self.heap_cache[descr] = (box, fieldbox)
+        self.heap_cache[descr] = {box: fieldbox}
 
     def getarrayitem(self, box, descr, indexbox):
         if not isinstance(indexbox, ConstInt):
@@ -77,14 +82,13 @@ class HeapCache(object):
         cache[index] = box, valuebox
 
     def replace_box(self, oldbox, newbox):
-        for descr, (frombox, tobox) in self.heap_cache.iteritems():
-            change = False
-            if frombox is oldbox:
-                change = True
-                frombox = newbox
-            if tobox is oldbox:
-                change = True
-                tobox = newbox
-            if change:
-                self.heap_cache[descr] = frombox, tobox
+        for descr, d in self.heap_cache.iteritems():
+            new_d = {}
+            for frombox, tobox in d.iteritems():
+                if frombox is oldbox:
+                    frombox = newbox
+                if tobox is oldbox:
+                    tobox = newbox
+                new_d[frombox] = tobox
+            self.heap_cache[descr] = new_d
         # XXX what about self.heap_array_cache?

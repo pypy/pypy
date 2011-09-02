@@ -81,6 +81,22 @@ class TestHeapCache(object):
         assert h.getfield(box1, descr2) is None
         assert h.getfield(box3, descr1) is None
 
+    def test_heapcache_fields_multiple(self):
+        h = HeapCache()
+        h.getfield_now_known(box1, descr1, box2)
+        h.getfield_now_known(box3, descr1, box4)
+        assert h.getfield(box1, descr1) is box2
+        assert h.getfield(box1, descr2) is None
+        assert h.getfield(box3, descr1) is box4
+        assert h.getfield(box3, descr2) is None
+
+        h.reset()
+        assert h.getfield(box1, descr1) is None
+        assert h.getfield(box1, descr2) is None
+        assert h.getfield(box3, descr1) is None
+        assert h.getfield(box3, descr2) is None
+
+
     def test_heapcache_arrays(self):
         h = HeapCache()
         assert h.getarrayitem(box1, descr1, index1) is None
@@ -166,3 +182,4 @@ class TestHeapCache(object):
         assert h.getfield(box1, descr2) is None
         assert h.getfield(box4, descr1) is box2
         assert h.getfield(box4, descr2) is box3
+
