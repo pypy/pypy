@@ -315,6 +315,22 @@ Begin by reading `Andrew Brown's tutorial`_ .
 
 .. _`Andrew Brown's tutorial`: http://morepypy.blogspot.com/2011/04/tutorial-writing-interpreter-with-pypy.html
 
+---------------------------------------------------------
+Can RPython modules for PyPy be translated independently?
+---------------------------------------------------------
+
+No, you have to rebuild the entire interpreter.  This means two things:
+
+* It is imperative to use test-driven development.  You have to test
+  exhaustively your module in pure Python, before even attempting to
+  translate it.  Once you translate it, you should have only a few typing
+  issues left to fix, but otherwise the result should work out of the box.
+
+* Second, and perhaps most important: do you have a really good reason
+  for writing the module in RPython in the first place?  Nowadays you
+  should really look at alternatives, like writing it in pure Python,
+  using ctypes if it needs to call C code.
+
 ----------------------------------------------------------
 Why does PyPy draw a Mandelbrot fractal while translating?
 ----------------------------------------------------------
