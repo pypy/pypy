@@ -357,7 +357,7 @@ class TestLLtype(LLJitMixin):
         assert res == f(10, 1, 1)
         self.check_history(getarrayitem_gc=0, getfield_gc=0)
 
-    def test_heap_caching_pure(self):
+    def test_heap_caching_array_pure(self):
         class A(object):
             pass
         p1 = A()
@@ -405,3 +405,26 @@ class TestLLtype(LLJitMixin):
         assert res == -7 + 7
         self.check_operations_history(getfield_gc=0)
         return
+
+
+    def test_heap_caching_multiple_objects(self):
+        class Gbl(object):
+            pass
+        g = Gbl()
+        class A(object):
+            pass
+        def fn(n):
+            a1 = A()
+            g.a = a1
+            a1.x = n - 2
+            a2 = A()
+            g.a = a2
+            a2.x = n - 3
+            return a1.x + a2.x
+        res = self.interp_operations(fn, [7])
+        assert res == 2 * 7 - 5
+        self.check_operations_history(getfield_gc=0)
+        res = self.interp_operations(fn, [-7])
+        assert res == 2 * -7 - 5
+        self.check_operations_history(getfield_gc=0)
+
