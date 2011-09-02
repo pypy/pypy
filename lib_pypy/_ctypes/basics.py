@@ -54,7 +54,8 @@ class _CDataMeta(type):
     def get_ffi_argtype(self):
         if self._ffiargtype:
             return self._ffiargtype
-        return _shape_to_ffi_type(self._ffiargshape)
+        self._ffiargtype = _shape_to_ffi_type(self._ffiargshape)
+        return self._ffiargtype
 
     def _CData_output(self, resbuffer, base=None, index=-1):
         #assert isinstance(resbuffer, _rawffi.ArrayInstance)
