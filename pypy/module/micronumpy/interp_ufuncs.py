@@ -141,12 +141,11 @@ class W_Ufunc2(W_Ufunc):
             rhs = w_rhs.value.convert_to(calc_dtype)
             interm_res = self.func(calc_dtype, lhs, rhs)
             return interm_res.convert_to(res_dtype).wrap(space)
-            return self.func(res_dtype, w_lhs.value, w_rhs.value).wrap(space)
 
         new_sig = signature.Signature.find_sig([
             self.signature, w_lhs.signature, w_rhs.signature
         ])
-        w_res = Call2(new_sig, res_dtype, res_dtype, calc_dtype, w_lhs, w_rhs)
+        w_res = Call2(new_sig, res_dtype, calc_dtype, w_lhs, w_rhs)
         w_lhs.add_invalidates(w_res)
         w_rhs.add_invalidates(w_res)
         return w_res

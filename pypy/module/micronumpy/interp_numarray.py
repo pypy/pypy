@@ -74,12 +74,12 @@ class BaseArray(Wrappable):
     descr_pow = _binop_impl("power")
     descr_mod = _binop_impl("mod")
 
-    descr_eq = _binop_impl(interp_ufuncs.equal)
-    descr_ne = _binop_impl(interp_ufuncs.not_equal)
-    descr_lt = _binop_impl(interp_ufuncs.less)
-    descr_le = _binop_impl(interp_ufuncs.less_equal)
-    descr_gt = _binop_impl(interp_ufuncs.greater)
-    descr_ge = _binop_impl(interp_ufuncs.greater_equal)
+    descr_eq = _binop_impl("equal")
+    descr_ne = _binop_impl("not_equal")
+    descr_lt = _binop_impl("less")
+    descr_le = _binop_impl("less_equal")
+    descr_gt = _binop_impl("greater")
+    descr_ge = _binop_impl("greater_equal")
 
     def _binop_right_impl(ufunc_name):
         def impl(self, space, w_other):
