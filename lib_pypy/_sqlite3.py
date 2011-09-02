@@ -293,7 +293,7 @@ class StatementCache(object):
         #
         if stat.in_use:
             stat = Statement(self.connection, sql)
-        stat.set_cursor_and_factory(cursor, row_factory)
+        stat.set_row_factory(row_factory)
         return stat
 
 
@@ -914,8 +914,7 @@ class Statement(object):
         self.exhausted = False
         self.in_use = False
         #
-        # set by set_cursor_and_factory
-        self.cur = None
+        # set by set_row_factory
         self.row_factory = None
 
         self.statement = c_void_p()
@@ -937,7 +936,7 @@ class Statement(object):
 
         self._build_row_cast_map()
 
-    def set_cursor_and_factory(self, cur, row_factory):
+    def set_row_factory(self, row_factory):
         self.row_factory = row_factory
 
     def _build_row_cast_map(self):
