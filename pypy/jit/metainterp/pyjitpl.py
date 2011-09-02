@@ -17,6 +17,7 @@ from pypy.jit.metainterp.jitprof import GUARDS, RECORDED_OPS, ABORT_ESCAPE
 from pypy.jit.metainterp.jitprof import ABORT_TOO_LONG, ABORT_BRIDGE, \
                                         ABORT_FORCE_QUASIIMMUT, ABORT_BAD_LOOP
 from pypy.jit.metainterp.jitexc import JitException, get_llexception
+from pypy.jit.metainterp.heapcache import HeapCache
 from pypy.rlib.objectmodel import specialize
 from pypy.jit.codewriter.jitcode import JitCode, SwitchDictDescr
 from pypy.jit.codewriter import heaptracker
@@ -321,7 +322,7 @@ class MIFrame(object):
     def _establish_nullity(self, box, orgpc):
         value = box.nonnull()
         if value:
-            if box not in self.metainterp.known_class_boxes:
+            if not self.metainterp.heapcache.is_class_known(box):
                 self.generate_guard(rop.GUARD_NONNULL, box, resumepc=orgpc)
         else:
             if not isinstance(box, Const):
@@ -373,7 +374,7 @@ class MIFrame(object):
         cpu = self.metainterp.cpu
         cls = heaptracker.descr2vtable(cpu, sizedescr)
         resbox = self.execute(rop.NEW_WITH_VTABLE, ConstInt(cls))
-        self.metainterp.known_class_boxes[resbox] = None
+        self.metainterp.heapcache.class_now_know(resbox)
         return resbox
 
 ##    @FixME  #arguments("box")
@@ -633,7 +634,7 @@ class MIFrame(object):
         standard_box = self.metainterp.virtualizable_boxes[-1]
         if standard_box is box:
             return False
-        if box in self.metainterp.nonstandard_virtualizables:
+        if self.metainterp.heapcache.is_nonstandard_virtualizable(box):
             return True
         eqbox = self.metainterp.execute_and_record(rop.PTR_EQ, None,
                                                    box, standard_box)
@@ -642,7 +643,7 @@ class MIFrame(object):
         if isstandard:
             self.metainterp.replace_box(box, standard_box)
         else:
-            self.metainterp.nonstandard_virtualizables[box] = None
+            self.metainterp.heapcache.nonstandard_virtualizables_now_known(box)
         return not isstandard
 
     def _get_virtualizable_field_index(self, fielddescr):
@@ -884,9 +885,9 @@ class MIFrame(object):
     @arguments("orgpc", "box")
     def opimpl_guard_class(self, orgpc, box):
         clsbox = self.cls_of_box(box)
-        if box not in self.metainterp.known_class_boxes:
+        if not self.metainterp.heapcache.is_class_known(box):
             self.generate_guard(rop.GUARD_CLASS, box, [clsbox], resumepc=orgpc)
-            self.metainterp.known_class_boxes[box] = None
+            self.metainterp.heapcache.class_now_know(box)
         return clsbox
 
     @arguments("int", "orgpc")
@@ -1492,10 +1493,7 @@ class MetaInterp(object):
         self.last_exc_value_box = None
         self.retracing_loop_from = None
         self.call_pure_results = args_dict_box()
-        # contains boxes where the class is already known
-        self.known_class_boxes = {}
-        # contains frame boxes that are not virtualizables
-        self.nonstandard_virtualizables = {}
+        self.heapcache = HeapCache()
         # heap cache
         # maps descrs to (from_box, to_box) tuples
         self.heap_cache = {}
@@ -1862,8 +1860,7 @@ class MetaInterp(object):
                 duplicates[box] = None
 
     def reached_loop_header(self, greenboxes, redboxes, resumedescr):
-        self.known_class_boxes = {}
-        self.nonstandard_virtualizables = {} # XXX maybe not needed?
+        self.heapcache.reset()
         self.heap_cache = {}
         self.heap_array_cache = {}
 
