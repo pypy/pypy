@@ -331,6 +331,11 @@ No, you have to rebuild the entire interpreter.  This means two things:
   should really look at alternatives, like writing it in pure Python,
   using ctypes if it needs to call C code.
 
+In this context it is not that important to be able to translate
+RPython modules independently of translating the complete interpreter.
+(It could be done given enough efforts, but it's a really serious
+undertaking.  Consider it as quite unlikely for now.)
+
 ----------------------------------------------------------
 Why does PyPy draw a Mandelbrot fractal while translating?
 ----------------------------------------------------------
