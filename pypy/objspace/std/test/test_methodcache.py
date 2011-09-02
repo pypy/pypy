@@ -134,20 +134,24 @@ class AppTestMethodCaching(AppTestTypeObject):
 
     def test_custom_metaclass(self):
         import __pypy__
-        class MetaA(type):
-            def __getattribute__(self, x):
-                return 1
-        def f(self):
-            return 42
-        A = type.__new__(MetaA, "A", (), {"f": f})
-        l = [type.__getattribute__(A, "__new__")(A)] * 10
-        __pypy__.reset_method_cache_counter()
-        for i, a in enumerate(l):
-            assert a.f() == 42
-        cache_counter = __pypy__.method_cache_counter("f")
-        assert cache_counter[0] >= 5
-        assert cache_counter[1] >= 1 # should be (27, 3)
-        assert sum(cache_counter) == 10
+        for j in range(20):
+            class MetaA(type):
+                def __getattribute__(self, x):
+                    return 1
+            def f(self):
+                return 42
+            A = type.__new__(MetaA, "A", (), {"f": f})
+            l = [type.__getattribute__(A, "__new__")(A)] * 10
+            __pypy__.reset_method_cache_counter()
+            for i, a in enumerate(l):
+                assert a.f() == 42
+            cache_counter = __pypy__.method_cache_counter("f")
+            assert sum(cache_counter) == 10
+            if cache_counter == (9, 1):
+                break
+            #else the moon is misaligned, try again
+        else:
+            raise AssertionError("cache_counter = %r" % (cache_counter,))
 
     def test_mutate_class(self):
         import __pypy__
