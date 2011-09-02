@@ -374,6 +374,7 @@ class MIFrame(object):
         cpu = self.metainterp.cpu
         cls = heaptracker.descr2vtable(cpu, sizedescr)
         resbox = self.execute(rop.NEW_WITH_VTABLE, ConstInt(cls))
+        self.metainterp.heapcache.new(resbox)
         self.metainterp.heapcache.class_now_know(resbox)
         return resbox
 

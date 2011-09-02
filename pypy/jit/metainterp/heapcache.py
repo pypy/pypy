@@ -8,6 +8,8 @@ class HeapCache(object):
     def reset(self):
         # contains boxes where the class is already known
         self.known_class_boxes = {}
+        # store the boxes that contain newly allocated objects:
+        self.new_boxes = {}
         # contains frame boxes that are not virtualizables
         self.nonstandard_virtualizables = {}
         # heap cache
@@ -46,6 +48,8 @@ class HeapCache(object):
     def nonstandard_virtualizables_now_known(self, box):
         self.nonstandard_virtualizables[box] = None
 
+    def new(self, box):
+        self.new_boxes[box] = None
 
     def getfield(self, box, descr):
         d = self.heap_cache.get(descr, None)
@@ -59,7 +63,15 @@ class HeapCache(object):
         self.heap_cache.setdefault(descr, {})[box] = fieldbox
 
     def setfield(self, box, descr, fieldbox):
-        self.heap_cache[descr] = {box: fieldbox}
+        d = self.heap_cache.get(descr, None)
+        new_d = {box: fieldbox}
+        if not d or box not in self.new_boxes:
+            self.heap_cache[descr] = new_d
+            return
+        for frombox, tobox in d.iteritems():
+            if frombox in self.new_boxes:
+                new_d[frombox] = tobox
+        self.heap_cache[descr] = new_d
 
     def getarrayitem(self, box, descr, indexbox):
         if not isinstance(indexbox, ConstInt):

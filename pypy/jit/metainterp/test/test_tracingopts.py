@@ -423,8 +423,8 @@ class TestLLtype(LLJitMixin):
             return a1.x + a2.x + a1.x + a2.x
         res = self.interp_operations(fn, [7])
         assert res == 2 * 7 + 2 * 6
-        self.check_operations_history(getfield_gc=2)
+        self.check_operations_history(getfield_gc=0)
         res = self.interp_operations(fn, [-7])
         assert res == 2 * -7 + 2 * -8
-        self.check_operations_history(getfield_gc=2)
+        self.check_operations_history(getfield_gc=0)
 

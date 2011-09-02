@@ -81,7 +81,7 @@ class TestHeapCache(object):
         assert h.getfield(box1, descr2) is None
         assert h.getfield(box3, descr1) is None
 
-    def test_heapcache_fields_multiple(self):
+    def test_heapcache_read_fields_multiple(self):
         h = HeapCache()
         h.getfield_now_known(box1, descr1, box2)
         h.getfield_now_known(box3, descr1, box4)
@@ -95,6 +95,31 @@ class TestHeapCache(object):
         assert h.getfield(box1, descr2) is None
         assert h.getfield(box3, descr1) is None
         assert h.getfield(box3, descr2) is None
+
+    def test_heapcache_write_fields_multiple(self):
+        h = HeapCache()
+        h.setfield(box1, descr1, box2)
+        assert h.getfield(box1, descr1) is box2
+        h.setfield(box3, descr1, box4)
+        assert h.getfield(box3, descr1) is box4
+        assert h.getfield(box1, descr1) is None # box1 and box3 can alias
+
+        h = HeapCache()
+        h.new(box1)
+        h.setfield(box1, descr1, box2)
+        assert h.getfield(box1, descr1) is box2
+        h.setfield(box3, descr1, box4)
+        assert h.getfield(box3, descr1) is box4
+        assert h.getfield(box1, descr1) is None # box1 and box3 can alias
+
+        h = HeapCache()
+        h.new(box1)
+        h.new(box3)
+        h.setfield(box1, descr1, box2)
+        assert h.getfield(box1, descr1) is box2
+        h.setfield(box3, descr1, box4)
+        assert h.getfield(box3, descr1) is box4
+        assert h.getfield(box1, descr1) is box2 # box1 and box3 cannot alias
 
 
     def test_heapcache_arrays(self):
