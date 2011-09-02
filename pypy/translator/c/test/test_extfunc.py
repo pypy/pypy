@@ -595,6 +595,18 @@ if hasattr(os, 'chown') and hasattr(os, 'lchown'):
         f1 = compile(does_stuff, [])
         f1()
 
+if hasattr(os, 'getlogin'):
+    def test_os_getlogin():
+        def does_stuff():
+            return os.getlogin()
+
+        try:
+            expected = os.getlogin()
+        except OSError, e:
+            py.test.skip("the underlying os.getlogin() failed: %s" % e)
+        f1 = compile(does_stuff, [])
+        assert f1() == expected
+
 # ____________________________________________________________
 
 def _real_getenv(var):

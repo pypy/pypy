@@ -20,7 +20,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.extfunc import ExtRegistryEntry
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.tool.uid import fixid
-from pypy.rlib.rarithmetic import r_uint, r_singlefloat, r_longfloat, intmask
+from pypy.rlib.rarithmetic import r_uint, r_singlefloat, r_longfloat, base_int, intmask
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter, LLException
 from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
@@ -113,7 +113,7 @@ def _setup_ctypes_cache():
         rffi.LONGLONG:   ctypes.c_longlong,
         rffi.ULONGLONG:  ctypes.c_ulonglong,
         rffi.SIZE_T:     ctypes.c_size_t,
-        lltype.Bool:     ctypes.c_long, # XXX
+        lltype.Bool:     getattr(ctypes, "c_bool", ctypes.c_long),
         llmemory.Address:  ctypes.c_void_p,
         llmemory.GCREF:    ctypes.c_void_p,
         llmemory.WeakRef:  ctypes.c_void_p, # XXX
@@ -1098,6 +1098,8 @@ def get_ctypes_trampoline(FUNCTYPE, cfunc):
     for i in range(len(FUNCTYPE.ARGS)):
         if FUNCTYPE.ARGS[i] is lltype.Void:
             void_arguments.append(i)
+    def callme(cargs):   # an extra indirection: workaround for rlib.rstacklet
+        return cfunc(*cargs)
     def invoke_via_ctypes(*argvalues):
         global _callback_exc_info
         cargs = []
@@ -1109,7 +1111,7 @@ def get_ctypes_trampoline(FUNCTYPE, cfunc):
                 cargs.append(cvalue)
         _callback_exc_info = None
         _restore_c_errno()
-        cres = cfunc(*cargs)
+        cres = callme(cargs)
         _save_c_errno()
         if _callback_exc_info:
             etype, evalue, etb = _callback_exc_info
@@ -1140,6 +1142,8 @@ def force_cast(RESTYPE, value):
             cvalue = 0
     elif isinstance(cvalue, (str, unicode)):
         cvalue = ord(cvalue)     # character -> integer
+    elif hasattr(RESTYPE, "_type") and issubclass(RESTYPE._type, base_int):
+        cvalue = int(cvalue)
 
     if not isinstance(cvalue, (int, long, float)):
         raise NotImplementedError("casting %r to %r" % (TYPE1, RESTYPE))
@@ -1149,7 +1153,11 @@ def force_cast(RESTYPE, value):
         # an OverflowError on the following line.
         cvalue = ctypes.cast(ctypes.c_void_p(cvalue), cresulttype)
     else:
-        cvalue = cresulttype(cvalue).value   # mask high bits off if needed
+        try:
+            cvalue = cresulttype(cvalue).value   # mask high bits off if needed
+        except TypeError:
+            cvalue = int(cvalue)   # float -> int
+            cvalue = cresulttype(cvalue).value   # try again
     return ctypes2lltype(RESTYPE, cvalue)
 
 class ForceCastEntry(ExtRegistryEntry):

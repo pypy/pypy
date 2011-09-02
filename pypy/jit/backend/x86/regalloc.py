@@ -843,8 +843,8 @@ class RegAlloc(object):
 
     def consider_call(self, op):
         effectinfo = op.getdescr().get_extra_info()
-        if effectinfo is not None:
-            oopspecindex = effectinfo.oopspecindex
+        oopspecindex = effectinfo.oopspecindex
+        if oopspecindex != EffectInfo.OS_NONE:
             if IS_X86_32:
                 # support for some of the llong operations,
                 # which only exist on x86-32

@@ -21,6 +21,7 @@ from pypy.jit.metainterp.jitexc import JitException
 from pypy.jit.metainterp.jitdriver import JitDriverStaticData
 from pypy.jit.codewriter import support, codewriter, longlong
 from pypy.jit.codewriter.policy import JitPolicy
+from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.optimizeopt import ALL_OPTS_NAMES
 
 # ____________________________________________________________
@@ -244,7 +245,8 @@ class WarmRunnerDesc(object):
         graph.startblock = support.split_before_jit_merge_point(*jmpp)
         graph.startblock.isstartblock = True
         # a crash in the following checkgraph() means that you forgot
-        # to list some variable in greens=[] or reds=[] in JitDriver.
+        # to list some variable in greens=[] or reds=[] in JitDriver,
+        # or that a jit_merge_point() takes a constant as an argument.
         checkgraph(graph)
         for v in graph.getargs():
             assert isinstance(v, Variable)
@@ -654,11 +656,13 @@ class WarmRunnerDesc(object):
         portalfunc_ARGS = []
         nums = {}
         for i, ARG in enumerate(PORTALFUNC.ARGS):
+            kind = history.getkind(ARG)
+            assert kind != 'void'
             if i < len(jd.jitdriver.greens):
                 color = 'green'
             else:
                 color = 'red'
-            attrname = '%s_%s' % (color, history.getkind(ARG))
+            attrname = '%s_%s' % (color, kind)
             count = nums.get(attrname, 0)
             nums[attrname] = count + 1
             portalfunc_ARGS.append((ARG, attrname, count))
@@ -746,7 +750,8 @@ class WarmRunnerDesc(object):
         jd.portal_calldescr = self.cpu.calldescrof(
             jd._PTR_PORTAL_FUNCTYPE.TO,
             jd._PTR_PORTAL_FUNCTYPE.TO.ARGS,
-            jd._PTR_PORTAL_FUNCTYPE.TO.RESULT)
+            jd._PTR_PORTAL_FUNCTYPE.TO.RESULT,
+            EffectInfo.MOST_GENERAL)
 
         vinfo = jd.virtualizable_info
 

@@ -166,7 +166,8 @@ def alignment(tp):
     return tp._alignmentofinstances()
 
 def byref(cdata):
-    from ctypes import pointer
+    # "pointer" is imported at the end of this module to avoid circular
+    # imports
     return pointer(cdata)
 
 def cdata_from_address(self, address):
@@ -226,3 +227,6 @@ _shape_to_ffi_type.typemap =  {
     'v' : _ffi.types.sshort,
     }
 
+
+# used by "byref"
+from _ctypes.pointer import pointer

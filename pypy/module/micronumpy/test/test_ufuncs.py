@@ -3,6 +3,32 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 
 class AppTestUfuncs(BaseNumpyAppTest):
+    def test_ufunc_instance(self):
+        from numpy import add, ufunc
+
+        assert isinstance(add, ufunc)
+        assert repr(add) == "<ufunc 'add'>"
+        assert repr(ufunc) == "<type 'numpy.ufunc'>"
+
+    def test_ufunc_attrs(self):
+        from numpy import add, multiply, sin
+
+        assert add.identity == 0
+        assert multiply.identity == 1
+        assert sin.identity is None
+
+        assert add.nin == 2
+        assert multiply.nin == 2
+        assert sin.nin == 1
+
+    def test_wrong_arguments(self):
+        from numpy import add, sin
+
+        raises(TypeError, add, 1)
+        raises(TypeError, add, 1, 2, 3)
+        raises(TypeError, sin, 1, 2)
+        raises(TypeError, sin)
+
     def test_single_item(self):
         from numpy import negative, sign, minimum
 
@@ -112,7 +138,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
         x = maximum(2, 3)
         assert x == 3
-        assert type(x) is int
+        assert isinstance(x, (int, long))
 
     def test_multiply(self):
         from numpy import array, multiply
@@ -124,7 +150,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert c[i] == a[i] * b[i]
 
     def test_sign(self):
-        from numpy import array, sign
+        from numpy import array, sign, dtype
 
         reference = [-1.0, 0.0, 0.0, 1.0]
         a = array([-5.0, -0.0, 0.0, 6.0])
@@ -136,6 +162,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
         ref = [-1, -1, -1, -1, -1, 0, 1, 1, 1, 1]
         for i in range(10):
             assert a[i] == ref[i]
+
+        a = sign(array([True, False], dtype=bool))
+        assert a.dtype == dtype("int8")
+        assert a[0] == 1
+        assert a[1] == 0
 
     def test_reciporocal(self):
         from numpy import array, reciprocal
@@ -275,3 +306,17 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert equal(3.0, 3.5) is False
         assert equal(3.0, 3) is True
         assert equal(3.0, 4) is False
+
+    def test_reduce_errors(self):
+        from numpy import sin, add
+
+        raises(ValueError, sin.reduce, [1, 2, 3])
+        raises(TypeError, add.reduce, 1)
+
+    def test_reduce(self):
+        from numpy import add, maximum
+
+        assert add.reduce([1, 2, 3]) == 6
+        assert maximum.reduce([1]) == 1
+        assert maximum.reduce([1, 2, 3]) == 3
+        raises(ValueError, maximum.reduce, [])

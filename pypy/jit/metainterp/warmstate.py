@@ -124,7 +124,7 @@ def hash_whatever(TYPE, x):
     # Hash of lltype or ootype object.
     # Only supports strings, unicodes and regular instances,
     # as well as primitives that can meaningfully be cast to Signed.
-    if isinstance(TYPE, lltype.Ptr):
+    if isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'gc':
         if TYPE.TO is rstr.STR or TYPE.TO is rstr.UNICODE:
             return rstr.LLHelpers.ll_strhash(x)    # assumed not null
         else:
@@ -140,7 +140,7 @@ def hash_whatever(TYPE, x):
         else:
             return 0
     else:
-        return lltype.cast_primitive(lltype.Signed, x)
+        return rffi.cast(lltype.Signed, x)
 
 @specialize.ll_and_arg(3)
 def set_future_value(cpu, j, value, typecode):

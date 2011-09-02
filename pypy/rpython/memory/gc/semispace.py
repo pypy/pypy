@@ -92,14 +92,12 @@ class SemiSpaceGC(MovingGCBase):
     # This class only defines the malloc_{fixed,var}size_clear() methods
     # because the spaces are filled with zeroes in advance.
 
-    def malloc_fixedsize_clear(self, typeid16, size, can_collect,
+    def malloc_fixedsize_clear(self, typeid16, size,
                                has_finalizer=False, contains_weakptr=False):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + size
         result = self.free
         if raw_malloc_usage(totalsize) > self.top_of_space - result:
-            if not can_collect:
-                raise memoryError
             result = self.obtain_free_space(totalsize)
         llarena.arena_reserve(result, totalsize)
         self.init_gc_object(result, typeid16)
@@ -111,7 +109,7 @@ class SemiSpaceGC(MovingGCBase):
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
 
     def malloc_varsize_clear(self, typeid16, length, size, itemsize,
-                             offset_to_length, can_collect):
+                             offset_to_length):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         nonvarsize = size_gc_header + size
         try:
@@ -121,8 +119,6 @@ class SemiSpaceGC(MovingGCBase):
             raise memoryError
         result = self.free
         if raw_malloc_usage(totalsize) > self.top_of_space - result:
-            if not can_collect:
-                raise memoryError
             result = self.obtain_free_space(totalsize)
         llarena.arena_reserve(result, totalsize)
         self.init_gc_object(result, typeid16)

@@ -19,7 +19,7 @@ class TestNumpyJIt(LLJitMixin):
     def test_add(self):
         def f(i):
             ar = SingleDimArray(i, dtype=self.float64_dtype)
-            v = interp_ufuncs.add(self.space, ar, ar)
+            v = interp_ufuncs.get(self.space).add.call(self.space, [ar, ar])
             return v.get_concrete().eval(3).val
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
@@ -31,9 +31,10 @@ class TestNumpyJIt(LLJitMixin):
     def test_floatadd(self):
         def f(i):
             ar = SingleDimArray(i, dtype=self.float64_dtype)
-            v = interp_ufuncs.add(self.space,
-                ar,
-                scalar_w(self.space, self.float64_dtype, self.space.wrap(4.5))
+            v = interp_ufuncs.get(self.space).add.call(self.space, [
+                    ar,
+                    scalar_w(self.space, self.float64_dtype, self.space.wrap(4.5))
+                ],
             )
             assert isinstance(v, BaseArray)
             return v.get_concrete().eval(3).val
@@ -89,14 +90,21 @@ class TestNumpyJIt(LLJitMixin):
     def test_max(self):
         space = self.space
         float64_dtype = self.float64_dtype
+        int64_dtype = self.int64_dtype
 
         def f(i):
-            ar = SingleDimArray(i, dtype=NonConstant(float64_dtype))
+            if NonConstant(False):
+                dtype = int64_dtype
+            else:
+                dtype = float64_dtype
+            ar = SingleDimArray(i, dtype=dtype)
             j = 0
             while j < i:
                 ar.get_concrete().setitem(j, float64_dtype.box(float(j)))
                 j += 1
-            return ar.descr_add(space, ar).descr_max(space).floatval
+            v = ar.descr_add(space, ar).descr_max(space)
+            assert isinstance(v, FloatObject)
+            return v.floatval
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
         self.check_loops({"getarrayitem_raw": 2, "float_add": 1,
@@ -108,14 +116,21 @@ class TestNumpyJIt(LLJitMixin):
     def test_min(self):
         space = self.space
         float64_dtype = self.float64_dtype
+        int64_dtype = self.int64_dtype
 
         def f(i):
-            ar = SingleDimArray(i, dtype=NonConstant(float64_dtype))
+            if NonConstant(False):
+                dtype = int64_dtype
+            else:
+                dtype = float64_dtype
+            ar = SingleDimArray(i, dtype=dtype)
             j = 0
             while j < i:
                 ar.get_concrete().setitem(j, float64_dtype.box(float(j)))
                 j += 1
-            return ar.descr_add(space, ar).descr_min(space).floatval
+            v = ar.descr_add(space, ar).descr_min(space)
+            assert isinstance(v, FloatObject)
+            return v.floatval
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
         self.check_loops({"getarrayitem_raw": 2, "float_add": 1,
@@ -180,9 +195,9 @@ class TestNumpyJIt(LLJitMixin):
 
         def f(i):
             ar = SingleDimArray(i, dtype=self.float64_dtype)
-            v1 = interp_ufuncs.add(space, ar, scalar_w(space, self.float64_dtype, space.wrap(4.5)))
+            v1 = interp_ufuncs.get(self.space).add.call(space, [ar, scalar_w(space, self.float64_dtype, space.wrap(4.5))])
             assert isinstance(v1, BaseArray)
-            v2 = interp_ufuncs.multiply(space, v1, scalar_w(space, self.float64_dtype, space.wrap(4.5)))
+            v2 = interp_ufuncs.get(self.space).multiply.call(space, [v1, scalar_w(space, self.float64_dtype, space.wrap(4.5))])
             v1.force_if_needed()
             assert isinstance(v2, BaseArray)
             return v2.get_concrete().eval(3).val
@@ -200,8 +215,8 @@ class TestNumpyJIt(LLJitMixin):
         space = self.space
         def f(i):
             ar = SingleDimArray(i, dtype=self.float64_dtype)
-            v1 = interp_ufuncs.add(space, ar, ar)
-            v2 = interp_ufuncs.negative(space, v1)
+            v1 = interp_ufuncs.get(self.space).add.call(space, [ar, ar])
+            v2 = interp_ufuncs.get(self.space).negative.call(space, [v1])
             return v2.get_concrete().eval(3).val
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
@@ -216,13 +231,13 @@ class TestNumpyJIt(LLJitMixin):
         def f(i):
             ar = SingleDimArray(i, dtype=self.float64_dtype)
 
-            v1 = interp_ufuncs.add(space, ar, ar)
-            v2 = interp_ufuncs.negative(space, v1)
+            v1 = interp_ufuncs.get(self.space).add.call(space, [ar, ar])
+            v2 = interp_ufuncs.get(self.space).negative.call(space, [v1])
             v2.get_concrete()
 
             for i in xrange(5):
-                v1 = interp_ufuncs.multiply(space, ar, ar)
-                v2 = interp_ufuncs.negative(space, v1)
+                v1 = interp_ufuncs.get(self.space).multiply.call(space, [ar, ar])
+                v2 = interp_ufuncs.get(self.space).negative.call(space, [v1])
                 v2.get_concrete()
 
         self.meta_interp(f, [5], listops=True, backendopt=True)
@@ -237,7 +252,7 @@ class TestNumpyJIt(LLJitMixin):
                 SingleDimSlice.signature, ar.signature
             ])
             s = SingleDimSlice(0, step*i, step, i, ar, new_sig)
-            v = interp_ufuncs.add(self.space, s, s)
+            v = interp_ufuncs.get(self.space).add.call(self.space, [s, s])
             return v.get_concrete().eval(3).val
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
@@ -259,7 +274,7 @@ class TestNumpyJIt(LLJitMixin):
                 SingleDimSlice.signature, s1.signature
             ])
             s2 = SingleDimSlice(0, step2*i, step2, i, ar, new_sig)
-            v = interp_ufuncs.add(self.space, s1, s2)
+            v = interp_ufuncs.get(self.space).add.call(self.space, [s1, s2])
             return v.get_concrete().eval(3).val
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
