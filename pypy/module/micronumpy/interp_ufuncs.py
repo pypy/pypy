@@ -24,9 +24,9 @@ def ufunc(func=None, promote_to_float=False):
         return w_res
     return func_with_new_name(impl, "%s_dispatcher" % func.__name__)
 
-def ufunc2(func=None, promote_to_float=False):
+def ufunc2(func=None, promote_to_float=False, bool_result=False):
     if func is None:
-        return lambda func: ufunc2(func, promote_to_float)
+        return lambda func: ufunc2(func, promote_to_float, bool_result)
 
     call_sig = signature.Call2(func)
     def impl(space, w_lhs, w_rhs):
@@ -35,17 +35,25 @@ def ufunc2(func=None, promote_to_float=False):
 
         w_lhs = convert_to_array(space, w_lhs)
         w_rhs = convert_to_array(space, w_rhs)
-        res_dtype = find_binop_result_dtype(space,
+        calc_dtype = find_binop_result_dtype(space,
             w_lhs.find_dtype(), w_rhs.find_dtype(),
             promote_to_float=promote_to_float,
         )
+        # Some operations return bool regardless of input type
+        if bool_result:
+            res_dtype = space.fromcache(interp_dtype.W_BoolDtype)
+        else:
+            res_dtype = calc_dtype
         if isinstance(w_lhs, Scalar) and isinstance(w_rhs, Scalar):
-            return func(res_dtype, w_lhs.value, w_rhs.value).wrap(space)
+            lhs = w_lhs.value.convert_to(calc_dtype)
+            rhs = w_rhs.value.convert_to(calc_dtype)
+            interm_res = func(calc_dtype, lhs, rhs)
+            return interm_res.convert_to(res_dtype).wrap(space)
 
         new_sig = signature.Signature.find_sig([
             call_sig, w_lhs.signature, w_rhs.signature
         ])
-        w_res = Call2(new_sig, res_dtype, w_lhs, w_rhs)
+        w_res = Call2(new_sig, res_dtype, calc_dtype, w_lhs, w_rhs)
         w_lhs.add_invalidates(w_res)
         w_rhs.add_invalidates(w_res)
         return w_res
@@ -122,6 +130,13 @@ for ufunc_def in [
 
     ("maximum", "max", 2),
     ("minimum", "min", 2),
+
+    ("equal", "eq", 2, {"bool_result": True}),
+    ("not_equal", "ne", 2, {"bool_result": True}),
+    ("less", "lt", 2, {"bool_result": True}),
+    ("less_equal", "le", 2, {"bool_result": True}),
+    ("greater", "gt", 2, {"bool_result": True}),
+    ("greater_equal", "ge", 2, {"bool_result": True}),
 
     ("copysign", "copysign", 2, {"promote_to_float": True}),
 

@@ -267,3 +267,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = arctan(a)
         assert math.isnan(b[0])
 
+    def test_comparison(self):
+        from numpy import array, dtype, equal
+        assert equal(3, 3) is True
+        assert equal(3, 4) is False
+        assert equal(3.0, 3.0) is True
+        assert equal(3.0, 3.5) is False
+        assert equal(3.0, 3) is True
+        assert equal(3.0, 4) is False

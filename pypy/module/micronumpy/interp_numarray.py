@@ -74,6 +74,13 @@ class BaseArray(Wrappable):
     descr_pow = _binop_impl(interp_ufuncs.power)
     descr_mod = _binop_impl(interp_ufuncs.mod)
 
+    descr_eq = _binop_impl(interp_ufuncs.equal)
+    descr_ne = _binop_impl(interp_ufuncs.not_equal)
+    descr_lt = _binop_impl(interp_ufuncs.less)
+    descr_le = _binop_impl(interp_ufuncs.less_equal)
+    descr_gt = _binop_impl(interp_ufuncs.greater)
+    descr_ge = _binop_impl(interp_ufuncs.greater_equal)
+
     def _binop_right_impl(w_ufunc):
         def impl(self, space, w_other):
             w_other = scalar_w(space,
@@ -152,7 +159,7 @@ class BaseArray(Wrappable):
                                               size=size, i=i, result=result,
                                               cur_best=cur_best)
                 new_best = getattr(dtype, op_name)(cur_best, self.eval(i))
-                if dtype.ne(new_best, cur_best):
+                if dtype.unbox(dtype.ne(new_best, cur_best)):
                     result = i
                     cur_best = new_best
                 i += 1
@@ -350,11 +357,12 @@ class VirtualArray(BaseArray):
     """
     Class for representing virtual arrays, such as binary ops or ufuncs
     """
-    def __init__(self, signature, res_dtype):
+    def __init__(self, signature, res_dtype, calc_dtype):
         BaseArray.__init__(self)
         self.forced_result = None
         self.signature = signature
         self.res_dtype = res_dtype
+        self.calc_dtype = calc_dtype
 
     def _del_sources(self):
         # Function for deleting references to source arrays, to allow garbage-collecting them
@@ -402,7 +410,7 @@ class VirtualArray(BaseArray):
 
 class Call1(VirtualArray):
     def __init__(self, signature, res_dtype, values):
-        VirtualArray.__init__(self, signature, res_dtype)
+        VirtualArray.__init__(self, signature, res_dtype, res_dtype)
         self.values = values
 
     def _del_sources(self):
@@ -427,8 +435,8 @@ class Call2(VirtualArray):
     """
     Intermediate class for performing binary operations.
     """
-    def __init__(self, signature, res_dtype, left, right):
-        VirtualArray.__init__(self, signature, res_dtype)
+    def __init__(self, signature, res_dtype, calc_dtype, left, right):
+        VirtualArray.__init__(self, signature, res_dtype, calc_dtype)
         self.left = left
         self.right = right
 
@@ -444,14 +452,14 @@ class Call2(VirtualArray):
         return self.right.find_size()
 
     def _eval(self, i):
-        lhs = self.left.eval(i).convert_to(self.res_dtype)
-        rhs = self.right.eval(i).convert_to(self.res_dtype)
+        lhs = self.left.eval(i).convert_to(self.calc_dtype)
+        rhs = self.right.eval(i).convert_to(self.calc_dtype)
 
         sig = jit.promote(self.signature)
         assert isinstance(sig, signature.Signature)
         call_sig = sig.components[0]
         assert isinstance(call_sig, signature.Call2)
-        return call_sig.func(self.res_dtype, lhs, rhs)
+        return call_sig.func(self.calc_dtype, lhs, rhs).convert_to(self.res_dtype)
 
 class ViewArray(BaseArray):
     """
@@ -609,6 +617,13 @@ BaseArray.typedef = TypeDef(
     __rmod__ = interp2app(BaseArray.descr_rmod),
     __repr__ = interp2app(BaseArray.descr_repr),
     __str__ = interp2app(BaseArray.descr_str),
+
+    __eq__ = interp2app(BaseArray.descr_eq),
+    __ne__ = interp2app(BaseArray.descr_ne),
+    __lt__ = interp2app(BaseArray.descr_lt),
+    __le__ = interp2app(BaseArray.descr_le),
+    __gt__ = interp2app(BaseArray.descr_gt),
+    __ge__ = interp2app(BaseArray.descr_ge),
 
     dtype = GetSetProperty(BaseArray.descr_get_dtype),
     shape = GetSetProperty(BaseArray.descr_get_shape),

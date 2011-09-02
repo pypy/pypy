@@ -510,6 +510,34 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert array([1.2, 5]).dtype is dtype(float)
         assert array([]).dtype is dtype(float)
 
+    def test_comparison(self):
+        from numpy import array, dtype
+        a = array(range(5))
+        b = array(range(5), dtype=float)
+        for func in [
+                lambda x, y: x == y,
+                lambda x, y: x != y,
+                lambda x, y: x <  y,
+                lambda x, y: x <= y,
+                lambda x, y: x >  y,
+                lambda x, y: x >= y,
+                ]:
+            _a3 = func (a, 3)
+            assert _a3.dtype is dtype(bool)
+            for i in xrange(5):
+                assert _a3[i] == (True if func(a[i], 3) else False)
+            _b3 = func (b, 3)
+            assert _b3.dtype is dtype(bool)
+            for i in xrange(5):
+                assert _b3[i] == (True if func(b[i], 3) else False)
+            _3a = func (3, a)
+            assert _3a.dtype is dtype(bool)
+            for i in xrange(5):
+                assert _3a[i] == (True if func(3, a[i]) else False)
+            _3b = func (3, b)
+            assert _3b.dtype is dtype(bool)
+            for i in xrange(5):
+                assert _3b[i] == (True if func(3, b[i]) else False)
 
 class AppTestSupport(object):
     def setup_class(cls):
