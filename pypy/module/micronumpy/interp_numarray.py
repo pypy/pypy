@@ -206,7 +206,7 @@ class BaseArray(Wrappable):
         res = "array([" + ", ".join(concrete._getnums(False)) + "]"
         dtype = concrete.find_dtype()
         if (dtype is not space.fromcache(interp_dtype.W_Float64Dtype) and
-            dtype is not space.fromcache(interp_dtype.W_Int64Dtype)):
+            dtype is not space.fromcache(interp_dtype.W_Int64Dtype)) or not self.find_size():
             res += ", dtype=" + dtype.name
         res += ")"
         return space.wrap(res)
