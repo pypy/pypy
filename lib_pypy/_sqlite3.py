@@ -705,6 +705,8 @@ class Connection(object):
         from sqlite3.dump import _iterdump
         return _iterdump(self)
 
+DML, DQL, DDL = range(3)
+
 class Cursor(object):
     def __init__(self, con):
         if not isinstance(con, Connection):
@@ -735,9 +737,9 @@ class Cursor(object):
         self.statement = self.connection.statement_cache.get(sql, self, self.row_factory)
 
         if self.connection._isolation_level is not None:
-            if self.statement.kind == "DDL":
+            if self.statement.kind == DDL:
                 self.connection.commit()
-            elif self.statement.kind == "DML":
+            elif self.statement.kind == DML:
                 self.connection._begin()
 
         self.statement.set_params(params)
@@ -748,18 +750,18 @@ class Cursor(object):
             self.statement.reset()
             raise self.connection._get_exception(ret)
 
-        if self.statement.kind == "DQL"and ret == SQLITE_ROW:
+        if self.statement.kind == DQL and ret == SQLITE_ROW:
             self.statement._build_row_cast_map()
             self.statement._readahead()
         else:
             self.statement.item = None
             self.statement.exhausted = True
 
-        if self.statement.kind in ("DML", "DDL"):
+        if self.statement.kind == DML or self.statement.kind == DDL:
             self.statement.reset()
 
         self.rowcount = -1
-        if self.statement.kind == "DML":
+        if self.statement.kind == DML:
             self.rowcount = sqlite.sqlite3_changes(self.connection.db)
 
         return self
@@ -772,7 +774,7 @@ class Cursor(object):
         self._check_closed()
         self.statement = self.connection.statement_cache.get(sql, self, self.row_factory)
         
-        if self.statement.kind == "DML":
+        if self.statement.kind == DML:
             self.connection._begin()
         else:
             raise ProgrammingError, "executemany is only for DML statements"
@@ -904,11 +906,11 @@ class Statement(object):
         self.sql = sql # DEBUG ONLY
         first_word = self._statement_kind = sql.lstrip().split(" ")[0].upper()
         if first_word in ("INSERT", "UPDATE", "DELETE", "REPLACE"):
-            self.kind = "DML"
+            self.kind = DML
         elif first_word in ("SELECT", "PRAGMA"):
-            self.kind = "DQL"
+            self.kind = DQL
         else:
-            self.kind = "DDL"
+            self.kind = DDL
         self.exhausted = False
         self.in_use = False
         #
@@ -923,7 +925,7 @@ class Statement(object):
         if ret == SQLITE_OK and self.statement.value is None:
             # an empty statement, we work around that, as it's the least trouble
             ret = sqlite.sqlite3_prepare_v2(self.con.db, "select 42", -1, byref(self.statement), byref(next_char))
-            self.kind = "DQL"
+            self.kind = DQL
 
         if ret != SQLITE_OK:
             raise self.con._get_exception(ret)
@@ -1118,7 +1120,7 @@ class Statement(object):
         self.statement = None
 
     def _get_description(self):
-        if self.kind == "DML":
+        if self.kind == DML:
             return None
         desc = []
         for i in xrange(sqlite.sqlite3_column_count(self.statement)):
