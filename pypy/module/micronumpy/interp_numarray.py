@@ -121,7 +121,7 @@ class BaseArray(Wrappable):
                                               size=size, i=i, result=result,
                                               cur_best=cur_best)
                 new_best = getattr(dtype, op_name)(cur_best, self.eval(i))
-                if dtype.unbox(dtype.ne(new_best, cur_best)):
+                if dtype.ne_w(new_best, cur_best):
                     result = i
                     cur_best = new_best
                 i += 1

@@ -132,10 +132,10 @@ def binop(func):
 def bool_binop(func):
     @functools.wraps(func)
     def impl(self, v1, v2):
-        return self.box(func(self,
+        return self.box(bool(func(self,
             self.for_computation(self.unbox(v1)),
             self.for_computation(self.unbox(v2)),
-        ))
+        )))
     return impl
 
 def unaryop(func):
@@ -198,8 +198,8 @@ class ArithmaticTypeMixin(object):
 
     def bool(self, v):
         return bool(self.for_computation(self.unbox(v)))
-#    def ne(self, v1, v2):
-#        return self.for_computation(self.unbox(v1)) != self.for_computation(self.unbox(v2))
+    def ne_w(self, v1, v2):
+        return self.for_computation(self.unbox(v1)) != self.for_computation(self.unbox(v2))
 
 
 class FloatArithmeticDtype(ArithmaticTypeMixin):
