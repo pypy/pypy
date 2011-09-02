@@ -561,6 +561,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpy import array, dtype
         a = array(range(5))
         b = array(range(5), dtype=float)
+        c = array(reversed(range(5)))
         for func in [
                 lambda x, y: x == y,
                 lambda x, y: x != y,
@@ -585,6 +586,14 @@ class AppTestNumArray(BaseNumpyAppTest):
             assert _3b.dtype is dtype(bool)
             for i in xrange(5):
                 assert _3b[i] == (True if func(3, b[i]) else False)
+            _ac = func (a, c)
+            assert _ac.dtype is dtype(bool)
+            for i in xrange(5):
+                assert _ac[i] == (True if func(a[i], c[i]) else False)
+            _bc = func (b, c)
+            assert _bc.dtype is dtype(bool)
+            for i in xrange(5):
+                assert _bc[i] == (True if func(b[i], c[i]) else False)
 
 class AppTestSupport(object):
     def setup_class(cls):

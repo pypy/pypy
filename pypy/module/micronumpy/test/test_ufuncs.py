@@ -299,13 +299,35 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert math.isnan(b[0])
 
     def test_comparison(self):
-        from numpy import array, dtype, equal
-        assert equal(3, 3) is True
-        assert equal(3, 4) is False
-        assert equal(3.0, 3.0) is True
-        assert equal(3.0, 3.5) is False
-        assert equal(3.0, 3) is True
-        assert equal(3.0, 4) is False
+        from numpy import (
+                equal,
+                not_equal,
+                less,
+                less_equal,
+                greater,
+                greater_equal,
+                )
+        for (ufunc, func) in [
+                (equal,          lambda x, y: x == y),
+                (not_equal,      lambda x, y: x != y),
+                (less,           lambda x, y: x <  y),
+                (less_equal,     lambda x, y: x <= y),
+                (greater,        lambda x, y: x >  y),
+                (greater_equal,  lambda x, y: x >= y),
+                ]:
+            for a, b in [
+                    (3, 3),
+                    (3, 4),
+                    (4, 3),
+                    (3.0, 3.0),
+                    (3.0, 3.5),
+                    (3.5, 3.0),
+                    (3.0, 3),
+                    (3, 3.0),
+                    (3.5, 3),
+                    (3, 3.5),
+                    ]:
+                assert ufunc(a, b) is (True if func(a, b) else False)
 
     def test_reduce_errors(self):
         from numpy import sin, add

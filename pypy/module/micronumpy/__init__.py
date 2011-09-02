@@ -38,7 +38,13 @@ class Module(MixedModule):
         ("sin", "sin"),
         ("subtract", "subtract"),
         ("tan", "tan"),
-        ("equal", "equal")
+        ("equal", "equal"),
+        ("equal", "equal"),
+        ("not_equal", "not_equal"),
+        ("less", "less"),
+        ("less_equal", "less_equal"),
+        ("greater", "greater"),
+        ("greater_equal", "greater_equal"),
     ]:
         interpleveldefs[exposed] = "interp_ufuncs.get(space).%s" % impl
 
