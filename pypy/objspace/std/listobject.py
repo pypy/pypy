@@ -760,8 +760,7 @@ class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
 
     def custom_sort_for_ints(self, w_list):
         l = self.cast_from_void_star(w_list.lstorage)
-        print l
-        self.quicksort(l)
+        self.quicksort(l, 0, len(l) - 1)
 
     def partition(self, l, start, end):
         left = start
@@ -784,12 +783,7 @@ class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
 
         return left
 
-    def quicksort(self, l, start=None, end=None):
-        if start is None:
-            start = 0
-        if end is None:
-            end = len(l) - 1
-
+    def quicksort(self, l, start, end):
         if start < end:
             p = self.partition(l, start, end)
             self.quicksort(l, start, p - 1)
