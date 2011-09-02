@@ -403,8 +403,8 @@ class RangeListStrategy(ListStrategy):
     def mul(self, w_list, times):
         #XXX is this faster?
         if times == 0:
-            strategy = self.space.fromcache(EmptyListStrategy)
-            storage = strategy.emptylist
+            strategy = self.space.fromcache(IntegerListStrategy)
+            storage = strategy.cast_to_void_star([])
         else:
             l = self._getitems_range(w_list, False)
             l *= times
