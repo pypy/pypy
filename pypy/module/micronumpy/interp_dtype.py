@@ -7,7 +7,7 @@ from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty, GetSetProperty
 from pypy.module.micronumpy import signature
 from pypy.objspace.std.floatobject import float2string
-from pypy.rlib import rfloat
+from pypy.rlib import rarithmetic, rfloat
 from pypy.rlib.rarithmetic import LONG_BIT, widen
 from pypy.rlib.objectmodel import specialize, enforceargs
 from pypy.rlib.unroll import unrolling_iterable
@@ -62,7 +62,10 @@ def create_low_level_dtype(num, kind, name, aliases, applevel_types, T, valtype,
             self.val = val
 
         def wrap(self, space):
-            return space.wrap(self.val)
+            val = self.val
+            if valtype is rarithmetic.r_singlefloat:
+                val = float(val)
+            return space.wrap(val)
 
         def convert_to(self, dtype):
             return dtype.adapt_val(self.val)
@@ -178,8 +181,14 @@ class ArithmaticTypeMixin(object):
 class FloatArithmeticDtype(ArithmaticTypeMixin):
     _mixin_ = True
 
+    def unwrap(self, space, w_item):
+        return self.adapt_val(space.float_w(space.float(w_item)))
+
     def for_computation(self, v):
-        return v
+        return float(v)
+
+    def str_format(self, item):
+        return float2string(self.for_computation(self.unbox(item)), 'g', rfloat.DTSF_STR_PRECISION)
 
     @binop
     def mod(self, v1, v2):
@@ -246,6 +255,9 @@ class IntegerArithmeticDtype(ArithmaticTypeMixin):
     def for_computation(self, v):
         return widen(v)
 
+    def str_format(self, item):
+        return str(widen(self.unbox(item)))
+
     @binop
     def mod(self, v1, v2):
         return v1 % v2
@@ -260,8 +272,6 @@ class IntegerArithmeticDtype(ArithmaticTypeMixin):
             assert v == 0
             return 0
 
-    def str_format(self, item):
-        return str(widen(self.unbox(item)))
 
 W_BoolDtype = create_low_level_dtype(
     num = 0, kind = BOOLLTR, name = "bool",
@@ -390,18 +400,14 @@ W_ULongDtype.aliases = ["L"]
 
 W_Float32Dtype = create_low_level_dtype(
     num = 11, kind = FLOATINGLTR, name = "float32",
-    aliases = ["f"],
+    aliases = ["f", "float32"],
     applevel_types = [],
-    T = lltype.Float, # SingleFloat
-    valtype = float, # r_singlefloat
-    expected_size = 8, # 4
+    T = lltype.SingleFloat,
+    valtype = rarithmetic.r_singlefloat,
+    expected_size = 4,
 )
 class W_Float32Dtype(FloatArithmeticDtype, W_Float32Dtype):
-    def unwrap(self, space, w_item):
-        return self.adapt_val(space.float_w(space.float(w_item)))
-
-    def str_format(self, item):
-        return float2string(self.unbox(item), 'g', rfloat.DTSF_STR_PRECISION)
+    pass
 
 W_Float64Dtype = create_low_level_dtype(
     num = 12, kind = FLOATINGLTR, name = "float64",
@@ -412,33 +418,25 @@ W_Float64Dtype = create_low_level_dtype(
     expected_size = 8,
 )
 class W_Float64Dtype(FloatArithmeticDtype, W_Float64Dtype):
-    def unwrap(self, space, w_item):
-        return self.adapt_val(space.float_w(space.float(w_item)))
+    pass
 
-    def str_format(self, item):
-        return float2string(self.unbox(item), 'g', rfloat.DTSF_STR_PRECISION)
-
-W_Float96Dtype = create_low_level_dtype(
-    num = 13, kind = FLOATINGLTR, name = "float96",
-    aliases = ["g"],
-    applevel_types = [],
-    T = lltype.Float, # LongFloat
-    valtype = float, # r_longfloat
-    expected_size = 8, # 12
-)
-class W_Float96Dtype(FloatArithmeticDtype, W_Float96Dtype):
-    def unwrap(self, space, w_item):
-        return self.adapt_val(space.float_w(space.float(w_item)))
-
-    def str_format(self, item):
-        return float2string(self.unbox(item), 'g', rfloat.DTSF_STR_PRECISION)
+#W_Float96Dtype = create_low_level_dtype(
+#    num = 13, kind = FLOATINGLTR, name = "float96",
+#    aliases = ["g"],
+#    applevel_types = [],
+#    T = lltype.Float, # LongFloat
+#    valtype = float, # r_longfloat
+#    expected_size = 8, # 12
+#)
+#class W_Float96Dtype(FloatArithmeticDtype, W_Float96Dtype):
+#    pass
 
 ALL_DTYPES = [
     W_BoolDtype,
     W_Int8Dtype, W_UInt8Dtype, W_Int16Dtype, W_UInt16Dtype,
     W_Int32Dtype, W_UInt32Dtype, W_LongDtype, W_ULongDtype,
     W_Int64Dtype, W_UInt64Dtype,
-    W_Float32Dtype, W_Float64Dtype, W_Float96Dtype,
+    W_Float32Dtype, W_Float64Dtype, #W_Float96Dtype,
 ]
 
 dtypes_by_alias = unrolling_iterable([

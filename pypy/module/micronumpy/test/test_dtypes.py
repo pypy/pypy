@@ -95,7 +95,7 @@ class AppTestDtypes(BaseNumpyAppTest):
 
     def test_bool_binop_types(self):
         from numpy import array, dtype
-        types = ('?','b','B','h','H','i','I','l','L','q','Q','f','d','g')
+        types = ('?','b','B','h','H','i','I','l','L','q','Q','f','d')#,'g')
         N = len(types)
         a = array([True], '?')
         for t in types:
