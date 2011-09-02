@@ -758,6 +758,43 @@ class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     def list_is_correct_type(self, w_list):
         return w_list.strategy is self.space.fromcache(IntegerListStrategy)
 
+    def custom_sort_for_ints(self, w_list):
+        l = self.cast_from_void_star(w_list.lstorage)
+        print l
+        self.quicksort(l)
+
+    def partition(self, l, start, end):
+        left = start
+        right = end - 1
+        pivot = l[end]
+
+        while left < right:
+
+            while l[left] <= pivot and left < end:
+                left += 1
+
+            while l[right] >= pivot and right > start:
+                right -= 1
+
+            if left < right:
+                l[left], l[right] = l[right], l[left]
+
+        if l[left] > pivot:
+            l[left], l[end] = l[end], l[left]
+
+        return left
+
+    def quicksort(self, l, start=None, end=None):
+        if start is None:
+            start = 0
+        if end is None:
+            end = len(l) - 1
+
+        if start < end:
+            p = self.partition(l, start, end)
+            self.quicksort(l, start, p - 1)
+            self.quicksort(l, p + 1, end)
+
 class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     _none_value = None
 
@@ -1157,6 +1194,11 @@ class CustomKeyCompareSort(CustomCompareSort):
         return CustomCompareSort.lt(self, a.w_key, b.w_key)
 
 def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
+
+    if w_list.strategy is space.fromcache(IntegerListStrategy):
+        w_list.strategy.custom_sort_for_ints(w_list)
+        return space.w_None
+
     #XXX so far sorting always wraps list
     has_cmp = not space.is_w(w_cmp, space.w_None)
     has_key = not space.is_w(w_keyfunc, space.w_None)
