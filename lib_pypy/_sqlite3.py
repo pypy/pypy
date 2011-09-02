@@ -752,7 +752,7 @@ class Cursor(object):
 
         if self.statement.kind == DQL and ret == SQLITE_ROW:
             self.statement._build_row_cast_map()
-            self.statement._readahead()
+            self.statement._readahead(self)
         else:
             self.statement.item = None
             self.statement.exhausted = True
@@ -773,7 +773,7 @@ class Cursor(object):
             sql = sql.encode("utf-8")
         self._check_closed()
         self.statement = self.connection.statement_cache.get(sql, self, self.row_factory)
-        
+
         if self.statement.kind == DML:
             self.connection._begin()
         else:
@@ -826,7 +826,7 @@ class Cursor(object):
         return self
 
     def __iter__(self):
-        return self.statement
+        return iter(self.fetchone, None)
 
     def _check_reset(self):
         if self.reset:
@@ -843,7 +843,7 @@ class Cursor(object):
             return None
 
         try:
-            return self.statement.next()
+            return self.statement.next(self)
         except StopIteration:
             return None
 
@@ -857,7 +857,7 @@ class Cursor(object):
         if size is None:
             size = self.arraysize
         lst = []
-        for row in self.statement:
+        for row in self:
             lst.append(row)
             if len(lst) == size:
                 break
@@ -868,7 +868,7 @@ class Cursor(object):
         self._check_reset()
         if self.statement is None:
             return []
-        return list(self.statement)
+        return list(self)
 
     def _getdescription(self):
         if self._description is None:
@@ -938,7 +938,6 @@ class Statement(object):
         self._build_row_cast_map()
 
     def set_cursor_and_factory(self, cur, row_factory):
-        self.cur = weakref.ref(cur)
         self.row_factory = row_factory
 
     def _build_row_cast_map(self):
@@ -1041,10 +1040,7 @@ class Statement(object):
                     raise ProgrammingError("missing parameter '%s'" %param)
                 self.set_param(idx, param)
 
-    def __iter__(self):
-        return self
-
-    def next(self):
+    def next(self, cursor):
         self.con._check_closed()
         self.con._check_thread()
         if self.exhausted:
@@ -1060,10 +1056,10 @@ class Statement(object):
             sqlite.sqlite3_reset(self.statement)
             raise exc
 
-        self._readahead()
+        self._readahead(cursor)
         return item
 
-    def _readahead(self):
+    def _readahead(self, cursor):
         self.column_count = sqlite.sqlite3_column_count(self.statement)
         row = []
         for i in xrange(self.column_count):
@@ -1098,7 +1094,7 @@ class Statement(object):
 
         row = tuple(row)
         if self.row_factory is not None:
-            row = self.row_factory(self.cur(), row)
+            row = self.row_factory(cursor, row)
         self.item = row
 
     def reset(self):
