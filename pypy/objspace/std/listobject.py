@@ -530,7 +530,7 @@ class AbstractUnwrappedStrategy(object):
             storage = self.cast_to_void_star(sublist)
             return W_ListObject.from_storage_and_strategy(self.space, storage, self)
         else:
-            subitems_w = [None] * length
+            subitems_w = [-1] * length
             l = self.cast_from_void_star(w_list.lstorage)
             for i in range(length):
                 try:
