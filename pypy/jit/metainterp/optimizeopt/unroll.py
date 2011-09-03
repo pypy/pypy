@@ -150,6 +150,7 @@ class UnrollOptimizer(Optimization):
                 args = ", ".join([logops.repr_of_arg(arg) for arg in short_inputargs])
                 debug_print('short inputargs: ' + args)
                 self.short_boxes.debug_print(logops)
+                
 
             # Force virtuals amoung the jump_args of the preamble to get the
             # operations needed to setup the proper state of those virtuals

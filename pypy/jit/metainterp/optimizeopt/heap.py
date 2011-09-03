@@ -138,9 +138,7 @@ class CachedField(object):
                         result = newresult
                     getop = ResOperation(rop.GETFIELD_GC, [op.getarg(0)],
                                          result, op.getdescr())
-                    getop = shortboxes.add_potential(getop)
-                    self._cached_fields_getfield_op[structvalue] = getop
-                    self._cached_fields[structvalue] = optimizer.getvalue(result)
+                    shortboxes.add_potential(getop, synthetic=True)
                 elif op.result is not None:
                     shortboxes.add_potential(op)
 

@@ -7015,10 +7015,11 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p5, p6)
         """
         expected = """
-        [p5, p6, i12, i13, i10]
+        [p5, p6, i14, i12, i10]
+        i13 = int_add(i14, 7)
         call(i12, i13, descr=nonwritedescr)
         setfield_gc(p6, i10, descr=nextdescr)        
-        jump(p5, p6, i12, i12, i10)
+        jump(p5, p6, i10, i12, i10)
         """
         self.optimize_loop(ops, expected)
         
@@ -7138,13 +7139,57 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(i1, i3)
         """
         expected = """
-        [i1, i3, i20, i18]
-        i26 = int_add(i20, i20)
-        call(i26, descr=nonwritedescr)
-        jump(i1, i18, i20, i18)
+        [i1, i2, i6, i3]
+        call(i6, descr=nonwritedescr)
+        jump(i1, i3, i6, i3)
+        """
+        short = """
+        [i1, i2]
+        i3 = int_add(i1, i1)
+        i4 = int_add(i3, i3)
+        i5 = int_add(i4, i4)
+        i6 = int_add(i5, i5)
+        jump(i1, i2, i6, i3)
+        """
+        self.optimize_loop(ops, expected, expected_short=short)
+
+    def test_prioritize_getfield1(self):
+        ops = """
+        [p1, p2]
+        i1 = getfield_gc(p1, descr=valuedescr)
+        setfield_gc(p2, i1, descr=nextdescr)
+        i2 = int_neg(i1)
+        call(i2, descr=nonwritedescr)
+        jump(p1, p2)
+        """
+        expected = """
+        [p1, p2, i2, i1]
+        call(i2, descr=nonwritedescr)
+        setfield_gc(p2, i1, descr=nextdescr)        
+        jump(p1, p2, i2, i1)
         """
         self.optimize_loop(ops, expected)
 
+    def test_prioritize_getfield2(self):
+        # Same as previous, but with descrs intercahnged which means
+        # that the getfield is discovered first when looking for
+        # potential short boxes during tests
+        ops = """
+        [p1, p2]
+        i1 = getfield_gc(p1, descr=nextdescr)
+        setfield_gc(p2, i1, descr=valuedescr)
+        i2 = int_neg(i1)
+        call(i2, descr=nonwritedescr)
+        jump(p1, p2)
+        """
+        expected = """
+        [p1, p2, i2, i1]
+        call(i2, descr=nonwritedescr)
+        setfield_gc(p2, i1, descr=valuedescr)        
+        jump(p1, p2, i2, i1)
+        """
+        self.optimize_loop(ops, expected)
+        
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
         
