@@ -98,15 +98,14 @@ class WeakrefLifelineWithCallbacks(WeakrefLifeline):
                                               'weakref callback of ')
 
     @jit.dont_look_inside
-    def get_or_make_weakref_with_callback(self, space, w_subtype, w_obj,
-                                          w_callable):
+    def make_weakref_with_callback(self, space, w_subtype, w_obj, w_callable):
         w_ref = space.allocate_instance(W_Weakref, w_subtype)
         W_Weakref.__init__(w_ref, space, w_obj, w_callable)
         self.refs_weak.append(weakref.ref(w_ref))
         return w_ref
 
     @jit.dont_look_inside
-    def get_or_make_proxy_with_callback(self, space, w_obj, w_callable):
+    def make_proxy_with_callback(self, space, w_obj, w_callable):
         if space.is_true(space.callable(w_obj)):
             w_proxy = W_CallableProxy(space, w_obj, w_callable)
         else:
@@ -216,8 +215,8 @@ def descr__new__weakref(space, w_subtype, w_obj, w_callable=None,
         if not isinstance(lifeline, WeakrefLifelineWithCallbacks):  # or None
             lifeline = WeakrefLifelineWithCallbacks(space, oldlifeline)
             w_obj.setweakref(space, lifeline)
-        return lifeline.get_or_make_weakref_with_callback(space, w_subtype,
-                                                          w_obj, w_callable)
+        return lifeline.make_weakref_with_callback(space, w_subtype, w_obj,
+                                                   w_callable)
 
 W_Weakref.typedef = TypeDef("weakref",
     __doc__ = """A weak reference to an object 'obj'.  A 'callback' can be given,
@@ -285,8 +284,7 @@ is about to be finalized."""
         if not isinstance(lifeline, WeakrefLifelineWithCallbacks):  # or None
             lifeline = WeakrefLifelineWithCallbacks(space, oldlifeline)
             w_obj.setweakref(space, lifeline)
-        return lifeline.get_or_make_proxy_with_callback(space, w_obj,
-                                                        w_callable)
+        return lifeline.make_proxy_with_callback(space, w_obj, w_callable)
 
 def descr__new__proxy(space, w_subtype, w_obj, w_callable=None):
     raise OperationError(
