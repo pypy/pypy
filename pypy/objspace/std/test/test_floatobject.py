@@ -767,3 +767,19 @@ class AppTestFloatHex:
 
     def test_invalid(self):
         raises(ValueError, float.fromhex, "0P")
+
+    def test_division_edgecases(self):
+        import math
+
+        # inf
+        inf = float("inf")
+        assert math.isnan(inf % 3)
+        assert math.isnan(inf // 3)
+        x, y = divmod(inf, 3)
+        assert math.isnan(x)
+        assert math.isnan(y)
+
+        # divide by 0
+        raises(ZeroDivisionError, lambda: inf % 0)
+        raises(ZeroDivisionError, lambda: inf // 0)
+        raises(ZeroDivisionError, divmod, inf, 0)
