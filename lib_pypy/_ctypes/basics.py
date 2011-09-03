@@ -226,6 +226,7 @@ _shape_to_ffi_type.typemap =  {
     'Z' : _ffi.types.void_p,
     'X' : _ffi.types.void_p,
     'v' : _ffi.types.sshort,
+    '?' : _ffi.types.ubyte,
     }
 
 
