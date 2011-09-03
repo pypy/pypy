@@ -1100,6 +1100,7 @@ class Statement(object):
         self.row_cast_map = None
         ret = sqlite.sqlite3_reset(self.statement)
         self.in_use = False
+        self.exhausted = False
         return ret
 
     def finalize(self):
