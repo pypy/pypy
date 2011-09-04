@@ -7,7 +7,8 @@ import sys
 
 class AppTestDistributed(object):
     def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withtproxy": True})
+        cls.space = gettestobjspace(**{"objspace.std.withtproxy": True,
+            "usemodules":("_continuation",)})
 
     def test_init(self):
         import distributed
@@ -88,7 +89,8 @@ class AppTestDistributed(object):
         assert len(item) == 11
 
 class AppTestDistributedTasklets(object):
-    spaceconfig = {"objspace.std.withtproxy": True}
+    spaceconfig = {"objspace.std.withtproxy": True,
+                   "objspace.usemodules._continuation": True}
     reclimit = sys.getrecursionlimit()
 
     def setup_class(cls):
