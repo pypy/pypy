@@ -65,20 +65,21 @@ class HeapCache(object):
     def setfield(self, box, descr, fieldbox):
         # slightly subtle logic here
         d = self.heap_cache.get(descr, None)
-        new_d = {box: fieldbox}
         # a write to an arbitrary box, all other boxes can alias this one
         if not d or box not in self.new_boxes:
             # therefore we throw away the cache
-            self.heap_cache[descr] = new_d
+            self.heap_cache[descr] = {box: fieldbox}
             return
         # the object we are writing to is freshly allocated
         # only remove some boxes from the cache
+        new_d = {}
         for frombox, tobox in d.iteritems():
             # the other box is *also* freshly allocated
             # therefore frombox and box *must* contain different objects
             # thus we can keep it in the cache
             if frombox in self.new_boxes:
                 new_d[frombox] = tobox
+        new_d[box] = fieldbox
         self.heap_cache[descr] = new_d
 
     def getarrayitem(self, box, descr, indexbox):

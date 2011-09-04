@@ -121,6 +121,8 @@ class TestHeapCache(object):
         h.setfield(box3, descr1, box4)
         assert h.getfield(box3, descr1) is box4
         assert h.getfield(box1, descr1) is box2 # box1 and box3 cannot alias
+        h.setfield(box1, descr1, box3)
+        assert h.getfield(box1, descr1) is box3
 
 
     def test_heapcache_arrays(self):
