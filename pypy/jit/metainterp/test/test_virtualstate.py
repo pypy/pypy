@@ -1073,7 +1073,26 @@ class TestShortBoxes:
         getfield = [op for op in sb.short_boxes.values()
                     if op and op.result == int_neg.getarg(0)]
         assert len(getfield) == 1
-        assert getfield[0].getarg(0) == self.p1
+        assert getfield[0].getarg(0) in [self.p1, self.p2]
+
+    def test_prioritize1bis(self):
+        class Optimizer(FakeOptimizer):
+            def produce_potential_short_preamble_ops(_self, sb):
+                sb.add_potential(ResOperation(rop.GETFIELD_GC, [self.p1], self.i1),
+                                 synthetic=True)
+                sb.add_potential(ResOperation(rop.GETFIELD_GC, [self.p2], self.i1),
+                                 synthetic=True)
+                sb.add_potential(ResOperation(rop.INT_NEG, [self.i1], self.i2))
+        sb = ShortBoxes(Optimizer(), [self.p1, self.p2])
+        assert len(sb.short_boxes.values()) == 5
+        int_neg = [op for op in sb.short_boxes.values()
+                   if op and op.getopnum() == rop.INT_NEG]
+        assert len(int_neg) == 1
+        int_neg = int_neg[0]
+        getfield = [op for op in sb.short_boxes.values()
+                    if op and op.result == int_neg.getarg(0)]
+        assert len(getfield) == 1
+        assert getfield[0].getarg(0) in [self.p1, self.p2]
         
     def test_prioritize2(self):
         class Optimizer(FakeOptimizer):
