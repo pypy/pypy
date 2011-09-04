@@ -555,54 +555,6 @@ class ShortBoxes(object):
         if synthetic:
             self.synthetic[op] = True
 
-    def duplicate(self, destination, op):
-        newop = op.clone()
-        newop.result = op.result.clonebox()
-        destination[newop.result] = newop
-        if op.result in self.duplicates:
-            self.duplicates[op.result].append(newop.result)
-        else:
-            self.duplicates[op.result] = [newop.result]
-        self.optimizer.make_equal_to(newop.result, self.optimizer.getvalue(op.result))
-        return newop
-
-    def duplicate_short_boxes_if_needed(self):
-        if os.environ.get('DONT_DUPLICATE'):
-            return
-        may_need_duplication = {}
-        for op in self.short_boxes.values():
-            if op:
-                may_need_duplication[op] = True
-        while may_need_duplication:
-            op, _ = may_need_duplication.popitem()
-            self.maybe_duplicate_op(op, may_need_duplication)
-
-    def maybe_duplicate_op(self, op, may_need_duplication):
-        for arg in op.getarglist():
-            if arg in self.short_boxes:
-                producer = self.producer(arg)
-                if producer in may_need_duplication:
-                    del may_need_duplication[producer]
-                    self.maybe_duplicate_op(producer, may_need_duplication)
-
-        allops = None
-        for i in range(len(op.getarglist())):
-            arg = op.getarg(i)
-            if arg in self.duplicates:
-                if len(self.duplicates[arg]) > 5:
-                    debug_print("Refusing to duplicate short box %d times." % len(self.duplicates))
-                    continue
-                if not allops:
-                    allops = [op]
-                previous_ops = len(allops)
-                for o in range(previous_ops):
-                    for box in self.duplicates[arg]:
-                        if box in self.short_boxes:
-                            newop = self.duplicate(self.short_boxes, allops[0])
-                            newop.initarglist(allops[o].getarglist()[:])
-                            newop.setarg(i, box)
-                            allops.append(newop)
-
     def debug_print(self, logops):
         debug_start('jit-short-boxes')
         for box, op in self.short_boxes.items():
