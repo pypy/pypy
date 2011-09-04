@@ -395,7 +395,9 @@ class MIFrame(object):
 
     @arguments("descr", "box")
     def opimpl_new_array(self, itemsizedescr, countbox):
-        return self.execute_with_descr(rop.NEW_ARRAY, itemsizedescr, countbox)
+        resbox = self.execute_with_descr(rop.NEW_ARRAY, itemsizedescr, countbox)
+        self.metainterp.heapcache.new(resbox)
+        return resbox
 
     @arguments("box", "descr", "box")
     def _opimpl_getarrayitem_gc_any(self, arraybox, arraydescr, indexbox):
