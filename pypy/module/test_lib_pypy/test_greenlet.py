@@ -231,3 +231,13 @@ class AppTestGreenlet:
         assert res == "next step"
         res = g2.switch("goes to f1 instead")
         assert res == "all ok"
+
+    def test_throw_in_not_started_yet(self):
+        from greenlet import greenlet
+        #
+        def f1():
+            never_reached
+        #
+        g1 = greenlet(f1)
+        raises(ValueError, g1.throw, ValueError)
+        assert g1.dead

@@ -65,6 +65,10 @@ class ModuleDictStrategy(DictStrategy):
         if isinstance(cell, ModuleCell):
             cell.w_value = w_value
             return
+        # If the new value and the current value are the same, don't create a
+        # level of indirection, or mutate are version.
+        if self.space.is_w(w_value, cell):
+            return
         if cell is not None:
             w_value = ModuleCell(w_value)
         self.mutated()
