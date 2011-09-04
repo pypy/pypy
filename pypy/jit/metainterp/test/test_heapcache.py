@@ -213,6 +213,9 @@ class TestHeapCache(object):
         h.setarrayitem(box1, descr1, index1, box2)
         h.setarrayitem(box1, descr1, index2, box4)
         h.invalidate_caches(rop.INT_ADD, None)
+        h.invalidate_caches(rop.INT_ADD_OVF, None)
+        h.invalidate_caches(rop.SETFIELD_RAW, None)
+        h.invalidate_caches(rop.SETARRAYITEM_RAW, None)
         assert h.getfield(box1, descr1) is box2
         assert h.getarrayitem(box1, descr1, index1) is box2
         assert h.getarrayitem(box1, descr1, index2) is box4
