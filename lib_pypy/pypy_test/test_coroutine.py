@@ -2,7 +2,7 @@ from __future__ import absolute_import
 from py.test import skip, raises
 
 try:
-    from lib_pypy.stackless import coroutine, CoroutineExit
+    from stackless import coroutine, CoroutineExit
 except ImportError, e:
     skip('cannot import stackless: %s' % (e,))
 
@@ -20,10 +20,6 @@ class Test_Coroutine:
         assert not co.is_zombie
 
     def test_is_zombie_del_without_frame(self):
-        try:
-            import _stackless # are we on pypy with a stackless build?
-        except ImportError:
-            skip("only works on pypy-c-stackless")
         import gc
         res = []
         class MyCoroutine(coroutine):
@@ -45,10 +41,6 @@ class Test_Coroutine:
         assert res[0], "is_zombie was False in __del__"
 
     def test_is_zombie_del_with_frame(self):
-        try:
-            import _stackless # are we on pypy with a stackless build?
-        except ImportError:
-            skip("only works on pypy-c-stackless")
         import gc
         res = []
         class MyCoroutine(coroutine):
