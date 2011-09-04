@@ -70,6 +70,47 @@ class Inliner(object):
         self.snapshot_map[snapshot] = new_snapshot
         return new_snapshot
 
+class UnrollableOptimizer(Optimizer):
+    def setup(self):
+        self.importable_values = {}
+        self.emitting_dissabled = False
+        self.emitted_guards = 0
+        self.emitted_pure_operations = {}
+
+    def ensure_imported(self, value):
+        if not self.emitting_dissabled and value in self.importable_values:
+            imp = self.importable_values[value]
+            del self.importable_values[value]
+            imp.import_value(value)
+
+    def emit_operation(self, op):
+        if op.returns_bool_result():
+            self.bool_boxes[self.getvalue(op.result)] = None
+        if self.emitting_dissabled:
+            return
+        if op.is_guard():
+            self.emitted_guards += 1 # FIXME: can we use counter in self._emit_operation?
+        self._emit_operation(op)
+
+    def new(self):
+        new = UnrollableOptimizer(self.metainterp_sd, self.loop)
+        return self._new(new)
+
+    def remember_emitting_pure(self, op):
+        self.emitted_pure_operations[op] = True
+
+    def produce_potential_short_preamble_ops(self, sb):
+        for op in self.emitted_pure_operations:
+            if op.getopnum() == rop.GETARRAYITEM_GC_PURE or \
+               op.getopnum() == rop.STRGETITEM or \
+               op.getopnum() == rop.UNICODEGETITEM:
+                if not self.getvalue(op.getarg(1)).is_constant():
+                    continue
+            sb.add_potential(op)
+        for opt in self.optimizations:
+            opt.produce_potential_short_preamble_ops(sb)
+
+
 
 class UnrollOptimizer(Optimization):
     """Unroll the loop into two iterations. The first one will
@@ -77,7 +118,7 @@ class UnrollOptimizer(Optimization):
     distinction anymore)"""
 
     def __init__(self, metainterp_sd, loop, optimizations):
-        self.optimizer = Optimizer(metainterp_sd, loop, optimizations)
+        self.optimizer = UnrollableOptimizer(metainterp_sd, loop, optimizations)
         self.cloned_operations = []
         for op in self.optimizer.loop.operations:
             newop = op.clone()
