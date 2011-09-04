@@ -208,3 +208,11 @@ class TestHeapCache(object):
         assert h.getfield(box4, descr1) is box2
         assert h.getfield(box4, descr2) is box3
 
+        h = HeapCache()
+        h.setfield(box1, descr1, box2)
+        h.setfield(box1, descr2, box3)
+        h.replace_box(box1, box4)
+        assert h.getfield(box1, descr1) is None
+        assert h.getfield(box1, descr2) is None
+        assert h.getfield(box4, descr1) is box2
+        assert h.getfield(box4, descr2) is box3
