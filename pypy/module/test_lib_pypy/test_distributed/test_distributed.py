@@ -7,8 +7,7 @@ import sys
 
 class AppTestDistributed(object):
     def setup_class(cls):
-        cls.space = gettestobjspace(**{"objspace.std.withtproxy": True,
-            "usemodules":("_stackless",)})
+        cls.space = gettestobjspace(**{"objspace.std.withtproxy": True})
 
     def test_init(self):
         import distributed
@@ -89,15 +88,12 @@ class AppTestDistributed(object):
         assert len(item) == 11
 
 class AppTestDistributedTasklets(object):
-    spaceconfig = {"objspace.std.withtproxy": True,
-                   "objspace.usemodules._stackless": True}
+    spaceconfig = {"objspace.std.withtproxy": True}
     reclimit = sys.getrecursionlimit()
 
     def setup_class(cls):
         import py.test
         py.test.importorskip('greenlet')
-        #cls.space = gettestobjspace(**{"objspace.std.withtproxy": True,
-        #    "usemodules":("_stackless",)})
         cls.w_test_env_ = cls.space.appexec([], """():
         from distributed import test_env
         return (test_env,)
