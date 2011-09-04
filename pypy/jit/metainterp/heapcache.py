@@ -16,7 +16,7 @@ class HeapCache(object):
         # maps descrs to {from_box, to_box} dicts
         self.heap_cache = {}
         # heap array cache
-        # maps descrs to {index: (from_box, to_box)} dicts
+        # maps descrs to {index: {from_box: to_box}} dicts
         self.heap_array_cache = {}
 
     def invalidate_caches(self, opnum, descr):
@@ -87,9 +87,9 @@ class HeapCache(object):
         index = indexbox.getint()
         cache = self.heap_array_cache.get(descr, None)
         if cache:
-            frombox, tobox = cache.get(index, (None, None))
-            if frombox is box:
-                return tobox
+            indexcache = cache.get(index, None)
+            if indexcache is not None:
+                return indexcache.get(box, None)
 
     def setarrayitem(self, box, descr, indexbox, valuebox):
         if not isinstance(indexbox, ConstInt):
@@ -97,9 +97,9 @@ class HeapCache(object):
             if cache is not None:
                 cache.clear()
             return
-        cache = self.heap_array_cache.setdefault(descr, {})
         index = indexbox.getint()
-        cache[index] = box, valuebox
+        cache = self.heap_array_cache.setdefault(descr, {})
+        cache[index] = {box: valuebox}
 
     def replace_box(self, oldbox, newbox):
         for descr, d in self.heap_cache.iteritems():
