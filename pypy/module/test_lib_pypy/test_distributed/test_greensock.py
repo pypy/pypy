@@ -1,5 +1,4 @@
-
-import py
+import py; py.test.skip("xxx remove")
 from pypy.conftest import gettestobjspace, option
 
 def setup_module(mod):
