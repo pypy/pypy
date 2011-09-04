@@ -32,7 +32,7 @@ class HeapCache(object):
             return
         if rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST:
             return
-        if opnum == rop.CALL:
+        if opnum == rop.CALL or opnum == rop.CALL_LOOPINVARIANT:
             effectinfo = descr.get_extra_info()
             ef = effectinfo.extraeffect
             if ef == effectinfo.EF_LOOPINVARIANT or \

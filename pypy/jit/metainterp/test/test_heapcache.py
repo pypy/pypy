@@ -226,6 +226,8 @@ class TestHeapCache(object):
         assert h.getarrayitem(box1, descr1, index1) is box2
         assert h.getarrayitem(box1, descr1, index2) is box4
 
+        h.invalidate_caches(
+            rop.CALL_LOOPINVARIANT, FakeCallDescr(FakeEffektinfo.EF_LOOPINVARIANT))
 
         h.invalidate_caches(
             rop.CALL, FakeCallDescr(FakeEffektinfo.EF_RANDOM_EFFECTS))
