@@ -224,7 +224,7 @@ class FloatArithmeticDtype(ArithmaticTypeMixin):
         return math.tan(v)
     @unaryop
     def arcsin(self, v):
-        if v < -1.0 or  v > 1.0:
+        if v < -1.0 or v > 1.0:
             return rfloat.NAN
         return math.asin(v)
     @unaryop
