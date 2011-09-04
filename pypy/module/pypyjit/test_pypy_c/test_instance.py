@@ -181,8 +181,7 @@ class TestInstance(BaseTestPyPyC):
         assert loop.match_by_id("contains", """
             guard_not_invalidated(descr=...)
             i11 = force_token()
-            i12 = int_add_ovf(i5, i7)
-            guard_no_overflow(descr=...)
+            i12 = int_add(i5, 1)
         """)
 
     def test_id_compare_optimization(self):

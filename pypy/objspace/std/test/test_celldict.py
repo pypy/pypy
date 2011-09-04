@@ -39,6 +39,20 @@ class TestCellDict(object):
         assert d.getitem("a") is None
         assert d.strategy.getdictvalue_no_unwrapping(d, "a") is None
 
+    def test_same_key_set_twice(self):
+        strategy = ModuleDictStrategy(space)
+        storage = strategy.get_empty_storage()
+        d = W_DictMultiObject(space, strategy, storage)
+
+        v1 = strategy.version
+        x = object()
+        d.setitem("a", x)
+        v2 = strategy.version
+        assert v1 is not v2
+        d.setitem("a", x)
+        v3 = strategy.version
+        assert v2 is v3
+
 class AppTestModuleDict(object):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withcelldict": True})

@@ -52,10 +52,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpy import array, zeros
         a = array(range(5), float)
         assert repr(a) == "array([0.0, 1.0, 2.0, 3.0, 4.0])"
+        a = array([], float)
+        assert repr(a) == "array([], dtype=float64)"
         a = zeros(1001)
         assert repr(a) == "array([0.0, 0.0, 0.0, ..., 0.0, 0.0, 0.0])"
         a = array(range(5), long)
         assert repr(a) == "array([0, 1, 2, 3, 4])"
+        a = array([], long)
+        assert repr(a) == "array([], dtype=int64)"
         a = array([True, False, True, False], "?")
         assert repr(a) == "array([True, False, True, False], dtype=bool)"
 
@@ -84,6 +88,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array(range(5), dtype="int8")
         assert str(a) == "[0 1 2 3 4]"
 
+        a = array(range(5), dtype="int16")
+        assert str(a) == "[0 1 2 3 4]"
+
     def test_str_slice(self):
         from numpy import array, zeros
         a = array(range(5), float)
@@ -102,6 +109,16 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[-1] == 8
         raises(IndexError, "a[-6]")
 
+    def test_getitem_tuple(self):
+        from numpy import array
+        a = array(range(5))
+        raises(IndexError, "a[(1,2)]")
+        for i in xrange(5):
+            assert a[(i,)] == i
+        b = a[()]
+        for i in xrange(5):
+            assert a[i] == b[i]
+
     def test_setitem(self):
         from numpy import array
         a = array(range(5))
@@ -109,6 +126,17 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[4] == 5.0
         raises(IndexError, "a[5] = 0.0")
         raises(IndexError, "a[-6] = 3.0")
+
+    def test_setitem_tuple(self):
+        from numpy import array
+        a = array(range(5))
+        raises(IndexError, "a[(1,2)] = [0,1]")
+        for i in xrange(5):
+            a[(i,)] = i+1
+            assert a[i] == i+1
+        a[()] = range(5)
+        for i in xrange(5):
+            assert a[i] == i
 
     def test_setslice_array(self):
         from numpy import array

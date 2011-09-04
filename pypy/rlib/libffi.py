@@ -75,7 +75,7 @@ class types(object):
     @staticmethod
     @jit.elidable
     def is_struct(ffi_type):
-        return intmask(ffi_type.c_type) == intmask(FFI_TYPE_STRUCT)
+        return intmask(ffi_type.c_type) == FFI_TYPE_STRUCT
 
 types._import()
 
@@ -206,6 +206,7 @@ class Func(AbstractFuncPtr):
     _immutable_fields_ = ['funcsym']
     argtypes = []
     restype = lltype.nullptr(clibffi.FFI_TYPE_P.TO)
+    flags = 0
     funcsym = lltype.nullptr(rffi.VOIDP.TO)
 
     def __init__(self, name, argtypes, restype, funcsym, flags=FUNCFLAG_CDECL,

@@ -43,11 +43,11 @@ class W_Continulet(Wrappable):
     def switch(self, w_to):
         to = self.space.interp_w(W_Continulet, w_to, can_be_None=True)
         if to is not None:
-            if self is to:    # double-switch to myself: no-op
-                return get_result()
             if to.sthread is None:
                 start_state.clear()
                 raise geterror(self.space, "continulet not initialized yet")
+            if self is to:    # double-switch to myself: no-op
+                return get_result()
         if self.sthread is None:
             start_state.clear()
             raise geterror(self.space, "continulet not initialized yet")

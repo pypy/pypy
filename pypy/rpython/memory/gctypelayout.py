@@ -459,7 +459,7 @@ def gc_pointers_inside(v, adr, mutable_only=False):
             if t._hints.get('immutable'):
                 return
             if 'immutable_fields' in t._hints:
-                skip = t._hints['immutable_fields'].fields
+                skip = t._hints['immutable_fields'].all_immutable_fields()
         for n, t2 in t._flds.iteritems():
             if isinstance(t2, lltype.Ptr) and t2.TO._gckind == 'gc':
                 if n not in skip:

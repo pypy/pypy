@@ -1461,6 +1461,7 @@ class MiniMarkGC(MovingGCBase):
         # We will fix such references to point to the copy of the young
         # objects when we walk 'old_objects_pointing_to_young'.
         self.old_objects_pointing_to_young.append(newobj)
+    _trace_drag_out._always_inline_ = True
 
     def _visit_young_rawmalloced_object(self, obj):
         # 'obj' points to a young, raw-malloced object.
