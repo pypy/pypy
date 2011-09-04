@@ -8,6 +8,7 @@ box3 = object()
 box4 = object()
 descr1 = object()
 descr2 = object()
+descr3 = object()
 
 index1 = ConstInt(0)
 index2 = ConstInt(1)
@@ -202,17 +203,26 @@ class TestHeapCache(object):
         h = HeapCache()
         h.setfield(box1, descr1, box2)
         h.setfield(box1, descr2, box3)
+        h.setfield(box2, descr3, box3)
         h.replace_box(box1, box4)
         assert h.getfield(box1, descr1) is None
         assert h.getfield(box1, descr2) is None
         assert h.getfield(box4, descr1) is box2
         assert h.getfield(box4, descr2) is box3
+        assert h.getfield(box2, descr3) is box3
 
+    def test_replace_box_array(self):
         h = HeapCache()
-        h.setfield(box1, descr1, box2)
-        h.setfield(box1, descr2, box3)
+        h.setarrayitem(box1, descr1, index1, box2)
+        h.setarrayitem(box1, descr2, index1, box3)
+        h.setarrayitem(box2, descr1, index2, box1)
+        h.setarrayitem(box3, descr2, index2, box1)
+        h.setarrayitem(box2, descr3, index2, box3)
         h.replace_box(box1, box4)
-        assert h.getfield(box1, descr1) is None
-        assert h.getfield(box1, descr2) is None
-        assert h.getfield(box4, descr1) is box2
-        assert h.getfield(box4, descr2) is box3
+        assert h.getarrayitem(box1, descr1, index1) is None
+        assert h.getarrayitem(box1, descr2, index1) is None
+        assert h.getarrayitem(box4, descr1, index1) is box2
+        assert h.getarrayitem(box4, descr2, index1) is box3
+        assert h.getarrayitem(box2, descr1, index2) is box4
+        assert h.getarrayitem(box3, descr2, index2) is box4
+        assert h.getarrayitem(box2, descr3, index2) is box3

@@ -111,4 +111,13 @@ class HeapCache(object):
                     tobox = newbox
                 new_d[frombox] = tobox
             self.heap_cache[descr] = new_d
-        # XXX what about self.heap_array_cache?
+        for descr, d in self.heap_array_cache.iteritems():
+            for index, cache in d.iteritems():
+                new_cache = {}
+                for frombox, tobox in cache.iteritems():
+                    if frombox is oldbox:
+                        frombox = newbox
+                    if tobox is oldbox:
+                        tobox = newbox
+                    new_cache[frombox] = tobox
+                d[index] = new_cache

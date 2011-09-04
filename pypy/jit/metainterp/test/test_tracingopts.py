@@ -257,6 +257,28 @@ class TestLLtype(LLJitMixin):
         self.check_operations_history(setarrayitem_gc=2, setfield_gc=2,
                                       getarrayitem_gc=0, getfield_gc=2)
 
+    def test_promote_changes_array_cache(self):
+        a1 = [0, 0]
+        a2 = [0, 0]
+        def fn(n):
+            if n > 0:
+                a = a1
+            else:
+                a = a2
+            a[0] = n
+            jit.hint(n, promote=True)
+            x1 = a[0]
+            jit.hint(x1, promote=True)
+            a[n - n] = n + 1
+            return a[0] + x1
+        res = self.interp_operations(fn, [7])
+        assert res == 7 + 7 + 1
+        self.check_operations_history(getarrayitem_gc=0, guard_value=1)
+        res = self.interp_operations(fn, [-7])
+        assert res == -7 - 7 + 1
+        self.check_operations_history(getarrayitem_gc=0, guard_value=1)
+
+
     def test_list_caching(self):
         a1 = [0, 0]
         a2 = [0, 0]
