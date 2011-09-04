@@ -63,13 +63,16 @@ class HeapCache(object):
         self.heap_cache.setdefault(descr, {})[box] = fieldbox
 
     def setfield(self, box, descr, fieldbox):
-        # slightly subtle logic here
         d = self.heap_cache.get(descr, None)
+        new_d = self._do_write_with_aliasing(d, box, fieldbox)
+        self.heap_cache[descr] = new_d
+
+    def _do_write_with_aliasing(self, d, box, fieldbox):
+        # slightly subtle logic here
         # a write to an arbitrary box, all other boxes can alias this one
         if not d or box not in self.new_boxes:
             # therefore we throw away the cache
-            self.heap_cache[descr] = {box: fieldbox}
-            return
+            return {box: fieldbox}
         # the object we are writing to is freshly allocated
         # only remove some boxes from the cache
         new_d = {}
@@ -80,7 +83,7 @@ class HeapCache(object):
             if frombox in self.new_boxes:
                 new_d[frombox] = tobox
         new_d[box] = fieldbox
-        self.heap_cache[descr] = new_d
+        return new_d
 
     def getarrayitem(self, box, descr, indexbox):
         if not isinstance(indexbox, ConstInt):
@@ -100,7 +103,8 @@ class HeapCache(object):
             return
         index = indexbox.getint()
         cache = self.heap_array_cache.setdefault(descr, {})
-        cache[index] = {box: valuebox}
+        indexcache = cache.get(index, None)
+        cache[index] = self._do_write_with_aliasing(indexcache, box, valuebox)
 
     def replace_box(self, oldbox, newbox):
         for descr, d in self.heap_cache.iteritems():

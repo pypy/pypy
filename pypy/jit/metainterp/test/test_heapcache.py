@@ -177,6 +177,36 @@ class TestHeapCache(object):
         assert h.getarrayitem(box1, descr1, index1) is None
         assert h.getarrayitem(box1, descr1, index2) is None
 
+
+    def test_heapcache_write_fields_multiple_array(self):
+        h = HeapCache()
+        h.setarrayitem(box1, descr1, index1, box2)
+        assert h.getarrayitem(box1, descr1, index1) is box2
+        h.setarrayitem(box3, descr1, index1, box4)
+        assert h.getarrayitem(box3, descr1, index1) is box4
+        assert h.getarrayitem(box1, descr1, index1) is None # box1 and box3 can alias
+
+        h = HeapCache()
+        h.new(box1)
+        h.setarrayitem(box1, descr1, index1, box2)
+        assert h.getarrayitem(box1, descr1, index1) is box2
+        h.setarrayitem(box3, descr1, index1, box4)
+        assert h.getarrayitem(box3, descr1, index1) is box4
+        assert h.getarrayitem(box1, descr1, index1) is None # box1 and box3 can alias
+
+        h = HeapCache()
+        h.new(box1)
+        h.new(box3)
+        h.setarrayitem(box1, descr1, index1, box2)
+        assert h.getarrayitem(box1, descr1, index1) is box2
+        h.setarrayitem(box3, descr1, index1, box4)
+        assert h.getarrayitem(box3, descr1, index1) is box4
+        assert h.getarrayitem(box1, descr1, index1) is box2 # box1 and box3 cannot alias
+        h.setarrayitem(box1, descr1, index1, box3)
+        assert h.getarrayitem(box3, descr1, index1) is box4
+        assert h.getarrayitem(box1, descr1, index1) is box3 # box1 and box3 cannot alias
+
+
     def test_invalidate_cache(self):
         h = HeapCache()
         h.setfield(box1, descr1, box2)
