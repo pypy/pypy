@@ -7,7 +7,7 @@ from pypy.translator.platform import platform
 
 import os, sys, py
 
-class AppTestFfi:
+class BaseAppTestFFI(object):
 
     @classmethod
     def prepare_c_example(cls):
@@ -36,7 +36,6 @@ class AppTestFfi:
         eci = ExternalCompilationInfo(export_symbols=[])
         return str(platform.compile([c_file], eci, 'x', standalone=False))
 
-    
     def setup_class(cls):
         from pypy.rpython.lltypesystem import rffi
         from pypy.rlib.libffi import get_libc_name, CDLL, types
@@ -52,7 +51,12 @@ class AppTestFfi:
         pow = libm.getpointer('pow', [], types.void)
         pow_addr = rffi.cast(rffi.LONG, pow.funcsym)
         cls.w_pow_addr = space.wrap(pow_addr)
-        #
+
+class AppTestFFI(BaseAppTestFFI):
+
+    def setup_class(cls):
+        BaseAppTestFFI.setup_class.im_func(cls)
+        space = cls.space
         # these are needed for test_single_float_args
         from ctypes import c_float
         f_12_34 = c_float(12.34).value
@@ -82,7 +86,12 @@ class AppTestFfi:
         from _ffi import types
         assert str(types.sint) == "<ffi type sint>"
         assert str(types.uint) == "<ffi type uint>"
-        
+
+    def test_sizeof(self):
+        from _ffi import types
+        assert types.sbyte.sizeof() == 1
+        assert types.sint.sizeof() == 4
+    
     def test_callfunc(self):
         from _ffi import CDLL, types
         libm = CDLL(self.libm_name)

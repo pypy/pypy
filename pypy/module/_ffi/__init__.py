@@ -10,4 +10,7 @@ class Module(MixedModule):
         'get_libc':'interp_ffi.get_libc',
     }
 
-    appleveldefs = {}
+    appleveldefs = {
+        'Structure': 'app_struct.Structure',
+        'Field':     'app_struct.Field',
+        }

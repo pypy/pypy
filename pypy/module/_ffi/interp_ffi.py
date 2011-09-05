@@ -30,6 +30,12 @@ class W_FFIType(Wrappable):
             return space.w_None
         return self.w_pointer_to
 
+    def descr_sizeof(self, space):
+        return space.wrap(self.sizeof())
+
+    def sizeof(self):
+        return intmask(self.ffitype.c_size)
+
     def repr(self, space):
         return space.wrap(self.__repr__())
 
@@ -86,6 +92,7 @@ W_FFIType.typedef = TypeDef(
     'FFIType',
     __repr__ = interp2app(W_FFIType.repr),
     deref_pointer = interp2app(W_FFIType.descr_deref_pointer),
+    sizeof = interp2app(W_FFIType.descr_sizeof),
     )
 
 
