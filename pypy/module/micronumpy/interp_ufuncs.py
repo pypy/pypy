@@ -113,10 +113,11 @@ class W_Ufunc2(W_Ufunc):
     argcount = 2
 
     def __init__(self, func, name, promote_to_float=False, promote_bools=False,
-        identity=None):
+        identity=None, comparison_func=False):
 
         W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity)
         self.func = func
+        self.comparison_func = comparison_func
         self.signature = signature.Call2(func)
         self.reduce_signature = signature.BaseSignature()
 
@@ -127,18 +128,25 @@ class W_Ufunc2(W_Ufunc):
         [w_lhs, w_rhs] = args_w
         w_lhs = convert_to_array(space, w_lhs)
         w_rhs = convert_to_array(space, w_rhs)
-        res_dtype = find_binop_result_dtype(space,
+        calc_dtype = find_binop_result_dtype(space,
             w_lhs.find_dtype(), w_rhs.find_dtype(),
             promote_to_float=self.promote_to_float,
             promote_bools=self.promote_bools,
         )
+        if self.comparison_func:
+            res_dtype = space.fromcache(interp_dtype.W_BoolDtype)
+        else:
+            res_dtype = calc_dtype
         if isinstance(w_lhs, Scalar) and isinstance(w_rhs, Scalar):
-            return self.func(res_dtype, w_lhs.value, w_rhs.value).wrap(space)
+            return self.func(calc_dtype,
+                w_lhs.value.convert_to(calc_dtype),
+                w_rhs.value.convert_to(calc_dtype)
+            ).wrap(space)
 
         new_sig = signature.Signature.find_sig([
             self.signature, w_lhs.signature, w_rhs.signature
         ])
-        w_res = Call2(new_sig, res_dtype, w_lhs, w_rhs)
+        w_res = Call2(new_sig, calc_dtype, res_dtype, w_lhs, w_rhs)
         w_lhs.add_invalidates(w_res)
         w_rhs.add_invalidates(w_res)
         return w_res
@@ -209,13 +217,16 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
     return space.fromcache(interp_dtype.W_Float64Dtype)
 
 
-def ufunc_dtype_caller(ufunc_name, op_name, argcount):
+def ufunc_dtype_caller(space, ufunc_name, op_name, argcount, comparison_func):
     if argcount == 1:
         def impl(res_dtype, value):
             return getattr(res_dtype, op_name)(value)
     elif argcount == 2:
         def impl(res_dtype, lvalue, rvalue):
-            return getattr(res_dtype, op_name)(lvalue, rvalue)
+            res = getattr(res_dtype, op_name)(lvalue, rvalue)
+            if comparison_func:
+                res = space.fromcache(interp_dtype.W_BoolDtype).box(res)
+            return res
     return func_with_new_name(impl, ufunc_name)
 
 class UfuncState(object):
@@ -228,6 +239,13 @@ class UfuncState(object):
             ("divide", "div", 2, {"promote_bools": True}),
             ("mod", "mod", 2, {"promote_bools": True}),
             ("power", "pow", 2, {"promote_bools": True}),
+
+            ("equal", "eq", 2, {"comparison_func": True}),
+            ("not_equal", "ne", 2, {"comparison_func": True}),
+            ("less", "lt", 2, {"comparison_func": True}),
+            ("less_equal", "le", 2, {"comparison_func": True}),
+            ("greater", "gt", 2, {"comparison_func": True}),
+            ("greater_equal", "ge", 2, {"comparison_func": True}),
 
             ("maximum", "max", 2),
             ("minimum", "min", 2),
@@ -262,7 +280,9 @@ class UfuncState(object):
             identity = space.fromcache(interp_dtype.W_Int64Dtype).adapt_val(identity)
         extra_kwargs["identity"] = identity
 
-        func = ufunc_dtype_caller(ufunc_name, op_name, argcount)
+        func = ufunc_dtype_caller(space, ufunc_name, op_name, argcount,
+            comparison_func=extra_kwargs.get("comparison_func", False)
+        )
         if argcount == 1:
             ufunc = W_Ufunc1(func, ufunc_name, **extra_kwargs)
         elif argcount == 2:
