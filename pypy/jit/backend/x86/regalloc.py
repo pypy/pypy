@@ -313,8 +313,11 @@ class RegAlloc(object):
                     self.fm.frame_bindings[arg] = loc
             else:
                 if isinstance(loc, RegLoc):
-                    self.rm.reg_bindings[arg] = loc
-                    used[loc] = None
+                    if loc is ebp:
+                        self.rm.bindings_to_frame_reg[arg] = None
+                    else:
+                        self.rm.reg_bindings[arg] = loc
+                        used[loc] = None
                 else:
                     self.fm.frame_bindings[arg] = loc
         self.rm.free_regs = []
