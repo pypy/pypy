@@ -1300,10 +1300,6 @@ class MiniMarkGC(MovingGCBase):
     def collect_cardrefs_to_nursery(self):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         oldlist = self.old_objects_with_cards_set
-        if bool(self.young_rawmalloced_objects):
-            callfunc = self.trace_and_drag_out_of_nursery_partial_young_raw
-        else:
-            callfunc = self.trace_and_drag_out_of_nursery_partial
         while oldlist.non_empty():
             obj = oldlist.pop()
             #
@@ -1351,8 +1347,12 @@ class MiniMarkGC(MovingGCBase):
                                 ll_assert(cardbyte <= 1 and bytes == 0,
                                           "premature end of object")
                             #self.trace_and_drag_out_of_nursery_partial(
-                            callfunc(
-                                obj, interval_start, interval_stop)
+                            if bool(self.young_rawmalloced_objects):
+                                self.trace_and_drag_out_of_nursery_partial_young_raw(
+                                    obj, interval_start, interval_stop)
+                            else:
+                                self.trace_and_drag_out_of_nursery_partial(
+                                    obj, interval_start, interval_stop)
                         #
                         interval_start = interval_stop
                         cardbyte >>= 1
@@ -1363,10 +1363,6 @@ class MiniMarkGC(MovingGCBase):
         # Follow the old_objects_pointing_to_young list and move the
         # young objects they point to out of the nursery.
         oldlist = self.old_objects_pointing_to_young
-        if bool(self.young_rawmalloced_objects):
-            trace_and_drag_out_of_nursery_func = self.trace_and_drag_out_of_nursery_young_raw
-        else:
-            trace_and_drag_out_of_nursery_func = self.trace_and_drag_out_of_nursery
         while oldlist.non_empty():
             obj = oldlist.pop()
             #
@@ -1383,7 +1379,11 @@ class MiniMarkGC(MovingGCBase):
             # Trace the 'obj' to replace pointers to nursery with pointers
             # outside the nursery, possibly forcing nursery objects out
             # and adding them to 'old_objects_pointing_to_young' as well.
-            trace_and_drag_out_of_nursery_func(obj)
+            if bool(self.young_rawmalloced_objects):
+                self.trace_and_drag_out_of_nursery_young_raw(obj)
+            else:
+                self.trace_and_drag_out_of_nursery(obj)
+
 
     def trace_and_drag_out_of_nursery(self, obj):
         """obj must not be in the nursery.  This copies all the
