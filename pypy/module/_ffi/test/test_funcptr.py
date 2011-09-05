@@ -82,16 +82,6 @@ class AppTestFFI(BaseAppTestFFI):
         res = dll.getfunc('Py_IsInitialized', [], types.slong)()
         assert res == 1
 
-    def test_simple_types(self):
-        from _ffi import types
-        assert str(types.sint) == "<ffi type sint>"
-        assert str(types.uint) == "<ffi type uint>"
-
-    def test_sizeof(self):
-        from _ffi import types
-        assert types.sbyte.sizeof() == 1
-        assert types.sint.sizeof() == 4
-    
     def test_callfunc(self):
         from _ffi import CDLL, types
         libm = CDLL(self.libm_name)
@@ -265,29 +255,6 @@ class AppTestFFI(BaseAppTestFFI):
         array = CharArray.fromaddress(ptr, 7)
         assert list(array) == list('foobar\00')
         do_nothing.free_temp_buffers()
-
-    def test_typed_pointer(self):
-        from _ffi import types
-        intptr = types.Pointer(types.sint) # create a typed pointer to sint
-        assert intptr.deref_pointer() is types.sint
-        assert str(intptr) == '<ffi type (pointer to sint)>'
-        assert types.sint.deref_pointer() is None
-        raises(TypeError, "types.Pointer(42)")
-
-    def test_pointer_identity(self):
-        from _ffi import types
-        x = types.Pointer(types.slong)
-        y = types.Pointer(types.slong)
-        z = types.Pointer(types.char)
-        assert x is y
-        assert x is not z
-
-    def test_char_p_cached(self):
-        from _ffi import types
-        x = types.Pointer(types.char)
-        assert x is types.char_p
-        x = types.Pointer(types.unichar)
-        assert x is types.unichar_p
 
     def test_typed_pointer_args(self):
         """

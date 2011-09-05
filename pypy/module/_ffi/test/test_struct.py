@@ -1,4 +1,4 @@
-from pypy.module._ffi.test.test__ffi import BaseAppTestFFI
+from pypy.module._ffi.test.test_funcptr import BaseAppTestFFI
 
 class AppTestStruct(BaseAppTestFFI):
 

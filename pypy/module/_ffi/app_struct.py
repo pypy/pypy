@@ -5,6 +5,15 @@ class Field(object):
         self.ffitype = ffitype
         self.offset = -1
 
+    ## def __get__(self, obj, cls=None):
+    ##     if obj is None:
+    ##         return self
+    ##     return getfield(obj._buffer, self.ffitype, self.offset)
+
+    ## def __set__(self, obj, value):
+    ##     setfield(obj._buffer, self.ffitype, self.offset, value)
+
+
 class MetaStructure(type):
 
     def __new__(cls, name, bases, dic):
