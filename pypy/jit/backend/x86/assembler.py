@@ -957,6 +957,7 @@ class Assembler386(object):
         if (isinstance(from_loc, RegLoc) and from_loc.is_xmm) or (isinstance(to_loc, RegLoc) and to_loc.is_xmm):
             self.mc.MOVSD(to_loc, from_loc)
         else:
+            assert to_loc is not ebp
             self.mc.MOV(to_loc, from_loc)
 
     regalloc_mov = mov # legacy interface
@@ -2509,11 +2510,6 @@ class Assembler386(object):
         self.mc.overwrite(jz_location-1, chr(offset))
 
     genop_discard_cond_call_gc_wb_array = genop_discard_cond_call_gc_wb
-
-    def genop_force_token(self, op, arglocs, resloc):
-        # RegAlloc.consider_force_token ensures this:
-        assert isinstance(resloc, RegLoc)
-        self.mc.LEA_rb(resloc.value, FORCE_INDEX_OFS)
 
     def not_implemented_op_discard(self, op, arglocs):
         not_implemented("not implemented operation: %s" % op.getopname())

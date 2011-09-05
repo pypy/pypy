@@ -49,19 +49,8 @@ ALL_STAT_FIELDS = [
     ]
 N_INDEXABLE_FIELDS = 10
 
-# for now, check the host Python to know which st_xxx fields exist
-STAT_FIELDS = [(_name, _TYPE) for (_name, _TYPE) in ALL_STAT_FIELDS
-                              if hasattr(os.stat_result, _name)]
-
-STAT_FIELD_TYPES = dict(STAT_FIELDS)      # {'st_xxx': TYPE}
-
-STAT_FIELD_NAMES = [_name for (_name, _TYPE) in ALL_STAT_FIELDS
-                          if _name in STAT_FIELD_TYPES]
-
-del _name, _TYPE
-
 # For OO backends, expose only the portable fields (the first 10).
-PORTABLE_STAT_FIELDS = STAT_FIELDS[:N_INDEXABLE_FIELDS]
+PORTABLE_STAT_FIELDS = ALL_STAT_FIELDS[:N_INDEXABLE_FIELDS]
 
 # ____________________________________________________________
 #
@@ -142,17 +131,22 @@ compilation_info = ExternalCompilationInfo(
     includes = INCLUDES
 )
 
-if sys.platform != 'win32':
+if TIMESPEC is not None:
+    class CConfig_for_timespec:
+        _compilation_info_ = compilation_info
+        TIMESPEC = TIMESPEC
+    TIMESPEC = lltype.Ptr(
+        platform.configure(CConfig_for_timespec)['TIMESPEC'])
+
+
+def posix_declaration(try_to_add=None):
+    global STAT_STRUCT
 
     LL_STAT_FIELDS = STAT_FIELDS[:]
+    if try_to_add:
+        LL_STAT_FIELDS.append(try_to_add)
 
     if TIMESPEC is not None:
-        class CConfig_for_timespec:
-            _compilation_info_ = compilation_info
-            TIMESPEC = TIMESPEC
-
-        TIMESPEC = lltype.Ptr(
-            platform.configure(CConfig_for_timespec)['TIMESPEC'])
 
         def _expand(lst, originalname, timespecname):
             for i, (_name, _TYPE) in enumerate(lst):
@@ -178,9 +172,34 @@ if sys.platform != 'win32':
     class CConfig:
         _compilation_info_ = compilation_info
         STAT_STRUCT = platform.Struct('struct %s' % _name_struct_stat, LL_STAT_FIELDS)
-    config = platform.configure(CConfig)
+    try:
+        config = platform.configure(CConfig)
+    except platform.CompilationError:
+        if try_to_add:
+            return    # failed to add this field, give up
+        raise
 
     STAT_STRUCT = lltype.Ptr(config['STAT_STRUCT'])
+    if try_to_add:
+        STAT_FIELDS.append(try_to_add)
+
+
+# This lists only the fields that have been found on the underlying platform.
+# Initially only the PORTABLE_STAT_FIELDS, but more may be added by the
+# following loop.
+STAT_FIELDS = PORTABLE_STAT_FIELDS[:]
+
+if sys.platform != 'win32':
+    posix_declaration()
+    for _i in range(len(PORTABLE_STAT_FIELDS), len(ALL_STAT_FIELDS)):
+        posix_declaration(ALL_STAT_FIELDS[_i])
+    del _i
+
+# these two global vars only list the fields defined in the underlying platform
+STAT_FIELD_TYPES = dict(STAT_FIELDS)      # {'st_xxx': TYPE}
+STAT_FIELD_NAMES = [_name for (_name, _TYPE) in STAT_FIELDS]
+del _name, _TYPE
+
 
 def build_stat_result(st):
     # only for LL backends
