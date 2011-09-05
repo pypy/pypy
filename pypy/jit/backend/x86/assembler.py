@@ -2510,11 +2510,6 @@ class Assembler386(object):
 
     genop_discard_cond_call_gc_wb_array = genop_discard_cond_call_gc_wb
 
-    def genop_force_token(self, op, arglocs, resloc):
-        # RegAlloc.consider_force_token ensures this:
-        assert isinstance(resloc, RegLoc)
-        self.mc.LEA_rb(resloc.value, FORCE_INDEX_OFS)
-
     def not_implemented_op_discard(self, op, arglocs):
         not_implemented("not implemented operation: %s" % op.getopname())
 
