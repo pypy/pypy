@@ -1300,6 +1300,10 @@ class MiniMarkGC(MovingGCBase):
     def collect_cardrefs_to_nursery(self):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         oldlist = self.old_objects_with_cards_set
+        if bool(self.young_rawmalloced_objects):
+            callfunc = self.trace_and_drag_out_of_nursery_partial_young_raw
+        else:
+            callfunc = self.trace_and_drag_out_of_nursery_partial
         while oldlist.non_empty():
             obj = oldlist.pop()
             #
@@ -1346,7 +1350,8 @@ class MiniMarkGC(MovingGCBase):
                                 interval_stop = length
                                 ll_assert(cardbyte <= 1 and bytes == 0,
                                           "premature end of object")
-                            self.trace_and_drag_out_of_nursery_partial(
+                            #self.trace_and_drag_out_of_nursery_partial(
+                            callfunc(
                                 obj, interval_start, interval_stop)
                         #
                         interval_start = interval_stop
@@ -1358,6 +1363,10 @@ class MiniMarkGC(MovingGCBase):
         # Follow the old_objects_pointing_to_young list and move the
         # young objects they point to out of the nursery.
         oldlist = self.old_objects_pointing_to_young
+        if bool(self.young_rawmalloced_objects):
+            trace_and_drag_out_of_nursery_func = self.trace_and_drag_out_of_nursery_young_raw
+        else:
+            trace_and_drag_out_of_nursery_func = self.trace_and_drag_out_of_nursery
         while oldlist.non_empty():
             obj = oldlist.pop()
             #
@@ -1374,13 +1383,16 @@ class MiniMarkGC(MovingGCBase):
             # Trace the 'obj' to replace pointers to nursery with pointers
             # outside the nursery, possibly forcing nursery objects out
             # and adding them to 'old_objects_pointing_to_young' as well.
-            self.trace_and_drag_out_of_nursery(obj)
+            trace_and_drag_out_of_nursery_func(obj)
 
     def trace_and_drag_out_of_nursery(self, obj):
         """obj must not be in the nursery.  This copies all the
         young objects it references out of the nursery.
         """
         self.trace(obj, self._trace_drag_out, None)
+
+    def trace_and_drag_out_of_nursery_young_raw(self, obj):
+        self.trace(obj, self._trace_drag_out_young_raw, None)
 
     def trace_and_drag_out_of_nursery_partial(self, obj, start, stop):
         """Like trace_and_drag_out_of_nursery(), but limited to the array
@@ -1391,27 +1403,19 @@ class MiniMarkGC(MovingGCBase):
         #print 'trace_partial:', start, stop, '\t', obj
         self.trace_partial(obj, start, stop, self._trace_drag_out, None)
 
+    def trace_and_drag_out_of_nursery_partial_young_raw(self, obj, start, stop):
+        """Like trace_and_drag_out_of_nursery(), but limited to the array
+        indices in range(start, stop).
+        """
+        ll_assert(start < stop, "empty or negative range "
+                                "in trace_and_drag_out_of_nursery_partial()")
+        #print 'trace_partial:', start, stop, '\t', obj
+        self.trace_partial(obj, start, stop, self._trace_drag_out_young_raw, None)
 
     def _trace_drag_out1(self, root):
-        self._trace_drag_out(root, None)
+        self._trace_drag_out_young_raw(root, None)
 
-    def _trace_drag_out(self, root, ignored):
-        obj = root.address[0]
-        #print '_trace_drag_out(%x: %r)' % (hash(obj.ptr._obj), obj)
-        #
-        # If 'obj' is not in the nursery, nothing to change -- expect
-        # that we must set GCFLAG_VISITED on young raw-malloced objects.
-        if not self.is_in_nursery(obj):
-            # cache usage trade-off: I think that it is a better idea to
-            # check if 'obj' is in young_rawmalloced_objects with an access
-            # to this (small) dictionary, rather than risk a lot of cache
-            # misses by reading a flag in the header of all the 'objs' that
-            # arrive here.
-            if (bool(self.young_rawmalloced_objects)
-                and self.young_rawmalloced_objects.contains(obj)):
-                self._visit_young_rawmalloced_object(obj)
-            return
-        #
+    def _trace_drag_out_base(self, root, obj):
         # If 'obj' was already forwarded, change it to its forwarding address.
         if self.is_forwarded(obj):
             root.address[0] = self.get_forwarding_address(obj)
@@ -1461,7 +1465,33 @@ class MiniMarkGC(MovingGCBase):
         # We will fix such references to point to the copy of the young
         # objects when we walk 'old_objects_pointing_to_young'.
         self.old_objects_pointing_to_young.append(newobj)
+    _trace_drag_out_base._always_inline_ = True
+
+    def _trace_drag_out(self, root, ignored):
+        obj = root.address[0]
+        if not self.is_in_nursery(obj):
+            return
+        self._trace_drag_out_base(root, obj)
     _trace_drag_out._always_inline_ = True
+
+    def _trace_drag_out_young_raw(self, root, ignored):
+        obj = root.address[0]
+        #print '_trace_drag_out(%x: %r)' % (hash(obj.ptr._obj), obj)
+        #
+        # If 'obj' is not in the nursery, nothing to change -- expect
+        # that we must set GCFLAG_VISITED on young raw-malloced objects.
+        if not self.is_in_nursery(obj):
+            # cache usage trade-off: I think that it is a better idea to
+            # check if 'obj' is in young_rawmalloced_objects with an access
+            # to this (small) dictionary, rather than risk a lot of cache
+            # misses by reading a flag in the header of all the 'objs' that
+            # arrive here.
+            #assert bool(self.young_rawmalloced_objects)
+            if (bool(self.young_rawmalloced_objects) and self.young_rawmalloced_objects.contains(obj)):
+                self._visit_young_rawmalloced_object(obj)
+            return
+        self._trace_drag_out_base(root, obj)
+    _trace_drag_out_young_raw._always_inline_ = True
 
     def _visit_young_rawmalloced_object(self, obj):
         # 'obj' points to a young, raw-malloced object.
