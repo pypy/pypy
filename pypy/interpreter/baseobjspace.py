@@ -111,6 +111,9 @@ class W_Root(object):
     def setslotvalue(self, index, w_val):
         raise NotImplementedError
 
+    def delslotvalue(self, index):
+        raise NotImplementedError
+
     def descr_call_mismatch(self, space, opname, RequiredClass, args):
         if RequiredClass is None:
             classname = '?'
@@ -623,9 +626,9 @@ class ObjSpace(object):
             self.default_compiler = compiler
             return compiler
 
-    def createframe(self, code, w_globals, closure=None):
+    def createframe(self, code, w_globals, outer_func=None):
         "Create an empty PyFrame suitable for this code object."
-        return self.FrameClass(self, code, w_globals, closure)
+        return self.FrameClass(self, code, w_globals, outer_func)
 
     def allocate_lock(self):
         """Return an interp-level Lock object if threads are enabled,

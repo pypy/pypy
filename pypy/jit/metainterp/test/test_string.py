@@ -1,5 +1,6 @@
 import py
 from pypy.rlib.jit import JitDriver, dont_look_inside, we_are_jitted
+from pypy.rlib.debug import debug_print
 from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.rpython.ootypesystem import ootype
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
@@ -323,6 +324,163 @@ class StringTests:
         self.meta_interp(f, [6, 7])
         self.check_loops(newstr=0, newunicode=0)
 
+    def test_str_slice_len_surviving(self):
+        _str = self._str
+        longstring = _str("Unrolling Trouble")
+        mydriver = JitDriver(reds = ['i', 'a', 'sa'], greens = []) 
+        def f(a):
+            i = sa = a
+            while i < len(longstring):
+                mydriver.jit_merge_point(i=i, a=a, sa=sa)
+                assert a >= 0 and i >= 0
+                i = len(longstring[a:i+1])
+                sa += i
+            return sa
+        assert self.meta_interp(f, [0]) == f(0)
+
+    def test_virtual_strings_direct(self):
+        _str = self._str
+        fillers = _str("abcdefghijklmnopqrstuvwxyz")
+        data = _str("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+        mydriver = JitDriver(reds = ['line', 'noise', 'res'], greens = []) 
+        def f():
+            line = data
+            noise = fillers
+            ratio = len(line) // len(noise)
+            res = data[0:0]
+            while line and noise:
+                mydriver.jit_merge_point(line=line, noise=noise, res=res)
+                if len(line) // len(noise) > ratio:
+                    c, line = line[0], line[1:]
+                else:
+                    c, noise = noise[0], noise[1:]
+                res += c
+            return res + noise + line
+        s1 = self.meta_interp(f, [])
+        s2 = f()
+        for c1, c2 in zip(s1.chars, s2):
+            assert c1==c2
+
+    def test_virtual_strings_boxed(self):
+        _str = self._str
+        fillers = _str("abcdefghijklmnopqrstuvwxyz")
+        data = _str("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
+        class Str(object):
+            def __init__(self, value):
+                self.value = value
+        mydriver = JitDriver(reds = ['ratio', 'line', 'noise', 'res'],
+                             greens = []) 
+        def f():
+            line = Str(data)
+            noise = Str(fillers)
+            ratio = len(line.value) // len(noise.value)
+            res = Str(data[0:0])
+            while line.value and noise.value:
+                mydriver.jit_merge_point(line=line, noise=noise, res=res,
+                                         ratio=ratio)
+                if len(line.value) // len(noise.value) > ratio:
+                    c, line = line.value[0], Str(line.value[1:])
+                else:
+                    c, noise = noise.value[0], Str(noise.value[1:])
+                res = Str(res.value + c)
+            return res.value + noise.value + line.value
+        s1 = self.meta_interp(f, [])
+        s2 = f()
+        for c1, c2 in zip(s1.chars, s2):
+            assert c1==c2
+
+    def test_string_in_virtual_state(self):
+        _str = self._str
+        s1 = _str("a")
+        s2 = _str("AA")
+        mydriver = JitDriver(reds = ['i', 'n', 'sa'], greens = [])
+        def f(n):
+            sa = s1
+            i = 0
+            while i < n:
+                mydriver.jit_merge_point(i=i, n=n, sa=sa)
+                if i&4 == 0:
+                    sa += s1
+                else:
+                    sa += s2
+                i += 1
+            return len(sa)
+        assert self.meta_interp(f, [16]) == f(16)
+
+    def test_loop_invariant_string_slize(self):
+        _str = self._str
+        mydriver = JitDriver(reds = ['i', 'n', 'sa', 's', 's1'], greens = [])
+        def f(n, c):
+            s = s1 = _str(c*10)
+            sa = i = 0
+            while i < n:
+                mydriver.jit_merge_point(i=i, n=n, sa=sa, s=s, s1=s1)
+                sa += len(s)
+                if i < n/2:
+                    s = s1[1:3]
+                else:
+                    s = s1[2:3]
+                i += 1
+            return sa
+        assert self.meta_interp(f, [16, 'a']) == f(16, 'a')
+
+    def test_loop_invariant_string_slize_boxed(self):
+        class Str(object):
+            def __init__(self, value):
+                self.value = value
+        _str = self._str
+        mydriver = JitDriver(reds = ['i', 'n', 'sa', 's', 's1'], greens = [])
+        def f(n, c):
+            s = s1 = Str(_str(c*10))
+            sa = i = 0
+            while i < n:
+                mydriver.jit_merge_point(i=i, n=n, sa=sa, s=s, s1=s1)
+                sa += len(s.value)
+                if i < n/2:
+                    s = Str(s1.value[1:3])
+                else:
+                    s = Str(s1.value[2:3])
+                i += 1
+            return sa
+        assert self.meta_interp(f, [16, 'a']) == f(16, 'a')
+
+    def test_loop_invariant_string_slize_in_array(self):
+        _str = self._str
+        mydriver = JitDriver(reds = ['i', 'n', 'sa', 's', 's1'], greens = [])
+        def f(n, c):
+            s = s1 = [_str(c*10)]
+            sa = i = 0
+            while i < n:
+                mydriver.jit_merge_point(i=i, n=n, sa=sa, s=s, s1=s1)
+                sa += len(s[0])
+                if i < n/2:
+                    s = [s1[0][1:3]]
+                else:
+                    s = [s1[0][2:3]]
+                i += 1
+            return sa
+        assert self.meta_interp(f, [16, 'a']) == f(16, 'a')
+
+    def test_boxed_virtual_string_not_surviving(self):
+        class StrBox(object):
+            def __init__(self, val):
+                self.val = val
+        class IntBox(object):
+            def __init__(self, val):
+                self.val = val
+        _str = self._str
+        mydriver = JitDriver(reds = ['i', 'nt', 'sa'], greens = [])
+        def f(c):
+            nt = StrBox(_str(c*16))
+            sa = StrBox(_str(''))
+            i = IntBox(0)
+            while i.val < len(nt.val):
+                mydriver.jit_merge_point(i=i, nt=nt, sa=sa)
+                sa = StrBox(sa.val + StrBox(nt.val[i.val]).val)
+                i = IntBox(i.val + 1)
+            return len(sa.val)
+        assert self.meta_interp(f, ['a']) == f('a')
 
 #class TestOOtype(StringTests, OOJitMixin):
 #    CALL = "oosend"
@@ -364,7 +522,8 @@ class TestLLtypeUnicode(TestLLtype):
         jitdriver = JitDriver(greens = ['g'], reds = ['m'])
         @dont_look_inside
         def escape(x):
-            print str(x)
+            # a plain "print" would call os.write() and release the gil
+            debug_print(str(x))
         def f(g, m):
             g = str(g)
             while m >= 0:

@@ -383,6 +383,20 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([int, int], s_None, llimpl=dup2_llimpl,
                       export_name="ll_os.ll_os_dup2")
 
+    @registering_if(os, "getlogin", condition=not _WIN32)
+    def register_os_getlogin(self):
+        os_getlogin = self.llexternal('getlogin', [], rffi.CCHARP)
+
+        def getlogin_llimpl():
+            result = os_getlogin()
+            if not result:
+                raise OSError(rposix.get_errno(), "getlogin failed")
+
+            return rffi.charp2str(result)
+
+        return extdef([], str, llimpl=getlogin_llimpl,
+                      export_name="ll_os.ll_os_getlogin")
+
     @registering_str_unicode(os.utime)
     def register_os_utime(self, traits):
         UTIMBUFP = lltype.Ptr(self.UTIMBUF)
@@ -877,7 +891,8 @@ class RegisterOs(BaseLazyRegistering):
 
     @registering(os.close)
     def register_os_close(self):
-        os_close = self.llexternal(underscore_on_windows+'close', [rffi.INT], rffi.INT)
+        os_close = self.llexternal(underscore_on_windows+'close', [rffi.INT],
+                                   rffi.INT, threadsafe=False)
         
         def close_llimpl(fd):
             error = rffi.cast(lltype.Signed, os_close(rffi.cast(rffi.INT, fd)))

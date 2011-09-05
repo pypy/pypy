@@ -687,11 +687,15 @@ def unicode_internal_decode(space, w_string, errors="strict"):
 # support for the "string escape" codec
 # This is a bytes-to bytes transformation
 
-@unwrap_spec(errors='str_or_None')
-def escape_encode(space, w_string, errors='strict'):
-    w_repr = space.repr(w_string)
-    w_result = space.getslice(w_repr, space.wrap(1), space.wrap(-1))
-    return space.newtuple([w_result, space.len(w_string)])
+@unwrap_spec(data=str, errors='str_or_None')
+def escape_encode(space, data, errors='strict'):
+    from pypy.objspace.std.stringobject import string_escape_encode
+    result = string_escape_encode(data, quote="'")
+    start = 1
+    end = len(result) - 1
+    assert end >= 0
+    w_result = space.wrap(result[start:end])
+    return space.newtuple([w_result, space.wrap(len(data))])
 
 @unwrap_spec(data=str, errors='str_or_None')
 def escape_decode(space, data, errors='strict'):

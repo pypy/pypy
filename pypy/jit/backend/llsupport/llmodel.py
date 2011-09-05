@@ -253,13 +253,13 @@ class AbstractLLCPU(AbstractCPU):
         return ofs, size, sign
     unpack_arraydescr_size._always_inline_ = True
 
-    def calldescrof(self, FUNC, ARGS, RESULT, extrainfo=None):
+    def calldescrof(self, FUNC, ARGS, RESULT, extrainfo):
         return get_call_descr(self.gc_ll_descr, ARGS, RESULT, extrainfo)
 
-    def calldescrof_dynamic(self, ffi_args, ffi_result, extrainfo=None):
+    def calldescrof_dynamic(self, ffi_args, ffi_result, extrainfo, ffi_flags):
         from pypy.jit.backend.llsupport import ffisupport
-        return ffisupport.get_call_descr_dynamic(ffi_args, ffi_result,
-                                                 extrainfo)
+        return ffisupport.get_call_descr_dynamic(self, ffi_args, ffi_result,
+                                                 extrainfo, ffi_flags)
 
     def get_overflow_error(self):
         ovf_vtable = self.cast_adr_to_int(self._ovf_error_vtable)
@@ -586,7 +586,7 @@ class AbstractLLCPU(AbstractCPU):
     def bh_call_i(self, func, calldescr, args_i, args_r, args_f):
         assert isinstance(calldescr, BaseIntCallDescr)
         if not we_are_translated():
-            calldescr.verify_types(args_i, args_r, args_f, history.INT)
+            calldescr.verify_types(args_i, args_r, args_f, history.INT + 'S')
         return calldescr.call_stub(func, args_i, args_r, args_f)
 
     def bh_call_r(self, func, calldescr, args_i, args_r, args_f):

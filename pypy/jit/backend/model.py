@@ -8,12 +8,13 @@ class AbstractCPU(object):
     # ^^^ This is only useful on 32-bit platforms.  If True,
     # longlongs are supported by the JIT, but stored as doubles.
     # Boxes and Consts are BoxFloats and ConstFloats.
+    supports_singlefloats = False
 
     done_with_this_frame_void_v = -1
     done_with_this_frame_int_v = -1
     done_with_this_frame_ref_v = -1
     done_with_this_frame_float_v = -1
-    exit_frame_with_exception_v = -1
+    propagate_exception_v = -1
     total_compiled_loops = 0
     total_compiled_bridges = 0
     total_freed_loops = 0

@@ -86,9 +86,12 @@ def decode_hp_hint_args(op):
     reds_v = op.args[2+numgreens:]
     assert len(reds_v) == numreds
     #
-    def _sort(args_v):
+    def _sort(args_v, is_green):
         from pypy.jit.metainterp.history import getkind
         lst = [v for v in args_v if v.concretetype is not lltype.Void]
+        if is_green:
+            assert len(lst) == len(args_v), (
+                "not supported so far: 'greens' variables contain Void")
         _kind2count = {'int': 1, 'ref': 2, 'float': 3}
         lst2 = sorted(lst, key=lambda v: _kind2count[getkind(v.concretetype)])
         # a crash here means that you have to reorder the variable named in
@@ -97,7 +100,7 @@ def decode_hp_hint_args(op):
         assert lst == lst2
         return lst
     #
-    return (_sort(greens_v), _sort(reds_v))
+    return (_sort(greens_v, True), _sort(reds_v, False))
 
 def maybe_on_top_of_llinterp(rtyper, fnptr):
     # Run a generated graph on top of the llinterp for testing.

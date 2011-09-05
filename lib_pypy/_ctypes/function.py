@@ -91,12 +91,14 @@ class CFuncPtr(_CData):
                     raise TypeError(
                         "item %d in _argtypes_ has no from_param method" % (
                             i + 1,))
-            #
-            if all([hasattr(argtype, '_ffiargshape') for argtype in argtypes]):
-                fastpath_cls = make_fastpath_subclass(self.__class__)
-                fastpath_cls.enable_fastpath_maybe(self)
             self._argtypes_ = list(argtypes)
+            self._check_argtypes_for_fastpath()
     argtypes = property(_getargtypes, _setargtypes)
+
+    def _check_argtypes_for_fastpath(self):
+        if all([hasattr(argtype, '_ffiargshape') for argtype in self._argtypes_]):
+            fastpath_cls = make_fastpath_subclass(self.__class__)
+            fastpath_cls.enable_fastpath_maybe(self)
 
     def _getparamflags(self):
         return self._paramflags
@@ -216,6 +218,7 @@ class CFuncPtr(_CData):
                 import ctypes
                 restype = ctypes.c_int
             self._ptr = self._getfuncptr_fromaddress(self._argtypes_, restype)
+            self._check_argtypes_for_fastpath()
             return
 
         
@@ -466,7 +469,8 @@ class CFuncPtr(_CData):
         newargs = []
         for argtype, arg in zip(argtypes, args):
             param = argtype.from_param(arg)
-            if argtype._type_ == 'P': # special-case for c_void_p
+            _type_ = getattr(argtype, '_type_', None)
+            if _type_ == 'P': # special-case for c_void_p
                 param = param._get_buffer_value()
             elif self._is_primitive(argtype):
                 param = param.value

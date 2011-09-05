@@ -2,7 +2,6 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import app2interp_temp
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.pycode import PyCode
-from pypy.interpreter.pyframe import PyFrame
 from pypy.tool.pytest.appsupport import (AppFrame, build_pytest_assertion,
     AppExceptionInfo, interpret)
 import py
@@ -20,7 +19,7 @@ def somefunc(x):
 def test_AppFrame(space):
     import sys
     co = PyCode._from_code(space, somefunc.func_code)
-    pyframe = PyFrame(space, co, space.newdict(), None)
+    pyframe = space.FrameClass(space, co, space.newdict(), None)
     runner = AppFrame(space, pyframe)
     interpret("f = lambda x: x+1", runner, should_fail=False)
     msg = interpret("assert isinstance(f(2), float)", runner)

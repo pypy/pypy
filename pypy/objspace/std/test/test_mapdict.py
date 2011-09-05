@@ -210,6 +210,12 @@ def test_slots():
     assert obj2.storage == [501, 601, 701, 51, 61, 71]
     assert obj.map is obj2.map
 
+    assert obj2.getslotvalue(b) == 601
+    assert obj2.delslotvalue(b)
+    assert obj2.getslotvalue(b) is None
+    assert obj2.storage == [501, 701, 51, 61, 71]
+    assert not obj2.delslotvalue(b)
+
 
 def test_slots_no_dict():
     cls = Class(hasdict=False)
@@ -631,6 +637,14 @@ class AppTestWithMapDict(object):
         a.__dict__ = {}
         a.__dict__ = {}
 
+    def test_delete_slot(self):
+        class A(object):
+            __slots__ = ['x']
+        
+        a = A()
+        a.x = 42
+        del a.x
+        raises(AttributeError, "a.x")
 
 class AppTestWithMapDictAndCounters(object):
     def setup_class(cls):
@@ -986,45 +1000,57 @@ class AppTestGlobalCaching(AppTestWithMapDict):
 
     def test_mix_classes(self):
         import __pypy__
-        class A(object):
-            def f(self):
-                return 42
-        class B(object):
-            def f(self):
-                return 43
-        class C(object):
-            def f(self):
-                return 44
-        l = [A(), B(), C()] * 10
-        __pypy__.reset_method_cache_counter()
-        # 'exec' to make sure that a.f() is compiled with CALL_METHOD
-        exec """for i, a in enumerate(l):
-                    assert a.f() == 42 + i % 3
-"""
-        cache_counter = __pypy__.mapdict_cache_counter("f")
-        assert cache_counter[0] >= 15
-        assert cache_counter[1] >= 3 # should be (27, 3)
-        assert sum(cache_counter) == 30
+        seen = []
+        for i in range(20):
+            class A(object):
+                def f(self):
+                    return 42
+            class B(object):
+                def f(self):
+                    return 43
+            class C(object):
+                def f(self):
+                    return 44
+            l = [A(), B(), C()] * 10
+            __pypy__.reset_method_cache_counter()
+            # 'exec' to make sure that a.f() is compiled with CALL_METHOD
+            exec """for i, a in enumerate(l):
+                        assert a.f() == 42 + i % 3
+            """ in locals()
+            cache_counter = __pypy__.mapdict_cache_counter("f")
+            if cache_counter == (27, 3):
+                break
+            # keep them alive, to make sure that on the
+            # next try they have difference addresses
+            seen.append((l, cache_counter))
+        else:
+            assert 0, "failed: got %r" % ([got[1] for got in seen],)
 
     def test_mix_classes_attribute(self):
         import __pypy__
-        class A(object):
-            def __init__(self):
-                self.x = 42
-        class B(object):
-            def __init__(self):
-                self.x = 43
-        class C(object):
-            def __init__(self):
-                self.x = 44
-        l = [A(), B(), C()] * 10
-        __pypy__.reset_method_cache_counter()
-        for i, a in enumerate(l):
-            assert a.x == 42 + i % 3
-        cache_counter = __pypy__.mapdict_cache_counter("x")
-        assert cache_counter[0] >= 15
-        assert cache_counter[1] >= 3 # should be (27, 3)
-        assert sum(cache_counter) == 30
+        seen = []
+        for i in range(20):
+            class A(object):
+                def __init__(self):
+                    self.x = 42
+            class B(object):
+                def __init__(self):
+                    self.x = 43
+            class C(object):
+                def __init__(self):
+                    self.x = 44
+            l = [A(), B(), C()] * 10
+            __pypy__.reset_method_cache_counter()
+            for i, a in enumerate(l):
+                assert a.x == 42 + i % 3
+            cache_counter = __pypy__.mapdict_cache_counter("x")
+            if cache_counter == (27, 3):
+                break
+            # keep them alive, to make sure that on the
+            # next try they have difference addresses
+            seen.append((l, cache_counter))
+        else:
+            assert 0, "failed: got %r" % ([got[1] for got in seen],)
 
 class TestDictSubclassShortcutBug(object):
     def setup_class(cls):

@@ -1,5 +1,4 @@
-
-import py
+import py; py.test.skip("xxx remove")
 from pypy.conftest import gettestobjspace, option
 
 def setup_module(mod):
@@ -10,7 +9,7 @@ class AppTestDistributedGreensock(object):
         if not option.runappdirect:
             py.test.skip("Cannot run this on top of py.py because of PopenGateway")
         cls.space = gettestobjspace(**{"objspace.std.withtproxy": True,
-                                       "usemodules":("_stackless",)})
+                                       "usemodules":("_continuation",)})
         cls.w_remote_side_code = cls.space.appexec([], """():
         import sys
         sys.path.insert(0, '%s')

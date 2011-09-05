@@ -258,6 +258,11 @@ def _builduserclswithfeature(config, supercls, *features):
                     self.slots_w = [None] * nslots
             def setslotvalue(self, index, w_value):
                 self.slots_w[index] = w_value
+            def delslotvalue(self, index):
+                if self.slots_w[index] is None:
+                    return False
+                self.slots_w[index] = None
+                return True
             def getslotvalue(self, index):
                 return self.slots_w[index]
         add(Proto)
@@ -530,11 +535,10 @@ class Member(Wrappable):
         """member.__delete__(obj)
         Delete the value of the slot 'member' from the given 'obj'."""
         self.typecheck(space, w_obj)
-        w_oldresult = w_obj.getslotvalue(self.index)
-        if w_oldresult is None:
+        success = w_obj.delslotvalue(self.index)
+        if not success:
             raise OperationError(space.w_AttributeError,
                                  space.wrap(self.name)) # XXX better message
-        w_obj.setslotvalue(self.index, None)
 
 Member.typedef = TypeDef(
     "member_descriptor",

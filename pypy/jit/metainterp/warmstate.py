@@ -25,9 +25,13 @@ def specialize_value(TYPE, x):
         if isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'raw':
             # non-gc pointer
             return rffi.cast(TYPE, x)
+        elif TYPE is lltype.SingleFloat:
+            return longlong.int2singlefloat(x)
         else:
             return lltype.cast_primitive(TYPE, x)
     elif INPUT is longlong.FLOATSTORAGE:
+        if longlong.is_longlong(TYPE):
+            return rffi.cast(TYPE, x)
         assert TYPE is lltype.Float
         return longlong.getrealfloat(x)
     else:
@@ -84,8 +88,12 @@ def wrap(cpu, value, in_const_box=False):
             return history.ConstObj(value)
         else:
             return history.BoxObj(value)
-    elif isinstance(value, float):
-        value = longlong.getfloatstorage(value)
+    elif (isinstance(value, float) or
+          longlong.is_longlong(lltype.typeOf(value))):
+        if isinstance(value, float):
+            value = longlong.getfloatstorage(value)
+        else:
+            value = rffi.cast(lltype.SignedLongLong, value)
         if in_const_box:
             return history.ConstFloat(value)
         else:
@@ -93,6 +101,8 @@ def wrap(cpu, value, in_const_box=False):
     elif isinstance(value, str) or isinstance(value, unicode):
         assert len(value) == 1     # must be a character
         value = ord(value)
+    elif lltype.typeOf(value) is lltype.SingleFloat:
+        value = longlong.singlefloat2int(value)
     else:
         value = intmask(value)
     if in_const_box:
@@ -114,7 +124,7 @@ def hash_whatever(TYPE, x):
     # Hash of lltype or ootype object.
     # Only supports strings, unicodes and regular instances,
     # as well as primitives that can meaningfully be cast to Signed.
-    if isinstance(TYPE, lltype.Ptr):
+    if isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'gc':
         if TYPE.TO is rstr.STR or TYPE.TO is rstr.UNICODE:
             return rstr.LLHelpers.ll_strhash(x)    # assumed not null
         else:
@@ -130,7 +140,7 @@ def hash_whatever(TYPE, x):
         else:
             return 0
     else:
-        return lltype.cast_primitive(lltype.Signed, x)
+        return rffi.cast(lltype.Signed, x)
 
 @specialize.ll_and_arg(3)
 def set_future_value(cpu, j, value, typecode):
@@ -259,6 +269,11 @@ class WarmEnterState(object):
         if self.warmrunnerdesc:
             if self.warmrunnerdesc.memory_manager:
                 self.warmrunnerdesc.memory_manager.retrace_limit = value
+
+    def set_param_max_retrace_guards(self, value):
+        if self.warmrunnerdesc:
+            if self.warmrunnerdesc.memory_manager:
+                self.warmrunnerdesc.memory_manager.max_retrace_guards = value
 
     def disable_noninlinable_function(self, greenkey):
         cell = self.jit_cell_at_key(greenkey)

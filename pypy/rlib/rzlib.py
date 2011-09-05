@@ -131,7 +131,8 @@ _deflateInit2_ = zlib_external(
     rffi.INT)
 _deflate = zlib_external('deflate', [z_stream_p, rffi.INT], rffi.INT)
 
-_deflateEnd = zlib_external('deflateEnd', [z_stream_p], rffi.INT)
+_deflateEnd = zlib_external('deflateEnd', [z_stream_p], rffi.INT,
+                            threadsafe=False)
 
 def _deflateInit2(stream, level, method, wbits, memlevel, strategy):
     size = rffi.sizeof(z_stream)
@@ -149,7 +150,8 @@ _inflateInit2_ = zlib_external(
     rffi.INT)
 _inflate = zlib_external('inflate', [z_stream_p, rffi.INT], rffi.INT)
 
-_inflateEnd = zlib_external('inflateEnd', [z_stream_p], rffi.INT)
+_inflateEnd = zlib_external('inflateEnd', [z_stream_p], rffi.INT,
+                            threadsafe=False)
 
 def _inflateInit2(stream, wbits):
     size = rffi.sizeof(z_stream)

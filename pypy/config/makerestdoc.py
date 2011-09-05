@@ -134,7 +134,7 @@ class __extend__(OptionDescription):
         for child in self._children:
             subpath = fullpath + "." + child._name
             toctree.append(subpath)
-        content.add(Directive("toctree", *toctree, maxdepth=4))
+        content.add(Directive("toctree", *toctree, **{'maxdepth': 4}))
         content.join(
             ListItem(Strong("name:"), self._name),
             ListItem(Strong("description:"), self.doc))

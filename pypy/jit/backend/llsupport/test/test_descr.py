@@ -51,7 +51,8 @@ def test_get_field_descr():
     S = lltype.GcStruct('S', ('x', lltype.Char),
                              ('y', lltype.Ptr(T)),
                              ('z', lltype.Ptr(U)),
-                             ('f', lltype.Float))
+                             ('f', lltype.Float),
+                             ('s', lltype.SingleFloat))
     assert getFieldDescrClass(lltype.Ptr(T)) is GcPtrFieldDescr
     assert getFieldDescrClass(lltype.Ptr(U)) is NonGcPtrFieldDescr
     cls = getFieldDescrClass(lltype.Char)
@@ -60,6 +61,10 @@ def test_get_field_descr():
     clsf = getFieldDescrClass(lltype.Float)
     assert clsf != cls
     assert clsf == getFieldDescrClass(lltype.Float)
+    clss = getFieldDescrClass(lltype.SingleFloat)
+    assert clss not in (cls, clsf)
+    assert clss == getFieldDescrClass(lltype.SingleFloat)
+    assert clss == getFieldDescrClass(rffi.UINT)    # for now
     #
     c0 = GcCache(False)
     c1 = GcCache(True)
@@ -71,14 +76,17 @@ def test_get_field_descr():
         descr_y = get_field_descr(c2, S, 'y')
         descr_z = get_field_descr(c2, S, 'z')
         descr_f = get_field_descr(c2, S, 'f')
+        descr_s = get_field_descr(c2, S, 's')
         assert descr_x.__class__ is cls
         assert descr_y.__class__ is GcPtrFieldDescr
         assert descr_z.__class__ is NonGcPtrFieldDescr
         assert descr_f.__class__ is clsf
+        assert descr_s.__class__ is clss
         assert descr_x.name == 'S.x'
         assert descr_y.name == 'S.y'
         assert descr_z.name == 'S.z'
         assert descr_f.name == 'S.f'
+        assert descr_s.name == 'S.s'
         if not tsc:
             assert descr_x.offset < descr_y.offset < descr_z.offset
             assert descr_x.sort_key() < descr_y.sort_key() < descr_z.sort_key()
@@ -86,23 +94,29 @@ def test_get_field_descr():
             assert descr_y.get_field_size(False) == rffi.sizeof(lltype.Ptr(T))
             assert descr_z.get_field_size(False) == rffi.sizeof(lltype.Ptr(U))
             assert descr_f.get_field_size(False) == rffi.sizeof(lltype.Float)
+            assert descr_s.get_field_size(False) == rffi.sizeof(
+                                                            lltype.SingleFloat)
         else:
             assert isinstance(descr_x.offset, Symbolic)
             assert isinstance(descr_y.offset, Symbolic)
             assert isinstance(descr_z.offset, Symbolic)
             assert isinstance(descr_f.offset, Symbolic)
+            assert isinstance(descr_s.offset, Symbolic)
             assert isinstance(descr_x.get_field_size(True), Symbolic)
             assert isinstance(descr_y.get_field_size(True), Symbolic)
             assert isinstance(descr_z.get_field_size(True), Symbolic)
             assert isinstance(descr_f.get_field_size(True), Symbolic)
+            assert isinstance(descr_s.get_field_size(True), Symbolic)
         assert not descr_x.is_pointer_field()
         assert     descr_y.is_pointer_field()
         assert not descr_z.is_pointer_field()
         assert not descr_f.is_pointer_field()
+        assert not descr_s.is_pointer_field()
         assert not descr_x.is_float_field()
         assert not descr_y.is_float_field()
         assert not descr_z.is_float_field()
         assert     descr_f.is_float_field()
+        assert not descr_s.is_float_field()
 
 
 def test_get_field_descr_sign():
@@ -136,6 +150,7 @@ def test_get_array_descr():
     A4 = lltype.GcArray(lltype.Float)
     A5 = lltype.GcArray(lltype.Struct('x', ('v', lltype.Signed),
                                       ('k', lltype.Signed)))
+    A6 = lltype.GcArray(lltype.SingleFloat)
     assert getArrayDescrClass(A2) is GcPtrArrayDescr
     assert getArrayDescrClass(A3) is NonGcPtrArrayDescr
     cls = getArrayDescrClass(A1)
@@ -144,6 +159,9 @@ def test_get_array_descr():
     clsf = getArrayDescrClass(A4)
     assert clsf != cls
     assert clsf == getArrayDescrClass(lltype.GcArray(lltype.Float))
+    clss = getArrayDescrClass(A5)
+    assert clss not in (clsf, cls)
+    assert clss == getArrayDescrClass(lltype.GcArray(rffi.UINT))
     #
     c0 = GcCache(False)
     descr1 = get_array_descr(c0, A1)
@@ -151,10 +169,12 @@ def test_get_array_descr():
     descr3 = get_array_descr(c0, A3)
     descr4 = get_array_descr(c0, A4)
     descr5 = get_array_descr(c0, A5)
+    descr6 = get_array_descr(c0, A6)
     assert descr1.__class__ is cls
     assert descr2.__class__ is GcPtrArrayDescr
     assert descr3.__class__ is NonGcPtrArrayDescr
     assert descr4.__class__ is clsf
+    assert descr5.__class__ is clss
     assert descr1 == get_array_descr(c0, lltype.GcArray(lltype.Char))
     assert not descr1.is_array_of_pointers()
     assert     descr2.is_array_of_pointers()
@@ -174,24 +194,29 @@ def test_get_array_descr():
     assert descr2.get_base_size(False) == get_alignment('p')
     assert descr3.get_base_size(False) == get_alignment('p')
     assert descr4.get_base_size(False) == get_alignment('d')
+    assert descr5.get_base_size(False) == get_alignment('f')
     assert descr1.get_ofs_length(False) == 0
     assert descr2.get_ofs_length(False) == 0
     assert descr3.get_ofs_length(False) == 0
     assert descr4.get_ofs_length(False) == 0
+    assert descr5.get_ofs_length(False) == 0
     assert descr1.get_item_size(False) == rffi.sizeof(lltype.Char)
     assert descr2.get_item_size(False) == rffi.sizeof(lltype.Ptr(T))
     assert descr3.get_item_size(False) == rffi.sizeof(lltype.Ptr(U))
     assert descr4.get_item_size(False) == rffi.sizeof(lltype.Float)
     assert descr5.get_item_size(False) == rffi.sizeof(lltype.Signed) * 2
+    assert descr6.get_item_size(False) == rffi.sizeof(lltype.SingleFloat)
     #
     assert isinstance(descr1.get_base_size(True), Symbolic)
     assert isinstance(descr2.get_base_size(True), Symbolic)
     assert isinstance(descr3.get_base_size(True), Symbolic)
     assert isinstance(descr4.get_base_size(True), Symbolic)
+    assert isinstance(descr5.get_base_size(True), Symbolic)
     assert isinstance(descr1.get_ofs_length(True), Symbolic)
     assert isinstance(descr2.get_ofs_length(True), Symbolic)
     assert isinstance(descr3.get_ofs_length(True), Symbolic)
     assert isinstance(descr4.get_ofs_length(True), Symbolic)
+    assert isinstance(descr5.get_ofs_length(True), Symbolic)
     assert isinstance(descr1.get_item_size(True), Symbolic)
     assert isinstance(descr2.get_item_size(True), Symbolic)
     assert isinstance(descr3.get_item_size(True), Symbolic)
@@ -214,6 +239,11 @@ def test_get_array_descr():
     CA = rffi.CArray(lltype.Float)
     descr = get_array_descr(c0, CA)
     assert descr.is_array_of_floats()
+    assert descr.get_base_size(False) == 0
+    assert descr.get_ofs_length(False) == -1
+    CA = rffi.CArray(rffi.FLOAT)
+    descr = get_array_descr(c0, CA)
+    assert not descr.is_array_of_floats()
     assert descr.get_base_size(False) == 0
     assert descr.get_ofs_length(False) == -1
 
@@ -263,6 +293,11 @@ def test_get_call_descr_not_translated():
     assert descr4.get_result_size(False) == rffi.sizeof(lltype.Float)
     assert descr4.get_return_type() == history.FLOAT
     assert descr4.arg_classes == "ff"
+    #
+    descr5 = get_call_descr(c0, [lltype.SingleFloat], lltype.SingleFloat)
+    assert descr5.get_result_size(False) == rffi.sizeof(lltype.SingleFloat)
+    assert descr5.get_return_type() == "S"
+    assert descr5.arg_classes == "S"
 
 def test_get_call_descr_not_translated_longlong():
     if sys.maxint > 2147483647:
@@ -292,6 +327,11 @@ def test_get_call_descr_translated():
     assert isinstance(descr4.get_result_size(True), Symbolic)
     assert descr4.get_return_type() == history.FLOAT
     assert descr4.arg_classes == "ff"
+    #
+    descr5 = get_call_descr(c1, [lltype.SingleFloat], lltype.SingleFloat)
+    assert isinstance(descr5.get_result_size(True), Symbolic)
+    assert descr5.get_return_type() == "S"
+    assert descr5.arg_classes == "S"
 
 def test_call_descr_extra_info():
     c1 = GcCache(True)
@@ -349,8 +389,11 @@ def test_repr_of_descr():
     #
     descr4f = get_call_descr(c0, [lltype.Char, lltype.Ptr(S)], lltype.Float)
     assert 'FloatCallDescr' in descr4f.repr_of_descr()
+    #
+    descr5f = get_call_descr(c0, [lltype.Char], lltype.SingleFloat)
+    assert 'SingleFloatCallDescr' in descr5f.repr_of_descr()
 
-def test_call_stubs():
+def test_call_stubs_1():
     c0 = GcCache(False)
     ARGS = [lltype.Char, lltype.Signed]
     RES = lltype.Char
@@ -364,6 +407,8 @@ def test_call_stubs():
     res = call_stub(rffi.cast(lltype.Signed, fnptr), [1, 2], None, None)
     assert res == ord('c')
 
+def test_call_stubs_2():
+    c0 = GcCache(False)
     ARRAY = lltype.GcArray(lltype.Signed)
     ARGS = [lltype.Float, lltype.Ptr(ARRAY)]
     RES = lltype.Float
@@ -379,3 +424,27 @@ def test_call_stubs():
     res = descr2.call_stub(rffi.cast(lltype.Signed, fnptr),
                            [], [opaquea], [longlong.getfloatstorage(3.5)])
     assert longlong.getrealfloat(res) == 4.5
+
+def test_call_stubs_single_float():
+    from pypy.rlib.longlong2float import uint2singlefloat, singlefloat2uint
+    from pypy.rlib.rarithmetic import r_singlefloat, intmask
+    #
+    c0 = GcCache(False)
+    ARGS = [lltype.SingleFloat, lltype.SingleFloat, lltype.SingleFloat]
+    RES = lltype.SingleFloat
+
+    def f(a, b, c):
+        a = float(a)
+        b = float(b)
+        c = float(c)
+        x = a - (b / c)
+        return r_singlefloat(x)
+
+    fnptr = llhelper(lltype.Ptr(lltype.FuncType(ARGS, RES)), f)
+    descr2 = get_call_descr(c0, ARGS, RES)
+    a = intmask(singlefloat2uint(r_singlefloat(-10.0)))
+    b = intmask(singlefloat2uint(r_singlefloat(3.0)))
+    c = intmask(singlefloat2uint(r_singlefloat(2.0)))
+    res = descr2.call_stub(rffi.cast(lltype.Signed, fnptr),
+                           [a, b, c], [], [])
+    assert float(uint2singlefloat(rffi.r_uint(res))) == -11.5

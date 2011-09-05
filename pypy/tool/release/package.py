@@ -50,11 +50,16 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
             pypy_c_dir = py.path.local(override_pypy_c).dirname
         else:
             pypy_c_dir = basedir.join('pypy', 'translator', 'goal')
-        pypy_c = pypy_c_dir.join(rename_pypy_c + '.exe')
-        libpypy_c = pypy_c_dir.join('lib' + rename_pypy_c + '.dll')
+        pypy_c = pypy_c_dir.join('pypy-c.exe')
+        libpypy_c = pypy_c_dir.join('libpypy-c.dll')
+        libexpat = pypy_c_dir.join('libexpat.dll')
+        if not libexpat.check():
+            libexpat = py.path.local.sysfind('libexpat.dll')
+            assert libexpat, "libexpat.dll not found"
+            print "Picking %s" % libexpat
         binaries = [(pypy_c, pypy_c.basename),
                     (libpypy_c, libpypy_c.basename),
-                    (pypy_c_dir.join('libexpat.dll'), 'libexpat.dll')]
+                    (libexpat, libexpat.basename)]
     else:
         basename = 'pypy-c'
         if override_pypy_c is None:
@@ -133,6 +138,8 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     if copy_to_dir is not None:
         print "Copying %s to %s" % (archive, copy_to_dir)
         shutil.copy(archive, str(copy_to_dir))
+    else:
+        print "Ready in %s" % (builddir,)
     return builddir # for tests
 
 if __name__ == '__main__':

@@ -9,7 +9,7 @@ from pypy.tool.descriptor import roproperty
 class LLOp(object):
 
     def __init__(self, sideeffects=True, canfold=False, canraise=(),
-                 pyobj=False, canunwindgc=False, canrun=False, oo=False,
+                 pyobj=False, canmallocgc=False, canrun=False, oo=False,
                  tryfold=False):
         # self.opname = ... (set afterwards)
 
@@ -36,12 +36,12 @@ class LLOp(object):
         # The operation manipulates PyObjects
         self.pyobj = pyobj
 
-        # The operation can unwind the stack in a stackless gc build
-        self.canunwindgc = canunwindgc
-        if canunwindgc:
-            if (StackException not in self.canraise and
+        # The operation can go a GC malloc
+        self.canmallocgc = canmallocgc
+        if canmallocgc:
+            if (MemoryError not in self.canraise and
                 Exception not in self.canraise):
-                self.canraise += (StackException,)
+                self.canraise += (MemoryError,)
 
         # The operation can be run directly with __call__
         self.canrun = canrun or canfold
@@ -174,10 +174,6 @@ class Entry(ExtRegistryEntry):
             hop.exception_cannot_occur()
         return hop.genop(op.opname, args_v, resulttype=hop.r_result.lowleveltype)
 
-
-class StackException(Exception):
-    """Base for internal exceptions possibly used by the stackless
-    implementation."""
 
 # ____________________________________________________________
 #
@@ -356,10 +352,10 @@ LL_OPERATIONS = {
 
     # __________ pointer operations __________
 
-    'malloc':               LLOp(canraise=(MemoryError,), canunwindgc=True),
-    'malloc_varsize':       LLOp(canraise=(MemoryError,), canunwindgc=True),
-    'malloc_nonmovable':    LLOp(canraise=(MemoryError,), canunwindgc=True),
-    'malloc_nonmovable_varsize':LLOp(canraise=(MemoryError,),canunwindgc=True),
+    'malloc':               LLOp(canmallocgc=True),
+    'malloc_varsize':       LLOp(canmallocgc=True),
+    'malloc_nonmovable':    LLOp(canmallocgc=True),
+    'malloc_nonmovable_varsize':LLOp(canmallocgc=True),
     'shrink_array':         LLOp(canrun=True),
     'zero_gc_pointers_inside': LLOp(),
     'free':                 LLOp(),
@@ -414,7 +410,6 @@ LL_OPERATIONS = {
     'adr_ne':               LLOp(canfold=True),
     'adr_gt':               LLOp(canfold=True),
     'adr_ge':               LLOp(canfold=True),
-    'adr_call':             LLOp(canraise=(Exception,)),
     'cast_ptr_to_adr':      LLOp(sideeffects=False),
     'cast_adr_to_ptr':      LLOp(canfold=True),
     'cast_adr_to_int':      LLOp(sideeffects=False),
@@ -436,8 +431,8 @@ LL_OPERATIONS = {
     'jit_force_quasi_immutable': LLOp(canrun=True),
     'get_exception_addr':   LLOp(),
     'get_exc_value_addr':   LLOp(),
-    'do_malloc_fixedsize_clear':LLOp(canraise=(MemoryError,),canunwindgc=True),
-    'do_malloc_varsize_clear':  LLOp(canraise=(MemoryError,),canunwindgc=True),
+    'do_malloc_fixedsize_clear':LLOp(canmallocgc=True),
+    'do_malloc_varsize_clear':  LLOp(canmallocgc=True),
     'get_write_barrier_failing_case': LLOp(sideeffects=False),
     'get_write_barrier_from_array_failing_case': LLOp(sideeffects=False),
     'gc_get_type_info_group': LLOp(sideeffects=False),
@@ -445,7 +440,7 @@ LL_OPERATIONS = {
 
     # __________ GC operations __________
 
-    'gc__collect':          LLOp(canunwindgc=True),
+    'gc__collect':          LLOp(canmallocgc=True),
     'gc_free':              LLOp(),
     'gc_fetch_exception':   LLOp(),
     'gc_restore_exception': LLOp(),
@@ -455,17 +450,12 @@ LL_OPERATIONS = {
     'gc_pop_alive_pyobj':   LLOp(),
     'gc_reload_possibly_moved': LLOp(),
     # see rlib/objectmodel for gc_identityhash and gc_id
-    'gc_identityhash':      LLOp(canraise=(MemoryError,), sideeffects=False,
-                                 canunwindgc=True),
-    'gc_id':                LLOp(canraise=(MemoryError,), sideeffects=False),
-                                 # ^^^ but canunwindgc=False, as it is
-                                 # allocating non-GC structures only
+    'gc_identityhash':      LLOp(sideeffects=False, canmallocgc=True),
+    'gc_id':                LLOp(sideeffects=False, canmallocgc=True),
     'gc_obtain_free_space': LLOp(),
     'gc_set_max_heap_size': LLOp(),
     'gc_can_move'         : LLOp(sideeffects=False),
-    'gc_thread_prepare'   : LLOp(canraise=(MemoryError,)),
-                                 # ^^^ but canunwindgc=False, as it is
-                                 # allocating non-GC structures only
+    'gc_thread_prepare'   : LLOp(canmallocgc=True),
     'gc_thread_run'       : LLOp(),
     'gc_thread_start'     : LLOp(),
     'gc_thread_die'       : LLOp(),
@@ -473,7 +463,7 @@ LL_OPERATIONS = {
     'gc_thread_after_fork': LLOp(),   # arguments: (result_of_fork, opaqueaddr)
     'gc_assume_young_pointers': LLOp(canrun=True),
     'gc_writebarrier_before_copy': LLOp(canrun=True),
-    'gc_heap_stats'       : LLOp(canunwindgc=True),
+    'gc_heap_stats'       : LLOp(canmallocgc=True),
 
     'gc_get_rpy_roots'    : LLOp(),
     'gc_get_rpy_referents': LLOp(),
@@ -489,50 +479,37 @@ LL_OPERATIONS = {
     # ^^^ returns an address of nursery free pointer, for later modifications
     'gc_adr_of_nursery_top' : LLOp(),
     # ^^^ returns an address of pointer, since it can change at runtime
+    'gc_adr_of_root_stack_base': LLOp(),
     'gc_adr_of_root_stack_top': LLOp(),
-    # ^^^ returns the address of gcdata.root_stack_top (for shadowstack only)
-
-    # experimental operations in support of thread cloning, only
-    # implemented by the Mark&Sweep GC
-    'gc_x_swap_pool':       LLOp(canraise=(MemoryError,), canunwindgc=True),
-    'gc_x_clone':           LLOp(canraise=(MemoryError, RuntimeError),
-                                 canunwindgc=True),
-    'gc_x_size_header':     LLOp(),
+    # returns the address of gcdata.root_stack_base/top (for shadowstack only)
 
     # for asmgcroot support to get the address of various static structures
     # see translator/c/src/mem.h for the valid indices
     'gc_asmgcroot_static':  LLOp(sideeffects=False),
     'gc_stack_bottom':      LLOp(canrun=True),
 
-    # NOTE NOTE NOTE! don't forget *** canunwindgc=True *** for anything that
-    # can go through a stack unwind, in particular anything that mallocs!
+    # for stacklet+shadowstack support
+    'gc_shadowstackref_new':      LLOp(canmallocgc=True),
+    'gc_shadowstackref_context':  LLOp(),
+    'gc_shadowstackref_destroy':  LLOp(),
+    'gc_save_current_state_away': LLOp(),
+    'gc_forget_current_state':    LLOp(),
+    'gc_restore_state_from':      LLOp(),
+    'gc_start_fresh_new_state':   LLOp(),
+
+    # NOTE NOTE NOTE! don't forget *** canmallocgc=True *** for anything that
+    # can malloc a GC object.
 
     # __________ weakrefs __________
 
-    'weakref_create':       LLOp(canraise=(MemoryError,), sideeffects=False,
-                                 canunwindgc=True),
+    'weakref_create':       LLOp(sideeffects=False, canmallocgc=True),
     'weakref_deref':        LLOp(sideeffects=False),
     'cast_ptr_to_weakrefptr': LLOp(sideeffects=False), # no-op type hiding
     'cast_weakrefptr_to_ptr': LLOp(sideeffects=False), # no-op type revealing
 
-    # __________ stackless operation(s) __________
-
-    'yield_current_frame_to_caller': LLOp(canraise=(StackException,
-                                                    RuntimeError)),
-    #                               can always unwind, not just if stackless gc
-
-    'stack_frames_depth':   LLOp(sideeffects=False, canraise=(StackException,
-                                                              RuntimeError)),
-    'stack_switch':         LLOp(canraise=(StackException, RuntimeError)),
-    'stack_unwind':         LLOp(canraise=(StackException, RuntimeError)),
-    'stack_capture':        LLOp(canraise=(StackException, RuntimeError)),
-    'get_stack_depth_limit':LLOp(sideeffects=False),
-    'set_stack_depth_limit':LLOp(),
-
-    'stack_current':        LLOp(sideeffects=False),
-
     # __________ misc operations __________
 
+    'stack_current':        LLOp(sideeffects=False),
     'keepalive':            LLOp(),
     'same_as':              LLOp(canfold=True),
     'hint':                 LLOp(),
@@ -561,6 +538,7 @@ LL_OPERATIONS = {
     'debug_catch_exception':   LLOp(),
     'debug_reraise_traceback': LLOp(),
     'debug_print_traceback':   LLOp(),
+    'debug_nonnull_pointer':   LLOp(canrun=True),
 
     # __________ instrumentation _________
     'instrument_count':     LLOp(),
@@ -590,10 +568,6 @@ LL_OPERATIONS = {
     'ooparse_int':          LLOp(oo=True, canraise=(ValueError,)),
     'ooparse_float':        LLOp(oo=True, canraise=(ValueError,)),
     'oounicode':            LLOp(oo=True, canraise=(UnicodeDecodeError,)),
-
-    # _____ read frame var support ___
-    'get_frame_base':       LLOp(sideeffects=False),
-    'frame_info':           LLOp(sideeffects=False),
 }
 # ***** Run test_lloperation after changes. *****
 

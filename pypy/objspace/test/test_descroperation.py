@@ -377,7 +377,26 @@ class AppTest_Descroperation:
 
         setattr(P, "__weakref__", 0)
 
+    def test_subclass_addition(self):
+        # the __radd__ is never called (compare with the next test)
+        l = []
+        class A(object):
+            def __add__(self, other):
+                l.append(self.__class__)
+                l.append(other.__class__)
+                return 123
+            def __radd__(self, other):
+                # should never be called!
+                return 456
+        class B(A):
+            pass
+        res1 = A() + B()
+        res2 = B() + A()
+        assert res1 == res2 == 123
+        assert l == [A, B, B, A]
+
     def test_subclass_comparison(self):
+        # the __eq__ *is* called with reversed arguments
         l = []
         class A(object):
             def __eq__(self, other):
@@ -395,7 +414,27 @@ class AppTest_Descroperation:
 
         A() == B()
         A() < B()
-        assert l == [B, A, A, B]
+        B() < A()
+        assert l == [B, A, A, B, B, A]
+
+    def test_subclass_comparison_more(self):
+        # similarly, __gt__(b,a) is called instead of __lt__(a,b)
+        l = []
+        class A(object):
+            def __lt__(self, other):
+                l.append(self.__class__)
+                l.append(other.__class__)
+                return '<'
+            def __gt__(self, other):
+                l.append(self.__class__)
+                l.append(other.__class__)
+                return '>'
+        class B(A):
+            pass
+        res1 = A() < B()
+        res2 = B() < A()
+        assert res1 == '>' and res2 == '<'
+        assert l == [B, A, B, A]
 
     def test_rich_comparison(self):
         # Old-style
@@ -433,6 +472,84 @@ class AppTest_Descroperation:
         assert not(D(1) == A(2))
         assert not(C(1) == D(2))
         assert not(D(1) == C(2))
+
+    def test_partial_ordering(self):
+        class A(object):
+            def __lt__(self, other):
+                return self
+        a1 = A()
+        a2 = A()
+        assert (a1 < a2) is a1
+        assert (a1 > a2) is a2
+
+    def test_eq_order(self):
+        class A(object):
+            def __eq__(self, other): return self.__class__.__name__+':A.eq'
+            def __ne__(self, other): return self.__class__.__name__+':A.ne'
+            def __lt__(self, other): return self.__class__.__name__+':A.lt'
+            def __le__(self, other): return self.__class__.__name__+':A.le'
+            def __gt__(self, other): return self.__class__.__name__+':A.gt'
+            def __ge__(self, other): return self.__class__.__name__+':A.ge'
+        class B(object):
+            def __eq__(self, other): return self.__class__.__name__+':B.eq'
+            def __ne__(self, other): return self.__class__.__name__+':B.ne'
+            def __lt__(self, other): return self.__class__.__name__+':B.lt'
+            def __le__(self, other): return self.__class__.__name__+':B.le'
+            def __gt__(self, other): return self.__class__.__name__+':B.gt'
+            def __ge__(self, other): return self.__class__.__name__+':B.ge'
+        #
+        assert (A() == B()) == 'A:A.eq'
+        assert (A() != B()) == 'A:A.ne'
+        assert (A() <  B()) == 'A:A.lt'
+        assert (A() <= B()) == 'A:A.le'
+        assert (A() >  B()) == 'A:A.gt'
+        assert (A() >= B()) == 'A:A.ge'
+        #
+        assert (B() == A()) == 'B:B.eq'
+        assert (B() != A()) == 'B:B.ne'
+        assert (B() <  A()) == 'B:B.lt'
+        assert (B() <= A()) == 'B:B.le'
+        assert (B() >  A()) == 'B:B.gt'
+        assert (B() >= A()) == 'B:B.ge'
+        #
+        class C(A):
+            def __eq__(self, other): return self.__class__.__name__+':C.eq'
+            def __ne__(self, other): return self.__class__.__name__+':C.ne'
+            def __lt__(self, other): return self.__class__.__name__+':C.lt'
+            def __le__(self, other): return self.__class__.__name__+':C.le'
+            def __gt__(self, other): return self.__class__.__name__+':C.gt'
+            def __ge__(self, other): return self.__class__.__name__+':C.ge'
+        #
+        assert (A() == C()) == 'C:C.eq'
+        assert (A() != C()) == 'C:C.ne'
+        assert (A() <  C()) == 'C:C.gt'
+        assert (A() <= C()) == 'C:C.ge'
+        assert (A() >  C()) == 'C:C.lt'
+        assert (A() >= C()) == 'C:C.le'
+        #
+        assert (C() == A()) == 'C:C.eq'
+        assert (C() != A()) == 'C:C.ne'
+        assert (C() <  A()) == 'C:C.lt'
+        assert (C() <= A()) == 'C:C.le'
+        assert (C() >  A()) == 'C:C.gt'
+        assert (C() >= A()) == 'C:C.ge'
+        #
+        class D(A):
+            pass
+        #
+        assert (A() == D()) == 'D:A.eq'
+        assert (A() != D()) == 'D:A.ne'
+        assert (A() <  D()) == 'D:A.gt'
+        assert (A() <= D()) == 'D:A.ge'
+        assert (A() >  D()) == 'D:A.lt'
+        assert (A() >= D()) == 'D:A.le'
+        #
+        assert (D() == A()) == 'D:A.eq'
+        assert (D() != A()) == 'D:A.ne'
+        assert (D() <  A()) == 'D:A.lt'
+        assert (D() <= A()) == 'D:A.le'
+        assert (D() >  A()) == 'D:A.gt'
+        assert (D() >= A()) == 'D:A.ge'
 
     def test_addition(self):
         # Old-style

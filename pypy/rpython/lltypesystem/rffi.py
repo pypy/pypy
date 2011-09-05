@@ -56,7 +56,7 @@ def llexternal(name, args, result, _callable=None,
                sandboxsafe=False, threadsafe='auto',
                _nowrapper=False, calling_conv='c',
                oo_primitive=None, elidable_function=False,
-               macro=None):
+               macro=None, random_effects_on_gcobjs='auto'):
     """Build an external function that will invoke the C function 'name'
     with the given 'args' types and 'result' type.
 
@@ -112,13 +112,19 @@ def llexternal(name, args, result, _callable=None,
         # sandboxsafe is a hint for "too-small-ness" (e.g. math functions).
         invoke_around_handlers = not sandboxsafe
 
+    if random_effects_on_gcobjs not in (False, True):
+        random_effects_on_gcobjs = (
+            invoke_around_handlers or   # because it can release the GIL
+            has_callback)               # because the callback can do it
+
     funcptr = lltype.functionptr(ext_type, name, external='C',
                                  compilation_info=compilation_info,
                                  _callable=_callable,
                                  _safe_not_sandboxed=sandboxsafe,
                                  _debugexc=True, # on top of llinterp
                                  canraise=False,
-                                 releases_gil=invoke_around_handlers,
+                                 random_effects_on_gcobjs=
+                                     random_effects_on_gcobjs,
                                  **kwds)
     if isinstance(_callable, ll2ctypes.LL2CtypesCallable):
         _callable.funcptr = funcptr
@@ -749,21 +755,18 @@ def make_string_mappings(strtype):
             return hlstrtype(gc_buf)
 
         new_buf = lltype.malloc(STRTYPE, needed_size)
-        try:
-            str_chars_offset = (offsetof(STRTYPE, 'chars') + \
-                                itemoffsetof(STRTYPE.chars, 0))
-            if gc_buf:
-                src = cast_ptr_to_adr(gc_buf) + str_chars_offset
-            else:
-                src = cast_ptr_to_adr(raw_buf) + itemoffsetof(TYPEP.TO, 0)
-            dest = cast_ptr_to_adr(new_buf) + str_chars_offset
-            ## FIXME: This is bad, because dest could potentially move
-            ## if there are threads involved.
-            raw_memcopy(src, dest,
-                        llmemory.sizeof(ll_char_type) * needed_size)
-            return hlstrtype(new_buf)
-        finally:
-            keepalive_until_here(new_buf)
+        str_chars_offset = (offsetof(STRTYPE, 'chars') + \
+                            itemoffsetof(STRTYPE.chars, 0))
+        if gc_buf:
+            src = cast_ptr_to_adr(gc_buf) + str_chars_offset
+        else:
+            src = cast_ptr_to_adr(raw_buf) + itemoffsetof(TYPEP.TO, 0)
+        dest = cast_ptr_to_adr(new_buf) + str_chars_offset
+        raw_memcopy(src, dest,
+                    llmemory.sizeof(ll_char_type) * needed_size)
+        keepalive_until_here(gc_buf)
+        keepalive_until_here(new_buf)
+        return hlstrtype(new_buf)
 
     # (char*, str) -> None
     def keep_buffer_alive_until_here(raw_buf, gc_buf):
@@ -873,7 +876,7 @@ def sizeof(tp):
         if size is None:
             size = llmemory.sizeof(tp)    # a symbolic result in this case
         return size
-    if isinstance(tp, lltype.Ptr):
+    if isinstance(tp, lltype.Ptr) or tp is llmemory.Address:
         tp = ULONG     # XXX!
     if tp is lltype.Char or tp is lltype.Bool:
         return 1

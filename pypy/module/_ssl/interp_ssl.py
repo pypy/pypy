@@ -138,6 +138,11 @@ class SSLObject(Wrappable):
         return self.space.wrap(rffi.charp2str(self._issuer))
 
     def __del__(self):
+        self.enqueue_for_destruction(self.space, SSLObject.destructor,
+                                     '__del__() method of ')
+
+    def destructor(self):
+        assert isinstance(self, SSLObject)
         if self.peer_cert:
             libssl_X509_free(self.peer_cert)
         if self.ssl:

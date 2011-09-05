@@ -7,7 +7,7 @@ from pypy.rlib.rstring import UnicodeBuilder
 
 class W_UnicodeBuilder(Wrappable):
     def __init__(self, space, size):
-        if size == -1:
+        if size < 0:
             self.builder = UnicodeBuilder()
         else:
             self.builder = UnicodeBuilder(size)

@@ -706,6 +706,17 @@ class RegAlloc(object):
         self.Perform(op, [loc0], loc1)
         self.rm.possibly_free_var(op.getarg(0))
 
+    def consider_cast_float_to_singlefloat(self, op):
+        loc0 = self.xrm.make_sure_var_in_reg(op.getarg(0))
+        loc1 = self.rm.force_allocate_reg(op.result)
+        self.xrm.possibly_free_var(op.getarg(0))
+        tmpxvar = TempBox()
+        loctmp = self.xrm.force_allocate_reg(tmpxvar)   # may be equal to loc0
+        self.xrm.possibly_free_var(tmpxvar)
+        self.Perform(op, [loc0, loctmp], loc1)
+
+    consider_cast_singlefloat_to_float = consider_cast_int_to_float
+
     def _consider_llong_binop_xx(self, op):
         # must force both arguments into xmm registers, because we don't
         # know if they will be suitably aligned.  Exception: if the second
@@ -833,8 +844,8 @@ class RegAlloc(object):
 
     def consider_call(self, op):
         effectinfo = op.getdescr().get_extra_info()
-        if effectinfo is not None:
-            oopspecindex = effectinfo.oopspecindex
+        oopspecindex = effectinfo.oopspecindex
+        if oopspecindex != EffectInfo.OS_NONE:
             if IS_X86_32:
                 # support for some of the llong operations,
                 # which only exist on x86-32

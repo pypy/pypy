@@ -366,36 +366,92 @@ class GcRootMap_shadowstack(object):
 
     def add_jit2gc_hooks(self, jit2gc):
         #
-        def collect_jit_stack_root(callback, gc, addr):
-            if addr.signed[0] != GcRootMap_shadowstack.MARKER:
-                # common case
-                if gc.points_to_valid_gc_object(addr):
-                    callback(gc, addr)
-                return WORD
-            else:
-                # case of a MARKER followed by an assembler stack frame
-                follow_stack_frame_of_assembler(callback, gc, addr)
-                return 2 * WORD
+        # ---------------
+        # This is used to enumerate the shadowstack in the presence
+        # of the JIT.  It is also used by the stacklet support in
+        # rlib/_stacklet_shadowstack.  That's why it is written as
+        # an iterator that can also be used with a custom_trace.
         #
-        def follow_stack_frame_of_assembler(callback, gc, addr):
-            frame_addr = addr.signed[1]
-            addr = llmemory.cast_int_to_adr(frame_addr + self.force_index_ofs)
-            force_index = addr.signed[0]
-            if force_index < 0:
-                force_index = ~force_index
-            callshape = self._callshapes[force_index]
-            n = 0
-            while True:
-                offset = rffi.cast(lltype.Signed, callshape[n])
-                if offset == 0:
-                    break
-                addr = llmemory.cast_int_to_adr(frame_addr + offset)
-                if gc.points_to_valid_gc_object(addr):
-                    callback(gc, addr)
-                n += 1
+        class RootIterator:
+            _alloc_flavor_ = "raw"
+
+            def next(iself, gc, next, range_highest):
+                # Return the "next" valid GC object' address.  This usually
+                # means just returning "next", until we reach "range_highest",
+                # except that we are skipping NULLs.  If "next" contains a
+                # MARKER instead, then we go into JIT-frame-lookup mode.
+                #
+                while True:
+                    #
+                    # If we are not iterating right now in a JIT frame
+                    if iself.frame_addr == 0:
+                        #
+                        # Look for the next shadowstack address that
+                        # contains a valid pointer
+                        while next != range_highest:
+                            if next.signed[0] == self.MARKER:
+                                break
+                            if gc.points_to_valid_gc_object(next):
+                                return next
+                            next += llmemory.sizeof(llmemory.Address)
+                        else:
+                            return llmemory.NULL     # done
+                        #
+                        # It's a JIT frame.  Save away 'next' for later, and
+                        # go into JIT-frame-exploring mode.
+                        next += llmemory.sizeof(llmemory.Address)
+                        frame_addr = next.signed[0]
+                        iself.saved_next = next
+                        iself.frame_addr = frame_addr
+                        addr = llmemory.cast_int_to_adr(frame_addr +
+                                                        self.force_index_ofs)
+                        addr = iself.translateptr(iself.context, addr)
+                        force_index = addr.signed[0]
+                        if force_index < 0:
+                            force_index = ~force_index
+                        # NB: the next line reads a still-alive _callshapes,
+                        # because we ensure that just before we called this
+                        # piece of assembler, we put on the (same) stack a
+                        # pointer to a loop_token that keeps the force_index
+                        # alive.
+                        callshape = self._callshapes[force_index]
+                    else:
+                        # Continuing to explore this JIT frame
+                        callshape = iself.callshape
+                    #
+                    # 'callshape' points to the next INT of the callshape.
+                    # If it's zero we are done with the JIT frame.
+                    while rffi.cast(lltype.Signed, callshape[0]) != 0:
+                        #
+                        # Non-zero: it's an offset inside the JIT frame.
+                        # Read it and increment 'callshape'.
+                        offset = rffi.cast(lltype.Signed, callshape[0])
+                        callshape = lltype.direct_ptradd(callshape, 1)
+                        addr = llmemory.cast_int_to_adr(iself.frame_addr +
+                                                        offset)
+                        addr = iself.translateptr(iself.context, addr)
+                        if gc.points_to_valid_gc_object(addr):
+                            #
+                            # The JIT frame contains a valid GC pointer at
+                            # this address (as opposed to NULL).  Save
+                            # 'callshape' for the next call, and return the
+                            # address.
+                            iself.callshape = callshape
+                            return addr
+                    #
+                    # Restore 'prev' and loop back to the start.
+                    iself.frame_addr = 0
+                    next = iself.saved_next
+                    next += llmemory.sizeof(llmemory.Address)
+
+        # ---------------
         #
+        root_iterator = RootIterator()
+        root_iterator.frame_addr = 0
+        root_iterator.context = llmemory.NULL
+        root_iterator.translateptr = lambda context, addr: addr
         jit2gc.update({
-            'rootstackhook': collect_jit_stack_root,
+            'root_iterator': root_iterator,
             })
 
     def initialize(self):
@@ -544,18 +600,19 @@ class GcLLDescr_framework(GcLLDescription):
         assert self.GCClass.inline_simple_malloc
         assert self.GCClass.inline_simple_malloc_varsize
 
-        # make a malloc function, with three arguments
+        # make a malloc function, with two arguments
         def malloc_basic(size, tid):
             type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
             has_finalizer = bool(tid & (1<<llgroup.HALFSHIFT))
             check_typeid(type_id)
-            try:
-                res = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
-                                                      type_id, size, True,
-                                                      has_finalizer, False)
-            except MemoryError:
-                fatalerror("out of memory (from JITted code)")
-                res = lltype.nullptr(llmemory.GCREF.TO)
+            res = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
+                                                  type_id, size,
+                                                  has_finalizer, False)
+            # In case the operation above failed, we are returning NULL
+            # from this function to assembler.  There is also an RPython
+            # exception set, typically MemoryError; but it's easier and
+            # faster to check for the NULL return value, as done by
+            # translator/exceptiontransform.py.
             #llop.debug_print(lltype.Void, "\tmalloc_basic", size, type_id,
             #                 "-->", res)
             return res
@@ -571,14 +628,10 @@ class GcLLDescr_framework(GcLLDescription):
         def malloc_array(itemsize, tid, num_elem):
             type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
             check_typeid(type_id)
-            try:
-                return llop1.do_malloc_varsize_clear(
-                    llmemory.GCREF,
-                    type_id, num_elem, self.array_basesize, itemsize,
-                    self.array_length_ofs, True)
-            except MemoryError:
-                fatalerror("out of memory (from JITted code)")
-                return lltype.nullptr(llmemory.GCREF.TO)
+            return llop1.do_malloc_varsize_clear(
+                llmemory.GCREF,
+                type_id, num_elem, self.array_basesize, itemsize,
+                self.array_length_ofs)
         self.malloc_array = malloc_array
         self.GC_MALLOC_ARRAY = lltype.Ptr(lltype.FuncType(
             [lltype.Signed] * 3, llmemory.GCREF))
@@ -591,23 +644,15 @@ class GcLLDescr_framework(GcLLDescription):
         unicode_type_id = self.layoutbuilder.get_type_id(rstr.UNICODE)
         #
         def malloc_str(length):
-            try:
-                return llop1.do_malloc_varsize_clear(
-                    llmemory.GCREF,
-                    str_type_id, length, str_basesize, str_itemsize,
-                    str_ofs_length, True)
-            except MemoryError:
-                fatalerror("out of memory (from JITted code)")
-                return lltype.nullptr(llmemory.GCREF.TO)
+            return llop1.do_malloc_varsize_clear(
+                llmemory.GCREF,
+                str_type_id, length, str_basesize, str_itemsize,
+                str_ofs_length)
         def malloc_unicode(length):
-            try:
-                return llop1.do_malloc_varsize_clear(
-                    llmemory.GCREF,
-                    unicode_type_id, length, unicode_basesize,unicode_itemsize,
-                    unicode_ofs_length, True)
-            except MemoryError:
-                fatalerror("out of memory (from JITted code)")
-                return lltype.nullptr(llmemory.GCREF.TO)
+            return llop1.do_malloc_varsize_clear(
+                llmemory.GCREF,
+                unicode_type_id, length, unicode_basesize,unicode_itemsize,
+                unicode_ofs_length)
         self.malloc_str = malloc_str
         self.malloc_unicode = malloc_unicode
         self.GC_MALLOC_STR_UNICODE = lltype.Ptr(lltype.FuncType(
@@ -628,16 +673,12 @@ class GcLLDescr_framework(GcLLDescription):
             if self.DEBUG:
                 random_usage_of_xmm_registers()
             assert size >= self.minimal_size_in_nursery
-            try:
-                # NB. although we call do_malloc_fixedsize_clear() here,
-                # it's a bit of a hack because we set tid to 0 and may
-                # also use it to allocate varsized objects.  The tid
-                # and possibly the length are both set afterward.
-                gcref = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
-                                            0, size, True, False, False)
-            except MemoryError:
-                fatalerror("out of memory (from JITted code)")
-                return 0
+            # NB. although we call do_malloc_fixedsize_clear() here,
+            # it's a bit of a hack because we set tid to 0 and may
+            # also use it to allocate varsized objects.  The tid
+            # and possibly the length are both set afterward.
+            gcref = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
+                                        0, size, False, False)
             return rffi.cast(lltype.Signed, gcref)
         self.malloc_slowpath = malloc_slowpath
         self.MALLOC_SLOWPATH = lltype.FuncType([lltype.Signed], lltype.Signed)

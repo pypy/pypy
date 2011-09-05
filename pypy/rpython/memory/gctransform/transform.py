@@ -307,7 +307,6 @@ class BaseGCTransformer(object):
             if backendopt:
                 self.mixlevelannotator.backend_optimize()
         # Make sure that the database also sees all finalizers now.
-        # XXX we need to think more about the interaction with stackless...
         # It is likely that the finalizers need special support there
         newgcdependencies = self.ll_finalizers_ptrs
         return newgcdependencies
@@ -590,15 +589,10 @@ class GCTransformer(BaseGCTransformer):
 
     def gct_fv_raw_malloc_varsize(self, hop, flags, TYPE, v_length, c_const_size, c_item_size,
                                                                     c_offset_to_length):
-        track_allocation = flags.get('track_allocation', True)
-        if not track_allocation:
-            # idea: raw mallocs with track_allocation=False correspond
-            # generally to raw mallocs of stuff that we store in GC objects.
-            # So we tell the GC about such raw mallocs, so that it can
-            # adjust its total size estimate.
-            if hasattr(self, 'raw_malloc_varsize_hint_ptr'):
+        if flags.get('add_memory_pressure', False):
+            if hasattr(self, 'raw_malloc_memory_pressure_ptr'):
                 hop.genop("direct_call",
-                          [self.raw_malloc_varsize_hint_ptr,
+                          [self.raw_malloc_memory_pressure_ptr,
                            v_length, c_item_size])
         if c_offset_to_length is None:
             if flags.get('zero'):
@@ -615,7 +609,7 @@ class GCTransformer(BaseGCTransformer):
                                [self.raw_malloc_varsize_ptr, v_length,
                                 c_const_size, c_item_size, c_offset_to_length],
                                resulttype=llmemory.Address)
-        if track_allocation:
+        if flags.get('track_allocation', True):
             hop.genop("track_alloc_start", [v_raw])
         return v_raw
 
