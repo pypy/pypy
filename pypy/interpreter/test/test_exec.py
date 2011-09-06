@@ -233,3 +233,16 @@ class AppTestExecStmt:
         assert ord(x[3]) == 0x043a
         assert ord(x[4]) == 0x0435
         assert ord(x[5]) == 0x043d
+
+    def test_eval_unicode(self):
+        u = "u'%s'" % unichr(0x1234)
+        v = eval(u)
+        assert v == unichr(0x1234)
+
+    def test_compile_unicode(self):
+        s = "x = u'\xd0\xb9\xd1\x86\xd1\x83\xd0\xba\xd0\xb5\xd0\xbd'"
+        u = s.decode('utf-8')
+        c = compile(u, '<input>', 'exec')
+        exec c
+        assert len(x) == 6
+        assert ord(x[0]) == 0x0439
