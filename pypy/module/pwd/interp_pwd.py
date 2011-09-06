@@ -3,6 +3,7 @@ from pypy.rpython.tool import rffi_platform
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.rlib.rarithmetic import intmask
 
 eci = ExternalCompilationInfo(
     includes=['pwd.h']
@@ -43,8 +44,8 @@ def make_struct_passwd(space, pw):
     w_tuple = space.newtuple([
         space.wrap(rffi.charp2str(pw.c_pw_name)),
         space.wrap(rffi.charp2str(pw.c_pw_passwd)),
-        space.wrap(pw.c_pw_uid),
-        space.wrap(pw.c_pw_gid),
+        space.wrap(intmask(pw.c_pw_uid)),
+        space.wrap(intmask(pw.c_pw_gid)),
         space.wrap(rffi.charp2str(pw.c_pw_gecos)),
         space.wrap(rffi.charp2str(pw.c_pw_dir)),
         space.wrap(rffi.charp2str(pw.c_pw_shell)),

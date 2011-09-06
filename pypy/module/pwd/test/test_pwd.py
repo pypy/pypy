@@ -14,6 +14,9 @@ class AppTestPwd:
         assert pw.pw_gid == 0
         assert pw.pw_dir == '/root'
         assert pw.pw_shell.startswith('/')
+        #
+        assert type(pw.pw_uid) is int
+        assert type(pw.pw_gid) is int
 
     def test_getpwnam(self):
         import pwd
