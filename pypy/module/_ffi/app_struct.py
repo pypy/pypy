@@ -18,11 +18,11 @@ class Field(object):
 class MetaStructure(type):
 
     def __new__(cls, name, bases, dic):
-        cls._compute_shape(dic)
+        cls._compute_shape(name, dic)
         return type.__new__(cls, name, bases, dic)
 
     @classmethod
-    def _compute_shape(cls, dic):
+    def _compute_shape(cls, name, dic):
         fields = dic.get('_fields_')
         if fields is None:
             return
@@ -34,7 +34,7 @@ class MetaStructure(type):
             ffitypes.append(field.ffitype)
             dic[field.name] = field
         alignment = 0 # XXX
-        struct_descr = _ffi._StructDescr(size, alignment, ffitypes)
+        struct_descr = _ffi._StructDescr(name, size, alignment, ffitypes)
         dic['_struct_'] = struct_descr
 
 
