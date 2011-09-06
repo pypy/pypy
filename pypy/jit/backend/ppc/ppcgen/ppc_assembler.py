@@ -936,16 +936,21 @@ class PPCBuilder(PPCAssembler):
         if IS_PPC_32:
             self.stwx(source_reg, 0, 0)
         else:
-            # ? 
-            self.std(source_reg, 0, 10)
+            self.stdx(source_reg, 0, 0)
 
     def save_nonvolatiles(self, framesize):
         for i, reg in enumerate(NONVOLATILES):
-            self.stw(reg, 1, framesize - 4 * i)
+            if IS_PPC_32:
+                self.stw(reg, 1, framesize - WORD * i)
+            else:
+                self.std(reg, 1, framesize - WORD * i)
 
     def restore_nonvolatiles(self, framesize):
         for i, reg in enumerate(NONVOLATILES):
-            self.lwz(reg, 1, framesize - i * 4)
+            if IS_PPC_32:
+                self.lwz(reg, 1, framesize - WORD * i)
+            else:
+                self.ld(reg, 1, framesize - WORD * i)
         
 
     # translate a trace operation to corresponding machine code
@@ -1430,10 +1435,16 @@ class PPCBuilder(PPCAssembler):
             for i, arg in enumerate(remaining_args):
                 if isinstance(arg, Box):
                     #self.mr(0, cpu.reg_map[arg])
-                    self.stw(cpu.reg_map[arg], 1, 8 + WORD * i)
+                    if IS_PPC_32:
+                        self.stw(cpu.reg_map[arg], 1, 8 + WORD * i)
+                    else:
+                        self.std(cpu.reg_map[arg], 1, 8 + WORD * i)
                 elif isinstance(arg, Const):
                     self.load_word(0, arg.value)
-                    self.stw(0, 1, 8 + WORD * i)
+                    if IS_PPC_32:
+                        self.stw(0, 1, 8 + WORD * i)
+                    else:
+                        self.std(0, 1, 8 + WORD * i)
                 else:
                     assert 0, "%s not supported yet" % arg
 
@@ -1590,11 +1601,14 @@ class PPCBuilder(PPCAssembler):
             else:
                 assert 0, "arg type not suported"
 
-        framesize = 64 + 80
+        framesize = 16 * WORD + 20 * WORD
 
         self.restore_nonvolatiles(framesize)
 
-        self.lwz(0, 1, framesize + 4) # 36
+        if IS_PPC_32:
+            self.lwz(0, 1, framesize + WORD) # 36
+        else:
+            self.ld(0, 1, framesize + WORD) # 36
         self.mtlr(0)
         self.addi(1, 1, framesize)
         self.load_word(3, identifier)
