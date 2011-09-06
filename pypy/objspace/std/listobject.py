@@ -1160,8 +1160,11 @@ class SimpleSort(TimSort):
         space = self.space
         return space.is_true(space.lt(a, b))
 
-class IntSort(TimSort):
+class IntSort(SimpleSort):
     def lt(self, w_int1, w_int2):
+        from pypy.objspace.std.intobject import W_IntObject
+        assert isinstance(w_int1, W_IntObject)
+        assert isinstance(w_int2, W_IntObject)
         space = self.space
         return w_int1.intval < w_int2.intval
 
