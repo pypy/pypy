@@ -4,10 +4,12 @@ from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, operationerrfmt
 
+eci = ExternalCompilationInfo(
+    includes=['pwd.h']
+    )
+
 class CConfig:
-    _compilation_info_ = ExternalCompilationInfo(
-        includes=['pwd.h']
-        )
+    _compilation_info_ = eci
 
     uid_t = rffi_platform.SimpleType("uid_t")
 
@@ -26,11 +28,14 @@ config = rffi_platform.configure(CConfig)
 passwd_p = lltype.Ptr(config['passwd'])
 uid_t = config['uid_t']
 
-c_getpwuid = rffi.llexternal("getpwuid", [uid_t], passwd_p)
-c_getpwnam = rffi.llexternal("getpwnam", [rffi.CCHARP], passwd_p)
-c_setpwent = rffi.llexternal("setpwent", [], lltype.Void)
-c_getpwent = rffi.llexternal("getpwent", [], passwd_p)
-c_endpwent = rffi.llexternal("endpwent", [], lltype.Void)
+def external(name, args, result, **kwargs):
+    return rffi.llexternal(name, args, result, compilation_info=eci, **kwargs)
+
+c_getpwuid = external("getpwuid", [uid_t], passwd_p)
+c_getpwnam = external("getpwnam", [rffi.CCHARP], passwd_p)
+c_setpwent = external("setpwent", [], lltype.Void)
+c_getpwent = external("getpwent", [], passwd_p)
+c_endpwent = external("endpwent", [], lltype.Void)
 
 def make_struct_passwd(space, pw):
     w_passwd_struct = space.getattr(space.getbuiltinmodule('pwd'),
