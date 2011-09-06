@@ -6,9 +6,8 @@ class AppTestStruct(BaseAppTestFFI):
         from _ffi import _StructDescr, types
         longsize = types.slong.sizeof()
         descr = _StructDescr('foo', longsize*2, 0, [types.slong, types.slong])
-        assert descr.name == 'foo'
         assert descr.ffitype.sizeof() == longsize*2
-        assert repr(descr.ffitype) == '<ffi type struct foo>'
+        assert descr.ffitype.name == 'struct foo'
 
     def test_compute_shape(self):
         from _ffi import Structure, Field, types
@@ -23,5 +22,6 @@ class AppTestStruct(BaseAppTestFFI):
         assert isinstance(Point.y, Field)
         assert Point.x.offset == 0
         assert Point.y.offset == longsize
-        assert Point._struct_.name == 'Point'
         assert Point._struct_.ffitype.sizeof() == longsize*2
+        assert Point._struct_.ffitype.name == 'struct Point'
+        

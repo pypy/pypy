@@ -6,7 +6,9 @@ class AppTestFFIType(BaseAppTestFFI):
         from _ffi import types
         assert str(types.sint) == "<ffi type sint>"
         assert str(types.uint) == "<ffi type uint>"
-
+        assert types.sint.name == 'sint'
+        assert types.uint.name == 'uint'
+        
     def test_sizeof(self):
         from _ffi import types
         assert types.sbyte.sizeof() == 1

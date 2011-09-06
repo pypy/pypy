@@ -1,7 +1,7 @@
 from pypy.rlib import libffi
 from pypy.rlib.rarithmetic import intmask
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import interp2app
 
 class W_FFIType(Wrappable):
@@ -81,6 +81,7 @@ class W_FFIType(Wrappable):
 
 W_FFIType.typedef = TypeDef(
     'FFIType',
+    name = interp_attrproperty('name', W_FFIType),
     __repr__ = interp2app(W_FFIType.repr),
     deref_pointer = interp2app(W_FFIType.descr_deref_pointer),
     sizeof = interp2app(W_FFIType.descr_sizeof),
