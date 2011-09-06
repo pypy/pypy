@@ -446,7 +446,9 @@ class ReadBZ2Filter(Stream):
             result = self.buffer[pos:pos + n]
             self.pos += n
         else:
-            result = self.buffer
+            pos = self.pos
+            assert pos >= 0
+            result = self.buffer[pos:]
             self.pos = 0
             self.buffer = ""
         self.readlength += len(result)

@@ -34,6 +34,7 @@ from pypy.jit.backend.x86 import support
 from pypy.rlib.debug import (debug_print, debug_start, debug_stop,
                              have_debug_prints)
 from pypy.rlib import rgc
+from pypy.rlib.clibffi import FFI_DEFAULT_ABI
 from pypy.jit.backend.x86.jump import remap_frame_layout
 from pypy.jit.metainterp.history import ConstInt, BoxInt
 from pypy.jit.codewriter.effectinfo import EffectInfo
@@ -956,6 +957,7 @@ class Assembler386(object):
         if (isinstance(from_loc, RegLoc) and from_loc.is_xmm) or (isinstance(to_loc, RegLoc) and to_loc.is_xmm):
             self.mc.MOVSD(to_loc, from_loc)
         else:
+            assert to_loc is not ebp
             self.mc.MOV(to_loc, from_loc)
 
     regalloc_mov = mov # legacy interface
@@ -1120,7 +1122,7 @@ class Assembler386(object):
         return genop_cmp_guard_float
 
     def _emit_call(self, force_index, x, arglocs, start=0, tmp=eax,
-                   argtypes=None):
+                   argtypes=None, callconv=FFI_DEFAULT_ABI):
         if IS_X86_64:
             return self._emit_call_64(force_index, x, arglocs, start, argtypes)
 
@@ -1149,6 +1151,16 @@ class Assembler386(object):
         # x is a location
         self.mc.CALL(x)
         self.mark_gc_roots(force_index)
+        #
+        if callconv != FFI_DEFAULT_ABI:
+            self._fix_stdcall(callconv, p)
+
+    def _fix_stdcall(self, callconv, p):
+        from pypy.rlib.clibffi import FFI_STDCALL
+        assert callconv == FFI_STDCALL
+        # it's a bit stupid, but we're just going to cancel the fact that
+        # the called function just added 'p' to ESP, by subtracting it again.
+        self.mc.SUB_ri(esp.value, p)
 
     def _emit_call_64(self, force_index, x, arglocs, start, argtypes):
         src_locs = []
@@ -2127,7 +2139,8 @@ class Assembler386(object):
             tmp = eax
 
         self._emit_call(force_index, x, arglocs, 3, tmp=tmp,
-                        argtypes=op.getdescr().get_arg_types())
+                        argtypes=op.getdescr().get_arg_types(),
+                        callconv=op.getdescr().get_call_conv())
 
         if IS_X86_32 and isinstance(resloc, StackLoc) and resloc.width == 8:
             # a float or a long long return
@@ -2497,11 +2510,6 @@ class Assembler386(object):
         self.mc.overwrite(jz_location-1, chr(offset))
 
     genop_discard_cond_call_gc_wb_array = genop_discard_cond_call_gc_wb
-
-    def genop_force_token(self, op, arglocs, resloc):
-        # RegAlloc.consider_force_token ensures this:
-        assert isinstance(resloc, RegLoc)
-        self.mc.LEA_rb(resloc.value, FORCE_INDEX_OFS)
 
     def not_implemented_op_discard(self, op, arglocs):
         not_implemented("not implemented operation: %s" % op.getopname())

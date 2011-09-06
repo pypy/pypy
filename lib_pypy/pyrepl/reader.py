@@ -401,13 +401,19 @@ feeling more loquacious than I am now."""
             return "(arg: %s) "%self.arg
         if "\n" in self.buffer:
             if lineno == 0:
-                return self._ps2
+                res = self.ps2
             elif lineno == self.buffer.count("\n"):
-                return self._ps4
+                res = self.ps4
             else:
-                return self._ps3
+                res = self.ps3
         else:
-            return self._ps1
+            res = self.ps1
+        # Lazily call str() on self.psN, and cache the results using as key
+        # the object on which str() was called.  This ensures that even if the
+        # same object is used e.g. for ps1 and ps2, str() is called only once.
+        if res not in self._pscache:
+            self._pscache[res] = str(res)
+        return self._pscache[res]
 
     def push_input_trans(self, itrans):
         self.input_trans_stack.append(self.input_trans)
@@ -473,8 +479,7 @@ feeling more loquacious than I am now."""
             self.pos = 0
             self.dirty = 1
             self.last_command = None
-            self._ps1, self._ps2, self._ps3, self._ps4 = \
-                           map(str, [self.ps1, self.ps2, self.ps3, self.ps4])
+            self._pscache = {}
         except:
             self.restore()
             raise
@@ -571,7 +576,7 @@ feeling more loquacious than I am now."""
         self.console.push_char(char)
         self.handle1(0)
     
-    def readline(self):
+    def readline(self, returns_unicode=False):
         """Read a line.  The implementation of this method also shows
         how to drive Reader if you want more control over the event
         loop."""
@@ -580,6 +585,8 @@ feeling more loquacious than I am now."""
             self.refresh()
             while not self.finished:
                 self.handle1()
+            if returns_unicode:
+                return self.get_unicode()
             return self.get_buffer()
         finally:
             self.restore()

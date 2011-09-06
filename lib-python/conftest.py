@@ -359,7 +359,7 @@ testmap = [
     RegrTest('test_property.py', core=True),
     RegrTest('test_pstats.py'),
     RegrTest('test_pty.py', skip="unsupported extension module"),
-    RegrTest('test_pwd.py', skip=skip_win32),
+    RegrTest('test_pwd.py', usemodules="pwd", skip=skip_win32),
     RegrTest('test_py3kwarn.py'),
     RegrTest('test_pyclbr.py'),
     RegrTest('test_pydoc.py'),

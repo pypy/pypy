@@ -199,7 +199,11 @@ Unimplemented features
 The following features (present in some past Stackless version of PyPy)
 are for the time being not supported any more:
 
-* Tasklets and channels (needs to be rewritten at app-level)
+* Tasklets and channels (currently ``stackless.py`` seems to import,
+  but you have tasklets on top of coroutines on top of greenlets on
+  top of continulets on top of stacklets, and it's probably not too
+  hard to cut two of these levels by adapting ``stackless.py`` to
+  use directly continulets)
 
 * Coroutines (could be rewritten at app-level)
 
@@ -209,6 +213,13 @@ are for the time being not supported any more:
 
 * Automatic unlimited stack (must be emulated__ so far)
 
+* Support for other CPUs than x86 and x86-64
+
+* The app-level ``f_back`` field of frames crossing continulet boundaries
+  is None for now, unlike what I explain in the theoretical overview
+  above.  It mostly means that in a ``pdb.set_trace()`` you cannot go
+  ``up`` past countinulet boundaries.  This could be fixed.
+
 .. __: `recursion depth limit`_
 
 (*) Pickling, as well as changing threads, could be implemented by using
@@ -217,9 +228,8 @@ a "soft" stack switching mode again.  We would get either "hard" or
 "hard" switch (like now) when the C stack contains non-trivial C frames
 to save, and a "soft" switch (like previously) when it contains only
 simple calls from Python to Python.  Soft-switched continulets would
-also consume a bit less RAM, at the possible expense of making the
-switch a bit slower (unsure about that; what is the Stackless Python
-experience?).
+also consume a bit less RAM, and the switch might be a bit faster too
+(unsure about that; what is the Stackless Python experience?).
 
 
 Recursion depth limit

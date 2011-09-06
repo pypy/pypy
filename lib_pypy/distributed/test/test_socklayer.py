@@ -9,7 +9,8 @@ def setup_module(mod):
 class AppTestSocklayer:
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withtproxy": True,
-                                       "usemodules":("_stackless","_socket", "select")})
+                                       "usemodules":("_continuation",
+                                                     "_socket", "select")})
     
     def test_socklayer(self):
         class X(object):

@@ -43,6 +43,23 @@ purposes only."""
     f.mark_as_escaped()
     return space.wrap(f)
 
+def _current_frames(space):
+    """_current_frames() -> dictionary
+
+    Return a dictionary mapping each current thread T's thread id to T's
+    current stack frame.
+
+    This function should be used for specialized purposes only."""
+    w_result = space.newdict()
+    ecs = space.threadlocals.getallvalues()
+    for thread_ident, ec in ecs.items():
+        f = ec.gettopframe_nohidden()
+        f.mark_as_escaped()
+        space.setitem(w_result,
+                      space.wrap(thread_ident),
+                      space.wrap(f))
+    return w_result                      
+
 def setrecursionlimit(space, w_new_limit):
     """setrecursionlimit() sets the maximum number of nested calls that
 can occur before a RuntimeError is raised.  On PyPy the limit is

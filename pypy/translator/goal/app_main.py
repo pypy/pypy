@@ -260,6 +260,8 @@ def set_io_encoding(io_encoding):
     try:
         import _file
     except ImportError:
+        if sys.version_info < (2, 7):
+            return
         import ctypes # HACK: while running on top of CPython
         set_file_encoding = ctypes.pythonapi.PyFile_SetEncodingAndErrors
         set_file_encoding.argtypes = [ctypes.py_object, ctypes.c_char_p, ctypes.c_char_p]
@@ -479,7 +481,8 @@ def run_command_line(interactive,
             print >> sys.stderr, "'import site' failed"
 
     readenv = not ignore_environment
-    io_encoding = readenv and os.getenv("PYTHONIOENCODING")
+    io_encoding = ((readenv and os.getenv("PYTHONIOENCODING"))
+                   or sys.getfilesystemencoding())
     if io_encoding:
         set_io_encoding(io_encoding)
 

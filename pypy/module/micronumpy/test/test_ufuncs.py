@@ -3,6 +3,32 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 
 class AppTestUfuncs(BaseNumpyAppTest):
+    def test_ufunc_instance(self):
+        from numpy import add, ufunc
+
+        assert isinstance(add, ufunc)
+        assert repr(add) == "<ufunc 'add'>"
+        assert repr(ufunc) == "<type 'numpy.ufunc'>"
+
+    def test_ufunc_attrs(self):
+        from numpy import add, multiply, sin
+
+        assert add.identity == 0
+        assert multiply.identity == 1
+        assert sin.identity is None
+
+        assert add.nin == 2
+        assert multiply.nin == 2
+        assert sin.nin == 1
+
+    def test_wrong_arguments(self):
+        from numpy import add, sin
+
+        raises(TypeError, add, 1)
+        raises(TypeError, add, 1, 2, 3)
+        raises(TypeError, sin, 1, 2)
+        raises(TypeError, sin)
+
     def test_single_item(self):
         from numpy import negative, sign, minimum
 
@@ -272,3 +298,42 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = arctan(a)
         assert math.isnan(b[0])
 
+    def test_reduce_errors(self):
+        from numpy import sin, add
+
+        raises(ValueError, sin.reduce, [1, 2, 3])
+        raises(TypeError, add.reduce, 1)
+
+    def test_reduce(self):
+        from numpy import add, maximum
+
+        assert add.reduce([1, 2, 3]) == 6
+        assert maximum.reduce([1]) == 1
+        assert maximum.reduce([1, 2, 3]) == 3
+        raises(ValueError, maximum.reduce, [])
+
+    def test_comparisons(self):
+        import operator
+        from numpy import equal, not_equal, less, less_equal, greater, greater_equal
+
+        for ufunc, func in [
+            (equal, operator.eq),
+            (not_equal, operator.ne),
+            (less, operator.lt),
+            (less_equal, operator.le),
+            (greater, operator.gt),
+            (greater_equal, operator.ge),
+        ]:
+            for a, b in [
+                (3, 3),
+                (3, 4),
+                (4, 3),
+                (3.0, 3.0),
+                (3.0, 3.5),
+                (3.5, 3.0),
+                (3.0, 3),
+                (3, 3.0),
+                (3.5, 3),
+                (3, 3.5),
+            ]:
+                assert ufunc(a, b) is func(a, b)
