@@ -1170,7 +1170,7 @@ class IntSort(SimpleSort):
 
 class StringSort(SimpleSort):
     def lt(self, w_str1, w_str2):
-        from pypy.objspace.std.intobject import W_StringObject
+        from pypy.objspace.std.stringobject import W_StringObject
         assert isinstance(w_int1, W_StringObject)
         assert isinstance(w_int2, W_StringObject)
         space = self.space
