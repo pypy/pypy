@@ -94,3 +94,10 @@ class AppTestObject:
         #assert len(log) == 1
         #assert log[0].message.args == ("object.__init__() takes no parameters",)
         #assert type(log[0].message) is DeprecationWarning
+
+    def test_object_str(self):
+        # obscure case
+        class A(object):
+            def __repr__(self):
+                return 123456
+        assert A().__str__() == 123456
