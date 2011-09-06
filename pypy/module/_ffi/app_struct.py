@@ -1,3 +1,5 @@
+import _ffi
+
 class Field(object):
 
     def __init__(self, name, ffitype):
@@ -13,7 +15,6 @@ class Field(object):
     ## def __set__(self, obj, value):
     ##     setfield(obj._buffer, self.ffitype, self.offset, value)
 
-
 class MetaStructure(type):
 
     def __new__(cls, name, bases, dic):
@@ -26,13 +27,16 @@ class MetaStructure(type):
         if fields is None:
             return
         size = 0
+        ffitypes = []
         for field in fields:
             field.offset = size # XXX: alignment!
             size += field.ffitype.sizeof()
+            ffitypes.append(field.ffitype)
             dic[field.name] = field
-        dic['_size_'] = size
+        alignment = 0 # XXX
+        struct_descr = _ffi._StructDescr(size, alignment, ffitypes)
+        dic['_struct_'] = struct_descr
 
 
 class Structure(object):
-
     __metaclass__ = MetaStructure

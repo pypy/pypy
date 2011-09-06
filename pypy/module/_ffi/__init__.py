@@ -7,6 +7,7 @@ class Module(MixedModule):
         'CDLL':    'interp_funcptr.W_CDLL',
         'FuncPtr': 'interp_funcptr.W_FuncPtr',
         'get_libc':'interp_funcptr.get_libc',
+        '_StructDescr': 'interp_struct.W__StructDescr',
     }
 
     appleveldefs = {
