@@ -96,7 +96,8 @@ class AppTestObject:
         #assert type(log[0].message) is DeprecationWarning
 
     def test_object_str(self):
-        # obscure case
+        # obscure case: __str__() must delegate to __repr__() without adding
+        # type checking on its own
         class A(object):
             def __repr__(self):
                 return 123456
