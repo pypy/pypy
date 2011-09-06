@@ -1334,8 +1334,47 @@ class MiniMarkGC(MovingGCBase):
                 while bytes > 0:
                     p -= 1
                     cardbyte = ord(p.char[0])
-                    p.char[0] = '\x00'           # reset the bits
                     bytes -= 1
+                    if cardbyte == 0:
+                        # keep moving along while there are unmarked bytes
+                        if bytes == 0:
+                            break
+                        p -= 1
+                        cardbyte = ord(p.char[0])
+                        bytes -= 1
+                        counter = 1
+                        while bytes > 0 and cardbyte == 0:
+                            p -= 1
+                            cardbyte = ord(p.char[0])
+                            bytes -= 1
+                            counter += 1
+                        interval_start = interval_start + counter*8*self.card_page_indices
+                    if cardbyte == 255 and bytes > 0:
+                        # keep moving until we find a byte that isn't fully marked
+                        p.char[0] = '\x00'
+                        counter = 1
+                        p -= 1
+                        cardbyte = ord(p.char[0])
+                        bytes -= 1
+                        while bytes > 0 and cardbyte == 255:
+                            p.char[0] = '\x00'
+                            p -= 1
+                            cardbyte = ord(p.char[0])
+                            bytes -= 1
+                            counter += 1
+                        interval_stop = interval_start + counter*8*self.card_page_indices
+                        if interval_stop > length:
+                            interval_stop = length
+                            ll_assert(bytes == 0,
+                                "premature end of object")
+                        if bool(self.young_rawmalloced_objects):
+                            self.trace_and_drag_out_of_nursery_partial_young_raw(
+                                obj, interval_start, interval_stop)
+                        else:
+                            self.trace_and_drag_out_of_nursery_partial(
+                                obj, interval_start, interval_stop)
+                        interval_start = interval_stop
+                    p.char[0] = '\x00'           # reset the bits
                     next_byte_start = interval_start + 8*self.card_page_indices
                     #
                     while cardbyte != 0:
