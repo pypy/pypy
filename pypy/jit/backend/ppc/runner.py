@@ -12,7 +12,7 @@ from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
 from pypy.jit.backend.x86 import regloc
 from pypy.jit.backend.x86.support import values_array
 from pypy.jit.backend.ppc.ppcgen.ppc_assembler import PPCBuilder
-from pypy.jit.backend.ppc.ppcgen.arch import NONVOLATILES
+from pypy.jit.backend.ppc.ppcgen.arch import IS_PPC_32, NONVOLATILES
 import sys
 
 from pypy.tool.ansi_print import ansi_log
@@ -111,10 +111,15 @@ class PPC_64_CPU(AbstractLLCPU):
         return reg
 
     def _make_prologue(self, codebuilder):
-        framesize = 64 + 80
-        codebuilder.stwu(1, 1, -framesize)
-        codebuilder.mflr(0)
-        codebuilder.stw(0, 1, framesize + 4)
+        framesize = 16 * WORD + 20 * WORD
+        if IS_PPC_32:
+            codebuilder.stwu(1, 1, -framesize)
+            codebuilder.mflr(0)
+            codebuilder.stw(0, 1, framesize + WORD)
+        else:
+            codebuilder.stdu(1, 1, -framesize)
+            codebuilder.mflr(0)
+            codebuilder.std(0, 1, framesize + WORD)
         codebuilder.save_nonvolatiles(framesize)
 
     def _make_epilogue(self, codebuilder):
@@ -142,10 +147,13 @@ class PPC_64_CPU(AbstractLLCPU):
             descr.patch_pos = patch_pos
             descr.used_mem_indices = used_mem_indices
 
-            framesize = 64 + 80
+            framesize = 16 * WORD + 20 * WORD
             codebuilder.restore_nonvolatiles(framesize)
 
-            codebuilder.lwz(0, 1, framesize + 4) # 36
+            if IS_PPC_32:
+                codebuilder.lwz(0, 1, framesize + WORD) # 36
+            else:
+                codebuilder.ld(0, 1, framesize + WORD) # 36
             codebuilder.mtlr(0)
             codebuilder.addi(1, 1, framesize)
 
