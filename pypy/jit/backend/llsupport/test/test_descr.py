@@ -159,7 +159,7 @@ def test_get_array_descr():
     clsf = getArrayDescrClass(A4)
     assert clsf != cls
     assert clsf == getArrayDescrClass(lltype.GcArray(lltype.Float))
-    clss = getArrayDescrClass(A5)
+    clss = getArrayDescrClass(A6)
     assert clss not in (clsf, cls)
     assert clss == getArrayDescrClass(lltype.GcArray(rffi.UINT))
     #
@@ -174,7 +174,7 @@ def test_get_array_descr():
     assert descr2.__class__ is GcPtrArrayDescr
     assert descr3.__class__ is NonGcPtrArrayDescr
     assert descr4.__class__ is clsf
-    assert descr5.__class__ is clss
+    assert descr6.__class__ is clss
     assert descr1 == get_array_descr(c0, lltype.GcArray(lltype.Char))
     assert not descr1.is_array_of_pointers()
     assert     descr2.is_array_of_pointers()
