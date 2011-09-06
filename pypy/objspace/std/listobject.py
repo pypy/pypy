@@ -1168,6 +1168,14 @@ class IntSort(SimpleSort):
         space = self.space
         return w_int1.intval < w_int2.intval
 
+class StringSort(SimpleSort):
+    def lt(self, w_str1, w_str2):
+        from pypy.objspace.std.intobject import W_StringObject
+        assert isinstance(w_int1, W_StringObject)
+        assert isinstance(w_int2, W_StringObject)
+        space = self.space
+        return w_str1._value < w_str2._value
+
 class CustomCompareSort(SimpleSort):
     def lt(self, a, b):
         space = self.space
@@ -1214,6 +1222,8 @@ def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
         else:
             if w_list.strategy is space.fromcache(IntegerListStrategy):
                 sorterclass = IntSort
+            elif w_list.strategy is space.fromcache(StringListStrategy):
+                sorterclass = StringSort
             else:
                 sorterclass = SimpleSort
     #XXX optimize this, getitems is bad
