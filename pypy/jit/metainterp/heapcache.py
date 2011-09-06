@@ -18,6 +18,8 @@ class HeapCache(object):
         # heap array cache
         # maps descrs to {index: {from_box: to_box}} dicts
         self.heap_array_cache = {}
+        # cache the length of arrays
+        self.length_cache = {}
 
     def invalidate_caches(self, opnum, descr):
         if opnum == rop.SETFIELD_GC:
@@ -56,6 +58,10 @@ class HeapCache(object):
 
     def new(self, box):
         self.new_boxes[box] = None
+
+    def new_array(self, box, lengthbox):
+        self.new(box)
+        self.arraylen_now_known(box, lengthbox)
 
     def getfield(self, box, descr):
         d = self.heap_cache.get(descr, None)
@@ -112,23 +118,26 @@ class HeapCache(object):
         indexcache = cache.get(index, None)
         cache[index] = self._do_write_with_aliasing(indexcache, box, valuebox)
 
+    def arraylen(self, box):
+        return self.length_cache.get(box, None)
+
+    def arraylen_now_known(self, box, lengthbox):
+        self.length_cache[box] = lengthbox
+
+    def _replace_box(self, d, oldbox, newbox):
+        new_d = {}
+        for frombox, tobox in d.iteritems():
+            if frombox is oldbox:
+                frombox = newbox
+            if tobox is oldbox:
+                tobox = newbox
+            new_d[frombox] = tobox
+        return new_d
+
     def replace_box(self, oldbox, newbox):
         for descr, d in self.heap_cache.iteritems():
-            new_d = {}
-            for frombox, tobox in d.iteritems():
-                if frombox is oldbox:
-                    frombox = newbox
-                if tobox is oldbox:
-                    tobox = newbox
-                new_d[frombox] = tobox
-            self.heap_cache[descr] = new_d
+            self.heap_cache[descr] = self._replace_box(d, oldbox, newbox)
         for descr, d in self.heap_array_cache.iteritems():
             for index, cache in d.iteritems():
-                new_cache = {}
-                for frombox, tobox in cache.iteritems():
-                    if frombox is oldbox:
-                        frombox = newbox
-                    if tobox is oldbox:
-                        tobox = newbox
-                    new_cache[frombox] = tobox
-                d[index] = new_cache
+                d[index] = self._replace_box(cache, oldbox, newbox)
+        self.length_cache = self._replace_box(self.length_cache, oldbox, newbox)

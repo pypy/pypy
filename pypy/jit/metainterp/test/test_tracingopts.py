@@ -469,3 +469,17 @@ class TestLLtype(LLJitMixin):
         assert res == 2 * -7 + 2 * -8
         self.check_operations_history(getarrayitem_gc=0)
 
+    def test_length_caching(self):
+        class Gbl(object):
+            pass
+        g = Gbl()
+        g.a = [0] * 7
+        def fn(n):
+            a = g.a
+            res = len(a) + len(a)
+            a1 = [0] * n
+            g.a = a1
+            return len(a1) + res
+        res = self.interp_operations(fn, [7])
+        assert res == 7 * 3
+        self.check_operations_history(arraylen_gc=1)

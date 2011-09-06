@@ -6,6 +6,8 @@ box1 = object()
 box2 = object()
 box3 = object()
 box4 = object()
+lengthbox1 = object()
+lengthbox2 = object()
 descr1 = object()
 descr2 = object()
 descr3 = object()
@@ -206,6 +208,15 @@ class TestHeapCache(object):
         assert h.getarrayitem(box3, descr1, index1) is box4
         assert h.getarrayitem(box1, descr1, index1) is box3 # box1 and box3 cannot alias
 
+    def test_length_cache(self):
+        h = HeapCache()
+        h.new_array(box1, lengthbox1)
+        assert h.arraylen(box1) is lengthbox1
+
+        assert h.arraylen(box2) is None
+        h.arraylen_now_known(box2, lengthbox2)
+        assert h.arraylen(box2) is lengthbox2
+
 
     def test_invalidate_cache(self):
         h = HeapCache()
@@ -252,14 +263,20 @@ class TestHeapCache(object):
         h = HeapCache()
         h.setarrayitem(box1, descr1, index1, box2)
         h.setarrayitem(box1, descr2, index1, box3)
+        h.arraylen_now_known(box1, lengthbox1)
         h.setarrayitem(box2, descr1, index2, box1)
         h.setarrayitem(box3, descr2, index2, box1)
         h.setarrayitem(box2, descr3, index2, box3)
         h.replace_box(box1, box4)
         assert h.getarrayitem(box1, descr1, index1) is None
         assert h.getarrayitem(box1, descr2, index1) is None
+        assert h.arraylen(box1) is None
+        assert h.arraylen(box4) is lengthbox1
         assert h.getarrayitem(box4, descr1, index1) is box2
         assert h.getarrayitem(box4, descr2, index1) is box3
         assert h.getarrayitem(box2, descr1, index2) is box4
         assert h.getarrayitem(box3, descr2, index2) is box4
         assert h.getarrayitem(box2, descr3, index2) is box3
+
+        h.replace_box(lengthbox1, lengthbox2)
+        assert h.arraylen(box4) is lengthbox2

@@ -394,9 +394,9 @@ class MIFrame(object):
 ##        self.execute(rop.SUBCLASSOF, box1, box2)
 
     @arguments("descr", "box")
-    def opimpl_new_array(self, itemsizedescr, countbox):
-        resbox = self.execute_with_descr(rop.NEW_ARRAY, itemsizedescr, countbox)
-        self.metainterp.heapcache.new(resbox)
+    def opimpl_new_array(self, itemsizedescr, lengthbox):
+        resbox = self.execute_with_descr(rop.NEW_ARRAY, itemsizedescr, lengthbox)
+        self.metainterp.heapcache.new_array(resbox, lengthbox)
         return resbox
 
     @arguments("box", "descr", "box")
@@ -456,7 +456,12 @@ class MIFrame(object):
 
     @arguments("box", "descr")
     def opimpl_arraylen_gc(self, arraybox, arraydescr):
-        return self.execute_with_descr(rop.ARRAYLEN_GC, arraydescr, arraybox)
+        lengthbox = self.metainterp.heapcache.arraylen(arraybox)
+        if lengthbox is None:
+            lengthbox = self.execute_with_descr(
+                    rop.ARRAYLEN_GC, arraydescr, arraybox)
+            self.metainterp.heapcache.arraylen_now_known(arraybox, lengthbox)
+        return lengthbox
 
     @arguments("orgpc", "box", "descr", "box")
     def opimpl_check_neg_index(self, orgpc, arraybox, arraydescr, indexbox):
@@ -465,10 +470,9 @@ class MIFrame(object):
         negbox = self.implement_guard_value(orgpc, negbox)
         if negbox.getint():
             # the index is < 0; add the array length to it
-            lenbox = self.metainterp.execute_and_record(
-                rop.ARRAYLEN_GC, arraydescr, arraybox)
+            lengthbox = self.opimpl_arraylen_gc(arraybox, arraydescr)
             indexbox = self.metainterp.execute_and_record(
-                rop.INT_ADD, None, indexbox, lenbox)
+                rop.INT_ADD, None, indexbox, lengthbox)
         return indexbox
 
     @arguments("descr", "descr", "descr", "descr", "box")
@@ -721,7 +725,7 @@ class MIFrame(object):
     def opimpl_arraylen_vable(self, pc, box, fdescr, adescr):
         if self._nonstandard_virtualizable(pc, box):
             arraybox = self._opimpl_getfield_gc_any(box, fdescr)
-            return self.execute_with_descr(rop.ARRAYLEN_GC, adescr, arraybox)
+            return self.opimpl_arraylen_gc(arraybox, adescr)
         vinfo = self.metainterp.jitdriver_sd.virtualizable_info
         virtualizable_box = self.metainterp.virtualizable_boxes[-1]
         virtualizable = vinfo.unwrap_virtualizable_box(virtualizable_box)
