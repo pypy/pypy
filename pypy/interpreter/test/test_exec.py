@@ -219,3 +219,17 @@ class AppTestExecStmt:
             raise e
 
         assert res == 1
+
+    def test_exec_unicode(self):
+        # 's' is a string
+        s = "x = u'\xd0\xb9\xd1\x86\xd1\x83\xd0\xba\xd0\xb5\xd0\xbd'"
+        # 'u' is a unicode
+        u = s.decode('utf-8')
+        exec u
+        assert len(x) == 6
+        assert ord(x[0]) == 0x0439
+        assert ord(x[1]) == 0x0446
+        assert ord(x[2]) == 0x0443
+        assert ord(x[3]) == 0x043a
+        assert ord(x[4]) == 0x0435
+        assert ord(x[5]) == 0x043d
