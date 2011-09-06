@@ -471,6 +471,11 @@ class AppTestW_ListObject(object):
         l.sort(reverse = True, key = lower)
         assert l == ['C', 'b', 'a']
 
+    def test_sort_simple_string(self):
+        l = ["a", "d", "c", "b"]
+        l.sort()
+        assert l == ["a", "b", "c", "d"]
+
     def test_getitem(self):
         l = [1, 2, 3, 4, 5, 6, 9]
         assert l[0] == 1
