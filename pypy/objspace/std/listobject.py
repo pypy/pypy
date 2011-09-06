@@ -1160,6 +1160,11 @@ class SimpleSort(TimSort):
         space = self.space
         return space.is_true(space.lt(a, b))
 
+class IntSort(TimSort):
+    def lt(self, w_int1, w_int2):
+        space = self.space
+        return w_int1.intval < w_int2.intval
+
 class CustomCompareSort(SimpleSort):
     def lt(self, a, b):
         space = self.space
@@ -1189,10 +1194,6 @@ class CustomKeyCompareSort(CustomCompareSort):
 
 def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
 
-    if w_list.strategy is space.fromcache(IntegerListStrategy):
-        w_list.strategy.custom_sort_for_ints(w_list)
-        return space.w_None
-
     #XXX so far sorting always wraps list
     has_cmp = not space.is_w(w_cmp, space.w_None)
     has_key = not space.is_w(w_keyfunc, space.w_None)
@@ -1208,7 +1209,10 @@ def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
         if has_key:
             sorterclass = CustomKeySort
         else:
-            sorterclass = SimpleSort
+            if w_list.strategy is space.fromcache(IntegerListStrategy):
+                sorterclass = IntSort
+            else:
+                sorterclass = SimpleSort
     #XXX optimize this, getitems is bad
     sorter = sorterclass(w_list.getitems(), w_list.length())
     sorter.space = space
