@@ -3,9 +3,13 @@ from pypy.module._ffi.test.test_funcptr import BaseAppTestFFI
 class AppTestStruct(BaseAppTestFFI):
 
     def test__StructDescr(self):
-        from _ffi import _StructDescr, types
+        from _ffi import _StructDescr, Field, types
         longsize = types.slong.sizeof()
-        descr = _StructDescr('foo', longsize*2, 0, [types.slong, types.slong])
+        fields = [
+            Field('x', types.slong),
+            Field('y', types.slong),
+            ]
+        descr = _StructDescr('foo', fields)
         assert descr.ffitype.sizeof() == longsize*2
         assert descr.ffitype.name == 'struct foo'
 
@@ -24,4 +28,3 @@ class AppTestStruct(BaseAppTestFFI):
         assert Point.y.offset == longsize
         assert Point._struct_.ffitype.sizeof() == longsize*2
         assert Point._struct_.ffitype.name == 'struct Point'
-        
