@@ -408,7 +408,7 @@ class MIFrame(object):
             return tobox
         resbox = self.execute_with_descr(rop.GETARRAYITEM_GC,
                                          arraydescr, arraybox, indexbox)
-        self.metainterp.heapcache.setarrayitem(
+        self.metainterp.heapcache.getarrayitem_now_known(
                 arraybox, arraydescr, indexbox, resbox)
         return resbox
 

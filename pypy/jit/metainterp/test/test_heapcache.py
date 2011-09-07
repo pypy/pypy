@@ -179,6 +179,20 @@ class TestHeapCache(object):
         assert h.getarrayitem(box1, descr1, index1) is None
         assert h.getarrayitem(box1, descr1, index2) is None
 
+    def test_heapcache_read_fields_multiple_array(self):
+        h = HeapCache()
+        h.getarrayitem_now_known(box1, descr1, index1, box2)
+        h.getarrayitem_now_known(box3, descr1, index1, box4)
+        assert h.getarrayitem(box1, descr1, index1) is box2
+        assert h.getarrayitem(box1, descr2, index1) is None
+        assert h.getarrayitem(box3, descr1, index1) is box4
+        assert h.getarrayitem(box3, descr2, index1) is None
+
+        h.reset()
+        assert h.getarrayitem(box1, descr1, index1) is None
+        assert h.getarrayitem(box1, descr2, index1) is None
+        assert h.getarrayitem(box3, descr1, index1) is None
+        assert h.getarrayitem(box3, descr2, index1) is None
 
     def test_heapcache_write_fields_multiple_array(self):
         h = HeapCache()

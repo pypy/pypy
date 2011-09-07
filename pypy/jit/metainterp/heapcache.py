@@ -107,6 +107,17 @@ class HeapCache(object):
             if indexcache is not None:
                 return indexcache.get(box, None)
 
+    def getarrayitem_now_known(self, box, descr, indexbox, valuebox):
+        if not isinstance(indexbox, ConstInt):
+            return
+        index = indexbox.getint()
+        cache = self.heap_array_cache.setdefault(descr, {})
+        indexcache = cache.get(index, None)
+        if indexcache is not None:
+            indexcache[box] = valuebox
+        else:
+            cache[index] = {box: valuebox}
+
     def setarrayitem(self, box, descr, indexbox, valuebox):
         if not isinstance(indexbox, ConstInt):
             cache = self.heap_array_cache.get(descr, None)
@@ -117,6 +128,7 @@ class HeapCache(object):
         cache = self.heap_array_cache.setdefault(descr, {})
         indexcache = cache.get(index, None)
         cache[index] = self._do_write_with_aliasing(indexcache, box, valuebox)
+
 
     def arraylen(self, box):
         return self.length_cache.get(box, None)

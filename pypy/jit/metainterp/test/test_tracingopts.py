@@ -469,6 +469,27 @@ class TestLLtype(LLJitMixin):
         assert res == 2 * -7 + 2 * -8
         self.check_operations_history(getarrayitem_gc=0)
 
+    def test_heap_caching_multiple_arrays_getarrayitem(self):
+        class Gbl(object):
+            pass
+        g = Gbl()
+        g.a1 = [7, 8, 9]
+        g.a2 = [8, 9, 10, 11]
+
+        def fn(i):
+            if i < 0:
+                g.a1 = [7, 8, 9]
+                g.a2 = [7, 8, 9, 10]
+            jit.promote(i)
+            a1 = g.a1
+            a1[i + 1] = 15 # make lists mutable
+            a2 = g.a2
+            a2[i + 1] = 19
+            return a1[i] + a2[i] + a1[i] + a2[i]
+        res = self.interp_operations(fn, [0])
+        assert res == 2 * 7 + 2 * 8
+        self.check_operations_history(getarrayitem_gc=2)
+
     def test_length_caching(self):
         class Gbl(object):
             pass
