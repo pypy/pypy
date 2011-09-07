@@ -1,10 +1,10 @@
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib import clibffi
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.objspace.std.typetype import type_typedef
-from pypy.module._ffi.interp_ffitype import W_FFIType
+from pypy.module._ffi.interp_ffitype import W_FFIType, app_types
 
 class W_Field(Wrappable):
 
@@ -30,12 +30,15 @@ W_Field.typedef = TypeDef(
 
 # ==============================================================================
 
-
 class W__StructDescr(Wrappable):
 
-    def __init__(self, name, ffistruct):
+    def __init__(self, name, fields_w, ffistruct):
         self.ffistruct = ffistruct
-        self.ffitype = W_FFIType('struct %s' % name, ffistruct.ffistruct, 'fixme')
+        self.w_ffitype = W_FFIType('struct %s' % name, ffistruct.ffistruct, 'fixme')
+        self.fields_w = fields_w
+        self.name2w_field = {}
+        for w_field in fields_w:
+            self.name2w_field[w_field.name] = w_field
 
     @staticmethod
     @unwrap_spec(name=str)
@@ -51,7 +54,15 @@ class W__StructDescr(Wrappable):
             field_types.append(w_field.w_ffitype.ffitype)
         #
         ffistruct = clibffi.make_struct_ffitype_e(size, alignment, field_types)
-        return W__StructDescr(name, ffistruct)
+        return W__StructDescr(name, fields_w, ffistruct)
+
+    def allocate(self, space):
+        return W__StructInstance(self)
+
+    #@jit.elidable...
+    def get_type_and_offset_for_field(self, name):
+        w_field = self.name2w_field[name]
+        return w_field.w_ffitype, w_field.offset
 
     def __del__(self):
         if self.ffistruct:
@@ -61,6 +72,60 @@ class W__StructDescr(Wrappable):
 W__StructDescr.typedef = TypeDef(
     '_StructDescr',
     __new__ = interp2app(W__StructDescr.descr_new),
-    ffitype = interp_attrproperty('ffitype', W__StructDescr),
+    ffitype = interp_attrproperty('w_ffitype', W__StructDescr),
+    allocate = interp2app(W__StructDescr.allocate),
     )
 
+
+# ==============================================================================
+
+class W__StructInstance(Wrappable):
+
+    _immutable_fields_ = ['structdescr', 'rawmem']
+
+    def __init__(self, structdescr):
+        self.structdescr = structdescr
+        size = structdescr.w_ffitype.sizeof()
+        self.rawmem = lltype.malloc(rffi.VOIDP.TO, size, flavor='raw',
+                                    zero=True, add_memory_pressure=True)
+
+    def __del__(self):
+        if self.rawmem:
+            lltype.free(self.rawmem, flavor='raw')
+            self.rawmem = lltype.nullptr(rffi.VOIDP.TO)
+
+    def getaddr(self, space):
+        addr = rffi.cast(rffi.ULONG, self.rawmem)
+        return space.wrap(addr)
+
+    @unwrap_spec(name=str)
+    def getfield(self, space, name):
+        w_ffitype, offset = self.structdescr.get_type_and_offset_for_field(name)
+        assert w_ffitype is app_types.slong # XXX: handle all cases
+        FIELD_TYPE  = rffi.LONG
+        #
+        addr = rffi.ptradd(self.rawmem, offset)
+        PTR_FIELD = lltype.Ptr(rffi.CArray(FIELD_TYPE))
+        value = rffi.cast(PTR_FIELD, addr)[0]
+        #
+        return space.wrap(value)
+
+    @unwrap_spec(name=str)
+    def setfield(self, space, name, w_value):
+        w_ffitype, offset = self.structdescr.get_type_and_offset_for_field(name)
+        assert w_ffitype is app_types.slong # XXX: handle all cases
+        FIELD_TYPE  = rffi.LONG
+        value = space.int_w(w_value)
+        #
+        addr = rffi.ptradd(self.rawmem, offset)
+        PTR_FIELD = lltype.Ptr(rffi.CArray(FIELD_TYPE))
+        rffi.cast(PTR_FIELD, addr)[0] = value
+
+
+
+W__StructInstance.typedef = TypeDef(
+    '_StructInstance',
+    getaddr  = interp2app(W__StructInstance.getaddr),
+    getfield = interp2app(W__StructInstance.getfield),
+    setfield = interp2app(W__StructInstance.setfield),
+    )
