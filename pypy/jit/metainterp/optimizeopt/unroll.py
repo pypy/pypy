@@ -70,6 +70,47 @@ class Inliner(object):
         self.snapshot_map[snapshot] = new_snapshot
         return new_snapshot
 
+class UnrollableOptimizer(Optimizer):
+    def setup(self):
+        self.importable_values = {}
+        self.emitting_dissabled = False
+        self.emitted_guards = 0
+        self.emitted_pure_operations = {}
+
+    def ensure_imported(self, value):
+        if not self.emitting_dissabled and value in self.importable_values:
+            imp = self.importable_values[value]
+            del self.importable_values[value]
+            imp.import_value(value)
+
+    def emit_operation(self, op):
+        if op.returns_bool_result():
+            self.bool_boxes[self.getvalue(op.result)] = None
+        if self.emitting_dissabled:
+            return
+        if op.is_guard():
+            self.emitted_guards += 1 # FIXME: can we use counter in self._emit_operation?
+        self._emit_operation(op)
+
+    def new(self):
+        new = UnrollableOptimizer(self.metainterp_sd, self.loop)
+        return self._new(new)
+
+    def remember_emitting_pure(self, op):
+        self.emitted_pure_operations[op] = True
+
+    def produce_potential_short_preamble_ops(self, sb):
+        for op in self.emitted_pure_operations:
+            if op.getopnum() == rop.GETARRAYITEM_GC_PURE or \
+               op.getopnum() == rop.STRGETITEM or \
+               op.getopnum() == rop.UNICODEGETITEM:
+                if not self.getvalue(op.getarg(1)).is_constant():
+                    continue
+            sb.add_potential(op)
+        for opt in self.optimizations:
+            opt.produce_potential_short_preamble_ops(sb)
+
+
 
 class UnrollOptimizer(Optimization):
     """Unroll the loop into two iterations. The first one will
@@ -77,7 +118,7 @@ class UnrollOptimizer(Optimization):
     distinction anymore)"""
 
     def __init__(self, metainterp_sd, loop, optimizations):
-        self.optimizer = Optimizer(metainterp_sd, loop, optimizations)
+        self.optimizer = UnrollableOptimizer(metainterp_sd, loop, optimizations)
         self.cloned_operations = []
         for op in self.optimizer.loop.operations:
             newop = op.clone()
@@ -150,6 +191,7 @@ class UnrollOptimizer(Optimization):
                 args = ", ".join([logops.repr_of_arg(arg) for arg in short_inputargs])
                 debug_print('short inputargs: ' + args)
                 self.short_boxes.debug_print(logops)
+                
 
             # Force virtuals amoung the jump_args of the preamble to get the
             # operations needed to setup the proper state of those virtuals
@@ -161,8 +203,9 @@ class UnrollOptimizer(Optimization):
                 if box in seen:
                     continue
                 seen[box] = True
-                value = preamble_optimizer.getvalue(box)
-                inputarg_setup_ops.extend(value.make_guards(box))
+                preamble_value = preamble_optimizer.getvalue(box)
+                value = self.optimizer.getvalue(box)
+                value.import_from(preamble_value, self.optimizer)
             for box in short_inputargs:
                 if box in seen:
                     continue
@@ -181,22 +224,15 @@ class UnrollOptimizer(Optimization):
             for op in self.short_boxes.operations():
                 self.ensure_short_op_emitted(op, self.optimizer, seen)
                 if op and op.result:
-                    # The order of these guards is not important as 
-                    # self.optimizer.emitting_dissabled is False
-                    value = preamble_optimizer.getvalue(op.result)
-                    for guard in value.make_guards(op.result):
-                        self.optimizer.send_extra_operation(guard)
+                    preamble_value = preamble_optimizer.getvalue(op.result)
+                    value = self.optimizer.getvalue(op.result)
+                    imp = ValueImporter(self, preamble_value, op)
+                    self.optimizer.importable_values[value] = imp
                     newresult = self.optimizer.getvalue(op.result).get_key_box()
                     if newresult is not op.result:
                         self.short_boxes.alias(newresult, op.result)
             self.optimizer.flush()
             self.optimizer.emitting_dissabled = False
-
-            # XXX Hack to prevent the arraylen/strlen/unicodelen ops generated
-            #     by value.make_guards() from ending up in pure_operations
-            for key, op in self.optimizer.pure_operations.items():
-                if not self.short_boxes.has_producer(op.result):
-                    del self.optimizer.pure_operations[key]
 
             initial_inputargs_len = len(inputargs)
             self.inliner = Inliner(loop.inputargs, jump_args)
@@ -276,15 +312,10 @@ class UnrollOptimizer(Optimization):
 
         short_jumpargs = inputargs[:]
 
-        short = []
-        short_seen = {}
+        short = self.short = []
+        short_seen = self.short_seen = {}
         for box, const in self.constant_inputargs.items():
             short_seen[box] = True
-
-        for op in self.short_boxes.operations():
-            if op is not None:
-                if len(self.getvalue(op.result).make_guards(op.result)) > 0:
-                    self.add_op_to_short(op, short, short_seen, False, True)
 
         # This loop is equivalent to the main optimization loop in
         # Optimizer.propagate_all_forward
@@ -380,7 +411,7 @@ class UnrollOptimizer(Optimization):
         if op.is_ovf():
             guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
             optimizer.send_extra_operation(guard)
-        
+
     def add_op_to_short(self, op, short, short_seen, emit=True, guards_needed=False):
         if op is None:
             return None
@@ -536,6 +567,13 @@ class OptInlineShortPreamble(Optimization):
                         loop_token.failed_states.append(virtual_state)
         self.emit_operation(op)
 
+class ValueImporter(object):
+    def __init__(self, unroll, value, op):
+        self.unroll = unroll
+        self.preamble_value = value
+        self.op = op
 
-
-
+    def import_value(self, value):
+        value.import_from(self.preamble_value, self.unroll.optimizer)
+        self.unroll.add_op_to_short(self.op, self.unroll.short, self.unroll.short_seen, False, True)        
+        
