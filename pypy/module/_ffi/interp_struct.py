@@ -73,7 +73,7 @@ def descr_new_structdescr(space, w_type, name, w_fields):
         field_types.append(w_field.w_ffitype.ffitype)
     #
     ffistruct = clibffi.make_struct_ffitype_e(size, alignment, field_types)
-    return W__StructDescr(name, fields_w, ffistruct)
+    return W__StructDescr(space, name, fields_w, ffistruct)
 
 
 
