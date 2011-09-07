@@ -480,11 +480,9 @@ class MIFrame(object):
     @arguments("descr", "descr", "descr", "descr", "box")
     def opimpl_newlist(self, structdescr, lengthdescr, itemsdescr, arraydescr,
                        sizebox):
-        # XXX use heapcache
-        sbox = self.metainterp.execute_and_record(rop.NEW, structdescr)
+        sbox = self.opimpl_new(structdescr)
         self._opimpl_setfield_gc_any(sbox, lengthdescr, sizebox)
-        abox = self.metainterp.execute_and_record(rop.NEW_ARRAY, arraydescr,
-                                                  sizebox)
+        abox = self.opimpl_new_array(arraydescr, sizebox)
         self._opimpl_setfield_gc_any(sbox, itemsdescr, abox)
         return sbox
 
