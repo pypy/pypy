@@ -410,3 +410,29 @@ class CDLL(object):
 
     def getaddressindll(self, name):
         return dlsym(self.lib, name)
+
+
+# ======================================================================
+
+@jit.dont_look_inside
+@specialize.arg(0)
+def struct_getfield(TYPE, addr, offset):
+    """
+    Read the field of type TYPE at addr+offset.
+    addr is of type rffi.VOIDP, offset is an int.
+    """
+    addr = rffi.ptradd(addr, offset)
+    PTR_FIELD = lltype.Ptr(rffi.CArray(TYPE))
+    return rffi.cast(PTR_FIELD, addr)[0]
+
+
+@jit.dont_look_inside
+@specialize.arg(0)
+def struct_setfield(TYPE, addr, offset, value):
+    """
+    Read the field of type TYPE at addr+offset.
+    addr is of type rffi.VOIDP, offset is an int.
+    """
+    addr = rffi.ptradd(addr, offset)
+    PTR_FIELD = lltype.Ptr(rffi.CArray(TYPE))
+    rffi.cast(PTR_FIELD, addr)[0] = value

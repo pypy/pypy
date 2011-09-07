@@ -1,5 +1,6 @@
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib import clibffi
+from pypy.rlib import libffi
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -104,10 +105,7 @@ class W__StructInstance(Wrappable):
         assert w_ffitype is app_types.slong # XXX: handle all cases
         FIELD_TYPE  = rffi.LONG
         #
-        addr = rffi.ptradd(self.rawmem, offset)
-        PTR_FIELD = lltype.Ptr(rffi.CArray(FIELD_TYPE))
-        value = rffi.cast(PTR_FIELD, addr)[0]
-        #
+        value = libffi.struct_getfield(FIELD_TYPE, self.rawmem, offset)
         return space.wrap(value)
 
     @unwrap_spec(name=str)
@@ -117,9 +115,7 @@ class W__StructInstance(Wrappable):
         FIELD_TYPE  = rffi.LONG
         value = space.int_w(w_value)
         #
-        addr = rffi.ptradd(self.rawmem, offset)
-        PTR_FIELD = lltype.Ptr(rffi.CArray(FIELD_TYPE))
-        rffi.cast(PTR_FIELD, addr)[0] = value
+        libffi.struct_setfield(FIELD_TYPE, self.rawmem, offset, value)
 
 
 
