@@ -46,7 +46,7 @@ class W__StructDescr(Wrappable):
     def allocate(self, space):
         return W__StructInstance(self)
 
-    @jit.elidable
+    @jit.elidable_promote()
     def get_type_and_offset_for_field(self, name):
         try:
             w_field = self.name2w_field[name]
