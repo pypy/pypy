@@ -467,7 +467,7 @@ class UnrollOptimizer(Optimization):
         inputargs.append(box)
         box = newresult
         if box in self.optimizer.values:
-            box = self.optimizer.getvalue(box).force_box()
+            box = self.optimizer.values[box].force_box()
         jumpargs.append(box)
         
 

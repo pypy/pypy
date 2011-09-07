@@ -561,7 +561,7 @@ class Optimizer(Optimization):
         for i in range(n):
             arg = op.getarg(i)
             try:
-                value = self.getvalue(arg)
+                value = self.values[arg]
             except KeyError:
                 pass
             else:
