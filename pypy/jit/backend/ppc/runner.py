@@ -12,7 +12,7 @@ from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
 from pypy.jit.backend.x86 import regloc
 from pypy.jit.backend.x86.support import values_array
 from pypy.jit.backend.ppc.ppcgen.ppc_assembler import PPCBuilder
-from pypy.jit.backend.ppc.ppcgen.arch import IS_PPC_32, NONVOLATILES
+from pypy.jit.backend.ppc.ppcgen.arch import IS_PPC_32, WORD, NONVOLATILES
 import sys
 
 from pypy.tool.ansi_print import ansi_log
