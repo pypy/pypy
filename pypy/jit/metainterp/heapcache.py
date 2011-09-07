@@ -1,5 +1,7 @@
-from pypy.jit.metainterp.resoperation import rop
+from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.history import ConstInt
+from pypy.jit.metainterp.resoperation import rop
+
 
 class HeapCache(object):
     def __init__(self):
@@ -21,7 +23,7 @@ class HeapCache(object):
         # cache the length of arrays
         self.length_cache = {}
 
-    def invalidate_caches(self, opnum, descr):
+    def invalidate_caches(self, opnum, descr, argboxes):
         if opnum == rop.SETFIELD_GC:
             return
         if opnum == rop.SETARRAYITEM_GC:
@@ -41,6 +43,20 @@ class HeapCache(object):
                ef == effectinfo.EF_ELIDABLE_CANNOT_RAISE or \
                ef == effectinfo.EF_ELIDABLE_CAN_RAISE:
                 return
+            # A special case for ll_arraycopy, because it is so common, and its
+            # effects are so well defined.
+            elif effectinfo.oopspecindex == EffectInfo.OS_ARRAYCOPY:
+                # The destination box
+                if argboxes[2] in self.new_boxes:
+                    # XXX: no descr here so we invalidate any of them, not just
+                    # of the correct type
+                    for descr, cache in self.heap_array_cache.iteritems():
+                        for idx, cache in cache.iteritems():
+                            for frombox in list(cache):
+                                if frombox not in self.new_boxes:
+                                    del cache[frombox]
+                    return
+
         self.heap_cache.clear()
         self.heap_array_cache.clear()
 

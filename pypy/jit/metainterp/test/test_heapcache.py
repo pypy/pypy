@@ -25,15 +25,17 @@ class FakeEffektinfo(object):
     EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE = 5 #can raise and force virtualizables
     EF_RANDOM_EFFECTS                  = 6 #can do whatever
 
-    def __init__(self, extraeffect):
+    def __init__(self, extraeffect, oopspecindex):
         self.extraeffect = extraeffect
+        self.oopspecindex = oopspecindex
 
 class FakeCallDescr(object):
-    def __init__(self, extraeffect):
+    def __init__(self, extraeffect, oopspecindex=None):
         self.extraeffect = extraeffect
+        self.oopspecindex = oopspecindex
 
     def get_extra_info(self):
-        return FakeEffektinfo(self.extraeffect)
+        return FakeEffektinfo(self.extraeffect, self.oopspecindex)
 
 class TestHeapCache(object):
     def test_known_class_box(self):
@@ -237,25 +239,25 @@ class TestHeapCache(object):
         h.setfield(box1, descr1, box2)
         h.setarrayitem(box1, descr1, index1, box2)
         h.setarrayitem(box1, descr1, index2, box4)
-        h.invalidate_caches(rop.INT_ADD, None)
-        h.invalidate_caches(rop.INT_ADD_OVF, None)
-        h.invalidate_caches(rop.SETFIELD_RAW, None)
-        h.invalidate_caches(rop.SETARRAYITEM_RAW, None)
+        h.invalidate_caches(rop.INT_ADD, None, [])
+        h.invalidate_caches(rop.INT_ADD_OVF, None, [])
+        h.invalidate_caches(rop.SETFIELD_RAW, None, [])
+        h.invalidate_caches(rop.SETARRAYITEM_RAW, None, [])
         assert h.getfield(box1, descr1) is box2
         assert h.getarrayitem(box1, descr1, index1) is box2
         assert h.getarrayitem(box1, descr1, index2) is box4
 
         h.invalidate_caches(
-            rop.CALL, FakeCallDescr(FakeEffektinfo.EF_ELIDABLE_CANNOT_RAISE))
+            rop.CALL, FakeCallDescr(FakeEffektinfo.EF_ELIDABLE_CANNOT_RAISE), [])
         assert h.getfield(box1, descr1) is box2
         assert h.getarrayitem(box1, descr1, index1) is box2
         assert h.getarrayitem(box1, descr1, index2) is box4
 
         h.invalidate_caches(
-            rop.CALL_LOOPINVARIANT, FakeCallDescr(FakeEffektinfo.EF_LOOPINVARIANT))
+            rop.CALL_LOOPINVARIANT, FakeCallDescr(FakeEffektinfo.EF_LOOPINVARIANT), [])
 
         h.invalidate_caches(
-            rop.CALL, FakeCallDescr(FakeEffektinfo.EF_RANDOM_EFFECTS))
+            rop.CALL, FakeCallDescr(FakeEffektinfo.EF_RANDOM_EFFECTS), [])
         assert h.getfield(box1, descr1) is None
         assert h.getarrayitem(box1, descr1, index1) is None
         assert h.getarrayitem(box1, descr1, index2) is None
@@ -294,3 +296,33 @@ class TestHeapCache(object):
 
         h.replace_box(lengthbox1, lengthbox2)
         assert h.arraylen(box4) is lengthbox2
+
+    def test_ll_arraycopy(self):
+        h = HeapCache()
+        h.new_array(box1, lengthbox1)
+        h.setarrayitem(box1, descr1, index1, box2)
+        h.new_array(box2, lengthbox1)
+        # Just need the destination box for this call
+        h.invalidate_caches(
+            rop.CALL,
+            # XXX: hardcoded oopspecindex
+            FakeCallDescr(FakeEffektinfo.EF_CANNOT_RAISE, 1),
+            [None, None, box2, None, None]
+        )
+        assert h.getarrayitem(box1, descr1, index1) is box2
+        h.invalidate_caches(
+            rop.CALL,
+            FakeCallDescr(FakeEffektinfo.EF_CANNOT_RAISE, 1),
+            [None, None, box3, None, None]
+        )
+        assert h.getarrayitem(box1, descr1, index1) is None
+
+        h.setarrayitem(box4, descr1, index1, box2)
+        assert h.getarrayitem(box4, descr1, index1) is box2
+        h.invalidate_caches(
+            rop.CALL,
+            # XXX: hardcoded oopspecindex
+            FakeCallDescr(FakeEffektinfo.EF_CANNOT_RAISE, 1),
+            [None, None, box2, None, None]
+        )
+        assert h.getarrayitem(box4, descr1, index1) is None

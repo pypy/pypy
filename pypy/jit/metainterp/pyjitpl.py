@@ -1676,7 +1676,7 @@ class MetaInterp(object):
         # record the operation
         profiler = self.staticdata.profiler
         profiler.count_ops(opnum, RECORDED_OPS)
-        self.heapcache.invalidate_caches(opnum, descr)
+        self.heapcache.invalidate_caches(opnum, descr, argboxes)
         op = self.history.record(opnum, argboxes, resbox, descr)
         self.attach_debug_info(op)
         return resbox

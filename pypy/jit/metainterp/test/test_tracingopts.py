@@ -558,3 +558,18 @@ class TestLLtype(LLJitMixin):
         res = self.interp_operations(fn, [7])
         assert res == 7 * 3
         self.check_operations_history(arraylen_gc=1)
+
+    def test_arraycopy(self):
+        class Gbl(object):
+            pass
+        g = Gbl()
+        g.a = [0] * 7
+        def fn(n):
+            assert n >= 0
+            a = g.a
+            x = [0] * n
+            x[2] = 21
+            return len(a[:n]) + x[2]
+        res = self.interp_operations(fn, [3])
+        assert res == 24
+        self.check_operations_history(getarrayitem_gc=0)
