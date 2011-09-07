@@ -13,8 +13,9 @@ class W_FFIType(Wrappable):
         self.ffitype = ffitype
         self.w_datashape = w_datashape
         self.w_pointer_to = w_pointer_to
-        if self.is_struct():
-            assert w_datashape is not None
+        ## XXX: re-enable this check when the ffistruct branch is done
+        ## if self.is_struct():
+        ##     assert w_datashape is not None
 
     def descr_deref_pointer(self, space):
         if self.w_pointer_to is None:

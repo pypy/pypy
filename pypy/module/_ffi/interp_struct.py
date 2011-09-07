@@ -35,7 +35,7 @@ class W__StructDescr(Wrappable):
 
     def __init__(self, name, fields_w, ffistruct):
         self.ffistruct = ffistruct
-        self.w_ffitype = W_FFIType('struct %s' % name, ffistruct.ffistruct, 'fixme')
+        self.w_ffitype = W_FFIType('struct %s' % name, ffistruct.ffistruct, None)
         self.fields_w = fields_w
         self.name2w_field = {}
         for w_field in fields_w:
