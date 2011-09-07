@@ -14,15 +14,14 @@ class W_Field(Wrappable):
         self.w_ffitype = w_ffitype
         self.offset = -1
 
-    @staticmethod
-    @unwrap_spec(name=str)
-    def descr_new(space, w_type, name, w_ffitype):
-        w_ffitype = space.interp_w(W_FFIType, w_ffitype)
-        return W_Field(name, w_ffitype)
+@unwrap_spec(name=str)
+def descr_new_field(space, w_type, name, w_ffitype):
+    w_ffitype = space.interp_w(W_FFIType, w_ffitype)
+    return W_Field(name, w_ffitype)
 
 W_Field.typedef = TypeDef(
     'Field',
-    __new__ = interp2app(W_Field.descr_new),
+    __new__ = interp2app(descr_new_field),
     name = interp_attrproperty('name', W_Field),
     ffitype = interp_attrproperty('w_ffitype', W_Field),
     offset = interp_attrproperty('offset', W_Field),
@@ -41,22 +40,6 @@ class W__StructDescr(Wrappable):
         for w_field in fields_w:
             self.name2w_field[w_field.name] = w_field
 
-    @staticmethod
-    @unwrap_spec(name=str)
-    def descr_new(space, w_type, name, w_fields):
-        size = 0
-        alignment = 0 # XXX
-        fields_w = space.fixedview(w_fields)
-        field_types = []
-        for w_field in fields_w:
-            w_field = space.interp_w(W_Field, w_field)
-            w_field.offset = size # XXX: alignment!
-            size += w_field.w_ffitype.sizeof()
-            field_types.append(w_field.w_ffitype.ffitype)
-        #
-        ffistruct = clibffi.make_struct_ffitype_e(size, alignment, field_types)
-        return W__StructDescr(name, fields_w, ffistruct)
-
     def allocate(self, space):
         return W__StructInstance(self)
 
@@ -70,9 +53,26 @@ class W__StructDescr(Wrappable):
             lltype.free(self.ffistruct, flavor='raw')
 
 
+@unwrap_spec(name=str)
+def descr_new_structdescr(space, w_type, name, w_fields):
+    size = 0
+    alignment = 0 # XXX
+    fields_w = space.fixedview(w_fields)
+    field_types = []
+    for w_field in fields_w:
+        w_field = space.interp_w(W_Field, w_field)
+        w_field.offset = size # XXX: alignment!
+        size += w_field.w_ffitype.sizeof()
+        field_types.append(w_field.w_ffitype.ffitype)
+    #
+    ffistruct = clibffi.make_struct_ffitype_e(size, alignment, field_types)
+    return W__StructDescr(name, fields_w, ffistruct)
+
+
+
 W__StructDescr.typedef = TypeDef(
     '_StructDescr',
-    __new__ = interp2app(W__StructDescr.descr_new),
+    __new__ = interp2app(descr_new_structdescr),
     ffitype = interp_attrproperty('w_ffitype', W__StructDescr),
     allocate = interp2app(W__StructDescr.allocate),
     )
