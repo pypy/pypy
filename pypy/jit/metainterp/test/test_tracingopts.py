@@ -450,6 +450,26 @@ class TestLLtype(LLJitMixin):
         assert res == 2 * -7 + 2 * -8
         self.check_operations_history(getfield_gc=0)
 
+    def test_heap_caching_multiple_tuples(self):
+        class Gbl(object):
+            pass
+        g = Gbl()
+        def gn(a1, a2):
+            return a1[0] + a2[0]
+        def fn(n):
+            a1 = (n, )
+            g.a = a1
+            a2 = (n - 1, )
+            g.a = a2
+            jit.promote(n)
+            return a1[0] + a2[0] + gn(a1, a2)
+        res = self.interp_operations(fn, [7])
+        assert res == 2 * 7 + 2 * 6
+        self.check_operations_history(getfield_gc_pure=0)
+        res = self.interp_operations(fn, [-7])
+        assert res == 2 * -7 + 2 * -8
+        self.check_operations_history(getfield_gc_pure=0)
+
     def test_heap_caching_multiple_arrays(self):
         class Gbl(object):
             pass

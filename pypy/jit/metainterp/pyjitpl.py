@@ -367,8 +367,9 @@ class MIFrame(object):
 
     @arguments("descr")
     def opimpl_new(self, sizedescr):
-        # XXX heapcache.new
-        return self.execute_with_descr(rop.NEW, sizedescr)
+        resbox = self.execute_with_descr(rop.NEW, sizedescr)
+        self.metainterp.heapcache.new(resbox)
+        return resbox
 
     @arguments("descr")
     def opimpl_new_with_vtable(self, sizedescr):
@@ -544,6 +545,7 @@ class MIFrame(object):
         if tobox is not None:
             return tobox
         resbox = self.execute_with_descr(opnum, fielddescr, box)
+        # XXX getfield_now_known
         self.metainterp.heapcache.setfield(box, fielddescr, resbox)
         return resbox
 
