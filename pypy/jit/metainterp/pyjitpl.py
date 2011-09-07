@@ -545,8 +545,7 @@ class MIFrame(object):
         if tobox is not None:
             return tobox
         resbox = self.execute_with_descr(opnum, fielddescr, box)
-        # XXX getfield_now_known
-        self.metainterp.heapcache.setfield(box, fielddescr, resbox)
+        self.metainterp.heapcache.getfield_now_known(box, fielddescr, resbox)
         return resbox
 
     @arguments("orgpc", "box", "descr")

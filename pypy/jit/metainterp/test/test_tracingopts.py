@@ -428,27 +428,38 @@ class TestLLtype(LLJitMixin):
         self.check_operations_history(getfield_gc=0)
         return
 
-
     def test_heap_caching_multiple_objects(self):
         class Gbl(object):
             pass
         g = Gbl()
         class A(object):
             pass
+        a1 = A()
+        g.a1 = a1
+        a1.x = 7
+        a2 = A()
+        g.a2 = a2
+        a2.x = 7
+        def gn(a1, a2):
+            return a1.x + a2.x
         def fn(n):
-            a1 = A()
-            g.a = a1
-            a1.x = n
-            a2 = A()
-            g.a = a2
-            a2.x = n - 1
-            return a1.x + a2.x + a1.x + a2.x
-        res = self.interp_operations(fn, [7])
-        assert res == 2 * 7 + 2 * 6
-        self.check_operations_history(getfield_gc=0)
+            if n < 0:
+                a1 = A()
+                g.a1 = a1
+                a1.x = n
+                a2 = A()
+                g.a2 = a2
+                a2.x = n - 1
+            else:
+                a1 = g.a1
+                a2 = g.a2
+            return a1.x + a2.x + gn(a1, a2)
         res = self.interp_operations(fn, [-7])
         assert res == 2 * -7 + 2 * -8
-        self.check_operations_history(getfield_gc=0)
+        self.check_operations_history(setfield_gc=4, getfield_gc=0)
+        res = self.interp_operations(fn, [7])
+        assert res == 4 * 7
+        self.check_operations_history(getfield_gc=4)
 
     def test_heap_caching_multiple_tuples(self):
         class Gbl(object):
