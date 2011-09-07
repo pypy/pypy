@@ -1,6 +1,7 @@
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib import clibffi
 from pypy.rlib import libffi
+from pypy.rlib import jit
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -45,7 +46,7 @@ class W__StructDescr(Wrappable):
     def allocate(self, space):
         return W__StructInstance(self)
 
-    #@jit.elidable...
+    @jit.elidable
     def get_type_and_offset_for_field(self, name):
         try:
             w_field = self.name2w_field[name]
