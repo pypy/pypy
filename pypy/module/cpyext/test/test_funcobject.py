@@ -36,6 +36,14 @@ class TestFunctionObject(BaseApiTest):
         w_method2 = api.PyMethod_New(w_function, w_self, w_class)
         assert space.eq_w(w_method, w_method2)
 
+    def test_getcode(self, space, api):
+        w_function = space.appexec([], """():
+            def func(x): return x
+            return func
+        """)
+        w_code = api.PyFunction_GetCode(w_function)
+        assert w_code.co_name == "func"
+
     def test_newcode(self, space, api):
         filename = rffi.str2charp('filename')
         funcname = rffi.str2charp('funcname')

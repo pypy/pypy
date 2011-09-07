@@ -40,6 +40,13 @@ def function_dealloc(space, py_obj):
     from pypy.module.cpyext.object import PyObject_dealloc
     PyObject_dealloc(space, py_obj)
 
+@cpython_api([PyObject], PyObject)
+def PyFunction_GetCode(space, w_func):
+    """Return the code object associated with the function object op."""
+    func = space.interp_w(Function, w_func)
+    w_code = space.wrap(func.code)
+    return borrow_from(w_func, w_code)
+
 @cpython_api([PyObject, PyObject, PyObject], PyObject)
 def PyMethod_New(space, w_func, w_self, w_cls):
     """Return a new method object, with func being any callable object; this is the
