@@ -58,3 +58,15 @@ class AppTestStruct(BaseAppTestFFI):
         assert struct.getfield('y') == 43
         mem = self.read_raw_mem(struct.getaddr(), 'c_long', 2)
         assert mem == [42, 43]
+
+    def test_missing_field(self):
+        from _ffi import _StructDescr, Field, types
+        longsize = types.slong.sizeof()
+        fields = [
+            Field('x', types.slong),
+            Field('y', types.slong),
+            ]
+        descr = _StructDescr('foo', fields)
+        struct = descr.allocate()
+        raises(AttributeError, "struct.getfield('missing')")
+        raises(AttributeError, "struct.setfield('missing', 42)")

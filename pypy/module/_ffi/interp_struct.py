@@ -4,6 +4,7 @@ from pypy.rlib import libffi
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.error import operationerrfmt
 from pypy.objspace.std.typetype import type_typedef
 from pypy.module._ffi.interp_ffitype import W_FFIType, app_types
 
@@ -32,7 +33,8 @@ W_Field.typedef = TypeDef(
 
 class W__StructDescr(Wrappable):
 
-    def __init__(self, name, fields_w, ffistruct):
+    def __init__(self, space, name, fields_w, ffistruct):
+        self.space = space
         self.ffistruct = ffistruct
         self.w_ffitype = W_FFIType('struct %s' % name, ffistruct.ffistruct, None)
         self.fields_w = fields_w
@@ -45,7 +47,11 @@ class W__StructDescr(Wrappable):
 
     #@jit.elidable...
     def get_type_and_offset_for_field(self, name):
-        w_field = self.name2w_field[name]
+        try:
+            w_field = self.name2w_field[name]
+        except KeyError:
+            raise operationerrfmt(self.space.w_AttributeError, '%s', name)
+
         return w_field.w_ffitype, w_field.offset
 
     def __del__(self):
