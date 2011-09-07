@@ -406,6 +406,11 @@ class MIFrame(object):
         tobox = self.metainterp.heapcache.getarrayitem(
                 arraybox, arraydescr, indexbox)
         if tobox:
+            # sanity check: see whether the current array value
+            # corresponds to what the cache thinks the value is
+            resbox = executor.execute(self.metainterp.cpu, self.metainterp,
+                                      rop.GETARRAYITEM_GC, arraydescr, arraybox, indexbox)
+            assert resbox.constbox().same_constant(tobox.constbox())
             return tobox
         resbox = self.execute_with_descr(rop.GETARRAYITEM_GC,
                                          arraydescr, arraybox, indexbox)
@@ -541,6 +546,10 @@ class MIFrame(object):
     def _opimpl_getfield_gc_any_pureornot(self, opnum, box, fielddescr):
         tobox = self.metainterp.heapcache.getfield(box, fielddescr)
         if tobox is not None:
+            # sanity check: see whether the current struct value
+            # corresponds to what the cache thinks the value is
+            resbox = executor.execute(self.metainterp.cpu, self.metainterp,
+                                      rop.GETFIELD_GC, fielddescr, box)
             return tobox
         resbox = self.execute_with_descr(opnum, fielddescr, box)
         self.metainterp.heapcache.getfield_now_known(box, fielddescr, resbox)
