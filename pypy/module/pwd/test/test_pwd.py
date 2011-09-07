@@ -5,14 +5,17 @@ class AppTestPwd:
         cls.space = gettestobjspace(usemodules=['pwd'])
 
     def test_getpwuid(self):
-        import pwd
+        import pwd, sys
         raises(KeyError, pwd.getpwuid, -1)
         pw = pwd.getpwuid(0)
         assert pw.pw_name == 'root'
         assert isinstance(pw.pw_passwd, str)
         assert pw.pw_uid == 0
         assert pw.pw_gid == 0
-        assert pw.pw_dir == '/root'
+        if sys.platform.startswith('linux'):
+            assert pw.pw_dir == '/root'
+        else:
+            assert pw.pw_dir.startswith('/')
         assert pw.pw_shell.startswith('/')
         #
         assert type(pw.pw_uid) is int
