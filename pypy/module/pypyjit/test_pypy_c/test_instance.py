@@ -142,6 +142,7 @@ class TestInstance(BaseTestPyPyC):
             i = 0
             b = B(1)
             while i < 100:
+                b.x
                 v = b.x # ID: loadattr
                 i += v
             return i
@@ -150,8 +151,6 @@ class TestInstance(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('loadattr',
         '''
-        guard_not_invalidated(descr=...)
-        i16 = arraylen_gc(p10, descr=<GcPtrArrayDescr>)
         i19 = call(ConstClass(ll_dict_lookup), _, _, _, descr=...)
         guard_no_exception(descr=...)
         i21 = int_and(i19, _)

@@ -25,7 +25,7 @@ class CachedField(object):
         #      'cached_fields'.
         #
         self._cached_fields = {}
-        self._cached_fields_getfield_op = {}        
+        self._cached_fields_getfield_op = {}
         self._lazy_setfield = None
         self._lazy_setfield_registered = False
 
@@ -81,7 +81,7 @@ class CachedField(object):
     def remember_field_value(self, structvalue, fieldvalue, getfield_op=None):
         assert self._lazy_setfield is None
         self._cached_fields[structvalue] = fieldvalue
-        self._cached_fields_getfield_op[structvalue] = getfield_op        
+        self._cached_fields_getfield_op[structvalue] = getfield_op
 
     def force_lazy_setfield(self, optheap, can_cache=True):
         op = self._lazy_setfield
@@ -167,7 +167,7 @@ class OptHeap(Optimization):
 
     def new(self):
         return OptHeap()
-        
+
     def produce_potential_short_preamble_ops(self, sb):
         descrkeys = self.cached_fields.keys()
         if not we_are_translated():

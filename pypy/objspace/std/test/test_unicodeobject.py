@@ -780,8 +780,22 @@ class AppTestUnicodeString:
         assert type(s) is unicode
         assert s == u'\u1234'
 
+        # now the same with a new-style class...
+        class A(object):
+            def __init__(self, num):
+                self.num = num
+            def __str__(self):
+                return unichr(self.num)
+
+        s = '%s' % A(111)    # this is ASCII
+        assert type(s) is unicode
+        assert s == chr(111)
+
+        s = '%s' % A(0x1234)    # this is not ASCII
+        assert type(s) is unicode
+        assert s == u'\u1234'
+
     def test_formatting_unicode__str__2(self):
-        skip("this is completely insane")
         class A:
             def __str__(self):
                 return u'baz'
@@ -798,8 +812,21 @@ class AppTestUnicodeString:
         s = '%s %s' % (a, b)
         assert s == u'baz bar'
 
+        skip("but this case here is completely insane")
         s = '%s %s' % (b, a)
         assert s == u'foo baz'
+
+    def test_formatting_unicode__str__3(self):
+        # "bah" is all I can say
+        class X(object):
+            def __repr__(self):
+                return u'\u1234'
+        '%s' % X()
+        #
+        class X(object):
+            def __str__(self):
+                return u'\u1234'
+        '%s' % X()
 
     def test_str_subclass(self):
         class Foo9(str):

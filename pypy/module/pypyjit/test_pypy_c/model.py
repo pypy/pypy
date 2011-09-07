@@ -2,7 +2,10 @@ import py
 import sys
 import re
 import os.path
-from _pytest.assertion import newinterpret
+try:
+    from _pytest.assertion import newinterpret
+except ImportError:   # e.g. Python 2.5
+    newinterpret = None
 from pypy.tool.jitlogparser.parser import SimpleParser, Function, TraceForOpcode
 from pypy.tool.jitlogparser.storage import LoopStorage
 
@@ -196,7 +199,7 @@ class InvalidMatch(Exception):
                     source = str(source.deindent()).strip()
         except py.error.ENOENT:
             source = None
-        if source and source.startswith('self._assert('):
+        if source and source.startswith('self._assert(') and newinterpret:
             # transform self._assert(x, 'foo') into assert x, 'foo'
             source = source.replace('self._assert(', 'assert ')
             source = source[:-1] # remove the trailing ')'

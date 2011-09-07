@@ -281,11 +281,11 @@ def test_getpaths():
 
 def test_underscore_in_option_name():
     descr = OptionDescription("opt", "", [
-        BoolOption("_stackless", "", default=False),
+        BoolOption("_foobar", "", default=False),
     ])
     config = Config(descr)
     parser = to_optparse(config)
-    assert parser.has_option("--_stackless")
+    assert parser.has_option("--_foobar")
 
 def test_none():
     dummy1 = BoolOption('dummy1', 'doc dummy', default=False, cmdline=None)
