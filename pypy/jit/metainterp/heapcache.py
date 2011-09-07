@@ -47,7 +47,7 @@ class HeapCache(object):
     def is_class_known(self, box):
         return box in self.known_class_boxes
 
-    def class_now_know(self, box):
+    def class_now_known(self, box):
         self.known_class_boxes[box] = None
 
     def is_nonstandard_virtualizable(self, box):

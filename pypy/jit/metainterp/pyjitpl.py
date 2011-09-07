@@ -375,7 +375,7 @@ class MIFrame(object):
         cls = heaptracker.descr2vtable(cpu, sizedescr)
         resbox = self.execute(rop.NEW_WITH_VTABLE, ConstInt(cls))
         self.metainterp.heapcache.new(resbox)
-        self.metainterp.heapcache.class_now_know(resbox)
+        self.metainterp.heapcache.class_now_known(resbox)
         return resbox
 
 ##    @FixME  #arguments("box")
@@ -884,7 +884,7 @@ class MIFrame(object):
         clsbox = self.cls_of_box(box)
         if not self.metainterp.heapcache.is_class_known(box):
             self.generate_guard(rop.GUARD_CLASS, box, [clsbox], resumepc=orgpc)
-            self.metainterp.heapcache.class_now_know(box)
+            self.metainterp.heapcache.class_now_known(box)
         return clsbox
 
     @arguments("int", "orgpc")

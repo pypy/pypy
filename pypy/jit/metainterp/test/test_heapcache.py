@@ -40,7 +40,7 @@ class TestHeapCache(object):
         h = HeapCache()
         assert not h.is_class_known(1)
         assert not h.is_class_known(2)
-        h.class_now_know(1)
+        h.class_now_known(1)
         assert h.is_class_known(1)
         assert not h.is_class_known(2)
 
