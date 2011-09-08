@@ -319,7 +319,7 @@ class TestNumpyJIt(LLJitMixin):
             while i < n:
                 ar.get_concrete().setitem(i, uint64_dtype.box(7))
                 i += 1
-            v = ar.descr_add(space, ar).descr_sum(space)
+            v = ar.descr_mod(space, ar).descr_sum(space)
             assert isinstance(v, IntObject)
             return v.intval
 
