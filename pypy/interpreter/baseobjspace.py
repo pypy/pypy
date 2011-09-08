@@ -8,13 +8,13 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache
 from pypy.tool.uid import HUGEVAL_BYTES
-from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated, newlist
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.timer import DummyTimer, Timer
 from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib import jit
 from pypy.tool.sourcetools import func_with_new_name
-import os, sys, py
+import os, sys
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root']
 
@@ -757,7 +757,15 @@ class ObjSpace(object):
         w_iterator = self.iter(w_iterable)
         # If we know the expected length we can preallocate.
         if expected_length == -1:
-            items = []
+            try:
+                lgt_estimate = self.int_w(self.len(w_iterable))
+            except OperationError:
+                items = []
+            else:
+                try:
+                    items = newlist(lgt_estimate)
+                except MemoryError:
+                    items = [] # it might have lied
         else:
             items = [None] * expected_length
         idx = 0
