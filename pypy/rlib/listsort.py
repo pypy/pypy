@@ -7,10 +7,6 @@ from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift
 ## ------------------------------------------------------------------------
 ##         Adapted from CPython, original code and algorithms by Tim Peters
 
-## CAREFUL:
-## this class has to be used carefully, because all the lists that are
-## sorted will be unified
-
 def make_timsort_class():
 
     class TimSort:
@@ -181,7 +177,7 @@ def make_timsort_class():
             # Now a[lastofs] < key <= a[ofs], so key belongs somewhere to the
             # right of lastofs but no farther right than ofs.  Do a binary
             # search, with invariant a[lastofs-1] < key <= a[ofs].
-            
+
             lastofs += 1
             while lastofs < ofs:
                 m = lastofs + ((ofs - lastofs) >> 1)
@@ -594,5 +590,6 @@ def make_timsort_class():
                 list[lo], list[hi] = list[hi], list[lo]
                 lo += 1
                 hi -= 1
-
     return TimSort
+
+TimSort = make_timsort_class() #backward compatible interface

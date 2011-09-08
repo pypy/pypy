@@ -46,9 +46,6 @@ class FunctionCodeGenerator(object):
         self.gcpolicy = db.gcpolicy
         self.exception_policy = exception_policy
         self.functionname = functionname
-        # apply the stackless transformation
-        if db.stacklesstransformer:
-            db.stacklesstransformer.transform_graph(graph)
         # apply the exception transformation
         if self.db.exctransformer:
             self.db.exctransformer.create_exception_handling(self.graph)
@@ -822,6 +819,11 @@ class FunctionCodeGenerator(object):
             result += '\n%s = (%s)0;' % (self.expr(op.result),
                                          cdecl(typename, ''))
         return result
+
+    def OP_DEBUG_NONNULL_POINTER(self, op):
+        expr = self.expr(op.args[0])
+        return 'if ((-8192 <= (long)%s) && (((long)%s) < 8192)) abort();' % (
+            expr, expr)
 
     def OP_INSTRUMENT_COUNT(self, op):
         counter_label = op.args[1].value

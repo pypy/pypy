@@ -1,9 +1,7 @@
-import math
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.error import (
-    OperationError, operationerrfmt, wrap_oserror)
+from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.rlib import rpoll
 import errno
 
@@ -122,7 +120,7 @@ On Windows, only sockets are supported; on Unix, all file descriptors.
         w_errortype = space.fromcache(Cache).w_error
         raise OperationError(w_errortype, space.newtuple([
             space.wrap(s.errno), space.wrap(s.get_msg())]))
-    
+
     return space.newtuple([
         space.newlist([iwtd_d[i] for i in iwtd]),
         space.newlist([owtd_d[i] for i in owtd]),

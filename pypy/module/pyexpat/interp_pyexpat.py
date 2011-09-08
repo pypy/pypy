@@ -9,6 +9,7 @@ from pypy.rlib.unroll import unrolling_iterable
 
 from pypy.rpython.tool import rffi_platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.translator.platform import platform
 
 import sys
 import py
@@ -19,7 +20,9 @@ else:
     libname = 'expat'
 eci = ExternalCompilationInfo(
     libraries=[libname],
+    library_dirs=platform.preprocess_library_dirs([]),
     includes=['expat.h'],
+    include_dirs=platform.preprocess_include_dirs([]),
     )
 
 eci = rffi_platform.configure_external_library(
@@ -317,7 +320,7 @@ XML_ParserCreate = expat_external(
 XML_ParserCreateNS = expat_external(
     'XML_ParserCreateNS', [rffi.CCHARP, rffi.CHAR], XML_Parser)
 XML_ParserFree = expat_external(
-    'XML_ParserFree', [XML_Parser], lltype.Void)
+    'XML_ParserFree', [XML_Parser], lltype.Void, threadsafe=False)
 XML_SetUserData = expat_external(
     'XML_SetUserData', [XML_Parser, rffi.VOIDP], lltype.Void)
 def XML_GetUserData(parser):

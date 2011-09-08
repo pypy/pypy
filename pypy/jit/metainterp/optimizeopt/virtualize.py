@@ -1,11 +1,12 @@
-from pypy.jit.metainterp.history import Const, ConstInt, BoxInt
-from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
-from pypy.jit.metainterp.optimizeopt.util import descrlist_dict, sort_descrs
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.jit.metainterp.optimizeopt import optimizer
-from pypy.jit.metainterp.executor import execute
 from pypy.jit.codewriter.heaptracker import vtable2descr
+from pypy.jit.metainterp.executor import execute
+from pypy.jit.metainterp.history import Const, ConstInt, BoxInt
+from pypy.jit.metainterp.optimizeopt import optimizer
+from pypy.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
+    descrlist_dict, sort_descrs)
+from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.rlib.objectmodel import we_are_translated
+from pypy.jit.metainterp.optimizeopt.optimizer import OptValue
 
 
 class AbstractVirtualValue(optimizer.OptValue):
@@ -34,6 +35,12 @@ class AbstractVirtualValue(optimizer.OptValue):
             self._really_force()
         return self.box
 
+    def force_at_end_of_preamble(self, already_forced):
+        value = already_forced.get(self, None)
+        if value:
+            return value
+        return OptValue(self.force_box())
+
     def make_virtual_info(self, modifier, fieldnums):
         if fieldnums is None:
             return self._make_virtual(modifier)
@@ -51,9 +58,9 @@ class AbstractVirtualValue(optimizer.OptValue):
     def _really_force(self):
         raise NotImplementedError("abstract base")
 
-    def reconstruct_for_next_iteration(self, _optimizer):
-        return optimizer.OptValue(self.force_box())
-
+    def import_from(self, other, optimizer):
+        raise NotImplementedError("should not be called at this level")
+    
 def get_fielddescrlist_cache(cpu):
     if not hasattr(cpu, '_optimizeopt_fielddescrlist_cache'):
         result = descrlist_dict()
@@ -89,6 +96,15 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
             if not isinstance(subbox, Const):
                 return False
         return True
+
+    def force_at_end_of_preamble(self, already_forced):
+        if self in already_forced:
+            return self
+        already_forced[self] = self
+        if self._fields:
+            for ofs in self._fields.keys():
+                self._fields[ofs] = self._fields[ofs].force_at_end_of_preamble(already_forced)
+        return self
 
     def _really_force(self):
         op = self.source_op
@@ -161,30 +177,6 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
                 fieldvalue = self._fields[ofs]
                 fieldvalue.get_args_for_fail(modifier)
 
-    def enum_forced_boxes(self, boxes, already_seen):
-        key = self.get_key_box()
-        if key in already_seen:
-            return
-        already_seen[key] = None
-        if self.box is None:
-            lst = self._get_field_descr_list()
-            for ofs in lst:
-                self._fields[ofs].enum_forced_boxes(boxes, already_seen)
-        else:
-            boxes.append(self.box)
-
-    def reconstruct_for_next_iteration(self, optimizer):
-        self.optimizer = optimizer
-        return self
-
-    def reconstruct_childs(self, new, valuemap):
-        assert isinstance(new, AbstractVirtualStructValue)
-        if new.box is None:
-            lst = self._get_field_descr_list()
-            for ofs in lst:
-                new._fields[ofs] = \
-                      self._fields[ofs].get_reconstructed(new.optimizer, valuemap)
-
 class VirtualValue(AbstractVirtualStructValue):
     level = optimizer.LEVEL_KNOWNCLASS
 
@@ -220,6 +212,7 @@ class VStructValue(AbstractVirtualStructValue):
     def _get_descr(self):
         return self.structdescr
 
+
 class VArrayValue(AbstractVirtualValue):
 
     def __init__(self, optimizer, arraydescr, size, keybox, source_op=None):
@@ -239,6 +232,14 @@ class VArrayValue(AbstractVirtualValue):
         assert isinstance(itemvalue, optimizer.OptValue)
         self._items[index] = itemvalue
 
+    def force_at_end_of_preamble(self, already_forced):
+        if self in already_forced:
+            return self
+        already_forced[self] = self
+        for index in range(len(self._items)):
+            self._items[index] = self._items[index].force_at_end_of_preamble(already_forced)
+        return self
+    
     def _really_force(self):
         assert self.source_op is not None
         if not we_are_translated():
@@ -271,34 +272,12 @@ class VArrayValue(AbstractVirtualValue):
     def _make_virtual(self, modifier):
         return modifier.make_varray(self.arraydescr)
 
-    def enum_forced_boxes(self, boxes, already_seen):
-        key = self.get_key_box()
-        if key in already_seen:
-            return
-        already_seen[key] = None
-        if self.box is None:
-            for itemvalue in self._items:
-                itemvalue.enum_forced_boxes(boxes, already_seen)
-        else:
-            boxes.append(self.box)
-
-    def reconstruct_for_next_iteration(self, optimizer):
-        self.optimizer = optimizer
-        return self
-
-    def reconstruct_childs(self, new, valuemap):
-        assert isinstance(new, VArrayValue)
-        if new.box is None:
-            for i in range(len(self._items)):
-                new._items[i] = self._items[i].get_reconstructed(new.optimizer,
-                                                                 valuemap)
-
 class OptVirtualize(optimizer.Optimization):
     "Virtualize objects until they escape."
 
-    def reconstruct_for_next_iteration(self, optimizer, valuemap):
-        return self
-
+    def new(self):
+        return OptVirtualize()
+        
     def make_virtual(self, known_class, box, source_op=None):
         vvalue = VirtualValue(self.optimizer, known_class, box, source_op)
         self.make_equal_to(box, vvalue)

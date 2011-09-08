@@ -1175,6 +1175,7 @@ class KeyContainer(baseobjspace.W_Root):
         self.w_key = w_key
         self.w_item = w_item
 
+TimSort = make_timsort_class()
 # NOTE: all the subclasses of TimSort should inherit from a common subclass,
 #       so make sure that only SimpleSort inherits directly from TimSort.
 #       This is necessary to hide the parent method TimSort.lt() from the

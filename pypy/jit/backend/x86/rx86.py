@@ -464,7 +464,7 @@ class AbstractX86CodeBuilder(object):
 
     # ------------------------------ MOV ------------------------------
 
-    MOV_ri = insn(rex_w, register(1), '\xB8', immediate(2, 'q'))
+    MOV_ri = insn(register(1), '\xB8', immediate(2))
     MOV8_ri = insn(rex_fw, byte_register(1), '\xB0', immediate(2, 'b'))
 
     # ------------------------------ Arithmetic ------------------------------
@@ -496,6 +496,10 @@ class AbstractX86CodeBuilder(object):
     AND8_rr = insn(rex_fw, '\x20', byte_register(1), byte_register(2,8), '\xC0')
 
     OR8_rr = insn(rex_fw, '\x08', byte_register(1), byte_register(2,8), '\xC0')
+    OR8_mi = insn(rex_fw, '\x80', orbyte(1<<3), mem_reg_plus_const(1),
+                  immediate(2, 'b'))
+    OR8_ji = insn(rex_fw, '\x80', orbyte(1<<3), abs_, immediate(1),
+                  immediate(2, 'b'))
 
     NEG_r = insn(rex_w, '\xF7', register(1), '\xD8')
 
@@ -523,6 +527,7 @@ class AbstractX86CodeBuilder(object):
 
     NOP = insn('\x90')
     RET = insn('\xC3')
+    RET16_i = insn('\xC2', immediate(1, 'h'))
 
     PUSH_r = insn(rex_nw, register(1), '\x50')
     PUSH_b = insn(rex_nw, '\xFF', orbyte(6<<3), stack_bp(1))
@@ -565,8 +570,12 @@ class AbstractX86CodeBuilder(object):
     TEST8_ji = insn(rex_nw, '\xF6', orbyte(0<<3), abs_, immediate(1), immediate(2, 'b'))
     TEST_rr = insn(rex_w, '\x85', register(2,8), register(1), '\xC0')
 
+    BTS_mr = insn(rex_w, '\x0F\xAB', register(2,8), mem_reg_plus_const(1))
+    BTS_jr = insn(rex_w, '\x0F\xAB', register(2,8), abs_, immediate(1))
+
     # x87 instructions
-    FSTP_b = insn('\xDD', orbyte(3<<3), stack_bp(1))
+    FSTPL_b = insn('\xDD', orbyte(3<<3), stack_bp(1)) # rffi.DOUBLE ('as' wants L??)
+    FSTPS_s = insn('\xD9', orbyte(3<<3), stack_sp(1)) # lltype.SingleFloat
 
     # ------------------------------ Random mess -----------------------
     RDTSC = insn('\x0F\x31')
@@ -583,8 +592,18 @@ class AbstractX86CodeBuilder(object):
     CVTTSD2SI_rx = xmminsn('\xF2', rex_w, '\x0F\x2C', register(1, 8), register(2), '\xC0')
     CVTTSD2SI_rb = xmminsn('\xF2', rex_w, '\x0F\x2C', register(1, 8), stack_bp(2))
 
-    MOVD_rx = xmminsn('\x66', rex_w, '\x0F\x7E', register(2, 8), register(1), '\xC0')
-    MOVD_xr = xmminsn('\x66', rex_w, '\x0F\x6E', register(1, 8), register(2), '\xC0')
+    CVTSD2SS_xx = xmminsn('\xF2', rex_nw, '\x0F\x5A',
+                          register(1, 8), register(2), '\xC0')
+    CVTSD2SS_xb = xmminsn('\xF2', rex_nw, '\x0F\x5A',
+                          register(1, 8), stack_bp(2))
+    CVTSS2SD_xx = xmminsn('\xF3', rex_nw, '\x0F\x5A',
+                          register(1, 8), register(2), '\xC0')
+    CVTSS2SD_xb = xmminsn('\xF3', rex_nw, '\x0F\x5A',
+                          register(1, 8), stack_bp(2))
+
+    MOVD_rx = xmminsn('\x66', rex_nw, '\x0F\x7E', register(2, 8), register(1), '\xC0')
+    MOVD_xr = xmminsn('\x66', rex_nw, '\x0F\x6E', register(1, 8), register(2), '\xC0')
+    MOVD_xb = xmminsn('\x66', rex_nw, '\x0F\x6E', register(1, 8), stack_bp(2))
 
     PSRAD_xi = xmminsn('\x66', rex_nw, '\x0F\x72', register(1), '\xE0', immediate(2, 'b'))
 
@@ -632,16 +651,20 @@ class X86_64_CodeBuilder(AbstractX86CodeBuilder):
 
     CQO = insn(rex_w, '\x99')
 
-    # MOV_ri from the parent class is not wrong, but here is a better encoding
-    # for the common case where the immediate fits in 32 bits
+    # Three different encodings... following what gcc does.  From the
+    # shortest encoding to the longest one.
+    MOV_riu32 = insn(rex_nw, register(1), '\xB8', immediate(2, 'i'))
     MOV_ri32 = insn(rex_w, '\xC7', register(1), '\xC0', immediate(2, 'i'))
-    MOV_ri64 = AbstractX86CodeBuilder.MOV_ri
+    MOV_ri64 = insn(rex_w, register(1), '\xB8', immediate(2, 'q'))
 
     def MOV_ri(self, reg, immed):
-        if fits_in_32bits(immed):
+        if 0 <= immed <= 4294967295:
+            immed = intmask(rffi.cast(rffi.INT, immed))
+            self.MOV_riu32(reg, immed)
+        elif fits_in_32bits(immed):    # for negative values that fit in 32 bit
             self.MOV_ri32(reg, immed)
         else:
-            AbstractX86CodeBuilder.MOV_ri(self, reg, immed)
+            self.MOV_ri64(reg, immed)
 
 def define_modrm_modes(insnname_template, before_modrm, after_modrm=[], regtype='GPR'):
     def add_insn(code, *modrm):

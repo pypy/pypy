@@ -102,7 +102,6 @@ class AppTestCodecs:
     
     def test_indexerror(self):
         test =   "\\"     # trailing backslash
-             
         raises (ValueError, test.decode,'string-escape')
 
     def test_charmap_decode(self):
@@ -291,6 +290,10 @@ class AppTestPartialEvaluation:
         assert '\\01'.decode('string_escape') == chr(01)
         assert '\\0f'.decode('string_escape') == chr(0) + 'f'
         assert '\\08'.decode('string_escape') == chr(0) + '8'
+
+    def test_escape_encode(self):
+        assert '"'.encode('string_escape') == '"'
+        assert "'".encode('string_escape') == "\\'"
 
     def test_decode_utf8_different_case(self):
         constant = u"a"

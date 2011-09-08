@@ -57,6 +57,12 @@ def from_opaque_string(s):
     else:
         return LLSupport.from_rstr(s)
 
+FLOAT_ARRAY_TP = lltype.Ptr(lltype.Array(lltype.Float, hints={"nolength": True}))
+def maybe_uncast(TP, array):
+    if array._TYPE.TO._hints.get("uncast_on_llgraph"):
+        array = rffi.cast(TP, array)
+    return array
+
 # a list of argtypes of all operations - couldn't find any and it's
 # very useful.  Note however that the table is half-broken here and
 # there, in ways that are sometimes a bit hard to fix; that's why
@@ -1071,13 +1077,15 @@ def cast_to_int(x):
         return heaptracker.adr2int(llmemory.cast_ptr_to_adr(x))
     if TP == llmemory.Address:
         return heaptracker.adr2int(x)
+    if TP is lltype.SingleFloat:
+        return longlong.singlefloat2int(x)
     return lltype.cast_primitive(lltype.Signed, x)
 
 def cast_from_int(TYPE, x):
     if isinstance(TYPE, lltype.Ptr):
         if isinstance(x, (int, long, llmemory.AddressAsInt)):
             x = llmemory.cast_int_to_adr(x)
-        if TYPE is rffi.VOIDP:
+        if TYPE is rffi.VOIDP or TYPE.TO._hints.get("uncast_on_llgraph"):
             # assume that we want a "C-style" cast, without typechecking the value
             return rffi.cast(TYPE, x)
         return llmemory.cast_adr_to_ptr(x, TYPE)
@@ -1086,6 +1094,9 @@ def cast_from_int(TYPE, x):
             x = llmemory.cast_int_to_adr(x)
         assert lltype.typeOf(x) == llmemory.Address
         return x
+    elif TYPE is lltype.SingleFloat:
+        assert lltype.typeOf(x) is lltype.Signed
+        return longlong.int2singlefloat(x)
     else:
         if lltype.typeOf(x) == llmemory.Address:
             x = heaptracker.adr2int(x)
@@ -1140,6 +1151,7 @@ def frame_clear(frame, loop):
     del _future_values[:]
 
 def set_future_value_int(index, value):
+    assert lltype.typeOf(value) is lltype.Signed
     set_future_value_ref(index, value)
 
 def set_future_value_float(index, value):
@@ -1323,8 +1335,8 @@ def do_getarrayitem_gc_float(array, index):
     return cast_to_floatstorage(array.getitem(index))
 
 def do_getarrayitem_raw_float(array, index):
-    array = array.adr.ptr._obj
-    return cast_to_floatstorage(array.getitem(index))
+    array = maybe_uncast(FLOAT_ARRAY_TP, array.adr.ptr)
+    return cast_to_floatstorage(array._obj.getitem(index))
 
 def do_getarrayitem_gc_ptr(array, index):
     array = array._obj.container
@@ -1386,8 +1398,9 @@ def do_setarrayitem_gc_float(array, index, newvalue):
     newvalue = cast_from_floatstorage(ITEMTYPE, newvalue)
     array.setitem(index, newvalue)
 
+
 def do_setarrayitem_raw_float(array, index, newvalue):
-    array = array.adr.ptr
+    array = maybe_uncast(FLOAT_ARRAY_TP, array.adr.ptr)
     ITEMTYPE = lltype.typeOf(array).TO.OF
     newvalue = cast_from_floatstorage(ITEMTYPE, newvalue)
     array._obj.setitem(index, newvalue)
@@ -1488,6 +1501,7 @@ kind2TYPE = {
     'i': lltype.Signed,
     'f': lltype.Float,
     'L': lltype.SignedLongLong,
+    'S': lltype.SingleFloat,
     'v': lltype.Void,
     }
 

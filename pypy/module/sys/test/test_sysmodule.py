@@ -1,6 +1,6 @@
 # -*- coding: iso-8859-1 -*-
 import autopath
-from pypy.conftest import option
+from pypy.conftest import option, gettestobjspace
 from py.test import raises
 from pypy.interpreter.gateway import app2interp_temp
 import sys
@@ -476,7 +476,7 @@ class AppTestSysModulePortedFromCPython:
         assert isinstance(vi[0], int)
         assert isinstance(vi[1], int)
         assert isinstance(vi[2], int)
-        assert vi[3] in ("alpha", "beta", "candidate", "final")
+        assert vi[3] in ("alpha", "beta", "candidate", "dev", "final")
         assert isinstance(vi[4], int)
 
     def test_allattributes(self):
@@ -524,3 +524,51 @@ class AppTestSysModulePortedFromCPython:
         # If this ever actually becomes a compilation option this test should
         # be changed.
         assert sys.float_repr_style == "short"
+
+class AppTestCurrentFrames:
+
+    def test_current_frames(self):
+        try:
+            import thread
+        except ImportError:
+            pass
+        else:
+            skip('This test requires an intepreter without threads')
+        import sys
+
+        def f():
+            return sys._current_frames()
+        frames = f()
+        assert frames.keys() == [0]
+        assert frames[0].f_code.co_name == 'f'
+
+class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
+    def setup_class(cls):
+        cls.space = gettestobjspace(usemodules=('thread',))
+
+    def test_current_frames(self):
+        import sys
+        import time
+        import thread
+
+        thread_id = thread.get_ident()
+        self.ready = False
+        def other_thread():
+            self.ready = True
+            print "thread started"
+            time.sleep(5)
+        thread.start_new_thread(other_thread, ())
+
+        def f():
+            for i in range(100):
+                if self.ready: break
+                time.sleep(0.1)
+            return sys._current_frames()
+        
+        frames = f()
+        thisframe = frames.pop(thread_id)
+        assert thisframe.f_code.co_name == 'f'
+
+        assert len(frames) == 1
+        _, other_frame = frames.popitem()
+        assert other_frame.f_code.co_name == 'other_thread'

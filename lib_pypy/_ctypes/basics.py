@@ -48,12 +48,14 @@ class _CDataMeta(type):
             return self.from_param(as_parameter)
 
     def get_ffi_param(self, value):
-        return self.from_param(value)._to_ffi_param()
+        cdata = self.from_param(value)
+        return cdata, cdata._to_ffi_param()
 
     def get_ffi_argtype(self):
         if self._ffiargtype:
             return self._ffiargtype
-        return _shape_to_ffi_type(self._ffiargshape)
+        self._ffiargtype = _shape_to_ffi_type(self._ffiargshape)
+        return self._ffiargtype
 
     def _CData_output(self, resbuffer, base=None, index=-1):
         #assert isinstance(resbuffer, _rawffi.ArrayInstance)
@@ -165,7 +167,8 @@ def alignment(tp):
     return tp._alignmentofinstances()
 
 def byref(cdata):
-    from ctypes import pointer
+    # "pointer" is imported at the end of this module to avoid circular
+    # imports
     return pointer(cdata)
 
 def cdata_from_address(self, address):
@@ -223,5 +226,9 @@ _shape_to_ffi_type.typemap =  {
     'Z' : _ffi.types.void_p,
     'X' : _ffi.types.void_p,
     'v' : _ffi.types.sshort,
+    '?' : _ffi.types.ubyte,
     }
 
+
+# used by "byref"
+from _ctypes.pointer import pointer

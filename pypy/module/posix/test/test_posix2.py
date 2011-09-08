@@ -125,13 +125,13 @@ class AppTestPosix:
         assert st.st_size == 14
         assert st.st_nlink == 1
 
-        #if sys.platform.startswith('linux2'):
+        #if sys.platform.startswith('linux'):
         #    # expects non-integer timestamps - it's unlikely that they are
         #    # all three integers
         #    assert ((st.st_atime, st.st_mtime, st.st_ctime) !=
         #            (st[7],       st[8],       st[9]))
         #    assert st.st_blksize * st.st_blocks >= st.st_size
-        if sys.platform.startswith('linux2'):
+        if sys.platform.startswith('linux'):
             assert hasattr(st, 'st_rdev')
 
     def test_stat_float_times(self):
@@ -271,8 +271,12 @@ class AppTestPosix:
         f.close()
 
         # Ensure that fcntl is not faked
-        import fcntl
-        assert fcntl.__file__.endswith('pypy/module/fcntl')
+        try:
+            import fcntl
+        except ImportError:
+            pass
+        else:
+            assert fcntl.__file__.endswith('pypy/module/fcntl')
         exc = raises(OSError, posix.fdopen, fd)
         assert exc.value.errno == errno.EBADF
 
@@ -800,6 +804,16 @@ class AppTestPosix:
             with open(dest) as f:
                 data = f.read()
                 assert data == "who cares?"
+
+    try:
+        os.getlogin()
+    except (AttributeError, OSError):
+        pass
+    else:
+        def test_getlogin(self):
+            assert isinstance(self.posix.getlogin(), str)
+            # How else could we test that getlogin is properly
+            # working?
 
     def test_tmpfile(self):
         os = self.posix

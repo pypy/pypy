@@ -289,7 +289,7 @@ class QuasiImmutTests(object):
             return total
 
         res = self.meta_interp(main, [])
-        self.check_loop_count(7)
+        self.check_loop_count(9)
         assert res == main()
 
     def test_change_during_running(self):

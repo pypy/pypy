@@ -4,13 +4,12 @@ Interp-level definition of frequently used functionals.
 """
 
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import NoneNotWrapped, applevel
+from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.objectmodel import specialize
-from inspect import getsource, getfile
 from pypy.rlib.rbigint import rbigint
 
 
@@ -295,7 +294,7 @@ def map_single_user_function(code, w_func, w_iter):
                 raise
             break
         new_frame = space.createframe(code, w_func.w_func_globals,
-                                      w_func.closure)
+                                      w_func)
         new_frame.locals_stack_w[0] = w_item
         w_res = new_frame.run()
         result_w.append(w_res)
@@ -327,27 +326,6 @@ def map_multiple_collections(space, w_func, collections_w, none_func):
             w_res = space.call(w_func, w_args)
         result_w.append(w_res)
     return result_w
-
-def sum(space, w_sequence, w_start=0):
-    """sum(sequence[, start]) -> value
-
-Returns the sum of a sequence of numbers (NOT strings) plus the value
-of parameter 'start' (which defaults to 0).  When the sequence is
-empty, returns start."""
-    if space.is_true(space.isinstance(w_start, space.w_basestring)):
-        msg = "sum() can't sum strings"
-        raise OperationError(space.w_TypeError, space.wrap(msg))
-    w_iter = space.iter(w_sequence)
-    w_last = w_start
-    while True:
-        try:
-            w_next = space.next(w_iter)
-        except OperationError, e:
-            if not e.match(space, space.w_StopIteration):
-                raise
-            break
-        w_last = space.add(w_last, w_next)
-    return w_last
 
 @unwrap_spec(sequences_w="args_w")
 def zip(space, sequences_w):
@@ -664,7 +642,6 @@ class W_XRangeIterator(Wrappable):
 
     def descr_reduce(self):
         from pypy.interpreter.mixedmodule import MixedModule
-        from pypy.module._pickle_support import maker # helper fns
         space    = self.space
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)

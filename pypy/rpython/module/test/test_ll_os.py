@@ -35,6 +35,16 @@ def test_times():
     for value in times:
         assert isinstance(value, float)
 
+def test_getlogin():
+    if not hasattr(os, 'getlogin'):
+        py.test.skip('posix specific function')
+    try:
+        expected = os.getlogin()
+    except OSError, e:
+        py.test.skip("the underlying os.getlogin() failed: %s" % e)
+    data = getllimpl(os.getlogin)()
+    assert data == expected
+
 def test_utimes():
     if os.name != 'nt':
         py.test.skip('Windows specific feature')

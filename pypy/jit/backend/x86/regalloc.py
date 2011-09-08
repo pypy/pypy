@@ -29,6 +29,7 @@ class X86RegisterManager(RegisterManager):
     all_regs = [eax, ecx, edx, ebx, esi, edi]
     no_lower_byte_regs = [esi, edi]
     save_around_call_regs = [eax, edx, ecx]
+    frame_reg = ebp
 
     REGLOC_TO_GCROOTMAP_REG_INDEX = {
         ebx: 1,
@@ -312,8 +313,11 @@ class RegAlloc(object):
                     self.fm.frame_bindings[arg] = loc
             else:
                 if isinstance(loc, RegLoc):
-                    self.rm.reg_bindings[arg] = loc
-                    used[loc] = None
+                    if loc is ebp:
+                        self.rm.bindings_to_frame_reg[arg] = None
+                    else:
+                        self.rm.reg_bindings[arg] = loc
+                        used[loc] = None
                 else:
                     self.fm.frame_bindings[arg] = loc
         self.rm.free_regs = []
@@ -705,6 +709,17 @@ class RegAlloc(object):
         self.Perform(op, [loc0], loc1)
         self.rm.possibly_free_var(op.getarg(0))
 
+    def consider_cast_float_to_singlefloat(self, op):
+        loc0 = self.xrm.make_sure_var_in_reg(op.getarg(0))
+        loc1 = self.rm.force_allocate_reg(op.result)
+        self.xrm.possibly_free_var(op.getarg(0))
+        tmpxvar = TempBox()
+        loctmp = self.xrm.force_allocate_reg(tmpxvar)   # may be equal to loc0
+        self.xrm.possibly_free_var(tmpxvar)
+        self.Perform(op, [loc0, loctmp], loc1)
+
+    consider_cast_singlefloat_to_float = consider_cast_int_to_float
+
     def _consider_llong_binop_xx(self, op):
         # must force both arguments into xmm registers, because we don't
         # know if they will be suitably aligned.  Exception: if the second
@@ -832,8 +847,8 @@ class RegAlloc(object):
 
     def consider_call(self, op):
         effectinfo = op.getdescr().get_extra_info()
-        if effectinfo is not None:
-            oopspecindex = effectinfo.oopspecindex
+        oopspecindex = effectinfo.oopspecindex
+        if oopspecindex != EffectInfo.OS_NONE:
             if IS_X86_32:
                 # support for some of the llong operations,
                 # which only exist on x86-32
@@ -921,27 +936,13 @@ class RegAlloc(object):
     def _do_fastpath_malloc(self, op, size, tid):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
         self.rm.force_allocate_reg(op.result, selected_reg=eax)
-
-        if gc_ll_descr.gcrootmap and gc_ll_descr.gcrootmap.is_shadow_stack:
-            # ---- shadowstack ----
-            # We need edx as a temporary, but otherwise don't save any more
-            # register.  See comments in _build_malloc_slowpath().
-            tmp_box = TempBox()
-            self.rm.force_allocate_reg(tmp_box, selected_reg=edx)
-            self.rm.possibly_free_var(tmp_box)
-        else:
-            # ---- asmgcc ----
-            # We need to force-allocate each of save_around_call_regs now.
-            # The alternative would be to save and restore them around the
-            # actual call to malloc(), in the rare case where we need to do
-            # it; however, mark_gc_roots() would need to be adapted to know
-            # where the variables end up being saved.  Messy.
-            for reg in self.rm.save_around_call_regs:
-                if reg is not eax:
-                    tmp_box = TempBox()
-                    self.rm.force_allocate_reg(tmp_box, selected_reg=reg)
-                    self.rm.possibly_free_var(tmp_box)
-
+        #
+        # We need edx as a temporary, but otherwise don't save any more
+        # register.  See comments in _build_malloc_slowpath().
+        tmp_box = TempBox()
+        self.rm.force_allocate_reg(tmp_box, selected_reg=edx)
+        self.rm.possibly_free_var(tmp_box)
+        #
         self.assembler.malloc_cond(
             gc_ll_descr.get_nursery_free_addr(),
             gc_ll_descr.get_nursery_top_addr(),
@@ -1337,20 +1338,32 @@ class RegAlloc(object):
             if reg is eax:
                 continue      # ok to ignore this one
             if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
-                if use_copy_area:
-                    assert reg in self.rm.REGLOC_TO_COPY_AREA_OFS
-                    area_offset = self.rm.REGLOC_TO_COPY_AREA_OFS[reg]
-                    gcrootmap.add_frame_offset(shape, area_offset)
-                else:
-                    assert reg in self.rm.REGLOC_TO_GCROOTMAP_REG_INDEX
-                    gcrootmap.add_callee_save_reg(
-                        shape, self.rm.REGLOC_TO_GCROOTMAP_REG_INDEX[reg])
+                #
+                # The register 'reg' is alive across this call.
+                gcrootmap = self.assembler.cpu.gc_ll_descr.gcrootmap
+                if gcrootmap is None or not gcrootmap.is_shadow_stack:
+                    #
+                    # Asmgcc: if reg is a callee-save register, we can
+                    # explicitly mark it as containing a BoxPtr.
+                    if reg in self.rm.REGLOC_TO_GCROOTMAP_REG_INDEX:
+                        gcrootmap.add_callee_save_reg(
+                            shape, self.rm.REGLOC_TO_GCROOTMAP_REG_INDEX[reg])
+                        continue
+                #
+                # Else, 'use_copy_area' must be True (otherwise this BoxPtr
+                # should not be in a register).  The copy area contains the
+                # real value of the register.
+                assert use_copy_area
+                assert reg in self.rm.REGLOC_TO_COPY_AREA_OFS
+                area_offset = self.rm.REGLOC_TO_COPY_AREA_OFS[reg]
+                gcrootmap.add_frame_offset(shape, area_offset)
+        #
         return gcrootmap.compress_callshape(shape,
                                             self.assembler.datablockwrapper)
 
     def consider_force_token(self, op):
-        loc = self.rm.force_allocate_reg(op.result)
-        self.Perform(op, [], loc)
+        # the FORCE_TOKEN operation returns directly 'ebp'
+        self.rm.force_allocate_frame_reg(op.result)
 
     def not_implemented_op(self, op):
         not_implemented("not implemented operation: %s" % op.getopname())

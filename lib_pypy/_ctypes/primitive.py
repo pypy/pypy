@@ -10,6 +10,8 @@ from _ctypes.basics import _CData, _CDataMeta, cdata_from_address,\
 from _ctypes.builtin import ConvMode
 from _ctypes.array import Array
 from _ctypes.pointer import _Pointer, as_ffi_pointer
+#from _ctypes.function import CFuncPtr # this import is moved at the bottom
+                                       # because else it's circular
 
 class NULL(object):
     pass
@@ -86,7 +88,7 @@ def from_param_void_p(cls, value):
         return res
     if isinstance(value, Array):
         return value
-    if isinstance(value, _Pointer):
+    if isinstance(value, (_Pointer, CFuncPtr)):
         return cls.from_address(value._buffer.buffer)
     if isinstance(value, (int, long)):
         return cls(value)
@@ -338,3 +340,5 @@ class _SimpleCData(_CData):
 
     def __nonzero__(self):
         return self._buffer[0] not in (0, '\x00')
+
+from _ctypes.function import CFuncPtr

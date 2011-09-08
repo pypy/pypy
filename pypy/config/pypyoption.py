@@ -27,13 +27,14 @@ default_modules.update(dict.fromkeys(
 # --allworkingmodules
 working_modules = default_modules.copy()
 working_modules.update(dict.fromkeys(
-    ["_socket", "unicodedata", "mmap", "fcntl", "_locale",
+    ["_socket", "unicodedata", "mmap", "fcntl", "_locale", "pwd",
      "rctime" , "select", "zipimport", "_lsprof",
      "crypt", "signal", "_rawffi", "termios", "zlib", "bz2",
      "struct", "_hashlib", "_md5", "_sha", "_minimal_curses", "cStringIO",
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
      "_bisect", "binascii", "_multiprocessing", '_warnings',
-     "_collections", "_multibytecodec", "micronumpy", "_ffi"]
+     "_collections", "_multibytecodec", "micronumpy", "_ffi",
+     "_continuation"]
 ))
 
 translation_modules = default_modules.copy()
@@ -57,6 +58,7 @@ if sys.platform == "win32":
     # unix only modules
     del working_modules["crypt"]
     del working_modules["fcntl"]
+    del working_modules["pwd"]
     del working_modules["termios"]
     del working_modules["_minimal_curses"]
 
@@ -99,6 +101,7 @@ module_import_dependencies = {
     "_ssl"      : ["pypy.module._ssl.interp_ssl"],
     "_hashlib"  : ["pypy.module._ssl.interp_ssl"],
     "_minimal_curses": ["pypy.module._minimal_curses.fficurses"],
+    "_continuation": ["pypy.rlib.rstacklet"],
     }
 
 def get_module_validator(modname):
@@ -327,6 +330,9 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("mutable_builtintypes",
                    "Allow the changing of builtin types", default=False,
                    requires=[("objspace.std.builtinshortcut", True)]),
+        BoolOption("withidentitydict",
+                   "track types that override __hash__, __eq__ or __cmp__ and use a special dict strategy for those which do not",
+                   default=True),
      ]),
 ])
 

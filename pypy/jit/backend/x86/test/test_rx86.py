@@ -198,9 +198,19 @@ class CodeBuilder64(CodeBuilderMixin, X86_64_CodeBuilder):
 def test_mov_ri_64():
     s = CodeBuilder64()
     s.MOV_ri(ecx, -2)
+    s.MOV_ri(r15, -3)
+    s.MOV_ri(ebx, -0x80000003)
+    s.MOV_ri(r13, -0x80000002)
+    s.MOV_ri(ecx, 42)
     s.MOV_ri(r12, 0x80000042)
+    s.MOV_ri(r12, 0x100000007)
     assert s.getvalue() == ('\x48\xC7\xC1\xFE\xFF\xFF\xFF' +
-                            '\x49\xBC\x42\x00\x00\x80\x00\x00\x00\x00')
+                            '\x49\xC7\xC7\xFD\xFF\xFF\xFF' +
+                            '\x48\xBB\xFD\xFF\xFF\x7F\xFF\xFF\xFF\xFF' +
+                            '\x49\xBD\xFE\xFF\xFF\x7F\xFF\xFF\xFF\xFF' +
+                            '\xB9\x2A\x00\x00\x00' +
+                            '\x41\xBC\x42\x00\x00\x80' +
+                            '\x49\xBC\x07\x00\x00\x00\x01\x00\x00\x00')
 
 def test_mov_rm_64():
     s = CodeBuilder64()

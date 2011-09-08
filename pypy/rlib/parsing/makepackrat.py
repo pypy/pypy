@@ -251,9 +251,11 @@ class ErrorInformation(object):
         return "ErrorInformation(%s, %s)" % (self.pos, self.expected)
 
     def get_line_column(self, source):
-        uptoerror = source[:self.pos]
+        pos = self.pos
+        assert pos >= 0
+        uptoerror = source[:pos]
         lineno = uptoerror.count("\n")
-        columnno = self.pos - uptoerror.rfind("\n")
+        columnno = pos - uptoerror.rfind("\n")
         return lineno, columnno
 
     def nice_error_message(self, filename='<filename>', source=""):

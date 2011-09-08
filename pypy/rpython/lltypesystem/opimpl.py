@@ -526,6 +526,9 @@ def op_debug_flush():
 def op_have_debug_prints():
     return debug.have_debug_prints()
 
+def op_debug_nonnull_pointer(x):
+    assert x
+
 def op_gc_stack_bottom():
     pass       # marker for trackgcroot.py
 

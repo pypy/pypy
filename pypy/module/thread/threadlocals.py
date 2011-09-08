@@ -43,6 +43,9 @@ class OSThreadLocals:
         ident = self._mainthreadident
         return self._valuedict.get(ident, None)
 
+    def getallvalues(self):
+        return self._valuedict
+
     def enter_thread(self, space):
         "Notification that the current thread is just starting."
         ec = space.getexecutioncontext()

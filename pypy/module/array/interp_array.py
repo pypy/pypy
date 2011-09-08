@@ -1,10 +1,9 @@
 from __future__ import with_statement
 
-from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.buffer import RWBuffer
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
+from pypy.interpreter.typedef import GetSetProperty, make_weakref_descr
 from pypy.module._file.interp_file import W_File
 from pypy.objspace.std.model import W_Object
 from pypy.objspace.std.multimethod import FailedToImplement
@@ -14,8 +13,6 @@ from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython.lltypesystem import lltype, rffi
 
-
-memcpy = rffi.llexternal("memcpy", [rffi.VOIDP, rffi.VOIDP, rffi.SIZE_T], lltype.Void)
 
 @unwrap_spec(typecode=str)
 def w_array(space, w_cls, typecode, __args__):
@@ -41,12 +38,10 @@ def w_array(space, w_cls, typecode, __args__):
                 w_initializer = __args__.arguments_w[0]
                 if space.type(w_initializer) is space.w_str:
                     a.fromstring(space.str_w(w_initializer))
-                elif space.type(w_initializer) is space.w_unicode:
-                    a.fromsequence(w_initializer)
                 elif space.type(w_initializer) is space.w_list:
                     a.fromlist(w_initializer)
                 else:
-                    a.extend(w_initializer)
+                    a.extend(w_initializer, True)
             break
     else:
         msg = 'bad typecode (must be c, b, B, u, h, H, i, I, l, L, f or d)'
@@ -229,7 +224,8 @@ def make_array(mytype):
                     some += size >> 3
                     self.allocated = size + some
                     new_buffer = lltype.malloc(mytype.arraytype,
-                                               self.allocated, flavor='raw')
+                                               self.allocated, flavor='raw',
+                                               add_memory_pressure=True)
                     for i in range(min(size, self.len)):
                         new_buffer[i] = self.buffer[i]
                 else:
@@ -289,7 +285,7 @@ def make_array(mytype):
                 self.setlen(s)
                 raise
 
-        def extend(self, w_iterable):
+        def extend(self, w_iterable, accept_different_array=False):
             space = self.space
             if isinstance(w_iterable, W_Array):
                 oldlen = self.len
@@ -302,7 +298,8 @@ def make_array(mytype):
                     self.buffer[oldlen + i] = w_iterable.buffer[i]
                     i += 1
                 self.setlen(oldlen + i)
-            elif isinstance(w_iterable, W_ArrayBase):
+            elif (not accept_different_array
+                  and isinstance(w_iterable, W_ArrayBase)):
                 msg = "can only extend with array of same kind"
                 raise OperationError(space.w_TypeError, space.wrap(msg))
             else:
@@ -572,10 +569,7 @@ def make_array(mytype):
             self.fromsequence(w_ustr)
 
         def array_tounicode__Array(space, self):
-            u = u""
-            for i in range(self.len):
-                u += self.buffer[i]
-            return space.wrap(u)
+            return space.wrap(rffi.wcharpsize2unicode(self.buffer, self.len))
     else:
 
         def array_fromunicode__Array_Unicode(space, self, w_ustr):
@@ -621,7 +615,7 @@ def make_array(mytype):
     def array_copy__Array(space, self):
         w_a = mytype.w_class(self.space)
         w_a.setlen(self.len)
-        memcpy(
+        rffi.c_memcpy(
             rffi.cast(rffi.VOIDP, w_a.buffer),
             rffi.cast(rffi.VOIDP, self.buffer),
             self.len * mytype.bytes

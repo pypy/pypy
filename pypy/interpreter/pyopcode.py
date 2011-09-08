@@ -892,32 +892,31 @@ class __extend__(pyframe.PyFrame):
         raise BytecodeCorruption, "old opcode, no longer in use"
 
     def SETUP_LOOP(self, offsettoend, next_instr):
-        block = LoopBlock(self, next_instr + offsettoend)
-        self.append_block(block)
+        block = LoopBlock(self, next_instr + offsettoend, self.lastblock)
+        self.lastblock = block
 
     def SETUP_EXCEPT(self, offsettoend, next_instr):
-        block = ExceptBlock(self, next_instr + offsettoend)
-        self.append_block(block)
+        block = ExceptBlock(self, next_instr + offsettoend, self.lastblock)
+        self.lastblock = block
 
     def SETUP_FINALLY(self, offsettoend, next_instr):
-        block = FinallyBlock(self, next_instr + offsettoend)
-        self.append_block(block)
+        block = FinallyBlock(self, next_instr + offsettoend, self.lastblock)
+        self.lastblock = block
 
     def SETUP_WITH(self, offsettoend, next_instr):
         w_manager = self.peekvalue()
+        w_enter = self.space.lookup(w_manager, "__enter__")
         w_descr = self.space.lookup(w_manager, "__exit__")
-        if w_descr is None:
-            raise OperationError(self.space.w_AttributeError,
-                                 self.space.wrap("__exit__"))
+        if w_enter is None or w_descr is None:
+            typename = self.space.type(w_manager).getname(self.space)
+            raise operationerrfmt(self.space.w_AttributeError,
+                "'%s' object is not a context manager"
+                " (no __enter__/__exit__ method)", typename)
         w_exit = self.space.get(w_descr, w_manager)
         self.settopvalue(w_exit)
-        w_enter = self.space.lookup(w_manager, "__enter__")
-        if w_enter is None:
-            raise OperationError(self.space.w_AttributeError,
-                                 self.space.wrap("__enter__"))
         w_result = self.space.get_and_call_function(w_enter, w_manager)
-        block = WithBlock(self, next_instr + offsettoend)
-        self.append_block(block)
+        block = WithBlock(self, next_instr + offsettoend, self.lastblock)
+        self.lastblock = block
         self.pushvalue(w_result)
 
     def WITH_CLEANUP(self, oparg, next_instr):
@@ -1248,10 +1247,10 @@ class FrameBlock(object):
 
     _immutable_ = True
 
-    def __init__(self, frame, handlerposition):
+    def __init__(self, frame, handlerposition, previous):
         self.handlerposition = handlerposition
         self.valuestackdepth = frame.valuestackdepth
-        self.previous = None # this makes a linked list of blocks
+        self.previous = previous   # this makes a linked list of blocks
 
     def __eq__(self, other):
         return (self.__class__ is other.__class__ and
@@ -1524,10 +1523,8 @@ app = gateway.applevel(r'''
 
         if not isinstance(prog, codetype):
             filename = '<string>'
-            if not isinstance(prog, str):
-                if isinstance(prog, basestring):
-                    prog = str(prog)
-                elif isinstance(prog, file):
+            if not isinstance(prog, basestring):
+                if isinstance(prog, file):
                     filename = prog.name
                     prog = prog.read()
                 else:

@@ -1,10 +1,8 @@
-from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import rstackovf
 from pypy.module._file.interp_file import W_File
-from pypy.module._file.interp_stream import StreamErrors, wrap_streamerror
-import sys
+
 
 Py_MARSHAL_VERSION = 2
 
@@ -42,7 +40,7 @@ def load(space, w_f):
         reader = FileReader(space, w_f)
     try:
         u = Unmarshaller(space, reader)
-        return u.load_w_obj(False)
+        return u.load_w_obj()
     finally:
         reader.finished()
 
@@ -51,7 +49,7 @@ def loads(space, w_str):
 ignored."""
     space.timer.start("marshal loads")
     u = StringUnmarshaller(space, w_str)
-    obj = u.load_w_obj(False)
+    obj = u.load_w_obj()
     space.timer.stop("marshal loads")
     return obj
 
@@ -426,7 +424,7 @@ class Unmarshaller(_Base):
         lng = self.get_lng()
         return self.get(lng)
 
-    def get_w_obj(self, allow_null):
+    def get_w_obj(self, allow_null=False):
         space = self.space
         w_ret = space.w_None # something not None
         tc = self.get1()
@@ -436,9 +434,9 @@ class Unmarshaller(_Base):
                 'NULL object in marshal data'))
         return w_ret
 
-    def load_w_obj(self, allow_null):
+    def load_w_obj(self):
         try:
-            return self.get_w_obj(allow_null)
+            return self.get_w_obj()
         except rstackovf.StackOverflow:
             rstackovf.check_stack_overflow()
             self._overflow()

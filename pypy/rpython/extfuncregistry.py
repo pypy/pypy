@@ -1,6 +1,6 @@
 # this registry uses the new interface for external functions
 
-from extfunc import register_external
+from pypy.rpython.extfunc import register_external
 
 # ___________________________
 # math functions
@@ -30,40 +30,42 @@ for name in ll_math.unary_math_functions:
                       export_name="ll_math.ll_math_%s" % name,
                        sandboxsafe=True, llimpl=llimpl)
 
-register_external(rfloat.isinf, [float], bool,
-                  export_name="ll_math.ll_math_isinf", sandboxsafe=True,
-                  llimpl=ll_math.ll_math_isinf)
-register_external(rfloat.isnan, [float], bool,
-                  export_name="ll_math.ll_math_isnan", sandboxsafe=True,
-                  llimpl=ll_math.ll_math_isnan)
-register_external(rfloat.isfinite, [float], bool,
-                  export_name="ll_math.ll_math_isfinite", sandboxsafe=True,
-                  llimpl=ll_math.ll_math_isfinite)
-register_external(rfloat.copysign, [float, float], float,
-                  export_name="ll_math.ll_math_copysign", sandboxsafe=True,
-                  llimpl=ll_math.ll_math_copysign)
-register_external(math.floor, [float], float,
-                  export_name="ll_math.ll_math_floor", sandboxsafe=True,
-                  llimpl=ll_math.ll_math_floor)
-register_external(math.sqrt, [float], float,
-                  export_name="ll_math.ll_math_sqrt", sandboxsafe=True,
-                  llimpl=ll_math.ll_math_sqrt)
-
-complex_math_functions = [
-    ('frexp', [float],        (float, int)),
-    ('ldexp', [float, int],   float),
-    ('modf',  [float],        (float, float)),
-    ] + [(name, [float, float], float)
-         for name in 'atan2', 'fmod', 'hypot', 'pow']
-
-for name, args, res in complex_math_functions:
-    func = getattr(math, name)
-    llimpl = getattr(ll_math, 'll_math_%s' % name, None)
-    oofake = getattr(oo_math, 'll_math_%s' % name, None)
-    register_external(func, args, res, 'll_math.ll_math_%s' % name,
-                      llimpl=llimpl, oofakeimpl=oofake,
-                      sandboxsafe=True)
-
+_register = [  # (module, [(method name, arg types, return type), ...], ...)
+    (rfloat, [
+        ('isinf', [float], bool),
+        ('isnan', [float], bool),
+        ('isfinite', [float], bool),
+        ('copysign', [float, float], float),
+    ]),
+    (math, [
+       ('floor', [float], float),
+       ('sqrt', [float], float),
+       ('log', [float], float),
+       ('log10', [float], float),
+       ('sin', [float], float),
+       ('cos', [float], float),
+       ('atan2', [float, float], float),
+       ('hypot', [float, float], float),
+       ('frexp', [float], (float, int)),
+       ('ldexp', [float, int], float),
+       ('modf', [float], (float, float)),
+       ('fmod', [float, float], float),
+       ('pow', [float, float], float),
+    ]),
+]
+for module, methods in _register:
+    for name, arg_types, return_type in methods:
+        method_name = 'll_math_%s' % name
+        oofake = None
+        # Things with a tuple return type have a fake impl for RPython, check
+        # to see if the method has one.
+        if hasattr(oo_math, method_name):
+          oofake = getattr(oo_math, method_name)
+        register_external(getattr(module, name), arg_types, return_type,
+                          export_name='ll_math.%s' % method_name,
+                          sandboxsafe=True,
+                          llimpl=getattr(ll_math, method_name),
+                          oofakeimpl=oofake)
 
 # ___________________________
 # os.path functions
