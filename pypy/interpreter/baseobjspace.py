@@ -758,7 +758,7 @@ class ObjSpace(object):
         # If we know the expected length we can preallocate.
         if expected_length == -1:
             try:
-                lgt_estimate = self.int_w(self.len(w_iterable))
+                lgt_estimate = self.len_w(w_iterable)
             except OperationError:
                 items = []
             else:
