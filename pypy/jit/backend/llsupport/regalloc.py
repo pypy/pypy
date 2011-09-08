@@ -1,4 +1,3 @@
-
 from pypy.jit.metainterp.history import Const, Box, REF
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp.resoperation import rop

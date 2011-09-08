@@ -12,7 +12,8 @@ from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
 from pypy.jit.backend.x86 import regloc
 from pypy.jit.backend.x86.support import values_array
 from pypy.jit.backend.ppc.ppcgen.ppc_assembler import PPCBuilder
-from pypy.jit.backend.ppc.ppcgen.arch import IS_PPC_32, NONVOLATILES
+from pypy.jit.backend.ppc.ppcgen.arch import NONVOLATILES, GPR_SAVE_AREA, WORD
+from pypy.jit.backend.ppc.ppcgen.regalloc import PPCRegisterManager, PPCFrameManager
 import sys
 
 from pypy.tool.ansi_print import ansi_log
@@ -28,48 +29,15 @@ class PPC_64_CPU(AbstractLLCPU):
         AbstractLLCPU.__init__(self, rtyper, stats, opts,
                                translate_support_code, gcdescr)
 
-        # pointer to an array of ints
-        # XXX length of the integer array is 1000 for now
-        self.fail_boxes_int = values_array(lltype.Signed, 1000)
-
         # floats are not supported yet
         self.supports_floats = False
         self.total_compiled_loops = 0
         self.total_compiled_bridges = 0
+        self.asm = PPCBuilder(self)
 
-    # compile a given trace
-    def compile_loop(self, inputargs, operations, looptoken, log=True):
+    def compile_loop(self, inputargs, operations, looptoken, log=False):
         self.saved_descr = {}
-        self.patch_list = []
-        self.reg_map = {}
-        self.fail_box_count = 0
-
-        codebuilder = PPCBuilder()
-        
-        # function prologue
-        self._make_prologue(codebuilder)
-
-        # initialize registers from memory
-        self.next_free_register = 3
-        for index, arg in enumerate(inputargs):
-            self.reg_map[arg] = self.next_free_register
-            addr = self.fail_boxes_int.get_addr_for_num(index)
-            codebuilder.load_from(self.next_free_register, addr)
-            self.next_free_register += 1
-        
-        self.startpos = codebuilder.get_relative_pos()
-
-        # generate code for operations
-        self._walk_trace_ops(codebuilder, operations)
-
-        # function epilogue
-        self._make_epilogue(codebuilder)
-
-        f = codebuilder.assemble()
-        looptoken.ppc_code = f
-        looptoken.codebuilder = codebuilder
-        self.total_compiled_loops += 1
-        self.teardown()
+        self.asm.assemble_loop(inputargs, operations, looptoken, log)
 
     def compile_bridge(self, descr, inputargs, operations, looptoken):
         self.saved_descr = {}
@@ -110,18 +78,7 @@ class PPC_64_CPU(AbstractLLCPU):
         self.next_free_register += 1
         return reg
 
-    def _make_prologue(self, codebuilder):
-        framesize = 16 * WORD + 20 * WORD
-        if IS_PPC_32:
-            codebuilder.stwu(1, 1, -framesize)
-            codebuilder.mflr(0)
-            codebuilder.stw(0, 1, framesize + WORD)
-        else:
-            codebuilder.stdu(1, 1, -framesize)
-            codebuilder.mflr(0)
-            codebuilder.std(0, 1, framesize + WORD)
-        codebuilder.save_nonvolatiles(framesize)
-
+    # XXX not used by now, move to ppc_assembler
     def _make_epilogue(self, codebuilder):
         for op_index, fail_index, guard, reglist in self.patch_list:
             curpos = codebuilder.get_relative_pos()
@@ -147,22 +104,17 @@ class PPC_64_CPU(AbstractLLCPU):
             descr.patch_pos = patch_pos
             descr.used_mem_indices = used_mem_indices
 
-            framesize = 16 * WORD + 20 * WORD
-            codebuilder.restore_nonvolatiles(framesize)
+            codebuilder.restore_nonvolatiles(self.framesize)
 
-            if IS_PPC_32:
-                codebuilder.lwz(0, 1, framesize + WORD) # 36
-            else:
-                codebuilder.ld(0, 1, framesize + WORD) # 36
+            codebuilder.lwz(0, 1, self.framesize + 4)
             codebuilder.mtlr(0)
-            codebuilder.addi(1, 1, framesize)
-
+            codebuilder.addi(1, 1, self.framesize)
             codebuilder.li(3, fail_index)            
             codebuilder.blr()
 
     # set value in fail_boxes_int
     def set_future_value_int(self, index, value_int):
-        self.fail_boxes_int.setitem(index, value_int)
+        self.asm.fail_boxes_int.setitem(index, value_int)
 
     def set_future_value_ref(self, index, pointer):
         sign_ptr = rffi.cast(lltype.Signed, pointer)
@@ -174,8 +126,9 @@ class PPC_64_CPU(AbstractLLCPU):
 
     # executes the stored machine code in the token
     def execute_token(self, looptoken):   
-        descr_index = looptoken.ppc_code()
-        return self.saved_descr[descr_index]
+        addr = looptoken.ppc_code
+        fail_index = addr()
+        return self.saved_descr[fail_index]
 
     # return the number of values that can be returned
     def get_latest_value_count(self):
@@ -183,7 +136,7 @@ class PPC_64_CPU(AbstractLLCPU):
 
     # fetch the result of the computation and return it
     def get_latest_value_int(self, index):
-        value = self.fail_boxes_int.getitem(index)
+        value = self.asm.fail_boxes_int.getitem(index)
         return value
 
     def get_latest_value_ref(self, index):

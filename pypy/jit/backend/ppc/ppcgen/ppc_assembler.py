@@ -2,16 +2,25 @@ import os
 import struct
 from pypy.jit.backend.ppc.ppcgen.ppc_form import PPCForm as Form
 from pypy.jit.backend.ppc.ppcgen.ppc_field import ppc_fields
+from pypy.jit.backend.ppc.ppcgen.regalloc import (TempInt, PPCFrameManager,
+                                                  Regalloc)
 from pypy.jit.backend.ppc.ppcgen.assembler import Assembler
 from pypy.jit.backend.ppc.ppcgen.symbol_lookup import lookup
-from pypy.jit.backend.ppc.ppcgen.arch import IS_PPC_32, WORD, NONVOLATILES
+from pypy.jit.backend.ppc.ppcgen.arch import (IS_PPC_32, WORD, NONVOLATILES,
+                                              GPR_SAVE_AREA)
+import pypy.jit.backend.ppc.ppcgen.register as r
 from pypy.jit.metainterp.history import Const, ConstPtr
 from pypy.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from pypy.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
+from pypy.jit.backend.llsupport.regalloc import (RegisterManager, 
+                                                 compute_vars_longevity)
 from pypy.jit.backend.llsupport import symbolic
+from pypy.jit.backend.model import CompiledLoopToken
 from pypy.rpython.lltypesystem import lltype, rffi, rstr
 from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.metainterp.history import BoxInt, ConstInt, Box
+from pypy.jit.metainterp.history import (BoxInt, ConstInt, ConstPtr,
+                                         ConstFloat, Box, INT, REF, FLOAT)
+from pypy.jit.backend.x86.support import values_array
 
 A = Form("frD", "frA", "frB", "XO3", "Rc")
 A1 = Form("frD", "frB", "XO3", "Rc")
@@ -906,10 +915,13 @@ def high(w):
     return (w >> 16) & 0x0000FFFF
 
 class PPCBuilder(PPCAssembler):
-    def __init__(self):
+    def __init__(self, cpu, failargs_limit=1000):
         PPCAssembler.__init__(self)
+        self.cpu = cpu
+        self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
 
-    def load_word(self, rD, word):
+    def load_imm(self, rD, word):
+        rD = rD.as_key()
         if word <= 32767 and word >= -32768:
             self.li(rD, word)
         elif IS_PPC_32 or (word <= 2147483647 and word >= -2147483648):
@@ -923,7 +935,7 @@ class PPCBuilder(PPCAssembler):
             self.oris(rD, rD, high(word))
             self.ori(rD, rD, lo(word))
 
-    def load_from(self, rD, addr):
+    def load_from_addr(self, rD, addr):
         if IS_PPC_32:
             self.addis(rD, 0, ha(addr))
             self.lwz(rD, rD, la(addr))
@@ -932,26 +944,78 @@ class PPCBuilder(PPCAssembler):
             self.ld(rD, rD, 0)
 
     def store_reg(self, source_reg, addr):
-        self.load_word(0, addr)
+        self.load_imm(r.r0, addr)
         if IS_PPC_32:
-            self.stwx(source_reg, 0, 0)
+            self.stwx(source_reg.value, 0, 0)
         else:
-            self.stdx(source_reg, 0, 0)
+            # ? 
+            self.std(source_reg.value, 0, 10)
 
-    def save_nonvolatiles(self, framesize):
+    def _save_nonvolatiles(self):
         for i, reg in enumerate(NONVOLATILES):
-            if IS_PPC_32:
-                self.stw(reg, 1, framesize - WORD * i)
-            else:
-                self.std(reg, 1, framesize - WORD * i)
+            self.stw(reg, 1, self.framesize - 4 * i)
 
-    def restore_nonvolatiles(self, framesize):
+    def _restore_nonvolatiles(self):
         for i, reg in enumerate(NONVOLATILES):
-            if IS_PPC_32:
-                self.lwz(reg, 1, framesize - WORD * i)
+            self.lwz(reg, 1, self.framesize - i * 4)
+
+    def _make_prologue(self):
+        self.stwu(1, 1, -self.framesize)
+        self.mflr(0)
+        self.stw(0, 1, self.framesize + 4)
+        self._save_nonvolatiles()
+
+    def _make_epilogue(self):
+        self._restore_nonvolatiles()
+
+    def gen_bootstrap_code(self, nonfloatlocs, inputargs):
+        for i in range(len(nonfloatlocs)):
+            loc = nonfloatlocs[i]
+            arg = inputargs[i]
+            assert arg.type != FLOAT
+            if arg.type == INT:
+                addr = self.fail_boxes_int.get_addr_for_num(i)
+            elif args.type == REF:
+                addr = self.fail_boxes_ptr.get_addr_for_num(i)
             else:
-                self.ld(reg, 1, framesize - WORD * i)
-        
+                assert 0, "%s not supported" % arg.type
+            if loc.is_reg():
+                reg = loc
+            else:
+                assert 0, "FIX LATER"
+            self.load_from_addr(reg.value, addr)
+
+    def assemble_loop(self, inputargs, operations, looptoken, log):
+        self.framesize = 256 + GPR_SAVE_AREA
+        clt = CompiledLoopToken(self.cpu, looptoken.number)
+        looptoken.compiled_loop_token = clt
+
+        longevity = compute_vars_longevity(inputargs, operations)
+        regalloc = Regalloc(longevity, assembler=self,
+                            frame_manager=PPCFrameManager())
+
+        self._make_prologue()
+        nonfloatlocs = regalloc.prepare_loop(inputargs, operations, looptoken)
+        self.gen_bootstrap_code(nonfloatlocs, inputargs)
+        self._walk_operations(operations, regalloc)
+        looptoken.ppc_code = self.assemble(True)
+
+    def _walk_operations(self, operations, regalloc):
+        while regalloc.position() < len(operations) - 1:
+            regalloc.next_instruction()
+            pos = regalloc.position()
+            op = operations[pos]
+            opnum = op.getopnum()
+            if op.has_no_side_effect() and op.result not in regalloc.longevity:
+                regalloc.possibly_free_vars_for_op(op)
+            else:
+                arglocs = regalloc.operations[opnum](regalloc, op)
+                if arglocs is not None:
+                    self.operations[opnum](self, op, arglocs, regalloc)
+            if op.result:
+                regalloc.possibly_free_var(op.result)
+            regalloc.possibly_free_vars_for_op(op)
+            regalloc._check_invariants()
 
     # translate a trace operation to corresponding machine code
     def build_op(self, trace_op, cpu):
@@ -994,14 +1058,23 @@ class PPCBuilder(PPCAssembler):
         if isinstance(arg0, Box):
             reg0 = cpu.reg_map[arg0]
         else:
-            reg0 = cpu.get_next_register()
+            #reg0 = cpu.get_next_register()
+            box = TempInt()
+            reg0 = cpu.rm.force_allocate_reg(box)
             self.load_word(reg0, arg0.value)
         if isinstance(arg1, Box):
             reg1 = cpu.reg_map[arg1]
         else:
-            reg1 = cpu.get_next_register()
+            #reg1 = cpu.get_next_register()
+            #reg1 = cpu.rm.force_allocate_reg(arg1)
+            box = TempInt()
+            reg1 = cpu.rm.force_allocate_reg(box)
+            boxed = cpu.rm.make_sure_var_in_reg(box)
             self.load_word(reg1, arg1.value)
-        free_reg = cpu.next_free_register
+            import pdb; pdb.set_trace()
+        #free_reg = cpu.next_free_register
+        free_reg = cpu.rm.force_allocate_reg(op.result)
+
         return free_reg, reg0, reg1
 
     def _int_op_epilog(self, op, cpu, result_reg):
@@ -1045,8 +1118,14 @@ class PPCBuilder(PPCAssembler):
     #             CODE GENERATION             #
     # --------------------------------------- #
 
-    def emit_int_add(self, op, cpu, reg0, reg1, free_reg):
-        self.add(free_reg, reg0, reg1)
+    def emit_int_add(self, op, arglocs, regalloc):
+        l0, l1, res = arglocs
+        if l0.is_imm():
+            self.addi(res.value, l1.value, l0.value)
+        elif l1.is_imm():
+            self.addi(res.value, l0.value, l1.value)
+        else:
+            self.add(res.value, l0.value, l1.value)
 
     def emit_int_add_ovf(self, op, cpu, reg0, reg1, free_reg):
         self.addo(free_reg, reg0, reg1)
@@ -1419,7 +1498,10 @@ class PPCBuilder(PPCAssembler):
         arg_reg = 3
         for arg in args:
             if isinstance(arg, Box):
-                self.mr(arg_reg, cpu.reg_map[arg])
+                try:
+                    self.mr(arg_reg, cpu.reg_map[arg])
+                except KeyError:
+                    self.lwz(arg_reg, 1, cpu.mem_map[arg])
             elif isinstance(arg, Const):
                 self.load_word(arg_reg, arg.value)
             else:
@@ -1435,16 +1517,15 @@ class PPCBuilder(PPCAssembler):
             for i, arg in enumerate(remaining_args):
                 if isinstance(arg, Box):
                     #self.mr(0, cpu.reg_map[arg])
-                    if IS_PPC_32:
+                    try:
                         self.stw(cpu.reg_map[arg], 1, 8 + WORD * i)
-                    else:
-                        self.std(cpu.reg_map[arg], 1, 8 + WORD * i)
+                    except KeyError:
+                        self.load_word(0, cpu.mem_map[arg])
+                        self.lwzx(0, 1, 0)
+                        self.stw(0, 1, 8 + WORD * i)
                 elif isinstance(arg, Const):
                     self.load_word(0, arg.value)
-                    if IS_PPC_32:
-                        self.stw(0, 1, 8 + WORD * i)
-                    else:
-                        self.std(0, 1, 8 + WORD * i)
+                    self.stw(0, 1, 8 + WORD * i)
                 else:
                     assert 0, "%s not supported yet" % arg
 
@@ -1584,34 +1665,23 @@ class PPCBuilder(PPCAssembler):
 
     #_____________________________________
 
-    def emit_finish(self, op, cpu):
+    def emit_finish(self, op, arglocs, regalloc):
         descr = op.getdescr()
-        identifier = self._get_identifier_from_descr(descr, cpu)
-        cpu.saved_descr[identifier] = descr
+        identifier = self._get_identifier_from_descr(descr, self.cpu)
+        self.cpu.saved_descr[identifier] = descr
         args = op.getarglist()
-        for index, arg in enumerate(args):
-            if isinstance(arg, Box):
-                regnum = cpu.reg_map[arg]
-                addr = cpu.fail_boxes_int.get_addr_for_num(index)
-                self.store_reg(regnum, addr)
-            elif isinstance(arg, ConstInt):
-                addr = cpu.fail_boxes_int.get_addr_for_num(index)
-                self.load_word(cpu.next_free_register, arg.value)
-                self.store_reg(cpu.next_free_register, addr)
-            else:
-                assert 0, "arg type not suported"
+        for index, arg in enumerate(arglocs):
+            addr = self.fail_boxes_int.get_addr_for_num(index)
+            self.store_reg(arg, addr)
 
-        framesize = 16 * WORD + 20 * WORD
+        framesize = 256 + GPR_SAVE_AREA
 
-        self.restore_nonvolatiles(framesize)
+        self._restore_nonvolatiles()
 
-        if IS_PPC_32:
-            self.lwz(0, 1, framesize + WORD) # 36
-        else:
-            self.ld(0, 1, framesize + WORD) # 36
+        self.lwz(0, 1, framesize + 4) # 36
         self.mtlr(0)
         self.addi(1, 1, framesize)
-        self.load_word(3, identifier)
+        self.load_imm(r.r3, identifier)
         self.blr()
 
     def emit_jump(self, op, cpu):
@@ -1694,7 +1764,7 @@ def make_operations():
             oplist[val] = not_implemented
     return oplist
 
-PPCBuilder.oplist = make_operations()
+PPCBuilder.operations = make_operations()
 
 if __name__ == '__main__':
     main()

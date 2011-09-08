@@ -10,5 +10,10 @@ else:
     IS_PPC_32 = False
     IS_PPC_64 = True
 
+ALL_REGS        = range(32)
 NONVOLATILES    = [2] + range(13, 32)
 VOLATILES       = [0] + range(3, 13)
+
+MY_COPY_OF_REGS = 0
+
+GPR_SAVE_AREA   = len(NONVOLATILES) * WORD
