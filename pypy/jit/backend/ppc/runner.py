@@ -107,6 +107,10 @@ class PPC_64_CPU(AbstractLLCPU):
             codebuilder.restore_nonvolatiles(self.framesize)
 
             codebuilder.lwz(0, 1, self.framesize + 4)
+            if IS_PPC_32:
+                codebuilder.lwz(0, 1, framesize + WORD) # 36
+            else:
+                codebuilder.ld(0, 1, framesize + WORD) # 36
             codebuilder.mtlr(0)
             codebuilder.addi(1, 1, self.framesize)
             codebuilder.li(3, fail_index)            
