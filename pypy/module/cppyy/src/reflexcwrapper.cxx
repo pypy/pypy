@@ -47,12 +47,12 @@ static inline std::vector<void*> build_args(int numargs, void* args) {
 /* name to handle --------------------------------------------------------- */
 cppyy_typehandle_t cppyy_get_typehandle(const char* class_name) {
     Reflex::Scope s = Reflex::Scope::ByName(class_name);
-    return s.Id();
+    return (cppyy_typehandle_t)s.Id();
 }
 
 cppyy_typehandle_t cppyy_get_templatehandle(const char* template_name) {
    Reflex::TypeTemplate tt = Reflex::TypeTemplate::ByName(template_name);
-   return tt.Id();
+   return (cppyy_typehandle_t)tt.Id();
 }
 
 

@@ -6,7 +6,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif // ifdef __cplusplus
-    typedef void* cppyy_typehandle_t;
+    typedef long cppyy_typehandle_t;
     typedef void* cppyy_object_t;
     typedef void* (*cppyy_methptrgetter_t)(cppyy_object_t);
 

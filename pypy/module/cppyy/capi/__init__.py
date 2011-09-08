@@ -5,7 +5,7 @@ import reflex_capi as backend
 #import cint_capi as backend
 
 
-C_TYPEHANDLE = rffi.VOIDP
+C_TYPEHANDLE = rffi.LONG
 C_OBJECT = rffi.VOIDP
 
 C_METHPTRGETTER = lltype.FuncType([C_OBJECT], rffi.VOIDP)

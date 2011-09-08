@@ -31,7 +31,8 @@ def load_dictionary(space, name):
 
 class State(object):
     def __init__(self, space):
-        self.cpptype_cache = { "void" : W_CPPType(space, "void", NULL_VOIDP) }
+        self.cpptype_cache = {
+            "void" : W_CPPType(space, "void", rffi.cast(capi.C_TYPEHANDLE, NULL_VOIDP)) }
         self.cpptemplatetype_cache = {}
 
 @unwrap_spec(name=str)
@@ -110,7 +111,7 @@ class CPPMethod(object):
 
     @jit.unroll_safe
     def call(self, cppthis, w_type, args_w):
-        assert lltype.typeOf(cppthis) == rffi.VOIDP
+        assert lltype.typeOf(cppthis) == capi.C_OBJECT
         if self.executor is None:
             raise OperationError(self.space.w_TypeError,
                                  self.space.wrap("return type not handled"))
@@ -220,7 +221,7 @@ class CPPConstructor(CPPMethod):
 
     def call(self, cppthis, w_type, args_w):
         newthis = capi.c_allocate(self.cpptype.handle)
-        assert lltype.typeOf(newthis) == rffi.VOIDP
+        assert lltype.typeOf(newthis) == capi.C_OBJECT
         try:
             CPPMethod.call(self, newthis, None, args_w)
         except Exception, e:
@@ -234,7 +235,7 @@ class W_CPPOverload(Wrappable):
 
     def __init__(self, space, scope_handle, func_name, functions):
         self.space = space
-        assert lltype.typeOf(scope_handle) == rffi.VOIDP
+        assert lltype.typeOf(scope_handle) == capi.C_TYPEHANDLE
         self.scope_handle = scope_handle
         self.func_name = func_name
         self.functions = debug.make_sure_not_resized(functions)
@@ -260,7 +261,7 @@ class W_CPPOverload(Wrappable):
     def call(self, w_cppinstance, w_type, args_w):
         cppinstance = self.space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=True)
         cppthis = self._get_cppthis(cppinstance)
-        assert lltype.typeOf(cppthis) == rffi.VOIDP
+        assert lltype.typeOf(cppthis) == capi.C_OBJECT
 
         space = self.space
         errmsg = 'None of the overloads matched:'
@@ -299,7 +300,7 @@ class W_CPPDataMember(Wrappable):
 
     def __init__(self, space, scope_handle, type_name, offset, is_static):
         self.space = space
-        assert lltype.typeOf(scope_handle) == rffi.VOIDP
+        assert lltype.typeOf(scope_handle) == capi.C_TYPEHANDLE
         self.scope_handle = scope_handle
         self.converter = converter.get_converter(self.space, type_name)
         self.offset = offset
@@ -344,10 +345,12 @@ W_CPPDataMember.typedef.acceptable_as_base_class = False
 class W_CPPScope(Wrappable):
     _immutable_fields_ = ["name", "handle"]
 
+    kind = "scope"
+
     def __init__(self, space, name, handle):
         self.space = space
         self.name = name
-        assert lltype.typeOf(handle) == rffi.VOIDP
+        assert lltype.typeOf(handle) == capi.C_TYPEHANDLE
         self.handle = handle
         self.methods = {}
         # Do not call "self._find_methods()" here, so that a distinction can
@@ -512,7 +515,7 @@ class W_CPPTemplateType(Wrappable):
     def __init__(self, space, name, handle):
         self.space = space
         self.name = name
-        assert lltype.typeOf(handle) == rffi.VOIDP
+        assert lltype.typeOf(handle) == capi.C_TYPEHANDLE
         self.handle = handle
 
     def __call__(self, args_w):
@@ -533,7 +536,7 @@ class W_CPPInstance(Wrappable):
     def __init__(self, space, cppclass, rawobject, python_owns):
         self.space = space
         self.cppclass = cppclass
-        assert lltype.typeOf(rawobject) == rffi.VOIDP
+        assert lltype.typeOf(rawobject) == capi.C_OBJECT
         self.rawobject = rawobject
         self.python_owns = python_owns
 
