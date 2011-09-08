@@ -11,7 +11,10 @@ from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift
 ## this class has to be used carefully, because all the lists that are
 ## sorted will be unified
 
-class TimSort:
+class BaseTimSort:
+
+    _mixin_ = True
+
     """TimSort(list).sort()
 
     Sorts the list in-place, using the overridable method lt() for comparison.
@@ -22,9 +25,6 @@ class TimSort:
         if listlength is None:
             listlength = len(list)
         self.listlength = listlength
-
-    def lt(self, a, b):
-        return a < b
 
     def le(self, a, b):
         return not self.lt(b, a)   # always use self.lt() as the primitive
@@ -553,6 +553,11 @@ class TimSort:
         assert self.pending[0].base == 0
         assert self.pending[0].len == self.listlength
 
+
+class TimSort(BaseTimSort):
+
+    def lt(self, a, b):
+        return a < b
 
 class ListSlice:
     "A sublist of a list."

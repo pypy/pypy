@@ -8,7 +8,7 @@ from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway, baseobjspace
 from pypy.rlib.objectmodel import instantiate, specialize
-from pypy.rlib.listsort import TimSort
+from pypy.rlib.listsort import TimSort, BaseTimSort
 from pypy.rlib import rerased
 from pypy.interpreter.argument import Signature
 
@@ -153,6 +153,9 @@ class W_ListObject(W_Object):
     def reverse(self):
         self.strategy.reverse(self)
 
+    def sort(self, reverse):
+        self.strategy.sort(self, reverse)
+
 registerimplementation(W_ListObject)
 
 
@@ -219,6 +222,9 @@ class ListStrategy(object):
         raise NotImplementedError
 
     def reverse(self, w_list):
+        raise NotImplementedError
+
+    def sort(self, w_list, reverse):
         raise NotImplementedError
 
 class EmptyListStrategy(ListStrategy):
@@ -789,6 +795,13 @@ class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
             self.quicksort(l, start, p - 1)
             self.quicksort(l, p + 1, end)
 
+    def sort(self, w_list, reverse):
+        l = self.cast_from_void_star(w_list.lstorage)
+        sorter = IntSort(l, len(l))
+        sorter.sort()
+        if reverse:
+            l.reverse()
+
 class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     _none_value = None
 
@@ -807,6 +820,13 @@ class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
 
     def list_is_correct_type(self, w_list):
         return w_list.strategy is self.space.fromcache(StringListStrategy)
+
+    def sort(self, w_list, reverse):
+        l = self.cast_from_void_star(w_list.lstorage)
+        sorter = StringSort(l, len(l))
+        sorter.sort()
+        if reverse:
+            l.reverse()
 
 # _______________________________________________________
 
@@ -1160,7 +1180,15 @@ class SimpleSort(TimSort):
         space = self.space
         return space.is_true(space.lt(a, b))
 
-class IntSort(SimpleSort):
+class IntSort(BaseTimSort):
+    def lt(self, a, b):
+        return a < b
+
+class StringSort(BaseTimSort):
+    def lt(self, a, b):
+        return a < b
+
+class OldIntSort(SimpleSort):
     def lt(self, w_int1, w_int2):
         from pypy.objspace.std.intobject import W_IntObject
         assert isinstance(w_int1, W_IntObject)
@@ -1168,7 +1196,7 @@ class IntSort(SimpleSort):
         space = self.space
         return w_int1.intval < w_int2.intval
 
-class StringSort(SimpleSort):
+class OldStringSort(SimpleSort):
     def lt(self, w_str1, w_str2):
         from pypy.objspace.std.stringobject import W_StringObject
         assert isinstance(w_str1, W_StringObject)
@@ -1221,12 +1249,14 @@ def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
             sorterclass = CustomKeySort
         else:
             if w_list.strategy is space.fromcache(IntegerListStrategy):
-                sorterclass = IntSort
+                w_list.sort(has_reverse)
+                return space.w_None
             elif w_list.strategy is space.fromcache(StringListStrategy):
-                sorterclass = StringSort
+                w_list.sort(has_reverse)
+                return space.w_None
             else:
                 sorterclass = SimpleSort
-    #XXX optimize this, getitems is bad
+
     sorter = sorterclass(w_list.getitems(), w_list.length())
     sorter.space = space
     sorter.w_cmp = w_cmp
