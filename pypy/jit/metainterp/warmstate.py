@@ -25,9 +25,13 @@ def specialize_value(TYPE, x):
         if isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'raw':
             # non-gc pointer
             return rffi.cast(TYPE, x)
+        elif TYPE is lltype.SingleFloat:
+            return longlong.int2singlefloat(x)
         else:
             return lltype.cast_primitive(TYPE, x)
     elif INPUT is longlong.FLOATSTORAGE:
+        if longlong.is_longlong(TYPE):
+            return rffi.cast(TYPE, x)
         assert TYPE is lltype.Float
         return longlong.getrealfloat(x)
     else:
@@ -84,8 +88,12 @@ def wrap(cpu, value, in_const_box=False):
             return history.ConstObj(value)
         else:
             return history.BoxObj(value)
-    elif isinstance(value, float):
-        value = longlong.getfloatstorage(value)
+    elif (isinstance(value, float) or
+          longlong.is_longlong(lltype.typeOf(value))):
+        if isinstance(value, float):
+            value = longlong.getfloatstorage(value)
+        else:
+            value = rffi.cast(lltype.SignedLongLong, value)
         if in_const_box:
             return history.ConstFloat(value)
         else:
@@ -93,6 +101,8 @@ def wrap(cpu, value, in_const_box=False):
     elif isinstance(value, str) or isinstance(value, unicode):
         assert len(value) == 1     # must be a character
         value = ord(value)
+    elif lltype.typeOf(value) is lltype.SingleFloat:
+        value = longlong.singlefloat2int(value)
     else:
         value = intmask(value)
     if in_const_box:
@@ -114,7 +124,7 @@ def hash_whatever(TYPE, x):
     # Hash of lltype or ootype object.
     # Only supports strings, unicodes and regular instances,
     # as well as primitives that can meaningfully be cast to Signed.
-    if isinstance(TYPE, lltype.Ptr):
+    if isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'gc':
         if TYPE.TO is rstr.STR or TYPE.TO is rstr.UNICODE:
             return rstr.LLHelpers.ll_strhash(x)    # assumed not null
         else:
@@ -130,7 +140,7 @@ def hash_whatever(TYPE, x):
         else:
             return 0
     else:
-        return lltype.cast_primitive(lltype.Signed, x)
+        return rffi.cast(lltype.Signed, x)
 
 @specialize.ll_and_arg(3)
 def set_future_value(cpu, j, value, typecode):
@@ -138,7 +148,10 @@ def set_future_value(cpu, j, value, typecode):
         refvalue = cpu.ts.cast_to_ref(value)
         cpu.set_future_value_ref(j, refvalue)
     elif typecode == 'int':
-        intvalue = lltype.cast_primitive(lltype.Signed, value)
+        if isinstance(lltype.typeOf(value), lltype.Ptr):
+            intvalue = llmemory.AddressAsInt(llmemory.cast_ptr_to_adr(value))
+        else:
+            intvalue = lltype.cast_primitive(lltype.Signed, value)
         cpu.set_future_value_int(j, intvalue)
     elif typecode == 'float':
         if lltype.typeOf(value) is lltype.Float:
@@ -256,6 +269,11 @@ class WarmEnterState(object):
         if self.warmrunnerdesc:
             if self.warmrunnerdesc.memory_manager:
                 self.warmrunnerdesc.memory_manager.retrace_limit = value
+
+    def set_param_max_retrace_guards(self, value):
+        if self.warmrunnerdesc:
+            if self.warmrunnerdesc.memory_manager:
+                self.warmrunnerdesc.memory_manager.max_retrace_guards = value
 
     def disable_noninlinable_function(self, greenkey):
         cell = self.jit_cell_at_key(greenkey)
@@ -569,6 +587,19 @@ class WarmEnterState(object):
             return can_inline_greenargs(*greenargs)
         self.can_inline_greenargs = can_inline_greenargs
         self.can_inline_callable = can_inline_callable
+
+        if jd._should_unroll_one_iteration_ptr is None:
+            def should_unroll_one_iteration(greenkey):
+                return False
+        else:
+            rtyper = self.warmrunnerdesc.rtyper
+            inline_ptr = jd._should_unroll_one_iteration_ptr
+            def should_unroll_one_iteration(greenkey):
+                greenargs = unwrap_greenkey(greenkey)
+                fn = support.maybe_on_top_of_llinterp(rtyper, inline_ptr)
+                return fn(*greenargs)
+        self.should_unroll_one_iteration = should_unroll_one_iteration
+        
         if hasattr(jd.jitdriver, 'on_compile'):
             def on_compile(logger, token, operations, type, greenkey):
                 greenargs = unwrap_greenkey(greenkey)

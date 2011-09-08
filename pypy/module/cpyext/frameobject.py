@@ -57,7 +57,7 @@ def frame_realize(space, py_obj):
     code = space.interp_w(PyCode, w_code)
     w_globals = from_ref(space, py_frame.c_f_globals)
 
-    frame = PyFrame(space, code, w_globals, closure=None)
+    frame = space.FrameClass(space, code, w_globals, outer_func=None)
     frame.f_lineno = py_frame.c_f_lineno
     w_obj = space.wrap(frame)
     track_reference(space, py_obj, w_obj)

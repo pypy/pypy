@@ -418,7 +418,7 @@ class W_InstanceObject(Wrappable):
         if w_meth is not None:
             space.call_function(w_meth, w_name)
         else:
-            if not self.deldictvalue(space, w_name):
+            if not self.deldictvalue(space, name):
                 raise operationerrfmt(
                     space.w_AttributeError,
                     "%s instance has no attribute '%s'",

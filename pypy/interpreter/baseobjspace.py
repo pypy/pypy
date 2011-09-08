@@ -44,11 +44,11 @@ class W_Root(object):
             return True
         return False
 
-    def deldictvalue(self, space, w_name):
+    def deldictvalue(self, space, attr):
         w_dict = self.getdict(space)
         if w_dict is not None:
             try:
-                space.delitem(w_dict, w_name)
+                space.delitem(w_dict, space.wrap(attr))
                 return True
             except OperationError, ex:
                 if not ex.match(space, space.w_KeyError):
@@ -109,6 +109,9 @@ class W_Root(object):
         raise NotImplementedError
 
     def setslotvalue(self, index, w_val):
+        raise NotImplementedError
+
+    def delslotvalue(self, index):
         raise NotImplementedError
 
     def descr_call_mismatch(self, space, opname, RequiredClass, args):
@@ -623,9 +626,9 @@ class ObjSpace(object):
             self.default_compiler = compiler
             return compiler
 
-    def createframe(self, code, w_globals, closure=None):
+    def createframe(self, code, w_globals, outer_func=None):
         "Create an empty PyFrame suitable for this code object."
-        return self.FrameClass(self, code, w_globals, closure)
+        return self.FrameClass(self, code, w_globals, outer_func)
 
     def allocate_lock(self):
         """Return an interp-level Lock object if threads are enabled,
@@ -1283,6 +1286,17 @@ class ObjSpace(object):
             raise OperationError(self.w_OverflowError,
                                  self.wrap("expected a 32-bit integer"))
         return value
+
+    def truncatedint(self, w_obj):
+        # Like space.gateway_int_w(), but return the integer truncated
+        # instead of raising OverflowError.  For obscure cases only.
+        try:
+            return self.int_w(w_obj)
+        except OperationError, e:
+            if not e.match(self, self.w_OverflowError):
+                raise
+            from pypy.rlib.rarithmetic import intmask
+            return intmask(self.bigint_w(w_obj).uintmask())
 
     def c_filedescriptor_w(self, w_fd):
         # This is only used sometimes in CPython, e.g. for os.fsync() but

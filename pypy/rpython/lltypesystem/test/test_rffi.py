@@ -699,7 +699,10 @@ class TestRffiInternals:
     def test_cast(self):
         res = cast(SIZE_T, -1)
         assert type(res) is r_size_t
-        assert res == r_size_t(-1)    
+        assert res == r_size_t(-1)
+        #
+        res = cast(lltype.Signed, 42.5)
+        assert res == 42
     
     def test_rffi_sizeof(self):
         try:

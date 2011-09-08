@@ -120,8 +120,6 @@ class CBuilder(object):
         self.originalentrypoint = entrypoint
         self.config = config
         self.gcpolicy = gcpolicy    # for tests only, e.g. rpython/memory/
-        if gcpolicy is not None and gcpolicy.requires_stackless:
-            config.translation.stackless = True
         self.eci = self.get_eci()
         self.secondary_entrypoints = secondary_entrypoints
 
@@ -139,21 +137,8 @@ class CBuilder(object):
             if not self.standalone:
                 raise NotImplementedError("--gcrootfinder=asmgcc requires standalone")
 
-        if self.config.translation.stackless:
-            if not self.standalone:
-                raise Exception("stackless: only for stand-alone builds")
-            
-            from pypy.translator.stackless.transform import StacklessTransformer
-            stacklesstransformer = StacklessTransformer(
-                translator, self.originalentrypoint,
-                stackless_gc=gcpolicyclass.requires_stackless)
-            self.entrypoint = stacklesstransformer.slp_entry_point
-        else:
-            stacklesstransformer = None
-
         db = LowLevelDatabase(translator, standalone=self.standalone,
                               gcpolicyclass=gcpolicyclass,
-                              stacklesstransformer=stacklesstransformer,
                               thread_enabled=self.config.translation.thread,
                               sandbox=self.config.translation.sandbox)
         self.db = db
@@ -251,12 +236,8 @@ class CBuilder(object):
             CBuilder.have___thread = self.translator.platform.check___thread()
         if not self.standalone:
             assert not self.config.translation.instrument
-            self.eci, cfile, extra = gen_source(db, modulename, targetdir,
-                                                self.eci,
-                                                defines = defines,
-                                                split=self.split)
         else:
-            pfname = db.get(pf)
+            defines['PYPY_STANDALONE'] = db.get(pf)
             if self.config.translation.instrument:
                 defines['INSTRUMENT'] = 1
             if CBuilder.have___thread:
@@ -266,11 +247,9 @@ class CBuilder(object):
                 defines['PYPY_MAIN_FUNCTION'] = "pypy_main_startup"
                 self.eci = self.eci.merge(ExternalCompilationInfo(
                     export_symbols=["pypy_main_startup"]))
-            self.eci, cfile, extra = gen_source_standalone(db, modulename,
-                                                 targetdir,
-                                                 self.eci,
-                                                 entrypointname = pfname,
-                                                 defines = defines)
+        self.eci, cfile, extra = gen_source(db, modulename, targetdir,
+                                            self.eci, defines=defines,
+                                            split=self.split)
         self.c_source_filename = py.path.local(cfile)
         self.extrafiles = self.eventually_copy(extra)
         self.gen_makefile(targetdir, exe_name=exe_name)
@@ -435,6 +414,7 @@ _rpython_startup()
 
 class CStandaloneBuilder(CBuilder):
     standalone = True
+    split = True
     executable_name = None
     shared_library_name = None
 
@@ -948,63 +928,8 @@ def add_extra_files(eci):
     return eci.merge(ExternalCompilationInfo(separate_module_files=files))
 
 
-def gen_source_standalone(database, modulename, targetdir, eci,
-                          entrypointname, defines={}): 
-    assert database.standalone
-    if isinstance(targetdir, str):
-        targetdir = py.path.local(targetdir)
-
-    filename = targetdir.join(modulename + '.c')
-    f = filename.open('w')
-    incfilename = targetdir.join('common_header.h')
-    fi = incfilename.open('w')
-
-    #
-    # Header
-    #
-    print >> f, '#include "common_header.h"'
-    print >> f
-    commondefs(defines)
-    defines['PYPY_STANDALONE'] = entrypointname
-    for key, value in defines.items():
-        print >> fi, '#define %s %s' % (key, value)
-
-    eci.write_c_header(fi)
-    print >> fi, '#include "src/g_prerequisite.h"'
-
-    fi.close()
-
-    preimplementationlines = list(
-        pre_include_code_lines(database, database.translator.rtyper))
-
-    #
-    # 1) All declarations
-    # 2) Implementation of functions and global structures and arrays
-    #
-    sg = SourceGenerator(database, preimplementationlines)
-    sg.set_strategy(targetdir)
-    database.prepare_inline_helpers()
-    sg.gen_readable_parts_of_source(f)
-
-    # 3) start-up code
-    print >> f
-    gen_startupcode(f, database)
-
-    f.close()
-
-    if 'INSTRUMENT' in defines:
-        fi = incfilename.open('a')
-        n = database.instrument_ncounter
-        print >>fi, "#define INSTRUMENT_NCOUNTER %d" % n
-        fi.close()
-
-    eci = add_extra_files(eci)
-    eci = eci.convert_sources_to_files(being_main=True)
-    files, eci = eci.get_module_files()
-    return eci, filename, sg.getextrafiles() + list(files)
-
-def gen_source(database, modulename, targetdir, eci, defines={}, split=False):
-    assert not database.standalone
+def gen_source(database, modulename, targetdir,
+               eci, defines={}, split=False):
     if isinstance(targetdir, str):
         targetdir = py.path.local(targetdir)
 
@@ -1045,6 +970,12 @@ def gen_source(database, modulename, targetdir, eci, defines={}, split=False):
 
     gen_startupcode(f, database)
     f.close()
+
+    if 'INSTRUMENT' in defines:
+        fi = incfilename.open('a')
+        n = database.instrument_ncounter
+        print >>fi, "#define INSTRUMENT_NCOUNTER %d" % n
+        fi.close()
 
     eci = add_extra_files(eci)
     eci = eci.convert_sources_to_files(being_main=True)

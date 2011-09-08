@@ -16,6 +16,13 @@ class FieldListAccessor(object):
         for x in fields.itervalues():
             assert isinstance(x, ImmutableRanking)
 
+    def all_immutable_fields(self):
+        result = set()
+        for key, value in self.fields.iteritems():
+            if value in (IR_IMMUTABLE, IR_IMMUTABLE_ARRAY):
+                result.add(key)
+        return result
+
     def __repr__(self):
         return '<FieldListAccessor for %s>' % getattr(self, 'TYPE', '?')
 

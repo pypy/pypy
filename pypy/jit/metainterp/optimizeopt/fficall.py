@@ -1,12 +1,11 @@
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.libffi import Func
-from pypy.rlib.debug import debug_start, debug_stop, debug_print, have_debug_prints
+from pypy.rlib.debug import debug_print
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from pypy.jit.metainterp.optimizeopt.optimizer import Optimization
-from pypy.jit.backend.llsupport.ffisupport import UnsupportedKind
 
 
 class FuncInfo(object):
@@ -19,28 +18,27 @@ class FuncInfo(object):
     def __init__(self, funcval, cpu, prepare_op):
         self.funcval = funcval
         self.opargs = []
-        argtypes, restype = self._get_signature(funcval)
-        try:
-            self.descr = cpu.calldescrof_dynamic(argtypes, restype)
-        except UnsupportedKind:
-            # e.g., I or U for long longs
-            self.descr = None
+        argtypes, restype, flags = self._get_signature(funcval)
+        self.descr = cpu.calldescrof_dynamic(argtypes, restype,
+                                             EffectInfo.MOST_GENERAL,
+                                             ffi_flags=flags)
+        # ^^^ may be None if unsupported
         self.prepare_op = prepare_op
         self.delayed_ops = []
 
     def _get_signature(self, funcval):
         """
-        given the funcval, return a tuple (argtypes, restype), where the
-        actuall types are libffi.types.*
+        given the funcval, return a tuple (argtypes, restype, flags), where
+        the actuall types are libffi.types.*
 
         The implementation is tricky because we have three possible cases:
 
         - translated: the easiest case, we can just cast back the pointer to
-          the original Func instance and read .argtypes and .restype
+          the original Func instance and read .argtypes, .restype and .flags
 
         - completely untranslated: this is what we get from test_optimizeopt
           tests. funcval contains a FakeLLObject whose _fake_class is Func,
-          and we can just get .argtypes and .restype
+          and we can just get .argtypes, .restype and .flags
 
         - partially translated: this happens when running metainterp tests:
           funcval contains the low-level equivalent of a Func, and thus we
@@ -48,14 +46,14 @@ class FuncInfo(object):
           inst_argtypes is actually a low-level array, but we can use it
           directly since the only thing we do with it is to read its items
         """
-        
+
         llfunc = funcval.box.getref_base()
         if we_are_translated():
             func = cast_base_ptr_to_instance(Func, llfunc)
-            return func.argtypes, func.restype
+            return func.argtypes, func.restype, func.flags
         elif getattr(llfunc, '_fake_class', None) is Func:
             # untranslated
-            return llfunc.argtypes, llfunc.restype
+            return llfunc.argtypes, llfunc.restype, llfunc.flags
         else:
             # partially translated
             # llfunc contains an opaque pointer to something like the following:
@@ -66,7 +64,7 @@ class FuncInfo(object):
             # because we don't have the exact TYPE to cast to.  Instead, we
             # just fish it manually :-(
             f = llfunc._obj.container
-            return f.inst_argtypes, f.inst_restype
+            return f.inst_argtypes, f.inst_restype, f.inst_flags
 
 
 class OptFfiCall(Optimization):
@@ -78,18 +76,9 @@ class OptFfiCall(Optimization):
         else:
             self.logops = None
 
-    def propagate_begin_forward(self):
-        debug_start('jit-log-ffiopt')
-        Optimization.propagate_begin_forward(self)
-
-    def propagate_end_forward(self):
-        debug_stop('jit-log-ffiopt')
-        Optimization.propagate_end_forward(self)
-
-    def reconstruct_for_next_iteration(self, optimizer, valuemap):
+    def new(self):
         return OptFfiCall()
-        # FIXME: Should any status be saved for next iteration?
-
+    
     def begin_optimization(self, funcval, op):
         self.rollback_maybe('begin_optimization', op)
         self.funcinfo = FuncInfo(funcval, self.optimizer.cpu, op)
@@ -184,7 +173,8 @@ class OptFfiCall(Optimization):
     def do_call(self, op):
         funcval = self._get_funcval(op)
         funcinfo = self.funcinfo
-        if not funcinfo or funcinfo.funcval is not funcval:
+        if (not funcinfo or funcinfo.funcval is not funcval or
+            funcinfo.descr is None):
             return [op] # cannot optimize
         funcsymval = self.getvalue(op.getarg(2))
         arglist = [funcsymval.force_box()]
@@ -207,9 +197,7 @@ class OptFfiCall(Optimization):
 
     def _get_oopspec(self, op):
         effectinfo = op.getdescr().get_extra_info()
-        if effectinfo is not None:
-            return effectinfo.oopspecindex
-        return EffectInfo.OS_NONE
+        return effectinfo.oopspecindex
 
     def _get_funcval(self, op):
         return self.getvalue(op.getarg(1))

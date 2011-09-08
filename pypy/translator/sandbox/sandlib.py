@@ -209,7 +209,7 @@ class SandboxedProc(object):
     def handle_until_return(self):
         child_stdin  = self.popen.stdin
         child_stdout = self.popen.stdout
-        if self.os_level_sandboxing and sys.platform.startswith('linux2'):
+        if self.os_level_sandboxing and sys.platform.startswith('linux'):
             # rationale: we wait until the child process started completely,
             # letting the C library do any system calls it wants for
             # initialization.  When the RPython code starts up, it quickly
@@ -329,7 +329,7 @@ class SimpleIOSandboxedProc(SandboxedProc):
                   self._input.isatty()):
                 # don't wait for all 'size' chars if reading from a tty,
                 # to avoid blocking.  Instead, stop after reading a line.
-                
+
                 # For now, waiting at the interactive console is the
                 # only time that counts as idle.
                 self.enter_idle()
@@ -496,7 +496,7 @@ class VirtualizedSocketProc(VirtualizedSandboxedProc):
     def __init__(self, *args, **kwds):
         super(VirtualizedSocketProc, self).__init__(*args, **kwds)
         self.sockets = {}
-    
+
     def do_ll_os__ll_os_open(self, name, flags, mode):
         if not name.startswith("tcp://"):
             return super(VirtualizedSocketProc, self).do_ll_os__ll_os_open(
@@ -520,4 +520,4 @@ class VirtualizedSocketProc(VirtualizedSandboxedProc):
             return self.open_fds[fd].send(data)
         return super(VirtualizedSocketProc, self).do_ll_os__ll_os_write(
             fd, data)
-            
+

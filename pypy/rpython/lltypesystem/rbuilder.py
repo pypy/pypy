@@ -1,13 +1,13 @@
-
-from pypy.rpython.rbuilder import AbstractStringBuilderRepr
-from pypy.rpython.lltypesystem import lltype, rstr
-from pypy.rpython.lltypesystem.rstr import STR, UNICODE, char_repr,\
-     string_repr, unichar_repr, unicode_repr
-from pypy.rpython.annlowlevel import llstr
 from pypy.rlib import rgc
-from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.objectmodel import enforceargs
+from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rpython.annlowlevel import llstr
+from pypy.rpython.rptr import PtrRepr
+from pypy.rpython.lltypesystem import lltype, rstr
 from pypy.rpython.lltypesystem.lltype import staticAdtMethod
+from pypy.rpython.lltypesystem.rstr import (STR, UNICODE, char_repr,
+    string_repr, unichar_repr, unicode_repr)
+from pypy.rpython.rbuilder import AbstractStringBuilderRepr
 from pypy.tool.sourcetools import func_with_new_name
 
 # Think about heuristics below, maybe we can come up with something
@@ -73,7 +73,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
             ll_builder.grow(ll_builder, lgt)
         ll_str.copy_contents(ll_str, ll_builder.buf, 0, used, lgt)
         ll_builder.used = needed
-    
+
     @staticmethod
     def ll_append_char(ll_builder, char):
         if ll_builder.used == ll_builder.allocated:
@@ -102,6 +102,16 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         ll_builder.used = used
 
     @staticmethod
+    def ll_append_charpsize(ll_builder, charp, size):
+        used = ll_builder.used
+        if used + size > ll_builder.allocated:
+            ll_builder.grow(ll_builder, size)
+        for i in xrange(size):
+            ll_builder.buf.chars[used] = charp[i]
+            used += 1
+        ll_builder.used = used
+
+    @staticmethod
     def ll_getlength(ll_builder):
         return ll_builder.used
 
@@ -119,6 +129,9 @@ class StringBuilderRepr(BaseStringBuilderRepr):
     mallocfn = staticmethod(rstr.mallocstr)
     string_repr = string_repr
     char_repr = char_repr
+    raw_ptr_repr = PtrRepr(
+        lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))
+    )
 
 class UnicodeBuilderRepr(BaseStringBuilderRepr):
     lowleveltype = lltype.Ptr(UNICODEBUILDER)
@@ -126,6 +139,9 @@ class UnicodeBuilderRepr(BaseStringBuilderRepr):
     mallocfn = staticmethod(rstr.mallocunicode)
     string_repr = unicode_repr
     char_repr = unichar_repr
+    raw_ptr_repr = PtrRepr(
+        lltype.Ptr(lltype.Array(lltype.UniChar, hints={'nolength': True}))
+    )
 
 unicodebuilder_repr = UnicodeBuilderRepr()
 stringbuilder_repr = StringBuilderRepr()

@@ -1,0 +1,21 @@
+=============================
+objspace.std.withidentitydict
+=============================
+
+* **name:** withidentitydict
+
+* **description:** enable a dictionary strategy for "by identity" comparisons
+
+* **command-line:** --objspace-std-withidentitydict
+
+* **command-line for negation:** --no-objspace-std-withidentitydict
+
+* **option type:** boolean option
+
+* **default:** True
+
+
+Enable a dictionary strategy specialized for instances of classes which
+compares "by identity", which is the default unless you override ``__hash__``,
+``__eq__`` or ``__cmp__``.  This strategy will be used only with new-style
+classes.

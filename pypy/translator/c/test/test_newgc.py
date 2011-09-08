@@ -441,6 +441,45 @@ class TestUsingFramework(object):
     def test_del_raises(self):
         self.run('del_raises') # does not raise
 
+    def define_custom_trace(cls):
+        from pypy.rpython.annlowlevel import llhelper
+        from pypy.rpython.lltypesystem import llmemory
+        #
+        S = lltype.GcStruct('S', ('x', llmemory.Address), rtti=True)
+        offset_of_x = llmemory.offsetof(S, 'x')
+        def customtrace(obj, prev):
+            if not prev:
+                return obj + offset_of_x
+            else:
+                return llmemory.NULL
+        CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
+                                          llmemory.Address)
+        customtraceptr = llhelper(lltype.Ptr(CUSTOMTRACEFUNC), customtrace)
+        lltype.attachRuntimeTypeInfo(S, customtraceptr=customtraceptr)
+        #
+        def setup():
+            s = lltype.nullptr(S)
+            for i in range(10000):
+                t = lltype.malloc(S)
+                t.x = llmemory.cast_ptr_to_adr(s)
+                s = t
+            return s
+        def measure_length(s):
+            res = 0
+            while s:
+                res += 1
+                s = llmemory.cast_adr_to_ptr(s.x, lltype.Ptr(S))
+            return res
+        def f(n):
+            s1 = setup()
+            llop.gc__collect(lltype.Void)
+            return measure_length(s1)
+        return f
+
+    def test_custom_trace(self):
+        res = self.run('custom_trace', 0)
+        assert res == 10000
+
     def define_weakref(cls):
         import weakref
 
@@ -1389,6 +1428,35 @@ class TestMiniMarkGC(TestSemiSpaceGC):
 
     def test_gc_heap_stats(self):
         py.test.skip("not implemented")
+
+    def define_nongc_attached_to_gc(cls):
+        from pypy.rpython.lltypesystem import rffi
+        ARRAY = rffi.CArray(rffi.INT)
+        class A:
+            def __init__(self, n):
+                self.buf = lltype.malloc(ARRAY, n, flavor='raw',
+                                         add_memory_pressure=True)
+            def __del__(self):
+                lltype.free(self.buf, flavor='raw')
+        A(6)
+        def f():
+            # allocate a total of ~77GB, but if the automatic gc'ing works,
+            # it should never need more than a few MBs at once
+            am1 = am2 = am3 = None
+            res = 0
+            for i in range(1, 100001):
+                if am3 is not None:
+                    res += rffi.cast(lltype.Signed, am3.buf[0])
+                am3 = am2
+                am2 = am1
+                am1 = A(i * 4)
+                am1.buf[0] = rffi.cast(rffi.INT, i-50000)
+            return res
+        return f
+
+    def test_nongc_attached_to_gc(self):
+        res = self.run("nongc_attached_to_gc")
+        assert res == -99997
 
 # ____________________________________________________________________
 

@@ -109,25 +109,19 @@ class FutureAutomaton(object):
             self.getc() == self.getc(+2)):
             self.pos += 3
             while 1: # Deal with a triple quoted docstring
-                if self.getc() == '\\':
-                    self.pos += 2
+                c = self.getc()
+                if c == '\\':
+                    self.pos += 1
+                    self._skip_next_char_from_docstring()
+                elif c != endchar:
+                    self._skip_next_char_from_docstring()
                 else:
-                    c = self.getc()
-                    if c != endchar:
-                        self.pos += 1
-                        if c == '\n':
-                            self.atbol()
-                        elif c == '\r':
-                            if self.getc() == '\n':
-                                self.pos += 1
-                                self.atbol()
-                    else:
-                        self.pos += 1
-                        if (self.getc() == endchar and
-                            self.getc(+1) == endchar):
-                            self.pos += 2
-                            self.consume_empty_line()
-                            break
+                    self.pos += 1
+                    if (self.getc() == endchar and
+                        self.getc(+1) == endchar):
+                        self.pos += 2
+                        self.consume_empty_line()
+                        break
 
         else: # Deal with a single quoted docstring
             self.pos += 1
@@ -138,16 +132,20 @@ class FutureAutomaton(object):
                     self.consume_empty_line()
                     return
                 elif c == '\\':
-                    # Deal with linefeeds
-                    if self.getc() != '\r':
-                        self.pos += 1
-                    else:
-                        self.pos += 1
-                        if self.getc() == '\n':
-                            self.pos += 1
+                    self._skip_next_char_from_docstring()
                 elif c in '\r\n':
                     # Syntax error
                     return
+
+    def _skip_next_char_from_docstring(self):
+        c = self.getc()
+        self.pos += 1
+        if c == '\n':
+            self.atbol()
+        elif c == '\r':
+            if self.getc() == '\n':
+                self.pos += 1
+            self.atbol()
 
     def consume_continuation(self):
         c = self.getc()

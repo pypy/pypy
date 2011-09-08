@@ -8,6 +8,7 @@ class Op(object):
     bridge = None
     offset = None
     asm = None
+    failargs = ()
 
     def __init__(self, name, args, res, descr):
         self.name = name
@@ -18,8 +19,8 @@ class Op(object):
         if self._is_guard:
             self.guard_no = int(self.descr[len('<Guard'):-1])
 
-    def setfailargs(self, _):
-        pass
+    def setfailargs(self, failargs):
+        self.failargs = failargs
 
     def getarg(self, i):
         return self._getvar(self.args[i])
@@ -30,6 +31,9 @@ class Op(object):
     def getres(self):
         return self._getvar(self.res)
 
+    def getdescr(self):
+        return self.descr
+
     def _getvar(self, v):
         return v
 
@@ -39,7 +43,7 @@ class Op(object):
     def repr(self):
         args = self.getargs()
         if self.descr is not None:
-            args.append('descr=%s' % self.descr)
+            args.append('descr=%s' % self.getdescr())
         arglist = ', '.join(args)
         if self.res is not None:
             return '%s = %s(%s)' % (self.getres(), self.name, arglist)
@@ -145,10 +149,10 @@ class TraceForOpcode(object):
         if operations[0].name == 'debug_merge_point':
             self.inline_level = int(operations[0].args[0])
             m = re.search('<code object ([<>\w]+)\. file \'(.+?)\'\. line (\d+)> #(\d+) (\w+)',
-                         operations[0].getarg(1))
+                         operations[0].args[1])
             if m is None:
                 # a non-code loop, like StrLiteralSearch or something
-                self.bytecode_name = operations[0].args[1].split(" ")[0][1:]
+                self.bytecode_name = operations[0].args[1][1:-1]
             else:
                 self.name, self.filename, lineno, bytecode_no, self.bytecode_name = m.groups()
                 self.startlineno = int(lineno)
@@ -171,6 +175,8 @@ class TraceForOpcode(object):
         return self.code is not None
 
     def getopcode(self):
+        if self.code is None:
+            return None
         return self.code.map[self.bytecode_no]
 
     def getlineno(self):
@@ -325,6 +331,8 @@ def adjust_bridges(loop, bridges):
         if op.is_guard() and bridges.get('loop-' + str(op.guard_no), None):
             res.append(op)
             i = 0
+            if hasattr(op.bridge, 'force_asm'):
+                op.bridge.force_asm()
             ops = op.bridge.operations
         else:
             res.append(op)

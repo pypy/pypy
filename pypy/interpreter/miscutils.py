@@ -167,3 +167,7 @@ class ThreadLocals:
 
     def getmainthreadvalue(self):
         return self._value
+
+    def getallvalues(self):
+        return {0: self._value}
+

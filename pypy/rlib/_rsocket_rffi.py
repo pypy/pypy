@@ -455,9 +455,9 @@ timeval = cConfig.timeval
 #    eci = ExternalCompilationInfo(includes=includes, libraries=libraries,
 #                                  separate_module_sources=sources)
 
-def external(name, args, result):
+def external(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, compilation_info=eci,
-                           calling_conv=calling_conv)
+                           calling_conv=calling_conv, **kwds)
 
 def external_c(name, args, result, **kwargs):
     return rffi.llexternal(name, args, result, compilation_info=eci,
@@ -476,9 +476,9 @@ if _POSIX:
 socket = external('socket', [rffi.INT, rffi.INT, rffi.INT], socketfd_type)
 
 if WIN32:
-    socketclose = external('closesocket', [socketfd_type], rffi.INT)
+    socketclose = external('closesocket', [socketfd_type], rffi.INT, threadsafe=False)
 else:
-    socketclose = external('close', [socketfd_type], rffi.INT)
+    socketclose = external('close', [socketfd_type], rffi.INT, threadsafe=False)
 
 socketconnect = external('connect', [socketfd_type, sockaddr_ptr, socklen_t], rffi.INT)
 
@@ -489,10 +489,10 @@ freeaddrinfo = external('freeaddrinfo', [addrinfo_ptr], lltype.Void)
 getnameinfo = external('getnameinfo', [sockaddr_ptr, socklen_t, CCHARP,
                        size_t, CCHARP, size_t, rffi.INT], rffi.INT)
 
-htonl = external('htonl', [rffi.UINT], rffi.UINT)
-htons = external('htons', [rffi.USHORT], rffi.USHORT)
-ntohl = external('ntohl', [rffi.UINT], rffi.UINT)
-ntohs = external('ntohs', [rffi.USHORT], rffi.USHORT)
+htonl = external('htonl', [rffi.UINT], rffi.UINT, threadsafe=False)
+htons = external('htons', [rffi.USHORT], rffi.USHORT, threadsafe=False)
+ntohl = external('ntohl', [rffi.UINT], rffi.UINT, threadsafe=False)
+ntohs = external('ntohs', [rffi.USHORT], rffi.USHORT, threadsafe=False)
 
 if _POSIX:
     inet_aton = external('inet_aton', [CCHARP, lltype.Ptr(in_addr)],

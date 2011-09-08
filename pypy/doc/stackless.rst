@@ -8,446 +8,299 @@ Introduction
 ================
 
 PyPy can expose to its user language features similar to the ones
-present in `Stackless Python`_: **no recursion depth limit**, and the
-ability to write code in a **massively concurrent style**.  It actually
-exposes three different paradigms to choose from:
+present in `Stackless Python`_: the ability to write code in a
+**massively concurrent style**.  (It does not (any more) offer the
+ability to run with no `recursion depth limit`_, but the same effect
+can be achieved indirectly.)
 
-* `Tasklets and channels`_;
+This feature is based on a custom primitive called a continulet_.
+Continulets can be directly used by application code, or it is possible
+to write (entirely at app-level) more user-friendly interfaces.
 
-* Greenlets_;
+Currently PyPy implements greenlets_ on top of continulets.  It would be
+easy to implement tasklets and channels as well, emulating the model
+of `Stackless Python`_.
 
-* Plain coroutines_.
+Continulets are extremely light-weight, which means that PyPy should be
+able to handle programs containing large amounts of them.  However, due
+to an implementation restriction, a PyPy compiled with
+``--gcrootfinder=shadowstack`` consumes at least one page of physical
+memory (4KB) per live continulet, and half a megabyte of virtual memory
+on 32-bit or a complete megabyte on 64-bit.  Moreover, the feature is
+only available (so far) on x86 and x86-64 CPUs; for other CPUs you need
+to add a short page of custom assembler to
+`pypy/translator/c/src/stacklet/`_.
 
-All of them are extremely light-weight, which means that PyPy should be
-able to handle programs containing large amounts of coroutines, tasklets
-and greenlets.
 
+Theory
+======
 
-Requirements
-++++++++++++++++
+The fundamental idea is that, at any point in time, the program happens
+to run one stack of frames (or one per thread, in case of
+multi-threading).  To see the stack, start at the top frame and follow
+the chain of ``f_back`` until you reach the bottom frame.  From the
+point of view of one of these frames, it has a ``f_back`` pointing to
+another frame (unless it is the bottom frame), and it is itself being
+pointed to by another frame (unless it is the top frame).
 
-If you are running py.py on top of CPython, then you need to enable
-the _stackless module by running it as follows::
+The theory behind continulets is to literally take the previous sentence
+as definition of "an O.K. situation".  The trick is that there are
+O.K. situations that are more complex than just one stack: you will
+always have one stack, but you can also have in addition one or more
+detached *cycles* of frames, such that by following the ``f_back`` chain
+you run in a circle.  But note that these cycles are indeed completely
+detached: the top frame (the currently running one) is always the one
+which is not the ``f_back`` of anybody else, and it is always the top of
+a stack that ends with the bottom frame, never a part of these extra
+cycles.
 
-    py.py --withmod-_stackless
+How do you create such cycles?  The fundamental operation to do so is to
+take two frames and *permute* their ``f_back`` --- i.e. exchange them.
+You can permute any two ``f_back`` without breaking the rule of "an O.K.
+situation".  Say for example that ``f`` is some frame halfway down the
+stack, and you permute its ``f_back`` with the ``f_back`` of the top
+frame.  Then you have removed from the normal stack all intermediate
+frames, and turned them into one stand-alone cycle.  By doing the same
+permutation again you restore the original situation.
 
-This is implemented internally using greenlets, so it only works on a
-platform where `greenlets`_ are supported.  A few features do
-not work this way, though, and really require a translated
-``pypy-c``.
+In practice, in PyPy, you cannot change the ``f_back`` of an abitrary
+frame, but only of frames stored in ``continulets``.
 
-To obtain a translated version of ``pypy-c`` that includes Stackless
-support, run translate.py as follows::
-
-    cd pypy/translator/goal
-    python translate.py --stackless
+Continulets are internally implemented using stacklets.  Stacklets are a
+bit more primitive (they are really one-shot continuations), but that
+idea only works in C, not in Python.  The basic idea of continulets is
+to have at any point in time a complete valid stack; this is important
+e.g. to correctly propagate exceptions (and it seems to give meaningful
+tracebacks too).
 
 
 Application level interface
 =============================
 
-A stackless PyPy contains a module called ``stackless``.  The interface
-exposed by this module have not been refined much, so it should be
-considered in-flux (as of 2007).
 
-So far, PyPy does not provide support for ``stackless`` in a threaded
-environment.  This limitation is not fundamental, as previous experience
-has shown, so supporting this would probably be reasonably easy.
+.. _continulet:
 
-An interesting point is that the same ``stackless`` module can provide
-a number of different concurrency paradigms at the same time.  From a
-theoretical point of view, none of above-mentioned existing three
-paradigms considered on its own is new: two of them are from previous
-Python work, and the third one is a variant of the classical coroutine.
-The new part is that the PyPy implementation manages to provide all of
-them and let the user implement more.  Moreover - and this might be an
-important theoretical contribution of this work - we manage to provide
-these concurrency concepts in a "composable" way.  In other words, it
-is possible to naturally mix in a single application multiple
-concurrency paradigms, and multiple unrelated usages of the same
-paradigm.  This is discussed in the Composability_ section below.
+Continulets
++++++++++++
 
+A translated PyPy contains by default a module called ``_continuation``
+exporting the type ``continulet``.  A ``continulet`` object from this
+module is a container that stores a "one-shot continuation".  It plays
+the role of an extra frame you can insert in the stack, and whose
+``f_back`` can be changed.
 
-Infinite recursion
-++++++++++++++++++
+To make a continulet object, call ``continulet()`` with a callable and
+optional extra arguments.
 
-Any stackless PyPy executable natively supports recursion that is only
-limited by the available memory.  As in normal Python, though, there is
-an initial recursion limit (which is 5000 in all pypy-c's, and 1000 in
-CPython).  It can be changed with ``sys.setrecursionlimit()``.  With a
-stackless PyPy, any value is acceptable - use ``sys.maxint`` for
-unlimited.
+Later, the first time you ``switch()`` to the continulet, the callable
+is invoked with the same continulet object as the extra first argument.
+At that point, the one-shot continuation stored in the continulet points
+to the caller of ``switch()``.  In other words you have a perfectly
+normal-looking stack of frames.  But when ``switch()`` is called again,
+this stored one-shot continuation is exchanged with the current one; it
+means that the caller of ``switch()`` is suspended with its continuation
+stored in the container, and the old continuation from the continulet
+object is resumed.
 
-In some cases, you can write Python code that causes interpreter-level
-infinite recursion -- i.e. infinite recursion without going via
-application-level function calls.  It is possible to limit that too,
-with ``_stackless.set_stack_depth_limit()``, or to unlimit it completely
-by setting it to ``sys.maxint``.
+The most primitive API is actually 'permute()', which just permutes the
+one-shot continuation stored in two (or more) continulets.
 
+In more details:
 
-Coroutines
-++++++++++
+* ``continulet(callable, *args, **kwds)``: make a new continulet.
+  Like a generator, this only creates it; the ``callable`` is only
+  actually called the first time it is switched to.  It will be
+  called as follows::
 
-A Coroutine is similar to a very small thread, with no preemptive scheduling.
-Within a family of coroutines, the flow of execution is explicitly
-transferred from one to another by the programmer.  When execution is
-transferred to a coroutine, it begins to execute some Python code.  When
-it transfers execution away from itself it is temporarily suspended, and
-when execution returns to it it resumes its execution from the
-point where it was suspended.  Conceptually, only one coroutine is
-actively running at any given time (but see Composability_ below).
+      callable(cont, *args, **kwds)
 
-The ``stackless.coroutine`` class is instantiated with no argument.
-It provides the following methods and attributes:
+  where ``cont`` is the same continulet object.
 
-* ``stackless.coroutine.getcurrent()``
+  Note that it is actually ``cont.__init__()`` that binds
+  the continulet.  It is also possible to create a not-bound-yet
+  continulet by calling explicitly ``continulet.__new__()``, and
+  only bind it later by calling explicitly ``cont.__init__()``.
 
-    Static method returning the currently running coroutine.  There is a
-    so-called "main" coroutine object that represents the "outer"
-    execution context, where your main program started and where it runs
-    as long as it does not switch to another coroutine.
+* ``cont.switch(value=None, to=None)``: start the continulet if
+  it was not started yet.  Otherwise, store the current continuation
+  in ``cont``, and activate the target continuation, which is the
+  one that was previously stored in ``cont``.  Note that the target
+  continuation was itself previously suspended by another call to
+  ``switch()``; this older ``switch()`` will now appear to return.
+  The ``value`` argument is any object that is carried to the target
+  and returned by the target's ``switch()``.
 
-* ``coro.bind(callable, *args, **kwds)``
+  If ``to`` is given, it must be another continulet object.  In
+  that case, performs a "double switch": it switches as described
+  above to ``cont``, and then immediately switches again to ``to``.
+  This is different from switching directly to ``to``: the current
+  continuation gets stored in ``cont``, the old continuation from
+  ``cont`` gets stored in ``to``, and only then we resume the
+  execution from the old continuation out of ``to``.
 
-    Bind the coroutine so that it will execute ``callable(*args,
-    **kwds)``.  The call is not performed immediately, but only the
-    first time we call the ``coro.switch()`` method.  A coroutine must
-    be bound before it is switched to.  When the coroutine finishes
-    (because the call to the callable returns), the coroutine exits and
-    implicitly switches back to another coroutine (its "parent"); after
-    this point, it is possible to bind it again and switch to it again.
-    (Which coroutine is the parent of which is not documented, as it is
-    likely to change when the interface is refined.)
+* ``cont.throw(type, value=None, tb=None, to=None)``: similar to
+  ``switch()``, except that immediately after the switch is done, raise
+  the given exception in the target.
 
-* ``coro.switch()``
+* ``cont.is_pending()``: return True if the continulet is pending.
+  This is False when it is not initialized (because we called
+  ``__new__`` and not ``__init__``) or when it is finished (because
+  the ``callable()`` returned).  When it is False, the continulet
+  object is empty and cannot be ``switch()``-ed to.
 
-    Suspend the current (caller) coroutine, and resume execution in the
-    target coroutine ``coro``.
-
-* ``coro.kill()``
-
-    Kill ``coro`` by sending a CoroutineExit exception and switching
-    execution immediately to it. This exception can be caught in the 
-    coroutine itself and can be raised from any call to ``coro.switch()``. 
-    This exception isn't propagated to the parent coroutine.
-
-* ``coro.throw(type, value)``
-
-    Insert an exception in ``coro`` an resume switches execution
-    immediately to it. In the coroutine itself, this exception
-    will come from any call to ``coro.switch()`` and can be caught. If the
-    exception isn't caught, it will be propagated to the parent coroutine.
-
-When a coroutine is garbage-collected, it gets the ``.kill()`` method sent to
-it. This happens at the point the next ``.switch`` method is called, so the
-target coroutine of this call will be executed only after the ``.kill`` has
-finished.
-
-Example
-~~~~~~~
-
-Here is a classical producer/consumer example: an algorithm computes a
-sequence of values, while another consumes them.  For our purposes we
-assume that the producer can generate several values at once, and the
-consumer can process up to 3 values in a batch - it can also process
-batches with fewer than 3 values without waiting for the producer (which
-would be messy to express with a classical Python generator). ::
-
-    def producer(lst):
-        while True:
-            ...compute some more values...
-            lst.extend(new_values)
-            coro_consumer.switch()
-
-    def consumer(lst):
-        while True:
-            # First ask the producer for more values if needed
-            while len(lst) == 0:
-                coro_producer.switch()
-            # Process the available values in a batch, but at most 3
-            batch = lst[:3]
-            del lst[:3]
-            ...process batch...
-
-    # Initialize two coroutines with a shared list as argument
-    exchangelst = []
-    coro_producer = coroutine()
-    coro_producer.bind(producer, exchangelst)
-    coro_consumer = coroutine()
-    coro_consumer.bind(consumer, exchangelst)
-
-    # Start running the consumer coroutine
-    coro_consumer.switch()
+* ``permute(*continulets)``: a global function that permutes the
+  continuations stored in the given continulets arguments.  Mostly
+  theoretical.  In practice, using ``cont.switch()`` is easier and
+  more efficient than using ``permute()``; the latter does not on
+  its own change the currently running frame.
 
 
-Tasklets and channels
-+++++++++++++++++++++
+Genlets
++++++++
 
-The ``stackless`` module also provides an interface that is roughly
-compatible with the interface of the ``stackless`` module in `Stackless
-Python`_: it contains ``stackless.tasklet`` and ``stackless.channel``
-classes.  Tasklets are also similar to microthreads, but (like coroutines)
-they don't actually run in parallel with other microthreads; instead,
-they synchronize and exchange data with each other over Channels, and
-these exchanges determine which Tasklet runs next.
+The ``_continuation`` module also exposes the ``generator`` decorator::
 
-For usage reference, see the documentation on the `Stackless Python`_
-website.
+    @generator
+    def f(cont, a, b):
+        cont.switch(a + b)
+        cont.switch(a + b + 1)
 
-Note that Tasklets and Channels are implemented at application-level in
-`lib_pypy/stackless.py`_ on top of coroutines_.  You can refer to this
-module for more details and API documentation.
+    for i in f(10, 20):
+        print i
 
-The stackless.py code tries to resemble the stackless C code as much
-as possible. This makes the code somewhat unpythonic.
+This example prints 30 and 31.  The only advantage over using regular
+generators is that the generator itself is not limited to ``yield``
+statements that must all occur syntactically in the same function.
+Instead, we can pass around ``cont``, e.g. to nested sub-functions, and
+call ``cont.switch(x)`` from there.
 
-Bird's eye view of tasklets and channels
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+The ``generator`` decorator can also be applied to methods::
 
-Tasklets are a bit like threads: they encapsulate a function in such a way that
-they can be suspended/restarted any time. Unlike threads, they won't
-run concurrently, but must be cooperative. When using stackless
-features, it is vitally important that no action is performed that blocks
-everything else.  In particular, blocking input/output should be centralized
-to a single tasklet.
-
-Communication between tasklets is done via channels. 
-There are three ways for a tasklet to give up control:
-
-1. call ``stackless.schedule()``
-2. send something over a channel
-3. receive something from a channel
-
-A (live) tasklet can either be running, waiting to get scheduled, or be
-blocked by a channel.
-
-Scheduling is done in strictly round-robin manner. A blocked tasklet
-is removed from the scheduling queue and will be reinserted when it
-becomes unblocked.
-
-Example
-~~~~~~~
-
-Here is a many-producers many-consumers example, where any consumer can
-process the result of any producer.  For this situation we set up a
-single channel where all producer send, and on which all consumers
-wait::
-
-    def producer(chan):
-        while True:
-            chan.send(...next value...)
-
-    def consumer(chan):
-        while True:
-            x = chan.receive()
-            ...do something with x...
-
-    # Set up the N producer and M consumer tasklets
-    common_channel = stackless.channel()
-    for i in range(N):
-        stackless.tasklet(producer, common_channel)()
-    for i in range(M):
-        stackless.tasklet(consumer, common_channel)()
-
-    # Run it all
-    stackless.run()
-
-Each item sent over the channel is received by one of the waiting
-consumers; which one is not specified.  The producers block until their
-item is consumed: the channel is not a queue, but rather a meeting point
-which causes tasklets to block until both a consumer and a producer are
-ready.  In practice, the reason for having several consumers receiving
-on a single channel is that some of the consumers can be busy in other
-ways part of the time.  For example, each consumer might receive a
-database request, process it, and send the result to a further channel
-before it asks for the next request.  In this situation, further
-requests can still be received by other consumers.
+    class X:
+        @generator
+        def f(self, cont, a, b):
+            ...
 
 
 Greenlets
 +++++++++
 
-A Greenlet is a kind of primitive Tasklet with a lower-level interface
-and with exact control over the execution order.  Greenlets are similar
-to Coroutines, with a slightly different interface: greenlets put more
-emphasis on a tree structure.  The various greenlets of a program form a
-precise tree, which fully determines their order of execution.
+Greenlets are implemented on top of continulets in `lib_pypy/greenlet.py`_.
+See the official `documentation of the greenlets`_.
 
-For usage reference, see the `documentation of the greenlets`_.
-The PyPy interface is identical.  You should use ``greenlet.greenlet``
-instead of ``stackless.greenlet`` directly, because the greenlet library
-can give you the latter when you ask for the former on top of PyPy.
-
-PyPy's greenlets do not suffer from the cyclic GC limitation that the
-CPython greenlets have: greenlets referencing each other via local
-variables tend to leak on top of CPython (where it is mostly impossible
-to do the right thing).  It works correctly on top of PyPy.
+Note that unlike the CPython greenlets, this version does not suffer
+from GC issues: if the program "forgets" an unfinished greenlet, it will
+always be collected at the next garbage collection.
 
 
-Coroutine Pickling
-++++++++++++++++++
+Unimplemented features
+++++++++++++++++++++++
 
-Coroutines and tasklets can be pickled and unpickled, i.e. serialized to
-a string of bytes for the purpose of storage or transmission.  This
-allows "live" coroutines or tasklets to be made persistent, moved to
-other machines, or cloned in any way.  The standard ``pickle`` module
-works with coroutines and tasklets (at least in a translated ``pypy-c``;
-unpickling live coroutines or tasklets cannot be easily implemented on
-top of CPython).
+The following features (present in some past Stackless version of PyPy)
+are for the time being not supported any more:
 
-To be able to achieve this result, we have to consider many objects that
-are not normally pickleable in CPython.  Here again, the `Stackless
-Python`_ implementation has paved the way, and we follow the same
-general design decisions: simple internal objects like bound method
-objects and various kinds of iterators are supported; frame objects can
-be fully pickled and unpickled
-(by serializing a reference to the bytecode they are
-running in addition to all the local variables).  References to globals
-and modules are pickled by name, similarly to references to functions
-and classes in the traditional CPython ``pickle``.
+* Tasklets and channels (currently ``stackless.py`` seems to import,
+  but you have tasklets on top of coroutines on top of greenlets on
+  top of continulets on top of stacklets, and it's probably not too
+  hard to cut two of these levels by adapting ``stackless.py`` to
+  use directly continulets)
 
-The "magic" part of this process is the implementation of the unpickling
-of a chain of frames.  The Python interpreter of PyPy uses
-interpreter-level recursion to represent application-level calls.  The
-reason for this is that it tremendously simplifies the implementation of
-the interpreter itself.  Indeed, in Python, almost any operation can
-potentially result in a non-tail-recursive call to another Python
-function.  This makes writing a non-recursive interpreter extremely
-tedious; instead, we rely on lower-level transformations during the
-translation process to control this recursion.  This is the `Stackless
-Transform`_, which is at the heart of PyPy's support for stackless-style
-concurrency.
+* Coroutines (could be rewritten at app-level)
 
-At any point in time, a chain of Python-level frames corresponds to a
-chain of interpreter-level frames (e.g. C frames in pypy-c), where each
-single Python-level frame corresponds to one or a few interpreter-level
-frames - depending on the length of the interpreter-level call chain
-from one bytecode evaluation loop to the next (recursively invoked) one.
+* Pickling and unpickling continulets (*)
 
-This means that it is not sufficient to simply create a chain of Python
-frame objects in the heap of a process before we can resume execution of
-these newly built frames.  We must recreate a corresponding chain of
-interpreter-level frames.  To this end, we have inserted a few *named
-resume points* (see 3.2.4, in `D07.1 Massive Parallelism and Translation Aspects`_) in the Python interpreter of PyPy.  This is the
-motivation for implementing the interpreter-level primitives
-``resume_state_create()`` and ``resume_state_invoke()``, the powerful
-interface that allows an RPython program to artificially rebuild a chain
-of calls in a reflective way, completely from scratch, and jump to it.
+* Continuing execution of a continulet in a different thread (*)
 
-.. _`D07.1 Massive Parallelism and Translation Aspects`: http://codespeak.net/pypy/extradoc/eu-report/D07.1_Massive_Parallelism_and_Translation_Aspects-2007-02-28.pdf
+* Automatic unlimited stack (must be emulated__ so far)
 
-Example
-~~~~~~~
+* Support for other CPUs than x86 and x86-64
 
-(See `demo/pickle_coroutine.py`_ for the complete source of this demo.)
+* The app-level ``f_back`` field of frames crossing continulet boundaries
+  is None for now, unlike what I explain in the theoretical overview
+  above.  It mostly means that in a ``pdb.set_trace()`` you cannot go
+  ``up`` past countinulet boundaries.  This could be fixed.
 
-Consider a program which contains a part performing a long-running
-computation::
+.. __: `recursion depth limit`_
 
-    def ackermann(x, y):
-        if x == 0:
-            return y + 1
-        if y == 0:
-            return ackermann(x - 1, 1)
-        return ackermann(x - 1, ackermann(x, y - 1))
-
-By using pickling, we can save the state of the computation while it is
-running, for the purpose of restoring it later and continuing the
-computation at another time or on a different machine.  However,
-pickling does not produce a whole-program dump: it can only pickle
-individual coroutines.  This means that the computation should be
-started in its own coroutine::
-
-    # Make a coroutine that will run 'ackermann(3, 8)'
-    coro = coroutine()
-    coro.bind(ackermann, 3, 8)
-
-    # Now start running the coroutine
-    result = coro.switch()
-
-The coroutine itself must switch back to the main program when it needs
-to be interrupted (we can only pickle suspended coroutines).  Due to
-current limitations this requires an explicit check in the
-``ackermann()`` function::
-
-    def ackermann(x, y):
-        if interrupt_flag:      # test a global flag
-            main.switch()       # and switch back to 'main' if it is set
-        if x == 0:
-            return y + 1
-        if y == 0:
-            return ackermann(x - 1, 1)
-        return ackermann(x - 1, ackermann(x, y - 1))
-
-The global ``interrupt_flag`` would be set for example by a timeout, or
-by a signal handler reacting to Ctrl-C, etc.  It causes the coroutine to
-transfer control back to the main program.  The execution comes back
-just after the line ``coro.switch()``, where we can pickle the coroutine
-if necessary::
-
-    if not coro.is_alive:
-        print "finished; the result is:", result
-    else:
-        # save the state of the suspended coroutine
-        f = open('demo.pickle', 'w')
-        pickle.dump(coro, f)
-        f.close()
-
-The process can then stop.  At any later time, or on another machine,
-we can reload the file and restart the coroutine with::
-
-    f = open('demo.pickle', 'r')
-    coro = pickle.load(f)
-    f.close()
-    result = coro.switch()
-
-Limitations
-~~~~~~~~~~~
-
-Coroutine pickling is subject to some limitations.  First of all, it is
-not a whole-program "memory dump".  It means that only the "local" state
-of a coroutine is saved.  The local state is defined to include the
-chain of calls and the local variables, but not for example the value of
-any global variable.
-
-As in normal Python, the pickle will not include any function object's
-code, any class definition, etc., but only references to functions and
-classes.  Unlike normal Python, the pickle contains frames.  A pickled
-frame stores a bytecode index, representing the current execution
-position.  This means that the user program cannot be modified *at all*
-between pickling and unpickling!
-
-On the other hand, the pickled data is fairly independent from the
-platform and from the PyPy version.
-
-Pickling/unpickling fails if the coroutine is suspended in a state that
-involves Python frames which were *indirectly* called.  To define this
-more precisely, a Python function can issue a regular function or method
-call to invoke another Python function - this is a *direct* call and can
-be pickled and unpickled.  But there are many ways to invoke a Python
-function indirectly.  For example, most operators can invoke a special
-method ``__xyz__()`` on a class, various built-in functions can call
-back Python functions, signals can invoke signal handlers, and so on.
-These cases are not supported yet.
+(*) Pickling, as well as changing threads, could be implemented by using
+a "soft" stack switching mode again.  We would get either "hard" or
+"soft" switches, similarly to Stackless Python 3rd version: you get a
+"hard" switch (like now) when the C stack contains non-trivial C frames
+to save, and a "soft" switch (like previously) when it contains only
+simple calls from Python to Python.  Soft-switched continulets would
+also consume a bit less RAM, and the switch might be a bit faster too
+(unsure about that; what is the Stackless Python experience?).
 
 
-Composability
-+++++++++++++
+Recursion depth limit
++++++++++++++++++++++
+
+You can use continulets to emulate the infinite recursion depth present
+in Stackless Python and in stackless-enabled older versions of PyPy.
+
+The trick is to start a continulet "early", i.e. when the recursion
+depth is very low, and switch to it "later", i.e. when the recursion
+depth is high.  Example::
+
+    from _continuation import continulet
+
+    def invoke(_, callable, arg):
+        return callable(arg)
+
+    def bootstrap(c):
+        # this loop runs forever, at a very low recursion depth
+        callable, arg = c.switch()
+        while True:
+            # start a new continulet from here, and switch to
+            # it using an "exchange", i.e. a switch with to=.
+            to = continulet(invoke, callable, arg)
+            callable, arg = c.switch(to=to)
+
+    c = continulet(bootstrap)
+    c.switch()
+
+
+    def recursive(n):
+        if n == 0:
+            return ("ok", n)
+        if n % 200 == 0:
+            prev = c.switch((recursive, n - 1))
+        else:
+            prev = recursive(n - 1)
+        return (prev[0], prev[1] + 1)
+
+    print recursive(999999)     # prints ('ok', 999999)
+
+Note that if you press Ctrl-C while running this example, the traceback
+will be built with *all* recursive() calls so far, even if this is more
+than the number that can possibly fit in the C stack.  These frames are
+"overlapping" each other in the sense of the C stack; more precisely,
+they are copied out of and into the C stack as needed.
+
+(The example above also makes use of the following general "guideline"
+to help newcomers write continulets: in ``bootstrap(c)``, only call
+methods on ``c``, not on another continulet object.  That's why we wrote
+``c.switch(to=to)`` and not ``to.switch()``, which would mess up the
+state.  This is however just a guideline; in general we would recommend
+to use other interfaces like genlets and greenlets.)
+
+
+Theory of composability
++++++++++++++++++++++++
 
 Although the concept of coroutines is far from new, they have not been
 generally integrated into mainstream languages, or only in limited form
 (like generators in Python and iterators in C#).  We can argue that a
 possible reason for that is that they do not scale well when a program's
 complexity increases: they look attractive in small examples, but the
-models that require explicit switching, by naming the target coroutine,
-do not compose naturally.  This means that a program that uses
-coroutines for two unrelated purposes may run into conflicts caused by
-unexpected interactions.
+models that require explicit switching, for example by naming the target
+coroutine, do not compose naturally.  This means that a program that
+uses coroutines for two unrelated purposes may run into conflicts caused
+by unexpected interactions.
 
 To illustrate the problem, consider the following example (simplified
-code; see the full source in
-`pypy/module/_stackless/test/test_composable_coroutine.py`_).  First, a
-simple usage of coroutine::
+code using a theorical ``coroutine`` class).  First, a simple usage of
+coroutine::
 
     main_coro = coroutine.getcurrent()    # the main (outer) coroutine
     data = []
@@ -530,74 +383,35 @@ the ``data_producer()`` code.  Instead, we really switch back to the
 main coroutine, which confuses the ``generator_iterator.next()`` method
 (it gets resumed, but not as a result of a call to ``Yield()``).
 
-As part of trying to combine multiple different paradigms into a single
-application-level module, we have built a way to solve this problem.
-The idea is to avoid the notion of a single, global "main" coroutine (or
-a single main greenlet, or a single main tasklet).  Instead, each
-conceptually separated user of one of these concurrency interfaces can
-create its own "view" on what the main coroutine/greenlet/tasklet is,
-which other coroutine/greenlet/tasklets there are, and which of these is
-the currently running one.  Each "view" is orthogonal to the others.  In
-particular, each view has one (and exactly one) "current"
-coroutine/greenlet/tasklet at any point in time.  When the user switches
-to a coroutine/greenlet/tasklet, it implicitly means that he wants to
-switch away from the current coroutine/greenlet/tasklet *that belongs to
-the same view as the target*.
+Thus the notion of coroutine is *not composable*.  By opposition, the
+primitive notion of continulets is composable: if you build two
+different interfaces on top of it, or have a program that uses twice the
+same interface in two parts, then assuming that both parts independently
+work, the composition of the two parts still works.
 
-The precise application-level interface has not been fixed yet; so far,
-"views" in the above sense are objects of the type
-``stackless.usercostate``.  The above two examples can be rewritten in
-the following way::
+A full proof of that claim would require careful definitions, but let us
+just claim that this fact is true because of the following observation:
+the API of continulets is such that, when doing a ``switch()``, it
+requires the program to have some continulet to explicitly operate on.
+It shuffles the current continuation with the continuation stored in
+that continulet, but has no effect outside.  So if a part of a program
+has a continulet object, and does not expose it as a global, then the
+rest of the program cannot accidentally influence the continuation
+stored in that continulet object.
 
-    producer_view = stackless.usercostate()   # a local view
-    main_coro = producer_view.getcurrent()    # the main (outer) coroutine
-    ...
-    producer_coro = producer_view.newcoroutine()
-    ...
-
-and::
-
-    generators_view = stackless.usercostate()
-
-    def generator(f):
-        def wrappedfunc(*args, **kwds):
-            g = generators_view.newcoroutine(generator_iterator)
-            ...
-
-            ...generators_view.getcurrent()...
-
-Then the composition ``grab_values()`` works as expected, because the
-two views are independent.  The coroutine captured as ``self.caller`` in
-the ``generator_iterator.next()`` method is the main coroutine of the
-``generators_view``.  It is no longer the same object as the main
-coroutine of the ``producer_view``, so when ``data_producer()`` issues
-the following command::
-
-    main_coro.switch()
-
-the control flow cannot accidentally jump back to
-``generator_iterator.next()``.  In other words, from the point of view
-of ``producer_view``, the function ``grab_next_value()`` always runs in
-its main coroutine ``main_coro`` and the function ``data_producer`` in
-its coroutine ``producer_coro``.  This is the case independently of
-which ``generators_view``-based coroutine is the current one when
-``grab_next_value()`` is called.
-
-Only code that has explicit access to the ``producer_view`` or its
-coroutine objects can perform switches that are relevant for the
-generator code.  If the view object and the coroutine objects that share
-this view are all properly encapsulated inside the generator logic, no
-external code can accidentally temper with the expected control flow any
-longer.
-
-In conclusion: we will probably change the app-level interface of PyPy's
-stackless module in the future to not expose coroutines and greenlets at
-all, but only views.  They are not much more difficult to use, and they
-scale automatically to larger programs.
+In other words, if we regard the continulet object as being essentially
+a modifiable ``f_back``, then it is just a link between the frame of
+``callable()`` and the parent frame --- and it cannot be arbitrarily
+changed by unrelated code, as long as they don't explicitly manipulate
+the continulet object.  Typically, both the frame of ``callable()``
+(commonly a local function) and its parent frame (which is the frame
+that switched to it) belong to the same class or module; so from that
+point of view the continulet is a purely local link between two local
+frames.  It doesn't make sense to have a concept that allows this link
+to be manipulated from outside.
 
 
 .. _`Stackless Python`: http://www.stackless.com
 .. _`documentation of the greenlets`: http://packages.python.org/greenlet/
-.. _`Stackless Transform`: translation.html#the-stackless-transform
 
 .. include:: _ref.txt

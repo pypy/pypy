@@ -1,4 +1,4 @@
-import py
+import py, sys
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 
 class TestArray(BaseTestPyPyC):
@@ -88,6 +88,73 @@ class TestArray(BaseTestPyPyC):
             jump(p0, p1, p2, p3, p4, p5, p6, i28, i15, p9, i10, i11, descr=<Loop0>)
         """)
 
+    def test_array_of_doubles(self):
+        def main():
+            from array import array
+            img = array('d', [21.5]*1000)
+            i = 0
+            while i < 1000:
+                img[i] += 20.5
+                assert img[i] == 42.0
+                i += 1
+            return 123
+        #
+        log = self.run(main, [])
+        assert log.result == 123
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i10 = int_lt(i6, 1000)
+            guard_true(i10, descr=...)
+            i11 = int_lt(i6, i7)
+            guard_true(i11, descr=...)
+            f13 = getarrayitem_raw(i8, i6, descr=<FloatArrayNoLengthDescr>)
+            f15 = float_add(f13, 20.500000)
+            setarrayitem_raw(i8, i6, f15, descr=<FloatArrayNoLengthDescr>)
+            f16 = getarrayitem_raw(i8, i6, descr=<FloatArrayNoLengthDescr>)
+            i18 = float_eq(f16, 42.000000)
+            guard_true(i18, descr=...)
+            i20 = int_add(i6, 1)
+            --TICK--
+            jump(..., descr=<Loop0>)
+        """)
+
+    def test_array_of_floats(self):
+        def main():
+            from array import array
+            img = array('f', [21.5]*1000)
+            i = 0
+            while i < 1000:
+                img[i] += 20.5
+                assert img[i] == 42.0
+                i += 1
+            return 321
+        #
+        log = self.run(main, [])
+        assert log.result == 321
+        loop, = log.loops_by_filename(self.filepath)
+        if sys.maxint == 2147483647:
+            arraydescr = 'UnsignedArrayNoLengthDescr'
+        else:
+            arraydescr = 'UINTArrayNoLengthDescr'
+        assert loop.match("""
+            i10 = int_lt(i6, 1000)
+            guard_true(i10, descr=...)
+            i11 = int_lt(i6, i7)
+            guard_true(i11, descr=...)
+            i13 = getarrayitem_raw(i8, i6, descr=<%s>)
+            f14 = cast_singlefloat_to_float(i13)
+            f16 = float_add(f14, 20.500000)
+            i17 = cast_float_to_singlefloat(f16)
+            setarrayitem_raw(i8, i6,i17, descr=<%s>)
+            i18 = getarrayitem_raw(i8, i6, descr=<%s>)
+            f19 = cast_singlefloat_to_float(i18)
+            i21 = float_eq(f19, 42.000000)
+            guard_true(i21, descr=...)
+            i23 = int_add(i6, 1)
+            --TICK--
+            jump(..., descr=<Loop0>)
+        """ % (arraydescr, arraydescr, arraydescr))
+
 
     def test_zeropadded(self):
         def main():
@@ -125,6 +192,9 @@ class TestArray(BaseTestPyPyC):
             i20 = int_ge(i18, i8)
             guard_false(i20, descr=...)
             f21 = getarrayitem_raw(i13, i18, descr=...)
+            i14 = int_sub(i6, 1)
+            i15 = int_ge(i14, i8)
+            guard_false(i15, descr=...)
             f23 = getarrayitem_raw(i13, i14, descr=...)
             f24 = float_add(f21, f23)
             f26 = getarrayitem_raw(i13, i6, descr=...)
@@ -173,7 +243,10 @@ class TestArray(BaseTestPyPyC):
             ...
             i17 = int_and(i14, 255)
             f18 = getarrayitem_raw(i8, i17, descr=...)
-            f20 = getarrayitem_raw(i8, i9, descr=...)
+            i19s = int_sub_ovf(i6, 1)
+            guard_no_overflow(descr=...)
+            i22s = int_and(i19s, 255)
+            f20 = getarrayitem_raw(i8, i22s, descr=...)
             f21 = float_add(f18, f20)
             f23 = getarrayitem_raw(i8, i10, descr=...)
             f24 = float_add(f21, f23)

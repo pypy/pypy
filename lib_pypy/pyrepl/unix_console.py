@@ -384,15 +384,19 @@ class UnixConsole(Console):
 
         self.__maybe_write_code(self._smkx)
 
-        self.old_sigwinch = signal.signal(
-            signal.SIGWINCH, self.__sigwinch)
+        try:
+            self.old_sigwinch = signal.signal(
+                signal.SIGWINCH, self.__sigwinch)
+        except ValueError:
+            pass
 
     def restore(self):
         self.__maybe_write_code(self._rmkx)
         self.flushoutput()
         tcsetattr(self.input_fd, termios.TCSADRAIN, self.__svtermstate)
 
-        signal.signal(signal.SIGWINCH, self.old_sigwinch)
+        if hasattr(self, 'old_sigwinch'):
+            signal.signal(signal.SIGWINCH, self.old_sigwinch)
 
     def __sigwinch(self, signum, frame):
         self.height, self.width = self.getheightwidth()

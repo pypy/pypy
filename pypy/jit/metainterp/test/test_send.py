@@ -384,9 +384,9 @@ class SendTests(object):
         res = self.meta_interp(f, [198],
                                policy=StopAtXPolicy(State.externfn.im_func))
         assert res == f(198)
-        # we get two TreeLoops: an initial one, and one entering from
-        # the interpreter
-        self.check_tree_loop_count(2)
+        # we get four TreeLoops: one for each of the 3 getvalue functions,
+        # and one entering from the interpreter
+        self.check_tree_loop_count(4)
 
     def test_two_behaviors(self):
         py.test.skip("XXX fix me!!!!!!! problem in optimize.py")
@@ -436,10 +436,11 @@ class SendTests(object):
             return x.value
         res = self.meta_interp(f, [len(cases)])
         assert res == 200
-        # we expect 1 loop, 1 entry bridge, and 1 bridge going from the
+        # we expect 2 versions of the loop, 1 entry bridge,
+        # and 1 bridge going from the
         # loop back to the start of the entry bridge
-        self.check_loop_count(2)        # 1 loop + 1 bridge
-        self.check_tree_loop_count(2)   # 1 loop + 1 entry bridge  (argh)
+        self.check_loop_count(3)        # 2 loop + 1 bridge
+        self.check_tree_loop_count(3)   # 2 loop + 1 entry bridge  (argh)
         self.check_aborted_count(0)
 
     def test_three_cases(self):

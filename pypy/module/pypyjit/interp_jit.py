@@ -21,9 +21,11 @@ from pypy.module.pypyjit.interp_resop import debug_merge_point_from_boxes
 
 PyFrame._virtualizable2_ = ['last_instr', 'pycode',
                             'valuestackdepth', 'locals_stack_w[*]',
+                            'cells[*]',
                             'last_exception',
                             'lastblock',
                             'is_being_profiled',
+                            'w_globals',
                             ]
 
 JUMP_ABSOLUTE = opmap['JUMP_ABSOLUTE']
@@ -44,8 +46,10 @@ def confirm_enter_jit(next_instr, is_being_profiled, bytecode, frame, ec):
             ec.w_tracefunc is None)
 
 def can_never_inline(next_instr, is_being_profiled, bytecode):
-    return (bytecode.co_flags & CO_GENERATOR) != 0
+    return False
 
+def should_unroll_one_iteration(next_instr, is_being_profiled, bytecode):
+    return (bytecode.co_flags & CO_GENERATOR) != 0
 
 def wrap_oplist(space, logops, operations):
     list_w = []
@@ -110,7 +114,9 @@ pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
                               get_jitcell_at = get_jitcell_at,
                               set_jitcell_at = set_jitcell_at,
                               confirm_enter_jit = confirm_enter_jit,
-                              can_never_inline = can_never_inline)
+                              can_never_inline = can_never_inline,
+                              should_unroll_one_iteration =
+                              should_unroll_one_iteration)
 
 class __extend__(PyFrame):
 

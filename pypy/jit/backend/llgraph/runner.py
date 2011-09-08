@@ -25,13 +25,14 @@ class MiniStats:
 class Descr(history.AbstractDescr):
 
     def __init__(self, ofs, typeinfo, extrainfo=None, name=None,
-                 arg_types=None, count_fields_if_immut=-1):
+                 arg_types=None, count_fields_if_immut=-1, ffi_flags=0):
         self.ofs = ofs
         self.typeinfo = typeinfo
         self.extrainfo = extrainfo
         self.name = name
         self.arg_types = arg_types
         self.count_fields_if_immut = count_fields_if_immut
+        self.ffi_flags = ffi_flags
 
     def get_arg_types(self):
         return self.arg_types
@@ -67,6 +68,9 @@ class Descr(history.AbstractDescr):
     def count_fields_if_immutable(self):
         return self.count_fields_if_immut
 
+    def get_ffi_flags(self):
+        return self.ffi_flags
+
     def __lt__(self, other):
         raise TypeError("cannot use comparison on Descrs")
     def __le__(self, other):
@@ -91,6 +95,7 @@ history.TreeLoop._compiled_version = lltype.nullptr(llimpl.COMPILEDLOOP.TO)
 class BaseCPU(model.AbstractCPU):
     supports_floats = True
     supports_longlong = llimpl.IS_32_BIT
+    supports_singlefloats = True
 
     def __init__(self, rtyper, stats=None, opts=None,
                  translate_support_code=False,
@@ -113,14 +118,14 @@ class BaseCPU(model.AbstractCPU):
         return False
 
     def getdescr(self, ofs, typeinfo='?', extrainfo=None, name=None,
-                 arg_types=None, count_fields_if_immut=-1):
+                 arg_types=None, count_fields_if_immut=-1, ffi_flags=0):
         key = (ofs, typeinfo, extrainfo, name, arg_types,
-               count_fields_if_immut)
+               count_fields_if_immut, ffi_flags)
         try:
             return self._descrs[key]
         except KeyError:
             descr = Descr(ofs, typeinfo, extrainfo, name, arg_types,
-                          count_fields_if_immut)
+                          count_fields_if_immut, ffi_flags)
             self._descrs[key] = descr
             return descr
 
@@ -311,7 +316,7 @@ class LLtypeCPU(BaseCPU):
         token = history.getkind(getattr(S, fieldname))
         return self.getdescr(ofs, token[0], name=fieldname)
 
-    def calldescrof(self, FUNC, ARGS, RESULT, extrainfo=None):
+    def calldescrof(self, FUNC, ARGS, RESULT, extrainfo):
         arg_types = []
         for ARG in ARGS:
             token = history.getkind(ARG)
@@ -325,16 +330,21 @@ class LLtypeCPU(BaseCPU):
         return self.getdescr(0, token[0], extrainfo=extrainfo,
                              arg_types=''.join(arg_types))
 
-    def calldescrof_dynamic(self, ffi_args, ffi_result, extrainfo=None):
+    def calldescrof_dynamic(self, ffi_args, ffi_result, extrainfo, ffi_flags):
         from pypy.jit.backend.llsupport.ffisupport import get_ffi_type_kind
+        from pypy.jit.backend.llsupport.ffisupport import UnsupportedKind
         arg_types = []
-        for arg in ffi_args:
-            kind = get_ffi_type_kind(arg)
-            if kind != history.VOID:
-                arg_types.append(kind)
-        reskind = get_ffi_type_kind(ffi_result)
+        try:
+            for arg in ffi_args:
+                kind = get_ffi_type_kind(self, arg)
+                if kind != history.VOID:
+                    arg_types.append(kind)
+            reskind = get_ffi_type_kind(self, ffi_result)
+        except UnsupportedKind:
+            return None
         return self.getdescr(0, reskind, extrainfo=extrainfo,
-                             arg_types=''.join(arg_types))
+                             arg_types=''.join(arg_types),
+                             ffi_flags=ffi_flags)
 
 
     def grab_exc_value(self):
@@ -517,7 +527,7 @@ class OOtypeCPU_xxx_disabled(BaseCPU):
         return FieldDescr.new(T1, fieldname)
 
     @staticmethod
-    def calldescrof(FUNC, ARGS, RESULT, extrainfo=None):
+    def calldescrof(FUNC, ARGS, RESULT, extrainfo):
         return StaticMethDescr.new(FUNC, ARGS, RESULT, extrainfo)
 
     @staticmethod

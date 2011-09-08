@@ -32,7 +32,10 @@ Windows, see the `windows document`_)
 .. _`windows document`: windows.html
 
 You can translate the whole of PyPy's Python interpreter to low level C code,
-or `CLI code`_.
+or `CLI code`_.  If you intend to build using gcc, check to make sure that
+the version you have is not 4.2 or you will run into `this bug`_.
+
+.. _`this bug`: https://bugs.launchpad.net/ubuntu/+source/gcc-4.2/+bug/187391
 
 1. First `download a pre-built PyPy`_ for your architecture which you will
    use to translate your Python interpreter.  It is, of course, possible to
@@ -64,7 +67,6 @@ or `CLI code`_.
    * ``libssl-dev`` (for the optional ``_ssl`` module)
    * ``libgc-dev`` (for the Boehm garbage collector: only needed when translating with `--opt=0, 1` or `size`)
    * ``python-sphinx`` (for the optional documentation build.  You need version 1.0.7 or later)
-   * ``python-greenlet`` (for the optional stackless support in interpreted mode/testing)
 
 
 3. Translation is time-consuming -- 45 minutes on a very fast machine --
@@ -102,7 +104,7 @@ executable. The executable behaves mostly like a normal Python interpreter::
 
     $ ./pypy-c
     Python 2.7.0 (61ef2a11b56a, Mar 02 2011, 03:00:11)
-    [PyPy 1.5.0-alpha0 with GCC 4.4.3] on linux2
+    [PyPy 1.6.0 with GCC 4.4.3] on linux2
     Type "help", "copyright", "credits" or "license" for more information.
     And now for something completely different: ``this sentence is false''
     >>>> 46 - 4
@@ -117,19 +119,8 @@ This executable can be moved around or copied on other machines; see
 Installation_ below.
 
 The ``translate.py`` script takes a very large number of options controlling
-what to translate and how.  See ``translate.py -h``. Some of the more
-interesting options (but for now incompatible with the JIT) are:
-
-   * ``--stackless``: this produces a pypy-c that includes features
-     inspired by `Stackless Python <http://www.stackless.com>`__.
-
-   * ``--gc=boehm|ref|marknsweep|semispace|generation|hybrid|minimark``:
-     choose between using
-     the `Boehm-Demers-Weiser garbage collector`_, our reference
-     counting implementation or one of own collector implementations
-     (the default depends on the optimization level but is usually
-     ``minimark``).
-
+what to translate and how.  See ``translate.py -h``. The default options
+should be suitable for mostly everybody by now.
 Find a more detailed description of the various options in our `configuration
 sections`_.
 
@@ -162,7 +153,7 @@ the convenience ./pypy-cli script::
 
     $ ./pypy-cli
     Python 2.7.0 (61ef2a11b56a, Mar 02 2011, 03:00:11)
-    [PyPy 1.5.0-alpha0] on linux2
+    [PyPy 1.6.0] on linux2
     Type "help", "copyright", "credits" or "license" for more information.
     And now for something completely different: ``distopian and utopian chairs''
     >>>> 
@@ -199,7 +190,7 @@ clr_ module.
 
         $ ./pypy-jvm 
         Python 2.7.0 (61ef2a11b56a, Mar 02 2011, 03:00:11)
-        [PyPy 1.5.0-alpha0] on linux2
+        [PyPy 1.6.0] on linux2
         Type "help", "copyright", "credits" or "license" for more information.
         And now for something completely different: ``# assert did not crash''
         >>>> 
@@ -238,7 +229,7 @@ correct hierarchy, so to run PyPy it's enough to unpack the archive, and run
 the ``bin/pypy`` executable.
 
 To install PyPy system wide on unix-like systems, it is recommended to put the
-whole hierarchy alone (e.g. in ``/opt/pypy1.5``) and put a symlink to the
+whole hierarchy alone (e.g. in ``/opt/pypy1.6``) and put a symlink to the
 ``pypy`` executable into ``/usr/bin`` or ``/usr/local/bin``
 
 If the executable fails to find suitable libraries, it will report

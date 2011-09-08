@@ -133,8 +133,7 @@ def float_hex__Float(space, w_float):
     else:
         return space.wrap("0x%sp%s%d" % (s, sign, exp))
 
-def float2string(space, w_float, code, precision):
-    x = w_float.floatval
+def float2string(x, code, precision):
     # we special-case explicitly inf and nan here
     if isfinite(x):
         s = formatd(x, code, precision, DTSF_ADD_DOT_0)
@@ -145,13 +144,13 @@ def float2string(space, w_float, code, precision):
             s = "-inf"
     else:  # isnan(x):
         s = "nan"
-    return space.wrap(s)
+    return s
 
 def repr__Float(space, w_float):
-    return float2string(space, w_float, 'r', 0)
+    return space.wrap(float2string(w_float.floatval, 'r', 0))
 
 def str__Float(space, w_float):
-    return float2string(space, w_float, 'g', DTSF_STR_PRECISION)
+    return space.wrap(float2string(w_float.floatval, 'g', DTSF_STR_PRECISION))
 
 def format__Float_ANY(space, w_float, w_spec):
     return newformat.run_formatter(space, w_spec, "format_float", w_float)
@@ -356,9 +355,13 @@ def mod__Float_Float(space, w_float1, w_float2):
     y = w_float2.floatval
     if y == 0.0:
         raise FailedToImplementArgs(space.w_ZeroDivisionError, space.wrap("float modulo"))
-    mod = math.fmod(x, y)
-    if (mod and ((y < 0.0) != (mod < 0.0))):
-        mod += y
+    try:
+        mod = math.fmod(x, y)
+    except ValueError:
+        mod = rfloat.NAN
+    else:
+        if (mod and ((y < 0.0) != (mod < 0.0))):
+            mod += y
 
     return W_FloatObject(mod)
 
@@ -367,7 +370,10 @@ def _divmod_w(space, w_float1, w_float2):
     y = w_float2.floatval
     if y == 0.0:
         raise FailedToImplementArgs(space.w_ZeroDivisionError, space.wrap("float modulo"))
-    mod = math.fmod(x, y)
+    try:
+        mod = math.fmod(x, y)
+    except ValueError:
+        return [W_FloatObject(rfloat.NAN), W_FloatObject(rfloat.NAN)]
     # fmod is typically exact, so vx-mod is *mathematically* an
     # exact multiple of wx.  But this is fp arithmetic, and fp
     # vx - mod is an approximation; the result is that div may

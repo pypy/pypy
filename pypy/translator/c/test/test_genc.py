@@ -4,7 +4,6 @@ from pypy.annotation import model as annmodel
 from pypy.translator.translator import TranslationContext
 from pypy.translator.c.database import LowLevelDatabase
 from pypy.translator.c import genc
-from pypy.translator.c.genc import gen_source
 from pypy.translator.c.gc import NoneGcPolicy
 from pypy.objspace.flow.model import Constant, Variable, SpaceOperation
 from pypy.objspace.flow.model import Block, Link, FunctionGraph
