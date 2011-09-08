@@ -759,7 +759,10 @@ class ObjSpace(object):
         if expected_length == -1:
             try:
                 lgt_estimate = self.len_w(w_iterable)
-            except OperationError:
+            except OperationError, o:
+                if (not o.match(self, self.w_AttributeError) and
+                    not o.match(self, self.w_TypeError)):
+                    raise
                 items = []
             else:
                 try:
