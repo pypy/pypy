@@ -113,6 +113,25 @@ class BaseBackendTest(Runner):
         assert res == 3
         assert fail.identifier == 1
 
+    def test_basic_register_allocator(self):
+        i0 = BoxInt()
+        operations = []
+        prev_box = i0
+        for _ in range(500):
+            next_box = BoxInt()
+            operations.append(
+                ResOperation(rop.INT_ADD, [prev_box, ConstInt(1)], next_box))
+            prev_box = next_box
+        operations.append(ResOperation(rop.FINISH, [prev_box], None, descr=BasicFailDescr(1)))
+        inputargs = [i0]
+        looptoken = LoopToken()
+        self.cpu.compile_loop(inputargs, operations, looptoken)
+        self.cpu.set_future_value_int(0, 20)
+        fail = self.cpu.execute_token(looptoken)
+        res = self.cpu.get_latest_value_int(0)
+        assert res == 520
+        assert fail.identifier == 1
+
     def test_compile_linear_float_loop(self):
         if not self.cpu.supports_floats:
             py.test.skip("floats not supported")
