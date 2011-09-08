@@ -49,6 +49,8 @@ class HeapCache(object):
                 if argboxes[2] in self.new_boxes:
                     # XXX: no descr here so we invalidate any of them, not just
                     # of the correct type
+                    # XXX: in theory the indices of the copy could be looked at
+                    # as well
                     for descr, cache in self.heap_array_cache.iteritems():
                         for idx, cache in cache.iteritems():
                             for frombox in cache.keys():
