@@ -12,6 +12,7 @@ class AppTestDtypes(BaseNumpyAppTest):
         assert dtype(d) is d
         assert dtype(None) is dtype(float)
         raises(TypeError, dtype, 1042)
+        assert dtype('uint8').num == 1
 
     def test_dtype_with_types(self):
         from numpy import dtype
@@ -90,6 +91,15 @@ class AppTestDtypes(BaseNumpyAppTest):
         for i in range(5):
             assert b[i] == i * 2
 
+    def test_add_uint8(self):
+        from numpy import array, dtype
+
+        a = array(range(5), dtype="uint8")
+        b = a + a
+        assert b.dtype is dtype("uint8")
+        for i in range(5):
+            assert b[i] == i * 2
+
     def test_add_int16(self):
         from numpy import array, dtype
 
@@ -109,3 +119,15 @@ class AppTestDtypes(BaseNumpyAppTest):
 
         # You can't subclass dtype
         raises(TypeError, type, "Foo", (dtype,), {})
+
+    def test_int_ranges(self):
+        from numpy import array
+        for dtype, minval, maxval in [("int8", -128, 127),
+                                      ("uint8", 0, 255),
+                                      ("int16", -32768, 32767)]:
+            a = array([minval, maxval, minval-1, maxval+1], dtype)
+            assert a[0] == minval
+            assert a[1] == maxval
+            assert a[2] == maxval
+            assert a[3] == minval
+            
