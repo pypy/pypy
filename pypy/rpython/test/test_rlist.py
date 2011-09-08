@@ -1360,6 +1360,19 @@ class BaseTestRlist(BaseRtypingTest):
             assert ('foldable' in func.func_name) == \
                    ("y[*]" in immutable_fields)
 
+    def test_hints(self):
+        from pypy.rlib.objectmodel import newlist
+        from pypy.rpython.annlowlevel import hlstr
+        
+        def f(z):
+            z = hlstr(z)
+            x = newlist(sizehint=13)
+            x += z
+            return ''.join(x)
+
+        res = self.interpret(f, [self.string_to_ll('abc')])
+        assert self.ll_to_string(res) == 'abc'
+
 class TestLLtype(BaseTestRlist, LLRtypeMixin):
     type_system = 'lltype'
     rlist = ll_rlist
