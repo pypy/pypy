@@ -948,21 +948,31 @@ class PPCBuilder(PPCAssembler):
         if IS_PPC_32:
             self.stwx(source_reg.value, 0, 0)
         else:
-            # ? 
-            self.std(source_reg.value, 0, 10)
+            self.std(source_reg.value, 0, 0)
 
     def _save_nonvolatiles(self):
         for i, reg in enumerate(NONVOLATILES):
-            self.stw(reg, 1, self.framesize - 4 * i)
+            if IS_PPC_32:
+                self.stw(reg, 1, self.framesize - WORD * i)
+            else:
+                self.ld(reg, 1, self.framesize - WORD * i)
 
     def _restore_nonvolatiles(self):
         for i, reg in enumerate(NONVOLATILES):
-            self.lwz(reg, 1, self.framesize - i * 4)
+            if IS_PPC_32:
+                self.lwz(reg, 1, self.framesize - WORD * i)
+            else:
+                self.ld(reg, 1, self.framesize - WORD * i)
 
     def _make_prologue(self):
-        self.stwu(1, 1, -self.framesize)
-        self.mflr(0)
-        self.stw(0, 1, self.framesize + 4)
+        if IS_PPC_32:
+            self.stwu(1, 1, -self.framesize)
+            self.mflr(0)
+            self.stw(0, 1, self.framesize + 4)
+        else:
+            self.stdu(1, 1, -self.framesize)
+            self.mflr(0)
+            self.std(0, 1, self.framesize + 4)
         self._save_nonvolatiles()
 
     def _make_epilogue(self):
@@ -998,7 +1008,7 @@ class PPCBuilder(PPCAssembler):
         nonfloatlocs = regalloc.prepare_loop(inputargs, operations, looptoken)
         self.gen_bootstrap_code(nonfloatlocs, inputargs)
         self._walk_operations(operations, regalloc)
-        looptoken.ppc_code = self.assemble(True)
+        looptoken.ppc_code = self.assemble()
 
     def _walk_operations(self, operations, regalloc):
         while regalloc.position() < len(operations) - 1:
@@ -1678,7 +1688,10 @@ class PPCBuilder(PPCAssembler):
 
         self._restore_nonvolatiles()
 
-        self.lwz(0, 1, framesize + 4) # 36
+        if IS_PPC_32:
+            self.lwz(0, 1, self.framesize + WORD)
+        else:
+            self.ld(0, 1, framesize + WORD)
         self.mtlr(0)
         self.addi(1, 1, framesize)
         self.load_imm(r.r3, identifier)
