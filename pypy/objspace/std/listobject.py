@@ -8,7 +8,7 @@ from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway, baseobjspace
 from pypy.rlib.objectmodel import instantiate, specialize
-from pypy.rlib.listsort import TimSort, BaseTimSort
+from pypy.rlib.listsort import make_timsort_class
 from pypy.rlib import rerased
 from pypy.interpreter.argument import Signature
 
@@ -1166,6 +1166,10 @@ def list_reverse__List(space, w_list):
 # Reverse a slice of a list in place, from lo up to (exclusive) hi.
 # (used in sort)
 
+TimSort = make_timsort_class()
+IntBaseTimSort = make_timsort_class()
+StringBaseTimSort = make_timsort_class()
+
 class KeyContainer(baseobjspace.W_Root):
     def __init__(self, w_key, w_item):
         self.w_key = w_key
@@ -1180,11 +1184,11 @@ class SimpleSort(TimSort):
         space = self.space
         return space.is_true(space.lt(a, b))
 
-class IntSort(BaseTimSort):
+class IntSort(IntBaseTimSort):
     def lt(self, a, b):
         return a < b
 
-class StringSort(BaseTimSort):
+class StringSort(StringBaseTimSort):
     def lt(self, a, b):
         return a < b
 
