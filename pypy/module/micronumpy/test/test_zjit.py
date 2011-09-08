@@ -1,7 +1,7 @@
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.module.micronumpy import interp_ufuncs, signature
 from pypy.module.micronumpy.compile import (numpy_compile, FakeSpace,
-    FloatObject)
+    FloatObject, IntObject)
 from pypy.module.micronumpy.interp_dtype import W_Float64Dtype, W_Int64Dtype, W_UInt64Dtype
 from pypy.module.micronumpy.interp_numarray import (BaseArray, SingleDimArray,
     SingleDimSlice, scalar_w)
@@ -311,15 +311,17 @@ class TestNumpyJIt(LLJitMixin):
 
         def f(n):
             if NonConstant(False):
-                dtype = uint64_dtype
-            else:
                 dtype = float64_dtype
+            else:
+                dtype = uint64_dtype
             ar = SingleDimArray(n, dtype=dtype)
-            for i in range(n):
+            i = 0
+            while i < n:
                 ar.get_concrete().setitem(i, uint64_dtype.box(7))
-            v = ar.descr_mod(space, ar).descr_sum(space)
-            assert isinstance(v, FloatObject)
-            return v.floatval
+                i += 1
+            v = ar.descr_add(space, ar).descr_sum(space)
+            assert isinstance(v, IntObject)
+            return v.intval
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
         assert result == f(5)
