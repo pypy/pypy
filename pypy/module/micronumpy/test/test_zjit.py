@@ -2,7 +2,7 @@ from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.module.micronumpy import interp_ufuncs, signature
 from pypy.module.micronumpy.compile import (numpy_compile, FakeSpace,
     FloatObject)
-from pypy.module.micronumpy.interp_dtype import W_Float64Dtype, W_Int64Dtype
+from pypy.module.micronumpy.interp_dtype import W_Float64Dtype, W_Int64Dtype, W_UInt64Dtype
 from pypy.module.micronumpy.interp_numarray import (BaseArray, SingleDimArray,
     SingleDimSlice, scalar_w)
 from pypy.rlib.nonconst import NonConstant
@@ -15,6 +15,7 @@ class TestNumpyJIt(LLJitMixin):
         cls.space = FakeSpace()
         cls.float64_dtype = cls.space.fromcache(W_Float64Dtype)
         cls.int64_dtype = cls.space.fromcache(W_Int64Dtype)
+        cls.uint64_dtype = cls.space.fromcache(W_UInt64Dtype)
 
     def test_add(self):
         def f(i):
@@ -302,6 +303,26 @@ class TestNumpyJIt(LLJitMixin):
                           'setarrayitem_raw': 1, 'int_add': 2,
                           'int_lt': 1, 'guard_true': 1, 'jump': 1})
         assert result == 11.0
+
+    def test_uint64_mod(self):
+        space = self.space
+        float64_dtype = self.float64_dtype
+        uint64_dtype = self.uint64_dtype
+
+        def f(n):
+            if NonConstant(False):
+                dtype = uint64_dtype
+            else:
+                dtype = float64_dtype
+            ar = SingleDimArray(n, dtype=dtype)
+            for i in range(n):
+                ar.get_concrete().setitem(i, uint64_dtype.box(7))
+            v = ar.descr_mod(space, ar).descr_sum(space)
+            assert isinstance(v, FloatObject)
+            return v.floatval
+
+        result = self.meta_interp(f, [5], listops=True, backendopt=True)
+        assert result == f(5)
 
 class TestTranslation(object):
     def test_compile(self):

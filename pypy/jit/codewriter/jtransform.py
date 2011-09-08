@@ -440,6 +440,7 @@ class Transformer(object):
     rewrite_op_ullong_mod_zer      = _do_builtin_call
     rewrite_op_gc_identityhash = _do_builtin_call
     rewrite_op_gc_id           = _do_builtin_call
+    rewrite_op_uint_mod        = _do_builtin_call
 
     # ----------
     # getfield/setfield/mallocs etc.

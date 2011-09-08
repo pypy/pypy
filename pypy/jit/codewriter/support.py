@@ -366,6 +366,9 @@ def _ll_2_ullong_mod_zer(xll, yll):
         raise ZeroDivisionError
     return llop.ullong_mod(lltype.SignedLongLong, xll, yll)
 
+def _ll_2_uint_mod(xll, yll):
+    return llop.uint_mod(lltype.Unsigned, xll, yll)
+
 
 # libffi support
 # --------------
