@@ -414,6 +414,7 @@ class CDLL(object):
 
 # ======================================================================
 
+@jit.oopspec('libffi_struct_getfield(ffitype, addr, offset)')
 def struct_getfield_int(ffitype, addr, offset):
     """
     Return the field of type ``ffitype`` at ``addr+offset``, widened to
@@ -425,6 +426,8 @@ def struct_getfield_int(ffitype, addr, offset):
             return rffi.cast(lltype.Signed, value)
     assert False, "cannot find the given ffitype"
 
+
+@jit.oopspec('libffi_struct_setfield(ffitype, addr, offset, value)')
 def struct_setfield_int(ffitype, addr, offset, value):
     """
     Set the field of type ``ffitype`` at ``addr+offset``.  ``value`` is of
@@ -438,7 +441,6 @@ def struct_setfield_int(ffitype, addr, offset, value):
     assert False, "cannot find the given ffitype"
 
 
-@jit.dont_look_inside
 @specialize.arg(0)
 def _struct_getfield(TYPE, addr, offset):
     """
@@ -450,7 +452,6 @@ def _struct_getfield(TYPE, addr, offset):
     return rffi.cast(PTR_FIELD, addr)[0]
 
 
-@jit.dont_look_inside
 @specialize.arg(0)
 def _struct_setfield(TYPE, addr, offset, value):
     """
