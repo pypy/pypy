@@ -25,6 +25,8 @@ class FakeEffektinfo(object):
     EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE = 5 #can raise and force virtualizables
     EF_RANDOM_EFFECTS                  = 6 #can do whatever
 
+    OS_ARRAYCOPY = 0
+
     def __init__(self, extraeffect, oopspecindex):
         self.extraeffect = extraeffect
         self.oopspecindex = oopspecindex
@@ -305,14 +307,13 @@ class TestHeapCache(object):
         # Just need the destination box for this call
         h.invalidate_caches(
             rop.CALL,
-            # XXX: hardcoded oopspecindex
-            FakeCallDescr(FakeEffektinfo.EF_CANNOT_RAISE, 1),
+            FakeCallDescr(FakeEffektinfo.EF_CANNOT_RAISE, FakeEffektinfo.OS_ARRAYCOPY),
             [None, None, box2, None, None]
         )
         assert h.getarrayitem(box1, descr1, index1) is box2
         h.invalidate_caches(
             rop.CALL,
-            FakeCallDescr(FakeEffektinfo.EF_CANNOT_RAISE, 1),
+            FakeCallDescr(FakeEffektinfo.EF_CANNOT_RAISE, FakeEffektinfo.OS_ARRAYCOPY),
             [None, None, box3, None, None]
         )
         assert h.getarrayitem(box1, descr1, index1) is None
@@ -321,8 +322,7 @@ class TestHeapCache(object):
         assert h.getarrayitem(box4, descr1, index1) is box2
         h.invalidate_caches(
             rop.CALL,
-            # XXX: hardcoded oopspecindex
-            FakeCallDescr(FakeEffektinfo.EF_CANNOT_RAISE, 1),
+            FakeCallDescr(FakeEffektinfo.EF_CANNOT_RAISE, FakeEffektinfo.OS_ARRAYCOPY),
             [None, None, box2, None, None]
         )
         assert h.getarrayitem(box4, descr1, index1) is None

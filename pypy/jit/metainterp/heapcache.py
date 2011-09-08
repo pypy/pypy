@@ -1,4 +1,3 @@
-from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.history import ConstInt
 from pypy.jit.metainterp.resoperation import rop
 
@@ -45,14 +44,14 @@ class HeapCache(object):
                 return
             # A special case for ll_arraycopy, because it is so common, and its
             # effects are so well defined.
-            elif effectinfo.oopspecindex == EffectInfo.OS_ARRAYCOPY:
+            elif effectinfo.oopspecindex == effectinfo.OS_ARRAYCOPY:
                 # The destination box
                 if argboxes[2] in self.new_boxes:
                     # XXX: no descr here so we invalidate any of them, not just
                     # of the correct type
                     for descr, cache in self.heap_array_cache.iteritems():
                         for idx, cache in cache.iteritems():
-                            for frombox in list(cache):
+                            for frombox in cache.keys():
                                 if frombox not in self.new_boxes:
                                     del cache[frombox]
                     return
