@@ -114,7 +114,7 @@ class W__StructInstance(Wrappable):
         assert w_ffitype is app_types.slong # XXX: handle all cases
         FIELD_TYPE  = rffi.LONG
         #
-        value = libffi.struct_getfield(FIELD_TYPE, self.rawmem, offset)
+        value = libffi.struct_getfield_int(w_ffitype.ffitype, self.rawmem, offset)
         return space.wrap(value)
 
     @unwrap_spec(name=str)
@@ -124,7 +124,7 @@ class W__StructInstance(Wrappable):
         FIELD_TYPE  = rffi.LONG
         value = space.int_w(w_value)
         #
-        libffi.struct_setfield(FIELD_TYPE, self.rawmem, offset, value)
+        libffi.struct_setfield_int(w_ffitype.ffitype, self.rawmem, offset, value)
 
 
 
