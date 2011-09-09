@@ -357,7 +357,38 @@ class AppTestADVANCEDCPP:
         assert o == cppyy.bind_object(addr, o.__class__)
         #assert o == cppyy.bind_object(addr, "some_concrete_class")
 
-    def test10_multi_methods(self):
+    def test10_object_identity(self):
+        """Test object identity"""
+
+        import cppyy
+        some_concrete_class  = cppyy.gbl.some_concrete_class
+        some_class_with_data = cppyy.gbl.some_class_with_data
+
+        o = some_concrete_class()
+        addr = cppyy.addressof(o)
+
+        o2 = cppyy.bind_object(addr, some_concrete_class)
+        assert o is o2
+
+        o3 = cppyy.bind_object(addr, some_class_with_data)
+        assert not o is o3
+
+        d1 = some_class_with_data()
+        d2 = d1.gime_copy()
+        assert not d1 is d2
+
+        dd1a = d1.gime_data()
+        dd1b = d1.gime_data()
+        assert dd1a is dd1b
+
+        dd2 = d2.gime_data()
+        assert not dd1a is dd2
+        assert not dd1b is dd2
+
+        d2.destruct()
+        d1.destruct()
+
+    def test11_multi_methods(self):
         """Test calling of methods from multiple inheritance"""
 
         import cppyy

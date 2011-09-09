@@ -7,15 +7,14 @@ from pypy.interpreter.baseobjspace import Wrappable, W_Root
 
 from pypy.rpython.lltypesystem import rffi, lltype
 
-from pypy.rlib import libffi, rdynload
+from pypy.rlib import libffi, rdynload, rweakref
 from pypy.rlib import jit, debug
 
 from pypy.module.cppyy import converter, executor, helper
 
+
 class FastCallNotPossible(Exception):
     pass
-
-NULL_VOIDP  = lltype.nullptr(rffi.VOIDP.TO)
 
 def _direct_ptradd(ptr, offset):        # TODO: factor out with convert.py
     address = rffi.cast(rffi.CCHARP, ptr)
@@ -32,7 +31,7 @@ def load_dictionary(space, name):
 class State(object):
     def __init__(self, space):
         self.cpptype_cache = {
-            "void" : W_CPPType(space, "void", rffi.cast(capi.C_TYPEHANDLE, NULL_VOIDP)) }
+            "void" : W_CPPType(space, "void", capi.C_NULL_TYPEHANDLE) }
         self.cpptemplatetype_cache = {}
 
 @unwrap_spec(name=str)
@@ -254,7 +253,7 @@ class W_CPPOverload(Wrappable):
                 cppinstance.cppclass.handle, self.scope_handle, cppinstance.rawobject)
             cppthis = _direct_ptradd(cppinstance.rawobject, offset)
         else:
-            cppthis = NULL_VOIDP
+            cppthis = capi.C_NULL_OBJECT
         return cppthis
 
     @jit.unroll_safe
@@ -556,8 +555,9 @@ class W_CPPInstance(Wrappable):
     def destruct(self):
         assert isinstance(self, W_CPPInstance)
         if self.rawobject:
+            memory_regulator.unregister(self)
             capi.c_destruct(self.cppclass.handle, self.rawobject)
-            self.rawobject = NULL_VOIDP
+            self.rawobject = capi.C_NULL_OBJECT
 
     def __del__(self):
         if self.python_owns:
@@ -574,12 +574,42 @@ W_CPPInstance.typedef = TypeDef(
 )
 W_CPPInstance.typedef.acceptable_as_base_class = True
 
-def new_instance(space, w_type, cpptype, rawptr, owns):
+
+class MemoryRegulator:
+    # TODO: (?) An object address is not unique if e.g. the class has a
+    # public data member of class type at the start of its definition and
+    # has no virtual functions. A _key class that hashes on address and
+    # type would be better, but my attempt failed in the rtyper, claiming
+    # a call on None ("None()") and needed a default ctor. (??)
+    # Note that for now, the associated test carries an m_padding to make
+    # a difference in the addresses.
+    def __init__(self):
+        self.objects = rweakref.RWeakValueDictionary(int, W_CPPInstance)
+
+    def register(self, obj):
+        int_address = int(rffi.cast(rffi.LONG, obj.rawobject))
+        self.objects.set(int_address, obj)
+
+    def unregister(self, obj):
+        int_address = int(rffi.cast(rffi.LONG, obj.rawobject))
+        self.objects.set(int_address, None)
+
+    def retrieve(self, address):
+        int_address = int(rffi.cast(rffi.LONG, address))
+        return self.objects.get(int_address)
+
+memory_regulator = MemoryRegulator()
+
+
+def new_instance(space, w_type, cpptype, rawobject, python_owns):
+    obj = memory_regulator.retrieve(rawobject)
+    if obj and obj.cppclass == cpptype:
+        return obj
     w_cppinstance = space.allocate_instance(W_CPPInstance, w_type)
     cppinstance = space.interp_w(W_CPPInstance, w_cppinstance, can_be_None=False)
-    W_CPPInstance.__init__(cppinstance, space, cpptype, rawptr, owns)
+    W_CPPInstance.__init__(cppinstance, space, cpptype, rawobject, python_owns)
+    memory_regulator.register(cppinstance)
     return w_cppinstance
-
 
 @unwrap_spec(cppinstance=W_CPPInstance)
 def addressof(space, cppinstance):
@@ -591,4 +621,9 @@ def bind_object(space, address, w_type, owns=False):
     rawobject = rffi.cast(rffi.VOIDP, address)
     w_cpptype = space.findattr(w_type, space.wrap("_cpp_proxy"))
     cpptype = space.interp_w(W_CPPType, w_cpptype, can_be_None=False)
+
+    obj = memory_regulator.retrieve(rawobject)
+    if obj and obj.cppclass == cpptype:
+        return obj
+
     return new_instance(space, w_type, cpptype, rawobject, owns)

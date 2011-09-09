@@ -237,6 +237,7 @@ class AppTestPYTHONIFY:
         pl_a = example01_class.staticCyclePayload(pl, 66.)
         pl_a.getData() == 66.
         assert payload_class.count == 1
+        pl_a = None
         pl = None
         gc.collect()
         assert payload_class.count == 0

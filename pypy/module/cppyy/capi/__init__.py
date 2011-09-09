@@ -5,8 +5,12 @@ import reflex_capi as backend
 #import cint_capi as backend
 
 
+C_NULL_VOIDP  = lltype.nullptr(rffi.VOIDP.TO)
+
 C_TYPEHANDLE = rffi.LONG
+C_NULL_TYPEHANDLE = rffi.cast(C_TYPEHANDLE, C_NULL_VOIDP)
 C_OBJECT = rffi.VOIDP
+C_NULL_OBJECT = C_NULL_VOIDP
 
 C_METHPTRGETTER = lltype.FuncType([C_OBJECT], rffi.VOIDP)
 C_METHPTRGETTER_PTR = lltype.Ptr(C_METHPTRGETTER)

@@ -40,6 +40,9 @@
 
 #pragma link C++ class some_abstract_class;
 #pragma link C++ class some_concrete_class;
+#pragma link C++ class some_convertible;
+#pragma link C++ class some_class_with_data;
+#pragma link C++ class some_class_with_data::some_data;
 
 #pragma link C++ class pointer_pass;
 

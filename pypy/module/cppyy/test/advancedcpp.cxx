@@ -60,7 +60,7 @@ double my_global_double = 12.;
 double my_global_array[500];
 
 
-// for life-line testing
+// for life-line and identity testing
 int some_class_with_data::some_data::s_num_data = 0;
 
 

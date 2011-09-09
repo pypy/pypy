@@ -26,6 +26,9 @@
 
   <class name="some_abstract_class" />
   <class name="some_concrete_class" />
+  <class name="some_convertible" />
+  <class name="some_class_with_data" />
+  <class name="some_class_with_data::some_data" />
 
   <class name="pointer_pass" />
 

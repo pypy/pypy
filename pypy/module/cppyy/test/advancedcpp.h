@@ -256,7 +256,7 @@ extern double my_global_array[500];
 
 
 //===========================================================================
-class some_class_with_data {       // for life-line testing
+class some_class_with_data {       // for life-line and identity testing
 public:
    class some_data {
    public:
@@ -275,6 +275,7 @@ public:
       return m_data;
    }
 
+   int m_padding;
    some_data m_data;
 };
 

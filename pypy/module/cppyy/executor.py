@@ -266,6 +266,10 @@ class InstanceExecutor(InstancePtrExecutor):
         ptr_result = rffi.cast(rffi.VOIDP, long_result)
         return interp_cppyy.new_instance(space, w_returntype, self.cpptype, ptr_result, True)
 
+    def execute_libffi(self, space, w_returntype, libffifunc, argchain):
+        from pypy.module.cppyy.interp_cppyy import FastCallNotPossible
+        raise FastCallNotPossible
+
 
 _executors = {}
 def get_executor(space, name):
