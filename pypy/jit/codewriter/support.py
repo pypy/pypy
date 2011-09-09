@@ -315,8 +315,14 @@ def _ll_2_llong_urshift(xull, y):
 def _ll_1_llong_from_int(x):
     return r_longlong(intmask(x))
 
+def _ll_1_ullong_from_int(x):
+    return r_ulonglong(intmask(x))
+
 def _ll_1_llong_from_uint(x):
     return r_longlong(r_uint(x))
+
+def _ll_1_ullong_from_uint(x):
+    return r_ulonglong(r_uint(x))
 
 def _ll_1_llong_to_int(xll):
     return intmask(xll)

@@ -884,9 +884,15 @@ class Transformer(object):
                 v = v_arg
                 oplist = []
             if unsigned1:
-                opname = 'cast_uint_to_longlong'
+                if unsigned2:
+                    opname = 'cast_uint_to_ulonglong'
+                else:
+                    opname = 'cast_uint_to_longlong'
             else:
-                opname = 'cast_int_to_longlong'
+                if unsigned2:
+                    opname = 'cast_int_to_ulonglong'
+                else:
+                    opname = 'cast_int_to_longlong'
             op2 = self.rewrite_operation(
                 SpaceOperation(opname, [v], v_result)
             )
@@ -995,6 +1001,19 @@ class Transformer(object):
                     assert op2.result.concretetype == lltype.Signed
                 return op2
         ''' % (_op, _oopspec.lower(), _oopspec, _oopspec)).compile()
+
+    for _op, _oopspec in [('cast_int_to_ulonglong',     'FROM_INT'),
+                          ('cast_uint_to_ulonglong',    'FROM_UINT'),
+                         ]:
+        exec py.code.Source('''
+            def rewrite_op_%s(self, op):
+                args = op.args
+                op1 = self.prepare_builtin_call(op, "ullong_%s", args)
+                op2 = self._handle_oopspec_call(op1, args,
+                                                EffectInfo.OS_LLONG_%s,
+                                           EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
+                return op2
+        ''' % (_op, _oopspec.lower(), _oopspec)).compile()
 
     def _normalize(self, oplist):
         if isinstance(oplist, SpaceOperation):
