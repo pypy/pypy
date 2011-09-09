@@ -5,7 +5,7 @@ from pypy.rpython.lltypesystem.ll2ctypes import ALLOCATED
 from pypy.rlib.rarithmetic import r_singlefloat, r_longlong, r_ulonglong
 from pypy.rlib.test.test_clibffi import BaseFfiTest, get_libm_name, make_struct_ffitype_e
 from pypy.rlib.libffi import CDLL, Func, get_libc_name, ArgChain, types
-from pypy.rlib.libffi import IS_32_BIT, struct_getfield, struct_setfield
+from pypy.rlib.libffi import IS_32_BIT, struct_getfield_int, struct_setfield_int
 
 class TestLibffiMisc(BaseFfiTest):
 
@@ -54,18 +54,22 @@ class TestLibffiMisc(BaseFfiTest):
 
     def test_struct_fields(self):
         longsize = 4 if IS_32_BIT else 8
-        POINT = lltype.Struct('POINT', ('x', rffi.LONG), ('y', rffi.LONG))
+        POINT = lltype.Struct('POINT',
+                              ('x', rffi.LONG),
+                              ('y', rffi.SHORT)
+                              )
+        y_ofs = longsize
         p = lltype.malloc(POINT, flavor='raw')
         p.x = 42
-        p.y = 43
+        p.y = rffi.cast(rffi.SHORT, -1)
         addr = rffi.cast(rffi.VOIDP, p)
-        assert struct_getfield(rffi.LONG, addr, 0) == 42
-        assert struct_getfield(rffi.LONG, addr, longsize) == 43
+        assert struct_getfield_int(types.slong, addr, 0) == 42
+        assert struct_getfield_int(types.sshort, addr, y_ofs) == -1
         #
-        struct_setfield(rffi.LONG, addr, 0, 123)
-        struct_setfield(rffi.LONG, addr, longsize, 321)
-        assert p.x == 123
-        assert p.y == 321
+        struct_setfield_int(types.slong, addr, 0, 43)
+        struct_setfield_int(types.sshort, addr, y_ofs, 0x1234FFFE) # 0x1234 is masked out
+        assert p.x == 43
+        assert p.y == -2
         #
         lltype.free(p, flavor='raw')
         

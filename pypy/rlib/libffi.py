@@ -414,9 +414,33 @@ class CDLL(object):
 
 # ======================================================================
 
+def struct_getfield_int(ffitype, addr, offset):
+    """
+    Return the field of type ``ffitype`` at ``addr+offset``, widened to
+    lltype.Signed.
+    """
+    for TYPE, ffitype2 in clibffi.ffitype_map:
+        if ffitype is ffitype2:
+            value = _struct_getfield(TYPE, addr, offset)
+            return rffi.cast(lltype.Signed, value)
+    assert False, "cannot find the given ffitype"
+
+def struct_setfield_int(ffitype, addr, offset, value):
+    """
+    Set the field of type ``ffitype`` at ``addr+offset``.  ``value`` is of
+    type lltype.Signed, and it's automatically converted to the right type.
+    """
+    for TYPE, ffitype2 in clibffi.ffitype_map:
+        if ffitype is ffitype2:
+            value = rffi.cast(TYPE, value)
+            _struct_setfield(TYPE, addr, offset, value)
+            return
+    assert False, "cannot find the given ffitype"
+
+
 @jit.dont_look_inside
 @specialize.arg(0)
-def struct_getfield(TYPE, addr, offset):
+def _struct_getfield(TYPE, addr, offset):
     """
     Read the field of type TYPE at addr+offset.
     addr is of type rffi.VOIDP, offset is an int.
@@ -428,9 +452,9 @@ def struct_getfield(TYPE, addr, offset):
 
 @jit.dont_look_inside
 @specialize.arg(0)
-def struct_setfield(TYPE, addr, offset, value):
+def _struct_setfield(TYPE, addr, offset, value):
     """
-    Read the field of type TYPE at addr+offset.
+    Write the field of type TYPE at addr+offset.
     addr is of type rffi.VOIDP, offset is an int.
     """
     addr = rffi.ptradd(addr, offset)

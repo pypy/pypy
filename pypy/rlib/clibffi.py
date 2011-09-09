@@ -231,6 +231,9 @@ TYPE_MAP = {
     lltype.Bool    : _unsigned_type_for(lltype.Bool),
     }
 
+ffitype_map = unrolling_iterable(TYPE_MAP.iteritems())
+
+
 def external(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, compilation_info=eci, **kwds)
 
