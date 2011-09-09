@@ -210,10 +210,7 @@ def _unsigned_type_for(TYPE):
     elif sz == 8: return ffi_type_uint64
     else: raise ValueError("unsupported type size for %r" % (TYPE,))
 
-TYPE_MAP = {
-    rffi.DOUBLE : ffi_type_double,
-    rffi.FLOAT  : ffi_type_float,
-    rffi.LONGDOUBLE : ffi_type_longdouble,
+TYPE_MAP_INT = {
     rffi.UCHAR  : ffi_type_uchar,
     rffi.CHAR   : ffi_type_schar,
     rffi.SHORT  : ffi_type_sshort,
@@ -226,11 +223,24 @@ TYPE_MAP = {
     rffi.LONG      : _signed_type_for(rffi.LONG),
     rffi.ULONGLONG : _unsigned_type_for(rffi.ULONGLONG),
     rffi.LONGLONG  : _signed_type_for(rffi.LONGLONG),
-    lltype.Void    : ffi_type_void,
     lltype.UniChar : _unsigned_type_for(lltype.UniChar),
     lltype.Bool    : _unsigned_type_for(lltype.Bool),
+}    
+
+TYPE_MAP_FLOAT = {
+    rffi.DOUBLE : ffi_type_double,
+    rffi.FLOAT  : ffi_type_float,
+    rffi.LONGDOUBLE : ffi_type_longdouble,
     }
 
+TYPE_MAP = {
+    lltype.Void    : ffi_type_void,
+    }
+TYPE_MAP.update(TYPE_MAP_INT)
+TYPE_MAP.update(TYPE_MAP_FLOAT)
+
+ffitype_map_int = unrolling_iterable(TYPE_MAP_INT.iteritems())
+ffitype_map_float = unrolling_iterable(TYPE_MAP_FLOAT.iteritems())
 ffitype_map = unrolling_iterable(TYPE_MAP.iteritems())
 
 
