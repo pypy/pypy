@@ -303,3 +303,13 @@ class TestFfiCall(BaseTestBasic, LLtypeMixin):
         jump(i1)
         """
         loop = self.optimize_loop(ops, expected)
+
+    def test_ffi_struct_fields_nonconst(self):
+        ops = """
+        [i0, i1]
+        i2 = call(0, ConstClass(ffi_slong), i0, i1,  descr=libffi_struct_getfield)
+        i3 = call(0, i1                   , i0, 123, descr=libffi_struct_getfield)
+        jump(i1)
+        """
+        expected = ops
+        loop = self.optimize_loop(ops, expected)
