@@ -333,6 +333,9 @@ def _ll_1_llong_from_float(xf):
 def _ll_1_llong_to_float(xll):
     return float(rffi.cast(lltype.SignedLongLong, xll))
 
+def _ll_1_ullong_to_float(xull):
+    return float(rffi.cast(lltype.UnsignedLongLong, xull))
+
 
 def _ll_1_llong_abs(xll):
     if xll < 0:
