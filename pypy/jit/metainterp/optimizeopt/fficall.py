@@ -1,7 +1,9 @@
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
+from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.libffi import Func
 from pypy.rlib.debug import debug_print
+from pypy.rlib import libffi, clibffi
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
@@ -116,6 +118,9 @@ class OptFfiCall(Optimization):
             ops = self.do_push_arg(op)
         elif oopspec == EffectInfo.OS_LIBFFI_CALL:
             ops = self.do_call(op)
+        elif (oopspec == EffectInfo.OS_LIBFFI_STRUCT_GETFIELD or
+              oopspec == EffectInfo.OS_LIBFFI_STRUCT_SETFIELD):
+            ops = self.do_struct_getsetfield(op, oopspec)
         #
         for op in ops:
             self.emit_operation(op)
@@ -189,6 +194,46 @@ class OptFfiCall(Optimization):
             ops.append(delayed_op)
         ops.append(newop)
         return ops
+
+    def do_struct_getsetfield(self, op, oopspec):
+        ffitypeval = self.getvalue(op.getarg(1))
+        addrval = self.getvalue(op.getarg(2))
+        offsetval = self.getvalue(op.getarg(3))
+        if not ffitypeval.is_constant() or not offsetval.is_constant():
+            return [op]
+        #
+        ffitypeaddr = ffitypeval.box.getaddr()
+        ffitype = llmemory.cast_adr_to_ptr(ffitypeaddr, clibffi.FFI_TYPE_P)
+        offset = offsetval.box.getint()
+        descr = self._get_field_descr(ffitype, offset)
+        #
+        arglist = [addrval.force_box()]
+        if oopspec == EffectInfo.OS_LIBFFI_STRUCT_GETFIELD:
+            opnum = rop.GETFIELD_RAW
+        else:
+            opnum = rop.SETFIELD_RAW
+            newval = self.getvalue(op.getarg(4))
+            arglist.append(newval.force_box())
+        #
+        newop = ResOperation(opnum, arglist, op.result, descr=descr)
+        return [newop]
+
+    def _get_field_descr(self, ffitype, offset):
+        kind = libffi.types.getkind(ffitype)
+        is_pointer = is_float = is_signed = False
+        if ffitype is libffi.types.pointer:
+            is_pointer = True
+        elif kind == 'i':
+            is_signed = True
+        elif kind == 'f' or kind == 'I' or kind == 'U':
+            # longlongs are treated as floats, see e.g. llsupport/descr.py:getDescrClass
+            is_float = True
+        else:
+            assert False, "unsupported ffitype or kind"
+        #
+        fieldsize = ffitype.c_size
+        return self.optimizer.cpu.fielddescrof_dynamic(offset, fieldsize,
+                                                       is_pointer, is_float, is_signed)
 
     def propagate_forward(self, op):
         if self.logops is not None:

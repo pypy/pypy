@@ -316,6 +316,16 @@ class LLtypeCPU(BaseCPU):
         token = history.getkind(getattr(S, fieldname))
         return self.getdescr(ofs, token[0], name=fieldname)
 
+    def fielddescrof_dynamic(self, offset, fieldsize, is_pointer, is_float, is_signed):
+        if is_pointer:
+            typeinfo = REF
+        elif is_float:
+            typeinfo = FLOAT
+        else:
+            typeinfo = INT
+        # we abuse the arg_types field to distinguish dynamic and static descrs
+        return self.getdescr(offset, typeinfo, arg_types='dynamic', name='<dynamic field>')
+
     def calldescrof(self, FUNC, ARGS, RESULT, extrainfo):
         arg_types = []
         for ARG in ARGS:

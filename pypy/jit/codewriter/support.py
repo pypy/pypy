@@ -392,7 +392,6 @@ def _ll_3_libffi_call_float(llfunc, funcsym, ll_args):
 def _ll_3_libffi_call_void(llfunc, funcsym, ll_args):
     return func(llfunc)._do_call(funcsym, ll_args, lltype.Void)
 
-
 # in the following calls to builtins, the JIT is allowed to look inside:
 inline_calls_to = [
     ('int_floordiv_ovf_zer', [lltype.Signed, lltype.Signed], lltype.Signed),

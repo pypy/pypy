@@ -3,8 +3,8 @@ import py
 from pypy.rlib.rarithmetic import r_singlefloat, r_longlong, r_ulonglong
 from pypy.rlib.jit import JitDriver, promote, dont_look_inside
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.libffi import ArgChain
-from pypy.rlib.libffi import IS_32_BIT
+from pypy.rlib.libffi import ArgChain, types
+from pypy.rlib.libffi import IS_32_BIT, struct_setfield_int, struct_getfield_int
 from pypy.rlib.test.test_libffi import TestLibffiCall as _TestLibffiCall
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.objectmodel import specialize
@@ -93,5 +93,25 @@ class TestFfiCall(LLJitMixin, _TestLibffiCall):
     test_byval_result.dont_track_allocations = True
 
 
+
 class TestFfiCallSupportAll(TestFfiCall):
     supports_all = True     # supports_{floats,longlong,singlefloats}
+
+
+    def test_struct_getfield(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'addr'])
+
+        def f(n):
+            i = 0
+            addr = lltype.malloc(rffi.VOIDP.TO, 10, flavor='raw')
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, i=i, addr=addr)
+                struct_setfield_int(types.slong, addr, 0, 1)
+                i += struct_getfield_int(types.slong, addr, 0)
+            lltype.free(addr, flavor='raw')
+            return i
+        assert self.meta_interp(f, [20]) == f(20)
+        self.check_loops(
+            setfield_raw=1,
+            getfield_raw=1,
+            call=0)
