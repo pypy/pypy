@@ -56,6 +56,13 @@ class TestFfiCall(BaseTestBasic, LLtypeMixin):
                              restype=types.sint,
                              flags=43)
         #
+        ffi_slong = types.slong
+        dyn_123_field = cpu.fielddescrof_dynamic(offset=123,
+                                                 fieldsize=types.slong.c_size,
+                                                 is_pointer=False,
+                                                 is_float=False,
+                                                 is_signed=True)
+        #
         def calldescr(cpu, FUNC, oopspecindex, extraeffect=None):
             if extraeffect == EffectInfo.EF_RANDOM_EFFECTS:
                 f = None   # means "can force all" really
@@ -69,6 +76,8 @@ class TestFfiCall(BaseTestBasic, LLtypeMixin):
         libffi_push_arg = calldescr(cpu, FUNC, EffectInfo.OS_LIBFFI_PUSH_ARG)
         libffi_call =     calldescr(cpu, FUNC, EffectInfo.OS_LIBFFI_CALL,
                                     EffectInfo.EF_RANDOM_EFFECTS)
+        libffi_struct_getfield = calldescr(cpu, FUNC, EffectInfo.OS_LIBFFI_STRUCT_GETFIELD)
+        libffi_struct_setfield = calldescr(cpu, FUNC, EffectInfo.OS_LIBFFI_STRUCT_SETFIELD)
     
     namespace = namespace.__dict__
 
@@ -275,5 +284,22 @@ class TestFfiCall(BaseTestBasic, LLtypeMixin):
         guard_not_forced() []
         guard_no_exception() []
         jump(i3, f1, p2)
+        """
+        loop = self.optimize_loop(ops, expected)
+
+    def test_ffi_struct_fields(self):
+        ops = """
+        [i0]
+        i1 = call(0, ConstClass(ffi_slong), i0, 123, descr=libffi_struct_getfield)
+        i2 = int_add(i1, 1)
+        call(0, ConstClass(ffi_slong), i0, 123, i2, descr=libffi_struct_setfield)
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        i1 = getfield_raw(i0, descr=dyn_123_field)
+        i2 = int_add(i1, 1)
+        setfield_raw(i0, i2, descr=dyn_123_field)
+        jump(i1)
         """
         loop = self.optimize_loop(ops, expected)
