@@ -1529,8 +1529,7 @@ class LLtypeBackendTest(BaseBackendTest):
         assert field.is_pointer_field() == field_dyn.is_pointer_field()
         assert field.is_float_field()   == field_dyn.is_float_field()
         if 'llgraph' not in str(self.cpu):
-            assert field.is_signed_field()  == field_dyn.is_signed_field()
-            assert field.get_field_size()   == field_dyn.get_field_size()
+            assert field.is_field_signed()  == field_dyn.is_field_signed()
 
         #
         for get_op, set_op in ((rop.GETFIELD_RAW, rop.SETFIELD_RAW),

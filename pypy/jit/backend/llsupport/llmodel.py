@@ -13,6 +13,7 @@ from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.symbolic import WORD, unroll_basic_sizes
 from pypy.jit.backend.llsupport.descr import get_size_descr,  BaseSizeDescr
 from pypy.jit.backend.llsupport.descr import get_field_descr, BaseFieldDescr
+from pypy.jit.backend.llsupport.descr import DynamicFieldDescr
 from pypy.jit.backend.llsupport.descr import get_array_descr, BaseArrayDescr
 from pypy.jit.backend.llsupport.descr import get_call_descr
 from pypy.jit.backend.llsupport.descr import BaseIntCallDescr, GcPtrCallDescr
@@ -224,6 +225,9 @@ class AbstractLLCPU(AbstractCPU):
 
     def fielddescrof(self, STRUCT, fieldname):
         return get_field_descr(self.gc_ll_descr, STRUCT, fieldname)
+
+    def fielddescrof_dynamic(self, offset, fieldsize, is_pointer, is_float, is_signed):
+        return DynamicFieldDescr(offset, fieldsize, is_pointer, is_float, is_signed)
 
     def unpack_fielddescr(self, fielddescr):
         assert isinstance(fielddescr, BaseFieldDescr)

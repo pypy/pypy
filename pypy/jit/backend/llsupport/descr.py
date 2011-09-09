@@ -113,6 +113,17 @@ class BaseFieldDescr(AbstractDescr):
     def repr_of_descr(self):
         return '<%s %s %s>' % (self._clsname, self.name, self.offset)
 
+class DynamicFieldDescr(BaseFieldDescr):
+
+    def __init__(self, offset, fieldsize, is_pointer, is_float, is_signed):
+        self.offset = offset
+        self._fieldsize = fieldsize
+        self._is_pointer_field = is_pointer
+        self._is_float_field = is_float
+        self._is_field_signed = is_signed
+
+    def get_field_size(self, translate_support_code):
+        return self._fieldsize
 
 class NonGcPtrFieldDescr(BaseFieldDescr):
     _clsname = 'NonGcPtrFieldDescr'

@@ -115,4 +115,3 @@ class TestFfiCallSupportAll(TestFfiCall):
             setfield_raw=1,
             getfield_raw=1,
             call=0)
-        
