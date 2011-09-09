@@ -25,12 +25,15 @@ with rffi.scoped_str2charp('libCint.so') as ll_libname:
     _cintdll = rdynload.dlopen(ll_libname, rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW)
 with rffi.scoped_str2charp('libCore.so') as ll_libname:
     _coredll = rdynload.dlopen(ll_libname, rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW)
+with rffi.scoped_str2charp('libMathCore.so') as ll_libname:
+    _coredll = rdynload.dlopen(ll_libname, rdynload.RTLD_GLOBAL | rdynload.RTLD_NOW)
 
 eci = ExternalCompilationInfo(
     separate_module_files=[srcpath.join("cintcwrapper.cxx")],
     include_dirs=[incpath] + rootincpath,
     includes=["cintcwrapper.h"],
     library_dirs=rootlibpath,
+    link_extra=["-lMathCore", "-lCore", "-lCint"],
     use_cpp_linker=True,
 )
 
