@@ -764,7 +764,9 @@ class Frame(object):
     op_getfield_gc_pure = op_getfield_gc
 
     def op_getfield_raw(self, fielddescr, struct):
-        if fielddescr.typeinfo == REF:
+        if fielddescr.arg_types == 'dynamic': # abuse of .arg_types
+            return do_getfield_raw_dynamic(struct, fielddescr)
+        elif fielddescr.typeinfo == REF:
             return do_getfield_raw_ptr(struct, fielddescr.ofs)
         elif fielddescr.typeinfo == INT:
             return do_getfield_raw_int(struct, fielddescr.ofs)
@@ -817,7 +819,9 @@ class Frame(object):
             raise NotImplementedError
 
     def op_setfield_raw(self, fielddescr, struct, newvalue):
-        if fielddescr.typeinfo == REF:
+        if fielddescr.arg_types == 'dynamic': # abuse of .arg_types
+            do_setfield_raw_dynamic(struct, fielddescr, newvalue)
+        elif fielddescr.typeinfo == REF:
             do_setfield_raw_ptr(struct, fielddescr.ofs, newvalue)
         elif fielddescr.typeinfo == INT:
             do_setfield_raw_int(struct, fielddescr.ofs, newvalue)
@@ -1370,6 +1374,17 @@ def do_getfield_raw_float(struct, fieldnum):
 def do_getfield_raw_ptr(struct, fieldnum):
     return cast_to_ptr(_getfield_raw(struct, fieldnum))
 
+def do_getfield_raw_dynamic(struct, fielddescr):
+    from pypy.rlib import libffi
+    addr = cast_from_int(rffi.VOIDP, struct)
+    ofs = fielddescr.ofs
+    if fielddescr.is_pointer_field():
+        assert False, 'fixme'
+    elif fielddescr.is_float_field():
+        assert False, 'fixme'
+    else:
+        return libffi._struct_getfield(lltype.Signed, addr, ofs)
+
 def do_new(size):
     TYPE = symbolic.Size2Type[size]
     x = lltype.malloc(TYPE, zero=True)
@@ -1452,6 +1467,17 @@ def do_setfield_raw_ptr(struct, fieldnum, newvalue):
     FIELDTYPE = getattr(STRUCT, fieldname)
     newvalue = cast_from_ptr(FIELDTYPE, newvalue)
     setattr(ptr, fieldname, newvalue)
+
+def do_setfield_raw_dynamic(struct, fielddescr, newvalue):
+    from pypy.rlib import libffi
+    addr = cast_from_int(rffi.VOIDP, struct)
+    ofs = fielddescr.ofs
+    if fielddescr.is_pointer_field():
+        assert False, 'fixme'
+    elif fielddescr.is_float_field():
+        assert False, 'fixme'
+    else:
+        libffi._struct_setfield(lltype.Signed, addr, ofs, newvalue)
 
 def do_newstr(length):
     x = rstr.mallocstr(length)
