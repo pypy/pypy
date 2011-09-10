@@ -1004,7 +1004,7 @@ class Transformer(object):
 
     for _op, _oopspec in [('cast_int_to_ulonglong',     'FROM_INT'),
                           ('cast_uint_to_ulonglong',    'FROM_UINT'),
-                          ('cast_ulonglong_to_float',   'TO_FLOAT'),
+                          ('cast_ulonglong_to_float',   'UNSIGNED_TO_FLOAT'),
                          ]:
         exec py.code.Source('''
             def rewrite_op_%s(self, op):
