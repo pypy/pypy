@@ -57,7 +57,8 @@ class TestLongLong:
             assert op1.opname == 'residual_call_irf_f'
         else:
             assert op1.opname == 'residual_call_irf_i'
-        gotindex = getattr(EffectInfo, 'OS_' + op1.args[0].value.upper())
+        gotindex = getattr(EffectInfo,
+                           'OS_' + op1.args[0].value.upper().lstrip('U'))
         assert gotindex == oopspecindex
         assert op1.args[1] == 'calldescr-%d' % oopspecindex
         assert list(op1.args[2]) == [v for v in vlist
