@@ -74,7 +74,7 @@ class EffectInfo(object):
     OS_LLONG_UGE                = 91
     OS_LLONG_URSHIFT            = 92
     OS_LLONG_FROM_UINT          = 93
-    OS_LLONG_UNSIGNED_TO_FLOAT  = 94
+    OS_LLONG_U_TO_FLOAT         = 94
     #
     OS_MATH_SQRT                = 100
 
