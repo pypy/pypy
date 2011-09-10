@@ -52,6 +52,8 @@ def _current_frames(space):
     current stack frame.
 
     This function should be used for specialized purposes only."""
+    raise OperationError(space.w_NotImplementedError,
+        space.wrap("XXX sys._current_frames() incompatible with the JIT"))
     w_result = space.newdict()
     ecs = space.threadlocals.getallvalues()
     for thread_ident, ec in ecs.items():
