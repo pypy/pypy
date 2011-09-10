@@ -55,14 +55,19 @@ class CConfig:
         SYSTEMTIME = rffi_platform.Struct('SYSTEMTIME',
                                           [])
 
-        OSVERSIONINFO = rffi_platform.Struct(
-            'OSVERSIONINFO',
+        OSVERSIONINFOEX = rffi_platform.Struct(
+            'OSVERSIONINFOEX',
             [('dwOSVersionInfoSize', rffi.UINT),
              ('dwMajorVersion', rffi.UINT),
              ('dwMinorVersion', rffi.UINT),
              ('dwBuildNumber',  rffi.UINT),
              ('dwPlatformId',  rffi.UINT),
-             ('szCSDVersion', rffi.CFixedArray(lltype.Char, 1))])
+             ('szCSDVersion', rffi.CFixedArray(lltype.Char, 1)),
+             ('wServicePackMajor', rffi.USHORT),
+             ('wServicePackMinor', rffi.USHORT),
+             ('wSuiteMask', rffi.USHORT),
+             ('wProductType', rffi.UCHAR),
+         ])
 
         LPSECURITY_ATTRIBUTES = rffi_platform.SimpleType(
             "LPSECURITY_ATTRIBUTES", rffi.CCHARP)
@@ -225,14 +230,14 @@ if WIN32:
             lltype.free(buf, flavor='raw')
 
     _GetVersionEx = winexternal('GetVersionExA',
-                                [lltype.Ptr(OSVERSIONINFO)],
+                                [lltype.Ptr(OSVERSIONINFOEX)],
                                 DWORD)
 
     @jit.dont_look_inside
     def GetVersionEx():
         info = lltype.malloc(OSVERSIONINFO, flavor='raw')
         rffi.setintfield(info, 'c_dwOSVersionInfoSize',
-                         rffi.sizeof(OSVERSIONINFO))
+                         rffi.sizeof(OSVERSIONINFOEX))
         try:
             if not _GetVersionEx(info):
                 raise lastWindowsError()
@@ -241,7 +246,11 @@ if WIN32:
                     rffi.cast(lltype.Signed, info.c_dwBuildNumber),
                     rffi.cast(lltype.Signed, info.c_dwPlatformId),
                     rffi.charp2str(rffi.cast(rffi.CCHARP,
-                                             info.c_szCSDVersion)))
+                                             info.c_szCSDVersion)),
+                    rffi.cast(lltype.Signed, info.c_wServicePackMajor),
+                    rffi.cast(lltype.Signed, info.c_wServicePackMinor),
+                    rffi.cast(lltype.Signed, info.c_wSuiteMask),
+                    rffi.cast(lltype.Signed, info.c_wProductType))
         finally:
             lltype.free(info, flavor='raw')
 

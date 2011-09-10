@@ -378,6 +378,11 @@ class AppTestSysModulePortedFromCPython:
             assert v[3] == v.platform
             assert v[4] == v.service_pack
 
+            assert isinstance(v.service_pack_minor, int)
+            assert isinstance(v.service_pack_major, int)
+            assert isinstance(v.suite_mask, int)
+            assert isinstance(v.product_type, int)
+
             # This is how platform.py calls it. Make sure tuple still has 5
             # elements
             maj, min, buildno, plat, csd = sys.getwindowsversion()

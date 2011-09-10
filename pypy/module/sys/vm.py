@@ -162,7 +162,15 @@ class windows_version_info:
     build = structseqfield(2, "Build number")
     platform = structseqfield(3, "Operating system platform")
     service_pack = structseqfield(4, "Latest Service Pack installed on the system")
+
+    # Because the indices aren't consecutive, they aren't included when
+    # unpacking and other such operations.
+    service_pack_major = structseqfield(10, "Service Pack major version number")
+    service_pack_minor = structseqfield(11, "Service Pack minor version number")
+    suite_mask = structseqfield(12, "Bit mask identifying available product suites")
+    product_type = structseqfield(13, "System product type")
 ''')
+
 
 def getwindowsversion(space):
     from pypy.rlib import rwin32
@@ -173,7 +181,11 @@ def getwindowsversion(space):
         space.wrap(info[1]),
         space.wrap(info[2]),
         space.wrap(info[3]),
-        space.wrap(info[4])
+        space.wrap(info[4]),
+        space.wrap(info[5]),
+        space.wrap(info[6]),
+        space.wrap(info[7]),
+        space.wrap(info[8]),
     ])
     return space.call_function(w_windows_version_info, raw_version)
 
