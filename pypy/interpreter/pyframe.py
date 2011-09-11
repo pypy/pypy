@@ -66,7 +66,7 @@ class PyFrame(eval.Frame):
         make_sure_not_resized(self.locals_stack_w)
         check_nonneg(self.nlocals)
         #
-        if space.config.objspace.honor__builtins__:
+        if space.config.objspace.honor__builtins__ and w_globals is not None:
             self.builtin = space.builtin.pick_builtin(w_globals)
         # regular functions always have CO_OPTIMIZED and CO_NEWLOCALS.
         # class bodies only have CO_NEWLOCALS.
