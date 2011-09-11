@@ -235,7 +235,7 @@ if WIN32:
 
     @jit.dont_look_inside
     def GetVersionEx():
-        info = lltype.malloc(OSVERSIONINFO, flavor='raw')
+        info = lltype.malloc(OSVERSIONINFOEX, flavor='raw')
         rffi.setintfield(info, 'c_dwOSVersionInfoSize',
                          rffi.sizeof(OSVERSIONINFOEX))
         try:
