@@ -1,4 +1,5 @@
 from pypy.tool import udir
+from pypy.conftest import option
 
 
 class AppTestPyFrame:
@@ -6,14 +7,15 @@ class AppTestPyFrame:
     def setup_class(cls):
         cls.w_udir = cls.space.wrap(str(udir.udir))
         cls.w_tempfile1 = cls.space.wrap(str(udir.udir.join('tempfile1')))
-        w_call_further = cls.space.appexec([], """():
-            def call_further(f):
-                return f()
-            return call_further
-        """)
-        assert not w_call_further.code.hidden_applevel
-        w_call_further.code.hidden_applevel = True       # hack
-        cls.w_call_further = w_call_further
+        if not option.runappdirect:
+            w_call_further = cls.space.appexec([], """():
+                def call_further(f):
+                    return f()
+                return call_further
+            """)
+            assert not w_call_further.code.hidden_applevel
+            w_call_further.code.hidden_applevel = True       # hack
+            cls.w_call_further = w_call_further
 
     # test for the presence of the attributes, not functionality
 
@@ -116,6 +118,8 @@ class AppTestPyFrame:
         assert frame.f_back.f_code.co_name == 'f'
 
     def test_f_back_hidden(self):
+        if not hasattr(self, 'call_further'):
+            skip("not for runappdirect testing")
         import sys
         def f():
             return (sys._getframe(0),
