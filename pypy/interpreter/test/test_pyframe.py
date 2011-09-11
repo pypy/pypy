@@ -6,6 +6,14 @@ class AppTestPyFrame:
     def setup_class(cls):
         cls.w_udir = cls.space.wrap(str(udir.udir))
         cls.w_tempfile1 = cls.space.wrap(str(udir.udir.join('tempfile1')))
+        w_call_further = cls.space.appexec([], """():
+            def call_further(f):
+                return f()
+            return call_further
+        """)
+        assert not w_call_further.code.hidden_applevel
+        w_call_further.code.hidden_applevel = True       # hack
+        cls.w_call_further = w_call_further
 
     # test for the presence of the attributes, not functionality
 
@@ -106,6 +114,20 @@ class AppTestPyFrame:
             return sys._getframe()
         frame = f()
         assert frame.f_back.f_code.co_name == 'f'
+
+    def test_f_back_hidden(self):
+        import sys
+        def f():
+            return (sys._getframe(0),
+                    sys._getframe(1),
+                    sys._getframe(0).f_back)
+        def main():
+            return self.call_further(f)
+        f0, f1, f1bis = main()
+        assert f0.f_code.co_name == 'f'
+        assert f1.f_code.co_name == 'main'
+        assert f1bis is f1
+        assert f0.f_back is f1
 
     def test_f_exc_xxx(self):
         import sys

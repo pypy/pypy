@@ -614,7 +614,8 @@ class PyFrame(eval.Frame):
         return self.get_builtin().getdict(space)
 
     def fget_f_back(self, space):
-        return self.space.wrap(self.f_backref())
+        f_backref = ExecutionContext.getnextframe_nohidden(self)
+        return self.space.wrap(f_backref)
 
     def fget_f_lasti(self, space):
         return self.space.wrap(self.last_instr)
