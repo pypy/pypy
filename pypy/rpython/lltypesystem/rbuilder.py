@@ -4,7 +4,7 @@ from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.annlowlevel import llstr
 from pypy.rpython.rptr import PtrRepr
 from pypy.rpython.lltypesystem import lltype, rstr
-from pypy.rpython.lltypesystem.lltype import staticAdtMethod
+from pypy.rpython.lltypesystem.lltype import staticAdtMethod, nullptr
 from pypy.rpython.lltypesystem.rstr import (STR, UNICODE, char_repr,
     string_repr, unichar_repr, unicode_repr)
 from pypy.rpython.rbuilder import AbstractStringBuilderRepr
@@ -54,6 +54,9 @@ UNICODEBUILDER = lltype.GcStruct('unicodebuilder',
 MAX = 16*1024*1024
 
 class BaseStringBuilderRepr(AbstractStringBuilderRepr):
+    def empty(self):
+        return nullptr(self.lowleveltype.TO)
+    
     @classmethod
     def ll_new(cls, init_size):
         if init_size < 0 or init_size > MAX:
@@ -122,6 +125,10 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         if final_size == ll_builder.allocated:
             return ll_builder.buf
         return rgc.ll_shrink_array(ll_builder.buf, final_size)
+
+    @classmethod
+    def ll_is_true(cls, ll_builder):
+        return ll_builder != nullptr(cls.lowleveltype.TO)
 
 class StringBuilderRepr(BaseStringBuilderRepr):
     lowleveltype = lltype.Ptr(STRINGBUILDER)
