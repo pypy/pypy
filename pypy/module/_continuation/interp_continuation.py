@@ -103,10 +103,18 @@ class W_Continulet(Wrappable):
         return self.space.newbool(valid)
 
     def descr__reduce__(self):
+        # xxx this is known to be not completely correct with respect
+        # to subclasses, e.g. no __slots__ support, no looking for a
+        # __getnewargs__ or __getstate__ defined in the subclass, etc.
+        # Doing the right thing looks involved, though...
         space = self.space
         w_continulet_type = space.type(space.wrap(self))
-        return space.newtuple([getunpickle(space),
-                               space.newtuple([w_continulet_type])])
+        args = [getunpickle(space),
+                space.newtuple([w_continulet_type])]
+        w_dict = self.getdict(space)
+        if w_dict is not None:
+            args = args + [w_dict]
+        return space.newtuple(args)
 
 
 def W_Continulet___new__(space, w_subtype, __args__):
@@ -116,7 +124,9 @@ def W_Continulet___new__(space, w_subtype, __args__):
 
 def unpickle(space, w_subtype):
     """Pickle support."""
-    return W_Continulet___new__(space, w_subtype, None)
+    r = space.allocate_instance(W_Continulet, w_subtype)
+    r.__init__(space)
+    return space.wrap(r)
 
 
 W_Continulet.typedef = TypeDef(
