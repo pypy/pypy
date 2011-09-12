@@ -2,7 +2,11 @@ from pypy.jit.backend.llsupport.regalloc import (RegisterManager, FrameManager,
                                                  TempBox, compute_vars_longevity,
                                                  compute_loop_consts)
 from pypy.jit.backend.ppc.ppcgen.arch import (WORD, MY_COPY_OF_REGS)
-from pypy.jit.metainterp.history import INT, REF, Const, ConstInt, ConstPtr
+from pypy.jit.backend.ppc.ppcgen.jump import remap_frame_layout_mixed
+from pypy.jit.backend.ppc.ppcgen.helper.regalloc import (_check_imm_arg, 
+                                                         prepare_cmp_op)
+from pypy.jit.metainterp.history import (INT, REF, FLOAT, Const, ConstInt, 
+                                         ConstPtr, LoopToken)
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.ppc.ppcgen import locations
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -133,9 +137,6 @@ class Regalloc(object):
     def next_instruction(self):
         self.rm.next_instruction()
 
-    def _check_imm_arg(self, arg):
-        return isinstance(arg, ConstInt)
-
     def _ensure_value_is_boxed(self, thing, forbidden_vars=[]):
         box = None
         loc = None
@@ -165,8 +166,8 @@ class Regalloc(object):
     def prepare_int_add(self, op):
         boxes = op.getarglist()
         b0, b1 = boxes
-        imm_b0 = self._check_imm_arg(b0)
-        imm_b1 = self._check_imm_arg(b1)
+        imm_b0 = _check_imm_arg(b0)
+        imm_b1 = _check_imm_arg(b1)
         if not imm_b0 and imm_b1:
             l0, box = self._ensure_value_is_boxed(b0)
             l1 = self.make_sure_var_in_reg(b1, [b0])
@@ -180,7 +181,6 @@ class Regalloc(object):
             boxes.append(box)
             l1, box = self._ensure_value_is_boxed(b1, [box])
             boxes.append(box)
-        #return [l0, l1], boxes
         locs = [l0, l1]
         self.possibly_free_vars(boxes)
         res = self.force_allocate_reg(op.result)
@@ -197,6 +197,40 @@ class Regalloc(object):
             else:
                 args.append(None)
         return args
+
+    def _prepare_guard(self, op, args=None):
+        if args is None:
+            args = []
+        for arg in op.getfailargs():
+            if arg:
+                args.append(self.loc(arg))
+            else:
+                args.append(None)
+        return args
+    
+    def prepare_guard_true(self, op):
+        l0, box = self._ensure_value_is_boxed(op.getarg(0))
+        args = self._prepare_guard(op, [l0])
+        self.possibly_free_var(box)
+        self.possibly_free_vars(op.getfailargs())
+        return args
+
+    def prepare_jump(self, op):
+        descr = op.getdescr()
+        assert isinstance(descr, LoopToken)
+        nonfloatlocs = descr._ppc_arglocs[0]
+
+        tmploc = r.r0       
+        src_locs1 = [self.loc(op.getarg(i)) for i in range(op.numargs()) 
+                            if op.getarg(i).type != FLOAT]
+        assert tmploc not in nonfloatlocs
+        dst_locs1 = [loc for loc in nonfloatlocs if loc is not None]
+        remap_frame_layout_mixed(self.assembler,
+                                 src_locs1, dst_locs1, tmploc,
+                                 [], [], None)
+        return []
+
+    prepare_int_le = prepare_cmp_op()
 
 def make_operation_list():
     def not_implemented(self, op, *args):

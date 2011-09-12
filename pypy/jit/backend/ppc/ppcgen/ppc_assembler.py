@@ -8,8 +8,10 @@ from pypy.jit.backend.ppc.ppcgen.assembler import Assembler
 from pypy.jit.backend.ppc.ppcgen.symbol_lookup import lookup
 from pypy.jit.backend.ppc.ppcgen.arch import (IS_PPC_32, WORD, NONVOLATILES,
                                               GPR_SAVE_AREA)
+from pypy.jit.backend.ppc.ppcgen.helper.assembler import gen_emit_cmp_op
 import pypy.jit.backend.ppc.ppcgen.register as r
-from pypy.jit.metainterp.history import Const, ConstPtr
+import pypy.jit.backend.ppc.ppcgen.condition as c
+from pypy.jit.metainterp.history import Const, ConstPtr, LoopToken
 from pypy.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from pypy.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
 from pypy.jit.backend.llsupport.regalloc import (RegisterManager, 
@@ -976,7 +978,40 @@ class PPCBuilder(PPCAssembler):
         self._save_nonvolatiles()
 
     def _make_epilogue(self):
-        self._restore_nonvolatiles()
+        for op_index, fail_index, guard, reglist in self.patch_list:
+            curpos = self.get_relative_pos()
+            offset = curpos - (4 * op_index)
+            assert (1 << 15) > offset
+            self.beq(offset)
+            self.patch_op(op_index)
+
+            # store return parameters in memory
+            used_mem_indices = []
+            for index, reg in enumerate(reglist):
+                # if reg is None, then there is a hole in the failargs
+                if reg is not None:
+                    addr = self.fail_boxes_int.get_addr_for_num(index)
+                    self.store_reg(reg, addr)
+                    used_mem_indices.append(index)
+
+            patch_op = self.get_number_of_ops()
+            patch_pos = self.get_relative_pos()
+            descr = self.cpu.saved_descr[fail_index]
+            descr.patch_op = patch_op
+            descr.patch_pos = patch_pos
+            descr.used_mem_indices = used_mem_indices
+
+            self._restore_nonvolatiles()
+
+            self.lwz(0, 1, self.framesize + 4)
+            if IS_PPC_32:
+                self.lwz(0, 1, self.framesize + WORD) # 36
+            else:
+                self.ld(0, 1, self.framesize + WORD) # 36
+            self.mtlr(0)
+            self.addi(1, 1, self.framesize)
+            self.li(r.r3.value, fail_index)            
+            self.blr()
 
     def gen_bootstrap_code(self, nonfloatlocs, inputargs):
         for i in range(len(nonfloatlocs)):
@@ -997,6 +1032,9 @@ class PPCBuilder(PPCAssembler):
 
     def assemble_loop(self, inputargs, operations, looptoken, log):
         self.framesize = 256 + GPR_SAVE_AREA
+        self.patch_list = []
+        self.startpos = self.get_relative_pos()
+
         clt = CompiledLoopToken(self.cpu, looptoken.number)
         looptoken.compiled_loop_token = clt
 
@@ -1007,7 +1045,15 @@ class PPCBuilder(PPCAssembler):
         self._make_prologue()
         nonfloatlocs = regalloc.prepare_loop(inputargs, operations, looptoken)
         self.gen_bootstrap_code(nonfloatlocs, inputargs)
+
+        looptoken._ppc_loop_code = self.get_relative_pos()
+        looptoken._ppc_arglocs = [nonfloatlocs]
+        looptoken._ppc_bootstrap_code = 0
+
         self._walk_operations(operations, regalloc)
+        self._make_epilogue()
+
+
         looptoken.ppc_code = self.assemble()
 
     def _walk_operations(self, operations, regalloc):
@@ -1068,23 +1114,18 @@ class PPCBuilder(PPCAssembler):
         if isinstance(arg0, Box):
             reg0 = cpu.reg_map[arg0]
         else:
-            #reg0 = cpu.get_next_register()
             box = TempInt()
             reg0 = cpu.rm.force_allocate_reg(box)
             self.load_word(reg0, arg0.value)
         if isinstance(arg1, Box):
             reg1 = cpu.reg_map[arg1]
         else:
-            #reg1 = cpu.get_next_register()
-            #reg1 = cpu.rm.force_allocate_reg(arg1)
             box = TempInt()
             reg1 = cpu.rm.force_allocate_reg(box)
             boxed = cpu.rm.make_sure_var_in_reg(box)
             self.load_word(reg1, arg1.value)
             import pdb; pdb.set_trace()
-        #free_reg = cpu.next_free_register
         free_reg = cpu.rm.force_allocate_reg(op.result)
-
         return free_reg, reg0, reg1
 
     def _int_op_epilog(self, op, cpu, result_reg):
@@ -1092,34 +1133,18 @@ class PPCBuilder(PPCAssembler):
         cpu.reg_map[result] = result_reg
         cpu.next_free_register += 1
 
-    def _guard_epilog(self, op, cpu):
-        fail_descr = op.getdescr()
-        fail_index = self._get_identifier_from_descr(fail_descr, cpu)
-        fail_descr.index = fail_index
-        cpu.saved_descr[fail_index] = fail_descr
-        numops = self.get_number_of_ops()
-        self.beq(0)
-        failargs = op.getfailargs()
-        reglist = []
-        for failarg in failargs:
-            if failarg is None:
-                reglist.append(None)
-            else:
-                reglist.append(cpu.reg_map[failarg])
-        cpu.patch_list.append((numops, fail_index, op, reglist))
-
     # Fetches the identifier from a descr object.
     # If it has no identifier, then an unused identifier
     # is generated
     # XXX could be overwritten later on, better approach?
-    def _get_identifier_from_descr(self, descr, cpu):
+    def _get_identifier_from_descr(self, descr):
         try:
             identifier = descr.identifier
         except AttributeError:
             identifier = None
         if identifier is not None:
             return identifier
-        keys = cpu.saved_descr.keys()
+        keys = self.cpu.saved_descr.keys()
         if keys == []:
             return 1
         return max(keys) + 1
@@ -1208,6 +1233,12 @@ class PPCBuilder(PPCAssembler):
         else:
             self.divdu(free_reg, reg0, reg1)
 
+    # ****************************************************
+    # *         C O M P A R I S O N   S T U F F          *
+    # ****************************************************
+
+    emit_int_le = gen_emit_cmp_op(c.LE)   
+
     def emit_int_eq(self, op, cpu, reg0, reg1, free_reg):
         self.xor(free_reg, reg0, reg1)
         if IS_PPC_32:
@@ -1216,15 +1247,6 @@ class PPCBuilder(PPCAssembler):
         else:
             self.cntlzd(free_reg, free_reg)
             self.srdi(free_reg, free_reg, 6)
-
-    def emit_int_le(self, op, cpu, reg0, reg1, free_reg):
-        if IS_PPC_32:
-            self.cmpw(7, reg0, reg1)
-        else:
-            self.cmpd(7, reg0, reg1)
-        self.cror(31, 30, 28)
-        self.mfcr(free_reg)
-        self.rlwinm(free_reg, free_reg, 0, 31, 31)
 
     def emit_int_lt(self, op, cpu, reg0, reg1, free_reg):
         if IS_PPC_32:
@@ -1575,10 +1597,26 @@ class PPCBuilder(PPCAssembler):
     #      GUARD  OPERATIONS      *
     #******************************
 
-    def emit_guard_true(self, op, cpu):
-        arg0 = op.getarg(0)
-        regnum = cpu.reg_map[arg0]
-        self.cmpi(0, 1, regnum, 0)
+    def _guard_epilogue(self, op, failargs):
+        fail_descr = op.getdescr()
+        fail_index = self._get_identifier_from_descr(fail_descr)
+        fail_descr.index = fail_index
+        self.cpu.saved_descr[fail_index] = fail_descr
+        numops = self.get_number_of_ops()
+        self.beq(0)
+        reglist = []
+        for failarg in failargs:
+            if failarg is None:
+                reglist.append(None)
+            else:
+                reglist.append(failarg)
+        self.patch_list.append((numops, fail_index, op, reglist))
+
+    def emit_guard_true(self, op, arglocs, regalloc):
+        l0 = arglocs[0]
+        failargs = arglocs[1:]
+        self.cmpi(l0.value, 0)
+        self._guard_epilogue(op, failargs)
 
     def emit_guard_false(self, op, cpu):
         arg0 = op.getarg(0)
@@ -1677,7 +1715,7 @@ class PPCBuilder(PPCAssembler):
 
     def emit_finish(self, op, arglocs, regalloc):
         descr = op.getdescr()
-        identifier = self._get_identifier_from_descr(descr, self.cpu)
+        identifier = self._get_identifier_from_descr(descr)
         self.cpu.saved_descr[identifier] = descr
         args = op.getarglist()
         for index, arg in enumerate(arglocs):
@@ -1697,14 +1735,14 @@ class PPCBuilder(PPCAssembler):
         self.load_imm(r.r3, identifier)
         self.blr()
 
-    def emit_jump(self, op, cpu):
-        for index, arg in enumerate(op.getarglist()):
-            target = index + 3
-            regnum = cpu.reg_map[arg]
-            self.mr(target, regnum)
-
-        offset = self.get_relative_pos()
-        self.b(-offset + cpu.startpos)
+    def emit_jump(self, op, arglocs, regalloc):
+        descr = op.getdescr()
+        assert isinstance(descr, LoopToken)
+        if descr._ppc_bootstrap_code == 0:
+            curpos = self.get_relative_pos()
+            self.b(descr._ppc_loop_code - curpos)
+        else:
+            assert 0, "case not implemented yet"
 
 class BranchUpdater(PPCAssembler):
     def __init__(self):
