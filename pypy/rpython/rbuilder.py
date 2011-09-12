@@ -1,13 +1,11 @@
 
 from pypy.rpython.rmodel import Repr
-from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype
 from pypy.rlib.rstring import INIT_SIZE
 from pypy.annotation.model import SomeChar, SomeUnicodeCodePoint
 
 class AbstractStringBuilderRepr(Repr):
     def rtyper_new(self, hop):
-        repr = hop.r_result
         if len(hop.args_v) == 0:
             v_arg = hop.inputconst(lltype.Signed, INIT_SIZE)
         else:
