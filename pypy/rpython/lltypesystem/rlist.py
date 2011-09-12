@@ -269,7 +269,7 @@ def ll_newlist_hint(LIST, lengthhint):
     l.items = malloc(LIST.items.TO, lengthhint)
     return l
 ll_newlist_hint = typeMethod(ll_newlist_hint)
-ll_newlist_hint.oopspec = 'newlist(length)'
+ll_newlist_hint.oopspec = 'newlist(lengthhint)'
 
 # should empty lists start with no allocated memory, or with a preallocated
 # minimal number of entries?  XXX compare memory usage versus speed, and
