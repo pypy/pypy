@@ -203,6 +203,7 @@ class Entry(ExtRegistryEntry):
         r, s = hop.r_s_popfirstarg()
         if s.is_constant():
             v = hop.inputconst(r, s.const)
+        hop.exception_is_here()
         return rtype_newlist(hop, v_sizehint=v)
 
 # ____________________________________________________________
