@@ -8,6 +8,7 @@ class Op(object):
     bridge = None
     offset = None
     asm = None
+    failargs = ()
 
     def __init__(self, name, args, res, descr):
         self.name = name
@@ -18,8 +19,8 @@ class Op(object):
         if self._is_guard:
             self.guard_no = int(self.descr[len('<Guard'):-1])
 
-    def setfailargs(self, _):
-        pass
+    def setfailargs(self, failargs):
+        self.failargs = failargs
 
     def getarg(self, i):
         return self._getvar(self.args[i])

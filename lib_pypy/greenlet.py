@@ -59,7 +59,12 @@ class greenlet(_continulet):
         #
         while not target:
             if not target.__started:
-                _continulet.__init__(target, _greenlet_start, *args)
+                if unbound_method != _continulet.throw:
+                    greenlet_func = _greenlet_start
+                else:
+                    greenlet_func = _greenlet_throw
+                _continulet.__init__(target, greenlet_func, *args)
+                unbound_method = _continulet.switch
                 args = ()
                 target.__started = True
                 break
@@ -136,3 +141,11 @@ def _greenlet_start(greenlet, args):
         if greenlet.parent is not _tls.main:
             _continuation.permute(greenlet, greenlet.parent)
     return (res,)
+
+def _greenlet_throw(greenlet, exc, value, tb):
+    _tls.current = greenlet
+    try:
+        raise exc, value, tb
+    finally:
+        if greenlet.parent is not _tls.main:
+            _continuation.permute(greenlet, greenlet.parent)

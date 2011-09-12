@@ -312,7 +312,7 @@ class AppTestStacklet(BaseAppTest):
         res = f()
         assert res == 2002
 
-    def test_f_back_is_None_for_now(self):
+    def test_f_back(self):
         import sys
         from _continuation import continulet
         #
@@ -321,6 +321,7 @@ class AppTestStacklet(BaseAppTest):
             c.switch(sys._getframe(0).f_back)
             c.switch(sys._getframe(1))
             c.switch(sys._getframe(1).f_back)
+            assert sys._getframe(2) is f3.f_back
             c.switch(sys._getframe(2))
         def f(c):
             g(c)
@@ -331,10 +332,21 @@ class AppTestStacklet(BaseAppTest):
         f2 = c.switch()
         assert f2.f_code.co_name == 'f'
         f3 = c.switch()
-        assert f3.f_code.co_name == 'f'
-        f4 = c.switch()
-        assert f4 is None
-        raises(ValueError, c.switch)    # "call stack is not deep enough"
+        assert f3 is f2
+        assert f1.f_back is f3
+        def main():
+            f4 = c.switch()
+            assert f4.f_code.co_name == 'main', repr(f4.f_code.co_name)
+            assert f3.f_back is f1    # not running, so a loop
+        def main2():
+            f5 = c.switch()
+            assert f5.f_code.co_name == 'main2', repr(f5.f_code.co_name)
+            assert f3.f_back is f1    # not running, so a loop
+        main()
+        main2()
+        res = c.switch()
+        assert res is None
+        assert f3.f_back is None
 
     def test_traceback_is_complete(self):
         import sys
@@ -609,6 +621,7 @@ class AppTestStacklet(BaseAppTest):
         assert res == "ok"
 
     def test_permute(self):
+        import sys
         from _continuation import continulet, permute
         #
         def f1(c1):
@@ -617,14 +630,18 @@ class AppTestStacklet(BaseAppTest):
             return "done"
         #
         def f2(c2):
+            assert sys._getframe(1).f_code.co_name == 'main'
             permute(c1, c2)
+            assert sys._getframe(1).f_code.co_name == 'f1'
             return "ok"
         #
         c1 = continulet(f1)
         c2 = continulet(f2)
-        c1.switch()
-        res = c2.switch()
-        assert res == "done"
+        def main():
+            c1.switch()
+            res = c2.switch()
+            assert res == "done"
+        main()
 
     def test_various_depths(self):
         skip("may fail on top of CPython")

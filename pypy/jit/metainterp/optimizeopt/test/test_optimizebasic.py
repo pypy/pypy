@@ -4711,6 +4711,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+<<<<<<< local
     def test_empty_copystrunicontent(self):
         ops = """
         [p0, p1, i0, i2, i3]
@@ -4739,6 +4740,34 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         jump(p0)
         """
         self.optimize_strunicode_loop(ops, expected)
+
+    def test_forced_virtuals_aliasing(self):
+        ops = """
+        [i0, i1]
+        p0 = new(descr=ssize)
+        p1 = new(descr=ssize)
+        escape(p0)
+        escape(p1)
+        setfield_gc(p0, i0, descr=adescr)
+        setfield_gc(p1, i1, descr=adescr)
+        i2 = getfield_gc(p0, descr=adescr)
+        jump(i2, i2)
+        """
+        expected = """
+        [i0, i1]
+        p0 = new(descr=ssize)
+        escape(p0)
+        p1 = new(descr=ssize)
+        escape(p1)
+        setfield_gc(p0, i0, descr=adescr)
+        setfield_gc(p1, i1, descr=adescr)
+        jump(i0, i0)
+        """
+        py.test.skip("not implemented")
+        # setfields on things that used to be virtual still can't alias each
+        # other
+        self.optimize_loop(ops, expected)
+
 
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):

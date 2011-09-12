@@ -472,7 +472,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i0]
         jump(i0)
         """
-        self.optimize_loop(ops, expected, preamble)
+        short = """
+        [i0]
+        i1 = int_is_true(i0)
+        guard_value(i1, 1) []
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected, preamble, expected_short=short)
 
     def test_bound_int_is_true(self):
         ops = """
@@ -6997,6 +7003,26 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
         
+    def test_cached_pure_func_of_equal_fields(self):
+        ops = """
+        [p5, p6]
+        i10 = getfield_gc(p5, descr=valuedescr)
+        i11 = getfield_gc(p6, descr=nextdescr)
+        i12 = int_add(i10, 7)
+        i13 = int_add(i11, 7)
+        call(i12, i13, descr=nonwritedescr)
+        setfield_gc(p6, i10, descr=nextdescr)        
+        jump(p5, p6)
+        """
+        expected = """
+        [p5, p6, i14, i12, i10]
+        i13 = int_add(i14, 7)
+        call(i12, i13, descr=nonwritedescr)
+        setfield_gc(p6, i10, descr=nextdescr)        
+        jump(p5, p6, i10, i12, i10)
+        """
+        self.optimize_loop(ops, expected)
+        
     def test_forced_counter(self):
         # XXX: VIRTUALHEAP (see above)
         py.test.skip("would be fixed by make heap optimizer aware of virtual setfields")
@@ -7086,8 +7112,84 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
-        
+    def test_import_constants_when_folding_pure_operations(self):
+        ops = """
+        [p0]
+        f1 = getfield_gc(p0, descr=valuedescr)
+        f2 = float_abs(f1)
+        call(7.0, descr=nonwritedescr)
+        setfield_gc(p0, -7.0, descr=valuedescr)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        call(7.0, descr=nonwritedescr)
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected)
 
+    def test_exploding_duplicatipon(self):
+        ops = """
+        [i1, i2]
+        i3 = int_add(i1, i1)
+        i4 = int_add(i3, i3)
+        i5 = int_add(i4, i4)
+        i6 = int_add(i5, i5)
+        call(i6, descr=nonwritedescr)
+        jump(i1, i3)
+        """
+        expected = """
+        [i1, i2, i6, i3]
+        call(i6, descr=nonwritedescr)
+        jump(i1, i3, i6, i3)
+        """
+        short = """
+        [i1, i2]
+        i3 = int_add(i1, i1)
+        i4 = int_add(i3, i3)
+        i5 = int_add(i4, i4)
+        i6 = int_add(i5, i5)
+        jump(i1, i2, i6, i3)
+        """
+        self.optimize_loop(ops, expected, expected_short=short)
+
+    def test_prioritize_getfield1(self):
+        ops = """
+        [p1, p2]
+        i1 = getfield_gc(p1, descr=valuedescr)
+        setfield_gc(p2, i1, descr=nextdescr)
+        i2 = int_neg(i1)
+        call(i2, descr=nonwritedescr)
+        jump(p1, p2)
+        """
+        expected = """
+        [p1, p2, i2, i1]
+        call(i2, descr=nonwritedescr)
+        setfield_gc(p2, i1, descr=nextdescr)        
+        jump(p1, p2, i2, i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_prioritize_getfield2(self):
+        # Same as previous, but with descrs intercahnged which means
+        # that the getfield is discovered first when looking for
+        # potential short boxes during tests
+        ops = """
+        [p1, p2]
+        i1 = getfield_gc(p1, descr=nextdescr)
+        setfield_gc(p2, i1, descr=valuedescr)
+        i2 = int_neg(i1)
+        call(i2, descr=nonwritedescr)
+        jump(p1, p2)
+        """
+        expected = """
+        [p1, p2, i2, i1]
+        call(i2, descr=nonwritedescr)
+        setfield_gc(p2, i1, descr=valuedescr)        
+        jump(p1, p2, i2, i1)
+        """
+        self.optimize_loop(ops, expected)
+        
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
         

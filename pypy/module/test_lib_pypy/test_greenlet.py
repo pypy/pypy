@@ -231,3 +231,30 @@ class AppTestGreenlet:
         assert res == "next step"
         res = g2.switch("goes to f1 instead")
         assert res == "all ok"
+
+    def test_throw_in_not_started_yet(self):
+        from greenlet import greenlet
+        #
+        def f1():
+            never_reached
+        #
+        g1 = greenlet(f1)
+        raises(ValueError, g1.throw, ValueError)
+        assert g1.dead
+
+    def test_exc_info_save_restore(self):
+        # sys.exc_info save/restore behaviour is wrong on CPython's greenlet
+        from greenlet import greenlet
+        import sys
+        def f():
+            try:
+                raise ValueError('fun')
+            except:
+                exc_info = sys.exc_info()
+                greenlet(h).switch()
+                assert exc_info == sys.exc_info()
+
+        def h():
+            assert sys.exc_info() == (None, None, None)
+
+        greenlet(f).switch()

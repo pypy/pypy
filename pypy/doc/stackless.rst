@@ -199,7 +199,11 @@ Unimplemented features
 The following features (present in some past Stackless version of PyPy)
 are for the time being not supported any more:
 
-* Tasklets and channels (needs to be rewritten at app-level)
+* Tasklets and channels (currently ``stackless.py`` seems to import,
+  but you have tasklets on top of coroutines on top of greenlets on
+  top of continulets on top of stacklets, and it's probably not too
+  hard to cut two of these levels by adapting ``stackless.py`` to
+  use directly continulets)
 
 * Coroutines (could be rewritten at app-level)
 

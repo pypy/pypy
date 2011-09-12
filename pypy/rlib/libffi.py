@@ -206,6 +206,7 @@ class Func(AbstractFuncPtr):
     _immutable_fields_ = ['funcsym']
     argtypes = []
     restype = lltype.nullptr(clibffi.FFI_TYPE_P.TO)
+    flags = 0
     funcsym = lltype.nullptr(rffi.VOIDP.TO)
 
     def __init__(self, name, argtypes, restype, funcsym, flags=FUNCFLAG_CDECL,
