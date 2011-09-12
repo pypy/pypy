@@ -43,16 +43,27 @@ class W_Continulet(Wrappable):
             raise getmemoryerror(self.space)
 
     def switch(self, w_to):
-        to = self.space.interp_w(W_Continulet, w_to, can_be_None=True)
-        if to is not None:
-            if to.sthread is None:
-                start_state.clear()
-                raise geterror(self.space, "continulet not initialized yet")
-            if self is to:    # double-switch to myself: no-op
-                return get_result()
-        if self.sthread is None:
+        sthread = self.sthread
+        if sthread is None:
             start_state.clear()
             raise geterror(self.space, "continulet not initialized yet")
+        if sthread.is_empty_handle(self.h):
+            start_state.clear()
+            raise geterror(self.space, "continulet already finished")
+        to = self.space.interp_w(W_Continulet, w_to, can_be_None=True)
+        if to is not None:
+            if to.sthread is not sthread:
+                start_state.clear()
+                if to.sthread is None:
+                    msg = "continulet not initialized yet"
+                else:
+                    msg = "cross-thread double switch"
+                raise geterror(self.space, msg)
+            if self is to:    # double-switch to myself: no-op
+                return get_result()
+            if sthread.is_empty_handle(to.h):
+                start_state.clear()
+                raise geterror(self.space, "continulet already finished")
         ec = self.check_sthread()
         #
         start_state.origin = self
@@ -63,14 +74,8 @@ class W_Continulet(Wrappable):
             # double switch: the final destination is to.h
             start_state.destination = to
         #
-        h = start_state.destination.h
-        sthread = self.sthread
-        if sthread.is_empty_handle(h):
-            start_state.clear()
-            raise geterror(self.space, "continulet already finished")
-        #
         try:
-            do_switch(sthread, h)
+            do_switch(sthread, start_state.destination.h)
         except MemoryError:
             start_state.clear()
             raise getmemoryerror(self.space)
