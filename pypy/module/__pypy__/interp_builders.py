@@ -3,6 +3,7 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
 from pypy.rlib.rstring import UnicodeBuilder, StringBuilder
+from pypy.tool.sourcetools import func_with_new_name
 
 
 def create_builder(name, strtype, builder_cls):
@@ -41,8 +42,9 @@ def create_builder(name, strtype, builder_cls):
 
     W_Builder.__name__ = "W_%s" % name
     W_Builder.typedef = TypeDef(name,
-        __new__ = interp2app(W_Builder.descr__new__.im_func),
-
+        __new__ = interp2app(func_with_new_name(
+                                    W_Builder.descr__new__.im_func,
+                                    '%s_new' % (name,))),
         append = interp2app(W_Builder.descr_append),
         append_slice = interp2app(W_Builder.descr_append_slice),
         build = interp2app(W_Builder.descr_build),
