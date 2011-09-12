@@ -44,7 +44,7 @@ def init__List(space, w_list, __args__):
     if w_iterable is not None:
         # unfortunately this is duplicating space.unpackiterable to avoid
         # assigning a new RPython list to 'wrappeditems', which defeats the
-        # W_FastSeqIterObject optimization.
+        # W_FastListIterObject optimization.
         if isinstance(w_iterable, W_ListObject):
             items_w.extend(w_iterable.wrappeditems)
         elif isinstance(w_iterable, W_TupleObject):
