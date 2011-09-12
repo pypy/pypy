@@ -1053,8 +1053,8 @@ class PPCBuilder(PPCAssembler):
         self._walk_operations(operations, regalloc)
         self._make_epilogue()
 
-
         looptoken.ppc_code = self.assemble()
+        self._teardown()
 
     def _walk_operations(self, operations, regalloc):
         while regalloc.position() < len(operations) - 1:
@@ -1072,6 +1072,9 @@ class PPCBuilder(PPCAssembler):
                 regalloc.possibly_free_var(op.result)
             regalloc.possibly_free_vars_for_op(op)
             regalloc._check_invariants()
+
+    def _teardown(self):
+        self.patch_list = None
 
     # translate a trace operation to corresponding machine code
     def build_op(self, trace_op, cpu):
