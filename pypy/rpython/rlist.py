@@ -2,7 +2,7 @@ from pypy.tool.pairtype import pairtype, pair
 from pypy.objspace.flow.model import Constant
 from pypy.annotation import model as annmodel
 from pypy.rpython.error import TyperError
-from pypy.rpython.rmodel import Repr, IteratorRepr, IntegerRepr, inputconst
+from pypy.rpython.rmodel import Repr, IteratorRepr, IntegerRepr
 from pypy.rpython.rstr import AbstractStringRepr, AbstractCharRepr
 from pypy.rpython.lltypesystem.lltype import typeOf, Ptr, Void, Signed, Bool
 from pypy.rpython.lltypesystem.lltype import nullptr, Char, UniChar, Number
@@ -344,7 +344,7 @@ class __extend__(pairtype(AbstractBaseListRepr, AbstractBaseListRepr)):
         return hop.genop('bool_not', [flag], resulttype=Bool)
 
 
-def rtype_newlist(hop):
+def rtype_newlist(hop, v_sizehint=None):
     nb_args = hop.nb_args
     r_list = hop.r_result
     if r_list == robject.pyobj_repr: # special case: SomeObject lists!
@@ -358,7 +358,8 @@ def rtype_newlist(hop):
         return v_result
     r_listitem = r_list.item_repr
     items_v = [hop.inputarg(r_listitem, arg=i) for i in range(nb_args)]
-    return hop.rtyper.type_system.rlist.newlist(hop.llops, r_list, items_v)
+    return hop.rtyper.type_system.rlist.newlist(hop.llops, r_list, items_v,
+                                                v_sizehint=v_sizehint)
 
 def rtype_alloc_and_set(hop):
     r_list = hop.r_result
