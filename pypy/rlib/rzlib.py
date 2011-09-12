@@ -1,3 +1,4 @@
+from __future__ import with_statement
 import sys
 
 from pypy.rlib.rstring import StringBuilder
