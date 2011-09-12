@@ -102,11 +102,21 @@ class W_Continulet(Wrappable):
                  and not self.sthread.is_empty_handle(self.h))
         return self.space.newbool(valid)
 
+    def descr__reduce__(self):
+        space = self.space
+        w_continulet_type = space.type(space.wrap(self))
+        return space.newtuple([getunpickle(space),
+                               space.newtuple([w_continulet_type])])
+
 
 def W_Continulet___new__(space, w_subtype, __args__):
     r = space.allocate_instance(W_Continulet, w_subtype)
     r.__init__(space)
     return space.wrap(r)
+
+def unpickle(space, w_subtype):
+    """Pickle support."""
+    return W_Continulet___new__(space, w_subtype, None)
 
 
 W_Continulet.typedef = TypeDef(
@@ -117,6 +127,7 @@ W_Continulet.typedef = TypeDef(
     switch      = interp2app(W_Continulet.descr_switch),
     throw       = interp2app(W_Continulet.descr_throw),
     is_pending  = interp2app(W_Continulet.descr_is_pending),
+    __reduce__  = interp2app(W_Continulet.descr__reduce__),
     )
 
 
@@ -137,6 +148,7 @@ class State:
                                    '', [], [], [], '',
                                    '<bottom of continulet>', 0, '', [], [],
                                    hidden_applevel=True)
+        self.w_unpickle = w_module.get('_p')
 
 def geterror(space, message):
     cs = space.fromcache(State)
@@ -149,6 +161,10 @@ def getmemoryerror(space):
 def make_fresh_frame(space):
     cs = space.fromcache(State)
     return space.FrameClass(space, cs.dummy_pycode, None, None)
+
+def getunpickle(space):
+    cs = space.fromcache(State)
+    return cs.w_unpickle
 
 # ____________________________________________________________
 
