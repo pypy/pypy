@@ -192,6 +192,49 @@ class BaseBackendTest(Runner):
         res = self.cpu.get_latest_value_int(2)
         assert res == 10
 
+    def test_independent_loops(self):
+        # first loop
+        i0_1 = BoxInt()
+        i1_1 = BoxInt()
+        i2_1 = BoxInt()
+        looptoken1 = LoopToken()
+        operations1 = [
+            ResOperation(rop.INT_ADD, [i0_1, ConstInt(1)], i1_1),
+            ResOperation(rop.INT_LE, [i1_1, ConstInt(9)], i2_1),
+            ResOperation(rop.GUARD_TRUE, [i2_1], None, descr=BasicFailDescr(2)),
+            ResOperation(rop.JUMP, [i1_1], None, descr=looptoken1),
+            ]
+        inputargs1 = [i0_1]
+        operations1[2].setfailargs([i1_1])
+        
+        self.cpu.compile_loop(inputargs1, operations1, looptoken1)
+        self.cpu.set_future_value_int(0, 2)
+        fail1 = self.cpu.execute_token(looptoken1)
+        assert fail1.identifier == 2
+        res1 = self.cpu.get_latest_value_int(0)
+        assert res1 == 10
+    
+        # second loop
+        i0_2 = BoxInt()
+        i1_2 = BoxInt()
+        i2_2 = BoxInt()
+        looptoken2 = LoopToken()
+        operations2 = [
+            ResOperation(rop.INT_ADD, [i0_2, ConstInt(1)], i1_2),
+            ResOperation(rop.INT_LE, [i1_2, ConstInt(19)], i2_2),
+            ResOperation(rop.GUARD_TRUE, [i2_2], None, descr=BasicFailDescr(2)),
+            ResOperation(rop.JUMP, [i1_2], None, descr=looptoken2),
+            ]
+        inputargs2 = [i0_2]
+        operations2[2].setfailargs([i1_2])
+        
+        self.cpu.compile_loop(inputargs2, operations2, looptoken2)
+        self.cpu.set_future_value_int(0, 2)
+        fail2 = self.cpu.execute_token(looptoken2)
+        assert fail2.identifier == 2
+        res2 = self.cpu.get_latest_value_int(0)
+        assert res2 == 20
+
     def test_backends_dont_keep_loops_alive(self):
         import weakref, gc
         self.cpu.dont_keepalive_stuff = True

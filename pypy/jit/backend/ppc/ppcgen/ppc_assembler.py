@@ -1075,6 +1075,7 @@ class PPCBuilder(PPCAssembler):
 
     def _teardown(self):
         self.patch_list = None
+        self.reset()
 
     # translate a trace operation to corresponding machine code
     def build_op(self, trace_op, cpu):

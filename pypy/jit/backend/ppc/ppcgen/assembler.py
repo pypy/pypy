@@ -15,6 +15,11 @@ class Assembler(object):
         self.labels = {}
         self.rlabels = {}
 
+    def reset(self):
+        self.insts = []
+        self.labels = {}
+        self.rlabels = {}
+
     def label(self, name):
         if name in self.labels:
             raise AssemblerException, "duplicate label '%s'"%(name,)
