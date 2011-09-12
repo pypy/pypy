@@ -73,49 +73,6 @@ class PPC_64_CPU(AbstractLLCPU):
         self.total_compiled_bridges += 1
         self.teardown()
 
-    def get_next_register(self):
-        reg = self.next_free_register
-        self.next_free_register += 1
-        return reg
-
-    # XXX not used by now, move to ppc_assembler
-    def _make_epilogue(self, codebuilder):
-        for op_index, fail_index, guard, reglist in self.patch_list:
-            curpos = codebuilder.get_relative_pos()
-            offset = curpos - (4 * op_index)
-            assert (1 << 15) > offset
-            codebuilder.beq(offset)
-            codebuilder.patch_op(op_index)
-
-            # store return parameters in memory
-            used_mem_indices = []
-            for index, reg in enumerate(reglist):
-                self.fail_box_count += 1
-                # if reg is None, then there is a hole in the failargs
-                if reg is not None:
-                    addr = self.fail_boxes_int.get_addr_for_num(index)
-                    codebuilder.store_reg(reg, addr)
-                    used_mem_indices.append(index)
-
-            patch_op = codebuilder.get_number_of_ops()
-            patch_pos = codebuilder.get_relative_pos()
-            descr = self.saved_descr[fail_index]
-            descr.patch_op = patch_op
-            descr.patch_pos = patch_pos
-            descr.used_mem_indices = used_mem_indices
-
-            codebuilder.restore_nonvolatiles(self.framesize)
-
-            codebuilder.lwz(0, 1, self.framesize + 4)
-            if IS_PPC_32:
-                codebuilder.lwz(0, 1, framesize + WORD) # 36
-            else:
-                codebuilder.ld(0, 1, framesize + WORD) # 36
-            codebuilder.mtlr(0)
-            codebuilder.addi(1, 1, self.framesize)
-            codebuilder.li(3, fail_index)            
-            codebuilder.blr()
-
     # set value in fail_boxes_int
     def set_future_value_int(self, index, value_int):
         self.asm.fail_boxes_int.setitem(index, value_int)
