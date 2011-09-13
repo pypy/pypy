@@ -508,6 +508,9 @@ class DescrOperation(object):
         return space._type_issubtype(w_sub, w_type)
 
     def isinstance(space, w_inst, w_type):
+        return space.wrap(space._type_isinstance(w_inst, w_type))
+
+    def isinstance_w(space, w_inst, w_type):
         return space._type_isinstance(w_inst, w_type)
 
     def issubtype_allow_override(space, w_sub, w_type):
