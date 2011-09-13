@@ -446,19 +446,22 @@ class RangeListStrategy(ListStrategy):
 
     def pop(self, w_list, index):
         l = self.unerase(w_list.lstorage)
-        # XXX this is silly: the first if checks whether index == 0 or index
-        # =..., then you do almost the same thing again.
-        if index in [0, self.length(w_list)-1]:
+        start = l[0]
+        step = l[1]
+        length = l[2]
+        if index == 0:
             r = self.getitem(w_list, index)
-            if index == 0:
-                new = self.erase((l[0]+l[1],l[1],l[2]-1))
-            else:
-                new = self.erase((l[0],l[1],l[2]-1))
+            new = self.erase((start + step, step, length - 1))
             w_list.lstorage = new
             return r
-
-        self.switch_to_integer_strategy(w_list)
-        return w_list.pop(index)
+        elif index == length - 1:
+            r = self.getitem(w_list, index)
+            new = self.erase((start, step, length - 1))
+            w_list.lstorage = new
+            return r
+        else:
+            self.switch_to_integer_strategy(w_list)
+            return w_list.pop(index)
 
     def setitem(self, w_list, index, w_item):
         self.switch_to_integer_strategy(w_list)
