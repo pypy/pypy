@@ -97,6 +97,23 @@ def split_block(annotator, block, index, _forcelink=None):
     if _forcelink is not None:
         assert index == 0
         linkargs = list(_forcelink)
+        for v in varmap:
+            if v not in linkargs:
+                # 'v' was not specified by _forcelink, but we found out that
+                # we need it!  Hack: if it is 'concretetype is lltype.Void'
+                # then it's ok to recreate its value in the target block.
+                # If not, then we have a problem :-)
+                from pypy.rpython.lltypesystem import lltype
+                assert v.concretetype is lltype.Void
+                c = Constant(None, lltype.Void)
+                w = varmap[v]
+                newop = SpaceOperation('same_as', [c], w)
+                i = 0
+                while i < len(moved_operations):
+                    if w in moved_operations[i].args:
+                        break
+                    i += 1
+                moved_operations.insert(i, newop)
     else:
         linkargs = varmap.keys()
     newblock = Block([get_new_name(v) for v in linkargs])

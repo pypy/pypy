@@ -3278,12 +3278,13 @@ class BaseLLtypeTests(BasicTests):
         self.meta_interp(f, [10], repeat=3)
 
     def test_jit_merge_point_with_pbc(self):
-        py.test.skip("failing")
         driver = JitDriver(greens = [], reds = ['x'])
 
         class A(object):
             def __init__(self, x):
                 self.x = x
+            def _freeze_(self):
+                return True
         pbc = A(1)
 
         def main(x):
