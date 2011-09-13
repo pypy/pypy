@@ -101,6 +101,23 @@ class BaseTestStringBuilder(BaseRtypingTest):
         res = self.interpret(func, [1])
         assert res
 
+    def test_unicode_builder_or_none(self):
+        def g(s):
+            if s:
+                s.append(u"3")
+            return bool(s)
+        
+        def func(i):
+            if i:
+                s = UnicodeBuilder()
+            else:
+                s = None
+            return g(s)
+        res = self.interpret(func, [0])
+        assert not res
+        res = self.interpret(func, [1])
+        assert res
+
 
 class TestLLtype(BaseTestStringBuilder, LLRtypeMixin):
     pass
