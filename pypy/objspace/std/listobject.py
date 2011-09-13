@@ -133,10 +133,6 @@ class W_ListObject(W_Object):
     def inplace_mul(self, times):
         self.strategy.inplace_mul(self, times)
 
-    def deleteitem(self, index):
-        # XXX remove the deleteitem method, always use pop
-        self.strategy.deleteitem(self, index)
-
     def deleteslice(self, start, step, length):
         self.strategy.deleteslice(self, start, step, length)
 
@@ -204,9 +200,6 @@ class ListStrategy(object):
         raise NotImplementedError
 
     def inplace_mul(self, w_list, times):
-        raise NotImplementedError
-
-    def deleteitem(self, w_list, index):
         raise NotImplementedError
 
     def deleteslice(self, w_list, start, step, slicelength):
@@ -286,9 +279,6 @@ class EmptyListStrategy(ListStrategy):
 
     def inplace_mul(self, w_list, times):
         return
-
-    def deleteitem(self, w_list, index):
-        raise IndexError
 
     def deleteslice(self, w_list, start, step, slicelength):
         pass
@@ -436,10 +426,6 @@ class RangeListStrategy(ListStrategy):
     def inplace_mul(self, w_list, times):
         self.switch_to_integer_strategy(w_list)
         w_list.inplace_mul(times)
-
-    def deleteitem(self, w_list, index):
-        self.switch_to_integer_strategy(w_list)
-        w_list.deleteitem(index)
 
     def deleteslice(self, w_list, start, step, slicelength):
         self.switch_to_integer_strategy(w_list)
@@ -675,13 +661,6 @@ class AbstractUnwrappedStrategy(object):
         for i in range(len2):
             items[start] = other_items[i]
             start += step
-
-    def deleteitem(self, w_list, index):
-        l = self.unerase(w_list.lstorage)
-        try:
-            del l[index]
-        except IndexError:
-            raise
 
     def deleteslice(self, w_list, start, step, slicelength):
         items = self.unerase(w_list.lstorage)
@@ -1050,8 +1029,10 @@ def gt__List_List(space, w_list1, w_list2):
 
 def delitem__List_ANY(space, w_list, w_idx):
     idx = get_list_index(space, w_idx)
+    if idx < 0:
+        idx += w_list.length()
     try:
-        w_list.deleteitem(idx)
+        w_list.pop(idx)
     except IndexError:
         raise OperationError(space.w_IndexError,
                              space.wrap("list deletion index out of range"))
@@ -1161,7 +1142,7 @@ def list_remove__List_ANY(space, w_list, w_any):
     while i < w_list.length():
         if space.eq_w(w_list.getitem(i), w_any):
             if i < w_list.length(): # if this is wrong the list was changed
-                w_list.deleteitem(i)
+                w_list.pop(i)
             return space.w_None
         i += 1
     raise OperationError(space.w_ValueError,
