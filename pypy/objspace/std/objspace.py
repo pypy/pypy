@@ -573,3 +573,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if isinstance(w_type, W_TypeObject):
             return self.type(w_inst).issubtype(w_type)
         raise OperationError(self.w_TypeError, self.wrap("need type object"))
+
+    def isinstance_w(space, w_inst, w_type):
+        return space._type_isinstance(w_inst, w_type)
