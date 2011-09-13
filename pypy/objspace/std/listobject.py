@@ -12,6 +12,8 @@ from pypy.rlib.listsort import make_timsort_class
 from pypy.rlib import rerased
 from pypy.interpreter.argument import Signature
 
+# XXX rename cast_*_void_star to erase and unerase
+
 def make_range_list(space, start, step, length):
     if length <= 0:
         strategy = space.fromcache(EmptyListStrategy)
@@ -21,30 +23,23 @@ def make_range_list(space, start, step, length):
         storage = strategy.cast_to_void_star((start, step, length))
     return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
-# don't know where to put this function, so it is global for now
 def get_strategy_from_list_objects(space, list_w):
-    if list_w == []:
+    if not list_w:
         return space.fromcache(EmptyListStrategy)
 
     # check for ints
-    it = iter(list_w)
-    while(True):
-        try:
-            e = it.next()
-            if not is_W_IntObject(e):
-                break
-        except StopIteration:
-            return space.fromcache(IntegerListStrategy)
+    for w_obj in list_w:
+        if not is_W_IntObject(w_obj):
+            break
+    else:
+        return space.fromcache(IntegerListStrategy)
 
     # check for strings
-    it = iter(list_w)
-    while(True):
-        try:
-            e = it.next()
-            if not is_W_StringObject(e):
-                break
-        except StopIteration:
-            return space.fromcache(StringListStrategy)
+    for w_obj in list_w:
+        if not is_W_StringObject(w_obj):
+            break
+    else:
+        return space.fromcache(StringListStrategy)
 
     return space.fromcache(ObjectListStrategy)
 
@@ -56,6 +51,8 @@ def is_W_StringObject(w_object):
     from pypy.objspace.std.stringobject import W_StringObject
     return type(w_object) is W_StringObject
 
+
+
 class W_ListObject(W_Object):
     from pypy.objspace.std.listtype import list_typedef as typedef
 
@@ -63,7 +60,7 @@ class W_ListObject(W_Object):
         assert isinstance(wrappeditems, list)
         w_self.space = space
         w_self.strategy = get_strategy_from_list_objects(space, wrappeditems)
-        w_self.strategy.init_from_list_w(w_self, wrappeditems)
+        w_self.init_from_list_w(wrappeditems)
 
     @staticmethod
     def from_storage_and_strategy(space, storage, strategy):
@@ -84,11 +81,8 @@ class W_ListObject(W_Object):
 
     def switch_to_object_strategy(self):
         list_w = self.getitems()
-        strategy = self.strategy = self.space.fromcache(ObjectListStrategy)
-        strategy.init_from_list_w(self, list_w)
-
-    def clone(self):
-        return self.strategy.clone(self)
+        self.strategy = self.space.fromcache(ObjectListStrategy)
+        self.init_from_list_w(list_w)
 
     def _temporarily_as_objects(self):
         if self.strategy is self.space.fromcache(ObjectListStrategy):
@@ -99,9 +93,21 @@ class W_ListObject(W_Object):
         w_objectlist = W_ListObject.from_storage_and_strategy(self.space, storage, strategy)
         return w_objectlist
 
-    def copy_into(self, other):
-        self.strategy.copy_into(self, other)
     # ___________________________________________________
+    # methods that defer to the strategy
+    # XXX add docstrings that explain what the methods do and the requirements
+    # on their arguments (e.g. whether indexes are already positive/range
+    # checked) as well as failure modes
+
+    def init_from_list_w(self, list_w):
+        self.strategy.init_from_list_w(self, list_w)
+
+    def clone(self):
+        return self.strategy.clone(self)
+
+    def copy_into(self, other):
+        # XXX what is this used for?
+        self.strategy.copy_into(self, other)
 
     def append(w_list, w_item):
         w_list.strategy.append(w_list, w_item)
@@ -130,6 +136,7 @@ class W_ListObject(W_Object):
         self.strategy.inplace_mul(self, times)
 
     def deleteitem(self, index):
+        # XXX remove the deleteitem method, always use pop
         self.strategy.deleteitem(self, index)
 
     def deleteslice(self, start, step, length):
@@ -228,9 +235,11 @@ class ListStrategy(object):
         raise NotImplementedError
 
 class EmptyListStrategy(ListStrategy):
+    # XXX add a docstring and say what the storage is
 
     def __init__(self, space):
         ListStrategy.__init__(self, space)
+        # XXX rename to cached_emptylist_w and add a comment what it's used for
         self.emptylist = []
 
     def init_from_list_w(self, w_list, list_w):
@@ -263,9 +272,14 @@ class EmptyListStrategy(ListStrategy):
         return self.emptylist
 
     def getstorage_copy(self, w_list):
+        # XXX this is inconsistent with init_from_list_w, where the storage is None!
         return self.cast_to_void_star(self.emptylist)
 
     def append(self, w_list, w_item):
+        # XXX this should be done by checking the type of the object directly
+        # here without going through __init__ and
+        # get_strategy_from_list_objects, because it is a very common path.
+        # Compare with EmptyDictStrategy.switch_to_correct_strategy
         w_list.__init__(self.space, [w_item])
 
     def mul(self, w_list, times):
@@ -303,6 +317,7 @@ class EmptyListStrategy(ListStrategy):
         pass
 
 class RangeListStrategy(ListStrategy):
+    # XXX add a docstring what the storage looks like
 
     def switch_to_integer_strategy(self, w_list):
         items = self._getitems_range(w_list, False)
@@ -352,12 +367,12 @@ class RangeListStrategy(ListStrategy):
 
     def getitems(self, w_list):
         return self._getitems_range(w_list, True)
+    getitems_copy = getitems
 
     def getstorage_copy(self, w_list):
         # tuple is unmutable
         return w_list.lstorage
 
-    getitems_copy = getitems
 
     @specialize.arg(2)
     def _getitems_range(self, w_list, wrap_items):
@@ -433,6 +448,8 @@ class RangeListStrategy(ListStrategy):
 
     def pop(self, w_list, index):
         l = self.cast_from_void_star(w_list.lstorage)
+        # XXX this is silly: the first if checks whether index == 0 or index
+        # =..., then you do almost the same thing again.
         if index in [0, self.length(w_list)-1]:
             r = self.getitem(w_list, index)
             if index == 0:
@@ -520,12 +537,12 @@ class AbstractUnwrappedStrategy(object):
 
     def getitems_copy(self, w_list):
         return [self.wrap(item) for item in self.cast_from_void_star(w_list.lstorage)]
+    getitems = getitems_copy
 
     def getstorage_copy(self, w_list):
         items = self.cast_from_void_star(w_list.lstorage)[:]
         return self.cast_to_void_star(items)
 
-    getitems = getitems_copy
 
     def getslice(self, w_list, start, stop, step, length):
         if step == 1 and 0 <= start <= stop:
@@ -592,7 +609,7 @@ class AbstractUnwrappedStrategy(object):
         w_list.setitem(index, w_item)
 
     def setslice(self, w_list, start, step, slicelength, w_other):
-        #XXX inefficient
+        #XXX inefficient XXX XXX why?
         assert slicelength >= 0
         items = self.cast_from_void_star(w_list.lstorage)
 
@@ -709,6 +726,7 @@ class AbstractUnwrappedStrategy(object):
         return w_item
 
     def mul(self, w_list, times):
+        # XXX can't this be the default implementation in ListStrategy?
         w_newlist = w_list.clone()
         w_newlist.inplace_mul(times)
         return w_newlist
@@ -880,6 +898,7 @@ def getitem__List_Slice(space, w_list, w_slice):
     start, stop, step, slicelength = w_slice.indices4(space, length)
     assert slicelength >= 0
     if slicelength == 0:
+        # XXX make helper function "new_empty_list" and use it consistently
         strategy = space.fromcache(EmptyListStrategy)
         storage = strategy.cast_to_void_star(None)
         return W_ListObject.from_storage_and_strategy(space, storage, strategy)
@@ -916,6 +935,9 @@ def delslice__List_ANY_ANY(space, w_list, w_start, w_stop):
 
 def contains__List_ANY(space, w_list, w_obj):
     # needs to be safe against eq_w() mutating the w_list behind our back
+    # XXX we want to defer that to the list strategy, because it would be a lot
+    # more efficient to not call eq_w on ints. contains is used rather often in code like:
+    # if i in [1, 2, 3]: ...
     i = 0
     while i < w_list.length(): # intentionally always calling len!
         if space.eq_w(w_list.getitem(i), w_obj):
@@ -976,8 +998,10 @@ def eq__List_List(space, w_list1, w_list2):
     if w_list1.length() != w_list2.length():
         return space.w_False
 
+    # XXX in theory, this can be implemented more efficiently as well. let's
+    # not care for now
     i = 0
-                                   # is this necessary?
+                                   # is this necessary? XXX yes, it is, because eq_w can change any of the two lists. check whether a test for this exists!
     while i < w_list1.length() and i < w_list2.length():
         if not space.eq_w(w_list1.getitem(i), w_list2.getitem(i)):
             return space.w_False
@@ -988,6 +1012,8 @@ def lessthan_unwrappeditems(space, w_list1, w_list2):
     # needs to be safe against eq_w() mutating the w_lists behind our back
     # Search for the first index where items are different
     i = 0
+    # XXX in theory, this can be implemented more efficiently as well. let's
+    # not care for now
     while i < w_list1.length() and i < w_list2.length():
         w_item1 = w_list1.getitem(i)
         w_item2 = w_list2.getitem(i)
@@ -1001,6 +1027,8 @@ def greaterthan_unwrappeditems(space, w_list1, w_list2):
     # needs to be safe against eq_w() mutating the w_lists behind our back
     # Search for the first index where items are different
     i = 0
+    # XXX in theory, this can be implemented more efficiently as well. let's
+    # not care for now
     while i < w_list1.length() and i < w_list2.length():
         w_item1 = w_list1.getitem(i)
         w_item2 = w_list2.getitem(i)
@@ -1110,12 +1138,17 @@ def list_extend__List_ANY(space, w_list, w_any):
 
 # note that the default value will come back wrapped!!!
 def list_pop__List_ANY(space, w_list, w_idx=-1):
-    if w_list.length() == 0:
+    length = w_list.length()
+    if length == 0:
         raise OperationError(space.w_IndexError,
                              space.wrap("pop from empty list"))
     idx = space.int_w(w_idx)
+    # XXX this shows that the methods on W_ListObject clearly need to say
+    # whether their arguments are index-checked or not. because this is clearly
+    # a bug here: if idx < 0, you add the length. pop will do the same thing
+    # again!
     if idx < 0:
-        idx += w_list.length()
+        idx += length
     try:
         return w_list.pop(idx)
     except IndexError:
@@ -1175,6 +1208,7 @@ class KeyContainer(baseobjspace.W_Root):
         self.w_key = w_key
         self.w_item = w_item
 
+# XXX kill next line? TimSort is already defined above
 TimSort = make_timsort_class()
 # NOTE: all the subclasses of TimSort should inherit from a common subclass,
 #       so make sure that only SimpleSort inherits directly from TimSort.
@@ -1193,6 +1227,7 @@ class StringSort(StringBaseTimSort):
     def lt(self, a, b):
         return a < b
 
+# XXX kill
 class OldIntSort(SimpleSort):
     def lt(self, w_int1, w_int2):
         from pypy.objspace.std.intobject import W_IntObject
@@ -1201,6 +1236,7 @@ class OldIntSort(SimpleSort):
         space = self.space
         return w_int1.intval < w_int2.intval
 
+# XXX kill
 class OldStringSort(SimpleSort):
     def lt(self, w_str1, w_str2):
         from pypy.objspace.std.stringobject import W_StringObject
@@ -1239,6 +1275,7 @@ class CustomKeyCompareSort(CustomCompareSort):
 def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
 
     #XXX so far sorting always wraps list
+    # XXX is this still true?
     has_cmp = not space.is_w(w_cmp, space.w_None)
     has_key = not space.is_w(w_keyfunc, space.w_None)
     has_reverse = space.is_true(w_reverse)
@@ -1253,6 +1290,9 @@ def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
         if has_key:
             sorterclass = CustomKeySort
         else:
+            # XXX this is nonsense. just do something special for the object
+            # strategy and call sort immediately otherwise. implement sort on
+            # the empty list (and the range list, if you want)
             if w_list.strategy is space.fromcache(IntegerListStrategy):
                 w_list.sort(has_reverse)
                 return space.w_None
