@@ -12,15 +12,13 @@ from pypy.rlib.listsort import make_timsort_class
 from pypy.rlib import rerased
 from pypy.interpreter.argument import Signature
 
-# XXX rename cast_*_void_star to erase and unerase
-
 def make_range_list(space, start, step, length):
     if length <= 0:
         strategy = space.fromcache(EmptyListStrategy)
-        storage = strategy.cast_to_void_star(None)
+        storage = strategy.erase(None)
     else:
         strategy = space.fromcache(RangeListStrategy)
-        storage = strategy.cast_to_void_star((start, step, length))
+        storage = strategy.erase((start, step, length))
     return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
 def get_strategy_from_list_objects(space, list_w):
@@ -89,7 +87,7 @@ class W_ListObject(W_Object):
             return self
         list_w = self.getitems()
         strategy = self.space.fromcache(ObjectListStrategy)
-        storage = strategy.cast_to_void_star(list_w)
+        storage = strategy.erase(list_w)
         w_objectlist = W_ListObject.from_storage_and_strategy(self.space, storage, strategy)
         return w_objectlist
 
@@ -244,11 +242,11 @@ class EmptyListStrategy(ListStrategy):
 
     def init_from_list_w(self, w_list, list_w):
         assert len(list_w) == 0
-        w_list.lstorage = self.cast_to_void_star(None)
+        w_list.lstorage = self.erase(None)
 
-    cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("empty")
-    cast_to_void_star = staticmethod(cast_to_void_star)
-    cast_from_void_star = staticmethod(cast_from_void_star)
+    erase, unerase = rerased.new_erasing_pair("empty")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
 
     def clone(self, w_list):
         return W_ListObject.from_storage_and_strategy(self.space, w_list.lstorage, self)
@@ -273,7 +271,7 @@ class EmptyListStrategy(ListStrategy):
 
     def getstorage_copy(self, w_list):
         # XXX this is inconsistent with init_from_list_w, where the storage is None!
-        return self.cast_to_void_star(self.emptylist)
+        return self.erase(self.emptylist)
 
     def append(self, w_list, w_item):
         # XXX this should be done by checking the type of the object directly
@@ -322,7 +320,7 @@ class RangeListStrategy(ListStrategy):
     def switch_to_integer_strategy(self, w_list):
         items = self._getitems_range(w_list, False)
         strategy = w_list.strategy = self.space.fromcache(IntegerListStrategy)
-        w_list.lstorage = strategy.cast_to_void_star(items)
+        w_list.lstorage = strategy.erase(items)
 
     def wrap(self, intval):
         return self.space.wrap(intval)
@@ -333,9 +331,9 @@ class RangeListStrategy(ListStrategy):
     def init_from_list_w(self, w_list, list_w):
         raise NotImplementedError
 
-    cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("range")
-    cast_to_void_star = staticmethod(cast_to_void_star)
-    cast_from_void_star = staticmethod(cast_from_void_star)
+    erase, unerase = rerased.new_erasing_pair("range")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
 
     def clone(self, w_list):
         storage = w_list.lstorage # lstorage is tuple, no need to clone
@@ -347,10 +345,10 @@ class RangeListStrategy(ListStrategy):
         w_other.lstorage = w_list.lstorage
 
     def length(self, w_list):
-        return self.cast_from_void_star(w_list.lstorage)[2]
+        return self.unerase(w_list.lstorage)[2]
 
     def _getitem_unwrapped(self, w_list, i):
-        v = self.cast_from_void_star(w_list.lstorage)
+        v = self.unerase(w_list.lstorage)
         start = v[0]
         step = v[1]
         length = v[2]
@@ -376,7 +374,7 @@ class RangeListStrategy(ListStrategy):
 
     @specialize.arg(2)
     def _getitems_range(self, w_list, wrap_items):
-        l = self.cast_from_void_star(w_list.lstorage)
+        l = self.unerase(w_list.lstorage)
         start = l[0]
         step = l[1]
         length  = l[2]
@@ -397,7 +395,7 @@ class RangeListStrategy(ListStrategy):
         return r
 
     def getslice(self, w_list, start, stop, step, length):
-        v = self.cast_from_void_star(w_list.lstorage)
+        v = self.unerase(w_list.lstorage)
         old_start = v[0]
         old_step = v[1]
         old_length = v[2]
@@ -408,11 +406,11 @@ class RangeListStrategy(ListStrategy):
 
     def append(self, w_list, w_item):
         if is_W_IntObject(w_item):
-            l = self.cast_from_void_star(w_list.lstorage)
+            l = self.unerase(w_list.lstorage)
             step = l[1]
             last_in_range = self._getitem_unwrapped(w_list, -1)
             if self.unwrap(w_item) - step == last_in_range:
-                new = self.cast_to_void_star((l[0],l[1],l[2]+1))
+                new = self.erase((l[0],l[1],l[2]+1))
                 w_list.lstorage = new
                 return
 
@@ -425,12 +423,12 @@ class RangeListStrategy(ListStrategy):
         #XXX is this faster?
         if times == 0:
             strategy = self.space.fromcache(IntegerListStrategy)
-            storage = strategy.cast_to_void_star([])
+            storage = strategy.erase([])
         else:
             l = self._getitems_range(w_list, False)
             l *= times
             strategy = self.space.fromcache(IntegerListStrategy)
-            storage = strategy.cast_to_void_star(l)
+            storage = strategy.erase(l)
         w_newlist = W_ListObject.from_storage_and_strategy(self.space, storage, strategy)
         return w_newlist
 
@@ -447,15 +445,15 @@ class RangeListStrategy(ListStrategy):
         w_list.deleteslice(start, step, slicelength)
 
     def pop(self, w_list, index):
-        l = self.cast_from_void_star(w_list.lstorage)
+        l = self.unerase(w_list.lstorage)
         # XXX this is silly: the first if checks whether index == 0 or index
         # =..., then you do almost the same thing again.
         if index in [0, self.length(w_list)-1]:
             r = self.getitem(w_list, index)
             if index == 0:
-                new = self.cast_to_void_star((l[0]+l[1],l[1],l[2]-1))
+                new = self.erase((l[0]+l[1],l[1],l[2]-1))
             else:
-                new = self.cast_to_void_star((l[0],l[1],l[2]-1))
+                new = self.erase((l[0],l[1],l[2]-1))
             w_list.lstorage = new
             return r
 
@@ -479,11 +477,11 @@ class RangeListStrategy(ListStrategy):
         w_list.extend(items_w)
 
     def reverse(self, w_list):
-        v = self.cast_from_void_star(w_list.lstorage)
+        v = self.unerase(w_list.lstorage)
         last = self._getitem_unwrapped(w_list, -1)
         length = v[2]
         skip = v[1]
-        new = self.cast_to_void_star((last, -skip, length))
+        new = self.erase((last, -skip, length))
         w_list.lstorage = new
 
 class AbstractUnwrappedStrategy(object):
@@ -496,11 +494,11 @@ class AbstractUnwrappedStrategy(object):
         raise NotImplementedError
 
     @staticmethod
-    def cast_from_void_star(storage):
+    def unerase(storage):
         raise NotImplementedError("abstract base class")
 
     @staticmethod
-    def cast_to_void_star(obj):
+    def erase(obj):
         raise NotImplementedError("abstract base class")
 
     def is_correct_type(self, w_obj):
@@ -511,24 +509,24 @@ class AbstractUnwrappedStrategy(object):
 
     def init_from_list_w(self, w_list, list_w):
         l = [self.unwrap(w_item) for w_item in list_w]
-        w_list.lstorage = self.cast_to_void_star(l)
+        w_list.lstorage = self.erase(l)
 
     def clone(self, w_list):
-        l = self.cast_from_void_star(w_list.lstorage)
-        storage = self.cast_to_void_star(l[:])
+        l = self.unerase(w_list.lstorage)
+        storage = self.erase(l[:])
         w_clone = W_ListObject.from_storage_and_strategy(self.space, storage, self)
         return w_clone
 
     def copy_into(self, w_list, w_other):
         w_other.strategy = self
-        items = self.cast_from_void_star(w_list.lstorage)[:]
-        w_other.lstorage = self.cast_to_void_star(items)
+        items = self.unerase(w_list.lstorage)[:]
+        w_other.lstorage = self.erase(items)
 
     def length(self, w_list):
-        return len(self.cast_from_void_star(w_list.lstorage))
+        return len(self.unerase(w_list.lstorage))
 
     def getitem(self, w_list, index):
-        l = self.cast_from_void_star(w_list.lstorage)
+        l = self.unerase(w_list.lstorage)
         try:
             r = l[index]
         except IndexError: # make RPython raise the exception
@@ -536,45 +534,45 @@ class AbstractUnwrappedStrategy(object):
         return self.wrap(r)
 
     def getitems_copy(self, w_list):
-        return [self.wrap(item) for item in self.cast_from_void_star(w_list.lstorage)]
+        return [self.wrap(item) for item in self.unerase(w_list.lstorage)]
     getitems = getitems_copy
 
     def getstorage_copy(self, w_list):
-        items = self.cast_from_void_star(w_list.lstorage)[:]
-        return self.cast_to_void_star(items)
+        items = self.unerase(w_list.lstorage)[:]
+        return self.erase(items)
 
 
     def getslice(self, w_list, start, stop, step, length):
         if step == 1 and 0 <= start <= stop:
-            l = self.cast_from_void_star(w_list.lstorage)
+            l = self.unerase(w_list.lstorage)
             assert start >= 0
             assert stop >= 0
             sublist = l[start:stop]
-            storage = self.cast_to_void_star(sublist)
+            storage = self.erase(sublist)
             return W_ListObject.from_storage_and_strategy(self.space, storage, self)
         else:
             subitems_w = [self._none_value] * length
-            l = self.cast_from_void_star(w_list.lstorage)
+            l = self.unerase(w_list.lstorage)
             for i in range(length):
                 try:
                     subitems_w[i] = l[start]
                     start += step
                 except IndexError:
                     raise
-            storage = self.cast_to_void_star(subitems_w)
+            storage = self.erase(subitems_w)
             return W_ListObject.from_storage_and_strategy(self.space, storage, self)
 
     def append(self,  w_list, w_item):
 
         if self.is_correct_type(w_item):
-            self.cast_from_void_star(w_list.lstorage).append(self.unwrap(w_item))
+            self.unerase(w_list.lstorage).append(self.unwrap(w_item))
             return
 
         w_list.switch_to_object_strategy()
         w_list.append(w_item)
 
     def insert(self, w_list, index, w_item):
-        l = self.cast_from_void_star(w_list.lstorage)
+        l = self.unerase(w_list.lstorage)
 
         if self.is_correct_type(w_item):
             l.insert(index, self.unwrap(w_item))
@@ -584,9 +582,9 @@ class AbstractUnwrappedStrategy(object):
         w_list.insert(index, w_item)
 
     def extend(self, w_list, w_other):
-        l = self.cast_from_void_star(w_list.lstorage)
+        l = self.unerase(w_list.lstorage)
         if self.list_is_correct_type(w_other):
-            l += self.cast_from_void_star(w_other.lstorage)
+            l += self.unerase(w_other.lstorage)
             return
         elif w_other.strategy is self.space.fromcache(EmptyListStrategy):
             return
@@ -596,7 +594,7 @@ class AbstractUnwrappedStrategy(object):
         w_list.extend(w_other)
 
     def setitem(self, w_list, index, w_item):
-        l = self.cast_from_void_star(w_list.lstorage)
+        l = self.unerase(w_list.lstorage)
 
         if self.is_correct_type(w_item):
             try:
@@ -611,7 +609,7 @@ class AbstractUnwrappedStrategy(object):
     def setslice(self, w_list, start, step, slicelength, w_other):
         #XXX inefficient XXX XXX why?
         assert slicelength >= 0
-        items = self.cast_from_void_star(w_list.lstorage)
+        items = self.unerase(w_list.lstorage)
 
         if self is self.space.fromcache(ObjectListStrategy):
             w_other = w_other._temporarily_as_objects()
@@ -650,8 +648,8 @@ class AbstractUnwrappedStrategy(object):
             other_items = []
         else:
             # at this point both w_list and w_other have the same type, so
-            # self.cast_from_void_star is valid for both of them
-            other_items = self.cast_from_void_star(w_other.lstorage)
+            # self.unerase is valid for both of them
+            other_items = self.unerase(w_other.lstorage)
         if other_items is items:
             if step > 0:
                 # Always copy starting from the right to avoid
@@ -675,14 +673,14 @@ class AbstractUnwrappedStrategy(object):
             start += step
 
     def deleteitem(self, w_list, index):
-        l = self.cast_from_void_star(w_list.lstorage)
+        l = self.unerase(w_list.lstorage)
         try:
             del l[index]
         except IndexError:
             raise
 
     def deleteslice(self, w_list, start, step, slicelength):
-        items = self.cast_from_void_star(w_list.lstorage)
+        items = self.unerase(w_list.lstorage)
         if slicelength==0:
             return
 
@@ -714,7 +712,7 @@ class AbstractUnwrappedStrategy(object):
             del items[start:]
 
     def pop(self, w_list, index):
-        l = self.cast_from_void_star(w_list.lstorage)
+        l = self.unerase(w_list.lstorage)
         # not sure if RPython raises IndexError on pop
         # so check again here
         try:
@@ -732,11 +730,11 @@ class AbstractUnwrappedStrategy(object):
         return w_newlist
 
     def inplace_mul(self, w_list, times):
-        l = self.cast_from_void_star(w_list.lstorage)
+        l = self.unerase(w_list.lstorage)
         l *= times
 
     def reverse(self, w_list):
-        self.cast_from_void_star(w_list.lstorage).reverse()
+        self.unerase(w_list.lstorage).reverse()
 
 class ObjectListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     _none_value = None
@@ -747,9 +745,9 @@ class ObjectListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     def wrap(self, item):
         return item
 
-    cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("object")
-    cast_to_void_star = staticmethod(cast_to_void_star)
-    cast_from_void_star = staticmethod(cast_from_void_star)
+    erase, unerase = rerased.new_erasing_pair("object")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
 
     def is_correct_type(self, w_obj):
         return True
@@ -758,10 +756,10 @@ class ObjectListStrategy(AbstractUnwrappedStrategy, ListStrategy):
         return w_list.strategy is self.space.fromcache(ObjectListStrategy)
 
     def init_from_list_w(self, w_list, list_w):
-        w_list.lstorage = self.cast_to_void_star(list_w)
+        w_list.lstorage = self.erase(list_w)
 
     def getitems(self, w_list):
-        return self.cast_from_void_star(w_list.lstorage)
+        return self.unerase(w_list.lstorage)
 
 class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     _none_value = 0
@@ -772,9 +770,9 @@ class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     def unwrap(self, w_int):
         return self.space.int_w(w_int)
 
-    cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("integer")
-    cast_to_void_star = staticmethod(cast_to_void_star)
-    cast_from_void_star = staticmethod(cast_from_void_star)
+    erase, unerase = rerased.new_erasing_pair("integer")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
 
     def is_correct_type(self, w_obj):
         return is_W_IntObject(w_obj)
@@ -783,7 +781,7 @@ class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
         return w_list.strategy is self.space.fromcache(IntegerListStrategy)
 
     def custom_sort_for_ints(self, w_list):
-        l = self.cast_from_void_star(w_list.lstorage)
+        l = self.unerase(w_list.lstorage)
         self.quicksort(l, 0, len(l) - 1)
 
     def partition(self, l, start, end):
@@ -814,7 +812,7 @@ class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
             self.quicksort(l, p + 1, end)
 
     def sort(self, w_list, reverse):
-        l = self.cast_from_void_star(w_list.lstorage)
+        l = self.unerase(w_list.lstorage)
         sorter = IntSort(l, len(l))
         sorter.sort()
         if reverse:
@@ -829,9 +827,9 @@ class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     def unwrap(self, w_string):
         return self.space.str_w(w_string)
 
-    cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("string")
-    cast_to_void_star = staticmethod(cast_to_void_star)
-    cast_from_void_star = staticmethod(cast_from_void_star)
+    erase, unerase = rerased.new_erasing_pair("string")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
 
     def is_correct_type(self, w_obj):
         return is_W_StringObject(w_obj)
@@ -840,7 +838,7 @@ class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
         return w_list.strategy is self.space.fromcache(StringListStrategy)
 
     def sort(self, w_list, reverse):
-        l = self.cast_from_void_star(w_list.lstorage)
+        l = self.unerase(w_list.lstorage)
         sorter = StringSort(l, len(l))
         sorter.sort()
         if reverse:
@@ -900,7 +898,7 @@ def getitem__List_Slice(space, w_list, w_slice):
     if slicelength == 0:
         # XXX make helper function "new_empty_list" and use it consistently
         strategy = space.fromcache(EmptyListStrategy)
-        storage = strategy.cast_to_void_star(None)
+        storage = strategy.erase(None)
         return W_ListObject.from_storage_and_strategy(space, storage, strategy)
     return w_list.getslice(start, stop, step, slicelength)
 
@@ -911,7 +909,7 @@ def getslice__List_ANY_ANY(space, w_list, w_start, w_stop):
     slicelength = stop - start
     if slicelength == 0:
         strategy = space.fromcache(EmptyListStrategy)
-        storage = strategy.cast_to_void_star(None)
+        storage = strategy.erase(None)
         return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
     return w_list.getslice(start, stop, 1, stop - start)
