@@ -29,7 +29,7 @@ def unicode_from_string(space, w_str):
     assert isinstance(w_str, W_RopeObject)
     encoding = getdefaultencoding(space)
     w_retval = decode_string(space, w_str, encoding, "strict")
-    if not space.is_true(space.isinstance(w_retval, space.w_unicode)):
+    if not space.isinstance_w(w_retval, space.w_unicode):
         raise operationerrfmt(
             space.w_TypeError,
             "decoder did not return an unicode object (type '%s')",
@@ -254,7 +254,7 @@ def unicode_join__RopeUnicode_ANY(space, w_self, w_list):
         if isinstance(w_item, W_RopeUnicodeObject):
             # shortcut for performane
             item = w_item._node
-        elif space.is_true(space.isinstance(w_item, space.w_str)):
+        elif space.isinstance_w(w_item, space.w_str):
             item = unicode_from_string(space, w_item)._node
         else:
             msg = 'sequence item %d: expected string or Unicode'
@@ -828,14 +828,14 @@ def unicode_translate__RopeUnicode_ANY(space, w_self, w_table):
         else:
             if space.is_w(w_newval, space.w_None):
                 continue
-            elif space.is_true(space.isinstance(w_newval, space.w_int)):
+            elif space.isinstance_w(w_newval, space.w_int):
                 newval = space.int_w(w_newval)
                 if newval < 0 or newval > maxunicode:
                     raise OperationError(
                             space.w_TypeError,
                             space.wrap("character mapping must be in range(0x%x)" % (maxunicode + 1,)))
                 result.append(rope.rope_from_unichar(unichr(newval)))
-            elif space.is_true(space.isinstance(w_newval, space.w_unicode)):
+            elif space.isinstance_w(w_newval, space.w_unicode):
                 result.append(ropeunicode_w(space, w_newval))
             else:
                 raise OperationError(
