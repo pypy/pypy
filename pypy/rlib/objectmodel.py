@@ -19,6 +19,8 @@ import math
 # def f(...
 #
 
+from pypy.rpython.extregistry import ExtRegistryEntry
+
 class _Specialize(object):
     def memo(self):
         """ Specialize functions based on argument values. All arguments has
@@ -177,6 +179,34 @@ def free_non_gc_object(obj):
     obj.__class__ = FREED_OBJECT
 
 # ____________________________________________________________
+
+def newlist(sizehint=0):
+    """ Create a new list, but pass a hint how big the size should be
+    preallocated
+    """
+    return []
+
+class Entry(ExtRegistryEntry):
+    _about_ = newlist
+
+    def compute_result_annotation(self, s_sizehint):
+        from pypy.annotation.model import SomeInteger
+        
+        assert isinstance(s_sizehint, SomeInteger)
+        return self.bookkeeper.newlist()
+
+    def specialize_call(self, orig_hop, i_sizehint=None):
+        from pypy.rpython.rlist import rtype_newlist
+        # fish a bit hop
+        hop = orig_hop.copy()
+        v = hop.args_v[0]
+        r, s = hop.r_s_popfirstarg()
+        if s.is_constant():
+            v = hop.inputconst(r, s.const)
+        hop.exception_is_here()
+        return rtype_newlist(hop, v_sizehint=v)
+
+# ____________________________________________________________
 #
 # id-like functions.  The idea is that calling hash() or id() is not
 # allowed in RPython.  You have to call one of the following more
@@ -300,8 +330,6 @@ def _hash_tuple(t):
     return x
 
 # ----------
-
-from pypy.rpython.extregistry import ExtRegistryEntry
 
 class Entry(ExtRegistryEntry):
     _about_ = compute_hash
