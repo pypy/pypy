@@ -643,6 +643,16 @@ class AppTestStacklet(BaseAppTest):
             assert res == "done"
         main()
 
+    def test_bug_finish_with_already_finished_stacklet(self):
+        from _continuation import continulet, error
+        # make an already-finished continulet
+        c1 = continulet(lambda x: x)
+        c1.switch()
+        # make another continulet
+        c2 = continulet(lambda x: x)
+        # this switch is forbidden, because it causes a crash when c2 finishes
+        raises(error, c1.switch, to=c2)
+
     def test_various_depths(self):
         skip("may fail on top of CPython")
         # run it from test_translated, but not while being actually translated

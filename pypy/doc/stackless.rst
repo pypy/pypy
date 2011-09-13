@@ -66,7 +66,7 @@ permutation again you restore the original situation.
 In practice, in PyPy, you cannot change the ``f_back`` of an abitrary
 frame, but only of frames stored in ``continulets``.
 
-Continulets are internally implemented using stacklets.  Stacklets are a
+Continulets are internally implemented using stacklets_.  Stacklets are a
 bit more primitive (they are really one-shot continuations), but that
 idea only works in C, not in Python.  The basic idea of continulets is
 to have at any point in time a complete valid stack; this is important
@@ -278,6 +278,24 @@ methods on ``c``, not on another continulet object.  That's why we wrote
 ``c.switch(to=to)`` and not ``to.switch()``, which would mess up the
 state.  This is however just a guideline; in general we would recommend
 to use other interfaces like genlets and greenlets.)
+
+
+Stacklets
++++++++++
+
+Continulets are internally implemented using stacklets, which is the
+generic RPython-level building block for "one-shot continuations".  For
+more information about them please see the documentation in the C source
+at `pypy/translator/c/src/stacklet/stacklet.h`_.
+
+The module ``pypy.rlib.rstacklet`` is a thin wrapper around the above
+functions.  The key point is that new() and switch() always return a
+fresh stacklet handle (or an empty one), and switch() additionally
+consumes one.  It makes no sense to have code in which the returned
+handle is ignored, or used more than once.  Note that ``stacklet.c`` is
+written assuming that the user knows that, and so no additional checking
+occurs; this can easily lead to obscure crashes if you don't use a
+wrapper like PyPy's '_continuation' module.
 
 
 Theory of composability

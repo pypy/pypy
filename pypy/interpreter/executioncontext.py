@@ -48,6 +48,7 @@ class ExecutionContext(object):
         return frame
 
     @staticmethod
+    @jit.unroll_safe  # should usually loop 0 times, very rarely more than once
     def getnextframe_nohidden(frame):
         frame = frame.f_backref()
         while frame and frame.hide():
