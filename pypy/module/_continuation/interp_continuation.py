@@ -114,12 +114,16 @@ class W_Continulet(Wrappable):
         # Doing the right thing looks involved, though...
         space = self.space
         w_continulet_type = space.type(space.wrap(self))
-        args = [getunpickle(space),
-                space.newtuple([w_continulet_type])]
-        w_dict = self.getdict(space)
-        if w_dict is not None:
-            args = args + [w_dict]
-        return space.newtuple(args)
+        if self.sthread is None:
+            args = [getunpickle(space),
+                    space.newtuple([w_continulet_type])]
+            w_dict = self.getdict(space)
+            if w_dict is not None:
+                args = args + [w_dict]
+            return space.newtuple(args)
+        else:
+            raise geterror(space, "cannot pickle yet a continulet that was "
+                                  "initialized but not started")
 
 
 def W_Continulet___new__(space, w_subtype, __args__):

@@ -73,6 +73,12 @@ class AppTestPickle:
         assert res is None
         assert result == [5, co2]
 
+    def test_pickle_coroutine_not_started(self):
+        from _continuation import continulet, error
+        import pickle
+        co = continulet([].append)
+        raises(error, pickle.dumps, co)    # xxx for now
+
 
 class AppTestPickle_v1(AppTestPickle):
     version = 1
