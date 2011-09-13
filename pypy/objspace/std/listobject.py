@@ -141,6 +141,7 @@ class W_ListObject(W_Object):
         self.strategy.deleteslice(self, start, step, length)
 
     def pop(self, index):
+        # XXX docstring: index already checked
         return self.strategy.pop(self, index)
 
     def setitem(self, index, w_item):
@@ -718,6 +719,8 @@ class AbstractUnwrappedStrategy(object):
         l = self.unerase(w_list.lstorage)
         # not sure if RPython raises IndexError on pop
         # so check again here
+        if index < 0:
+            raise IndexError
         try:
             item = l.pop(index)
         except IndexError:
@@ -1144,10 +1147,6 @@ def list_pop__List_ANY(space, w_list, w_idx=-1):
         raise OperationError(space.w_IndexError,
                              space.wrap("pop from empty list"))
     idx = space.int_w(w_idx)
-    # XXX this shows that the methods on W_ListObject clearly need to say
-    # whether their arguments are index-checked or not. because this is clearly
-    # a bug here: if idx < 0, you add the length. pop will do the same thing
-    # again!
     if idx < 0:
         idx += length
     try:

@@ -746,6 +746,22 @@ class AppTestW_ListObject(object):
         l.pop()
         assert l == range(9)
 
+    def test_pop_negative(self):
+        l1 = [1,2,3,4]
+        l2 = ["1", "2", "3", "4"]
+        l3 = range(5)
+        l4 = [1, 2, 3, "4"]
+
+        raises(IndexError, l1.pop, -5)
+        raises(IndexError, l2.pop, -5)
+        raises(IndexError, l3.pop, -6)
+        raises(IndexError, l4.pop, -5)
+
+        assert l1.pop(-2) == 3
+        assert l2.pop(-2) == "3"
+        assert l3.pop(-2) == 3
+        assert l4.pop(-2) == 3
+
     def test_remove(self):
         c = list('hello world')
         c.remove('l')
