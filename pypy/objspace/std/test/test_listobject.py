@@ -353,6 +353,39 @@ class AppTestW_ListObject(object):
         l2 = [1, "2", "a", "a"]
         assert sorted(l1) == sorted(l2)
 
+    def test_contains(self):
+        l = []
+        assert not l.__contains__(2)
+
+        l = [1,2,3]
+        assert l.__contains__(2)
+        assert not l.__contains__("2")
+
+        l = ["1","2","3"]
+        assert l.__contains__("2")
+        assert not l.__contains__(2)
+
+        l = range(4)
+        assert l.__contains__(2)
+        assert not l.__contains__("2")
+
+        l = [1,2,"3"]
+        assert l.__contains__(2)
+        assert not l.__contains__("2")
+
+        l = range(2, 20, 3) # = [2, 5, 8, 11, 14, 17]
+        assert l.__contains__(2)
+        assert l.__contains__(5)
+        assert l.__contains__(8)
+        assert l.__contains__(11)
+        assert l.__contains__(14)
+        assert l.__contains__(17)
+        assert not l.__contains__(3)
+        assert not l.__contains__(4)
+        assert not l.__contains__(7)
+        assert not l.__contains__(13)
+        assert not l.__contains__(20)
+
     def test_call_list(self):
         assert list('') == []
         assert list('abc') == ['a', 'b', 'c']

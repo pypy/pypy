@@ -107,6 +107,9 @@ class W_ListObject(W_Object):
         # XXX what is this used for?
         self.strategy.copy_into(self, other)
 
+    def contains(self, w_obj):
+        return self.strategy.contains(self, w_obj)
+
     def append(w_list, w_item):
         w_list.strategy.append(w_list, w_item)
 
@@ -173,6 +176,9 @@ class ListStrategy(object):
         raise NotImplementedError
 
     def copy_into(self, w_list, w_other):
+        raise NotImplementedError
+
+    def contains(self, w_list, w_obj):
         raise NotImplementedError
 
     def length(self, w_list):
@@ -247,6 +253,9 @@ class EmptyListStrategy(ListStrategy):
 
     def copy_into(self, w_list, w_other):
         pass
+
+    def contains(self, w_list, w_obj):
+        return self.space.w_False
 
     def length(self, w_list):
         return 0
@@ -334,6 +343,17 @@ class RangeListStrategy(ListStrategy):
     def copy_into(self, w_list, w_other):
         w_other.strategy = self
         w_other.lstorage = w_list.lstorage
+
+    def contains(self, w_list, w_obj):
+        if is_W_IntObject(w_obj):
+            start, step, length = self.unerase(w_list.lstorage)
+            obj = self.unwrap(w_obj)
+            i = start
+            while i < start + step * length:
+                if i == obj:
+                    return self.space.w_True
+                i += step
+        return self.space.w_False
 
     def length(self, w_list):
         return self.unerase(w_list.lstorage)[2]
@@ -511,6 +531,16 @@ class AbstractUnwrappedStrategy(object):
         w_other.strategy = self
         items = self.unerase(w_list.lstorage)[:]
         w_other.lstorage = self.erase(items)
+
+    def contains(self, w_list, w_obj):
+        if self.is_correct_type(w_obj):
+            obj = self.unwrap(w_obj)
+            l = self.unerase(w_list.lstorage)
+            #XXX why do I need to check mutation for eq_w?
+            for i in l:
+                if i == obj:
+                    return self.space.w_True
+        return self.space.w_False
 
     def length(self, w_list):
         return len(self.unerase(w_list.lstorage))
@@ -918,15 +948,7 @@ def delslice__List_ANY_ANY(space, w_list, w_start, w_stop):
 
 def contains__List_ANY(space, w_list, w_obj):
     # needs to be safe against eq_w() mutating the w_list behind our back
-    # XXX we want to defer that to the list strategy, because it would be a lot
-    # more efficient to not call eq_w on ints. contains is used rather often in code like:
-    # if i in [1, 2, 3]: ...
-    i = 0
-    while i < w_list.length(): # intentionally always calling len!
-        if space.eq_w(w_list.getitem(i), w_obj):
-            return space.w_True
-        i += 1
-    return space.w_False
+    return w_list.contains(w_obj)
 
 def iter__List(space, w_list):
     from pypy.objspace.std import iterobject
