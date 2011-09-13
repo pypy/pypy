@@ -945,7 +945,7 @@ class ObjSpace(object):
         return (self.findattr(w_obj, self.wrap("__getitem__")) is not None)
 
     def isinstance_w(self, w_obj, w_type):
-        return self.is_true(self.isinstance(w_obj, w_type))
+        return self._type_isinstance(w_obj, w_type)
 
     # The code below only works
     # for the simple case (new-style instance).
