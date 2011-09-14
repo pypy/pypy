@@ -281,12 +281,21 @@ class EmptyListStrategy(ListStrategy):
     def getstorage_copy(self, w_list):
         return self.erase(None)
 
+    def switch_to_correct_strategy(self, w_list, w_item):
+        if is_W_IntObject(w_item):
+            strategy = self.space.fromcache(IntegerListStrategy)
+        elif is_W_StringObject(w_item):
+            strategy = self.space.fromcache(StringListStrategy)
+        else:
+            strategy = self.space.fromcache(ObjectListStrategy)
+
+        storage = strategy.get_empty_storage()
+        w_list.strategy = strategy
+        w_list.lstorage = storage
+
     def append(self, w_list, w_item):
-        # XXX this should be done by checking the type of the object directly
-        # here without going through __init__ and
-        # get_strategy_from_list_objects, because it is a very common path.
-        # Compare with EmptyDictStrategy.switch_to_correct_strategy
-        w_list.__init__(self.space, [w_item])
+        self.switch_to_correct_strategy(w_list, w_item)
+        w_list.append(w_item)
 
     def mul(self, w_list, times):
         return w_list.clone()
@@ -528,6 +537,9 @@ class AbstractUnwrappedStrategy(object):
     def init_from_list_w(self, w_list, list_w):
         l = [self.unwrap(w_item) for w_item in list_w]
         w_list.lstorage = self.erase(l)
+
+    def get_empty_storage(self):
+        return self.erase([])
 
     def clone(self, w_list):
         l = self.unerase(w_list.lstorage)
