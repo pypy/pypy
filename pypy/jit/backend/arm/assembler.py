@@ -81,7 +81,7 @@ class AssemblerARM(ResOpAssembler):
 
     def setup(self, looptoken, operations):
         self.current_clt = looptoken.compiled_loop_token
-        self.cpu.gc_ll_descr.rewrite_assembler(self.cpu, 
+        operations = self.cpu.gc_ll_descr.rewrite_assembler(self.cpu, 
                         operations, self.current_clt.allgcrefs)
         assert self.memcpy_addr != 0, 'setup_once() not called?'
         self.mc = ARMv7Builder()
@@ -90,6 +90,7 @@ class AssemblerARM(ResOpAssembler):
         allblocks = self.get_asmmemmgr_blocks(looptoken)
         self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
                                                         allblocks)
+        return operations
 
     def teardown(self):
         self.current_clt = None
@@ -582,7 +583,7 @@ class AssemblerARM(ResOpAssembler):
         clt.allgcrefs = []
         looptoken.compiled_loop_token = clt
 
-        self.setup(looptoken, operations)
+        operations = self.setup(looptoken, operations)
         self._dump(operations)
         longevity = compute_vars_longevity(inputargs, operations)
         regalloc = Regalloc(longevity, assembler=self, frame_manager=ARMFrameManager())
@@ -622,7 +623,7 @@ class AssemblerARM(ResOpAssembler):
 
     def assemble_bridge(self, faildescr, inputargs, operations,
                                                     original_loop_token, log):
-        self.setup(original_loop_token, operations)
+        operations = self.setup(original_loop_token, operations)
         self._dump(operations, 'bridge')
         assert isinstance(faildescr, AbstractFailDescr)
         code = faildescr._failure_recovery_code
