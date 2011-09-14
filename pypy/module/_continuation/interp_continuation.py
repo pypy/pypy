@@ -109,41 +109,12 @@ class W_Continulet(Wrappable):
         return self.space.newbool(valid)
 
     def descr__reduce__(self):
-        # xxx this is known to be not completely correct with respect
-        # to subclasses, e.g. no __slots__ support, no looking for a
-        # __getnewargs__ or __getstate__ defined in the subclass, etc.
-        # Doing the right thing looks involved, though...
-        space = self.space
-        if self.sthread is None:
-            raise geterror(space, "cannot pickle (yet) a continulet that is "
-                                  "not initialized")
-        if self.sthread.is_empty_handle(self.h):
-            raise geterror(space, "cannot pickle (yet) a continulet that is "
-                                  "already finished")
-        w_continulet_type = space.type(space.wrap(self))
-        w_frame = space.wrap(self.bottomframe)
-        w_dict = self.getdict(space) or space.w_None
-        args = [getunpickle(space),
-                space.newtuple([w_continulet_type]),
-                space.newtuple([w_frame, w_dict]),
-                ]
-        return space.newtuple(args)
+        from pypy.module._continuation import interp_pickle
+        return interp_pickle.reduce(self)
 
     def descr__setstate__(self, w_args):
-        if self.sthread is not None:
-            raise geterror(space, "continulet.__setstate__() on an already-"
-                                  "initialized continulet")
-        space = self.space
-        w_frame, w_dict = space.fixedview(w_args, expected_length=2)
-        self.bottomframe = space.interp_w(PyFrame, w_frame)
-        if not space.is_w(w_dict, space.w_None):
-            self.setdict(w_dict)
-        #
-        global_state.origin = self
-        sthread = build_sthread(self.space)
-        self.sthread = sthread
-        self.h = sthread.new(resume_trampoline_callback)
-        global_state.origin = None
+        from pypy.module._continuation import interp_pickle
+        interp_pickle.setstate(self, w_args)
 
 
 def W_Continulet___new__(space, w_subtype, __args__):
@@ -169,7 +140,6 @@ W_Continulet.typedef = TypeDef(
     __reduce__  = interp2app(W_Continulet.descr__reduce__),
     __setstate__= interp2app(W_Continulet.descr__setstate__),
     )
-
 
 # ____________________________________________________________
 
@@ -214,10 +184,6 @@ def get_w_module_dict(space):
     cs = space.fromcache(State)
     return cs.w_module_dict
 
-def getunpickle(space):
-    cs = space.fromcache(State)
-    return cs.w_unpickle
-
 # ____________________________________________________________
 
 
@@ -227,6 +193,9 @@ class SThread(StackletThread):
         StackletThread.__init__(self, space.config)
         self.space = space
         self.ec = ec
+        # for unpickling
+        from pypy.rlib.rweakref import RWeakKeyDictionary
+        self.frame2continulet = RWeakKeyDictionary(PyFrame, W_Continulet)
 
 ExecutionContext.stacklet_thread = None
 
@@ -259,68 +228,6 @@ def new_stacklet_callback(h, arg):
     global_state.origin = self
     global_state.destination = self
     return self.h
-
-def resume_trampoline_callback(h, arg):
-    from pypy.tool import stdlib_opcode as pythonopcode
-    self = global_state.origin
-    self.h = h
-    space = self.space
-    try:
-        h = self.sthread.switch(self.h)
-        try:
-            w_result = post_switch(self.sthread, h)
-            operr = None
-        except OperationError, operr:
-            pass
-        #
-        while True:
-            ec = self.sthread.ec
-            frame = ec.topframeref()
-            last_level = frame.pycode is get_entrypoint_pycode(space)
-            #
-            code = frame.pycode.co_code
-            instr = frame.last_instr
-            opcode = ord(code[instr])
-            map = pythonopcode.opmap
-            call_ops = [map['CALL_FUNCTION'], map['CALL_FUNCTION_KW'],
-                        map['CALL_FUNCTION_VAR'], map['CALL_FUNCTION_VAR_KW'],
-                        map['CALL_METHOD']]
-            assert opcode in call_ops   # XXX check better, and complain better
-            instr += 1
-            oparg = ord(code[instr]) | ord(code[instr + 1]) << 8
-            nargs = oparg & 0xff
-            nkwds = (oparg >> 8) & 0xff
-            if nkwds == 0:     # only positional arguments
-                # fast paths leaves things on the stack, pop them
-                if (space.config.objspace.opcodes.CALL_METHOD and
-                    opcode == map['CALL_METHOD']):
-                    frame.dropvalues(nargs + 2)
-                elif opcode == map['CALL_FUNCTION']:
-                    frame.dropvalues(nargs + 1)
-            frame.last_instr = instr + 1    # continue after the call
-            #
-            # small hack: unlink frame out of the execution context, because
-            # execute_frame will add it there again
-            ec.topframeref = frame.f_backref
-            #
-            try:
-                w_result = frame.execute_frame(w_result, operr)
-                operr = None
-            except OperationError, operr:
-                pass
-            if last_level:
-                break
-        if operr:
-            raise operr
-    except Exception, e:
-        global_state.propagate_exception = e
-    else:
-        global_state.w_value = w_result
-    self.sthread.ec.topframeref = jit.vref_None
-    global_state.origin = self
-    global_state.destination = self
-    return self.h
-
 
 def post_switch(sthread, h):
     origin = global_state.origin

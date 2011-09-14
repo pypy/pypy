@@ -30,6 +30,31 @@ class AppTestCopy:
         co2.switch()
         assert lst2 == [co2]
 
+    def test_copy_continulet_not_started_multiple(self):
+        from _continuation import continulet, error
+        import copy
+        lst = []
+        co = continulet(lst.append)
+        co2, lst2 = copy.deepcopy((co, lst))
+        co3, lst3 = copy.deepcopy((co, lst))
+        co4, lst4 = copy.deepcopy((co, lst))
+        #
+        assert lst == []
+        co.switch()
+        assert lst == [co]
+        #
+        assert lst2 == []
+        co2.switch()
+        assert lst2 == [co2]
+        #
+        assert lst3 == []
+        co3.switch()
+        assert lst3 == [co3]
+        #
+        assert lst4 == []
+        co4.switch()
+        assert lst4 == [co4]
+
     def test_copy_continulet_real(self):
         import new, sys
         mod = new.module('test_copy_continulet_real')
@@ -134,10 +159,13 @@ class AppTestPickle:
         co = continulet(lst.append)
         pckl = pickle.dumps((co, lst))
         print pckl
-        co2, lst2 = pickle.loads(pckl)
-        assert co is not co2
-        assert lst2 == []
-        xxx
+        del co, lst
+        for i in range(2):
+            print 'resume...'
+            co2, lst2 = pickle.loads(pckl)
+            assert lst2 == []
+            co2.switch()
+            assert lst2 == [co2]
 
     def test_pickle_continulet_real(self):
         import new, sys
