@@ -243,8 +243,8 @@ class EmptyListStrategy(ListStrategy):
 
     def __init__(self, space):
         ListStrategy.__init__(self, space)
-        # XXX rename to cached_emptylist_w and add a comment what it's used for
-        self.emptylist = []
+        # cache an empty list that is used whenever getitems is called (i.e. sorting)
+        self.cached_emptylist_w = []
 
     def init_from_list_w(self, w_list, list_w):
         assert len(list_w) == 0
