@@ -415,15 +415,15 @@ def make_formatter_subclass(do_unicode):
                                      space.wrap("operand does not support "
                                                 "unary str"))
             w_result = space.get_and_call_function(w_impl, w_value)
-            if space.is_true(space.isinstance(w_result,
-                                              space.w_unicode)):
+            if space.isinstance_w(w_result,
+                                              space.w_unicode):
                 raise NeedUnicodeFormattingError
             return space.str_w(w_result)
 
         def fmt_s(self, w_value):
             space = self.space
-            got_unicode = space.is_true(space.isinstance(w_value,
-                                                         space.w_unicode))
+            got_unicode = space.isinstance_w(w_value,
+                                                         space.w_unicode)
             if not do_unicode:
                 if got_unicode:
                     raise NeedUnicodeFormattingError
@@ -442,13 +442,13 @@ def make_formatter_subclass(do_unicode):
         def fmt_c(self, w_value):
             self.prec = -1     # just because
             space = self.space
-            if space.is_true(space.isinstance(w_value, space.w_str)):
+            if space.isinstance_w(w_value, space.w_str):
                 s = space.str_w(w_value)
                 if len(s) != 1:
                     raise OperationError(space.w_TypeError,
                                          space.wrap("%c requires int or char"))
                 self.std_wp(s)
-            elif space.is_true(space.isinstance(w_value, space.w_unicode)):
+            elif space.isinstance_w(w_value, space.w_unicode):
                 if not do_unicode:
                     raise NeedUnicodeFormattingError
                 ustr = space.unicode_w(w_value)
@@ -510,15 +510,15 @@ def format(space, w_fmt, values_w, w_valuedict=None, do_unicode=False):
     return space.wrap(result)
 
 def mod_format(space, w_format, w_values, do_unicode=False):
-    if space.is_true(space.isinstance(w_values, space.w_tuple)):
+    if space.isinstance_w(w_values, space.w_tuple):
         values_w = space.fixedview(w_values)
         return format(space, w_format, values_w, None, do_unicode)
     else:
         # we check directly for dict to avoid obscure checking
         # in simplest case
-        if space.is_true(space.isinstance(w_values, space.w_dict)) or \
+        if space.isinstance_w(w_values, space.w_dict) or \
            (space.lookup(w_values, '__getitem__') and
-           not space.is_true(space.isinstance(w_values, space.w_basestring))):
+           not space.isinstance_w(w_values, space.w_basestring)):
             return format(space, w_format, [w_values], w_values, do_unicode)
         else:
             return format(space, w_format, [w_values], None, do_unicode)

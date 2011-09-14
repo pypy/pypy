@@ -456,9 +456,8 @@ class MiniMarkGC(MovingGCBase):
             debug_stop("gc-debug")
 
 
-    def malloc_fixedsize_clear(self, typeid, size, can_collect=True,
+    def malloc_fixedsize_clear(self, typeid, size,
                                needs_finalizer=False, contains_weakptr=False):
-        ll_assert(can_collect, "!can_collect")
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + size
         rawtotalsize = raw_malloc_usage(totalsize)
@@ -507,8 +506,7 @@ class MiniMarkGC(MovingGCBase):
 
 
     def malloc_varsize_clear(self, typeid, length, size, itemsize,
-                             offset_to_length, can_collect):
-        ll_assert(can_collect, "!can_collect")
+                             offset_to_length):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         nonvarsize = size_gc_header + size
         #
@@ -1463,6 +1461,7 @@ class MiniMarkGC(MovingGCBase):
         # We will fix such references to point to the copy of the young
         # objects when we walk 'old_objects_pointing_to_young'.
         self.old_objects_pointing_to_young.append(newobj)
+    _trace_drag_out._always_inline_ = True
 
     def _visit_young_rawmalloced_object(self, obj):
         # 'obj' points to a young, raw-malloced object.
@@ -1704,7 +1703,7 @@ class MiniMarkGC(MovingGCBase):
             None)   # we don't need the static in all prebuilt gc objects
         #
         # If we are in an inner collection caused by a call to a finalizer,
-        # the 'run_finalizers' objects also need to kept alive.
+        # the 'run_finalizers' objects also need to be kept alive.
         self.run_finalizers.foreach(self._collect_obj,
                                     self.objects_to_trace)
 

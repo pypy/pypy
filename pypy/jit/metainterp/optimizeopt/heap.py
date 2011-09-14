@@ -25,7 +25,7 @@ class CachedField(object):
         #      'cached_fields'.
         #
         self._cached_fields = {}
-        self._cached_fields_getfield_op = {}        
+        self._cached_fields_getfield_op = {}
         self._lazy_setfield = None
         self._lazy_setfield_registered = False
 
@@ -37,6 +37,12 @@ class CachedField(object):
             self.force_lazy_setfield(optheap)
             assert not self.possible_aliasing(optheap, structvalue)
         cached_fieldvalue = self._cached_fields.get(structvalue, None)
+
+        # Hack to ensure constants are imported from the preamble
+        if cached_fieldvalue and fieldvalue.is_constant(): 
+            optheap.optimizer.ensure_imported(cached_fieldvalue)
+            cached_fieldvalue = self._cached_fields.get(structvalue, None)
+
         if cached_fieldvalue is not fieldvalue:
             # common case: store the 'op' as lazy_setfield, and register
             # myself in the optheap's _lazy_setfields_and_arrayitems list
@@ -75,7 +81,7 @@ class CachedField(object):
     def remember_field_value(self, structvalue, fieldvalue, getfield_op=None):
         assert self._lazy_setfield is None
         self._cached_fields[structvalue] = fieldvalue
-        self._cached_fields_getfield_op[structvalue] = getfield_op        
+        self._cached_fields_getfield_op[structvalue] = getfield_op
 
     def force_lazy_setfield(self, optheap, can_cache=True):
         op = self._lazy_setfield
@@ -132,9 +138,7 @@ class CachedField(object):
                         result = newresult
                     getop = ResOperation(rop.GETFIELD_GC, [op.getarg(0)],
                                          result, op.getdescr())
-                    getop = shortboxes.add_potential(getop)
-                    self._cached_fields_getfield_op[structvalue] = getop
-                    self._cached_fields[structvalue] = optimizer.getvalue(result)
+                    shortboxes.add_potential(getop, synthetic=True)
                 elif op.result is not None:
                     shortboxes.add_potential(op)
 
@@ -163,7 +167,7 @@ class OptHeap(Optimization):
 
     def new(self):
         return OptHeap()
-        
+
     def produce_potential_short_preamble_ops(self, sb):
         descrkeys = self.cached_fields.keys()
         if not we_are_translated():
@@ -235,31 +239,33 @@ class OptHeap(Optimization):
             opnum == rop.CALL_RELEASE_GIL or
             opnum == rop.CALL_ASSEMBLER):
             if opnum == rop.CALL_ASSEMBLER:
-                effectinfo = None
+                self._seen_guard_not_invalidated = False
             else:
                 effectinfo = op.getdescr().get_extra_info()
-            if effectinfo is None or effectinfo.check_can_invalidate():
-                self._seen_guard_not_invalidated = False
-            if effectinfo is not None and not effectinfo.has_random_effects():
-                # XXX we can get the wrong complexity here, if the lists
-                # XXX stored on effectinfo are large
-                for fielddescr in effectinfo.readonly_descrs_fields:
-                    self.force_lazy_setfield(fielddescr)
-                for arraydescr in effectinfo.readonly_descrs_arrays:
-                    self.force_lazy_setarrayitem(arraydescr)
-                for fielddescr in effectinfo.write_descrs_fields:
-                    self.force_lazy_setfield(fielddescr, can_cache=False)
-                for arraydescr in effectinfo.write_descrs_arrays:
-                    self.force_lazy_setarrayitem(arraydescr, can_cache=False)
-                if effectinfo.check_forces_virtual_or_virtualizable():
-                    vrefinfo = self.optimizer.metainterp_sd.virtualref_info
-                    self.force_lazy_setfield(vrefinfo.descr_forced)
-                    # ^^^ we only need to force this field; the other fields
-                    # of virtualref_info and virtualizable_info are not gcptrs.
-                return
+                if effectinfo.check_can_invalidate():
+                    self._seen_guard_not_invalidated = False
+                if not effectinfo.has_random_effects():
+                    self.force_from_effectinfo(effectinfo)
+                    return
         self.force_all_lazy_setfields_and_arrayitems()
         self.clean_caches()
 
+    def force_from_effectinfo(self, effectinfo):
+        # XXX we can get the wrong complexity here, if the lists
+        # XXX stored on effectinfo are large
+        for fielddescr in effectinfo.readonly_descrs_fields:
+            self.force_lazy_setfield(fielddescr)
+        for arraydescr in effectinfo.readonly_descrs_arrays:
+            self.force_lazy_setarrayitem(arraydescr)
+        for fielddescr in effectinfo.write_descrs_fields:
+            self.force_lazy_setfield(fielddescr, can_cache=False)
+        for arraydescr in effectinfo.write_descrs_arrays:
+            self.force_lazy_setarrayitem(arraydescr, can_cache=False)
+        if effectinfo.check_forces_virtual_or_virtualizable():
+            vrefinfo = self.optimizer.metainterp_sd.virtualref_info
+            self.force_lazy_setfield(vrefinfo.descr_forced)
+            # ^^^ we only need to force this field; the other fields
+            # of virtualref_info and virtualizable_info are not gcptrs.
 
     def turned_constant(self, value):
         assert value.is_constant()

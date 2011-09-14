@@ -355,9 +355,13 @@ def mod__Float_Float(space, w_float1, w_float2):
     y = w_float2.floatval
     if y == 0.0:
         raise FailedToImplementArgs(space.w_ZeroDivisionError, space.wrap("float modulo"))
-    mod = math.fmod(x, y)
-    if (mod and ((y < 0.0) != (mod < 0.0))):
-        mod += y
+    try:
+        mod = math.fmod(x, y)
+    except ValueError:
+        mod = rfloat.NAN
+    else:
+        if (mod and ((y < 0.0) != (mod < 0.0))):
+            mod += y
 
     return W_FloatObject(mod)
 
@@ -366,7 +370,10 @@ def _divmod_w(space, w_float1, w_float2):
     y = w_float2.floatval
     if y == 0.0:
         raise FailedToImplementArgs(space.w_ZeroDivisionError, space.wrap("float modulo"))
-    mod = math.fmod(x, y)
+    try:
+        mod = math.fmod(x, y)
+    except ValueError:
+        return [W_FloatObject(rfloat.NAN), W_FloatObject(rfloat.NAN)]
     # fmod is typically exact, so vx-mod is *mathematically* an
     # exact multiple of wx.  But this is fp arithmetic, and fp
     # vx - mod is an approximation; the result is that div may

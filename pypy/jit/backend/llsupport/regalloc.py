@@ -58,11 +58,13 @@ class RegisterManager(object):
     all_regs              = []
     no_lower_byte_regs    = []
     save_around_call_regs = []
-    
+    frame_reg             = None
+
     def __init__(self, longevity, frame_manager=None, assembler=None):
         self.free_regs = self.all_regs[:]
         self.longevity = longevity
         self.reg_bindings = {}
+        self.bindings_to_frame_reg = {}
         self.position = -1
         self.frame_manager = frame_manager
         self.assembler = assembler
@@ -219,6 +221,10 @@ class RegisterManager(object):
         self.reg_bindings[v] = loc
         return loc
 
+    def force_allocate_frame_reg(self, v):
+        """ Allocate the new variable v in the frame register."""
+        self.bindings_to_frame_reg[v] = None
+
     def force_spill_var(self, var):
         self._sync_var(var)
         try:
@@ -237,6 +243,8 @@ class RegisterManager(object):
         try:
             return self.reg_bindings[box]
         except KeyError:
+            if box in self.bindings_to_frame_reg:
+                return self.frame_reg
             return self.frame_manager.loc(box)
 
     def return_constant(self, v, forbidden_vars=[], selected_reg=None):
@@ -265,8 +273,9 @@ class RegisterManager(object):
         self._check_type(v)
         if isinstance(v, Const):
             return self.return_constant(v, forbidden_vars, selected_reg)
-        
         prev_loc = self.loc(v)
+        if prev_loc is self.frame_reg and selected_reg is None:
+            return prev_loc
         loc = self.force_allocate_reg(v, forbidden_vars, selected_reg,
                                       need_lower_byte=need_lower_byte)
         if prev_loc is not loc:

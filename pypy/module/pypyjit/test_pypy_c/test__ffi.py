@@ -29,11 +29,13 @@ class Test__ffi(BaseTestPyPyC):
         pow_addr, res = log.result
         assert res == 8.0 * 300
         loop, = log.loops_by_filename(self.filepath)
+        if 'ConstClass(pow)' in repr(loop):   # e.g. OS/X
+            pow_addr = 'ConstClass(pow)'
         assert loop.match_by_id('fficall', """
             guard_not_invalidated(descr=...)
             i17 = force_token()
             setfield_gc(p0, i17, descr=<.* .*PyFrame.vable_token .*>)
-            f21 = call_release_gil(%d, 2.000000, 3.000000, descr=<FloatCallDescr>)
+            f21 = call_release_gil(%s, 2.000000, 3.000000, descr=<FloatCallDescr>)
             guard_not_forced(descr=...)
             guard_no_exception(descr=...)
         """ % pow_addr)
@@ -129,4 +131,5 @@ class Test__ffi(BaseTestPyPyC):
         assert opnames.count('call_release_gil') == 1
         idx = opnames.index('call_release_gil')
         call = ops[idx]
-        assert int(call.args[0]) == fabs_addr
+        assert (call.args[0] == 'ConstClass(fabs)' or    # e.g. OS/X
+                int(call.args[0]) == fabs_addr)

@@ -48,6 +48,7 @@ class ExecutionContext(object):
         return frame
 
     @staticmethod
+    @jit.unroll_safe  # should usually loop 0 times, very rarely more than once
     def getnextframe_nohidden(frame):
         frame = frame.f_backref()
         while frame and frame.hide():
@@ -80,58 +81,6 @@ class ExecutionContext(object):
             self.space.frame_trace_action.fire()
 
     # ________________________________________________________________
-
-
-    class Subcontext(object):
-        # coroutine: subcontext support
-
-        def __init__(self):
-            self.topframe = None
-            self.w_tracefunc = None
-            self.profilefunc = None
-            self.w_profilefuncarg = None
-            self.is_tracing = 0
-
-        def enter(self, ec):
-            ec.topframeref = jit.non_virtual_ref(self.topframe)
-            ec.w_tracefunc = self.w_tracefunc
-            ec.profilefunc = self.profilefunc
-            ec.w_profilefuncarg = self.w_profilefuncarg
-            ec.is_tracing = self.is_tracing
-            ec.space.frame_trace_action.fire()
-
-        def leave(self, ec):
-            self.topframe = ec.gettopframe()
-            self.w_tracefunc = ec.w_tracefunc
-            self.profilefunc = ec.profilefunc
-            self.w_profilefuncarg = ec.w_profilefuncarg
-            self.is_tracing = ec.is_tracing
-
-        def clear_framestack(self):
-            self.topframe = None
-
-        # the following interface is for pickling and unpickling
-        def getstate(self, space):
-            if self.topframe is None:
-                return space.w_None
-            return self.topframe
-
-        def setstate(self, space, w_state):
-            from pypy.interpreter.pyframe import PyFrame
-            if space.is_w(w_state, space.w_None):
-                self.topframe = None
-            else:
-                self.topframe = space.interp_w(PyFrame, w_state)
-
-        def getframestack(self):
-            lst = []
-            f = self.topframe
-            while f is not None:
-                lst.append(f)
-                f = f.f_backref()
-            lst.reverse()
-            return lst
-        # coroutine: I think this is all, folks!
 
     def c_call_trace(self, frame, w_func, args=None):
         "Profile the call of a builtin function"

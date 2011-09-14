@@ -2,7 +2,6 @@ import sys
 
 from pypy.rlib.rstring import StringBuilder, UnicodeBuilder, split, rsplit
 
-
 def test_split():
     assert split("", 'x') == ['']
     assert split("a", "a", 1) == ['', '']
@@ -43,3 +42,4 @@ def test_unicode_builder():
     s.append_multiple_char(u'd', 4)
     assert s.build() == 'aabcbdddd'
     assert isinstance(s.build(), unicode)
+        

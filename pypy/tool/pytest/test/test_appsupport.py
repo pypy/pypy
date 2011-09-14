@@ -39,7 +39,7 @@ class TestSpaceConfig:
         setpypyconftest(testdir)
         testdir.makepyfile("""
             class AppTestClass:
-                spaceconfig = {"objspace.usemodules._stackless": True}
+                spaceconfig = {"objspace.usemodules._random": True}
                 def setup_class(cls):
                     assert 0
                 def test_applevel(self):
@@ -48,7 +48,7 @@ class TestSpaceConfig:
         result = testdir.runpytest("-A")
         assert result.ret == 0
         if hasattr(sys, 'pypy_translation_info') and \
-           sys.pypy_translation_info.get('objspace.usemodules._stackless'):
+           sys.pypy_translation_info.get('objspace.usemodules._random'):
             result.stdout.fnmatch_lines(["*1 error*"])
         else:
             # setup_class didn't get called, otherwise it would error
@@ -58,9 +58,9 @@ class TestSpaceConfig:
         setpypyconftest(testdir)
         p = testdir.makepyfile("""
             class TestClass:
-                spaceconfig = {"objspace.usemodules._stackless": False}
+                spaceconfig = {"objspace.usemodules._random": False}
                 def setup_class(cls):
-                    assert not cls.space.config.objspace.usemodules._stackless
+                    assert not cls.space.config.objspace.usemodules._random
                 def test_interp(self, space):
                     assert self.space is space
                 def test_interp2(self, space):

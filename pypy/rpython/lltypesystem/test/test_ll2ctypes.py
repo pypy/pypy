@@ -81,6 +81,26 @@ class TestLL2Ctypes(object):
         lltype.free(s, flavor='raw')
         assert not ALLOCATED     # detects memory leaks in the test
 
+    def test_get_pointer(self):
+        py.test.skip("FIXME")
+        # Equivalent of the C code::
+        #     struct S1 { struct S2 *ptr; struct S2 buf; };
+        #     struct S1 s1;
+        #     s1.ptr = & s1.buf;
+        S2 = lltype.Struct('S2', ('y', lltype.Signed))
+        S1 = lltype.Struct('S',
+                           ('sub', lltype.Struct('SUB', 
+                                                 ('ptr', lltype.Ptr(S2)))),
+                           ('ptr', lltype.Ptr(S2)),
+                           ('buf', S2), # Works when this field is first!
+                           )
+        s1 = lltype.malloc(S1, flavor='raw')
+        s1.ptr = s1.buf
+        s1.sub.ptr = s1.buf
+
+        x = rffi.cast(rffi.CCHARP, s1)
+        lltype.free(s1, flavor='raw')
+
     def test_struct_ptrs(self):
         S2 = lltype.Struct('S2', ('y', lltype.Signed))
         S1 = lltype.Struct('S', ('x', lltype.Signed), ('p', lltype.Ptr(S2)))

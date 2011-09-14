@@ -1403,7 +1403,7 @@ def str_decode_unicode_internal(s, size, errors, final=False,
                                     s, pos, pos + unicode_bytes)
             result.append(res)
             continue
-        result.append(unichr(t))
+        result.append(UNICHR(t))
         pos += unicode_bytes
     return result.build(), pos
 

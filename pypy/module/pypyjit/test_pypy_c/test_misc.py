@@ -92,6 +92,43 @@ class TestMisc(BaseTestPyPyC):
         """)
 
 
+    def test_cached_pure_func_of_equal_fields(self):            
+        def main(n):
+            class A(object):
+                def __init__(self, val):
+                    self.val1 = self.val2 = val
+            a = A(1)
+            b = A(1)
+            sa = 0
+            while n:
+                sa += 2*a.val1
+                sa += 2*b.val2
+                b.val2 = a.val1
+                n -= 1
+            return sa
+        #
+        log = self.run(main, [1000])
+        assert log.result == 4000
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i12 = int_is_true(i4)
+            guard_true(i12, descr=...)
+            guard_not_invalidated(descr=...)
+            i13 = int_add_ovf(i8, i9)
+            guard_no_overflow(descr=...)
+            i10p = getfield_gc_pure(p10, descr=...)
+            i10 = int_mul_ovf(2, i10p)
+            guard_no_overflow(descr=...)
+            i14 = int_add_ovf(i13, i10)
+            guard_no_overflow(descr=...)
+            setfield_gc(p7, p11, descr=...)
+            i17 = int_sub_ovf(i4, 1)
+            guard_no_overflow(descr=...)
+            --TICK--
+            jump(..., descr=...)
+            """)
+
+
     def test_range_iter(self):
         def main(n):
             def g(n):
@@ -115,7 +152,6 @@ class TestMisc(BaseTestPyPyC):
             i21 = force_token()
             setfield_gc(p4, i20, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
             guard_not_invalidated(descr=...)
-            i26 = int_sub(i9, 1)
             i23 = int_lt(i18, 0)
             guard_false(i23, descr=...)
             i25 = int_ge(i18, i9)
@@ -234,3 +270,18 @@ class TestMisc(BaseTestPyPyC):
             return total
         #
         self.run_and_check(main, [])
+
+
+    def test_global(self):
+        log = self.run("""
+        i = 0
+        globalinc = 1
+        def main(n):
+            global i
+            while i < n:
+                l = globalinc # ID: globalread
+                i += l
+        """, [1000])
+
+        loop, = log.loops_by_id("globalread", is_entry_bridge=True)
+        assert len(loop.ops_by_id("globalread")) == 0

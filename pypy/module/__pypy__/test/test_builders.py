@@ -32,3 +32,13 @@ class AppTestBuilders(object):
         s = b.build()
         assert s == "cde"
         raises(ValueError, b.append_slice, u"abc", 1, 2)
+
+    def test_stringbuilder(self):
+        from __pypy__.builders import StringBuilder
+        b = StringBuilder()
+        b.append("abc")
+        b.append("123")
+        b.append("you and me")
+        s = b.build()
+        assert s == "abc123you and me"
+        raises(ValueError, b.build)

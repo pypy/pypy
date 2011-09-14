@@ -1,5 +1,5 @@
 from pypy.config.config import *
-import py
+import py, sys
 
 def make_description():
     gcoption = ChoiceOption('name', 'GC name', ['ref', 'framework'], 'ref')
@@ -69,13 +69,15 @@ def test___dir__():
     attrs = dir(config)
     assert '__repr__' in attrs        # from the type
     assert '_cfgimpl_values' in attrs # from self
-    assert 'gc' in attrs              # custom attribute
-    assert 'objspace' in attrs        # custom attribute
+    if sys.version_info >= (2, 6):
+        assert 'gc' in attrs              # custom attribute
+        assert 'objspace' in attrs        # custom attribute
     #
     attrs = dir(config.gc)
-    assert 'name' in attrs
-    assert 'dummy' in attrs
-    assert 'float' in attrs
+    if sys.version_info >= (2, 6):
+        assert 'name' in attrs
+        assert 'dummy' in attrs
+        assert 'float' in attrs
 
 def test_arbitrary_option():
     descr = OptionDescription("top", "", [
@@ -279,11 +281,11 @@ def test_getpaths():
 
 def test_underscore_in_option_name():
     descr = OptionDescription("opt", "", [
-        BoolOption("_stackless", "", default=False),
+        BoolOption("_foobar", "", default=False),
     ])
     config = Config(descr)
     parser = to_optparse(config)
-    assert parser.has_option("--_stackless")
+    assert parser.has_option("--_foobar")
 
 def test_none():
     dummy1 = BoolOption('dummy1', 'doc dummy', default=False, cmdline=None)

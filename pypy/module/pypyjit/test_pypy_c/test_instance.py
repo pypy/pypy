@@ -52,7 +52,7 @@ class TestInstance(BaseTestPyPyC):
             i10 = int_add_ovf(i5, i7)
             guard_no_overflow(descr=...)
             --TICK--
-            jump(p0, p1, p2, p3, p4, i10, i6, p7, i7, p8, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, i10, i6, i7, p8, descr=<Loop0>)
         """)
 
     def test_getattr_with_dynamic_attribute(self):
@@ -142,6 +142,7 @@ class TestInstance(BaseTestPyPyC):
             i = 0
             b = B(1)
             while i < 100:
+                b.x
                 v = b.x # ID: loadattr
                 i += v
             return i
@@ -150,7 +151,6 @@ class TestInstance(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id('loadattr',
         '''
-        guard_not_invalidated(descr=...)
         i19 = call(ConstClass(ll_dict_lookup), _, _, _, descr=...)
         guard_no_exception(descr=...)
         i21 = int_and(i19, _)
@@ -180,8 +180,7 @@ class TestInstance(BaseTestPyPyC):
         assert loop.match_by_id("contains", """
             guard_not_invalidated(descr=...)
             i11 = force_token()
-            i12 = int_add_ovf(i5, i7)
-            guard_no_overflow(descr=...)
+            i12 = int_add(i5, 1)
         """)
 
     def test_id_compare_optimization(self):

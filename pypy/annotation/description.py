@@ -399,9 +399,7 @@ class ClassDesc(Desc):
                 if b1 is object:
                     continue
                 if b1.__dict__.get('_mixin_', False):
-                    assert b1.__bases__ == () or b1.__bases__ == (object,), (
-                        "mixin class %r should have no base" % (b1,))
-                    self.add_sources_for_class(b1, mixin=True)
+                    self.add_mixin(b1)
                 else:
                     assert base is object, ("multiple inheritance only supported "
                                             "with _mixin_: %r" % (cls,))
@@ -468,6 +466,15 @@ class ClassDesc(Desc):
             if value not in BUILTIN_ANALYZERS:
                 return
         self.classdict[name] = Constant(value)
+
+    def add_mixin(self, base):
+        for subbase in base.__bases__:
+            if subbase is object:
+                continue
+            assert subbase.__dict__.get("_mixin_", False), ("Mixin class %r has non"
+                "mixin base class %r" % (base, subbase))
+            self.add_mixin(subbase)
+        self.add_sources_for_class(base, mixin=True)
 
     def add_sources_for_class(self, cls, mixin=False):
         for name, value in cls.__dict__.items():

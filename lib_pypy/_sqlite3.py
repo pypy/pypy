@@ -24,6 +24,7 @@
 from ctypes import c_void_p, c_int, c_double, c_int64, c_char_p, cdll
 from ctypes import POINTER, byref, string_at, CFUNCTYPE, cast
 from ctypes import sizeof, c_ssize_t
+from collections import OrderedDict
 import datetime
 import sys
 import time
@@ -274,6 +275,28 @@ def connect(database, **kwargs):
 def unicode_text_factory(x):
     return unicode(x, 'utf-8')
 
+
+class StatementCache(object):
+    def __init__(self, connection, maxcount):
+        self.connection = connection
+        self.maxcount = maxcount
+        self.cache = OrderedDict()
+
+    def get(self, sql, cursor, row_factory):
+        try:
+            stat = self.cache[sql]
+        except KeyError:
+            stat = Statement(self.connection, sql)
+            self.cache[sql] = stat
+            if len(self.cache) > self.maxcount:
+                self.cache.popitem(0)
+        #
+        if stat.in_use:
+            stat = Statement(self.connection, sql)
+        stat.set_row_factory(row_factory)
+        return stat
+
+
 class Connection(object):
     def __init__(self, database, timeout=5.0, detect_types=0, isolation_level="",
                  check_same_thread=True, factory=None, cached_statements=100):
@@ -291,6 +314,7 @@ class Connection(object):
         self.row_factory = None
         self._isolation_level = isolation_level
         self.detect_types = detect_types
+        self.statement_cache = StatementCache(self, cached_statements)
 
         self.cursors = []
 
@@ -399,7 +423,7 @@ class Connection(object):
         cur = Cursor(self)
         if not isinstance(sql, (str, unicode)):
             raise Warning("SQL is of wrong type. Must be string or unicode.")
-        statement = Statement(cur, sql, self.row_factory)
+        statement = self.statement_cache.get(sql, cur, self.row_factory)
         return statement
 
     def _get_isolation_level(self):
@@ -681,6 +705,8 @@ class Connection(object):
         from sqlite3.dump import _iterdump
         return _iterdump(self)
 
+DML, DQL, DDL = range(3)
+
 class Cursor(object):
     def __init__(self, con):
         if not isinstance(con, Connection):
@@ -708,12 +734,12 @@ class Cursor(object):
         if type(sql) is unicode:
             sql = sql.encode("utf-8")
         self._check_closed()
-        self.statement = Statement(self, sql, self.row_factory)
+        self.statement = self.connection.statement_cache.get(sql, self, self.row_factory)
 
         if self.connection._isolation_level is not None:
-            if self.statement.kind == "DDL":
+            if self.statement.kind == DDL:
                 self.connection.commit()
-            elif self.statement.kind == "DML":
+            elif self.statement.kind == DML:
                 self.connection._begin()
 
         self.statement.set_params(params)
@@ -724,18 +750,18 @@ class Cursor(object):
             self.statement.reset()
             raise self.connection._get_exception(ret)
 
-        if self.statement.kind == "DQL"and ret == SQLITE_ROW:
+        if self.statement.kind == DQL and ret == SQLITE_ROW:
             self.statement._build_row_cast_map()
-            self.statement._readahead()
+            self.statement._readahead(self)
         else:
             self.statement.item = None
             self.statement.exhausted = True
 
-        if self.statement.kind in ("DML", "DDL"):
+        if self.statement.kind == DML or self.statement.kind == DDL:
             self.statement.reset()
 
         self.rowcount = -1
-        if self.statement.kind == "DML":
+        if self.statement.kind == DML:
             self.rowcount = sqlite.sqlite3_changes(self.connection.db)
 
         return self
@@ -746,8 +772,9 @@ class Cursor(object):
         if type(sql) is unicode:
             sql = sql.encode("utf-8")
         self._check_closed()
-        self.statement = Statement(self, sql, self.row_factory)
-        if self.statement.kind == "DML":
+        self.statement = self.connection.statement_cache.get(sql, self, self.row_factory)
+
+        if self.statement.kind == DML:
             self.connection._begin()
         else:
             raise ProgrammingError, "executemany is only for DML statements"
@@ -799,7 +826,7 @@ class Cursor(object):
         return self
 
     def __iter__(self):
-        return self.statement
+        return iter(self.fetchone, None)
 
     def _check_reset(self):
         if self.reset:
@@ -816,7 +843,7 @@ class Cursor(object):
             return None
 
         try:
-            return self.statement.next()
+            return self.statement.next(self)
         except StopIteration:
             return None
 
@@ -830,7 +857,7 @@ class Cursor(object):
         if size is None:
             size = self.arraysize
         lst = []
-        for row in self.statement:
+        for row in self:
             lst.append(row)
             if len(lst) == size:
                 break
@@ -841,7 +868,7 @@ class Cursor(object):
         self._check_reset()
         if self.statement is None:
             return []
-        return list(self.statement)
+        return list(self)
 
     def _getdescription(self):
         if self._description is None:
@@ -871,22 +898,24 @@ class Cursor(object):
     lastrowid = property(_getlastrowid)
 
 class Statement(object):
-    def __init__(self, cur, sql, row_factory):
+    def __init__(self, connection, sql):
         self.statement = None
         if not isinstance(sql, str):
             raise ValueError, "sql must be a string"
-        self.con = cur.connection
-        self.cur = weakref.ref(cur)
+        self.con = connection
         self.sql = sql # DEBUG ONLY
-        self.row_factory = row_factory
         first_word = self._statement_kind = sql.lstrip().split(" ")[0].upper()
         if first_word in ("INSERT", "UPDATE", "DELETE", "REPLACE"):
-            self.kind = "DML"
+            self.kind = DML
         elif first_word in ("SELECT", "PRAGMA"):
-            self.kind = "DQL"
+            self.kind = DQL
         else:
-            self.kind = "DDL"
+            self.kind = DDL
         self.exhausted = False
+        self.in_use = False
+        #
+        # set by set_row_factory
+        self.row_factory = None
 
         self.statement = c_void_p()
         next_char = c_char_p()
@@ -895,7 +924,7 @@ class Statement(object):
         if ret == SQLITE_OK and self.statement.value is None:
             # an empty statement, we work around that, as it's the least trouble
             ret = sqlite.sqlite3_prepare_v2(self.con.db, "select 42", -1, byref(self.statement), byref(next_char))
-            self.kind = "DQL"
+            self.kind = DQL
 
         if ret != SQLITE_OK:
             raise self.con._get_exception(ret)
@@ -906,6 +935,9 @@ class Statement(object):
         # sql_char should remain alive until here
 
         self._build_row_cast_map()
+
+    def set_row_factory(self, row_factory):
+        self.row_factory = row_factory
 
     def _build_row_cast_map(self):
         self.row_cast_map = []
@@ -976,6 +1008,7 @@ class Statement(object):
         ret = sqlite.sqlite3_reset(self.statement)
         if ret != SQLITE_OK:
             raise self.con._get_exception(ret)
+        self.mark_dirty()
 
         if params is None:
             if sqlite.sqlite3_bind_parameter_count(self.statement) != 0:
@@ -1006,10 +1039,7 @@ class Statement(object):
                     raise ProgrammingError("missing parameter '%s'" %param)
                 self.set_param(idx, param)
 
-    def __iter__(self):
-        return self
-
-    def next(self):
+    def next(self, cursor):
         self.con._check_closed()
         self.con._check_thread()
         if self.exhausted:
@@ -1025,10 +1055,10 @@ class Statement(object):
             sqlite.sqlite3_reset(self.statement)
             raise exc
 
-        self._readahead()
+        self._readahead(cursor)
         return item
 
-    def _readahead(self):
+    def _readahead(self, cursor):
         self.column_count = sqlite.sqlite3_column_count(self.statement)
         row = []
         for i in xrange(self.column_count):
@@ -1063,23 +1093,30 @@ class Statement(object):
 
         row = tuple(row)
         if self.row_factory is not None:
-            row = self.row_factory(self.cur(), row)
+            row = self.row_factory(cursor, row)
         self.item = row
 
     def reset(self):
         self.row_cast_map = None
-        return sqlite.sqlite3_reset(self.statement)
+        ret = sqlite.sqlite3_reset(self.statement)
+        self.in_use = False
+        self.exhausted = False
+        return ret
 
     def finalize(self):
         sqlite.sqlite3_finalize(self.statement)
         self.statement = None
+        self.in_use = False
+
+    def mark_dirty(self):
+        self.in_use = True
 
     def __del__(self):
         sqlite.sqlite3_finalize(self.statement)
         self.statement = None
 
     def _get_description(self):
-        if self.kind == "DML":
+        if self.kind == DML:
             return None
         desc = []
         for i in xrange(sqlite.sqlite3_column_count(self.statement)):

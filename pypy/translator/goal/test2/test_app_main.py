@@ -739,6 +739,19 @@ class TestNonInteractive:
         data = self.run(p + os.sep)
         assert data == p + os.sep + '\n'
 
+    def test_getfilesystemencoding(self):
+        if sys.version_info < (2, 7):
+            skip("test requires Python >= 2.7")
+        p = getscript_in_dir("""
+        import sys
+        sys.stdout.write(u'15\u20ac')
+        sys.stdout.flush()
+        """)
+        env = os.environ.copy()
+        env["LC_CTYPE"] = 'en_US.UTF-8'
+        data = self.run(p, env=env)
+        assert data == '15\xe2\x82\xac'
+
     def test_pythonioencoding(self):
         if sys.version_info < (2, 7):
             skip("test requires Python >= 2.7")

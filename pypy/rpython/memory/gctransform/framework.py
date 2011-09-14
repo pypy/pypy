@@ -7,7 +7,7 @@ from pypy.rpython.memory import gctypelayout
 from pypy.rpython.memory.gc import marksweep
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rlib.rarithmetic import ovfcheck
-from pypy.rlib import rstack, rgc
+from pypy.rlib import rgc
 from pypy.rlib.debug import ll_assert
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.translator.backendopt import graphanalyze
@@ -33,8 +33,6 @@ class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
         except AttributeError:
             pass
         else:
-            if func is rstack.stack_check:
-                return self.translator.config.translation.stackless
             if getattr(func, '_gctransformer_hint_cannot_collect_', False):
                 return False
             if getattr(func, '_gctransformer_hint_close_stack_', False):
@@ -43,17 +41,17 @@ class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
                                                               seen)
     def analyze_external_call(self, op, seen=None):
         funcobj = op.args[0].value._obj
-        if funcobj._name == 'pypy_asm_stackwalk':
+        if getattr(funcobj, 'random_effects_on_gcobjs', False):
             return True
         return graphanalyze.GraphAnalyzer.analyze_external_call(self, op,
                                                                 seen)
     def analyze_simple_operation(self, op, graphinfo):
         if op.opname in ('malloc', 'malloc_varsize'):
             flags = op.args[1].value
-            return flags['flavor'] == 'gc' and not flags.get('nocollect', False)
+            return flags['flavor'] == 'gc'
         else:
             return (op.opname in LL_OPERATIONS and
-                    LL_OPERATIONS[op.opname].canunwindgc)
+                    LL_OPERATIONS[op.opname].canmallocgc)
 
 def find_initializing_stores(collect_analyzer, graph):
     from pypy.objspace.flow.model import mkentrymap
@@ -134,8 +132,7 @@ def find_clean_setarrayitems(collect_analyzer, graph):
     return result
 
 class FrameworkGCTransformer(GCTransformer):
-    use_stackless = False
-    root_stack_depth = 163840
+    root_stack_depth = None    # for tests to override
 
     def __init__(self, translator):
         from pypy.rpython.memory.gc.base import choose_gc_from_config
@@ -152,13 +149,8 @@ class FrameworkGCTransformer(GCTransformer):
             # for regular translation: pick the GC from the config
             GCClass, GC_PARAMS = choose_gc_from_config(translator.config)
 
-        self.root_stack_jit_hook = None
         if hasattr(translator, '_jit2gc'):
             self.layoutbuilder = translator._jit2gc['layoutbuilder']
-            try:
-                self.root_stack_jit_hook = translator._jit2gc['rootstackhook']
-            except KeyError:
-                pass
         else:
             self.layoutbuilder = TransformerLayoutBuilder(translator, GCClass)
         self.layoutbuilder.transformer = self
@@ -265,7 +257,7 @@ class FrameworkGCTransformer(GCTransformer):
             malloc_fixedsize_clear_meth,
             [s_gc, s_typeid16,
              annmodel.SomeInteger(nonneg=True),
-             annmodel.SomeBool(), annmodel.SomeBool(),
+             annmodel.SomeBool(),
              annmodel.SomeBool()], s_gcref,
             inline = False)
         if hasattr(GCClass, 'malloc_fixedsize'):
@@ -274,7 +266,7 @@ class FrameworkGCTransformer(GCTransformer):
                 malloc_fixedsize_meth,
                 [s_gc, s_typeid16,
                  annmodel.SomeInteger(nonneg=True),
-                 annmodel.SomeBool(), annmodel.SomeBool(),
+                 annmodel.SomeBool(),
                  annmodel.SomeBool()], s_gcref,
                 inline = False)
         else:
@@ -283,12 +275,11 @@ class FrameworkGCTransformer(GCTransformer):
 ##         self.malloc_varsize_ptr = getfn(
 ##             GCClass.malloc_varsize.im_func,
 ##             [s_gc] + [annmodel.SomeInteger(nonneg=True) for i in range(5)]
-##             + [annmodel.SomeBool(), annmodel.SomeBool()], s_gcref)
+##             + [annmodel.SomeBool()], s_gcref)
         self.malloc_varsize_clear_ptr = getfn(
             GCClass.malloc_varsize_clear.im_func,
             [s_gc, s_typeid16]
-            + [annmodel.SomeInteger(nonneg=True) for i in range(4)]
-            + [annmodel.SomeBool()], s_gcref)
+            + [annmodel.SomeInteger(nonneg=True) for i in range(4)], s_gcref)
         self.collect_ptr = getfn(GCClass.collect.im_func,
             [s_gc, annmodel.SomeInteger()], annmodel.s_None)
         self.can_move_ptr = getfn(GCClass.can_move.im_func,
@@ -342,13 +333,11 @@ class FrameworkGCTransformer(GCTransformer):
                 malloc_fast_meth,
                 "malloc_fast")
             s_False = annmodel.SomeBool(); s_False.const = False
-            s_True  = annmodel.SomeBool(); s_True .const = True
             self.malloc_fast_ptr = getfn(
                 malloc_fast,
                 [s_gc, s_typeid16,
                  annmodel.SomeInteger(nonneg=True),
-                 s_True, s_False,
-                 s_False], s_gcref,
+                 s_False, s_False], s_gcref,
                 inline = True)
         else:
             self.malloc_fast_ptr = None
@@ -362,15 +351,13 @@ class FrameworkGCTransformer(GCTransformer):
                 GCClass.malloc_varsize_clear.im_func,
                 "malloc_varsize_clear_fast")
             s_False = annmodel.SomeBool(); s_False.const = False
-            s_True  = annmodel.SomeBool(); s_True .const = True
             self.malloc_varsize_clear_fast_ptr = getfn(
                 malloc_varsize_clear_fast,
                 [s_gc, s_typeid16,
                  annmodel.SomeInteger(nonneg=True),
                  annmodel.SomeInteger(nonneg=True),
                  annmodel.SomeInteger(nonneg=True),
-                 annmodel.SomeInteger(nonneg=True),
-                 s_True], s_gcref,
+                 annmodel.SomeInteger(nonneg=True)], s_gcref,
                 inline = True)
         else:
             self.malloc_varsize_clear_fast_ptr = None
@@ -491,21 +478,9 @@ class FrameworkGCTransformer(GCTransformer):
                                     [s_gc, annmodel.SomeInteger()],
                                     annmodel.SomeInteger())
 
-        # experimental gc_x_* operations
-        s_x_pool  = annmodel.SomePtr(marksweep.X_POOL_PTR)
-        s_x_clone = annmodel.SomePtr(marksweep.X_CLONE_PTR)
-        # the x_*() methods use some regular mallocs that must be
-        # transformed in the normal way
-        self.x_swap_pool_ptr = getfn(GCClass.x_swap_pool.im_func,
-                                     [s_gc, s_x_pool],
-                                     s_x_pool,
-                                     minimal_transform = False)
-        self.x_clone_ptr = getfn(GCClass.x_clone.im_func,
-                                 [s_gc, s_x_clone],
-                                 annmodel.s_None,
-                                 minimal_transform = False)
-
         # thread support
+        if translator.config.translation.continuation:
+            root_walker.need_stacklet_support(self, getfn)
         if translator.config.translation.thread:
             root_walker.need_thread_support(self, getfn)
 
@@ -547,8 +522,8 @@ class FrameworkGCTransformer(GCTransformer):
     #    this method is attached to the instance and redirects to
     #    layoutbuilder.get_type_id().
 
-    def finalizer_funcptr_for_type(self, TYPE):
-        return self.layoutbuilder.finalizer_funcptr_for_type(TYPE)
+    def special_funcptr_for_type(self, TYPE):
+        return self.layoutbuilder.special_funcptr_for_type(TYPE)
 
     def gc_header_for(self, obj, needs_hash=False):
         hdr = self.gcdata.gc.gcheaderbuilder.header_of_object(obj)
@@ -682,7 +657,6 @@ class FrameworkGCTransformer(GCTransformer):
     def gct_fv_gc_malloc(self, hop, flags, TYPE, *args):
         op = hop.spaceop
         flavor = flags['flavor']
-        c_can_collect = rmodel.inputconst(lltype.Bool, not flags.get('nocollect', False))
 
         PTRTYPE = op.result.concretetype
         assert PTRTYPE.TO == TYPE
@@ -691,21 +665,23 @@ class FrameworkGCTransformer(GCTransformer):
         c_type_id = rmodel.inputconst(TYPE_ID, type_id)
         info = self.layoutbuilder.get_info(type_id)
         c_size = rmodel.inputconst(lltype.Signed, info.fixedsize)
-        has_finalizer = bool(self.finalizer_funcptr_for_type(TYPE))
+        kind_and_fptr = self.special_funcptr_for_type(TYPE)
+        has_finalizer = (kind_and_fptr is not None and
+                         kind_and_fptr[0] == "finalizer")
         c_has_finalizer = rmodel.inputconst(lltype.Bool, has_finalizer)
 
         if not op.opname.endswith('_varsize') and not flags.get('varsize'):
             #malloc_ptr = self.malloc_fixedsize_ptr
             zero = flags.get('zero', False)
             if (self.malloc_fast_ptr is not None and
-                c_can_collect.value and not c_has_finalizer.value and
+                not c_has_finalizer.value and
                 (self.malloc_fast_is_clearing or not zero)):
                 malloc_ptr = self.malloc_fast_ptr
             elif zero:
                 malloc_ptr = self.malloc_fixedsize_clear_ptr
             else:
                 malloc_ptr = self.malloc_fixedsize_ptr
-            args = [self.c_const_gc, c_type_id, c_size, c_can_collect,
+            args = [self.c_const_gc, c_type_id, c_size,
                     c_has_finalizer, rmodel.inputconst(lltype.Bool, False)]
         else:
             assert not c_has_finalizer.value
@@ -718,17 +694,15 @@ class FrameworkGCTransformer(GCTransformer):
             if flags.get('nonmovable') and self.malloc_varsize_nonmovable_ptr:
                 # we don't have tests for such cases, let's fail
                 # explicitely
-                assert c_can_collect.value
                 malloc_ptr = self.malloc_varsize_nonmovable_ptr
                 args = [self.c_const_gc, c_type_id, v_length]
             else:
-                if (self.malloc_varsize_clear_fast_ptr is not None and
-                    c_can_collect.value):
+                if self.malloc_varsize_clear_fast_ptr is not None:
                     malloc_ptr = self.malloc_varsize_clear_fast_ptr
                 else:
                     malloc_ptr = self.malloc_varsize_clear_ptr
                 args = [self.c_const_gc, c_type_id, v_length, c_size,
-                        c_varitemsize, c_ofstolength, c_can_collect]
+                        c_varitemsize, c_ofstolength]
         livevars = self.push_roots(hop)
         v_result = hop.genop("direct_call", [malloc_ptr] + args,
                              resulttype=llmemory.GCREF)
@@ -768,8 +742,13 @@ class FrameworkGCTransformer(GCTransformer):
                   resultvar=op.result)
 
     def gct_gc_assume_young_pointers(self, hop):
+        if not hasattr(self, 'assume_young_pointers_ptr'):
+            return
         op = hop.spaceop
         v_addr = op.args[0]
+        if v_addr.concretetype != llmemory.Address:
+            v_addr = hop.genop('cast_ptr_to_adr',
+                               [v_addr], resulttype=llmemory.Address)
         hop.genop("direct_call", [self.assume_young_pointers_ptr,
                                   self.c_const_gc, v_addr])
 
@@ -788,68 +767,90 @@ class FrameworkGCTransformer(GCTransformer):
         hop.genop("direct_call", [self.get_member_index_ptr, self.c_const_gc,
                                   v_typeid], resultvar=op.result)
 
+    def _gc_adr_of_gc_attr(self, hop, attrname):
+        if getattr(self.gcdata.gc, attrname, None) is None:
+            raise NotImplementedError("gc_adr_of_%s only for generational gcs"
+                                      % (attrname,))
+        op = hop.spaceop
+        ofs = llmemory.offsetof(self.c_const_gc.concretetype.TO,
+                                'inst_' + attrname)
+        c_ofs = rmodel.inputconst(lltype.Signed, ofs)
+        v_gc_adr = hop.genop('cast_ptr_to_adr', [self.c_const_gc],
+                             resulttype=llmemory.Address)
+        hop.genop('adr_add', [v_gc_adr, c_ofs], resultvar=op.result)
+
     def gct_gc_adr_of_nursery_free(self, hop):
-        if getattr(self.gcdata.gc, 'nursery_free', None) is None:
-            raise NotImplementedError("gc_adr_of_nursery_free only for generational gcs")
-        op = hop.spaceop
-        ofs = llmemory.offsetof(self.c_const_gc.concretetype.TO,
-                                'inst_nursery_free')
-        c_ofs = rmodel.inputconst(lltype.Signed, ofs)
-        v_gc_adr = hop.genop('cast_ptr_to_adr', [self.c_const_gc],
-                             resulttype=llmemory.Address)
-        hop.genop('adr_add', [v_gc_adr, c_ofs], resultvar=op.result)
-
+        self._gc_adr_of_gc_attr(hop, 'nursery_free')
     def gct_gc_adr_of_nursery_top(self, hop):
-        if getattr(self.gcdata.gc, 'nursery_top', None) is None:
-            raise NotImplementedError("gc_adr_of_nursery_top only for generational gcs")
-        op = hop.spaceop
-        ofs = llmemory.offsetof(self.c_const_gc.concretetype.TO,
-                                'inst_nursery_top')
-        c_ofs = rmodel.inputconst(lltype.Signed, ofs)
-        v_gc_adr = hop.genop('cast_ptr_to_adr', [self.c_const_gc],
-                             resulttype=llmemory.Address)
-        hop.genop('adr_add', [v_gc_adr, c_ofs], resultvar=op.result)
+        self._gc_adr_of_gc_attr(hop, 'nursery_top')
 
-    def gct_gc_adr_of_root_stack_top(self, hop):
+    def _gc_adr_of_gcdata_attr(self, hop, attrname):
         op = hop.spaceop
         ofs = llmemory.offsetof(self.c_const_gcdata.concretetype.TO,
-                                'inst_root_stack_top')
+                                'inst_' + attrname)
         c_ofs = rmodel.inputconst(lltype.Signed, ofs)
         v_gcdata_adr = hop.genop('cast_ptr_to_adr', [self.c_const_gcdata],
                                  resulttype=llmemory.Address)
         hop.genop('adr_add', [v_gcdata_adr, c_ofs], resultvar=op.result)
 
+    def gct_gc_adr_of_root_stack_base(self, hop):
+        self._gc_adr_of_gcdata_attr(hop, 'root_stack_base')
+    def gct_gc_adr_of_root_stack_top(self, hop):
+        self._gc_adr_of_gcdata_attr(hop, 'root_stack_top')
+
+    def gct_gc_shadowstackref_new(self, hop):
+        op = hop.spaceop
+        livevars = self.push_roots(hop)
+        hop.genop("direct_call", [self.root_walker.gc_shadowstackref_new_ptr],
+                  resultvar=op.result)
+        self.pop_roots(hop, livevars)
+
+    def gct_gc_shadowstackref_context(self, hop):
+        op = hop.spaceop
+        hop.genop("direct_call",
+                  [self.root_walker.gc_shadowstackref_context_ptr, op.args[0]],
+                  resultvar=op.result)
+
+    def gct_gc_shadowstackref_destroy(self, hop):
+        hop.genop("direct_call",
+                  [self.root_walker.gc_shadowstackref_destroy_ptr, op.args[0]])
+
+    def gct_gc_save_current_state_away(self, hop):
+        op = hop.spaceop
+        hop.genop("direct_call",
+                  [self.root_walker.gc_save_current_state_away_ptr,
+                   op.args[0], op.args[1]])
+
+    def gct_gc_forget_current_state(self, hop):
+        hop.genop("direct_call",
+                  [self.root_walker.gc_forget_current_state_ptr])
+
+    def gct_gc_restore_state_from(self, hop):
+        op = hop.spaceop
+        hop.genop("direct_call",
+                  [self.root_walker.gc_restore_state_from_ptr,
+                   op.args[0]])
+
+    def gct_gc_start_fresh_new_state(self, hop):
+        hop.genop("direct_call",
+                  [self.root_walker.gc_start_fresh_new_state_ptr])
+
     def gct_gc_x_swap_pool(self, hop):
-        op = hop.spaceop
-        [v_malloced] = op.args
-        hop.genop("direct_call",
-                  [self.x_swap_pool_ptr, self.c_const_gc, v_malloced],
-                  resultvar=op.result)
-
+        raise NotImplementedError("old operation deprecated")
     def gct_gc_x_clone(self, hop):
-        op = hop.spaceop
-        [v_clonedata] = op.args
-        hop.genop("direct_call",
-                  [self.x_clone_ptr, self.c_const_gc, v_clonedata],
-                  resultvar=op.result)
-
+        raise NotImplementedError("old operation deprecated")
     def gct_gc_x_size_header(self, hop):
-        op = hop.spaceop
-        c_result = rmodel.inputconst(lltype.Signed,
-                                     self.gcdata.gc.size_gc_header())
-        hop.genop("same_as",
-                  [c_result],
-                  resultvar=op.result)
+        raise NotImplementedError("old operation deprecated")
 
     def gct_do_malloc_fixedsize_clear(self, hop):
         # used by the JIT (see pypy.jit.backend.llsupport.gc)
         op = hop.spaceop
-        [v_typeid, v_size, v_can_collect,
+        [v_typeid, v_size,
          v_has_finalizer, v_contains_weakptr] = op.args
         livevars = self.push_roots(hop)
         hop.genop("direct_call",
                   [self.malloc_fixedsize_clear_ptr, self.c_const_gc,
-                   v_typeid, v_size, v_can_collect,
+                   v_typeid, v_size,
                    v_has_finalizer, v_contains_weakptr],
                   resultvar=op.result)
         self.pop_roots(hop, livevars)
@@ -858,12 +859,12 @@ class FrameworkGCTransformer(GCTransformer):
         # used by the JIT (see pypy.jit.backend.llsupport.gc)
         op = hop.spaceop
         [v_typeid, v_length, v_size, v_itemsize,
-         v_offset_to_length, v_can_collect] = op.args
+         v_offset_to_length] = op.args
         livevars = self.push_roots(hop)
         hop.genop("direct_call",
                   [self.malloc_varsize_clear_ptr, self.c_const_gc,
                    v_typeid, v_length, v_size, v_itemsize,
-                   v_offset_to_length, v_can_collect],
+                   v_offset_to_length],
                   resultvar=op.result)
         self.pop_roots(hop, livevars)
 
@@ -911,8 +912,8 @@ class FrameworkGCTransformer(GCTransformer):
         c_size = rmodel.inputconst(lltype.Signed, info.fixedsize)
         malloc_ptr = self.malloc_fixedsize_ptr
         c_has_finalizer = rmodel.inputconst(lltype.Bool, False)
-        c_has_weakptr = c_can_collect = rmodel.inputconst(lltype.Bool, True)
-        args = [self.c_const_gc, c_type_id, c_size, c_can_collect,
+        c_has_weakptr = rmodel.inputconst(lltype.Bool, True)
+        args = [self.c_const_gc, c_type_id, c_size,
                 c_has_finalizer, c_has_weakptr]
 
         # push and pop the current live variables *including* the argument
@@ -979,24 +980,28 @@ class FrameworkGCTransformer(GCTransformer):
                                   v_size])
 
     def gct_gc_thread_prepare(self, hop):
-        assert self.translator.config.translation.thread
-        if hasattr(self.root_walker, 'thread_prepare_ptr'):
-            hop.genop("direct_call", [self.root_walker.thread_prepare_ptr])
+        pass   # no effect any more
 
     def gct_gc_thread_run(self, hop):
         assert self.translator.config.translation.thread
         if hasattr(self.root_walker, 'thread_run_ptr'):
+            livevars = self.push_roots(hop)
             hop.genop("direct_call", [self.root_walker.thread_run_ptr])
+            self.pop_roots(hop, livevars)
 
     def gct_gc_thread_start(self, hop):
         assert self.translator.config.translation.thread
         if hasattr(self.root_walker, 'thread_start_ptr'):
+            # only with asmgcc.  Note that this is actually called after
+            # the first gc_thread_run() in the new thread.
             hop.genop("direct_call", [self.root_walker.thread_start_ptr])
 
     def gct_gc_thread_die(self, hop):
         assert self.translator.config.translation.thread
         if hasattr(self.root_walker, 'thread_die_ptr'):
+            livevars = self.push_roots(hop)
             hop.genop("direct_call", [self.root_walker.thread_die_ptr])
+            self.pop_roots(hop, livevars)
 
     def gct_gc_thread_before_fork(self, hop):
         if (self.translator.config.translation.thread
@@ -1011,8 +1016,10 @@ class FrameworkGCTransformer(GCTransformer):
     def gct_gc_thread_after_fork(self, hop):
         if (self.translator.config.translation.thread
             and hasattr(self.root_walker, 'thread_after_fork_ptr')):
+            livevars = self.push_roots(hop)
             hop.genop("direct_call", [self.root_walker.thread_after_fork_ptr]
                                      + hop.spaceop.args)
+            self.pop_roots(hop, livevars)
 
     def gct_gc_get_type_info_group(self, hop):
         return hop.cast_result(self.c_type_info_group)
@@ -1246,28 +1253,39 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
 
     def has_finalizer(self, TYPE):
         rtti = get_rtti(TYPE)
-        return rtti is not None and hasattr(rtti._obj, 'destructor_funcptr')
+        return rtti is not None and getattr(rtti._obj, 'destructor_funcptr',
+                                            None)
+
+    def has_custom_trace(self, TYPE):
+        rtti = get_rtti(TYPE)
+        return rtti is not None and getattr(rtti._obj, 'custom_trace_funcptr',
+                                            None)
 
     def make_finalizer_funcptr_for_type(self, TYPE):
-        if self.has_finalizer(TYPE):
-            rtti = get_rtti(TYPE)
-            destrptr = rtti._obj.destructor_funcptr
-            DESTR_ARG = lltype.typeOf(destrptr).TO.ARGS[0]
-        else:
-            destrptr = None
-            DESTR_ARG = None
-
+        if not self.has_finalizer(TYPE):
+            return None
+        rtti = get_rtti(TYPE)
+        destrptr = rtti._obj.destructor_funcptr
+        DESTR_ARG = lltype.typeOf(destrptr).TO.ARGS[0]
         assert not type_contains_pyobjs(TYPE), "not implemented"
-        if destrptr:
-            typename = TYPE.__name__
-            def ll_finalizer(addr):
-                v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)
-                ll_call_destructor(destrptr, v, typename)
-            fptr = self.transformer.annotate_finalizer(ll_finalizer,
-                                                       [llmemory.Address],
-                                                       lltype.Void)
-        else:
-            fptr = lltype.nullptr(gctypelayout.GCData.FINALIZERTYPE.TO)
+        typename = TYPE.__name__
+        def ll_finalizer(addr, ignored):
+            v = llmemory.cast_adr_to_ptr(addr, DESTR_ARG)
+            ll_call_destructor(destrptr, v, typename)
+            return llmemory.NULL
+        fptr = self.transformer.annotate_finalizer(ll_finalizer,
+                [llmemory.Address, llmemory.Address], llmemory.Address)
+        return fptr
+
+    def make_custom_trace_funcptr_for_type(self, TYPE):
+        if not self.has_custom_trace(TYPE):
+            return None
+        rtti = get_rtti(TYPE)
+        fptr = rtti._obj.custom_trace_funcptr
+        if not hasattr(fptr._obj, 'graph'):
+            ll_func = fptr._obj._callable
+            fptr = self.transformer.annotate_finalizer(ll_func,
+                    [llmemory.Address, llmemory.Address], llmemory.Address)
         return fptr
 
 
@@ -1332,6 +1350,10 @@ class BaseRootWalker(object):
                 addr += sizeofaddr
         if collect_stack_root:
             self.walk_stack_roots(collect_stack_root)     # abstract
+
+    def need_stacklet_support(self):
+        raise Exception("%s does not support stacklets" % (
+            self.__class__.__name__,))
 
     def need_thread_support(self, gctransformer, getfn):
         raise Exception("%s does not support threads" % (

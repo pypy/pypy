@@ -29,6 +29,7 @@ class X86RegisterManager(RegisterManager):
     all_regs = [eax, ecx, edx, ebx, esi, edi]
     no_lower_byte_regs = [esi, edi]
     save_around_call_regs = [eax, edx, ecx]
+    frame_reg = ebp
 
     REGLOC_TO_GCROOTMAP_REG_INDEX = {
         ebx: 1,
@@ -302,8 +303,11 @@ class RegAlloc(object):
                     self.fm.frame_bindings[arg] = loc
             else:
                 if isinstance(loc, RegLoc):
-                    self.rm.reg_bindings[arg] = loc
-                    used[loc] = None
+                    if loc is ebp:
+                        self.rm.bindings_to_frame_reg[arg] = None
+                    else:
+                        self.rm.reg_bindings[arg] = loc
+                        used[loc] = None
                 else:
                     self.fm.frame_bindings[arg] = loc
         self.rm.free_regs = []
@@ -793,8 +797,8 @@ class RegAlloc(object):
 
     def consider_call(self, op):
         effectinfo = op.getdescr().get_extra_info()
-        if effectinfo is not None:
-            oopspecindex = effectinfo.oopspecindex
+        oopspecindex = effectinfo.oopspecindex
+        if oopspecindex != EffectInfo.OS_NONE:
             if IS_X86_32:
                 # support for some of the llong operations,
                 # which only exist on x86-32
@@ -1308,8 +1312,8 @@ class RegAlloc(object):
                                             self.assembler.datablockwrapper)
 
     def consider_force_token(self, op):
-        loc = self.rm.force_allocate_reg(op.result)
-        self.Perform(op, [], loc)
+        # the FORCE_TOKEN operation returns directly 'ebp'
+        self.rm.force_allocate_frame_reg(op.result)
 
     def not_implemented_op(self, op):
         not_implemented("not implemented operation: %s" % op.getopname())

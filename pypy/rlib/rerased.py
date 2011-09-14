@@ -117,6 +117,10 @@ def new_erasing_pair(name):
 
     return erase, unerase
 
+def new_static_erasing_pair(name):
+    erase, unerase = new_erasing_pair(name)
+    return staticmethod(erase), staticmethod(unerase)
+
 
 # ---------- implementation-specific ----------
 

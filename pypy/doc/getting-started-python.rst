@@ -67,7 +67,6 @@ the version you have is not 4.2 or you will run into `this bug`_.
    * ``libssl-dev`` (for the optional ``_ssl`` module)
    * ``libgc-dev`` (for the Boehm garbage collector: only needed when translating with `--opt=0, 1` or `size`)
    * ``python-sphinx`` (for the optional documentation build.  You need version 1.0.7 or later)
-   * ``python-greenlet`` (for the optional stackless support in interpreted mode/testing)
 
 
 3. Translation is time-consuming -- 45 minutes on a very fast machine --
@@ -120,19 +119,8 @@ This executable can be moved around or copied on other machines; see
 Installation_ below.
 
 The ``translate.py`` script takes a very large number of options controlling
-what to translate and how.  See ``translate.py -h``. Some of the more
-interesting options (but for now incompatible with the JIT) are:
-
-   * ``--stackless``: this produces a pypy-c that includes features
-     inspired by `Stackless Python <http://www.stackless.com>`__.
-
-   * ``--gc=boehm|ref|marknsweep|semispace|generation|hybrid|minimark``:
-     choose between using
-     the `Boehm-Demers-Weiser garbage collector`_, our reference
-     counting implementation or one of own collector implementations
-     (the default depends on the optimization level but is usually
-     ``minimark``).
-
+what to translate and how.  See ``translate.py -h``. The default options
+should be suitable for mostly everybody by now.
 Find a more detailed description of the various options in our `configuration
 sections`_.
 

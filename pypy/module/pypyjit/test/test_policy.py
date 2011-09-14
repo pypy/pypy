@@ -34,7 +34,9 @@ def test_property():
 
 def test_thread_local():
     from pypy.module.thread.os_local import Local
+    from pypy.module.thread.os_thread import get_ident
     assert pypypolicy.look_inside_function(Local.getdict.im_func)
+    assert pypypolicy.look_inside_function(get_ident)
 
 def test_pypy_module():
     from pypy.module._collections.interp_deque import W_Deque
