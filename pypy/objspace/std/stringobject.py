@@ -362,7 +362,7 @@ def str_join__String_ANY(space, w_self, w_list):
 from pypy.rlib.jit import JitDriver
 
 one = JitDriver(greens = [], reds = ['size', 'reslen', 'self', 'list_w'])
-two = JitDriver(greens = [], reds = ['i', 'list_w', 'size', 'sb', 'self',
+two = JitDriver(greens = [], reds = ['i', 'size', 'list_w', 'sb', 'self',
                                      'w_self'])
 
 def _str_join_compute_reslen(space, self, list_w, size):
