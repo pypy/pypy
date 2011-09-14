@@ -44,21 +44,23 @@ class W_Continulet(Wrappable):
 
     def switch(self, w_to):
         sthread = self.sthread
-        if sthread is None:
-            global_state.clear()
-            raise geterror(self.space, "continulet not initialized yet")
-        if sthread.is_empty_handle(self.h):
+        if sthread is not None and sthread.is_empty_handle(self.h):
             global_state.clear()
             raise geterror(self.space, "continulet already finished")
         to = self.space.interp_w(W_Continulet, w_to, can_be_None=True)
+        if to is not None and to.sthread is None:
+            to = None
+        if sthread is None:      # if self is non-initialized:
+            if to is not None:   #     if we are given a 'to'
+                self = to        #         then just use it and ignore 'self'
+                sthread = self.sthread
+                to = None
+            else:
+                return get_result()  # else: no-op
         if to is not None:
             if to.sthread is not sthread:
                 global_state.clear()
-                if to.sthread is None:
-                    msg = "continulet not initialized yet"
-                else:
-                    msg = "cross-thread double switch"
-                raise geterror(self.space, msg)
+                raise geterror(self.space, "cross-thread double switch")
             if self is to:    # double-switch to myself: no-op
                 return get_result()
             if sthread.is_empty_handle(to.h):

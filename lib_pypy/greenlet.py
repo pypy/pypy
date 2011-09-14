@@ -48,23 +48,23 @@ class greenlet(_continulet):
     def switch(self, *args):
         "Switch execution to this greenlet, optionally passing the values "
         "given as argument(s).  Returns the value passed when switching back."
-        return self.__switch(_continulet.switch, args)
+        return self.__switch('switch', args)
 
     def throw(self, typ=GreenletExit, val=None, tb=None):
         "raise exception in greenlet, return value passed when switching back"
-        return self.__switch(_continulet.throw, typ, val, tb)
+        return self.__switch('throw', typ, val, tb)
 
-    def __switch(target, unbound_method, *args):
+    def __switch(target, methodname, *args):
         current = getcurrent()
         #
         while not target:
             if not target.__started:
-                if unbound_method != _continulet.throw:
+                if methodname == 'switch':
                     greenlet_func = _greenlet_start
                 else:
                     greenlet_func = _greenlet_throw
                 _continulet.__init__(target, greenlet_func, *args)
-                unbound_method = _continulet.switch
+                methodname = 'switch'
                 args = ()
                 target.__started = True
                 break
@@ -75,22 +75,8 @@ class greenlet(_continulet):
             target = target.parent
         #
         try:
-            if current.__main:
-                if target.__main:
-                    # switch from main to main
-                    if unbound_method == _continulet.throw:
-                        raise args[0], args[1], args[2]
-                    (args,) = args
-                else:
-                    # enter from main to target
-                    args = unbound_method(target, *args)
-            else:
-                if target.__main:
-                    # leave to go to target=main
-                    args = unbound_method(current, *args)
-                else:
-                    # switch from non-main to non-main
-                    args = unbound_method(current, *args, to=target)
+            unbound_method = getattr(_continulet, methodname)
+            args = unbound_method(current, *args, to=target)
         except GreenletExit, e:
             args = (e,)
         finally:
