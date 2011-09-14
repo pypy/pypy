@@ -229,7 +229,7 @@ def new_stacklet_callback(h, arg):
         assert self.sthread.ec.topframeref() is None
         self.sthread.ec.topframeref = jit.non_virtual_ref(self.bottomframe)
         if global_state.propagate_exception is not None:
-            raise global_state.propagate_exception   # just propagate it further
+            raise global_state.propagate_exception  # just propagate it further
         if global_state.w_value is not space.w_None:
             raise OperationError(space.w_TypeError, space.wrap(
                 "can't send non-None value to a just-started continulet"))
