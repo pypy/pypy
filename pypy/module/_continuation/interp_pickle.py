@@ -4,6 +4,7 @@ from pypy.interpreter.pyframe import PyFrame
 from pypy.module._continuation.interp_continuation import State, global_state
 from pypy.module._continuation.interp_continuation import build_sthread
 from pypy.module._continuation.interp_continuation import post_switch
+from pypy.module._continuation.interp_continuation import get_result
 
 
 def getunpickle(space):
@@ -18,13 +19,12 @@ def reduce(self):
     # Doing the right thing looks involved, though...
     space = self.space
     if self.sthread is None:
-        raise geterror(space, "cannot pickle (yet) a continulet that is "
-                              "not initialized")
-    if self.sthread.is_empty_handle(self.h):
-        raise geterror(space, "cannot pickle (yet) a continulet that is "
-                              "already finished")
+        w_frame = space.w_False
+    elif self.sthread.is_empty_handle(self.h):
+        w_frame = space.w_None
+    else:
+        w_frame = space.wrap(self.bottomframe)
     w_continulet_type = space.type(space.wrap(self))
-    w_frame = space.wrap(self.bottomframe)
     w_dict = self.getdict(space) or space.w_None
     args = [getunpickle(space),
             space.newtuple([w_continulet_type]),
@@ -38,16 +38,19 @@ def setstate(self, w_args):
                               "initialized continulet")
     space = self.space
     w_frame, w_dict = space.fixedview(w_args, expected_length=2)
-    self.bottomframe = space.interp_w(PyFrame, w_frame)
     if not space.is_w(w_dict, space.w_None):
-        self.setdict(w_dict)
+        self.setdict(space, w_dict)
+    if space.is_w(w_frame, space.w_False):
+        return    # not initialized
+    sthread = build_sthread(self.space)
+    self.sthread = sthread
+    self.bottomframe = space.interp_w(PyFrame, w_frame, can_be_None=True)
     #
     global_state.origin = self
-    sthread = build_sthread(self.space)
-    sthread.frame2continulet.set(self.bottomframe, self)
-    self.sthread = sthread
+    if self.bottomframe is not None:
+        sthread.frame2continulet.set(self.bottomframe, self)
     self.h = sthread.new(resume_trampoline_callback)
-    global_state.origin = None
+    get_result()    # propagate the eventual MemoryError
 
 # ____________________________________________________________
 
@@ -55,42 +58,46 @@ def resume_trampoline_callback(h, arg):
     self = global_state.origin
     self.h = h
     space = self.space
+    sthread = self.sthread
     try:
-        sthread = self.sthread
-        h = sthread.switch(self.h)
-        try:
-            w_result = post_switch(sthread, h)
-            operr = None
-        except OperationError, operr:
-            pass
-        #
-        while True:
-            ec = sthread.ec
-            frame = ec.topframeref()
-            assert frame is not None     # XXX better error message
-            exit_continulet = sthread.frame2continulet.get(frame)
-            #
-            continue_after_call(frame)
-            #
-            # small hack: unlink frame out of the execution context, because
-            # execute_frame will add it there again
-            ec.topframeref = frame.f_backref
-            #
+        global_state.clear()
+        if self.bottomframe is None:
+            w_result = space.w_None
+        else:
+            h = sthread.switch(self.h)
             try:
-                w_result = frame.execute_frame(w_result, operr)
+                w_result = post_switch(sthread, h)
                 operr = None
             except OperationError, operr:
                 pass
-            if exit_continulet is not None:
-                self = exit_continulet
-                break
-        if operr:
-            raise operr
+            #
+            while True:
+                ec = sthread.ec
+                frame = ec.topframeref()
+                assert frame is not None     # XXX better error message
+                exit_continulet = sthread.frame2continulet.get(frame)
+                #
+                continue_after_call(frame)
+                #
+                # small hack: unlink frame out of the execution context,
+                # because execute_frame will add it there again
+                ec.topframeref = frame.f_backref
+                #
+                try:
+                    w_result = frame.execute_frame(w_result, operr)
+                    operr = None
+                except OperationError, operr:
+                    pass
+                if exit_continulet is not None:
+                    self = exit_continulet
+                    break
+            sthread.ec.topframeref = jit.vref_None
+            if operr:
+                raise operr
     except Exception, e:
         global_state.propagate_exception = e
     else:
         global_state.w_value = w_result
-    sthread.ec.topframeref = jit.vref_None
     global_state.origin = self
     global_state.destination = self
     return self.h

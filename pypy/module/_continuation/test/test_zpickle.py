@@ -86,6 +86,20 @@ class AppTestCopy:
             assert not co.is_pending()
         ''' in mod.__dict__
 
+    def test_copy_continulet_already_finished(self):
+        from _continuation import continulet, error
+        import copy
+        lst = []
+        co = continulet(lst.append)
+        co.switch()
+        co2 = copy.deepcopy(co)
+        assert not co.is_pending()
+        assert not co2.is_pending()
+        raises(error, co.__init__, lst.append)
+        raises(error, co2.__init__, lst.append)
+        raises(error, co.switch)
+        raises(error, co2.switch)
+
 
 class AppTestPickle:
     version = 0
@@ -110,7 +124,6 @@ class AppTestPickle:
         cls.w_version = cls.space.wrap(cls.version)
 
     def test_pickle_continulet_empty(self):
-        skip("pickle a not-initialized continulet")
         from _continuation import continulet
         lst = [4]
         co = continulet.__new__(continulet)
@@ -129,7 +142,6 @@ class AppTestPickle:
         assert result == [5, co2]
 
     def test_pickle_continulet_empty_subclass(self):
-        skip("pickle a not-initialized continulet")
         from test_pickle_continulet import continulet, A
         lst = [4]
         co = continulet.__new__(A)
@@ -186,6 +198,46 @@ class AppTestPickle:
             print repr(pckl)
             co2 = pickle.loads(pckl)
             #
+            res = co2.switch()
+            assert res == 42
+            assert co2.is_pending()
+            res = co2.switch()
+            assert res == 43
+            assert not co2.is_pending()
+            #
+            res = co.switch()
+            assert res == 42
+            assert co.is_pending()
+            res = co.switch()
+            assert res == 43
+            assert not co.is_pending()
+        ''' in mod.__dict__
+
+    def test_pickle_continulet_real_subclass(self):
+        import new, sys
+        mod = new.module('test_pickle_continulet_real_subclass')
+        sys.modules['test_pickle_continulet_real_subclass'] = mod
+        mod.version = self.version
+        exec '''if 1:
+            from _continuation import continulet
+            import pickle
+            class A(continulet):
+                def __init__(self):
+                    crash
+            def f(co):
+                co.switch(co.x + 1)
+                co.switch(co.x + 2)
+                return co.x + 3
+            co = A.__new__(A)
+            continulet.__init__(co, f)
+            co.x = 40
+            res = co.switch()
+            assert res == 41
+            pckl = pickle.dumps(co, version)
+            print repr(pckl)
+            co2 = pickle.loads(pckl)
+            #
+            assert type(co2) is A
             res = co2.switch()
             assert res == 42
             assert co2.is_pending()
