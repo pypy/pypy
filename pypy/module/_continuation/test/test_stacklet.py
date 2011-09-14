@@ -13,7 +13,7 @@ class AppTestStacklet(BaseAppTest):
         from _continuation import continulet
         #
         def empty_callback(c):
-            pass
+            never_called
         #
         c = continulet(empty_callback)
         assert type(c) is continulet
