@@ -51,16 +51,7 @@ class coroutine(object):
         """
         current = _getcurrent()
         try:
-            if current._is_main:
-                if self._is_main:
-                    pass
-                else:
-                    self._frame.switch()
-            else:
-                if self._is_main:
-                    current._frame.switch()
-                else:
-                    current._frame.switch(to=self._frame)
+            current._frame.switch(to=self._frame)
         finally:
             _tls.current_coroutine = current
 
@@ -68,16 +59,7 @@ class coroutine(object):
         """coro.kill() : kill coroutine coro"""
         current = _getcurrent()
         try:
-            if current._is_main:
-                if self._is_main:
-                    raise CoroutineExit
-                else:
-                    self._frame.throw(CoroutineExit)
-            else:
-                if self._is_main:
-                    current._frame.throw(CoroutineExit)
-                else:
-                    current._frame.throw(CoroutineExit, to=self._frame)
+            current._frame.throw(CoroutineExit, to=self._frame)
         finally:
             _tls.current_coroutine = current
 
