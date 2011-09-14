@@ -3277,7 +3277,27 @@ class BaseLLtypeTests(BasicTests):
             return n
 
         self.meta_interp(f, [10], repeat=3)
-        
+
+    def test_jit_merge_point_with_pbc(self):
+        driver = JitDriver(greens = [], reds = ['x'])
+
+        class A(object):
+            def __init__(self, x):
+                self.x = x
+            def _freeze_(self):
+                return True
+        pbc = A(1)
+
+        def main(x):
+            return f(x, pbc)
+
+        def f(x, pbc):
+            while x > 0:
+                driver.jit_merge_point(x = x)
+                x -= pbc.x
+            return x
+
+        self.meta_interp(main, [10])
 
     def test_look_inside_iff_const(self):
         @look_inside_iff(lambda arg: isconstant(arg))

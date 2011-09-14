@@ -72,6 +72,10 @@ def next__SeqIter(space, w_seqiter):
     w_seqiter.index += 1 
     return w_item
 
+# XXX __length_hint__()
+##def len__SeqIter(space,  w_seqiter):
+##    return w_seqiter.getlength(space)
+
 
 def iter__FastTupleIter(space, w_seqiter):
     return w_seqiter
@@ -88,6 +92,10 @@ def next__FastTupleIter(space, w_seqiter):
         raise OperationError(space.w_StopIteration, space.w_None) 
     w_seqiter.index = index + 1
     return w_item
+
+# XXX __length_hint__()
+##def len__FastTupleIter(space, w_seqiter):
+##    return w_seqiter.getlength(space)
 
 
 def iter__FastListIter(space, w_seqiter):
@@ -106,6 +114,10 @@ def next__FastListIter(space, w_seqiter):
     w_seqiter.index = index + 1
     return w_item
 
+# XXX __length_hint__()
+##def len__FastListIter(space, w_seqiter):
+##    return w_seqiter.getlength(space)
+
 
 def iter__ReverseSeqIter(space, w_seqiter):
     return w_seqiter
@@ -123,5 +135,20 @@ def next__ReverseSeqIter(space, w_seqiter):
         raise OperationError(space.w_StopIteration, space.w_None) 
     return w_item
 
+# XXX __length_hint__()
+##def len__ReverseSeqIter(space, w_seqiter):
+##    if w_seqiter.w_seq is None:
+##        return space.wrap(0)
+##    index = w_seqiter.index+1
+##    w_length = space.len(w_seqiter.w_seq)
+##    # if length of sequence is less than index :exhaust iterator
+##    if space.is_true(space.gt(space.wrap(w_seqiter.index), w_length)):
+##        w_len = space.wrap(0)
+##        w_seqiter.w_seq = None
+##    else:
+##        w_len =space.wrap(index)
+##    if space.is_true(space.lt(w_len,space.wrap(0))):
+##        w_len = space.wrap(0)
+##    return w_len
 
 register_all(vars())

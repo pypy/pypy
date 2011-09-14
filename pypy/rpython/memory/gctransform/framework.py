@@ -41,7 +41,7 @@ class CollectAnalyzer(graphanalyze.BoolGraphAnalyzer):
                                                               seen)
     def analyze_external_call(self, op, seen=None):
         funcobj = op.args[0].value._obj
-        if funcobj._name == 'pypy_asm_stackwalk':
+        if getattr(funcobj, 'random_effects_on_gcobjs', False):
             return True
         return graphanalyze.GraphAnalyzer.analyze_external_call(self, op,
                                                                 seen)

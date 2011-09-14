@@ -43,16 +43,29 @@ class W_Continulet(Wrappable):
             raise getmemoryerror(self.space)
 
     def switch(self, w_to):
+        sthread = self.sthread
+        if sthread is not None and sthread.is_empty_handle(self.h):
+            start_state.clear()
+            raise geterror(self.space, "continulet already finished")
         to = self.space.interp_w(W_Continulet, w_to, can_be_None=True)
+        if to is not None and to.sthread is None:
+            to = None
+        if sthread is None:      # if self is non-initialized:
+            if to is not None:   #     if we are given a 'to'
+                self = to        #         then just use it and ignore 'self'
+                sthread = self.sthread
+                to = None
+            else:
+                return get_result()  # else: no-op
         if to is not None:
-            if to.sthread is None:
+            if to.sthread is not sthread:
                 start_state.clear()
-                raise geterror(self.space, "continulet not initialized yet")
+                raise geterror(self.space, "cross-thread double switch")
             if self is to:    # double-switch to myself: no-op
                 return get_result()
-        if self.sthread is None:
-            start_state.clear()
-            raise geterror(self.space, "continulet not initialized yet")
+            if sthread.is_empty_handle(to.h):
+                start_state.clear()
+                raise geterror(self.space, "continulet already finished")
         ec = self.check_sthread()
         #
         start_state.origin = self
@@ -63,14 +76,8 @@ class W_Continulet(Wrappable):
             # double switch: the final destination is to.h
             start_state.destination = to
         #
-        h = start_state.destination.h
-        sthread = self.sthread
-        if sthread.is_empty_handle(h):
-            start_state.clear()
-            raise geterror(self.space, "continulet already finished")
-        #
         try:
-            do_switch(sthread, h)
+            do_switch(sthread, start_state.destination.h)
         except MemoryError:
             start_state.clear()
             raise getmemoryerror(self.space)
