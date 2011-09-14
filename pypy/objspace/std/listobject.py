@@ -104,7 +104,6 @@ class W_ListObject(W_Object):
         return self.strategy.clone(self)
 
     def copy_into(self, other):
-        # XXX what is this used for?
         self.strategy.copy_into(self, other)
 
     def contains(self, w_obj):
@@ -632,7 +631,6 @@ class AbstractUnwrappedStrategy(object):
         w_list.setitem(index, w_item)
 
     def setslice(self, w_list, start, step, slicelength, w_other):
-        #XXX inefficient XXX XXX why?
         assert slicelength >= 0
         items = self.unerase(w_list.lstorage)
 
@@ -689,7 +687,6 @@ class AbstractUnwrappedStrategy(object):
                 return
             else:
                 # Make a shallow copy to more easily handle the reversal case
-                # XXX why is this needed ???
                 w_list.reverse()
                 return
                 #other_items = list(other_items)
@@ -1006,7 +1003,6 @@ def eq__List_List(space, w_list1, w_list2):
     # XXX in theory, this can be implemented more efficiently as well. let's
     # not care for now
     i = 0
-                                   # is this necessary? XXX yes, it is, because eq_w can change any of the two lists. check whether a test for this exists!
     while i < w_list1.length() and i < w_list2.length():
         if not space.eq_w(w_list1.getitem(i), w_list2.getitem(i)):
             return space.w_False
@@ -1277,8 +1273,6 @@ class CustomKeyCompareSort(CustomCompareSort):
 
 def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
 
-    #XXX so far sorting always wraps list
-    # XXX is this still true?
     has_cmp = not space.is_w(w_cmp, space.w_None)
     has_key = not space.is_w(w_keyfunc, space.w_None)
     has_reverse = space.is_true(w_reverse)
