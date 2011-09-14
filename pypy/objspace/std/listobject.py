@@ -279,8 +279,7 @@ class EmptyListStrategy(ListStrategy):
         return self.emptylist
 
     def getstorage_copy(self, w_list):
-        # XXX this is inconsistent with init_from_list_w, where the storage is None!
-        return self.erase(self.emptylist)
+        return self.erase(None)
 
     def append(self, w_list, w_item):
         # XXX this should be done by checking the type of the object directly
