@@ -347,7 +347,7 @@ INVALID = 2
 SLOTS_STARTING_FROM = 3
 
 
-class BaseMapdictObject: # slightly evil to make it inherit from W_Root
+class BaseMapdictObject:
     _mixin_ = True
 
     def _init_empty(self, map):
