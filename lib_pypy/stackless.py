@@ -16,7 +16,6 @@ CoroutineExit = TaskletExit
 
 class coroutine(object):
     "we can't have continulet as a base, because continulets can't be rebound"
-    _is_main = False
 
     def __init__(self):
         self._frame = None
@@ -100,7 +99,8 @@ def _coroutine_create_main():
     # create the main coroutine for this thread
     _tls.current_coroutine = None
     main_coroutine = coroutine()
-    main_coroutine._is_main = True
+    typ = _continuation.continulet
+    main_coroutine._frame = typ.__new__(typ)
     _tls.main_coroutine = main_coroutine
     _tls.current_coroutine = main_coroutine
 
