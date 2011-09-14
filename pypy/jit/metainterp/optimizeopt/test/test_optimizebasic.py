@@ -4711,7 +4711,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
-<<<<<<< local
     def test_empty_copystrunicontent(self):
         ops = """
         [p0, p1, i0, i2, i3]

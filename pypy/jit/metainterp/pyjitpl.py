@@ -401,19 +401,17 @@ class MIFrame(object):
         self.metainterp.heapcache.new_array(resbox, lengthbox)
         return resbox
 
-    @arguments("box", "descr", "box")
-    def _opimpl_getarrayitem_gc_any(self, arraybox, arraydescr, indexbox):
+    def _do_getarrayitem_gc_any(self, op, arraybox, arraydescr, indexbox):
         tobox = self.metainterp.heapcache.getarrayitem(
                 arraybox, arraydescr, indexbox)
         if tobox:
             # sanity check: see whether the current array value
             # corresponds to what the cache thinks the value is
-            resbox = executor.execute(self.metainterp.cpu, self.metainterp,
-                                      rop.GETARRAYITEM_GC, arraydescr, arraybox, indexbox)
+            resbox = executor.execute(self.metainterp.cpu, self.metainterp, op,
+                                      arraydescr, arraybox, indexbox)
             assert resbox.constbox().same_constant(tobox.constbox())
             return tobox
-        resbox = self.execute_with_descr(rop.GETARRAYITEM_GC,
-                                         arraydescr, arraybox, indexbox)
+        resbox = self.execute_with_descr(op, arraydescr, arraybox, indexbox)
         self.metainterp.heapcache.getarrayitem_now_known(
                 arraybox, arraydescr, indexbox, resbox)
         return resbox
