@@ -276,8 +276,7 @@ def resume_trampoline_callback(h, arg):
         while True:
             ec = self.sthread.ec
             frame = ec.topframeref()
-            if frame.pycode is get_entrypoint_pycode(space):
-                break
+            last_level = frame.pycode is get_entrypoint_pycode(space)
             #
             code = frame.pycode.co_code
             instr = frame.last_instr
@@ -309,6 +308,8 @@ def resume_trampoline_callback(h, arg):
                 operr = None
             except OperationError, operr:
                 pass
+            if last_level:
+                break
         if operr:
             raise operr
     except Exception, e:

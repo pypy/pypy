@@ -21,8 +21,14 @@ class AppTestCopy:
         lst = []
         co = continulet(lst.append)
         co2, lst2 = copy.deepcopy((co, lst))
+        #
+        assert lst == []
+        co.switch()
+        assert lst == [co]
+        #
         assert lst2 == []
-        xxx
+        co2.switch()
+        assert lst2 == [co2]
 
     def test_copy_continulet_real(self):
         import new, sys
