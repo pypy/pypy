@@ -169,7 +169,6 @@ W_Continulet.typedef = TypeDef(
 
 class State:
     def __init__(self, space):
-        from pypy.interpreter.astcompiler.consts import CO_OPTIMIZED
         self.space = space
         w_module = space.getbuiltinmodule('_continuation')
         self.w_error = space.getattr(w_module, space.wrap('error'))
