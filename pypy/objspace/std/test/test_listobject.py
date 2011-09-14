@@ -360,6 +360,7 @@ class AppTestW_ListObject(object):
         l = [1,2,3]
         assert l.__contains__(2)
         assert not l.__contains__("2")
+        assert l.__contains__(1.0)
 
         l = ["1","2","3"]
         assert l.__contains__("2")
@@ -844,6 +845,20 @@ class AppTestW_ListObject(object):
         # does not crash
         l.remove(5)
         assert l[10:] == [0, 1, 2, 3, 4, 6, 7, 8, 9]
+
+    def test_mutate_while_contains(self):
+        class Mean(object):
+            def __init__(self, i):
+                self.i = i
+            def __eq__(self, other):
+                if self.i == 9 == other:
+                    del l[0]
+                    return True
+                else:
+                    return False
+        l = [Mean(i) for i in range(10)]
+        assert l.__contains__(9)
+        assert not l.__contains__(2)
 
     def test_mutate_while_extend(self):
         # this used to segfault pypy-c (with py.test -A)

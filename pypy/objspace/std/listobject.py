@@ -179,7 +179,13 @@ class ListStrategy(object):
         raise NotImplementedError
 
     def contains(self, w_list, w_obj):
-        raise NotImplementedError
+        # needs to be safe against eq_w() mutating the w_list behind our back
+        i = 0
+        while i < w_list.length(): # intentionally always calling len!
+            if self.space.eq_w(w_list.getitem(i), w_obj):
+                return True
+            i += 1
+        return False
 
     def length(self, w_list):
         raise NotImplementedError
@@ -255,7 +261,7 @@ class EmptyListStrategy(ListStrategy):
         pass
 
     def contains(self, w_list, w_obj):
-        return self.space.w_False
+        return False
 
     def length(self, w_list):
         return 0
@@ -349,11 +355,14 @@ class RangeListStrategy(ListStrategy):
             start, step, length = self.unerase(w_list.lstorage)
             obj = self.unwrap(w_obj)
             i = start
+           #if 0 <= (obj - start) <= length * step and (obj - start) % step == 0:
+           #    return True
             while i < start + step * length:
                 if i == obj:
-                    return self.space.w_True
+                    return True
                 i += step
-        return self.space.w_False
+
+        return ListStrategy.contains(self, w_list, w_obj)
 
     def length(self, w_list):
         return self.unerase(w_list.lstorage)[2]
@@ -536,11 +545,10 @@ class AbstractUnwrappedStrategy(object):
         if self.is_correct_type(w_obj):
             obj = self.unwrap(w_obj)
             l = self.unerase(w_list.lstorage)
-            #XXX why do I need to check mutation for eq_w?
             for i in l:
                 if i == obj:
-                    return self.space.w_True
-        return self.space.w_False
+                    return True
+        return ListStrategy.contains(self, w_list, w_obj)
 
     def length(self, w_list):
         return len(self.unerase(w_list.lstorage))
@@ -773,6 +781,9 @@ class ObjectListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     def init_from_list_w(self, w_list, list_w):
         w_list.lstorage = self.erase(list_w)
 
+    def contains(self, w_list, w_obj):
+        return ListStrategy.contains(self, w_list, w_obj)
+
     def getitems(self, w_list):
         return self.unerase(w_list.lstorage)
 
@@ -947,8 +958,7 @@ def delslice__List_ANY_ANY(space, w_list, w_start, w_stop):
     w_list.deleteslice(start, 1, stop-start)
 
 def contains__List_ANY(space, w_list, w_obj):
-    # needs to be safe against eq_w() mutating the w_list behind our back
-    return w_list.contains(w_obj)
+    return space.wrap(w_list.contains(w_obj))
 
 def iter__List(space, w_list):
     from pypy.objspace.std import iterobject
@@ -958,7 +968,6 @@ def add__List_List(space, w_list1, w_list2):
     w_clone = w_list1.clone()
     w_clone.extend(w_list2)
     return w_clone
-
 
 def inplace_add__List_ANY(space, w_list1, w_iterable2):
     try:
