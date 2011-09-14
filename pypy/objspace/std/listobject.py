@@ -209,7 +209,9 @@ class ListStrategy(object):
         raise NotImplementedError
 
     def mul(self, w_list, times):
-        raise NotImplementedError
+        w_newlist = w_list.clone()
+        w_newlist.inplace_mul(times)
+        return w_newlist
 
     def inplace_mul(self, w_list, times):
         raise NotImplementedError
@@ -270,13 +272,13 @@ class EmptyListStrategy(ListStrategy):
         raise IndexError
 
     def getslice(self, w_list, start, stop, step, length):
-        return W_ListObject(self.space, self.emptylist)
+        return W_ListObject(self.space, self.cached_emptylist_w)
 
     def getitems(self, w_list):
-        return self.emptylist
+        return self.cached_emptylist_w
 
     def getitems_copy(self, w_list):
-        return self.emptylist
+        return self.cached_emptylist_w
 
     def getstorage_copy(self, w_list):
         return self.erase(None)
@@ -296,9 +298,6 @@ class EmptyListStrategy(ListStrategy):
     def append(self, w_list, w_item):
         self.switch_to_correct_strategy(w_list, w_item)
         w_list.append(w_item)
-
-    def mul(self, w_list, times):
-        return w_list.clone()
 
     def inplace_mul(self, w_list, times):
         return
@@ -446,19 +445,6 @@ class RangeListStrategy(ListStrategy):
         else:
             w_list.switch_to_object_strategy()
         w_list.append(w_item)
-
-    def mul(self, w_list, times):
-        #XXX is this faster?
-        if times == 0:
-            strategy = self.space.fromcache(IntegerListStrategy)
-            storage = strategy.erase([])
-        else:
-            l = self._getitems_range(w_list, False)
-            l *= times
-            strategy = self.space.fromcache(IntegerListStrategy)
-            storage = strategy.erase(l)
-        w_newlist = W_ListObject.from_storage_and_strategy(self.space, storage, strategy)
-        return w_newlist
 
     def inplace_mul(self, w_list, times):
         self.switch_to_integer_strategy(w_list)
@@ -756,12 +742,6 @@ class AbstractUnwrappedStrategy(object):
 
         w_item = self.wrap(item)
         return w_item
-
-    def mul(self, w_list, times):
-        # XXX can't this be the default implementation in ListStrategy?
-        w_newlist = w_list.clone()
-        w_newlist.inplace_mul(times)
-        return w_newlist
 
     def inplace_mul(self, w_list, times):
         l = self.unerase(w_list.lstorage)
