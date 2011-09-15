@@ -1016,6 +1016,7 @@ class AllocOpAssembler(object):
                                     result=result)
 
     def emit_op_new(self, op, arglocs, regalloc, fcond):
+        self.propagate_memoryerror_if_r0_is_null()
         return fcond
 
     def emit_op_new_with_vtable(self, op, arglocs, regalloc, fcond):
@@ -1035,6 +1036,7 @@ class AllocOpAssembler(object):
         self.mc.STR_ri(r.ip.value, loc.value, imm=ofs_length)
 
     def emit_op_new_array(self, op, arglocs, regalloc, fcond):
+        self.propagate_memoryerror_if_r0_is_null()
         if len(arglocs) > 0:
             value_loc, base_loc, ofs_length = arglocs
             self.mc.STR_ri(value_loc.value, base_loc.value, ofs_length.value)

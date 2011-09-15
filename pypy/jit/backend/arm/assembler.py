@@ -78,6 +78,7 @@ class AssemblerARM(ResOpAssembler):
         self.malloc_slowpath = 0
         self._regalloc = None
         self.datablockwrapper = None
+        self.propagate_exception_path = 0
 
     def setup(self, looptoken, operations):
         self.current_clt = looptoken.compiled_loop_token
@@ -104,6 +105,7 @@ class AssemblerARM(ResOpAssembler):
         gc_ll_descr.initialize()
         ll_new = gc_ll_descr.get_funcptr_for_new()
         self.malloc_func_addr = rffi.cast(lltype.Signed, ll_new)
+        self.propagate_exception_path = self._build_propagate_exception_path()
         if gc_ll_descr.get_funcptr_for_newarray is not None:
             ll_new_array = gc_ll_descr.get_funcptr_for_newarray()
             self.malloc_array_func_addr = rffi.cast(lltype.Signed,
@@ -146,6 +148,34 @@ class AssemblerARM(ResOpAssembler):
                                  self._reacquire_gil_shadowstack)
         self.releasegil_addr  = rffi.cast(lltype.Signed, releasegil_func)
         self.reacqgil_addr = rffi.cast(lltype.Signed, reacqgil_func)
+
+    def _gen_leave_jitted_hook_code(self, save_exc=False):
+        mc = ARMv7Builder()
+        # XXX add a check if cpu supports floats
+        with saved_registers(mc, r.caller_resp + [r.ip], r.caller_vfp_resp):
+            addr = self.cpu.get_on_leave_jitted_int(save_exception=save_exc)
+            mc.BL(addr)
+        assert self._exit_code_addr != 0
+        mc.B(self._exit_code_addr)
+        return mc.materialize(self.cpu.asmmemmgr, [],
+                               self.cpu.gc_ll_descr.gcrootmap)
+
+    def _build_propagate_exception_path(self):
+        if self.cpu.propagate_exception_v < 0:
+            return      # not supported (for tests, or non-translated)
+        #
+        mc = ARMv7Builder()
+        # call on_leave_jitted_save_exc()
+        # XXX add a check if cpu supports floats
+        with saved_registers(mc, r.caller_resp + [r.ip], r.caller_vfp_resp):
+            addr = self.cpu.get_on_leave_jitted_int(save_exception=True)
+            mc.BL(addr)
+        mc.gen_load_int(r.ip.value, self.cpu.propagate_exception_v)
+        mc.MOV_rr(r.r0.value, r.ip.value)
+        self.gen_func_epilog(mc=mc)
+        return mc.materialize(self.cpu.asmmemmgr, [],
+                               self.cpu.gc_ll_descr.gcrootmap)
+
 
     def setup_failure_recovery(self):
 
@@ -290,24 +320,27 @@ class AssemblerARM(ResOpAssembler):
             mc.BL(addr)
             for reg, ofs in ARMv7RegisterMananger.REGLOC_TO_COPY_AREA_OFS.items():
                 mc.LDR_ri(reg.value, r.fp.value, imm=ofs)
+
+        mc.CMP_ri(r.r0.value, 0)
+        jmp_pos = self.mc.currpos()
+        self.mc.NOP()
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
         mc.gen_load_int(r.r1.value, nursery_free_adr)
         mc.LDR_ri(r.r1.value, r.r1.value)
         # see above
         mc.POP([r.ip.value, r.pc.value])
+
+        pmc = OverwritingBuilder(mc, jmp_pos, WORD)
+        pmc.B_offs(jmp_pos, c=c.EQ)
+        mc.B(self.propagate_exception_path)
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])
         self.malloc_slowpath = rawstart
 
-    def _gen_leave_jitted_hook_code(self, save_exc=False):
-        mc = ARMv7Builder()
-        # XXX add a check if cpu supports floats
-        with saved_registers(mc, r.caller_resp + [r.ip], r.caller_vfp_resp):
-            addr = self.cpu.get_on_leave_jitted_int(save_exception=save_exc)
-            mc.BL(addr)
-        assert self._exit_code_addr != 0
-        mc.B(self._exit_code_addr)
-        return mc.materialize(self.cpu.asmmemmgr, [],
-                               self.cpu.gc_ll_descr.gcrootmap)
+    def propagate_memoryerror_if_r0_is_null(self):
+        # see ../x86/assembler.py:propagate_memoryerror_if_eax_is_null
+        self.mc.CMP_ri(r.r0.value, 0)
+        self.mc.B(self.propagate_exception_path, c=c.EQ)
+
     def _gen_exit_path(self):
         mc = ARMv7Builder()
         decode_registers_addr = llhelper(self.recovery_func_sign, self.failure_recovery_func)
