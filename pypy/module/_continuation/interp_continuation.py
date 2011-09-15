@@ -21,16 +21,16 @@ class W_Continulet(Wrappable):
     def check_sthread(self):
         ec = self.space.getexecutioncontext()
         if ec.stacklet_thread is not self.sthread:
-            start_state.clear()
+            global_state.clear()
             raise geterror(self.space, "inter-thread support is missing")
         return ec
 
     def descr_init(self, w_callable, __args__):
         if self.sthread is not None:
             raise geterror(self.space, "continulet already __init__ialized")
-        start_state.origin = self
-        start_state.w_callable = w_callable
-        start_state.args = __args__
+        global_state.origin = self
+        global_state.w_callable = w_callable
+        global_state.args = __args__
         self.bottomframe = make_fresh_frame(self.space)
         self.sthread = build_sthread(self.space)
         try:
@@ -39,13 +39,13 @@ class W_Continulet(Wrappable):
                 raise MemoryError
         except MemoryError:
             self.sthread = None
-            start_state.clear()
+            global_state.clear()
             raise getmemoryerror(self.space)
 
     def switch(self, w_to):
         sthread = self.sthread
         if sthread is not None and sthread.is_empty_handle(self.h):
-            start_state.clear()
+            global_state.clear()
             raise geterror(self.space, "continulet already finished")
         to = self.space.interp_w(W_Continulet, w_to, can_be_None=True)
         if to is not None and to.sthread is None:
@@ -59,33 +59,33 @@ class W_Continulet(Wrappable):
                 return get_result()  # else: no-op
         if to is not None:
             if to.sthread is not sthread:
-                start_state.clear()
+                global_state.clear()
                 raise geterror(self.space, "cross-thread double switch")
             if self is to:    # double-switch to myself: no-op
                 return get_result()
             if sthread.is_empty_handle(to.h):
-                start_state.clear()
+                global_state.clear()
                 raise geterror(self.space, "continulet already finished")
         ec = self.check_sthread()
         #
-        start_state.origin = self
+        global_state.origin = self
         if to is None:
             # simple switch: going to self.h
-            start_state.destination = self
+            global_state.destination = self
         else:
             # double switch: the final destination is to.h
-            start_state.destination = to
+            global_state.destination = to
         #
         try:
-            do_switch(sthread, start_state.destination.h)
+            do_switch(sthread, global_state.destination.h)
         except MemoryError:
-            start_state.clear()
+            global_state.clear()
             raise getmemoryerror(self.space)
         #
         return get_result()
 
     def descr_switch(self, w_value=None, w_to=None):
-        start_state.w_value = w_value
+        global_state.w_value = w_value
         return self.switch(w_to)
 
     def descr_throw(self, w_type, w_val=None, w_tb=None, w_to=None):
@@ -100,8 +100,8 @@ class W_Continulet(Wrappable):
         #
         operr = OperationError(w_type, w_val, tb)
         operr.normalize_exception(space)
-        start_state.w_value = None
-        start_state.propagate_exception = operr
+        global_state.w_value = None
+        global_state.propagate_exception = operr
         return self.switch(w_to)
 
     def descr_is_pending(self):
@@ -172,7 +172,7 @@ ExecutionContext.stacklet_thread = None
 # ____________________________________________________________
 
 
-class StartState:   # xxx a single global to pass around the function to start
+class GlobalState:
     def clear(self):
         self.origin = None
         self.destination = None
@@ -180,15 +180,15 @@ class StartState:   # xxx a single global to pass around the function to start
         self.args = None
         self.w_value = None
         self.propagate_exception = None
-start_state = StartState()
-start_state.clear()
+global_state = GlobalState()
+global_state.clear()
 
 
 def new_stacklet_callback(h, arg):
-    self       = start_state.origin
-    w_callable = start_state.w_callable
-    args       = start_state.args
-    start_state.clear()
+    self       = global_state.origin
+    w_callable = global_state.w_callable
+    args       = global_state.args
+    global_state.clear()
     try:
         do_switch(self.sthread, h)
     except MemoryError:
@@ -198,30 +198,30 @@ def new_stacklet_callback(h, arg):
     try:
         assert self.sthread.ec.topframeref() is None
         self.sthread.ec.topframeref = jit.non_virtual_ref(self.bottomframe)
-        if start_state.propagate_exception is not None:
-            raise start_state.propagate_exception   # just propagate it further
-        if start_state.w_value is not space.w_None:
+        if global_state.propagate_exception is not None:
+            raise global_state.propagate_exception  # just propagate it further
+        if global_state.w_value is not space.w_None:
             raise OperationError(space.w_TypeError, space.wrap(
                 "can't send non-None value to a just-started continulet"))
 
         args = args.prepend(self.space.wrap(self))
         w_result = space.call_args(w_callable, args)
     except Exception, e:
-        start_state.propagate_exception = e
+        global_state.propagate_exception = e
     else:
-        start_state.w_value = w_result
+        global_state.w_value = w_result
     self.sthread.ec.topframeref = jit.vref_None
-    start_state.origin = self
-    start_state.destination = self
+    global_state.origin = self
+    global_state.destination = self
     return self.h
 
 
 def do_switch(sthread, h):
     h = sthread.switch(h)
-    origin = start_state.origin
-    self = start_state.destination
-    start_state.origin = None
-    start_state.destination = None
+    origin = global_state.origin
+    self = global_state.destination
+    global_state.origin = None
+    global_state.destination = None
     self.h, origin.h = origin.h, h
     #
     current = sthread.ec.topframeref
@@ -230,12 +230,12 @@ def do_switch(sthread, h):
     origin.bottomframe.f_backref = current
 
 def get_result():
-    if start_state.propagate_exception:
-        e = start_state.propagate_exception
-        start_state.propagate_exception = None
+    if global_state.propagate_exception:
+        e = global_state.propagate_exception
+        global_state.propagate_exception = None
         raise e
-    w_value = start_state.w_value
-    start_state.w_value = None
+    w_value = global_state.w_value
+    global_state.w_value = None
     return w_value
 
 def build_sthread(space):
