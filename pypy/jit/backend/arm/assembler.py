@@ -173,8 +173,7 @@ class AssemblerARM(ResOpAssembler):
         mc.gen_load_int(r.ip.value, self.cpu.propagate_exception_v)
         mc.MOV_rr(r.r0.value, r.ip.value)
         self.gen_func_epilog(mc=mc)
-        return mc.materialize(self.cpu.asmmemmgr, [],
-                               self.cpu.gc_ll_descr.gcrootmap)
+        return mc.materialize(self.cpu.asmmemmgr, [])
 
 
     def setup_failure_recovery(self):
@@ -337,6 +336,8 @@ class AssemblerARM(ResOpAssembler):
         self.malloc_slowpath = rawstart
 
     def propagate_memoryerror_if_r0_is_null(self):
+        if not self.propagate_exception_path:
+            return
         # see ../x86/assembler.py:propagate_memoryerror_if_eax_is_null
         self.mc.CMP_ri(r.r0.value, 0)
         self.mc.B(self.propagate_exception_path, c=c.EQ)

@@ -14,6 +14,7 @@ from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.tool.oparser import parse
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.annlowlevel import llhelper
+from pypy.jit.codewriter.effectinfo import EffectInfo
 
 skip_unless_arm()
 
@@ -58,7 +59,7 @@ class TestARM(LLtypeBackendTest):
         expected = [3, 7, 11, 15, 19, 23, 27, 3, 7, 11, 15, 19, 23, 27]
         assert output == expected
 
-    def test_redirect_call_assember(self):
+    def test_redirect_call_assember2(self):
         called = []
         def assembler_helper(failindex, virtualizable):
             return self.cpu.get_latest_value_int(0)
@@ -71,7 +72,8 @@ class TestARM(LLtypeBackendTest):
             assembler_helper_adr = llmemory.cast_ptr_to_adr(
                 _assembler_helper_ptr)
         FakeJitDriverSD.portal_calldescr = self.cpu.calldescrof(
-            lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed)), [lltype.Signed], lltype.Signed)
+            lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed)),
+                [lltype.Signed], lltype.Signed, EffectInfo.MOST_GENERAL)
         lt1, lt2, lt3 = [LoopToken() for x in range(3)]
         lt2.outermost_jitdriver_sd = FakeJitDriverSD()
         loop1 = parse('''

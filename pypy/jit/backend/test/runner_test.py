@@ -521,7 +521,7 @@ class BaseBackendTest(Runner):
             assert res.value == 2 * num
 
             # last, try it with one constant argument
-            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, EffectInfo.MOST_GENERAL)
             res = self.execute_operation(rop.CALL,
                                          [funcbox, ConstInt(num), BoxInt(num)],
                                          'int', descr=calldescr)
