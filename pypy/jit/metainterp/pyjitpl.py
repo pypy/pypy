@@ -401,6 +401,7 @@ class MIFrame(object):
         self.metainterp.heapcache.new_array(resbox, lengthbox)
         return resbox
 
+    @specialize.arg(1)
     def _do_getarrayitem_gc_any(self, op, arraybox, arraydescr, indexbox):
         tobox = self.metainterp.heapcache.getarrayitem(
                 arraybox, arraydescr, indexbox)
