@@ -359,43 +359,26 @@ def str_join__String_ANY(space, w_self, w_list):
 
     return _str_join_many_items(space, w_self, list_w, size)
 
-from pypy.rlib.jit import JitDriver
-
-one = JitDriver(greens = [], reds = ['size', 'reslen', 'self', 'list_w'])
-two = JitDriver(greens = [], reds = ['i', 'size', 'list_w', 'sb', 'self',
-                                     'w_self'])
-
-def _str_join_compute_reslen(space, self, list_w, size):
+def _str_join_many_items(space, w_self, list_w, size):
+    self = w_self._value
     reslen = len(self) * (size - 1)
     for i in range(size):
-        one.jit_merge_point(size = size, reslen = reslen,
-                            self = self, list_w = list_w)
         w_s = list_w[i]
         if not space.isinstance_w(w_s, space.w_str):
             if space.isinstance_w(w_s, space.w_unicode):
-                return -1
+                # we need to rebuild w_list here, because the original
+                # w_list might be an iterable which we already consumed
+                w_list = space.newlist(list_w)
+                w_u = space.call_function(space.w_unicode, w_self)
+                return space.call_method(w_u, "join", w_list)
             raise operationerrfmt(
                 space.w_TypeError,
                 "sequence item %d: expected string, %s "
                 "found", i, space.type(w_s).getname(space))
         reslen += len(space.str_w(w_s))
-    return reslen
-
-def _str_join_many_items(space, w_self, list_w, size):
-    self = w_self._value
-
-    reslen = _str_join_compute_reslen(space, self, list_w, size)
-    if reslen == -1:
-        # we need to rebuild w_list here, because the original
-        # w_list might be an iterable which we already consumed
-        w_list = space.newlist(list_w)
-        w_u = space.call_function(space.w_unicode, w_self)
-        return space.call_method(w_u, "join", w_list)
 
     sb = StringBuilder(reslen)
     for i in range(size):
-        two.jit_merge_point(size=size, i=i, sb=sb, list_w=list_w, self=self,
-                            w_self=w_self)
         if self and i != 0:
             sb.append(self)
         sb.append(space.str_w(list_w[i]))
