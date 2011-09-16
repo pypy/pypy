@@ -21,9 +21,6 @@ class coroutine(object):
         self._frame = None
         self.is_zombie = False
 
-    def __getattr__(self, attr):
-        return getattr(self._frame, attr)
-
     def __del__(self):
         self.is_zombie = True
         del self._frame
@@ -73,9 +70,6 @@ class coroutine(object):
         """coroutine.getcurrent() -> the currently running coroutine"""
         return _getcurrent()
     getcurrent = staticmethod(getcurrent)
-
-    def __reduce__(self):
-        raise TypeError, 'pickling is not possible based upon continulets'
 
 
 def _getcurrent():
@@ -173,34 +167,6 @@ class bomb(object):
 
     def raise_(self):
         raise self.type, self.value, self.traceback
-
-#
-# helpers for pickling
-#
-
-_stackless_primitive_registry = {}
-
-def register_stackless_primitive(thang, retval_expr='None'):
-    import types
-    func = thang
-    if isinstance(thang, types.MethodType):
-        func = thang.im_func
-    code = func.func_code
-    _stackless_primitive_registry[code] = retval_expr
-    # It is not too nice to attach info via the code object, but
-    # I can't think of a better solution without a real transform.
-
-def rewrite_stackless_primitive(coro_state, alive, tempval):
-    flags, frame, thunk, parent = coro_state
-    while frame is not None:
-        retval_expr = _stackless_primitive_registry.get(frame.f_code)
-        if retval_expr:
-            # this tasklet needs to stop pickling here and return its value.
-            tempval = eval(retval_expr, globals(), frame.f_locals)
-            coro_state = flags, frame, thunk, parent
-            break
-        frame = frame.f_back
-    return coro_state, alive, tempval
 
 #
 #
@@ -354,8 +320,6 @@ class channel(object):
         """
         return self._channel_action(None, -1)
 
-    register_stackless_primitive(receive, retval_expr='receiver.tempval')
-
     def send_exception(self, exp_type, msg):
         self.send(bomb(exp_type, exp_type(msg)))
 
@@ -372,9 +336,7 @@ class channel(object):
         the runnables list.
         """
         return self._channel_action(msg, 1)
-            
-    register_stackless_primitive(send)
-            
+
 class tasklet(coroutine):
     """
     A tasklet object represents a tiny task in a Python thread.
@@ -480,39 +442,6 @@ class tasklet(coroutine):
             raise RuntimeError, "The current tasklet cannot be removed."
             # not sure if I will revive this  " Use t=tasklet().capture()"
         _scheduler_remove(self)
-        
-    def __reduce__(self):
-        one, two, coro_state = coroutine.__reduce__(self)
-        assert one is coroutine
-        assert two == ()
-        # we want to get rid of the parent thing.
-        # for now, we just drop it
-        a, frame, c, d = coro_state
-
-        # Removing all frames related to stackless.py.
-        # They point to stuff we don't want to be pickled.
-
-        pickleframe = frame
-        while frame is not None:
-            if frame.f_code == schedule.func_code:
-                # Removing everything including and after the
-                # call to stackless.schedule()
-                pickleframe = frame.f_back
-                break
-            frame = frame.f_back
-        if d:
-            assert isinstance(d, coroutine)
-        coro_state = a, pickleframe, c, None
-        coro_state, alive, tempval = rewrite_stackless_primitive(coro_state, self.alive, self.tempval)
-        inst_dict = self.__dict__.copy()
-        inst_dict.pop('tempval', None)
-        return self.__class__, (), (coro_state, alive, tempval, inst_dict)
-
-    def __setstate__(self, (coro_state, alive, tempval, inst_dict)):
-        coroutine.__setstate__(self, coro_state)
-        self.__dict__.update(inst_dict)
-        self.alive = alive
-        self.tempval = tempval
 
 def getmain():
     """
