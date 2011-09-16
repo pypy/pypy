@@ -661,6 +661,12 @@ class AppTestStacklet(BaseAppTest):
             assert res == "done"
         main()
 
+    def test_permute_noninitialized(self):
+        from _continuation import continulet, permute
+        permute(continulet.__new__(continulet))    # ignored
+        permute(continulet.__new__(continulet),    # ignored
+                continulet.__new__(continulet))
+
     def test_bug_finish_with_already_finished_stacklet(self):
         from _continuation import continulet, error
         # make an already-finished continulet

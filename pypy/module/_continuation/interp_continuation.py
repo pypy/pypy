@@ -255,7 +255,7 @@ def permute(space, args_w):
         cont = space.interp_w(W_Continulet, w_cont)
         if cont.sthread is not sthread:
             if cont.sthread is None:
-                raise geterror(space, "got a non-initialized continulet")
+                continue   # ignore non-initialized continulets
             else:
                 raise geterror(space, "inter-thread support is missing")
         elif sthread.is_empty_handle(cont.h):
