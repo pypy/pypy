@@ -943,6 +943,17 @@ class AppTestForRangeLists(AppTestW_ListObject):
         assert x[10:3:-2] == [9,7,5]
         assert x[1:5:-1] == []
 
+    def test_sort_range(self):
+        l = range(3,10,3)
+        l.sort()
+        assert l == [3, 6, 9]
+        l.sort(reverse = True)
+        assert l == [9, 6, 3]
+        l.sort(reverse = True)
+        assert l == [9, 6, 3]
+        l.sort()
+        assert l == [3, 6, 9]
+
 class AppTestListFastSubscr:
 
     def setup_class(cls):

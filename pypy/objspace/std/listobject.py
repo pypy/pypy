@@ -316,6 +316,9 @@ class EmptyListStrategy(ListStrategy):
         w_list.strategy = strategy
         w_list.lstorage = storage
 
+    def sort(self, w_list, reverse):
+        return
+
     def insert(self, w_list, index, w_item):
         assert index == 0
         self.append(w_list, w_item)
@@ -479,6 +482,15 @@ class RangeListStrategy(ListStrategy):
     def setslice(self, w_list, start, step, slicelength, sequence_w):
         self.switch_to_integer_strategy(w_list)
         w_list.setslice(start, step, slicelength, sequence_w)
+
+    def sort(self, w_list, reverse):
+        start, step, length = self.unerase(w_list.lstorage)
+        if step > 0 and reverse or step < 0 and not reverse:
+            start = start + step * (length - 1)
+            step = step * (-1)
+        else:
+            return
+        w_list.lstorage = self.erase([start, step, length])
 
     def insert(self, w_list, index, w_item):
         self.switch_to_integer_strategy(w_list)
@@ -1287,17 +1299,11 @@ def list_sort__List_ANY_ANY_ANY(space, w_list, w_cmp, w_keyfunc, w_reverse):
         if has_key:
             sorterclass = CustomKeySort
         else:
-            # XXX this is nonsense. just do something special for the object
-            # strategy and call sort immediately otherwise. implement sort on
-            # the empty list (and the range list, if you want)
-            if w_list.strategy is space.fromcache(IntegerListStrategy):
-                w_list.sort(has_reverse)
-                return space.w_None
-            elif w_list.strategy is space.fromcache(StringListStrategy):
-                w_list.sort(has_reverse)
-                return space.w_None
-            else:
+            if w_list.strategy is space.fromcache(ObjectListStrategy):
                 sorterclass = SimpleSort
+            else:
+                w_list.sort(has_reverse)
+                return space.w_None
 
     sorter = sorterclass(w_list.getitems(), w_list.length())
     sorter.space = space
