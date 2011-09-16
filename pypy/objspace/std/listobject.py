@@ -364,13 +364,12 @@ class RangeListStrategy(ListStrategy):
             start, step, length = self.unerase(w_list.lstorage)
             obj = self.unwrap(w_obj)
             i = start
-           #if 0 <= (obj - start) <= length * step and (obj - start) % step == 0:
-           #    return True
-            while i < start + step * length:
-                if i == obj:
-                    return True
-                i += step
-
+            if step > 0 and start <= obj <= start + (length - 1) * step and (start - obj) % step == 0:
+                return True
+            elif step < 0 and start + (length -1) * step <= obj <= start and (start - obj) % step == 0:
+                return True
+            else:
+                return False
         return ListStrategy.contains(self, w_list, w_obj)
 
     def length(self, w_list):
