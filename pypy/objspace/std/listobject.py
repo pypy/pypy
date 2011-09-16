@@ -1219,8 +1219,6 @@ class KeyContainer(baseobjspace.W_Root):
         self.w_key = w_key
         self.w_item = w_item
 
-# XXX kill next line? TimSort is already defined above
-TimSort = make_timsort_class()
 # NOTE: all the subclasses of TimSort should inherit from a common subclass,
 #       so make sure that only SimpleSort inherits directly from TimSort.
 #       This is necessary to hide the parent method TimSort.lt() from the
@@ -1237,24 +1235,6 @@ class IntSort(IntBaseTimSort):
 class StringSort(StringBaseTimSort):
     def lt(self, a, b):
         return a < b
-
-# XXX kill
-class OldIntSort(SimpleSort):
-    def lt(self, w_int1, w_int2):
-        from pypy.objspace.std.intobject import W_IntObject
-        assert isinstance(w_int1, W_IntObject)
-        assert isinstance(w_int2, W_IntObject)
-        space = self.space
-        return w_int1.intval < w_int2.intval
-
-# XXX kill
-class OldStringSort(SimpleSort):
-    def lt(self, w_str1, w_str2):
-        from pypy.objspace.std.stringobject import W_StringObject
-        assert isinstance(w_str1, W_StringObject)
-        assert isinstance(w_str2, W_StringObject)
-        space = self.space
-        return w_str1._value < w_str2._value
 
 class CustomCompareSort(SimpleSort):
     def lt(self, a, b):
