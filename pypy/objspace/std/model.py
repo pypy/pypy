@@ -452,7 +452,6 @@ class MM:
     getnewargs = StdObjSpaceMultiMethod('__getnewargs__', 1)
     # special visible multimethods
     int_w   = StdObjSpaceMultiMethod('int_w', 1, [])     # returns an unwrapped int
-    str_w   = StdObjSpaceMultiMethod('str_w', 1, [])     # returns an unwrapped string
     float_w = StdObjSpaceMultiMethod('float_w', 1, [])   # returns an unwrapped float
     uint_w  = StdObjSpaceMultiMethod('uint_w', 1, [])    # returns an unwrapped unsigned int (r_uint)
     unicode_w = StdObjSpaceMultiMethod('unicode_w', 1, [])    # returns an unwrapped list of unicode characters

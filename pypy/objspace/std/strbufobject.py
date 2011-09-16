@@ -32,6 +32,9 @@ class W_StringBufferObject(W_Object):
     def unwrap(self, space):
         return self.force()
 
+    def str_w(self, space):
+        return self.force()
+
 registerimplementation(W_StringBufferObject)
 
 # ____________________________________________________________
@@ -54,9 +57,6 @@ def delegate_buf2unicode(space, w_strbuf):
 
 def len__StringBuffer(space, w_self):
     return space.wrap(w_self.length)
-
-def str_w__StringBuffer(space, w_strbuf):
-    return w_strbuf.force()
 
 def add__StringBuffer_String(space, w_self, w_other):
     if w_self.builder.getlength() != w_self.length:

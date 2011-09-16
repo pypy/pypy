@@ -33,6 +33,9 @@ class W_StringObject(W_Object):
     def unwrap(w_self, space):
         return w_self._value
 
+    def str_w(w_self, space):
+        return w_self._value
+
 registerimplementation(W_StringObject)
 
 W_StringObject.EMPTY = W_StringObject('')
@@ -790,8 +793,6 @@ def str_zfill__String_ANY(space, w_self, w_width):
 
     return space.wrap("".join(buf))
 
-def str_w__String(space, w_str):
-    return w_str._value
 
 def hash__String(space, w_str):
     s = w_str._value

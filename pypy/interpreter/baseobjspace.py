@@ -3,7 +3,7 @@ import pypy
 from pypy.interpreter.executioncontext import ExecutionContext, ActionFlag
 from pypy.interpreter.executioncontext import UserDelAction, FrameTraceAction
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.error import new_exception_class
+from pypy.interpreter.error import new_exception_class, typed_unwrap_error_msg
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache
@@ -185,6 +185,12 @@ class W_Root(object):
         raise NotImplementedError
     def _set_mapdict_storage_and_map(self, storage, map):
         raise NotImplementedError
+
+    # -------------------------------------------------------------------
+
+    def str_w(self, space):
+        w_msg = typed_unwrap_error_msg(space, "string", self)
+        raise OperationError(space.w_TypeError, w_msg)
 
 
 class Wrappable(W_Root):
@@ -1209,6 +1215,9 @@ class ObjSpace(object):
         if self.is_w(w_obj, self.w_None):
             return None
         return self.str_w(w_obj)
+
+    def str_w(self, w_obj):
+        return w_obj.str_w(self)
 
     def realstr_w(self, w_obj):
         # Like str_w, but only works if w_obj is really of type 'str'.

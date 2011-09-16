@@ -34,6 +34,7 @@ class W_RopeObject(W_Object):
 
     def unwrap(w_self, space):
         return w_self._node.flatten_string()
+    str_w = unwrap
 
     def create_if_subclassed(w_self):
         if type(w_self) is W_RopeObject:
@@ -662,9 +663,6 @@ def str_zfill__Rope_ANY(space, w_self, w_width):
         middle = width - length
         return W_RopeObject(rope.concatenate(
             rope.multiply(zero, middle), node))
-
-def str_w__Rope(space, w_str):
-    return w_str._node.flatten_string()
 
 def hash__Rope(space, w_str):
     return wrapint(space, rope.hash_rope(w_str._node))
