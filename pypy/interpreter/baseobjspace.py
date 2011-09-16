@@ -907,7 +907,7 @@ class ObjSpace(object):
         ec.c_call_trace(frame, w_func, args)
         try:
             w_res = self.call_args(w_func, args)
-        except OperationError, e:
+        except OperationError:
             ec.c_exception_trace(frame, w_func)
             raise
         ec.c_return_trace(frame, w_func, args)
@@ -1005,8 +1005,6 @@ class ObjSpace(object):
 
     def eval(self, expression, w_globals, w_locals, hidden_applevel=False):
         "NOT_RPYTHON: For internal debugging."
-        import types
-        from pypy.interpreter.pycode import PyCode
         if isinstance(expression, str):
             compiler = self.createcompiler()
             expression = compiler.compile(expression, '?', 'eval', 0,
@@ -1018,7 +1016,6 @@ class ObjSpace(object):
     def exec_(self, statement, w_globals, w_locals, hidden_applevel=False,
               filename=None):
         "NOT_RPYTHON: For internal debugging."
-        import types
         if filename is None:
             filename = '?'
         from pypy.interpreter.pycode import PyCode
