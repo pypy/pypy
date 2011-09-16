@@ -37,7 +37,7 @@ class Assembler(object):
     def get_number_of_ops(self):
         return len(self.insts)
 
-    def get_relative_pos(self):
+    def get_rel_pos(self):
         return 4 * len(self.insts)
 
     def patch_op(self, index):

@@ -11,7 +11,7 @@ from pypy.jit.backend.x86.profagent import ProfileAgent
 from pypy.jit.backend.llsupport.llmodel import AbstractLLCPU
 from pypy.jit.backend.x86 import regloc
 from pypy.jit.backend.x86.support import values_array
-from pypy.jit.backend.ppc.ppcgen.ppc_assembler import PPCBuilder
+from pypy.jit.backend.ppc.ppcgen.ppc_assembler import AssemblerPPC
 from pypy.jit.backend.ppc.ppcgen.arch import NONVOLATILES, GPR_SAVE_AREA, WORD
 from pypy.jit.backend.ppc.ppcgen.regalloc import PPCRegisterManager, PPCFrameManager
 import sys
@@ -33,45 +33,52 @@ class PPC_64_CPU(AbstractLLCPU):
         self.supports_floats = False
         self.total_compiled_loops = 0
         self.total_compiled_bridges = 0
-        self.asm = PPCBuilder(self)
+        self.asm = AssemblerPPC(self)
 
     def compile_loop(self, inputargs, operations, looptoken, log=False):
         self.saved_descr = {}
         self.asm.assemble_loop(inputargs, operations, looptoken, log)
 
-    def compile_bridge(self, descr, inputargs, operations, looptoken):
-        self.saved_descr = {}
-        self.patch_list = []
-        self.reg_map = {}
-        self.fail_box_count = 0
+    def compile_bridge(self, faildescr, inputargs, operations, 
+                      original_loop_token, log=False):
+        clt = original_loop_token.compiled_loop_token
+        clt.compiling_a_bridge()
+        self.asm.assemble_bridge(faildescr, inputargs, operations,
+                                       original_loop_token, log=log)
 
-        codebuilder = looptoken.codebuilder
-        # jump to the bridge
-        current_pos = codebuilder.get_relative_pos()
-        offset = current_pos - descr.patch_pos
-        codebuilder.b(offset)
-        codebuilder.patch_op(descr.patch_op)
+    #def compile_bridge(self, descr, inputargs, operations, looptoken):
+    #    self.saved_descr = {}
+    #    self.patch_list = []
+    #    self.reg_map = {}
+    #    self.fail_box_count = 0
 
-        # initialize registers from memory
-        self.next_free_register = 3
-        use_index = 0
-        for index, arg in enumerate(inputargs):
-            self.reg_map[arg] = self.next_free_register
-            addr = self.fail_boxes_int.get_addr_for_num(
-                    descr.used_mem_indices[use_index])
-            codebuilder.load_from(self.next_free_register, addr)
-            self.next_free_register += 1
-            use_index += 1
-            
-        self._walk_trace_ops(codebuilder, operations)
-        self._make_epilogue(codebuilder)
+    #    codebuilder = looptoken.codebuilder
+    #    # jump to the bridge
+    #    current_pos = codebuilder.get_relative_pos()
+    #    offset = current_pos - descr.patch_pos
+    #    codebuilder.b(offset)
+    #    codebuilder.patch_op(descr.patch_op)
 
-        f = codebuilder.assemble()
-        looptoken.ppc_code = f
-        looptoken.codebuilder = codebuilder
+    #    # initialize registers from memory
+    #    self.next_free_register = 3
+    #    use_index = 0
+    #    for index, arg in enumerate(inputargs):
+    #        self.reg_map[arg] = self.next_free_register
+    #        addr = self.fail_boxes_int.get_addr_for_num(
+    #                descr.used_mem_indices[use_index])
+    #        codebuilder.load_from(self.next_free_register, addr)
+    #        self.next_free_register += 1
+    #        use_index += 1
+    #        
+    #    self._walk_trace_ops(codebuilder, operations)
+    #    self._make_epilogue(codebuilder)
 
-        self.total_compiled_bridges += 1
-        self.teardown()
+    #    f = codebuilder.assemble()
+    #    looptoken.ppc_code = f
+    #    looptoken.codebuilder = codebuilder
+
+    #    self.total_compiled_bridges += 1
+    #    self.teardown()
 
     # set value in fail_boxes_int
     def set_future_value_int(self, index, value_int):

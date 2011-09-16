@@ -3,6 +3,7 @@ from pypy.jit.backend.llsupport.regalloc import (RegisterManager, FrameManager,
                                                  compute_loop_consts)
 from pypy.jit.backend.ppc.ppcgen.arch import (WORD, MY_COPY_OF_REGS)
 from pypy.jit.backend.ppc.ppcgen.jump import remap_frame_layout_mixed
+from pypy.jit.backend.ppc.ppcgen.locations import imm
 from pypy.jit.backend.ppc.ppcgen.helper.regalloc import (_check_imm_arg, 
                                                          prepare_cmp_op)
 from pypy.jit.metainterp.history import (INT, REF, FLOAT, Const, ConstInt, 
@@ -201,6 +202,7 @@ class Regalloc(object):
     def _prepare_guard(self, op, args=None):
         if args is None:
             args = []
+        #args.append(imm(self.frame_manager.frame_depth))
         for arg in op.getfailargs():
             if arg:
                 args.append(self.loc(arg))
