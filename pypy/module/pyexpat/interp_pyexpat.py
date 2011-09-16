@@ -409,8 +409,7 @@ class W_XMLParserType(Wrappable):
         if XML_ParserFree: # careful with CPython interpreter shutdown
             XML_ParserFree(self.itself)
         if global_storage:
-            global_storage.free_nonmoving_id(
-                rffi.cast(lltype.Signed, self.itself))
+            global_storage.free_nonmoving_id(self.id)
 
     @unwrap_spec(flag=int)
     def SetParamEntityParsing(self, space, flag):
