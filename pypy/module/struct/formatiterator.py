@@ -1,9 +1,9 @@
-from pypy.interpreter.error import OperationError
-
+from pypy.rlib import jit
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rstruct.error import StructError
 from pypy.rlib.rstruct.formatiterator import FormatIterator
 from pypy.rlib.rstruct.standardfmttable import PACK_ACCEPTS_BROKEN_INPUT
+from pypy.interpreter.error import OperationError
 
 
 class PackFormatIterator(FormatIterator):
@@ -14,15 +14,17 @@ class PackFormatIterator(FormatIterator):
         self.args_index = 0
         self.result = []      # list of characters
 
+    @jit.look_inside_iff(lambda self, fmtdesc, repetitions: jit.isconstant(repetitions))
+    @specialize.arg(1)
     def operate(self, fmtdesc, repetitions):
         if fmtdesc.needcount:
             fmtdesc.pack(self, repetitions)
         else:
             for i in range(repetitions):
                 fmtdesc.pack(self)
-    operate._annspecialcase_ = 'specialize:arg(1)'
     _operate_is_specialized_ = True
 
+    @jit.unroll_safe
     def align(self, mask):
         pad = (-len(self.result)) & mask
         for i in range(pad):
