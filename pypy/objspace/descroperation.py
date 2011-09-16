@@ -872,7 +872,7 @@ for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
             _impl_maker = _make_unaryop_impl
         if _impl_maker:
             setattr(DescrOperation,_name,_impl_maker(_symbol,_specialnames))
-        elif _name not in ['is_', 'id','type','issubtype',
+        elif _name not in ['is_', 'id','type',
                            # not really to be defined in DescrOperation
                            'ord', 'unichr', 'unicode']:
             raise Exception, "missing def for operation %s" % _name
