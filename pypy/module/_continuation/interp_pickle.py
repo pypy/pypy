@@ -1,10 +1,11 @@
 from pypy.tool import stdlib_opcode as pythonopcode
 from pypy.rlib import jit
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.pyframe import PyFrame
 from pypy.module._continuation.interp_continuation import State, global_state
 from pypy.module._continuation.interp_continuation import build_sthread
 from pypy.module._continuation.interp_continuation import post_switch
-from pypy.module._continuation.interp_continuation import get_result
+from pypy.module._continuation.interp_continuation import get_result, geterror
 
 
 def getunpickle(space):
@@ -33,10 +34,10 @@ def reduce(self):
     return space.newtuple(args)
 
 def setstate(self, w_args):
+    space = self.space
     if self.sthread is not None:
         raise geterror(space, "continulet.__setstate__() on an already-"
                               "initialized continulet")
-    space = self.space
     w_frame, w_dict = space.fixedview(w_args, expected_length=2)
     if not space.is_w(w_dict, space.w_None):
         self.setdict(space, w_dict)
@@ -68,8 +69,9 @@ def resume_trampoline_callback(h, arg):
             try:
                 w_result = post_switch(sthread, h)
                 operr = None
-            except OperationError, operr:
-                pass
+            except OperationError, e:
+                w_result = None
+                operr = e
             #
             while True:
                 ec = sthread.ec
@@ -86,8 +88,9 @@ def resume_trampoline_callback(h, arg):
                 try:
                     w_result = frame.execute_frame(w_result, operr)
                     operr = None
-                except OperationError, operr:
-                    pass
+                except OperationError, e:
+                    w_result = None
+                    operr = e
                 if exit_continulet is not None:
                     self = exit_continulet
                     break
