@@ -21,6 +21,11 @@ def make_range_list(space, start, step, length):
         storage = strategy.erase((start, step, length))
     return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
+def make_empty_list(space):
+    strategy = space.fromcache(EmptyListStrategy)
+    storage = strategy.erase(None)
+    return W_ListObject.from_storage_and_strategy(space, storage, strategy)
+
 def get_strategy_from_list_objects(space, list_w):
     if not list_w:
         return space.fromcache(EmptyListStrategy)
@@ -921,10 +926,7 @@ def getitem__List_Slice(space, w_list, w_slice):
     start, stop, step, slicelength = w_slice.indices4(space, length)
     assert slicelength >= 0
     if slicelength == 0:
-        # XXX make helper function "new_empty_list" and use it consistently
-        strategy = space.fromcache(EmptyListStrategy)
-        storage = strategy.erase(None)
-        return W_ListObject.from_storage_and_strategy(space, storage, strategy)
+        return make_empty_list(space)
     return w_list.getslice(start, stop, step, slicelength)
 
 def getslice__List_ANY_ANY(space, w_list, w_start, w_stop):
@@ -933,10 +935,7 @@ def getslice__List_ANY_ANY(space, w_list, w_start, w_stop):
 
     slicelength = stop - start
     if slicelength == 0:
-        strategy = space.fromcache(EmptyListStrategy)
-        storage = strategy.erase(None)
-        return W_ListObject.from_storage_and_strategy(space, storage, strategy)
-
+        return make_empty_list(space)
     return w_list.getslice(start, stop, 1, stop - start)
 
 def setslice__List_ANY_ANY_List(space, w_list, w_start, w_stop, w_other):
