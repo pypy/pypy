@@ -14,7 +14,10 @@ class PackFormatIterator(FormatIterator):
         self.args_index = 0
         self.result = []      # list of characters
 
-    @jit.look_inside_iff(lambda self, fmtdesc, repetitions: jit.isconstant(repetitions))
+    # This *should* be always unroll safe, the only way to get here is by
+    # unroll the interpret function, which means the fmt is const, and thus
+    # this should be const (in theory ;)
+    @jit.unroll_safe
     @specialize.arg(1)
     def operate(self, fmtdesc, repetitions):
         if fmtdesc.needcount:
