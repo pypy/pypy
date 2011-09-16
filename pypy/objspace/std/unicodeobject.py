@@ -40,8 +40,11 @@ class W_UnicodeObject(W_Object):
             return w_self
         return W_UnicodeObject(w_self._value)
 
-    def str_w(w_self, space):
-        return space.str_w(space.str(w_self))
+    def str_w(self, space):
+        return space.str_w(space.str(self))
+
+    def unicode_w(self, space):
+        return self._value
 
 W_UnicodeObject.EMPTY = W_UnicodeObject(u'')
 
@@ -101,9 +104,6 @@ def _unicode_string_comparison(space, w_uni, w_str, inverse, uni_from_str):
     if inverse:
         return space.not_(result)
     return result
-
-def unicode_w__Unicode(space, w_uni):
-    return w_uni._value
 
 def str__Unicode(space, w_uni):
     from pypy.objspace.std.unicodetype import encode_object

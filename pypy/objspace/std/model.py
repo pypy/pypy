@@ -454,7 +454,6 @@ class MM:
     int_w   = StdObjSpaceMultiMethod('int_w', 1, [])     # returns an unwrapped int
     float_w = StdObjSpaceMultiMethod('float_w', 1, [])   # returns an unwrapped float
     uint_w  = StdObjSpaceMultiMethod('uint_w', 1, [])    # returns an unwrapped unsigned int (r_uint)
-    unicode_w = StdObjSpaceMultiMethod('unicode_w', 1, [])    # returns an unwrapped list of unicode characters
     bigint_w = StdObjSpaceMultiMethod('bigint_w', 1, []) # returns an unwrapped rbigint
     # NOTE: when adding more sometype_w() methods, you need to write a
     # stub in default.py to raise a space.w_TypeError

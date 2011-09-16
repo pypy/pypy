@@ -99,6 +99,9 @@ class W_RopeUnicodeObject(W_Object):
             return w_self
         return W_RopeUnicodeObject(w_self._node)
 
+    def unicode_w(self, space):
+        return self._node.flatten_unicode()
+
 W_RopeUnicodeObject.EMPTY = W_RopeUnicodeObject(rope.LiteralStringNode.EMPTY)
 
 registerimplementation(W_RopeUnicodeObject)
@@ -159,9 +162,6 @@ def delegate_Rope2RopeUnicode(space, w_rope):
     w_uni = unicode_from_string(space, w_rope)
     assert isinstance(w_uni, W_RopeUnicodeObject) # help the annotator!
     return w_uni
-
-def unicode_w__RopeUnicode(space, w_uni):
-    return w_uni._node.flatten_unicode()
 
 def str__RopeUnicode(space, w_uni):
     return space.call_method(w_uni, 'encode')

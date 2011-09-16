@@ -36,16 +36,16 @@ class W_StringObject(W_Object):
     def str_w(w_self, space):
         return w_self._value
 
+    def unicode_w(w_self, space):
+        # XXX should this use the default encoding?
+        from pypy.objspace.std.unicodetype import plain_str2unicode
+        return plain_str2unicode(space, w_self._value)
+
 registerimplementation(W_StringObject)
 
 W_StringObject.EMPTY = W_StringObject('')
 W_StringObject.PREBUILT = [W_StringObject(chr(i)) for i in range(256)]
 del i
-
-def unicode_w__String(space, w_self):
-    # XXX should this use the default encoding?
-    from pypy.objspace.std.unicodetype import plain_str2unicode
-    return plain_str2unicode(space, w_self._value)
 
 def _is_generic(space, w_self, fun):
     v = w_self._value

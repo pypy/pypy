@@ -29,10 +29,6 @@ def uint_w__ANY(space,w_obj):
     raise OperationError(space.w_TypeError,
                          typed_unwrap_error_msg(space, "integer", w_obj))
 
-def unicode_w__ANY(space,w_obj):
-    raise OperationError(space.w_TypeError,
-                         typed_unwrap_error_msg(space, "unicode", w_obj))
-
 def bigint_w__ANY(space,w_obj):
     raise OperationError(space.w_TypeError,
                          typed_unwrap_error_msg(space, "integer", w_obj))

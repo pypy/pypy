@@ -192,6 +192,11 @@ class W_Root(object):
         w_msg = typed_unwrap_error_msg(space, "string", self)
         raise OperationError(space.w_TypeError, w_msg)
 
+    def unicode_w(self, space):
+        raise OperationError(space.w_TypeError,
+                             typed_unwrap_error_msg(space, "unicode", self))
+
+
 
 class Wrappable(W_Root):
     """A subclass of Wrappable is an internal, interpreter-level class
@@ -1222,6 +1227,9 @@ class ObjSpace(object):
             raise OperationError(self.w_TypeError,
                                  self.wrap('argument must be a string'))
         return self.str_w(w_obj)
+
+    def unicode_w(self, w_obj):
+        return w_obj.unicode_w(self)
 
     def realunicode_w(self, w_obj):
         # Like unicode_w, but only works if w_obj is really of type
