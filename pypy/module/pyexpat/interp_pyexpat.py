@@ -12,6 +12,7 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import platform
 
 import sys
+import weakref
 import py
 
 if sys.platform == "win32":
@@ -164,7 +165,7 @@ class Storage:
         if id < 0:
             id = global_storage.next_id
             global_storage.next_id += 1
-        global_storage.storage[id] = obj
+        global_storage.storage[id] = weakref.ref(obj)
         return id
 
     @staticmethod
@@ -255,7 +256,7 @@ for index, (name, params) in enumerate(HANDLERS.items()):
     src = py.code.Source("""
     def %(name)s_callback(%(first_arg)s, %(args)s):
         id = rffi.cast(lltype.Signed, %(ll_id)s)
-        userdata = global_storage.get_object(id)
+        userdata = global_storage.get_object(id)()
         space = userdata.space
         parser = userdata.parser
 
@@ -290,7 +291,7 @@ for index, (name, params) in enumerate(HANDLERS.items()):
 # and it's not modifiable via user code anyway
 def UnknownEncodingHandlerData_callback(ll_userdata, name, info):
     id = rffi.cast(lltype.Signed, ll_userdata)
-    userdata = global_storage.get_object(id)
+    userdata = global_storage.get_object(id)()
     space = userdata.space
     parser = userdata.parser
 
