@@ -135,13 +135,15 @@ class UnpackFormatIterator(FormatIterator):
         self.inputpos = 0
         self.result_w = []     # list of wrapped objects
 
+    # See above comment on operate.
+    @jit.unroll_safe
+    @specialize.arg(1)
     def operate(self, fmtdesc, repetitions):
         if fmtdesc.needcount:
             fmtdesc.unpack(self, repetitions)
         else:
             for i in range(repetitions):
                 fmtdesc.unpack(self)
-    operate._annspecialcase_ = 'specialize:arg(1)'
     _operate_is_specialized_ = True
 
     def align(self, mask):
@@ -159,7 +161,6 @@ class UnpackFormatIterator(FormatIterator):
         self.inputpos = end
         return s
 
+    @specialize.argtype(1)
     def appendobj(self, value):
         self.result_w.append(self.space.wrap(value))
-    appendobj._annspecialcase_ = 'specialize:argtype(1)'
-
