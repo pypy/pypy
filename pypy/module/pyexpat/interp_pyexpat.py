@@ -165,7 +165,7 @@ class Storage:
         if id < 0:
             id = global_storage.next_id
             global_storage.next_id += 1
-        global_storage.storage[id] = weakref.ref(obj)
+        global_storage.storage[id] = obj
         return id
 
     @staticmethod
@@ -181,7 +181,7 @@ global_storage = Storage()
 class CallbackData(Wrappable):
     def __init__(self, space, parser):
         self.space = space
-        self.parser = parser
+        self.parser = weakref.ref(parser)
 
 SETTERS = {}
 for index, (name, params) in enumerate(HANDLERS.items()):
@@ -256,9 +256,9 @@ for index, (name, params) in enumerate(HANDLERS.items()):
     src = py.code.Source("""
     def %(name)s_callback(%(first_arg)s, %(args)s):
         id = rffi.cast(lltype.Signed, %(ll_id)s)
-        userdata = global_storage.get_object(id)()
+        userdata = global_storage.get_object(id)
         space = userdata.space
-        parser = userdata.parser
+        parser = userdata.parser()
 
         handler = parser.handlers[%(index)s]
         if not handler:
@@ -291,9 +291,9 @@ for index, (name, params) in enumerate(HANDLERS.items()):
 # and it's not modifiable via user code anyway
 def UnknownEncodingHandlerData_callback(ll_userdata, name, info):
     id = rffi.cast(lltype.Signed, ll_userdata)
-    userdata = global_storage.get_object(id)()
+    userdata = global_storage.get_object(id)
     space = userdata.space
-    parser = userdata.parser
+    parser = userdata.parser()
 
     name = rffi.charp2str(name)
 
