@@ -9,7 +9,10 @@ class HeapCache(object):
     def reset(self):
         # contains boxes where the class is already known
         self.known_class_boxes = {}
-        # store the boxes that contain newly allocated objects:
+        # store the boxes that contain newly allocated objects, this maps the
+        # boxes to a bool, the bool indicates whether or not the object has
+        # escaped the trace or not, its presences in the mapping shows that it
+        # was allocated inside the trace
         self.new_boxes = {}
         # contains frame boxes that are not virtualizables
         self.nonstandard_virtualizables = {}
@@ -23,6 +26,17 @@ class HeapCache(object):
         self.length_cache = {}
 
     def invalidate_caches(self, opnum, descr, argboxes):
+        self.mark_escaped(opnum, argboxes)
+        self.clear_caches(opnum, descr, argboxes)
+
+    def mark_escaped(self, opnum, argboxes):
+        for idx, box in enumerate(argboxes):
+            # setfield_gc and setarrayitem_gc don't escape their first argument
+            if not (idx == 0 and opnum in [rop.SETFIELD_GC, rop.SETARRAYITEM_GC]):
+                if box in self.new_boxes:
+                    self.new_boxes[box] = False
+
+    def clear_caches(self, opnum, descr, argboxes):
         if opnum == rop.SETFIELD_GC:
             return
         if opnum == rop.SETARRAYITEM_GC:
@@ -73,8 +87,11 @@ class HeapCache(object):
     def nonstandard_virtualizables_now_known(self, box):
         self.nonstandard_virtualizables[box] = None
 
+    def is_unescaped(self, box):
+        return self.new_boxes.get(box, False)
+
     def new(self, box):
-        self.new_boxes[box] = None
+        self.new_boxes[box] = True
 
     def new_array(self, box, lengthbox):
         self.new(box)
@@ -145,7 +162,6 @@ class HeapCache(object):
         cache = self.heap_array_cache.setdefault(descr, {})
         indexcache = cache.get(index, None)
         cache[index] = self._do_write_with_aliasing(indexcache, box, valuebox)
-
 
     def arraylen(self, box):
         return self.length_cache.get(box, None)
