@@ -195,6 +195,8 @@ class TestLongLong:
                       [lltype.Float], lltype.SignedLongLong)
         self.do_check('cast_longlong_to_float', EffectInfo.OS_LLONG_TO_FLOAT,
                       [lltype.SignedLongLong], lltype.Float)
+        self.do_check('cast_ulonglong_to_float', EffectInfo.OS_LLONG_U_TO_FLOAT,
+                      [lltype.UnsignedLongLong], lltype.Float)
         for T1 in [lltype.SignedLongLong, lltype.UnsignedLongLong]:
             for T2 in [lltype.Signed, lltype.Unsigned]:
                 self.do_check('cast_primitive', EffectInfo.OS_LLONG_TO_INT,
