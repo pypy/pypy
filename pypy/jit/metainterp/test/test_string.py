@@ -327,7 +327,7 @@ class StringTests:
     def test_str_slice_len_surviving(self):
         _str = self._str
         longstring = _str("Unrolling Trouble")
-        mydriver = JitDriver(reds = ['i', 'a', 'sa'], greens = []) 
+        mydriver = JitDriver(reds = ['i', 'a', 'sa'], greens = [])
         def f(a):
             i = sa = a
             while i < len(longstring):
@@ -343,7 +343,7 @@ class StringTests:
         fillers = _str("abcdefghijklmnopqrstuvwxyz")
         data = _str("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
-        mydriver = JitDriver(reds = ['line', 'noise', 'res'], greens = []) 
+        mydriver = JitDriver(reds = ['line', 'noise', 'res'], greens = [])
         def f():
             line = data
             noise = fillers
@@ -370,7 +370,7 @@ class StringTests:
             def __init__(self, value):
                 self.value = value
         mydriver = JitDriver(reds = ['ratio', 'line', 'noise', 'res'],
-                             greens = []) 
+                             greens = [])
         def f():
             line = Str(data)
             noise = Str(fillers)
@@ -408,7 +408,7 @@ class StringTests:
             return len(sa)
         assert self.meta_interp(f, [16]) == f(16)
 
-    def test_loop_invariant_string_slize(self):
+    def test_loop_invariant_string_slice(self):
         _str = self._str
         mydriver = JitDriver(reds = ['i', 'n', 'sa', 's', 's1'], greens = [])
         def f(n, c):
@@ -425,7 +425,7 @@ class StringTests:
             return sa
         assert self.meta_interp(f, [16, 'a']) == f(16, 'a')
 
-    def test_loop_invariant_string_slize_boxed(self):
+    def test_loop_invariant_string_slice_boxed(self):
         class Str(object):
             def __init__(self, value):
                 self.value = value
@@ -445,7 +445,7 @@ class StringTests:
             return sa
         assert self.meta_interp(f, [16, 'a']) == f(16, 'a')
 
-    def test_loop_invariant_string_slize_in_array(self):
+    def test_loop_invariant_string_slice_in_array(self):
         _str = self._str
         mydriver = JitDriver(reds = ['i', 'n', 'sa', 's', 's1'], greens = [])
         def f(n, c):

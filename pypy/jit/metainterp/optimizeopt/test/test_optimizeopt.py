@@ -3191,15 +3191,16 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p1, i4, i3)
         '''
         expected = '''
-        [p1, i4, i3]
-        jump(p1, i3, i3)
+        [p1, i4, i3, i5]
+        setfield_gc(p1, i5, descr=valuedescr)
+        jump(p1, i3, i5, i5)
         '''
         preamble = '''
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
         i3 = call(p1, descr=plaincalldescr)
         setfield_gc(p1, i3, descr=valuedescr)
-        jump(p1, i4, i3)
+        jump(p1, i4, i3, i3)
         '''
         self.optimize_loop(ops, expected, preamble)
 
@@ -3213,16 +3214,16 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p1, i4, i3)
         '''
         expected = '''
-        [p1, i4, i3]
+        [p1, i4, i3, i5]
         setfield_gc(p1, i4, descr=valuedescr)
-        jump(p1, i3, i3)
+        jump(p1, i3, i5, i5)
         '''
         preamble = '''
         [p1, i1, i4]
         setfield_gc(p1, i1, descr=valuedescr)
         i3 = call(p1, descr=plaincalldescr)
         setfield_gc(p1, i1, descr=valuedescr)
-        jump(p1, i4, i3)
+        jump(p1, i4, i3, i3)
         '''
         self.optimize_loop(ops, expected, preamble)
 
@@ -3242,13 +3243,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape(i1)
         escape(i2)
         i4 = call(123456, 4, i0, 6, descr=plaincalldescr)
-        jump(i0, i4)
+        jump(i0, i4, i4)
         '''
         expected = '''
-        [i0, i4]
+        [i0, i4, i5]
         escape(42)
         escape(i4)
-        jump(i0, i4)
+        jump(i0, i5, i5)
         '''
         self.optimize_loop(ops, expected, preamble, call_pure_results)
 
@@ -3272,13 +3273,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape(i2)
         i4 = call(123456, 4, i0, 6, descr=plaincalldescr)
         guard_no_exception() []
-        jump(i0, i4)
+        jump(i0, i4, i4)
         '''
         expected = '''
-        [i0, i2]
+        [i0, i2, i3]
         escape(42)
         escape(i2)
-        jump(i0, i2)
+        jump(i0, i3, i3)
         '''
         self.optimize_loop(ops, expected, preamble, call_pure_results)
 

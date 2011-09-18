@@ -71,7 +71,7 @@ class OptValue(object):
             guards.append(op)
         elif self.level == LEVEL_KNOWNCLASS:
             op = ResOperation(rop.GUARD_NONNULL, [box], None)
-            guards.append(op)            
+            guards.append(op)
             op = ResOperation(rop.GUARD_CLASS, [box, self.known_class], None)
             guards.append(op)
         else:
@@ -112,7 +112,7 @@ class OptValue(object):
                     self.lenbound.bound.intersect(other.lenbound.bound)
                 else:
                     self.lenbound = other.lenbound.clone()
-                    
+
 
     def force_box(self):
         return self.box
@@ -146,7 +146,7 @@ class OptValue(object):
         assert isinstance(constbox, Const)
         self.box = constbox
         self.level = LEVEL_CONSTANT
-        
+
         if isinstance(constbox, ConstInt):
             val = constbox.getint()
             self.intbound = IntBound(val, val)
@@ -378,7 +378,7 @@ class Optimizer(Optimization):
         new.set_optimizations(optimizations)
         new.quasi_immutable_deps = self.quasi_immutable_deps
         return new
-        
+
     def produce_potential_short_preamble_ops(self, sb):
         raise NotImplementedError('This is implemented in unroll.UnrollableOptimizer')
 
@@ -505,9 +505,9 @@ class Optimizer(Optimization):
         if op.returns_bool_result():
             self.bool_boxes[self.getvalue(op.result)] = None
         self._emit_operation(op)
-        
+
     @specialize.argtype(0)
-    def _emit_operation(self, op):        
+    def _emit_operation(self, op):
         for i in range(op.numargs()):
             arg = op.getarg(i)
             try:
@@ -557,12 +557,8 @@ class Optimizer(Optimization):
 
     def make_args_key(self, op):
         n = op.numargs()
-        if op.getopnum() == rop.CALL_PURE:
-            start = 1
-        else:
-            start = 0
-        args = [None] * (n + 2 - start)
-        for i in range(start, n):
+        args = [None] * (n + 2)
+        for i in range(n):
             arg = op.getarg(i)
             try:
                 value = self.values[arg]
@@ -570,9 +566,9 @@ class Optimizer(Optimization):
                 pass
             else:
                 arg = value.get_key_box()
-            args[i - start] = arg
-        args[n - start] = ConstInt(op.getopnum())
-        args[n + 1 - start] = op.getdescr()
+            args[i] = arg
+        args[n] = ConstInt(op.getopnum())
+        args[n + 1] = op.getdescr()
         return args
 
     @specialize.argtype(0)
@@ -620,7 +616,7 @@ class Optimizer(Optimization):
 
     def remember_emitting_pure(self, op):
         pass
-    
+
     def constant_fold(self, op):
         argboxes = [self.get_constant_box(op.getarg(i))
                     for i in range(op.numargs())]
@@ -662,9 +658,9 @@ class Optimizer(Optimization):
             arrayvalue = self.getvalue(op.getarg(0))
             arrayvalue.make_len_gt(MODE_UNICODE, op.getdescr(), indexvalue.box.getint())
         self.optimize_default(op)
-        
 
-    
+
+
 
 dispatch_opt = make_dispatcher_method(Optimizer, 'optimize_',
         default=Optimizer.optimize_default)
