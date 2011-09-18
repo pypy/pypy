@@ -1,4 +1,5 @@
 from pypy.rlib import _rffi_stacklet as _c
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import lltype, llmemory
 
 DEBUG = False
@@ -7,7 +8,7 @@ DEBUG = False
 class StackletThread(object):
 
     def __init__(self, config):
-        self._gcrootfinder = _getgcrootfinder(config)
+        self._gcrootfinder = _getgcrootfinder(config, we_are_translated())
         self._thrd = _c.newthread()
         if not self._thrd:
             raise MemoryError
@@ -62,7 +63,10 @@ class StackletThreadDeleter(object):
 
 # ____________________________________________________________
 
-def _getgcrootfinder(config):
+def _getgcrootfinder(config, translated):
+    if translated:
+        assert config is not None, ("you have to pass a valid config, "
+                                    "e.g. from 'driver.config'")
     if (config is None or
         config.translation.gc in ('ref', 'boehm', 'none')):   # for tests
         gcrootfinder = 'n/a'
