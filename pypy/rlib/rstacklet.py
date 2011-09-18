@@ -67,6 +67,9 @@ def _getgcrootfinder(config, translated):
     if translated:
         assert config is not None, ("you have to pass a valid config, "
                                     "e.g. from 'driver.config'")
+    if config is not None:
+        assert config.translation.continuation, (
+            "stacklet: you have to translate with --continuation")
     if (config is None or
         config.translation.gc in ('ref', 'boehm', 'none')):   # for tests
         gcrootfinder = 'n/a'
