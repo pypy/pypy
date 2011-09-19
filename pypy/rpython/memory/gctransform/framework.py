@@ -626,8 +626,8 @@ class FrameworkGCTransformer(GCTransformer):
         func = getattr(graph, 'func', None)
         if func and getattr(func, '_gc_no_collect_', False):
             if self.collect_analyzer.analyze_direct_call(graph):
-                raise Exception("no_collect function can trigger collection: %s"
-                                % func.__name__)
+                raise Exception("'no_collect' function can trigger collection:"
+                                " %s" % func)
             
         if self.write_barrier_ptr:
             self.clean_sets = (
@@ -812,6 +812,7 @@ class FrameworkGCTransformer(GCTransformer):
                   resultvar=op.result)
 
     def gct_gc_shadowstackref_destroy(self, hop):
+        op = hop.spaceop
         hop.genop("direct_call",
                   [self.root_walker.gc_shadowstackref_destroy_ptr, op.args[0]])
 

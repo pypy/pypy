@@ -663,4 +663,5 @@ qsort = rffi.llexternal('qsort',
                          QSORT_CALLBACK_PTR],
                         lltype.Void,
                         sandboxsafe=True,
+                        random_effects_on_gcobjs=False,  # but has a callback
                         _nowrapper=True)

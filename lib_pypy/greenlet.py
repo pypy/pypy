@@ -124,8 +124,7 @@ def _greenlet_start(greenlet, args):
     try:
         res = greenlet.run(*args)
     finally:
-        if greenlet.parent is not _tls.main:
-            _continuation.permute(greenlet, greenlet.parent)
+        _continuation.permute(greenlet, greenlet.parent)
     return (res,)
 
 def _greenlet_throw(greenlet, exc, value, tb):
@@ -133,5 +132,4 @@ def _greenlet_throw(greenlet, exc, value, tb):
     try:
         raise exc, value, tb
     finally:
-        if greenlet.parent is not _tls.main:
-            _continuation.permute(greenlet, greenlet.parent)
+        _continuation.permute(greenlet, greenlet.parent)

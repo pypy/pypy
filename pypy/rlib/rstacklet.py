@@ -1,4 +1,6 @@
 from pypy.rlib import _rffi_stacklet as _c
+from pypy.rlib import jit
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import lltype, llmemory
 
 DEBUG = False
@@ -6,8 +8,9 @@ DEBUG = False
 
 class StackletThread(object):
 
+    @jit.dont_look_inside
     def __init__(self, config):
-        self._gcrootfinder = _getgcrootfinder(config)
+        self._gcrootfinder = _getgcrootfinder(config, we_are_translated())
         self._thrd = _c.newthread()
         if not self._thrd:
             raise MemoryError
@@ -16,6 +19,7 @@ class StackletThread(object):
             assert debug.sthread is None, "multithread debug support missing"
             debug.sthread = self
 
+    @jit.dont_look_inside
     def new(self, callback, arg=llmemory.NULL):
         if DEBUG:
             callback = _debug_wrapper(callback)
@@ -25,6 +29,7 @@ class StackletThread(object):
         return h
     new._annspecialcase_ = 'specialize:arg(1)'
 
+    @jit.dont_look_inside
     def switch(self, stacklet):
         if DEBUG:
             debug.remove(stacklet)
@@ -33,6 +38,7 @@ class StackletThread(object):
             debug.add(h)
         return h
 
+    @jit.dont_look_inside
     def destroy(self, stacklet):
         if DEBUG:
             debug.remove(stacklet)
@@ -62,7 +68,13 @@ class StackletThreadDeleter(object):
 
 # ____________________________________________________________
 
-def _getgcrootfinder(config):
+def _getgcrootfinder(config, translated):
+    if translated:
+        assert config is not None, ("you have to pass a valid config, "
+                                    "e.g. from 'driver.config'")
+    if config is not None:
+        assert config.translation.continuation, (
+            "stacklet: you have to translate with --continuation")
     if (config is None or
         config.translation.gc in ('ref', 'boehm', 'none')):   # for tests
         gcrootfinder = 'n/a'
