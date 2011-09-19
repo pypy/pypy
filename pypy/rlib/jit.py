@@ -117,6 +117,8 @@ def look_inside_iff(predicate):
     """
     def inner(func):
         func_unroll = unroll_safe(func_with_new_name(func, func.__name__ + "_unroll"))
+        # Remove the oopspec, it prevents inlining, which is kinda the whole
+        # point of this rigamaroll.
         if hasattr(func_unroll, "oopspec"):
             del func_unroll.oopspec
         func = dont_look_inside(func)
