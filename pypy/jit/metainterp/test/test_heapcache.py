@@ -326,3 +326,22 @@ class TestHeapCache(object):
             [None, None, box2, None, None]
         )
         assert h.getarrayitem(box4, descr1, index1) is None
+
+    def test_unescaped(self):
+        h = HeapCache()
+        assert not h.is_unescaped(box1)
+        h.new(box2)
+        assert h.is_unescaped(box2)
+        h.invalidate_caches(rop.SETFIELD_GC, None, [box2, box1])
+        assert h.is_unescaped(box2)
+        h.invalidate_caches(rop.SETFIELD_GC, None, [box1, box2])
+        assert not h.is_unescaped(box2)
+
+    def test_unescaped_array(self):
+        h = HeapCache()
+        h.new_array(box1, lengthbox1)
+        assert h.is_unescaped(box1)
+        h.invalidate_caches(rop.SETARRAYITEM_GC, None, [box1, index1, box2])
+        assert h.is_unescaped(box1)
+        h.invalidate_caches(rop.SETARRAYITEM_GC, None, [box2, index1, box1])
+        assert not h.is_unescaped(box1)
