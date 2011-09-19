@@ -118,6 +118,9 @@ def look_inside_iff(predicate):
     def inner(func):
         func_unroll = unroll_safe(func_with_new_name(func, func.__name__ + "_unroll"))
         func = dont_look_inside(func)
+        # When we return the new function, it might be specialized in some
+        # way. We "propogate" this specialization by using
+        # specialize:call_location on relevant functions.
         for thing in [func, func_unroll, predicate]:
             thing._annspecialcase_ = "specialize:call_location"
 
