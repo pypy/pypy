@@ -52,14 +52,15 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
             pypy_c_dir = basedir.join('pypy', 'translator', 'goal')
         pypy_c = pypy_c_dir.join('pypy-c.exe')
         libpypy_c = pypy_c_dir.join('libpypy-c.dll')
-        libexpat = pypy_c_dir.join('libexpat.dll')
-        if not libexpat.check():
-            libexpat = py.path.local.sysfind('libexpat.dll')
-            assert libexpat, "libexpat.dll not found"
-            print "Picking %s" % libexpat
         binaries = [(pypy_c, pypy_c.basename),
-                    (libpypy_c, libpypy_c.basename),
-                    (libexpat, libexpat.basename)]
+                    (libpypy_c, libpypy_c.basename)]
+        for extra in ['libexpat.dll', 'sqlite3.dll']:
+            p = pypy_c_dir.join(extra)
+            if not p.check():
+                p = py.path.local.sysfind(extra)
+                assert p, "%s not found" % (extra,)
+            print "Picking %s" % p
+            binaries.append((p, p.basename))
     else:
         basename = 'pypy-c'
         if override_pypy_c is None:

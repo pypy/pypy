@@ -812,6 +812,7 @@ class FrameworkGCTransformer(GCTransformer):
                   resultvar=op.result)
 
     def gct_gc_shadowstackref_destroy(self, hop):
+        op = hop.spaceop
         hop.genop("direct_call",
                   [self.root_walker.gc_shadowstackref_destroy_ptr, op.args[0]])
 
