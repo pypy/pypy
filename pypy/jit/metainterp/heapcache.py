@@ -30,11 +30,13 @@ class HeapCache(object):
         self.clear_caches(opnum, descr, argboxes)
 
     def mark_escaped(self, opnum, argboxes):
-        for idx, box in enumerate(argboxes):
+        idx = 0
+        for box in argboxes:
             # setfield_gc and setarrayitem_gc don't escape their first argument
             if not (idx == 0 and opnum in [rop.SETFIELD_GC, rop.SETARRAYITEM_GC]):
                 if box in self.new_boxes:
                     self.new_boxes[box] = False
+            idx += 1
 
     def clear_caches(self, opnum, descr, argboxes):
         if opnum == rop.SETFIELD_GC:
