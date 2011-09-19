@@ -105,7 +105,7 @@ class AssemblerARM(ResOpAssembler):
         gc_ll_descr.initialize()
         ll_new = gc_ll_descr.get_funcptr_for_new()
         self.malloc_func_addr = rffi.cast(lltype.Signed, ll_new)
-        self.propagate_exception_path = self._build_propagate_exception_path()
+        self._build_propagate_exception_path()
         if gc_ll_descr.get_funcptr_for_newarray is not None:
             ll_new_array = gc_ll_descr.get_funcptr_for_newarray()
             self.malloc_array_func_addr = rffi.cast(lltype.Signed,
@@ -173,8 +173,7 @@ class AssemblerARM(ResOpAssembler):
         mc.gen_load_int(r.ip.value, self.cpu.propagate_exception_v)
         mc.MOV_rr(r.r0.value, r.ip.value)
         self.gen_func_epilog(mc=mc)
-        return mc.materialize(self.cpu.asmmemmgr, [])
-
+        self.propagate_exception_path = mc.materialize(self.cpu.asmmemmgr, [])
 
     def setup_failure_recovery(self):
 
@@ -321,8 +320,8 @@ class AssemblerARM(ResOpAssembler):
                 mc.LDR_ri(reg.value, r.fp.value, imm=ofs)
 
         mc.CMP_ri(r.r0.value, 0)
-        jmp_pos = self.mc.currpos()
-        self.mc.NOP()
+        jmp_pos = mc.currpos()
+        mc.NOP()
         nursery_free_adr = self.cpu.gc_ll_descr.get_nursery_free_addr()
         mc.gen_load_int(r.r1.value, nursery_free_adr)
         mc.LDR_ri(r.r1.value, r.r1.value)
