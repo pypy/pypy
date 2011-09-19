@@ -210,7 +210,8 @@ class MIFrame(object):
                 self.metainterp.clear_exception()
                 resbox = self.execute(rop.%s, b1, b2)
                 self.make_result_of_lastop(resbox)  # same as execute_varargs()
-                self.metainterp.handle_possible_overflow_error()
+                if not isinstance(resbox, Const):
+                    self.metainterp.handle_possible_overflow_error()
                 return resbox
         ''' % (_opimpl, _opimpl.upper())).compile()
 
@@ -1688,6 +1689,10 @@ class MetaInterp(object):
 
     def _record_helper_nonpure_varargs(self, opnum, resbox, descr, argboxes):
         assert resbox is None or isinstance(resbox, Box)
+        if (rop._OVF_FIRST <= opnum <= rop._OVF_LAST and
+            self.last_exc_value_box is None and
+            self._all_constants_varargs(argboxes)):
+            return resbox.constbox()
         # record the operation
         profiler = self.staticdata.profiler
         profiler.count_ops(opnum, RECORDED_OPS)

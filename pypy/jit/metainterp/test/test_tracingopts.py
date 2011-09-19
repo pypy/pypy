@@ -1,7 +1,10 @@
-import py
 import sys
-from pypy.rlib import jit
+
 from pypy.jit.metainterp.test.support import LLJitMixin
+from pypy.rlib import jit
+from pypy.rlib.rarithmetic import ovfcheck
+
+import py
 
 
 class TestLLtype(LLJitMixin):
@@ -573,3 +576,18 @@ class TestLLtype(LLJitMixin):
         res = self.interp_operations(fn, [3])
         assert res == 24
         self.check_operations_history(getarrayitem_gc=0)
+
+    def test_fold_int_add_ovf(self):
+        def fn(n):
+            jit.promote(n)
+            try:
+                n = ovfcheck(n + 1)
+            except OverflowError:
+                return 12
+            else:
+                return n
+        res = self.interp_operations(fn, [3])
+        assert res == 4
+        self.check_operations_history(int_add_ovf=0)
+        res = self.interp_operations(fn, [sys.maxint])
+        assert res == 12
