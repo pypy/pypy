@@ -233,12 +233,13 @@ def _ll_list_resize_ge(l, newsize):
     else:
         _ll_list_resize_really(l, newsize)
 
+@jit.look_inside_iff(lambda l, newsize: jit.isconstant(len(l.items)) and jit.isconstant(newsize))
+@jit.oopspec("list._resize_le(l, newsize)")
 def _ll_list_resize_le(l, newsize):
     if newsize >= (len(l.items) >> 1) - 5:
         l.length = newsize
     else:
         _ll_list_resize_really(l, newsize)
-_ll_list_resize_le.oopspec = 'list._resize_le(l, newsize)'
 
 def ll_append_noresize(l, newitem):
     length = l.length
