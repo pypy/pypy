@@ -3283,6 +3283,33 @@ class OptimizeOptTest(BaseTestWithUnroll):
         '''
         self.optimize_loop(ops, expected, preamble, call_pure_results)
 
+    def test_call_pure_returning_virtual(self):
+        # XXX: This kind of loop invaraint call_pure will be forced
+        #      both in the preamble and in the peeled loop
+        ops = '''
+        [p1, i1, i2]
+        p2 = call_pure(0, p1, i1, i2, descr=strslicedescr)
+        escape(p2)
+        jump(p1, i1, i2)
+        '''
+        preamble = '''
+        [p1, i1, i2]
+        i6 = int_sub(i2, i1)
+        p2 = newstr(i6)
+        copystrcontent(p1, p2, i1, 0, i6)
+        escape(p2)
+        jump(p1, i1, i2, i6)
+        '''
+        expected = '''
+        [p1, i1, i2, i6]
+        p2 = newstr(i6)
+        copystrcontent(p1, p2, i1, 0, i6)
+        escape(p2)
+        jump(p1, i1, i2, i6)
+        '''
+        self.optimize_loop(ops, expected, preamble)
+        
+
     # ----------
 
     def test_vref_nonvirtual_nonescape(self):
@@ -5366,6 +5393,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(i1, i0)
         """
         self.optimize_strunicode_loop(ops, expected, expected)
+
+    # XXX Should some of the call's below now be call_pure?
 
     def test_str_concat_1(self):
         ops = """
