@@ -97,72 +97,105 @@ class W_ListObject(W_Object):
         return w_objectlist
 
     # ___________________________________________________
-    # methods that defer to the strategy
-    # XXX add docstrings that explain what the methods do and the requirements
-    # on their arguments (e.g. whether indexes are already positive/range
-    # checked) as well as failure modes
 
     def init_from_list_w(self, list_w):
+        """Initializes listobject by iterating through the given list of
+        wrapped items, unwrapping them if neccessary and creating a
+        new erased object as storage"""
         self.strategy.init_from_list_w(self, list_w)
 
     def clone(self):
+        """Returns a clone by creating a new listobject
+        with the same strategy and a copy of the storage"""
         return self.strategy.clone(self)
 
     def copy_into(self, other):
+        """Used only when extending an EmptyList. Sets the EmptyLists
+        strategy and storage according to the other W_List"""
         self.strategy.copy_into(self, other)
 
     def contains(self, w_obj):
+        """Returns unwrapped boolean, saying wether w_obj exists
+        in the list."""
         return self.strategy.contains(self, w_obj)
 
     def append(w_list, w_item):
+        """Appends the wrapped item to the end of the list."""
         w_list.strategy.append(w_list, w_item)
 
     def length(self):
         return self.strategy.length(self)
 
     def getitem(self, index):
+        """Returns the wrapped object that is found in the
+        list at the given index. The index must be unwrapped.
+        May raise IndexError."""
         return self.strategy.getitem(self, index)
 
     def getslice(self, start, stop, step, length):
+        """Returns a slice of the list defined by the arguments. Arguments must be
+        normalized (i.e. using normalize_simple_slice or W_Slice.indices4).
+        May raise IndexError."""
         return self.strategy.getslice(self, start, stop, step, length)
 
     def getitems(self):
+        """Returns a list of all items after wrapping them. Used only for sorting
+        an ObjectList, sorting with custom compare method or switching to ObjectListStrategy."""
         return self.strategy.getitems(self)
 
     def getitems_copy(self):
+        """Returns a copy of all items in the list. Same as getitems except for ObjectListStrategy
+        which has a different getitems method"""
         return self.strategy.getitems_copy(self)
     # ___________________________________________________
 
 
     def mul(self, times):
+        """Returns a copy of the list, multiplied by times.
+        Argument must be unwrapped."""
         return self.strategy.mul(self, times)
 
     def inplace_mul(self, times):
+        """Alters the list by multiplying its content by times."""
         self.strategy.inplace_mul(self, times)
 
     def deleteslice(self, start, step, length):
+        """Deletes a slice from the list. Used in delitem and delslice.
+        Arguments must be normalized (see getslice)."""
         self.strategy.deleteslice(self, start, step, length)
 
     def pop(self, index):
-        # XXX docstring: index already checked
+        """Pops an item from the list. Index must be normalized.
+        May raise IndexError."""
         return self.strategy.pop(self, index)
 
     def setitem(self, index, w_item):
+        """Inserts a wrapped item at the given (unwrapped) index.
+        May raise IndexError."""
         self.strategy.setitem(self, index, w_item)
 
     def setslice(self, start, step, slicelength, sequence_w):
+        """Sets the slice of the list from start to start+step*slicelength to
+        the sequence sequence_w.
+        Used by setslice and setitem."""
         self.strategy.setslice(self, start, step, slicelength, sequence_w)
 
     def insert(self, index, w_item):
+        """Inserts an item at the given position. Item must be wrapped,
+        index not."""
         self.strategy.insert(self, index, w_item)
 
     def extend(self, items_w):
+        """Appends the given list of wrapped items."""
         self.strategy.extend(self, items_w)
 
     def reverse(self):
+        """Reverses the list."""
         self.strategy.reverse(self)
 
     def sort(self, reverse):
+        """Sorts the list ascending or descending depending on
+        argument reverse. Argument must be unwrapped."""
         self.strategy.sort(self, reverse)
 
 registerimplementation(W_ListObject)
