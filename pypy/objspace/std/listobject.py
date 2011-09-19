@@ -278,7 +278,11 @@ class ListStrategy(object):
         raise NotImplementedError
 
 class EmptyListStrategy(ListStrategy):
-    # XXX add a docstring and say what the storage is
+    """EmptyListStrategy is used when a W_List withouth elements is created.
+    The storage is None. When items are added to the W_List a new RPython list
+    is created and the strategy and storage of the W_List are changed depending
+    to the added item.
+    W_Lists do not switch back to EmptyListStrategy when becoming empty again."""
 
     def __init__(self, space):
         ListStrategy.__init__(self, space)
@@ -368,7 +372,11 @@ class EmptyListStrategy(ListStrategy):
         pass
 
 class RangeListStrategy(ListStrategy):
-    # XXX add a docstring what the storage looks like
+    """RangeListStrategy is used when a list is created using the range method.
+    The storage is a tuple containing only three integers start, step and length
+    and elements are calculated based on these values.
+    On any operation destroying the range (inserting, appending non-ints)
+    the strategy is switched to IntegerListStrategy."""
 
     def switch_to_integer_strategy(self, w_list):
         items = self._getitems_range(w_list, False)
