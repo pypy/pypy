@@ -9,7 +9,7 @@ from pypy.rpython.lltypesystem.lltype import GcForwardReference, Ptr, GcArray,\
      GcStruct, Void, Signed, malloc, typeOf, nullptr, typeMethod
 from pypy.rpython.lltypesystem import rstr
 from pypy.rlib.debug import ll_assert
-from pypy.rlib import rgc
+from pypy.rlib import rgc, jit
 
 # ____________________________________________________________
 #
@@ -225,19 +225,20 @@ def _ll_list_resize(l, newsize):
     else:
         _ll_list_resize_really(l, newsize)
 
+@jit.look_inside_iff(lambda l, newsize: jit.isconstant(len(l.items)) and jit.isconstant(newsize))
+@jit.oopspec("list._resize_ge(l, newsize)")
 def _ll_list_resize_ge(l, newsize):
     if len(l.items) >= newsize:
         l.length = newsize
     else:
         _ll_list_resize_really(l, newsize)
-_ll_list_resize_ge.oopspec = 'list._resize_ge(l, newsize)'
 
 def _ll_list_resize_le(l, newsize):
     if newsize >= (len(l.items) >> 1) - 5:
         l.length = newsize
     else:
         _ll_list_resize_really(l, newsize)
-
+_ll_list_resize_le.oopspec = 'list._resize_le(l, newsize)'
 
 def ll_append_noresize(l, newitem):
     length = l.length

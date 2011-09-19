@@ -34,7 +34,7 @@ class ListTests:
                 l = [x + 1]
                 n -= 1
             return l[0]
-        
+
         res = self.meta_interp(f, [10], listops=True)
         assert res == f(10)
         self.check_all_virtualized()
@@ -60,7 +60,7 @@ class ListTests:
 
     def test_ll_fixed_setitem_fast(self):
         jitdriver = JitDriver(greens = [], reds = ['n', 'l'])
-        
+
         def f(n):
             l = [1, 2, 3]
 
@@ -116,7 +116,7 @@ class ListTests:
         assert res == f(10)
         py.test.skip("'[non-null] * n' gives a residual call so far")
         self.check_loops(setarrayitem_gc=0, getarrayitem_gc=0, call=0)
-    
+
     def test_arraycopy_simpleoptimize(self):
         def f():
             l = [1, 2, 3, 4]
@@ -207,6 +207,26 @@ class ListTests:
         res = self.meta_interp(f, [15], listops=True)
         assert res == f(15)
         self.check_loops(guard_exception=0)
+
+    def test_virtual_resize(self):
+        jitdriver = JitDriver(greens = [], reds = ['n', 's'])
+        def f(n):
+            s = 0
+            while n > 0:
+                jitdriver.jit_merge_point(n=n, s=s)
+                lst = []
+                lst += [1]
+                n -= len(lst)
+                s += lst[0]
+                lst.pop()
+                lst.append(1)
+                s /= lst.pop()
+            return s
+        res = self.meta_interp(f, [15], listops=True)
+        assert res == f(15)
+        self.check_loops({"int_add": 1, "int_sub": 1, "int_gt": 1,
+                          "guard_true": 1, "jump": 1})
+
 
 class TestOOtype(ListTests, OOJitMixin):
     pass

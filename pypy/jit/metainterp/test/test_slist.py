@@ -5,7 +5,6 @@ from pypy.rlib.jit import JitDriver
 class ListTests(object):
 
     def test_basic_list(self):
-        py.test.skip("not yet")
         myjitdriver = JitDriver(greens = [], reds = ['n', 'lst'])
         def f(n):
             lst = []

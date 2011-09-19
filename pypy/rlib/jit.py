@@ -121,14 +121,22 @@ def look_inside_iff(predicate):
         for thing in [func, func_unroll, predicate]:
             thing._annspecialcase_ = "specialize:call_location"
 
-        def f(*args):
-            if predicate(*args):
-                return func_unroll(*args)
-            else:
-                return func(*args)
+        args = _get_args(func)
+        d = {
+            "predicate": predicate,
+            "func": func,
+            "func_unroll": func_unroll,
+        }
+        exec py.code.Source("""
+            def f(%(arguments)s):
+                if predicate(%(arguments)s):
+                    return func_unroll(%(arguments)s)
+                else:
+                    return func(%(arguments)s)
+        """ % {"arguments": ", ".join(args)}).compile() in d
 
-        f.func_name = func.func_name + "_look_inside_iff"
-        return f
+        d["f"].func_name = func.func_name + "_look_inside_iff"
+        return d["f"]
     return inner
 
 def oopspec(spec):
