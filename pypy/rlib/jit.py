@@ -164,6 +164,8 @@ def isconstant(value):
     While tracing, returns whether or not the value is currently known to be
     constant. This is not perfect, values can become constant later. Mostly for
     use with @look_inside_iff.
+
+    This is for advanced usage only.
     """
     # I hate the annotator so much.
     if NonConstant(False):
@@ -176,6 +178,8 @@ def isvirtual(value):
     """
     Returns if this value is virtual, while tracing, it's relatively
     conservative and will miss some cases.
+
+    This is for advanced usage only.
     """
     if NonConstant(False):
         return True
