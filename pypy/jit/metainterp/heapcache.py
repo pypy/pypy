@@ -11,8 +11,9 @@ class HeapCache(object):
         self.known_class_boxes = {}
         # store the boxes that contain newly allocated objects, this maps the
         # boxes to a bool, the bool indicates whether or not the object has
-        # escaped the trace or not, its presences in the mapping shows that it
-        # was allocated inside the trace
+        # escaped the trace or not (True means the box never escaped, False
+        # means it did escape), its presences in the mapping shows that it was
+        # allocated inside the trace
         self.new_boxes = {}
         # Tracks which boxes should be marked as escaped when the key box
         # escapes.
