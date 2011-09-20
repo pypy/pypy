@@ -67,7 +67,7 @@ def make_template_formatting_class():
             s = self.template
             return self._do_build_string(start, end, level, out, s)
 
-        @jit.unroll_iff(lambda self, start, end, level, out, s: jit.isconstant(s))
+        @jit.look_inside_iff(lambda self, start, end, level, out, s: jit.isconstant(s))
         def _do_build_string(self, start, end, level, out, s):
             space = self.space
             last_literal = i = start
