@@ -337,6 +337,24 @@ class TestHeapCache(object):
         h.invalidate_caches(rop.SETFIELD_GC, None, [box1, box2])
         assert not h.is_unescaped(box2)
 
+    def test_unescaped_testing(self):
+        h = HeapCache()
+        h.new(box1)
+        h.new(box2)
+        assert h.is_unescaped(box1)
+        assert h.is_unescaped(box2)
+        # Putting a virtual inside of another virtual doesn't escape it.
+        h.invalidate_caches(rop.SETFIELD_GC, None, [box1, box2])
+        assert h.is_unescaped(box2)
+        # Reading a field from a virtual doesn't escape it.
+        h.invalidate_caches(rop.GETFIELD_GC, None, [box1])
+        assert h.is_unescaped(box1)
+        # Escaping a virtual transitively escapes anything inside of it.
+        assert not h.is_unescaped(box3)
+        h.invalidate_caches(rop.SETFIELD_GC, None, [box3, box1])
+        assert not h.is_unescaped(box1)
+        assert not h.is_unescaped(box2)
+
     def test_unescaped_array(self):
         h = HeapCache()
         h.new_array(box1, lengthbox1)

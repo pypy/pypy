@@ -536,3 +536,27 @@ class TestLLtypeUnicode(TestLLtype):
         self.check_loops(call_pure=0, call=1,
                          newunicode=0, unicodegetitem=0,
                          unicodesetitem=0, copyunicodecontent=0)
+
+    def test_join_chars(self):
+        jitdriver = JitDriver(reds=['a', 'b', 'c', 'i'], greens=[])
+        def f(a, b, c):
+            i = 0
+            while i < 10:
+                jitdriver.jit_merge_point(a=a, b=b, c=c, i=i)
+                x = []
+                if a:
+                    x.append("a")
+                if b:
+                    x.append("b")
+                if c:
+                    x.append("c")
+                i += len("".join(x))
+            return i
+        res = self.meta_interp(f, [1, 1, 1])
+        assert res == f(True, True, True)
+        # The "".join should be unrolled, since the length of x is known since
+        # it is virtual, ensure there are no calls to ll_join_chars, or
+        # allocations.
+        self.check_loops({
+            "guard_true": 5, "int_is_true": 3, "int_lt": 2, "int_add": 2, "jump": 2,
+        }, everywhere=True)
