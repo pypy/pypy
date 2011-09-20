@@ -54,8 +54,9 @@ class HeapCache(object):
         if box in self.new_boxes:
             self.new_boxes[box] = False
         if box in self.dependencies:
-            for dep in self.dependencies.pop(box):
+            for dep in self.dependencies[box]:
                 self._escape(dep)
+            del self.dependencies[box]
 
     def clear_caches(self, opnum, descr, argboxes):
         if opnum == rop.SETFIELD_GC:
