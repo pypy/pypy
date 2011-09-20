@@ -138,6 +138,7 @@ def look_inside_iff(predicate):
                 # trampoline.oopspec = func.oopspec
                 del func.oopspec
             trampoline.__name__ = func.__name__ + "_trampoline"
+            trampoline._annspecialcase_ = "specialize:call_location"
 
             def f(%(arguments)s):
                 if predicate(%(arguments)s):
