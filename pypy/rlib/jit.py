@@ -116,33 +116,36 @@ def look_inside_iff(predicate):
     predicate(*args) returns True
     """
     def inner(func):
-        func_unroll = unroll_safe(func_with_new_name(func, func.__name__ + "_unroll"))
-        # Remove the oopspec, it prevents inlining, which is kinda the whole
-        # point of this rigamaroll.
-        if hasattr(func_unroll, "oopspec"):
-            del func_unroll.oopspec
-        func = dont_look_inside(func)
+        func = unroll_safe(func)
         # When we return the new function, it might be specialized in some
         # way. We "propogate" this specialization by using
         # specialize:call_location on relevant functions.
-        for thing in [func, func_unroll, predicate]:
+        for thing in [func, predicate]:
             thing._annspecialcase_ = "specialize:call_location"
 
         args = _get_args(func)
         d = {
+            "dont_look_inside": dont_look_inside,
             "predicate": predicate,
             "func": func,
-            "func_unroll": func_unroll,
         }
         exec py.code.Source("""
+            @dont_look_inside
+            def trampoline(%(arguments)s):
+                return func(%(arguments)s)
+            if hasattr(func, "oopspec"):
+                # XXX: This seems like it should be here, but it causes errors.
+                # trampoline.oopspec = func.oopspec
+                del func.oopspec
+            trampoline.__name__ = func.__name__ + "_trampoline"
+
             def f(%(arguments)s):
                 if predicate(%(arguments)s):
-                    return func_unroll(%(arguments)s)
-                else:
                     return func(%(arguments)s)
+                else:
+                    return trampoline(%(arguments)s)
+            f.__name__ = func.__name__ + "_look_inside_iff"
         """ % {"arguments": ", ".join(args)}).compile() in d
-
-        d["f"].func_name = func.func_name + "_look_inside_iff"
         return d["f"]
     return inner
 

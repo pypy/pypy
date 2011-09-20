@@ -2947,9 +2947,9 @@ class BasicTests:
             a = [0, 1, 2, 3, 4]
             while i < n:
                 myjitdriver.jit_merge_point(sa=sa, n=n, a=a, i=i)
-                if i < n/2:
+                if i < n / 2:
                     sa += a[4]
-                elif i == n/2:
+                elif i == n / 2:
                     a.pop()
                 i += 1
         res = self.meta_interp(f, [32])
