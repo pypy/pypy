@@ -66,6 +66,8 @@ class TemplateFormatter(object):
                                  space.wrap("Recursion depth exceeded"))
         level -= 1
         s = self.template
+        # It would be quite nice to use @jit.unroll_iff(), but that interferes
+        # with the ctr_location specialization of the class.
         if jit.isconstant(s):
             return self._do_build_string_unroll(start, end, level, out, s)
         else:
