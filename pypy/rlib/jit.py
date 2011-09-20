@@ -128,6 +128,7 @@ def look_inside_iff(predicate):
             "dont_look_inside": dont_look_inside,
             "predicate": predicate,
             "func": func,
+            "we_are_jitted": we_are_jitted,
         }
         exec py.code.Source("""
             @dont_look_inside
@@ -141,7 +142,7 @@ def look_inside_iff(predicate):
             trampoline._annspecialcase_ = "specialize:call_location"
 
             def f(%(arguments)s):
-                if predicate(%(arguments)s):
+                if not we_are_jitted() or predicate(%(arguments)s):
                     return func(%(arguments)s)
                 else:
                     return trampoline(%(arguments)s)
