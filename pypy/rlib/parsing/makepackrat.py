@@ -1,3 +1,4 @@
+from __future__ import with_statement
 import py
 import sys
 from pypy.rlib.parsing.tree import Nonterminal, Symbol, RPythonVisitor
@@ -321,27 +322,27 @@ class ParserBuilder(RPythonVisitor, Codebuilder):
         else:
             self.emit("_key = self._pos")
         self.emit("_status = self.%s.get(_key, None)" % (dictname, ))
-        for _ in self.start_block("if _status is None:"):
+        with self.block("if _status is None:"):
             self.emit("_status = self.%s[_key] = Status()" % (
                 dictname, ))
-        for _ in self.start_block("else:"):
+        with self.block("else:"):
             self.emit("_statusstatus = _status.status")
-            for _ in self.start_block("if _statusstatus == _status.NORMAL:"):
+            with self.block("if _statusstatus == _status.NORMAL:"):
                 self.emit("self._pos = _status.pos")
                 self.emit("return _status")
-            for _ in self.start_block("elif _statusstatus == _status.ERROR:"):
+            with self.block("elif _statusstatus == _status.ERROR:"):
                 self.emit("raise BacktrackException(_status.error)")
             if self.have_call:
-                for _ in self.start_block(
+                with self.block(
                     "elif (_statusstatus == _status.INPROGRESS or\n"
                     "      _statusstatus == _status.LEFTRECURSION):"):
                     self.emit("_status.status = _status.LEFTRECURSION")
-                    for _ in self.start_block("if _status.result is not None:"):
+                    with self.block("if _status.result is not None:"):
                         self.emit("self._pos = _status.pos")
                         self.emit("return _status")
-                    for _ in self.start_block("else:"):
+                    with self.block("else:"):
                         self.emit("raise BacktrackException(None)")
-                for _ in self.start_block(
+                with self.block(
                     "elif _statusstatus == _status.SOMESOLUTIONS:"):
                     self.emit("_status.status = _status.INPROGRESS")
         self.emit("_startingpos = self._pos")
@@ -352,10 +353,10 @@ class ParserBuilder(RPythonVisitor, Codebuilder):
     def memoize_footer(self, name, args):
         dictname = "_dict_%s" % (name, )
         if self.have_call:
-            for _ in self.start_block(
+            with self.block(
                 "if _status.status == _status.LEFTRECURSION:"):
-                for _ in self.start_block("if _status.result is not None:"):
-                    for _ in self.start_block("if _status.pos >= self._pos:"):
+                with self.block("if _status.result is not None:"):
+                    with self.block("if _status.pos >= self._pos:"):
                         self.emit("_status.status = _status.NORMAL")
                         self.emit("self._pos = _status.pos")
                         self.emit("return _status")
@@ -373,7 +374,7 @@ class ParserBuilder(RPythonVisitor, Codebuilder):
         self.emit("_status.error = _error")
         self.emit("return _status")
         self.end_block("try")
-        for _ in self.start_block("except BacktrackException, _exc:"):
+        with self.block("except BacktrackException, _exc:"):
             self.emit("_status.pos = -1")
             self.emit("_status.result = None")
             self.combine_error('_exc.error')
@@ -394,7 +395,7 @@ class ParserBuilder(RPythonVisitor, Codebuilder):
         self.start_block("class Parser(object):")
         for elt in t.children:
             self.dispatch(elt)
-        for _ in self.start_block("def __init__(self, inputstream):"):
+        with self.block("def __init__(self, inputstream):"):
             for line in self.initcode:
                 self.emit(line)
             self.emit("self._pos = 0")
@@ -405,7 +406,7 @@ class ParserBuilder(RPythonVisitor, Codebuilder):
 
     def emit_regex_code(self):
         for regex, matcher in self.matchers.iteritems():
-            for _ in  self.start_block(
+            with  self.block(
                     "def _regex%s(self):" % (abs(hash(regex)), )):
                 c = self.choice_point()
                 self.emit("_runner = self._Runner(self._inputstream, self._pos)")
@@ -423,8 +424,8 @@ class ParserBuilder(RPythonVisitor, Codebuilder):
                 self.emit("self._pos = _upto")
                 self.emit("return _result")
 
-        for _ in self.start_block("class _Runner(object):"):
-            for _ in self.start_block("def __init__(self, text, pos):"):
+        with self.block("class _Runner(object):"):
+            with self.block("def __init__(self, text, pos):"):
                 self.emit("self.text = text")
                 self.emit("self.pos = pos")
                 self.emit("self.last_matched_state = -1")
@@ -444,7 +445,7 @@ class ParserBuilder(RPythonVisitor, Codebuilder):
         otherargs = t.children[1].children
         argswithself = ", ".join(["self"] + otherargs)
         argswithoutself = ", ".join(otherargs)
-        for _ in self.start_block("def %s(%s):" % (name, argswithself)):
+        with self.block("def %s(%s):" % (name, argswithself)):
             self.emit("return self._%s(%s).result" % (name, argswithoutself))
         self.start_block("def _%s(%s):" % (name, argswithself, ))
         self.namecount = 0
@@ -465,10 +466,10 @@ class ParserBuilder(RPythonVisitor, Codebuilder):
             self.start_block("while 1:")
         for i, p in enumerate(possibilities):
             c = self.choice_point()
-            for _ in self.start_block("try:"):
+            with self.block("try:"):
                 self.dispatch(p)
                 self.emit("break")
-            for _ in self.start_block("except BacktrackException, _exc:"):
+            with self.block("except BacktrackException, _exc:"):
                 self.combine_error('_exc.error')
                 self.revert(c)
                 if i == len(possibilities) - 1:
@@ -484,9 +485,9 @@ class ParserBuilder(RPythonVisitor, Codebuilder):
 
     def visit_maybe(self, t):
         c = self.choice_point()
-        for _ in self.start_block("try:"):
+        with self.block("try:"):
             self.dispatch(t.children[0])
-        for _ in self.start_block("except BacktrackException:"):
+        with self.block("except BacktrackException:"):
             self.revert(c)
 
     def visit_repetition(self, t):
@@ -496,12 +497,12 @@ class ParserBuilder(RPythonVisitor, Codebuilder):
         if t.children[0] == '+':
             self.dispatch(t.children[1])
             self.emit("%s.append(_result)"  % (name, ))
-        for _ in self.start_block("while 1:"):
+        with self.block("while 1:"):
             c = self.choice_point()
-            for _ in self.start_block("try:"):
+            with self.block("try:"):
                 self.dispatch(t.children[1])
                 self.emit("%s.append(_result)" % (name, ))
-            for _ in self.start_block("except BacktrackException, _exc:"):
+            with self.block("except BacktrackException, _exc:"):
                 self.combine_error('_exc.error')
                 self.revert(c)
                 self.emit("break")
@@ -525,12 +526,12 @@ class ParserBuilder(RPythonVisitor, Codebuilder):
         self.namecount += 1
         child = t.children[0]
         self.emit("%s = _result" % (resultname, ))
-        for _ in self.start_block("try:"):
+        with self.block("try:"):
             self.dispatch(child)
-        for _ in self.start_block("except BacktrackException:"):
+        with self.block("except BacktrackException:"):
             self.revert(c)
             self.emit("_result = %s" % (resultname, ))
-        for _ in self.start_block("else:"):
+        with self.block("else:"):
             # heuristic to get nice error messages sometimes
             if isinstance(child, Symbol) and child.symbol == "QUOTE":
 
@@ -559,21 +560,21 @@ class ParserBuilder(RPythonVisitor, Codebuilder):
     def visit_if(self, t):
         if len(t.children) == 2:
             self.dispatch(t.children[0])
-        for _ in self.start_block("if not (%s):" % (
+        with self.block("if not (%s):" % (
             t.children[-1].additional_info[1:-1], )):
             self.emit("raise BacktrackException(")
             self.emit("    self._ErrorInformation(")
             self.emit("         _startingpos, ['condition not met']))")
-    
+
     def visit_choose(self, t):
-        for _ in self.start_block("for %s in (%s):" % (
+        with self.block("for %s in (%s):" % (
             t.children[0], t.children[1].additional_info[1:-1], )):
-            for _ in self.start_block("try:"):
+            with self.block("try:"):
                 self.dispatch(t.children[2])
                 self.emit("break")
-            for _ in self.start_block("except BacktrackException, _exc:"):
+            with self.block("except BacktrackException, _exc:"):
                 self.combine_error('_exc.error')
-        for _ in self.start_block("else:"):
+        with self.block("else:"):
             self.emit("raise BacktrackException(_error)")
 
     def visit_call(self, t):
