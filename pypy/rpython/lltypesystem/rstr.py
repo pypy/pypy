@@ -728,6 +728,7 @@ class LLHelpers(AbstractLLHelpers):
             i += 1
         return result
 
+    @jit.look_inside_iff(lambda length, chars, RES: jit.isconstant(length) and jit.isvirtual(chars))
     def ll_join_chars(length, chars, RES):
         # no need to optimize this, will be replaced by string builder
         # at some point soon

@@ -165,6 +165,17 @@ def isconstant(value):
         return True
     return False
 
+@oopspec("jit.isvirtual(value)")
+@specialize.ll()
+def isvirtual(value):
+    """
+    Returns if this value is virtual, while tracing, it's relatively
+    conservative and will miss some cases.
+    """
+    if NonConstant(False):
+        return True
+    return False
+
 class Entry(ExtRegistryEntry):
     _about_ = hint
 

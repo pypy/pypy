@@ -1076,6 +1076,12 @@ class MIFrame(object):
     opimpl_int_isconstant = opimpl_ref_isconstant = _opimpl_isconstant
 
     @arguments("box")
+    def _opimpl_isvirtual(self, box):
+        return ConstInt(self.metainterp.heapcache.is_unescaped(box))
+
+    opimpl_ref_isvirtual = _opimpl_isvirtual
+
+    @arguments("box")
     def opimpl_virtual_ref(self, box):
         # Details on the content of metainterp.virtualref_boxes:
         #

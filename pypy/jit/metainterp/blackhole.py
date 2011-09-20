@@ -843,6 +843,10 @@ class BlackholeInterpreter(object):
     def bhimpl_ref_isconstant(x):
         return False
 
+    @arguments("r", returns="i")
+    def bhimpl_ref_isvirtual(x):
+        return False
+
     # ----------
     # the main hints and recursive calls
 

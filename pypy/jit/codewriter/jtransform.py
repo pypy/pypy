@@ -1161,6 +1161,9 @@ class Transformer(object):
         elif oopspec_name == 'jit.isconstant':
             kind = getkind(args[0].concretetype)
             return SpaceOperation('%s_isconstant' % kind, args, op.result)
+        elif oopspec_name == 'jit.isvirtual':
+            kind = getkind(args[0].concretetype)
+            return SpaceOperation('%s_isvirtual' % kind, args, op.result)
         else:
             raise AssertionError("missing support for %r" % oopspec_name)
 

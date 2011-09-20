@@ -12,7 +12,8 @@ from pypy.jit.metainterp.warmspot import get_stats
 from pypy.jit.metainterp.warmstate import set_future_value
 from pypy.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
     loop_invariant, elidable, promote, jit_debug, assert_green,
-    AssertGreenFailed, unroll_safe, current_trace_length, look_inside_iff, isconstant)
+    AssertGreenFailed, unroll_safe, current_trace_length, look_inside_iff,
+    isconstant, isvirtual)
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.ootypesystem import ootype
@@ -100,14 +101,14 @@ class BasicTests:
                 myjitdriver.jit_merge_point(x=x, y=y, res=res)
                 res += x * x
                 x += 1
-                res += x * x                
+                res += x * x
                 y -= 1
             return res
         res = self.meta_interp(f, [6, 7])
         assert res == 1323
         self.check_loop_count(1)
         self.check_loops(int_mul=1)
-        
+
     def test_loop_variant_mul_ovf(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
         def f(x, y):
@@ -1373,7 +1374,7 @@ class BasicTests:
             return x
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
-        self.check_loops(guard_class=0, guard_value=3)        
+        self.check_loops(guard_class=0, guard_value=3)
         self.check_loops(guard_class=0, guard_value=6, everywhere=True)
 
     def test_merge_guardnonnull_guardclass(self):
@@ -2119,7 +2120,7 @@ class BasicTests:
             return sa
         res = self.meta_interp(f, [32, 7])
         assert res == f(32, 7)
-        
+
     def test_caching_setarrayitem_fixed(self):
         myjitdriver = JitDriver(greens = [], reds = ['sa', 'i', 'n', 'a', 'node'])
         def f(n, a):
@@ -2139,7 +2140,7 @@ class BasicTests:
             return sa
         res = self.meta_interp(f, [32, 7])
         assert res == f(32, 7)
-        
+
     def test_caching_setarrayitem_var(self):
         myjitdriver = JitDriver(greens = [], reds = ['sa', 'i', 'n', 'a', 'b', 'node'])
         def f(n, a, b):
@@ -2669,7 +2670,7 @@ class BasicTests:
             myjitdriver.set_param('threshold', 3)
             myjitdriver.set_param('trace_eagerness', 1)
             myjitdriver.set_param('retrace_limit', 5)
-            myjitdriver.set_param('function_threshold', -1)            
+            myjitdriver.set_param('function_threshold', -1)
             pc = sa = i = 0
             while pc < len(bytecode):
                 myjitdriver.jit_merge_point(pc=pc, n=n, sa=sa, i=i)
@@ -2694,12 +2695,12 @@ class BasicTests:
         def g(n1, n2):
             for i in range(10):
                 f(n1)
-            for i in range(10):                
+            for i in range(10):
                 f(n2)
 
         nn = [10, 3]
         assert self.meta_interp(g, nn) == g(*nn)
-        
+
         # The attempts of retracing first loop will end up retracing the
         # second and thus fail 5 times, saturating the retrace_count. Instead a
         # bridge back to the preamble of the first loop is produced. A guard in
@@ -2710,7 +2711,7 @@ class BasicTests:
         self.check_tree_loop_count(2 + 3)
 
         # FIXME: Add a gloabl retrace counter and test that we are not trying more than 5 times.
-        
+
         def g(n):
             for i in range(n):
                 for j in range(10):
@@ -2954,7 +2955,7 @@ class BasicTests:
         res = self.meta_interp(f, [32])
         assert res == f(32)
         self.check_loops(arraylen_gc=2)
-        
+
 class TestOOtype(BasicTests, OOJitMixin):
 
     def test_oohash(self):
@@ -3174,7 +3175,7 @@ class BaseLLtypeTests(BasicTests):
         res = self.meta_interp(f, [32])
         assert res == f(32)
         self.check_tree_loop_count(3)
-        
+
     def test_two_loopinvariant_arrays3(self):
         from pypy.rpython.lltypesystem import lltype, llmemory, rffi
         myjitdriver = JitDriver(greens = [], reds = ['sa', 'n', 'i', 'a'])
@@ -3198,7 +3199,7 @@ class BaseLLtypeTests(BasicTests):
         res = self.meta_interp(f, [32])
         assert res == f(32)
         self.check_tree_loop_count(2)
-        
+
     def test_two_loopinvariant_arrays_boxed(self):
         class A(object):
             def __init__(self, a):
@@ -3223,7 +3224,7 @@ class BaseLLtypeTests(BasicTests):
         res = self.meta_interp(f, [32])
         assert res == f(32)
         self.check_loops(arraylen_gc=2, everywhere=True)
-        
+
     def test_release_gil_flush_heap_cache(self):
         if sys.platform == "win32":
             py.test.skip("needs 'time'")
@@ -3327,6 +3328,34 @@ class BaseLLtypeTests(BasicTests):
         res = self.meta_interp(main, [1, 10, 2], enable_opts='')
         assert res == main(1, 10, 2)
         self.check_loops(call=0)
+
+    def test_look_inside_iff_virtual(self):
+        # There's no good reason for this to be look_inside_iff, but it's a test!
+        @look_inside_iff(lambda arg, n: isvirtual(arg))
+        def f(arg, n):
+            if n == 100:
+                for i in xrange(n):
+                    n += i
+            return arg.x
+        class A(object):
+            def __init__(self, x):
+                self.x = x
+        driver = JitDriver(greens=['n'], reds=['i', 'a'])
+        def main(n):
+            i = 0
+            a = A(3)
+            while i < 20:
+                driver.jit_merge_point(i=i, n=n, a=a)
+                if n == 0:
+                    i += f(a, n)
+                else:
+                    i += f(A(2), n)
+        res = self.meta_interp(main, [0], enable_opts='')
+        assert res == main(0)
+        self.check_loops(call=1, getfield_gc=0)
+        res = self.meta_interp(main, [1], enable_opts='')
+        assert res == main(1)
+        self.check_loops(call=0, getfield_gc=0)
 
     def test_reuse_elidable_result(self):
         driver = JitDriver(reds=['n', 's'], greens = [])

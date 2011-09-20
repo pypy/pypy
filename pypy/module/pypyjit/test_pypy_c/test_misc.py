@@ -92,7 +92,7 @@ class TestMisc(BaseTestPyPyC):
         """)
 
 
-    def test_cached_pure_func_of_equal_fields(self):            
+    def test_cached_pure_func_of_equal_fields(self):
         def main(n):
             class A(object):
                 def __init__(self, val):
@@ -285,3 +285,42 @@ class TestMisc(BaseTestPyPyC):
 
         loop, = log.loops_by_id("globalread", is_entry_bridge=True)
         assert len(loop.ops_by_id("globalread")) == 0
+
+    def test_struct_module(self):
+        def main():
+            import struct
+            i = 1
+            while i < 1000:
+                x = struct.unpack("i", struct.pack("i", i))[0] # ID: struct
+                i += x / i
+            return i
+
+        log = self.run(main)
+        assert log.result == main()
+
+        loop, = log.loops_by_id("struct")
+        # This could, of course stand some improvement, to remove all these
+        # arithmatic ops, but we've removed all the core overhead.
+        assert loop.match_by_id("struct", """
+            guard_not_invalidated(descr=...)
+            # struct.pack
+            i8 = int_lt(i4, -2147483648)
+            guard_false(i8, descr=...)
+            i11 = int_and(i4, 255)
+            i13 = int_rshift(i4, 8)
+            i14 = int_and(i13, 255)
+            i16 = int_rshift(i13, 8)
+            i17 = int_and(i16, 255)
+            i19 = int_rshift(i16, 8)
+            i20 = int_and(i19, 255)
+
+            # struct.unpack
+            i22 = int_lshift(i14, 8)
+            i23 = int_or(i11, i22)
+            i25 = int_lshift(i17, 16)
+            i26 = int_or(i23, i25)
+            i28 = int_ge(i20, 128)
+            guard_false(i28, descr=...)
+            i30 = int_lshift(i20, 24)
+            i31 = int_or(i26, i30)
+        """)
