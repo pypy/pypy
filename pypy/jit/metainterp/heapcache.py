@@ -42,10 +42,11 @@ class HeapCache(object):
                 self.dependencies.setdefault(box, []).append(valuebox)
             else:
                 self._escape(valuebox)
-        else:
+        # GETFIELD_GC doesn't escape it's argument
+        elif opnum != rop.GETFIELD_GC:
             for box in argboxes:
-                # setarrayitem_gc don't escape their first argument
-                if not (idx == 0 and opnum in [rop.SETARRAYITEM_GC, rop.GETFIELD_GC]):
+                # setarrayitem_gc don't escape its first argument
+                if not (idx == 0 and opnum in [rop.SETARRAYITEM_GC]):
                     self._escape(box)
                 idx += 1
 
