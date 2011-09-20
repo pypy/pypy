@@ -299,15 +299,15 @@ class TestMisc(BaseTestPyPyC):
         assert log.result == main()
 
         loop, = log.loops_by_id("struct")
-        # This could, of course stand some improvement, to remove all these
-        # arithmatic ops, but we've removed all the core overhead.
-        if sys.maxint == 31 ** 2:
+        if sys.maxint == 2 ** 63 - 1:
             extra = """
             i8 = int_lt(i4, -2147483648)
             guard_false(i8, descr=...)
             """
         else:
             extra = ""
+        # This could, of course stand some improvement, to remove all these
+        # arithmatic ops, but we've removed all the core overhead.
         assert loop.match_by_id("struct", """
             guard_not_invalidated(descr=...)
             # struct.pack
