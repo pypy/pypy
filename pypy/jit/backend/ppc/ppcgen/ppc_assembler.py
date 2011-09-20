@@ -20,7 +20,7 @@ from pypy.jit.backend.llsupport.regalloc import (RegisterManager,
                                                  compute_vars_longevity)
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.model import CompiledLoopToken
-from pypy.rpython.lltypesystem import lltype, rffi, rstr
+from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import (BoxInt, ConstInt, ConstPtr,
                                          ConstFloat, Box, INT, REF, FLOAT)
@@ -1899,6 +1899,9 @@ from pypy.jit.backend.x86.support import values_array
 #if __name__ == '__main__':
 #    main()
 
+memcpy_fn = rffi.llexternal('memcpy', [llmemory.Address, llmemory.Address,
+                                       rffi.SIZE_T], lltype.Void,
+                            sandboxsafe=True, _nowrapper=True)
 def hi(w):
     return w >> 16
 
@@ -1932,6 +1935,8 @@ class AssemblerPPC(OpAssembler):
         self.cpu = cpu
         self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
         self.mc = None
+        self.datablockwrapper = None
+        self.memcpy_addr = 0
 
     def load_imm(self, rD, word):
         rD = rD.as_key()
@@ -1992,6 +1997,12 @@ class AssemblerPPC(OpAssembler):
         if keys == []:
             return 1
         return max(keys) + 1
+
+    def get_asmmemmgr_blocks(self, looptoken):
+        clt = looptoken.compiled_loop_token
+        if clt.asmmemmgr_blocks is None:
+            clt.asmmemmgr = []
+        return clt.asmmemmgr_blocks
 
     def _make_prologue(self):
         if IS_PPC_32:
@@ -2057,6 +2068,21 @@ class AssemblerPPC(OpAssembler):
                 assert 0, "FIX LATER"
             self.load_from_addr(reg.value, addr)
 
+    def setup(self, looptoken, operations):
+        operations = self.cpu.gc_ll_descr.rewrite_assembler(self.cpu, 
+                                                            operations)
+        assert self.memcpy_addr != 0
+        self.current_clt = looptoken.compiled_loop_token
+        self.mc = PPCBuilder()
+        self.pending_guards = []
+        assert self.datablockwrapper is None
+        allblocks = self.get_asmmemmgr_blocks(looptoken)
+        self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
+                                                        allblocks)
+
+    def setup_once(self):
+        self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
+
     def assemble_loop(self, inputargs, operations, looptoken, log):
         self.framesize = 256 + GPR_SAVE_AREA
         self.patch_list = []
@@ -2067,7 +2093,7 @@ class AssemblerPPC(OpAssembler):
         clt = CompiledLoopToken(self.cpu, looptoken.number)
         looptoken.compiled_loop_token = clt
 
-        self.current_clt = clt
+        self.setup(looptoken, operations)
 
         longevity = compute_vars_longevity(inputargs, operations)
         regalloc = Regalloc(longevity, assembler=self,
@@ -2084,7 +2110,8 @@ class AssemblerPPC(OpAssembler):
         self._walk_operations(operations, regalloc)
         self._make_epilogue()
         
-        loop_start = self.mc.assemble()
+        #loop_start = self.mc.assemble()
+        loop_start = self.materialize_loop(looptoken)
         looptoken.ppc_code = loop_start
         self._teardown()
 
@@ -2110,6 +2137,20 @@ class AssemblerPPC(OpAssembler):
                 regalloc.possibly_free_var(op.result)
             regalloc.possibly_free_vars_for_op(op)
             regalloc._check_invariants()
+
+    def materialize_loop(self, looptoken):
+        self.mc.prepare_insts_blocks()
+        self.datablockwrapper.done()
+        self.datablockwrapper = None
+        allblocks = self.get_asmmemmgr_blocks(looptoken)
+        return self.mc.materialize(self.cpu.asmmemmgr, allblocks, 
+                                   self.cpu.gc_ll_descr.gcrootmap)
+
+    def get_asmmemmgr_blocks(self, looptoken):
+        clt = looptoken.compiled_loop_token
+        if clt.asmmemmgr_blocks is None:
+            clt.asmmemmgr_blocks = []
+        return clt.asmmemmgr_blocks
 
 def make_operations():
     def not_implemented(builder, trace_op, cpu, *rest_args):

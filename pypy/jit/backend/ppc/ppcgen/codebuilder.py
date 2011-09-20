@@ -929,6 +929,7 @@ class GuardToken(object):
 class PPCBuilder(BlockBuilderMixin, PPCAssembler):
     def __init__(self, failargs_limit=1000):
         PPCAssembler.__init__(self)
+        self.init_block_builder()
         self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
 
     def load_imm(self, rD, word):
@@ -960,6 +961,18 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
             self.stwx(source_reg.value, 0, 0)
         else:
             self.std(source_reg.value, 0, 0)
+
+    def prepare_insts_blocks(self):
+        self.assemble(True)
+        insts = self.insts
+        for inst in insts:
+            self.write32(inst.assemble())
+
+    def write32(self, word):
+        self.writechar(chr((word >> 24) & 0xFF))
+        self.writechar(chr((word >> 16) & 0xFF))
+        self.writechar(chr((word >> 8) & 0xFF))
+        self.writechar(chr(word & 0xFF))
 
 class BranchUpdater(PPCAssembler):
     def __init__(self):

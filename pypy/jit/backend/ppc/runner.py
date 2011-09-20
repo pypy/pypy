@@ -22,6 +22,8 @@ py.log.setconsumer('jitbackend', ansi_log)
 
 class PPC_64_CPU(AbstractLLCPU):
 
+    BOOTSTRAP_TP = lltype.FuncType([], lltype.Signed)
+
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False,
                  gcdescr=None):
         if gcdescr is not None:
@@ -34,6 +36,9 @@ class PPC_64_CPU(AbstractLLCPU):
         self.total_compiled_loops = 0
         self.total_compiled_bridges = 0
         self.asm = AssemblerPPC(self)
+
+    def setup_once(self):
+        self.asm.setup_once()
 
     def compile_loop(self, inputargs, operations, looptoken, log=False):
         self.saved_descr = {}
@@ -95,8 +100,27 @@ class PPC_64_CPU(AbstractLLCPU):
     # executes the stored machine code in the token
     def execute_token(self, looptoken):   
         addr = looptoken.ppc_code
-        fail_index = addr()
+        func = rffi.cast(lltype.Ptr(self.BOOTSTRAP_TP), addr)
+        fail_index = self._execute_call(func)
         return self.saved_descr[fail_index]
+
+    def _execute_call(self, func):
+        prev_interpreter = None
+        if not self.translate_support_code:
+            prev_interpreter = LLInterpreter.current_interpreter
+            LLInterpreter.current_interpreter = self.debug_ll_interpreter
+        res = 0
+        try:
+            res = func()
+        finally:
+            if not self.translate_support_code:
+                LLInterpreter.current_interpreter = prev_interpreter
+        return res
+
+    @staticmethod
+    def cast_ptr_to_int(x):
+        adr = llmemory.cast_ptr_to_adr(x)
+        return PPC_64_CPU.cast_adr_to_int(adr)
 
     # return the number of values that can be returned
     def get_latest_value_count(self):
