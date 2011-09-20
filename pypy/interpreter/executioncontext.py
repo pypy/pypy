@@ -1,5 +1,4 @@
 import sys
-from pypy.interpreter.miscutils import Stack
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.rlib.unroll import unrolling_iterable
