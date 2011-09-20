@@ -210,7 +210,8 @@ class MIFrame(object):
                 self.metainterp.clear_exception()
                 resbox = self.execute(rop.%s, b1, b2)
                 self.make_result_of_lastop(resbox)  # same as execute_varargs()
-                self.metainterp.handle_possible_overflow_error()
+                if not isinstance(resbox, Const):
+                    self.metainterp.handle_possible_overflow_error()
                 return resbox
         ''' % (_opimpl, _opimpl.upper())).compile()
 
@@ -401,23 +402,25 @@ class MIFrame(object):
         self.metainterp.heapcache.new_array(resbox, lengthbox)
         return resbox
 
-    @arguments("box", "descr", "box")
-    def _opimpl_getarrayitem_gc_any(self, arraybox, arraydescr, indexbox):
+    @specialize.arg(1)
+    def _do_getarrayitem_gc_any(self, op, arraybox, arraydescr, indexbox):
         tobox = self.metainterp.heapcache.getarrayitem(
                 arraybox, arraydescr, indexbox)
         if tobox:
             # sanity check: see whether the current array value
             # corresponds to what the cache thinks the value is
-            resbox = executor.execute(self.metainterp.cpu, self.metainterp,
-                                      rop.GETARRAYITEM_GC, arraydescr, arraybox, indexbox)
+            resbox = executor.execute(self.metainterp.cpu, self.metainterp, op,
+                                      arraydescr, arraybox, indexbox)
             assert resbox.constbox().same_constant(tobox.constbox())
             return tobox
-        resbox = self.execute_with_descr(rop.GETARRAYITEM_GC,
-                                         arraydescr, arraybox, indexbox)
+        resbox = self.execute_with_descr(op, arraydescr, arraybox, indexbox)
         self.metainterp.heapcache.getarrayitem_now_known(
                 arraybox, arraydescr, indexbox, resbox)
         return resbox
 
+    @arguments("box", "descr", "box")
+    def _opimpl_getarrayitem_gc_any(self, arraybox, arraydescr, indexbox):
+        return self._do_getarrayitem_gc_any(rop.GETARRAYITEM_GC, arraybox, arraydescr, indexbox)
 
     opimpl_getarrayitem_gc_i = _opimpl_getarrayitem_gc_any
     opimpl_getarrayitem_gc_r = _opimpl_getarrayitem_gc_any
@@ -433,8 +436,7 @@ class MIFrame(object):
 
     @arguments("box", "descr", "box")
     def _opimpl_getarrayitem_gc_pure_any(self, arraybox, arraydescr, indexbox):
-        return self.execute_with_descr(rop.GETARRAYITEM_GC_PURE,
-                                       arraydescr, arraybox, indexbox)
+        return self._do_getarrayitem_gc_any(rop.GETARRAYITEM_GC_PURE, arraybox, arraydescr, indexbox)
 
     opimpl_getarrayitem_gc_pure_i = _opimpl_getarrayitem_gc_pure_any
     opimpl_getarrayitem_gc_pure_r = _opimpl_getarrayitem_gc_pure_any
@@ -866,6 +868,14 @@ class MIFrame(object):
     def opimpl_newunicode(self, lengthbox):
         return self.execute(rop.NEWUNICODE, lengthbox)
 
+    @arguments("box", "box", "box", "box", "box")
+    def opimpl_copystrcontent(self, srcbox, dstbox, srcstartbox, dststartbox, lengthbox):
+        return self.execute(rop.COPYSTRCONTENT, srcbox, dstbox, srcstartbox, dststartbox, lengthbox)
+
+    @arguments("box", "box", "box", "box", "box")
+    def opimpl_copyunicodecontent(self, srcbox, dstbox, srcstartbox, dststartbox, lengthbox):
+        return self.execute(rop.COPYUNICODECONTENT, srcbox, dstbox, srcstartbox, dststartbox, lengthbox)
+
 ##    @FixME  #arguments("descr", "varargs")
 ##    def opimpl_residual_oosend_canraise(self, methdescr, varargs):
 ##        return self.execute_varargs(rop.OOSEND, varargs, descr=methdescr,
@@ -1058,6 +1068,18 @@ class MIFrame(object):
     def opimpl_current_trace_length(self):
         trace_length = len(self.metainterp.history.operations)
         return ConstInt(trace_length)
+
+    @arguments("box")
+    def _opimpl_isconstant(self, box):
+        return ConstInt(isinstance(box, Const))
+
+    opimpl_int_isconstant = opimpl_ref_isconstant = _opimpl_isconstant
+
+    @arguments("box")
+    def _opimpl_isvirtual(self, box):
+        return ConstInt(self.metainterp.heapcache.is_unescaped(box))
+
+    opimpl_ref_isvirtual = _opimpl_isvirtual
 
     @arguments("box")
     def opimpl_virtual_ref(self, box):
@@ -1673,6 +1695,10 @@ class MetaInterp(object):
 
     def _record_helper_nonpure_varargs(self, opnum, resbox, descr, argboxes):
         assert resbox is None or isinstance(resbox, Box)
+        if (rop._OVF_FIRST <= opnum <= rop._OVF_LAST and
+            self.last_exc_value_box is None and
+            self._all_constants_varargs(argboxes)):
+            return resbox.constbox()
         # record the operation
         profiler = self.staticdata.profiler
         profiler.count_ops(opnum, RECORDED_OPS)

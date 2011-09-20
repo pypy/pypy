@@ -27,7 +27,7 @@ class StringTests:
             return i
         res = self.meta_interp(f, [10, True, _str('h')], listops=True)
         assert res == 5
-        self.check_loops(**{self.CALL: 1, self.CALL_PURE: 0})
+        self.check_loops(**{self.CALL: 1, self.CALL_PURE: 0, 'everywhere': True})
 
     def test_eq_folded(self):
         _str = self._str
@@ -327,7 +327,7 @@ class StringTests:
     def test_str_slice_len_surviving(self):
         _str = self._str
         longstring = _str("Unrolling Trouble")
-        mydriver = JitDriver(reds = ['i', 'a', 'sa'], greens = []) 
+        mydriver = JitDriver(reds = ['i', 'a', 'sa'], greens = [])
         def f(a):
             i = sa = a
             while i < len(longstring):
@@ -343,7 +343,7 @@ class StringTests:
         fillers = _str("abcdefghijklmnopqrstuvwxyz")
         data = _str("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
-        mydriver = JitDriver(reds = ['line', 'noise', 'res'], greens = []) 
+        mydriver = JitDriver(reds = ['line', 'noise', 'res'], greens = [])
         def f():
             line = data
             noise = fillers
@@ -370,7 +370,7 @@ class StringTests:
             def __init__(self, value):
                 self.value = value
         mydriver = JitDriver(reds = ['ratio', 'line', 'noise', 'res'],
-                             greens = []) 
+                             greens = [])
         def f():
             line = Str(data)
             noise = Str(fillers)
@@ -408,7 +408,7 @@ class StringTests:
             return len(sa)
         assert self.meta_interp(f, [16]) == f(16)
 
-    def test_loop_invariant_string_slize(self):
+    def test_loop_invariant_string_slice(self):
         _str = self._str
         mydriver = JitDriver(reds = ['i', 'n', 'sa', 's', 's1'], greens = [])
         def f(n, c):
@@ -425,7 +425,7 @@ class StringTests:
             return sa
         assert self.meta_interp(f, [16, 'a']) == f(16, 'a')
 
-    def test_loop_invariant_string_slize_boxed(self):
+    def test_loop_invariant_string_slice_boxed(self):
         class Str(object):
             def __init__(self, value):
                 self.value = value
@@ -445,7 +445,7 @@ class StringTests:
             return sa
         assert self.meta_interp(f, [16, 'a']) == f(16, 'a')
 
-    def test_loop_invariant_string_slize_in_array(self):
+    def test_loop_invariant_string_slice_in_array(self):
         _str = self._str
         mydriver = JitDriver(reds = ['i', 'n', 'sa', 's', 's1'], greens = [])
         def f(n, c):
@@ -513,7 +513,7 @@ class TestLLtypeUnicode(TestLLtype):
                 m -= 1
             return 42
         self.meta_interp(f, [6, 7])
-        self.check_loops(call=3,    # str(), _str(), escape()
+        self.check_loops(call=1,    # escape()
                          newunicode=1, unicodegetitem=0,
                          unicodesetitem=1, copyunicodecontent=1)
 
@@ -536,3 +536,27 @@ class TestLLtypeUnicode(TestLLtype):
         self.check_loops(call_pure=0, call=1,
                          newunicode=0, unicodegetitem=0,
                          unicodesetitem=0, copyunicodecontent=0)
+
+    def test_join_chars(self):
+        jitdriver = JitDriver(reds=['a', 'b', 'c', 'i'], greens=[])
+        def f(a, b, c):
+            i = 0
+            while i < 10:
+                jitdriver.jit_merge_point(a=a, b=b, c=c, i=i)
+                x = []
+                if a:
+                    x.append("a")
+                if b:
+                    x.append("b")
+                if c:
+                    x.append("c")
+                i += len("".join(x))
+            return i
+        res = self.meta_interp(f, [1, 1, 1])
+        assert res == f(True, True, True)
+        # The "".join should be unrolled, since the length of x is known since
+        # it is virtual, ensure there are no calls to ll_join_chars, or
+        # allocations.
+        self.check_loops({
+            "guard_true": 5, "int_is_true": 3, "int_lt": 2, "int_add": 2, "jump": 2,
+        }, everywhere=True)

@@ -226,8 +226,9 @@ class UnrollOptimizer(Optimization):
                 if op and op.result:
                     preamble_value = preamble_optimizer.getvalue(op.result)
                     value = self.optimizer.getvalue(op.result)
-                    imp = ValueImporter(self, preamble_value, op)
-                    self.optimizer.importable_values[value] = imp
+                    if not value.is_virtual():
+                        imp = ValueImporter(self, preamble_value, op)
+                        self.optimizer.importable_values[value] = imp
                     newresult = self.optimizer.getvalue(op.result).get_key_box()
                     if newresult is not op.result:
                         self.short_boxes.alias(newresult, op.result)

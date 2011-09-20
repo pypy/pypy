@@ -296,7 +296,7 @@ class VStringSliceValue(VAbstractStringValue):
 
 
 def copy_str_content(optimizer, srcbox, targetbox,
-                     srcoffsetbox, offsetbox, lengthbox, mode):
+                     srcoffsetbox, offsetbox, lengthbox, mode, need_next_offset=True):
     if isinstance(srcbox, ConstPtr) and isinstance(srcoffsetbox, Const):
         M = 5
     else:
@@ -313,7 +313,10 @@ def copy_str_content(optimizer, srcbox, targetbox,
                                               None))
             offsetbox = _int_add(optimizer, offsetbox, CONST_1)
     else:
-        nextoffsetbox = _int_add(optimizer, offsetbox, lengthbox)
+        if need_next_offset:
+            nextoffsetbox = _int_add(optimizer, offsetbox, lengthbox)
+        else:
+            nextoffsetbox = None
         op = ResOperation(mode.COPYSTRCONTENT, [srcbox, targetbox,
                                                 srcoffsetbox, offsetbox,
                                                 lengthbox], None)
@@ -449,6 +452,30 @@ class OptString(optimizer.Optimization):
         value = self.getvalue(op.getarg(0))
         lengthbox = value.getstrlen(self.optimizer, mode)
         self.make_equal_to(op.result, self.getvalue(lengthbox))
+
+    def optimize_COPYSTRCONTENT(self, op):
+        self._optimize_COPYSTRCONTENT(op, mode_string)
+    def optimize_COPYUNICODECONTENT(self, op):
+        self._optimize_COPYSTRCONTENT(op, mode_unicode)
+
+    def _optimize_COPYSTRCONTENT(self, op, mode):
+        # args: src dst srcstart dststart length
+        src = self.getvalue(op.getarg(0))
+        dst = self.getvalue(op.getarg(1))
+        srcstart = self.getvalue(op.getarg(2))
+        dststart = self.getvalue(op.getarg(3))
+        length = self.getvalue(op.getarg(4))
+
+        if length.is_constant() and length.box.getint() == 0:
+            return
+        copy_str_content(self.optimizer,
+            src.force_box(),
+            dst.force_box(),
+            srcstart.force_box(),
+            dststart.force_box(),
+            length.force_box(),
+            mode, need_next_offset=False
+        )
 
     def optimize_CALL(self, op):
         # dispatch based on 'oopspecindex' to a method that handles
