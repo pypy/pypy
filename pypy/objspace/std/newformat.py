@@ -65,13 +65,9 @@ def make_template_formatting_class():
                                      space.wrap("Recursion depth exceeded"))
             level -= 1
             s = self.template
-        # It would be quite nice to use @jit.unroll_iff(), but that interferes
-        # with the ctr_location specialization of the class.
-            if jit.isconstant(s):
-                return self._do_build_string_unroll(start, end, level, out, s)
-            else:
-                return self._do_build_string(start, end, level, out, s)
+            return self._do_build_string(start, end, level, out, s)
 
+        @jit.unroll_iff(lambda self, start, end, level, out, s: jit.isconstant(s))
         def _do_build_string(self, start, end, level, out, s):
             space = self.space
             last_literal = i = start
@@ -123,11 +119,6 @@ def make_template_formatting_class():
 
             out.append_slice(s, last_literal, end)
             return out.build()
-
-        f = sourcetools.func_with_new_name(_do_build_string,
-                                           "_do_build_string_unroll")
-        _do_build_string_unroll = jit.unroll_safe(f)
-        del f
 
         def _parse_field(self, start, end):
             s = self.template
