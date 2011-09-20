@@ -301,11 +301,17 @@ class TestMisc(BaseTestPyPyC):
         loop, = log.loops_by_id("struct")
         # This could, of course stand some improvement, to remove all these
         # arithmatic ops, but we've removed all the core overhead.
+        if sys.maxint == 31 ** 2:
+            extra = """
+            i8 = int_lt(i4, -2147483648)
+            guard_false(i8, descr=...)
+            """
+        else:
+            extra = ""
         assert loop.match_by_id("struct", """
             guard_not_invalidated(descr=...)
             # struct.pack
-            i8 = int_lt(i4, -2147483648)
-            guard_false(i8, descr=...)
+            %(32_bit_only)s
             i11 = int_and(i4, 255)
             i13 = int_rshift(i4, 8)
             i14 = int_and(i13, 255)
@@ -323,4 +329,4 @@ class TestMisc(BaseTestPyPyC):
             guard_false(i28, descr=...)
             i30 = int_lshift(i20, 24)
             i31 = int_or(i26, i30)
-        """)
+        """ % {"32_bit_only": extra})
