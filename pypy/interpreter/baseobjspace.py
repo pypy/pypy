@@ -8,7 +8,7 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache
 from pypy.tool.uid import HUGEVAL_BYTES
-from pypy.rlib.objectmodel import we_are_translated, newlist
+from pypy.rlib.objectmodel import we_are_translated, newlist, compute_unique_id
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.timer import DummyTimer, Timer
 from pypy.rlib.rarithmetic import r_uint
@@ -957,6 +957,9 @@ class ObjSpace(object):
 
     def isinstance_w(self, w_obj, w_type):
         return self.is_true(self.isinstance(w_obj, w_type))
+
+    def id(self, w_obj):
+        return self.wrap(compute_unique_id(w_obj))
 
     # The code below only works
     # for the simple case (new-style instance).

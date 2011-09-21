@@ -2,15 +2,7 @@
 
 from pypy.interpreter.error import OperationError, typed_unwrap_error_msg
 from pypy.objspace.std.register_all import register_all
-from pypy.rlib import objectmodel
 
-
-# The following default implementations are used before delegation is tried.
-# 'id' is normally the address of the wrapper.
-
-def id__ANY(space, w_obj):
-    #print 'id:', w_obj
-    return space.wrap(objectmodel.compute_unique_id(w_obj))
 
 # __init__ should succeed if called internally as a multimethod
 
