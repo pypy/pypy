@@ -41,6 +41,11 @@ class W_RopeObject(W_Object):
             return w_self
         return W_RopeObject(w_self._node)
 
+    def unicode_w(w_self, space):
+        # XXX should this use the default encoding?
+        from pypy.objspace.std.unicodetype import plain_str2unicode
+        return plain_str2unicode(space, w_self._node.flatten_string())
+
 W_RopeObject.EMPTY = W_RopeObject(rope.LiteralStringNode.EMPTY)
 W_RopeObject.PREBUILT = [W_RopeObject(rope.LiteralStringNode.PREBUILT[i])
                              for i in range(256)]
