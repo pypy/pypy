@@ -196,6 +196,11 @@ class W_Root(object):
         raise OperationError(space.w_TypeError,
                              typed_unwrap_error_msg(space, "unicode", self))
 
+    def int_w(self, space):
+        raise OperationError(space.w_TypeError,
+                             typed_unwrap_error_msg(space, "integer", self))
+    uint_w = int_w
+    bigint_w = int_w
 
 
 class Wrappable(W_Root):
@@ -1223,6 +1228,15 @@ class ObjSpace(object):
 
     def str_w(self, w_obj):
         return w_obj.str_w(self)
+
+    def int_w(self, w_obj):
+        return w_obj.int_w(self)
+
+    def uint_w(self, w_obj):
+        return w_obj.uint_w(self)
+
+    def bigint_w(self, w_obj):
+        return w_obj.bigint_w(self)
 
     def realstr_w(self, w_obj):
         # Like str_w, but only works if w_obj is really of type 'str'.

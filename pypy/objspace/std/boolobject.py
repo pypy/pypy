@@ -1,7 +1,9 @@
+from pypy.rlib.rbigint import rbigint
+from pypy.rlib.rarithmetic import r_uint
+from pypy.interpreter.error import OperationError
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.intobject import W_IntObject
-
 
 class W_BoolObject(W_Object):
     from pypy.objspace.std.booltype import bool_typedef as typedef
@@ -19,6 +21,19 @@ class W_BoolObject(W_Object):
 
     def unwrap(w_self, space):
         return w_self.boolval
+    int_w = unwrap
+
+    def uint_w(w_self, space):
+        intval = w_self.intval
+        if intval < 0:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("cannot convert negative integer to unsigned"))
+        else:
+            return r_uint(intval)
+
+    def bigint_w(w_self, space):
+        return rbigint.fromint(w_self.intval)
+
 
 registerimplementation(W_BoolObject)
 

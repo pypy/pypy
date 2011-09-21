@@ -9,20 +9,8 @@ from pypy.objspace.std.register_all import register_all
 def init__ANY(space, w_obj, __args__):
     pass
 
-def int_w__ANY(space,w_obj):
-    raise OperationError(space.w_TypeError,
-                         typed_unwrap_error_msg(space, "integer", w_obj))
-
 def float_w__ANY(space,w_obj):
     raise OperationError(space.w_TypeError,
                          typed_unwrap_error_msg(space, "float", w_obj))
-
-def uint_w__ANY(space,w_obj):
-    raise OperationError(space.w_TypeError,
-                         typed_unwrap_error_msg(space, "integer", w_obj))
-
-def bigint_w__ANY(space,w_obj):
-    raise OperationError(space.w_TypeError,
-                         typed_unwrap_error_msg(space, "integer", w_obj))
 
 register_all(vars())
