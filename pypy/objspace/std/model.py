@@ -442,7 +442,12 @@ class StdObjSpaceMultiMethod(MultiMethodTable):
         mm.dispatch_tree = merge(self.dispatch_tree, other.dispatch_tree)
         return mm
 
-NOT_MULTIMETHODS = []
+NOT_MULTIMETHODS = dict.fromkeys(
+    ['delattr', 'delete', 'get', 'id', 'inplace_div', 'inplace_floordiv',
+     'inplace_lshift', 'inplace_mod', 'inplace_pow', 'inplace_rshift',
+     'inplace_truediv', 'is_', 'set', 'setattr', 'type', 'userdel'])
+# XXX should we just remove those from the method table or we're happy
+#     with just not having multimethods?
 
 class MM:
     """StdObjSpace multimethods"""
@@ -456,7 +461,6 @@ class MM:
     # NOTE: when adding more sometype_w() methods, you need to write a
     # stub in default.py to raise a space.w_TypeError
     marshal_w = StdObjSpaceMultiMethod('marshal_w', 1, [], extra_args=['marshaller'])
-    log     = StdObjSpaceMultiMethod('log', 1, [], extra_args=['base'])
 
     # add all regular multimethods here
     for _name, _symbol, _arity, _specialnames in ObjSpace.MethodTable:
