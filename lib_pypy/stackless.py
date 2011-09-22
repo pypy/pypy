@@ -15,15 +15,8 @@ CoroutineExit = TaskletExit
 
 
 class coroutine(object):
-    "we can't have continulet as a base, because continulets can't be rebound"
 
     def __init__(self):
-        self._frame = None
-        self.is_zombie = False
-
-    def __del__(self):
-        self.is_zombie = True
-        del self._frame
         self._frame = None
 
     def bind(self, func, *argl, **argd):
@@ -62,7 +55,7 @@ class coroutine(object):
     def _is_alive(self):
         if self._frame is None:
             return False
-        return not self._frame.is_pending()
+        return self._frame.is_pending()
     is_alive = property(_is_alive)
     del _is_alive
 
