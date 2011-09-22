@@ -130,12 +130,12 @@ class LongLongTests:
 
     def test_floats_ulonglong(self):
         def f(i):
-            # i == 10**17
-            f = i * 123.5
+            # i == 1000000000
+            f = i * 12350000000.0
             n = r_ulonglong(f)
             compare(n, -1419508847, 538116096)
             return float(n)
-        res = self.interp_operations(f, [10**17])
+        res = self.interp_operations(f, [1000000000])
         assert res == 12350000000000000000.0
 
     def test_unsigned_compare_ops(self):
