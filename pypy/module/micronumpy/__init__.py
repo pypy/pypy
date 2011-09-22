@@ -1,5 +1,21 @@
 from pypy.interpreter.mixedmodule import MixedModule
 
+class RandomModule(MixedModule):
+    applevel_name = "random"
+
+    interpleveldefs = {}
+
+    appleveldefs = {}
+
+    for a in [
+        "get_state",
+        "set_state",
+        "seed",
+        "rand",
+        "randn",
+        "standard_normal"]:
+
+        appleveldefs[a] = "app_random.%s" % a
 
 class Module(MixedModule):
     applevel_name = 'numpy'
@@ -51,3 +67,5 @@ class Module(MixedModule):
         'average': 'app_numpy.average',
         'mean': 'app_numpy.mean',
     }
+
+    submodules = {"random": RandomModule}
