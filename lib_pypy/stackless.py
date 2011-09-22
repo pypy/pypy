@@ -5,7 +5,6 @@ Please refer to their documentation.
 """
 
 
-import traceback
 import _continuation
 
 class TaskletExit(Exception):
@@ -14,7 +13,18 @@ class TaskletExit(Exception):
 CoroutineExit = TaskletExit
 
 
+def _coroutine_getcurrent():
+    "Returns the current coroutine (i.e. the one which called this function)."
+    try:
+        return _tls.current_coroutine
+    except AttributeError:
+        # first call in this thread: current == main
+        _coroutine_create_main()
+        return _tls.current_coroutine
+
+
 class coroutine(object):
+    _is_started = False
 
     def __init__(self):
         self._frame = None
@@ -24,13 +34,14 @@ class coroutine(object):
            binds function f to coro. f will be called with
            arguments *argl, **argd
         """
-        if self._frame is None or not self._frame.is_pending():
-            def run(c):
-                _tls.current_coroutine = self
-                return func(*argl, **argd)
-            self._frame = frame = _continuation.continulet(run)
-        else:
+        if self.is_alive:
             raise ValueError("cannot bind a bound coroutine")
+        def run(c):
+            _tls.current_coroutine = self
+            self._is_started = True
+            return func(*argl, **argd)
+        self._is_started = False
+        self._frame = _continuation.continulet(run)
 
     def switch(self):
         """coro.switch() -> returnvalue
@@ -38,7 +49,7 @@ class coroutine(object):
            f finishes, the returnvalue is that of f, otherwise
            None is returned
         """
-        current = _getcurrent()
+        current = _coroutine_getcurrent()
         try:
             current._frame.switch(to=self._frame)
         finally:
@@ -46,33 +57,22 @@ class coroutine(object):
 
     def kill(self):
         """coro.kill() : kill coroutine coro"""
-        current = _getcurrent()
+        current = _coroutine_getcurrent()
         try:
             current._frame.throw(CoroutineExit, to=self._frame)
         finally:
             _tls.current_coroutine = current
 
-    def _is_alive(self):
-        if self._frame is None:
-            return False
-        return self._frame.is_pending()
-    is_alive = property(_is_alive)
-    del _is_alive
+    @property
+    def is_alive(self):
+        return self._frame is not None and self._frame.is_pending()
 
-    def getcurrent():
-        """coroutine.getcurrent() -> the currently running coroutine"""
-        return _getcurrent()
-    getcurrent = staticmethod(getcurrent)
+    @property
+    def is_zombie(self):
+        return self._is_started and not self._frame.is_pending()
 
+    getcurrent = staticmethod(_coroutine_getcurrent)
 
-def _getcurrent():
-    "Returns the current coroutine (i.e. the one which called this function)."
-    try:
-        return _tls.current_coroutine
-    except AttributeError:
-        # first call in this thread: current == main
-        _coroutine_create_main()
-        return _tls.current_coroutine
 
 try:
     from thread import _local
@@ -90,6 +90,8 @@ def _coroutine_create_main():
     main_coroutine._frame = typ.__new__(typ)
     _tls.main_coroutine = main_coroutine
     _tls.current_coroutine = main_coroutine
+
+# ____________________________________________________________
 
 
 from collections import deque
@@ -135,10 +137,7 @@ def _scheduler_switch(current, next):
     _last_task = next
     assert not next.blocked
     if next is not current:
-        #try:
-            next.switch()
-        #except CoroutineExit:  --- they are the same anyway
-        #    raise TaskletExit
+        next.switch()
     return current
 
 def set_schedule_callback(callback):
@@ -330,6 +329,7 @@ class channel(object):
         """
         return self._channel_action(msg, 1)
 
+
 class tasklet(coroutine):
     """
     A tasklet object represents a tiny task in a Python thread.
@@ -411,7 +411,7 @@ class tasklet(coroutine):
 
         self.func = None
         coroutine.bind(self, _func)
-        back = _getcurrent()
+        back = _coroutine_getcurrent()
         coroutine.switch(self)
         self.alive = True
         _scheduler_append(self)
