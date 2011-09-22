@@ -475,11 +475,8 @@ class Optimizer(Optimization):
         self.exception_might_have_happened = self.bridge
         self.newoperations = []
         self.first_optimization.propagate_begin_forward()
-        self.i = 0
-        while self.i < len(self.loop.operations):
-            op = self.loop.operations[self.i]
+        for op in self.loop.operations:
             self.first_optimization.propagate_forward(op)
-            self.i += 1
         self.first_optimization.propagate_end_forward()
         self.loop.operations = self.newoperations
         self.loop.quasi_immutable_deps = self.quasi_immutable_deps
