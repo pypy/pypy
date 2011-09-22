@@ -483,11 +483,6 @@ class OptInlineShortPreamble(Optimization):
         if op.getopnum() == rop.JUMP:
             loop_token = op.getdescr()
             assert isinstance(loop_token, LoopToken)
-            # FIXME: Use a tree, similar to the tree formed by the full
-            # preamble and it's bridges, instead of a list to save time and
-            # memory. This should also allow better behaviour in
-            # situations that the is_emittable() chain currently cant
-            # handle and the inlining fails unexpectedly belwo.
             short = loop_token.short_preamble
             if short:
                 args = op.getarglist()

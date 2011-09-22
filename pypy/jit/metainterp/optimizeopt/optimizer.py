@@ -251,12 +251,6 @@ class Optimization(object):
     def emit_operation(self, op):
         self.next_optimization.propagate_forward(op)
 
-    def test_emittable(self, op):
-        return self.is_emittable(op)
-
-    def is_emittable(self, op):
-        return self.next_optimization.test_emittable(op)
-
     # FIXME: Move some of these here?
     def getvalue(self, box):
         return self.optimizer.getvalue(box)
@@ -497,9 +491,6 @@ class Optimizer(Optimization):
     def propagate_forward(self, op):
         self.producer[op.result] = op
         dispatch_opt(self, op)
-
-    def test_emittable(self, op):
-        return True
 
     def emit_operation(self, op):
         if op.returns_bool_result():
