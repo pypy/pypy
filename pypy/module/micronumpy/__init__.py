@@ -13,7 +13,10 @@ class RandomModule(MixedModule):
         "seed",
         "rand",
         "randn",
-        "standard_normal"]:
+        "standard_normal",
+        "random_integers",
+        "randint",
+    ]:
 
         appleveldefs[a] = "app_random.%s" % a
 

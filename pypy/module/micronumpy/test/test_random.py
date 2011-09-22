@@ -58,3 +58,52 @@ class AppTestRandom(BaseNumpyAppTest):
         seed(9001)
         assert number == rand(1)[0]
         assert other_number == rand(1)[0]
+
+    def test_randint_single(self):
+        from numpy.random import randint
+
+        for i in range(100):
+            integer = randint(4)
+            assert isinstance(integer, int)
+            assert 0 <= integer < 4
+
+        for i in range(100):
+            integer = randint(9, 12)
+            assert isinstance(integer, int)
+            assert 9 <= integer < 12
+
+    def test_randint_multi(self):
+        from numpy.random import randint
+
+        integers = randint(4, size=(100,))
+        assert integers.shape == (100,)
+        for x in integers:
+            assert 0 <= x < 4
+
+        integers = randint(9, 12, (100,))
+        for x in integers:
+            assert 9 <= x < 12
+
+    def test_random_integers_single(self):
+        from numpy.random import random_integers
+
+        for i in range(100):
+            integer = random_integers(4)
+            assert 0 <= integer <= 4
+
+        for i in range(100):
+            integer = random_integers(9, 12)
+            assert 9 <= integer <= 12
+
+    def test_random_integers_multi(self):
+        from numpy.random import random_integers
+
+        integers = random_integers(5, size=(100,))
+        assert integers.shape == (100,)
+        for x in integers:
+            assert 0 <= integers[x] <= 5
+
+        integers = random_integers(9, 12, (100,))
+        assert integers.shape == (100,)
+        for x in integers:
+            assert 9 <= x <= 12

@@ -29,3 +29,31 @@ def randn(*shape):
 def standard_normal(size=None):
     return randn(*size)
 
+def random_integers(low, high=None, size=None):
+    print "random_integers called with %s, %s" % (low, high)
+
+    if high is None:
+        low, high = 1, low
+    else:
+        low, high = low, high
+
+    print "values are now %s, %s"% (low, high)
+
+    if size is None:
+        return _random.randint(low, high)
+    else:
+        assert len(size) == 1
+
+        return array(_random.randint(low, high) for x in range(size[0]))
+
+def randint(low, high=None, size=None):
+    print "randint called with %s, %s"% (low, high)
+    if high is None:
+        low, high = 0, low - 1
+    else:
+        low, high = low, high - 1
+
+    print "values are now %s, %s"% (low, high)
+
+    return random_integers(low, high, size)
+
