@@ -118,6 +118,26 @@ class LongLongTests:
         res = self.interp_operations(f, [1000000000])
         assert res == 123500000000.0
 
+    def test_floats_negative(self):
+        def f(i):
+            # i == 1000000000
+            f = i * -123.5
+            n = r_longlong(f)
+            compare(n, -29, 1054051584)
+            return float(n)
+        res = self.interp_operations(f, [1000000000])
+        assert res == -123500000000.0
+
+    def test_floats_ulonglong(self):
+        def f(i):
+            # i == 10**17
+            f = i * 123.5
+            n = r_ulonglong(f)
+            compare(n, -1419508847, 538116096)
+            return float(n)
+        res = self.interp_operations(f, [10**17])
+        assert res == 12350000000000000000.0
+
     def test_unsigned_compare_ops(self):
         def f(n1, n2):
             # n == 30002000000000

@@ -193,6 +193,8 @@ class TestLongLong:
                       [lltype.SignedLongLong], lltype.Signed)
         self.do_check('cast_float_to_longlong', EffectInfo.OS_LLONG_FROM_FLOAT,
                       [lltype.Float], lltype.SignedLongLong)
+        self.do_check('cast_float_to_ulonglong', EffectInfo.OS_LLONG_FROM_FLOAT,
+                      [lltype.Float], lltype.UnsignedLongLong)
         self.do_check('cast_longlong_to_float', EffectInfo.OS_LLONG_TO_FLOAT,
                       [lltype.SignedLongLong], lltype.Float)
         self.do_check('cast_ulonglong_to_float', EffectInfo.OS_LLONG_U_TO_FLOAT,
