@@ -330,6 +330,9 @@ def _ll_1_llong_to_int(xll):
 def _ll_1_llong_from_float(xf):
     return r_longlong(xf)
 
+def _ll_1_ullong_from_float(xf):
+    return r_ulonglong(xf)
+
 def _ll_1_llong_to_float(xll):
     return float(rffi.cast(lltype.SignedLongLong, xll))
 
