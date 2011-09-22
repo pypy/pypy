@@ -304,7 +304,7 @@ class AssemblerARM(ResOpAssembler):
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         mc = ARMv7Builder()
         assert self.cpu.supports_floats
-        # We need to push two registers here because we are goin to make a
+        # We need to push two registers here because we are going to make a
         # call an therefore the stack needs to be 8-byte aligned
         mc.PUSH([r.ip.value, r.lr.value])
         with saved_registers(mc, [], r.all_vfp_regs):
@@ -335,8 +335,6 @@ class AssemblerARM(ResOpAssembler):
         self.malloc_slowpath = rawstart
 
     def propagate_memoryerror_if_r0_is_null(self):
-        if not self.propagate_exception_path:
-            return
         # see ../x86/assembler.py:propagate_memoryerror_if_eax_is_null
         self.mc.CMP_ri(r.r0.value, 0)
         self.mc.B(self.propagate_exception_path, c=c.EQ)
