@@ -19,12 +19,23 @@ def _coroutine_getcurrent():
         return _tls.current_coroutine
     except AttributeError:
         # first call in this thread: current == main
-        _coroutine_create_main()
-        return _tls.current_coroutine
+        return _coroutine_getmain()
+
+def _coroutine_getmain():
+    try:
+        return _tls.main_coroutine
+    except AttributeError:
+        # create the main coroutine for this thread
+        continulet = _continuation.continulet
+        main = coroutine()
+        main._frame = continulet.__new__(continulet)
+        main._is_started = -1
+        _tls.current_coroutine = _tls.main_coroutine = main
+        return _tls.main_coroutine
 
 
 class coroutine(object):
-    _is_started = False
+    _is_started = 0      # 0=no, 1=yes, -1=main
 
     def __init__(self):
         self._frame = None
@@ -38,9 +49,9 @@ class coroutine(object):
             raise ValueError("cannot bind a bound coroutine")
         def run(c):
             _tls.current_coroutine = self
-            self._is_started = True
+            self._is_started = 1
             return func(*argl, **argd)
-        self._is_started = False
+        self._is_started = 0
         self._frame = _continuation.continulet(run)
 
     def switch(self):
@@ -65,13 +76,20 @@ class coroutine(object):
 
     @property
     def is_alive(self):
-        return self._frame is not None and self._frame.is_pending()
+        return self._is_started < 0 or (
+            self._frame is not None and self._frame.is_pending())
 
     @property
     def is_zombie(self):
-        return self._is_started and not self._frame.is_pending()
+        return self._is_started > 0 and not self._frame.is_pending()
 
     getcurrent = staticmethod(_coroutine_getcurrent)
+
+    def __reduce__(self):
+        if self._is_started < 0:
+            return _coroutine_getmain, ()
+        else:
+            return type(self), (), self.__dict__
 
 
 try:
@@ -82,14 +100,6 @@ except ImportError:
 
 _tls = _local()
 
-def _coroutine_create_main():
-    # create the main coroutine for this thread
-    _tls.current_coroutine = None
-    main_coroutine = coroutine()
-    typ = _continuation.continulet
-    main_coroutine._frame = typ.__new__(typ)
-    _tls.main_coroutine = main_coroutine
-    _tls.current_coroutine = main_coroutine
 
 # ____________________________________________________________
 
@@ -523,30 +533,7 @@ def _init():
     global _last_task
     _global_task_id = 0
     _main_tasklet = coroutine.getcurrent()
-    try:
-        _main_tasklet.__class__ = tasklet
-    except TypeError: # we are running pypy-c
-        class TaskletProxy(object):
-            """TaskletProxy is needed to give the _main_coroutine tasklet behaviour"""
-            def __init__(self, coro):
-                self._coro = coro
-
-            def __getattr__(self,attr):
-                return getattr(self._coro,attr)
-
-            def __str__(self):
-                return '<tasklet %s a:%s>' % (self._task_id, self.is_alive)
-
-            def __reduce__(self):
-                return getmain, ()
-
-            __repr__ = __str__
-
-
-        global _main_coroutine
-        _main_coroutine = _main_tasklet
-        _main_tasklet = TaskletProxy(_main_tasklet)
-        assert _main_tasklet.is_alive and not _main_tasklet.is_zombie
+    _main_tasklet.__class__ = tasklet         # XXX HAAAAAAAAAAAAAAAAAAAAACK
     _last_task = _main_tasklet
     tasklet._init.im_func(_main_tasklet, label='main')
     _squeue = deque()
