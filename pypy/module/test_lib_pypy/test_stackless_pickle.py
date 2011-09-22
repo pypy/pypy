@@ -1,25 +1,27 @@
-import py; py.test.skip("XXX port me")
+import py
 from pypy.conftest import gettestobjspace, option
 
 class AppTest_Stackless:
 
     def setup_class(cls):
-        import py.test
         py.test.importorskip('greenlet')
-        space = gettestobjspace(usemodules=('_stackless', '_socket'))
+        space = gettestobjspace(usemodules=('_continuation', '_socket'))
         cls.space = space
-        # cannot test the unpickle part on top of py.py
+        if option.runappdirect:
+            cls.w_lev = space.wrap(14)
+        else:
+            cls.w_lev = space.wrap(2)
 
     def test_pickle(self):
         import new, sys
 
         mod = new.module('mod')
         sys.modules['mod'] = mod
+        mod.lev = self.lev
         try:
             exec '''
 import pickle, sys
 import stackless
-lev = 14
 
 ch = stackless.channel()
 seen = []
