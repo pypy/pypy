@@ -263,30 +263,28 @@ class OptRewrite(Optimization):
         elif value.is_null():
             raise InvalidLoop
         self.emit_operation(op)
-        value.make_nonnull(len(self.optimizer.newoperations) - 1)
+        value.make_nonnull(op)
 
     def optimize_GUARD_VALUE(self, op):
         value = self.getvalue(op.getarg(0))
-        emit_operation = True
-        if value.last_guard_index != -1:
+        if value.last_guard:
             # there already has been a guard_nonnull or guard_class or
             # guard_nonnull_class on this value, which is rather silly.
             # replace the original guard with a guard_value
-            old_guard_op = self.optimizer.newoperations[value.last_guard_index]
-            new_guard_op = old_guard_op.copy_and_change(rop.GUARD_VALUE,
-                                             args = [old_guard_op.getarg(0), op.getarg(1)])
-            self.optimizer.newoperations[value.last_guard_index] = new_guard_op
+            old_guard_op = value.last_guard
+            op = old_guard_op.copy_and_change(rop.GUARD_VALUE,
+                                      args = [old_guard_op.getarg(0), op.getarg(1)])
+            self.optimizer.replaces_guard[op] = old_guard_op
             # hack hack hack.  Change the guard_opnum on
             # new_guard_op.getdescr() so that when resuming,
             # the operation is not skipped by pyjitpl.py.
-            descr = new_guard_op.getdescr()
+            descr = op.getdescr()
             assert isinstance(descr, compile.ResumeGuardDescr)
             descr.guard_opnum = rop.GUARD_VALUE
-            descr.make_a_counter_per_value(new_guard_op)
-            emit_operation = False
+            descr.make_a_counter_per_value(op)
         constbox = op.getarg(1)
         assert isinstance(constbox, Const)
-        self.optimize_guard(op, constbox, emit_operation)
+        self.optimize_guard(op, constbox)
 
     def optimize_GUARD_TRUE(self, op):
         self.optimize_guard(op, CONST_1)
@@ -303,30 +301,24 @@ class OptRewrite(Optimization):
             if realclassbox.same_constant(expectedclassbox):
                 return
             raise InvalidLoop
-        emit_operation = True
-        if value.last_guard_index != -1:
+        if value.last_guard:
             # there already has been a guard_nonnull or guard_class or
             # guard_nonnull_class on this value.
-            old_guard_op = self.optimizer.newoperations[value.last_guard_index]
+            old_guard_op = value.last_guard
             if old_guard_op.getopnum() == rop.GUARD_NONNULL:
                 # it was a guard_nonnull, which we replace with a
                 # guard_nonnull_class.
-                new_guard_op = old_guard_op.copy_and_change (rop.GUARD_NONNULL_CLASS,
+                op = old_guard_op.copy_and_change (rop.GUARD_NONNULL_CLASS,
                                          args = [old_guard_op.getarg(0), op.getarg(1)])
-                self.optimizer.newoperations[value.last_guard_index] = new_guard_op
+                self.optimizer.replaces_guard[op] = old_guard_op
                 # hack hack hack.  Change the guard_opnum on
                 # new_guard_op.getdescr() so that when resuming,
                 # the operation is not skipped by pyjitpl.py.
-                descr = new_guard_op.getdescr()
+                descr = op.getdescr()
                 assert isinstance(descr, compile.ResumeGuardDescr)
                 descr.guard_opnum = rop.GUARD_NONNULL_CLASS
-                emit_operation = False
-        if emit_operation:
-            self.emit_operation(op)
-            last_guard_index = len(self.optimizer.newoperations) - 1
-        else:
-            last_guard_index = value.last_guard_index
-        value.make_constant_class(expectedclassbox, last_guard_index)
+        self.emit_operation(op)
+        value.make_constant_class(expectedclassbox, op)
 
     def optimize_GUARD_NONNULL_CLASS(self, op):
         value = self.getvalue(op.getarg(0))

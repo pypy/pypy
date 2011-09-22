@@ -31,8 +31,8 @@ class LenBound(object):
 
 class OptValue(object):
     __metaclass__ = extendabletype
-    _attrs_ = ('box', 'known_class', 'last_guard_index', 'level', 'intbound', 'lenbound')
-    last_guard_index = -1
+    _attrs_ = ('box', 'known_class', 'last_guard', 'level', 'intbound', 'lenbound')
+    last_guard = None
 
     level = LEVEL_UNKNOWN
     known_class = None
@@ -100,7 +100,7 @@ class OptValue(object):
             self.make_constant(other.get_key_box())
             optimizer.turned_constant(self)
         elif other.level == LEVEL_KNOWNCLASS:
-            self.make_constant_class(other.known_class, -1)
+            self.make_constant_class(other.known_class, None)
         else:
             if other.level == LEVEL_NONNULL:
                 self.ensure_nonnull()
@@ -162,16 +162,16 @@ class OptValue(object):
         else:
             return None
 
-    def make_constant_class(self, classbox, opindex):
+    def make_constant_class(self, classbox, guardop):
         assert self.level < LEVEL_KNOWNCLASS
         self.known_class = classbox
         self.level = LEVEL_KNOWNCLASS
-        self.last_guard_index = opindex
+        self.last_guard = guardop
 
-    def make_nonnull(self, opindex):
+    def make_nonnull(self, guardop):
         assert self.level < LEVEL_NONNULL
         self.level = LEVEL_NONNULL
-        self.last_guard_index = opindex
+        self.last_guard = guardop
 
     def is_nonnull(self):
         level = self.level
@@ -331,6 +331,7 @@ class Optimizer(Optimization):
         self.exception_might_have_happened = False
         self.quasi_immutable_deps = None
         self.opaque_pointers = {}
+        self.replaces_guard = {}
         self.newoperations = []
         if loop is not None:
             self.call_pure_results = loop.call_pure_results
@@ -511,10 +512,26 @@ class Optimizer(Optimization):
         self.metainterp_sd.profiler.count(jitprof.OPT_OPS)
         if op.is_guard():
             self.metainterp_sd.profiler.count(jitprof.OPT_GUARDS)
-            op = self.store_final_boxes_in_guard(op)
+            if self.replaces_guard and op in self.replaces_guard:
+                self.replace_op(self.replaces_guard[op], op)
+                del self.replaces_guard[op]
+                return
+            else:
+                op = self.store_final_boxes_in_guard(op)
         elif op.can_raise():
             self.exception_might_have_happened = True
         self.newoperations.append(op)
+
+    def replace_op(self, old_op, new_op):
+        # XXX: Do we want to cache indexes to prevent search?
+        i = len(self.newoperations) 
+        while i > 0:
+            i -= 1
+            if self.newoperations[i] is old_op:
+                self.newoperations[i] = new_op
+                break
+        else:
+            assert False
 
     def store_final_boxes_in_guard(self, op):
         descr = op.getdescr()
