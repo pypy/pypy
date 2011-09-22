@@ -1833,6 +1833,8 @@ from pypy.jit.backend.x86.support import values_array
 #        self.copy_to_raw_memory(addr)
 #        
 #    def assemble(self, dump=os.environ.has_key('PYPY_DEBUG')):
+
+
 #        insns = self.assemble0(dump)
 #        for i in insns:
 #            self.emit(i)
@@ -2004,16 +2006,19 @@ class AssemblerPPC(OpAssembler):
             clt.asmmemmgr = []
         return clt.asmmemmgr_blocks
 
-    def _make_prologue(self):
+    def _make_prologue(self, target_pos):
         if IS_PPC_32:
             self.mc.stwu(1, 1, -self.framesize)
-            self.mc.mflr(0)
-            self.mc.stw(0, 1, self.framesize + 4)
+            self.mc.mflr(0)  # move old link register
+            self.mc.stw(0, 1, self.framesize + 4) # save it in previous frame
         else:
             self.mc.stdu(1, 1, -self.framesize)
             self.mc.mflr(0)
             self.mc.std(0, 1, self.framesize + 4)
         self._save_nonvolatiles()
+        curpos = self.mc.currpos()
+        offset = target_pos - curpos
+        self.mc.b(offset)
 
     def _make_epilogue(self):
         for op_index, fail_index, guard, reglist in self.patch_list:
@@ -2084,35 +2089,36 @@ class AssemblerPPC(OpAssembler):
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
 
     def assemble_loop(self, inputargs, operations, looptoken, log):
-        self.framesize = 256 + GPR_SAVE_AREA
-        self.patch_list = []
-        self.pending_guards = []
-        self.mc = PPCBuilder()
-        self.startpos = self.mc.get_rel_pos()
 
         clt = CompiledLoopToken(self.cpu, looptoken.number)
         looptoken.compiled_loop_token = clt
 
         self.setup(looptoken, operations)
+        self.framesize = 256 + GPR_SAVE_AREA
+        self.patch_list = []
+        self.pending_guards = []
+        self.startpos = self.mc.get_rel_pos()
 
         longevity = compute_vars_longevity(inputargs, operations)
         regalloc = Regalloc(longevity, assembler=self,
                             frame_manager=PPCFrameManager())
 
-        self._make_prologue()
         nonfloatlocs = regalloc.prepare_loop(inputargs, operations, looptoken)
+        regalloc_head = self.mc.currpos()
         self.gen_bootstrap_code(nonfloatlocs, inputargs)
 
-        looptoken._ppc_loop_code = self.mc.get_rel_pos()
+        loophead = self.mc.currpos()
+        looptoken._ppc_loop_code = loophead
         looptoken._ppc_arglocs = [nonfloatlocs]
         looptoken._ppc_bootstrap_code = 0
 
         self._walk_operations(operations, regalloc)
+        start_pos = self.mc.currpos()
+        self._make_prologue(regalloc_head)
         self._make_epilogue()
         
-        #loop_start = self.mc.assemble()
         loop_start = self.materialize_loop(looptoken)
-        looptoken.ppc_code = loop_start
+        looptoken.ppc_code = loop_start + start_pos
         self._teardown()
 
     def _teardown(self):

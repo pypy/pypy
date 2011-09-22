@@ -23,6 +23,8 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import (BoxInt, ConstInt, ConstPtr,
                                          ConstFloat, Box, INT, REF, FLOAT)
 from pypy.jit.backend.x86.support import values_array
+from pypy.tool.udir import udir
+from pypy.rlib.objectmodel import we_are_translated
 
 A = Form("frD", "frA", "frB", "XO3", "Rc")
 A1 = Form("frD", "frB", "XO3", "Rc")
@@ -968,11 +970,25 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
         for inst in insts:
             self.write32(inst.assemble())
 
+    def _dump_trace(self, addr, name, formatter=-1):
+        if not we_are_translated():
+            if formatter != -1:
+                name = name % formatter
+            dir = udir.ensure('asm', dir=True)
+            f = dir.join(name).open('wb')
+            data = rffi.cast(rffi.CCHARP, addr)
+            for i in range(self.currpos()):
+                f.write(data[i])
+            f.close()
+
     def write32(self, word):
         self.writechar(chr((word >> 24) & 0xFF))
         self.writechar(chr((word >> 16) & 0xFF))
         self.writechar(chr((word >> 8) & 0xFF))
         self.writechar(chr(word & 0xFF))
+
+    def currpos(self):
+        return self.get_rel_pos()
 
 class BranchUpdater(PPCAssembler):
     def __init__(self):
