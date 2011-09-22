@@ -111,7 +111,7 @@ def test_descrlist_dict():
 
 class BaseTestBasic(BaseTest):
 
-    enable_opts = "intbounds:rewrite:virtualize:string:heap"
+    enable_opts = "intbounds:rewrite:virtualize:string:pure:heap"
 
     def optimize_loop(self, ops, optops, call_pure_results=None):
 

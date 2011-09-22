@@ -165,6 +165,9 @@ class OptHeap(Optimization):
 
     def flush(self):
         self.force_all_lazy_setfields_and_arrayitems()
+        if self.posponedop:
+            self.next_optimization.propagate_forward(self.posponedop)
+            self.posponedop = None
 
     def new(self):
         return OptHeap()

@@ -566,48 +566,8 @@ class Optimizer(Optimization):
         args[n + 1] = op.getdescr()
         return args
 
-    @specialize.argtype(0)
     def optimize_default(self, op):
-        canfold = op.is_always_pure()
-        if op.is_ovf():
-            self.posponedop = op
-            return
-        if self.posponedop:
-            nextop = op
-            op = self.posponedop
-            self.posponedop = None
-            canfold = nextop.getopnum() == rop.GUARD_NO_OVERFLOW
-        else:
-            nextop = None
-
-        if canfold:
-            for i in range(op.numargs()):
-                if self.get_constant_box(op.getarg(i)) is None:
-                    break
-            else:
-                # all constant arguments: constant-fold away
-                resbox = self.constant_fold(op)
-                # note that INT_xxx_OVF is not done from here, and the
-                # overflows in the INT_xxx operations are ignored
-                self.make_constant(op.result, resbox)
-                return
-
-            # did we do the exact same operation already?
-            args = self.make_args_key(op)
-            oldop = self.pure_operations.get(args, None)
-            if oldop is not None and oldop.getdescr() is op.getdescr():
-                assert oldop.getopnum() == op.getopnum()
-                self.make_equal_to(op.result, self.getvalue(oldop.result),
-                                   True)
-                return
-            else:
-                self.pure_operations[args] = op
-                self.remember_emitting_pure(op)
-
-        # otherwise, the operation remains
         self.emit_operation(op)
-        if nextop:
-            self.emit_operation(nextop)
 
     def remember_emitting_pure(self, op):
         pass
