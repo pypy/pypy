@@ -237,14 +237,6 @@ class Optimization(object):
     def __init__(self):
         pass # make rpython happy
 
-    def propagate_begin_forward(self):
-        if self.next_optimization:
-            self.next_optimization.propagate_begin_forward()
-
-    def propagate_end_forward(self):
-        if self.next_optimization:
-            self.next_optimization.propagate_end_forward()
-
     def propagate_forward(self, op):
         raise NotImplementedError
 
@@ -474,10 +466,8 @@ class Optimizer(Optimization):
     def propagate_all_forward(self):
         self.exception_might_have_happened = self.bridge
         self.newoperations = []
-        self.first_optimization.propagate_begin_forward()
         for op in self.loop.operations:
             self.first_optimization.propagate_forward(op)
-        self.first_optimization.propagate_end_forward()
         self.loop.operations = self.newoperations
         self.loop.quasi_immutable_deps = self.quasi_immutable_deps
         # accumulate counters
