@@ -158,6 +158,7 @@ class OptHeap(Optimization):
         self._lazy_setfields_and_arrayitems = []
         self._remove_guard_not_invalidated = False
         self._seen_guard_not_invalidated = False
+        self.posponedop = None
 
     def force_at_end_of_preamble(self):
         self.force_all_lazy_setfields_and_arrayitems()
@@ -211,7 +212,14 @@ class OptHeap(Optimization):
 
     def emit_operation(self, op):
         self.emitting_operation(op)
-        self.next_optimization.propagate_forward(op)
+        if self.posponedop:
+            self.next_optimization.propagate_forward(self.posponedop)
+            self.posponedop = None
+        if (op.is_comparison() or op.getopnum() == rop.CALL_MAY_FORCE
+            or op.is_ovf()):
+            self.posponedop = op
+        else:
+            self.next_optimization.propagate_forward(op)
 
     def emitting_operation(self, op):
         if op.has_no_side_effect():
@@ -293,30 +301,6 @@ class OptHeap(Optimization):
             if indexvalue is None or indexvalue.intbound.contains(idx):
                 cf.force_lazy_setfield(self, can_cache)
 
-    def fixup_guard_situation(self):
-        # hackish: reverse the order of the last two operations if it makes
-        # sense to avoid a situation like "int_eq/setfield_gc/guard_true",
-        # which the backend (at least the x86 backend) does not handle well.
-        newoperations = self.optimizer.newoperations
-        if len(newoperations) < 2:
-            return
-        lastop = newoperations[-1]
-        if (lastop.getopnum() != rop.SETFIELD_GC and
-            lastop.getopnum() != rop.SETARRAYITEM_GC):
-            return
-        # - is_comparison() for cases like "int_eq/setfield_gc/guard_true"
-        # - CALL_MAY_FORCE: "call_may_force/setfield_gc/guard_not_forced"
-        # - is_ovf(): "int_add_ovf/setfield_gc/guard_no_overflow"
-        prevop = newoperations[-2]
-        opnum = prevop.getopnum()
-        if not (prevop.is_comparison() or opnum == rop.CALL_MAY_FORCE
-                or prevop.is_ovf()):
-            return
-        if prevop.result in lastop.getarglist():
-            return
-        newoperations[-2] = lastop
-        newoperations[-1] = prevop
-
     def _assert_valid_cf(self, cf):
         # check that 'cf' is in cached_fields or cached_arrayitems
         if not we_are_translated():
@@ -362,7 +346,6 @@ class OptHeap(Optimization):
                                       fieldvalue.get_key_box(), itemindex))
             else:
                 cf.force_lazy_setfield(self)
-                self.fixup_guard_situation()
         return pendingfields
 
     def optimize_GETFIELD_GC(self, op):
