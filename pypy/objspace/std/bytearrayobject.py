@@ -247,7 +247,8 @@ def str_translate__Bytearray_ANY_ANY(space, w_bytearray1, w_table, w_deletechars
 def repr__Bytearray(space, w_bytearray):
     s = w_bytearray.data
 
-    buf = StringBuilder(50)
+    # Good default if there are no replacements.
+    buf = StringBuilder(len("bytearray(b'')") + len(s))
 
     buf.append("bytearray(b'")
 
@@ -366,8 +367,8 @@ def str_join__Bytearray_ANY(space, w_self, w_list):
     newdata = []
     for i in range(len(list_w)):
         w_s = list_w[i]
-        if not (space.is_true(space.isinstance(w_s, space.w_str)) or
-                space.is_true(space.isinstance(w_s, space.w_bytearray))):
+        if not (space.isinstance_w(w_s, space.w_str) or
+                space.isinstance_w(w_s, space.w_bytearray)):
             raise operationerrfmt(
                 space.w_TypeError,
                 "sequence item %d: expected string, %s "

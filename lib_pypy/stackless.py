@@ -7,18 +7,11 @@ Please refer to their documentation.
 
 import traceback
 import _continuation
-from functools import partial
 
 class TaskletExit(Exception):
     pass
 
 CoroutineExit = TaskletExit
-
-class GWrap(_continuation.continulet):
-    """This is just a wrapper around continulet to allow
-       to stick additional attributes to a continulet.
-       To be more concrete, we need a backreference to
-       the coroutine object"""
 
 
 class coroutine(object):
@@ -42,12 +35,10 @@ class coroutine(object):
            arguments *argl, **argd
         """
         if self._frame is None or not self._frame.is_pending():
-
-            def _func(c, *args, **kwargs):
-                return func(*args, **kwargs)
-            
-            run = partial(_func, *argl, **argd)
-            self._frame = frame = GWrap(run)
+            def run(c):
+                _tls.current_coroutine = self
+                return func(*argl, **argd)
+            self._frame = frame = _continuation.continulet(run)
         else:
             raise ValueError("cannot bind a bound coroutine")
 
@@ -58,16 +49,18 @@ class coroutine(object):
            None is returned
         """
         current = _getcurrent()
-        current._jump_to(self)
-
-    def _jump_to(self, coroutine):
-        _tls.current_coroutine = coroutine
-        self._frame.switch(to=coroutine._frame)
+        try:
+            current._frame.switch(to=self._frame)
+        finally:
+            _tls.current_coroutine = current
 
     def kill(self):
         """coro.kill() : kill coroutine coro"""
-        _tls.current_coroutine = self
-        self._frame.throw(CoroutineExit)
+        current = _getcurrent()
+        try:
+            current._frame.throw(CoroutineExit, to=self._frame)
+        finally:
+            _tls.current_coroutine = current
 
     def _is_alive(self):
         if self._frame is None:
@@ -78,10 +71,7 @@ class coroutine(object):
 
     def getcurrent():
         """coroutine.getcurrent() -> the currently running coroutine"""
-        try:
-            return _getcurrent()
-        except AttributeError:
-            return _maincoro
+        return _getcurrent()
     getcurrent = staticmethod(getcurrent)
 
     def __reduce__(self):
@@ -109,13 +99,10 @@ def _coroutine_create_main():
     # create the main coroutine for this thread
     _tls.current_coroutine = None
     main_coroutine = coroutine()
-    main_coroutine.bind(lambda x:x)
+    typ = _continuation.continulet
+    main_coroutine._frame = typ.__new__(typ)
     _tls.main_coroutine = main_coroutine
     _tls.current_coroutine = main_coroutine
-    return main_coroutine
-
-
-_maincoro = _coroutine_create_main()
 
 
 from collections import deque
@@ -161,10 +148,10 @@ def _scheduler_switch(current, next):
     _last_task = next
     assert not next.blocked
     if next is not current:
-        try:
+        #try:
             next.switch()
-        except CoroutineExit:
-            raise TaskletExit
+        #except CoroutineExit:  --- they are the same anyway
+        #    raise TaskletExit
     return current
 
 def set_schedule_callback(callback):
@@ -459,6 +446,7 @@ class tasklet(coroutine):
         def _func():
             try:
                 try:
+                    coroutine.switch(back)
                     func(*argl, **argd)
                 except TaskletExit:
                     pass
@@ -468,6 +456,8 @@ class tasklet(coroutine):
 
         self.func = None
         coroutine.bind(self, _func)
+        back = _getcurrent()
+        coroutine.switch(self)
         self.alive = True
         _scheduler_append(self)
         return self

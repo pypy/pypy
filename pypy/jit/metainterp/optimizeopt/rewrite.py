@@ -19,7 +19,7 @@ class OptRewrite(Optimization):
 
     def new(self):
         return OptRewrite()
-        
+
     def produce_potential_short_preamble_ops(self, sb):
         for op in self.loop_invariant_producer.values():
             sb.add_potential(op)
@@ -231,6 +231,17 @@ class OptRewrite(Optimization):
             else:
                 self.make_constant(op.result, result)
                 return
+
+        args = self.optimizer.make_args_key(op)
+        oldop = self.optimizer.pure_operations.get(args, None)
+        if oldop is not None and oldop.getdescr() is op.getdescr():
+            assert oldop.getopnum() == op.getopnum()
+            self.make_equal_to(op.result, self.getvalue(oldop.result))
+            return
+        else:
+            self.optimizer.pure_operations[args] = op
+            self.optimizer.remember_emitting_pure(op)
+
         # replace CALL_PURE with just CALL
         args = op.getarglist()
         self.emit_operation(ResOperation(rop.CALL, args, op.result,
@@ -351,7 +362,7 @@ class OptRewrite(Optimization):
         # expects a compile-time constant
         assert isinstance(arg, Const)
         key = make_hashable_int(arg.getint())
-        
+
         resvalue = self.loop_invariant_results.get(key, None)
         if resvalue is not None:
             self.make_equal_to(op.result, resvalue)

@@ -119,16 +119,16 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         module = self.import_module(name='foo')
         obj = module.new()
         # call __new__
-        newobj = module.FuuType(u"xyz")
+        newobj = module.UnicodeSubtype(u"xyz")
         assert newobj == u"xyz"
-        assert isinstance(newobj, module.FuuType)
+        assert isinstance(newobj, module.UnicodeSubtype)
 
         assert isinstance(module.fooType(), module.fooType)
         class bar(module.fooType):
             pass
         assert isinstance(bar(), bar)
 
-        fuu = module.FuuType
+        fuu = module.UnicodeSubtype
         class fuu2(fuu):
             def baz(self):
                 return self
@@ -137,20 +137,20 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
 
     def test_init(self):
         module = self.import_module(name="foo")
-        newobj = module.FuuType()
+        newobj = module.UnicodeSubtype()
         assert newobj.get_val() == 42
 
         # this subtype should inherit tp_init
-        newobj = module.Fuu2Type()
+        newobj = module.UnicodeSubtype2()
         assert newobj.get_val() == 42
 
         # this subclass redefines __init__
-        class Fuu2(module.FuuType):
+        class UnicodeSubclass2(module.UnicodeSubtype):
             def __init__(self):
                 self.foobar = 32
-                super(Fuu2, self).__init__()
+                super(UnicodeSubclass2, self).__init__()
         
-        newobj = Fuu2()
+        newobj = UnicodeSubclass2()
         assert newobj.get_val() == 42
         assert newobj.foobar == 32
 

@@ -292,8 +292,8 @@ def str_join__Rope_ANY(space, w_self, w_list):
     l = []
     for i in range(size):
         w_s = list_w[i]
-        if not space.is_true(space.isinstance(w_s, space.w_str)):
-            if space.is_true(space.isinstance(w_s, space.w_unicode)):
+        if not space.isinstance_w(w_s, space.w_str):
+            if space.isinstance_w(w_s, space.w_unicode):
                 w_u = space.call_function(space.w_unicode, w_self)
                 return space.call_method(w_u, "join", space.newlist(list_w))
             raise operationerrfmt(
@@ -556,7 +556,7 @@ def str_endswith__Rope_Tuple_ANY_ANY(space, w_self, w_suffixes, w_start, w_end):
                                                 W_RopeObject.EMPTY, w_start,
                                                 w_end, True)
     for w_suffix in space.fixedview(w_suffixes):
-        if space.is_true(space.isinstance(w_suffix, space.w_unicode)):
+        if space.isinstance_w(w_suffix, space.w_unicode):
             w_u = space.call_function(space.w_unicode, w_self)
             return space.call_method(w_u, "endswith", w_suffixes, w_start,
                                      w_end)
@@ -576,7 +576,7 @@ def str_startswith__Rope_Tuple_ANY_ANY(space, w_self, w_prefixes, w_start, w_end
     (self, _, start, end) = _convert_idx_params(space, w_self, W_RopeObject.EMPTY,
                                                   w_start, w_end, True)
     for w_prefix in space.fixedview(w_prefixes):
-        if space.is_true(space.isinstance(w_prefix, space.w_unicode)):
+        if space.isinstance_w(w_prefix, space.w_unicode):
             w_u = space.call_function(space.w_unicode, w_self)
             return space.call_method(w_u, "startswith", w_prefixes, w_start,
                                      w_end)

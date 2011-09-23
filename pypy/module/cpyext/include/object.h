@@ -501,6 +501,9 @@ typedef union _gc_head {
 #define PyObject_TypeCheck(ob, tp) \
     ((ob)->ob_type == (tp) || PyType_IsSubtype((ob)->ob_type, (tp)))
 
+#define Py_TRASHCAN_SAFE_BEGIN(pyObj)
+#define Py_TRASHCAN_SAFE_END(pyObj)
+
 /* Copied from CPython ----------------------------- */
 int PyObject_AsReadBuffer(PyObject *, const void **, Py_ssize_t *);
 int PyObject_AsWriteBuffer(PyObject *, void **, Py_ssize_t *);
