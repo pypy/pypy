@@ -1416,6 +1416,8 @@ ObjSpace.MethodTable = [
     ('is_',             'is',        2, []),
     ('id',              'id',        1, []),
     ('type',            'type',      1, []),
+    ('isinstance',      'isinstance', 2, ['__instancecheck__']),
+    ('issubtype',       'issubtype', 2, ['__subclasscheck__']),  # not for old-style classes
     ('repr',            'repr',      1, ['__repr__']),
     ('str',             'str',       1, ['__str__']),
     ('format',          'format',    2, ['__format__']),
