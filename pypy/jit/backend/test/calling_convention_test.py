@@ -316,7 +316,7 @@ class TestCallingConv(Runner):
             FUNC = self.FuncType(args, I)
             FPTR = self.Ptr(FUNC)
             func_ptr = llhelper(FPTR, func)
-            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+            calldescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, EffectInfo.MOST_GENERAL)
             funcbox = self.get_funcbox(cpu, func_ptr)
 
             res = self.execute_operation(rop.CALL,
