@@ -591,11 +591,6 @@ class Optimizer(Optimization):
     def optimize_DEBUG_MERGE_POINT(self, op):
         self.emit_operation(op)
 
-    def optimize_CAST_OPAQUE_PTR(self, op):
-        value = self.getvalue(op.getarg(0))
-        self.opaque_pointers[value] = True
-        self.make_equal_to(op.result, value)
-
     def optimize_GETARRAYITEM_GC_PURE(self, op):
         indexvalue = self.getvalue(op.getarg(1))
         if indexvalue.is_constant():

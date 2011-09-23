@@ -468,6 +468,10 @@ class OptRewrite(Optimization):
                                         args = [op.getarg(0), ConstInt(highest_bit(val))])
         self.emit_operation(op)
 
+    def optimize_CAST_OPAQUE_PTR(self, op):
+        value = self.getvalue(op.getarg(0))
+        self.optimizer.opaque_pointers[value] = True
+        self.make_equal_to(op.result, value)
 
 dispatch_opt = make_dispatcher_method(OptRewrite, 'optimize_',
         default=OptRewrite.emit_operation)
