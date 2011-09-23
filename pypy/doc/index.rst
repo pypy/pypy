@@ -21,8 +21,6 @@ Getting into PyPy ...
 
 * `Papers`_: Academic papers, talks, and related projects
 
-* `Videos`_: Videos of PyPy talks and presentations
-
 * `speed.pypy.org`_: Daily benchmarks of how fast PyPy is
 
 * `potential project ideas`_: In case you want to get your feet wet...
