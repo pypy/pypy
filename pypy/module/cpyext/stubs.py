@@ -920,12 +920,6 @@ def PyFunction_New(space, code, globals):
     raise NotImplementedError
 
 @cpython_api([PyObject], PyObject)
-def PyFunction_GetCode(space, op):
-    """Return the code object associated with the function object op."""
-    borrow_from()
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
 def PyFunction_GetGlobals(space, op):
     """Return the globals dictionary associated with the function object op."""
     borrow_from()

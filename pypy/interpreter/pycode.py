@@ -10,7 +10,7 @@ from pypy.interpreter import eval
 from pypy.interpreter.argument import Signature
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped, unwrap_spec
-from pypy.interpreter.astcompiler.consts import (CO_OPTIMIZED,
+from pypy.interpreter.astcompiler.consts import (
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
     CO_GENERATOR, CO_CONTAINSGLOBALS)
 from pypy.rlib.rarithmetic import intmask

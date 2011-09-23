@@ -20,7 +20,7 @@ MASK = intmask(HIGHEST_BIT - 1)
 #  DICTVALUE types.
 #
 #  XXX for immutable dicts, the array should be inlined and
-#      num_pristine_entries and everused are not needed.
+#      resize_counter and everused are not needed.
 #
 #    struct dictentry {
 #        DICTKEY key;
@@ -32,7 +32,7 @@ MASK = intmask(HIGHEST_BIT - 1)
 #
 #    struct dicttable {
 #        int num_items;
-#        int num_pristine_entries;  # never used entries
+#        int resize_counter;
 #        Array *entries;
 #        (Function DICTKEY, DICTKEY -> bool) *fnkeyeq;
 #        (Function DICTKEY -> int) *fnkeyhash;
@@ -176,7 +176,7 @@ class DictRepr(AbstractDictRepr):
             self.DICTENTRYARRAY = lltype.GcArray(self.DICTENTRY,
                                                  adtmeths=entrymeths)
             fields =          [ ("num_items", lltype.Signed),
-                                ("num_pristine_entries", lltype.Signed),
+                                ("resize_counter", lltype.Signed),
                                 ("entries", lltype.Ptr(self.DICTENTRYARRAY)) ]
             if self.custom_eq_hash:
                 self.r_rdict_eqfn, self.r_rdict_hashfn = self._custom_eq_hash_repr()
@@ -465,8 +465,8 @@ def _ll_dict_setitem_lookup_done(d, key, value, hash, i):
     d.num_items += 1
     if not everused:
         if hasattr(ENTRY, 'f_everused'): entry.f_everused = True
-        d.num_pristine_entries -= 1
-        if d.num_pristine_entries <= len(d.entries) / 3:
+        d.resize_counter -= 3
+        if d.resize_counter <= 0:
             ll_dict_resize(d)
 
 def ll_dict_insertclean(d, key, value, hash):
@@ -484,7 +484,7 @@ def ll_dict_insertclean(d, key, value, hash):
     if hasattr(ENTRY, 'f_valid'):    entry.f_valid = True
     if hasattr(ENTRY, 'f_everused'): entry.f_everused = True
     d.num_items += 1
-    d.num_pristine_entries -= 1
+    d.resize_counter -= 3
 
 def ll_dict_delitem(d, key):
     i = ll_dict_lookup(d, key, d.keyhash(key))
@@ -518,7 +518,7 @@ def ll_dict_resize(d):
         new_size /= 2
     d.entries = lltype.typeOf(old_entries).TO.allocate(new_size)
     d.num_items = 0
-    d.num_pristine_entries = new_size
+    d.resize_counter = new_size * 2
     i = 0
     while i < old_size:
         if old_entries.valid(i):
@@ -619,7 +619,7 @@ def ll_newdict(DICT):
     d = DICT.allocate()
     d.entries = DICT.entries.TO.allocate(DICT_INITSIZE)
     d.num_items = 0
-    d.num_pristine_entries = DICT_INITSIZE
+    d.resize_counter = DICT_INITSIZE * 2
     return d
 ll_newdict.oopspec = 'newdict()'
 
@@ -631,7 +631,7 @@ def ll_newdict_size(DICT, length_estimate):
     d = DICT.allocate()
     d.entries = DICT.entries.TO.allocate(n)
     d.num_items = 0
-    d.num_pristine_entries = n
+    d.resize_counter = n * 2
     return d
 ll_newdict_size.oopspec = 'newdict()'
 
@@ -749,7 +749,7 @@ def ll_copy(dict):
     d = DICT.allocate()
     d.entries = DICT.entries.TO.allocate(dictsize)
     d.num_items = dict.num_items
-    d.num_pristine_entries = dict.num_pristine_entries
+    d.resize_counter = dict.resize_counter
     if hasattr(DICT, 'fnkeyeq'):   d.fnkeyeq   = dict.fnkeyeq
     if hasattr(DICT, 'fnkeyhash'): d.fnkeyhash = dict.fnkeyhash
     i = 0
@@ -767,12 +767,13 @@ def ll_copy(dict):
 ll_copy.oopspec = 'dict.copy(dict)'
 
 def ll_clear(d):
-    if len(d.entries) == d.num_pristine_entries == DICT_INITSIZE:
+    if (len(d.entries) == DICT_INITSIZE and
+        d.resize_counter == DICT_INITSIZE * 2):
         return
     old_entries = d.entries
     d.entries = lltype.typeOf(old_entries).TO.allocate(DICT_INITSIZE)
     d.num_items = 0
-    d.num_pristine_entries = DICT_INITSIZE
+    d.resize_counter = DICT_INITSIZE * 2
     old_entries.delete()
 ll_clear.oopspec = 'dict.clear(d)'
 

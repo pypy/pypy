@@ -46,6 +46,7 @@ class VRefRepr(Repr):
     def specialize_call(self, hop):
         r_generic_object = getinstancerepr(hop.rtyper, None)
         [v] = hop.inputargs(r_generic_object)   # might generate a cast_pointer
+        hop.exception_cannot_occur()
         return v
 
     def rtype_simple_call(self, hop):

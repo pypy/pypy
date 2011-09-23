@@ -337,7 +337,9 @@ class TestCall(BaseTestPyPyC):
         assert loop.match_by_id('append', """
             i13 = getfield_gc(p8, descr=<SignedFieldDescr list.length .*>)
             i15 = int_add(i13, 1)
-            call(ConstClass(_ll_list_resize_ge__listPtr_Signed), p8, i15, descr=<VoidCallDescr>)
+            # Will be killed by the backend
+            i17 = arraylen_gc(p7, descr=<GcPtrArrayDescr>)
+            call(ConstClass(_ll_list_resize_ge), p8, i15, descr=<VoidCallDescr>)
             guard_no_exception(descr=...)
             p17 = getfield_gc(p8, descr=<GcPtrFieldDescr list.items .*>)
             p19 = new_with_vtable(ConstClass(W_IntObject))
