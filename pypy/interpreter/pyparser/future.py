@@ -225,14 +225,16 @@ class FutureAutomaton(object):
             raise DoneException
         self.consume_whitespace()
 
-    def consume_whitespace(self):
+    def consume_whitespace(self, newline_ok=False):
         while 1:
             c = self.getc()
             if c in whitespace:
                 self.pos += 1
                 continue
-            elif c == '\\':
-                self.pos += 1
+            elif c == '\\' or newline_ok:
+                slash = c == '\\'
+                if slash:
+                    self.pos += 1
                 c = self.getc()
                 if c == '\n':
                     self.pos += 1
@@ -243,8 +245,10 @@ class FutureAutomaton(object):
                     if self.getc() == '\n':
                         self.pos += 1
                         self.atbol()
-                else:
+                elif slash:
                     raise DoneException
+                else:
+                    return
             else:
                 return
 
@@ -281,7 +285,7 @@ class FutureAutomaton(object):
             return
         else:
             self.pos += 1
-            self.consume_whitespace()
+            self.consume_whitespace(paren_list)
             if paren_list and self.getc() == ')':
                 self.pos += 1
                 return # Handles trailing comma inside parenthesis
