@@ -2790,7 +2790,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         self.optimize_loop(ops, expected, preamble)
 
     def test_remove_duplicate_pure_op_ovf_with_lazy_setfield(self):
-        py.test.skip('this optimization is not yet supprted')
         ops = """
         [i1, p1]
         i3 = int_add_ovf(i1, 1)
