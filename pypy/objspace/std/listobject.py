@@ -535,7 +535,7 @@ class RangeListStrategy(ListStrategy):
             step = step * (-1)
         else:
             return
-        w_list.lstorage = self.erase([start, step, length])
+        w_list.lstorage = self.erase((start, step, length))
 
     def insert(self, w_list, index, w_item):
         self.switch_to_integer_strategy(w_list)
