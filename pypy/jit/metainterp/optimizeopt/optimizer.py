@@ -305,6 +305,9 @@ class Optimization(object):
     def produce_potential_short_preamble_ops(self, potential_ops):
         pass
 
+    def forget_numberings(self, box):
+        self.optimizer.forget_numberings(box)
+
 class Optimizer(Optimization):
 
     def __init__(self, metainterp_sd, loop, optimizations=None, bridge=False):

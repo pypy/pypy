@@ -5961,13 +5961,18 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape(i0)
         jump(p1)
         """
-        expected = """
+        preamble = """
         [p1]
         i0 = ptr_eq(p1, NULL)
         escape(i0)
-        jump(p1)
+        jump(p1, i0)
         """
-        self.optimize_strunicode_loop_extradescrs(ops, expected, expected)
+        expected = """
+        [p1, i0]
+        escape(i0)
+        jump(p1, i0)
+        """
+        self.optimize_strunicode_loop_extradescrs(ops, expected, preamble)
 
     def test_str_equal_none2(self):
         ops = """
@@ -5976,13 +5981,18 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape(i0)
         jump(p1)
         """
-        expected = """
+        preamble = """
         [p1]
         i0 = ptr_eq(p1, NULL)
         escape(i0)
-        jump(p1)
+        jump(p1, i0)
         """
-        self.optimize_strunicode_loop_extradescrs(ops, expected, expected)
+        expected = """
+        [p1, i0]
+        escape(i0)
+        jump(p1, i0)
+        """
+        self.optimize_strunicode_loop_extradescrs(ops, expected, preamble)
 
     def test_str_equal_nonnull1(self):
         ops = """
