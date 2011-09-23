@@ -21,10 +21,12 @@ class W_BoolObject(W_Object):
 
     def unwrap(w_self, space):
         return w_self.boolval
-    int_w = unwrap
+
+    def int_w(w_self, space):
+        return int(w_self.boolval)
 
     def uint_w(w_self, space):
-        intval = w_self.intval
+        intval = int(w_self.boolval)
         if intval < 0:
             raise OperationError(space.w_ValueError,
                                  space.wrap("cannot convert negative integer to unsigned"))
@@ -32,7 +34,7 @@ class W_BoolObject(W_Object):
             return r_uint(intval)
 
     def bigint_w(w_self, space):
-        return rbigint.fromint(w_self.intval)
+        return rbigint.fromint(int(w_self.boolval))
 
 
 registerimplementation(W_BoolObject)
