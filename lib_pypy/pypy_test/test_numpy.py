@@ -1,7 +1,9 @@
-from pypy.module._numpy.test.test_base import BaseNumpyAppTest
+from pypy.conftest import gettestobjspace
 
+class AppTestNumPyModule:
+    def setup_class(cls):
+        cls.space = gettestobjspace(usemodules=['_numpy'])
 
-class AppTestNumPyModule(BaseNumpyAppTest):
     def test_mean(self):
         from numpy import array, mean
         assert mean(array(range(5))) == 2.0
