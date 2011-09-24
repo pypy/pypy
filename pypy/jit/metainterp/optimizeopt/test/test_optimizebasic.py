@@ -4789,7 +4789,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         self.optimize_strunicode_loop(ops, expected)
 
 
-
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass
 

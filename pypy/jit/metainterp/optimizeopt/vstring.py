@@ -141,6 +141,11 @@ class VStringPlainValue(VAbstractStringValue):
                                    for c in self._chars])
 
     def string_copy_parts(self, optimizer, targetbox, offsetbox, mode):
+        if not self.is_virtual() and targetbox is not self.box:
+            lengthbox = self.getstrlen(optimizer, mode)
+            srcbox = self.force_box()
+            return copy_str_content(optimizer, srcbox, targetbox,
+                                CONST_0, offsetbox, lengthbox, mode)
         for i in range(len(self._chars)):
             charbox = self._chars[i].force_box()
             if not (isinstance(charbox, Const) and charbox.same_constant(CONST_0)):
