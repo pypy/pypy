@@ -8,13 +8,13 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache
 from pypy.tool.uid import HUGEVAL_BYTES
-from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated, newlist
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.timer import DummyTimer, Timer
 from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib import jit
 from pypy.tool.sourcetools import func_with_new_name
-import os, sys, py
+import os, sys
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root']
 
@@ -626,9 +626,9 @@ class ObjSpace(object):
             self.default_compiler = compiler
             return compiler
 
-    def createframe(self, code, w_globals, closure=None):
+    def createframe(self, code, w_globals, outer_func=None):
         "Create an empty PyFrame suitable for this code object."
-        return self.FrameClass(self, code, w_globals, closure)
+        return self.FrameClass(self, code, w_globals, outer_func)
 
     def allocate_lock(self):
         """Return an interp-level Lock object if threads are enabled,
@@ -757,7 +757,18 @@ class ObjSpace(object):
         w_iterator = self.iter(w_iterable)
         # If we know the expected length we can preallocate.
         if expected_length == -1:
-            items = []
+            try:
+                lgt_estimate = self.len_w(w_iterable)
+            except OperationError, o:
+                if (not o.match(self, self.w_AttributeError) and
+                    not o.match(self, self.w_TypeError)):
+                    raise
+                items = []
+            else:
+                try:
+                    items = newlist(lgt_estimate)
+                except MemoryError:
+                    items = [] # it might have lied
         else:
             items = [None] * expected_length
         idx = 0

@@ -30,7 +30,7 @@ class Function(Wrappable):
     can_change_code = True
     _immutable_fields_ = ['code?',
                           'w_func_globals?',
-                          'closure?',
+                          'closure?[*]',
                           'defs_w?[*]',
                           'name?']
 
@@ -96,7 +96,7 @@ class Function(Wrappable):
             assert isinstance(code, PyCode)
             if nargs < 5:
                 new_frame = self.space.createframe(code, self.w_func_globals,
-                                                   self.closure)
+                                                   self)
                 for i in funccallunrolling:
                     if i < nargs:
                         new_frame.locals_stack_w[i] = args_w[i]
@@ -156,7 +156,7 @@ class Function(Wrappable):
     def _flat_pycall(self, code, nargs, frame):
         # code is a PyCode
         new_frame = self.space.createframe(code, self.w_func_globals,
-                                                   self.closure)
+                                                   self)
         for i in xrange(nargs):
             w_arg = frame.peekvalue(nargs-1-i)
             new_frame.locals_stack_w[i] = w_arg
@@ -167,7 +167,7 @@ class Function(Wrappable):
     def _flat_pycall_defaults(self, code, nargs, frame, defs_to_load):
         # code is a PyCode
         new_frame = self.space.createframe(code, self.w_func_globals,
-                                                   self.closure)
+                                                   self)
         for i in xrange(nargs):
             w_arg = frame.peekvalue(nargs-1-i)
             new_frame.locals_stack_w[i] = w_arg
@@ -242,8 +242,10 @@ class Function(Wrappable):
             # we have been seen by other means so rtyping should not choke
             # on us
             identifier = self.code.identifier
-            assert Function._all.get(identifier, self) is self, ("duplicate "
-                                                                 "function ids")
+            previous = Function._all.get(identifier, self)
+            assert previous is self, (
+                "duplicate function ids with identifier=%r: %r and %r" % (
+                identifier, previous, self))
             self.add_to_table()
         return False
 

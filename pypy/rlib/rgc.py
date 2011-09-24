@@ -1,6 +1,9 @@
-import gc, types
+import gc
+import types
+
+from pypy.rlib import jit
+from pypy.rlib.objectmodel import we_are_translated, enforceargs, specialize
 from pypy.rpython.extregistry import ExtRegistryEntry
-from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import lltype, llmemory
 
 # ____________________________________________________________
@@ -32,7 +35,7 @@ class CollectEntry(ExtRegistryEntry):
         if len(hop.args_s) == 1:
             args_v = hop.inputargs(lltype.Signed)
         return hop.genop('gc__collect', args_v, resulttype=hop.r_result)
-    
+
 class SetMaxHeapSizeEntry(ExtRegistryEntry):
     _about_ = set_max_heap_size
 
@@ -133,6 +136,9 @@ class MallocNonMovingEntry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.genop(opname, vlist, resulttype = hop.r_result.lowleveltype)
 
+@jit.oopspec('list.ll_arraycopy(source, dest, source_start, dest_start, length)')
+@specialize.ll()
+@enforceargs(None, None, int, int, int)
 def ll_arraycopy(source, dest, source_start, dest_start, length):
     from pypy.rpython.lltypesystem.lloperation import llop
     from pypy.rlib.objectmodel import keepalive_until_here
@@ -161,14 +167,11 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
                       llmemory.sizeof(TP.OF) * source_start)
     cp_dest_addr = (dest_addr + llmemory.itemoffsetof(TP, 0) +
                     llmemory.sizeof(TP.OF) * dest_start)
-    
+
     llmemory.raw_memcopy(cp_source_addr, cp_dest_addr,
                          llmemory.sizeof(TP.OF) * length)
     keepalive_until_here(source)
     keepalive_until_here(dest)
-ll_arraycopy._annenforceargs_ = [None, None, int, int, int]
-ll_arraycopy._annspecialcase_ = 'specialize:ll'
-ll_arraycopy.oopspec = 'list.ll_arraycopy(source, dest, source_start, dest_start, length)'
 
 def ll_shrink_array(p, smallerlength):
     from pypy.rpython.lltypesystem.lloperation import llop
@@ -192,7 +195,7 @@ def ll_shrink_array(p, smallerlength):
               llmemory.itemoffsetof(ARRAY, 0))
     source_addr = llmemory.cast_ptr_to_adr(p)    + offset
     dest_addr   = llmemory.cast_ptr_to_adr(newp) + offset
-    llmemory.raw_memcopy(source_addr, dest_addr, 
+    llmemory.raw_memcopy(source_addr, dest_addr,
                          llmemory.sizeof(ARRAY.OF) * smallerlength)
 
     keepalive_until_here(p)

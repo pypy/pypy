@@ -1,3 +1,4 @@
+import py; py.test.skip("XXX port me")
 from pypy.conftest import gettestobjspace, option
 
 class AppTest_Stackless:

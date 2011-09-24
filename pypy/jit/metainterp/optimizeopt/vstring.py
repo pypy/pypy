@@ -141,6 +141,11 @@ class VStringPlainValue(VAbstractStringValue):
                                    for c in self._chars])
 
     def string_copy_parts(self, optimizer, targetbox, offsetbox, mode):
+        if not self.is_virtual() and targetbox is not self.box:
+            lengthbox = self.getstrlen(optimizer, mode)
+            srcbox = self.force_box()
+            return copy_str_content(optimizer, srcbox, targetbox,
+                                CONST_0, offsetbox, lengthbox, mode)
         for i in range(len(self._chars)):
             charbox = self._chars[i].force_box()
             if not (isinstance(charbox, Const) and charbox.same_constant(CONST_0)):
@@ -296,7 +301,7 @@ class VStringSliceValue(VAbstractStringValue):
 
 
 def copy_str_content(optimizer, srcbox, targetbox,
-                     srcoffsetbox, offsetbox, lengthbox, mode):
+                     srcoffsetbox, offsetbox, lengthbox, mode, need_next_offset=True):
     if isinstance(srcbox, ConstPtr) and isinstance(srcoffsetbox, Const):
         M = 5
     else:
@@ -313,7 +318,10 @@ def copy_str_content(optimizer, srcbox, targetbox,
                                               None))
             offsetbox = _int_add(optimizer, offsetbox, CONST_1)
     else:
-        nextoffsetbox = _int_add(optimizer, offsetbox, lengthbox)
+        if need_next_offset:
+            nextoffsetbox = _int_add(optimizer, offsetbox, lengthbox)
+        else:
+            nextoffsetbox = None
         op = ResOperation(mode.COPYSTRCONTENT, [srcbox, targetbox,
                                                 srcoffsetbox, offsetbox,
                                                 lengthbox], None)
@@ -365,7 +373,7 @@ class OptString(optimizer.Optimization):
 
     def new(self):
         return OptString()
-    
+
     def make_vstring_plain(self, box, source_op, mode):
         vvalue = VStringPlainValue(self.optimizer, box, source_op, mode)
         self.make_equal_to(box, vvalue)
@@ -435,7 +443,11 @@ class OptString(optimizer.Optimization):
         #
         if isinstance(value, VStringPlainValue):  # even if no longer virtual
             if vindex.is_constant():
-                return value.getitem(vindex.box.getint())
+                res = value.getitem(vindex.box.getint())
+                # If it is uninitialized we can't return it, it was set by a
+                # COPYSTRCONTENT, not a STRSETITEM
+                if res is not optimizer.CVAL_UNINITIALIZED_ZERO:
+                    return res
         #
         resbox = _strgetitem(self.optimizer, value.force_box(), vindex.force_box(), mode)
         return self.getvalue(resbox)
@@ -449,6 +461,30 @@ class OptString(optimizer.Optimization):
         value = self.getvalue(op.getarg(0))
         lengthbox = value.getstrlen(self.optimizer, mode)
         self.make_equal_to(op.result, self.getvalue(lengthbox))
+
+    def optimize_COPYSTRCONTENT(self, op):
+        self._optimize_COPYSTRCONTENT(op, mode_string)
+    def optimize_COPYUNICODECONTENT(self, op):
+        self._optimize_COPYSTRCONTENT(op, mode_unicode)
+
+    def _optimize_COPYSTRCONTENT(self, op, mode):
+        # args: src dst srcstart dststart length
+        src = self.getvalue(op.getarg(0))
+        dst = self.getvalue(op.getarg(1))
+        srcstart = self.getvalue(op.getarg(2))
+        dststart = self.getvalue(op.getarg(3))
+        length = self.getvalue(op.getarg(4))
+
+        if length.is_constant() and length.box.getint() == 0:
+            return
+        copy_str_content(self.optimizer,
+            src.force_box(),
+            dst.force_box(),
+            srcstart.force_box(),
+            dststart.force_box(),
+            length.force_box(),
+            mode, need_next_offset=False
+        )
 
     def optimize_CALL(self, op):
         # dispatch based on 'oopspecindex' to a method that handles

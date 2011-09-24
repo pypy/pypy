@@ -1,13 +1,15 @@
 """
 String formatting routines.
 """
-from pypy.rlib.unroll import unrolling_iterable
+from pypy.interpreter.error import OperationError
+from pypy.objspace.std.unicodetype import unicode_from_object
+from pypy.rlib import jit
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.rfloat import formatd, DTSF_ALT, isnan, isinf
-from pypy.interpreter.error import OperationError
-from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
-from pypy.objspace.std.unicodetype import unicode_from_object
+from pypy.rlib.unroll import unrolling_iterable
+from pypy.tool.sourcetools import func_with_new_name
+
 
 class BaseStringFormatter(object):
     def __init__(self, space, values_w, w_valuedict):
@@ -173,6 +175,9 @@ def make_formatter_subclass(do_unicode):
                 raise OperationError(space.w_ValueError,
                                      space.wrap("incomplete format"))
 
+        # Only shows up if we've already started inlining format(), so just
+        # unconditionally unroll this.
+        @jit.unroll_safe
         def getmappingkey(self):
             # return the mapping key in a '%(key)s' specifier
             fmt = self.fmt
@@ -233,6 +238,8 @@ def make_formatter_subclass(do_unicode):
 
             return w_value
 
+        # Same as getmappingkey
+        @jit.unroll_safe
         def peel_flags(self):
             self.f_ljust = False
             self.f_sign  = False
@@ -255,6 +262,8 @@ def make_formatter_subclass(do_unicode):
                     break
                 self.forward()
 
+        # Same as getmappingkey
+        @jit.unroll_safe
         def peel_num(self):
             space = self.space
             c = self.peekchr()
@@ -276,6 +285,7 @@ def make_formatter_subclass(do_unicode):
                 c = self.peekchr()
             return result
 
+        @jit.look_inside_iff(lambda self: jit.isconstant(self.fmt))
         def format(self):
             lgt = len(self.fmt) + 4 * len(self.values_w) + 10
             if do_unicode:
@@ -415,15 +425,15 @@ def make_formatter_subclass(do_unicode):
                                      space.wrap("operand does not support "
                                                 "unary str"))
             w_result = space.get_and_call_function(w_impl, w_value)
-            if space.is_true(space.isinstance(w_result,
-                                              space.w_unicode)):
+            if space.isinstance_w(w_result,
+                                              space.w_unicode):
                 raise NeedUnicodeFormattingError
             return space.str_w(w_result)
 
         def fmt_s(self, w_value):
             space = self.space
-            got_unicode = space.is_true(space.isinstance(w_value,
-                                                         space.w_unicode))
+            got_unicode = space.isinstance_w(w_value,
+                                                         space.w_unicode)
             if not do_unicode:
                 if got_unicode:
                     raise NeedUnicodeFormattingError
@@ -442,13 +452,13 @@ def make_formatter_subclass(do_unicode):
         def fmt_c(self, w_value):
             self.prec = -1     # just because
             space = self.space
-            if space.is_true(space.isinstance(w_value, space.w_str)):
+            if space.isinstance_w(w_value, space.w_str):
                 s = space.str_w(w_value)
                 if len(s) != 1:
                     raise OperationError(space.w_TypeError,
                                          space.wrap("%c requires int or char"))
                 self.std_wp(s)
-            elif space.is_true(space.isinstance(w_value, space.w_unicode)):
+            elif space.isinstance_w(w_value, space.w_unicode):
                 if not do_unicode:
                     raise NeedUnicodeFormattingError
                 ustr = space.unicode_w(w_value)
@@ -510,15 +520,15 @@ def format(space, w_fmt, values_w, w_valuedict=None, do_unicode=False):
     return space.wrap(result)
 
 def mod_format(space, w_format, w_values, do_unicode=False):
-    if space.is_true(space.isinstance(w_values, space.w_tuple)):
+    if space.isinstance_w(w_values, space.w_tuple):
         values_w = space.fixedview(w_values)
         return format(space, w_format, values_w, None, do_unicode)
     else:
         # we check directly for dict to avoid obscure checking
         # in simplest case
-        if space.is_true(space.isinstance(w_values, space.w_dict)) or \
+        if space.isinstance_w(w_values, space.w_dict) or \
            (space.lookup(w_values, '__getitem__') and
-           not space.is_true(space.isinstance(w_values, space.w_basestring))):
+           not space.isinstance_w(w_values, space.w_basestring)):
             return format(space, w_format, [w_values], w_values, do_unicode)
         else:
             return format(space, w_format, [w_values], None, do_unicode)

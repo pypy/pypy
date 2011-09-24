@@ -1,4 +1,5 @@
-import sys
+from __future__ import with_statement
+import sys, os
 import types
 import subprocess
 import py

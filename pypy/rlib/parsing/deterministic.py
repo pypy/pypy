@@ -1,3 +1,4 @@
+from __future__ import with_statement
 import py
 
 try:
@@ -228,11 +229,11 @@ class DFA(object):
         above = set()
         for state, nextstates in state_to_chars.iteritems():
             above.add(state)
-            for _ in result.start_block("if state == %s:" % (state, )):
-                for _ in result.start_block("if i < len(input):"):
+            with result.block("if state == %s:" % (state, )):
+                with result.block("if i < len(input):"):
                     result.emit("char = input[i]")
                     result.emit("i += 1")
-                for _ in result.start_block("else:"):
+                with result.block("else:"):
                     if state in self.final_states:
                         result.emit("return True")
                     else:
@@ -248,7 +249,7 @@ class DFA(object):
                     for i, (a, num) in enumerate(compressed):
                         if num < 5:
                             for charord in range(ord(a), ord(a) + num):
-                                for _ in result.start_block(
+                                with result.block(
                                     "%sif char == %r:" % (
                                         elif_prefix, chr(charord))):
                                     result.emit("state = %s" % (nextstate, ))
@@ -256,23 +257,23 @@ class DFA(object):
                                 if not elif_prefix:
                                     elif_prefix = "el"
                         else:
-                            for _ in result.start_block(
+                            with result.block(
                                 "%sif %r <= char <= %r:" % (
                                     elif_prefix, a, chr(ord(a) + num - 1))):
                                 result.emit("state = %s""" % (nextstate, ))
                                 result.emit(continue_prefix)
                             if not elif_prefix:
                                 elif_prefix = "el"
-                for _ in result.start_block("else:"):
+                with result.block("else:"):
                     result.emit("break") 
         #print state_to_chars.keys()
         for state in range(self.num_states):
             if state in state_to_chars:
                 continue
-            for _ in result.start_block("if state == %s:" % (state, )):
-                for _ in result.start_block("if i == len(input):"):
+            with result.block("if state == %s:" % (state, )):
+                with result.block("if i == len(input):"):
                     result.emit("return True")
-                for _ in result.start_block("else:"):
+                with result.block("else:"):
                     result.emit("break")
         result.emit("break")
         result.end_block("while")
@@ -303,14 +304,14 @@ class DFA(object):
         above = set()
         for state, nextstates in state_to_chars_sorted:
             above.add(state)
-            for _ in result.start_block("if state == %s:" % (state, )):
+            with result.block("if state == %s:" % (state, )):
                 if state in self.final_states:
                     result.emit("runner.last_matched_index = i - 1")
                     result.emit("runner.last_matched_state = state")
-                for _ in result.start_block("try:"):
+                with result.block("try:"):
                     result.emit("char = input[i]")
                     result.emit("i += 1")
-                for _ in result.start_block("except IndexError:"):
+                with result.block("except IndexError:"):
                     result.emit("runner.state = %s" % (state, ))
                     if state in self.final_states:
                         result.emit("return i")
@@ -327,21 +328,21 @@ class DFA(object):
                     for i, (a, num) in enumerate(compressed):
                         if num < 3:
                             for charord in range(ord(a), ord(a) + num):
-                                for _ in result.start_block("%sif char == %r:"
+                                with result.block("%sif char == %r:"
                                         % (elif_prefix, chr(charord))):
                                     result.emit("state = %s" % (nextstate, ))
                                     result.emit(continue_prefix)
                                 if not elif_prefix:
                                     elif_prefix = "el"
                         else:
-                            for _ in result.start_block(
+                            with result.block(
                                 "%sif %r <= char <= %r:" % (
                                     elif_prefix, a, chr(ord(a) + num - 1))):
                                     result.emit("state = %s" % (nextstate, ))
                                     result.emit(continue_prefix)
                             if not elif_prefix:
                                 elif_prefix = "el"
-                for _ in result.start_block("else:"):
+                with result.block("else:"):
                     result.emit("break")
         #print state_to_chars.keys()
         for state in range(self.num_states):

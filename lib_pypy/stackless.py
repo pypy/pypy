@@ -4,121 +4,111 @@ The essential objects are tasklets and channels.
 Please refer to their documentation.
 """
 
-DEBUG = True
-
-def dprint(*args):
-    for arg in args:
-        print arg,
-    print
 
 import traceback
-import sys
-try:
-    # If _stackless can be imported then TaskletExit and CoroutineExit are 
-    # automatically added to the builtins.
-    from _stackless import coroutine, greenlet
-except ImportError: # we are running from CPython
-    from greenlet import greenlet, GreenletExit
-    TaskletExit = CoroutineExit = GreenletExit
-    del GreenletExit
+import _continuation
+
+class TaskletExit(Exception):
+    pass
+
+CoroutineExit = TaskletExit
+
+
+class coroutine(object):
+    "we can't have continulet as a base, because continulets can't be rebound"
+
+    def __init__(self):
+        self._frame = None
+        self.is_zombie = False
+
+    def __getattr__(self, attr):
+        return getattr(self._frame, attr)
+
+    def __del__(self):
+        self.is_zombie = True
+        del self._frame
+        self._frame = None
+
+    def bind(self, func, *argl, **argd):
+        """coro.bind(f, *argl, **argd) -> None.
+           binds function f to coro. f will be called with
+           arguments *argl, **argd
+        """
+        if self._frame is None or not self._frame.is_pending():
+            def run(c):
+                _tls.current_coroutine = self
+                return func(*argl, **argd)
+            self._frame = frame = _continuation.continulet(run)
+        else:
+            raise ValueError("cannot bind a bound coroutine")
+
+    def switch(self):
+        """coro.switch() -> returnvalue
+           switches to coroutine coro. If the bound function
+           f finishes, the returnvalue is that of f, otherwise
+           None is returned
+        """
+        current = _getcurrent()
+        try:
+            current._frame.switch(to=self._frame)
+        finally:
+            _tls.current_coroutine = current
+
+    def kill(self):
+        """coro.kill() : kill coroutine coro"""
+        current = _getcurrent()
+        try:
+            current._frame.throw(CoroutineExit, to=self._frame)
+        finally:
+            _tls.current_coroutine = current
+
+    def _is_alive(self):
+        if self._frame is None:
+            return False
+        return not self._frame.is_pending()
+    is_alive = property(_is_alive)
+    del _is_alive
+
+    def getcurrent():
+        """coroutine.getcurrent() -> the currently running coroutine"""
+        return _getcurrent()
+    getcurrent = staticmethod(getcurrent)
+
+    def __reduce__(self):
+        raise TypeError, 'pickling is not possible based upon continulets'
+
+
+def _getcurrent():
+    "Returns the current coroutine (i.e. the one which called this function)."
     try:
-        from functools import partial
-    except ImportError: # we are not running python 2.5
-        class partial(object):
-            # just enough of 'partial' to be usefull
-            def __init__(self, func, *argl, **argd):
-                self.func = func
-                self.argl = argl
-                self.argd = argd
+        return _tls.current_coroutine
+    except AttributeError:
+        # first call in this thread: current == main
+        _coroutine_create_main()
+        return _tls.current_coroutine
 
-            def __call__(self):
-                return self.func(*self.argl, **self.argd)
+try:
+    from thread import _local
+except ImportError:
+    class _local(object):    # assume no threads
+        pass
 
-    class GWrap(greenlet):
-        """This is just a wrapper around greenlets to allow
-           to stick additional attributes to a greenlet.
-           To be more concrete, we need a backreference to
-           the coroutine object"""
+_tls = _local()
 
-    class MWrap(object):
-        def __init__(self,something):
-            self.something = something
+def _coroutine_create_main():
+    # create the main coroutine for this thread
+    _tls.current_coroutine = None
+    main_coroutine = coroutine()
+    typ = _continuation.continulet
+    main_coroutine._frame = typ.__new__(typ)
+    _tls.main_coroutine = main_coroutine
+    _tls.current_coroutine = main_coroutine
 
-        def __getattr__(self, attr):
-            return getattr(self.something, attr)
-
-    class coroutine(object):
-        "we can't have greenlet as a base, because greenlets can't be rebound"
-
-        def __init__(self):
-            self._frame = None
-            self.is_zombie = False
-
-        def __getattr__(self, attr):
-            return getattr(self._frame, attr)
-
-        def __del__(self):
-            self.is_zombie = True
-            del self._frame
-            self._frame = None
-
-        def bind(self, func, *argl, **argd):
-            """coro.bind(f, *argl, **argd) -> None.
-               binds function f to coro. f will be called with
-               arguments *argl, **argd
-            """
-            if self._frame is None or self._frame.dead:
-                self._frame = frame = GWrap()
-                frame.coro = self
-            if hasattr(self._frame, 'run') and self._frame.run:
-                raise ValueError("cannot bind a bound coroutine")
-            self._frame.run = partial(func, *argl, **argd)
-
-        def switch(self):
-            """coro.switch() -> returnvalue
-               switches to coroutine coro. If the bound function
-               f finishes, the returnvalue is that of f, otherwise
-               None is returned
-            """
-            try:
-                return greenlet.switch(self._frame)
-            except TypeError, exp: # self._frame is the main coroutine
-                return greenlet.switch(self._frame.something)
-
-        def kill(self):
-            """coro.kill() : kill coroutine coro"""
-            self._frame.throw()
-
-        def _is_alive(self):
-            if self._frame is None:
-                return False
-            return not self._frame.dead
-        is_alive = property(_is_alive)
-        del _is_alive
-
-        def getcurrent():
-            """coroutine.getcurrent() -> the currently running coroutine"""
-            try:
-                return greenlet.getcurrent().coro
-            except AttributeError:
-                return _maincoro
-        getcurrent = staticmethod(getcurrent)
-
-        def __reduce__(self):
-            raise TypeError, 'pickling is not possible based upon greenlets'
-
-    _maincoro = coroutine()
-    maingreenlet = greenlet.getcurrent()
-    _maincoro._frame = frame = MWrap(maingreenlet)
-    frame.coro = _maincoro
-    del frame
-    del maingreenlet
 
 from collections import deque
 
 import operator
-__all__ = 'run getcurrent getmain schedule tasklet channel coroutine \
-                greenlet'.split()
+__all__ = 'run getcurrent getmain schedule tasklet channel coroutine'.split()
 
 _global_task_id = 0
 _squeue = None
@@ -131,7 +121,8 @@ _schedule_callback = None
 def _scheduler_remove(value):
     try:
         del _squeue[operator.indexOf(_squeue, value)]
-    except ValueError:pass
+    except ValueError:
+        pass
 
 def _scheduler_append(value, normal=True):
     if normal:
@@ -157,10 +148,10 @@ def _scheduler_switch(current, next):
     _last_task = next
     assert not next.blocked
     if next is not current:
-        try:
+        #try:
             next.switch()
-        except CoroutineExit:
-            raise TaskletExit
+        #except CoroutineExit:  --- they are the same anyway
+        #    raise TaskletExit
     return current
 
 def set_schedule_callback(callback):
@@ -455,6 +446,7 @@ class tasklet(coroutine):
         def _func():
             try:
                 try:
+                    coroutine.switch(back)
                     func(*argl, **argd)
                 except TaskletExit:
                     pass
@@ -464,6 +456,8 @@ class tasklet(coroutine):
 
         self.func = None
         coroutine.bind(self, _func)
+        back = _getcurrent()
+        coroutine.switch(self)
         self.alive = True
         _scheduler_append(self)
         return self

@@ -66,7 +66,7 @@ permutation again you restore the original situation.
 In practice, in PyPy, you cannot change the ``f_back`` of an abitrary
 frame, but only of frames stored in ``continulets``.
 
-Continulets are internally implemented using stacklets.  Stacklets are a
+Continulets are internally implemented using stacklets_.  Stacklets are a
 bit more primitive (they are really one-shot continuations), but that
 idea only works in C, not in Python.  The basic idea of continulets is
 to have at any point in time a complete valid stack; this is important
@@ -199,7 +199,11 @@ Unimplemented features
 The following features (present in some past Stackless version of PyPy)
 are for the time being not supported any more:
 
-* Tasklets and channels (needs to be rewritten at app-level)
+* Tasklets and channels (currently ``stackless.py`` seems to import,
+  but you have tasklets on top of coroutines on top of greenlets on
+  top of continulets on top of stacklets, and it's probably not too
+  hard to cut two of these levels by adapting ``stackless.py`` to
+  use directly continulets)
 
 * Coroutines (could be rewritten at app-level)
 
@@ -209,6 +213,8 @@ are for the time being not supported any more:
 
 * Automatic unlimited stack (must be emulated__ so far)
 
+* Support for other CPUs than x86 and x86-64
+
 .. __: `recursion depth limit`_
 
 (*) Pickling, as well as changing threads, could be implemented by using
@@ -217,9 +223,8 @@ a "soft" stack switching mode again.  We would get either "hard" or
 "hard" switch (like now) when the C stack contains non-trivial C frames
 to save, and a "soft" switch (like previously) when it contains only
 simple calls from Python to Python.  Soft-switched continulets would
-also consume a bit less RAM, at the possible expense of making the
-switch a bit slower (unsure about that; what is the Stackless Python
-experience?).
+also consume a bit less RAM, and the switch might be a bit faster too
+(unsure about that; what is the Stackless Python experience?).
 
 
 Recursion depth limit
@@ -273,6 +278,24 @@ methods on ``c``, not on another continulet object.  That's why we wrote
 ``c.switch(to=to)`` and not ``to.switch()``, which would mess up the
 state.  This is however just a guideline; in general we would recommend
 to use other interfaces like genlets and greenlets.)
+
+
+Stacklets
++++++++++
+
+Continulets are internally implemented using stacklets, which is the
+generic RPython-level building block for "one-shot continuations".  For
+more information about them please see the documentation in the C source
+at `pypy/translator/c/src/stacklet/stacklet.h`_.
+
+The module ``pypy.rlib.rstacklet`` is a thin wrapper around the above
+functions.  The key point is that new() and switch() always return a
+fresh stacklet handle (or an empty one), and switch() additionally
+consumes one.  It makes no sense to have code in which the returned
+handle is ignored, or used more than once.  Note that ``stacklet.c`` is
+written assuming that the user knows that, and so no additional checking
+occurs; this can easily lead to obscure crashes if you don't use a
+wrapper like PyPy's '_continuation' module.
 
 
 Theory of composability
