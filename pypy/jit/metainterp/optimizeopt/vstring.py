@@ -368,7 +368,7 @@ class OptString(optimizer.Optimization):
 
     def new(self):
         return OptString()
-    
+
     def make_vstring_plain(self, box, source_op, mode):
         vvalue = VStringPlainValue(self.optimizer, box, source_op, mode)
         self.make_equal_to(box, vvalue)
@@ -438,7 +438,11 @@ class OptString(optimizer.Optimization):
         #
         if isinstance(value, VStringPlainValue):  # even if no longer virtual
             if vindex.is_constant():
-                return value.getitem(vindex.box.getint())
+                res = value.getitem(vindex.box.getint())
+                # If it is uninitialized we can't return it, it was set by a
+                # COPYSTRCONTENT, not a STRSETITEM
+                if res is not optimizer.CVAL_UNINITIALIZED_ZERO:
+                    return res
         #
         resbox = _strgetitem(self.optimizer, value.force_box(), vindex.force_box(), mode)
         return self.getvalue(resbox)

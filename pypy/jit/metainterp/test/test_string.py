@@ -1,9 +1,11 @@
 import py
-from pypy.rlib.jit import JitDriver, dont_look_inside, we_are_jitted
-from pypy.rlib.debug import debug_print
+
 from pypy.jit.codewriter.policy import StopAtXPolicy
-from pypy.rpython.ootypesystem import ootype
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
+from pypy.rlib.debug import debug_print
+from pypy.rlib.jit import JitDriver, dont_look_inside, we_are_jitted
+from pypy.rlib.rstring import StringBuilder
+from pypy.rpython.ootypesystem import ootype
 
 
 class StringTests:
@@ -560,3 +562,17 @@ class TestLLtypeUnicode(TestLLtype):
         self.check_loops({
             "guard_true": 5, "int_is_true": 3, "int_lt": 2, "int_add": 2, "jump": 2,
         }, everywhere=True)
+
+    def test_virtual_copystringcontent(self):
+        jitdriver = JitDriver(reds=['n', 'result'], greens=[])
+        def main(n):
+            result = 0
+            while n >= 0:
+                jitdriver.jit_merge_point(n=n, result=result)
+                b = StringBuilder(6)
+                b.append("Hello!")
+                result += ord(b.build()[0])
+                n -= 1
+            return result
+        res = self.meta_interp(main, [9])
+        assert res == main(9)
