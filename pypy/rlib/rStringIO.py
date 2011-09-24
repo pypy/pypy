@@ -103,7 +103,8 @@ class RStringIO(object):
             endp = p + len(buffer)
             if len(self.bigbuffer) >= endp:
                 # semi-fast path: the write is entirely inside self.bigbuffer
-                self.bigbuffer[p:p + len(buffer)] = buffer
+                for i in range(len(buffer)):
+                    self.bigbuffer[p + i] = buffer[i]
                 self.pos = endp
                 return
             else:
