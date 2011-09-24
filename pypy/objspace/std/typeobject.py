@@ -868,6 +868,12 @@ def _issubtype(w_sub, w_type):
 def _pure_issubtype(w_sub, w_type, version_tag1, version_tag2):
     return _issubtype(w_sub, w_type)
 
+def issubtype__Type_Type(space, w_type, w_sub):
+    return space.newbool(w_sub.issubtype(w_type))
+
+def isinstance__Type_ANY(space, w_type, w_inst):
+    return space.newbool(space.type(w_inst).issubtype(w_type))
+
 def repr__Type(space, w_obj):
     w_mod = w_obj.get_module()
     if not space.isinstance_w(w_mod, space.w_str):
