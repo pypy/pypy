@@ -4767,6 +4767,27 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         # other
         self.optimize_loop(ops, expected)
 
+    def test_plain_virtual_string_copy_content(self):
+        ops = """
+        []
+        p0 = newstr(6)
+        copystrcontent(s"hello!", p0, 0, 0, 6)
+        p1 = call(0, p0, s"abc123", descr=strconcatdescr)
+        i0 = strgetitem(p1, 0)
+        finish(i0)
+        """
+        expected = """
+        []
+        p0 = newstr(6)
+        copystrcontent(s"hello!", p0, 0, 0, 6)
+        p1 = newstr(12)
+        copystrcontent(p0, p1, 0, 0, 6)
+        copystrcontent(s"abc123", p1, 0, 6, 6)
+        i0 = strgetitem(p1, 0)
+        finish(i0)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
 
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
