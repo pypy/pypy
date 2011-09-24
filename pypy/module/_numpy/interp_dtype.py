@@ -5,7 +5,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty, GetSetProperty
-from pypy.module.micronumpy import signature
+from pypy.module._numpy import signature
 from pypy.objspace.std.floatobject import float2string
 from pypy.rlib import rfloat
 from pypy.rlib.rarithmetic import widen

@@ -2,7 +2,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 
 
 class Module(MixedModule):
-    applevel_name = 'numpy'
+    applevel_name = '_numpy'
 
     interpleveldefs = {
         'array': 'interp_numarray.SingleDimArray',
@@ -47,7 +47,4 @@ class Module(MixedModule):
     ]:
         interpleveldefs[exposed] = "interp_ufuncs.get(space).%s" % impl
 
-    appleveldefs = {
-        'average': 'app_numpy.average',
-        'mean': 'app_numpy.mean',
-    }
+    appleveldefs = {}

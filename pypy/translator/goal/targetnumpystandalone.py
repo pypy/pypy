@@ -10,7 +10,7 @@ Bytecode should contain letters 'a' 'l' and 'f' so far and be correct
 """
 
 import time
-from pypy.module.micronumpy.compile import numpy_compile
+from pypy.module._numpy.compile import numpy_compile
 from pypy.jit.codewriter.policy import JitPolicy
 from pypy.rpython.annlowlevel import hlstr
 

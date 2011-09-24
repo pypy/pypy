@@ -2,7 +2,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
-from pypy.module.micronumpy import interp_dtype, signature
+from pypy.module._numpy import interp_dtype, signature
 from pypy.rlib import jit
 from pypy.tool.sourcetools import func_with_new_name
 
@@ -38,7 +38,7 @@ class W_Ufunc(Wrappable):
         return self.call(space, args_w)
 
     def descr_reduce(self, space, w_obj):
-        from pypy.module.micronumpy.interp_numarray import convert_to_array, Scalar
+        from pypy.module._numpy.interp_numarray import convert_to_array, Scalar
 
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
@@ -90,7 +90,7 @@ class W_Ufunc1(W_Ufunc):
         self.signature = signature.Call1(func)
 
     def call(self, space, args_w):
-        from pypy.module.micronumpy.interp_numarray import (Call1,
+        from pypy.module._numpy.interp_numarray import (Call1,
             convert_to_array, Scalar)
 
         [w_obj] = args_w
@@ -122,7 +122,7 @@ class W_Ufunc2(W_Ufunc):
         self.reduce_signature = signature.BaseSignature()
 
     def call(self, space, args_w):
-        from pypy.module.micronumpy.interp_numarray import (Call2,
+        from pypy.module._numpy.interp_numarray import (Call2,
             convert_to_array, Scalar)
 
         [w_lhs, w_rhs] = args_w

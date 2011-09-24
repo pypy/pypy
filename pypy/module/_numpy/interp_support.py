@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.module.micronumpy.interp_dtype import W_Float64Dtype
+from pypy.module._numpy.interp_dtype import W_Float64Dtype
 from pypy.rlib.rstruct.runpack import runpack
 from pypy.rpython.lltypesystem import lltype, rffi
 
@@ -9,7 +9,7 @@ FLOAT_SIZE = rffi.sizeof(lltype.Float)
 
 @unwrap_spec(s=str)
 def fromstring(space, s):
-    from pypy.module.micronumpy.interp_numarray import SingleDimArray
+    from pypy.module._numpy.interp_numarray import SingleDimArray
     length = len(s)
 
     if length % FLOAT_SIZE == 0:

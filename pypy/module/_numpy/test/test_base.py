@@ -1,13 +1,13 @@
 from pypy.conftest import gettestobjspace
-from pypy.module.micronumpy import interp_dtype
-from pypy.module.micronumpy.interp_numarray import SingleDimArray, Scalar
-from pypy.module.micronumpy.interp_ufuncs import (find_binop_result_dtype,
+from pypy.module._numpy import interp_dtype
+from pypy.module._numpy.interp_numarray import SingleDimArray, Scalar
+from pypy.module._numpy.interp_ufuncs import (find_binop_result_dtype,
         find_unaryop_result_dtype)
 
 
 class BaseNumpyAppTest(object):
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['micronumpy'])
+        cls.space = gettestobjspace(usemodules=['_numpy'])
 
 class TestSignature(object):
     def test_binop_signature(self, space):

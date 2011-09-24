@@ -4,8 +4,8 @@ It should not be imported by the module itself
 """
 
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
-from pypy.module.micronumpy.interp_dtype import W_Float64Dtype
-from pypy.module.micronumpy.interp_numarray import Scalar, SingleDimArray, BaseArray
+from pypy.module._numpy.interp_dtype import W_Float64Dtype
+from pypy.module._numpy.interp_numarray import Scalar, SingleDimArray, BaseArray
 from pypy.rlib.objectmodel import specialize
 
 

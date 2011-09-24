@@ -1,17 +1,17 @@
 
-from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
+from pypy.module._numpy.test.test_base import BaseNumpyAppTest
 
 
 class AppTestUfuncs(BaseNumpyAppTest):
     def test_ufunc_instance(self):
-        from numpy import add, ufunc
+        from _numpy import add, ufunc
 
         assert isinstance(add, ufunc)
         assert repr(add) == "<ufunc 'add'>"
         assert repr(ufunc) == "<type 'numpy.ufunc'>"
 
     def test_ufunc_attrs(self):
-        from numpy import add, multiply, sin
+        from _numpy import add, multiply, sin
 
         assert add.identity == 0
         assert multiply.identity == 1
@@ -22,7 +22,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert sin.nin == 1
 
     def test_wrong_arguments(self):
-        from numpy import add, sin
+        from _numpy import add, sin
 
         raises(TypeError, add, 1)
         raises(TypeError, add, 1, 2, 3)
@@ -30,14 +30,14 @@ class AppTestUfuncs(BaseNumpyAppTest):
         raises(TypeError, sin)
 
     def test_single_item(self):
-        from numpy import negative, sign, minimum
+        from _numpy import negative, sign, minimum
 
         assert negative(5.0) == -5.0
         assert sign(-0.0) == 0.0
         assert minimum(2.0, 3.0) == 2.0
 
     def test_sequence(self):
-        from numpy import array, negative, minimum
+        from _numpy import array, negative, minimum
         a = array(range(3))
         b = [2.0, 1.0, 0.0]
         c = 1.0
@@ -71,7 +71,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert min_c_b[i] == min(b[i], c)
 
     def test_negative(self):
-        from numpy import array, negative
+        from _numpy import array, negative
 
         a = array([-5.0, 0.0, 1.0])
         b = negative(a)
@@ -84,7 +84,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert b[0] == 5.0
 
     def test_abs(self):
-        from numpy import array, absolute
+        from _numpy import array, absolute
 
         a = array([-5.0, -0.0, 1.0])
         b = absolute(a)
@@ -92,7 +92,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert b[i] == abs(a[i])
 
     def test_add(self):
-        from numpy import array, add
+        from _numpy import array, add
 
         a = array([-5.0, -0.0, 1.0])
         b = array([ 3.0, -2.0,-3.0])
@@ -101,7 +101,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert c[i] == a[i] + b[i]
 
     def test_divide(self):
-        from numpy import array, divide
+        from _numpy import array, divide
 
         a = array([-5.0, -0.0, 1.0])
         b = array([ 3.0, -2.0,-3.0])
@@ -110,7 +110,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert c[i] == a[i] / b[i]
 
     def test_fabs(self):
-        from numpy import array, fabs
+        from _numpy import array, fabs
         from math import fabs as math_fabs
 
         a = array([-5.0, -0.0, 1.0])
@@ -119,7 +119,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert b[i] == math_fabs(a[i])
 
     def test_minimum(self):
-        from numpy import array, minimum
+        from _numpy import array, minimum
 
         a = array([-5.0, -0.0, 1.0])
         b = array([ 3.0, -2.0,-3.0])
@@ -128,7 +128,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert c[i] == min(a[i], b[i])
 
     def test_maximum(self):
-        from numpy import array, maximum
+        from _numpy import array, maximum
 
         a = array([-5.0, -0.0, 1.0])
         b = array([ 3.0, -2.0,-3.0])
@@ -141,7 +141,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert isinstance(x, (int, long))
 
     def test_multiply(self):
-        from numpy import array, multiply
+        from _numpy import array, multiply
 
         a = array([-5.0, -0.0, 1.0])
         b = array([ 3.0, -2.0,-3.0])
@@ -150,7 +150,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert c[i] == a[i] * b[i]
 
     def test_sign(self):
-        from numpy import array, sign, dtype
+        from _numpy import array, sign, dtype
 
         reference = [-1.0, 0.0, 0.0, 1.0]
         a = array([-5.0, -0.0, 0.0, 6.0])
@@ -169,7 +169,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert a[1] == 0
 
     def test_reciporocal(self):
-        from numpy import array, reciprocal
+        from _numpy import array, reciprocal
 
         reference = [-0.2, float("inf"), float("-inf"), 2.0]
         a = array([-5.0, 0.0, -0.0, 0.5])
@@ -178,7 +178,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert b[i] == reference[i]
 
     def test_subtract(self):
-        from numpy import array, subtract
+        from _numpy import array, subtract
 
         a = array([-5.0, -0.0, 1.0])
         b = array([ 3.0, -2.0,-3.0])
@@ -187,7 +187,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert c[i] == a[i] - b[i]
 
     def test_floor(self):
-        from numpy import array, floor
+        from _numpy import array, floor
 
         reference = [-2.0, -1.0, 0.0, 1.0, 1.0]
         a = array([-1.4, -1.0, 0.0, 1.0, 1.4])
@@ -196,7 +196,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert b[i] == reference[i]
 
     def test_copysign(self):
-        from numpy import array, copysign
+        from _numpy import array, copysign
 
         reference = [5.0, -0.0, 0.0, -6.0]
         a = array([-5.0, 0.0, 0.0, 6.0])
@@ -212,7 +212,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_exp(self):
         import math
-        from numpy import array, exp
+        from _numpy import array, exp
 
         a = array([-5.0, -0.0, 0.0, 12345678.0, float("inf"),
                    -float('inf'), -12343424.0])
@@ -226,7 +226,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_sin(self):
         import math
-        from numpy import array, sin
+        from _numpy import array, sin
 
         a = array([0, 1, 2, 3, math.pi, math.pi*1.5, math.pi*2])
         b = sin(a)
@@ -239,7 +239,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_cos(self):
         import math
-        from numpy import array, cos
+        from _numpy import array, cos
 
         a = array([0, 1, 2, 3, math.pi, math.pi*1.5, math.pi*2])
         b = cos(a)
@@ -248,7 +248,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_tan(self):
         import math
-        from numpy import array, tan
+        from _numpy import array, tan
 
         a = array([0, 1, 2, 3, math.pi, math.pi*1.5, math.pi*2])
         b = tan(a)
@@ -258,7 +258,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_arcsin(self):
         import math
-        from numpy import array, arcsin
+        from _numpy import array, arcsin
 
         a = array([-1, -0.5, -0.33, 0, 0.33, 0.5, 1])
         b = arcsin(a)
@@ -272,7 +272,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_arccos(self):
         import math
-        from numpy import array, arccos
+        from _numpy import array, arccos
 
         a = array([-1, -0.5, -0.33, 0, 0.33, 0.5, 1])
         b = arccos(a)
@@ -287,7 +287,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_arctan(self):
         import math
-        from numpy import array, arctan
+        from _numpy import array, arctan
 
         a = array([-3, -2, -1, 0, 1, 2, 3, float('inf'), float('-inf')])
         b = arctan(a)
@@ -299,13 +299,13 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert math.isnan(b[0])
 
     def test_reduce_errors(self):
-        from numpy import sin, add
+        from _numpy import sin, add
 
         raises(ValueError, sin.reduce, [1, 2, 3])
         raises(TypeError, add.reduce, 1)
 
     def test_reduce(self):
-        from numpy import add, maximum
+        from _numpy import add, maximum
 
         assert add.reduce([1, 2, 3]) == 6
         assert maximum.reduce([1]) == 1
@@ -314,7 +314,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
 
     def test_comparisons(self):
         import operator
-        from numpy import equal, not_equal, less, less_equal, greater, greater_equal
+        from _numpy import equal, not_equal, less, less_equal, greater, greater_equal
 
         for ufunc, func in [
             (equal, operator.eq),
