@@ -254,7 +254,9 @@ def ufunc_dtype_caller(space, ufunc_name, op_name, argcount, comparison_func):
         def impl(res_dtype, lvalue, rvalue):
             res = getattr(res_dtype, op_name)(lvalue, rvalue)
             if comparison_func:
-                res = space.fromcache(interp_dtype.W_BoolDtype).box(res)
+                booldtype = space.fromcache(interp_dtype.W_BoolDtype)
+                assert isinstance(booldtype, interp_dtype.W_BoolDtype)
+                res = booldtype.box(res)
             return res
     return func_with_new_name(impl, ufunc_name)
 
