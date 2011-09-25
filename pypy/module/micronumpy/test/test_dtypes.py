@@ -83,19 +83,20 @@ class AppTestDtypes(BaseNumpyAppTest):
             assert a[1] == 1
 
     def test_overflow(self):
-        from numpy import array
+        from numpy import array, dtype
         assert array([128], 'b')[0] == -128
         assert array([256], 'B')[0] == 0
         assert array([32768], 'h')[0] == -32768
         assert array([65536], 'H')[0] == 0
-        raises(OverflowError, "array([2147483648], 'i')")
-        raises(OverflowError, "array([4294967296], 'I')")
-        raises(OverflowError, "array([9223372036854775808], 'q')")
-        raises(OverflowError, "array([18446744073709551616], 'Q')")
+        if dtype('l').itemsize == 4: # 32-bit
+            raises(OverflowError, "array([2**32/2], 'i')")
+            raises(OverflowError, "array([2**32], 'I')")
+        raises(OverflowError, "array([2**64/2], 'q')")
+        raises(OverflowError, "array([2**64], 'Q')")
 
     def test_bool_binop_types(self):
         from numpy import array, dtype
-        types = ('?','b','B','h','H','i','I','l','L','q','Q','f','d')#,'g')
+        types = ('?','b','B','h','H','i','I','l','L','q','Q','f','d')
         N = len(types)
         a = array([True], '?')
         for t in types:
@@ -103,11 +104,23 @@ class AppTestDtypes(BaseNumpyAppTest):
 
     def test_binop_types(self):
         from numpy import array, dtype
-        tests = (('b','B','h'), ('b','h','h'), ('b','H','i'), ('b','I','q'),
-                 ('b','Q','d'), ('B','H','H'), ('B','I','I'), ('B','Q','Q'),
-                 ('B','h','h'), ('h','H','i'), ('h','i','i'), ('H','i','i'),
-                 ('H','I','I'), ('i','I','q'), ('I','q','q'), ('q','Q','d'),
-                 ('i','f','d'), ('q','f','d'), ('q','d','d'), ('Q','f','d'))
+        tests = [('b','B','h'), ('b','h','h'), ('b','H','i'), ('b','i','i'),
+                 ('b','l','l'), ('b','q','q'), ('b','Q','d'), ('B','h','h'),
+                 ('B','H','H'), ('B','i','i'), ('B','I','I'), ('B','l','l'),
+                 ('B','L','L'), ('B','q','q'), ('B','Q','Q'), ('h','H','i'),
+                 ('h','i','i'), ('h','l','l'), ('h','q','q'), ('h','Q','d'),
+                 ('H','i','i'), ('H','I','I'), ('H','l','l'), ('H','L','L'),
+                 ('H','q','q'), ('H','Q','Q'), ('i','l','l'), ('i','q','q'),
+                 ('i','Q','d'), ('I','L','L'), ('I','q','q'), ('I','Q','Q'),
+                 ('q','Q','d'), ('b','f','f'), ('B','f','f'), ('h','f','f'),
+                 ('H','f','f'), ('i','f','d'), ('I','f','d'), ('l','f','d'),
+                 ('L','f','d'), ('q','f','d'), ('Q','f','d'), ('q','d','d')]
+        if dtype('i').itemsize == dtype('l').itemsize: # 32-bit
+            tests.extend([('b','I','q'), ('b','L','q'), ('h','I','q'),
+                          ('h','L','q'), ('i','I','q'), ('i','L','q')])
+        else:
+            tests.extend([('b','I','l'), ('b','L','d'), ('h','I','l'),
+                          ('h','L','d'), ('i','I','l'), ('i','L','d')])
         for d1, d2, dout in tests:
             assert (array([1], d1) + array([1], d2)).dtype is dtype(dout)
 
