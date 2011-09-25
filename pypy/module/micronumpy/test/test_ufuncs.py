@@ -311,3 +311,29 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert maximum.reduce([1]) == 1
         assert maximum.reduce([1, 2, 3]) == 3
         raises(ValueError, maximum.reduce, [])
+
+    def test_comparisons(self):
+        import operator
+        from numpy import equal, not_equal, less, less_equal, greater, greater_equal
+
+        for ufunc, func in [
+            (equal, operator.eq),
+            (not_equal, operator.ne),
+            (less, operator.lt),
+            (less_equal, operator.le),
+            (greater, operator.gt),
+            (greater_equal, operator.ge),
+        ]:
+            for a, b in [
+                (3, 3),
+                (3, 4),
+                (4, 3),
+                (3.0, 3.0),
+                (3.0, 3.5),
+                (3.5, 3.0),
+                (3.0, 3),
+                (3, 3.0),
+                (3.5, 3),
+                (3, 3.5),
+            ]:
+                assert ufunc(a, b) is func(a, b)
