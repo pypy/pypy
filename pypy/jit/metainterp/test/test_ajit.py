@@ -2957,7 +2957,7 @@ class BasicTests:
         self.check_loops(arraylen_gc=2)
 
     def test_ulonglong_mod(self):
-        myjitdriver = JitDriver(greens = [], reds = ['sa', 'n', 'i'])
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'sa', 'i'])
         def f(n):
             sa = i = rffi.cast(rffi.ULONGLONG, 1)
             while i < rffi.cast(rffi.ULONGLONG, n):

@@ -363,20 +363,20 @@ def _ll_2_llong_mod_zer(xll, yll):
     return llop.llong_mod(lltype.SignedLongLong, xll, yll)
 
 def _ll_2_ullong_floordiv(xll, yll):
-    return llop.ullong_floordiv(lltype.SignedLongLong, xll, yll)
+    return llop.ullong_floordiv(lltype.UnsignedLongLong, xll, yll)
 
 def _ll_2_ullong_floordiv_zer(xll, yll):
     if yll == 0:
         raise ZeroDivisionError
-    return llop.ullong_floordiv(lltype.SignedLongLong, xll, yll)
+    return llop.ullong_floordiv(lltype.UnsignedLongLong, xll, yll)
 
 def _ll_2_ullong_mod(xll, yll):
-    return llop.ullong_mod(lltype.SignedLongLong, xll, yll)
+    return llop.ullong_mod(lltype.UnsignedLongLong, xll, yll)
 
 def _ll_2_ullong_mod_zer(xll, yll):
     if yll == 0:
         raise ZeroDivisionError
-    return llop.ullong_mod(lltype.SignedLongLong, xll, yll)
+    return llop.ullong_mod(lltype.UnsignedLongLong, xll, yll)
 
 def _ll_2_uint_mod(xll, yll):
     return llop.uint_mod(lltype.Unsigned, xll, yll)
