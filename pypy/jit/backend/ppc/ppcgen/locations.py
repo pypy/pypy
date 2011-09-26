@@ -58,5 +58,28 @@ class ImmLocation(AssemblerLocation):
     def as_key(self):
         return self.value + 40
 
+class StackLocation(AssemblerLocation):
+    _immutable_ = True
+
+    def __init__(self, position, num_words=1, type=INT):
+        self.position = position
+        self.width = num_words * WORD
+        self.type = type
+
+    def __repr__(self):
+        return 'FP(%s)+%d' % (self.type, self.position,)
+
+    def location_code(self):
+        return 'b'
+
+    def assembler(self):
+        return repr(self)
+
+    def is_stack(self):
+        return True
+
+    def as_key(self):
+        return -self.position
+
 def imm(val):
     return ImmLocation(val)

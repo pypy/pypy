@@ -49,9 +49,7 @@ class OpAssembler(object):
     def emit_guard_true(self, op, arglocs, regalloc):
         l0 = arglocs[0]
         failargs = arglocs[1:]
-        #import pdb; pdb.set_trace()
         self.mc.cmpi(l0.value, 0)
-        #self._emit_guard(op, failargs)
         self._guard_epilogue(op, failargs)
 
     def emit_finish(self, op, arglocs, regalloc):
@@ -62,19 +60,8 @@ class OpAssembler(object):
         for index, arg in enumerate(arglocs):
             addr = self.fail_boxes_int.get_addr_for_num(index)
             self.store_reg(arg, addr)
-
-        framesize = 256 + GPR_SAVE_AREA
-
-        self._restore_nonvolatiles()
-
-        if IS_PPC_32:
-            self.mc.lwz(0, 1, self.framesize + WORD)
-        else:
-            self.mc.ld(0, 1, framesize + WORD)
-        self.mc.mtlr(0)
-        self.mc.addi(1, 1, framesize)
-        self.load_imm(r.r3, identifier)
-        self.mc.blr()
+        self.load_imm(r.RES, identifier) # set return value
+        self.branch_abs(self.exit_code_adr)
 
     def emit_jump(self, op, arglocs, regalloc):
         descr = op.getdescr()
@@ -84,3 +71,11 @@ class OpAssembler(object):
             self.mc.b(descr._ppc_loop_code - curpos)
         else:
             assert 0, "case not implemented yet"
+
+    def nop(self):
+        self.mc.ori(0, 0, 0)
+
+    def branch_abs(self, address):
+        self.load_imm(r.r0, address)
+        self.mc.mtctr(0)
+        self.mc.bctr()

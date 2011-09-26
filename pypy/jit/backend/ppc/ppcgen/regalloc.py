@@ -26,7 +26,7 @@ class TempPtr(TempBox):
         return "<TempPtr at %s>" % (id(self),)
 
 class PPCRegisterManager(RegisterManager):
-    all_regs              = r.ALL_REGS
+    all_regs              = r.ALL_REGS[:-1]
     box_types             = None       # or a list of acceptable types
     no_lower_byte_regs    = all_regs
     save_around_call_regs = r.VOLATILES
@@ -82,6 +82,17 @@ class PPCFrameManager(FrameManager):
     def __init__(self):
         FrameManager.__init__(self)
         self.frame_depth = 1
+
+    @staticmethod
+    def frame_pos(loc, type):
+        num_words = PPCFrameManager.frame_size(type)
+        return locations.StackLocation(loc, num_words=num_words, type=type)
+
+    @staticmethod
+    def frame_size(type):
+        if type == FLOAT:
+            assert 0, "TODO"
+        return 1
 
 class Regalloc(object):
     def __init__(self, longevity, frame_manager=None, assembler=None):
