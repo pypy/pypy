@@ -1,10 +1,10 @@
 import py
+py.test.skip("in-progress, maybe")
 from pypy.conftest import gettestobjspace, option
 
 class AppTest_Stackless:
 
     def setup_class(cls):
-        py.test.importorskip('greenlet')
         space = gettestobjspace(usemodules=('_continuation', '_socket'))
         cls.space = space
         if option.runappdirect:
