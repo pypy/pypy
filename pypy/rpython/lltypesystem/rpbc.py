@@ -230,7 +230,8 @@ class SmallFunctionSetPBCRepr(Repr):
         args = bk.build_args(opname, hop.args_s[1:])
         s_pbc = hop.args_s[0]   # possibly more precise than self.s_pbc
         descs = list(s_pbc.descriptions)
-        shape, index = description.FunctionDesc.variant_for_call_site(bk, self.callfamily, descs, args)
+        vfcs = description.FunctionDesc.variant_for_call_site
+        shape, index = vfcs(bk, self.callfamily, descs, args, hop.spaceop)
         row_of_graphs = self.callfamily.calltables[shape][index]
         anygraph = row_of_graphs.itervalues().next()  # pick any witness
         vlist = [hop.inputarg(self, arg=0)]

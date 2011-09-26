@@ -1,4 +1,4 @@
-from pypy.rlib import rgc
+from pypy.rlib import rgc, jit
 from pypy.rlib.objectmodel import enforceargs
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.annlowlevel import llstr
@@ -95,6 +95,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         ll_builder.used = needed + used
 
     @staticmethod
+    @jit.look_inside_iff(lambda ll_builder, char, times: jit.isconstant(times) and times <= 4)
     def ll_append_multiple_char(ll_builder, char, times):
         used = ll_builder.used
         if times + used > ll_builder.allocated:

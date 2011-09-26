@@ -75,9 +75,9 @@ def parse_log(lines, verbose=False):
     if verbose:
         sys.stderr.write('loaded\n')
     if performance_log and time_decrase:
-        raise Exception("The time decreases!  The log file may have been"
-                        " produced on a multi-CPU machine and the process"
-                        " moved between CPUs.")
+        print ("The time decreases!  The log file may have been"
+               " produced on a multi-CPU machine and the process"
+               " moved between CPUs.")
     return log
 
 def extract_category(log, catprefix='', toplevel=False):

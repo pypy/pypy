@@ -70,11 +70,12 @@ class _Specialize(object):
 
         return decorated_func
 
-    def ll_and_arg(self, arg):
-        """ XXX what does that do?
+    def ll_and_arg(self, *args):
+        """ This is like ll(), but instead of specializing on all arguments,
+        specializes on only the arguments at the given positions
         """
         def decorated_func(func):
-            func._annspecialcase_ = 'specialize:ll_and_arg(%d)' % arg
+            func._annspecialcase_ = 'specialize:ll_and_arg' + self._wrap(args)
             return func
 
         return decorated_func

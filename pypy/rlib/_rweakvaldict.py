@@ -53,7 +53,7 @@ class WeakValueDictRepr(Repr):
         self.WEAKDICT = lltype.GcStruct(
             "weakvaldict",
             ("num_items", lltype.Signed),
-            ("num_pristine_entries", lltype.Signed),
+            ("resize_counter", lltype.Signed),
             ("entries", lltype.Ptr(WEAKDICTENTRYARRAY)),
             adtmeths=dictmeths)
 
@@ -107,7 +107,7 @@ class WeakValueDictRepr(Repr):
         d = lltype.malloc(self.WEAKDICT)
         d.entries = self.WEAKDICT.entries.TO.allocate(rdict.DICT_INITSIZE)
         d.num_items = 0
-        d.num_pristine_entries = rdict.DICT_INITSIZE
+        d.resize_counter = rdict.DICT_INITSIZE * 2
         return d
 
     @jit.dont_look_inside
@@ -138,8 +138,8 @@ class WeakValueDictRepr(Repr):
         d.entries[i].value = valueref
         #llop.debug_print(lltype.Void, i, 'stored')
         if not everused:
-            d.num_pristine_entries -= 1
-            if d.num_pristine_entries * 3 <= len(d.entries):
+            d.resize_counter -= 3
+            if d.resize_counter <= 0:
                 #llop.debug_print(lltype.Void, 'RESIZE')
                 self.ll_weakdict_resize(d)
 
