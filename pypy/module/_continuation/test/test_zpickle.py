@@ -5,6 +5,7 @@ class AppTestCopy:
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=('_continuation',),
                                     CALL_METHOD=True)
+        cls.space.config.translation.continuation = True
 
     def test_basic_setup(self):
         from _continuation import continulet
