@@ -750,3 +750,15 @@ void stm_abort_and_retry(void)
 {
   tx_abort(7);     /* manual abort */
 }
+
+// XXX little-endian only!
+void stm_write_partial_word(int fieldsize, char *base, long offset, long nval)
+{
+  long *p = (long*)(base + (offset & ~(sizeof(void*)-1)));
+  int misalignment = offset & (sizeof(void*)-1);
+  long val = nval << (misalignment * 8);
+  long word = stm_read_word(p);
+  long mask = ((1 << (fieldsize * 8)) - 1) << (misalignment * 8);
+  val = (val & mask) | (word & ~mask);
+  stm_write_word(p, val);
+}

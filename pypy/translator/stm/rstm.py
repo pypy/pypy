@@ -12,6 +12,7 @@ assert sys.byteorder == 'little'   # xxx fix here and in funcgen.py
 
 
 def stm_getfield(structptr, fieldname):
+    "NOT_RPYTHON"
     STRUCT = lltype.typeOf(structptr).TO
     FIELD = getattr(STRUCT, fieldname)
     p = lltype.direct_fieldptr(structptr, fieldname)
@@ -30,6 +31,7 @@ def stm_getfield(structptr, fieldname):
     return rffi.cast(FIELD, res)
 
 def stm_setfield(structptr, fieldname, newvalue):
+    "NOT_RPYTHON"
     STRUCT = lltype.typeOf(structptr).TO
     FIELD = getattr(STRUCT, fieldname)
     p = lltype.direct_fieldptr(structptr, fieldname)
@@ -49,7 +51,7 @@ def stm_setfield(structptr, fieldname, newvalue):
         val = rffi.cast(lltype.Signed, newvalue)
         val = val << (misalignment * 8)
         word = _rffi_stm.stm_read_word(p)
-        mask = (1 << (misalignment * 8)) * ((1 << (fieldsize * 8)) - 1)
+        mask = ((1 << (fieldsize * 8)) - 1) << (misalignment * 8)
         val = (val & mask) | (word & ~mask)
         #print 'getting %x, mask=%x, replacing with %x' % (word, mask, val)
         _rffi_stm.stm_write_word(p, val)

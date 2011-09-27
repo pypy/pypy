@@ -33,5 +33,7 @@ void stm_abort_and_retry(void);
            (long*)(((char*)(base)) + ((offset) & ~(sizeof(void*)-1))))  \
         >> (8 * ((offset) & (sizeof(void*)-1))))
 
+void stm_write_partial_word(int fieldsize, char *base, long offset, long nval);
+
 
 #endif  /* _ET_H */
