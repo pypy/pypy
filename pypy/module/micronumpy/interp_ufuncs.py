@@ -234,15 +234,15 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
     w_type = space.type(w_obj)
 
     bool_dtype = space.fromcache(interp_dtype.W_BoolDtype)
-    int64_dtype = space.fromcache(interp_dtype.W_Int64Dtype)
+    long_dtype = space.fromcache(interp_dtype.W_LongDtype)
 
     if space.is_w(w_type, space.w_bool):
         if current_guess is None:
             return bool_dtype
     elif space.is_w(w_type, space.w_int):
         if (current_guess is None or current_guess is bool_dtype or
-            current_guess is int64_dtype):
-            return int64_dtype
+            current_guess is long_dtype):
+            return long_dtype
     return space.fromcache(interp_dtype.W_Float64Dtype)
 
 
@@ -308,7 +308,7 @@ class UfuncState(object):
 
         identity = extra_kwargs.get("identity")
         if identity is not None:
-            identity = space.fromcache(interp_dtype.W_Int64Dtype).adapt_val(identity)
+            identity = space.fromcache(interp_dtype.W_LongDtype).adapt_val(identity)
         extra_kwargs["identity"] = identity
 
         func = ufunc_dtype_caller(space, ufunc_name, op_name, argcount,
