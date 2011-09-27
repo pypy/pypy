@@ -17,6 +17,15 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[13] = 5.3
         assert a[13] == 5.3
 
+    def test_zeros_tuple_shape(self):
+        from numpy import zeros, ones, empty
+        a = zeros((15,))
+        assert len(a) == 15
+        b = ones((3,))
+        assert len(b) == 3
+        c = empty((2,))
+        assert len(c) == 2
+
     def test_empty(self):
         """
         Test that empty() works.

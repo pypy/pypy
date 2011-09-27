@@ -550,18 +550,31 @@ class SingleDimArray(BaseArray):
     def __del__(self):
         lltype.free(self.storage, flavor='raw', track_allocation=False)
 
-@unwrap_spec(size=int)
-def zeros(space, size, w_dtype=None):
+def size_w_to_single_dim_size(space, w_size):
+    if space.isinstance_w(w_size, space.w_tuple):
+        if space.len_w(w_size) != 1:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("Invalid number of dimensions"))
+        w_size_int = space.getitem(w_size, space.wrap(0))
+        size = space.unwrap(w_size_int)
+    else:
+        size = space.unwrap(w_size)
+
+    return size
+
+def zeros(space, w_size, w_dtype=None):
     dtype = space.interp_w(interp_dtype.W_Dtype,
         space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
     )
+    size = size_w_to_single_dim_size(space, w_size)
     return space.wrap(SingleDimArray(size, dtype=dtype))
 
-@unwrap_spec(size=int)
-def ones(space, size, w_dtype=None):
+def ones(space, w_size, w_dtype=None):
     dtype = space.interp_w(interp_dtype.W_Dtype,
         space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
     )
+
+    size = size_w_to_single_dim_size(space, w_size)
 
     arr = SingleDimArray(size, dtype=dtype)
     one = dtype.adapt_val(1)
