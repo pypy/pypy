@@ -8,7 +8,7 @@ from pypy.objspace.flow.model import Constant
 size_of_voidp = rffi.sizeof(rffi.VOIDP)
 assert size_of_voidp & (size_of_voidp - 1) == 0
 
-assert sys.byteorder == 'little'   # xxx fix here and in funcgen.py
+assert sys.byteorder == 'little'   # xxx fix here, in funcgen.py, and in et.c
 
 
 def stm_getfield(structptr, fieldname):
