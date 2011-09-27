@@ -5,7 +5,6 @@ Please refer to their documentation.
 """
 
 
-import traceback
 import _continuation
 
 class TaskletExit(Exception):
@@ -14,20 +13,31 @@ class TaskletExit(Exception):
 CoroutineExit = TaskletExit
 
 
+def _coroutine_getcurrent():
+    "Returns the current coroutine (i.e. the one which called this function)."
+    try:
+        return _tls.current_coroutine
+    except AttributeError:
+        # first call in this thread: current == main
+        return _coroutine_getmain()
+
+def _coroutine_getmain():
+    try:
+        return _tls.main_coroutine
+    except AttributeError:
+        # create the main coroutine for this thread
+        continulet = _continuation.continulet
+        main = coroutine()
+        main._frame = continulet.__new__(continulet)
+        main._is_started = -1
+        _tls.current_coroutine = _tls.main_coroutine = main
+        return _tls.main_coroutine
+
+
 class coroutine(object):
-    "we can't have continulet as a base, because continulets can't be rebound"
-    _is_main = False
+    _is_started = 0      # 0=no, 1=yes, -1=main
 
     def __init__(self):
-        self._frame = None
-        self.is_zombie = False
-
-    def __getattr__(self, attr):
-        return getattr(self._frame, attr)
-
-    def __del__(self):
-        self.is_zombie = True
-        del self._frame
         self._frame = None
 
     def bind(self, func, *argl, **argd):
@@ -35,13 +45,14 @@ class coroutine(object):
            binds function f to coro. f will be called with
            arguments *argl, **argd
         """
-        if self._frame is None or not self._frame.is_pending():
-            def run(c):
-                _tls.current_coroutine = self
-                return func(*argl, **argd)
-            self._frame = frame = _continuation.continulet(run)
-        else:
+        if self.is_alive:
             raise ValueError("cannot bind a bound coroutine")
+        def run(c):
+            _tls.current_coroutine = self
+            self._is_started = 1
+            return func(*argl, **argd)
+        self._is_started = 0
+        self._frame = _continuation.continulet(run)
 
     def switch(self):
         """coro.switch() -> returnvalue
@@ -49,62 +60,37 @@ class coroutine(object):
            f finishes, the returnvalue is that of f, otherwise
            None is returned
         """
-        current = _getcurrent()
+        current = _coroutine_getcurrent()
         try:
-            if current._is_main:
-                if self._is_main:
-                    pass
-                else:
-                    self._frame.switch()
-            else:
-                if self._is_main:
-                    current._frame.switch()
-                else:
-                    current._frame.switch(to=self._frame)
+            current._frame.switch(to=self._frame)
         finally:
             _tls.current_coroutine = current
 
     def kill(self):
         """coro.kill() : kill coroutine coro"""
-        current = _getcurrent()
+        current = _coroutine_getcurrent()
         try:
-            if current._is_main:
-                if self._is_main:
-                    raise CoroutineExit
-                else:
-                    self._frame.throw(CoroutineExit)
-            else:
-                if self._is_main:
-                    current._frame.throw(CoroutineExit)
-                else:
-                    current._frame.throw(CoroutineExit, to=self._frame)
+            current._frame.throw(CoroutineExit, to=self._frame)
         finally:
             _tls.current_coroutine = current
 
-    def _is_alive(self):
-        if self._frame is None:
-            return False
-        return not self._frame.is_pending()
-    is_alive = property(_is_alive)
-    del _is_alive
+    @property
+    def is_alive(self):
+        return self._is_started < 0 or (
+            self._frame is not None and self._frame.is_pending())
 
-    def getcurrent():
-        """coroutine.getcurrent() -> the currently running coroutine"""
-        return _getcurrent()
-    getcurrent = staticmethod(getcurrent)
+    @property
+    def is_zombie(self):
+        return self._is_started > 0 and not self._frame.is_pending()
+
+    getcurrent = staticmethod(_coroutine_getcurrent)
 
     def __reduce__(self):
-        raise TypeError, 'pickling is not possible based upon continulets'
+        if self._is_started < 0:
+            return _coroutine_getmain, ()
+        else:
+            return type(self), (), self.__dict__
 
-
-def _getcurrent():
-    "Returns the current coroutine (i.e. the one which called this function)."
-    try:
-        return _tls.current_coroutine
-    except AttributeError:
-        # first call in this thread: current == main
-        _coroutine_create_main()
-        return _tls.current_coroutine
 
 try:
     from thread import _local
@@ -114,13 +100,8 @@ except ImportError:
 
 _tls = _local()
 
-def _coroutine_create_main():
-    # create the main coroutine for this thread
-    _tls.current_coroutine = None
-    main_coroutine = coroutine()
-    main_coroutine._is_main = True
-    _tls.main_coroutine = main_coroutine
-    _tls.current_coroutine = main_coroutine
+
+# ____________________________________________________________
 
 
 from collections import deque
@@ -166,10 +147,7 @@ def _scheduler_switch(current, next):
     _last_task = next
     assert not next.blocked
     if next is not current:
-        #try:
-            next.switch()
-        #except CoroutineExit:  --- they are the same anyway
-        #    raise TaskletExit
+        next.switch()
     return current
 
 def set_schedule_callback(callback):
@@ -191,34 +169,6 @@ class bomb(object):
 
     def raise_(self):
         raise self.type, self.value, self.traceback
-
-#
-# helpers for pickling
-#
-
-_stackless_primitive_registry = {}
-
-def register_stackless_primitive(thang, retval_expr='None'):
-    import types
-    func = thang
-    if isinstance(thang, types.MethodType):
-        func = thang.im_func
-    code = func.func_code
-    _stackless_primitive_registry[code] = retval_expr
-    # It is not too nice to attach info via the code object, but
-    # I can't think of a better solution without a real transform.
-
-def rewrite_stackless_primitive(coro_state, alive, tempval):
-    flags, frame, thunk, parent = coro_state
-    while frame is not None:
-        retval_expr = _stackless_primitive_registry.get(frame.f_code)
-        if retval_expr:
-            # this tasklet needs to stop pickling here and return its value.
-            tempval = eval(retval_expr, globals(), frame.f_locals)
-            coro_state = flags, frame, thunk, parent
-            break
-        frame = frame.f_back
-    return coro_state, alive, tempval
 
 #
 #
@@ -372,8 +322,6 @@ class channel(object):
         """
         return self._channel_action(None, -1)
 
-    register_stackless_primitive(receive, retval_expr='receiver.tempval')
-
     def send_exception(self, exp_type, msg):
         self.send(bomb(exp_type, exp_type(msg)))
 
@@ -390,9 +338,8 @@ class channel(object):
         the runnables list.
         """
         return self._channel_action(msg, 1)
-            
-    register_stackless_primitive(send)
-            
+
+
 class tasklet(coroutine):
     """
     A tasklet object represents a tiny task in a Python thread.
@@ -474,7 +421,7 @@ class tasklet(coroutine):
 
         self.func = None
         coroutine.bind(self, _func)
-        back = _getcurrent()
+        back = _coroutine_getcurrent()
         coroutine.switch(self)
         self.alive = True
         _scheduler_append(self)
@@ -498,39 +445,6 @@ class tasklet(coroutine):
             raise RuntimeError, "The current tasklet cannot be removed."
             # not sure if I will revive this  " Use t=tasklet().capture()"
         _scheduler_remove(self)
-        
-    def __reduce__(self):
-        one, two, coro_state = coroutine.__reduce__(self)
-        assert one is coroutine
-        assert two == ()
-        # we want to get rid of the parent thing.
-        # for now, we just drop it
-        a, frame, c, d = coro_state
-
-        # Removing all frames related to stackless.py.
-        # They point to stuff we don't want to be pickled.
-
-        pickleframe = frame
-        while frame is not None:
-            if frame.f_code == schedule.func_code:
-                # Removing everything including and after the
-                # call to stackless.schedule()
-                pickleframe = frame.f_back
-                break
-            frame = frame.f_back
-        if d:
-            assert isinstance(d, coroutine)
-        coro_state = a, pickleframe, c, None
-        coro_state, alive, tempval = rewrite_stackless_primitive(coro_state, self.alive, self.tempval)
-        inst_dict = self.__dict__.copy()
-        inst_dict.pop('tempval', None)
-        return self.__class__, (), (coro_state, alive, tempval, inst_dict)
-
-    def __setstate__(self, (coro_state, alive, tempval, inst_dict)):
-        coroutine.__setstate__(self, coro_state)
-        self.__dict__.update(inst_dict)
-        self.alive = alive
-        self.tempval = tempval
 
 def getmain():
     """
@@ -619,30 +533,7 @@ def _init():
     global _last_task
     _global_task_id = 0
     _main_tasklet = coroutine.getcurrent()
-    try:
-        _main_tasklet.__class__ = tasklet
-    except TypeError: # we are running pypy-c
-        class TaskletProxy(object):
-            """TaskletProxy is needed to give the _main_coroutine tasklet behaviour"""
-            def __init__(self, coro):
-                self._coro = coro
-
-            def __getattr__(self,attr):
-                return getattr(self._coro,attr)
-
-            def __str__(self):
-                return '<tasklet %s a:%s>' % (self._task_id, self.is_alive)
-
-            def __reduce__(self):
-                return getmain, ()
-
-            __repr__ = __str__
-
-
-        global _main_coroutine
-        _main_coroutine = _main_tasklet
-        _main_tasklet = TaskletProxy(_main_tasklet)
-        assert _main_tasklet.is_alive and not _main_tasklet.is_zombie
+    _main_tasklet.__class__ = tasklet         # XXX HAAAAAAAAAAAAAAAAAAAAACK
     _last_task = _main_tasklet
     tasklet._init.im_func(_main_tasklet, label='main')
     _squeue = deque()

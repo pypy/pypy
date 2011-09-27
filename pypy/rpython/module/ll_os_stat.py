@@ -173,7 +173,8 @@ def posix_declaration(try_to_add=None):
         _compilation_info_ = compilation_info
         STAT_STRUCT = platform.Struct('struct %s' % _name_struct_stat, LL_STAT_FIELDS)
     try:
-        config = platform.configure(CConfig)
+        config = platform.configure(CConfig, ignore_errors=
+                                    try_to_add is not None)
     except platform.CompilationError:
         if try_to_add:
             return    # failed to add this field, give up

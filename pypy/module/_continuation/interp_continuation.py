@@ -6,6 +6,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.pycode import PyCode
+from pypy.interpreter.pyframe import PyFrame
 
 
 class W_Continulet(Wrappable):
@@ -21,69 +22,69 @@ class W_Continulet(Wrappable):
     def check_sthread(self):
         ec = self.space.getexecutioncontext()
         if ec.stacklet_thread is not self.sthread:
-            start_state.clear()
+            global_state.clear()
             raise geterror(self.space, "inter-thread support is missing")
-        return ec
 
     def descr_init(self, w_callable, __args__):
         if self.sthread is not None:
             raise geterror(self.space, "continulet already __init__ialized")
-        start_state.origin = self
-        start_state.w_callable = w_callable
-        start_state.args = __args__
-        self.bottomframe = make_fresh_frame(self.space)
-        self.sthread = build_sthread(self.space)
-        try:
-            self.h = self.sthread.new(new_stacklet_callback)
-            if self.sthread.is_empty_handle(self.h):    # early return
-                raise MemoryError
-        except MemoryError:
-            self.sthread = None
-            start_state.clear()
-            raise getmemoryerror(self.space)
+        #
+        # hackish: build the frame "by hand", passing it the correct arguments
+        space = self.space
+        w_args, w_kwds = __args__.topacked()
+        bottomframe = space.createframe(get_entrypoint_pycode(space),
+                                        get_w_module_dict(space), None)
+        bottomframe.locals_stack_w[0] = space.wrap(self)
+        bottomframe.locals_stack_w[1] = w_callable
+        bottomframe.locals_stack_w[2] = w_args
+        bottomframe.locals_stack_w[3] = w_kwds
+        self.bottomframe = bottomframe
+        #
+        global_state.origin = self
+        sthread = build_sthread(self.space)
+        self.sthread = sthread
+        h = sthread.new(new_stacklet_callback)
+        post_switch(sthread, h)
 
     def switch(self, w_to):
         sthread = self.sthread
-        if sthread is None:
-            start_state.clear()
-            raise geterror(self.space, "continulet not initialized yet")
-        if sthread.is_empty_handle(self.h):
-            start_state.clear()
+        if sthread is not None and sthread.is_empty_handle(self.h):
+            global_state.clear()
             raise geterror(self.space, "continulet already finished")
         to = self.space.interp_w(W_Continulet, w_to, can_be_None=True)
+        if to is not None and to.sthread is None:
+            to = None
+        if sthread is None:      # if self is non-initialized:
+            if to is not None:   #     if we are given a 'to'
+                self = to        #         then just use it and ignore 'self'
+                sthread = self.sthread
+                to = None
+            else:
+                return get_result()  # else: no-op
         if to is not None:
             if to.sthread is not sthread:
-                start_state.clear()
-                if to.sthread is None:
-                    msg = "continulet not initialized yet"
-                else:
-                    msg = "cross-thread double switch"
-                raise geterror(self.space, msg)
+                global_state.clear()
+                raise geterror(self.space, "cross-thread double switch")
             if self is to:    # double-switch to myself: no-op
                 return get_result()
             if sthread.is_empty_handle(to.h):
-                start_state.clear()
+                global_state.clear()
                 raise geterror(self.space, "continulet already finished")
-        ec = self.check_sthread()
+        self.check_sthread()
         #
-        start_state.origin = self
+        global_state.origin = self
         if to is None:
             # simple switch: going to self.h
-            start_state.destination = self
+            global_state.destination = self
         else:
             # double switch: the final destination is to.h
-            start_state.destination = to
+            global_state.destination = to
         #
-        try:
-            do_switch(sthread, start_state.destination.h)
-        except MemoryError:
-            start_state.clear()
-            raise getmemoryerror(self.space)
-        #
-        return get_result()
+        h = sthread.switch(global_state.destination.h)
+        return post_switch(sthread, h)
 
     def descr_switch(self, w_value=None, w_to=None):
-        start_state.w_value = w_value
+        global_state.w_value = w_value
         return self.switch(w_to)
 
     def descr_throw(self, w_type, w_val=None, w_tb=None, w_to=None):
@@ -98,8 +99,8 @@ class W_Continulet(Wrappable):
         #
         operr = OperationError(w_type, w_val, tb)
         operr.normalize_exception(space)
-        start_state.w_value = None
-        start_state.propagate_exception = operr
+        global_state.w_value = None
+        global_state.propagate_exception = operr
         return self.switch(w_to)
 
     def descr_is_pending(self):
@@ -107,8 +108,22 @@ class W_Continulet(Wrappable):
                  and not self.sthread.is_empty_handle(self.h))
         return self.space.newbool(valid)
 
+    def descr__reduce__(self):
+        from pypy.module._continuation import interp_pickle
+        return interp_pickle.reduce(self)
+
+    def descr__setstate__(self, w_args):
+        from pypy.module._continuation import interp_pickle
+        interp_pickle.setstate(self, w_args)
+
 
 def W_Continulet___new__(space, w_subtype, __args__):
+    r = space.allocate_instance(W_Continulet, w_subtype)
+    r.__init__(space)
+    return space.wrap(r)
+
+def unpickle(space, w_subtype):
+    """Pickle support."""
     r = space.allocate_instance(W_Continulet, w_subtype)
     r.__init__(space)
     return space.wrap(r)
@@ -122,8 +137,9 @@ W_Continulet.typedef = TypeDef(
     switch      = interp2app(W_Continulet.descr_switch),
     throw       = interp2app(W_Continulet.descr_throw),
     is_pending  = interp2app(W_Continulet.descr_is_pending),
+    __reduce__  = interp2app(W_Continulet.descr__reduce__),
+    __setstate__= interp2app(W_Continulet.descr__setstate__),
     )
-
 
 # ____________________________________________________________
 
@@ -133,27 +149,40 @@ W_Continulet.typedef = TypeDef(
 
 class State:
     def __init__(self, space):
-        from pypy.interpreter.astcompiler.consts import CO_OPTIMIZED
-        self.space = space 
+        self.space = space
         w_module = space.getbuiltinmodule('_continuation')
         self.w_error = space.getattr(w_module, space.wrap('error'))
-        self.w_memoryerror = OperationError(space.w_MemoryError, space.w_None)
-        self.dummy_pycode = PyCode(space, 0, 0, 0, CO_OPTIMIZED,
-                                   '', [], [], [], '',
-                                   '<bottom of continulet>', 0, '', [], [],
-                                   hidden_applevel=True)
+        # the following function switches away immediately, so that
+        # continulet.__init__() doesn't immediately run func(), but it
+        # also has the hidden purpose of making sure we have a single
+        # bottomframe for the whole duration of the continulet's run.
+        # Hackish: only the func_code is used, and used in the context
+        # of w_globals == this module, so we can access the name
+        # 'continulet' directly.
+        w_code = space.appexec([], '''():
+            def start(c, func, args, kwds):
+                if continulet.switch(c) is not None:
+                    raise TypeError(
+                     "can\'t send non-None value to a just-started continulet")
+                return func(c, *args, **kwds)
+            return start.func_code
+        ''')
+        self.entrypoint_pycode = space.interp_w(PyCode, w_code)
+        self.entrypoint_pycode.hidden_applevel = True
+        self.w_unpickle = w_module.get('_p')
+        self.w_module_dict = w_module.getdict(space)
 
 def geterror(space, message):
     cs = space.fromcache(State)
     return OperationError(cs.w_error, space.wrap(message))
 
-def getmemoryerror(space):
+def get_entrypoint_pycode(space):
     cs = space.fromcache(State)
-    return cs.w_memoryerror
+    return cs.entrypoint_pycode
 
-def make_fresh_frame(space):
+def get_w_module_dict(space):
     cs = space.fromcache(State)
-    return space.FrameClass(space, cs.dummy_pycode, None, None)
+    return cs.w_module_dict
 
 # ____________________________________________________________
 
@@ -164,76 +193,63 @@ class SThread(StackletThread):
         StackletThread.__init__(self, space.config)
         self.space = space
         self.ec = ec
+        # for unpickling
+        from pypy.rlib.rweakref import RWeakKeyDictionary
+        self.frame2continulet = RWeakKeyDictionary(PyFrame, W_Continulet)
 
 ExecutionContext.stacklet_thread = None
 
 # ____________________________________________________________
 
 
-class StartState:   # xxx a single global to pass around the function to start
+class GlobalState:
     def clear(self):
         self.origin = None
         self.destination = None
-        self.w_callable = None
-        self.args = None
         self.w_value = None
         self.propagate_exception = None
-start_state = StartState()
-start_state.clear()
+global_state = GlobalState()
+global_state.clear()
 
 
 def new_stacklet_callback(h, arg):
-    self       = start_state.origin
-    w_callable = start_state.w_callable
-    args       = start_state.args
-    start_state.clear()
-    try:
-        do_switch(self.sthread, h)
-    except MemoryError:
-        return h       # oups!  do an early return in this case
-    #
+    self = global_state.origin
+    self.h = h
+    global_state.clear()
     space = self.space
     try:
-        assert self.sthread.ec.topframeref() is None
-        self.sthread.ec.topframeref = jit.non_virtual_ref(self.bottomframe)
-        if start_state.propagate_exception is not None:
-            raise start_state.propagate_exception   # just propagate it further
-        if start_state.w_value is not space.w_None:
-            raise OperationError(space.w_TypeError, space.wrap(
-                "can't send non-None value to a just-started continulet"))
-
-        args = args.prepend(self.space.wrap(self))
-        w_result = space.call_args(w_callable, args)
+        frame = self.bottomframe
+        w_result = frame.execute_frame()
     except Exception, e:
-        start_state.propagate_exception = e
+        global_state.propagate_exception = e
     else:
-        start_state.w_value = w_result
+        global_state.w_value = w_result
     self.sthread.ec.topframeref = jit.vref_None
-    start_state.origin = self
-    start_state.destination = self
+    global_state.origin = self
+    global_state.destination = self
     return self.h
 
-
-def do_switch(sthread, h):
-    h = sthread.switch(h)
-    origin = start_state.origin
-    self = start_state.destination
-    start_state.origin = None
-    start_state.destination = None
+def post_switch(sthread, h):
+    origin = global_state.origin
+    self = global_state.destination
+    global_state.origin = None
+    global_state.destination = None
     self.h, origin.h = origin.h, h
     #
     current = sthread.ec.topframeref
     sthread.ec.topframeref = self.bottomframe.f_backref
     self.bottomframe.f_backref = origin.bottomframe.f_backref
     origin.bottomframe.f_backref = current
+    #
+    return get_result()
 
 def get_result():
-    if start_state.propagate_exception:
-        e = start_state.propagate_exception
-        start_state.propagate_exception = None
+    if global_state.propagate_exception:
+        e = global_state.propagate_exception
+        global_state.propagate_exception = None
         raise e
-    w_value = start_state.w_value
-    start_state.w_value = None
+    w_value = global_state.w_value
+    global_state.w_value = None
     return w_value
 
 def build_sthread(space):
@@ -253,7 +269,7 @@ def permute(space, args_w):
         cont = space.interp_w(W_Continulet, w_cont)
         if cont.sthread is not sthread:
             if cont.sthread is None:
-                raise geterror(space, "got a non-initialized continulet")
+                continue   # ignore non-initialized continulets
             else:
                 raise geterror(space, "inter-thread support is missing")
         elif sthread.is_empty_handle(cont.h):

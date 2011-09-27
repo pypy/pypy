@@ -29,7 +29,7 @@
 #define PY_VERSION		"2.7.1"
 
 /* PyPy version as a string */
-#define PYPY_VERSION "1.6.0"
+#define PYPY_VERSION "1.6.1"
 
 /* Subversion Revision number of this file (not of the repository).
  * Empty since Mercurial migration. */

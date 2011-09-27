@@ -1363,14 +1363,15 @@ class BaseTestRlist(BaseRtypingTest):
     def test_hints(self):
         from pypy.rlib.objectmodel import newlist
         from pypy.rpython.annlowlevel import hlstr
-        
-        def f(z):
-            z = hlstr(z)
+
+        strings = ['abc', 'def']
+        def f(i):
+            z = strings[i]
             x = newlist(sizehint=13)
             x += z
             return ''.join(x)
 
-        res = self.interpret(f, [self.string_to_ll('abc')])
+        res = self.interpret(f, [0])
         assert self.ll_to_string(res) == 'abc'
 
 class TestLLtype(BaseTestRlist, LLRtypeMixin):

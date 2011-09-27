@@ -247,7 +247,7 @@ def _get_call_args(hop, r_func, arg, params_annotation):
         fn = None
         v_obj = hop.inputarg(r_func, arg=arg)
         s_pbc_fn = hop.args_s[arg]
-        methodname = r_func._get_method_name("simple_call", s_pbc_fn, params_annotation)
+        methodname = r_func._get_method_name("simple_call", s_pbc_fn, params_annotation, hop)
     elif isinstance(r_func, MethodOfFrozenPBCRepr):
         r_impl, nimplicitarg = r_func.get_r_implfunc()
         fn = r_impl.get_unique_llfn().value

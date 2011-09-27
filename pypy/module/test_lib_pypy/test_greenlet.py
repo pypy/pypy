@@ -3,7 +3,7 @@ from pypy.conftest import gettestobjspace
 
 class AppTestGreenlet:
     def setup_class(cls):
-        cls.space = gettestobjspace(usemodules=['_continuation'])
+        cls.space = gettestobjspace(usemodules=['_continuation'], continuation=True)
 
     def test_simple(self):
         from greenlet import greenlet
@@ -258,3 +258,25 @@ class AppTestGreenlet:
             assert sys.exc_info() == (None, None, None)
 
         greenlet(f).switch()
+
+    def test_gr_frame(self):
+        from greenlet import greenlet
+        import sys
+        def f2():
+            assert g.gr_frame is None
+            gmain.switch()
+            assert g.gr_frame is None
+        def f1():
+            assert gmain.gr_frame is gmain_frame
+            assert g.gr_frame is None
+            f2()
+            assert g.gr_frame is None
+        gmain = greenlet.getcurrent()
+        assert gmain.gr_frame is None
+        gmain_frame = sys._getframe()
+        g = greenlet(f1)
+        assert g.gr_frame is None
+        g.switch()
+        assert g.gr_frame.f_code.co_name == 'f2'
+        g.switch()
+        assert g.gr_frame is None

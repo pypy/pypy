@@ -1,13 +1,15 @@
 """
 String formatting routines.
 """
-from pypy.rlib.unroll import unrolling_iterable
+from pypy.interpreter.error import OperationError
+from pypy.objspace.std.unicodetype import unicode_from_object
+from pypy.rlib import jit
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.rfloat import formatd, DTSF_ALT, isnan, isinf
-from pypy.interpreter.error import OperationError
-from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
-from pypy.objspace.std.unicodetype import unicode_from_object
+from pypy.rlib.unroll import unrolling_iterable
+from pypy.tool.sourcetools import func_with_new_name
+
 
 class BaseStringFormatter(object):
     def __init__(self, space, values_w, w_valuedict):
@@ -173,6 +175,9 @@ def make_formatter_subclass(do_unicode):
                 raise OperationError(space.w_ValueError,
                                      space.wrap("incomplete format"))
 
+        # Only shows up if we've already started inlining format(), so just
+        # unconditionally unroll this.
+        @jit.unroll_safe
         def getmappingkey(self):
             # return the mapping key in a '%(key)s' specifier
             fmt = self.fmt
@@ -233,6 +238,8 @@ def make_formatter_subclass(do_unicode):
 
             return w_value
 
+        # Same as getmappingkey
+        @jit.unroll_safe
         def peel_flags(self):
             self.f_ljust = False
             self.f_sign  = False
@@ -255,6 +262,8 @@ def make_formatter_subclass(do_unicode):
                     break
                 self.forward()
 
+        # Same as getmappingkey
+        @jit.unroll_safe
         def peel_num(self):
             space = self.space
             c = self.peekchr()
@@ -276,6 +285,7 @@ def make_formatter_subclass(do_unicode):
                 c = self.peekchr()
             return result
 
+        @jit.look_inside_iff(lambda self: jit.isconstant(self.fmt))
         def format(self):
             lgt = len(self.fmt) + 4 * len(self.values_w) + 10
             if do_unicode:

@@ -1099,8 +1099,8 @@ class TestAnnotateTestCase:
         allocdesc = a.bookkeeper.getdesc(alloc)
         s_C1 = a.bookkeeper.immutablevalue(C1)
         s_C2 = a.bookkeeper.immutablevalue(C2)
-        graph1 = allocdesc.specialize([s_C1])
-        graph2 = allocdesc.specialize([s_C2])
+        graph1 = allocdesc.specialize([s_C1], None)
+        graph2 = allocdesc.specialize([s_C2], None)
         assert a.binding(graph1.getreturnvar()).classdef == C1df
         assert a.binding(graph2.getreturnvar()).classdef == C2df
         assert graph1 in a.translator.graphs
@@ -1135,8 +1135,8 @@ class TestAnnotateTestCase:
         allocdesc = a.bookkeeper.getdesc(alloc)
         s_C1 = a.bookkeeper.immutablevalue(C1)
         s_C2 = a.bookkeeper.immutablevalue(C2)
-        graph1 = allocdesc.specialize([s_C1, s_C2])
-        graph2 = allocdesc.specialize([s_C2, s_C2])
+        graph1 = allocdesc.specialize([s_C1, s_C2], None)
+        graph2 = allocdesc.specialize([s_C2, s_C2], None)
         assert a.binding(graph1.getreturnvar()).classdef == C1df
         assert a.binding(graph2.getreturnvar()).classdef == C2df
         assert graph1 in a.translator.graphs
@@ -1193,6 +1193,19 @@ class TestAnnotateTestCase:
 
         assert len(executedesc._cache[(0, 'star', 2)].startblock.inputargs) == 4
         assert len(executedesc._cache[(1, 'star', 3)].startblock.inputargs) == 5
+
+    def test_specialize_call_location(self):
+        def g(a):
+            return a
+        g._annspecialcase_ = "specialize:call_location"
+        def f(x):
+            return g(x)
+        f._annspecialcase_ = "specialize:argtype(0)"
+        def h(y):
+            w = f(y)
+            return int(f(str(y))) + w
+        a = self.RPythonAnnotator()
+        assert a.build_types(h, [int]) == annmodel.SomeInteger()
 
     def test_assert_list_doesnt_lose_info(self):
         class T(object):

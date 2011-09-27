@@ -13,7 +13,7 @@ class AppTestStacklet(BaseAppTest):
         from _continuation import continulet
         #
         def empty_callback(c):
-            pass
+            never_called
         #
         c = continulet(empty_callback)
         assert type(c) is continulet
@@ -36,7 +36,7 @@ class AppTestStacklet(BaseAppTest):
         from _continuation import continulet, error
         #
         def empty_callback(c1):
-            pass
+            never_called
         #
         c = continulet(empty_callback)
         raises(error, c.__init__, empty_callback)
@@ -134,12 +134,6 @@ class AppTestStacklet(BaseAppTest):
         c.switch()
         e = raises(error, c.switch)
         assert str(e.value) == "continulet already finished"
-
-    def test_not_initialized_yet(self):
-        from _continuation import continulet, error
-        c = continulet.__new__(continulet)
-        e = raises(error, c.switch)
-        assert str(e.value) == "continulet not initialized yet"
 
     def test_go_depth2(self):
         from _continuation import continulet
@@ -253,6 +247,15 @@ class AppTestStacklet(BaseAppTest):
         assert res == 'e'
         res = c_upper.switch('D')
         assert res == 'E'
+
+    def test_switch_not_initialized(self):
+        from _continuation import continulet
+        c0 = continulet.__new__(continulet)
+        res = c0.switch()
+        assert res is None
+        res = c0.switch(123)
+        assert res == 123
+        raises(ValueError, c0.throw, ValueError)
 
     def test_exception_with_switch_depth2(self):
         from _continuation import continulet
@@ -499,16 +502,31 @@ class AppTestStacklet(BaseAppTest):
         assert res == 'z'
         raises(TypeError, c1.switch, to=c2)  # "can't send non-None value"
 
-    def test_switch2_not_initialized_yet(self):
-        from _continuation import continulet, error
+    def test_switch2_not_initialized(self):
+        from _continuation import continulet
+        c0 = continulet.__new__(continulet)
+        c0bis = continulet.__new__(continulet)
+        res = c0.switch(123, to=c0)
+        assert res == 123
+        res = c0.switch(123, to=c0bis)
+        assert res == 123
+        raises(ValueError, c0.throw, ValueError, to=c0)
+        raises(ValueError, c0.throw, ValueError, to=c0bis)
         #
         def f1(c1):
-            not_reachable
-        #
+            c1.switch('a')
+            raises(ValueError, c1.switch, 'b')
+            raises(KeyError, c1.switch, 'c')
+            return 'd'
         c1 = continulet(f1)
-        c2 = continulet.__new__(continulet)
-        e = raises(error, c1.switch, to=c2)
-        assert str(e.value) == "continulet not initialized yet"
+        res = c0.switch(to=c1)
+        assert res == 'a'
+        res = c1.switch(to=c0)
+        assert res == 'b'
+        res = c1.throw(ValueError, to=c0)
+        assert res == 'c'
+        res = c0.throw(KeyError, to=c1)
+        assert res == 'd'
 
     def test_switch2_already_finished(self):
         from _continuation import continulet, error
@@ -642,6 +660,12 @@ class AppTestStacklet(BaseAppTest):
             res = c2.switch()
             assert res == "done"
         main()
+
+    def test_permute_noninitialized(self):
+        from _continuation import continulet, permute
+        permute(continulet.__new__(continulet))    # ignored
+        permute(continulet.__new__(continulet),    # ignored
+                continulet.__new__(continulet))
 
     def test_bug_finish_with_already_finished_stacklet(self):
         from _continuation import continulet, error
