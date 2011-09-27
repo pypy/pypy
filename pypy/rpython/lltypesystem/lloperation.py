@@ -384,6 +384,13 @@ LL_OPERATIONS = {
     'direct_ptradd':        LLOp(canfold=True),
     'cast_opaque_ptr':      LLOp(sideeffects=False),
 
+    # __________ Software Transactional Memory __________
+    # (Note that these operations could also be decomposed into individual
+    # direct_calls and maybe several casts, but it looks less heavy-weight
+    # to keep them as operations until the genc stage)
+
+    'stm_getfield':         LLOp(sideeffects=False, canrun=True),
+
     # __________ address operations __________
 
     'boehm_malloc':         LLOp(),

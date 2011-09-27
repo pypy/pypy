@@ -42,6 +42,7 @@ def test_abort_and_retry_transactionally():
         assert rffi.cast(lltype.Signed, stm_read_word(p)) == -611
         stm_write_word(p, rffi.cast(rffi.VOIDP, 42 * a.y))
         assert rffi.cast(lltype.Signed, stm_read_word(p)) == 42 * a.y
+        assert a.x == -611 # xxx still the old value when reading non-transact.
         if a.y < 10:
             a.y += 1    # non-transactionally
             abort_and_retry()
