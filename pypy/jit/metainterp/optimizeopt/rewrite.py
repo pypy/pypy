@@ -446,7 +446,7 @@ class OptRewrite(Optimization):
                     newop = ResOperation(rop.SETARRAYITEM_GC,
                                          [op.getarg(2),
                                           ConstInt(index + dest_start),
-                                          val.force_box()], None,
+                                          val.get_key_box()], None,
                                          descr=source_value.arraydescr)
                     self.emit_operation(newop)
             return True
