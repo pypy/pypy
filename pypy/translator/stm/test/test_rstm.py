@@ -4,15 +4,23 @@ from pypy.translator.stm.rstm import *
 from pypy.rpython.annlowlevel import llhelper
 
 
-A = lltype.Struct('A', ('x', lltype.Signed), ('y', lltype.Signed))
+A = lltype.Struct('A', ('x', lltype.Signed), ('y', lltype.Signed),
+                       ('c1', lltype.Char), ('c2', lltype.Char),
+                       ('c3', lltype.Char))
 
 def callback1(a):
     a = rffi.cast(lltype.Ptr(A), a)
     assert a.x == -611
+    assert a.c1 == '/'
+    assert a.c2 == '\\'
+    assert a.c3 == '!'
     assert stm_getfield(a, 'x') == -611
+    assert stm_getfield(a, 'c2') == '\\'
+    assert stm_getfield(a, 'c1') == '/'
+    assert stm_getfield(a, 'c3') == '!'
     p = lltype.direct_fieldptr(a, 'x')
-    p = rffi.cast(rffi.VOIDPP, p)
-    stm_write_word(p, rffi.cast(rffi.VOIDP, 42 * a.y))
+    p = rffi.cast(SignedP, p)
+    stm_write_word(p, 42 * a.y)
     assert stm_getfield(a, 'x') == 42 * a.y
     assert a.x == -611 # xxx still the old value when reading non-transact.
     if a.y < 10:
@@ -23,21 +31,42 @@ def callback1(a):
 def test_stm_getfield():
     a = lltype.malloc(A, flavor='raw')
     a.x = -611
+    a.c1 = '/'
+    a.c2 = '\\'
+    a.c3 = '!'
     a.y = 0
     descriptor_init()
     perform_transaction(llhelper(CALLBACK, callback1),
                         rffi.cast(rffi.VOIDP, a))
     descriptor_done()
     assert a.x == 420
+    assert a.c1 == '/'
+    assert a.c2 == '\\'
+    assert a.c3 == '!'
     lltype.free(a, flavor='raw')
 
 def callback2(a):
     a = rffi.cast(lltype.Ptr(A), a)
     assert a.x == -611
+    assert a.c1 == '&'
+    assert a.c2 == '*'
+    assert a.c3 == '#'
     assert stm_getfield(a, 'x') == -611
+    assert stm_getfield(a, 'c1') == '&'
+    assert stm_getfield(a, 'c2') == '*'
+    assert stm_getfield(a, 'c3') == '#'
     stm_setfield(a, 'x', 42 * a.y)
+    stm_setfield(a, 'c1', '(')
+    stm_setfield(a, 'c2', '?')
+    stm_setfield(a, 'c3', ')')
     assert stm_getfield(a, 'x') == 42 * a.y
+    assert stm_getfield(a, 'c1') == '('
+    assert stm_getfield(a, 'c2') == '?'
+    assert stm_getfield(a, 'c3') == ')'
     assert a.x == -611 # xxx still the old value when reading non-transact.
+    assert a.c1 == '&'
+    assert a.c2 == '*'
+    assert a.c3 == '#'
     if a.y < 10:
         a.y += 1    # non-transactionally
         abort_and_retry()
@@ -46,12 +75,18 @@ def callback2(a):
 def test_stm_setfield():
     a = lltype.malloc(A, flavor='raw')
     a.x = -611
+    a.c1 = '&'
+    a.c2 = '*'
+    a.c3 = '#'
     a.y = 0
     descriptor_init()
     perform_transaction(llhelper(CALLBACK, callback2),
                         rffi.cast(rffi.VOIDP, a))
     descriptor_done()
     assert a.x == 420
+    assert a.c1 == '('
+    assert a.c2 == '?'
+    assert a.c3 == ')'
     lltype.free(a, flavor='raw')
 
 # ____________________________________________________________
@@ -59,16 +94,23 @@ def test_stm_setfield():
 from pypy.translator.translator import TranslationContext
 from pypy.annotation.listdef import s_list_of_strings
 from pypy.translator.c.genc import CStandaloneBuilder
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 class StmTests(object):
     config = None
 
     def compile(self, entry_point):
         t = TranslationContext(self.config)
+        t.config.translation.gc = 'boehm'
         t.buildannotator().build_types(entry_point, [s_list_of_strings])
         t.buildrtyper().specialize()
         cbuilder = CStandaloneBuilder(t, entry_point, t.config)
-        cbuilder.generate_source(defines=cbuilder.DEBUG_DEFINES)
+        force_debug = ExternalCompilationInfo(pre_include_bits=[
+            "#define RPY_ASSERT 1\n"
+            "#define RPY_LL_ASSERT 1\n"
+            ])
+        cbuilder.eci = cbuilder.eci.merge(force_debug)
+        cbuilder.generate_source()
         cbuilder.compile()
         return t, cbuilder
 

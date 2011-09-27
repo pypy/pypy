@@ -475,23 +475,14 @@ class FunctionCodeGenerator(object):
     def generic_get(self, op, sourceexpr):
         T = self.lltypemap(op.result)
         newvalue = self.expr(op.result, special_case_void=False)
-        if op.opname.startswith('stm_'):
-            typename = self.db.gettype(T)
-            result = '%s = (%s)stm_read_word((void**)&%s);' % (
-                newvalue, cdecl(typename, ''), sourceexpr)
-        else:
-            result = '%s = %s;' % (newvalue, sourceexpr)
+        result = '%s = %s;' % (newvalue, sourceexpr)
         if T is Void:
             result = '/* %s */' % result
         return result
 
     def generic_set(self, op, targetexpr):
         newvalue = self.expr(op.args[-1], special_case_void=False)
-        if op.opname.startswith('stm_'):
-            result = 'stm_write_word((void**)&%s, (void*)%s);' % (
-                targetexpr, newvalue)
-        else:
-            result = '%s = %s;' % (targetexpr, newvalue)
+        result = '%s = %s;' % (targetexpr, newvalue)
         T = self.lltypemap(op.args[-1])
         if T is Void:
             result = '/* %s */' % result
@@ -598,8 +589,13 @@ class FunctionCodeGenerator(object):
             return '%s = %s.length;'%(self.expr(op.result), expr)
 
 
-    OP_STM_GETFIELD = OP_GETFIELD
-    OP_STM_SETFIELD = OP_BARE_SETFIELD
+    def _OP_STM(self, op):
+        if not hasattr(self, 'op_stm'):
+            from pypy.translator.stm.funcgen import op_stm
+            self.__class__.op_stm = op_stm
+        return self.op_stm(op)
+    OP_STM_GETFIELD = _OP_STM
+    OP_STM_SETFIELD = _OP_STM
 
 
     def OP_PTR_NONZERO(self, op):

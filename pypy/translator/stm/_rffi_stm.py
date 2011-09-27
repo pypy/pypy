@@ -18,6 +18,8 @@ def llexternal(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, compilation_info=eci,
                            _nowrapper=True, **kwds)
 
+SignedP = lltype.Ptr(lltype.Array(lltype.Signed, hints={'nolength': True}))
+
 
 descriptor_init = llexternal('stm_descriptor_init', [], lltype.Void)
 descriptor_done = llexternal('stm_descriptor_done', [], lltype.Void)
@@ -25,8 +27,8 @@ descriptor_done = llexternal('stm_descriptor_done', [], lltype.Void)
 begin_transaction = llexternal('stm_begin_transaction_inline',[], lltype.Void)
 commit_transaction = llexternal('stm_commit_transaction', [], lltype.Signed)
 
-stm_read_word = llexternal('stm_read_word', [rffi.VOIDPP], rffi.VOIDP)
-stm_write_word = llexternal('stm_write_word', [rffi.VOIDPP, rffi.VOIDP],
+stm_read_word = llexternal('stm_read_word', [SignedP], lltype.Signed)
+stm_write_word = llexternal('stm_write_word', [SignedP, lltype.Signed],
                             lltype.Void)
 
 CALLBACK = lltype.Ptr(lltype.FuncType([rffi.VOIDP], rffi.VOIDP))

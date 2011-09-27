@@ -21,8 +21,8 @@
 #define TREE_MASK   ((TREE_ARITY - 1) * sizeof(void*))
 
 typedef struct {
-  void** addr;
-  void* val;
+  long* addr;
+  long val;
   owner_version_t p;   // the previous version number (if locked)
 } wlog_t;
 
@@ -109,7 +109,7 @@ static int redolog_any_entry(struct RedoLog *redolog)
     goto_not_found;                                             \
 }
 
-static wlog_t *_redolog_find(char *entry, void** addr)
+static wlog_t *_redolog_find(char *entry, long* addr)
 {
   unsigned long key = (unsigned long)addr;
   while (((long)entry) & 1)
@@ -120,7 +120,7 @@ static wlog_t *_redolog_find(char *entry, void** addr)
   return (wlog_t *)entry;   /* may be NULL */
 }
 
-static void redolog_insert(struct RedoLog *redolog, void** addr, void* val);
+static void redolog_insert(struct RedoLog *redolog, long* addr, long val);
 
 static void _redolog_grow(struct RedoLog *redolog, long extra)
 {
@@ -156,7 +156,7 @@ static char *_redolog_grab(struct RedoLog *redolog, long size)
   return result;
 }
 
-static void redolog_insert(struct RedoLog *redolog, void** addr, void* val)
+static void redolog_insert(struct RedoLog *redolog, long* addr, long val)
 {
  retry:;
   wlog_t *wlog;

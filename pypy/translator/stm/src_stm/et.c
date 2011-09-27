@@ -40,6 +40,9 @@ static char orecs[NUM_STRIPES * sizeof(orec_t)];
 inline static volatile orec_t* get_orec(void* addr)
 {
   unsigned long index = (unsigned long)addr;
+#ifdef RPY_ASSERT
+  assert(!(index & (sizeof(orec_t)-1)));
+#endif
   char *p = orecs + (index & ((NUM_STRIPES-1) * sizeof(orec_t)));
   return (volatile orec_t *)p;
 }
@@ -453,7 +456,7 @@ void commitInevitableTransaction(struct tx_descriptor *d)
 }
 
 /* lazy/lazy read instrumentation */
-void* stm_read_word(void** addr)
+long stm_read_word(long* addr)
 {
   struct tx_descriptor *d = thread_descriptor;
 
@@ -500,7 +503,7 @@ void* stm_read_word(void** addr)
     }
 
   // orec is unlocked, with ts <= start_time.  read the location
-  void* tmp = *addr;
+  long tmp = *addr;
 
   // postvalidate AFTER reading addr:
   CFENCE;
@@ -514,7 +517,7 @@ void* stm_read_word(void** addr)
   return tmp;
 }
 
-void stm_write_word(void** addr, void* val)
+void stm_write_word(long* addr, long val)
 {
   struct tx_descriptor *d = thread_descriptor;
   redolog_insert(&d->redolog, addr, val);
