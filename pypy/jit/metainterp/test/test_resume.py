@@ -576,8 +576,9 @@ def test_rebuild_from_resumedata_two_guards():
 
 
 class FakeOptimizer_VirtualValue(object):
-    class cpu:
-        pass
+    class optimizer:
+        class cpu:
+            pass
 fakeoptimizer = FakeOptimizer_VirtualValue()
 
 def ConstAddr(addr, cpu):   # compatibility

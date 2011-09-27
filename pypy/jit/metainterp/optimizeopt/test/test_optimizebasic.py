@@ -39,8 +39,9 @@ def test_store_final_boxes_in_guard():
 
 def test_sharing_field_lists_of_virtual():
     class FakeOptimizer(object):
-        class cpu(object):
-            pass
+        class optimizer(object):
+            class cpu(object):
+                pass
     opt = FakeOptimizer()
     virt1 = virtualize.AbstractVirtualStructValue(opt, None)
     lst1 = virt1._get_field_descr_list()

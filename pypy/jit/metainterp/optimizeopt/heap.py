@@ -50,6 +50,7 @@ class CachedField(object):
             if not self._lazy_setfield_registered:
                 optheap._lazy_setfields_and_arrayitems.append(self)
                 self._lazy_setfield_registered = True
+            
         else:
             # this is the case where the pending setfield ends up
             # storing precisely the value that is already there,
@@ -166,8 +167,9 @@ class OptHeap(Optimization):
     def flush(self):
         self.force_all_lazy_setfields_and_arrayitems()
         if self.posponedop:
-            self.next_optimization.propagate_forward(self.posponedop)
+            posponedop = self.posponedop
             self.posponedop = None
+            self.next_optimization.propagate_forward(posponedop)
 
     def new(self):
         return OptHeap()
@@ -216,8 +218,9 @@ class OptHeap(Optimization):
     def emit_operation(self, op):
         self.emitting_operation(op)
         if self.posponedop:
-            self.next_optimization.propagate_forward(self.posponedop)
+            posponedop = self.posponedop
             self.posponedop = None
+            self.next_optimization.propagate_forward(posponedop)
         if (op.is_comparison() or op.getopnum() == rop.CALL_MAY_FORCE
             or op.is_ovf()):
             self.posponedop = op
@@ -367,6 +370,9 @@ class OptHeap(Optimization):
         cf.remember_field_value(structvalue, fieldvalue, op)
 
     def optimize_SETFIELD_GC(self, op):
+        if op in self.optimizer.volatile:
+            self.emit_operation(op)
+            return
         if self.has_pure_result(rop.GETFIELD_GC_PURE, [op.getarg(0)],
                                 op.getdescr()):
             os.write(2, '[bogus _immutable_field_ declaration: %s]\n' %
@@ -375,6 +381,7 @@ class OptHeap(Optimization):
         #
         cf = self.field_cache(op.getdescr())
         cf.do_setfield(self, op)
+        
 
     def optimize_GETARRAYITEM_GC(self, op):
         arrayvalue = self.getvalue(op.getarg(0))
@@ -407,6 +414,9 @@ class OptHeap(Optimization):
                      (op.getdescr().repr_of_descr()))
             raise BogusPureField
         #
+        if op in self.optimizer.volatile:
+            self.emit_operation(op)
+            return
         indexvalue = self.getvalue(op.getarg(1))
         if indexvalue.is_constant():
             arrayvalue = self.getvalue(op.getarg(0))

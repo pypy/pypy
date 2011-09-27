@@ -113,19 +113,18 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
         #
         if not we_are_translated():
             op.name = 'FORCE ' + self.source_op.name
-
+            
         if self._is_immutable_and_filled_with_constants():
-            box = self.optimizer.constant_fold(op)
+            box = self.optimizer.optimizer.constant_fold(op)
             self.make_constant(box)
             for ofs, value in self._fields.iteritems():
                 subbox = value.force_box()
                 assert isinstance(subbox, Const)
-                execute(self.optimizer.cpu, None, rop.SETFIELD_GC,
+                execute(self.optimizer.optimizer.cpu, None, rop.SETFIELD_GC,
                         ofs, box, subbox)
             # keep self._fields, because it's all immutable anyway
         else:
-            newoperations = self.optimizer.newoperations
-            newoperations.append(op)
+            self.optimizer.emit_operation(op)
             self.box = box = op.result
             #
             iteritems = self._fields.iteritems()
@@ -138,7 +137,8 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
                 subbox = value.force_box()
                 op = ResOperation(rop.SETFIELD_GC, [box, subbox], None,
                                   descr=ofs)
-                newoperations.append(op)
+
+                self.optimizer.emit_volatile_operation(op)
 
     def _get_field_descr_list(self):
         _cached_sorted_fields = self._cached_sorted_fields
@@ -155,7 +155,7 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
             else:
                 lst = self._fields.keys()
             sort_descrs(lst)
-            cache = get_fielddescrlist_cache(self.optimizer.cpu)
+            cache = get_fielddescrlist_cache(self.optimizer.optimizer.cpu)
             result = cache.get(lst, None)
             if result is None:
                 cache[lst] = lst
@@ -190,7 +190,7 @@ class VirtualValue(AbstractVirtualStructValue):
         return modifier.make_virtual(self.known_class, fielddescrs)
 
     def _get_descr(self):
-        return vtable2descr(self.optimizer.cpu, self.known_class.getint())
+        return vtable2descr(self.optimizer.optimizer.cpu, self.known_class.getint())
 
     def __repr__(self):
         cls_name = self.known_class.value.adr.ptr._obj._TYPE._name
@@ -244,8 +244,7 @@ class VArrayValue(AbstractVirtualValue):
         assert self.source_op is not None
         if not we_are_translated():
             self.source_op.name = 'FORCE ' + self.source_op.name
-        newoperations = self.optimizer.newoperations
-        newoperations.append(self.source_op)
+        self.optimizer.emit_operation(self.source_op)        
         self.box = box = self.source_op.result
         for index in range(len(self._items)):
             subvalue = self._items[index]
@@ -256,7 +255,7 @@ class VArrayValue(AbstractVirtualValue):
                 op = ResOperation(rop.SETARRAYITEM_GC,
                                   [box, ConstInt(index), subbox], None,
                                   descr=self.arraydescr)
-                newoperations.append(op)
+                self.optimizer.emit_volatile_operation(op)
 
     def get_args_for_fail(self, modifier):
         if self.box is None and not modifier.already_seen_virtual(self.keybox):
@@ -279,17 +278,17 @@ class OptVirtualize(optimizer.Optimization):
         return OptVirtualize()
         
     def make_virtual(self, known_class, box, source_op=None):
-        vvalue = VirtualValue(self.optimizer, known_class, box, source_op)
+        vvalue = VirtualValue(self, known_class, box, source_op)
         self.make_equal_to(box, vvalue)
         return vvalue
 
     def make_varray(self, arraydescr, size, box, source_op=None):
-        vvalue = VArrayValue(self.optimizer, arraydescr, size, box, source_op)
+        vvalue = VArrayValue(self, arraydescr, size, box, source_op)
         self.make_equal_to(box, vvalue)
         return vvalue
 
     def make_vstruct(self, structdescr, box, source_op=None):
-        vvalue = VStructValue(self.optimizer, structdescr, box, source_op)
+        vvalue = VStructValue(self, structdescr, box, source_op)
         self.make_equal_to(box, vvalue)
         return vvalue
 
@@ -362,7 +361,6 @@ class OptVirtualize(optimizer.Optimization):
             self.make_equal_to(op.result, fieldvalue)
         else:
             value.ensure_nonnull()
-            ###self.heap_op_optimizer.optimize_GETFIELD_GC(op, value)
             self.emit_operation(op)
 
     # note: the following line does not mean that the two operations are
@@ -377,7 +375,6 @@ class OptVirtualize(optimizer.Optimization):
             value.setfield(op.getdescr(), fieldvalue)
         else:
             value.ensure_nonnull()
-            ###self.heap_op_optimizer.optimize_SETFIELD_GC(op, value, fieldvalue)
             self.emit_operation(op)
 
     def optimize_NEW_WITH_VTABLE(self, op):
@@ -417,7 +414,6 @@ class OptVirtualize(optimizer.Optimization):
                 self.make_equal_to(op.result, itemvalue)
                 return
         value.ensure_nonnull()
-        ###self.heap_op_optimizer.optimize_GETARRAYITEM_GC(op, value)
         self.emit_operation(op)
 
     # note: the following line does not mean that the two operations are
@@ -432,7 +428,6 @@ class OptVirtualize(optimizer.Optimization):
                 value.setitem(indexbox.getint(), self.getvalue(op.getarg(2)))
                 return
         value.ensure_nonnull()
-        ###self.heap_op_optimizer.optimize_SETARRAYITEM_GC(op, value, fieldvalue)
         self.emit_operation(op)
 
 

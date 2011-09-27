@@ -246,6 +246,10 @@ class Optimization(object):
     def emit_operation(self, op):
         self.next_optimization.propagate_forward(op)
 
+    def emit_volatile_operation(self, op):
+        self.optimizer.volatile[op] = True
+        self.emit_operation(op)
+
     # FIXME: Move some of these here?
     def getvalue(self, box):
         return self.optimizer.getvalue(box)
@@ -331,6 +335,8 @@ class Optimizer(Optimization):
         self.opaque_pointers = {}
         self.replaces_guard = {}
         self.newoperations = []
+        self.volatile = {}
+        self.optimizer = self
         if loop is not None:
             self.call_pure_results = loop.call_pure_results
 
