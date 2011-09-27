@@ -51,7 +51,7 @@ inline static volatile orec_t* get_orec(void* addr)
 /* Uncomment the line to try this extra code.  Doesn't work reliably so far */
 /*#define COMMIT_OTHER_INEV*/
 
-#define ABORT_REASONS 7
+#define ABORT_REASONS 8
 #define SPINLOOP_REASONS 10
 #define OTHERINEV_REASONS 5
 
@@ -574,8 +574,7 @@ void stm_descriptor_done(void)
 void* stm_perform_transaction(void*(*callback)(void*), void *arg)
 {
   void *result;
-  jmp_buf jmpbuf;
-  stm_begin_transaction(&jmpbuf);
+  stm_begin_transaction_inline();
   result = callback(arg);
   stm_commit_transaction();
   return result;
@@ -742,4 +741,9 @@ void stm_begin_inevitable_transaction(void)
   CFENCE;
   d_inev_checking = 1;
 #endif
+}
+
+void stm_abort_and_retry(void)
+{
+  tx_abort(7);     /* manual abort */
 }

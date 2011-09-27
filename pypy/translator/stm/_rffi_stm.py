@@ -11,12 +11,6 @@ cdir = py.path.local(pypydir) / 'translator' / 'stm'
 eci = ExternalCompilationInfo(
     include_dirs = [cdir],
     includes = ['src_stm/et.h'],
-    post_include_bits = [
-        r'''#define stm_begin_transaction_inline()  ; \
-              jmp_buf _jmpbuf;                   \
-              setjmp(_jmpbuf);                   \
-              stm_begin_transaction(&_jmpbuf);
-        '''],
     separate_module_sources = ['#include "src_stm/et.c"\n'],
 )
 
@@ -38,3 +32,5 @@ write_word = llexternal('stm_write_word', [rffi.VOIDPP, rffi.VOIDP],
 CALLBACK = lltype.Ptr(lltype.FuncType([rffi.VOIDP], rffi.VOIDP))
 perform_transaction = llexternal('stm_perform_transaction',
                                  [CALLBACK, rffi.VOIDP], rffi.VOIDP)
+
+abort_and_retry = llexternal('stm_abort_and_retry', [], lltype.Void)

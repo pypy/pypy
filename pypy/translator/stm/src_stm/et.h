@@ -20,6 +20,12 @@ void* stm_read_word(void** addr);
 void stm_write_word(void** addr, void* val);
 void stm_try_inevitable(void);
 void stm_begin_inevitable_transaction(void);
+void stm_abort_and_retry(void);
+
+#define stm_begin_transaction_inline()  ; \
+       jmp_buf _jmpbuf;                   \
+       setjmp(_jmpbuf);                   \
+       stm_begin_transaction(&_jmpbuf)
 
 
 #endif  /* _ET_H */
