@@ -475,14 +475,23 @@ class FunctionCodeGenerator(object):
     def generic_get(self, op, sourceexpr):
         T = self.lltypemap(op.result)
         newvalue = self.expr(op.result, special_case_void=False)
-        result = '%s = %s;' % (newvalue, sourceexpr)
+        if op.opname.startswith('stm_'):
+            typename = self.db.gettype(T)
+            result = '%s = (%s)stm_read_word((void**)&%s);' % (
+                newvalue, cdecl(typename, ''), sourceexpr)
+        else:
+            result = '%s = %s;' % (newvalue, sourceexpr)
         if T is Void:
             result = '/* %s */' % result
         return result
 
     def generic_set(self, op, targetexpr):
         newvalue = self.expr(op.args[-1], special_case_void=False)
-        result = '%s = %s;' % (targetexpr, newvalue)
+        if op.opname.startswith('stm_'):
+            result = 'stm_write_word((void**)&%s, (void*)%s);' % (
+                targetexpr, newvalue)
+        else:
+            result = '%s = %s;' % (targetexpr, newvalue)
         T = self.lltypemap(op.args[-1])
         if T is Void:
             result = '/* %s */' % result
@@ -589,21 +598,8 @@ class FunctionCodeGenerator(object):
             return '%s = %s.length;'%(self.expr(op.result), expr)
 
 
-    def OP_STM_GETFIELD(self, op):
-        assert isinstance(op.args[1], Constant)
-        STRUCT = self.lltypemap(op.args[0]).TO
-        structdef = self.db.gettypedefnode(STRUCT)
-        baseexpr_is_const = isinstance(op.args[0], Constant)
-        sourceexpr = structdef.ptr_access_expr(self.expr(op.args[0]),
-                                               op.args[1].value,
-                                               baseexpr_is_const)
-        #
-        T = self.lltypemap(op.result)
-        assert T is not Void
-        typename = self.db.gettype(T)
-        newvalue = self.expr(op.result)
-        return '%s = (%s)stm_read_word((void**)&%s);' % (
-            newvalue, cdecl(typename, ''), sourceexpr)
+    OP_STM_GETFIELD = OP_GETFIELD
+    OP_STM_SETFIELD = OP_BARE_SETFIELD
 
 
     def OP_PTR_NONZERO(self, op):

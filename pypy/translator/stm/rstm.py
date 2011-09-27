@@ -33,3 +33,18 @@ class ExtEntry(ExtRegistryEntry):
         c_fieldname = hop.inputconst(lltype.Void, fieldname)
         return hop.genop('stm_getfield', [v_structptr, c_fieldname],
                          resulttype = lltype.Signed)
+
+
+class ExtEntry(ExtRegistryEntry):
+    _about_ = stm_setfield
+
+    def compute_result_annotation(self, s_structptr, s_fieldname, s_newvalue):
+        return None
+
+    def specialize_call(self, hop):
+        r_structptr = hop.args_r[0]
+        v_structptr = hop.inputarg(r_structptr, arg=0)
+        fieldname = hop.args_v[1].value
+        v_newvalue = hop.inputarg(hop.args_r[2], arg=2)
+        c_fieldname = hop.inputconst(lltype.Void, fieldname)
+        hop.genop('stm_setfield', [v_structptr, c_fieldname, v_newvalue])

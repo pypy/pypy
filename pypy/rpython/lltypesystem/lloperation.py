@@ -390,6 +390,7 @@ LL_OPERATIONS = {
     # to keep them as operations until the genc stage)
 
     'stm_getfield':         LLOp(sideeffects=False, canrun=True),
+    'stm_setfield':         LLOp(),
 
     # __________ address operations __________
 
