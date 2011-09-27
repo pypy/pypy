@@ -210,7 +210,7 @@ class AssemblerPPC(OpAssembler):
         else:
             mc.ld(r.r4.value, r.r5.value, GPR_SAVE_AREA + 2 * WORD)
         mc.mtlr(r.r4.value)     # restore LR
-        mc.addi(r.SP.value, r.r4.value, GPR_SAVE_AREA + WORD) # restore old SP
+        mc.addi(r.SP.value, r.r5.value, GPR_SAVE_AREA + WORD) # restore old SP
         mc.blr()
         mc.prepare_insts_blocks()
         return mc.materialize(self.cpu.asmmemmgr, [],
