@@ -64,21 +64,46 @@ class TestUfuncCoerscion(object):
     def test_unaryops(self, space):
         bool_dtype = space.fromcache(interp_dtype.W_BoolDtype)
         int8_dtype = space.fromcache(interp_dtype.W_Int8Dtype)
+        uint8_dtype = space.fromcache(interp_dtype.W_UInt8Dtype)
         int16_dtype = space.fromcache(interp_dtype.W_Int16Dtype)
+        uint16_dtype = space.fromcache(interp_dtype.W_UInt16Dtype)
         int32_dtype = space.fromcache(interp_dtype.W_Int32Dtype)
+        uint32_dtype = space.fromcache(interp_dtype.W_UInt32Dtype)
+        long_dtype = space.fromcache(interp_dtype.W_LongDtype)
+        ulong_dtype = space.fromcache(interp_dtype.W_ULongDtype)
+        int64_dtype = space.fromcache(interp_dtype.W_Int64Dtype)
+        uint64_dtype = space.fromcache(interp_dtype.W_UInt64Dtype)
         float32_dtype = space.fromcache(interp_dtype.W_Float32Dtype)
         float64_dtype = space.fromcache(interp_dtype.W_Float64Dtype)
 
-        # Normal rules, everythign returns itself
+        # Normal rules, everything returns itself
         assert find_unaryop_result_dtype(space, bool_dtype) is bool_dtype
         assert find_unaryop_result_dtype(space, int8_dtype) is int8_dtype
+        assert find_unaryop_result_dtype(space, uint8_dtype) is uint8_dtype
+        assert find_unaryop_result_dtype(space, int16_dtype) is int16_dtype
+        assert find_unaryop_result_dtype(space, uint16_dtype) is uint16_dtype
         assert find_unaryop_result_dtype(space, int32_dtype) is int32_dtype
+        assert find_unaryop_result_dtype(space, uint32_dtype) is uint32_dtype
+        assert find_unaryop_result_dtype(space, long_dtype) is long_dtype
+        assert find_unaryop_result_dtype(space, ulong_dtype) is ulong_dtype
+        assert find_unaryop_result_dtype(space, int64_dtype) is int64_dtype
+        assert find_unaryop_result_dtype(space, uint64_dtype) is uint64_dtype
+        assert find_unaryop_result_dtype(space, float32_dtype) is float32_dtype
         assert find_unaryop_result_dtype(space, float64_dtype) is float64_dtype
 
         # Coerce to floats, some of these will eventually be float16, or
         # whatever our smallest float type is.
         assert find_unaryop_result_dtype(space, bool_dtype, promote_to_float=True) is float32_dtype # will be float16 if we ever put that in
         assert find_unaryop_result_dtype(space, int8_dtype, promote_to_float=True) is float32_dtype # will be float16 if we ever put that in
+        assert find_unaryop_result_dtype(space, uint8_dtype, promote_to_float=True) is float32_dtype # will be float16 if we ever put that in
         assert find_unaryop_result_dtype(space, int16_dtype, promote_to_float=True) is float32_dtype
+        assert find_unaryop_result_dtype(space, uint16_dtype, promote_to_float=True) is float32_dtype
         assert find_unaryop_result_dtype(space, int32_dtype, promote_to_float=True) is float64_dtype
+        assert find_unaryop_result_dtype(space, uint32_dtype, promote_to_float=True) is float64_dtype
+        assert find_unaryop_result_dtype(space, int64_dtype, promote_to_float=True) is float64_dtype
+        assert find_unaryop_result_dtype(space, uint64_dtype, promote_to_float=True) is float64_dtype
+        assert find_unaryop_result_dtype(space, float32_dtype, promote_to_float=True) is float32_dtype
         assert find_unaryop_result_dtype(space, float64_dtype, promote_to_float=True) is float64_dtype
+
+        # promote bools, happens with sign ufunc
+        assert find_unaryop_result_dtype(space, bool_dtype, promote_bools=True) is int8_dtype
