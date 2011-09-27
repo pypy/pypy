@@ -18,5 +18,5 @@ class partial(object):
 
     def __call__(self, *fargs, **fkeywords):
         if self.keywords is not None:
-            fkeywords.update(self.keywords)
+            fkeywords = dict(self.keywords, **fkeywords)
         return self.func(*(self.args + fargs), **fkeywords)
