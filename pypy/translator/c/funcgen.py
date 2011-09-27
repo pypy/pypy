@@ -589,6 +589,22 @@ class FunctionCodeGenerator(object):
             return '%s = %s.length;'%(self.expr(op.result), expr)
 
 
+    def OP_STM_GETFIELD(self, op):
+        assert isinstance(op.args[1], Constant)
+        STRUCT = self.lltypemap(op.args[0]).TO
+        structdef = self.db.gettypedefnode(STRUCT)
+        baseexpr_is_const = isinstance(op.args[0], Constant)
+        sourceexpr = structdef.ptr_access_expr(self.expr(op.args[0]),
+                                               op.args[1].value,
+                                               baseexpr_is_const)
+        #
+        T = self.lltypemap(op.result)
+        assert T is not Void
+        typename = self.db.gettype(T)
+        newvalue = self.expr(op.result)
+        return '%s = (%s)stm_read_word((void**)&%s);' % (
+            newvalue, cdecl(typename, ''), sourceexpr)
+
 
     def OP_PTR_NONZERO(self, op):
         return '%s = (%s != NULL);' % (self.expr(op.result),
