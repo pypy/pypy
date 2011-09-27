@@ -235,14 +235,22 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
 
     bool_dtype = space.fromcache(interp_dtype.W_BoolDtype)
     long_dtype = space.fromcache(interp_dtype.W_LongDtype)
+    int64_dtype = space.fromcache(interp_dtype.W_Int64Dtype)
 
     if space.is_w(w_type, space.w_bool):
-        if current_guess is None:
+        if current_guess is None or current_guess is bool_dtype:
             return bool_dtype
+        return current_guess
     elif space.is_w(w_type, space.w_int):
         if (current_guess is None or current_guess is bool_dtype or
             current_guess is long_dtype):
             return long_dtype
+        return current_guess
+    elif space.is_w(w_type, space.w_long):
+        if (current_guess is None or current_guess is bool_dtype or
+            current_guess is long_dtype or current_guess is int64_dtype):
+            return int64_dtype
+        return current_guess
     return space.fromcache(interp_dtype.W_Float64Dtype)
 
 

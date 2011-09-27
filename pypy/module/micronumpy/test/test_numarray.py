@@ -551,6 +551,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpy import array, dtype
 
         assert array([True]).dtype is dtype(bool)
+        assert array([True, False]).dtype is dtype(bool)
         assert array([True, 1]).dtype is dtype(int)
         assert array([1, 2, 3]).dtype is dtype(int)
         assert array([1L, 2, 3]).dtype is dtype(long)
