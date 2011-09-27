@@ -25,9 +25,9 @@ descriptor_done = llexternal('stm_descriptor_done', [], lltype.Void)
 begin_transaction = llexternal('stm_begin_transaction_inline',[], lltype.Void)
 commit_transaction = llexternal('stm_commit_transaction', [], lltype.Signed)
 
-read_word = llexternal('stm_read_word', [rffi.VOIDPP], rffi.VOIDP)
-write_word = llexternal('stm_write_word', [rffi.VOIDPP, rffi.VOIDP],
-                        lltype.Void)
+stm_read_word = llexternal('stm_read_word', [rffi.VOIDPP], rffi.VOIDP)
+stm_write_word = llexternal('stm_write_word', [rffi.VOIDPP, rffi.VOIDP],
+                            lltype.Void)
 
 CALLBACK = lltype.Ptr(lltype.FuncType([rffi.VOIDP], rffi.VOIDP))
 perform_transaction = llexternal('stm_perform_transaction',
