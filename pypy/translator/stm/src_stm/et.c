@@ -72,13 +72,14 @@ struct tx_descriptor {
 #endif
   unsigned int spinloop_counter;
   owner_version_t my_lock_word;
+  unsigned init_counter;
   struct RedoLog redolog;   /* last item, because it's the biggest one */
 };
 
 /* global_timestamp contains in its lowest bit a flag equal to 1
    if there is an inevitable transaction running */
 static volatile unsigned long global_timestamp = 2;
-static __thread struct tx_descriptor *thread_descriptor;
+static __thread struct tx_descriptor *thread_descriptor = NULL;
 #ifdef COMMIT_OTHER_INEV
 static struct tx_descriptor *volatile thread_descriptor_inev;
 static volatile unsigned long d_inev_checking = 0;
@@ -526,22 +527,32 @@ void stm_write_word(long* addr, long val)
 
 void stm_descriptor_init(void)
 {
-  struct tx_descriptor *d = malloc(sizeof(struct tx_descriptor));
-  memset(d, 0, sizeof(struct tx_descriptor));
+  if (thread_descriptor != NULL)
+    thread_descriptor->init_counter++;
+  else
+    {
+      struct tx_descriptor *d = malloc(sizeof(struct tx_descriptor));
+      memset(d, 0, sizeof(struct tx_descriptor));
 
-  /* initialize 'my_lock_word' to be a unique negative number */
-  d->my_lock_word = (owner_version_t)d;
-  if (!IS_LOCKED(d->my_lock_word))
-    d->my_lock_word = ~d->my_lock_word;
-  assert(IS_LOCKED(d->my_lock_word));
-  d->spinloop_counter = (unsigned int)(d->my_lock_word | 1);
+      /* initialize 'my_lock_word' to be a unique negative number */
+      d->my_lock_word = (owner_version_t)d;
+      if (!IS_LOCKED(d->my_lock_word))
+        d->my_lock_word = ~d->my_lock_word;
+      assert(IS_LOCKED(d->my_lock_word));
+      d->spinloop_counter = (unsigned int)(d->my_lock_word | 1);
+      d->init_counter = 1;
 
-  thread_descriptor = d;
+      thread_descriptor = d;
+    }
 }
 
 void stm_descriptor_done(void)
 {
   struct tx_descriptor *d = thread_descriptor;
+  d->init_counter--;
+  if (d->init_counter > 0)
+    return;
+
   thread_descriptor = NULL;
 
   int num_aborts = 0, num_spinloops = 0;
