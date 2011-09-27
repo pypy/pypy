@@ -7,12 +7,13 @@ class AppTestReferents(object):
         from pypy.rlib import rgc
         cls._backup = [rgc.get_rpy_roots]
         w = cls.space.wrap
+        space = cls.space
         class RandomRPythonObject(object):
             pass
         l4 = space.newlist([w(4)])
         l2 = space.newlist([w(2)])
         l7 = space.newlist([w(7)])
-        cls.ALL_ROOTS = [l4, w([l2, l7]), RandomRPythonObject()]
+        cls.ALL_ROOTS = [l4, space.newlist([l2, l7]), RandomRPythonObject()]
         cls.w_ALL_ROOTS = cls.space.newlist(cls.ALL_ROOTS)
         rgc.get_rpy_roots = lambda: (
             map(rgc._GcRef, cls.ALL_ROOTS) + [rgc.NULL_GCREF]*17)
@@ -51,7 +52,7 @@ class AppTestReferents(object):
 
     def test_get_rpy_referents(self):
         import gc
-        y = 12345
+        y = [12345]
         x = [y]
         lst = gc.get_rpy_referents(x)
         # After translation, 'lst' should contain the RPython-level list
