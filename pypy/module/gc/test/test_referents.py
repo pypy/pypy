@@ -9,7 +9,10 @@ class AppTestReferents(object):
         w = cls.space.wrap
         class RandomRPythonObject(object):
             pass
-        cls.ALL_ROOTS = [w(4), w([2, 7]), RandomRPythonObject()]
+        l4 = space.newlist([w(4)])
+        l2 = space.newlist([w(2)])
+        l7 = space.newlist([w(7)])
+        cls.ALL_ROOTS = [l4, w([l2, l7]), RandomRPythonObject()]
         cls.w_ALL_ROOTS = cls.space.newlist(cls.ALL_ROOTS)
         rgc.get_rpy_roots = lambda: (
             map(rgc._GcRef, cls.ALL_ROOTS) + [rgc.NULL_GCREF]*17)
@@ -41,8 +44,8 @@ class AppTestReferents(object):
         if self.runappdirect:
             pass    # unsure what to test
         else:
-            assert lst[0] == 4
-            assert lst[1] == [2, 7]
+            assert lst[0] == [4]
+            assert lst[1] == [[2], [7]]
             assert type(lst[2]) is gc.GcRef
             assert len(lst) == 3
 
@@ -88,8 +91,8 @@ class AppTestReferents(object):
 
     def test_get_referents(self):
         import gc
-        y = 12345
-        z = 23456
+        y = [12345]
+        z = [23456]
         x = [y, z]
         lst = gc.get_referents(x)
         assert y in lst and z in lst
