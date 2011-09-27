@@ -30,7 +30,7 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
     def _generate_guards(self, other, box, cpu, extra_guards):
         raise InvalidLoop
 
-    def enum_forced_boxes(self, boxes, value):
+    def enum_forced_boxes(self, boxes, value, optimizer):
         raise NotImplementedError
 
     def enum(self, virtual_state):
@@ -100,14 +100,14 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
     def _generalization_of(self, other):
         raise NotImplementedError
 
-    def enum_forced_boxes(self, boxes, value):
+    def enum_forced_boxes(self, boxes, value, optimizer):
         assert isinstance(value, virtualize.AbstractVirtualStructValue)
         assert value.is_virtual()
         for i in range(len(self.fielddescrs)):
             v = value._fields[self.fielddescrs[i]]
             s = self.fieldstate[i]
             if s.position > self.position:
-                s.enum_forced_boxes(boxes, v)
+                s.enum_forced_boxes(boxes, v, optimizer)
 
     def _enum(self, virtual_state):
         for s in self.fieldstate:
@@ -177,14 +177,14 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
                 return False
         return True
 
-    def enum_forced_boxes(self, boxes, value):
+    def enum_forced_boxes(self, boxes, value, optimizer):
         assert isinstance(value, virtualize.VArrayValue)
         assert value.is_virtual()
         for i in range(len(self.fieldstate)):
             v = value._items[i]
             s = self.fieldstate[i]
             if s.position > self.position:
-                s.enum_forced_boxes(boxes, v)
+                s.enum_forced_boxes(boxes, v, optimizer)
 
     def _enum(self, virtual_state):
         for s in self.fieldstate:
@@ -316,11 +316,11 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             import pdb; pdb.set_trace()
             raise NotImplementedError
 
-    def enum_forced_boxes(self, boxes, value):
+    def enum_forced_boxes(self, boxes, value, optimizer):
         if self.level == LEVEL_CONSTANT:
             return
         assert 0 <= self.position_in_notvirtuals 
-        boxes[self.position_in_notvirtuals] = value.force_box()
+        boxes[self.position_in_notvirtuals] = value.force_box(optimizer)
 
     def _enum(self, virtual_state):
         if self.level == LEVEL_CONSTANT:
@@ -377,11 +377,11 @@ class VirtualState(object):
             self.state[i].generate_guards(other.state[i], args[i],
                                           cpu, extra_guards, renum)
 
-    def make_inputargs(self, values, keyboxes=False):
+    def make_inputargs(self, values, optimizer, keyboxes=False):
         assert len(values) == len(self.state)
         inputargs = [None] * len(self.notvirtuals)
         for i in range(len(values)):
-            self.state[i].enum_forced_boxes(inputargs, values[i])
+            self.state[i].enum_forced_boxes(inputargs, values[i], optimizer)
 
         if keyboxes:
             for i in range(len(values)):
@@ -434,7 +434,8 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
     def get_virtual_state(self, jump_args):
         self.optimizer.force_at_end_of_preamble()
         already_forced = {}
-        values = [self.getvalue(box).force_at_end_of_preamble(already_forced)
+        values = [self.getvalue(box).force_at_end_of_preamble(already_forced,
+                                                              self.optimizer)
                   for box in jump_args]
 
         for value in values:

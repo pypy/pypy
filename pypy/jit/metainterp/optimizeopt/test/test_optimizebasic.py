@@ -70,7 +70,7 @@ def test_reuse_vinfo():
     class FakeVirtualValue(virtualize.AbstractVirtualValue):
         def _make_virtual(self, *args):
             return FakeVInfo()
-    v1 = FakeVirtualValue(None, None, None)
+    v1 = FakeVirtualValue(None, None)
     vinfo1 = v1.make_virtual_info(None, [1, 2, 4])
     vinfo2 = v1.make_virtual_info(None, [1, 2, 4])
     assert vinfo1 is vinfo2

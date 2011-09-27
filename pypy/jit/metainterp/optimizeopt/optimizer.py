@@ -114,13 +114,13 @@ class OptValue(object):
                     self.lenbound = other.lenbound.clone()
 
 
-    def force_box(self):
+    def force_box(self, optforce):
         return self.box
 
     def get_key_box(self):
         return self.box
 
-    def force_at_end_of_preamble(self, already_forced):
+    def force_at_end_of_preamble(self, already_forced, optforce):
         return self
 
     def get_args_for_fail(self, modifier):
@@ -507,7 +507,7 @@ class Optimizer(Optimization):
                 pass
             else:
                 self.ensure_imported(value)
-                op.setarg(i, value.force_box())
+                op.setarg(i, value.force_box(self))
         self.metainterp_sd.profiler.count(jitprof.OPT_OPS)
         if op.is_guard():
             self.metainterp_sd.profiler.count(jitprof.OPT_GUARDS)

@@ -167,8 +167,9 @@ class UnrollOptimizer(Optimization):
             virtual_state = modifier.get_virtual_state(jump_args)
             
             values = [self.getvalue(arg) for arg in jump_args]
-            inputargs = virtual_state.make_inputargs(values)
-            short_inputargs = virtual_state.make_inputargs(values, keyboxes=True)
+            inputargs = virtual_state.make_inputargs(values, self.optimizer)
+            short_inputargs = virtual_state.make_inputargs(values, self.optimizer,
+                                                           keyboxes=True)
 
             self.constant_inputargs = {}
             for box in jump_args: 
@@ -211,7 +212,7 @@ class UnrollOptimizer(Optimization):
                     continue
                 seen[box] = True
                 value = preamble_optimizer.getvalue(box)
-                value.force_box()
+                value.force_box(preamble_optimizer)
             preamble_optimizer.flush()
             inputarg_setup_ops += preamble_optimizer.newoperations
 
@@ -244,7 +245,7 @@ class UnrollOptimizer(Optimization):
                                 virtual_state)
             
             loop.inputargs = inputargs
-            args = [preamble_optimizer.getvalue(self.short_boxes.original(a)).force_box()\
+            args = [preamble_optimizer.getvalue(self.short_boxes.original(a)).force_box(preamble_optimizer)\
                     for a in inputargs]
             jmp = ResOperation(rop.JUMP, args, None)
             jmp.setdescr(loop.token)
@@ -335,9 +336,10 @@ class UnrollOptimizer(Optimization):
         assert jumpop
         original_jumpargs = jumpop.getarglist()[:]
         values = [self.getvalue(arg) for arg in jumpop.getarglist()]
-        jumpargs = virtual_state.make_inputargs(values)
+        jumpargs = virtual_state.make_inputargs(values, self.optimizer)
         jumpop.initarglist(jumpargs)
-        jmp_to_short_args = virtual_state.make_inputargs(values, keyboxes=True)
+        jmp_to_short_args = virtual_state.make_inputargs(values, self.optimizer,
+                                                         keyboxes=True)
         self.short_inliner = Inliner(short_inputargs, jmp_to_short_args)
         
         for box, const in self.constant_inputargs.items():
@@ -468,7 +470,7 @@ class UnrollOptimizer(Optimization):
         inputargs.append(box)
         box = newresult
         if box in self.optimizer.values:
-            box = self.optimizer.values[box].force_box()
+            box = self.optimizer.values[box].force_box(self.optimizer)
         jumpargs.append(box)
         
 
@@ -518,7 +520,7 @@ class OptInlineShortPreamble(Optimization):
 
                         values = [self.getvalue(arg)
                                   for arg in op.getarglist()]
-                        args = sh.virtual_state.make_inputargs(values,
+                        args = sh.virtual_state.make_inputargs(values, self.optimizer,
                                                                keyboxes=True)
                         inliner = Inliner(sh.inputargs, args)
                         
