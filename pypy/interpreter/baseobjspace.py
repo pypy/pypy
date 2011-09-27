@@ -199,8 +199,14 @@ class W_Root(object):
     def int_w(self, space):
         raise OperationError(space.w_TypeError,
                              typed_unwrap_error_msg(space, "integer", self))
-    uint_w = int_w
-    bigint_w = int_w
+    
+    def uint_w(self, space):
+        raise OperationError(space.w_TypeError,
+                             typed_unwrap_error_msg(space, "integer", self))
+    
+    def bigint_w(self, space):
+        raise OperationError(space.w_TypeError,
+                             typed_unwrap_error_msg(space, "integer", self))
 
 
 class Wrappable(W_Root):
