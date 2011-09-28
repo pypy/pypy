@@ -325,6 +325,21 @@ class AssemblerPPC(OpAssembler):
             clt.asmmemmgr_blocks = []
         return clt.asmmemmgr_blocks
 
+    def regalloc_mov(self, prev_loc, loc):
+        if prev_loc.is_imm():
+            value = prev_loc.getint()
+            # move immediate value to register
+            if loc.is_reg():
+                reg = loc.as_key()
+                self.mc.load_imm(reg, value)
+            # move immediate value to memory
+            else:
+                offset = loc.as_key() * WORD - WORD
+                self.mc.load_imm(r.r0.value, value)
+                self.mc.stw(r.r0, r.SPP, offset)
+            return
+        assert 0, "not supported location"
+
 def make_operations():
     def not_implemented(builder, trace_op, cpu, *rest_args):
         raise NotImplementedError, trace_op
