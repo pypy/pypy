@@ -269,11 +269,6 @@ class StdTypeModel:
 
         self._typeorder_with_empty_usersubcls = None
 
-        for type, classes in self.typeorder.iteritems():
-            if len(classes) == 3:
-                # W_Root, AnyXxx and actual object
-                type.interplevel_cls = classes[0][0]
-
         # ____________________________________________________________
         # Prebuilt common integer values
 
