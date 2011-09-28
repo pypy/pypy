@@ -149,7 +149,7 @@ def unaryop(func):
         return self.adapt_val(func(self, self.for_computation(self.unbox(v))))
     return impl
 
-class ArithmaticTypeMixin(object):
+class ArithmeticTypeMixin(object):
     _mixin_ = True
 
     @binop
@@ -204,7 +204,7 @@ class ArithmaticTypeMixin(object):
         return v1 >= v2
 
 
-class FloatArithmeticDtype(ArithmaticTypeMixin):
+class FloatArithmeticDtype(ArithmeticTypeMixin):
     _mixin_ = True
 
     def unwrap(self, space, w_item):
@@ -272,7 +272,7 @@ class FloatArithmeticDtype(ArithmaticTypeMixin):
     def arctan(self, v):
         return math.atan(v)
 
-class IntegerArithmeticDtype(ArithmaticTypeMixin):
+class IntegerArithmeticDtype(ArithmeticTypeMixin):
     _mixin_ = True
 
     def unwrap(self, space, w_item):
@@ -288,12 +288,26 @@ class IntegerArithmeticDtype(ArithmaticTypeMixin):
     def mod(self, v1, v2):
         return v1 % v2
 
+class SignedIntegerArithmeticDtype(IntegerArithmeticDtype):
+    _mixin_ = True
+
     @unaryop
     def sign(self, v):
         if v > 0:
             return 1
         elif v < 0:
             return -1
+        else:
+            assert v == 0
+            return 0
+
+class UnsignedIntegerArithmeticDtype(IntegerArithmeticDtype):
+    _mixin_ = True
+
+    @unaryop
+    def sign(self, v):
+        if v != 0:
+            return 1
         else:
             assert v == 0
             return 0
@@ -306,7 +320,7 @@ W_BoolDtype = create_low_level_dtype(
     T = lltype.Bool,
     valtype = bool,
 )
-class W_BoolDtype(IntegerArithmeticDtype, W_BoolDtype):
+class W_BoolDtype(SignedIntegerArithmeticDtype, W_BoolDtype):
     def unwrap(self, space, w_item):
         return self.adapt_val(space.is_true(w_item))
 
@@ -325,7 +339,7 @@ W_Int8Dtype = create_low_level_dtype(
     valtype = rffi.SIGNEDCHAR._type,
     expected_size = 1,
 )
-class W_Int8Dtype(IntegerArithmeticDtype, W_Int8Dtype):
+class W_Int8Dtype(SignedIntegerArithmeticDtype, W_Int8Dtype):
     pass
 
 W_UInt8Dtype = create_low_level_dtype(
@@ -336,7 +350,7 @@ W_UInt8Dtype = create_low_level_dtype(
     valtype = rffi.UCHAR._type,
     expected_size = 1,
 )
-class W_UInt8Dtype(IntegerArithmeticDtype, W_UInt8Dtype):
+class W_UInt8Dtype(UnsignedIntegerArithmeticDtype, W_UInt8Dtype):
     pass
 
 W_Int16Dtype = create_low_level_dtype(
@@ -347,7 +361,7 @@ W_Int16Dtype = create_low_level_dtype(
     valtype = rffi.SHORT._type,
     expected_size = 2,
 )
-class W_Int16Dtype(IntegerArithmeticDtype, W_Int16Dtype):
+class W_Int16Dtype(SignedIntegerArithmeticDtype, W_Int16Dtype):
     pass
 
 W_UInt16Dtype = create_low_level_dtype(
@@ -358,7 +372,7 @@ W_UInt16Dtype = create_low_level_dtype(
     valtype = rffi.USHORT._type,
     expected_size = 2,
 )
-class W_UInt16Dtype(IntegerArithmeticDtype, W_UInt16Dtype):
+class W_UInt16Dtype(UnsignedIntegerArithmeticDtype, W_UInt16Dtype):
     pass
 
 W_Int32Dtype = create_low_level_dtype(
@@ -369,7 +383,7 @@ W_Int32Dtype = create_low_level_dtype(
     valtype = rffi.INT._type,
     expected_size = 4,
 )
-class W_Int32Dtype(IntegerArithmeticDtype, W_Int32Dtype):
+class W_Int32Dtype(SignedIntegerArithmeticDtype, W_Int32Dtype):
     pass
 
 W_UInt32Dtype = create_low_level_dtype(
@@ -380,7 +394,7 @@ W_UInt32Dtype = create_low_level_dtype(
     valtype = rffi.UINT._type,
     expected_size = 4,
 )
-class W_UInt32Dtype(IntegerArithmeticDtype, W_UInt32Dtype):
+class W_UInt32Dtype(UnsignedIntegerArithmeticDtype, W_UInt32Dtype):
     pass
 
 W_Int64Dtype = create_low_level_dtype(
@@ -391,7 +405,7 @@ W_Int64Dtype = create_low_level_dtype(
     valtype = rffi.LONGLONG._type,
     expected_size = 8,
 )
-class W_Int64Dtype(IntegerArithmeticDtype, W_Int64Dtype):
+class W_Int64Dtype(SignedIntegerArithmeticDtype, W_Int64Dtype):
     pass
 
 W_UInt64Dtype = create_low_level_dtype(
@@ -402,7 +416,7 @@ W_UInt64Dtype = create_low_level_dtype(
     valtype = rffi.ULONGLONG._type,
     expected_size = 8,
 )
-class W_UInt64Dtype(IntegerArithmeticDtype, W_UInt64Dtype):
+class W_UInt64Dtype(UnsignedIntegerArithmeticDtype, W_UInt64Dtype):
     pass
 
 if LONG_BIT == 32:
