@@ -40,12 +40,33 @@ class TestDicts(BaseTestPyPyC):
         log = self.run(fn, [1000])
         assert log.result == 300
         loop, = log.loops_by_filename(self.filepath)
-        # check that the call to ll_dict_lookup is not a call_may_force
+        # check that the call to ll_dict_lookup is not a call_may_force, the
+        # gc_id call is hoisted out of the loop, the id of a value obviously
+        # can't change ;)
         assert loop.match_by_id("getitem", """
-            i25 = call(ConstClass(_ll_1_gc_identityhash__objectPtr), p6, descr=...)
-            ...
             i28 = call(ConstClass(ll_dict_lookup__dicttablePtr_objectPtr_Signed), p18, p6, i25, descr=...)
             ...
             p33 = call(ConstClass(ll_get_value__dicttablePtr_Signed), p18, i28, descr=...)
             ...
+        """)
+
+    def test_list(self):
+        def main(n):
+            i = 0
+            while i < n:
+                z = list(())
+                z.append(1)
+                i += z[-1] / len(z)
+            return i
+
+        log = self.run(main, [1000])
+        assert log.result == main(1000)
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i7 = int_lt(i5, i6)
+            guard_true(i7, descr=...)
+            guard_not_invalidated(descr=...)
+            i9 = int_add(i5, 1)
+            --TICK--
+            jump(..., descr=...)
         """)

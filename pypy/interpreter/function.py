@@ -242,8 +242,10 @@ class Function(Wrappable):
             # we have been seen by other means so rtyping should not choke
             # on us
             identifier = self.code.identifier
-            assert Function._all.get(identifier, self) is self, ("duplicate "
-                                                                 "function ids")
+            previous = Function._all.get(identifier, self)
+            assert previous is self, (
+                "duplicate function ids with identifier=%r: %r and %r" % (
+                identifier, previous, self))
             self.add_to_table()
         return False
 

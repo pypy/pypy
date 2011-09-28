@@ -16,7 +16,7 @@ def cache_file_path(c_files, eci, cachename):
     hash = md5(key).hexdigest()
     return cache_dir.join(hash)
 
-def build_executable_cache(c_files, eci):
+def build_executable_cache(c_files, eci, ignore_errors=False):
     "Builds and run a program; caches the result"
     # Import 'platform' every time, the compiler may have been changed
     from pypy.translator.platform import platform
@@ -24,7 +24,18 @@ def build_executable_cache(c_files, eci):
     try:
         return path.read()
     except py.error.Error:
-        result = platform.execute(platform.compile(c_files, eci))
+        _previous = platform.log_errors
+        try:
+            if ignore_errors:
+                platform.log_errors = False
+            result = platform.execute(platform.compile(c_files, eci))
+        finally:
+            if ignore_errors:
+                del platform.log_errors
+            # ^^^remove from the instance --- needed so that it can
+            # compare equal to another instance without it
+            if platform.log_errors != _previous:
+                platform.log_errors = _previous
         path.write(result.out)
         return result.out
 

@@ -42,7 +42,7 @@ class TestMinMax(BaseTestPyPyC):
         assert len(guards) < 20
         assert loop.match_by_id('max',"""
             ...
-            p76 = call_may_force(ConstClass(min_max_loop__max), _, _, descr=...)
+            p76 = call_may_force(ConstClass(min_max_trampoline), _, _, descr=...)
             ...
         """)
 
@@ -63,6 +63,6 @@ class TestMinMax(BaseTestPyPyC):
         assert len(guards) < 20
         assert loop.match_by_id('max',"""
             ...
-            p76 = call_may_force(ConstClass(min_max_loop__max), _, _, descr=...)
+            p76 = call_may_force(ConstClass(min_max_trampoline), _, _, descr=...)
             ...
         """)

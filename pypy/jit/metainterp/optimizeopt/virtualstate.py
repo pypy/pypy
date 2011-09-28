@@ -12,6 +12,7 @@ from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
 from pypy.rlib.objectmodel import we_are_translated
+import os
 
 class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
     position = -1
@@ -461,8 +462,10 @@ class BoxNotProducable(Exception):
 class ShortBoxes(object):
     def __init__(self, optimizer, surviving_boxes):
         self.potential_ops = {}
-        self.duplicates = {}
+        self.alternatives = {}
+        self.synthetic = {}
         self.aliases = {}
+        self.rename = {}
         self.optimizer = optimizer
         for box in surviving_boxes:
             self.potential_ops[box] = None
@@ -476,33 +479,81 @@ class ShortBoxes(object):
             except BoxNotProducable:
                 pass
 
+    def prioritized_alternatives(self, box):
+        if box not in self.alternatives:
+            return [self.potential_ops[box]]
+        alts = self.alternatives[box]
+        hi, lo = 0, len(alts) - 1
+        while hi < lo:
+            if alts[lo] is None: # Inputarg, lowest priority
+                alts[lo], alts[-1] = alts[-1], alts[lo]
+                lo -= 1
+            elif alts[lo] not in self.synthetic: # Hi priority
+                alts[hi], alts[lo] = alts[lo], alts[hi]
+                hi += 1
+            else: # Low priority
+                lo -= 1
+        return alts
+            
+    def renamed(self, box):
+        if box in self.rename:
+            return self.rename[box]
+        return box
+    
+    def add_to_short(self, box, op):
+        if op:
+            op = op.clone()
+            for i in range(op.numargs()):
+                op.setarg(i, self.renamed(op.getarg(i)))
+        if box in self.short_boxes:
+            if op is None:
+                oldop = self.short_boxes[box].clone()
+                oldres = oldop.result
+                newbox = oldop.result = oldres.clonebox()
+                self.rename[box] = newbox
+                self.short_boxes[box] = None
+                self.short_boxes[newbox] = oldop
+            else:
+                newop = op.clone()
+                newbox = newop.result = op.result.clonebox()
+                self.short_boxes[newop.result] = newop
+            value = self.optimizer.getvalue(box)
+            self.optimizer.make_equal_to(newbox, value)
+        else:
+            self.short_boxes[box] = op
+        
     def produce_short_preamble_box(self, box):
         if box in self.short_boxes:
             return 
         if isinstance(box, Const):
             return 
         if box in self.potential_ops:
-            op = self.potential_ops[box]
-            if op:
-                for arg in op.getarglist():
-                    self.produce_short_preamble_box(arg)
-            self.short_boxes[box] = op
+            ops = self.prioritized_alternatives(box)
+            produced_one = False
+            for op in ops:
+                try:
+                    if op:
+                        for arg in op.getarglist():
+                            self.produce_short_preamble_box(arg)
+                except BoxNotProducable:
+                    pass
+                else:
+                    produced_one = True
+                    self.add_to_short(box, op)
+            if not produced_one:
+                raise BoxNotProducable
         else:
             raise BoxNotProducable
 
-    def add_potential(self, op):
+    def add_potential(self, op, synthetic=False):
         if op.result not in self.potential_ops:
             self.potential_ops[op.result] = op
-            return op
-        newop = op.clone()
-        newop.result = op.result.clonebox()
-        self.potential_ops[newop.result] = newop
-        if op.result in self.duplicates:
-            self.duplicates[op.result].append(newop.result)
         else:
-            self.duplicates[op.result] = [newop.result]
-        self.optimizer.make_equal_to(newop.result, self.optimizer.getvalue(op.result))
-        return newop
+            if op.result not in self.alternatives:
+                self.alternatives[op.result] = [self.potential_ops[op.result]]
+            self.alternatives[op.result].append(op)
+        if synthetic:
+            self.synthetic[op] = True
 
     def debug_print(self, logops):
         debug_start('jit-short-boxes')

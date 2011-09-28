@@ -4711,6 +4711,35 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_empty_copystrunicontent(self):
+        ops = """
+        [p0, p1, i0, i2, i3]
+        i4 = int_eq(i3, 0)
+        guard_true(i4) []
+        copystrcontent(p0, p1, i0, i2, i3)
+        jump(p0, p1, i0, i2, i3)
+        """
+        expected = """
+        [p0, p1, i0, i2, i3]
+        i4 = int_eq(i3, 0)
+        guard_true(i4) []
+        jump(p0, p1, i0, i2, 0)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
+    def test_empty_copystrunicontent_virtual(self):
+        ops = """
+        [p0]
+        p1 = newstr(23)
+        copystrcontent(p0, p1, 0, 0, 0)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        jump(p0)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
     def test_forced_virtuals_aliasing(self):
         ops = """
         [i0, i1]
@@ -4737,6 +4766,27 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         # setfields on things that used to be virtual still can't alias each
         # other
         self.optimize_loop(ops, expected)
+
+    def test_plain_virtual_string_copy_content(self):
+        ops = """
+        []
+        p0 = newstr(6)
+        copystrcontent(s"hello!", p0, 0, 0, 6)
+        p1 = call(0, p0, s"abc123", descr=strconcatdescr)
+        i0 = strgetitem(p1, 0)
+        finish(i0)
+        """
+        expected = """
+        []
+        p0 = newstr(6)
+        copystrcontent(s"hello!", p0, 0, 0, 6)
+        p1 = newstr(12)
+        copystrcontent(p0, p1, 0, 0, 6)
+        copystrcontent(s"abc123", p1, 0, 6, 6)
+        i0 = strgetitem(p1, 0)
+        finish(i0)
+        """
+        self.optimize_strunicode_loop(ops, expected)
 
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):

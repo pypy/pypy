@@ -900,14 +900,14 @@ def unicode_translate__Unicode_ANY(space, w_self, w_table):
         else:
             if space.is_w(w_newval, space.w_None):
                 continue
-            elif space.is_true(space.isinstance(w_newval, space.w_int)):
+            elif space.isinstance_w(w_newval, space.w_int):
                 newval = space.int_w(w_newval)
                 if newval < 0 or newval > maxunicode:
                     raise OperationError(
                             space.w_TypeError,
                             space.wrap("character mapping must be in range(0x%x)" % (maxunicode + 1,)))
                 result.append(unichr(newval))
-            elif space.is_true(space.isinstance(w_newval, space.w_unicode)):
+            elif space.isinstance_w(w_newval, space.w_unicode):
                 result.append(space.unicode_w(w_newval))
             else:
                 raise OperationError(
