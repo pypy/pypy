@@ -1136,12 +1136,7 @@ def test_virtual_adder_make_varray():
     modifier.liveboxes = {}
     modifier.vfieldboxes = {}
 
-    class FakeOptimizer(object):
-        class cpu:
-            pass
-        def new_const_item(self, descr):
-            return None
-    v2 = VArrayValue(FakeOptimizer(), LLtypeMixin.arraydescr, 2, b2s)
+    v2 = VArrayValue(LLtypeMixin.arraydescr, None, 2, b2s)
     v2._items = [b4s, c1s]
     modifier.register_virtual_fields(b2s, [b4s, c1s])
     liveboxes = []
