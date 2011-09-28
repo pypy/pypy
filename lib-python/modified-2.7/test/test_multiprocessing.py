@@ -531,7 +531,6 @@ class _TestQueue(BaseTestCase):
             time.sleep(DELTA)
             q.task_done()
 
-    @unittest.skipIf(os.name == 'posix', "PYPY: FIXME")
     def test_task_done(self):
         queue = self.JoinableQueue()
 
