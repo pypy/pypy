@@ -893,7 +893,7 @@ def unicode_translate__Unicode_ANY(space, w_self, w_table):
         try:
             w_newval = space.getitem(w_table, space.wrap(ord(unichar)))
         except OperationError, e:
-            if e.match(space, space.w_KeyError):
+            if e.match(space, space.w_LookupError):
                 result.append(unichar)
             else:
                 raise
