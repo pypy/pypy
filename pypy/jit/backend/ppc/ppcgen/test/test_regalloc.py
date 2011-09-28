@@ -33,8 +33,7 @@ class MockInstruction(object):
 
     def __eq__(self, other):
         assert isinstance(other, MockInstruction)
-        #return self.name == other.name and self.args == other.args
-        return str(self) == str(other)
+        return self.name == other.name and self.args == other.args
 
     def __repr__(self):
         return self.__str__()
@@ -96,10 +95,37 @@ class TestRegallocMov(object):
         self.asm.regalloc_mov(imm(big), stack(7))
 
         exp_instr = [MI("load_imm", 0, 5),
-                     MI("stw", r0, SPP, -(6 * WORD + WORD)),
+                     MI("stw", r0.value, SPP.value, -(6 * WORD + WORD)),
                      MI("load_imm", 0, big),
-                     MI("stw", r0, SPP, -(7 * WORD + WORD))]
+                     MI("stw", r0.value, SPP.value, -(7 * WORD + WORD))]
         assert self.asm.mc.instrs == exp_instr
+
+    def test_mem_to_reg(self):
+        self.asm.regalloc_mov(stack(5), reg(10))
+        self.asm.regalloc_mov(stack(0), reg(0))
+        exp_instrs = [MI("lwz", r10.value, SPP.value, -(5 * WORD + WORD)),
+                      MI("lwz", r0.value, SPP.value, -(WORD))]
+        assert self.asm.mc.instrs == exp_instrs
+
+    def test_mem_to_mem(self):
+        self.asm.regalloc_mov(stack(5), stack(6))
+        exp_instrs = [MI("lwz", r0.value, SPP.value, -(5 * WORD + WORD)),
+                      MI("stw", r0.value, SPP.value, -(6 * WORD + WORD))]
+        assert self.asm.mc.instrs == exp_instrs
+
+    def test_reg_to_reg(self):
+        self.asm.regalloc_mov(reg(0), reg(1))
+        self.asm.regalloc_mov(reg(5), reg(10))
+        exp_instrs = [MI("mr", r1.value, r0.value),
+                      MI("mr", r10.value, r5.value)]
+        assert self.asm.mc.instrs == exp_instrs
+
+    def test_reg_to_mem(self):
+        self.asm.regalloc_mov(reg(5), stack(10))
+        self.asm.regalloc_mov(reg(0), stack(2))
+        exp_instrs = [MI("stw", r5.value, SPP.value, -(10 * WORD + WORD)),
+                      MI("stw", r0.value, SPP.value, -(2 * WORD + WORD))]
+        assert self.asm.mc.instrs == exp_instrs
 
 def reg(i):
     return RegisterLocation(i)

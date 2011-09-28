@@ -325,6 +325,7 @@ class AssemblerPPC(OpAssembler):
             clt.asmmemmgr_blocks = []
         return clt.asmmemmgr_blocks
 
+    # XXX fix for 64 bit
     def regalloc_mov(self, prev_loc, loc):
         if prev_loc.is_imm():
             value = prev_loc.getint()
@@ -332,12 +333,41 @@ class AssemblerPPC(OpAssembler):
             if loc.is_reg():
                 reg = loc.as_key()
                 self.mc.load_imm(reg, value)
+                return
             # move immediate value to memory
-            else:
+            elif loc.is_stack():
                 offset = loc.as_key() * WORD - WORD
                 self.mc.load_imm(r.r0.value, value)
-                self.mc.stw(r.r0, r.SPP, offset)
-            return
+                self.mc.stw(r.r0.value, r.SPP.value, offset)
+                return
+            assert 0, "not supported location"
+        elif prev_loc.is_stack():
+            offset = prev_loc.as_key() * WORD - WORD
+            # move from memory to register
+            if loc.is_reg():
+                reg = loc.as_key()
+                self.mc.lwz(reg, r.SPP.value, offset)
+                return
+            # move in memory
+            elif loc.is_stack():
+                target_offset = loc.as_key() * WORD - WORD
+                self.mc.lwz(r.r0.value, r.SPP.value, offset)
+                self.mc.stw(r.r0.value, r.SPP.value, target_offset)
+                return
+            assert 0, "not supported location"
+        elif prev_loc.is_reg():
+            reg = prev_loc.as_key()
+            # move to another register
+            if loc.is_reg():
+                other_reg = loc.as_key()
+                self.mc.mr(other_reg, reg)
+                return
+            # move to memory
+            elif loc.is_stack():
+                offset = loc.as_key() * WORD - WORD
+                self.mc.stw(reg, r.SPP.value, offset)
+                return
+            assert 0, "not supported location"
         assert 0, "not supported location"
 
 def make_operations():
