@@ -337,6 +337,7 @@ class Optimizer(Optimization):
         self.newoperations = []
         self.volatile = {}
         self.optimizer = self
+        self.optpure = None
         if loop is not None:
             self.call_pure_results = loop.call_pure_results
 

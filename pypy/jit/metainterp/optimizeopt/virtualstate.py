@@ -378,6 +378,8 @@ class VirtualState(object):
                                           cpu, extra_guards, renum)
 
     def make_inputargs(self, values, optimizer, keyboxes=False):
+        if optimizer.optpure:
+            optimizer = optimizer.optpure
         assert len(values) == len(self.state)
         inputargs = [None] * len(self.notvirtuals)
         for i in range(len(values)):
@@ -434,8 +436,12 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
     def get_virtual_state(self, jump_args):
         self.optimizer.force_at_end_of_preamble()
         already_forced = {}
+        if self.optimizer.optpure:
+            opt = self.optimizer.optpure
+        else:
+            opt = self.optimizer
         values = [self.getvalue(box).force_at_end_of_preamble(already_forced,
-                                                              self.optimizer)
+                                                              opt)
                   for box in jump_args]
 
         for value in values:
