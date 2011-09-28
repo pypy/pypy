@@ -185,10 +185,7 @@ class Entry(ExtRegistryEntry):
     def compute_result_annotation(self, s_arg):
         from pypy.annotation import model
         r = model.SomeBool()
-        if s_arg.is_constant():
-            r.const = True
-        else:
-            r.const = False
+        r.const = s_arg.is_constant()
         return r
 
     def specialize_call(self, hop):
