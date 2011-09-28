@@ -54,7 +54,7 @@ class AbstractVirtualValue(optimizer.OptValue):
     def _make_virtual(self, modifier):
         raise NotImplementedError("abstract base")
 
-    def _really_force(self):
+    def _really_force(self, optforce):
         raise NotImplementedError("abstract base")
 
     def import_from(self, other, optimizer):
