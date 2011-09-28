@@ -306,11 +306,7 @@ class UnsignedIntegerArithmeticDtype(IntegerArithmeticDtype):
 
     @unaryop
     def sign(self, v):
-        if v != 0:
-            return 1
-        else:
-            assert v == 0
-            return 0
+        return int(v != 0)
 
 
 W_BoolDtype = create_low_level_dtype(

@@ -90,7 +90,6 @@ def _run_with_blackhole(testself, args):
             blackholeinterp.setarg_r(count_r, value)
             count_r += 1
         elif T == lltype.Float:
-            print 'ohyes!!'
             value = longlong.getfloatstorage(value)
             blackholeinterp.setarg_f(count_f, value)
             count_f += 1
