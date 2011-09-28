@@ -1,6 +1,6 @@
 # base annotation policy for specialization
 from pypy.annotation.specialize import default_specialize as default
-from pypy.annotation.specialize import specialize_argvalue, specialize_argtype, specialize_arglistitemtype
+from pypy.annotation.specialize import specialize_argvalue, specialize_argtype, specialize_arglistitemtype, specialize_arg_or_var
 from pypy.annotation.specialize import memo, specialize_call_location
 # for some reason, model must be imported first,
 # or we create a cycle.
@@ -73,6 +73,7 @@ class AnnotatorPolicy(BasicAnnotatorPolicy):
     default_specialize = staticmethod(default)
     specialize__memo = staticmethod(memo)
     specialize__arg = staticmethod(specialize_argvalue) # specialize:arg(N)
+    specialize__arg_or_var = staticmethod(specialize_arg_or_var)
     specialize__argtype = staticmethod(specialize_argtype) # specialize:argtype(N)
     specialize__arglistitemtype = staticmethod(specialize_arglistitemtype)
     specialize__call_location = staticmethod(specialize_call_location)
