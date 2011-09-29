@@ -705,7 +705,7 @@ class RPythonTyper(object):
         return self.getcallable(graph)
 
     def attachRuntimeTypeInfoFunc(self, GCSTRUCT, func, ARG_GCSTRUCT=None,
-                                  destrptr=None):
+                                  destrptr=None, raw_mem_attr_name=None):
         self.call_all_setups()  # compute ForwardReferences now
         if ARG_GCSTRUCT is None:
             ARG_GCSTRUCT = GCSTRUCT
@@ -717,7 +717,8 @@ class RPythonTyper(object):
             raise TyperError("runtime type info function %r returns %r, "
                              "excepted Ptr(RuntimeTypeInfo)" % (func, s))
         funcptr = self.getcallable(graph)
-        attachRuntimeTypeInfo(GCSTRUCT, funcptr, destrptr)
+        attachRuntimeTypeInfo(GCSTRUCT, funcptr, destrptr, None,
+                              raw_mem_attr_name)
 
 # register operations from annotation model
 RPythonTyper._registeroperations(annmodel)

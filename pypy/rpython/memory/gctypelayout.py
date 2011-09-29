@@ -34,6 +34,8 @@ class GCData(object):
         ("finalizer_or_customtrace", FINALIZER_OR_CT),
         ("fixedsize",      lltype.Signed),
         ("ofstoptrs",      lltype.Ptr(OFFSETS_TO_GC_PTR)),
+        ("ofstorawptr",    lltype.Signed),
+        # XXX merge me with finalizer_or_custometrace
         hints={'immutable': True},
         )
     VARSIZE_TYPE_INFO = lltype.Struct("varsize_type_info",
@@ -136,6 +138,12 @@ class GCData(object):
         infobits = self.get(typeid).infobits
         return infobits & T_ANY_SLOW_FLAG == 0
 
+    def q_has_raw_mem_ptr(self, typeid):
+        return self.get(typeid).infobits & T_HAS_RAW_MEM_PTR != 0
+
+    def q_ofs_to_raw_mem_ptr(self, typeid):
+        return self.get(typeid).ofstorawptr
+
     def set_query_functions(self, gc):
         gc.set_query_functions(
             self.q_is_varsize,
@@ -153,7 +161,9 @@ class GCData(object):
             self.q_is_rpython_class,
             self.q_has_custom_trace,
             self.q_get_custom_trace,
-            self.q_fast_path_tracing)
+            self.q_fast_path_tracing,
+            self.q_has_raw_mem_ptr,
+            self.q_ofs_to_raw_mem_ptr)
 
 
 # the lowest 16bits are used to store group member index
@@ -165,6 +175,7 @@ T_IS_WEAKREF           = 0x080000
 T_IS_RPYTHON_INSTANCE  = 0x100000    # the type is a subclass of OBJECT
 T_HAS_FINALIZER        = 0x200000
 T_HAS_CUSTOM_TRACE     = 0x400000
+T_HAS_RAW_MEM_PTR      = 0x800000
 T_KEY_MASK             = intmask(0xFF000000)
 T_KEY_VALUE            = intmask(0x5A000000)    # bug detection only
 
@@ -236,6 +247,10 @@ def encode_type_shape(builder, info, TYPE, index):
         infobits |= T_IS_WEAKREF
     if is_subclass_of_object(TYPE):
         infobits |= T_IS_RPYTHON_INSTANCE
+    if getattr(TYPE._runtime_type_info, 'raw_mem_attr_name', None):
+        name = TYPE._runtime_type_info.raw_mem_attr_name
+        infobits |= T_HAS_RAW_MEM_PTR
+        info.ofstorawptr = llmemory.offsetof(TYPE, 'inst_' + name)
     info.infobits = infobits | T_KEY_VALUE
 
 # ____________________________________________________________

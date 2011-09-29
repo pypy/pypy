@@ -4,6 +4,7 @@ from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.ootypesystem import ootype
 from pypy.rlib.rarithmetic import intmask, r_longlong
+from pypy.rlib import rgc
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rpython.rclass import IR_IMMUTABLE, IR_IMMUTABLE_ARRAY
 from pypy.rpython.rclass import IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY
@@ -972,9 +973,31 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
         graph = graphof(t, f)
         TYPE = graph.startblock.operations[0].args[0].value
         RTTI = getRuntimeTypeInfo(TYPE)
-        queryptr = RTTI._obj.query_funcptr # should not raise
+        RTTI._obj.query_funcptr # should not raise
         destrptr = RTTI._obj.destructor_funcptr
         assert destrptr is not None
+
+    def test_lightweight_del(self):
+        T = Struct('T', ('x', Signed))
+        
+        @rgc.owns_raw_memory('p')
+        class A(object):
+            p = nullptr(T)
+
+            def __init__(self, arg):
+                self.p = malloc(T, flavor='raw')
+
+        def f():
+            A(3)
+
+        t = TranslationContext()
+        t.buildannotator().build_types(f, [])
+        t.buildrtyper().specialize()
+        graph = graphof(t, f)
+        TYPE = graph.startblock.operations[0].args[0].value
+        RTTI = getRuntimeTypeInfo(TYPE)
+        RTTI._obj.query_funcptr # should not raise
+        assert RTTI._obj.raw_mem_attr_name == 'p'
     
     def test_del_inheritance(self):
         from pypy.rlib import rgc

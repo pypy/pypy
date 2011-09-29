@@ -129,6 +129,27 @@ class GCTest(object):
         res = self.interpret(concat, [100])
         assert res == concat(100)
         #assert simulator.current_size - curr < 16000 * INT_SIZE / 4
+
+    def test_lightweight_finalizer(self):
+        T = lltype.Struct('T', ('x', lltype.Signed))
+        
+        @rgc.owns_raw_memory('p')
+        class AClass(object):
+            p = lltype.nullptr(T)
+
+            def __init__(self, arg):
+                if arg:
+                    self.p = lltype.malloc(T, flavor='raw')
+
+        def f():
+            for i in range(3):
+                AClass(3)
+                AClass(0)
+            llop.gc__collect(lltype.Void)
+            # assert did not crash with malloc mismatch, ie those things
+            # has been freed
+
+        self.interpret(f, [])
         
     def test_finalizer(self):
         class B(object):

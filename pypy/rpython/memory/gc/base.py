@@ -72,7 +72,9 @@ class GCBase(object):
                             is_rpython_class,
                             has_custom_trace,
                             get_custom_trace,
-                            fast_path_tracing):
+                            fast_path_tracing,
+                            has_raw_mem_ptr,
+                            ofs_to_raw_mem_ptr):
         self.getfinalizer = getfinalizer
         self.is_varsize = is_varsize
         self.has_gcptr_in_varsize = has_gcptr_in_varsize
@@ -89,6 +91,8 @@ class GCBase(object):
         self.has_custom_trace = has_custom_trace
         self.get_custom_trace = get_custom_trace
         self.fast_path_tracing = fast_path_tracing
+        self.has_raw_mem_ptr = has_raw_mem_ptr
+        self.ofs_to_raw_mem_ptr = ofs_to_raw_mem_ptr
 
     def get_member_index(self, type_id):
         return self.member_index(type_id)

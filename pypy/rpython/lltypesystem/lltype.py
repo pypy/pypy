@@ -363,7 +363,7 @@ class RttiStruct(Struct):
         Struct._install_extras(self, **kwds)
 
     def _attach_runtime_type_info_funcptr(self, funcptr, destrptr,
-                                          customtraceptr):
+                                          customtraceptr, raw_mem_attr_name):
         if self._runtime_type_info is None:
             raise TypeError("attachRuntimeTypeInfo: %r must have been built "
                             "with the rtti=True argument" % (self,))
@@ -399,6 +399,8 @@ class RttiStruct(Struct):
                 raise TypeError("expected a custom trace function "
                                 "implementation, got: %s" % customtraceptr)
             self._runtime_type_info.custom_trace_funcptr = customtraceptr
+        if raw_mem_attr_name is not None:
+            self._runtime_type_info.raw_mem_attr_name = raw_mem_attr_name
 
 class GcStruct(RttiStruct):
     _gckind = 'gc'
@@ -2058,11 +2060,12 @@ def cast_int_to_ptr(PTRTYPE, oddint):
     return _ptr(PTRTYPE, oddint, solid=True)
 
 def attachRuntimeTypeInfo(GCSTRUCT, funcptr=None, destrptr=None,
-                          customtraceptr=None):
+                          customtraceptr=None, raw_mem_attr_name=None):
     if not isinstance(GCSTRUCT, RttiStruct):
         raise TypeError, "expected a RttiStruct: %s" % GCSTRUCT
     GCSTRUCT._attach_runtime_type_info_funcptr(funcptr, destrptr,
-                                               customtraceptr)
+                                               customtraceptr,
+                                               raw_mem_attr_name)
     return _ptr(Ptr(RuntimeTypeInfo), GCSTRUCT._runtime_type_info)
 
 def getRuntimeTypeInfo(GCSTRUCT):

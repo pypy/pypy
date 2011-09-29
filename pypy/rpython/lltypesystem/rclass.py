@@ -391,26 +391,39 @@ class InstanceRepr(AbstractInstanceRepr):
     def _setup_repr_final(self):
         AbstractInstanceRepr._setup_repr_final(self)
         if self.gcflavor == 'gc':
-            if (self.classdef is not None and
-                self.classdef.classdesc.lookup('__del__') is not None):
-                s_func = self.classdef.classdesc.s_read_attribute('__del__')
-                source_desc = self.classdef.classdesc.lookup('__del__')
-                source_classdef = source_desc.getclassdef(None)
-                source_repr = getinstancerepr(self.rtyper, source_classdef)
-                assert len(s_func.descriptions) == 1
-                funcdesc, = s_func.descriptions
-                graph = funcdesc.getuniquegraph()
-                self.check_graph_of_del_does_not_call_too_much(graph)
-                FUNCTYPE = FuncType([Ptr(source_repr.object_type)], Void)
-                destrptr = functionptr(FUNCTYPE, graph.name,
-                                       graph=graph,
-                                       _callable=graph.func)
-            else:
-                destrptr = None
+            destrptr = None
+            raw_mem_attr_name = None
+            if self.classdef is not None:
+                classdesc = self.classdef.classdesc
+                if classdesc.lookup('__del__') is not None:
+                    s_func = classdesc.s_read_attribute('__del__')
+                    if classdesc.lookup('_raw_mem_ptr_name'):
+                        # this object has a __del__, but it actually does not
+                        # do much
+                        assert s_func.const.func_name == 'remove_raw_mem_attr',(
+                            "You overloaded __del__ on an object that owns"
+                            " a reference to a low level pointer")
+                        raw_mem_attr_name = classdesc.s_read_attribute(
+                            '_raw_mem_ptr_name').const
+                    else:
+                        source_desc = classdesc.lookup('__del__')
+                        source_classdef = source_desc.getclassdef(None)
+                        source_repr = getinstancerepr(self.rtyper,
+                                                      source_classdef)
+                        assert len(s_func.descriptions) == 1
+                        funcdesc, = s_func.descriptions
+                        graph = funcdesc.getuniquegraph()
+                        self.check_graph_of_del_does_not_call_too_much(graph)
+                        FUNCTYPE = FuncType([Ptr(source_repr.object_type)],
+                                            Void)
+                        destrptr = functionptr(FUNCTYPE, graph.name,
+                                               graph=graph,
+                                               _callable=graph.func)
             OBJECT = OBJECT_BY_FLAVOR[LLFLAVOR[self.gcflavor]]
             self.rtyper.attachRuntimeTypeInfoFunc(self.object_type,
                                                   ll_runtime_type_info,
-                                                  OBJECT, destrptr)
+                                                  OBJECT, destrptr,
+                                                  raw_mem_attr_name)
             vtable = self.rclass.getvtable()
             self.rtyper.set_type_for_typeptr(vtable, self.lowleveltype.TO)
 
