@@ -881,7 +881,7 @@ class AssemblerARM(ResOpAssembler):
             raise AssertionError("mov reg to imm doesn't make sense")
         if loc.is_reg():
             self.mc.MOV_rr(loc.value, prev_loc.value, cond=cond)
-        elif loc.is_stack() and loc.type == INT:
+        elif loc.is_stack() and loc.type != FLOAT:
             # spill a core register
             offset = ConstInt(loc.position*WORD)
             if not _check_imm_arg(offset, size=0xFFF):
@@ -897,7 +897,7 @@ class AssemblerARM(ResOpAssembler):
     def _mov_stack_to_loc(self, prev_loc, loc, cond=c.AL):
         pushed = False
         if loc.is_reg():
-            assert prev_loc.type == INT, 'trying to load from an incompatible location into a core register'
+            assert prev_loc.type != FLOAT, 'trying to load from an incompatible location into a core register'
             # unspill a core register
             offset = ConstInt(prev_loc.position*WORD)
             if not _check_imm_arg(offset, size=0xFFF):
