@@ -181,18 +181,22 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
 
     # Everything promotes to float, and bool promotes to everything.
     if dt2.kind == interp_dtype.FLOATINGLTR or dt1.kind == interp_dtype.BOOLLTR:
+        # Float32 + 8-bit int = Float64
         if dt2.num == 11 and dt1.num_bytes >= 4:
             return space.fromcache(interp_dtype.W_Float64Dtype)
         return dt2
 
     # for now this means mixing signed and unsigned
     if dt2.kind == interp_dtype.SIGNEDLTR:
+        # if dt2 has a greater number of bytes, then just go with it
         if dt1.num_bytes < dt2.num_bytes:
             return dt2
         # we need to promote both dtypes
         dtypenum = dt2.num + 2
     else:
+        # increase to the next signed type (or to float)
         dtypenum = dt2.num + 1
+        # UInt64 + signed = Float64
         if dt2.num == 10:
             dtypenum += 1
     newdtype = interp_dtype.ALL_DTYPES[dtypenum]
@@ -201,6 +205,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         return space.fromcache(newdtype)
     else:
         # we only promoted to long on 32-bit or to longlong on 64-bit
+        # this is really for dealing with the Long and Ulong dtypes
         if LONG_BIT == 32:
             dtypenum += 2
         else:
