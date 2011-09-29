@@ -3410,4 +3410,56 @@ class BaseLLtypeTests(BasicTests):
 
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
-    pass
+    def test_tagged(self):
+        py.test.skip("implement me")
+        from pypy.rlib.objectmodel import UnboxedValue
+        class Base(object):
+            __slots__ = ()
+
+        class Int(UnboxedValue, Base):
+            __slots__ = ["a"]
+
+            def is_pos(self):
+                return self.a > 0
+
+            def dec(self):
+                return Int(self.a - 1)
+
+
+        class Float(Base):
+            def __init__(self, a):
+                self.a = a
+
+            def is_pos(self):
+                return self.a > 0
+
+            def dec(self):
+                return Float(self.a - 1)
+
+        driver = JitDriver(greens=['pc', 's'], reds=['o'])
+
+        def main(fl, n, s):
+            if s:
+                s = "--j"
+            else:
+                s = "---j"
+            if fl:
+                o = Float(float(n))
+            else:
+                o = Int(n)
+            pc = 0
+            while True:
+                driver.jit_merge_point(s=s, pc=pc, o=o)
+                c = s[pc]
+                if c == "j":
+                    driver.can_enter_jit(s=s, pc=pc, o=o)
+                    if o.is_pos():
+                        pc = 0
+                        continue
+                    else:
+                        break
+                elif c == "-":
+                    o = o.dec()
+                pc += 1
+            return pc
+        res = self.meta_interp(main, [False, 100, True], taggedpointers=True)
