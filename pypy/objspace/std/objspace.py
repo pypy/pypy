@@ -452,18 +452,33 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return self.newbool(self.is_w(w_one, w_two))
 
     def is_w(self, w_one, w_two):
-        # cannot use self.is_w here to not get infinite recursion
+        from pypy.rlib.rstruct import ieee
         w_typeone = self.type(w_one)
+        # cannot use self.is_w here to not get infinite recursion
         if w_typeone is self.w_int:
             return (self.type(w_two) is self.w_int and
                     self.int_w(w_one) == self.int_w(w_two))
         elif w_typeone is self.w_float:
-            return (self.type(w_two) is self.w_float and
-                    self.float_w(w_one) == self.float_w(w_two))
+            if self.type(w_two) is not self.w_float:
+                return False
+            one = ieee.float_pack(self.float_w(w_one), 8)
+            two = ieee.float_pack(self.float_w(w_two), 8)
+            return one == two
         elif w_typeone is self.w_long:
             return (self.type(w_two) is self.w_long and
                     self.bigint_w(w_one).eq(self.bigint_w(w_two)))
-        # XXX complex?
+        elif w_typeone is self.w_complex:
+            if self.type(w_two) is not self.w_complex:
+                return False
+            real1 = self.float_w(self.getattr(w_one, self.wrap("real")))
+            real2 = self.float_w(self.getattr(w_two, self.wrap("real")))
+            imag1 = self.float_w(self.getattr(w_one, self.wrap("imag")))
+            imag2 = self.float_w(self.getattr(w_two, self.wrap("imag")))
+            real1 = ieee.float_pack(real1, 8)
+            real2 = ieee.float_pack(real2, 8)
+            imag1 = ieee.float_pack(imag1, 8)
+            imag2 = ieee.float_pack(imag2, 8)
+            return real1 == real2 and imag1 == imag2
         elif w_typeone is self.w_str:
             return (self.type(w_two) is self.w_str and
                     self.str_w(w_one) is self.str_w(w_two))
@@ -473,7 +488,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return w_one is w_two
 
     def id(self, w_obj):
-        from pypy.rlib import objectmodel, rbigint
+        from pypy.rlib.rbigint import rbigint
+        from pypy.rlib import objectmodel
         from pypy.rlib.rstruct import ieee
         w_type = self.type(w_obj)
         if w_type is self.w_int:
@@ -485,9 +501,16 @@ class StdObjSpace(ObjSpace, DescrOperation):
         elif w_type is self.w_float:
             tag = 5
             val = ieee.float_pack(self.float_w(w_obj), 8)
-            w_obj = self.newlong_from_rbigint(rbigint.rbigint.fromrarith_int(val))
+            w_obj = self.newlong_from_rbigint(rbigint.fromrarith_int(val))
             return self.or_(self.lshift(w_obj, self.wrap(3)), self.wrap(tag))
-        # XXX complex?
+        elif w_type is self.w_complex:
+            real = self.float_w(self.getattr(w_obj, self.wrap("real")))
+            imag = self.float_w(self.getattr(w_obj, self.wrap("imag")))
+            tag = 5
+            real_b = rbigint.fromrarith_int(ieee.float_pack(real, 8))
+            imag_b = rbigint.fromrarith_int(ieee.float_pack(imag, 8))
+            val = real_b.lshift(8 * 8).or_(imag_b).lshift(3).or_(rbigint.fromint(3))
+            return self.newlong_from_rbigint(val)
         elif w_type is self.w_str:
             res = objectmodel.compute_unique_id(self.str_w(w_obj))
         elif w_type is self.w_unicode:

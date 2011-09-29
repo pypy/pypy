@@ -120,18 +120,22 @@ class AppTestObject:
         assert 1 is not 1l
         assert 1l is not 1.0
         assert 1.1 is 1.1
+        assert 0.0 is not -0.0
         for x in range(10):
             assert x + 0.1 is x + 0.1
         for x in range(10):
             assert x + 1L is x + 1L
-        #for x in range(10):
-        #    assert x+1j is x+1j
+        for x in range(10):
+            assert x+1j is x+1j
+            assert 1+x*1j is 1+x*1j
         l = [1]
         assert l[0] is l[0]
         l = ["a"]
         assert l[0] is l[0]
         u = u"a"
         assert self.unwrap_wrap_unicode(u) is u
+        s = "a"
+        assert self.unwrap_wrap_str(s) is s
 
     def test_id(self):
         assert id(1) == (1 << 3) + 1
@@ -149,3 +153,38 @@ class AppTestObject:
         assert id(self.unwrap_wrap_unicode(u)) == id(u)
         s = "a"
         assert id(self.unwrap_wrap_str(s)) == id(s)
+
+    def test_identity_vs_id(self):
+        import sys
+        l = range(-10, 10)
+        for i in range(10):
+            l.append(float(i))
+            l.append(i + 0.1)
+            l.append(long(i))
+            l.append(i + sys.maxint)
+            l.append(i - sys.maxint)
+            l.append(i + 1j)
+            l.append(1 + i * 1j)
+            s = str(i)
+            l.append(s)
+            l.append(self.unwrap_wrap_str(s))
+            u = unicode(s)
+            l.append(u)
+            l.append(self.unwrap_wrap_unicode(u))
+        l.append(-0.0)
+        l.append(None)
+        l.append(True)
+        l.append(False)
+        s = "s"
+        l.append(s)
+        l.append(self.unwrap_wrap_str(s))
+        s = u"s"
+        l.append(s)
+        l.append(self.unwrap_wrap_unicode(s))
+
+        for a in l:
+            for b in l:
+                assert (a is b) == (id(a) == id(b))
+                if a is b:
+                    assert a == b
+
