@@ -861,69 +861,109 @@ class AssemblerARM(ResOpAssembler):
             self.mc.gen_load_int(r.ip.value, value.getint())
             self.mc.VLDR(loc.value, r.ip.value)
 
-    def regalloc_mov(self, prev_loc, loc, cond=c.AL):
-        # really XXX add tests
-        if prev_loc.is_imm():
-            if loc.is_reg():
-                new_loc = loc
-            else:
-                assert loc is not r.ip
-                new_loc = r.ip
-            if _check_imm_arg(ConstInt(prev_loc.getint())):
-                self.mc.MOV_ri(new_loc.value, prev_loc.getint(), cond=cond)
-            else:
-                self.mc.gen_load_int(new_loc.value, prev_loc.getint(), cond=cond)
-            prev_loc = new_loc
-            if not loc.is_stack():
-                return
-        if prev_loc.is_imm_float():
-            assert loc.is_vfp_reg()
-            temp = r.lr
-            self.mc.gen_load_int(temp.value, prev_loc.getint())
-            self.mc.VLDR(loc.value, temp.value)
-            return
-        if loc.is_stack() or prev_loc.is_stack():
-            temp = r.lr
-            if loc.is_stack() and prev_loc.is_reg():
-                # spill a core register
-                offset = ConstInt(loc.position*WORD)
-                if not _check_imm_arg(offset, size=0xFFF):
-                    self.mc.gen_load_int(temp.value, -offset.value)
-                    self.mc.STR_rr(prev_loc.value, r.fp.value, temp.value, cond=cond)
-                else:
-                    self.mc.STR_ri(prev_loc.value, r.fp.value, imm=-1*offset.value, cond=cond)
-            elif loc.is_reg() and prev_loc.is_stack():
-                # unspill a core register
-                offset = ConstInt(prev_loc.position*WORD)
-                if not _check_imm_arg(offset, size=0xFFF):
-                    self.mc.gen_load_int(temp.value, -offset.value)
-                    self.mc.LDR_rr(loc.value, r.fp.value, temp.value, cond=cond)
-                else:
-                    self.mc.LDR_ri(loc.value, r.fp.value, imm=-offset.value, cond=cond)
-            elif loc.is_stack() and prev_loc.is_vfp_reg():
-                # spill vfp register
-                offset = ConstInt(loc.position*WORD)
-                if not _check_imm_arg(offset):
-                    self.mc.gen_load_int(temp.value, offset.value)
-                    self.mc.SUB_rr(temp.value, r.fp.value, temp.value)
-                else:
-                    self.mc.SUB_ri(temp.value, r.fp.value, offset.value)
-                self.mc.VSTR(prev_loc.value, temp.value, cond=cond)
-            elif loc.is_vfp_reg() and prev_loc.is_stack():
-                # load spilled value into vfp reg
-                offset = ConstInt(prev_loc.position*WORD)
-                if not _check_imm_arg(offset):
-                    self.mc.gen_load_int(temp.value, offset.value)
-                    self.mc.SUB_rr(temp.value, r.fp.value, temp.value)
-                else:
-                    self.mc.SUB_ri(temp.value, r.fp.value, offset.value)
-                self.mc.VLDR(loc.value, temp.value, cond=cond)
-            else:
-                assert 0, 'unsupported case'
-        elif loc.is_reg() and prev_loc.is_reg():
+    def _mov_imm_to_loc(self, prev_loc, loc, cond=c.AL):
+        if not loc.is_reg() and not loc.is_stack():
+            raise AssertionError("invalid target for move from imm value")
+        if loc.is_reg():
+            new_loc = loc
+        elif loc.is_stack():
+            # we use LR here, because the consequent move to the stack uses the
+            # IP register
+            self.mc.PUSH([r.lr.value], cond=cond)
+            new_loc = r.lr
+        self.mc.gen_load_int(new_loc.value, prev_loc.value, cond=cond)
+        if loc.is_stack():
+            self.regalloc_mov(new_loc, loc)
+            self.mc.POP([r.lr.value], cond=cond)
+
+    def _mov_reg_to_loc(self, prev_loc, loc, cond=c.AL):
+        if loc.is_imm():
+            raise AssertionError("mov reg to imm doesn't make sense")
+        if loc.is_reg():
             self.mc.MOV_rr(loc.value, prev_loc.value, cond=cond)
-        elif loc.is_vfp_reg() and prev_loc.is_vfp_reg():
+        elif loc.is_stack():
+            # spill a core register
+            offset = ConstInt(loc.position*WORD)
+            if not _check_imm_arg(offset, size=0xFFF):
+                self.mc.PUSH([r.ip.value], cond=cond)
+                self.mc.gen_load_int(r.ip.value, -offset.value, cond=cond)
+                self.mc.STR_rr(prev_loc.value, r.fp.value, r.ip.value, cond=cond)
+                self.mc.POP([r.ip.value], cond=cond)
+            else:
+                self.mc.STR_ri(prev_loc.value, r.fp.value, imm=-1*offset.value, cond=cond)
+        else:
+            assert 0, 'unsupported case'
+
+    def _mov_stack_to_loc(self, prev_loc, loc, cond=c.AL):
+        pushed = False
+        if loc.is_reg():
+            assert prev_loc.type == INT, 'trying to load from an incompatible location into a core register'
+            # unspill a core register
+            offset = ConstInt(prev_loc.position*WORD)
+            if not _check_imm_arg(offset, size=0xFFF):
+                self.mc.PUSH([r.ip.value], cond=cond)
+                pushed = True
+                self.mc.gen_load_int(r.ip.value, -offset.value, cond=cond)
+                self.mc.LDR_rr(loc.value, r.fp.value, r.ip.value, cond=cond)
+            else:
+                self.mc.LDR_ri(loc.value, r.fp.value, imm=-offset.value, cond=cond)
+            if pushed:
+                self.mc.POP([r.ip.value], cond=cond)
+        elif loc.is_vfp_reg():
+            assert prev_loc.type == FLOAT, 'trying to load from an incompatible location into a float register'
+            # load spilled value into vfp reg
+            offset = ConstInt(prev_loc.position*WORD)
+            self.mc.PUSH([r.ip.value], cond=cond)
+            pushed = True
+            if not _check_imm_arg(offset):
+                self.mc.gen_load_int(r.ip.value, offset.value, cond=cond)
+                self.mc.SUB_rr(r.ip.value, r.fp.value, r.ip.value, cond=cond)
+            else:
+                self.mc.SUB_ri(r.ip.value, r.fp.value, offset.value, cond=cond)
+            self.mc.VLDR(loc.value, r.ip.value, cond=cond)
+            if pushed:
+                self.mc.POP([r.ip.value], cond=cond)
+        else:
+            assert 0, 'unsupported case'
+
+    def _mov_imm_float_to_loc(self, prev_loc, loc, cond=c.AL):
+        if not loc.is_vfp_reg():
+            assert 0, 'unsupported case'
+        self.mc.PUSH([r.ip.value], cond=cond)
+        self.mc.gen_load_int(r.ip.value, prev_loc.getint(), cond=cond)
+        self.mc.VLDR(loc.value, r.ip.value, cond=cond)
+        self.mc.POP([r.ip.value], cond=cond)
+
+    def _mov_vfp_reg_to_loc(self, prev_loc, loc, cond=c.AL):
+        if loc.is_vfp_reg():
             self.mc.VMOV_cc(loc.value, prev_loc.value, cond=cond)
+        elif loc.is_stack():
+            assert loc.type == FLOAT, 'trying to store to an incompatible location from a float register'
+            # spill vfp register
+            self.mc.PUSH([r.ip.value], cond=cond)
+            offset = ConstInt(loc.position*WORD)
+            if not _check_imm_arg(offset):
+                self.mc.gen_load_int(r.ip.value, offset.value, cond=cond)
+                self.mc.SUB_rr(r.ip.value, r.fp.value, r.ip.value, cond=cond)
+            else:
+                self.mc.SUB_ri(r.ip.value, r.fp.value, offset.value, cond=cond)
+            self.mc.VSTR(prev_loc.value, r.ip.value, cond=cond)
+            self.mc.POP([r.ip.value], cond=cond)
+        else:
+            assert 0, 'unsupported case'
+
+    def regalloc_mov(self, prev_loc, loc, cond=c.AL):
+        """Moves a value from a previous location to some other location"""
+        if prev_loc.is_imm():
+            return self._mov_imm_to_loc(prev_loc, loc, cond)
+        elif prev_loc.is_reg():
+            self._mov_reg_to_loc(prev_loc, loc, cond)
+        elif prev_loc.is_stack():
+            self._mov_stack_to_loc(prev_loc, loc, cond)
+        elif prev_loc.is_imm_float():
+            self._mov_imm_float_to_loc(prev_loc, loc, cond)
+        elif prev_loc.is_vfp_reg():
+            self._mov_vfp_reg_to_loc(prev_loc, loc, cond)
         else:
             assert 0, 'unsupported case'
     mov_loc_loc = regalloc_mov
