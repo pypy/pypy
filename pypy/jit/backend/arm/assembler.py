@@ -1000,18 +1000,21 @@ class AssemblerARM(ResOpAssembler):
             assert 0, 'unsupported case'
 
     def mov_to_vfp_loc(self, reg1, reg2, vfp_loc, cond=c.AL):
+        """Moves a floating point value from to consecutive core registers to a
+        vfp location, either a vfp regsiter or a stacklocation"""
         assert reg1.value + 1 == reg2.value
-        temp = r.lr
         if vfp_loc.is_vfp_reg():
             self.mc.VMOV_cr(vfp_loc.value, reg1.value, reg2.value, cond=cond)
         elif vfp_loc.is_stack():
-            # load spilled value into vfp reg
+            # move from two core registers to a float stack location
             offset = ConstInt((vfp_loc.position)*WORD)
             if not _check_imm_arg(offset, size=0xFFF):
-                self.mc.gen_load_int(temp.value, -offset.value, cond=cond)
-                self.mc.STR_rr(reg1.value, r.fp.value, temp.value, cond=cond)
-                self.mc.ADD_ri(temp.value, temp.value, imm=WORD, cond=cond)
-                self.mc.STR_rr(reg2.value, r.fp.value, temp.value, cond=cond)
+                self.mc.PUSH([r.ip.value], cond=cond)
+                self.mc.gen_load_int(r.ip.value, -offset.value, cond=cond)
+                self.mc.STR_rr(reg1.value, r.fp.value, r.ip.value, cond=cond)
+                self.mc.ADD_ri(r.ip.value, r.ip.value, imm=WORD, cond=cond)
+                self.mc.STR_rr(reg2.value, r.fp.value, r.ip.value, cond=cond)
+                self.mc.POP([r.ip.value], cond=cond)
             else:
                 self.mc.STR_ri(reg1.value, r.fp.value, imm=-offset.value, cond=cond)
                 self.mc.STR_ri(reg2.value, r.fp.value, imm=-offset.value+WORD, cond=cond)
