@@ -410,3 +410,62 @@ class TestRegallocPush(BaseMovTest):
             mi('VPUSH', [vfp_ip.value], cond=AL),
         ]
         self.push(sf, e)
+
+class TestRegallocPop(BaseMovTest):
+    def pop(self, loc, e):
+        self.asm.regalloc_pop(loc)
+        self.validate(e)
+
+    def test_pop_reg(self):
+        r1 = r(1)
+        e = [mi('POP', [r1.value], cond=AL)]
+        self.pop(r1, e)
+
+    def test_pop_vfp_reg(self):
+        vr1 = vfp(1)
+        e = [mi('VPOP', [vr1.value], cond=AL)]
+        self.pop(vr1, e)
+
+    def test_pop_stackloc(self):
+        s = stack(12)
+        e = [
+            mi('POP', [ip.value], cond=AL),
+            mi('STR_ri', ip.value, fp.value, imm=-48, cond=AL)]
+        self.pop(s, e)
+
+    def test_pop_big_stackloc(self):
+        s = stack(1200)
+        e = [
+            mi('POP', [ip.value], cond=AL),
+            mi('PUSH', [lr.value], cond=AL),
+            mi('gen_load_int', lr.value, -1200*4, cond=AL),
+            mi('STR_rr', ip.value, fp.value, lr.value, cond=AL),
+            mi('POP', [lr.value], cond=AL)
+            ]
+        self.pop(s, e)
+
+    def test_pop_float_stackloc(self):
+        s = stack_float(12)
+        e = [
+            mi('VPOP', [vfp_ip.value], cond=AL),
+            mi('PUSH', [ip.value], cond=AL),
+            mi('SUB_ri', ip.value, fp.value, 48, cond=AL),
+            mi('VSTR', vfp_ip.value, ip.value, cond=AL),
+            mi('POP', [ip.value], cond=AL)]
+        self.pop(s, e)
+
+    def test_pop_big_float_stackloc(self):
+        s = stack_float(1200)
+        e = [
+            mi('VPOP', [vfp_ip.value], cond=AL),
+            mi('PUSH', [ip.value], cond=AL),
+            mi('gen_load_int', ip.value, 4800, cond=AL),
+            mi('SUB_rr', ip.value, fp.value, ip.value, cond=AL),
+            mi('VSTR', vfp_ip.value, ip.value, cond=AL),
+            mi('POP', [ip.value], cond=AL)]
+        self.pop(s, e)
+
+    def test_unsupported(self):
+        py.test.raises(AssertionError, 'self.asm.regalloc_pop(imm(1))')
+        py.test.raises(AssertionError, 'self.asm.regalloc_pop(imm_float(1))')
+

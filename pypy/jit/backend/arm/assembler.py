@@ -867,8 +867,6 @@ class AssemblerARM(ResOpAssembler):
         if loc.is_reg():
             new_loc = loc
         elif loc.is_stack():
-            # we use LR here, because the consequent move to the stack uses the
-            # IP register
             self.mc.PUSH([r.lr.value], cond=cond)
             new_loc = r.lr
         self.mc.gen_load_int(new_loc.value, prev_loc.value, cond=cond)
@@ -883,12 +881,16 @@ class AssemblerARM(ResOpAssembler):
             self.mc.MOV_rr(loc.value, prev_loc.value, cond=cond)
         elif loc.is_stack() and loc.type != FLOAT:
             # spill a core register
+            if prev_loc is r.ip:
+                temp = r.lr
+            else:
+                temp = r.ip
             offset = ConstInt(loc.position*WORD)
             if not _check_imm_arg(offset, size=0xFFF):
-                self.mc.PUSH([r.ip.value], cond=cond)
-                self.mc.gen_load_int(r.ip.value, -offset.value, cond=cond)
-                self.mc.STR_rr(prev_loc.value, r.fp.value, r.ip.value, cond=cond)
-                self.mc.POP([r.ip.value], cond=cond)
+                self.mc.PUSH([temp.value], cond=cond)
+                self.mc.gen_load_int(temp.value, -offset.value, cond=cond)
+                self.mc.STR_rr(prev_loc.value, r.fp.value, temp.value, cond=cond)
+                self.mc.POP([temp.value], cond=cond)
             else:
                 self.mc.STR_ri(prev_loc.value, r.fp.value, imm=-1*offset.value, cond=cond)
         else:
@@ -1024,12 +1026,9 @@ class AssemblerARM(ResOpAssembler):
     def regalloc_push(self, loc, cond=c.AL):
         """Pushes the value stored in loc to the stack
         Can trash the current value of the IP register when pushing a stack
-        lock"""
+        loc"""
 
         if loc.is_stack():
-            # XXX maybe push ip here to avoid trashing it and restore ip and
-            # the loc in regalloc pop. Also regalloc mov would not exclude
-            # stack -> lr, which is not a big issue anyway
             if loc.type != FLOAT:
                 scratch_reg = r.ip
             else:
@@ -1049,7 +1048,9 @@ class AssemblerARM(ResOpAssembler):
         else:
             raise AssertionError('Trying to push an invalid location')
 
-    def regalloc_pop(self, loc):
+    def regalloc_pop(self, loc, cond=c.AL):
+        """Pops the value on top of the stack to loc Can trash the current
+        value of the IP register when popping to a stack loc"""
         if loc.is_stack():
             if loc.type != FLOAT:
                 scratch_reg = r.ip
@@ -1058,11 +1059,11 @@ class AssemblerARM(ResOpAssembler):
             self.regalloc_pop(scratch_reg)
             self.regalloc_mov(scratch_reg, loc)
         elif loc.is_reg():
-            self.mc.POP([loc.value])
+            self.mc.POP([loc.value], cond=cond)
         elif loc.is_vfp_reg():
-            self.mc.VPOP([loc.value])
+            self.mc.VPOP([loc.value], cond=cond)
         else:
-            assert 0, 'ffuu'
+            raise AssertionError('Trying to pop to an invalid location')
 
     def leave_jitted_hook(self):
         ptrs = self.fail_boxes_ptr.ar
