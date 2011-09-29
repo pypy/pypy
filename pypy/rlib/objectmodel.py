@@ -46,6 +46,17 @@ class _Specialize(object):
 
         return decorated_func
 
+    def arg_or_var(self, *args):
+        """ Same as arg, but additionally allow for a 'variable' annotation,
+        that would simply be a situation where designated arg is not
+        a constant
+        """
+        def decorated_func(func):
+            func._annspecialcase_ = 'specialize:arg_or_var' + self._wrap(args)
+            return func
+
+        return decorated_func
+
     def argtype(self, *args):
         """ Specialize function based on types of arguments on given positions.
 
@@ -164,6 +175,22 @@ def we_are_translated():
 
 def keepalive_until_here(*values):
     pass
+
+def is_constant(thing):
+    return True
+
+class Entry(ExtRegistryEntry):
+    _about_ = is_constant
+
+    def compute_result_annotation(self, s_arg):
+        from pypy.annotation import model
+        r = model.SomeBool()
+        r.const = s_arg.is_constant()
+        return r
+
+    def specialize_call(self, hop):
+        from pypy.rpython.lltypesystem import lltype
+        return hop.inputconst(lltype.Bool, hop.s_result.const)
 
 # ____________________________________________________________
 

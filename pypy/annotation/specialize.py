@@ -353,6 +353,16 @@ def specialize_argvalue(funcdesc, args_s, *argindices):
     key = tuple(key)
     return maybe_star_args(funcdesc, key, args_s)
 
+def specialize_arg_or_var(funcdesc, args_s, *argindices):
+    for argno in argindices:
+        if not args_s[argno].is_constant():
+            break
+    else:
+        # all constant
+        return specialize_argvalue(funcdesc, args_s, *argindices)
+    # some not constant
+    return maybe_star_args(funcdesc, None, args_s)
+
 def specialize_argtype(funcdesc, args_s, *argindices):
     key = tuple([args_s[i].knowntype for i in argindices])
     for cls in key:

@@ -1194,6 +1194,20 @@ class TestAnnotateTestCase:
         assert len(executedesc._cache[(0, 'star', 2)].startblock.inputargs) == 4
         assert len(executedesc._cache[(1, 'star', 3)].startblock.inputargs) == 5
 
+    def test_specialize_arg_or_var(self):
+        def f(a):
+            return 1
+        f._annspecialcase_ = 'specialize:arg_or_var(0)'
+
+        def fn(a):
+            return f(3) + f(a)
+
+        a = self.RPythonAnnotator()
+        a.build_types(fn, [int])
+        executedesc = a.bookkeeper.getdesc(f)
+        assert sorted(executedesc._cache.keys()) == [None, (3,)]
+        # we got two different special
+
     def test_specialize_call_location(self):
         def g(a):
             return a
