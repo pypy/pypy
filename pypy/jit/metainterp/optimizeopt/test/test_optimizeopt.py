@@ -7224,7 +7224,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p1, p2]
         setarrayitem_gc(p1, 2, 10, descr=arraydescr)
-        setarrayitem_gc(p2, 2, 13, descr=arraydescr)        
+        setarrayitem_gc(p2, 3, 13, descr=arraydescr)        
         call(0, p1, p2, 0, 0, 10, descr=arraycopydescr)
         jump(p1, p2)
         """
