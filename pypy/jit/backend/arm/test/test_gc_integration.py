@@ -22,6 +22,7 @@ from pypy.jit.backend.arm.test.test_regalloc import MockAssembler
 from pypy.jit.backend.arm.test.test_regalloc import BaseTestRegalloc
 from pypy.jit.backend.arm.regalloc import ARMv7RegisterMananger, ARMFrameManager,\
      VFPRegisterManager
+from pypy.jit.codewriter.effectinfo import EffectInfo
 
 CPU = getcpuclass()
 
@@ -92,7 +93,7 @@ class TestRegallocDirectGcIntegration(object):
         for box in boxes:
             regalloc.rm.try_allocate_reg(box)
         TP = lltype.FuncType([], lltype.Signed)
-        calldescr = cpu.calldescrof(TP, TP.ARGS, TP.RESULT)
+        calldescr = cpu.calldescrof(TP, TP.ARGS, TP.RESULT, EffectInfo.MOST_GENERAL)
         regalloc.rm._check_invariants()
         box = boxes[0]
         regalloc.position = 0
