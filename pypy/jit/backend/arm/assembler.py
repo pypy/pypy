@@ -898,17 +898,18 @@ class AssemblerARM(ResOpAssembler):
         pushed = False
         if loc.is_reg():
             assert prev_loc.type != FLOAT, 'trying to load from an incompatible location into a core register'
+            assert loc is not r.lr, 'lr is not supported as a target when moving from the stack'
             # unspill a core register
             offset = ConstInt(prev_loc.position*WORD)
             if not _check_imm_arg(offset, size=0xFFF):
-                self.mc.PUSH([r.ip.value], cond=cond)
+                self.mc.PUSH([r.lr.value], cond=cond)
                 pushed = True
-                self.mc.gen_load_int(r.ip.value, -offset.value, cond=cond)
-                self.mc.LDR_rr(loc.value, r.fp.value, r.ip.value, cond=cond)
+                self.mc.gen_load_int(r.lr.value, -offset.value, cond=cond)
+                self.mc.LDR_rr(loc.value, r.fp.value, r.lr.value, cond=cond)
             else:
                 self.mc.LDR_ri(loc.value, r.fp.value, imm=-offset.value, cond=cond)
             if pushed:
-                self.mc.POP([r.ip.value], cond=cond)
+                self.mc.POP([r.lr.value], cond=cond)
         elif loc.is_vfp_reg():
             assert prev_loc.type == FLOAT, 'trying to load from an incompatible location into a float register'
             # load spilled value into vfp reg
@@ -972,7 +973,6 @@ class AssemblerARM(ResOpAssembler):
         """Moves floating point values either as an immediate, in a vfp
         register or at a stack location to a pair of core registers"""
         assert reg1.value + 1 == reg2.value
-        temp = r.lr
         if vfp_loc.is_vfp_reg():
             self.mc.VMOV_rc(reg1.value, reg2.value, vfp_loc.value, cond=cond)
         elif vfp_loc.is_imm_float():
@@ -1021,26 +1021,33 @@ class AssemblerARM(ResOpAssembler):
         else:
             assert 0, 'unsupported case'
 
-    def regalloc_push(self, loc):
+    def regalloc_push(self, loc, cond=c.AL):
+        """Pushes the value stored in loc to the stack
+        Can trash the current value of the IP register when pushing a stack
+        lock"""
+
         if loc.is_stack():
+            # XXX maybe push ip here to avoid trashing it and restore ip and
+            # the loc in regalloc pop. Also regalloc mov would not exclude
+            # stack -> lr, which is not a big issue anyway
             if loc.type != FLOAT:
                 scratch_reg = r.ip
             else:
                 scratch_reg = r.vfp_ip
-            self.regalloc_mov(loc, scratch_reg)
-            self.regalloc_push(scratch_reg)
+            self.regalloc_mov(loc, scratch_reg, cond)
+            self.regalloc_push(scratch_reg, cond)
         elif loc.is_reg():
-            self.mc.PUSH([loc.value])
+            self.mc.PUSH([loc.value], cond=cond)
         elif loc.is_vfp_reg():
-            self.mc.VPUSH([loc.value])
+            self.mc.VPUSH([loc.value], cond=cond)
         elif loc.is_imm():
             self.regalloc_mov(loc, r.ip)
-            self.mc.PUSH([r.ip.value])
+            self.mc.PUSH([r.ip.value], cond=cond)
         elif loc.is_imm_float():
-            self.regalloc_mov(loc, r.d15)
-            self.mc.VPUSH([r.d15.value])
+            self.regalloc_mov(loc, r.vfp_ip)
+            self.mc.VPUSH([r.vfp_ip.value], cond=cond)
         else:
-            assert 0, 'ffuu'
+            raise AssertionError('Trying to push an invalid location')
 
     def regalloc_pop(self, loc):
         if loc.is_stack():
