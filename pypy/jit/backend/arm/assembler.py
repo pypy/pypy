@@ -862,7 +862,7 @@ class AssemblerARM(ResOpAssembler):
             self.mc.VLDR(loc.value, r.ip.value)
 
     def _mov_imm_to_loc(self, prev_loc, loc, cond=c.AL):
-        if not loc.is_reg() and not loc.is_stack():
+        if not loc.is_reg() and not (loc.is_stack() and loc.type == INT):
             raise AssertionError("invalid target for move from imm value")
         if loc.is_reg():
             new_loc = loc
@@ -881,7 +881,7 @@ class AssemblerARM(ResOpAssembler):
             raise AssertionError("mov reg to imm doesn't make sense")
         if loc.is_reg():
             self.mc.MOV_rr(loc.value, prev_loc.value, cond=cond)
-        elif loc.is_stack():
+        elif loc.is_stack() and loc.type == INT:
             # spill a core register
             offset = ConstInt(loc.position*WORD)
             if not _check_imm_arg(offset, size=0xFFF):
