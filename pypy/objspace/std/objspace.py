@@ -472,6 +472,30 @@ class StdObjSpace(ObjSpace, DescrOperation):
                     self.unicode_w(w_one) is self.unicode_w(w_two))
         return w_one is w_two
 
+    def id(self, w_obj):
+        from pypy.rlib import objectmodel, rbigint
+        from pypy.rlib.rstruct import ieee
+        w_type = self.type(w_obj)
+        if w_type is self.w_int:
+            tag = 1
+            return self.or_(self.lshift(w_obj, self.wrap(3)), self.wrap(tag))
+        elif w_type is self.w_long:
+            tag = 3
+            return self.or_(self.lshift(w_obj, self.wrap(3)), self.wrap(tag))
+        elif w_type is self.w_float:
+            tag = 5
+            val = ieee.float_pack(self.float_w(w_obj), 8)
+            w_obj = self.newlong_from_rbigint(rbigint.rbigint.fromrarith_int(val))
+            return self.or_(self.lshift(w_obj, self.wrap(3)), self.wrap(tag))
+        # XXX complex?
+        elif w_type is self.w_str:
+            res = objectmodel.compute_unique_id(self.str_w(w_obj))
+        elif w_type is self.w_unicode:
+            res = objectmodel.compute_unique_id(self.unicode_w(w_obj))
+        else:
+            res = objectmodel.compute_unique_id(w_obj)
+        return self.wrap(res)
+
     def is_true(self, w_obj):
         # a shortcut for performance
         # NOTE! this method is typically overridden by builtinshortcut.py.

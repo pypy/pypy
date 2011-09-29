@@ -16,6 +16,9 @@ class AppTestObject:
         def w_unwrap_wrap_unicode(space, w_obj):
             return space.wrap(space.unicode_w(w_obj))
         cls.w_unwrap_wrap_unicode = space.wrap(gateway.interp2app(w_unwrap_wrap_unicode))
+        def w_unwrap_wrap_str(space, w_obj):
+            return space.wrap(space.str_w(w_obj))
+        cls.w_unwrap_wrap_str = space.wrap(gateway.interp2app(w_unwrap_wrap_str))
 
     def test_hash_builtin(self):
         if not self.cpython_behavior:
@@ -130,3 +133,19 @@ class AppTestObject:
         u = u"a"
         assert self.unwrap_wrap_unicode(u) is u
 
+    def test_id(self):
+        assert id(1) == (1 << 3) + 1
+        assert id(1l) == (1 << 3) + 3
+        class myint(int):
+            pass
+        assert id(myint(1)) != id(1)
+
+        assert id(1.0) & 7 == 5
+        assert id(-0.0) != id(0.0)
+        assert hex(id(2.0)) == '0x20000000000000005L'
+        assert id(0.0) == 5
+
+        u = u"a"
+        assert id(self.unwrap_wrap_unicode(u)) == id(u)
+        s = "a"
+        assert id(self.unwrap_wrap_str(s)) == id(s)
