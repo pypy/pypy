@@ -182,8 +182,8 @@ class AppTestObject:
         l.append(s)
         l.append(self.unwrap_wrap_unicode(s))
 
-        for a in l:
-            for b in l:
+        for i, a in enumerate(l):
+            for b in l[i:]:
                 assert (a is b) == (id(a) == id(b))
                 if a is b:
                     assert a == b
