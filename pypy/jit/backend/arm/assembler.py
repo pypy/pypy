@@ -969,24 +969,30 @@ class AssemblerARM(ResOpAssembler):
     mov_loc_loc = regalloc_mov
 
     def mov_from_vfp_loc(self, vfp_loc, reg1, reg2, cond=c.AL):
+        """Moves floating point values either as an immediate, in a vfp
+        register or at a stack location to a pair of core registers"""
         assert reg1.value + 1 == reg2.value
         temp = r.lr
         if vfp_loc.is_vfp_reg():
             self.mc.VMOV_rc(reg1.value, reg2.value, vfp_loc.value, cond=cond)
         elif vfp_loc.is_imm_float():
-            self.mc.gen_load_int(temp.value, vfp_loc.getint(), cond=cond)
+            self.mc.PUSH([r.ip.value], cond=cond)
+            self.mc.gen_load_int(r.ip.value, vfp_loc.getint(), cond=cond)
             # we need to load one word to loc and one to loc+1 which are
             # two 32-bit core registers
-            self.mc.LDR_ri(reg1.value, temp.value, cond=cond)
-            self.mc.LDR_ri(reg2.value, temp.value, imm=WORD, cond=cond)
-        elif vfp_loc.is_stack():
-            # load spilled value into vfp reg
+            self.mc.LDR_ri(reg1.value, r.ip.value, cond=cond)
+            self.mc.LDR_ri(reg2.value, r.ip.value, imm=WORD, cond=cond)
+            self.mc.POP([r.ip.value], cond=cond)
+        elif vfp_loc.is_stack() and vfp_loc.type == FLOAT:
+            # load spilled vfp value into two core registers
             offset = ConstInt((vfp_loc.position)*WORD)
             if not _check_imm_arg(offset, size=0xFFF):
-                self.mc.gen_load_int(temp.value, -offset.value, cond=cond)
-                self.mc.LDR_rr(reg1.value, r.fp.value, temp.value, cond=cond)
-                self.mc.ADD_ri(temp.value, temp.value, imm=WORD, cond=cond)
-                self.mc.LDR_rr(reg2.value, r.fp.value, temp.value, cond=cond)
+                self.mc.PUSH([r.ip.value], cond=cond)
+                self.mc.gen_load_int(r.ip.value, -offset.value, cond=cond)
+                self.mc.LDR_rr(reg1.value, r.fp.value, r.ip.value, cond=cond)
+                self.mc.ADD_ri(r.ip.value, r.ip.value, imm=WORD, cond=cond)
+                self.mc.LDR_rr(reg2.value, r.fp.value, r.ip.value, cond=cond)
+                self.mc.POP([r.ip.value], cond=cond)
             else:
                 self.mc.LDR_ri(reg1.value, r.fp.value, imm=-offset.value, cond=cond)
                 self.mc.LDR_ri(reg2.value, r.fp.value, imm=-offset.value+WORD, cond=cond)
