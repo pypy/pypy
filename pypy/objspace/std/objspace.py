@@ -445,12 +445,27 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return self.int_w(l_w[0]), self.int_w(l_w[1]), self.int_w(l_w[2])
 
     def is_(self, w_one, w_two):
-        if w_one is w_two:
-            return self.w_True
-        return self.w_False
+        return self.newbool(self.is_w(w_one, w_two))
 
-    # short-cut
     def is_w(self, w_one, w_two):
+        # cannot use self.is_w here to not get infinite recursion
+        w_typeone = self.type(w_one)
+        if w_typeone is self.w_int:
+            return (self.type(w_two) is self.w_int and
+                    self.int_w(w_one) == self.int_w(w_two))
+        elif w_typeone is self.w_float:
+            return (self.type(w_two) is self.w_float and
+                    self.float_w(w_one) == self.float_w(w_two))
+        elif w_typeone is self.w_long:
+            return (self.type(w_two) is self.w_long and
+                    self.bigint_w(w_one).eq(self.bigint_w(w_two)))
+        # XXX complex?
+        elif w_typeone is self.w_str:
+            return (self.type(w_two) is self.w_str and
+                    self.str_w(w_one) is self.str_w(w_two))
+        elif w_typeone is self.w_unicode:
+            return (self.type(w_two) is self.w_unicode and
+                    self.unicode_w(w_one) is self.unicode_w(w_two))
         return w_one is w_two
 
     def is_true(self, w_obj):

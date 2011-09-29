@@ -4,12 +4,18 @@ from pypy.conftest import option
 class AppTestObject:
 
     def setup_class(cls):
+        from pypy.interpreter import gateway
         import sys
         cpython_behavior = (not option.runappdirect
                             or not hasattr(sys, 'pypy_translation_info'))
 
         cls.w_cpython_behavior = cls.space.wrap(cpython_behavior)
         cls.w_cpython_version = cls.space.wrap(tuple(sys.version_info))
+        space = cls.space
+
+        def w_unwrap_wrap_unicode(space, w_obj):
+            return space.wrap(space.unicode_w(w_obj))
+        cls.w_unwrap_wrap_unicode = space.wrap(gateway.interp2app(w_unwrap_wrap_unicode))
 
     def test_hash_builtin(self):
         if not self.cpython_behavior:
@@ -102,3 +108,25 @@ class AppTestObject:
             def __repr__(self):
                 return 123456
         assert A().__str__() == 123456
+
+    def test_object_identity(self):
+        assert 1 is 1
+        x = 1000000
+        assert x + 1 is int(str(x + 1))
+        assert 1 is not 1.0
+        assert 1 is not 1l
+        assert 1l is not 1.0
+        assert 1.1 is 1.1
+        for x in range(10):
+            assert x + 0.1 is x + 0.1
+        for x in range(10):
+            assert x + 1L is x + 1L
+        #for x in range(10):
+        #    assert x+1j is x+1j
+        l = [1]
+        assert l[0] is l[0]
+        l = ["a"]
+        assert l[0] is l[0]
+        u = u"a"
+        assert self.unwrap_wrap_unicode(u) is u
+
