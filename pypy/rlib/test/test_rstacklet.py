@@ -264,6 +264,10 @@ class TestStackletShadowStack(BaseTestStacklet):
     gcrootfinder = 'shadowstack'
 
 
+def test_dont_keep_debug_to_true():
+    assert not rstacklet.DEBUG
+
+
 def target(*args):
     return entry_point, None
 

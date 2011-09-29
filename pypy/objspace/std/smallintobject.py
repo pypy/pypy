@@ -7,9 +7,11 @@ from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.intobject import W_IntObject
+from pypy.interpreter.error import OperationError
 from pypy.rlib.objectmodel import UnboxedValue
+from pypy.rlib.rbigint import rbigint
+from pypy.rlib.rarithmetic import r_uint
 from pypy.tool.sourcetools import func_with_new_name
-
 
 class W_SmallIntObject(W_Object, UnboxedValue):
     __slots__ = 'intval'
@@ -17,6 +19,18 @@ class W_SmallIntObject(W_Object, UnboxedValue):
 
     def unwrap(w_self, space):
         return int(w_self.intval)
+    int_w = unwrap
+
+    def uint_w(w_self, space):
+        intval = w_self.intval
+        if intval < 0:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("cannot convert negative integer to unsigned"))
+        else:
+            return r_uint(intval)
+
+    def bigint_w(w_self, space):
+        return rbigint.fromint(w_self.intval)
 
 
 registerimplementation(W_SmallIntObject)

@@ -13,7 +13,6 @@ from pypy.interpreter.pycode import PyCode, CO_GENERATOR
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyopcode import ExitFrame
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from opcode import opmap
 from pypy.rlib.nonconst import NonConstant
 from pypy.jit.metainterp.resoperation import rop
@@ -221,7 +220,6 @@ class Cache(object):
     def __init__(self, space):
         self.w_compile_hook = space.w_None
 
-@unwrap_spec(ObjSpace, W_Root)
 def set_compile_hook(space, w_hook):
     """ set_compile_hook(hook)
 

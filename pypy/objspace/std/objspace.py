@@ -1,19 +1,17 @@
 import __builtin__
 import types
-from pypy.interpreter import pyframe, function, special
+from pypy.interpreter import special
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
 from pypy.objspace.std import (builtinshortcut, stdtypedef, frame, model,
                                transparent, callmethod, proxyobject)
 from pypy.objspace.descroperation import DescrOperation, raiseattrerror
-from pypy.rlib.objectmodel import instantiate, r_dict, specialize
+from pypy.rlib.objectmodel import instantiate, r_dict, specialize, is_annotation_constant
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.rarithmetic import base_int, widen
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import jit
-from pypy.rlib.rbigint import rbigint
-from pypy.tool.sourcetools import func_with_new_name
 
 # Object imports
 from pypy.objspace.std.boolobject import W_BoolObject
@@ -84,6 +82,12 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # Adding transparent proxy call
         if self.config.objspace.std.withtproxy:
             transparent.setup(self)
+
+        for type, classes in self.model.typeorder.iteritems():
+            if len(classes) >= 3:
+                # W_Root, AnyXxx and actual object
+                self.gettypefor(type).interplevel_cls = classes[0][0]
+
 
     def get_builtin_types(self):
         return self.builtin_types
@@ -569,10 +573,19 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return self.wrap(w_sub.issubtype(w_type))
         raise OperationError(self.w_TypeError, self.wrap("need type objects"))
 
+    @specialize.arg_or_var(2)
     def _type_isinstance(self, w_inst, w_type):
-        if isinstance(w_type, W_TypeObject):
-            return self.type(w_inst).issubtype(w_type)
-        raise OperationError(self.w_TypeError, self.wrap("need type object"))
+        if not isinstance(w_type, W_TypeObject):
+            raise OperationError(self.w_TypeError,
+                                 self.wrap("need type object"))
+        if is_annotation_constant(w_type):
+            cls = w_type.interplevel_cls
+            if cls is not None:
+                assert w_inst is not None
+                if isinstance(w_inst, cls):
+                    return True
+        return self.type(w_inst).issubtype(w_type)
 
+    @specialize.arg_or_var(2)
     def isinstance_w(space, w_inst, w_type):
         return space._type_isinstance(w_inst, w_type)
