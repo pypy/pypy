@@ -1,6 +1,6 @@
 import __builtin__
 import types
-from pypy.interpreter import pyframe, function, special
+from pypy.interpreter import special
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
@@ -12,8 +12,6 @@ from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.rarithmetic import base_int, widen
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import jit
-from pypy.rlib.rbigint import rbigint
-from pypy.tool.sourcetools import func_with_new_name
 
 # Object imports
 from pypy.objspace.std.boolobject import W_BoolObject

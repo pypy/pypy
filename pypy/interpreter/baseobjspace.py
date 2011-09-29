@@ -3,12 +3,12 @@ import pypy
 from pypy.interpreter.executioncontext import ExecutionContext, ActionFlag
 from pypy.interpreter.executioncontext import UserDelAction, FrameTraceAction
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.error import new_exception_class
+from pypy.interpreter.error import new_exception_class, typed_unwrap_error_msg
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache
 from pypy.tool.uid import HUGEVAL_BYTES
-from pypy.rlib.objectmodel import we_are_translated, newlist
+from pypy.rlib.objectmodel import we_are_translated, newlist, compute_unique_id
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.timer import DummyTimer, Timer
 from pypy.rlib.rarithmetic import r_uint
@@ -185,6 +185,28 @@ class W_Root(object):
         raise NotImplementedError
     def _set_mapdict_storage_and_map(self, storage, map):
         raise NotImplementedError
+
+    # -------------------------------------------------------------------
+
+    def str_w(self, space):
+        w_msg = typed_unwrap_error_msg(space, "string", self)
+        raise OperationError(space.w_TypeError, w_msg)
+
+    def unicode_w(self, space):
+        raise OperationError(space.w_TypeError,
+                             typed_unwrap_error_msg(space, "unicode", self))
+
+    def int_w(self, space):
+        raise OperationError(space.w_TypeError,
+                             typed_unwrap_error_msg(space, "integer", self))
+    
+    def uint_w(self, space):
+        raise OperationError(space.w_TypeError,
+                             typed_unwrap_error_msg(space, "integer", self))
+    
+    def bigint_w(self, space):
+        raise OperationError(space.w_TypeError,
+                             typed_unwrap_error_msg(space, "integer", self))
 
 
 class Wrappable(W_Root):
@@ -901,7 +923,7 @@ class ObjSpace(object):
         ec.c_call_trace(frame, w_func, args)
         try:
             w_res = self.call_args(w_func, args)
-        except OperationError, e:
+        except OperationError:
             ec.c_exception_trace(frame, w_func)
             raise
         ec.c_return_trace(frame, w_func, args)
@@ -946,6 +968,9 @@ class ObjSpace(object):
 
     def isinstance_w(self, w_obj, w_type):
         return self.is_true(self.isinstance(w_obj, w_type))
+
+    def id(self, w_obj):
+        return self.wrap(compute_unique_id(w_obj))
 
     # The code below only works
     # for the simple case (new-style instance).
@@ -999,8 +1024,6 @@ class ObjSpace(object):
 
     def eval(self, expression, w_globals, w_locals, hidden_applevel=False):
         "NOT_RPYTHON: For internal debugging."
-        import types
-        from pypy.interpreter.pycode import PyCode
         if isinstance(expression, str):
             compiler = self.createcompiler()
             expression = compiler.compile(expression, '?', 'eval', 0,
@@ -1012,7 +1035,6 @@ class ObjSpace(object):
     def exec_(self, statement, w_globals, w_locals, hidden_applevel=False,
               filename=None):
         "NOT_RPYTHON: For internal debugging."
-        import types
         if filename is None:
             filename = '?'
         from pypy.interpreter.pycode import PyCode
@@ -1210,12 +1232,27 @@ class ObjSpace(object):
             return None
         return self.str_w(w_obj)
 
+    def str_w(self, w_obj):
+        return w_obj.str_w(self)
+
+    def int_w(self, w_obj):
+        return w_obj.int_w(self)
+
+    def uint_w(self, w_obj):
+        return w_obj.uint_w(self)
+
+    def bigint_w(self, w_obj):
+        return w_obj.bigint_w(self)
+
     def realstr_w(self, w_obj):
         # Like str_w, but only works if w_obj is really of type 'str'.
         if not self.is_true(self.isinstance(w_obj, self.w_str)):
             raise OperationError(self.w_TypeError,
                                  self.wrap('argument must be a string'))
         return self.str_w(w_obj)
+
+    def unicode_w(self, w_obj):
+        return w_obj.unicode_w(self)
 
     def realunicode_w(self, w_obj):
         # Like unicode_w, but only works if w_obj is really of type
