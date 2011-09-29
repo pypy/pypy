@@ -683,16 +683,6 @@ class OptString(optimizer.Optimization):
             return
         dispatch_opt(self, op)
 
-    def emit_operation(self, op):
-        for arg in op.getarglist():
-            if arg in self.optimizer.values:
-                value = self.getvalue(arg)
-                if isinstance(value, VAbstractStringValue):
-                    value.force_box(self)
-        self.next_optimization.propagate_forward(op)
-        
-
-
 dispatch_opt = make_dispatcher_method(OptString, 'optimize_',
         default=OptString.emit_operation)
 

@@ -68,7 +68,7 @@ class FakeDescr(compile.ResumeGuardDescr):
 
 class BaseTestWithUnroll(BaseTest):
 
-    enable_opts = "intbounds:rewrite:virtualize:string:pure:heap:unroll"
+    enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll"
 
     def optimize_loop(self, ops, expected, expected_preamble=None,
                       call_pure_results=None, expected_short=None):

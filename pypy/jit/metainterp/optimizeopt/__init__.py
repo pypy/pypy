@@ -8,6 +8,7 @@ from pypy.jit.metainterp.optimizeopt.unroll import optimize_unroll, OptInlineSho
 from pypy.jit.metainterp.optimizeopt.fficall import OptFfiCall
 from pypy.jit.metainterp.optimizeopt.simplify import OptSimplify
 from pypy.jit.metainterp.optimizeopt.pure import OptPure
+from pypy.jit.metainterp.optimizeopt.earlyforce import OptEarlyForce
 from pypy.rlib.jit import PARAMETERS
 from pypy.rlib.unroll import unrolling_iterable
 
@@ -15,6 +16,7 @@ ALL_OPTS = [('intbounds', OptIntBounds),
             ('rewrite', OptRewrite),
             ('virtualize', OptVirtualize),
             ('string', OptString),
+            ('earlyforce', OptEarlyForce),
             ('pure', OptPure),
             ('heap', OptHeap),
             ('ffi', None),
