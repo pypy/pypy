@@ -825,8 +825,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i3 = getfield_gc(p2, descr=valuedescr)
         escape(i3)
         p4 = new_with_vtable(ConstClass(node_vtable))
-        setfield_gc(p4, i1, descr=valuedescr)
         p1sub = new_with_vtable(ConstClass(node_vtable2))
+        setfield_gc(p4, i1, descr=valuedescr)
         setfield_gc(p1sub, i1, descr=valuedescr)
         setfield_gc(p4, p1sub, descr=nextdescr)
         jump(i1, p4)
@@ -865,13 +865,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p3sub = new_with_vtable(ConstClass(node_vtable2))
         setfield_gc(p3sub, i1, descr=valuedescr)
         setfield_gc(p1, p3sub, descr=nextdescr)
-        # XXX: We get two extra operations here because the setfield
-        #      above is the result of forcing p1 and thus not
-        #      registered with the heap optimizer. I've makred tests
-        #      below with VIRTUALHEAP if they suffer from this issue
-        p3sub2 = getfield_gc(p1, descr=nextdescr)
-        guard_nonnull_class(p3sub2, ConstClass(node_vtable2)) []
-        jump(i1, p1, p3sub2)
+        jump(i1, p1, p3sub)
         """
         self.optimize_loop(ops, expected, preamble)
 
@@ -902,9 +896,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_true(i2b) []
         p3 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p3, i2, descr=nextdescr)
-        # XXX: VIRTUALHEAP (see above)
-        i3 = getfield_gc(p3, descr=nextdescr)
-        jump(p3, i3)
+        jump(p3, i2)
         """
         self.optimize_loop(ops, expected, preamble)
 
@@ -1219,7 +1211,15 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p3, p30, descr=valuedescr)
         jump(i29, p30, p3)
         """
-        expected = preamble
+        expected = """
+        [i0, p1, p3]
+        i28 = int_add(i0, 1)
+        i29 = int_add(i28, 1)
+        p30 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p3, p30, descr=valuedescr)
+        setfield_gc(p30, i28, descr=nextdescr)
+        jump(i29, p30, p3)
+        """
         self.optimize_loop(ops, expected, preamble)
 
     def test_nonvirtual_1(self):
@@ -2408,8 +2408,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_class(p2, ConstClass(node_vtable)) []
         p3 = getfield_gc(p1, descr=otherdescr)
         guard_class(p3, ConstClass(node_vtable)) []
-        setfield_gc(p3, p2, descr=otherdescr)
         p3a = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p3, p2, descr=otherdescr)
         escape(p3a)
         jump(p3a)
         """
@@ -2421,9 +2421,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         # setfield_gc(p3, p2, descr=otherdescr) # p3a.other = p2a
         # p1a = new_with_vtable(ConstClass(node_vtable2))
         # p2a = new_with_vtable(ConstClass(node_vtable))
+        p3anew = new_with_vtable(ConstClass(node_vtable))
         p2 = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p3a, p2, descr=otherdescr) # p3a.other = p2a
-        p3anew = new_with_vtable(ConstClass(node_vtable))
         escape(p3anew)
         jump(p3anew)
         """
@@ -2458,9 +2458,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         p3 = getfield_gc(p1, descr=otherdescr)
         guard_class(p3, ConstClass(node_vtable)) []
         # p1a = new_with_vtable(ConstClass(node_vtable2))
+        p3a = new_with_vtable(ConstClass(node_vtable))
         p2a = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p3, p2a, descr=otherdescr)
-        p3a = new_with_vtable(ConstClass(node_vtable))
         escape(p3a)
         # setfield_gc(p1a, p2a, descr=nextdescr)
         # setfield_gc(p1a, p3a, descr=otherdescr)
@@ -2468,9 +2468,9 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [p2, p3]
+        p3a = new_with_vtable(ConstClass(node_vtable))
         p2a = new_with_vtable(ConstClass(node_vtable))
         setfield_gc(p3, p2a, descr=otherdescr)
-        p3a = new_with_vtable(ConstClass(node_vtable))
         escape(p3a)
         jump(p2a, p3a)
         """
@@ -7228,6 +7228,29 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p1, p2, i2, i1)
         """
         self.optimize_loop(ops, expected)
+
+    def test_heap_cache_forced_virtuals(self):
+        ops = """
+        [i1, i2, p0]
+        p1 = new(descr=ssize)
+        setfield_gc(p1, i1, descr=adescr)
+        setfield_gc(p1, i2, descr=bdescr)
+        call(p0, p1, descr=writeadescr)
+        i3 = getfield_gc(p1, descr=adescr)
+        i4 = getfield_gc(p1, descr=bdescr)
+        jump(i3, i4, p0)
+        """
+        expected = """
+        [i1, i2, p0]
+        p1 = new(descr=ssize)
+        setfield_gc(p1, i1, descr=adescr)
+        call(p0, p1, descr=writeadescr)
+        i3 = getfield_gc(p1, descr=adescr)
+        setfield_gc(p1, i2, descr=bdescr)
+        jump(i3, i2, p0)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass

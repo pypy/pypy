@@ -138,7 +138,7 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
                 op = ResOperation(rop.SETFIELD_GC, [box, subbox], None,
                                   descr=ofs)
 
-                optforce.emit_volatile_operation(op)
+                optforce.emit_operation(op)
 
     def _get_field_descr_list(self):
         _cached_sorted_fields = self._cached_sorted_fields
@@ -255,7 +255,7 @@ class VArrayValue(AbstractVirtualValue):
                 op = ResOperation(rop.SETARRAYITEM_GC,
                                   [box, ConstInt(index), subbox], None,
                                   descr=self.arraydescr)
-                optforce.emit_volatile_operation(op)
+                optforce.emit_operation(op)
 
     def get_args_for_fail(self, modifier):
         if self.box is None and not modifier.already_seen_virtual(self.keybox):

@@ -370,9 +370,6 @@ class OptHeap(Optimization):
         cf.remember_field_value(structvalue, fieldvalue, op)
 
     def optimize_SETFIELD_GC(self, op):
-        if op in self.optimizer.volatile:
-            self.emit_operation(op)
-            return
         if self.has_pure_result(rop.GETFIELD_GC_PURE, [op.getarg(0)],
                                 op.getdescr()):
             os.write(2, '[bogus _immutable_field_ declaration: %s]\n' %
@@ -414,9 +411,6 @@ class OptHeap(Optimization):
                      (op.getdescr().repr_of_descr()))
             raise BogusPureField
         #
-        if op in self.optimizer.volatile:
-            self.emit_operation(op)
-            return
         indexvalue = self.getvalue(op.getarg(1))
         if indexvalue.is_constant():
             arrayvalue = self.getvalue(op.getarg(0))
