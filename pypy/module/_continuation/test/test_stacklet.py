@@ -13,7 +13,7 @@ class AppTestStacklet(BaseAppTest):
         from _continuation import continulet
         #
         def empty_callback(c):
-            pass
+            never_called
         #
         c = continulet(empty_callback)
         assert type(c) is continulet
@@ -36,7 +36,7 @@ class AppTestStacklet(BaseAppTest):
         from _continuation import continulet, error
         #
         def empty_callback(c1):
-            pass
+            never_called
         #
         c = continulet(empty_callback)
         raises(error, c.__init__, empty_callback)

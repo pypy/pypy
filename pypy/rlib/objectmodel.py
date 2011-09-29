@@ -46,6 +46,17 @@ class _Specialize(object):
 
         return decorated_func
 
+    def arg_or_var(self, *args):
+        """ Same as arg, but additionally allow for a 'variable' annotation,
+        that would simply be a situation where designated arg is not
+        a constant
+        """
+        def decorated_func(func):
+            func._annspecialcase_ = 'specialize:arg_or_var' + self._wrap(args)
+            return func
+
+        return decorated_func
+
     def argtype(self, *args):
         """ Specialize function based on types of arguments on given positions.
 
@@ -70,11 +81,12 @@ class _Specialize(object):
 
         return decorated_func
 
-    def ll_and_arg(self, arg):
-        """ XXX what does that do?
+    def ll_and_arg(self, *args):
+        """ This is like ll(), but instead of specializing on all arguments,
+        specializes on only the arguments at the given positions
         """
         def decorated_func(func):
-            func._annspecialcase_ = 'specialize:ll_and_arg(%d)' % arg
+            func._annspecialcase_ = 'specialize:ll_and_arg' + self._wrap(args)
             return func
 
         return decorated_func
@@ -163,6 +175,24 @@ def we_are_translated():
 
 def keepalive_until_here(*values):
     pass
+
+def is_annotation_constant(thing):
+    """ Returns whether the annotator can prove that the argument is constant.
+    For advanced usage only."""
+    return True
+
+class Entry(ExtRegistryEntry):
+    _about_ = is_annotation_constant
+
+    def compute_result_annotation(self, s_arg):
+        from pypy.annotation import model
+        r = model.SomeBool()
+        r.const = s_arg.is_constant()
+        return r
+
+    def specialize_call(self, hop):
+        from pypy.rpython.lltypesystem import lltype
+        return hop.inputconst(lltype.Bool, hop.s_result.const)
 
 # ____________________________________________________________
 

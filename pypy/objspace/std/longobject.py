@@ -45,6 +45,26 @@ class W_LongObject(W_Object):
     fromrarith_int._annspecialcase_ = "specialize:argtype(0)"
     fromrarith_int = staticmethod(fromrarith_int)
 
+    def int_w(w_self, space):
+        try:
+            return w_self.num.toint()
+        except OverflowError:
+            raise OperationError(space.w_OverflowError, space.wrap(
+                "long int too large to convert to int"))
+
+    def uint_w(w_self, space):
+        try:
+            return w_self.num.touint()
+        except ValueError:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "cannot convert negative integer to unsigned int"))
+        except OverflowError:
+            raise OperationError(space.w_OverflowError, space.wrap(
+                "long int too large to convert to unsigned int"))
+
+    def bigint_w(w_self, space):
+        return w_self.num
+
     def __repr__(self):
         return '<W_LongObject(%d)>' % self.num.tolong()
 
@@ -103,27 +123,6 @@ def float__Long(space, w_longobj):
     except OverflowError:
         raise OperationError(space.w_OverflowError,
                              space.wrap("long int too large to convert to float"))
-
-def int_w__Long(space, w_value):
-    try:
-        return w_value.num.toint()
-    except OverflowError:
-        raise OperationError(space.w_OverflowError, space.wrap(
-            "long int too large to convert to int"))
-
-
-def uint_w__Long(space, w_value):
-    try:
-        return w_value.num.touint()
-    except ValueError:
-        raise OperationError(space.w_ValueError, space.wrap(
-            "cannot convert negative integer to unsigned int"))
-    except OverflowError:
-        raise OperationError(space.w_OverflowError, space.wrap(
-            "long int too large to convert to unsigned int"))
-
-def bigint_w__Long(space, w_value):
-    return w_value.num
 
 def repr__Long(space, w_long):
     return space.wrap(w_long.num.repr())

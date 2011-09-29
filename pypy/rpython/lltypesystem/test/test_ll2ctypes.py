@@ -82,7 +82,6 @@ class TestLL2Ctypes(object):
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_get_pointer(self):
-        py.test.skip("FIXME")
         # Equivalent of the C code::
         #     struct S1 { struct S2 *ptr; struct S2 buf; };
         #     struct S1 s1;

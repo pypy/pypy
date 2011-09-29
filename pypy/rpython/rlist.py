@@ -11,7 +11,7 @@ from pypy.rlib.objectmodel import malloc_zero_filled
 from pypy.rlib.debug import ll_assert
 from pypy.rlib.rarithmetic import ovfcheck, widen, r_uint, intmask
 from pypy.rpython.annlowlevel import ADTInterface
-from pypy.rlib import rgc
+from pypy.rlib import rgc, jit
 
 ADTIFixedList = ADTInterface(None, {
     'll_newlist':      (['SELF', Signed        ], 'self'),
@@ -912,6 +912,8 @@ def ll_listslice_minusone(RESLIST, l1):
     return l
 # no oopspec -- the function is inlined by the JIT
 
+@jit.look_inside_iff(lambda l, start: jit.isconstant(start) and jit.isvirtual(l))
+@jit.oopspec('list.delslice_startonly(l, start)')
 def ll_listdelslice_startonly(l, start):
     ll_assert(start >= 0, "del l[start:] with unexpectedly negative start")
     ll_assert(start <= l.ll_length(), "del l[start:] with start > len(l)")
@@ -923,7 +925,6 @@ def ll_listdelslice_startonly(l, start):
             l.ll_setitem_fast(j, null)
             j -= 1
     l._ll_resize_le(newlength)
-ll_listdelslice_startonly.oopspec = 'list.delslice_startonly(l, start)'
 
 def ll_listdelslice_startstop(l, start, stop):
     length = l.ll_length()

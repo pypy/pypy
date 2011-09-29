@@ -62,8 +62,7 @@ class CConfig:
         "OPENSSL_VERSION_NUMBER")
     SSLEAY_VERSION = rffi_platform.DefinedConstantString(
         "SSLEAY_VERSION", "SSLeay_version(SSLEAY_VERSION)")
-    OPENSSL_NO_SSL2 = rffi_platform.DefinedConstantInteger(
-        "OPENSSL_NO_SSL2")
+    OPENSSL_NO_SSL2 = rffi_platform.Defined("OPENSSL_NO_SSL2")
     SSL_FILETYPE_PEM = rffi_platform.ConstantInteger("SSL_FILETYPE_PEM")
     SSL_OP_ALL = rffi_platform.ConstantInteger("SSL_OP_ALL")
     SSL_VERIFY_NONE = rffi_platform.ConstantInteger("SSL_VERIFY_NONE")
