@@ -13,4 +13,7 @@ class OptEarlyForce(Optimization):
     def new(self):
         return OptEarlyForce()
 
+    def setup(self):
+        self.optimizer.optearlyforce = self
+
     

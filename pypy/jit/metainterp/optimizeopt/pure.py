@@ -6,9 +6,6 @@ class OptPure(Optimization):
         self.posponedop = None
 
     def propagate_forward(self, op):
-        self.emit_operation(op)
-        
-    def emit_operation(self, op):    
         canfold = op.is_always_pure()
         if op.is_ovf():
             self.posponedop = op
@@ -46,11 +43,11 @@ class OptPure(Optimization):
                 self.optimizer.remember_emitting_pure(op)
 
         # otherwise, the operation remains
-        self.next_optimization.propagate_forward(op)
+        self.emit_operation(op)
         if op.returns_bool_result():
             self.optimizer.bool_boxes[self.getvalue(op.result)] = None        
         if nextop:
-            self.next_optimization.propagate_forward(nextop)
+            self.emit_operation(nextop)
 
     def flush(self):
         assert self.posponedop is None
