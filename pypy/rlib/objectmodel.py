@@ -176,11 +176,13 @@ def we_are_translated():
 def keepalive_until_here(*values):
     pass
 
-def is_constant(thing):
+def is_annotation_constant(thing):
+    """ Returns whether the annotator can prove that the argument is constant.
+    For advanced usage only."""
     return True
 
 class Entry(ExtRegistryEntry):
-    _about_ = is_constant
+    _about_ = is_annotation_constant
 
     def compute_result_annotation(self, s_arg):
         from pypy.annotation import model

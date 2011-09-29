@@ -7,7 +7,7 @@ from pypy.interpreter.typedef import get_unique_interplevel_subclass
 from pypy.objspace.std import (builtinshortcut, stdtypedef, frame, model,
                                transparent, callmethod, proxyobject)
 from pypy.objspace.descroperation import DescrOperation, raiseattrerror
-from pypy.rlib.objectmodel import instantiate, r_dict, specialize, is_constant
+from pypy.rlib.objectmodel import instantiate, r_dict, specialize, is_annotation_constant
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.rarithmetic import base_int, widen
 from pypy.rlib.objectmodel import we_are_translated
@@ -578,7 +578,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if not isinstance(w_type, W_TypeObject):
             raise OperationError(self.w_TypeError,
                                  self.wrap("need type object"))
-        if is_constant(w_type):
+        if is_annotation_constant(w_type):
             cls = w_type.interplevel_cls
             if cls is not None:
                 assert w_inst is not None

@@ -340,11 +340,11 @@ class BaseTestObjectModel(BaseRtypingTest):
         assert res == 84
 
     def test_isconstant(self):
-        from pypy.rlib.objectmodel import is_constant, specialize
+        from pypy.rlib.objectmodel import is_annotation_constant, specialize
 
         @specialize.arg_or_var(0)
         def f(arg):
-            if is_constant(arg):
+            if is_annotation_constant(arg):
                 return 1
             return 10
 
