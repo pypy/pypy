@@ -280,6 +280,9 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    "actually create the full list until the resulting "
                    "list is mutated",
                    default=False),
+        BoolOption("withliststrategies",
+                   "enable optimized ways to store lists of primitives ",
+                   default=True),
 
         BoolOption("withtypeversion",
                    "version type objects when changing them",

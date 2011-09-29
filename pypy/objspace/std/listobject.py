@@ -62,7 +62,10 @@ class W_ListObject(W_Object):
     def __init__(w_self, space, wrappeditems):
         assert isinstance(wrappeditems, list)
         w_self.space = space
-        w_self.strategy = get_strategy_from_list_objects(space, wrappeditems)
+        if space.config.objspace.std.withliststrategies:
+            w_self.strategy = get_strategy_from_list_objects(space, wrappeditems)
+        else:
+            w_self.strategy = space.fromcache(ObjectListStrategy)
         w_self.init_from_list_w(wrappeditems)
 
     @staticmethod
