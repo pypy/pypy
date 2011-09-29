@@ -556,9 +556,9 @@ def size_w_to_single_dim_size(space, w_size):
             raise OperationError(space.w_ValueError,
                                  space.wrap("Invalid number of dimensions"))
         w_size_int = space.getitem(w_size, space.wrap(0))
-        size = space.unwrap(w_size_int)
+        size = space.int_w(w_size_int)
     else:
-        size = space.unwrap(w_size)
+        size = space.int_w(w_size)
 
     return size
 
