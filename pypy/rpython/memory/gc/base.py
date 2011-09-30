@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem import lltype, llmemory, llarena
+from pypy.rpython.lltypesystem import lltype, llmemory, llarena, rffi
 from pypy.rlib.debug import ll_assert
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
@@ -355,9 +355,9 @@ class GCBase(object):
 
     def _free_raw_mem_from(self, addr):
         typeid = self.get_type_id(addr)
-        p = (addr + self.ofs_to_raw_mem_ptr(typeid)).ptr[0]
-        if p:
-            lltype.free(p, flavor='raw')
+        raw_adr = (addr + self.ofs_to_raw_mem_ptr(typeid)).address[0]
+        if raw_adr:
+            llmemory.raw_free(raw_adr, track_free=True)
 
 
 class MovingGCBase(GCBase):

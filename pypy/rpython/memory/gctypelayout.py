@@ -247,8 +247,8 @@ def encode_type_shape(builder, info, TYPE, index):
         infobits |= T_IS_WEAKREF
     if is_subclass_of_object(TYPE):
         infobits |= T_IS_RPYTHON_INSTANCE
-    if getattr(TYPE._runtime_type_info, 'raw_mem_attr_name', None):
-        name = TYPE._runtime_type_info.raw_mem_attr_name
+    if builder.get_raw_mem_attr_name(TYPE):
+        name = builder.get_raw_mem_attr_name(TYPE)
         infobits |= T_HAS_RAW_MEM_PTR
         info.ofstorawptr = llmemory.offsetof(TYPE, 'inst_' + name)
     info.infobits = infobits | T_KEY_VALUE
@@ -347,6 +347,13 @@ class TypeLayoutBuilder(object):
 
     def is_weakref_type(self, TYPE):
         return TYPE == WEAKREF
+
+    def get_raw_mem_attr_name(self, TYPE):
+        from pypy.rpython.memory.gctransform.support import get_rtti
+        
+        rtti = get_rtti(TYPE)
+        return rtti is not None and getattr(rtti._obj, 'raw_mem_attr_name',
+                                            None)
 
     def encode_type_shapes_now(self):
         if not self.can_encode_type_shape:
