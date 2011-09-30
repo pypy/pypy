@@ -1687,7 +1687,7 @@ class MiniMarkGC(MovingGCBase):
                 arena -= extra_words * WORD
                 allocsize += extra_words * WORD
             #
-            if self.has_raw_mem_ptr(obj):
+            if self.has_raw_mem_ptr(self.get_type_id(obj)):
                 self._free_raw_mem_from(obj)
             llarena.arena_free(arena)
             self.rawmalloced_total_size -= allocsize
