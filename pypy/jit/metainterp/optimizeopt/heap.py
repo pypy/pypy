@@ -413,6 +413,25 @@ class OptHeap(Optimization):
             fieldvalue = self.getvalue(op.result)
             cf.remember_field_value(arrayvalue, fieldvalue, op)
 
+    def optimize_GETARRAYITEM_GC_PURE(self, op):
+        arrayvalue = self.getvalue(op.getarg(0))
+        indexvalue = self.getvalue(op.getarg(1))
+        cf = None
+        if indexvalue.is_constant():
+            arrayvalue.make_len_gt(MODE_ARRAY, op.getdescr(), indexvalue.box.getint())
+            # use the cache on (arraydescr, index), which is a constant
+            cf = self.arrayitem_cache(op.getdescr(), indexvalue.box.getint())
+            fieldvalue = cf.getfield_from_cache(self, arrayvalue)
+            if fieldvalue is not None:
+                self.make_equal_to(op.result, fieldvalue)
+                return
+        else:
+            # variable index, so make sure the lazy setarrayitems are done
+            self.force_lazy_setarrayitem(op.getdescr(), indexvalue=indexvalue)
+        # default case: produce the operation
+        arrayvalue.ensure_nonnull()
+        self.emit_operation(op)
+
     def optimize_SETARRAYITEM_GC(self, op):
         if self.has_pure_result(rop.GETARRAYITEM_GC_PURE, [op.getarg(0),
                                                            op.getarg(1)],
