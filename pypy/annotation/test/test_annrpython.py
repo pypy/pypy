@@ -3204,6 +3204,8 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [])
         assert isinstance(s, annmodel.SomeList)
         assert not s.listdef.listitem.resized
+        assert not s.listdef.listitem.immutable
+        assert s.listdef.listitem.mutated
 
     def test_delslice(self):
         def f():
