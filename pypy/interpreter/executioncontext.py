@@ -307,7 +307,11 @@ class AbstractActionFlag(object):
         self._nonperiodic_actions = []
         self.has_bytecode_counter = False
         self.fired_actions = None
-        self.checkinterval_scaled = 100 * TICK_COUNTER_STEP
+        # the default value is not 100, unlike CPython 2.7, but a much
+        # larger value, because we use a technique that not only allows
+        # but actually *forces* another thread to run whenever the counter
+        # reaches zero.
+        self.checkinterval_scaled = 10000 * TICK_COUNTER_STEP
         self._rebuild_action_dispatcher()
 
     def fire(self, action):
