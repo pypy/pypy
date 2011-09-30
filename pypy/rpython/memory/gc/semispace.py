@@ -82,6 +82,7 @@ class SemiSpaceGC(MovingGCBase):
         self.free = self.tospace
         MovingGCBase.setup(self)
         self.objects_with_finalizers = self.AddressDeque()
+        self.objects_with_raw_mem = self.AddressDeque()
         self.objects_with_weakrefs = self.AddressStack()
 
     def _teardown(self):
@@ -104,6 +105,8 @@ class SemiSpaceGC(MovingGCBase):
         self.free = result + totalsize
         if has_finalizer:
             self.objects_with_finalizers.append(result + size_gc_header)
+        if self.has_raw_mem_ptr(typeid16):
+            self.objects_with_raw_mem.append(result + size_gc_header)
         if contains_weakptr:
             self.objects_with_weakrefs.append(result + size_gc_header)
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
@@ -265,6 +268,8 @@ class SemiSpaceGC(MovingGCBase):
         scan = self.scan_copied(scan)
         if self.objects_with_finalizers.non_empty():
             scan = self.deal_with_objects_with_finalizers(scan)
+        if self.objects_with_raw_mem.non_empty():
+            self.deal_with_objects_with_raw_mem()
         if self.objects_with_weakrefs.non_empty():
             self.invalidate_weakrefs()
         self.update_objects_with_id()
@@ -522,6 +527,21 @@ class SemiSpaceGC(MovingGCBase):
         self.objects_with_finalizers.delete()
         self.objects_with_finalizers = new_with_finalizer
         return scan
+
+    def deal_with_objects_with_raw_mem(self):
+        new_with_raw_mem = self.AddressDeque()
+        while self.objects_with_raw_mem.non_empty():
+            addr = self.objects_with_raw_mem.popleft()
+            if self.surviving(addr):
+                new_with_raw_mem.append(self.get_forwarding_address(addr))
+            else:
+                typeid = self.get_type_id(addr)
+                p = (addr + self.ofs_to_raw_mem_ptr(typeid)).ptr[0]
+                if p:
+                    lltype.free(p, flavor='raw')
+        self.objects_with_raw_mem.delete()
+        self.objects_with_raw_mem = new_with_raw_mem
+
 
     def _append_if_nonnull(pointer, stack):
         stack.append(pointer.address[0])
