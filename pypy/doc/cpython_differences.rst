@@ -262,6 +262,26 @@ Unless this behavior is clearly present by design and
 documented as such (as e.g. for hasattr()), in most cases PyPy
 lets the exception propagate instead.
 
+Object Identity of Primitive Values, ``is`` and ``id``
+-------------------------------------------------------
+
+Object identity of primitive values works by value equality, not by identity of
+the wrapper. This means that ``x + 1 is x + 1`` is always true, for arbitrary
+integers ``x``. The rule applies for the following types:
+
+ - ``int``
+
+ - ``float``
+
+ - ``long``
+
+ - ``complex``
+
+This change requires some changes to ``id`` as well. ``id`` fulfills the
+following condition: ``x is y <=> id(x) == id(y)``. Therefore ``id`` of the
+above types will return a value that is computed from the argument, and can
+thus be larger than ``sys.maxint`` (i.e. it can be an arbitrary long).
+
 
 Miscellaneous
 -------------
@@ -284,14 +304,5 @@ Miscellaneous
   never a dictionary as it sometimes is in CPython. Assigning to
   ``__builtins__`` has no effect.
 
-* Do not compare immutable objects with ``is``.  For example on CPython
-  it is true that ``x is 0`` works, i.e. does the same as ``type(x) is
-  int and x == 0``, but it is so by accident.  If you do instead
-  ``x is 1000``, then it stops working, because 1000 is too large and
-  doesn't come from the internal cache.  In PyPy it fails to work in
-  both cases, because we have no need for a cache at all.
-
-* Also, object identity of immutable keys in dictionaries is not necessarily
-  preserved.
 
 .. include:: _ref.txt
