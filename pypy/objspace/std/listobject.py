@@ -9,7 +9,7 @@ from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway, baseobjspace
 from pypy.rlib.objectmodel import instantiate, specialize
 from pypy.rlib.listsort import make_timsort_class
-from pypy.rlib import rerased
+from pypy.rlib import rerased, jit
 from pypy.interpreter.argument import Signature
 
 def make_range_list(space, start, step, length):
@@ -26,6 +26,7 @@ def make_empty_list(space):
     storage = strategy.erase(None)
     return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
+@jit.look_inside_iff(lambda space, list_w: jit.isconstant(len(list_w)) and len(list_w) < 5)
 def get_strategy_from_list_objects(space, list_w):
     if not list_w:
         return space.fromcache(EmptyListStrategy)
