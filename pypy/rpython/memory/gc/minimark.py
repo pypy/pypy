@@ -297,6 +297,10 @@ class MiniMarkGC(MovingGCBase):
         # created after it.
         self.young_objects_with_weakrefs = self.AddressStack()
         self.old_objects_with_weakrefs = self.AddressStack()
+        # This is a list for objects that are in the nursery and
+        # own some raw memory. Note that young objects which are raw_malloced
+        # won't go there
+        self.young_objects_with_raw_mem = self.AddressStack()
         #
         # Support for id and identityhash: map nursery objects with
         # GCFLAG_HAS_SHADOW to their future location at the next
@@ -499,6 +503,8 @@ class MiniMarkGC(MovingGCBase):
             # If it is a weakref, record it (check constant-folded).
             if contains_weakptr:
                 self.young_objects_with_weakrefs.append(result+size_gc_header)
+            if self.has_raw_mem_ptr(typeid):
+                self.young_objects_with_raw_mem.append(result + size_gc_header)
             #
             obj = result + size_gc_header
         #
@@ -1264,6 +1270,8 @@ class MiniMarkGC(MovingGCBase):
         # weakrefs' targets.
         if self.young_objects_with_weakrefs.non_empty():
             self.invalidate_young_weakrefs()
+        if self.young_objects_with_raw_mem.non_empty():
+            self.invalidate_young_raw_mem()
         #
         # Clear this mapping.
         if self.nursery_objects_shadows.length() > 0:
@@ -1648,6 +1656,8 @@ class MiniMarkGC(MovingGCBase):
             self.header(obj).tid &= ~GCFLAG_VISITED
             return False     # survives
         else:
+            if self.has_raw_mem_ptr(self.get_type_id(obj)):
+                self._free_raw_mem_from(obj)
             return True      # dies
 
     def _reset_gcflag_visited(self, obj, ignored):
@@ -1677,6 +1687,8 @@ class MiniMarkGC(MovingGCBase):
                 arena -= extra_words * WORD
                 allocsize += extra_words * WORD
             #
+            if self.has_raw_mem_ptr(obj):
+                self._free_raw_mem_from(obj)
             llarena.arena_free(arena)
             self.rawmalloced_total_size -= allocsize
 
@@ -1957,7 +1969,6 @@ class MiniMarkGC(MovingGCBase):
             #
             self.old_objects_with_weakrefs.append(obj)
 
-
     def invalidate_old_weakrefs(self):
         """Called during a major collection."""
         # walk over list of objects that contain weakrefs
@@ -1975,6 +1986,12 @@ class MiniMarkGC(MovingGCBase):
                 (obj + offset).address[0] = llmemory.NULL
         self.old_objects_with_weakrefs.delete()
         self.old_objects_with_weakrefs = new_with_weakref
+
+    def invalidate_young_raw_mem(self):
+        while self.young_objects_with_raw_mem.non_empty():
+            addr = self.young_objects_with_raw_mem.pop()
+            if self.header(addr).tid & GCFLAG_VISITED == 0:
+                self._free_raw_mem_from(addr)
 
 
 # ____________________________________________________________
