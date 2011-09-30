@@ -142,15 +142,19 @@ class GCTest(object):
                     self.p = lltype.malloc(T, flavor='raw')
 
         def f():
+            a = AClass(0)
             for i in range(3):
-                AClass(3)
+                a = AClass(3)
                 AClass(0)
+            llop.gc__collect(lltype.Void)
+            assert a.p
+            del a
             llop.gc__collect(lltype.Void)
             # assert did not crash with malloc mismatch, ie those things
             # has been freed
 
         self.interpret(f, [])
-        
+
     def test_finalizer(self):
         class B(object):
             pass

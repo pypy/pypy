@@ -353,6 +353,12 @@ class GCBase(object):
         finally:
             self.finalizer_lock_count -= 1
 
+    def _free_raw_mem_from(self, addr):
+        typeid = self.get_type_id(addr)
+        p = (addr + self.ofs_to_raw_mem_ptr(typeid)).ptr[0]
+        if p:
+            lltype.free(p, flavor='raw')
+
 
 class MovingGCBase(GCBase):
     moving_gc = True

@@ -82,7 +82,7 @@ class SemiSpaceGC(MovingGCBase):
         self.free = self.tospace
         MovingGCBase.setup(self)
         self.objects_with_finalizers = self.AddressDeque()
-        self.objects_with_raw_mem = self.AddressDeque()
+        self.objects_with_raw_mem = self.AddressStack()
         self.objects_with_weakrefs = self.AddressStack()
 
     def _teardown(self):
@@ -529,17 +529,13 @@ class SemiSpaceGC(MovingGCBase):
         return scan
 
     def deal_with_objects_with_raw_mem(self):
-        new_with_raw_mem = self.AddressDeque()
+        new_with_raw_mem = self.AddressStack()
         while self.objects_with_raw_mem.non_empty():
-            addr = self.objects_with_raw_mem.popleft()
+            addr = self.objects_with_raw_mem.pop()
             if self.surviving(addr):
                 new_with_raw_mem.append(self.get_forwarding_address(addr))
             else:
-                typeid = self.get_type_id(addr)
-                p = (addr + self.ofs_to_raw_mem_ptr(typeid)).ptr[0]
-                if p:
-                    lltype.free(p, flavor='raw')
-        self.objects_with_raw_mem.delete()
+                self._free_raw_mem_from(addr)
         self.objects_with_raw_mem = new_with_raw_mem
 
 
