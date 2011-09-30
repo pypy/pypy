@@ -185,7 +185,7 @@ def eq__RopeUnicode_RopeUnicode(space, w_str1, w_str2):
 
 def eq__RopeUnicode_Rope(space, w_runi, w_rope):
     from pypy.objspace.std.unicodeobject import _unicode_string_comparison
-    return _unicode_string_comparison(space, w_runi, w_rope, 
+    return _unicode_string_comparison(space, w_runi, w_rope,
                     False,  unicode_from_string)
 
 def ne__RopeUnicode_RopeUnicode(space, w_str1, w_str2):
@@ -193,7 +193,7 @@ def ne__RopeUnicode_RopeUnicode(space, w_str1, w_str2):
 
 def ne__RopeUnicode_Rope(space, w_runi, w_rope):
     from pypy.objspace.std.unicodeobject import _unicode_string_comparison
-    return _unicode_string_comparison(space, w_runi, w_rope, 
+    return _unicode_string_comparison(space, w_runi, w_rope,
                     True, unicode_from_string)
 
 def gt__RopeUnicode_RopeUnicode(space, w_str1, w_str2):
@@ -247,7 +247,7 @@ def unicode_join__RopeUnicode_ANY(space, w_self, w_list):
     if (len(l_w) == 1 and
         space.is_w(space.type(l_w[0]), space.w_unicode)):
         return l_w[0]
-    
+
     values_list = []
     for i in range(len(l_w)):
         w_item = l_w[i]
@@ -320,7 +320,7 @@ def mul__ANY_RopeUnicode(space, w_times, w_uni):
 
 
 def make_generic(funcname):
-    def func(space, w_self): 
+    def func(space, w_self):
         node = w_self._node
         if node.length() == 0:
             return space.w_False
@@ -578,7 +578,7 @@ def unicode_rjust__RopeUnicode_ANY_ANY(space, w_self, w_width, w_fillchar):
         return w_self.create_if_subclassed()
     resultnode = rope.concatenate(rope.multiply(fillchar, padding), self)
     return W_RopeUnicodeObject(resultnode)
-    
+
 def unicode_zfill__RopeUnicode_ANY(space, w_self, w_width):
     self = w_self._node
     length = self.length()
@@ -744,7 +744,7 @@ def unicode_replace__RopeUnicode_RopeUnicode_RopeUnicode_ANY(
     except OverflowError:
         raise OperationError(space.w_OverflowError,
                              space.wrap("string too long"))
-    
+
 
 def unicode_encode__RopeUnicode_ANY_ANY(space, w_unistr,
                                         w_encoding=None,
@@ -821,7 +821,7 @@ def unicode_translate__RopeUnicode_ANY(space, w_self, w_table):
         try:
             w_newval = space.getitem(w_table, space.wrap(char))
         except OperationError, e:
-            if e.match(space, space.w_KeyError):
+            if e.match(space, space.w_LookupError):
                 result.append(crope)
             else:
                 raise
@@ -848,7 +848,7 @@ def repr__RopeUnicode(space, w_unicode):
     hexdigits = "0123456789abcdef"
     node = w_unicode._node
     size = node.length()
-    
+
     singlequote = doublequote = False
     iter = rope.ItemIterator(node)
     for i in range(size):
@@ -900,7 +900,7 @@ def repr__RopeUnicode(space, w_unicode):
                                   ])
                     j += 2
                     continue
-                
+
         if code >= 0x100:
             result.extend(['\\', "u",
                            hexdigits[(code >> 12) & 0xf],
@@ -932,7 +932,7 @@ def repr__RopeUnicode(space, w_unicode):
             continue
         if code < ord(' ') or code >= 0x7f:
             result.extend(['\\', "x",
-                           hexdigits[(code >> 4) & 0xf], 
+                           hexdigits[(code >> 4) & 0xf],
                            hexdigits[(code >> 0) & 0xf],
                           ])
             j += 1
@@ -964,15 +964,15 @@ def iter__RopeUnicodeIter(space, w_ropeiter):
 
 def next__RopeUnicodeIter(space, w_ropeiter):
     if w_ropeiter.node is None:
-        raise OperationError(space.w_StopIteration, space.w_None) 
+        raise OperationError(space.w_StopIteration, space.w_None)
     try:
         unichar = w_ropeiter.item_iter.nextunichar()
         w_item = space.wrap(unichar)
     except StopIteration:
         w_ropeiter.node = None
         w_ropeiter.char_iter = None
-        raise OperationError(space.w_StopIteration, space.w_None) 
-    w_ropeiter.index += 1 
+        raise OperationError(space.w_StopIteration, space.w_None)
+    w_ropeiter.index += 1
     return w_item
 
 # XXX __length_hint__()
