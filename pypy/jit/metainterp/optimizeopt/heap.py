@@ -363,11 +363,21 @@ class OptHeap(Optimization):
             return
         # default case: produce the operation
         structvalue.ensure_nonnull()
-        ###self.optimizer.optimize_default(op)
         self.emit_operation(op)
         # then remember the result of reading the field
         fieldvalue = self.getvalue(op.result)
         cf.remember_field_value(structvalue, fieldvalue, op)
+
+    def optimize_GETFIELD_GC_PURE(self, op):
+        structvalue = self.getvalue(op.getarg(0))
+        cf = self.field_cache(op.getdescr())
+        fieldvalue = cf.getfield_from_cache(self, structvalue)
+        if fieldvalue is not None:
+            self.make_equal_to(op.result, fieldvalue)
+            return
+        # default case: produce the operation
+        structvalue.ensure_nonnull()
+        self.emit_operation(op)
 
     def optimize_SETFIELD_GC(self, op):
         if self.has_pure_result(rop.GETFIELD_GC_PURE, [op.getarg(0)],
