@@ -20,7 +20,7 @@ class W_IntObject(W_Object):
     _immutable_fields_ = ['intval']
 
     from pypy.objspace.std.inttype import int_typedef as typedef
-    
+
     def __init__(w_self, intval):
         w_self.intval = intval
 
@@ -135,7 +135,7 @@ def truediv__Int_Int(space, w_int1, w_int2):
     x = float(w_int1.intval)
     y = float(w_int2.intval)
     if y == 0.0:
-        raise FailedToImplementArgs(space.w_ZeroDivisionError, space.wrap("float division"))    
+        raise FailedToImplementArgs(space.w_ZeroDivisionError, space.wrap("float division"))
     return space.wrap(x / y)
 
 def mod__Int_Int(space, w_int1, w_int2):
@@ -197,7 +197,7 @@ def _impl_int_int_pow(space, iv, iw, iz=0):
     except OverflowError:
         raise FailedToImplementArgs(space.w_OverflowError,
                                 space.wrap("integer exponentiation"))
-    return wrapint(space, ix)
+    return ix
 
 def pow__Int_Int_Int(space, w_int1, w_int2, w_int3):
     x = w_int1.intval
@@ -206,12 +206,12 @@ def pow__Int_Int_Int(space, w_int1, w_int2, w_int3):
     if z == 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("pow() 3rd argument cannot be 0"))
-    return _impl_int_int_pow(space, x, y, z)
+    return space.wrap(_impl_int_int_pow(space, x, y, z))
 
 def pow__Int_Int_None(space, w_int1, w_int2, w_int3):
     x = w_int1.intval
     y = w_int2.intval
-    return _impl_int_int_pow(space, x, y)
+    return space.wrap(_impl_int_int_pow(space, x, y))
 
 def neg__Int(space, w_int1):
     a = w_int1.intval
