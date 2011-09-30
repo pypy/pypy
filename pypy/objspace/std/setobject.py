@@ -428,18 +428,7 @@ class AbstractUnwrappedSetStrategy(object):
         w_set.strategy = result.strategy
         w_set.sstorage = result.sstorage
 
-    def symmetric_difference(self, w_set, w_other):
-        #XXX no wrapping when strategies are equal
-        result = w_set._newobj(self.space, None)
-        for w_key in w_set.getkeys():
-            if not w_other.has_key(w_key):
-                result.add(w_key)
-        for w_key in w_other.getkeys():
-            if not w_set.has_key(w_key):
-                result.add(w_key)
-        return result
-
-    def symmetric_difference_update_match(self, w_set, w_other):
+    def _symmetric_difference_unwrapped(self, w_set, w_other):
         d_new = self.get_empty_dict()
         d_this = self.cast_from_void_star(w_set.sstorage)
         d_other = self.cast_from_void_star(w_other.sstorage)
@@ -450,12 +439,10 @@ class AbstractUnwrappedSetStrategy(object):
             if not key in d_other:
                 d_new[key] = None
 
-        w_set.sstorage = self.cast_to_void_star(d_new)
+        storage = self.cast_to_void_star(d_new)
+        return storage
 
-    def symmetric_difference_update(self, w_set, w_other):
-        if w_set.strategy is w_other.strategy:
-            self.symmetric_difference_update_match(w_set, w_other)
-            return
+    def _symmetric_difference_wrapped(self, w_set, w_other):
         newsetdata = newset(self.space)
         for w_key in w_set.getkeys():
             if not w_other.has_key(w_key):
@@ -464,9 +451,29 @@ class AbstractUnwrappedSetStrategy(object):
             if not w_set.has_key(w_key):
                 newsetdata[w_key] = None
 
-        # do not switch strategy here if other items match
-        w_set.strategy = strategy = self.space.fromcache(ObjectSetStrategy)
-        w_set.sstorage = strategy.cast_to_void_star(newsetdata)
+        strategy = self.space.fromcache(ObjectSetStrategy)
+        return strategy.cast_to_void_star(newsetdata)
+
+    def symmetric_difference(self, w_set, w_other):
+        #XXX if difference are only ints this wont return an IntSet
+        if w_set.strategy is w_other.strategy:
+            strategy = w_set.strategy
+            storage = self._symmetric_difference_unwrapped(w_set, w_other)
+        else:
+            strategy = self.space.fromcache(ObjectSetStrategy)
+            storage = self._symmetric_difference_wrapped(w_set, w_other)
+        return w_set.from_storage_and_strategy(storage, strategy)
+
+    def symmetric_difference_update(self, w_set, w_other):
+        if w_set.strategy is w_other.strategy:
+            strategy = w_set.strategy
+            storage = self._symmetric_difference_unwrapped(w_set, w_other)
+        else:
+            strategy = self.space.fromcache(ObjectSetStrategy)
+            storage = self._symmetric_difference_wrapped(w_set, w_other)
+
+        w_set.strategy = strategy
+        w_set.sstorage = storage
 
     def intersect(self, w_set, w_other):
         if w_set.length() > w_other.length():
