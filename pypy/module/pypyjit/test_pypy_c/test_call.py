@@ -338,13 +338,12 @@ class TestCall(BaseTestPyPyC):
             i13 = getfield_gc(p8, descr=<SignedFieldDescr list.length .*>)
             i15 = int_add(i13, 1)
             # Will be killed by the backend
-            i17 = arraylen_gc(p7, descr=<GcPtrArrayDescr>)
-            call(ConstClass(_ll_list_resize_ge), p8, i15, descr=<VoidCallDescr>)
+            p15 = getfield_gc(p8, descr=<GcPtrFieldDescr list.items .*>)
+            i17 = arraylen_gc(p15, descr=<SignedArrayDescr>)
+            call(ConstClass(_ll_list_resize_ge_trampoline__v232___simple_call__function__), p8, i15, descr=<VoidCallDescr>)
             guard_no_exception(descr=...)
             p17 = getfield_gc(p8, descr=<GcPtrFieldDescr list.items .*>)
-            p19 = new_with_vtable(ConstClass(W_IntObject))
-            setfield_gc(p19, i12, descr=<SignedFieldDescr .*W_IntObject.inst_intval .*>)
-            setarrayitem_gc(p17, i13, p19, descr=<GcPtrArrayDescr>)
+            setarrayitem_gc(p17, i13, i12, descr=<SignedArrayDescr>)
         """)
 
     def test_blockstack_virtualizable(self):
