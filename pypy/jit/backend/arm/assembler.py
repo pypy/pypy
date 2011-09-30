@@ -869,6 +869,8 @@ class AssemblerARM(ResOpAssembler):
         elif loc.is_stack():
             self.mc.PUSH([r.lr.value], cond=cond)
             new_loc = r.lr
+        else:
+            raise AssertionError("invalid target for move from imm value")
         self.mc.gen_load_int(new_loc.value, prev_loc.value, cond=cond)
         if loc.is_stack():
             self.regalloc_mov(new_loc, loc)
