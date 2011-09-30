@@ -695,7 +695,7 @@ class TestJumps(BaseTestRegalloc):
                 _assembler_helper_ptr)
 
         FakeJitDriverSD.portal_calldescr = self.cpu.calldescrof(
-            lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed)), [lltype.Signed], lltype.Signed)
+            lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed)), [lltype.Signed], lltype.Signed, EffectInfo.MOST_GENERAL)
         loop1 = """
         [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9, i10]
         i11 = int_add(i0, i1)
