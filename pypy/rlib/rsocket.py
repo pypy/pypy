@@ -15,6 +15,7 @@ a drop-in replacement for the 'socket' module.
 # app-level code for PyPy.
 
 from pypy.rlib.objectmodel import instantiate, keepalive_until_here
+from pypy.rlib.rgc import owns_raw_memory
 from pypy.rlib import _rsocket_rffi as _c
 from pypy.rlib.rarithmetic import intmask
 from pypy.rpython.lltypesystem import lltype, rffi
@@ -55,6 +56,8 @@ def htonl(x):
 
 
 _FAMILIES = {}
+
+@owns_raw_memory('addr_p')
 class Address(object):
     """The base class for RPython-level objects representing addresses.
     Fields:  addr    - a _c.sockaddr_ptr (memory owned by the Address instance)
@@ -74,11 +77,6 @@ class Address(object):
     def __init__(self, addr, addrlen):
         self.addr_p = addr
         self.addrlen = addrlen
-
-    def __del__(self):
-        addr = self.addr_p
-        if addr:
-            lltype.free(addr, flavor='raw')
 
     def setdata(self, addr, addrlen):
         # initialize self.addr and self.addrlen.  'addr' can be a different
