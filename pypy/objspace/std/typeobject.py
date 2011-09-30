@@ -822,14 +822,6 @@ def is_mro_purely_of_types(mro_w):
 
 def call__Type(space, w_type, __args__):
     promote(w_type)
-    # special case for type(x)
-    if space.is_w(w_type, space.w_type):
-        try:
-            w_obj, = __args__.fixedunpack(1)
-        except ValueError:
-            pass
-        else:
-            return space.type(w_obj)
     # invoke the __new__ of the type
     if not we_are_jitted():
         # note that the annotator will figure out that w_type.w_bltin_new can
