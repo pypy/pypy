@@ -6,12 +6,15 @@ class AppTestObject:
     def setup_class(cls):
         from pypy.interpreter import gateway
         import sys
+
         cpython_behavior = (not option.runappdirect
                             or not hasattr(sys, 'pypy_translation_info'))
 
-        cls.w_cpython_behavior = cls.space.wrap(cpython_behavior)
-        cls.w_cpython_version = cls.space.wrap(tuple(sys.version_info))
         space = cls.space
+        cls.w_cpython_behavior = space.wrap(cpython_behavior)
+        cls.w_cpython_version = space.wrap(tuple(sys.version_info))
+        cls.w_appdirect = space.wrap(option.runappdirect)
+        cls.w_cpython_apptest = space.wrap(option.runappdirect and not hasattr(sys, 'pypy_translation_info'))
 
         def w_unwrap_wrap_unicode(space, w_obj):
             return space.wrap(space.unicode_w(w_obj))
@@ -112,7 +115,9 @@ class AppTestObject:
                 return 123456
         assert A().__str__() == 123456
 
-    def test_object_identity(self):
+    def test_is_on_primitives(self):
+        if self.cpython_apptest:
+            skip("cpython behaves differently")
         assert 1 is 1
         x = 1000000
         assert x + 1 is int(str(x + 1))
@@ -130,6 +135,10 @@ class AppTestObject:
             assert 1+x*1j is 1+x*1j
         l = [1]
         assert l[0] is l[0]
+
+    def test_is_on_strs(self):
+        if self.appdirect:
+            skip("cannot run this test as apptest")
         l = ["a"]
         assert l[0] is l[0]
         u = u"a"
@@ -137,7 +146,9 @@ class AppTestObject:
         s = "a"
         assert self.unwrap_wrap_str(s) is s
 
-    def test_id(self):
+    def test_id_on_primitives(self):
+        if self.cpython_apptest:
+            skip("cpython behaves differently")
         assert id(1) == (1 << 3) + 1
         assert id(1l) == (1 << 3) + 3
         class myint(int):
@@ -149,12 +160,17 @@ class AppTestObject:
         assert hex(id(2.0)) == '0x20000000000000005L'
         assert id(0.0) == 5
 
+    def test_id_on_strs(self):
+        if self.appdirect:
+            skip("cannot run this test as apptest")
         u = u"a"
         assert id(self.unwrap_wrap_unicode(u)) == id(u)
         s = "a"
         assert id(self.unwrap_wrap_str(s)) == id(s)
 
-    def test_identity_vs_id(self):
+    def test_identity_vs_id_primitives(self):
+        if self.cpython_apptest:
+            skip("cpython behaves differently")
         import sys
         l = range(-10, 10)
         for i in range(10):
@@ -167,14 +183,35 @@ class AppTestObject:
             l.append(1 + i * 1j)
             s = str(i)
             l.append(s)
-            l.append(self.unwrap_wrap_str(s))
             u = unicode(s)
             l.append(u)
-            l.append(self.unwrap_wrap_unicode(u))
         l.append(-0.0)
         l.append(None)
         l.append(True)
         l.append(False)
+        s = "s"
+        l.append(s)
+        s = u"s"
+        l.append(s)
+
+        for i, a in enumerate(l):
+            for b in l[i:]:
+                assert (a is b) == (id(a) == id(b))
+                if a is b:
+                    assert a == b
+
+    def test_identity_vs_id_str(self):
+        if self.appdirect:
+            skip("cannot run this test as apptest")
+        import sys
+        l = range(-10, 10)
+        for i in range(10):
+            s = str(i)
+            l.append(s)
+            l.append(self.unwrap_wrap_str(s))
+            u = unicode(s)
+            l.append(u)
+            l.append(self.unwrap_wrap_unicode(u))
         s = "s"
         l.append(s)
         l.append(self.unwrap_wrap_str(s))
