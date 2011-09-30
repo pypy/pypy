@@ -580,6 +580,8 @@ class AbstractUnwrappedStrategy(object):
     def list_is_correct_type(self, w_list):
         raise NotImplementedError("abstract base class")
 
+    @jit.look_inside_iff(lambda space, w_list, list_w:
+        jit.isconstant(len(list_w)) and len(list_w) < 5)
     def init_from_list_w(self, w_list, list_w):
         l = [self.unwrap(w_item) for w_item in list_w]
         w_list.lstorage = self.erase(l)
