@@ -282,6 +282,60 @@ class AssemblerPPC(OpAssembler):
         looptoken.ppc_code = loop_start + start_pos
         self._teardown()
 
+    # For an explanation of the encoding, see
+    # backend/arm/assembler.py
+    def gen_descr_encoding(self, descr, args, arglocs):
+        minsize = (len(arglocs) - 1) * 6 + 5
+        memsize = self.align(minsize)
+        memaddr = self.datablockwrapper.malloc_aligned(memsize, alignment=1)
+        mem = rffi.cast(rffi.CArrayPtr(lltype.Char), memaddr)
+        i = 0
+        j = 0
+        while i < len(args):
+            if arglocs[i+1]:
+                arg = args[i]
+                loc = arglocs[i+1]
+                if arg.type == INT:
+                    mem[j] = self.INT_TYPE
+                    j += 1
+                elif arg.type == REF:
+                    mem[j] = self.REF_TYPE
+                    j += 1
+                elif arg.type == FLOAT:
+                    mem[j] = self.FLOAT_TYPE
+                    j += 1
+                else:
+                    assert 0, 'unknown type'
+
+                if loc.is_reg() or loc.is_vfp_reg():
+                    mem[j] = chr(loc.value)
+                    j += 1
+                elif loc.is_imm() or loc.is_imm_float():
+                    assert (arg.type == INT or arg.type == REF
+                                or arg.type == FLOAT)
+                    mem[j] = self.IMM_LOC
+                    encode32(mem, j+1, loc.getint())
+                    j += 5
+                else:
+                    mem[j] = self.STACK_LOC
+                    encode32(mem, j+1, loc.position)
+                    j += 5
+            else:
+                mem[j] = self.EMPTY_LOC
+                j += 1
+            i += 1
+
+        mem[j] = chr(0xFF)
+
+        n = self.cpu.get_fail_descr_number(descr)
+        encode32(mem, j+1, n)
+        return memaddr
+
+    def align(self, size):
+        while size % 8 != 0:
+            size += 1
+        return size
+
     def _teardown(self):
         self.patch_list = None
         self.pending_guards = None
