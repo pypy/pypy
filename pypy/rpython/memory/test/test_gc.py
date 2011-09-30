@@ -143,7 +143,7 @@ class GCTest(object):
 
         def f():
             a = AClass(0)
-            for i in range(3):
+            for i in range(30):
                 a = AClass(3)
                 AClass(0)
             llop.gc__collect(lltype.Void)

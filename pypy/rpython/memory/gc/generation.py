@@ -572,16 +572,13 @@ class GenerationGC(SemiSpaceGC):
         # table is bad for the next call to 'foreach'.
 
     def deal_with_young_objects_with_raw_mem(self):
-        new_objs_with_raw_mem = self.AddressStack()
         while self.young_objects_with_raw_mem.non_empty():
             addr = self.young_objects_with_raw_mem.pop()
             if self.surviving(addr):
-                new_objs_with_raw_mem.append(self.get_forwarding_address(addr))
+                self.objects_with_raw_mem.append(
+                    self.get_forwarding_address(addr))
             else:
                 self._free_raw_mem_from(addr)
-
-        self.young_objects_with_raw_mem.delete()
-        self.young_objects_with_raw_mem = new_objs_with_raw_mem
 
     def ids_grow_older(self):
         self.young_objects_with_id.foreach(self._id_grow_older, None)
