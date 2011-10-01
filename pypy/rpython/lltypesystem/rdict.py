@@ -528,6 +528,7 @@ ll_dict_resize.oopspec = 'dict.resize(d)'
 # ------- a port of CPython's dictobject.c's lookdict implementation -------
 PERTURB_SHIFT = 5
 
+@jit.dont_look_inside
 def ll_dict_lookup(d, key, hash):
     entries = d.entries
     ENTRIES = lltype.typeOf(entries).TO
