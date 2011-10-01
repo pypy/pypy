@@ -3408,6 +3408,75 @@ class BaseLLtypeTests(BasicTests):
         assert res == main(1, 10)
         self.check_loops(call=0)
 
+    def test_setarrayitem_followed_by_arraycopy(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'sa', 'x', 'y'])
+        def f(n):
+            sa = 0
+            x = [1,2,n]
+            y = [1,2,3]
+            while n > 0:
+                myjitdriver.jit_merge_point(sa=sa, n=n, x=x, y=y)
+                y[0] = n
+                x[0:3] = y
+                sa += x[0]
+                n -= 1
+            return sa
+        res = self.meta_interp(f, [16])
+        assert res == f(16)
+        
+
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
-    pass
+    def test_tagged(self):
+        py.test.skip("implement me")
+        from pypy.rlib.objectmodel import UnboxedValue
+        class Base(object):
+            __slots__ = ()
+
+        class Int(UnboxedValue, Base):
+            __slots__ = ["a"]
+
+            def is_pos(self):
+                return self.a > 0
+
+            def dec(self):
+                return Int(self.a - 1)
+
+
+        class Float(Base):
+            def __init__(self, a):
+                self.a = a
+
+            def is_pos(self):
+                return self.a > 0
+
+            def dec(self):
+                return Float(self.a - 1)
+
+        driver = JitDriver(greens=['pc', 's'], reds=['o'])
+
+        def main(fl, n, s):
+            if s:
+                s = "--j"
+            else:
+                s = "---j"
+            if fl:
+                o = Float(float(n))
+            else:
+                o = Int(n)
+            pc = 0
+            while True:
+                driver.jit_merge_point(s=s, pc=pc, o=o)
+                c = s[pc]
+                if c == "j":
+                    driver.can_enter_jit(s=s, pc=pc, o=o)
+                    if o.is_pos():
+                        pc = 0
+                        continue
+                    else:
+                        break
+                elif c == "-":
+                    o = o.dec()
+                pc += 1
+            return pc
+        res = self.meta_interp(main, [False, 100, True], taggedpointers=True)
