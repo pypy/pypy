@@ -32,7 +32,7 @@ class OptRewrite(Optimization):
         dispatch_opt(self, op)
 
     def try_boolinvers(self, op, targs):
-        oldop = self.optimizer.pure_operations.get(targs, None)
+        oldop = self.get_pure_result(targs)
         if oldop is not None and oldop.getdescr() is op.getdescr():
             value = self.getvalue(oldop.result)
             if value.is_constant():
@@ -60,7 +60,7 @@ class OptRewrite(Optimization):
             oldopnum = opboolreflex[op.getopnum()] # FIXME: add INT_ADD, INT_MUL
             targs = self.optimizer.make_args_key(ResOperation(oldopnum, [args[1], args[0]],
                                                               None))
-            oldop = self.optimizer.pure_operations.get(targs, None)
+            oldop = self.get_pure_result(targs)
             if oldop is not None and oldop.getdescr() is op.getdescr():
                 self.make_equal_to(op.result, self.getvalue(oldop.result))
                 return True
@@ -200,39 +200,6 @@ class OptRewrite(Optimization):
         v1 = op.getarg(0)
         self.emit_operation(op)
         self.pure(rop.FLOAT_NEG, [op.result], v1)
-
-    def optimize_CALL_PURE(self, op):
-        arg_consts = []
-        for i in range(op.numargs()):
-            arg = op.getarg(i)
-            const = self.get_constant_box(arg)
-            if const is None:
-                break
-            arg_consts.append(const)
-        else:
-            # all constant arguments: check if we already know the result
-            try:
-                result = self.optimizer.call_pure_results[arg_consts]
-            except KeyError:
-                pass
-            else:
-                self.make_constant(op.result, result)
-                return
-
-        args = self.optimizer.make_args_key(op)
-        oldop = self.optimizer.pure_operations.get(args, None)
-        if oldop is not None and oldop.getdescr() is op.getdescr():
-            assert oldop.getopnum() == op.getopnum()
-            self.make_equal_to(op.result, self.getvalue(oldop.result))
-            return
-        else:
-            self.optimizer.pure_operations[args] = op
-            self.optimizer.remember_emitting_pure(op)
-
-        # replace CALL_PURE with just CALL
-        args = op.getarglist()
-        self.emit_operation(ResOperation(rop.CALL, args, op.result,
-                                         op.getdescr()))
 
     def optimize_guard(self, op, constbox, emit_operation=True):
         value = self.getvalue(op.getarg(0))

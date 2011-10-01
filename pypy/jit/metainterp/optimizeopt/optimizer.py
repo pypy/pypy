@@ -275,19 +275,19 @@ class Optimization(object):
         return self.optimizer.new_const_item(arraydescr)
 
     def pure(self, opnum, args, result):
-        op = ResOperation(opnum, args, result)
-        key = self.optimizer.make_args_key(op)
-        if key not in self.optimizer.pure_operations:
-            self.optimizer.pure_operations[key] = op
+        if self.optimizer.optpure:
+            self.optimizer.optpure.pure(opnum, args, result)
 
     def has_pure_result(self, opnum, args, descr):
-        op = ResOperation(opnum, args, None, descr)
-        key = self.optimizer.make_args_key(op)
-        op = self.optimizer.pure_operations.get(key, None)
-        if op is None:
-            return False
-        return op.getdescr() is descr
+        if self.optimizer.optpure:
+            return self.optimizer.optpure.has_pure_result(opnum, args, descr)
+        return False
 
+    def get_pure_result(self, key):    
+        if self.optimizer.optpure:
+            return self.optimizer.optpure.get_pure_result(key)
+        return None
+    
     def setup(self):
         pass
 
@@ -322,7 +322,6 @@ class Optimizer(Optimization):
         self.interned_refs = self.cpu.ts.new_ref_dict()
         self.resumedata_memo = resume.ResumeDataLoopMemo(metainterp_sd)
         self.bool_boxes = {}
-        self.pure_operations = args_dict()
         self.producer = {}
         self.pendingfields = []
         self.posponedop = None

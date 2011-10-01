@@ -508,6 +508,8 @@ class OptString(optimizer.Optimization):
                     return
         self.emit_operation(op)
 
+    optimize_CALL_PURE = optimize_CALL
+
     def opt_call_str_STR2UNICODE(self, op):
         # Constant-fold unicode("constant string").
         # More generally, supporting non-constant but virtual cases is
