@@ -369,8 +369,6 @@ def _strgetitem(string_optimizer, strbox, indexbox, mode):
 
 class OptString(optimizer.Optimization):
     "Handling of strings and unicodes."
-    enabled = True
-
     def new(self):
         return OptString()
 
@@ -680,9 +678,6 @@ class OptString(optimizer.Optimization):
         self.emit_operation(op)
 
     def propagate_forward(self, op):
-        if not self.enabled:
-            self.emit_operation(op)
-            return
         dispatch_opt(self, op)
 
 dispatch_opt = make_dispatcher_method(OptString, 'optimize_',
