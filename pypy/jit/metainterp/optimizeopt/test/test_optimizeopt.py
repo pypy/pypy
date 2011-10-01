@@ -7262,6 +7262,27 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, ops)
 
+    def test_heap_cache_virtuals_forced_by_delayed_setfield(self):
+        py.test.skip('not yet supoprted')
+        ops = """
+        [i1, p0]
+        p1 = new(descr=ssize)
+        setfield_gc(p1, i1, descr=valuedescr)
+        setfield_gc(p0, p1, descr=adescr)
+        call(p0, descr=writeadescr)
+        i2 = getfield_gc(p1, descr=valuedescr)
+        jump(i2, p0)
+        """
+        expected = """
+        [i1, p0]
+        p1 = new(descr=ssize)
+        setfield_gc(p1, i1, descr=valuedescr)
+        setfield_gc(p0, p1, descr=adescr)
+        call(p0, descr=writeadescr)
+        jump(i1, p0)
+        """
+        self.optimize_loop(ops, expected)
+
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
 
