@@ -19,13 +19,42 @@ class BaseCpyTypedescr(object):
     basestruct = PyObject.TO
 
     def get_dealloc(self, space):
-        raise NotImplementedError
+        from pypy.module.cpyext.typeobject import subtype_dealloc
+        return llhelper(
+            subtype_dealloc.api_func.functype,
+            subtype_dealloc.api_func.get_wrapper(space))
+
     def allocate(self, space, w_type, itemcount=0):
-        raise NotImplementedError
+        # similar to PyType_GenericAlloc?
+        # except that it's not related to any pypy object.
+
+        pytype = rffi.cast(PyTypeObjectPtr, make_ref(space, w_type))
+        # Don't increase refcount for non-heaptypes
+        if pytype:
+            flags = rffi.cast(lltype.Signed, pytype.c_tp_flags)
+            if not flags & Py_TPFLAGS_HEAPTYPE:
+                Py_DecRef(space, w_type)
+
+        if pytype:
+            size = pytype.c_tp_basicsize
+        else:
+            size = rffi.sizeof(self.basestruct)
+        if itemcount:
+            size += itemcount * pytype.c_tp_itemsize
+        buf = lltype.malloc(rffi.VOIDP.TO, size,
+                            flavor='raw', zero=True)
+        pyobj = rffi.cast(PyObject, buf)
+        pyobj.c_ob_refcnt = 1
+        pyobj.c_ob_type = pytype
+        return pyobj
+
     def attach(self, space, pyobj, w_obj):
-        raise NotImplementedError
+        pass
+
     def realize(self, space, ref):
-        raise NotImplementedError
+        # For most types, a reference cannot exist without
+        # a real interpreter object
+        raise InvalidPointerException(str(ref))
 
 typedescr_cache = {}
 
@@ -40,6 +69,7 @@ def make_typedescr(typedef, **kw):
     """
 
     tp_basestruct = kw.pop('basestruct', PyObject.TO)
+    tp_alloc      = kw.pop('alloc', None)
     tp_attach     = kw.pop('attach', None)
     tp_realize    = kw.pop('realize', None)
     tp_dealloc    = kw.pop('dealloc', None)
@@ -49,58 +79,24 @@ def make_typedescr(typedef, **kw):
 
     class CpyTypedescr(BaseCpyTypedescr):
         basestruct = tp_basestruct
-        realize = tp_realize
 
-        def get_dealloc(self, space):
-            if tp_dealloc:
+        if tp_alloc:
+            def allocate(self, space, w_type, itemcount=0):
+                return tp_alloc(space, w_type)
+
+        if tp_dealloc:
+            def get_dealloc(self, space):
                 return llhelper(
                     tp_dealloc.api_func.functype,
                     tp_dealloc.api_func.get_wrapper(space))
-            else:
-                from pypy.module.cpyext.typeobject import subtype_dealloc
-                return llhelper(
-                    subtype_dealloc.api_func.functype,
-                    subtype_dealloc.api_func.get_wrapper(space))
-
-        def allocate(self, space, w_type, itemcount=0):
-            # similar to PyType_GenericAlloc?
-            # except that it's not related to any pypy object.
-
-            pytype = rffi.cast(PyTypeObjectPtr, make_ref(space, w_type))
-            # Don't increase refcount for non-heaptypes
-            if pytype:
-                flags = rffi.cast(lltype.Signed, pytype.c_tp_flags)
-                if not flags & Py_TPFLAGS_HEAPTYPE:
-                    Py_DecRef(space, w_type)
-
-            if pytype:
-                size = pytype.c_tp_basicsize
-            else:
-                size = rffi.sizeof(tp_basestruct)
-            if itemcount:
-                size += itemcount * pytype.c_tp_itemsize
-            buf = lltype.malloc(rffi.VOIDP.TO, size,
-                                flavor='raw', zero=True)
-            pyobj = rffi.cast(PyObject, buf)
-            pyobj.c_ob_refcnt = 1
-            pyobj.c_ob_type = pytype
-            return pyobj
 
         if tp_attach:
             def attach(self, space, pyobj, w_obj):
                 tp_attach(space, pyobj, w_obj)
-        else:
-            def attach(self, space, pyobj, w_obj):
-                pass
 
         if tp_realize:
             def realize(self, space, ref):
                 return tp_realize(space, ref)
-        else:
-            def realize(self, space, ref):
-                # For most types, a reference cannot exist without
-                # a real interpreter object
-                raise InvalidPointerException(str(ref))
     if typedef:
         CpyTypedescr.__name__ = "CpyTypedescr_%s" % (typedef.name,)
 

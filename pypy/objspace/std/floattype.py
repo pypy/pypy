@@ -32,14 +32,14 @@ def descr__new__(space, w_floattype, w_x=0.0):
         if space.is_w(w_floattype, space.w_float):
             return w_obj
         value = space.float_w(w_obj)
-    elif space.is_true(space.isinstance(w_value, space.w_str)):
+    elif space.isinstance_w(w_value, space.w_str):
         strvalue = space.str_w(w_value)
         try:
             value = string_to_float(strvalue)
         except ParseStringError, e:
             raise OperationError(space.w_ValueError,
                                  space.wrap(e.msg))
-    elif space.is_true(space.isinstance(w_value, space.w_unicode)):
+    elif space.isinstance_w(w_value, space.w_unicode):
         if space.config.objspace.std.withropeunicode:
             from pypy.objspace.std.ropeunicodeobject import unicode_to_decimal_w
         else:

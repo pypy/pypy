@@ -636,7 +636,8 @@ pypy_asm_stackwalk = rffi.llexternal('pypy_asm_stackwalk',
                                       ASM_FRAMEDATA_HEAD_PTR],
                                      lltype.Signed,
                                      sandboxsafe=True,
-                                     _nowrapper=True)
+                                     _nowrapper=True,
+                                     random_effects_on_gcobjs=True)
 c_asm_stackwalk = Constant(pypy_asm_stackwalk,
                            lltype.typeOf(pypy_asm_stackwalk))
 
@@ -662,4 +663,5 @@ qsort = rffi.llexternal('qsort',
                          QSORT_CALLBACK_PTR],
                         lltype.Void,
                         sandboxsafe=True,
+                        random_effects_on_gcobjs=False,  # but has a callback
                         _nowrapper=True)

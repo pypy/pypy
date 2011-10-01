@@ -153,7 +153,10 @@ class DictTests:
 
         res = self.meta_interp(f, [100], listops=True)
         assert res == f(50)
-        self.check_loops(call=4)
+        self.check_loops({"call": 7, "guard_false": 1, "guard_no_exception": 6,
+                          "guard_true": 1, "int_and": 1, "int_gt": 1,
+                          "int_is_true": 1, "int_sub": 1, "jump": 1,
+                          "new_with_vtable": 1, "setfield_gc": 1})
 
 
 class TestOOtype(DictTests, OOJitMixin):

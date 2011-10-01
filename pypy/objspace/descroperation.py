@@ -6,6 +6,7 @@ from pypy.interpreter.argument import Arguments
 from pypy.interpreter.typedef import default_identity_hash
 from pypy.tool.sourcetools import compile2, func_with_new_name
 from pypy.module.__builtin__.interp_classobj import W_InstanceObject
+from pypy.rlib.objectmodel import specialize
 
 def object_getattribute(space):
     "Utility that returns the app-level descriptor object.__getattribute__."
@@ -507,8 +508,9 @@ class DescrOperation(object):
     def issubtype(space, w_sub, w_type):
         return space._type_issubtype(w_sub, w_type)
 
+    @specialize.arg_or_var(2)
     def isinstance(space, w_inst, w_type):
-        return space._type_isinstance(w_inst, w_type)
+        return space.wrap(space._type_isinstance(w_inst, w_type))
 
     def issubtype_allow_override(space, w_sub, w_type):
         w_check = space.lookup(w_type, "__subclasscheck__")

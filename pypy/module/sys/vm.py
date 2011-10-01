@@ -1,11 +1,13 @@
 """
 Implementation of interpreter-level 'sys' routines.
 """
+import sys
+
+from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec, NoneNotWrapped
-from pypy.rlib.runicode import MAXUNICODE
 from pypy.rlib import jit
-import sys
+from pypy.rlib.runicode import MAXUNICODE
 
 # ____________________________________________________________
 
@@ -42,6 +44,25 @@ purposes only."""
         f = ec.getnextframe_nohidden(f)
     f.mark_as_escaped()
     return space.wrap(f)
+
+def _current_frames(space):
+    """_current_frames() -> dictionary
+
+    Return a dictionary mapping each current thread T's thread id to T's
+    current stack frame.
+
+    This function should be used for specialized purposes only."""
+    raise OperationError(space.w_NotImplementedError,
+        space.wrap("XXX sys._current_frames() incompatible with the JIT"))
+    w_result = space.newdict()
+    ecs = space.threadlocals.getallvalues()
+    for thread_ident, ec in ecs.items():
+        f = ec.gettopframe_nohidden()
+        f.mark_as_escaped()
+        space.setitem(w_result,
+                      space.wrap(thread_ident),
+                      space.wrap(f))
+    return w_result
 
 def setrecursionlimit(space, w_new_limit):
     """setrecursionlimit() sets the maximum number of nested calls that
@@ -107,7 +128,7 @@ def settrace(space, w_func):
     """Set the global debug tracing function.  It will be called on each
 function call.  See the debugger chapter in the library manual."""
     space.getexecutioncontext().settrace(w_func)
-    
+
 def setprofile(space, w_func):
     """Set the profiling function.  It will be called on each function call
 and return.  See the profiler chapter in the library manual."""
@@ -128,14 +149,47 @@ saved, and restored afterwards.  This is intended to be called from
 a debugger from a checkpoint, to recursively debug some other code."""
     return space.getexecutioncontext().call_tracing(w_func, w_args)
 
+
+app = gateway.applevel('''
+"NOT_RPYTHON"
+from _structseq import structseqtype, structseqfield
+
+class windows_version_info:
+    __metaclass__ = structseqtype
+
+    name = "sys.getwindowsversion"
+
+    major = structseqfield(0, "Major version number")
+    minor = structseqfield(1, "Minor version number")
+    build = structseqfield(2, "Build number")
+    platform = structseqfield(3, "Operating system platform")
+    service_pack = structseqfield(4, "Latest Service Pack installed on the system")
+
+    # Because the indices aren't consecutive, they aren't included when
+    # unpacking and other such operations.
+    service_pack_major = structseqfield(10, "Service Pack major version number")
+    service_pack_minor = structseqfield(11, "Service Pack minor version number")
+    suite_mask = structseqfield(12, "Bit mask identifying available product suites")
+    product_type = structseqfield(13, "System product type")
+''')
+
+
 def getwindowsversion(space):
     from pypy.rlib import rwin32
     info = rwin32.GetVersionEx()
-    return space.newtuple([space.wrap(info[0]),
-                           space.wrap(info[1]),
-                           space.wrap(info[2]),
-                           space.wrap(info[3]),
-                           space.wrap(info[4])])
+    w_windows_version_info = app.wget(space, "windows_version_info")
+    raw_version = space.newtuple([
+        space.wrap(info[0]),
+        space.wrap(info[1]),
+        space.wrap(info[2]),
+        space.wrap(info[3]),
+        space.wrap(info[4]),
+        space.wrap(info[5]),
+        space.wrap(info[6]),
+        space.wrap(info[7]),
+        space.wrap(info[8]),
+    ])
+    return space.call_function(w_windows_version_info, raw_version)
 
 @jit.dont_look_inside
 def get_dllhandle(space):

@@ -78,7 +78,7 @@ class AbstractCPU(object):
         Optionally, return a ``ops_offset`` dictionary.  See the docstring of
         ``compiled_loop`` for more informations about it.
         """
-        raise NotImplementedError    
+        raise NotImplementedError
 
     def dump_loop_token(self, looptoken):
         """Print a disassembled version of looptoken to stdout"""
@@ -301,6 +301,10 @@ class AbstractCPU(object):
     def bh_strsetitem(self, string, index, newvalue):
         raise NotImplementedError
     def bh_unicodesetitem(self, string, index, newvalue):
+        raise NotImplementedError
+    def bh_copystrcontent(self, src, dst, srcstart, dststart, length):
+        raise NotImplementedError
+    def bh_copyunicodecontent(self, src, dst, srcstart, dststart, length):
         raise NotImplementedError
 
     def force(self, force_token):

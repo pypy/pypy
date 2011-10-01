@@ -30,7 +30,18 @@ class W_IntObject(W_Object):
 
     def unwrap(w_self, space):
         return int(w_self.intval)
+    int_w = unwrap
 
+    def uint_w(w_self, space):
+        intval = w_self.intval
+        if intval < 0:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("cannot convert negative integer to unsigned"))
+        else:
+            return r_uint(intval)
+
+    def bigint_w(w_self, space):
+        return rbigint.fromint(w_self.intval)
 
 registerimplementation(W_IntObject)
 
@@ -38,20 +49,6 @@ registerimplementation(W_IntObject)
 # multimethods should be invoked from these implementations. Instead, add an
 # alias and then teach copy_multimethods in smallintobject.py to override
 # it. See int__Int for example.
-
-def int_w__Int(space, w_int1):
-    return int(w_int1.intval)
-
-def uint_w__Int(space, w_int1):
-    intval = w_int1.intval
-    if intval < 0:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("cannot convert negative integer to unsigned"))
-    else:
-        return r_uint(intval)
-
-def bigint_w__Int(space, w_int1):
-    return rbigint.fromint(w_int1.intval)
 
 def repr__Int(space, w_int1):
     a = w_int1.intval

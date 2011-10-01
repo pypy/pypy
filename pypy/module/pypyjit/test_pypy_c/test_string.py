@@ -1,5 +1,6 @@
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 
+
 class TestString(BaseTestPyPyC):
     def test_lookup_default_encoding(self):
         def main(n):
@@ -106,4 +107,53 @@ class TestString(BaseTestPyPyC):
             guard_no_overflow(descr=...)
             --TICK--
             jump(p0, p1, p2, p3, p4, p5, i58, i7, descr=<Loop4>)
+        """)
+
+    def test_str_mod(self):
+        def main(n):
+            s = 0
+            while n > 0:
+                s += len('%d %d' % (n, n))
+                n -= 1
+            return s
+
+        log = self.run(main, [1000])
+        assert log.result == main(1000)
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i7 = int_gt(i4, 0)
+            guard_true(i7, descr=...)
+            guard_not_invalidated(descr=...)
+            p9 = call(ConstClass(ll_int2dec__Signed), i4, descr=<GcPtrCallDescr>)
+            guard_no_exception(descr=...)
+            i10 = strlen(p9)
+            i11 = int_is_true(i10)
+            guard_true(i11, descr=...)
+            i13 = strgetitem(p9, 0)
+            i15 = int_eq(i13, 45)
+            guard_false(i15, descr=...)
+            i17 = int_sub(0, i10)
+            i19 = int_gt(i10, 23)
+            guard_false(i19, descr=...)
+            p21 = newstr(23)
+            copystrcontent(p9, p21, 0, 0, i10)
+            i25 = int_add(1, i10)
+            i26 = int_gt(i25, 23)
+            guard_false(i26, descr=...)
+            strsetitem(p21, i10, 32)
+            i29 = int_add(i10, 1)
+            i30 = int_add(i10, i25)
+            i31 = int_gt(i30, 23)
+            guard_false(i31, descr=...)
+            copystrcontent(p9, p21, 0, i25, i10)
+            i33 = int_eq(i30, 23)
+            guard_false(i33, descr=...)
+            p35 = call(ConstClass(ll_shrink_array__rpy_stringPtr_Signed), p21, i30, descr=<GcPtrCallDescr>)
+            guard_no_exception(descr=...)
+            i37 = strlen(p35)
+            i38 = int_add_ovf(i5, i37)
+            guard_no_overflow(descr=...)
+            i40 = int_sub(i4, 1)
+            --TICK--
+            jump(p0, p1, p2, p3, i40, i38, descr=<Loop0>)
         """)

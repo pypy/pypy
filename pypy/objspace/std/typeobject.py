@@ -115,6 +115,9 @@ class W_TypeObject(W_Object):
     # of the __new__ is an instance of the type
     w_bltin_new = None
 
+    interplevel_cls = None # not None for prebuilt instances of
+                           # interpreter-level types
+
     @dont_look_inside
     def __init__(w_self, space, name, bases_w, dict_w,
                  overridetypedef=None):
@@ -508,15 +511,15 @@ class W_TypeObject(W_Object):
             # type name.  That's a hack, so we're allowed to use a different
             # hack...
             if ('__module__' in w_self.dict_w and
-                space.is_true(space.isinstance(w_self.getdictvalue(space, '__module__'),
-                                               space.w_str))):
+                space.isinstance_w(w_self.getdictvalue(space, '__module__'),
+                                               space.w_str)):
                 return w_self.getdictvalue(space, '__module__')
             return space.wrap('__builtin__')
 
     def get_module_type_name(w_self):
         space = w_self.space
         w_mod = w_self.get_module()
-        if not space.is_true(space.isinstance(w_mod, space.w_str)):
+        if not space.isinstance_w(w_mod, space.w_str):
             mod = '__builtin__'
         else:
             mod = space.str_w(w_mod)
@@ -850,7 +853,7 @@ def call__Type(space, w_type, __args__):
             not space.is_w(w_newtype, space.w_type)):
             w_type.w_bltin_new = w_newfunc
         w_newobject = space.call_obj_args(w_newfunc, w_type, __args__)
-        call_init = space.is_true(space.isinstance(w_newobject, w_type))
+        call_init = space.isinstance_w(w_newobject, w_type)
 
     # maybe invoke the __init__ of the type
     if call_init:
@@ -876,7 +879,7 @@ def isinstance__Type_ANY(space, w_type, w_inst):
 
 def repr__Type(space, w_obj):
     w_mod = w_obj.get_module()
-    if not space.is_true(space.isinstance(w_mod, space.w_str)):
+    if not space.isinstance_w(w_mod, space.w_str):
         mod = None
     else:
         mod = space.str_w(w_mod)

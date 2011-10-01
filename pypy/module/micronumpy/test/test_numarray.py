@@ -557,6 +557,26 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert array([1.2, 5]).dtype is dtype(float)
         assert array([]).dtype is dtype(float)
 
+    def test_comparison(self):
+        import operator
+        from numpy import array, dtype
+
+        a = array(range(5))
+        b = array(range(5), float)
+        for func in [
+            operator.eq, operator.ne, operator.lt, operator.le, operator.gt,
+            operator.ge
+        ]:
+            c = func(a, 3)
+            assert c.dtype is dtype(bool)
+            for i in xrange(5):
+                assert c[i] == func(a[i], 3)
+
+            c = func(b, 3)
+            assert c.dtype is dtype(bool)
+            for i in xrange(5):
+                assert c[i] == func(b[i], 3)
+
 
 class AppTestSupport(object):
     def setup_class(cls):

@@ -583,6 +583,16 @@ class AbstractLLCPU(AbstractCPU):
         u = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), string)
         u.chars[index] = unichr(newvalue)
 
+    def bh_copystrcontent(self, src, dst, srcstart, dststart, length):
+        src = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), src)
+        dst = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), dst)
+        rstr.copy_string_contents(src, dst, srcstart, dststart, length)
+
+    def bh_copyunicodecontent(self, src, dst, srcstart, dststart, length):
+        src = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), src)
+        dst = lltype.cast_opaque_ptr(lltype.Ptr(rstr.UNICODE), dst)
+        rstr.copy_unicode_contents(src, dst, srcstart, dststart, length)
+
     def bh_call_i(self, func, calldescr, args_i, args_r, args_f):
         assert isinstance(calldescr, BaseIntCallDescr)
         if not we_are_translated():

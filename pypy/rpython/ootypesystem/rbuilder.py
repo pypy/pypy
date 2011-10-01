@@ -7,6 +7,9 @@ from pypy.rpython.ootypesystem.rstr import string_repr, char_repr,\
 MAX = 16*1024*1024
 
 class BaseBuilderRepr(AbstractStringBuilderRepr):
+    def empty(self):
+        return ootype.null(self.lowleveltype)
+    
     @classmethod
     def ll_new(cls, init_size):
         if init_size < 0 or init_size > MAX:
@@ -35,6 +38,10 @@ class BaseBuilderRepr(AbstractStringBuilderRepr):
     @staticmethod
     def ll_build(builder):
         return builder.ll_build()
+
+    @staticmethod
+    def ll_is_true(builder):
+        return bool(builder)
 
 class StringBuilderRepr(BaseBuilderRepr):
     lowleveltype = ootype.StringBuilder

@@ -24,7 +24,12 @@ def descr__repr__(space, w_obj):
     return w_obj.getrepr(space, '%s object' % (classname,))
 
 def descr__str__(space, w_obj):
-    return space.repr(w_obj)
+    w_type = space.type(w_obj)
+    w_impl = w_type.lookup("__repr__")
+    if w_impl is None:
+        raise OperationError(space.w_TypeError,      # can it really occur?
+                             space.wrap("operand does not support unary str"))
+    return space.get_and_call_function(w_impl, w_obj)
 
 def descr__class__(space, w_obj):
     return space.type(w_obj)

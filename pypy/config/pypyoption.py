@@ -27,7 +27,7 @@ default_modules.update(dict.fromkeys(
 # --allworkingmodules
 working_modules = default_modules.copy()
 working_modules.update(dict.fromkeys(
-    ["_socket", "unicodedata", "mmap", "fcntl", "_locale",
+    ["_socket", "unicodedata", "mmap", "fcntl", "_locale", "pwd",
      "rctime" , "select", "zipimport", "_lsprof",
      "crypt", "signal", "_rawffi", "termios", "zlib", "bz2",
      "struct", "_hashlib", "_md5", "_sha", "_minimal_curses", "cStringIO",
@@ -58,6 +58,7 @@ if sys.platform == "win32":
     # unix only modules
     del working_modules["crypt"]
     del working_modules["fcntl"]
+    del working_modules["pwd"]
     del working_modules["termios"]
     del working_modules["_minimal_curses"]
 

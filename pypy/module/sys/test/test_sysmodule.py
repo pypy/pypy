@@ -1,16 +1,16 @@
 # -*- coding: iso-8859-1 -*-
 import autopath
-from pypy.conftest import option
+from pypy.conftest import option, gettestobjspace
 from py.test import raises
 from pypy.interpreter.gateway import app2interp_temp
 import sys
 
 def test_stdin_exists(space):
-    space.sys.get('stdin') 
+    space.sys.get('stdin')
     space.sys.get('__stdin__')
 
 def test_stdout_exists(space):
-    space.sys.get('stdout') 
+    space.sys.get('stdout')
     space.sys.get('__stdout__')
 
 class AppTestAppSysTests:
@@ -25,7 +25,7 @@ class AppTestAppSysTests:
         assert 'sys' in modules, ( "An entry for sys "
                                         "is not in sys.modules.")
         sys2 = sys.modules['sys']
-        assert sys is sys2, "import sys is not sys.modules[sys]." 
+        assert sys is sys2, "import sys is not sys.modules[sys]."
     def test_builtin_in_modules(self):
         import sys
         modules = sys.modules
@@ -89,12 +89,12 @@ class AppTestAppSysTests:
         else:
             raise AssertionError, "ZeroDivisionError not caught"
 
-    def test_io(self): 
+    def test_io(self):
         import sys
         assert isinstance(sys.__stdout__, file)
         assert isinstance(sys.__stderr__, file)
         assert isinstance(sys.__stdin__, file)
-    
+
         if self.appdirect and not isinstance(sys.stdin, file):
             return
 
@@ -324,7 +324,7 @@ class AppTestSysModulePortedFromCPython:
         import sys
         if self.appdirect:
             skip("not worth running appdirect")
-            
+
         encoding = sys.getdefaultencoding()
         try:
             sys.setdefaultencoding("ascii")
@@ -334,11 +334,11 @@ class AppTestSysModulePortedFromCPython:
             sys.setdefaultencoding("latin-1")
             assert sys.getdefaultencoding() == 'latin-1'
             assert unicode('\x80') == u'\u0080'
-            
+
         finally:
             sys.setdefaultencoding(encoding)
 
-            
+
     # testing sys.settrace() is done in test_trace.py
     # testing sys.setprofile() is done in test_profile.py
 
@@ -371,6 +371,21 @@ class AppTestSysModulePortedFromCPython:
             assert isinstance(v[2], int)
             assert isinstance(v[3], int)
             assert isinstance(v[4], str)
+
+            assert v[0] == v.major
+            assert v[1] == v.minor
+            assert v[2] == v.build
+            assert v[3] == v.platform
+            assert v[4] == v.service_pack
+
+            assert isinstance(v.service_pack_minor, int)
+            assert isinstance(v.service_pack_major, int)
+            assert isinstance(v.suite_mask, int)
+            assert isinstance(v.product_type, int)
+
+            # This is how platform.py calls it. Make sure tuple still has 5
+            # elements
+            maj, min, buildno, plat, csd = sys.getwindowsversion()
 
     def test_winver(self):
         import sys
@@ -524,3 +539,51 @@ class AppTestSysModulePortedFromCPython:
         # If this ever actually becomes a compilation option this test should
         # be changed.
         assert sys.float_repr_style == "short"
+
+class AppTestCurrentFrames:
+
+    def test_current_frames(self):
+        try:
+            import thread
+        except ImportError:
+            pass
+        else:
+            skip('This test requires an intepreter without threads')
+        import sys
+
+        def f():
+            return sys._current_frames()
+        frames = f()
+        assert frames.keys() == [0]
+        assert frames[0].f_code.co_name == 'f'
+
+class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
+    def setup_class(cls):
+        cls.space = gettestobjspace(usemodules=('thread',))
+
+    def test_current_frames(self):
+        import sys
+        import time
+        import thread
+
+        thread_id = thread.get_ident()
+        self.ready = False
+        def other_thread():
+            self.ready = True
+            print "thread started"
+            time.sleep(5)
+        thread.start_new_thread(other_thread, ())
+
+        def f():
+            for i in range(100):
+                if self.ready: break
+                time.sleep(0.1)
+            return sys._current_frames()
+
+        frames = f()
+        thisframe = frames.pop(thread_id)
+        assert thisframe.f_code.co_name == 'f'
+
+        assert len(frames) == 1
+        _, other_frame = frames.popitem()
+        assert other_frame.f_code.co_name == 'other_thread'

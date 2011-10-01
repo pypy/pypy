@@ -74,6 +74,13 @@ class BaseArray(Wrappable):
     descr_pow = _binop_impl("power")
     descr_mod = _binop_impl("mod")
 
+    descr_eq = _binop_impl("equal")
+    descr_ne = _binop_impl("not_equal")
+    descr_lt = _binop_impl("less")
+    descr_le = _binop_impl("less_equal")
+    descr_gt = _binop_impl("greater")
+    descr_ge = _binop_impl("greater_equal")
+
     def _binop_right_impl(ufunc_name):
         def impl(self, space, w_other):
             w_other = scalar_w(space,
@@ -404,10 +411,11 @@ class Call2(VirtualArray):
     """
     Intermediate class for performing binary operations.
     """
-    def __init__(self, signature, res_dtype, left, right):
+    def __init__(self, signature, calc_dtype, res_dtype, left, right):
         VirtualArray.__init__(self, signature, res_dtype)
         self.left = left
         self.right = right
+        self.calc_dtype = calc_dtype
 
     def _del_sources(self):
         self.left = None
@@ -421,14 +429,14 @@ class Call2(VirtualArray):
         return self.right.find_size()
 
     def _eval(self, i):
-        lhs = self.left.eval(i).convert_to(self.res_dtype)
-        rhs = self.right.eval(i).convert_to(self.res_dtype)
+        lhs = self.left.eval(i).convert_to(self.calc_dtype)
+        rhs = self.right.eval(i).convert_to(self.calc_dtype)
 
         sig = jit.promote(self.signature)
         assert isinstance(sig, signature.Signature)
         call_sig = sig.components[0]
         assert isinstance(call_sig, signature.Call2)
-        return call_sig.func(self.res_dtype, lhs, rhs)
+        return call_sig.func(self.calc_dtype, lhs, rhs)
 
 class ViewArray(BaseArray):
     """
@@ -573,18 +581,28 @@ BaseArray.typedef = TypeDef(
     __pos__ = interp2app(BaseArray.descr_pos),
     __neg__ = interp2app(BaseArray.descr_neg),
     __abs__ = interp2app(BaseArray.descr_abs),
+
     __add__ = interp2app(BaseArray.descr_add),
     __sub__ = interp2app(BaseArray.descr_sub),
     __mul__ = interp2app(BaseArray.descr_mul),
     __div__ = interp2app(BaseArray.descr_div),
     __pow__ = interp2app(BaseArray.descr_pow),
     __mod__ = interp2app(BaseArray.descr_mod),
+
     __radd__ = interp2app(BaseArray.descr_radd),
     __rsub__ = interp2app(BaseArray.descr_rsub),
     __rmul__ = interp2app(BaseArray.descr_rmul),
     __rdiv__ = interp2app(BaseArray.descr_rdiv),
     __rpow__ = interp2app(BaseArray.descr_rpow),
     __rmod__ = interp2app(BaseArray.descr_rmod),
+
+    __eq__ = interp2app(BaseArray.descr_eq),
+    __ne__ = interp2app(BaseArray.descr_ne),
+    __lt__ = interp2app(BaseArray.descr_lt),
+    __le__ = interp2app(BaseArray.descr_le),
+    __gt__ = interp2app(BaseArray.descr_gt),
+    __ge__ = interp2app(BaseArray.descr_ge),
+
     __repr__ = interp2app(BaseArray.descr_repr),
     __str__ = interp2app(BaseArray.descr_str),
 

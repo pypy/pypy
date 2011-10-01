@@ -1,9 +1,9 @@
-from pypy.interpreter.error import OperationError
-
+from pypy.rlib import jit
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rstruct.error import StructError
-from pypy.rlib.rstruct.standardfmttable import PACK_ACCEPTS_BROKEN_INPUT
 from pypy.rlib.rstruct.formatiterator import FormatIterator
+from pypy.rlib.rstruct.standardfmttable import PACK_ACCEPTS_BROKEN_INPUT
+from pypy.interpreter.error import OperationError
 
 
 class PackFormatIterator(FormatIterator):
@@ -14,15 +14,20 @@ class PackFormatIterator(FormatIterator):
         self.args_index = 0
         self.result = []      # list of characters
 
+    # This *should* be always unroll safe, the only way to get here is by
+    # unroll the interpret function, which means the fmt is const, and thus
+    # this should be const (in theory ;)
+    @jit.unroll_safe
+    @specialize.arg(1)
     def operate(self, fmtdesc, repetitions):
         if fmtdesc.needcount:
             fmtdesc.pack(self, repetitions)
         else:
             for i in range(repetitions):
                 fmtdesc.pack(self)
-    operate._annspecialcase_ = 'specialize:arg(1)'
     _operate_is_specialized_ = True
 
+    @jit.unroll_safe
     def align(self, mask):
         pad = (-len(self.result)) & mask
         for i in range(pad):
@@ -130,13 +135,15 @@ class UnpackFormatIterator(FormatIterator):
         self.inputpos = 0
         self.result_w = []     # list of wrapped objects
 
+    # See above comment on operate.
+    @jit.unroll_safe
+    @specialize.arg(1)
     def operate(self, fmtdesc, repetitions):
         if fmtdesc.needcount:
             fmtdesc.unpack(self, repetitions)
         else:
             for i in range(repetitions):
                 fmtdesc.unpack(self)
-    operate._annspecialcase_ = 'specialize:arg(1)'
     _operate_is_specialized_ = True
 
     def align(self, mask):
@@ -154,7 +161,6 @@ class UnpackFormatIterator(FormatIterator):
         self.inputpos = end
         return s
 
+    @specialize.argtype(1)
     def appendobj(self, value):
         self.result_w.append(self.space.wrap(value))
-    appendobj._annspecialcase_ = 'specialize:argtype(1)'
-
