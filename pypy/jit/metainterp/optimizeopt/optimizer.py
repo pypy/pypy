@@ -375,7 +375,8 @@ class Optimizer(Optimization):
         return new
 
     def produce_potential_short_preamble_ops(self, sb):
-        raise NotImplementedError('This is implemented in unroll.UnrollableOptimizer')
+        for opt in self.optimizations:
+            opt.produce_potential_short_preamble_ops(sb)
 
     def turned_constant(self, value):
         for o in self.optimizations:
@@ -576,9 +577,6 @@ class Optimizer(Optimization):
 
     def optimize_default(self, op):
         self.emit_operation(op)
-
-    def remember_emitting_pure(self, op):
-        pass
 
     def constant_fold(self, op):
         argboxes = [self.get_constant_box(op.getarg(i))

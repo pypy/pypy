@@ -7,6 +7,7 @@ class OptPure(Optimization):
     def __init__(self):
         self.posponedop = None
         self.pure_operations = args_dict()
+        self.emitted_pure_operations = {}
 
     def propagate_forward(self, op):
         dispatch_opt(self, op)
@@ -46,7 +47,7 @@ class OptPure(Optimization):
                 return
             else:
                 self.pure_operations[args] = op
-                self.optimizer.remember_emitting_pure(op)
+                self.remember_emitting_pure(op)
 
         # otherwise, the operation remains
         self.emit_operation(op)
@@ -81,7 +82,7 @@ class OptPure(Optimization):
             return
         else:
             self.pure_operations[args] = op
-            self.optimizer.remember_emitting_pure(op)
+            self.remember_emitting_pure(op)
 
         # replace CALL_PURE with just CALL
         args = op.getarglist()
@@ -114,6 +115,18 @@ class OptPure(Optimization):
 
     def get_pure_result(self, key):
         return self.pure_operations.get(key, None)
+
+    def remember_emitting_pure(self, op):
+        self.emitted_pure_operations[op] = True
+
+    def produce_potential_short_preamble_ops(self, sb):
+        for op in self.emitted_pure_operations:
+            if op.getopnum() == rop.GETARRAYITEM_GC_PURE or \
+               op.getopnum() == rop.STRGETITEM or \
+               op.getopnum() == rop.UNICODEGETITEM:
+                if not self.getvalue(op.getarg(1)).is_constant():
+                    continue
+            sb.add_potential(op)
 
 dispatch_opt = make_dispatcher_method(OptPure, 'optimize_',
                                       default=OptPure.optimize_default)

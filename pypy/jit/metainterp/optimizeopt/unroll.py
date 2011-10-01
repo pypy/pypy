@@ -75,7 +75,6 @@ class UnrollableOptimizer(Optimizer):
         self.importable_values = {}
         self.emitting_dissabled = False
         self.emitted_guards = 0
-        self.emitted_pure_operations = {}
 
     def ensure_imported(self, value):
         if not self.emitting_dissabled and value in self.importable_values:
@@ -95,21 +94,6 @@ class UnrollableOptimizer(Optimizer):
     def new(self):
         new = UnrollableOptimizer(self.metainterp_sd, self.loop)
         return self._new(new)
-
-    def remember_emitting_pure(self, op):
-        self.emitted_pure_operations[op] = True
-
-    def produce_potential_short_preamble_ops(self, sb):
-        for op in self.emitted_pure_operations:
-            if op.getopnum() == rop.GETARRAYITEM_GC_PURE or \
-               op.getopnum() == rop.STRGETITEM or \
-               op.getopnum() == rop.UNICODEGETITEM:
-                if not self.getvalue(op.getarg(1)).is_constant():
-                    continue
-            sb.add_potential(op)
-        for opt in self.optimizations:
-            opt.produce_potential_short_preamble_ops(sb)
-
 
 
 class UnrollOptimizer(Optimization):
