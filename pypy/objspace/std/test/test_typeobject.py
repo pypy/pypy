@@ -126,6 +126,12 @@ class AppTestTypeObject:
         raises(TypeError, type, 'test', 42, {})
         raises(TypeError, type, 'test', (object,), 42)
 
+    def test_call_type_subclass(self):
+        class A(type):
+            pass
+
+        assert A("hello") is str
+
     def test_bases(self):
         assert int.__bases__ == (object,)
         class X:
