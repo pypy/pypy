@@ -3408,6 +3408,30 @@ class BaseLLtypeTests(BasicTests):
         assert res == main(1, 10)
         self.check_loops(call=0)
 
+    def test_virtual_lightweight_finalizer(self):
+        py.test.skip("raw mallocs unsupported, otherwise this would be a problem")
+        from pypy.rlib import rgc
+        import gc
+
+        S = lltype.Struct('S', ('x', lltype.Signed))
+        
+        @rgc.owns_raw_memory('p')
+        class A(object):
+            def __init__(self):
+                self.p = lltype.malloc(S, flavor='raw')
+
+        driver = JitDriver(greens = [], reds = ['i', 'a'])
+
+        def f(i):
+            a = None
+            while i > 0:
+                driver.jit_merge_point(i=i, a=a)
+                a = A()
+                i -= 1
+            gc.collect()
+
+        self.meta_interp(f, [10])
+
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
     pass
