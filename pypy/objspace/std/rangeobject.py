@@ -23,7 +23,7 @@ def length(start, stop, step):
 
 class W_RangeListObject(W_Object):
     typedef = listtype.list_typedef
-    
+
     def __init__(w_self, start, step, length):
         assert step != 0
         w_self.start = start
@@ -40,7 +40,7 @@ class W_RangeListObject(W_Object):
         if not length:
             w_self.w_list = space.newlist([])
             return w_self.w_list
-        
+
         arr = [None] * length  # this is to avoid using append.
 
         i = start
@@ -146,7 +146,11 @@ def list_pop__RangeList_ANY(space, w_rangelist, w_idx=-1):
     if length == 0:
         raise OperationError(space.w_IndexError,
                              space.wrap("pop from empty list"))
-    idx = space.int_w(w_idx)
+    if space.isinstance_w(w_idx, space.w_float):
+        raise OperationError(space.w_TypeError,
+            space.wrap("integer argument expected, got float")
+        )
+    idx = space.int_w(space.int(w_idx))
     if idx == 0:
         result = w_rangelist.start
         w_rangelist.start += w_rangelist.step
