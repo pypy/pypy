@@ -74,8 +74,24 @@ class BaseArray(Wrappable):
     descr_pow = _binop_impl("power")
     descr_mod = _binop_impl("mod")
 
-    descr_eq = _binop_impl("equal")
-    descr_ne = _binop_impl("not_equal")
+    def _eq_ne_impl(ufunc_name, fallback_res):
+        assert isinstance(fallback_res, bool)
+        def impl(self, space, w_other):
+            # Unlike ufunc, operator may return simple bool
+            if space.is_w(w_other, space.w_None):
+                # Special case
+                return space.wrap(fallback_res)
+            try:
+                return getattr(interp_ufuncs.get(space), ufunc_name).call(space, [self, w_other])
+            except OperationError, e:
+                if e.match(space, space.w_ValueError):
+                    # For the case when arrays of incompatible size are compared
+                    return space.wrap(fallback_res)
+                raise
+        return func_with_new_name(impl, "binop_%s_impl" % ufunc_name)
+
+    descr_eq = _eq_ne_impl("equal", False)
+    descr_ne = _eq_ne_impl("not_equal", True)
     descr_lt = _binop_impl("less")
     descr_le = _binop_impl("less_equal")
     descr_gt = _binop_impl("greater")

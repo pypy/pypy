@@ -577,6 +577,15 @@ class AppTestNumArray(BaseNumpyAppTest):
             for i in xrange(5):
                 assert c[i] == func(b[i], 3)
 
+    def test_eq_ne(self):
+        from numpy import array
+        a = array(range(5))
+        assert (a == None) is False
+        assert (a != None) is True
+        # TODO: uncomment after size check is implemented
+        # b = array(range(2))
+        # assert (a == b) is False
+        # assert (a != b) is True
 
 class AppTestSupport(object):
     def setup_class(cls):
