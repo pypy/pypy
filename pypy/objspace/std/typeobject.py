@@ -848,7 +848,13 @@ def call__Type(space, w_type, __args__):
         call_init = space.isinstance_w(w_newobject, w_type)
 
     # maybe invoke the __init__ of the type
-    if call_init:
+    try:
+        __args__.fixedunpack(1)
+    except ValueError:
+        single_arg = False
+    else:
+        single_arg = True
+    if call_init and not (space.is_w(w_type, space.w_type) and single_arg):
         w_descr = space.lookup(w_newobject, '__init__')
         w_result = space.get_and_call_args(w_descr, w_newobject, __args__)
         if not space.is_w(w_result, space.w_None):
