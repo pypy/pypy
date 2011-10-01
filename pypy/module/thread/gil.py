@@ -116,6 +116,7 @@ def do_yield_thread():
         spacestate.after_thread_switch()
 do_yield_thread._gctransformer_hint_close_stack_ = True
 do_yield_thread._dont_reach_me_in_del_ = True
+do_yield_thread._dont_inline_ = True
 
 # do_yield_thread() needs a different hint: _gctransformer_hint_close_stack_.
 # The *_external_call() functions are themselves called only from the rffi
