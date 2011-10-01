@@ -496,9 +496,11 @@ char *RPyThreadTLS_Create(RPyThreadTLS *result)
 
 static void _debug_print(const char *msg)
 {
+#if 0
     int col = (int)pthread_self();
     col = 31 + ((col / 8) % 8);
     fprintf(stderr, "\033[%dm%s\033[0m", col, msg);
+#endif
 }
 
 static volatile long pending_acquires = -1;
