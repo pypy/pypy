@@ -324,7 +324,6 @@ class Optimizer(Optimization):
         self.bool_boxes = {}
         self.producer = {}
         self.pendingfields = []
-        self.posponedop = None
         self.exception_might_have_happened = False
         self.quasi_immutable_deps = None
         self.opaque_pointers = {}
@@ -361,14 +360,12 @@ class Optimizer(Optimization):
     def flush(self):
         for o in self.optimizations:
             o.flush()
-        assert self.posponedop is None
 
     def new(self):
         new = Optimizer(self.metainterp_sd, self.loop)
         return self._new(new)
 
     def _new(self, new):
-        assert self.posponedop is None
         optimizations = [o.new() for o in self.optimizations]
         new.set_optimizations(optimizations)
         new.quasi_immutable_deps = self.quasi_immutable_deps
