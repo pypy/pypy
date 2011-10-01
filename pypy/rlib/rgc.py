@@ -3,6 +3,7 @@ import types
 
 from pypy.rlib import jit
 from pypy.rlib.objectmodel import we_are_translated, enforceargs, specialize
+from pypy.rlib.nonconst import NonConstant
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.lltypesystem import lltype, llmemory
 
@@ -144,7 +145,7 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
     from pypy.rlib.objectmodel import keepalive_until_here
 
     # XXX: Hack to ensure that we get a proper effectinfo.write_descrs_arrays
-    if length > 0:
+    if NonConstant(False):
         dest[dest_start] = source[source_start]
 
     # supports non-overlapping copies only

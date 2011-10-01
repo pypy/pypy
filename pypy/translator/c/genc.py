@@ -563,7 +563,10 @@ class CStandaloneBuilder(CBuilder):
             else:
                 mk.definition('PYPY_MAIN_FUNCTION', "main")
 
-            if sys.platform == 'win32':
+            if (py.path.local.sysfind('python') or
+                py.path.local.sysfind('python.exe')):
+                python = 'python '
+            elif sys.platform == 'win32':
                 python = sys.executable.replace('\\', '/') + ' '
             else:
                 python = sys.executable + ' '

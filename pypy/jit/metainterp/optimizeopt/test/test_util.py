@@ -182,7 +182,8 @@ class LLtypeMixin(object):
                             EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE,
                             can_invalidate=True))
     arraycopydescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-             EffectInfo([], [], [], [arraydescr], oopspecindex=EffectInfo.OS_ARRAYCOPY))
+             EffectInfo([], [arraydescr], [], [arraydescr],
+                        oopspecindex=EffectInfo.OS_ARRAYCOPY))
 
     for _name, _os in [
         ('strconcatdescr',               'OS_STR_CONCAT'),
