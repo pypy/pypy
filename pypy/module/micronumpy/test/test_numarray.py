@@ -558,42 +558,25 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert array([]).dtype is dtype(float)
 
     def test_comparison(self):
+        import operator
         from numpy import array, dtype
+
         a = array(range(5))
-        b = array(range(5), dtype=float)
-        c = array(reversed(range(5)))
+        b = array(range(5), float)
         for func in [
-                lambda x, y: x == y,
-                lambda x, y: x != y,
-                lambda x, y: x <  y,
-                lambda x, y: x <= y,
-                lambda x, y: x >  y,
-                lambda x, y: x >= y,
-                ]:
-            _a3 = func (a, 3)
-            assert _a3.dtype is dtype(bool)
+            operator.eq, operator.ne, operator.lt, operator.le, operator.gt,
+            operator.ge
+        ]:
+            c = func(a, 3)
+            assert c.dtype is dtype(bool)
             for i in xrange(5):
-                assert _a3[i] == (True if func(a[i], 3) else False)
-            _b3 = func (b, 3)
-            assert _b3.dtype is dtype(bool)
+                assert c[i] == func(a[i], 3)
+
+            c = func(b, 3)
+            assert c.dtype is dtype(bool)
             for i in xrange(5):
-                assert _b3[i] == (True if func(b[i], 3) else False)
-            _3a = func (3, a)
-            assert _3a.dtype is dtype(bool)
-            for i in xrange(5):
-                assert _3a[i] == (True if func(3, a[i]) else False)
-            _3b = func (3, b)
-            assert _3b.dtype is dtype(bool)
-            for i in xrange(5):
-                assert _3b[i] == (True if func(3, b[i]) else False)
-            _ac = func (a, c)
-            assert _ac.dtype is dtype(bool)
-            for i in xrange(5):
-                assert _ac[i] == (True if func(a[i], c[i]) else False)
-            _bc = func (b, c)
-            assert _bc.dtype is dtype(bool)
-            for i in xrange(5):
-                assert _bc[i] == (True if func(b[i], c[i]) else False)
+                assert c[i] == func(b[i], 3)
+
 
 class AppTestSupport(object):
     def setup_class(cls):

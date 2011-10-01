@@ -129,13 +129,14 @@ def binop(func):
         ))
     return impl
 
-def bool_binop(func):
+def raw_binop(func):
+    # Returns the result unwrapped.
     @functools.wraps(func)
     def impl(self, v1, v2):
-        return self.box(bool(func(self,
+        return func(self,
             self.for_computation(self.unbox(v1)),
-            self.for_computation(self.unbox(v2)),
-        )))
+            self.for_computation(self.unbox(v2))
+        )
     return impl
 
 def unaryop(func):
@@ -160,25 +161,6 @@ class ArithmaticTypeMixin(object):
     def div(self, v1, v2):
         return v1 / v2
 
-    @bool_binop
-    def eq(self, v1, v2):
-        return v1 == v2
-    @bool_binop
-    def ne(self, v1, v2):
-        return v1 != v2
-    @bool_binop
-    def lt(self, v1, v2):
-        return v1 < v2
-    @bool_binop
-    def le(self, v1, v2):
-        return v1 <= v2
-    @bool_binop
-    def gt(self, v1, v2):
-        return v1 > v2
-    @bool_binop
-    def ge(self, v1, v2):
-        return v1 >= v2
-
     @unaryop
     def pos(self, v):
         return +v
@@ -198,8 +180,24 @@ class ArithmaticTypeMixin(object):
 
     def bool(self, v):
         return bool(self.for_computation(self.unbox(v)))
-    def ne_w(self, v1, v2):
-        return self.for_computation(self.unbox(v1)) != self.for_computation(self.unbox(v2))
+    @raw_binop
+    def eq(self, v1, v2):
+        return v1 == v2
+    @raw_binop
+    def ne(self, v1, v2):
+        return v1 != v2
+    @raw_binop
+    def lt(self, v1, v2):
+        return v1 < v2
+    @raw_binop
+    def le(self, v1, v2):
+        return v1 <= v2
+    @raw_binop
+    def gt(self, v1, v2):
+        return v1 > v2
+    @raw_binop
+    def ge(self, v1, v2):
+        return v1 >= v2
 
 
 class FloatArithmeticDtype(ArithmaticTypeMixin):
@@ -252,7 +250,7 @@ class FloatArithmeticDtype(ArithmaticTypeMixin):
         return math.tan(v)
     @unaryop
     def arcsin(self, v):
-        if v < -1.0 or  v > 1.0:
+        if v < -1.0 or v > 1.0:
             return rfloat.NAN
         return math.asin(v)
     @unaryop

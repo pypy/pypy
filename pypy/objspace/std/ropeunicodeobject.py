@@ -29,7 +29,7 @@ def unicode_from_string(space, w_str):
     assert isinstance(w_str, W_RopeObject)
     encoding = getdefaultencoding(space)
     w_retval = decode_string(space, w_str, encoding, "strict")
-    if not space.is_true(space.isinstance(w_retval, space.w_unicode)):
+    if not space.isinstance_w(w_retval, space.w_unicode):
         raise operationerrfmt(
             space.w_TypeError,
             "decoder did not return an unicode object (type '%s')",
@@ -91,10 +91,16 @@ class W_RopeUnicodeObject(W_Object):
         # for testing
         return w_self._node.flatten_unicode()
 
+    def str_w(w_self, space):
+        return space.str_w(space.str(w_self))
+
     def create_if_subclassed(w_self):
         if type(w_self) is W_RopeUnicodeObject:
             return w_self
         return W_RopeUnicodeObject(w_self._node)
+
+    def unicode_w(self, space):
+        return self._node.flatten_unicode()
 
 W_RopeUnicodeObject.EMPTY = W_RopeUnicodeObject(rope.LiteralStringNode.EMPTY)
 
@@ -157,12 +163,6 @@ def delegate_Rope2RopeUnicode(space, w_rope):
     assert isinstance(w_uni, W_RopeUnicodeObject) # help the annotator!
     return w_uni
 
-def str_w__RopeUnicode(space, w_uni):
-    return space.str_w(space.str(w_uni))
-
-def unicode_w__RopeUnicode(space, w_uni):
-    return w_uni._node.flatten_unicode()
-
 def str__RopeUnicode(space, w_uni):
     return space.call_method(w_uni, 'encode')
 
@@ -185,7 +185,7 @@ def eq__RopeUnicode_RopeUnicode(space, w_str1, w_str2):
 
 def eq__RopeUnicode_Rope(space, w_runi, w_rope):
     from pypy.objspace.std.unicodeobject import _unicode_string_comparison
-    return _unicode_string_comparison(space, w_runi, w_rope, 
+    return _unicode_string_comparison(space, w_runi, w_rope,
                     False,  unicode_from_string)
 
 def ne__RopeUnicode_RopeUnicode(space, w_str1, w_str2):
@@ -193,7 +193,7 @@ def ne__RopeUnicode_RopeUnicode(space, w_str1, w_str2):
 
 def ne__RopeUnicode_Rope(space, w_runi, w_rope):
     from pypy.objspace.std.unicodeobject import _unicode_string_comparison
-    return _unicode_string_comparison(space, w_runi, w_rope, 
+    return _unicode_string_comparison(space, w_runi, w_rope,
                     True, unicode_from_string)
 
 def gt__RopeUnicode_RopeUnicode(space, w_str1, w_str2):
@@ -247,14 +247,14 @@ def unicode_join__RopeUnicode_ANY(space, w_self, w_list):
     if (len(l_w) == 1 and
         space.is_w(space.type(l_w[0]), space.w_unicode)):
         return l_w[0]
-    
+
     values_list = []
     for i in range(len(l_w)):
         w_item = l_w[i]
         if isinstance(w_item, W_RopeUnicodeObject):
             # shortcut for performane
             item = w_item._node
-        elif space.is_true(space.isinstance(w_item, space.w_str)):
+        elif space.isinstance_w(w_item, space.w_str):
             item = unicode_from_string(space, w_item)._node
         else:
             msg = 'sequence item %d: expected string or Unicode'
@@ -320,7 +320,7 @@ def mul__ANY_RopeUnicode(space, w_times, w_uni):
 
 
 def make_generic(funcname):
-    def func(space, w_self): 
+    def func(space, w_self):
         node = w_self._node
         if node.length() == 0:
             return space.w_False
@@ -578,7 +578,7 @@ def unicode_rjust__RopeUnicode_ANY_ANY(space, w_self, w_width, w_fillchar):
         return w_self.create_if_subclassed()
     resultnode = rope.concatenate(rope.multiply(fillchar, padding), self)
     return W_RopeUnicodeObject(resultnode)
-    
+
 def unicode_zfill__RopeUnicode_ANY(space, w_self, w_width):
     self = w_self._node
     length = self.length()
@@ -744,7 +744,7 @@ def unicode_replace__RopeUnicode_RopeUnicode_RopeUnicode_ANY(
     except OverflowError:
         raise OperationError(space.w_OverflowError,
                              space.wrap("string too long"))
-    
+
 
 def unicode_encode__RopeUnicode_ANY_ANY(space, w_unistr,
                                         w_encoding=None,
@@ -821,21 +821,21 @@ def unicode_translate__RopeUnicode_ANY(space, w_self, w_table):
         try:
             w_newval = space.getitem(w_table, space.wrap(char))
         except OperationError, e:
-            if e.match(space, space.w_KeyError):
+            if e.match(space, space.w_LookupError):
                 result.append(crope)
             else:
                 raise
         else:
             if space.is_w(w_newval, space.w_None):
                 continue
-            elif space.is_true(space.isinstance(w_newval, space.w_int)):
+            elif space.isinstance_w(w_newval, space.w_int):
                 newval = space.int_w(w_newval)
                 if newval < 0 or newval > maxunicode:
                     raise OperationError(
                             space.w_TypeError,
                             space.wrap("character mapping must be in range(0x%x)" % (maxunicode + 1,)))
                 result.append(rope.rope_from_unichar(unichr(newval)))
-            elif space.is_true(space.isinstance(w_newval, space.w_unicode)):
+            elif space.isinstance_w(w_newval, space.w_unicode):
                 result.append(ropeunicode_w(space, w_newval))
             else:
                 raise OperationError(
@@ -848,7 +848,7 @@ def repr__RopeUnicode(space, w_unicode):
     hexdigits = "0123456789abcdef"
     node = w_unicode._node
     size = node.length()
-    
+
     singlequote = doublequote = False
     iter = rope.ItemIterator(node)
     for i in range(size):
@@ -900,7 +900,7 @@ def repr__RopeUnicode(space, w_unicode):
                                   ])
                     j += 2
                     continue
-                
+
         if code >= 0x100:
             result.extend(['\\', "u",
                            hexdigits[(code >> 12) & 0xf],
@@ -932,7 +932,7 @@ def repr__RopeUnicode(space, w_unicode):
             continue
         if code < ord(' ') or code >= 0x7f:
             result.extend(['\\', "x",
-                           hexdigits[(code >> 4) & 0xf], 
+                           hexdigits[(code >> 4) & 0xf],
                            hexdigits[(code >> 0) & 0xf],
                           ])
             j += 1
@@ -964,15 +964,15 @@ def iter__RopeUnicodeIter(space, w_ropeiter):
 
 def next__RopeUnicodeIter(space, w_ropeiter):
     if w_ropeiter.node is None:
-        raise OperationError(space.w_StopIteration, space.w_None) 
+        raise OperationError(space.w_StopIteration, space.w_None)
     try:
         unichar = w_ropeiter.item_iter.nextunichar()
         w_item = space.wrap(unichar)
     except StopIteration:
         w_ropeiter.node = None
         w_ropeiter.char_iter = None
-        raise OperationError(space.w_StopIteration, space.w_None) 
-    w_ropeiter.index += 1 
+        raise OperationError(space.w_StopIteration, space.w_None)
+    w_ropeiter.index += 1
     return w_item
 
 # XXX __length_hint__()

@@ -99,10 +99,10 @@ def descr__new__(space, w_inttype, w_x=0, w_base=gateway.NoneNotWrapped):
         if type(w_value) is W_IntObject:
             value = w_value.intval
             ok = True
-        elif space.is_true(space.isinstance(w_value, space.w_str)):
+        elif space.isinstance_w(w_value, space.w_str):
             value, w_longval = string_to_int_or_long(space, space.str_w(w_value))
             ok = True
-        elif space.is_true(space.isinstance(w_value, space.w_unicode)):
+        elif space.isinstance_w(w_value, space.w_unicode):
             if space.config.objspace.std.withropeunicode:
                 from pypy.objspace.std.ropeunicodeobject import unicode_to_decimal_w
             else:
@@ -145,7 +145,7 @@ def descr__new__(space, w_inttype, w_x=0, w_base=gateway.NoneNotWrapped):
     else:
         base = space.int_w(w_base)
 
-        if space.is_true(space.isinstance(w_value, space.w_unicode)):
+        if space.isinstance_w(w_value, space.w_unicode):
             if space.config.objspace.std.withropeunicode:
                 from pypy.objspace.std.ropeunicodeobject import unicode_to_decimal_w
             else:

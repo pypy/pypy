@@ -3,6 +3,7 @@ from pypy.module.struct.formatiterator import PackFormatIterator, UnpackFormatIt
 from pypy.rlib.rstruct.error import StructError
 from pypy.rlib.rstruct.formatiterator import CalcSizeFormatIterator
 
+
 @unwrap_spec(format=str)
 def calcsize(space, format):
     fmtiter = CalcSizeFormatIterator()

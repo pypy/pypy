@@ -33,16 +33,19 @@ class W_StringObject(W_Object):
     def unwrap(w_self, space):
         return w_self._value
 
+    def str_w(w_self, space):
+        return w_self._value
+
+    def unicode_w(w_self, space):
+        # XXX should this use the default encoding?
+        from pypy.objspace.std.unicodetype import plain_str2unicode
+        return plain_str2unicode(space, w_self._value)
+
 registerimplementation(W_StringObject)
 
 W_StringObject.EMPTY = W_StringObject('')
 W_StringObject.PREBUILT = [W_StringObject(chr(i)) for i in range(256)]
 del i
-
-def unicode_w__String(space, w_self):
-    # XXX should this use the default encoding?
-    from pypy.objspace.std.unicodetype import plain_str2unicode
-    return plain_str2unicode(space, w_self._value)
 
 def _is_generic(space, w_self, fun):
     v = w_self._value
@@ -364,8 +367,8 @@ def _str_join_many_items(space, w_self, list_w, size):
     reslen = len(self) * (size - 1)
     for i in range(size):
         w_s = list_w[i]
-        if not space.is_true(space.isinstance(w_s, space.w_str)):
-            if space.is_true(space.isinstance(w_s, space.w_unicode)):
+        if not space.isinstance_w(w_s, space.w_str):
+            if space.isinstance_w(w_s, space.w_unicode):
                 # we need to rebuild w_list here, because the original
                 # w_list might be an iterable which we already consumed
                 w_list = space.newlist(list_w)
@@ -646,7 +649,7 @@ def str_endswith__String_Tuple_ANY_ANY(space, w_self, w_suffixes, w_start, w_end
                                                   space.wrap(''), w_start,
                                                   w_end, True)
     for w_suffix in space.fixedview(w_suffixes):
-        if space.is_true(space.isinstance(w_suffix, space.w_unicode)):
+        if space.isinstance_w(w_suffix, space.w_unicode):
             w_u = space.call_function(space.w_unicode, w_self)
             return space.call_method(w_u, "endswith", w_suffixes, w_start,
                                      w_end)
@@ -665,7 +668,7 @@ def str_startswith__String_Tuple_ANY_ANY(space, w_self, w_prefixes, w_start, w_e
     (u_self, _, start, end) = _convert_idx_params(space, w_self, space.wrap(''),
                                                   w_start, w_end, True)
     for w_prefix in space.fixedview(w_prefixes):
-        if space.is_true(space.isinstance(w_prefix, space.w_unicode)):
+        if space.isinstance_w(w_prefix, space.w_unicode):
             w_u = space.call_function(space.w_unicode, w_self)
             return space.call_method(w_u, "startswith", w_prefixes, w_start,
                                      w_end)
@@ -773,8 +776,6 @@ def str_zfill__String_ANY(space, w_self, w_width):
 
     return space.wrap("".join(buf))
 
-def str_w__String(space, w_str):
-    return w_str._value
 
 def hash__String(space, w_str):
     s = w_str._value

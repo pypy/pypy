@@ -121,7 +121,7 @@ class BaseArray(Wrappable):
                                               size=size, i=i, result=result,
                                               cur_best=cur_best)
                 new_best = getattr(dtype, op_name)(cur_best, self.eval(i))
-                if dtype.ne_w(new_best, cur_best):
+                if dtype.ne(new_best, cur_best):
                     result = i
                     cur_best = new_best
                 i += 1
@@ -334,12 +334,11 @@ class VirtualArray(BaseArray):
     """
     Class for representing virtual arrays, such as binary ops or ufuncs
     """
-    def __init__(self, signature, res_dtype, calc_dtype):
+    def __init__(self, signature, res_dtype):
         BaseArray.__init__(self)
         self.forced_result = None
         self.signature = signature
         self.res_dtype = res_dtype
-        self.calc_dtype = calc_dtype
 
     def _del_sources(self):
         # Function for deleting references to source arrays, to allow garbage-collecting them
@@ -387,7 +386,7 @@ class VirtualArray(BaseArray):
 
 class Call1(VirtualArray):
     def __init__(self, signature, res_dtype, values):
-        VirtualArray.__init__(self, signature, res_dtype, res_dtype)
+        VirtualArray.__init__(self, signature, res_dtype)
         self.values = values
 
     def _del_sources(self):
@@ -412,10 +411,11 @@ class Call2(VirtualArray):
     """
     Intermediate class for performing binary operations.
     """
-    def __init__(self, signature, res_dtype, calc_dtype, left, right):
-        VirtualArray.__init__(self, signature, res_dtype, calc_dtype)
+    def __init__(self, signature, calc_dtype, res_dtype, left, right):
+        VirtualArray.__init__(self, signature, res_dtype)
         self.left = left
         self.right = right
+        self.calc_dtype = calc_dtype
 
     def _del_sources(self):
         self.left = None
@@ -436,7 +436,7 @@ class Call2(VirtualArray):
         assert isinstance(sig, signature.Signature)
         call_sig = sig.components[0]
         assert isinstance(call_sig, signature.Call2)
-        return call_sig.func(self.calc_dtype, lhs, rhs).convert_to(self.res_dtype)
+        return call_sig.func(self.calc_dtype, lhs, rhs)
 
 class ViewArray(BaseArray):
     """
@@ -581,20 +581,20 @@ BaseArray.typedef = TypeDef(
     __pos__ = interp2app(BaseArray.descr_pos),
     __neg__ = interp2app(BaseArray.descr_neg),
     __abs__ = interp2app(BaseArray.descr_abs),
+
     __add__ = interp2app(BaseArray.descr_add),
     __sub__ = interp2app(BaseArray.descr_sub),
     __mul__ = interp2app(BaseArray.descr_mul),
     __div__ = interp2app(BaseArray.descr_div),
     __pow__ = interp2app(BaseArray.descr_pow),
     __mod__ = interp2app(BaseArray.descr_mod),
+
     __radd__ = interp2app(BaseArray.descr_radd),
     __rsub__ = interp2app(BaseArray.descr_rsub),
     __rmul__ = interp2app(BaseArray.descr_rmul),
     __rdiv__ = interp2app(BaseArray.descr_rdiv),
     __rpow__ = interp2app(BaseArray.descr_rpow),
     __rmod__ = interp2app(BaseArray.descr_rmod),
-    __repr__ = interp2app(BaseArray.descr_repr),
-    __str__ = interp2app(BaseArray.descr_str),
 
     __eq__ = interp2app(BaseArray.descr_eq),
     __ne__ = interp2app(BaseArray.descr_ne),
@@ -602,6 +602,9 @@ BaseArray.typedef = TypeDef(
     __le__ = interp2app(BaseArray.descr_le),
     __gt__ = interp2app(BaseArray.descr_gt),
     __ge__ = interp2app(BaseArray.descr_ge),
+
+    __repr__ = interp2app(BaseArray.descr_repr),
+    __str__ = interp2app(BaseArray.descr_str),
 
     dtype = GetSetProperty(BaseArray.descr_get_dtype),
     shape = GetSetProperty(BaseArray.descr_get_shape),
