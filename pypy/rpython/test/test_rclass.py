@@ -998,7 +998,7 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
         RTTI = getRuntimeTypeInfo(TYPE)
         RTTI._obj.query_funcptr # should not raise
         assert RTTI._obj.raw_mem_attr_name == 'p'
-    
+
     def test_del_inheritance(self):
         from pypy.rlib import rgc
         class State:

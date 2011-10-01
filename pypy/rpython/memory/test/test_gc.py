@@ -141,10 +141,16 @@ class GCTest(object):
                 if arg:
                     self.p = lltype.malloc(T, flavor='raw')
 
+        class B(AClass):
+            pass
+
         def f():
             a = AClass(0)
             for i in range(30):
-                a = AClass(3)
+                if i % 2:
+                    a = B(3)
+                else:
+                    a = AClass(3)
                 AClass(0)
             llop.gc__collect(lltype.Void)
             assert a.p

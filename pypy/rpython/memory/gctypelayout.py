@@ -250,7 +250,17 @@ def encode_type_shape(builder, info, TYPE, index):
     if builder.get_raw_mem_attr_name(TYPE):
         name = builder.get_raw_mem_attr_name(TYPE)
         infobits |= T_HAS_RAW_MEM_PTR
-        info.ofstorawptr = llmemory.offsetof(TYPE, 'inst_' + name)
+        # can be in a superclass
+        T = TYPE
+        l = []
+        while not hasattr(T, 'inst_' + name):
+            l.append(llmemory.offsetof(T, 'super'))
+            T = T.super
+        l.append(llmemory.offsetof(T, 'inst_' + name))
+        ofs = l[0]
+        for i in range(1, len(l)):
+            ofs += l[i]
+        info.ofstorawptr = ofs
     info.infobits = infobits | T_KEY_VALUE
 
 # ____________________________________________________________
