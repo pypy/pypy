@@ -191,3 +191,25 @@ def test_raw_memory_owner():
     gc.collect()
     assert ptr._was_freed()
     assert not ptr2
+
+def test_raw_memory_owner_with_del():
+    T = lltype.Struct('X', ('x', lltype.Signed))
+    collected = []
+
+    @rgc.owns_raw_memory('p')
+    class X(object):
+        p = lltype.nullptr(T)
+        
+        def __init__(self, arg):
+            if arg:
+                self.p = lltype.malloc(T, flavor='raw')
+
+        def __del__(self):
+            collected.append(None)
+    
+    a = X(3)
+    ptr = a.p
+    del a
+    gc.collect()
+    assert ptr._was_freed()
+    assert collected

@@ -452,7 +452,10 @@ def owns_raw_memory(name):
         def remove_raw_mem_attr(self):
             if getattr(self, name):
                 lltype.free(getattr(self, name), flavor='raw')
-        
+            if orig_del is not None:
+                orig_del(self)
+
+        orig_del = getattr(cls, '__del__', None)
         cls._raw_mem_ptr_name = name
         cls.__del__ = remove_raw_mem_attr
         return cls
