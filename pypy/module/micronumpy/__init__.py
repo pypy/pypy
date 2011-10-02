@@ -23,6 +23,7 @@ class Module(MixedModule):
         ("arccos", "arccos"),
         ("arcsin", "arcsin"),
         ("arctan", "arctan"),
+        ("arcsinh", "arcsinh"),
         ("copysign", "copysign"),
         ("cos", "cos"),
         ("divide", "divide"),
