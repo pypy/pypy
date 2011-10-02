@@ -50,4 +50,5 @@ class Module(MixedModule):
     appleveldefs = {
         'average': 'app_numpy.average',
         'mean': 'app_numpy.mean',
+        'inf': 'app_numpy.inf',
     }
