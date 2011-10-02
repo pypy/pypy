@@ -167,10 +167,7 @@ def isconstant(value):
 
     This is for advanced usage only.
     """
-    # I hate the annotator so much.
-    if NonConstant(False):
-        return True
-    return False
+    return NonConstant(False)
 
 @oopspec("jit.isvirtual(value)")
 @specialize.ll()
