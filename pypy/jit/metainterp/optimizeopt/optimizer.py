@@ -328,7 +328,7 @@ class Optimizer(Optimization):
         self.quasi_immutable_deps = None
         self.opaque_pointers = {}
         self.replaces_guard = {}
-        self.newoperations = []
+        self._newoperations = []
         self.optimizer = self
         self.optpure = None
         self.optearlyforce = None
@@ -423,6 +423,13 @@ class Optimizer(Optimization):
             return constbox
         return None
 
+    def get_newoperations(self):
+        self.flush()
+        return self._newoperations
+
+    def clear_newoperations(self):
+        self._newoperations = []
+
     def make_equal_to(self, box, value, replace=False):
         assert isinstance(value, OptValue)
         assert replace or box not in self.values
@@ -471,10 +478,10 @@ class Optimizer(Optimization):
 
     def propagate_all_forward(self):
         self.exception_might_have_happened = self.bridge
-        self.newoperations = []
+        self.clear_newoperations()
         for op in self.loop.operations:
             self.first_optimization.propagate_forward(op)
-        self.loop.operations = self.newoperations
+        self.loop.operations = self.get_newoperations()
         self.loop.quasi_immutable_deps = self.quasi_immutable_deps
         # accumulate counters
         self.resumedata_memo.update_counters(self.metainterp_sd.profiler)
@@ -513,15 +520,15 @@ class Optimizer(Optimization):
                 op = self.store_final_boxes_in_guard(op)
         elif op.can_raise():
             self.exception_might_have_happened = True
-        self.newoperations.append(op)
+        self._newoperations.append(op)
 
     def replace_op(self, old_op, new_op):
         # XXX: Do we want to cache indexes to prevent search?
-        i = len(self.newoperations) 
+        i = len(self._newoperations) 
         while i > 0:
             i -= 1
-            if self.newoperations[i] is old_op:
-                self.newoperations[i] = new_op
+            if self._newoperations[i] is old_op:
+                self._newoperations[i] = new_op
                 break
         else:
             assert False

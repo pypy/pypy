@@ -138,7 +138,7 @@ class UnrollOptimizer(Optimization):
 
             KillHugeIntBounds(self.optimizer).apply()
             
-            loop.preamble.operations = self.optimizer.newoperations
+            loop.preamble.operations = self.optimizer.get_newoperations()
             jump_args = [self.getvalue(a).get_key_box() for a in jump_args]
 
             start_resumedescr = loop.preamble.start_resumedescr.clone_if_mutable()
@@ -182,7 +182,7 @@ class UnrollOptimizer(Optimization):
             # operations needed to setup the proper state of those virtuals
             # in the peeled loop
             inputarg_setup_ops = []
-            preamble_optimizer.newoperations = []
+            preamble_optimizer.clear_newoperations()
             seen = {}
             for box in inputargs:
                 if box in seen:
@@ -197,8 +197,7 @@ class UnrollOptimizer(Optimization):
                 seen[box] = True
                 value = preamble_optimizer.getvalue(box)
                 value.force_box(preamble_optimizer)
-            preamble_optimizer.flush()
-            inputarg_setup_ops += preamble_optimizer.newoperations
+            inputarg_setup_ops += preamble_optimizer.get_newoperations()
 
             # Setup the state of the new optimizer by emiting the
             # short preamble operations and discarding the result
@@ -235,7 +234,7 @@ class UnrollOptimizer(Optimization):
             jmp.setdescr(loop.token)
             loop.preamble.operations.append(jmp)
 
-            loop.operations = self.optimizer.newoperations
+            loop.operations = self.optimizer.get_newoperations()
             maxguards = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.max_retrace_guards
             
             if self.optimizer.emitted_guards > maxguards:
@@ -333,11 +332,11 @@ class UnrollOptimizer(Optimization):
             newop = self.short_inliner.inline_op(op)
             self.optimizer.send_extra_operation(newop)
         
-        self.optimizer.flush()
+        newoperations = self.optimizer.get_newoperations()
 
         i = j = 0
-        while i < len(self.optimizer.newoperations) or j < len(jumpargs):
-            if i == len(self.optimizer.newoperations):
+        while i < len(newoperations) or j < len(jumpargs):
+            if i == len(newoperations):
                 while j < len(jumpargs):
                     a = jumpargs[j]
                     if self.optimizer.loop.logops:
@@ -346,7 +345,7 @@ class UnrollOptimizer(Optimization):
                                     jumpargs, short_seen)
                     j += 1
             else:
-                op = self.optimizer.newoperations[i]
+                op = newoperations[i]
 
                 self.boxes_created_this_iteration[op.result] = True
                 args = op.getarglist()
@@ -361,6 +360,7 @@ class UnrollOptimizer(Optimization):
                     self.import_box(a, inputargs, short, short_jumpargs,
                                     jumpargs, short_seen)
                 i += 1
+            newoperations = self.optimizer.get_newoperations()
 
         jumpop.initarglist(jumpargs)
         self.optimizer.send_extra_operation(jumpop)
