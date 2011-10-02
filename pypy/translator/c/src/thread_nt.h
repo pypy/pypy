@@ -221,4 +221,57 @@ char *RPyThreadTLS_Create(RPyThreadTLS *result)
 #define RPyThreadTLS_Set(key, value)	TlsSetValue(key, value)
 
 
+/************************************************************/
+/* GIL code                                                 */
+/************************************************************/
+
+static volatile LONG pending_acquires = -1;
+static CRITICAL_SECTION mutex_gil;
+static HANDLE cond_gil;
+
+long RPyGilAllocate(void)
+{
+    pending_acquires = 0;
+    InitializeCriticalSection(&mutex_gil);
+    EnterCriticalSection(&mutex_gil);
+    cond_gil = CreateEvent (NULL, FALSE, FALSE, NULL);
+    return 1;
+}
+
+long RPyGilYieldThread(void)
+{
+    /* can be called even before RPyGilAllocate(), but in this case,
+       pending_acquires will be -1 */
+    if (pending_acquires <= 0)
+        return 0;
+    InterlockedIncrement(&pending_acquires);
+
+    /* hack: the three following lines do a pthread_cond_wait(), and
+       normally specifying a timeout of INFINITE would be fine.  But the
+       first and second operations are not done atomically, so there is a
+       (small) risk that PulseEvent misses the WaitForSingleObject().
+       In this case the process will just sleep 1 millisecond. */
+    LeaveCriticalSection(&mutex_gil);
+    WaitForSingleObject(&cond_gil, 1);
+    EnterCriticalSection(&mutex_gil);
+
+    InterlockedDecrement(&pending_acquires);
+    PulseEvent(&cond_gil);
+    return 1;
+}
+
+void RPyGilRelease(void)
+{
+    LeaveCriticalSection(&mutex_gil);
+}
+
+void RPyGilAcquire(void)
+{
+    InterlockedIncrement(&pending_acquires);
+    EnterCriticalSection(&mutex_gil);
+    InterlockedDecrement(&pending_acquires);
+    PulseEvent(&cond_gil);
+}
+
+
 #endif /* PYPY_NOT_MAIN_FILE */
