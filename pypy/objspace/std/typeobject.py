@@ -848,12 +848,6 @@ def call__Type(space, w_type, __args__):
         call_init = space.isinstance_w(w_newobject, w_type)
 
     # maybe invoke the __init__ of the type
-    try:
-        __args__.fixedunpack(1)
-    except ValueError:
-        single_arg = False
-    else:
-        single_arg = True
     if (call_init and not (space.is_w(w_type, space.w_type) and
         not __args__.keywords and len(__args__.arguments_w) == 1)):
         w_descr = space.lookup(w_newobject, '__init__')
