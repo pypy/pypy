@@ -245,6 +245,7 @@ long RPyGilYieldThread(void)
     if (pending_acquires <= 0)
         return 0;
     InterlockedIncrement(&pending_acquires);
+    PulseEvent(&cond_gil);
 
     /* hack: the three following lines do a pthread_cond_wait(), and
        normally specifying a timeout of INFINITE would be fine.  But the
@@ -256,13 +257,13 @@ long RPyGilYieldThread(void)
     EnterCriticalSection(&mutex_gil);
 
     InterlockedDecrement(&pending_acquires);
-    PulseEvent(&cond_gil);
     return 1;
 }
 
 void RPyGilRelease(void)
 {
     LeaveCriticalSection(&mutex_gil);
+    PulseEvent(&cond_gil);
 }
 
 void RPyGilAcquire(void)
@@ -270,7 +271,6 @@ void RPyGilAcquire(void)
     InterlockedIncrement(&pending_acquires);
     EnterCriticalSection(&mutex_gil);
     InterlockedDecrement(&pending_acquires);
-    PulseEvent(&cond_gil);
 }
 
 
