@@ -145,3 +145,35 @@ class AppTestNumPyModule:
         assert b == 1 << 24
         assert c == 1 << 16
         assert d == 1 << 8
+
+    def test_fromfile(self):
+        from numpy import fromfile
+        from tempfile import NamedTemporaryFile
+        from os import remove
+        import cStringIO
+        import struct
+
+        my_file = cStringIO.StringIO(struct.pack("iiiiiiii", *range(8)))
+        a = fromfile(my_file, dtype="i")
+        assert list(a) == range(8)
+        my_file.seek(0)
+        b = fromfile(my_file, dtype="i", count=3)
+        assert list(b) == range(3)
+
+        my_file = cStringIO.StringIO(struct.pack("dddddddd", *[f / 5.0 for f in range(8)]))
+        a = fromfile(my_file, dtype=float)
+        assert list(a) == [f / 5.0 for f in range(8)]
+
+        my_file = cStringIO.StringIO(" ".join(map(str, range(10))))
+        a = fromfile(my_file, dtype="i", sep=" ")
+        assert list(a) == range(10)
+        my_file.seek(0)
+        b = fromfile(my_file, dtype="i", sep=" ", count=3)
+        assert list(b) == range(3)
+
+        tmpf = NamedTemporaryFile(delete=False)
+        tmpf.file.write(struct.pack("dddddddd", *[f / 5.0 for f in range(8)]))
+        tmpf.file.close()
+        a = fromfile(tmpf.name, dtype=float)
+        assert list(a) == [f / 5.0 for f in range(8)]
+        remove(tmpf.name)
