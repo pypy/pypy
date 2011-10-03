@@ -306,6 +306,17 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert math.asinh(v) == arcsinh(v)
         assert math.isnan(arcsinh(float("nan")))
 
+    def test_arctanh(self):
+        import math
+        from numpy import arctanh
+
+        for v in [.99, .5, 0, -.5, -.99]:
+            assert math.atanh(v) == arctanh(v)
+        for v in [2.0, -2.0]:
+            assert math.isnan(arctanh(v))
+        for v in [1.0, -1.0]:
+            assert arctanh(v) == math.copysign(float("inf"), v)
+
     def test_reduce_errors(self):
         from numpy import sin, add
 

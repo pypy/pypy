@@ -24,6 +24,7 @@ class Module(MixedModule):
         ("arcsin", "arcsin"),
         ("arctan", "arctan"),
         ("arcsinh", "arcsinh"),
+        ("arctanh", "arctanh"),
         ("copysign", "copysign"),
         ("cos", "cos"),
         ("divide", "divide"),

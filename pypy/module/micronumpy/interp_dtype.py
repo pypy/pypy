@@ -260,12 +260,12 @@ class FloatArithmeticDtype(ArithmeticTypeMixin):
         return math.tan(v)
     @unaryop
     def arcsin(self, v):
-        if v < -1.0 or v > 1.0:
+        if not -1.0 <= v <= 1.0:
             return rfloat.NAN
         return math.asin(v)
     @unaryop
     def arccos(self, v):
-        if v < -1.0 or v > 1.0:
+        if not -1.0 <= v <= 1.0:
             return rfloat.NAN
         return math.acos(v)
     @unaryop
@@ -274,6 +274,13 @@ class FloatArithmeticDtype(ArithmeticTypeMixin):
     @unaryop
     def arcsinh(self, v):
         return math.asinh(v)
+    @unaryop
+    def arctanh(self, v):
+        if v == 1.0 or v == -1.0:
+            return math.copysign(rfloat.INFINITY, v)
+        if not -1.0 < v < 1.0:
+            return rfloat.NAN
+        return math.atanh(v)
 
 class IntegerArithmeticDtype(ArithmeticTypeMixin):
     _mixin_ = True
