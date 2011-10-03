@@ -12,19 +12,19 @@ class NumpyBuffer(RWBuffer):
         return self.array.get_concrete().find_size() * self.array.find_dtype().num_bytes
 
     def getitem(self, index):
-        index = self.calc_index(index)
         if index > self.getlength():
             raise IndexError("Index out of bounds (0<=index<%d)" % self.getlength())
         storage = self.array.get_concrete().get_root_storage()
         char_data = rffi.cast(CHAR_TP, storage)
+        index = self.calc_index(index)
         return char_data[index]
 
     def setitem(self, index, value):
-        index = self.calc_index(index)
         if index > self.getlength():
             raise IndexError("Index out of bounds (0<=index<%d)" % self.getlength())
         storage = self.array.get_concrete().get_root_storage()
         char_ptr = rffi.cast(CHAR_TP, storage)
+        index = self.calc_index(index)
         char_ptr[index] = value
 
     def setslice(self, index, newstring):

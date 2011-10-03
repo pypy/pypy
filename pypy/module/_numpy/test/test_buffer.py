@@ -63,7 +63,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert arbuf[1] == '\5'
         assert viewbuf[0] == '\5'
 
-        assert len(view) == len(ar) - 2 == 3
+        assert len(viewbuf) == len(arbuf) - 2 == 3
 
         br = array(range(5,10), dtype=float)
         buf = br.data
@@ -161,3 +161,39 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert ar[4] == 1
 
         # tests for float dtype already done above
+
+    def test_convert_to_string(self):
+        from _numpy import array
+        from _numpy import dtype
+        ar = array(range(5,10), dtype=dtype("int8"))
+        buf = ar.data
+        as_str = str(buf)
+
+        for idx in range(len(buf)):
+            assert buf[idx] == as_str[idx]
+
+        br = array(range(5,10), dtype=float)
+        buf = br.data
+        bs_str = str(buf)
+
+        for idx in range(len(buf)):
+            assert buf[idx] == bs_str[idx]
+
+    def test_convert_view_to_string(self):
+        from _numpy import array
+        from _numpy import dtype
+        ar = array(range(5,10), dtype=dtype("int8"))
+        view = ar[1:-1]
+        buf = view.data
+        as_str = str(buf)
+
+        for idx in range(len(buf)):
+            assert buf[idx] == as_str[idx]
+
+        br = array(range(5,10), dtype=float)
+        view = br[1:-1]
+        buf = view.data
+        bs_str = str(buf)
+
+        for idx in range(len(buf)):
+            assert buf[idx] == bs_str[idx]
