@@ -4,6 +4,7 @@ class AppTestNumArray(BaseNumpyAppTest):
     def test_access(self):
         from _numpy import array
         from _numpy import dtype
+        from struct import pack
         ar = array(range(5), dtype=dtype("int8"))
         buf = ar.data
 
@@ -14,9 +15,16 @@ class AppTestNumArray(BaseNumpyAppTest):
 
         assert len(buf) == 5
 
+        br = array(range(5,10), dtype=float)
+        buf = br.data
+        assert len(buf) == 5 * (64 / 8)
+
+        assert buf[:8] == pack("d", 5)
+
     def test_mutable(self):
         from _numpy import array
         from _numpy import dtype
+        from struct import pack
         ar = array(range(5), dtype=dtype("int8"))
         buf = ar.data
         assert buf[0] == '\0'
@@ -24,9 +32,19 @@ class AppTestNumArray(BaseNumpyAppTest):
         ar[0] = 5
         assert buf[0] == "\5"
 
+        br = array(range(5,10), dtype=float)
+        buf = br.data
+        assert len(buf) == 5 * (64 / 8)
+
+        assert buf[:8] == pack("d", 5)
+
+        br[0] = 100
+        assert buf[:8] == pack("d", 100)
+
     def test_slice_view(self):
         from _numpy import array
         from _numpy import dtype
+        from struct import pack
         ar = array(range(5), dtype=dtype("int8"))
 
         view = ar[1:-1]
@@ -42,6 +60,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert viewbuf[0] == '\5'
 
         assert len(view) == len(ar) - 2 == 3
+
+        br = array(range(5,10), dtype=float)
+        buf = br.data
+        viewbuf = br[1:-1].data
+
+        assert len(viewbuf) == len(buf) - 2 * (64 / 8)
+        assert viewbuf[:8] == buf[8:16] == pack("d", 6)
 
     def test_buffer_set(self):
         from _numpy import array
