@@ -36,9 +36,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         buf = br.data
         assert len(buf) == 5 * (64 / 8)
 
+        for idx in range(8):
+            assert buf[idx] == pack("d", 5)[idx]
         assert buf[:8] == pack("d", 5)
 
         br[0] = 100
+        for idx in range(8):
+            assert buf[idx] == pack("d", 100)[idx]
         assert buf[:8] == pack("d", 100)
 
     def test_slice_view(self):
@@ -67,10 +71,13 @@ class AppTestNumArray(BaseNumpyAppTest):
 
         assert len(viewbuf) == len(buf) - 2 * (64 / 8)
         assert viewbuf[:8] == buf[8:16] == pack("d", 6)
+        for idx in range(8):
+            assert viewbuf[idx] == buf[8+idx] == pack("d", 6)[idx]
 
     def test_buffer_set(self):
         from _numpy import array
         from _numpy import dtype
+        from struct import pack
         ar = array(range(5), dtype=dtype("int8"))
         buf = ar.data
 
@@ -82,9 +89,19 @@ class AppTestNumArray(BaseNumpyAppTest):
 
         raises(IndexError, "buf[5] = '\\9'")
 
+        br = array(range(5), dtype=float)
+        buf = br.data
+
+        for idx in range(8):
+            buf[idx] = pack("d", 99)[idx]
+        assert br[0] == 99
+        buf[:8] = pack("d", 23.42)
+        assert br[0] == 23.42
+
     def test_slice_set(self):
         from _numpy import array
         from _numpy import dtype
+        from struct import pack
         ar = array(range(5), dtype=dtype("int8"))
 
         view = ar[1:-1]
@@ -101,6 +118,21 @@ class AppTestNumArray(BaseNumpyAppTest):
 
         raises(IndexError, "view[4] = '\\5'")
 
+        br = array(range(5), dtype=float)
+
+        view = br[1:-1]
+        buf = br.data
+        viewbuf = view.data
+
+        viewbuf[:8] = pack("d", 9000)
+        assert buf[8:16] == viewbuf[:8]
+        assert br[1] == view[0] == 9000
+
+        for idx in range(8):
+            viewbuf[idx] = pack("d", -9000)[idx]
+        assert buf[8:16] == viewbuf[:8]
+        assert br[1] == view[0] == -9000
+
     def test_buffer_setslice(self):
         from _numpy import array
         from _numpy import dtype
@@ -112,6 +144,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert ar[1] == 1
         assert ar[2] == 1
         assert ar[3] == 1
+
+        # tests for float dtype already done above
 
     def test_view_setslice(self):
         from _numpy import array
@@ -125,3 +159,5 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert ar[2] == 1
         assert ar[3] == 1
         assert ar[4] == 1
+
+        # tests for float dtype already done above
