@@ -16,7 +16,7 @@ any_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self', 'dty
 slice_driver = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop', 'source', 'dest'])
 
 class BaseArray(Wrappable):
-    _attrs_ = ["invalidates", "signature"]
+    _attrs_ = ["invalidates", "signature", "_buffer"]
     BufferClass = NumpyBuffer
 
     def __init__(self):
