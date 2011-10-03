@@ -125,8 +125,8 @@ class TestInstance(BaseTestPyPyC):
             i12 = force_token()
             --TICK--
             p20 = new_with_vtable(ConstClass(W_IntObject))
-            setfield_gc(p20, i11, descr=<SignedFieldDescr.*W_IntObject.inst_intval .*>)
             setfield_gc(ConstPtr(ptr21), p20, descr=<GcPtrFieldDescr .*TypeCell.inst_w_value .*>)
+            setfield_gc(p20, i11, descr=<SignedFieldDescr.*W_IntObject.inst_intval .*>)
             jump(p0, p1, p2, p3, p4, p20, p6, i7, p20, descr=<Loop.>)
         """)
 
