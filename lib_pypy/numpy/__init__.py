@@ -113,7 +113,26 @@ def frombuffer(buf, dtype=float, count=-1, offset=0):
 
 def fromstring(s, dtype=float, count=-1, sep=''):
     if sep:
-        raise NotImplementedError("Cannot use fromstring with a separator yet")
+        import numpy as np
+        dtype = np.dtype(dtype)
+
+        parts = s.split(sep)
+        clean_parts = [part for part in parts if part]
+        if count >= 0:
+            clean_parts = clean_parts[:count]
+
+        if dtype.kind == "f":
+            cast_func = float
+        elif dtype.kind == "i":
+            cast_func = int
+        else:
+            raise TypeError("Can only read int-likes or float-likes from strings.")
+
+        result = empty(len(clean_parts), dtype=dtype)
+        for number, value in enumerate(clean_parts):
+            result[number] = cast_func(value)
+
+        return result
 
     return __from_buffer_or_datastring(s, dtype, count)
 

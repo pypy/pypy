@@ -97,6 +97,34 @@ class AppTestNumPyModule:
         for i in range(4):
             assert a[i] == i
 
+        data = "0, 1, 2, 3, 4, 5, 6"
+        a = fromstring(data, dtype="i", sep=",")
+        assert len(a) == 7
+        assert list(a) == range(7)
+
+        data = "0,1,2,3,4,5,6"
+        a = fromstring(data, dtype="i", sep=",")
+        assert len(a) == 7
+        assert list(a) == range(7)
+
+        data = "0,  1, 2,    3, 4, 5,        6"
+        a = fromstring(data, dtype="i", sep=",")
+        assert len(a) == 7
+        assert list(a) == range(7)
+
+        data = "0 X 1 X 2 X 3 X 4    X     5   X   6"
+        a = fromstring(data, dtype="i", sep="X", count=4)
+        assert len(a) == 4
+        assert list(a) == range(4)
+
+        fdata = [f / 5.0 for f in range(10)]
+        data = ",".join(str(f) for f in fdata)
+        a = fromstring(data, dtype=float, sep=",")
+        assert list(a) == fdata
+
+        a = fromstring(data, dtype=float, sep=",", count=3)
+        assert list(a) == fdata[:3]
+
     def test_frombuffer(self):
         from numpy import frombuffer
         import struct
