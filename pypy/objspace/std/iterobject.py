@@ -35,32 +35,16 @@ class W_FastListIterObject(W_AbstractSeqIterObject):
         w_self.listitems = wrappeditems
 
 class W_FastTupleIterObject(W_AbstractSeqIterObject):
-    """Sequence iterator specialized for tuples, accessing
-    directly their RPython-level list of wrapped objects.
-    """
-    def __init__(w_self, w_seq, wrappeditems):
+   """Sequence iterator specialized for tuples, accessing
+   directly their RPython-level list of wrapped objects.
+   """ 
+   def __init__(w_self, w_seq, wrappeditems):
         W_AbstractSeqIterObject.__init__(w_self, w_seq)
         w_self.tupleitems = wrappeditems
 
-class W_FastStringIterObject(W_AbstractSeqIterObject):
-    """Sequence iterator specialized for strings, accessing
-    directly their RPython string.
-    """
-    def __init__(w_self, w_seq, value):
-        W_AbstractSeqIterObject.__init__(w_self, w_seq)
-        w_self.chars = value
-
-class W_FastUnicodeIterObject(W_AbstractSeqIterObject):
-    """Sequence iterator specialized for strings, accessing
-    directly their RPython string.
-    """
-    def __init__(w_self, w_seq, value):
-        W_AbstractSeqIterObject.__init__(w_self, w_seq)
-        w_self.unichars = value
-
 class W_ReverseSeqIterObject(W_Object):
     from pypy.objspace.std.itertype import reverse_iter_typedef as typedef
-
+    
     def __init__(w_self, space, w_seq, index=-1):
         w_self.w_seq = w_seq
         w_self.w_len = space.len(w_seq)
@@ -70,8 +54,6 @@ class W_ReverseSeqIterObject(W_Object):
 registerimplementation(W_SeqIterObject)
 registerimplementation(W_FastListIterObject)
 registerimplementation(W_FastTupleIterObject)
-registerimplementation(W_FastStringIterObject)
-registerimplementation(W_FastUnicodeIterObject)
 registerimplementation(W_ReverseSeqIterObject)
 
 def iter__SeqIter(space, w_seqiter):
@@ -134,48 +116,6 @@ def next__FastListIter(space, w_seqiter):
 
 # XXX __length_hint__()
 ##def len__FastListIter(space, w_seqiter):
-##    return w_seqiter.getlength(space)
-
-
-def iter__FastStringIter(space, w_seqiter):
-    return w_seqiter
-
-def next__FastStringIter(space, w_seqiter):
-    if w_seqiter.chars is None:
-        raise OperationError(space.w_StopIteration, space.w_None)
-    index = w_seqiter.index
-    try:
-        s = w_seqiter.chars[index]
-    except IndexError:
-        w_seqiter.chars = None
-        w_seqiter.w_seq = None
-        raise OperationError(space.w_StopIteration, space.w_None) 
-    w_seqiter.index = index + 1
-    return space.wrap(s)
-
-# XXX __length_hint__()
-##def len__FastStringIter(space, w_seqiter):
-##    return w_seqiter.getlength(space)
-
-
-def iter__FastUnicodeIter(space, w_seqiter):
-    return w_seqiter
-
-def next__FastUnicodeIter(space, w_seqiter):
-    if w_seqiter.unichars is None:
-        raise OperationError(space.w_StopIteration, space.w_None)
-    index = w_seqiter.index
-    try:
-        s = w_seqiter.unichars[index]
-    except IndexError:
-        w_seqiter.unichars = None
-        w_seqiter.w_seq = None
-        raise OperationError(space.w_StopIteration, space.w_None) 
-    w_seqiter.index = index + 1
-    return space.wrap(s)
-
-# XXX __length_hint__()
-##def len__FastUnicodeIter(space, w_seqiter):
 ##    return w_seqiter.getlength(space)
 
 

@@ -265,10 +265,6 @@ def getslice__Unicode_ANY_ANY(space, w_uni, w_start, w_stop):
     start, stop = normalize_simple_slice(space, len(uni), w_start, w_stop)
     return W_UnicodeObject(uni[start:stop])
 
-def iter__Unicode(space, w_uni):
-    from pypy.objspace.std import iterobject
-    return iterobject.W_FastUnicodeIterObject(w_uni, w_uni._value)
-
 def mul__Unicode_ANY(space, w_uni, w_times):
     try:
         times = space.getindex_w(w_times, space.w_OverflowError)

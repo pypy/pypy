@@ -863,10 +863,6 @@ def getslice__String_ANY_ANY(space, w_str, w_start, w_stop):
     else:
         return sliced(space, s, start, stop, w_str)
 
-def iter__String(space, w_str):
-    from pypy.objspace.std import iterobject
-    return iterobject.W_FastStringIterObject(w_str, w_str._value)
-
 def mul_string_times(space, w_str, w_times):
     try:
         mul = space.getindex_w(w_times, space.w_OverflowError)
