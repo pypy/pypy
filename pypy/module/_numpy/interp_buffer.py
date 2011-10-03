@@ -5,7 +5,6 @@ CHAR_TP = lltype.Ptr(lltype.Array(lltype.Char, hints={'nolength': True}))
 
 class NumpyBuffer(RWBuffer):
     def __init__(self, array):
-        RWBuffer.__init__(self)
         self.array = array
 
     def getlength(self):
