@@ -459,23 +459,12 @@ W_Float64Dtype = create_low_level_dtype(
 class W_Float64Dtype(FloatArithmeticDtype, W_Float64Dtype):
     pass
 
-#W_Float96Dtype = create_low_level_dtype(
-#    num = 13, kind = FLOATINGLTR, name = "float96",
-#    aliases = ["g", "float96"],
-#    applevel_types = [],
-#    T = lltype.Float, # LongFloat
-#    valtype = float, # r_longfloat
-#    expected_size = 8, # 12
-#)
-#class W_Float96Dtype(FloatArithmeticDtype, W_Float96Dtype):
-#    pass
-
 ALL_DTYPES = [
     W_BoolDtype,
     W_Int8Dtype, W_UInt8Dtype, W_Int16Dtype, W_UInt16Dtype,
     W_Int32Dtype, W_UInt32Dtype, W_LongDtype, W_ULongDtype,
     W_Int64Dtype, W_UInt64Dtype,
-    W_Float32Dtype, W_Float64Dtype, #W_Float96Dtype,
+    W_Float32Dtype, W_Float64Dtype,
 ]
 
 dtypes_by_alias = unrolling_iterable([

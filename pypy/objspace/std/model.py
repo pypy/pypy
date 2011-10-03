@@ -122,6 +122,8 @@ class StdTypeModel:
             iterobject.W_SeqIterObject: [],
             iterobject.W_FastListIterObject: [],
             iterobject.W_FastTupleIterObject: [],
+            iterobject.W_FastStringIterObject: [],
+            iterobject.W_FastUnicodeIterObject: [],
             iterobject.W_ReverseSeqIterObject: [],
             unicodeobject.W_UnicodeObject: [],
             dictmultiobject.W_DictViewKeysObject: [],
