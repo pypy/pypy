@@ -536,10 +536,10 @@ long RPyGilYieldThread(void)
         return 0;
     atomic_add(&pending_acquires, 1L);
     _debug_print("{");
+    ASSERT_STATUS(pthread_cond_signal(&cond_gil));
     ASSERT_STATUS(pthread_cond_wait(&cond_gil, &mutex_gil));
     _debug_print("}");
     atomic_add(&pending_acquires, -1L);
-    ASSERT_STATUS(pthread_cond_signal(&cond_gil));
     assert_has_the_gil();
     return 1;
 }
@@ -552,6 +552,7 @@ void RPyGilRelease(void)
 #endif
     assert_has_the_gil();
     ASSERT_STATUS(pthread_mutex_unlock(&mutex_gil));
+    ASSERT_STATUS(pthread_cond_signal(&cond_gil));
 }
 
 void RPyGilAcquire(void)
@@ -564,7 +565,6 @@ void RPyGilAcquire(void)
     ASSERT_STATUS(pthread_mutex_lock(&mutex_gil));
     atomic_add(&pending_acquires, -1L);
     assert_has_the_gil();
-    ASSERT_STATUS(pthread_cond_signal(&cond_gil));
     _debug_print("RPyGilAcquire\n");
 }
 

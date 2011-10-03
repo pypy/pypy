@@ -251,9 +251,9 @@ long RPyGilYieldThread(void)
        normally specifying a timeout of INFINITE would be fine.  But the
        first and second operations are not done atomically, so there is a
        (small) risk that PulseEvent misses the WaitForSingleObject().
-       In this case the process will just sleep 1 millisecond. */
+       In this case the process will just sleep a few milliseconds. */
     LeaveCriticalSection(&mutex_gil);
-    WaitForSingleObject(&cond_gil, 1);
+    WaitForSingleObject(&cond_gil, 15);
     EnterCriticalSection(&mutex_gil);
 
     InterlockedDecrement(&pending_acquires);
