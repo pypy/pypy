@@ -71,3 +71,28 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert view[0] == 4
 
         raises(IndexError, "view[4] = '\\5'")
+
+    def test_buffer_setslice(self):
+        from _numpy import array
+        from _numpy import dtype
+        ar = array(range(8), dtype=dtype("int8"))
+        buf = ar.data
+
+        buf[1:4] = '\1\1\1'
+
+        assert ar[1] == 1
+        assert ar[2] == 1
+        assert ar[3] == 1
+
+    def test_view_setslice(self):
+        from _numpy import array
+        from _numpy import dtype
+        ar = array(range(8), dtype=dtype("int8"))
+        view = ar[1:-1]
+
+        viewbuf = view.data
+        viewbuf[1:4] = '\1\1\1'
+
+        assert ar[2] == 1
+        assert ar[3] == 1
+        assert ar[4] == 1
