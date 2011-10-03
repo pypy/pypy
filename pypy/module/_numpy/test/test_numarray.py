@@ -587,15 +587,3 @@ class AppTestNumArray(BaseNumpyAppTest):
                 assert c[i] == func(b[i], 3)
 
 
-class AppTestSupport(object):
-    def setup_class(cls):
-        import struct
-        cls.space = gettestobjspace(usemodules=('_numpy',))
-        cls.w_data = cls.space.wrap(struct.pack('dddd', 1, 2, 3, 4))
-
-    def test_fromstring(self):
-        from _numpy import fromstring
-        a = fromstring(self.data)
-        for i in range(4):
-            assert a[i] == i + 1
-        raises(ValueError, fromstring, "abc")

@@ -74,3 +74,25 @@ class AppTestNumPyModule:
         raises(ValueError, "bincount(c, w)")
         raises(ValueError, "bincount([])")
 
+    def test_fromstring(self):
+        from numpy import fromstring
+        import struct
+
+        data = struct.pack('dddd', 0, 1, 2, 3)
+        a = fromstring(data)
+        assert len(a) == 4
+        for i in range(4):
+            assert a[i] == i
+        raises(ValueError, fromstring, "abc")
+
+        data = struct.pack("iiii", 0, 1, 2, 3)
+        assert len(a) == 4
+        a = fromstring(data, dtype="i")
+        for i in range(4):
+            assert a[i] == i
+
+        data = struct.pack("iiii", 0, 1, 2, 3) + "hello world"
+        a = fromstring(data, dtype="i", count=4)
+        assert len(a) == 4
+        for i in range(4):
+            assert a[i] == i
