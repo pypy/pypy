@@ -37,6 +37,8 @@ from _numpy import (
         tan,
     )
 
+inf = float("inf")
+
 def average(a):
     # This implements a weighted average, for now we don't implement the
     # weighting, just the average part!
