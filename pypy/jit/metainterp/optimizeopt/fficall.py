@@ -177,10 +177,10 @@ class OptFfiCall(Optimization):
             funcinfo.descr is None):
             return [op] # cannot optimize
         funcsymval = self.getvalue(op.getarg(2))
-        arglist = [funcsymval.force_box()]
+        arglist = [funcsymval.get_key_box()]
         for push_op in funcinfo.opargs:
             argval = self.getvalue(push_op.getarg(2))
-            arglist.append(argval.force_box())
+            arglist.append(argval.get_key_box())
         newop = ResOperation(rop.CALL_RELEASE_GIL, arglist, op.result,
                              descr=funcinfo.descr)
         self.commit_optimization()

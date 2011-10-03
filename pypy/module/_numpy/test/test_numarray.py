@@ -18,7 +18,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[13] == 5.3
 
     def test_zeros_tuple_shape(self):
-        from numpy import zeros, ones, empty
+        from _numpy import zeros, ones, empty
         a = zeros((15,))
         assert len(a) == 15
         b = ones((3,))
@@ -560,8 +560,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         from _numpy import array, dtype
 
         assert array([True]).dtype is dtype(bool)
-        assert array([True, 1]).dtype is dtype(long)
-        assert array([1, 2, 3]).dtype is dtype(long)
+        assert array([True, False]).dtype is dtype(bool)
+        assert array([True, 1]).dtype is dtype(int)
+        assert array([1, 2, 3]).dtype is dtype(int)
+        assert array([1L, 2, 3]).dtype is dtype(long)
         assert array([1.2, True]).dtype is dtype(float)
         assert array([1.2, 5]).dtype is dtype(float)
         assert array([]).dtype is dtype(float)
