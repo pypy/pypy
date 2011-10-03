@@ -7,6 +7,7 @@ from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.sourcetools import func_with_new_name
 
+from pypy.module._numpy.interp_buffer import NumpyBuffer
 
 numpy_driver = jit.JitDriver(greens = ['signature'],
                              reds = ['result_size', 'i', 'self', 'result'])
@@ -19,6 +20,7 @@ class BaseArray(Wrappable):
 
     def __init__(self):
         self.invalidates = []
+        self._buffer = None
 
     def invalidated(self):
         if self.invalidates:
@@ -291,6 +293,11 @@ class BaseArray(Wrappable):
             dest.setitem(i, source.eval(j).convert_to(dest.find_dtype()))
             j += 1
             i += step
+
+    def descr_get_data(self, space):
+        if self._buffer is None:
+            self._buffer = NumpyBuffer(self)
+        return space.wrap(self._buffer)
 
 def convert_to_array(space, w_obj):
     if isinstance(w_obj, BaseArray):
@@ -621,6 +628,8 @@ BaseArray.typedef = TypeDef(
 
     dtype = GetSetProperty(BaseArray.descr_get_dtype),
     shape = GetSetProperty(BaseArray.descr_get_shape),
+
+    data = GetSetProperty(BaseArray.descr_get_data),
 
     mean = interp2app(BaseArray.descr_mean),
     sum = interp2app(BaseArray.descr_sum),
