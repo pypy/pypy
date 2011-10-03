@@ -484,6 +484,30 @@ class StringTests:
             return len(sa.val)
         assert self.meta_interp(f, ['a']) == f('a')
 
+    def test_string_comepare_quasiimmutable(self):
+        class Sys(object):
+            _immutable_fields_ = ["defaultencoding?"]
+            def __init__(self, s):
+                self.defaultencoding = s
+        _str = self._str
+        sys = Sys(_str('ascii'))        
+        mydriver = JitDriver(reds = ['n', 'sa'], greens = [])
+        def f(n):
+            sa = 0
+            sys.defaultencoding = _str('ascii')
+            while n:
+                mydriver.jit_merge_point(n=n, sa=sa)
+                if sys.defaultencoding == _str('ascii'):
+                    sa += 1
+                n -= 1
+            sys.defaultencoding = _str('utf-8')
+            return sa
+        assert self.meta_interp(f, [8]) == f(8)
+        self.check_loops({'int_add': 1, 'guard_true': 1, 'int_sub': 1,
+                          'jump': 1, 'int_is_true': 1,
+                          'guard_not_invalidated': 1})
+
+
 #class TestOOtype(StringTests, OOJitMixin):
 #    CALL = "oosend"
 #    CALL_PURE = "oosend_pure"
