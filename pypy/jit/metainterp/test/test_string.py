@@ -576,3 +576,17 @@ class TestLLtypeUnicode(TestLLtype):
             return result
         res = self.meta_interp(main, [9])
         assert res == main(9)
+
+    def test_virtual_copystringcontent2(self):
+        jitdriver = JitDriver(reds=['n', 'result'], greens=[])
+        def main(n):
+            result = 0
+            while n >= 0:
+                jitdriver.jit_merge_point(n=n, result=result)
+                b = StringBuilder(6)
+                b.append("Hello!")
+                result += ord((b.build() + "xyz")[0])
+                n -= 1
+            return result
+        res = self.meta_interp(main, [9])
+        assert res == main(9)

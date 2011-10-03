@@ -49,3 +49,24 @@ class TestDicts(BaseTestPyPyC):
             p33 = call(ConstClass(ll_get_value__dicttablePtr_Signed), p18, i28, descr=...)
             ...
         """)
+
+    def test_list(self):
+        def main(n):
+            i = 0
+            while i < n:
+                z = list(())
+                z.append(1)
+                i += z[-1] / len(z)
+            return i
+
+        log = self.run(main, [1000])
+        assert log.result == main(1000)
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i7 = int_lt(i5, i6)
+            guard_true(i7, descr=...)
+            guard_not_invalidated(descr=...)
+            i9 = int_add(i5, 1)
+            --TICK--
+            jump(..., descr=...)
+        """)

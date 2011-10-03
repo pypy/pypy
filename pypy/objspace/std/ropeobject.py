@@ -34,11 +34,17 @@ class W_RopeObject(W_Object):
 
     def unwrap(w_self, space):
         return w_self._node.flatten_string()
+    str_w = unwrap
 
     def create_if_subclassed(w_self):
         if type(w_self) is W_RopeObject:
             return w_self
         return W_RopeObject(w_self._node)
+
+    def unicode_w(w_self, space):
+        # XXX should this use the default encoding?
+        from pypy.objspace.std.unicodetype import plain_str2unicode
+        return plain_str2unicode(space, w_self._node.flatten_string())
 
 W_RopeObject.EMPTY = W_RopeObject(rope.LiteralStringNode.EMPTY)
 W_RopeObject.PREBUILT = [W_RopeObject(rope.LiteralStringNode.PREBUILT[i])
@@ -662,9 +668,6 @@ def str_zfill__Rope_ANY(space, w_self, w_width):
         middle = width - length
         return W_RopeObject(rope.concatenate(
             rope.multiply(zero, middle), node))
-
-def str_w__Rope(space, w_str):
-    return w_str._node.flatten_string()
 
 def hash__Rope(space, w_str):
     return wrapint(space, rope.hash_rope(w_str._node))

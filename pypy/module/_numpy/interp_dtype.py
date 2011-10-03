@@ -262,6 +262,10 @@ class FloatArithmeticDtype(ArithmaticTypeMixin):
     def arctan(self, v):
         return math.atan(v)
 
+    @unaryop
+    def arcsinh(self, v):
+        return math.asinh(v)
+
 class IntegerArithmeticDtype(ArithmaticTypeMixin):
     _mixin_ = True
 

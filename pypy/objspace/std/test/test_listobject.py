@@ -705,6 +705,20 @@ class AppTestW_ListObject(object):
         l.pop()
         assert l == range(9)
 
+    def test_pop_custom_int(self):
+        class A(object):
+            def __init__(self, x):
+                self.x = x
+
+            def __int__(self):
+                return self.x
+
+        l = range(10)
+        x = l.pop(A(-1))
+        assert x == 9
+        assert l == range(9)
+        raises(TypeError, range(10).pop, 1.0)
+
     def test_remove(self):
         c = list('hello world')
         c.remove('l')

@@ -99,12 +99,20 @@ class Debug(object):
         return False
     def add(self, h):
         if not self.sthread.is_empty_handle(h):
+            if h == self.sthread.get_null_handle():
+                raise StackletDebugError("unexpected null handle")
             self.active.append(h)
     def remove(self, h):
         try:
             i = self.active.index(h)
         except ValueError:
-            raise StackletDebugError
+            if self.sthread.is_empty_handle(h):
+                msg = "empty stacklet handle"
+            elif h == self.sthread.get_null_handle():
+                msg = "unexpected null handle"
+            else:
+                msg = "double usage of handle %r" % (h,)
+            raise StackletDebugError(msg)
         del self.active[i]
 debug = Debug()
 

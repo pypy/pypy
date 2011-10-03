@@ -1,12 +1,13 @@
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std import newformat
+from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.model import registerimplementation, W_Object
-from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.multimethod import FailedToImplementArgs
 from pypy.objspace.std.noneobject import W_NoneObject
+from pypy.objspace.std.register_all import register_all
+from pypy.rlib import jit
 from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift, LONG_BIT, r_uint
 from pypy.rlib.rbigint import rbigint
-from pypy.objspace.std.inttype import wrapint
 
 """
 In order to have the same behavior running
@@ -20,7 +21,7 @@ class W_IntObject(W_Object):
     _immutable_fields_ = ['intval']
 
     from pypy.objspace.std.inttype import int_typedef as typedef
-    
+
     def __init__(w_self, intval):
         w_self.intval = intval
 
@@ -30,7 +31,18 @@ class W_IntObject(W_Object):
 
     def unwrap(w_self, space):
         return int(w_self.intval)
+    int_w = unwrap
 
+    def uint_w(w_self, space):
+        intval = w_self.intval
+        if intval < 0:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("cannot convert negative integer to unsigned"))
+        else:
+            return r_uint(intval)
+
+    def bigint_w(w_self, space):
+        return rbigint.fromint(w_self.intval)
 
 registerimplementation(W_IntObject)
 
@@ -38,20 +50,6 @@ registerimplementation(W_IntObject)
 # multimethods should be invoked from these implementations. Instead, add an
 # alias and then teach copy_multimethods in smallintobject.py to override
 # it. See int__Int for example.
-
-def int_w__Int(space, w_int1):
-    return int(w_int1.intval)
-
-def uint_w__Int(space, w_int1):
-    intval = w_int1.intval
-    if intval < 0:
-        raise OperationError(space.w_ValueError,
-                             space.wrap("cannot convert negative integer to unsigned"))
-    else:
-        return r_uint(intval)
-
-def bigint_w__Int(space, w_int1):
-    return rbigint.fromint(w_int1.intval)
 
 def repr__Int(space, w_int1):
     a = w_int1.intval
@@ -138,7 +136,7 @@ def truediv__Int_Int(space, w_int1, w_int2):
     x = float(w_int1.intval)
     y = float(w_int2.intval)
     if y == 0.0:
-        raise FailedToImplementArgs(space.w_ZeroDivisionError, space.wrap("float division"))    
+        raise FailedToImplementArgs(space.w_ZeroDivisionError, space.wrap("float division"))
     return space.wrap(x / y)
 
 def mod__Int_Int(space, w_int1, w_int2):
@@ -172,7 +170,8 @@ def divmod__Int_Int(space, w_int1, w_int2):
 
 
 # helper for pow()
-def _impl_int_int_pow(space, iv, iw, iz=0):
+@jit.look_inside_iff(lambda space, iv, iw, iz: jit.isconstant(iw) and jit.isconstant(iz))
+def _impl_int_int_pow(space, iv, iw, iz):
     if iw < 0:
         if iz != 0:
             raise OperationError(space.w_TypeError,
@@ -200,7 +199,7 @@ def _impl_int_int_pow(space, iv, iw, iz=0):
     except OverflowError:
         raise FailedToImplementArgs(space.w_OverflowError,
                                 space.wrap("integer exponentiation"))
-    return wrapint(space, ix)
+    return ix
 
 def pow__Int_Int_Int(space, w_int1, w_int2, w_int3):
     x = w_int1.intval
@@ -209,12 +208,12 @@ def pow__Int_Int_Int(space, w_int1, w_int2, w_int3):
     if z == 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("pow() 3rd argument cannot be 0"))
-    return _impl_int_int_pow(space, x, y, z)
+    return space.wrap(_impl_int_int_pow(space, x, y, z))
 
 def pow__Int_Int_None(space, w_int1, w_int2, w_int3):
     x = w_int1.intval
     y = w_int2.intval
-    return _impl_int_int_pow(space, x, y)
+    return space.wrap(_impl_int_int_pow(space, x, y, 0))
 
 def neg__Int(space, w_int1):
     a = w_int1.intval
