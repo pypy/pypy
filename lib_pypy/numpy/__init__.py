@@ -136,3 +136,7 @@ def fromstring(s, dtype=float, count=-1, sep=''):
 
     return __from_buffer_or_datastring(s, dtype, count)
 
+def fromfile(file, dtype=float, count=-1, sep=''):
+    if isinstance(file, basestring):
+        file = open(file, "r")
+    return fromstring(file.read(), dtype, count, sep)
