@@ -221,7 +221,6 @@ class GuardResOp(ResOpWithDescr):
         newop.setfailargs(self.getfailargs())
         return newop
 
-
 # ============
 # arity mixins
 # ============

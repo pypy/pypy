@@ -50,8 +50,7 @@ class BaseTestPyPyC(object):
         cmdline.append(str(self.filepath))
         #
         print cmdline, logfile
-        env={'PYPYLOG': 'jit-log-opt,jit-summary:' + str(logfile)}
-        #env={'PYPYLOG': ':' + str(logfile)}
+        env={'PYPYLOG': 'jit-log-opt,jit-log-noopt,jit-summary:' + str(logfile)}
         pipe = subprocess.Popen(cmdline,
                                 env=env,
                                 stdout=subprocess.PIPE,
