@@ -88,6 +88,7 @@ def bincount(x, weights=None, minlength=None):
 
 def __from_buffer_or_datastring(buf_or_str, dt, count, offset=0):
     _dtype = dtype(dt)
+    buf_or_str = buffer(buf_or_str)
 
     if count > 0:
         length = count * _dtype.itemsize
