@@ -400,5 +400,6 @@ W_Dtype.typedef = TypeDef("dtype",
     num = interp_attrproperty("num", cls=W_Dtype),
     kind = interp_attrproperty("kind", cls=W_Dtype),
     shape = GetSetProperty(W_Dtype.descr_get_shape),
+    itemsize = interp_attrproperty("num_bytes", cls=W_Dtype),
 )
 W_Dtype.typedef.acceptable_as_base_class = False
