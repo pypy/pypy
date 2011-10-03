@@ -77,7 +77,7 @@ class MethodCache(object):
         for i in range(len(self.lookup_where)):
             self.lookup_where[i] = None_None
 
-# possible values of compares_by_identity_status 
+# possible values of compares_by_identity_status
 UNKNOWN = 0
 COMPARES_BY_IDENTITY = 1
 OVERRIDES_EQ_CMP_OR_HASH = 2
@@ -358,7 +358,7 @@ class W_TypeObject(W_Object):
                 if w_value is not None:
                     return w_value
         return None
-                
+
     @unroll_safe
     def _lookup(w_self, key):
         space = w_self.space
@@ -848,7 +848,8 @@ def call__Type(space, w_type, __args__):
         call_init = space.isinstance_w(w_newobject, w_type)
 
     # maybe invoke the __init__ of the type
-    if call_init:
+    if (call_init and not (space.is_w(w_type, space.w_type) and
+        not __args__.keywords and len(__args__.arguments_w) == 1)):
         w_descr = space.lookup(w_newobject, '__init__')
         w_result = space.get_and_call_args(w_descr, w_newobject, __args__)
         if not space.is_w(w_result, space.w_None):
