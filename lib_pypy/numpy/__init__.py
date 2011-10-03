@@ -86,24 +86,34 @@ def bincount(x, weights=None, minlength=None):
 
     return array(result)
 
+def __from_buffer_or_datastring(buf_or_str, dt, count, offset=0):
+    _dtype = dtype(dt)
+
+    if count > 0:
+        length = count * _dtype.itemsize
+        if length + offset > len(buf_or_str):
+            raise ValueError("length of string (%d) not enough for %d %s" %
+                             (len(buf_or_str), count, _dtype))
+
+        buf_or_str = buf_or_str[offset:length+offset]
+    else:
+        length = len(buf_or_str) - offset
+        buf_or_str = buf_or_str[offset:]
+        if len(buf_or_str) % _dtype.itemsize != 0:
+            raise ValueError("length of string (%d) not evenly dividable by size of dtype (%d)" %
+                             (len(buf_or_str), _dtype.itemsize))
+
+    arr = empty(length / _dtype.itemsize, dtype=_dtype)
+    arr.data[:length] = buf_or_str
+
+    return arr
+
+def frombuffer(buf, dtype=float, count=-1, offset=0):
+    return __from_buffer_or_datastring(buf, dtype, count, offset)
+
 def fromstring(s, dtype=float, count=-1, sep=''):
-    from _numpy import dtype as dt
     if sep:
         raise NotImplementedError("Cannot use fromstring with a separator yet")
 
-    _dtype = dt(dtype)
-    if count > 0:
-        length = count * _dtype.itemsize
-        if length > len(s):
-            raise ValueError("length of string (%d) not enough for %d %s" % (len(s), count, _dtype))
-        s = s[:length]
-    else:
-        length = len(s)
-        if len(s) % _dtype.itemsize != 0:
-            raise ValueError("length of string (%d) not evenly dividable by size of dtype (%d)" % (len(s), _dtype.itemsize))
+    return __from_buffer_or_datastring(s, dtype, count)
 
-    arr = empty(length / _dtype.itemsize, dtype=_dtype)
-    print len(arr.data), len(s), length, _dtype.itemsize
-    arr.data[:length] = s
-
-    return arr

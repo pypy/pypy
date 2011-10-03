@@ -96,3 +96,24 @@ class AppTestNumPyModule:
         assert len(a) == 4
         for i in range(4):
             assert a[i] == i
+
+    def test_frombuffer(self):
+        from numpy import frombuffer
+        import struct
+
+        data = "\0\1\2\3\4"
+        a = frombuffer(data, dtype="int8", count=3)
+        b = frombuffer(data, dtype="int8", count=3, offset=1)
+        # does this depend on the machine architecture? byte-order?
+        assert a[0] == 0
+        assert b[0] == a[1] == 1
+
+        data = struct.pack("iiii", 0, 1, 0, 0)
+        a = frombuffer(data, dtype="i", count=1)[0]
+        b = frombuffer(data, dtype="i", count=1, offset=1)[0]
+        c = frombuffer(data, dtype="i", count=1, offset=2)[0]
+        d = frombuffer(data, dtype="i", count=1, offset=3)[0]
+        assert a == 0
+        assert b == 1 << 24
+        assert c == 1 << 16
+        assert d == 1 << 8
