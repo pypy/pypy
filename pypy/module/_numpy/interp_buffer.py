@@ -9,7 +9,7 @@ class NumpyBuffer(RWBuffer):
         self.array = array
 
     def getlength(self):
-        return self.array.get_concrete().find_size()
+        return self.array.get_concrete().find_size() * self.array.find_dtype().num_bytes
 
     def getitem(self, index):
         index = self.calc_index(index)
@@ -29,7 +29,7 @@ class NumpyBuffer(RWBuffer):
 
     def setslice(self, index, newstring):
         offset_index = self.calc_index(index)
-        if offset_index + len(newstring) > self.getlength() - 1:
+        if offset_index + len(newstring) > self.getlength():
             raise IndexError("End of slice to set out of bounds (0<=index<%d)" % self.getlength())
         for idx in range(0, len(newstring)):
             self.setitem(index + idx, newstring[idx])

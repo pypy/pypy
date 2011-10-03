@@ -12,6 +12,8 @@ class AppTestNumArray(BaseNumpyAppTest):
 
         raises(IndexError, "buf[5]")
 
+        assert len(buf) == 5
+
     def test_mutable(self):
         from _numpy import array
         from _numpy import dtype
@@ -38,6 +40,8 @@ class AppTestNumArray(BaseNumpyAppTest):
 
         assert arbuf[1] == '\5'
         assert viewbuf[0] == '\5'
+
+        assert len(view) == len(ar) - 2 == 3
 
     def test_buffer_set(self):
         from _numpy import array
