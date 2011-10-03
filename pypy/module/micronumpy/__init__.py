@@ -53,4 +53,5 @@ class Module(MixedModule):
         'average': 'app_numpy.average',
         'mean': 'app_numpy.mean',
         'inf': 'app_numpy.inf',
+        'e': 'app_numpy.e',
     }
