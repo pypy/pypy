@@ -16,5 +16,12 @@ class NumpyBuffer(RWBuffer):
             raise IndexError("Index out of bounds (0<=index<%d)" % self.getlength())
         storage = self.array.get_concrete().get_root_storage()
         char_data = rffi.cast(CHAR_TP, storage)
-        return char_data[index]
+        return char_data[self.calc_index(index)]
+
+    def calc_index(self, index):
+        return index
+
+class NumpyViewBuffer(NumpyBuffer):
+    def calc_index(self, index):
+        return self.array.calc_index(index) * self.array.find_dtype().num_bytes
 

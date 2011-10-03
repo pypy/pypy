@@ -23,7 +23,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert buf[0] == "\5"
 
     def test_slice_view(self):
-        skip("buffers on slicing views doesn't work yet")
         from _numpy import array
         from _numpy import dtype
         ar = array(range(5), dtype=dtype("int8"))

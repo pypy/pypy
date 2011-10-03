@@ -7,7 +7,7 @@ from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.sourcetools import func_with_new_name
 
-from pypy.module._numpy.interp_buffer import NumpyBuffer
+from pypy.module._numpy.interp_buffer import NumpyBuffer, NumpyViewBuffer
 
 numpy_driver = jit.JitDriver(greens = ['signature'],
                              reds = ['result_size', 'i', 'self', 'result'])
@@ -17,6 +17,7 @@ slice_driver = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop
 
 class BaseArray(Wrappable):
     _attrs_ = ["invalidates", "signature"]
+    BufferClass = NumpyBuffer
 
     def __init__(self):
         self.invalidates = []
@@ -296,7 +297,7 @@ class BaseArray(Wrappable):
 
     def descr_get_data(self, space):
         if self._buffer is None:
-            self._buffer = NumpyBuffer(self)
+            self._buffer = self.BufferClass(self)
         return space.wrap(self._buffer)
 
 def convert_to_array(space, w_obj):
@@ -450,11 +451,15 @@ class ViewArray(BaseArray):
     Class for representing views of arrays, they will reflect changes of parent
     arrays. Example: slices
     """
+
+    BufferClass = NumpyViewBuffer
+
     def __init__(self, parent, signature):
         BaseArray.__init__(self)
         self.signature = signature
         self.parent = parent
         self.invalidates = parent.invalidates
+        self._buffer = None
 
     def get_concrete(self):
         # in fact, ViewArray never gets "concrete" as it never stores data.
