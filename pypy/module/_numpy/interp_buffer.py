@@ -18,6 +18,13 @@ class NumpyBuffer(RWBuffer):
         char_data = rffi.cast(CHAR_TP, storage)
         return char_data[self.calc_index(index)]
 
+    def setitem(self, index, value):
+        if index > self.getlength() - 1:
+            raise IndexError("Index out of bounds (0<=index<%d)" % self.getlength())
+        storage = self.array.get_concrete().get_root_storage()
+        char_ptr = rffi.cast(CHAR_TP, storage)
+        char_ptr[self.calc_index(index)] = value
+
     def calc_index(self, index):
         return index
 
