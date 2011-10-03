@@ -421,6 +421,25 @@ class OptRewrite(Optimization):
             return True # 0-length arraycopy
         return False
 
+    def optimize_CALL_PURE(self, op):
+        arg_consts = []
+        for i in range(op.numargs()):
+            arg = op.getarg(i)
+            const = self.get_constant_box(arg)
+            if const is None:
+                break
+            arg_consts.append(const)
+        else:
+            # all constant arguments: check if we already know the result
+            try:
+                result = self.optimizer.call_pure_results[arg_consts]
+            except KeyError:
+                pass
+            else:
+                self.make_constant(op.result, result)
+                return
+        self.emit_operation(op)
+
     def optimize_INT_FLOORDIV(self, op):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))

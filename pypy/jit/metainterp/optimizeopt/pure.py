@@ -57,23 +57,6 @@ class OptPure(Optimization):
             self.emit_operation(nextop)
 
     def optimize_CALL_PURE(self, op):
-        arg_consts = []
-        for i in range(op.numargs()):
-            arg = op.getarg(i)
-            const = self.get_constant_box(arg)
-            if const is None:
-                break
-            arg_consts.append(const)
-        else:
-            # all constant arguments: check if we already know the result
-            try:
-                result = self.optimizer.call_pure_results[arg_consts]
-            except KeyError:
-                pass
-            else:
-                self.make_constant(op.result, result)
-                return
-
         args = self.optimizer.make_args_key(op)
         oldop = self.pure_operations.get(args, None)
         if oldop is not None and oldop.getdescr() is op.getdescr():
