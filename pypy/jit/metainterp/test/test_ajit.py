@@ -3420,6 +3420,23 @@ class BaseLLtypeTests(BasicTests):
         assert res == main(1, 10)
         self.check_loops(call=0)
 
+    def test_setarrayitem_followed_by_arraycopy(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'sa', 'x', 'y'])
+        def f(n):
+            sa = 0
+            x = [1,2,n]
+            y = [1,2,3]
+            while n > 0:
+                myjitdriver.jit_merge_point(sa=sa, n=n, x=x, y=y)
+                y[0] = n
+                x[0:3] = y
+                sa += x[0]
+                n -= 1
+            return sa
+        res = self.meta_interp(f, [16])
+        assert res == f(16)
+        
+
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
     def test_tagged(self):

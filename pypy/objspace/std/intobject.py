@@ -1,12 +1,13 @@
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std import newformat
+from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.model import registerimplementation, W_Object
-from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.multimethod import FailedToImplementArgs
 from pypy.objspace.std.noneobject import W_NoneObject
+from pypy.objspace.std.register_all import register_all
+from pypy.rlib import jit
 from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift, LONG_BIT, r_uint
 from pypy.rlib.rbigint import rbigint
-from pypy.objspace.std.inttype import wrapint
 
 """
 In order to have the same behavior running
@@ -20,7 +21,7 @@ class W_IntObject(W_Object):
     _immutable_fields_ = ['intval']
 
     from pypy.objspace.std.inttype import int_typedef as typedef
-    
+
     def __init__(w_self, intval):
         w_self.intval = intval
 
@@ -135,7 +136,7 @@ def truediv__Int_Int(space, w_int1, w_int2):
     x = float(w_int1.intval)
     y = float(w_int2.intval)
     if y == 0.0:
-        raise FailedToImplementArgs(space.w_ZeroDivisionError, space.wrap("float division"))    
+        raise FailedToImplementArgs(space.w_ZeroDivisionError, space.wrap("float division"))
     return space.wrap(x / y)
 
 def mod__Int_Int(space, w_int1, w_int2):
@@ -169,7 +170,8 @@ def divmod__Int_Int(space, w_int1, w_int2):
 
 
 # helper for pow()
-def _impl_int_int_pow(space, iv, iw, iz=0):
+@jit.look_inside_iff(lambda space, iv, iw, iz: jit.isconstant(iw) and jit.isconstant(iz))
+def _impl_int_int_pow(space, iv, iw, iz):
     if iw < 0:
         if iz != 0:
             raise OperationError(space.w_TypeError,
@@ -197,7 +199,7 @@ def _impl_int_int_pow(space, iv, iw, iz=0):
     except OverflowError:
         raise FailedToImplementArgs(space.w_OverflowError,
                                 space.wrap("integer exponentiation"))
-    return wrapint(space, ix)
+    return ix
 
 def pow__Int_Int_Int(space, w_int1, w_int2, w_int3):
     x = w_int1.intval
@@ -206,12 +208,12 @@ def pow__Int_Int_Int(space, w_int1, w_int2, w_int3):
     if z == 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("pow() 3rd argument cannot be 0"))
-    return _impl_int_int_pow(space, x, y, z)
+    return space.wrap(_impl_int_int_pow(space, x, y, z))
 
 def pow__Int_Int_None(space, w_int1, w_int2, w_int3):
     x = w_int1.intval
     y = w_int2.intval
-    return _impl_int_int_pow(space, x, y)
+    return space.wrap(_impl_int_int_pow(space, x, y, 0))
 
 def neg__Int(space, w_int1):
     a = w_int1.intval

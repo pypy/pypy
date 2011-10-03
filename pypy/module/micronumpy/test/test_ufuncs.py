@@ -298,6 +298,14 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = arctan(a)
         assert math.isnan(b[0])
 
+    def test_arcsinh(self):
+        import math
+        from numpy import arcsinh, inf
+
+        for v in [inf, -inf, 1.0, math.e]:
+            assert math.asinh(v) == arcsinh(v)
+        assert math.isnan(arcsinh(float("nan")))
+
     def test_reduce_errors(self):
         from numpy import sin, add
 

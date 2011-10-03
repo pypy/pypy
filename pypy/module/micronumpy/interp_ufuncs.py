@@ -312,6 +312,7 @@ class UfuncState(object):
             ("arcsin", "arcsin", 1, {"promote_to_float": True}),
             ("arccos", "arccos", 1, {"promote_to_float": True}),
             ("arctan", "arctan", 1, {"promote_to_float": True}),
+            ("arcsinh", "arcsinh", 1, {"promote_to_float": True}),
         ]:
             self.add_ufunc(space, *ufunc_def)
 

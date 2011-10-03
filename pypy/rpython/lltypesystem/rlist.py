@@ -1,15 +1,15 @@
-from pypy.tool.pairtype import pairtype, pair
-from pypy.rpython.rmodel import Repr, inputconst
-from pypy.rpython.rmodel import externalvsinternal
-from pypy.rpython.rlist import AbstractBaseListRepr, AbstractListRepr, \
-        AbstractFixedSizeListRepr, AbstractListIteratorRepr, \
-        ll_setitem_nonneg, ADTIList, ADTIFixedList
-from pypy.rpython.rlist import dum_nocheck
-from pypy.rpython.lltypesystem.lltype import GcForwardReference, Ptr, GcArray,\
-     GcStruct, Void, Signed, malloc, typeOf, nullptr, typeMethod
-from pypy.rpython.lltypesystem import rstr
-from pypy.rlib.debug import ll_assert
 from pypy.rlib import rgc, jit
+from pypy.rlib.debug import ll_assert
+from pypy.rlib.objectmodel import enforceargs
+from pypy.rpython.lltypesystem import rstr
+from pypy.rpython.lltypesystem.lltype import (GcForwardReference, Ptr, GcArray,
+     GcStruct, Void, Signed, malloc, typeOf, nullptr, typeMethod)
+from pypy.rpython.rlist import (AbstractBaseListRepr, AbstractListRepr,
+    AbstractFixedSizeListRepr, AbstractListIteratorRepr, ll_setitem_nonneg,
+    ADTIList, ADTIFixedList, dum_nocheck)
+from pypy.rpython.rmodel import Repr, inputconst, externalvsinternal
+from pypy.tool.pairtype import pairtype, pair
+
 
 # ____________________________________________________________
 #
@@ -171,6 +171,7 @@ class FixedSizeListRepr(AbstractFixedSizeListRepr, BaseListRepr):
 
 # adapted C code
 
+@enforceargs(None, int)
 def _ll_list_resize_really(l, newsize):
     """
     Ensure l.items has room for at least newsize elements, and set
@@ -210,7 +211,6 @@ def _ll_list_resize_really(l, newsize):
         rgc.ll_arraycopy(items, newitems, 0, 0, p)
     l.length = newsize
     l.items = newitems
-_ll_list_resize_really._annenforceargs_ = (None, int)
 
 # this common case was factored out of _ll_list_resize
 # to see if inlining it gives some speed-up.
