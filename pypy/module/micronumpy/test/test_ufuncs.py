@@ -234,7 +234,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert b[i] == math.sin(a[i])
 
         a = sin(array([True, False], dtype=bool))
-        assert a[0] == sin(1)
+        assert abs(a[0] - sin(1)) < 1e-7 # a[0] will be less precise
         assert a[1] == 0.0
 
     def test_cos(self):

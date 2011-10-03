@@ -4,6 +4,7 @@ from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.module.micronumpy import interp_dtype, signature
 from pypy.rlib import jit
+from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
 
 
@@ -180,23 +181,56 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
 
     # Everything promotes to float, and bool promotes to everything.
     if dt2.kind == interp_dtype.FLOATINGLTR or dt1.kind == interp_dtype.BOOLLTR:
+        # Float32 + 8-bit int = Float64
+        if dt2.num == 11 and dt1.num_bytes >= 4:
+            return space.fromcache(interp_dtype.W_Float64Dtype)
         return dt2
 
-    assert False
+    # for now this means mixing signed and unsigned
+    if dt2.kind == interp_dtype.SIGNEDLTR:
+        # if dt2 has a greater number of bytes, then just go with it
+        if dt1.num_bytes < dt2.num_bytes:
+            return dt2
+        # we need to promote both dtypes
+        dtypenum = dt2.num + 2
+    else:
+        # increase to the next signed type (or to float)
+        dtypenum = dt2.num + 1
+        # UInt64 + signed = Float64
+        if dt2.num == 10:
+            dtypenum += 1
+    newdtype = interp_dtype.ALL_DTYPES[dtypenum]
+
+    if newdtype.num_bytes > dt2.num_bytes or newdtype.kind == interp_dtype.FLOATINGLTR:
+        return space.fromcache(newdtype)
+    else:
+        # we only promoted to long on 32-bit or to longlong on 64-bit
+        # this is really for dealing with the Long and Ulong dtypes
+        if LONG_BIT == 32:
+            dtypenum += 2
+        else:
+            dtypenum += 3
+        return space.fromcache(interp_dtype.ALL_DTYPES[dtypenum])
 
 def find_unaryop_result_dtype(space, dt, promote_to_float=False,
     promote_bools=False, promote_to_largest=False):
     if promote_bools and (dt.kind == interp_dtype.BOOLLTR):
         return space.fromcache(interp_dtype.W_Int8Dtype)
     if promote_to_float:
+        if dt.kind == interp_dtype.FLOATINGLTR:
+            return dt
+        if dt.num >= 5:
+            return space.fromcache(interp_dtype.W_Float64Dtype)
         for bytes, dtype in interp_dtype.dtypes_by_num_bytes:
-            if dtype.kind == interp_dtype.FLOATINGLTR and dtype.num_bytes >= dt.num_bytes:
+            if dtype.kind == interp_dtype.FLOATINGLTR and dtype.num_bytes > dt.num_bytes:
                 return space.fromcache(dtype)
     if promote_to_largest:
         if dt.kind == interp_dtype.BOOLLTR or dt.kind == interp_dtype.SIGNEDLTR:
             return space.fromcache(interp_dtype.W_Int64Dtype)
         elif dt.kind == interp_dtype.FLOATINGLTR:
             return space.fromcache(interp_dtype.W_Float64Dtype)
+        elif dt.kind == interp_dtype.UNSIGNEDLTR:
+            return space.fromcache(interp_dtype.W_UInt64Dtype)
         else:
             assert False
     return dt
@@ -205,15 +239,23 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
     w_type = space.type(w_obj)
 
     bool_dtype = space.fromcache(interp_dtype.W_BoolDtype)
+    long_dtype = space.fromcache(interp_dtype.W_LongDtype)
     int64_dtype = space.fromcache(interp_dtype.W_Int64Dtype)
 
     if space.is_w(w_type, space.w_bool):
-        if current_guess is None:
+        if current_guess is None or current_guess is bool_dtype:
             return bool_dtype
+        return current_guess
     elif space.is_w(w_type, space.w_int):
         if (current_guess is None or current_guess is bool_dtype or
-            current_guess is int64_dtype):
+            current_guess is long_dtype):
+            return long_dtype
+        return current_guess
+    elif space.is_w(w_type, space.w_long):
+        if (current_guess is None or current_guess is bool_dtype or
+            current_guess is long_dtype or current_guess is int64_dtype):
             return int64_dtype
+        return current_guess
     return space.fromcache(interp_dtype.W_Float64Dtype)
 
 
@@ -225,7 +267,9 @@ def ufunc_dtype_caller(space, ufunc_name, op_name, argcount, comparison_func):
         def impl(res_dtype, lvalue, rvalue):
             res = getattr(res_dtype, op_name)(lvalue, rvalue)
             if comparison_func:
-                res = space.fromcache(interp_dtype.W_BoolDtype).box(res)
+                booldtype = space.fromcache(interp_dtype.W_BoolDtype)
+                assert isinstance(booldtype, interp_dtype.W_BoolDtype)
+                res = booldtype.box(res)
             return res
     return func_with_new_name(impl, ufunc_name)
 
@@ -278,7 +322,7 @@ class UfuncState(object):
 
         identity = extra_kwargs.get("identity")
         if identity is not None:
-            identity = space.fromcache(interp_dtype.W_Int64Dtype).adapt_val(identity)
+            identity = space.fromcache(interp_dtype.W_LongDtype).adapt_val(identity)
         extra_kwargs["identity"] = identity
 
         func = ufunc_dtype_caller(space, ufunc_name, op_name, argcount,
