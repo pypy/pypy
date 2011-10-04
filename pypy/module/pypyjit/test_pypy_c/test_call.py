@@ -334,6 +334,7 @@ class TestCall(BaseTestPyPyC):
         log = self.run(main, [1000])
         assert log.result == (1000, 998)
         loop, = log.loops_by_filename(self.filepath)
+        # the int strategy is used here
         assert loop.match_by_id('append', """
             i13 = getfield_gc(p8, descr=<SignedFieldDescr list.length .*>)
             i15 = int_add(i13, 1)
