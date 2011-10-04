@@ -178,9 +178,7 @@ def isvirtual(value):
 
     This is for advanced usage only.
     """
-    if NonConstant(False):
-        return True
-    return False
+    return NonConstant(False)
 
 class Entry(ExtRegistryEntry):
     _about_ = hint
