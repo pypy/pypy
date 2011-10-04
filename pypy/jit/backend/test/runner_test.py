@@ -2376,6 +2376,9 @@ class LLtypeBackendTest(BaseBackendTest):
             assembler_helper_adr = llmemory.cast_ptr_to_adr(
                 _assembler_helper_ptr)
 
+        # ensure the fail_descr_number is not zero
+        for _ in range(10):
+            self.cpu.reserve_some_free_fail_descr_number()
         ops = '''
         [i0, i1, i2, i3, i4, i5, i6, i7, i8, i9]
         i10 = int_add(i0, i1)
@@ -2416,7 +2419,7 @@ class LLtypeBackendTest(BaseBackendTest):
             self.cpu.set_future_value_int(i, i+1)
         res = self.cpu.execute_token(othertoken)
         assert self.cpu.get_latest_value_int(0) == 13
-        assert called
+        assert called == [done_number]
 
         # test the fast path, which should not call assembler_helper()
         del called[:]
@@ -2455,7 +2458,8 @@ class LLtypeBackendTest(BaseBackendTest):
         FakeJitDriverSD.portal_calldescr = self.cpu.calldescrof(
             lltype.Ptr(lltype.FuncType(ARGS, RES)), ARGS, RES,
             EffectInfo.MOST_GENERAL)
-        
+        for _ in range(10):
+            self.cpu.reserve_some_free_fail_descr_number()
         ops = '''
         [f0, f1]
         f2 = float_add(f0, f1)
@@ -2484,7 +2488,7 @@ class LLtypeBackendTest(BaseBackendTest):
         res = self.cpu.execute_token(othertoken)
         x = self.cpu.get_latest_value_float(0)
         assert longlong.getrealfloat(x) == 13.5
-        assert called
+        assert called == [done_number]
 
         # test the fast path, which should not call assembler_helper()
         del called[:]
@@ -2548,7 +2552,8 @@ class LLtypeBackendTest(BaseBackendTest):
         FakeJitDriverSD.portal_calldescr = self.cpu.calldescrof(
             lltype.Ptr(lltype.FuncType(ARGS, RES)), ARGS, RES,
             EffectInfo.MOST_GENERAL)
-        
+        for _ in range(10):
+            self.cpu.reserve_some_free_fail_descr_number()
         ops = '''
         [f0, f1]
         f2 = float_add(f0, f1)
@@ -2557,6 +2562,7 @@ class LLtypeBackendTest(BaseBackendTest):
         looptoken = LoopToken()
         looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        done_number = self.cpu.get_fail_descr_number(loop.operations[-1].getdescr())
         self.cpu.set_future_value_float(0, longlong.getfloatstorage(1.25))
         self.cpu.set_future_value_float(1, longlong.getfloatstorage(2.35))
         res = self.cpu.execute_token(looptoken)
@@ -2580,7 +2586,7 @@ class LLtypeBackendTest(BaseBackendTest):
         res = self.cpu.execute_token(othertoken)
         x = self.cpu.get_latest_value_float(0)
         assert longlong.getrealfloat(x) == 13.5
-        assert called
+        assert called == [done_number]
         del called[:]
 
         # compile a replacement
@@ -2592,6 +2598,7 @@ class LLtypeBackendTest(BaseBackendTest):
         looptoken2 = LoopToken()
         looptoken2.outermost_jitdriver_sd = FakeJitDriverSD()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken2)
+        done_number = self.cpu.get_fail_descr_number(loop.operations[-1].getdescr())
 
         # install it
         self.cpu.redirect_call_assembler(looptoken, looptoken2)
@@ -2603,7 +2610,7 @@ class LLtypeBackendTest(BaseBackendTest):
         res = self.cpu.execute_token(othertoken)
         x = self.cpu.get_latest_value_float(0)
         assert longlong.getrealfloat(x) == 13.5
-        assert called
+        assert called == [done_number]
 
     def test_short_result_of_getfield_direct(self):
         # Test that a getfield that returns a CHAR, SHORT or INT, signed
