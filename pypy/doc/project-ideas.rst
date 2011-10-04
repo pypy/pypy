@@ -53,6 +53,18 @@ the client): if you have great web developing skills and want to help PyPy,
 this is an ideal task to get started, because it does not require any deep
 knowledge of the internals.
 
+Optimized Unicode Representation
+--------------------------------
+
+CPython 3.3 will use an `optimized unicode representation`_ which switches between
+different ways to represent a unicode string, depending on whether the string
+fits into ASCII, has only two-byte characters or needs four-byte characters.
+
+The actual details would be rather differen in PyPy, but we would like to have
+the same optimization implemented.
+
+.. _`optimized unicode representation`: http://www.python.org/dev/peps/pep-0393/
+
 Translation Toolchain
 ---------------------
 

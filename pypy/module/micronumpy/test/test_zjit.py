@@ -1,13 +1,15 @@
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.module.micronumpy import interp_ufuncs, signature
 from pypy.module.micronumpy.compile import (numpy_compile, FakeSpace,
-    FloatObject)
-from pypy.module.micronumpy.interp_dtype import W_Float64Dtype, W_Int64Dtype
+    FloatObject, IntObject)
+from pypy.module.micronumpy.interp_dtype import W_Int32Dtype, W_Float64Dtype, W_Int64Dtype, W_UInt64Dtype
 from pypy.module.micronumpy.interp_numarray import (BaseArray, SingleDimArray,
     SingleDimSlice, scalar_w)
 from pypy.rlib.nonconst import NonConstant
 from pypy.rpython.annlowlevel import llstr
 from pypy.rpython.test.test_llinterp import interpret
+
+import py
 
 
 class TestNumpyJIt(LLJitMixin):
@@ -15,6 +17,8 @@ class TestNumpyJIt(LLJitMixin):
         cls.space = FakeSpace()
         cls.float64_dtype = cls.space.fromcache(W_Float64Dtype)
         cls.int64_dtype = cls.space.fromcache(W_Int64Dtype)
+        cls.uint64_dtype = cls.space.fromcache(W_UInt64Dtype)
+        cls.int32_dtype = cls.space.fromcache(W_Int32Dtype)
 
     def test_add(self):
         def f(i):
@@ -302,6 +306,31 @@ class TestNumpyJIt(LLJitMixin):
                           'setarrayitem_raw': 1, 'int_add': 2,
                           'int_lt': 1, 'guard_true': 1, 'jump': 1})
         assert result == 11.0
+
+    def test_int32_sum(self):
+        py.test.skip("pypy/jit/backend/llimpl.py needs to be changed to "
+                     "deal correctly with int dtypes for this test to "
+                     "work. skip for now until someone feels up to the task")
+        space = self.space
+        float64_dtype = self.float64_dtype
+        int32_dtype = self.int32_dtype
+
+        def f(n):
+            if NonConstant(False):
+                dtype = float64_dtype
+            else:
+                dtype = int32_dtype
+            ar = SingleDimArray(n, dtype=dtype)
+            i = 0
+            while i < n:
+                ar.get_concrete().setitem(i, int32_dtype.box(7))
+                i += 1
+            v = ar.descr_add(space, ar).descr_sum(space)
+            assert isinstance(v, IntObject)
+            return v.intval
+
+        result = self.meta_interp(f, [5], listops=True, backendopt=True)
+        assert result == f(5)
 
 class TestTranslation(object):
     def test_compile(self):

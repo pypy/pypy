@@ -84,7 +84,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             transparent.setup(self)
 
         for type, classes in self.model.typeorder.iteritems():
-            if len(classes) == 3:
+            if len(classes) >= 3:
                 # W_Root, AnyXxx and actual object
                 self.gettypefor(type).interplevel_cls = classes[0][0]
 

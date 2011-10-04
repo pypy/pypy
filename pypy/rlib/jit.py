@@ -158,7 +158,7 @@ def oopspec(spec):
     return decorator
 
 @oopspec("jit.isconstant(value)")
-@specialize.argtype(0)
+@specialize.ll()
 def isconstant(value):
     """
     While tracing, returns whether or not the value is currently known to be
@@ -167,10 +167,7 @@ def isconstant(value):
 
     This is for advanced usage only.
     """
-    # I hate the annotator so much.
-    if NonConstant(False):
-        return True
-    return False
+    return NonConstant(False)
 
 @oopspec("jit.isvirtual(value)")
 @specialize.ll()
@@ -181,9 +178,7 @@ def isvirtual(value):
 
     This is for advanced usage only.
     """
-    if NonConstant(False):
-        return True
-    return False
+    return NonConstant(False)
 
 class Entry(ExtRegistryEntry):
     _about_ = hint

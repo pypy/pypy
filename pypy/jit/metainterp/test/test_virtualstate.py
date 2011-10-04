@@ -431,7 +431,7 @@ class BaseTestGenerateGuards(BaseTest):
         
 
 class BaseTestBridges(BaseTest):
-    enable_opts = "intbounds:rewrite:virtualize:string:heap:unroll"
+    enable_opts = "intbounds:rewrite:virtualize:string:pure:heap:unroll"
 
     def _do_optimize_bridge(self, bridge, call_pure_results):
         from pypy.jit.metainterp.optimizeopt import optimize_bridge_1, build_opt_chain

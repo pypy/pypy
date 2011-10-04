@@ -366,12 +366,12 @@ class TestCall(BaseTestPyPyC):
             # make sure that the "block" is not allocated
             ...
             i20 = force_token()
-            setfield_gc(p0, i20, descr=<SignedFieldDescr .*PyFrame.vable_token .*>)
             p22 = new_with_vtable(19511408)
             p24 = new_array(1, descr=<GcPtrArrayDescr>)
             p26 = new_with_vtable(ConstClass(W_ListObject))
             p27 = new(descr=<SizeDescr .*>)
             p29 = new_array(0, descr=<GcPtrArrayDescr>)
+            setfield_gc(p0, i20, descr=<SignedFieldDescr .*PyFrame.vable_token .*>)
             setfield_gc(p27, p29, descr=<GcPtrFieldDescr list.items .*>)
             setfield_gc(p26, p27, descr=<.* .*W_ListObject.inst_wrappeditems .*>)
             setarrayitem_gc(p24, 0, p26, descr=<GcPtrArrayDescr>)

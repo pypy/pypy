@@ -16,7 +16,7 @@ from pypy.rlib.rposix import get_errno, set_errno
 
 class GILThreadLocals(OSThreadLocals):
     """A version of OSThreadLocals that enforces a GIL."""
-    ll_GIL = thread.null_ll_lock
+    gil_ready = False
 
     def initialize(self, space):
         # add the GIL-releasing callback as an action on the space
@@ -25,12 +25,10 @@ class GILThreadLocals(OSThreadLocals):
 
     def setup_threads(self, space):
         """Enable threads in the object space, if they haven't already been."""
-        if not self.ll_GIL:
-            try:
-                self.ll_GIL = thread.allocate_ll_lock()
-            except thread.error:
+        if not self.gil_ready:
+            if not thread.gil_allocate():
                 raise wrap_thread_error(space, "can't allocate GIL")
-            thread.acquire_NOAUTO(self.ll_GIL, True)
+            self.gil_ready = True
             self.enter_thread(space)   # setup the main thread
             result = True
         else:
@@ -44,19 +42,16 @@ class GILThreadLocals(OSThreadLocals):
         # test_lock_again after the global state was cleared by
         # test_compile_lock.  As a workaround, we repatch these global
         # fields systematically.
-        spacestate.ll_GIL = self.ll_GIL
         invoke_around_extcall(before_external_call, after_external_call)
         return result
 
     def reinit_threads(self, space):
-        if self.ll_GIL:
-            self.ll_GIL = thread.allocate_ll_lock()
-            thread.acquire_NOAUTO(self.ll_GIL, True)
-            self.enter_thread(space)
+        if self.gil_ready:
+            self.gil_ready = False
+            self.setup_threads(space)
 
     def yield_thread(self):
-        thread.yield_thread()  # explicitly release the gil (used by test_gil)
-
+        do_yield_thread()
 
 class GILReleaseAction(PeriodicAsyncAction):
     """An action called every sys.checkinterval bytecodes.  It releases
@@ -64,16 +59,12 @@ class GILReleaseAction(PeriodicAsyncAction):
     """
 
     def perform(self, executioncontext, frame):
-        # Other threads can run between the release() and the acquire()
-        # implicit in the following external function call (which has
-        # otherwise no effect).
-        thread.yield_thread()
+        do_yield_thread()
 
 
 class SpaceState:
 
     def _freeze_(self):
-        self.ll_GIL = thread.null_ll_lock
         self.action_after_thread_switch = None
         # ^^^ set by AsyncAction.fire_after_thread_switch()
         return False
@@ -95,14 +86,14 @@ def before_external_call():
     # this function must not raise, in such a way that the exception
     # transformer knows that it cannot raise!
     e = get_errno()
-    thread.release_NOAUTO(spacestate.ll_GIL)
+    thread.gil_release()
     set_errno(e)
 before_external_call._gctransformer_hint_cannot_collect_ = True
 before_external_call._dont_reach_me_in_del_ = True
 
 def after_external_call():
     e = get_errno()
-    thread.acquire_NOAUTO(spacestate.ll_GIL, True)
+    thread.gil_acquire()
     thread.gc_thread_run()
     spacestate.after_thread_switch()
     set_errno(e)
@@ -115,3 +106,18 @@ after_external_call._dont_reach_me_in_del_ = True
 # pointers in the shadow stack.  This is necessary because the GIL is
 # not held after the call to before_external_call() or before the call
 # to after_external_call().
+
+def do_yield_thread():
+    # explicitly release the gil, in a way that tries to give more
+    # priority to other threads (as opposed to continuing to run in
+    # the same thread).
+    if thread.gil_yield_thread():
+        thread.gc_thread_run()
+        spacestate.after_thread_switch()
+do_yield_thread._gctransformer_hint_close_stack_ = True
+do_yield_thread._dont_reach_me_in_del_ = True
+do_yield_thread._dont_inline_ = True
+
+# do_yield_thread() needs a different hint: _gctransformer_hint_close_stack_.
+# The *_external_call() functions are themselves called only from the rffi
+# module from a helper function that also has this hint.
