@@ -400,7 +400,7 @@ LL_OPERATIONS = {
     'raw_store':            LLOp(),
     'stack_malloc':         LLOp(), # mmh
     'track_alloc_start':    LLOp(),
-    'track_alloc_stop':     LLOp(),
+    'track_alloc_stop':     LLOp(canrun=True),
     'adr_add':              LLOp(canfold=True),
     'adr_sub':              LLOp(canfold=True),
     'adr_delta':            LLOp(canfold=True),

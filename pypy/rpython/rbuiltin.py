@@ -565,11 +565,11 @@ def rtype_raw_malloc_usage(hop):
     hop.exception_cannot_occur()
     return hop.genop('raw_malloc_usage', [v_size], resulttype=lltype.Signed)
 
-def rtype_raw_free(hop, i_track_free=None):
+def rtype_raw_free(hop):
     s_addr = hop.args_s[0]
     if s_addr.is_null_address():
         raise TyperError("raw_free(x) where x is the constant NULL")
-    v_addr = hop.inputarg(llmemory.Address, 0)
+    v_addr, = hop.inputargs(llmemory.Address)
     hop.exception_cannot_occur()
     return hop.genop('raw_free', [v_addr])
 

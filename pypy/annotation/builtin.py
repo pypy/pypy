@@ -691,7 +691,7 @@ def raw_malloc_usage(s_size):
     assert isinstance(s_size, SomeInteger) #XXX add noneg...?
     return SomeInteger(nonneg=True)
 
-def raw_free(s_addr, s_track_free=None):
+def raw_free(s_addr):
     assert isinstance(s_addr, SomeAddress)
 
 def raw_memclear(s_addr, s_int):

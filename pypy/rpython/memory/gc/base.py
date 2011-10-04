@@ -1,4 +1,5 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena, rffi
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.debug import ll_assert
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
@@ -357,7 +358,8 @@ class GCBase(object):
         typeid = self.get_type_id(addr)
         raw_adr = (addr + self.ofs_to_raw_mem_ptr(typeid)).address[0]
         if raw_adr:
-            llmemory.raw_free(raw_adr, track_free=True)
+            llop.track_alloc_stop(lltype.Void, raw_adr)
+            llmemory.raw_free(raw_adr)
 
 
 class MovingGCBase(GCBase):

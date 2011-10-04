@@ -4,6 +4,7 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.lloperation import opimpls
 from pypy.rlib import debug
+from pypy.tool import leakfinder
 
 # ____________________________________________________________
 # Implementation of the 'canfold' operations
@@ -597,6 +598,9 @@ def op_shrink_array(array, smallersize):
 def op_ll_read_timestamp():
     from pypy.rlib.rtimer import read_timestamp
     return read_timestamp()
+
+def op_track_alloc_stop(addr):
+    leakfinder.remember_free(addr.ptr._obj)
 
 # ____________________________________________________________
 

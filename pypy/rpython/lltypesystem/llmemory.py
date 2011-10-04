@@ -8,7 +8,6 @@ import weakref
 from pypy.rlib.objectmodel import Symbolic
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.uid import uid
-from pypy.tool import leakfinder
 
 class AddressOffset(Symbolic):
 
@@ -781,7 +780,7 @@ def raw_malloc(size):
         raise NotImplementedError(size)
     return size._raw_malloc([], zero=False)
 
-def raw_free(adr, track_free=False):
+def raw_free(adr):
     # try to free the whole object if 'adr' is the address of the header
     from pypy.rpython.memory.gcheader import GCHeaderBuilder
     try:
@@ -791,8 +790,6 @@ def raw_free(adr, track_free=False):
     else:
         raw_free(cast_ptr_to_adr(objectptr))
     assert isinstance(adr.ref()._obj, lltype._parentable)
-    if track_free:
-        leakfinder.remember_free(adr.ptr._as_obj())
     adr.ptr._as_obj()._free()
 
 def raw_malloc_usage(size):
