@@ -363,3 +363,15 @@ class TestHeapCache(object):
         assert h.is_unescaped(box1)
         h.invalidate_caches(rop.SETARRAYITEM_GC, None, [box2, index1, box1])
         assert not h.is_unescaped(box1)
+
+    def test_heapcache_fields(self):
+        h = HeapCache()
+        assert h.getfield(box1, descr1) is None
+        assert h.getfield(box1, descr2) is None
+        h.setfield(box1, descr1, box2)
+        assert h.getfield(box1, descr1) is box2
+        assert h.getfield(box1, descr2) is None
+        h.same_boxes(box3, box1)
+        h.same_boxes(box4, box3)
+        assert h.getfield(box4, descr1) is box2
+        assert h.getfield(box4, descr2) is None

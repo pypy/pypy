@@ -236,7 +236,10 @@ class MIFrame(object):
 
     @arguments("box")
     def opimpl_cast_opaque_ptr(self, box):
-        return self.execute(rop.CAST_OPAQUE_PTR, box)
+        res = self.execute(rop.CAST_OPAQUE_PTR, box)
+        self.metainterp.heapcache.same_boxes(res, box)
+        return res
+
 
     @arguments("box")
     def _opimpl_any_return(self, box):

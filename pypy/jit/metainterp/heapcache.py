@@ -29,6 +29,23 @@ class HeapCache(object):
         # cache the length of arrays
         self.length_cache = {}
 
+        # equivalences between boxes
+        self.equivalent = {}
+
+    def get_repr(self, box):
+        res = self.equivalent.get(box, box)
+        if res is not box:
+            res2 = self.get_repr(res)
+            # path compression
+            if res2 is not res:
+                self.equivalent[box] = res2
+                res = res2
+        return res
+
+    def same_boxes(self, box1, box2):
+        assert box1 not in self.equivalent
+        self.equivalent[box1] = self.get_repr(box2)
+
     def invalidate_caches(self, opnum, descr, argboxes):
         self.mark_escaped(opnum, argboxes)
         self.clear_caches(opnum, descr, argboxes)
@@ -98,18 +115,23 @@ class HeapCache(object):
         self.heap_array_cache.clear()
 
     def is_class_known(self, box):
+        box = self.get_repr(box)
         return box in self.known_class_boxes
 
     def class_now_known(self, box):
+        box = self.get_repr(box)
         self.known_class_boxes[box] = None
 
     def is_nonstandard_virtualizable(self, box):
+        box = self.get_repr(box)
         return box in self.nonstandard_virtualizables
 
     def nonstandard_virtualizables_now_known(self, box):
+        box = self.get_repr(box)
         self.nonstandard_virtualizables[box] = None
 
     def is_unescaped(self, box):
+        box = self.get_repr(box)
         return self.new_boxes.get(box, False)
 
     def new(self, box):
@@ -120,6 +142,7 @@ class HeapCache(object):
         self.arraylen_now_known(box, lengthbox)
 
     def getfield(self, box, descr):
+        box = self.get_repr(box)
         d = self.heap_cache.get(descr, None)
         if d:
             tobox = d.get(box, None)
@@ -128,9 +151,11 @@ class HeapCache(object):
         return None
 
     def getfield_now_known(self, box, descr, fieldbox):
+        box = self.get_repr(box)
         self.heap_cache.setdefault(descr, {})[box] = fieldbox
 
     def setfield(self, box, descr, fieldbox):
+        box = self.get_repr(box)
         d = self.heap_cache.get(descr, None)
         new_d = self._do_write_with_aliasing(d, box, fieldbox)
         self.heap_cache[descr] = new_d
@@ -154,6 +179,7 @@ class HeapCache(object):
         return new_d
 
     def getarrayitem(self, box, descr, indexbox):
+        box = self.get_repr(box)
         if not isinstance(indexbox, ConstInt):
             return
         index = indexbox.getint()
@@ -164,6 +190,7 @@ class HeapCache(object):
                 return indexcache.get(box, None)
 
     def getarrayitem_now_known(self, box, descr, indexbox, valuebox):
+        box = self.get_repr(box)
         if not isinstance(indexbox, ConstInt):
             return
         index = indexbox.getint()
@@ -175,6 +202,7 @@ class HeapCache(object):
             cache[index] = {box: valuebox}
 
     def setarrayitem(self, box, descr, indexbox, valuebox):
+        box = self.get_repr(box)
         if not isinstance(indexbox, ConstInt):
             cache = self.heap_array_cache.get(descr, None)
             if cache is not None:
@@ -186,9 +214,11 @@ class HeapCache(object):
         cache[index] = self._do_write_with_aliasing(indexcache, box, valuebox)
 
     def arraylen(self, box):
+        box = self.get_repr(box)
         return self.length_cache.get(box, None)
 
     def arraylen_now_known(self, box, lengthbox):
+        box = self.get_repr(box)
         self.length_cache[box] = lengthbox
 
     def _replace_box(self, d, oldbox, newbox):
@@ -202,6 +232,7 @@ class HeapCache(object):
         return new_d
 
     def replace_box(self, oldbox, newbox):
+        oldbox = self.get_repr(oldbox)
         for descr, d in self.heap_cache.iteritems():
             self.heap_cache[descr] = self._replace_box(d, oldbox, newbox)
         for descr, d in self.heap_array_cache.iteritems():
