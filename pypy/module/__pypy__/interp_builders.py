@@ -40,6 +40,12 @@ def create_builder(name, strtype, builder_cls):
             self.builder = None
             return w_s
 
+        def descr_len(self, space):
+            if self.builder is None:
+                raise OperationError(space.w_ValueError,
+                                     space.wrap('no lenght of built builder'))
+            return space.wrap(self.builder.getlength())
+
     W_Builder.__name__ = "W_%s" % name
     W_Builder.typedef = TypeDef(name,
         __new__ = interp2app(func_with_new_name(
@@ -48,6 +54,7 @@ def create_builder(name, strtype, builder_cls):
         append = interp2app(W_Builder.descr_append),
         append_slice = interp2app(W_Builder.descr_append_slice),
         build = interp2app(W_Builder.descr_build),
+        __len__ = interp2app(W_Builder.descr_len),
     )
     W_Builder.typedef.acceptable_as_base_class = False
     return W_Builder
