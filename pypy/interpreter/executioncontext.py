@@ -350,6 +350,7 @@ class AbstractActionFlag(object):
         elif interval > MAX:
             interval = MAX
         self.checkinterval_scaled = interval * TICK_COUNTER_STEP
+        self.reset_ticker(-1)
 
     def _rebuild_action_dispatcher(self):
         periodic_actions = unrolling_iterable(self._periodic_actions)
