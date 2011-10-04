@@ -158,7 +158,7 @@ def oopspec(spec):
     return decorator
 
 @oopspec("jit.isconstant(value)")
-@specialize.argtype(0)
+@specialize.ll()
 def isconstant(value):
     """
     While tracing, returns whether or not the value is currently known to be
