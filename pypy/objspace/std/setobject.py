@@ -381,34 +381,22 @@ class AbstractUnwrappedSetStrategy(object):
                 return False
         return True
 
-    def difference(self, w_set, w_other):
-        if not isinstance(w_other, W_BaseSetObject):
-            w_other = w_set._newobj(self.space, w_other)
-
-        if (w_other.strategy is self.space.fromcache(ObjectSetStrategy) or
-            w_set.strategy is self.space.fromcache(ObjectSetStrategy)):
-            return self.difference_wrapped(w_set, w_other)
-
-        if w_set.strategy is not w_other.strategy:
-            return w_set.copy()
-
-        return self.difference_unwrapped(w_set, w_other)
-
-    def difference_wrapped(self, w_set, w_other):
-        result = w_set._newobj(self.space, None)
+    def _difference_wrapped(self, w_set, w_other):
+        d_new = self.get_empty_dict()
         w_iter = self.space.iter(w_set)
         while True:
             try:
                 w_item = self.space.next(w_iter)
                 if not w_other.has_key(w_item):
-                    result.add(w_item)
+                    d_new[w_item] = None
             except OperationError, e:
                 if not e.match(self.space, self.space.w_StopIteration):
                     raise
                 break;
-        return result
+        strategy = self.space.fromcache(ObjectSetStrategy)
+        return strategy.cast_to_void_star(d_new)
 
-    def difference_unwrapped(self, w_set, w_other):
+    def _difference_unwrapped(self, w_set, w_other):
         if not isinstance(w_other, W_BaseSetObject):
             w_other = w_set._newobj(self.space, w_other)
         iterator = self.cast_from_void_star(w_set.sstorage).iterkeys()
@@ -417,16 +405,31 @@ class AbstractUnwrappedSetStrategy(object):
         for key in iterator:
             if key not in other_dict:
                 result_dict[key] = None
-        result = w_set._newobj(self.space, None)
-        result.strategy = self
-        result.sstorage = self.cast_to_void_star(result_dict)
-        return result
+        return self.cast_to_void_star(result_dict)
+
+    def _difference_base(self, w_set, w_other):
+        if not isinstance(w_other, W_BaseSetObject):
+            w_other = w_set._newobj(self.space, w_other)
+
+        if w_set.strategy is w_other.strategy:
+            strategy = w_set.strategy
+            storage = self._difference_unwrapped(w_set, w_other)
+        else:
+            strategy = self.space.fromcache(ObjectSetStrategy)
+            storage = self._difference_wrapped(w_set, w_other)
+        return storage, strategy
+
+    def difference(self, w_set, w_other):
+        #XXX return clone in certain cases: String- with IntStrategy or ANY with Empty
+        storage, strategy = self._difference_base(w_set, w_other)
+        w_newset = w_set.from_storage_and_strategy(storage, strategy)
+        return w_newset
 
     def difference_update(self, w_set, w_other):
-        #XXX this way we unnecessarily create a new set
-        result = self.difference(w_set, w_other)
-        w_set.strategy = result.strategy
-        w_set.sstorage = result.sstorage
+        #XXX do nothing in certain cases: String- with IntStrategy or ANY with Empty
+        storage, strategy = self._difference_base(w_set, w_other)
+        w_set.strategy = strategy
+        w_set.sstorage = storage
 
     def _symmetric_difference_unwrapped(self, w_set, w_other):
         d_new = self.get_empty_dict()
@@ -455,7 +458,6 @@ class AbstractUnwrappedSetStrategy(object):
         return strategy.cast_to_void_star(newsetdata)
 
     def symmetric_difference(self, w_set, w_other):
-        #XXX if difference are only ints this wont return an IntSet
         if w_set.strategy is w_other.strategy:
             strategy = w_set.strategy
             storage = self._symmetric_difference_unwrapped(w_set, w_other)
