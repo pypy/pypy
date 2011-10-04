@@ -340,7 +340,7 @@ class TestCall(BaseTestPyPyC):
             # Will be killed by the backend
             p15 = getfield_gc(p8, descr=<GcPtrFieldDescr list.items .*>)
             i17 = arraylen_gc(p15, descr=<SignedArrayDescr>)
-            call(ConstClass(_ll_list_resize_ge_trampoline__v232___simple_call__function__), p8, i15, descr=<VoidCallDescr>)
+            call(_, p8, i15, descr=<VoidCallDescr>) # this is a call to _ll_list_resize_ge_trampoline__...
             guard_no_exception(descr=...)
             p17 = getfield_gc(p8, descr=<GcPtrFieldDescr list.items .*>)
             setarrayitem_gc(p17, i13, i12, descr=<SignedArrayDescr>)
