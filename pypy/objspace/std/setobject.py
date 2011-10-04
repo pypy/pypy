@@ -457,23 +457,21 @@ class AbstractUnwrappedSetStrategy(object):
         strategy = self.space.fromcache(ObjectSetStrategy)
         return strategy.cast_to_void_star(newsetdata)
 
-    def symmetric_difference(self, w_set, w_other):
+    def _symmetric_difference_base(self, w_set, w_other):
         if w_set.strategy is w_other.strategy:
             strategy = w_set.strategy
             storage = self._symmetric_difference_unwrapped(w_set, w_other)
         else:
             strategy = self.space.fromcache(ObjectSetStrategy)
             storage = self._symmetric_difference_wrapped(w_set, w_other)
+        return storage, strategy
+
+    def symmetric_difference(self, w_set, w_other):
+        storage, strategy = self._symmetric_difference_base(w_set, w_other)
         return w_set.from_storage_and_strategy(storage, strategy)
 
     def symmetric_difference_update(self, w_set, w_other):
-        if w_set.strategy is w_other.strategy:
-            strategy = w_set.strategy
-            storage = self._symmetric_difference_unwrapped(w_set, w_other)
-        else:
-            strategy = self.space.fromcache(ObjectSetStrategy)
-            storage = self._symmetric_difference_wrapped(w_set, w_other)
-
+        storage, strategy = self._symmetric_difference_base(w_set, w_other)
         w_set.strategy = strategy
         w_set.sstorage = storage
 
