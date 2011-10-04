@@ -493,6 +493,24 @@ class AppTestAppSetTest:
         assert s.intersection() == s
         assert s.intersection() is not s
 
+    def test_intersection_swap(self):
+        s1 = s3 = set([1,2,3,4,5])
+        s2 = set([2,3,6,7])
+        s1 &= s2
+        assert s1 == set([2,3])
+        assert s3 == set([2,3])
+
+    def test_intersection_generator(self):
+        def foo():
+            for i in range(5):
+                yield i
+
+        s1 = s2 = set([1,2,3,4,5,6])
+        assert s1.intersection(foo()) == set([1,2,3,4])
+        s1.intersection_update(foo())
+        assert s1 == set([1,2,3,4])
+        assert s2 == set([1,2,3,4])
+
     def test_difference(self):
         assert set([1,2,3]).difference(set([2,3,4])) == set([1])
         assert set([1,2,3]).difference(frozenset([2,3,4])) == set([1])

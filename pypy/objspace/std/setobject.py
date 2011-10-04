@@ -477,33 +477,47 @@ class AbstractUnwrappedSetStrategy(object):
         w_set.strategy = strategy
         w_set.sstorage = storage
 
+    def _intersect_base(self, w_set, w_other):
+        if w_set.strategy is w_other.strategy:
+            strategy = w_set.strategy
+            storage = strategy._intersect_unwrapped(w_set, w_other)
+        else:
+            strategy = self.space.fromcache(ObjectSetStrategy)
+            storage = strategy._intersect_wrapped(w_set, w_other)
+        return storage, strategy
+
+    def _intersect_wrapped(self, w_set, w_other):
+        result = self.get_empty_dict()
+        items = self.cast_from_void_star(w_set.sstorage).keys()
+        for key in items:
+            w_key = self.wrap(key)
+            if w_other.has_key(w_key):
+                result[w_key] = None
+        return self.cast_to_void_star(result)
+
+    def _intersect_unwrapped(self, w_set, w_other):
+        result = self.get_empty_dict()
+        d_this = self.cast_from_void_star(w_set.sstorage)
+        d_other = self.cast_from_void_star(w_other.sstorage)
+        for key in d_this:
+            if key in d_other:
+                result[key] = None
+        return self.cast_to_void_star(result)
+
     def intersect(self, w_set, w_other):
         if w_set.length() > w_other.length():
             return w_other.intersect(w_set)
 
-        result = w_set._newobj(self.space, None)
-        items = self.cast_from_void_star(w_set.sstorage).keys()
-        #XXX do it without wrapping when strategies are equal
-        for key in items:
-            w_key = self.wrap(key)
-            if w_other.has_key(w_key):
-                result.add(w_key)
-        return result
+        storage, strategy = self._intersect_base(w_set, w_other)
+        return w_set.from_storage_and_strategy(storage, strategy)
 
     def intersect_update(self, w_set, w_other):
         if w_set.length() > w_other.length():
-            return w_other.intersect(w_set)
-
-        setdata = newset(self.space)
-        items = self.cast_from_void_star(w_set.sstorage).keys()
-        for key in items:
-            w_key = self.wrap(key)
-            if w_other.has_key(w_key):
-                setdata[w_key] = None
-
-        # do not switch strategy here if other items match
-        w_set.strategy = strategy = self.space.fromcache(ObjectSetStrategy)
-        w_set.sstorage = strategy.cast_to_void_star(setdata)
+            storage, strategy = self._intersect_base(w_other, w_set)
+        else:
+            storage, strategy = self._intersect_base(w_set, w_other)
+        w_set.strategy = strategy
+        w_set.sstorage = storage
         return w_set
 
     def intersect_multiple(self, w_set, others_w):
@@ -514,7 +528,6 @@ class AbstractUnwrappedSetStrategy(object):
                 #XXX this creates setobject again
                 result = result.intersect(w_other)
             else:
-                #XXX directly give w_other as argument to result2
                 result2 = w_set._newobj(self.space, None)
                 for w_key in self.space.listview(w_other):
                     if result.has_key(w_key):
@@ -1084,7 +1097,6 @@ def set_intersection_update__Set(space, w_left, others_w):
     return
 
 def inplace_and__Set_Set(space, w_left, w_other):
-    #XXX why do we need to return here?
     return w_left.intersect_update(w_other)
 
 inplace_and__Set_Frozenset = inplace_and__Set_Set
