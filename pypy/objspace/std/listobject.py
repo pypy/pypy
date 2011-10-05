@@ -153,6 +153,11 @@ class W_ListObject(W_Object):
         """Returns a copy of all items in the list. Same as getitems except for
         ObjectListStrategy."""
         return self.strategy.getitems_copy(self)
+
+    def getitems_str(self):
+        """ Return the items in the list as unwrapped strings. If the list does
+        not use the list strategy, return None. """
+        return self.strategy.getitems_str(self)
     # ___________________________________________________
 
 
@@ -244,6 +249,9 @@ class ListStrategy(object):
 
     def getitems_copy(self, w_list):
         raise NotImplementedError
+
+    def getitems_str(self, w_list):
+        return None
 
     def getstorage_copy(self, w_list):
         raise NotImplementedError
@@ -922,6 +930,9 @@ class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
         sorter.sort()
         if reverse:
             l.reverse()
+
+    def getitems_str(self, w_list):
+        return self.unerase(w_list.lstorage)
 
 # _______________________________________________________
 

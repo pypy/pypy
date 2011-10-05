@@ -436,6 +436,11 @@ class StdObjSpace(ObjSpace, DescrOperation):
             raise self._wrap_expected_length(expected_length, len(t))
         return t
 
+    def listview_str(self, w_obj):
+        if isinstance(w_obj, W_ListObject):
+            return w_obj.getitems_str()
+        return None
+
     def sliceindices(self, w_slice, w_length):
         if isinstance(w_slice, W_SliceObject):
             a, b, c = w_slice.indices3(self, self.int_w(w_length))

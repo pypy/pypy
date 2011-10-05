@@ -348,6 +348,17 @@ class TestW_ListStrategies(TestW_ListObject):
         l3 = W_ListObject(self.space, [self.space.wrap("eins"), self.space.wrap(u"zwei")])
         assert isinstance(l3.strategy, ObjectListStrategy)
 
+    def test_listview_str(self):
+        space = self.space
+        assert space.listview_str(space.wrap("a")) is None
+        w_l = self.space.newlist([self.space.wrap('a'), self.space.wrap('b')])
+        assert space.listview_str(w_l) == ["a", "b"]
+
+    def test_string_uses_listview_str(self):
+        space = self.space
+        w_l = self.space.newlist([self.space.wrap('a'), self.space.wrap('b')])
+        w_l.getitems = None
+        assert space.str_w(space.call_method(space.wrap("c"), "join", w_l)) == "acb"
 
 class TestW_ListStrategiesDisabled:
     def setup_class(cls):

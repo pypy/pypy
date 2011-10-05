@@ -347,6 +347,9 @@ str_rsplit__String_String_ANY = make_rsplit_with_delim('str_rsplit__String_Strin
                                                        sliced)
 
 def str_join__String_ANY(space, w_self, w_list):
+    l = space.listview_str(w_list)
+    if l is not None:
+        return space.wrap(w_self._value.join(l))
     list_w = space.listview(w_list)
     size = len(list_w)
 
