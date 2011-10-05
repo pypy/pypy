@@ -77,7 +77,15 @@ class W_ListObject(W_Object):
         w_self.space = space
         w_self.strategy = strategy
         w_self.lstorage = storage
+        if not space.config.objspace.std.withliststrategies:
+            w_self.switch_to_object_strategy()
         return w_self
+
+    @staticmethod
+    def newlist_str(space, list_s):
+        strategy = space.fromcache(StringListStrategy)
+        storage = strategy.erase(list_s)
+        return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
     def __repr__(w_self):
         """ representation for debugging purposes """
@@ -91,6 +99,7 @@ class W_ListObject(W_Object):
     def switch_to_object_strategy(self):
         list_w = self.getitems()
         self.strategy = self.space.fromcache(ObjectListStrategy)
+        # XXX this is quite indirect
         self.init_from_list_w(list_w)
 
     def _temporarily_as_objects(self):

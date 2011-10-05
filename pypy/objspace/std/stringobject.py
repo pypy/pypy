@@ -215,7 +215,7 @@ def str_title__String(space, w_self):
 
 def str_split__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
     maxsplit = space.int_w(w_maxsplit)
-    res_w = []
+    res = []
     value = w_self._value
     length = len(value)
     i = 0
@@ -238,12 +238,12 @@ def str_split__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
             maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
         # the word is value[i:j]
-        res_w.append(sliced(space, value, i, j, w_self))
+        res.append(value[i:j])
 
         # continue to look from the character following the space after the word
         i = j + 1
 
-    return space.newlist(res_w)
+    return space.newlist_str(res)
 
 def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
     maxsplit = space.int_w(w_maxsplit)
@@ -253,20 +253,20 @@ def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
     if bylen == 0:
         raise OperationError(space.w_ValueError, space.wrap("empty separator"))
 
-    res_w = []
+    res = []
     start = 0
     if bylen == 1 and maxsplit < 0:
         # fast path: uses str.rfind(character) and str.count(character)
         by = by[0]    # annotator hack: string -> char
         count = value.count(by)
-        res_w = [None] * (count + 1)
+        res = [None] * (count + 1)
         end = len(value)
         while count >= 0:
             assert end >= 0
             prev = value.rfind(by, 0, end)
             start = prev + 1
             assert start >= 0
-            res_w[count] = sliced(space, value, start, end, w_self)
+            res[count] = value[start:end]
             count -= 1
             end = prev
     else:
@@ -274,12 +274,12 @@ def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
             next = value.find(by, start)
             if next < 0:
                 break
-            res_w.append(sliced(space, value, start, next, w_self))
+            res.append(value[start:next])
             start = next + bylen
             maxsplit -= 1   # NB. if it's already < 0, it stays < 0
-        res_w.append(sliced(space, value, start, len(value), w_self))
+        res.append(value[start:])
 
-    return space.newlist(res_w)
+    return space.newlist_str(res)
 
 def str_rsplit__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
     maxsplit = space.int_w(w_maxsplit)

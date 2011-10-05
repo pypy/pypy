@@ -307,6 +307,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def newlist(self, list_w):
         return W_ListObject(self, list_w)
 
+    def newlist_str(self, list_s):
+        return W_ListObject.newlist_str(self, list_s)
+
     def newdict(self, module=False, instance=False, classofinstance=None,
                 strdict=False):
         return W_DictMultiObject.allocate_and_init_instance(

@@ -842,6 +842,9 @@ class ObjSpace(object):
         """
         return None
 
+    def newlist_str(self, list_s):
+        return self.newlist([self.wrap(s) for s in list_s])
+
     @jit.unroll_safe
     def exception_match(self, w_exc_type, w_check_class):
         """Checks if the given exception type matches 'w_check_class'."""

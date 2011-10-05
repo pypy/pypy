@@ -360,6 +360,26 @@ class TestW_ListStrategies(TestW_ListObject):
         w_l.getitems = None
         assert space.str_w(space.call_method(space.wrap("c"), "join", w_l)) == "acb"
 
+    def test_newlist_str(self):
+        space = self.space
+        l = ['a', 'b']
+        w_l = self.space.newlist_str(l)
+        assert isinstance(w_l.strategy, StringListStrategy)
+        assert space.listview_str(w_l) is l
+
+    def test_string_uses_newlist_str(self):
+        space = self.space
+        w_s = space.wrap("a b c")
+        space.newlist = None
+        try:
+            w_l = space.call_method(w_s, "split")
+            w_l2 = space.call_method(w_s, "split", space.wrap(" "))
+        finally:
+            del space.newlist
+        assert space.listview_str(w_l) == ["a", "b", "c"]
+        assert space.listview_str(w_l2) == ["a", "b", "c"]
+
+
 class TestW_ListStrategiesDisabled:
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withliststrategies" :
