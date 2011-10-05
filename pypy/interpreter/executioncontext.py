@@ -175,6 +175,9 @@ class ExecutionContext(object):
             self.w_tracefunc = w_func
             self.space.frame_trace_action.fire()
 
+    def gettrace(self):
+        return self.w_tracefunc
+
     def setprofile(self, w_func):
         """Set the global trace function."""
         if self.space.is_w(w_func, self.space.w_None):

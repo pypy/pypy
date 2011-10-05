@@ -129,6 +129,11 @@ def settrace(space, w_func):
 function call.  See the debugger chapter in the library manual."""
     space.getexecutioncontext().settrace(w_func)
 
+def gettrace(space):
+    """Return the global debug tracing function set with sys.settrace.
+See the debugger chapter in the library manual."""
+    return space.getexecutioncontext().gettrace()
+
 def setprofile(space, w_func):
     """Set the profiling function.  It will be called on each function call
 and return.  See the profiler chapter in the library manual."""

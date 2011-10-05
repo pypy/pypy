@@ -55,6 +55,7 @@ class Module(MixedModule):
         'exc_info'              : 'vm.exc_info', 
         'exc_clear'             : 'vm.exc_clear', 
         'settrace'              : 'vm.settrace',
+        'gettrace'              : 'vm.gettrace',
         'setprofile'            : 'vm.setprofile',
         'getprofile'            : 'vm.getprofile',
         'call_tracing'          : 'vm.call_tracing',
