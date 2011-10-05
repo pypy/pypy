@@ -11,7 +11,7 @@ from pypy.objspace.std import slicetype, newformat
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.tupleobject import W_TupleObject
-from pypy.rlib.rstring import StringBuilder
+from pypy.rlib.rstring import StringBuilder, split
 from pypy.interpreter.buffer import StringBuffer
 
 from pypy.objspace.std.stringtype import sliced, wrapstr, wrapchar, \
@@ -253,9 +253,9 @@ def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
     if bylen == 0:
         raise OperationError(space.w_ValueError, space.wrap("empty separator"))
 
-    res = []
-    start = 0
     if bylen == 1 and maxsplit < 0:
+        res = []
+        start = 0
         # fast path: uses str.rfind(character) and str.count(character)
         by = by[0]    # annotator hack: string -> char
         count = value.count(by)
@@ -270,14 +270,7 @@ def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
             count -= 1
             end = prev
     else:
-        while maxsplit != 0:
-            next = value.find(by, start)
-            if next < 0:
-                break
-            res.append(value[start:next])
-            start = next + bylen
-            maxsplit -= 1   # NB. if it's already < 0, it stays < 0
-        res.append(value[start:])
+        res = split(value, by, maxsplit)
 
     return space.newlist_str(res)
 
