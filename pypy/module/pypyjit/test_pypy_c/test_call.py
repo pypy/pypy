@@ -350,10 +350,11 @@ class TestCall(BaseTestPyPyC):
     def test_blockstack_virtualizable(self):
         def main(n):
             from pypyjit import residual_call
+            l = len
             i = 0
             while i < n:
                 try:
-                    residual_call(len, [])   # ID: call
+                    residual_call(l, [])   # ID: call
                 except:
                     pass
                 i += 1
@@ -369,11 +370,8 @@ class TestCall(BaseTestPyPyC):
             p22 = new_with_vtable(19511408)
             p24 = new_array(1, descr=<GcPtrArrayDescr>)
             p26 = new_with_vtable(ConstClass(W_ListObject))
-            p27 = new(descr=<SizeDescr .*>)
-            p29 = new_array(0, descr=<GcPtrArrayDescr>)
             setfield_gc(p0, i20, descr=<SignedFieldDescr .*PyFrame.vable_token .*>)
-            setfield_gc(p27, p29, descr=<GcPtrFieldDescr list.items .*>)
-            setfield_gc(p26, p27, descr=<.* .*W_ListObject.inst_wrappeditems .*>)
+            setfield_gc(p26, ConstPtr(ptr22), descr=<GcPtrFieldDescr pypy.objspace.std.listobject.W_ListObject.inst_strategy 12>)
             setarrayitem_gc(p24, 0, p26, descr=<GcPtrArrayDescr>)
             setfield_gc(p22, p24, descr=<GcPtrFieldDescr .*Arguments.inst_arguments_w .*>)
             p32 = call_may_force(11376960, p18, p22, descr=<GcPtrCallDescr>)
