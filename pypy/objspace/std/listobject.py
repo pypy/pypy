@@ -240,7 +240,7 @@ class ListStrategy(object):
         raise NotImplementedError
 
     def getitems(self, w_list):
-        raise NotImplementedError
+        return self.getitems_copy(w_list)
 
     def getitems_copy(self, w_list):
         raise NotImplementedError
@@ -325,7 +325,7 @@ class EmptyListStrategy(ListStrategy):
         return self.cached_emptylist_w
 
     def getitems_copy(self, w_list):
-        return self.cached_emptylist_w
+        return []
 
     def getstorage_copy(self, w_list):
         return self.erase(None)
@@ -443,9 +443,8 @@ class RangeListStrategy(ListStrategy):
     def getitem(self, w_list, i):
         return self.wrap(self._getitem_unwrapped(w_list, i))
 
-    def getitems(self, w_list):
+    def getitems_copy(self, w_list):
         return self._getitems_range(w_list, True)
-    getitems_copy = getitems
 
     def getstorage_copy(self, w_list):
         # tuple is unmutable
@@ -626,7 +625,6 @@ class AbstractUnwrappedStrategy(object):
             jit.isconstant(w_list.length()) and w_list.length() < UNROLL_CUTOFF)
     def getitems_copy(self, w_list):
         return [self.wrap(item) for item in self.unerase(w_list.lstorage)]
-    getitems = getitems_copy
 
     def getstorage_copy(self, w_list):
         items = self.unerase(w_list.lstorage)[:]
