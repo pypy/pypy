@@ -140,8 +140,8 @@ and return.  See the profiler chapter in the library manual."""
     space.getexecutioncontext().setprofile(w_func)
 
 def getprofile(space):
-    """Set the profiling function.  It will be called on each function call
-and return.  See the profiler chapter in the library manual."""
+    """Return the profiling function set with sys.setprofile.
+See the profiler chapter in the library manual."""
     w_func = space.getexecutioncontext().getprofile()
     if w_func is not None:
         return w_func
