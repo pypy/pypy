@@ -918,7 +918,7 @@ class AppTestW_ListObject(object):
         assert l == [3, 4]
 
     def test_unicode(self):
-        s = u"���"
+        s = u"\ufffd\ufffd\ufffd"
         assert s.encode("ascii", "replace") == "???"
         assert s.encode("ascii", "ignore") == ""
 
