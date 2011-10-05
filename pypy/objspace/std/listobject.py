@@ -12,6 +12,8 @@ from pypy.rlib.listsort import make_timsort_class
 from pypy.rlib import rerased, jit
 from pypy.interpreter.argument import Signature
 
+UNROLL_CUTOFF = 5
+
 def make_range_list(space, start, step, length):
     if length <= 0:
         strategy = space.fromcache(EmptyListStrategy)
@@ -26,7 +28,7 @@ def make_empty_list(space):
     storage = strategy.erase(None)
     return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
-@jit.look_inside_iff(lambda space, list_w: jit.isconstant(len(list_w)) and len(list_w) < 5)
+@jit.look_inside_iff(lambda space, list_w: jit.isconstant(len(list_w)) and len(list_w) < UNROLL_CUTOFF)
 def get_strategy_from_list_objects(space, list_w):
     if not list_w:
         return space.fromcache(EmptyListStrategy)
@@ -143,13 +145,13 @@ class W_ListObject(W_Object):
         return self.strategy.getslice(self, start, stop, step, length)
 
     def getitems(self):
-        """Returns a list of all items after wrapping them. Used only for sorting
-        an ObjectList, sorting with custom compare method or switching to ObjectListStrategy."""
+        """Returns a list of all items after wrapping them. The result can
+        share with the storage, if possible."""
         return self.strategy.getitems(self)
 
     def getitems_copy(self):
-        """Returns a copy of all items in the list. Same as getitems except for ObjectListStrategy
-        which has a different getitems method"""
+        """Returns a copy of all items in the list. Same as getitems except for
+        ObjectListStrategy."""
         return self.strategy.getitems_copy(self)
     # ___________________________________________________
 
@@ -581,7 +583,7 @@ class AbstractUnwrappedStrategy(object):
         raise NotImplementedError("abstract base class")
 
     @jit.look_inside_iff(lambda space, w_list, list_w:
-        jit.isconstant(len(list_w)) and len(list_w) < 5)
+        jit.isconstant(len(list_w)) and len(list_w) < UNROLL_CUTOFF)
     def init_from_list_w(self, w_list, list_w):
         l = [self.unwrap(w_item) for w_item in list_w]
         w_list.lstorage = self.erase(l)
@@ -620,6 +622,8 @@ class AbstractUnwrappedStrategy(object):
             raise
         return self.wrap(r)
 
+    @jit.look_inside_iff(lambda self, w_list:
+            jit.isconstant(w_list.length()) and w_list.length() < UNROLL_CUTOFF)
     def getitems_copy(self, w_list):
         return [self.wrap(item) for item in self.unerase(w_list.lstorage)]
     getitems = getitems_copy
