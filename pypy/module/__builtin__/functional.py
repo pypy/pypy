@@ -193,9 +193,11 @@ def max(space, __args__):
     return min_max(space, __args__, "max")
 
 def min(space, __args__):
-    """Return the smallest item in a sequence.
+    """min(iterable[, key=func]) -> value
+    min(a, b, c, ...[, key=func]) -> value
 
-    If more than one argument is passed, return the minimum of them.
+    With a single iterable argument, return its smallest item.
+    With two or more arguments, return the smallest argument.
     """
     return min_max(space, __args__, "min")
 
