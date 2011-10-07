@@ -5,6 +5,7 @@ from pypy.translator.stm import _rffi_stm
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
 from pypy.rlib.rarithmetic import r_uint, r_ulonglong
+from pypy.rlib import longlong2float
 
 size_of_voidp = rffi.sizeof(rffi.VOIDP)
 assert size_of_voidp & (size_of_voidp - 1) == 0
@@ -31,6 +32,8 @@ def stm_getfield(structptr, fieldname):
             res = (r_ulonglong(res1) << 32) | res0
         else:
             raise NotImplementedError(fieldsize)
+        if FIELD == lltype.Float:
+            return longlong2float.longlong2float(rffi.cast(rffi.LONGLONG, res))
     else:
         assert misalignment + fieldsize <= size_of_voidp
         res = _rffi_stm.stm_read_word(p)
@@ -49,6 +52,8 @@ def stm_setfield(structptr, fieldname, newvalue):
     p = rffi.cast(_rffi_stm.SignedP, p - misalignment)
     if fieldsize >= size_of_voidp:
         assert misalignment == 0
+        if FIELD == lltype.Float:
+            newvalue = longlong2float.float2longlong(newvalue)
         if fieldsize == size_of_voidp:
             _rffi_stm.stm_write_word(p, rffi.cast(lltype.Signed, newvalue))
         elif fieldsize == 8:    # 32-bit only: write a 64-bit field

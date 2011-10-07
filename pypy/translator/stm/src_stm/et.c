@@ -788,3 +788,27 @@ void stm_write_doubleword(long *addr, long long val)
   stm_write_word(addr, (long)val);
   stm_write_word(addr + 1, (long)(val >> 32));
 }
+
+double stm_read_double(long *addr)
+{
+  long long x;
+  double dd;
+  if (sizeof(double) > sizeof(long))
+    x = stm_read_doubleword(addr);   /* 32 bits */
+  else
+    x = stm_read_word(addr);         /* 64 bits */
+  assert(sizeof(double) == 8 && sizeof(long long) == 8);
+  memcpy(&dd, &x, 8);
+  return dd;
+}
+
+void stm_write_double(long *addr, double val)
+{
+  long long ll;
+  assert(sizeof(double) == 8 && sizeof(long long) == 8);
+  memcpy(&ll, &val, 8);
+  if (sizeof(double) > sizeof(long))
+    stm_write_doubleword(addr, ll);   /* 32 bits */
+  else
+    stm_write_word(addr, ll);         /* 64 bits */
+}

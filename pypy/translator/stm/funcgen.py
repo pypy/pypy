@@ -19,7 +19,9 @@ def stm_getfield(funcgen, op):
     fieldsize = rffi.sizeof(T)
     if fieldsize >= size_of_voidp:
         assert 1      # xxx assert somehow that the field is aligned
-        if fieldsize == size_of_voidp:
+        if T == lltype.Float:
+            funcname = 'stm_read_double'
+        elif fieldsize == size_of_voidp:
             funcname = 'stm_read_word'
         elif fieldsize == 8:    # 32-bit only: read a 64-bit field
             funcname = 'stm_read_doubleword'
@@ -53,7 +55,10 @@ def stm_setfield(funcgen, op):
     fieldsize = rffi.sizeof(T)
     if fieldsize >= size_of_voidp:
         assert 1      # xxx assert somehow that the field is aligned
-        if fieldsize == size_of_voidp:
+        if T == lltype.Float:
+            funcname = 'stm_write_double'
+            newtype = 'double'
+        elif fieldsize == size_of_voidp:
             funcname = 'stm_write_word'
             newtype = 'long'
         elif fieldsize == 8:    # 32-bit only: read a 64-bit field

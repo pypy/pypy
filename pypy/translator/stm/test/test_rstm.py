@@ -7,9 +7,12 @@ from pypy.rlib.rarithmetic import r_longlong
 
 A = lltype.Struct('A', ('x', lltype.Signed), ('y', lltype.Signed),
                        ('c1', lltype.Char), ('c2', lltype.Char),
-                       ('c3', lltype.Char), ('l', lltype.SignedLongLong))
+                       ('c3', lltype.Char), ('l', lltype.SignedLongLong),
+                       ('f', lltype.Float))
 rll1 = r_longlong(-10000000000003)
 rll2 = r_longlong(-300400500600700)
+rf1 = -12.38976129
+rf2 = 52.1029
 
 def callback1(a):
     a = rffi.cast(lltype.Ptr(A), a)
@@ -18,11 +21,13 @@ def callback1(a):
     assert a.c2 == '\\'
     assert a.c3 == '!'
     assert a.l == rll1
+    assert a.f == rf1
     assert stm_getfield(a, 'x') == -611
     assert stm_getfield(a, 'c2') == '\\'
     assert stm_getfield(a, 'c1') == '/'
     assert stm_getfield(a, 'c3') == '!'
     assert stm_getfield(a, 'l') == rll1
+    assert stm_getfield(a, 'f') == rf1
     p = lltype.direct_fieldptr(a, 'x')
     p = rffi.cast(SignedP, p)
     stm_write_word(p, 42 * a.y)
@@ -41,6 +46,7 @@ def test_stm_getfield():
     a.c3 = '!'
     a.y = 0
     a.l = rll1
+    a.f = rf1
     descriptor_init()
     perform_transaction(llhelper(CALLBACK, callback1),
                         rffi.cast(rffi.VOIDP, a))
@@ -50,6 +56,7 @@ def test_stm_getfield():
     assert a.c2 == '\\'
     assert a.c3 == '!'
     assert a.l == rll1
+    assert a.f == rf1
     lltype.free(a, flavor='raw')
 
 def callback2(a):
@@ -59,26 +66,31 @@ def callback2(a):
     assert a.c2 == '*'
     assert a.c3 == '#'
     assert a.l == rll1
+    assert a.f == rf1
     assert stm_getfield(a, 'x') == -611
     assert stm_getfield(a, 'c1') == '&'
     assert stm_getfield(a, 'c2') == '*'
     assert stm_getfield(a, 'c3') == '#'
     assert stm_getfield(a, 'l') == rll1
+    assert stm_getfield(a, 'f') == rf1
     stm_setfield(a, 'x', 42 * a.y)
     stm_setfield(a, 'c1', '(')
     stm_setfield(a, 'c2', '?')
     stm_setfield(a, 'c3', ')')
     stm_setfield(a, 'l', rll2)
+    stm_setfield(a, 'f', rf2)
     assert stm_getfield(a, 'x') == 42 * a.y
     assert stm_getfield(a, 'c1') == '('
     assert stm_getfield(a, 'c2') == '?'
     assert stm_getfield(a, 'c3') == ')'
     assert stm_getfield(a, 'l') == rll2
+    assert stm_getfield(a, 'f') == rf2
     assert a.x == -611 # xxx still the old value when reading non-transact.
     assert a.c1 == '&'
     assert a.c2 == '*'
     assert a.c3 == '#'
     assert a.l == rll1
+    assert a.f == rf1
     if a.y < 10:
         a.y += 1    # non-transactionally
         abort_and_retry()
@@ -92,6 +104,7 @@ def test_stm_setfield():
     a.c3 = '#'
     a.y = 0
     a.l = rll1
+    a.f = rf1
     descriptor_init()
     perform_transaction(llhelper(CALLBACK, callback2),
                         rffi.cast(rffi.VOIDP, a))
@@ -101,6 +114,7 @@ def test_stm_setfield():
     assert a.c2 == '?'
     assert a.c3 == ')'
     assert a.l == rll2
+    assert a.f == rf2
     lltype.free(a, flavor='raw')
 
 # ____________________________________________________________

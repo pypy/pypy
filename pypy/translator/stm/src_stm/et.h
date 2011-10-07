@@ -35,6 +35,8 @@ void stm_abort_and_retry(void);
 
 void stm_write_partial_word(int fieldsize, char *base, long offset, long nval);
 
+double stm_read_double(long *addr);
+void stm_write_double(long *addr, double val);
 long long stm_read_doubleword(long *addr);
 void stm_write_doubleword(long *addr, long long val);
 
