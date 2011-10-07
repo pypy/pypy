@@ -38,6 +38,8 @@ def stm_getfield(structptr, fieldname):
         assert misalignment + fieldsize <= size_of_voidp
         res = _rffi_stm.stm_read_word(p)
         res = res >> (misalignment * 8)
+    if FIELD == lltype.SingleFloat:
+        return longlong2float.uint2singlefloat(rffi.cast(rffi.UINT, res))
     return rffi.cast(FIELD, res)
 
 def stm_setfield(structptr, fieldname, newvalue):
@@ -50,6 +52,8 @@ def stm_setfield(structptr, fieldname, newvalue):
     fieldsize = rffi.sizeof(FIELD)
     #print 'setfield %x size %d:' % (p, fieldsize),
     p = rffi.cast(_rffi_stm.SignedP, p - misalignment)
+    if FIELD == lltype.SingleFloat:
+        newvalue = longlong2float.singlefloat2uint(newvalue)
     if fieldsize >= size_of_voidp:
         assert misalignment == 0
         if FIELD == lltype.Float:

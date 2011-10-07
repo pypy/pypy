@@ -588,7 +588,7 @@ void stm_descriptor_done(void)
 void* stm_perform_transaction(void*(*callback)(void*), void *arg)
 {
   void *result;
-  stm_begin_transaction_inline();
+  STM_begin_transaction();
   result = callback(arg);
   stm_commit_transaction();
   return result;
@@ -763,13 +763,14 @@ void stm_abort_and_retry(void)
 }
 
 // XXX little-endian only!
-void stm_write_partial_word(int fieldsize, char *base, long offset, long nval)
+void stm_write_partial_word(int fieldsize, char *base, long offset,
+                            unsigned long nval)
 {
   long *p = (long*)(base + (offset & ~(sizeof(void*)-1)));
   int misalignment = offset & (sizeof(void*)-1);
   long val = nval << (misalignment * 8);
   long word = stm_read_word(p);
-  long mask = ((1 << (fieldsize * 8)) - 1) << (misalignment * 8);
+  long mask = ((1L << (fieldsize * 8)) - 1) << (misalignment * 8);
   val = (val & mask) | (word & ~mask);
   stm_write_word(p, val);
 }
@@ -811,4 +812,35 @@ void stm_write_double(long *addr, double val)
     stm_write_doubleword(addr, ll);   /* 32 bits */
   else
     stm_write_word(addr, ll);         /* 64 bits */
+}
+
+float stm_read_float(long *addr)
+{
+  unsigned int x;
+  float ff;
+  if (sizeof(float) == sizeof(long))
+    x = stm_read_word(addr);         /* 32 bits */
+  else if (((long)(char*)addr) & 7) {
+    addr = (long *)(((char *)addr) - 4);
+    x = (unsigned int)(stm_read_word(addr) >> 32);   /* 64 bits, unaligned */
+  }
+  else
+    x = (unsigned int)stm_read_word(addr);           /* 64 bits, aligned */
+  assert(sizeof(float) == 4 && sizeof(unsigned int) == 4);
+  memcpy(&ff, &x, 4);
+  return ff;
+}
+
+void stm_write_float(long *addr, float val)
+{
+  unsigned int ii;
+  assert(sizeof(float) == 4 && sizeof(unsigned int) == 4);
+  memcpy(&ii, &val, 4);
+  if (sizeof(float) == sizeof(long))
+    stm_write_word(addr, ii);         /* 32 bits */
+  else if (((long)(char*)addr) & 7)
+    stm_write_partial_word(4, (((char *)addr) - 4),
+                           4, ii);                   /* 64 bits, unaligned */
+  else
+    stm_write_partial_word(4, (char *)addr, 0, ii);    /* 64 bits, aligned */
 }

@@ -22,21 +22,24 @@ void stm_try_inevitable(void);
 void stm_begin_inevitable_transaction(void);
 void stm_abort_and_retry(void);
 
-#define stm_begin_transaction_inline()  ; \
+#define STM_begin_transaction()         ; \
        jmp_buf _jmpbuf;                   \
        setjmp(_jmpbuf);                   \
        stm_begin_transaction(&_jmpbuf)
 
 // XXX little-endian only!
-#define stm_read_partial_word(T, base, offset)                          \
+#define STM_read_partial_word(T, base, offset)                          \
     (T)(stm_read_word(                                                  \
            (long*)(((char*)(base)) + ((offset) & ~(sizeof(void*)-1))))  \
         >> (8 * ((offset) & (sizeof(void*)-1))))
 
-void stm_write_partial_word(int fieldsize, char *base, long offset, long nval);
+void stm_write_partial_word(int fieldsize, char *base, long offset,
+                            unsigned long nval);
 
 double stm_read_double(long *addr);
 void stm_write_double(long *addr, double val);
+float stm_read_float(long *addr);
+void stm_write_float(long *addr, float val);
 long long stm_read_doubleword(long *addr);
 void stm_write_doubleword(long *addr, long long val);
 

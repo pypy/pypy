@@ -17,10 +17,12 @@ def stm_getfield(funcgen, op):
     #
     assert T is not lltype.Void     # XXX
     fieldsize = rffi.sizeof(T)
-    if fieldsize >= size_of_voidp:
+    if fieldsize >= size_of_voidp or T == lltype.SingleFloat:
         assert 1      # xxx assert somehow that the field is aligned
         if T == lltype.Float:
             funcname = 'stm_read_double'
+        elif T == lltype.SingleFloat:
+            funcname = 'stm_read_float'
         elif fieldsize == size_of_voidp:
             funcname = 'stm_read_word'
         elif fieldsize == 8:    # 32-bit only: read a 64-bit field
@@ -36,7 +38,7 @@ def stm_getfield(funcgen, op):
         # assume that the object is aligned, and any possible misalignment
         # comes from the field offset, so that it can be resolved at
         # compile-time (by using C macros)
-        return '%s = stm_read_partial_word(%s, %s, offsetof(%s, %s));' % (
+        return '%s = STM_read_partial_word(%s, %s, offsetof(%s, %s));' % (
             newvalue, cfieldtypename, basename,
             cdecl(funcgen.db.gettype(STRUCT), ''),
             structdef.c_struct_field_name(fieldname))
@@ -53,11 +55,14 @@ def stm_setfield(funcgen, op):
     #
     assert T is not lltype.Void     # XXX
     fieldsize = rffi.sizeof(T)
-    if fieldsize >= size_of_voidp:
+    if fieldsize >= size_of_voidp or T == lltype.SingleFloat:
         assert 1      # xxx assert somehow that the field is aligned
         if T == lltype.Float:
             funcname = 'stm_write_double'
             newtype = 'double'
+        elif T == lltype.SingleFloat:
+            funcname = 'stm_write_float'
+            newtype = 'float'
         elif fieldsize == size_of_voidp:
             funcname = 'stm_write_word'
             newtype = 'long'
