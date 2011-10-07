@@ -385,6 +385,14 @@ class FrameworkGCTransformer(GCTransformer):
                 [annmodel.SomeInteger(), annmodel.SomeInteger()],
                 annmodel.s_None, minimal_transform = False)
 
+        if getattr(GCClass, 'add_memory_pressure', False):
+            def add_memory_pressure(size):
+                gcdata.gc.raw_malloc_memory_pressure(size)
+            self.add_memory_pressure_ptr = getfun(
+                add_memory_pressure,
+                [annmodel.SomeInteger()],
+                annmodel.s_None, minimal_transform = False)
+
         self.identityhash_ptr = getfn(GCClass.identityhash.im_func,
                                       [s_gc, s_gcref],
                                       annmodel.SomeInteger(),

@@ -519,6 +519,7 @@ LL_OPERATIONS = {
     'decode_arg_def':       LLOp(canraise=(Exception,)),
     'getslice':             LLOp(canraise=(Exception,)),
     'check_and_clear_exc':  LLOp(),
+    'add_memory_pressure':  LLOp(),
 
     # __________ debugging __________
     'debug_view':           LLOp(),

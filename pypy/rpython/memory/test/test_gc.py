@@ -593,7 +593,7 @@ class GCTest(object):
             return rgc.can_move(lltype.malloc(TP, 1))
         assert self.interpret(func, []) == self.GC_CAN_MOVE
 
-    
+
     def test_malloc_nonmovable(self):
         TP = lltype.GcArray(lltype.Char)
         def func():

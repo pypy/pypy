@@ -255,6 +255,10 @@ def _keep_object(x):
     except Exception:
         return False      # don't keep objects whose _freeze_() method explodes
 
+def add_memory_pressure(estimate):
+    """Add memory pressure for OpaquePtrs."""
+    pass
+
 def get_rpy_memory_usage(gcref):
     "NOT_RPYTHON"
     # approximate implementation using CPython's type info
