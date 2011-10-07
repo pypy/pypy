@@ -4,6 +4,7 @@ from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.translator.stm import _rffi_stm
 from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
+from pypy.rlib.rarithmetic import r_uint, r_ulonglong
 
 size_of_voidp = rffi.sizeof(rffi.VOIDP)
 assert size_of_voidp & (size_of_voidp - 1) == 0
@@ -22,8 +23,14 @@ def stm_getfield(structptr, fieldname):
     p = rffi.cast(_rffi_stm.SignedP, p - misalignment)
     if fieldsize >= size_of_voidp:
         assert misalignment == 0
-        assert fieldsize == size_of_voidp   # XXX
-        res = _rffi_stm.stm_read_word(p)
+        if fieldsize == size_of_voidp:
+            res = _rffi_stm.stm_read_word(p)
+        elif fieldsize == 8:    # 32-bit only: read a 64-bit field
+            res0 = r_uint(_rffi_stm.stm_read_word(p))
+            res1 = r_uint(_rffi_stm.stm_read_word(rffi.ptradd(p, 1)))
+            res = (r_ulonglong(res1) << 32) | res0
+        else:
+            raise NotImplementedError(fieldsize)
     else:
         assert misalignment + fieldsize <= size_of_voidp
         res = _rffi_stm.stm_read_word(p)
@@ -42,8 +49,15 @@ def stm_setfield(structptr, fieldname, newvalue):
     p = rffi.cast(_rffi_stm.SignedP, p - misalignment)
     if fieldsize >= size_of_voidp:
         assert misalignment == 0
-        assert fieldsize == size_of_voidp   # XXX
-        _rffi_stm.stm_write_word(p, rffi.cast(lltype.Signed, newvalue))
+        if fieldsize == size_of_voidp:
+            _rffi_stm.stm_write_word(p, rffi.cast(lltype.Signed, newvalue))
+        elif fieldsize == 8:    # 32-bit only: write a 64-bit field
+            _rffi_stm.stm_write_word(p, rffi.cast(lltype.Signed, newvalue))
+            p = rffi.ptradd(p, 1)
+            newvalue = rffi.cast(lltype.SignedLongLong, newvalue) >> 32
+            _rffi_stm.stm_write_word(p, rffi.cast(lltype.Signed, newvalue))
+        else:
+            raise NotImplementedError(fieldsize)
         #print 'ok'
     else:
         # bah, must read the complete word in order to modify only a part

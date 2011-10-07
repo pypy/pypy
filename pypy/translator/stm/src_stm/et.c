@@ -773,3 +773,18 @@ void stm_write_partial_word(int fieldsize, char *base, long offset, long nval)
   val = (val & mask) | (word & ~mask);
   stm_write_word(p, val);
 }
+
+long long stm_read_doubleword(long *addr)
+{
+  /* 32-bit only */
+  unsigned long res0 = (unsigned long)stm_read_word(addr);
+  unsigned long res1 = (unsigned long)stm_read_word(addr + 1);
+  return (((unsigned long long)res1) << 32) | res0;
+}
+
+void stm_write_doubleword(long *addr, long long val)
+{
+  /* 32-bit only */
+  stm_write_word(addr, (long)val);
+  stm_write_word(addr + 1, (long)(val >> 32));
+}

@@ -35,5 +35,8 @@ void stm_abort_and_retry(void);
 
 void stm_write_partial_word(int fieldsize, char *base, long offset, long nval);
 
+long long stm_read_doubleword(long *addr);
+void stm_write_doubleword(long *addr, long long val);
+
 
 #endif  /* _ET_H */

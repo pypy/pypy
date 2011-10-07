@@ -19,12 +19,17 @@ def stm_getfield(funcgen, op):
     fieldsize = rffi.sizeof(T)
     if fieldsize >= size_of_voidp:
         assert 1      # xxx assert somehow that the field is aligned
-        assert fieldsize == size_of_voidp     # XXX
+        if fieldsize == size_of_voidp:
+            funcname = 'stm_read_word'
+        elif fieldsize == 8:    # 32-bit only: read a 64-bit field
+            funcname = 'stm_read_doubleword'
+        else:
+            raise NotImplementedError(fieldsize)
         expr = structdef.ptr_access_expr(basename,
                                          fieldname,
                                          baseexpr_is_const)
-        return '%s = (%s)stm_read_word((long*)&%s);' % (
-            newvalue, cfieldtypename, expr)
+        return '%s = (%s)%s((long*)&%s);' % (
+            newvalue, cfieldtypename, funcname, expr)
     else:
         # assume that the object is aligned, and any possible misalignment
         # comes from the field offset, so that it can be resolved at
@@ -48,12 +53,19 @@ def stm_setfield(funcgen, op):
     fieldsize = rffi.sizeof(T)
     if fieldsize >= size_of_voidp:
         assert 1      # xxx assert somehow that the field is aligned
-        assert fieldsize == size_of_voidp     # XXX
+        if fieldsize == size_of_voidp:
+            funcname = 'stm_write_word'
+            newtype = 'long'
+        elif fieldsize == 8:    # 32-bit only: read a 64-bit field
+            funcname = 'stm_write_doubleword'
+            newtype = 'long long'
+        else:
+            raise NotImplementedError(fieldsize)
         expr = structdef.ptr_access_expr(basename,
                                          fieldname,
                                          baseexpr_is_const)
-        return 'stm_write_word((long*)&%s, (long)%s);' % (
-            expr, newvalue)
+        return '%s((long*)&%s, (%s)%s);' % (
+            funcname, expr, newtype, newvalue)
     else:
         cfieldtypename = cdecl(fieldtypename, '')
         return ('stm_write_partial_word(sizeof(%s), (char*)%s, '
