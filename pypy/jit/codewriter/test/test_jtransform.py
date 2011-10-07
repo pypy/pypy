@@ -1,5 +1,7 @@
 import py
+import itertools
 import random
+
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.jit.codewriter.jtransform import Transformer
@@ -254,26 +256,35 @@ def test_symmetric_int_add_ovf():
             assert op1.result is None
 
 def test_calls():
-    for RESTYPE in [lltype.Signed, rclass.OBJECTPTR,
-                    lltype.Float, lltype.Void]:
-      for with_void in [False, True]:
-        for with_i in [False, True]:
-          for with_r in [False, True]:
-            for with_f in [False, True]:
-              ARGS = []
-              if with_void: ARGS += [lltype.Void, lltype.Void]
-              if with_i: ARGS += [lltype.Signed, lltype.Char]
-              if with_r: ARGS += [rclass.OBJECTPTR, lltype.Ptr(rstr.STR)]
-              if with_f: ARGS += [lltype.Float, lltype.Float]
-              random.shuffle(ARGS)
-              if RESTYPE == lltype.Float: with_f = True
-              if with_f: expectedkind = 'irf'   # all kinds
-              elif with_i: expectedkind = 'ir'  # integers and references
-              else: expectedkind = 'r'          # only references
-              yield residual_call_test, ARGS, RESTYPE, expectedkind
-              yield direct_call_test, ARGS, RESTYPE, expectedkind
-              yield indirect_residual_call_test, ARGS, RESTYPE, expectedkind
-              yield indirect_regular_call_test, ARGS, RESTYPE, expectedkind
+    for RESTYPE, with_void, with_i, with_r, with_f in itertools.product(
+        [lltype.Signed, rclass.OBJECTPTR, lltype.Float, lltype.Void],
+        [False, True],
+        [False, True],
+        [False, True],
+        [False, True],
+    ):
+        ARGS = []
+        if with_void:
+            ARGS += [lltype.Void, lltype.Void]
+        if with_i:
+            ARGS += [lltype.Signed, lltype.Char]
+        if with_r:
+            ARGS += [rclass.OBJECTPTR, lltype.Ptr(rstr.STR)]
+        if with_f:
+            ARGS += [lltype.Float, lltype.Float]
+        random.shuffle(ARGS)
+        if RESTYPE == lltype.Float:
+            with_f = True
+        if with_f:
+            expectedkind = 'irf'   # all kinds
+        elif with_i:
+            expectedkind = 'ir'  # integers and references
+        else:
+            expectedkind = 'r'          # only references
+        yield residual_call_test, ARGS, RESTYPE, expectedkind
+        yield direct_call_test, ARGS, RESTYPE, expectedkind
+        yield indirect_residual_call_test, ARGS, RESTYPE, expectedkind
+        yield indirect_regular_call_test, ARGS, RESTYPE, expectedkind
 
 def get_direct_call_op(argtypes, restype):
     FUNC = lltype.FuncType(argtypes, restype)
