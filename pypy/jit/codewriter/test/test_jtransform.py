@@ -1,6 +1,18 @@
 import py
-import itertools
 import random
+try:
+    from itertools import product
+except ImportError:
+    # Python 2.5, this is taken from the CPython docs, but simplified.
+    def product(*args):
+        # product('ABCD', 'xy') --> Ax Ay Bx By Cx Cy Dx Dy
+        # product(range(2), repeat=3) --> 000 001 010 011 100 101 110 111
+        pools = map(tuple, args)
+        result = [[]]
+        for pool in pools:
+            result = [x+[y] for x in result for y in pool]
+        for prod in result:
+            yield tuple(prod)
 
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
@@ -256,7 +268,7 @@ def test_symmetric_int_add_ovf():
             assert op1.result is None
 
 def test_calls():
-    for RESTYPE, with_void, with_i, with_r, with_f in itertools.product(
+    for RESTYPE, with_void, with_i, with_r, with_f in product(
         [lltype.Signed, rclass.OBJECTPTR, lltype.Float, lltype.Void],
         [False, True],
         [False, True],
