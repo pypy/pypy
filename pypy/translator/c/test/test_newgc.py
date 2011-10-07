@@ -37,7 +37,7 @@ class TestUsingFramework(object):
             else:
                 print res
             return 0
-        
+
         t = Translation(main, standalone=True, gc=cls.gcpolicy,
                         policy=annpolicy.StrictAnnotatorPolicy(),
                         taggedpointers=cls.taggedpointers,
