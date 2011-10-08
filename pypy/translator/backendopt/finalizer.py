@@ -1,0 +1,31 @@
+
+from pypy.translator.backendopt import graphanalyze
+from pypy.rpython.lltypesystem import lltype
+
+class FinalizerAnalyzer(graphanalyze.BoolGraphAnalyzer):
+    """ Analyzer that determines whether a finalizer is lightweight enough
+    so it can be called without all the complicated logic in the garbage
+    collector. The set of operations here is restrictive for a good reason
+    - it's better to be safe. Specifically disallowed operations:
+
+    * anything that escapes self
+    * anything that can allocate
+    """
+    ok_operations = ['getfield', 'ptr_nonzero', 'free', 'same_as',
+                     'direct_ptradd', 'force_cast', 'cast_primitive',
+                     'cast_pointer']
+    
+    def analyze_simple_operation(self, op, graphinfo):
+        if op.opname in self.ok_operations:
+            return self.bottom_result()
+        if op.opname.startswith('int_') or op.opname.startswith('float_'):
+            return self.bottom_result()
+        if op.opname == 'setfield':
+            TP = op.args[2].concretetype
+            if not isinstance(TP, lltype.Ptr) or TP.TO._gckind == 'raw':
+                # primitive type
+                return self.bottom_result()
+        print op
+        import pdb
+        pdb.set_trace()
+        return self.top_result()
