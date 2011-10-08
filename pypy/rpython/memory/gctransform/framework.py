@@ -389,7 +389,7 @@ class FrameworkGCTransformer(GCTransformer):
             self.raw_malloc_memory_pressure = getfn(
                 raw_malloc_memory_pressure,
                 [annmodel.SomeInteger()],
-                annmode.s_None, minimal_transform = False)
+                annmodel.s_None, minimal_transform = False)
 
 
         self.identityhash_ptr = getfn(GCClass.identityhash.im_func,

@@ -128,10 +128,10 @@ class TestUsingFramework(object):
         if not args:
             args = (-1, )
         res = self.allfuncs(name, *args)
-        num = self.name_to_func[name]        
+        num = self.name_to_func[name]
         if self.funcsstr[num]:
             return res
-        return int(res)        
+        return int(res)
 
     def define_empty_collect(cls):
         def f():
@@ -1457,6 +1457,33 @@ class TestMiniMarkGC(TestSemiSpaceGC):
     def test_nongc_attached_to_gc(self):
         res = self.run("nongc_attached_to_gc")
         assert res == -99997
+
+    def define_nongc_opaque_attached_to_gc(cls):
+        from pypy.rpython.lltypesystem import rffi
+        from pypy.rlib import ropenssl
+        class A:
+            def __init__(self):
+                self.ctx = lltype.malloc(ropenssl.EVP_MD_CTX.TO,
+                    flavor='raw')
+                digest = ropenssl.EVP_get_digestbyname('sha1')
+                ropenssl.EVP_DigestInit(self.ctx, digest)
+            def __del__(self):
+                ropenssl.EVP_MD_CTX_cleanup(self.ctx)
+                lltype.free(self.ctx, flavor='raw')
+        A()
+        def f():
+            am1 = am2 = am3 = None
+            for i in range(100000):
+                am3 = am2
+                am2 = am1
+                am1 = A()
+            # what can we use for the res?
+            return 0
+        return f
+
+    def test_nongc_opaque_attached_to_gc(self):
+        res = self.run("nongc_opaque_attached_to_gc")
+        assert res == 0
 
 # ____________________________________________________________________
 
