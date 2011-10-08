@@ -610,7 +610,10 @@ class RSocket(object):
         self.timeout = defaults.timeout
         
     def __del__(self):
-        self.close()
+        fd = self.fd
+        if fd != _c.INVALID_SOCKET:
+            self.fd = _c.INVALID_SOCKET
+            _c.socketclose(fd)
 
     if hasattr(_c, 'fcntl'):
         def _setblocking(self, block):
