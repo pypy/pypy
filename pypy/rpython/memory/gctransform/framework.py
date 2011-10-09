@@ -12,6 +12,7 @@ from pypy.rlib.debug import ll_assert
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.translator.backendopt import graphanalyze
 from pypy.translator.backendopt.support import var_needsgc
+from pypy.translator.backendopt.finalizer import FinalizerAnalyzer
 from pypy.annotation import model as annmodel
 from pypy.rpython import annlowlevel
 from pypy.rpython.rbuiltin import gen_cast
@@ -321,7 +322,7 @@ class FrameworkGCTransformer(GCTransformer):
             raise NotImplementedError("GC needs write barrier, but does not provide writebarrier_before_copy functionality")
 
         # in some GCs we can inline the common case of
-        # malloc_fixedsize(typeid, size, True, False, False)
+        # malloc_fixedsize(typeid, size, False, False, False)
         if getattr(GCClass, 'inline_simple_malloc', False):
             # make a copy of this function so that it gets annotated
             # independently and the constants are folded inside
@@ -339,7 +340,7 @@ class FrameworkGCTransformer(GCTransformer):
                 malloc_fast,
                 [s_gc, s_typeid16,
                  annmodel.SomeInteger(nonneg=True),
-                 s_False, s_False], s_gcref,
+                 s_False, s_False, s_False], s_gcref,
                 inline = True)
         else:
             self.malloc_fast_ptr = None
@@ -670,7 +671,13 @@ class FrameworkGCTransformer(GCTransformer):
         kind_and_fptr = self.special_funcptr_for_type(TYPE)
         has_finalizer = (kind_and_fptr is not None and
                          kind_and_fptr[0] == "finalizer")
+        has_light_finalizer = (kind_and_fptr is not None and
+                               kind_and_fptr[0] == "light_finalizer")
+        if has_light_finalizer:
+            has_finalizer = True
         c_has_finalizer = rmodel.inputconst(lltype.Bool, has_finalizer)
+        c_has_light_finalizer = rmodel.inputconst(lltype.Bool,
+                                                  has_light_finalizer)
 
         if not op.opname.endswith('_varsize') and not flags.get('varsize'):
             #malloc_ptr = self.malloc_fixedsize_ptr
@@ -684,7 +691,8 @@ class FrameworkGCTransformer(GCTransformer):
             else:
                 malloc_ptr = self.malloc_fixedsize_ptr
             args = [self.c_const_gc, c_type_id, c_size,
-                    c_has_finalizer, rmodel.inputconst(lltype.Bool, False)]
+                    c_has_finalizer, c_has_light_finalizer,
+                    rmodel.inputconst(lltype.Bool, False)]
         else:
             assert not c_has_finalizer.value
             info_varsize = self.layoutbuilder.get_info_varsize(type_id)
@@ -849,12 +857,13 @@ class FrameworkGCTransformer(GCTransformer):
         # used by the JIT (see pypy.jit.backend.llsupport.gc)
         op = hop.spaceop
         [v_typeid, v_size,
-         v_has_finalizer, v_contains_weakptr] = op.args
+         v_has_finalizer, v_has_light_finalizer, v_contains_weakptr] = op.args
         livevars = self.push_roots(hop)
         hop.genop("direct_call",
                   [self.malloc_fixedsize_clear_ptr, self.c_const_gc,
                    v_typeid, v_size,
-                   v_has_finalizer, v_contains_weakptr],
+                   v_has_finalizer, v_has_light_finalizer,
+                   v_contains_weakptr],
                   resultvar=op.result)
         self.pop_roots(hop, livevars)
 
@@ -914,10 +923,10 @@ class FrameworkGCTransformer(GCTransformer):
         info = self.layoutbuilder.get_info(type_id)
         c_size = rmodel.inputconst(lltype.Signed, info.fixedsize)
         malloc_ptr = self.malloc_fixedsize_ptr
-        c_has_finalizer = rmodel.inputconst(lltype.Bool, False)
+        c_false = rmodel.inputconst(lltype.Bool, False)
         c_has_weakptr = rmodel.inputconst(lltype.Bool, True)
         args = [self.c_const_gc, c_type_id, c_size,
-                c_has_finalizer, c_has_weakptr]
+                c_false, c_false, c_has_weakptr]
 
         # push and pop the current live variables *including* the argument
         # to the weakref_create operation, which must be kept alive and
@@ -1252,6 +1261,7 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
             lltype2vtable = translator.rtyper.lltype2vtable
         else:
             lltype2vtable = None
+        self.translator = translator
         super(TransformerLayoutBuilder, self).__init__(GCClass, lltype2vtable)
 
     def has_finalizer(self, TYPE):
@@ -1266,7 +1276,7 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
 
     def make_finalizer_funcptr_for_type(self, TYPE):
         if not self.has_finalizer(TYPE):
-            return None
+            return None, False
         rtti = get_rtti(TYPE)
         destrptr = rtti._obj.destructor_funcptr
         DESTR_ARG = lltype.typeOf(destrptr).TO.ARGS[0]
@@ -1278,7 +1288,9 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
             return llmemory.NULL
         fptr = self.transformer.annotate_finalizer(ll_finalizer,
                 [llmemory.Address, llmemory.Address], llmemory.Address)
-        return fptr
+        g = destrptr._obj.graph
+        light = not FinalizerAnalyzer(self.translator).analyze_direct_call(g)
+        return fptr, light
 
     def make_custom_trace_funcptr_for_type(self, TYPE):
         if not self.has_custom_trace(TYPE):
