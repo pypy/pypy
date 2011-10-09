@@ -119,6 +119,7 @@ class FakeBuiltinCallControl:
              EI.OS_STR2UNICODE:([PSTR], PUNICODE),
              EI.OS_STR_CONCAT: ([PSTR, PSTR], PSTR),
              EI.OS_STR_SLICE:  ([PSTR, INT, INT], PSTR),
+             EI.OS_STREQ_NONNULL:  ([PSTR, PSTR], INT),
              EI.OS_UNI_CONCAT: ([PUNICODE, PUNICODE], PUNICODE),
              EI.OS_UNI_SLICE:  ([PUNICODE, INT, INT], PUNICODE),
              EI.OS_UNI_EQUAL:  ([PUNICODE, PUNICODE], lltype.Bool),
@@ -140,6 +141,9 @@ class FakeBuiltinCallControl:
         return 'calldescr-%d' % oopspecindex
     def calldescr_canraise(self, calldescr):
         return False
+    def callinfo_for_oopspec(self, oopspecindex):
+        assert oopspecindex == effectinfo.EffectInfo.OS_STREQ_NONNULL
+        return 'calldescr'
 
 
 def test_optimize_goto_if_not():
@@ -849,14 +853,13 @@ def test_str_promote():
     v1 = varoftype(PSTR)
     v2 = varoftype(PSTR)
     op = SpaceOperation('hint',
-                        [v1, Constant({'string_promote': True}, lltype.Void)],
+                        [v1, Constant({'promote_string': True}, lltype.Void)],
                         v2)
     tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
-    op0, op1, _ = tr.rewrite_operation(op)
-    assert op0.opname == '-live-'
-    assert op1.opname == 'str_guard_value'
-    assert op1.args == [v1]
-    assert op1.result == v2
+    op0 = tr.rewrite_operation(op)
+    assert op0.opname == 'str_guard_value'
+    assert op0.args == [v1, 'calldescr']
+    assert op0.result == v2
 
 def test_unicode_concat():
     # test that the oopspec is present and correctly transformed

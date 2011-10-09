@@ -455,12 +455,20 @@ class Transformer(object):
             # the special return value None forces op.result to be considered
             # equal to op.args[0]
             return [op0, op1, None]
-        if (hints.get('string_promote') and
+        if (hints.get('promote_string') and
             op.args[0].concretetype is not lltype.Void):
-            assert op.args[0].concretetype == lltype.Ptr(rstr.STR)
-            op0 = SpaceOperation('-live-', [], None)
-            op1 = SpaceOperation('str_guard_value', [op.args[0]], op.result)
-            return [op0, op1, None]
+            S = lltype.Ptr(rstr.STR)
+            assert op.args[0].concretetype == S
+            self._register_extra_helper(EffectInfo.OS_STREQ_NONNULL,
+                                        "str.eq_nonnull",
+                                        [S, S],
+                                        lltype.Signed,
+                                        EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
+            descr = self.callcontrol.callinfo_for_oopspec(
+                EffectInfo.OS_STREQ_NONNULL)
+            op1 = SpaceOperation('str_guard_value', [op.args[0], descr],
+                                 op.result)
+            return op1
         else:
             log.WARNING('ignoring hint %r at %r' % (hints, self.graph))
 
@@ -1431,6 +1439,7 @@ class Transformer(object):
             func = heaptracker.adr2int(
                 llmemory.cast_ptr_to_adr(c_func.value))
         self.callcontrol.callinfocollection.add(oopspecindex, calldescr, func)
+        return calldescr
 
     def _handle_stroruni_call(self, op, oopspec_name, args):
         SoU = args[0].concretetype     # Ptr(STR) or Ptr(UNICODE)
