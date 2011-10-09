@@ -844,6 +844,20 @@ def test_str_concat():
     assert op1.args[2] == ListOfKind('ref', [v1, v2])
     assert op1.result == v3
 
+def test_str_promote():
+    PSTR = lltype.Ptr(rstr.STR)
+    v1 = varoftype(PSTR)
+    v2 = varoftype(PSTR)
+    op = SpaceOperation('hint',
+                        [v1, Constant({'string_promote': True}, lltype.Void)],
+                        v2)
+    tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+    op0, op1, _ = tr.rewrite_operation(op)
+    assert op0.opname == '-live-'
+    assert op1.opname == 'str_guard_value'
+    assert op1.args == [v1]
+    assert op1.result == v2
+
 def test_unicode_concat():
     # test that the oopspec is present and correctly transformed
     PSTR = lltype.Ptr(rstr.UNICODE)

@@ -38,6 +38,7 @@ def hint(x, **kwds):
     possible arguments are:
 
     * promote - promote the argument from a variable into a constant
+    * string_promote - same, but promote string by *value*
     * access_directly - directly access a virtualizable, as a structure
                         and don't treat it as a virtualizable
     * fresh_virtualizable - means that virtualizable was just allocated.
@@ -50,6 +51,9 @@ def hint(x, **kwds):
 @specialize.argtype(0)
 def promote(x):
     return hint(x, promote=True)
+
+def promote_string(x):
+    return hint(x, promote_string=True)
 
 def dont_look_inside(func):
     """ Make sure the JIT does not trace inside decorated function

@@ -455,6 +455,12 @@ class Transformer(object):
             # the special return value None forces op.result to be considered
             # equal to op.args[0]
             return [op0, op1, None]
+        if (hints.get('string_promote') and
+            op.args[0].concretetype is not lltype.Void):
+            assert op.args[0].concretetype == lltype.Ptr(rstr.STR)
+            op0 = SpaceOperation('-live-', [], None)
+            op1 = SpaceOperation('str_guard_value', [op.args[0]], op.result)
+            return [op0, op1, None]
         else:
             log.WARNING('ignoring hint %r at %r' % (hints, self.graph))
 
