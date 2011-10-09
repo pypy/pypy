@@ -80,6 +80,24 @@ class TestLLType(BaseFinalizerAnalyzerTests):
         r = self.analyze(g, [], f, backendopt=True)
         assert not r
 
+    def test_chain(self):
+        class B(object):
+            def __init__(self):
+                self.counter = 1
+        
+        class A(object):
+            def __init__(self):
+                self.x = B()
+
+            def __del__(self):
+                self.x.counter += 1
+
+        def f():
+            A()
+
+        r = self.analyze(f, [], A.__del__.im_func)
+        assert r
+
     def test_os_call(self):
         py.test.skip("can allocate OSError, but also can raise, ignore for now")
         import os

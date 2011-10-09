@@ -11,7 +11,7 @@ class FinalizerAnalyzer(graphanalyze.BoolGraphAnalyzer):
     * anything that escapes self
     * anything that can allocate
     """
-    ok_operations = ['getfield', 'ptr_nonzero', 'free', 'same_as',
+    ok_operations = ['ptr_nonzero', 'free', 'same_as',
                      'direct_ptradd', 'force_cast', 'cast_primitive',
                      'cast_pointer']
     
@@ -25,4 +25,9 @@ class FinalizerAnalyzer(graphanalyze.BoolGraphAnalyzer):
             if not isinstance(TP, lltype.Ptr) or TP.TO._gckind == 'raw':
                 # primitive type
                 return self.bottom_result()
+        if op.opname == 'getfield':
+            TP = op.result.concretetype
+            if not isinstance(TP, lltype.Ptr) or TP.TO._gckind == 'raw':
+                # primitive type
+                return self.bottom_result()            
         return self.top_result()

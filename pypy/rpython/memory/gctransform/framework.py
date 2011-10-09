@@ -258,6 +258,7 @@ class FrameworkGCTransformer(GCTransformer):
             [s_gc, s_typeid16,
              annmodel.SomeInteger(nonneg=True),
              annmodel.SomeBool(),
+             annmodel.SomeBool(),
              annmodel.SomeBool()], s_gcref,
             inline = False)
         if hasattr(GCClass, 'malloc_fixedsize'):

@@ -84,6 +84,13 @@ class GCData(object):
         else:
             return lltype.nullptr(GCData.FINALIZER_OR_CT_FUNC)
 
+    def q_light_finalizer(self, typeid):
+        typeinfo = self.get(typeid)
+        if typeinfo.infobits & T_HAS_LIGHTWEIGHT_FINALIZER:
+            return typeinfo.finalizer_or_customtrace
+        else:
+            return lltype.nullptr(GCData.FINALIZER_OR_CT_FUNC)        
+
     def q_offsets_to_gc_pointers(self, typeid):
         return self.get(typeid).ofstoptrs
 
@@ -141,6 +148,7 @@ class GCData(object):
             self.q_has_gcptr_in_varsize,
             self.q_is_gcarrayofgcptr,
             self.q_finalizer,
+            self.q_light_finalizer,
             self.q_offsets_to_gc_pointers,
             self.q_fixed_size,
             self.q_varsize_item_sizes,

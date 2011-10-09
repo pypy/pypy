@@ -82,7 +82,7 @@ class SemiSpaceGC(MovingGCBase):
         self.free = self.tospace
         MovingGCBase.setup(self)
         self.objects_with_finalizers = self.AddressDeque()
-        self.objects_with_raw_mem = self.AddressStack()
+        self.objects_with_light_finalizers = self.AddressStack()
         self.objects_with_weakrefs = self.AddressStack()
 
     def _teardown(self):
@@ -94,7 +94,9 @@ class SemiSpaceGC(MovingGCBase):
     # because the spaces are filled with zeroes in advance.
 
     def malloc_fixedsize_clear(self, typeid16, size,
-                               has_finalizer=False, contains_weakptr=False):
+                               has_finalizer=False,
+                               has_light_finalizer=False,
+                               contains_weakptr=False):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + size
         result = self.free
@@ -103,10 +105,10 @@ class SemiSpaceGC(MovingGCBase):
         llarena.arena_reserve(result, totalsize)
         self.init_gc_object(result, typeid16)
         self.free = result + totalsize
-        if has_finalizer:
+        if has_light_finalizer:
+            self.objects_with_light_finalizers.append(result + size_gc_header)
+        elif has_finalizer:
             self.objects_with_finalizers.append(result + size_gc_header)
-        if self.has_raw_mem_ptr(typeid16):
-            self.objects_with_raw_mem.append(result + size_gc_header)
         if contains_weakptr:
             self.objects_with_weakrefs.append(result + size_gc_header)
         return llmemory.cast_adr_to_ptr(result+size_gc_header, llmemory.GCREF)
@@ -266,10 +268,10 @@ class SemiSpaceGC(MovingGCBase):
         if self.run_finalizers.non_empty():
             self.update_run_finalizers()
         scan = self.scan_copied(scan)
+        if self.objects_with_light_finalizers.non_empty():
+            self.deal_with_objects_with_light_finalizers()
         if self.objects_with_finalizers.non_empty():
             scan = self.deal_with_objects_with_finalizers(scan)
-        if self.objects_with_raw_mem.non_empty():
-            self.deal_with_objects_with_raw_mem()
         if self.objects_with_weakrefs.non_empty():
             self.invalidate_weakrefs()
         self.update_objects_with_id()
@@ -476,6 +478,14 @@ class SemiSpaceGC(MovingGCBase):
         # immortal objects always have GCFLAG_FORWARDED set;
         # see get_forwarding_address().
 
+    def deal_with_objects_with_light_finalizers(self):
+        """ This is a much simpler version of dealing with finalizers
+        and an optimization - we can reasonably assume that those finalizers
+        don't do anything fancy and *just* call them. Among other things
+        they won't resurrect objects
+        """
+        xxx
+
     def deal_with_objects_with_finalizers(self, scan):
         # walk over list of objects with finalizers
         # if it is not copied, add it to the list of to-be-called finalizers
@@ -527,17 +537,6 @@ class SemiSpaceGC(MovingGCBase):
         self.objects_with_finalizers.delete()
         self.objects_with_finalizers = new_with_finalizer
         return scan
-
-    def deal_with_objects_with_raw_mem(self):
-        new_with_raw_mem = self.AddressStack()
-        while self.objects_with_raw_mem.non_empty():
-            addr = self.objects_with_raw_mem.pop()
-            if self.surviving(addr):
-                new_with_raw_mem.append(self.get_forwarding_address(addr))
-            else:
-                self._free_raw_mem_from(addr)
-        self.objects_with_raw_mem = new_with_raw_mem
-
 
     def _append_if_nonnull(pointer, stack):
         stack.append(pointer.address[0])
