@@ -3,6 +3,7 @@ import py
 from pypy.translator.backendopt.finalizer import FinalizerAnalyzer
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.backendopt.all import backend_optimizations
+from pypy.translator.unsimplify import varoftype
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.conftest import option
 
@@ -34,7 +35,32 @@ class BaseFinalizerAnalyzerTests(object):
         r = self.analyze(f, [])
         assert not r
 
+def test_various_ops():
+    from pypy.objspace.flow.model import SpaceOperation, Constant
 
+    X = lltype.Ptr(lltype.GcStruct('X'))
+    Z = lltype.Ptr(lltype.Struct('Z'))
+    S = lltype.GcStruct('S', ('x', lltype.Signed),
+                        ('y', X),
+                        ('z', Z))
+    v1 = varoftype(lltype.Bool)
+    v2 = varoftype(lltype.Signed)
+    f = FinalizerAnalyzer(None)
+    r = f.analyze(SpaceOperation('cast_int_to_bool', [v2],
+                                                       v1))
+    assert not r
+    v1 = varoftype(lltype.Ptr(S))
+    v2 = varoftype(lltype.Signed)
+    v3 = varoftype(X)
+    v4 = varoftype(Z)
+    assert not f.analyze(SpaceOperation('bare_setfield', [v1, Constant('x'),
+                                                          v2], None))
+    assert     f.analyze(SpaceOperation('bare_setfield', [v1, Constant('y'),
+                                                          v3], None))
+    assert not f.analyze(SpaceOperation('bare_setfield', [v1, Constant('z'),
+                                                          v4], None))
+    
+        
 class TestLLType(BaseFinalizerAnalyzerTests):
     type_system = 'lltype'
 

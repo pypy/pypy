@@ -20,7 +20,7 @@ class FinalizerAnalyzer(graphanalyze.BoolGraphAnalyzer):
         if (op.opname.startswith('int_') or op.opname.startswith('float_')
             or op.opname.startswith('cast_')):
             return self.bottom_result()
-        if op.opname == 'setfield':
+        if op.opname == 'setfield' or op.opname == 'bare_setfield':
             TP = op.args[2].concretetype
             if not isinstance(TP, lltype.Ptr) or TP.TO._gckind == 'raw':
                 # primitive type
