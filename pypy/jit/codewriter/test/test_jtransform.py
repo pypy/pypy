@@ -99,6 +99,9 @@ class FakeCallInfoCollection:
             if i == oopspecindex:
                 return True
         return False
+    def callinfo_for_oopspec(self, oopspecindex):
+        assert oopspecindex == effectinfo.EffectInfo.OS_STREQ_NONNULL
+        return ('calldescr', None)
 
 class FakeBuiltinCallControl:
     def __init__(self):
@@ -141,9 +144,6 @@ class FakeBuiltinCallControl:
         return 'calldescr-%d' % oopspecindex
     def calldescr_canraise(self, calldescr):
         return False
-    def callinfo_for_oopspec(self, oopspecindex):
-        assert oopspecindex == effectinfo.EffectInfo.OS_STREQ_NONNULL
-        return 'calldescr'
 
 
 def test_optimize_goto_if_not():

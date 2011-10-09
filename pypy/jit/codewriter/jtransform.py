@@ -464,8 +464,8 @@ class Transformer(object):
                                         [S, S],
                                         lltype.Signed,
                                         EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
-            descr = self.callcontrol.callinfo_for_oopspec(
-                EffectInfo.OS_STREQ_NONNULL)
+            descr = self.callcontrol.callinfocollection.callinfo_for_oopspec(
+                EffectInfo.OS_STREQ_NONNULL)[0]
             op1 = SpaceOperation('str_guard_value', [op.args[0], descr],
                                  op.result)
             return op1
