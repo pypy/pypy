@@ -12,7 +12,7 @@ class FinalizerAnalyzer(graphanalyze.BoolGraphAnalyzer):
     * anything that can allocate
     """
     ok_operations = ['ptr_nonzero', 'free', 'same_as',
-                     'direct_ptradd', 'force_cast', 'track_allocation',
+                     'direct_ptradd', 'force_cast', 'track_alloc_stop',
                      'raw_free']
     
     def analyze_simple_operation(self, op, graphinfo):
