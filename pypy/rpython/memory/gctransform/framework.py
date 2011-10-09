@@ -1269,6 +1269,10 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
         return rtti is not None and getattr(rtti._obj, 'destructor_funcptr',
                                             None)
 
+    def has_light_finalizer(self, TYPE):
+        special = self.special_funcptr_for_type(TYPE)
+        return special is not None and special[0] == 'light_finalizer'
+
     def has_custom_trace(self, TYPE):
         rtti = get_rtti(TYPE)
         return rtti is not None and getattr(rtti._obj, 'custom_trace_funcptr',

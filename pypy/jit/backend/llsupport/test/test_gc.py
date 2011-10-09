@@ -252,7 +252,7 @@ class FakeLLOp(object):
         assert not contains_weakptr
         p = llmemory.raw_malloc(size)
         p = llmemory.cast_adr_to_ptr(p, RESTYPE)
-        flags = int(has_finalizer) << 16
+        flags = (int(has_finalizer) << 16) | (int(has_light_finalizer) << 17)
         tid = llop.combine_ushort(lltype.Signed, type_id, flags)
         self.record.append(("fixedsize", repr(size), tid, p))
         return p
