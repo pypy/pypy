@@ -440,23 +440,3 @@ class Entry(ExtRegistryEntry):
     def specialize_call(self, hop):
         hop.exception_is_here()
         return hop.genop('gc_typeids_z', [], resulttype = hop.r_result)
-
-# ----------------------------------------------------------------------
-
-def owns_raw_memory(name):
-    """ Declare class as owning raw memory under the attribute name. When
-    object is freed, it'll automatically free the raw memory residing
-    under this attribute
-    """
-    def wrapper(cls):
-        def remove_raw_mem_attr(self):
-            if getattr(self, name):
-                lltype.free(getattr(self, name), flavor='raw')
-            if orig_del is not None:
-                orig_del(self)
-
-        orig_del = getattr(cls, '__del__', None)
-        cls._raw_mem_ptr_name = name
-        cls.__del__ = remove_raw_mem_attr
-        return cls
-    return wrapper

@@ -339,36 +339,6 @@ class GenericGCTests(GCTest):
         res = run([5, 42]) #XXX pure lazyness here too
         assert res == 6
 
-    def define_lightweight_finalizer(cls):
-        T = lltype.Struct('T', ('x', lltype.Signed))
-        
-        @rgc.owns_raw_memory('p')
-        class AClass(object):
-            p = lltype.nullptr(T)
-
-            def __init__(self, arg):
-                if arg:
-                    self.p = lltype.malloc(T, flavor='raw')
-
-        def f():
-            a = AClass(0)
-            for i in range(30):
-                a = AClass(3)
-                AClass(0)
-            llop.gc__collect(lltype.Void)
-            assert a.p
-            del a
-            llop.gc__collect(lltype.Void)
-            # assert did not crash with malloc mismatch, ie those things
-            # has been freed
-            return 3
-
-        return f
-
-    def test_lightweight_finalizer(self):
-        run = self.runner("lightweight_finalizer")
-        run([])
-
     def define_finalizer_calls_malloc(cls):
         class B(object):
             pass

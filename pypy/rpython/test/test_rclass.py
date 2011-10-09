@@ -977,28 +977,6 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
         destrptr = RTTI._obj.destructor_funcptr
         assert destrptr is not None
 
-    def test_lightweight_del(self):
-        T = Struct('T', ('x', Signed))
-        
-        @rgc.owns_raw_memory('p')
-        class A(object):
-            p = nullptr(T)
-
-            def __init__(self, arg):
-                self.p = malloc(T, flavor='raw')
-
-        def f():
-            A(3)
-
-        t = TranslationContext()
-        t.buildannotator().build_types(f, [])
-        t.buildrtyper().specialize()
-        graph = graphof(t, f)
-        TYPE = graph.startblock.operations[0].args[0].value
-        RTTI = getRuntimeTypeInfo(TYPE)
-        RTTI._obj.query_funcptr # should not raise
-        assert RTTI._obj.raw_mem_attr_name == 'p'
-
     def test_del_inheritance(self):
         from pypy.rlib import rgc
         class State:
