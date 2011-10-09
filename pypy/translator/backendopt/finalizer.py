@@ -12,13 +12,13 @@ class FinalizerAnalyzer(graphanalyze.BoolGraphAnalyzer):
     * anything that can allocate
     """
     ok_operations = ['ptr_nonzero', 'free', 'same_as',
-                     'direct_ptradd', 'force_cast', 'cast_primitive',
-                     'cast_pointer']
+                     'direct_ptradd', 'force_cast']
     
     def analyze_simple_operation(self, op, graphinfo):
         if op.opname in self.ok_operations:
             return self.bottom_result()
-        if op.opname.startswith('int_') or op.opname.startswith('float_'):
+        if (op.opname.startswith('int_') or op.opname.startswith('float_')
+            or op.opname.startswith('cast_')):
             return self.bottom_result()
         if op.opname == 'setfield':
             TP = op.args[2].concretetype
