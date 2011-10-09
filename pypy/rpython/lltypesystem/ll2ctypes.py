@@ -1288,6 +1288,9 @@ class _llgcopaque(lltype._container):
             return False
         return force_cast(lltype.Signed, other._as_ptr()) == self.intval
 
+    def __hash__(self):
+        return self.intval
+
     def __ne__(self, other):
         return not self == other
 
