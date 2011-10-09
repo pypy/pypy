@@ -73,9 +73,7 @@ class GCBase(object):
                             is_rpython_class,
                             has_custom_trace,
                             get_custom_trace,
-                            fast_path_tracing,
-                            has_raw_mem_ptr,
-                            ofs_to_raw_mem_ptr):
+                            fast_path_tracing):
         self.getfinalizer = getfinalizer
         self.is_varsize = is_varsize
         self.has_gcptr_in_varsize = has_gcptr_in_varsize
@@ -92,8 +90,6 @@ class GCBase(object):
         self.has_custom_trace = has_custom_trace
         self.get_custom_trace = get_custom_trace
         self.fast_path_tracing = fast_path_tracing
-        self.has_raw_mem_ptr = has_raw_mem_ptr
-        self.ofs_to_raw_mem_ptr = ofs_to_raw_mem_ptr
 
     def get_member_index(self, type_id):
         return self.member_index(type_id)
@@ -353,13 +349,6 @@ class GCBase(object):
                 finalizer(obj, llmemory.NULL)
         finally:
             self.finalizer_lock_count -= 1
-
-    def _free_raw_mem_from(self, addr):
-        typeid = self.get_type_id(addr)
-        raw_adr = (addr + self.ofs_to_raw_mem_ptr(typeid)).address[0]
-        if raw_adr:
-            llop.track_alloc_stop(lltype.Void, raw_adr)
-            llmemory.raw_free(raw_adr)
 
 
 class MovingGCBase(GCBase):

@@ -1,7 +1,6 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena, llgroup
 from pypy.rpython.lltypesystem import rclass
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import ll_assert
 from pypy.rlib.rarithmetic import intmask
 from pypy.tool.identity_dict import identity_dict
@@ -34,8 +33,6 @@ class GCData(object):
         ("finalizer_or_customtrace", FINALIZER_OR_CT),
         ("fixedsize",      lltype.Signed),
         ("ofstoptrs",      lltype.Ptr(OFFSETS_TO_GC_PTR)),
-        ("ofstorawptr",    lltype.Signed),
-        # XXX merge me with finalizer_or_custometrace
         hints={'immutable': True},
         )
     VARSIZE_TYPE_INFO = lltype.Struct("varsize_type_info",
@@ -138,12 +135,6 @@ class GCData(object):
         infobits = self.get(typeid).infobits
         return infobits & T_ANY_SLOW_FLAG == 0
 
-    def q_has_raw_mem_ptr(self, typeid):
-        return self.get(typeid).infobits & T_HAS_RAW_MEM_PTR != 0
-
-    def q_ofs_to_raw_mem_ptr(self, typeid):
-        return self.get(typeid).ofstorawptr
-
     def set_query_functions(self, gc):
         gc.set_query_functions(
             self.q_is_varsize,
@@ -161,23 +152,21 @@ class GCData(object):
             self.q_is_rpython_class,
             self.q_has_custom_trace,
             self.q_get_custom_trace,
-            self.q_fast_path_tracing,
-            self.q_has_raw_mem_ptr,
-            self.q_ofs_to_raw_mem_ptr)
+            self.q_fast_path_tracing)
 
 
 # the lowest 16bits are used to store group member index
-T_MEMBER_INDEX         =   0xffff
-T_IS_VARSIZE           = 0x010000
-T_HAS_GCPTR_IN_VARSIZE = 0x020000
-T_IS_GCARRAY_OF_GCPTR  = 0x040000
-T_IS_WEAKREF           = 0x080000
-T_IS_RPYTHON_INSTANCE  = 0x100000    # the type is a subclass of OBJECT
-T_HAS_FINALIZER        = 0x200000
-T_HAS_CUSTOM_TRACE     = 0x400000
-T_HAS_RAW_MEM_PTR      = 0x800000
-T_KEY_MASK             = intmask(0xFF000000)
-T_KEY_VALUE            = intmask(0x5A000000)    # bug detection only
+T_MEMBER_INDEX              =   0xffff
+T_IS_VARSIZE                = 0x010000
+T_HAS_GCPTR_IN_VARSIZE      = 0x020000
+T_IS_GCARRAY_OF_GCPTR       = 0x040000
+T_IS_WEAKREF                = 0x080000
+T_IS_RPYTHON_INSTANCE       = 0x100000 # the type is a subclass of OBJECT
+T_HAS_FINALIZER             = 0x200000
+T_HAS_CUSTOM_TRACE          = 0x400000
+T_HAS_LIGHTWEIGHT_FINALIZER = 0x800000
+T_KEY_MASK                  = intmask(0xFF000000)
+T_KEY_VALUE                 = intmask(0x5A000000) # bug detection only
 
 def _check_valid_type_info(p):
     ll_assert(p.infobits & T_KEY_MASK == T_KEY_VALUE, "invalid type_id")
@@ -205,6 +194,8 @@ def encode_type_shape(builder, info, TYPE, index):
         info.finalizer_or_customtrace = fptr
         if kind == "finalizer":
             infobits |= T_HAS_FINALIZER
+        elif kind == 'light_finalizer':
+            infobits |= T_HAS_FINALIZER | T_HAS_LIGHTWEIGHT_FINALIZER
         elif kind == "custom_trace":
             infobits |= T_HAS_CUSTOM_TRACE
         else:
@@ -247,20 +238,6 @@ def encode_type_shape(builder, info, TYPE, index):
         infobits |= T_IS_WEAKREF
     if is_subclass_of_object(TYPE):
         infobits |= T_IS_RPYTHON_INSTANCE
-    if builder.get_raw_mem_attr_name(TYPE):
-        name = builder.get_raw_mem_attr_name(TYPE)
-        infobits |= T_HAS_RAW_MEM_PTR
-        # can be in a superclass
-        T = TYPE
-        l = []
-        while not hasattr(T, 'inst_' + name):
-            l.append(llmemory.offsetof(T, 'super'))
-            T = T.super
-        l.append(llmemory.offsetof(T, 'inst_' + name))
-        ofs = l[0]
-        for i in range(1, len(l)):
-            ofs += l[i]
-        info.ofstorawptr = ofs
     info.infobits = infobits | T_KEY_VALUE
 
 # ____________________________________________________________
@@ -358,13 +335,6 @@ class TypeLayoutBuilder(object):
     def is_weakref_type(self, TYPE):
         return TYPE == WEAKREF
 
-    def get_raw_mem_attr_name(self, TYPE):
-        from pypy.rpython.memory.gctransform.support import get_rtti
-        
-        rtti = get_rtti(TYPE)
-        return rtti is not None and getattr(rtti._obj, 'raw_mem_attr_name',
-                                            None)
-
     def encode_type_shapes_now(self):
         if not self.can_encode_type_shape:
             self.can_encode_type_shape = True
@@ -399,12 +369,15 @@ class TypeLayoutBuilder(object):
     def special_funcptr_for_type(self, TYPE):
         if TYPE in self._special_funcptrs:
             return self._special_funcptrs[TYPE]
-        fptr1 = self.make_finalizer_funcptr_for_type(TYPE)
+        fptr1, is_lightweight = self.make_finalizer_funcptr_for_type(TYPE)
         fptr2 = self.make_custom_trace_funcptr_for_type(TYPE)
         assert not (fptr1 and fptr2), (
             "type %r needs both a finalizer and a custom tracer" % (TYPE,))
         if fptr1:
-            kind_and_fptr = "finalizer", fptr1
+            if is_lightweight:
+                kind_and_fptr = "light_finalizer", fptr1
+            else:
+                kind_and_fptr = "finalizer", fptr1
         elif fptr2:
             kind_and_fptr = "custom_trace", fptr2
         else:
@@ -414,7 +387,7 @@ class TypeLayoutBuilder(object):
 
     def make_finalizer_funcptr_for_type(self, TYPE):
         # must be overridden for proper finalizer support
-        return None
+        return None, False
 
     def make_custom_trace_funcptr_for_type(self, TYPE):
         # must be overridden for proper custom tracer support

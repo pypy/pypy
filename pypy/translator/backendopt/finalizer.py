@@ -25,7 +25,4 @@ class FinalizerAnalyzer(graphanalyze.BoolGraphAnalyzer):
             if not isinstance(TP, lltype.Ptr) or TP.TO._gckind == 'raw':
                 # primitive type
                 return self.bottom_result()
-        print op
-        import pdb
-        pdb.set_trace()
         return self.top_result()

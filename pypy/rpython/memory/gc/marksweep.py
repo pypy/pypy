@@ -362,8 +362,6 @@ class MarkSweepGC(GCBase):
                     obj = gc_info + size_gc_header
                     self.write_free_statistics(typeid, obj)
                     freed_size += estimate
-                    if self.has_raw_mem_ptr(typeid):
-                        self._free_raw_mem_from(addr + size_gc_header)
                     raw_free(addr)
                 hdr = next
             ppnext.address[0] = llmemory.NULL
