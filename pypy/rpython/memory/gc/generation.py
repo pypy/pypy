@@ -87,7 +87,6 @@ class GenerationGC(SemiSpaceGC):
 
         self.last_generation_root_objects = self.AddressStack()
         self.young_objects_with_id = self.AddressDict()
-        self.young_objects_with_raw_mem = self.AddressStack()
         SemiSpaceGC.setup(self)
         self.set_nursery_size(self.initial_nursery_size)
         # the GC is fully setup now.  The rest can make use of it.
@@ -191,8 +190,6 @@ class GenerationGC(SemiSpaceGC):
         llarena.arena_reserve(result, totalsize)
         # GCFLAG_NO_YOUNG_PTRS is never set on young objs
         self.init_gc_object(result, typeid, flags=0)
-        if self.has_raw_mem_ptr(typeid):
-            self.young_objects_with_raw_mem.append(result + size_gc_header)
         self.nursery_free = result + totalsize
         if contains_weakptr:
             self.young_objects_with_weakrefs.append(result + size_gc_header)
@@ -270,7 +267,6 @@ class GenerationGC(SemiSpaceGC):
     def semispace_collect(self, size_changing=False):
         self.reset_young_gcflags() # we are doing a full collection anyway
         self.weakrefs_grow_older()
-        self.raw_mem_grow_older()
         self.ids_grow_older()
         self.reset_nursery()
         SemiSpaceGC.semispace_collect(self, size_changing)
@@ -304,11 +300,6 @@ class GenerationGC(SemiSpaceGC):
         while self.young_objects_with_weakrefs.non_empty():
             obj = self.young_objects_with_weakrefs.pop()
             self.objects_with_weakrefs.append(obj)
-
-    def raw_mem_grow_older(self):
-        while self.young_objects_with_raw_mem.non_empty():
-            obj = self.young_objects_with_raw_mem.pop()
-            self.objects_with_raw_mem.append(obj)
 
     def collect_roots(self):
         """GenerationGC: collects all roots.
@@ -369,8 +360,6 @@ class GenerationGC(SemiSpaceGC):
                 self.invalidate_young_weakrefs()
             if self.young_objects_with_id.length() > 0:
                 self.update_young_objects_with_id()
-            if self.young_objects_with_raw_mem.non_empty():
-                self.deal_with_young_objects_with_raw_mem()
             # mark the nursery as free and fill it with zeroes again
             llarena.arena_reset(self.nursery, self.nursery_size, 2)
             debug_print("survived (fraction of the size):",
@@ -572,15 +561,6 @@ class GenerationGC(SemiSpaceGC):
         # NB. the clear() also makes the dictionary shrink back to its
         # minimal size, which is actually a good idea: a large, mostly-empty
         # table is bad for the next call to 'foreach'.
-
-    def deal_with_young_objects_with_raw_mem(self):
-        while self.young_objects_with_raw_mem.non_empty():
-            addr = self.young_objects_with_raw_mem.pop()
-            if self.surviving(addr):
-                self.objects_with_raw_mem.append(
-                    self.get_forwarding_address(addr))
-            else:
-                self._free_raw_mem_from(addr)
 
     def ids_grow_older(self):
         self.young_objects_with_id.foreach(self._id_grow_older, None)
