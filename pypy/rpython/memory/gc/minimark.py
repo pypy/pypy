@@ -461,7 +461,9 @@ class MiniMarkGC(MovingGCBase):
 
 
     def malloc_fixedsize_clear(self, typeid, size,
-                               needs_finalizer=False, contains_weakptr=False):
+                               needs_finalizer=False,
+                               has_light_finalizer=False,
+                               contains_weakptr=False):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + size
         rawtotalsize = raw_malloc_usage(totalsize)

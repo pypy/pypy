@@ -484,7 +484,15 @@ class SemiSpaceGC(MovingGCBase):
         don't do anything fancy and *just* call them. Among other things
         they won't resurrect objects
         """
-        xxx
+        new_objects = self.AddressStack()
+        while self.objects_with_light_finalizers.non_empty():
+            obj = self.objects_with_light_finalizers.pop()
+            if self.surviving(obj):
+                new_objects.append(self.get_forwarding_address(obj))
+            else:
+                finalizer = self.getfinalizer(self.get_type_id(obj))
+                finalizer(obj, llmemory.NULL)
+        self.objects_with_light_finalizers = new_objects
 
     def deal_with_objects_with_finalizers(self, scan):
         # walk over list of objects with finalizers

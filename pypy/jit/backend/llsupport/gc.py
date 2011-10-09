@@ -678,7 +678,7 @@ class GcLLDescr_framework(GcLLDescription):
             # also use it to allocate varsized objects.  The tid
             # and possibly the length are both set afterward.
             gcref = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
-                                        0, size, False, False)
+                                        0, size, False, False, False)
             return rffi.cast(lltype.Signed, gcref)
         self.malloc_slowpath = malloc_slowpath
         self.MALLOC_SLOWPATH = lltype.FuncType([lltype.Signed], lltype.Signed)
