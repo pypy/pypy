@@ -427,6 +427,7 @@ class CStandaloneBuilder(CBuilder):
     split = True
     executable_name = None
     shared_library_name = None
+    _entrypoint_wrapper = None
 
     def getprofbased(self):
         profbased = None
@@ -449,8 +450,29 @@ class CStandaloneBuilder(CBuilder):
     def getentrypointptr(self):
         # XXX check that the entrypoint has the correct
         # signature:  list-of-strings -> int
-        bk = self.translator.annotator.bookkeeper
-        return getfunctionptr(bk.getdesc(self.entrypoint).getuniquegraph())
+        if self._entrypoint_wrapper is not None:
+            return self._entrypoint_wrapper
+        #
+        from pypy.annotation import model as annmodel
+        from pypy.rpython.lltypesystem import rffi
+        from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
+        entrypoint = self.entrypoint
+        #
+        def entrypoint_wrapper(argc, argv):
+            list = [""] * argc
+            i = 0
+            while i < argc:
+                list[i] = rffi.charp2str(argv[i])
+                i += 1
+            return entrypoint(list)
+        #
+        mix = MixLevelHelperAnnotator(self.translator.rtyper)
+        args_s = [annmodel.SomeInteger(),
+                  annmodel.lltype_to_annotation(rffi.CCHARPP)]
+        s_result = annmodel.SomeInteger()
+        graph = mix.getgraph(entrypoint_wrapper, args_s, s_result)
+        mix.finish()
+        return getfunctionptr(graph)
 
     def cmdexec(self, args='', env=None, err=False, expect_crash=False):
         assert self._compiled
