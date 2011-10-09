@@ -25,6 +25,7 @@ includes += [
     'openssl/err.h',
     'openssl/rand.h',
     'openssl/evp.h',
+    'openssl/ossl_typ.h',
     'openssl/x509v3.h']
 
 eci = ExternalCompilationInfo(
@@ -154,7 +155,7 @@ ssl_external('CRYPTO_set_locking_callback',
 ssl_external('CRYPTO_set_id_callback',
              [lltype.Ptr(lltype.FuncType([], rffi.LONG))],
              lltype.Void)
-             
+
 if HAVE_OPENSSL_RAND:
     ssl_external('RAND_add', [rffi.CCHARP, rffi.INT, rffi.DOUBLE], lltype.Void)
     ssl_external('RAND_status', [], rffi.INT)
@@ -255,7 +256,7 @@ ssl_external('PEM_read_bio_X509_AUX',
              [BIO, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP], X509)
 
 EVP_MD_CTX = rffi.COpaquePtr('EVP_MD_CTX', compilation_info=eci)
-EVP_MD     = rffi.COpaquePtr('EVP_MD')
+EVP_MD     = rffi.COpaquePtr('EVP_MD', compilation_info=eci)
 
 OpenSSL_add_all_digests = external(
     'OpenSSL_add_all_digests', [], lltype.Void)

@@ -4,9 +4,9 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import func_renamer
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi
+from pypy.rlib import rgc, ropenssl
 from pypy.rlib.objectmodel import keepalive_until_here
-from pypy.rlib import ropenssl
 from pypy.rlib.rstring import StringBuilder
 from pypy.module.thread.os_lock import Lock
 
@@ -29,6 +29,9 @@ class W_Hash(Wrappable):
                                  space.wrap("unknown hash function"))
         ctx = lltype.malloc(ropenssl.EVP_MD_CTX.TO, flavor='raw')
         ropenssl.EVP_DigestInit(ctx, digest)
+        rgc.add_memory_pressure(ropenssl.EVP_MD_CTX.TO.hints['getsize']() +
+                                ropenssl.EVP_MD.TO.hints['getsize']() +
+                                self._digest_size())
         self.ctx = ctx
 
     def __del__(self):
