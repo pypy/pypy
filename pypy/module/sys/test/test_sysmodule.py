@@ -478,6 +478,7 @@ class AppTestSysModulePortedFromCPython:
         sys.settrace(trace)
         try:
             x()
+            assert sys.gettrace() is trace
         finally:
             sys.settrace(None)
         assert len(counts) == 1

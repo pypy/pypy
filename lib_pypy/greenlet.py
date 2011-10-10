@@ -96,7 +96,16 @@ class greenlet(_continulet):
 
     @property
     def gr_frame(self):
-        raise NotImplementedError("attribute 'gr_frame' of greenlet objects")
+        # xxx this doesn't work when called on either the current or
+        # the main greenlet of another thread
+        if self is getcurrent():
+            return None
+        if self.__main:
+            self = getcurrent()
+        f = _continulet.__reduce__(self)[2][0]
+        if not f:
+            return None
+        return f.f_back.f_back.f_back   # go past start(), __switch(), switch()
 
 # ____________________________________________________________
 # Internal stuff

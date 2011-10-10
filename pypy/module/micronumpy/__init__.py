@@ -23,6 +23,8 @@ class Module(MixedModule):
         ("arccos", "arccos"),
         ("arcsin", "arcsin"),
         ("arctan", "arctan"),
+        ("arcsinh", "arcsinh"),
+        ("arctanh", "arctanh"),
         ("copysign", "copysign"),
         ("cos", "cos"),
         ("divide", "divide"),
@@ -50,4 +52,6 @@ class Module(MixedModule):
     appleveldefs = {
         'average': 'app_numpy.average',
         'mean': 'app_numpy.mean',
+        'inf': 'app_numpy.inf',
+        'e': 'app_numpy.e',
     }

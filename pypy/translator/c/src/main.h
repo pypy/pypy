@@ -75,9 +75,7 @@ int pypy_main_function(int argc, char *argv[])
  memory_out:
     errmsg = "out of memory";
  error:
-#ifndef AVR
     fprintf(stderr, "Fatal error during initialization: %s\n", errmsg);
-#endif
     abort();
     return 1;
 }

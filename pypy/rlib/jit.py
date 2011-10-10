@@ -1,10 +1,13 @@
-import py
 import sys
-from pypy.rpython.extregistry import ExtRegistryEntry
-from pypy.rlib.objectmodel import CDefinedIntSymbolic
-from pypy.rlib.objectmodel import keepalive_until_here, specialize
-from pypy.rlib.unroll import unrolling_iterable
+
+import py
+
 from pypy.rlib.nonconst import NonConstant
+from pypy.rlib.objectmodel import CDefinedIntSymbolic, keepalive_until_here, specialize
+from pypy.rlib.unroll import unrolling_iterable
+from pypy.rpython.extregistry import ExtRegistryEntry
+from pypy.tool.sourcetools import func_with_new_name
+
 
 def elidable(func):
     """ Decorate a function as "trace-elidable". This means precisely that:
@@ -72,17 +75,22 @@ def loop_invariant(func):
     func._jit_loop_invariant_ = True
     return func
 
+def _get_args(func):
+    import inspect
+
+    args, varargs, varkw, defaults = inspect.getargspec(func)
+    args = ["v%s" % (i, ) for i in range(len(args))]
+    assert varargs is None and varkw is None
+    assert not defaults
+    return args
+
 def elidable_promote(promote_args='all'):
     """ A decorator that promotes all arguments and then calls the supplied
     function
     """
     def decorator(func):
-        import inspect
         elidable(func)
-        args, varargs, varkw, defaults = inspect.getargspec(func)
-        args = ["v%s" % (i, ) for i in range(len(args))]
-        assert varargs is None and varkw is None
-        assert not defaults
+        args = _get_args(func)
         argstring = ", ".join(args)
         code = ["def f(%s):\n" % (argstring, )]
         if promote_args != 'all':
@@ -102,12 +110,75 @@ def purefunction_promote(*args, **kwargs):
     warnings.warn("purefunction_promote is deprecated, use elidable_promote instead", DeprecationWarning)
     return elidable_promote(*args, **kwargs)
 
+def look_inside_iff(predicate):
+    """
+    look inside (including unrolling loops) the target function, if and only if
+    predicate(*args) returns True
+    """
+    def inner(func):
+        func = unroll_safe(func)
+        # When we return the new function, it might be specialized in some
+        # way. We "propogate" this specialization by using
+        # specialize:call_location on relevant functions.
+        for thing in [func, predicate]:
+            thing._annspecialcase_ = "specialize:call_location"
+
+        args = _get_args(func)
+        d = {
+            "dont_look_inside": dont_look_inside,
+            "predicate": predicate,
+            "func": func,
+            "we_are_jitted": we_are_jitted,
+        }
+        exec py.code.Source("""
+            @dont_look_inside
+            def trampoline(%(arguments)s):
+                return func(%(arguments)s)
+            if hasattr(func, "oopspec"):
+                # XXX: This seems like it should be here, but it causes errors.
+                # trampoline.oopspec = func.oopspec
+                del func.oopspec
+            trampoline.__name__ = func.__name__ + "_trampoline"
+            trampoline._annspecialcase_ = "specialize:call_location"
+
+            def f(%(arguments)s):
+                if not we_are_jitted() or predicate(%(arguments)s):
+                    return func(%(arguments)s)
+                else:
+                    return trampoline(%(arguments)s)
+            f.__name__ = func.__name__ + "_look_inside_iff"
+        """ % {"arguments": ", ".join(args)}).compile() in d
+        return d["f"]
+    return inner
 
 def oopspec(spec):
     def decorator(func):
         func.oopspec = spec
         return func
     return decorator
+
+@oopspec("jit.isconstant(value)")
+@specialize.ll()
+def isconstant(value):
+    """
+    While tracing, returns whether or not the value is currently known to be
+    constant. This is not perfect, values can become constant later. Mostly for
+    use with @look_inside_iff.
+
+    This is for advanced usage only.
+    """
+    return NonConstant(False)
+
+@oopspec("jit.isvirtual(value)")
+@specialize.ll()
+def isvirtual(value):
+    """
+    Returns if this value is virtual, while tracing, it's relatively
+    conservative and will miss some cases.
+
+    This is for advanced usage only.
+    """
+    return NonConstant(False)
 
 class Entry(ExtRegistryEntry):
     _about_ = hint

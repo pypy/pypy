@@ -277,16 +277,16 @@ class Function(object):
 
     def has_valid_code(self):
         for chunk in self.chunks:
-            if not chunk.has_valid_code():
-                return False
-        return True
+            if chunk.has_valid_code():
+                return True
+        return False
 
     def _compute_linerange(self):
         self._lineset = set()
         minline = sys.maxint
         maxline = -1
         for chunk in self.chunks:
-            if chunk.is_bytecode and chunk.filename is not None:
+            if chunk.is_bytecode and chunk.has_valid_code():
                 lineno = chunk.lineno
                 minline = min(minline, lineno)
                 maxline = max(maxline, lineno)

@@ -8,7 +8,7 @@ from pypy.translator.gensupp import uniquemodulename, NameManager
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.udir import udir
-from pypy.tool import isolate
+from pypy.tool import isolate, runsubprocess
 from pypy.translator.c.support import log, c_string_constant
 from pypy.rpython.typesystem import getfunctionptr
 from pypy.translator.c import gc
@@ -567,6 +567,14 @@ class CStandaloneBuilder(CBuilder):
                 python = sys.executable.replace('\\', '/') + ' '
             else:
                 python = sys.executable + ' '
+
+            # Is there a command 'python' that runs python 2.5-2.7?
+            # If there is, then we can use it instead of sys.executable
+            returncode, stdout, stderr = runsubprocess.run_subprocess(
+                "python", "-V")
+            if (stdout.startswith('Python 2.') or
+                stderr.startswith('Python 2.')):
+                python = 'python '
 
             if self.translator.platform.name == 'msvc':
                 lblofiles = []

@@ -37,10 +37,10 @@ class ModuleDictStrategy(DictStrategy):
         self.version = VersionTag()
 
     def get_empty_storage(self):
-       return self.erase({})
+        return self.erase({})
 
     def mutated(self):
-       self.version = VersionTag()
+        self.version = VersionTag()
 
     def getdictvalue_no_unwrapping(self, w_dict, key):
         # NB: it's important to promote self here, so that self.version is a

@@ -321,6 +321,15 @@ typedef struct _typeobject {
 
 } PyTypeObject;
 
+typedef struct {
+    PyTypeObject ht_type;
+    PyNumberMethods as_number;
+    PyMappingMethods as_mapping;
+    PySequenceMethods as_sequence;
+    PyBufferProcs as_buffer;
+    PyObject *ht_name, *ht_slots;
+} PyHeapTypeObject;
+
 /* Flag bits for printing: */
 #define Py_PRINT_RAW	1	/* No string quotes etc. */
 

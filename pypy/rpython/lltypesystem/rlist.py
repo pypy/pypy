@@ -1,15 +1,15 @@
-from pypy.tool.pairtype import pairtype, pair
-from pypy.rpython.rmodel import Repr, inputconst
-from pypy.rpython.rmodel import externalvsinternal
-from pypy.rpython.rlist import AbstractBaseListRepr, AbstractListRepr, \
-        AbstractFixedSizeListRepr, AbstractListIteratorRepr, \
-        ll_setitem_nonneg, ADTIList, ADTIFixedList
-from pypy.rpython.rlist import dum_nocheck
-from pypy.rpython.lltypesystem.lltype import GcForwardReference, Ptr, GcArray,\
-     GcStruct, Void, Signed, malloc, typeOf, nullptr, typeMethod
-from pypy.rpython.lltypesystem import rstr
+from pypy.rlib import rgc, jit
 from pypy.rlib.debug import ll_assert
-from pypy.rlib import rgc
+from pypy.rlib.objectmodel import enforceargs
+from pypy.rpython.lltypesystem import rstr
+from pypy.rpython.lltypesystem.lltype import (GcForwardReference, Ptr, GcArray,
+     GcStruct, Void, Signed, malloc, typeOf, nullptr, typeMethod)
+from pypy.rpython.rlist import (AbstractBaseListRepr, AbstractListRepr,
+    AbstractFixedSizeListRepr, AbstractListIteratorRepr, ll_setitem_nonneg,
+    ADTIList, ADTIFixedList, dum_nocheck)
+from pypy.rpython.rmodel import Repr, inputconst, externalvsinternal
+from pypy.tool.pairtype import pairtype, pair
+
 
 # ____________________________________________________________
 #
@@ -171,6 +171,7 @@ class FixedSizeListRepr(AbstractFixedSizeListRepr, BaseListRepr):
 
 # adapted C code
 
+@enforceargs(None, int)
 def _ll_list_resize_really(l, newsize):
     """
     Ensure l.items has room for at least newsize elements, and set
@@ -210,7 +211,6 @@ def _ll_list_resize_really(l, newsize):
         rgc.ll_arraycopy(items, newitems, 0, 0, p)
     l.length = newsize
     l.items = newitems
-_ll_list_resize_really._annenforceargs_ = (None, int)
 
 # this common case was factored out of _ll_list_resize
 # to see if inlining it gives some speed-up.
@@ -225,19 +225,21 @@ def _ll_list_resize(l, newsize):
     else:
         _ll_list_resize_really(l, newsize)
 
+@jit.look_inside_iff(lambda l, newsize: jit.isconstant(len(l.items)) and jit.isconstant(newsize))
+@jit.oopspec("list._resize_ge(l, newsize)")
 def _ll_list_resize_ge(l, newsize):
     if len(l.items) >= newsize:
         l.length = newsize
     else:
         _ll_list_resize_really(l, newsize)
-_ll_list_resize_ge.oopspec = 'list._resize_ge(l, newsize)'
 
+@jit.look_inside_iff(lambda l, newsize: jit.isconstant(len(l.items)) and jit.isconstant(newsize))
+@jit.oopspec("list._resize_le(l, newsize)")
 def _ll_list_resize_le(l, newsize):
     if newsize >= (len(l.items) >> 1) - 5:
         l.length = newsize
     else:
         _ll_list_resize_really(l, newsize)
-
 
 def ll_append_noresize(l, newitem):
     length = l.length

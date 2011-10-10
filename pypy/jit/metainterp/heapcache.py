@@ -11,9 +11,13 @@ class HeapCache(object):
         self.known_class_boxes = {}
         # store the boxes that contain newly allocated objects, this maps the
         # boxes to a bool, the bool indicates whether or not the object has
-        # escaped the trace or not, its presences in the mapping shows that it
-        # was allocated inside the trace
+        # escaped the trace or not (True means the box never escaped, False
+        # means it did escape), its presences in the mapping shows that it was
+        # allocated inside the trace
         self.new_boxes = {}
+        # Tracks which boxes should be marked as escaped when the key box
+        # escapes.
+        self.dependencies = {}
         # contains frame boxes that are not virtualizables
         self.nonstandard_virtualizables = {}
         # heap cache
@@ -30,11 +34,29 @@ class HeapCache(object):
         self.clear_caches(opnum, descr, argboxes)
 
     def mark_escaped(self, opnum, argboxes):
-        for idx, box in enumerate(argboxes):
-            # setfield_gc and setarrayitem_gc don't escape their first argument
-            if not (idx == 0 and opnum in [rop.SETFIELD_GC, rop.SETARRAYITEM_GC]):
-                if box in self.new_boxes:
-                    self.new_boxes[box] = False
+        idx = 0
+        if opnum == rop.SETFIELD_GC:
+            assert len(argboxes) == 2
+            box, valuebox = argboxes
+            if self.is_unescaped(box) and self.is_unescaped(valuebox):
+                self.dependencies.setdefault(box, []).append(valuebox)
+            else:
+                self._escape(valuebox)
+        # GETFIELD_GC doesn't escape it's argument
+        elif opnum != rop.GETFIELD_GC:
+            for box in argboxes:
+                # setarrayitem_gc don't escape its first argument
+                if not (idx == 0 and opnum in [rop.SETARRAYITEM_GC]):
+                    self._escape(box)
+                idx += 1
+
+    def _escape(self, box):
+        if box in self.new_boxes:
+            self.new_boxes[box] = False
+        if box in self.dependencies:
+            for dep in self.dependencies[box]:
+                self._escape(dep)
+            del self.dependencies[box]
 
     def clear_caches(self, opnum, descr, argboxes):
         if opnum == rop.SETFIELD_GC:

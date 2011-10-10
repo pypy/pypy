@@ -440,6 +440,7 @@ class Transformer(object):
     rewrite_op_ullong_mod_zer      = _do_builtin_call
     rewrite_op_gc_identityhash = _do_builtin_call
     rewrite_op_gc_id           = _do_builtin_call
+    rewrite_op_uint_mod        = _do_builtin_call
 
     # ----------
     # getfield/setfield/mallocs etc.
@@ -883,9 +884,15 @@ class Transformer(object):
                 v = v_arg
                 oplist = []
             if unsigned1:
-                opname = 'cast_uint_to_longlong'
+                if unsigned2:
+                    opname = 'cast_uint_to_ulonglong'
+                else:
+                    opname = 'cast_uint_to_longlong'
             else:
-                opname = 'cast_int_to_longlong'
+                if unsigned2:
+                    opname = 'cast_int_to_ulonglong'
+                else:
+                    opname = 'cast_int_to_longlong'
             op2 = self.rewrite_operation(
                 SpaceOperation(opname, [v], v_result)
             )
@@ -994,6 +1001,21 @@ class Transformer(object):
                     assert op2.result.concretetype == lltype.Signed
                 return op2
         ''' % (_op, _oopspec.lower(), _oopspec, _oopspec)).compile()
+
+    for _op, _oopspec in [('cast_int_to_ulonglong',     'FROM_INT'),
+                          ('cast_uint_to_ulonglong',    'FROM_UINT'),
+                          ('cast_float_to_ulonglong',   'FROM_FLOAT'),
+                          ('cast_ulonglong_to_float',   'U_TO_FLOAT'),
+                         ]:
+        exec py.code.Source('''
+            def rewrite_op_%s(self, op):
+                args = op.args
+                op1 = self.prepare_builtin_call(op, "ullong_%s", args)
+                op2 = self._handle_oopspec_call(op1, args,
+                                                EffectInfo.OS_LLONG_%s,
+                                           EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
+                return op2
+        ''' % (_op, _oopspec.lower(), _oopspec)).compile()
 
     def _normalize(self, oplist):
         if isinstance(oplist, SpaceOperation):
@@ -1158,6 +1180,12 @@ class Transformer(object):
             return SpaceOperation('%s_assert_green' % kind, args, None)
         elif oopspec_name == 'jit.current_trace_length':
             return SpaceOperation('current_trace_length', [], op.result)
+        elif oopspec_name == 'jit.isconstant':
+            kind = getkind(args[0].concretetype)
+            return SpaceOperation('%s_isconstant' % kind, args, op.result)
+        elif oopspec_name == 'jit.isvirtual':
+            kind = getkind(args[0].concretetype)
+            return SpaceOperation('%s_isvirtual' % kind, args, op.result)
         else:
             raise AssertionError("missing support for %r" % oopspec_name)
 
@@ -1415,6 +1443,14 @@ class Transformer(object):
         else:
             assert 0, "args[0].concretetype must be STR or UNICODE"
         #
+        if oopspec_name == 'stroruni.copy_contents':
+            if SoU.TO == rstr.STR:
+                new_op = 'copystrcontent'
+            elif SoU.TO == rstr.UNICODE:
+                new_op = 'copyunicodecontent'
+            else:
+                assert 0
+            return SpaceOperation(new_op, args, op.result)
         if oopspec_name == "stroruni.equal":
             for otherindex, othername, argtypes, resulttype in [
                 (EffectInfo.OS_STREQ_SLICE_CHECKNULL,

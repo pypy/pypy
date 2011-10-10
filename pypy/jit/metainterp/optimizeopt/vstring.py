@@ -43,7 +43,7 @@ mode_unicode = StrOrUnicode(rstr.UNICODE, annlowlevel.hlunicode, u'', unichr,
 class __extend__(optimizer.OptValue):
     """New methods added to the base class OptValue for this file."""
 
-    def getstrlen(self, optimization, mode):
+    def getstrlen(self, string_optimizer, mode):
         if mode is mode_string:
             s = self.get_constant_string_spec(mode_string)
             if s is not None:
@@ -52,12 +52,12 @@ class __extend__(optimizer.OptValue):
             s = self.get_constant_string_spec(mode_unicode)
             if s is not None:
                 return ConstInt(len(s))
-        if optimization is None:
+        if string_optimizer is None:
             return None
         self.ensure_nonnull()
-        box = self.force_box()
+        box = self.force_box(string_optimizer)
         lengthbox = BoxInt()
-        optimization.propagate_forward(ResOperation(mode.STRLEN, [box], lengthbox))
+        string_optimizer.emit_operation(ResOperation(mode.STRLEN, [box], lengthbox))
         return lengthbox
 
     @specialize.arg(1)
@@ -68,25 +68,25 @@ class __extend__(optimizer.OptValue):
         else:
             return None
 
-    def string_copy_parts(self, optimizer, targetbox, offsetbox, mode):
+    def string_copy_parts(self, string_optimizer, targetbox, offsetbox, mode):
         # Copies the pointer-to-string 'self' into the target string
         # given by 'targetbox', at the specified offset.  Returns the offset
         # at the end of the copy.
-        lengthbox = self.getstrlen(optimizer, mode)
-        srcbox = self.force_box()
-        return copy_str_content(optimizer, srcbox, targetbox,
+        lengthbox = self.getstrlen(string_optimizer, mode)
+        srcbox = self.force_box(string_optimizer)
+        return copy_str_content(string_optimizer, srcbox, targetbox,
                                 CONST_0, offsetbox, lengthbox, mode)
 
 
 class VAbstractStringValue(virtualize.AbstractVirtualValue):
     _attrs_ = ('mode',)
 
-    def __init__(self, optimizer, keybox, source_op, mode):
-        virtualize.AbstractVirtualValue.__init__(self, optimizer, keybox,
+    def __init__(self, keybox, source_op, mode):
+        virtualize.AbstractVirtualValue.__init__(self, keybox,
                                                  source_op)
         self.mode = mode
 
-    def _really_force(self):
+    def _really_force(self, optforce):
         if self.mode is mode_string:
             s = self.get_constant_string_spec(mode_string)
             if s is not None:
@@ -101,12 +101,12 @@ class VAbstractStringValue(virtualize.AbstractVirtualValue):
                 return
         assert self.source_op is not None
         self.box = box = self.source_op.result
-        lengthbox = self.getstrlen(self.optimizer, self.mode)
+        lengthbox = self.getstrlen(optforce, self.mode)
         op = ResOperation(self.mode.NEWSTR, [lengthbox], box)
         if not we_are_translated():
             op.name = 'FORCE'
-        self.optimizer.emit_operation(op)
-        self.string_copy_parts(self.optimizer, box, CONST_0, self.mode)
+        optforce.emit_operation(op)
+        self.string_copy_parts(optforce, box, CONST_0, self.mode)
 
 
 class VStringPlainValue(VAbstractStringValue):
@@ -140,15 +140,20 @@ class VStringPlainValue(VAbstractStringValue):
         return mode.emptystr.join([mode.chr(c.box.getint())
                                    for c in self._chars])
 
-    def string_copy_parts(self, optimizer, targetbox, offsetbox, mode):
+    def string_copy_parts(self, string_optimizer, targetbox, offsetbox, mode):
+        if not self.is_virtual() and targetbox is not self.box:
+            lengthbox = self.getstrlen(string_optimizer, mode)
+            srcbox = self.force_box(string_optimizer)
+            return copy_str_content(string_optimizer, srcbox, targetbox,
+                                CONST_0, offsetbox, lengthbox, mode)
         for i in range(len(self._chars)):
-            charbox = self._chars[i].force_box()
+            charbox = self._chars[i].force_box(string_optimizer)
             if not (isinstance(charbox, Const) and charbox.same_constant(CONST_0)):
-                optimizer.emit_operation(ResOperation(mode.STRSETITEM, [targetbox,
-                                                                    offsetbox,
-                                                                    charbox],
+                string_optimizer.emit_operation(ResOperation(mode.STRSETITEM, [targetbox,
+                                                                               offsetbox,
+                                                                               charbox],
                                                   None))
-            offsetbox = _int_add(optimizer, offsetbox, CONST_1)
+            offsetbox = _int_add(string_optimizer, offsetbox, CONST_1)
         return offsetbox
 
     def get_args_for_fail(self, modifier):
@@ -182,16 +187,16 @@ class VStringConcatValue(VAbstractStringValue):
         self.left = left
         self.right = right
 
-    def getstrlen(self, optimizer, mode):
+    def getstrlen(self, string_optimizer, mode):
         if self.lengthbox is None:
-            len1box = self.left.getstrlen(optimizer, mode)
+            len1box = self.left.getstrlen(string_optimizer, mode)
             if len1box is None:
                 return None
-            len2box = self.right.getstrlen(optimizer, mode)
+            len2box = self.right.getstrlen(string_optimizer, mode)
             if len2box is None:
                 return None
-            self.lengthbox = _int_add(optimizer, len1box, len2box)
-            # ^^^ may still be None, if optimizer is None
+            self.lengthbox = _int_add(string_optimizer, len1box, len2box)
+            # ^^^ may still be None, if string_optimizer is None
         return self.lengthbox
 
     @specialize.arg(1)
@@ -204,10 +209,10 @@ class VStringConcatValue(VAbstractStringValue):
             return None
         return s1 + s2
 
-    def string_copy_parts(self, optimizer, targetbox, offsetbox, mode):
-        offsetbox = self.left.string_copy_parts(optimizer, targetbox,
+    def string_copy_parts(self, string_optimizer, targetbox, offsetbox, mode):
+        offsetbox = self.left.string_copy_parts(string_optimizer, targetbox,
                                                 offsetbox, mode)
-        offsetbox = self.right.string_copy_parts(optimizer, targetbox,
+        offsetbox = self.right.string_copy_parts(string_optimizer, targetbox,
                                                  offsetbox, mode)
         return offsetbox
 
@@ -246,8 +251,8 @@ class VStringSliceValue(VAbstractStringValue):
         self.vstart = vstart
         self.vlength = vlength
 
-    def getstrlen(self, _, mode):
-        return self.vlength.force_box()
+    def getstrlen(self, optforce, mode):
+        return self.vlength.force_box(optforce)
 
     @specialize.arg(1)
     def get_constant_string_spec(self, mode):
@@ -262,11 +267,11 @@ class VStringSliceValue(VAbstractStringValue):
             return s1[start : start + length]
         return None
 
-    def string_copy_parts(self, optimizer, targetbox, offsetbox, mode):
-        lengthbox = self.getstrlen(optimizer, mode)
-        return copy_str_content(optimizer,
-                                self.vstr.force_box(), targetbox,
-                                self.vstart.force_box(), offsetbox,
+    def string_copy_parts(self, string_optimizer, targetbox, offsetbox, mode):
+        lengthbox = self.getstrlen(string_optimizer, mode)
+        return copy_str_content(string_optimizer,
+                                self.vstr.force_box(string_optimizer), targetbox,
+                                self.vstart.force_box(string_optimizer), offsetbox,
                                 lengthbox, mode)
 
     def get_args_for_fail(self, modifier):
@@ -295,8 +300,8 @@ class VStringSliceValue(VAbstractStringValue):
         return modifier.make_vstrslice(self.mode is mode_unicode)
 
 
-def copy_str_content(optimizer, srcbox, targetbox,
-                     srcoffsetbox, offsetbox, lengthbox, mode):
+def copy_str_content(string_optimizer, srcbox, targetbox,
+                     srcoffsetbox, offsetbox, lengthbox, mode, need_next_offset=True):
     if isinstance(srcbox, ConstPtr) and isinstance(srcoffsetbox, Const):
         M = 5
     else:
@@ -305,23 +310,26 @@ def copy_str_content(optimizer, srcbox, targetbox,
         # up to M characters are done "inline", i.e. with STRGETITEM/STRSETITEM
         # instead of just a COPYSTRCONTENT.
         for i in range(lengthbox.value):
-            charbox = _strgetitem(optimizer, srcbox, srcoffsetbox, mode)
-            srcoffsetbox = _int_add(optimizer, srcoffsetbox, CONST_1)
-            optimizer.emit_operation(ResOperation(mode.STRSETITEM, [targetbox,
-                                                                offsetbox,
-                                                                charbox],
+            charbox = _strgetitem(string_optimizer, srcbox, srcoffsetbox, mode)
+            srcoffsetbox = _int_add(string_optimizer, srcoffsetbox, CONST_1)
+            string_optimizer.emit_operation(ResOperation(mode.STRSETITEM, [targetbox,
+                                                                           offsetbox,
+                                                                           charbox],
                                               None))
-            offsetbox = _int_add(optimizer, offsetbox, CONST_1)
+            offsetbox = _int_add(string_optimizer, offsetbox, CONST_1)
     else:
-        nextoffsetbox = _int_add(optimizer, offsetbox, lengthbox)
+        if need_next_offset:
+            nextoffsetbox = _int_add(string_optimizer, offsetbox, lengthbox)
+        else:
+            nextoffsetbox = None
         op = ResOperation(mode.COPYSTRCONTENT, [srcbox, targetbox,
                                                 srcoffsetbox, offsetbox,
                                                 lengthbox], None)
-        optimizer.emit_operation(op)
+        string_optimizer.emit_operation(op)
         offsetbox = nextoffsetbox
     return offsetbox
 
-def _int_add(optimizer, box1, box2):
+def _int_add(string_optimizer, box1, box2):
     if isinstance(box1, ConstInt):
         if box1.value == 0:
             return box2
@@ -329,23 +337,23 @@ def _int_add(optimizer, box1, box2):
             return ConstInt(box1.value + box2.value)
     elif isinstance(box2, ConstInt) and box2.value == 0:
         return box1
-    if optimizer is None:
+    if string_optimizer is None:
         return None
     resbox = BoxInt()
-    optimizer.propagate_forward(ResOperation(rop.INT_ADD, [box1, box2], resbox))
+    string_optimizer.emit_operation(ResOperation(rop.INT_ADD, [box1, box2], resbox))
     return resbox
 
-def _int_sub(optimizer, box1, box2):
+def _int_sub(string_optimizer, box1, box2):
     if isinstance(box2, ConstInt):
         if box2.value == 0:
             return box1
         if isinstance(box1, ConstInt):
             return ConstInt(box1.value - box2.value)
     resbox = BoxInt()
-    optimizer.propagate_forward(ResOperation(rop.INT_SUB, [box1, box2], resbox))
+    string_optimizer.emit_operation(ResOperation(rop.INT_SUB, [box1, box2], resbox))
     return resbox
 
-def _strgetitem(optimizer, strbox, indexbox, mode):
+def _strgetitem(string_optimizer, strbox, indexbox, mode):
     if isinstance(strbox, ConstPtr) and isinstance(indexbox, ConstInt):
         if mode is mode_string:
             s = strbox.getref(lltype.Ptr(rstr.STR))
@@ -354,30 +362,28 @@ def _strgetitem(optimizer, strbox, indexbox, mode):
             s = strbox.getref(lltype.Ptr(rstr.UNICODE))
             return ConstInt(ord(s.chars[indexbox.getint()]))
     resbox = BoxInt()
-    optimizer.propagate_forward(ResOperation(mode.STRGETITEM, [strbox, indexbox],
-                                      resbox))
+    string_optimizer.emit_operation(ResOperation(mode.STRGETITEM, [strbox, indexbox],
+                                                 resbox))
     return resbox
 
 
 class OptString(optimizer.Optimization):
     "Handling of strings and unicodes."
-    enabled = True
-
     def new(self):
         return OptString()
-    
+
     def make_vstring_plain(self, box, source_op, mode):
-        vvalue = VStringPlainValue(self.optimizer, box, source_op, mode)
+        vvalue = VStringPlainValue(box, source_op, mode)
         self.make_equal_to(box, vvalue)
         return vvalue
 
     def make_vstring_concat(self, box, source_op, mode):
-        vvalue = VStringConcatValue(self.optimizer, box, source_op, mode)
+        vvalue = VStringConcatValue(box, source_op, mode)
         self.make_equal_to(box, vvalue)
         return vvalue
 
     def make_vstring_slice(self, box, source_op, mode):
-        vvalue = VStringSliceValue(self.optimizer, box, source_op, mode)
+        vvalue = VStringSliceValue(box, source_op, mode)
         self.make_equal_to(box, vvalue)
         return vvalue
 
@@ -427,17 +433,21 @@ class OptString(optimizer.Optimization):
         value.ensure_nonnull()
         #
         if value.is_virtual() and isinstance(value, VStringSliceValue):
-            fullindexbox = _int_add(self.optimizer,
-                                    value.vstart.force_box(),
-                                    vindex.force_box())
+            fullindexbox = _int_add(self,
+                                    value.vstart.force_box(self),
+                                    vindex.force_box(self))
             value = value.vstr
             vindex = self.getvalue(fullindexbox)
         #
         if isinstance(value, VStringPlainValue):  # even if no longer virtual
             if vindex.is_constant():
-                return value.getitem(vindex.box.getint())
+                res = value.getitem(vindex.box.getint())
+                # If it is uninitialized we can't return it, it was set by a
+                # COPYSTRCONTENT, not a STRSETITEM
+                if res is not optimizer.CVAL_UNINITIALIZED_ZERO:
+                    return res
         #
-        resbox = _strgetitem(self.optimizer, value.force_box(), vindex.force_box(), mode)
+        resbox = _strgetitem(self, value.force_box(self), vindex.force_box(self), mode)
         return self.getvalue(resbox)
 
     def optimize_STRLEN(self, op):
@@ -447,8 +457,32 @@ class OptString(optimizer.Optimization):
 
     def _optimize_STRLEN(self, op, mode):
         value = self.getvalue(op.getarg(0))
-        lengthbox = value.getstrlen(self.optimizer, mode)
+        lengthbox = value.getstrlen(self, mode)
         self.make_equal_to(op.result, self.getvalue(lengthbox))
+
+    def optimize_COPYSTRCONTENT(self, op):
+        self._optimize_COPYSTRCONTENT(op, mode_string)
+    def optimize_COPYUNICODECONTENT(self, op):
+        self._optimize_COPYSTRCONTENT(op, mode_unicode)
+
+    def _optimize_COPYSTRCONTENT(self, op, mode):
+        # args: src dst srcstart dststart length
+        src = self.getvalue(op.getarg(0))
+        dst = self.getvalue(op.getarg(1))
+        srcstart = self.getvalue(op.getarg(2))
+        dststart = self.getvalue(op.getarg(3))
+        length = self.getvalue(op.getarg(4))
+
+        if length.is_constant() and length.box.getint() == 0:
+            return
+        copy_str_content(self,
+            src.force_box(self),
+            dst.force_box(self),
+            srcstart.force_box(self),
+            dststart.force_box(self),
+            length.force_box(self),
+            mode, need_next_offset=False
+        )
 
     def optimize_CALL(self, op):
         # dispatch based on 'oopspecindex' to a method that handles
@@ -471,6 +505,8 @@ class OptString(optimizer.Optimization):
                 if self.opt_call_str_STR2UNICODE(op):
                     return
         self.emit_operation(op)
+
+    optimize_CALL_PURE = optimize_CALL
 
     def opt_call_str_STR2UNICODE(self, op):
         # Constant-fold unicode("constant string").
@@ -511,16 +547,16 @@ class OptString(optimizer.Optimization):
             return True
         #
         vstr.ensure_nonnull()
-        lengthbox = _int_sub(self.optimizer, vstop.force_box(),
-                                            vstart.force_box())
+        lengthbox = _int_sub(self, vstop.force_box(self),
+                                   vstart.force_box(self))
         #
         if isinstance(vstr, VStringSliceValue):
             # double slicing  s[i:j][k:l]
             vintermediate = vstr
             vstr = vintermediate.vstr
-            startbox = _int_add(self.optimizer,
-                                vintermediate.vstart.force_box(),
-                                vstart.force_box())
+            startbox = _int_add(self,
+                                vintermediate.vstart.force_box(self),
+                                vstart.force_box(self))
             vstart = self.getvalue(startbox)
         #
         value = self.make_vstring_slice(op.result, op, mode)
@@ -558,8 +594,8 @@ class OptString(optimizer.Optimization):
                 do = EffectInfo.OS_STREQ_LENGTHOK
             else:
                 do = EffectInfo.OS_STREQ_NONNULL
-            self.generate_modified_call(do, [v1.force_box(),
-                                             v2.force_box()], op.result, mode)
+            self.generate_modified_call(do, [v1.force_box(self),
+                                             v2.force_box(self)], op.result, mode)
             return True
         return False
 
@@ -567,7 +603,7 @@ class OptString(optimizer.Optimization):
         l2box = v2.getstrlen(None, mode)
         if isinstance(l2box, ConstInt):
             if l2box.value == 0:
-                lengthbox = v1.getstrlen(self.optimizer, mode)
+                lengthbox = v1.getstrlen(self, mode)
                 seo = self.optimizer.send_extra_operation
                 seo(ResOperation(rop.INT_EQ, [lengthbox, CONST_0], resultbox))
                 return True
@@ -578,17 +614,17 @@ class OptString(optimizer.Optimization):
                     vchar1 = self.strgetitem(v1, optimizer.CVAL_ZERO, mode)
                     vchar2 = self.strgetitem(v2, optimizer.CVAL_ZERO, mode)
                     seo = self.optimizer.send_extra_operation
-                    seo(ResOperation(rop.INT_EQ, [vchar1.force_box(),
-                                                  vchar2.force_box()],
+                    seo(ResOperation(rop.INT_EQ, [vchar1.force_box(self),
+                                                  vchar2.force_box(self)],
                                      resultbox))
                     return True
                 if isinstance(v1, VStringSliceValue):
                     vchar = self.strgetitem(v2, optimizer.CVAL_ZERO, mode)
                     do = EffectInfo.OS_STREQ_SLICE_CHAR
-                    self.generate_modified_call(do, [v1.vstr.force_box(),
-                                                     v1.vstart.force_box(),
-                                                     v1.vlength.force_box(),
-                                                     vchar.force_box()],
+                    self.generate_modified_call(do, [v1.vstr.force_box(self),
+                                                     v1.vstart.force_box(self),
+                                                     v1.vlength.force_box(self),
+                                                     vchar.force_box(self)],
                                                 resultbox, mode)
                     return True
         #
@@ -599,10 +635,10 @@ class OptString(optimizer.Optimization):
             if v1.is_null():
                 self.make_constant(resultbox, CONST_1)
                 return True
-            op = ResOperation(rop.PTR_EQ, [v1.force_box(),
+            op = ResOperation(rop.PTR_EQ, [v1.force_box(self),
                                            llhelper.CONST_NULL],
                               resultbox)
-            self.optimizer.emit_operation(op)
+            self.emit_operation(op)
             return True
         #
         return False
@@ -616,8 +652,8 @@ class OptString(optimizer.Optimization):
                     do = EffectInfo.OS_STREQ_NONNULL_CHAR
                 else:
                     do = EffectInfo.OS_STREQ_CHECKNULL_CHAR
-                self.generate_modified_call(do, [v1.force_box(),
-                                                 vchar.force_box()], resultbox,
+                self.generate_modified_call(do, [v1.force_box(self),
+                                                 vchar.force_box(self)], resultbox,
                                             mode)
                 return True
         #
@@ -626,10 +662,10 @@ class OptString(optimizer.Optimization):
                 do = EffectInfo.OS_STREQ_SLICE_NONNULL
             else:
                 do = EffectInfo.OS_STREQ_SLICE_CHECKNULL
-            self.generate_modified_call(do, [v1.vstr.force_box(),
-                                             v1.vstart.force_box(),
-                                             v1.vlength.force_box(),
-                                             v2.force_box()], resultbox, mode)
+            self.generate_modified_call(do, [v1.vstr.force_box(self),
+                                             v1.vstart.force_box(self),
+                                             v1.vlength.force_box(self),
+                                             v2.force_box(self)], resultbox, mode)
             return True
         return False
 
@@ -639,15 +675,10 @@ class OptString(optimizer.Optimization):
         calldescr, func = cic.callinfo_for_oopspec(oopspecindex)
         op = ResOperation(rop.CALL, [ConstInt(func)] + args, result,
                           descr=calldescr)
-        self.optimizer.emit_operation(op)
+        self.emit_operation(op)
 
     def propagate_forward(self, op):
-        if not self.enabled:
-            self.emit_operation(op)
-            return
-
         dispatch_opt(self, op)
-
 
 dispatch_opt = make_dispatcher_method(OptString, 'optimize_',
         default=OptString.emit_operation)

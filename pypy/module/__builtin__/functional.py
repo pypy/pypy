@@ -3,13 +3,13 @@ Interp-level definition of frequently used functionals.
 
 """
 
-from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import NoneNotWrapped
-from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.rlib.rarithmetic import r_uint, intmask
+from pypy.interpreter.error import OperationError
+from pypy.interpreter.gateway import NoneNotWrapped, interp2app, unwrap_spec
+from pypy.interpreter.typedef import TypeDef
+from pypy.rlib import jit
 from pypy.rlib.objectmodel import specialize
+from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.rbigint import rbigint
 
 
@@ -134,25 +134,11 @@ def range_with_longs(space, w_start, w_stop, w_step):
 
 
 @specialize.arg(2)
+@jit.look_inside_iff(lambda space, args, implementation_of:
+    jit.isconstant(len(args.arguments_w)) and
+    len(args.arguments_w) == 2
+)
 def min_max(space, args, implementation_of):
-    if implementation_of == "max":
-        compare = space.gt
-    else:
-        compare = space.lt
-
-    args_w = args.arguments_w
-    if len(args_w) == 2 and not args.keywords:
-        # simple case, suitable for the JIT
-        w_arg0, w_arg1 = args_w
-        if space.is_true(compare(w_arg0, w_arg1)):
-            return w_arg0
-        else:
-            return w_arg1
-    else:
-        return min_max_loop(space, args, implementation_of)
-
-@specialize.arg(2)
-def min_max_loop(space, args, implementation_of):
     if implementation_of == "max":
         compare = space.gt
     else:
@@ -207,9 +193,11 @@ def max(space, __args__):
     return min_max(space, __args__, "max")
 
 def min(space, __args__):
-    """Return the smallest item in a sequence.
+    """min(iterable[, key=func]) -> value
+    min(a, b, c, ...[, key=func]) -> value
 
-    If more than one argument is passed, return the minimum of them.
+    With a single iterable argument, return its smallest item.
+    With two or more arguments, return the smallest argument.
     """
     return min_max(space, __args__, "min")
 

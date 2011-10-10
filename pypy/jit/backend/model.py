@@ -303,6 +303,10 @@ class AbstractCPU(object):
         raise NotImplementedError
     def bh_unicodesetitem(self, string, index, newvalue):
         raise NotImplementedError
+    def bh_copystrcontent(self, src, dst, srcstart, dststart, length):
+        raise NotImplementedError
+    def bh_copyunicodecontent(self, src, dst, srcstart, dststart, length):
+        raise NotImplementedError
 
     def force(self, force_token):
         raise NotImplementedError

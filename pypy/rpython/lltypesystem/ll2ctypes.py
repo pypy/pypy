@@ -140,7 +140,8 @@ def build_ctypes_struct(S, delayed_builders, max_n=None):
                 if isinstance(FIELDTYPE, lltype.Ptr):
                     cls = get_ctypes_type(FIELDTYPE, delayed_builders)
                 else:
-                    cls = get_ctypes_type(FIELDTYPE)
+                    cls = get_ctypes_type(FIELDTYPE, delayed_builders,
+                                          cannot_delay=True)
             fields.append((fieldname, cls))
         CStruct._fields_ = fields
 
@@ -169,7 +170,7 @@ def build_ctypes_struct(S, delayed_builders, max_n=None):
         CStruct._normalized_ctype = get_ctypes_type(S)
         builder()    # no need to be lazy here
     else:
-        delayed_builders.append(builder)
+        delayed_builders.append((S, builder))
     return CStruct
 
 def build_ctypes_array(A, delayed_builders, max_n=0):
@@ -252,11 +253,19 @@ def get_ctypes_array_of_size(FIELDTYPE, max_n):
     else:
         return get_ctypes_type(FIELDTYPE)
 
-def get_ctypes_type(T, delayed_builders=None):
+def get_ctypes_type(T, delayed_builders=None, cannot_delay=False):
+    # Check delayed builders
+    if cannot_delay and delayed_builders:
+        for T2, builder in delayed_builders:
+            if T2 is T:
+                builder()
+                delayed_builders.remove((T2, builder))
+                return _ctypes_cache[T]
+
     try:
         return _ctypes_cache[T]
     except KeyError:
-        toplevel = delayed_builders is None
+        toplevel = cannot_delay or delayed_builders is None
         if toplevel:
             delayed_builders = []
         cls = build_new_ctypes_type(T, delayed_builders)
@@ -306,9 +315,11 @@ def build_new_ctypes_type(T, delayed_builders):
 
 def complete_builders(delayed_builders):
     while delayed_builders:
-        delayed_builders.pop()()
+        T, builder = delayed_builders[0]
+        builder()
+        delayed_builders.pop(0)
 
-def convert_struct(container, cstruct=None):
+def convert_struct(container, cstruct=None, delayed_converters=None):
     STRUCT = container._TYPE
     if cstruct is None:
         # if 'container' is an inlined substructure, convert the whole
@@ -325,23 +336,38 @@ def convert_struct(container, cstruct=None):
             n = None
         cstruct = cls._malloc(n)
     add_storage(container, _struct_mixin, ctypes.pointer(cstruct))
+
+    if delayed_converters is None:
+        delayed_converters_was_None = True
+        delayed_converters = []
+    else:
+        delayed_converters_was_None = False
     for field_name in STRUCT._names:
         FIELDTYPE = getattr(STRUCT, field_name)
         field_value = getattr(container, field_name)
         if not isinstance(FIELDTYPE, lltype.ContainerType):
             # regular field
             if FIELDTYPE != lltype.Void:
-                setattr(cstruct, field_name, lltype2ctypes(field_value))
+                def convert(field_name=field_name, field_value=field_value):
+                    setattr(cstruct, field_name, lltype2ctypes(field_value))
+                if isinstance(FIELDTYPE, lltype.Ptr):
+                    delayed_converters.append(convert)
+                else:
+                    convert()
         else:
             # inlined substructure/subarray
             if isinstance(FIELDTYPE, lltype.Struct):
                 csubstruct = getattr(cstruct, field_name)
-                convert_struct(field_value, csubstruct)
+                convert_struct(field_value, csubstruct,
+                               delayed_converters=delayed_converters)
             elif field_name == STRUCT._arrayfld:    # inlined var-sized part
                 csubarray = getattr(cstruct, field_name)
                 convert_array(field_value, csubarray)
             else:
                 raise NotImplementedError('inlined field', FIELDTYPE)
+    if delayed_converters_was_None:
+        for converter in delayed_converters:
+            converter()
     remove_regular_struct_content(container)
 
 def remove_regular_struct_content(container):
@@ -358,7 +384,8 @@ def convert_array(container, carray=None):
         # bigger structure at once
         parent, parentindex = lltype.parentlink(container)
         if parent is not None:
-            convert_struct(parent)
+            if not isinstance(parent, _parentable_mixin):
+                convert_struct(parent)
             return
         # regular case: allocate a new ctypes array of the proper type
         cls = get_ctypes_type(ARRAY)
@@ -1263,6 +1290,9 @@ class _llgcopaque(lltype._container):
         if storage in (None, True):
             return False
         return force_cast(lltype.Signed, other._as_ptr()) == self.intval
+
+    def __hash__(self):
+        return self.intval
 
     def __ne__(self, other):
         return not self == other

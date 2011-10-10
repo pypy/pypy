@@ -72,7 +72,9 @@ class AppFrame(py.code.Frame):
         space = self.space
         retval = []
         for arg in self.code.getargs():
-            w_val = space.getitem(self.w_locals, space.wrap(arg))
+            w_val = space.finditem(self.w_locals, space.wrap(arg))
+            if w_val is None:
+                w_val = space.wrap('<no value found>')
             retval.append((arg, w_val))
         return retval
 

@@ -29,6 +29,7 @@ class W_StringJoinObject(W_Object):
 
     def unwrap(w_self, space):
         return w_self.force()
+    str_w = unwrap
 
 registerimplementation(W_StringJoinObject)
 
@@ -44,9 +45,6 @@ def len__StringJoin(space, w_self):
     for i in range(w_self.until):
         result += len(w_self.joined_strs[i])
     return space.wrap(result)
-
-def str_w__StringJoin(space, w_str):
-    return w_str.force()
 
 def add__StringJoin_StringJoin(space, w_self, w_other):
     if len(w_self.joined_strs) > w_self.until:
