@@ -571,15 +571,28 @@ class AbstractUnwrappedSetStrategy(object):
         else:
             return self._issuperset_wrapped(w_set, w_other)
 
+    def _isdisjoint_unwrapped(self, w_set, w_other):
+        d_set = self.cast_from_void_star(w_set.sstorage)
+        d_other = self.cast_from_void_star(w_other.sstorage)
+        for key in d_set:
+            if key in d_other:
+                return False
+        return True
+
     def isdisjoint(self, w_set, w_other):
         if w_other.length() == 0:
             return True
         if w_set.length() > w_other.length():
             return w_other.isdisjoint(w_set)
 
+        if w_set.strategy is w_other.strategy:
+            return self._isdisjoint_unwrapped(w_set, w_other)
+        else:
+            return self._isdisjoint_wrapped(w_set, w_other)
+
+    def _isdisjoint_wrapped(w_set, w_other):
         d = self.cast_from_void_star(w_set.sstorage)
         for key in d:
-            #XXX no need to wrap, if strategies are equal
             if w_other.has_key(self.wrap(key)):
                 return False
         return True
