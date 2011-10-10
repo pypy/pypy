@@ -28,7 +28,6 @@ class W_BaseSetObject(W_Object):
     def __init__(w_self, space, w_iterable=None):
         """Initialize the set by taking ownership of 'setdata'."""
         w_self.space = space #XXX less memory without this indirection?
-        #XXX in case of ObjectStrategy we can reuse the setdata object
         set_strategy_and_setdata(space, w_self, w_iterable)
 
     def __repr__(w_self):
@@ -314,10 +313,12 @@ class AbstractUnwrappedSetStrategy(object):
         w_set.switch_to_empty_strategy()
 
     def copy(self, w_set):
-        #XXX do not copy FrozenDict
-        d = self.cast_from_void_star(w_set.sstorage)
         strategy = w_set.strategy
-        storage = self.cast_to_void_star(d.copy())
+        if isinstance(w_set, W_FrozensetObject):
+            storage = w_set.sstorage
+        else:
+            d = self.cast_from_void_star(w_set.sstorage)
+            storage = self.cast_to_void_star(d.copy())
         clone = w_set.from_storage_and_strategy(storage, strategy)
         return clone
 
