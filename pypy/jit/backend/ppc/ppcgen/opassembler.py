@@ -3,7 +3,18 @@ import pypy.jit.backend.ppc.ppcgen.condition as c
 import pypy.jit.backend.ppc.ppcgen.register as r
 from pypy.jit.backend.ppc.ppcgen.arch import GPR_SAVE_AREA, IS_PPC_32, WORD
 
-from pypy.jit.metainterp.history import LoopToken
+from pypy.jit.metainterp.history import LoopToken, AbstractFailDescr
+
+class GuardToken(object):
+    def __init__(self, descr, failargs, faillocs, offset, fcond=c.NE,
+                                        save_exc=False, is_invalidate=False):
+        self.descr = descr
+        self.offset = offset
+        self.is_invalidate = is_invalidate
+        self.failargs = failargs
+        self.faillocs = faillocs
+        self.save_exc = save_exc
+        self.fcond=fcond
 
 class OpAssembler(object):
         
@@ -18,31 +29,17 @@ class OpAssembler(object):
    
     emit_int_le = gen_emit_cmp_op(c.LE)   
 
-    def _guard_epilogue(self, op, failargs):
-        fail_descr = op.getdescr()
-        fail_index = self._get_identifier_from_descr(fail_descr)
-        fail_descr.index = fail_index
-        self.cpu.saved_descr[fail_index] = fail_descr
-        numops = self.mc.get_number_of_ops()
-        self.mc.beq(0)
-        reglist = []
-        for failarg in failargs:
-            if failarg is None:
-                reglist.append(None)
-            else:
-                reglist.append(failarg)
-        self.patch_list.append((numops, fail_index, op, reglist))
-
-    def _emit_guard(self, op, arglocs, save_exc=False,
+    def _emit_guard(self, op, arglocs, fcond, save_exc=False,
             is_guard_not_invalidated=False):
         descr = op.getdescr()
         assert isinstance(descr, AbstractFailDescr)
-        pos = self.get_relative_pos()
-        self.mc.b(0)   # has to be patched later on
+        pos = self.mc.currpos()
+        self.mc.nop()     # has to be patched later on
         self.pending_guards.append(GuardToken(descr,
                                    failargs=op.getfailargs(),
                                    faillocs=arglocs,
                                    offset=pos,
+                                   fcond=fcond,
                                    is_invalidate=is_guard_not_invalidated,
                                    save_exc=save_exc))
 
@@ -50,7 +47,9 @@ class OpAssembler(object):
         l0 = arglocs[0]
         failargs = arglocs[1:]
         self.mc.cmpi(l0.value, 0)
-        self._guard_epilogue(op, failargs)
+        self._emit_guard(op, failargs, c.opposites[c.EQ])
+        #                        #      ^^^^ If this condition is met,
+        #                        #           then the guard fails.
 
     def emit_finish(self, op, arglocs, regalloc):
         descr = op.getdescr()
@@ -60,7 +59,7 @@ class OpAssembler(object):
         for index, arg in enumerate(arglocs):
             addr = self.fail_boxes_int.get_addr_for_num(index)
             self.store_reg(arg, addr)
-        self.load_imm(r.RES, identifier) # set return value
+        self.load_imm(r.RES.value, identifier) # set return value
         self.branch_abs(self.exit_code_adr)
 
     def emit_jump(self, op, arglocs, regalloc):
@@ -76,6 +75,6 @@ class OpAssembler(object):
         self.mc.ori(0, 0, 0)
 
     def branch_abs(self, address):
-        self.load_imm(r.r0, address)
+        self.load_imm(r.r0.value, address)
         self.mc.mtctr(0)
         self.mc.bctr()
