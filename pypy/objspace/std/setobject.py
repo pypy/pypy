@@ -421,13 +421,13 @@ class AbstractUnwrappedSetStrategy(object):
         return storage, strategy
 
     def difference(self, w_set, w_other):
-        #XXX return clone in certain cases: String- with IntStrategy or ANY with Empty
+        #XXX return clone for ANY with Empty (and later different strategies)
         storage, strategy = self._difference_base(w_set, w_other)
         w_newset = w_set.from_storage_and_strategy(storage, strategy)
         return w_newset
 
     def difference_update(self, w_set, w_other):
-        #XXX do nothing in certain cases: String- with IntStrategy or ANY with Empty
+        #XXX do nothing for ANY with Empty
         storage, strategy = self._difference_base(w_set, w_other)
         w_set.strategy = strategy
         w_set.sstorage = storage
@@ -540,10 +540,16 @@ class AbstractUnwrappedSetStrategy(object):
         w_set.strategy = result.strategy
         w_set.sstorage = result.sstorage
 
-    def issuperset(self, w_set, w_other):
-        if w_other.length() == 0:
-            return True
+    def _issuperset_unwrapped(self, w_set, w_other):
+        d_set = self.cast_from_void_star(w_set.sstorage)
+        d_other = self.cast_from_void_star(w_other.sstorage)
 
+        for e in d_other.keys():
+            if not e in d_set:
+                return False
+        return True
+
+    def _issuperset_wrapped(self, w_set, w_other):
         w_iter = self.space.iter(w_other)
         while True:
             try:
@@ -555,6 +561,15 @@ class AbstractUnwrappedSetStrategy(object):
                     raise
                 return True
         return True
+
+    def issuperset(self, w_set, w_other):
+        if w_other.length() == 0:
+            return True
+
+        if w_set.strategy is w_other.strategy:
+            return self._issuperset_unwrapped(w_set, w_other)
+        else:
+            return self._issuperset_wrapped(w_set, w_other)
 
     def isdisjoint(self, w_set, w_other):
         if w_other.length() == 0:
