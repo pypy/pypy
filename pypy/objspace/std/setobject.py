@@ -78,10 +78,8 @@ class W_BaseSetObject(W_Object):
     def add(self, w_key):
         self.strategy.add(self, w_key)
 
-    # XXX rename to "remove", delitem is the name for the operation that does
-    # "del d[x]" which does not work on sets
-    def delitem(self, w_item):
-        return self.strategy.delitem(self, w_item)
+    def remove(self, w_item):
+        return self.strategy.remove(self, w_item)
 
     def getdict_w(self):
         return self.strategy.getdict_w(self)
@@ -223,7 +221,7 @@ class EmptySetStrategy(SetStrategy):
         w_set.sstorage = strategy.get_empty_storage()
         w_set.add(w_key)
 
-    def delitem(self, w_set, w_item):
+    def remove(self, w_set, w_item):
         return False
 
     def discard(self, w_set, w_item):
@@ -345,7 +343,7 @@ class AbstractUnwrappedSetStrategy(object):
             w_set.switch_to_object_strategy(self.space)
             w_set.add(w_key)
 
-    def delitem(self, w_set, w_item):
+    def remove(self, w_set, w_item):
         from pypy.objspace.std.dictmultiobject import _never_equal_to_string
         d = self.cast_from_void_star(w_set.sstorage)
         if not self.is_correct_type(w_item):
@@ -354,7 +352,7 @@ class AbstractUnwrappedSetStrategy(object):
             if _never_equal_to_string(self.space, self.space.type(w_item)):
                 return False
             w_set.switch_to_object_strategy(self.space)
-            return w_set.delitem(w_item)
+            return w_set.remove(w_item)
 
         key = self.unwrap(w_item)
         try:
@@ -918,7 +916,7 @@ def set_difference_update__Set(space, w_left, others_w):
         else:
             for w_key in space.listview(w_other):
                 space.hash(w_key)
-                w_left.delitem(w_key)
+                w_left.remove(w_key)
 
 def inplace_sub__Set_Set(space, w_left, w_other):
     w_left.difference_update(w_other)
@@ -1073,7 +1071,7 @@ def _discard_from_set(space, w_left, w_item):
     Returns True if successfully removed.
     """
     try:
-        deleted = w_left.delitem(w_item)
+        deleted = w_left.remove(w_item)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -1081,7 +1079,7 @@ def _discard_from_set(space, w_left, w_item):
             w_f = _convert_set_to_frozenset(space, w_item)
             if w_f is None:
                 raise
-            deleted = w_left.delitem(w_f)
+            deleted = w_left.remove(w_f)
 
     if w_left.length() == 0:
         w_left.switch_to_empty_strategy()
