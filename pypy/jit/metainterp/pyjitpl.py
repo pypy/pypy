@@ -903,7 +903,9 @@ class MIFrame(object):
         else:
             constbox = box.constbox()
             resbox = self.do_residual_call(funcbox, descr, [box, constbox])
-            self.generate_guard(rop.GUARD_TRUE, resbox, resumepc=orgpc)
+            promoted_box = resbox.constbox()
+            self.generate_guard(rop.GUARD_VALUE, resbox, [promoted_box],
+                                resumepc=orgpc)
             self.metainterp.replace_box(box, constbox)
             return constbox
 
