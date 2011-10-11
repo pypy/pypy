@@ -313,17 +313,23 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_ClassDef(self, cls):
         self.update_position(cls.lineno, True)
         self.visit_sequence(cls.decorator_list)
-        self.load_const(self.space.wrap(cls.name))
-        self.visit_sequence(cls.bases)
-        bases_count = len(cls.bases) if cls.bases is not None else 0
-        self.emit_op_arg(ops.BUILD_TUPLE, bases_count)
+        # 1. compile the class body into a code object
         code = self.sub_scope(ClassCodeGenerator, cls.name, cls, cls.lineno)
+        # 2. load the 'build_class' function
+        self.emit_op(ops.LOAD_BUILD_CLASS)
+        # 3. load a function (or closure) made from the code object
         self._make_function(code, 0)
-        self.emit_op_arg(ops.CALL_FUNCTION, 0)
-        self.emit_op(ops.BUILD_CLASS)
+        # 4. load class name
+        self.load_const(self.space.wrap(cls.name))
+        # 5. generate the rest of the code for the call
+        self._make_call(2,
+                        cls.bases, cls.keywords,
+                        cls.starargs, cls.kwargs)
+        # 6. apply decorators
         if cls.decorator_list:
             for i in range(len(cls.decorator_list)):
                 self.emit_op_arg(ops.CALL_FUNCTION, 1)
+        # 7. store into <name>
         self.name_op(cls.name, ast.Store)
 
     def _op_for_augassign(self, op):
@@ -907,22 +913,22 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.load_const(self.space.wrap(keyword.arg))
         keyword.value.walkabout(self)
 
-    def visit_Call(self, call):
-        self.update_position(call.lineno)
-        if self._optimize_method_call(call):
-            return
-        call.func.walkabout(self)
-        arg = len(call.args) if call.args is not None else 0
+    def _make_call(self, n, # args already pushed
+                   args, keywords, starargs, kwargs):
+        if args is not None:
+            arg = len(args) + n
+        else:
+            arg = n
         call_type = 0
-        self.visit_sequence(call.args)
-        if call.keywords:
-            self.visit_sequence(call.keywords)
-            arg |= len(call.keywords) << 8
-        if call.starargs:
-            call.starargs.walkabout(self)
+        self.visit_sequence(args)
+        if keywords:
+            self.visit_sequence(keywords)
+            arg |= len(keywords) << 8
+        if starargs:
+            starargs.walkabout(self)
             call_type |= 1
-        if call.kwargs:
-            call.kwargs.walkabout(self)
+        if kwargs:
+            kwargs.walkabout(self)
             call_type |= 2
         op = 0
         if call_type == 0:
@@ -934,6 +940,15 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         elif call_type == 3:
             op = ops.CALL_FUNCTION_VAR_KW
         self.emit_op_arg(op, arg)
+
+    def visit_Call(self, call):
+        self.update_position(call.lineno)
+        if self._optimize_method_call(call):
+            return
+        call.func.walkabout(self)
+        self._make_call(0,
+                        call.args, call.keywords,
+                        call.starargs, call.kwargs)
     
     def _call_has_no_star_args(self, call):
         return not call.starargs and not call.kwargs
@@ -1242,8 +1257,23 @@ class ClassCodeGenerator(PythonCodeGenerator):
     def _compile(self, cls):
         assert isinstance(cls, ast.ClassDef)
         self.lineno = self.first_lineno
+        self.argcount = 1
+        # load the first argument (__locals__) ...
+        self.emit_op_arg(ops.LOAD_FAST, 0)
+        # ...and store it into f_locals.
+        self.emit_op(ops.STORE_LOCALS)
+        # load (global) __name__ ...
         self.name_op("__name__", ast.Load)
+        # ... and store it as __module__
         self.name_op("__module__", ast.Store)
+        # compile the body proper
         self._handle_body(cls.body)
-        self.emit_op(ops.LOAD_LOCALS)
+        # return the (empty) __class__ cell
+        scope = self.scope.lookup("@__class__")
+        if scope == symtable.SCOPE_UNKNOWN:
+            # This happens when nobody references the cell
+            self.load_const(self.space.w_None)
+        else:
+            # Return the cell where to store __class__
+            self.emit_op_arg(ops.LOAD_CLOSURE, self.cell_vars["@__class__"])
         self.emit_op(ops.RETURN_VALUE)

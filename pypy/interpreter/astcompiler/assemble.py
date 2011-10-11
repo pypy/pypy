@@ -540,6 +540,8 @@ _static_opcode_stack_effects = {
     ops.PRINT_EXPR : -1,
 
     ops.WITH_CLEANUP : -1,
+    ops.LOAD_BUILD_CLASS : 1,
+    ops.STORE_LOCALS : -1,
     ops.POP_BLOCK : 0,
     ops.END_FINALLY : -3,
     ops.SETUP_WITH : 1,

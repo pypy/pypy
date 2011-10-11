@@ -460,17 +460,25 @@ class ASTBuilder(object):
         name = name_node.value
         self.check_forbidden_name(name, name_node)
         if len(classdef_node.children) == 4:
+            # class NAME ':' suite
             body = self.handle_suite(classdef_node.children[3])
             return ast.ClassDef(name, None, None, None, None, body, decorators,
                                 classdef_node.lineno, classdef_node.column)
         if classdef_node.children[3].type == tokens.RPAR:
+            # class NAME '(' ')' ':' suite
             body = self.handle_suite(classdef_node.children[5])
             return ast.ClassDef(name, None, None, None, None, body, decorators,
                                 classdef_node.lineno, classdef_node.column)
-        bases = self.handle_class_bases(classdef_node.children[3])
+
+        # class NAME '(' arglist ')' ':' suite
+        # build up a fake Call node so we can extract its pieces
+        call_name = ast.Name(name, ast.Load, classdef_node.lineno,
+                             classdef_node.column)
+        call = self.handle_call(classdef_node.children[3], call_name)
         body = self.handle_suite(classdef_node.children[6])
-        return ast.ClassDef(name, bases, None, None, None, body, decorators,
-                            classdef_node.lineno, classdef_node.column)
+        return ast.ClassDef(
+            name, call.args, call.keywords, call.starargs, call.kwargs,
+            body, decorators, classdef_node.lineno, classdef_node.column)
 
     def handle_class_bases(self, bases_node):
         if len(bases_node.children) == 1:

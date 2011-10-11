@@ -6,6 +6,8 @@ from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.astcompiler import consts, ast
 from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.argument import Arguments
+from pypy.interpreter.nestedscope import Cell
 
 @unwrap_spec(filename=str, mode=str, flags=int, dont_inherit=int)
 def compile(space, w_source, filename, mode, flags=0, dont_inherit=0):
@@ -107,3 +109,35 @@ If only globals is given, locals defaults to it.
             space.setitem(w_globals, space.wrap('__builtins__'), w_builtin)
 
     return codeobj.exec_code(space, w_globals, w_locals)
+
+def build_class(space, w_func, w_name, __args__):
+    bases_w, kwds_w = __args__.unpack()
+    w_bases = space.newtuple(bases_w)
+    w_meta = kwds_w.pop('metaclass', None)
+    if w_meta is None:
+        if bases_w:
+            w_meta = space.type(bases_w[0])
+        else:
+            w_meta = space.w_type
+    
+    try:
+        w_prep = space.getattr(w_meta, space.wrap("__prepare__"))
+    except OperationError, e:
+        if not e.match(space, space.w_AttributeError):
+            raise
+        w_namespace = space.newdict()
+    else:
+        args = Arguments(space, 
+                         args_w=[w_name, w_bases],
+                         keywords=kwds_w.keys(),
+                         keywords_w=kwds_w.values())
+        w_namespace = space.call_args(w_prep, args)
+    w_cell = space.call_function(w_func, w_namespace)
+    args = Arguments(space,
+                     args_w=[w_name, w_bases, w_namespace],
+                     keywords=kwds_w.keys(),
+                     keywords_w=kwds_w.values())
+    w_class = space.call_args(w_meta, args)
+    if isinstance(w_cell, Cell):
+        w_cell.set(w_class)
+    return w_class

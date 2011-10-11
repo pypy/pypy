@@ -511,6 +511,9 @@ class __extend__(pyframe.PyFrame):
     def LOAD_LOCALS(self, oparg, next_instr):
         self.pushvalue(self.w_locals)
 
+    def STORE_LOCALS(self, oparg, next_instr):
+        self.w_locals = self.popvalue()
+
     def EXEC_STMT(self, oparg, next_instr):
         w_locals = self.popvalue()
         w_globals = self.popvalue()
@@ -550,16 +553,13 @@ class __extend__(pyframe.PyFrame):
         unroller = self.space.interpclass_w(w_unroller)
         return unroller
 
-    def BUILD_CLASS(self, oparg, next_instr):
-        w_methodsdict = self.popvalue()
-        w_bases = self.popvalue()
-        w_name = self.popvalue()
-        w_metaclass = find_metaclass(self.space, w_bases,
-                                     w_methodsdict, self.w_globals,
-                                     self.space.wrap(self.get_builtin()))
-        w_newclass = self.space.call_function(w_metaclass, w_name,
-                                              w_bases, w_methodsdict)
-        self.pushvalue(w_newclass)
+    def LOAD_BUILD_CLASS(self, oparg, next_instr):
+        w_build_class = self.get_builtin().getdictvalue(
+            self.space, '__build_class__')
+        if w_build_class is None:
+            raise OperationError(self.space.w_ImportError,
+                                 self.space.wrap("__build_class__ not found"))
+        self.pushvalue(w_build_class)
 
     def STORE_NAME(self, varindex, next_instr):
         varname = self.getname_u(varindex)
