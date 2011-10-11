@@ -570,6 +570,13 @@ class AbstractUnwrappedSetStrategy(object):
                 return False
         return True
 
+    def _isdisjoint_wrapped(w_set, w_other):
+        d = self.unerase(w_set.sstorage)
+        for key in d:
+            if w_other.has_key(self.wrap(key)):
+                return False
+        return True
+
     def isdisjoint(self, w_set, w_other):
         if w_other.length() == 0:
             return True
@@ -580,15 +587,6 @@ class AbstractUnwrappedSetStrategy(object):
             return self._isdisjoint_unwrapped(w_set, w_other)
         else:
             return self._isdisjoint_wrapped(w_set, w_other)
-
-    # XXX can you please order the functions XXX, _XXX_base, _XXX_unwrapped and
-    # _XXX_wrapped in a consistent way?
-    def _isdisjoint_wrapped(w_set, w_other):
-        d = self.unerase(w_set.sstorage)
-        for key in d:
-            if w_other.has_key(self.wrap(key)):
-                return False
-        return True
 
     def update(self, w_set, w_other):
         # XXX again, this is equivalent to self is self.space.fromcache(ObjectSetStrategy)
