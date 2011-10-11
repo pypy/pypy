@@ -514,49 +514,6 @@ class AugAssign(stmt):
         self.value.sync_app_attrs(space)
 
 
-class Print(stmt):
-
-    _lineno_mask = 8
-    _col_offset_mask = 16
-
-    def __init__(self, dest, values, nl, lineno, col_offset):
-        self.dest = dest
-        self.values = values
-        self.w_values = None
-        self.nl = nl
-        stmt.__init__(self, lineno, col_offset)
-        self.initialization_state = 31
-
-    def walkabout(self, visitor):
-        visitor.visit_Print(self)
-
-    def mutate_over(self, visitor):
-        if self.dest:
-            self.dest = self.dest.mutate_over(visitor)
-        if self.values:
-            visitor._mutate_sequence(self.values)
-        return visitor.visit_Print(self)
-
-    def sync_app_attrs(self, space):
-        if (self.initialization_state & ~1) ^ 30:
-            missing_field(space, self.initialization_state, [None, 'values', 'nl', 'lineno', 'col_offset'], 'Print')
-        else:
-            if not self.initialization_state & 1:
-                self.dest = None
-        if self.dest:
-            self.dest.sync_app_attrs(space)
-        w_list = self.w_values
-        if w_list is not None:
-            list_w = space.listview(w_list)
-            if list_w:
-                self.values = [space.interp_w(expr, w_obj) for w_obj in list_w]
-            else:
-                self.values = None
-        if self.values is not None:
-            for node in self.values:
-                node.sync_app_attrs(space)
-
-
 class For(stmt):
 
     _lineno_mask = 16
@@ -1026,44 +983,6 @@ class ImportFrom(stmt):
         if self.names is not None:
             for node in self.names:
                 node.sync_app_attrs(space)
-
-
-class Exec(stmt):
-
-    _lineno_mask = 8
-    _col_offset_mask = 16
-
-    def __init__(self, body, globals, locals, lineno, col_offset):
-        self.body = body
-        self.globals = globals
-        self.locals = locals
-        stmt.__init__(self, lineno, col_offset)
-        self.initialization_state = 31
-
-    def walkabout(self, visitor):
-        visitor.visit_Exec(self)
-
-    def mutate_over(self, visitor):
-        self.body = self.body.mutate_over(visitor)
-        if self.globals:
-            self.globals = self.globals.mutate_over(visitor)
-        if self.locals:
-            self.locals = self.locals.mutate_over(visitor)
-        return visitor.visit_Exec(self)
-
-    def sync_app_attrs(self, space):
-        if (self.initialization_state & ~6) ^ 25:
-            missing_field(space, self.initialization_state, ['body', None, None, 'lineno', 'col_offset'], 'Exec')
-        else:
-            if not self.initialization_state & 2:
-                self.globals = None
-            if not self.initialization_state & 4:
-                self.locals = None
-        self.body.sync_app_attrs(space)
-        if self.globals:
-            self.globals.sync_app_attrs(space)
-        if self.locals:
-            self.locals.sync_app_attrs(space)
 
 
 class Global(stmt):
@@ -2599,8 +2518,6 @@ class ASTVisitor(object):
         return self.default_visitor(node)
     def visit_AugAssign(self, node):
         return self.default_visitor(node)
-    def visit_Print(self, node):
-        return self.default_visitor(node)
     def visit_For(self, node):
         return self.default_visitor(node)
     def visit_While(self, node):
@@ -2620,8 +2537,6 @@ class ASTVisitor(object):
     def visit_Import(self, node):
         return self.default_visitor(node)
     def visit_ImportFrom(self, node):
-        return self.default_visitor(node)
-    def visit_Exec(self, node):
         return self.default_visitor(node)
     def visit_Global(self, node):
         return self.default_visitor(node)
@@ -2742,11 +2657,6 @@ class GenericASTVisitor(ASTVisitor):
         node.target.walkabout(self)
         node.value.walkabout(self)
 
-    def visit_Print(self, node):
-        if node.dest:
-            node.dest.walkabout(self)
-        self.visit_sequence(node.values)
-
     def visit_For(self, node):
         node.target.walkabout(self)
         node.iter.walkabout(self)
@@ -2796,13 +2706,6 @@ class GenericASTVisitor(ASTVisitor):
 
     def visit_ImportFrom(self, node):
         self.visit_sequence(node.names)
-
-    def visit_Exec(self, node):
-        node.body.walkabout(self)
-        if node.globals:
-            node.globals.walkabout(self)
-        if node.locals:
-            node.locals.walkabout(self)
 
     def visit_Global(self, node):
         pass
@@ -3712,95 +3615,6 @@ AugAssign.typedef = typedef.TypeDef("AugAssign",
     __init__=interp2app(AugAssign_init),
 )
 
-def Print_get_dest(space, w_self):
-    if w_self.w_dict is not None:
-        w_obj = w_self.getdictvalue(space, 'dest')
-        if w_obj is not None:
-            return w_obj
-    if not w_self.initialization_state & 1:
-        typename = space.type(w_self).getname(space)
-        w_err = space.wrap("'%s' object has no attribute 'dest'" % typename)
-        raise OperationError(space.w_AttributeError, w_err)
-    return space.wrap(w_self.dest)
-
-def Print_set_dest(space, w_self, w_new_value):
-    try:
-        w_self.dest = space.interp_w(expr, w_new_value, True)
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        w_self.setdictvalue(space, 'dest', w_new_value)
-        return
-    w_self.deldictvalue(space, 'dest')
-    w_self.initialization_state |= 1
-
-def Print_get_values(space, w_self):
-    if not w_self.initialization_state & 2:
-        typename = space.type(w_self).getname(space)
-        w_err = space.wrap("'%s' object has no attribute 'values'" % typename)
-        raise OperationError(space.w_AttributeError, w_err)
-    if w_self.w_values is None:
-        if w_self.values is None:
-            w_list = space.newlist([])
-        else:
-            list_w = [space.wrap(node) for node in w_self.values]
-            w_list = space.newlist(list_w)
-        w_self.w_values = w_list
-    return w_self.w_values
-
-def Print_set_values(space, w_self, w_new_value):
-    w_self.w_values = w_new_value
-    w_self.initialization_state |= 2
-
-def Print_get_nl(space, w_self):
-    if w_self.w_dict is not None:
-        w_obj = w_self.getdictvalue(space, 'nl')
-        if w_obj is not None:
-            return w_obj
-    if not w_self.initialization_state & 4:
-        typename = space.type(w_self).getname(space)
-        w_err = space.wrap("'%s' object has no attribute 'nl'" % typename)
-        raise OperationError(space.w_AttributeError, w_err)
-    return space.wrap(w_self.nl)
-
-def Print_set_nl(space, w_self, w_new_value):
-    try:
-        w_self.nl = space.bool_w(w_new_value)
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        w_self.setdictvalue(space, 'nl', w_new_value)
-        return
-    w_self.deldictvalue(space, 'nl')
-    w_self.initialization_state |= 4
-
-_Print_field_unroller = unrolling_iterable(['dest', 'values', 'nl'])
-def Print_init(space, w_self, __args__):
-    w_self = space.descr_self_interp_w(Print, w_self)
-    w_self.w_values = None
-    args_w, kwargs_w = __args__.unpack()
-    if args_w:
-        if len(args_w) != 3:
-            w_err = space.wrap("Print constructor takes either 0 or 3 positional arguments")
-            raise OperationError(space.w_TypeError, w_err)
-        i = 0
-        for field in _Print_field_unroller:
-            space.setattr(w_self, space.wrap(field), args_w[i])
-            i += 1
-    for field, w_value in kwargs_w.iteritems():
-        space.setattr(w_self, space.wrap(field), w_value)
-
-Print.typedef = typedef.TypeDef("Print",
-    stmt.typedef,
-    __module__='_ast',
-    _fields=_FieldsWrapper(['dest', 'values', 'nl']),
-    dest=typedef.GetSetProperty(Print_get_dest, Print_set_dest, cls=Print),
-    values=typedef.GetSetProperty(Print_get_values, Print_set_values, cls=Print),
-    nl=typedef.GetSetProperty(Print_get_nl, Print_set_nl, cls=Print),
-    __new__=interp2app(get_AST_new(Print)),
-    __init__=interp2app(Print_init),
-)
-
 def For_get_target(space, w_self):
     if w_self.w_dict is not None:
         w_obj = w_self.getdictvalue(space, 'target')
@@ -4611,98 +4425,6 @@ ImportFrom.typedef = typedef.TypeDef("ImportFrom",
     level=typedef.GetSetProperty(ImportFrom_get_level, ImportFrom_set_level, cls=ImportFrom),
     __new__=interp2app(get_AST_new(ImportFrom)),
     __init__=interp2app(ImportFrom_init),
-)
-
-def Exec_get_body(space, w_self):
-    if w_self.w_dict is not None:
-        w_obj = w_self.getdictvalue(space, 'body')
-        if w_obj is not None:
-            return w_obj
-    if not w_self.initialization_state & 1:
-        typename = space.type(w_self).getname(space)
-        w_err = space.wrap("'%s' object has no attribute 'body'" % typename)
-        raise OperationError(space.w_AttributeError, w_err)
-    return space.wrap(w_self.body)
-
-def Exec_set_body(space, w_self, w_new_value):
-    try:
-        w_self.body = space.interp_w(expr, w_new_value, False)
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        w_self.setdictvalue(space, 'body', w_new_value)
-        return
-    w_self.deldictvalue(space, 'body')
-    w_self.initialization_state |= 1
-
-def Exec_get_globals(space, w_self):
-    if w_self.w_dict is not None:
-        w_obj = w_self.getdictvalue(space, 'globals')
-        if w_obj is not None:
-            return w_obj
-    if not w_self.initialization_state & 2:
-        typename = space.type(w_self).getname(space)
-        w_err = space.wrap("'%s' object has no attribute 'globals'" % typename)
-        raise OperationError(space.w_AttributeError, w_err)
-    return space.wrap(w_self.globals)
-
-def Exec_set_globals(space, w_self, w_new_value):
-    try:
-        w_self.globals = space.interp_w(expr, w_new_value, True)
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        w_self.setdictvalue(space, 'globals', w_new_value)
-        return
-    w_self.deldictvalue(space, 'globals')
-    w_self.initialization_state |= 2
-
-def Exec_get_locals(space, w_self):
-    if w_self.w_dict is not None:
-        w_obj = w_self.getdictvalue(space, 'locals')
-        if w_obj is not None:
-            return w_obj
-    if not w_self.initialization_state & 4:
-        typename = space.type(w_self).getname(space)
-        w_err = space.wrap("'%s' object has no attribute 'locals'" % typename)
-        raise OperationError(space.w_AttributeError, w_err)
-    return space.wrap(w_self.locals)
-
-def Exec_set_locals(space, w_self, w_new_value):
-    try:
-        w_self.locals = space.interp_w(expr, w_new_value, True)
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        w_self.setdictvalue(space, 'locals', w_new_value)
-        return
-    w_self.deldictvalue(space, 'locals')
-    w_self.initialization_state |= 4
-
-_Exec_field_unroller = unrolling_iterable(['body', 'globals', 'locals'])
-def Exec_init(space, w_self, __args__):
-    w_self = space.descr_self_interp_w(Exec, w_self)
-    args_w, kwargs_w = __args__.unpack()
-    if args_w:
-        if len(args_w) != 3:
-            w_err = space.wrap("Exec constructor takes either 0 or 3 positional arguments")
-            raise OperationError(space.w_TypeError, w_err)
-        i = 0
-        for field in _Exec_field_unroller:
-            space.setattr(w_self, space.wrap(field), args_w[i])
-            i += 1
-    for field, w_value in kwargs_w.iteritems():
-        space.setattr(w_self, space.wrap(field), w_value)
-
-Exec.typedef = typedef.TypeDef("Exec",
-    stmt.typedef,
-    __module__='_ast',
-    _fields=_FieldsWrapper(['body', 'globals', 'locals']),
-    body=typedef.GetSetProperty(Exec_get_body, Exec_set_body, cls=Exec),
-    globals=typedef.GetSetProperty(Exec_get_globals, Exec_set_globals, cls=Exec),
-    locals=typedef.GetSetProperty(Exec_get_locals, Exec_set_locals, cls=Exec),
-    __new__=interp2app(get_AST_new(Exec)),
-    __init__=interp2app(Exec_init),
 )
 
 def Global_get_names(space, w_self):

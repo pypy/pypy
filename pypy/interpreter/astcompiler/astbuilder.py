@@ -127,23 +127,6 @@ class ASTBuilder(object):
         except misc.ForbiddenNameAssignment, e:
             self.error_ast("cannot assign to %s" % (e.name,), e.node)
 
-    def handle_print_stmt(self, print_node):
-        dest = None
-        expressions = None
-        newline = True
-        start = 1
-        child_count = len(print_node.children)
-        if child_count > 2 and print_node.children[1].type == tokens.RIGHTSHIFT:
-            dest = self.handle_expr(print_node.children[2])
-            start = 4
-        if (child_count + 1 - start) // 2:
-            expressions = [self.handle_expr(print_node.children[i])
-                           for i in range(start, child_count, 2)]
-        if print_node.children[-1].type == tokens.COMMA:
-            newline = False
-        return ast.Print(dest, expressions, newline, print_node.lineno,
-                         print_node.column)
-
     def handle_del_stmt(self, del_node):
         targets = self.handle_exprlist(del_node.children[1], ast.Del)
         return ast.Delete(targets, del_node.lineno, del_node.column)
@@ -621,8 +604,6 @@ class ASTBuilder(object):
             stmt_type = stmt.type
             if stmt_type == syms.expr_stmt:
                 return self.handle_expr_stmt(stmt)
-            elif stmt_type == syms.print_stmt:
-                return self.handle_print_stmt(stmt)
             elif stmt_type == syms.del_stmt:
                 return self.handle_del_stmt(stmt)
             elif stmt_type == syms.pass_stmt:

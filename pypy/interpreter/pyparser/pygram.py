@@ -19,9 +19,6 @@ def _get_python_grammar():
 
 
 python_grammar = _get_python_grammar()
-python_grammar_no_print = python_grammar.shared_copy()
-python_grammar_no_print.keyword_ids = python_grammar_no_print.keyword_ids.copy()
-del python_grammar_no_print.keyword_ids["print"]
 
 class _Tokens(object):
     pass
