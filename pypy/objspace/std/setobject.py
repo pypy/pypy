@@ -862,31 +862,6 @@ def _convert_set_to_frozenset(space, w_obj):
     else:
         return None
 
-# helper functions for set operation on dicts
-
-# XXX are these still needed?
-def _symmetric_difference_dict(space, ld, rd):
-    result = newset(space)
-    for w_key in ld:
-        if w_key not in rd:
-            result[w_key] = None
-    for w_key in rd:
-        if w_key not in ld:
-            result[w_key] = None
-    return result
-
-def _issubset_dict(ldict, rdict):
-    if len(ldict) > len(rdict):
-        return False
-
-    for w_key in ldict:
-        if w_key not in rdict:
-            return False
-    return True
-
-
-#end helper functions
-
 def set_update__Set(space, w_left, others_w):
     """Update a set with the union of itself and another."""
     for w_other in others_w:
