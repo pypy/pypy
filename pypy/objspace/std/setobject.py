@@ -589,12 +589,10 @@ class AbstractUnwrappedSetStrategy(object):
             return self._isdisjoint_wrapped(w_set, w_other)
 
     def update(self, w_set, w_other):
-
         if self is w_other.strategy:
-            # XXX d_int is a sucky variable name, other should be d_other
-            d_int = self.unerase(w_set.sstorage)
-            other = self.unerase(w_other.sstorage)
-            d_int.update(other)
+            d_set = self.unerase(w_set.sstorage)
+            d_other = self.unerase(w_other.sstorage)
+            d_set.update(d_other)
             return
 
         w_set.switch_to_object_strategy(self.space)
