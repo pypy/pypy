@@ -904,6 +904,8 @@ class MIFrame(object):
             constbox = box.constbox()
             resbox = self.do_residual_call(funcbox, descr, [box, constbox])
             promoted_box = resbox.constbox()
+            # This is GUARD_VALUE because GUARD_TRUE assumes the existance
+            # of a label when computing resumepc
             self.generate_guard(rop.GUARD_VALUE, resbox, [promoted_box],
                                 resumepc=orgpc)
             self.metainterp.replace_box(box, constbox)
