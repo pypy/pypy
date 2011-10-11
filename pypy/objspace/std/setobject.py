@@ -589,17 +589,8 @@ class AbstractUnwrappedSetStrategy(object):
             return self._isdisjoint_wrapped(w_set, w_other)
 
     def update(self, w_set, w_other):
-        # XXX again, this is equivalent to self is self.space.fromcache(ObjectSetStrategy)
-        # this shows that the following condition is nonsense! you should
-        # instead overwrite update in ObjectSetStrategy and kill the if here
-        if w_set.strategy is self.space.fromcache(ObjectSetStrategy):
-            d_obj = self.unerase(w_set.sstorage)
-            other_w = w_other.getkeys()
-            for w_key in other_w:
-                d_obj[self.unwrap(w_key)] = None
-            return
 
-        elif w_set.strategy is w_other.strategy:
+        if self is w_other.strategy:
             # XXX d_int is a sucky variable name, other should be d_other
             d_int = self.unerase(w_set.sstorage)
             other = self.unerase(w_other.sstorage)
@@ -666,6 +657,12 @@ class ObjectSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
 
     def iter(self, w_set):
         return RDictIteratorImplementation(self.space, self, w_set)
+
+    def update(self, w_set, w_other):
+        d_obj = self.unerase(w_set.sstorage)
+        other_w = w_other.getkeys()
+        for w_key in other_w:
+            d_obj[w_key] = None
 
 class IteratorImplementation(object):
     def __init__(self, space, implementation):
