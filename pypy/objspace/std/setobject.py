@@ -78,10 +78,6 @@ class W_BaseSetObject(W_Object):
     def add(self, w_key):
         self.strategy.add(self, w_key)
 
-    # XXX this appears unused? kill it
-    def discard(self, w_item):
-        return self.strategy.discard(self, w_item)
-
     # XXX rename to "remove", delitem is the name for the operation that does
     # "del d[x]" which does not work on sets
     def delitem(self, w_item):
