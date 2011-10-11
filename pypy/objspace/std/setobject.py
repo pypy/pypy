@@ -532,23 +532,17 @@ class AbstractUnwrappedSetStrategy(object):
 
     def intersect_multiple(self, w_set, others_w):
         #XXX find smarter implementations
-        result = w_set
+        result = w_set.copy()
         for w_other in others_w:
             if isinstance(w_other, W_BaseSetObject):
                 # optimization only
-                #XXX this creates setobject again
-                # create copy and use update
-                result = result.intersect(w_other)
+                result.intersect_update(w_other)
             else:
-                result2 = w_set._newobj(self.space, None)
-                for w_key in self.space.listview(w_other):
-                    if result.has_key(w_key):
-                        result2.add(w_key)
-                result = result2
+                w_other_as_set = w_set._newobj(self.space, w_other)
+                result.intersect_update(w_other_as_set)
         return result
 
     def intersect_multiple_update(self, w_set, others_w):
-        #XXX faster withouth creating the setobject in intersect_multiple
         result = self.intersect_multiple(w_set, others_w)
         w_set.strategy = result.strategy
         w_set.sstorage = result.sstorage
