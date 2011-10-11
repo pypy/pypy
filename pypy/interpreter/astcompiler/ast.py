@@ -292,19 +292,23 @@ class FunctionDef(stmt):
 
 class ClassDef(stmt):
 
-    _lineno_mask = 16
-    _col_offset_mask = 32
+    _lineno_mask = 128
+    _col_offset_mask = 256
 
-    def __init__(self, name, bases, body, decorator_list, lineno, col_offset):
+    def __init__(self, name, bases, keywords, starargs, kwargs, body, decorator_list, lineno, col_offset):
         self.name = name
         self.bases = bases
         self.w_bases = None
+        self.keywords = keywords
+        self.w_keywords = None
+        self.starargs = starargs
+        self.kwargs = kwargs
         self.body = body
         self.w_body = None
         self.decorator_list = decorator_list
         self.w_decorator_list = None
         stmt.__init__(self, lineno, col_offset)
-        self.initialization_state = 63
+        self.initialization_state = 511
 
     def walkabout(self, visitor):
         visitor.visit_ClassDef(self)
@@ -312,6 +316,12 @@ class ClassDef(stmt):
     def mutate_over(self, visitor):
         if self.bases:
             visitor._mutate_sequence(self.bases)
+        if self.keywords:
+            visitor._mutate_sequence(self.keywords)
+        if self.starargs:
+            self.starargs = self.starargs.mutate_over(visitor)
+        if self.kwargs:
+            self.kwargs = self.kwargs.mutate_over(visitor)
         if self.body:
             visitor._mutate_sequence(self.body)
         if self.decorator_list:
@@ -319,10 +329,13 @@ class ClassDef(stmt):
         return visitor.visit_ClassDef(self)
 
     def sync_app_attrs(self, space):
-        if (self.initialization_state & ~0) ^ 63:
-            missing_field(space, self.initialization_state, ['name', 'bases', 'body', 'decorator_list', 'lineno', 'col_offset'], 'ClassDef')
+        if (self.initialization_state & ~24) ^ 487:
+            missing_field(space, self.initialization_state, ['name', 'bases', 'keywords', None, None, 'body', 'decorator_list', 'lineno', 'col_offset'], 'ClassDef')
         else:
-            pass
+            if not self.initialization_state & 8:
+                self.starargs = None
+            if not self.initialization_state & 16:
+                self.kwargs = None
         w_list = self.w_bases
         if w_list is not None:
             list_w = space.listview(w_list)
@@ -333,6 +346,20 @@ class ClassDef(stmt):
         if self.bases is not None:
             for node in self.bases:
                 node.sync_app_attrs(space)
+        w_list = self.w_keywords
+        if w_list is not None:
+            list_w = space.listview(w_list)
+            if list_w:
+                self.keywords = [space.interp_w(keyword, w_obj) for w_obj in list_w]
+            else:
+                self.keywords = None
+        if self.keywords is not None:
+            for node in self.keywords:
+                node.sync_app_attrs(space)
+        if self.starargs:
+            self.starargs.sync_app_attrs(space)
+        if self.kwargs:
+            self.kwargs.sync_app_attrs(space)
         w_list = self.w_body
         if w_list is not None:
             list_w = space.listview(w_list)
@@ -2692,6 +2719,11 @@ class GenericASTVisitor(ASTVisitor):
 
     def visit_ClassDef(self, node):
         self.visit_sequence(node.bases)
+        self.visit_sequence(node.keywords)
+        if node.starargs:
+            node.starargs.walkabout(self)
+        if node.kwargs:
+            node.kwargs.walkabout(self)
         self.visit_sequence(node.body)
         self.visit_sequence(node.decorator_list)
 
@@ -3299,8 +3331,70 @@ def ClassDef_set_bases(space, w_self, w_new_value):
     w_self.w_bases = w_new_value
     w_self.initialization_state |= 2
 
-def ClassDef_get_body(space, w_self):
+def ClassDef_get_keywords(space, w_self):
     if not w_self.initialization_state & 4:
+        typename = space.type(w_self).getname(space)
+        w_err = space.wrap("'%s' object has no attribute 'keywords'" % typename)
+        raise OperationError(space.w_AttributeError, w_err)
+    if w_self.w_keywords is None:
+        if w_self.keywords is None:
+            w_list = space.newlist([])
+        else:
+            list_w = [space.wrap(node) for node in w_self.keywords]
+            w_list = space.newlist(list_w)
+        w_self.w_keywords = w_list
+    return w_self.w_keywords
+
+def ClassDef_set_keywords(space, w_self, w_new_value):
+    w_self.w_keywords = w_new_value
+    w_self.initialization_state |= 4
+
+def ClassDef_get_starargs(space, w_self):
+    if w_self.w_dict is not None:
+        w_obj = w_self.getdictvalue(space, 'starargs')
+        if w_obj is not None:
+            return w_obj
+    if not w_self.initialization_state & 8:
+        typename = space.type(w_self).getname(space)
+        w_err = space.wrap("'%s' object has no attribute 'starargs'" % typename)
+        raise OperationError(space.w_AttributeError, w_err)
+    return space.wrap(w_self.starargs)
+
+def ClassDef_set_starargs(space, w_self, w_new_value):
+    try:
+        w_self.starargs = space.interp_w(expr, w_new_value, True)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'starargs', w_new_value)
+        return
+    w_self.deldictvalue(space, 'starargs')
+    w_self.initialization_state |= 8
+
+def ClassDef_get_kwargs(space, w_self):
+    if w_self.w_dict is not None:
+        w_obj = w_self.getdictvalue(space, 'kwargs')
+        if w_obj is not None:
+            return w_obj
+    if not w_self.initialization_state & 16:
+        typename = space.type(w_self).getname(space)
+        w_err = space.wrap("'%s' object has no attribute 'kwargs'" % typename)
+        raise OperationError(space.w_AttributeError, w_err)
+    return space.wrap(w_self.kwargs)
+
+def ClassDef_set_kwargs(space, w_self, w_new_value):
+    try:
+        w_self.kwargs = space.interp_w(expr, w_new_value, True)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        w_self.setdictvalue(space, 'kwargs', w_new_value)
+        return
+    w_self.deldictvalue(space, 'kwargs')
+    w_self.initialization_state |= 16
+
+def ClassDef_get_body(space, w_self):
+    if not w_self.initialization_state & 32:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'body'" % typename)
         raise OperationError(space.w_AttributeError, w_err)
@@ -3315,10 +3409,10 @@ def ClassDef_get_body(space, w_self):
 
 def ClassDef_set_body(space, w_self, w_new_value):
     w_self.w_body = w_new_value
-    w_self.initialization_state |= 4
+    w_self.initialization_state |= 32
 
 def ClassDef_get_decorator_list(space, w_self):
-    if not w_self.initialization_state & 8:
+    if not w_self.initialization_state & 64:
         typename = space.type(w_self).getname(space)
         w_err = space.wrap("'%s' object has no attribute 'decorator_list'" % typename)
         raise OperationError(space.w_AttributeError, w_err)
@@ -3333,18 +3427,19 @@ def ClassDef_get_decorator_list(space, w_self):
 
 def ClassDef_set_decorator_list(space, w_self, w_new_value):
     w_self.w_decorator_list = w_new_value
-    w_self.initialization_state |= 8
+    w_self.initialization_state |= 64
 
-_ClassDef_field_unroller = unrolling_iterable(['name', 'bases', 'body', 'decorator_list'])
+_ClassDef_field_unroller = unrolling_iterable(['name', 'bases', 'keywords', 'starargs', 'kwargs', 'body', 'decorator_list'])
 def ClassDef_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(ClassDef, w_self)
     w_self.w_bases = None
+    w_self.w_keywords = None
     w_self.w_body = None
     w_self.w_decorator_list = None
     args_w, kwargs_w = __args__.unpack()
     if args_w:
-        if len(args_w) != 4:
-            w_err = space.wrap("ClassDef constructor takes either 0 or 4 positional arguments")
+        if len(args_w) != 7:
+            w_err = space.wrap("ClassDef constructor takes either 0 or 7 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _ClassDef_field_unroller:
@@ -3356,9 +3451,12 @@ def ClassDef_init(space, w_self, __args__):
 ClassDef.typedef = typedef.TypeDef("ClassDef",
     stmt.typedef,
     __module__='_ast',
-    _fields=_FieldsWrapper(['name', 'bases', 'body', 'decorator_list']),
+    _fields=_FieldsWrapper(['name', 'bases', 'keywords', 'starargs', 'kwargs', 'body', 'decorator_list']),
     name=typedef.GetSetProperty(ClassDef_get_name, ClassDef_set_name, cls=ClassDef),
     bases=typedef.GetSetProperty(ClassDef_get_bases, ClassDef_set_bases, cls=ClassDef),
+    keywords=typedef.GetSetProperty(ClassDef_get_keywords, ClassDef_set_keywords, cls=ClassDef),
+    starargs=typedef.GetSetProperty(ClassDef_get_starargs, ClassDef_set_starargs, cls=ClassDef),
+    kwargs=typedef.GetSetProperty(ClassDef_get_kwargs, ClassDef_set_kwargs, cls=ClassDef),
     body=typedef.GetSetProperty(ClassDef_get_body, ClassDef_set_body, cls=ClassDef),
     decorator_list=typedef.GetSetProperty(ClassDef_get_decorator_list, ClassDef_set_decorator_list, cls=ClassDef),
     __new__=interp2app(get_AST_new(ClassDef)),
