@@ -660,4 +660,8 @@ def _opcode_stack_effect(op, arg):
         try:
             return _static_opcode_stack_effects[op]
         except KeyError:
-            return _stack_effect_computers[op](arg)
+            try:
+                return _stack_effect_computers[op](arg)
+            except KeyError:
+                raise KeyError("Unknown stack effect for %s (%s)" %
+                               (ops.opname[op], op))
