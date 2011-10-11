@@ -244,10 +244,6 @@ class EmptySetStrategy(SetStrategy):
         return False
 
     def difference(self, w_set, w_other):
-        # XXX what is w_other here? a set or any wrapped object?
-        # if a set, the following line is unnecessary (sets contain only
-        # hashable objects).
-        self.check_for_unhashable_objects(w_other)
         return w_set.copy()
 
     def difference_update(self, w_set, w_other):
@@ -896,9 +892,13 @@ sub__Frozenset_Frozenset = sub__Set_Set
 def set_difference__Set(space, w_left, others_w):
     if len(others_w) == 0:
         return w_left.copy()
-    result = w_left
+    result = w_left.copy()
     for w_other in others_w:
-        result = result.difference(w_other)
+        if isinstance(w_other, W_BaseSetObject):
+            result.difference_update(w_other)
+        else:
+            w_other_as_set = w_left._newobj(space, w_other)
+            result.difference_update(w_other_as_set)
     return result
 
 frozenset_difference__Frozenset = set_difference__Set
