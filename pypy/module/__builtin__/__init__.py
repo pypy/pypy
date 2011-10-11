@@ -20,6 +20,7 @@ class Module(MixedModule):
         'any'           : 'app_functional.any',
         'all'           : 'app_functional.all',
         'sum'           : 'app_functional.sum',
+        'map'           : 'app_functional.map',
         'vars'          : 'app_inspect.vars',
         'dir'           : 'app_inspect.dir',
 
@@ -86,7 +87,6 @@ class Module(MixedModule):
         'enumerate'     : 'functional.W_Enumerate',
         'min'           : 'functional.min',
         'max'           : 'functional.max',
-        'map'           : 'functional.map',
         'zip'           : 'functional.zip',
         'reduce'        : 'functional.reduce',
         'reversed'      : 'functional.reversed',
