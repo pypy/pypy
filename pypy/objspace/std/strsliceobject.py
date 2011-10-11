@@ -196,18 +196,6 @@ def getitem__StringSlice_Slice(space, w_str, w_slice):
             str = "".join([s[start + i*step] for i in range(sl)])
     return wrapstr(space, str)
 
-def getslice__StringSlice_ANY_ANY(space, w_str, w_start, w_stop):
-    length = w_str.stop - w_str.start
-    start, stop = normalize_simple_slice(space, length, w_start, w_stop)
-    sl = stop - start
-    if sl == 0:
-        return W_StringObject.EMPTY
-    else:
-        s = w_str.str
-        start = w_str.start + start
-        stop = w_str.start + stop
-        return W_StringSliceObject(s, start, stop)
-
 def len__StringSlice(space, w_str):
     return space.wrap(w_str.stop - w_str.start)
 

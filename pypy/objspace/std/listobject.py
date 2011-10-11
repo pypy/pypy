@@ -91,25 +91,6 @@ def getitem__List_Slice(space, w_list, w_slice):
         start += step
     return w_res
 
-def getslice__List_ANY_ANY(space, w_list, w_start, w_stop):
-    length = len(w_list.wrappeditems)
-    start, stop = normalize_simple_slice(space, length, w_start, w_stop)
-    return W_ListObject(w_list.wrappeditems[start:stop])
-
-def setslice__List_ANY_ANY_ANY(space, w_list, w_start, w_stop, w_sequence):
-    length = len(w_list.wrappeditems)
-    start, stop = normalize_simple_slice(space, length, w_start, w_stop)
-
-    sequence2 = space.listview(w_sequence)
-    items = w_list.wrappeditems
-    _setitem_slice_helper(space, items, start, 1, stop-start, sequence2,
-                          empty_elem=None)
-
-def delslice__List_ANY_ANY(space, w_list, w_start, w_stop):
-    length = len(w_list.wrappeditems)
-    start, stop = normalize_simple_slice(space, length, w_start, w_stop)
-    _delitem_slice_helper(space, w_list.wrappeditems, start, 1, stop-start)
-
 def contains__List_ANY(space, w_list, w_obj):
     # needs to be safe against eq_w() mutating the w_list behind our back
     i = 0

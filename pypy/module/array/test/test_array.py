@@ -307,11 +307,6 @@ class BaseArrayTests:
         raises(TypeError, "a[1:3] = self.array('I', [5, 6])")
         raises(TypeError, "a[1:3] = [5, 6]")
 
-        a = self.array('i', [1, 2, 3])
-        assert a.__getslice__(1, 2) == a[1:2]
-        a.__setslice__(1, 2, self.array('i', (7,)))
-        assert a[0] == 1 and a[1] == 7 and a[2] == 3
-
     def test_resizingslice(self):
         a = self.array('i', [1, 2, 3])
         a[1:2] = self.array('i', [7, 8, 9])
@@ -665,9 +660,6 @@ class BaseArrayTests:
         a = self.array('i', [1, 2, 3, 4, 5])
         del a[1:3]
         assert repr(a) == "array('i', [1, 4, 5])"
-
-        a.__delslice__(0, 2)
-        assert repr(a) == "array('i', [5])"
 
     def test_iter(self):
         a = self.array('i', [1, 2, 3])

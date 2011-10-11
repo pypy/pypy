@@ -606,22 +606,6 @@ class AppTestOldstyle(object):
             skip("__rpow__(self, other, mod) seems not to work on CPython")
         assert pow(4, a, 5) == 625
 
-    def test_getsetdelslice(self):
-
-        class A:
-            def __getslice__(self, i, j):
-                return i + j
-            def __setslice__(self, i, j, seq):
-                self.last = (i, j, seq)
-            def __delslice__(self, i, j):
-                self.last = (i, j, None)
-        a = A()
-        assert a[1:3] == 4
-        a[1:3] = [1, 2, 3]
-        assert a.last == (1, 3, [1, 2, 3])
-        del a[1:4]
-        assert a.last == (1, 4, None)
-
     def test_contains_bug(self):
         class A:
             def __iter__(self):

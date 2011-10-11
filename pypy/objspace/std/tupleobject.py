@@ -58,11 +58,6 @@ def getitem__Tuple_Slice(space, w_tuple, w_slice):
         start += step
     return space.newtuple(subitems)
 
-def getslice__Tuple_ANY_ANY(space, w_tuple, w_start, w_stop):
-    length = len(w_tuple.wrappeditems)
-    start, stop = normalize_simple_slice(space, length, w_start, w_stop)
-    return space.newtuple(w_tuple.wrappeditems[start:stop])
-
 def contains__Tuple_ANY(space, w_tuple, w_obj):
     for w_item in w_tuple.wrappeditems:
         if space.eq_w(w_item, w_obj):

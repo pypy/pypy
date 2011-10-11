@@ -322,28 +322,16 @@ class DescrOperation(object):
         return space.get_and_call_function(w_descr, w_obj, w_key)
 
     def getslice(space, w_obj, w_start, w_stop):
-        w_descr = space.lookup(w_obj, '__getslice__')
-        if w_descr is None:
-            w_slice = space.newslice(w_start, w_stop, space.w_None)
-            return space.getitem(w_obj, w_slice)
-        w_start, w_stop = old_slice_range(space, w_obj, w_start, w_stop)
-        return space.get_and_call_function(w_descr, w_obj, w_start, w_stop)
+        w_slice = space.newslice(w_start, w_stop, space.w_None)
+        return space.getitem(w_obj, w_slice)
 
     def setslice(space, w_obj, w_start, w_stop, w_sequence):
-        w_descr = space.lookup(w_obj, '__setslice__')
-        if w_descr is None:
-            w_slice = space.newslice(w_start, w_stop, space.w_None)
-            return space.setitem(w_obj, w_slice, w_sequence)
-        w_start, w_stop = old_slice_range(space, w_obj, w_start, w_stop)
-        return space.get_and_call_function(w_descr, w_obj, w_start, w_stop, w_sequence)
+        w_slice = space.newslice(w_start, w_stop, space.w_None)
+        return space.setitem(w_obj, w_slice, w_sequence)
 
     def delslice(space, w_obj, w_start, w_stop):
-        w_descr = space.lookup(w_obj, '__delslice__')
-        if w_descr is None:
-            w_slice = space.newslice(w_start, w_stop, space.w_None)
-            return space.delitem(w_obj, w_slice)
-        w_start, w_stop = old_slice_range(space, w_obj, w_start, w_stop)
-        return space.get_and_call_function(w_descr, w_obj, w_start, w_stop)
+        w_slice = space.newslice(w_start, w_stop, space.w_None)
+        return space.delitem(w_obj, w_slice)
 
     def format(space, w_obj, w_format_spec):
         w_descr = space.lookup(w_obj, '__format__')

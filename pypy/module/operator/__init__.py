@@ -17,11 +17,9 @@ class Module(MixedModule):
 
     appleveldefs = {} 
     
-    app_names = ['__delslice__', '__getslice__', '__repeat__', '__setslice__',
-                 'countOf', 'delslice', 'getslice', 'indexOf',
+    app_names = ['__repeat__', 'countOf', 'indexOf',
                  'isMappingType', 'isNumberType', 'isSequenceType',
-                 'repeat', 'setslice',
-                 'attrgetter', 'itemgetter', 'methodcaller',
+                 'repeat', 'attrgetter', 'itemgetter', 'methodcaller',
              ]
 
     for name in app_names:

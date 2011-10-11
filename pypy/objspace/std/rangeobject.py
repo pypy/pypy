@@ -102,17 +102,6 @@ def getitem__RangeList_Slice(space, w_rangelist, w_slice):
     rangestep = w_rangelist.step * step
     return W_RangeListObject(rangestart, rangestep, slicelength)
 
-def getslice__RangeList_ANY_ANY(space, w_rangelist, w_start, w_stop):
-    if w_rangelist.w_list is not None:
-        return space.getslice(w_rangelist.w_list, w_start, w_stop)
-    length = w_rangelist.length
-    start, stop = normalize_simple_slice(space, length, w_start, w_stop)
-    slicelength = stop - start
-    assert slicelength >= 0
-    rangestart = w_rangelist.getitem_unchecked(start)
-    rangestep = w_rangelist.step
-    return W_RangeListObject(rangestart, rangestep, slicelength)
-
 def iter__RangeList(space, w_rangelist):
     return W_RangeIterObject(w_rangelist)
 

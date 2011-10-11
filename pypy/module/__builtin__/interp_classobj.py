@@ -499,28 +499,6 @@ class W_InstanceObject(Wrappable):
     #XXX do I really need a next method? the old implementation had one, but I
     # don't see the point
 
-    def descr_getslice(self, space, w_i, w_j):
-        w_meth = self.getattr(space, '__getslice__', False)
-        if w_meth is not None:
-            return space.call_function(w_meth, w_i, w_j)
-        else:
-            return space.getitem(self, space.newslice(w_i, w_j, space.w_None))
-
-    def descr_setslice(self, space, w_i, w_j, w_sequence):
-        w_meth = self.getattr(space, '__setslice__', False)
-        if w_meth is not None:
-            space.call_function(w_meth, w_i, w_j, w_sequence)
-        else:
-            space.setitem(self, space.newslice(w_i, w_j, space.w_None),
-                          w_sequence)
-
-    def descr_delslice(self, space, w_i, w_j):
-        w_meth = self.getattr(space, '__delslice__', False)
-        if w_meth is not None:
-            space.call_function(w_meth, w_i, w_j)
-        else:
-            return space.delitem(self, space.newslice(w_i, w_j, space.w_None))
-
     def descr_call(self, space, __args__):
         w_meth = self.getattr(space, '__call__')
         return space.call_args(w_meth, __args__)
@@ -771,9 +749,6 @@ W_InstanceObject.typedef = TypeDef("instance",
     __setitem__ = interp2app(W_InstanceObject.descr_setitem),
     __delitem__ = interp2app(W_InstanceObject.descr_delitem),
     __iter__ = interp2app(W_InstanceObject.descr_iter),
-    __getslice__ = interp2app(W_InstanceObject.descr_getslice),
-    __setslice__ = interp2app(W_InstanceObject.descr_setslice),
-    __delslice__ = interp2app(W_InstanceObject.descr_delslice),
     __call__ = interp2app(W_InstanceObject.descr_call),
     __nonzero__ = interp2app(W_InstanceObject.descr_nonzero),
     __cmp__ = interp2app(W_InstanceObject.descr_cmp),

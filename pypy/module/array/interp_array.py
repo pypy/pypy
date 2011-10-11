@@ -337,9 +337,6 @@ def make_array(mytype):
             j += 1
         return w_a
 
-    def getslice__Array_ANY_ANY(space, self, w_i, w_j):
-        return space.getitem(self, space.newslice(w_i, w_j, space.w_None))
-
     def setitem__Array_ANY_ANY(space, self, w_idx, w_item):
         idx, stop, step = space.decode_index(w_idx, self.len)
         if step != 0:
@@ -371,9 +368,6 @@ def make_array(mytype):
                 for i in range(start, stop, step):
                     self.buffer[i] = w_item.buffer[j]
                     j += 1
-
-    def setslice__Array_ANY_ANY_ANY(space, self, w_i, w_j, w_x):
-        space.setitem(self, space.newslice(w_i, w_j, space.w_None), w_x)
 
     def array_append__Array_ANY(space, self, w_x):
         x = self.item_w(w_x)
@@ -446,9 +440,6 @@ def make_array(mytype):
         space.delitem(w_lst, w_idx)
         self.setlen(0)
         self.fromsequence(w_lst)
-
-    def delslice__Array_ANY_ANY(space, self, w_i, w_j):
-        return space.delitem(self, space.newslice(w_i, w_j, space.w_None))
 
     # Add and mul methods
 

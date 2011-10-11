@@ -100,14 +100,6 @@ subscr_operations = misc.dict_to_switch({
     ast.Del : ops.DELETE_SUBSCR
 })
 
-slice_operations = misc.dict_to_switch({
-    ast.AugLoad : ops.SLICE,
-    ast.Load : ops.SLICE,
-    ast.AugStore : ops.STORE_SLICE,
-    ast.Store : ops.STORE_SLICE,
-    ast.Del : ops.DELETE_SLICE
-})
-
 
 class __extend__(ast.GeneratorExp):
 
@@ -1081,35 +1073,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         else:
             raise AssertionError("unknown context")
 
-    def _simple_slice(self, slc, ctx):
-        slice_offset = 0
-        stack_count = 0
-        if slc.lower:
-            slice_offset += 1
-            stack_count += 1
-            if ctx != ast.AugStore:
-                slc.lower.walkabout(self)
-        if slc.upper:
-            slice_offset += 2
-            stack_count += 1
-            if ctx != ast.AugStore:
-                slc.upper.walkabout(self)
-        if ctx == ast.AugLoad:
-            if stack_count == 0:
-                self.emit_op(ops.DUP_TOP)
-            elif stack_count == 1:
-                self.emit_op_arg(ops.DUP_TOPX, 2)
-            elif stack_count == 2:
-                self.emit_op_arg(ops.DUP_TOPX, 3)
-        elif ctx == ast.AugStore:
-            if stack_count == 0:
-                self.emit_op(ops.ROT_TWO)
-            elif stack_count == 1:
-                self.emit_op(ops.ROT_THREE)
-            elif stack_count == 2:
-                self.emit_op(ops.ROT_FOUR)
-        self.emit_op(slice_operations(ctx) + slice_offset)
-
     def _complex_slice(self, slc, ctx):
         if slc.lower:
             slc.lower.walkabout(self)
@@ -1146,10 +1109,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.load_const(self.space.w_Ellipsis)
         elif isinstance(slc, ast.Slice):
             kind = "slice"
-            if not slc.step:
-                self._simple_slice(slc, ctx)
-                return
-            elif ctx != ast.AugStore:
+            if ctx != ast.AugStore:
                 self._complex_slice(slc, ctx)
         elif isinstance(slc, ast.ExtSlice):
             kind = "extended slice"

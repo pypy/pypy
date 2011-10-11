@@ -127,10 +127,9 @@ class AppTest_Descroperation:
 
     def test_getslice(self):
         class Sq(object):
-            def __getslice__(self, start, stop):
-                return (start, stop)
             def __getitem__(self, key):
-                return "booh"
+                start, stop = key
+                return (start, stop)
             def __len__(self):
                 return 100
 
@@ -152,10 +151,9 @@ class AppTest_Descroperation:
 
     def test_setslice(self):
         class Sq(object):
-            def __setslice__(self, start, stop, sequence):
-                ops.append((start, stop, sequence))
             def __setitem__(self, key, value):
-                raise AssertionError, key
+                start, stop = key
+                ops.append((start, stop, value))
             def __len__(self):
                 return 100
 
@@ -177,10 +175,9 @@ class AppTest_Descroperation:
 
     def test_delslice(self):
         class Sq(object):
-            def __delslice__(self, start, stop):
-                ops.append((start, stop))
             def __delitem__(self, key):
-                raise AssertionError, key
+                start, stop = key
+                ops.append((start, stop))
             def __len__(self):
                 return 100
 
@@ -202,10 +199,9 @@ class AppTest_Descroperation:
 
     def test_getslice_nolength(self):
         class Sq(object):
-            def __getslice__(self, start, stop):
-                return (start, stop)
             def __getitem__(self, key):
-                return "booh"
+                start, stop = key
+                return (start, stop)
 
         sq = Sq()
 

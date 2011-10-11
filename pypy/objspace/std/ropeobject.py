@@ -721,15 +721,6 @@ def getitem__Rope_Slice(space, w_str, w_slice):
         return W_RopeObject.EMPTY
     return W_RopeObject(rope.getslice(node, start, stop, step, sl))
 
-def getslice__Rope_ANY_ANY(space, w_str, w_start, w_stop):
-    node = w_str._node
-    length = node.length()
-    start, stop = normalize_simple_slice(space, length, w_start, w_stop)
-    sl = stop - start
-    if sl == 0:
-        return W_RopeObject.EMPTY
-    return W_RopeObject(rope.getslice(node, start, stop, 1, sl))
-
 def mul_string_times(space, w_str, w_times):
     try:
         mul = space.getindex_w(w_times, space.w_OverflowError)

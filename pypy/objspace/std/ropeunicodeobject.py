@@ -292,15 +292,6 @@ def getitem__RopeUnicode_Slice(space, w_uni, w_slice):
         return W_RopeUnicodeObject.EMPTY
     return W_RopeUnicodeObject(rope.getslice(node, start, stop, step, sl))
 
-def getslice__RopeUnicode_ANY_ANY(space, w_uni, w_start, w_stop):
-    node = w_uni._node
-    length = node.length()
-    start, stop = normalize_simple_slice(space, length, w_start, w_stop)
-    sl = stop - start
-    if sl == 0:
-        return W_RopeUnicodeObject.EMPTY
-    return W_RopeUnicodeObject(rope.getslice(node, start, stop, 1, sl))
-
 def mul__RopeUnicode_ANY(space, w_uni, w_times):
     try:
         times = space.getindex_w(w_times, space.w_OverflowError)

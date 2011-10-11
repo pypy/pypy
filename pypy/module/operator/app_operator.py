@@ -14,20 +14,6 @@ def countOf(a,b):
             count += 1
     return count
 
-def delslice(obj, start, end):
-    'delslice(a, b, c) -- Same as del a[b:c].'
-    if not isinstance(start, int) or not isinstance(end, int):
-        raise TypeError("an integer is expected")
-    del obj[start:end]
-__delslice__ = delslice
-
-def getslice(a, start, end):
-    'getslice(a, b, c) -- Same as a[b:c].'
-    if not isinstance(start, int) or not isinstance(end, int):
-        raise TypeError("an integer is expected")
-    return a[start:end] 
-__getslice__ = getslice
-
 def indexOf(a, b):
     'indexOf(a, b) -- Return the first index of b in a.'
     index = 0
@@ -61,11 +47,6 @@ def repeat(obj, num):
     return obj * num
 
 __repeat__ = repeat
-
-def setslice(a, b, c, d):
-    'setslice(a, b, c, d) -- Same as a[b:c] = d.'
-    a[b:c] = d 
-__setslice__ = setslice
 
 
 def attrgetter(attr, *attrs):

@@ -33,8 +33,6 @@ def delitem(space, w_obj, w_key):
     'delitem(a,b) -- Same as del a[b]'
     space.delitem(w_obj, w_key)
 
-# delslice
-
 def div(space, w_a, w_b):
     'div(a, b) -- Same as a / b when __future__.division is no in effect'
     return space.div(w_a, w_b)
@@ -54,8 +52,6 @@ def ge(space, w_a, w_b):
 def getitem(space, w_a, w_b):
     'getitem(a, b) -- Same as a[b].'
     return space.getitem(w_a, w_b)
-
-# getslice
 
 def gt(space, w_a, w_b):
     'gt(a, b) -- Same as a>b.'
@@ -133,7 +129,7 @@ def pow(space, w_a, w_b):
     'pow(a, b) -- Same as a**b.'
     return space.pow(w_a, w_b, space.w_None)
 
-# reapeat
+# repeat
 
 def rshift(space, w_a, w_b):
     'rshift(a, b) -- Same as a >> b.'
@@ -144,8 +140,6 @@ def rshift(space, w_a, w_b):
 def setitem(space, w_obj, w_key, w_value):
     'setitem(a, b, c) -- Same as a[b] = c.'
     space.setitem(w_obj, w_key, w_value)
-
-# setslice
 
 def sub(space, w_a, w_b):
     'sub(a, b) -- Same as a - b.'

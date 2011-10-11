@@ -260,11 +260,6 @@ def getitem__Unicode_Slice(space, w_uni, w_slice):
         r = u"".join([uni[start + i*step] for i in range(sl)])
     return W_UnicodeObject(r)
 
-def getslice__Unicode_ANY_ANY(space, w_uni, w_start, w_stop):
-    uni = w_uni._value
-    start, stop = normalize_simple_slice(space, len(uni), w_start, w_stop)
-    return W_UnicodeObject(uni[start:stop])
-
 def mul__Unicode_ANY(space, w_uni, w_times):
     try:
         times = space.getindex_w(w_times, space.w_OverflowError)

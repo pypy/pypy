@@ -855,14 +855,6 @@ def getitem__String_Slice(space, w_str, w_slice):
         str = "".join([s[start + i*step] for i in range(sl)])
     return wrapstr(space, str)
 
-def getslice__String_ANY_ANY(space, w_str, w_start, w_stop):
-    s = w_str._value
-    start, stop = normalize_simple_slice(space, len(s), w_start, w_stop)
-    if start == stop:
-        return W_StringObject.EMPTY
-    else:
-        return sliced(space, s, start, stop, w_str)
-
 def mul_string_times(space, w_str, w_times):
     try:
         mul = space.getindex_w(w_times, space.w_OverflowError)
