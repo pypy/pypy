@@ -400,10 +400,6 @@ class AbstractUnwrappedSetStrategy(object):
         return strategy.erase(d_new)
 
     def _difference_unwrapped(self, w_set, w_other):
-        # XXX this line should not be needed
-        # the caller (_difference_base) already checks for this!
-        if not isinstance(w_other, W_BaseSetObject):
-            w_other = w_set._newobj(self.space, w_other)
         iterator = self.unerase(w_set.sstorage).iterkeys()
         other_dict = self.unerase(w_other.sstorage)
         result_dict = self.get_empty_dict()
@@ -416,7 +412,6 @@ class AbstractUnwrappedSetStrategy(object):
         if not isinstance(w_other, W_BaseSetObject):
             w_other = w_set._newobj(self.space, w_other)
 
-        # XXX shouldn't w_set.strategy be simply "self"?
         if self is w_other.strategy:
             strategy = w_set.strategy
             storage = self._difference_unwrapped(w_set, w_other)
