@@ -115,9 +115,6 @@ class W_BaseSetObject(W_Object):
     def intersect_multiple_update(self, others_w):
         self.strategy.intersect_multiple_update(self, others_w)
 
-    def issuperset(self, w_other):
-        return self.strategy.issuperset(self, w_other)
-
     def issubset(self, w_other):
         return self.strategy.issubset(self, w_other)
 
@@ -268,13 +265,8 @@ class EmptySetStrategy(SetStrategy):
     def isdisjoint(self, w_set, w_other):
         return True
 
-    def issuperset(self, w_set, w_other):
-        if (isinstance(w_other, W_BaseSetObject) and
-                w_other.strategy is self):
-            return True
-        elif len(self.space.unpackiterable(w_other)) == 0:
-            return True
-        return False
+    def issubset(self, w_set, w_other):
+        return True
 
     def symmetric_difference(self, w_set, w_other):
         return w_other.copy()
@@ -547,38 +539,28 @@ class AbstractUnwrappedSetStrategy(object):
         w_set.strategy = result.strategy
         w_set.sstorage = result.sstorage
 
-    def _issuperset_unwrapped(self, w_set, w_other):
-        d_set = self.unerase(w_set.sstorage)
+    def _issubset_unwrapped(self, w_set, w_other):
         d_other = self.unerase(w_other.sstorage)
-
-        for e in d_other.keys():
-            if not e in d_set:
+        for item in self.unerase(w_set.sstorage):
+            if not item in d_other:
                 return False
         return True
 
-    def _issuperset_wrapped(self, w_set, w_other):
-        w_iter = self.space.iter(w_other)
-        # XXX this iteration is slow! it might be better to formulate
-        # everything in terms of issubset, to circumvent this problem.
-        while True:
-            try:
-                w_item = self.space.next(w_iter)
-                if not w_set.has_key(w_item):
-                    return False
-            except OperationError, e:
-                if not e.match(self.space, self.space.w_StopIteration):
-                    raise
-                return True
+    def _issubset_wrapped(self, w_set, w_other):
+        for obj in self.unerase(w_set.sstorage):
+            w_item = self.wrap(obj)
+            if not w_other.has_key(w_item):
+                return False
         return True
 
-    def issuperset(self, w_set, w_other):
-        if w_other.length() == 0:
+    def issubset(self, w_set, w_other):
+        if w_set.length() == 0:
             return True
 
         if w_set.strategy is w_other.strategy:
-            return self._issuperset_unwrapped(w_set, w_other)
+            return self._issubset_unwrapped(w_set, w_other)
         else:
-            return self._issuperset_wrapped(w_set, w_other)
+            return self._issubset_wrapped(w_set, w_other)
 
     def _isdisjoint_unwrapped(self, w_set, w_other):
         d_set = self.unerase(w_set.sstorage)
@@ -961,7 +943,7 @@ def set_issubset__Set_Set(space, w_left, w_other):
         return space.w_True
     if w_left.length() > w_other.length():
         return space.w_False
-    return space.wrap(w_other.issuperset(w_left))
+    return space.wrap(w_left.issubset(w_other))
 
 set_issubset__Set_Frozenset = set_issubset__Set_Set
 frozenset_issubset__Frozenset_Set = set_issubset__Set_Set
@@ -975,7 +957,7 @@ def set_issubset__Set_ANY(space, w_left, w_other):
 
     if w_left.length() > w_other_as_set.length():
         return space.w_False
-    return space.wrap(w_other_as_set.issuperset(w_left))
+    return space.wrap(w_left.issubset(w_other_as_set))
 
 frozenset_issubset__Frozenset_ANY = set_issubset__Set_ANY
 
@@ -990,7 +972,7 @@ def set_issuperset__Set_Set(space, w_left, w_other):
         return space.w_True
     if w_left.length() < w_other.length():
         return space.w_False
-    return space.wrap(w_left.issuperset(w_other))
+    return space.wrap(w_other.issubset(w_left))
 
 set_issuperset__Set_Frozenset = set_issuperset__Set_Set
 set_issuperset__Frozenset_Set = set_issuperset__Set_Set
@@ -1004,7 +986,7 @@ def set_issuperset__Set_ANY(space, w_left, w_other):
 
     if w_left.length() < w_other_as_set.length():
         return space.w_False
-    return space.wrap(w_left.issuperset(w_other_as_set))
+    return space.wrap(w_other_as_set.issubset(w_left))
 
 frozenset_issuperset__Frozenset_ANY = set_issuperset__Set_ANY
 
