@@ -101,7 +101,10 @@ class FakeCallInfoCollection:
         return False
     def callinfo_for_oopspec(self, oopspecindex):
         assert oopspecindex == effectinfo.EffectInfo.OS_STREQ_NONNULL
-        return ('calldescr', None)
+        class c:
+            class adr:
+                ptr = 1
+        return ('calldescr', c)
 
 class FakeBuiltinCallControl:
     def __init__(self):
@@ -856,11 +859,12 @@ def test_str_promote():
                         [v1, Constant({'promote_string': True}, lltype.Void)],
                         v2)
     tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
-    op0 = tr.rewrite_operation(op)
-    assert op0.opname == 'str_guard_value'
-    assert op0.args[0] == v1
-    assert op0.args[2] == 'calldescr'
-    assert op0.result == v2
+    op0, op1, _ = tr.rewrite_operation(op)
+    assert op1.opname == 'str_guard_value'
+    assert op1.args[0] == v1
+    assert op1.args[2] == 'calldescr'
+    assert op1.result == v2
+    assert op0.opname == '-live-'
 
 def test_unicode_concat():
     # test that the oopspec is present and correctly transformed
