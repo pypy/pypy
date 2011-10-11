@@ -110,6 +110,11 @@ If only globals is given, locals defaults to it.
 
     return codeobj.exec_code(space, w_globals, w_locals)
 
+def exec_(space, w_prog, w_globals=None, w_locals=None):
+    ec = space.getexecutioncontext()
+    frame = ec.gettopframe_nohidden()
+    frame.exec_(w_prog, w_globals, w_locals)
+
 def build_class(space, w_func, w_name, __args__):
     bases_w, kwds_w = __args__.unpack()
     w_bases = space.newtuple(bases_w)

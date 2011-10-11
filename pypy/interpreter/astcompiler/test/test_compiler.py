@@ -383,7 +383,7 @@ class TestCompiler:
             ('''
                 class Foo(object): pass
                 foo = Foo()
-                exec "'moduledoc'" in foo.__dict__
+                exec("'moduledoc'", foo.__dict__)
              ''',                            "moduledoc"),
             ]:
             yield self.simple_test, source, "foo.__doc__", expected
@@ -782,28 +782,17 @@ class TestCompiler:
 class AppTestCompiler:
 
     def test_docstring_not_loaded(self):
-        import StringIO, dis, sys
+        import io, dis, sys
         ns = {}
-        exec "def f():\n    'hi'" in ns
+        exec("def f():\n    'hi'", ns)
         f = ns["f"]
         save = sys.stdout
-        sys.stdout = output = StringIO.StringIO()
+        sys.stdout = output = io.BytesIO()
         try:
             dis.dis(f)
         finally:
             sys.stdout = save
         assert "0 ('hi')" not in output.getvalue()
-
-    def test_print_to(self):
-         exec """if 1:
-         from StringIO import StringIO
-         s = StringIO()
-         print >> s, "hi", "lovely!"
-         assert s.getvalue() == "hi lovely!\\n"
-         s = StringIO()
-         print >> s, "hi", "lovely!",
-         assert s.getvalue() == "hi lovely!"
-         """ in {}
 
 class TestOptimizations:
     def count_instructions(self, source):
@@ -870,10 +859,10 @@ class TestOptimizations:
         space = self.space
         w_generator = space.appexec([], """():
             d = {}
-            exec '''def f(x):
+            exec('''def f(x):
                 return
                 yield 6
-            ''' in d
+            ''', d)
             return d['f'](5)
         """)
         assert 'generator' in space.str_w(space.repr(w_generator))

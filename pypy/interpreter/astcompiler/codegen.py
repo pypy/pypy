@@ -757,20 +757,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                     arg += 1
         self.emit_op_arg(ops.RAISE_VARARGS, arg)
 
-    def visit_Exec(self, exc):
-        self.update_position(exc.lineno, True)
-        exc.body.walkabout(self)
-        if exc.globals:
-            exc.globals.walkabout(self)
-            if exc.locals:
-                exc.locals.walkabout(self)
-            else:
-                self.emit_op(ops.DUP_TOP)
-        else:
-            self.load_const(self.space.w_None)
-            self.emit_op(ops.DUP_TOP)
-        self.emit_op(ops.EXEC_STMT)
-
     def visit_Global(self, glob):
         # Handled in symbol table building.
         pass

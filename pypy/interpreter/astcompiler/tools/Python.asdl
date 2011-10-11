@@ -42,11 +42,6 @@ module Python version "$Revision: 43614 $"
 	      | Import(alias* names)
 	      | ImportFrom(identifier? module, alias* names, int? level)
 
-	      -- Doesn't capture requirement that locals must be
-	      -- defined if globals is
-	      -- still supports use as a function!
-	      | Exec(expr body, expr? globals, expr? locals)
-
 	      | Global(identifier* names)
 	      | Expr(expr value)
 	      | Pass | Break | Continue

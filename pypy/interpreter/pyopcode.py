@@ -514,10 +514,8 @@ class __extend__(pyframe.PyFrame):
     def STORE_LOCALS(self, oparg, next_instr):
         self.w_locals = self.popvalue()
 
-    def EXEC_STMT(self, oparg, next_instr):
-        w_locals = self.popvalue()
-        w_globals = self.popvalue()
-        w_prog = self.popvalue()
+    def exec_(self, w_prog, w_locals, w_globals):
+        """The ___builtin__.exec function."""
         ec = self.space.getexecutioncontext()
         flags = ec.compiler.getcodeflags(self.pycode)
         w_compile_flags = self.space.wrap(flags)

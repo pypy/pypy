@@ -77,6 +77,7 @@ class Module(MixedModule):
 
         'compile'       : 'compiling.compile',
         'eval'          : 'compiling.eval',
+        'exec'          : 'compiling.exec_',
         '__build_class__': 'compiling.build_class',
 
         '__import__'    : 'pypy.module.imp.importing.importhook',

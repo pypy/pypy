@@ -272,18 +272,6 @@ class ASTBuilder(object):
                  for i in range(1, len(global_node.children), 2)]
         return ast.Global(names, global_node.lineno, global_node.column)
 
-    def handle_exec_stmt(self, exec_node):
-        child_count = len(exec_node.children)
-        globs = None
-        locs = None
-        to_execute = self.handle_expr(exec_node.children[1])
-        if child_count >= 4:
-            globs = self.handle_expr(exec_node.children[3])
-        if child_count == 6:
-            locs = self.handle_expr(exec_node.children[5])
-        return ast.Exec(to_execute, globs, locs, exec_node.lineno,
-                        exec_node.column)
-
     def handle_assert_stmt(self, assert_node):
         child_count = len(assert_node.children)
         expr = self.handle_expr(assert_node.children[1])
@@ -647,8 +635,6 @@ class ASTBuilder(object):
                 return self.handle_global_stmt(stmt)
             elif stmt_type == syms.assert_stmt:
                 return self.handle_assert_stmt(stmt)
-            elif stmt_type == syms.exec_stmt:
-                return self.handle_exec_stmt(stmt)
             else:
                 raise AssertionError("unhandled small statement")
         elif stmt_type == syms.compound_stmt:
