@@ -448,13 +448,21 @@ class AbstractUnwrappedSetStrategy(object):
 
     def _symmetric_difference_wrapped(self, w_set, w_other):
         newsetdata = newset(self.space)
-        # XXX don't use getkeys for the next line, you know how to iterate over it
-        for w_key in w_set.getkeys():
-            if not w_other.has_key(w_key):
-                newsetdata[w_key] = None
-        for w_key in w_other.getkeys(): # XXX use set iterator
-            if not w_set.has_key(w_key):
-                newsetdata[w_key] = None
+        for obj in self.unerase(w_set.sstorage):
+            w_item = self.wrap(obj)
+            if not w_other.has_key(w_item):
+                newsetdata[w_item] = None
+
+        w_iterator = self.space.iter(w_other)
+        while True:
+            try:
+                w_item = self.space.next(w_iterator)
+                if not w_set.has_key(w_item):
+                    newsetdata[w_item] = None
+            except OperationError, e:
+                if not e.match(self.space, self.space.w_StopIteration):
+                    raise
+                break
 
         strategy = self.space.fromcache(ObjectSetStrategy)
         return strategy.erase(newsetdata)
