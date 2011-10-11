@@ -910,9 +910,8 @@ def set_difference_update__Set(space, w_left, others_w):
             # optimization only
             w_left.difference_update(w_other)
         else:
-            for w_key in space.listview(w_other):
-                space.hash(w_key)
-                w_left.remove(w_key)
+            w_other_as_set = w_left._newobj(space, w_other)
+            w_left.difference_update(w_other_as_set)
 
 def inplace_sub__Set_Set(space, w_left, w_other):
     w_left.difference_update(w_other)
