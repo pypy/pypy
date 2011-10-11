@@ -324,6 +324,9 @@ class AppTestAppSetTest:
         s1 = set('abc')
         s1.update('d', 'ef', frozenset('g'))
         assert s1 == set('abcdefg')
+        s1 = set()
+        s1.update(set('abcd'))
+        assert s1 == set('abcd')
 
     def test_recursive_repr(self):
         class A(object):

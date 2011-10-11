@@ -285,7 +285,7 @@ class EmptySetStrategy(SetStrategy):
 
     def update(self, w_set, w_other):
         w_set.strategy = w_other.strategy
-        w_set.storage = w_other.get_storage_copy()
+        w_set.sstorage = w_other.get_storage_copy()
 
     def iter(self, w_set):
         return EmptyIteratorImplementation(self.space, w_set)
