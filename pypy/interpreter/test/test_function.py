@@ -34,6 +34,7 @@ class AppTestFunctionIntrospection:
         assert f.__dict__ is f.func_dict
         assert f.__code__ is f.func_code
         assert f.__defaults__ is f.func_defaults
+        assert f.__globals__ is f.func_globals
         assert hasattr(f, '__class__')
 
     def test_classmethod(self):
@@ -438,16 +439,16 @@ class AppTestMethod:
         class A(object):
             def __call__(self, x):
                 return x
-        import new
-        im = new.instancemethod(A(), 3)
+        import types
+        im = types.MethodType(A(), 3)
         assert im() == 3
 
     def test_method_w_callable_call_function(self):
         class A(object):
             def __call__(self, x, y):
                 return x+y
-        import new
-        im = new.instancemethod(A(), 3)
+        import types
+        im = types.MethodType(A(), 3)
         assert map(im, [4]) == [7]
 
     def test_unbound_typecheck(self):
@@ -474,15 +475,15 @@ class AppTestMethod:
         assert Fun[:2] == ('Fun', ())
 
     def test_unbound_abstract_typecheck(self):
-        import new
+        import types
         def f(*args):
             return args
-        m = new.instancemethod(f, None, "foobar")
+        m = types.MethodType(f, None, "foobar")
         raises(TypeError, m)
         raises(TypeError, m, None)
         raises(TypeError, m, "egg")
 
-        m = new.instancemethod(f, None, (str, int))     # really obscure...
+        m = types.MethodType(f, None, (str, int))     # really obscure...
         assert m(4) == (4,)
         assert m("uh") == ("uh",)
         raises(TypeError, m, [])
@@ -506,7 +507,7 @@ class AppTestMethod:
         BSub1.__bases__ = (BBase,)
         BSub2.__bases__ = (BBase,)
         x = MyInst(BSub1)
-        m = new.instancemethod(f, None, BSub1)
+        m = types.MethodType(f, None, BSub1)
         assert m(x) == (x,)
         raises(TypeError, m, MyInst(BBase))
         raises(TypeError, m, MyInst(BSub2))
@@ -514,9 +515,9 @@ class AppTestMethod:
         raises(TypeError, m, MyInst(42))
 
     def test_invalid_creation(self):
-        import new
+        import types
         def f(): pass
-        raises(TypeError, new.instancemethod, f, None)
+        raises(TypeError, types.MethodType, f, None)
 
     def test_empty_arg_kwarg_call(self):
         def f():
