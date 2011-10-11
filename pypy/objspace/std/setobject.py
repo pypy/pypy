@@ -270,8 +270,7 @@ class EmptySetStrategy(SetStrategy):
 
     def issuperset(self, w_set, w_other):
         if (isinstance(w_other, W_BaseSetObject) and
-                # XXX can't this be written as w_other.strategy is self?
-                w_other.strategy is self.space.fromcache(EmptySetStrategy)):
+                w_other.strategy is self):
             return True
         elif len(self.space.unpackiterable(w_other)) == 0:
             return True
@@ -428,7 +427,7 @@ class AbstractUnwrappedSetStrategy(object):
             w_other = w_set._newobj(self.space, w_other)
 
         # XXX shouldn't w_set.strategy be simply "self"?
-        if w_set.strategy is w_other.strategy:
+        if self is w_other.strategy:
             strategy = w_set.strategy
             storage = self._difference_unwrapped(w_set, w_other)
         else:
@@ -477,7 +476,7 @@ class AbstractUnwrappedSetStrategy(object):
 
     def _symmetric_difference_base(self, w_set, w_other):
         # shouldn't that be "if self is w_other.strategy"?
-        if w_set.strategy is w_other.strategy:
+        if self is w_other.strategy:
             strategy = w_set.strategy
             storage = self._symmetric_difference_unwrapped(w_set, w_other)
         else:
@@ -496,7 +495,7 @@ class AbstractUnwrappedSetStrategy(object):
 
     def _intersect_base(self, w_set, w_other):
         # XXX shouldn't this again be equivalent to self?
-        if w_set.strategy is w_other.strategy:
+        if self is w_other.strategy:
             strategy = w_set.strategy
             storage = strategy._intersect_unwrapped(w_set, w_other)
         else:
