@@ -489,13 +489,11 @@ _static_opcode_stack_effects = {
     ops.POP_TOP : -1,
     ops.ROT_TWO : 0,
     ops.ROT_THREE : 0,
-    ops.ROT_FOUR : 0,
     ops.DUP_TOP : 1,
 
     ops.UNARY_POSITIVE : 0,
     ops.UNARY_NEGATIVE : 0,
     ops.UNARY_NOT : 0,
-    ops.UNARY_CONVERT : 0,
     ops.UNARY_INVERT : 0,
 
     ops.LIST_APPEND : -1,
@@ -505,7 +503,6 @@ _static_opcode_stack_effects = {
 
     ops.BINARY_POWER : -1,
     ops.BINARY_MULTIPLY : -1,
-    ops.BINARY_DIVIDE : -1,
     ops.BINARY_MODULO : -1,
     ops.BINARY_ADD : -1,
     ops.BINARY_SUBTRACT : -1,
@@ -523,7 +520,6 @@ _static_opcode_stack_effects = {
     ops.INPLACE_ADD : -1,
     ops.INPLACE_SUBTRACT : -1,
     ops.INPLACE_MULTIPLY : -1,
-    ops.INPLACE_DIVIDE : -1,
     ops.INPLACE_MODULO : -1,
     ops.INPLACE_POWER : -1,
     ops.INPLACE_LSHIFT : -1,
@@ -531,19 +527,6 @@ _static_opcode_stack_effects = {
     ops.INPLACE_AND : -1,
     ops.INPLACE_OR : -1,
     ops.INPLACE_XOR : -1,
-
-    ops.SLICE+0 : 1,
-    ops.SLICE+1 : 0,
-    ops.SLICE+2 : 0,
-    ops.SLICE+3 : -1,
-    ops.STORE_SLICE+0 : -2,
-    ops.STORE_SLICE+1 : -3,
-    ops.STORE_SLICE+2 : -3,
-    ops.STORE_SLICE+3 : -4,
-    ops.DELETE_SLICE+0 : -1,
-    ops.DELETE_SLICE+1 : -2,
-    ops.DELETE_SLICE+2 : -2,
-    ops.DELETE_SLICE+3 : -3,
 
     ops.STORE_SUBSCR : -2,
     ops.DELETE_SUBSCR : -2,
@@ -555,10 +538,6 @@ _static_opcode_stack_effects = {
     ops.SETUP_LOOP : 0,
 
     ops.PRINT_EXPR : -1,
-    ops.PRINT_ITEM : -1,
-    ops.PRINT_NEWLINE : 0,
-    ops.PRINT_ITEM_TO : -2,
-    ops.PRINT_NEWLINE_TO : -1,
 
     ops.WITH_CLEANUP : -1,
     ops.POP_BLOCK : 0,
@@ -567,11 +546,8 @@ _static_opcode_stack_effects = {
     ops.SETUP_FINALLY : 0,
     ops.SETUP_EXCEPT : 0,
 
-    ops.LOAD_LOCALS : 1,
     ops.RETURN_VALUE : -1,
-    ops.EXEC_STMT : -3,
     ops.YIELD_VALUE : 0,
-    ops.BUILD_CLASS : -2,
     ops.BUILD_MAP : 1,
     ops.BUILD_SET : 1,
     ops.COMPARE_OP : -1,
@@ -615,9 +591,6 @@ _static_opcode_stack_effects = {
 
 def _compute_UNPACK_SEQUENCE(arg):
     return arg + 1
-
-def _compute_DUP_TOPX(arg):
-    return arg
 
 def _compute_BUILD_TUPLE(arg):
     return 1 - arg
