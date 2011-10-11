@@ -178,7 +178,6 @@ class SetStrategy(object):
 
 class EmptySetStrategy(SetStrategy):
 
-    # XXX rename everywhere to erase and unerase
     erase, unerase = rerased.new_erasing_pair("empty")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
@@ -240,11 +239,8 @@ class EmptySetStrategy(SetStrategy):
         return False
 
     def equals(self, w_set, w_other):
-        # XXX can't this be written as w_other.strategy is self?
-        if w_other.strategy is self.space.fromcache(EmptySetStrategy):
+        if w_other.strategy is self or w_other.length() == 0:
             return True
-        # XXX let's not enforce the use of the EmptySetStrategy for empty sets
-        # similar to what we did for lists
         return False
 
     def difference(self, w_set, w_other):
