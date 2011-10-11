@@ -512,13 +512,14 @@ class StringTests:
         driver = JitDriver(greens = [], reds = ['n'])
         
         def f(n):
-            while n < 12:
+            while n < 21:
                 driver.jit_merge_point(n=n)
                 promote_string(str(n % 3))
                 n += 1
             return 0
 
         self.meta_interp(f, [0])
+        self.check_loops(call=3 + 1) # one for int2str
 
 #class TestOOtype(StringTests, OOJitMixin):
 #    CALL = "oosend"
