@@ -893,12 +893,7 @@ def set_difference__Set(space, w_left, others_w):
     if len(others_w) == 0:
         return w_left.copy()
     result = w_left.copy()
-    for w_other in others_w:
-        if isinstance(w_other, W_BaseSetObject):
-            result.difference_update(w_other)
-        else:
-            w_other_as_set = w_left._newobj(space, w_other)
-            result.difference_update(w_other_as_set)
+    set_difference_update__Set(space, result, others_w)
     return result
 
 frozenset_difference__Frozenset = set_difference__Set
