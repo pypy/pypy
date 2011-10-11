@@ -3,7 +3,8 @@ import py
 from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from pypy.rlib.debug import debug_print
-from pypy.rlib.jit import JitDriver, dont_look_inside, we_are_jitted
+from pypy.rlib.jit import JitDriver, dont_look_inside, we_are_jitted,\
+     promote_string
 from pypy.rlib.rstring import StringBuilder
 from pypy.rpython.ootypesystem import ootype
 
@@ -507,6 +508,17 @@ class StringTests:
                           'jump': 1, 'int_is_true': 1,
                           'guard_not_invalidated': 1})
 
+    def test_promote_string(self):
+        driver = JitDriver(greens = [], reds = ['n'])
+        
+        def f(n):
+            while n < 12:
+                driver.jit_merge_point(n=n)
+                promote_string(str(n % 3))
+                n += 1
+            return 0
+
+        self.meta_interp(f, [0])
 
 #class TestOOtype(StringTests, OOJitMixin):
 #    CALL = "oosend"

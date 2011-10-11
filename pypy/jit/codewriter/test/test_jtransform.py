@@ -858,7 +858,8 @@ def test_str_promote():
     tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
     op0 = tr.rewrite_operation(op)
     assert op0.opname == 'str_guard_value'
-    assert op0.args == [v1, 'calldescr']
+    assert op0.args[0] == v1
+    assert op0.args[2] == 'calldescr'
     assert op0.result == v2
 
 def test_unicode_concat():

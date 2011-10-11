@@ -38,7 +38,7 @@ def hint(x, **kwds):
     possible arguments are:
 
     * promote - promote the argument from a variable into a constant
-    * string_promote - same, but promote string by *value*
+    * promote_string - same, but promote string by *value*
     * access_directly - directly access a virtualizable, as a structure
                         and don't treat it as a virtualizable
     * fresh_virtualizable - means that virtualizable was just allocated.

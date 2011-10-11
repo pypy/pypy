@@ -464,11 +464,13 @@ class Transformer(object):
                                         [S, S],
                                         lltype.Signed,
                                         EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
-            descr = self.callcontrol.callinfocollection.callinfo_for_oopspec(
-                EffectInfo.OS_STREQ_NONNULL)[0]
-            op1 = SpaceOperation('str_guard_value', [op.args[0], descr],
+            descr, p = self.callcontrol.callinfocollection.callinfo_for_oopspec(
+                EffectInfo.OS_STREQ_NONNULL)
+            # XXX
+            c = Constant(p.adr.ptr, lltype.typeOf(p.adr.ptr))
+            op1 = SpaceOperation('str_guard_value', [op.args[0], c, descr],
                                  op.result)
-            return op1
+            return [SpaceOperation('-live-', [], None), op1, None]
         else:
             log.WARNING('ignoring hint %r at %r' % (hints, self.graph))
 
@@ -1439,7 +1441,6 @@ class Transformer(object):
             func = heaptracker.adr2int(
                 llmemory.cast_ptr_to_adr(c_func.value))
         self.callcontrol.callinfocollection.add(oopspecindex, calldescr, func)
-        return calldescr
 
     def _handle_stroruni_call(self, op, oopspec_name, args):
         SoU = args[0].concretetype     # Ptr(STR) or Ptr(UNICODE)
