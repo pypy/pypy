@@ -482,7 +482,7 @@ class AbstractUnwrappedSetStrategy(object):
         for w_key in w_set.getkeys():
             if not w_other.has_key(w_key):
                 newsetdata[w_key] = None
-        for w_key in w_other.getkeys(): # XXX here it is fine
+        for w_key in w_other.getkeys(): # XXX use set iterator
             if not w_set.has_key(w_key):
                 newsetdata[w_key] = None
 
@@ -549,6 +549,7 @@ class AbstractUnwrappedSetStrategy(object):
         if w_set.length() > w_other.length():
             # XXX this is not allowed! you must maintain the invariant that the
             # firsts argument's is self.
+            # call w_other.intersect() and apply storage of returning set to w_set
             storage, strategy = self._intersect_base(w_other, w_set)
         else:
             storage, strategy = self._intersect_base(w_set, w_other)
@@ -557,11 +558,13 @@ class AbstractUnwrappedSetStrategy(object):
         return w_set
 
     def intersect_multiple(self, w_set, others_w):
+        #XXX find smarter implementations
         result = w_set
         for w_other in others_w:
             if isinstance(w_other, W_BaseSetObject):
                 # optimization only
                 #XXX this creates setobject again
+                # create copy and use update
                 result = result.intersect(w_other)
             else:
                 result2 = w_set._newobj(self.space, None)
@@ -814,7 +817,6 @@ def newset(space):
 
 def set_strategy_and_setdata(space, w_set, w_iterable):
     from pypy.objspace.std.intobject import W_IntObject
-
     if w_iterable is None :
         w_set.strategy = space.fromcache(EmptySetStrategy)
         w_set.sstorage = w_set.strategy.get_empty_storage()
@@ -825,28 +827,24 @@ def set_strategy_and_setdata(space, w_set, w_iterable):
         w_set.sstorage = w_iterable.get_storage_copy()
         return
 
-    if not isinstance(w_iterable, list): # XXX this cannot happen, a wrapped object is never a list
-        w_iterable = space.listview(w_iterable) # XXX this should be called iterable_w, because it is an unwrapped list
+    iterable_w = space.listview(w_iterable)
 
-    if len(w_iterable) == 0:
+    if len(iterable_w) == 0:
         w_set.strategy = space.fromcache(EmptySetStrategy)
         w_set.sstorage = w_set.strategy.get_empty_storage()
         return
 
     # check for integers
-    iterator = iter(w_iterable)
-    while True:
-        try:
-            item_w = iterator.next()
-            if type(item_w) is not W_IntObject:
-                break;
-        except StopIteration:
-            w_set.strategy = space.fromcache(IntegerSetStrategy)
-            w_set.sstorage = w_set.strategy.get_storage_from_list(w_iterable)
-            return
+    for w_item in iterable_w:
+        if type(w_item) is not W_IntObject:
+            break
+    else:
+        w_set.strategy = space.fromcache(IntegerSetStrategy)
+        w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
+        return
 
     w_set.strategy = space.fromcache(ObjectSetStrategy)
-    w_set.sstorage = w_set.strategy.get_storage_from_list(w_iterable)
+    w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
 
 def _initialize_set(space, w_obj, w_iterable=None):
     w_obj.clear()

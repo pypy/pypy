@@ -233,7 +233,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return W_ComplexObject(x.real, x.imag)
 
         if isinstance(x, set):
-            res = W_SetObject(self, [self.wrap(item) for item in x])
+            res = W_SetObject(self, self.newlist([self.wrap(item) for item in x]))
             return res
 
         if isinstance(x, frozenset):
