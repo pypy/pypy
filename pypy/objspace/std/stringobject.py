@@ -178,24 +178,24 @@ def str_swapcase__String(space, w_self):
 
 def str_capitalize__String(space, w_self):
     input = w_self._value
-    buffer = [' '] * len(input)
+    builder = StringBuilder(len(input))
     if len(input) > 0:
         ch = input[0]
         if ch.islower():
             o = ord(ch) - 32
-            buffer[0] = chr(o)
+            builder.append(chr(o))
         else:
-            buffer[0] = ch
+            builder.append(ch)
 
         for i in range(1, len(input)):
             ch = input[i]
             if ch.isupper():
                 o = ord(ch) + 32
-                buffer[i] = chr(o)
+                builder.append(chr(o))
             else:
-                buffer[i] = ch
+                builder.append(ch)
 
-    return space.wrap("".join(buffer))
+    return space.wrap(builder.build())
 
 def str_title__String(space, w_self):
     input = w_self._value
