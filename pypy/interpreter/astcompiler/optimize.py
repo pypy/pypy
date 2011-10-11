@@ -175,12 +175,6 @@ class OptimizingVisitor(ast.ASTVisitor):
             right = binop.right.as_constant()
             if right is not None:
                 op = binop.op
-                # Can't fold straight division without "from __future_ import
-                # division" because it might be affected at runtime by the -Q
-                # flag.
-                if op == ast.Div and \
-                        not self.compile_info.flags & consts.CO_FUTURE_DIVISION:
-                    return binop
                 try:
                     for op_kind, folder in unrolling_binary_folders:
                         if op_kind == op:

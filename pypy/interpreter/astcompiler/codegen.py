@@ -55,6 +55,7 @@ binary_operations = misc.dict_to_switch({
     ast.Add : ops.BINARY_ADD,
     ast.Sub : ops.BINARY_SUBTRACT,
     ast.Mult : ops.BINARY_MULTIPLY,
+    ast.Div : ops.BINARY_TRUE_DIVIDE,
     ast.Mod : ops.BINARY_MODULO,
     ast.Pow : ops.BINARY_POWER,
     ast.LShift : ops.BINARY_LSHIFT,
@@ -69,6 +70,7 @@ inplace_operations = misc.dict_to_switch({
     ast.Add : ops.INPLACE_ADD,
     ast.Sub : ops.INPLACE_SUBTRACT,
     ast.Mult : ops.INPLACE_MULTIPLY,
+    ast.Div : ops.INPLACE_TRUE_DIVIDE,
     ast.Mod : ops.INPLACE_MODULO,
     ast.Pow : ops.INPLACE_POWER,
     ast.LShift : ops.INPLACE_LSHIFT,
@@ -333,11 +335,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.name_op(cls.name, ast.Store)
 
     def _op_for_augassign(self, op):
-        if op == ast.Div:
-            if self.compile_info.flags & consts.CO_FUTURE_DIVISION:
-                return ops.INPLACE_TRUE_DIVIDE
-            else:
-                return ops.INPLACE_DIVIDE
         return inplace_operations(op)
 
     def visit_AugAssign(self, assign):
@@ -380,11 +377,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.use_next_block(end)
 
     def _binop(self, op):
-        if op == ast.Div:
-            if self.compile_info.flags & consts.CO_FUTURE_DIVISION:
-                return ops.BINARY_TRUE_DIVIDE
-            else:
-                return ops.BINARY_DIVIDE
         return binary_operations(op)
 
     def visit_BinOp(self, binop):

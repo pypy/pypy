@@ -1,3 +1,4 @@
+from __future__ import division
 import py
 from pypy.interpreter.astcompiler import codegen, astbuilder, symtable, optimize
 from pypy.interpreter.pyparser import pyparse
