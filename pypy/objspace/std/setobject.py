@@ -468,7 +468,6 @@ class AbstractUnwrappedSetStrategy(object):
         return strategy.erase(newsetdata)
 
     def _symmetric_difference_base(self, w_set, w_other):
-        # shouldn't that be "if self is w_other.strategy"?
         if self is w_other.strategy:
             strategy = w_set.strategy
             storage = self._symmetric_difference_unwrapped(w_set, w_other)
@@ -487,7 +486,6 @@ class AbstractUnwrappedSetStrategy(object):
         w_set.sstorage = storage
 
     def _intersect_base(self, w_set, w_other):
-        # XXX shouldn't this again be equivalent to self?
         if self is w_other.strategy:
             strategy = w_set.strategy
             storage = strategy._intersect_unwrapped(w_set, w_other)
@@ -498,8 +496,6 @@ class AbstractUnwrappedSetStrategy(object):
 
     def _intersect_wrapped(self, w_set, w_other):
         result = self.get_empty_dict()
-        # XXX this is the correct way to iterate over w_set. please use this
-        # everywhere :-)
         items = self.unerase(w_set.sstorage).iterkeys()
         for key in items:
             w_key = self.wrap(key)
@@ -525,10 +521,9 @@ class AbstractUnwrappedSetStrategy(object):
 
     def intersect_update(self, w_set, w_other):
         if w_set.length() > w_other.length():
-            # XXX this is not allowed! you must maintain the invariant that the
-            # firsts argument's is self.
-            # call w_other.intersect() and apply storage of returning set to w_set
-            storage, strategy = self._intersect_base(w_other, w_set)
+            w_intersection = w_other.intersect(w_set)
+            strategy = w_intersection.strategy
+            storage = w_intersection.sstorage
         else:
             storage, strategy = self._intersect_base(w_set, w_other)
         w_set.strategy = strategy
