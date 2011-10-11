@@ -276,8 +276,8 @@ class ClassDef(object):
         # create the Attribute and do the generalization asked for
         newattr = Attribute(attr, self.bookkeeper)
         if s_value:
-            if newattr.name == 'intval' and getattr(s_value, 'unsigned', False):
-                import pdb; pdb.set_trace()
+            #if newattr.name == 'intval' and getattr(s_value, 'unsigned', False):
+            #    import pdb; pdb.set_trace()
             newattr.s_value = s_value
 
         # keep all subattributes' values
