@@ -54,7 +54,7 @@ class W_BaseSetObject(W_Object):
     def switch_to_object_strategy(self, space):
         d = self.strategy.getdict_w(self)
         self.strategy = strategy = space.fromcache(ObjectSetStrategy)
-        self.sstorage = strategy.cast_to_void_star(d)
+        self.sstorage = strategy.erase(d)
 
     def switch_to_empty_strategy(self):
         self.strategy = self.space.fromcache(EmptySetStrategy)
@@ -179,9 +179,9 @@ class SetStrategy(object):
 class EmptySetStrategy(SetStrategy):
 
     # XXX rename everywhere to erase and unerase
-    cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("empty")
-    cast_to_void_star = staticmethod(cast_to_void_star)
-    cast_from_void_star = staticmethod(cast_from_void_star)
+    erase, unerase = rerased.new_erasing_pair("empty")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
 
     def check_for_unhashable_objects(self, w_iterable):
         w_iterator = self.space.iter(w_iterable)
@@ -195,7 +195,7 @@ class EmptySetStrategy(SetStrategy):
                 break
 
     def get_empty_storage(self):
-        return self.cast_to_void_star(None)
+        return self.erase(None)
 
     def is_correct_type(self, w_key):
         return False
@@ -208,7 +208,7 @@ class EmptySetStrategy(SetStrategy):
 
     def copy(self, w_set):
         strategy = w_set.strategy
-        storage = self.cast_to_void_star(None)
+        storage = self.erase(None)
         clone = w_set.from_storage_and_strategy(storage, strategy)
         return clone
 
@@ -317,10 +317,10 @@ class AbstractUnwrappedSetStrategy(object):
         setdata = self.get_empty_dict()
         for w_item in list_w:
             setdata[self.unwrap(w_item)] = None
-        return self.cast_to_void_star(setdata)
+        return self.erase(setdata)
 
     def length(self, w_set):
-        return len(self.cast_from_void_star(w_set.sstorage))
+        return len(self.unerase(w_set.sstorage))
 
     def clear(self, w_set):
         w_set.switch_to_empty_strategy()
@@ -330,14 +330,14 @@ class AbstractUnwrappedSetStrategy(object):
         if isinstance(w_set, W_FrozensetObject):
             storage = w_set.sstorage
         else:
-            d = self.cast_from_void_star(w_set.sstorage)
-            storage = self.cast_to_void_star(d.copy())
+            d = self.unerase(w_set.sstorage)
+            storage = self.erase(d.copy())
         clone = w_set.from_storage_and_strategy(storage, strategy)
         return clone
 
     def add(self, w_set, w_key):
         if self.is_correct_type(w_key):
-            d = self.cast_from_void_star(w_set.sstorage)
+            d = self.unerase(w_set.sstorage)
             d[self.unwrap(w_key)] = None
         else:
             w_set.switch_to_object_strategy(self.space)
@@ -345,7 +345,7 @@ class AbstractUnwrappedSetStrategy(object):
 
     def remove(self, w_set, w_item):
         from pypy.objspace.std.dictmultiobject import _never_equal_to_string
-        d = self.cast_from_void_star(w_set.sstorage)
+        d = self.unerase(w_set.sstorage)
         if not self.is_correct_type(w_item):
             # XXX I don't understand the next line. shouldn't it be "never
             # equal to int" in the int strategy case?
@@ -363,18 +363,18 @@ class AbstractUnwrappedSetStrategy(object):
 
     def getdict_w(self, w_set):
         result = newset(self.space)
-        keys = self.cast_from_void_star(w_set.sstorage).keys()
+        keys = self.unerase(w_set.sstorage).keys()
         for key in keys:
             result[self.wrap(key)] = None
         return result
 
     def get_storage_copy(self, w_set):
-        d = self.cast_from_void_star(w_set.sstorage)
-        copy = self.cast_to_void_star(d.copy())
+        d = self.unerase(w_set.sstorage)
+        copy = self.erase(d.copy())
         return copy
 
     def getkeys(self, w_set):
-        keys = self.cast_from_void_star(w_set.sstorage).keys()
+        keys = self.unerase(w_set.sstorage).keys()
         keys_w = [self.wrap(key) for key in keys]
         return keys_w
 
@@ -387,13 +387,13 @@ class AbstractUnwrappedSetStrategy(object):
                 w_set.switch_to_object_strategy(self.space)
                 return w_set.has_key(w_key)
             return False
-        d = self.cast_from_void_star(w_set.sstorage)
+        d = self.unerase(w_set.sstorage)
         return self.unwrap(w_key) in d
 
     def equals(self, w_set, w_other):
         if w_set.length() != w_other.length():
             return False
-        items = self.cast_from_void_star(w_set.sstorage).keys()
+        items = self.unerase(w_set.sstorage).keys()
         for key in items:
             if not w_other.has_key(self.wrap(key)):
                 return False
@@ -402,7 +402,7 @@ class AbstractUnwrappedSetStrategy(object):
     def _difference_wrapped(self, w_set, w_other):
         d_new = self.get_empty_dict()
         # XXX why not just:
-        # for obj in self.cast_from_void_star(w_set.sstorage):
+        # for obj in self.unerase(w_set.sstorage):
         #    w_item = self.wrap(obj)
         #    ...
         w_iter = self.space.iter(w_set)
@@ -416,20 +416,20 @@ class AbstractUnwrappedSetStrategy(object):
                     raise
                 break;
         strategy = self.space.fromcache(ObjectSetStrategy)
-        return strategy.cast_to_void_star(d_new)
+        return strategy.erase(d_new)
 
     def _difference_unwrapped(self, w_set, w_other):
         # XXX this line should not be needed
         # the caller (_difference_base) already checks for this!
         if not isinstance(w_other, W_BaseSetObject):
             w_other = w_set._newobj(self.space, w_other)
-        iterator = self.cast_from_void_star(w_set.sstorage).iterkeys()
-        other_dict = self.cast_from_void_star(w_other.sstorage)
+        iterator = self.unerase(w_set.sstorage).iterkeys()
+        other_dict = self.unerase(w_other.sstorage)
         result_dict = self.get_empty_dict()
         for key in iterator:
             if key not in other_dict:
                 result_dict[key] = None
-        return self.cast_to_void_star(result_dict)
+        return self.erase(result_dict)
 
     def _difference_base(self, w_set, w_other):
         if not isinstance(w_other, W_BaseSetObject):
@@ -458,8 +458,8 @@ class AbstractUnwrappedSetStrategy(object):
 
     def _symmetric_difference_unwrapped(self, w_set, w_other):
         d_new = self.get_empty_dict()
-        d_this = self.cast_from_void_star(w_set.sstorage)
-        d_other = self.cast_from_void_star(w_other.sstorage)
+        d_this = self.unerase(w_set.sstorage)
+        d_other = self.unerase(w_other.sstorage)
         for key in d_other.keys():
             if not key in d_this:
                 d_new[key] = None
@@ -467,7 +467,7 @@ class AbstractUnwrappedSetStrategy(object):
             if not key in d_other:
                 d_new[key] = None
 
-        storage = self.cast_to_void_star(d_new)
+        storage = self.erase(d_new)
         return storage
 
     def _symmetric_difference_wrapped(self, w_set, w_other):
@@ -481,7 +481,7 @@ class AbstractUnwrappedSetStrategy(object):
                 newsetdata[w_key] = None
 
         strategy = self.space.fromcache(ObjectSetStrategy)
-        return strategy.cast_to_void_star(newsetdata)
+        return strategy.erase(newsetdata)
 
     def _symmetric_difference_base(self, w_set, w_other):
         # shouldn't that be "if self is w_other.strategy"?
@@ -516,21 +516,21 @@ class AbstractUnwrappedSetStrategy(object):
         result = self.get_empty_dict()
         # XXX this is the correct way to iterate over w_set. please use this
         # everywhere :-)
-        items = self.cast_from_void_star(w_set.sstorage).iterkeys()
+        items = self.unerase(w_set.sstorage).iterkeys()
         for key in items:
             w_key = self.wrap(key)
             if w_other.has_key(w_key):
                 result[w_key] = None
-        return self.cast_to_void_star(result)
+        return self.erase(result)
 
     def _intersect_unwrapped(self, w_set, w_other):
         result = self.get_empty_dict()
-        d_this = self.cast_from_void_star(w_set.sstorage)
-        d_other = self.cast_from_void_star(w_other.sstorage)
+        d_this = self.unerase(w_set.sstorage)
+        d_other = self.unerase(w_other.sstorage)
         for key in d_this:
             if key in d_other:
                 result[key] = None
-        return self.cast_to_void_star(result)
+        return self.erase(result)
 
     def intersect(self, w_set, w_other):
         if w_set.length() > w_other.length():
@@ -575,8 +575,8 @@ class AbstractUnwrappedSetStrategy(object):
         w_set.sstorage = result.sstorage
 
     def _issuperset_unwrapped(self, w_set, w_other):
-        d_set = self.cast_from_void_star(w_set.sstorage)
-        d_other = self.cast_from_void_star(w_other.sstorage)
+        d_set = self.unerase(w_set.sstorage)
+        d_other = self.unerase(w_other.sstorage)
 
         for e in d_other.keys():
             if not e in d_set:
@@ -608,8 +608,8 @@ class AbstractUnwrappedSetStrategy(object):
             return self._issuperset_wrapped(w_set, w_other)
 
     def _isdisjoint_unwrapped(self, w_set, w_other):
-        d_set = self.cast_from_void_star(w_set.sstorage)
-        d_other = self.cast_from_void_star(w_other.sstorage)
+        d_set = self.unerase(w_set.sstorage)
+        d_other = self.unerase(w_other.sstorage)
         for key in d_set:
             if key in d_other:
                 return False
@@ -629,7 +629,7 @@ class AbstractUnwrappedSetStrategy(object):
     # XXX can you please order the functions XXX, _XXX_base, _XXX_unwrapped and
     # _XXX_wrapped in a consistent way?
     def _isdisjoint_wrapped(w_set, w_other):
-        d = self.cast_from_void_star(w_set.sstorage)
+        d = self.unerase(w_set.sstorage)
         for key in d:
             if w_other.has_key(self.wrap(key)):
                 return False
@@ -640,7 +640,7 @@ class AbstractUnwrappedSetStrategy(object):
         # this shows that the following condition is nonsense! you should
         # instead overwrite update in ObjectSetStrategy and kill the if here
         if w_set.strategy is self.space.fromcache(ObjectSetStrategy):
-            d_obj = self.cast_from_void_star(w_set.sstorage)
+            d_obj = self.unerase(w_set.sstorage)
             other_w = w_other.getkeys()
             for w_key in other_w:
                 d_obj[self.unwrap(w_key)] = None
@@ -648,8 +648,8 @@ class AbstractUnwrappedSetStrategy(object):
 
         elif w_set.strategy is w_other.strategy:
             # XXX d_int is a sucky variable name, other should be d_other
-            d_int = self.cast_from_void_star(w_set.sstorage)
-            other = self.cast_from_void_star(w_other.sstorage)
+            d_int = self.unerase(w_set.sstorage)
+            other = self.unerase(w_other.sstorage)
             d_int.update(other)
             return
 
@@ -657,7 +657,7 @@ class AbstractUnwrappedSetStrategy(object):
         w_set.update(w_other)
 
     def popitem(self, w_set):
-        storage = self.cast_from_void_star(w_set.sstorage)
+        storage = self.unerase(w_set.sstorage)
         try:
             # this returns a tuple because internally sets are dicts
             result = storage.popitem()
@@ -668,12 +668,12 @@ class AbstractUnwrappedSetStrategy(object):
         return self.wrap(result[0])
 
 class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
-    cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("integer")
-    cast_to_void_star = staticmethod(cast_to_void_star)
-    cast_from_void_star = staticmethod(cast_from_void_star)
+    erase, unerase = rerased.new_erasing_pair("integer")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
 
     def get_empty_storage(self):
-        return self.cast_to_void_star({})
+        return self.erase({})
 
     def get_empty_dict(self):
         return {}
@@ -692,12 +692,12 @@ class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
         return IntegerIteratorImplementation(self.space, self, w_set)
 
 class ObjectSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
-    cast_to_void_star, cast_from_void_star = rerased.new_erasing_pair("object")
-    cast_to_void_star = staticmethod(cast_to_void_star)
-    cast_from_void_star = staticmethod(cast_from_void_star)
+    erase, unerase = rerased.new_erasing_pair("object")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
 
     def get_empty_storage(self):
-        return self.cast_to_void_star(self.get_empty_dict())
+        return self.erase(self.get_empty_dict())
 
     def get_empty_dict(self):
         return newset(self.space)
@@ -755,7 +755,7 @@ class IntegerIteratorImplementation(IteratorImplementation):
     #XXX same implementation in dictmultiobject on dictstrategy-branch
     def __init__(self, space, strategy, dictimplementation):
         IteratorImplementation.__init__(self, space, dictimplementation)
-        d = strategy.cast_from_void_star(dictimplementation.sstorage)
+        d = strategy.unerase(dictimplementation.sstorage)
         self.iterator = d.iterkeys()
 
     def next_entry(self):
@@ -768,7 +768,7 @@ class IntegerIteratorImplementation(IteratorImplementation):
 class RDictIteratorImplementation(IteratorImplementation):
     def __init__(self, space, strategy, dictimplementation):
         IteratorImplementation.__init__(self, space, dictimplementation)
-        d = strategy.cast_from_void_star(dictimplementation.sstorage)
+        d = strategy.unerase(dictimplementation.sstorage)
         self.iterator = d.iterkeys()
 
     def next_entry(self):
