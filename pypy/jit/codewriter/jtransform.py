@@ -466,7 +466,8 @@ class Transformer(object):
                                         EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
             descr, p = self.callcontrol.callinfocollection.callinfo_for_oopspec(
                 EffectInfo.OS_STREQ_NONNULL)
-            # XXX
+            # XXX this is fairly ugly way of creating a constant,
+            #     however, callinfocollection has no better interface
             c = Constant(p.adr.ptr, lltype.typeOf(p.adr.ptr))
             op1 = SpaceOperation('str_guard_value', [op.args[0], c, descr],
                                  op.result)
