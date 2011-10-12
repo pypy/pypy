@@ -1050,10 +1050,17 @@ def hash__Frozenset(space, w_set):
         return space.wrap(w_set.hash)
     hash = 1927868237
     hash *= (w_set.length() + 1)
-    for w_item in w_set.getkeys():
-        h = space.hash_w(w_item)
-        value = ((h ^ (h << 16) ^ 89869747)  * multi)
-        hash = intmask(hash ^ value)
+    w_iterator = space.iter(w_set)
+    while True:
+        try:
+            w_item = space.next(w_iterator)
+            h = space.hash_w(w_item)
+            value = ((h ^ (h << 16) ^ 89869747)  * multi)
+            hash = intmask(hash ^ value)
+        except OperationError, e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            break
     hash = hash * 69069 + 907133923
     if hash == 0:
         hash = 590923713
