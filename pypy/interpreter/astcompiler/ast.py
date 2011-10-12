@@ -1650,31 +1650,6 @@ class Call(expr):
             self.kwargs.sync_app_attrs(space)
 
 
-class Repr(expr):
-
-    _lineno_mask = 2
-    _col_offset_mask = 4
-
-    def __init__(self, value, lineno, col_offset):
-        self.value = value
-        expr.__init__(self, lineno, col_offset)
-        self.initialization_state = 7
-
-    def walkabout(self, visitor):
-        visitor.visit_Repr(self)
-
-    def mutate_over(self, visitor):
-        self.value = self.value.mutate_over(visitor)
-        return visitor.visit_Repr(self)
-
-    def sync_app_attrs(self, space):
-        if (self.initialization_state & ~0) ^ 7:
-            missing_field(space, self.initialization_state, ['value', 'lineno', 'col_offset'], 'Repr')
-        else:
-            pass
-        self.value.sync_app_attrs(space)
-
-
 class Num(expr):
 
     _lineno_mask = 2
@@ -2576,8 +2551,6 @@ class ASTVisitor(object):
         return self.default_visitor(node)
     def visit_Call(self, node):
         return self.default_visitor(node)
-    def visit_Repr(self, node):
-        return self.default_visitor(node)
     def visit_Num(self, node):
         return self.default_visitor(node)
     def visit_Str(self, node):
@@ -2781,9 +2754,6 @@ class GenericASTVisitor(ASTVisitor):
             node.starargs.walkabout(self)
         if node.kwargs:
             node.kwargs.walkabout(self)
-
-    def visit_Repr(self, node):
-        node.value.walkabout(self)
 
     def visit_Num(self, node):
         pass
@@ -5669,52 +5639,6 @@ Call.typedef = typedef.TypeDef("Call",
     kwargs=typedef.GetSetProperty(Call_get_kwargs, Call_set_kwargs, cls=Call),
     __new__=interp2app(get_AST_new(Call)),
     __init__=interp2app(Call_init),
-)
-
-def Repr_get_value(space, w_self):
-    if w_self.w_dict is not None:
-        w_obj = w_self.getdictvalue(space, 'value')
-        if w_obj is not None:
-            return w_obj
-    if not w_self.initialization_state & 1:
-        typename = space.type(w_self).getname(space)
-        w_err = space.wrap("'%s' object has no attribute 'value'" % typename)
-        raise OperationError(space.w_AttributeError, w_err)
-    return space.wrap(w_self.value)
-
-def Repr_set_value(space, w_self, w_new_value):
-    try:
-        w_self.value = space.interp_w(expr, w_new_value, False)
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        w_self.setdictvalue(space, 'value', w_new_value)
-        return
-    w_self.deldictvalue(space, 'value')
-    w_self.initialization_state |= 1
-
-_Repr_field_unroller = unrolling_iterable(['value'])
-def Repr_init(space, w_self, __args__):
-    w_self = space.descr_self_interp_w(Repr, w_self)
-    args_w, kwargs_w = __args__.unpack()
-    if args_w:
-        if len(args_w) != 1:
-            w_err = space.wrap("Repr constructor takes either 0 or 1 positional argument")
-            raise OperationError(space.w_TypeError, w_err)
-        i = 0
-        for field in _Repr_field_unroller:
-            space.setattr(w_self, space.wrap(field), args_w[i])
-            i += 1
-    for field, w_value in kwargs_w.iteritems():
-        space.setattr(w_self, space.wrap(field), w_value)
-
-Repr.typedef = typedef.TypeDef("Repr",
-    expr.typedef,
-    __module__='_ast',
-    _fields=_FieldsWrapper(['value']),
-    value=typedef.GetSetProperty(Repr_get_value, Repr_set_value, cls=Repr),
-    __new__=interp2app(get_AST_new(Repr)),
-    __init__=interp2app(Repr_init),
 )
 
 def Num_get_n(space, w_self):

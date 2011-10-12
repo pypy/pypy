@@ -763,7 +763,7 @@ class TestCompiler:
         yield self.st, "y = lambda x: x", "y(4)", 4
 
     def test_backquote_repr(self):
-        yield self.st, "x = None; y = `x`", "y", "None"
+        py.test.raises(SyntaxError, self.simple_test, "y = `0`", None, None)
 
     def test_deleting_attributes(self):
         test = """if 1:

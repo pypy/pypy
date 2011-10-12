@@ -139,11 +139,6 @@ class __extend__(ast.IfExp):
     _description = "conditional expression"
 
 
-class __extend__(ast.Repr):
-
-    _description = "repr"
-
-
 class __extend__(ast.Const):
 
     constant = True

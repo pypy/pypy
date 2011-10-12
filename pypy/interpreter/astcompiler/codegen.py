@@ -1040,11 +1040,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self._compile_comprehension(dictcomp, "<dictcomp>",
                                     ComprehensionCodeGenerator)
 
-    def visit_Repr(self, rep):
-        self.update_position(rep.lineno)
-        rep.value.walkabout(self)
-        self.emit_op(ops.UNARY_CONVERT)
-
     def visit_Attribute(self, attr):
         self.update_position(attr.lineno)
         names = self.names

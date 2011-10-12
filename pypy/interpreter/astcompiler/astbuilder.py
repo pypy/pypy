@@ -1123,9 +1123,6 @@ class ASTBuilder(object):
                 keys.append(self.handle_expr(maker.children[i]))
                 values.append(self.handle_expr(maker.children[i + 2]))
             return ast.Dict(keys, values, atom_node.lineno, atom_node.column)
-        elif first_child_type == tokens.BACKQUOTE:
-            expr = self.handle_testlist(atom_node.children[1])
-            return ast.Repr(expr, atom_node.lineno, atom_node.column)
         else:
             raise AssertionError("unknown atom")
 
