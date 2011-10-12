@@ -85,8 +85,7 @@ All Rights Reserved.
 
 
 # This is tested in test_app_main.py
-class sysflags:
-    __metaclass__ = structseqtype
+class sysflags(metaclass=structseqtype):
 
     name = "sys.flags"
 
