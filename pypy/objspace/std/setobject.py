@@ -62,77 +62,97 @@ class W_BaseSetObject(W_Object):
 
     # _____________ strategy methods ________________
 
-    # XXX add docstrings to all the strategy methods
-    # particularly, what are all the w_other arguments? any wrapped object? or
-    # only sets?
-
     def clear(self):
+        """ Removes all elements from the set. """
         self.strategy.clear(self)
 
     def copy(self):
+        """ Returns a clone of the set. """
         return self.strategy.copy(self)
 
     def length(self):
+        """ Returns the number of items inside the set. """
         return self.strategy.length(self)
 
     def add(self, w_key):
+        """ Adds an element to the set. The element must be wrapped. """
         self.strategy.add(self, w_key)
 
     def remove(self, w_item):
+        """ Removes the given element from the set. Element must be wrapped. """
         return self.strategy.remove(self, w_item)
 
     def getdict_w(self):
+        """ Returns a dict with all elements of the set. Needed only for switching to ObjectSetStrategy. """
         return self.strategy.getdict_w(self)
 
     def get_storage_copy(self):
+        """ Returns a copy of the storage. Needed when we want to clone all elements from one set and
+        put them into another. """
         return self.strategy.get_storage_copy(self)
 
     def getkeys(self):
+        """ Returns a list of all elements inside the set. Only used in __repr__. Use as less as possible."""
         return self.strategy.getkeys(self)
 
     def difference(self, w_other):
+        """ Returns a set with all items that are in this set, but not in w_other. W_other must be a set."""
         return self.strategy.difference(self, w_other)
 
     def difference_update(self, w_other):
+        """ As difference but overwrites the sets content with the result. """
         return self.strategy.difference_update(self, w_other)
 
     def symmetric_difference(self, w_other):
+        """ Returns a set with all items that are either in this set or in w_other, but not in both. W_other must be a set. """
         return self.strategy.symmetric_difference(self, w_other)
 
     def symmetric_difference_update(self, w_other):
+        """ As symmetric_difference but overwrites the content of the set with the result. """
         return self.strategy.symmetric_difference_update(self, w_other)
 
     def intersect(self, w_other):
+        """ Returns a set with all items that exists in both sets, this set and in w_other. W_other must be a set. """
         return self.strategy.intersect(self, w_other)
 
     def intersect_update(self, w_other):
+        """ Keeps only those elements found in both sets, removing all other elements. """
         return self.strategy.intersect_update(self, w_other)
 
     def intersect_multiple(self, others_w):
+        """ Returns a new set of all elements that exist in all of the given iterables."""
         return self.strategy.intersect_multiple(self, others_w)
 
     def intersect_multiple_update(self, others_w):
+        """ Same as intersect_multiple but overwrites this set with the result. """
         self.strategy.intersect_multiple_update(self, others_w)
 
     def issubset(self, w_other):
+        """ Checks wether this set is a subset of w_other. W_other must be a set. """
         return self.strategy.issubset(self, w_other)
 
     def isdisjoint(self, w_other):
+        """ Checks wether this set and the w_other are completly different, i.e. have no equal elements. """
         return self.strategy.isdisjoint(self, w_other)
 
     def update(self, w_other):
+        """ Appends all elements from the given set to this set. """
         self.strategy.update(self, w_other)
 
     def has_key(self, w_key):
+        """ Checks wether this set contains the given wrapped key."""
         return self.strategy.has_key(self, w_key)
 
     def equals(self, w_other):
+        """ Checks wether this set and the given set are equal, i.e. contain the same elements. """
         return self.strategy.equals(self, w_other)
 
     def iter(self):
+        """ Returns an iterator of the elements from this set. """
         return self.strategy.iter(self)
 
     def popitem(self):
+        """ Removes an arbitrary element from the set. May raise KeyError if set is empty."""
         return self.strategy.popitem(self)
 
 class W_SetObject(W_BaseSetObject):
@@ -169,9 +189,11 @@ class SetStrategy(object):
         self.space = space
 
     def get_empty_dict(self):
+        """ Returns an empty dictionary depending on the strategy. Used to initalize a new storage. """
         raise NotImplementedError
 
     def get_empty_storage(self):
+        """ Returns an empty storage (erased) object. Used to initialize an empty set."""
         raise NotImplementedError
 
     def erase(self, storage):
@@ -367,16 +389,16 @@ class EmptySetStrategy(SetStrategy):
 class AbstractUnwrappedSetStrategy(object):
     _mixin_ = True
 
-    # XXX add
-    # docstrings too.
-
     def is_correct_type(self, w_key):
+        """ Checks wether the given wrapped key fits this strategy."""
         raise NotImplementedError
 
     def unwrap(self, w_item):
+        """ Returns the unwrapped value of the given wrapped item."""
         raise NotImplementedError
 
     def wrap(self, item):
+        """ Returns a wrapped version of the given unwrapped item. """
         raise NotImplementedError
 
     def get_storage_from_list(self, list_w):
