@@ -68,6 +68,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
             w_type = self.gettypeobject(typedef)
             self.builtin_types[typedef.name] = w_type
             setattr(self, 'w_' + typedef.name, w_type)
+        del self.builtin_types['unicode']
+        self.builtin_types['str'] = self.w_unicode
+        self.builtin_types['bytes'] = self.w_str
         self.w_text = self.w_unicode
         self.builtin_types["NotImplemented"] = self.w_NotImplemented
         self.builtin_types["Ellipsis"] = self.w_Ellipsis

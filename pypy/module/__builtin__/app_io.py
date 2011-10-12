@@ -76,39 +76,23 @@ def print_(*args, **kwargs):
     if fp is None:
         return
     def write(data):
-        if not isinstance(data, basestring):
+        if not isinstance(data, str):
             data = str(data)
         fp.write(data)
-    want_unicode = False
     sep = kwargs.pop("sep", None)
     if sep is not None:
-        if isinstance(sep, unicode):
-            want_unicode = True
-        elif not isinstance(sep, str):
+        if not isinstance(sep, str):
             raise TypeError("sep must be None or a string")
     end = kwargs.pop("end", None)
     if end is not None:
-        if isinstance(end, unicode):
-            want_unicode = True
-        elif not isinstance(end, str):
+        if not isinstance(end, str):
             raise TypeError("end must be None or a string")
     if kwargs:
         raise TypeError("invalid keyword arguments to print()")
-    if not want_unicode:
-        for arg in args:
-            if isinstance(arg, unicode):
-                want_unicode = True
-                break
-    if want_unicode:
-        newline = u"\n"
-        space = u" "
-    else:
-        newline = "\n"
-        space = " "
     if sep is None:
-        sep = space
+        sep = " "
     if end is None:
-        end = newline
+        end = "\n"
     for i, arg in enumerate(args):
         if i:
             write(sep)

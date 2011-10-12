@@ -37,8 +37,6 @@ class Module(MixedModule):
         '__debug__'     : '(space.w_True)',      # XXX
         'type'          : '(space.w_type)',
         'object'        : '(space.w_object)',
-        'bytes'         : '(space.w_str)',
-        'unicode'       : '(space.w_unicode)',
         'buffer'        : 'interp_memoryview.W_Buffer',
         'memoryview'    : 'interp_memoryview.W_MemoryView',
 
