@@ -967,9 +967,7 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
     def b_cond_offset(self, offset, condition):
         pos = self.currpos()
         target_ofs = offset - pos
-        #self.trap()
-        #import pdb; pdb.set_trace()
-        self.bc(condition, 0, target_ofs)
+        self.bc(condition, 2, target_ofs)
 
     def b_abs(self, address):
         self.load_imm(r.r0, address)
