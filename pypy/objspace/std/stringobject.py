@@ -33,7 +33,7 @@ class W_StringObject(W_Object):
     def unwrap(w_self, space):
         return w_self._value
 
-    def str_w(w_self, space):
+    def bytes_w(w_self, space):
         return w_self._value
 
     def unicode_w(w_self, space):

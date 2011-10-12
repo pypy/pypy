@@ -31,7 +31,7 @@ class W_StringBufferObject(W_Object):
     def unwrap(self, space):
         return self.force()
 
-    def str_w(self, space):
+    def bytes_w(self, space):
         return self.force()
 
 registerimplementation(W_StringBufferObject)
