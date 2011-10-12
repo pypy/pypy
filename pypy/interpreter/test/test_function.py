@@ -101,11 +101,11 @@ class AppTestFunctionIntrospection:
 
     def test_set_module_to_name_eagerly(self):
         skip("fails on PyPy but works on CPython.  Unsure we want to care")
-        exec '''if 1:
+        exec('''if 1:
             __name__ = "foo"
             def f(): pass
             __name__ = "bar"
-            assert f.__module__ == "foo"''' in {}
+            assert f.__module__ == "foo"''')
 
 
 class AppTestFunction:
@@ -295,9 +295,9 @@ class AppTestFunction:
 
     def test_unicode_docstring(self):
         def f():
-            u"hi"
-        assert f.__doc__ == u"hi"
-        assert type(f.__doc__) is unicode
+            "hi"
+        assert f.__doc__ == "hi"
+        assert type(f.__doc__) is str
 
     def test_subclassing(self):
         # cannot subclass 'function' or 'builtin_function'
@@ -418,13 +418,11 @@ class AppTestMethod:
         class A(object):
             def f(self):
                 pass
-        assert repr(A.f) == "<unbound method A.f>"
         assert repr(A().f).startswith("<bound method A.f of <")
         assert repr(A().f).endswith(">>")
         class B:
             def f(self):
                 pass
-        assert repr(B.f) == "<unbound method B.f>"
         assert repr(B().f).startswith("<bound method B.f of <")
         assert repr(A().f).endswith(">>")
 
@@ -450,69 +448,6 @@ class AppTestMethod:
         import types
         im = types.MethodType(A(), 3)
         assert map(im, [4]) == [7]
-
-    def test_unbound_typecheck(self):
-        class A(object):
-            def foo(self, *args):
-                return args
-        class B(A):
-            pass
-        class C(A):
-            pass
-
-        assert A.foo(A(), 42) == (42,)
-        assert A.foo(B(), 42) == (42,)
-        raises(TypeError, A.foo, 5)
-        raises(TypeError, B.foo, C())
-        try:
-            class Fun:
-                __metaclass__ = A.foo
-            assert 0  # should have raised
-        except TypeError:
-            pass
-        class Fun:
-            __metaclass__ = A().foo
-        assert Fun[:2] == ('Fun', ())
-
-    def test_unbound_abstract_typecheck(self):
-        import types
-        def f(*args):
-            return args
-        m = types.MethodType(f, None, "foobar")
-        raises(TypeError, m)
-        raises(TypeError, m, None)
-        raises(TypeError, m, "egg")
-
-        m = types.MethodType(f, None, (str, int))     # really obscure...
-        assert m(4) == (4,)
-        assert m("uh") == ("uh",)
-        raises(TypeError, m, [])
-
-        class MyBaseInst(object):
-            pass
-        class MyInst(MyBaseInst):
-            def __init__(self, myclass):
-                self.myclass = myclass
-            def __class__(self):
-                if self.myclass is None:
-                    raise AttributeError
-                return self.myclass
-            __class__ = property(__class__)
-        class MyClass(object):
-            pass
-        BBase = MyClass()
-        BSub1 = MyClass()
-        BSub2 = MyClass()
-        BBase.__bases__ = ()
-        BSub1.__bases__ = (BBase,)
-        BSub2.__bases__ = (BBase,)
-        x = MyInst(BSub1)
-        m = types.MethodType(f, None, BSub1)
-        assert m(x) == (x,)
-        raises(TypeError, m, MyInst(BBase))
-        raises(TypeError, m, MyInst(BSub2))
-        raises(TypeError, m, MyInst(None))
-        raises(TypeError, m, MyInst(42))
 
     def test_invalid_creation(self):
         import types
@@ -590,14 +525,7 @@ class TestMethod:
         # Check method returned from unbound_method.__get__()
         w_meth3 = descr_function_get(space, func, None, space.type(obj2))
         meth3 = space.unwrap(w_meth3)
-        w_meth4 = meth3.descr_method_get(obj2, space.w_None)
-        meth4 = space.unwrap(w_meth4)
-        assert isinstance(meth4, Method)
-        assert meth4.call_args(args) == obj2
-        # Check method returned from unbound_method.__get__()
-        # --- with an incompatible class
-        w_meth5 = meth3.descr_method_get(space.wrap('hello'), space.w_str)
-        assert space.is_w(w_meth5, w_meth3)
+        assert meth3 is func
 
 class TestShortcuts(object):
 

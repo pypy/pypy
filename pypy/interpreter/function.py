@@ -420,87 +420,40 @@ def descr_function_get(space, w_function, w_obj, w_cls=None):
     """functionobject.__get__(obj[, type]) -> method"""
     # this is not defined as a method on Function because it's generally
     # useful logic: w_function can be any callable.  It is used by Method too.
-    asking_for_bound = (space.is_w(w_cls, space.w_None) or
-                        not space.is_w(w_obj, space.w_None) or
-                        space.is_w(w_cls, space.type(space.w_None)))
-    if asking_for_bound:
-        return space.wrap(Method(space, w_function, w_obj, w_cls))
+    if w_obj is None or space.is_w(w_obj, space.w_None):
+        return w_function
     else:
-        return space.wrap(Method(space, w_function, None, w_cls))
+        return space.wrap(Method(space, w_function, w_obj))
 
 
 class Method(Wrappable):
-    """A method is a function bound to a specific instance or class."""
-    _immutable_fields_ = ['w_function', 'w_instance', 'w_class']
+    """A method is a function bound to a specific instance."""
+    _immutable_fields_ = ['w_function', 'w_instance']
 
-    def __init__(self, space, w_function, w_instance, w_class):
+    def __init__(self, space, w_function, w_instance):
         self.space = space
         self.w_function = w_function
-        self.w_instance = w_instance   # or None
-        self.w_class = w_class         # possibly space.w_None
+        self.w_instance = w_instance
 
-    def descr_method__new__(space, w_subtype, w_function, w_instance, w_class=None):
+    def descr_method__new__(space, w_subtype, w_function, w_instance):
         if space.is_w(w_instance, space.w_None):
             w_instance = None
-        if w_instance is None and space.is_w(w_class, space.w_None):
+        if w_instance is None:
             raise OperationError(space.w_TypeError,
-                                 space.wrap("unbound methods must have class"))
+                                 space.wrap("self must not be None"))
         method = space.allocate_instance(Method, w_subtype)
-        Method.__init__(method, space, w_function, w_instance, w_class)
+        Method.__init__(method, space, w_function, w_instance)
         return space.wrap(method)
 
     def __repr__(self):
-        if self.w_instance:
-            pre = "bound"
-        else:
-            pre = "unbound"
-        return "%s method %s" % (pre, self.w_function.getname(self.space))
+        return "bound method %s" % (self.w_function.getname(self.space),)
 
     def call_args(self, args):
         space = self.space
-        if self.w_instance is not None:
-            # bound method
-            return space.call_obj_args(self.w_function, self.w_instance, args)
-
-        # unbound method
-        w_firstarg = args.firstarg()
-        if w_firstarg is not None and (
-                space.abstract_isinstance_w(w_firstarg, self.w_class)):
-            pass  # ok
-        else:
-            myname = self.getname(space, "")
-            clsdescr = self.w_class.getname(space, "")
-            if clsdescr:
-                clsdescr += " instance"
-            else:
-                clsdescr = "instance"
-            if w_firstarg is None:
-                instdescr = "nothing"
-            else:
-                instname = space.abstract_getclass(w_firstarg).getname(space,
-                                                                       "")
-                if instname:
-                    instdescr = instname + " instance"
-                else:
-                    instdescr = "instance"
-            msg = ("unbound method %s() must be called with %s "
-                   "as first argument (got %s instead)")
-            raise operationerrfmt(space.w_TypeError, msg,
-                                  myname, clsdescr, instdescr)
-        return space.call_args(self.w_function, args)
+        return space.call_obj_args(self.w_function, self.w_instance, args)
 
     def descr_method_get(self, w_obj, w_cls=None):
-        space = self.space
-        if self.w_instance is not None:
-            return space.wrap(self)    # already bound
-        else:
-            # only allow binding to a more specific class than before
-            if (w_cls is not None and
-                not space.is_w(w_cls, space.w_None) and
-                not space.abstract_issubclass_w(w_cls, self.w_class)):
-                return space.wrap(self)    # subclass test failed
-            else:
-                return descr_function_get(space, self.w_function, w_obj, w_cls)
+        return self.space.wrap(self)    # already bound
 
     def descr_method_call(self, __args__):
         return self.call_args(__args__)
@@ -508,19 +461,11 @@ class Method(Wrappable):
     def descr_method_repr(self):
         space = self.space
         name = self.w_function.getname(self.space)
-        # XXX do we handle all cases sanely here?
-        if space.is_w(self.w_class, space.w_None):
-            w_class = space.type(self.w_instance)
-        else:
-            w_class = self.w_class
+        w_class = space.type(self.w_instance)
         typename = w_class.getname(self.space)
-        if self.w_instance is None:
-            s = "<unbound method %s.%s>" % (typename, name)
-            return space.wrap(s)
-        else:
-            objrepr = space.str_w(space.repr(self.w_instance))
-            s = '<bound method %s.%s of %s>' % (typename, name, objrepr)
-            return space.wrap(s)
+        objrepr = space.str_w(space.repr(self.w_instance))
+        s = '<bound method %s.%s of %s>' % (typename, name, objrepr)
+        return space.wrap(s)
 
     def descr_method_getattribute(self, w_attr):
         space = self.space
@@ -539,21 +484,14 @@ class Method(Wrappable):
         other = space.interpclass_w(w_other)
         if not isinstance(other, Method):
             return space.w_NotImplemented
-        if self.w_instance is None:
-            if other.w_instance is not None:
-                return space.w_False
-        else:
-            if other.w_instance is None:
-                return space.w_False
-            if not space.eq_w(self.w_instance, other.w_instance):
-                return space.w_False
+        if not space.eq_w(self.w_instance, other.w_instance):
+            return space.w_False
         return space.eq(self.w_function, other.w_function)
 
     def descr_method_hash(self):
         space = self.space
         w_result = space.hash(self.w_function)
-        if self.w_instance is not None:
-            w_result = space.xor(w_result, space.hash(self.w_instance))
+        w_result = space.xor(w_result, space.hash(self.w_instance))
         return w_result
 
     def descr_method__reduce__(self, space):
@@ -561,20 +499,15 @@ class Method(Wrappable):
         from pypy.interpreter.gateway import BuiltinCode
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
-        new_inst = mod.get('method_new')
         w        = space.wrap
         w_instance = self.w_instance or space.w_None
         function = space.interpclass_w(self.w_function)
         if isinstance(function, Function) and isinstance(function.code, BuiltinCode):
             new_inst = mod.get('builtin_method_new')
-            if space.is_w(w_instance, space.w_None):
-                tup = [self.w_class, space.wrap(function.name)]
-            else:
-                tup = [w_instance, space.wrap(function.name)]
-        elif space.is_w( self.w_class, space.w_None ):
-            tup = [self.w_function, w_instance]
+            tup = [w_instance, space.wrap(function.name)]
         else:
-            tup = [self.w_function, w_instance, self.w_class]
+            new_inst = mod.get('method_new')
+            tup = [self.w_function, w_instance]
         return space.newtuple([new_inst, space.newtuple(tup)])
 
 class StaticMethod(Wrappable):
@@ -603,7 +536,7 @@ class ClassMethod(Wrappable):
     def descr_classmethod_get(self, space, w_obj, w_klass=None):
         if space.is_w(w_klass, space.w_None):
             w_klass = space.type(w_obj)
-        return space.wrap(Method(space, self.w_function, w_klass, space.w_None))
+        return space.wrap(Method(space, self.w_function, w_klass))
 
     def descr_classmethod__new__(space, w_subtype, w_function):
         instance = space.allocate_instance(ClassMethod, w_subtype)

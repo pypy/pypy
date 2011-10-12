@@ -109,13 +109,6 @@ def PyMethod_Self(space, w_method):
     return borrow_from(w_method, w_method.w_instance)
 
 @cpython_api([PyObject], PyObject)
-def PyMethod_Class(space, w_method):
-    """Return the class object from which the method meth was created; if this was
-    created from an instance, it will be the class of the instance."""
-    assert isinstance(w_method, Method)
-    return borrow_from(w_method, w_method.w_class)
-
-@cpython_api([PyObject], PyObject)
 def PyClassMethod_New(space, w_function):
     return space.call_method(space.builtin, "classmethod", w_function)
 
