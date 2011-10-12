@@ -41,8 +41,7 @@ del t
 app = gateway.applevel('''
 "NOT_RPYTHON"
 from _structseq import structseqtype, structseqfield
-class version_info:
-    __metaclass__ = structseqtype
+class version_info(metaclass=structseqtype):
 
     major        = structseqfield(0, "Major release number")
     minor        = structseqfield(1, "Minor release number")

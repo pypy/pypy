@@ -7,8 +7,7 @@ from pypy.rpython.lltypesystem import rffi
 app = gateway.applevel("""
 "NOT_RPYTHON"
 from _structseq import structseqtype, structseqfield
-class float_info:
-    __metaclass__ = structseqtype
+class float_info(metaclass=structseqtype):
 
     max = structseqfield(0)
     max_exp = structseqfield(1)
@@ -22,8 +21,7 @@ class float_info:
     radix = structseqfield(9)
     rounds = structseqfield(10)
 
-class long_info:
-    __metaclass__ = structseqtype
+class long_info(metaclass=structseqtype):
     bits_per_digit = structseqfield(0)
     sizeof_digit = structseqfield(1)
 """)

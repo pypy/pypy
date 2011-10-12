@@ -159,8 +159,7 @@ app = gateway.applevel('''
 "NOT_RPYTHON"
 from _structseq import structseqtype, structseqfield
 
-class windows_version_info:
-    __metaclass__ = structseqtype
+class windows_version_info(metaclass=structseqtype):
 
     name = "sys.getwindowsversion"
 
