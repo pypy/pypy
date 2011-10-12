@@ -47,7 +47,6 @@ TYPE_COMPLEX   = 'x'
 TYPE_BINARY_COMPLEX = 'y'
 TYPE_LONG      = 'l'
 TYPE_STRING    = 's'
-TYPE_INTERNED  = 't'
 TYPE_STRINGREF = 'R'
 TYPE_TUPLE     = '('
 TYPE_LIST      = '['
@@ -243,44 +242,15 @@ def unmarshal_Long(space, u, tc):
     return w_long
 register(TYPE_LONG, unmarshal_Long)
 
-# XXX currently, intern() is at applevel,
-# and there is no interface to get at the
-# internal table.
-# Move intern to interplevel and add a flag
-# to strings.
-def PySTRING_CHECK_INTERNED(w_str):
-    return False
-
 def marshal_w__String(space, w_str, m):
-    # using the fastest possible access method here
-    # that does not touch the internal representation,
-    # which might change (array of bytes?)
     s = w_str.unwrap(space)
-    if m.version >= 1 and PySTRING_CHECK_INTERNED(w_str):
-        # we use a native rtyper stringdict for speed
-        idx = m.stringtable.get(s, -1)
-        if idx >= 0:
-            m.atom_int(TYPE_STRINGREF, idx)
-        else:
-            idx = len(m.stringtable)
-            m.stringtable[s] = idx
-            m.atom_str(TYPE_INTERNED, s)
-    else:
-        m.atom_str(TYPE_STRING, s)
+    m.atom_str(TYPE_STRING, s)
 
 marshal_w__Rope = marshal_w__String
 
 def unmarshal_String(space, u, tc):
     return space.wrap(u.get_str())
 register(TYPE_STRING, unmarshal_String)
-
-def unmarshal_interned(space, u, tc):
-    w_ret = space.wrap(u.get_str())
-    u.stringtable_w.append(w_ret)
-    w_intern = space.builtin.get('intern')
-    space.call_function(w_intern, w_ret)
-    return w_ret
-register(TYPE_INTERNED, unmarshal_interned)
 
 def unmarshal_stringref(space, u, tc):
     idx = u.get_int()
@@ -348,12 +318,12 @@ def marshal_w_pycode(space, w_pycode, m):
     m.put_int(x.co_flags)
     m.atom_str(TYPE_STRING, x.co_code)
     m.put_tuple_w(TYPE_TUPLE, x.co_consts_w[:])
-    m.atom_strlist(TYPE_TUPLE, TYPE_INTERNED, [space.str_w(w_name) for w_name in x.co_names_w])
-    m.atom_strlist(TYPE_TUPLE, TYPE_INTERNED, x.co_varnames)
-    m.atom_strlist(TYPE_TUPLE, TYPE_INTERNED, x.co_freevars)
-    m.atom_strlist(TYPE_TUPLE, TYPE_INTERNED, x.co_cellvars)
-    m.atom_str(TYPE_INTERNED, x.co_filename)
-    m.atom_str(TYPE_INTERNED, x.co_name)
+    m.atom_strlist(TYPE_TUPLE, TYPE_STRING, [space.str_w(w_name) for w_name in x.co_names_w])
+    m.atom_strlist(TYPE_TUPLE, TYPE_STRING, x.co_varnames)
+    m.atom_strlist(TYPE_TUPLE, TYPE_STRING, x.co_freevars)
+    m.atom_strlist(TYPE_TUPLE, TYPE_STRING, x.co_cellvars)
+    m.atom_str(TYPE_STRING, x.co_filename)
+    m.atom_str(TYPE_STRING, x.co_name)
     m.put_int(x.co_firstlineno)
     m.atom_str(TYPE_STRING, x.co_lnotab)
 
