@@ -8,7 +8,7 @@ from pypy.config.config import ConflictConfigError
 from inspect import isclass, getmro
 from pypy.tool.udir import udir
 from pypy.tool.autopath import pypydir
-from pypy.tool import leakfinder
+from pypy.tool import leakfinder, runsubprocess
 
 # pytest settings
 rsyncdirs = ['.', '../lib-python', '../lib_pypy', '../demo']
@@ -20,11 +20,13 @@ rsyncignore = ['_cache']
 option = None
 
 def pytest_report_header():
-    return "pytest-%s from %s" %(pytest.__version__, pytest.__file__)
+    return "pytest-%s from %s" % (pytest.__version__, pytest.__file__)
 
 def pytest_configure(config):
     global option
     option = config.option
+    if option.appdirect:
+        option.runappdirect = True
 
 def _set_platform(opt, opt_str, value, parser):
     from pypy.config.translationoption import PLATFORMS
@@ -40,6 +42,8 @@ def pytest_addoption(parser):
     group.addoption('-A', '--runappdirect', action="store_true",
            default=False, dest="runappdirect",
            help="run applevel tests directly on python interpreter (not through PyPy)")
+    group.addoption('--appdirect', type="string",
+           help="run applevel tests directly with the specified interpreter")
     group.addoption('--direct', action="store_true",
            default=False, dest="rundirect",
            help="run pexpect tests directly")
@@ -190,6 +194,24 @@ def translation_test_so_skip_if_appdirect():
     if option.runappdirect:
         py.test.skip("translation test, skipped for appdirect")
 
+def run_with_python(python, target):
+    helpers = """if 1:
+    def raises(exc, func, *args, **kwargs):
+        try:
+            func(*args, **kwargs)
+        except exc:
+            pass
+        else:
+            raise AssertionError("DID NOT RAISE")
+"""
+    source = py.code.Source(target)[1:].deindent()
+    res, stdout, stderr = runsubprocess.run_subprocess(
+        python, ["-c", helpers + str(source)])
+    print source
+    print >> sys.stdout, stdout
+    print >> sys.stderr, stderr
+    if res > 0:
+        raise AssertionError("Subprocess failed")
 
 class OpErrKeyboardInterrupt(KeyboardInterrupt):
     pass
@@ -398,6 +420,8 @@ class AppTestFunction(py.test.collect.Function):
     def runtest(self):
         target = self.obj
         if self.config.option.runappdirect:
+            if self.config.option.appdirect:
+                return run_with_python(self.config.option.appdirect, target)
             return target()
         space = gettestobjspace()
         filename = self._getdynfilename(target)
@@ -441,6 +465,8 @@ class AppTestMethod(AppTestFunction):
     def runtest(self):
         target = self.obj
         if self.config.option.runappdirect:
+            if self.config.option.appdirect:
+                return run_with_python(self.config.option.appdirect, target)
             return target()
         space = target.im_self.space
         filename = self._getdynfilename(target)

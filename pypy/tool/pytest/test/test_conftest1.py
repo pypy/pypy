@@ -1,5 +1,6 @@
 
 import py
+import sys
 
 innertest = py.path.local(__file__).dirpath('conftest1_innertest.py')
 pytest_plugins = "pytester"
@@ -21,8 +22,17 @@ class TestPyPyTests:
         assert "app_test_something" in passed[0].nodeid
         assert "test_method_app" in passed[1].nodeid
 
-    def test_appdirect(self, testdir):
+    def test_runappdirect(self, testdir):
         sorter = testdir.inline_run(innertest, '-k', 'applevel', '--runappdirect')
+        passed, skipped, failed = sorter.listoutcomes()
+        assert len(passed) == 2
+        print passed
+        assert "app_test_something" in passed[0].nodeid
+        assert "test_method_app" in passed[1].nodeid
+        
+    def test_appdirect(self, testdir):
+        sorter = testdir.inline_run(innertest, '-k', 'applevel',
+                                    '--appdirect=%s' % (sys.executable,))
         passed, skipped, failed = sorter.listoutcomes()
         assert len(passed) == 2
         print passed
