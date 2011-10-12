@@ -25,7 +25,7 @@ globals and locals.  If only globals is given, locals defaults to it."""
         f.close()
     #Don't exec the source directly, as this loses the filename info
     co = compile(source.rstrip()+"\n", filename, 'exec')
-    exec co in glob, loc
+    exec(co, glob, loc)
 
 def raw_input(prompt=None):
     """raw_input([prompt]) -> string
