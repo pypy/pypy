@@ -703,7 +703,7 @@ def a2b_hex(t):
     def pairs_gen(s):
         while s:
             try:
-                yield table_hex[ord(s[0])], table_hex[ord(s[1])]
+                yield table_hex[s[0]], table_hex[s[1]]
             except IndexError:
                 if len(s):
                     raise TypeError('Odd-length string')

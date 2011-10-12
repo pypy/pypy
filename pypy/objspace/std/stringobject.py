@@ -839,7 +839,7 @@ def getitem__String_ANY(space, w_str, w_index):
     if ival < 0 or ival >= slen:
         raise OperationError(space.w_IndexError,
                              space.wrap("string index out of range"))
-    return wrapchar(space, str[ival])
+    return space.wrap(ord(str[ival]))
 
 def getitem__String_Slice(space, w_str, w_slice):
     w = space.wrap
