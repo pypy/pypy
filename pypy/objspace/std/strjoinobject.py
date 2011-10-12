@@ -1,7 +1,6 @@
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stringobject import W_StringObject
-from pypy.objspace.std.unicodeobject import delegate_String2Unicode
 
 from pypy.objspace.std.stringtype import wrapstr
 
@@ -35,10 +34,6 @@ registerimplementation(W_StringJoinObject)
 
 def delegate_join2str(space, w_strjoin):
     return wrapstr(space, w_strjoin.force())
-
-def delegate_join2unicode(space, w_strjoin):
-    w_str = wrapstr(space, w_strjoin.force())
-    return delegate_String2Unicode(space, w_str)
 
 def len__StringJoin(space, w_self):
     result = 0

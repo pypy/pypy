@@ -212,40 +212,20 @@ class StdTypeModel:
         self.typeorder[setobject.W_FrozensetObject] += [
             (setobject.W_BaseSetObject, None)
             ]
-        if not config.objspace.std.withrope:
-            self.typeorder[stringobject.W_StringObject] += [
-             (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),
-                ]
-        else:
-            if config.objspace.std.withropeunicode:
-                self.typeorder[ropeobject.W_RopeObject] += [
-                 (ropeunicodeobject.W_RopeUnicodeObject,
-                     ropeunicodeobject.delegate_Rope2RopeUnicode),
-                 ]
-            else:
-                self.typeorder[ropeobject.W_RopeObject] += [
-                 (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),
-                    ]
         if config.objspace.std.withstrslice:
             self.typeorder[strsliceobject.W_StringSliceObject] += [
                 (stringobject.W_StringObject,
                                        strsliceobject.delegate_slice2str),
-                (unicodeobject.W_UnicodeObject,
-                                       strsliceobject.delegate_slice2unicode),
                 ]
         if config.objspace.std.withstrjoin:
             self.typeorder[strjoinobject.W_StringJoinObject] += [
                 (stringobject.W_StringObject,
                                        strjoinobject.delegate_join2str),
-                (unicodeobject.W_UnicodeObject,
-                                       strjoinobject.delegate_join2unicode)
                 ]
         elif config.objspace.std.withstrbuf:
             self.typeorder[strbufobject.W_StringBufferObject] += [
                 (stringobject.W_StringObject,
                                        strbufobject.delegate_buf2str),
-                (unicodeobject.W_UnicodeObject,
-                                       strbufobject.delegate_buf2unicode)
                 ]
         if config.objspace.std.withsmalltuple:
             self.typeorder[smalltupleobject.W_SmallTupleObject] += [

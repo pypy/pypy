@@ -2,7 +2,6 @@ from pypy.interpreter.error import OperationError
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stringobject import W_StringObject
-from pypy.objspace.std.unicodeobject import delegate_String2Unicode
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.objspace.std import slicetype
@@ -45,10 +44,6 @@ registerimplementation(W_StringSliceObject)
 
 def delegate_slice2str(space, w_strslice):
     return wrapstr(space, w_strslice.force())
-
-def delegate_slice2unicode(space, w_strslice):
-    w_str = wrapstr(space, w_strslice.force())
-    return delegate_String2Unicode(space, w_str)
 
 # ____________________________________________________________
 

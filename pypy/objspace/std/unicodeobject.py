@@ -78,13 +78,6 @@ def unicode_to_decimal_w(space, w_unistr):
                 raise OperationError(space.w_UnicodeEncodeError, space.newtuple([w_encoding, w_unistr, w_start, w_end, w_reason]))
     return ''.join(result)
 
-# string-to-unicode delegation
-def delegate_String2Unicode(space, w_str):
-    from pypy.objspace.std.unicodetype import unicode_from_string
-    w_uni = unicode_from_string(space, w_str)
-    assert isinstance(w_uni, W_UnicodeObject) # help the annotator!
-    return w_uni
-
 # checks if should trigger an unicode warning
 def _unicode_string_comparison(space, w_uni, w_str, inverse, uni_from_str):
     try:

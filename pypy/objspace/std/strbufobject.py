@@ -1,7 +1,6 @@
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stringobject import W_StringObject
-from pypy.objspace.std.unicodeobject import delegate_String2Unicode
 from pypy.rlib.rstring import StringBuilder
 from pypy.interpreter.buffer import Buffer
 
@@ -50,10 +49,6 @@ def joined2(str1, str2):
 def delegate_buf2str(space, w_strbuf):
     w_strbuf.force()
     return w_strbuf.w_str
-
-def delegate_buf2unicode(space, w_strbuf):
-    w_strbuf.force()
-    return delegate_String2Unicode(space, w_strbuf.w_str)
 
 def len__StringBuffer(space, w_self):
     return space.wrap(w_self.length)
