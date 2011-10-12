@@ -64,14 +64,7 @@ def dir(*args):
 
     obj = args[0]
 
-    dir_meth = None
-    if isinstance(obj, types.InstanceType):
-        try:
-            dir_meth = getattr(obj, "__dir__")
-        except AttributeError:
-            pass
-    else:
-        dir_meth = lookup_special(obj, "__dir__")
+    dir_meth = lookup_special(obj, "__dir__")
     if dir_meth is not None:
         result = dir_meth()
         if not isinstance(result, list):
@@ -87,7 +80,7 @@ def dir(*args):
         except AttributeError:
             return []
 
-    elif isinstance(obj, (types.TypeType, types.ClassType)):
+    elif isinstance(obj, type):
         #Don't look at __class__, as metaclass methods would be confusing.
         result = _classdir(obj).keys()
         result.sort()
