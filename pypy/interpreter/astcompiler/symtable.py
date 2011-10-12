@@ -163,6 +163,8 @@ class Scope(object):
             self._finalize_name(name, flags, local, bound, free, globs)
         if not self._hide_bound_from_nested_scopes:
             self._pass_on_bindings(local, bound, globs, new_bound, new_globs)
+        else:
+            self._pass_special_names(local, new_bound)
         child_frees = {}
         for child in self.children:
             # Symbol dictionaries are copied to avoid having child scopes
@@ -213,6 +215,12 @@ class FunctionScope(Scope):
         self.return_with_value = False
         self.import_star = None
         self.bare_exec = None
+
+    def note_symbol(self, identifier, role):
+        # Special-case super: it counts as a use of __class__
+        if role == SYM_USED and identifier == 'super':
+            self.note_symbol('@__class__', SYM_USED)
+        Scope.note_symbol(self, identifier, role)
 
     def note_yield(self, yield_node):
         if self.return_with_value:
@@ -295,6 +303,16 @@ class ClassScope(Scope):
     def mangle(self, name):
         return misc.mangle(name, self.name)
 
+    def _pass_special_names(self, local, new_bound):
+        assert '@__class__' in local
+        new_bound['@__class__'] = None
+
+    def _finalize_cells(self, free):
+        for name, role in self.symbols.iteritems():
+            if role == SCOPE_LOCAL and name in free and name == '@__class__':
+                self.symbols[name] = SCOPE_CELL
+                del free[name]
+
 
 class SymtableBuilder(ast.GenericASTVisitor):
     """Find symbol information from AST."""
@@ -373,6 +391,8 @@ class SymtableBuilder(ast.GenericASTVisitor):
         self.visit_sequence(clsdef.bases)
         self.visit_sequence(clsdef.decorator_list)
         self.push_scope(ClassScope(clsdef), clsdef)
+        self.note_symbol('@__class__', SYM_ASSIGNED)
+        self.note_symbol('__locals__', SYM_PARAM)
         self.visit_sequence(clsdef.body)
         self.pop_scope()
 

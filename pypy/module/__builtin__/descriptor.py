@@ -47,7 +47,36 @@ class W_Super(Wrappable):
         return space.call_function(object_getattribute(space),
                                    w(self), w(name))
 
-def descr_new_super(space, w_subtype, w_starttype, w_obj_or_type=None):
+def descr_new_super(space, w_subtype, w_starttype=None, w_obj_or_type=None):
+    if space.is_w(w_starttype, space.w_None):
+        # Call super(), without args -- fill in from __class__
+        # and first local variable on the stack.
+        ec = space.getexecutioncontext()
+        frame = ec.gettopframe()
+        code = frame.pycode
+        if not code:
+            raise OperationError(space.w_SystemError, space.wrap(
+                    "super(): no code object"))
+        if code.co_argcount == 0:
+            raise OperationError(space.w_SystemError, space.wrap(
+                    "super(): no arguments"))
+        w_obj = frame.locals_stack_w[0]
+        if not w_obj:
+            raise OperationError(space.w_SystemError, space.wrap(
+                    "super(): arg[0] deleted"))
+        index = 0
+        for name in code.co_freevars:
+            if name == "@__class__":
+                break
+            index += 1
+        else:
+            raise OperationError(space.w_SystemError, space.wrap(
+                    "super(): __class__ cell not found"))
+        # a kind of LOAD_DEREF
+        cell = frame.cells[len(code.co_cellvars) + index]
+        w_starttype = cell.get()
+        w_obj_or_type = w_obj
+
     if space.is_w(w_obj_or_type, space.w_None):
         w_type = None  # unbound super object
     else:

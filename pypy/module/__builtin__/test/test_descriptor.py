@@ -73,6 +73,23 @@ class AppTestBuiltinApp:
         assert d.f() == "DBCA"
         assert D.__mro__ == (D, B, C, A, object)
 
+    def test_super_magic(self):
+        class A(object):
+            def f(self):
+                return 'A'
+        class B(A):
+            def f(self):
+                return 'B' + super().f()
+        class C(A):
+            def f(self):
+                return 'C' + super().f()
+        class D(B, C):
+            def f(self):
+                return 'D' + super().f()
+        d = D()
+        assert d.f() == "DBCA"
+        assert D.__mro__ == (D, B, C, A, object)
+
     def test_super_metaclass(self):
         class xtype(type):
             def __init__(self, name, bases, dict):
