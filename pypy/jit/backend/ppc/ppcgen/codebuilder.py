@@ -964,8 +964,20 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
         else:
             self.std(source_reg.value, 0, 0)
 
-    def prepare_insts_blocks(self):
-        self.assemble(True)
+    def b_cond_offset(self, offset, condition):
+        pos = self.currpos()
+        target_ofs = offset - pos
+        #self.trap()
+        #import pdb; pdb.set_trace()
+        self.bc(condition, 0, target_ofs)
+
+    def b_abs(self, address):
+        self.load_imm(r.r0, address)
+        self.mtctr(0)
+        self.bctr()
+
+    def prepare_insts_blocks(self, show=False):
+        self.assemble(show)
         insts = self.insts
         for inst in insts:
             self.write32(inst.assemble())
@@ -989,6 +1001,9 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
 
     def currpos(self):
         return self.get_rel_pos()
+
+    def copy_to_raw_memory(self, addr):
+        self._copy_to_raw_memory(addr)
 
 class BranchUpdater(PPCAssembler):
     def __init__(self):
