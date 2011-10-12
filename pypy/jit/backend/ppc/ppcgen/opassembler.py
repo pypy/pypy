@@ -47,7 +47,7 @@ class OpAssembler(object):
         l0 = arglocs[0]
         failargs = arglocs[1:]
         self.mc.cmpi(l0.value, 0)
-        self._emit_guard(op, failargs, c.opposites[c.EQ])
+        self._emit_guard(op, failargs, c.EQ)
         #                        #      ^^^^ If this condition is met,
         #                        #           then the guard fails.
 
