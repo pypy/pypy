@@ -196,6 +196,9 @@ def translation_test_so_skip_if_appdirect():
 
 def run_with_python(python, target):
     helpers = """if 1:
+    def skip(message):
+        print(message)
+        raise SystemExit(0)
     def raises(exc, func, *args, **kwargs):
         try:
             func(*args, **kwargs)
