@@ -377,7 +377,7 @@ class TestCompiler:
                     return a
              ''',                            "foo docstring"),
             ('''def foo():
-                    """doc"""; print 1
+                    """doc"""; assert 1
                     a=1
              ''',                            "doc"),
             ('''
