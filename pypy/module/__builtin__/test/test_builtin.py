@@ -275,84 +275,84 @@ class AppTestBuiltinApp:
         assert next(x) == 2
         assert next(x) == 3
 
-    def test_xrange_args(self):
-##        # xrange() attributes are deprecated and were removed in Python 2.3.
-##        x = xrange(2)
+    def test_range_args(self):
+##        # range() attributes are deprecated and were removed in Python 2.3.
+##        x = range(2)
 ##        assert x.start == 0
 ##        assert x.stop == 2
 ##        assert x.step == 1
 
-##        x = xrange(2,10,2)
+##        x = range(2,10,2)
 ##        assert x.start == 2
 ##        assert x.stop == 10
 ##        assert x.step == 2
 
-##        x = xrange(2.3, 10.5, 2.4)
+##        x = range(2.3, 10.5, 2.4)
 ##        assert x.start == 2
 ##        assert x.stop == 10
 ##        assert x.step == 2
 
-        raises(ValueError, xrange, 0, 1, 0)
+        raises(ValueError, range, 0, 1, 0)
 
-    def test_xrange_repr(self): 
-        assert repr(xrange(1)) == 'xrange(1)'
-        assert repr(xrange(1,2)) == 'xrange(1, 2)'
-        assert repr(xrange(1,2,3)) == 'xrange(1, 4, 3)'
+    def test_range_repr(self): 
+        assert repr(range(1)) == 'range(1)'
+        assert repr(range(1,2)) == 'range(1, 2)'
+        assert repr(range(1,2,3)) == 'range(1, 4, 3)'
 
-    def test_xrange_up(self):
-        x = xrange(2)
+    def test_range_up(self):
+        x = range(2)
         iter_x = iter(x)
         assert iter_x.next() == 0
         assert iter_x.next() == 1
         raises(StopIteration, iter_x.next)
 
-    def test_xrange_down(self):
-        x = xrange(4,2,-1)
+    def test_range_down(self):
+        x = range(4,2,-1)
 
         iter_x = iter(x)
         assert iter_x.next() == 4
         assert iter_x.next() == 3
         raises(StopIteration, iter_x.next)
 
-    def test_xrange_has_type_identity(self):
-        assert type(xrange(1)) == type(xrange(1))
+    def test_range_has_type_identity(self):
+        assert type(range(1)) == type(range(1))
 
-    def test_xrange_len(self):
-        x = xrange(33)
+    def test_range_len(self):
+        x = range(33)
         assert len(x) == 33
-        x = xrange(33.2)
+        x = range(33.2)
         assert len(x) == 33
-        x = xrange(33,0,-1)
+        x = range(33,0,-1)
         assert len(x) == 33
-        x = xrange(33,0)
+        x = range(33,0)
         assert len(x) == 0
-        x = xrange(33,0.2)
+        x = range(33,0.2)
         assert len(x) == 0
-        x = xrange(0,33)
+        x = range(0,33)
         assert len(x) == 33
-        x = xrange(0,33,-1)
+        x = range(0,33,-1)
         assert len(x) == 0
-        x = xrange(0,33,2)
+        x = range(0,33,2)
         assert len(x) == 17
-        x = xrange(0,32,2)
+        x = range(0,32,2)
         assert len(x) == 16
 
-    def test_xrange_indexing(self):
-        x = xrange(0,33,2)
+    def test_range_indexing(self):
+        x = range(0,33,2)
         assert x[7] == 14
         assert x[-7] == 20
         raises(IndexError, x.__getitem__, 17)
         raises(IndexError, x.__getitem__, -18)
         raises(TypeError, x.__getitem__, slice(0,3,1))
 
-    def test_xrange_bad_args(self):
-        raises(TypeError, xrange, '1')
-        raises(TypeError, xrange, None)
-        raises(TypeError, xrange, 3+2j)
-        raises(TypeError, xrange, 1, '1')
-        raises(TypeError, xrange, 1, 3+2j)
-        raises(TypeError, xrange, 1, 2, '1')
-        raises(TypeError, xrange, 1, 2, 3+2j)
+    def test_range_bad_args(self):
+        raises(TypeError, range, '1')
+        raises(TypeError, range, None)
+        raises(TypeError, range, 3+2j)
+        raises(TypeError, range, 1, '1')
+        raises(TypeError, range, 1, 3+2j)
+        raises(TypeError, range, 1, 2, '1')
+        raises(TypeError, range, 1, 2, 3+2j)
     
     def test_sorted(self):
         l = []

@@ -275,12 +275,6 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                              ("objspace.std.withmethodcache", True),
                        ]),
 
-        BoolOption("withrangelist",
-                   "enable special range list implementation that does not "
-                   "actually create the full list until the resulting "
-                   "list is mutated",
-                   default=False),
-
         BoolOption("withtypeversion",
                    "version type objects when changing them",
                    cmdline=None,

@@ -83,8 +83,7 @@ class Module(MixedModule):
         '__import__'    : 'pypy.module.imp.importing.importhook',
         'reload'        : 'pypy.module.imp.importing.reload',
 
-        'range'         : 'functional.range_int',
-        'xrange'        : 'functional.W_XRange',
+        'range'         : 'functional.W_Range',
         'enumerate'     : 'functional.W_Enumerate',
         'min'           : 'functional.min',
         'max'           : 'functional.max',

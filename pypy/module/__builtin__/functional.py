@@ -15,7 +15,7 @@ from pypy.rlib.rbigint import rbigint
 
 def get_len_of_range(space, lo, hi, step):
     """
-    Return number of items in range/xrange (lo, hi, step).
+    Return number of items in range (lo, hi, step).
     Raise ValueError if step == 0 and OverflowError if the true value is too
     large to fit in a signed long.
     """
@@ -46,91 +46,6 @@ def get_len_of_range(space, lo, hi, step):
     else:
         n = 0
     return n
-
-def range_int(space, w_x, w_y=NoneNotWrapped, w_step=1):
-    """Return a list of integers in arithmetic position from start (defaults
-to zero) to stop - 1 by step (defaults to 1).  Use a negative step to
-get a list in decending order."""
-
-    if w_y is None:
-        w_start = space.wrap(0)
-        w_stop = w_x
-    else:
-        w_start = w_x
-        w_stop = w_y
-
-    if space.is_true(space.isinstance(w_stop, space.w_float)):
-        raise OperationError(space.w_TypeError,
-            space.wrap("range() integer end argument expected, got float."))
-    if space.is_true(space.isinstance(w_start, space.w_float)):
-        raise OperationError(space.w_TypeError,
-            space.wrap("range() integer start argument expected, got float."))
-    if space.is_true(space.isinstance(w_step, space.w_float)):
-        raise OperationError(space.w_TypeError,
-            space.wrap("range() integer step argument expected, got float."))
-
-    w_start = space.int(w_start)
-    w_stop  = space.int(w_stop)
-    w_step  = space.int(w_step)
-
-    try:
-        start = space.int_w(w_start)
-        stop  = space.int_w(w_stop)
-        step  = space.int_w(w_step)
-    except OperationError, e:
-        if not e.match(space, space.w_OverflowError):
-            raise
-        return range_with_longs(space, w_start, w_stop, w_step)
-
-    howmany = get_len_of_range(space, start, stop, step)
-
-    if space.config.objspace.std.withrangelist:
-        return range_withspecialized_implementation(space, start,
-                                                    step, howmany)
-    res_w = [None] * howmany
-    v = start
-    for idx in range(howmany):
-        res_w[idx] = space.wrap(v)
-        v += step
-    return space.newlist(res_w)
-
-
-def range_withspecialized_implementation(space, start, step, howmany):
-    assert space.config.objspace.std.withrangelist
-    from pypy.objspace.std.rangeobject import W_RangeListObject
-    return W_RangeListObject(start, step, howmany)
-
-bigint_one = rbigint.fromint(1)
-
-def range_with_longs(space, w_start, w_stop, w_step):
-
-    start = lo = space.bigint_w(w_start)
-    stop  = hi = space.bigint_w(w_stop)
-    step  = st = space.bigint_w(w_step)
-
-    if not step.tobool():
-        raise OperationError(space.w_ValueError,
-                             space.wrap("step argument must not be zero"))
-    elif step.sign < 0:
-        lo, hi, st = hi, lo, st.neg()
-
-    if lo.lt(hi):
-        diff = hi.sub(lo).sub(bigint_one)
-        n = diff.floordiv(st).add(bigint_one)
-        try:
-            howmany = n.toint()
-        except OverflowError:
-            raise OperationError(space.w_OverflowError,
-                                 space.wrap("result has too many items"))
-    else:
-        howmany = 0
-
-    res_w = [None] * howmany
-    v = start
-    for idx in range(howmany):
-        res_w[idx] = space.newlong_from_rbigint(v)
-        v = v.add(step)
-    return space.newlist(res_w)
 
 
 @specialize.arg(2)
@@ -528,7 +443,7 @@ def _make_reversed(space, w_seq, w_remaining):
 
 
 
-class W_XRange(Wrappable):
+class W_Range(Wrappable):
     def __init__(self, space, start, len, step):
         self.space = space
         self.start = start
@@ -543,18 +458,18 @@ class W_XRange(Wrappable):
         else:
             stop = _toint(space, w_stop)
         howmany = get_len_of_range(space, start, stop, step)
-        obj = space.allocate_instance(W_XRange, w_subtype)
-        W_XRange.__init__(obj, space, start, howmany, step)
+        obj = space.allocate_instance(W_Range, w_subtype)
+        W_Range.__init__(obj, space, start, howmany, step)
         return space.wrap(obj)
 
     def descr_repr(self):
         stop = self.start + self.len * self.step
         if self.start == 0 and self.step == 1:
-            s = "xrange(%d)" % (stop,)
+            s = "range(%d)" % (stop,)
         elif self.step == 1:
-            s = "xrange(%d, %d)" % (self.start, stop)
+            s = "range(%d, %d)" % (self.start, stop)
         else:
-            s = "xrange(%d, %d, %d)" %(self.start, stop, self.step)
+            s = "range(%d, %d, %d)" %(self.start, stop, self.step)
         return self.space.wrap(s)
 
     def descr_len(self):
@@ -562,7 +477,7 @@ class W_XRange(Wrappable):
 
     @unwrap_spec(i='index')
     def descr_getitem(self, i):
-        # xrange does NOT support slicing
+        # range does NOT support slicing
         space = self.space
         len = self.len
         if i < 0:
@@ -570,15 +485,15 @@ class W_XRange(Wrappable):
         if 0 <= i < len:
             return space.wrap(self.start + i * self.step)
         raise OperationError(space.w_IndexError,
-                             space.wrap("xrange object index out of range"))
+                             space.wrap("range object index out of range"))
 
     def descr_iter(self):
-        return self.space.wrap(W_XRangeIterator(self.space, self.start,
+        return self.space.wrap(W_RangeIterator(self.space, self.start,
                                                 self.len, self.step))
 
     def descr_reversed(self):
         lastitem = self.start + (self.len-1) * self.step
-        return self.space.wrap(W_XRangeIterator(self.space, lastitem,
+        return self.space.wrap(W_RangeIterator(self.space, lastitem,
                                                 self.len, -self.step))
 
     def descr_reduce(self):
@@ -591,21 +506,19 @@ class W_XRange(Wrappable):
              ])
 
 def _toint(space, w_obj):
-    # this also supports float arguments.  CPython still does, too.
-    # needs a bit more thinking in general...
-    return space.int_w(space.int(w_obj))
+    return space.int_w(space.index(w_obj))
 
-W_XRange.typedef = TypeDef("xrange",
-    __new__          = interp2app(W_XRange.descr_new.im_func),
-    __repr__         = interp2app(W_XRange.descr_repr),
-    __getitem__      = interp2app(W_XRange.descr_getitem),
-    __iter__         = interp2app(W_XRange.descr_iter),
-    __len__          = interp2app(W_XRange.descr_len),
-    __reversed__     = interp2app(W_XRange.descr_reversed),
-    __reduce__       = interp2app(W_XRange.descr_reduce),
+W_Range.typedef = TypeDef("range",
+    __new__          = interp2app(W_Range.descr_new.im_func),
+    __repr__         = interp2app(W_Range.descr_repr),
+    __getitem__      = interp2app(W_Range.descr_getitem),
+    __iter__         = interp2app(W_Range.descr_iter),
+    __len__          = interp2app(W_Range.descr_len),
+    __reversed__     = interp2app(W_Range.descr_reversed),
+    __reduce__       = interp2app(W_Range.descr_reduce),
 )
 
-class W_XRangeIterator(Wrappable):
+class W_RangeIterator(Wrappable):
     def __init__(self, space, current, remaining, step):
         self.space = space
         self.current = current
@@ -631,17 +544,17 @@ class W_XRangeIterator(Wrappable):
         space    = self.space
         w_mod    = space.getbuiltinmodule('_pickle_support')
         mod      = space.interp_w(MixedModule, w_mod)
-        new_inst = mod.get('xrangeiter_new')
+        new_inst = mod.get('rangeiter_new')
         w        = space.wrap
         nt = space.newtuple
 
         tup = [w(self.current), w(self.remaining), w(self.step)]
         return nt([new_inst, nt(tup)])
 
-W_XRangeIterator.typedef = TypeDef("rangeiterator",
-    __iter__        = interp2app(W_XRangeIterator.descr_iter),
+W_RangeIterator.typedef = TypeDef("rangeiterator",
+    __iter__        = interp2app(W_RangeIterator.descr_iter),
 # XXX __length_hint__()
-##    __len__         = interp2app(W_XRangeIterator.descr_len),
-    next            = interp2app(W_XRangeIterator.descr_next),
-    __reduce__      = interp2app(W_XRangeIterator.descr_reduce),
+##    __len__         = interp2app(W_RangeIterator.descr_len),
+    next            = interp2app(W_RangeIterator.descr_next),
+    __reduce__      = interp2app(W_RangeIterator.descr_reduce),
 )
