@@ -501,13 +501,13 @@ class ObjSpace(object):
         mod.install()
 
         from pypy.module.__builtin__ import Module
-        w_name = self.wrap('__builtin__')
+        w_name = self.wrap('builtins')
         self.builtin = Module(self, w_name)
         w_builtin = self.wrap(self.builtin)
         w_builtin.install()
         self.setitem(self.builtin.w_dict, self.wrap('__builtins__'), w_builtin)
 
-        bootstrap_modules = set(('sys', 'imp', '__builtin__', 'exceptions'))
+        bootstrap_modules = set(('sys', 'imp', 'builtins', 'exceptions'))
         installed_builtin_modules = list(bootstrap_modules)
 
         exception_types_w = self.export_builtin_exceptions()
@@ -593,7 +593,7 @@ class ObjSpace(object):
             self.fromcache(State).build_api(self)
         self.getbuiltinmodule('sys')
         self.getbuiltinmodule('imp')
-        self.getbuiltinmodule('__builtin__')
+        self.getbuiltinmodule('builtins')
         for mod in self.builtin_modules.values():
             mod.setup_after_space_initialization()
 
@@ -974,7 +974,7 @@ class ObjSpace(object):
 
     # The code below only works
     # for the simple case (new-style instance).
-    # These methods are patched with the full logic by the __builtin__
+    # These methods are patched with the full logic by the builtins
     # module when it is loaded
 
     def abstract_issubclass_w(self, w_cls1, w_cls2):
@@ -1495,7 +1495,7 @@ ObjSpace.MethodTable = [
     ]
 
 ObjSpace.BuiltinModuleTable = [
-    '__builtin__',
+    'builtins',
     'sys',
     ]
 
