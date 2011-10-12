@@ -426,23 +426,22 @@ class W_UInt64Dtype(UnsignedIntegerArithmeticDtype, W_UInt64Dtype):
     pass
 
 if LONG_BIT == 32:
-    class W_LongDtype(W_Int32Dtype):
-        pass
-
-    class W_ULongDtype(W_UInt32Dtype):
-        pass
+    long_dtype = W_Int32Dtype
+    ulong_dtype = W_UInt32Dtype
+elif LONG_BIT == 64:
+    long_dtype = W_Int64Dtype
+    ulong_dtype = W_UInt64Dtype
 else:
-    class W_LongDtype(W_Int64Dtype):
-        pass
+    assert False
 
-    class W_ULongDtype(W_UInt64Dtype):
-        pass
+class W_LongDtype(long_dtype):
+    num = 7
+    aliases = ["l"]
+    applevel_types = ["int"]
 
-W_LongDtype.num = 7
-W_LongDtype.aliases = ["l"]
-W_LongDtype.applevel_types = ["int"]
-W_ULongDtype.num = 8
-W_ULongDtype.aliases = ["L"]
+class W_ULongDtype(ulong_dtype):
+    num = 8
+    aliases = ["L"]
 
 W_Float32Dtype = create_low_level_dtype(
     num = 11, kind = FLOATINGLTR, name = "float32",
