@@ -1185,7 +1185,6 @@ def len__Set(space, w_left):
 len__Frozenset = len__Set
 
 def iter__Set(space, w_left):
-    #return iter(w_left.getkeys())
     return W_SetIterObject(space, w_left.iter())
 
 iter__Frozenset = iter__Set
