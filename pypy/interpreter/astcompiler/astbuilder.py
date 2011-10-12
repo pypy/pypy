@@ -517,7 +517,7 @@ class ASTBuilder(object):
         while i < child_count:
             argument = arguments_node.children[i]
             arg_type = argument.type
-            if arg_type == syms.fpdef:
+            if arg_type == syms.tfpdef:
                 parenthesized = False
                 complex_args = False
                 while True:
@@ -554,12 +554,16 @@ class ASTBuilder(object):
                     break
             elif arg_type == tokens.STAR:
                 name_node = arguments_node.children[i + 1]
-                variable_arg = name_node.value
-                self.check_forbidden_name(variable_arg, name_node)
-                i += 3
+                if name_node.type == tokens.COMMA:
+                    # XXX for now
+                    i += 2
+                else:
+                    variable_arg = name_node.children[0].value
+                    self.check_forbidden_name(variable_arg, name_node)
+                    i += 3
             elif arg_type == tokens.DOUBLESTAR:
                 name_node = arguments_node.children[i + 1]
-                keywords_arg = name_node.value
+                keywords_arg = name_node.children[0].value
                 self.check_forbidden_name(keywords_arg, name_node)
                 i += 3
             else:

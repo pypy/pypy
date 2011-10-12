@@ -89,12 +89,12 @@ class TestCompiler:
         yield self.st, func, "f(0)", 0
 
     def test_argtuple(self):
-        yield (self.simple_test, "def f( x, (y,z) ): return x,y,z",
-               "f((1,2),(3,4))", ((1,2),3,4))
-        yield (self.simple_test, "def f( x, (y,(z,t)) ): return x,y,z,t",
-               "f(1,(2,(3,4)))", (1,2,3,4))
-        yield (self.simple_test, "def f(((((x,),y),z),t),u): return x,y,z,t,u",
-               "f(((((1,),2),3),4),5)", (1,2,3,4,5))
+        yield (self.error_test, "def f( x, (y,z) ): return x,y,z",
+               SyntaxError)
+        yield (self.error_test, "def f( x, (y,(z,t)) ): return x,y,z,t",
+               SyntaxError)
+        yield (self.error_test, "def f(((((x,),y),z),t),u): return x,y,z,t,u",
+               SyntaxError)
 
     def test_constants(self):
         for c in expressions.constants:
@@ -235,6 +235,14 @@ class TestCompiler:
         yield self.st, decl + "x=f(5, b=2, *[6,7])", "x", [5, 6, 7, ('b', 2)]
         yield self.st, decl + "x=f(5, b=2, **{'a': 8})", "x", [5, ('a', 8),
                                                                   ('b', 2)]
+
+    def test_kwonly(self):
+        decl = py.code.Source("""
+            def f(a, *, b):
+                return a, b
+        """)
+        decl = str(decl) + '\n'
+        yield self.st, decl + "x=f(1, b=2)", "x", (1, 2)
 
     def test_listmakers(self):
         yield (self.st,
