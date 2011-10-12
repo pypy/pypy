@@ -1016,6 +1016,37 @@ class Global(stmt):
                 self.names = None
 
 
+class Nonlocal(stmt):
+
+    _lineno_mask = 2
+    _col_offset_mask = 4
+
+    def __init__(self, names, lineno, col_offset):
+        self.names = names
+        self.w_names = None
+        stmt.__init__(self, lineno, col_offset)
+        self.initialization_state = 7
+
+    def walkabout(self, visitor):
+        visitor.visit_Nonlocal(self)
+
+    def mutate_over(self, visitor):
+        return visitor.visit_Nonlocal(self)
+
+    def sync_app_attrs(self, space):
+        if (self.initialization_state & ~0) ^ 7:
+            missing_field(space, self.initialization_state, ['names', 'lineno', 'col_offset'], 'Nonlocal')
+        else:
+            pass
+        w_list = self.w_names
+        if w_list is not None:
+            list_w = space.listview(w_list)
+            if list_w:
+                self.names = [space.str_w(w_obj) for w_obj in list_w]
+            else:
+                self.names = None
+
+
 class Expr(stmt):
 
     _lineno_mask = 2
@@ -1758,7 +1789,6 @@ class Name(expr):
     _col_offset_mask = 8
 
     def __init__(self, id, ctx, lineno, col_offset):
-        assert isinstance(id, str)
         self.id = id
         self.ctx = ctx
         expr.__init__(self, lineno, col_offset)
@@ -2516,6 +2546,8 @@ class ASTVisitor(object):
         return self.default_visitor(node)
     def visit_Global(self, node):
         return self.default_visitor(node)
+    def visit_Nonlocal(self, node):
+        return self.default_visitor(node)
     def visit_Expr(self, node):
         return self.default_visitor(node)
     def visit_Pass(self, node):
@@ -2682,6 +2714,9 @@ class GenericASTVisitor(ASTVisitor):
         self.visit_sequence(node.names)
 
     def visit_Global(self, node):
+        pass
+
+    def visit_Nonlocal(self, node):
         pass
 
     def visit_Expr(self, node):
@@ -4439,6 +4474,49 @@ Global.typedef = typedef.TypeDef("Global",
     names=typedef.GetSetProperty(Global_get_names, Global_set_names, cls=Global),
     __new__=interp2app(get_AST_new(Global)),
     __init__=interp2app(Global_init),
+)
+
+def Nonlocal_get_names(space, w_self):
+    if not w_self.initialization_state & 1:
+        typename = space.type(w_self).getname(space)
+        w_err = space.wrap("'%s' object has no attribute 'names'" % typename)
+        raise OperationError(space.w_AttributeError, w_err)
+    if w_self.w_names is None:
+        if w_self.names is None:
+            w_list = space.newlist([])
+        else:
+            list_w = [space.wrap(node) for node in w_self.names]
+            w_list = space.newlist(list_w)
+        w_self.w_names = w_list
+    return w_self.w_names
+
+def Nonlocal_set_names(space, w_self, w_new_value):
+    w_self.w_names = w_new_value
+    w_self.initialization_state |= 1
+
+_Nonlocal_field_unroller = unrolling_iterable(['names'])
+def Nonlocal_init(space, w_self, __args__):
+    w_self = space.descr_self_interp_w(Nonlocal, w_self)
+    w_self.w_names = None
+    args_w, kwargs_w = __args__.unpack()
+    if args_w:
+        if len(args_w) != 1:
+            w_err = space.wrap("Nonlocal constructor takes either 0 or 1 positional argument")
+            raise OperationError(space.w_TypeError, w_err)
+        i = 0
+        for field in _Nonlocal_field_unroller:
+            space.setattr(w_self, space.wrap(field), args_w[i])
+            i += 1
+    for field, w_value in kwargs_w.iteritems():
+        space.setattr(w_self, space.wrap(field), w_value)
+
+Nonlocal.typedef = typedef.TypeDef("Nonlocal",
+    stmt.typedef,
+    __module__='_ast',
+    _fields=_FieldsWrapper(['names']),
+    names=typedef.GetSetProperty(Nonlocal_get_names, Nonlocal_set_names, cls=Nonlocal),
+    __new__=interp2app(get_AST_new(Nonlocal)),
+    __init__=interp2app(Nonlocal_init),
 )
 
 def Expr_get_value(space, w_self):

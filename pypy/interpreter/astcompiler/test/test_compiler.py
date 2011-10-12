@@ -786,6 +786,17 @@ class TestCompiler:
             raise AssertionError("attribute not removed")"""
         yield self.st, test, "X.__name__", "X"
 
+    def test_nonlocal(self):
+        test = """if 1:
+        def f():
+            y = 0
+            def g(x):
+                nonlocal y
+                y = x + 1
+            g(3)
+            return y"""
+        yield self.st, test, "f()", 4
+
 
 class AppTestCompiler:
 

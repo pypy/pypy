@@ -255,6 +255,11 @@ class ASTBuilder(object):
                  for i in range(1, len(global_node.children), 2)]
         return ast.Global(names, global_node.lineno, global_node.column)
 
+    def handle_nonlocal_stmt(self, nonlocal_node):
+        names = [nonlocal_node.children[i].value
+                 for i in range(1, len(nonlocal_node.children), 2)]
+        return ast.Nonlocal(names, nonlocal_node.lineno, nonlocal_node.column)
+
     def handle_assert_stmt(self, assert_node):
         child_count = len(assert_node.children)
         expr = self.handle_expr(assert_node.children[1])
@@ -620,6 +625,8 @@ class ASTBuilder(object):
                 return self.handle_import_stmt(stmt)
             elif stmt_type == syms.global_stmt:
                 return self.handle_global_stmt(stmt)
+            elif stmt_type == syms.nonlocal_stmt:
+                return self.handle_nonlocal_stmt(stmt)
             elif stmt_type == syms.assert_stmt:
                 return self.handle_assert_stmt(stmt)
             else:

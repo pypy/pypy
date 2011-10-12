@@ -761,6 +761,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         # Handled in symbol table building.
         pass
 
+    def visit_Nonlocal(self, glob):
+        # Handled in symbol table building.
+        pass
+
     def visit_Pass(self, pas):
         self.update_position(pas.lineno, True)
 
