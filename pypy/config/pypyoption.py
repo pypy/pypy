@@ -127,7 +127,7 @@ def get_module_validator(modname):
 
 pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
     ChoiceOption("name", "Object Space name",
-                 ["std", "flow", "thunk", "dump", "taint"],
+                 ["std", "flow", "thunk", "dump"],
                  "std",
                  cmdline='--objspace -o'),
 
