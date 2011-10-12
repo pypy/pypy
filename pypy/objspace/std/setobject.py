@@ -87,7 +87,6 @@ class W_BaseSetObject(W_Object):
     def get_storage_copy(self):
         return self.strategy.get_storage_copy(self)
 
-    # XXX use this as little as possible, as it is really inefficient
     def getkeys(self):
         return self.strategy.getkeys(self)
 
@@ -169,9 +168,88 @@ class SetStrategy(object):
     def __init__(self, space):
         self.space = space
 
+    def get_empty_dict(self):
+        raise NotImplementedError
+
+    def get_empty_storage(self):
+        raise NotImplementedError
+
+    def erase(self, storage):
+        raise NotImplementedError
+
+    def unerase(self, storage):
+        raise NotImplementedError
+
+    # __________________ methods called on W_SetObject _________________
+
+    def clear(self):
+        raise NotImplementedError
+
+    def copy(self):
+        raise NotImplementedError
+
     def length(self, w_set):
         raise NotImplementedError
 
+    def add(self, w_key):
+        raise NotImplementedError
+
+    def remove(self, w_item):
+        raise NotImplementedError
+
+    def getdict_w(self):
+        raise NotImplementedError
+
+    def get_storage_copy(self):
+        raise NotImplementedError
+
+    def getkeys(self):
+        raise NotImplementedError
+
+    def difference(self, w_other):
+        raise NotImplementedError
+
+    def difference_update(self, w_other):
+        raise NotImplementedError
+
+    def symmetric_difference(self, w_other):
+        raise NotImplementedError
+
+    def symmetric_difference_update(self, w_other):
+        raise NotImplementedError
+
+    def intersect(self, w_other):
+        raise NotImplementedError
+
+    def intersect_update(self, w_other):
+        raise NotImplementedError
+
+    def intersect_multiple(self, others_w):
+        raise NotImplementedError
+
+    def intersect_multiple_update(self, others_w):
+        raise NotImplementedError
+
+    def issubset(self, w_other):
+        raise NotImplementedError
+
+    def isdisjoint(self, w_other):
+        raise NotImplementedError
+
+    def update(self, w_other):
+        raise NotImplementedError
+
+    def has_key(self, w_key):
+        raise NotImplementedError
+
+    def equals(self, w_other):
+        raise NotImplementedError
+
+    def iter(self, w_set):
+        raise NotImplementedError
+
+    def popitem(self):
+        raise NotImplementedError
 
 class EmptySetStrategy(SetStrategy):
 
@@ -289,10 +367,16 @@ class EmptySetStrategy(SetStrategy):
 class AbstractUnwrappedSetStrategy(object):
     _mixin_ = True
 
-    # XXX add similar abstract methods for all the methods the concrete
-    # subclasses of AbstractUnwrappedSetStrategy need to implement. add
+    # XXX add
     # docstrings too.
-    def get_empty_storage(self):
+
+    def is_correct_type(self, w_key):
+        raise NotImplementedError
+
+    def unwrap(self, w_item):
+        raise NotImplementedError
+
+    def wrap(self, item):
         raise NotImplementedError
 
     def get_storage_from_list(self, list_w):
