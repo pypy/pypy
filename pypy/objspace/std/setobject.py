@@ -658,9 +658,15 @@ class ObjectSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
 
     def update(self, w_set, w_other):
         d_obj = self.unerase(w_set.sstorage)
-        other_w = w_other.getkeys()
-        for w_key in other_w:
-            d_obj[w_key] = None
+        w_iterator = self.space.iter(w_other)
+        while True:
+            try:
+                w_item = self.space.next(w_iterator)
+                d_obj[w_item] = None
+            except OperationError, e:
+                if not e.match(self.space, self.space.w_StopIteration):
+                    raise
+                break
 
 class IteratorImplementation(object):
     def __init__(self, space, implementation):
