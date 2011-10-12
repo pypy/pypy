@@ -1065,10 +1065,8 @@ class ASTBuilder(object):
             space = self.space
             encoding = self.compile_info.encoding
             flags = self.compile_info.flags
-            unicode_literals = flags & consts.CO_FUTURE_UNICODE_LITERALS
             try:
-                sub_strings_w = [parsestring.parsestr(space, encoding, s.value,
-                                                      unicode_literals)
+                sub_strings_w = [parsestring.parsestr(space, encoding, s.value)
                                  for s in atom_node.children]
             except error.OperationError, e:
                 if not e.match(space, space.w_UnicodeError):
