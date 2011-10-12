@@ -213,7 +213,7 @@ class Regalloc(object):
     def _prepare_guard(self, op, args=None):
         if args is None:
             args = []
-        #args.append(imm(self.frame_manager.frame_depth))
+        args.append(imm(self.frame_manager.frame_depth))
         for arg in op.getfailargs():
             if arg:
                 args.append(self.loc(arg))

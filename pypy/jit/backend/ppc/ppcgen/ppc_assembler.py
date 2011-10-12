@@ -10,12 +10,15 @@ from pypy.jit.backend.ppc.ppcgen.symbol_lookup import lookup
 from pypy.jit.backend.ppc.ppcgen.codebuilder import PPCBuilder
 from pypy.jit.backend.ppc.ppcgen.arch import (IS_PPC_32, WORD, NONVOLATILES,
                                               GPR_SAVE_AREA)
-from pypy.jit.backend.ppc.ppcgen.helper.assembler import gen_emit_cmp_op
+from pypy.jit.backend.ppc.ppcgen.helper.assembler import (gen_emit_cmp_op, 
+                                                          encode32)
 import pypy.jit.backend.ppc.ppcgen.register as r
 import pypy.jit.backend.ppc.ppcgen.condition as c
 from pypy.jit.metainterp.history import (Const, ConstPtr, LoopToken,
                                          AbstractFailDescr)
-from pypy.jit.backend.llsupport.asmmemmgr import (BlockBuilderMixin, AsmMemoryManager, MachineDataBlockWrapper)
+from pypy.jit.backend.llsupport.asmmemmgr import (BlockBuilderMixin, 
+                                                  AsmMemoryManager,
+                                                  MachineDataBlockWrapper)
 from pypy.jit.backend.llsupport.regalloc import (RegisterManager, 
                                                  compute_vars_longevity)
 from pypy.jit.backend.llsupport import symbolic
@@ -58,6 +61,16 @@ def high(w):
 
 class AssemblerPPC(OpAssembler):
 
+    FLOAT_TYPE = '\xED'
+    REF_TYPE   = '\xEE'
+    INT_TYPE   = '\xEF'
+
+    STACK_LOC = '\xFC'
+    IMM_LOC = '\xFD'
+    # REG_LOC is empty
+    EMPTY_LOC = '\xFE'
+    END_OF_LOCS = '\xFF'
+
     def __init__(self, cpu, failargs_limit=1000):
         self.cpu = cpu
         self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
@@ -66,7 +79,6 @@ class AssemblerPPC(OpAssembler):
         self.memcpy_addr = 0
 
     def load_imm(self, rD, word):
-        rD = rD.as_key()
         if word <= 32767 and word >= -32768:
             self.mc.li(rD, word)
         elif IS_PPC_32 or (word <= 2147483647 and word >= -2147483648):
@@ -89,7 +101,7 @@ class AssemblerPPC(OpAssembler):
             self.mc.ld(rD, rD, 0)
 
     def store_reg(self, source_reg, addr):
-        self.load_imm(r.r0, addr)
+        self.load_imm(r.r0.value, addr)
         if IS_PPC_32:
             self.mc.stwx(source_reg.value, 0, 0)
         else:
@@ -137,9 +149,10 @@ class AssemblerPPC(OpAssembler):
     # XXX adjust for 64 bit
     def _make_prologue(self, target_pos, frame_depth):
         if IS_PPC_32:
+            # save it in previous frame (Backchain)
             self.mc.stwu(r.SP.value, r.SP.value, -frame_depth)
             self.mc.mflr(r.r0.value)  # move old link register
-            # save it in previous frame (Backchain)
+            # save old link register in previous frame
             self.mc.stw(r.r0.value, r.SP.value, frame_depth + WORD) 
             # save r31 at the bottom of the stack frame
             self.mc.stw(r.SPP.value, r.SP.value, WORD)
@@ -198,7 +211,20 @@ class AssemblerPPC(OpAssembler):
     #        #self.mc.li(r.r3.value, fail_index)            
     #        #self.mc.blr()
 
-    def gen_exit_code(self):
+    def _gen_leave_jitted_hook_code(self, save_exc=False):
+        mc = PPCBuilder()
+        ### XXX add a check if cpu supports floats
+        #with saved_registers(mc, r.caller_resp + [r.ip], r.caller_vfp_resp):
+        #    addr = self.cpu.get_on_leave_jitted_int(save_exception=save_exc)
+        #    mc.BL(addr)
+        #assert self._exit_code_addr != 0
+        #mc.B(self._exit_code_addr)
+        mc.b_abs(self.exit_code_adr)
+        mc.prepare_insts_blocks()
+        return mc.materialize(self.cpu.asmmemmgr, [],
+                               self.cpu.gc_ll_descr.gcrootmap)
+
+    def _gen_exit_path(self):
         mc = PPCBuilder()
         # save SPP in r5
         # (assume that r5 has been written to failboxes)
@@ -242,12 +268,14 @@ class AssemblerPPC(OpAssembler):
         self.pending_guards = []
         assert self.datablockwrapper is None
         allblocks = self.get_asmmemmgr_blocks(looptoken)
-        self.exit_code_adr = self.gen_exit_code()
         self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
                                                         allblocks)
 
     def setup_once(self):
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
+        self.exit_code_adr = self._gen_exit_path()
+        #self._leave_jitted_hook_save_exc = self._gen_leave_jitted_hook_code(True)
+        self._leave_jitted_hook = self._gen_leave_jitted_hook_code(False)
 
     def assemble_loop(self, inputargs, operations, looptoken, log):
 
@@ -255,8 +283,6 @@ class AssemblerPPC(OpAssembler):
         looptoken.compiled_loop_token = clt
 
         self.setup(looptoken, operations)
-        self.patch_list = []
-        self.pending_guards = []
         self.startpos = self.mc.currpos()
 
         longevity = compute_vars_longevity(inputargs, operations)
@@ -267,7 +293,7 @@ class AssemblerPPC(OpAssembler):
         regalloc_head = self.mc.currpos()
         self.gen_bootstrap_code(nonfloatlocs, inputargs)
 
-        loophead = self.mc.currpos()
+        loophead = self.mc.currpos()            # address of actual loop
         looptoken._ppc_loop_code = loophead
         looptoken._ppc_arglocs = [nonfloatlocs]
         looptoken._ppc_bootstrap_code = 0
@@ -277,9 +303,11 @@ class AssemblerPPC(OpAssembler):
         start_pos = self.mc.currpos()
         self.framesize = frame_depth = self.compute_frame_depth(regalloc)
         self._make_prologue(regalloc_head, frame_depth)
-        
-        loop_start = self.materialize_loop(looptoken)
+     
+        self.write_pending_failure_recoveries()
+        loop_start = self.materialize_loop(looptoken, True)
         looptoken.ppc_code = loop_start + start_pos
+        self.process_pending_guards(loop_start)
         self._teardown()
 
     # For an explanation of the encoding, see
@@ -365,13 +393,59 @@ class AssemblerPPC(OpAssembler):
                        + regalloc.frame_manager.frame_depth * WORD)
         return frame_depth
     
-    def materialize_loop(self, looptoken):
-        self.mc.prepare_insts_blocks()
+    def materialize_loop(self, looptoken, show):
+        self.mc.prepare_insts_blocks(show)
         self.datablockwrapper.done()
         self.datablockwrapper = None
         allblocks = self.get_asmmemmgr_blocks(looptoken)
         return self.mc.materialize(self.cpu.asmmemmgr, allblocks, 
                                    self.cpu.gc_ll_descr.gcrootmap)
+
+    def write_pending_failure_recoveries(self):
+        for tok in self.pending_guards:
+            descr = tok.descr
+            #generate the exit stub and the encoded representation
+            pos = self.mc.currpos()
+            tok.pos_recovery_stub = pos 
+
+            memaddr = self.gen_exit_stub(descr, tok.failargs,
+                                            tok.faillocs, save_exc=tok.save_exc)
+            # store info on the descr
+            descr._ppc_frame_depth = tok.faillocs[0].getint()
+            descr._failure_recovery_code = memaddr
+            descr._ppc_guard_pos = pos
+
+    def gen_exit_stub(self, descr, args, arglocs, fcond=c.NE,
+                               save_exc=False):
+        memaddr = self.gen_descr_encoding(descr, args, arglocs)
+
+        # store addr in force index field
+        self.mc.load_imm(r.r0, memaddr)
+        self.mc.stw(r.r0.value, r.SPP.value, 0)
+
+        if save_exc:
+            path = self._leave_jitted_hook_save_exc
+        else:
+            path = self._leave_jitted_hook
+        self.mc.trap()
+        #self.mc.ba(path)
+        self.branch_abs(path)
+        return memaddr
+
+    def process_pending_guards(self, block_start):
+        clt = self.current_clt
+        for tok in self.pending_guards:
+            descr = tok.descr
+            assert isinstance(descr, AbstractFailDescr)
+            descr._ppc_block_start = block_start
+
+            if not tok.is_invalidate:
+                mc = PPCBuilder()
+                mc.b_cond_offset(descr._ppc_guard_pos - tok.offset, tok.fcond)
+                mc.prepare_insts_blocks(True)
+                mc.copy_to_raw_memory(block_start + tok.offset)
+            else:
+                assert 0, "not implemented yet"
 
     def get_asmmemmgr_blocks(self, looptoken):
         clt = looptoken.compiled_loop_token
