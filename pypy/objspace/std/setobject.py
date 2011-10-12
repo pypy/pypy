@@ -551,16 +551,13 @@ class AbstractUnwrappedSetStrategy(object):
             if not w_other.has_key(w_item):
                 newsetdata[w_item] = None
 
-        w_iterator = self.space.iter(w_other)
+        w_iterator = w_other.iter()
         while True:
-            try:
-                w_item = self.space.next(w_iterator)
-                if not w_set.has_key(w_item):
-                    newsetdata[w_item] = None
-            except OperationError, e:
-                if not e.match(self.space, self.space.w_StopIteration):
-                    raise
+            w_item = w_iterator.next_entry()
+            if w_item is None:
                 break
+            if not w_set.has_key(w_item):
+                newsetdata[w_item] = None
 
         strategy = self.space.fromcache(ObjectSetStrategy)
         return strategy.erase(newsetdata)
@@ -764,15 +761,12 @@ class ObjectSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
 
     def update(self, w_set, w_other):
         d_obj = self.unerase(w_set.sstorage)
-        w_iterator = self.space.iter(w_other)
+        w_iterator = w_other.iter()
         while True:
-            try:
-                w_item = self.space.next(w_iterator)
-                d_obj[w_item] = None
-            except OperationError, e:
-                if not e.match(self.space, self.space.w_StopIteration):
-                    raise
+            w_item = w_iterator.next_entry()
+            if w_item is None:
                 break
+            d_obj[w_item] = None
 
 class IteratorImplementation(object):
     def __init__(self, space, implementation):
@@ -808,7 +802,7 @@ class IteratorImplementation(object):
         return 0
 
 class EmptyIteratorImplementation(IteratorImplementation):
-    def next(self):
+    def next_entry(self):
         return None
 
 class IntegerIteratorImplementation(IteratorImplementation):
@@ -1156,17 +1150,14 @@ def hash__Frozenset(space, w_set):
         return space.wrap(w_set.hash)
     hash = 1927868237
     hash *= (w_set.length() + 1)
-    w_iterator = space.iter(w_set)
+    w_iterator = w_set.iter()
     while True:
-        try:
-            w_item = space.next(w_iterator)
-            h = space.hash_w(w_item)
-            value = ((h ^ (h << 16) ^ 89869747)  * multi)
-            hash = intmask(hash ^ value)
-        except OperationError, e:
-            if not e.match(space, space.w_StopIteration):
-                raise
+        w_item = w_iterator.next_entry()
+        if w_item is None:
             break
+        h = space.hash_w(w_item)
+        value = ((h ^ (h << 16) ^ 89869747)  * multi)
+        hash = intmask(hash ^ value)
     hash = hash * 69069 + 907133923
     if hash == 0:
         hash = 590923713
