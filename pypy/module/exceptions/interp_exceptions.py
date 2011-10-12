@@ -70,6 +70,7 @@ BaseException
            +-- ImportWarning
            +-- UnicodeWarning
            +-- BytesWarning
+           +-- ResourceWarning
 """
 
 from pypy.interpreter.baseobjspace import Wrappable
@@ -462,6 +463,9 @@ W_BytesWarning = _new_exception('BytesWarning', W_Warning,
 
 W_DeprecationWarning = _new_exception('DeprecationWarning', W_Warning,
                         """Base class for warnings about deprecated features.""")
+
+W_ResourceWarning = _new_exception('ResourceWarning', W_Warning,
+         """Base class for warnings about resource usage.""")
 
 W_ArithmeticError = _new_exception('ArithmeticError', W_StandardError,
                          """Base class for arithmetic errors.""")

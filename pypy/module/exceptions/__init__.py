@@ -12,6 +12,7 @@ class Module(MixedModule):
         'BufferError' : 'interp_exceptions.W_BufferError',
         'BytesWarning'  : 'interp_exceptions.W_BytesWarning',
         'DeprecationWarning' : 'interp_exceptions.W_DeprecationWarning',
+        'ResourceWarning'  : 'interp_exceptions.W_ResourceWarning',
         'EOFError' : 'interp_exceptions.W_EOFError',
         'EnvironmentError' : 'interp_exceptions.W_EnvironmentError',
         'Exception' : 'interp_exceptions.W_Exception',
