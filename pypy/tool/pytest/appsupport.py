@@ -213,7 +213,7 @@ def _exc_info(space, err):
 def pypyraises(space, w_ExpectedException, w_expr, __args__):
     """A built-in function providing the equivalent of py.test.raises()."""
     args_w, kwds_w = __args__.unpack()
-    if space.is_true(space.isinstance(w_expr, space.w_str)):
+    if space.is_true(space.isinstance(w_expr, space.w_unicode)):
         if args_w:
             raise OperationError(space.w_TypeError,
                                  space.wrap("raises() takes no argument "
