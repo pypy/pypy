@@ -100,15 +100,9 @@ def really_build_fake_type(cpy_type):
     fake__new__.func_name = "fake__new__" + cpy_type.__name__
 
     kw['__new__'] = gateway.interp2app(fake__new__)
-    if cpy_type.__base__ is not object and not issubclass(cpy_type, Exception):
-        assert cpy_type.__base__ is basestring, cpy_type
-        from pypy.objspace.std.basestringtype import basestring_typedef
-        base = basestring_typedef
-    else:
-        base = None
     class W_Fake(W_Object):
         typedef = StdTypeDef(
-            cpy_type.__name__, base, **kw)
+            cpy_type.__name__, **kw)
         def __init__(w_self, space, val):
             w_self.val = val
             w_self.space = space

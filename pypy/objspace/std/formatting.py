@@ -528,7 +528,7 @@ def mod_format(space, w_format, w_values, do_unicode=False):
         # in simplest case
         if space.isinstance_w(w_values, space.w_dict) or \
            (space.lookup(w_values, '__getitem__') and
-           not space.isinstance_w(w_values, space.w_basestring)):
+           not space.isinstance_w(w_values, space.w_unicode)):
             return format(space, w_format, [w_values], w_values, do_unicode)
         else:
             return format(space, w_format, [w_values], None, do_unicode)

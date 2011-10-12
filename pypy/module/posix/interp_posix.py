@@ -1067,7 +1067,7 @@ def ttyname(space, fd):
 
 def confname_w(space, w_name, namespace):
     # XXX slightly non-nice, reuses the sysconf of the underlying os module
-    if space.is_true(space.isinstance(w_name, space.w_basestring)):
+    if space.is_true(space.isinstance(w_name, space.w_unicode)):
         try:
             num = namespace[space.str_w(w_name)]
         except KeyError:

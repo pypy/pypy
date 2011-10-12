@@ -341,11 +341,11 @@ class DescrOperation(object):
                                   "'%s' object does not define __format__",
                                   typename)
         w_res = space.get_and_call_function(w_descr, w_obj, w_format_spec)
-        if not space.is_true(space.isinstance(w_res, space.w_basestring)):
+        if not space.is_true(space.isinstance(w_res, space.w_unicode)):
             typename = space.type(w_obj).getname(space)
             restypename = space.type(w_res).getname(space)
             raise operationerrfmt(space.w_TypeError,
-                "%s.__format__ must return string or unicode, not %s",
+                "%s.__format__ must return a string, not %s",
                                   typename, restypename)
         return w_res
 

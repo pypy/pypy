@@ -228,7 +228,7 @@ class PyCode(eval.Code):
     def getdocstring(self, space):
         if self.co_consts_w:   # it is probably never empty
             w_first = self.co_consts_w[0]
-            if space.is_true(space.isinstance(w_first, space.w_basestring)):
+            if space.is_true(space.isinstance(w_first, space.w_unicode)):
                 return w_first
         return space.w_None
 

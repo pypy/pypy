@@ -2,7 +2,6 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter import gateway
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.register_all import register_all
-from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.rlib.runicode import str_decode_utf_8, str_decode_ascii,\
      unicode_encode_utf_8, unicode_encode_ascii
 
@@ -358,7 +357,7 @@ def descr_new_(space, w_unicodetype, w_string='', w_encoding=None, w_errors=None
 
 # ____________________________________________________________
 
-unicode_typedef = StdTypeDef("unicode", basestring_typedef,
+unicode_typedef = StdTypeDef("str",
     __new__ = gateway.interp2app(descr_new_),
     __doc__ = '''unicode(string [, encoding[, errors]]) -> object
 

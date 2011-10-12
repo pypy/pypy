@@ -1,6 +1,5 @@
 from pypy.interpreter import gateway
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
-from pypy.objspace.std.basestringtype import basestring_typedef
 from pypy.objspace.std.register_all import register_all
 
 
@@ -310,7 +309,7 @@ def descr__new__(space, w_stringtype, w_object=''):
 
 # ____________________________________________________________
 
-str_typedef = StdTypeDef("str", basestring_typedef,
+str_typedef = StdTypeDef("bytes",
     __new__ = gateway.interp2app(descr__new__),
     __doc__ = '''str(object) -> string
 

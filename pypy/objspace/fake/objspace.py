@@ -39,7 +39,6 @@ class FakeObjSpace(ObjSpace):
     w_long           = W_Object()
     w_tuple          = W_Object()
     w_str            = W_Object()
-    w_basestring     = W_Object()
     w_unicode        = W_Object()
     w_type           = W_Object()
     w_instance       = W_Object()
