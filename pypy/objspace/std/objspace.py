@@ -68,6 +68,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             w_type = self.gettypeobject(typedef)
             self.builtin_types[typedef.name] = w_type
             setattr(self, 'w_' + typedef.name, w_type)
+        self.w_text = self.w_unicode
         self.builtin_types["NotImplemented"] = self.w_NotImplemented
         self.builtin_types["Ellipsis"] = self.w_Ellipsis
 
@@ -149,6 +150,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
         assert typedef is not None
         return self.fromcache(stdtypedef.TypeCache).getorbuild(typedef)
 
+    def wrapbytes(self, bytes):
+        return wrapstr(self, bytes)
+
     def wrap(self, x):
         "Wraps the Python value 'x' into one of the wrapper classes."
         # You might notice that this function is rather conspicuously
@@ -170,7 +174,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             else:
                 return self.newint(x)
         if isinstance(x, str):
-            return wrapstr(self, x)
+            return wrapunicode(self, x.decode('ascii'))
         if isinstance(x, unicode):
             return wrapunicode(self, x)
         if isinstance(x, float):

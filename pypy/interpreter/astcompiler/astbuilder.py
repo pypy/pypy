@@ -503,6 +503,8 @@ class ASTBuilder(object):
         return name
 
     def handle_arguments(self, arguments_node):
+        # This function handles both typedargslist (function definition)
+        # and varargslist (lambda definition).
         if arguments_node.type == syms.parameters:
             if len(arguments_node.children) == 2:
                 return ast.arguments(None, None, None, None)
@@ -517,7 +519,7 @@ class ASTBuilder(object):
         while i < child_count:
             argument = arguments_node.children[i]
             arg_type = argument.type
-            if arg_type == syms.tfpdef:
+            if arg_type == syms.tfpdef or arg_type == syms.vfpdef:
                 parenthesized = False
                 complex_args = False
                 while True:

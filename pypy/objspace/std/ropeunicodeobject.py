@@ -78,9 +78,6 @@ class W_RopeUnicodeObject(W_Object):
         # for testing
         return w_self._node.flatten_unicode()
 
-    def str_w(w_self, space):
-        return space.str_w(space.str(w_self))
-
     def create_if_subclassed(w_self):
         if type(w_self) is W_RopeUnicodeObject:
             return w_self

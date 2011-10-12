@@ -188,13 +188,13 @@ class W_Root(object):
 
     # -------------------------------------------------------------------
 
-    def str_w(self, space):
-        w_msg = typed_unwrap_error_msg(space, "string", self)
+    def bytes_w(self, space):
+        w_msg = typed_unwrap_error_msg(space, "bytes", self)
         raise OperationError(space.w_TypeError, w_msg)
 
     def unicode_w(self, space):
         raise OperationError(space.w_TypeError,
-                             typed_unwrap_error_msg(space, "unicode", self))
+                             typed_unwrap_error_msg(space, "string", self))
 
     def int_w(self, space):
         raise OperationError(space.w_TypeError,
@@ -1233,7 +1233,10 @@ class ObjSpace(object):
         return self.str_w(w_obj)
 
     def str_w(self, w_obj):
-        return w_obj.str_w(self)
+        return self.unicode_w(w_obj).encode('ascii')
+
+    def bytes_w(self, w_obj):
+        return w_obj.bytes_w(self)
 
     def int_w(self, w_obj):
         return w_obj.int_w(self)
@@ -1561,7 +1564,7 @@ ObjSpace.ExceptionTable = [
 
 ObjSpace.IrregularOpTable = [
     'wrap',
-    'str_w',
+    'bytes_w',
     'int_w',
     'float_w',
     'uint_w',

@@ -25,7 +25,7 @@ def plain_str2unicode(space, s):
                     space.w_UnicodeDecodeError,
                     space.newtuple([
                     space.wrap('ascii'),
-                    space.wrap(s),
+                    space.wrapbytes(s),
                     space.wrap(i),
                     space.wrap(i+1),
                     space.wrap("ordinal not in range(128)")]))
@@ -191,7 +191,7 @@ def decode_error_handler(space):
                                        startingpos, endingpos):
         raise OperationError(space.w_UnicodeDecodeError,
                              space.newtuple([space.wrap(encoding),
-                                             space.wrap(s),
+                                             space.wrapbytes(s),
                                              space.wrap(startingpos),
                                              space.wrap(endingpos),
                                              space.wrap(msg)]))

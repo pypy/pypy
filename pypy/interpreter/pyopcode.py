@@ -721,7 +721,6 @@ class __extend__(pyframe.PyFrame):
     def IMPORT_NAME(self, nameindex, next_instr):
         space = self.space
         w_modulename = self.getname_w(nameindex)
-        modulename = self.space.str_w(w_modulename)
         w_fromlist = self.popvalue()
 
         w_flag = self.popvalue()
@@ -739,7 +738,6 @@ class __extend__(pyframe.PyFrame):
         w_locals = self.w_locals
         if w_locals is None:            # CPython does this
             w_locals = space.w_None
-        w_modulename = space.wrap(modulename)
         w_globals = self.w_globals
         if w_flag is None:
             w_obj = space.call_function(w_import, w_modulename, w_globals,

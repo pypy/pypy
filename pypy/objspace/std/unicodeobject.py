@@ -39,9 +39,6 @@ class W_UnicodeObject(W_Object):
             return w_self
         return W_UnicodeObject(w_self._value)
 
-    def str_w(self, space):
-        return space.str_w(space.str(self))
-
     def unicode_w(self, space):
         return self._value
 

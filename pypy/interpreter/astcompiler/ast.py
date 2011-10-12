@@ -1758,6 +1758,7 @@ class Name(expr):
     _col_offset_mask = 8
 
     def __init__(self, id, ctx, lineno, col_offset):
+        assert isinstance(id, str)
         self.id = id
         self.ctx = ctx
         expr.__init__(self, lineno, col_offset)

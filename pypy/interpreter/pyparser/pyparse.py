@@ -4,14 +4,16 @@ from pypy.interpreter.pyparser import future, parser, pytokenizer, pygram, error
 from pypy.interpreter.astcompiler import consts
 
 
-_recode_to_utf8 = gateway.applevel(r'''
-    def _recode_to_utf8(text, encoding):
-        return unicode(text, encoding).encode("utf-8")
-''').interphook('_recode_to_utf8')
+def decode_source(space, bytes, encoding=None):
+    if encoding is None:
+        encoding = 'utf-8'
+    if encoding == 'utf-8':
+        return bytes
+    text = space.unicode_w(space.call_function(space.w_unicode,
+                                               space.wrapbytes(bytes),
+                                               space.wrap(encoding)))
+    return text.encode('utf-8')
 
-def recode_to_utf8(space, text, encoding):
-    return space.str_w(_recode_to_utf8(space, space.wrap(text),
-                                          space.wrap(encoding)))
 def _normalize_encoding(encoding):
     """returns normalized name for <encoding>
 
@@ -94,7 +96,7 @@ class PythonParser(parser.Parser):
         self.space = space
         self.future_flags = future_flags
 
-    def parse_source(self, textsrc, compile_info):
+    def parse_source(self, bytessrc, compile_info):
         """Main entry point for parsing Python source.
 
         Everything from decoding the source to tokenizing to building the parse
@@ -102,38 +104,39 @@ class PythonParser(parser.Parser):
         """
         # Detect source encoding.
         enc = None
-        if textsrc.startswith("\xEF\xBB\xBF"):
-            textsrc = textsrc[3:]
+        if bytessrc.startswith("\xEF\xBB\xBF"):
+            bytessrc = bytessrc[3:]
             enc = 'utf-8'
             # If an encoding is explicitly given check that it is utf-8.
-            decl_enc = _check_for_encoding(textsrc)
+            decl_enc = _check_for_encoding(bytessrc)
             if decl_enc and decl_enc != "utf-8":
                 raise error.SyntaxError("UTF-8 BOM with non-utf8 coding cookie",
                                         filename=compile_info.filename)
+            textsrc = decode_source(self.space, bytessrc, enc)
         elif compile_info.flags & consts.PyCF_SOURCE_IS_UTF8:
             enc = 'utf-8'
-            if _check_for_encoding(textsrc) is not None:
+            if _check_for_encoding(bytessrc) is not None:
                 raise error.SyntaxError("coding declaration in unicode string",
                                         filename=compile_info.filename)
+            textsrc = decode_source(self.space, bytessrc, enc)
         else:
-            enc = _normalize_encoding(_check_for_encoding(textsrc))
-            if enc is not None and enc not in ('utf-8', 'iso-8859-1'):
-                try:
-                    textsrc = recode_to_utf8(self.space, textsrc, enc)
-                except OperationError, e:
-                    # if the codec is not found, LookupError is raised.  we
-                    # check using 'is_w' not to mask potential IndexError or
-                    # KeyError
-                    space = self.space
-                    if e.match(space, space.w_LookupError):
-                        raise error.SyntaxError("Unknown encoding: %s" % enc,
-                                                filename=compile_info.filename)
-                    # Transform unicode errors into SyntaxError
-                    if e.match(space, space.w_UnicodeDecodeError):
-                        e.normalize_exception(space)
-                        w_message = space.str(e.get_w_value(space))
-                        raise error.SyntaxError(space.str_w(w_message))
-                    raise
+            enc = _normalize_encoding(_check_for_encoding(bytessrc))
+            try:
+                textsrc = decode_source(self.space, bytessrc, enc)
+            except OperationError, e:
+                # if the codec is not found, LookupError is raised.  we
+                # check using 'is_w' not to mask potential IndexError or
+                # KeyError
+                space = self.space
+                if e.match(space, space.w_LookupError):
+                    raise error.SyntaxError("Unknown encoding: %s" % enc,
+                                            filename=compile_info.filename)
+                # Transform unicode errors into SyntaxError
+                if e.match(space, space.w_UnicodeDecodeError):
+                    e.normalize_exception(space)
+                    w_message = space.str(e.get_w_value(space))
+                    raise error.SyntaxError(space.text_w(w_message))
+                raise
 
         f_flags, future_info = future.get_futures(self.future_flags, textsrc)
         compile_info.last_future_import = future_info

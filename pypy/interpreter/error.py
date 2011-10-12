@@ -66,7 +66,7 @@ class OperationError(Exception):
             exc_value    = str(w_value)
         else:
             w = space.wrap
-            if space.is_w(space.type(self.w_type), space.w_str):
+            if space.is_w(space.type(self.w_type), space.w_text):
                 exc_typename = space.str_w(self.w_type)
             else:
                 exc_typename = space.str_w(

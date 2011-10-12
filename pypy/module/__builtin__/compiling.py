@@ -26,18 +26,14 @@ in addition to any features explicitly specified.
 
     ast_node = None
     w_ast_type = space.gettypeobject(ast.AST.typedef)
-    str_ = None
+    source_str = None
     if space.is_true(space.isinstance(w_source, w_ast_type)):
         ast_node = space.interp_w(ast.mod, w_source)
         ast_node.sync_app_attrs(space)
-    elif space.is_true(space.isinstance(w_source, space.w_unicode)):
-        w_utf_8_source = space.call_method(w_source, "encode",
-                                           space.wrap("utf-8"))
-        str_ = space.str_w(w_utf_8_source)
+    else:
+        source_str = space.str_w(w_source)
         # This flag tells the parser to reject any coding cookies it sees.
         flags |= consts.PyCF_SOURCE_IS_UTF8
-    else:
-        str_ = space.str_w(w_source)
 
     ec = space.getexecutioncontext()
     if flags & ~(ec.compiler.compiler_flags | consts.PyCF_ONLY_AST |
@@ -56,10 +52,10 @@ in addition to any features explicitly specified.
 
     if ast_node is None:
         if flags & consts.PyCF_ONLY_AST:
-            mod = ec.compiler.compile_to_ast(str_, filename, mode, flags)
+            mod = ec.compiler.compile_to_ast(source_str, filename, mode, flags)
             return space.wrap(mod)
         else:
-            code = ec.compiler.compile(str_, filename, mode, flags)
+            code = ec.compiler.compile(source_str, filename, mode, flags)
     else:
         code = ec.compiler.compile_ast(ast_node, filename, mode, flags)
     return space.wrap(code)

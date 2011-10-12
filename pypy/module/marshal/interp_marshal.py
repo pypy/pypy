@@ -28,7 +28,7 @@ def dumps(space, w_data, w_version=Py_MARSHAL_VERSION):
 by dump(data, file)."""
     m = StringMarshaller(space, space.int_w(w_version))
     m.dump_w_obj(w_data)
-    return space.wrap(m.get_value())
+    return space.wrapbytes(m.get_value())
 
 def load(space, w_f):
     """Read one value from the file 'f' and return it."""

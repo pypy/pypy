@@ -13,6 +13,8 @@ def parsestr(space, encoding, s):
     rawmode = False
     unicode = True
 
+    assert isinstance(s, str)
+
     # string decoration handling
     o = ord(quote)
     isalpha = (o>=97 and o<=122) or (o>=65 and o<=90)
@@ -95,13 +97,13 @@ def parsestr(space, encoding, s):
             w_v = unicodehelper.PyUnicode_AsEncodedString(space, w_u, space.wrap(encoding))
             return w_v
         else:
-            return space.wrap(substr)
+            return space.wrapbytes(substr)
 
     enc = None
     if need_encoding:
          enc = encoding
     v = PyString_DecodeEscape(space, substr, enc)
-    return space.wrap(v)
+    return space.wrapbytes(v)
 
 def hexbyte(val):
     result = "%x" % val

@@ -30,7 +30,7 @@ class W_StringSliceObject(W_Object):
         w_self.stop = len(str)
         return str
 
-    def str_w(w_self, space):
+    def bytes_w(w_self, space):
         return w_self.force()
 
     def __repr__(w_self):

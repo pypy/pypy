@@ -627,11 +627,11 @@ class W_UnicodeDecodeError(W_UnicodeError):
 
     def descr_init(self, space, w_encoding, w_object, w_start, w_end, w_reason):
         # typechecking
-        space.realstr_w(w_encoding)
-        space.realstr_w(w_object)
+        space.text_w(w_encoding)
+        space.str_w(w_object)
         space.int_w(w_start)
         space.int_w(w_end)
-        space.realstr_w(w_reason)
+        space.text_w(w_reason)
         # assign attributes
         self.w_encoding = w_encoding
         self.w_object = w_object
