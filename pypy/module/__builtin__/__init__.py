@@ -21,6 +21,8 @@ class Module(MixedModule):
         'all'           : 'app_functional.all',
         'sum'           : 'app_functional.sum',
         'map'           : 'app_functional.map',
+        'reduce'        : 'app_functional.reduce',
+        'filter'        : 'app_functional.filter',
         'vars'          : 'app_inspect.vars',
         'dir'           : 'app_inspect.dir',
 
@@ -88,9 +90,7 @@ class Module(MixedModule):
         'min'           : 'functional.min',
         'max'           : 'functional.max',
         'zip'           : 'functional.zip',
-        'reduce'        : 'functional.reduce',
         'reversed'      : 'functional.reversed',
-        'filter'        : 'functional.filter',
         'super'         : 'descriptor.W_Super',
         'staticmethod'  : 'descriptor.StaticMethod',
         'classmethod'   : 'descriptor.ClassMethod',
