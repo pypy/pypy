@@ -19,7 +19,7 @@ class Module(MixedModule):
         'frame_new'    : 'maker.frame_new',
         'traceback_new' : 'maker.traceback_new',
         'generator_new' : 'maker.generator_new',
-        'xrangeiter_new': 'maker.xrangeiter_new',
+        'rangeiter_new': 'maker.rangeiter_new',
         'builtin_code': 'maker.builtin_code',
         'builtin_function' : 'maker.builtin_function',
         'enumerate_new': 'maker.enumerate_new',

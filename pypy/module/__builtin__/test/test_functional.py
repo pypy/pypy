@@ -119,47 +119,47 @@ class AppTestFilter:
                return i * 10
        assert filter(lambda x: x != 20, T("abcd")) == (0, 10, 30)
 
-class AppTestXRange:
-   def test_xrange(self):
-      x = xrange(2, 9, 3)
+class AppTestRange:
+   def test_range(self):
+      x = range(2, 9, 3)
       assert x[1] == 5
       assert len(x) == 3
       assert list(x) == [2, 5, 8]
-      # test again, to make sure that xrange() is not its own iterator
+      # test again, to make sure that range() is not its own iterator
       assert list(x) == [2, 5, 8]
 
-   def test_xrange_iter(self):
-      x = xrange(2, 9, 3)
+   def test_range_iter(self):
+      x = range(2, 9, 3)
       it = iter(x)
       assert iter(it) is it
       assert it.next() == 2
       assert it.next() == 5
       assert it.next() == 8
       raises(StopIteration, it.next)
-      # test again, to make sure that xrange() is not its own iterator
+      # test again, to make sure that range() is not its own iterator
       assert iter(x).next() == 2
 
-   def test_xrange_object_with___int__(self):
+   def test_range_object_with___int__(self):
        class A(object):
           def __int__(self):
              return 5
 
-       assert list(xrange(A())) == [0, 1, 2, 3, 4]
-       assert list(xrange(0, A())) == [0, 1, 2, 3, 4]
-       assert list(xrange(0, 10, A())) == [0, 5]
+       assert list(range(A())) == [0, 1, 2, 3, 4]
+       assert list(range(0, A())) == [0, 1, 2, 3, 4]
+       assert list(range(0, 10, A())) == [0, 5]
  
-   def test_xrange_float(self):
-      assert list(xrange(0.1, 2.0, 1.1)) == [0, 1]
+   def test_range_float(self):
+      assert list(range(0.1, 2.0, 1.1)) == [0, 1]
 
-   def test_xrange_long(self):
+   def test_range_long(self):
        import sys
        a = long(10 * sys.maxint)
-       raises(OverflowError, xrange, a)
-       raises(OverflowError, xrange, 0, a)
-       raises(OverflowError, xrange, 0, 1, a)
+       raises(OverflowError, range, a)
+       raises(OverflowError, range, 0, a)
+       raises(OverflowError, range, 0, 1, a)
 
-   def test_xrange_reduce(self):
-      x = xrange(2, 9, 3)
+   def test_range_reduce(self):
+      x = range(2, 9, 3)
       callable, args = x.__reduce__()
       y = callable(*args)
       assert list(y) == list(x)

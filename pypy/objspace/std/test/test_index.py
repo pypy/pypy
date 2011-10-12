@@ -269,16 +269,16 @@ class AppTest_UnicodeTestCase(SeqTestCase, StringTestCase):
         self.w_const = self.space.appexec([], """(): return unicode""")
 
 
-class AppTest_XRangeTestCase:
+class AppTest_RangeTestCase:
 
-    def test_xrange(self):
+    def test_range(self):
         class newstyle(object):
             def __index__(self):
                 return self.ind
         n = newstyle()
         n.ind = 5
-        assert xrange(1, 20)[n] == 6
-        assert xrange(1, 20).__getitem__(n) == 6
+        assert range(1, 20)[n] == 6
+        assert range(1, 20).__getitem__(n) == 6
 
 class AppTest_OverflowTestCase:
 
