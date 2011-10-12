@@ -162,7 +162,9 @@ class MIFrame(object):
             if registers[i] is oldbox:
                 registers[i] = newbox
         if not we_are_translated():
-            assert oldbox not in registers[count:]
+            for b in registers[count:]:
+                assert not oldbox.same_box(b)
+                
 
     def make_result_of_lastop(self, resultbox):
         got_type = resultbox.type

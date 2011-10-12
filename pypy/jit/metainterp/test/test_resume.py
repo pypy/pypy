@@ -180,21 +180,26 @@ def test_simple_read():
     reader.consume_boxes(info, bi, br, bf)
     b1s = reader.liveboxes[0]
     b2s = reader.liveboxes[1]
-    assert bi == [b1s, ConstInt(111), b1s]
-    assert br == [ConstPtr(gcrefnull), b2s]
+    assert_same(bi, [b1s, ConstInt(111), b1s])
+    assert_same(br, [ConstPtr(gcrefnull), b2s])
     bi, br, bf = [None]*2, [None]*0, [None]*0
     info = MyBlackholeInterp([lltype.Signed,
                               lltype.Signed]).get_current_position_info()
     reader.consume_boxes(info, bi, br, bf)
-    assert bi == [ConstInt(222), ConstInt(333)]
+    assert_same(bi, [ConstInt(222), ConstInt(333)])
     bi, br, bf = [None]*2, [None]*1, [None]*0
     info = MyBlackholeInterp([lltype.Signed, llmemory.GCREF,
                               lltype.Signed]).get_current_position_info()
     reader.consume_boxes(info, bi, br, bf)
     b3s = reader.liveboxes[2]
-    assert bi == [b1s, b3s]
-    assert br == [b2s]
+    assert_same(bi, [b1s, b3s])
+    assert_same(br, [b2s])
     #
+
+def assert_same(list1, list2):
+    assert len(list1) == len(list2)
+    for b1, b2 in zip(list1, list2):
+        assert b1.same_box(b2)
 
 def test_simple_read_tagged_ints():
     storage = Storage()
@@ -1023,11 +1028,11 @@ def test_virtual_adder_no_op_renaming():
     metainterp = MyMetaInterp()
     reader = ResumeDataFakeReader(storage, newboxes, metainterp)
     lst = reader.consume_boxes()
-    assert lst == [b1t, b1t, b3t]
+    assert_same(lst, [b1t, b1t, b3t])
     lst = reader.consume_boxes()
-    assert lst == [ConstInt(2), ConstInt(3)]
+    assert_same(lst, [ConstInt(2), ConstInt(3)])
     lst = reader.consume_boxes()
-    assert lst == [b1t, ConstInt(1), b1t, b1t]
+    assert_same(lst, [b1t, ConstInt(1), b1t, b1t])
     assert metainterp.trace == []    
 
 
@@ -1044,11 +1049,11 @@ def test_virtual_adder_make_constant():
     reader = ResumeDataFakeReader(storage, newboxes, metainterp)
     lst = reader.consume_boxes()
     c1t = ConstInt(111)
-    assert lst == [c1t, b2t, b3t]
+    assert_same(lst, [c1t, b2t, b3t])
     lst = reader.consume_boxes()
-    assert lst == [ConstInt(2), ConstInt(3)]
+    assert_same(lst, [ConstInt(2), ConstInt(3)])
     lst = reader.consume_boxes()
-    assert lst == [c1t, ConstInt(1), c1t, b2t]
+    assert_same(lst, [c1t, ConstInt(1), c1t, b2t])
     assert metainterp.trace == []
 
 
@@ -1114,9 +1119,11 @@ def test_virtual_adder_make_virtual():
     # check that we get the operations in 'expected', in a possibly different
     # order.
     assert len(trace) == len(expected)
-    for x in trace:
-        assert x in expected
-        expected.remove(x)
+    with CompareableConsts():
+        for x in trace:
+            assert x in expected
+            expected.remove(x)
+
     ptr = b2t.value._obj.container._as_ptr()
     assert lltype.typeOf(ptr) == lltype.Ptr(LLtypeMixin.NODE)
     assert ptr.value == 111
@@ -1125,6 +1132,18 @@ def test_virtual_adder_make_virtual():
     assert ptr2.other == demo55
     assert ptr2.parent.value == 33
     assert ptr2.parent.next == ptr
+
+class CompareableConsts(object):
+    def __init__(self):
+        self.oldeq = None
+        
+    def __enter__(self):
+        assert self.oldeq is None
+        self.oldeq = Const.__eq__
+        Const.__eq__ = Const.same_box
+        
+    def __exit__(self, type, value, traceback):
+        Const.__eq__ = self.oldeq
 
 def test_virtual_adder_make_varray():
     b2s, b4s = [BoxPtr(), BoxInt(4)]
@@ -1163,8 +1182,9 @@ def test_virtual_adder_make_varray():
         (rop.SETARRAYITEM_GC, [b2t,ConstInt(1), c1s], None,
                               LLtypeMixin.arraydescr),
         ]
-    for x, y in zip(expected, trace):
-        assert x == y
+    with CompareableConsts():
+        for x, y in zip(expected, trace):
+            assert x == y
     #
     ptr = b2t.value._obj.container._as_ptr()
     assert lltype.typeOf(ptr) == lltype.Ptr(lltype.GcArray(lltype.Signed))
@@ -1207,8 +1227,9 @@ def test_virtual_adder_make_vstruct():
         (rop.SETFIELD_GC, [b2t, c1s],  None, LLtypeMixin.adescr),
         (rop.SETFIELD_GC, [b2t, b4t], None, LLtypeMixin.bdescr),
         ]
-    for x, y in zip(expected, trace):
-        assert x == y
+    with CompareableConsts():
+        for x, y in zip(expected, trace):
+            assert x == y
     #
     ptr = b2t.value._obj.container._as_ptr()
     assert lltype.typeOf(ptr) == lltype.Ptr(LLtypeMixin.S)
