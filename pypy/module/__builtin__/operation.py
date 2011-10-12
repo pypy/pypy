@@ -15,19 +15,9 @@ def abs(space, w_val):
     "abs(number) -> number\n\nReturn the absolute value of the argument."
     return space.abs(w_val)
 
-def chr(space, w_ascii):
-    "Return a string of one character with the given ascii code."
-    try:
-        char = __builtin__.chr(space.int_w(w_ascii))
-    except ValueError:  # chr(out-of-range)
-        raise OperationError(space.w_ValueError,
-                             space.wrap("character code not in range(256)"))
-    return space.wrap(char)
-
 @unwrap_spec(code=int)
-def unichr(space, code):
+def chr(space, code):
     "Return a Unicode string of one character with the given ordinal."
-    # XXX range checking!
     try:
         c = UNICHR(code)
     except ValueError:

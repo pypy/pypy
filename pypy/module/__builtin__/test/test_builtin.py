@@ -37,11 +37,6 @@ class AppTestBuiltinApp:
         raises(ImportError, __import__, 'spamspam')
         raises(TypeError, __import__, 1, 2, 3, 4)
 
-    def test_chr(self):
-        assert chr(65) == 'A'
-        raises(ValueError, chr, -1)
-        raises(TypeError, chr, 'a')
-
     def test_bin(self):
         assert bin(0) == "0b0"
         assert bin(-1) == "-0b1"
@@ -49,18 +44,18 @@ class AppTestBuiltinApp:
         assert bin(-2L) == "-0b10"
         raises(TypeError, bin, 0.)
 
-    def test_unichr(self):
+    def test_chr(self):
         import sys
-        assert unichr(65) == u'A'
-        assert type(unicode(65)) is unicode
-        assert unichr(0x9876) == u'\u9876'
+        assert chr(65) == 'A'
+        assert type(str(65)) is str
+        assert chr(0x9876) == '\u9876'
         if sys.maxunicode > 0xFFFF:
-            assert unichr(sys.maxunicode) == u'\U0010FFFF'
-            assert unichr(0x10000) == u'\U00010000'
+            assert chr(sys.maxunicode) == '\U0010FFFF'
+            assert chr(0x10000) == '\U00010000'
         else:
-            assert unichr(sys.maxunicode) == u'\uFFFF'
-        raises(ValueError, unichr, -1)
-        raises(ValueError, unichr, sys.maxunicode+1)
+            assert chr(sys.maxunicode) == '\uFFFF'
+        raises(ValueError, chr, -1)
+        raises(ValueError, chr, sys.maxunicode+1)
 
     def test_intern(self):
         raises(TypeError, intern)

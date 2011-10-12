@@ -49,7 +49,6 @@ class Module(MixedModule):
         # interp-level function definitions
         'abs'           : 'operation.abs',
         'chr'           : 'operation.chr',
-        'unichr'        : 'operation.unichr',
         'len'           : 'operation.len',
         'ord'           : 'operation.ord',
         'pow'           : 'operation.pow',
