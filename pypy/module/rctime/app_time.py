@@ -2,8 +2,7 @@
 
 from _structseq import structseqtype, structseqfield
 
-class struct_time:
-    __metaclass__ = structseqtype
+class struct_time(metaclass=structseqtype):
     __module__ = 'time'
     name = 'time.struct_time'
 

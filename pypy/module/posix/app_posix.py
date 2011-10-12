@@ -16,8 +16,7 @@ else:
 error = OSError
 
 
-class stat_result:
-    __metaclass__ = structseqtype
+class stat_result(metaclass=structseqtype):
 
     name = "posix.stat_result"
 
