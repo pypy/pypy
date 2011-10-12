@@ -313,22 +313,6 @@ def unicode_from_object(space, w_obj):
             return w_res
     return unicode_from_encoded_object(space, w_res, None, "strict")
 
-def unicode_from_string(space, w_str):
-    # this is a performance and bootstrapping hack
-    if space.config.objspace.std.withropeunicode:
-        from pypy.objspace.std.ropeunicodeobject import unicode_from_string
-        return unicode_from_string(space, w_str)
-    encoding = getdefaultencoding(space)
-    from pypy.objspace.std.unicodeobject import W_UnicodeObject
-    if encoding != 'ascii':
-        return unicode_from_encoded_object(space, w_str, encoding, "strict")
-    s = space.str_w(w_str)
-    try:
-        return W_UnicodeObject(s.decode("ascii"))
-    except UnicodeDecodeError:
-        # raising UnicodeDecodeError is messy, "please crash for me"
-        return unicode_from_encoded_object(space, w_str, "ascii", "strict")
-
 def unicode_decode__unitypedef_ANY_ANY(space, w_unicode, w_encoding=None,
                                        w_errors=None):
     return space.call_method(space.str(w_unicode), 'decode',

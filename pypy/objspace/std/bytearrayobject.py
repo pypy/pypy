@@ -196,20 +196,8 @@ def String2Bytearray(space, w_str):
 def eq__Bytearray_String(space, w_bytearray, w_other):
     return space.eq(str__Bytearray(space, w_bytearray), w_other)
 
-def eq__Bytearray_Unicode(space, w_bytearray, w_other):
-    return space.w_False
-
-def eq__Unicode_Bytearray(space, w_other, w_bytearray):
-    return space.w_False
-
 def ne__Bytearray_String(space, w_bytearray, w_other):
     return space.ne(str__Bytearray(space, w_bytearray), w_other)
-
-def ne__Bytearray_Unicode(space, w_bytearray, w_other):
-    return space.w_True
-
-def ne__Unicode_Bytearray(space, w_other, w_bytearray):
-    return space.w_True
 
 def _min(a, b):
     if a < b:

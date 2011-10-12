@@ -24,19 +24,6 @@ from pypy.objspace.std.unicodeobject import (
 def wrapunicode(space, uni):
     return W_RopeUnicodeObject(rope.rope_from_unicode(uni))
 
-def unicode_from_string(space, w_str):
-    from pypy.objspace.std.unicodetype import getdefaultencoding
-    assert isinstance(w_str, W_RopeObject)
-    encoding = getdefaultencoding(space)
-    w_retval = decode_string(space, w_str, encoding, "strict")
-    if not space.isinstance_w(w_retval, space.w_unicode):
-        raise operationerrfmt(
-            space.w_TypeError,
-            "decoder did not return an unicode object (type '%s')",
-            space.type(w_retval).getname(space))
-    assert isinstance(w_retval, W_RopeUnicodeObject)
-    return w_retval
-
 def decode_string(space, w_str, encoding, errors):
     from pypy.objspace.std.unicodetype import decode_object
     if errors is None or errors == "strict":
@@ -112,8 +99,6 @@ def _isspace(uchar_ord):
 def ropeunicode_w(space, w_str):
     if isinstance(w_str, W_RopeUnicodeObject):
         return w_str._node
-    if isinstance(w_str, W_RopeObject):
-        return unicode_from_string(space, w_str)._node
     return rope.LiteralUnicodeNode(space.unicode_w(w_str))
 
 
@@ -157,12 +142,6 @@ def unicode_to_decimal_w(space, w_unistr):
                 raise OperationError(space.w_UnicodeEncodeError, space.newtuple([w_encoding, w_unistr, w_start, w_end, w_reason]))
     return ''.join(result)
 
-# string-to-unicode delegation
-def delegate_Rope2RopeUnicode(space, w_rope):
-    w_uni = unicode_from_string(space, w_rope)
-    assert isinstance(w_uni, W_RopeUnicodeObject) # help the annotator!
-    return w_uni
-
 def str__RopeUnicode(space, w_uni):
     return space.call_method(w_uni, 'encode')
 
@@ -183,18 +162,8 @@ def _eq(w_str1, w_str2):
 def eq__RopeUnicode_RopeUnicode(space, w_str1, w_str2):
     return space.newbool(_eq(w_str1, w_str2))
 
-def eq__RopeUnicode_Rope(space, w_runi, w_rope):
-    from pypy.objspace.std.unicodeobject import _unicode_string_comparison
-    return _unicode_string_comparison(space, w_runi, w_rope,
-                    False,  unicode_from_string)
-
 def ne__RopeUnicode_RopeUnicode(space, w_str1, w_str2):
     return space.newbool(not _eq(w_str1, w_str2))
-
-def ne__RopeUnicode_Rope(space, w_runi, w_rope):
-    from pypy.objspace.std.unicodeobject import _unicode_string_comparison
-    return _unicode_string_comparison(space, w_runi, w_rope,
-                    True, unicode_from_string)
 
 def gt__RopeUnicode_RopeUnicode(space, w_str1, w_str2):
     n1 = w_str1._node
@@ -224,19 +193,10 @@ def add__RopeUnicode_RopeUnicode(space, w_left, w_right):
         raise OperationError(space.w_OverflowError,
                              space.wrap("string too long"))
 
-def add__Rope_RopeUnicode(space, w_left, w_right):
-    return space.add(unicode_from_string(space, w_left) , w_right)
-
-def add__RopeUnicode_Rope(space, w_left, w_right):
-    return space.add(w_left, unicode_from_string(space, w_right))
-
 def contains__RopeUnicode_RopeUnicode(space, w_container, w_item):
     item = w_item._node
     container = w_container._node
     return space.newbool(rope.find(container, item) != -1)
-
-def contains__Rope_RopeUnicode(space, w_container, w_item):
-    return space.contains(unicode_from_string(space, w_container), w_item )
 
 def unicode_join__RopeUnicode_ANY(space, w_self, w_list):
     l_w = space.listview(w_list)
@@ -254,10 +214,8 @@ def unicode_join__RopeUnicode_ANY(space, w_self, w_list):
         if isinstance(w_item, W_RopeUnicodeObject):
             # shortcut for performane
             item = w_item._node
-        elif space.isinstance_w(w_item, space.w_str):
-            item = unicode_from_string(space, w_item)._node
         else:
-            msg = 'sequence item %d: expected string or Unicode'
+            msg = 'sequence item %d: expected string'
             raise operationerrfmt(space.w_TypeError, msg, i)
         values_list.append(item)
     try:
@@ -388,27 +346,17 @@ def unicode_strip__RopeUnicode_RopeUnicode(space, w_self, w_chars):
     return W_RopeUnicodeObject(rope.strip(w_self._node, True, True, _contains,
                                w_chars._node.flatten_unicode()))
 
-def unicode_strip__RopeUnicode_Rope(space, w_self, w_chars):
-    return space.call_method(w_self, 'strip',
-                             unicode_from_string(space, w_chars))
-
 def unicode_lstrip__RopeUnicode_None(space, w_self, w_chars):
     return W_RopeUnicodeObject(rope.strip(w_self._node, True, False, _isspace))
 def unicode_lstrip__RopeUnicode_RopeUnicode(space, w_self, w_chars):
     return W_RopeUnicodeObject(rope.strip(w_self._node, True, False, _contains,
                                w_chars._node.flatten_unicode()))
-def unicode_lstrip__RopeUnicode_Rope(space, w_self, w_chars):
-    return space.call_method(w_self, 'lstrip',
-                             unicode_from_string(space, w_chars))
 
 def unicode_rstrip__RopeUnicode_None(space, w_self, w_chars):
     return W_RopeUnicodeObject(rope.strip(w_self._node, False, True, _isspace))
 def unicode_rstrip__RopeUnicode_RopeUnicode(space, w_self, w_chars):
     return W_RopeUnicodeObject(rope.strip(w_self._node, False, True, _contains,
                                w_chars._node.flatten_unicode()))
-def unicode_rstrip__RopeUnicode_Rope(space, w_self, w_chars):
-    return space.call_method(w_self, 'rstrip',
-                             unicode_from_string(space, w_chars))
 
 def unicode_capitalize__RopeUnicode(space, w_self):
     input = w_self._node
@@ -979,49 +927,3 @@ def next__RopeUnicodeIter(space, w_ropeiter):
 
 from pypy.objspace.std import unicodetype
 register_all(vars(), unicodetype)
-
-# str.strip(unicode) needs to convert self to unicode and call unicode.strip we
-# use the following magic to register strip_string_unicode as a String
-# multimethod.
-
-# XXX couldn't string and unicode _share_ the multimethods that make up their
-# methods?
-
-class str_methods:
-    from pypy.objspace.std import stringtype
-    W_RopeUnicodeObject = W_RopeUnicodeObject
-    from pypy.objspace.std.ropeobject import W_RopeObject
-    def str_strip__Rope_RopeUnicode(space, w_self, w_chars):
-        return space.call_method(unicode_from_string(space, w_self),
-                                 'strip', w_chars)
-    def str_lstrip__Rope_RopeUnicode(space, w_self, w_chars):
-        return space.call_method(unicode_from_string(space, w_self),
-                                 'lstrip', w_chars)
-    def str_rstrip__Rope_RopeUnicode(space, w_self, w_chars):
-        return space.call_method(unicode_from_string(space, w_self),
-                                 'rstrip', w_chars)
-    def str_count__Rope_RopeUnicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
-        return space.call_method(unicode_from_string(space, w_self),
-                                 'count', w_substr, w_start, w_end)
-    def str_find__Rope_RopeUnicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
-        return space.call_method(unicode_from_string(space, w_self),
-                                 'find', w_substr, w_start, w_end)
-    def str_rfind__Rope_RopeUnicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
-        return space.call_method(unicode_from_string(space, w_self),
-                                 'rfind', w_substr, w_start, w_end)
-    def str_index__Rope_RopeUnicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
-        return space.call_method(unicode_from_string(space, w_self),
-                                 'index', w_substr, w_start, w_end)
-    def str_rindex__Rope_RopeUnicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
-        return space.call_method(unicode_from_string(space, w_self),
-                                 'rindex', w_substr, w_start, w_end)
-    def str_replace__Rope_RopeUnicode_RopeUnicode_ANY(space, w_self, w_old, w_new, w_maxsplit):
-        return space.call_method(unicode_from_string(space, w_self),
-                                 'replace', w_old, w_new, w_maxsplit)
-    def str_split__Rope_RopeUnicode_ANY(space, w_self, w_delim, w_maxsplit):
-        return space.call_method(unicode_from_string(space, w_self),
-                                 'split', w_delim, w_maxsplit)
-    def str_rsplit__Rope_RopeUnicode_ANY(space, w_self, w_delim, w_maxsplit):
-        return space.call_method(unicode_from_string(space, w_self),
-                                 'rsplit', w_delim, w_maxsplit)
-    register_all(vars(), stringtype)

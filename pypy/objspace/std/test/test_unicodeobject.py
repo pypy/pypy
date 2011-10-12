@@ -4,6 +4,7 @@ from pypy.conftest import gettestobjspace
 
 class AppTestUnicodeStringStdOnly:
     def test_compares(self):
+        assert type('a') != type(b'a')
         assert 'a' != b'a'
         assert b'a' != 'a'
         assert not ('a' == 5)
