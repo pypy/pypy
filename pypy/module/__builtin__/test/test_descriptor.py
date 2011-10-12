@@ -110,6 +110,17 @@ class AppTestBuiltinApp:
             f = classmethod(f)
         assert B().f() == [B, B]
 
+    def test_super_magic_classmethod(self):
+        class A(object):
+            def f(cls):
+                return cls
+            f = classmethod(f)
+        class B(A):
+            def f(cls):
+                return [cls, super().f()]
+            f = classmethod(f)
+        assert B().f() == [B, B]
+
     def test_super_fail(self):
         try:
             super(list, 2)
