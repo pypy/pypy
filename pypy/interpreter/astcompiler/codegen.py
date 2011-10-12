@@ -1108,7 +1108,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         else:
             raise AssertionError("unknown slice type")
         if ctx == ast.AugLoad:
-            self.emit_op_arg(ops.DUP_TOPX, 2)
+            self.emit_op(ops.DUP_TOP_TWO)
         elif ctx == ast.AugStore:
             self.emit_op(ops.ROT_THREE)
         self.emit_op(subscr_operations(ctx))

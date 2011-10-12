@@ -490,6 +490,7 @@ _static_opcode_stack_effects = {
     ops.ROT_TWO : 0,
     ops.ROT_THREE : 0,
     ops.DUP_TOP : 1,
+    ops.DUP_TOP_TWO : 2,
 
     ops.UNARY_POSITIVE : 0,
     ops.UNARY_NEGATIVE : 0,
