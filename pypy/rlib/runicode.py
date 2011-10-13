@@ -255,10 +255,10 @@ def _encodeUCS4(result, ch):
 def unicode_encode_utf_8(s, size, errors, errorhandler=None):
     assert(size >= 0)
     result = StringBuilder(size)
-    i = 0
-    while i < size:
-        ch = ord(s[i])
-        i += 1
+    pos = 0
+    while pos < size:
+        ch = ord(s[pos])
+        pos += 1
         if ch < 0x80:
             # Encode ASCII
             result.append(chr(ch))
@@ -270,19 +270,19 @@ def unicode_encode_utf_8(s, size, errors, errorhandler=None):
             # Encode UCS2 Unicode ordinals
             if ch < 0x10000:
                 # Special case: check for high surrogate
-                if 0xD800 <= ch <= 0xDBFF and i != size:
-                    ch2 = ord(s[i])
+                if 0xD800 <= ch <= 0xDBFF and pos != size:
+                    ch2 = ord(s[pos])
                     # Check for low surrogate and combine the two to
                     # form a UCS4 value
                     if 0xDC00 <= ch2 <= 0xDFFF:
                         ch3 = ((ch - 0xD800) << 10 | (ch2 - 0xDC00)) + 0x10000
-                        i += 1
+                        pos += 1
                         _encodeUCS4(result, ch3)
                         continue
-                # Fall through: handles isolated high surrogates
-                result.append((chr((0xe0 | (ch >> 12)))))
-                result.append((chr((0x80 | ((ch >> 6) & 0x3f)))))
-                result.append((chr((0x80 | (ch & 0x3f)))))
+                r, pos = errorhandler(errors, 'utf-8',
+                                      'surrogates not allowed',
+                                      s, pos-1, pos)
+                result.append(r)
                 continue
             else:
                 _encodeUCS4(result, ch)

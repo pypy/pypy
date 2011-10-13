@@ -483,6 +483,10 @@ class AppTestPartialEvaluation:
     def test_backslahreplace(self):
         assert u'a\xac\u1234\u20ac\u8000'.encode('ascii', 'backslashreplace') == 'a\\xac\u1234\u20ac\u8000'
 
+    def test_surrogateescape(self):
+        assert b'a\x80b'.decode('utf-8', 'surrogateescape') == 'a\udc80b'
+        assert 'a\udc80b'.encode('utf-8', 'surrogateescape') == b'a\x80b'
+
     def test_badhandler(self):
         import codecs
         results = ( 42, u"foo", (1,2,3), (u"foo", 1, 3), (u"foo", None), (u"foo",), ("foo", 1, 3), ("foo", None), ("foo",) )

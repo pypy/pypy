@@ -33,11 +33,14 @@ class CodecState(object):
                 space.wrap(endpos),
                 space.wrap(reason))
             w_res = space.call_function(w_errorhandler, w_exc)
-            if (not space.is_true(space.isinstance(w_res, space.w_tuple))
+            if (not space.isinstance_w(w_res, space.w_tuple)
                 or space.len_w(w_res) != 2
-                or not space.is_true(space.isinstance(
-                                 space.getitem(w_res, space.wrap(0)),
-                                 space.w_unicode))):
+                or not (space.isinstance_w(
+                            space.getitem(w_res, space.wrap(0)),
+                            space.w_unicode) or
+                        (not decode and space.isinstance_w(
+                            space.getitem(w_res, space.wrap(0)),
+                            space.w_bytes)))):
                 if decode:
                     msg = ("decoding error handler must return "
                            "(unicode, int) tuple, not %s")
@@ -60,8 +63,9 @@ class CodecState(object):
                 return replace, newpos
             else:
                 from pypy.objspace.std.unicodetype import encode_object
-                w_str = encode_object(space, w_replace, encoding, None)
-                replace = space.bytes_w(w_str)
+                if space.isinstance_w(w_replace, space.w_unicode):
+                    w_replace = encode_object(space, w_replace, encoding, None)
+                replace = space.bytes_w(w_replace)
                 return replace, newpos
         return unicode_call_errorhandler
 
@@ -246,11 +250,51 @@ def backslashreplace_errors(space, w_exc):
         raise operationerrfmt(space.w_TypeError,
             "don't know how to handle %s in error callback", typename)
 
+def surrogateescape_errors(space, w_exc):
+    check_exception(space, w_exc)
+    if space.isinstance_w(w_exc, space.w_UnicodeEncodeError):
+        obj = space.realunicode_w(space.getattr(w_exc, space.wrap('object')))
+        start = space.int_w(space.getattr(w_exc, space.wrap('start')))
+        w_end = space.getattr(w_exc, space.wrap('end'))
+        end = space.int_w(w_end)
+        res = ''
+        pos = start
+        while pos < end:
+            ch = ord(obj[pos])
+            pos += 1
+            if ch < 0xdc80 or ch > 0xdcff:
+                # Not a UTF-8b surrogate, fail with original exception
+                raise OperationError(space.type(w_exc), w_exc)
+            res += chr(ch - 0xdc00)
+        return space.newtuple([space.wrapbytes(res), w_end])
+    elif space.isinstance_w(w_exc, space.w_UnicodeDecodeError):
+        consumed = 0
+        start = space.int_w(space.getattr(w_exc, space.wrap('start')))
+        end = space.int_w(space.getattr(w_exc, space.wrap('end')))
+        obj = space.bytes_w(space.getattr(w_exc, space.wrap('object')))
+        replace = u''
+        while consumed < 4 and consumed < end - start:
+            c = ord(obj[start+consumed])
+            if c < 128:
+                # Refuse to escape ASCII bytes.
+                break
+            replace += unichr(0xdc00 + c)
+            consumed += 1
+        if not consumed:
+            # codec complained about ASCII byte.
+            raise OperationError(space.type(w_exc), w_exc)
+        return space.newtuple([space.wrap(replace),
+                               space.wrap(start + consumed)])
+    else:
+        typename = space.type(w_exc).getname(space)
+        raise operationerrfmt(space.w_TypeError,
+            "don't know how to handle %s in error callback", typename)
+
 def register_builtin_error_handlers(space):
     "NOT_RPYTHON"
     state = space.fromcache(CodecState)
     for error in ("strict", "ignore", "replace", "xmlcharrefreplace",
-                  "backslashreplace"):
+                  "backslashreplace", "surrogateescape"):
         name = error + "_errors"
         state.codec_error_registry[error] = space.wrap(interp2app(globals()[name]))
 
