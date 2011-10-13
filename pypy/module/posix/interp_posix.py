@@ -138,7 +138,7 @@ def read(space, fd, buffersize):
     except OSError, e:
         raise wrap_oserror(space, e)
     else:
-        return space.wrap(s)
+        return space.wrapbytes(s)
 
 @unwrap_spec(fd=c_int, data='bufferstr')
 def write(space, fd, data):
