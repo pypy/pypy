@@ -65,7 +65,7 @@ class AppTestMD5(object):
         for input, expected in cases:
             d = md5.md5(input)
             assert d.hexdigest() == expected
-            assert d.digest() == binascii.hexlify(expected.encode('ascii'))
+            assert d.digest() == binascii.unhexlify(expected.encode('ascii'))
 
 
     def test_copy(self):
@@ -87,8 +87,8 @@ class AppTestMD5(object):
         Test passing a buffer object.
         """
         md5 = self.md5
-        d1 = md5.md5(buffer("abcde"))
-        d1.update(buffer("jkl"))
+        d1 = md5.md5(buffer(b"abcde"))
+        d1.update(buffer(b"jkl"))
         assert d1.hexdigest() == 'e570e7110ecef72fcb772a9c05d03373'
 
 
@@ -97,7 +97,6 @@ class AppTestMD5(object):
         Test passing unicode strings.
         """
         md5 = self.md5
-        d1 = md5.md5(u"abcde")
-        d1.update(u"jkl")
-        assert d1.hexdigest() == 'e570e7110ecef72fcb772a9c05d03373'
-        raises(UnicodeEncodeError, d1.update, u'\xe9')
+        raises(TypeError, md5.md5, "abcde")
+        d1 = md5.md5()
+        raises(TypeError, d1.update, "jkl")

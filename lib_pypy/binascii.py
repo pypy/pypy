@@ -656,7 +656,7 @@ def crc32(s, crc=0):
     result = 0
     crc = ~long(crc) & 0xffffffffL
     for c in s:
-        crc = crc_32_tab[(crc ^ long(ord(c))) & 0xffL] ^ (crc >> 8)
+        crc = crc_32_tab[(crc ^ c) & 0xffL] ^ (crc >> 8)
         #/* Note:  (crc >> 8) MUST zero fill on left
 
     result = crc ^ 0xffffffffL
@@ -669,19 +669,19 @@ def crc32(s, crc=0):
 def b2a_hex(s):
     result = []
     for char in s:
-        c = (ord(char) >> 4) & 0xf
+        c = (char >> 4) & 0xf
         if c > 9:
             c = c + ord('a') - 10
         else:
             c = c + ord('0')
         result.append(chr(c))
-        c = ord(char) & 0xf
+        c = char & 0xf
         if c > 9:
             c = c + ord('a') - 10
         else:
             c = c + ord('0')
-        result.append(chr(c))
-    return ''.join(result)
+        result.append(c)
+    return bytes(result)
 
 hexlify = b2a_hex
 
@@ -713,8 +713,8 @@ def a2b_hex(t):
     for a, b in pairs_gen(t):
         if a < 0 or b < 0:
             raise TypeError('Non-hexadecimal digit found')
-        result.append(chr((a << 4) + b))
-    return ''.join(result)
+        result.append((a << 4) + b)
+    return bytes(result)
     
 
 unhexlify = a2b_hex
