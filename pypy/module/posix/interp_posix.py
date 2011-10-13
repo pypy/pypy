@@ -544,13 +544,13 @@ entries '.' and '..' even if they are present in the directory."""
             result = rposix.listdir(dirname)
             w_fs_encoding = getfilesystemencoding(space)
             result_w = [
-                space.call_method(space.wrap(s), "decode", w_fs_encoding)
+                space.call_method(space.wrapbytes(s), "decode", w_fs_encoding)
                 for s in result
             ]
         else:
             dirname = space.str_w(w_dirname)
             result = rposix.listdir(dirname)
-            result_w = [space.wrap(s) for s in result]
+            result_w = [space.wrapbytes(s) for s in result]
     except OSError, e:
         raise wrap_oserror2(space, e, w_dirname)
     return space.newlist(result_w)

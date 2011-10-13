@@ -40,8 +40,7 @@ class Module(MixedModule):
         'buffer'        : 'interp_memoryview.W_Buffer',
         'memoryview'    : 'interp_memoryview.W_MemoryView',
 
-        'file'          : 'state.get(space).w_file',
-        'open'          : 'state.get(space).w_file',
+        'open'          : 'state.get(space).w_open',
 
         # default __metaclass__: old-style class
         '__metaclass__' : 'interp_classobj.W_ClassObject',
