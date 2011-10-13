@@ -279,14 +279,14 @@ class DescrOperation(object):
                                       typename)
             return space.newseqiter(w_obj)
         w_iter = space.get_and_call_function(w_descr, w_obj)
-        w_next = space.lookup(w_iter, 'next')
+        w_next = space.lookup(w_iter, '__next__')
         if w_next is None:
             raise OperationError(space.w_TypeError,
                                  space.wrap("iter() returned non-iterator"))
         return w_iter
 
     def next(space, w_obj):
-        w_descr = space.lookup(w_obj, 'next')
+        w_descr = space.lookup(w_obj, '__next__')
         if w_descr is None:
             typename = space.type(w_obj).getname(space)
             raise operationerrfmt(space.w_TypeError,

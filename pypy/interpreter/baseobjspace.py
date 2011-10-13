@@ -1491,7 +1491,7 @@ ObjSpace.MethodTable = [
     ('coerce',          'coerce',    2, ['__coerce__', '__coerce__']),
     ('contains',        'contains',  2, ['__contains__']),
     ('iter',            'iter',      1, ['__iter__']),
-    ('next',            'next',      1, ['next']),
+    ('next',            'next',      1, ['__next__']),
 #    ('call',            'call',      3, ['__call__']),
     ('get',             'get',       3, ['__get__']),
     ('set',             'set',       3, ['__set__']),

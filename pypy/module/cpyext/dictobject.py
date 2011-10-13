@@ -177,10 +177,10 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
         w_iter = space.call_method(w_dict, "iteritems")
         pos = ppos[0]
         while pos:
-            space.call_method(w_iter, "next")
+            space.next(w_iter)
             pos -= 1
 
-        w_item = space.call_method(w_iter, "next")
+        w_item = space.next(w_iter)
         w_key, w_value = space.fixedview(w_item, 2)
         state = space.fromcache(RefcountState)
         pkey[0]   = state.make_borrowed(w_dict, w_key)

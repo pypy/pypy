@@ -533,7 +533,7 @@ class W_DequeIter(Wrappable):
 
 W_DequeIter.typedef = TypeDef("deque_iterator",
     __iter__ = interp2app(W_DequeIter.iter),
-    next = interp2app(W_DequeIter.next),
+    __next__ = interp2app(W_DequeIter.next),
 )
 W_DequeIter.typedef.acceptable_as_base_class = False
 
@@ -568,7 +568,7 @@ class W_DequeRevIter(Wrappable):
 
 W_DequeRevIter.typedef = TypeDef("deque_reverse_iterator",
     __iter__ = interp2app(W_DequeRevIter.iter),
-    next = interp2app(W_DequeRevIter.next),
+    __next__ = interp2app(W_DequeRevIter.next),
 )
 W_DequeRevIter.typedef.acceptable_as_base_class = False
 

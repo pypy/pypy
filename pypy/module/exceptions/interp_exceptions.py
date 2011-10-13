@@ -367,7 +367,7 @@ W_KeyError = _new_exception('KeyError', W_LookupError,
                             __str__ = key_error_str)
 
 W_StopIteration = _new_exception('StopIteration', W_Exception,
-                                 """Signal the end from iterator.next().""")
+                                 """Signal the end from iterator.__next__().""")
 
 W_Warning = _new_exception('Warning', W_Exception,
                            """Base class for warning categories.""")

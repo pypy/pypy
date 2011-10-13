@@ -1083,7 +1083,7 @@ W_Cursor.typedef = TypeDef(
     setoutputsize = interp2app(W_Cursor.setoutputsize),
 
     __iter__ = interp2app(W_Cursor.descr_iter),
-    next = interp2app(W_Cursor.descr_next),
+    __next__ = interp2app(W_Cursor.descr_next),
 
     arraysize = GetSetProperty(W_Cursor.arraysize_get,
                                W_Cursor.arraysize_set),

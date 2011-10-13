@@ -372,7 +372,7 @@ def _make_enumerate(space, w_iter, w_index):
 W_Enumerate.typedef = TypeDef("enumerate",
     __new__=interp2app(W_Enumerate.descr___new__.im_func),
     __iter__=interp2app(W_Enumerate.descr___iter__),
-    next=interp2app(W_Enumerate.descr_next),
+    __next__=interp2app(W_Enumerate.descr_next),
     __reduce__=interp2app(W_Enumerate.descr___reduce__),
 )
 
@@ -429,7 +429,7 @@ class W_ReversedIterator(Wrappable):
 
 W_ReversedIterator.typedef = TypeDef("reversed",
     __iter__=interp2app(W_ReversedIterator.descr___iter__),
-    next=interp2app(W_ReversedIterator.descr_next),
+    __next__=interp2app(W_ReversedIterator.descr_next),
     __reduce__=interp2app(W_ReversedIterator.descr___reduce__),
 )
 
@@ -555,6 +555,6 @@ W_RangeIterator.typedef = TypeDef("rangeiterator",
     __iter__        = interp2app(W_RangeIterator.descr_iter),
 # XXX __length_hint__()
 ##    __len__         = interp2app(W_RangeIterator.descr_len),
-    next            = interp2app(W_RangeIterator.descr_next),
+    __next__        = interp2app(W_RangeIterator.descr_next),
     __reduce__      = interp2app(W_RangeIterator.descr_reduce),
 )

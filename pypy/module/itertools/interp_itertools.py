@@ -61,7 +61,7 @@ W_Count.typedef = TypeDef(
         __module__ = 'itertools',
         __new__ = interp2app(W_Count___new__),
         __iter__ = interp2app(W_Count.iter_w),
-        next = interp2app(W_Count.next_w),
+        __next__ = interp2app(W_Count.next_w),
         __reduce__ = interp2app(W_Count.reduce_w),
         __repr__ = interp2app(W_Count.repr_w),
         __doc__ = """Make an iterator that returns consecutive integers starting
@@ -122,7 +122,7 @@ W_Repeat.typedef = TypeDef(
         __module__ = 'itertools',
         __new__  = interp2app(W_Repeat___new__),
         __iter__ = interp2app(W_Repeat.iter_w),
-        next     = interp2app(W_Repeat.next_w),
+        __next__ = interp2app(W_Repeat.next_w),
         __repr__ = interp2app(W_Repeat.repr_w),
         __doc__  = """Make an iterator that returns object over and over again.
     Runs indefinitely unless the times argument is specified.  Used
@@ -175,7 +175,7 @@ W_TakeWhile.typedef = TypeDef(
         __module__ = 'itertools',
         __new__  = interp2app(W_TakeWhile___new__),
         __iter__ = interp2app(W_TakeWhile.iter_w),
-        next     = interp2app(W_TakeWhile.next_w),
+        __next__ = interp2app(W_TakeWhile.next_w),
         __doc__  = """Make an iterator that returns elements from the iterable as
     long as the predicate is true.
 
@@ -224,7 +224,7 @@ W_DropWhile.typedef = TypeDef(
         __module__ = 'itertools',
         __new__  = interp2app(W_DropWhile___new__),
         __iter__ = interp2app(W_DropWhile.iter_w),
-        next     = interp2app(W_DropWhile.next_w),
+        __next__ = interp2app(W_DropWhile.next_w),
         __doc__  = """Make an iterator that drops elements from the iterable as long
     as the predicate is true; afterwards, returns every
     element. Note, the iterator does not produce any output until the
@@ -281,7 +281,7 @@ W_IFilter.typedef = TypeDef(
         __module__ = 'itertools',
         __new__  = interp2app(W_IFilter___new__),
         __iter__ = interp2app(W_IFilter.iter_w),
-        next     = interp2app(W_IFilter.next_w),
+        __next__ = interp2app(W_IFilter.next_w),
         __doc__  = """Make an iterator that filters elements from iterable returning
     only those for which the predicate is True.  If predicate is
     None, return the items that are true.
@@ -309,7 +309,7 @@ W_IFilterFalse.typedef = TypeDef(
         __module__ = 'itertools',
         __new__  = interp2app(W_IFilterFalse___new__),
         __iter__ = interp2app(W_IFilterFalse.iter_w),
-        next     = interp2app(W_IFilterFalse.next_w),
+        __next__ = interp2app(W_IFilterFalse.next_w),
         __doc__  = """Make an iterator that filters elements from iterable returning
     only those for which the predicate is False.  If predicate is
     None, return the items that are false.
@@ -411,7 +411,7 @@ W_ISlice.typedef = TypeDef(
         __module__ = 'itertools',
         __new__  = interp2app(W_ISlice___new__),
         __iter__ = interp2app(W_ISlice.iter_w),
-        next     = interp2app(W_ISlice.next_w),
+        __next__ = interp2app(W_ISlice.next_w),
         __doc__  = """Make an iterator that returns selected elements from the
     iterable.  If start is non-zero, then elements from the iterable
     are skipped until start is reached. Afterward, elements are
@@ -479,7 +479,7 @@ W_Chain.typedef = TypeDef(
         __module__ = 'itertools',
         __new__  = interp2app(W_Chain___new__),
         __iter__ = interp2app(W_Chain.iter_w),
-        next     = interp2app(W_Chain.next_w),
+        __next__ = interp2app(W_Chain.next_w),
         from_iterable = interp2app(chain_from_iterable, as_classmethod=True),
         __doc__  = """Make an iterator that returns elements from the first iterable
     until it is exhausted, then proceeds to the next iterable, until
@@ -560,7 +560,7 @@ W_IMap.typedef = TypeDef(
         __module__ = 'itertools',
         __new__  = interp2app(W_IMap___new__),
         __iter__ = interp2app(W_IMap.iter_w),
-        next     = interp2app(W_IMap.next_w),
+        __next__ = interp2app(W_IMap.next_w),
         __doc__  = """Make an iterator that computes the function using arguments
     from each of the iterables. If function is set to None, then
     imap() returns the arguments as a tuple. Like map() but stops
@@ -605,7 +605,7 @@ W_IZip.typedef = TypeDef(
         __module__ = 'itertools',
         __new__  = interp2app(W_IZip___new__),
         __iter__ = interp2app(W_IZip.iter_w),
-        next     = interp2app(W_IZip.next_w),
+        __next__ = interp2app(W_IZip.next_w),
         __doc__  = """Make an iterator that aggregates elements from each of the
     iterables.  Like zip() except that it returns an iterator instead
     of a list. Used for lock-step iteration over several iterables at
@@ -674,7 +674,7 @@ W_IZipLongest.typedef = TypeDef(
         __module__ = 'itertools',
         __new__  = interp2app(W_IZipLongest___new__),
         __iter__ = interp2app(W_IZipLongest.iter_w),
-        next     = interp2app(W_IZipLongest.next_w),
+        __next__ = interp2app(W_IZipLongest.next_w),
         __doc__  = """Return an izip_longest object whose .next() method returns a tuple where
     the i-th element comes from the i-th iterable argument.  The .next()
     method continues until the longest iterable in the argument sequence
@@ -734,7 +734,7 @@ W_Cycle.typedef = TypeDef(
         __module__ = 'itertools',
         __new__  = interp2app(W_Cycle___new__),
         __iter__ = interp2app(W_Cycle.iter_w),
-        next     = interp2app(W_Cycle.next_w),
+        __next__ = interp2app(W_Cycle.next_w),
         __doc__  = """Make an iterator returning elements from the iterable and
     saving a copy of each. When the iterable is exhausted, return
     elements from the saved copy. Repeats indefinitely.
@@ -775,7 +775,7 @@ W_StarMap.typedef = TypeDef(
         __module__ = 'itertools',
         __new__  = interp2app(W_StarMap___new__),
         __iter__ = interp2app(W_StarMap.iter_w),
-        next     = interp2app(W_StarMap.next_w),
+        __next__ = interp2app(W_StarMap.next_w),
         __doc__  = """Make an iterator that computes the function using arguments
     tuples obtained from the iterable. Used instead of imap() when
     argument parameters are already grouped in tuples from a single
@@ -880,7 +880,7 @@ W_TeeIterable.typedef = TypeDef(
         __module__ = 'itertools',
         __new__ = interp2app(W_TeeIterable___new__),
         __iter__ = interp2app(W_TeeIterable.iter_w),
-        next     = interp2app(W_TeeIterable.next_w),
+        __next__ = interp2app(W_TeeIterable.next_w),
         __weakref__ = make_weakref_descr(W_TeeIterable),
         )
 W_TeeIterable.typedef.acceptable_as_base_class = False
@@ -983,7 +983,7 @@ W_GroupBy.typedef = TypeDef(
         __module__ = 'itertools',
         __new__  = interp2app(W_GroupBy___new__),
         __iter__ = interp2app(W_GroupBy.iter_w),
-        next     = interp2app(W_GroupBy.next_w),
+        __next__ = interp2app(W_GroupBy.next_w),
         __doc__  = """Make an iterator that returns consecutive keys and groups from the
     iterable. The key is a function computing a key value for each
     element. If not specified or is None, key defaults to an identity
@@ -1029,7 +1029,7 @@ W_GroupByIterator.typedef = TypeDef(
         '_groupby',
         __module__ = 'itertools',
         __iter__ = interp2app(W_GroupByIterator.iter_w),
-        next     = interp2app(W_GroupByIterator.next_w))
+        __next__ = interp2app(W_GroupByIterator.next_w))
 W_GroupByIterator.typedef.acceptable_as_base_class = False
 
 
@@ -1062,7 +1062,7 @@ W_Compress.typedef = TypeDef(
     __module__ = 'itertools',
     __new__ = interp2app(W_Compress__new__),
     __iter__ = interp2app(W_Compress.iter_w),
-    next     = interp2app(W_Compress.next_w),
+    __next__ = interp2app(W_Compress.next_w),
     __doc__ = """Make an iterator that filters elements from *data* returning
    only those that have a corresponding element in *selectors* that evaluates to
    ``True``.  Stops when either the *data* or *selectors* iterables has been
@@ -1152,7 +1152,7 @@ W_Product.typedef = TypeDef(
     __module__ = 'itertools',
     __new__ = interp2app(W_Product__new__),
     __iter__ = interp2app(W_Product.iter_w),
-    next = interp2app(W_Product.next_w),
+    __next__ = interp2app(W_Product.next_w),
     __doc__ = """
    Cartesian product of input iterables.
 
@@ -1256,7 +1256,7 @@ W_Combinations.typedef = TypeDef("combinations",
     __module__ = 'itertools',
     __new__ = interp2app(W_Combinations__new__),
     __iter__ = interp2app(W_Combinations.descr__iter__),
-    next = interp2app(W_Combinations.descr_next),
+    __next__ = interp2app(W_Combinations.descr_next),
     __doc__ = """\
 combinations(iterable, r) --> combinations object
 
@@ -1291,7 +1291,7 @@ W_CombinationsWithReplacement.typedef = TypeDef("combinations_with_replacement",
     __module__ = 'itertools',
     __new__ = interp2app(W_CombinationsWithReplacement__new__),
     __iter__ = interp2app(W_CombinationsWithReplacement.descr__iter__),
-    next = interp2app(W_CombinationsWithReplacement.descr_next),
+    __next__ = interp2app(W_CombinationsWithReplacement.descr_next),
     __doc__ = """\
 combinations_with_replacement(iterable, r) --> combinations_with_replacement object
 
@@ -1357,7 +1357,7 @@ W_Permutations.typedef = TypeDef("permutations",
     __module__ = 'itertools',
     __new__ = interp2app(W_Permutations__new__),
     __iter__ = interp2app(W_Permutations.descr__iter__),
-    next = interp2app(W_Permutations.descr_next),
+    __next__ = interp2app(W_Permutations.descr_next),
     __doc__ = """\
 permutations(iterable[, r]) --> permutations object
 

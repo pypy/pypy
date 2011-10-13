@@ -158,7 +158,7 @@ class W_File(W_AbstractStream):
     def direct_flush(self):
         self.getstream().flush()
 
-    def direct_next(self):
+    def direct___next__(self):
         line = self.getstream().readline()
         if line == '':
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
@@ -344,8 +344,8 @@ This is needed for lower-level file interfaces, such os.read().''')
     _decl(locals(), "isatty",
         """isatty() -> true or false.  True if the file is connected to a tty device.""")
 
-    _decl(locals(), "next",
-        """next() -> the next line in the file, or raise StopIteration""")
+    _decl(locals(), "__next__",
+        """__next__() -> the next line in the file, or raise StopIteration""")
 
     _decl(locals(), "read",
         """read([size]) -> read at most size bytes, returned as a string.

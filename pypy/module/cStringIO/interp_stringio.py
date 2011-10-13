@@ -32,7 +32,7 @@ class W_InputOutputType(Wrappable):
         self.check_closed()
         return self.space.w_False
 
-    def descr_next(self):
+    def descr___next__(self):
         space = self.space
         self.check_closed()
         line = self.readline()
@@ -207,11 +207,11 @@ def descr_setsoftspace(self, space, w_newvalue):
 
 common_descrs = {
     '__iter__':     interp2app(W_InputOutputType.descr___iter__),
+    '__next__':     interp2app(W_InputOutputType.descr___next__),
     'close':        interp2app(W_InputOutputType.descr_close),
     'flush':        interp2app(W_InputOutputType.descr_flush),
     'getvalue':     interp2app(W_InputOutputType.descr_getvalue),
     'isatty':       interp2app(W_InputOutputType.descr_isatty),
-    'next':         interp2app(W_InputOutputType.descr_next),
     'read':         interp2app(W_InputOutputType.descr_read),
     'readline':     interp2app(W_InputOutputType.descr_readline),
     'readlines':    interp2app(W_InputOutputType.descr_readlines),

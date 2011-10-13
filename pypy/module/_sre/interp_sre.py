@@ -542,7 +542,7 @@ class W_SRE_Scanner(Wrappable):
 W_SRE_Scanner.typedef = TypeDef(
     'SRE_Scanner',
     __iter__ = interp2app(W_SRE_Scanner.iter_w),
-    next     = interp2app(W_SRE_Scanner.next_w),
+    __next__ = interp2app(W_SRE_Scanner.next_w),
     match    = interp2app(W_SRE_Scanner.match_w),
     search   = interp2app(W_SRE_Scanner.search_w),
     pattern  = interp_attrproperty('srepat', W_SRE_Scanner),

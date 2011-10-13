@@ -496,8 +496,8 @@ class W_InstanceObject(Wrappable):
                 space.w_TypeError,
                 space.wrap("iteration over non-sequence"))
         return space.newseqiter(self)
-    #XXX do I really need a next method? the old implementation had one, but I
-    # don't see the point
+    # XXX do I really need a __next__ method? the old implementation
+    # had one, but I don't see the point
 
     def descr_call(self, space, __args__):
         w_meth = self.getattr(space, '__call__')
@@ -674,10 +674,10 @@ class W_InstanceObject(Wrappable):
             return space.w_NotImplemented
 
     def descr_next(self, space):
-        w_func = self.getattr(space, 'next', False)
+        w_func = self.getattr(space, '__next__', False)
         if w_func is None:
-            raise OperationError(space.w_TypeError,
-                                 space.wrap("instance has no next() method"))
+            raise OperationError(space.w_TypeError, space.wrap(
+                    "instance has no __next__() method"))
         return space.call_function(w_func)
 
     def descr_del(self, space):
@@ -759,7 +759,7 @@ W_InstanceObject.typedef = TypeDef("instance",
     __contains__ = interp2app(W_InstanceObject.descr_contains),
     __pow__ = interp2app(W_InstanceObject.descr_pow),
     __rpow__ = interp2app(W_InstanceObject.descr_rpow),
-    next = interp2app(W_InstanceObject.descr_next),
+    __next__ = interp2app(W_InstanceObject.descr_next),
     __del__ = interp2app(W_InstanceObject.descr_del),
     __exit__ = interp2app(W_InstanceObject.descr_exit),
     __dict__ = dict_descr,
