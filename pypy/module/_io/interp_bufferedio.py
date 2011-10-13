@@ -314,7 +314,7 @@ class BufferedMixin:
         self._writer_reset_buf()
 
     def _write(self, space, data):
-        w_data = space.wrap(data)
+        w_data = space.wrapbytes(data)
         w_written = space.call_method(self.w_raw, "write", w_data)
         written = space.getindex_w(w_written, space.w_IOError)
         if not 0 <= written <= len(data):
@@ -379,7 +379,7 @@ class BufferedMixin:
         else:
             raise OperationError(space.w_ValueError, space.wrap(
                 "read length must be positive or -1"))
-        return space.wrap(res)
+        return space.wrapbytes(res)
 
     @unwrap_spec(size=int)
     def peek_w(self, space, size=0):
@@ -396,7 +396,7 @@ class BufferedMixin:
             have = self._readahead()
             if have > 0:
                 data = ''.join(self.buffer[self.pos:self.pos+have])
-                return space.wrap(data)
+                return space.wrapbytes(data)
 
             # Fill the buffer from the raw stream, and copy it to the result
             self._reader_reset_buf()
@@ -406,7 +406,7 @@ class BufferedMixin:
                 size = 0
             self.pos = 0
             data = ''.join(self.buffer[:size])
-            return space.wrap(data)
+            return space.wrapbytes(data)
 
     @unwrap_spec(size=int)
     def read1_w(self, space, size):
@@ -417,7 +417,7 @@ class BufferedMixin:
             raise OperationError(space.w_ValueError, space.wrap(
                 "read length must be positive"))
         if size == 0:
-            return space.wrap("")
+            return space.wrapbytes("")
 
         with self.lock:
             if self.writable:
@@ -445,7 +445,7 @@ class BufferedMixin:
             endpos = self.pos + size
             data = ''.join(self.buffer[self.pos:endpos])
             self.pos = endpos
-            return space.wrap(data)
+            return space.wrapbytes(data)
 
     def _read_all(self, space):
         "Read all the file, don't update the cache"
@@ -476,7 +476,7 @@ class BufferedMixin:
             current_size += size
             if self.abs_pos != -1:
                 self.abs_pos += size
-        return space.wrap(builder.build())
+        return space.wrapbytes(builder.build())
 
     def _raw_read(self, space, buffer, start, length):
         length = intmask(length)

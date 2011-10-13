@@ -164,7 +164,7 @@ class W_IOBase(Wrappable):
                 length = space.len_w(w_readahead)
                 if length > 0:
                     n = 0
-                    buf = space.str_w(w_readahead)
+                    buf = space.bytes_w(w_readahead)
                     if limit >= 0:
                         while True:
                             if n >= length or n >= limit:
@@ -187,7 +187,7 @@ class W_IOBase(Wrappable):
                     space.w_IOError,
                     "peek() should have returned a bytes object, "
                     "not '%s'", space.type(w_read).getname(space))
-            read = space.str_w(w_read)
+            read = space.bytes_w(w_read)
             if not read:
                 break
 
@@ -197,7 +197,7 @@ class W_IOBase(Wrappable):
             if read[-1] == '\n':
                 break
 
-        return space.wrap(builder.build())
+        return space.wrapbytes(builder.build())
 
     def readlines_w(self, space, w_hint=None):
         hint = convert_size(space, w_hint)
@@ -286,11 +286,11 @@ class W_RawIOBase(W_IOBase):
             if not space.isinstance_w(w_data, space.w_str):
                 raise OperationError(space.w_TypeError, space.wrap(
                     "read() should return bytes"))
-            data = space.str_w(w_data)
+            data = space.bytes_w(w_data)
             if not data:
                 break
             builder.append(data)
-        return space.wrap(builder.build())
+        return space.wrapbytes(builder.build())
 
 W_RawIOBase.typedef = TypeDef(
     '_RawIOBase', W_IOBase.typedef,
