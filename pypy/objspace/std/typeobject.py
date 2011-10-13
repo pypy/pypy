@@ -512,7 +512,7 @@ class W_TypeObject(W_Object):
             # hack...
             if ('__module__' in w_self.dict_w and
                 space.isinstance_w(w_self.getdictvalue(space, '__module__'),
-                                               space.w_str)):
+                                               space.w_unicode)):
                 return w_self.getdictvalue(space, '__module__')
             return space.wrap('__builtin__')
 

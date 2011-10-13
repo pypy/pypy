@@ -152,8 +152,8 @@ class AppTestExc(object):
         assert ud.reason == 'bah'
         assert ud.args == ('x', b'y', 1, 5, 'bah')
         assert ud.message == ''
-        ud.object = 'z9'
-        assert ud.object == 'z9'
+        ud.object = b'z9'
+        assert ud.object == b'z9'
         assert str(ud) == "'x' codec can't decode bytes in position 1-4: bah"
         ud.end = 2
         assert str(ud) == "'x' codec can't decode byte 0x39 in position 1: bah"
