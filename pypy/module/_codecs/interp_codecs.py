@@ -21,12 +21,14 @@ class CodecState(object):
             w_errorhandler = lookup_error(space, errors)
             if decode:
                 w_cls = space.w_UnicodeDecodeError
+                w_input = space.wrapbytes(input)
             else:
                 w_cls = space.w_UnicodeEncodeError
+                w_input = space.wrap(input)
             w_exc =  space.call_function(
                 w_cls,
                 space.wrap(encoding),
-                space.wrap(input),
+                w_input,
                 space.wrap(startpos),
                 space.wrap(endpos),
                 space.wrap(reason))
@@ -59,7 +61,7 @@ class CodecState(object):
             else:
                 from pypy.objspace.std.unicodetype import encode_object
                 w_str = encode_object(space, w_replace, encoding, None)
-                replace = space.str_w(w_str)
+                replace = space.bytes_w(w_str)
                 return replace, newpos
         return unicode_call_errorhandler
 
