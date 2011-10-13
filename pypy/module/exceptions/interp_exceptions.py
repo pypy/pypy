@@ -95,6 +95,8 @@ class W_BaseException(Wrappable):
     """
     w_dict = None
     args_w = []
+    w_cause = None
+    w_context = None
 
     def __init__(self, space):
         self.w_message = space.w_None
@@ -144,6 +146,28 @@ class W_BaseException(Wrappable):
 
     def descr_setargs(self, space, w_newargs):
         self.args_w = space.fixedview(w_newargs)
+
+    def descr_getcause(self, space):
+        return self.w_cause
+
+    def descr_setcause(self, space, w_newcause):
+        if not (space.is_w(w_newcause, space.w_None) or
+                space.exception_is_valid_class_w(space.type(w_newcause))):
+            raise OperationError(space.w_TypeError, space.wrap(
+                    "exception cause must be None or "
+                    "derive from BaseException"))
+        self.w_cause = w_newcause
+
+    def descr_getcontext(self, space):
+        return self.w_context
+
+    def descr_setcontext(self, space, w_newcontext):
+        if not (space.is_w(w_newcontext, space.w_None) or
+                space.exception_is_valid_class_w(space.type(w_newcontext))):
+            raise OperationError(space.w_TypeError, space.wrap(
+                    "exception context must be None or "
+                    "derive from BaseException"))
+        self.w_context = w_newcontext
 
     def descr_getitem(self, space, w_index):
         return space.getitem(space.newtuple(self.args_w), w_index)
@@ -223,6 +247,10 @@ W_BaseException.typedef = TypeDef(
                             W_BaseException.descr_message_del),
     args = GetSetProperty(W_BaseException.descr_getargs,
                           W_BaseException.descr_setargs),
+    __cause__ = GetSetProperty(W_BaseException.descr_getcause,
+                               W_BaseException.descr_setcause),
+    __context__ = GetSetProperty(W_BaseException.descr_getcontext,
+                                 W_BaseException.descr_setcontext),
 )
 
 def _new_exception(name, base, docstring, **kwargs):

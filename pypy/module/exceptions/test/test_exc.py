@@ -241,3 +241,23 @@ class AppTestExc(object):
         assert fw.z == 1
         assert fw.xyz == (1, 2)
 
+    def test_cause(self):
+        e1 = TypeError()
+        e2 = ValueError()
+        assert e1.__cause__ is None
+        e1.__cause__ = e2
+        assert e1.__cause__ is e2
+        e1.__cause__ = None
+        raises(TypeError, setattr, e1, '__cause__', 1)
+        raises(AttributeError, delattr, e1, '__cause__')
+
+    def test_context(self):
+        e1 = TypeError()
+        e2 = ValueError()
+        assert e1.__context__ is None
+        e1.__context__ = e2
+        assert e1.__context__ is e2
+        e1.__context__ = None
+        raises(TypeError, setattr, e1, '__context__', 1)
+        raises(AttributeError, delattr, e1, '__context__')
+
