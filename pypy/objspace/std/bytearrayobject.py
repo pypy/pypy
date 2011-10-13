@@ -22,10 +22,8 @@ from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
 from pypy.interpreter.argument import Signature
 from pypy.interpreter.buffer import RWBuffer
-from pypy.objspace.std.bytearraytype import (
-    makebytearraydata_w, getbytevalue,
-    new_bytearray
-)
+from pypy.objspace.std.stringtype import makebytesdata_w, getbytevalue
+from pypy.objspace.std.bytearraytype import new_bytearray
 from pypy.tool.sourcetools import func_with_new_name
 
 
@@ -81,7 +79,7 @@ def init__Bytearray(space, w_bytearray, __args__):
         w_bytearray.data = ['\0'] * count
         return
 
-    data = makebytearraydata_w(space, w_source)
+    data = makebytesdata_w(space, w_source)
     w_bytearray.data = data
 
 def len__Bytearray(space, w_bytearray):
@@ -519,7 +517,7 @@ def str_splitlines__Bytearray_ANY(space, w_bytearray, w_keepends):
     w_str = str__Bytearray(space, w_bytearray)
     w_result = stringobject.str_splitlines__String_ANY(space, w_str, w_keepends)
     return space.newlist([
-        new_bytearray(space, space.w_bytearray, makebytearraydata_w(space, w_entry))
+        new_bytearray(space, space.w_bytearray, makebytesdata_w(space, w_entry))
                         for w_entry in space.unpackiterable(w_result)
     ])
 
@@ -576,7 +574,7 @@ def list_extend__Bytearray_Bytearray(space, w_bytearray, w_other):
     w_bytearray.data += w_other.data
 
 def list_extend__Bytearray_ANY(space, w_bytearray, w_other):
-    w_bytearray.data += makebytearraydata_w(space, w_other)
+    w_bytearray.data += makebytesdata_w(space, w_other)
 
 def inplace_add__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2):
     list_extend__Bytearray_Bytearray(space, w_bytearray1, w_bytearray2)
@@ -598,7 +596,7 @@ def setitem__Bytearray_ANY_ANY(space, w_bytearray, w_index, w_item):
 def setitem__Bytearray_Slice_ANY(space, w_bytearray, w_slice, w_other):
     oldsize = len(w_bytearray.data)
     start, stop, step, slicelength = w_slice.indices4(space, oldsize)
-    sequence2 = makebytearraydata_w(space, w_other)
+    sequence2 = makebytesdata_w(space, w_other)
     setitem_slice_helper(space, w_bytearray.data, start, step, slicelength, sequence2, empty_elem='\x00')
 
 def delitem__Bytearray_ANY(space, w_bytearray, w_idx):

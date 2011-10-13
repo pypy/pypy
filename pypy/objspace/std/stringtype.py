@@ -1,7 +1,7 @@
 from pypy.interpreter import gateway
+from pypy.interpreter.error import OperationError
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.register_all import register_all
-
 
 from sys import maxint
 from pypy.rlib.objectmodel import specialize
@@ -264,20 +264,50 @@ register_all(vars(), globals())
 
 # ____________________________________________________________
 
-def descr__new__(space, w_stringtype, w_object=''):
-    # NB. the default value of w_object is really a *wrapped* empty string:
-    #     there is gateway magic at work
-    from pypy.objspace.std.stringobject import W_StringObject
-    w_obj = space.str(w_object)
-    if space.is_w(w_stringtype, space.w_str):
-        return w_obj  # XXX might be reworked when space.str() typechecks
-    value = space.str_w(w_obj)
+def getbytevalue(space, w_value):
+    value = space.getindex_w(w_value, None)
+    if not 0 <= value < 256:
+        # this includes the OverflowError in case the long is too large
+        raise OperationError(space.w_ValueError, space.wrap(
+            "byte must be in range(0, 256)"))
+    return chr(value)
+
+def makebytesdata_w(space, w_source):
+    # String-like argument
+    try:
+        string = space.bufferstr_new_w(w_source)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+    else:
+        return [c for c in string]
+
+    # sequence of bytes
+    data = []
+    w_iter = space.iter(w_source)
+    while True:
+        try:
+            w_item = space.next(w_iter)
+        except OperationError, e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            break
+        value = getbytevalue(space, w_item)
+        data.append(value)
+    return data
+
+def descr__new__(space, w_stringtype, w_source=gateway.NoneNotWrapped):
+    if (w_source and space.is_w(space.type(w_source), space.w_bytes) and
+        space.is_w(w_stringtype, space.w_bytes)):
+        return w_source
+    value = ''.join(makebytesdata_w(space, w_source))
     if space.config.objspace.std.withrope:
         from pypy.objspace.std.ropeobject import rope, W_RopeObject
         w_obj = space.allocate_instance(W_RopeObject, w_stringtype)
         W_RopeObject.__init__(w_obj, rope.LiteralStringNode(value))
         return w_obj
     else:
+        from pypy.objspace.std.stringobject import W_StringObject
         w_obj = space.allocate_instance(W_StringObject, w_stringtype)
         W_StringObject.__init__(w_obj, value)
         return w_obj

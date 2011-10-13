@@ -385,7 +385,7 @@ def _str_join_many_items(space, w_self, list_w, size):
         if self and i != 0:
             sb.append(self)
         sb.append(space.str_w(list_w[i]))
-    return space.wrap(sb.build())
+    return space.wrapbytes(sb.build())
 
 def str_rjust__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
     u_arg = space.int_w(w_arg)

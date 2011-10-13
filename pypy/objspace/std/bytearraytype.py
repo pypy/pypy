@@ -51,21 +51,6 @@ bytearray_rstrip  = SMM('rstrip', 2, defaults=(None,),
                     "bytes contained in the argument.\nIf the argument is "
                     "omitted, strip trailing ASCII whitespace.")
 
-def getbytevalue(space, w_value):
-    if space.isinstance_w(w_value, space.w_str):
-        string = space.str_w(w_value)
-        if len(string) != 1:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "string must be of size 1"))
-        return string[0]
-
-    value = space.getindex_w(w_value, None)
-    if not 0 <= value < 256:
-        # this includes the OverflowError in case the long is too large
-        raise OperationError(space.w_ValueError, space.wrap(
-            "byte must be in range(0, 256)"))
-    return chr(value)
-
 def new_bytearray(space, w_bytearraytype, data):
     from pypy.objspace.std.bytearrayobject import W_BytearrayObject
     w_obj = space.allocate_instance(W_BytearrayObject, w_bytearraytype)
@@ -76,30 +61,6 @@ def new_bytearray(space, w_bytearraytype, data):
 def descr__new__(space, w_bytearraytype, __args__):
     return new_bytearray(space,w_bytearraytype, [])
 
-
-def makebytearraydata_w(space, w_source):
-    # String-like argument
-    try:
-        string = space.bufferstr_new_w(w_source)
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-    else:
-        return [c for c in string]
-
-    # sequence of bytes
-    data = []
-    w_iter = space.iter(w_source)
-    while True:
-        try:
-            w_item = space.next(w_iter)
-        except OperationError, e:
-            if not e.match(space, space.w_StopIteration):
-                raise
-            break
-        value = getbytevalue(space, w_item)
-        data.append(value)
-    return data
 
 def descr_bytearray__reduce__(space, w_self):
     from pypy.objspace.std.bytearrayobject import W_BytearrayObject
