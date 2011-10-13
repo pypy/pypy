@@ -259,18 +259,6 @@ str_decode     = SMM('decode', 3, defaults=(None, None),
                          " are 'ignore' and 'replace'\nas well as any other"
                          ' name registerd with codecs.register_error that'
                          ' is\nable to handle UnicodeDecodeErrors.')
-str_encode     = SMM('encode', 3, defaults=(None, None),
-                     argnames=['encoding', 'errors'],
-                     doc='S.encode([encoding[,errors]]) -> object\n\nEncodes S'
-                         ' using the codec registered for encoding. encoding'
-                         ' defaults\nto the default encoding. errors may be'
-                         ' given to set a different error\nhandling scheme.'
-                         " Default is 'strict' meaning that encoding errors"
-                         ' raise\na UnicodeEncodeError. Other possible values'
-                         " are 'ignore', 'replace' and\n'xmlcharrefreplace' as"
-                         ' well as any other name registered'
-                         ' with\ncodecs.register_error that is able to handle'
-                         ' UnicodeEncodeErrors.')
 
 register_all(vars(), globals())
 

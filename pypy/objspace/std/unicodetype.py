@@ -168,7 +168,6 @@ from pypy.objspace.std.stringtype import str_splitlines as unicode_splitlines
 from pypy.objspace.std.stringtype import str_strip as unicode_strip
 from pypy.objspace.std.stringtype import str_rstrip as unicode_rstrip
 from pypy.objspace.std.stringtype import str_lstrip as unicode_lstrip
-from pypy.objspace.std.stringtype import str_decode as unicode_decode
 
 # ____________________________________________________________
 
@@ -298,11 +297,6 @@ def unicode_from_object(space, w_obj):
         if space.isinstance_w(w_res, space.w_unicode):
             return w_res
     return unicode_from_encoded_object(space, w_res, None, "strict")
-
-def unicode_decode__unitypedef_ANY_ANY(space, w_unicode, w_encoding=None,
-                                       w_errors=None):
-    return space.call_method(space.str(w_unicode), 'decode',
-                             w_encoding, w_errors)
 
 
 def descr_new_(space, w_unicodetype, w_string='', w_encoding=None, w_errors=None):

@@ -1000,12 +1000,6 @@ def str_decode__String_ANY_ANY(space, w_string, w_encoding=None, w_errors=None):
     encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
     return decode_object(space, w_string, encoding, errors)
 
-def str_encode__String_ANY_ANY(space, w_string, w_encoding=None, w_errors=None):
-    from pypy.objspace.std.unicodetype import _get_encoding_and_errors, \
-        encode_object
-    encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
-    return encode_object(space, w_string, encoding, errors)
-
 # CPython's logic for deciding if  ""%values  is
 # an error (1 value, 0 %-formatters) or not
 # (values is of a mapping type)
