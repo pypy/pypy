@@ -78,18 +78,6 @@ else:
         # XXX for the moment
         return
 
-# Capture file.fdopen at import time, as some code replaces
-# __builtins__.file with a custom function.
-_fdopen = file.fdopen
-
-def fdopen(fd, mode='r', buffering=-1):
-    """fdopen(fd [, mode='r' [, buffering]]) -> file_object
-
-    Return an open file object connected to a file descriptor."""
-    _validate_fd(fd)
-    return _fdopen(fd, mode, buffering)
-
-
 def tmpfile():
     """Create a temporary file.
 
@@ -123,76 +111,7 @@ def tempnam(dir=None, prefix=None):
     return tempfile.mktemp('', prefix or 'tmp', dir)
 
 
-# Implement popen() for platforms which have os.fork()
 if osname == 'posix':
-
-    class popenfile(file):
-        _childpid = None
-
-        def close(self):
-            import os
-            super(popenfile, self).close()
-            pid = self._childpid
-            if pid is not None:
-                self._childpid = None
-                sts = os.waitpid(pid, 0)[1]
-                if sts != 0:
-                    return sts
-        __del__ = close     # as in CPython, __del__ may call os.waitpid()
-
-    def popen(command, mode='r', bufsize=-1):
-        """popen(command [, mode='r' [, bufsize]]) -> pipe
-
-        Open a pipe to/from a command returning a file object."""
-
-        from popen2 import MAXFD
-        import os, gc
-
-        def try_close(fd):
-            try:
-                os.close(fd)
-            except OSError:
-                pass
-
-        if not mode.startswith('r') and not mode.startswith('w'):
-            raise ValueError("invalid mode %r" % (mode,))
-        read_end, write_end = os.pipe()
-        try:
-            gc.disable_finalizers()
-            try:
-                childpid = os.fork()
-                if childpid == 0:
-                    # in the child
-                    try:
-                        if mode.startswith('r'):
-                            os.dup2(write_end, 1)
-                            os.close(read_end)
-                        else:
-                            os.dup2(read_end, 0)
-                            os.close(write_end)
-                        os.closerange(3, MAXFD)
-                        cmd = ['/bin/sh', '-c', command]
-                        os.execvp(cmd[0], cmd)
-                    finally:
-                        os._exit(1)
-            finally:
-                gc.enable_finalizers()
-
-            if mode.startswith('r'):
-                os.close(write_end)
-                fd = read_end
-            else:
-                os.close(read_end)
-                fd = write_end
-            g = popenfile.fdopen(fd, mode, bufsize)
-            g._childpid = childpid
-            return g
-
-        except Exception, e:
-            try_close(write_end)
-            try_close(read_end)
-            raise Exception() from e
-
     def wait():
         """ wait() -> (pid, status)
 
@@ -218,36 +137,6 @@ if osname == 'posix':
 
 else:
     # Windows implementations
-
-    # Supply os.popen() based on subprocess
-    def popen(cmd, mode="r", bufsize=-1):
-        """popen(command [, mode='r' [, bufsize]]) -> pipe
-
-        Open a pipe to/from a command returning a file object."""
-
-        cmd = _makecmd_string(cmd)
-
-        if not mode.startswith('r') and not mode.startswith('w'):
-            raise ValueError("invalid mode %r" % (mode,))
-
-        univ_nl = ('b' not in mode)
-
-        import subprocess
-
-        if mode.startswith('r'):
-            proc = subprocess.Popen(cmd,
-                                    shell=True,
-                                    stdout=subprocess.PIPE,
-                                    bufsize=bufsize,
-                                    universal_newlines=univ_nl)
-            return _wrap_close(proc.stdout, proc)
-        else:
-            proc = subprocess.Popen(cmd,
-                                    shell=True,
-                                    stdin=subprocess.PIPE,
-                                    bufsize=bufsize,
-                                    universal_newlines=univ_nl)
-            return _wrap_close(proc.stdin, proc)
 
     def popen2(cmd, mode="t", bufsize=-1):
         ""
