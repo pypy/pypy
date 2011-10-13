@@ -330,9 +330,8 @@ class ObjSpace(object):
 
     def finish(self):
         self.wait_for_thread_shutdown()
-        w_exitfunc = self.sys.getdictvalue(self, 'exitfunc')
-        if w_exitfunc is not None:
-            self.call_function(w_exitfunc)
+        w_atexit = self.getbuiltinmodule('atexit')
+        self.call_method(w_atexit, '_run_exitfuncs')
         from pypy.interpreter.module import Module
         for w_mod in self.builtin_modules.values():
             mod = self.interpclass_w(w_mod)

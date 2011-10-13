@@ -56,9 +56,6 @@ exit status will be one (i.e., failure)."""
     # in normalize_exception, which is exactly like CPython's.
     raise SystemExit, exitcode
 
-def exitfunc():
-    """Placeholder for sys.exitfunc(), which is called when PyPy exits."""
-
 #import __builtin__
 
 def callstats():

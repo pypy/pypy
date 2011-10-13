@@ -57,7 +57,7 @@ class Module(Wrappable):
 
     def shutdown(self, space):
         """This is called when the space is shut down, just after
-        sys.exitfunc(), if the module has been imported.
+        atexit functions, if the module has been imported.
         """
 
     def getdict(self, space):
