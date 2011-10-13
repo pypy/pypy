@@ -494,7 +494,12 @@ class __extend__(pyframe.PyFrame):
             w_cause = self.popvalue() # XXX cause?
         if 1:
             w_value = self.popvalue()
-        operror = OperationError(space.type(w_value), w_value)
+        if space.exception_is_valid_obj_as_class_w(w_value):
+            w_type = w_value
+            w_value = space.call_function(w_type)
+        else:
+            w_type = space.type(w_value)
+        operror = OperationError(w_type, w_value)
         operror.normalize_exception(space)
         w_traceback = space.w_None # XXX with_traceback?
         if not space.full_exceptions or space.is_w(w_traceback, space.w_None):
