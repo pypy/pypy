@@ -34,14 +34,6 @@ class AppTestExc(object):
         del x.message
         assert not hasattr(x, "message")
 
-    def test_unicode_message(self):
-        assert unicode(Exception(u"\xe1")) == u"\xe1"
-        class E(BaseException):
-            def __str__(self):
-                return u"\xe1"
-        e = E()
-        assert unicode(e) == u"\xe1"
-
     def test_kwargs(self):
         from exceptions import Exception
         class X(Exception):
@@ -152,13 +144,13 @@ class AppTestExc(object):
 
     def test_unicode_decode_error(self):
         from exceptions import UnicodeDecodeError
-        ud = UnicodeDecodeError("x", "y", 1, 5, "bah")
+        ud = UnicodeDecodeError("x", b"y", 1, 5, "bah")
         assert ud.encoding == 'x'
-        assert ud.object == 'y'
+        assert ud.object == b'y'
         assert ud.start == 1
         assert ud.end == 5
         assert ud.reason == 'bah'
-        assert ud.args == ('x', 'y', 1, 5, 'bah')
+        assert ud.args == ('x', b'y', 1, 5, 'bah')
         assert ud.message == ''
         ud.object = 'z9'
         assert ud.object == 'z9'
@@ -183,8 +175,7 @@ class AppTestExc(object):
         assert str(ue) == "'x' codec can't encode character u'\\x39' in position 1: bah"
         ue.object = []
         assert ue.object == []
-        raises(TypeError, UnicodeEncodeError, "x", "y", 1, 5, "bah")
-        raises(TypeError, UnicodeEncodeError, u"x", u"y", 1, 5, "bah")
+        raises(TypeError, UnicodeEncodeError, "x", b"y", 1, 5, "bah")
 
     def test_multiple_inheritance(self):
         from exceptions import LookupError, ValueError, Exception, IOError
