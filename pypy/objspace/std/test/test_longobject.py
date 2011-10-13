@@ -310,6 +310,9 @@ class AppTestLong:
         assert (-1<<40).bit_length() == 41
         assert ((2**31)-1).bit_length() == 31
 
+    def test_from_bytes(self):
+        assert long.from_bytes(b'c', 'little') == 99
+        assert long.from_bytes(b'\x01\x01', 'little') == 257
 
     def test_negative_zero(self):
         x = eval("-0L")

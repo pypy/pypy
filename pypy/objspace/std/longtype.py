@@ -113,6 +113,15 @@ def bit_length(space, w_obj):
         raise OperationError(space.w_OverflowError,
                              space.wrap("too many digits in integer"))
 
+@gateway.unwrap_spec(s='bufferstr', byteorder=str)
+def descr_from_bytes(space, w_cls, s, byteorder):
+    from pypy.rlib.rbigint import rbigint
+    bigint = rbigint.frombytes(s)
+    from pypy.objspace.std.longobject import W_LongObject
+    w_obj = space.allocate_instance(W_LongObject, w_cls)
+    W_LongObject.__init__(w_obj, bigint)
+    return w_obj
+
 # ____________________________________________________________
 
 long_typedef = StdTypeDef("long",
@@ -130,5 +139,6 @@ converting a non-string.''',
     real = typedef.GetSetProperty(descr_get_real),
     imag = typedef.GetSetProperty(descr_get_imag),
     bit_length = gateway.interp2app(bit_length),
+    from_bytes = gateway.interp2app(descr_from_bytes, as_classmethod=True),
 )
 long_typedef.registermethods(globals())

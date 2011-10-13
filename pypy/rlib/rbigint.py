@@ -215,6 +215,24 @@ class rbigint(object):
         # then modify the result.
         return _decimalstr_to_bigint(s)
 
+    @staticmethod
+    def frombytes(s):
+        accum = 0
+        accumbits = 0
+        digits = []
+        for ch in s:
+            c = ord(ch)
+            accum <<= 8
+            accum |= c
+            accumbits += 8
+            if accumbits >= SHIFT:
+                digits.append(_store_digit(accum & MASK))
+                accum >>= SHIFT
+                accumbits -= SHIFT
+        if accumbits:
+            digits.append(_store_digit(accum))
+        return rbigint(digits, 1)
+
     @jit.elidable
     def toint(self):
         """

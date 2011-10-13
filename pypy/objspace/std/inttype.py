@@ -33,6 +33,10 @@ def descr_bit_length(space, w_int):
         val >>= 1
     return space.wrap(bits)
 
+@gateway.unwrap_spec(s='bufferstr', byteorder=str)
+def descr_from_bytes(space, w_cls, s, byteorder):
+    from pypy.objspace.std.longtype import descr_from_bytes
+    return descr_from_bytes(space, space.w_long, s)
 
 def wrapint(space, x):
     if space.config.objspace.std.withsmallint:
@@ -205,5 +209,6 @@ will be returned instead.''',
     denominator = typedef.GetSetProperty(descr_get_denominator),
     real = typedef.GetSetProperty(descr_get_real),
     imag = typedef.GetSetProperty(descr_get_imag),
+    from_bytes = gateway.interp2app(descr_from_bytes, as_classmethod=True),
 )
 int_typedef.registermethods(globals())
