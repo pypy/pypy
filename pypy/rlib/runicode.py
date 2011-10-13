@@ -1212,10 +1212,10 @@ def unicode_encode_unicode_escape(s, size, errors, errorhandler=None, quotes=Fal
     if quotes:
         if s.find(u'\'') != -1 and s.find(u'\"') == -1:
             quote = ord('\"')
-            result.append('u"')
+            result.append('"')
         else:
             quote = ord('\'')
-            result.append('u\'')
+            result.append('\'')
     else:
         quote = 0
 
