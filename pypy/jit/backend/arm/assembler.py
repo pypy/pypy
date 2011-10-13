@@ -740,7 +740,7 @@ class AssemblerARM(ResOpAssembler):
         return l
 
     def _patch_sp_offset(self, pos, frame_depth):
-        cb = OverwritingBuilder(self.mc, pos, OverwritingBuilder.size_of_gen_load_int)
+        cb = OverwritingBuilder(self.mc, pos, OverwritingBuilder.size_of_gen_load_int+WORD)
         # Note: the frame_depth is one less than the value stored in the frame
         # manager
         if frame_depth == 1:
