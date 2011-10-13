@@ -161,7 +161,7 @@ class W_IncrementalNewlineDecoder(Wrappable):
             w_buffer, w_flag = space.unpackiterable(w_state, 2)
             flag = space.r_longlong_w(w_flag)
         else:
-            w_buffer = space.wrap("")
+            w_buffer = space.wrapbytes("")
             flag = 0
         flag <<= 1
         if self.pendingcr:
@@ -355,7 +355,7 @@ class W_TextIOWrapper(W_TextIOBase):
                     raise
                 self.w_encoding = space.wrap("ascii")
             else:
-                if not space.isinstance_w(self.w_encoding, space.w_str):
+                if not space.isinstance_w(self.w_encoding, space.w_unicode):
                     self.w_encoding = None
         if self.w_encoding:
             pass
@@ -542,7 +542,7 @@ class W_TextIOWrapper(W_TextIOBase):
             # Given this, we know there was a valid snapshot point
             # len(dec_buffer) bytes ago with decoder state (b'', dec_flags).
             w_dec_buffer, w_dec_flags = space.unpackiterable(w_state, 2)
-            dec_buffer = space.str_w(w_dec_buffer)
+            dec_buffer = space.bytes_w(w_dec_buffer)
             dec_flags = space.int_w(w_dec_flags)
         else:
             dec_buffer = None
@@ -561,7 +561,7 @@ class W_TextIOWrapper(W_TextIOBase):
         if self.telling:
             # At the snapshot point, len(dec_buffer) bytes before the read,
             # the next input to be decoded is dec_buffer + input_chunk.
-            next_input = dec_buffer + space.str_w(w_input)
+            next_input = dec_buffer + space.bytes_w(w_input)
             self.snapshot = PositionSnapshot(dec_flags, next_input)
 
         return not eof
@@ -729,7 +729,7 @@ class W_TextIOWrapper(W_TextIOBase):
         else:
             w_bytes = space.call_method(self.w_encoder, "encode", w_text)
 
-        b = space.str_w(w_bytes)
+        b = space.bytes_w(w_bytes)
         if not self.pending_bytes:
             self.pending_bytes = []
             self.pending_bytes_count = 0
@@ -757,7 +757,8 @@ class W_TextIOWrapper(W_TextIOBase):
         self.pending_bytes = None
         self.pending_bytes_count = 0
 
-        space.call_method(self.w_buffer, "write", space.wrap(pending_bytes))
+        space.call_method(self.w_buffer, "write",
+                          space.wrapbytes(pending_bytes))
 
     def detach_w(self, space):
         self._check_init(space)
@@ -780,7 +781,7 @@ class W_TextIOWrapper(W_TextIOBase):
             space.call_method(self.w_decoder, "reset")
         else:
             space.call_method(self.w_decoder, "setstate",
-                              space.newtuple([space.wrap(""),
+                              space.newtuple([space.wrapbytes(""),
                                               space.wrap(cookie.dec_flags)]))
 
     def _encoder_setstate(self, space, cookie):
@@ -851,7 +852,7 @@ class W_TextIOWrapper(W_TextIOBase):
             w_chunk = space.call_method(self.w_buffer, "read",
                                         space.wrap(cookie.bytes_to_feed))
             self.snapshot = PositionSnapshot(cookie.dec_flags,
-                                             space.str_w(w_chunk))
+                                             space.bytes_w(w_chunk))
 
             w_decoded = space.call_method(self.w_decoder, "decode",
                                           w_chunk, space.wrap(cookie.need_eof))
@@ -929,7 +930,7 @@ class W_TextIOWrapper(W_TextIOBase):
 
                 w_state = space.call_method(self.w_decoder, "getstate")
                 w_dec_buffer, w_flags = space.unpackiterable(w_state, 2)
-                dec_buffer_len = len(space.str_w(w_dec_buffer))
+                dec_buffer_len = space.len_w(w_dec_buffer)
 
                 if dec_buffer_len == 0 and chars_decoded <= chars_to_skip:
                     # Decoder buffer is empty, so this is a safe start point.
