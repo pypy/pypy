@@ -1,9 +1,10 @@
 import py
 import random, sys, os
 
-from pypy.jit.backend.ppc.ppcgen.ppc_assembler import BasicPPCAssembler, PPCBuilder
+from pypy.jit.backend.ppc.ppcgen.codebuilder import BasicPPCAssembler, PPCBuilder
 from pypy.jit.backend.ppc.ppcgen.symbol_lookup import lookup
 from pypy.jit.backend.ppc.ppcgen.regname import *
+from pypy.jit.backend.ppc.ppcgen.register import *
 from pypy.jit.backend.ppc.ppcgen import form, pystructs
 from pypy.jit.backend.detect_cpu import autodetect_main_model
 from pypy.jit.backend.ppc.ppcgen.arch import IS_PPC_32, IS_PPC_64, WORD
@@ -22,7 +23,7 @@ class TestDisassemble(object):
 
 """
 Creates the boilerplate code for the tests.
-- Make an PPCBuilder object
+- Make a PPCBuilder object
 - Let the given test create the machine code
 - Create a function and call it
 - Compare the return value with the expected result
@@ -80,7 +81,7 @@ class TestAssemble(object):
     """
 
     @asmtest(expected=200)
-    def test_load_imm(self, a):
+    def test_li(self, a):
         a.li(3, 200)
         a.blr()
 
@@ -91,8 +92,8 @@ class TestAssemble(object):
         a.blr()
 
     @asmtest(expected=12341234)
-    def test_load_word(self, a):
-        a.load_word(10, 12341234)
+    def test_load_imm(self, a):
+        a.load_imm(r10, 12341234)
         a.mtctr(10)
         a.mfctr(11)
         a.mr(3, 11)
@@ -100,16 +101,16 @@ class TestAssemble(object):
 
     @asmtest(expected=33333333)
     def test_add_reg(self, a):
-        a.load_word(10, 11111111)
-        a.load_word(11, 22222222)
+        a.load_imm(r10, 11111111)
+        a.load_imm(r11, 22222222)
         a.add(12, 10, 11)
         a.mr(3, 12)
         a.blr()
 
     @asmtest(expected=-1000)
     def test_add_pos_and_neg(self, a):
-        a.load_word(10, 2000)
-        a.load_word(11, -3000)
+        a.load_imm(r10, 2000)
+        a.load_imm(r11, -3000)
         a.add(3, 10, 11)
         a.blr()
 
@@ -121,14 +122,14 @@ class TestAssemble(object):
 
     @asmtest(expected=(123435 - 76457))
     def test_sub_reg(self, a):
-        a.load_word(5, 123435)
-        a.load_word(6, 76457)
+        a.load_imm(r5, 123435)
+        a.load_imm(r6, 76457)
         a.sub(3, 5, 6)
         a.blr()
 
     @asmtest(expected=(10000 * 5000))
     def test_mul_imm(self, a):
-        a.load_word(3, 10000)
+        a.load_imm(r3, 10000)
         a.mulli(3, 3, 5000)
         a.blr()
 
@@ -137,8 +138,8 @@ class TestAssemble(object):
     @asmtest(expected=bits_to_signed_int('11010100101001010001000000000000'))
     def test_mullw(self, a):
         word = 1000000
-        a.load_word(5, word)
-        a.load_word(6, word)
+        a.load_imm(r5, word)
+        a.load_imm(r6, word)
         a.mullw(3, 5, 6)
         if IS_PPC_64:
             a.extsw(3, 3)
@@ -149,8 +150,8 @@ class TestAssemble(object):
     @asmtest(expected=int('11101000', 2))
     def test_mulhw(self, a):
         word = 1000000
-        a.load_word(5, word)
-        a.load_word(6, word)
+        a.load_imm(r5, word)
+        a.load_imm(r6, word)
         a.mulhw(3, 5, 6)
         if IS_PPC_64:
             a.extsw(3, 3)
@@ -161,8 +162,8 @@ class TestAssemble(object):
     @asmtest(expected=int('11101000', 2))
     def test_mulhwu(self, a):
         word = 1000000
-        a.load_word(5, word)
-        a.load_word(6, word)
+        a.load_imm(r5, word)
+        a.load_imm(r6, word)
         a.mulhwu(3, 5, 6)
         if IS_PPC_64:
             a.extsw(3, 3)
@@ -172,8 +173,8 @@ class TestAssemble(object):
     def test_divw(self, a):
         divident = 1000000
         divisor = 100
-        a.load_word(10, divident)
-        a.load_word(11, divisor)
+        a.load_imm(r10, divident)
+        a.load_imm(r11, divisor)
         a.divw(3, 10, 11)
         a.blr()
 
@@ -191,7 +192,7 @@ class TestAssemble(object):
 
         a.li(3, 50)
         if IS_PPC_32:
-            a.load_word(10, call_addr)
+            a.load_imm(r10, call_addr)
         else:
             a.load_from(10, call_addr)
             a.load_from(2, call_addr+WORD)
@@ -205,60 +206,60 @@ class TestAssemble(object):
 
     @asmtest(expected=0)
     def test_and(self, a):
-        a.load_word(10, 8)
-        a.load_word(11, 7)
+        a.load_imm(r10, 8)
+        a.load_imm(r11, 7)
         a.and_(3, 10, 11)
         a.blr()
 
     @asmtest(expected=15)
     def test_or(self, a):
-        a.load_word(10, 8)
-        a.load_word(11, 7)
+        a.load_imm(r10, 8)
+        a.load_imm(r11, 7)
         a.or_(3, 10, 11)
         a.blr()
 
     @asmtest(expected=15)
     def test_nand(self, a):
-        a.load_word(10, 8)
-        a.load_word(11, 7)
+        a.load_imm(r10, 8)
+        a.load_imm(r11, 7)
         a.nand(3, 10, 11)
-        a.load_word(12, 0x0000000F) # zero out first 28 bits
+        a.load_imm(r12, 0x0000000F) # zero out first 28 bits
         a.and_(3, 3, 12)            # 
         a.blr()
 
     @asmtest(expected=1)
     def test_nor(self, a):
-        a.load_word(10, 10)
-        a.load_word(11, 6)
+        a.load_imm(r10, 10)
+        a.load_imm(r11, 6)
         a.nor(3, 10, 11)
-        a.load_word(12, 0x0000000F) # zero out first 28 bits
+        a.load_imm(r12, 0x0000000F) # zero out first 28 bits
         a.and_(3, 3, 12)            # 
         a.blr()
 
     @asmtest(expected=5)
     def test_xor(self, a):
-        a.load_word(10, 15)
-        a.load_word(11, 10)
+        a.load_imm(r10, 15)
+        a.load_imm(r11, 10)
         a.xor(3, 10, 11)
         a.blr()
 
     @asmtest(expected=0x120)
     def test_slw(self, a):
-        a.load_word(10, 9)
-        a.load_word(11, 5)
+        a.load_imm(r10, 9)
+        a.load_imm(r11, 5)
         a.slw(3, 10, 11)
         a.blr()
 
     @asmtest(expected=9)
     def test_srw(self, a):
-        a.load_word(10, 0x120)
-        a.load_word(11, 5)
+        a.load_imm(r10, 0x120)
+        a.load_imm(r11, 5)
         a.srw(3, 10, 11)
         a.blr()
 
     def test_neg(self):
         a = PPCBuilder()
-        a.load_word(10, 0x0000F0F0)
+        a.load_imm(r10, 0x0000F0F0)
         a.neg(3, 10)
         a.blr()
         f = a.assemble()
@@ -270,11 +271,11 @@ class TestAssemble(object):
         word2 = 2000
         p = lltype.malloc(rffi.CArray(lltype.Signed), 2, flavor="raw")
 
-        a.load_word(10, word1)
-        a.load_word(11, word2)
+        a.load_imm(r10, word1)
+        a.load_imm(r11, word2)
 
-        a.load_word(8, rffi.cast(lltype.Signed, p))
-        a.load_word(9, rffi.cast(lltype.Signed, p) + WORD)
+        a.load_imm(r8, rffi.cast(lltype.Signed, p))
+        a.load_imm(r9, rffi.cast(lltype.Signed, p) + WORD)
 
         a.stw(10, 8, 0)
         a.stw(11, 9, 0)
@@ -293,7 +294,7 @@ class TestAssemble(object):
         addr = rffi.cast(lltype.Signed, p)
         p[0] = rffi.cast(rffi.LONG, 200)
 
-        a.load_from(3, addr)
+        a.load_from_addr(3, addr)
         a.blr()
         f = a.assemble()
         assert f() == 200
@@ -338,7 +339,7 @@ class TestAssemble(object):
         a = MyPPCAssembler()
 
         a.lwz(3, 4, pystructs.PyVarObject.ob_size)
-        a.load_word(5, lookup("PyInt_FromLong"))
+        a.load_imm(5, lookup("PyInt_FromLong"))
         a.mtctr(5)
         a.bctr()
 
@@ -355,10 +356,10 @@ class TestAssemble(object):
         a.stw(0, 1, 8)
         a.stwu(1, 1, -80)
         a.mr(3, 4)
-        a.load_word(5, lookup("PyTuple_Size"))
+        a.load_imm(5, lookup("PyTuple_Size"))
         a.mtctr(5)
         a.bctrl()
-        a.load_word(5, lookup("PyInt_FromLong"))
+        a.load_imm(5, lookup("PyInt_FromLong"))
         a.mtctr(5)
         a.bctrl()
         a.lwz(0, 1, 88)
@@ -381,7 +382,7 @@ class TestAssemble(object):
         a.bne("not_one")
         a.lwz(r5, r4, pystructs.PyTupleObject.ob_item + 0*4)
         a.lwz(r5, r5, 4)
-        a.load_word(r6, lookup("PyInt_Type"))
+        a.load_imm(r6, lookup("PyInt_Type"))
         a.cmpw(r5, r6)
         a.bne("not_int")
         a.li(r3, 1)
@@ -392,7 +393,7 @@ class TestAssemble(object):
         a.label("not_one")
         a.li(r3, 2)
         a.label("exit")
-        a.load_word(r5, lookup("PyInt_FromLong"))
+        a.load_imm(r5, lookup("PyInt_FromLong"))
         a.mtctr(r5)
         a.bctr()
 
@@ -414,7 +415,7 @@ class TestAssemble(object):
         err_set = lookup("PyErr_SetObject")
         exc = lookup("PyExc_ValueError")
 
-        a.load_word(5, err_set)
+        a.load_imm(5, err_set)
         a.mtctr(5)
         a.load_from(3, exc)
         a.mr(4, 3)
@@ -435,7 +436,7 @@ class TestAssemble(object):
 
         a.li(r3, 0)
         a.li(r4, 0)
-        a.load_word(r5, lookup("PyString_FromStringAndSize"))
+        a.load_imm(r5, lookup("PyString_FromStringAndSize"))
         a.mtctr(r5)
         a.bctr()
 
@@ -453,7 +454,7 @@ class TestAssemble(object):
         a.lwz(r3, r4, 12)
         a.lwz(r4, r4, 16)
 
-        a.load_word(r5, lookup("PyNumber_Add"))
+        a.load_imm(r5, lookup("PyNumber_Add"))
         a.mtctr(r5)
         a.bctr()
 
@@ -466,7 +467,7 @@ class TestAssemble(object):
         err_set = lookup("PyErr_SetObject")
         exc = lookup("PyExc_TypeError")
 
-        a.load_word(r5, err_set)
+        a.load_imm(r5, err_set)
         a.mtctr(r5)
         a.load_from(r3, exc)
         a.mr(r4, r3)
