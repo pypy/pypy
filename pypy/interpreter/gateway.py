@@ -825,11 +825,17 @@ class interp2app(Wrappable):
     def _getdefaults(self, space):
         "NOT_RPYTHON"
         defs_w = []
-        for val in self._staticdefs:
+        
+        unwrap_spec = self._code._unwrap_spec[-len(self._staticdefs):]
+        for i, val in enumerate(self._staticdefs):
             if val is NoneNotWrapped:
                 defs_w.append(None)
             else:
-                defs_w.append(space.wrap(val))
+                spec = unwrap_spec[i]
+                if spec in ['bufferstr']:
+                    defs_w.append(space.wrapbytes(val))
+                else:
+                    defs_w.append(space.wrap(val))
         return defs_w
 
     # lazy binding to space

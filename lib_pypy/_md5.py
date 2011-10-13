@@ -112,7 +112,7 @@ def XX(func, a, b, c, d, x, s, ac):
     return res & 0xffffffffL
 
 
-class MD5Type:
+class md5:
     "An implementation of the MD5 hash function in pure Python."
 
     digest_size = digestsize = 16
@@ -366,23 +366,3 @@ class MD5Type:
         clone.C = self.C
         clone.D = self.D
         return clone
-
-
-# ======================================================================
-# Mimic Python top-level functions from standard library API
-# for consistency with the _md5 module of the standard library.
-# ======================================================================
-
-digest_size = 16
-
-def new(arg=None):
-    """Return a new md5 crypto object.
-    If arg is present, the method call update(arg) is made.
-    """
-
-    crypto = MD5Type()
-    if arg:
-        crypto.update(arg)
-
-    return crypto
-

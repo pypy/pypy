@@ -221,13 +221,13 @@ def encode_object(space, w_object, encoding, errors):
             if encoding == 'ascii':
                 u = space.unicode_w(w_object)
                 eh = encode_error_handler(space)
-                return space.wrap(unicode_encode_ascii(u, len(u), None,
-                                                       errorhandler=eh))
+                return space.wrapbytes(unicode_encode_ascii(
+                        u, len(u), None, errorhandler=eh))
             if encoding == 'utf-8':
                 u = space.unicode_w(w_object)
                 eh = encode_error_handler(space)
-                return space.wrap(unicode_encode_utf_8(u, len(u), None,
-                                                       errorhandler=eh))
+                return space.wrapbytes(unicode_encode_utf_8(
+                        u, len(u), None, errorhandler=eh))
         from pypy.module._codecs.interp_codecs import lookup_codec
         w_encoder = space.getitem(lookup_codec(space, encoding), space.wrap(0))
     if errors is None:
@@ -236,9 +236,9 @@ def encode_object(space, w_object, encoding, errors):
         w_errors = space.wrap(errors)
     w_restuple = space.call_function(w_encoder, w_object, w_errors)
     w_retval = space.getitem(w_restuple, space.wrap(0))
-    if not space.isinstance_w(w_retval, space.w_str):
+    if not space.isinstance_w(w_retval, space.w_bytes):
         raise operationerrfmt(space.w_TypeError,
-            "encoder did not return an string object (type '%s')",
+            "encoder did not return a bytes string (type '%s')",
             space.type(w_retval).getname(space))
     return w_retval
 

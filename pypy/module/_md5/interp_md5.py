@@ -18,7 +18,7 @@ class W_MD5(Wrappable, rmd5.RMD5):
         self.update(string)
 
     def digest_w(self):
-        return self.space.wrap(self.digest())
+        return self.space.wrapbytes(self.digest())
 
     def hexdigest_w(self):
         return self.space.wrap(self.hexdigest())
