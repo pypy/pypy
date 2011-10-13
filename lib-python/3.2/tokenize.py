@@ -30,7 +30,7 @@ import sys
 from token import *
 from codecs import lookup, BOM_UTF8
 import collections
-from io import TextIOWrapper
+import io
 cookie_re = re.compile("coding[:=]\s*([-\w.]+)")
 
 import token
@@ -340,10 +340,10 @@ def open(filename):
     """Open a file in read only mode using the encoding detected by
     detect_encoding().
     """
-    buffer = builtins.open(filename, 'rb')
+    buffer = io.open(filename, 'rb')
     encoding, lines = detect_encoding(buffer.readline)
     buffer.seek(0)
-    text = TextIOWrapper(buffer, encoding, line_buffering=True)
+    text = io.TextIOWrapper(buffer, encoding, line_buffering=True)
     text.mode = 'r'
     return text
 

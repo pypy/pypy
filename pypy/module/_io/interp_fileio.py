@@ -352,7 +352,7 @@ class W_FileIO(W_RawIOBase):
             raise wrap_oserror(space, e,
                                exception_name='w_IOError')
 
-        return space.wrap(s)
+        return space.wrapbytes(s)
 
     def readinto_w(self, space, w_buffer):
         self._check_closed(space)

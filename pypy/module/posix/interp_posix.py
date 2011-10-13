@@ -37,7 +37,7 @@ def fsencode_w(space, w_obj):
     if space.isinstance_w(w_obj, space.w_unicode):
         w_obj = space.call_method(w_obj, 'encode',
                                   getfilesystemencoding(space))
-    return space.str_w(w_obj)
+    return space.bytes_w(w_obj)
 
 class FileEncoder(object):
     def __init__(self, space, w_obj):
