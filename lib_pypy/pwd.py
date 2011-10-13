@@ -167,10 +167,10 @@ if __name__ == "__main__":
     from os import getuid
     uid = getuid()
     pw = getpwuid(uid)
-    print "uid %s: %s" % (pw.pw_uid, pw)
+    print("uid %s: %s" % (pw.pw_uid, pw))
     name = pw.pw_name
-    print "name %r: %s" % (name, getpwnam(name))
-    print "All:"
+    print("name %r: %s" % (name, getpwnam(name)))
+    print("All:")
     for pw in getpwall():
-        print pw
+        print(pw)
 
