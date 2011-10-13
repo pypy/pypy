@@ -19,12 +19,12 @@ def vars(*obj):
     if len(obj) == 0:
         return _caller_locals()
     elif len(obj) != 1:
-        raise TypeError, "vars() takes at most 1 argument."
+        raise TypeError("vars() takes at most 1 argument.")
     else:
         try:
             return obj[0].__dict__
         except AttributeError:
-            raise TypeError, "vars() argument must have __dict__ attribute"
+            raise TypeError("vars() argument must have __dict__ attribute")
 
 # Replaced by the interp-level helper space.callable(): 
 ##def callable(ob):

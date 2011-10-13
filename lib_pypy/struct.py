@@ -81,18 +81,18 @@ def pack_int(number,size,le):
 
 def pack_signed_int(number,size,le):
     if not isinstance(number, (int,long)):
-        raise StructError,"argument for i,I,l,L,q,Q,h,H must be integer"
+        raise StructError("argument for i,I,l,L,q,Q,h,H must be integer")
     if  number > 2**(8*size-1)-1 or number < -1*2**(8*size-1):
-        raise OverflowError,"Number:%i too large to convert" % number
+        raise OverflowError("Number:%i too large to convert" % number)
     return pack_int(number,size,le)
 
 def pack_unsigned_int(number,size,le):
     if not isinstance(number, (int,long)):
-        raise StructError,"argument for i,I,l,L,q,Q,h,H must be integer"
+        raise StructError("argument for i,I,l,L,q,Q,h,H must be integer")
     if number < 0:
-        raise TypeError,"can't convert negative long to unsigned"
+        raise TypeError("can't convert negative long to unsigned")
     if number > 2**(8*size)-1:
-        raise OverflowError,"Number:%i too large to convert" % number
+        raise OverflowError("Number:%i too large to convert" % number)
     return pack_int(number,size,le)
 
 def pack_char(char,size,le):
@@ -296,7 +296,7 @@ def calcsize(fmt):
         try:
             format = formatdef[cur]
         except KeyError:
-            raise StructError,"%s is not a valid format"%cur
+            raise StructError("%s is not a valid format" % cur)
         if num != None :
             result += num*format['size']
         else:
@@ -319,7 +319,7 @@ def pack(fmt,*args):
         try:
             format = formatdef[cur]
         except KeyError:
-            raise StructError,"%s is not a valid format"%cur
+            raise StructError("%s is not a valid format" % cur)
         if num == None :
             num_s = 0
             num = 1
@@ -334,7 +334,7 @@ def pack(fmt,*args):
                 result += [args[0][:num] + '\0'*padding]
                 args.pop(0)
             else:
-                raise StructError,"arg for string format not a string"
+                raise StructError("arg for string format not a string")
         elif cur == 'p':
             if isinstance(args[0], str):
                 padding = num - len(args[0]) - 1
@@ -348,18 +348,18 @@ def pack(fmt,*args):
                         result += [chr(255) + args[0][:num-1]]
                 args.pop(0)
             else:
-                raise StructError,"arg for string format not a string"
+                raise StructError("arg for string format not a string")
 
         else:
             if len(args) < num:
-                raise StructError,"insufficient arguments to pack"
+                raise StructError("insufficient arguments to pack")
             for var in args[:num]:
                 result += [format['pack'](var,format['size'],endianness)]
             args=args[num:]
         num = None
         i += 1
     if len(args) != 0:
-        raise StructError,"too many arguments for pack format"
+        raise StructError("too many arguments for pack format")
     return ''.join(result)
 
 def unpack(fmt,data):
@@ -373,7 +373,7 @@ def unpack(fmt,data):
     result = []
     length= calcsize(fmt)
     if length != len (data):
-        raise StructError,"unpack str size does not match format"
+        raise StructError("unpack str size does not match format")
     while i<len(fmt):
         num,i=getNum(fmt,i)
         cur = fmt[i]
@@ -381,7 +381,7 @@ def unpack(fmt,data):
         try:
             format = formatdef[cur]
         except KeyError:
-            raise StructError,"%s is not a valid format"%cur
+            raise StructError("%s is not a valid format" % cur)
 
         if not num :
             num = 1

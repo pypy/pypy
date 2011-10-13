@@ -797,6 +797,17 @@ class TestCompiler:
             return y"""
         yield self.st, test, "f()", 4
 
+    def test_raise_from(self):
+        test = """if 1:
+        def f():
+            try:
+                raise TypeError() from ValueError()
+            except TypeError:
+                return 42
+        """
+        yield self.st, test, "f()", 42
+    # This line is needed for py.code to find the source.
+
 
 class AppTestCompiler:
 

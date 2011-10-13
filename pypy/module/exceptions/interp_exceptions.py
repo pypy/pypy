@@ -631,11 +631,11 @@ class W_UnicodeDecodeError(W_UnicodeError):
 
     def descr_init(self, space, w_encoding, w_object, w_start, w_end, w_reason):
         # typechecking
-        space.text_w(w_encoding)
-        space.str_w(w_object)
+        space.str_w(w_encoding)
+        space.bytes_w(w_object)
         space.int_w(w_start)
         space.int_w(w_end)
-        space.text_w(w_reason)
+        space.str_w(w_reason)
         # assign attributes
         self.w_encoding = w_encoding
         self.w_object = w_object
@@ -650,7 +650,7 @@ class W_UnicodeDecodeError(W_UnicodeError):
             if self.end == self.start + 1:
                 return "'%s' codec can't decode byte 0x%02x in position %d: %s"%(
                     self.encoding,
-                    ord(self.object[self.start]), self.start, self.reason)
+                    self.object[self.start], self.start, self.reason)
             return "'%s' codec can't decode bytes in position %d-%d: %s" % (
                 self.encoding, self.start, self.end - 1, self.reason)
         """)

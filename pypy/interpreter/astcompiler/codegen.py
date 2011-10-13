@@ -746,15 +746,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_Raise(self, rais):
         self.update_position(rais.lineno, True)
         arg = 0
-        if rais.type:
-            rais.type.walkabout(self)
+        if rais.exc:
+            rais.exc.walkabout(self)
             arg += 1
-            if rais.inst:
-                rais.inst.walkabout(self)
+            if rais.cause:
+                rais.cause.walkabout(self)
                 arg += 1
-                if rais.tback:
-                    rais.tback.walkabout(self)
-                    arg += 1
         self.emit_op_arg(ops.RAISE_VARARGS, arg)
 
     def visit_Global(self, glob):

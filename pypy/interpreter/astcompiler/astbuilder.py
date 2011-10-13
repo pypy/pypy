@@ -149,17 +149,13 @@ class ASTBuilder(object):
             return ast.Return(values, flow_node.lineno, flow_node.column)
         elif first_child_type == syms.raise_stmt:
             exc = None
-            value = None
-            traceback = None
+            cause = None
             child_count = len(first_child.children)
             if child_count >= 2:
                 exc = self.handle_expr(first_child.children[1])
             if child_count >= 4:
-                value = self.handle_expr(first_child.children[3])
-            if child_count == 6:
-                traceback = self.handle_expr(first_child.children[5])
-            return ast.Raise(exc, value, traceback, flow_node.lineno,
-                             flow_node.column)
+                cause = self.handle_expr(first_child.children[3])
+            return ast.Raise(exc, cause, flow_node.lineno, flow_node.column)
         else:
             raise AssertionError("unknown flow statement")
 

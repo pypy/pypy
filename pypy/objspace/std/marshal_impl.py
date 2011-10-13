@@ -249,7 +249,7 @@ def marshal_w__String(space, w_str, m):
 marshal_w__Rope = marshal_w__String
 
 def unmarshal_String(space, u, tc):
-    return space.wrap(u.get_str())
+    return space.wrapbytes(u.get_str())
 register(TYPE_STRING, unmarshal_String)
 
 def unmarshal_stringref(space, u, tc):
@@ -336,7 +336,7 @@ model.MM.marshal_w.register(marshal_w_pycode, PyCode)
 def unmarshal_str(u):
     w_obj = u.get_w_obj()
     try:
-        return u.space.str_w(w_obj)
+        return u.space.bytes_w(w_obj)
     except OperationError, e:
         if e.match(u.space, u.space.w_TypeError):
             u.raise_exc('invalid marshal data for code object')

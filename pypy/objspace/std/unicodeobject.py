@@ -75,8 +75,7 @@ def unicode_to_decimal_w(space, w_unistr):
     return ''.join(result)
 
 def str__Unicode(space, w_uni):
-    from pypy.objspace.std.unicodetype import encode_object
-    return encode_object(space, w_uni, None, None)
+    return w_uni
 
 def eq__Unicode_Unicode(space, w_left, w_right):
     return space.newbool(w_left._value == w_right._value)

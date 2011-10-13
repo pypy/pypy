@@ -21,7 +21,7 @@ def indexOf(a, b):
         if x == b:
             return index
         index += 1
-    raise ValueError, 'sequence.index(x): x not in sequence'
+    raise ValueError('sequence.index(x): x not in sequence')
 
 # XXX the following is approximative
 def isMappingType(obj,):
@@ -40,9 +40,9 @@ def isSequenceType(obj,):
 def repeat(obj, num):
     'repeat(a, b) -- Return a * b, where a is a sequence, and b is an integer.'
     if not isinstance(num, (int, long)):
-        raise TypeError, 'an integer is required'
+        raise TypeError('an integer is required')
     if not isSequenceType(obj):
-        raise TypeError, "non-sequence object can't be repeated"
+        raise TypeError("non-sequence object can't be repeated")
 
     return obj * num
 

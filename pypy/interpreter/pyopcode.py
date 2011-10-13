@@ -489,15 +489,14 @@ class __extend__(pyframe.PyFrame):
             self.last_exception = operror
             raise Reraise
 
-        w_value = w_traceback = space.w_None
-        if nbargs >= 3:
-            w_traceback = self.popvalue()
+        w_value = w_cause = space.w_None
         if nbargs >= 2:
-            w_value = self.popvalue()
+            w_cause = self.popvalue() # XXX cause?
         if 1:
-            w_type = self.popvalue()
-        operror = OperationError(w_type, w_value)
+            w_value = self.popvalue()
+        operror = OperationError(space.type(w_value), w_value)
         operror.normalize_exception(space)
+        w_traceback = space.w_None # XXX with_traceback?
         if not space.full_exceptions or space.is_w(w_traceback, space.w_None):
             # common case
             raise operror

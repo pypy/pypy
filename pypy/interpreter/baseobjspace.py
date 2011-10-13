@@ -1219,7 +1219,7 @@ class ObjSpace(object):
         # unclear if there is any use at all for getting the bytes in
         # the unicode buffer.)
         try:
-            return self.str_w(w_obj)
+            return self.bytes_w(w_obj)
         except OperationError, e:
             if not e.match(self, self.w_TypeError):
                 raise
@@ -1254,6 +1254,10 @@ class ObjSpace(object):
         return self.str_w(w_obj)
 
     def unicode_w(self, w_obj):
+        if not we_are_translated():
+            if self.isinstance_w(w_obj, self.w_bytes):
+                import pdb; pdb.set_trace()
+                assert False, "unicode_w was called with a bytes string"
         return w_obj.unicode_w(self)
 
     def realunicode_w(self, w_obj):

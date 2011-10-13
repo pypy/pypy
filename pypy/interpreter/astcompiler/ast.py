@@ -723,44 +723,37 @@ class With(stmt):
 
 class Raise(stmt):
 
-    _lineno_mask = 8
-    _col_offset_mask = 16
+    _lineno_mask = 4
+    _col_offset_mask = 8
 
-    def __init__(self, type, inst, tback, lineno, col_offset):
-        self.type = type
-        self.inst = inst
-        self.tback = tback
+    def __init__(self, exc, cause, lineno, col_offset):
+        self.exc = exc
+        self.cause = cause
         stmt.__init__(self, lineno, col_offset)
-        self.initialization_state = 31
+        self.initialization_state = 15
 
     def walkabout(self, visitor):
         visitor.visit_Raise(self)
 
     def mutate_over(self, visitor):
-        if self.type:
-            self.type = self.type.mutate_over(visitor)
-        if self.inst:
-            self.inst = self.inst.mutate_over(visitor)
-        if self.tback:
-            self.tback = self.tback.mutate_over(visitor)
+        if self.exc:
+            self.exc = self.exc.mutate_over(visitor)
+        if self.cause:
+            self.cause = self.cause.mutate_over(visitor)
         return visitor.visit_Raise(self)
 
     def sync_app_attrs(self, space):
-        if (self.initialization_state & ~7) ^ 24:
-            missing_field(space, self.initialization_state, [None, None, None, 'lineno', 'col_offset'], 'Raise')
+        if (self.initialization_state & ~3) ^ 12:
+            missing_field(space, self.initialization_state, [None, None, 'lineno', 'col_offset'], 'Raise')
         else:
             if not self.initialization_state & 1:
-                self.type = None
+                self.exc = None
             if not self.initialization_state & 2:
-                self.inst = None
-            if not self.initialization_state & 4:
-                self.tback = None
-        if self.type:
-            self.type.sync_app_attrs(space)
-        if self.inst:
-            self.inst.sync_app_attrs(space)
-        if self.tback:
-            self.tback.sync_app_attrs(space)
+                self.cause = None
+        if self.exc:
+            self.exc.sync_app_attrs(space)
+        if self.cause:
+            self.cause.sync_app_attrs(space)
 
 
 class TryExcept(stmt):
@@ -2686,12 +2679,10 @@ class GenericASTVisitor(ASTVisitor):
         self.visit_sequence(node.body)
 
     def visit_Raise(self, node):
-        if node.type:
-            node.type.walkabout(self)
-        if node.inst:
-            node.inst.walkabout(self)
-        if node.tback:
-            node.tback.walkabout(self)
+        if node.exc:
+            node.exc.walkabout(self)
+        if node.cause:
+            node.cause.walkabout(self)
 
     def visit_TryExcept(self, node):
         self.visit_sequence(node.body)
@@ -3991,79 +3982,57 @@ With.typedef = typedef.TypeDef("With",
     __init__=interp2app(With_init),
 )
 
-def Raise_get_type(space, w_self):
+def Raise_get_exc(space, w_self):
     if w_self.w_dict is not None:
-        w_obj = w_self.getdictvalue(space, 'type')
+        w_obj = w_self.getdictvalue(space, 'exc')
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 1:
         typename = space.type(w_self).getname(space)
-        w_err = space.wrap("'%s' object has no attribute 'type'" % typename)
+        w_err = space.wrap("'%s' object has no attribute 'exc'" % typename)
         raise OperationError(space.w_AttributeError, w_err)
-    return space.wrap(w_self.type)
+    return space.wrap(w_self.exc)
 
-def Raise_set_type(space, w_self, w_new_value):
+def Raise_set_exc(space, w_self, w_new_value):
     try:
-        w_self.type = space.interp_w(expr, w_new_value, True)
+        w_self.exc = space.interp_w(expr, w_new_value, True)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
-        w_self.setdictvalue(space, 'type', w_new_value)
+        w_self.setdictvalue(space, 'exc', w_new_value)
         return
-    w_self.deldictvalue(space, 'type')
+    w_self.deldictvalue(space, 'exc')
     w_self.initialization_state |= 1
 
-def Raise_get_inst(space, w_self):
+def Raise_get_cause(space, w_self):
     if w_self.w_dict is not None:
-        w_obj = w_self.getdictvalue(space, 'inst')
+        w_obj = w_self.getdictvalue(space, 'cause')
         if w_obj is not None:
             return w_obj
     if not w_self.initialization_state & 2:
         typename = space.type(w_self).getname(space)
-        w_err = space.wrap("'%s' object has no attribute 'inst'" % typename)
+        w_err = space.wrap("'%s' object has no attribute 'cause'" % typename)
         raise OperationError(space.w_AttributeError, w_err)
-    return space.wrap(w_self.inst)
+    return space.wrap(w_self.cause)
 
-def Raise_set_inst(space, w_self, w_new_value):
+def Raise_set_cause(space, w_self, w_new_value):
     try:
-        w_self.inst = space.interp_w(expr, w_new_value, True)
+        w_self.cause = space.interp_w(expr, w_new_value, True)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
-        w_self.setdictvalue(space, 'inst', w_new_value)
+        w_self.setdictvalue(space, 'cause', w_new_value)
         return
-    w_self.deldictvalue(space, 'inst')
+    w_self.deldictvalue(space, 'cause')
     w_self.initialization_state |= 2
 
-def Raise_get_tback(space, w_self):
-    if w_self.w_dict is not None:
-        w_obj = w_self.getdictvalue(space, 'tback')
-        if w_obj is not None:
-            return w_obj
-    if not w_self.initialization_state & 4:
-        typename = space.type(w_self).getname(space)
-        w_err = space.wrap("'%s' object has no attribute 'tback'" % typename)
-        raise OperationError(space.w_AttributeError, w_err)
-    return space.wrap(w_self.tback)
-
-def Raise_set_tback(space, w_self, w_new_value):
-    try:
-        w_self.tback = space.interp_w(expr, w_new_value, True)
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        w_self.setdictvalue(space, 'tback', w_new_value)
-        return
-    w_self.deldictvalue(space, 'tback')
-    w_self.initialization_state |= 4
-
-_Raise_field_unroller = unrolling_iterable(['type', 'inst', 'tback'])
+_Raise_field_unroller = unrolling_iterable(['exc', 'cause'])
 def Raise_init(space, w_self, __args__):
     w_self = space.descr_self_interp_w(Raise, w_self)
     args_w, kwargs_w = __args__.unpack()
     if args_w:
-        if len(args_w) != 3:
-            w_err = space.wrap("Raise constructor takes either 0 or 3 positional arguments")
+        if len(args_w) != 2:
+            w_err = space.wrap("Raise constructor takes either 0 or 2 positional arguments")
             raise OperationError(space.w_TypeError, w_err)
         i = 0
         for field in _Raise_field_unroller:
@@ -4075,10 +4044,9 @@ def Raise_init(space, w_self, __args__):
 Raise.typedef = typedef.TypeDef("Raise",
     stmt.typedef,
     __module__='_ast',
-    _fields=_FieldsWrapper(['type', 'inst', 'tback']),
-    type=typedef.GetSetProperty(Raise_get_type, Raise_set_type, cls=Raise),
-    inst=typedef.GetSetProperty(Raise_get_inst, Raise_set_inst, cls=Raise),
-    tback=typedef.GetSetProperty(Raise_get_tback, Raise_set_tback, cls=Raise),
+    _fields=_FieldsWrapper(['exc', 'cause']),
+    exc=typedef.GetSetProperty(Raise_get_exc, Raise_set_exc, cls=Raise),
+    cause=typedef.GetSetProperty(Raise_get_cause, Raise_set_cause, cls=Raise),
     __new__=interp2app(get_AST_new(Raise)),
     __init__=interp2app(Raise_init),
 )

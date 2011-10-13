@@ -377,7 +377,7 @@ class islice(object):
             self.step = 1
         if self.start<0 or (self.stop is not None and self.stop<0
            ) or self.step<=0:
-            raise ValueError, "indices for islice() must be positive"
+            raise ValueError("indices for islice() must be positive")
         self.it = iter(iterable)
         self.donext = None
         self.cnt = 0

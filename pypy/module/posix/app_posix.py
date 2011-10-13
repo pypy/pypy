@@ -191,7 +191,7 @@ if osname == 'posix':
         except Exception, e:
             try_close(write_end)
             try_close(read_end)
-            raise Exception, e     # bare 'raise' does not work here :-(
+            raise Exception() from e
 
     def wait():
         """ wait() -> (pid, status)

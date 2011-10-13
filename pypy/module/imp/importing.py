@@ -964,7 +964,7 @@ def read_compiled_module(space, cpathname, strbuf):
     """ Read a code object from a file and check it for validity """
 
     w_marshal = space.getbuiltinmodule('marshal')
-    w_code = space.call_method(w_marshal, 'loads', space.wrap(strbuf))
+    w_code = space.call_method(w_marshal, 'loads', space.wrapbytes(strbuf))
     pycode = space.interpclass_w(w_code)
     if pycode is None or not isinstance(pycode, Code):
         raise operationerrfmt(space.w_ImportError,
@@ -1008,9 +1008,9 @@ def write_compiled_module(space, co, cpathname, src_mode, src_mtime):
     """
     w_marshal = space.getbuiltinmodule('marshal')
     try:
-        w_str = space.call_method(w_marshal, 'dumps', space.wrap(co),
-                                  space.wrap(MARSHAL_VERSION_FOR_PYC))
-        strbuf = space.str_w(w_str)
+        w_bytes = space.call_method(w_marshal, 'dumps', space.wrap(co),
+                                    space.wrap(MARSHAL_VERSION_FOR_PYC))
+        strbuf = space.bytes_w(w_bytes)
     except OperationError, e:
         if e.async(space):
             raise
