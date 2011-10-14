@@ -102,6 +102,7 @@ class W_TypeObject(W_Object):
                           'instancetypedef',
                           'terminator',
                           '_version_tag?',
+                          'interplevel_cls',
                           ]
 
     # for config.objspace.std.getattributeshortcut
