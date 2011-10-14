@@ -303,9 +303,8 @@ class EmptySetStrategy(SetStrategy):
         pass
 
     def copy(self, w_set):
-        strategy = w_set.strategy
         storage = self.erase(None)
-        clone = w_set.from_storage_and_strategy(storage, strategy)
+        clone = w_set.from_storage_and_strategy(storage, self)
         return clone
 
     def add(self, w_set, w_key):
