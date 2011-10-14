@@ -207,7 +207,7 @@ class SetStrategy(object):
     def clear(self):
         raise NotImplementedError
 
-    def copy(self):
+    def copy(self, w_set):
         raise NotImplementedError
 
     def length(self, w_set):
