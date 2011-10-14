@@ -667,7 +667,7 @@ class AbstractUnwrappedSetStrategy(object):
                 return False
         return True
 
-    def _isdisjoint_wrapped(w_set, w_other):
+    def _isdisjoint_wrapped(self, w_set, w_other):
         d = self.unerase(w_set.sstorage)
         for key in d:
             if w_other.has_key(self.wrap(key)):
