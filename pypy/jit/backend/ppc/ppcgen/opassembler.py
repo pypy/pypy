@@ -52,15 +52,7 @@ class OpAssembler(object):
         #                        #           then the guard fails.
 
     def emit_finish(self, op, arglocs, regalloc):
-        descr = op.getdescr()
-        identifier = self._get_identifier_from_descr(descr)
-        self.cpu.saved_descr[identifier] = descr
-        args = op.getarglist()
-        for index, arg in enumerate(arglocs):
-            addr = self.fail_boxes_int.get_addr_for_num(index)
-            self.store_reg(arg, addr)
-        self.load_imm(r.RES.value, identifier) # set return value
-        self.branch_abs(self.exit_code_adr)
+        self.gen_exit_stub(op.getdescr(), op.getarglist(), arglocs)
 
     def emit_jump(self, op, arglocs, regalloc):
         descr = op.getdescr()

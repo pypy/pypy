@@ -199,8 +199,7 @@ class Regalloc(object):
         return locs + [res]
 
     def prepare_finish(self, op):
-        #args = [locations.imm(self.frame_manager.frame_depth)]
-        args = []
+        args = [locations.imm(self.frame_manager.frame_depth)]
         for i in range(op.numargs()):
             arg = op.getarg(i)
             if arg:
