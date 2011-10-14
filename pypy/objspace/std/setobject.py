@@ -859,8 +859,8 @@ def newset(space):
 def set_strategy_and_setdata(space, w_set, w_iterable):
     from pypy.objspace.std.intobject import W_IntObject
     if w_iterable is None :
-        w_set.strategy = space.fromcache(EmptySetStrategy)
-        w_set.sstorage = w_set.strategy.get_empty_storage()
+        w_set.strategy = strategy = space.fromcache(EmptySetStrategy)
+        w_set.sstorage = strategy.get_empty_storage()
         return
 
     if isinstance(w_iterable, W_BaseSetObject):
@@ -871,8 +871,8 @@ def set_strategy_and_setdata(space, w_set, w_iterable):
     iterable_w = space.listview(w_iterable)
 
     if len(iterable_w) == 0:
-        w_set.strategy = space.fromcache(EmptySetStrategy)
-        w_set.sstorage = w_set.strategy.get_empty_storage()
+        w_set.strategy = strategy = space.fromcache(EmptySetStrategy)
+        w_set.sstorage = strategy.get_empty_storage()
         return
 
     # check for integers
