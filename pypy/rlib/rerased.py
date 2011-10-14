@@ -218,7 +218,7 @@ class ErasedRepr(Repr):
         [v_value] = hop.inputargs(lltype.Signed)
         c_one = hop.inputconst(lltype.Signed, 1)
         hop.exception_is_here()
-        v2 = hop.genop('int_lshift_ovf', [v_value, c_one],
+        v2 = hop.genop('int_add_ovf', [v_value, v_value],
                        resulttype = lltype.Signed)
         v2p1 = hop.genop('int_add', [v2, c_one],
                          resulttype = lltype.Signed)
@@ -264,10 +264,10 @@ class OOErasedRepr(Repr):
         return hop.genop('int_rshift', [v2, c_one], resulttype=lltype.Signed)
 
     def rtype_erase_int(self, hop):
-        hop.exception_is_here()
         [v_value] = hop.inputargs(lltype.Signed)
         c_one = hop.inputconst(lltype.Signed, 1)
-        v2 = hop.genop('int_lshift_ovf', [v_value, c_one],
+        hop.exception_is_here()
+        v2 = hop.genop('int_add_ovf', [v_value, v_value],
                        resulttype = lltype.Signed)
         v2p1 = hop.genop('int_add', [v2, c_one],
                          resulttype = lltype.Signed)
