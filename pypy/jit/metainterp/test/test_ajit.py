@@ -3440,7 +3440,6 @@ class BaseLLtypeTests(BasicTests):
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
     def test_tagged(self):
-        py.test.skip("implement me")
         from pypy.rlib.objectmodel import UnboxedValue
         class Base(object):
             __slots__ = ()
