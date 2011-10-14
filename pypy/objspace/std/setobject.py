@@ -435,10 +435,7 @@ class AbstractUnwrappedSetStrategy(object):
         from pypy.objspace.std.dictmultiobject import _never_equal_to_string
         d = self.unerase(w_set.sstorage)
         if not self.is_correct_type(w_item):
-            # XXX I don't understand the next line. shouldn't it be "never
-            # equal to int" in the int strategy case?
-            if _never_equal_to_string(self.space, self.space.type(w_item)):
-                return False
+            #XXX check type of w_item and immediately return False in some cases
             w_set.switch_to_object_strategy(self.space)
             return w_set.remove(w_item)
 
@@ -469,12 +466,9 @@ class AbstractUnwrappedSetStrategy(object):
     def has_key(self, w_set, w_key):
         from pypy.objspace.std.dictmultiobject import _never_equal_to_string
         if not self.is_correct_type(w_key):
-            # XXX I don't understand the next line. shouldn't it be "never
-            # equal to int" in the int strategy case?
-            if not _never_equal_to_string(self.space, self.space.type(w_key)):
-                w_set.switch_to_object_strategy(self.space)
-                return w_set.has_key(w_key)
-            return False
+            #XXX check type of w_item and immediately return False in some cases
+            w_set.switch_to_object_strategy(self.space)
+            return w_set.has_key(w_key)
         d = self.unerase(w_set.sstorage)
         return self.unwrap(w_key) in d
 
