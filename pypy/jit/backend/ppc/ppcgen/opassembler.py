@@ -25,7 +25,7 @@ class OpAssembler(object):
         elif l1.is_imm():
             self.mc.addi(res.value, l0.value, l1.value)
         else:
-            self.add(res.value, l0.value, l1.value)
+            self.mc.add(res.value, l0.value, l1.value)
    
     emit_int_le = gen_emit_cmp_op(c.LE)   
 
