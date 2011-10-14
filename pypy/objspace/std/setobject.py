@@ -57,8 +57,8 @@ class W_BaseSetObject(W_Object):
         self.sstorage = strategy.erase(d)
 
     def switch_to_empty_strategy(self):
-        self.strategy = self.space.fromcache(EmptySetStrategy)
-        self.sstorage = self.strategy.get_empty_storage()
+        self.strategy = strategy = self.space.fromcache(EmptySetStrategy)
+        self.sstorage = strategy.get_empty_storage()
 
     # _____________ strategy methods ________________
 
