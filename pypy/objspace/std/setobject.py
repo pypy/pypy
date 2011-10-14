@@ -213,64 +213,64 @@ class SetStrategy(object):
     def length(self, w_set):
         raise NotImplementedError
 
-    def add(self, w_key):
+    def add(self, w_set, w_key):
         raise NotImplementedError
 
-    def remove(self, w_item):
+    def remove(self, w_set, w_item):
         raise NotImplementedError
 
-    def getdict_w(self):
+    def getdict_w(self, w_set):
         raise NotImplementedError
 
-    def get_storage_copy(self):
+    def get_storage_copy(self, w_set):
         raise NotImplementedError
 
-    def getkeys(self):
+    def getkeys(self, w_set):
         raise NotImplementedError
 
-    def difference(self, w_other):
+    def difference(self, w_set, w_other):
         raise NotImplementedError
 
-    def difference_update(self, w_other):
+    def difference_update(self, w_set, w_other):
         raise NotImplementedError
 
-    def symmetric_difference(self, w_other):
+    def symmetric_difference(self, w_set, w_other):
         raise NotImplementedError
 
-    def symmetric_difference_update(self, w_other):
+    def symmetric_difference_update(self, w_set, w_other):
         raise NotImplementedError
 
-    def intersect(self, w_other):
+    def intersect(self, w_set, w_other):
         raise NotImplementedError
 
-    def intersect_update(self, w_other):
+    def intersect_update(self, w_set, w_other):
         raise NotImplementedError
 
-    def intersect_multiple(self, others_w):
+    def intersect_multiple(self, w_set, others_w):
         raise NotImplementedError
 
-    def intersect_multiple_update(self, others_w):
+    def intersect_multiple_update(self, w_set, others_w):
         raise NotImplementedError
 
-    def issubset(self, w_other):
+    def issubset(self, w_set, w_other):
         raise NotImplementedError
 
-    def isdisjoint(self, w_other):
+    def isdisjoint(self, w_set, w_other):
         raise NotImplementedError
 
-    def update(self, w_other):
+    def update(self, w_set, w_other):
         raise NotImplementedError
 
-    def has_key(self, w_key):
+    def has_key(self, w_set, w_key):
         raise NotImplementedError
 
-    def equals(self, w_other):
+    def equals(self, w_set, w_other):
         raise NotImplementedError
 
     def iter(self, w_set):
         raise NotImplementedError
 
-    def popitem(self):
+    def popitem(self, w_set):
         raise NotImplementedError
 
 class EmptySetStrategy(SetStrategy):
