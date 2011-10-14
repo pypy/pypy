@@ -481,13 +481,14 @@ class AbstractUnwrappedSetStrategy(object):
         return True
 
     def _difference_wrapped(self, w_set, w_other):
-        d_new = self.get_empty_dict()
+        strategy = self.space.fromcache(ObjectSetStrategy)
+
+        d_new = strategy.get_empty_dict()
         for obj in self.unerase(w_set.sstorage):
             w_item = self.wrap(obj)
             if not w_other.has_key(w_item):
                 d_new[w_item] = None
 
-        strategy = self.space.fromcache(ObjectSetStrategy)
         return strategy.erase(d_new)
 
     def _difference_unwrapped(self, w_set, w_other):
