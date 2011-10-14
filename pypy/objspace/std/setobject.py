@@ -204,7 +204,7 @@ class SetStrategy(object):
 
     # __________________ methods called on W_SetObject _________________
 
-    def clear(self):
+    def clear(self, w_set):
         raise NotImplementedError
 
     def copy(self, w_set):
