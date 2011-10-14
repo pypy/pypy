@@ -20,6 +20,7 @@ from pypy.annotation import model as annmodel
 from pypy.rpython.annlowlevel import MixLevelHelperAnnotator
 from pypy.jit.metainterp.typesystem import deref
 from pypy.rlib import rgc
+from pypy.rlib.jit import elidable
 from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint, intmask
 
 def getargtypes(annotator, values):
@@ -90,9 +91,12 @@ def decode_hp_hint_args(op):
     reds_v = op.args[2+numgreens:]
     assert len(reds_v) == numreds
     #
-    def _sort(args_v):
+    def _sort(args_v, is_green):
         from pypy.jit.metainterp.history import getkind
         lst = [v for v in args_v if v.concretetype is not lltype.Void]
+        if is_green:
+            assert len(lst) == len(args_v), (
+                "not supported so far: 'greens' variables contain Void")
         _kind2count = {'int': 1, 'ref': 2, 'float': 3}
         lst2 = sorted(lst, key=lambda v: _kind2count[getkind(v.concretetype)])
         # a crash here means that you have to reorder the variable named in
@@ -101,7 +105,7 @@ def decode_hp_hint_args(op):
         assert lst == lst2
         return lst
     #
-    return (_sort(greens_v), _sort(reds_v))
+    return (_sort(greens_v, True), _sort(reds_v, False))
 
 def maybe_on_top_of_llinterp(rtyper, fnptr):
     # Run a generated graph on top of the llinterp for testing.
@@ -167,9 +171,14 @@ _ll_1_list_len_foldable     = _ll_1_list_len
 
 _ll_5_list_ll_arraycopy = rgc.ll_arraycopy
 
+@elidable
 def _ll_1_gc_identityhash(x):
     return lltype.identityhash(x)
 
+# the following function should not be "@elidable": I can think of
+# a corner case in which id(const) is constant-folded, and then 'const'
+# disappears and is collected too early (possibly causing another object
+# with the same id() to appear).
 def _ll_1_gc_id(ptr):
     return llop.gc_id(lltype.Signed, ptr)
 
@@ -185,7 +194,7 @@ def _ll_2_int_floordiv_ovf_zer(x, y):
     return llop.int_floordiv(lltype.Signed, x, y)
 
 def _ll_2_int_floordiv_ovf(x, y):
-    if x == -sys.maxint - 1 and y == -1:        
+    if x == -sys.maxint - 1 and y == -1:
         raise OverflowError
     return llop.int_floordiv(lltype.Signed, x, y)
 
@@ -222,7 +231,7 @@ def _ll_1_int_abs(x):
         return -x
     else:
         return x
-        
+
 # math support
 # ------------
 
@@ -306,8 +315,14 @@ def _ll_2_llong_urshift(xull, y):
 def _ll_1_llong_from_int(x):
     return r_longlong(intmask(x))
 
+def _ll_1_ullong_from_int(x):
+    return r_ulonglong(intmask(x))
+
 def _ll_1_llong_from_uint(x):
     return r_longlong(r_uint(x))
+
+def _ll_1_ullong_from_uint(x):
+    return r_ulonglong(r_uint(x))
 
 def _ll_1_llong_to_int(xll):
     return intmask(xll)
@@ -315,8 +330,14 @@ def _ll_1_llong_to_int(xll):
 def _ll_1_llong_from_float(xf):
     return r_longlong(xf)
 
+def _ll_1_ullong_from_float(xf):
+    return r_ulonglong(xf)
+
 def _ll_1_llong_to_float(xll):
     return float(rffi.cast(lltype.SignedLongLong, xll))
+
+def _ll_1_ullong_u_to_float(xull):
+    return float(rffi.cast(lltype.UnsignedLongLong, xull))
 
 
 def _ll_1_llong_abs(xll):
@@ -342,20 +363,23 @@ def _ll_2_llong_mod_zer(xll, yll):
     return llop.llong_mod(lltype.SignedLongLong, xll, yll)
 
 def _ll_2_ullong_floordiv(xll, yll):
-    return llop.ullong_floordiv(lltype.SignedLongLong, xll, yll)
+    return llop.ullong_floordiv(lltype.UnsignedLongLong, xll, yll)
 
 def _ll_2_ullong_floordiv_zer(xll, yll):
     if yll == 0:
         raise ZeroDivisionError
-    return llop.ullong_floordiv(lltype.SignedLongLong, xll, yll)
+    return llop.ullong_floordiv(lltype.UnsignedLongLong, xll, yll)
 
 def _ll_2_ullong_mod(xll, yll):
-    return llop.ullong_mod(lltype.SignedLongLong, xll, yll)
+    return llop.ullong_mod(lltype.UnsignedLongLong, xll, yll)
 
 def _ll_2_ullong_mod_zer(xll, yll):
     if yll == 0:
         raise ZeroDivisionError
-    return llop.ullong_mod(lltype.SignedLongLong, xll, yll)
+    return llop.ullong_mod(lltype.UnsignedLongLong, xll, yll)
+
+def _ll_2_uint_mod(xll, yll):
+    return llop.uint_mod(lltype.Unsigned, xll, yll)
 
 
 # libffi support
@@ -395,7 +419,7 @@ inline_calls_to = [
     ('int_lshift_ovf',       [lltype.Signed, lltype.Signed], lltype.Signed),
     ('int_abs',              [lltype.Signed],                lltype.Signed),
     ('ll_math.ll_math_sqrt', [lltype.Float],                 lltype.Float),
-    ]
+]
 
 
 class LLtypeHelpers:
@@ -419,10 +443,6 @@ class LLtypeHelpers:
     _ll_1_dict_keys  .need_result_type = True
     _ll_1_dict_values.need_result_type = True
     _ll_1_dict_items .need_result_type = True
-
-    def _ll_1_newdictiter(ITER, d):
-        return ll_rdict.ll_dictiter(lltype.Ptr(ITER), d)
-    _ll_1_newdictiter.need_result_type = True
 
     _dictnext_keys   = staticmethod(ll_rdict.ll_dictnext_group['keys'])
     _dictnext_values = staticmethod(ll_rdict.ll_dictnext_group['values'])
@@ -573,10 +593,6 @@ class OOtypeHelpers:
     _ll_1_dict_keys  .need_result_type = True
     _ll_1_dict_values.need_result_type = True
     _ll_1_dict_items .need_result_type = True
-
-    def _ll_1_newdictiter(ITER, d):
-        return oo_rdict.ll_dictiter(ITER, d)
-    _ll_1_newdictiter.need_result_type = True
 
     _dictnext_keys   = staticmethod(oo_rdict.ll_dictnext_group['keys'])
     _dictnext_values = staticmethod(oo_rdict.ll_dictnext_group['values'])

@@ -3,6 +3,32 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 
 class AppTestUfuncs(BaseNumpyAppTest):
+    def test_ufunc_instance(self):
+        from numpy import add, ufunc
+
+        assert isinstance(add, ufunc)
+        assert repr(add) == "<ufunc 'add'>"
+        assert repr(ufunc) == "<type 'numpy.ufunc'>"
+
+    def test_ufunc_attrs(self):
+        from numpy import add, multiply, sin
+
+        assert add.identity == 0
+        assert multiply.identity == 1
+        assert sin.identity is None
+
+        assert add.nin == 2
+        assert multiply.nin == 2
+        assert sin.nin == 1
+
+    def test_wrong_arguments(self):
+        from numpy import add, sin
+
+        raises(TypeError, add, 1)
+        raises(TypeError, add, 1, 2, 3)
+        raises(TypeError, sin, 1, 2)
+        raises(TypeError, sin)
+
     def test_single_item(self):
         from numpy import negative, sign, minimum
 
@@ -65,6 +91,33 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(3):
             assert b[i] == abs(a[i])
 
+    def test_add(self):
+        from numpy import array, add
+
+        a = array([-5.0, -0.0, 1.0])
+        b = array([ 3.0, -2.0,-3.0])
+        c = add(a, b)
+        for i in range(3):
+            assert c[i] == a[i] + b[i]
+
+    def test_divide(self):
+        from numpy import array, divide
+
+        a = array([-5.0, -0.0, 1.0])
+        b = array([ 3.0, -2.0,-3.0])
+        c = divide(a, b)
+        for i in range(3):
+            assert c[i] == a[i] / b[i]
+
+    def test_fabs(self):
+        from numpy import array, fabs
+        from math import fabs as math_fabs
+
+        a = array([-5.0, -0.0, 1.0])
+        b = fabs(a)
+        for i in range(3):
+            assert b[i] == math_fabs(a[i])
+
     def test_minimum(self):
         from numpy import array, minimum
 
@@ -83,14 +136,37 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(3):
             assert c[i] == max(a[i], b[i])
 
+        x = maximum(2, 3)
+        assert x == 3
+        assert isinstance(x, (int, long))
+
+    def test_multiply(self):
+        from numpy import array, multiply
+
+        a = array([-5.0, -0.0, 1.0])
+        b = array([ 3.0, -2.0,-3.0])
+        c = multiply(a, b)
+        for i in range(3):
+            assert c[i] == a[i] * b[i]
+
     def test_sign(self):
-        from numpy import array, sign
+        from numpy import array, sign, dtype
 
         reference = [-1.0, 0.0, 0.0, 1.0]
         a = array([-5.0, -0.0, 0.0, 6.0])
         b = sign(a)
         for i in range(4):
             assert b[i] == reference[i]
+
+        a = sign(array(range(-5, 5)))
+        ref = [-1, -1, -1, -1, -1, 0, 1, 1, 1, 1]
+        for i in range(10):
+            assert a[i] == ref[i]
+
+        a = sign(array([True, False], dtype=bool))
+        assert a.dtype == dtype("int8")
+        assert a[0] == 1
+        assert a[1] == 0
 
     def test_reciporocal(self):
         from numpy import array, reciprocal
@@ -100,6 +176,15 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = reciprocal(a)
         for i in range(4):
             assert b[i] == reference[i]
+
+    def test_subtract(self):
+        from numpy import array, subtract
+
+        a = array([-5.0, -0.0, 1.0])
+        b = array([ 3.0, -2.0,-3.0])
+        c = subtract(a, b)
+        for i in range(3):
+            assert c[i] == a[i] - b[i]
 
     def test_floor(self):
         from numpy import array, floor
@@ -120,6 +205,11 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(4):
             assert c[i] == reference[i]
 
+        b = array([True, True, True, True], dtype=bool)
+        c = copysign(a, b)
+        for i in range(4):
+            assert c[i] == abs(a[i])
+
     def test_exp(self):
         import math
         from numpy import array, exp
@@ -133,3 +223,136 @@ class AppTestUfuncs(BaseNumpyAppTest):
             except OverflowError:
                 res = float('inf')
             assert b[i] == res
+
+    def test_sin(self):
+        import math
+        from numpy import array, sin
+
+        a = array([0, 1, 2, 3, math.pi, math.pi*1.5, math.pi*2])
+        b = sin(a)
+        for i in range(len(a)):
+            assert b[i] == math.sin(a[i])
+
+        a = sin(array([True, False], dtype=bool))
+        assert abs(a[0] - sin(1)) < 1e-7 # a[0] will be less precise
+        assert a[1] == 0.0
+
+    def test_cos(self):
+        import math
+        from numpy import array, cos
+
+        a = array([0, 1, 2, 3, math.pi, math.pi*1.5, math.pi*2])
+        b = cos(a)
+        for i in range(len(a)):
+            assert b[i] == math.cos(a[i])
+
+    def test_tan(self):
+        import math
+        from numpy import array, tan
+
+        a = array([0, 1, 2, 3, math.pi, math.pi*1.5, math.pi*2])
+        b = tan(a)
+        for i in range(len(a)):
+            assert b[i] == math.tan(a[i])
+
+
+    def test_arcsin(self):
+        import math
+        from numpy import array, arcsin
+
+        a = array([-1, -0.5, -0.33, 0, 0.33, 0.5, 1])
+        b = arcsin(a)
+        for i in range(len(a)):
+            assert b[i] == math.asin(a[i])
+
+        a = array([-10, -1.5, -1.01, 1.01, 1.5, 10, float('nan'), float('inf'), float('-inf')])
+        b = arcsin(a)
+        for f in b:
+            assert math.isnan(f)
+
+    def test_arccos(self):
+        import math
+        from numpy import array, arccos
+
+        a = array([-1, -0.5, -0.33, 0, 0.33, 0.5, 1])
+        b = arccos(a)
+        for i in range(len(a)):
+            assert b[i] == math.acos(a[i])
+
+
+        a = array([-10, -1.5, -1.01, 1.01, 1.5, 10, float('nan'), float('inf'), float('-inf')])
+        b = arccos(a)
+        for f in b:
+            assert math.isnan(f)
+
+    def test_arctan(self):
+        import math
+        from numpy import array, arctan
+
+        a = array([-3, -2, -1, 0, 1, 2, 3, float('inf'), float('-inf')])
+        b = arctan(a)
+        for i in range(len(a)):
+            assert b[i] == math.atan(a[i])
+
+        a  = array([float('nan')])
+        b = arctan(a)
+        assert math.isnan(b[0])
+
+    def test_arcsinh(self):
+        import math
+        from numpy import arcsinh, inf
+
+        for v in [inf, -inf, 1.0, math.e]:
+            assert math.asinh(v) == arcsinh(v)
+        assert math.isnan(arcsinh(float("nan")))
+
+    def test_arctanh(self):
+        import math
+        from numpy import arctanh
+
+        for v in [.99, .5, 0, -.5, -.99]:
+            assert math.atanh(v) == arctanh(v)
+        for v in [2.0, -2.0]:
+            assert math.isnan(arctanh(v))
+        for v in [1.0, -1.0]:
+            assert arctanh(v) == math.copysign(float("inf"), v)
+
+    def test_reduce_errors(self):
+        from numpy import sin, add
+
+        raises(ValueError, sin.reduce, [1, 2, 3])
+        raises(TypeError, add.reduce, 1)
+
+    def test_reduce(self):
+        from numpy import add, maximum
+
+        assert add.reduce([1, 2, 3]) == 6
+        assert maximum.reduce([1]) == 1
+        assert maximum.reduce([1, 2, 3]) == 3
+        raises(ValueError, maximum.reduce, [])
+
+    def test_comparisons(self):
+        import operator
+        from numpy import equal, not_equal, less, less_equal, greater, greater_equal
+
+        for ufunc, func in [
+            (equal, operator.eq),
+            (not_equal, operator.ne),
+            (less, operator.lt),
+            (less_equal, operator.le),
+            (greater, operator.gt),
+            (greater_equal, operator.ge),
+        ]:
+            for a, b in [
+                (3, 3),
+                (3, 4),
+                (4, 3),
+                (3.0, 3.0),
+                (3.0, 3.5),
+                (3.5, 3.0),
+                (3.0, 3),
+                (3, 3.0),
+                (3.5, 3),
+                (3, 3.5),
+            ]:
+                assert ufunc(a, b) is func(a, b)

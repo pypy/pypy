@@ -1,23 +1,15 @@
-from pypy.tool.pairtype import pairtype, pair
-from pypy.annotation import model as annmodel
-from pypy.rpython.error import TyperError
-from pypy.rpython.rmodel import Repr, IntegerRepr, inputconst
-from pypy.rpython.rmodel import externalvsinternal
-from pypy.rpython.rlist import AbstractBaseListRepr, AbstractListRepr, \
-        AbstractFixedSizeListRepr, AbstractListIteratorRepr, rtype_newlist, \
-        rtype_alloc_and_set, ll_setitem_nonneg, ADTIList, ADTIFixedList
-from pypy.rpython.rlist import dum_nocheck, dum_checkidx
-from pypy.rpython.lltypesystem.lltype import \
-     GcForwardReference, Ptr, GcArray, GcStruct, \
-     Void, Signed, malloc, typeOf, Primitive, \
-     Bool, nullptr, typeMethod
-from pypy.rpython.lltypesystem import rstr
-from pypy.rpython import robject
+from pypy.rlib import rgc, jit
 from pypy.rlib.debug import ll_assert
-from pypy.rlib.rarithmetic import ovfcheck
-from pypy.rpython.lltypesystem import rffi
-from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rlib import rgc
+from pypy.rlib.objectmodel import enforceargs
+from pypy.rpython.lltypesystem import rstr
+from pypy.rpython.lltypesystem.lltype import (GcForwardReference, Ptr, GcArray,
+     GcStruct, Void, Signed, malloc, typeOf, nullptr, typeMethod)
+from pypy.rpython.rlist import (AbstractBaseListRepr, AbstractListRepr,
+    AbstractFixedSizeListRepr, AbstractListIteratorRepr, ll_setitem_nonneg,
+    ADTIList, ADTIFixedList, dum_nocheck)
+from pypy.rpython.rmodel import Repr, inputconst, externalvsinternal
+from pypy.tool.pairtype import pairtype, pair
+
 
 # ____________________________________________________________
 #
@@ -68,6 +60,7 @@ class BaseListRepr(AbstractBaseListRepr):
         ITEMARRAY = GcArray(ITEM,
                             adtmeths = ADTIFixedList({
                                  "ll_newlist": ll_fixed_newlist,
+                                 "ll_newlist_hint": ll_fixed_newlist,
                                  "ll_newemptylist": ll_fixed_newemptylist,
                                  "ll_length": ll_fixed_length,
                                  "ll_items": ll_fixed_items,
@@ -101,6 +94,7 @@ class ListRepr(AbstractListRepr, BaseListRepr):
                                               ("items", Ptr(ITEMARRAY)),
                                       adtmeths = ADTIList({
                                           "ll_newlist": ll_newlist,
+                                          "ll_newlist_hint": ll_newlist_hint,
                                           "ll_newemptylist": ll_newemptylist,
                                           "ll_length": ll_length,
                                           "ll_items": ll_items,
@@ -177,6 +171,7 @@ class FixedSizeListRepr(AbstractFixedSizeListRepr, BaseListRepr):
 
 # adapted C code
 
+@enforceargs(None, int)
 def _ll_list_resize_really(l, newsize):
     """
     Ensure l.items has room for at least newsize elements, and set
@@ -200,12 +195,11 @@ def _ll_list_resize_really(l, newsize):
         else:
             some = 6
         some += newsize >> 3
-        try:
-            new_allocated = ovfcheck(newsize + some)
-        except OverflowError:
-            raise MemoryError
+        new_allocated = newsize + some
     # new_allocated is a bit more than newsize, enough to ensure an amortized
-    # linear complexity for e.g. repeated usage of l.append().
+    # linear complexity for e.g. repeated usage of l.append().  In case
+    # it overflows sys.maxint, it is guaranteed negative, and the following
+    # malloc() will fail.
     items = l.items
     newitems = malloc(typeOf(l).TO.items.TO, new_allocated)
     before_len = l.length
@@ -217,7 +211,6 @@ def _ll_list_resize_really(l, newsize):
         rgc.ll_arraycopy(items, newitems, 0, 0, p)
     l.length = newsize
     l.items = newitems
-_ll_list_resize_really._annenforceargs_ = (None, int)
 
 # this common case was factored out of _ll_list_resize
 # to see if inlining it gives some speed-up.
@@ -232,19 +225,21 @@ def _ll_list_resize(l, newsize):
     else:
         _ll_list_resize_really(l, newsize)
 
+@jit.look_inside_iff(lambda l, newsize: jit.isconstant(len(l.items)) and jit.isconstant(newsize))
+@jit.oopspec("list._resize_ge(l, newsize)")
 def _ll_list_resize_ge(l, newsize):
     if len(l.items) >= newsize:
         l.length = newsize
     else:
         _ll_list_resize_really(l, newsize)
-_ll_list_resize_ge.oopspec = 'list._resize_ge(l, newsize)'
 
+@jit.look_inside_iff(lambda l, newsize: jit.isconstant(len(l.items)) and jit.isconstant(newsize))
+@jit.oopspec("list._resize_le(l, newsize)")
 def _ll_list_resize_le(l, newsize):
     if newsize >= (len(l.items) >> 1) - 5:
         l.length = newsize
     else:
         _ll_list_resize_really(l, newsize)
-
 
 def ll_append_noresize(l, newitem):
     length = l.length
@@ -268,6 +263,15 @@ def ll_newlist(LIST, length):
     return l
 ll_newlist = typeMethod(ll_newlist)
 ll_newlist.oopspec = 'newlist(length)'
+
+def ll_newlist_hint(LIST, lengthhint):
+    ll_assert(lengthhint >= 0, "negative list length")
+    l = malloc(LIST)
+    l.length = 0
+    l.items = malloc(LIST.items.TO, lengthhint)
+    return l
+ll_newlist_hint = typeMethod(ll_newlist_hint)
+ll_newlist_hint.oopspec = 'newlist(lengthhint)'
 
 # should empty lists start with no allocated memory, or with a preallocated
 # minimal number of entries?  XXX compare memory usage versus speed, and
@@ -339,11 +343,15 @@ def ll_fixed_setitem_fast(l, index, item):
     l[index] = item
 ll_fixed_setitem_fast.oopspec = 'list.setitem(l, index, item)'
 
-def newlist(llops, r_list, items_v):
+def newlist(llops, r_list, items_v, v_sizehint=None):
     LIST = r_list.LIST
     if len(items_v) == 0:
-        v_result = llops.gendirectcall(LIST.ll_newemptylist)
+        if v_sizehint is None:
+            v_result = llops.gendirectcall(LIST.ll_newemptylist)
+        else:
+            v_result = llops.gendirectcall(LIST.ll_newlist_hint, v_sizehint)
     else:
+        assert v_sizehint is None
         cno = inputconst(Signed, len(items_v))
         v_result = llops.gendirectcall(LIST.ll_newlist, cno)
     v_func = inputconst(Void, dum_nocheck)

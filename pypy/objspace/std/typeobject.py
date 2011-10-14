@@ -7,9 +7,11 @@ from pypy.interpreter.typedef import weakref_descr
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.stdtypedef import std_dict_descr, issubtypedef, Member
 from pypy.objspace.std.objecttype import object_typedef
+from pypy.objspace.std import identitydict
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.objectmodel import current_object_addr_as_int, compute_hash
-from pypy.rlib.jit import promote, elidable_promote, we_are_jitted
+from pypy.rlib.jit import promote, elidable_promote, we_are_jitted,\
+     promote_string
 from pypy.rlib.jit import elidable, dont_look_inside, unroll_safe
 from pypy.rlib.rarithmetic import intmask, r_uint
 
@@ -76,6 +78,10 @@ class MethodCache(object):
         for i in range(len(self.lookup_where)):
             self.lookup_where[i] = None_None
 
+# possible values of compares_by_identity_status
+UNKNOWN = 0
+COMPARES_BY_IDENTITY = 1
+OVERRIDES_EQ_CMP_OR_HASH = 2
 
 class W_TypeObject(W_Object):
     from pypy.objspace.std.typetype import type_typedef as typedef
@@ -102,10 +108,16 @@ class W_TypeObject(W_Object):
     # (False is a conservative default, fixed during real usage)
     uses_object_getattribute = False
 
+    # for config.objspace.std.withidentitydict
+    compares_by_identity_status = UNKNOWN
+
     # used to cache the type __new__ function if it comes from a builtin type
     # != 'type', in that case call__Type will also assumes the result
     # of the __new__ is an instance of the type
     w_bltin_new = None
+
+    interplevel_cls = None # not None for prebuilt instances of
+                           # interpreter-level types
 
     @dont_look_inside
     def __init__(w_self, space, name, bases_w, dict_w,
@@ -146,17 +158,28 @@ class W_TypeObject(W_Object):
             else:
                 w_self.terminator = NoDictTerminator(space, w_self)
 
-    def mutated(w_self):
+    def mutated(w_self, key):
+        """
+        The type is being mutated. key is either the string containing the
+        specific attribute which is being deleted/set or None to indicate a
+        generic mutation.
+        """
         space = w_self.space
         assert w_self.is_heaptype() or space.config.objspace.std.mutable_builtintypes
         if (not space.config.objspace.std.withtypeversion and
             not space.config.objspace.std.getattributeshortcut and
+            not space.config.objspace.std.withidentitydict and
             not space.config.objspace.std.newshortcut):
             return
 
         if space.config.objspace.std.getattributeshortcut:
             w_self.uses_object_getattribute = False
             # ^^^ conservative default, fixed during real usage
+
+        if space.config.objspace.std.withidentitydict:
+            if (key is None or key == '__eq__' or
+                key == '__cmp__' or key == '__hash__'):
+                w_self.compares_by_identity_status = UNKNOWN
 
         if space.config.objspace.std.newshortcut:
             w_self.w_bltin_new = None
@@ -168,7 +191,7 @@ class W_TypeObject(W_Object):
         subclasses_w = w_self.get_subclasses()
         for w_subclass in subclasses_w:
             assert isinstance(w_subclass, W_TypeObject)
-            w_subclass.mutated()
+            w_subclass.mutated(key)
 
     def version_tag(w_self):
         if (not we_are_jitted() or w_self.is_heaptype() or
@@ -206,6 +229,27 @@ class W_TypeObject(W_Object):
 
     def has_object_getattribute(w_self):
         return w_self.getattribute_if_not_from_object() is None
+
+    def compares_by_identity(w_self):
+        from pypy.objspace.descroperation import object_hash, type_eq
+        if not w_self.space.config.objspace.std.withidentitydict:
+            return False # conservative
+        #
+        if w_self.compares_by_identity_status != UNKNOWN:
+            # fast path
+            return w_self.compares_by_identity_status == COMPARES_BY_IDENTITY
+        #
+        default_hash = object_hash(w_self.space)
+        my_eq = w_self.lookup('__eq__')
+        overrides_eq = (my_eq and my_eq is not type_eq(w_self.space))
+        overrides_eq_cmp_or_hash = (overrides_eq or
+                                    w_self.lookup('__cmp__') or
+                                    w_self.lookup('__hash__') is not default_hash)
+        if overrides_eq_cmp_or_hash:
+            w_self.compares_by_identity_status = OVERRIDES_EQ_CMP_OR_HASH
+        else:
+            w_self.compares_by_identity_status = COMPARES_BY_IDENTITY
+        return w_self.compares_by_identity_status == COMPARES_BY_IDENTITY
 
     def ready(w_self):
         for w_base in w_self.bases_w:
@@ -269,14 +313,13 @@ class W_TypeObject(W_Object):
                         w_curr.w_value = w_value
                         return True
                     w_value = TypeCell(w_value)
-        w_self.mutated()
+        w_self.mutated(name)
         w_self.dict_w[name] = w_value
         return True
 
-    def deldictvalue(w_self, space, w_key):
+    def deldictvalue(w_self, space, key):
         if w_self.lazyloaders:
             w_self._freeze_()    # force un-lazification
-        key = space.str_w(w_key)
         if (not space.config.objspace.std.mutable_builtintypes
                 and not w_self.is_heaptype()):
             msg = "can't delete attributes on type object '%s'"
@@ -286,7 +329,7 @@ class W_TypeObject(W_Object):
         except KeyError:
             return False
         else:
-            w_self.mutated()
+            w_self.mutated(key)
             return True
 
     def lookup(w_self, name):
@@ -316,7 +359,7 @@ class W_TypeObject(W_Object):
                 if w_value is not None:
                     return w_value
         return None
-                
+
     @unroll_safe
     def _lookup(w_self, key):
         space = w_self.space
@@ -357,6 +400,7 @@ class W_TypeObject(W_Object):
         if version_tag is None:
             tup = w_self._lookup_where(name)
             return tup
+        name = promote_string(name)
         w_class, w_value = w_self._pure_lookup_where_with_method_cache(name, version_tag)
         return w_class, unwrap_cell(space, w_value)
 
@@ -469,15 +513,15 @@ class W_TypeObject(W_Object):
             # type name.  That's a hack, so we're allowed to use a different
             # hack...
             if ('__module__' in w_self.dict_w and
-                space.is_true(space.isinstance(w_self.getdictvalue(space, '__module__'),
-                                               space.w_str))):
+                space.isinstance_w(w_self.getdictvalue(space, '__module__'),
+                                               space.w_str)):
                 return w_self.getdictvalue(space, '__module__')
             return space.wrap('__builtin__')
 
     def get_module_type_name(w_self):
         space = w_self.space
         w_mod = w_self.get_module()
-        if not space.is_true(space.isinstance(w_mod, space.w_str)):
+        if not space.isinstance_w(w_mod, space.w_str):
             mod = '__builtin__'
         else:
             mod = space.str_w(w_mod)
@@ -780,14 +824,6 @@ def is_mro_purely_of_types(mro_w):
 
 def call__Type(space, w_type, __args__):
     promote(w_type)
-    # special case for type(x)
-    if space.is_w(w_type, space.w_type):
-        try:
-            w_obj, = __args__.fixedunpack(1)
-        except ValueError:
-            pass
-        else:
-            return space.type(w_obj)
     # invoke the __new__ of the type
     if not we_are_jitted():
         # note that the annotator will figure out that w_type.w_bltin_new can
@@ -811,10 +847,11 @@ def call__Type(space, w_type, __args__):
             not space.is_w(w_newtype, space.w_type)):
             w_type.w_bltin_new = w_newfunc
         w_newobject = space.call_obj_args(w_newfunc, w_type, __args__)
-        call_init = space.is_true(space.isinstance(w_newobject, w_type))
+        call_init = space.isinstance_w(w_newobject, w_type)
 
     # maybe invoke the __init__ of the type
-    if call_init:
+    if (call_init and not (space.is_w(w_type, space.w_type) and
+        not __args__.keywords and len(__args__.arguments_w) == 1)):
         w_descr = space.lookup(w_newobject, '__init__')
         w_result = space.get_and_call_args(w_descr, w_newobject, __args__)
         if not space.is_w(w_result, space.w_None):
@@ -837,7 +874,7 @@ def isinstance__Type_ANY(space, w_type, w_inst):
 
 def repr__Type(space, w_obj):
     w_mod = w_obj.get_module()
-    if not space.is_true(space.isinstance(w_mod, space.w_str)):
+    if not space.isinstance_w(w_mod, space.w_str):
         mod = None
     else:
         mod = space.str_w(w_mod)

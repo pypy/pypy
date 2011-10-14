@@ -1,5 +1,19 @@
 import py
 import random
+try:
+    from itertools import product
+except ImportError:
+    # Python 2.5, this is taken from the CPython docs, but simplified.
+    def product(*args):
+        # product('ABCD', 'xy') --> Ax Ay Bx By Cx Cy Dx Dy
+        # product(range(2), repeat=3) --> 000 001 010 011 100 101 110 111
+        pools = map(tuple, args)
+        result = [[]]
+        for pool in pools:
+            result = [x+[y] for x in result for y in pool]
+        for prod in result:
+            yield tuple(prod)
+
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.jit.codewriter.jtransform import Transformer
@@ -85,6 +99,12 @@ class FakeCallInfoCollection:
             if i == oopspecindex:
                 return True
         return False
+    def callinfo_for_oopspec(self, oopspecindex):
+        assert oopspecindex == effectinfo.EffectInfo.OS_STREQ_NONNULL
+        class c:
+            class adr:
+                ptr = 1
+        return ('calldescr', c)
 
 class FakeBuiltinCallControl:
     def __init__(self):
@@ -105,6 +125,7 @@ class FakeBuiltinCallControl:
              EI.OS_STR2UNICODE:([PSTR], PUNICODE),
              EI.OS_STR_CONCAT: ([PSTR, PSTR], PSTR),
              EI.OS_STR_SLICE:  ([PSTR, INT, INT], PSTR),
+             EI.OS_STREQ_NONNULL:  ([PSTR, PSTR], INT),
              EI.OS_UNI_CONCAT: ([PUNICODE, PUNICODE], PUNICODE),
              EI.OS_UNI_SLICE:  ([PUNICODE, INT, INT], PUNICODE),
              EI.OS_UNI_EQUAL:  ([PUNICODE, PUNICODE], lltype.Bool),
@@ -120,9 +141,9 @@ class FakeBuiltinCallControl:
             assert argtypes[0] == [v.concretetype for v in op.args[1:]]
             assert argtypes[1] == op.result.concretetype
             if oopspecindex == EI.OS_STR2UNICODE:
-                assert extraeffect == None    # not pure, can raise!
+                assert extraeffect == EI.EF_ELIDABLE_CAN_RAISE
             else:
-                assert extraeffect == EI.EF_ELIDABLE
+                assert extraeffect == EI.EF_ELIDABLE_CANNOT_RAISE
         return 'calldescr-%d' % oopspecindex
     def calldescr_canraise(self, calldescr):
         return False
@@ -254,26 +275,35 @@ def test_symmetric_int_add_ovf():
             assert op1.result is None
 
 def test_calls():
-    for RESTYPE in [lltype.Signed, rclass.OBJECTPTR,
-                    lltype.Float, lltype.Void]:
-      for with_void in [False, True]:
-        for with_i in [False, True]:
-          for with_r in [False, True]:
-            for with_f in [False, True]:
-              ARGS = []
-              if with_void: ARGS += [lltype.Void, lltype.Void]
-              if with_i: ARGS += [lltype.Signed, lltype.Char]
-              if with_r: ARGS += [rclass.OBJECTPTR, lltype.Ptr(rstr.STR)]
-              if with_f: ARGS += [lltype.Float, lltype.Float]
-              random.shuffle(ARGS)
-              if RESTYPE == lltype.Float: with_f = True
-              if with_f: expectedkind = 'irf'   # all kinds
-              elif with_i: expectedkind = 'ir'  # integers and references
-              else: expectedkind = 'r'          # only references
-              yield residual_call_test, ARGS, RESTYPE, expectedkind
-              yield direct_call_test, ARGS, RESTYPE, expectedkind
-              yield indirect_residual_call_test, ARGS, RESTYPE, expectedkind
-              yield indirect_regular_call_test, ARGS, RESTYPE, expectedkind
+    for RESTYPE, with_void, with_i, with_r, with_f in product(
+        [lltype.Signed, rclass.OBJECTPTR, lltype.Float, lltype.Void],
+        [False, True],
+        [False, True],
+        [False, True],
+        [False, True],
+    ):
+        ARGS = []
+        if with_void:
+            ARGS += [lltype.Void, lltype.Void]
+        if with_i:
+            ARGS += [lltype.Signed, lltype.Char]
+        if with_r:
+            ARGS += [rclass.OBJECTPTR, lltype.Ptr(rstr.STR)]
+        if with_f:
+            ARGS += [lltype.Float, lltype.Float]
+        random.shuffle(ARGS)
+        if RESTYPE == lltype.Float:
+            with_f = True
+        if with_f:
+            expectedkind = 'irf'   # all kinds
+        elif with_i:
+            expectedkind = 'ir'  # integers and references
+        else:
+            expectedkind = 'r'          # only references
+        yield residual_call_test, ARGS, RESTYPE, expectedkind
+        yield direct_call_test, ARGS, RESTYPE, expectedkind
+        yield indirect_residual_call_test, ARGS, RESTYPE, expectedkind
+        yield indirect_regular_call_test, ARGS, RESTYPE, expectedkind
 
 def get_direct_call_op(argtypes, restype):
     FUNC = lltype.FuncType(argtypes, restype)
@@ -769,7 +799,7 @@ def test_getfield_gc_greenfield():
         def get_vinfo(self, v):
             return None
         def could_be_green_field(self, S1, name1):
-            assert S1 is S
+            assert S1 == S
             assert name1 == 'x'
             return True
     S = lltype.GcStruct('S', ('x', lltype.Char),
@@ -820,6 +850,21 @@ def test_str_concat():
     assert op1.args[1] == 'calldescr-%d' % effectinfo.EffectInfo.OS_STR_CONCAT
     assert op1.args[2] == ListOfKind('ref', [v1, v2])
     assert op1.result == v3
+
+def test_str_promote():
+    PSTR = lltype.Ptr(rstr.STR)
+    v1 = varoftype(PSTR)
+    v2 = varoftype(PSTR)
+    op = SpaceOperation('hint',
+                        [v1, Constant({'promote_string': True}, lltype.Void)],
+                        v2)
+    tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+    op0, op1, _ = tr.rewrite_operation(op)
+    assert op1.opname == 'str_guard_value'
+    assert op1.args[0] == v1
+    assert op1.args[2] == 'calldescr'
+    assert op1.result == v2
+    assert op0.opname == '-live-'
 
 def test_unicode_concat():
     # test that the oopspec is present and correctly transformed
@@ -1014,3 +1059,13 @@ def test_quasi_immutable_setfield():
         assert op1.opname == 'jit_force_quasi_immutable'
         assert op1.args[0] == v_x
         assert op1.args[1] == ('fielddescr', STRUCT, 'mutate_x')
+
+def test_no_gcstruct_nesting_outside_of_OBJECT():
+    PARENT = lltype.GcStruct('parent')
+    STRUCT = lltype.GcStruct('struct', ('parent', PARENT),
+                                       ('x', lltype.Signed))
+    v_x = varoftype(lltype.Ptr(STRUCT))
+    op = SpaceOperation('getfield', [v_x, Constant('x', lltype.Void)],
+                        varoftype(lltype.Signed))
+    tr = Transformer(None, None)
+    raises(NotImplementedError, tr.rewrite_operation, op)

@@ -39,7 +39,9 @@ class W_DictMultiObject(W_Object):
         if space.config.objspace.std.withcelldict and module:
             from pypy.objspace.std.celldict import ModuleDictStrategy
             assert w_type is None
-            strategy = space.fromcache(ModuleDictStrategy)
+            # every module needs its own strategy, because the strategy stores
+            # the version tag
+            strategy = ModuleDictStrategy(space)
 
         elif instance or strdict or module:
             assert w_type is None
@@ -158,11 +160,15 @@ class EmptyDictStrategy(DictStrategy):
        return self.erase(None)
 
     def switch_to_correct_strategy(self, w_dict, w_key):
-        #XXX implement other strategies later
+        withidentitydict = self.space.config.objspace.std.withidentitydict
         if type(w_key) is self.space.StringObjectCls:
             self.switch_to_string_strategy(w_dict)
-        elif self.space.is_w(self.space.type(w_key), self.space.w_int):
+            return
+        w_type = self.space.type(w_key)
+        if self.space.is_w(w_type, self.space.w_int):
             self.switch_to_int_strategy(w_dict)
+        elif withidentitydict and w_type.compares_by_identity():
+            self.switch_to_identity_strategy(w_dict)
         else:
             self.switch_to_object_strategy(w_dict)
 
@@ -174,6 +180,13 @@ class EmptyDictStrategy(DictStrategy):
 
     def switch_to_int_strategy(self, w_dict):
         strategy = self.space.fromcache(IntDictStrategy)
+        storage = strategy.get_empty_storage()
+        w_dict.strategy = strategy
+        w_dict.dstorage = storage
+
+    def switch_to_identity_strategy(self, w_dict):
+        from pypy.objspace.std.identitydict import IdentityDictStrategy
+        strategy = self.space.fromcache(IdentityDictStrategy)
         storage = strategy.get_empty_storage()
         w_dict.strategy = strategy
         w_dict.dstorage = storage
@@ -339,7 +352,6 @@ class AbstractTypedStrategy(object):
 
     def getitem(self, w_dict, w_key):
         space = self.space
-
         if self.is_correct_type(w_key):
             return self.unerase(w_dict.dstorage).get(self.unwrap(w_key), None)
         elif self._never_equal_to(space.type(w_key)):
@@ -405,6 +417,7 @@ class ObjectDictStrategy(AbstractTypedStrategy, DictStrategy):
     def keys(self, w_dict):
         return self.unerase(w_dict.dstorage).keys()
 
+
 class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
 
     erase, unerase = rerased.new_erasing_pair("string")
@@ -449,7 +462,9 @@ class StringDictStrategy(AbstractTypedStrategy, DictStrategy):
         return StrIteratorImplementation(self.space, self, w_dict)
 
 
-class StrIteratorImplementation(IteratorImplementation):
+class _WrappedIteratorMixin(object):
+    _mixin_ = True
+
     def __init__(self, space, strategy, dictimplementation):
         IteratorImplementation.__init__(self, space, dictimplementation)
         self.iterator = strategy.unerase(dictimplementation.dstorage).iteritems()
@@ -461,6 +476,23 @@ class StrIteratorImplementation(IteratorImplementation):
         else:
             return None, None
 
+class _UnwrappedIteratorMixin:
+    _mixin_ = True
+    
+    def __init__(self, space, strategy, dictimplementation):
+        IteratorImplementation.__init__(self, space, dictimplementation)
+        self.iterator = strategy.unerase(dictimplementation.dstorage).iteritems()
+
+    def next_entry(self):
+        # note that this 'for' loop only runs once, at most
+        for w_key, w_value in self.iterator:
+            return w_key, w_value
+        else:
+            return None, None
+
+
+class StrIteratorImplementation(_WrappedIteratorMixin, IteratorImplementation):
+    pass
 
 class IntDictStrategy(AbstractTypedStrategy, DictStrategy):
     erase, unerase = rerased.new_erasing_pair("int")
@@ -491,31 +523,11 @@ class IntDictStrategy(AbstractTypedStrategy, DictStrategy):
     def iter(self, w_dict):
         return IntIteratorImplementation(self.space, self, w_dict)
 
-class IntIteratorImplementation(IteratorImplementation):
-    def __init__(self, space, strategy, dictimplementation):
-        IteratorImplementation.__init__(self, space, dictimplementation)
-        self.iterator = strategy.unerase(dictimplementation.dstorage).iteritems()
+class IntIteratorImplementation(_WrappedIteratorMixin, IteratorImplementation):
+    pass
 
-    def next_entry(self):
-        # note that this 'for' loop only runs once, at most
-        for key, w_value in self.iterator:
-            return self.space.wrap(key), w_value
-        else:
-            return None, None
-
-
-class ObjectIteratorImplementation(IteratorImplementation):
-    def __init__(self, space, strategy, dictimplementation):
-        IteratorImplementation.__init__(self, space, dictimplementation)
-        self.iterator = strategy.unerase(dictimplementation.dstorage).iteritems()
-
-    def next_entry(self):
-        # note that this 'for' loop only runs once, at most
-        for w_key, w_value in self.iterator:
-            return w_key, w_value
-        else:
-            return None, None
-
+class ObjectIteratorImplementation(_UnwrappedIteratorMixin, IteratorImplementation):
+    pass
 
 init_signature = Signature(['seq_or_map'], None, 'kwargs')
 init_defaults = [None]

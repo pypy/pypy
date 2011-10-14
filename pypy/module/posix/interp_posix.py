@@ -10,6 +10,7 @@ from pypy.rpython.module import ll_os_stat
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.tool import rffi_platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.module.sys.interp_encoding import getfilesystemencoding
 
 import os, sys
 _WIN = sys.platform == 'win32'
@@ -32,17 +33,19 @@ else:
             raise OperationError(space.w_OverflowError,
                                  space.wrap("integer out of range"))
 
+def fsencode_w(space, w_obj):
+    if space.isinstance_w(w_obj, space.w_unicode):
+        w_obj = space.call_method(w_obj, 'encode',
+                                  getfilesystemencoding(space))
+    return space.str_w(w_obj)
+
 class FileEncoder(object):
     def __init__(self, space, w_obj):
         self.space = space
         self.w_obj = w_obj
 
     def as_bytes(self):
-        from pypy.module.sys.interp_encoding import getfilesystemencoding
-        space = self.space
-        w_bytes = space.call_method(self.w_obj, 'encode',
-                                    getfilesystemencoding(space))
-        return space.str_w(w_bytes)
+        return fsencode_w(self.space, self.w_obj)
 
     def as_unicode(self):
         return self.space.unicode_w(self.w_obj)
@@ -56,7 +59,6 @@ class FileDecoder(object):
         return self.space.str_w(self.w_obj)
 
     def as_unicode(self):
-        from pypy.module.sys.interp_encoding import getfilesystemencoding
         space = self.space
         w_unicode = space.call_method(self.w_obj, 'decode',
                                       getfilesystemencoding(space))
@@ -464,6 +466,15 @@ def strerror(space, errno):
                              space.wrap("strerror() argument out of range"))
     return space.wrap(text)
 
+def getlogin(space):
+    """Return the currently logged in user."""
+    try:
+        cur = os.getlogin()
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    else:
+        return space.wrap(cur)
+
 # ____________________________________________________________
 
 def getstatfields(space):
@@ -473,7 +484,7 @@ def getstatfields(space):
         FIELDS = PORTABLE_STAT_FIELDS
     else:
         FIELDS = STAT_FIELDS    # also when not translating at all
-    return space.newlist([space.wrap(name) for name, _ in FIELDS])
+    return space.newlist([space.wrap(name) for _, (name, _) in FIELDS])
 
 
 class State:
@@ -527,7 +538,6 @@ def listdir(space, w_dirname):
 
 The list is in arbitrary order.  It does not include the special
 entries '.' and '..' even if they are present in the directory."""
-    from pypy.module.sys.interp_encoding import getfilesystemencoding
     try:
         if space.isinstance_w(w_dirname, space.w_unicode):
             dirname = FileEncoder(space, w_dirname)
@@ -725,8 +735,7 @@ def waitpid(space, pid, options):
 def _exit(space, status):
     os._exit(status)
 
-@unwrap_spec(command=str)
-def execv(space, command, w_args):
+def execv(space, w_command, w_args):
     """ execv(path, args)
 
 Execute an executable path with arguments, replacing current process.
@@ -734,12 +743,13 @@ Execute an executable path with arguments, replacing current process.
         path: path of executable file
         args: iterable of strings
     """
+    command = fsencode_w(space, w_command)
     try:
         args_w = space.unpackiterable(w_args)
         if len(args_w) < 1:
             w_msg = space.wrap("execv() must have at least one argument")
             raise OperationError(space.w_ValueError, w_msg)
-        args = [space.str_w(w_arg) for w_arg in args_w]
+        args = [fsencode_w(space, w_arg) for w_arg in args_w]
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -750,8 +760,7 @@ Execute an executable path with arguments, replacing current process.
     except OSError, e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(command=str)
-def execve(space, command, w_args, w_env):
+def execve(space, w_command, w_args, w_env):
     """ execve(path, args, env)
 
 Execute a path with arguments and environment, replacing current process.
@@ -760,7 +769,8 @@ Execute a path with arguments and environment, replacing current process.
         args: iterable of arguments
         env: dictionary of strings mapping to strings
     """
-    args = [space.str_w(w_arg) for w_arg in space.unpackiterable(w_args)]
+    command = fsencode_w(space, w_command)
+    args = [fsencode_w(space, w_arg) for w_arg in space.unpackiterable(w_args)]
     env = {}
     w_keys = space.call_method(w_env, 'keys')
     for w_key in space.unpackiterable(w_keys):

@@ -2,7 +2,10 @@ import py
 import sys
 import re
 import os.path
-from _pytest.assertion import newinterpret
+try:
+    from _pytest.assertion import newinterpret
+except ImportError:   # e.g. Python 2.5
+    newinterpret = None
 from pypy.tool.jitlogparser.parser import SimpleParser, Function, TraceForOpcode
 from pypy.tool.jitlogparser.storage import LoopStorage
 
@@ -75,6 +78,10 @@ class LoopWithIds(Function):
         Function.__init__(self, *args, **kwds)
         self.ids = {}
         self.code = self.chunks[0].getcode()
+        if not self.code and len(self.chunks)>1 and \
+               isinstance(self.chunks[1], TraceForOpcode):
+            # First chunk might be missing the debug_merge_point op
+            self.code = self.chunks[1].getcode()
         if self.code:
             self.compute_ids(self.ids)
 
@@ -132,8 +139,9 @@ class LoopWithIds(Function):
     def _allops(self, include_debug_merge_points=False, opcode=None):
         opcode_name = opcode
         for chunk in self.flatten_chunks():
-            opcode = chunk.getopcode()                                                          
-            if opcode_name is None or opcode.__class__.__name__ == opcode_name:
+            opcode = chunk.getopcode()
+            if opcode_name is None or \
+                   (opcode and opcode.__class__.__name__ == opcode_name):
                 for op in self._ops_for_chunk(chunk, include_debug_merge_points):
                     yield op
 
@@ -191,7 +199,7 @@ class InvalidMatch(Exception):
                     source = str(source.deindent()).strip()
         except py.error.ENOENT:
             source = None
-        if source and source.startswith('self._assert('):
+        if source and source.startswith('self._assert(') and newinterpret:
             # transform self._assert(x, 'foo') into assert x, 'foo'
             source = source.replace('self._assert(', 'assert ')
             source = source[:-1] # remove the trailing ')'

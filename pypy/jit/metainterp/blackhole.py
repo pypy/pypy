@@ -500,6 +500,9 @@ class BlackholeInterpreter(object):
     @arguments("r", returns="i")
     def bhimpl_ptr_nonzero(a):
         return bool(a)
+    @arguments("r", returns="r")
+    def bhimpl_cast_opaque_ptr(a):
+        return a
 
     @arguments("i", returns="i")
     def bhimpl_int_copy(a):
@@ -520,6 +523,9 @@ class BlackholeInterpreter(object):
     @arguments("f")
     def bhimpl_float_guard_value(a):
         pass
+    @arguments("r", "i", "d", returns="r")
+    def bhimpl_str_guard_value(a, i, d):
+        return a
 
     @arguments("self", "i")
     def bhimpl_int_push(self, a):
@@ -622,6 +628,19 @@ class BlackholeInterpreter(object):
     def bhimpl_cast_int_to_float(a):
         x = float(a)
         return longlong.getfloatstorage(x)
+
+    @arguments("f", returns="i")
+    def bhimpl_cast_float_to_singlefloat(a):
+        from pypy.rlib.rarithmetic import r_singlefloat
+        a = longlong.getrealfloat(a)
+        a = r_singlefloat(a)
+        return longlong.singlefloat2int(a)
+
+    @arguments("i", returns="f")
+    def bhimpl_cast_singlefloat_to_float(a):
+        a = longlong.int2singlefloat(a)
+        a = float(a)
+        return longlong.getfloatstorage(a)
 
     # ----------
     # control flow operations
@@ -818,6 +837,18 @@ class BlackholeInterpreter(object):
     @arguments(returns="i")
     def bhimpl_current_trace_length():
         return -1
+
+    @arguments("i", returns="i")
+    def bhimpl_int_isconstant(x):
+        return False
+
+    @arguments("r", returns="i")
+    def bhimpl_ref_isconstant(x):
+        return False
+
+    @arguments("r", returns="i")
+    def bhimpl_ref_isvirtual(x):
+        return False
 
     # ----------
     # the main hints and recursive calls
@@ -1208,6 +1239,9 @@ class BlackholeInterpreter(object):
     @arguments("cpu", "r", "i", "i")
     def bhimpl_strsetitem(cpu, string, index, newchr):
         cpu.bh_strsetitem(string, index, newchr)
+    @arguments("cpu", "r", "r", "i", "i", "i")
+    def bhimpl_copystrcontent(cpu, src, dst, srcstart, dststart, length):
+        cpu.bh_copystrcontent(src, dst, srcstart, dststart, length)
 
     @arguments("cpu", "i", returns="r")
     def bhimpl_newunicode(cpu, length):
@@ -1221,6 +1255,9 @@ class BlackholeInterpreter(object):
     @arguments("cpu", "r", "i", "i")
     def bhimpl_unicodesetitem(cpu, unicode, index, newchr):
         cpu.bh_unicodesetitem(unicode, index, newchr)
+    @arguments("cpu", "r", "r", "i", "i", "i")
+    def bhimpl_copyunicodecontent(cpu, src, dst, srcstart, dststart, length):
+        cpu.bh_copyunicodecontent(src, dst, srcstart, dststart, length)
 
     @arguments(returns=(longlong.is_64_bit and "i" or "f"))
     def bhimpl_ll_read_timestamp():
@@ -1425,7 +1462,7 @@ def _handle_jitexception(blackholeinterp, jitexc):
 def resume_in_blackhole(metainterp_sd, jitdriver_sd, resumedescr,
                         all_virtuals=None):
     from pypy.jit.metainterp.resume import blackhole_from_resumedata
-    debug_start('jit-blackhole')
+    #debug_start('jit-blackhole')
     metainterp_sd.profiler.start_blackhole()
     blackholeinterp = blackhole_from_resumedata(
         metainterp_sd.blackholeinterpbuilder,
@@ -1444,12 +1481,12 @@ def resume_in_blackhole(metainterp_sd, jitdriver_sd, resumedescr,
         _run_forever(blackholeinterp, current_exc)
     finally:
         metainterp_sd.profiler.end_blackhole()
-        debug_stop('jit-blackhole')
+        #debug_stop('jit-blackhole')
 
 def convert_and_run_from_pyjitpl(metainterp, raising_exception=False):
     # Get a chain of blackhole interpreters and fill them by copying
     # 'metainterp.framestack'.
-    debug_start('jit-blackhole')
+    #debug_start('jit-blackhole')
     metainterp_sd = metainterp.staticdata
     metainterp_sd.profiler.start_blackhole()
     nextbh = None
@@ -1472,4 +1509,4 @@ def convert_and_run_from_pyjitpl(metainterp, raising_exception=False):
         _run_forever(firstbh, current_exc)
     finally:
         metainterp_sd.profiler.end_blackhole()
-        debug_stop('jit-blackhole')
+        #debug_stop('jit-blackhole')

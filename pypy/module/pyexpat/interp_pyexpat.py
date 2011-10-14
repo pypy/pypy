@@ -9,8 +9,10 @@ from pypy.rlib.unroll import unrolling_iterable
 
 from pypy.rpython.tool import rffi_platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.translator.platform import platform
 
 import sys
+import weakref
 import py
 
 if sys.platform == "win32":
@@ -19,7 +21,9 @@ else:
     libname = 'expat'
 eci = ExternalCompilationInfo(
     libraries=[libname],
+    library_dirs=platform.preprocess_library_dirs([]),
     includes=['expat.h'],
+    include_dirs=platform.preprocess_include_dirs([]),
     )
 
 eci = rffi_platform.configure_external_library(
@@ -177,7 +181,7 @@ global_storage = Storage()
 class CallbackData(Wrappable):
     def __init__(self, space, parser):
         self.space = space
-        self.parser = parser
+        self.parser = weakref.ref(parser)
 
 SETTERS = {}
 for index, (name, params) in enumerate(HANDLERS.items()):
@@ -254,7 +258,7 @@ for index, (name, params) in enumerate(HANDLERS.items()):
         id = rffi.cast(lltype.Signed, %(ll_id)s)
         userdata = global_storage.get_object(id)
         space = userdata.space
-        parser = userdata.parser
+        parser = userdata.parser()
 
         handler = parser.handlers[%(index)s]
         if not handler:
@@ -289,7 +293,7 @@ def UnknownEncodingHandlerData_callback(ll_userdata, name, info):
     id = rffi.cast(lltype.Signed, ll_userdata)
     userdata = global_storage.get_object(id)
     space = userdata.space
-    parser = userdata.parser
+    parser = userdata.parser()
 
     name = rffi.charp2str(name)
 
@@ -317,7 +321,7 @@ XML_ParserCreate = expat_external(
 XML_ParserCreateNS = expat_external(
     'XML_ParserCreateNS', [rffi.CCHARP, rffi.CHAR], XML_Parser)
 XML_ParserFree = expat_external(
-    'XML_ParserFree', [XML_Parser], lltype.Void)
+    'XML_ParserFree', [XML_Parser], lltype.Void, threadsafe=False)
 XML_SetUserData = expat_external(
     'XML_SetUserData', [XML_Parser, rffi.VOIDP], lltype.Void)
 def XML_GetUserData(parser):
@@ -406,8 +410,7 @@ class W_XMLParserType(Wrappable):
         if XML_ParserFree: # careful with CPython interpreter shutdown
             XML_ParserFree(self.itself)
         if global_storage:
-            global_storage.free_nonmoving_id(
-                rffi.cast(lltype.Signed, self.itself))
+            global_storage.free_nonmoving_id(self.id)
 
     @unwrap_spec(flag=int)
     def SetParamEntityParsing(self, space, flag):

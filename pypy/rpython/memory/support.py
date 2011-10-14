@@ -4,6 +4,15 @@ from pypy.rlib.rarithmetic import r_uint, LONG_BIT
 from pypy.rlib.debug import ll_assert
 from pypy.tool.identity_dict import identity_dict
 
+
+def mangle_hash(i):
+    # To hash pointers in dictionaries.  Assumes that i shows some
+    # alignment (to 4, 8, maybe 16 bytes), so we use the following
+    # formula to avoid the trailing bits being always 0.
+    return i ^ (i >> 4)
+
+# ____________________________________________________________
+
 DEFAULT_CHUNK_SIZE = 1019
 
 

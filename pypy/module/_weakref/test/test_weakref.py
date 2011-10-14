@@ -369,6 +369,26 @@ class AppTestProxy(object):
             return A
         raises(TypeError, tryit)
 
+    def test_proxy_to_dead_object(self):
+        import _weakref, gc
+        class A(object):
+            pass
+        p = _weakref.proxy(A())
+        gc.collect()
+        raises(ReferenceError, "p + 1")
+
+    def test_proxy_with_callback(self):
+        import _weakref, gc
+        class A(object):
+            pass
+        a2 = A()
+        def callback(proxy):
+            a2.seen = proxy
+        p = _weakref.proxy(A(), callback)
+        gc.collect()
+        raises(ReferenceError, "p + 1")
+        assert a2.seen is p
+
     def test_repr(self):
         import _weakref, gc
         for kind in ('ref', 'proxy'):

@@ -1,34 +1,47 @@
 # NOT_RPYTHON
 #
-# These classes are not supported so far.
-#
-# My theory is that they are not widely used on CPython either, because
-# I found two bugs just by looking at their .c source: they always call
-# encreset() after a piece of data, even though I think it's wrong ---
-# it should be called only once at the end; and mbiencoder_reset() calls
-# decreset() instead of encreset().
-#
+# The interface here may be a little bit on the lightweight side.
 
-class MultibyteIncrementalEncoder(object):
-    def __init__(self, *args, **kwds):
-        raise LookupError(
-            "MultibyteIncrementalEncoder not implemented; "
-            "see pypy/module/_multibytecodec/app_multibytecodec.py")
+from _multibytecodec import MultibyteIncrementalDecoder
+from _multibytecodec import MultibyteIncrementalEncoder
 
-class MultibyteIncrementalDecoder(object):
-    def __init__(self, *args, **kwds):
-        raise LookupError(
-            "MultibyteIncrementalDecoder not implemented; "
-            "see pypy/module/_multibytecodec/app_multibytecodec.py")
 
-class MultibyteStreamReader(object):
-    def __init__(self, *args, **kwds):
-        raise LookupError(
-            "MultibyteStreamReader not implemented; "
-            "see pypy/module/_multibytecodec/app_multibytecodec.py")
+class MultibyteStreamReader(MultibyteIncrementalDecoder):
+    def __new__(cls, stream, errors=None):
+        self = MultibyteIncrementalDecoder.__new__(cls, errors)
+        self.stream = stream
+        return self
 
-class MultibyteStreamWriter(object):
-    def __init__(self, *args, **kwds):
-        raise LookupError(
-            "MultibyteStreamWriter not implemented; "
-            "see pypy/module/_multibytecodec/app_multibytecodec.py")
+    def __read(self, read, size):
+        if size is None or size < 0:
+            return MultibyteIncrementalDecoder.decode(self, read(), True)
+        while True:
+            data = read(size)
+            final = not data
+            output = MultibyteIncrementalDecoder.decode(self, data, final)
+            if output or final:
+                return output
+            size = 1   # read 1 more byte and retry
+
+    def read(self, size=None):
+        return self.__read(self.stream.read, size)
+
+    def readline(self, size=None):
+        return self.__read(self.stream.readline, size)
+
+    def readlines(self, sizehint=None):
+        return self.__read(self.stream.read, sizehint).splitlines(True)
+
+
+class MultibyteStreamWriter(MultibyteIncrementalEncoder):
+    def __new__(cls, stream, errors=None):
+        self = MultibyteIncrementalEncoder.__new__(cls, errors)
+        self.stream = stream
+        return self
+
+    def write(self, data):
+        self.stream.write(MultibyteIncrementalEncoder.encode(self, data))
+
+    def writelines(self, lines):
+        for data in lines:
+            self.write(data)

@@ -1,21 +1,21 @@
-from pypy.jit.metainterp.history import Const, ConstInt, BoxInt
-from pypy.jit.metainterp.resoperation import rop, ResOperation
-from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
-from pypy.jit.metainterp.optimizeopt.util import descrlist_dict, sort_descrs
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.jit.metainterp.optimizeopt import optimizer
-from pypy.jit.metainterp.executor import execute
 from pypy.jit.codewriter.heaptracker import vtable2descr
+from pypy.jit.metainterp.executor import execute
+from pypy.jit.metainterp.history import Const, ConstInt, BoxInt
+from pypy.jit.metainterp.optimizeopt import optimizer
+from pypy.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
+    descrlist_dict, sort_descrs)
+from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.rlib.objectmodel import we_are_translated
+from pypy.jit.metainterp.optimizeopt.optimizer import OptValue
 
 
 class AbstractVirtualValue(optimizer.OptValue):
-    _attrs_ = ('optimizer', 'keybox', 'source_op', '_cached_vinfo')
+    _attrs_ = ('keybox', 'source_op', '_cached_vinfo')
     box = None
     level = optimizer.LEVEL_NONNULL
     _cached_vinfo = None
 
-    def __init__(self, optimizer, keybox, source_op=None):
-        self.optimizer = optimizer
+    def __init__(self, keybox, source_op=None):
         self.keybox = keybox   # only used as a key in dictionaries
         self.source_op = source_op  # the NEW_WITH_VTABLE/NEW_ARRAY operation
                                     # that builds this box
@@ -28,11 +28,17 @@ class AbstractVirtualValue(optimizer.OptValue):
             return self.keybox
         return self.box
 
-    def force_box(self):
+    def force_box(self, optforce):
         if self.box is None:
-            self.optimizer.forget_numberings(self.keybox)
-            self._really_force()
+            optforce.forget_numberings(self.keybox)
+            self._really_force(optforce)
         return self.box
+
+    def force_at_end_of_preamble(self, already_forced, optforce):
+        value = already_forced.get(self, None)
+        if value:
+            return value
+        return OptValue(self.force_box(optforce))
 
     def make_virtual_info(self, modifier, fieldnums):
         if fieldnums is None:
@@ -48,12 +54,12 @@ class AbstractVirtualValue(optimizer.OptValue):
     def _make_virtual(self, modifier):
         raise NotImplementedError("abstract base")
 
-    def _really_force(self):
+    def _really_force(self, optforce):
         raise NotImplementedError("abstract base")
 
-    def reconstruct_for_next_iteration(self, _optimizer):
-        return optimizer.OptValue(self.force_box())
-
+    def import_from(self, other, optimizer):
+        raise NotImplementedError("should not be called at this level")
+    
 def get_fielddescrlist_cache(cpu):
     if not hasattr(cpu, '_optimizeopt_fielddescrlist_cache'):
         result = descrlist_dict()
@@ -63,10 +69,11 @@ def get_fielddescrlist_cache(cpu):
 get_fielddescrlist_cache._annspecialcase_ = "specialize:memo"
 
 class AbstractVirtualStructValue(AbstractVirtualValue):
-    _attrs_ = ('_fields', '_cached_sorted_fields')
+    _attrs_ = ('_fields', 'cpu', '_cached_sorted_fields')
 
-    def __init__(self, optimizer, keybox, source_op=None):
-        AbstractVirtualValue.__init__(self, optimizer, keybox, source_op)
+    def __init__(self, cpu, keybox, source_op=None):
+        AbstractVirtualValue.__init__(self, keybox, source_op)
+        self.cpu = cpu
         self._fields = {}
         self._cached_sorted_fields = None
 
@@ -80,36 +87,44 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
     def _get_descr(self):
         raise NotImplementedError
 
-    def _is_immutable_and_filled_with_constants(self):
+    def _is_immutable_and_filled_with_constants(self, optforce):
         count = self._get_descr().count_fields_if_immutable()
         if count != len(self._fields):    # always the case if count == -1
             return False
         for value in self._fields.itervalues():
-            subbox = value.force_box()
+            subbox = value.force_box(optforce)
             if not isinstance(subbox, Const):
                 return False
         return True
 
-    def _really_force(self):
+    def force_at_end_of_preamble(self, already_forced, optforce):
+        if self in already_forced:
+            return self
+        already_forced[self] = self
+        if self._fields:
+            for ofs in self._fields.keys():
+                self._fields[ofs] = self._fields[ofs].force_at_end_of_preamble(already_forced, optforce)
+        return self
+
+    def _really_force(self, optforce):
         op = self.source_op
         assert op is not None
         # ^^^ This case should not occur any more (see test_bug_3).
         #
         if not we_are_translated():
             op.name = 'FORCE ' + self.source_op.name
-
-        if self._is_immutable_and_filled_with_constants():
-            box = self.optimizer.constant_fold(op)
+            
+        if self._is_immutable_and_filled_with_constants(optforce):
+            box = optforce.optimizer.constant_fold(op)
             self.make_constant(box)
             for ofs, value in self._fields.iteritems():
-                subbox = value.force_box()
+                subbox = value.force_box(optforce)
                 assert isinstance(subbox, Const)
-                execute(self.optimizer.cpu, None, rop.SETFIELD_GC,
+                execute(optforce.optimizer.cpu, None, rop.SETFIELD_GC,
                         ofs, box, subbox)
             # keep self._fields, because it's all immutable anyway
         else:
-            newoperations = self.optimizer.newoperations
-            newoperations.append(op)
+            optforce.emit_operation(op)
             self.box = box = op.result
             #
             iteritems = self._fields.iteritems()
@@ -119,10 +134,11 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
             for ofs, value in iteritems:
                 if value.is_null():
                     continue
-                subbox = value.force_box()
+                subbox = value.force_box(optforce)
                 op = ResOperation(rop.SETFIELD_GC, [box, subbox], None,
                                   descr=ofs)
-                newoperations.append(op)
+
+                optforce.emit_operation(op)
 
     def _get_field_descr_list(self):
         _cached_sorted_fields = self._cached_sorted_fields
@@ -139,7 +155,7 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
             else:
                 lst = self._fields.keys()
             sort_descrs(lst)
-            cache = get_fielddescrlist_cache(self.optimizer.cpu)
+            cache = get_fielddescrlist_cache(self.cpu)
             result = cache.get(lst, None)
             if result is None:
                 cache[lst] = lst
@@ -161,35 +177,11 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
                 fieldvalue = self._fields[ofs]
                 fieldvalue.get_args_for_fail(modifier)
 
-    def enum_forced_boxes(self, boxes, already_seen):
-        key = self.get_key_box()
-        if key in already_seen:
-            return
-        already_seen[key] = None
-        if self.box is None:
-            lst = self._get_field_descr_list()
-            for ofs in lst:
-                self._fields[ofs].enum_forced_boxes(boxes, already_seen)
-        else:
-            boxes.append(self.box)
-
-    def reconstruct_for_next_iteration(self, optimizer):
-        self.optimizer = optimizer
-        return self
-
-    def reconstruct_childs(self, new, valuemap):
-        assert isinstance(new, AbstractVirtualStructValue)
-        if new.box is None:
-            lst = self._get_field_descr_list()
-            for ofs in lst:
-                new._fields[ofs] = \
-                      self._fields[ofs].get_reconstructed(new.optimizer, valuemap)
-
 class VirtualValue(AbstractVirtualStructValue):
     level = optimizer.LEVEL_KNOWNCLASS
 
-    def __init__(self, optimizer, known_class, keybox, source_op=None):
-        AbstractVirtualStructValue.__init__(self, optimizer, keybox, source_op)
+    def __init__(self, cpu, known_class, keybox, source_op=None):
+        AbstractVirtualStructValue.__init__(self, cpu, keybox, source_op)
         assert isinstance(known_class, Const)
         self.known_class = known_class
 
@@ -198,7 +190,7 @@ class VirtualValue(AbstractVirtualStructValue):
         return modifier.make_virtual(self.known_class, fielddescrs)
 
     def _get_descr(self):
-        return vtable2descr(self.optimizer.cpu, self.known_class.getint())
+        return vtable2descr(self.cpu, self.known_class.getint())
 
     def __repr__(self):
         cls_name = self.known_class.value.adr.ptr._obj._TYPE._name
@@ -209,8 +201,8 @@ class VirtualValue(AbstractVirtualStructValue):
 
 class VStructValue(AbstractVirtualStructValue):
 
-    def __init__(self, optimizer, structdescr, keybox, source_op=None):
-        AbstractVirtualStructValue.__init__(self, optimizer, keybox, source_op)
+    def __init__(self, cpu, structdescr, keybox, source_op=None):
+        AbstractVirtualStructValue.__init__(self, cpu, keybox, source_op)
         self.structdescr = structdescr
 
     def _make_virtual(self, modifier):
@@ -220,12 +212,13 @@ class VStructValue(AbstractVirtualStructValue):
     def _get_descr(self):
         return self.structdescr
 
+
 class VArrayValue(AbstractVirtualValue):
 
-    def __init__(self, optimizer, arraydescr, size, keybox, source_op=None):
-        AbstractVirtualValue.__init__(self, optimizer, keybox, source_op)
+    def __init__(self, arraydescr, constvalue, size, keybox, source_op=None):
+        AbstractVirtualValue.__init__(self, keybox, source_op)
         self.arraydescr = arraydescr
-        self.constvalue = optimizer.new_const_item(arraydescr)
+        self.constvalue = constvalue
         self._items = [self.constvalue] * size
 
     def getlength(self):
@@ -239,23 +232,30 @@ class VArrayValue(AbstractVirtualValue):
         assert isinstance(itemvalue, optimizer.OptValue)
         self._items[index] = itemvalue
 
-    def _really_force(self):
+    def force_at_end_of_preamble(self, already_forced, optforce):
+        if self in already_forced:
+            return self
+        already_forced[self] = self
+        for index in range(len(self._items)):
+            self._items[index] = self._items[index].force_at_end_of_preamble(already_forced, optforce)
+        return self
+    
+    def _really_force(self, optforce):
         assert self.source_op is not None
         if not we_are_translated():
             self.source_op.name = 'FORCE ' + self.source_op.name
-        newoperations = self.optimizer.newoperations
-        newoperations.append(self.source_op)
+        optforce.emit_operation(self.source_op)        
         self.box = box = self.source_op.result
         for index in range(len(self._items)):
             subvalue = self._items[index]
             if subvalue is not self.constvalue:
                 if subvalue.is_null():
                     continue
-                subbox = subvalue.force_box()
+                subbox = subvalue.force_box(optforce)
                 op = ResOperation(rop.SETARRAYITEM_GC,
                                   [box, ConstInt(index), subbox], None,
                                   descr=self.arraydescr)
-                newoperations.append(op)
+                optforce.emit_operation(op)
 
     def get_args_for_fail(self, modifier):
         if self.box is None and not modifier.already_seen_virtual(self.keybox):
@@ -271,46 +271,25 @@ class VArrayValue(AbstractVirtualValue):
     def _make_virtual(self, modifier):
         return modifier.make_varray(self.arraydescr)
 
-    def enum_forced_boxes(self, boxes, already_seen):
-        key = self.get_key_box()
-        if key in already_seen:
-            return
-        already_seen[key] = None
-        if self.box is None:
-            for itemvalue in self._items:
-                itemvalue.enum_forced_boxes(boxes, already_seen)
-        else:
-            boxes.append(self.box)
-
-    def reconstruct_for_next_iteration(self, optimizer):
-        self.optimizer = optimizer
-        return self
-
-    def reconstruct_childs(self, new, valuemap):
-        assert isinstance(new, VArrayValue)
-        if new.box is None:
-            for i in range(len(self._items)):
-                new._items[i] = self._items[i].get_reconstructed(new.optimizer,
-                                                                 valuemap)
-
 class OptVirtualize(optimizer.Optimization):
     "Virtualize objects until they escape."
 
-    def reconstruct_for_next_iteration(self, optimizer, valuemap):
-        return self
-
+    def new(self):
+        return OptVirtualize()
+        
     def make_virtual(self, known_class, box, source_op=None):
-        vvalue = VirtualValue(self.optimizer, known_class, box, source_op)
+        vvalue = VirtualValue(self.optimizer.cpu, known_class, box, source_op)
         self.make_equal_to(box, vvalue)
         return vvalue
 
     def make_varray(self, arraydescr, size, box, source_op=None):
-        vvalue = VArrayValue(self.optimizer, arraydescr, size, box, source_op)
+        constvalue = self.new_const_item(arraydescr)
+        vvalue = VArrayValue(arraydescr, constvalue, size, box, source_op)
         self.make_equal_to(box, vvalue)
         return vvalue
 
     def make_vstruct(self, structdescr, box, source_op=None):
-        vvalue = VStructValue(self.optimizer, structdescr, box, source_op)
+        vvalue = VStructValue(self.optimizer.cpu, structdescr, box, source_op)
         self.make_equal_to(box, vvalue)
         return vvalue
 
@@ -383,7 +362,6 @@ class OptVirtualize(optimizer.Optimization):
             self.make_equal_to(op.result, fieldvalue)
         else:
             value.ensure_nonnull()
-            ###self.heap_op_optimizer.optimize_GETFIELD_GC(op, value)
             self.emit_operation(op)
 
     # note: the following line does not mean that the two operations are
@@ -398,7 +376,6 @@ class OptVirtualize(optimizer.Optimization):
             value.setfield(op.getdescr(), fieldvalue)
         else:
             value.ensure_nonnull()
-            ###self.heap_op_optimizer.optimize_SETFIELD_GC(op, value, fieldvalue)
             self.emit_operation(op)
 
     def optimize_NEW_WITH_VTABLE(self, op):
@@ -438,7 +415,6 @@ class OptVirtualize(optimizer.Optimization):
                 self.make_equal_to(op.result, itemvalue)
                 return
         value.ensure_nonnull()
-        ###self.heap_op_optimizer.optimize_GETARRAYITEM_GC(op, value)
         self.emit_operation(op)
 
     # note: the following line does not mean that the two operations are
@@ -453,7 +429,6 @@ class OptVirtualize(optimizer.Optimization):
                 value.setitem(indexbox.getint(), self.getvalue(op.getarg(2)))
                 return
         value.ensure_nonnull()
-        ###self.heap_op_optimizer.optimize_SETARRAYITEM_GC(op, value, fieldvalue)
         self.emit_operation(op)
 
 

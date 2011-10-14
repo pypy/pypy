@@ -161,6 +161,8 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['mknod'] = 'interp_posix.mknod'
     if hasattr(os, 'nice'):
         interpleveldefs['nice'] = 'interp_posix.nice'
+    if hasattr(os, 'getlogin'):
+        interpleveldefs['getlogin'] = 'interp_posix.getlogin'
 
     for name in ['setsid', 'getuid', 'geteuid', 'getgid', 'getegid', 'setuid',
                  'seteuid', 'setgid', 'setegid', 'getgroups', 'getpgrp', 

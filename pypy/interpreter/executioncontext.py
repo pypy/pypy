@@ -1,5 +1,4 @@
 import sys
-from pypy.interpreter.miscutils import Stack
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.rlib.unroll import unrolling_iterable
@@ -48,6 +47,7 @@ class ExecutionContext(object):
         return frame
 
     @staticmethod
+    @jit.unroll_safe  # should usually loop 0 times, very rarely more than once
     def getnextframe_nohidden(frame):
         frame = frame.f_backref()
         while frame and frame.hide():
@@ -80,58 +80,6 @@ class ExecutionContext(object):
             self.space.frame_trace_action.fire()
 
     # ________________________________________________________________
-
-
-    class Subcontext(object):
-        # coroutine: subcontext support
-
-        def __init__(self):
-            self.topframe = None
-            self.w_tracefunc = None
-            self.profilefunc = None
-            self.w_profilefuncarg = None
-            self.is_tracing = 0
-
-        def enter(self, ec):
-            ec.topframeref = jit.non_virtual_ref(self.topframe)
-            ec.w_tracefunc = self.w_tracefunc
-            ec.profilefunc = self.profilefunc
-            ec.w_profilefuncarg = self.w_profilefuncarg
-            ec.is_tracing = self.is_tracing
-            ec.space.frame_trace_action.fire()
-
-        def leave(self, ec):
-            self.topframe = ec.gettopframe()
-            self.w_tracefunc = ec.w_tracefunc
-            self.profilefunc = ec.profilefunc
-            self.w_profilefuncarg = ec.w_profilefuncarg
-            self.is_tracing = ec.is_tracing
-
-        def clear_framestack(self):
-            self.topframe = None
-
-        # the following interface is for pickling and unpickling
-        def getstate(self, space):
-            if self.topframe is None:
-                return space.w_None
-            return self.topframe
-
-        def setstate(self, space, w_state):
-            from pypy.interpreter.pyframe import PyFrame
-            if space.is_w(w_state, space.w_None):
-                self.topframe = None
-            else:
-                self.topframe = space.interp_w(PyFrame, w_state)
-
-        def getframestack(self):
-            lst = []
-            f = self.topframe
-            while f is not None:
-                lst.append(f)
-                f = f.f_backref()
-            lst.reverse()
-            return lst
-        # coroutine: I think this is all, folks!
 
     def c_call_trace(self, frame, w_func, args=None):
         "Profile the call of a builtin function"
@@ -226,6 +174,9 @@ class ExecutionContext(object):
             self.force_all_frames()
             self.w_tracefunc = w_func
             self.space.frame_trace_action.fire()
+
+    def gettrace(self):
+        return self.w_tracefunc
 
     def setprofile(self, w_func):
         """Set the global trace function."""
@@ -359,7 +310,11 @@ class AbstractActionFlag(object):
         self._nonperiodic_actions = []
         self.has_bytecode_counter = False
         self.fired_actions = None
-        self.checkinterval_scaled = 100 * TICK_COUNTER_STEP
+        # the default value is not 100, unlike CPython 2.7, but a much
+        # larger value, because we use a technique that not only allows
+        # but actually *forces* another thread to run whenever the counter
+        # reaches zero.
+        self.checkinterval_scaled = 10000 * TICK_COUNTER_STEP
         self._rebuild_action_dispatcher()
 
     def fire(self, action):
@@ -398,6 +353,7 @@ class AbstractActionFlag(object):
         elif interval > MAX:
             interval = MAX
         self.checkinterval_scaled = interval * TICK_COUNTER_STEP
+        self.reset_ticker(-1)
 
     def _rebuild_action_dispatcher(self):
         periodic_actions = unrolling_iterable(self._periodic_actions)

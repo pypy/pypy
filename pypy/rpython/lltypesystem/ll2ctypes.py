@@ -20,14 +20,18 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.extfunc import ExtRegistryEntry
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.tool.uid import fixid
-from pypy.rlib.rarithmetic import r_uint, r_singlefloat, r_longfloat, intmask
+from pypy.rlib.rarithmetic import r_uint, r_singlefloat, r_longfloat, base_int, intmask
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter, LLException
 from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
 from pypy.rpython import raddress
 from pypy.translator.platform import platform
 from array import array
-from thread import _local as tlsobject
+try:
+    from thread import _local as tlsobject
+except ImportError:
+    class tlsobject(object):
+        pass
 
 # ____________________________________________________________
 
@@ -109,7 +113,7 @@ def _setup_ctypes_cache():
         rffi.LONGLONG:   ctypes.c_longlong,
         rffi.ULONGLONG:  ctypes.c_ulonglong,
         rffi.SIZE_T:     ctypes.c_size_t,
-        lltype.Bool:     ctypes.c_long, # XXX
+        lltype.Bool:     getattr(ctypes, "c_bool", ctypes.c_long),
         llmemory.Address:  ctypes.c_void_p,
         llmemory.GCREF:    ctypes.c_void_p,
         llmemory.WeakRef:  ctypes.c_void_p, # XXX
@@ -136,7 +140,8 @@ def build_ctypes_struct(S, delayed_builders, max_n=None):
                 if isinstance(FIELDTYPE, lltype.Ptr):
                     cls = get_ctypes_type(FIELDTYPE, delayed_builders)
                 else:
-                    cls = get_ctypes_type(FIELDTYPE)
+                    cls = get_ctypes_type(FIELDTYPE, delayed_builders,
+                                          cannot_delay=True)
             fields.append((fieldname, cls))
         CStruct._fields_ = fields
 
@@ -165,7 +170,7 @@ def build_ctypes_struct(S, delayed_builders, max_n=None):
         CStruct._normalized_ctype = get_ctypes_type(S)
         builder()    # no need to be lazy here
     else:
-        delayed_builders.append(builder)
+        delayed_builders.append((S, builder))
     return CStruct
 
 def build_ctypes_array(A, delayed_builders, max_n=0):
@@ -248,11 +253,19 @@ def get_ctypes_array_of_size(FIELDTYPE, max_n):
     else:
         return get_ctypes_type(FIELDTYPE)
 
-def get_ctypes_type(T, delayed_builders=None):
+def get_ctypes_type(T, delayed_builders=None, cannot_delay=False):
+    # Check delayed builders
+    if cannot_delay and delayed_builders:
+        for T2, builder in delayed_builders:
+            if T2 is T:
+                builder()
+                delayed_builders.remove((T2, builder))
+                return _ctypes_cache[T]
+
     try:
         return _ctypes_cache[T]
     except KeyError:
-        toplevel = delayed_builders is None
+        toplevel = cannot_delay or delayed_builders is None
         if toplevel:
             delayed_builders = []
         cls = build_new_ctypes_type(T, delayed_builders)
@@ -302,9 +315,11 @@ def build_new_ctypes_type(T, delayed_builders):
 
 def complete_builders(delayed_builders):
     while delayed_builders:
-        delayed_builders.pop()()
+        T, builder = delayed_builders[0]
+        builder()
+        delayed_builders.pop(0)
 
-def convert_struct(container, cstruct=None):
+def convert_struct(container, cstruct=None, delayed_converters=None):
     STRUCT = container._TYPE
     if cstruct is None:
         # if 'container' is an inlined substructure, convert the whole
@@ -321,23 +336,38 @@ def convert_struct(container, cstruct=None):
             n = None
         cstruct = cls._malloc(n)
     add_storage(container, _struct_mixin, ctypes.pointer(cstruct))
+
+    if delayed_converters is None:
+        delayed_converters_was_None = True
+        delayed_converters = []
+    else:
+        delayed_converters_was_None = False
     for field_name in STRUCT._names:
         FIELDTYPE = getattr(STRUCT, field_name)
         field_value = getattr(container, field_name)
         if not isinstance(FIELDTYPE, lltype.ContainerType):
             # regular field
             if FIELDTYPE != lltype.Void:
-                setattr(cstruct, field_name, lltype2ctypes(field_value))
+                def convert(field_name=field_name, field_value=field_value):
+                    setattr(cstruct, field_name, lltype2ctypes(field_value))
+                if isinstance(FIELDTYPE, lltype.Ptr):
+                    delayed_converters.append(convert)
+                else:
+                    convert()
         else:
             # inlined substructure/subarray
             if isinstance(FIELDTYPE, lltype.Struct):
                 csubstruct = getattr(cstruct, field_name)
-                convert_struct(field_value, csubstruct)
+                convert_struct(field_value, csubstruct,
+                               delayed_converters=delayed_converters)
             elif field_name == STRUCT._arrayfld:    # inlined var-sized part
                 csubarray = getattr(cstruct, field_name)
                 convert_array(field_value, csubarray)
             else:
                 raise NotImplementedError('inlined field', FIELDTYPE)
+    if delayed_converters_was_None:
+        for converter in delayed_converters:
+            converter()
     remove_regular_struct_content(container)
 
 def remove_regular_struct_content(container):
@@ -354,7 +384,8 @@ def convert_array(container, carray=None):
         # bigger structure at once
         parent, parentindex = lltype.parentlink(container)
         if parent is not None:
-            convert_struct(parent)
+            if not isinstance(parent, _parentable_mixin):
+                convert_struct(parent)
             return
         # regular case: allocate a new ctypes array of the proper type
         cls = get_ctypes_type(ARRAY)
@@ -553,7 +584,7 @@ class _array_of_unknown_length(_parentable_mixin, lltype._parentable):
                 return _items
             _items.append(nextitem)
             i += 1
-        
+
     items = property(getitems)
 
 class _array_of_known_length(_array_of_unknown_length):
@@ -688,6 +719,8 @@ def lltype2ctypes(llobj, normalize=True):
                     res = ctypes.cast(res, ctypes.c_void_p).value
                     if res is None:
                         return 0
+                if T.TO.RESULT == lltype.SingleFloat:
+                    res = res.value     # baaaah, cannot return a c_float()
                 return res
 
             def callback(*cargs):
@@ -934,7 +967,7 @@ if ctypes:
             return clibname+'.dll'
         else:
             return ctypes.util.find_library('c')
-        
+
     libc_name = get_libc_name()     # Make sure the name is determined during import, not at runtime
     # XXX is this always correct???
     standard_c_lib = ctypes.CDLL(get_libc_name(), **load_library_kwargs)
@@ -980,7 +1013,7 @@ def get_ctypes_callable(funcptr, calling_conv):
             return lib[elem]
         except AttributeError:
             pass
-    
+
     old_eci = funcptr._obj.compilation_info
     funcname = funcptr._obj._name
     if hasattr(old_eci, '_with_ctypes'):
@@ -1092,6 +1125,8 @@ def get_ctypes_trampoline(FUNCTYPE, cfunc):
     for i in range(len(FUNCTYPE.ARGS)):
         if FUNCTYPE.ARGS[i] is lltype.Void:
             void_arguments.append(i)
+    def callme(cargs):   # an extra indirection: workaround for rlib.rstacklet
+        return cfunc(*cargs)
     def invoke_via_ctypes(*argvalues):
         global _callback_exc_info
         cargs = []
@@ -1103,7 +1138,7 @@ def get_ctypes_trampoline(FUNCTYPE, cfunc):
                 cargs.append(cvalue)
         _callback_exc_info = None
         _restore_c_errno()
-        cres = cfunc(*cargs)
+        cres = callme(cargs)
         _save_c_errno()
         if _callback_exc_info:
             etype, evalue, etb = _callback_exc_info
@@ -1134,6 +1169,8 @@ def force_cast(RESTYPE, value):
             cvalue = 0
     elif isinstance(cvalue, (str, unicode)):
         cvalue = ord(cvalue)     # character -> integer
+    elif hasattr(RESTYPE, "_type") and issubclass(RESTYPE._type, base_int):
+        cvalue = int(cvalue)
 
     if not isinstance(cvalue, (int, long, float)):
         raise NotImplementedError("casting %r to %r" % (TYPE1, RESTYPE))
@@ -1143,7 +1180,11 @@ def force_cast(RESTYPE, value):
         # an OverflowError on the following line.
         cvalue = ctypes.cast(ctypes.c_void_p(cvalue), cresulttype)
     else:
-        cvalue = cresulttype(cvalue).value   # mask high bits off if needed
+        try:
+            cvalue = cresulttype(cvalue).value   # mask high bits off if needed
+        except TypeError:
+            cvalue = int(cvalue)   # float -> int
+            cvalue = cresulttype(cvalue).value   # try again
     return ctypes2lltype(RESTYPE, cvalue)
 
 class ForceCastEntry(ExtRegistryEntry):
@@ -1247,6 +1288,9 @@ class _llgcopaque(lltype._container):
             return False
         return force_cast(lltype.Signed, other._as_ptr()) == self.intval
 
+    def __hash__(self):
+        return self.intval
+
     def __ne__(self, other):
         return not self == other
 
@@ -1331,7 +1375,7 @@ else:
             def _where_is_errno():
                 return standard_c_lib._errno()
 
-        elif sys.platform in ('linux2', 'freebsd6'):
+        elif sys.platform.startswith('linux') or sys.platform == 'freebsd6':
             standard_c_lib.__errno_location.restype = ctypes.POINTER(ctypes.c_int)
             def _where_is_errno():
                 return standard_c_lib.__errno_location()

@@ -10,7 +10,7 @@ from pypy.interpreter import eval
 from pypy.interpreter.argument import Signature
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped, unwrap_spec
-from pypy.interpreter.astcompiler.consts import (CO_OPTIMIZED,
+from pypy.interpreter.astcompiler.consts import (
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
     CO_GENERATOR, CO_CONTAINSGLOBALS)
 from pypy.rlib.rarithmetic import intmask
@@ -198,7 +198,7 @@ class PyCode(eval.Code):
 
     def funcrun(self, func, args):
         frame = self.space.createframe(self, func.w_func_globals,
-                                  func.closure)
+                                  func)
         sig = self._signature
         # speed hack
         fresh_frame = jit.hint(frame, access_directly=True,
@@ -211,7 +211,7 @@ class PyCode(eval.Code):
 
     def funcrun_obj(self, func, w_obj, args):
         frame = self.space.createframe(self, func.w_func_globals,
-                                  func.closure)
+                                  func)
         sig = self._signature
         # speed hack
         fresh_frame = jit.hint(frame, access_directly=True,

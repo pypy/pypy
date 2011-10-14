@@ -211,6 +211,20 @@ class AppTestUnicodeString:
         assert u'hello '.capitalize() == u'Hello '
         assert u'aaaa'.capitalize() == u'Aaaa'
         assert u'AaAa'.capitalize() == u'Aaaa'
+        # check that titlecased chars are lowered correctly
+        # \u1ffc is the titlecased char
+        assert (u'\u1ff3\u1ff3\u1ffc\u1ffc'.capitalize() ==
+                u'\u1ffc\u1ff3\u1ff3\u1ff3')
+        # check with cased non-letter chars
+        assert (u'\u24c5\u24ce\u24c9\u24bd\u24c4\u24c3'.capitalize() ==
+                u'\u24c5\u24e8\u24e3\u24d7\u24de\u24dd')
+        assert (u'\u24df\u24e8\u24e3\u24d7\u24de\u24dd'.capitalize() ==
+                u'\u24c5\u24e8\u24e3\u24d7\u24de\u24dd')
+        assert u'\u2160\u2161\u2162'.capitalize() == u'\u2160\u2171\u2172'
+        assert u'\u2170\u2171\u2172'.capitalize() == u'\u2160\u2171\u2172'
+        # check with Ll chars with no upper - nothing changes here
+        assert (u'\u019b\u1d00\u1d86\u0221\u1fb7'.capitalize() ==
+                u'\u019b\u1d00\u1d86\u0221\u1fb7')
 
     def test_rjust(self):
         s = u"abc"
@@ -429,6 +443,8 @@ class AppTestUnicodeString:
         assert u'<i><i><i>c' == u'abababc'.translate({ord('a'):None, ord('b'):u'<i>'})
         assert u'c' == u'abababc'.translate({ord('a'):None, ord('b'):u''})
         assert u'xyyx' == u'xzx'.translate({ord('z'):u'yy'})
+        assert u'abcd' == u'ab\0d'.translate(u'c')
+        assert u'abcd' == u'abcd'.translate(u'')
 
         raises(TypeError, u'hello'.translate)
         raises(TypeError, u'abababc'.translate, {ord('a'):''})
@@ -766,8 +782,22 @@ class AppTestUnicodeString:
         assert type(s) is unicode
         assert s == u'\u1234'
 
+        # now the same with a new-style class...
+        class A(object):
+            def __init__(self, num):
+                self.num = num
+            def __str__(self):
+                return unichr(self.num)
+
+        s = '%s' % A(111)    # this is ASCII
+        assert type(s) is unicode
+        assert s == chr(111)
+
+        s = '%s' % A(0x1234)    # this is not ASCII
+        assert type(s) is unicode
+        assert s == u'\u1234'
+
     def test_formatting_unicode__str__2(self):
-        skip("this is completely insane")
         class A:
             def __str__(self):
                 return u'baz'
@@ -784,8 +814,21 @@ class AppTestUnicodeString:
         s = '%s %s' % (a, b)
         assert s == u'baz bar'
 
+        skip("but this case here is completely insane")
         s = '%s %s' % (b, a)
         assert s == u'foo baz'
+
+    def test_formatting_unicode__str__3(self):
+        # "bah" is all I can say
+        class X(object):
+            def __repr__(self):
+                return u'\u1234'
+        '%s' % X()
+        #
+        class X(object):
+            def __str__(self):
+                return u'\u1234'
+        '%s' % X()
 
     def test_str_subclass(self):
         class Foo9(str):

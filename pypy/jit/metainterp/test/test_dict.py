@@ -153,11 +153,7 @@ class DictTests:
 
         res = self.meta_interp(f, [100], listops=True)
         assert res == f(50)
-        # XXX: ideally there would be 7 calls here, but repeated CALL_PURE with
-        # the same arguments are not folded, because we have conflicting
-        # definitions of pure, once strhash can be appropriately folded
-        # this should be decreased to seven.
-        self.check_loops({"call": 8, "guard_false": 1, "guard_no_exception": 5,
+        self.check_loops({"call": 7, "guard_false": 1, "guard_no_exception": 6,
                           "guard_true": 1, "int_and": 1, "int_gt": 1,
                           "int_is_true": 1, "int_sub": 1, "jump": 1,
                           "new_with_vtable": 1, "setfield_gc": 1})

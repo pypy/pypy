@@ -163,6 +163,9 @@ class FunctionGcRootTracker(object):
         # Add the instruction to the list, and link it to the previous one.
         previnsn = self.insns[-1]
         self.insns.append(insn)
+        if (isinstance(insn, (InsnSetLocal, InsnCopyLocal)) and
+            insn.target == self.tested_for_zero):
+            self.tested_for_zero = None
 
         try:
             lst = insn.previous_insns
@@ -173,6 +176,7 @@ class FunctionGcRootTracker(object):
 
     def parse_instructions(self):
         self.insns = [InsnFunctionStart(self.CALLEE_SAVE_REGISTERS, self.WORD)]
+        self.tested_for_zero = None
         ignore_insns = False
         for lineno, line in enumerate(self.lines):
             if lineno < self.skip:
@@ -186,6 +190,14 @@ class FunctionGcRootTracker(object):
             elif match:
                 if not ignore_insns:
                     opname = match.group(1)
+                    #
+                    try:
+                        cf = self.OPS_WITH_PREFIXES_CHANGING_FLAGS[opname]
+                    except KeyError:
+                        cf = self.find_missing_changing_flags(opname)
+                    if cf:
+                        self.tested_for_zero = None
+                    #
                     try:
                         meth = getattr(self, 'visit_' + opname)
                     except AttributeError:
@@ -221,6 +233,15 @@ class FunctionGcRootTracker(object):
             if not prefix:
                 raise UnrecognizedOperation(opname)
         setattr(cls, 'visit_' + opname, cls.visit_nop)
+
+    @classmethod
+    def find_missing_changing_flags(cls, opname):
+        prefix = opname
+        while prefix and prefix not in cls.OPS_WITH_PREFIXES_CHANGING_FLAGS:
+            prefix = prefix[:-1]
+        cf = cls.OPS_WITH_PREFIXES_CHANGING_FLAGS.get(prefix, False)
+        cls.OPS_WITH_PREFIXES_CHANGING_FLAGS[opname] = cf
+        return cf
 
     def list_collecting_call_insns(self):
         return [insn for insn in self.insns if isinstance(insn, InsnCall)
@@ -465,7 +486,22 @@ class FunctionGcRootTracker(object):
         'paddq', 'pinsr',
         # zero-extending moves should not produce GC pointers
         'movz', 
+        # locked operations should not move GC pointers, at least so far
+        'lock',
         ])
+
+    # a partial list is hopefully good enough for now; it's all to support
+    # only one corner case, tested in elf64/track_zero.s
+    OPS_WITH_PREFIXES_CHANGING_FLAGS = dict.fromkeys([
+        'cmp', 'test', 'lahf', 'cld', 'std', 'rep',
+        'ucomi', 'comi',
+        'add', 'sub', 'xor',
+        'inc', 'dec', 'not', 'neg', 'or', 'and', 'sbb', 'adc',
+        'shl', 'shr', 'sal', 'sar', 'rol', 'ror', 'mul', 'imul', 'div', 'idiv',
+        'bt', 'call', 'int',
+        'jmp',     # not really changing flags, but we shouldn't assume
+                   # anything about the operations on the following lines
+        ], True)
 
     visit_movb = visit_nop
     visit_movw = visit_nop
@@ -687,11 +723,13 @@ class FunctionGcRootTracker(object):
             return InsnRet(self.CALLEE_SAVE_REGISTERS)
         return InsnStop("jump")
     
-    def register_jump_to(self, label):
-        if not isinstance(self.insns[-1], InsnStop):
-            self.labels[label].previous_insns.append(self.insns[-1])
+    def register_jump_to(self, label, lastinsn=None):
+        if lastinsn is None:
+            lastinsn = self.insns[-1]
+        if not isinstance(lastinsn, InsnStop):
+            self.labels[label].previous_insns.append(lastinsn)
 
-    def conditional_jump(self, line):
+    def conditional_jump(self, line, je=False, jne=False):
         match = self.r_jump.match(line)
         if not match:
             match = self.r_jump_rel_label.match(line)
@@ -708,12 +746,22 @@ class FunctionGcRootTracker(object):
                 i += 1
         else:
             label = match.group(1)
-        self.register_jump_to(label)
-        return [InsnCondJump(label)]
+        prefix = []
+        lastinsn = None
+        postfix = []
+        if self.tested_for_zero is not None:
+            if je:
+                # generate pseudo-code...
+                prefix = [InsnCopyLocal(self.tested_for_zero, '%tmp'),
+                          InsnSetLocal(self.tested_for_zero)]
+                postfix = [InsnCopyLocal('%tmp', self.tested_for_zero)]
+                lastinsn = prefix[-1]
+            elif jne:
+                postfix = [InsnSetLocal(self.tested_for_zero)]
+        self.register_jump_to(label, lastinsn)
+        return prefix + [InsnCondJump(label)] + postfix
 
     visit_jmpl = visit_jmp
-    visit_je = conditional_jump
-    visit_jne = conditional_jump
     visit_jg = conditional_jump
     visit_jge = conditional_jump
     visit_jl = conditional_jump
@@ -730,6 +778,20 @@ class FunctionGcRootTracker(object):
     visit_jno = conditional_jump
     visit_jc = conditional_jump
     visit_jnc = conditional_jump
+
+    def visit_je(self, line):
+        return self.conditional_jump(line, je=True)
+
+    def visit_jne(self, line):
+        return self.conditional_jump(line, jne=True)
+
+    def _visit_test(self, line):
+        match = self.r_binaryinsn.match(line)
+        source = match.group("source")
+        target = match.group("target")
+        if source == target:
+            self.tested_for_zero = source
+        return []
 
     def _visit_xchg(self, line):
         # only support the format used in VALGRIND_DISCARD_TRANSLATIONS
@@ -884,6 +946,7 @@ class FunctionGcRootTracker32(FunctionGcRootTracker):
     visit_and = FunctionGcRootTracker._visit_and
 
     visit_xchgl = FunctionGcRootTracker._visit_xchg
+    visit_testl = FunctionGcRootTracker._visit_test
 
     # used in "xor reg, reg" to create a NULL GC ptr
     visit_xorl = FunctionGcRootTracker.binary_insn
@@ -942,6 +1005,7 @@ class FunctionGcRootTracker64(FunctionGcRootTracker):
 
     visit_xorq = FunctionGcRootTracker.binary_insn
     visit_xchgq = FunctionGcRootTracker._visit_xchg
+    visit_testq = FunctionGcRootTracker._visit_test
 
     # FIXME: similar to visit_popl for 32-bit
     def visit_popq(self, line):

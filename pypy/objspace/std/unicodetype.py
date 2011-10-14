@@ -251,7 +251,7 @@ def encode_object(space, w_object, encoding, errors):
         w_errors = space.wrap(errors)
     w_restuple = space.call_function(w_encoder, w_object, w_errors)
     w_retval = space.getitem(w_restuple, space.wrap(0))
-    if not space.is_true(space.isinstance(w_retval, space.w_str)):
+    if not space.isinstance_w(w_retval, space.w_str):
         raise operationerrfmt(space.w_TypeError,
             "encoder did not return an string object (type '%s')",
             space.type(w_retval).getname(space))
@@ -286,7 +286,7 @@ def decode_object(space, w_obj, encoding, errors):
 
 def unicode_from_encoded_object(space, w_obj, encoding, errors):
     w_retval = decode_object(space, w_obj, encoding, errors)
-    if not space.is_true(space.isinstance(w_retval, space.w_unicode)):
+    if not space.isinstance_w(w_retval, space.w_unicode):
         raise operationerrfmt(space.w_TypeError,
             "decoder did not return an unicode object (type '%s')",
             space.type(w_retval).getname(space))
@@ -309,7 +309,7 @@ def unicode_from_object(space, w_obj):
             w_res = space.get_and_call_function(w_unicode_method, w_obj)
         else:
             w_res = space.str(w_obj)
-        if space.is_true(space.isinstance(w_res, space.w_unicode)):
+        if space.isinstance_w(w_res, space.w_unicode):
             return w_res
     return unicode_from_encoded_object(space, w_res, None, "strict")
 
@@ -346,7 +346,7 @@ def descr_new_(space, w_unicodetype, w_string='', w_encoding=None, w_errors=None
     # convoluted logic for the case when unicode subclass has a __unicode__
     # method, we need to call this method
     if (space.is_w(space.type(w_obj), space.w_unicode) or
-        (space.is_true(space.isinstance(w_obj, space.w_unicode)) and
+        (space.isinstance_w(w_obj, space.w_unicode) and
          space.findattr(w_obj, space.wrap('__unicode__')) is None)):
         if encoding is not None or errors is not None:
             raise OperationError(space.w_TypeError,

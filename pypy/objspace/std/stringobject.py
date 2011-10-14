@@ -33,16 +33,19 @@ class W_StringObject(W_Object):
     def unwrap(w_self, space):
         return w_self._value
 
+    def str_w(w_self, space):
+        return w_self._value
+
+    def unicode_w(w_self, space):
+        # XXX should this use the default encoding?
+        from pypy.objspace.std.unicodetype import plain_str2unicode
+        return plain_str2unicode(space, w_self._value)
+
 registerimplementation(W_StringObject)
 
 W_StringObject.EMPTY = W_StringObject('')
 W_StringObject.PREBUILT = [W_StringObject(chr(i)) for i in range(256)]
 del i
-
-def unicode_w__String(space, w_self):
-    # XXX should this use the default encoding?
-    from pypy.objspace.std.unicodetype import plain_str2unicode
-    return plain_str2unicode(space, w_self._value)
 
 def _is_generic(space, w_self, fun):
     v = w_self._value
@@ -158,57 +161,59 @@ def str_lower__String(space, w_self):
 
 def str_swapcase__String(space, w_self):
     self = w_self._value
-    res = [' '] * len(self)
+    builder = StringBuilder(len(self))
     for i in range(len(self)):
         ch = self[i]
         if ch.isupper():
             o = ord(ch) + 32
-            res[i] = chr(o)
+            builder.append(chr(o))
         elif ch.islower():
             o = ord(ch) - 32
-            res[i] = chr(o)
+            builder.append(chr(o))
         else:
-            res[i] = ch
+            builder.append(ch)
 
-    return space.wrap("".join(res))
+    return space.wrap(builder.build())
 
 
 def str_capitalize__String(space, w_self):
     input = w_self._value
-    buffer = [' '] * len(input)
+    builder = StringBuilder(len(input))
     if len(input) > 0:
         ch = input[0]
         if ch.islower():
             o = ord(ch) - 32
-            buffer[0] = chr(o)
+            builder.append(chr(o))
         else:
-            buffer[0] = ch
+            builder.append(ch)
 
         for i in range(1, len(input)):
             ch = input[i]
             if ch.isupper():
                 o = ord(ch) + 32
-                buffer[i] = chr(o)
+                builder.append(chr(o))
             else:
-                buffer[i] = ch
+                builder.append(ch)
 
-    return space.wrap("".join(buffer))
+    return space.wrap(builder.build())
 
 def str_title__String(space, w_self):
     input = w_self._value
-    buffer = [' '] * len(input)
+    builder = StringBuilder(len(input))
     prev_letter=' '
 
-    for pos in range(0, len(input)):
+    for pos in range(len(input)):
         ch = input[pos]
         if not prev_letter.isalpha():
-            buffer[pos] = _upper(ch)
+            ch = _upper(ch)
+            builder.append(ch)
         else:
-            buffer[pos] = _lower(ch)
+            ch = _lower(ch)
+            builder.append(ch)
 
-        prev_letter = buffer[pos]
+        prev_letter = ch
 
-    return space.wrap("".join(buffer))
+    return space.wrap(builder.build())
 
 def str_split__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
     maxsplit = space.int_w(w_maxsplit)
@@ -364,8 +369,8 @@ def _str_join_many_items(space, w_self, list_w, size):
     reslen = len(self) * (size - 1)
     for i in range(size):
         w_s = list_w[i]
-        if not space.is_true(space.isinstance(w_s, space.w_str)):
-            if space.is_true(space.isinstance(w_s, space.w_unicode)):
+        if not space.isinstance_w(w_s, space.w_str):
+            if space.isinstance_w(w_s, space.w_unicode):
                 # we need to rebuild w_list here, because the original
                 # w_list might be an iterable which we already consumed
                 w_list = space.newlist(list_w)
@@ -646,7 +651,7 @@ def str_endswith__String_Tuple_ANY_ANY(space, w_self, w_suffixes, w_start, w_end
                                                   space.wrap(''), w_start,
                                                   w_end, True)
     for w_suffix in space.fixedview(w_suffixes):
-        if space.is_true(space.isinstance(w_suffix, space.w_unicode)):
+        if space.isinstance_w(w_suffix, space.w_unicode):
             w_u = space.call_function(space.w_unicode, w_self)
             return space.call_method(w_u, "endswith", w_suffixes, w_start,
                                      w_end)
@@ -665,7 +670,7 @@ def str_startswith__String_Tuple_ANY_ANY(space, w_self, w_prefixes, w_start, w_e
     (u_self, _, start, end) = _convert_idx_params(space, w_self, space.wrap(''),
                                                   w_start, w_end, True)
     for w_prefix in space.fixedview(w_prefixes):
-        if space.is_true(space.isinstance(w_prefix, space.w_unicode)):
+        if space.isinstance_w(w_prefix, space.w_unicode):
             w_u = space.call_function(space.w_unicode, w_self)
             return space.call_method(w_u, "startswith", w_prefixes, w_start,
                                      w_end)
@@ -755,26 +760,19 @@ def str_zfill__String_ANY(space, w_self, w_width):
         # cannot return w_self, in case it is a subclass of str
         return space.wrap(input)
 
-    buf = [' '] * width
+    builder = StringBuilder(width)
     if len(input) > 0 and (input[0] == '+' or input[0] == '-'):
-        buf[0] = input[0]
+        builder.append(input[0])
         start = 1
         middle = width - len(input) + 1
     else:
         start = 0
         middle = width - len(input)
 
-    for i in range(start, middle):
-        buf[i] = '0'
+    builder.append_multiple_char('0', middle - start)
+    builder.append(input[start:start + (width - middle)])
+    return space.wrap(builder.build())
 
-    for i in range(middle, width):
-        buf[i] = input[start]
-        start = start + 1
-
-    return space.wrap("".join(buf))
-
-def str_w__String(space, w_str):
-    return w_str._value
 
 def hash__String(space, w_str):
     s = w_str._value
@@ -913,11 +911,15 @@ def getnewargs__String(space, w_str):
 def repr__String(space, w_str):
     s = w_str._value
 
-    buf = StringBuilder(50)
-
     quote = "'"
     if quote in s and '"' not in s:
         quote = '"'
+
+    return space.wrap(string_escape_encode(s, quote))
+
+def string_escape_encode(s, quote):
+
+    buf = StringBuilder(len(s) + 2)
 
     buf.append(quote)
     startslice = 0
@@ -959,7 +961,7 @@ def repr__String(space, w_str):
 
     buf.append(quote)
 
-    return space.wrap(buf.build())
+    return buf.build()
 
 
 DEFAULT_NOOP_TABLE = ''.join([chr(i) for i in range(256)])

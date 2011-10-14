@@ -4,7 +4,7 @@ from pypy.rpython.memory.gctypelayout import offsets_to_gc_pointers
 from pypy.rpython.memory.gctypelayout import gc_pointers_inside
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rpython.test.test_llinterp import get_interpreter
-from pypy.rpython.rclass import IR_IMMUTABLE
+from pypy.rpython.rclass import IR_IMMUTABLE, IR_QUASIIMMUTABLE
 from pypy.objspace.flow.model import Constant
 
 class FakeGC:
@@ -102,7 +102,7 @@ def test_gc_pointers_inside():
     accessor = rclass.FieldListAccessor()
     S3 = lltype.GcStruct('S', ('x', PT), ('y', PT),
                          hints={'immutable_fields': accessor})
-    accessor.initialize(S3, {'x': IR_IMMUTABLE})
+    accessor.initialize(S3, {'x': IR_IMMUTABLE, 'y': IR_QUASIIMMUTABLE})
     #
     s1 = lltype.malloc(S1)
     adr = llmemory.cast_ptr_to_adr(s1)

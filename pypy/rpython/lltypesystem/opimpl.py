@@ -357,7 +357,7 @@ def op_cast_bool_to_float(b):
 
 def op_cast_float_to_uint(f):
     assert type(f) is float
-    return r_uint(int(f))
+    return r_uint(long(f))
 
 def op_cast_float_to_longlong(f):
     assert type(f) is float
@@ -369,7 +369,7 @@ def op_cast_float_to_longlong(f):
 
 def op_cast_float_to_ulonglong(f):
     assert type(f) is float
-    return r_ulonglong(r_longlong(f))
+    return r_ulonglong(long(f))
 
 def op_cast_char_to_int(b):
     assert type(b) is str and len(b) == 1
@@ -525,6 +525,9 @@ def op_debug_flush():
 
 def op_have_debug_prints():
     return debug.have_debug_prints()
+
+def op_debug_nonnull_pointer(x):
+    assert x
 
 def op_gc_stack_bottom():
     pass       # marker for trackgcroot.py

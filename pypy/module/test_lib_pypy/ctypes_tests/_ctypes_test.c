@@ -481,6 +481,16 @@ typedef struct {
 	int a, b, c, d, e, f, g, h;
 } S8I;
 
+
+
+typedef int (*CALLBACK_RECT)(RECT rect);
+
+EXPORT(int) call_callback_with_rect(CALLBACK_RECT cb, RECT rect)
+{
+    return cb(rect);
+}
+
+
 EXPORT(S8I) ret_8i_func(S8I inp)
 {
 	inp.a *= 2;

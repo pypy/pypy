@@ -29,13 +29,11 @@ class LowLevelDatabase(object):
 
     def __init__(self, translator=None, standalone=False,
                  gcpolicyclass=None,
-                 stacklesstransformer=None,
                  thread_enabled=False,
                  sandbox=False):
         self.translator = translator
         self.standalone = standalone
         self.sandbox    = sandbox
-        self.stacklesstransformer = stacklesstransformer
         if gcpolicyclass is None:
             gcpolicyclass = gc.RefcountingGcPolicy
         self.gcpolicy = gcpolicyclass(self, thread_enabled)
@@ -251,8 +249,8 @@ class LowLevelDatabase(object):
         else:
             show_i = -1
 
-        # The order of database completion is fragile with stackless and
-        # gc transformers.  Here is what occurs:
+        # The order of database completion is fragile with gc transformers.
+        # Here is what occurs:
         #
         # 1. follow dependencies recursively from the entry point: data
         #    structures pointing to other structures or functions, and
@@ -270,23 +268,11 @@ class LowLevelDatabase(object):
         #    ll_finalize().  New FuncNodes are built for them.  No more
         #    FuncNodes can show up after this step.
         #
-        # 4. stacklesstransform.finish() - freeze the stackless resume point
-        #    table.
+        # 4. gctransformer.finish_tables() - freeze the gc types table.
         #
-        # 5. follow new dependencies (this should be only the new frozen
-        #    table, which contains only numbers and already-seen function
-        #    pointers).
-        #
-        # 6. gctransformer.finish_tables() - freeze the gc types table.
-        #
-        # 7. follow new dependencies (this should be only the gc type table,
+        # 5. follow new dependencies (this should be only the gc type table,
         #    which contains only numbers and pointers to ll_finalizer
         #    functions seen in step 3).
-        #
-        # I think that there is no reason left at this point that force
-        # step 4 to be done before step 6, nor to have a follow-new-
-        # dependencies step inbetween.  It is important though to have step 3
-        # before steps 4 and 6.
         #
         # This is implemented by interleaving the follow-new-dependencies
         # steps with calls to the next 'finish' function from the following
@@ -295,10 +281,6 @@ class LowLevelDatabase(object):
         if self.gctransformer:
             finish_callbacks.append(('GC transformer: finished helpers',
                                      self.gctransformer.finish_helpers))
-        if self.stacklesstransformer:
-            finish_callbacks.append(('Stackless transformer: finished',
-                                     self.stacklesstransformer.finish))
-        if self.gctransformer:
             finish_callbacks.append(('GC transformer: finished tables',
                                      self.gctransformer.get_finish_tables()))
 

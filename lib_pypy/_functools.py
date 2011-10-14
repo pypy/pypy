@@ -14,10 +14,9 @@ class partial(object):
             raise TypeError("the first argument must be callable")
         self.func = func
         self.args = args
-        self.keywords = keywords
+        self.keywords = keywords or None
 
     def __call__(self, *fargs, **fkeywords):
-        newkeywords = self.keywords.copy()
-        newkeywords.update(fkeywords)
-        return self.func(*(self.args + fargs), **newkeywords)
-
+        if self.keywords is not None:
+            fkeywords = dict(self.keywords, **fkeywords)
+        return self.func(*(self.args + fargs), **fkeywords)

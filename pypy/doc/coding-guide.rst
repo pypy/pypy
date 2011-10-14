@@ -929,6 +929,19 @@ which is a synonym for the general `py.test`_ utility
 located in the ``py/bin/`` directory.  For switches to
 modify test execution pass the ``-h`` option.
 
+Coverage reports
+----------------
+
+In order to get coverage reports the `pytest-cov`_ plugin is included.
+it adds some extra requirements ( coverage_ and `cov-core`_ )
+and can once they are installed coverage testing can be invoked via::
+
+  python test_all.py --cov file_or_direcory_to_cover file_or_directory
+
+.. _`pytest-cov`: http://pypi.python.org/pypi/pytest-cov
+.. _`coverage`: http://pypi.python.org/pypi/coverage
+.. _`cov-core`: http://pypi.python.org/pypi/cov-core
+
 Test conventions
 ----------------
 

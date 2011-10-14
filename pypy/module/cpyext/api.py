@@ -57,6 +57,9 @@ class CConfig:
         compile_extra=['-DPy_BUILD_CORE'],
         )
 
+class CConfig2:
+    _compilation_info_ = CConfig._compilation_info_
+
 class CConfig_constants:
     _compilation_info_ = CConfig._compilation_info_
 
@@ -300,9 +303,13 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
         return unwrapper_raise # used in 'normal' RPython code.
     return decorate
 
-def cpython_struct(name, fields, forward=None):
+def cpython_struct(name, fields, forward=None, level=1):
     configname = name.replace(' ', '__')
-    setattr(CConfig, configname, rffi_platform.Struct(name, fields))
+    if level == 1:
+        config = CConfig
+    else:
+        config = CConfig2
+    setattr(config, configname, rffi_platform.Struct(name, fields))
     if forward is None:
         forward = lltype.ForwardReference()
     TYPES[configname] = forward
@@ -337,7 +344,7 @@ SYMBOLS_C = [
     'PyCapsule_SetContext', 'PyCapsule_Import', 'PyCapsule_Type', 'init_capsule',
 
     'PyObject_AsReadBuffer', 'PyObject_AsWriteBuffer', 'PyObject_CheckReadBuffer',
-    
+
     'PyOS_getsig', 'PyOS_setsig',
 
     'PyStructSequence_InitType', 'PyStructSequence_New',
@@ -445,9 +452,10 @@ VA_TP_LIST = {}
 #              'int*': rffi.INTP}
 
 def configure_types():
-    for name, TYPE in rffi_platform.configure(CConfig).iteritems():
-        if name in TYPES:
-            TYPES[name].become(TYPE)
+    for config in (CConfig, CConfig2):
+        for name, TYPE in rffi_platform.configure(config).iteritems():
+            if name in TYPES:
+                TYPES[name].become(TYPE)
 
 def build_type_checkers(type_name, cls=None):
     """
@@ -745,7 +753,7 @@ def build_bridge(space):
             ctypes.c_void_p)
 
     setup_va_functions(eci)
-   
+
     setup_init_functions(eci)
     return modulename.new(ext='')
 
@@ -771,7 +779,7 @@ def generate_macros(export_symbols, rename=True, do_deref=True):
         export_symbols[:] = renamed_symbols
     else:
         export_symbols[:] = [sym.replace("#", "") for sym in export_symbols]
-    
+
     # Generate defines
     for macro_name, size in [
         ("SIZEOF_LONG_LONG", rffi.LONGLONG),
@@ -784,7 +792,7 @@ def generate_macros(export_symbols, rename=True, do_deref=True):
     ]:
         pypy_macros.append("#define %s %s" % (macro_name, rffi.sizeof(size)))
     pypy_macros.append('')
-    
+
     pypy_macros_h = udir.join('pypy_macros.h')
     pypy_macros_h.write('\n'.join(pypy_macros))
 
@@ -852,7 +860,7 @@ def build_eci(building_bridge, export_symbols, code):
             # Sometimes the library is wrapped into another DLL, ensure that
             # the correct bootstrap code is installed
             kwds["link_extra"] = ["msvcrt.lib"]
-        elif sys.platform == 'linux2':
+        elif sys.platform.startswith('linux'):
             compile_extra.append("-Werror=implicit-function-declaration")
         export_symbols_eci.append('pypyAPI')
     else:
@@ -1007,7 +1015,7 @@ def generic_cpy_call_dont_decref(space, func, *args):
     FT = lltype.typeOf(func).TO
     return make_generic_cpy_call(FT, False, False)(space, func, *args)
 
-@specialize.ll()    
+@specialize.ll()
 def generic_cpy_call_expect_null(space, func, *args):
     FT = lltype.typeOf(func).TO
     return make_generic_cpy_call(FT, True, True)(space, func, *args)

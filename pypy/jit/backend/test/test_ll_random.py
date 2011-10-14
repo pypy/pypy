@@ -6,6 +6,7 @@ from pypy.jit.metainterp.history import ConstInt, ConstPtr
 from pypy.jit.metainterp.history import BoxPtr, BoxInt
 from pypy.jit.metainterp.history import BasicFailDescr
 from pypy.jit.codewriter import heaptracker
+from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.rarithmetic import intmask
 from pypy.rpython.llinterp import LLException
@@ -468,6 +469,10 @@ class BaseCallOperation(test_random.AbstractOperation):
         exec code in d
         return subset, d['f'], vtableptr
 
+    def getcalldescr(self, builder, TP):
+        ef = EffectInfo.MOST_GENERAL
+        return builder.cpu.calldescrof(TP, TP.ARGS, TP.RESULT, ef)
+
 # 1. non raising call and guard_no_exception
 class CallOperation(BaseCallOperation):
     def produce_into(self, builder, r):
@@ -481,7 +486,7 @@ class CallOperation(BaseCallOperation):
         ptr = llhelper(lltype.Ptr(TP), f)
         c_addr = ConstAddr(llmemory.cast_ptr_to_adr(ptr), builder.cpu)
         args = [c_addr] + subset
-        descr = builder.cpu.calldescrof(TP, TP.ARGS, TP.RESULT)
+        descr = self.getcalldescr(builder, TP)
         self.put(builder, args, descr)
         op = ResOperation(rop.GUARD_NO_EXCEPTION, [], None,
                           descr=BasicFailDescr())
@@ -501,7 +506,7 @@ class CallOperationException(BaseCallOperation):
         ptr = llhelper(lltype.Ptr(TP), f)
         c_addr = ConstAddr(llmemory.cast_ptr_to_adr(ptr), builder.cpu)
         args = [c_addr] + subset
-        descr = builder.cpu.calldescrof(TP, TP.ARGS, TP.RESULT)
+        descr = self.getcalldescr(builder, TP)
         self.put(builder, args, descr)
         _, vtableptr = builder.get_random_structure_type_and_vtable(r)
         exc_box = ConstAddr(llmemory.cast_ptr_to_adr(vtableptr), builder.cpu)
@@ -523,7 +528,7 @@ class RaisingCallOperation(BaseCallOperation):
         ptr = llhelper(lltype.Ptr(TP), f)
         c_addr = ConstAddr(llmemory.cast_ptr_to_adr(ptr), builder.cpu)
         args = [c_addr] + subset
-        descr = builder.cpu.calldescrof(TP, TP.ARGS, TP.RESULT)
+        descr = self.getcalldescr(builder, TP)
         self.put(builder, args, descr)
         exc_box = ConstAddr(llmemory.cast_ptr_to_adr(exc), builder.cpu)
         op = ResOperation(rop.GUARD_EXCEPTION, [exc_box], BoxPtr(),
@@ -540,7 +545,7 @@ class RaisingCallOperationGuardNoException(BaseCallOperation):
         ptr = llhelper(lltype.Ptr(TP), f)
         c_addr = ConstAddr(llmemory.cast_ptr_to_adr(ptr), builder.cpu)
         args = [c_addr] + subset
-        descr = builder.cpu.calldescrof(TP, TP.ARGS, TP.RESULT)
+        descr = self.getcalldescr(builder, TP)
         self.put(builder, args, descr)
         op = ResOperation(rop.GUARD_NO_EXCEPTION, [], BoxPtr(),
                           descr=BasicFailDescr())
@@ -559,7 +564,7 @@ class RaisingCallOperationWrongGuardException(BaseCallOperation):
         ptr = llhelper(lltype.Ptr(TP), f)
         c_addr = ConstAddr(llmemory.cast_ptr_to_adr(ptr), builder.cpu)
         args = [c_addr] + subset
-        descr = builder.cpu.calldescrof(TP, TP.ARGS, TP.RESULT)
+        descr = self.getcalldescr(builder, TP)
         self.put(builder, args, descr)
         while True:
             _, vtableptr = builder.get_random_structure_type_and_vtable(r)

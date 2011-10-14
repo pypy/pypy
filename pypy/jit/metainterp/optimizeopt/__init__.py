@@ -7,6 +7,8 @@ from pypy.jit.metainterp.optimizeopt.vstring import OptString
 from pypy.jit.metainterp.optimizeopt.unroll import optimize_unroll, OptInlineShortPreamble
 from pypy.jit.metainterp.optimizeopt.fficall import OptFfiCall
 from pypy.jit.metainterp.optimizeopt.simplify import OptSimplify
+from pypy.jit.metainterp.optimizeopt.pure import OptPure
+from pypy.jit.metainterp.optimizeopt.earlyforce import OptEarlyForce
 from pypy.rlib.jit import PARAMETERS
 from pypy.rlib.unroll import unrolling_iterable
 
@@ -14,6 +16,8 @@ ALL_OPTS = [('intbounds', OptIntBounds),
             ('rewrite', OptRewrite),
             ('virtualize', OptVirtualize),
             ('string', OptString),
+            ('earlyforce', OptEarlyForce),
+            ('pure', OptPure),
             ('heap', OptHeap),
             ('ffi', None),
             ('unroll', None)]
@@ -33,10 +37,6 @@ def build_opt_chain(metainterp_sd, enable_opts,
         if name in enable_opts:
             if opt is not None:
                 o = opt()
-                if unroll and name == 'string':
-                    o.enabled = False
-                # FIXME: Workaround to disable string optimisation
-                # during preamble but to keep it during the loop
                 optimizations.append(o)
             elif name == 'ffi' and config.translation.jit_ffi:
                 # we cannot put the class directly in the unrolling_iterable,
@@ -55,17 +55,16 @@ def build_opt_chain(metainterp_sd, enable_opts,
 
 
 def optimize_loop_1(metainterp_sd, loop, enable_opts,
-                    inline_short_preamble=True, retraced=False):
+                    inline_short_preamble=True, retraced=False, bridge=False):
     """Optimize loop.operations to remove internal overheadish operations.
     """
 
     optimizations, unroll = build_opt_chain(metainterp_sd, enable_opts,
                                             inline_short_preamble, retraced)
-
     if unroll:
         optimize_unroll(metainterp_sd, loop, optimizations)
     else:
-        optimizer = Optimizer(metainterp_sd, loop, optimizations)
+        optimizer = Optimizer(metainterp_sd, loop, optimizations, bridge)
         optimizer.propagate_all_forward()
 
 def optimize_bridge_1(metainterp_sd, bridge, enable_opts,
@@ -77,7 +76,7 @@ def optimize_bridge_1(metainterp_sd, bridge, enable_opts,
     except KeyError:
         pass
     optimize_loop_1(metainterp_sd, bridge, enable_opts,
-                    inline_short_preamble, retraced)
+                    inline_short_preamble, retraced, bridge=True)
 
 if __name__ == '__main__':
     print ALL_OPTS_NAMES
