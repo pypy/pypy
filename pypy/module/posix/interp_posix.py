@@ -510,7 +510,7 @@ def get(space):
 def _convertenviron(space, w_env):
     space.call_method(w_env, 'clear')
     for key, value in os.environ.items():
-        space.setitem(w_env, space.wrap(key), space.wrap(value))
+        space.setitem(w_env, space.wrapbytes(key), space.wrapbytes(value))
 
 @unwrap_spec(name=str, value=str)
 def putenv(space, name, value):
