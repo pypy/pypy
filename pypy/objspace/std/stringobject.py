@@ -756,7 +756,8 @@ def str_zfill__String_ANY(space, w_self, w_width):
     input = w_self._value
     width = space.int_w(w_width)
 
-    if len(input) >= width:
+    num_zeros = width - len(input)
+    if num_zeros <= 0:
         # cannot return w_self, in case it is a subclass of str
         return space.wrap(input)
 
@@ -764,13 +765,11 @@ def str_zfill__String_ANY(space, w_self, w_width):
     if len(input) > 0 and (input[0] == '+' or input[0] == '-'):
         builder.append(input[0])
         start = 1
-        middle = width - len(input) + 1
     else:
         start = 0
-        middle = width - len(input)
 
-    builder.append_multiple_char('0', middle - start)
-    builder.append(input[start:start + (width - middle)])
+    builder.append_multiple_char('0', num_zeros)
+    builder.append_slice(input, start, len(input))
     return space.wrap(builder.build())
 
 
