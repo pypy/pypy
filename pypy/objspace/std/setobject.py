@@ -196,11 +196,11 @@ class SetStrategy(object):
         """ Returns an empty storage (erased) object. Used to initialize an empty set."""
         raise NotImplementedError
 
-    def erase(self, storage):
-        raise NotImplementedError
+    #def erase(self, storage):
+    #    raise NotImplementedError
 
-    def unerase(self, storage):
-        raise NotImplementedError
+    #def unerase(self, storage):
+    #    raise NotImplementedError
 
     # __________________ methods called on W_SetObject _________________
 
