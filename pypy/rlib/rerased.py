@@ -224,9 +224,7 @@ class ErasedRepr(Repr):
                          resulttype = lltype.Signed)
         v_instance = hop.genop('cast_int_to_ptr', [v2p1],
                                resulttype=self.lowleveltype)
-        v = hop.genop('cast_opaque_ptr', [v_instance],
-                      resulttype=self.lowleveltype)
-        return v
+        return v_instance
 
     def convert_const(self, value):
         if value._identity is _identity_for_ints:
