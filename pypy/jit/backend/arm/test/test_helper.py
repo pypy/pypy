@@ -33,6 +33,8 @@ def test_decode32():
     assert decode32(mem, 0) ==  1234567
     mem = list('\x00\x00\x0F\x00')
     assert decode32(mem, 0) == 983040
+    mem = list("\x03\x00\x00\x00")
+    assert decode32(mem, 0) == 3
 
 def test_decode64():
     mem = list('\x87\xd6\x12\x00\x00\x00\x0F\x00')

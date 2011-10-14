@@ -155,7 +155,7 @@ class BaseBackendTest(Runner):
         i1 = BoxInt()
         i2 = BoxInt()
         looptoken = LoopToken()
-        operations = [
+        operations = [ 
             ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
             ResOperation(rop.INT_LE, [i1, ConstInt(9)], i2),
             ResOperation(rop.GUARD_TRUE, [i2], None, descr=BasicFailDescr(2)),

@@ -31,16 +31,16 @@ def gen_emit_cmp_op(condition):
     return f
 
 def encode32(mem, i, n):
-    mem[i] = chr(n & 0xFF)
-    mem[i+1] = chr((n >> 8) & 0xFF)
-    mem[i+2] = chr((n >> 16) & 0xFF)
-    mem[i+3] = chr((n >> 24) & 0xFF)
+    mem[i+3] = chr(n & 0xFF)
+    mem[i+2] = chr((n >> 8) & 0xFF)
+    mem[i+1] = chr((n >> 16) & 0xFF)
+    mem[i] = chr((n >> 24) & 0xFF)
 
 def decode32(mem, index):
-    return intmask(ord(mem[index])
-            | ord(mem[index+1]) << 8
-            | ord(mem[index+2]) << 16
-            | ord(mem[index+3]) << 24)
+    return intmask(ord(mem[index+3])
+            | ord(mem[index+2]) << 8
+            | ord(mem[index+1]) << 16
+            | ord(mem[index]) << 24)
 
 class saved_registers(object):
     def __init__(self, assembler, regs_to_save, regalloc=None):

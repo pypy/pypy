@@ -5,7 +5,7 @@ class FakeStats(object):
     pass
 
 class TestPPC(LLtypeBackendTest):
-    
-    def setup_method(self, method):
-        self.cpu = PPC_64_CPU(rtyper=None, stats=FakeStats())
-        self.cpu.setup_once()
+   
+    def setup_class(cls):
+        cls.cpu = PPC_64_CPU(rtyper=None, stats=FakeStats())
+        cls.cpu.setup_once()

@@ -11,7 +11,7 @@ from pypy.jit.backend.ppc.ppcgen.codebuilder import PPCBuilder
 from pypy.jit.backend.ppc.ppcgen.arch import (IS_PPC_32, WORD, NONVOLATILES,
                                               GPR_SAVE_AREA)
 from pypy.jit.backend.ppc.ppcgen.helper.assembler import (gen_emit_cmp_op, 
-                                                          encode32)
+                                                          encode32, decode32)
 import pypy.jit.backend.ppc.ppcgen.register as r
 import pypy.jit.backend.ppc.ppcgen.condition as c
 from pypy.jit.metainterp.history import (Const, ConstPtr, LoopToken,
@@ -28,6 +28,8 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import (BoxInt, ConstInt, ConstPtr,
                                          ConstFloat, Box, INT, REF, FLOAT)
 from pypy.jit.backend.x86.support import values_array
+from pypy.rlib import rgc
+from pypy.rpython.annlowlevel import llhelper
 
 memcpy_fn = rffi.llexternal('memcpy', [llmemory.Address, llmemory.Address,
                                        rffi.SIZE_T], lltype.Void,
@@ -173,59 +175,133 @@ class AssemblerPPC(OpAssembler):
         offset = target_pos - curpos
         self.mc.b(offset)
 
-    #def _make_epilogue(self):
-    #    for op_index, fail_index, guard, reglist in self.patch_list:
-    #        curpos = self.mc.get_rel_pos()
-    #        offset = curpos - (4 * op_index)
-    #        assert (1 << 15) > offset
-    #        self.mc.beq(offset)
-    #        self.mc.patch_op(op_index)
+    def setup_failure_recovery(self):
 
-    #        # store return parameters in memory
-    #        used_mem_indices = []
-    #        for index, reg in enumerate(reglist):
-    #            # if reg is None, then there is a hole in the failargs
-    #            if reg is not None:
-    #                addr = self.fail_boxes_int.get_addr_for_num(index)
-    #                self.store_reg(reg, addr)
-    #                used_mem_indices.append(index)
+        @rgc.no_collect
+        def failure_recovery_func(mem_loc, frame_pointer, stack_pointer):
+            """mem_loc is a structure in memory describing where the values for
+            the failargs are stored.
+            frame loc is the address of the frame pointer for the frame to be
+            decoded frame """
+            return self.decode_registers_and_descr(mem_loc, frame_pointer, stack_pointer)
 
-    #        patch_op = self.mc.get_number_of_ops()
-    #        patch_pos = self.mc.get_rel_pos()
-    #        descr = self.cpu.saved_descr[fail_index]
-    #        descr.patch_op = patch_op
-    #        descr.patch_pos = patch_pos
-    #        descr.used_mem_indices = used_mem_indices
+        self.failure_recovery_func = failure_recovery_func
 
-    #        self.mc.li(r.r3.value, fail_index)
+    recovery_func_sign = lltype.Ptr(lltype.FuncType([lltype.Signed, 
+            lltype.Signed, lltype.Signed], lltype.Signed))
 
-    #        #self._restore_nonvolatiles()
+    @rgc.no_collect
+    def decode_registers_and_descr(self, mem_loc, stack_loc, spp_loc):
+        ''' 
+            mem_loc     : pointer to encoded state
+            stack_loc   : pointer to top of the stack
+            spp_loc     : pointer to begin of the spilling area
+            '''
+        enc = rffi.cast(rffi.CCHARP, mem_loc)
+        managed_size = WORD * len(r.MANAGED_REGS)
+        spilling_depth = spp_loc - stack_loc + managed_size
+        spilling_area = rffi.cast(rffi.CCHARP, stack_loc + managed_size)
+        assert spilling_depth >= 0
 
-    #        #self.mc.lwz(0, 1, self.framesize + 4)
-    #        #if IS_PPC_32:
-    #        #    self.mc.lwz(0, 1, self.framesize + WORD) # 36
-    #        #else:
-    #        #    self.mc.ld(0, 1, self.framesize + WORD) # 36
-    #        #self.mc.mtlr(0)
-    #        #self.mc.addi(1, 1, self.framesize)
-    #        #self.mc.li(r.r3.value, fail_index)            
-    #        #self.mc.blr()
+        regs = rffi.cast(rffi.CCHARP, stack_loc)
+        i = -1
+        fail_index = -1
+        while(True):
+            i += 1
+            fail_index += 1
+            res = enc[i]
+            if res == self.END_OF_LOCS:
+                break
+            if res == self.EMPTY_LOC:
+                continue
+
+            group = res
+            i += 1
+            res = enc[i]
+            if res == self.IMM_LOC:
+               # imm value
+                if group == self.INT_TYPE or group == self.REF_TYPE:
+                    value = decode32(enc, i+1)
+                    i += 4
+                else:
+                    assert group == self.FLOAT_TYPE
+                    adr = decode32(enc, i+1)
+                    value = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[0]
+                    self.fail_boxes_float.setitem(fail_index, value)
+                    i += 4
+                    continue
+            elif res == self.STACK_LOC:
+                stack_loc = decode32(enc, i+1)
+                i += 4
+                if group == self.FLOAT_TYPE:
+                    value = decode64(stack, frame_depth - stack_loc*WORD)
+                    self.fail_boxes_float.setitem(fail_index, value)
+                    continue
+                else:
+                    value = decode32(spilling_area, spilling_area - stack_loc * WORD)
+            else: # REG_LOC
+                reg = ord(enc[i])
+                if group == self.FLOAT_TYPE:
+                    value = decode64(vfp_regs, reg*2*WORD)
+                    self.fail_boxes_float.setitem(fail_index, value)
+                    continue
+                else:
+                    value = decode32(regs, reg*WORD - 2 * WORD)
+
+            if group == self.INT_TYPE:
+                self.fail_boxes_int.setitem(fail_index, value)
+            elif group == self.REF_TYPE:
+                tgt = self.fail_boxes_ptr.get_addr_for_num(fail_index)
+                rffi.cast(rffi.LONGP, tgt)[0] = value
+            else:
+                assert 0, 'unknown type'
+
+
+        assert enc[i] == self.END_OF_LOCS
+        descr = decode32(enc, i+1)
+        self.fail_boxes_count = fail_index
+        self.fail_force_index = spp_loc
+        return descr
 
     def _gen_leave_jitted_hook_code(self, save_exc=False):
         mc = PPCBuilder()
-        ### XXX add a check if cpu supports floats
-        #with saved_registers(mc, r.caller_resp + [r.ip], r.caller_vfp_resp):
-        #    addr = self.cpu.get_on_leave_jitted_int(save_exception=save_exc)
-        #    mc.BL(addr)
-        #assert self._exit_code_addr != 0
-        #mc.B(self._exit_code_addr)
+
+        # PLAN:
+        # =====
+        # save caller save registers AND(!) r0 
+        # (r0 contains address of state encoding)
+
         mc.b_abs(self.exit_code_adr)
         mc.prepare_insts_blocks()
         return mc.materialize(self.cpu.asmmemmgr, [],
                                self.cpu.gc_ll_descr.gcrootmap)
 
+    # XXX 64 bit adjustment needed
     def _gen_exit_path(self):
-        mc = PPCBuilder()
+        mc = PPCBuilder() 
+        #
+        self._save_managed_regs(mc)
+        # adjust SP (r1)
+        size = WORD * len(r.MANAGED_REGS)
+        mc.addi(r.SP.value, r.SP.value, -size)
+        #
+        decode_func_addr = llhelper(self.recovery_func_sign,
+                self.failure_recovery_func)
+        addr = rffi.cast(lltype.Signed, decode_func_addr)
+        #
+        # load parameters into parameter registers
+        mc.lwz(r.r3.value, r.SPP.value, 0)
+        #mc.mr(r.r3.value, r.r0.value)          # address of state encoding 
+        mc.mr(r.r4.value, r.SP.value)          # load stack pointer
+        mc.mr(r.r5.value, r.SPP.value)         # load spilling pointer
+        #
+        # load address of decoding function into r0
+        mc.load_imm(r.r0, addr)
+        # ... and branch there
+        mc.mtctr(r.r0.value)
+        mc.bctrl()
+        #
+        mc.addi(r.SP.value, r.SP.value, size)
         # save SPP in r5
         # (assume that r5 has been written to failboxes)
         mc.mr(r.r5.value, r.SPP.value)
@@ -241,6 +317,17 @@ class AssemblerPPC(OpAssembler):
         mc.prepare_insts_blocks()
         return mc.materialize(self.cpu.asmmemmgr, [],
                                    self.cpu.gc_ll_descr.gcrootmap)
+
+    # Save all registers which are managed by the register
+    # allocator on top of the stack before decoding.
+    # XXX adjust for 64 bit
+    def _save_managed_regs(self, mc):
+        for i in range(len(r.MANAGED_REGS) - 1, -1, -1):
+            reg = r.MANAGED_REGS[i]
+            if IS_PPC_32:
+                mc.stw(reg.value, r.SP.value, -(len(r.MANAGED_REGS) - i) * WORD)
+            else:
+                assert 0, "not implemented yet"
 
     def gen_bootstrap_code(self, nonfloatlocs, inputargs):
         for i in range(len(nonfloatlocs)):
@@ -273,6 +360,7 @@ class AssemblerPPC(OpAssembler):
 
     def setup_once(self):
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
+        self.setup_failure_recovery()
         self.exit_code_adr = self._gen_exit_path()
         #self._leave_jitted_hook_save_exc = self._gen_leave_jitted_hook_code(True)
         self._leave_jitted_hook = self._gen_leave_jitted_hook_code(False)
@@ -352,6 +440,7 @@ class AssemblerPPC(OpAssembler):
                 mem[j] = self.EMPTY_LOC
                 j += 1
             i += 1
+                # XXX 64 bit adjustment needed
 
         mem[j] = chr(0xFF)
 
@@ -427,8 +516,6 @@ class AssemblerPPC(OpAssembler):
             path = self._leave_jitted_hook_save_exc
         else:
             path = self._leave_jitted_hook
-        self.mc.trap()
-        #self.mc.ba(path)
         self.branch_abs(path)
         return memaddr
 

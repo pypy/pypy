@@ -26,7 +26,7 @@ class TempPtr(TempBox):
         return "<TempPtr at %s>" % (id(self),)
 
 class PPCRegisterManager(RegisterManager):
-    all_regs              = r.ALL_REGS[:-1]
+    all_regs              = r.MANAGED_REGS
     box_types             = None       # or a list of acceptable types
     no_lower_byte_regs    = all_regs
     save_around_call_regs = r.VOLATILES
