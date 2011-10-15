@@ -12,6 +12,10 @@ class OSThreadLocals:
         self._mostrecentkey = 0        # fast minicaching for the common case
         self._mostrecentvalue = None   # fast minicaching for the common case
 
+    def _freeze_(self):
+        self.__init__()
+        return False
+
     def getvalue(self):
         ident = thread.get_ident()
         if ident == self._mostrecentkey:
