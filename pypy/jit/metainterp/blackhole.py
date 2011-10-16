@@ -2,7 +2,7 @@ from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.rtimer import read_timestamp
 from pypy.rlib.rarithmetic import intmask, LONG_BIT, r_uint, ovfcheck
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.debug import debug_start, debug_stop
+from pypy.rlib.debug import debug_start, debug_stop, ll_assert
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rpython.lltypesystem.lloperation import llop
@@ -502,6 +502,15 @@ class BlackholeInterpreter(object):
     @arguments("r", returns="r")
     def bhimpl_cast_opaque_ptr(a):
         return a
+    @arguments("r", returns="i")
+    def bhimpl_cast_ptr_to_int(a):
+        i = lltype.cast_ptr_to_int(a)
+        ll_assert((i & 1) == 1, "bhimpl_cast_ptr_to_int: not an odd int")
+        return i
+    @arguments("i", returns="r")
+    def bhimpl_cast_int_to_ptr(i):
+        ll_assert((i & 1) == 1, "bhimpl_cast_int_to_ptr: not an odd int")
+        return lltype.cast_int_to_ptr(llmemory.GCREF, i)
 
     @arguments("i", returns="i")
     def bhimpl_int_copy(a):
@@ -522,6 +531,9 @@ class BlackholeInterpreter(object):
     @arguments("f")
     def bhimpl_float_guard_value(a):
         pass
+    @arguments("r", "i", "d", returns="r")
+    def bhimpl_str_guard_value(a, i, d):
+        return a
 
     @arguments("self", "i")
     def bhimpl_int_push(self, a):

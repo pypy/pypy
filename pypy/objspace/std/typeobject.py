@@ -10,7 +10,8 @@ from pypy.objspace.std.objecttype import object_typedef
 from pypy.objspace.std import identitydict
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.objectmodel import current_object_addr_as_int, compute_hash
-from pypy.rlib.jit import promote, elidable_promote, we_are_jitted
+from pypy.rlib.jit import promote, elidable_promote, we_are_jitted,\
+     promote_string
 from pypy.rlib.jit import elidable, dont_look_inside, unroll_safe
 from pypy.rlib.rarithmetic import intmask, r_uint
 
@@ -77,7 +78,7 @@ class MethodCache(object):
         for i in range(len(self.lookup_where)):
             self.lookup_where[i] = None_None
 
-# possible values of compares_by_identity_status 
+# possible values of compares_by_identity_status
 UNKNOWN = 0
 COMPARES_BY_IDENTITY = 1
 OVERRIDES_EQ_CMP_OR_HASH = 2
@@ -101,6 +102,7 @@ class W_TypeObject(W_Object):
                           'instancetypedef',
                           'terminator',
                           '_version_tag?',
+                          'interplevel_cls',
                           ]
 
     # for config.objspace.std.getattributeshortcut
@@ -358,7 +360,7 @@ class W_TypeObject(W_Object):
                 if w_value is not None:
                     return w_value
         return None
-                
+
     @unroll_safe
     def _lookup(w_self, key):
         space = w_self.space
@@ -399,6 +401,7 @@ class W_TypeObject(W_Object):
         if version_tag is None:
             tup = w_self._lookup_where(name)
             return tup
+        name = promote_string(name)
         w_class, w_value = w_self._pure_lookup_where_with_method_cache(name, version_tag)
         return w_class, unwrap_cell(space, w_value)
 
@@ -822,14 +825,6 @@ def is_mro_purely_of_types(mro_w):
 
 def call__Type(space, w_type, __args__):
     promote(w_type)
-    # special case for type(x)
-    if space.is_w(w_type, space.w_type):
-        try:
-            w_obj, = __args__.fixedunpack(1)
-        except ValueError:
-            pass
-        else:
-            return space.type(w_obj)
     # invoke the __new__ of the type
     if not we_are_jitted():
         # note that the annotator will figure out that w_type.w_bltin_new can
@@ -856,7 +851,8 @@ def call__Type(space, w_type, __args__):
         call_init = space.isinstance_w(w_newobject, w_type)
 
     # maybe invoke the __init__ of the type
-    if call_init:
+    if (call_init and not (space.is_w(w_type, space.w_type) and
+        not __args__.keywords and len(__args__.arguments_w) == 1)):
         w_descr = space.lookup(w_newobject, '__init__')
         w_result = space.get_and_call_args(w_descr, w_newobject, __args__)
         if not space.is_w(w_result, space.w_None):

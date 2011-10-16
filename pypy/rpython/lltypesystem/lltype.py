@@ -1360,6 +1360,8 @@ class _ptr(_abstract_ptr):
         obj = normalizeptr(self, check)._getobj(check)
         if isinstance(obj, int):
             return obj     # special case for cast_int_to_ptr() results put into opaques
+        if getattr(obj, '_read_directly_intval', False):
+            return obj.intval   # special case for _llgcopaque
         result = intmask(obj._getid())
         # assume that id() returns an addressish value which is
         # not zero and aligned to at least a multiple of 4

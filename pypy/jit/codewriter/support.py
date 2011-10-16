@@ -310,8 +310,14 @@ def _ll_2_llong_urshift(xull, y):
 def _ll_1_llong_from_int(x):
     return r_longlong(intmask(x))
 
+def _ll_1_ullong_from_int(x):
+    return r_ulonglong(intmask(x))
+
 def _ll_1_llong_from_uint(x):
     return r_longlong(r_uint(x))
+
+def _ll_1_ullong_from_uint(x):
+    return r_ulonglong(r_uint(x))
 
 def _ll_1_llong_to_int(xll):
     return intmask(xll)
@@ -319,8 +325,14 @@ def _ll_1_llong_to_int(xll):
 def _ll_1_llong_from_float(xf):
     return r_longlong(xf)
 
+def _ll_1_ullong_from_float(xf):
+    return r_ulonglong(xf)
+
 def _ll_1_llong_to_float(xll):
     return float(rffi.cast(lltype.SignedLongLong, xll))
+
+def _ll_1_ullong_u_to_float(xull):
+    return float(rffi.cast(lltype.UnsignedLongLong, xull))
 
 
 def _ll_1_llong_abs(xll):
@@ -346,20 +358,23 @@ def _ll_2_llong_mod_zer(xll, yll):
     return llop.llong_mod(lltype.SignedLongLong, xll, yll)
 
 def _ll_2_ullong_floordiv(xll, yll):
-    return llop.ullong_floordiv(lltype.SignedLongLong, xll, yll)
+    return llop.ullong_floordiv(lltype.UnsignedLongLong, xll, yll)
 
 def _ll_2_ullong_floordiv_zer(xll, yll):
     if yll == 0:
         raise ZeroDivisionError
-    return llop.ullong_floordiv(lltype.SignedLongLong, xll, yll)
+    return llop.ullong_floordiv(lltype.UnsignedLongLong, xll, yll)
 
 def _ll_2_ullong_mod(xll, yll):
-    return llop.ullong_mod(lltype.SignedLongLong, xll, yll)
+    return llop.ullong_mod(lltype.UnsignedLongLong, xll, yll)
 
 def _ll_2_ullong_mod_zer(xll, yll):
     if yll == 0:
         raise ZeroDivisionError
-    return llop.ullong_mod(lltype.SignedLongLong, xll, yll)
+    return llop.ullong_mod(lltype.UnsignedLongLong, xll, yll)
+
+def _ll_2_uint_mod(xll, yll):
+    return llop.uint_mod(lltype.Unsigned, xll, yll)
 
 
 # libffi support

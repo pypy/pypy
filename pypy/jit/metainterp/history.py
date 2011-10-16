@@ -9,6 +9,7 @@ from pypy.conftest import option
 
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.codewriter import heaptracker, longlong
+from pypy.rlib.objectmodel import compute_identity_hash
 
 # ____________________________________________________________
 
@@ -104,7 +105,7 @@ class AbstractValue(object):
     getref._annspecialcase_ = 'specialize:arg(1)'
 
     def _get_hash_(self):
-        raise NotImplementedError
+        return compute_identity_hash(self)
 
     def clonebox(self):
         raise NotImplementedError
@@ -132,6 +133,9 @@ class AbstractValue(object):
 
     def _get_str(self):
         raise NotImplementedError
+
+    def same_box(self, other):
+        return self is other
 
 class AbstractDescr(AbstractValue):
     __slots__ = ()
@@ -241,31 +245,14 @@ class Const(AbstractValue):
     def constbox(self):
         return self
 
+    def same_box(self, other):
+        return self.same_constant(other)
+
     def same_constant(self, other):
         raise NotImplementedError
 
     def __repr__(self):
         return 'Const(%s)' % self._getrepr_()
-
-    def __eq__(self, other):
-        "NOT_RPYTHON"
-        # Remember that you should not compare Consts with '==' in RPython.
-        # Consts have no special __hash__, in order to force different Consts
-        # from being considered as different keys when stored in dicts
-        # (as they always are after translation).  Use a dict_equal_consts()
-        # to get the other behavior (i.e. using this __eq__).
-        if self.__class__ is not other.__class__:
-            return False
-        try:
-            return self.value == other.value
-        except TypeError:
-            if (isinstance(self.value, Symbolic) and
-                isinstance(other.value, Symbolic)):
-                return self.value is other.value
-            raise
-
-    def __ne__(self, other):
-        return not (self == other)
 
 
 class ConstInt(Const):
@@ -688,33 +675,6 @@ def set_future_values(cpu, boxes):
 
 # ____________________________________________________________
 
-def dict_equal_consts():
-    "NOT_RPYTHON"
-    # Returns a dict in which Consts that compare as equal
-    # are identified when used as keys.
-    return r_dict(dc_eq, dc_hash)
-
-def dc_eq(c1, c2):
-    return c1 == c2
-
-def dc_hash(c):
-    "NOT_RPYTHON"
-    # This is called during translation only.  Avoid using identityhash(),
-    # to avoid forcing a hash, at least on lltype objects.
-    if not isinstance(c, Const):
-        return hash(c)
-    if isinstance(c.value, Symbolic):
-        return id(c.value)
-    try:
-        if isinstance(c, ConstPtr):
-            p = lltype.normalizeptr(c.value)
-            if p is not None:
-                return hash(p._obj)
-            else:
-                return 0
-        return c._get_hash_()
-    except lltype.DelayedPointer:
-        return -2      # xxx risk of changing hash...
 
 def make_hashable_int(i):
     from pypy.rpython.lltypesystem.ll2ctypes import NotCtypesAllocatedStructure

@@ -660,6 +660,8 @@ def lltype2ctypes(llobj, normalize=True):
         if T == llmemory.GCREF:
             if isinstance(llobj._obj, _llgcopaque):
                 return ctypes.c_void_p(llobj._obj.intval)
+            if isinstance(llobj._obj, int):    # tagged pointer
+                return ctypes.c_void_p(llobj._obj)
             container = llobj._obj.container
             T = lltype.Ptr(lltype.typeOf(container))
             # otherwise it came from integer and we want a c_void_p with
@@ -1270,6 +1272,7 @@ class _lladdress(long):
 class _llgcopaque(lltype._container):
     _TYPE = llmemory.GCREF.TO
     _name = "_llgcopaque"
+    _read_directly_intval = True     # for _ptr._cast_to_int()
 
     def __init__(self, void_p):
         if isinstance(void_p, (int, long)):
@@ -1292,6 +1295,9 @@ class _llgcopaque(lltype._container):
             return False
         return force_cast(lltype.Signed, other._as_ptr()) == self.intval
 
+    def __hash__(self):
+        return self.intval
+
     def __ne__(self, other):
         return not self == other
 
@@ -1300,11 +1306,6 @@ class _llgcopaque(lltype._container):
             return _opaque_objs[self.intval // 2]
         return force_cast(PTRTYPE, self.intval)
 
-##     def _cast_to_int(self):
-##         return self.intval
-
-##     def _cast_to_adr(self):
-##         return _lladdress(self.intval)
 
 def cast_adr_to_int(addr):
     if isinstance(addr, llmemory.fakeaddress):

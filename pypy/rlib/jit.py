@@ -38,6 +38,7 @@ def hint(x, **kwds):
     possible arguments are:
 
     * promote - promote the argument from a variable into a constant
+    * promote_string - same, but promote string by *value*
     * access_directly - directly access a virtualizable, as a structure
                         and don't treat it as a virtualizable
     * fresh_virtualizable - means that virtualizable was just allocated.
@@ -50,6 +51,9 @@ def hint(x, **kwds):
 @specialize.argtype(0)
 def promote(x):
     return hint(x, promote=True)
+
+def promote_string(x):
+    return hint(x, promote_string=True)
 
 def dont_look_inside(func):
     """ Make sure the JIT does not trace inside decorated function
@@ -158,7 +162,7 @@ def oopspec(spec):
     return decorator
 
 @oopspec("jit.isconstant(value)")
-@specialize.argtype(0)
+@specialize.ll()
 def isconstant(value):
     """
     While tracing, returns whether or not the value is currently known to be
@@ -167,10 +171,7 @@ def isconstant(value):
 
     This is for advanced usage only.
     """
-    # I hate the annotator so much.
-    if NonConstant(False):
-        return True
-    return False
+    return NonConstant(False)
 
 @oopspec("jit.isvirtual(value)")
 @specialize.ll()
@@ -181,9 +182,7 @@ def isvirtual(value):
 
     This is for advanced usage only.
     """
-    if NonConstant(False):
-        return True
-    return False
+    return NonConstant(False)
 
 class Entry(ExtRegistryEntry):
     _about_ = hint
@@ -317,6 +316,12 @@ class DirectVRef(object):
         elif self._state == 'invalid':
             raise InvalidVirtualRef
         return self._x
+
+    @property
+    def virtual(self):
+        """A property that is True if the vref contains a virtual that would
+        be forced by the '()' operator."""
+        return self._state == 'non-forced'
 
     def _finish(self):
         if self._state == 'non-forced':

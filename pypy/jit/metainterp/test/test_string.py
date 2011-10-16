@@ -3,7 +3,8 @@ import py
 from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from pypy.rlib.debug import debug_print
-from pypy.rlib.jit import JitDriver, dont_look_inside, we_are_jitted
+from pypy.rlib.jit import JitDriver, dont_look_inside, we_are_jitted,\
+     promote_string
 from pypy.rlib.rstring import StringBuilder
 from pypy.rpython.ootypesystem import ootype
 
@@ -483,6 +484,42 @@ class StringTests:
                 i = IntBox(i.val + 1)
             return len(sa.val)
         assert self.meta_interp(f, ['a']) == f('a')
+
+    def test_string_comepare_quasiimmutable(self):
+        class Sys(object):
+            _immutable_fields_ = ["defaultencoding?"]
+            def __init__(self, s):
+                self.defaultencoding = s
+        _str = self._str
+        sys = Sys(_str('ascii'))        
+        mydriver = JitDriver(reds = ['n', 'sa'], greens = [])
+        def f(n):
+            sa = 0
+            sys.defaultencoding = _str('ascii')
+            while n:
+                mydriver.jit_merge_point(n=n, sa=sa)
+                if sys.defaultencoding == _str('ascii'):
+                    sa += 1
+                n -= 1
+            sys.defaultencoding = _str('utf-8')
+            return sa
+        assert self.meta_interp(f, [8]) == f(8)
+        self.check_loops({'int_add': 1, 'guard_true': 1, 'int_sub': 1,
+                          'jump': 1, 'int_is_true': 1,
+                          'guard_not_invalidated': 1})
+
+    def test_promote_string(self):
+        driver = JitDriver(greens = [], reds = ['n'])
+        
+        def f(n):
+            while n < 21:
+                driver.jit_merge_point(n=n)
+                promote_string(str(n % 3))
+                n += 1
+            return 0
+
+        self.meta_interp(f, [0])
+        self.check_loops(call=3 + 1) # one for int2str
 
 #class TestOOtype(StringTests, OOJitMixin):
 #    CALL = "oosend"

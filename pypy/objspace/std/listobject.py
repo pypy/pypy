@@ -386,7 +386,11 @@ def list_pop__List_ANY(space, w_list, w_idx=-1):
     if len(items)== 0:
         raise OperationError(space.w_IndexError,
                              space.wrap("pop from empty list"))
-    idx = space.int_w(w_idx)
+    if space.isinstance_w(w_idx, space.w_float):
+        raise OperationError(space.w_TypeError,
+            space.wrap("integer argument expected, got float")
+        )
+    idx = space.int_w(space.int(w_idx))
     try:
         return items.pop(idx)
     except IndexError:

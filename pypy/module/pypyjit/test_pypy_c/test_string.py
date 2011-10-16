@@ -157,3 +157,40 @@ class TestString(BaseTestPyPyC):
             --TICK--
             jump(p0, p1, p2, p3, i40, i38, descr=<Loop0>)
         """)
+
+    def test_getattr_promote(self):
+        def main(n):
+            class A(object):
+                def meth_a(self):
+                    return 1
+                def meth_b(self):
+                    return 2
+            a = A()
+
+            l = ['a', 'b']
+            s = 0
+            for i in range(n):
+                name = 'meth_' + l[i & 1]
+                meth = getattr(a, name) # ID: getattr
+                s += meth()
+            return s
+
+        log = self.run(main, [1000])
+        assert log.result == main(1000)
+        loops = log.loops_by_filename(self.filepath)
+        assert len(loops) == 2
+        for loop in loops:
+            loop.match_by_id('getattr','''
+            guard_not_invalidated(descr=...)
+            i32 = strlen(p31)
+            i34 = int_add(5, i32)
+            p35 = newstr(i34)
+            strsetitem(p35, 0, 109)
+            strsetitem(p35, 1, 101)
+            strsetitem(p35, 2, 116)
+            strsetitem(p35, 3, 104)
+            strsetitem(p35, 4, 95)
+            copystrcontent(p31, p35, 0, 5, i32)
+            i49 = call(ConstClass(_ll_2_str_eq_nonnull__rpy_stringPtr_rpy_stringPtr), p35, ConstPtr(ptr48), descr=<SignedCallDescr>)
+            guard_value(i49, 1, descr=<Guard8>)
+            ''')

@@ -829,14 +829,15 @@ class TestFlatten:
                     self.encoding_test(f, [rffi.cast(FROM, 42)], expectedstr,
                                        transform=True)
                 elif TO in (rffi.LONG, rffi.ULONG):
-                    if TO == rffi.LONG:
-                        TO = rffi.LONGLONG
-                    else:
-                        TO = rffi.ULONGLONG
                     if rffi.cast(FROM, -1) < 0:
                         fnname = "llong_from_int"
                     else:
                         fnname = "llong_from_uint"
+                    if TO == rffi.LONG:
+                        TO = rffi.LONGLONG
+                    else:
+                        TO = rffi.ULONGLONG
+                        fnname = "u" + fnname
                     expected.pop()   # remove int_return
                     expected.append(
                         "residual_call_irf_f $<* fn %s>, <Descr>, I[%s], R[], F[] -> %%f0"

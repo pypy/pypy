@@ -5,6 +5,7 @@ from pypy.rpython.ootypesystem import ootype, ooopimpl
 from pypy.rpython.llinterp import LLFrame
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython import rclass
+from pypy.rlib.rarithmetic import LONGLONG_MASK, r_longlong, r_ulonglong
 
 LL_INTERP_OPERATIONS = [name[3:] for name in LLFrame.__dict__.keys()
                                  if name.startswith('op_')]
@@ -132,6 +133,14 @@ def test_getfield_pure():
         py.test.raises(TypeError, llop.getfield, lltype.Signed, s3, 'y')
         py.test.raises(TypeError, llop.getinteriorfield,
                        lltype.Signed, s3, 'y')
+
+def test_cast_float_to_ulonglong():
+    f = 12350000000000000000.0
+    py.test.raises(OverflowError, r_longlong, f)
+    r_longlong(f / 2)   # does not raise OverflowError
+    #
+    x = llop.cast_float_to_ulonglong(lltype.UnsignedLongLong, f)
+    assert x == r_ulonglong(f)
 
 # ___________________________________________________________________________
 # This tests that the LLInterpreter and the LL_OPERATIONS tables are in sync.

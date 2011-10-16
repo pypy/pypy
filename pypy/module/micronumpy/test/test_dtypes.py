@@ -17,6 +17,7 @@ class AppTestDtypes(BaseNumpyAppTest):
         from numpy import dtype
 
         assert dtype(bool).num == 0
+        assert dtype(int).num == 7
         assert dtype(long).num == 9
         assert dtype(float).num == 12
 
@@ -81,6 +82,48 @@ class AppTestDtypes(BaseNumpyAppTest):
             assert isinstance(a[i], (int, long))
             assert a[1] == 1
 
+    def test_overflow(self):
+        from numpy import array, dtype
+        assert array([128], 'b')[0] == -128
+        assert array([256], 'B')[0] == 0
+        assert array([32768], 'h')[0] == -32768
+        assert array([65536], 'H')[0] == 0
+        if dtype('l').itemsize == 4: # 32-bit
+            raises(OverflowError, "array([2**32/2], 'i')")
+            raises(OverflowError, "array([2**32], 'I')")
+        raises(OverflowError, "array([2**64/2], 'q')")
+        raises(OverflowError, "array([2**64], 'Q')")
+
+    def test_bool_binop_types(self):
+        from numpy import array, dtype
+        types = ('?','b','B','h','H','i','I','l','L','q','Q','f','d')
+        N = len(types)
+        a = array([True], '?')
+        for t in types:
+            assert (a + array([0], t)).dtype is dtype(t)
+
+    def test_binop_types(self):
+        from numpy import array, dtype
+        tests = [('b','B','h'), ('b','h','h'), ('b','H','i'), ('b','i','i'),
+                 ('b','l','l'), ('b','q','q'), ('b','Q','d'), ('B','h','h'),
+                 ('B','H','H'), ('B','i','i'), ('B','I','I'), ('B','l','l'),
+                 ('B','L','L'), ('B','q','q'), ('B','Q','Q'), ('h','H','i'),
+                 ('h','i','i'), ('h','l','l'), ('h','q','q'), ('h','Q','d'),
+                 ('H','i','i'), ('H','I','I'), ('H','l','l'), ('H','L','L'),
+                 ('H','q','q'), ('H','Q','Q'), ('i','l','l'), ('i','q','q'),
+                 ('i','Q','d'), ('I','L','L'), ('I','q','q'), ('I','Q','Q'),
+                 ('q','Q','d'), ('b','f','f'), ('B','f','f'), ('h','f','f'),
+                 ('H','f','f'), ('i','f','d'), ('I','f','d'), ('l','f','d'),
+                 ('L','f','d'), ('q','f','d'), ('Q','f','d'), ('q','d','d')]
+        if dtype('i').itemsize == dtype('l').itemsize: # 32-bit
+            tests.extend([('b','I','q'), ('b','L','q'), ('h','I','q'),
+                          ('h','L','q'), ('i','I','q'), ('i','L','q')])
+        else:
+            tests.extend([('b','I','l'), ('b','L','d'), ('h','I','l'),
+                          ('h','L','d'), ('i','I','l'), ('i','L','d')])
+        for d1, d2, dout in tests:
+            assert (array([1], d1) + array([1], d2)).dtype is dtype(dout)
+
     def test_add_int8(self):
         from numpy import array, dtype
 
@@ -96,6 +139,15 @@ class AppTestDtypes(BaseNumpyAppTest):
         a = array(range(5), dtype="int16")
         b = a + a
         assert b.dtype is dtype("int16")
+        for i in range(5):
+            assert b[i] == i * 2
+
+    def test_add_uint32(self):
+        from numpy import array, dtype
+
+        a = array(range(5), dtype="I")
+        b = a + a
+        assert b.dtype is dtype("I")
         for i in range(5):
             assert b[i] == i * 2
 

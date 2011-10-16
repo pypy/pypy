@@ -53,6 +53,8 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
         extraconfigopts = {'translation.list_comprehension_operations': True}
     else:
         extraconfigopts = {}
+    if kwds.pop("taggedpointers", False):
+        extraconfigopts["translation.taggedpointers"] = True
     interp, graph = get_interpreter(function, args,
                                     backendopt=False,  # will be done below
                                     type_system=type_system,
