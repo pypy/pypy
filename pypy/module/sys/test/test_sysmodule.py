@@ -556,7 +556,7 @@ class AppTestCurrentFrames:
             return sys._current_frames()
         frames = f()
         assert frames.keys() == [0]
-        assert frames[0].f_code.co_name == 'f'
+        assert frames[0].f_code.co_name in ('f', '?')
 
 class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
     def setup_class(cls):
@@ -585,8 +585,8 @@ class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
         frames = f()
         lock1.release()
         thisframe = frames.pop(thread_id)
-        assert thisframe.f_code.co_name == 'f'
+        assert thisframe.f_code.co_name in ('f', '?')
 
         assert len(frames) == 1
         _, other_frame = frames.popitem()
-        assert other_frame.f_code.co_name == 'other_thread'
+        assert other_frame.f_code.co_name in ('other_thread', '?')

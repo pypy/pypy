@@ -317,6 +317,12 @@ class DirectVRef(object):
             raise InvalidVirtualRef
         return self._x
 
+    @property
+    def virtual(self):
+        """A property that is True if the vref contains a virtual that would
+        be forced by the '()' operator."""
+        return self._state == 'non-forced'
+
     def _finish(self):
         if self._state == 'non-forced':
             self._state = 'invalid'

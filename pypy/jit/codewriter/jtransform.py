@@ -1542,6 +1542,10 @@ class Transformer(object):
     def rewrite_op_jit_force_virtual(self, op):
         return self._do_builtin_call(op)
 
+    def rewrite_op_jit_is_virtual(self, op):
+        raise Exception, (
+            "'vref.virtual' should not be used from jit-visible code")
+
     def rewrite_op_jit_force_virtualizable(self, op):
         # this one is for virtualizables
         vinfo = self.get_vinfo(op.args[0])
