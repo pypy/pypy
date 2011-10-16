@@ -222,6 +222,7 @@ class MIFrame(object):
                     'cast_float_to_int', 'cast_int_to_float',
                     'cast_float_to_singlefloat', 'cast_singlefloat_to_float',
                     'float_neg', 'float_abs',
+                    'cast_ptr_to_int', 'cast_int_to_ptr',
                     ]:
         exec py.code.Source('''
             @arguments("box")

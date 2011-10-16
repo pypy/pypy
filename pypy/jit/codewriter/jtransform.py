@@ -800,8 +800,7 @@ class Transformer(object):
 
     def rewrite_op_cast_ptr_to_int(self, op):
         if self._is_gc(op.args[0]):
-            #return op
-            raise NotImplementedError("cast_ptr_to_int")
+            return op
 
     def rewrite_op_force_cast(self, op):
         v_arg = op.args[0]
