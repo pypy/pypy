@@ -568,20 +568,22 @@ class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
         import thread
 
         thread_id = thread.get_ident()
-        self.ready = False
         def other_thread():
-            self.ready = True
             print "thread started"
-            time.sleep(5)
+            lock2.release()
+            lock1.acquire()
+        lock1 = thread.allocate_lock()
+        lock2 = thread.allocate_lock()
+        lock1.acquire()
+        lock2.acquire()
         thread.start_new_thread(other_thread, ())
 
         def f():
-            for i in range(100):
-                if self.ready: break
-                time.sleep(0.1)
+            lock2.acquire()
             return sys._current_frames()
 
         frames = f()
+        lock1.release()
         thisframe = frames.pop(thread_id)
         assert thisframe.f_code.co_name == 'f'
 
