@@ -393,29 +393,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.load_const(self.space.w_None)
         self.emit_op(ops.RETURN_VALUE)
 
-    def visit_Print(self, pr):
-        self.update_position(pr.lineno, True)
-        have_dest = bool(pr.dest)
-        if have_dest:
-            pr.dest.walkabout(self)
-        if pr.values:
-            for value in pr.values:
-                if have_dest:
-                    self.emit_op(ops.DUP_TOP)
-                    value.walkabout(self)
-                    self.emit_op(ops.ROT_TWO)
-                    self.emit_op(ops.PRINT_ITEM_TO)
-                else:
-                    value.walkabout(self)
-                    self.emit_op(ops.PRINT_ITEM)
-        if pr.nl:
-            if have_dest:
-                self.emit_op(ops.PRINT_NEWLINE_TO)
-            else:
-                self.emit_op(ops.PRINT_NEWLINE)
-        elif have_dest:
-            self.emit_op(ops.POP_TOP)
-
     def visit_Delete(self, delete):
         self.update_position(delete.lineno, True)
         self.visit_sequence(delete.targets)
