@@ -78,6 +78,8 @@ def _hex_digit_to_int(d):
     val = ord(d)
     if 47 < val < 58:
         return val - 48
+    if 64 < val < 71:
+        return val - 55
     if 96 < val < 103:
         return val - 87
     return -1
@@ -88,7 +90,6 @@ def descr_fromhex(space, w_type, w_hexstring):
     "accepted.\nExample: bytearray.fromhex('B9 01EF') -> "
     "bytearray(b'\\xb9\\x01\\xef')."
     hexstring = space.unicode_w(w_hexstring)
-    hexstring = hexstring.lower()
     data = []
     length = len(hexstring)
     i = -2
