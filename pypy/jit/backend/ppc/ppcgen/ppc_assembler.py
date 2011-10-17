@@ -109,7 +109,7 @@ class AssemblerPPC(OpAssembler):
         if IS_PPC_32:
             self.mc.stwx(source_reg.value, 0, 0)
         else:
-            self.mc.std(source_reg.value, 0, 0)
+            self.mc.stdx(source_reg.value, 0, 0)
 
     def _save_nonvolatiles(self):
         for i, reg in enumerate(NONVOLATILES):
@@ -161,17 +161,21 @@ class AssemblerPPC(OpAssembler):
             # save r31 at the bottom of the stack frame
             self.mc.stw(r.SPP.value, r.SP.value, WORD)
         else:
-            self.mc.stdu(1, 1, -frame_depth)
-            self.mc.mflr(0)
-            self.mc.std(0, 1, frame_depth + 4)
+            self.mc.stdu(r.SP.value, r.SP.value, -frame_depth)
+            self.mc.mflr(r.r0.value)
+            self.mc.std(r.r0.value, r.SP.value, frame_depth + 2 * WORD)
         offset = GPR_SAVE_AREA + WORD
         # compute spilling pointer (SPP)
         self.mc.addi(r.SPP.value, r.SP.value, frame_depth - offset)
         self._save_nonvolatiles()
         # save r31, use r30 as scratch register
         # this is safe because r30 has been saved already
-        self.mc.lwz(r.r30.value, r.SP.value, WORD)
-        self.mc.stw(r.r30.value, r.SPP.value, WORD * len(NONVOLATILES))
+        if IS_PPC_32:
+            self.mc.lwz(r.r30.value, r.SP.value, WORD)
+            self.mc.stw(r.r30.value, r.SPP.value, WORD * len(NONVOLATILES))
+        else:
+            self.mc.ld(r.r30.value, r.SP.value, WORD)
+            self.mc.std(r.r30.value, r.SPP.value, WORD * len(NONVOLATILES))
         # branch to loop code
         curpos = self.mc.currpos()
         offset = target_pos - curpos
