@@ -348,7 +348,6 @@ def set_pypy_opt_level(config, level):
     # all the good optimizations for PyPy should be listed here
     if level in ['2', '3', 'jit']:
         config.objspace.opcodes.suggest(CALL_METHOD=True)
-        config.objspace.std.suggest(withrangelist=True)
         config.objspace.std.suggest(withmethodcache=True)
         config.objspace.std.suggest(withprebuiltchar=True)
         config.objspace.std.suggest(builtinshortcut=True)
@@ -367,7 +366,6 @@ def set_pypy_opt_level(config, level):
     # memory-saving optimizations
     if level == 'mem':
         config.objspace.std.suggest(withprebuiltint=True)
-        config.objspace.std.suggest(withrangelist=True)
         config.objspace.std.suggest(withprebuiltchar=True)
         config.objspace.std.suggest(withmapdict=True)
         config.objspace.std.suggest(withstrslice=True)
