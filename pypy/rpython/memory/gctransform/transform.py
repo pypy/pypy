@@ -562,7 +562,7 @@ class GCTransformer(BaseGCTransformer):
     def gct_add_memory_pressure(self, hop):
         if hasattr(self, 'add_memory_pressure_ptr'):
             op = hop.spaceop
-            size = hop.args[0]
+            size = op.args[0]
             hop.genop("direct_call",
                           [self.raw_malloc_memory_pressure_ptr,
                            size])
@@ -598,9 +598,9 @@ class GCTransformer(BaseGCTransformer):
     def gct_fv_raw_malloc_varsize(self, hop, flags, TYPE, v_length, c_const_size, c_item_size,
                                                                     c_offset_to_length):
         if flags.get('add_memory_pressure', False):
-            if hasattr(self, 'raw_malloc_memory_pressure_ptr'):
+            if hasattr(self, 'raw_malloc_memory_pressure_varsize_ptr'):
                 hop.genop("direct_call",
-                          [self.raw_malloc_memory_pressure_ptr,
+                          [self.raw_malloc_memory_pressure_varsize_ptr,
                            v_length, c_item_size])
         if c_offset_to_length is None:
             if flags.get('zero'):
