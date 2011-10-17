@@ -48,6 +48,13 @@ def test_get_current_qmut_instance():
 
 class QuasiImmutTests(object):
 
+    def setup_method(self, meth):
+        self.prev_compress_limit = QuasiImmut.compress_limit
+        QuasiImmut.compress_limit = 1
+
+    def teardown_method(self, meth):
+        QuasiImmut.compress_limit = self.prev_compress_limit
+
     def test_simple_1(self):
         myjitdriver = JitDriver(greens=['foo'], reds=['x', 'total'])
         class Foo:
@@ -453,7 +460,7 @@ class QuasiImmutTests(object):
         assert f(100, 15) == 3009
         res = self.meta_interp(f, [100, 15])
         assert res == 3009
-        self.check_loops(guard_not_invalidated=2, getfield_gc=0,
+        self.check_loops(guard_not_invalidated=4, getfield_gc=0,
                          getarrayitem_gc=0, getarrayitem_gc_pure=0,
                          call_may_force=0, guard_not_forced=0)
 

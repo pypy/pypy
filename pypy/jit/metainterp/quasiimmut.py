@@ -51,13 +51,13 @@ def do_force_quasi_immutable(cpu, p, mutatefielddescr):
 
 class QuasiImmut(object):
     llopaque = True
+    compress_limit = 30
     
     def __init__(self, cpu):
         self.cpu = cpu
         # list of weakrefs to the LoopTokens that must be invalidated if
         # this value ever changes
         self.looptokens_wrefs = []
-        self.compress_limit = 30
 
     def hide(self):
         qmut_ptr = self.cpu.ts.cast_instance_to_base_ref(self)
@@ -79,7 +79,7 @@ class QuasiImmut(object):
             looptoken = wref()
             if looptoken is not None and not looptoken.invalidated:
                 newlist.append(wref)
-        self.looptokens_wrefs = wref
+        self.looptokens_wrefs = newlist
         self.compress_limit = (len(self.looptokens_wrefs) + 15) * 2
 
     def invalidate(self):
