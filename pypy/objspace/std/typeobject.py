@@ -924,7 +924,7 @@ abstract_mro = gateway.applevel("""
             if klass not in mro:
                 mro.append(klass)
                 if not isinstance(klass.__bases__, tuple):
-                    raise TypeError, '__bases__ must be a tuple'
+                    raise TypeError('__bases__ must be a tuple')
                 stack += klass.__bases__[::-1]
         return mro
 """, filename=__file__).interphook("abstract_mro")

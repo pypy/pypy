@@ -152,7 +152,7 @@ def reduce_2(obj):
     else:
         args = getnewargs()
         if not isinstance(args, tuple):
-            raise TypeError, "__getnewargs__ should return a tuple"
+            raise TypeError("__getnewargs__ should return a tuple")
 
     try:
         getstate = obj.__getstate__
@@ -201,7 +201,7 @@ def slotnames(cls):
     import copy_reg
     slotnames = copy_reg._slotnames(cls)
     if not isinstance(slotnames, list) and slotnames is not None:
-        raise TypeError, "copy_reg._slotnames didn't return a list or None"
+        raise TypeError("copy_reg._slotnames didn't return a list or None")
     return slotnames
 ''', filename=__file__)
 

@@ -61,7 +61,7 @@ def run_toplevel(f, *fargs, **fkwds):
             if softspace:
                 stdout.write('\n')
 
-    except SystemExit, e:
+    except SystemExit as e:
         handle_sys_exit(e)
     except:
         display_exception()
@@ -377,7 +377,7 @@ def handle_argument(c, options, iterargv, iterarg=iter(())):
             funcarg = ''.join(remaining)
         else:
             try:
-                funcarg = iterargv.next()
+                funcarg = next(iterargv)
             except StopIteration:
                 if len(c) == 1:
                     c = '-' + c
@@ -409,7 +409,7 @@ def parse_command_line(argv):
         # Else interpret the rest of the argument character by character
         else:
             iterarg = iter(arg)
-            iterarg.next()     # skip the '-'
+            next(iterarg)      # skip the '-'
             for c in iterarg:
                 if c not in cmdline_options:
                     raise CommandLineError('Unknown option: -%s' % (c,))
@@ -560,7 +560,7 @@ def run_command_line(interactive,
                         f = open(python_startup)
                         startup = f.read()
                         f.close()
-                    except IOError, e:
+                    except IOError as e:
                         print("Could not open PYTHONSTARTUP", file=sys.stderr)
                         print("IOError:", e, file=sys.stderr)
                     else:
@@ -609,7 +609,7 @@ def run_command_line(interactive,
                     args = (execfile, filename, mainmodule.__dict__)
             success = run_toplevel(*args)
 
-    except SystemExit, e:
+    except SystemExit as e:
         status = e.code
         if inspect_requested():
             display_exception()
@@ -622,7 +622,7 @@ def run_command_line(interactive,
         try:
             from _pypy_interact import interactive_console
             success = run_toplevel(interactive_console, mainmodule)
-        except SystemExit, e:
+        except SystemExit as e:
             status = e.code
         else:
             status = not success
