@@ -4,15 +4,15 @@ from pypy.interpreter.pyparser import future, parser, pytokenizer, pygram, error
 from pypy.interpreter.astcompiler import consts
 
 
-def decode_source(space, bytes, encoding=None):
+def recode_to_utf8(space, bytes, encoding=None):
     if encoding is None:
         encoding = 'utf-8'
     if encoding == 'utf-8':
         return bytes
-    text = space.unicode_w(space.call_function(space.w_unicode,
-                                               space.wrapbytes(bytes),
-                                               space.wrap(encoding)))
-    return text.encode('utf-8')
+    w_text = space.call_method(space.wrapbytes(bytes), "decode",
+                               space.wrap(encoding))
+    w_recoded = space.call_method(w_text, "encode", space.wrap("utf-8"))
+    return space.bytes_w(w_recoded)
 
 def _normalize_encoding(encoding):
     """returns normalized name for <encoding>
@@ -112,17 +112,17 @@ class PythonParser(parser.Parser):
             if decl_enc and decl_enc != "utf-8":
                 raise error.SyntaxError("UTF-8 BOM with non-utf8 coding cookie",
                                         filename=compile_info.filename)
-            textsrc = decode_source(self.space, bytessrc, enc)
+            textsrc = bytessrc
         elif compile_info.flags & consts.PyCF_SOURCE_IS_UTF8:
             enc = 'utf-8'
             if _check_for_encoding(bytessrc) is not None:
                 raise error.SyntaxError("coding declaration in unicode string",
                                         filename=compile_info.filename)
-            textsrc = decode_source(self.space, bytessrc, enc)
+            textsrc = bytessrc
         else:
             enc = _normalize_encoding(_check_for_encoding(bytessrc))
             try:
-                textsrc = decode_source(self.space, bytessrc, enc)
+                textsrc = recode_to_utf8(self.space, bytessrc, enc)
             except OperationError, e:
                 # if the codec is not found, LookupError is raised.  we
                 # check using 'is_w' not to mask potential IndexError or
