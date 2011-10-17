@@ -198,6 +198,29 @@ class Regalloc(object):
         res = self.force_allocate_reg(op.result)
         return locs + [res]
 
+    def prepare_int_sub(self, op):
+        boxes = list(op.getarglist())
+        b0, b1 = boxes
+        imm_b0 = _check_imm_arg(b0)
+        imm_b1 = _check_imm_arg(b1)
+        if not imm_b0 and imm_b1:
+            l0, box = self._ensure_value_is_boxed(b0, boxes)
+            l1 = self.make_sure_var_in_reg(b1, [b0])
+            boxes.append(box)
+        elif imm_b0 and not imm_b1:
+            l0 = self.make_sure_var_in_reg(b0)
+            l1, box = self._ensure_value_is_boxed(b1, boxes)
+            boxes.append(box)
+        else:
+            l0, box = self._ensure_value_is_boxed(b0, boxes)
+            boxes.append(box)
+            l1, box = self._ensure_value_is_boxed(b1, boxes)
+            boxes.append(box)
+        locs = [l0, l1]
+        self.possibly_free_vars(boxes)
+        res = self.force_allocate_reg(op.result)
+        return locs + [res]
+
     def prepare_finish(self, op):
         args = [locations.imm(self.frame_manager.frame_depth)]
         for i in range(op.numargs()):

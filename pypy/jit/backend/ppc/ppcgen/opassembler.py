@@ -26,6 +26,17 @@ class OpAssembler(object):
             self.mc.addi(res.value, l0.value, l1.value)
         else:
             self.mc.add(res.value, l0.value, l1.value)
+
+    def emit_int_sub(self, op, arglocs, regalloc):
+        l0, l1, res = arglocs
+        if l0.is_imm():
+            self.mc.load_imm(r.r0, l0.value)
+            self.mc.sub(res.value, r.r0.value, l1.value)
+        elif l1.is_imm():
+            self.mc.subi(res.value, l0.value, l1.value)
+        else:
+            print "unten"
+            self.mc.sub(res.value, l0.value, l1.value)
    
     emit_int_le = gen_emit_cmp_op(c.LE)   
 
