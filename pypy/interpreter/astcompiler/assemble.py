@@ -544,6 +544,7 @@ _static_opcode_stack_effects = {
     ops.LOAD_BUILD_CLASS : 1,
     ops.STORE_LOCALS : -1,
     ops.POP_BLOCK : 0,
+    ops.POP_EXCEPT : 0,
     ops.END_FINALLY : -3,
     ops.SETUP_WITH : 1,
     ops.SETUP_FINALLY : 0,
@@ -572,6 +573,7 @@ _static_opcode_stack_effects = {
     ops.LOAD_GLOBAL : 1,
     ops.STORE_GLOBAL : -1,
     ops.DELETE_GLOBAL : 0,
+    ops.DELETE_DEREF : 0,
 
     ops.LOAD_CLOSURE : 1,
     ops.LOAD_DEREF : 1,
@@ -594,6 +596,9 @@ _static_opcode_stack_effects = {
 
 def _compute_UNPACK_SEQUENCE(arg):
     return arg + 1
+
+def _compute_UNPACK_EX(arg):
+    return (arg % 256) + (arg // 256)
 
 def _compute_BUILD_TUPLE(arg):
     return 1 - arg
