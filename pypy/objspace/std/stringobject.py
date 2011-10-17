@@ -17,8 +17,6 @@ from pypy.interpreter.buffer import StringBuffer
 from pypy.objspace.std.stringtype import sliced, wrapstr, wrapchar, \
      stringendswith, stringstartswith, joined2
 
-from pypy.objspace.std.formatting import mod_format
-
 class W_StringObject(W_Object):
     from pypy.objspace.std.stringtype import str_typedef as typedef
     _immutable_fields_ = ['_value']
@@ -995,15 +993,6 @@ def str_decode__String_ANY_ANY(space, w_string, w_encoding=None, w_errors=None):
         decode_object
     encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
     return decode_object(space, w_string, encoding, errors)
-
-# CPython's logic for deciding if  ""%values  is
-# an error (1 value, 0 %-formatters) or not
-# (values is of a mapping type)
-def mod__String_ANY(space, w_format, w_values):
-    return mod_format(space, w_format, w_values, do_unicode=False)
-
-def str_format__String(space, w_string, __args__):
-    return newformat.format_method(space, w_string, __args__, False)
 
 def format__String_ANY(space, w_string, w_format_spec):
     if not space.isinstance_w(w_format_spec, space.w_str):
