@@ -871,15 +871,10 @@ class ObjSpace(object):
             # start of hack for performance
             from pypy.interpreter.function import Function, Method
             if isinstance(w_func, Method):
-                w_inst = w_func.w_instance
-                if w_inst is not None:
-                    if nargs < 4:
-                        func = w_func.w_function
-                        if isinstance(func, Function):
-                            return func.funccall(w_inst, *args_w)
-                elif args_w and (
-                        self.abstract_isinstance_w(args_w[0], w_func.w_class)):
-                    w_func = w_func.w_function
+                if nargs < 4:
+                    func = w_func.w_function
+                    if isinstance(func, Function):
+                        return func.funccall(w_func.w_instance, *args_w)
 
             if isinstance(w_func, Function):
                 return w_func.funccall(*args_w)
@@ -899,16 +894,10 @@ class ObjSpace(object):
         if not self.config.objspace.disable_call_speedhacks:
             # start of hack for performance
             if isinstance(w_func, Method):
-                w_inst = w_func.w_instance
-                if w_inst is not None:
-                    w_func = w_func.w_function
-                    # reuse callable stack place for w_inst
-                    frame.settopvalue(w_inst, nargs)
-                    nargs += 1
-                elif nargs > 0 and (
-                    self.abstract_isinstance_w(frame.peekvalue(nargs-1),   #    :-(
-                                               w_func.w_class)):
-                    w_func = w_func.w_function
+                # reuse callable stack place for w_inst
+                frame.settopvalue(w_func.w_instance, nargs)
+                nargs += 1
+                w_func = w_func.w_function
 
             if isinstance(w_func, Function):
                 return w_func.funccall_valuestack(nargs, frame)

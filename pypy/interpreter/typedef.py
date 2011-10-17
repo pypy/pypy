@@ -783,7 +783,6 @@ Method.typedef = TypeDef(
     __func__ = interp_attrproperty_w('w_function', cls=Method),
     im_self  = interp_attrproperty_w('w_instance', cls=Method),
     __self__ = interp_attrproperty_w('w_instance', cls=Method),
-    im_class = interp_attrproperty_w('w_class', cls=Method),
     __getattribute__ = interp2app(Method.descr_method_getattribute),
     __eq__ = interp2app(Method.descr_method_eq),
     __ne__ = descr_generic_ne,
