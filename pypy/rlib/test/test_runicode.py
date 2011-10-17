@@ -118,6 +118,9 @@ class TestDecoding(UnicodeTests):
         for i in range(10000):
             for encoding in ("utf-7 utf-8 utf-16 utf-16-be utf-16-le "
                              "utf-32 utf-32-be utf-32-le").split():
+                if encoding == 'utf-8' and 0xd800 <= i <= 0xdfff:
+                    # Don't try to encode lone surrogates
+                    continue
                 self.checkdecode(unichr(i), encoding)
 
     def test_random(self):

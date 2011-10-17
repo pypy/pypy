@@ -253,6 +253,8 @@ def _encodeUCS4(result, ch):
     result.append((chr((0x80 | (ch & 0x3f)))))
 
 def unicode_encode_utf_8(s, size, errors, errorhandler=None):
+    if errorhandler is None:
+        errorhandler = raise_unicode_exception_encode
     assert(size >= 0)
     result = StringBuilder(size)
     pos = 0
@@ -279,11 +281,14 @@ def unicode_encode_utf_8(s, size, errors, errorhandler=None):
                         pos += 1
                         _encodeUCS4(result, ch3)
                         continue
-                r, pos = errorhandler(errors, 'utf-8',
-                                      'surrogates not allowed',
-                                      s, pos-1, pos)
-                result.append(r)
-                continue
+                    r, pos = errorhandler(errors, 'utf-8',
+                                          'surrogates not allowed',
+                                          s, pos-1, pos)
+                    result.append(r)
+                    continue
+                result.append((chr((0xe0 | (ch >> 12)))))
+                result.append((chr((0x80 | ((ch >> 6) & 0x3f)))))
+                result.append((chr((0x80 | (ch & 0x3f)))))
             else:
                 _encodeUCS4(result, ch)
     return result.build()
