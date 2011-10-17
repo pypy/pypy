@@ -367,24 +367,18 @@ def _str_join_many_items(space, w_self, list_w, size):
     reslen = len(self) * (size - 1)
     for i in range(size):
         w_s = list_w[i]
-        if not space.isinstance_w(w_s, space.w_str):
-            if space.isinstance_w(w_s, space.w_unicode):
-                # we need to rebuild w_list here, because the original
-                # w_list might be an iterable which we already consumed
-                w_list = space.newlist(list_w)
-                w_u = space.call_function(space.w_unicode, w_self)
-                return space.call_method(w_u, "join", w_list)
+        if not space.isinstance_w(w_s, space.w_bytes):
             raise operationerrfmt(
                 space.w_TypeError,
-                "sequence item %d: expected string, %s "
+                "sequence item %d: expected bytes, %s "
                 "found", i, space.type(w_s).getname(space))
-        reslen += len(space.str_w(w_s))
+        reslen += len(space.bytes_w(w_s))
 
     sb = StringBuilder(reslen)
     for i in range(size):
         if self and i != 0:
             sb.append(self)
-        sb.append(space.str_w(list_w[i]))
+        sb.append(space.bytes_w(list_w[i]))
     return space.wrapbytes(sb.build())
 
 def str_rjust__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
@@ -458,7 +452,7 @@ def str_partition__String_String(space, w_self, w_sub):
                              space.wrap("empty separator"))
     pos = self.find(sub)
     if pos == -1:
-        return space.newtuple([w_self, space.wrap(''), space.wrap('')])
+        return space.newtuple([w_self, space.wrapbytes(''), space.wrapbytes('')])
     else:
         return space.newtuple([sliced(space, self, 0, pos, w_self),
                                w_sub,
@@ -473,7 +467,7 @@ def str_rpartition__String_String(space, w_self, w_sub):
                              space.wrap("empty separator"))
     pos = self.rfind(sub)
     if pos == -1:
-        return space.newtuple([space.wrap(''), space.wrap(''), w_self])
+        return space.newtuple([space.wrapbytes(''), space.wrapbytes(''), w_self])
     else:
         return space.newtuple([sliced(space, self, 0, pos, w_self),
                                w_sub,
@@ -653,7 +647,7 @@ def str_endswith__String_Tuple_ANY_ANY(space, w_self, w_suffixes, w_start, w_end
             w_u = space.call_function(space.w_unicode, w_self)
             return space.call_method(w_u, "endswith", w_suffixes, w_start,
                                      w_end)
-        suffix = space.str_w(w_suffix)
+        suffix = space.bytes_w(w_suffix)
         if stringendswith(u_self, suffix, start, end):
             return space.w_True
     return space.w_False
@@ -672,7 +666,7 @@ def str_startswith__String_Tuple_ANY_ANY(space, w_self, w_prefixes, w_start, w_e
             w_u = space.call_function(space.w_unicode, w_self)
             return space.call_method(w_u, "startswith", w_prefixes, w_start,
                                      w_end)
-        prefix = space.str_w(w_prefix)
+        prefix = space.bytes_w(w_prefix)
         if stringstartswith(u_self, prefix, start, end):
             return space.w_True
     return space.w_False
