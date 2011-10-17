@@ -119,7 +119,7 @@ class Module(MixedModule):
            builtin = space.interpclass_w(w_builtin)
            if isinstance(builtin, module.Module):
                return builtin
-       # no builtin! make a default one.  Given them None, at least.
+       # no builtin! make a default one.  Give them None, at least.
        builtin = module.Module(space, None)
        space.setitem(builtin.w_dict, space.wrap('None'), space.w_None)
        return builtin
