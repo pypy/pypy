@@ -1024,7 +1024,7 @@ class TestGenerationGC(GenericMovingGCTests):
             llop.gc__collect(lltype.Void)
             return static.p.x + i
         def cleanup():
-            static.p = lltype.nullptr(T1)        
+            static.p = lltype.nullptr(T1)
         return f, cleanup, None
 
     def test_nongc_static_root_minor_collect(self):
