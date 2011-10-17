@@ -1345,7 +1345,7 @@ app = gateway.applevel(r'''
 
         # give to write() an argument which is either a string or a unicode
         # (and let it deals itself with unicode handling)
-        if not isinstance(x, unicode):
+        if not isinstance(x, str):
             x = str(x)
         stream.write(x)
 
