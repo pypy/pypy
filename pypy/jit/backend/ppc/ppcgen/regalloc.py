@@ -159,7 +159,7 @@ class Regalloc(object):
                 box = TempInt()
             loc = self.force_allocate_reg(box, forbidden_vars=forbidden_vars)
             imm = self.rm.convert_to_imm(thing)
-            self.assembler.load_word(loc, imm)
+            self.assembler.load_imm(loc.value, imm.value)
         else:
             loc = self.make_sure_var_in_reg(thing,
                     forbidden_vars=forbidden_vars)
@@ -220,6 +220,21 @@ class Regalloc(object):
         self.possibly_free_vars(boxes)
         res = self.force_allocate_reg(op.result)
         return locs + [res]
+
+    def prepare_int_mul(self, op):
+        boxes = list(op.getarglist())
+        b0, b1 = boxes
+
+        reg1, box = self._ensure_value_is_boxed(b0, forbidden_vars=boxes)
+        boxes.append(box)
+        reg2, box = self._ensure_value_is_boxed(b1, forbidden_vars=boxes)
+        boxes.append(box)
+
+        self.possibly_free_vars(boxes)
+        self.possibly_free_vars_for_op(op)
+        res = self.force_allocate_reg(op.result)
+        self.possibly_free_var(op.result)
+        return [reg1, reg2, res]
 
     def prepare_finish(self, op):
         args = [locations.imm(self.frame_manager.frame_depth)]

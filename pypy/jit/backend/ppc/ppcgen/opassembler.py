@@ -18,6 +18,10 @@ class GuardToken(object):
 
 class OpAssembler(object):
         
+    # ********************************************************
+    # *               I N T    O P E R A T I O N S           *
+    # ********************************************************
+
     def emit_int_add(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
         if l0.is_imm():
@@ -36,7 +40,11 @@ class OpAssembler(object):
             self.mc.subi(res.value, l0.value, l1.value)
         else:
             self.mc.sub(res.value, l0.value, l1.value)
-   
+ 
+    def emit_int_mul(self, op, arglocs, regalloc):
+        reg1, reg2, res = arglocs
+        self.mc.mullw(res.value, reg1.value, reg2.value)
+
     emit_int_le = gen_emit_cmp_op(c.LE)   
 
     def _emit_guard(self, op, arglocs, fcond, save_exc=False,
