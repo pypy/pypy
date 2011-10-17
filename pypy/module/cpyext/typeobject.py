@@ -335,13 +335,13 @@ def init_typeobject(space):
     track_reference(space, lltype.nullptr(PyObject.TO), space.w_type)
     track_reference(space, lltype.nullptr(PyObject.TO), space.w_object)
     track_reference(space, lltype.nullptr(PyObject.TO), space.w_tuple)
-    track_reference(space, lltype.nullptr(PyObject.TO), space.w_str)
+    track_reference(space, lltype.nullptr(PyObject.TO), space.w_unicode)
 
     # create the objects
     py_type = create_ref(space, space.w_type)
     py_object = create_ref(space, space.w_object)
     py_tuple = create_ref(space, space.w_tuple)
-    py_str = create_ref(space, space.w_str)
+    py_str = create_ref(space, space.w_unicode)
 
     # form cycles
     pto_type = rffi.cast(PyTypeObjectPtr, py_type)
@@ -366,7 +366,7 @@ def init_typeobject(space):
     track_reference(space, py_type, space.w_type, replace=True)
     track_reference(space, py_object, space.w_object, replace=True)
     track_reference(space, py_tuple, space.w_tuple, replace=True)
-    track_reference(space, py_str, space.w_str, replace=True)
+    track_reference(space, py_str, space.w_unicode, replace=True)
 
 
 @cpython_api([PyObject], lltype.Void, external=False)
@@ -691,7 +691,7 @@ def _PyType_Lookup(space, type, w_name):
     w_type = from_ref(space, rffi.cast(PyObject, type))
     assert isinstance(w_type, W_TypeObject)
 
-    if not space.isinstance_w(w_name, space.w_str):
+    if not space.isinstance_w(w_name, space.w_unicode):
         return None
     name = space.str_w(w_name)
     w_obj = w_type.lookup(name)
