@@ -161,7 +161,7 @@ iter_sentinel = gateway.applevel('''
 
     def iter_sentinel(callable_, sentinel):
         if not callable(callable_):
-            raise TypeError, 'iter(v, w): v must be callable'
+            raise TypeError('iter(v, w): v must be callable')
         return iter_generator(callable_, sentinel)
 
 ''', filename=__file__).interphook("iter_sentinel")

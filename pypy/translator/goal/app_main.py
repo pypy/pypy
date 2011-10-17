@@ -122,16 +122,16 @@ def print_info(*args):
         optitems = options.items()
         optitems.sort()
         for name, value in optitems:
-            print ' %51s: %s' % (name, value)
+            print(' %51s: %s' % (name, value))
     raise SystemExit
 
 def print_help(*args):
-    print 'usage: %s [options] [-c cmd|-m mod|file.py|-] [arg...]' % (
-        sys.executable,)
-    print __doc__.rstrip()
+    print('usage: %s [options] [-c cmd|-m mod|file.py|-] [arg...]' % (
+        sys.executable,))
+    print(__doc__.rstrip())
     if 'pypyjit' in sys.builtin_module_names:
         _print_jit_help()
-    print
+    print()
     raise SystemExit
 
 def _print_jit_help():
@@ -139,18 +139,18 @@ def _print_jit_help():
     items = pypyjit.defaults.items()
     items.sort()
     for key, value in items:
-        print '  --jit %s=N %slow-level JIT parameter (default %s)' % (
-            key, ' '*(18-len(key)), value)
-    print '  --jit off                  turn off the JIT'
+        print('  --jit %s=N %slow-level JIT parameter (default %s)' % (
+            key, ' '*(18-len(key)), value))
+    print('  --jit off                  turn off the JIT')
 
 def print_version(*args):
-    print >> sys.stderr, "Python", sys.version
+    print ("Python", sys.version, file=sys.stderr)
     raise SystemExit
 
 def set_jit_option(options, jitparam, *args):
     if 'pypyjit' not in sys.builtin_module_names:
-        print >> sys.stderr, ("Warning: No jit support in %s" %
-                              (sys.executable,))
+        print("Warning: No jit support in %s" % (sys.executable,),
+              file=sys.stderr)
     else:
         import pypyjit
         pypyjit.set_param(jitparam)
@@ -159,9 +159,9 @@ class CommandLineError(Exception):
     pass
 
 def print_error(msg):
-    print >> sys.stderr, msg
-    print >> sys.stderr, 'usage: %s [options]' % (sys.executable,)
-    print >> sys.stderr, 'Try `%s -h` for more information.' % (sys.executable,)
+    print(msg, file=sys.stderr)
+    print('usage: %s [options]' % (sys.executable,), file=sys.stderr)
+    print('Try `%s -h` for more information.' % (sys.executable,), file=sys.stderr)
 
 def fdopen(fd, mode, bufsize=-1):
     try:
@@ -203,11 +203,12 @@ def get_library_path(executable):
         dirname = resolvedirof(search)
         if dirname == search:
             # not found!  let's hope that the compiled-in path is ok
-            print >> sys.stderr, """\
+            print("""\
 debug: WARNING: Library path not found, using compiled-in sys.path.
 debug: WARNING: 'sys.prefix' will not be set.
 debug: WARNING: Make sure the pypy binary is kept inside its tree of files.
-debug: WARNING: It is ok to create a symlink to it from somewhere else."""
+debug: WARNING: It is ok to create a symlink to it from somewhere else.""",
+                  file=sys.stderr)
             newpath = sys.path[:]
             break
         newpath = sys.pypy_initial_path(dirname)
@@ -441,8 +442,8 @@ def parse_command_line(argv):
         sys.dont_write_bytecode = bool(sys.flags.dont_write_bytecode)
 
         if sys.py3kwarning:
-            print >> sys.stderr, (
-                "Warning: pypy does not implement py3k warnings")
+            print("Warning: pypy does not implement py3k warnings",
+                  file=sys.stderr)
 
 ##    if not we_are_translated():
 ##        for key in sorted(options):
@@ -478,7 +479,7 @@ def run_command_line(interactive,
         try:
             import site
         except:
-            print >> sys.stderr, "'import site' failed"
+            print("'import site' failed", file=sys.stderr)
 
     readenv = not ignore_environment
     io_encoding = ((readenv and os.getenv("PYTHONIOENCODING"))
@@ -531,7 +532,7 @@ def run_command_line(interactive,
             sys.path.insert(0, '')
 
             def run_it():
-                exec run_command in mainmodule.__dict__
+                exec(run_command, mainmodule.__dict__)
             success = run_toplevel(run_it)
         elif run_module:
             # handle the "-m" command
@@ -560,14 +561,14 @@ def run_command_line(interactive,
                         startup = f.read()
                         f.close()
                     except IOError, e:
-                        print >> sys.stderr, "Could not open PYTHONSTARTUP"
-                        print >> sys.stderr, "IOError:", e
+                        print("Could not open PYTHONSTARTUP", file=sys.stderr)
+                        print("IOError:", e, file=sys.stderr)
                     else:
                         def run_it():
                             co_python_startup = compile(startup,
                                                         python_startup,
                                                         'exec')
-                            exec co_python_startup in mainmodule.__dict__
+                            exec(co_python_startup, mainmodule.__dict__)
                         run_toplevel(run_it)
                 # Then we need a prompt.
                 inspect = True
@@ -575,7 +576,7 @@ def run_command_line(interactive,
                 # If not interactive, just read and execute stdin normally.
                 def run_it():
                     co_stdin = compile(sys.stdin.read(), '<stdin>', 'exec')
-                    exec co_stdin in mainmodule.__dict__
+                    exec(co_stdin, mainmodule.__dict__)
                 mainmodule.__file__ = '<stdin>'
                 success = run_toplevel(run_it)
         else:
@@ -644,9 +645,9 @@ def resolvedirof(filename):
     return dirname
 
 def print_banner():
-    print 'Python %s on %s' % (sys.version, sys.platform)
-    print ('Type "help", "copyright", "credits" or '
-           '"license" for more information.')
+    print('Python %s on %s' % (sys.version, sys.platform))
+    print('Type "help", "copyright", "credits" or '
+          '"license" for more information.')
 
 def entry_point(executable, argv, nanos):
     setup_sys_executable(executable, nanos)
@@ -686,7 +687,7 @@ if __name__ == '__main__':
         assert filename.endswith('.pyc')
         assert file is None
         assert module.__name__ == '__main__'
-        print 'in _run_compiled_module'
+        print('in _run_compiled_module')
     def _getimporter(path):
         import os, imp
         if os.path.isdir(path):
