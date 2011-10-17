@@ -18,7 +18,7 @@ globals and locals.  If only globals is given, locals defaults to it."""
             loc = locals()
     elif loc is None:
         loc = glob
-    f = file(filename, 'rU')
+    f = open(filename, 'rU')
     try:
         source = f.read()
     finally:
