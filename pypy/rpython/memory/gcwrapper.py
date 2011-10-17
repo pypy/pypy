@@ -66,7 +66,8 @@ class GCManagedHeap(object):
         return result
 
     def add_memory_pressure(self, size):
-        self.gc.add_memory_pressure(self)
+        if hasattr(self.gc, 'raw_malloc_memory_pressure'):
+            self.gc.raw_malloc_memory_pressure(size)
 
     def shrink_array(self, p, smallersize):
         if hasattr(self.gc, 'shrink_array'):
