@@ -19,14 +19,16 @@ class OperationError(Exception):
 
     _w_value = None
     _application_traceback = None
+    w_cause = None
 
-    def __init__(self, w_type, w_value, tb=None):
+    def __init__(self, w_type, w_value, tb=None, w_cause=None):
         if not we_are_translated() and w_type is None:
             from pypy.tool.error import FlowingError
             raise FlowingError(w_value)
         self.setup(w_type)
         self._w_value = w_value
         self._application_traceback = tb
+        self.w_cause = w_cause
 
     def setup(self, w_type):
         self.w_type = w_type
@@ -205,6 +207,8 @@ class OperationError(Exception):
                         # raise Type, X: assume X is the constructor argument
                         w_value = space.call_function(w_type, w_value)
                     w_type = self._exception_getclass(space, w_value)
+            if self.w_cause:
+                space.setattr(w_value, space.wrap("__cause__"), self.w_cause)
 
         else:
             # the only case left here is (inst, None), from a 'raise inst'.

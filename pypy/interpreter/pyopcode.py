@@ -499,8 +499,7 @@ class __extend__(pyframe.PyFrame):
             w_value = space.call_function(w_type)
         else:
             w_type = space.type(w_value)
-        w_value.w_cause = w_cause
-        operror = OperationError(w_type, w_value)
+        operror = OperationError(w_type, w_value, w_cause=w_cause)
         operror.normalize_exception(space)
         w_traceback = space.w_None # XXX with_traceback?
         if not space.full_exceptions or space.is_w(w_traceback, space.w_None):
