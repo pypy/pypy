@@ -324,7 +324,7 @@ def make_template_formatting_class():
             if recursive:
                 spec = self._build_string(spec_start, end, level)
             w_rendered = self.space.format(w_obj, self.space.wrap(spec))
-            unwrapper = "unicode_w" if self.is_unicode else "str_w"
+            unwrapper = "unicode_w" if self.is_unicode else "bytes_w"
             to_interp = getattr(self.space, unwrapper)
             return to_interp(w_rendered)
 
@@ -360,7 +360,7 @@ def format_method(space, w_string, args, is_unicode):
                                               space.unicode_w(w_string))
         return space.wrap(template.build(args))
     else:
-        template = str_template_formatter(space, space.str_w(w_string))
+        template = str_template_formatter(space, space.bytes_w(w_string))
         return space.wrap(template.build(args))
 
 
@@ -534,8 +534,11 @@ def make_formatting_class():
             w_msg = self.space.wrap(msg  % (tp, self._type))
             raise OperationError(self.space.w_ValueError, w_msg)
 
-        def format_string(self, string):
+        def format_string(self, w_string):
             space = self.space
+            if not space.isinstance_w(w_string, space.w_unicode):
+                w_string = space.str(w_string)
+            string = space.unicode_w(w_string)
             if self._parse_spec("s", "<"):
                 return space.wrap(string)
             if self._type != "s":
@@ -1133,21 +1136,12 @@ def make_formatting_class():
     return Formatter
 
 StrFormatter = make_formatting_class()
-UnicodeFormatter = make_formatting_class()
 
 
 def unicode_formatter(space, spec):
     return StrFormatter(space, True, spec)
 
-def str_formatter(space, spec):
-    return UnicodeFormatter(space, False, spec)
-
-
 @specialize.arg(2)
 def run_formatter(space, w_format_spec, meth, *args):
-    if space.isinstance_w(w_format_spec, space.w_unicode):
-        formatter = unicode_formatter(space, space.unicode_w(w_format_spec))
-        return getattr(formatter, meth)(*args)
-    else:
-        formatter = str_formatter(space, space.str_w(w_format_spec))
-        return getattr(formatter, meth)(*args)
+    formatter = unicode_formatter(space, space.unicode_w(w_format_spec))
+    return getattr(formatter, meth)(*args)

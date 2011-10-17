@@ -179,9 +179,7 @@ class AppTestUnicodeFormat(BaseStringFormatTests):
                 return "32"
             def __str__(self):
                 return "18"
-            def __unicode__(self):
-                return "42"
-        assert self.s("{!s}").format(x()) == "42"
+        assert self.s("{!s}").format(x()) == "18"
         assert self.s("{!r}").format(x()) == "32"
 
     def test_non_latin1_key(self):
@@ -189,28 +187,11 @@ class AppTestUnicodeFormat(BaseStringFormatTests):
 
 
 
-class AppTestStringFormat(BaseStringFormatTests):
-
-    def setup_class(cls):
-        cls.w_s = cls.space.w_str
-
-    def test_string_conversion(self):
-        class x(object):
-            def __repr__(self):
-                return "32"
-            def __str__(self):
-                return "18"
-            def __unicode__(self):
-                return "42"
-        assert self.s("{!s}").format(x()) == "18"
-        assert self.s("{!r}").format(x()) == "32"
-
-
 class BaseIntegralFormattingTest:
 
     def test_simple(self):
         assert format(self.i(2)) == "2"
-        assert isinstance(format(self.i(2), u""), unicode)
+        assert isinstance(format(self.i(2), u""), str)
 
     def test_invalid(self):
         raises(ValueError, format, self.i(8), "s")
@@ -221,7 +202,7 @@ class BaseIntegralFormattingTest:
         assert format(a, "c") == "a"
         as_uni = format(a, u"c")
         assert as_uni == u"a"
-        assert isinstance(as_uni, unicode)
+        assert isinstance(as_uni, str)
         raises(ValueError, format, a, "-c")
         raises(ValueError, format, a, ",c")
         assert format(a, "3c") == "  a"
@@ -353,70 +334,74 @@ class AppTestInternalMethods:
     # undocumented API on string and unicode object, but used by string.py
 
     def test_formatter_parser(self):
-        l = list('abcd'._formatter_parser())
+        import _string
+        l = list(_string.formatter_parser('abcd'))
         assert l == [('abcd', None, None, None)]
         #
-        l = list('ab{0}cd'._formatter_parser())
+        l = list(_string.formatter_parser('ab{0}cd'))
         assert l == [('ab', '0', '', None), ('cd', None, None, None)]
         #
-        l = list('{0}cd'._formatter_parser())
+        l = list(_string.formatter_parser('{0}cd'))
         assert l == [('', '0', '', None), ('cd', None, None, None)]
         #
-        l = list('ab{0}'._formatter_parser())
+        l = list(_string.formatter_parser('ab{0}'))
         assert l == [('ab', '0', '', None)]
         #
-        l = list(''._formatter_parser())
+        l = list(_string.formatter_parser(''))
         assert l == []
         #
-        l = list('{0:123}'._formatter_parser())
+        l = list(_string.formatter_parser('{0:123}'))
         assert l == [('', '0', '123', None)]
         #
-        l = list('{0!x:123}'._formatter_parser())
+        l = list(_string.formatter_parser('{0!x:123}'))
         assert l == [('', '0', '123', 'x')]
         #
-        l = list('{0!x:12{sdd}3}'._formatter_parser())
+        l = list(_string.formatter_parser('{0!x:12{sdd}3}'))
         assert l == [('', '0', '12{sdd}3', 'x')]
 
     def test_u_formatter_parser(self):
-        l = list(u'{0!x:12{sdd}3}'._formatter_parser())
+        import _string
+        l = list(_string.formatter_parser('{0!x:12{sdd}3}'))
         assert l == [(u'', u'0', u'12{sdd}3', u'x')]
         for x in l[0]:
-            assert isinstance(x, unicode)
+            assert isinstance(x, str)
 
     def test_formatter_field_name_split(self):
-        first, rest = ''._formatter_field_name_split()
+        import _string
+        first, rest = _string.formatter_field_name_split('')
         assert first == ''
         assert list(rest) == []
         #
-        first, rest = '31'._formatter_field_name_split()
+        first, rest = _string.formatter_field_name_split('31')
         assert first == 31
         assert list(rest) == []
         #
-        first, rest = 'foo'._formatter_field_name_split()
+        first, rest = _string.formatter_field_name_split('foo')
         assert first == 'foo'
         assert list(rest) == []
         #
-        first, rest = 'foo.bar'._formatter_field_name_split()
+        first, rest = _string.formatter_field_name_split('foo.bar')
         assert first == 'foo'
         assert list(rest) == [(True, 'bar')]
         #
-        first, rest = 'foo[123]'._formatter_field_name_split()
+        first, rest = _string.formatter_field_name_split('foo[123]')
         assert first == 'foo'
         assert list(rest) == [(False, 123)]
         #
-        first, rest = 'foo.baz[123].bok'._formatter_field_name_split()
+        first, rest = _string.formatter_field_name_split('foo.baz[123].bok')
         assert first == 'foo'
         assert list(rest) == [(True, 'baz'), (False, 123), (True, 'bok')]
         #
-        first, rest = 'foo.baz[hi].bok'._formatter_field_name_split()
+        first, rest = _string.formatter_field_name_split('foo.baz[hi].bok')
         assert first == 'foo'
         assert list(rest) == [(True, 'baz'), (False, 'hi'), (True, 'bok')]
 
     def test_u_formatter_field_name_split(self):
-        first, rest = u'foo.baz[hi].bok'._formatter_field_name_split()
+        import _string
+        first, rest = _string.formatter_field_name_split('foo.baz[hi].bok')
         l = list(rest)
         assert first == u'foo'
         assert l == [(True, u'baz'), (False, u'hi'), (True, u'bok')]
-        assert isinstance(first, unicode)
+        assert isinstance(first, str)
         for x, y in l:
-            assert isinstance(y, unicode)
+            assert isinstance(y, str)

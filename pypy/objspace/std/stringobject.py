@@ -988,13 +988,6 @@ def str_decode__String_ANY_ANY(space, w_string, w_encoding=None, w_errors=None):
     encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
     return decode_object(space, w_string, encoding, errors)
 
-def format__String_ANY(space, w_string, w_format_spec):
-    if not space.isinstance_w(w_format_spec, space.w_str):
-        w_format_spec = space.str(w_format_spec)
-    spec = space.str_w(w_format_spec)
-    formatter = newformat.str_formatter(space, spec)
-    return formatter.format_string(w_string._value)
-
 def buffer__String(space, w_string):
     return space.wrap(StringBuffer(w_string._value))
 
