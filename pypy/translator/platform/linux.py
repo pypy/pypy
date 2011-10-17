@@ -1,5 +1,6 @@
 """Support for Linux."""
 
+import sys
 from pypy.translator.platform.posix import BasePosix
 
 class BaseLinux(BasePosix):
@@ -26,7 +27,11 @@ class BaseLinux(BasePosix):
 
     def library_dirs_for_libffi_a(self):
         # places where we need to look for libffi.a
-        return self.library_dirs_for_libffi() + ['/usr/lib']
+        # XXX obscuuure!  only look for libffi.a if run with translate.py
+        if 'translate' in sys.modules:
+            return self.library_dirs_for_libffi() + ['/usr/lib']
+        else:
+            return []
 
 
 class Linux(BaseLinux):
