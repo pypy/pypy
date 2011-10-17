@@ -2,6 +2,7 @@ import weakref
 from pypy.rpython.lltypesystem import lltype, rclass
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.jit.metainterp.history import AbstractDescr
+from pypy.rlib.objectmodel import we_are_translated
 
 
 def get_mutate_field_name(fieldname):
@@ -73,8 +74,12 @@ class QuasiImmut(object):
         self.looptokens_wrefs.append(wref_looptoken)
 
     def compress_looptokens_list(self):
-        self.looptokens_wrefs = [wref for wref in self.looptokens_wrefs
-                                      if wref() is not None]
+        newlist = []
+        for wref in self.looptokens_wrefs:
+            looptoken = wref()
+            if looptoken is not None and not looptoken.invalidated:
+                newlist.append(wref)
+        self.looptokens_wrefs = wref
         self.compress_limit = (len(self.looptokens_wrefs) + 15) * 2
 
     def invalidate(self):
@@ -85,8 +90,12 @@ class QuasiImmut(object):
         self.looptokens_wrefs = []
         for wref in wrefs:
             looptoken = wref()
-            if looptoken is not None:
+            if looptoken is not None and not looptoken.invalidated:
+                looptoken.invalidated = True
                 self.cpu.invalidate_loop(looptoken)
+                if not we_are_translated():
+                    self.cpu.stats.invalidated_token_numbers.add(
+                        looptoken.number)
 
 
 class QuasiImmutDescr(AbstractDescr):

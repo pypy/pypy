@@ -289,7 +289,7 @@ class QuasiImmutTests(object):
             return total
 
         res = self.meta_interp(main, [])
-        self.check_loop_count(9)
+        self.check_tree_loop_count(6)
         assert res == main()
 
     def test_change_during_running(self):
@@ -317,7 +317,7 @@ class QuasiImmutTests(object):
         assert f(100, 15) == 3009
         res = self.meta_interp(f, [100, 15])
         assert res == 3009
-        self.check_loops(guard_not_invalidated=2, getfield_gc=0,
+        self.check_loops(guard_not_invalidated=4, getfield_gc=0,
                          call_may_force=0, guard_not_forced=0)
 
     def test_list_simple_1(self):
@@ -458,7 +458,6 @@ class QuasiImmutTests(object):
                          call_may_force=0, guard_not_forced=0)
 
     def test_invalidated_loop_is_not_used_any_more_as_target(self):
-        py.test.skip("in-progress")
         myjitdriver = JitDriver(greens=['foo'], reds=['x'])
         class Foo:
             _immutable_fields_ = ['step?']
@@ -476,7 +475,7 @@ class QuasiImmutTests(object):
             return foo.step
         res = self.meta_interp(f, [60])
         assert res == 1
-        self.check_tree_loop_count(3)   # maybe --- at least not 2 like now
+        self.check_tree_loop_count(4)   # at least not 2 like before
 
 
 class TestLLtypeGreenFieldsTests(QuasiImmutTests, LLJitMixin):
