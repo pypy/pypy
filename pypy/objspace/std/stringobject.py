@@ -153,11 +153,11 @@ otherwise."""
 
 def str_upper__String(space, w_self):
     self = w_self._value
-    return space.wrap(self.upper())
+    return space.wrapbytes(self.upper())
 
 def str_lower__String(space, w_self):
     self = w_self._value
-    return space.wrap(self.lower())
+    return space.wrapbytes(self.lower())
 
 def str_swapcase__String(space, w_self):
     self = w_self._value
@@ -173,7 +173,7 @@ def str_swapcase__String(space, w_self):
         else:
             builder.append(ch)
 
-    return space.wrap(builder.build())
+    return space.wrapbytes(builder.build())
 
 
 def str_capitalize__String(space, w_self):
@@ -195,7 +195,7 @@ def str_capitalize__String(space, w_self):
             else:
                 builder.append(ch)
 
-    return space.wrap(builder.build())
+    return space.wrapbytes(builder.build())
 
 def str_title__String(space, w_self):
     input = w_self._value
@@ -213,7 +213,7 @@ def str_title__String(space, w_self):
 
         prev_letter = ch
 
-    return space.wrap(builder.build())
+    return space.wrapbytes(builder.build())
 
 def str_split__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
     maxsplit = space.int_w(w_maxsplit)
@@ -402,7 +402,7 @@ def str_rjust__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
         fillchar = fillchar[0]    # annotator hint: it's a single character
         u_self = d * fillchar + u_self
 
-    return space.wrap(u_self)
+    return space.wrapbytes(u_self)
 
 
 def str_ljust__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
@@ -418,7 +418,7 @@ def str_ljust__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
         fillchar = fillchar[0]    # annotator hint: it's a single character
         u_self += d * fillchar
 
-    return space.wrap(u_self)
+    return space.wrapbytes(u_self)
 
 def _convert_idx_params(space, w_self, w_sub, w_start, w_end, upper_bound=False):
     self = w_self._value
@@ -503,7 +503,7 @@ def str_rindex__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
 
 def _string_replace(space, input, sub, by, maxsplit):
     if maxsplit == 0:
-        return space.wrap(input)
+        return space.wrapbytes(input)
 
     #print "from replace, input: %s, sub: %s, by: %s" % (input, sub, by)
 
@@ -542,7 +542,7 @@ def _string_replace(space, input, sub, by, maxsplit):
             space.w_OverflowError,
             space.wrap("replace string is too long"))
 
-    return space.wrap(by.join(substrings_w))
+    return space.wrapbytes(by.join(substrings_w))
 
 
 def str_replace__String_ANY_ANY_ANY(space, w_self, w_sub, w_by, w_maxsplit):
@@ -759,7 +759,7 @@ def str_zfill__String_ANY(space, w_self, w_width):
     num_zeros = width - len(input)
     if num_zeros <= 0:
         # cannot return w_self, in case it is a subclass of str
-        return space.wrap(input)
+        return space.wrapbytes(input)
 
     builder = StringBuilder(width)
     if len(input) > 0 and (input[0] == '+' or input[0] == '-'):
@@ -770,7 +770,7 @@ def str_zfill__String_ANY(space, w_self, w_width):
 
     builder.append_multiple_char('0', num_zeros)
     builder.append_slice(input, start, len(input))
-    return space.wrap(builder.build())
+    return space.wrapbytes(builder.build())
 
 
 def hash__String(space, w_str):

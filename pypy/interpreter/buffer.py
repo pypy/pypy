@@ -51,9 +51,9 @@ class Buffer(Wrappable):
     def descr_getitem(self, space, w_index):
         start, stop, step, size = space.decode_index4(w_index, self.getlength())
         if step == 0:  # index only
-            return space.wrap(self.getitem(start))
+            return space.wrapbytes(self.getitem(start))
         res = self.getslice(start, stop, step, size)
-        return space.wrap(res)
+        return space.wrapbytes(res)
 
     @unwrap_spec(newstring='bufferstr')
     def descr_setitem(self, space, w_index, newstring):
@@ -86,7 +86,7 @@ class Buffer(Wrappable):
 
     @unwrap_spec(other='bufferstr')
     def descr_add(self, space, other):
-        return space.wrap(self.as_str() + other)
+        return space.wrapbytes(self.as_str() + other)
 
     def _make_descr__cmp(name):
         def descr__cmp(self, space, w_other):
@@ -112,7 +112,7 @@ class Buffer(Wrappable):
 
     def descr_mul(self, space, w_times):
         # xxx not the most efficient implementation
-        w_string = space.wrap(self.as_str())
+        w_string = space.wrapbytes(self.as_str())
         # use the __mul__ method instead of space.mul() so that we
         # return NotImplemented instead of raising a TypeError
         return space.call_method(w_string, '__mul__', w_times)

@@ -87,7 +87,7 @@ def descr_fromhex(space, w_type, w_hexstring):
     "from a string of hexadecimal numbers.\nSpaces between two numbers are "
     "accepted.\nExample: bytearray.fromhex('B9 01EF') -> "
     "bytearray(b'\\xb9\\x01\\xef')."
-    hexstring = space.str_w(w_hexstring)
+    hexstring = space.unicode_w(w_hexstring)
     hexstring = hexstring.lower()
     data = []
     length = len(hexstring)
