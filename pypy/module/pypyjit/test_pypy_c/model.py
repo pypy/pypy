@@ -387,8 +387,8 @@ class OpMatcher(object):
                 return ''
             text = str(py.code.Source(src).deindent().indent())
             lines = text.splitlines(True)
-            if opindex is not None and 0 <= opindex < len(lines):
-                lines[opindex] = lines[opindex].rstrip() + '\t<=====\n'
+            if opindex is not None and 0 <= opindex <= len(lines):
+                lines.insert(opindex, '\n\t===== HERE =====\n')
             return ''.join(lines)
         #
         expected_src = self.preprocess_expected_src(expected_src)
