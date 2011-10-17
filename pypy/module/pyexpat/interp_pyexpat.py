@@ -4,9 +4,9 @@ from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError
 from pypy.objspace.descroperation import object_setattr
-from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rlib import rgc
 from pypy.rlib.unroll import unrolling_iterable
-
+from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rpython.tool import rffi_platform
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import platform
@@ -104,6 +104,7 @@ class CConfigure:
 
     for name in xml_error_list:
         locals()[name] = rffi_platform.ConstantInteger(name)
+    XML_Parser_SIZE = rffi_platform.SizeOf("XML_Parser")
 
 for k, v in rffi_platform.configure(CConfigure).items():
     globals()[k] = v
@@ -779,7 +780,10 @@ Return a new XML parser object."""
             rffi.cast(rffi.CHAR, namespace_separator))
     else:
         xmlparser = XML_ParserCreate(encoding)
-
+    # Currently this is just the size of the pointer and some estimated bytes.
+    # The struct isn't actually defined in expat.h - it is in xmlparse.c
+    # XXX: find a good estimate of the XML_ParserStruct
+    rgc.add_memory_pressure(XML_Parser_SIZE + 300)
     if not xmlparser:
         raise OperationError(space.w_RuntimeError,
                              space.wrap('XML_ParserCreate failed'))
