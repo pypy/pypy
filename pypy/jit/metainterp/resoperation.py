@@ -431,10 +431,10 @@ _oplist = [
     'INT_IS_TRUE/1b',
     'INT_NEG/1',
     'INT_INVERT/1',
-    'CAST_PTR_TO_INT/1',
-    'CAST_INT_TO_PTR/1',
     #
     'SAME_AS/1',      # gets a Const or a Box, turns it into another Box
+    'CAST_PTR_TO_INT/1',
+    'CAST_INT_TO_PTR/1',
     #
     'PTR_EQ/2b',
     'PTR_NE/2b',
