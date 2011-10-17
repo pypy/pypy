@@ -231,7 +231,7 @@ class rbigint(object):
                 accumbits -= SHIFT
         if accumbits:
             digits.append(_store_digit(accum))
-        return rbigint(digits, 1)
+        return rbigint(digits[:], 1)
 
     @jit.elidable
     def toint(self):

@@ -640,8 +640,8 @@ def str_endswith__String_String_ANY_ANY(space, w_self, w_suffix, w_start, w_end)
 
 def str_endswith__String_Tuple_ANY_ANY(space, w_self, w_suffixes, w_start, w_end):
     (u_self, _, start, end) = _convert_idx_params(space, w_self,
-                                                  space.wrap(''), w_start,
-                                                  w_end, True)
+                                                  space.wrapbytes(''),
+                                                  w_start, w_end, True)
     for w_suffix in space.fixedview(w_suffixes):
         if space.isinstance_w(w_suffix, space.w_unicode):
             w_u = space.call_function(space.w_unicode, w_self)
@@ -659,7 +659,8 @@ def str_startswith__String_String_ANY_ANY(space, w_self, w_prefix, w_start, w_en
     return space.newbool(stringstartswith(u_self, prefix, start, end))
 
 def str_startswith__String_Tuple_ANY_ANY(space, w_self, w_prefixes, w_start, w_end):
-    (u_self, _, start, end) = _convert_idx_params(space, w_self, space.wrap(''),
+    (u_self, _, start, end) = _convert_idx_params(space, w_self,
+                                                  space.wrapbytes(''),
                                                   w_start, w_end, True)
     for w_prefix in space.fixedview(w_prefixes):
         if space.isinstance_w(w_prefix, space.w_unicode):

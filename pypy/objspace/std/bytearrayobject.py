@@ -293,58 +293,58 @@ def str_count__Bytearray_Int_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop
     return space.wrap(count)
 
 def str_count__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
-    w_char = space.wrap(space.bufferstr_new_w(w_char))
+    w_char = space.wrapbytes(space.bufferstr_new_w(w_char))
     w_str = _to_bytes(space, w_bytearray)
     return stringobject.str_count__String_String_ANY_ANY(space, w_str, w_char,
                                                          w_start, w_stop)
 
 def str_index__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
-    w_char = space.wrap(space.bufferstr_new_w(w_char))
+    w_char = space.wrapbytes(space.bufferstr_new_w(w_char))
     w_str = _to_bytes(space, w_bytearray)
     return stringobject.str_index__String_String_ANY_ANY(space, w_str, w_char,
                                                          w_start, w_stop)
 
 def str_rindex__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
-    w_char = space.wrap(space.bufferstr_new_w(w_char))
+    w_char = space.wrapbytes(space.bufferstr_new_w(w_char))
     w_str = _to_bytes(space, w_bytearray)
     return stringobject.str_rindex__String_String_ANY_ANY(space, w_str, w_char,
                                                          w_start, w_stop)
 
 def str_find__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
-    w_char = space.wrap(space.bufferstr_new_w(w_char))
+    w_char = space.wrapbytes(space.bufferstr_new_w(w_char))
     w_str = _to_bytes(space, w_bytearray)
     return stringobject.str_find__String_String_ANY_ANY(space, w_str, w_char,
                                                          w_start, w_stop)
 
 def str_rfind__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
-    w_char = space.wrap(space.bufferstr_new_w(w_char))
+    w_char = space.wrapbytes(space.bufferstr_new_w(w_char))
     w_str = _to_bytes(space, w_bytearray)
     return stringobject.str_rfind__String_String_ANY_ANY(space, w_str, w_char,
                                                          w_start, w_stop)
 
 def str_startswith__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_prefix, w_start, w_stop):
-    w_prefix = space.wrap(space.bufferstr_new_w(w_prefix))
+    w_prefix = space.wrapbytes(space.bufferstr_new_w(w_prefix))
     w_str = _to_bytes(space, w_bytearray)
     return stringobject.str_startswith__String_String_ANY_ANY(space, w_str, w_prefix,
                                                               w_start, w_stop)
 
 def str_startswith__Bytearray_Tuple_ANY_ANY(space, w_bytearray, w_prefix, w_start, w_stop):
     w_str = _to_bytes(space, w_bytearray)
-    w_prefix = space.newtuple([space.wrap(space.bufferstr_new_w(w_entry)) for w_entry in
-                               space.unpackiterable(w_prefix)])
+    w_prefix = space.newtuple([space.wrapbytes(space.bufferstr_new_w(w_entry))
+                               for w_entry in space.unpackiterable(w_prefix)])
     return stringobject.str_startswith__String_Tuple_ANY_ANY(space, w_str, w_prefix,
                                                               w_start, w_stop)
 
 def str_endswith__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_suffix, w_start, w_stop):
-    w_suffix = space.wrap(space.bufferstr_new_w(w_suffix))
+    w_suffix = space.wrapbytes(space.bufferstr_new_w(w_suffix))
     w_str = _to_bytes(space, w_bytearray)
     return stringobject.str_endswith__String_String_ANY_ANY(space, w_str, w_suffix,
                                                               w_start, w_stop)
 
 def str_endswith__Bytearray_Tuple_ANY_ANY(space, w_bytearray, w_suffix, w_start, w_stop):
     w_str = _to_bytes(space, w_bytearray)
-    w_suffix = space.newtuple([space.wrap(space.bufferstr_new_w(w_entry)) for w_entry in
-                               space.unpackiterable(w_suffix)])
+    w_suffix = space.newtuple([space.wrapbytes(space.bufferstr_new_w(w_entry))
+                               for w_entry in space.unpackiterable(w_suffix)])
     return stringobject.str_endswith__String_Tuple_ANY_ANY(space, w_str, w_suffix,
                                                               w_start, w_stop)
 

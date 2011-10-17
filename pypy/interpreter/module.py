@@ -31,7 +31,7 @@ class Module(Wrappable):
     def install(self):
         """NOT_RPYTHON: installs this module into space.builtin_modules"""
         w_mod = self.space.wrap(self)
-        self.space.builtin_modules[self.space.unwrap(self.w_name)] = w_mod
+        self.space.builtin_modules[self.space.str_w(self.w_name)] = w_mod
 
     def setup_after_space_initialization(self):
         """NOT_RPYTHON: to allow built-in modules to do some more setup
