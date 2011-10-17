@@ -275,6 +275,13 @@ class DictRepr(AbstractDictRepr):
         v_res = hop.gendirectcall(ll_setdefault, v_dict, v_key, v_default)
         return self.recast_value(hop.llops, v_res)
 
+    def rtype_method_pop(self, hop):
+        v_dict, v_key, v_default = hop.inputargs(self, self.key_repr,
+                                                 self.value_repr)
+        hop.exception_cannot_occur()
+        v_res = hop.gendirectcall(ll_dict_pop, v_dict, v_key, v_default)
+        return self.recast_value(hop.llops, v_res)
+
     def rtype_method_copy(self, hop):
         v_dict, = hop.inputargs(self)
         hop.exception_cannot_occur()
@@ -491,6 +498,15 @@ def ll_dict_delitem(d, key):
     if i & HIGHEST_BIT:
         raise KeyError
     _ll_dict_del(d, i)
+
+def ll_dict_pop(d, key, default):
+    i = ll_dict_lookup(d, key, d.keyhash(key))
+    if not i & HIGHEST_BIT:
+        value = ll_get_value(d, i)
+        _ll_dict_del(d, i)
+        return value
+    else:
+        return default
 
 @jit.dont_look_inside
 def _ll_dict_del(d, i):

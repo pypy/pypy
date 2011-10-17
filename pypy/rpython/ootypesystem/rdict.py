@@ -105,6 +105,13 @@ class DictRepr(AbstractDictRepr):
         v_res = hop.gendirectcall(ll_dict_setdefault, v_dict, v_key, v_default)
         return self.recast_value(hop.llops, v_res)
 
+    def rtype_method_pop(self, hop):
+        v_dict, v_key, v_default = hop.inputargs(self, self.key_repr,
+                                                 self.value_repr)
+        hop.exception_cannot_occur()
+        v_res = hop.gendirectcall(ll_dict_pop, v_dict, v_key, v_default)
+        return self.recast_value(hop.llops, v_res)
+
     def rtype_method_copy(self, hop):
         v_dict, = hop.inputargs(self)
         cDICT = hop.inputconst(ootype.Void, self.lowleveltype)
@@ -332,6 +339,14 @@ def ll_dict_setdefault(d, key, default):
         return ll_dict_getitem(d, key)
     except KeyError:
         d.ll_set(key, default)
+        return default
+
+def ll_dict_pop(d, key, default):
+    if d.ll_contains(key):
+        value = d.ll_get(key)
+        d.ll_remove(key)
+        return value
+    else:
         return default
 
 def _make_ll_keys_values_items(kind):

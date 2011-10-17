@@ -407,6 +407,7 @@ class __extend__(SomeDict):
         return dct.dictdef.read_value()
 
     method_setdefault = method_get
+    method_pop = method_get
 
     def method_copy(dct):
         return SomeDict(dct.dictdef)

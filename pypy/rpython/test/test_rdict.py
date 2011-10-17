@@ -171,6 +171,16 @@ class BaseTestRdict(BaseRtypingTest):
         res = self.interpret(func, ())
         assert res == 422
 
+    def test_dict_pop(self):
+        def func():
+            dic = {}
+            x1 = dic.pop('hi', 42)
+            dic['blah'] = 1
+            x2 = dic.pop('blah', 2)
+            return len(dic) * 100 + x1 * 10 + x2
+        res = self.interpret(func, ())
+        assert res == 421
+
     def test_dict_setdefault(self):
         def f():
             d = {}
