@@ -12,6 +12,11 @@ from pypy.module.thread.os_lock import Lock
 
 algorithms = ('md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512')
 
+# HASH_MALLOC_SIZE is the size of EVP_MD, EVP_MD_CTX plus their points.
+# Used for adding memory pressure.
+HASH_MALLOC_SIZE = ropenssl.EVP_MD_SIZE + ropenssl.EVP_MD_CTX_SIZE \
+        + rffi.sizeof(ropenssl.EVP_MD) * 2
+
 class W_Hash(Wrappable):
     ctx = lltype.nullptr(ropenssl.EVP_MD_CTX.TO)
 
@@ -29,7 +34,7 @@ class W_Hash(Wrappable):
                                  space.wrap("unknown hash function"))
         ctx = lltype.malloc(ropenssl.EVP_MD_CTX.TO, flavor='raw')
         ropenssl.EVP_DigestInit(ctx, digest)
-        rgc.add_memory_pressure(ropenssl.HASH_MALLOC_SIZE + self._digest_size())
+        rgc.add_memory_pressure(HASH_MALLOC_SIZE + self._digest_size())
         self.ctx = ctx
 
     def __del__(self):
