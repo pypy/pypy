@@ -457,6 +457,27 @@ class QuasiImmutTests(object):
                          getarrayitem_gc=0, getarrayitem_gc_pure=0,
                          call_may_force=0, guard_not_forced=0)
 
+    def test_invalidated_loop_is_not_used_any_more_as_target(self):
+        py.test.skip("in-progress")
+        myjitdriver = JitDriver(greens=['foo'], reds=['x'])
+        class Foo:
+            _immutable_fields_ = ['step?']
+        @dont_look_inside
+        def residual(x, foo):
+            if x == 20:
+                foo.step = 1
+        def f(x):
+            foo = Foo()
+            foo.step = 2
+            while x > 0:
+                myjitdriver.jit_merge_point(foo=foo, x=x)
+                residual(x, foo)
+                x -= foo.step
+            return foo.step
+        res = self.meta_interp(f, [60])
+        assert res == 1
+        self.check_tree_loop_count(3)   # maybe --- at least not 2 like now
+
 
 class TestLLtypeGreenFieldsTests(QuasiImmutTests, LLJitMixin):
     pass
