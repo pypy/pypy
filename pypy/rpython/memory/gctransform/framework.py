@@ -386,7 +386,7 @@ class FrameworkGCTransformer(GCTransformer):
                 raw_malloc_memory_pressure_varsize,
                 [annmodel.SomeInteger(), annmodel.SomeInteger()],
                 annmodel.s_None, minimal_transform = False)
-            self.raw_malloc_memory_pressure = getfn(
+            self.raw_malloc_memory_pressure_ptr = getfn(
                 raw_malloc_memory_pressure,
                 [annmodel.SomeInteger()],
                 annmodel.s_None, minimal_transform = False)
