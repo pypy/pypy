@@ -76,9 +76,11 @@ class AssemblerPPC(OpAssembler):
     def __init__(self, cpu, failargs_limit=1000):
         self.cpu = cpu
         self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
+        self.fail_boxes_ptr = values_array(llmemory.GCREF, failargs_limit)
         self.mc = None
         self.datablockwrapper = None
         self.memcpy_addr = 0
+        self.fail_boxes_count = 0
 
     def load_imm(self, rD, word):
         if word <= 32767 and word >= -32768:

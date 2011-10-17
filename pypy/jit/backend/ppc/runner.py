@@ -94,8 +94,9 @@ class PPC_64_CPU(AbstractLLCPU):
         self.fail_boxes_int.setitem(index, sign_ptr)
 
     def clear_latest_values(self, count):
+        null = lltype.nullptr(llmemory.GCREF.TO)
         for index in range(count):
-            self.fail_boxes_int.setitem(index, 0)
+            self.asm.fail_boxes_ptr.setitem(index, null)
 
     # executes the stored machine code in the token
     def execute_token(self, looptoken):   
@@ -124,7 +125,7 @@ class PPC_64_CPU(AbstractLLCPU):
 
     # return the number of values that can be returned
     def get_latest_value_count(self):
-        return self.fail_box_count
+        return self.asm.fail_boxes_count
 
     # fetch the result of the computation and return it
     def get_latest_value_int(self, index):
