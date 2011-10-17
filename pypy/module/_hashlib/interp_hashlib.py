@@ -29,7 +29,7 @@ class W_Hash(Wrappable):
                                  space.wrap("unknown hash function"))
         ctx = lltype.malloc(ropenssl.EVP_MD_CTX.TO, flavor='raw')
         ropenssl.EVP_DigestInit(ctx, digest)
-        rgc.add_memory_pressure(184 + self._digest_size())
+        rgc.add_memory_pressure(ropenssl.HASH_MALLOC_SIZE + self._digest_size())
         self.ctx = ctx
 
     def __del__(self):

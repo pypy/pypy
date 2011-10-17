@@ -277,6 +277,19 @@ EVP_MD_CTX_copy = external(
 EVP_MD_CTX_cleanup = external(
     'EVP_MD_CTX_cleanup', [EVP_MD_CTX], rffi.INT, threadsafe=False)
 
+# size of EVP_MD, EVP_MD_CTX plus their points. Used for adding 
+# memory pressure
+
+# not sure why this code does not work
+#HASH_MALLOC_SIZE = rffi_platform.sizeof(EVP_MD.TO, eci) \
+#    + rffi_platform.sizeof(EVP_MD_CTX.TO, eci) \
+#    + rffi.sizeof(EVP_MD) + rffi.sizeof(EVP_MD_CTX)
+
+# but this code does
+HASH_MALLOC_SIZE = EVP_MD.TO.hints['getsize']() \
+     + EVP_MD_CTX.TO.hints['getsize']() \
+     + rffi.sizeof(EVP_MD) + rffi.sizeof(EVP_MD_CTX)
+
 def init_ssl():
     libssl_SSL_load_error_strings()
     libssl_SSL_library_init()
