@@ -97,6 +97,9 @@ If only globals is given, locals defaults to it.
     elif space.is_w(w_locals, space.w_None):
         w_locals = w_globals
 
-    space.builtin.pick_builtin(w_globals)
+    # xxx removed: adding '__builtins__' to the w_globals dict, if there
+    # is none.  This logic was removed as costly (it requires to get at
+    # the gettopframe_nohidden()).  I bet no test fails, and it's a really
+    # obscure case.
 
     return codeobj.exec_code(space, w_globals, w_locals)
