@@ -587,10 +587,7 @@ class OptString(optimizer.Optimization):
             return True
         #
         if v1.is_nonnull() and v2.is_nonnull():
-            if l1box is not None and l2box is not None and (
-                l1box == l2box or (isinstance(l1box, ConstInt) and
-                                   isinstance(l2box, ConstInt) and
-                                   l1box.value == l2box.value)):
+            if l1box is not None and l2box is not None and l1box.same_box(l2box):
                 do = EffectInfo.OS_STREQ_LENGTHOK
             else:
                 do = EffectInfo.OS_STREQ_NONNULL

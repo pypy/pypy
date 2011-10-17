@@ -147,7 +147,7 @@ class AppTestRange:
        assert list(range(A())) == [0, 1, 2, 3, 4]
        assert list(range(0, A())) == [0, 1, 2, 3, 4]
        assert list(range(0, 10, A())) == [0, 5]
- 
+
    def test_range_float(self):
       assert list(range(0.1, 2.0, 1.1)) == [0, 1]
 

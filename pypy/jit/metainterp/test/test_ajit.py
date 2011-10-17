@@ -13,7 +13,7 @@ from pypy.jit.metainterp.warmstate import set_future_value
 from pypy.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
     loop_invariant, elidable, promote, jit_debug, assert_green,
     AssertGreenFailed, unroll_safe, current_trace_length, look_inside_iff,
-    isconstant, isvirtual)
+    isconstant, isvirtual, promote_string)
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.ootypesystem import ootype
@@ -3440,7 +3440,6 @@ class BaseLLtypeTests(BasicTests):
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
     def test_tagged(self):
-        py.test.skip("implement me")
         from pypy.rlib.objectmodel import UnboxedValue
         class Base(object):
             __slots__ = ()
@@ -3492,3 +3491,35 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
                 pc += 1
             return pc
         res = self.meta_interp(main, [False, 100, True], taggedpointers=True)
+
+    def test_rerased(self):
+        from pypy.rlib.rerased import erase_int, unerase_int, new_erasing_pair
+        eraseX, uneraseX = new_erasing_pair("X")
+        #
+        class X:
+            def __init__(self, a, b):
+                self.a = a
+                self.b = b
+        #
+        def f(i, j):
+            # 'j' should be 0 or 1, not other values
+            if j > 0:
+                e = eraseX(X(i, j))
+            else:
+                try:
+                    e = erase_int(i)
+                except OverflowError:
+                    return -42
+            if j & 1:
+                x = uneraseX(e)
+                return x.a - x.b
+            else:
+                return unerase_int(e)
+        #
+        x = self.interp_operations(f, [-128, 0], taggedpointers=True)
+        assert x == -128
+        bigint = sys.maxint//2 + 1
+        x = self.interp_operations(f, [bigint, 0], taggedpointers=True)
+        assert x == -42
+        x = self.interp_operations(f, [1000, 1], taggedpointers=True)
+        assert x == 999

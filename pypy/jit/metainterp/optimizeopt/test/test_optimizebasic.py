@@ -2329,7 +2329,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         def _variables_equal(box, varname, strict):
             if varname not in virtuals:
                 if strict:
-                    assert box == oparse.getvar(varname)
+                    assert box.same_box(oparse.getvar(varname))
                 else:
                     assert box.value == oparse.getvar(varname).value
             else:

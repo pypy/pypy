@@ -161,9 +161,6 @@ class ArithmeticTypeMixin(object):
     @binop
     def mul(self, v1, v2):
         return v1 * v2
-    @binop
-    def div(self, v1, v2):
-        return v1 / v2
 
     @unaryop
     def pos(self, v):
@@ -216,6 +213,14 @@ class FloatArithmeticDtype(ArithmeticTypeMixin):
     def str_format(self, item):
         return float2string(self.for_computation(self.unbox(item)), 'g', rfloat.DTSF_STR_PRECISION)
 
+    @binop
+    def div(self, v1, v2):
+        try:
+            return v1 / v2
+        except ZeroDivisionError:
+            if v1 == v2 == 0.0:
+                return rfloat.NAN
+            return rfloat.copysign(rfloat.INFINITY, v1 * v2)
     @binop
     def mod(self, v1, v2):
         return math.fmod(v1, v2)
@@ -294,6 +299,11 @@ class IntegerArithmeticDtype(ArithmeticTypeMixin):
     def str_format(self, item):
         return str(widen(self.unbox(item)))
 
+    @binop
+    def div(self, v1, v2):
+        if v2 == 0:
+            return 0
+        return v1 / v2
     @binop
     def mod(self, v1, v2):
         return v1 % v2
@@ -426,23 +436,22 @@ class W_UInt64Dtype(UnsignedIntegerArithmeticDtype, W_UInt64Dtype):
     pass
 
 if LONG_BIT == 32:
-    class W_LongDtype(W_Int32Dtype):
-        pass
-
-    class W_ULongDtype(W_UInt32Dtype):
-        pass
+    long_dtype = W_Int32Dtype
+    ulong_dtype = W_UInt32Dtype
+elif LONG_BIT == 64:
+    long_dtype = W_Int64Dtype
+    ulong_dtype = W_UInt64Dtype
 else:
-    class W_LongDtype(W_Int64Dtype):
-        pass
+    assert False
 
-    class W_ULongDtype(W_UInt64Dtype):
-        pass
+class W_LongDtype(long_dtype):
+    num = 7
+    aliases = ["l"]
+    applevel_types = ["int"]
 
-W_LongDtype.num = 7
-W_LongDtype.aliases = ["l"]
-W_LongDtype.applevel_types = ["int"]
-W_ULongDtype.num = 8
-W_ULongDtype.aliases = ["L"]
+class W_ULongDtype(ulong_dtype):
+    num = 8
+    aliases = ["L"]
 
 W_Float32Dtype = create_low_level_dtype(
     num = 11, kind = FLOATINGLTR, name = "float32",

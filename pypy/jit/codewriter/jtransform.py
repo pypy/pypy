@@ -455,6 +455,23 @@ class Transformer(object):
             # the special return value None forces op.result to be considered
             # equal to op.args[0]
             return [op0, op1, None]
+        if (hints.get('promote_string') and
+            op.args[0].concretetype is not lltype.Void):
+            S = lltype.Ptr(rstr.STR)
+            assert op.args[0].concretetype == S
+            self._register_extra_helper(EffectInfo.OS_STREQ_NONNULL,
+                                        "str.eq_nonnull",
+                                        [S, S],
+                                        lltype.Signed,
+                                        EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
+            descr, p = self.callcontrol.callinfocollection.callinfo_for_oopspec(
+                EffectInfo.OS_STREQ_NONNULL)
+            # XXX this is fairly ugly way of creating a constant,
+            #     however, callinfocollection has no better interface
+            c = Constant(p.adr.ptr, lltype.typeOf(p.adr.ptr))
+            op1 = SpaceOperation('str_guard_value', [op.args[0], c, descr],
+                                 op.result)
+            return [SpaceOperation('-live-', [], None), op1, None]
         else:
             log.WARNING('ignoring hint %r at %r' % (hints, self.graph))
 
@@ -783,8 +800,7 @@ class Transformer(object):
 
     def rewrite_op_cast_ptr_to_int(self, op):
         if self._is_gc(op.args[0]):
-            #return op
-            raise NotImplementedError("cast_ptr_to_int")
+            return op
 
     def rewrite_op_force_cast(self, op):
         v_arg = op.args[0]
@@ -1525,6 +1541,10 @@ class Transformer(object):
 
     def rewrite_op_jit_force_virtual(self, op):
         return self._do_builtin_call(op)
+
+    def rewrite_op_jit_is_virtual(self, op):
+        raise Exception, (
+            "'vref.virtual' should not be used from jit-visible code")
 
     def rewrite_op_jit_force_virtualizable(self, op):
         # this one is for virtualizables

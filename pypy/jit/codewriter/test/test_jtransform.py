@@ -99,6 +99,12 @@ class FakeCallInfoCollection:
             if i == oopspecindex:
                 return True
         return False
+    def callinfo_for_oopspec(self, oopspecindex):
+        assert oopspecindex == effectinfo.EffectInfo.OS_STREQ_NONNULL
+        class c:
+            class adr:
+                ptr = 1
+        return ('calldescr', c)
 
 class FakeBuiltinCallControl:
     def __init__(self):
@@ -119,6 +125,7 @@ class FakeBuiltinCallControl:
              EI.OS_STR2UNICODE:([PSTR], PUNICODE),
              EI.OS_STR_CONCAT: ([PSTR, PSTR], PSTR),
              EI.OS_STR_SLICE:  ([PSTR, INT, INT], PSTR),
+             EI.OS_STREQ_NONNULL:  ([PSTR, PSTR], INT),
              EI.OS_UNI_CONCAT: ([PUNICODE, PUNICODE], PUNICODE),
              EI.OS_UNI_SLICE:  ([PUNICODE, INT, INT], PUNICODE),
              EI.OS_UNI_EQUAL:  ([PUNICODE, PUNICODE], lltype.Bool),
@@ -843,6 +850,21 @@ def test_str_concat():
     assert op1.args[1] == 'calldescr-%d' % effectinfo.EffectInfo.OS_STR_CONCAT
     assert op1.args[2] == ListOfKind('ref', [v1, v2])
     assert op1.result == v3
+
+def test_str_promote():
+    PSTR = lltype.Ptr(rstr.STR)
+    v1 = varoftype(PSTR)
+    v2 = varoftype(PSTR)
+    op = SpaceOperation('hint',
+                        [v1, Constant({'promote_string': True}, lltype.Void)],
+                        v2)
+    tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+    op0, op1, _ = tr.rewrite_operation(op)
+    assert op1.opname == 'str_guard_value'
+    assert op1.args[0] == v1
+    assert op1.args[2] == 'calldescr'
+    assert op1.result == v2
+    assert op0.opname == '-live-'
 
 def test_unicode_concat():
     # test that the oopspec is present and correctly transformed

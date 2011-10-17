@@ -260,8 +260,12 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
 class AppTestNonblocking(object):
     def setup_class(cls):
         from pypy.module._file.interp_file import W_File
-        
+
         cls.old_read = os.read
+
+        if option.runappdirect:
+            py.test.skip("works with internals of _file impl on py.py")
+
         state = [0]
         def read(fd, n=None):
             if fd != 42:
@@ -281,7 +285,7 @@ class AppTestNonblocking(object):
 
     def teardown_class(cls):
         os.read = cls.old_read
-        
+
     def test_nonblocking_file(self):
         res = self.stream.read()
         assert res == 'xyz'
@@ -403,24 +407,24 @@ class AppTestFile25:
         with self.file(self.temppath, 'w') as f:
             f.write('foo')
         assert f.closed
-        
+
         with self.file(self.temppath, 'r') as f:
             s = f.readline()
 
         assert s == "foo"
         assert f.closed
-    
+
     def test_subclass_with(self):
         file = self.file
         class C(file):
             def __init__(self, *args, **kwargs):
                 self.subclass_closed = False
                 file.__init__(self, *args, **kwargs)
-            
+
             def close(self):
                 self.subclass_closed = True
                 file.close(self)
-        
+
         with C(self.temppath, 'w') as f:
             pass
         assert f.subclass_closed
