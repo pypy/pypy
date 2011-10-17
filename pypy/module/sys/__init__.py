@@ -42,6 +42,7 @@ class Module(MixedModule):
         'argv'                  : 'state.get(space).w_argv',
         'py3kwarning'           : 'space.w_False',
         'warnoptions'           : 'state.get(space).w_warnoptions', 
+        'abiflags'              : 'space.wrap("")',
         'builtin_module_names'  : 'space.w_None',
         'pypy_getudir'          : 'state.pypy_getudir',    # not translated
         'pypy_initial_path'     : 'state.pypy_initial_path',
