@@ -460,7 +460,7 @@ class AppTestMethod(AppTestFunction):
                             %s
                             return %s
                         """) % (source, name))
-                        w_obj = Method(space, w_func, w_instance, space.w_None)
+                        w_obj = Method(space, w_func, w_instance)
                     else:
                         w_obj = obj
                     space.setattr(w_instance, space.wrap(name[2:]), w_obj)
