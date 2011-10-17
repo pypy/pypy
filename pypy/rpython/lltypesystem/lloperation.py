@@ -428,6 +428,7 @@ LL_OPERATIONS = {
     'jit_marker':           LLOp(),
     'jit_force_virtualizable':LLOp(canrun=True),
     'jit_force_virtual':    LLOp(canrun=True),
+    'jit_is_virtual':       LLOp(canrun=True),
     'jit_force_quasi_immutable': LLOp(canrun=True),
     'get_exception_addr':   LLOp(),
     'get_exc_value_addr':   LLOp(),

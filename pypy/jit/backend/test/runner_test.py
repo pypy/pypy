@@ -1468,20 +1468,16 @@ class LLtypeBackendTest(BaseBackendTest):
         return u''.join(u.chars)
 
 
-    def test_casts(self):
-        py.test.skip("xxx fix or kill")
-        from pypy.rpython.lltypesystem import lltype, llmemory
-        TP = lltype.GcStruct('x')
-        x = lltype.malloc(TP)        
-        x = lltype.cast_opaque_ptr(llmemory.GCREF, x)
+    def test_cast_int_to_ptr(self):
+        res = self.execute_operation(rop.CAST_INT_TO_PTR,
+                                     [BoxInt(-17)],  'ref').value
+        assert lltype.cast_ptr_to_int(res) == -17
+
+    def test_cast_ptr_to_int(self):
+        x = lltype.cast_int_to_ptr(llmemory.GCREF, -19)
         res = self.execute_operation(rop.CAST_PTR_TO_INT,
-                                     [BoxPtr(x)],  'int').value
-        expected = self.cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(x))
-        assert rffi.get_real_int(res) == rffi.get_real_int(expected)
-        res = self.execute_operation(rop.CAST_PTR_TO_INT,
-                                     [ConstPtr(x)],  'int').value
-        expected = self.cpu.cast_adr_to_int(llmemory.cast_ptr_to_adr(x))
-        assert rffi.get_real_int(res) == rffi.get_real_int(expected)
+                                     [BoxPtr(x)], 'int').value
+        assert res == -19
 
     def test_ooops_non_gc(self):
         x = lltype.malloc(lltype.Struct('x'), flavor='raw')
@@ -2299,13 +2295,6 @@ class LLtypeBackendTest(BaseBackendTest):
         #
         cpu.bh_strsetitem(x, 4, ord('/'))
         assert str.chars[4] == '/'
-        #
-##        x = cpu.bh_newstr(5)
-##        y = cpu.bh_cast_ptr_to_int(x)
-##        z = cpu.bh_cast_ptr_to_int(x)
-##        y = rffi.get_real_int(y)
-##        z = rffi.get_real_int(z)
-##        assert type(y) == type(z) == int and y == z
 
     def test_sorting_of_fields(self):
         S = self.S

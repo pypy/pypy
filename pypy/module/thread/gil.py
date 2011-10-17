@@ -17,6 +17,7 @@ from pypy.rlib.rposix import get_errno, set_errno
 class GILThreadLocals(OSThreadLocals):
     """A version of OSThreadLocals that enforces a GIL."""
     gil_ready = False
+    _immutable_fields_ = ['gil_ready?']
 
     def initialize(self, space):
         # add the GIL-releasing callback as an action on the space

@@ -84,8 +84,8 @@ If only globals is given, locals defaults to it.
         raise OperationError(space.w_TypeError,
               w('eval() arg 1 must be a string or code object'))
 
-    caller = space.getexecutioncontext().gettopframe_nohidden()
     if space.is_w(w_globals, space.w_None):
+        caller = space.getexecutioncontext().gettopframe_nohidden()
         if caller is None:
             w_globals = space.newdict()
             if space.is_w(w_locals, space.w_None):
@@ -97,13 +97,6 @@ If only globals is given, locals defaults to it.
     elif space.is_w(w_locals, space.w_None):
         w_locals = w_globals
 
-    try:
-        space.getitem(w_globals, space.wrap('__builtins__'))
-    except OperationError, e:
-        if not e.match(space, space.w_KeyError):
-            raise
-        if caller is not None:
-            w_builtin = space.builtin.pick_builtin(caller.w_globals)
-            space.setitem(w_globals, space.wrap('__builtins__'), w_builtin)
+    space.builtin.pick_builtin(w_globals)
 
     return codeobj.exec_code(space, w_globals, w_locals)
