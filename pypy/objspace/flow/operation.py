@@ -14,6 +14,13 @@ from pypy.tool.sourcetools import compile2
 from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift
 from pypy.objspace.flow import model
 
+MethodTable = ObjSpace.MethodTable[:]
+MethodTable.extend([
+    ('getslice',        'getslice',  3, ['__getslice__']),
+    ('setslice',        'setslice',  4, ['__setslice__']),
+    ('delslice',        'delslice',  3, ['__delslice__']),
+])
+
 
 class OperationThatShouldNotBePropagatedError(OperationError):
     pass
@@ -235,7 +242,7 @@ Table = [
 
 def setup():
     # insert all operators
-    for line in ObjSpace.MethodTable:
+    for line in MethodTable:
         name = line[0]
         if hasattr(operator, name):
             Table.append((name, getattr(operator, name)))
@@ -246,7 +253,7 @@ def setup():
         if func not in OperationName:
             OperationName[func] = name
     # check that the result is complete
-    for line in ObjSpace.MethodTable:
+    for line in MethodTable:
         name = line[0]
         Arity[name] = line[2]
         assert name in FunctionByName
@@ -428,6 +435,6 @@ def special_overrides(fs):
 
 def add_operations(fs):
     """Add function operations to the flow space."""
-    for line in ObjSpace.MethodTable:
+    for line in MethodTable:
         make_op(fs, *line)
     special_overrides(fs)

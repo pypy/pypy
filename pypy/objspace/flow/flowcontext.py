@@ -425,6 +425,100 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
     def MAP_ADD(self, oparg, next_instr):
         raise NotImplementedError("MAP_ADD")
 
+    # opcodes removed or heavily changed in python 3
+
+    @jit.unroll_safe
+    def RAISE_VARARGS(self, nbargs, next_instr):
+        space = self.space
+        if nbargs == 0:
+            frame = self
+            ec = self.space.getexecutioncontext()
+            while frame:
+                if frame.last_exception is not None:
+                    operror = ec._convert_exc(frame.last_exception)
+                    break
+                frame = frame.f_backref()
+            else:
+                raise OperationError(space.w_TypeError,
+                    space.wrap("raise: no active exception to re-raise"))
+            # re-raise, no new traceback obj will be attached
+            self.last_exception = operror
+            from pypy.interpreter.pyopcode import Reraise
+            raise Reraise
+
+        w_value = w_traceback = space.w_None
+        if nbargs >= 3:
+            w_traceback = self.popvalue()
+        if nbargs >= 2:
+            w_value = self.popvalue()
+        if 1:
+            w_type = self.popvalue()
+        operror = OperationError(w_type, w_value)
+        operror.normalize_exception(space)
+        raise operror
+
+    def slice(self, w_start, w_end):
+        w_obj = self.popvalue()
+        w_result = self.space.getslice(w_obj, w_start, w_end)
+        self.pushvalue(w_result)
+
+    def SLICE_0(self, oparg, next_instr):
+        self.slice(self.space.w_None, self.space.w_None)
+
+    def SLICE_1(self, oparg, next_instr):
+        w_start = self.popvalue()
+        self.slice(w_start, self.space.w_None)
+
+    def SLICE_2(self, oparg, next_instr):
+        w_end = self.popvalue()
+        self.slice(self.space.w_None, w_end)
+
+    def SLICE_3(self, oparg, next_instr):
+        w_end = self.popvalue()
+        w_start = self.popvalue()
+        self.slice(w_start, w_end)
+
+    def storeslice(self, w_start, w_end):
+        w_obj = self.popvalue()
+        w_newvalue = self.popvalue()
+        self.space.setslice(w_obj, w_start, w_end, w_newvalue)
+
+    def STORE_SLICE_0(self, oparg, next_instr):
+        self.storeslice(self.space.w_None, self.space.w_None)
+
+    def STORE_SLICE_1(self, oparg, next_instr):
+        w_start = self.popvalue()
+        self.storeslice(w_start, self.space.w_None)
+
+    def STORE_SLICE_2(self, oparg, next_instr):
+        w_end = self.popvalue()
+        self.storeslice(self.space.w_None, w_end)
+
+    def STORE_SLICE_3(self, oparg, next_instr):
+        w_end = self.popvalue()
+        w_start = self.popvalue()
+        self.storeslice(w_start, w_end)
+
+    def deleteslice(self, w_start, w_end):
+        w_obj = self.popvalue()
+        self.space.delslice(w_obj, w_start, w_end)
+
+    def DELETE_SLICE_0(self, oparg, next_instr):
+        self.deleteslice(self.space.w_None, self.space.w_None)
+
+    def DELETE_SLICE_1(self, oparg, next_instr):
+        w_start = self.popvalue()
+        self.deleteslice(w_start, self.space.w_None)
+
+    def DELETE_SLICE_2(self, oparg, next_instr):
+        w_end = self.popvalue()
+        self.deleteslice(self.space.w_None, w_end)
+
+    def DELETE_SLICE_3(self, oparg, next_instr):
+        w_end = self.popvalue()
+        w_start = self.popvalue()
+        self.deleteslice(w_start, w_end)
+
     def make_arguments(self, nargs):
         return ArgumentsForTranslation(self.space, self.peekvalues(nargs))
     def argument_factory(self, *args):
