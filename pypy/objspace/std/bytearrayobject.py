@@ -456,7 +456,6 @@ def bytearray_rstrip__Bytearray_ANY(space, w_bytearray, w_chars):
 # but they have to return a bytearray.
 def str_replace__Bytearray_ANY_ANY_ANY(space, w_bytearray, w_str1, w_str2, w_max):
     w_str = _to_bytes(space, w_bytearray)
-                                                         w_str2, w_max)
     w_res = stringobject.str_replace__String_ANY_ANY_ANY(space, w_str, w_str1,
                                                          w_str2, w_max)
     return String2Bytearray(space, w_res)
