@@ -8,6 +8,7 @@ from pypy.rlib.objectmodel import we_are_translated, compute_hash
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype, newformat
+from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.tupleobject import W_TupleObject
@@ -434,6 +435,11 @@ def contains__String_String(space, w_self, w_sub):
     self = w_self._value
     sub = w_sub._value
     return space.newbool(self.find(sub) >= 0)
+
+def contains__String_Int(space, w_self, w_char):
+    self = w_self._value
+    char = w_char.intval
+    return space.newbool(self.find(chr(char)) >= 0)
 
 def str_find__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
     (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
