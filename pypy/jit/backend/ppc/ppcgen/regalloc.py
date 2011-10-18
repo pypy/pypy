@@ -219,6 +219,9 @@ class Regalloc(object):
         self.possibly_free_var(op.result)
         return [reg1, reg2, res]
 
+    def prepare_int_mod(self, op):
+        return self.prepare_int_mul(op)
+
     def prepare_finish(self, op):
         args = [locations.imm(self.frame_manager.frame_depth)]
         for i in range(op.numargs()):

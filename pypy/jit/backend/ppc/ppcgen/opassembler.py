@@ -59,7 +59,18 @@ class OpAssembler(object):
             self.mc.load_imm(r.r0, l1.value)
             div(res.value, l0.value, r.r0.value)
         else:
-            self.mc.divw(res.value, l0.value, l1.value)
+            div(res.value, l0.value, l1.value)
+
+    def emit_int_mod(self, op, arglocs, regalloc):
+        l0, l1, res = arglocs
+        if IS_PPC_32:
+            self.mc.divw(r.r0.value, l0.value, l1.value)
+            self.mc.mullw(r.r0.value, r.r0.value, l1.value)
+        else:
+            self.mc.divd(r.r0.value, l0.value, l1.value)
+            self.mc.mulld(r.r0.value, r.r0.value, l1.value)
+        self.mc.subf(r.r0.value, r.r0.value, l0.value)
+        self.mc.mr(res.value, r.r0.value)
 
     emit_int_le = gen_emit_cmp_op(c.LE)   
 
