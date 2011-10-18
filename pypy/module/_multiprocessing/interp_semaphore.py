@@ -311,7 +311,7 @@ else:
             rgc.add_memory_pressure(SEM_T_SIZE)
         return sem
 
-    def delete_semaphore(space, handle):
+    def delete_semaphore(handle):
         sem_close(handle)
 
     def semlock_acquire(self, space, block, w_timeout):
