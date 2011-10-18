@@ -74,8 +74,8 @@ class QuasiImmut(object):
         self.looptokens_wrefs.append(wref_looptoken)
 
     def compress_looptokens_list(self):
-        self.looptokens_wref = [wref for wref in self.looptokens_wrefs
-                                     if wref() is not None]
+        self.looptokens_wrefs = [wref for wref in self.looptokens_wrefs
+                                      if wref() is not None]
         # NB. we must keep around the looptoken_wrefs that are
         # already invalidated; see below
         self.compress_limit = (len(self.looptokens_wrefs) + 15) * 2
