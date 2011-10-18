@@ -116,7 +116,7 @@ class PackFormatIterator(FormatIterator):
 
     def accept_str_arg(self):
         w_obj = self.accept_obj_arg()
-        return self.space.str_w(w_obj)
+        return self.space.bytes_w(w_obj)
 
     def accept_unicode_arg(self):
         w_obj = self.accept_obj_arg()
@@ -163,4 +163,7 @@ class UnpackFormatIterator(FormatIterator):
 
     @specialize.argtype(1)
     def appendobj(self, value):
-        self.result_w.append(self.space.wrap(value))
+        if isinstance(value, str):
+            self.result_w.append(self.space.wrapbytes(value))
+        else:
+            self.result_w.append(self.space.wrap(value))

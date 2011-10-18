@@ -22,7 +22,7 @@ def pack(space, format, args_w):
     except StructError, e:
         raise e.at_applevel(space)
     result = ''.join(fmtiter.result)
-    return space.wrap(result)
+    return space.wrapbytes(result)
 
 
 @unwrap_spec(format=str, input='bufferstr')

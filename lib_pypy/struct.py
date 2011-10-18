@@ -48,7 +48,7 @@ class StructError(Exception):
     pass
 error = StructError
 def unpack_int(data,index,size,le):
-    bytes = [ord(b) for b in data[index:index+size]]
+    bytes = [b for b in data[index:index+size]]
     if le == 'little':
         bytes.reverse()
     number = 0L
@@ -73,11 +73,11 @@ def pack_int(number,size,le):
     x=number
     res=[]
     for i in range(size):
-        res.append(chr(x&0xff))
+        res.append(x&0xff)
         x >>= 8
     if le == 'big':
         res.reverse()
-    return ''.join(res)
+    return bytes(res)
 
 def pack_signed_int(number,size,le):
     if not isinstance(number, (int,long)):
@@ -96,7 +96,7 @@ def pack_unsigned_int(number,size,le):
     return pack_int(number,size,le)
 
 def pack_char(char,size,le):
-    return str(char)
+    return bytes(char)
 
 def isinf(x):
     return x != 0.0 and x / 2 == x
@@ -107,10 +107,10 @@ def pack_float(x, size, le):
     unsigned = float_pack(x, size)
     result = []
     for i in range(8):
-        result.append(chr((unsigned >> (i * 8)) & 0xFF))
+        result.append((unsigned >> (i * 8)) & 0xFF)
     if le == "big":
         result.reverse()
-    return ''.join(result)
+    return bytes(result)
 
 def unpack_float(data, index, size, le):
     binary = [data[i] for i in range(index, index + 8)]
@@ -266,7 +266,7 @@ def getmode(fmt):
     try:
         formatdef,endianness = formatmode[fmt[0]]
         index = 1
-    except KeyError:
+    except (IndexError, KeyError):
         formatdef,endianness = formatmode['@']
         index = 0
     return formatdef,endianness,index
@@ -327,25 +327,25 @@ def pack(fmt,*args):
             num_s = num
 
         if cur == 'x':
-            result += ['\0'*num]
+            result += [b'\0'*num]
         elif cur == 's':
-            if isinstance(args[0], str):
+            if isinstance(args[0], bytes):
                 padding = num - len(args[0])
-                result += [args[0][:num] + '\0'*padding]
+                result += [args[0][:num] + b'\0'*padding]
                 args.pop(0)
             else:
                 raise StructError("arg for string format not a string")
         elif cur == 'p':
-            if isinstance(args[0], str):
+            if isinstance(args[0], bytes):
                 padding = num - len(args[0]) - 1
 
                 if padding > 0:
-                    result += [chr(len(args[0])) + args[0][:num-1] + '\0'*padding]
+                    result += [bytes([len(args[0])]) + args[0][:num-1] + b'\0'*padding]
                 else:
                     if num<255:
-                        result += [chr(num-1) + args[0][:num-1]]
+                        result += [bytes([num-1]) + args[0][:num-1]]
                     else:
-                        result += [chr(255) + args[0][:num-1]]
+                        result += [bytes([255]) + args[0][:num-1]]
                 args.pop(0)
             else:
                 raise StructError("arg for string format not a string")
@@ -360,7 +360,7 @@ def pack(fmt,*args):
         i += 1
     if len(args) != 0:
         raise StructError("too many arguments for pack format")
-    return ''.join(result)
+    return b''.join(result)
 
 def unpack(fmt,data):
     """unpack(fmt, string) -> (v1, v2, ...)
@@ -392,7 +392,7 @@ def unpack(fmt,data):
             result.append(data[j:j+num])
             j += num
         elif cur == 'p':
-            n=ord(data[j])
+            n=data[j]
             if n >= num:
                 n = num-1
             result.append(data[j+1:j+n+1])

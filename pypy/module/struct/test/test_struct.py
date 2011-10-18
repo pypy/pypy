@@ -78,13 +78,13 @@ class AppTestStruct(object):
         Check packing with the '<' format specifier.
         """
         pack = self.struct.pack
-        assert pack("<i", 0x41424344) == 'DCBA'
-        assert pack("<i", -3) == '\xfd\xff\xff\xff'
-        assert pack("<i", -2147483648) == '\x00\x00\x00\x80'
-        assert pack("<I", 0x81424344) == 'DCB\x81'
-        assert pack("<q", 0x4142434445464748) == 'HGFEDCBA'
-        assert pack("<q", -0x41B2B3B4B5B6B7B8) == 'HHIJKLM\xbe'
-        assert pack("<Q", 0x8142434445464748) == 'HGFEDCB\x81'
+        assert pack("<i", 0x41424344) == b'DCBA'
+        assert pack("<i", -3) == b'\xfd\xff\xff\xff'
+        assert pack("<i", -2147483648) == b'\x00\x00\x00\x80'
+        assert pack("<I", 0x81424344) == b'DCB\x81'
+        assert pack("<q", 0x4142434445464748) == b'HGFEDCBA'
+        assert pack("<q", -0x41B2B3B4B5B6B7B8) == b'HHIJKLM\xbe'
+        assert pack("<Q", 0x8142434445464748) == b'HGFEDCB\x81'
 
 
     def test_unpack_standard_little(self):
@@ -92,13 +92,13 @@ class AppTestStruct(object):
         Check unpacking with the '<' format specifier.
         """
         unpack = self.struct.unpack
-        assert unpack("<i", 'DCBA') == (0x41424344,)
-        assert unpack("<i", '\xfd\xff\xff\xff') == (-3,)
-        assert unpack("<i", '\x00\x00\x00\x80') == (-2147483648,)
-        assert unpack("<I", 'DCB\x81') == (0x81424344,)
-        assert unpack("<q", 'HGFEDCBA') == (0x4142434445464748,)
-        assert unpack("<q", 'HHIJKLM\xbe') == (-0x41B2B3B4B5B6B7B8,)
-        assert unpack("<Q", 'HGFEDCB\x81') == (0x8142434445464748,)
+        assert unpack("<i", b'DCBA') == (0x41424344,)
+        assert unpack("<i", b'\xfd\xff\xff\xff') == (-3,)
+        assert unpack("<i", b'\x00\x00\x00\x80') == (-2147483648,)
+        assert unpack("<I", b'DCB\x81') == (0x81424344,)
+        assert unpack("<q", b'HGFEDCBA') == (0x4142434445464748,)
+        assert unpack("<q", b'HHIJKLM\xbe') == (-0x41B2B3B4B5B6B7B8,)
+        assert unpack("<Q", b'HGFEDCB\x81') == (0x8142434445464748,)
 
 
     def test_pack_standard_big(self):
@@ -106,13 +106,13 @@ class AppTestStruct(object):
         Check packing with the '>' format specifier.
         """
         pack = self.struct.pack
-        assert pack(">i", 0x41424344) == 'ABCD'
-        assert pack(">i", -3) == '\xff\xff\xff\xfd'
-        assert pack(">i", -2147483648) == '\x80\x00\x00\x00'
-        assert pack(">I", 0x81424344) == '\x81BCD'
-        assert pack(">q", 0x4142434445464748) == 'ABCDEFGH'
-        assert pack(">q", -0x41B2B3B4B5B6B7B8) == '\xbeMLKJIHH'
-        assert pack(">Q", 0x8142434445464748) == '\x81BCDEFGH'
+        assert pack(">i", 0x41424344) == b'ABCD'
+        assert pack(">i", -3) == b'\xff\xff\xff\xfd'
+        assert pack(">i", -2147483648) == b'\x80\x00\x00\x00'
+        assert pack(">I", 0x81424344) == b'\x81BCD'
+        assert pack(">q", 0x4142434445464748) == b'ABCDEFGH'
+        assert pack(">q", -0x41B2B3B4B5B6B7B8) == b'\xbeMLKJIHH'
+        assert pack(">Q", 0x8142434445464748) == b'\x81BCDEFGH'
 
 
     def test_unpack_standard_big(self):
@@ -120,13 +120,13 @@ class AppTestStruct(object):
         Check unpacking with the '>' format specifier.
         """
         unpack = self.struct.unpack
-        assert unpack(">i", 'ABCD') == (0x41424344,)
-        assert unpack(">i", '\xff\xff\xff\xfd') == (-3,)
-        assert unpack(">i", '\x80\x00\x00\x00') == (-2147483648,)
-        assert unpack(">I", '\x81BCD') == (0x81424344,)
-        assert unpack(">q", 'ABCDEFGH') == (0x4142434445464748,)
-        assert unpack(">q", '\xbeMLKJIHH') == (-0x41B2B3B4B5B6B7B8,)
-        assert unpack(">Q", '\x81BCDEFGH') == (0x8142434445464748,)
+        assert unpack(">i", b'ABCD') == (0x41424344,)
+        assert unpack(">i", b'\xff\xff\xff\xfd') == (-3,)
+        assert unpack(">i", b'\x80\x00\x00\x00') == (-2147483648,)
+        assert unpack(">I", b'\x81BCD') == (0x81424344,)
+        assert unpack(">q", b'ABCDEFGH') == (0x4142434445464748,)
+        assert unpack(">q", b'\xbeMLKJIHH') == (-0x41B2B3B4B5B6B7B8,)
+        assert unpack(">Q", b'\x81BCDEFGH') == (0x8142434445464748,)
 
 
     def test_calcsize_native(self):
@@ -168,13 +168,13 @@ class AppTestStruct(object):
         sizeofi = calcsize("i")
         res = pack("bi", -2, 5)
         assert len(res) == 2 * sizeofi
-        assert res[0] == '\xfe'
-        assert res[1:sizeofi] == '\x00' * (sizeofi-1)    # padding
+        assert res[0] == 0xfe
+        assert res[1:sizeofi] == b'\x00' * (sizeofi-1)    # padding
         if self.native_is_bigendian:
-            assert res[sizeofi:] == '\x00' * (sizeofi-1) + '\x05'
+            assert res[sizeofi:] == b'\x00' * (sizeofi-1) + b'\x05'
         else:
-            assert res[sizeofi:] == '\x05' + '\x00' * (sizeofi-1)
-        assert pack("q", -1) == '\xff' * calcsize("q")
+            assert res[sizeofi:] == b'\x05' + b'\x00' * (sizeofi-1)
+        assert pack("q", -1) == b'\xff' * calcsize("q")
 
 
     def test_unpack_native(self):
@@ -185,7 +185,7 @@ class AppTestStruct(object):
         pack = self.struct.pack
         unpack = self.struct.unpack
         assert unpack("bi", pack("bi", -2, 5)) == (-2, 5)
-        assert unpack("q", '\xff' * calcsize("q")) == (-1,)
+        assert unpack("q", b'\xff' * calcsize("q")) == (-1,)
 
 
     def test_string_format(self):
@@ -194,13 +194,13 @@ class AppTestStruct(object):
         """
         pack = self.struct.pack
         unpack = self.struct.unpack
-        assert pack("7s", "hello") == "hello\x00\x00"
-        assert pack("5s", "world") == "world"
-        assert pack("3s", "spam") == "spa"
-        assert pack("0s", "foo") == ""
-        assert unpack("7s", "hello\x00\x00") == ("hello\x00\x00",)
-        assert unpack("5s3s", "worldspa") == ("world", "spa")
-        assert unpack("0s", "") == ("",)
+        assert pack("7s", b"hello") == b"hello\x00\x00"
+        assert pack("5s", b"world") == b"world"
+        assert pack("3s", b"spam") == b"spa"
+        assert pack("0s", b"foo") == b""
+        assert unpack("7s", b"hello\x00\x00") == (b"hello\x00\x00",)
+        assert unpack("5s3s", b"worldspa") == (b"world", b"spa")
+        assert unpack("0s", b"") == (b"",)
 
 
     def test_pascal_format(self):
@@ -209,17 +209,17 @@ class AppTestStruct(object):
         """
         pack = self.struct.pack
         unpack = self.struct.unpack
-        longstring = str(range(70))     # this has 270 chars
-        longpacked300 = "\xff" + longstring + "\x00" * (299-len(longstring))
-        assert pack("8p", "hello") == "\x05hello\x00\x00"
-        assert pack("6p", "world") == "\x05world"
-        assert pack("4p", "spam") == "\x03spa"
-        assert pack("1p", "foo") == "\x00"
-        assert pack("10p", longstring) == "\x09" + longstring[:9]
+        longstring = bytes(range(135)) * 2    # this has 270 chars
+        longpacked300 = b"\xff" + longstring + b"\x00" * (299-len(longstring))
+        assert pack("8p", b"hello") == b"\x05hello\x00\x00"
+        assert pack("6p", b"world") == b"\x05world"
+        assert pack("4p", b"spam") == b"\x03spa"
+        assert pack("1p", b"foo") == b"\x00"
+        assert pack("10p", longstring) == b"\x09" + longstring[:9]
         assert pack("300p", longstring) == longpacked300
-        assert unpack("8p", "\x05helloxx") == ("hello",)
-        assert unpack("5p", "\x80abcd") == ("abcd",)
-        assert unpack("1p", "\x03") == ("",)
+        assert unpack("8p", b"\x05helloxx") == (b"hello",)
+        assert unpack("5p", b"\x80abcd") == (b"abcd",)
+        assert unpack("1p", b"\x03") == (b"",)
         assert unpack("300p", longpacked300) == (longstring[:255],)
 
 
@@ -229,10 +229,10 @@ class AppTestStruct(object):
         """
         pack = self.struct.pack
         unpack = self.struct.unpack
-        assert pack("c", "?") == "?"
-        assert pack("5c", "a", "\xc0", "\x00", "\n", "-") == "a\xc0\x00\n-"
-        assert unpack("c", "?") == ("?",)
-        assert unpack("5c", "a\xc0\x00\n-") == ("a", "\xc0", "\x00", "\n", "-")
+        assert pack("c", b"?") == b"?"
+        assert pack("5c", b"a", b"\xc0", b"\x00", b"\n", b"-") == b"a\xc0\x00\n-"
+        assert unpack("c", b"?") == (b"?",)
+        assert unpack("5c", b"a\xc0\x00\n-") == (b"a", b"\xc0", b"\x00", b"\n", b"-")
 
 
     def test_pad_format(self):
@@ -241,10 +241,10 @@ class AppTestStruct(object):
         """
         pack = self.struct.pack
         unpack = self.struct.unpack
-        assert pack("x") == "\x00"
-        assert pack("5x") == "\x00" * 5
-        assert unpack("x", "?") == ()
-        assert unpack("5x", "hello") == ()
+        assert pack("x") == b"\x00"
+        assert pack("5x") == b"\x00" * 5
+        assert unpack("x", b"?") == ()
+        assert unpack("5x", b"hello") == ()
 
 
     def test_native_floats(self):
@@ -270,28 +270,28 @@ class AppTestStruct(object):
         """
         pack = self.struct.pack
         unpack = self.struct.unpack
-        assert pack("!d", 12.5) == '@)\x00\x00\x00\x00\x00\x00'
-        assert pack("<d", -12.5) == '\x00\x00\x00\x00\x00\x00)\xc0'
-        assert unpack("!d", '\xc0)\x00\x00\x00\x00\x00\x00') == (-12.5,)
-        assert unpack("<d", '\x00\x00\x00\x00\x00\x00)@') == (12.5,)
-        assert pack("!f", -12.5) == '\xc1H\x00\x00'
-        assert pack("<f", 12.5) == '\x00\x00HA'
-        assert unpack("!f", 'AH\x00\x00') == (12.5,)
-        assert unpack("<f", '\x00\x00H\xc1') == (-12.5,)
+        assert pack("!d", 12.5) == b'@)\x00\x00\x00\x00\x00\x00'
+        assert pack("<d", -12.5) == b'\x00\x00\x00\x00\x00\x00)\xc0'
+        assert unpack("!d", b'\xc0)\x00\x00\x00\x00\x00\x00') == (-12.5,)
+        assert unpack("<d", b'\x00\x00\x00\x00\x00\x00)@') == (12.5,)
+        assert pack("!f", -12.5) == b'\xc1H\x00\x00'
+        assert pack("<f", 12.5) == b'\x00\x00HA'
+        assert unpack("!f", b'AH\x00\x00') == (12.5,)
+        assert unpack("<f", b'\x00\x00H\xc1') == (-12.5,)
         raises(OverflowError, pack, "<f", 10e100)
 
     def test_bool(self):
         pack = self.struct.pack
         unpack = self.struct.unpack
-        assert pack("!?", True) == '\x01'
-        assert pack(">?", True) == '\x01'
-        assert pack("!?", False) == '\x00'
-        assert pack(">?", False) == '\x00'
-        assert pack("@?", True) == '\x01'
-        assert pack("@?", False) == '\x00'
+        assert pack("!?", True) == b'\x01'
+        assert pack(">?", True) == b'\x01'
+        assert pack("!?", False) == b'\x00'
+        assert pack(">?", False) == b'\x00'
+        assert pack("@?", True) == b'\x01'
+        assert pack("@?", False) == b'\x00'
 
     def test_transitiveness(self):
-        c = 'a'
+        c = b'a'
         b = 1
         h = 255
         i = 65535
@@ -333,15 +333,15 @@ class AppTestStruct(object):
         raises(error, calcsize, "!P")   # bad char in struct format
         raises(error, pack, "ii", 15)   # struct format requires more arguments
         raises(error, pack, "i", 3, 4)  # too many arguments for struct format
-        raises(error, unpack, "ii", "?")# unpack str size too short for format
-        raises(error, unpack, "b", "??")# unpack str size too long for format
-        raises(error, pack, "c", "foo") # expected a string of length 1
+        raises(error, unpack, "ii", b"?")# unpack str size too short for format
+        raises(error, unpack, "b", b"??")# unpack str size too long for format
+        raises(error, pack, "c", b"foo") # expected a string of length 1
         try:
             pack("0p")                  # bad '0p' in struct format
         except error:                   # (but ignored on CPython)
             pass
         if '__pypy__' in sys.builtin_module_names:
-            raises(error, unpack, "0p", "")   # segfaults on CPython 2.5.2!
+            raises(error, unpack, "0p", b"")   # segfaults on CPython 2.5.2!
         raises(error, pack, "b", 150)   # argument out of range
         # XXX the accepted ranges still differs between PyPy and CPython
 
@@ -373,7 +373,7 @@ class AppTestStruct(object):
         if '__pypy__' not in sys.builtin_module_names:
             skip("PyPy extension")
         data = self.struct.pack("uuu", u'X', u'Y', u'Z')
-        assert data == str(buffer(u'XYZ'))
+        assert data == bytes(buffer(u'XYZ'))
         assert self.struct.unpack("uuu", data) == (u'X', u'Y', u'Z')
 
 
@@ -406,9 +406,9 @@ class AppTestStructBuffer(object):
         b = self.bytebuffer(19)
         sz = self.struct.calcsize("ii")
         self.struct.pack_into("ii", b, 2, 17, 42)
-        assert b[:] == ('\x00' * 2 +
+        assert b[:] == (b'\x00' * 2 +
                         self.struct.pack("ii", 17, 42) +
-                        '\x00' * (19-sz-2))
+                        b'\x00' * (19-sz-2))
 
     def test_unpack_from(self):
         b = self.bytebuffer(19)
