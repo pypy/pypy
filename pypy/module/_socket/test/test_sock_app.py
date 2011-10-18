@@ -181,7 +181,7 @@ def test_ntop_ipv6():
         ("\x00" * 10 + "\xff\xff\x01\x02\x03\x04", "::ffff:1.2.3.4"),
     ]
     for packed, ip in tests:
-        w_ip = space.appexec([w_socket, space.wrap(packed)],
+        w_ip = space.appexec([w_socket, space.wrapbytes(packed)],
             "(_socket, packed): return _socket.inet_ntop(_socket.AF_INET6, packed)")
         if ip is not None:   # else don't check for the precise representation
             assert space.unwrap(w_ip) == ip
@@ -217,14 +217,14 @@ def test_has_ipv6():
     assert space.unwrap(res) == socket.has_ipv6
 
 def test_getaddrinfo():
-    host = "localhost"
+    host = b"localhost"
     port = 25
     info = socket.getaddrinfo(host, port)
-    w_l = space.appexec([w_socket, space.wrap(host), space.wrap(port)],
+    w_l = space.appexec([w_socket, space.wrapbytes(host), space.wrap(port)],
                         "(_socket, host, port): return _socket.getaddrinfo(host, port)")
     assert space.unwrap(w_l) == info
     py.test.skip("Unicode conversion is too slow")
-    w_l = space.appexec([w_socket, space.wrap(unicode(host)), space.wrap(port)],
+    w_l = space.appexec([w_socket, space.wrap(host), space.wrap(port)],
                         "(_socket, host, port): return _socket.getaddrinfo(host, port)")
     assert space.unwrap(w_l) == info
 
@@ -314,10 +314,10 @@ class AppTestSocket:
         if not hasattr(_socket, 'inet_ntop'):
             skip('No socket.inet_pton on this platform')
         for family, packed, exception in \
-                    [(_socket.AF_INET + _socket.AF_INET6, "", _socket.error),
-                     (_socket.AF_INET, "a", ValueError),
-                     (_socket.AF_INET6, "a", ValueError),
-                     (_socket.AF_INET, u"aa\u2222a", UnicodeEncodeError)]:
+                    [(_socket.AF_INET + _socket.AF_INET6, b"", _socket.error),
+                     (_socket.AF_INET, b"a", ValueError),
+                     (_socket.AF_INET6, b"a", ValueError),
+                     (_socket.AF_INET, u"aa\u2222a", TypeError)]:
             raises(exception, _socket.inet_ntop, family, packed)
 
     def test_pton_exceptions(self):
@@ -503,8 +503,8 @@ class AppTestSocket:
         assert s.fileno() != s2.fileno()
         assert s.getsockname() == s2.getsockname()
 
-    def test_buffer_or_unicode(self):
-        # Test that send/sendall/sendto accept a buffer or a unicode as arg
+    def test_buffer(self):
+        # Test that send/sendall/sendto accept a buffer as arg
         import _socket, os
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
         # XXX temporarily we use python.org to test, will have more robust tests
@@ -515,14 +515,13 @@ class AppTestSocket:
             s.connect(("www.python.org", 80))
         except _socket.gaierror, ex:
             skip("GAIError - probably no connection: %s" % str(ex.args))
-        s.send(buffer(''))
-        s.sendall(buffer(''))
-        s.send(u'')
-        s.sendall(u'')
-        raises(UnicodeEncodeError, s.send, u'\xe9')
+        s.send(buffer(b''))
+        s.sendall(buffer(b''))
+        raises(TypeError, s.send, u'')
+        raises(TypeError, s.sendall, u'')
         s.close()
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM, 0)
-        s.sendto(buffer(''), ('localhost', 9)) # Send to discard port.
+        s.sendto(buffer(b''), ('localhost', 9)) # Send to discard port.
         s.close()
 
     def test_unix_socket_connect(self):
@@ -537,15 +536,15 @@ class AppTestSocket:
 
         clientsock = _socket.socket(_socket.AF_UNIX)
         clientsock.connect(sockpath)
-        s, addr = serversock.accept()
+        s, addr = serversock._accept()
         assert not addr
 
-        s.send('X')
+        s.send(b'X')
         data = clientsock.recv(100)
-        assert data == 'X'
-        clientsock.send('Y')
+        assert data == b'X'
+        clientsock.send(b'Y')
         data = s.recv(100)
-        assert data == 'Y'
+        assert data == b'Y'
 
         clientsock.close()
         s.close()
@@ -575,45 +574,45 @@ class AppTestSocketTCP:
         from _socket import timeout
         def raise_timeout():
             self.serv.settimeout(1.0)
-            self.serv.accept()
+            self.serv._accept()
         raises(timeout, raise_timeout)
 
     def test_timeout_zero(self):
         from _socket import error
         def raise_error():
             self.serv.settimeout(0.0)
-            foo = self.serv.accept()
+            foo = self.serv._accept()
         raises(error, raise_error)
 
     def test_recv_send_timeout(self):
         from _socket import socket, timeout
         cli = socket()
         cli.connect(self.serv.getsockname())
-        t, addr = self.serv.accept()
+        t, addr = self.serv._accept()
         cli.settimeout(1.0)
         # test recv() timeout
-        t.send('*')
+        t.send(b'*')
         buf = cli.recv(100)
-        assert buf == '*'
+        assert buf == b'*'
         raises(timeout, cli.recv, 100)
         # test that send() works
-        count = cli.send('!')
+        count = cli.send(b'!')
         assert count == 1
         buf = t.recv(1)
-        assert buf == '!'
+        assert buf == b'!'
         # test that sendall() works
-        cli.sendall('?')
+        cli.sendall(b'?')
         assert count == 1
         buf = t.recv(1)
-        assert buf == '?'
+        assert buf == b'?'
         # test send() timeout
         try:
             while 1:
-                cli.send('foobar' * 70)
+                cli.send(b'foobar' * 70)
         except timeout:
             pass
         # test sendall() timeout
-        raises(timeout, cli.sendall, 'foobar' * 70)
+        raises(timeout, cli.sendall, b'foobar' * 70)
         # done
         cli.close()
         t.close()
@@ -621,31 +620,31 @@ class AppTestSocketTCP:
     def test_recv_into(self):
         import socket
         import array
-        MSG = 'dupa was here\n'
+        MSG = b'dupa was here\n'
         cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         cli.connect(self.serv.getsockname())
-        conn, addr = self.serv.accept()
+        conn, addr = self.serv._accept()
         buf = buffer(MSG)
         conn.send(buf)
-        buf = array.array('c', ' '*1024)
+        buf = array.array('b', b' '*1024)
         nbytes = cli.recv_into(buf)
         assert nbytes == len(MSG)
-        msg = buf.tostring()[:len(MSG)]
+        msg = buf.tobytes()[:len(MSG)]
         assert msg == MSG
 
     def test_recvfrom_into(self):
         import socket
         import array
-        MSG = 'dupa was here\n'
+        MSG = b'dupa was here\n'
         cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         cli.connect(self.serv.getsockname())
-        conn, addr = self.serv.accept()
+        conn, addr = self.serv._accept()
         buf = buffer(MSG)
         conn.send(buf)
-        buf = array.array('c', ' '*1024)
+        buf = array.array('b', b' '*1024)
         nbytes, addr = cli.recvfrom_into(buf)
         assert nbytes == len(MSG)
-        msg = buf.tostring()[:len(MSG)]
+        msg = buf.tobytes()[:len(MSG)]
         assert msg == MSG
 
     def test_family(self):

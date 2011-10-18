@@ -106,9 +106,7 @@ class array(object):
         self.itemsize = calcsize(typecode)
         if isinstance(initializer, list):
             self.fromlist(initializer)
-        elif isinstance(initializer, str):
-            self.fromstring(initializer)
-        elif isinstance(initializer, unicode) and self.typecode == "u":
+        elif isinstance(initializer, str) and self.typecode == "u":
             self.fromunicode(initializer)
         else:
             self.extend(initializer)
@@ -188,6 +186,7 @@ class array(object):
 
     def tostring(self):
         return self._data[:]
+    tobytes = tostring
 
     def __buffer__(self):
         return buffer(self._data)

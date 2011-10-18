@@ -19,8 +19,8 @@ class W_RSocket(Wrappable, RSocket):
     def __del__(self):
         self.close()
 
-    def accept_w(self, space):
-        """accept() -> (socket object, address info)
+    def _accept_w(self, space):
+        """_accept() -> (socket object, address info)
 
         Wait for an incoming connection.  Return a new socket representing the
         connection, and the address of the client.  For IP sockets, the address
@@ -133,7 +133,7 @@ class W_RSocket(Wrappable, RSocket):
             except SocketError, e:
                 raise converted_error(space, e)
         buflen = space.int_w(w_buflen)
-        return space.wrap(self.getsockopt(level, optname, buflen))
+        return space.wrapbytes(self.getsockopt(level, optname, buflen))
 
     def gettimeout_w(self, space):
         """gettimeout() -> timeout
@@ -180,7 +180,7 @@ class W_RSocket(Wrappable, RSocket):
             data = self.recv(buffersize, flags)
         except SocketError, e:
             raise converted_error(space, e)
-        return space.wrap(data)
+        return space.wrapbytes(data)
 
     @unwrap_spec(buffersize='nonnegint', flags=int)
     def recvfrom_w(self, space, buffersize, flags=0):
@@ -194,7 +194,7 @@ class W_RSocket(Wrappable, RSocket):
                 w_addr = addr.as_object(self.fd, space)
             else:
                 w_addr = space.w_None
-            return space.newtuple([space.wrap(data), w_addr])
+            return space.newtuple([space.wrapbytes(data), w_addr])
         except SocketError, e:
             raise converted_error(space, e)
 
@@ -268,7 +268,7 @@ class W_RSocket(Wrappable, RSocket):
         try:
             optval = space.int_w(w_optval)
         except:
-            optval = space.str_w(w_optval)
+            optval = space.bytes_w(w_optval)
             try:
                 self.setsockopt(level, optname, optval)
             except SocketError, e:
@@ -462,7 +462,7 @@ def converted_error(space, e):
 # ____________________________________________________________
 
 socketmethodnames = """
-accept bind close connect connect_ex dup fileno
+_accept bind close connect connect_ex dup fileno
 getpeername getsockname getsockopt gettimeout listen makefile
 recv recvfrom send sendall sendto setblocking
 setsockopt settimeout shutdown _reuse _drop recv_into recvfrom_into
@@ -493,7 +493,7 @@ A socket object represents one endpoint of a network connection.
 
 Methods of socket objects (keyword arguments not allowed):
 
-accept() -- accept a connection, returning new socket and client address
+_accept() -- accept a connection, returning new socket and client address
 bind(addr) -- bind the socket to a local address
 close() -- close the socket
 connect(addr) -- connect the socket to a remote address

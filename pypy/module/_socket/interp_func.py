@@ -227,9 +227,9 @@ def inet_pton(space, family, ip):
         buf = rsocket.inet_pton(family, ip)
     except SocketError, e:
         raise converted_error(space, e)
-    return space.wrap(buf)
+    return space.wrapbytes(buf)
 
-@unwrap_spec(family=int, packed=str)
+@unwrap_spec(family=int, packed="bufferstr")
 def inet_ntop(space, family, packed):
     """inet_ntop(family, packed_ip) -> string formatted IP address
 
@@ -255,11 +255,11 @@ def getaddrinfo(space, w_host, w_port,
     # host can be None, string or unicode
     if space.is_w(w_host, space.w_None):
         host = None
-    elif space.is_true(space.isinstance(w_host, space.w_str)):
-        host = space.str_w(w_host)
+    elif space.is_true(space.isinstance(w_host, space.w_bytes)):
+        host = space.bytes_w(w_host)
     elif space.is_true(space.isinstance(w_host, space.w_unicode)):
         w_shost = space.call_method(w_host, "encode", space.wrap("idna"))
-        host = space.str_w(w_shost)
+        host = space.bytes_w(w_shost)
     else:
         raise OperationError(space.w_TypeError,
                              space.wrap(
