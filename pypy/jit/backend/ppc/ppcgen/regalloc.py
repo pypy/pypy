@@ -222,6 +222,15 @@ class Regalloc(object):
     def prepare_int_mod(self, op):
         return self.prepare_int_mul(op)
 
+    def prepare_int_and(self, op):
+        return self.prepare_int_mul(op)
+
+    def prepare_int_or(self, op):
+        return self.prepare_int_mul(op)
+
+    def prepare_int_xor(self, op):
+        return self.prepare_int_mul(op)
+
     def prepare_finish(self, op):
         args = [locations.imm(self.frame_manager.frame_depth)]
         for i in range(op.numargs()):

@@ -72,6 +72,18 @@ class OpAssembler(object):
         self.mc.subf(r.r0.value, r.r0.value, l0.value)
         self.mc.mr(res.value, r.r0.value)
 
+    def emit_int_and(self, op, arglocs, regalloc):
+        l0, l1, res = arglocs
+        self.mc.and_(res.value, l0.value, l1.value)
+
+    def emit_int_or(self, op, arglocs, regalloc):
+        l0, l1, res = arglocs
+        self.mc.or_(res.value, l0.value, l1.value)
+
+    def emit_int_xor(self, op, arglocs, regalloc):
+        l0, l1, res = arglocs
+        self.mc.xor(res.value, l0.value, l1.value)
+
     emit_int_le = gen_emit_cmp_op(c.LE)   
 
     def _emit_guard(self, op, arglocs, fcond, save_exc=False,
