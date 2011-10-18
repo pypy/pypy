@@ -359,7 +359,7 @@ class EmptySetStrategy(SetStrategy):
 
     def intersect_multiple_update(self, w_set, others_w):
         for w_other in others_w:
-            self.intersect(w_set, w_other)
+            self.check_for_unhashable_objects(w_other)
 
     def isdisjoint(self, w_set, w_other):
         return True
