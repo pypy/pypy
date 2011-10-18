@@ -305,9 +305,10 @@ else:
         sem = sem_open(name, os.O_CREAT | os.O_EXCL, 0600, val)
         try:
             sem_unlink(name)
-            rgc.add_memory_pressure(SEM_T_SIZE)
         except OSError:
             pass
+        else:
+            rgc.add_memory_pressure(SEM_T_SIZE)
         return sem
 
     def delete_semaphore(space, handle):
