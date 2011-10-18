@@ -460,6 +460,14 @@ class OptRewrite(Optimization):
         self.optimizer.opaque_pointers[value] = True
         self.make_equal_to(op.result, value)
 
+    def optimize_CAST_PTR_TO_INT(self, op):
+        self.pure(rop.CAST_INT_TO_PTR, [op.result], op.getarg(0))
+        self.emit_operation(op)
+
+    def optimize_CAST_INT_TO_PTR(self, op):
+        self.pure(rop.CAST_PTR_TO_INT, [op.result], op.getarg(0))
+        self.emit_operation(op)
+
 dispatch_opt = make_dispatcher_method(OptRewrite, 'optimize_',
         default=OptRewrite.emit_operation)
 optimize_guards = _findall(OptRewrite, 'optimize_', 'GUARD')
