@@ -362,19 +362,12 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_3)
         self.pushvalue(w_2)
 
-    def ROT_FOUR(self, oparg, next_instr):
-        w_1 = self.popvalue()
-        w_2 = self.popvalue()
-        w_3 = self.popvalue()
-        w_4 = self.popvalue()
-        self.pushvalue(w_1)
-        self.pushvalue(w_4)
-        self.pushvalue(w_3)
-        self.pushvalue(w_2)
-
     def DUP_TOP(self, oparg, next_instr):
         w_1 = self.peekvalue()
         self.pushvalue(w_1)
+
+    def DUP_TOP_TWO(self, oparg, next_instr):
+        self.dupvalues(2)
 
     def DUP_TOPX(self, itemcount, next_instr):
         assert 1 <= itemcount <= 5, "limitation of the current interpreter"
@@ -539,6 +532,9 @@ class __extend__(pyframe.PyFrame):
         if plain:
             self.setdictscope(w_locals)
 
+    def POP_EXCEPT(self, oparg, next_instr):
+        raise NotImplementedError
+
     def POP_BLOCK(self, oparg, next_instr):
         block = self.pop_block()
         block.cleanup(self)  # the block knows how to clean up the value stack
@@ -584,6 +580,9 @@ class __extend__(pyframe.PyFrame):
         w_iterable = self.popvalue()
         items = self.space.fixedview_unroll(w_iterable, itemcount)
         self.pushrevvalues(itemcount, items)
+
+    def UNPACK_EX(self, oparg, next_instr):
+        raise NotImplementedError
 
     def STORE_ATTR(self, nameindex, next_instr):
         "obj.attributename = newvalue"

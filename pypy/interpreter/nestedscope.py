@@ -213,6 +213,9 @@ class __extend__(pyframe.PyFrame):
         cell = self.cells[varindex]
         cell.set(w_newvalue)
 
+    def DELETE_DEREF(self, varindex, next_instr):
+        raise NotImplementedError
+
     @jit.unroll_safe
     def MAKE_CLOSURE(self, numdefaults, next_instr):
         w_codeobj = self.popvalue()
