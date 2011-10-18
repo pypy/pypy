@@ -514,6 +514,11 @@ class AppTestAppSetTest:
         assert s1 == set([1,2,3,4])
         assert s2 == set([1,2,3,4])
 
+    def test_intersection_string(self):
+        s = set([1,2,3])
+        o = 'abc'
+        assert s.intersection(o) == set()
+
     def test_difference(self):
         assert set([1,2,3]).difference(set([2,3,4])) == set([1])
         assert set([1,2,3]).difference(frozenset([2,3,4])) == set([1])

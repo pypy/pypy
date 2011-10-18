@@ -584,17 +584,18 @@ class AbstractUnwrappedSetStrategy(object):
             storage = strategy._intersect_unwrapped(w_set, w_other)
         else:
             strategy = self.space.fromcache(ObjectSetStrategy)
-            storage = strategy._intersect_wrapped(w_set, w_other)
+            storage = self._intersect_wrapped(w_set, w_other)
         return storage, strategy
 
     def _intersect_wrapped(self, w_set, w_other):
         result = self.get_empty_dict()
-        items = self.unerase(w_set.sstorage).iterkeys()
-        for key in items:
+        for key in self.unerase(w_set.sstorage):
             w_key = self.wrap(key)
             if w_other.has_key(w_key):
                 result[w_key] = None
-        return self.erase(result)
+
+        strategy = self.space.fromcache(ObjectSetStrategy)
+        return strategy.erase(result)
 
     def _intersect_unwrapped(self, w_set, w_other):
         result = self.get_empty_dict()
