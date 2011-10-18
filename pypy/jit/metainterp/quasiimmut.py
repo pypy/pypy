@@ -74,12 +74,8 @@ class QuasiImmut(object):
         self.looptokens_wrefs.append(wref_looptoken)
 
     def compress_looptokens_list(self):
-        newlist = []
-        for wref in self.looptokens_wrefs:
-            looptoken = wref()
-            if looptoken is not None and not looptoken.invalidated:
-                newlist.append(wref)
-        self.looptokens_wrefs = newlist
+        self.looptokens_wref = [wref for wref in self.looptokens_wrefs
+                                     if wref() is not None]
         self.compress_limit = (len(self.looptokens_wrefs) + 15) * 2
 
     def invalidate(self):
@@ -90,7 +86,7 @@ class QuasiImmut(object):
         self.looptokens_wrefs = []
         for wref in wrefs:
             looptoken = wref()
-            if looptoken is not None and not looptoken.invalidated:
+            if looptoken is not None:
                 looptoken.invalidated = True
                 self.cpu.invalidate_loop(looptoken)
                 if not we_are_translated():
