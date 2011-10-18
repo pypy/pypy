@@ -76,6 +76,8 @@ class QuasiImmut(object):
     def compress_looptokens_list(self):
         self.looptokens_wref = [wref for wref in self.looptokens_wrefs
                                      if wref() is not None]
+        # NB. we must keep around the looptoken_wrefs that are
+        # already invalidated; see below
         self.compress_limit = (len(self.looptokens_wrefs) + 15) * 2
 
     def invalidate(self):
@@ -89,6 +91,11 @@ class QuasiImmut(object):
             if looptoken is not None:
                 looptoken.invalidated = True
                 self.cpu.invalidate_loop(looptoken)
+                # NB. we must call cpu.invalidate_loop() even if
+                # looptoken.invalidated was already set to True.
+                # It's possible to invalidate several times the
+                # same looptoken; see comments in jit.backend.model
+                # in invalidate_loop().
                 if not we_are_translated():
                     self.cpu.stats.invalidated_token_numbers.add(
                         looptoken.number)
