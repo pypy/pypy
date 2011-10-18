@@ -22,6 +22,7 @@ class W_StringObject(W_Object):
     _immutable_fields_ = ['_value']
 
     def __init__(w_self, str):
+        assert str is not None
         w_self._value = str
 
     def __repr__(w_self):
