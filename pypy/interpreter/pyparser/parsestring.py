@@ -13,8 +13,6 @@ def parsestr(space, encoding, s):
     rawmode = False
     unicode = True
 
-    assert isinstance(s, str)
-
     # string decoration handling
     o = ord(quote)
     isalpha = (o>=97 and o<=122) or (o>=65 and o<=90)
