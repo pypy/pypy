@@ -42,7 +42,7 @@ class AppTestCodeIntrospection:
                                  'co_flags': 0,
                                  'co_consts': ("abs(number) -> number\n\nReturn the absolute value of the argument.",),
                                  }),
-                (object.__init__.im_func.func_code,
+                (object.__init__.func_code,
                                 {#'co_name': '__init__',   XXX getting descr__init__
                                  'co_varnames': ('obj', 'args', 'keywords'),
                                  'co_argcount': 1,
@@ -70,7 +70,7 @@ class AppTestCodeIntrospection:
             foo(g)
 '''
         d = {}
-        exec src in d
+        exec(src, d)
 
         assert list(sorted(d['f'].func_code.co_names)) == ['foo', 'g']
 
@@ -97,7 +97,7 @@ class AppTestCodeIntrospection:
                       ccode.co_freevars,
                       ccode.co_cellvars)
         d = {}
-        exec co in d
+        exec(co, d)
         assert d['c'] == 3
         # test backwards-compatibility version with no freevars or cellvars
         co = new.code(ccode.co_argcount,
@@ -113,7 +113,7 @@ class AppTestCodeIntrospection:
                       ccode.co_firstlineno,
                       ccode.co_lnotab)
         d = {}
-        exec co in d
+        exec(co, d)
         assert d['c'] == 3
         def f(x):
             y = 1
@@ -147,9 +147,9 @@ class AppTestCodeIntrospection:
 
     def test_hash(self):
         d1 = {}
-        exec "def f(): pass" in d1
+        exec("def f(): pass", d1)
         d2 = {}
-        exec "def f(): pass" in d2
+        exec("def f(): pass", d2)
         assert d1['f'].func_code == d2['f'].func_code
         assert hash(d1['f'].func_code) == hash(d2['f'].func_code)
 
@@ -164,47 +164,48 @@ class AppTestCodeIntrospection:
             assert i in res
 
     def test_code_extra(self):
-        exec """if 1:
+        d = {}
+        exec("""if 1:
         def f():
             "docstring"
             'stuff'
             56
-"""
+""", d)
 
         # check for new flag, CO_NOFREE
-        assert f.func_code.co_flags & 0x40
+        assert d['f'].func_code.co_flags & 0x40
 
-        exec """if 1:
+        exec("""if 1:
         def f(x):
             def g(y):
                 return x+y
             return g
-"""
+""", d)
 
         # CO_NESTED
-        assert f(4).func_code.co_flags & 0x10
-        assert f.func_code.co_flags & 0x10 == 0
+        assert d['f'](4).func_code.co_flags & 0x10
+        assert d['f'].func_code.co_flags & 0x10 == 0
         # check for CO_CONTAINSGLOBALS
-        assert not f.func_code.co_flags & 0x0800
+        assert not d['f'].func_code.co_flags & 0x0800
 
 
-        exec """if 1:
+        exec("""if 1:
         r = range
         def f():
             return [l for l in r(100)]
         def g():
             return [l for l in [1, 2, 3, 4]]
-"""
+""", d)
 
         # check for CO_CONTAINSGLOBALS
-        assert f.func_code.co_flags & 0x0800
-        assert not g.func_code.co_flags & 0x0800
+        assert d['f'].func_code.co_flags & 0x0800
+        assert not d['g'].func_code.co_flags & 0x0800
 
-        exec """if 1:
+        exec("""if 1:
         b = 2
         def f(x):
-            exec "a = 1";
+            exec("a = 1")
             return a + b + x
-"""
+""", d)
         # check for CO_CONTAINSGLOBALS
-        assert f.func_code.co_flags & 0x0800
+        assert d['f'].func_code.co_flags & 0x0800

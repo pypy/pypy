@@ -472,6 +472,12 @@ def interp_attrproperty(name, cls, doc=None):
         return space.wrap(getattr(obj, name))
     return GetSetProperty(fget, cls=cls, doc=doc)
 
+def interp_attrproperty_bytes(name, cls, doc=None):
+    "NOT_RPYTHON: initialization-time only"
+    def fget(space, obj):
+        return space.wrapbytes(getattr(obj, name))
+    return GetSetProperty(fget, cls=cls, doc=doc)
+
 def interp_attrproperty_w(name, cls, doc=None):
     "NOT_RPYTHON: initialization-time only"
     def fget(space, obj):
@@ -686,7 +692,7 @@ PyCode.typedef = TypeDef('code',
     co_nlocals = interp_attrproperty('co_nlocals', cls=PyCode),
     co_stacksize = interp_attrproperty('co_stacksize', cls=PyCode),
     co_flags = interp_attrproperty('co_flags', cls=PyCode),
-    co_code = interp_attrproperty('co_code', cls=PyCode),
+    co_code = interp_attrproperty_bytes('co_code', cls=PyCode),
     co_consts = GetSetProperty(PyCode.fget_co_consts),
     co_names = GetSetProperty(PyCode.fget_co_names),
     co_varnames =  GetSetProperty(PyCode.fget_co_varnames),
@@ -695,7 +701,7 @@ PyCode.typedef = TypeDef('code',
     co_filename = interp_attrproperty('co_filename', cls=PyCode),
     co_name = interp_attrproperty('co_name', cls=PyCode),
     co_firstlineno = interp_attrproperty('co_firstlineno', cls=PyCode),
-    co_lnotab = interp_attrproperty('co_lnotab', cls=PyCode),
+    co_lnotab = interp_attrproperty_bytes('co_lnotab', cls=PyCode),
     __weakref__ = make_weakref_descr(PyCode),
     )
 PyCode.typedef.acceptable_as_base_class = False

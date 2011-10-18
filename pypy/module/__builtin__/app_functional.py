@@ -41,8 +41,8 @@ def sum(sequence, start=0):
 Returns the sum of a sequence of numbers (NOT strings) plus the value
 of parameter 'start' (which defaults to 0).  When the sequence is
 empty, returns start."""
-    if isinstance(start, basestring):
-        raise TypeError("sum() can't sum strings")
+    if isinstance(start, str):
+        raise TypeError("sum() can't sum strings [use ''.join(seq) instead]")
     last = start
     for x in sequence:
         # Very intentionally *not* +=, that would have different semantics if

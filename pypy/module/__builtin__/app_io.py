@@ -78,6 +78,8 @@ def print_(*args, **kwargs):
     def write(data):
         if not isinstance(data, str):
             data = str(data)
+        if getattr(fp, 'encoding', None):
+            data = data.encode(fp.encoding)
         fp.write(data)
     sep = kwargs.pop("sep", None)
     if sep is not None:

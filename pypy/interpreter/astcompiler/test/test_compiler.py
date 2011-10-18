@@ -456,16 +456,6 @@ class TestCompiler:
         yield self.st, decl, 'A,A1,A2,B2,C,C1,C2,D1,E,G,G1,G2,N1', \
                              (6,6 ,4 ,1 ,5,5 ,5 ,3 ,8,2,2 ,2 ,7 )
 
-        decl = py.code.Source("""
-            def f((a, b)):
-                def g((c, d)):
-                    return (a, b, c, d)
-                return g
-            x = f((1, 2))((3, 4))
-        """)
-        decl = str(decl) + "\n"
-        yield self.st, decl, 'x', (1, 2, 3, 4)
-
         source = """if 1:
         def f(a):
             del a
@@ -673,7 +663,7 @@ class TestCompiler:
                 if not d: self.fail("Full mapping must compare to True")
                 # keys(), items(), iterkeys() ...
                 def check_iterandlist(iter, lst, ref):
-                    self.assert_(hasattr(iter, 'next'))
+                    self.assert_(hasattr(iter, '__next__'))
                     self.assert_(hasattr(iter, '__iter__'))
                     x = list(iter)
                     self.assert_(set(x)==set(lst)==set(ref))
@@ -682,8 +672,8 @@ class TestCompiler:
                 check_iterandlist(d.itervalues(), d.values(), self.reference.values())
                 check_iterandlist(d.iteritems(), d.items(), self.reference.items())
                 #get
-                key, value = d.iteritems().next()
-                knownkey, knownvalue = self.other.iteritems().next()
+                key, value = next(d.iteritems())
+                knownkey, knownvalue = next(self.other.iteritems())
                 self.assertEqual(d.get(key, knownvalue), value)
                 self.assertEqual(d.get(knownkey, knownvalue), knownvalue)
                 self.failIf(knownkey in d)
@@ -817,7 +807,7 @@ class AppTestCompiler:
         exec("def f():\n    'hi'", ns)
         f = ns["f"]
         save = sys.stdout
-        sys.stdout = output = io.BytesIO()
+        sys.stdout = output = io.StringIO()
         try:
             dis.dis(f)
         finally:
