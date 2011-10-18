@@ -139,13 +139,13 @@ class OptRewrite(Optimization):
             self.make_constant_int(op.result, 0)
         else:
             for lhs, rhs in [(v1, v2), (v2, v1)]:
-                # x & (x -1) == 0 is a quick test for power of 2
-                if (lhs.is_constant() and
-                    (lhs.box.getint() & (lhs.box.getint() - 1)) == 0):
-                    new_rhs = ConstInt(highest_bit(lhs.box.getint()))
-                    op = op.copy_and_change(rop.INT_LSHIFT, args=[rhs.box, new_rhs])
-                    break
-
+                if lhs.is_constant():
+                    x = lhs.box.getint()
+                    # x & (x - 1) == 0 is a quick test for power of 2
+                    if x & (x - 1) == 0:
+                        new_rhs = ConstInt(highest_bit(lhs.box.getint()))
+                        op = op.copy_and_change(rop.INT_LSHIFT, args=[rhs.box, new_rhs])
+                        break
             self.emit_operation(op)
 
     def optimize_UINT_FLOORDIV(self, op):
