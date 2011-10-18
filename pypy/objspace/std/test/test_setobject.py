@@ -717,3 +717,53 @@ class AppTestAppSetTest:
         x.pop()
         assert x == set([2,3])
         assert y == set([1,2,3])
+
+    def test_never_change_frozenset(self):
+        a = frozenset([1,2])
+        b = a.copy()
+        assert a is b
+
+        a = frozenset([1,2])
+        b = a.union(set([3,4]))
+        assert b == set([1,2,3,4])
+        assert a == set([1,2])
+
+        a = frozenset()
+        b = a.union(set([3,4]))
+        assert b == set([3,4])
+        assert a == set()
+
+        a = frozenset([1,2])#multiple
+        b = a.union(set([3,4]),[5,6])
+        assert b == set([1,2,3,4,5,6])
+        assert a == set([1,2])
+
+        a = frozenset([1,2,3])
+        b = a.difference(set([3,4,5]))
+        assert b == set([1,2])
+        assert a == set([1,2,3])
+
+        a = frozenset([1,2,3])#multiple
+        b = a.difference(set([3]), [2])
+        assert b == set([1])
+        assert a == set([1,2,3])
+
+        a = frozenset([1,2,3])
+        b = a.symmetric_difference(set([3,4,5]))
+        assert b == set([1,2,4,5])
+        assert a == set([1,2,3])
+
+        a = frozenset([1,2,3])
+        b = a.intersection(set([3,4,5]))
+        assert b == set([3])
+        assert a == set([1,2,3])
+
+        a = frozenset([1,2,3])#multiple
+        b = a.intersection(set([2,3,4]), [2])
+        assert b == set([2])
+        assert a == set([1,2,3])
+
+        raises(AttributeError, "frozenset().update()")
+        raises(AttributeError, "frozenset().difference_update()")
+        raises(AttributeError, "frozenset().symmetric_difference_update()")
+        raises(AttributeError, "frozenset().intersection_update()")

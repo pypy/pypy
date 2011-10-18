@@ -66,9 +66,9 @@ class W_BaseSetObject(W_Object):
         """ Removes all elements from the set. """
         self.strategy.clear(self)
 
-    def copy(self):
-        """ Returns a clone of the set. """
-        return self.strategy.copy(self)
+    def copy_real(self):
+        """ Returns a clone of the set. Frozensets storages are also copied."""
+        return self.strategy.copy_real(self)
 
     def length(self):
         """ Returns the number of items inside the set. """
@@ -207,7 +207,7 @@ class SetStrategy(object):
     def clear(self, w_set):
         raise NotImplementedError
 
-    def copy(self, w_set):
+    def copy_real(self, w_set):
         raise NotImplementedError
 
     def length(self, w_set):
@@ -302,7 +302,7 @@ class EmptySetStrategy(SetStrategy):
     def clear(self, w_set):
         pass
 
-    def copy(self, w_set):
+    def copy_real(self, w_set):
         storage = self.erase(None)
         clone = w_set.from_storage_and_strategy(storage, self)
         return clone
@@ -340,22 +340,22 @@ class EmptySetStrategy(SetStrategy):
         return False
 
     def difference(self, w_set, w_other):
-        return w_set.copy()
+        return w_set.copy_real()
 
     def difference_update(self, w_set, w_other):
         self.check_for_unhashable_objects(w_other)
 
     def intersect(self, w_set, w_other):
         self.check_for_unhashable_objects(w_other)
-        return w_set.copy()
+        return w_set.copy_real()
 
     def intersect_update(self, w_set, w_other):
         self.check_for_unhashable_objects(w_other)
-        return w_set.copy()
+        return w_set.copy_real()
 
     def intersect_multiple(self, w_set, others_w):
         self.intersect_multiple_update(w_set, others_w)
-        return w_set.copy()
+        return w_set.copy_real()
 
     def intersect_multiple_update(self, w_set, others_w):
         for w_other in others_w:
@@ -368,7 +368,7 @@ class EmptySetStrategy(SetStrategy):
         return True
 
     def symmetric_difference(self, w_set, w_other):
-        return w_other.copy()
+        return w_other.copy_real()
 
     def symmetric_difference_update(self, w_set, w_other):
         w_set.strategy = w_other.strategy
@@ -412,10 +412,14 @@ class AbstractUnwrappedSetStrategy(object):
     def clear(self, w_set):
         w_set.switch_to_empty_strategy()
 
-    def copy(self, w_set):
+    def copy_real(self, w_set):
         strategy = w_set.strategy
         if isinstance(w_set, W_FrozensetObject):
-            storage = w_set.sstorage
+            # only used internally since frozenset().copy()
+            # returns self in frozenset_copy__Frozenset
+            d = self.unerase(w_set.sstorage)
+            storage = self.erase(d.copy())
+            #storage = w_set.sstorage
         else:
             d = self.unerase(w_set.sstorage)
             storage = self.erase(d.copy())
@@ -621,7 +625,7 @@ class AbstractUnwrappedSetStrategy(object):
 
     def intersect_multiple(self, w_set, others_w):
         #XXX find smarter implementations
-        result = w_set.copy()
+        result = w_set.copy_real()
         for w_other in others_w:
             if isinstance(w_other, W_BaseSetObject):
                 # optimization only
@@ -927,7 +931,7 @@ def set_add__Set_ANY(space, w_left, w_other):
     w_left.add(w_other)
 
 def set_copy__Set(space, w_set):
-    return w_set.copy()
+    return w_set.copy_real()
 
 def frozenset_copy__Frozenset(space, w_left):
     if type(w_left) is W_FrozensetObject:
@@ -947,8 +951,8 @@ sub__Frozenset_Frozenset = sub__Set_Set
 
 def set_difference__Set(space, w_left, others_w):
     if len(others_w) == 0:
-        return w_left.copy()
-    result = w_left.copy()
+        return w_left.copy_real()
+    result = w_left.copy_real()
     set_difference_update__Set(space, result, others_w)
     return result
 
@@ -1176,7 +1180,7 @@ def _intersection_multiple(space, w_left, others_w):
 
 def set_intersection__Set(space, w_left, others_w):
     if len(others_w) == 0:
-        return w_left.copy()
+        return w_left.copy_real()
     else:
         return _intersection_multiple(space, w_left, others_w)
 
@@ -1250,7 +1254,7 @@ def inplace_xor__Set_Set(space, w_left, w_other):
 inplace_xor__Set_Frozenset = inplace_xor__Set_Set
 
 def or__Set_Set(space, w_left, w_other):
-    w_copy = w_left.copy()
+    w_copy = w_left.copy_real()
     w_copy.update(w_other)
     return w_copy
 
@@ -1259,7 +1263,7 @@ or__Frozenset_Set = or__Set_Set
 or__Frozenset_Frozenset = or__Set_Set
 
 def set_union__Set(space, w_left, others_w):
-    result = w_left.copy()
+    result = w_left.copy_real()
     for w_other in others_w:
         if isinstance(w_other, W_BaseSetObject):
             result.update(w_other)     # optimization only
