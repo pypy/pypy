@@ -208,7 +208,7 @@ def decode_utf8(space, s, ps, end, encoding):
         ps += 1
     w_u = space.wrap(unicodehelper.PyUnicode_DecodeUTF8(space, s[pt:ps]))
     w_v = unicodehelper.PyUnicode_AsEncodedString(space, w_u, space.wrap(encoding))
-    v = space.str_w(w_v)
+    v = space.bytes_w(w_v)
     return v, ps
 
 def raise_app_valueerror(space, msg):

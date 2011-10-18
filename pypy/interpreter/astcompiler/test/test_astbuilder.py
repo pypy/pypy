@@ -70,33 +70,6 @@ class TestAstBuilder:
         for stmt in mod.body:
             assert isinstance(stmt, ast.Assign)
 
-    def test_print(self):
-        pri = self.get_first_stmt("print x")
-        assert isinstance(pri, ast.Print)
-        assert pri.dest is None
-        assert pri.nl
-        assert len(pri.values) == 1
-        assert isinstance(pri.values[0], ast.Name)
-        pri = self.get_first_stmt("print x, 34")
-        assert len(pri.values) == 2
-        assert isinstance(pri.values[0], ast.Name)
-        assert isinstance(pri.values[1], ast.Num)
-        pri = self.get_first_stmt("print")
-        assert pri.nl
-        assert pri.values is None
-        pri = self.get_first_stmt("print x,")
-        assert len(pri.values) == 1
-        assert not pri.nl
-        pri = self.get_first_stmt("print >> y, 4")
-        assert isinstance(pri.dest, ast.Name)
-        assert len(pri.values) == 1
-        assert isinstance(pri.values[0], ast.Num)
-        assert pri.nl
-        pri = self.get_first_stmt("print >> y")
-        assert isinstance(pri.dest, ast.Name)
-        assert pri.values is None
-        assert pri.nl
-
     def test_del(self):
         d = self.get_first_stmt("del x")
         assert isinstance(d, ast.Delete)
@@ -135,21 +108,14 @@ class TestAstBuilder:
 
     def test_raise(self):
         ra = self.get_first_stmt("raise")
-        assert ra.type is None
-        assert ra.inst is None
-        assert ra.tback is None
+        assert ra.exc is None
+        assert ra.cause is None
         ra = self.get_first_stmt("raise x")
-        assert isinstance(ra.type, ast.Name)
-        assert ra.inst is None
-        assert ra.tback is None
-        ra = self.get_first_stmt("raise x, 3")
-        assert isinstance(ra.type, ast.Name)
-        assert isinstance(ra.inst, ast.Num)
-        assert ra.tback is None
-        ra = self.get_first_stmt("raise x, 4, 'hi'")
-        assert isinstance(ra.type, ast.Name)
-        assert isinstance(ra.inst, ast.Num)
-        assert isinstance(ra.tback, ast.Str)
+        assert isinstance(ra.exc, ast.Name)
+        assert ra.cause is None
+        ra = self.get_first_stmt("raise x from 3")
+        assert isinstance(ra.exc, ast.Name)
+        assert isinstance(ra.cause, ast.Num)
 
     def test_import(self):
         im = self.get_first_stmt("import x")
@@ -235,20 +201,12 @@ class TestAstBuilder:
         glob = self.get_first_stmt("global x, y")
         assert glob.names == ["x", "y"]
 
-    def test_exec(self):
-        exc = self.get_first_stmt("exec x")
-        assert isinstance(exc, ast.Exec)
-        assert isinstance(exc.body, ast.Name)
-        assert exc.globals is None
-        assert exc.locals is None
-        exc = self.get_first_stmt("exec 'hi' in x")
-        assert isinstance(exc.body, ast.Str)
-        assert isinstance(exc.globals, ast.Name)
-        assert exc.locals is None
-        exc = self.get_first_stmt("exec 'hi' in x, 2")
-        assert isinstance(exc.body, ast.Str)
-        assert isinstance(exc.globals, ast.Name)
-        assert isinstance(exc.locals, ast.Num)
+    def test_nonlocal(self):
+        nonloc = self.get_first_stmt("nonlocal x")
+        assert isinstance(nonloc, ast.Nonlocal)
+        assert nonloc.names == ["x"]
+        nonloc = self.get_first_stmt("nonlocal x, y")
+        assert nonloc.names == ["x", "y"]
 
     def test_assert(self):
         asrt = self.get_first_stmt("assert x")
@@ -538,35 +496,6 @@ class TestAstBuilder:
         assert args.defaults is None
         assert args.vararg is None
         assert args.kwarg == "a"
-        args = self.get_first_stmt("def f((a, b)): pass").args
-        assert args.defaults is None
-        assert args.kwarg is None
-        assert args.vararg is None
-        assert len(args.args) == 1
-        tup = args.args[0]
-        assert isinstance(tup, ast.Tuple)
-        assert tup.ctx == ast.Store
-        assert len(tup.elts) == 2
-        e1, e2 = tup.elts
-        assert isinstance(e1, ast.Name)
-        assert e1.ctx == ast.Store
-        assert e1.id == "a"
-        assert isinstance(e2, ast.Name)
-        assert e2.ctx == ast.Store
-        assert e2.id == "b"
-        args = self.get_first_stmt("def f((a, (b, c))): pass").args
-        assert len(args.args) == 1
-        tup = args.args[0]
-        assert isinstance(tup, ast.Tuple)
-        assert len(tup.elts) == 2
-        tup2 = tup.elts[1]
-        assert isinstance(tup2, ast.Tuple)
-        assert tup2.ctx == ast.Store
-        for elt in tup2.elts:
-            assert isinstance(elt, ast.Name)
-            assert elt.ctx == ast.Store
-        assert tup2.elts[0].id == "b"
-        assert tup2.elts[1].id == "c"
         args = self.get_first_stmt("def f(a, b, c=d, *e, **f): pass").args
         assert len(args.args) == 3
         for arg in args.args:
@@ -580,9 +509,6 @@ class TestAstBuilder:
         input = "def f(a=b, c): pass"
         exc = py.test.raises(SyntaxError, self.get_ast, input).value
         assert exc.msg == "non-default argument follows default argument"
-        input = "def f((x)=23): pass"
-        exc = py.test.raises(SyntaxError, self.get_ast, input).value
-        assert exc.msg == "parenthesized arg with default"
 
     def test_decorators(self):
         to_examine = (("def f(): pass", ast.FunctionDef),
@@ -762,7 +688,6 @@ class TestAstBuilder:
             ("{1, 2, 3}", "literal"),
             ("(x > 4)", "comparison"),
             ("(x if y else a)", "conditional expression"),
-            ("`x`", "repr")
         )
         test_contexts = (
             ("assign to", "%s = 23"),
@@ -1092,11 +1017,6 @@ class TestAstBuilder:
         assert isinstance(complex_slc.lower, ast.Num)
         assert isinstance(complex_slc.upper, ast.Num)
         assert complex_slc.step is None
-
-    def test_repr(self):
-        rep = self.get_first_expr("`x`")
-        assert isinstance(rep, ast.Repr)
-        assert isinstance(rep.value, ast.Name)
 
     def test_string(self):
         space = self.space
