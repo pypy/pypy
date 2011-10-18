@@ -23,6 +23,8 @@ if sys.platform == 'win32':
     _CreateSemaphore = rwin32.winexternal(
         'CreateSemaphoreA', [rffi.VOIDP, rffi.LONG, rffi.LONG, rwin32.LPCSTR],
         rwin32.HANDLE)
+    _CloseHandle = rwin32.winexternal('CloseHandle', [rwin32.HANDLE],
+        rwin32.BOOL)
     _ReleaseSemaphore = rwin32.winexternal(
         'ReleaseSemaphore', [rwin32.HANDLE, rffi.LONG, rffi.LONGP],
         rwin32.BOOL)
@@ -73,6 +75,7 @@ else:
     _sem_open = external('sem_open',
                          [rffi.CCHARP, rffi.INT, rffi.INT, rffi.UINT],
                          SEM_T)
+    _sem_close = external('sem_close', [SEM_T], rffi.INT)
     _sem_unlink = external('sem_unlink', [rffi.CCHARP], rffi.INT)
     _sem_wait = external('sem_wait', [SEM_T], rffi.INT)
     _sem_trywait = external('sem_trywait', [SEM_T], rffi.INT)
@@ -89,6 +92,11 @@ else:
         if res == rffi.cast(SEM_T, SEM_FAILED):
             raise OSError(rposix.get_errno(), "sem_open failed")
         return res
+
+    def sem_close(handle):
+        res = _sem_close(handle)
+        if res < 0:
+            raise OSError(rposix.get_errno(), "sem_close failed")
 
     def sem_unlink(name):
         res = _sem_unlink(name)
@@ -205,6 +213,11 @@ if sys.platform == 'win32':
             raise WindowsError(err, "CreateSemaphore")
         return handle
 
+    def delete_semaphore(handle):
+        if not _CloseHandle(handle):
+            err = rwin32.GetLastError()
+            raise WindowsError(err, "CloseHandle")
+
     def semlock_acquire(self, space, block, w_timeout):
         if not block:
             full_msecs = 0
@@ -292,6 +305,9 @@ else:
         except OSError:
             pass
         return sem
+
+    def delete_semaphore(space, handle):
+        sem_close(handle)
 
     def semlock_acquire(self, space, block, w_timeout):
         if not block:
@@ -482,6 +498,9 @@ class W_SemLock(Wrappable):
 
     def exit(self, space, __args__):
         self.release(space)
+
+    def __del__(self):
+        delete_semaphore(self.handle)
 
 @unwrap_spec(kind=int, value=int, maxvalue=int)
 def descr_new(space, w_subtype, kind, value, maxvalue):
