@@ -29,6 +29,24 @@ def prepare_cmp_op():
         return [l0, l1, res]
     return f
 
+def prepare_unary_cmp():
+    def f(self, op):
+        a0 = op.getarg(0)
+        reg, box = self._ensure_value_is_boxed(a0)
+        res = self.force_allocate_reg(op.result, [box])
+        self.possibly_free_vars([a0, box, op.result])
+        return [reg, res]
+    return f
+
+def prepare_unary_int_op():
+    def f(self, op):
+        l0, box = self._ensure_value_is_boxed(op.getarg(0))
+        self.possibly_free_var(box)
+        res = self.force_allocate_reg(op.result)
+        self.possibly_free_var(op.result)
+        return [l0, res]
+    return f
+
 def prepare_binary_int_op_with_imm():
     def f(self, op):
         boxes = op.getarglist()

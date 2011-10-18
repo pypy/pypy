@@ -6,8 +6,10 @@ from pypy.jit.backend.ppc.ppcgen.jump import remap_frame_layout_mixed
 from pypy.jit.backend.ppc.ppcgen.locations import imm
 from pypy.jit.backend.ppc.ppcgen.helper.regalloc import (_check_imm_arg, 
                                                          prepare_cmp_op,
+                                                         prepare_unary_int_op,
                                                          prepare_binary_int_op,
-                                                         prepare_binary_int_op_with_imm)
+                                                         prepare_binary_int_op_with_imm,
+                                                         prepare_unary_cmp)
 from pypy.jit.metainterp.history import (INT, REF, FLOAT, Const, ConstInt, 
                                          ConstPtr, LoopToken)
 from pypy.jit.metainterp.resoperation import rop
@@ -191,6 +193,9 @@ class Regalloc(object):
     prepare_uint_rshift = prepare_binary_int_op()
     prepare_uint_floordiv = prepare_binary_int_op()
 
+    prepare_int_neg = prepare_unary_int_op()
+    prepare_int_invert = prepare_unary_int_op()
+
     prepare_int_le = prepare_cmp_op()
     prepare_int_lt = prepare_cmp_op()
     prepare_int_ge = prepare_cmp_op()
@@ -202,6 +207,9 @@ class Regalloc(object):
     prepare_uint_le = prepare_cmp_op()
     prepare_uint_gt = prepare_cmp_op()
     prepare_uint_ge = prepare_cmp_op()
+
+    prepare_int_is_true = prepare_unary_cmp()
+    prepare_int_is_zero = prepare_unary_cmp()
 
     def prepare_finish(self, op):
         args = [locations.imm(self.frame_manager.frame_depth)]

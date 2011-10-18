@@ -1,4 +1,5 @@
-from pypy.jit.backend.ppc.ppcgen.helper.assembler import gen_emit_cmp_op
+from pypy.jit.backend.ppc.ppcgen.helper.assembler import (gen_emit_cmp_op, 
+                                                          gen_emit_unary_cmp_op)
 import pypy.jit.backend.ppc.ppcgen.condition as c
 import pypy.jit.backend.ppc.ppcgen.register as r
 from pypy.jit.backend.ppc.ppcgen.arch import GPR_SAVE_AREA, IS_PPC_32, WORD
@@ -123,6 +124,17 @@ class OpAssembler(object):
     emit_uint_le = gen_emit_cmp_op(c.U_LE, signed=False)
     emit_uint_gt = gen_emit_cmp_op(c.U_GT, signed=False)
     emit_uint_ge = gen_emit_cmp_op(c.U_GE, signed=False)
+
+    emit_int_is_zero = gen_emit_unary_cmp_op(c.IS_ZERO)
+    emit_int_is_true = gen_emit_unary_cmp_op(c.IS_TRUE)
+
+    def emit_int_neg(self, op, arglocs, regalloc):
+        l0, res = arglocs
+        self.mc.neg(res.value, l0.value)
+
+    def emit_int_invert(self, op, arglocs, regalloc):
+        l0, res = arglocs
+        self.mc.not_(res.value, l0.value)
 
     def _emit_guard(self, op, arglocs, fcond, save_exc=False,
             is_guard_not_invalidated=False):

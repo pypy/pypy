@@ -52,6 +52,22 @@ def gen_emit_cmp_op(condition, signed=True):
         self.mc.rlwinm(resval, resval, 1, 31, 31)
     return f
 
+def gen_emit_unary_cmp_op(condition):
+    def f(self, op, arglocs, regalloc):
+        reg, res = arglocs
+
+        self.mc.cmpwi(0, reg.value, 0)
+        if condition == c.IS_ZERO:
+            self.mc.cror(0, 2, 2)
+        elif condition == c.IS_TRUE:
+            self.mc.cror(0, 0, 1)
+        else:
+            assert 0, "condition not known"
+
+        self.mc.mfcr(res.value)
+        self.mc.rlwinm(res.value, res.value, 1, 31, 31)
+    return f
+
 def encode32(mem, i, n):
     mem[i+3] = chr(n & 0xFF)
     mem[i+2] = chr((n >> 8) & 0xFF)
