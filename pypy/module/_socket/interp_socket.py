@@ -1,6 +1,5 @@
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.typedef import TypeDef, make_weakref_descr,\
-     interp_attrproperty
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import NoneNotWrapped, interp2app, unwrap_spec
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import rsocket
@@ -18,7 +17,6 @@ class SignalChecker:
 
 class W_RSocket(Wrappable, RSocket):
     def __del__(self):
-        self.clear_all_weakrefs()
         self.close()
 
     def accept_w(self, space):
@@ -524,7 +522,6 @@ shutdown(how) -- shut down traffic in one or both directions
 
  [*] not available on all platforms!""",
     __new__ = descr_socket_new,
-    __weakref__ = make_weakref_descr(W_RSocket),
     type = interp_attrproperty('type', W_RSocket),
     proto = interp_attrproperty('proto', W_RSocket),
     family = interp_attrproperty('family', W_RSocket),
