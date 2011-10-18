@@ -83,6 +83,34 @@ class OpAssembler(object):
     def emit_int_xor(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
         self.mc.xor(res.value, l0.value, l1.value)
+        
+    def emit_int_lshift(self, op, arglocs, regalloc):
+        l0, l1, res = arglocs
+        if IS_PPC_32:
+            self.mc.slw(res.value, l0.value, l1.value)
+        else:
+            self.mc.sld(res.value, l0.value, l1.value)
+
+    def emit_int_rshift(self, op, arglocs, regalloc):
+        l0, l1, res = arglocs
+        if IS_PPC_32:
+            self.mc.sraw(res.value, l0.value, l1.value)
+        else:
+            self.mc.srad(res.value, l0.value, l1.value)
+
+    def emit_uint_rshift(self, op, arglocs, regalloc):
+        l0, l1, res = arglocs
+        if IS_PPC_32:
+            self.mc.srw(res.value, l0.value, l1.value)
+        else:
+            self.mc.srd(res.value, l0.value, l1.value)
+    
+    def emit_uint_floordiv(self, op, arglocs, regalloc):
+        l0, l1, res = arglocs
+        if IS_PPC_32:
+            self.mc.divwu(res.value, l0.value, l1.value)
+        else:
+            self.mc.divdu(res.value, l0.value, l1.value)
 
     emit_int_le = gen_emit_cmp_op(c.LE)   
 

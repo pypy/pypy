@@ -231,6 +231,18 @@ class Regalloc(object):
     def prepare_int_xor(self, op):
         return self.prepare_int_mul(op)
 
+    def prepare_int_lshift(self, op):
+        return self.prepare_int_mul(op)
+
+    def prepare_int_rshift(self, op):
+        return self.prepare_int_mul(op)
+
+    def prepare_uint_rshift(self, op):
+        return self.prepare_int_mul(op)
+
+    def prepare_uint_floordiv(self, op):
+        return self.prepare_int_mul(op)
+
     def prepare_finish(self, op):
         args = [locations.imm(self.frame_manager.frame_depth)]
         for i in range(op.numargs()):
