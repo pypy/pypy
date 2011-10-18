@@ -5,7 +5,9 @@ from pypy.jit.backend.ppc.ppcgen.arch import (WORD, MY_COPY_OF_REGS)
 from pypy.jit.backend.ppc.ppcgen.jump import remap_frame_layout_mixed
 from pypy.jit.backend.ppc.ppcgen.locations import imm
 from pypy.jit.backend.ppc.ppcgen.helper.regalloc import (_check_imm_arg, 
-                                                         prepare_cmp_op)
+                                                         prepare_cmp_op,
+                                                         prepare_binary_int_op,
+                                                         prepare_binary_int_op_with_imm)
 from pypy.jit.metainterp.history import (INT, REF, FLOAT, Const, ConstInt, 
                                          ConstPtr, LoopToken)
 from pypy.jit.metainterp.resoperation import rop
@@ -175,73 +177,31 @@ class Regalloc(object):
     # *         P R E P A R E  O P E R A T I O N S         * 
     # ******************************************************
 
-    def prepare_int_add(self, op):
-        boxes = op.getarglist()
-        b0, b1 = boxes
-        imm_b0 = _check_imm_arg(b0)
-        imm_b1 = _check_imm_arg(b1)
-        if not imm_b0 and imm_b1:
-            l0, box = self._ensure_value_is_boxed(b0)
-            l1 = self.make_sure_var_in_reg(b1, [b0])
-            boxes.append(box)
-        elif imm_b0 and not imm_b1:
-            l0 = self.make_sure_var_in_reg(b0)
-            l1, box = self._ensure_value_is_boxed(b1, [b0])
-            boxes.append(box)
-        else:
-            l0, box = self._ensure_value_is_boxed(b0)
-            boxes.append(box)
-            l1, box = self._ensure_value_is_boxed(b1, [box])
-            boxes.append(box)
-        locs = [l0, l1]
-        self.possibly_free_vars(boxes)
-        res = self.force_allocate_reg(op.result)
-        return locs + [res]
+    prepare_int_add = prepare_binary_int_op_with_imm()
+    prepare_int_sub = prepare_binary_int_op_with_imm()
+    prepare_int_floordiv = prepare_binary_int_op_with_imm()
 
-    def prepare_int_sub(self, op):
-        return self.prepare_int_add(op)
+    prepare_int_mul = prepare_binary_int_op()
+    prepare_int_mod = prepare_binary_int_op()
+    prepare_int_and = prepare_binary_int_op()
+    prepare_int_or = prepare_binary_int_op()
+    prepare_int_xor = prepare_binary_int_op()
+    prepare_int_lshift = prepare_binary_int_op()
+    prepare_int_rshift = prepare_binary_int_op()
+    prepare_uint_rshift = prepare_binary_int_op()
+    prepare_uint_floordiv = prepare_binary_int_op()
 
-    def prepare_int_floordiv(self, op):
-        return self.prepare_int_add(op)
+    prepare_int_le = prepare_cmp_op()
+    prepare_int_lt = prepare_cmp_op()
+    prepare_int_ge = prepare_cmp_op()
+    prepare_int_gt = prepare_cmp_op()
+    prepare_int_eq = prepare_cmp_op()
+    prepare_int_ne = prepare_cmp_op()
 
-    def prepare_int_mul(self, op):
-        boxes = list(op.getarglist())
-        b0, b1 = boxes
-
-        reg1, box = self._ensure_value_is_boxed(b0, forbidden_vars=boxes)
-        boxes.append(box)
-        reg2, box = self._ensure_value_is_boxed(b1, forbidden_vars=boxes)
-        boxes.append(box)
-
-        self.possibly_free_vars(boxes)
-        self.possibly_free_vars_for_op(op)
-        res = self.force_allocate_reg(op.result)
-        self.possibly_free_var(op.result)
-        return [reg1, reg2, res]
-
-    def prepare_int_mod(self, op):
-        return self.prepare_int_mul(op)
-
-    def prepare_int_and(self, op):
-        return self.prepare_int_mul(op)
-
-    def prepare_int_or(self, op):
-        return self.prepare_int_mul(op)
-
-    def prepare_int_xor(self, op):
-        return self.prepare_int_mul(op)
-
-    def prepare_int_lshift(self, op):
-        return self.prepare_int_mul(op)
-
-    def prepare_int_rshift(self, op):
-        return self.prepare_int_mul(op)
-
-    def prepare_uint_rshift(self, op):
-        return self.prepare_int_mul(op)
-
-    def prepare_uint_floordiv(self, op):
-        return self.prepare_int_mul(op)
+    prepare_uint_lt = prepare_cmp_op()
+    prepare_uint_le = prepare_cmp_op()
+    prepare_uint_gt = prepare_cmp_op()
+    prepare_uint_ge = prepare_cmp_op()
 
     def prepare_finish(self, op):
         args = [locations.imm(self.frame_manager.frame_depth)]
@@ -286,8 +246,6 @@ class Regalloc(object):
                                  src_locs1, dst_locs1, tmploc,
                                  [], [], None)
         return []
-
-    prepare_int_le = prepare_cmp_op()
 
 def make_operation_list():
     def not_implemented(self, op, *args):

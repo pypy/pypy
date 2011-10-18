@@ -112,7 +112,17 @@ class OpAssembler(object):
         else:
             self.mc.divdu(res.value, l0.value, l1.value)
 
-    emit_int_le = gen_emit_cmp_op(c.LE)   
+    emit_int_le = gen_emit_cmp_op(c.LE)
+    emit_int_lt = gen_emit_cmp_op(c.LT)
+    emit_int_gt = gen_emit_cmp_op(c.GT)
+    emit_int_ge = gen_emit_cmp_op(c.GE)
+    emit_int_eq = gen_emit_cmp_op(c.EQ)
+    emit_int_ne = gen_emit_cmp_op(c.NE)
+
+    emit_uint_lt = gen_emit_cmp_op(c.U_LT, signed=False)
+    emit_uint_le = gen_emit_cmp_op(c.U_LE, signed=False)
+    emit_uint_gt = gen_emit_cmp_op(c.U_GT, signed=False)
+    emit_uint_ge = gen_emit_cmp_op(c.U_GE, signed=False)
 
     def _emit_guard(self, op, arglocs, fcond, save_exc=False,
             is_guard_not_invalidated=False):

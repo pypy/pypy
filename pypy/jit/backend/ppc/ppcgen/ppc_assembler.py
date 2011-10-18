@@ -399,7 +399,7 @@ class AssemblerPPC(OpAssembler):
         self._make_prologue(regalloc_head, frame_depth)
      
         self.write_pending_failure_recoveries()
-        loop_start = self.materialize_loop(looptoken, True)
+        loop_start = self.materialize_loop(looptoken, False)
         looptoken.ppc_code = loop_start + start_pos
         self.process_pending_guards(loop_start)
         self._teardown()

@@ -1,7 +1,14 @@
 from pypy.jit.metainterp.history import ConstInt
 
-def _check_imm_arg(arg):
-    return isinstance(arg, ConstInt)
+def _check_imm_arg(arg, size=0xFF, allow_zero=True):
+    if isinstance(arg, ConstInt):
+        i = arg.getint()
+        if allow_zero:
+            lower_bound = i >= 0
+        else:
+            lower_bound = i > 0
+        return i <= size and lower_bound
+    return False
 
 def prepare_cmp_op():
     def f(self, op):
@@ -20,4 +27,46 @@ def prepare_cmp_op():
         res = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
         return [l0, l1, res]
+    return f
+
+def prepare_binary_int_op_with_imm():
+    def f(self, op):
+        boxes = op.getarglist()
+        b0, b1 = boxes
+        imm_b0 = _check_imm_arg(b0)
+        imm_b1 = _check_imm_arg(b1)
+        if not imm_b0 and imm_b1:
+            l0, box = self._ensure_value_is_boxed(b0)
+            l1 = self.make_sure_var_in_reg(b1, [b0])
+            boxes.append(box)
+        elif imm_b0 and not imm_b1:
+            l0 = self.make_sure_var_in_reg(b0)
+            l1, box = self._ensure_value_is_boxed(b1, [b0])
+            boxes.append(box)
+        else:
+            l0, box = self._ensure_value_is_boxed(b0)
+            boxes.append(box)
+            l1, box = self._ensure_value_is_boxed(b1, [box])
+            boxes.append(box)
+        locs = [l0, l1]
+        self.possibly_free_vars(boxes)
+        res = self.force_allocate_reg(op.result)
+        return locs + [res]
+    return f
+
+def prepare_binary_int_op():
+    def f(self, op):
+        boxes = list(op.getarglist())
+        b0, b1 = boxes
+
+        reg1, box = self._ensure_value_is_boxed(b0, forbidden_vars=boxes)
+        boxes.append(box)
+        reg2, box = self._ensure_value_is_boxed(b1, forbidden_vars=boxes)
+        boxes.append(box)
+
+        self.possibly_free_vars(boxes)
+        self.possibly_free_vars_for_op(op)
+        res = self.force_allocate_reg(op.result)
+        self.possibly_free_var(op.result)
+        return [reg1, reg2, res]
     return f
