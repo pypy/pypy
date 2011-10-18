@@ -18,9 +18,9 @@ def interactive_console(mainmodule=None):
             some_topic(),)
         while len(text) >= 80:
             i = text[:80].rfind(' ')
-            print text[:i]
+            print(text[:i])
             text = text[i+1:]
-        print text
+        print(text)
     except ImportError:
         pass
     #
