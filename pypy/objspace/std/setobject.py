@@ -588,7 +588,7 @@ class AbstractUnwrappedSetStrategy(object):
         return storage, strategy
 
     def _intersect_wrapped(self, w_set, w_other):
-        result = self.get_empty_dict()
+        result = newset(self.space)
         for key in self.unerase(w_set.sstorage):
             w_key = self.wrap(key)
             if w_other.has_key(w_key):
