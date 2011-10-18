@@ -212,6 +212,8 @@ class OptimizeOptTest(BaseTestWithUnroll):
                 continue
             if 'FLOAT' in op:
                 continue
+            if 'CAST' in op:
+                continue
             argtypes, restype = TYPES[op.lower()]
             args = []
             for argtype in argtypes:
