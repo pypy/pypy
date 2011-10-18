@@ -236,7 +236,7 @@ class FunctionScope(Scope):
         # Special-case super: it counts as a use of __class__
         if role == SYM_USED and identifier == 'super':
             self.note_symbol('@__class__', SYM_USED)
-        Scope.note_symbol(self, identifier, role)
+        return Scope.note_symbol(self, identifier, role)
 
     def note_yield(self, yield_node):
         if self.return_with_value:
