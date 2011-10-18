@@ -4,6 +4,7 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import wrap_oserror, OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rlib import rgc
 from pypy.rlib.rarithmetic import r_uint
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.tool import rffi_platform as platform
@@ -53,6 +54,7 @@ else:
         SEM_FAILED = platform.ConstantInteger('SEM_FAILED')
         SEM_VALUE_MAX = platform.ConstantInteger('SEM_VALUE_MAX')
         SEM_TIMED_WAIT = platform.Has('sem_timedwait')
+        SEM_T_SIZE = platform.SizeOf('sem_t')
 
     config = platform.configure(CConfig)
     TIMEVAL        = config['TIMEVAL']
@@ -63,6 +65,7 @@ else:
     SEM_FAILED     = config['SEM_FAILED'] # rffi.cast(SEM_T, config['SEM_FAILED'])
     SEM_VALUE_MAX  = config['SEM_VALUE_MAX']
     SEM_TIMED_WAIT = config['SEM_TIMED_WAIT']
+    SEM_T_SIZE = config['SEM_T_SIZE']
     if sys.platform == 'darwin':
         HAVE_BROKEN_SEM_GETVALUE = True
     else:
@@ -302,6 +305,7 @@ else:
         sem = sem_open(name, os.O_CREAT | os.O_EXCL, 0600, val)
         try:
             sem_unlink(name)
+            rgc.add_memory_pressure(SEM_T_SIZE)
         except OSError:
             pass
         return sem
