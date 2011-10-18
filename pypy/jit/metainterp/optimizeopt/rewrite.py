@@ -106,10 +106,9 @@ class OptRewrite(Optimization):
             self.make_equal_to(op.result, v1)
         else:
             self.emit_operation(op)
-
-        # Synthesize the reverse ops for optimize_default to reuse
-        self.pure(rop.INT_ADD, [op.result, op.getarg(1)], op.getarg(0))
-        self.pure(rop.INT_SUB, [op.getarg(0), op.result], op.getarg(1))
+            # Synthesize the reverse ops for optimize_default to reuse
+            self.pure(rop.INT_ADD, [op.result, op.getarg(1)], op.getarg(0))
+            self.pure(rop.INT_SUB, [op.getarg(0), op.result], op.getarg(1))
 
     def optimize_INT_ADD(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -122,10 +121,9 @@ class OptRewrite(Optimization):
             self.make_equal_to(op.result, v1)
         else:
             self.emit_operation(op)
-
-        # Synthesize the reverse op for optimize_default to reuse
-        self.pure(rop.INT_SUB, [op.result, op.getarg(1)], op.getarg(0))
-        self.pure(rop.INT_SUB, [op.result, op.getarg(0)], op.getarg(1))
+            # Synthesize the reverse op for optimize_default to reuse
+            self.pure(rop.INT_SUB, [op.result, op.getarg(1)], op.getarg(0))
+            self.pure(rop.INT_SUB, [op.result, op.getarg(0)], op.getarg(1))
 
     def optimize_INT_MUL(self, op):
         v1 = self.getvalue(op.getarg(0))
