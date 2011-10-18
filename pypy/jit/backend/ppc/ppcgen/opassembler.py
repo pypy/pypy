@@ -47,12 +47,17 @@ class OpAssembler(object):
 
     def emit_int_floordiv(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
+        if IS_PPC_32:
+            div = self.mc.divw
+        else:
+            div = self.mc.divd
+
         if l0.is_imm():
             self.mc.load_imm(r.r0, l0.value)
-            self.mc.divw(res.value, r.r0.value, l1.value)
+            div(res.value, r.r0.value, l1.value)
         elif l1.is_imm():
             self.mc.load_imm(r.r0, l1.value)
-            self.mc.divw(res.value, l0.value, r.r0.value)
+            div(res.value, l0.value, r.r0.value)
         else:
             self.mc.divw(res.value, l0.value, l1.value)
 
