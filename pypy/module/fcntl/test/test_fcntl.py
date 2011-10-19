@@ -32,8 +32,8 @@ class AppTestFcntl:
         raises(TypeError, fcntl.fcntl, f, "foo")
         raises((IOError, ValueError), fcntl.fcntl, -1, 1, 0)
         assert fcntl.fcntl(f, 1, 0) == 0
-        assert fcntl.fcntl(f, 2, "foo") == "foo"
-        assert fcntl.fcntl(f, 2, buffer("foo")) == "foo"
+        assert fcntl.fcntl(f, 2, "foo") == b"foo"
+        assert fcntl.fcntl(f, 2, buffer(b"foo")) == b"foo"
 
         try:
             os.O_LARGEFILE

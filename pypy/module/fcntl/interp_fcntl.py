@@ -123,17 +123,22 @@ def fcntl(space, w_fd, op, w_arg=0):
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
-    else:
-        ll_arg = rffi.str2charp(arg)
-        rv = fcntl_str(fd, op, ll_arg)
-        arg = rffi.charpsize2str(ll_arg, len(arg))
-        lltype.free(ll_arg, flavor='raw')
-        if rv < 0:
-            raise _get_error(space, "fcntl")
-        return space.wrap(arg)
+        try:
+            arg = space.str_w(w_arg)
+        except OperationError, e:
+            if not e.match(space, space.w_TypeError):
+                raise
+            raise OperationError(space.w_TypeError, space.wrap(
+                    "int or string or buffer required"))
 
-    raise OperationError(space.w_TypeError,
-                         space.wrap("int or string or buffer required"))
+    ll_arg = rffi.str2charp(arg)
+    rv = fcntl_str(fd, op, ll_arg)
+    arg = rffi.charpsize2str(ll_arg, len(arg))
+    lltype.free(ll_arg, flavor='raw')
+    if rv < 0:
+        raise _get_error(space, "fcntl")
+    return space.wrapbytes(arg)
+
 
 @unwrap_spec(op=int)
 def flock(space, w_fd, op):
