@@ -272,11 +272,11 @@ def unicode_encode_utf_8(s, size, errors, errorhandler=None):
             # Encode UCS2 Unicode ordinals
             if ch < 0x10000:
                 # Special case: check for high surrogate
-                if 0xD800 <= ch <= 0xDBFF and pos != size:
+                if 0xD800 <= ch <= 0xDFFF and pos != size:
                     ch2 = ord(s[pos])
                     # Check for low surrogate and combine the two to
                     # form a UCS4 value
-                    if 0xDC00 <= ch2 <= 0xDFFF:
+                    if ch <= 0xDBFF and 0xDC00 <= ch2 <= 0xDFFF:
                         ch3 = ((ch - 0xD800) << 10 | (ch2 - 0xDC00)) + 0x10000
                         pos += 1
                         _encodeUCS4(result, ch3)
