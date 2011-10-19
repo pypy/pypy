@@ -1,7 +1,7 @@
 from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm.codebuilder import AbstractARMv7Builder
-from pypy.jit.metainterp.history import ConstInt, BoxInt, Box
+from pypy.jit.metainterp.history import ConstInt, BoxInt, Box, FLOAT
 from pypy.jit.metainterp.history import ConstInt
 
 # XXX create a version that does not need a ConstInt
@@ -56,7 +56,7 @@ def prepare_op_ri(name=None, imm_size=0xFF, commutative=True, allow_zero=True):
         f.__name__ = name
     return f
 
-def prepare_float_op(base=True, float_result=True):
+def prepare_float_op(name=None, base=True, float_result=True):
     def f(self, op, fcond):
         locs = []
         loc1, box1 = self._ensure_value_is_boxed(op.getarg(0))
@@ -66,13 +66,13 @@ def prepare_float_op(base=True, float_result=True):
             locs.append(loc2)
             self.possibly_free_var(box2)
         self.possibly_free_var(box1)
-        if float_result:
-            res  = self.vfprm.force_allocate_reg(op.result)
-        else:
-            res  = self.rm.force_allocate_reg(op.result)
+        res = self.force_allocate_reg(op.result)
+        assert float_result == (op.result.type == FLOAT)
         self.possibly_free_var(op.result)
         locs.append(res)
         return locs
+    if name:
+        f.__name__ = name
     return f
 
 def prepare_op_by_helper_call(name):

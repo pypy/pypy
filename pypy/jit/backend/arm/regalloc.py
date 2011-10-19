@@ -1072,18 +1072,18 @@ class Regalloc(object):
         return size, scale, ofs, ofs_length, ptr
 
 
-    prepare_op_float_add = prepare_float_op()
-    prepare_op_float_sub = prepare_float_op()
-    prepare_op_float_mul = prepare_float_op()
-    prepare_op_float_truediv = prepare_float_op()
-    prepare_op_float_lt = prepare_float_op(float_result=False)
-    prepare_op_float_le = prepare_float_op(float_result=False)
-    prepare_op_float_eq = prepare_float_op(float_result=False)
-    prepare_op_float_ne = prepare_float_op(float_result=False)
-    prepare_op_float_gt = prepare_float_op(float_result=False)
-    prepare_op_float_ge = prepare_float_op(float_result=False)
-    prepare_op_float_neg = prepare_float_op(base=False)
-    prepare_op_float_abs = prepare_float_op(base=False)
+    prepare_op_float_add = prepare_float_op(name='float_add')
+    prepare_op_float_sub = prepare_float_op(name='float_sub')
+    prepare_op_float_mul = prepare_float_op(name='float_mul')
+    prepare_op_float_truediv = prepare_float_op(name='float_truediv')
+    prepare_op_float_lt = prepare_float_op(float_result=False, name='float_lt')
+    prepare_op_float_le = prepare_float_op(float_result=False, name='float_le')
+    prepare_op_float_eq = prepare_float_op(float_result=False, name='float_eq')
+    prepare_op_float_ne = prepare_float_op(float_result=False, name='float_ne')
+    prepare_op_float_gt = prepare_float_op(float_result=False, name='float_gt')
+    prepare_op_float_ge = prepare_float_op(float_result=False, name='float_ge')
+    prepare_op_float_neg = prepare_float_op(base=False, name='float_neg')
+    prepare_op_float_abs = prepare_float_op(base=False, name='float_abs')
 
     def prepare_op_math_sqrt(self, op, fcond):
         loc, box = self._ensure_value_is_boxed(op.getarg(1))
