@@ -27,7 +27,7 @@ globals and locals.  If only globals is given, locals defaults to it."""
     co = compile(source.rstrip()+"\n", filename, 'exec')
     exec co in glob, loc
 
-def raw_input(prompt=None):
+def raw_input(prompt=''):
     """raw_input([prompt]) -> string
 
 Read a string from standard input.  The trailing newline is stripped.
@@ -51,14 +51,17 @@ is printed without a trailing newline before reading."""
             prompt = ''
         return sys.__raw_input__(prompt)
 
-    if prompt is not None:
-        stdout.write(prompt)
-        try:
-            flush = stdout.flush
-        except AttributeError:
-            pass
-        else:
-            flush()
+    print >> stdout, prompt,
+    try:
+        flush = stdout.flush
+    except AttributeError:
+        pass
+    else:
+        flush()
+    try:
+        stdout.softspace = 0
+    except (AttributeError, TypeError):
+        pass
     line = stdin.readline()
     if not line:    # inputting an empty line gives line == '\n'
         raise EOFError

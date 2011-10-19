@@ -631,6 +631,30 @@ def fn(): pass
         raises(TypeError, pr, end=3)
         raises(TypeError, pr, sep=42)
 
+    def test_raw_input(self):
+        import sys, StringIO
+        for prompt, expected in [("def:", "abc/ def:/ghi\n"),
+                                 ("", "abc/ /ghi\n"),
+                                 (42, "abc/ 42/ghi\n"),
+                                 (None, "abc/ None/ghi\n"),
+                                 (Ellipsis, "abc/ /ghi\n")]:
+            save = sys.stdin, sys.stdout
+            try:
+                sys.stdin = StringIO.StringIO("foo\nbar\n")
+                out = sys.stdout = StringIO.StringIO()
+                print "abc",    # softspace = 1
+                out.write('/')
+                if prompt is Ellipsis:
+                    got = raw_input()
+                else:
+                    got = raw_input(prompt)
+                out.write('/')
+                print "ghi"
+            finally:
+                sys.stdin, sys.stdout = save
+            assert out.getvalue() == expected
+            assert got == "foo"
+
     def test_round(self):
         assert round(11.234) == 11.0
         assert round(11.234, -1) == 10.0
