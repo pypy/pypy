@@ -141,6 +141,13 @@ class JSONEncoder(object):
             self.encoder = encode_basestring_ascii
         else:
             self.encoder = encode_basestring
+        if encoding != 'utf-8':
+            orig_encoder = self.encoder
+            def encoder(o):
+                if isinstance(o, str):
+                    o = o.decode(encoding)
+                return orig_encoder(o)
+            self.encoder = encoder
         self.check_circular = check_circular
         self.allow_nan = allow_nan
         self.sort_keys = sort_keys
@@ -211,16 +218,6 @@ class JSONEncoder(object):
             markers = identity_dict()
         else:
             markers = None
-        if self.ensure_ascii:
-            _encoder = encode_basestring_ascii
-        else:
-            _encoder = encode_basestring
-        if self.encoding != 'utf-8':
-            def _encoder(o, _orig_encoder=_encoder, _encoding=self.encoding):
-                if isinstance(o, str):
-                    o = o.decode(_encoding)
-                return _orig_encoder(o)
-
         return self._iterencode(o, markers, 0)
 
     def _floatstr(self, o):
