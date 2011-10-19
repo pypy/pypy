@@ -71,14 +71,15 @@ else:
     else:
         HAVE_BROKEN_SEM_GETVALUE = False
 
-    def external(name, args, result):
+    def external(name, args, result, **kwargs):
         return rffi.llexternal(name, args, result,
-                               compilation_info=eci)
+                               compilation_info=eci, **kwargs)
 
     _sem_open = external('sem_open',
                          [rffi.CCHARP, rffi.INT, rffi.INT, rffi.UINT],
                          SEM_T)
-    _sem_close = external('sem_close', [SEM_T], rffi.INT)
+    # tread sem_close as not threadsafe for now to be able to use the __del__
+    _sem_close = external('sem_close', [SEM_T], rffi.INT, threadsafe=False)
     _sem_unlink = external('sem_unlink', [rffi.CCHARP], rffi.INT)
     _sem_wait = external('sem_wait', [SEM_T], rffi.INT)
     _sem_trywait = external('sem_trywait', [SEM_T], rffi.INT)
