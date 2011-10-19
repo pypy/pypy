@@ -1292,10 +1292,12 @@ class MiniMarkGC(MovingGCBase):
         # if a prebuilt GcStruct contains a pointer to a young object,
         # then the write_barrier must have ensured that the prebuilt
         # GcStruct is in the list self.old_objects_pointing_to_young.
+        debug_start("gc-minor-walkroots")
         self.root_walker.walk_roots(
             MiniMarkGC._trace_drag_out1,  # stack roots
             MiniMarkGC._trace_drag_out1,  # static in prebuilt non-gc
             None)                         # static in prebuilt gc
+        debug_stop("gc-minor-walkroots")
 
     def collect_cardrefs_to_nursery(self):
         size_gc_header = self.gcheaderbuilder.size_gc_header
