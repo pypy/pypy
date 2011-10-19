@@ -144,6 +144,7 @@ class W_Ufunc2(W_Ufunc):
                 w_rhs.value.convert_to(calc_dtype)
             ).wrap(space)
 
+        w_lhs, w_rhs = _broadcast_arrays(space, w_lhs, w_rhs)
         new_sig = signature.Signature.find_sig([
             self.signature, w_lhs.signature, w_rhs.signature
         ])
@@ -164,6 +165,21 @@ W_Ufunc.typedef = TypeDef("ufunc",
 
     reduce = interp2app(W_Ufunc.descr_reduce),
 )
+
+def _broadcast_arrays(space, a1, a2):
+    from pypy.module.micronumpy.interp_numarray import Scalar
+    '''
+    Broadcast arrays to common size
+    '''
+    # For now just check sizes of two 1D arrays
+    if isinstance(a1, Scalar) or isinstance(a2, Scalar):
+        return a1, a2
+    s1 = a1.find_size()
+    s2 = a2.find_size()
+    if s1 != s2:
+        raise operationerrfmt(space.w_ValueError, "operands could not "
+            "be broadcast together with shapes (%d) (%d)", s1, s2)
+    return a1, a2
 
 def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
     promote_bools=False):
