@@ -25,7 +25,7 @@ if sys.platform == 'win32':
         'CreateSemaphoreA', [rffi.VOIDP, rffi.LONG, rffi.LONG, rwin32.LPCSTR],
         rwin32.HANDLE)
     _CloseHandle = rwin32.winexternal('CloseHandle', [rwin32.HANDLE],
-        rwin32.BOOL)
+        rwin32.BOOL, threadsafe=False)
     _ReleaseSemaphore = rwin32.winexternal(
         'ReleaseSemaphore', [rwin32.HANDLE, rffi.LONG, rffi.LONGP],
         rwin32.BOOL)
