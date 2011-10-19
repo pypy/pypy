@@ -36,6 +36,7 @@ class AssemblerARM(ResOpAssembler):
     """
     Encoding for locations in memory
     types:
+    \xED = FLOAT
     \xEE = REF
     \xEF = INT
     location:
@@ -98,6 +99,7 @@ class AssemblerARM(ResOpAssembler):
         self._regalloc = None
         self.mc = None
         self.pending_guards = None
+        assert self.datablockwrapper is None
 
     def setup_once(self):
         # Addresses of functions called by new_xxx operations
@@ -267,16 +269,14 @@ class AssemblerARM(ResOpAssembler):
         self.fail_force_index = frame_loc
         return descr
 
-    def decode_inputargs(self, enc, inputargs, regalloc):
+    def decode_inputargs(self, enc, regalloc):
         locs = []
         j = 0
-        for i in range(len(inputargs)):
+        while enc[j] != self.END_OF_LOCS:
             res = enc[j]
-            if res == self.END_OF_LOCS:
-                assert 0, 'reached end of encoded area'
-            while res == self.EMPTY_LOC:
+            if res == self.EMPTY_LOC:
                 j += 1
-                res = enc[j]
+                continue
 
             assert res in [self.FLOAT_TYPE, self.INT_TYPE, self.REF_TYPE], 'location type is not supported'
             res_type = res
@@ -286,10 +286,14 @@ class AssemblerARM(ResOpAssembler):
                 # XXX decode imm if necessary
                 assert 0, 'Imm Locations are not supported'
             elif res == self.STACK_LOC:
-                if res_type == FLOAT:
-                    assert 0, 'float on stack'
+                if res_type == self.FLOAT_TYPE:
+                    t = FLOAT
+                elif res_type == self.INT_TYPE:
+                    t = INT
+                else:
+                    t = REF
                 stack_loc = decode32(enc, j+1)
-                loc = regalloc.frame_manager.frame_pos(stack_loc, INT)
+                loc = regalloc.frame_manager.frame_pos(stack_loc, t)
                 j += 4
             else: # REG_LOC
                 if res_type == self.FLOAT_TYPE:
@@ -665,7 +669,8 @@ class AssemblerARM(ResOpAssembler):
 
         sp_patch_location = self._prepare_sp_patch_position()
         frame_depth = faildescr._arm_frame_depth
-        locs = self.decode_inputargs(enc, inputargs, regalloc)
+        locs = self.decode_inputargs(enc, regalloc)
+        assert len(inputargs) == len(locs)
         regalloc.update_bindings(locs, frame_depth, inputargs)
 
         self._walk_operations(operations, regalloc)
@@ -862,7 +867,7 @@ class AssemblerARM(ResOpAssembler):
             self.mc.VLDR(loc.value, r.ip.value)
 
     def _mov_imm_to_loc(self, prev_loc, loc, cond=c.AL):
-        if not loc.is_reg() and not (loc.is_stack() and loc.type == INT):
+        if not loc.is_reg() and not (loc.is_stack() and loc.type != FLOAT):
             raise AssertionError("invalid target for move from imm value")
         if loc.is_reg():
             new_loc = loc
