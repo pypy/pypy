@@ -1123,6 +1123,9 @@ class TestLL2Ctypes(object):
 
         #assert lltype.cast_ptr_to_int(ref1) == intval
 
+        x = rffi.cast(llmemory.GCREF, -17)
+        assert lltype.cast_ptr_to_int(x) == -17
+
     def test_ptr_truth(self):
         abc = rffi.cast(lltype.Ptr(lltype.FuncType([], lltype.Void)), 0)
         assert not abc

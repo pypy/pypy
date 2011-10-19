@@ -234,7 +234,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert b[i] == math.sin(a[i])
 
         a = sin(array([True, False], dtype=bool))
-        assert a[0] == sin(1)
+        assert abs(a[0] - sin(1)) < 1e-7 # a[0] will be less precise
         assert a[1] == 0.0
 
     def test_cos(self):
@@ -297,6 +297,25 @@ class AppTestUfuncs(BaseNumpyAppTest):
         a  = array([float('nan')])
         b = arctan(a)
         assert math.isnan(b[0])
+
+    def test_arcsinh(self):
+        import math
+        from numpy import arcsinh, inf
+
+        for v in [inf, -inf, 1.0, math.e]:
+            assert math.asinh(v) == arcsinh(v)
+        assert math.isnan(arcsinh(float("nan")))
+
+    def test_arctanh(self):
+        import math
+        from numpy import arctanh
+
+        for v in [.99, .5, 0, -.5, -.99]:
+            assert math.atanh(v) == arctanh(v)
+        for v in [2.0, -2.0]:
+            assert math.isnan(arctanh(v))
+        for v in [1.0, -1.0]:
+            assert arctanh(v) == math.copysign(float("inf"), v)
 
     def test_reduce_errors(self):
         from numpy import sin, add

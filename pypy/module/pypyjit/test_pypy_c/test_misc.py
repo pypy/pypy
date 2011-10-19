@@ -330,3 +330,19 @@ class TestMisc(BaseTestPyPyC):
             i30 = int_lshift(i20, 24)
             i31 = int_or(i26, i30)
         """ % {"32_bit_only": extra})
+
+    def test_eval(self):
+        def main():
+            i = 1
+            a = compile('x+x+x+x+x+x', 'eval', 'eval')
+            b = {'x': 7}
+            while i < 1000:
+                y = eval(a,b,b)  # ID: eval
+                i += 1
+            return y
+
+        log = self.run(main)
+        assert log.result == 42
+        # the following assertion fails if the loop was cancelled due
+        # to "abort: vable escape"
+        assert len(log.loops_by_id("eval")) == 1

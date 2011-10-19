@@ -37,14 +37,9 @@
 
 #endif
 
-/* common helper: this does nothing, but is called with the GIL released.
-   This gives other threads a chance to grab the GIL and run. */
-void RPyThreadYield(void);
-
-#ifndef PYPY_NOT_MAIN_FILE
-void RPyThreadYield(void)
-{
-}
-#endif
+long RPyGilAllocate(void);
+long RPyGilYieldThread(void);
+void RPyGilRelease(void);
+void RPyGilAcquire(void);
 
 #endif

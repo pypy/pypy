@@ -45,6 +45,14 @@ class GcLLDescription(GcCache):
     def freeing_block(self, start, stop):
         pass
 
+    def record_constptrs(self, op, gcrefs_output_list):
+        for i in range(op.numargs()):
+            v = op.getarg(i)
+            if isinstance(v, ConstPtr) and bool(v.value):
+                p = v.value
+                rgc._make_sure_does_not_move(p)
+                gcrefs_output_list.append(p)
+
 # ____________________________________________________________
 
 class GcLLDescr_boehm(GcLLDescription):
@@ -140,6 +148,14 @@ class GcLLDescr_boehm(GcLLDescription):
     get_funcptr_for_newarray = None
     get_funcptr_for_newstr = None
     get_funcptr_for_newunicode = None
+
+    def rewrite_assembler(self, cpu, operations, gcrefs_output_list):
+        # record all GCREFs too, because Boehm cannot see them and keep them
+        # alive if they end up as constants in the assembler
+        for op in operations:
+            self.record_constptrs(op, gcrefs_output_list)
+        return GcLLDescription.rewrite_assembler(self, cpu, operations,
+                                                 gcrefs_output_list)
 
 
 # ____________________________________________________________
@@ -756,14 +772,6 @@ class GcLLDescr_framework(GcLLDescription):
             funcptr = llop1.get_write_barrier_failing_case(self.WB_FUNCPTR)
             funcptr(llmemory.cast_ptr_to_adr(gcref_struct),
                     llmemory.cast_ptr_to_adr(gcref_newptr))
-
-    def record_constptrs(self, op, gcrefs_output_list):
-        for i in range(op.numargs()):
-            v = op.getarg(i)
-            if isinstance(v, ConstPtr) and bool(v.value):
-                p = v.value
-                rgc._make_sure_does_not_move(p)
-                gcrefs_output_list.append(p)
 
     def rewrite_assembler(self, cpu, operations, gcrefs_output_list):
         # Perform two kinds of rewrites in parallel:
