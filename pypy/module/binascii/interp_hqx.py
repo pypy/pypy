@@ -97,7 +97,7 @@ def a2b_hqx(space, ascii):
     else:
         if pending_bits > 0:
             raise_Incomplete(space, 'String has incomplete number of bytes')
-    return space.newtuple([space.wrap(res.build()), space.wrap(done)])
+    return space.newtuple([space.wrapbytes(res.build()), space.wrap(done)])
 
 # ____________________________________________________________
 
@@ -128,7 +128,7 @@ def b2a_hqx(space, bin):
     if leftbits > 0:
         leftchar <<= (6 - leftbits)
         res.append(hqx_encoding[leftchar & 0x3f])
-    return space.wrap(res.build())
+    return space.wrapbytes(res.build())
 
 # ____________________________________________________________
 
@@ -150,7 +150,7 @@ def rledecode_hqx(space, hexbin):
             lastpushed = ord(c)
         else:
             if i == end:
-                raise_Incomplete(space, 'String ends with the RLE code \x90')
+                raise_Incomplete(space, 'String ends with the RLE code \\x90')
             count = ord(hexbin[i]) - 1
             i += 1
             if count < 0:
@@ -158,9 +158,9 @@ def rledecode_hqx(space, hexbin):
                 lastpushed = 0x90
             else:
                 if lastpushed < 0:
-                    raise_Error(space, 'String starts with the RLE code \x90')
+                    raise_Error(space, 'String starts with the RLE code \\x90')
                 res.append_multiple_char(chr(lastpushed), count)
-    return space.wrap(res.build())
+    return space.wrapbytes(res.build())
 
 # ____________________________________________________________
 
@@ -197,7 +197,7 @@ def rlecode_hqx(space, data):
     # string that rledecode_hqx() would expand back to 'data', there are
     # some programs somewhere that would start failing obscurely in rare
     # cases.
-    return space.wrap(res.build())
+    return space.wrapbytes(res.build())
 
 # ____________________________________________________________
 
