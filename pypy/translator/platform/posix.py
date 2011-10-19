@@ -157,7 +157,7 @@ class BasePosix(Platform):
 
         rules = [
             ('all', '$(DEFAULT_TARGET)', []),
-            ('$(TARGET)', '$(OBJECTS)', '$(CC_LINK) $(LDFLAGS) $(LDFLAGSEXTRA) -o $@ $(OBJECTS) $(LIBDIRS) $(LIBS) $(LINKFILES)'),
+            ('$(TARGET)', '$(OBJECTS)', '$(CC_LINK) $(LDFLAGSEXTRA) -o $@ $(OBJECTS) $(LIBDIRS) $(LIBS) $(LINKFILES) $(LDFLAGS)'),
             ('%.o', '%.c', '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)'),
             ]
 
