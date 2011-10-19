@@ -71,7 +71,7 @@ class AppTestTextIO:
 
     def test_read_some_then_all(self):
         import _io
-        r = _io.BytesIO("abc\ndef\n")
+        r = _io.BytesIO(b"abc\ndef\n")
         t = _io.TextIOWrapper(r)
         reads = t.read(4)
         reads += t.read()
@@ -79,7 +79,7 @@ class AppTestTextIO:
 
     def test_read_some_then_readline(self):
         import _io
-        r = _io.BytesIO("abc\ndef\n")
+        r = _io.BytesIO(b"abc\ndef\n")
         t = _io.TextIOWrapper(r)
         reads = t.read(4)
         reads += t.readline()
@@ -108,7 +108,7 @@ class AppTestTextIO:
 
     def test_tell(self):
         import _io
-        r = _io.BytesIO("abc\ndef\n")
+        r = _io.BytesIO(b"abc\ndef\n")
         t = _io.TextIOWrapper(r)
         assert t.tell() == 0
         t.read(4)
@@ -126,7 +126,7 @@ class AppTestTextIO:
         t.write(u"abc")
         del t
         import gc; gc.collect()
-        assert l == ["abc"]
+        assert l == [b"abc"]
 
     def test_newlines(self):
         import _io
@@ -169,8 +169,8 @@ class AppTestTextIO:
     def test_readline(self):
         import _io
 
-        s = "AAA\r\nBBB\rCCC\r\nDDD\nEEE\r\n"
-        r = "AAA\nBBB\nCCC\nDDD\nEEE\n".decode("ascii")
+        s = b"AAA\r\nBBB\rCCC\r\nDDD\nEEE\r\n"
+        r = "AAA\nBBB\nCCC\nDDD\nEEE\n"
         txt = _io.TextIOWrapper(_io.BytesIO(s), encoding="ascii")
         txt._CHUNK_SIZE = 4
 
@@ -184,20 +184,20 @@ class AppTestTextIO:
     def test_name(self):
         import _io
 
-        t = _io.TextIOWrapper(_io.BytesIO(""))
+        t = _io.TextIOWrapper(_io.BytesIO(b""))
         # CPython raises an AttributeError, we raise a TypeError.
         raises((AttributeError, TypeError), setattr, t, "name", "anything")
 
     def test_repr(self):
         import _io
 
-        t = _io.TextIOWrapper(_io.BytesIO(""), encoding="utf-8")
+        t = _io.TextIOWrapper(_io.BytesIO(b""), encoding="utf-8")
         assert repr(t) == "<_io.TextIOWrapper encoding='utf-8'>"
-        t = _io.TextIOWrapper(_io.BytesIO(""), encoding="ascii")
+        t = _io.TextIOWrapper(_io.BytesIO(b""), encoding="ascii")
         assert repr(t) == "<_io.TextIOWrapper encoding='ascii'>"
-        t = _io.TextIOWrapper(_io.BytesIO(""), encoding=u"utf-8")
+        t = _io.TextIOWrapper(_io.BytesIO(b""), encoding=u"utf-8")
         assert repr(t) == "<_io.TextIOWrapper encoding='utf-8'>"
-        b = _io.BytesIO("")
+        b = _io.BytesIO(b"")
         t = _io.TextIOWrapper(b, encoding="utf-8")
         b.name = "dummy"
         assert repr(t) == "<_io.TextIOWrapper name='dummy' encoding='utf-8'>"
@@ -256,7 +256,7 @@ class AppTestIncrementalNewlineDecoder:
                 def _decode_bytewise(s):
                     # Decode one byte at a time
                     for b in encoder.encode(s):
-                        result.append(decoder.decode(b))
+                        result.append(decoder.decode(bytes([b])))
             else:
                 encoder = None
                 def _decode_bytewise(s):

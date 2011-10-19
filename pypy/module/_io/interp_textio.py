@@ -923,7 +923,7 @@ class W_TextIOWrapper(W_TextIOBase):
             i = 0
             while i < len(input):
                 w_decoded = space.call_method(self.w_decoder, "decode",
-                                              space.wrap(input[i]))
+                                              space.wrapbytes(input[i]))
                 chars_decoded += len(space.unicode_w(w_decoded))
 
                 cookie.bytes_to_feed += 1

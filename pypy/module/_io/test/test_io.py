@@ -69,9 +69,9 @@ class AppTestIoModule:
             return _io.BytesIO.write(f, data)
         f.write = write
         bufio = _io.BufferedWriter(f)
-        bufio.write("abc")
+        bufio.write(b"abc")
         bufio.flush()
-        assert f.getvalue() == "ABC"
+        assert f.getvalue() == b"ABC"
 
     def test_destructor(self):
         import io
@@ -109,17 +109,17 @@ class AppTestIoModule:
     def test_rawio_read(self):
         import _io
         class MockRawIO(_io._RawIOBase):
-            stack = ['abc', 'de', '']
+            stack = [b'abc', b'de', b'']
             def readinto(self, buf):
                 data = self.stack.pop(0)
                 buf[:len(data)] = data
                 return len(data)
-        assert MockRawIO().read() == 'abcde'
+        assert MockRawIO().read() == b'abcde'
 
     def test_rawio_read_pieces(self):
         import _io
         class MockRawIO(_io._RawIOBase):
-            stack = ['abc', 'de', None, 'fg', '']
+            stack = [b'abc', b'de', None, b'fg', b'']
             def readinto(self, buf):
                 data = self.stack.pop(0)
                 if data is None:
@@ -132,12 +132,12 @@ class AppTestIoModule:
                     self.stack.insert(0, data[len(buf):])
                     return len(buf)
         r = MockRawIO()
-        assert r.read(2) == 'ab'
-        assert r.read(2) == 'c'
-        assert r.read(2) == 'de'
+        assert r.read(2) == b'ab'
+        assert r.read(2) == b'c'
+        assert r.read(2) == b'de'
         assert r.read(2) == None
-        assert r.read(2) == 'fg'
-        assert r.read(2) == ''
+        assert r.read(2) == b'fg'
+        assert r.read(2) == b''
 
 class AppTestOpen:
     def setup_class(cls):
@@ -169,7 +169,7 @@ class AppTestOpen:
 
     def test_array_write(self):
         import _io, array
-        a = array.array(b'i', range(10))
+        a = array.array('i', range(10))
         n = len(a.tostring())
         with _io.open(self.tmpfile, "wb", 0) as f:
             res = f.write(a)
@@ -208,13 +208,13 @@ class AppTestOpen:
         import _io
 
         with _io.open(self.tmpfile, "wb") as f:
-            f.write("abcd")
+            f.write(b"abcd")
 
         with _io.open(self.tmpfile) as f:
             decoded = f.read()
 
         # seek positions
-        for i in xrange(len(decoded) + 1):
+        for i in range(len(decoded) + 1):
             # read lenghts
             for j in [1, 5, len(decoded) - i]:
                 with _io.open(self.tmpfile) as f:
@@ -306,7 +306,7 @@ class AppTestOpen:
             assert f.newlines is None
 
         with _io.open(self.tmpfile, "wb") as f:
-            f.write("hello\nworld\n")
+            f.write(b"hello\nworld\n")
 
         with _io.open(self.tmpfile, "r") as f:
             res = f.readline()
@@ -314,4 +314,4 @@ class AppTestOpen:
             res = f.readline()
             assert res == "world\n"
             assert f.newlines == "\n"
-            assert type(f.newlines) is unicode
+            assert type(f.newlines) is str

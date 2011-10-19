@@ -50,7 +50,7 @@ class W_BytesIO(W_BufferedIOBase):
 
         output = buffer2string(self.buf, self.pos, self.pos + size)
         self.pos += size
-        return space.wrap(output)
+        return space.wrapbytes(output)
 
     def read1_w(self, space, w_size):
         return self.read_w(space, w_size)
@@ -125,7 +125,7 @@ class W_BytesIO(W_BufferedIOBase):
 
     def getvalue_w(self, space):
         self._check_closed(space)
-        return space.wrap(buffer2string(self.buf, 0, self.string_size))
+        return space.wrapbytes(buffer2string(self.buf, 0, self.string_size))
 
     def tell_w(self, space):
         self._check_closed(space)
@@ -176,7 +176,7 @@ class W_BytesIO(W_BufferedIOBase):
 
     def getstate_w(self, space):
         self._check_closed(space)
-        w_content = space.wrap(buffer2string(self.buf, 0, self.string_size))
+        w_content = space.wrapbytes(buffer2string(self.buf, 0, self.string_size))
         return space.newtuple([
             w_content,
             space.wrap(self.pos),

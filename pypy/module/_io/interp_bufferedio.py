@@ -50,7 +50,7 @@ class W_BufferedIOBase(W_IOBase):
         if not space.isinstance_w(w_data, space.w_str):
             raise OperationError(space.w_TypeError, space.wrap(
                 "read() should return bytes"))
-        data = space.str_w(w_data)
+        data = space.bytes_w(w_data)
         rwbuffer.setslice(0, data)
         return space.wrap(len(data))
 
@@ -468,7 +468,7 @@ class BufferedMixin:
                 if current_size == 0:
                     return w_data
                 break
-            data = space.str_w(w_data)
+            data = space.bytes_w(w_data)
             size = len(data)
             if size == 0:
                 break

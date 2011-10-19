@@ -46,34 +46,34 @@ class AppTestFileIO:
     def test_readline(self):
         import _io
         f = _io.FileIO(self.tmpfile, 'rb')
-        assert f.readline() == 'a\n'
-        assert f.readline() == 'b\n'
-        assert f.readline() == 'c'
-        assert f.readline() == ''
+        assert f.readline() == b'a\n'
+        assert f.readline() == b'b\n'
+        assert f.readline() == b'c'
+        assert f.readline() == b''
         f.close()
 
     def test_readlines(self):
         import _io
         f = _io.FileIO(self.tmpfile, 'rb')
-        assert f.readlines() == ["a\n", "b\n", "c"]
+        assert f.readlines() == [b"a\n", b"b\n", b"c"]
         f.seek(0)
-        assert f.readlines(3) == ["a\n", "b\n"]
+        assert f.readlines(3) == [b"a\n", b"b\n"]
         f.close()
 
     def test_readall(self):
         import _io
         f = _io.FileIO(self.tmpfile, 'rb')
-        assert f.readall() == "a\nb\nc"
+        assert f.readall() == b"a\nb\nc"
         f.close()
 
     def test_write(self):
         import _io
         filename = self.tmpfile + '_w'
         f = _io.FileIO(filename, 'wb')
-        f.write("test")
+        f.write(b"test")
         # try without flushing
         f2 = _io.FileIO(filename, 'rb')
-        assert f2.read() == "test"
+        assert f2.read() == b"test"
         f.close()
         f2.close()
 
@@ -81,9 +81,9 @@ class AppTestFileIO:
         import _io
         filename = self.tmpfile + '_w'
         f = _io.FileIO(filename, 'wb')
-        f.writelines(["line1\n", "line2", "line3"])
+        f.writelines([b"line1\n", b"line2", b"line3"])
         f2 = _io.FileIO(filename, 'rb')
-        assert f2.read() == "line1\nline2line3"
+        assert f2.read() == b"line1\nline2line3"
         f.close()
         f2.close()
 
@@ -120,18 +120,18 @@ class AppTestFileIO:
 
     def test_readinto(self):
         import _io
-        a = bytearray('x' * 10)
+        a = bytearray(b'x' * 10)
         f = _io.FileIO(self.tmpfile, 'r+')
         assert f.readinto(a) == 10
         f.close()
-        assert a == 'a\nb\nc\0\0\0\0\0'
+        assert a == b'a\nb\nc\0\0\0\0\0'
         #
-        a = bytearray('x' * 10)
+        a = bytearray(b'x' * 10)
         f = _io.FileIO(self.tmpfile, 'r+')
         f.truncate(3)
         assert f.readinto(a) == 3
         f.close()
-        assert a == 'a\nbxxxxxxx'
+        assert a == b'a\nbxxxxxxx'
 
     def test_repr(self):
         import _io

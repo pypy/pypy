@@ -275,7 +275,7 @@ class W_RawIOBase(W_IOBase):
         if space.is_w(w_length, space.w_None):
             return w_length
         space.delslice(w_buffer, w_length, space.len(w_buffer))
-        return space.str(w_buffer)
+        return space.call_function(space.w_bytes, w_buffer)
 
     def readall_w(self, space):
         builder = StringBuilder()
@@ -283,7 +283,7 @@ class W_RawIOBase(W_IOBase):
             w_data = space.call_method(self, "read",
                                        space.wrap(DEFAULT_BUFFER_SIZE))
 
-            if not space.isinstance_w(w_data, space.w_str):
+            if not space.isinstance_w(w_data, space.w_bytes):
                 raise OperationError(space.w_TypeError, space.wrap(
                     "read() should return bytes"))
             data = space.bytes_w(w_data)

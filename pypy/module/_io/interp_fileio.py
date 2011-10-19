@@ -391,7 +391,7 @@ class W_FileIO(W_RawIOBase):
                 break
             builder.append(chunk)
             total += len(chunk)
-        return space.wrap(builder.build())
+        return space.wrapbytes(builder.build())
 
     if sys.platform == "win32":
         def _truncate(self, size):

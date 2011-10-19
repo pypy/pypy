@@ -14,24 +14,24 @@ class AppTestBufferedReader:
         import _io
         raw = _io.FileIO(self.tmpfile)
         f = _io.BufferedReader(raw)
-        assert f.read() == "a\nb\nc"
+        assert f.read() == b"a\nb\nc"
         raises(ValueError, f.read, -2)
         f.close()
         #
         raw = _io.FileIO(self.tmpfile)
         f = _io.BufferedReader(raw)
         r = f.read(4)
-        assert r == "a\nb\n"
+        assert r == b"a\nb\n"
         f.close()
 
     def test_read_pieces(self):
         import _io
         raw = _io.FileIO(self.tmpfile)
         f = _io.BufferedReader(raw)
-        assert f.read(3) == "a\nb"
-        assert f.read(3) == "\nc"
-        assert f.read(3) == ""
-        assert f.read(3) == ""
+        assert f.read(3) == b"a\nb"
+        assert f.read(3) == b"\nc"
+        assert f.read(3) == b""
+        assert f.read(3) == b""
         f.close()
 
     def test_slow_provider(self):
@@ -40,16 +40,16 @@ class AppTestBufferedReader:
             def readable(self):
                 return True
             def readinto(self, buf):
-                buf[:3] = "abc"
+                buf[:3] = b"abc"
                 return 3
         bufio = _io.BufferedReader(MockIO())
         r = bufio.read(5)
-        assert r == "abcab"
+        assert r == b"abcab"
 
     def test_read_past_eof(self):
         import _io
         class MockIO(_io._IOBase):
-            stack = ["abc", "d", "efg"]
+            stack = [b"abc", b"d", b"efg"]
             def readable(self):
                 return True
             def readinto(self, buf):
@@ -60,7 +60,7 @@ class AppTestBufferedReader:
                 else:
                     return 0
         bufio = _io.BufferedReader(MockIO())
-        assert bufio.read(9000) == "abcdefg"
+        assert bufio.read(9000) == b"abcdefg"
 
     def test_buffering(self):
         import _io
@@ -102,10 +102,10 @@ class AppTestBufferedReader:
         import _io
         raw = _io.FileIO(self.tmpfile)
         f = _io.BufferedReader(raw)
-        assert f.read(2) == 'a\n'
-        assert f.peek().startswith('b\nc')
-        assert f.read(3) == 'b\nc'
-        assert f.peek() == ''
+        assert f.read(2) == b'a\n'
+        assert f.peek().startswith(b'b\nc')
+        assert f.read(3) == b'b\nc'
+        assert f.peek() == b''
 
     def test_read1(self):
         import _io
@@ -119,42 +119,42 @@ class AppTestBufferedReader:
         raw = RecordingFileIO(self.tmpfile)
         raw.nbreads = 0
         f = _io.BufferedReader(raw, buffer_size=3)
-        assert f.read(1) == 'a'
-        assert f.read1(1) == '\n'
+        assert f.read(1) == b'a'
+        assert f.read1(1) == b'\n'
         assert raw.nbreads == 1
-        assert f.read1(100) == 'b'
+        assert f.read1(100) == b'b'
         assert raw.nbreads == 1
-        assert f.read1(100) == '\nc'
+        assert f.read1(100) == b'\nc'
         assert raw.nbreads == 2
-        assert f.read1(100) == ''
+        assert f.read1(100) == b''
         assert raw.nbreads == 3
         f.close()
 
     def test_readinto(self):
         import _io
-        a = bytearray('x' * 10)
+        a = bytearray(b'x' * 10)
         raw = _io.FileIO(self.tmpfile)
         f = _io.BufferedReader(raw)
         assert f.readinto(a) == 5
         f.close()
-        assert a == 'a\nb\ncxxxxx'
+        assert a == b'a\nb\ncxxxxx'
 
     def test_seek(self):
         import _io
         raw = _io.FileIO(self.tmpfile)
         f = _io.BufferedReader(raw)
-        assert f.read() == "a\nb\nc"
+        assert f.read() == b"a\nb\nc"
         f.seek(0)
-        assert f.read() == "a\nb\nc"
+        assert f.read() == b"a\nb\nc"
         f.seek(-2, 2)
-        assert f.read() == "\nc"
+        assert f.read() == b"\nc"
         f.close()
 
     def test_readlines(self):
         import _io
         raw = _io.FileIO(self.tmpfile)
         f = _io.BufferedReader(raw)
-        assert f.readlines() == ['a\n', 'b\n', 'c']
+        assert f.readlines() == [b'a\n', b'b\n', b'c']
 
     def test_detach(self):
         import _io
@@ -204,24 +204,24 @@ class AppTestBufferedWriter:
             cls.w_readfile = tmpfile.read
         else:
             def readfile(space):
-                return space.wrap(tmpfile.read())
+                return space.wrapbytes(tmpfile.read())
             cls.w_readfile = cls.space.wrap(interp2app(readfile))
 
     def test_write(self):
         import _io
         raw = _io.FileIO(self.tmpfile, 'w')
         f = _io.BufferedWriter(raw)
-        f.write("abcd")
+        f.write(b"abcd")
         f.close()
-        assert self.readfile() == "abcd"
+        assert self.readfile() == b"abcd"
 
     def test_largewrite(self):
         import _io
         raw = _io.FileIO(self.tmpfile, 'w')
         f = _io.BufferedWriter(raw)
-        f.write("abcd" * 5000)
+        f.write(b"abcd" * 5000)
         f.close()
-        assert self.readfile() == "abcd" * 5000
+        assert self.readfile() == b"abcd" * 5000
 
     def test_incomplete(self):
         import _io
@@ -249,9 +249,9 @@ class AppTestBufferedWriter:
         b = _io.BufferedWriter(raw, 13)
 
         for i in range(4):
-            assert b.write('x' * 10) == 10
+            assert b.write(b'x' * 10) == 10
         b.flush()
-        assert self.readfile() == 'x' * 40
+        assert self.readfile() == b'x' * 40
 
     def test_destructor(self):
         import _io
@@ -275,7 +275,7 @@ class AppTestBufferedWriter:
     def test_truncate(self):
         import _io
         raw = _io.FileIO(self.tmpfile, 'w+')
-        raw.write('x' * 20)
+        raw.write(b'x' * 20)
         b = _io.BufferedReader(raw)
         assert b.seek(8) == 8
         assert b.truncate() == 8
@@ -293,7 +293,7 @@ class AppTestBufferedWriter:
             closed = False
 
             def pop_written(self):
-                s = ''.join(self._write_stack)
+                s = b''.join(self._write_stack)
                 self._write_stack[:] = []
                 return s
 
@@ -322,11 +322,11 @@ class AppTestBufferedWriter:
         raw = MockNonBlockWriterIO()
         bufio = _io.BufferedWriter(raw, 8)
 
-        assert bufio.write("abcd") == 4
-        assert bufio.write("efghi") == 5
+        assert bufio.write(b"abcd") == 4
+        assert bufio.write(b"efghi") == 5
         # 1 byte will be written, the rest will be buffered
         raw.block_on(b"k")
-        assert bufio.write("jklmn") == 5
+        assert bufio.write(b"jklmn") == 5
 
         # 8 bytes will be written, 8 will be buffered and the rest will be lost
         raw.block_on(b"0")
@@ -337,12 +337,12 @@ class AppTestBufferedWriter:
         else:
             self.fail("BlockingIOError should have been raised")
         assert written == 16
-        assert raw.pop_written() == "abcdefghijklmnopqrwxyz"
+        assert raw.pop_written() == b"abcdefghijklmnopqrwxyz"
 
-        assert bufio.write("ABCDEFGHI") == 9
+        assert bufio.write(b"ABCDEFGHI") == 9
         s = raw.pop_written()
         # Previously buffered bytes were flushed
-        assert s.startswith("01234567A")
+        assert s.startswith(b"01234567A")
 
     def test_read_non_blocking(self):
         import _io
@@ -374,28 +374,28 @@ class AppTestBufferedWriter:
                 try:
                     return self._read_stack.pop(0)
                 except IndexError:
-                    return ""
+                    return b""
         # Inject some None's in there to simulate EWOULDBLOCK
         rawio = MockRawIO((b"abc", b"d", None, b"efg", None, None, None))
         bufio = _io.BufferedReader(rawio)
 
-        assert bufio.read(6) == "abcd"
-        assert bufio.read(1) == "e"
-        assert bufio.read() == "fg"
-        assert bufio.peek(1) == ""
+        assert bufio.read(6) == b"abcd"
+        assert bufio.read(1) == b"e"
+        assert bufio.read() == b"fg"
+        assert bufio.peek(1) == b""
         assert bufio.read() is None
-        assert bufio.read() == ""
+        assert bufio.read() == b""
 
 class AppTestBufferedRWPair:
     def test_pair(self):
         import _io
-        pair = _io.BufferedRWPair(_io.BytesIO("abc"), _io.BytesIO())
+        pair = _io.BufferedRWPair(_io.BytesIO(b"abc"), _io.BytesIO())
         assert not pair.closed
         assert pair.readable()
         assert pair.writable()
         assert not pair.isatty()
-        assert pair.read() == "abc"
-        assert pair.write("abc") == 3
+        assert pair.read() == b"abc"
+        assert pair.write(b"abc") == 3
 
     def test_constructor_with_not_readable(self):
         import _io
@@ -417,14 +417,14 @@ class AppTestBufferedRandom:
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=['_io'])
         tmpfile = udir.join('tmpfile')
-        tmpfile.write("a\nb\nc", mode='wb')
+        tmpfile.write(b"a\nb\nc", mode='wb')
         cls.w_tmpfile = cls.space.wrap(str(tmpfile))
 
     def test_simple_read(self):
         import _io
         raw = _io.FileIO(self.tmpfile, 'rb+')
         f = _io.BufferedRandom(raw)
-        assert f.read(3) == 'a\nb'
-        f.write('xxxx')
+        assert f.read(3) == b'a\nb'
+        f.write(b'xxxx')
         f.seek(0)
-        assert f.read() == 'a\nbxxxx'
+        assert f.read() == b'a\nbxxxx'
