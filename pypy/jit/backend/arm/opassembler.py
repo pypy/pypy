@@ -935,7 +935,7 @@ class ForceOpAssembler(object):
     # ../x86/assembler.py:668
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         # we overwrite the instructions at the old _x86_direct_bootstrap_code
-        # to start with a JMP to the new _x86_direct_bootstrap_code.
+        # to start with a JMP to the new _arm_direct_bootstrap_code.
         # Ideally we should rather patch all existing CALLs, but well.
         oldadr = oldlooptoken._arm_direct_bootstrap_code
         target = newlooptoken._arm_direct_bootstrap_code
