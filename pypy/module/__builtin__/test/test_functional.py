@@ -101,23 +101,17 @@ class AppTestReduce:
 
 class AppTestFilter:
    def test_None(self):
-       assert filter(None, ['a', 'b', 1, 0, None]) == ['a', 'b', 1]
+       assert list(filter(None, ['a', 'b', 1, 0, None])) == ['a', 'b', 1]
 
    def test_return_type(self):
        txt = "This is a test text"
-       assert filter(None, txt) == txt
+       assert list(filter(None, txt)) == list(txt)
        tup = ("a", None, 0, [], 1)
-       assert filter(None, tup) == ("a", 1)
+       assert list(filter(None, tup)) == ["a", 1]
 
    def test_function(self):
-       assert filter(lambda x: x != "a", "a small text") == " smll text"
-       assert filter(lambda x: x < 20, [3, 33, 5, 55]) == [3, 5]
-
-   def test_filter_tuple_calls_getitem(self):
-       class T(tuple):
-           def __getitem__(self, i):
-               return i * 10
-       assert filter(lambda x: x != 20, T("abcd")) == (0, 10, 30)
+       assert list(filter(lambda x: x != "a", "a small text")) == list(" smll text")
+       assert list(filter(lambda x: x < 20, [3, 33, 5, 55])) == [3, 5]
 
 class AppTestRange:
    def test_range(self):
