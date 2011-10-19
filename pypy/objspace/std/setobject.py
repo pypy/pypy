@@ -319,9 +319,6 @@ class EmptySetStrategy(SetStrategy):
     def remove(self, w_set, w_item):
         return False
 
-    def discard(self, w_set, w_item):
-        return False
-
     def getdict_w(self, w_set):
         return newset(self.space)
 
