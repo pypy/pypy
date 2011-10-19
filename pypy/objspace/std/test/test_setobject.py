@@ -138,6 +138,10 @@ class AppTestAppSetTest:
         c = [1,2,3,4]
         assert b.issubset(c)
 
+        a = set([1,2,3,4])
+        b = set(['1','2'])
+        assert not b.issubset(a)
+
     def test_issuperset(self):
         a = set([1,2,3,4])
         b = set([2,3])
@@ -148,6 +152,10 @@ class AppTestAppSetTest:
         c = [1,1,1,1,1]
         assert a.issuperset(c)
         assert set([1,1,1,1,1]).issubset(a)
+
+        a = set([1,2,3])
+        assert a.issuperset(a)
+        assert not a.issuperset(set([1,2,3,4,5]))
 
     def test_inplace_and(test):
         a = set([1,2,3,4])
@@ -184,6 +192,11 @@ class AppTestAppSetTest:
         b = [3,4,5]
         c = a.symmetric_difference(b)
         assert c == set([1,2,4,5])
+
+        a = set([1,2,3])
+        b = set('abc')
+        c = a.symmetric_difference(b)
+        assert c == set([1,2,3,'a','b','c'])
 
     def test_symmetric_difference_update(self):
         a = set([1,2,3])
@@ -277,6 +290,8 @@ class AppTestAppSetTest:
         assert (set('abc') != set('abcd'))
         assert (frozenset('abc') != frozenset('abcd'))
         assert (frozenset('abc') != set('abcd'))
+        assert set() != set('abc')
+        assert set('abc') != set('abd')
 
     def test_libpython_equality(self):
         for thetype in [frozenset, set]:
@@ -479,6 +494,7 @@ class AppTestAppSetTest:
         assert not set([1,2,5]).isdisjoint(frozenset([4,5,6]))
         assert not set([1,2,5]).isdisjoint([4,5,6])
         assert not set([1,2,5]).isdisjoint((4,5,6))
+        assert set([1,2,3]).isdisjoint(set([3.5,4.0]))
 
     def test_intersection(self):
         assert set([1,2,3]).intersection(set([2,3,4])) == set([2,3])
@@ -519,6 +535,12 @@ class AppTestAppSetTest:
         o = 'abc'
         assert s.intersection(o) == set()
 
+    def test_intersection_float(self):
+        a = set([1,2,3])
+        b = set([3.0,4.0,5.0])
+        c = a.intersection(b)
+        assert c == set([3.0])
+
     def test_difference(self):
         assert set([1,2,3]).difference(set([2,3,4])) == set([1])
         assert set([1,2,3]).difference(frozenset([2,3,4])) == set([1])
@@ -535,6 +557,7 @@ class AppTestAppSetTest:
         assert s.difference() is not s
         assert set([1,2,3]).difference(set([2,3,4,'5'])) == set([1])
         assert set([1,2,3,'5']).difference(set([2,3,4])) == set([1,'5'])
+        assert set().difference(set([1,2,3])) == set()
 
     def test_intersection_update(self):
         s = set([1,2,3,4,7])
