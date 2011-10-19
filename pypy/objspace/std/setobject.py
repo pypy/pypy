@@ -502,9 +502,6 @@ class AbstractUnwrappedSetStrategy(object):
         return self.erase(result_dict)
 
     def _difference_base(self, w_set, w_other):
-        if not isinstance(w_other, W_BaseSetObject):
-            w_other = w_set._newobj(self.space, w_other)
-
         if self is w_other.strategy:
             strategy = w_set.strategy
             storage = self._difference_unwrapped(w_set, w_other)
