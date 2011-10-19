@@ -22,14 +22,14 @@ class W_RSocket(Wrappable, RSocket):
     def _accept_w(self, space):
         """_accept() -> (socket object, address info)
 
-        Wait for an incoming connection.  Return a new socket representing the
-        connection, and the address of the client.  For IP sockets, the address
-        info is a pair (hostaddr, port).
+        Wait for an incoming connection.  Return a new socket file descriptor
+        representing the connection, and the address of the client.
+        For IP sockets, the address info is a pair (hostaddr, port).
         """
         try:
-            sock, addr = self.accept(W_RSocket)
-            return space.newtuple([space.wrap(sock),
-                                   addr.as_object(sock.fd, space)])
+            fd, addr = self.accept()
+            return space.newtuple([space.wrap(fd),
+                                   addr.as_object(fd, space)])
         except SocketError, e:
             raise converted_error(space, e)
 
@@ -414,10 +414,14 @@ def makefile(self, mode="r", buffersize=-1):
 
 @unwrap_spec(family=int, type=int, proto=int)
 def newsocket(space, w_subtype, family=AF_INET,
-              type=SOCK_STREAM, proto=0):
+              type=SOCK_STREAM, proto=0, w_fileno=NoneNotWrapped):
     sock = space.allocate_instance(W_RSocket, w_subtype)
     try:
-        W_RSocket.__init__(sock, family, type, proto)
+        if w_fileno:
+            W_RSocket.__init__(sock, family, type, proto,
+                               fd=space.c_filedescriptor_w(w_fileno))
+        else:
+            W_RSocket.__init__(sock, family, type, proto)
     except SocketError, e:
         raise converted_error(space, e)
     return space.wrap(sock)
@@ -493,7 +497,7 @@ A socket object represents one endpoint of a network connection.
 
 Methods of socket objects (keyword arguments not allowed):
 
-_accept() -- accept a connection, returning new socket and client address
+_accept() -- accept a connection, returning new socket fd and client address
 bind(addr) -- bind the socket to a local address
 close() -- close the socket
 connect(addr) -- connect the socket to a remote address

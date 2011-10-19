@@ -145,8 +145,8 @@ class AppTestEpoll(object):
         then = time.time()
         assert not events
 
-        client.send("Hello!")
-        server.send("world!!!")
+        client.send(b"Hello!")
+        server.send(b"world!!!")
 
         now = time.time()
         events = ep.poll(1, 4)

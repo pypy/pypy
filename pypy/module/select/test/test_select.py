@@ -39,7 +39,7 @@ class _AppTestSelect:
         try:
             iwtd, owtd, ewtd = select.select([readend], [], [], 0)
             assert iwtd == owtd == ewtd == []
-            writeend.send('X')
+            writeend.send(b'X')
             iwtd, owtd, ewtd = select.select([readend], [], [])
             assert iwtd == [readend]
             assert owtd == ewtd == []
@@ -80,7 +80,7 @@ class _AppTestSelect:
                 if owtd == []:
                     break
                 assert owtd == [writeend]
-                total_out += writeend.send('x' * 512)
+                total_out += writeend.send(b'x' * 512)
             total_in = 0
             while True:
                 iwtd, owtd, ewtd = select.select([readend], [], [], 0)
@@ -106,7 +106,7 @@ class _AppTestSelect:
         readend, writeend = self.getpair()
         try:
             try:
-                total_out = writeend.send('x' * 512)
+                total_out = writeend.send(b'x' * 512)
             finally:
                 # win32 sends the 'closed' event immediately, even when
                 # more data is available
@@ -167,7 +167,7 @@ class _AppTestSelect:
 
             for i in range(50):
                 n = (i*3) % 10
-                writeends[n].send('X')
+                writeends[n].send(b'X')
                 iwtd, owtd, ewtd = select.select(readends, [], [])
                 assert iwtd == [readends[n]]
                 assert owtd == ewtd == []
@@ -239,7 +239,7 @@ class AppTestSelectWithPipes(_AppTestSelect):
             def send(self, data):
                 return os.write(self.fd, data)
             def recv(self, length):
-                return os.read(self.fd, length)
+                return os.read(self.fd, length).decode()
             def close(self):
                 return os.close(self.fd)
         s1, s2 = os.pipe()

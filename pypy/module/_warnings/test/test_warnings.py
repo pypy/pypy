@@ -45,14 +45,14 @@ class AppTestWarnings:
 
     def test_show_source_line(self):
         import warnings
-        import sys, StringIO
+        import sys, io
         from test.warning_tests import inner
         # With showarning() missing, make sure that output is okay.
         del warnings.showwarning
 
         stderr = sys.stderr
         try:
-            sys.stderr = StringIO.StringIO()
+            sys.stderr = io.StringIO()
             inner('test message')
             result = sys.stderr.getvalue()
         finally:
