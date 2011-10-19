@@ -86,18 +86,14 @@ class W_Hash(Wrappable):
         return space.wrap(self._block_size())
 
     def _digest(self, space):
-        copy = self.copy(space)
-        ctx = copy.ctx
-        digest_size = self._digest_size()
-        digest = lltype.malloc(rffi.CCHARP.TO, digest_size, flavor='raw')
-
-        try:
-            ropenssl.EVP_DigestFinal(ctx, digest, None)
-            return rffi.charpsize2str(digest, digest_size)
-        finally:
-            keepalive_until_here(copy)
-            lltype.free(digest, flavor='raw')
-
+        with lltype.scoped_alloc(ropenssl.EVP_MD_CTX.TO) as ctx:
+            with self.lock:
+                ropenssl.EVP_MD_CTX_copy(ctx, self.ctx)
+            digest_size = self._digest_size()
+            with lltype.scoped_alloc(rffi.CCHARP.TO, digest_size) as digest:
+                ropenssl.EVP_DigestFinal(ctx, digest, None)
+                ropenssl.EVP_MD_CTX_cleanup(ctx)
+                return rffi.charpsize2str(digest, digest_size)
 
     def _digest_size(self):
         # XXX This isn't the nicest way, but the EVP_MD_size OpenSSL
