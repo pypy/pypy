@@ -21,7 +21,7 @@ def rewrap_error(space, e):
 
 def _fixup_ulcase(space):
     stringmod = space.call_function(
-        space.getattr(space.getbuiltinmodule('__builtin__'),
+        space.getattr(space.getbuiltinmodule('builtins'),
                       space.wrap('__import__')), space.wrap('string'))
     # create uppercase map string
     ul = []
@@ -69,6 +69,12 @@ def _w_copy_grouping(space, text):
         groups.append(space.wrap(0))
     return space.newlist(groups)
 
+def charp2uni(space, s):
+    "Convert a char* pointer to unicode according to the current locale"
+    w_bytes = space.wrapbytes(rffi.charp2str(s))
+    # XXX use mbstowcs()
+    return space.call_method(w_bytes, "decode", space.wrap("utf-8"))
+
 def localeconv(space):
     "() -> dict. Returns numeric and monetary locale-specific parameters."
     lp = rlocale.localeconv()
@@ -77,25 +83,25 @@ def localeconv(space):
     w_result = space.newdict()
     w = space.wrap
     space.setitem(w_result, w("decimal_point"),
-                  w(rffi.charp2str(lp.c_decimal_point)))
+                  charp2uni(space, lp.c_decimal_point))
     space.setitem(w_result, w("thousands_sep"),
-                  w(rffi.charp2str(lp.c_thousands_sep)))
+                  charp2uni(space, lp.c_thousands_sep))
     space.setitem(w_result, w("grouping"),
                   _w_copy_grouping(space, rffi.charp2str(lp.c_grouping)))
     space.setitem(w_result, w("int_curr_symbol"),
-                  w(rffi.charp2str(lp.c_int_curr_symbol)))
+                  charp2uni(space, lp.c_int_curr_symbol))
     space.setitem(w_result, w("currency_symbol"),
-                  w(rffi.charp2str(lp.c_currency_symbol)))
+                  charp2uni(space, lp.c_currency_symbol))
     space.setitem(w_result, w("mon_decimal_point"),
-                  w(rffi.charp2str(lp.c_mon_decimal_point)))
+                  charp2uni(space, lp.c_mon_decimal_point))
     space.setitem(w_result, w("mon_thousands_sep"),
-                  w(rffi.charp2str(lp.c_mon_thousands_sep)))
+                  charp2uni(space, lp.c_mon_thousands_sep))
     space.setitem(w_result, w("mon_grouping"),
                   _w_copy_grouping(space, rffi.charp2str(lp.c_mon_grouping)))
     space.setitem(w_result, w("positive_sign"),
-                  w(rffi.charp2str(lp.c_positive_sign)))
+                  charp2uni(space, lp.c_positive_sign))
     space.setitem(w_result, w("negative_sign"),
-                  w(rffi.charp2str(lp.c_negative_sign)))
+                  charp2uni(space, lp.c_negative_sign))
     space.setitem(w_result, w("int_frac_digits"),
                   w(lp.c_int_frac_digits))
     space.setitem(w_result, w("frac_digits"),
@@ -115,28 +121,10 @@ def localeconv(space):
 
     return w_result
 
-_strcoll = rlocale.external('strcoll', [rffi.CCHARP, rffi.CCHARP], rffi.INT)
 _wcscoll = rlocale.external('wcscoll', [rffi.CWCHARP, rffi.CWCHARP], rffi.INT)
 
 def strcoll(space, w_s1, w_s2):
     "string,string -> int. Compares two strings according to the locale."
-
-    if space.is_true(space.isinstance(w_s1, space.w_str)) and \
-       space.is_true(space.isinstance(w_s2, space.w_str)):
-
-        s1, s2 = space.str_w(w_s1), space.str_w(w_s2)
-        s1_c = rffi.str2charp(s1)
-        s2_c = rffi.str2charp(s2)
-        try:
-            return space.wrap(_strcoll(s1_c, s2_c))
-        finally:
-            rffi.free_charp(s1_c)
-            rffi.free_charp(s2_c)
-
-    #if not space.is_true(space.isinstance(w_s1, space.w_unicode)) and \
-    #   not space.is_true(space.isinstance(w_s2, space.w_unicode)):
-    #    raise OperationError(space.w_ValueError,
-    #                         space.wrap("strcoll arguments must be strings"))
 
     s1, s2 = space.unicode_w(w_s1), space.unicode_w(w_s2)
 

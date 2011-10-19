@@ -35,6 +35,7 @@ class AppTestLocaleTrivia:
                 _locale.setlocale(_locale.LC_ALL,
                                   space.str_w(cls.w_language_pl))
             except _locale.Error:
+                raise
                 py.test.skip("necessary locales not installed")
 
             # Windows forbids the UTF-8 character set since Windows XP.
@@ -160,11 +161,11 @@ class AppTestLocaleTrivia:
         _locale.setlocale(_locale.LC_ALL, self.language_pl)
         assert _locale.strcoll("a", "b") < 0
         assert _locale.strcoll(
-            u"\N{LATIN SMALL LETTER A WITH OGONEK}".encode(self.encoding_pl),
+            u"\N{LATIN SMALL LETTER A WITH OGONEK}",
             "b") < 0
 
         assert _locale.strcoll(
-            u"\N{LATIN SMALL LETTER C WITH ACUTE}".encode(self.encoding_pl),
+            u"\N{LATIN SMALL LETTER C WITH ACUTE}",
             "b") > 0
         assert _locale.strcoll("c", "b") > 0
 
@@ -172,17 +173,6 @@ class AppTestLocaleTrivia:
 
         raises(TypeError, _locale.strcoll, 1, "b")
         raises(TypeError, _locale.strcoll, "b", 1)
-
-    def test_strcoll_unicode(self):
-        import _locale
-
-        _locale.setlocale(_locale.LC_ALL, self.language_pl)
-        assert _locale.strcoll(u"b", u"b") == 0
-        assert _locale.strcoll(u"a", u"b") < 0
-        assert _locale.strcoll(u"b", u"a") > 0
-
-        raises(TypeError, _locale.strcoll, 1, u"b")
-        raises(TypeError, _locale.strcoll, u"b", 1)
 
     def test_strxfrm(self):
         # TODO more tests would be nice
