@@ -78,6 +78,7 @@ from pypy.interpreter.typedef import (TypeDef, GetSetProperty, descr_get_dict,
     descr_set_dict, descr_del_dict)
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.pytraceback import PyTraceback
 from pypy.rlib import rwin32
 
 def readwrite_attrproperty_w(name, cls):
@@ -97,6 +98,7 @@ class W_BaseException(Wrappable):
     args_w = []
     w_cause = None
     w_context = None
+    w_traceback = None
 
     def __init__(self, space):
         self.w_message = space.w_None
@@ -169,6 +171,14 @@ class W_BaseException(Wrappable):
                     "derive from BaseException"))
         self.w_context = w_newcontext
 
+    def descr_gettraceback(self, space):
+        return self.w_traceback
+
+    def descr_settraceback(self, space, w_newtraceback):
+        # Check argument
+        space.interp_w(PyTraceback, w_newtraceback, can_be_None=True)
+        self.w_traceback = w_newtraceback
+
     def descr_getitem(self, space, w_index):
         return space.getitem(space.newtuple(self.args_w), w_index)
 
@@ -191,6 +201,10 @@ class W_BaseException(Wrappable):
     def descr_setstate(self, space, w_dict):
         w_olddict = self.getdict(space)
         space.call_method(w_olddict, 'update', w_dict)
+
+    def descr_with_traceback(self, space, w_traceback):
+        self.descr_settraceback(space, w_traceback)
+        return space.wrap(self)
 
     def descr_message_get(self, space):
         w_dict = self.w_dict
@@ -242,6 +256,7 @@ W_BaseException.typedef = TypeDef(
     __getitem__ = interp2app(W_BaseException.descr_getitem),
     __reduce__ = interp2app(W_BaseException.descr_reduce),
     __setstate__ = interp2app(W_BaseException.descr_setstate),
+    with_traceback = interp2app(W_BaseException.descr_with_traceback),
     message = GetSetProperty(W_BaseException.descr_message_get,
                             W_BaseException.descr_message_set,
                             W_BaseException.descr_message_del),
@@ -251,6 +266,8 @@ W_BaseException.typedef = TypeDef(
                                W_BaseException.descr_setcause),
     __context__ = GetSetProperty(W_BaseException.descr_getcontext,
                                  W_BaseException.descr_setcontext),
+    __traceback__ = GetSetProperty(W_BaseException.descr_gettraceback,
+                                   W_BaseException.descr_settraceback),
 )
 
 def _new_exception(name, base, docstring, **kwargs):

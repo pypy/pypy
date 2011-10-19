@@ -261,3 +261,13 @@ class AppTestExc(object):
         raises(TypeError, setattr, e1, '__context__', 1)
         raises(AttributeError, delattr, e1, '__context__')
 
+    def test_traceback(self):
+        assert ValueError().with_traceback(None).__traceback__ is None
+        raises(TypeError, ValueError().with_traceback, 3)
+        try:
+            XXX
+        except NameError as e:
+            import sys
+            tb = sys.exc_info()[2]
+            assert e.with_traceback(tb) is e
+            assert e.__traceback__ is tb
