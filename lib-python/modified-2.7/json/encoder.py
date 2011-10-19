@@ -2,6 +2,8 @@
 """
 import re
 
+from __pypy__ import identity_dict
+
 ESCAPE = re.compile(r'[\x00-\x1f\\"\b\f\n\r\t]')
 ESCAPE_ASCII = re.compile(r'([\\"]|[^\ -~])')
 HAS_UTF8 = re.compile(r'[\x80-\xff]')
@@ -206,7 +208,7 @@ class JSONEncoder(object):
 
         """
         if self.check_circular:
-            markers = {}
+            markers = identity_dict()
         else:
             markers = None
         if self.ensure_ascii:
@@ -242,15 +244,21 @@ class JSONEncoder(object):
 
         return text
 
+    def _mark_markers(self, markers, o):
+        if markers is not None:
+            if o in markers:
+                raise ValueError("Circular reference detected")
+            markers[o] = None
+
+    def _remove_markers(self, markers, o):
+        if markers is not None:
+            del markers[o]
+
     def _iterencode_list(self, lst, markers, _current_indent_level):
         if not lst:
             yield '[]'
             return
-        if markers is not None:
-            markerid = id(lst)
-            if markerid in markers:
-                raise ValueError("Circular reference detected")
-            markers[markerid] = lst
+        self._mark_markers(markers, lst)
         buf = '['
         if self.indent is not None:
             _current_indent_level += 1
@@ -296,18 +304,13 @@ class JSONEncoder(object):
             _current_indent_level -= 1
             yield '\n' + (' ' * (self.indent * _current_indent_level))
         yield ']'
-        if markers is not None:
-            del markers[markerid]
+        self._remove_markers(markers, lst)
 
     def _iterencode_dict(self, dct, markers, _current_indent_level):
         if not dct:
             yield '{}'
             return
-        if markers is not None:
-            markerid = id(dct)
-            if markerid in markers:
-                raise ValueError("Circular reference detected")
-            markers[markerid] = dct
+        self._mark_markers(markers, dct)
         yield '{'
         if self.indent is not None:
             _current_indent_level += 1
@@ -376,8 +379,7 @@ class JSONEncoder(object):
             _current_indent_level -= 1
             yield '\n' + (' ' * (self.indent * _current_indent_level))
         yield '}'
-        if markers is not None:
-            del markers[markerid]
+        self._remove_markers(markers, dct)
 
     def _iterencode(self, o, markers, _current_indent_level):
         if isinstance(o, basestring):
@@ -401,15 +403,9 @@ class JSONEncoder(object):
                                                _current_indent_level):
                 yield chunk
         else:
-            if markers is not None:
-                markerid = id(o)
-                if markerid in markers:
-                    raise ValueError("Circular reference detected")
-                markers[markerid] = o
-            o = self.default(o)
-            for chunk in self._iterencode(o, markers,
+            self._mark_markers(markers, o)
+            obj = self.default(o)
+            for chunk in self._iterencode(obj, markers,
                                           _current_indent_level):
                 yield chunk
-            if markers is not None:
-                del markers[markerid]
-
+            self._remove_markers(markers, o)
