@@ -42,11 +42,11 @@ class AppTestUnicodeData:
                            (0xBCBA, 'HANGUL SYLLABLE BEP'),
                            (0xBF23, 'HANGUL SYLLABLE BBYEOH'),
                            (0xD7A3, 'HANGUL SYLLABLE HIH')):
-            assert unicodedata.name(unichr(code)) == name
-            assert unicodedata.lookup(name) == unichr(code)
+            assert unicodedata.name(chr(code)) == name
+            assert unicodedata.lookup(name) == chr(code)
         # Test outside the range
-        raises(ValueError, unicodedata.name, unichr(0xAC00 - 1))
-        raises(ValueError, unicodedata.name, unichr(0xD7A3 + 1))
+        raises(ValueError, unicodedata.name, chr(0xAC00 - 1))
+        raises(ValueError, unicodedata.name, chr(0xD7A3 + 1))
 
     def test_cjk(self):
         import sys
@@ -61,13 +61,13 @@ class AppTestUnicodeData:
             # Test at and inside the boundary
             for i in (first, first + 1, last - 1, last):
                 charname = 'CJK UNIFIED IDEOGRAPH-%X'%i
-                char = ('\\U%08X' % i).decode('unicode-escape')
+                char = chr(i)
                 assert unicodedata.name(char) == charname
                 assert unicodedata.lookup(charname) == char
             # Test outside the boundary
             for i in first - 1, last + 1:
                 charname = 'CJK UNIFIED IDEOGRAPH-%X'%i
-                char = ('\\U%08X' % i).decode('unicode-escape')
+                char = chr(i)
                 try:
                     unicodedata.name(char)
                 except ValueError, e:
@@ -93,7 +93,7 @@ class AppTestUnicodeData:
                       0x1c, 0x1d, 0x1e, 0x2028, 0x2029)
         for i in linebreaks:
             for j in range(-2, 3):
-                lines = (unichr(i + j) + u'A').splitlines()
+                lines = (chr(i + j) + u'A').splitlines()
                 if i + j in linebreaks:
                     assert len(lines) == 2
                 else:
