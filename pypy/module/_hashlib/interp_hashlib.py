@@ -30,14 +30,16 @@ class W_Hash(Wrappable):
         # and use a custom lock only when needed.
         self.lock = Lock(space)
 
-        digest = ropenssl.EVP_get_digestbyname(name)
-        if not digest:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("unknown hash function"))
         ctx = lltype.malloc(ropenssl.EVP_MD_CTX.TO, flavor='raw')
-        ropenssl.EVP_DigestInit(ctx, digest)
         rgc.add_memory_pressure(HASH_MALLOC_SIZE + self._digest_size())
         self.ctx = ctx
+
+    def initdigest(self):
+        digest = ropenssl.EVP_get_digestbyname(self.name)
+        if not digest:
+            raise OperationError(space.w_Value,
+                                 space.wrap("unknown hash function"))
+        ropenssl.EVP_DigestInit(self.ctx, digest)
 
     def __del__(self):
         # self.lock.free()
@@ -139,6 +141,7 @@ W_Hash.typedef = TypeDef(
 @unwrap_spec(name=str, string='bufferstr')
 def new(space, name, string=''):
     w_hash = W_Hash(space, name)
+    w_hash.initdigest()
     w_hash.update(space, string)
     return space.wrap(w_hash)
 
