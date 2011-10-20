@@ -39,6 +39,30 @@ class W_SmallLongObject(W_Object):
     def __repr__(w_self):
         return '<W_SmallLongObject(%d)>' % w_self.longlong
 
+    def int_w(w_self, space):
+        a = w_self.longlong
+        b = intmask(a)
+        if b == a:
+            return b
+        else:
+            raise OperationError(space.w_OverflowError, space.wrap(
+                "long int too large to convert to int"))
+
+    def uint_w(w_self, space):
+        a = w_self.longlong
+        if a < 0:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "cannot convert negative integer to unsigned int"))
+        b = r_uint(a)
+        if r_longlong(b) == a:
+            return b
+        else:
+            raise OperationError(space.w_OverflowError, space.wrap(
+                "long int too large to convert to unsigned int"))
+
+    def bigint_w(w_self, space):
+        return w_self.asbigint()
+
 registerimplementation(W_SmallLongObject)
 
 # ____________________________________________________________
@@ -101,30 +125,6 @@ def index__SmallLong(space, w_value):
 
 def float__SmallLong(space, w_value):
     return space.newfloat(float(w_value.longlong))
-
-def int_w__SmallLong(space, w_value):
-    a = w_value.longlong
-    b = intmask(a)
-    if b == a:
-        return b
-    else:
-        raise OperationError(space.w_OverflowError, space.wrap(
-            "long int too large to convert to int"))
-
-def uint_w__SmallLong(space, w_value):
-    a = w_value.longlong
-    if a < 0:
-        raise OperationError(space.w_ValueError, space.wrap(
-            "cannot convert negative integer to unsigned int"))
-    b = r_uint(a)
-    if r_longlong(b) == a:
-        return b
-    else:
-        raise OperationError(space.w_OverflowError, space.wrap(
-            "long int too large to convert to unsigned int"))
-
-def bigint_w__SmallLong(space, w_value):
-    return w_value.asbigint()
 
 def lt__SmallLong_SmallLong(space, w_small1, w_small2):
     return space.newbool(w_small1.longlong <  w_small2.longlong)

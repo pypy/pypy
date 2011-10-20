@@ -285,7 +285,9 @@ class AppTestNumArray(BaseNumpyAppTest):
             assert b[i] == i * 5
 
     def test_div(self):
-        from numpy import array, dtype
+        from math import isnan
+        from numpy import array, dtype, inf
+
         a = array(range(1, 6))
         b = a / a
         for i in range(5):
@@ -296,6 +298,24 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert b.dtype is dtype("int8")
         for i in range(5):
             assert b[i] == 1
+
+        a = array([-1, 0, 1])
+        b = array([0, 0, 0])
+        c = a / b
+        assert (c == [0, 0, 0]).all()
+
+        a = array([-1.0, 0.0, 1.0])
+        b = array([0.0, 0.0, 0.0])
+        c = a / b
+        assert c[0] == -inf
+        assert isnan(c[1])
+        assert c[2] == inf
+
+        b = array([-0.0, -0.0, -0.0])
+        c = a / b
+        assert c[0] == inf
+        assert isnan(c[1])
+        assert c[2] == -inf
 
     def test_div_other(self):
         from numpy import array
@@ -551,8 +571,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpy import array, dtype
 
         assert array([True]).dtype is dtype(bool)
-        assert array([True, 1]).dtype is dtype(long)
-        assert array([1, 2, 3]).dtype is dtype(long)
+        assert array([True, False]).dtype is dtype(bool)
+        assert array([True, 1]).dtype is dtype(int)
+        assert array([1, 2, 3]).dtype is dtype(int)
+        assert array([1L, 2, 3]).dtype is dtype(long)
         assert array([1.2, True]).dtype is dtype(float)
         assert array([1.2, 5]).dtype is dtype(float)
         assert array([]).dtype is dtype(float)

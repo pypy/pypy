@@ -45,25 +45,6 @@ purposes only."""
     f.mark_as_escaped()
     return space.wrap(f)
 
-def _current_frames(space):
-    """_current_frames() -> dictionary
-
-    Return a dictionary mapping each current thread T's thread id to T's
-    current stack frame.
-
-    This function should be used for specialized purposes only."""
-    raise OperationError(space.w_NotImplementedError,
-        space.wrap("XXX sys._current_frames() incompatible with the JIT"))
-    w_result = space.newdict()
-    ecs = space.threadlocals.getallvalues()
-    for thread_ident, ec in ecs.items():
-        f = ec.gettopframe_nohidden()
-        f.mark_as_escaped()
-        space.setitem(w_result,
-                      space.wrap(thread_ident),
-                      space.wrap(f))
-    return w_result
-
 def setrecursionlimit(space, w_new_limit):
     """setrecursionlimit() sets the maximum number of nested calls that
 can occur before a RuntimeError is raised.  On PyPy the limit is
@@ -129,14 +110,19 @@ def settrace(space, w_func):
 function call.  See the debugger chapter in the library manual."""
     space.getexecutioncontext().settrace(w_func)
 
+def gettrace(space):
+    """Return the global debug tracing function set with sys.settrace.
+See the debugger chapter in the library manual."""
+    return space.getexecutioncontext().gettrace()
+
 def setprofile(space, w_func):
     """Set the profiling function.  It will be called on each function call
 and return.  See the profiler chapter in the library manual."""
     space.getexecutioncontext().setprofile(w_func)
 
 def getprofile(space):
-    """Set the profiling function.  It will be called on each function call
-and return.  See the profiler chapter in the library manual."""
+    """Return the profiling function set with sys.setprofile.
+See the profiler chapter in the library manual."""
     w_func = space.getexecutioncontext().getprofile()
     if w_func is not None:
         return w_func

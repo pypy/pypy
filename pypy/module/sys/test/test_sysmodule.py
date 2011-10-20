@@ -478,6 +478,7 @@ class AppTestSysModulePortedFromCPython:
         sys.settrace(trace)
         try:
             x()
+            assert sys.gettrace() is trace
         finally:
             sys.settrace(None)
         assert len(counts) == 1
@@ -555,7 +556,7 @@ class AppTestCurrentFrames:
             return sys._current_frames()
         frames = f()
         assert frames.keys() == [0]
-        assert frames[0].f_code.co_name == 'f'
+        assert frames[0].f_code.co_name in ('f', '?')
 
 class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
     def setup_class(cls):
@@ -567,23 +568,25 @@ class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
         import thread
 
         thread_id = thread.get_ident()
-        self.ready = False
         def other_thread():
-            self.ready = True
             print "thread started"
-            time.sleep(5)
+            lock2.release()
+            lock1.acquire()
+        lock1 = thread.allocate_lock()
+        lock2 = thread.allocate_lock()
+        lock1.acquire()
+        lock2.acquire()
         thread.start_new_thread(other_thread, ())
 
         def f():
-            for i in range(100):
-                if self.ready: break
-                time.sleep(0.1)
+            lock2.acquire()
             return sys._current_frames()
 
         frames = f()
+        lock1.release()
         thisframe = frames.pop(thread_id)
-        assert thisframe.f_code.co_name == 'f'
+        assert thisframe.f_code.co_name in ('f', '?')
 
         assert len(frames) == 1
         _, other_frame = frames.popitem()
-        assert other_frame.f_code.co_name == 'other_thread'
+        assert other_frame.f_code.co_name in ('other_thread', '?')

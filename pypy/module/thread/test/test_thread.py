@@ -225,7 +225,8 @@ class AppTestThread(GenericTestThread):
 
         def busy_wait():
             for x in range(1000):
-                time.sleep(0.01)
+                print 'tick...', x  # <-force the GIL to be released, as
+                time.sleep(0.01)    #   time.sleep doesn't do non-translated
 
         # This is normally called by app_main.py
         signal.signal(signal.SIGINT, signal.default_int_handler)

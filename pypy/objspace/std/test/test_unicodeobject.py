@@ -443,6 +443,8 @@ class AppTestUnicodeString:
         assert u'<i><i><i>c' == u'abababc'.translate({ord('a'):None, ord('b'):u'<i>'})
         assert u'c' == u'abababc'.translate({ord('a'):None, ord('b'):u''})
         assert u'xyyx' == u'xzx'.translate({ord('z'):u'yy'})
+        assert u'abcd' == u'ab\0d'.translate(u'c')
+        assert u'abcd' == u'abcd'.translate(u'')
 
         raises(TypeError, u'hello'.translate)
         raises(TypeError, u'abababc'.translate, {ord('a'):''})

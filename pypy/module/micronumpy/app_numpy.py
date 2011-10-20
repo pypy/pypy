@@ -1,4 +1,10 @@
+import math
+
 import numpy
+
+
+inf = float("inf")
+e = math.e
 
 def average(a):
     # This implements a weighted average, for now we don't implement the

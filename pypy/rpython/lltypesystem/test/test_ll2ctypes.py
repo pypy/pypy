@@ -82,7 +82,6 @@ class TestLL2Ctypes(object):
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_get_pointer(self):
-        py.test.skip("FIXME")
         # Equivalent of the C code::
         #     struct S1 { struct S2 *ptr; struct S2 buf; };
         #     struct S1 s1;
@@ -1123,6 +1122,9 @@ class TestLL2Ctypes(object):
         #assert llmemory.cast_adr_to_int(addr) == intval
 
         #assert lltype.cast_ptr_to_int(ref1) == intval
+
+        x = rffi.cast(llmemory.GCREF, -17)
+        assert lltype.cast_ptr_to_int(x) == -17
 
     def test_ptr_truth(self):
         abc = rffi.cast(lltype.Ptr(lltype.FuncType([], lltype.Void)), 0)

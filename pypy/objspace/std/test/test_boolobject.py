@@ -17,6 +17,12 @@ class TestW_BoolObject:
         
     def test_false(self):
         assert not self.space.is_true(self.false)
+
+    def test_uint_w(self):
+        assert self.space.uint_w(self.true) == 1
+
+    def test_rbigint_w(self):
+        assert self.space.bigint_w(self.true)._digits == [1]
         
 class AppTestAppBoolTest:
     def test_bool_callable(self):

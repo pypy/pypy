@@ -50,8 +50,7 @@ class BaseTestPyPyC(object):
         cmdline.append(str(self.filepath))
         #
         print cmdline, logfile
-        env={'PYPYLOG': 'jit-log-opt,jit-summary:' + str(logfile)}
-        #env={'PYPYLOG': ':' + str(logfile)}
+        env={'PYPYLOG': 'jit-log-opt,jit-log-noopt,jit-summary:' + str(logfile)}
         pipe = subprocess.Popen(cmdline,
                                 env=env,
                                 stdout=subprocess.PIPE,
@@ -146,15 +145,17 @@ class TestOpMatcher(object):
 
     def test_parse_op(self):
         res = OpMatcher.parse_op("  a =   int_add(  b,  3 ) # foo")
-        assert res == ("int_add", "a", ["b", "3"], None)
+        assert res == ("int_add", "a", ["b", "3"], None, True)
         res = OpMatcher.parse_op("guard_true(a)")
-        assert res == ("guard_true", None, ["a"], None)
+        assert res == ("guard_true", None, ["a"], None, True)
         res = OpMatcher.parse_op("setfield_gc(p0, i0, descr=<foobar>)")
-        assert res == ("setfield_gc", None, ["p0", "i0"], "<foobar>")
+        assert res == ("setfield_gc", None, ["p0", "i0"], "<foobar>", True)
         res = OpMatcher.parse_op("i1 = getfield_gc(p0, descr=<foobar>)")
-        assert res == ("getfield_gc", "i1", ["p0"], "<foobar>")
+        assert res == ("getfield_gc", "i1", ["p0"], "<foobar>", True)
         res = OpMatcher.parse_op("p0 = force_token()")
-        assert res == ("force_token", "p0", [], None)
+        assert res == ("force_token", "p0", [], None, True)
+        res = OpMatcher.parse_op("guard_not_invalidated?")
+        assert res == ("guard_not_invalidated", None, [], '...', False)
 
     def test_exact_match(self):
         loop = """
@@ -342,7 +343,7 @@ class TestRunPyPyC(BaseTestPyPyC):
             # this is the actual loop
             'int_lt', 'guard_true', 'int_add',
             # this is the signal checking stuff
-            'getfield_raw', 'int_sub', 'setfield_raw', 'int_lt', 'guard_false',
+            'guard_not_invalidated', 'getfield_raw', 'int_lt', 'guard_false',
             'jump'
             ]
 
@@ -408,7 +409,7 @@ class TestRunPyPyC(BaseTestPyPyC):
             # this is the actual loop
             'int_lt', 'guard_true', 'force_token', 'int_add',
             # this is the signal checking stuff
-            'getfield_raw', 'int_sub', 'setfield_raw', 'int_lt', 'guard_false',
+            'guard_not_invalidated', 'getfield_raw', 'int_lt', 'guard_false',
             'jump'
             ]
 
@@ -426,10 +427,9 @@ class TestRunPyPyC(BaseTestPyPyC):
             guard_true(i6, descr=...)
             i8 = int_add(i4, 1)
             # signal checking stuff
+            guard_not_invalidated(descr=...)
             i10 = getfield_raw(37212896, descr=<.* pypysig_long_struct.c_value .*>)
-            i12 = int_sub(i10, 1)
-            setfield_raw(37212896, i12, descr=<.* pypysig_long_struct.c_value .*>)
-            i14 = int_lt(i12, 0)
+            i14 = int_lt(i10, 0)
             guard_false(i14, descr=...)
             jump(p0, p1, p2, p3, i8, descr=...)
         """)

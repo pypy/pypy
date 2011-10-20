@@ -268,6 +268,21 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         assert type(obj) is foo.Custom
         assert type(foo.Custom) is foo.MetaType
 
+    def test_heaptype(self):
+        module = self.import_extension('foo', [
+           ("name_by_heaptype", "METH_O",
+            '''
+                 PyHeapTypeObject *heaptype = (PyHeapTypeObject *)args;
+                 Py_INCREF(heaptype->ht_name);
+                 return heaptype->ht_name;
+             '''
+             )
+            ])
+        class C(object):
+            pass
+        assert module.name_by_heaptype(C) == "C"
+        
+
 class TestTypes(BaseApiTest):
     def test_type_attributes(self, space, api):
         w_class = space.appexec([], """():

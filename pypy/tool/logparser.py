@@ -298,6 +298,8 @@ def render_histogram(times, time0, labels, width, barheight):
         image.paste(textpercent, (t1x, 5), textpercent)
         image.paste(textlabel,   (t2x, 5), textlabel)
         images.append(image)
+    if not images:
+        return None
     return combine(images, spacing=0, border=1, horizontal=False)
 
 def get_timesummary_single_image(totaltimes, totaltime0, componentdict,
@@ -333,6 +335,8 @@ def get_timesummary_image(log, summarywidth, summarybarheight):
         del totaltimes[None]
     img2 = render_histogram(totaltimes, totaltime0, {},
                             width, summarybarheight)
+    if img2 is None:
+        return img1
     return combine([img1, img2], spacing=spacing, horizontal=True)
 
 # ----------

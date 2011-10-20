@@ -165,6 +165,7 @@ TYPES = {
     'unicodegetitem'  : (('ref', 'int'), 'int'),
     'unicodesetitem'  : (('ref', 'int', 'int'), 'int'),
     'cast_ptr_to_int' : (('ref',), 'int'),
+    'cast_int_to_ptr' : (('int',), 'ref'),
     'debug_merge_point': (('ref', 'int'), None),
     'force_token'     : ((), 'int'),
     'call_may_force'  : (('int', 'varargs'), 'intorptr'),
@@ -874,9 +875,6 @@ class Frame(object):
 
     def op_new_array(self, arraydescr, count):
         return do_new_array(arraydescr.ofs, count)
-
-    def op_cast_ptr_to_int(self, descr, ptr):
-        return cast_to_int(ptr)
 
     def op_force_token(self, descr):
         opaque_frame = _to_opaque(self)

@@ -486,6 +486,8 @@ class FunctionGcRootTracker(object):
         'paddq', 'pinsr',
         # zero-extending moves should not produce GC pointers
         'movz', 
+        # locked operations should not move GC pointers, at least so far
+        'lock',
         ])
 
     # a partial list is hopefully good enough for now; it's all to support
