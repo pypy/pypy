@@ -96,14 +96,6 @@ class AssemblerPPC(OpAssembler):
             self.mc.oris(rD, rD, high(word))
             self.mc.ori(rD, rD, lo(word))
 
-    def load_from_addr(self, rD, addr):
-        if IS_PPC_32:
-            self.mc.addis(rD, 0, ha(addr))
-            self.mc.lwz(rD, rD, la(addr))
-        else:
-            self.load_word(rD, addr)
-            self.mc.ld(rD, rD, 0)
-
     def store_reg(self, source_reg, addr):
         self.load_imm(r.r0.value, addr)
         if IS_PPC_32:
@@ -342,15 +334,17 @@ class AssemblerPPC(OpAssembler):
             assert arg.type != FLOAT
             if arg.type == INT:
                 addr = self.fail_boxes_int.get_addr_for_num(i)
-            elif args.type == REF:
+            elif arg.type == REF:
                 addr = self.fail_boxes_ptr.get_addr_for_num(i)
             else:
                 assert 0, "%s not supported" % arg.type
             if loc.is_reg():
                 reg = loc
             else:
-                assert 0, "FIX LATER"
-            self.load_from_addr(reg.value, addr)
+                reg = r.r0
+            self.mc.load_from_addr(reg, addr)
+            if loc.is_stack():
+                self.regalloc_mov(r.r0, loc)
 
     def setup(self, looptoken, operations):
         operations = self.cpu.gc_ll_descr.rewrite_assembler(self.cpu, 

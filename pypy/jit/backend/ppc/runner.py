@@ -90,8 +90,7 @@ class PPC_64_CPU(AbstractLLCPU):
         self.asm.fail_boxes_int.setitem(index, value_int)
 
     def set_future_value_ref(self, index, pointer):
-        sign_ptr = rffi.cast(lltype.Signed, pointer)
-        self.fail_boxes_int.setitem(index, sign_ptr)
+        self.asm.fail_boxes_ptr.setitem(index, pointer)
 
     def clear_latest_values(self, count):
         null = lltype.nullptr(llmemory.GCREF.TO)
@@ -133,8 +132,7 @@ class PPC_64_CPU(AbstractLLCPU):
         return value
 
     def get_latest_value_ref(self, index):
-        value = self.fail_boxes_int.getitem(index)
-        return rffi.cast(llmemory.GCREF, value)
+        return self.asm.fail_boxes_ptr.getitem(index)
     
     # walk through the given trace and generate machine code
     def _walk_trace_ops(self, codebuilder, operations):
