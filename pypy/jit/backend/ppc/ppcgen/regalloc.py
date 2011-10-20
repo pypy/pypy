@@ -193,6 +193,10 @@ class Regalloc(object):
     prepare_uint_rshift = prepare_binary_int_op()
     prepare_uint_floordiv = prepare_binary_int_op()
 
+    prepare_int_add_ovf = prepare_binary_int_op()
+    prepare_int_sub_ovf = prepare_binary_int_op()
+    prepare_int_mul_ovf = prepare_binary_int_op()
+
     prepare_int_neg = prepare_unary_int_op()
     prepare_int_invert = prepare_unary_int_op()
 
@@ -239,6 +243,13 @@ class Regalloc(object):
         self.possibly_free_var(box)
         self.possibly_free_vars(op.getfailargs())
         return args
+
+    def prepare_guard_no_overflow(self, op):
+        locs = self._prepare_guard(op)
+        self.possibly_free_vars(op.getfailargs())
+        return locs
+
+    prepare_guard_overflow = prepare_guard_no_overflow
 
     def prepare_jump(self, op):
         descr = op.getdescr()

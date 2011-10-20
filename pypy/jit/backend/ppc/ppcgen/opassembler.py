@@ -32,6 +32,10 @@ class OpAssembler(object):
         else:
             self.mc.add(res.value, l0.value, l1.value)
 
+    def emit_int_add_ovf(self, op, arglocs, regalloc):
+        l0, l1, res = arglocs
+        self.mc.addo(res.value, l0.value, l1.value)
+
     def emit_int_sub(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
         if l0.is_imm():
@@ -42,9 +46,21 @@ class OpAssembler(object):
         else:
             self.mc.sub(res.value, l0.value, l1.value)
  
+    def emit_int_sub_ovf(self, op, arglocs, regalloc):
+        l0, l1, res = arglocs
+        self.mc.subfo(res.value, l1.value, l0.value)
+
     def emit_int_mul(self, op, arglocs, regalloc):
         reg1, reg2, res = arglocs
         self.mc.mullw(res.value, reg1.value, reg2.value)
+
+    def emit_int_mul_ovf(self, op, arglocs, regalloc):
+        reg1, reg2, res = arglocs
+        self.mc.mullwo(res.value, reg1.value, reg2.value)
+
+    def emit_int_mul_ovf(self, op, arglocs, regalloc):
+        l0, l1, res = arglocs
+        self.mc.mullwo(res.value, l0.value, l1.value)
 
     def emit_int_floordiv(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
@@ -157,6 +173,23 @@ class OpAssembler(object):
         self._emit_guard(op, failargs, c.EQ)
         #                        #      ^^^^ If this condition is met,
         #                        #           then the guard fails.
+
+    # TODO - Evaluate whether this can be done with 
+    #        SO bit instead of OV bit => usage of CR
+    #        instead of XER could be more efficient
+    def _emit_ovf_guard(self, op, arglocs, cond):
+        # move content of XER to GPR
+        self.mc.mfspr(r.r0.value, 1)
+        # shift and mask to get comparison result
+        self.mc.rlwinm(r.r0.value, r.r0.value, 1, 0, 0)
+        self.mc.cmpi(r.r0.value, 0)
+        self._emit_guard(op, arglocs, cond)
+
+    def emit_guard_no_overflow(self, op, arglocs, regalloc):
+        self._emit_ovf_guard(op, arglocs, c.NE)
+
+    def emit_guard_overflow(self, op, arglocs, regalloc):
+        self._emit_ovf_guard(op, arglocs, c.EQ)
 
     def emit_finish(self, op, arglocs, regalloc):
         self.gen_exit_stub(op.getdescr(), op.getarglist(), arglocs)
