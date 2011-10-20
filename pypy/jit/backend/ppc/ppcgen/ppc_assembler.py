@@ -534,7 +534,8 @@ class AssemblerPPC(OpAssembler):
 
             if not tok.is_invalidate:
                 mc = PPCBuilder()
-                mc.b_cond_offset(descr._ppc_guard_pos - tok.offset, tok.fcond)
+                offset = descr._ppc_guard_pos - tok.offset
+                mc.b_cond_offset(offset, tok.fcond)
                 mc.prepare_insts_blocks(True)
                 mc.copy_to_raw_memory(block_start + tok.offset)
             else:
