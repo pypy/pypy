@@ -2,7 +2,6 @@
 """
 import re
 
-from __pypy__ import identity_dict
 from __pypy__.builders import StringBuilder, UnicodeBuilder
 
 ESCAPE = re.compile(r'[\x00-\x1f\\"\b\f\n\r\t]')
@@ -18,7 +17,6 @@ ESCAPE_DCT = {
     '\t': '\\t',
 }
 for i in range(0x20):
-    #ESCAPE_DCT.setdefault(chr(i), '\\u{0:04x}'.format(i))
     ESCAPE_DCT.setdefault(chr(i), '\\u%04x' % (i,))
 
 # Assume this produces an infinity on all machines (probably not guaranteed)
@@ -46,14 +44,12 @@ def encode_basestring_ascii(s):
         except KeyError:
             n = ord(s)
             if n < 0x10000:
-                #return '\\u{0:04x}'.format(n)
                 return '\\u%04x' % (n,)
             else:
                 # surrogate pair
                 n -= 0x10000
                 s1 = 0xd800 | ((n >> 10) & 0x3ff)
                 s2 = 0xdc00 | (n & 0x3ff)
-                #return '\\u{0:04x}\\u{1:04x}'.format(s1, s2)
                 return '\\u%04x\\u%04x' % (s1, s2)
     if ESCAPE_ASCII.search(s):
         return str(ESCAPE_ASCII.sub(replace, s))
@@ -189,7 +185,7 @@ class JSONEncoder(object):
 
         """
         if self.check_circular:
-            markers = identity_dict()
+            markers = {}
         else:
             markers = None
         if self.ensure_ascii:
@@ -320,7 +316,7 @@ class JSONEncoder(object):
 
         """
         if self.check_circular:
-            markers = identity_dict()
+            markers = {}
         else:
             markers = None
         return self._iterencode(o, markers, 0)
@@ -348,13 +344,13 @@ class JSONEncoder(object):
 
     def _mark_markers(self, markers, o):
         if markers is not None:
-            if o in markers:
+            if id(o) in markers:
                 raise ValueError("Circular reference detected")
-            markers[o] = None
+            markers[id(o)] = None
 
     def _remove_markers(self, markers, o):
         if markers is not None:
-            del markers[o]
+            del markers[id(o)]
 
     def _iterencode_list(self, lst, markers, _current_indent_level):
         if not lst:
