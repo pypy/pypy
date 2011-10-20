@@ -72,19 +72,13 @@ class TestX86(LLtypeBackendTest):
 
         allocs = [None]
         all = []
+        orig_new = self.cpu.gc_ll_descr.funcptr_for_new
         def f(size):
             allocs.insert(0, size)
-            buf = ctypes.create_string_buffer(size)
-            all.append(buf)
-            return ctypes.cast(buf, ctypes.c_void_p).value
-        func = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int)(f)
-        addr = ctypes.cast(func, ctypes.c_void_p).value
-        # ctypes produces an unsigned value. We need it to be signed for, eg,
-        # relative addressing to work properly.
-        addr = rffi.cast(lltype.Signed, addr)
+            return orig_new(size)
 
         self.cpu.assembler.setup_once()
-        self.cpu.assembler.malloc_func_addr = addr
+        self.cpu.gc_ll_descr.funcptr_for_new = f
         ofs = symbolic.get_field_token(rstr.STR, 'chars', False)[0]
 
         res = self.execute_operation(rop.NEWSTR, [ConstInt(7)], 'ref')

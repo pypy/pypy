@@ -107,6 +107,8 @@ class GcLLDescr_boehm(GcLLDescription):
         def malloc_array(basesize, itemsize, ofs_length, num_elem):
             size = basesize + itemsize * num_elem
             res = self.funcptr_for_new(size)
+            if not res:
+                return res
             rffi.cast(rffi.CArrayPtr(lltype.Signed), res)[ofs_length/WORD] = num_elem
             return res
         self.malloc_array = malloc_array

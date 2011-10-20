@@ -1506,7 +1506,6 @@ class Assembler386(object):
 
     def genop_newstr(self, op, arglocs, result_loc):
         assert result_loc is eax
-        assert self.malloc_str_func_addr
         self.call(self.malloc_str_func_addr, arglocs, eax)
         self.propagate_memoryerror_if_eax_is_null()
 
