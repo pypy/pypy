@@ -1517,12 +1517,7 @@ class _parentable(_container):
         self._wrparent = weakref.ref(parent)
         self._parent_type = typeOf(parent)
         self._parent_index = parentindex
-        if (isinstance(self._parent_type, Struct)
-            and self._parent_type._names
-            and parentindex in (self._parent_type._names[0], 0)
-            and self._TYPE._gckind == typeOf(parent)._gckind):
-            # keep strong reference to parent, we share the same allocation
-            self._keepparent = parent 
+        self._keepparent = parent
 
     def _parentstructure(self, check=True):
         if self._wrparent is not None:
