@@ -80,3 +80,9 @@ class TestUnicode(TestCase):
         self.assertEqual(type(json.loads(u'["a"]')[0]), unicode)
         # Issue 10038.
         self.assertEqual(type(json.loads('"foo"')), unicode)
+
+    def test_encode_not_utf_8(self):
+        self.assertEqual(json.dumps('\xb1\xe6', encoding='iso8859-2'),
+                         '"\\u0105\\u0107"')
+        self.assertEqual(json.dumps(['\xb1\xe6'], encoding='iso8859-2'),
+                         '["\\u0105\\u0107"]')
