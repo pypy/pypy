@@ -153,6 +153,9 @@ class InteriorFieldDescr(AbstractDescr):
     def is_float_field(self):
         return self.fielddescr.is_float_field()
 
+    def repr_of_descr(self):
+        return '<InteriorFieldDescr %s>' % self.fielddescr.repr_of_descr()
+
 # ____________________________________________________________
 # ArrayDescrs
 
