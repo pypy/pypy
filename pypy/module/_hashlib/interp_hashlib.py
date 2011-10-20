@@ -34,10 +34,10 @@ class W_Hash(Wrappable):
         rgc.add_memory_pressure(HASH_MALLOC_SIZE + self._digest_size())
         self.ctx = ctx
 
-    def initdigest(self):
-        digest = ropenssl.EVP_get_digestbyname(self.name)
+    def initdigest(self, space, name):
+        digest = ropenssl.EVP_get_digestbyname(name)
         if not digest:
-            raise OperationError(space.w_Value,
+            raise OperationError(space.w_ValueError,
                                  space.wrap("unknown hash function"))
         ropenssl.EVP_DigestInit(self.ctx, digest)
 
@@ -141,7 +141,7 @@ W_Hash.typedef = TypeDef(
 @unwrap_spec(name=str, string='bufferstr')
 def new(space, name, string=''):
     w_hash = W_Hash(space, name)
-    w_hash.initdigest()
+    w_hash.initdigest(space, name)
     w_hash.update(space, string)
     return space.wrap(w_hash)
 
