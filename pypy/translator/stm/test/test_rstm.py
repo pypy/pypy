@@ -70,6 +70,7 @@ def test_stm_getfield():
     assert a.f == rf1
     assert float(a.sa) == float(rs1a)
     assert float(a.sb) == float(rs1b)
+    assert a.y == 10
     lltype.free(a, flavor='raw')
 
 def callback2(a):
@@ -142,6 +143,7 @@ def test_stm_setfield():
     assert a.f == rf2
     assert float(a.sa) == float(rs2a)
     assert float(a.sb) == float(rs2b)
+    assert a.y == 10
     lltype.free(a, flavor='raw')
 
 # ____________________________________________________________
