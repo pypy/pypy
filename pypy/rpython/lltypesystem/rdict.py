@@ -623,7 +623,6 @@ def ll_newdict(DICT):
     d.num_items = 0
     d.resize_counter = DICT_INITSIZE * 2
     return d
-ll_newdict.oopspec = 'newdict()'
 
 def ll_newdict_size(DICT, length_estimate):
     length_estimate = (length_estimate // 2) * 3
@@ -635,7 +634,6 @@ def ll_newdict_size(DICT, length_estimate):
     d.num_items = 0
     d.resize_counter = n * 2
     return d
-ll_newdict_size.oopspec = 'newdict()'
 
 # pypy.rpython.memory.lldict uses a dict based on Struct and Array
 # instead of GcStruct and GcArray, which is done by using different
