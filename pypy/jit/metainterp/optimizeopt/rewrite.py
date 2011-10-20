@@ -106,10 +106,9 @@ class OptRewrite(Optimization):
             self.make_equal_to(op.result, v1)
         else:
             self.emit_operation(op)
-
-        # Synthesize the reverse ops for optimize_default to reuse
-        self.pure(rop.INT_ADD, [op.result, op.getarg(1)], op.getarg(0))
-        self.pure(rop.INT_SUB, [op.getarg(0), op.result], op.getarg(1))
+            # Synthesize the reverse ops for optimize_default to reuse
+            self.pure(rop.INT_ADD, [op.result, op.getarg(1)], op.getarg(0))
+            self.pure(rop.INT_SUB, [op.getarg(0), op.result], op.getarg(1))
 
     def optimize_INT_ADD(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -122,10 +121,9 @@ class OptRewrite(Optimization):
             self.make_equal_to(op.result, v1)
         else:
             self.emit_operation(op)
-
-        # Synthesize the reverse op for optimize_default to reuse
-        self.pure(rop.INT_SUB, [op.result, op.getarg(1)], op.getarg(0))
-        self.pure(rop.INT_SUB, [op.result, op.getarg(0)], op.getarg(1))
+            # Synthesize the reverse op for optimize_default to reuse
+            self.pure(rop.INT_SUB, [op.result, op.getarg(1)], op.getarg(0))
+            self.pure(rop.INT_SUB, [op.result, op.getarg(0)], op.getarg(1))
 
     def optimize_INT_MUL(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -141,13 +139,13 @@ class OptRewrite(Optimization):
             self.make_constant_int(op.result, 0)
         else:
             for lhs, rhs in [(v1, v2), (v2, v1)]:
-                # x & (x -1) == 0 is a quick test for power of 2
-                if (lhs.is_constant() and
-                    (lhs.box.getint() & (lhs.box.getint() - 1)) == 0):
-                    new_rhs = ConstInt(highest_bit(lhs.box.getint()))
-                    op = op.copy_and_change(rop.INT_LSHIFT, args=[rhs.box, new_rhs])
-                    break
-
+                if lhs.is_constant():
+                    x = lhs.box.getint()
+                    # x & (x - 1) == 0 is a quick test for power of 2
+                    if x & (x - 1) == 0:
+                        new_rhs = ConstInt(highest_bit(lhs.box.getint()))
+                        op = op.copy_and_change(rop.INT_LSHIFT, args=[rhs.box, new_rhs])
+                        break
             self.emit_operation(op)
 
     def optimize_UINT_FLOORDIV(self, op):
@@ -461,6 +459,14 @@ class OptRewrite(Optimization):
         value = self.getvalue(op.getarg(0))
         self.optimizer.opaque_pointers[value] = True
         self.make_equal_to(op.result, value)
+
+    def optimize_CAST_PTR_TO_INT(self, op):
+        self.pure(rop.CAST_INT_TO_PTR, [op.result], op.getarg(0))
+        self.emit_operation(op)
+
+    def optimize_CAST_INT_TO_PTR(self, op):
+        self.pure(rop.CAST_PTR_TO_INT, [op.result], op.getarg(0))
+        self.emit_operation(op)
 
 dispatch_opt = make_dispatcher_method(OptRewrite, 'optimize_',
         default=OptRewrite.emit_operation)

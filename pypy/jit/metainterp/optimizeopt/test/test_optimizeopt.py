@@ -234,6 +234,30 @@ class OptimizeOptTest(BaseTestWithUnroll):
             """ % expected_value
             self.optimize_loop(ops, expected)
 
+    def test_reverse_of_cast(self):
+        ops = """
+        [i0]
+        p0 = cast_int_to_ptr(i0)
+        i1 = cast_ptr_to_int(p0)
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+        ops = """
+        [p0]
+        i1 = cast_ptr_to_int(p0)
+        p1 = cast_int_to_ptr(i1)
+        jump(p1)
+        """
+        expected = """
+        [p0]
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected)
+
     # ----------
 
     def test_remove_guard_class_1(self):

@@ -163,3 +163,20 @@ def _filter_tuple(func, seq):
         if func(item):
             result.append(item)
     return tuple(result)
+
+def zip(*sequences):
+    """zip(seq1 [, seq2 [...]]) -> [(seq1[0], seq2[0] ...), (...)]
+
+Return a list of tuples, where each tuple contains the i-th element
+from each of the argument sequences.  The returned list is truncated
+in length to the length of the shortest argument sequence."""
+    if not sequences:
+        return []
+    result = []
+    iterators = [iter(seq) for seq in sequences]
+    while True:
+        try:
+            items = [next(it) for it in iterators]
+        except StopIteration:
+            return result
+        result.append(tuple(items))
