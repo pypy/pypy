@@ -3,6 +3,7 @@
 import re
 
 from __pypy__ import identity_dict
+from __pypy__.builders import StringBuilder, UnicodeBuilder
 
 ESCAPE = re.compile(r'[\x00-\x1f\\"\b\f\n\r\t]')
 ESCAPE_ASCII = re.compile(r'([\\"]|[^\ -~])')
@@ -30,7 +31,7 @@ def encode_basestring(s):
     """
     def replace(match):
         return ESCAPE_DCT[match.group(0)]
-    return '"' + ESCAPE.sub(replace, s) + '"'
+    return ESCAPE.sub(replace, s)
 
 def encode_basestring_ascii(s):
     """Return an ASCII-only JSON representation of a Python string
@@ -45,17 +46,17 @@ def encode_basestring_ascii(s):
         except KeyError:
             n = ord(s)
             if n < 0x10000:
-                return '\\u{0:04x}'.format(n)
-                #return '\\u%04x' % (n,)
+                #return '\\u{0:04x}'.format(n)
+                return '\\u%04x' % (n,)
             else:
                 # surrogate pair
                 n -= 0x10000
                 s1 = 0xd800 | ((n >> 10) & 0x3ff)
                 s2 = 0xdc00 | (n & 0x3ff)
-                return '\\u{0:04x}\\u{1:04x}'.format(s1, s2)
-                #return '\\u%04x\\u%04x' % (s1, s2)
-    return '"' + str(ESCAPE_ASCII.sub(replace, s)) + '"'
-py_encode_basestring_ascii = encode_basestring_ascii
+                #return '\\u{0:04x}\\u{1:04x}'.format(s1, s2)
+                return '\\u%04x\\u%04x' % (s1, s2)
+    return str(ESCAPE_ASCII.sub(replace, s))
+py_encode_basestring_ascii = lambda s: '"' + encode_basestring_ascii(s) + '"'
 c_encode_basestring_ascii = None
 
 class JSONEncoder(object):
@@ -185,24 +186,126 @@ class JSONEncoder(object):
         '{"foo": ["bar", "baz"]}'
 
         """
-        # This is for extremely simple cases and benchmarks.
+        if self.check_circular:
+            markers = identity_dict()
+        else:
+            markers = None
+        if self.ensure_ascii:
+            builder = StringBuilder()
+        else:
+            builder = UnicodeBuilder()
+        self._encode(o, markers, builder, 0)
+        return builder.build()
+
+    def _emit_indent(self, builder, _current_indent_level):        
+        if self.indent is not None:
+            _current_indent_level += 1
+            newline_indent = '\n' + (' ' * (self.indent *
+                                            _current_indent_level))
+            separator = self.item_separator + newline_indent
+            builder.append(newline_indent)
+        else:
+            separator = self.item_separator
+        return separator, _current_indent_level
+
+    def _emit_unindent(self, builder, _current_indent_level):
+        if self.indent is not None:
+            builder.append('\n')
+            builder.append(' ' * (self.indent * (_current_indent_level - 1)))
+
+    def _encode(self, o, markers, builder, _current_indent_level):
         if isinstance(o, basestring):
-            if isinstance(o, str):
-                _encoding = self.encoding
-                if (_encoding is not None
-                        and not (_encoding == 'utf-8')):
-                    o = o.decode(_encoding)
-            if self.ensure_ascii:
-                return encode_basestring_ascii(o)
+            builder.append('"')
+            builder.append(self.encoder(o))
+            builder.append('"')
+        elif o is None:
+            builder.append('null')
+        elif o is True:
+            builder.append('true')
+        elif o is False:
+            builder.append('false')
+        elif isinstance(o, (int, long)):
+            builder.append(str(o))
+        elif isinstance(o, float):
+            builder.append(self._floatstr(o))
+        elif isinstance(o, (list, tuple)):
+            if not o:
+                builder.append('[]')
+                return
+            self._encode_list(o, markers, builder, _current_indent_level)
+        elif isinstance(o, dict):
+            if not o:
+                builder.append('{}')
+                return
+            self._encode_dict(o, markers, builder, _current_indent_level)
+        else:
+            self._mark_markers(markers, o)
+            res = self.default(o)
+            self._encode(res, markers, builder, _current_indent_level)
+            self._remove_markers(markers, o)
+            return res
+
+    def _encode_list(self, l, markers, builder, _current_indent_level):
+        self._mark_markers(markers, l)
+        builder.append('[')
+        first = True
+        separator, _current_indent_level = self._emit_indent(builder,
+                                                      _current_indent_level)
+        for elem in l:
+            if first:
+                first = False
             else:
-                return encode_basestring(o)
-        # This doesn't pass the iterator directly to ''.join() because the
-        # exceptions aren't as detailed.  The list call should be roughly
-        # equivalent to the PySequence_Fast that ''.join() would do.        
-        chunks = self.iterencode(o, _one_shot=True)
-        if not isinstance(chunks, (list, tuple)):
-            chunks = list(chunks)
-        return ''.join(chunks)
+                builder.append(separator)
+            self._encode(elem, markers, builder, _current_indent_level)
+            del elem # XXX grumble
+        self._emit_unindent(builder, _current_indent_level)
+        builder.append(']')
+        self._remove_markers(markers, l)
+
+    def _encode_dict(self, d, markers, builder, _current_indent_level):
+        self._mark_markers(markers, d)
+        first = True
+        builder.append('{')
+        separator, _current_indent_level = self._emit_indent(builder,
+                                                         _current_indent_level)
+        if self.sort_keys:
+            items = sorted(d.items(), key=lambda kv: kv[0])
+        else:
+            items = d.iteritems()
+
+        for key, v in items:
+            if first:
+                first = False
+            else:
+                builder.append(separator)
+            if isinstance(key, basestring):
+                pass
+            # JavaScript is weakly typed for these, so it makes sense to
+            # also allow them.  Many encoders seem to do something like this.
+            elif isinstance(key, float):
+                key = self._floatstr(key)
+            elif key is True:
+                key = 'true'
+            elif key is False:
+                key = 'false'
+            elif key is None:
+                key = 'null'
+            elif isinstance(key, (int, long)):
+                key = str(key)
+            elif self.skipkeys:
+                continue
+            else:
+                raise TypeError("key " + repr(key) + " is not a string")
+            builder.append('"')
+            builder.append(self.encoder(key))
+            builder.append('"')
+            builder.append(self.key_separator)
+            self._encode(v, markers, builder, _current_indent_level)
+            del key
+            del v # XXX grumble
+        self._emit_unindent(builder, _current_indent_level)
+        builder.append('}')
+        self._remove_markers(markers, d)
 
     def iterencode(self, o, _one_shot=False):
         """Encode the given object and yield each string
@@ -273,7 +376,7 @@ class JSONEncoder(object):
             else:
                 buf = separator
             if isinstance(value, basestring):
-                yield buf + self.encoder(value)
+                yield buf + '"' + self.encoder(value) + '"'
             elif value is None:
                 yield buf + 'null'
             elif value is True:
@@ -346,10 +449,10 @@ class JSONEncoder(object):
                 first = False
             else:
                 yield item_separator
-            yield self.encoder(key)
+            yield '"' + self.encoder(key) + '"'
             yield self.key_separator
             if isinstance(value, basestring):
-                yield self.encoder(value)
+                yield '"' + self.encoder(value) + '"'
             elif value is None:
                 yield 'null'
             elif value is True:
@@ -380,7 +483,7 @@ class JSONEncoder(object):
 
     def _iterencode(self, o, markers, _current_indent_level):
         if isinstance(o, basestring):
-            yield self.encoder(o)
+            yield '"' + self.encoder(o) + '"'
         elif o is None:
             yield 'null'
         elif o is True:
