@@ -195,7 +195,7 @@ class JSONEncoder(object):
         self._encode(o, markers, builder, 0)
         return builder.build()
 
-    def _emit_indent(self, builder, _current_indent_level):        
+    def _emit_indent(self, builder, _current_indent_level):
         if self.indent is not None:
             _current_indent_level += 1
             newline_indent = '\n' + (' ' * (self.indent *
