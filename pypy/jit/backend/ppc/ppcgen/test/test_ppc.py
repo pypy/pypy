@@ -294,7 +294,7 @@ class TestAssemble(object):
         addr = rffi.cast(lltype.Signed, p)
         p[0] = rffi.cast(rffi.LONG, 200)
 
-        a.load_from_addr(3, addr)
+        a.load_from_addr(r3, addr)
         a.blr()
         f = a.assemble()
         assert f() == 200
