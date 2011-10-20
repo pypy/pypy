@@ -19,6 +19,11 @@ class W_Continulet(Wrappable):
         #  - normal:      self.sthread != None, not is_empty_handle(self.h)
         #  - finished:    self.sthread != None, is_empty_handle(self.h)
 
+    def __del__(self):
+        sthread = self.sthread
+        if sthread is not None and not sthread.is_empty_handle(self.h):
+            sthread.destroy(self.h)
+
     def check_sthread(self):
         ec = self.space.getexecutioncontext()
         if ec.stacklet_thread is not self.sthread:

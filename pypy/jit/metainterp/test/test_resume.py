@@ -1,3 +1,4 @@
+from __future__ import with_statement
 import py
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.jit.metainterp.optimizeopt.optimizer import OptValue

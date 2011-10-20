@@ -29,7 +29,7 @@ def new_grow_func(name, mallocfn, copycontentsfn):
         except OverflowError:
             raise MemoryError
         newbuf = mallocfn(new_allocated)
-        copycontentsfn(ll_builder.buf, newbuf, 0, 0, ll_builder.allocated)
+        copycontentsfn(ll_builder.buf, newbuf, 0, 0, ll_builder.used)
         ll_builder.buf = newbuf
         ll_builder.allocated = new_allocated
     return func_with_new_name(stringbuilder_grow, name)
@@ -56,7 +56,7 @@ MAX = 16*1024*1024
 class BaseStringBuilderRepr(AbstractStringBuilderRepr):
     def empty(self):
         return nullptr(self.lowleveltype.TO)
-    
+
     @classmethod
     def ll_new(cls, init_size):
         if init_size < 0 or init_size > MAX:

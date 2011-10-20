@@ -732,6 +732,7 @@ class LoopToken(AbstractDescr):
     failed_states = None
     retraced_count = 0
     terminating = False # see TerminatingLoopToken in compile.py
+    invalidated = False
     outermost_jitdriver_sd = None
     # and more data specified by the backend when the loop is compiled
     number = -1
@@ -934,6 +935,7 @@ class Stats(object):
         self.loops = []
         self.locations = []
         self.aborted_keys = []
+        self.invalidated_token_numbers = set()
 
     def set_history(self, history):
         self.operations = history.operations
@@ -1012,7 +1014,12 @@ class Stats(object):
             if loop in loops:
                 loops.remove(loop)
             loops.append(loop)
-        display_loops(loops, errmsg, extraloops)
+        highlight_loops = dict.fromkeys(extraloops, 1)
+        for loop in loops:
+            if hasattr(loop, '_looptoken_number') and (
+                    loop._looptoken_number in self.invalidated_token_numbers):
+                highlight_loops.setdefault(loop, 2)
+        display_loops(loops, errmsg, highlight_loops)
 
 # ----------------------------------------------------------------
 
