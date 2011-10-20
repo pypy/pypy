@@ -434,7 +434,7 @@ class RegAlloc(object):
             if self.can_merge_with_next_guard(op, i, operations):
                 oplist_with_guard[op.getopnum()](self, op, operations[i + 1])
                 i += 1
-            elif not we_are_translated() and op.getopnum() == -124: 
+            elif not we_are_translated() and op.getopnum() == -124:
                 self._consider_force_spill(op)
             else:
                 oplist[op.getopnum()](self, op)
@@ -1020,27 +1020,18 @@ class RegAlloc(object):
 
     def consider_new_array(self, op):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
-        if gc_ll_descr.get_funcptr_for_newarray is not None:
-            # framework GC
-            box_num_elem = op.getarg(0)
-            if isinstance(box_num_elem, ConstInt):
-                num_elem = box_num_elem.value
-                if gc_ll_descr.can_inline_malloc_varsize(op.getdescr(),
-                                                         num_elem):
-                    self.fastpath_malloc_varsize(op, op.getdescr(), num_elem)
-                    return
-            args = self.assembler.cpu.gc_ll_descr.args_for_new_array(
-                op.getdescr())
-            arglocs = [imm(x) for x in args]
-            arglocs.append(self.loc(box_num_elem))
-            self._call(op, arglocs)
-            return
-        # boehm GC (XXX kill the following code at some point)
-        itemsize, basesize, ofs_length, _, _ = (
-            self._unpack_arraydescr(op.getdescr()))
-        scale_of_field = _get_scale(itemsize)
-        self._malloc_varsize(basesize, ofs_length, scale_of_field,
-                             op.getarg(0), op.result)
+        box_num_elem = op.getarg(0)
+        if isinstance(box_num_elem, ConstInt):
+            num_elem = box_num_elem.value
+            if gc_ll_descr.can_inline_malloc_varsize(op.getdescr(),
+                                                     num_elem):
+                self.fastpath_malloc_varsize(op, op.getdescr(), num_elem)
+                return
+        args = self.assembler.cpu.gc_ll_descr.args_for_new_array(
+            op.getdescr())
+        arglocs = [imm(x) for x in args]
+        arglocs.append(self.loc(box_num_elem))
+        self._call(op, arglocs)
 
     def _unpack_arraydescr(self, arraydescr):
         assert isinstance(arraydescr, BaseArrayDescr)
@@ -1098,7 +1089,7 @@ class RegAlloc(object):
         self.possibly_free_vars(args)
         self.rm.possibly_free_var(tmpvar)
         self.PerformDiscard(op, [base_loc, ofs, itemsize, fieldsize,
-                                 index_loc, value_loc])        
+                                 index_loc, value_loc])
 
     def consider_strsetitem(self, op):
         args = op.getarglist()

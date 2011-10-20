@@ -96,6 +96,15 @@ class GcLLDescr_boehm(GcLLDescription):
         malloc_fn_ptr = self.configure_boehm_once()
         self.funcptr_for_new = malloc_fn_ptr
 
+        def malloc_array(basesize, itemsize, ofs_length, num_elem):
+            size = basesize + itemsize * num_elem
+            res = self.funcptr_for_new(size)
+            rffi.cast(rffi.CArrayPtr(lltype.Signed), res)[ofs_length/WORD] = num_elem
+            return res
+        self.malloc_array = malloc_array
+        self.GC_MALLOC_ARRAY = lltype.Ptr(lltype.FuncType(
+            [lltype.Signed] * 4, llmemory.GCREF))
+
         # on some platform GC_init is required before any other
         # GC_* functions, call it here for the benefit of tests
         # XXX move this to tests
@@ -116,10 +125,7 @@ class GcLLDescr_boehm(GcLLDescription):
         ofs_length = arraydescr.get_ofs_length(self.translate_support_code)
         basesize = arraydescr.get_base_size(self.translate_support_code)
         itemsize = arraydescr.get_item_size(self.translate_support_code)
-        size = basesize + itemsize * num_elem
-        res = self.funcptr_for_new(size)
-        rffi.cast(rffi.CArrayPtr(lltype.Signed), res)[ofs_length/WORD] = num_elem
-        return res
+        return self.malloc_array(basesize, itemsize, ofs_length, num_elem)
 
     def gc_malloc_str(self, num_elem):
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
@@ -142,10 +148,18 @@ class GcLLDescr_boehm(GcLLDescription):
         assert isinstance(sizedescr, BaseSizeDescr)
         return [sizedescr.size]
 
+    def args_for_new_array(self, arraydescr):
+        ofs_length = arraydescr.get_ofs_length(self.translate_support_code)
+        basesize = arraydescr.get_base_size(self.translate_support_code)
+        itemsize = arraydescr.get_item_size(self.translate_support_code)
+        return [basesize, itemsize, ofs_length]
+
     def get_funcptr_for_new(self):
         return self.funcptr_for_new
 
-    get_funcptr_for_newarray = None
+    def get_funcptr_for_newarray(self):
+        return llhelper(self.GC_MALLOC_ARRAY, self.malloc_array)
+
     get_funcptr_for_newstr = None
     get_funcptr_for_newunicode = None
 
