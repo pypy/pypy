@@ -91,7 +91,8 @@ class DictTests:
         res1 = f(100)
         res2 = self.meta_interp(f, [100], listops=True)
         assert res1 == res2
-        self.check_loops(int_mod=3) # the hash was traced and eq
+        # the hash was traced
+        self.check_loops(int_mod=1)
 
     def test_dict_setdefault(self):
         myjitdriver = JitDriver(greens = [], reds = ['total', 'dct'])
@@ -128,7 +129,7 @@ class DictTests:
         assert f(100) == 50
         res = self.meta_interp(f, [100], listops=True)
         assert res == 50
-        self.check_loops(int_mod=3) # key + eq
+        self.check_loops(int_mod=1) # key
 
     def test_repeated_lookup(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'd'])
@@ -153,10 +154,12 @@ class DictTests:
 
         res = self.meta_interp(f, [100], listops=True)
         assert res == f(50)
-        self.check_loops({"call": 7, "guard_false": 1, "guard_no_exception": 6,
+        self.check_loops({"call": 5, "getfield_gc": 1, "getinteriorfield_gc": 1,
+                          "guard_false": 1, "guard_no_exception": 4,
                           "guard_true": 1, "int_and": 1, "int_gt": 1,
                           "int_is_true": 1, "int_sub": 1, "jump": 1,
-                          "new_with_vtable": 1, "setfield_gc": 1})
+                          "new_with_vtable": 1, "new": 1, "new_array": 1,
+                          "setfield_gc": 3, })
 
 
 class TestOOtype(DictTests, OOJitMixin):
