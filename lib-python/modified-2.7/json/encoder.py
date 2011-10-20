@@ -55,7 +55,9 @@ def encode_basestring_ascii(s):
                 s2 = 0xdc00 | (n & 0x3ff)
                 #return '\\u{0:04x}\\u{1:04x}'.format(s1, s2)
                 return '\\u%04x\\u%04x' % (s1, s2)
-    return str(ESCAPE_ASCII.sub(replace, s))
+    if ESCAPE_ASCII.search(s):
+        return str(ESCAPE_ASCII.sub(replace, s))
+    return s
 py_encode_basestring_ascii = lambda s: '"' + encode_basestring_ascii(s) + '"'
 c_encode_basestring_ascii = None
 
