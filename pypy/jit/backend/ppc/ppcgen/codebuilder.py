@@ -951,8 +951,8 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
 
     def load_from_addr(self, rD, addr):
         if IS_PPC_32:
-            self.addis(rD, 0, ha(addr))
-            self.lwz(rD, rD, la(addr))
+            self.load_imm(rD, addr)
+            self.lwzx(rD.value, 0, rD.value)
         else:
             self.load_word(rD, addr)
             self.ld(rD, rD, 0)
