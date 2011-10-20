@@ -973,50 +973,12 @@ class RegAlloc(object):
             return self._call(op, arglocs)
 
     def consider_newstr(self, op):
-        gc_ll_descr = self.assembler.cpu.gc_ll_descr
-        if gc_ll_descr.get_funcptr_for_newstr is not None:
-            # framework GC
-            loc = self.loc(op.getarg(0))
-            return self._call(op, [loc])
-        # boehm GC (XXX kill the following code at some point)
-        ofs_items, itemsize, ofs = symbolic.get_array_token(rstr.STR, self.translate_support_code)
-        assert itemsize == 1
-        return self._malloc_varsize(ofs_items, ofs, 0, op.getarg(0),
-                                    op.result)
+        loc = self.loc(op.getarg(0))
+        return self._call(op, [loc])
 
     def consider_newunicode(self, op):
-        gc_ll_descr = self.assembler.cpu.gc_ll_descr
-        if gc_ll_descr.get_funcptr_for_newunicode is not None:
-            # framework GC
-            loc = self.loc(op.getarg(0))
-            return self._call(op, [loc])
-        # boehm GC (XXX kill the following code at some point)
-        ofs_items, _, ofs = symbolic.get_array_token(rstr.UNICODE,
-                                                   self.translate_support_code)
-        scale = self._get_unicode_item_scale()
-        return self._malloc_varsize(ofs_items, ofs, scale, op.getarg(0),
-                                    op.result)
-
-    def _malloc_varsize(self, ofs_items, ofs_length, scale, v, res_v):
-        # XXX kill this function at some point
-        if isinstance(v, Box):
-            loc = self.rm.make_sure_var_in_reg(v, [v])
-            tempbox = TempBox()
-            other_loc = self.rm.force_allocate_reg(tempbox, [v])
-            self.assembler.load_effective_addr(loc, ofs_items,scale, other_loc)
-        else:
-            tempbox = None
-            other_loc = imm(ofs_items + (v.getint() << scale))
-        self._call(ResOperation(rop.NEW, [], res_v),
-                   [other_loc], [v])
-        loc = self.rm.make_sure_var_in_reg(v, [res_v])
-        assert self.loc(res_v) == eax
-        # now we have to reload length to some reasonable place
-        self.rm.possibly_free_var(v)
-        if tempbox is not None:
-            self.rm.possibly_free_var(tempbox)
-        self.PerformDiscard(ResOperation(rop.SETFIELD_GC, [None, None], None),
-                            [eax, imm(ofs_length), imm(WORD), loc])
+        loc = self.loc(op.getarg(0))
+        return self._call(op, [loc])
 
     def consider_new_array(self, op):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
