@@ -52,9 +52,11 @@ class Transformer(object):
         newoperations = []
         #
         def do_rename(var, var_or_const):
+            if var.concretetype is lltype.Void:
+                renamings[var] = Constant(None, lltype.Void)
+                return
             renamings[var] = var_or_const
-            if (isinstance(var_or_const, Constant)
-                and var.concretetype != lltype.Void):
+            if isinstance(var_or_const, Constant):
                 value = var_or_const.value
                 value = lltype._cast_whatever(var.concretetype, value)
                 renamings_constants[var] = Constant(value, var.concretetype)
@@ -735,29 +737,54 @@ class Transformer(object):
         return SpaceOperation(opname, [op.args[0]], op.result)
 
     def rewrite_op_getinteriorfield(self, op):
-        # only supports strings and unicodes
         assert len(op.args) == 3
-        assert op.args[1].value == 'chars'
         optype = op.args[0].concretetype
         if optype == lltype.Ptr(rstr.STR):
             opname = "strgetitem"
-        else:
-            assert optype == lltype.Ptr(rstr.UNICODE)
+            return SpaceOperation(opname, [op.args[0], op.args[2]], op.result)
+        elif optype == lltype.Ptr(rstr.UNICODE):
             opname = "unicodegetitem"
-        return SpaceOperation(opname, [op.args[0], op.args[2]], op.result)
+            return SpaceOperation(opname, [op.args[0], op.args[2]], op.result)
+        else:
+            v_inst, v_index, c_field = op.args
+            if op.result.concretetype is lltype.Void:
+                return
+            # only GcArray of Struct supported
+            assert isinstance(v_inst.concretetype.TO, lltype.GcArray)
+            STRUCT = v_inst.concretetype.TO.OF
+            assert isinstance(STRUCT, lltype.Struct)
+            descr = self.cpu.interiorfielddescrof(v_inst.concretetype.TO,
+                                                  c_field.value)
+            args = [v_inst, v_index, descr]
+            kind = getkind(op.result.concretetype)[0]
+            return SpaceOperation('getinteriorfield_gc_%s' % kind, args,
+                                  op.result)
 
     def rewrite_op_setinteriorfield(self, op):
-        # only supports strings and unicodes
         assert len(op.args) == 4
-        assert op.args[1].value == 'chars'
         optype = op.args[0].concretetype
         if optype == lltype.Ptr(rstr.STR):
             opname = "strsetitem"
-        else:
-            assert optype == lltype.Ptr(rstr.UNICODE)
+            return SpaceOperation(opname, [op.args[0], op.args[2], op.args[3]],
+                                  op.result)
+        elif optype == lltype.Ptr(rstr.UNICODE):
             opname = "unicodesetitem"
-        return SpaceOperation(opname, [op.args[0], op.args[2], op.args[3]],
-                              op.result)
+            return SpaceOperation(opname, [op.args[0], op.args[2], op.args[3]],
+                                  op.result)
+        else:
+            v_inst, v_index, c_field, v_value = op.args
+            if v_value.concretetype is lltype.Void:
+                return
+            # only GcArray of Struct supported
+            assert isinstance(v_inst.concretetype.TO, lltype.GcArray)
+            STRUCT = v_inst.concretetype.TO.OF
+            assert isinstance(STRUCT, lltype.Struct)
+            descr = self.cpu.interiorfielddescrof(v_inst.concretetype.TO,
+                                                  c_field.value)
+            kind = getkind(v_value.concretetype)[0]
+            args = [v_inst, v_index, v_value, descr]
+            return SpaceOperation('setinteriorfield_gc_%s' % kind, args,
+                                  op.result)
 
     def _rewrite_equality(self, op, opname):
         arg0, arg1 = op.args

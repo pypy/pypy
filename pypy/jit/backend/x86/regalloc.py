@@ -7,7 +7,7 @@ from pypy.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
                                          ResOperation, BoxPtr, ConstFloat,
                                          BoxFloat, LoopToken, INT, REF, FLOAT)
 from pypy.jit.backend.x86.regloc import *
-from pypy.rpython.lltypesystem import lltype, ll2ctypes, rffi, rstr
+from pypy.rpython.lltypesystem import lltype, rffi, rstr
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import rgc
 from pypy.jit.backend.llsupport import symbolic
@@ -17,11 +17,12 @@ from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr
 from pypy.jit.backend.llsupport.descr import BaseCallDescr, BaseSizeDescr
+from pypy.jit.backend.llsupport.descr import InteriorFieldDescr
 from pypy.jit.backend.llsupport.regalloc import FrameManager, RegisterManager,\
      TempBox
 from pypy.jit.backend.x86.arch import WORD, FRAME_FIXED_SIZE
 from pypy.jit.backend.x86.arch import IS_X86_32, IS_X86_64, MY_COPY_OF_REGS
-from pypy.rlib.rarithmetic import r_longlong, r_uint
+from pypy.rlib.rarithmetic import r_longlong
 
 class X86RegisterManager(RegisterManager):
 
@@ -433,7 +434,7 @@ class RegAlloc(object):
             if self.can_merge_with_next_guard(op, i, operations):
                 oplist_with_guard[op.getopnum()](self, op, operations[i + 1])
                 i += 1
-            elif not we_are_translated() and op.getopnum() == -124: 
+            elif not we_are_translated() and op.getopnum() == -124:
                 self._consider_force_spill(op)
             else:
                 oplist[op.getopnum()](self, op)
@@ -815,7 +816,7 @@ class RegAlloc(object):
         save_all_regs = guard_not_forced_op is not None
         self.xrm.before_call(force_store, save_all_regs=save_all_regs)
         if not save_all_regs:
-            gcrootmap = gc_ll_descr = self.assembler.cpu.gc_ll_descr.gcrootmap
+            gcrootmap = self.assembler.cpu.gc_ll_descr.gcrootmap
             if gcrootmap and gcrootmap.is_shadow_stack:
                 save_all_regs = 2
         self.rm.before_call(force_store, save_all_regs=save_all_regs)
@@ -972,74 +973,27 @@ class RegAlloc(object):
             return self._call(op, arglocs)
 
     def consider_newstr(self, op):
-        gc_ll_descr = self.assembler.cpu.gc_ll_descr
-        if gc_ll_descr.get_funcptr_for_newstr is not None:
-            # framework GC
-            loc = self.loc(op.getarg(0))
-            return self._call(op, [loc])
-        # boehm GC (XXX kill the following code at some point)
-        ofs_items, itemsize, ofs = symbolic.get_array_token(rstr.STR, self.translate_support_code)
-        assert itemsize == 1
-        return self._malloc_varsize(ofs_items, ofs, 0, op.getarg(0),
-                                    op.result)
+        loc = self.loc(op.getarg(0))
+        return self._call(op, [loc])
 
     def consider_newunicode(self, op):
-        gc_ll_descr = self.assembler.cpu.gc_ll_descr
-        if gc_ll_descr.get_funcptr_for_newunicode is not None:
-            # framework GC
-            loc = self.loc(op.getarg(0))
-            return self._call(op, [loc])
-        # boehm GC (XXX kill the following code at some point)
-        ofs_items, _, ofs = symbolic.get_array_token(rstr.UNICODE,
-                                                   self.translate_support_code)
-        scale = self._get_unicode_item_scale()
-        return self._malloc_varsize(ofs_items, ofs, scale, op.getarg(0),
-                                    op.result)
-
-    def _malloc_varsize(self, ofs_items, ofs_length, scale, v, res_v):
-        # XXX kill this function at some point
-        if isinstance(v, Box):
-            loc = self.rm.make_sure_var_in_reg(v, [v])
-            tempbox = TempBox()
-            other_loc = self.rm.force_allocate_reg(tempbox, [v])
-            self.assembler.load_effective_addr(loc, ofs_items,scale, other_loc)
-        else:
-            tempbox = None
-            other_loc = imm(ofs_items + (v.getint() << scale))
-        self._call(ResOperation(rop.NEW, [], res_v),
-                   [other_loc], [v])
-        loc = self.rm.make_sure_var_in_reg(v, [res_v])
-        assert self.loc(res_v) == eax
-        # now we have to reload length to some reasonable place
-        self.rm.possibly_free_var(v)
-        if tempbox is not None:
-            self.rm.possibly_free_var(tempbox)
-        self.PerformDiscard(ResOperation(rop.SETFIELD_GC, [None, None], None),
-                            [eax, imm(ofs_length), imm(WORD), loc])
+        loc = self.loc(op.getarg(0))
+        return self._call(op, [loc])
 
     def consider_new_array(self, op):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
-        if gc_ll_descr.get_funcptr_for_newarray is not None:
-            # framework GC
-            box_num_elem = op.getarg(0)
-            if isinstance(box_num_elem, ConstInt):
-                num_elem = box_num_elem.value
-                if gc_ll_descr.can_inline_malloc_varsize(op.getdescr(),
-                                                         num_elem):
-                    self.fastpath_malloc_varsize(op, op.getdescr(), num_elem)
-                    return
-            args = self.assembler.cpu.gc_ll_descr.args_for_new_array(
-                op.getdescr())
-            arglocs = [imm(x) for x in args]
-            arglocs.append(self.loc(box_num_elem))
-            self._call(op, arglocs)
-            return
-        # boehm GC (XXX kill the following code at some point)
-        itemsize, basesize, ofs_length, _, _ = (
-            self._unpack_arraydescr(op.getdescr()))
-        scale_of_field = _get_scale(itemsize)
-        self._malloc_varsize(basesize, ofs_length, scale_of_field,
-                             op.getarg(0), op.result)
+        box_num_elem = op.getarg(0)
+        if isinstance(box_num_elem, ConstInt):
+            num_elem = box_num_elem.value
+            if gc_ll_descr.can_inline_malloc_varsize(op.getdescr(),
+                                                     num_elem):
+                self.fastpath_malloc_varsize(op, op.getdescr(), num_elem)
+                return
+        args = self.assembler.cpu.gc_ll_descr.args_for_new_array(
+            op.getdescr())
+        arglocs = [imm(x) for x in args]
+        arglocs.append(self.loc(box_num_elem))
+        self._call(op, arglocs)
 
     def _unpack_arraydescr(self, arraydescr):
         assert isinstance(arraydescr, BaseArrayDescr)
@@ -1058,6 +1012,16 @@ class RegAlloc(object):
         sign = fielddescr.is_field_signed()
         return imm(ofs), imm(size), ptr, sign
 
+    def _unpack_interiorfielddescr(self, descr):
+        assert isinstance(descr, InteriorFieldDescr)
+        arraydescr = descr.arraydescr
+        ofs = arraydescr.get_base_size(self.translate_support_code)
+        itemsize = arraydescr.get_item_size(self.translate_support_code)
+        fieldsize = descr.fielddescr.get_field_size(self.translate_support_code)
+        sign = descr.fielddescr.is_field_signed()
+        ofs += descr.fielddescr.offset
+        return imm(ofs), imm(itemsize), imm(fieldsize), sign
+
     def consider_setfield_gc(self, op):
         ofs_loc, size_loc, _, _ = self._unpack_fielddescr(op.getdescr())
         assert isinstance(size_loc, ImmedLoc)
@@ -1073,6 +1037,21 @@ class RegAlloc(object):
         self.PerformDiscard(op, [base_loc, ofs_loc, size_loc, value_loc])
 
     consider_setfield_raw = consider_setfield_gc
+
+    def consider_setinteriorfield_gc(self, op):
+        t = self._unpack_interiorfielddescr(op.getdescr())
+        ofs, itemsize, fieldsize, _ = t
+        args = op.getarglist()
+        tmpvar = TempBox()
+        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
+        index_loc = self.rm.force_result_in_reg(tmpvar, op.getarg(1),
+                                                args)
+        # we're free to modify index now
+        value_loc = self.make_sure_var_in_reg(op.getarg(2), args)
+        self.possibly_free_vars(args)
+        self.rm.possibly_free_var(tmpvar)
+        self.PerformDiscard(op, [base_loc, ofs, itemsize, fieldsize,
+                                 index_loc, value_loc])
 
     def consider_strsetitem(self, op):
         args = op.getarglist()
@@ -1134,6 +1113,24 @@ class RegAlloc(object):
 
     consider_getarrayitem_raw = consider_getarrayitem_gc
     consider_getarrayitem_gc_pure = consider_getarrayitem_gc
+
+    def consider_getinteriorfield_gc(self, op):
+        t = self._unpack_interiorfielddescr(op.getdescr())
+        ofs, itemsize, fieldsize, sign = t
+        if sign:
+            sign_loc = imm1
+        else:
+            sign_loc = imm0
+        args = op.getarglist()
+        tmpvar = TempBox()
+        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
+        index_loc = self.rm.force_result_in_reg(tmpvar, op.getarg(1),
+                                                args)
+        self.rm.possibly_free_vars_for_op(op)
+        self.rm.possibly_free_var(tmpvar)
+        result_loc = self.force_allocate_reg(op.result)
+        self.Perform(op, [base_loc, ofs, itemsize, fieldsize,
+                          index_loc, sign_loc], result_loc)
 
     def consider_int_is_true(self, op, guard_op):
         # doesn't need arg to be in a register
@@ -1241,7 +1238,6 @@ class RegAlloc(object):
         self.rm.possibly_free_var(srcaddr_box)
 
     def _gen_address_inside_string(self, baseloc, ofsloc, resloc, is_unicode):
-        cpu = self.assembler.cpu
         if is_unicode:
             ofs_items, _, _ = symbolic.get_array_token(rstr.UNICODE,
                                                   self.translate_support_code)
@@ -1300,7 +1296,7 @@ class RegAlloc(object):
         tmpreg = X86RegisterManager.all_regs[0]
         tmploc = self.rm.force_allocate_reg(box, selected_reg=tmpreg)
         xmmtmp = X86XMMRegisterManager.all_regs[0]
-        xmmtmploc = self.xrm.force_allocate_reg(box1, selected_reg=xmmtmp)
+        self.xrm.force_allocate_reg(box1, selected_reg=xmmtmp)
         # Part about non-floats
         # XXX we don't need a copy, we only just the original list
         src_locations1 = [self.loc(op.getarg(i)) for i in range(op.numargs())
@@ -1380,7 +1376,7 @@ def add_none_argument(fn):
     return lambda self, op: fn(self, op, None)
 
 def is_comparison_or_ovf_op(opnum):
-    from pypy.jit.metainterp.resoperation import opclasses, AbstractResOp
+    from pypy.jit.metainterp.resoperation import opclasses
     cls = opclasses[opnum]
     # hack hack: in theory they are instance method, but they don't use
     # any instance field, we can use a fake object

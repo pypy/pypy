@@ -1,5 +1,4 @@
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.debug import make_sure_not_resized
 
 def ResOperation(opnum, args, result, descr=None):
     cls = opclasses[opnum]
@@ -457,6 +456,7 @@ _oplist = [
 
     'GETARRAYITEM_GC/2d',
     'GETARRAYITEM_RAW/2d',
+    'GETINTERIORFIELD_GC/2d',
     'GETFIELD_GC/1d',
     'GETFIELD_RAW/1d',
     '_MALLOC_FIRST',
@@ -473,6 +473,7 @@ _oplist = [
 
     'SETARRAYITEM_GC/3d',
     'SETARRAYITEM_RAW/3d',
+    'SETINTERIORFIELD_GC/3d',
     'SETFIELD_GC/2d',
     'SETFIELD_RAW/2d',
     'STRSETITEM/3',
