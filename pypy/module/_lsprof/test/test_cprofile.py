@@ -41,7 +41,7 @@ class AppTestCProfile(object):
         entries = {}
         for entry in stats:
             if not hasattr(entry.code, 'co_name'):
-                print entry.code
+                print(entry.code)
             else:
                 entries[entry.code.co_name] = entry
         efoo = entries['foo']
@@ -137,7 +137,7 @@ class AppTestCProfile(object):
                 results.append(timer() - start_timer)
                 for methodname in methodnames:
                     import pstats
-                    from StringIO import StringIO
+                    from io import StringIO
                     s = StringIO()
                     stats = pstats.Stats(prof, stream=s)
                     stats.strip_dirs().sort_stats("stdname")
@@ -168,12 +168,12 @@ class AppTestCProfile(object):
                             lines.remove(line)
                             break
                     else:
-                        print 'NOT FOUND:', pattern.rstrip('\n')
-                        print '--- GOT ---'
-                        print got
-                        print
-                        print '--- EXPECTED ---'
-                        print expected
+                        print('NOT FOUND:', pattern.rstrip('\n'))
+                        print('--- GOT ---')
+                        print(got)
+                        print()
+                        print('--- EXPECTED ---')
+                        print(expected)
                         assert False
                 assert not lines
         finally:

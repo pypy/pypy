@@ -194,7 +194,7 @@ def create_spec(space, w_arg):
         # try to get the real class that defines the method,
         # which is a superclass of the class of the instance
         from pypy.objspace.std.typeobject import W_TypeObject   # xxx
-        w_type = w_arg.w_class
+        w_type = space.type(w_arg.w_instance)
         class_name = w_type.getname(space)    # if the rest doesn't work
         if isinstance(w_type, W_TypeObject) and name != '?':
             w_realclass, _ = space.lookup_in_type_where(w_type, name)

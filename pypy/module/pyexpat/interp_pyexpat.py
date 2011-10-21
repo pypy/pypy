@@ -453,7 +453,7 @@ getting the advantage of providing document type information to the parser.
             from pypy.interpreter.unicodehelper import PyUnicode_DecodeUTF8
             return space.wrap(PyUnicode_DecodeUTF8(space, s))
         else:
-            return space.wrap(s)
+            return space.wrapbytes(s)
 
     def w_convert_charp(self, space, data):
         if data:
@@ -552,7 +552,7 @@ getting the advantage of providing document type information to the parser.
         # Yes, supports only 8bit encodings
         translationmap = space.unicode_w(
             space.call_method(
-                space.wrap(self.all_chars), "decode",
+                space.wrapbytes(self.all_chars), "decode",
                 space.wrap(name), space.wrap("replace")))
 
         for i in range(256):
@@ -808,5 +808,5 @@ Return a new XML parser object."""
 def ErrorString(space, code):
     """ErrorString(errno) -> string
 Returns string error for given number."""
-    return space.wrap(rffi.charp2str(XML_ErrorString(code)))
+    return space.wrapbytes(rffi.charp2str(XML_ErrorString(code)))
 

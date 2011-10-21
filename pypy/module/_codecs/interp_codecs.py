@@ -43,13 +43,11 @@ class CodecState(object):
                             space.w_bytes)))):
                 if decode:
                     msg = ("decoding error handler must return "
-                           "(unicode, int) tuple, not %s")
+                           "(str, int) tuple")
                 else:
                     msg = ("encoding error handler must return "
-                           "(unicode, int) tuple, not %s")
-                raise operationerrfmt(
-                    space.w_TypeError, msg,
-                    space.unicode_w(space.repr(w_res)))
+                           "(str/bytes, int) tuple")
+                raise OperationError(space.w_TypeError, space.wrap(msg))
             w_replace, w_newpos = space.fixedview(w_res, 2)
             newpos = space.int_w(w_newpos)
             if newpos < 0:
