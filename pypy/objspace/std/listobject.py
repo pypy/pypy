@@ -880,37 +880,6 @@ class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     def list_is_correct_type(self, w_list):
         return w_list.strategy is self.space.fromcache(IntegerListStrategy)
 
-    def custom_sort_for_ints(self, w_list):
-        l = self.unerase(w_list.lstorage)
-        self.quicksort(l, 0, len(l) - 1)
-
-    def partition(self, l, start, end):
-        left = start
-        right = end - 1
-        pivot = l[end]
-
-        while left < right:
-
-            while l[left] <= pivot and left < end:
-                left += 1
-
-            while l[right] >= pivot and right > start:
-                right -= 1
-
-            if left < right:
-                l[left], l[right] = l[right], l[left]
-
-        if l[left] > pivot:
-            l[left], l[end] = l[end], l[left]
-
-        return left
-
-    def quicksort(self, l, start, end):
-        if start < end:
-            p = self.partition(l, start, end)
-            self.quicksort(l, start, p - 1)
-            self.quicksort(l, p + 1, end)
-
     def sort(self, w_list, reverse):
         l = self.unerase(w_list.lstorage)
         sorter = IntSort(l, len(l))
