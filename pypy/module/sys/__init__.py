@@ -28,12 +28,6 @@ class Module(MixedModule):
         'maxsize'               : 'space.wrap(sys.maxint)',
         'byteorder'             : 'space.wrap(sys.byteorder)', 
         'maxunicode'            : 'space.wrap(vm.MAXUNICODE)',
-        'stdin'                 : 'state.getio(space).w_stdin',
-        '__stdin__'             : 'state.getio(space).w_stdin',
-        'stdout'                : 'state.getio(space).w_stdout',
-        '__stdout__'            : 'state.getio(space).w_stdout',
-        'stderr'                : 'state.getio(space).w_stderr',
-        '__stderr__'            : 'state.getio(space).w_stderr',
         'pypy_objspaceclass'    : 'space.wrap(repr(space))',
         #'prefix'               : # added by pypy_initial_path() when it 
         #'exec_prefix'          : # succeeds, pointing to trunk or /usr
@@ -115,6 +109,18 @@ class Module(MixedModule):
                 from pypy.module.sys import vm
                 w_handle = vm.get_dllhandle(space)
                 space.setitem(self.w_dict, space.wrap("dllhandle"), w_handle)
+
+        if not space.config.translating:
+            # Install standard streams for tests that don't call app_main
+            space.appexec([], """():
+                import sys, io
+                sys.stdin = sys.__stdin__ = io.open(0, "r", closefd=False)
+                sys.stdin.buffer.raw.name = "<stdin>"
+                sys.stdout = sys.__stdout__ = io.open(1, "w", closefd=False)
+                sys.stdout.buffer.raw.name = "<stdout>"
+                sys.stderr = sys.__stderr__ = io.open(2, "w", closefd=False)
+                sys.stderr.buffer.raw.name = "<stderr>"
+               """)
 
     def getmodule(self, name):
         space = self.space

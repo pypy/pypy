@@ -13,7 +13,6 @@ class Module(MixedModule):
 
     appleveldefs = {
         'execfile'      : 'app_io.execfile',
-        'raw_input'     : 'app_io.raw_input',
         'input'         : 'app_io.input',
         'print'         : 'app_io.print_',
 

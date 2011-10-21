@@ -27,8 +27,8 @@ globals and locals.  If only globals is given, locals defaults to it."""
     co = compile(source.rstrip()+"\n", filename, 'exec')
     exec(co, glob, loc)
 
-def raw_input(prompt=None):
-    """raw_input([prompt]) -> string
+def input(prompt=None):
+    """input([prompt]) -> string
 
 Read a string from standard input.  The trailing newline is stripped.
 If the user hits EOF (Unix: Ctl-D, Windows: Ctl-Z+Return), raise EOFError.
@@ -37,11 +37,11 @@ is printed without a trailing newline before reading."""
     try:
         stdin = sys.stdin
     except AttributeError:
-        raise RuntimeError("[raw_]input: lost sys.stdin")
+        raise RuntimeError("input: lost sys.stdin")
     try:
         stdout = sys.stdout
     except AttributeError:
-        raise RuntimeError("[raw_]input: lost sys.stdout")
+        raise RuntimeError("input: lost sys.stdout")
 
     # hook for the readline module
     if (hasattr(sys, '__raw_input__') and
@@ -66,10 +66,6 @@ is printed without a trailing newline before reading."""
         return line[:-1]
     return line
 
-def input(prompt=None):
-    """Equivalent to eval(raw_input(prompt))."""
-    return eval(raw_input(prompt))
-
 def print_(*args, **kwargs):
     """The new-style print function from py3k."""
     fp = kwargs.pop("file", sys.stdout)
@@ -78,8 +74,6 @@ def print_(*args, **kwargs):
     def write(data):
         if not isinstance(data, str):
             data = str(data)
-        if getattr(fp, 'encoding', None):
-            data = data.encode(fp.encoding)
         fp.write(data)
     sep = kwargs.pop("sep", None)
     if sep is not None:

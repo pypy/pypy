@@ -33,7 +33,7 @@ def handle_sys_exit(e):
         except:
             # not an integer: print it to stderr
             try:
-                print >> sys.stderr, exitcode
+                print(exitcode, file=sys.stderr)
             except:
                 pass   # too bad
             exitcode = 1
@@ -74,16 +74,16 @@ def display_exception():
         # extra debugging info in case the code below goes very wrong
         if DEBUG and hasattr(sys, 'stderr'):
             s = getattr(etype, '__name__', repr(etype))
-            print >> sys.stderr, "debug: exception-type: ", s
-            print >> sys.stderr, "debug: exception-value:", str(evalue)
+            print("debug: exception-type: ", s, file=sys.stderr)
+            print("debug: exception-value:", str(evalue), file=sys.stderr)
             tbentry = etraceback
             if tbentry:
                 while tbentry.tb_next:
                     tbentry = tbentry.tb_next
                 lineno = tbentry.tb_lineno
                 filename = tbentry.tb_frame.f_code.co_filename
-                print >> sys.stderr, "debug: exception-tb:    %s:%d" % (
-                    filename, lineno)
+                print("debug: exception-tb:    %s:%d" % (filename, lineno),
+                      file=sys.stderr)
 
         # set the sys.last_xxx attributes
         sys.last_type = etype
@@ -101,10 +101,10 @@ def display_exception():
         except AttributeError:
             pass   # too bad
         else:
-            print >> stderr, 'Error calling sys.excepthook:'
+            print('Error calling sys.excepthook:', file=stderr)
             originalexcepthook(*sys.exc_info())
-            print >> stderr
-            print >> stderr, 'Original exception was:'
+            print(file=stderr)
+            print('Original exception was:', file=stderr)
 
     # we only get here if sys.excepthook didn't do its job
     originalexcepthook(etype, evalue, etraceback)
@@ -117,7 +117,7 @@ def print_info(*args):
     try:
         options = sys.pypy_translation_info
     except AttributeError:
-        print >> sys.stderr, 'no translation information found'
+        print('no translation information found', file=sys.stderr)
     else:
         optitems = options.items()
         optitems.sort()
@@ -169,14 +169,6 @@ def fdopen(fd, mode, bufsize=-1):
     except AttributeError:     # only on top of CPython, running tests
         from os import fdopen
     return fdopen(fd, mode, bufsize)
-
-def set_unbuffered_io():
-    sys.stdin  = sys.__stdin__  = fdopen(0, 'rb', 0)
-    sys.stdout = sys.__stdout__ = fdopen(1, 'wb', 0)
-    sys.stderr = sys.__stderr__ = fdopen(2, 'wb', 0)
-
-def set_fully_buffered_io():
-    sys.stdout = sys.__stdout__ = fdopen(1, 'w')
 
 # ____________________________________________________________
 # Main entry point
@@ -257,6 +249,56 @@ def setup_initial_paths(ignore_environment=False, **extra):
             sys.path.append(dir)
             _seen[dir] = True
 
+def initstdio(encoding, unbuffered):
+    if ':' in encoding:
+        encoding, errors = encoding.split(':', 1)
+    else:
+        errors = None
+
+    sys.stdin = sys.__stdin__ = create_stdio(
+        0, False, "<stdin>", encoding, errors, unbuffered)
+    sys.stdout = sys.__stdout__ = create_stdio(
+        1, True, "<stdout>", encoding, errors, unbuffered)
+    sys.stderr = sys.__stderr__ = create_stdio(
+        2, True, "<stderr>", encoding, errors, unbuffered)
+
+def create_stdio(fd, writing, name, encoding, errors, unbuffered):
+    import io
+
+    if writing:
+        mode = "wb"
+    else:
+        mode= "rb"
+    # stdin is always opened in buffered mode, first because it
+    # shouldn't make a difference in common use cases, second because
+    # TextIOWrapper depends on the presence of a read1() method which
+    # only exists on buffered streams.
+    if writing:
+        buffering = 0
+    else:
+        buffering = -1
+    if sys.platform == 'win32' and not writing:
+        # translate \r\n to \n for sys.stdin on Windows
+        newline = None
+    else:
+        newline = '\n'
+    buf = io.open(fd, mode, buffering, closefd=False)
+
+    if buffering:
+        raw = buf.raw
+    else:
+        raw = buf
+    raw.name = name
+    if unbuffered or raw.isatty():
+        line_buffering = True
+    else:
+        line_buffering = False
+
+    stream = io.TextIOWrapper(buf, encoding, errors,
+                              newline=newline,
+                              line_buffering=line_buffering)
+    return stream
+    
 def set_io_encoding(io_encoding):
     try:
         import _file
@@ -467,10 +509,10 @@ def run_command_line(interactive,
     if '__pypy__' not in sys.builtin_module_names:
         sys.setrecursionlimit(5000)
 
-    if unbuffered:
-        set_unbuffered_io()
-    elif not sys.stdout.isatty():
-        set_fully_buffered_io()
+    readenv = not ignore_environment
+    io_encoding = ((readenv and os.getenv("PYTHONIOENCODING"))
+                   or sys.getfilesystemencoding())
+    initstdio(io_encoding, unbuffered)
 
     mainmodule = type(sys)('__main__')
     sys.modules['__main__'] = mainmodule
@@ -480,12 +522,6 @@ def run_command_line(interactive,
             import site
         except:
             print("'import site' failed", file=sys.stderr)
-
-    readenv = not ignore_environment
-    io_encoding = ((readenv and os.getenv("PYTHONIOENCODING"))
-                   or sys.getfilesystemencoding())
-    if io_encoding:
-        set_io_encoding(io_encoding)
 
     pythonwarnings = readenv and os.getenv('PYTHONWARNINGS')
     if pythonwarnings:
@@ -606,6 +642,10 @@ def run_command_line(interactive,
                     args = (runpy._run_module_as_main, '__main__', False)
                 else:
                     # no.  That's the normal path, "pypy stuff.py".
+                    def execfile(filename, namespace):
+                        with open(filename) as f:
+                            code = f.read()
+                        exec(code, namespace)
                     args = (execfile, filename, mainmodule.__dict__)
             success = run_toplevel(*args)
 
@@ -653,29 +693,55 @@ def entry_point(executable, argv, nanos):
     setup_sys_executable(executable, nanos)
     try:
         cmdline = parse_command_line(argv)
-    except CommandLineError, e:
+    except CommandLineError as e:
         print_error(str(e))
         return 2
-    except SystemExit, e:
+    except SystemExit as e:
         return e.code or 0
     setup_initial_paths(**cmdline)
     return run_command_line(**cmdline)
 
 
 if __name__ == '__main__':
-    import autopath
-    import nanos
-    # obscure! try removing the following line, see how it crashes, and
-    # guess why...
-    ImStillAroundDontForgetMe = sys.modules['__main__']
+    "For unit tests only"
+    import os as nanos
+    import os
 
-    # debugging only
+    if len(sys.argv) > 1 and sys.argv[1] == '--argparse-only':
+        import io
+        del sys.argv[:2]
+        sys.stdout = sys.stderr = io.StringIO()
+        try:
+            options = parse_command_line(sys.argv)
+        except SystemExit:
+            print('SystemExit', file=sys.__stdout__)
+            print(sys.stdout.getvalue(), file=sys.__stdout__)
+            raise
+        except BaseException as e:
+            print('Error', file=sys.__stdout__)
+            raise
+        else:
+            print('Return', file=sys.__stdout__)
+        print(options, file=sys.__stdout__)
+        print(sys.argv, file=sys.__stdout__)
+
+    # Testing python on python is hard:
+    # Some code above (run_command_line) will create a new module
+    # named __main__ and store it into sys.modules.  There it will
+    # replace the __main__ module that CPython created to execute the
+    # lines you are currently reading. This will free the module, and
+    # all globals (os, sys...) will be set to None.
+    # To avoid this we make a copy of our __main__ module.
+    sys.modules['__cpython_main__'] = sys.modules['__main__']
+
     def pypy_initial_path(s):
+        return ["../lib-python/3.2", "../lib_pypy", ".."]
         from pypy.module.sys.state import getinitialpath
         try:
             return getinitialpath(s)
         except OSError:
             return None
+    sys.pypy_initial_path = pypy_initial_path
 
     # add an emulator for these pypy-only or 2.7-only functions
     # (for test_pyc_commandline_argument)
@@ -711,10 +777,6 @@ if __name__ == '__main__':
     old_argv = sys.argv
     old_path = sys.path
 
-    from pypy.module.sys.version import PYPY_VERSION
-    sys.pypy_version_info = PYPY_VERSION
-    sys.pypy_initial_path = pypy_initial_path
-    os = nanos.os_module_for_testing
     try:
         sys.exit(int(entry_point(sys.argv[0], sys.argv[1:], os)))
     finally:

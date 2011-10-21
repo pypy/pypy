@@ -8,7 +8,15 @@ import autopath
 from pypy.tool.udir import udir
 from contextlib import contextmanager
 
-banner = sys.version.splitlines()[0]
+python3 = os.environ.get("PYTHON3", "python3")
+
+def get_banner():
+    p = subprocess.Popen([python3, "-c",
+                          "import sys; print(sys.version.splitlines()[0])"],
+                         stdout=subprocess.PIPE)
+    return p.stdout.read().rstrip()
+banner = get_banner()
+print repr(banner)
 
 app_main = os.path.join(autopath.this_dir, os.pardir, 'app_main.py')
 app_main = os.path.abspath(app_main)
@@ -53,29 +61,28 @@ def getscript_in_dir(source):
     return py.path.local().bestrelpath(pdir)
 
 demo_script = getscript("""
-    print 'hello'
-    print 'Name:', __name__
-    print 'File:', __file__
+    print('hello')
+    print('Name:', __name__)
+    print('File:', __file__)
     import sys
-    print 'Exec:', sys.executable
-    print 'Argv:', sys.argv
-    print 'goodbye'
+    print('Exec:', sys.executable)
+    print('Argv:', sys.argv)
+    print('goodbye')
     myvalue = 6*7
     """)
 
 crashing_demo_script = getscript("""
-    print 'Hello2'
+    print('Hello2')
     myvalue2 = 11
     ooups
     myvalue2 = 22
-    print 'Goodbye2'   # should not be reached
+    print('Goodbye2')  # should not be reached
     """)
 
 
 class TestParseCommandLine:
 
-    def check_options(self, options, sys_argv, **expected):
-        assert sys.argv == sys_argv
+    def check_options(self, options, sys_argv, expected):
         for key, value in expected.items():
             assert options[key] == value
         for key, value in options.items():
@@ -84,25 +91,20 @@ class TestParseCommandLine:
                     "option %r has unexpectedly the value %r" % (key, value))
 
     def check(self, argv, **expected):
-        import StringIO
-        from pypy.translator.goal import app_main
-        saved_sys_argv = sys.argv[:]
-        saved_sys_stdout = sys.stdout
-        saved_sys_stderr = sys.stdout
-        app_main.os = os
-        try:
-            sys.stdout = sys.stderr = StringIO.StringIO()
-            try:
-                options = app_main.parse_command_line(argv)
-            except SystemExit:
-                output = expected['output_contains']
-                assert output in sys.stdout.getvalue()
-            else:
-                self.check_options(options, **expected)
-        finally:
-            sys.argv[:] = saved_sys_argv
-            sys.stdout = saved_sys_stdout
-            sys.stderr = saved_sys_stderr
+        p = subprocess.Popen([python3, app_main,
+                              '--argparse-only'] + list(argv),
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        res = p.wait()
+        outcome = p.stdout.readline()
+        if outcome == 'SystemExit\n':
+            output = p.stdout.read()
+            assert expected['output_contains'] in output
+        else:
+            app_options = eval(p.stdout.readline())
+            sys_argv = eval(p.stdout.readline())
+            app_options['sys_argv'] = sys_argv
+            self.check_options(app_options, sys_argv, expected)
 
     def test_all_combinations_I_can_think_of(self):
         self.check([], sys_argv=[''], run_stdin=True)
@@ -227,7 +229,7 @@ class TestInteraction:
         return child
 
     def spawn(self, argv):
-        return self._spawn(sys.executable, [app_main] + argv)
+        return self._spawn(python3, [app_main] + argv)
 
     def test_interactive(self):
         child = self.spawn([])
@@ -336,7 +338,7 @@ class TestInteraction:
     def test_atexit(self):
         child = self.spawn([])
         child.expect('>>> ')
-        child.sendline('def f(): print "foobye"')
+        child.sendline('def f(): print("foobye")')
         child.sendline('')
         child.sendline('import atexit; atexit.register(f)')
         child.sendline('6*7')
@@ -407,7 +409,8 @@ class TestInteraction:
             os.environ['PYTHONPATH'] = old
 
     def test_unbuffered(self):
-        line = 'import os,sys;sys.stdout.write(str(789));os.read(0,1)'
+        # In Python3, -u affects the "binary layer" of sys.stdout.
+        line = 'import os,sys;sys.stdout.buffer.write(str(789).encode());os.read(0,1)'
         child = self.spawn(['-u', '-c', line])
         child.expect('789')    # expect to see it before the timeout hits
         child.sendline('X')
@@ -447,8 +450,7 @@ class TestInteraction:
         if sys.platform == "win32":
             skip("close_fds is not supported on Windows platforms")
         import subprocess, select, os
-        python = sys.executable
-        pipe = subprocess.Popen([python, app_main, "-u", "-i"],
+        pipe = subprocess.Popen([python3, app_main, "-u", "-i"],
                                 stdout=subprocess.PIPE,
                                 stdin=subprocess.PIPE,
                                 stderr=subprocess.STDOUT,
@@ -472,7 +474,7 @@ class TestInteraction:
         os.environ['PYTHONINSPECT_'] = '1'
         try:
             path = getscript("""
-                print 6*7
+                print(6*7)
                 """)
             child = self.spawn([path])
             child.expect('42')
@@ -484,7 +486,7 @@ class TestInteraction:
         path = getscript("""
             import os
             os.environ['PYTHONINSPECT'] = '1'
-            print 6*7
+            print(6*7)
             """)
         child = self.spawn([path])
         child.expect('42')
@@ -503,6 +505,7 @@ class TestInteraction:
             del os.environ['PYTHONINSPECT_']
 
     def test_stdout_flushes_before_stdin_blocks(self):
+        skip("Python3 does not implement this behavior")
         # This doesn't really test app_main.py, but a behavior that
         # can only be checked on top of py.py with pexpect.
         path = getscript("""
@@ -510,10 +513,10 @@ class TestInteraction:
             sys.stdout.write('Are you suggesting coconuts migrate? ')
             line = sys.stdin.readline()
             assert line.rstrip() == 'Not at all. They could be carried.'
-            print 'A five ounce bird could not carry a one pound coconut.'
+            print('A five ounce bird could not carry a one pound coconut.')
             """)
         py_py = os.path.join(autopath.pypydir, 'bin', 'py.py')
-        child = self._spawn(sys.executable, [py_py, path])
+        child = self._spawn(sys.executable, [py_py, '-S', path])
         child.expect('Are you suggesting coconuts migrate?', timeout=120)
         child.sendline('Not at all. They could be carried.')
         child.expect('A five ounce bird could not carry a one pound coconut.')
@@ -521,14 +524,14 @@ class TestInteraction:
     def test_no_space_before_argument(self):
         if not hasattr(runpy, '_run_module_as_main'):
             skip("requires CPython >= 2.6")
-        child = self.spawn(['-cprint "hel" + "lo"'])
+        child = self.spawn(['-cprint("hel" + "lo")'])
         child.expect('hello')
 
         child = self.spawn(['-mpypy.translator.goal.test2.mymodule'])
         child.expect('mymodule running')
 
     def test_ps1_only_if_interactive(self):
-        argv = ['-c', 'import sys; print hasattr(sys, "ps1")']
+        argv = ['-c', 'import sys; print(hasattr(sys, "ps1"))']
         child = self.spawn(argv)
         child.expect('False')
 
@@ -536,7 +539,7 @@ class TestNonInteractive:
 
     def run_with_status_code(self, cmdline, senddata='', expect_prompt=False,
             expect_banner=False, python_flags='', env=None):
-        cmdline = '%s %s "%s" %s' % (sys.executable, python_flags,
+        cmdline = '%s %s "%s" %s' % (python3, python_flags,
                                      app_main, cmdline)
         print 'POPEN:', cmdline
         process = subprocess.Popen(
@@ -586,9 +589,9 @@ class TestNonInteractive:
         assert 'Goodbye2' not in data
 
     def test_option_W(self):
-        data = self.run('-W d -c "print 42"')
+        data = self.run('-W d -c "print(42)"')
         assert '42' in data
-        data = self.run('-Wd -c "print 42"')
+        data = self.run('-Wd -c "print(42)"')
         assert '42' in data
 
     def test_option_W_crashing(self):
@@ -604,7 +607,7 @@ class TestNonInteractive:
         assert "Invalid -W option ignored: invalid action:" in data
 
     def test_option_c(self):
-        data = self.run('-c "print 6**5"')
+        data = self.run('-c "print(6**5)"')
         assert '7776' in data
 
     def test_no_pythonstartup(self):
@@ -623,7 +626,7 @@ class TestNonInteractive:
         try:
             os.environ['PYTHONWARNINGS'] = "once,error"
             data = self.run('-W ignore -W default '
-                            '-c "import sys; print sys.warnoptions"')
+                            '-c "import sys; print(sys.warnoptions)"')
             assert "['ignore', 'default', 'once', 'error']" in data
         finally:
             os.environ['PYTHONWARNINGS'] = old
@@ -644,7 +647,7 @@ class TestNonInteractive:
     def test_pythoninspect_doesnt_override_isatty(self):
         os.environ['PYTHONINSPECT_'] = '1'
         try:
-            data = self.run('', senddata='6*7\nprint 2+3\n')
+            data = self.run('', senddata='6*7\nprint(2+3)\n')
             assert data == '5\n'
         finally:
             del os.environ['PYTHONINSPECT_']
@@ -656,7 +659,7 @@ class TestNonInteractive:
         # if a file name is passed, the banner is never printed but
         # we get a prompt anyway
         cmdline = '-i %s' % getscript("""
-            print 'hello world'
+            print('hello world')
             """)
         data = self.run(cmdline, senddata='6*7\nraise SystemExit\n',
                                  expect_prompt=True, expect_banner=False)
@@ -672,7 +675,7 @@ class TestNonInteractive:
             time.sleep(1)
             # stdout flushed automatically here
             """)
-        cmdline = '%s -u "%s" %s' % (sys.executable, app_main, path)
+        cmdline = '%s -u "%s" %s' % (python3, app_main, path)
         print 'POPEN:', cmdline
         child_in, child_out_err = os.popen4(cmdline)
         data = child_out_err.read(11)
@@ -697,35 +700,35 @@ class TestNonInteractive:
                 if old_pythonpath is not None:
                     os.putenv('PYTHONPATH', old_pythonpath)
 
-        tmpdir.join('site.py').write('print "SHOULD NOT RUN"')
+        tmpdir.join('site.py').write('print("SHOULD NOT RUN")')
         runme_py = tmpdir.join('runme.py')
-        runme_py.write('print "some text"')
+        runme_py.write('print("some text")')
 
         cmdline = str(runme_py)
 
         with chdir_and_unset_pythonpath(tmpdir):
             data = self.run(cmdline, python_flags='-S')
 
-        assert data == "some text\n"
+        assert data in ("'import site' failed\nsome text\n")
 
         runme2_py = tmpdir.mkdir('otherpath').join('runme2.py')
-        runme2_py.write('print "some new text"\n'
+        runme2_py.write('print("some new text")\n'
                         'import sys\n'
-                        'print sys.path\n')
+                        'print(sys.path)\n')
 
         cmdline2 = str(runme2_py)
 
         with chdir_and_unset_pythonpath(tmpdir):
             data = self.run(cmdline2, python_flags='-S')
-        assert data.startswith("some new text\n")
+        assert data.startswith("'import site' failed\nsome new text\n")
         assert repr(str(tmpdir.join('otherpath'))) in data
         assert "''" not in data
 
-        data = self.run('-c "import sys; print sys.path"')
+        data = self.run('-c "import sys; print(sys.path)"')
         assert data.startswith("[''")
 
     def test_pyc_commandline_argument(self):
-        p = getscript_pyc(self.space, "print 6*7\n")
+        p = getscript_pyc(self.space, "print(6*7)\n")
         assert os.path.isfile(p) and p.endswith('.pyc')
         data = self.run(p)
         assert data == 'in _run_compiled_module\n'
@@ -733,7 +736,7 @@ class TestNonInteractive:
     def test_main_in_dir_commandline_argument(self):
         if not hasattr(runpy, '_run_module_as_main'):
             skip("requires CPython >= 2.6")
-        p = getscript_in_dir('import sys; print sys.argv[0]\n')
+        p = getscript_in_dir('import sys; print(sys.argv[0])\n')
         data = self.run(p)
         assert data == p + '\n'
         data = self.run(p + os.sep)

@@ -489,15 +489,15 @@ class ObjSpace(object):
         self.exceptions_module = Module(self, w_name)
         self.exceptions_module.install()
 
-        from pypy.module.sys import Module
-        w_name = self.wrap('sys')
-        self.sys = Module(self, w_name)
-        self.sys.install()
-
         from pypy.module.imp import Module
         w_name = self.wrap('imp')
         mod = Module(self, w_name)
         mod.install()
+
+        from pypy.module.sys import Module
+        w_name = self.wrap('sys')
+        self.sys = Module(self, w_name)
+        self.sys.install()
 
         from pypy.module.__builtin__ import Module
         w_name = self.wrap('builtins')
