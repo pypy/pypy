@@ -493,8 +493,8 @@ def type_attach(space, py_obj, w_type):
         w_typename = space.getattr(w_type, space.wrap('__name__'))
         heaptype = rffi.cast(PyHeapTypeObject, pto)
         heaptype.c_ht_name = make_ref(space, w_typename)
-        from pypy.module.cpyext.stringobject import PyString_AsString
-        pto.c_tp_name = PyString_AsString(space, heaptype.c_ht_name)
+        from pypy.module.cpyext.unicodeobject import _PyUnicode_AsString
+        pto.c_tp_name = _PyUnicode_AsString(space, heaptype.c_ht_name)
     else:
         pto.c_tp_name = rffi.str2charp(w_type.getname(space))
     pto.c_tp_basicsize = -1 # hopefully this makes malloc bail out

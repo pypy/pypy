@@ -45,12 +45,12 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              """
                 return PyBool_FromLong(PyString_Check(PyTuple_GetItem(args, 0)));
              """)])
-        assert module.get_hello1() == 'Hello world'
-        assert module.get_hello2() == 'Hello world'
+        assert module.get_hello1() == b'Hello world'
+        assert module.get_hello2() == b'Hello world'
         assert module.test_Size()
         raises(TypeError, module.test_Size_exception)
 
-        assert module.test_is_string("")
+        assert module.test_is_string(b"")
         assert not module.test_is_string(())
 
     def test_string_buffer_init(self):
@@ -93,7 +93,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              """),
             ])
         s = module.getstring()
-        assert s == 'test'
+        assert s == b'test'
 
     def test_py_string_as_string(self):
         module = self.import_extension('foo', [
@@ -103,7 +103,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
                        PyTuple_GetItem(args, 0)), 4);
              '''
             )])
-        assert module.string_as_string("huheduwe") == "huhe"
+        assert module.string_as_string(b"huheduwe") == b"huhe"
 
     def test_AsStringAndSize(self):
         module = self.import_extension('foo', [
@@ -150,7 +150,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
               return res;
             }
             ''')
-        res = module.test_string_format_v(1, "xyz")
+        res = module.test_string_format_v(1, b"xyz")
         assert res == "bla 1 ble xyz\n"
 
     def test_format(self):
@@ -163,7 +163,7 @@ class AppTestStringObject(AppTestCpythonExtensionBase):
              '''
              )
             ])
-        res = module.test_string_format(1, "xyz")
+        res = module.test_string_format(1, b"xyz")
         assert res == "bla 1 ble xyz\n"
 
 class TestString(BaseApiTest):
@@ -205,41 +205,37 @@ class TestString(BaseApiTest):
         Py_DecRef(space, py_obj)
 
     def test_Concat(self, space, api):
-        ref = make_ref(space, space.wrap('abc'))
+        ref = make_ref(space, space.wrapbytes('abc'))
         ptr = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
         ptr[0] = ref
-        api.PyString_Concat(ptr, space.wrap('def'))
-        assert space.str_w(from_ref(space, ptr[0])) == 'abcdef'
+        api.PyString_Concat(ptr, space.wrapbytes('def'))
+        assert space.bytes_w(from_ref(space, ptr[0])) == 'abcdef'
         api.PyString_Concat(ptr, space.w_None)
         assert not ptr[0]
         ptr[0] = lltype.nullptr(PyObject.TO)
-        api.PyString_Concat(ptr, space.wrap('def')) # should not crash
+        api.PyString_Concat(ptr, space.wrapbytes('def')) # should not crash
         lltype.free(ptr, flavor='raw')
 
     def test_ConcatAndDel(self, space, api):
-        ref1 = make_ref(space, space.wrap('abc'))
-        ref2 = make_ref(space, space.wrap('def'))
+        ref1 = make_ref(space, space.wrapbytes('abc'))
+        ref2 = make_ref(space, space.wrapbytes('def'))
         ptr = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
         ptr[0] = ref1
         api.PyString_ConcatAndDel(ptr, ref2)
-        assert space.str_w(from_ref(space, ptr[0])) == 'abcdef'
+        assert space.bytes_w(from_ref(space, ptr[0])) == 'abcdef'
         assert ref2.c_ob_refcnt == 0
         Py_DecRef(space, ptr[0])
         ptr[0] = lltype.nullptr(PyObject.TO)
-        ref2 = make_ref(space, space.wrap('foo'))
+        ref2 = make_ref(space, space.wrapbytes('foo'))
         api.PyString_ConcatAndDel(ptr, ref2) # should not crash
         assert ref2.c_ob_refcnt == 0
         lltype.free(ptr, flavor='raw')
-
-    def test_format(self, space, api):
-        assert "1 2" == space.unwrap(
-            api.PyString_Format(space.wrap('%s %d'), space.wrap((1, 2))))
 
     def test_asbuffer(self, space, api):
         bufp = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
         lenp = lltype.malloc(Py_ssize_tP.TO, 1, flavor='raw')
 
-        w_text = space.wrap("text")
+        w_text = space.wrapbytes("text")
         assert api.PyObject_AsCharBuffer(w_text, bufp, lenp) == 0
         assert lenp[0] == 4
         assert rffi.charp2str(bufp[0]) == 'text'
@@ -254,42 +250,12 @@ class TestString(BaseApiTest):
         rffi.free_charp(buf)
         assert w_s1 is w_s2
 
-    def test_AsEncodedObject(self, space, api):
-        ptr = space.wrap('abc')
-
-        errors = rffi.str2charp("strict")
-
-        encoding = rffi.str2charp("hex")
-        res = api.PyString_AsEncodedObject(
-            ptr, encoding, errors)
-        assert space.unwrap(res) == "616263"
-
-        res = api.PyString_AsEncodedObject(
-            ptr, encoding, lltype.nullptr(rffi.CCHARP.TO))
-        assert space.unwrap(res) == "616263"
-        rffi.free_charp(encoding)
-
-        encoding = rffi.str2charp("unknown_encoding")
-        self.raises(space, api, LookupError, api.PyString_AsEncodedObject,
-                    ptr, encoding, errors)
-        rffi.free_charp(encoding)
-
-        rffi.free_charp(errors)
-
-        res = api.PyString_AsEncodedObject(
-            ptr, lltype.nullptr(rffi.CCHARP.TO), lltype.nullptr(rffi.CCHARP.TO))
-        assert space.unwrap(res) == "abc"
-
-        self.raises(space, api, TypeError, api.PyString_AsEncodedObject,
-            space.wrap(2), lltype.nullptr(rffi.CCHARP.TO), lltype.nullptr(rffi.CCHARP.TO)
-        )
-
     def test_eq(self, space, api):
-        assert 1 == api._PyString_Eq(space.wrap("hello"), space.wrap("hello"))
-        assert 0 == api._PyString_Eq(space.wrap("hello"), space.wrap("world"))
+        assert 1 == api._PyString_Eq(space.wrapbytes("hello"), space.wrapbytes("hello"))
+        assert 0 == api._PyString_Eq(space.wrapbytes("hello"), space.wrapbytes("world"))
 
     def test_join(self, space, api):
-        w_sep = space.wrap('<sep>')
-        w_seq = space.wrap(['a', 'b'])
+        w_sep = space.wrapbytes('<sep>')
+        w_seq = space.newtuple([space.wrapbytes('a'), space.wrapbytes('b')])
         w_joined = api._PyString_Join(w_sep, w_seq)
-        assert space.unwrap(w_joined) == 'a<sep>b'
+        assert space.bytes_w(w_joined) == 'a<sep>b'

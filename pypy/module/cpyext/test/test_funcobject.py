@@ -31,13 +31,11 @@ class TestFunctionObject(BaseApiTest):
 
         w_function = space.getattr(w_method, space.wrap("im_func"))
         w_self = space.getattr(w_method, space.wrap("im_self"))
-        w_class = space.getattr(w_method, space.wrap("im_class"))
 
         assert space.is_w(api.PyMethod_Function(w_method), w_function)
         assert space.is_w(api.PyMethod_Self(w_method), w_self)
-        assert space.is_w(api.PyMethod_Class(w_method), w_class)
 
-        w_method2 = api.PyMethod_New(w_function, w_self, w_class)
+        w_method2 = api.PyMethod_New(w_function, w_self)
         assert space.eq_w(w_method, w_method2)
 
     def test_getcode(self, space, api):
@@ -67,7 +65,6 @@ class TestFunctionObject(BaseApiTest):
             api.Py_DecRef(ref)
             return co_flags
         assert get_flags("x") == CO_NESTED | CO_OPTIMIZED | CO_NEWLOCALS
-        assert get_flags("x", "exec x") == CO_NESTED | CO_NEWLOCALS
         assert get_flags("x, *args") & CO_VARARGS
         assert get_flags("x, **kw") & CO_VARKEYWORDS
         assert get_flags("x", "yield x") & CO_GENERATOR

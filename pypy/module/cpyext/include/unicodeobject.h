@@ -22,6 +22,7 @@ typedef struct {
     PyObject_HEAD
     Py_UNICODE *buffer;
     Py_ssize_t size;
+    char *utf8buffer;
 } PyUnicodeObject;
 
 

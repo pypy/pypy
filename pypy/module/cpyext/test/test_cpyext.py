@@ -203,6 +203,9 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
         if filename is None, the module name will be used to construct the
         filename.
         """
+        name = name.encode()
+        init = init.encode()
+        body = body.encode()
         if init is not None:
             code = """
             #include <Python.h>

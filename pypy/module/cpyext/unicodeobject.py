@@ -21,7 +21,8 @@ import sys
 PyUnicodeObjectStruct = lltype.ForwardReference()
 PyUnicodeObject = lltype.Ptr(PyUnicodeObjectStruct)
 PyUnicodeObjectFields = (PyObjectFields +
-    (("buffer", rffi.CWCHARP), ("size", Py_ssize_t)))
+    (("buffer", rffi.CWCHARP), ("size", Py_ssize_t),
+     ("utf8buffer", rffi.CCHARP)))
 cpython_struct("PyUnicodeObject", PyUnicodeObjectFields, PyUnicodeObjectStruct)
 
 @bootstrap_function
@@ -79,6 +80,8 @@ def unicode_dealloc(space, py_obj):
     py_unicode = rffi.cast(PyUnicodeObject, py_obj)
     if py_unicode.c_buffer:
         lltype.free(py_unicode.c_buffer, flavor="raw")
+    if py_unicode.c_utf8buffer:
+        lltype.free(py_unicode.c_utf8buffer, flavor="raw")
     from pypy.module.cpyext.object import PyObject_dealloc
     PyObject_dealloc(space, py_obj)
 
@@ -195,6 +198,17 @@ def PyUnicode_AsUnicode(space, ref):
         raise OperationError(space.w_TypeError,
                              space.wrap("expected unicode object"))
     return PyUnicode_AS_UNICODE(space, ref)
+
+@cpython_api([PyObject], rffi.CCHARP)
+def _PyUnicode_AsString(space, ref):
+    ref_unicode = rffi.cast(PyUnicodeObject, ref)
+    if not ref_unicode.c_utf8buffer:
+        # Copy unicode buffer
+        w_unicode = from_ref(space, ref)
+        w_encoded = unicodetype.encode_object(space, w_unicode, "utf-8", "strict")
+        s = space.bytes_w(w_encoded)
+        ref_unicode.c_utf8buffer = rffi.str2charp(s)
+    return ref_unicode.c_utf8buffer
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyUnicode_GetSize(space, ref):

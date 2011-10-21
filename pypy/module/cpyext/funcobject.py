@@ -86,14 +86,13 @@ def PyFunction_GetCode(space, w_func):
     w_code = space.wrap(func.code)
     return borrow_from(w_func, w_code)
 
-@cpython_api([PyObject, PyObject, PyObject], PyObject)
-def PyMethod_New(space, w_func, w_self, w_cls):
-    """Return a new method object, with func being any callable object; this is the
-    function that will be called when the method is called.  If this method should
-    be bound to an instance, self should be the instance and class should be the
-    class of self, otherwise self should be NULL and class should be the
-    class which provides the unbound method."""
-    return Method(space, w_func, w_self, w_cls)
+@cpython_api([PyObject, PyObject], PyObject)
+def PyMethod_New(space, w_func, w_self):
+    """Return a new method object, with func being any callable object
+    and self the instance the method should be bound. func is the
+    function that will be called when the method is called. self must
+    not be NULL."""
+    return Method(space, w_func, w_self)
 
 @cpython_api([PyObject], PyObject)
 def PyMethod_Function(space, w_method):

@@ -73,8 +73,8 @@ def new_empty_str(space, length):
     interpreter object.  The buffer may be mutated, until string_realize() is
     called.
     """
-    typedescr = get_typedescr(space.w_str.instancetypedef)
-    py_obj = typedescr.allocate(space, space.w_str)
+    typedescr = get_typedescr(space.w_bytes.instancetypedef)
+    py_obj = typedescr.allocate(space, space.w_bytes)
     py_str = rffi.cast(PyStringObject, py_obj)
 
     buflen = length + 1
@@ -89,7 +89,7 @@ def string_attach(space, py_obj, w_obj):
     buffer must not be modified.
     """
     py_str = rffi.cast(PyStringObject, py_obj)
-    py_str.c_size = len(space.str_w(w_obj))
+    py_str.c_size = len(space.bytes_w(w_obj))
     py_str.c_buffer = lltype.nullptr(rffi.CCHARP.TO)
 
 def string_realize(space, py_obj):
@@ -119,14 +119,14 @@ def string_dealloc(space, py_obj):
 def PyString_FromStringAndSize(space, char_p, length):
     if char_p:
         s = rffi.charpsize2str(char_p, length)
-        return make_ref(space, space.wrap(s))
+        return make_ref(space, space.wrapbytes(s))
     else:
         return rffi.cast(PyObject, new_empty_str(space, length))
 
 @cpython_api([CONST_STRING], PyObject)
 def PyString_FromString(space, char_p):
     s = rffi.charp2str(char_p)
-    return space.wrap(s)
+    return space.wrapbytes(s)
 
 @cpython_api([PyObject], rffi.CCHARP, error=0)
 def PyString_AsString(space, ref):
@@ -134,7 +134,7 @@ def PyString_AsString(space, ref):
     if not ref_str.c_buffer:
         # copy string buffer
         w_str = from_ref(space, ref)
-        s = space.str_w(w_str)
+        s = space.bytes_w(w_str)
         ref_str.c_buffer = rffi.str2charp(s)
     return ref_str.c_buffer
 
@@ -147,7 +147,7 @@ def PyString_AsStringAndSize(space, ref, buffer, length):
     if not ref_str.c_buffer:
         # copy string buffer
         w_str = from_ref(space, ref)
-        s = space.str_w(w_str)
+        s = space.bytes_w(w_str)
         ref_str.c_buffer = rffi.str2charp(s)
     buffer[0] = ref_str.c_buffer
     if length:
@@ -235,12 +235,6 @@ def PyString_ConcatAndDel(space, ref, newpart):
     PyString_Concat(space, ref, newpart)
     Py_DecRef(space, newpart)
 
-@cpython_api([PyObject, PyObject], PyObject)
-def PyString_Format(space, w_format, w_args):
-    """Return a new string object from format and args. Analogous to format %
-    args.  The args argument must be a tuple."""
-    return space.mod(w_format, w_args)
-
 @cpython_api([CONST_STRING], PyObject)
 def PyString_InternFromString(space, string):
     """A combination of PyString_FromString() and
@@ -249,25 +243,6 @@ def PyString_InternFromString(space, string):
     object with the same value."""
     s = rffi.charp2str(string)
     return space.new_interned_str(s)
-
-@cpython_api([PyObject, rffi.CCHARP, rffi.CCHARP], PyObject)
-def PyString_AsEncodedObject(space, w_str, encoding, errors):
-    """Encode a string object using the codec registered for encoding and return
-    the result as Python object. encoding and errors have the same meaning as
-    the parameters of the same name in the string encode() method. The codec to
-    be used is looked up using the Python codec registry. Return NULL if an
-    exception was raised by the codec.
-
-    This function is not available in 3.x and does not have a PyBytes alias."""
-    if not PyString_Check(space, w_str):
-        PyErr_BadArgument(space)
-
-    w_encoding = w_errors = space.w_None
-    if encoding:
-        w_encoding = space.wrap(rffi.charp2str(encoding))
-    if errors:
-        w_errors = space.wrap(rffi.charp2str(errors))
-    return space.call_method(w_str, 'encode', w_encoding, w_errors)
 
 @cpython_api([PyObject, PyObject], PyObject)
 def _PyString_Join(space, w_sep, w_seq):
