@@ -20,6 +20,7 @@ class GcCache(object):
         self._cache_field = {}
         self._cache_array = {}
         self._cache_call = {}
+        self._cache_interiorfield = {}
 
     def init_size_descr(self, STRUCT, sizedescr):
         assert isinstance(STRUCT, lltype.GcStruct)
@@ -239,6 +240,17 @@ def getArrayNoLengthDescrClass(ARRAY):
     return getDescrClass(ARRAY.OF, BaseArrayNoLengthDescr, GcPtrArrayNoLengthDescr,
                          NonGcPtrArrayNoLengthDescr, 'ArrayNoLength', 'get_item_size',
                          '_is_array_of_floats', '_is_item_signed')
+
+def get_interiorfield_descr(gc_ll_descr, ARRAY, FIELDTP, name):
+    cache = gc_ll_descr._cache_interiorfield
+    try:
+        return cache[(ARRAY, FIELDTP, name)]
+    except KeyError:
+        arraydescr = get_array_descr(gc_ll_descr, ARRAY)
+        fielddescr = get_field_descr(gc_ll_descr, FIELDTP, name)
+        descr = InteriorFieldDescr(arraydescr, fielddescr)
+        cache[(ARRAY, FIELDTP, name)] = descr
+        return descr
 
 def get_array_descr(gccache, ARRAY):
     cache = gccache._cache_array
