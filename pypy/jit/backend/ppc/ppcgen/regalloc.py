@@ -272,6 +272,8 @@ class Regalloc(object):
         return args
 
     prepare_guard_false = prepare_guard_true
+    prepare_guard_nonnull = prepare_guard_true
+    prepare_guard_isnull = prepare_guard_true
 
     def prepare_guard_no_overflow(self, op):
         locs = self._prepare_guard(op)
@@ -279,6 +281,23 @@ class Regalloc(object):
         return locs
 
     prepare_guard_overflow = prepare_guard_no_overflow
+
+    def prepare_guard_value(self, op):
+        boxes = list(op.getarglist())
+        b0, b1 = boxes
+        imm_b1 = _check_imm_arg(b1)
+        l0, box = self._ensure_value_is_boxed(b0, boxes)
+        boxes.append(box)
+        if not imm_b1:
+            l1, box = self._ensure_value_is_boxed(b1,boxes)
+            boxes.append(box)
+        else:
+            l1 = self.make_sure_var_in_reg(b1)
+        assert op.result is None
+        arglocs = self._prepare_guard(op, [l0, l1])
+        self.possibly_free_vars(boxes)
+        self.possibly_free_vars(op.getfailargs())
+        return arglocs
 
     def prepare_jump(self, op):
         descr = op.getdescr()

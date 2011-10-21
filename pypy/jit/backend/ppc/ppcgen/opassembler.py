@@ -197,6 +197,23 @@ class OpAssembler(object):
     def emit_guard_overflow(self, op, arglocs, regalloc):
         self._emit_ovf_guard(op, arglocs, c.EQ)
 
+    def emit_guard_value(self, op, arglocs, regalloc):
+        l0 = arglocs[0]
+        l1 = arglocs[1]
+        failargs = arglocs[2:]
+
+        if l0.is_reg():
+            if l1.is_imm():
+                self.mc.cmpi(l0.value, l1.getint())
+            else:
+                self.mc.cmp(l0.value, l1.value)
+        else:
+            assert 0, "not implemented yet"
+        self._emit_guard(op, failargs, c.NE)
+
+    emit_guard_nonnull = emit_guard_true
+    emit_guard_isnull = emit_guard_false
+
     def emit_finish(self, op, arglocs, regalloc):
         self.gen_exit_stub(op.getdescr(), op.getarglist(), arglocs)
 
@@ -213,6 +230,7 @@ class OpAssembler(object):
                          descr._ppc_frame_manager_depth)
             regalloc.frame_manager.frame_depth = new_fd
 
+    # XXX adjust 64 bit
     def emit_setfield_gc(self, op, arglocs, regalloc):
         value_loc, base_loc, ofs, size = arglocs
         if size.value == 8:
@@ -235,6 +253,7 @@ class OpAssembler(object):
         else:
             assert 0, "size not supported"
 
+    # XXX adjust 64 bit
     def emit_getfield_gc(self, op, arglocs, regalloc):
         base_loc, ofs, res, size = arglocs
         if size.value == 8:
