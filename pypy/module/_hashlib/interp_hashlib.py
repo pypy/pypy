@@ -100,7 +100,7 @@ class W_Hash(Wrappable):
     def digest(self, space):
         "Return the digest value as a string of binary data."
         digest = self._digest(space)
-        return space.wrap(digest)
+        return space.wrapbytes(digest)
 
     def hexdigest(self, space):
         "Return the digest value as a string of hexadecimal digits."

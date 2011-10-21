@@ -28,13 +28,13 @@ class AppTestHashlib:
             assert h.digest_size == expected_size
             assert h.digestsize == expected_size
             #
-            h.update('abc')
+            h.update(b'abc')
             h2 = h.copy()
-            h.update('def')
+            h.update(b'def')
             digest = h.digest()
             hexdigest = h.hexdigest()
-            h2.update('d')
-            h2.update('ef')
+            h2.update(b'd')
+            h2.update(b'ef')
             assert digest    == h2.digest()
             assert hexdigest == h2.hexdigest()
             assert len(digest)    == h.digest_size
@@ -66,10 +66,6 @@ class AppTestHashlib:
         import hashlib
         assert repr(hashlib.md5()).startswith("<md5 HASH object")
 
-    def test_unicode(self):
-        import _hashlib
-        assert _hashlib.new('sha1', u'xxx').__class__.__name__ == 'HASH'
-
     def test_uppercase(self):
         import _hashlib
         h = _hashlib.new('MD5')
@@ -78,9 +74,9 @@ class AppTestHashlib:
 
     def test_buffer(self):
         import _hashlib, array
-        b = array.array('b', 'x' * 10)
+        b = array.array('b', b'x' * 10)
         h = _hashlib.new('md5', b)
         h.update(b)
-        assert h.digest() == _hashlib.openssl_md5('x' * 20).digest()
+        assert h.digest() == _hashlib.openssl_md5(b'x' * 20).digest()
         _hashlib.openssl_sha1(b).digest()
 

@@ -339,7 +339,7 @@ digest_size = 20
 digestsize = 20
 blocksize = 1
 
-def new(arg=None):
+def sha1(arg=None):
     """Return a new sha crypto object.
 
     If arg is present, the method call update(arg) is made.

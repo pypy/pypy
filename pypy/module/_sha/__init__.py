@@ -18,12 +18,10 @@ the update() method, and at any point you can ask it for the digest of
 the concatenation of the strings fed to it so far. SHA-1 digests are 160
 bits instead of MD5's 128 bits."""
 
+    applevel_name = '_sha1'
+
     interpleveldefs = {
-        'new': 'interp_sha.W_SHA',
-        'SHAType': 'interp_sha.W_SHA',
-        'blocksize': 'space.wrap(1)',
-        'digest_size': 'space.wrap(20)',
-        'digestsize': 'space.wrap(20)',
+        'sha1': 'interp_sha.W_SHA',
         }
 
     appleveldefs = {
