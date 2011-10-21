@@ -1459,14 +1459,18 @@ class TestMiniMarkGC(TestSemiSpaceGC):
         assert res == -99997
 
     def define_nongc_opaque_attached_to_gc(cls):
+        from pypy.module._hashlib.interp_hashlib import HASH_MALLOC_SIZE
+        from pypy.rlib import rgc, ropenssl
         from pypy.rpython.lltypesystem import rffi
-        from pypy.rlib import ropenssl
+
         class A:
             def __init__(self):
                 self.ctx = lltype.malloc(ropenssl.EVP_MD_CTX.TO,
                     flavor='raw')
                 digest = ropenssl.EVP_get_digestbyname('sha1')
                 ropenssl.EVP_DigestInit(self.ctx, digest)
+                rgc.add_memory_pressure(HASH_MALLOC_SIZE + 64)
+
             def __del__(self):
                 ropenssl.EVP_MD_CTX_cleanup(self.ctx)
                 lltype.free(self.ctx, flavor='raw')
