@@ -8,6 +8,7 @@ a drop-in replacement for the 'socket' module.
 # Known missing features:
 #
 #   - address families other than AF_INET, AF_INET6, AF_UNIX, AF_PACKET
+#   - AF_PACKET is only supported on Linux
 #   - methods makefile(),
 #   - SSL
 #

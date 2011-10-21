@@ -682,8 +682,7 @@ class SourceGenerator:
     def getbasecfilefornode(self, node, basecname):
         # For FuncNode instances, use the python source filename (relative to
         # the top directory):
-        if hasattr(node.obj, 'graph'):
-            g = node.obj.graph
+        def invent_nice_name(g):
             # Lookup the filename from the function.
             # However, not all FunctionGraph objs actually have a "func":
             if hasattr(g, 'func'):
@@ -693,6 +692,15 @@ class SourceGenerator:
                     if pypkgpath:
                         relpypath =  localpath.relto(pypkgpath)
                         return relpypath.replace('.py', '.c')
+            return None
+        if hasattr(node.obj, 'graph'):
+            name = invent_nice_name(node.obj.graph)
+            if name is not None:
+                return name
+        elif node._funccodegen_owner is not None:
+            name = invent_nice_name(node._funccodegen_owner.graph)
+            if name is not None:
+                return "data_" + name
         return basecname
 
     def splitnodesimpl(self, basecname, nodes, nextra, nbetween,

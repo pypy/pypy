@@ -135,6 +135,8 @@ class Entry(ExtRegistryEntry):
     _about_ = erase_int
 
     def compute_result_annotation(self, s_obj):
+        config = self.bookkeeper.annotator.translator.config
+        assert config.translation.taggedpointers, "need to enable tagged pointers to use erase_int"
         assert annmodel.SomeInteger().contains(s_obj)
         return SomeErased()
 
@@ -228,6 +230,8 @@ class ErasedRepr(Repr):
 
     def convert_const(self, value):
         if value._identity is _identity_for_ints:
+            config = self.rtyper.annotator.translator.config
+            assert config.translation.taggedpointers, "need to enable tagged pointers to use erase_int"
             return lltype.cast_int_to_ptr(self.lowleveltype, value._x * 2 + 1)
         bk = self.rtyper.annotator.bookkeeper
         s_obj = value._identity.get_input_annotation(bk)

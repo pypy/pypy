@@ -78,6 +78,7 @@ if sys.platform == "sunos5":
     del working_modules['fcntl']  # LOCK_NB not defined
     del working_modules["_minimal_curses"]
     del working_modules["termios"]
+    del working_modules["_multiprocessing"]   # depends on rctime
 
 
 

@@ -141,7 +141,12 @@ def name_address(value, db):
 
 def name_gcref(value, db):
     if value:
-        realobj = value._obj.container
+        obj = value._obj
+        if isinstance(obj, int):
+            # a tagged pointer
+            assert obj & 1 == 1
+            return '((%s) %d)' % (cdecl("void*", ''), obj)
+        realobj = obj.container
         realvalue = cast_opaque_ptr(Ptr(typeOf(realobj)), value)
         return db.get(realvalue)
     else:

@@ -132,3 +132,20 @@ or string, return the same type, else return a list."""
     for item in seq:
         if func(item):
             yield item
+
+def zip(*sequences):
+    """zip(seq1 [, seq2 [...]]) -> [(seq1[0], seq2[0] ...), (...)]
+
+Return a list of tuples, where each tuple contains the i-th element
+from each of the argument sequences.  The returned list is truncated
+in length to the length of the shortest argument sequence."""
+    if not sequences:
+        return []
+    result = []
+    iterators = [iter(seq) for seq in sequences]
+    while True:
+        try:
+            items = [next(it) for it in iterators]
+        except StopIteration:
+            return result
+        result.append(tuple(items))

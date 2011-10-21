@@ -24,6 +24,7 @@ class Module(MixedModule):
         'map'           : 'app_functional.map',
         'reduce'        : 'app_functional.reduce',
         'filter'        : 'app_functional.filter',
+        'zip'           : 'app_functional.zip',
         'vars'          : 'app_inspect.vars',
         'dir'           : 'app_inspect.dir',
 
@@ -87,7 +88,6 @@ class Module(MixedModule):
         'enumerate'     : 'functional.W_Enumerate',
         'min'           : 'functional.min',
         'max'           : 'functional.max',
-        'zip'           : 'functional.zip',
         'reversed'      : 'functional.reversed',
         'super'         : 'descriptor.W_Super',
         'staticmethod'  : 'descriptor.StaticMethod',
