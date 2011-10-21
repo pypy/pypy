@@ -37,16 +37,10 @@ working_modules.update(dict.fromkeys(
      "_continuation"]
 ))
 
-# XXX Here is the list of modules not known to work yet
-for name in [
-    "mmap", "_locale", "pwd",
-    "zipimport", "_lsprof",
-    "crypt", "_rawffi", "termios", "zlib", "bz2",
-    "_hashlib", "_md5", "_sha", "_minimal_curses", "cStringIO",
-    "thread", "itertools", "pyexpat", "_ssl", "cpyext",
-    "_bisect", "_multiprocessing",
-    "_collections", "_multibytecodec", "micronumpy", "_ffi",
-    "_continuation"]:
+# Here is the list of modules known to not work yet
+for name in ["_rawffi", "_ffi", "cpyext",
+             "_hashlib", "_md5", "_sha",
+             ]:
     del working_modules[name]
 
 translation_modules = default_modules.copy()
