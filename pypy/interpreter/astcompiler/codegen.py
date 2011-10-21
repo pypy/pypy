@@ -221,7 +221,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                                   "nested scopes: '%s'" % (identifier,))
             container = self.cell_vars
         elif scope == symtable.SCOPE_GLOBAL_IMPLICIT:
-            if self.scope.locals_fully_known:
+            if self.scope.optimized:
                 op = name_ops_global(ctx)
         elif scope == symtable.SCOPE_GLOBAL_EXPLICIT:
             op = name_ops_global(ctx)
@@ -1125,7 +1125,7 @@ class AbstractFunctionCodeGenerator(PythonCodeGenerator):
         scope = self.scope
         assert isinstance(scope, symtable.FunctionScope)
         flags = 0
-        if scope.locals_fully_known:
+        if scope.optimized:
             flags |= consts.CO_OPTIMIZED
         if scope.nested:
             flags |= consts.CO_NESTED

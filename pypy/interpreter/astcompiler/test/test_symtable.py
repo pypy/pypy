@@ -54,12 +54,12 @@ class TestSymbolTable:
     def test_toplevel(self):
         scp = self.mod_scope("x = 4")
         assert scp.lookup("x") == symtable.SCOPE_LOCAL
-        assert not scp.locals_fully_known
+        assert not scp.optimized
         scp = self.mod_scope("x = 4", "single")
-        assert not scp.locals_fully_known
+        assert not scp.optimized
         assert scp.lookup("x") == symtable.SCOPE_LOCAL
         scp = self.mod_scope("x*4*6", "eval")
-        assert not scp.locals_fully_known
+        assert not scp.optimized
         assert scp.lookup("x") == symtable.SCOPE_GLOBAL_IMPLICIT
 
     def test_duplicate_argument(self):
@@ -278,12 +278,8 @@ class TestSymbolTable:
 
     def test_unoptimization_with_nested_scopes(self):
         table = (
-            ("from x import *; exec 'hi'", "function 'f' uses import * " \
-                 "and bare exec, which are illegal because it"),
             ("from x import *", "import * is not allowed in function 'f' " \
                  "because it"),
-            ("exec 'hi'", "unqualified exec is not allowed in function 'f' " \
-                 "because it")
          )
         for line, error in table:
             input = """def n():
@@ -319,20 +315,6 @@ class TestSymbolTable:
         capfd.close()
         assert     "import * only allowed at module level" in err1
         assert not "import * only allowed at module level" in err2
-
-    def test_exec(self):
-        self.mod_scope("exec 'hi'")
-        scp = self.func_scope("def f(): exec 'hi'")
-        assert not scp.optimized
-        assert not scp.locals_fully_known
-        assert isinstance(scp.bare_exec, ast.Exec)
-        assert scp.has_exec
-        for line in ("exec 'hi' in g", "exec 'hi' in g, h"):
-            scp = self.func_scope("def f(): " + line)
-            assert scp.optimized
-            assert not scp.locals_fully_known
-            assert scp.bare_exec is None
-            assert scp.has_exec
 
     def test_yield(self):
         scp = self.func_scope("def f(): yield x")

@@ -32,14 +32,13 @@ class Scope(object):
         self.col_offset = col_offset
         self.parent = None
         self.name = name
-        self.locals_fully_known = False
+        self.optimized = False
         self.symbols = None
         self.roles = {}
         self.varnames = []
         self.children = []
         self.free_vars = []
         self.temp_name_counter = 1
-        self.has_exec = False
         self.has_free = False
         self.child_has_free = False
         self.nested = False
@@ -84,10 +83,6 @@ class Scope(object):
         """Called when a return statement is found."""
         raise SyntaxError("return outside function", ret.lineno,
                           ret.col_offset)
-
-    def note_exec(self, exc):
-        """Called when an exec statement is found."""
-        self.has_exec = True
 
     def note_import_star(self, imp):
         """Called when a star import is found."""
@@ -230,7 +225,6 @@ class FunctionScope(Scope):
         self.optimized = True
         self.return_with_value = False
         self.import_star = None
-        self.bare_exec = None
 
     def note_symbol(self, identifier, role):
         # Special-case super: it counts as a use of __class__
@@ -251,12 +245,6 @@ class FunctionScope(Scope):
                                   ret.lineno, ret.col_offset)
             self.return_with_value = True
             self.ret = ret
-
-    def note_exec(self, exc):
-        Scope.note_exec(self, exc)
-        if not exc.globals:
-            self.optimized = False
-            self.bare_exec = exc
 
     def note_import_star(self, imp):
         self.optimized = False
@@ -293,20 +281,11 @@ class FunctionScope(Scope):
             name = self.name
             if self.import_star:
                 node = self.import_star
-                if self.bare_exec:
-                    err = "function '%s' uses import * and bare exec, " \
-                        "which are illegal because it %s" % (name, trailer)
-                else:
-                    err = "import * is not allowed in function '%s' because " \
-                        "it %s" % (name, trailer)
-            elif self.bare_exec:
-                node = self.bare_exec
-                err = "unqualified exec is not allowed in function '%s' " \
-                    "because it %s" % (name, trailer)
+                err = "import * is not allowed in function '%s' because " \
+                    "it %s" % (name, trailer)
             else:
                 raise AssertionError("unknown reason for unoptimization")
             raise SyntaxError(err, node.lineno, node.col_offset)
-        self.locals_fully_known = self.optimized and not self.has_exec
 
 
 class ClassScope(Scope):
@@ -437,10 +416,6 @@ class SymtableBuilder(ast.GenericASTVisitor):
 
     def visit_alias(self, alias):
         self._visit_alias(alias)
-
-    def visit_Exec(self, exc):
-        self.scope.note_exec(exc)
-        ast.GenericASTVisitor.visit_Exec(self, exc)
 
     def visit_Yield(self, yie):
         self.scope.note_yield(yie)
