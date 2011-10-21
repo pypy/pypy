@@ -91,8 +91,7 @@ class DictTests:
         res1 = f(100)
         res2 = self.meta_interp(f, [100], listops=True)
         assert res1 == res2
-        # the hash was traced
-        self.check_loops(int_mod=1)
+        self.check_loops(int_mod=1) # the hash was traced and eq, but cached
 
     def test_dict_setdefault(self):
         myjitdriver = JitDriver(greens = [], reds = ['total', 'dct'])
@@ -129,7 +128,7 @@ class DictTests:
         assert f(100) == 50
         res = self.meta_interp(f, [100], listops=True)
         assert res == 50
-        self.check_loops(int_mod=1) # key
+        self.check_loops(int_mod=1) # key + eq, but cached
 
     def test_repeated_lookup(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'd'])
