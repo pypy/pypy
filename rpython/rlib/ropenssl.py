@@ -144,6 +144,12 @@ class CConfig:
          ('name', rffi.CCHARP),
          ])
 
+    OBJ_NAME_st = rffi_platform.Struct(
+        'OBJ_NAME',
+        [('alias', rffi.INT),
+         ('name', rffi.CCHARP),
+         ])
+
 
 for k, v in rffi_platform.configure(CConfig).items():
     globals()[k] = v
@@ -342,6 +348,11 @@ OBJ_NAME_do_all = external(
 # XXX: Make a better estimate here
 HASH_MALLOC_SIZE = EVP_MD_SIZE + EVP_MD_CTX_SIZE \
         + rffi.sizeof(EVP_MD) * 2 + 208
+
+OBJ_NAME_CALLBACK = lltype.Ptr(lltype.FuncType(
+        [OBJ_NAME, rffi.VOIDP], lltype.Void))
+OBJ_NAME_do_all = external(
+    'OBJ_NAME_do_all', [rffi.INT, OBJ_NAME_CALLBACK, rffi.VOIDP], lltype.Void)
 
 def init_ssl():
     libssl_SSL_load_error_strings()
