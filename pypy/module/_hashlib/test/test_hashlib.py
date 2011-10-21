@@ -5,6 +5,11 @@ class AppTestHashlib:
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=['_hashlib'])
 
+    def test_method_names(self):
+        import _hashlib
+        assert isinstance(_hashlib.openssl_md_meth_names, set)
+        assert "md5" in _hashlib.openssl_md_meth_names
+
     def test_simple(self):
         import _hashlib
         assert _hashlib.new('md5').__class__.__name__ == 'HASH'

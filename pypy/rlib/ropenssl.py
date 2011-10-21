@@ -89,6 +89,9 @@ class CConfig:
 
     CRYPTO_LOCK = rffi_platform.ConstantInteger("CRYPTO_LOCK")
 
+    OBJ_NAME_TYPE_MD_METH = rffi_platform.ConstantInteger(
+        "OBJ_NAME_TYPE_MD_METH")
+
     # Some structures, with only the fields used in the _ssl module
     X509_name_entry_st = rffi_platform.Struct('struct X509_name_entry_st',
                                               [('set', rffi.INT)])
@@ -108,6 +111,12 @@ class CConfig:
     GENERAL_NAME_st = rffi_platform.Struct(
         'struct GENERAL_NAME_st',
         [('type', rffi.INT),
+         ]) 
+
+    OBJ_NAME_st = rffi_platform.Struct(
+        'OBJ_NAME',
+        [('alias', rffi.INT),
+         ('name', rffi.CCHARP),
          ]) 
 
 
@@ -130,6 +139,7 @@ ASN1_TIME = rffi.COpaquePtr('ASN1_TIME')
 ASN1_INTEGER = rffi.COpaquePtr('ASN1_INTEGER')
 GENERAL_NAMES = rffi.COpaquePtr('GENERAL_NAMES')
 GENERAL_NAME = rffi.CArrayPtr(GENERAL_NAME_st)
+OBJ_NAME = rffi.CArrayPtr(OBJ_NAME_st)
 
 HAVE_OPENSSL_RAND = OPENSSL_VERSION_NUMBER >= 0x0090500f
 
@@ -275,6 +285,11 @@ EVP_MD_CTX_copy = external(
     'EVP_MD_CTX_copy', [EVP_MD_CTX, EVP_MD_CTX], rffi.INT)
 EVP_MD_CTX_cleanup = external(
     'EVP_MD_CTX_cleanup', [EVP_MD_CTX], rffi.INT, threadsafe=False)
+
+OBJ_NAME_CALLBACK = lltype.Ptr(lltype.FuncType(
+        [OBJ_NAME, rffi.VOIDP], lltype.Void))
+OBJ_NAME_do_all = external(
+    'OBJ_NAME_do_all', [rffi.INT, OBJ_NAME_CALLBACK, rffi.VOIDP], lltype.Void)
 
 def init_ssl():
     libssl_SSL_load_error_strings()
