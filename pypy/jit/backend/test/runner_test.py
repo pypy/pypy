@@ -894,8 +894,8 @@ class BaseBackendTest(Runner):
                                                          boxfloat(1.5)],
                                'void', descr=kdescr)
         f = self.cpu.bh_getinteriorfield_gc_f(a_box.getref_base(), 3, kdescr)
-        assert f == 1.5
-        self.cpu.bh_setinteriorfield_gc_f(a_box.getref_base(), 3, kdescr, 2.5)
+        assert longlong.getrealfloat(f) == 1.5
+        self.cpu.bh_setinteriorfield_gc_f(a_box.getref_base(), 3, kdescr, longlong.getfloatstorage(2.5))
         r = self.execute_operation(rop.GETINTERIORFIELD_GC, [a_box, BoxInt(3)],
                                    'float', descr=kdescr)
         assert r.getfloat() == 2.5
