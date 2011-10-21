@@ -6,7 +6,6 @@ from pypy.rlib.debug import debug_start, debug_stop, ll_assert
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rpython.llinterp import LLException
 from pypy.jit.codewriter.jitcode import JitCode, SwitchDictDescr
 from pypy.jit.codewriter import heaptracker, longlong
 from pypy.jit.metainterp.jitexc import JitException, get_llexception, reraise
@@ -1153,6 +1152,26 @@ class BlackholeInterpreter(object):
     def bhimpl_arraylen_vable(cpu, vable, fdescr, adescr):
         array = cpu.bh_getfield_gc_r(vable, fdescr)
         return cpu.bh_arraylen_gc(adescr, array)
+
+    @arguments("cpu", "r", "i", "d", returns="i")
+    def bhimpl_getinteriorfield_gc_i(cpu, array, index, descr):
+        return cpu.bh_getinteriorfield_gc_i(array, index, descr)
+    @arguments("cpu", "r", "i", "d", returns="r")
+    def bhimpl_getinteriorfield_gc_r(cpu, array, index, descr):
+        return cpu.bh_getinteriorfield_gc_r(array, index, descr)
+    @arguments("cpu", "r", "i", "d", returns="f")
+    def bhimpl_getinteriorfield_gc_f(cpu, array, index, descr):
+        return cpu.bh_getinteriorfield_gc_f(array, index, descr)
+
+    @arguments("cpu", "r", "i", "d", "i")
+    def bhimpl_setinteriorfield_gc_i(cpu, array, index, descr, value):
+        cpu.bh_setinteriorfield_gc_i(array, index, descr, value)
+    @arguments("cpu", "r", "i", "d", "r")
+    def bhimpl_setinteriorfield_gc_r(cpu, array, index, descr, value):
+        cpu.bh_setinteriorfield_gc_r(array, index, descr, value)
+    @arguments("cpu", "r", "i", "d", "f")
+    def bhimpl_setinteriorfield_gc_f(cpu, array, index, descr, value):
+        cpu.bh_setinteriorfield_gc_f(array, index, descr, value)
 
     @arguments("cpu", "r", "d", returns="i")
     def bhimpl_getfield_gc_i(cpu, struct, fielddescr):

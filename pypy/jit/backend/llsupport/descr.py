@@ -1,13 +1,10 @@
 import py
-from pypy.rpython.lltypesystem import lltype, rffi, llmemory, rclass
+from pypy.rpython.lltypesystem import lltype, rffi, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.jit.backend.llsupport import symbolic, support
-from pypy.jit.metainterp.history import AbstractDescr, getkind, BoxInt, BoxPtr
-from pypy.jit.metainterp.history import BasicFailDescr, LoopToken, BoxFloat
+from pypy.jit.metainterp.history import AbstractDescr, getkind
 from pypy.jit.metainterp import history
-from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.codewriter import heaptracker, longlong
-from pypy.rlib.rarithmetic import r_longlong, r_ulonglong
 
 # The point of the class organization in this file is to make instances
 # as compact as possible.  This is done by not storing the field size or
@@ -23,6 +20,7 @@ class GcCache(object):
         self._cache_field = {}
         self._cache_array = {}
         self._cache_call = {}
+        self._cache_interiorfield = {}
 
     def init_size_descr(self, STRUCT, sizedescr):
         assert isinstance(STRUCT, lltype.GcStruct)
@@ -142,7 +140,6 @@ def get_field_descr(gccache, STRUCT, fieldname):
         cachedict[fieldname] = fielddescr
         return fielddescr
 
-
 # ____________________________________________________________
 # ArrayDescrs
 
@@ -252,6 +249,36 @@ def get_array_descr(gccache, ARRAY):
         cache[ARRAY] = arraydescr
         return arraydescr
 
+# ____________________________________________________________
+# InteriorFieldDescr
+
+class InteriorFieldDescr(AbstractDescr):
+    arraydescr = BaseArrayDescr()     # workaround for the annotator
+    fielddescr = BaseFieldDescr('', 0)
+
+    def __init__(self, arraydescr, fielddescr):
+        self.arraydescr = arraydescr
+        self.fielddescr = fielddescr
+
+    def is_pointer_field(self):
+        return self.fielddescr.is_pointer_field()
+
+    def is_float_field(self):
+        return self.fielddescr.is_float_field()
+
+    def repr_of_descr(self):
+        return '<InteriorFieldDescr %s>' % self.fielddescr.repr_of_descr()
+
+def get_interiorfield_descr(gc_ll_descr, ARRAY, FIELDTP, name):
+    cache = gc_ll_descr._cache_interiorfield
+    try:
+        return cache[(ARRAY, FIELDTP, name)]
+    except KeyError:
+        arraydescr = get_array_descr(gc_ll_descr, ARRAY)
+        fielddescr = get_field_descr(gc_ll_descr, FIELDTP, name)
+        descr = InteriorFieldDescr(arraydescr, fielddescr)
+        cache[(ARRAY, FIELDTP, name)] = descr
+        return descr
 
 # ____________________________________________________________
 # CallDescrs
@@ -525,7 +552,8 @@ def getDescrClass(TYPE, BaseDescr, GcPtrDescr, NonGcPtrDescr,
         #
         if TYPE is lltype.Float or is_longlong(TYPE):
             setattr(Descr, floatattrname, True)
-        elif TYPE is not lltype.Bool and rffi.cast(TYPE, -1) == -1:
+        elif (TYPE is not lltype.Bool and isinstance(TYPE, lltype.Number) and
+              rffi.cast(TYPE, -1) == -1):
             setattr(Descr, signedattrname, True)
         #
         _cache[nameprefix, TYPE] = Descr
