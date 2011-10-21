@@ -111,7 +111,7 @@ class BaseBackendTest(Runner):
         self.cpu.set_future_value_int(0, 2)
         fail = self.cpu.execute_token(looptoken)
         res = self.cpu.get_latest_value_int(0)
-        assert res == 3        
+        assert res == 3
         assert fail.identifier == 1
 
     def test_compile_loop(self):
@@ -127,7 +127,7 @@ class BaseBackendTest(Runner):
             ]
         inputargs = [i0]
         operations[2].setfailargs([i1])
-        
+
         self.cpu.compile_loop(inputargs, operations, looptoken)
         self.cpu.set_future_value_int(0, 2)
         fail = self.cpu.execute_token(looptoken)
@@ -148,7 +148,7 @@ class BaseBackendTest(Runner):
             ]
         inputargs = [i0]
         operations[2].setfailargs([None, None, i1, None])
-        
+
         self.cpu.compile_loop(inputargs, operations, looptoken)
         self.cpu.set_future_value_int(0, 2)
         fail = self.cpu.execute_token(looptoken)
@@ -372,7 +372,7 @@ class BaseBackendTest(Runner):
         for opnum, boxargs, retvalue in get_int_tests():
             res = self.execute_operation(opnum, boxargs, 'int')
             assert res.value == retvalue
-        
+
     def test_float_operations(self):
         from pypy.jit.metainterp.test.test_executor import get_float_tests
         for opnum, boxargs, rettype, retvalue in get_float_tests(self.cpu):
@@ -438,7 +438,7 @@ class BaseBackendTest(Runner):
 
     def test_ovf_operations_reversed(self):
         self.test_ovf_operations(reversed=True)
-        
+
     def test_bh_call(self):
         cpu = self.cpu
         #
@@ -503,7 +503,7 @@ class BaseBackendTest(Runner):
                                          [funcbox, BoxInt(num), BoxInt(num)],
                                          'int', descr=dyn_calldescr)
             assert res.value == 2 * num
-            
+
 
         if cpu.supports_floats:
             def func(f0, f1, f2, f3, f4, f5, f6, i0, i1, f7, f8, f9):
@@ -543,7 +543,7 @@ class BaseBackendTest(Runner):
         funcbox = self.get_funcbox(self.cpu, func_ptr)
         res = self.execute_operation(rop.CALL, [funcbox] + map(BoxInt, args), 'int', descr=calldescr)
         assert res.value == func(*args)
-        
+
     def test_call_stack_alignment(self):
         # test stack alignment issues, notably for Mac OS/X.
         # also test the ordering of the arguments.
@@ -615,7 +615,7 @@ class BaseBackendTest(Runner):
         res = self.execute_operation(rop.GETFIELD_GC, [t_box],
                                      'int', descr=shortdescr)
         assert res.value == 1331
-        
+
         #
         u_box, U_box = self.alloc_instance(self.U)
         fielddescr2 = self.cpu.fielddescrof(self.S, 'next')
@@ -695,7 +695,7 @@ class BaseBackendTest(Runner):
 
     def test_failing_guard_class(self):
         t_box, T_box = self.alloc_instance(self.T)
-        u_box, U_box = self.alloc_instance(self.U)        
+        u_box, U_box = self.alloc_instance(self.U)
         null_box = self.null_instance()
         for opname, args in [(rop.GUARD_CLASS, [t_box, U_box]),
                              (rop.GUARD_CLASS, [u_box, T_box]),
@@ -787,7 +787,7 @@ class BaseBackendTest(Runner):
         r = self.execute_operation(rop.GETARRAYITEM_GC, [a_box, BoxInt(3)],
                                    'int', descr=arraydescr)
         assert r.value == 160
-        
+
         #
         if isinstance(A, lltype.GcArray):
             A = lltype.Ptr(A)
@@ -891,7 +891,7 @@ class BaseBackendTest(Runner):
         vdescr = self.cpu.interiorfielddescrof(A, 'v')
         pdescr = self.cpu.interiorfielddescrof(A, 'p')
         self.execute_operation(rop.SETINTERIORFIELD_GC, [a_box, BoxInt(3),
-                                                         BoxFloat(1.5)],
+                                                         boxfloat(1.5)],
                                'void', descr=kdescr)
         f = self.cpu.bh_getinteriorfield_gc_f(a_box.getref_base(), 3, kdescr)
         assert f == 1.5
@@ -1441,7 +1441,7 @@ class LLtypeBackendTest(BaseBackendTest):
         addr = llmemory.cast_ptr_to_adr(func_ptr)
         return ConstInt(heaptracker.adr2int(addr))
 
-    
+
     MY_VTABLE = rclass.OBJECT_VTABLE    # for tests only
 
     S = lltype.GcForwardReference()
@@ -2356,7 +2356,7 @@ class LLtypeBackendTest(BaseBackendTest):
         for opname, arg, res in ops:
             self.execute_operation(opname, [arg], 'void')
             assert self.guard_failed == res
-        
+
         lltype.free(x, flavor='raw')
 
     def test_assembler_call(self):
@@ -2436,7 +2436,7 @@ class LLtypeBackendTest(BaseBackendTest):
         FakeJitDriverSD.portal_calldescr = self.cpu.calldescrof(
             lltype.Ptr(lltype.FuncType(ARGS, RES)), ARGS, RES,
             EffectInfo.MOST_GENERAL)
-        
+
         ops = '''
         [f0, f1]
         f2 = float_add(f0, f1)
@@ -2527,7 +2527,7 @@ class LLtypeBackendTest(BaseBackendTest):
         FakeJitDriverSD.portal_calldescr = self.cpu.calldescrof(
             lltype.Ptr(lltype.FuncType(ARGS, RES)), ARGS, RES,
             EffectInfo.MOST_GENERAL)
-        
+
         ops = '''
         [f0, f1]
         f2 = float_add(f0, f1)
@@ -2978,4 +2978,4 @@ class OOtypeBackendTest(BaseBackendTest):
 
     def alloc_unicode(self, unicode):
         py.test.skip("implement me")
-    
+
