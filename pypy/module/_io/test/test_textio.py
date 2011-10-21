@@ -29,6 +29,14 @@ class AppTestTextIO:
         assert t.readable()
         assert t.seekable()
 
+    def test_isatty(self):
+        import _io
+        class Tty(_io.BytesIO):
+            def isatty(self):
+                return True
+        txt = _io.TextIOWrapper(Tty())
+        assert txt.isatty()
+
     def test_unreadable(self):
         import _io
         class UnReadable(_io.BytesIO):
