@@ -141,23 +141,6 @@ def get_field_descr(gccache, STRUCT, fieldname):
         return fielddescr
 
 # ____________________________________________________________
-# InteriorFieldDescr
-
-class InteriorFieldDescr(AbstractDescr):
-    def __init__(self, arraydescr, fielddescr):
-        self.arraydescr = arraydescr
-        self.fielddescr = fielddescr
-
-    def is_pointer_field(self):
-        return self.fielddescr.is_pointer_field()
-
-    def is_float_field(self):
-        return self.fielddescr.is_float_field()
-
-    def repr_of_descr(self):
-        return '<InteriorFieldDescr %s>' % self.fielddescr.repr_of_descr()
-
-# ____________________________________________________________
 # ArrayDescrs
 
 _A = lltype.GcArray(lltype.Signed)     # a random gcarray
@@ -241,17 +224,6 @@ def getArrayNoLengthDescrClass(ARRAY):
                          NonGcPtrArrayNoLengthDescr, 'ArrayNoLength', 'get_item_size',
                          '_is_array_of_floats', '_is_item_signed')
 
-def get_interiorfield_descr(gc_ll_descr, ARRAY, FIELDTP, name):
-    cache = gc_ll_descr._cache_interiorfield
-    try:
-        return cache[(ARRAY, FIELDTP, name)]
-    except KeyError:
-        arraydescr = get_array_descr(gc_ll_descr, ARRAY)
-        fielddescr = get_field_descr(gc_ll_descr, FIELDTP, name)
-        descr = InteriorFieldDescr(arraydescr, fielddescr)
-        cache[(ARRAY, FIELDTP, name)] = descr
-        return descr
-
 def get_array_descr(gccache, ARRAY):
     cache = gccache._cache_array
     try:
@@ -277,6 +249,36 @@ def get_array_descr(gccache, ARRAY):
         cache[ARRAY] = arraydescr
         return arraydescr
 
+# ____________________________________________________________
+# InteriorFieldDescr
+
+class InteriorFieldDescr(AbstractDescr):
+    arraydescr = BaseArrayDescr()     # workaround for the annotator
+    fielddescr = BaseFieldDescr('', 0)
+
+    def __init__(self, arraydescr, fielddescr):
+        self.arraydescr = arraydescr
+        self.fielddescr = fielddescr
+
+    def is_pointer_field(self):
+        return self.fielddescr.is_pointer_field()
+
+    def is_float_field(self):
+        return self.fielddescr.is_float_field()
+
+    def repr_of_descr(self):
+        return '<InteriorFieldDescr %s>' % self.fielddescr.repr_of_descr()
+
+def get_interiorfield_descr(gc_ll_descr, ARRAY, FIELDTP, name):
+    cache = gc_ll_descr._cache_interiorfield
+    try:
+        return cache[(ARRAY, FIELDTP, name)]
+    except KeyError:
+        arraydescr = get_array_descr(gc_ll_descr, ARRAY)
+        fielddescr = get_field_descr(gc_ll_descr, FIELDTP, name)
+        descr = InteriorFieldDescr(arraydescr, fielddescr)
+        cache[(ARRAY, FIELDTP, name)] = descr
+        return descr
 
 # ____________________________________________________________
 # CallDescrs
