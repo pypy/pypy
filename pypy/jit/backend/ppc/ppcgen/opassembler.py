@@ -174,6 +174,12 @@ class OpAssembler(object):
         #                        #      ^^^^ If this condition is met,
         #                        #           then the guard fails.
 
+    def emit_guard_false(self, op, arglocs, regalloc):
+            l0 = arglocs[0]
+            failargs = arglocs[1:]
+            self.mc.cmpi(l0.value, 0)
+            self._emit_guard(op, failargs, c.NE)
+
     # TODO - Evaluate whether this can be done with 
     #        SO bit instead of OV bit => usage of CR
     #        instead of XER could be more efficient

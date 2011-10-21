@@ -269,6 +269,8 @@ class Regalloc(object):
         self.possibly_free_vars(op.getfailargs())
         return args
 
+    prepare_guard_false = prepare_guard_true
+
     def prepare_guard_no_overflow(self, op):
         locs = self._prepare_guard(op)
         self.possibly_free_vars(op.getfailargs())
