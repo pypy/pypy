@@ -882,13 +882,20 @@ class BaseBackendTest(Runner):
 
     def test_array_of_structs(self):
         TP = lltype.GcStruct('x')
-        ITEM = lltype.Struct('x', ('v', lltype.Signed),
+        ITEM = lltype.Struct('x',
+                             ('vs', lltype.Signed),
+                             ('vu', lltype.Unsigned),
+                             ('vsc', rffi.SIGNEDCHAR),
+                             ('vuc', rffi.UCHAR),
+                             ('vss', rffi.SHORT),
+                             ('vus', rffi.USHORT),
+                             ('vsi', rffi.INT),
+                             ('vui', rffi.UINT),
                              ('k', lltype.Float),
                              ('p', lltype.Ptr(TP)))
         a_box, A = self.alloc_array_of(ITEM, 15)
         s_box, S = self.alloc_instance(TP)
         kdescr = self.cpu.interiorfielddescrof(A, 'k')
-        vdescr = self.cpu.interiorfielddescrof(A, 'v')
         pdescr = self.cpu.interiorfielddescrof(A, 'p')
         self.execute_operation(rop.SETINTERIORFIELD_GC, [a_box, BoxInt(3),
                                                          boxfloat(1.5)],
@@ -899,15 +906,36 @@ class BaseBackendTest(Runner):
         r = self.execute_operation(rop.GETINTERIORFIELD_GC, [a_box, BoxInt(3)],
                                    'float', descr=kdescr)
         assert r.getfloat() == 2.5
-        self.execute_operation(rop.SETINTERIORFIELD_GC, [a_box, BoxInt(3),
-                                                         BoxInt(15)],
-                               'void', descr=vdescr)
-        i = self.cpu.bh_getinteriorfield_gc_i(a_box.getref_base(), 3, vdescr)
-        assert i == 15
-        self.cpu.bh_setinteriorfield_gc_i(a_box.getref_base(), 3, vdescr, 25)
-        r = self.execute_operation(rop.GETINTERIORFIELD_GC, [a_box, BoxInt(3)],
-                                   'int', descr=vdescr)
-        assert r.getint() == 25
+        #
+        NUMBER_FIELDS = [('vs', lltype.Signed),
+                         ('vu', lltype.Unsigned),
+                         ('vsc', rffi.SIGNEDCHAR),
+                         ('vuc', rffi.UCHAR),
+                         ('vss', rffi.SHORT),
+                         ('vus', rffi.USHORT),
+                         ('vsi', rffi.INT),
+                         ('vui', rffi.UINT)]
+        for name, TYPE in NUMBER_FIELDS[::-1]:
+            vdescr = self.cpu.interiorfielddescrof(A, name)
+            self.execute_operation(rop.SETINTERIORFIELD_GC, [a_box, BoxInt(3),
+                                                             BoxInt(-15)],
+                                   'void', descr=vdescr)
+        for name, TYPE in NUMBER_FIELDS:
+            vdescr = self.cpu.interiorfielddescrof(A, name)
+            i = self.cpu.bh_getinteriorfield_gc_i(a_box.getref_base(), 3,
+                                                  vdescr)
+            assert i == rffi.cast(lltype.Signed, rffi.cast(TYPE, -15))
+        for name, TYPE in NUMBER_FIELDS[::-1]:
+            vdescr = self.cpu.interiorfielddescrof(A, name)
+            self.cpu.bh_setinteriorfield_gc_i(a_box.getref_base(), 3,
+                                              vdescr, -25)
+        for name, TYPE in NUMBER_FIELDS:
+            vdescr = self.cpu.interiorfielddescrof(A, name)
+            r = self.execute_operation(rop.GETINTERIORFIELD_GC,
+                                       [a_box, BoxInt(3)],
+                                       'int', descr=vdescr)
+            assert r.getint() == rffi.cast(lltype.Signed, rffi.cast(TYPE, -25))
+        #
         self.execute_operation(rop.SETINTERIORFIELD_GC, [a_box, BoxInt(4),
                                                          s_box],
                                'void', descr=pdescr)
