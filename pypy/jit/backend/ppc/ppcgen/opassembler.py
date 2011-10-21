@@ -214,6 +214,30 @@ class OpAssembler(object):
     emit_guard_nonnull = emit_guard_true
     emit_guard_isnull = emit_guard_false
 
+    def _cmp_guard_class(self, op, locs, regalloc):
+        offset = locs[2]
+        if offset is not None:
+            if offset.is_imm():
+                self.mc.lwz(r.r0.value, locs[0].value, offset.value)
+            else:
+                self.mc.lwzx(r.r0.value, locs[0].value, offset.value)
+            self.mc.cmp(r.r0.value, locs[1].value)
+        else:
+            assert 0, "not implemented yet"
+        self._emit_guard(op, locs[3:], c.NE)
+
+    def emit_guard_class(self, op, arglocs, regalloc):
+        self._cmp_guard_class(op, arglocs, regalloc)
+
+    def emit_guard_nonnull_class(self, op, arglocs, regalloc):
+        offset = self.cpu.vtable_offset
+        self.mc.cmpi(arglocs[0].value, 0)
+        if offset is not None:
+            self._emit_guard(op, arglocs[3:], c.EQ)
+        else:
+            raise NotImplementedError
+        self._cmp_guard_class(op, arglocs, regalloc)
+
     def emit_finish(self, op, arglocs, regalloc):
         self.gen_exit_stub(op.getdescr(), op.getarglist(), arglocs)
 

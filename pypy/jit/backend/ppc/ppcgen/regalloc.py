@@ -11,7 +11,7 @@ from pypy.jit.backend.ppc.ppcgen.helper.regalloc import (_check_imm_arg,
                                                          prepare_binary_int_op_with_imm,
                                                          prepare_unary_cmp)
 from pypy.jit.metainterp.history import (INT, REF, FLOAT, Const, ConstInt, 
-                                         ConstPtr, LoopToken)
+                                         ConstPtr, LoopToken, Box)
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr, \
                                              BaseCallDescr, BaseSizeDescr
 from pypy.jit.metainterp.resoperation import rop
@@ -298,6 +298,30 @@ class Regalloc(object):
         self.possibly_free_vars(boxes)
         self.possibly_free_vars(op.getfailargs())
         return arglocs
+
+    def prepare_guard_class(self, op):
+        assert isinstance(op.getarg(0), Box)
+        boxes = list(op.getarglist())
+
+        x, x_box = self._ensure_value_is_boxed(boxes[0], boxes)
+        boxes.append(x_box)
+
+        t = TempInt()
+        y = self.force_allocate_reg(t, boxes)
+        boxes.append(t)
+        y_val = rffi.cast(lltype.Signed, op.getarg(1).getint())
+        self.assembler.load_imm(y.value, y_val)
+
+        offset = self.cpu.vtable_offset
+        assert offset is not None
+        offset_loc, offset_box = self._ensure_value_is_boxed(ConstInt(offset), boxes)
+        boxes.append(offset_box)
+        arglocs = self._prepare_guard(op, [x, y, offset_loc])
+        self.possibly_free_vars(boxes)
+        self.possibly_free_vars(op.getfailargs())
+        return arglocs
+
+    prepare_guard_nonnull_class = prepare_guard_class
 
     def prepare_jump(self, op):
         descr = op.getdescr()
