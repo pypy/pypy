@@ -47,6 +47,8 @@ def annotate(func, values, inline=None, backendoptimize=True,
     a.build_types(func, argtypes, main_entry_point=True)
     rtyper = t.buildrtyper(type_system = type_system)
     rtyper.specialize()
+    #if inline:
+    #    auto_inlining(t, threshold=inline)
     if backendoptimize:
         from pypy.translator.backendopt.all import backend_optimizations
         backend_optimizations(t, inline_threshold=inline or 0,

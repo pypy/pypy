@@ -738,13 +738,12 @@ class Transformer(object):
 
     def rewrite_op_getinteriorfield(self, op):
         assert len(op.args) == 3
-        if isinstance(op.args[1], Constant) and op.args[1].value == 'chars':
-            optype = op.args[0].concretetype
-            if optype == lltype.Ptr(rstr.STR):
-                opname = "strgetitem"
-            else:
-                assert optype == lltype.Ptr(rstr.UNICODE)
-                opname = "unicodegetitem"
+        optype = op.args[0].concretetype
+        if optype == lltype.Ptr(rstr.STR):
+            opname = "strgetitem"
+            return SpaceOperation(opname, [op.args[0], op.args[2]], op.result)
+        elif optype == lltype.Ptr(rstr.UNICODE):
+            opname = "unicodegetitem"
             return SpaceOperation(opname, [op.args[0], op.args[2]], op.result)
         else:
             v_inst, v_index, c_field = op.args
@@ -763,13 +762,13 @@ class Transformer(object):
 
     def rewrite_op_setinteriorfield(self, op):
         assert len(op.args) == 4
-        if isinstance(op.args[1], Constant) and op.args[1].value == 'chars':
-            optype = op.args[0].concretetype
-            if optype == lltype.Ptr(rstr.STR):
-                opname = "strsetitem"
-            else:
-                assert optype == lltype.Ptr(rstr.UNICODE)
-                opname = "unicodesetitem"
+        optype = op.args[0].concretetype
+        if optype == lltype.Ptr(rstr.STR):
+            opname = "strsetitem"
+            return SpaceOperation(opname, [op.args[0], op.args[2], op.args[3]],
+                                  op.result)
+        elif optype == lltype.Ptr(rstr.UNICODE):
+            opname = "unicodesetitem"
             return SpaceOperation(opname, [op.args[0], op.args[2], op.args[3]],
                                   op.result)
         else:
