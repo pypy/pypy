@@ -336,6 +336,8 @@ class EmptyListStrategy(ListStrategy):
         raise IndexError
 
     def getslice(self, w_list, start, stop, step, length):
+        # will never be called because the empty list case is already caught in
+        # getslice__List_ANY_ANY and getitem__List_Slice
         return W_ListObject(self.space, self.cached_emptylist_w)
 
     def getitems(self, w_list):
@@ -370,6 +372,8 @@ class EmptyListStrategy(ListStrategy):
         pass
 
     def pop(self, w_list, index):
+        # will not be called becuase IndexError was already raised in
+        # list_pop__List_ANY
         raise IndexError
 
     def setitem(self, w_list, index, w_item):
