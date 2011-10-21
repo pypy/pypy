@@ -144,6 +144,9 @@ class OpAssembler(object):
     emit_int_is_zero = gen_emit_unary_cmp_op(c.IS_ZERO)
     emit_int_is_true = gen_emit_unary_cmp_op(c.IS_TRUE)
 
+    emit_ptr_eq = emit_int_eq
+    emit_ptr_ne = emit_int_ne
+
     def emit_int_neg(self, op, arglocs, regalloc):
         l0, res = arglocs
         self.mc.neg(res.value, l0.value)
