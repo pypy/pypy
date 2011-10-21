@@ -246,9 +246,13 @@ class Assembler(object):
             addr = llmemory.cast_ptr_to_adr(value)
             self.list_of_addr2name.append((addr, name))
 
-    def finished(self, callinfocollection):
+    def finished(self, callinfocollection, cpu):
         # Helper called at the end of assembling.  Registers the extra
         # functions shown in _callinfo_for_oopspec.
         for func in callinfocollection.all_function_addresses_as_int():
             func = heaptracker.int2adr(func)
             self.see_raw_object(func.ptr)
+        # register at least one interiorfielddescr
+        if hasattr(cpu, 'interiorfielddescrof'):
+            _T = lltype.GcArray(lltype.Struct('x', ('field', lltype.Signed)))
+            self.descrs.append(cpu.interiorfielddescrof(_T, 'field'))
