@@ -213,5 +213,49 @@ class OpAssembler(object):
                          descr._ppc_frame_manager_depth)
             regalloc.frame_manager.frame_depth = new_fd
 
+    def emit_setfield_gc(self, op, arglocs, regalloc):
+        value_loc, base_loc, ofs, size = arglocs
+        if size.value == 8:
+            assert 0, "not implemented yet"
+        elif size.value == 4:
+            if ofs.is_imm():
+                self.mc.stw(value_loc.value, base_loc.value, ofs.value)
+            else:
+                self.mc.stw(value_loc.value, base_loc.value, ofs.value)
+        elif size.value == 2:
+            if ofs.is_imm():
+                self.mc.sth(value_loc.value, base_loc.value, ofs.value)
+            else:
+                self.mc.sthx(value_loc.value, base_loc.value, ofs.value)
+        elif size.value == 1:
+            if ofs.is_imm():
+                self.mc.stb(value_loc.value, base_loc.value, ofs.value)
+            else:
+                self.mc.stbx(value_loc.value, base_loc.value, ofs.value)
+        else:
+            assert 0, "size not supported"
+
+    def emit_getfield_gc(self, op, arglocs, regalloc):
+        base_loc, ofs, res, size = arglocs
+        if size.value == 8:
+            assert 0, "not implemented yet"
+        elif size.value == 4:
+            if ofs.is_imm():
+                self.mc.lwz(res.value, base_loc.value, ofs.value)
+            else:
+                self.mc.lwzx(res.value, base_loc.value, ofs.value)
+        elif size.value == 2:
+            if ofs.is_imm():
+                self.mc.lhz(res.value, base_loc.value, ofs.value)
+            else:
+                self.mc.lhzx(res.value, base_loc.value, ofs.value)
+        elif size.value == 1:
+            if ofs.is_imm():
+                self.mc.lbz(res.value, base_loc.value, ofs.value)
+            else:
+                self.mc.lbzx(res.value, base_loc.value, ofs.value)
+        else:
+            assert 0, "size not supported"
+
     def nop(self):
         self.mc.ori(0, 0, 0)

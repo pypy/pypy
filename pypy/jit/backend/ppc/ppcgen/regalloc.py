@@ -12,6 +12,8 @@ from pypy.jit.backend.ppc.ppcgen.helper.regalloc import (_check_imm_arg,
                                                          prepare_unary_cmp)
 from pypy.jit.metainterp.history import (INT, REF, FLOAT, Const, ConstInt, 
                                          ConstPtr, LoopToken)
+from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr, \
+                                             BaseCallDescr, BaseSizeDescr
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.ppc.ppcgen import locations
 from pypy.rpython.lltypesystem import rffi, lltype
@@ -292,6 +294,47 @@ class Regalloc(object):
                                  src_locs1, dst_locs1, tmploc,
                                  [], [], None)
         return []
+
+    def prepare_setfield_gc(self, op):
+        boxes = list(op.getarglist())
+        b0, b1 = boxes
+        ofs, size, ptr = self._unpack_fielddescr(op.getdescr())
+        base_loc, base_box = self._ensure_value_is_boxed(b0, boxes)
+        boxes.append(base_box)
+        value_loc, value_box = self._ensure_value_is_boxed(b1, boxes)
+        boxes.append(value_box)
+        c_ofs = ConstInt(ofs)
+        if _check_imm_arg(c_ofs):
+            ofs_loc = imm(ofs)
+        else:
+            ofs_loc, ofs_box = self._ensure_value_is_boxed(c_ofs, boxes)
+            boxes.append(ofs_box)
+        self.possibly_free_vars(boxes)
+        return [value_loc, base_loc, ofs_loc, imm(size)]
+
+    def prepare_getfield_gc(self, op):
+        a0 = op.getarg(0)
+        ofs, size, ptr = self._unpack_fielddescr(op.getdescr())
+        base_loc, base_box = self._ensure_value_is_boxed(a0)
+        c_ofs = ConstInt(ofs)
+        if _check_imm_arg(c_ofs):
+            ofs_loc = imm(ofs)
+        else:
+            ofs_loc, ofs_box = self._ensure_value_is_boxed(c_ofs, [base_box])
+            self.possibly_free_var(ofs_box)
+        self.possibly_free_var(a0)
+        self.possibly_free_var(base_box)
+        res = self.force_allocate_reg(op.result)
+        self.possibly_free_var(op.result)
+        return [base_loc, ofs_loc, res, imm(size)]
+
+    # from ../x86/regalloc.py:791
+    def _unpack_fielddescr(self, fielddescr):
+        assert isinstance(fielddescr, BaseFieldDescr)
+        ofs = fielddescr.offset
+        size = fielddescr.get_field_size(self.cpu.translate_support_code)
+        ptr = fielddescr.is_pointer_field()
+        return ofs, size, ptr
 
 def make_operation_list():
     def not_implemented(self, op, *args):
