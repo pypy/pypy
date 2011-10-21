@@ -120,6 +120,31 @@ class Regalloc(object):
         self.possibly_free_vars(inputargs)
         return nonfloatlocs
 
+    def update_bindings(self, locs, frame_depth, inputargs):
+        used = {}
+        i = 0
+        self.frame_manager.frame_depth = frame_depth
+        for loc in locs:
+            arg = inputargs[i]
+            i += 1
+            if loc.is_reg():
+                self.rm.reg_bindings[arg] = loc
+            elif loc.is_vfp_reg():
+                self.vfprm.reg_bindings[arg] = loc
+            else:
+                assert loc.is_stack()
+                self.frame_manager.frame_bindings[arg] = loc
+            used[loc] = None
+
+        # XXX combine with x86 code and move to llsupport
+        self.rm.free_regs = []
+        for reg in self.rm.all_regs:
+            if reg not in used:
+                self.rm.free_regs.append(reg)
+        # note: we need to make a copy of inputargs because possibly_free_vars
+        # is also used on op args, which is a non-resizable list
+        self.possibly_free_vars(list(inputargs))
+
     def possibly_free_var(self, var):
         self.rm.possibly_free_var(var)
 

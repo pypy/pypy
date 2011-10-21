@@ -261,6 +261,37 @@ class AssemblerPPC(OpAssembler):
         self.fail_force_index = spp_loc
         return descr
 
+    def decode_inputargs(self, enc, inputargs, regalloc):
+        locs = []
+        j = 0
+        for i in range(len(inputargs)):
+            res = enc[j]
+            if res == self.END_OF_LOCS:
+                assert 0, 'reached end of encoded area'
+            while res == self.EMPTY_LOC:
+                j += 1
+                res = enc[j]
+
+            assert res in [self.INT_TYPE, self.REF_TYPE],\
+                    'location type is not supported'
+            res_type = res
+            j += 1
+            res = enc[j]
+            if res == self.IMM_LOC:
+                # XXX decode imm if necessary
+                assert 0, 'Imm Locations are not supported'
+            elif res == self.STACK_LOC:
+                stack_loc = decode32(enc, j+1)
+                loc = regalloc.frame_manager.frame_pos(stack_loc, INT)
+                j += 4
+            else: # REG_LOC
+                #loc = r.all_regs[ord(res)]
+                #import pdb; pdb.set_trace()
+                loc = r.MANAGED_REGS[ord(res) - 2]
+            j += 1
+            locs.append(loc)
+        return locs
+
     def _gen_leave_jitted_hook_code(self, save_exc=False):
         mc = PPCBuilder()
 
@@ -390,12 +421,38 @@ class AssemblerPPC(OpAssembler):
 
         start_pos = self.mc.currpos()
         self.framesize = frame_depth = self.compute_frame_depth(regalloc)
+        looptoken._ppc_frame_manager_depth = regalloc.frame_manager.frame_depth
         self._make_prologue(regalloc_head, frame_depth)
      
         self.write_pending_failure_recoveries()
         loop_start = self.materialize_loop(looptoken, False)
+        looptoken._ppc_bootstrap_code = loop_start
         looptoken.ppc_code = loop_start + start_pos
         self.process_pending_guards(loop_start)
+        self._teardown()
+
+    def assemble_bridge(self, faildescr, inputargs, operations, looptoken, log):
+        self.setup(looptoken, operations)
+        assert isinstance(faildescr, AbstractFailDescr)
+        code = faildescr._failure_recovery_code
+        enc = rffi.cast(rffi.CCHARP, code)
+        longevity = compute_vars_longevity(inputargs, operations)
+        regalloc = Regalloc(longevity, assembler=self, 
+                            frame_manager=PPCFrameManager())
+
+        #sp_patch_location = self._prepare_sp_patch_position()
+        frame_depth = faildescr._ppc_frame_depth
+        locs = self.decode_inputargs(enc, inputargs, regalloc)
+        regalloc.update_bindings(locs, frame_depth, inputargs)
+
+        self._walk_operations(operations, regalloc)
+
+        #self._patch_sp_offset(sp_patch_location, 
+        #                      regalloc.frame_manager.frame_depth)
+        self.write_pending_failure_recoveries()
+        bridge_start = self.materialize_loop(looptoken, False)
+        self.process_pending_guards(bridge_start)
+        self.patch_trace(faildescr, looptoken, bridge_start, regalloc)
         self._teardown()
 
     # For an explanation of the encoding, see
@@ -516,7 +573,7 @@ class AssemblerPPC(OpAssembler):
             path = self._leave_jitted_hook_save_exc
         else:
             path = self._leave_jitted_hook
-        self.branch_abs(path)
+        self.mc.b_abs(path)
         return memaddr
 
     def process_pending_guards(self, block_start):
@@ -534,6 +591,15 @@ class AssemblerPPC(OpAssembler):
                 mc.copy_to_raw_memory(block_start + tok.offset)
             else:
                 assert 0, "not implemented yet"
+
+    def patch_trace(self, faildescr, looptoken, bridge_addr, regalloc):
+        # The first instruction (word) is not overwritten, because it is the
+        # one that actually checks the condition
+        mc = PPCBuilder()
+        patch_addr = faildescr._ppc_block_start + faildescr._ppc_guard_pos
+        mc.b_abs(bridge_addr)
+        mc.prepare_insts_blocks()
+        mc.copy_to_raw_memory(patch_addr)
 
     def get_asmmemmgr_blocks(self, looptoken):
         clt = looptoken.compiled_loop_token

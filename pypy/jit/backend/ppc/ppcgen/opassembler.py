@@ -201,12 +201,11 @@ class OpAssembler(object):
             curpos = self.mc.get_rel_pos()
             self.mc.b(descr._ppc_loop_code - curpos)
         else:
-            assert 0, "case not implemented yet"
+            target = descr._ppc_bootstrap_code + descr._ppc_loop_code
+            self.mc.b_abs(target)
+            new_fd = max(regalloc.frame_manager.frame_depth,
+                         descr._ppc_frame_manager_depth)
+            regalloc.frame_manager.frame_depth = new_fd
 
     def nop(self):
         self.mc.ori(0, 0, 0)
-
-    def branch_abs(self, address):
-        self.load_imm(r.r0.value, address)
-        self.mc.mtctr(0)
-        self.mc.bctr()
