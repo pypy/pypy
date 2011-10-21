@@ -4,8 +4,8 @@ from pypy.module.thread.test.support import GenericTestThread
 class AppTestLocal(GenericTestThread):
 
     def test_local_1(self):
-        import thread
-        from thread import _local as tlsobject
+        import _thread
+        from _thread import _local as tlsobject
         freed = []
         class X:
             def __del__(self):
@@ -31,7 +31,7 @@ class AppTestLocal(GenericTestThread):
             finally:
                 ok.append(success)
         for i in range(20):
-            thread.start_new_thread(f, (i,))
+            _thread.start_new_thread(f, (i,))
         self.waitfor(lambda: len(ok) == 20, delay=3)
         assert ok == 20*[True] # see stdout/stderr for failures in the threads
 
@@ -47,14 +47,14 @@ class AppTestLocal(GenericTestThread):
 
 
     def test_local_init(self):
-        import thread
+        import _thread
         tags = [1, 2, 3, 4, 5, 54321]
         seen = []
 
-        raises(TypeError, thread._local, a=1)
-        raises(TypeError, thread._local, 1)
+        raises(TypeError, _thread._local, a=1)
+        raises(TypeError, _thread._local, 1)
 
-        class X(thread._local):
+        class X(_thread._local):
             def __init__(self, n):
                 assert n == 42
                 self.tag = tags.pop()
@@ -64,7 +64,7 @@ class AppTestLocal(GenericTestThread):
         def f():
             seen.append(x.tag)
         for i in range(5):
-            thread.start_new_thread(f, ())
+            _thread.start_new_thread(f, ())
         self.waitfor(lambda: len(seen) == 5, delay=2)
         seen1 = seen[:]
         seen1.sort()
@@ -72,8 +72,8 @@ class AppTestLocal(GenericTestThread):
         assert tags == []
 
     def test_local_setdict(self):
-        import thread
-        x = thread._local()
+        import _thread
+        x = _thread._local()
         # XXX: On Cpython these are AttributeErrors
         raises(TypeError, "x.__dict__ = 42")
         raises(TypeError, "x.__dict__ = {}")
@@ -84,6 +84,6 @@ class AppTestLocal(GenericTestThread):
             assert x.__dict__["spam"] == n
             done.append(1)
         for i in range(5):
-            thread.start_new_thread(f, (i,))
+            _thread.start_new_thread(f, (i,))
         self.waitfor(lambda: len(done) == 5, delay=2)
         assert len(done) == 5

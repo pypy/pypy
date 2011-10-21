@@ -12,26 +12,26 @@ class AppTestThread(GenericTestThread):
     def test_import_lock(self):
         # XXX XXX XXX this test fails if run together with all other tests
         # of this directory, but not when run alone
-        import thread, imp
+        import _thread, imp
         assert not imp.lock_held()
         done = []
         def f(i):
-            print '[ENTER %d]' % i
+            print('[ENTER %d]' % i)
             from imghdr import testall
-            print '[LEAVE %d]' % i
+            print('[LEAVE %d]' % i)
             done.append(1)
         for i in range(5):
-            print '[RUN %d]' % i
-            thread.start_new_thread(f, (i,))
+            print('[RUN %d]' % i)
+            _thread.start_new_thread(f, (i,))
         self.waitfor(lambda: len(done) == 5)
         assert len(done) == 5
 
     def test_with_many_dependencies(self):
-        import thread
+        import _thread
         import re      # -> causes nested imports
 
     def test_manual_locking(self):
-        import thread, os, imp, time, sys
+        import _thread, os, imp, time, sys
         f = open(os.path.join(self.tmpdir, 'foobaz2.py'), 'w')
         f.close()   # empty
         done = []
@@ -44,7 +44,7 @@ class AppTestThread(GenericTestThread):
         assert not imp.lock_held()
         imp.acquire_lock()
         assert imp.lock_held()
-        thread.start_new_thread(f, ())
+        _thread.start_new_thread(f, ())
         time.sleep(0.9)
         assert not done
         assert imp.lock_held()

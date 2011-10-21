@@ -7,7 +7,7 @@ class AppTestFork(GenericTestThread):
         # XXX This test depends on a multicore machine, as busy_thread must
         # aquire the GIL the instant that the main thread releases it.
         # It will incorrectly pass if the GIL is not grabbed in time.
-        import thread
+        import _thread
         import os
         import time
 
@@ -22,7 +22,7 @@ class AppTestFork(GenericTestThread):
             done.append(None)
 
         try:
-            thread.start_new(busy_thread, ())
+            _thread.start_new(busy_thread, ())
 
             pid = os.fork()
 
@@ -39,18 +39,18 @@ class AppTestFork(GenericTestThread):
 
     def test_forked_can_thread(self):
         "Checks that a forked interpreter can start a thread"
-        import os, thread, time
+        import os, _thread, time
 
         if not hasattr(os, 'fork'):
             skip("No fork on this platform")
 
         # pre-allocate some locks
-        thread.start_new_thread(lambda: None, ())
+        _thread.start_new_thread(lambda: None, ())
 
         pid = os.fork()
         if pid == 0:
-            print 'in child'
-            thread.start_new_thread(lambda: None, ())
+            print('in child')
+            _thread.start_new_thread(lambda: None, ())
             os._exit(0)
         else:
             self.timeout_killer(pid, 5)
