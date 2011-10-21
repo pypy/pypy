@@ -530,6 +530,10 @@ class _parentable_mixin(object):
     def __str__(self):
         return repr(self)
 
+    def _setparentstructure(self, parent, parentindex):
+        super(_parentable_mixin, self)._setparentstructure(parent, parentindex)
+        self._keepparent = parent   # always keep a strong ref
+
 class _struct_mixin(_parentable_mixin):
     """Mixin added to _struct containers when they become ctypes-based."""
     __slots__ = ()

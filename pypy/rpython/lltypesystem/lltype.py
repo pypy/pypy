@@ -1517,7 +1517,12 @@ class _parentable(_container):
         self._wrparent = weakref.ref(parent)
         self._parent_type = typeOf(parent)
         self._parent_index = parentindex
-        self._keepparent = parent
+        if (isinstance(self._parent_type, Struct)
+            and self._parent_type._names
+            and parentindex in (self._parent_type._names[0], 0)
+            and self._TYPE._gckind == typeOf(parent)._gckind):
+            # keep strong reference to parent, we share the same allocation
+            self._keepparent = parent
 
     def _parentstructure(self, check=True):
         if self._wrparent is not None:
@@ -1726,7 +1731,7 @@ class _subarray(_parentable):     # only for direct_fieldptr()
         # Don't do it if we are inside a GC object, though -- it's someone
         # else's job to keep the GC object alive
         if (typeOf(top_container(parent))._gckind == 'raw' or
-            hasattr(top_container(parent)._storage, 'contents')):
+            hasattr(top_container(parent)._storage, 'contents')):  # ll2ctypes
             self._keepparent = parent
 
     def __str__(self):
