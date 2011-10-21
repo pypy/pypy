@@ -105,7 +105,10 @@ class GcLLDescr_boehm(GcLLDescription):
         self.funcptr_for_new = malloc_fn_ptr
 
         def malloc_array(basesize, itemsize, ofs_length, num_elem):
-            size = basesize + itemsize * num_elem
+            try:
+                size = ovfcheck(basesize + ovfcheck(itemsize * num_elem))
+            except OverflowError:
+                return lltype.nullptr(llmemory.GCREF.TO)
             res = self.funcptr_for_new(size)
             if not res:
                 return res
