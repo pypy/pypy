@@ -3435,7 +3435,20 @@ class BaseLLtypeTests(BasicTests):
             return sa
         res = self.meta_interp(f, [16])
         assert res == f(16)
-        
+
+    def test_virtual_dict_constant_keys(self):
+        myjitdriver = JitDriver(greens = [], reds = ["n"])
+        def g(d):
+            return d["key"] - 1
+
+        def f(n):
+            while n > 0:
+                myjitdriver.jit_merge_point(n=n)
+                n = g({"key": n})
+            return n
+        res = self.meta_interp(f, [10])
+        assert res == 0
+        self.check_loops({"int_sub": 1, "int_gt": 1, "guard_true": 1, "jump": 1})
 
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
