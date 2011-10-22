@@ -50,6 +50,10 @@ class AppTestLock(GenericTestThread):
         import _thread
         assert isinstance(_thread.TIMEOUT_MAX, float)
         assert _thread.TIMEOUT_MAX > 1000
+        lock = _thread.allocate_lock()
+        assert lock.acquire() is True
+        assert lock.acquire(False) is False
+        assert lock.acquire(True, timeout=.1) is False
 
 
 def test_compile_lock():

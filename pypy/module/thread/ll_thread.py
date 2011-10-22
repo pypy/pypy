@@ -58,6 +58,10 @@ c_thread_lock_dealloc_NOAUTO = llexternal('RPyOpaqueDealloc_ThreadLock',
 c_thread_acquirelock = llexternal('RPyThreadAcquireLock', [TLOCKP, rffi.INT],
                                   rffi.INT,
                                   threadsafe=True)    # release the GIL
+c_thread_acquirelock_timed = llexternal('RPyThreadAcquireLockTimed', 
+                                        [TLOCKP, rffi.LONGLONG, rffi.INT],
+                                        rffi.INT,
+                                        threadsafe=True)    # release the GIL
 c_thread_releaselock = llexternal('RPyThreadReleaseLock', [TLOCKP], lltype.Void,
                                   threadsafe=True)    # release the GIL
 
@@ -113,6 +117,11 @@ class Lock(object):
 
     def acquire(self, flag):
         res = c_thread_acquirelock(self._lock, int(flag))
+        res = rffi.cast(lltype.Signed, res)
+        return bool(res)
+
+    def acquire_timed(self, timeout):
+        res = c_thread_acquirelock_timed(self._lock, timeout, 1)
         res = rffi.cast(lltype.Signed, res)
         return bool(res)
 

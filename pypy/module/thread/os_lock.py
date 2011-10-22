@@ -7,6 +7,7 @@ from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import r_longlong
 
 # Force the declaration of the type 'thread.LockType' for RPython
@@ -40,16 +41,32 @@ class Lock(Wrappable):
         except thread.error:
             raise wrap_thread_error(space, "out of resources")
 
-    @unwrap_spec(waitflag=int)
-    def descr_lock_acquire(self, space, waitflag=1):
+    @unwrap_spec(blocking=int, timeout=float)
+    def descr_lock_acquire(self, space, blocking=1, timeout=-1.0):
         """Lock the lock.  Without argument, this blocks if the lock is already
 locked (even by the same thread), waiting for another thread to release
 the lock, and return None once the lock is acquired.
 With an argument, this will only block if the argument is true,
 and the return value reflects whether the lock is acquired.
-The blocking operation is not interruptible."""
+The blocking operation is interruptible."""
+        if not blocking and timeout != -1.0:
+            raise OperationError(space.w_ValueError, space.wrap(
+                    "can't specify a timeout for a non-blocking call"))
+        if timeout < 0.0 and timeout != -1.0:
+            raise OperationError(space.w_ValueError, space.wrap(
+                    "timeout value must be strictly positive"))
+        if not blocking:
+            microseconds = 0
+        elif timeout == -1.0:
+            microseconds = -1
+        else:
+            timeout *= 1e6
+            if timeout > float(TIMEOUT_MAX):
+                raise OperationError(space.w_ValueError, space.wrap(
+                        "timeout value is too large"))
+            microseconds = r_longlong(timeout)
         mylock = self.lock
-        result = mylock.acquire(bool(waitflag))
+        result = mylock.acquire_timed(microseconds)
         return space.newbool(result)
 
     def descr_lock_release(self, space):
