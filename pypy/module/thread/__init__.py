@@ -21,6 +21,7 @@ class Module(MixedModule):
         'allocate':               'os_lock.allocate_lock',  # obsolete synonym
         'LockType':               'os_lock.Lock',
         '_local':                 'os_local.Local',
+        'TIMEOUT_MAX':            'space.wrap(float(os_lock.TIMEOUT_MAX) / 1000000.0)',
         'error':                  'space.fromcache(error.Cache).w_error',
     }
 

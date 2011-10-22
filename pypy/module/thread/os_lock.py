@@ -7,9 +7,13 @@ from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
+from pypy.rlib.rarithmetic import r_longlong
 
 # Force the declaration of the type 'thread.LockType' for RPython
 #import pypy.module.thread.rpython.exttable
+
+LONGLONG_MAX = r_longlong(2 ** (r_longlong.BITS-1) - 1)
+TIMEOUT_MAX = LONGLONG_MAX
 
 
 ##import sys

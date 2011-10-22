@@ -46,6 +46,12 @@ class AppTestLock(GenericTestThread):
             assert feedback == [42]
         assert lock.locked() is False
 
+    def test_timeout(self):
+        import _thread
+        assert isinstance(_thread.TIMEOUT_MAX, float)
+        assert _thread.TIMEOUT_MAX > 1000
+
+
 def test_compile_lock():
     from pypy.rlib import rgc
     from pypy.module.thread.ll_thread import allocate_lock
