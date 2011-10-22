@@ -692,6 +692,17 @@ class Frame(object):
         if not flag:
             raise GuardFailed
 
+    def op_int_tag(self, _, x):
+        try:
+            z = ovfcheck(x << 1) + 1
+        except OverflowError:
+            ovf = True
+            z = 0
+        else:
+            ovf = False
+        self.overflow_flag = ovf
+        return z
+
     def op_int_add_ovf(self, _, x, y):
         try:
             z = ovfcheck(x + y)

@@ -447,6 +447,14 @@ class BlackholeInterpreter(object):
     def bhimpl_int_invert(a):
         return intmask(~a)
 
+    @arguments("i", returns="i")
+    def bhimpl_int_untag(a):
+        return a >> 1
+    @arguments("i", returns="i")
+    def bhimpl_int_tag(a):
+        return ovfcheck(a << 1) + 1
+
+
     @arguments("i", "i", returns="i")
     def bhimpl_int_lt(a, b):
         return a < b

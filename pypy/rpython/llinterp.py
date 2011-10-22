@@ -1095,6 +1095,16 @@ class LLFrame(object):
             assert y >= 0
         return self.op_int_add_ovf(x, y)
 
+    def op_int_tag(self, x):
+        try:
+            return ovfcheck(x + x + 1)
+        except OverflowError:
+            self.make_llexception()
+
+    def op_int_untag(self, x):
+        assert x & 1, "argument has to be tagged!"
+        return x >> 1
+
     def op_cast_float_to_int(self, f):
         assert type(f) is float
         try:

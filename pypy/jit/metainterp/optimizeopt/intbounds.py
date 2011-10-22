@@ -284,6 +284,10 @@ class OptIntBounds(Optimization):
         else:
             self.emit_operation(op)
 
+    def optimize_INT_TAG(self, op):
+        self.emit_operation(op) # XXX for now
+        self.emit_operation(self.nextop)
+
     def optimize_ARRAYLEN_GC(self, op):
         self.emit_operation(op)
         array  = self.getvalue(op.getarg(0))
