@@ -287,6 +287,13 @@ class OptIntBounds(Optimization):
     def optimize_INT_TAG(self, op):
         self.emit_operation(op) # XXX for now
         self.emit_operation(self.nextop)
+        if self.nextop.getopnum() == rop.GUARD_NO_OVERFLOW:
+            self.pure(rop.INT_UNTAG, [op.result], op.getarg(0))
+
+    def optimize_INT_UNTAG(self, op):
+        self.emit_operation(op)
+        self.pure(rop.INT_TAG, [op.result], op.getarg(0))
+
 
     def optimize_ARRAYLEN_GC(self, op):
         self.emit_operation(op)
