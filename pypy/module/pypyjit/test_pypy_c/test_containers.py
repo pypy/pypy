@@ -46,7 +46,7 @@ class TestDicts(BaseTestPyPyC):
         assert loop.match_by_id("getitem", """
             i28 = call(ConstClass(ll_dict_lookup__dicttablePtr_objectPtr_Signed), p18, p6, i25, descr=...)
             ...
-            p33 = getinteriorfield_gc(p31, i26, <InteriorFieldDescr <GcPtrFieldDescr dictentry.value .*>>)
+            p33 = getinteriorfield_gc(p31, i26, descr=<InteriorFieldDescr <GcPtrFieldDescr dictentry.value .*>>)
             ...
         """)
 
