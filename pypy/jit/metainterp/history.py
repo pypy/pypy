@@ -16,6 +16,7 @@ from pypy.rlib.objectmodel import compute_identity_hash
 INT   = 'i'
 REF   = 'r'
 FLOAT = 'f'
+STRUCT = 's'
 HOLE  = '_'
 VOID  = 'v'
 
