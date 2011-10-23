@@ -4800,6 +4800,18 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_strunicode_loop(ops, expected)
 
+    def test_ptr_eq_str_constant(self):
+        ops = """
+        []
+        i0 = ptr_eq(s"abc", s"\x00")
+        finish(i0)
+        """
+        expected = """
+        []
+        finish(0)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass
