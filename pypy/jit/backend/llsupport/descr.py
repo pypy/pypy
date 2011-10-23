@@ -203,8 +203,6 @@ class FloatArrayDescr(BaseArrayDescr):
 class StructArrayDescr(BaseArrayDescr):
     _clsname = 'StructArrayDescr'
     _is_array_of_structs = True
-    def get_item_size(self, translate_support_code):
-        return symbolic.get_size()
 
 class BaseArrayNoLengthDescr(BaseArrayDescr):
     def get_base_size(self, translate_support_code):
