@@ -77,7 +77,7 @@ class Module(MixedModule):
         'getfilesystemencoding' : 'interp_encoding.getfilesystemencoding',
 
         'float_info'            : 'system.get_float_info(space)',
-        'long_info'             : 'system.get_long_info(space)',
+        'int_info'              : 'system.get_int_info(space)',
         'float_repr_style'      : 'system.get_float_repr_style(space)'
         }
 

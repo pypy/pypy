@@ -21,7 +21,7 @@ class float_info(metaclass=structseqtype):
     radix = structseqfield(9)
     rounds = structseqfield(10)
 
-class long_info(metaclass=structseqtype):
+class int_info(metaclass=structseqtype):
     bits_per_digit = structseqfield(0)
     sizeof_digit = structseqfield(1)
 """)
@@ -44,7 +44,7 @@ def get_float_info(space):
     w_float_info = app.wget(space, "float_info")
     return space.call_function(w_float_info, space.newtuple(info_w))
 
-def get_long_info(space):
+def get_int_info(space):
     assert rbigint.SHIFT == 31
     bits_per_digit = rbigint.SHIFT
     sizeof_digit = rffi.sizeof(rffi.ULONG)
@@ -52,8 +52,8 @@ def get_long_info(space):
         space.wrap(bits_per_digit),
         space.wrap(sizeof_digit),
     ]
-    w_long_info = app.wget(space, "long_info")
-    return space.call_function(w_long_info, space.newtuple(info_w))
+    w_int_info = app.wget(space, "int_info")
+    return space.call_function(w_int_info, space.newtuple(info_w))
 
 def get_float_repr_style(space):
     if rfloat.USE_SHORT_FLOAT_REPR:

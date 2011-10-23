@@ -121,9 +121,9 @@ class AppTestAppSysTests:
         assert isinstance(fi.radix, int)
         assert isinstance(fi.rounds, int)
 
-    def test_long_info(self):
+    def test_int_info(self):
         import sys
-        li = sys.long_info
+        li = sys.int_info
         assert isinstance(li.bits_per_digit, int)
         assert isinstance(li.sizeof_digit, int)
 
