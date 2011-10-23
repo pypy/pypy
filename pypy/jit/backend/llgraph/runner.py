@@ -8,7 +8,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.jit.metainterp import history
-from pypy.jit.metainterp.history import REF, INT, FLOAT
+from pypy.jit.metainterp.history import REF, INT, FLOAT, STRUCT
 from pypy.jit.metainterp.warmstate import unwrap
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend import model
@@ -59,6 +59,9 @@ class Descr(history.AbstractDescr):
 
     def is_array_of_floats(self):
         return self.typeinfo == FLOAT
+
+    def is_array_of_structs(self):
+        return self.typeinfo == STRUCT
 
     def as_vtable_size_descr(self):
         return self
@@ -365,6 +368,8 @@ class LLtypeCPU(BaseCPU):
         size = symbolic.get_size(A)
         if isinstance(A.OF, lltype.Ptr) or isinstance(A.OF, lltype.Primitive):
             token = history.getkind(A.OF)[0]
+        elif isinstance(A.OF, lltype.Struct):
+            token = 's'
         else:
             token = '?'
         return self.getdescr(size, token)

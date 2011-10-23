@@ -3452,6 +3452,22 @@ class BaseLLtypeTests(BasicTests):
         res = self.meta_interp(f, [10, 1])
         assert res == 0
 
+    def test_virtual_array_of_structs(self):
+        myjitdriver = JitDriver(greens = [], reds=["n", "d"])
+        def f(n):
+            d = None
+            while n > 0:
+                myjitdriver.jit_merge_point(n=n, d=d)
+                d = {}
+                if n % 2:
+                    d["k"] = n
+                else:
+                    d["z"] = n
+                n -= len(d)
+            return n
+        res = self.meta_interp(f, [10])
+        assert res == 0
+
 
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
