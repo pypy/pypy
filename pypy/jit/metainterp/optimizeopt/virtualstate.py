@@ -16,7 +16,7 @@ import os
 
 class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
     position = -1
-    
+
     def generalization_of(self, other, renum, bad):
         raise NotImplementedError
 
@@ -54,7 +54,7 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
                 s.debug_print(indent + "    ", seen, bad)
         else:
             debug_print(indent + "    ...")
-                
+
 
     def debug_header(self, indent):
         raise NotImplementedError
@@ -83,7 +83,7 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
             bad[self] = True
             bad[other] = True
             return False
-        
+
         for i in range(len(self.fielddescrs)):
             if other.fielddescrs[i] is not self.fielddescrs[i]:
                 bad[self] = True
@@ -112,8 +112,8 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
     def _enum(self, virtual_state):
         for s in self.fieldstate:
             s.enum(virtual_state)
-        
-        
+
+
 class VirtualStateInfo(AbstractVirtualStructStateInfo):
     def __init__(self, known_class, fielddescrs):
         AbstractVirtualStructStateInfo.__init__(self, fielddescrs)
@@ -128,13 +128,13 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
 
     def debug_header(self, indent):
         debug_print(indent + 'VirtualStateInfo(%d):' % self.position)
-        
+
 class VStructStateInfo(AbstractVirtualStructStateInfo):
     def __init__(self, typedescr, fielddescrs):
         AbstractVirtualStructStateInfo.__init__(self, fielddescrs)
         self.typedescr = typedescr
 
-    def _generalization_of(self, other):        
+    def _generalization_of(self, other):
         if not isinstance(other, VStructStateInfo):
             return False
         if self.typedescr is not other.typedescr:
@@ -143,7 +143,7 @@ class VStructStateInfo(AbstractVirtualStructStateInfo):
 
     def debug_header(self, indent):
         debug_print(indent + 'VStructStateInfo(%d):' % self.position)
-        
+
 class VArrayStateInfo(AbstractVirtualStateInfo):
     def __init__(self, arraydescr):
         self.arraydescr = arraydescr
@@ -192,12 +192,12 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
 
     def debug_header(self, indent):
         debug_print(indent + 'VArrayStateInfo(%d):' % self.position)
-            
+
 class VArrayStructStateInfo(AbstractVirtualStateInfo):
     def __init__(self, arraydescr):
         self.arraydescr = arraydescr
 
-        
+
 class NotVirtualStateInfo(AbstractVirtualStateInfo):
     def __init__(self, value):
         self.known_class = value.known_class
@@ -281,7 +281,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             op = ResOperation(rop.GUARD_CLASS, [box, self.known_class], None)
             extra_guards.append(op)
             return
-        
+
         if self.level == LEVEL_NONNULL and \
                other.level == LEVEL_UNKNOWN and \
                isinstance(box, BoxPtr) and \
@@ -289,7 +289,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             op = ResOperation(rop.GUARD_NONNULL, [box], None)
             extra_guards.append(op)
             return
-        
+
         if self.level == LEVEL_UNKNOWN and \
                other.level == LEVEL_UNKNOWN and \
                isinstance(box, BoxInt) and \
@@ -313,7 +313,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                     op = ResOperation(rop.GUARD_TRUE, [res], None)
                     extra_guards.append(op)
             return
-        
+
         # Remaining cases are probably not interesting
         raise InvalidLoop
         if self.level == LEVEL_CONSTANT:
@@ -323,7 +323,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
     def enum_forced_boxes(self, boxes, value, optimizer):
         if self.level == LEVEL_CONSTANT:
             return
-        assert 0 <= self.position_in_notvirtuals 
+        assert 0 <= self.position_in_notvirtuals
         boxes[self.position_in_notvirtuals] = value.force_box(optimizer)
 
     def _enum(self, virtual_state):
@@ -352,7 +352,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         lb = ''
         if self.lenbound:
             lb = ', ' + self.lenbound.bound.__repr__()
-        
+
         debug_print(indent + mark + 'NotVirtualInfo(%d' % self.position +
                     ', ' + l + ', ' + self.intbound.__repr__() + lb + ')')
 
@@ -374,7 +374,7 @@ class VirtualState(object):
                 return False
         return True
 
-    def generate_guards(self, other, args, cpu, extra_guards):        
+    def generate_guards(self, other, args, cpu, extra_guards):
         assert len(self.state) == len(other.state) == len(args)
         renum = {}
         for i in range(len(self.state)):
@@ -397,7 +397,7 @@ class VirtualState(object):
                     inputargs.append(box)
 
         assert None not in inputargs
-            
+
         return inputargs
 
     def debug_print(self, hdr='', bad=None):
@@ -416,7 +416,7 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
 
     def register_virtual_fields(self, keybox, fieldboxes):
         self.fieldboxes[keybox] = fieldboxes
-        
+
     def already_seen_virtual(self, keybox):
         return keybox in self.fieldboxes
 
@@ -508,12 +508,12 @@ class ShortBoxes(object):
             else: # Low priority
                 lo -= 1
         return alts
-            
+
     def renamed(self, box):
         if box in self.rename:
             return self.rename[box]
         return box
-    
+
     def add_to_short(self, box, op):
         if op:
             op = op.clone()
@@ -535,12 +535,12 @@ class ShortBoxes(object):
             self.optimizer.make_equal_to(newbox, value)
         else:
             self.short_boxes[box] = op
-        
+
     def produce_short_preamble_box(self, box):
         if box in self.short_boxes:
-            return 
+            return
         if isinstance(box, Const):
-            return 
+            return
         if box in self.potential_ops:
             ops = self.prioritized_alternatives(box)
             produced_one = False
@@ -577,7 +577,7 @@ class ShortBoxes(object):
             else:
                 debug_print(logops.repr_of_arg(box) + ': None')
         debug_stop('jit-short-boxes')
-        
+
     def operations(self):
         if not we_are_translated(): # For tests
             ops = self.short_boxes.values()
@@ -595,7 +595,7 @@ class ShortBoxes(object):
         if not isinstance(oldbox, Const) and newbox not in self.short_boxes:
             self.short_boxes[newbox] = self.short_boxes[oldbox]
         self.aliases[newbox] = oldbox
-        
+
     def original(self, box):
         while box in self.aliases:
             box = self.aliases[box]
