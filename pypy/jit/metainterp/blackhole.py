@@ -451,6 +451,9 @@ class BlackholeInterpreter(object):
     def bhimpl_int_untag(a):
         return a >> 1
     @arguments("i", returns="i")
+    def bhimpl_int_tag(a):
+        return (a << 1) + 1
+    @arguments("i", returns="i")
     def bhimpl_int_tag_ovf(a):
         return ovfcheck(a << 1) + 1
 

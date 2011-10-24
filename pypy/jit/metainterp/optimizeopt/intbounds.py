@@ -286,7 +286,6 @@ class OptIntBounds(Optimization):
             self.emit_operation(op)
 
     def optimize_INT_TAG_OVF(self, op):
-        self.emit_operation(op) # XXX for now
         v1 = self.getvalue(op.getarg(0))
         r = self.getvalue(op.result)
         resbound = v1.intbound.mul(2).add(1)
@@ -297,8 +296,21 @@ class OptIntBounds(Optimization):
             v1.intbound.intersect(maxbounds)
             self.pure(rop.INT_UNTAG, [op.result], op.getarg(0))
             no_guard = resbound.has_lower and resbound.has_upper
-        if not no_guard:
+        if no_guard:
+            op = op.copy_and_change(rop.INT_TAG)
+            self.optimize_INT_TAG(op) # emit the op
+        else:
+            self.emit_operation(op)
             self.emit_operation(self.nextop)
+
+    def optimize_INT_TAG(self, op):
+        v1 = self.getvalue(op.getarg(0))
+        r = self.getvalue(op.result)
+        resbound = v1.intbound.mul(2).add(1)
+        r.intbound.intersect(resbound)
+        maxbounds = IntBound((-sys.maxint-1) >> 1, sys.maxint >> 1)
+        v1.intbound.intersect(maxbounds)
+        self.pure(rop.INT_UNTAG, [op.result], op.getarg(0))
 
     def optimize_INT_UNTAG(self, op):
         v1 = self.getvalue(op.getarg(0))
