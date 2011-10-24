@@ -197,6 +197,10 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
     def __init__(self, arraydescr):
         self.arraydescr = arraydescr
 
+    def _enum(self, virtual_state):
+        for s in self.fieldstate:
+            s.enum(virtual_state)
+
 
 class NotVirtualStateInfo(AbstractVirtualStateInfo):
     def __init__(self, value):
