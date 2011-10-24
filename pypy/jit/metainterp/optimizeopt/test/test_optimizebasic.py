@@ -2181,6 +2181,17 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+        ops = """
+        [i0]
+        i1 = int_floordiv(0, i0)
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(0)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_fold_partially_constant_ops_ovf(self):
         ops = """
         [i0]
@@ -4788,6 +4799,18 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         finish(i0)
         """
         self.optimize_strunicode_loop(ops, expected)
+
+    def test_ptr_eq_str_constant(self):
+        ops = """
+        []
+        i0 = ptr_eq(s"abc", s"\x00")
+        finish(i0)
+        """
+        expected = """
+        []
+        finish(0)
+        """
+        self.optimize_loop(ops, expected)
 
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):

@@ -16,6 +16,7 @@ from pypy.rlib.objectmodel import compute_identity_hash
 INT   = 'i'
 REF   = 'r'
 FLOAT = 'f'
+STRUCT = 's'
 HOLE  = '_'
 VOID  = 'v'
 
@@ -168,6 +169,11 @@ class AbstractDescr(AbstractValue):
         raise NotImplementedError
 
     def is_array_of_floats(self):
+        """ Implement for array descr
+        """
+        raise NotImplementedError
+
+    def is_array_of_structs(self):
         """ Implement for array descr
         """
         raise NotImplementedError

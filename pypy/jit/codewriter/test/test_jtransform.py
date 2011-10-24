@@ -1,4 +1,3 @@
-import py
 import random
 try:
     from itertools import product
@@ -16,13 +15,13 @@ except ImportError:
 
 from pypy.objspace.flow.model import FunctionGraph, Block, Link
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
-from pypy.jit.codewriter.jtransform import Transformer
-from pypy.jit.metainterp.history import getkind
-from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr, rlist
+from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr
 from pypy.rpython.lltypesystem.module import ll_math
 from pypy.translator.unsimplify import varoftype
 from pypy.jit.codewriter import heaptracker, effectinfo
 from pypy.jit.codewriter.flatten import ListOfKind
+from pypy.jit.codewriter.jtransform import Transformer
+from pypy.jit.metainterp.history import getkind
 
 def const(x):
     return Constant(x, lltype.typeOf(x))
@@ -37,6 +36,8 @@ class FakeCPU:
         return ('calldescr', FUNC, ARGS, RESULT)
     def fielddescrof(self, STRUCT, name):
         return ('fielddescr', STRUCT, name)
+    def interiorfielddescrof(self, ARRAY, name):
+        return ('interiorfielddescr', ARRAY, name)
     def arraydescrof(self, ARRAY):
         return FakeDescr(('arraydescr', ARRAY))
     def sizeof(self, STRUCT):
@@ -539,7 +540,7 @@ def test_malloc_new_with_destructor():
 
 def test_rename_on_links():
     v1 = Variable()
-    v2 = Variable()
+    v2 = Variable(); v2.concretetype = llmemory.Address
     v3 = Variable()
     block = Block([v1])
     block.operations = [SpaceOperation('cast_pointer', [v1], v2)]
@@ -676,6 +677,22 @@ def test_unicode_getinteriorfield():
     assert op1.args == [v, v_index]
     assert op1.result == v_result
 
+def test_dict_getinteriorfield():
+    DICT = lltype.GcArray(lltype.Struct('ENTRY', ('v', lltype.Signed),
+                                        ('k', lltype.Signed)))
+    v = varoftype(lltype.Ptr(DICT))
+    i = varoftype(lltype.Signed)
+    v_result = varoftype(lltype.Signed)
+    op = SpaceOperation('getinteriorfield', [v, i, Constant('v', lltype.Void)],
+                        v_result)
+    op1 = Transformer(FakeCPU()).rewrite_operation(op)
+    assert op1.opname == 'getinteriorfield_gc_i'
+    assert op1.args == [v, i, ('interiorfielddescr', DICT, 'v')]
+    op = SpaceOperation('getinteriorfield', [v, i, Constant('v', lltype.Void)],
+                        Constant(None, lltype.Void))
+    op1 = Transformer(FakeCPU()).rewrite_operation(op)
+    assert op1 is None
+
 def test_str_setinteriorfield():
     v = varoftype(lltype.Ptr(rstr.STR))
     v_index = varoftype(lltype.Signed)
@@ -701,6 +718,23 @@ def test_unicode_setinteriorfield():
     assert op1.opname == 'unicodesetitem'
     assert op1.args == [v, v_index, v_newchr]
     assert op1.result == v_void
+
+def test_dict_setinteriorfield():
+    DICT = lltype.GcArray(lltype.Struct('ENTRY', ('v', lltype.Signed),
+                                        ('k', lltype.Signed)))
+    v = varoftype(lltype.Ptr(DICT))
+    i = varoftype(lltype.Signed)
+    v_void = varoftype(lltype.Void)
+    op = SpaceOperation('setinteriorfield', [v, i, Constant('v', lltype.Void),
+                                             i],
+                        v_void)
+    op1 = Transformer(FakeCPU()).rewrite_operation(op)
+    assert op1.opname == 'setinteriorfield_gc_i'
+    assert op1.args == [v, i, i, ('interiorfielddescr', DICT, 'v')]
+    op = SpaceOperation('setinteriorfield', [v, i, Constant('v', lltype.Void),
+                                             v_void], v_void)
+    op1 = Transformer(FakeCPU()).rewrite_operation(op)
+    assert not op1
 
 def test_promote_1():
     v1 = varoftype(lltype.Signed)

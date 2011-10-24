@@ -36,6 +36,7 @@ def arguments(*args):
 
 
 class MIFrame(object):
+    debug = False
 
     def __init__(self, metainterp):
         self.metainterp = metainterp
@@ -548,6 +549,14 @@ class MIFrame(object):
     opimpl_getfield_gc_r_pure = _opimpl_getfield_gc_pure_any
     opimpl_getfield_gc_f_pure = _opimpl_getfield_gc_pure_any
 
+    @arguments("box", "box", "descr")
+    def _opimpl_getinteriorfield_gc_any(self, array, index, descr):
+        return self.execute_with_descr(rop.GETINTERIORFIELD_GC, descr,
+                                       array, index)
+    opimpl_getinteriorfield_gc_i = _opimpl_getinteriorfield_gc_any
+    opimpl_getinteriorfield_gc_f = _opimpl_getinteriorfield_gc_any
+    opimpl_getinteriorfield_gc_r = _opimpl_getinteriorfield_gc_any
+
     @specialize.arg(1)
     def _opimpl_getfield_gc_any_pureornot(self, opnum, box, fielddescr):
         tobox = self.metainterp.heapcache.getfield(box, fielddescr)
@@ -587,6 +596,15 @@ class MIFrame(object):
     opimpl_setfield_gc_i = _opimpl_setfield_gc_any
     opimpl_setfield_gc_r = _opimpl_setfield_gc_any
     opimpl_setfield_gc_f = _opimpl_setfield_gc_any
+
+    @arguments("box", "box", "box", "descr")
+    def _opimpl_setinteriorfield_gc_any(self, array, index, value, descr):
+        self.execute_with_descr(rop.SETINTERIORFIELD_GC, descr,
+                                array, index, value)
+    opimpl_setinteriorfield_gc_i = _opimpl_setinteriorfield_gc_any
+    opimpl_setinteriorfield_gc_f = _opimpl_setinteriorfield_gc_any
+    opimpl_setinteriorfield_gc_r = _opimpl_setinteriorfield_gc_any
+                                
 
     @arguments("box", "descr")
     def _opimpl_getfield_raw_any(self, box, fielddescr):
@@ -2588,17 +2606,21 @@ def _get_opimpl_method(name, argcodes):
         self.pc = position
         #
         if not we_are_translated():
-            print '\tpyjitpl: %s(%s)' % (name, ', '.join(map(repr, args))),
+            if self.debug:
+                print '\tpyjitpl: %s(%s)' % (name, ', '.join(map(repr, args))),
             try:
                 resultbox = unboundmethod(self, *args)
             except Exception, e:
-                print '-> %s!' % e.__class__.__name__
+                if self.debug:
+                    print '-> %s!' % e.__class__.__name__
                 raise
             if num_return_args == 0:
-                print
+                if self.debug:
+                    print
                 assert resultbox is None
             else:
-                print '-> %r' % (resultbox,)
+                if self.debug:
+                    print '-> %r' % (resultbox,)
                 assert argcodes[next_argcode] == '>'
                 result_argcode = argcodes[next_argcode + 1]
                 assert resultbox.type == {'i': history.INT,

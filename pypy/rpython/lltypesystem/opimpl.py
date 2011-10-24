@@ -355,6 +355,10 @@ def op_cast_bool_to_float(b):
     assert type(b) is bool
     return float(b)
 
+def op_cast_float_to_int(f):
+    assert type(f) is float
+    return intmask(int(f))
+
 def op_cast_float_to_uint(f):
     assert type(f) is float
     return r_uint(long(f))

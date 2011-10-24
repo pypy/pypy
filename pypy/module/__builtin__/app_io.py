@@ -71,7 +71,7 @@ is printed without a trailing newline before reading."""
         return line[:-1]
     return line
 
-def input(prompt=None):
+def input(prompt=''):
     """Equivalent to eval(raw_input(prompt))."""
     return eval(raw_input(prompt))
 

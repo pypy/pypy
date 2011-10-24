@@ -52,9 +52,11 @@ class Transformer(object):
         newoperations = []
         #
         def do_rename(var, var_or_const):
+            if var.concretetype is lltype.Void:
+                renamings[var] = Constant(None, lltype.Void)
+                return
             renamings[var] = var_or_const
-            if (isinstance(var_or_const, Constant)
-                and var.concretetype != lltype.Void):
+            if isinstance(var_or_const, Constant):
                 value = var_or_const.value
                 value = lltype._cast_whatever(var.concretetype, value)
                 renamings_constants[var] = Constant(value, var.concretetype)
@@ -441,6 +443,8 @@ class Transformer(object):
     rewrite_op_gc_identityhash = _do_builtin_call
     rewrite_op_gc_id           = _do_builtin_call
     rewrite_op_uint_mod        = _do_builtin_call
+    rewrite_op_cast_float_to_uint = _do_builtin_call
+    rewrite_op_cast_uint_to_float = _do_builtin_call
 
     # ----------
     # getfield/setfield/mallocs etc.
@@ -735,29 +739,54 @@ class Transformer(object):
         return SpaceOperation(opname, [op.args[0]], op.result)
 
     def rewrite_op_getinteriorfield(self, op):
-        # only supports strings and unicodes
         assert len(op.args) == 3
-        assert op.args[1].value == 'chars'
         optype = op.args[0].concretetype
         if optype == lltype.Ptr(rstr.STR):
             opname = "strgetitem"
-        else:
-            assert optype == lltype.Ptr(rstr.UNICODE)
+            return SpaceOperation(opname, [op.args[0], op.args[2]], op.result)
+        elif optype == lltype.Ptr(rstr.UNICODE):
             opname = "unicodegetitem"
-        return SpaceOperation(opname, [op.args[0], op.args[2]], op.result)
+            return SpaceOperation(opname, [op.args[0], op.args[2]], op.result)
+        else:
+            v_inst, v_index, c_field = op.args
+            if op.result.concretetype is lltype.Void:
+                return
+            # only GcArray of Struct supported
+            assert isinstance(v_inst.concretetype.TO, lltype.GcArray)
+            STRUCT = v_inst.concretetype.TO.OF
+            assert isinstance(STRUCT, lltype.Struct)
+            descr = self.cpu.interiorfielddescrof(v_inst.concretetype.TO,
+                                                  c_field.value)
+            args = [v_inst, v_index, descr]
+            kind = getkind(op.result.concretetype)[0]
+            return SpaceOperation('getinteriorfield_gc_%s' % kind, args,
+                                  op.result)
 
     def rewrite_op_setinteriorfield(self, op):
-        # only supports strings and unicodes
         assert len(op.args) == 4
-        assert op.args[1].value == 'chars'
         optype = op.args[0].concretetype
         if optype == lltype.Ptr(rstr.STR):
             opname = "strsetitem"
-        else:
-            assert optype == lltype.Ptr(rstr.UNICODE)
+            return SpaceOperation(opname, [op.args[0], op.args[2], op.args[3]],
+                                  op.result)
+        elif optype == lltype.Ptr(rstr.UNICODE):
             opname = "unicodesetitem"
-        return SpaceOperation(opname, [op.args[0], op.args[2], op.args[3]],
-                              op.result)
+            return SpaceOperation(opname, [op.args[0], op.args[2], op.args[3]],
+                                  op.result)
+        else:
+            v_inst, v_index, c_field, v_value = op.args
+            if v_value.concretetype is lltype.Void:
+                return
+            # only GcArray of Struct supported
+            assert isinstance(v_inst.concretetype.TO, lltype.GcArray)
+            STRUCT = v_inst.concretetype.TO.OF
+            assert isinstance(STRUCT, lltype.Struct)
+            descr = self.cpu.interiorfielddescrof(v_inst.concretetype.TO,
+                                                  c_field.value)
+            kind = getkind(v_value.concretetype)[0]
+            args = [v_inst, v_index, v_value, descr]
+            return SpaceOperation('setinteriorfield_gc_%s' % kind, args,
+                                  op.result)
 
     def _rewrite_equality(self, op, opname):
         arg0, arg1 = op.args
@@ -821,26 +850,44 @@ class Transformer(object):
         elif not float_arg and float_res:
             # some int -> some float
             ops = []
-            v1 = varoftype(lltype.Signed)
-            oplist = self.rewrite_operation(
-                SpaceOperation('force_cast', [v_arg], v1)
-            )
-            if oplist:
-                ops.extend(oplist)
-            else:
-                v1 = v_arg
             v2 = varoftype(lltype.Float)
-            op = self.rewrite_operation(
-                SpaceOperation('cast_int_to_float', [v1], v2)
-            )
-            ops.append(op)
+            sizesign = rffi.size_and_sign(v_arg.concretetype)
+            if sizesign <= rffi.size_and_sign(lltype.Signed):
+                # cast from a type that fits in an int: either the size is
+                # smaller, or it is equal and it is not unsigned
+                v1 = varoftype(lltype.Signed)
+                oplist = self.rewrite_operation(
+                    SpaceOperation('force_cast', [v_arg], v1)
+                )
+                if oplist:
+                    ops.extend(oplist)
+                else:
+                    v1 = v_arg
+                op = self.rewrite_operation(
+                    SpaceOperation('cast_int_to_float', [v1], v2)
+                )
+                ops.append(op)
+            else:
+                if sizesign == rffi.size_and_sign(lltype.Unsigned):
+                    opname = 'cast_uint_to_float'
+                elif sizesign == rffi.size_and_sign(lltype.SignedLongLong):
+                    opname = 'cast_longlong_to_float'
+                elif sizesign == rffi.size_and_sign(lltype.UnsignedLongLong):
+                    opname = 'cast_ulonglong_to_float'
+                else:
+                    raise AssertionError('cast_x_to_float: %r' % (sizesign,))
+                ops1 = self.rewrite_operation(
+                    SpaceOperation(opname, [v_arg], v2)
+                )
+                if not isinstance(ops1, list): ops1 = [ops1]
+                ops.extend(ops1)
             op2 = self.rewrite_operation(
                 SpaceOperation('force_cast', [v2], v_result)
             )
             if op2:
                 ops.append(op2)
             else:
-                op.result = v_result
+                ops[-1].result = v_result
             return ops
         elif float_arg and not float_res:
             # some float -> some int
@@ -853,18 +900,36 @@ class Transformer(object):
                 ops.append(op1)
             else:
                 v1 = v_arg
-            v2 = varoftype(lltype.Signed)
-            op = self.rewrite_operation(
-                SpaceOperation('cast_float_to_int', [v1], v2)
-            )
-            ops.append(op)
-            oplist = self.rewrite_operation(
-                SpaceOperation('force_cast', [v2], v_result)
-            )
-            if oplist:
-                ops.extend(oplist)
+            sizesign = rffi.size_and_sign(v_result.concretetype)
+            if sizesign <= rffi.size_and_sign(lltype.Signed):
+                # cast to a type that fits in an int: either the size is
+                # smaller, or it is equal and it is not unsigned
+                v2 = varoftype(lltype.Signed)
+                op = self.rewrite_operation(
+                    SpaceOperation('cast_float_to_int', [v1], v2)
+                )
+                ops.append(op)
+                oplist = self.rewrite_operation(
+                    SpaceOperation('force_cast', [v2], v_result)
+                )
+                if oplist:
+                    ops.extend(oplist)
+                else:
+                    op.result = v_result
             else:
-                op.result = v_result
+                if sizesign == rffi.size_and_sign(lltype.Unsigned):
+                    opname = 'cast_float_to_uint'
+                elif sizesign == rffi.size_and_sign(lltype.SignedLongLong):
+                    opname = 'cast_float_to_longlong'
+                elif sizesign == rffi.size_and_sign(lltype.UnsignedLongLong):
+                    opname = 'cast_float_to_ulonglong'
+                else:
+                    raise AssertionError('cast_float_to_x: %r' % (sizesign,))
+                ops1 = self.rewrite_operation(
+                    SpaceOperation(opname, [v1], v_result)
+                )
+                if not isinstance(ops1, list): ops1 = [ops1]
+                ops.extend(ops1)
             return ops
         else:
             assert False
@@ -1070,8 +1135,6 @@ class Transformer(object):
     # The new operation is optionally further processed by rewrite_operation().
     for _old, _new in [('bool_not', 'int_is_zero'),
                        ('cast_bool_to_float', 'cast_int_to_float'),
-                       ('cast_uint_to_float', 'cast_int_to_float'),
-                       ('cast_float_to_uint', 'cast_float_to_int'),
 
                        ('int_add_nonneg_ovf', 'int_add_ovf'),
                        ('keepalive', '-live-'),
