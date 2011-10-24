@@ -1845,16 +1845,12 @@ class MiniMarkGC(MovingGCBase):
         don't do anything fancy and *just* call them. Among other things
         they won't resurrect objects
         """
-        new_objects = self.AddressStack()
         while self.young_objects_with_light_finalizers.non_empty():
             obj = self.young_objects_with_light_finalizers.pop()
-            if self.is_forwarded(obj):
-                new_objects.append(self.get_forwarding_address(obj))
-            else:
+            if not self.is_forwarded(obj):
                 finalizer = self.getlightfinalizer(self.get_type_id(obj))
                 ll_assert(bool(finalizer), "no light finalizer found")
                 finalizer(obj, llmemory.NULL)
-        self.objects_with_light_finalizers = new_objects
 
     def deal_with_objects_with_finalizers(self):
         # Walk over list of objects with finalizers.
