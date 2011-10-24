@@ -850,6 +850,8 @@ class Regalloc(object):
         resloc = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
         return [argloc, resloc]
+    prepare_op_cast_ptr_to_int = prepare_op_same_as
+    prepare_op_cast_int_to_ptr = prepare_op_same_as
 
     def prepare_op_new(self, op, fcond):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
