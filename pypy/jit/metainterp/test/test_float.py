@@ -74,11 +74,6 @@ class FloatTests:
         res = self.interp_operations(g, [-12345])
         assert type(res) is float and res == float(long(r_uint(-12345)))
 
-    #def test_cast_longlong_to_float(self):
-    #def test_cast_ulonglong_to_float(self):
-    #def test_cast_float_to_longlong(self):
-    #def test_cast_float_to_ulonglong(self):
-
 
 class TestOOtype(FloatTests, OOJitMixin):
     pass

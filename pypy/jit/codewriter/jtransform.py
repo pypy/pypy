@@ -849,14 +849,12 @@ class Transformer(object):
             return self._float_to_float_cast(v_arg, v_result)
         elif not float_arg and float_res:
             # some int -> some float
-            size1, unsigned1 = rffi.size_and_sign(v_arg.concretetype)
-            assert size1 <= rffi.sizeof(lltype.Signed), (
-                "not implemented: cast_longlong_to_float")
-            from_uint = (unsigned1 and size1 == rffi.sizeof(lltype.Signed))
-            #
             ops = []
             v2 = varoftype(lltype.Float)
-            if not from_uint:
+            sizesign = rffi.size_and_sign(v_arg.concretetype)
+            if sizesign <= rffi.size_and_sign(lltype.Signed):
+                # cast from a type that fits in an int: either the size is
+                # smaller, or it is equal and it is not unsigned
                 v1 = varoftype(lltype.Signed)
                 oplist = self.rewrite_operation(
                     SpaceOperation('force_cast', [v_arg], v1)
@@ -870,8 +868,16 @@ class Transformer(object):
                 )
                 ops.append(op)
             else:
+                if sizesign == rffi.size_and_sign(lltype.Unsigned):
+                    opname = 'cast_uint_to_float'
+                elif sizesign == rffi.size_and_sign(lltype.SignedLongLong):
+                    opname = 'cast_longlong_to_float'
+                elif sizesign == rffi.size_and_sign(lltype.UnsignedLongLong):
+                    opname = 'cast_ulonglong_to_float'
+                else:
+                    raise AssertionError('cast_x_to_float: %r' % (sizesign,))
                 ops1 = self.rewrite_operation(
-                    SpaceOperation('cast_uint_to_float', [v_arg], v2)
+                    SpaceOperation(opname, [v_arg], v2)
                 )
                 if not isinstance(ops1, list): ops1 = [ops1]
                 ops.extend(ops1)
@@ -885,11 +891,6 @@ class Transformer(object):
             return ops
         elif float_arg and not float_res:
             # some float -> some int
-            size2, unsigned2 = rffi.size_and_sign(v_result.concretetype)
-            assert size2 <= rffi.sizeof(lltype.Signed), (
-                "not implemented: cast_float_to_longlong")
-            to_uint = (unsigned2 and size2 == rffi.sizeof(lltype.Signed))
-            #
             ops = []
             v1 = varoftype(lltype.Float)
             op1 = self.rewrite_operation(
@@ -899,7 +900,10 @@ class Transformer(object):
                 ops.append(op1)
             else:
                 v1 = v_arg
-            if not to_uint:
+            sizesign = rffi.size_and_sign(v_result.concretetype)
+            if sizesign <= rffi.size_and_sign(lltype.Signed):
+                # cast to a type that fits in an int: either the size is
+                # smaller, or it is equal and it is not unsigned
                 v2 = varoftype(lltype.Signed)
                 op = self.rewrite_operation(
                     SpaceOperation('cast_float_to_int', [v1], v2)
@@ -913,8 +917,16 @@ class Transformer(object):
                 else:
                     op.result = v_result
             else:
+                if sizesign == rffi.size_and_sign(lltype.Unsigned):
+                    opname = 'cast_float_to_uint'
+                elif sizesign == rffi.size_and_sign(lltype.SignedLongLong):
+                    opname = 'cast_float_to_longlong'
+                elif sizesign == rffi.size_and_sign(lltype.UnsignedLongLong):
+                    opname = 'cast_float_to_ulonglong'
+                else:
+                    raise AssertionError('cast_float_to_x: %r' % (sizesign,))
                 ops1 = self.rewrite_operation(
-                    SpaceOperation('cast_float_to_uint', [v1], v_result)
+                    SpaceOperation(opname, [v1], v_result)
                 )
                 if not isinstance(ops1, list): ops1 = [ops1]
                 ops.extend(ops1)

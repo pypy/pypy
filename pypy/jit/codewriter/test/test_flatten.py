@@ -8,7 +8,7 @@ from pypy.jit.metainterp.history import AbstractDescr
 from pypy.rpython.lltypesystem import lltype, rclass, rstr
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.translator.unsimplify import varoftype
-from pypy.rlib.rarithmetic import ovfcheck, r_uint
+from pypy.rlib.rarithmetic import ovfcheck, r_uint, r_longlong, r_ulonglong
 from pypy.rlib.jit import dont_look_inside, _we_are_jitted, JitDriver
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib import jit
@@ -930,6 +930,38 @@ class TestFlatten:
             float_return %f0
         """, transform=True)
 
+        if not longlong.is_64_bit:
+            def f(dbl):
+                return rffi.cast(lltype.SignedLongLong, dbl)
+            self.encoding_test(f, [12.3], """
+                residual_call_irf_f $<* fn llong_from_float>, <Descr>, I[], R[], F[%f0] -> %f1
+                float_return %f1
+            """, transform=True)
+
+            def f(dbl):
+                return rffi.cast(lltype.UnsignedLongLong, dbl)
+            self.encoding_test(f, [12.3], """
+                residual_call_irf_f $<* fn ullong_from_float>, <Descr>, I[], R[], F[%f0] -> %f1
+                float_return %f1
+            """, transform=True)
+
+            def f(x):
+                ll = r_longlong(x)
+                return rffi.cast(lltype.Float, ll)
+            self.encoding_test(f, [12], """
+                residual_call_irf_f $<* fn llong_from_int>, <Descr>, I[%i0], R[], F[] -> %f0
+                residual_call_irf_f $<* fn llong_to_float>, <Descr>, I[], R[], F[%f0] -> %f1
+                float_return %f1
+            """, transform=True)
+
+            def f(x):
+                ll = r_ulonglong(x)
+                return rffi.cast(lltype.Float, ll)
+            self.encoding_test(f, [12], """
+                residual_call_irf_f $<* fn ullong_from_int>, <Descr>, I[%i0], R[], F[] -> %f0
+                residual_call_irf_f $<* fn ullong_u_to_float>, <Descr>, I[], R[], F[%f0] -> %f1
+                float_return %f1
+            """, transform=True)
 
     def test_direct_ptradd(self):
         from pypy.rpython.lltypesystem import rffi
