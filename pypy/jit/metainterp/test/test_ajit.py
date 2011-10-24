@@ -3436,7 +3436,7 @@ class BaseLLtypeTests(BasicTests):
         res = self.meta_interp(f, [16])
         assert res == f(16)
 
-    def test_ptr_eq_str_constants(self):
+    def test_ptr_eq(self):
         myjitdriver = JitDriver(greens = [], reds = ["n", "x"])
         class A(object):
             def __init__(self, v):
@@ -3451,6 +3451,26 @@ class BaseLLtypeTests(BasicTests):
             return n
         res = self.meta_interp(f, [10, 1])
         assert res == 0
+
+    def test_instance_ptr_eq(self):
+        myjitdriver = JitDriver(greens = [], reds = ["n", "i", "a1", "a2"])
+        class A(object):
+            pass
+        def f(n):
+            a1 = A()
+            a2 = A()
+            i = 0
+            while n > 0:
+                myjitdriver.jit_merge_point(n=n, i=i, a1=a1, a2=a2)
+                if n % 2:
+                    a = a2
+                else:
+                    a = a1
+                i += a is a1
+                n -= 1
+            return i
+        res = self.meta_interp(f, [10])
+        assert res == f(10)
 
     def test_virtual_array_of_structs(self):
         myjitdriver = JitDriver(greens = [], reds=["n", "d"])

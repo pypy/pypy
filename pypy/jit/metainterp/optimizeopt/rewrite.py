@@ -337,7 +337,7 @@ class OptRewrite(Optimization):
     def optimize_INT_IS_ZERO(self, op):
         self._optimize_nullness(op, op.getarg(0), False)
 
-    def _optimize_oois_ooisnot(self, op, expect_isnot):
+    def _optimize_oois_ooisnot(self, op, expect_isnot, instance):
         value0 = self.getvalue(op.getarg(0))
         value1 = self.getvalue(op.getarg(1))
         if value0.is_virtual():
@@ -355,21 +355,28 @@ class OptRewrite(Optimization):
         elif value0 is value1:
             self.make_constant_int(op.result, not expect_isnot)
         else:
-            cls0 = value0.get_constant_class(self.optimizer.cpu)
-            if cls0 is not None:
-                cls1 = value1.get_constant_class(self.optimizer.cpu)
-                if cls1 is not None and not cls0.same_constant(cls1):
-                    # cannot be the same object, as we know that their
-                    # class is different
-                    self.make_constant_int(op.result, expect_isnot)
-                    return
+            if instance:
+                cls0 = value0.get_constant_class(self.optimizer.cpu)
+                if cls0 is not None:
+                    cls1 = value1.get_constant_class(self.optimizer.cpu)
+                    if cls1 is not None and not cls0.same_constant(cls1):
+                        # cannot be the same object, as we know that their
+                        # class is different
+                        self.make_constant_int(op.result, expect_isnot)
+                        return
             self.emit_operation(op)
 
-    def optimize_PTR_NE(self, op):
-        self._optimize_oois_ooisnot(op, True)
-
     def optimize_PTR_EQ(self, op):
-        self._optimize_oois_ooisnot(op, False)
+        self._optimize_oois_ooisnot(op, False, False)
+
+    def optimize_PTR_NE(self, op):
+        self._optimize_oois_ooisnot(op, True, False)
+
+    def optimize_INSTANCE_PTR_EQ(self, op):
+        self._optimize_oois_ooisnot(op, False, True)
+
+    def optimize_INSTANCE_PTR_NE(self, op):
+        self._optimize_oois_ooisnot(op, True, True)
 
 ##    def optimize_INSTANCEOF(self, op):
 ##        value = self.getvalue(op.args[0])

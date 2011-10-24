@@ -499,6 +499,12 @@ class BlackholeInterpreter(object):
     @arguments("r", returns="i")
     def bhimpl_ptr_nonzero(a):
         return bool(a)
+    @arguments("r", "r", returns="i")
+    def bhimpl_instance_ptr_eq(a, b):
+        return a == b
+    @arguments("r", "r", returns="i")
+    def bhimpl_instance_ptr_ne(a, b):
+        return a != b
     @arguments("r", returns="r")
     def bhimpl_cast_opaque_ptr(a):
         return a

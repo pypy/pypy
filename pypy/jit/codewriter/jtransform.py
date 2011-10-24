@@ -800,6 +800,9 @@ class Transformer(object):
     def _is_gc(self, v):
         return getattr(getattr(v.concretetype, "TO", None), "_gckind", "?") == 'gc'
 
+    def _is_rclass_instance(self, v):
+        return lltype._castdepth(v.concretetype.TO, rclass.OBJECT) >= 0
+
     def _rewrite_cmp_ptrs(self, op):
         if self._is_gc(op.args[0]):
             return op
@@ -817,11 +820,21 @@ class Transformer(object):
         return self._rewrite_equality(op, 'int_is_true')
 
     def rewrite_op_ptr_eq(self, op):
-        op1 = self._rewrite_equality(op, 'ptr_iszero')
+        prefix = ''
+        if self._is_rclass_instance(op.args[0]):
+            assert self._is_rclass_instance(op.args[1])
+            op = SpaceOperation('instance_ptr_eq', op.args, op.result)
+            prefix = 'instance_'
+        op1 = self._rewrite_equality(op, prefix + 'ptr_iszero')
         return self._rewrite_cmp_ptrs(op1)
 
     def rewrite_op_ptr_ne(self, op):
-        op1 = self._rewrite_equality(op, 'ptr_nonzero')
+        prefix = ''
+        if self._is_rclass_instance(op.args[0]):
+            assert self._is_rclass_instance(op.args[1])
+            op = SpaceOperation('instance_ptr_ne', op.args, op.result)
+            prefix = 'instance_'
+        op1 = self._rewrite_equality(op, prefix + 'ptr_nonzero')
         return self._rewrite_cmp_ptrs(op1)
 
     rewrite_op_ptr_iszero = _rewrite_cmp_ptrs

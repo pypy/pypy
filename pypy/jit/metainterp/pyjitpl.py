@@ -165,7 +165,7 @@ class MIFrame(object):
         if not we_are_translated():
             for b in registers[count:]:
                 assert not oldbox.same_box(b)
-                
+
 
     def make_result_of_lastop(self, resultbox):
         got_type = resultbox.type
@@ -199,7 +199,7 @@ class MIFrame(object):
                     'float_add', 'float_sub', 'float_mul', 'float_truediv',
                     'float_lt', 'float_le', 'float_eq',
                     'float_ne', 'float_gt', 'float_ge',
-                    'ptr_eq', 'ptr_ne',
+                    'ptr_eq', 'ptr_ne', 'instance_ptr_eq', 'instance_ptr_ne',
                     ]:
         exec py.code.Source('''
             @arguments("box", "box")
@@ -604,7 +604,7 @@ class MIFrame(object):
     opimpl_setinteriorfield_gc_i = _opimpl_setinteriorfield_gc_any
     opimpl_setinteriorfield_gc_f = _opimpl_setinteriorfield_gc_any
     opimpl_setinteriorfield_gc_r = _opimpl_setinteriorfield_gc_any
-                                
+
 
     @arguments("box", "descr")
     def _opimpl_getfield_raw_any(self, box, fielddescr):
