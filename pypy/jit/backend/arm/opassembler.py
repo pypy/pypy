@@ -505,10 +505,15 @@ class FieldOpAssembler(object):
         value_loc, base_loc, ofs, size = arglocs
         if size.value == 8:
             assert value_loc.is_vfp_reg()
+            # vstr only supports imm offsets
+            # so if the ofset is too large we add it to the base and use an
+            # offset of 0
             if ofs.is_reg():
+                self.mc.ADD_rr(r.ip.value, base_loc.value, ofs.value)
                 base_loc = r.ip
                 ofs = imm(0)
-                self.mc.ADD_rr(r.ip.value, base_loc.value, ofs.value)
+            else:
+                assert ofs.value % 4 == 0
             self.mc.VSTR(value_loc.value, base_loc.value, ofs.value)
         elif size.value == 4:
             if ofs.is_imm():
@@ -535,10 +540,15 @@ class FieldOpAssembler(object):
         base_loc, ofs, res, size = arglocs
         if size.value == 8:
             assert res.is_vfp_reg()
+            # vldr only supports imm offsets
+            # so if the ofset is too large we add it to the base and use an
+            # offset of 0
             if ofs.is_reg():
+                self.mc.ADD_rr(r.ip.value, base_loc.value, ofs.value)
                 base_loc = r.ip
                 ofs = imm(0)
-                self.mc.ADD_rr(r.ip.value, base_loc.value, ofs.value)
+            else:
+                assert ofs.value % 4 == 0
             self.mc.VLDR(res.value, base_loc.value, ofs.value)
         elif size.value == 4:
             if ofs.is_imm():
