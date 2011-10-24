@@ -303,13 +303,15 @@ class VArrayStructValue(AbstractVirtualValue):
     def get_args_for_fail(self, modifier):
         if self.box is None and not modifier.already_seen_virtual(self.keybox):
             itemboxes = []
+            values = []
             for items in self._items:
                 descrs = items.keys()
                 sort_descrs(descrs)
                 for descr in descrs:
-                    itemboxes.append(items[descr])
+                    itemboxes.append(items[descr].get_key_box())
+                    values.append(items[descr])
             modifier.register_virtual_fields(self.keybox, itemboxes)
-            for item in itemboxes:
+            for item in values:
                 item.get_args_for_fail(modifier)
 
 
