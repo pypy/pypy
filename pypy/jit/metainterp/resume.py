@@ -139,7 +139,7 @@ class ResumeDataLoopMemo(object):
         self.numberings = {}
         self.cached_boxes = {}
         self.cached_virtuals = {}
-    
+
         self.nvirtuals = 0
         self.nvholes = 0
         self.nvreused = 0
@@ -273,6 +273,9 @@ class ResumeDataVirtualAdder(object):
     def make_varray(self, arraydescr):
         return VArrayInfo(arraydescr)
 
+    def make_varraystruct(self, arraydescr):
+        return VArrayStructInfo(arraydescr)
+
     def make_vstrplain(self, is_unicode=False):
         if is_unicode:
             return VUniPlainInfo()
@@ -402,7 +405,7 @@ class ResumeDataVirtualAdder(object):
                 virtuals[num] = vinfo
 
         if self._invalidation_needed(len(liveboxes), nholes):
-            memo.clear_box_virtual_numbers()           
+            memo.clear_box_virtual_numbers()
 
     def _invalidation_needed(self, nliveboxes, nholes):
         memo = self.memo
@@ -455,7 +458,7 @@ class AbstractVirtualInfo(object):
 
     def debug_prints(self):
         raise NotImplementedError
-        
+
 class AbstractVirtualStructInfo(AbstractVirtualInfo):
     def __init__(self, fielddescrs):
         self.fielddescrs = fielddescrs
@@ -534,6 +537,15 @@ class VArrayInfo(AbstractVirtualInfo):
 
     def debug_prints(self):
         debug_print("\tvarrayinfo", self.arraydescr)
+        for i in self.fieldnums:
+            debug_print("\t\t", str(untag(i)))
+
+class VArrayStructInfo(AbstractVirtualInfo):
+    def __init__(self, arraydescr):
+        self.arraydescr = arraydescr
+
+    def debug_prints(self):
+        debug_print("\tvarraystructinfo", self.arraydescr)
         for i in self.fieldnums:
             debug_print("\t\t", str(untag(i)))
 

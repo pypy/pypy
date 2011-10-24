@@ -302,9 +302,16 @@ class VArrayStructValue(AbstractVirtualValue):
 
     def get_args_for_fail(self, modifier):
         if self.box is None and not modifier.already_seen_virtual(self.keybox):
-            # Need a way to store data as pairs of (index, descr), not just
-            # descr or index.
-            raise NotImplementedError
+            itemboxes = []
+            for items in self._items:
+                descrs = items.keys()
+                sort_descrs(descrs)
+                for descr in descrs:
+                    itemboxes.append(items[descr])
+            modifier.register_virtual_fields(self.keybox, itemboxes)
+            for item in itemboxes:
+                item.get_args_for_fail(modifier)
+
 
     def force_at_end_of_preamble(self, already_forced, optforce):
         if self in already_forced:
