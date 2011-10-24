@@ -408,6 +408,9 @@ class OpAssembler(object):
         self.mov_loc_loc(argloc, resloc)
         return fcond
 
+    emit_op_cast_ptr_to_int = emit_op_same_as
+    emit_op_cast_int_to_ptr = emit_op_same_as
+
     def emit_op_guard_no_exception(self, op, arglocs, regalloc, fcond):
         loc = arglocs[0]
         failargs = arglocs[1:]
