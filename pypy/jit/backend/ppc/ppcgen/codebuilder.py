@@ -954,15 +954,15 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
             self.load_imm(rD, addr)
             self.lwzx(rD.value, 0, rD.value)
         else:
-            self.load_word(rD, addr)
-            self.ld(rD, rD, 0)
+            self.load_imm(rD, addr)
+            self.ldx(rD.value, 0, rD.value)
 
     def store_reg(self, source_reg, addr):
         self.load_imm(r.r0, addr)
         if IS_PPC_32:
             self.stwx(source_reg.value, 0, 0)
         else:
-            self.std(source_reg.value, 0, 0)
+            self.stdx(source_reg.value, 0, 0)
 
     def b_cond_offset(self, offset, condition):
         pos = self.currpos()
