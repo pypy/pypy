@@ -288,7 +288,6 @@ class VArrayStructValue(AbstractVirtualValue):
         self._items[index][descr] = itemvalue
 
     def _really_force(self, optforce):
-        raise NotImplementedError
         assert self.source_op is not None
         if not we_are_translated():
             self.source_op.name = 'FORCE ' + self.source_op.name
@@ -300,20 +299,25 @@ class VArrayStructValue(AbstractVirtualValue):
                 op = ResOperation(rop.SETINTERIORFIELD_GC, [box, ConstInt(index), subbox], None, descr=descr)
                 optforce.emit_operation(op)
 
+    def _get_list_of_descrs(self):
+        descrs = []
+        for item in self._items:
+            item_descrs = item.keys()
+            sort_descrs(item_descrs)
+            descrs.append(item_descrs)
+        return descrs
+
     def get_args_for_fail(self, modifier):
         if self.box is None and not modifier.already_seen_virtual(self.keybox):
+            itemdescrs = self._get_list_of_descrs()
             itemboxes = []
-            values = []
-            for items in self._items:
-                descrs = items.keys()
-                sort_descrs(descrs)
-                for descr in descrs:
-                    itemboxes.append(items[descr].get_key_box())
-                    values.append(items[descr])
+            for i in range(len(self._items)):
+                for descr in itemdescrs[i]:
+                    itemboxes.append(self._items[i][descr].get_key_box())
             modifier.register_virtual_fields(self.keybox, itemboxes)
-            for item in values:
-                item.get_args_for_fail(modifier)
-
+            for i in range(len(self._items)):
+                for descr in itemdescrs[i]:
+                    self._items[i][descr].get_args_for_fail(modifier)
 
     def force_at_end_of_preamble(self, already_forced, optforce):
         if self in already_forced:
@@ -325,7 +329,7 @@ class VArrayStructValue(AbstractVirtualValue):
         return self
 
     def _make_virtual(self, modifier):
-        return modifier.make_varraystruct(self.arraydescr)
+        return modifier.make_varraystruct(self.arraydescr, self._get_list_of_descrs())
 
 
 class OptVirtualize(optimizer.Optimization):

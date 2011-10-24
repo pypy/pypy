@@ -273,8 +273,8 @@ class ResumeDataVirtualAdder(object):
     def make_varray(self, arraydescr):
         return VArrayInfo(arraydescr)
 
-    def make_varraystruct(self, arraydescr):
-        return VArrayStructInfo(arraydescr)
+    def make_varraystruct(self, arraydescr, fielddescrs):
+        return VArrayStructInfo(arraydescr, fielddescrs)
 
     def make_vstrplain(self, is_unicode=False):
         if is_unicode:
@@ -541,8 +541,9 @@ class VArrayInfo(AbstractVirtualInfo):
             debug_print("\t\t", str(untag(i)))
 
 class VArrayStructInfo(AbstractVirtualInfo):
-    def __init__(self, arraydescr):
+    def __init__(self, arraydescr, fielddescrs):
         self.arraydescr = arraydescr
+        self.fielddescrs = fielddescrs
 
     def debug_prints(self):
         debug_print("\tvarraystructinfo", self.arraydescr)

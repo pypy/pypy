@@ -194,12 +194,28 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
         debug_print(indent + 'VArrayStateInfo(%d):' % self.position)
 
 class VArrayStructStateInfo(AbstractVirtualStateInfo):
-    def __init__(self, arraydescr):
+    def __init__(self, arraydescr, fielddescrs):
         self.arraydescr = arraydescr
+        self.fielddescrs = fielddescrs
 
     def _enum(self, virtual_state):
         for s in self.fieldstate:
             s.enum(virtual_state)
+
+    def enum_forced_boxes(self, boxes, value, optimizer):
+        assert isinstance(value, virtualize.VArrayStructValue)
+        assert value.is_virtual()
+        p = 0
+        for i in range(len(self.fielddescrs)):
+            for j in range(len(self.fielddescrs[i])):
+                v = value._items[i][self.fielddescrs[i][j]]
+                s = self.fieldstate[p]
+                if s.position > self.position:
+                    s.enum_forced_boxes(boxes, v, optimizer)
+                p += 1
+
+    def debug_header(self, indent):
+        debug_print(indent + 'VArrayStructStateInfo(%d):' % self.position)
 
 
 class NotVirtualStateInfo(AbstractVirtualStateInfo):
@@ -471,8 +487,8 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
     def make_varray(self, arraydescr):
         return VArrayStateInfo(arraydescr)
 
-    def make_varraystruct(self, arraydescr):
-        return VArrayStructStateInfo(arraydescr)
+    def make_varraystruct(self, arraydescr, fielddescrs):
+        return VArrayStructStateInfo(arraydescr, fielddescrs)
 
 class BoxNotProducable(Exception):
     pass
