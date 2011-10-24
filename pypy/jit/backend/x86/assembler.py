@@ -1297,8 +1297,8 @@ class Assembler386(object):
     genop_guard_int_ne = _cmpop_guard("NE", "NE", "E", "E")
     genop_guard_int_gt = _cmpop_guard("G", "L", "LE", "GE")
     genop_guard_int_ge = _cmpop_guard("GE", "LE", "L", "G")
-    genop_guard_ptr_eq = genop_guard_int_eq
-    genop_guard_ptr_ne = genop_guard_int_ne
+    genop_guard_ptr_eq = genop_guard_instance_ptr_eq = genop_guard_int_eq
+    genop_guard_ptr_ne = genop_guard_instance_ptr_ne = genop_guard_int_ne
 
     genop_guard_uint_gt = _cmpop_guard("A", "B", "BE", "AE")
     genop_guard_uint_lt = _cmpop_guard("B", "A", "AE", "BE")
