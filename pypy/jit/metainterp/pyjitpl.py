@@ -231,9 +231,9 @@ class MIFrame(object):
         ''' % (_opimpl, _opimpl.upper())).compile()
 
     @arguments("box")
-    def opimpl_int_tag(self, b1):
+    def opimpl_int_tag_ovf(self, b1):
         self.metainterp.clear_exception()
-        resbox = self.execute(rop.INT_TAG, b1)
+        resbox = self.execute(rop.INT_TAG_OVF, b1)
         self.make_result_of_lastop(resbox)
         if not isinstance(resbox, Const):
             self.metainterp.handle_possible_overflow_error()

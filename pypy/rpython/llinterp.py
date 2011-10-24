@@ -1095,7 +1095,7 @@ class LLFrame(object):
             assert y >= 0
         return self.op_int_add_ovf(x, y)
 
-    def op_int_tag(self, x):
+    def op_int_tag_ovf(self, x):
         try:
             return ovfcheck(x + x + 1)
         except OverflowError:

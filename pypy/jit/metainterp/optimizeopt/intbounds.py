@@ -285,7 +285,7 @@ class OptIntBounds(Optimization):
         else:
             self.emit_operation(op)
 
-    def optimize_INT_TAG(self, op):
+    def optimize_INT_TAG_OVF(self, op):
         self.emit_operation(op) # XXX for now
         v1 = self.getvalue(op.getarg(0))
         r = self.getvalue(op.result)

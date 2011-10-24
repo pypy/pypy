@@ -220,7 +220,7 @@ class ErasedRepr(Repr):
         [v_value] = hop.inputargs(lltype.Signed)
         c_one = hop.inputconst(lltype.Signed, 1)
         hop.exception_is_here()
-        v2 = hop.genop('int_tag', [v_value],
+        v2 = hop.genop('int_tag_ovf', [v_value],
                        resulttype = lltype.Signed)
         v_instance = hop.genop('cast_int_to_ptr', [v2],
                                resulttype=self.lowleveltype)

@@ -19,11 +19,10 @@
 	if ((x) == LONG_MIN) FAIL_OVF("integer absolute"); \
 	OP_INT_ABS(x,r)
 
-#define OP_INT_TAG(x, r) \
+#define OP_INT_TAG_OVF(x, r) \
     r = (long)((unsigned long)x << 1); \
     if ((r ^ x) < 0) FAIL_OVF("integer tagging"); \
     r = r + 1
-
 #define OP_INT_UNTAG(x, r) \
     r = x >> 1
 

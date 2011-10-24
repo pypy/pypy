@@ -505,7 +505,7 @@ _oplist = [
     'INT_ADD_OVF/2',
     'INT_SUB_OVF/2',
     'INT_MUL_OVF/2',
-    'INT_TAG/1',
+    'INT_TAG_OVF/1',
     '_OVF_LAST', # ----- end of is_ovf operations -----
     '_LAST',     # for the backend to add more internal operations
 ]

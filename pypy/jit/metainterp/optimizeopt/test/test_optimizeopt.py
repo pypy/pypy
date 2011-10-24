@@ -5077,7 +5077,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_int_tag_untag_reverses(self):
         ops = """
         [i0]
-        i1 = int_tag(i0)
+        i1 = int_tag_ovf(i0)
         guard_no_overflow() []
         i2 = int_untag(i1)
         i3 = int_add(i2, 1)
@@ -5085,7 +5085,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [i0]
-        i1 = int_tag(i0)
+        i1 = int_tag_ovf(i0)
         guard_no_overflow() []
         i2 = int_add(i0, 1)
         jump(i2)
@@ -5094,7 +5094,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [i0]
         i1 = int_untag(i0)
-        i2 = int_tag(i1)
+        i2 = int_tag_ovf(i1)
         guard_no_overflow() []
         i3 = int_untag(i2)
         i4 = int_add(i3, 1)
@@ -5111,7 +5111,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_int_tag_remove_overflow_checking(self):
         ops = """
         [i0]
-        i2 = int_tag(i0)
+        i2 = int_tag_ovf(i0)
         guard_no_overflow() []
         i3 = int_untag(i2)
         i4 = int_add_ovf(i3, 1)
@@ -5120,14 +5120,14 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [i0]
-        i2 = int_tag(i0)
+        i2 = int_tag_ovf(i0)
         guard_no_overflow() []
         i3 = int_add(i0, 1)
         jump(i3)
         """
         preamble = """
         [i0]
-        i2 = int_tag(i0)
+        i2 = int_tag_ovf(i0)
         guard_no_overflow() []
         i3 = int_add(i0, 1)
         jump(i3)
