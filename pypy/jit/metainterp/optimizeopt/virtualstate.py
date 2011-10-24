@@ -193,6 +193,10 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
     def debug_header(self, indent):
         debug_print(indent + 'VArrayStateInfo(%d):' % self.position)
             
+class VArrayStructStateInfo(AbstractVirtualStateInfo):
+    def __init__(self, arraydescr):
+        self.arraydescr = arraydescr
+
         
 class NotVirtualStateInfo(AbstractVirtualStateInfo):
     def __init__(self, value):
@@ -462,6 +466,9 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
 
     def make_varray(self, arraydescr):
         return VArrayStateInfo(arraydescr)
+
+    def make_varraystruct(self, arraydescr):
+        return VArrayStructStateInfo(arraydescr)
 
 class BoxNotProducable(Exception):
     pass
