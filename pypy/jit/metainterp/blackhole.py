@@ -630,6 +630,9 @@ class BlackholeInterpreter(object):
         a = longlong.getrealfloat(a)
         # note: we need to call int() twice to care for the fact that
         # int(-2147483648.0) returns a long :-(
+        # we could also call intmask() instead of the outermost int(), but
+        # it's probably better to explicitly crash (by getting a long) if a
+        # non-translated version tries to cast a too large float to an int.
         return int(int(a))
 
     @arguments("i", returns="f")

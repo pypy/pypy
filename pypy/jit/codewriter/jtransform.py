@@ -847,6 +847,12 @@ class Transformer(object):
             return self._float_to_float_cast(v_arg, v_result)
         elif not float_arg and float_res:
             # some int -> some float
+            size1, unsigned1 = rffi.size_and_sign(v_arg.concretetype)
+            assert size1 <= rffi.sizeof(lltype.Signed), (
+                "not implemented: cast_longlong_to_float")
+            assert size1 < rffi.sizeof(lltype.Signed) or not unsigned1, (
+                "not implemented: cast_uint_to_float")
+            #
             ops = []
             v1 = varoftype(lltype.Signed)
             oplist = self.rewrite_operation(
@@ -871,6 +877,12 @@ class Transformer(object):
             return ops
         elif float_arg and not float_res:
             # some float -> some int
+            size2, unsigned2 = rffi.size_and_sign(v_result.concretetype)
+            assert size2 <= rffi.sizeof(lltype.Signed), (
+                "not implemented: cast_float_to_longlong")
+            assert size2 < rffi.sizeof(lltype.Signed) or not unsigned2, (
+                "not implemented: cast_float_to_uint")
+            #
             ops = []
             v1 = varoftype(lltype.Float)
             op1 = self.rewrite_operation(
@@ -1097,8 +1109,8 @@ class Transformer(object):
     # The new operation is optionally further processed by rewrite_operation().
     for _old, _new in [('bool_not', 'int_is_zero'),
                        ('cast_bool_to_float', 'cast_int_to_float'),
-                       ('cast_uint_to_float', 'cast_int_to_float'),
-                       ('cast_float_to_uint', 'cast_float_to_int'),
+                       ('cast_uint_to_float', 'cast_primitive'),
+                       ('cast_float_to_uint', 'cast_primitive'),
 
                        ('int_add_nonneg_ovf', 'int_add_ovf'),
                        ('keepalive', '-live-'),

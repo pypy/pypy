@@ -1095,13 +1095,6 @@ class LLFrame(object):
             assert y >= 0
         return self.op_int_add_ovf(x, y)
 
-    def op_cast_float_to_int(self, f):
-        assert type(f) is float
-        try:
-            return ovfcheck(int(f))
-        except OverflowError:
-            self.make_llexception()
-
     def op_int_is_true(self, x):
         # special case
         if type(x) is CDefinedIntSymbolic:

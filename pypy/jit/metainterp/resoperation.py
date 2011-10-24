@@ -404,8 +404,8 @@ _oplist = [
     'FLOAT_TRUEDIV/2',
     'FLOAT_NEG/1',
     'FLOAT_ABS/1',
-    'CAST_FLOAT_TO_INT/1',
-    'CAST_INT_TO_FLOAT/1',
+    'CAST_FLOAT_TO_INT/1',          # don't use for unsigned ints; we would
+    'CAST_INT_TO_FLOAT/1',          # need some messy code in the backend
     'CAST_FLOAT_TO_SINGLEFLOAT/1',
     'CAST_SINGLEFLOAT_TO_FLOAT/1',
     #
