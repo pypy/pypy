@@ -430,8 +430,6 @@ class Regalloc(object):
         size = arraydescr.get_item_size(cpu.translate_support_code)
         ptr = arraydescr.is_array_of_pointers()
         scale = 0
-        # XXX HACK, improve!
-        #if not arraydescr._clsname.startswith("BoolArrayDescr"):
         while (1 << scale) < size:
             scale += 1
         assert (1 << scale) == size
