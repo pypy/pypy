@@ -261,12 +261,15 @@ class OpAssembler(object):
     def emit_setfield_gc(self, op, arglocs, regalloc):
         value_loc, base_loc, ofs, size = arglocs
         if size.value == 8:
-            assert 0, "not implemented yet"
+            if ofs.is_imm():
+                self.mc.std(value_loc.value, base_loc.value, ofs.value)
+            else:
+                self.mc.stdx(value_loc.value, base_loc.value, ofs.value)
         elif size.value == 4:
             if ofs.is_imm():
                 self.mc.stw(value_loc.value, base_loc.value, ofs.value)
             else:
-                self.mc.stw(value_loc.value, base_loc.value, ofs.value)
+                self.mc.stwx(value_loc.value, base_loc.value, ofs.value)
         elif size.value == 2:
             if ofs.is_imm():
                 self.mc.sth(value_loc.value, base_loc.value, ofs.value)
@@ -284,7 +287,10 @@ class OpAssembler(object):
     def emit_getfield_gc(self, op, arglocs, regalloc):
         base_loc, ofs, res, size = arglocs
         if size.value == 8:
-            assert 0, "not implemented yet"
+            if ofs.is_imm():
+                self.mc.ld(res.value, base_loc.value, ofs.value)
+            else:
+                self.mc.ldx(res.value, base_loc.value, ofs.value)
         elif size.value == 4:
             if ofs.is_imm():
                 self.mc.lwz(res.value, base_loc.value, ofs.value)
