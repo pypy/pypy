@@ -70,7 +70,8 @@ class FakeCallControl:
         return 'residual'
     def getcalldescr(self, op, oopspecindex=None, extraeffect=None):
         try:
-            if 'cannot_raise' in op.args[0].value._obj.graph.name:
+            name = op.args[0].value._obj._name
+            if 'cannot_raise' in name or name.startswith('cast_'):
                 return self._descr_cannot_raise
         except AttributeError:
             pass
@@ -898,6 +899,35 @@ class TestFlatten:
             int_and %i2, $255 -> %i3
             int_add %i3, $-128 -> %i4
             int_return %i4
+        """, transform=True)
+
+        def f(dbl):
+            return rffi.cast(rffi.UCHAR, dbl)
+        self.encoding_test(f, [12.456], """
+            cast_float_to_int %f0 -> %i0
+            int_and %i0, $255 -> %i1
+            int_return %i1
+        """, transform=True)
+
+        def f(dbl):
+            return rffi.cast(lltype.Unsigned, dbl)
+        self.encoding_test(f, [12.456], """
+            residual_call_irf_i $<* fn cast_float_to_uint>, <Descr>, I[], R[], F[%f0] -> %i0
+            int_return %i0
+        """, transform=True)
+
+        def f(i):
+            return rffi.cast(lltype.Float, chr(i))    # "char -> float"
+        self.encoding_test(f, [12], """
+            cast_int_to_float %i0 -> %f0
+            float_return %f0
+        """, transform=True)
+
+        def f(i):
+            return rffi.cast(lltype.Float, r_uint(i))    # "uint -> float"
+        self.encoding_test(f, [12], """
+            residual_call_irf_f $<* fn cast_uint_to_float>, <Descr>, I[%i0], R[], F[] -> %f0
+            float_return %f0
         """, transform=True)
 
 

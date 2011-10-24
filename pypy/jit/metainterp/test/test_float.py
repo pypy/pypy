@@ -55,11 +55,10 @@ class FloatTests:
     def test_cast_float_to_uint(self):
         def g(f):
             return intmask(r_uint(f))
-        raises(AssertionError, self.interp_operations, g, [0.0])   # for now
-        #res = self.interp_operations(g, [sys.maxint*2.0])
-        #assert res == intmask(long(sys.maxint*2.0))
-        #res = self.interp_operations(g, [-12345.9])
-        #assert res == -12345
+        res = self.interp_operations(g, [sys.maxint*2.0])
+        assert res == intmask(long(sys.maxint*2.0))
+        res = self.interp_operations(g, [-12345.9])
+        assert res == -12345
 
     def test_cast_int_to_float(self):
         def g(i):
@@ -70,11 +69,10 @@ class FloatTests:
     def test_cast_uint_to_float(self):
         def g(i):
             return float(r_uint(i))
-        raises(AssertionError, self.interp_operations, g, [0])    # for now
-        #res = self.interp_operations(g, [sys.maxint*2])
-        #assert type(res) is float and res == float(sys.maxint*2)
-        #res = self.interp_operations(g, [-12345])
-        #assert type(res) is float and res == float(long(r_uint(-12345)))
+        res = self.interp_operations(g, [intmask(sys.maxint*2)])
+        assert type(res) is float and res == float(sys.maxint*2)
+        res = self.interp_operations(g, [-12345])
+        assert type(res) is float and res == float(long(r_uint(-12345)))
 
     #def test_cast_longlong_to_float(self):
     #def test_cast_ulonglong_to_float(self):

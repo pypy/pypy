@@ -229,6 +229,13 @@ def _ll_1_int_abs(x):
     else:
         return x
 
+def _ll_1_cast_uint_to_float(x):
+    return llop.cast_uint_to_float(lltype.Float, x)
+
+def _ll_1_cast_float_to_uint(x):
+    return llop.cast_float_to_uint(lltype.Unsigned, x)
+
+
 # math support
 # ------------
 

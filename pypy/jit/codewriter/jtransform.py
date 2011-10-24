@@ -443,6 +443,8 @@ class Transformer(object):
     rewrite_op_gc_identityhash = _do_builtin_call
     rewrite_op_gc_id           = _do_builtin_call
     rewrite_op_uint_mod        = _do_builtin_call
+    rewrite_op_cast_float_to_uint = _do_builtin_call
+    rewrite_op_cast_uint_to_float = _do_builtin_call
 
     # ----------
     # getfield/setfield/mallocs etc.
@@ -850,38 +852,43 @@ class Transformer(object):
             size1, unsigned1 = rffi.size_and_sign(v_arg.concretetype)
             assert size1 <= rffi.sizeof(lltype.Signed), (
                 "not implemented: cast_longlong_to_float")
-            assert size1 < rffi.sizeof(lltype.Signed) or not unsigned1, (
-                "not implemented: cast_uint_to_float")
+            from_uint = (unsigned1 and size1 == rffi.sizeof(lltype.Signed))
             #
             ops = []
-            v1 = varoftype(lltype.Signed)
-            oplist = self.rewrite_operation(
-                SpaceOperation('force_cast', [v_arg], v1)
-            )
-            if oplist:
-                ops.extend(oplist)
-            else:
-                v1 = v_arg
             v2 = varoftype(lltype.Float)
-            op = self.rewrite_operation(
-                SpaceOperation('cast_int_to_float', [v1], v2)
-            )
-            ops.append(op)
+            if not from_uint:
+                v1 = varoftype(lltype.Signed)
+                oplist = self.rewrite_operation(
+                    SpaceOperation('force_cast', [v_arg], v1)
+                )
+                if oplist:
+                    ops.extend(oplist)
+                else:
+                    v1 = v_arg
+                op = self.rewrite_operation(
+                    SpaceOperation('cast_int_to_float', [v1], v2)
+                )
+                ops.append(op)
+            else:
+                ops1 = self.rewrite_operation(
+                    SpaceOperation('cast_uint_to_float', [v_arg], v2)
+                )
+                if not isinstance(ops1, list): ops1 = [ops1]
+                ops.extend(ops1)
             op2 = self.rewrite_operation(
                 SpaceOperation('force_cast', [v2], v_result)
             )
             if op2:
                 ops.append(op2)
             else:
-                op.result = v_result
+                ops[-1].result = v_result
             return ops
         elif float_arg and not float_res:
             # some float -> some int
             size2, unsigned2 = rffi.size_and_sign(v_result.concretetype)
             assert size2 <= rffi.sizeof(lltype.Signed), (
                 "not implemented: cast_float_to_longlong")
-            assert size2 < rffi.sizeof(lltype.Signed) or not unsigned2, (
-                "not implemented: cast_float_to_uint")
+            to_uint = (unsigned2 and size2 == rffi.sizeof(lltype.Signed))
             #
             ops = []
             v1 = varoftype(lltype.Float)
@@ -892,18 +899,25 @@ class Transformer(object):
                 ops.append(op1)
             else:
                 v1 = v_arg
-            v2 = varoftype(lltype.Signed)
-            op = self.rewrite_operation(
-                SpaceOperation('cast_float_to_int', [v1], v2)
-            )
-            ops.append(op)
-            oplist = self.rewrite_operation(
-                SpaceOperation('force_cast', [v2], v_result)
-            )
-            if oplist:
-                ops.extend(oplist)
+            if not to_uint:
+                v2 = varoftype(lltype.Signed)
+                op = self.rewrite_operation(
+                    SpaceOperation('cast_float_to_int', [v1], v2)
+                )
+                ops.append(op)
+                oplist = self.rewrite_operation(
+                    SpaceOperation('force_cast', [v2], v_result)
+                )
+                if oplist:
+                    ops.extend(oplist)
+                else:
+                    op.result = v_result
             else:
-                op.result = v_result
+                ops1 = self.rewrite_operation(
+                    SpaceOperation('cast_float_to_uint', [v1], v_result)
+                )
+                if not isinstance(ops1, list): ops1 = [ops1]
+                ops.extend(ops1)
             return ops
         else:
             assert False
@@ -1109,8 +1123,6 @@ class Transformer(object):
     # The new operation is optionally further processed by rewrite_operation().
     for _old, _new in [('bool_not', 'int_is_zero'),
                        ('cast_bool_to_float', 'cast_int_to_float'),
-                       ('cast_uint_to_float', 'cast_primitive'),
-                       ('cast_float_to_uint', 'cast_primitive'),
 
                        ('int_add_nonneg_ovf', 'int_add_ovf'),
                        ('keepalive', '-live-'),
