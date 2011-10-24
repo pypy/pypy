@@ -565,6 +565,64 @@ class FieldOpAssembler(object):
     emit_op_getfield_raw_pure = emit_op_getfield_gc
     emit_op_getfield_gc_pure = emit_op_getfield_gc
 
+    def emit_op_getinteriorfield_gc(self, op, arglocs, regalloc, fcond):
+        base_loc, index_loc, res_loc, ofs_loc, ofs, itemsize, fieldsize = arglocs
+        self.mc.gen_load_int(r.ip.value, itemsize.value)
+        self.mc.MUL(r.ip.value, index_loc.value, r.ip.value)
+        if ofs.value > 0:
+            if ofs_loc.is_imm():
+                self.mc.ADD_ri(r.ip.value, r.ip.value, ofs_loc.value)
+            else:
+                self.mc.ADD_rr(r.ip.value, r.ip.value, ofs_loc.value)
+
+        if fieldsize.value == 8:
+            # vldr only supports imm offsets
+            # so if the ofset is too large we add it to the base and use an
+            # offset of 0
+            assert res_loc.is_vfp_reg()
+            self.mc.ADD_rr(r.ip.value, base_loc.value, r.ip.value)
+            self.mc.VLDR(res_loc.value, r.ip.value, 0)
+        elif fieldsize.value == 4:
+            self.mc.LDR_rr(res_loc.value, base_loc.value, r.ip.value)
+        elif fieldsize.value == 2:
+            self.mc.LDRH_rr(res_loc.value, base_loc.value, r.ip.value)
+        elif fieldsize.value == 1:
+            self.mc.LDRB_rr(res_loc.value, base_loc.value, r.ip.value)
+        else:
+            assert 0
+
+        #XXX Hack, Hack, Hack
+        if not we_are_translated():
+            signed = op.getdescr().fielddescr.is_field_signed()
+            self._ensure_result_bit_extension(res_loc, fieldsize.value, signed)
+        return fcond
+
+    def emit_op_setinteriorfield_gc(self, op, arglocs, regalloc, fcond):
+        base_loc, index_loc, value_loc, ofs_loc, ofs, itemsize, fieldsize = arglocs
+        self.mc.gen_load_int(r.ip.value, itemsize.value)
+        self.mc.MUL(r.ip.value, index_loc.value, r.ip.value)
+        if ofs.value > 0:
+            if ofs_loc.is_imm():
+                self.mc.ADD_ri(r.ip.value, r.ip.value, ofs_loc.value)
+            else:
+                self.mc.ADD_rr(r.ip.value, r.ip.value, ofs_loc.value)
+        if fieldsize.value == 8:
+            # vstr only supports imm offsets
+            # so if the ofset is too large we add it to the base and use an
+            # offset of 0
+            assert value_loc.is_vfp_reg()
+            self.mc.ADD_rr(r.ip.value, base_loc.value, r.ip.value)
+            self.mc.VSTR(value_loc.value, r.ip.value, 0)
+        elif fieldsize.value == 4:
+            self.mc.STR_rr(value_loc.value, base_loc.value, r.ip.value)
+        elif fieldsize.value == 2:
+            self.mc.STRH_rr(value_loc.value, base_loc.value, r.ip.value)
+        elif fieldsize.value == 1:
+            self.mc.STRB_rr(value_loc.value, base_loc.value, r.ip.value)
+        else:
+            assert 0
+        return fcond
+
 
 
 

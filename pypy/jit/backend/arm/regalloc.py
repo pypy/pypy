@@ -17,7 +17,8 @@ from pypy.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPtr,
                                         INT, REF, FLOAT, LoopToken)
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr, \
-                                             BaseCallDescr, BaseSizeDescr
+                                             BaseCallDescr, BaseSizeDescr, \
+                                             InteriorFieldDescr
 from pypy.jit.backend.llsupport import symbolic
 from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 from pypy.jit.codewriter import heaptracker
@@ -637,6 +638,46 @@ class Regalloc(object):
     prepare_op_getfield_raw_pure = prepare_op_getfield_gc
     prepare_op_getfield_gc_pure = prepare_op_getfield_gc
 
+    def prepare_op_getinteriorfield_gc(self, op, fcond):
+        t = self._unpack_interiorfielddescr(op.getdescr())
+        ofs, itemsize, fieldsize, sign = t
+        args = op.getarglist()
+        base_loc, base_box = self._ensure_value_is_boxed(op.getarg(0), args)
+        index_loc, index_box = self._ensure_value_is_boxed(op.getarg(1), args)
+        c_ofs = ConstInt(ofs)
+        if _check_imm_arg(c_ofs):
+            ofs_loc = imm(ofs)
+        else:
+            ofs_loc, ofs_box = self._ensure_value_is_boxed(c_ofs, [base_box, index_box])
+            self.possibly_free_var(ofs_box)
+        self.possibly_free_vars(args)
+        self.possibly_free_var(base_box)
+        self.possibly_free_var(index_box)
+        result_loc = self.force_allocate_reg(op.result)
+        return [base_loc, index_loc, result_loc, ofs_loc, imm(ofs), 
+                                        imm(itemsize), imm(fieldsize)]
+
+    
+    def prepare_op_setinteriorfield_gc(self, op, fcond):
+        t = self._unpack_interiorfielddescr(op.getdescr())
+        ofs, itemsize, fieldsize, sign = t
+        boxes = [None]*3
+        base_loc, base_box = self._ensure_value_is_boxed(op.getarg(0), boxes)
+        boxes[0] = base_box
+        index_loc, index_box = self._ensure_value_is_boxed(op.getarg(1), boxes)
+        boxes[1] = index_box
+        value_loc, value_box = self._ensure_value_is_boxed(op.getarg(2), boxes)
+        boxes[2] = value_box
+        c_ofs = ConstInt(ofs)
+        if _check_imm_arg(c_ofs):
+            ofs_loc = imm(ofs)
+        else:
+            ofs_loc, ofs_box = self._ensure_value_is_boxed(c_ofs, boxes)
+            self.possibly_free_var(ofs_box)
+        self.possibly_free_vars(boxes)
+        return [base_loc, index_loc, value_loc, ofs_loc, imm(ofs),
+                                        imm(itemsize), imm(fieldsize)]
+
     def prepare_op_arraylen_gc(self, op, fcond):
         arraydescr = op.getdescr()
         assert isinstance(arraydescr, BaseArrayDescr)
@@ -657,7 +698,6 @@ class Regalloc(object):
         boxes.append(base_box)
         ofs_loc, ofs_box = self._ensure_value_is_boxed(a1, boxes)
         boxes.append(ofs_box)
-        #XXX check if imm would be fine here
         value_loc, value_box = self._ensure_value_is_boxed(a2, boxes)
         boxes.append(value_box)
         self.possibly_free_vars(boxes)
@@ -1071,6 +1111,16 @@ class Regalloc(object):
         assert (1 << scale) == size
         return size, scale, ofs, ofs_length, ptr
 
+    # from ../x86/regalloc.py:965
+    def _unpack_interiorfielddescr(self, descr):
+        assert isinstance(descr, InteriorFieldDescr)
+        arraydescr = descr.arraydescr
+        ofs = arraydescr.get_base_size(self.cpu.translate_support_code)
+        itemsize = arraydescr.get_item_size(self.cpu.translate_support_code)
+        fieldsize = descr.fielddescr.get_field_size(self.cpu.translate_support_code)
+        sign = descr.fielddescr.is_field_signed()
+        ofs += descr.fielddescr.offset
+        return ofs, itemsize, fieldsize, sign
 
     prepare_op_float_add = prepare_float_op(name='float_add')
     prepare_op_float_sub = prepare_float_op(name='float_sub')
