@@ -11,6 +11,7 @@ from pypy.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call,
                                                     gen_emit_op_unary_cmp,
                                                     gen_emit_op_ri,
                                                     gen_emit_cmp_op,
+                                                    gen_emit_cmp_op_guard,
                                                     gen_emit_float_op,
                                                     gen_emit_float_cmp_op,
                                                     gen_emit_unary_float_op, 
@@ -139,11 +140,28 @@ class IntOpAsslember(object):
     emit_op_uint_lt = gen_emit_cmp_op(c.HI)
     emit_op_uint_ge = gen_emit_cmp_op(c.LS)
 
+    emit_op_ptr_eq = emit_op_int_eq
+    emit_op_ptr_ne = emit_op_int_ne
+
+    emit_guard_int_lt = gen_emit_cmp_op_guard(c.LT)
+    emit_guard_int_le = gen_emit_cmp_op_guard(c.LE)
+    emit_guard_int_eq = gen_emit_cmp_op_guard(c.EQ)
+    emit_guard_int_ne = gen_emit_cmp_op_guard(c.NE)
+    emit_guard_int_gt = gen_emit_cmp_op_guard(c.GT)
+    emit_guard_int_ge = gen_emit_cmp_op_guard(c.GE)
+
+    emit_guard_uint_le = gen_emit_cmp_op_guard(c.LS)
+    emit_guard_uint_gt = gen_emit_cmp_op_guard(c.HI)
+
+    emit_guard_uint_lt = gen_emit_cmp_op_guard(c.HI)
+    emit_guard_uint_ge = gen_emit_cmp_op_guard(c.LS)
+
+    emit_guard_ptr_eq = emit_guard_int_eq
+    emit_guard_ptr_ne = emit_guard_int_ne
+
     emit_op_int_add_ovf = emit_op_int_add
     emit_op_int_sub_ovf = emit_op_int_sub
 
-    emit_op_ptr_eq = emit_op_int_eq
-    emit_op_ptr_ne = emit_op_int_ne
 
 
 class UnaryIntOpAssembler(object):

@@ -8,7 +8,10 @@ from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm.arch import WORD, FUNC_ALIGN, PC_OFFSET, N_REGISTERS_SAVED_BY_MALLOC
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
 from pypy.jit.backend.arm.regalloc import (Regalloc, ARMFrameManager, ARMv7RegisterMananger,
-                                                    _check_imm_arg, TempInt, TempPtr)
+                                        _check_imm_arg, TempInt,
+                                        TempPtr,
+                                        operations as regalloc_operations,
+                                        operations_with_guard as regalloc_operations_with_guard)
 from pypy.jit.backend.arm.jump import remap_frame_layout
 from pypy.jit.backend.llsupport.regalloc import compute_vars_longevity, TempBox
 from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
@@ -791,34 +794,45 @@ class AssemblerARM(ResOpAssembler):
                 regalloc.possibly_free_vars_for_op(op)
             elif self.can_merge_with_next_guard(op, i, operations):
                 regalloc.next_instruction()
-                arglocs = regalloc.operations_with_guard[opnum](regalloc, op,
+                arglocs = regalloc_operations_with_guard[opnum](regalloc, op,
                                         operations[i+1], fcond)
-                fcond = self.operations_with_guard[opnum](self, op,
+                fcond = asm_operations_with_guard[opnum](self, op,
                                         operations[i+1], arglocs, regalloc, fcond)
             elif not we_are_translated() and op.getopnum() == -124:
                 regalloc.prepare_force_spill(op, fcond)
             else:
-                arglocs = regalloc.operations[opnum](regalloc, op, fcond)
+                arglocs = regalloc_operations[opnum](regalloc, op, fcond)
                 if arglocs is not None:
-                    fcond = self.operations[opnum](self, op, arglocs, regalloc, fcond)
+                    fcond = asm_operations[opnum](self, op, arglocs, regalloc, fcond)
             if op.result:
                 regalloc.possibly_free_var(op.result)
             regalloc.possibly_free_vars_for_op(op)
             regalloc._check_invariants()
 
+    # from ../x86/regalloc.py
     def can_merge_with_next_guard(self, op, i, operations):
-        num = op.getopnum()
-        if num == rop.CALL_MAY_FORCE or num == rop.CALL_ASSEMBLER:
+        if (op.getopnum() == rop.CALL_MAY_FORCE or
+            op.getopnum() == rop.CALL_ASSEMBLER or
+            op.getopnum() == rop.CALL_RELEASE_GIL):
             assert operations[i + 1].getopnum() == rop.GUARD_NOT_FORCED
             return True
-        if num == rop.INT_MUL_OVF or num == rop.INT_ADD_OVF or num == rop.INT_SUB_OVF:
-            opnum = operations[i + 1].getopnum()
-            assert opnum  == rop.GUARD_OVERFLOW or opnum == rop.GUARD_NO_OVERFLOW
-            return True
-        if num == rop.CALL_RELEASE_GIL:
-            return True
-        return False
-
+        if not op.is_comparison():
+            if op.is_ovf():
+                if (operations[i + 1].getopnum() != rop.GUARD_NO_OVERFLOW and
+                    operations[i + 1].getopnum() != rop.GUARD_OVERFLOW):
+                    not_implemented("int_xxx_ovf not followed by "
+                                    "guard_(no)_overflow")
+                return True
+            return False
+        if (operations[i + 1].getopnum() != rop.GUARD_TRUE and
+            operations[i + 1].getopnum() != rop.GUARD_FALSE):
+            return False
+        if operations[i + 1].getarg(0) is not op.result:
+            return False
+        if (self._regalloc.longevity[op.result][1] > i + 1 or
+            op.result in operations[i + 1].getfailargs()):
+            return False
+        return True
 
     def _insert_checks(self, mc=None):
         if not we_are_translated():
@@ -1148,36 +1162,29 @@ class AssemblerARM(ResOpAssembler):
         else:
             return 0
 
-def make_operation_list():
-    def notimplemented(self, op, arglocs, regalloc, fcond):
-        raise NotImplementedError, op
+def notimplemented(self, op, arglocs, regalloc, fcond):
+    raise NotImplementedError, op
+def notimplemented_with_guard(self, op, guard_op, arglocs, regalloc, fcond):
+    raise NotImplementedError, op
 
-    operations = [None] * (rop._LAST+1)
-    for key, value in rop.__dict__.items():
-        key = key.lower()
-        if key.startswith('_'):
-            continue
-        methname = 'emit_op_%s' % key
-        if hasattr(AssemblerARM, methname):
-            func = getattr(AssemblerARM, methname).im_func
-        else:
-            func = notimplemented
-        operations[value] = func
-    return operations
+asm_operations = [notimplemented] * (rop._LAST + 1)
+asm_operations_with_guard = [notimplemented_with_guard] * (rop._LAST + 1)
 
-def make_guard_operation_list():
-    def notimplemented(self, op, guard_op, arglocs, regalloc, fcond):
-        raise NotImplementedError, op
-    guard_operations = [notimplemented] * rop._LAST
-    for key, value in rop.__dict__.items():
-        key = key.lower()
-        if key.startswith('_'):
-            continue
-        methname = 'emit_guard_%s' % key
-        if hasattr(AssemblerARM, methname):
-            func = getattr(AssemblerARM, methname).im_func
-            guard_operations[value] = func
-    return guard_operations
+for key, value in rop.__dict__.items():
+    key = key.lower()
+    if key.startswith('_'):
+        continue
+    methname = 'emit_op_%s' % key
+    if hasattr(AssemblerARM, methname):
+        func = getattr(AssemblerARM, methname).im_func
+        asm_operations[value] = func
 
-AssemblerARM.operations = make_operation_list()
-AssemblerARM.operations_with_guard = make_guard_operation_list()
+for key, value in rop.__dict__.items():
+    key = key.lower()
+    if key.startswith('_'):
+        continue
+    methname = 'emit_guard_%s' % key
+    if hasattr(AssemblerARM, methname):
+        func = getattr(AssemblerARM, methname).im_func
+        asm_operations_with_guard[value] = func
+

@@ -425,11 +425,28 @@ class Regalloc(object):
     prepare_op_uint_lt = prepare_cmp_op('uint_lt', inverse=True)
     prepare_op_uint_ge = prepare_cmp_op('uint_ge', inverse=True)
 
+    prepare_op_ptr_eq = prepare_op_int_eq
+    prepare_op_ptr_ne = prepare_op_int_ne
+
+    prepare_guard_int_lt = prepare_cmp_op('guard_int_lt')
+    prepare_guard_int_le = prepare_cmp_op('guard_int_le')
+    prepare_guard_int_eq = prepare_cmp_op('guard_int_eq')
+    prepare_guard_int_ne = prepare_cmp_op('guard_int_ne')
+    prepare_guard_int_gt = prepare_cmp_op('guard_int_gt')
+    prepare_guard_int_ge = prepare_cmp_op('guard_int_ge')
+
+    prepare_guard_uint_le = prepare_cmp_op('guard_uint_le')
+    prepare_guard_uint_gt = prepare_cmp_op('guard_uint_gt')
+
+    prepare_guard_uint_lt = prepare_cmp_op('guard_uint_lt', inverse=True)
+    prepare_guard_uint_ge = prepare_cmp_op('guard_uint_ge', inverse=True)
+
+    prepare_guard_ptr_eq = prepare_guard_int_eq
+    prepare_guard_ptr_ne = prepare_guard_int_ne
+
     prepare_op_int_add_ovf = prepare_op_int_add
     prepare_op_int_sub_ovf = prepare_op_int_sub
 
-    prepare_op_ptr_eq = prepare_op_int_eq
-    prepare_op_ptr_ne = prepare_op_int_ne
 
     prepare_op_int_is_true = prepare_op_unary_cmp('int_is_true')
     prepare_op_int_is_zero = prepare_op_unary_cmp('int_is_zero')
@@ -1186,36 +1203,32 @@ class Regalloc(object):
         self.force_spill_var(op.getarg(0))
         return []
 
-def make_operation_list():
-    def notimplemented(self, op, fcond):
-        raise NotImplementedError, op
+def add_none_argument(fn):
+    return lambda self, op, fcond: fn(self, op, None, fcond)
 
-    operations = [None] * (rop._LAST+1)
-    for key, value in rop.__dict__.items():
-        key = key.lower()
-        if key.startswith('_'):
-            continue
-        methname = 'prepare_op_%s' % key
-        if hasattr(Regalloc, methname):
-            func = getattr(Regalloc, methname).im_func
-        else:
-            func = notimplemented
+def notimplemented(self, op, fcond):
+    raise NotImplementedError, op
+def notimplemented_with_guard(self, op, guard_op, fcond):
+    raise NotImplementedError, op
+
+operations = [notimplemented] * (rop._LAST + 1)
+operations_with_guard = [notimplemented_with_guard] * (rop._LAST + 1)
+
+for key, value in rop.__dict__.items():
+    key = key.lower()
+    if key.startswith('_'):
+        continue
+    methname = 'prepare_op_%s' % key
+    if hasattr(Regalloc, methname):
+        func = getattr(Regalloc, methname).im_func
         operations[value] = func
-    return operations
 
-def make_guard_operation_list():
-    def notimplemented(self, op, guard_op, fcond):
-        raise NotImplementedError, op
-    guard_operations = [notimplemented] * rop._LAST
-    for key, value in rop.__dict__.items():
-        key = key.lower()
-        if key.startswith('_'):
-            continue
-        methname = 'prepare_guard_%s' % key
-        if hasattr(Regalloc, methname):
-            func = getattr(Regalloc, methname).im_func
-            guard_operations[value] = func
-    return guard_operations
-
-Regalloc.operations = make_operation_list()
-Regalloc.operations_with_guard = make_guard_operation_list()
+for key, value in rop.__dict__.items():
+    key = key.lower()
+    if key.startswith('_'):
+        continue
+    methname = 'prepare_guard_%s' % key
+    if hasattr(Regalloc, methname):
+        func = getattr(Regalloc, methname).im_func
+        operations_with_guard[value] = func
+        operations[value] = add_none_argument(func)

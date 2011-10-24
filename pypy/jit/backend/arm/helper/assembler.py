@@ -4,6 +4,7 @@ from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm.codebuilder import AbstractARMv7Builder
 from pypy.jit.metainterp.history import ConstInt, BoxInt, FLOAT
 from pypy.rlib.rarithmetic import r_uint, r_longlong, intmask
+from pypy.jit.metainterp.resoperation import rop
 
 def gen_emit_op_unary_cmp(true_cond, false_cond):
     def f(self, op, arglocs, regalloc, fcond):
@@ -52,6 +53,24 @@ def gen_emit_cmp_op(condition):
             self.mc.CMP_rr(l0.value, l1.value, cond=fcond)
         self.mc.MOV_ri(res.value, 1, cond=condition)
         self.mc.MOV_ri(res.value, 0, cond=inv)
+        return fcond
+    return f
+
+def gen_emit_cmp_op_guard(condition):
+    def f(self, op, guard, arglocs, regalloc, fcond):
+        l0 = arglocs[0]
+        l1 = arglocs[1]
+
+        inv = c.get_opposite_of(condition)
+        if l1.is_imm():
+            self.mc.CMP_ri(l0.value, imm=l1.getint(), cond=fcond)
+        else:
+            self.mc.CMP_rr(l0.value, l1.value, cond=fcond)
+        guard_opnum = guard.getopnum()
+        cond = condition
+        if guard_opnum == rop.GUARD_FALSE:
+            cond = inv
+        self._emit_guard(guard, arglocs[2:], cond)
         return fcond
     return f
 

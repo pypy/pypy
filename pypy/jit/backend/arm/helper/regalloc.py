@@ -95,7 +95,7 @@ def prepare_op_by_helper_call(name):
     return f
 
 def prepare_cmp_op(name=None, inverse=False):
-    def f(self, op, fcond):
+    def f(self, op, guard_op, fcond):
         assert fcond is not None
         boxes = list(op.getarglist())
         if not inverse:
@@ -114,9 +114,14 @@ def prepare_cmp_op(name=None, inverse=False):
             l1, box = self._ensure_value_is_boxed(arg1, forbidden_vars=boxes)
             boxes.append(box)
         self.possibly_free_vars(boxes)
-        res = self.force_allocate_reg(op.result)
-        self.possibly_free_var(op.result)
-        return [l0, l1, res]
+        if guard_op is None:
+            res = self.force_allocate_reg(op.result)
+            self.possibly_free_var(op.result)
+            return [l0, l1, res]
+        else:
+            args = self._prepare_guard(guard_op, [l0, l1])
+            self.possibly_free_vars(guard_op.getfailargs())
+            return args
     if name:
         f.__name__ = name
     return f
