@@ -1276,8 +1276,8 @@ class Assembler386(object):
     genop_int_ne = _cmpop("NE", "NE")
     genop_int_gt = _cmpop("G", "L")
     genop_int_ge = _cmpop("GE", "LE")
-    genop_ptr_eq = genop_int_eq
-    genop_ptr_ne = genop_int_ne
+    genop_ptr_eq = genop_instance_ptr_eq = genop_int_eq
+    genop_ptr_ne = genop_instance_ptr_ne = genop_int_ne
 
     genop_float_lt = _cmpop_float('B', 'A')
     genop_float_le = _cmpop_float('BE', 'AE')

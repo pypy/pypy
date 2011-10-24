@@ -164,6 +164,7 @@ class BaseArrayDescr(AbstractDescr):
 
     _is_array_of_pointers = False      # unless overridden by GcPtrArrayDescr
     _is_array_of_floats   = False      # unless overridden by FloatArrayDescr
+    _is_array_of_structs  = False      # unless overridden by StructArrayDescr
     _is_item_signed       = False      # unless overridden by XxxArrayDescr
 
     def is_array_of_pointers(self):
@@ -171,6 +172,9 @@ class BaseArrayDescr(AbstractDescr):
 
     def is_array_of_floats(self):
         return self._is_array_of_floats
+
+    def is_array_of_structs(self):
+        return self._is_array_of_structs
 
     def is_item_signed(self):
         return self._is_item_signed
@@ -196,6 +200,10 @@ class FloatArrayDescr(BaseArrayDescr):
     def get_item_size(self, translate_support_code):
         return symbolic.get_size(lltype.Float, translate_support_code)
 
+class StructArrayDescr(BaseArrayDescr):
+    _clsname = 'StructArrayDescr'
+    _is_array_of_structs = True
+
 class BaseArrayNoLengthDescr(BaseArrayDescr):
     def get_base_size(self, translate_support_code):
         return 0
@@ -215,6 +223,13 @@ class GcPtrArrayNoLengthDescr(NonGcPtrArrayNoLengthDescr):
 def getArrayDescrClass(ARRAY):
     if ARRAY.OF is lltype.Float:
         return FloatArrayDescr
+    elif isinstance(ARRAY.OF, lltype.Struct):
+        class Descr(StructArrayDescr):
+            _clsname = '%sArrayDescr' % ARRAY.OF._name
+            def get_item_size(self, translate_support_code):
+                return symbolic.get_size(ARRAY.OF, translate_support_code)
+        Descr.__name__ = Descr._clsname
+        return Descr
     return getDescrClass(ARRAY.OF, BaseArrayDescr, GcPtrArrayDescr,
                          NonGcPtrArrayDescr, 'Array', 'get_item_size',
                          '_is_array_of_floats', '_is_item_signed')

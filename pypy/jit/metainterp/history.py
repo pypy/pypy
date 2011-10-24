@@ -173,6 +173,11 @@ class AbstractDescr(AbstractValue):
         """
         raise NotImplementedError
 
+    def is_array_of_structs(self):
+        """ Implement for array descr
+        """
+        raise NotImplementedError
+
     def is_pointer_field(self):
         """ Implement for field descr
         """

@@ -508,13 +508,13 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [p0]
         guard_class(p0, ConstClass(node_vtable)) []
-        i0 = ptr_ne(p0, NULL)
+        i0 = instance_ptr_ne(p0, NULL)
         guard_true(i0) []
-        i1 = ptr_eq(p0, NULL)
+        i1 = instance_ptr_eq(p0, NULL)
         guard_false(i1) []
-        i2 = ptr_ne(NULL, p0)
+        i2 = instance_ptr_ne(NULL, p0)
         guard_true(i0) []
-        i3 = ptr_eq(NULL, p0)
+        i3 = instance_ptr_eq(NULL, p0)
         guard_false(i1) []
         jump(p0)
         """
@@ -2026,7 +2026,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [p1]
         guard_class(p1, ConstClass(node_vtable2)) []
-        i = ptr_ne(ConstPtr(myptr), p1)
+        i = instance_ptr_ne(ConstPtr(myptr), p1)
         guard_true(i) []
         jump(p1)
         """
@@ -2178,6 +2178,17 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         expected = """
         [i0]
         jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [i0]
+        i1 = int_floordiv(0, i0)
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(0)
         """
         self.optimize_loop(ops, expected)
 
@@ -4788,6 +4799,18 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         finish(i0)
         """
         self.optimize_strunicode_loop(ops, expected)
+
+    def test_ptr_eq_str_constant(self):
+        ops = """
+        []
+        i0 = ptr_eq(s"abc", s"\x00")
+        finish(i0)
+        """
+        expected = """
+        []
+        finish(0)
+        """
+        self.optimize_loop(ops, expected)
 
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):

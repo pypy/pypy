@@ -343,8 +343,8 @@ LL_OPERATIONS = {
     'cast_uint_to_float':   LLOp(canfold=True),
     'cast_longlong_to_float' :LLOp(canfold=True),
     'cast_ulonglong_to_float':LLOp(canfold=True),
-    'cast_float_to_int':    LLOp(canraise=(OverflowError,), tryfold=True),
-    'cast_float_to_uint':   LLOp(canfold=True),    # XXX need OverflowError?
+    'cast_float_to_int':    LLOp(canfold=True),
+    'cast_float_to_uint':   LLOp(canfold=True),
     'cast_float_to_longlong' :LLOp(canfold=True),
     'cast_float_to_ulonglong':LLOp(canfold=True),
     'truncate_longlong_to_int':LLOp(canfold=True),
