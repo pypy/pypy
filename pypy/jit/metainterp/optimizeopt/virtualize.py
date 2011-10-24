@@ -59,7 +59,7 @@ class AbstractVirtualValue(optimizer.OptValue):
 
     def import_from(self, other, optimizer):
         raise NotImplementedError("should not be called at this level")
-    
+
 def get_fielddescrlist_cache(cpu):
     if not hasattr(cpu, '_optimizeopt_fielddescrlist_cache'):
         result = descrlist_dict()
@@ -113,7 +113,7 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
         #
         if not we_are_translated():
             op.name = 'FORCE ' + self.source_op.name
-            
+
         if self._is_immutable_and_filled_with_constants(optforce):
             box = optforce.optimizer.constant_fold(op)
             self.make_constant(box)
@@ -239,12 +239,12 @@ class VArrayValue(AbstractVirtualValue):
         for index in range(len(self._items)):
             self._items[index] = self._items[index].force_at_end_of_preamble(already_forced, optforce)
         return self
-    
+
     def _really_force(self, optforce):
         assert self.source_op is not None
         if not we_are_translated():
             self.source_op.name = 'FORCE ' + self.source_op.name
-        optforce.emit_operation(self.source_op)        
+        optforce.emit_operation(self.source_op)
         self.box = box = self.source_op.result
         for index in range(len(self._items)):
             subvalue = self._items[index]
@@ -276,7 +276,7 @@ class OptVirtualize(optimizer.Optimization):
 
     def new(self):
         return OptVirtualize()
-        
+
     def make_virtual(self, known_class, box, source_op=None):
         vvalue = VirtualValue(self.optimizer.cpu, known_class, box, source_op)
         self.make_equal_to(box, vvalue)
@@ -386,7 +386,8 @@ class OptVirtualize(optimizer.Optimization):
 
     def optimize_NEW_ARRAY(self, op):
         sizebox = self.get_constant_box(op.getarg(0))
-        if sizebox is not None:
+        # For now we can't make arrays of structs virtual.
+        if sizebox is not None and not op.getdescr().is_array_of_structs():
             # if the original 'op' did not have a ConstInt as argument,
             # build a new one with the ConstInt argument
             if not isinstance(op.getarg(0), ConstInt):

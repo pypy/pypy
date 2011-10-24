@@ -395,9 +395,21 @@ def _setup():
     _wrapper.f_in = f_in
     _wrapper.f_out = f_out
 
-    if hasattr(sys, '__raw_input__'):    # PyPy
-        _old_raw_input = sys.__raw_input__
+    if '__pypy__' in sys.builtin_module_names:    # PyPy
+
+        def _old_raw_input(prompt=''):
+            # sys.__raw_input__() is only called when stdin and stdout are
+            # as expected and are ttys.  If it is the case, then get_reader()
+            # should not really fail in _wrapper.raw_input().  If it still
+            # does, then we will just cancel the redirection and call again
+            # the built-in raw_input().
+            try:
+                del sys.__raw_input__
+            except AttributeError:
+                pass
+            return raw_input(prompt)
         sys.__raw_input__ = _wrapper.raw_input
+
     else:
         # this is not really what readline.c does.  Better than nothing I guess
         import __builtin__

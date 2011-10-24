@@ -52,9 +52,11 @@ class Transformer(object):
         newoperations = []
         #
         def do_rename(var, var_or_const):
+            if var.concretetype is lltype.Void:
+                renamings[var] = Constant(None, lltype.Void)
+                return
             renamings[var] = var_or_const
-            if (isinstance(var_or_const, Constant)
-                and var.concretetype != lltype.Void):
+            if isinstance(var_or_const, Constant):
                 value = var_or_const.value
                 value = lltype._cast_whatever(var.concretetype, value)
                 renamings_constants[var] = Constant(value, var.concretetype)
@@ -455,6 +457,23 @@ class Transformer(object):
             # the special return value None forces op.result to be considered
             # equal to op.args[0]
             return [op0, op1, None]
+        if (hints.get('promote_string') and
+            op.args[0].concretetype is not lltype.Void):
+            S = lltype.Ptr(rstr.STR)
+            assert op.args[0].concretetype == S
+            self._register_extra_helper(EffectInfo.OS_STREQ_NONNULL,
+                                        "str.eq_nonnull",
+                                        [S, S],
+                                        lltype.Signed,
+                                        EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
+            descr, p = self.callcontrol.callinfocollection.callinfo_for_oopspec(
+                EffectInfo.OS_STREQ_NONNULL)
+            # XXX this is fairly ugly way of creating a constant,
+            #     however, callinfocollection has no better interface
+            c = Constant(p.adr.ptr, lltype.typeOf(p.adr.ptr))
+            op1 = SpaceOperation('str_guard_value', [op.args[0], c, descr],
+                                 op.result)
+            return [SpaceOperation('-live-', [], None), op1, None]
         else:
             log.WARNING('ignoring hint %r at %r' % (hints, self.graph))
 
@@ -718,29 +737,54 @@ class Transformer(object):
         return SpaceOperation(opname, [op.args[0]], op.result)
 
     def rewrite_op_getinteriorfield(self, op):
-        # only supports strings and unicodes
         assert len(op.args) == 3
-        assert op.args[1].value == 'chars'
         optype = op.args[0].concretetype
         if optype == lltype.Ptr(rstr.STR):
             opname = "strgetitem"
-        else:
-            assert optype == lltype.Ptr(rstr.UNICODE)
+            return SpaceOperation(opname, [op.args[0], op.args[2]], op.result)
+        elif optype == lltype.Ptr(rstr.UNICODE):
             opname = "unicodegetitem"
-        return SpaceOperation(opname, [op.args[0], op.args[2]], op.result)
+            return SpaceOperation(opname, [op.args[0], op.args[2]], op.result)
+        else:
+            v_inst, v_index, c_field = op.args
+            if op.result.concretetype is lltype.Void:
+                return
+            # only GcArray of Struct supported
+            assert isinstance(v_inst.concretetype.TO, lltype.GcArray)
+            STRUCT = v_inst.concretetype.TO.OF
+            assert isinstance(STRUCT, lltype.Struct)
+            descr = self.cpu.interiorfielddescrof(v_inst.concretetype.TO,
+                                                  c_field.value)
+            args = [v_inst, v_index, descr]
+            kind = getkind(op.result.concretetype)[0]
+            return SpaceOperation('getinteriorfield_gc_%s' % kind, args,
+                                  op.result)
 
     def rewrite_op_setinteriorfield(self, op):
-        # only supports strings and unicodes
         assert len(op.args) == 4
-        assert op.args[1].value == 'chars'
         optype = op.args[0].concretetype
         if optype == lltype.Ptr(rstr.STR):
             opname = "strsetitem"
-        else:
-            assert optype == lltype.Ptr(rstr.UNICODE)
+            return SpaceOperation(opname, [op.args[0], op.args[2], op.args[3]],
+                                  op.result)
+        elif optype == lltype.Ptr(rstr.UNICODE):
             opname = "unicodesetitem"
-        return SpaceOperation(opname, [op.args[0], op.args[2], op.args[3]],
-                              op.result)
+            return SpaceOperation(opname, [op.args[0], op.args[2], op.args[3]],
+                                  op.result)
+        else:
+            v_inst, v_index, c_field, v_value = op.args
+            if v_value.concretetype is lltype.Void:
+                return
+            # only GcArray of Struct supported
+            assert isinstance(v_inst.concretetype.TO, lltype.GcArray)
+            STRUCT = v_inst.concretetype.TO.OF
+            assert isinstance(STRUCT, lltype.Struct)
+            descr = self.cpu.interiorfielddescrof(v_inst.concretetype.TO,
+                                                  c_field.value)
+            kind = getkind(v_value.concretetype)[0]
+            args = [v_inst, v_index, v_value, descr]
+            return SpaceOperation('setinteriorfield_gc_%s' % kind, args,
+                                  op.result)
 
     def _rewrite_equality(self, op, opname):
         arg0, arg1 = op.args
@@ -783,8 +827,7 @@ class Transformer(object):
 
     def rewrite_op_cast_ptr_to_int(self, op):
         if self._is_gc(op.args[0]):
-            #return op
-            raise NotImplementedError("cast_ptr_to_int")
+            return op
 
     def rewrite_op_force_cast(self, op):
         v_arg = op.args[0]
@@ -1525,6 +1568,10 @@ class Transformer(object):
 
     def rewrite_op_jit_force_virtual(self, op):
         return self._do_builtin_call(op)
+
+    def rewrite_op_jit_is_virtual(self, op):
+        raise Exception, (
+            "'vref.virtual' should not be used from jit-visible code")
 
     def rewrite_op_jit_force_virtualizable(self, op):
         # this one is for virtualizables

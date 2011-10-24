@@ -10,6 +10,13 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 
+def make_annotator():
+    a = RPythonAnnotator()
+    a.translator.config.translation.taggedpointers = True
+    return a
+
+
+
 class X(object):
     pass
 
@@ -55,7 +62,7 @@ def test_list():
 def test_annotate_1():
     def f():
         return eraseX(X())
-    a = RPythonAnnotator()
+    a = make_annotator()
     s = a.build_types(f, [])
     assert isinstance(s, SomeErased)
 
@@ -66,7 +73,7 @@ def test_annotate_2():
         #assert not is_integer(e)
         x2 = uneraseX(e)
         return x2
-    a = RPythonAnnotator()
+    a = make_annotator()
     s = a.build_types(f, [])
     assert isinstance(s, annmodel.SomeInstance)
     assert s.classdef == a.bookkeeper.getuniqueclassdef(X)
@@ -77,7 +84,7 @@ def test_annotate_3():
         #assert is_integer(e)
         x2 = unerase_int(e)
         return x2
-    a = RPythonAnnotator()
+    a = make_annotator()
     s = a.build_types(f, [])
     assert isinstance(s, annmodel.SomeInteger)
 
@@ -105,7 +112,7 @@ def test_annotate_erasing_pair():
         x = make(n)
         return check(x, n)
     #
-    a = RPythonAnnotator()
+    a = make_annotator()
     s = a.build_types(f, [int])
     assert isinstance(s, annmodel.SomeInteger)
 
@@ -135,7 +142,7 @@ def test_annotate_reflowing():
             else:
                 return inst
     #
-    a = RPythonAnnotator()
+    a = make_annotator()
     s = a.build_types(f, [])
     assert isinstance(s, annmodel.SomeInstance)
     assert s.classdef == a.bookkeeper.getuniqueclassdef(A)
@@ -155,7 +162,7 @@ def test_annotate_prebuilt():
             e = e2
         return unerase(e)
     #
-    a = RPythonAnnotator()
+    a = make_annotator()
     s = a.build_types(f, [int])
     assert isinstance(s, annmodel.SomeInstance)
     assert s.classdef == a.bookkeeper.getuniqueclassdef(X)
@@ -165,11 +172,14 @@ def test_annotate_prebuilt_int():
     e1 = erase_int(42)
     def f(i):
         return unerase_int(e1)
-    a = RPythonAnnotator()
+    a = make_annotator()
     s = a.build_types(f, [int])
     assert isinstance(s, annmodel.SomeInteger)
 
 class BaseTestRErased(BaseRtypingTest):
+    def interpret(self, *args, **kwargs):
+        kwargs["taggedpointers"] = True
+        return BaseRtypingTest.interpret(self, *args, **kwargs)
     def test_rtype_1(self):
         def f():
             return eraseX(X())

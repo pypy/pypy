@@ -21,6 +21,7 @@ class AbstractTestAsmGCRoot:
         config = get_pypy_config(translating=True)
         config.translation.gc = cls.gcpolicy
         config.translation.gcrootfinder = "asmgcc"
+        config.translation.taggedpointers = getattr(cls, "taggedpointers", False)
         return config
 
     @classmethod

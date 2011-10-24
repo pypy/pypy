@@ -226,7 +226,7 @@ def generate_tokens(lines, flags):
                         parenlev = parenlev - 1
                         if parenlev < 0:
                             raise TokenError("unmatched '%s'" % initial, line,
-                                             lnum-1, 0, token_list)
+                                             lnum, start + 1, token_list)
                     if token in python_opmap:
                         punct = python_opmap[token]
                     else:

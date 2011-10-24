@@ -1,7 +1,7 @@
 import sys, os
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
-from pypy.jit.metainterp.history import Const, Box, BoxInt, BoxPtr, BoxFloat
+from pypy.jit.metainterp.history import Const, Box, BoxInt, ConstInt
 from pypy.jit.metainterp.history import (AbstractFailDescr, INT, REF, FLOAT,
                                          LoopToken)
 from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
@@ -36,7 +36,6 @@ from pypy.rlib.debug import (debug_print, debug_start, debug_stop,
 from pypy.rlib import rgc
 from pypy.rlib.clibffi import FFI_DEFAULT_ABI
 from pypy.jit.backend.x86.jump import remap_frame_layout
-from pypy.jit.metainterp.history import ConstInt, BoxInt
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter import longlong
 
@@ -729,8 +728,8 @@ class Assembler386(object):
         # Also, make sure this is consistent with FRAME_FIXED_SIZE.
         self.mc.PUSH_r(ebp.value)
         self.mc.MOV_rr(ebp.value, esp.value)
-        for regloc in self.cpu.CALLEE_SAVE_REGISTERS:
-            self.mc.PUSH_r(regloc.value)
+        for loc in self.cpu.CALLEE_SAVE_REGISTERS:
+            self.mc.PUSH_r(loc.value)
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
@@ -994,7 +993,7 @@ class Assembler386(object):
         effectinfo = op.getdescr().get_extra_info()
         oopspecindex = effectinfo.oopspecindex
         genop_llong_list[oopspecindex](self, op, arglocs, resloc)
-        
+
     def regalloc_perform_math(self, op, arglocs, resloc):
         effectinfo = op.getdescr().get_extra_info()
         oopspecindex = effectinfo.oopspecindex
@@ -1311,7 +1310,7 @@ class Assembler386(object):
     genop_guard_float_eq = _cmpop_guard_float("E", "E", "NE","NE")
     genop_guard_float_gt = _cmpop_guard_float("A", "B", "BE","AE")
     genop_guard_float_ge = _cmpop_guard_float("AE","BE", "B", "A")
-    
+
     def genop_math_sqrt(self, op, arglocs, resloc):
         self.mc.SQRTSD(arglocs[0], resloc)
 
@@ -1387,7 +1386,8 @@ class Assembler386(object):
 
     def genop_same_as(self, op, arglocs, resloc):
         self.mov(arglocs[0], resloc)
-    #genop_cast_ptr_to_int = genop_same_as
+    genop_cast_ptr_to_int = genop_same_as
+    genop_cast_int_to_ptr = genop_same_as
 
     def genop_int_mod(self, op, arglocs, resloc):
         if IS_X86_32:
@@ -1596,11 +1596,26 @@ class Assembler386(object):
     genop_getarrayitem_gc_pure = genop_getarrayitem_gc
     genop_getarrayitem_raw = genop_getarrayitem_gc
 
+    def genop_getinteriorfield_gc(self, op, arglocs, resloc):
+        base_loc, ofs_loc, itemsize_loc, fieldsize_loc, index_loc, sign_loc = arglocs
+        # XXX should not use IMUL in most cases
+        self.mc.IMUL(index_loc, itemsize_loc)
+        src_addr = AddressLoc(base_loc, index_loc, 0, ofs_loc.value)
+        self.load_from_mem(resloc, src_addr, fieldsize_loc, sign_loc)
+
+
     def genop_discard_setfield_gc(self, op, arglocs):
         base_loc, ofs_loc, size_loc, value_loc = arglocs
         assert isinstance(size_loc, ImmedLoc)
         dest_addr = AddressLoc(base_loc, ofs_loc)
         self.save_into_mem(dest_addr, value_loc, size_loc)
+
+    def genop_discard_setinteriorfield_gc(self, op, arglocs):
+        base_loc, ofs_loc, itemsize_loc, fieldsize_loc, index_loc, value_loc = arglocs
+        # XXX should not use IMUL in most cases
+        self.mc.IMUL(index_loc, itemsize_loc)
+        dest_addr = AddressLoc(base_loc, index_loc, 0, ofs_loc.value)
+        self.save_into_mem(dest_addr, value_loc, fieldsize_loc)
 
     def genop_discard_setarrayitem_gc(self, op, arglocs):
         base_loc, ofs_loc, value_loc, size_loc, baseofs = arglocs

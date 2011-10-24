@@ -1487,6 +1487,43 @@ class TaggedPointersTest(object):
         res = self.run("tagged")
         assert res == expected
 
+    def define_erased(cls):
+        from pypy.rlib import rerased
+        erase, unerase = rerased.new_erasing_pair("test")
+        class Unrelated(object):
+            pass
+
+        u = Unrelated()
+        u.tagged = True
+        u.x = rerased.erase_int(41)
+        class A(object):
+            pass
+        def fn():
+            n = 1
+            while n >= 0:
+                if u.tagged:
+                    n = rerased.unerase_int(u.x)
+                    a = A()
+                    a.n = n - 1
+                    u.x = erase(a)
+                    u.tagged = False
+                else:
+                    n = unerase(u.x).n
+                    u.x = rerased.erase_int(n - 1)
+                    u.tagged = True
+        def func():
+            rgc.collect() # check that a prebuilt erased integer doesn't explode
+            u.x = rerased.erase_int(1000)
+            u.tagged = True
+            fn()
+            return 1
+        return func
+
+    def test_erased(self):
+        expected = self.run_orig("erased")
+        res = self.run("erased")
+        assert res == expected
+
 from pypy.rlib.objectmodel import UnboxedValue
 
 class TaggedBase(object):

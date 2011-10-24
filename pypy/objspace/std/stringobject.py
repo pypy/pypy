@@ -161,57 +161,59 @@ def str_lower__String(space, w_self):
 
 def str_swapcase__String(space, w_self):
     self = w_self._value
-    res = [' '] * len(self)
+    builder = StringBuilder(len(self))
     for i in range(len(self)):
         ch = self[i]
         if ch.isupper():
             o = ord(ch) + 32
-            res[i] = chr(o)
+            builder.append(chr(o))
         elif ch.islower():
             o = ord(ch) - 32
-            res[i] = chr(o)
+            builder.append(chr(o))
         else:
-            res[i] = ch
+            builder.append(ch)
 
-    return space.wrap("".join(res))
+    return space.wrap(builder.build())
 
 
 def str_capitalize__String(space, w_self):
     input = w_self._value
-    buffer = [' '] * len(input)
+    builder = StringBuilder(len(input))
     if len(input) > 0:
         ch = input[0]
         if ch.islower():
             o = ord(ch) - 32
-            buffer[0] = chr(o)
+            builder.append(chr(o))
         else:
-            buffer[0] = ch
+            builder.append(ch)
 
         for i in range(1, len(input)):
             ch = input[i]
             if ch.isupper():
                 o = ord(ch) + 32
-                buffer[i] = chr(o)
+                builder.append(chr(o))
             else:
-                buffer[i] = ch
+                builder.append(ch)
 
-    return space.wrap("".join(buffer))
+    return space.wrap(builder.build())
 
 def str_title__String(space, w_self):
     input = w_self._value
-    buffer = [' '] * len(input)
+    builder = StringBuilder(len(input))
     prev_letter=' '
 
-    for pos in range(0, len(input)):
+    for pos in range(len(input)):
         ch = input[pos]
         if not prev_letter.isalpha():
-            buffer[pos] = _upper(ch)
+            ch = _upper(ch)
+            builder.append(ch)
         else:
-            buffer[pos] = _lower(ch)
+            ch = _lower(ch)
+            builder.append(ch)
 
-        prev_letter = buffer[pos]
+        prev_letter = ch
 
-    return space.wrap("".join(buffer))
+    return space.wrap(builder.build())
 
 def str_split__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
     maxsplit = space.int_w(w_maxsplit)
@@ -754,27 +756,21 @@ def str_zfill__String_ANY(space, w_self, w_width):
     input = w_self._value
     width = space.int_w(w_width)
 
-    if len(input) >= width:
+    num_zeros = width - len(input)
+    if num_zeros <= 0:
         # cannot return w_self, in case it is a subclass of str
         return space.wrap(input)
 
-    buf = [' '] * width
+    builder = StringBuilder(width)
     if len(input) > 0 and (input[0] == '+' or input[0] == '-'):
-        buf[0] = input[0]
+        builder.append(input[0])
         start = 1
-        middle = width - len(input) + 1
     else:
         start = 0
-        middle = width - len(input)
 
-    for i in range(start, middle):
-        buf[i] = '0'
-
-    for i in range(middle, width):
-        buf[i] = input[start]
-        start = start + 1
-
-    return space.wrap("".join(buf))
+    builder.append_multiple_char('0', num_zeros)
+    builder.append_slice(input, start, len(input))
+    return space.wrap(builder.build())
 
 
 def hash__String(space, w_str):

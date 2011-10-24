@@ -1,24 +1,18 @@
-import sys
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass, rstr
 from pypy.rpython.lltypesystem.lloperation import llop
-from pypy.rpython.llinterp import LLInterpreter, LLException
+from pypy.rpython.llinterp import LLInterpreter
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.objectmodel import we_are_translated, specialize
-from pypy.jit.metainterp.history import BoxInt, BoxPtr, set_future_values,\
-     BoxFloat
 from pypy.jit.metainterp import history
 from pypy.jit.codewriter import heaptracker, longlong
 from pypy.jit.backend.model import AbstractCPU
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.symbolic import WORD, unroll_basic_sizes
-from pypy.jit.backend.llsupport.descr import get_size_descr,  BaseSizeDescr
-from pypy.jit.backend.llsupport.descr import get_field_descr, BaseFieldDescr
-from pypy.jit.backend.llsupport.descr import get_array_descr, BaseArrayDescr
-from pypy.jit.backend.llsupport.descr import get_call_descr
-from pypy.jit.backend.llsupport.descr import BaseIntCallDescr, GcPtrCallDescr
-from pypy.jit.backend.llsupport.descr import FloatCallDescr, VoidCallDescr
+from pypy.jit.backend.llsupport.descr import (get_size_descr,
+     get_field_descr, BaseFieldDescr, get_array_descr, BaseArrayDescr,
+     get_call_descr, BaseIntCallDescr, GcPtrCallDescr, FloatCallDescr,
+     VoidCallDescr, InteriorFieldDescr, get_interiorfield_descr)
 from pypy.jit.backend.llsupport.asmmemmgr import AsmMemoryManager
-from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
 
 
 class AbstractLLCPU(AbstractCPU):
@@ -243,6 +237,9 @@ class AbstractLLCPU(AbstractCPU):
     def arraydescrof(self, A):
         return get_array_descr(self.gc_ll_descr, A)
 
+    def interiorfielddescrof(self, A, fieldname):
+        return get_interiorfield_descr(self.gc_ll_descr, A, A.OF, fieldname)
+
     def unpack_arraydescr(self, arraydescr):
         assert isinstance(arraydescr, BaseArrayDescr)
         return arraydescr.get_base_size(self.translate_support_code)
@@ -359,6 +356,100 @@ class AbstractLLCPU(AbstractCPU):
 
     bh_getarrayitem_raw_i = bh_getarrayitem_gc_i
     bh_getarrayitem_raw_f = bh_getarrayitem_gc_f
+
+    def bh_getinteriorfield_gc_i(self, gcref, itemindex, descr):
+        assert isinstance(descr, InteriorFieldDescr)
+        arraydescr = descr.arraydescr
+        ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
+        ofs += descr.fielddescr.offset
+        fieldsize = descr.fielddescr.get_field_size(self.translate_support_code)
+        sign = descr.fielddescr.is_field_signed()
+        fullofs = itemindex * size + ofs
+        # --- start of GC unsafe code (no GC operation!) ---
+        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), fullofs)
+        for STYPE, UTYPE, itemsize in unroll_basic_sizes:
+            if fieldsize == itemsize:
+                if sign:
+                    item = rffi.cast(rffi.CArrayPtr(STYPE), items)
+                    val = item[0]
+                    val = rffi.cast(lltype.Signed, val)
+                else:
+                    item = rffi.cast(rffi.CArrayPtr(UTYPE), items)
+                    val = item[0]
+                    val = rffi.cast(lltype.Signed, val)
+                # --- end of GC unsafe code ---
+                return val
+        else:
+            raise NotImplementedError("size = %d" % fieldsize)
+
+    def bh_getinteriorfield_gc_r(self, gcref, itemindex, descr):
+        assert isinstance(descr, InteriorFieldDescr)
+        arraydescr = descr.arraydescr
+        ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
+        ofs += descr.fielddescr.offset
+        # --- start of GC unsafe code (no GC operation!) ---
+        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs +
+                            size * itemindex)
+        items = rffi.cast(rffi.CArrayPtr(lltype.Signed), items)
+        pval = self._cast_int_to_gcref(items[0])
+        # --- end of GC unsafe code ---
+        return pval
+
+    def bh_getinteriorfield_gc_f(self, gcref, itemindex, descr):
+        assert isinstance(descr, InteriorFieldDescr)
+        arraydescr = descr.arraydescr
+        ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
+        ofs += descr.fielddescr.offset
+        # --- start of GC unsafe code (no GC operation!) ---
+        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs +
+                            size * itemindex)
+        items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), items)
+        fval = items[0]
+        # --- end of GC unsafe code ---
+        return fval
+
+    def bh_setinteriorfield_gc_i(self, gcref, itemindex, descr, value):
+        assert isinstance(descr, InteriorFieldDescr)
+        arraydescr = descr.arraydescr
+        ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
+        ofs += descr.fielddescr.offset
+        fieldsize = descr.fielddescr.get_field_size(self.translate_support_code)
+        ofs = itemindex * size + ofs
+        # --- start of GC unsafe code (no GC operation!) ---
+        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref), ofs)
+        for TYPE, _, itemsize in unroll_basic_sizes:
+            if fieldsize == itemsize:
+                items = rffi.cast(rffi.CArrayPtr(TYPE), items)
+                items[0] = rffi.cast(TYPE, value)
+                # --- end of GC unsafe code ---
+                return
+        else:
+            raise NotImplementedError("size = %d" % fieldsize)
+
+    def bh_setinteriorfield_gc_r(self, gcref, itemindex, descr, newvalue):
+        assert isinstance(descr, InteriorFieldDescr)
+        arraydescr = descr.arraydescr
+        ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
+        ofs += descr.fielddescr.offset
+        self.gc_ll_descr.do_write_barrier(gcref, newvalue)
+        # --- start of GC unsafe code (no GC operation!) ---
+        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref),
+                            ofs + size * itemindex)
+        items = rffi.cast(rffi.CArrayPtr(lltype.Signed), items)
+        items[0] = self.cast_gcref_to_int(newvalue)
+        # --- end of GC unsafe code ---
+
+    def bh_setinteriorfield_gc_f(self, gcref, itemindex, descr, newvalue):
+        assert isinstance(descr, InteriorFieldDescr)
+        arraydescr = descr.arraydescr
+        ofs, size, _ = self.unpack_arraydescr_size(arraydescr)
+        ofs += descr.fielddescr.offset
+        # --- start of GC unsafe code (no GC operation!) ---
+        items = rffi.ptradd(rffi.cast(rffi.CCHARP, gcref),
+                            ofs + size * itemindex)
+        items = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), items)
+        items[0] = newvalue
+        # --- end of GC unsafe code ---
 
     def bh_strlen(self, string):
         s = lltype.cast_opaque_ptr(lltype.Ptr(rstr.STR), string)
@@ -477,7 +568,6 @@ class AbstractLLCPU(AbstractCPU):
 
     def bh_classof(self, struct):
         struct = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct)
-        result = struct.typeptr
         result_adr = llmemory.cast_ptr_to_adr(struct.typeptr)
         return heaptracker.adr2int(result_adr)
 
