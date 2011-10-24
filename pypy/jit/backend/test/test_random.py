@@ -293,6 +293,9 @@ class AbstractOvfOperation(AbstractOperation):
 class BinaryOvfOperation(AbstractOvfOperation, BinaryOperation):
     pass
 
+class UnaryOvfOperation(AbstractOvfOperation, UnaryOperation):
+    pass
+
 class AbstractFloatOperation(AbstractOperation):
     def filter(self, builder):
         if not builder.cpu.supports_floats:
@@ -421,6 +424,8 @@ OPERATIONS.append(GuardValueOperation(rop.GUARD_VALUE))
 
 for _op in [rop.INT_NEG,
             rop.INT_INVERT,
+            rop.INT_TAG,
+            rop.INT_UNTAG,
             ]:
     OPERATIONS.append(UnaryOperation(_op))
 
@@ -433,6 +438,7 @@ for _op in [rop.INT_ADD_OVF,
             rop.INT_MUL_OVF,
             ]:
     OPERATIONS.append(BinaryOvfOperation(_op))
+OPERATIONS.append(UnaryOvfOperation(rop.INT_TAG_OVF))
 
 for _op in [rop.FLOAT_ADD,
             rop.FLOAT_SUB,

@@ -3435,10 +3435,7 @@ class BaseLLtypeTests(BasicTests):
             return sa
         res = self.meta_interp(f, [16])
         assert res == f(16)
-        
 
-
-class TestLLtype(BaseLLtypeTests, LLJitMixin):
     def test_tagged(self):
         from pypy.rlib.objectmodel import UnboxedValue
         class Base(object):
@@ -3523,3 +3520,8 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         assert x == -42
         x = self.interp_operations(f, [1000, 1], taggedpointers=True)
         assert x == 999
+
+
+
+class TestLLtype(BaseLLtypeTests, LLJitMixin):
+    pass # should be empty

@@ -452,7 +452,7 @@ class BlackholeInterpreter(object):
         return a >> 1
     @arguments("i", returns="i")
     def bhimpl_int_tag(a):
-        return (a << 1) + 1
+        return intmask(a << 1) + 1 # mostly there for test_random
     @arguments("i", returns="i")
     def bhimpl_int_tag_ovf(a):
         return ovfcheck(a << 1) + 1
