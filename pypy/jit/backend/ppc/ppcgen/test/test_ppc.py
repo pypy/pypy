@@ -194,9 +194,9 @@ class TestAssemble(object):
         if IS_PPC_32:
             a.load_imm(r10, call_addr)
         else:
-            a.load_from(10, call_addr)
-            a.load_from(2, call_addr+WORD)
-            a.load_from(11, call_addr+2*WORD)
+            a.load_from_addr(r10, call_addr)
+            a.load_from_addr(r2, call_addr+WORD)
+            a.load_from_addr(r11, call_addr+2*WORD)
         a.mtctr(10)
         a.bctr()
         a.blr()
