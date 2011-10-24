@@ -288,6 +288,7 @@ class VArrayStructValue(AbstractVirtualValue):
         self._items[index][descr] = itemvalue
 
     def _really_force(self, optforce):
+        raise NotImplementedError
         assert self.source_op is not None
         if not we_are_translated():
             self.source_op.name = 'FORCE ' + self.source_op.name
@@ -307,6 +308,9 @@ class VArrayStructValue(AbstractVirtualValue):
             for descr in self._items[index].keys():
                 self._items[index][descr] = self._items[index][descr].force_at_end_of_preamble(already_forced, optforce)
         return self
+
+    def _make_virtual(self, modifier):
+        return modifier.make_varraystruct(self.arraydescr)
 
 
 class OptVirtualize(optimizer.Optimization):
