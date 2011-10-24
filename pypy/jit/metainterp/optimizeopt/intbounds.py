@@ -1,3 +1,4 @@
+import sys
 from pypy.jit.metainterp.optimizeopt.optimizer import Optimization, CONST_1, CONST_0, \
                                                   MODE_ARRAY, MODE_STR, MODE_UNICODE
 from pypy.jit.metainterp.history import ConstInt
@@ -286,14 +287,25 @@ class OptIntBounds(Optimization):
 
     def optimize_INT_TAG(self, op):
         self.emit_operation(op) # XXX for now
-        self.emit_operation(self.nextop)
+        v1 = self.getvalue(op.getarg(0))
+        r = self.getvalue(op.result)
+        resbound = v1.intbound.mul(2).add(1)
+        r.intbound.intersect(resbound)
+        no_guard = False
         if self.nextop.getopnum() == rop.GUARD_NO_OVERFLOW:
+            maxbounds = IntBound((-sys.maxint-1) >> 1, sys.maxint >> 1)
+            v1.intbound.intersect(maxbounds)
             self.pure(rop.INT_UNTAG, [op.result], op.getarg(0))
+            no_guard = resbound.has_lower and resbound.has_upper
+        if not no_guard:
+            self.emit_operation(self.nextop)
 
     def optimize_INT_UNTAG(self, op):
-        self.emit_operation(op)
+        v1 = self.getvalue(op.getarg(0))
         self.pure(rop.INT_TAG, [op.result], op.getarg(0))
-
+        r = self.getvalue(op.result)
+        r.intbound.intersect(v1.intbound.rshift_bound(IntBound(1, 1)))
+        self.emit_operation(op)
 
     def optimize_ARRAYLEN_GC(self, op):
         self.emit_operation(op)
