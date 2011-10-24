@@ -300,6 +300,12 @@ class VArrayStructValue(AbstractVirtualValue):
                 op = ResOperation(rop.SETINTERIORFIELD_GC, [box, ConstInt(index), subbox], None, descr=descr)
                 optforce.emit_operation(op)
 
+    def get_args_for_fail(self, modifier):
+        if self.box is None and not modifier.already_seen_virtual(self.keybox):
+            # Need a way to store data as pairs of (index, descr), not just
+            # descr or index.
+            raise NotImplementedError
+
     def force_at_end_of_preamble(self, already_forced, optforce):
         if self in already_forced:
             return self
