@@ -652,6 +652,27 @@ class AssemblerPPC(OpAssembler):
             assert 0, "not supported location"
         assert 0, "not supported location"
 
+    def _ensure_result_bit_extension(self, resloc, size, signed):
+        if size == 4:
+            return
+        if size == 1:
+            if not signed: #unsigned char
+                self.mc.load_imm(r.r0, 0xFF)
+                self.mc.and_(resloc.value, resloc.value, r.r0.value)
+            else:
+                self.mc.load_imm(r.r0, 24)
+                self.mc.slw(resloc.value, resloc.value, r.r0.value)
+                self.mc.sraw(resloc.value, resloc.value, r.r0.value)
+        elif size == 2:
+            if not signed:
+                self.mc.load_imm(r.r0, 16)
+                self.mc.slw(resloc.value, resloc.value, r.r0.value)
+                self.mc.srw(resloc.value, resloc.value, r.r0.value)
+            else:
+                self.mc.load_imm(r.r0, 16)
+                self.mc.slw(resloc.value, resloc.value, r.r0.value)
+                self.mc.sraw(resloc.value, resloc.value, r.r0.value)
+
 def make_operations():
     def not_implemented(builder, trace_op, cpu, *rest_args):
         raise NotImplementedError, trace_op

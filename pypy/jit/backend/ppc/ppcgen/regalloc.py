@@ -374,6 +374,45 @@ class Regalloc(object):
         self.possibly_free_var(op.result)
         return [base_loc, ofs_loc, res, imm(size)]
 
+    def prepare_arraylen_gc(self, op):
+        arraydescr = op.getdescr()
+        assert isinstance(arraydescr, BaseArrayDescr)
+        ofs = arraydescr.get_ofs_length(self.cpu.translate_support_code)
+        arg = op.getarg(0)
+        base_loc, base_box = self._ensure_value_is_boxed(arg)
+        self.possibly_free_vars([arg, base_box])
+
+        res = self.force_allocate_reg(op.result)
+        self.possibly_free_var(op.result)
+        return [res, base_loc, imm(ofs)]
+
+    def prepare_setarrayitem_gc(self, op):
+        b0, b1, b2 = boxes = list(op.getarglist())
+        _, scale, ofs, _, ptr = self._unpack_arraydescr(op.getdescr())
+
+        base_loc, base_box  = self._ensure_value_is_boxed(b0, boxes)
+        boxes.append(base_box)
+        ofs_loc, ofs_box = self._ensure_value_is_boxed(b1, boxes)
+        boxes.append(ofs_box)
+        #XXX check if imm would be fine here
+        value_loc, value_box = self._ensure_value_is_boxed(b2, boxes)
+        boxes.append(value_box)
+        self.possibly_free_vars(boxes)
+        return [value_loc, base_loc, ofs_loc, imm(scale), imm(ofs)]
+
+    def prepare_getarrayitem_gc(self, op):
+        a0, a1 = boxes = list(op.getarglist())
+        _, scale, ofs, _, ptr = self._unpack_arraydescr(op.getdescr())
+
+        base_loc, base_box  = self._ensure_value_is_boxed(a0, boxes)
+        boxes.append(base_box)
+        ofs_loc, ofs_box = self._ensure_value_is_boxed(a1, boxes)
+        boxes.append(ofs_box)
+        self.possibly_free_vars(boxes)
+        res = self.force_allocate_reg(op.result)
+        self.possibly_free_var(op.result)
+        return [res, base_loc, ofs_loc, imm(scale), imm(ofs)]
+
     # from ../x86/regalloc.py:791
     def _unpack_fielddescr(self, fielddescr):
         assert isinstance(fielddescr, BaseFieldDescr)
@@ -381,6 +420,22 @@ class Regalloc(object):
         size = fielddescr.get_field_size(self.cpu.translate_support_code)
         ptr = fielddescr.is_pointer_field()
         return ofs, size, ptr
+
+    # from ../x86/regalloc.py:779
+    def _unpack_arraydescr(self, arraydescr):
+        assert isinstance(arraydescr, BaseArrayDescr)
+        cpu = self.cpu
+        ofs_length = arraydescr.get_ofs_length(cpu.translate_support_code)
+        ofs = arraydescr.get_base_size(cpu.translate_support_code)
+        size = arraydescr.get_item_size(cpu.translate_support_code)
+        ptr = arraydescr.is_array_of_pointers()
+        scale = 0
+        # XXX HACK, improve!
+        if not arraydescr._clsname.startswith("BoolArrayDescr"):
+            while (1 << scale) < size:
+                scale += 1
+            assert (1 << scale) == size
+        return size, scale, ofs, ofs_length, ptr
 
 def make_operation_list():
     def not_implemented(self, op, *args):

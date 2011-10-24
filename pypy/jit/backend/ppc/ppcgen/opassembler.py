@@ -5,6 +5,7 @@ import pypy.jit.backend.ppc.ppcgen.register as r
 from pypy.jit.backend.ppc.ppcgen.arch import GPR_SAVE_AREA, IS_PPC_32, WORD
 
 from pypy.jit.metainterp.history import LoopToken, AbstractFailDescr
+from pypy.rlib.objectmodel import we_are_translated
 
 class GuardToken(object):
     def __init__(self, descr, failargs, faillocs, offset, fcond=c.NE,
@@ -302,6 +303,67 @@ class OpAssembler(object):
                 self.mc.lbzx(res.value, base_loc.value, ofs.value)
         else:
             assert 0, "size not supported"
+
+    # XXX 64 bit adjustment
+    def emit_arraylen_gc(self, op, arglocs, regalloc):
+        res, base_loc, ofs = arglocs
+        self.mc.lwz(res.value, base_loc.value, ofs.value)
+
+    # XXX 64 bit adjustment
+    def emit_setarrayitem_gc(self, op, arglocs, regalloc):
+        value_loc, base_loc, ofs_loc, scale, ofs = arglocs
+        if scale.value > 0:
+            scale_loc = r.r0
+            self.mc.load_imm(r.r0, scale.value)
+            self.mc.slw(r.r0.value, ofs_loc.value, r.r0.value)
+        else:
+            scale_loc = ofs_loc
+
+        if ofs.value > 0:
+            self.mc.addi(r.r0.value, scale_loc.value, ofs.value)
+            scale_loc = r.r0
+
+        if scale.value == 3:
+            assert 0, "not implemented yet"
+        elif scale.value == 2:
+            self.mc.stwx(value_loc.value, base_loc.value, scale_loc.value)
+        elif scale.value == 1:
+            self.mc.sthx(value_loc.value, base_loc.value, scale_loc.value)
+        elif scale.value == 0:
+            self.mc.stbx(value_loc.value, base_loc.value, scale_loc.value)
+        else:
+            assert 0, "scale %s not supported" % (scale.value)
+
+    # XXX 64 bit adjustment
+    def emit_getarrayitem_gc(self, op, arglocs, regalloc):
+        res, base_loc, ofs_loc, scale, ofs = arglocs
+        if scale.value > 0:
+            scale_loc = r.r0
+            self.mc.load_imm(r.r0, scale.value)
+            self.mc.slw(r.r0.value, ofs_loc.value, scale.value)
+        else:
+            scale_loc = ofs_loc
+        if ofs.value > 0:
+            self.mc.addi(r.r0.value, scale_loc.value, ofs.value)
+            scale_loc = r.r0
+
+        if scale.value == 3:
+            assert 0, "not implemented yet"
+        elif scale.value == 2:
+            self.mc.lwzx(res.value, base_loc.value, scale_loc.value)
+        elif scale.value == 1:
+            self.mc.lhzx(res.value, base_loc.value, scale_loc.value)
+        elif scale.value == 0:
+            self.mc.lbzx(res.value, base_loc.value, scale_loc.value)
+        else:
+            assert 0
+
+        #XXX Hack, Hack, Hack
+        if not we_are_translated():
+            descr = op.getdescr()
+            size =  descr.get_item_size(False)
+            signed = descr.is_item_signed()
+            self._ensure_result_bit_extension(res, size, signed)
 
     def nop(self):
         self.mc.ori(0, 0, 0)
