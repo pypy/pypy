@@ -640,15 +640,16 @@ class ArrayOpAssember(object):
 
     def emit_op_setarrayitem_gc(self, op, arglocs, regalloc, fcond):
         value_loc, base_loc, ofs_loc, scale, ofs = arglocs
-
+        assert ofs_loc.is_reg()
         if scale.value > 0:
             scale_loc = r.ip
             self.mc.LSL_ri(r.ip.value, ofs_loc.value, scale.value)
         else:
             scale_loc = ofs_loc
 
+        # add the base offset  
         if ofs.value > 0:
-            self.mc.ADD_ri(r.ip.value, scale_loc.value, ofs.value)
+            self.mc.ADD_ri(r.ip.value, scale_loc.value, imm=ofs.value)
             scale_loc = r.ip
 
         if scale.value == 3:
@@ -670,11 +671,14 @@ class ArrayOpAssember(object):
 
     def emit_op_getarrayitem_gc(self, op, arglocs, regalloc, fcond):
         res, base_loc, ofs_loc, scale, ofs = arglocs
+        assert ofs_loc.is_reg()
         if scale.value > 0:
             scale_loc = r.ip
             self.mc.LSL_ri(r.ip.value, ofs_loc.value, scale.value)
         else:
             scale_loc = ofs_loc
+
+        # add the base offset  
         if ofs.value > 0:
             self.mc.ADD_ri(r.ip.value, scale_loc.value, imm=ofs.value)
             scale_loc = r.ip
