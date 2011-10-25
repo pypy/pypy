@@ -1,8 +1,7 @@
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.module.cpyext.pyobject import PyObject, make_ref, Py_DecRef
-from pypy.module.cpyext.api import (
-    cpython_api, CANNOT_FAIL, cpython_struct, PyObjectFields)
+from pypy.module.cpyext.pyobject import PyObject, make_ref
+from pypy.module.cpyext.api import (cpython_api, CANNOT_FAIL, cpython_struct,
+    PyObjectFields)
 from pypy.module.cpyext.import_ import PyImport_Import
 from pypy.module.cpyext.typeobject import PyTypeObjectPtr
 from pypy.interpreter.error import OperationError

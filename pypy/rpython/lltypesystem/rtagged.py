@@ -43,7 +43,7 @@ class TaggedInstanceRepr(InstanceRepr):
         v_value = hop.inputarg(lltype.Signed, arg=1)
         c_one = hop.inputconst(lltype.Signed, 1)
         hop.exception_is_here()
-        v2 = hop.genop('int_lshift_ovf', [v_value, c_one],
+        v2 = hop.genop('int_add_ovf', [v_value, v_value],
                        resulttype = lltype.Signed)
         v2p1 = hop.genop('int_add', [v2, c_one],
                          resulttype = lltype.Signed)

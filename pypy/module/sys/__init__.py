@@ -7,6 +7,8 @@ _WIN = sys.platform == 'win32'
 
 class Module(MixedModule):
     """Sys Builtin Module. """
+    _immutable_fields_ = ["defaultencoding?"]
+
     def __init__(self, space, w_name):
         """NOT_RPYTHON""" # because parent __init__ isn't
         if space.config.translating:
@@ -45,6 +47,7 @@ class Module(MixedModule):
         'pypy_initial_path'     : 'state.pypy_initial_path',
 
         '_getframe'             : 'vm._getframe', 
+        '_current_frames'       : 'currentframes._current_frames', 
         'setrecursionlimit'     : 'vm.setrecursionlimit', 
         'getrecursionlimit'     : 'vm.getrecursionlimit', 
         'setcheckinterval'      : 'vm.setcheckinterval', 
@@ -52,6 +55,7 @@ class Module(MixedModule):
         'exc_info'              : 'vm.exc_info', 
         'exc_clear'             : 'vm.exc_clear', 
         'settrace'              : 'vm.settrace',
+        'gettrace'              : 'vm.gettrace',
         'setprofile'            : 'vm.setprofile',
         'getprofile'            : 'vm.getprofile',
         'call_tracing'          : 'vm.call_tracing',

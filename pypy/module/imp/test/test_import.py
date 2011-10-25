@@ -37,6 +37,7 @@ def setup_directory_structure(space):
                     ambig = "imamodule = 1",
                     test_reload = "def test():\n    raise ValueError\n",
                     infinite_reload = "import infinite_reload; reload(infinite_reload)",
+                    del_sys_module = "import sys\ndel sys.modules['del_sys_module']\n",
                     )
     root.ensure("notapackage", dir=1)    # empty, no __init__.py
     setuppkg("pkg",
@@ -562,6 +563,14 @@ class AppTestImport:
         except ImportError:
             pass
 
+    def test_del_from_sys_modules(self):
+        try:
+            import del_sys_module
+        except ImportError:
+            pass    # ok
+        else:
+            assert False, 'should not work'
+
 class TestAbi:
     def test_abi_tag(self):
         space1 = gettestobjspace(soabi='TEST')
@@ -756,6 +765,27 @@ class TestPycStuff:
                                                  stream.readall(),
                                                  write_pyc=False)
         finally:
+            stream.close()
+        cpathname = udir.join('test.pyc')
+        assert not cpathname.check()
+
+    def test_load_source_module_dont_write_bytecode(self):
+        space = self.space
+        w_modulename = space.wrap('somemodule')
+        w_mod = space.wrap(Module(space, w_modulename))
+        pathname = _testfilesource()
+        stream = streamio.open_file_as_stream(pathname, "r")
+        try:
+            space.setattr(space.sys, space.wrap('dont_write_bytecode'),
+                          space.w_True)
+            w_ret = importing.load_source_module(space,
+                                                 w_modulename,
+                                                 w_mod,
+                                                 pathname,
+                                                 stream.readall())
+        finally:
+            space.setattr(space.sys, space.wrap('dont_write_bytecode'),
+                          space.w_False)
             stream.close()
         cpathname = udir.join('test.pyc')
         assert not cpathname.check()

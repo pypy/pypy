@@ -15,20 +15,23 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system,
                   supports_longlong=False, **kwds):
     from pypy.jit.codewriter import support
 
-    class FakeJitCell:
+    class FakeJitCell(object):
         __compiled_merge_points = []
         def get_compiled_merge_points(self):
             return self.__compiled_merge_points[:]
         def set_compiled_merge_points(self, lst):
             self.__compiled_merge_points = lst
 
-    class FakeWarmRunnerState:
+    class FakeWarmRunnerState(object):
         def attach_unoptimized_bridge_from_interp(self, greenkey, newloop):
             pass
 
         def helper_func(self, FUNCPTR, func):
             from pypy.rpython.annlowlevel import llhelper
             return llhelper(FUNCPTR, func)
+
+        def get_location_str(self, args):
+            return 'location'
 
         def jit_cell_at_key(self, greenkey):
             assert greenkey == []
@@ -274,3 +277,15 @@ class OOJitMixin(JitMixin):
         NODE._add_fields({'value': ootype.Signed,
                           'next': NODE})
         return NODE
+
+# ____________________________________________________________
+
+class _Foo:
+    pass
+
+def noConst(x):
+    """Helper function for tests, returning 'x' as a BoxInt/BoxPtr
+    even if it is a ConstInt/ConstPtr."""
+    f1 = _Foo(); f2 = _Foo()
+    f1.x = x; f2.x = 0
+    return f1.x

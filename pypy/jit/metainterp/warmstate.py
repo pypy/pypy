@@ -1,7 +1,7 @@
 import sys, weakref
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi
 from pypy.rpython.ootypesystem import ootype
-from pypy.rpython.annlowlevel import hlstr, llstr, cast_base_ptr_to_instance
+from pypy.rpython.annlowlevel import hlstr, cast_base_ptr_to_instance
 from pypy.rpython.annlowlevel import cast_object_to_ptr
 from pypy.rlib.objectmodel import specialize, we_are_translated, r_dict
 from pypy.rlib.rarithmetic import intmask
@@ -25,9 +25,13 @@ def specialize_value(TYPE, x):
         if isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'raw':
             # non-gc pointer
             return rffi.cast(TYPE, x)
+        elif TYPE is lltype.SingleFloat:
+            return longlong.int2singlefloat(x)
         else:
             return lltype.cast_primitive(TYPE, x)
     elif INPUT is longlong.FLOATSTORAGE:
+        if longlong.is_longlong(TYPE):
+            return rffi.cast(TYPE, x)
         assert TYPE is lltype.Float
         return longlong.getrealfloat(x)
     else:
@@ -84,8 +88,12 @@ def wrap(cpu, value, in_const_box=False):
             return history.ConstObj(value)
         else:
             return history.BoxObj(value)
-    elif isinstance(value, float):
-        value = longlong.getfloatstorage(value)
+    elif (isinstance(value, float) or
+          longlong.is_longlong(lltype.typeOf(value))):
+        if isinstance(value, float):
+            value = longlong.getfloatstorage(value)
+        else:
+            value = rffi.cast(lltype.SignedLongLong, value)
         if in_const_box:
             return history.ConstFloat(value)
         else:
@@ -93,6 +101,8 @@ def wrap(cpu, value, in_const_box=False):
     elif isinstance(value, str) or isinstance(value, unicode):
         assert len(value) == 1     # must be a character
         value = ord(value)
+    elif lltype.typeOf(value) is lltype.SingleFloat:
+        value = longlong.singlefloat2int(value)
     else:
         value = intmask(value)
     if in_const_box:
@@ -114,7 +124,7 @@ def hash_whatever(TYPE, x):
     # Hash of lltype or ootype object.
     # Only supports strings, unicodes and regular instances,
     # as well as primitives that can meaningfully be cast to Signed.
-    if isinstance(TYPE, lltype.Ptr):
+    if isinstance(TYPE, lltype.Ptr) and TYPE.TO._gckind == 'gc':
         if TYPE.TO is rstr.STR or TYPE.TO is rstr.UNICODE:
             return rstr.LLHelpers.ll_strhash(x)    # assumed not null
         else:
@@ -130,7 +140,7 @@ def hash_whatever(TYPE, x):
         else:
             return 0
     else:
-        return lltype.cast_primitive(lltype.Signed, x)
+        return rffi.cast(lltype.Signed, x)
 
 @specialize.ll_and_arg(3)
 def set_future_value(cpu, j, value, typecode):
@@ -138,7 +148,10 @@ def set_future_value(cpu, j, value, typecode):
         refvalue = cpu.ts.cast_to_ref(value)
         cpu.set_future_value_ref(j, refvalue)
     elif typecode == 'int':
-        intvalue = lltype.cast_primitive(lltype.Signed, value)
+        if isinstance(lltype.typeOf(value), lltype.Ptr):
+            intvalue = llmemory.AddressAsInt(llmemory.cast_ptr_to_adr(value))
+        else:
+            intvalue = lltype.cast_primitive(lltype.Signed, value)
         cpu.set_future_value_int(j, intvalue)
     elif typecode == 'float':
         if lltype.typeOf(value) is lltype.Float:
@@ -165,7 +178,7 @@ class JitCell(BaseJitCell):
         if self.compiled_merge_points_wref is not None:
             for wref in self.compiled_merge_points_wref:
                 looptoken = wref()
-                if looptoken is not None:
+                if looptoken is not None and not looptoken.invalidated:
                     result.append(looptoken)
         return result
 
@@ -208,14 +221,19 @@ class WarmEnterState(object):
             meth = getattr(self, 'set_param_' + name)
             meth(default_value)
 
-    def set_param_threshold(self, threshold):
+    def _compute_threshold(self, threshold):
         if threshold <= 0:
-            self.increment_threshold = 0   # never reach the THRESHOLD_LIMIT
-            return
+            return 0 # never reach the THRESHOLD_LIMIT
         if threshold < 2:
             threshold = 2
-        self.increment_threshold = (self.THRESHOLD_LIMIT // threshold) + 1
+        return (self.THRESHOLD_LIMIT // threshold) + 1
         # the number is at least 1, and at most about half THRESHOLD_LIMIT
+
+    def set_param_threshold(self, threshold):
+        self.increment_threshold = self._compute_threshold(threshold)
+
+    def set_param_function_threshold(self, threshold):
+        self.increment_function_threshold = self._compute_threshold(threshold)
 
     def set_param_trace_eagerness(self, value):
         self.trace_eagerness = value
@@ -232,7 +250,7 @@ class WarmEnterState(object):
         d = {}
         if NonConstant(False):
             value = 'blah' # not a constant ''
-        if value is None:
+        if value is None or value == 'all':
             value = ALL_OPTS_NAMES
         for name in value.split(":"):
             if name:
@@ -251,6 +269,11 @@ class WarmEnterState(object):
         if self.warmrunnerdesc:
             if self.warmrunnerdesc.memory_manager:
                 self.warmrunnerdesc.memory_manager.retrace_limit = value
+
+    def set_param_max_retrace_guards(self, value):
+        if self.warmrunnerdesc:
+            if self.warmrunnerdesc.memory_manager:
+                self.warmrunnerdesc.memory_manager.max_retrace_guards = value
 
     def disable_noninlinable_function(self, greenkey):
         cell = self.jit_cell_at_key(greenkey)
@@ -291,7 +314,7 @@ class WarmEnterState(object):
         self.make_jitdriver_callbacks()
         confirm_enter_jit = self.confirm_enter_jit
 
-        def maybe_compile_and_run(*args):
+        def maybe_compile_and_run(threshold, *args):
             """Entry point to the JIT.  Called at the point with the
             can_enter_jit() hint.
             """
@@ -307,7 +330,7 @@ class WarmEnterState(object):
 
             if cell.counter >= 0:
                 # update the profiling counter
-                n = cell.counter + self.increment_threshold
+                n = cell.counter + threshold
                 if n <= self.THRESHOLD_LIMIT:       # bound not reached
                     cell.counter = n
                     return
@@ -344,9 +367,9 @@ class WarmEnterState(object):
             # ---------- execute assembler ----------
             while True:     # until interrupted by an exception
                 metainterp_sd.profiler.start_running()
-                debug_start("jit-running")
+                #debug_start("jit-running")
                 fail_descr = warmrunnerdesc.execute_token(loop_token)
-                debug_stop("jit-running")
+                #debug_stop("jit-running")
                 metainterp_sd.profiler.end_running()
                 loop_token = None     # for test_memmgr
                 if vinfo is not None:
@@ -497,7 +520,6 @@ class WarmEnterState(object):
         if hasattr(self, 'set_future_values'):
             return self.set_future_values
 
-        warmrunnerdesc = self.warmrunnerdesc
         jitdriver_sd   = self.jitdriver_sd
         cpu = self.cpu
         vinfo = jitdriver_sd.virtualizable_info
@@ -513,7 +535,6 @@ class WarmEnterState(object):
         #
         if vinfo is not None:
             i0 = len(jitdriver_sd._red_args_types)
-            num_green_args = jitdriver_sd.num_green_args
             index_of_virtualizable = jitdriver_sd.index_of_virtualizable
             vable_static_fields = unrolling_iterable(
                 zip(vinfo.static_extra_types, vinfo.static_fields))
@@ -566,6 +587,19 @@ class WarmEnterState(object):
             return can_inline_greenargs(*greenargs)
         self.can_inline_greenargs = can_inline_greenargs
         self.can_inline_callable = can_inline_callable
+
+        if jd._should_unroll_one_iteration_ptr is None:
+            def should_unroll_one_iteration(greenkey):
+                return False
+        else:
+            rtyper = self.warmrunnerdesc.rtyper
+            inline_ptr = jd._should_unroll_one_iteration_ptr
+            def should_unroll_one_iteration(greenkey):
+                greenargs = unwrap_greenkey(greenkey)
+                fn = support.maybe_on_top_of_llinterp(rtyper, inline_ptr)
+                return fn(*greenargs)
+        self.should_unroll_one_iteration = should_unroll_one_iteration
+        
         if hasattr(jd.jitdriver, 'on_compile'):
             def on_compile(logger, token, operations, type, greenkey):
                 greenargs = unwrap_greenkey(greenkey)
@@ -599,12 +633,8 @@ class WarmEnterState(object):
         get_location_ptr = self.jitdriver_sd._get_printable_location_ptr
         if get_location_ptr is None:
             missing = '(no jitdriver.get_printable_location!)'
-            missingll = llstr(missing)
             def get_location_str(greenkey):
-                if we_are_translated():
-                    return missingll
-                else:
-                    return missing
+                return missing
         else:
             rtyper = self.warmrunnerdesc.rtyper
             unwrap_greenkey = self.make_unwrap_greenkey()
@@ -612,10 +642,10 @@ class WarmEnterState(object):
             def get_location_str(greenkey):
                 greenargs = unwrap_greenkey(greenkey)
                 fn = support.maybe_on_top_of_llinterp(rtyper, get_location_ptr)
-                res = fn(*greenargs)
-                if not we_are_translated() and not isinstance(res, str):
-                    res = hlstr(res)
-                return res
+                llres = fn(*greenargs)
+                if not we_are_translated() and isinstance(llres, str):
+                    return llres
+                return hlstr(llres)
         self.get_location_str = get_location_str
         #
         confirm_enter_jit_ptr = self.jitdriver_sd._confirm_enter_jit_ptr

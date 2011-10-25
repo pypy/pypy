@@ -2,7 +2,7 @@ from pypy.tool.pairtype import pairtype, pair
 from pypy.objspace.flow.model import Constant
 from pypy.annotation import model as annmodel
 from pypy.rpython.error import TyperError
-from pypy.rpython.rmodel import Repr, IteratorRepr, IntegerRepr, inputconst
+from pypy.rpython.rmodel import Repr, IteratorRepr, IntegerRepr
 from pypy.rpython.rstr import AbstractStringRepr, AbstractCharRepr
 from pypy.rpython.lltypesystem.lltype import typeOf, Ptr, Void, Signed, Bool
 from pypy.rpython.lltypesystem.lltype import nullptr, Char, UniChar, Number
@@ -11,7 +11,7 @@ from pypy.rlib.objectmodel import malloc_zero_filled
 from pypy.rlib.debug import ll_assert
 from pypy.rlib.rarithmetic import ovfcheck, widen, r_uint, intmask
 from pypy.rpython.annlowlevel import ADTInterface
-from pypy.rlib import rgc
+from pypy.rlib import rgc, jit
 
 ADTIFixedList = ADTInterface(None, {
     'll_newlist':      (['SELF', Signed        ], 'self'),
@@ -116,7 +116,7 @@ class AbstractBaseListRepr(Repr):
         v_lst = hop.inputarg(self, 0)
         cRESLIST = hop.inputconst(Void, hop.r_result.LIST)
         return hop.gendirectcall(ll_copy, cRESLIST, v_lst)
-    
+
     def rtype_len(self, hop):
         v_lst, = hop.inputargs(self)
         if hop.args_s[0].listdef.listitem.resized:
@@ -132,7 +132,7 @@ class AbstractBaseListRepr(Repr):
         else:
             ll_func = ll_list_is_true_foldable
         return hop.gendirectcall(ll_func, v_lst)
-    
+
     def rtype_method_reverse(self, hop):
         v_lst, = hop.inputargs(self)
         hop.exception_cannot_occur()
@@ -273,7 +273,7 @@ class __extend__(pairtype(AbstractBaseListRepr, IntegerRepr)):
         return pair(r_lst, r_int).rtype_getitem(hop, checkidx=True)
 
     rtype_getitem_idx_key = rtype_getitem_idx
-    
+
     def rtype_setitem((r_lst, r_int), hop):
         if hop.has_implicit_exception(IndexError):
             spec = dum_checkidx
@@ -331,7 +331,7 @@ class __extend__(pairtype(AbstractBaseListRepr, AbstractBaseListRepr)):
 ##            return hop.gendirectcall(ll_both_none, v_lst1, v_lst2)
 
 ##        return pairtype(Repr, Repr).rtype_is_(pair(r_lst1, r_lst2), hop)
- 
+
     def rtype_eq((r_lst1, r_lst2), hop):
         assert r_lst1.item_repr == r_lst2.item_repr
         v_lst1, v_lst2 = hop.inputargs(r_lst1, r_lst2)
@@ -344,7 +344,7 @@ class __extend__(pairtype(AbstractBaseListRepr, AbstractBaseListRepr)):
         return hop.genop('bool_not', [flag], resulttype=Bool)
 
 
-def rtype_newlist(hop):
+def rtype_newlist(hop, v_sizehint=None):
     nb_args = hop.nb_args
     r_list = hop.r_result
     if r_list == robject.pyobj_repr: # special case: SomeObject lists!
@@ -358,7 +358,8 @@ def rtype_newlist(hop):
         return v_result
     r_listitem = r_list.item_repr
     items_v = [hop.inputarg(r_listitem, arg=i) for i in range(nb_args)]
-    return hop.rtyper.type_system.rlist.newlist(hop.llops, r_list, items_v)
+    return hop.rtyper.type_system.rlist.newlist(hop.llops, r_list, items_v,
+                                                v_sizehint=v_sizehint)
 
 def rtype_alloc_and_set(hop):
     r_list = hop.r_result
@@ -498,7 +499,7 @@ def ll_alloc_and_set(LIST, count, item):
     else:
         check = item
     if (not malloc_zero_filled) or check: # as long as malloc it is known to zero the allocated memory avoid zeroing twice
-    
+
         i = 0
         while i < count:
             l.ll_setitem_fast(i, item)
@@ -632,7 +633,6 @@ def ll_pop_default(func, l):
         l.ll_setitem_fast(index, null)
     l._ll_resize_le(newlength)
     return res
-ll_pop_default.oopspec = 'list.pop(l)'
 
 def ll_pop_zero(func, l):
     length = l.ll_length()
@@ -667,7 +667,6 @@ def ll_pop(func, l, index):
     res = l.ll_getitem_fast(index)
     ll_delitem_nonneg(dum_nocheck, l, index)
     return res
-ll_pop.oopspec = 'list.pop(l, index)'
 
 def ll_reverse(l):
     length = l.ll_length()
@@ -913,6 +912,8 @@ def ll_listslice_minusone(RESLIST, l1):
     return l
 # no oopspec -- the function is inlined by the JIT
 
+@jit.look_inside_iff(lambda l, start: jit.isconstant(start) and jit.isvirtual(l))
+@jit.oopspec('list.delslice_startonly(l, start)')
 def ll_listdelslice_startonly(l, start):
     ll_assert(start >= 0, "del l[start:] with unexpectedly negative start")
     ll_assert(start <= l.ll_length(), "del l[start:] with start > len(l)")
@@ -924,7 +925,6 @@ def ll_listdelslice_startonly(l, start):
             l.ll_setitem_fast(j, null)
             j -= 1
     l._ll_resize_le(newlength)
-ll_listdelslice_startonly.oopspec = 'list.delslice_startonly(l, start)'
 
 def ll_listdelslice_startstop(l, start, stop):
     length = l.ll_length()

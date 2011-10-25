@@ -3,7 +3,8 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.ootypesystem import ootype
 from pypy.objspace.flow.model import Constant, Variable
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.debug import debug_start, debug_stop
+from pypy.rlib.debug import debug_start, debug_stop, debug_print
+from pypy.rlib import rstack
 from pypy.conftest import option
 from pypy.tool.sourcetools import func_with_new_name
 
@@ -13,8 +14,8 @@ from pypy.jit.metainterp.history import AbstractFailDescr, BoxInt
 from pypy.jit.metainterp.history import BoxPtr, BoxObj, BoxFloat, Const
 from pypy.jit.metainterp import history
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
-from pypy.jit.metainterp.optimizeutil import InvalidLoop
-from pypy.jit.metainterp.resume import NUMBERING
+from pypy.jit.metainterp.optimize import InvalidLoop
+from pypy.jit.metainterp.resume import NUMBERING, PENDINGFIELDSP
 from pypy.jit.codewriter import heaptracker, longlong
 
 def giveup():
@@ -118,6 +119,7 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start,
         old_loop_token = optimize_loop(metainterp_sd, old_loop_tokens, loop,
                                        jitdriver_sd.warmstate.enable_opts)
     except InvalidLoop:
+        debug_print("compile_new_loop: got an InvalidLoop")
         return None
     if old_loop_token is not None:
         metainterp.staticdata.log("reusing old loop")
@@ -135,6 +137,10 @@ def compile_new_loop(metainterp, old_loop_tokens, greenkey, start,
             jitdriver_sd.warmstate.attach_unoptimized_bridge_from_interp(
                 greenkey, loop.preamble.token)
             record_loop_or_bridge(metainterp_sd, loop.preamble)
+        elif token.short_preamble:
+            short = token.short_preamble[-1]
+            metainterp_sd.logger_ops.log_short_preamble(short.inputargs,
+                                                        short.operations)
         return token
     else:
         send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop,
@@ -156,6 +162,7 @@ def insert_loop_token(old_loop_tokens, loop_token):
 def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     jitdriver_sd.on_compile(metainterp_sd.logger_ops, loop.token,
                             loop.operations, type, greenkey)
+    loopname = jitdriver_sd.warmstate.get_location_str(greenkey)
     globaldata = metainterp_sd.globaldata
     loop_token = loop.token
     loop_token.number = n = globaldata.loopnumbering
@@ -170,7 +177,7 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     debug_start("jit-backend")
     try:
         ops_offset = metainterp_sd.cpu.compile_loop(loop.inputargs, operations,
-                                                    loop.token)
+                                                    loop.token, name=loopname)
     finally:
         debug_stop("jit-backend")
     metainterp_sd.profiler.end_backend()
@@ -300,7 +307,7 @@ class ResumeGuardDescr(ResumeDescr):
     rd_numb = lltype.nullptr(NUMBERING)
     rd_consts = None
     rd_virtuals = None
-    rd_pendingfields = None
+    rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
 
     CNT_INT   = -0x20000000
     CNT_REF   = -0x40000000
@@ -452,9 +459,17 @@ class ResumeGuardForcedDescr(ResumeGuardDescr):
         # Called during a residual call from the assembler, if the code
         # actually needs to force one of the virtualrefs or the virtualizable.
         # Implemented by forcing *all* virtualrefs and the virtualizable.
-        faildescr = cpu.force(token)
-        assert isinstance(faildescr, ResumeGuardForcedDescr)
-        faildescr.handle_async_forcing(token)
+
+        # don't interrupt me! If the stack runs out in force_from_resumedata()
+        # then we have seen cpu.force() but not self.save_data(), leaving in
+        # an inconsistent state
+        rstack._stack_criticalcode_start()
+        try:
+            faildescr = cpu.force(token)
+            assert isinstance(faildescr, ResumeGuardForcedDescr)
+            faildescr.handle_async_forcing(token)
+        finally:
+            rstack._stack_criticalcode_stop()
 
     def handle_async_forcing(self, force_token):
         from pypy.jit.metainterp.resume import force_from_resumedata
@@ -623,8 +638,10 @@ def compile_new_bridge(metainterp, old_loop_tokens, resumekey, retraced=False):
                                             new_loop, state.enable_opts,
                                             inline_short_preamble, retraced)
     except InvalidLoop:
+        debug_print("compile_new_bridge: got an InvalidLoop")
         # XXX I am fairly convinced that optimize_bridge cannot actually raise
         # InvalidLoop
+        debug_print('InvalidLoop in compile_new_bridge')
         return None
     # Did it work?
     if target_loop_token is not None:
@@ -656,9 +673,8 @@ class PropagateExceptionDescr(AbstractFailDescr):
     def handle_fail(self, metainterp_sd, jitdriver_sd):
         cpu = metainterp_sd.cpu
         exception = cpu.grab_exc_value()
+        assert exception, "PropagateExceptionDescr: no exception??"
         raise metainterp_sd.ExitFrameWithExceptionRef(cpu, exception)
-
-propagate_exception_descr = PropagateExceptionDescr()
 
 def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redboxes,
                          memory_manager=None):
@@ -693,7 +709,7 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redboxes,
         finishargs = []
     #
     jd = jitdriver_sd
-    faildescr = propagate_exception_descr
+    faildescr = PropagateExceptionDescr()
     operations = [
         ResOperation(rop.CALL, callargs, result, descr=jd.portal_calldescr),
         ResOperation(rop.GUARD_NO_EXCEPTION, [], None, descr=faildescr),

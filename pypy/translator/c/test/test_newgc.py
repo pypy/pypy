@@ -441,6 +441,45 @@ class TestUsingFramework(object):
     def test_del_raises(self):
         self.run('del_raises') # does not raise
 
+    def define_custom_trace(cls):
+        from pypy.rpython.annlowlevel import llhelper
+        from pypy.rpython.lltypesystem import llmemory
+        #
+        S = lltype.GcStruct('S', ('x', llmemory.Address), rtti=True)
+        offset_of_x = llmemory.offsetof(S, 'x')
+        def customtrace(obj, prev):
+            if not prev:
+                return obj + offset_of_x
+            else:
+                return llmemory.NULL
+        CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
+                                          llmemory.Address)
+        customtraceptr = llhelper(lltype.Ptr(CUSTOMTRACEFUNC), customtrace)
+        lltype.attachRuntimeTypeInfo(S, customtraceptr=customtraceptr)
+        #
+        def setup():
+            s = lltype.nullptr(S)
+            for i in range(10000):
+                t = lltype.malloc(S)
+                t.x = llmemory.cast_ptr_to_adr(s)
+                s = t
+            return s
+        def measure_length(s):
+            res = 0
+            while s:
+                res += 1
+                s = llmemory.cast_adr_to_ptr(s.x, lltype.Ptr(S))
+            return res
+        def f(n):
+            s1 = setup()
+            llop.gc__collect(lltype.Void)
+            return measure_length(s1)
+        return f
+
+    def test_custom_trace(self):
+        res = self.run('custom_trace', 0)
+        assert res == 10000
+
     def define_weakref(cls):
         import weakref
 
@@ -1117,6 +1156,7 @@ class TestUsingFramework(object):
         S = lltype.GcStruct('S', ('u', lltype.Ptr(U)))
         A = lltype.GcArray(lltype.Ptr(S))
         filename = self.filename_dump_typeids_z
+        open_flags = os.O_WRONLY | os.O_CREAT | getattr(os, 'O_BINARY', 0)
 
         def fn():
             s = lltype.malloc(S)
@@ -1128,7 +1168,7 @@ class TestUsingFramework(object):
             #
             p = rgc.get_typeids_z()
             s = ''.join([p[i] for i in range(len(p))])
-            fd = os.open(filename, os.O_WRONLY | os.O_CREAT, 0666)
+            fd = os.open(filename, open_flags, 0666)
             os.write(fd, s)
             os.close(fd)
             return 0
@@ -1137,7 +1177,7 @@ class TestUsingFramework(object):
 
     def test_write_typeids_z(self):
         self.run("write_typeids_z")
-        f = open(self.filename_dump_typeids_z)
+        f = open(self.filename_dump_typeids_z, 'rb')
         data_z = f.read()
         f.close()
         import zlib
@@ -1389,6 +1429,35 @@ class TestMiniMarkGC(TestSemiSpaceGC):
     def test_gc_heap_stats(self):
         py.test.skip("not implemented")
 
+    def define_nongc_attached_to_gc(cls):
+        from pypy.rpython.lltypesystem import rffi
+        ARRAY = rffi.CArray(rffi.INT)
+        class A:
+            def __init__(self, n):
+                self.buf = lltype.malloc(ARRAY, n, flavor='raw',
+                                         add_memory_pressure=True)
+            def __del__(self):
+                lltype.free(self.buf, flavor='raw')
+        A(6)
+        def f():
+            # allocate a total of ~77GB, but if the automatic gc'ing works,
+            # it should never need more than a few MBs at once
+            am1 = am2 = am3 = None
+            res = 0
+            for i in range(1, 100001):
+                if am3 is not None:
+                    res += rffi.cast(lltype.Signed, am3.buf[0])
+                am3 = am2
+                am2 = am1
+                am1 = A(i * 4)
+                am1.buf[0] = rffi.cast(rffi.INT, i-50000)
+            return res
+        return f
+
+    def test_nongc_attached_to_gc(self):
+        res = self.run("nongc_attached_to_gc")
+        assert res == -99997
+
 # ____________________________________________________________________
 
 class TaggedPointersTest(object):
@@ -1416,6 +1485,43 @@ class TaggedPointersTest(object):
     def test_tagged(self):
         expected = self.run_orig("tagged")
         res = self.run("tagged")
+        assert res == expected
+
+    def define_erased(cls):
+        from pypy.rlib import rerased
+        erase, unerase = rerased.new_erasing_pair("test")
+        class Unrelated(object):
+            pass
+
+        u = Unrelated()
+        u.tagged = True
+        u.x = rerased.erase_int(41)
+        class A(object):
+            pass
+        def fn():
+            n = 1
+            while n >= 0:
+                if u.tagged:
+                    n = rerased.unerase_int(u.x)
+                    a = A()
+                    a.n = n - 1
+                    u.x = erase(a)
+                    u.tagged = False
+                else:
+                    n = unerase(u.x).n
+                    u.x = rerased.erase_int(n - 1)
+                    u.tagged = True
+        def func():
+            rgc.collect() # check that a prebuilt erased integer doesn't explode
+            u.x = rerased.erase_int(1000)
+            u.tagged = True
+            fn()
+            return 1
+        return func
+
+    def test_erased(self):
+        expected = self.run_orig("erased")
+        res = self.run("erased")
         assert res == expected
 
 from pypy.rlib.objectmodel import UnboxedValue

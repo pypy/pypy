@@ -1,7 +1,9 @@
-import py, sys
+import py
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.tool.autopath import pypydir
+
+UNICODE_REPLACEMENT_CHARACTER = u'\uFFFD'
 
 
 class EncodeDecodeError(Exception):
@@ -50,13 +52,17 @@ eci = ExternalCompilationInfo(
     includes = ['src/cjkcodecs/multibytecodec.h'],
     include_dirs = [str(srcdir)],
     export_symbols = [
+        "pypy_cjk_dec_new",
         "pypy_cjk_dec_init", "pypy_cjk_dec_free", "pypy_cjk_dec_chunk",
         "pypy_cjk_dec_outbuf", "pypy_cjk_dec_outlen",
         "pypy_cjk_dec_inbuf_remaining", "pypy_cjk_dec_inbuf_consumed",
+        "pypy_cjk_dec_replace_on_error",
 
+        "pypy_cjk_enc_new",
         "pypy_cjk_enc_init", "pypy_cjk_enc_free", "pypy_cjk_enc_chunk",
         "pypy_cjk_enc_reset", "pypy_cjk_enc_outbuf", "pypy_cjk_enc_outlen",
         "pypy_cjk_enc_inbuf_remaining", "pypy_cjk_enc_inbuf_consumed",
+        "pypy_cjk_enc_replace_on_error",
     ] + ["pypy_cjkcodec_%s" % codec for codec in codecs],
 )
 
@@ -88,9 +94,11 @@ def getcodec(name):
 # Decoding
 
 DECODEBUF_P = rffi.COpaquePtr('struct pypy_cjk_dec_s', compilation_info=eci)
+pypy_cjk_dec_new = llexternal('pypy_cjk_dec_new',
+                              [MULTIBYTECODEC_P], DECODEBUF_P)
 pypy_cjk_dec_init = llexternal('pypy_cjk_dec_init',
-                               [MULTIBYTECODEC_P, rffi.CCHARP, rffi.SSIZE_T],
-                               DECODEBUF_P)
+                               [DECODEBUF_P, rffi.CCHARP, rffi.SSIZE_T],
+                               rffi.SSIZE_T)
 pypy_cjk_dec_free = llexternal('pypy_cjk_dec_free', [DECODEBUF_P],
                                lltype.Void)
 pypy_cjk_dec_chunk = llexternal('pypy_cjk_dec_chunk', [DECODEBUF_P],
@@ -103,30 +111,42 @@ pypy_cjk_dec_inbuf_remaining = llexternal('pypy_cjk_dec_inbuf_remaining',
                                           [DECODEBUF_P], rffi.SSIZE_T)
 pypy_cjk_dec_inbuf_consumed = llexternal('pypy_cjk_dec_inbuf_consumed',
                                          [DECODEBUF_P], rffi.SSIZE_T)
+pypy_cjk_dec_replace_on_error = llexternal('pypy_cjk_dec_replace_on_error',
+                                           [DECODEBUF_P, rffi.CWCHARP,
+                                            rffi.SSIZE_T, rffi.SSIZE_T],
+                                           rffi.SSIZE_T)
 
-def decode(codec, stringdata):
+def decode(codec, stringdata, errors="strict", errorcb=None, namecb=None):
+    decodebuf = pypy_cjk_dec_new(codec)
+    if not decodebuf:
+        raise MemoryError
+    try:
+        return decodeex(decodebuf, stringdata, errors, errorcb, namecb)
+    finally:
+        pypy_cjk_dec_free(decodebuf)
+
+def decodeex(decodebuf, stringdata, errors="strict", errorcb=None, namecb=None,
+             ignore_error=0):
     inleft = len(stringdata)
     inbuf = rffi.get_nonmovingbuffer(stringdata)
     try:
-        decodebuf = pypy_cjk_dec_init(codec, inbuf, inleft)
-        if not decodebuf:
+        if pypy_cjk_dec_init(decodebuf, inbuf, inleft) < 0:
             raise MemoryError
-        try:
+        while True:
             r = pypy_cjk_dec_chunk(decodebuf)
-            if r != 0:
-                multibytecodec_decerror(decodebuf, r)
-                assert False
-            src = pypy_cjk_dec_outbuf(decodebuf)
-            length = pypy_cjk_dec_outlen(decodebuf)
-            return rffi.wcharpsize2unicode(src, length)
-        #
-        finally:
-            pypy_cjk_dec_free(decodebuf)
+            if r == 0 or r == ignore_error:
+                break
+            multibytecodec_decerror(decodebuf, r, errors,
+                                    errorcb, namecb, stringdata)
+        src = pypy_cjk_dec_outbuf(decodebuf)
+        length = pypy_cjk_dec_outlen(decodebuf)
+        return rffi.wcharpsize2unicode(src, length)
     #
     finally:
         rffi.free_nonmovingbuffer(stringdata, inbuf)
 
-def multibytecodec_decerror(decodebuf, e):
+def multibytecodec_decerror(decodebuf, e, errors,
+                            errorcb, namecb, stringdata):
     if e > 0:
         reason = "illegal multibyte sequence"
         esize = e
@@ -138,23 +158,40 @@ def multibytecodec_decerror(decodebuf, e):
     else:
         raise RuntimeError
     #
-    # if errors == ERROR_REPLACE:...
-    # if errors == ERROR_IGNORE or errors == ERROR_REPLACE:...
+    # compute the unicode to use as a replacement -> 'replace', and
+    # the current position in the input 'unicodedata' -> 'end'
     start = pypy_cjk_dec_inbuf_consumed(decodebuf)
     end = start + esize
-    if 1:  # errors == ERROR_STRICT:
+    if errors == "strict":
         raise EncodeDecodeError(start, end, reason)
+    elif errors == "ignore":
+        replace = u""
+    elif errors == "replace":
+        replace = UNICODE_REPLACEMENT_CHARACTER
+    else:
+        assert errorcb
+        replace, end = errorcb(errors, namecb, reason,
+                               stringdata, start, end)
+    inbuf = rffi.get_nonmoving_unicodebuffer(replace)
+    try:
+        r = pypy_cjk_dec_replace_on_error(decodebuf, inbuf, len(replace), end)
+    finally:
+        rffi.free_nonmoving_unicodebuffer(replace, inbuf)
+    if r == MBERR_NOMEMORY:
+        raise MemoryError
 
 # ____________________________________________________________
 # Encoding
 ENCODEBUF_P = rffi.COpaquePtr('struct pypy_cjk_enc_s', compilation_info=eci)
+pypy_cjk_enc_new = llexternal('pypy_cjk_enc_new',
+                               [MULTIBYTECODEC_P], ENCODEBUF_P)
 pypy_cjk_enc_init = llexternal('pypy_cjk_enc_init',
-                               [MULTIBYTECODEC_P, rffi.CWCHARP, rffi.SSIZE_T],
-                               ENCODEBUF_P)
+                               [ENCODEBUF_P, rffi.CWCHARP, rffi.SSIZE_T],
+                               rffi.SSIZE_T)
 pypy_cjk_enc_free = llexternal('pypy_cjk_enc_free', [ENCODEBUF_P],
                                lltype.Void)
-pypy_cjk_enc_chunk = llexternal('pypy_cjk_enc_chunk', [ENCODEBUF_P],
-                                rffi.SSIZE_T)
+pypy_cjk_enc_chunk = llexternal('pypy_cjk_enc_chunk',
+                                [ENCODEBUF_P, rffi.SSIZE_T], rffi.SSIZE_T)
 pypy_cjk_enc_reset = llexternal('pypy_cjk_enc_reset', [ENCODEBUF_P],
                                 rffi.SSIZE_T)
 pypy_cjk_enc_outbuf = llexternal('pypy_cjk_enc_outbuf', [ENCODEBUF_P],
@@ -165,34 +202,56 @@ pypy_cjk_enc_inbuf_remaining = llexternal('pypy_cjk_enc_inbuf_remaining',
                                           [ENCODEBUF_P], rffi.SSIZE_T)
 pypy_cjk_enc_inbuf_consumed = llexternal('pypy_cjk_enc_inbuf_consumed',
                                          [ENCODEBUF_P], rffi.SSIZE_T)
+pypy_cjk_enc_replace_on_error = llexternal('pypy_cjk_enc_replace_on_error',
+                                           [ENCODEBUF_P, rffi.CCHARP,
+                                            rffi.SSIZE_T, rffi.SSIZE_T],
+                                           rffi.SSIZE_T)
+pypy_cjk_enc_getcodec = llexternal('pypy_cjk_enc_getcodec',
+                                   [ENCODEBUF_P], MULTIBYTECODEC_P)
+MBENC_FLUSH = 1
+MBENC_RESET = 2
 
-def encode(codec, unicodedata):
+def encode(codec, unicodedata, errors="strict", errorcb=None, namecb=None):
+    encodebuf = pypy_cjk_enc_new(codec)
+    if not encodebuf:
+        raise MemoryError
+    try:
+        return encodeex(encodebuf, unicodedata, errors, errorcb, namecb)
+    finally:
+        pypy_cjk_enc_free(encodebuf)
+
+def encodeex(encodebuf, unicodedata, errors="strict", errorcb=None,
+             namecb=None, ignore_error=0):
     inleft = len(unicodedata)
     inbuf = rffi.get_nonmoving_unicodebuffer(unicodedata)
     try:
-        encodebuf = pypy_cjk_enc_init(codec, inbuf, inleft)
-        if not encodebuf:
+        if pypy_cjk_enc_init(encodebuf, inbuf, inleft) < 0:
             raise MemoryError
-        try:
-            r = pypy_cjk_enc_chunk(encodebuf)
-            if r != 0:
-                multibytecodec_encerror(encodebuf, r)
-                assert False
+        if ignore_error == 0:
+            flags = MBENC_FLUSH | MBENC_RESET
+        else:
+            flags = MBENC_RESET
+        while True:
+            r = pypy_cjk_enc_chunk(encodebuf, flags)
+            if r == 0 or r == ignore_error:
+                break
+            multibytecodec_encerror(encodebuf, r, errors,
+                                    errorcb, namecb, unicodedata)
+        while True:
             r = pypy_cjk_enc_reset(encodebuf)
-            if r != 0:
-                multibytecodec_encerror(encodebuf, r)
-                assert False
-            src = pypy_cjk_enc_outbuf(encodebuf)
-            length = pypy_cjk_enc_outlen(encodebuf)
-            return rffi.charpsize2str(src, length)
-        #
-        finally:
-            pypy_cjk_enc_free(encodebuf)
+            if r == 0:
+                break
+            multibytecodec_encerror(encodebuf, r, errors,
+                                    errorcb, namecb, unicodedata)
+        src = pypy_cjk_enc_outbuf(encodebuf)
+        length = pypy_cjk_enc_outlen(encodebuf)
+        return rffi.charpsize2str(src, length)
     #
     finally:
         rffi.free_nonmoving_unicodebuffer(unicodedata, inbuf)
 
-def multibytecodec_encerror(encodebuf, e):
+def multibytecodec_encerror(encodebuf, e, errors,
+                            errorcb, namecb, unicodedata):
     if e > 0:
         reason = "illegal multibyte sequence"
         esize = e
@@ -204,9 +263,28 @@ def multibytecodec_encerror(encodebuf, e):
     else:
         raise RuntimeError
     #
-    # if errors == ERROR_REPLACE:...
-    # if errors == ERROR_IGNORE or errors == ERROR_REPLACE:...
+    # compute the string to use as a replacement -> 'replace', and
+    # the current position in the input 'unicodedata' -> 'end'
     start = pypy_cjk_enc_inbuf_consumed(encodebuf)
     end = start + esize
-    if 1:  # errors == ERROR_STRICT:
+    if errors == "strict":
         raise EncodeDecodeError(start, end, reason)
+    elif errors == "ignore":
+        replace = ""
+    elif errors == "replace":
+        codec = pypy_cjk_enc_getcodec(encodebuf)
+        try:
+            replace = encode(codec, u"?")
+        except EncodeDecodeError:
+            replace = "?"
+    else:
+        assert errorcb
+        replace, end = errorcb(errors, namecb, reason,
+                               unicodedata, start, end)
+    inbuf = rffi.get_nonmovingbuffer(replace)
+    try:
+        r = pypy_cjk_enc_replace_on_error(encodebuf, inbuf, len(replace), end)
+    finally:
+        rffi.free_nonmovingbuffer(replace, inbuf)
+    if r == MBERR_NOMEMORY:
+        raise MemoryError

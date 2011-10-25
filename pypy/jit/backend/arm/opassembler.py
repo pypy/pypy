@@ -11,8 +11,10 @@ from pypy.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call,
                                                     gen_emit_op_unary_cmp,
                                                     gen_emit_op_ri,
                                                     gen_emit_cmp_op,
+                                                    gen_emit_cmp_op_guard,
                                                     gen_emit_float_op,
                                                     gen_emit_float_cmp_op,
+                                                    gen_emit_float_cmp_op_guard,
                                                     gen_emit_unary_float_op, 
                                                     saved_registers,
                                                     count_reg_args)
@@ -139,11 +141,28 @@ class IntOpAsslember(object):
     emit_op_uint_lt = gen_emit_cmp_op(c.HI)
     emit_op_uint_ge = gen_emit_cmp_op(c.LS)
 
+    emit_op_ptr_eq = emit_op_int_eq
+    emit_op_ptr_ne = emit_op_int_ne
+
+    emit_guard_int_lt = gen_emit_cmp_op_guard(c.LT)
+    emit_guard_int_le = gen_emit_cmp_op_guard(c.LE)
+    emit_guard_int_eq = gen_emit_cmp_op_guard(c.EQ)
+    emit_guard_int_ne = gen_emit_cmp_op_guard(c.NE)
+    emit_guard_int_gt = gen_emit_cmp_op_guard(c.GT)
+    emit_guard_int_ge = gen_emit_cmp_op_guard(c.GE)
+
+    emit_guard_uint_le = gen_emit_cmp_op_guard(c.LS)
+    emit_guard_uint_gt = gen_emit_cmp_op_guard(c.HI)
+
+    emit_guard_uint_lt = gen_emit_cmp_op_guard(c.HI)
+    emit_guard_uint_ge = gen_emit_cmp_op_guard(c.LS)
+
+    emit_guard_ptr_eq = emit_guard_int_eq
+    emit_guard_ptr_ne = emit_guard_int_ne
+
     emit_op_int_add_ovf = emit_op_int_add
     emit_op_int_sub_ovf = emit_op_int_sub
 
-    emit_op_ptr_eq = emit_op_int_eq
-    emit_op_ptr_ne = emit_op_int_ne
 
 
 class UnaryIntOpAssembler(object):
@@ -408,6 +427,9 @@ class OpAssembler(object):
         self.mov_loc_loc(argloc, resloc)
         return fcond
 
+    emit_op_cast_ptr_to_int = emit_op_same_as
+    emit_op_cast_int_to_ptr = emit_op_same_as
+
     def emit_op_guard_no_exception(self, op, arglocs, regalloc, fcond):
         loc = arglocs[0]
         failargs = arglocs[1:]
@@ -446,6 +468,17 @@ class OpAssembler(object):
         if we_are_translated():
             cls = self.cpu.gc_ll_descr.has_write_barrier_class()
             assert cls is not None and isinstance(descr, cls)
+
+        opnum = op.getopnum()
+        if opnum == rop.COND_CALL_GC_WB:
+            N = 2
+            addr = descr.get_write_barrier_fn(self.cpu)
+        elif opnum == rop.COND_CALL_GC_WB_ARRAY:
+            N = 3
+            addr = descr.get_write_barrier_from_array_fn(self.cpu)
+            assert addr != 0
+        else:
+            raise AssertionError(opnum)
         loc_base = arglocs[0]
         self.mc.LDR_ri(r.ip.value, loc_base.value)
         # calculate the shift value to rotate the ofs according to the ARM
@@ -463,9 +496,17 @@ class OpAssembler(object):
 
         # the following is supposed to be the slow path, so whenever possible
         # we choose the most compact encoding over the most efficient one.
-        with saved_registers(self.mc, r.caller_resp, regalloc=regalloc):
-            remap_frame_layout(self, arglocs, [r.r0, r.r1], r.ip)
-            self.mc.BL(descr.get_write_barrier_fn(self.cpu))
+        with saved_registers(self.mc, r.caller_resp):
+            if N == 2:
+                callargs = [r.r0, r.r1]
+            else:
+                callargs = [r.r0, r.r1, r.r2]
+            remap_frame_layout(self, arglocs, callargs, r.ip)
+            func = rffi.cast(lltype.Signed, addr)
+            #
+            # misaligned stack in the call, but it's ok because the write barrier
+            # is not going to call anything more.  
+            self.mc.BL(func)
 
         # patch the JZ above
         offset = self.mc.currpos() - jz_location
@@ -473,6 +514,7 @@ class OpAssembler(object):
         pmc.ADD_ri(r.pc.value, r.pc.value, offset - PC_OFFSET, cond=c.EQ)
         return fcond
 
+    emit_op_cond_call_gc_wb_array = emit_op_cond_call_gc_wb
 
 class FieldOpAssembler(object):
 
@@ -482,10 +524,15 @@ class FieldOpAssembler(object):
         value_loc, base_loc, ofs, size = arglocs
         if size.value == 8:
             assert value_loc.is_vfp_reg()
+            # vstr only supports imm offsets
+            # so if the ofset is too large we add it to the base and use an
+            # offset of 0
             if ofs.is_reg():
+                self.mc.ADD_rr(r.ip.value, base_loc.value, ofs.value)
                 base_loc = r.ip
                 ofs = imm(0)
-                self.mc.ADD_rr(r.ip.value, base_loc.value, ofs.value)
+            else:
+                assert ofs.value % 4 == 0
             self.mc.VSTR(value_loc.value, base_loc.value, ofs.value)
         elif size.value == 4:
             if ofs.is_imm():
@@ -512,10 +559,15 @@ class FieldOpAssembler(object):
         base_loc, ofs, res, size = arglocs
         if size.value == 8:
             assert res.is_vfp_reg()
+            # vldr only supports imm offsets
+            # so if the ofset is too large we add it to the base and use an
+            # offset of 0
             if ofs.is_reg():
+                self.mc.ADD_rr(r.ip.value, base_loc.value, ofs.value)
                 base_loc = r.ip
                 ofs = imm(0)
-                self.mc.ADD_rr(r.ip.value, base_loc.value, ofs.value)
+            else:
+                assert ofs.value % 4 == 0
             self.mc.VLDR(res.value, base_loc.value, ofs.value)
         elif size.value == 4:
             if ofs.is_imm():
@@ -545,6 +597,64 @@ class FieldOpAssembler(object):
     emit_op_getfield_raw_pure = emit_op_getfield_gc
     emit_op_getfield_gc_pure = emit_op_getfield_gc
 
+    def emit_op_getinteriorfield_gc(self, op, arglocs, regalloc, fcond):
+        base_loc, index_loc, res_loc, ofs_loc, ofs, itemsize, fieldsize = arglocs
+        self.mc.gen_load_int(r.ip.value, itemsize.value)
+        self.mc.MUL(r.ip.value, index_loc.value, r.ip.value)
+        if ofs.value > 0:
+            if ofs_loc.is_imm():
+                self.mc.ADD_ri(r.ip.value, r.ip.value, ofs_loc.value)
+            else:
+                self.mc.ADD_rr(r.ip.value, r.ip.value, ofs_loc.value)
+
+        if fieldsize.value == 8:
+            # vldr only supports imm offsets
+            # so if the ofset is too large we add it to the base and use an
+            # offset of 0
+            assert res_loc.is_vfp_reg()
+            self.mc.ADD_rr(r.ip.value, base_loc.value, r.ip.value)
+            self.mc.VLDR(res_loc.value, r.ip.value, 0)
+        elif fieldsize.value == 4:
+            self.mc.LDR_rr(res_loc.value, base_loc.value, r.ip.value)
+        elif fieldsize.value == 2:
+            self.mc.LDRH_rr(res_loc.value, base_loc.value, r.ip.value)
+        elif fieldsize.value == 1:
+            self.mc.LDRB_rr(res_loc.value, base_loc.value, r.ip.value)
+        else:
+            assert 0
+
+        #XXX Hack, Hack, Hack
+        if not we_are_translated():
+            signed = op.getdescr().fielddescr.is_field_signed()
+            self._ensure_result_bit_extension(res_loc, fieldsize.value, signed)
+        return fcond
+
+    def emit_op_setinteriorfield_gc(self, op, arglocs, regalloc, fcond):
+        base_loc, index_loc, value_loc, ofs_loc, ofs, itemsize, fieldsize = arglocs
+        self.mc.gen_load_int(r.ip.value, itemsize.value)
+        self.mc.MUL(r.ip.value, index_loc.value, r.ip.value)
+        if ofs.value > 0:
+            if ofs_loc.is_imm():
+                self.mc.ADD_ri(r.ip.value, r.ip.value, ofs_loc.value)
+            else:
+                self.mc.ADD_rr(r.ip.value, r.ip.value, ofs_loc.value)
+        if fieldsize.value == 8:
+            # vstr only supports imm offsets
+            # so if the ofset is too large we add it to the base and use an
+            # offset of 0
+            assert value_loc.is_vfp_reg()
+            self.mc.ADD_rr(r.ip.value, base_loc.value, r.ip.value)
+            self.mc.VSTR(value_loc.value, r.ip.value, 0)
+        elif fieldsize.value == 4:
+            self.mc.STR_rr(value_loc.value, base_loc.value, r.ip.value)
+        elif fieldsize.value == 2:
+            self.mc.STRH_rr(value_loc.value, base_loc.value, r.ip.value)
+        elif fieldsize.value == 1:
+            self.mc.STRB_rr(value_loc.value, base_loc.value, r.ip.value)
+        else:
+            assert 0
+        return fcond
+
 
 
 
@@ -559,15 +669,16 @@ class ArrayOpAssember(object):
 
     def emit_op_setarrayitem_gc(self, op, arglocs, regalloc, fcond):
         value_loc, base_loc, ofs_loc, scale, ofs = arglocs
-
+        assert ofs_loc.is_reg()
         if scale.value > 0:
             scale_loc = r.ip
             self.mc.LSL_ri(r.ip.value, ofs_loc.value, scale.value)
         else:
             scale_loc = ofs_loc
 
+        # add the base offset  
         if ofs.value > 0:
-            self.mc.ADD_ri(r.ip.value, scale_loc.value, ofs.value)
+            self.mc.ADD_ri(r.ip.value, scale_loc.value, imm=ofs.value)
             scale_loc = r.ip
 
         if scale.value == 3:
@@ -589,11 +700,14 @@ class ArrayOpAssember(object):
 
     def emit_op_getarrayitem_gc(self, op, arglocs, regalloc, fcond):
         res, base_loc, ofs_loc, scale, ofs = arglocs
+        assert ofs_loc.is_reg()
         if scale.value > 0:
             scale_loc = r.ip
             self.mc.LSL_ri(r.ip.value, ofs_loc.value, scale.value)
         else:
             scale_loc = ofs_loc
+
+        # add the base offset  
         if ofs.value > 0:
             self.mc.ADD_ri(r.ip.value, scale_loc.value, imm=ofs.value)
             scale_loc = r.ip
@@ -845,7 +959,8 @@ class ForceOpAssembler(object):
         jd = descr.outermost_jitdriver_sd
         assert jd is not None
         asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
-        with saved_registers(self.mc, r.caller_resp[1:], r.caller_vfp_resp, regalloc=regalloc):
+        with saved_registers(self.mc, r.caller_resp[1:]+[r.ip], 
+                                    r.caller_vfp_resp):
             # resbox is allready in r0
             self.mov_loc_loc(arglocs[1], r.r1)
             self.mc.BL(asm_helper_adr)
@@ -914,7 +1029,7 @@ class ForceOpAssembler(object):
     # ../x86/assembler.py:668
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         # we overwrite the instructions at the old _x86_direct_bootstrap_code
-        # to start with a JMP to the new _x86_direct_bootstrap_code.
+        # to start with a JMP to the new _arm_direct_bootstrap_code.
         # Ideally we should rather patch all existing CALLs, but well.
         oldadr = oldlooptoken._arm_direct_bootstrap_code
         target = newlooptoken._arm_direct_bootstrap_code
@@ -928,6 +1043,34 @@ class ForceOpAssembler(object):
 
         self._emit_guard(guard_op, arglocs, c.GE)
         return fcond
+
+    emit_guard_call_release_gil = emit_guard_call_may_force
+
+    def call_release_gil(self, gcrootmap, save_registers, fcond):
+        # First, we need to save away the registers listed in
+        # 'save_registers' that are not callee-save.  XXX We assume that
+        # the floating point registers won't be modified.
+        regs_to_save = []
+        for reg in self._regalloc.rm.save_around_call_regs:
+            if reg in save_registers:
+                regs_to_save.append(reg)
+        assert gcrootmap.is_shadow_stack
+        with saved_registers(self.mc, regs_to_save):
+            self._emit_call(-1, self.releasegil_addr, [], self._regalloc, fcond)
+
+    def call_reacquire_gil(self, gcrootmap, save_loc, fcond):
+        # save the previous result into the stack temporarily.
+        # XXX like with call_release_gil(), we assume that we don't need
+        # to save vfp regs in this case.
+        regs_to_save = []
+        if save_loc.is_reg():
+            regs_to_save.append(save_loc)
+        # call the reopenstack() function (also reacquiring the GIL)
+        if len(regs_to_save) == 1:
+            regs_to_save.append(r.ip) # for alingment
+        assert gcrootmap.is_shadow_stack
+        with saved_registers(self.mc, regs_to_save):
+            self._emit_call(-1, self.reacqgil_addr, [], self._regalloc, fcond)
 
     def write_new_force_index(self):
         # for shadowstack only: get a new, unused force_index number and
@@ -967,6 +1110,7 @@ class AllocOpAssembler(object):
                                     result=result)
 
     def emit_op_new(self, op, arglocs, regalloc, fcond):
+        self.propagate_memoryerror_if_r0_is_null()
         return fcond
 
     def emit_op_new_with_vtable(self, op, arglocs, regalloc, fcond):
@@ -986,6 +1130,7 @@ class AllocOpAssembler(object):
         self.mc.STR_ri(r.ip.value, loc.value, imm=ofs_length)
 
     def emit_op_new_array(self, op, arglocs, regalloc, fcond):
+        self.propagate_memoryerror_if_r0_is_null()
         if len(arglocs) > 0:
             value_loc, base_loc, ofs_length = arglocs
             self.mc.STR_ri(value_loc.value, base_loc.value, ofs_length.value)
@@ -1012,6 +1157,13 @@ class FloatOpAssemlber(object):
     emit_op_float_ne = gen_emit_float_cmp_op(c.NE)
     emit_op_float_gt = gen_emit_float_cmp_op(c.GT)
     emit_op_float_ge = gen_emit_float_cmp_op(c.GE)
+
+    emit_guard_float_lt = gen_emit_float_cmp_op_guard(c.VFP_LT)
+    emit_guard_float_le = gen_emit_float_cmp_op_guard(c.VFP_LE)
+    emit_guard_float_eq = gen_emit_float_cmp_op_guard(c.EQ)
+    emit_guard_float_ne = gen_emit_float_cmp_op_guard(c.NE)
+    emit_guard_float_gt = gen_emit_float_cmp_op_guard(c.GT)
+    emit_guard_float_ge = gen_emit_float_cmp_op_guard(c.GE)
 
     def emit_op_cast_float_to_int(self, op, arglocs, regalloc, fcond):
         arg, temp, res = arglocs

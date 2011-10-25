@@ -219,6 +219,24 @@ class TestUnicode(BaseApiTest):
         assert api.Py_UNICODE_TOUPPER(u'ä') == u'Ä'
         assert api.Py_UNICODE_TOUPPER(u'Ä') == u'Ä'
 
+    def test_TOTITLE(self, space, api):
+        assert api.Py_UNICODE_TOTITLE(u'/') == u'/'
+        assert api.Py_UNICODE_TOTITLE(u'ä') == u'Ä'
+        assert api.Py_UNICODE_TOTITLE(u'Ä') == u'Ä'
+
+    def test_TODECIMAL(self, space, api):
+        assert api.Py_UNICODE_TODECIMAL(u'6') == 6
+        assert api.Py_UNICODE_TODECIMAL(u'A') == -1
+
+    def test_TODIGIT(self, space, api):
+        assert api.Py_UNICODE_TODIGIT(u'6') == 6
+        assert api.Py_UNICODE_TODIGIT(u'A') == -1
+
+    def test_TONUMERIC(self, space, api):
+        assert api.Py_UNICODE_TONUMERIC(u'6') == 6.0
+        assert api.Py_UNICODE_TONUMERIC(u'A') == -1.0
+        assert api.Py_UNICODE_TONUMERIC(u'\N{VULGAR FRACTION ONE HALF}') == .5
+
     def test_fromobject(self, space, api):
         w_u = space.wrap(u'a')
         assert api.PyUnicode_FromObject(w_u) is w_u
@@ -367,3 +385,14 @@ class TestUnicode(BaseApiTest):
                     data, len(u), lltype.nullptr(rffi.CCHARP.TO))
         rffi.free_wcharp(data)
 
+    def test_format(self, space, api):
+        w_format = space.wrap(u'hi %s')
+        w_args = space.wrap((u'test',))
+        w_formated = api.PyUnicode_Format(w_format, w_args)
+        assert space.unwrap(w_formated) == space.unwrap(space.mod(w_format, w_args))
+
+    def test_join(self, space, api):
+        w_sep = space.wrap(u'<sep>')
+        w_seq = space.wrap([u'a', u'b'])
+        w_joined = api.PyUnicode_Join(w_sep, w_seq)
+        assert space.unwrap(w_joined) == u'a<sep>b'

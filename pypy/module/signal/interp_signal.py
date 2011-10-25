@@ -80,7 +80,7 @@ del struct_name
 
 pypysig_getaddr_occurred = external('pypysig_getaddr_occurred', [],
                                     lltype.Ptr(LONG_STRUCT), _nowrapper=True,
-                                    pure_function=True)
+                                    elidable_function=True)
 c_alarm = external('alarm', [rffi.INT], rffi.INT)
 c_pause = external('pause', [], rffi.INT)
 c_siginterrupt = external('siginterrupt', [rffi.INT, rffi.INT], rffi.INT)
@@ -109,8 +109,11 @@ class SignalActionFlag(AbstractActionFlag):
         p = pypysig_getaddr_occurred()
         value = p.c_value
         if self.has_bytecode_counter:    # this 'if' is constant-folded
-            value -= by
-            p.c_value = value
+            if jit.isconstant(by) and by == 0:
+                pass     # normally constant-folded too
+            else:
+                value -= by
+                p.c_value = value
         return value
 
 

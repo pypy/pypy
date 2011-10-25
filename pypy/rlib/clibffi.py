@@ -10,6 +10,7 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.rmmap import alloc
 from pypy.rlib.rdynload import dlopen, dlclose, dlsym, dlsym_byordinal
 from pypy.rlib.rdynload import DLOpenError, DLLHANDLE
+from pypy.rlib import jit
 from pypy.tool.autopath import pypydir
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import platform
@@ -17,6 +18,10 @@ import py
 import os
 import sys
 import ctypes.util
+
+from pypy.tool.ansi_print import ansi_log
+log = py.log.Producer("libffi")
+py.log.setconsumer("libffi", ansi_log)
 
 # maaaybe isinstance here would be better. Think
 _MSVC = platform.name == "msvc"
@@ -67,12 +72,17 @@ if not _WIN32:
             result = os.path.join(dir, 'libffi.a')
             if os.path.exists(result):
                 return result
-        raise ImportError("'libffi.a' not found in %s" % (dirlist,))
+        log.WARNING("'libffi.a' not found in %s" % (dirlist,))
+        log.WARNING("trying to use the dynamic library instead...")
+        return None
 
+    path_libffi_a = None
     if hasattr(platform, 'library_dirs_for_libffi_a'):
+        path_libffi_a = find_libffi_a()
+    if path_libffi_a is not None:
         # platforms on which we want static linking
         libraries = []
-        link_files = [find_libffi_a()]
+        link_files = [path_libffi_a]
     else:
         # platforms on which we want dynamic linking
         libraries = ['ffi']
@@ -261,6 +271,7 @@ if not _WIN32:
 elif _MSVC:
     get_libc_handle = external('pypy_get_libc_handle', [], DLLHANDLE)
 
+    @jit.dont_look_inside
     def get_libc_name():
         return rwin32.GetModuleFileName(get_libc_handle())
 
@@ -275,10 +286,10 @@ if _WIN32:
 
 FFI_OK = cConfig.FFI_OK
 FFI_BAD_TYPEDEF = cConfig.FFI_BAD_TYPEDEF
-FFI_DEFAULT_ABI = rffi.cast(rffi.USHORT, cConfig.FFI_DEFAULT_ABI)
+FFI_DEFAULT_ABI = cConfig.FFI_DEFAULT_ABI
 if _WIN32:
-    FFI_STDCALL = rffi.cast(rffi.USHORT, cConfig.FFI_STDCALL)
-FFI_TYPE_STRUCT = rffi.cast(rffi.USHORT, cConfig.FFI_TYPE_STRUCT)
+    FFI_STDCALL = cConfig.FFI_STDCALL
+FFI_TYPE_STRUCT = cConfig.FFI_TYPE_STRUCT
 FFI_CIFP = rffi.COpaquePtr('ffi_cif', compilation_info=eci)
 
 FFI_CLOSUREP = lltype.Ptr(cConfig.ffi_closure)
@@ -308,7 +319,7 @@ def make_struct_ffitype_e(size, aligment, field_types):
        which the 'ffistruct' member is a regular FFI_TYPE.
     """
     tpe = lltype.malloc(FFI_STRUCT_P.TO, len(field_types)+1, flavor='raw')
-    tpe.ffistruct.c_type = FFI_TYPE_STRUCT
+    tpe.ffistruct.c_type = rffi.cast(rffi.USHORT, FFI_TYPE_STRUCT)
     tpe.ffistruct.c_size = rffi.cast(rffi.SIZE_T, size)
     tpe.ffistruct.c_alignment = rffi.cast(rffi.USHORT, aligment)
     tpe.ffistruct.c_elements = rffi.cast(FFI_TYPE_PP,
@@ -391,11 +402,19 @@ class ClosureHeap(object):
 
 closureHeap = ClosureHeap()
 
-FUNCFLAG_STDCALL   = 0
-FUNCFLAG_CDECL     = 1  # for WINAPI calls
+FUNCFLAG_STDCALL   = 0    # on Windows: for WINAPI calls
+FUNCFLAG_CDECL     = 1    # on Windows: for __cdecl calls
 FUNCFLAG_PYTHONAPI = 4
 FUNCFLAG_USE_ERRNO = 8
 FUNCFLAG_USE_LASTERROR = 16
+
+def get_call_conv(flags, from_jit):
+    if _WIN32 and (flags & FUNCFLAG_CDECL == 0):
+        return FFI_STDCALL
+    else:
+        return FFI_DEFAULT_ABI
+get_call_conv._annspecialcase_ = 'specialize:arg(1)'     # hack :-/
+
 
 class AbstractFuncPtr(object):
     ll_cif = lltype.nullptr(FFI_CIFP.TO)
@@ -416,21 +435,17 @@ class AbstractFuncPtr(object):
         self.ll_cif = lltype.malloc(FFI_CIFP.TO, flavor='raw',
                                     track_allocation=False) # freed by the __del__
 
-        if _WIN32 and (flags & FUNCFLAG_CDECL == 0):
-            cc = FFI_STDCALL
-        else:
-            cc = FFI_DEFAULT_ABI
-
         if _MSVC:
             # This little trick works correctly with MSVC.
             # It returns small structures in registers
-            if r_uint(restype.c_type) == FFI_TYPE_STRUCT:
+            if intmask(restype.c_type) == FFI_TYPE_STRUCT:
                 if restype.c_size <= 4:
                     restype = ffi_type_sint32
                 elif restype.c_size <= 8:
                     restype = ffi_type_sint64
 
-        res = c_ffi_prep_cif(self.ll_cif, cc,
+        res = c_ffi_prep_cif(self.ll_cif,
+                             rffi.cast(rffi.USHORT, get_call_conv(flags,False)),
                              rffi.cast(rffi.UINT, argnum), restype,
                              self.ll_argtypes)
         if not res == FFI_OK:

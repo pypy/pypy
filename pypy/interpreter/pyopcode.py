@@ -324,7 +324,7 @@ class __extend__(pyframe.PyFrame):
 
     def LOAD_FAST(self, varindex, next_instr):
         # access a local variable directly
-        w_value = self.fastlocals_w[varindex]
+        w_value = self.locals_stack_w[varindex]
         if w_value is None:
             self._load_fast_failed(varindex)
         self.pushvalue(w_value)
@@ -343,7 +343,7 @@ class __extend__(pyframe.PyFrame):
     def STORE_FAST(self, varindex, next_instr):
         w_newvalue = self.popvalue()
         assert w_newvalue is not None
-        self.fastlocals_w[varindex] = w_newvalue
+        self.locals_stack_w[varindex] = w_newvalue
 
     def POP_TOP(self, oparg, next_instr):
         self.popvalue()
@@ -696,12 +696,12 @@ class __extend__(pyframe.PyFrame):
     LOAD_GLOBAL._always_inline_ = True
 
     def DELETE_FAST(self, varindex, next_instr):
-        if self.fastlocals_w[varindex] is None:
+        if self.locals_stack_w[varindex] is None:
             varname = self.getlocalvarname(varindex)
             message = "local variable '%s' referenced before assignment"
             raise operationerrfmt(self.space.w_UnboundLocalError, message,
                                   varname)
-        self.fastlocals_w[varindex] = None
+        self.locals_stack_w[varindex] = None
 
     def BUILD_TUPLE(self, itemcount, next_instr):
         items = self.popvalues(itemcount)
@@ -892,32 +892,31 @@ class __extend__(pyframe.PyFrame):
         raise BytecodeCorruption, "old opcode, no longer in use"
 
     def SETUP_LOOP(self, offsettoend, next_instr):
-        block = LoopBlock(self, next_instr + offsettoend)
-        self.append_block(block)
+        block = LoopBlock(self, next_instr + offsettoend, self.lastblock)
+        self.lastblock = block
 
     def SETUP_EXCEPT(self, offsettoend, next_instr):
-        block = ExceptBlock(self, next_instr + offsettoend)
-        self.append_block(block)
+        block = ExceptBlock(self, next_instr + offsettoend, self.lastblock)
+        self.lastblock = block
 
     def SETUP_FINALLY(self, offsettoend, next_instr):
-        block = FinallyBlock(self, next_instr + offsettoend)
-        self.append_block(block)
+        block = FinallyBlock(self, next_instr + offsettoend, self.lastblock)
+        self.lastblock = block
 
     def SETUP_WITH(self, offsettoend, next_instr):
         w_manager = self.peekvalue()
+        w_enter = self.space.lookup(w_manager, "__enter__")
         w_descr = self.space.lookup(w_manager, "__exit__")
-        if w_descr is None:
-            raise OperationError(self.space.w_AttributeError,
-                                 self.space.wrap("__exit__"))
+        if w_enter is None or w_descr is None:
+            typename = self.space.type(w_manager).getname(self.space)
+            raise operationerrfmt(self.space.w_AttributeError,
+                "'%s' object is not a context manager"
+                " (no __enter__/__exit__ method)", typename)
         w_exit = self.space.get(w_descr, w_manager)
         self.settopvalue(w_exit)
-        w_enter = self.space.lookup(w_manager, "__enter__")
-        if w_enter is None:
-            raise OperationError(self.space.w_AttributeError,
-                                 self.space.wrap("__enter__"))
         w_result = self.space.get_and_call_function(w_enter, w_manager)
-        block = WithBlock(self, next_instr + offsettoend)
-        self.append_block(block)
+        block = WithBlock(self, next_instr + offsettoend, self.lastblock)
+        self.lastblock = block
         self.pushvalue(w_result)
 
     def WITH_CLEANUP(self, oparg, next_instr):
@@ -1048,29 +1047,17 @@ class __extend__(pyframe.PyFrame):
 
     def SET_ADD(self, oparg, next_instr):
         w_value = self.popvalue()
-        w_set = self.peekvalue(oparg)
+        w_set = self.peekvalue(oparg - 1)
         self.space.call_method(w_set, 'add', w_value)
 
     def MAP_ADD(self, oparg, next_instr):
         w_key = self.popvalue()
         w_value = self.popvalue()
-        w_dict = self.peekvalue(oparg)
+        w_dict = self.peekvalue(oparg - 1)
         self.space.setitem(w_dict, w_key, w_value)
 
     def SET_LINENO(self, lineno, next_instr):
         pass
-
-    def CALL_LIKELY_BUILTIN(self, oparg, next_instr):
-        # overridden by faster version in the standard object space.
-        from pypy.module.__builtin__ import OPTIMIZED_BUILTINS
-        varname = OPTIMIZED_BUILTINS[oparg >> 8]
-        w_function = self._load_global(varname)
-        nargs = oparg&0xFF
-        try:
-            w_result = self.space.call_valuestack(w_function, nargs, self)
-        finally:
-            self.dropvalues(nargs)
-        self.pushvalue(w_result)
 
     # overridden by faster version in the standard object space.
     LOOKUP_METHOD = LOAD_ATTR
@@ -1091,12 +1078,10 @@ class __extend__(pyframe.PyFrame):
 
     @jit.unroll_safe
     def BUILD_SET(self, itemcount, next_instr):
-        w_set = self.space.call_function(self.space.w_set)
-        if itemcount:
-            w_add = self.space.getattr(w_set, self.space.wrap("add"))
-            for i in range(itemcount):
-                w_item = self.popvalue()
-                self.space.call_function(w_add, w_item)
+        w_set = self.space.newset()
+        for i in range(itemcount):
+            w_item = self.popvalue()
+            self.space.call_method(w_set, 'add', w_item)
         self.pushvalue(w_set)
 
     def STORE_MAP(self, oparg, next_instr):
@@ -1262,10 +1247,10 @@ class FrameBlock(object):
 
     _immutable_ = True
 
-    def __init__(self, frame, handlerposition):
+    def __init__(self, frame, handlerposition, previous):
         self.handlerposition = handlerposition
         self.valuestackdepth = frame.valuestackdepth
-        self.previous = None # this makes a linked list of blocks
+        self.previous = previous   # this makes a linked list of blocks
 
     def __eq__(self, other):
         return (self.__class__ is other.__class__ and
@@ -1538,10 +1523,8 @@ app = gateway.applevel(r'''
 
         if not isinstance(prog, codetype):
             filename = '<string>'
-            if not isinstance(prog, str):
-                if isinstance(prog, basestring):
-                    prog = str(prog)
-                elif isinstance(prog, file):
+            if not isinstance(prog, basestring):
+                if isinstance(prog, file):
                     filename = prog.name
                     prog = prog.read()
                 else:

@@ -3,8 +3,8 @@ from pypy.module.pypyjit import policy
 pypypolicy = policy.PyPyJitPolicy()
 
 def test_id_any():
-    from pypy.objspace.std.default import id__ANY
-    assert pypypolicy.look_inside_function(id__ANY)
+    from pypy.objspace.std.intobject import add__Int_Int
+    assert pypypolicy.look_inside_function(add__Int_Int)
 
 def test_bigint():
     from pypy.rlib.rbigint import rbigint
@@ -34,11 +34,15 @@ def test_property():
 
 def test_thread_local():
     from pypy.module.thread.os_local import Local
+    from pypy.module.thread.os_thread import get_ident
     assert pypypolicy.look_inside_function(Local.getdict.im_func)
+    assert pypypolicy.look_inside_function(get_ident)
 
 def test_pypy_module():
+    from pypy.module._collections.interp_deque import W_Deque
     from pypy.module._random.interp_random import W_Random
     assert not pypypolicy.look_inside_function(W_Random.random)
+    assert pypypolicy.look_inside_function(W_Deque.length)
     assert not pypypolicy.look_inside_pypy_module('select.interp_epoll')
     assert pypypolicy.look_inside_pypy_module('__builtin__.operation')
     assert pypypolicy.look_inside_pypy_module('__builtin__.abstractinst')

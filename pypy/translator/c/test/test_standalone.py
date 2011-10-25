@@ -55,6 +55,13 @@ class TestStandalone(StandaloneTests):
         data = cbuilder.cmdexec('hi there')
         assert data.startswith('''hello world\nargument count: 2\n   'hi'\n   'there'\n''')
 
+        # Verify that the generated C files have sane names:
+        gen_c_files = [str(f) for f in cbuilder.extrafiles]
+        for expfile in ('rlib_rposix.c', 
+                        'rpython_lltypesystem_rstr.c',
+                        'translator_c_test_test_standalone.c'):
+            assert cbuilder.targetdir.join(expfile) in gen_c_files
+
     def test_print(self):
         def entry_point(argv):
             print "hello simpler world"
@@ -596,6 +603,42 @@ class TestStandalone(StandaloneTests):
         # The traceback stops at f() because it's the first function that
         # captures the AssertionError, which makes the program abort.
 
+    def test_int_lshift_too_large(self):
+        from pypy.rlib.rarithmetic import LONG_BIT, LONGLONG_BIT
+        def entry_point(argv):
+            a = int(argv[1])
+            b = int(argv[2])
+            print a << b
+            return 0
+
+        t, cbuilder = self.compile(entry_point, debug=True)
+        out = cbuilder.cmdexec("10 2", expect_crash=False)
+        assert out.strip() == str(10 << 2)
+        cases = [-4, LONG_BIT, LONGLONG_BIT]
+        for x in cases:
+            out, err = cbuilder.cmdexec("%s %s" % (1, x), expect_crash=True)
+            lines = err.strip()
+            assert 'The shift count is outside of the supported range' in lines
+
+    def test_llong_rshift_too_large(self):
+        from pypy.rlib.rarithmetic import LONG_BIT, LONGLONG_BIT
+        def entry_point(argv):
+            a = r_longlong(int(argv[1]))
+            b = r_longlong(int(argv[2]))
+            print a >> b
+            return 0
+
+        t, cbuilder = self.compile(entry_point, debug=True)
+        out = cbuilder.cmdexec("10 2", expect_crash=False)
+        assert out.strip() == str(10 >> 2)
+        out = cbuilder.cmdexec("%s %s" % (-42, LONGLONG_BIT - 1), expect_crash=False)
+        assert out.strip() == '-1'
+        cases = [-4, LONGLONG_BIT]
+        for x in cases:
+            out, err = cbuilder.cmdexec("%s %s" % (1, x), expect_crash=True)
+            lines = err.strip()
+            assert 'The shift count is outside of the supported range' in lines
+
     def test_ll_assert_error_debug(self):
         def entry_point(argv):
             ll_assert(len(argv) != 1, "foobar")
@@ -975,6 +1018,27 @@ class TestThread(object):
                                      '4 ok',
                                      '5 ok']
 
+
+    def test_gc_with_fork_without_threads(self):
+        from pypy.rlib.objectmodel import invoke_around_extcall
+        if not hasattr(os, 'fork'):
+            py.test.skip("requires fork()")
+
+        def entry_point(argv):
+            childpid = os.fork()
+            if childpid == 0:
+                print "Testing..."
+            else:
+                pid, status = os.waitpid(childpid, 0)
+                assert pid == childpid
+                assert status == 0
+                print "OK."
+            return 0
+
+        t, cbuilder = self.compile(entry_point)
+        data = cbuilder.cmdexec('')
+        print repr(data)
+        assert data.startswith('Testing...\nOK.')
 
     def test_thread_and_gc_with_fork(self):
         # This checks that memory allocated for the shadow stacks of the

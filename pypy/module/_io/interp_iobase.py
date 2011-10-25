@@ -57,6 +57,11 @@ class W_IOBase(Wrappable):
 
     def __del__(self):
         self.clear_all_weakrefs()
+        self.enqueue_for_destruction(self.space, W_IOBase.destructor,
+                                     'internal __del__ of ')
+
+    def destructor(self):
+        assert isinstance(self, W_IOBase)
         space = self.space
         w_closed = space.findattr(self, space.wrap('closed'))
         try:
@@ -155,7 +160,7 @@ class W_IOBase(Wrappable):
                     raise operationerrfmt(
                         space.w_IOError,
                         "peek() should have returned a bytes object, "
-                        "not '%s'", space.type(w_readahead).getname(space, '?'))
+                        "not '%s'", space.type(w_readahead).getname(space))
                 length = space.len_w(w_readahead)
                 if length > 0:
                     n = 0
@@ -181,7 +186,7 @@ class W_IOBase(Wrappable):
                 raise operationerrfmt(
                     space.w_IOError,
                     "peek() should have returned a bytes object, "
-                    "not '%s'", space.type(w_read).getname(space, '?'))
+                    "not '%s'", space.type(w_read).getname(space))
             read = space.str_w(w_read)
             if not read:
                 break

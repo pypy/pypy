@@ -2,7 +2,6 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.rlib.rarithmetic import ovfcheck
 
 class W_Count(Wrappable):
 
@@ -87,7 +86,7 @@ class W_Repeat(Wrappable):
     def __init__(self, space, w_obj, w_times):
         self.space = space
         self.w_obj = w_obj
-        
+
         if space.is_w(w_times, space.w_None):
             self.counting = False
             self.count = 0
@@ -181,7 +180,7 @@ W_TakeWhile.typedef = TypeDef(
     long as the predicate is true.
 
     Equivalent to :
-    
+
     def takewhile(predicate, iterable):
         for x in iterable:
             if predicate(x):
@@ -316,7 +315,7 @@ W_IFilterFalse.typedef = TypeDef(
     None, return the items that are false.
 
     Equivalent to :
-    
+
     def ifilterfalse(predicate, iterable):
         if predicate is None:
             predicate = bool
@@ -340,16 +339,21 @@ class W_ISlice(Wrappable):
                 start = 0
             else:
                 start = space.int_w(w_startstop)
+                if start < 0:
+                    raise OperationError(space.w_ValueError, space.wrap(
+                       "Indicies for islice() must be non-negative integers."))
             w_stop = args_w[0]
         else:
             raise OperationError(space.w_TypeError, space.wrap("islice() takes at most 4 arguments (" + str(num_args) + " given)"))
 
         if space.is_w(w_stop, space.w_None):
             stop = -1
-            stoppable = False
         else:
             stop = space.int_w(w_stop)
-            stoppable = True
+            if stop < 0:
+                raise OperationError(space.w_ValueError, space.wrap(
+                    "Stop argument must be a non-negative integer or None."))
+            stop = max(start, stop)    # for obscure CPython compatibility
 
         if num_args == 2:
             w_step = args_w[1]
@@ -357,39 +361,45 @@ class W_ISlice(Wrappable):
                 step = 1
             else:
                 step = space.int_w(w_step)
+                if step < 1:
+                    raise OperationError(space.w_ValueError, space.wrap(
+                        "Step must be one or lager for islice()."))
         else:
             step = 1
 
-        if start < 0:
-            raise OperationError(space.w_ValueError, space.wrap("Indicies for islice() must be non-negative integers."))
-        if stoppable and stop < 0:
-            raise OperationError(space.w_ValueError, space.wrap("Stop argument must be a non-negative integer or None."))
-        if step < 1:
-            raise OperationError(space.w_ValueError, space.wrap("Step must be one or lager for islice()."))
-
+        self.ignore = step - 1
         self.start = start
         self.stop = stop
-        self.step = step
 
     def iter_w(self):
         return self.space.wrap(self)
 
     def next_w(self):
         if self.start >= 0:               # first call only
-            consume = self.start + 1
+            ignore = self.start
             self.start = -1
         else:                             # all following calls
-            consume = self.step
-        if self.stop >= 0:
-            if self.stop < consume:
+            ignore = self.ignore
+        stop = self.stop
+        if stop >= 0:
+            if stop <= ignore:
+                self.stop = 0   # reset the state so that a following next_w()
+                                # has no effect any more
+                if stop > 0:
+                    self._ignore_items(stop)
                 raise OperationError(self.space.w_StopIteration,
                                      self.space.w_None)
-            self.stop -= consume
+            self.stop = stop - (ignore + 1)
+        if ignore > 0:
+            self._ignore_items(ignore)
+        return self.space.next(self.iterable)
+
+    def _ignore_items(self, num):
         while True:
-            w_obj = self.space.next(self.iterable)
-            consume -= 1
-            if consume <= 0:
-                return w_obj
+            self.space.next(self.iterable)
+            num -= 1
+            if num <= 0:
+                break
 
 def W_ISlice___new__(space, w_subtype, w_iterable, w_startstop, args_w):
     r = space.allocate_instance(W_ISlice, w_subtype)
@@ -570,7 +580,7 @@ W_IMap.typedef = TypeDef(
                 yield tuple(args)
             else:
                 yield function(*args)
-    
+
     """)
 
 
@@ -728,9 +738,9 @@ W_Cycle.typedef = TypeDef(
         __doc__  = """Make an iterator returning elements from the iterable and
     saving a copy of each. When the iterable is exhausted, return
     elements from the saved copy. Repeats indefinitely.
-    
+
     Equivalent to :
-    
+
     def cycle(iterable):
         saved = []
         for element in iterable:
@@ -738,7 +748,7 @@ W_Cycle.typedef = TypeDef(
             saved.append(element)
         while saved:
             for element in saved:
-                yield element    
+                yield element
     """)
 
 class W_StarMap(Wrappable):
@@ -778,7 +788,7 @@ W_StarMap.typedef = TypeDef(
     def starmap(function, iterable):
         iterable = iter(iterable)
         while True:
-            yield function(*iterable.next())    
+            yield function(*iterable.next())
     """)
 
 
@@ -788,15 +798,15 @@ def tee(space, w_iterable, n=2):
     Note : once tee() has made a split, the original iterable
     should not be used anywhere else; otherwise, the iterable could get
     advanced without the tee objects being informed.
-    
+
     Note : this member of the toolkit may require significant auxiliary
     storage (depending on how much temporary data needs to be stored).
     In general, if one iterator is going to use most or all of the
     data before the other iterator, it is faster to use list() instead
     of tee()
-    
+
     Equivalent to :
-    
+
     def tee(iterable, n=2):
         def gen(next, data={}, cnt=[0]):
             for i in count():
@@ -888,7 +898,7 @@ class W_GroupBy(Wrappable):
         self.exhausted = False
         self.started = False
         # new_group - new group not started yet, next should not skip any items
-        self.new_group = True 
+        self.new_group = True
         self.w_lookahead = self.space.w_None
         self.w_key = self.space.w_None
 

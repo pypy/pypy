@@ -4,6 +4,15 @@ from pypy.rlib.rarithmetic import r_uint, LONG_BIT
 from pypy.rlib.debug import ll_assert
 from pypy.tool.identity_dict import identity_dict
 
+
+def mangle_hash(i):
+    # To hash pointers in dictionaries.  Assumes that i shows some
+    # alignment (to 4, 8, maybe 16 bytes), so we use the following
+    # formula to avoid the trailing bits being always 0.
+    return i ^ (i >> 4)
+
+# ____________________________________________________________
+
 DEFAULT_CHUNK_SIZE = 1019
 
 
@@ -139,6 +148,14 @@ def get_address_stack(chunk_size=DEFAULT_CHUNK_SIZE, cache={}):
             result = AddressDict(self._length_estimate())
             self.foreach(_add_in_dict, result)
             return result
+
+        def tolist(self):
+            """NOT_RPYTHON.  Returns the content as a list."""
+            lst = []
+            def _add(obj, lst):
+                lst.append(obj)
+            self.foreach(_add, lst)
+            return lst
 
         def remove(self, addr):
             """Remove 'addr' from the stack.  The addr *must* be in the list,

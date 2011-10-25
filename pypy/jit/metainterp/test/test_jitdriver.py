@@ -113,6 +113,7 @@ class MultipleJitDriversTests(object):
             return n
         #
         def loop2(g, r):
+            myjitdriver1.set_param('function_threshold', 0)
             while r > 0:
                 myjitdriver2.can_enter_jit(g=g, r=r)
                 myjitdriver2.jit_merge_point(g=g, r=r)
@@ -122,7 +123,11 @@ class MultipleJitDriversTests(object):
         res = self.meta_interp(loop2, [4, 40], repeat=7, inline=True)
         assert res == loop2(4, 40)
         # we expect no loop at all for 'loop1': it should always be inlined
-        self.check_tree_loop_count(2)    # 1 x loop, 1 x enter bridge
+        # we do however get several version of 'loop2', all of which contains
+        # at least one int_add, while there are no int_add's in 'loop1'
+        self.check_tree_loop_count(5)
+        for loop in get_stats().loops:
+            assert loop.summary()['int_add'] >= 1
 
     def test_inactive_jitdriver(self):
         myjitdriver1 = JitDriver(greens=[], reds=['n', 'm'],

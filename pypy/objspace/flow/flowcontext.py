@@ -184,7 +184,7 @@ class ConcreteNoOp(Recorder):
 
 class FlowExecutionContext(ExecutionContext):
 
-    def __init__(self, space, code, globals, constargs={}, closure=None,
+    def __init__(self, space, code, globals, constargs={}, outer_func=None,
                  name=None):
         ExecutionContext.__init__(self, space)
         self.code = code
@@ -193,11 +193,11 @@ class FlowExecutionContext(ExecutionContext):
 
         self.crnt_offset = -1
         self.crnt_frame = None
-        if closure is None:
-            self.closure = None
-        else:
+        if outer_func and outer_func.closure:
             self.closure = [nestedscope.Cell(Constant(value))
-                            for value in closure]
+                            for value in outer_func.closure]
+        else:
+            self.closure = None
         frame = self.create_frame()
         formalargcount = code.getformalargcount()
         arg_list = [Variable() for i in range(formalargcount)]
@@ -216,7 +216,7 @@ class FlowExecutionContext(ExecutionContext):
         # while ignoring any operation like the creation of the locals dict
         self.recorder = []
         frame = FlowSpaceFrame(self.space, self.code,
-                               self.w_globals, self.closure)
+                               self.w_globals, self)
         frame.last_instr = 0
         return frame
 
@@ -384,8 +384,9 @@ class FlowExecutionContext(ExecutionContext):
     # hack for unrolling iterables, don't use this
     def replace_in_stack(self, oldvalue, newvalue):
         w_new = Constant(newvalue)
-        stack_items_w = self.crnt_frame.valuestack_w
-        for i in range(self.crnt_frame.valuestackdepth-1, -1, -1):
+        f = self.crnt_frame
+        stack_items_w = f.locals_stack_w
+        for i in range(f.valuestackdepth-1, f.nlocals-1, -1):
             w_v = stack_items_w[i]
             if isinstance(w_v, Constant):
                 if w_v.value is oldvalue:
@@ -405,8 +406,8 @@ class FlowSpaceFrame(pyframe.CPythonFrame):
         w_exit = self.space.getattr(w_manager, self.space.wrap("__exit__"))
         self.settopvalue(w_exit)
         w_result = self.space.call_method(w_manager, "__enter__")
-        block = WithBlock(self, next_instr + offsettoend)
-        self.append_block(block)
+        block = WithBlock(self, next_instr + offsettoend, self.lastblock)
+        self.lastblock = block
         self.pushvalue(w_result)
 
     # XXX Unimplemented 2.7 opcodes ----------------

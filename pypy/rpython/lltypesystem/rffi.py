@@ -55,8 +55,8 @@ def llexternal(name, args, result, _callable=None,
                compilation_info=ExternalCompilationInfo(),
                sandboxsafe=False, threadsafe='auto',
                _nowrapper=False, calling_conv='c',
-               oo_primitive=None, pure_function=False,
-               macro=None):
+               oo_primitive=None, elidable_function=False,
+               macro=None, random_effects_on_gcobjs='auto'):
     """Build an external function that will invoke the C function 'name'
     with the given 'args' types and 'result' type.
 
@@ -87,8 +87,8 @@ def llexternal(name, args, result, _callable=None,
                 name, macro, ext_type, compilation_info)
         else:
             _callable = ll2ctypes.LL2CtypesCallable(ext_type, calling_conv)
-    if pure_function:
-        _callable._pure_function_ = True
+    if elidable_function:
+        _callable._elidable_function_ = True
     kwds = {}
     if oo_primitive:
         kwds['oo_primitive'] = oo_primitive
@@ -102,19 +102,6 @@ def llexternal(name, args, result, _callable=None,
     else:
         callbackholder = None
 
-    funcptr = lltype.functionptr(ext_type, name, external='C',
-                                 compilation_info=compilation_info,
-                                 _callable=_callable,
-                                 _safe_not_sandboxed=sandboxsafe,
-                                 _debugexc=True, # on top of llinterp
-                                 canraise=False,
-                                 **kwds)
-    if isinstance(_callable, ll2ctypes.LL2CtypesCallable):
-        _callable.funcptr = funcptr
-
-    if _nowrapper:
-        return funcptr
-
     if threadsafe in (False, True):
         # invoke the around-handlers, which release the GIL, if and only if
         # the C function is thread-safe.
@@ -124,6 +111,27 @@ def llexternal(name, args, result, _callable=None,
         # invoke the around-handlers only for "not too small" external calls;
         # sandboxsafe is a hint for "too-small-ness" (e.g. math functions).
         invoke_around_handlers = not sandboxsafe
+
+    if random_effects_on_gcobjs not in (False, True):
+        random_effects_on_gcobjs = (
+            invoke_around_handlers or   # because it can release the GIL
+            has_callback)               # because the callback can do it
+
+    funcptr = lltype.functionptr(ext_type, name, external='C',
+                                 compilation_info=compilation_info,
+                                 _callable=_callable,
+                                 _safe_not_sandboxed=sandboxsafe,
+                                 _debugexc=True, # on top of llinterp
+                                 canraise=False,
+                                 random_effects_on_gcobjs=
+                                     random_effects_on_gcobjs,
+                                 **kwds)
+    if isinstance(_callable, ll2ctypes.LL2CtypesCallable):
+        _callable.funcptr = funcptr
+
+    if _nowrapper:
+        return funcptr
+
 
     if invoke_around_handlers:
         # The around-handlers are releasing the GIL in a threaded pypy.
@@ -139,10 +147,10 @@ def llexternal(name, args, result, _callable=None,
         source = py.code.Source("""
             def call_external_function(%(argnames)s):
                 before = aroundstate.before
-                after = aroundstate.after
                 if before: before()
                 # NB. it is essential that no exception checking occurs here!
                 res = funcptr(%(argnames)s)
+                after = aroundstate.after
                 if after: after()
                 return res
         """ % locals())
@@ -244,7 +252,7 @@ class CallbackHolder:
     def __init__(self):
         self.callbacks = {}
 
-def _make_wrapper_for(TP, callable, callbackholder, aroundstate=None):
+def _make_wrapper_for(TP, callable, callbackholder=None, aroundstate=None):
     """ Function creating wrappers for callbacks. Note that this is
     cheating as we assume constant callbacks and we just memoize wrappers
     """
@@ -253,21 +261,18 @@ def _make_wrapper_for(TP, callable, callbackholder, aroundstate=None):
     if hasattr(callable, '_errorcode_'):
         errorcode = callable._errorcode_
     else:
-        errorcode = TP.TO.RESULT._example()
+        errorcode = TP.TO.RESULT._defl()
     callable_name = getattr(callable, '__name__', '?')
-    callbackholder.callbacks[callable] = True
+    if callbackholder is not None:
+        callbackholder.callbacks[callable] = True
     args = ', '.join(['a%d' % i for i in range(len(TP.TO.ARGS))])
     source = py.code.Source(r"""
         def wrapper(%s):    # no *args - no GIL for mallocing the tuple
             llop.gc_stack_bottom(lltype.Void)   # marker for trackgcroot.py
             if aroundstate is not None:
-                before = aroundstate.before
                 after = aroundstate.after
-            else:
-                before = None
-                after = None
-            if after:
-                after()
+                if after:
+                    after()
             # from now on we hold the GIL
             stackcounter.stacks_counter += 1
             try:
@@ -281,8 +286,10 @@ def _make_wrapper_for(TP, callable, callbackholder, aroundstate=None):
                     traceback.print_exc()
                 result = errorcode
             stackcounter.stacks_counter -= 1
-            if before:
-                before()
+            if aroundstate is not None:
+                before = aroundstate.before
+                if before:
+                    before()
             # here we don't hold the GIL any more. As in the wrapper() produced
             # by llexternal, it is essential that no exception checking occurs
             # after the call to before().
@@ -748,21 +755,18 @@ def make_string_mappings(strtype):
             return hlstrtype(gc_buf)
 
         new_buf = lltype.malloc(STRTYPE, needed_size)
-        try:
-            str_chars_offset = (offsetof(STRTYPE, 'chars') + \
-                                itemoffsetof(STRTYPE.chars, 0))
-            if gc_buf:
-                src = cast_ptr_to_adr(gc_buf) + str_chars_offset
-            else:
-                src = cast_ptr_to_adr(raw_buf) + itemoffsetof(TYPEP.TO, 0)
-            dest = cast_ptr_to_adr(new_buf) + str_chars_offset
-            ## FIXME: This is bad, because dest could potentially move
-            ## if there are threads involved.
-            raw_memcopy(src, dest,
-                        llmemory.sizeof(ll_char_type) * needed_size)
-            return hlstrtype(new_buf)
-        finally:
-            keepalive_until_here(new_buf)
+        str_chars_offset = (offsetof(STRTYPE, 'chars') + \
+                            itemoffsetof(STRTYPE.chars, 0))
+        if gc_buf:
+            src = cast_ptr_to_adr(gc_buf) + str_chars_offset
+        else:
+            src = cast_ptr_to_adr(raw_buf) + itemoffsetof(TYPEP.TO, 0)
+        dest = cast_ptr_to_adr(new_buf) + str_chars_offset
+        raw_memcopy(src, dest,
+                    llmemory.sizeof(ll_char_type) * needed_size)
+        keepalive_until_here(gc_buf)
+        keepalive_until_here(new_buf)
+        return hlstrtype(new_buf)
 
     # (char*, str) -> None
     def keep_buffer_alive_until_here(raw_buf, gc_buf):
@@ -788,8 +792,7 @@ def make_string_mappings(strtype):
     # char* and size -> str (which can contain null bytes)
     def charpsize2str(cp, size):
         b = builder_class(size)
-        for i in xrange(size):
-            b.append(cp[i])
+        b.append_charpsize(cp, size)
         return b.build()
     charpsize2str._annenforceargs_ = [None, int]
 
@@ -873,7 +876,7 @@ def sizeof(tp):
         if size is None:
             size = llmemory.sizeof(tp)    # a symbolic result in this case
         return size
-    if isinstance(tp, lltype.Ptr):
+    if isinstance(tp, lltype.Ptr) or tp is llmemory.Address:
         tp = ULONG     # XXX!
     if tp is lltype.Char or tp is lltype.Bool:
         return 1
@@ -1061,3 +1064,11 @@ class scoped_alloc_unicodebuffer:
         keep_unicodebuffer_alive_until_here(self.raw, self.gc_buf)
     def str(self, length):
         return unicode_from_buffer(self.raw, self.gc_buf, self.size, length)
+
+# You would have to have a *huge* amount of data for this to block long enough
+# to be worth it to release the GIL.
+c_memcpy = llexternal("memcpy",
+    [VOIDP, VOIDP, SIZE_T],
+    lltype.Void,
+    threadsafe=False
+)

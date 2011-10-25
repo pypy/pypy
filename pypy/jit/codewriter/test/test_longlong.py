@@ -37,7 +37,7 @@ def test_functions():
 
 class TestLongLong:
     def setup_class(cls):
-        if sys.maxint > 2147483647:
+        if longlong.is_64_bit:
             py.test.skip("only for 32-bit platforms")
 
     def do_check(self, opname, oopspecindex, ARGS, RESULT):
@@ -46,6 +46,8 @@ class TestLongLong:
         op = SpaceOperation(opname, vlist, v_result)
         tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
         op1 = tr.rewrite_operation(op)
+        if isinstance(op1, list):
+            [op1] = op1
         #
         def is_llf(TYPE):
             return (TYPE == lltype.SignedLongLong or
@@ -55,7 +57,8 @@ class TestLongLong:
             assert op1.opname == 'residual_call_irf_f'
         else:
             assert op1.opname == 'residual_call_irf_i'
-        gotindex = getattr(EffectInfo, 'OS_' + op1.args[0].value.upper())
+        gotindex = getattr(EffectInfo,
+                           'OS_' + op1.args[0].value.upper().lstrip('U'))
         assert gotindex == oopspecindex
         assert op1.args[1] == 'calldescr-%d' % oopspecindex
         assert list(op1.args[2]) == [v for v in vlist
@@ -190,12 +193,33 @@ class TestLongLong:
                       [lltype.SignedLongLong], lltype.Signed)
         self.do_check('cast_float_to_longlong', EffectInfo.OS_LLONG_FROM_FLOAT,
                       [lltype.Float], lltype.SignedLongLong)
+        self.do_check('cast_float_to_ulonglong', EffectInfo.OS_LLONG_FROM_FLOAT,
+                      [lltype.Float], lltype.UnsignedLongLong)
         self.do_check('cast_longlong_to_float', EffectInfo.OS_LLONG_TO_FLOAT,
                       [lltype.SignedLongLong], lltype.Float)
+        self.do_check('cast_ulonglong_to_float', EffectInfo.OS_LLONG_U_TO_FLOAT,
+                      [lltype.UnsignedLongLong], lltype.Float)
         for T1 in [lltype.SignedLongLong, lltype.UnsignedLongLong]:
             for T2 in [lltype.Signed, lltype.Unsigned]:
                 self.do_check('cast_primitive', EffectInfo.OS_LLONG_TO_INT,
                               [T1], T2)
+                self.do_check('force_cast', EffectInfo.OS_LLONG_TO_INT,
+                              [T1], T2)
+                if T2 == lltype.Signed:
+                    expected = EffectInfo.OS_LLONG_FROM_INT
+                else:
+                    expected = EffectInfo.OS_LLONG_FROM_UINT
+                self.do_check('cast_primitive', expected, [T2], T1)
+                self.do_check('force_cast', expected, [T2], T1)
+        #
+        for T1 in [lltype.SignedLongLong, lltype.UnsignedLongLong]:
+            for T2 in [lltype.SignedLongLong, lltype.UnsignedLongLong]:
+                vlist = [varoftype(T1)]
+                v_result = varoftype(T2)
+                op = SpaceOperation('force_cast', vlist, v_result)
+                tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+                op1 = tr.rewrite_operation(op)
+                assert op1 is None
 
     def test_constants(self):
         for TYPE in [lltype.SignedLongLong, lltype.UnsignedLongLong]:
@@ -211,3 +235,18 @@ class TestLongLong:
             assert list(op1.args[3]) == []
             assert list(op1.args[4]) == vlist
             assert op1.result == v_result
+
+
+##def test_singlefloat_constants():
+##    v_x = varoftype(TYPE)
+##    vlist = [v_x, const(rffi.cast(TYPE, 7))]
+##    v_result = varoftype(TYPE)
+##    op = SpaceOperation('llong_add', vlist, v_result)
+##    tr = Transformer(FakeCPU(), FakeBuiltinCallControl())
+##    op1 = tr.rewrite_operation(op)
+##    #
+##    assert op1.opname == 'residual_call_irf_f'
+##    assert list(op1.args[2]) == []
+##    assert list(op1.args[3]) == []
+##    assert list(op1.args[4]) == vlist
+##    assert op1.result == v_result

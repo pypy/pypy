@@ -17,7 +17,8 @@ from pypy.jit.metainterp.history import (Const, ConstInt, ConstFloat, ConstPtr,
                                         INT, REF, FLOAT, LoopToken)
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr, \
-                                             BaseCallDescr, BaseSizeDescr
+                                             BaseCallDescr, BaseSizeDescr, \
+                                             InteriorFieldDescr
 from pypy.jit.backend.llsupport import symbolic
 from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 from pypy.jit.codewriter import heaptracker
@@ -400,38 +401,55 @@ class Regalloc(object):
         self.possibly_free_vars(guard.getfailargs())
         return locs
 
-    prepare_op_int_floordiv = prepare_op_by_helper_call()
-    prepare_op_int_mod = prepare_op_by_helper_call()
-    prepare_op_uint_floordiv = prepare_op_by_helper_call()
+    prepare_op_int_floordiv = prepare_op_by_helper_call('int_floordiv')
+    prepare_op_int_mod = prepare_op_by_helper_call('int_mod')
+    prepare_op_uint_floordiv = prepare_op_by_helper_call('unit_floordiv')
 
-    prepare_op_int_and = prepare_op_ri()
-    prepare_op_int_or = prepare_op_ri()
-    prepare_op_int_xor = prepare_op_ri()
-    prepare_op_int_lshift = prepare_op_ri(imm_size=0x1F, allow_zero=False, commutative=False)
-    prepare_op_int_rshift = prepare_op_ri(imm_size=0x1F, allow_zero=False, commutative=False)
-    prepare_op_uint_rshift = prepare_op_ri(imm_size=0x1F, allow_zero=False, commutative=False)
+    prepare_op_int_and = prepare_op_ri('int_and')
+    prepare_op_int_or = prepare_op_ri('int_or')
+    prepare_op_int_xor = prepare_op_ri('int_xor')
+    prepare_op_int_lshift = prepare_op_ri('int_lshift', imm_size=0x1F, allow_zero=False, commutative=False)
+    prepare_op_int_rshift = prepare_op_ri('int_rshift', imm_size=0x1F, allow_zero=False, commutative=False)
+    prepare_op_uint_rshift = prepare_op_ri('uint_rshift', imm_size=0x1F, allow_zero=False, commutative=False)
 
-    prepare_op_int_lt = prepare_cmp_op()
-    prepare_op_int_le = prepare_cmp_op()
-    prepare_op_int_eq = prepare_cmp_op()
-    prepare_op_int_ne = prepare_cmp_op()
-    prepare_op_int_gt = prepare_cmp_op()
-    prepare_op_int_ge = prepare_cmp_op()
+    prepare_op_int_lt = prepare_cmp_op('int_lt')
+    prepare_op_int_le = prepare_cmp_op('int_le')
+    prepare_op_int_eq = prepare_cmp_op('int_eq')
+    prepare_op_int_ne = prepare_cmp_op('int_ne')
+    prepare_op_int_gt = prepare_cmp_op('int_gt')
+    prepare_op_int_ge = prepare_cmp_op('int_ge')
 
-    prepare_op_uint_le = prepare_cmp_op()
-    prepare_op_uint_gt = prepare_cmp_op()
+    prepare_op_uint_le = prepare_cmp_op('uint_le')
+    prepare_op_uint_gt = prepare_cmp_op('uint_gt')
 
-    prepare_op_uint_lt = prepare_cmp_op(inverse=True)
-    prepare_op_uint_ge = prepare_cmp_op(inverse=True)
-
-    prepare_op_int_add_ovf = prepare_op_int_add
-    prepare_op_int_sub_ovf = prepare_op_int_sub
+    prepare_op_uint_lt = prepare_cmp_op('uint_lt', inverse=True)
+    prepare_op_uint_ge = prepare_cmp_op('uint_ge', inverse=True)
 
     prepare_op_ptr_eq = prepare_op_int_eq
     prepare_op_ptr_ne = prepare_op_int_ne
 
-    prepare_op_int_is_true = prepare_op_unary_cmp()
-    prepare_op_int_is_zero = prepare_op_unary_cmp()
+    prepare_guard_int_lt = prepare_cmp_op('guard_int_lt')
+    prepare_guard_int_le = prepare_cmp_op('guard_int_le')
+    prepare_guard_int_eq = prepare_cmp_op('guard_int_eq')
+    prepare_guard_int_ne = prepare_cmp_op('guard_int_ne')
+    prepare_guard_int_gt = prepare_cmp_op('guard_int_gt')
+    prepare_guard_int_ge = prepare_cmp_op('guard_int_ge')
+
+    prepare_guard_uint_le = prepare_cmp_op('guard_uint_le')
+    prepare_guard_uint_gt = prepare_cmp_op('guard_uint_gt')
+
+    prepare_guard_uint_lt = prepare_cmp_op('guard_uint_lt', inverse=True)
+    prepare_guard_uint_ge = prepare_cmp_op('guard_uint_ge', inverse=True)
+
+    prepare_guard_ptr_eq = prepare_guard_int_eq
+    prepare_guard_ptr_ne = prepare_guard_int_ne
+
+    prepare_op_int_add_ovf = prepare_op_int_add
+    prepare_op_int_sub_ovf = prepare_op_int_sub
+
+
+    prepare_op_int_is_true = prepare_op_unary_cmp('int_is_true')
+    prepare_op_int_is_zero = prepare_op_unary_cmp('int_is_zero')
 
     def prepare_op_int_neg(self, op, fcond):
         l0, box = self._ensure_value_is_boxed(op.getarg(0))
@@ -637,6 +655,46 @@ class Regalloc(object):
     prepare_op_getfield_raw_pure = prepare_op_getfield_gc
     prepare_op_getfield_gc_pure = prepare_op_getfield_gc
 
+    def prepare_op_getinteriorfield_gc(self, op, fcond):
+        t = self._unpack_interiorfielddescr(op.getdescr())
+        ofs, itemsize, fieldsize, sign = t
+        args = op.getarglist()
+        base_loc, base_box = self._ensure_value_is_boxed(op.getarg(0), args)
+        index_loc, index_box = self._ensure_value_is_boxed(op.getarg(1), args)
+        c_ofs = ConstInt(ofs)
+        if _check_imm_arg(c_ofs):
+            ofs_loc = imm(ofs)
+        else:
+            ofs_loc, ofs_box = self._ensure_value_is_boxed(c_ofs, [base_box, index_box])
+            self.possibly_free_var(ofs_box)
+        self.possibly_free_vars(args)
+        self.possibly_free_var(base_box)
+        self.possibly_free_var(index_box)
+        result_loc = self.force_allocate_reg(op.result)
+        return [base_loc, index_loc, result_loc, ofs_loc, imm(ofs), 
+                                        imm(itemsize), imm(fieldsize)]
+
+    
+    def prepare_op_setinteriorfield_gc(self, op, fcond):
+        t = self._unpack_interiorfielddescr(op.getdescr())
+        ofs, itemsize, fieldsize, sign = t
+        boxes = [None]*3
+        base_loc, base_box = self._ensure_value_is_boxed(op.getarg(0), boxes)
+        boxes[0] = base_box
+        index_loc, index_box = self._ensure_value_is_boxed(op.getarg(1), boxes)
+        boxes[1] = index_box
+        value_loc, value_box = self._ensure_value_is_boxed(op.getarg(2), boxes)
+        boxes[2] = value_box
+        c_ofs = ConstInt(ofs)
+        if _check_imm_arg(c_ofs):
+            ofs_loc = imm(ofs)
+        else:
+            ofs_loc, ofs_box = self._ensure_value_is_boxed(c_ofs, boxes)
+            self.possibly_free_var(ofs_box)
+        self.possibly_free_vars(boxes)
+        return [base_loc, index_loc, value_loc, ofs_loc, imm(ofs),
+                                        imm(itemsize), imm(fieldsize)]
+
     def prepare_op_arraylen_gc(self, op, fcond):
         arraydescr = op.getdescr()
         assert isinstance(arraydescr, BaseArrayDescr)
@@ -651,22 +709,22 @@ class Regalloc(object):
 
     def prepare_op_setarrayitem_gc(self, op, fcond):
         a0, a1, a2 = boxes = list(op.getarglist())
-        _, scale, ofs, _, ptr = self._unpack_arraydescr(op.getdescr())
+        _, scale, base_ofs, _, ptr = self._unpack_arraydescr(op.getdescr())
 
         base_loc, base_box  = self._ensure_value_is_boxed(a0, boxes)
         boxes.append(base_box)
         ofs_loc, ofs_box = self._ensure_value_is_boxed(a1, boxes)
         boxes.append(ofs_box)
-        #XXX check if imm would be fine here
         value_loc, value_box = self._ensure_value_is_boxed(a2, boxes)
         boxes.append(value_box)
         self.possibly_free_vars(boxes)
-        return [value_loc, base_loc, ofs_loc, imm(scale), imm(ofs)]
+        assert _check_imm_arg(ConstInt(base_ofs))
+        return [value_loc, base_loc, ofs_loc, imm(scale), imm(base_ofs)]
     prepare_op_setarrayitem_raw = prepare_op_setarrayitem_gc
 
     def prepare_op_getarrayitem_gc(self, op, fcond):
         a0, a1 = boxes = list(op.getarglist())
-        _, scale, ofs, _, ptr = self._unpack_arraydescr(op.getdescr())
+        _, scale, base_ofs, _, ptr = self._unpack_arraydescr(op.getdescr())
 
         base_loc, base_box  = self._ensure_value_is_boxed(a0, boxes)
         boxes.append(base_box)
@@ -675,7 +733,8 @@ class Regalloc(object):
         self.possibly_free_vars(boxes)
         res = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
-        return [res, base_loc, ofs_loc, imm(scale), imm(ofs)]
+        assert _check_imm_arg(ConstInt(base_ofs))
+        return [res, base_loc, ofs_loc, imm(scale), imm(base_ofs)]
 
     prepare_op_getarrayitem_raw = prepare_op_getarrayitem_gc
     prepare_op_getarrayitem_gc_pure = prepare_op_getarrayitem_gc
@@ -808,6 +867,8 @@ class Regalloc(object):
         resloc = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
         return [argloc, resloc]
+    prepare_op_cast_ptr_to_int = prepare_op_same_as
+    prepare_op_cast_int_to_ptr = prepare_op_same_as
 
     def prepare_op_new(self, op, fcond):
         gc_ll_descr = self.assembler.cpu.gc_ll_descr
@@ -965,16 +1026,20 @@ class Regalloc(object):
 
     def prepare_op_cond_call_gc_wb(self, op, fcond):
         assert op.result is None
-        args = op.getarglist()
-        loc_newvalue, box_newvalue = self._ensure_value_is_boxed(op.getarg(1), args)
-        # ^^^ we force loc_newvalue in a reg (unless it's a Const),
-        # because it will be needed anyway by the following setfield_gc.
-        # It avoids loading it twice from the memory.
-        loc_base, box_base = self._ensure_value_is_boxed(op.getarg(0), args)
-        arglocs = [loc_base, loc_newvalue]
-        self.rm.possibly_free_vars([box_newvalue, box_base])
+        N = op.numargs()
+        # we force all arguments in a reg (unless they are Consts),
+        # because it will be needed anyway by the following setfield_gc
+        # or setarrayitem_gc. It avoids loading it twice from the memory.
+        arglocs = []
+        argboxes = []
+        for i in range(N):
+            loc, box = self._ensure_value_is_boxed(op.getarg(i), argboxes)
+            arglocs.append(loc)
+            argboxes.append(box)
+        self.rm.possibly_free_vars(argboxes)
         return arglocs
 
+    prepare_op_cond_call_gc_wb_array = prepare_op_cond_call_gc_wb
 
     def prepare_op_force_token(self, op, fcond):
         res_loc = self.force_allocate_reg(op.result)
@@ -990,6 +1055,30 @@ class Regalloc(object):
             if v in self.rm.reg_bindings or v in self.vfprm.reg_bindings:
                 self.force_spill_var(v)
         self.assembler.emit_op_call(op, args, self, fcond, fail_index)
+        locs = self._prepare_guard(guard_op)
+        self.possibly_free_vars(guard_op.getfailargs())
+        return locs
+
+    def prepare_guard_call_release_gil(self, op, guard_op, fcond):
+        # first, close the stack in the sense of the asmgcc GC root tracker
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap:
+            arglocs = []
+            argboxes = []
+            for i in range(op.numargs()):
+                loc, box = self._ensure_value_is_boxed(op.getarg(i), argboxes)
+                arglocs.append(loc)
+                argboxes.append(box)
+            self.assembler.call_release_gil(gcrootmap, arglocs, fcond)
+            self.possibly_free_vars(argboxes)
+        # do the call
+        faildescr = guard_op.getdescr()
+        fail_index = self.cpu.get_fail_descr_number(faildescr)
+        args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
+        self.assembler.emit_op_call(op, args, self, fcond, fail_index)
+        # then reopen the stack
+        if gcrootmap:
+            self.assembler.call_reacquire_gil(gcrootmap, r.r0, fcond)
         locs = self._prepare_guard(guard_op)
         self.possibly_free_vars(guard_op.getfailargs())
         return locs
@@ -1043,19 +1132,36 @@ class Regalloc(object):
         assert (1 << scale) == size
         return size, scale, ofs, ofs_length, ptr
 
+    # from ../x86/regalloc.py:965
+    def _unpack_interiorfielddescr(self, descr):
+        assert isinstance(descr, InteriorFieldDescr)
+        arraydescr = descr.arraydescr
+        ofs = arraydescr.get_base_size(self.cpu.translate_support_code)
+        itemsize = arraydescr.get_item_size(self.cpu.translate_support_code)
+        fieldsize = descr.fielddescr.get_field_size(self.cpu.translate_support_code)
+        sign = descr.fielddescr.is_field_signed()
+        ofs += descr.fielddescr.offset
+        return ofs, itemsize, fieldsize, sign
 
-    prepare_op_float_add = prepare_float_op()
-    prepare_op_float_sub = prepare_float_op()
-    prepare_op_float_mul = prepare_float_op()
-    prepare_op_float_truediv = prepare_float_op()
-    prepare_op_float_lt = prepare_float_op(float_result=False)
-    prepare_op_float_le = prepare_float_op(float_result=False)
-    prepare_op_float_eq = prepare_float_op(float_result=False)
-    prepare_op_float_ne = prepare_float_op(float_result=False)
-    prepare_op_float_gt = prepare_float_op(float_result=False)
-    prepare_op_float_ge = prepare_float_op(float_result=False)
-    prepare_op_float_neg = prepare_float_op(base=False)
-    prepare_op_float_abs = prepare_float_op(base=False)
+    prepare_op_float_add = prepare_float_op(name='prepare_op_float_add')
+    prepare_op_float_sub = prepare_float_op(name='prepare_op_float_sub')
+    prepare_op_float_mul = prepare_float_op(name='prepare_op_float_mul')
+    prepare_op_float_truediv = prepare_float_op(name='prepare_op_float_truediv')
+    prepare_op_float_lt = prepare_float_op(float_result=False, name='prepare_op_float_lt')
+    prepare_op_float_le = prepare_float_op(float_result=False, name='prepare_op_float_le')
+    prepare_op_float_eq = prepare_float_op(float_result=False, name='prepare_op_float_eq')
+    prepare_op_float_ne = prepare_float_op(float_result=False, name='prepare_op_float_ne')
+    prepare_op_float_gt = prepare_float_op(float_result=False, name='prepare_op_float_gt')
+    prepare_op_float_ge = prepare_float_op(float_result=False, name='prepare_op_float_ge')
+    prepare_op_float_neg = prepare_float_op(base=False, name='prepare_op_float_neg')
+    prepare_op_float_abs = prepare_float_op(base=False, name='prepare_op_float_abs')
+
+    prepare_guard_float_lt = prepare_float_op(guard=True, float_result=False, name='prepare_guard_float_lt')
+    prepare_guard_float_le = prepare_float_op(guard=True, float_result=False, name='prepare_guard_float_le')
+    prepare_guard_float_eq = prepare_float_op(guard=True, float_result=False, name='prepare_guard_float_eq')
+    prepare_guard_float_ne = prepare_float_op(guard=True, float_result=False, name='prepare_guard_float_ne')
+    prepare_guard_float_gt = prepare_float_op(guard=True, float_result=False, name='prepare_guard_float_gt')
+    prepare_guard_float_ge = prepare_float_op(guard=True, float_result=False, name='prepare_guard_float_ge')
 
     def prepare_op_math_sqrt(self, op, fcond):
         loc, box = self._ensure_value_is_boxed(op.getarg(1))
@@ -1104,36 +1210,32 @@ class Regalloc(object):
         self.force_spill_var(op.getarg(0))
         return []
 
-def make_operation_list():
-    def notimplemented(self, op, fcond):
-        raise NotImplementedError, op
+def add_none_argument(fn):
+    return lambda self, op, fcond: fn(self, op, None, fcond)
 
-    operations = [None] * (rop._LAST+1)
-    for key, value in rop.__dict__.items():
-        key = key.lower()
-        if key.startswith('_'):
-            continue
-        methname = 'prepare_op_%s' % key
-        if hasattr(Regalloc, methname):
-            func = getattr(Regalloc, methname).im_func
-        else:
-            func = notimplemented
+def notimplemented(self, op, fcond):
+    raise NotImplementedError, op
+def notimplemented_with_guard(self, op, guard_op, fcond):
+    raise NotImplementedError, op
+
+operations = [notimplemented] * (rop._LAST + 1)
+operations_with_guard = [notimplemented_with_guard] * (rop._LAST + 1)
+
+for key, value in rop.__dict__.items():
+    key = key.lower()
+    if key.startswith('_'):
+        continue
+    methname = 'prepare_op_%s' % key
+    if hasattr(Regalloc, methname):
+        func = getattr(Regalloc, methname).im_func
         operations[value] = func
-    return operations
 
-def make_guard_operation_list():
-    def notimplemented(self, op, guard_op, fcond):
-        raise NotImplementedError, op
-    guard_operations = [notimplemented] * rop._LAST
-    for key, value in rop.__dict__.items():
-        key = key.lower()
-        if key.startswith('_'):
-            continue
-        methname = 'prepare_guard_%s' % key
-        if hasattr(Regalloc, methname):
-            func = getattr(Regalloc, methname).im_func
-            guard_operations[value] = func
-    return guard_operations
-
-Regalloc.operations = make_operation_list()
-Regalloc.operations_with_guard = make_guard_operation_list()
+for key, value in rop.__dict__.items():
+    key = key.lower()
+    if key.startswith('_'):
+        continue
+    methname = 'prepare_guard_%s' % key
+    if hasattr(Regalloc, methname):
+        func = getattr(Regalloc, methname).im_func
+        operations_with_guard[value] = func
+        operations[value] = add_none_argument(func)

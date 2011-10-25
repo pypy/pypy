@@ -8,6 +8,9 @@ from pypy.rlib.rarithmetic import ovfcheck, r_int64, intmask, int_between
 from pypy.rlib import objectmodel
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 
+from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.ootypesystem import ootype
+from pypy.rpython.lltypesystem.lloperation import llop
 
 class TestSnippet(object):
 
@@ -15,8 +18,8 @@ class TestSnippet(object):
         t = TranslationContext()
         t.buildannotator().build_types(func, types)
         t.buildrtyper().specialize()
-        t.checkgraphs()    
-     
+        t.checkgraphs()
+
     def test_not1(self):
         self._test(snippet.not1, [int])
 
@@ -41,7 +44,7 @@ class TestSnippet(object):
 
 
 class BaseTestRint(BaseRtypingTest):
-    
+
     def test_char_constant(self):
         def dummyfn(i):
             return chr(i)
@@ -412,4 +415,8 @@ class TestLLtype(BaseTestRint, LLRtypeMixin):
     pass
 
 class TestOOtype(BaseTestRint, OORtypeMixin):
-    pass
+    def test_oobox_int(self):
+        def f():
+            x = llop.oobox_int(ootype.Object, 42)
+            return llop.oounbox_int(lltype.Signed, x)
+        assert self.interpret(f, []) == 42

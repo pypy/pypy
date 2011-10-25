@@ -1,16 +1,27 @@
-from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter import gateway
 from pypy.interpreter.argument import Arguments
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.typedef import (GetSetProperty, descr_get_dict,
                                       weakref_descr)
 from pypy.objspace.std.stdtypedef import StdTypeDef
 
-def descr__new__(space, w_typetype, w_name, w_bases, w_dict):
+
+def descr__new__(space, w_typetype, w_name, w_bases=gateway.NoneNotWrapped,
+    w_dict=gateway.NoneNotWrapped):
+
     "This is used to create user-defined classes only."
     from pypy.objspace.std.typeobject import W_TypeObject
     # XXX check types
 
     w_typetype = _precheck_for_new(space, w_typetype)
+
+    # special case for type(x)
+    if (space.is_w(space.type(w_typetype), space.w_type) and w_bases is None and
+        w_dict is None):
+        return space.type(w_name)
+    elif w_bases is None or w_dict is None:
+        raise OperationError(space.w_TypeError, space.wrap("type() takes 1 or 3 arguments"))
+
 
     bases_w = space.fixedview(w_bases)
 
@@ -110,7 +121,7 @@ def descr_set__bases__(space, w_type, w_value):
     if not w_type.is_heaptype():
         raise operationerrfmt(space.w_TypeError,
                               "can't set %s.__bases__", w_type.name)
-    if not space.is_true(space.isinstance(w_value, space.w_tuple)):
+    if not space.isinstance_w(w_value, space.w_tuple):
         raise operationerrfmt(space.w_TypeError,
                               "can only assign tuple to %s.__bases__, not %s",
                               w_type.name,
@@ -141,7 +152,7 @@ def descr_set__bases__(space, w_type, w_value):
                            w_oldbestbase.getname(space))
 
     # invalidate the version_tag of all the current subclasses
-    w_type.mutated()
+    w_type.mutated(None)
 
     # now we can go ahead and change 'w_type.bases_w'
     saved_bases_w = w_type.bases_w
@@ -226,7 +237,7 @@ def descr_set___abstractmethods__(space, w_type, w_new):
 
 def descr_del___abstractmethods__(space, w_type):
     w_type = _check(space, w_type)
-    if not w_type.deldictvalue(space, space.wrap("__abstractmethods__")):
+    if not w_type.deldictvalue(space, "__abstractmethods__"):
         raise OperationError(space.w_AttributeError,
                              space.wrap("__abstractmethods__"))
     w_type.set_abstract(False)

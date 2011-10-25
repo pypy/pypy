@@ -552,14 +552,15 @@ The Stackless Transform
 
 The stackless transform converts functions into a form that knows how
 to save the execution point and active variables into a heap structure
-and resume execution at that point.  This is used to implement
+and resume execution at that point.  This was used to implement
 coroutines as an RPython-level feature, which in turn are used to
-implement `coroutines, greenlets and tasklets`_ as an application
+implement coroutines, greenlets and tasklets as an application
 level feature for the Standard Interpreter.
 
-Enable the stackless transformation with :config:`translation.stackless`.
+The stackless transformation has been deprecated and is no longer
+available in trunk.  It has been replaced with continulets_.
 
-.. _`coroutines, greenlets and tasklets`: stackless.html
+.. _continulets: stackless.html
 
 .. _`preparing the graphs for source generation`:
 

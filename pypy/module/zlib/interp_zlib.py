@@ -20,25 +20,15 @@ else:
         return intmask((x ^ SIGN_EXTEND2) - SIGN_EXTEND2)
 
 
-@unwrap_spec(string='bufferstr')
-def crc32(space, string, w_start = rzlib.CRC32_DEFAULT_START):
+@unwrap_spec(string='bufferstr', start='truncatedint')
+def crc32(space, string, start = rzlib.CRC32_DEFAULT_START):
     """
     crc32(string[, start]) -- Compute a CRC-32 checksum of string.
 
     An optional starting value can be specified.  The returned checksum is
     an integer.
     """
-    if space.is_true(space.isinstance(w_start, space.w_long)):
-        num = space.bigint_w(w_start)
-        ustart = num.uintmask()
-    elif space.is_true(space.isinstance(w_start, space.w_int)):
-        start = space.int_w(w_start)
-        ustart = r_uint(start)
-    else:
-        raise OperationError(space.w_TypeError,
-                             space.wrap("crc32() argument 2 must "
-                                        "be integer<k>, not str"))
-
+    ustart = r_uint(start)
     checksum = rzlib.crc32(string, ustart)
 
     # This is, perhaps, a little stupid.  zlib returns the checksum unsigned.
@@ -51,7 +41,7 @@ def crc32(space, string, w_start = rzlib.CRC32_DEFAULT_START):
     return space.wrap(checksum)
 
 
-@unwrap_spec(string='bufferstr', start=r_uint)
+@unwrap_spec(string='bufferstr', start='truncatedint')
 def adler32(space, string, start=rzlib.ADLER32_DEFAULT_START):
     """
     adler32(string[, start]) -- Compute an Adler-32 checksum of string.
@@ -59,7 +49,8 @@ def adler32(space, string, start=rzlib.ADLER32_DEFAULT_START):
     An optional starting value can be specified.  The returned checksum is
     an integer.
     """
-    checksum = rzlib.adler32(string, start)
+    ustart = r_uint(start)
+    checksum = rzlib.adler32(string, ustart)
     # See comments in crc32() for the following line
     checksum = unsigned_to_signed_32bit(checksum)
 

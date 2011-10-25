@@ -3,18 +3,18 @@ import pypy
 from pypy.interpreter.executioncontext import ExecutionContext, ActionFlag
 from pypy.interpreter.executioncontext import UserDelAction, FrameTraceAction
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.error import new_exception_class
+from pypy.interpreter.error import new_exception_class, typed_unwrap_error_msg
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache
 from pypy.tool.uid import HUGEVAL_BYTES
-from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated, newlist, compute_unique_id
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.timer import DummyTimer, Timer
 from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib import jit
 from pypy.tool.sourcetools import func_with_new_name
-import os, sys, py
+import os, sys
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root']
 
@@ -44,11 +44,11 @@ class W_Root(object):
             return True
         return False
 
-    def deldictvalue(self, space, w_name):
+    def deldictvalue(self, space, attr):
         w_dict = self.getdict(space)
         if w_dict is not None:
             try:
-                space.delitem(w_dict, w_name)
+                space.delitem(w_dict, space.wrap(attr))
                 return True
             except OperationError, ex:
                 if not ex.match(space, space.w_KeyError):
@@ -111,6 +111,9 @@ class W_Root(object):
     def setslotvalue(self, index, w_val):
         raise NotImplementedError
 
+    def delslotvalue(self, index):
+        raise NotImplementedError
+
     def descr_call_mismatch(self, space, opname, RequiredClass, args):
         if RequiredClass is None:
             classname = '?'
@@ -130,6 +133,9 @@ class W_Root(object):
         raise operationerrfmt(space.w_TypeError,
             "cannot create weak reference to '%s' object", typename)
 
+    def delweakref(self):
+        pass
+
     def clear_all_weakrefs(self):
         """Call this at the beginning of interp-level __del__() methods
         in subclasses.  It ensures that weakrefs (if any) are cleared
@@ -143,29 +149,28 @@ class W_Root(object):
             # app-level, e.g. a user-defined __del__(), and this code
             # tries to use weakrefs again, it won't reuse the broken
             # (already-cleared) weakrefs from this lifeline.
-            self.setweakref(lifeline.space, None)
+            self.delweakref()
             lifeline.clear_all_weakrefs()
 
-    __already_enqueued_for_destruction = False
+    __already_enqueued_for_destruction = ()
 
-    def _enqueue_for_destruction(self, space, call_user_del=True):
+    def enqueue_for_destruction(self, space, callback, descrname):
         """Put the object in the destructor queue of the space.
-        At a later, safe point in time, UserDelAction will use
-        space.userdel() to call the object's app-level __del__ method.
+        At a later, safe point in time, UserDelAction will call
+        callback(self).  If that raises OperationError, prints it
+        to stderr with the descrname string.
+
+        Note that 'callback' will usually need to start with:
+            assert isinstance(self, W_SpecificClass)
         """
         # this function always resurect the object, so when
         # running on top of CPython we must manually ensure that
         # we enqueue it only once
         if not we_are_translated():
-            if self.__already_enqueued_for_destruction:
+            if callback in self.__already_enqueued_for_destruction:
                 return
-            self.__already_enqueued_for_destruction = True
-        self.clear_all_weakrefs()
-        if call_user_del:
-            space.user_del_action.register_dying_object(self)
-
-    def _call_builtin_destructor(self):
-        pass     # method overridden in typedef.py
+            self.__already_enqueued_for_destruction += (callback,)
+        space.user_del_action.register_callback(self, callback, descrname)
 
     # hooks that the mapdict implementations needs:
     def _get_mapdict_map(self):
@@ -180,6 +185,28 @@ class W_Root(object):
         raise NotImplementedError
     def _set_mapdict_storage_and_map(self, storage, map):
         raise NotImplementedError
+
+    # -------------------------------------------------------------------
+
+    def str_w(self, space):
+        w_msg = typed_unwrap_error_msg(space, "string", self)
+        raise OperationError(space.w_TypeError, w_msg)
+
+    def unicode_w(self, space):
+        raise OperationError(space.w_TypeError,
+                             typed_unwrap_error_msg(space, "unicode", self))
+
+    def int_w(self, space):
+        raise OperationError(space.w_TypeError,
+                             typed_unwrap_error_msg(space, "integer", self))
+    
+    def uint_w(self, space):
+        raise OperationError(space.w_TypeError,
+                             typed_unwrap_error_msg(space, "integer", self))
+    
+    def bigint_w(self, space):
+        raise OperationError(space.w_TypeError,
+                             typed_unwrap_error_msg(space, "integer", self))
 
 
 class Wrappable(W_Root):
@@ -237,7 +264,7 @@ wrappable_class_name._annspecialcase_ = 'specialize:memo'
 
 class ObjSpace(object):
     """Base class for the interpreter-level implementations of object spaces.
-    http://codespeak.net/pypy/dist/pypy/doc/objspace.html"""
+    http://pypy.readthedocs.org/en/latest/objspace.html"""
 
     full_exceptions = True  # full support for exceptions (normalization & more)
 
@@ -311,9 +338,6 @@ class ObjSpace(object):
             mod = self.interpclass_w(w_mod)
             if isinstance(mod, Module) and mod.startup_called:
                 mod.shutdown(self)
-        if self.config.objspace.std.withdictmeasurement:
-            from pypy.objspace.std.dictmultiobject import report
-            report()
         if self.config.objspace.logbytecodes:
             self.reportbytecodecounts()
         if self.config.objspace.std.logspaceoptypes:
@@ -624,9 +648,9 @@ class ObjSpace(object):
             self.default_compiler = compiler
             return compiler
 
-    def createframe(self, code, w_globals, closure=None):
+    def createframe(self, code, w_globals, outer_func=None):
         "Create an empty PyFrame suitable for this code object."
-        return self.FrameClass(self, code, w_globals, closure)
+        return self.FrameClass(self, code, w_globals, outer_func)
 
     def allocate_lock(self):
         """Return an interp-level Lock object if threads are enabled,
@@ -755,7 +779,18 @@ class ObjSpace(object):
         w_iterator = self.iter(w_iterable)
         # If we know the expected length we can preallocate.
         if expected_length == -1:
-            items = []
+            try:
+                lgt_estimate = self.len_w(w_iterable)
+            except OperationError, o:
+                if (not o.match(self, self.w_AttributeError) and
+                    not o.match(self, self.w_TypeError)):
+                    raise
+                items = []
+            else:
+                try:
+                    items = newlist(lgt_estimate)
+                except MemoryError:
+                    items = [] # it might have lied
         else:
             items = [None] * expected_length
         idx = 0
@@ -888,7 +923,7 @@ class ObjSpace(object):
         ec.c_call_trace(frame, w_func, args)
         try:
             w_res = self.call_args(w_func, args)
-        except OperationError, e:
+        except OperationError:
             ec.c_exception_trace(frame, w_func)
             raise
         ec.c_return_trace(frame, w_func, args)
@@ -928,8 +963,14 @@ class ObjSpace(object):
                 return self.w_True
         return self.w_False
 
+    def issequence_w(self, w_obj):
+        return (self.findattr(w_obj, self.wrap("__getitem__")) is not None)
+
     def isinstance_w(self, w_obj, w_type):
         return self.is_true(self.isinstance(w_obj, w_type))
+
+    def id(self, w_obj):
+        return self.wrap(compute_unique_id(w_obj))
 
     # The code below only works
     # for the simple case (new-style instance).
@@ -983,23 +1024,17 @@ class ObjSpace(object):
 
     def eval(self, expression, w_globals, w_locals, hidden_applevel=False):
         "NOT_RPYTHON: For internal debugging."
-        import types
-        from pypy.interpreter.pycode import PyCode
         if isinstance(expression, str):
             compiler = self.createcompiler()
             expression = compiler.compile(expression, '?', 'eval', 0,
                                          hidden_applevel=hidden_applevel)
-        if isinstance(expression, types.CodeType):
-            # XXX only used by appsupport
-            expression = PyCode._from_code(self, expression)
-        if not isinstance(expression, PyCode):
+        else:
             raise TypeError, 'space.eval(): expected a string, code or PyCode object'
         return expression.exec_code(self, w_globals, w_locals)
 
     def exec_(self, statement, w_globals, w_locals, hidden_applevel=False,
               filename=None):
         "NOT_RPYTHON: For internal debugging."
-        import types
         if filename is None:
             filename = '?'
         from pypy.interpreter.pycode import PyCode
@@ -1007,9 +1042,6 @@ class ObjSpace(object):
             compiler = self.createcompiler()
             statement = compiler.compile(statement, filename, 'exec', 0,
                                          hidden_applevel=hidden_applevel)
-        if isinstance(statement, types.CodeType):
-            # XXX only used by appsupport
-            statement = PyCode._from_code(self, statement)
         if not isinstance(statement, PyCode):
             raise TypeError, 'space.exec_(): expected a string, code or PyCode object'
         w_key = self.wrap('__builtins__')
@@ -1200,12 +1232,27 @@ class ObjSpace(object):
             return None
         return self.str_w(w_obj)
 
+    def str_w(self, w_obj):
+        return w_obj.str_w(self)
+
+    def int_w(self, w_obj):
+        return w_obj.int_w(self)
+
+    def uint_w(self, w_obj):
+        return w_obj.uint_w(self)
+
+    def bigint_w(self, w_obj):
+        return w_obj.bigint_w(self)
+
     def realstr_w(self, w_obj):
         # Like str_w, but only works if w_obj is really of type 'str'.
         if not self.is_true(self.isinstance(w_obj, self.w_str)):
             raise OperationError(self.w_TypeError,
                                  self.wrap('argument must be a string'))
         return self.str_w(w_obj)
+
+    def unicode_w(self, w_obj):
+        return w_obj.unicode_w(self)
 
     def realunicode_w(self, w_obj):
         # Like unicode_w, but only works if w_obj is really of type
@@ -1287,6 +1334,17 @@ class ObjSpace(object):
             raise OperationError(self.w_OverflowError,
                                  self.wrap("expected a 32-bit integer"))
         return value
+
+    def truncatedint(self, w_obj):
+        # Like space.gateway_int_w(), but return the integer truncated
+        # instead of raising OverflowError.  For obscure cases only.
+        try:
+            return self.int_w(w_obj)
+        except OperationError, e:
+            if not e.match(self, self.w_OverflowError):
+                raise
+            from pypy.rlib.rarithmetic import intmask
+            return intmask(self.bigint_w(w_obj).uintmask())
 
     def c_filedescriptor_w(self, w_fd):
         # This is only used sometimes in CPython, e.g. for os.fsync() but

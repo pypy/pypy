@@ -5,7 +5,7 @@ Implementation of the interpreter-level compile/eval builtins.
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.astcompiler import consts, ast
-from pypy.interpreter.gateway import NoneNotWrapped, unwrap_spec
+from pypy.interpreter.gateway import unwrap_spec
 
 @unwrap_spec(filename=str, mode=str, flags=int, dont_inherit=int)
 def compile(space, w_source, filename, mode, flags=0, dont_inherit=0):
@@ -84,8 +84,8 @@ If only globals is given, locals defaults to it.
         raise OperationError(space.w_TypeError,
               w('eval() arg 1 must be a string or code object'))
 
-    caller = space.getexecutioncontext().gettopframe_nohidden()
     if space.is_w(w_globals, space.w_None):
+        caller = space.getexecutioncontext().gettopframe_nohidden()
         if caller is None:
             w_globals = space.newdict()
             if space.is_w(w_locals, space.w_None):
@@ -97,13 +97,9 @@ If only globals is given, locals defaults to it.
     elif space.is_w(w_locals, space.w_None):
         w_locals = w_globals
 
-    try:
-        space.getitem(w_globals, space.wrap('__builtins__'))
-    except OperationError, e:
-        if not e.match(space, space.w_KeyError):
-            raise
-        if caller is not None:
-            w_builtin = space.builtin.pick_builtin(caller.w_globals)
-            space.setitem(w_globals, space.wrap('__builtins__'), w_builtin)
+    # xxx removed: adding '__builtins__' to the w_globals dict, if there
+    # is none.  This logic was removed as costly (it requires to get at
+    # the gettopframe_nohidden()).  I bet no test fails, and it's a really
+    # obscure case.
 
     return codeobj.exec_code(space, w_globals, w_locals)

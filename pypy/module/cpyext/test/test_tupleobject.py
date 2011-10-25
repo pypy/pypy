@@ -48,3 +48,4 @@ class TestTupleObject(BaseApiTest):
         w_slice = api.PyTuple_GetSlice(w_tuple, 3, -3)
         assert space.eq_w(w_slice,
                           space.newtuple([space.wrap(i) for i in range(3, 7)]))
+

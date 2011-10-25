@@ -1,11 +1,10 @@
 .. _`ctypes_configure/doc/sample.py`: https://bitbucket.org/pypy/pypy/src/default/ctypes_configure/doc/sample.py
 .. _`demo/`: https://bitbucket.org/pypy/pypy/src/default/demo/
-.. _`demo/pickle_coroutine.py`: https://bitbucket.org/pypy/pypy/src/default/demo/pickle_coroutine.py
 .. _`lib-python/`: https://bitbucket.org/pypy/pypy/src/default/lib-python/
 .. _`lib-python/2.7/dis.py`: https://bitbucket.org/pypy/pypy/src/default/lib-python/2.7/dis.py
 .. _`lib_pypy/`: https://bitbucket.org/pypy/pypy/src/default/lib_pypy/
+.. _`lib_pypy/greenlet.py`: https://bitbucket.org/pypy/pypy/src/default/lib_pypy/greenlet.py
 .. _`lib_pypy/pypy_test/`: https://bitbucket.org/pypy/pypy/src/default/lib_pypy/pypy_test/
-.. _`lib_pypy/stackless.py`: https://bitbucket.org/pypy/pypy/src/default/lib_pypy/stackless.py
 .. _`lib_pypy/tputil.py`: https://bitbucket.org/pypy/pypy/src/default/lib_pypy/tputil.py
 .. _`pypy/annotation`:
 .. _`pypy/annotation/`: https://bitbucket.org/pypy/pypy/src/default/pypy/annotation/
@@ -55,7 +54,6 @@
 .. _`pypy/module`:
 .. _`pypy/module/`: https://bitbucket.org/pypy/pypy/src/default/pypy/module/
 .. _`pypy/module/__builtin__/__init__.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/module/__builtin__/__init__.py
-.. _`pypy/module/_stackless/test/test_composable_coroutine.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/module/_stackless/test/test_composable_coroutine.py
 .. _`pypy/objspace`:
 .. _`pypy/objspace/`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/
 .. _`pypy/objspace/dump.py`: https://bitbucket.org/pypy/pypy/src/default/pypy/objspace/dump.py
@@ -117,6 +115,7 @@
 .. _`pypy/translator/`: https://bitbucket.org/pypy/pypy/src/default/pypy/translator/
 .. _`pypy/translator/backendopt/`: https://bitbucket.org/pypy/pypy/src/default/pypy/translator/backendopt/
 .. _`pypy/translator/c/`: https://bitbucket.org/pypy/pypy/src/default/pypy/translator/c/
+.. _`pypy/translator/c/src/stacklet/`: https://bitbucket.org/pypy/pypy/src/default/pypy/translator/c/src/stacklet/
 .. _`pypy/translator/cli/`: https://bitbucket.org/pypy/pypy/src/default/pypy/translator/cli/
 .. _`pypy/translator/goal/`: https://bitbucket.org/pypy/pypy/src/default/pypy/translator/goal/
 .. _`pypy/translator/jvm/`: https://bitbucket.org/pypy/pypy/src/default/pypy/translator/jvm/

@@ -12,24 +12,30 @@ def test_contains_unsupported_variable_type():
     graph = support.getgraph(f, [5])
     for sf in [False, True]:
         for sll in [False, True]:
-            assert not contains_unsupported_variable_type(graph, sf, sll)
+            for ssf in [False, True]:
+                assert not contains_unsupported_variable_type(graph, sf,
+                                                              sll, ssf)
     #
     graph = support.getgraph(f, [5.5])
     for sf in [False, True]:
         for sll in [False, True]:
-            res = contains_unsupported_variable_type(graph, sf, sll)
-            assert res is not sf
+            for ssf in [False, True]:
+                res = contains_unsupported_variable_type(graph, sf, sll, ssf)
+                assert res is not sf
     #
     graph = support.getgraph(f, [r_singlefloat(5.5)])
     for sf in [False, True]:
         for sll in [False, True]:
-            assert contains_unsupported_variable_type(graph, sf, sll)
+            for ssf in [False, True]:
+                res = contains_unsupported_variable_type(graph, sf, sll, ssf)
+                assert res == (not ssf)
     #
     graph = support.getgraph(f, [r_longlong(5)])
     for sf in [False, True]:
         for sll in [False, True]:
-            res = contains_unsupported_variable_type(graph, sf, sll)
-            assert res == (sys.maxint == 2147483647 and not sll)
+            for ssf in [False, True]:
+                res = contains_unsupported_variable_type(graph, sf, sll, ssf)
+                assert res == (sys.maxint == 2147483647 and not sll)
 
 
 def test_regular_function():
@@ -45,8 +51,8 @@ def test_without_floats():
     policy.set_supports_floats(False)
     assert not policy.look_inside_graph(graph)
 
-def test_purefunction():
-    @jit.purefunction
+def test_elidable():
+    @jit.elidable
     def g(x):
         return x + 2
     graph = support.getgraph(g, [5])

@@ -15,7 +15,6 @@ RECURSIVE_MUTEX, SEMAPHORE = range(2)
 
 if sys.platform == 'win32':
     from pypy.rlib import rwin32
-    from pypy.interpreter.error import wrap_windowserror
     from pypy.module._multiprocessing.interp_win32 import (
         handle_w, _GetTickCount)
 
@@ -469,6 +468,9 @@ class W_SemLock(Wrappable):
 
         self.count -= 1
 
+    def after_fork(self):
+        self.count = 0
+
     @unwrap_spec(kind=int, maxvalue=int)
     def rebuild(space, w_cls, w_handle, kind, maxvalue):
         self = space.allocate_instance(W_SemLock, w_cls)
@@ -513,6 +515,7 @@ W_SemLock.typedef = TypeDef(
     acquire = interp2app(W_SemLock.acquire),
     release = interp2app(W_SemLock.release),
     _rebuild = interp2app(W_SemLock.rebuild.im_func, as_classmethod=True),
+    _after_fork = interp2app(W_SemLock.after_fork),
     __enter__=interp2app(W_SemLock.enter),
     __exit__=interp2app(W_SemLock.exit),
     SEM_VALUE_MAX=SEM_VALUE_MAX,

@@ -80,7 +80,7 @@ class WarmspotTests(object):
         self.meta_interp(f, [123, 10])
         assert len(get_stats().locations) >= 4
         for loc in get_stats().locations:
-            assert loc == 'GREEN IS 123.'
+            assert loc == (0, 123)
 
     def test_set_param_enable_opts(self):
         from pypy.rpython.annlowlevel import llstr, hlstr
@@ -252,6 +252,41 @@ class WarmspotTests(object):
         self.check_loops({'int_sub': 1, 'int_gt': 1, 'guard_true': 1,
                           'jump': 1})
 
+    def test_void_red_variable(self):
+        mydriver = JitDriver(greens=[], reds=['a', 'm'])
+        def f1(m):
+            a = None
+            while m > 0:
+                mydriver.jit_merge_point(a=a, m=m)
+                m = m - 1
+                if m == 10:
+                    pass   # other case
+        self.meta_interp(f1, [18])
+
+    def test_bug_constant_rawptrs(self):
+        py.test.skip("crashes because a is a constant")
+        from pypy.rpython.lltypesystem import lltype, rffi
+        mydriver = JitDriver(greens=['a'], reds=['m'])
+        def f1(m):
+            a = lltype.nullptr(rffi.VOIDP.TO)
+            while m > 0:
+                mydriver.jit_merge_point(a=a, m=m)
+                m = m - 1
+        self.meta_interp(f1, [18])
+
+    def test_bug_rawptrs(self):
+        from pypy.rpython.lltypesystem import lltype, rffi
+        mydriver = JitDriver(greens=['a'], reds=['m'])
+        def f1(m):
+            a = lltype.malloc(rffi.VOIDP.TO, 5, flavor='raw')
+            while m > 0:
+                mydriver.jit_merge_point(a=a, m=m)
+                m = m - 1
+                if m == 10:
+                    pass
+            lltype.free(a, flavor='raw')
+        self.meta_interp(f1, [18])
+
 
 class TestLLWarmspot(WarmspotTests, LLJitMixin):
     CPUClass = runner.LLtypeCPU
@@ -303,6 +338,7 @@ class TestWarmspotDirect(object):
         class FakeCPU(object):
             supports_floats = False
             supports_longlong = False
+            supports_singlefloats = False
             ts = llhelper
             translate_support_code = False
             stats = "stats"

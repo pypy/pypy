@@ -2,15 +2,17 @@ import sys, os
 from pypy.jit.metainterp.history import Box, Const, ConstInt, getkind
 from pypy.jit.metainterp.history import BoxInt, BoxPtr, BoxFloat
 from pypy.jit.metainterp.history import INT, REF, FLOAT, HOLE
+from pypy.jit.metainterp.history import AbstractDescr
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp import jitprof
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rstr
+from pypy.rpython import annlowlevel
 from pypy.rlib import rarithmetic, rstack
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.rlib.debug import have_debug_prints, ll_assert
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
-from pypy.jit.metainterp.optimizeutil import InvalidLoop
+from pypy.jit.metainterp.optimize import InvalidLoop
 
 # Logic to encode the chain of frames and the state of the boxes at a
 # guard operation, and to decode it again.  This is a bit advanced,
@@ -81,6 +83,13 @@ NUMBERING = lltype.GcStruct('Numbering',
                             ('prev', NUMBERINGP),
                             ('nums', lltype.Array(rffi.SHORT)))
 NUMBERINGP.TO.become(NUMBERING)
+
+PENDINGFIELDSTRUCT = lltype.Struct('PendingField',
+                                   ('lldescr', annlowlevel.base_ptr_lltype()),
+                                   ('num', rffi.SHORT),
+                                   ('fieldnum', rffi.SHORT),
+                                   ('itemindex', rffi.INT))
+PENDINGFIELDSP = lltype.Ptr(lltype.GcArray(PENDINGFIELDSTRUCT))
 
 TAGMASK = 3
 
@@ -329,7 +338,7 @@ class ResumeDataVirtualAdder(object):
                 value = values[box]
                 value.get_args_for_fail(self)
 
-        for _, box, fieldbox in pending_setfields:
+        for _, box, fieldbox, _ in pending_setfields:
             self.register_box(box)
             self.register_box(fieldbox)
             value = values[fieldbox]
@@ -405,13 +414,25 @@ class ResumeDataVirtualAdder(object):
         return False
 
     def _add_pending_fields(self, pending_setfields):
-        rd_pendingfields = None
+        rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
         if pending_setfields:
-            rd_pendingfields = []
-            for descr, box, fieldbox in pending_setfields:
+            n = len(pending_setfields)
+            rd_pendingfields = lltype.malloc(PENDINGFIELDSP.TO, n)
+            for i in range(n):
+                descr, box, fieldbox, itemindex = pending_setfields[i]
+                lldescr = annlowlevel.cast_instance_to_base_ptr(descr)
                 num = self._gettagged(box)
                 fieldnum = self._gettagged(fieldbox)
-                rd_pendingfields.append((descr, num, fieldnum))
+                # the index is limited to 2147483647 (64-bit machines only)
+                if itemindex > 2147483647:
+                    from pypy.jit.metainterp import compile
+                    compile.giveup()
+                itemindex = rffi.cast(rffi.INT, itemindex)
+                #
+                rd_pendingfields[i].lldescr  = lldescr
+                rd_pendingfields[i].num      = num
+                rd_pendingfields[i].fieldnum = fieldnum
+                rd_pendingfields[i].itemindex= itemindex
         self.storage.rd_pendingfields = rd_pendingfields
 
     def _gettagged(self, box):
@@ -434,17 +455,6 @@ class AbstractVirtualInfo(object):
 
     def debug_prints(self):
         raise NotImplementedError
-
-    def generalization_of(self, other):
-        raise NotImplementedError
-
-    def generate_guards(self, other, box, cpu, extra_guards):
-        if self.generalization_of(other):
-            return
-        self._generate_guards(other, box, cpu, extra_guards)
-
-    def _generate_guards(self, other, box, cpu, extra_guards):
-        raise InvalidLoop
         
 class AbstractVirtualStructInfo(AbstractVirtualInfo):
     def __init__(self, fielddescrs):
@@ -465,26 +475,6 @@ class AbstractVirtualStructInfo(AbstractVirtualInfo):
                         str(self.fielddescrs[i]),
                         str(untag(self.fieldnums[i])))
 
-    def generalization_of(self, other):
-        if not self._generalization_of(other):
-            return False
-        assert len(self.fielddescrs) == len(self.fieldstate)
-        assert len(other.fielddescrs) == len(other.fieldstate)
-        if len(self.fielddescrs) != len(other.fielddescrs):
-            return False
-        
-        for i in range(len(self.fielddescrs)):
-            if other.fielddescrs[i] is not self.fielddescrs[i]:
-                return False
-            if not self.fieldstate[i].generalization_of(other.fieldstate[i]):
-                return False
-
-        return True
-
-    def _generalization_of(self, other):
-        raise NotImplementedError
-
-
 class VirtualInfo(AbstractVirtualStructInfo):
     def __init__(self, known_class, fielddescrs):
         AbstractVirtualStructInfo.__init__(self, fielddescrs)
@@ -500,13 +490,6 @@ class VirtualInfo(AbstractVirtualStructInfo):
         debug_print("\tvirtualinfo", self.known_class.repr_rpython())
         AbstractVirtualStructInfo.debug_prints(self)
 
-    def _generalization_of(self, other):        
-        if not isinstance(other, VirtualInfo):
-            return False
-        if not self.known_class.same_constant(other.known_class):
-            return False
-        return True
-        
 
 class VStructInfo(AbstractVirtualStructInfo):
     def __init__(self, typedescr, fielddescrs):
@@ -522,14 +505,6 @@ class VStructInfo(AbstractVirtualStructInfo):
     def debug_prints(self):
         debug_print("\tvstructinfo", self.typedescr.repr_rpython())
         AbstractVirtualStructInfo.debug_prints(self)
-
-    def _generalization_of(self, other):        
-        if not isinstance(other, VStructInfo):
-            return False
-        if self.typedescr is not other.typedescr:
-            return False
-        return True
-        
 
 class VArrayInfo(AbstractVirtualInfo):
     def __init__(self, arraydescr):
@@ -561,17 +536,6 @@ class VArrayInfo(AbstractVirtualInfo):
         debug_print("\tvarrayinfo", self.arraydescr)
         for i in self.fieldnums:
             debug_print("\t\t", str(untag(i)))
-
-    def generalization_of(self, other):
-        if self.arraydescr is not other.arraydescr:
-            return False
-        if len(self.fieldstate) != len(other.fieldstate):
-            return False
-        for i in range(len(self.fieldstate)):
-            if not self.fieldstate[i].generalization_of(other.fieldstate[i]):
-                return False
-        return True
-
 
 class VStrPlainInfo(AbstractVirtualInfo):
     """Stands for the string made out of the characters of all fieldnums."""
@@ -727,10 +691,28 @@ class AbstractResumeDataReader(object):
             self.virtuals_cache = [self.virtual_default] * len(virtuals)
 
     def _prepare_pendingfields(self, pendingfields):
-        if pendingfields is not None:
-            for descr, num, fieldnum in pendingfields:
+        if pendingfields:
+            for i in range(len(pendingfields)):
+                lldescr  = pendingfields[i].lldescr
+                num      = pendingfields[i].num
+                fieldnum = pendingfields[i].fieldnum
+                itemindex= pendingfields[i].itemindex
+                descr = annlowlevel.cast_base_ptr_to_instance(AbstractDescr,
+                                                              lldescr)
                 struct = self.decode_ref(num)
-                self.setfield(descr, struct, fieldnum)
+                itemindex = rffi.cast(lltype.Signed, itemindex)
+                if itemindex < 0:
+                    self.setfield(descr, struct, fieldnum)
+                else:
+                    self.setarrayitem(descr, struct, itemindex, fieldnum)
+
+    def setarrayitem(self, arraydescr, array, index, fieldnum):
+        if arraydescr.is_array_of_pointers():
+            self.setarrayitem_ref(arraydescr, array, index, fieldnum)
+        elif arraydescr.is_array_of_floats():
+            self.setarrayitem_float(arraydescr, array, index, fieldnum)
+        else:
+            self.setarrayitem_int(arraydescr, array, index, fieldnum)
 
     def _prepare_next_section(self, info):
         # Use info.enumerate_vars(), normally dispatching to
@@ -903,15 +885,15 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
                                            structbox, fieldbox)
 
     def setarrayitem_int(self, arraydescr, arraybox, index, fieldnum):
-        self.setarrayitem(arraydescr, arraybox, index, fieldnum, INT)
+        self._setarrayitem(arraydescr, arraybox, index, fieldnum, INT)
 
     def setarrayitem_ref(self, arraydescr, arraybox, index, fieldnum):
-        self.setarrayitem(arraydescr, arraybox, index, fieldnum, REF)
+        self._setarrayitem(arraydescr, arraybox, index, fieldnum, REF)
 
     def setarrayitem_float(self, arraydescr, arraybox, index, fieldnum):
-        self.setarrayitem(arraydescr, arraybox, index, fieldnum, FLOAT)
+        self._setarrayitem(arraydescr, arraybox, index, fieldnum, FLOAT)
 
-    def setarrayitem(self, arraydescr, arraybox, index, fieldnum, kind):
+    def _setarrayitem(self, arraydescr, arraybox, index, fieldnum, kind):
         itembox = self.decode_box(fieldnum, kind)
         self.metainterp.execute_and_record(rop.SETARRAYITEM_GC,
                                            arraydescr, arraybox,

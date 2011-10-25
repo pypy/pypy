@@ -8,7 +8,7 @@ from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 
 from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway, baseobjspace
-from pypy.rlib.listsort import TimSort
+from pypy.rlib.listsort import make_timsort_class
 from pypy.interpreter.argument import Signature
 
 class W_ListObject(W_Object):
@@ -44,7 +44,7 @@ def init__List(space, w_list, __args__):
     if w_iterable is not None:
         # unfortunately this is duplicating space.unpackiterable to avoid
         # assigning a new RPython list to 'wrappeditems', which defeats the
-        # W_FastSeqIterObject optimization.
+        # W_FastListIterObject optimization.
         if isinstance(w_iterable, W_ListObject):
             items_w.extend(w_iterable.wrappeditems)
         elif isinstance(w_iterable, W_TupleObject):
@@ -386,7 +386,11 @@ def list_pop__List_ANY(space, w_list, w_idx=-1):
     if len(items)== 0:
         raise OperationError(space.w_IndexError,
                              space.wrap("pop from empty list"))
-    idx = space.int_w(w_idx)
+    if space.isinstance_w(w_idx, space.w_float):
+        raise OperationError(space.w_TypeError,
+            space.wrap("integer argument expected, got float")
+        )
+    idx = space.int_w(space.int(w_idx))
     try:
         return items.pop(idx)
     except IndexError:
@@ -445,6 +449,7 @@ class KeyContainer(baseobjspace.W_Root):
         self.w_key = w_key
         self.w_item = w_item
 
+TimSort = make_timsort_class()
 # NOTE: all the subclasses of TimSort should inherit from a common subclass,
 #       so make sure that only SimpleSort inherits directly from TimSort.
 #       This is necessary to hide the parent method TimSort.lt() from the

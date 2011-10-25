@@ -325,10 +325,10 @@ def unmarshal_DictMulti(space, u, tc):
     # of building a list of tuples.
     w_dic = space.newdict()
     while 1:
-        w_key = u.get_w_obj(True)
+        w_key = u.get_w_obj(allow_null=True)
         if w_key is None:
             break
-        w_value = u.get_w_obj(False)
+        w_value = u.get_w_obj()
         space.setitem(w_dic, w_key, w_value)
     return w_dic
 register(TYPE_DICT, unmarshal_DictMulti)
@@ -364,7 +364,7 @@ model.MM.marshal_w.register(marshal_w_pycode, PyCode)
 # so we no longer can handle it in interp_marshal.atom_strlist
 
 def unmarshal_str(u):
-    w_obj = u.get_w_obj(False)
+    w_obj = u.get_w_obj()
     try:
         return u.space.str_w(w_obj)
     except OperationError, e:

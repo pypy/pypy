@@ -16,6 +16,7 @@ _MSVC  = target_platform.name == "msvc"
 _MINGW = target_platform.name == "mingw32"
 _SOLARIS = sys.platform == "sunos5"
 _MACOSX = sys.platform == "darwin"
+_HAS_AF_PACKET = sys.platform.startswith('linux')   # only Linux for now
 
 if _POSIX:
     includes = ('sys/types.h',
@@ -34,11 +35,12 @@ if _POSIX:
                 'stdint.h', 
                 'errno.h',
                 )
+    if _HAS_AF_PACKET:
+        includes += ('netpacket/packet.h',
+                     'sys/ioctl.h',
+                     'net/if.h')
 
-    cond_includes = [('AF_NETLINK', 'linux/netlink.h'),
-                     ('AF_PACKET', 'netpacket/packet.h'),
-                     ('AF_PACKET', 'sys/ioctl.h'),
-                     ('AF_PACKET', 'net/if.h')]
+    cond_includes = [('AF_NETLINK', 'linux/netlink.h')]
     
     libraries = ()
     calling_conv = 'c'
@@ -320,18 +322,18 @@ if _POSIX:
                                              ('events', rffi.SHORT),
                                              ('revents', rffi.SHORT)])
 
-    CConfig.sockaddr_ll = platform.Struct('struct sockaddr_ll',
+    if _HAS_AF_PACKET:
+        CConfig.sockaddr_ll = platform.Struct('struct sockaddr_ll',
                               [('sll_ifindex', rffi.INT),
                                ('sll_protocol', rffi.INT),
                                ('sll_pkttype', rffi.INT),
                                ('sll_hatype', rffi.INT),
                                ('sll_addr', rffi.CFixedArray(rffi.CHAR, 8)),
-                               ('sll_halen', rffi.INT)],
-                              ifdef='AF_PACKET')
+                               ('sll_halen', rffi.INT)])
 
-    CConfig.ifreq = platform.Struct('struct ifreq', [('ifr_ifindex', rffi.INT),
-                                 ('ifr_name', rffi.CFixedArray(rffi.CHAR, 8))],
-                                    ifdef='AF_PACKET')
+        CConfig.ifreq = platform.Struct('struct ifreq',
+                                [('ifr_ifindex', rffi.INT),
+                                 ('ifr_name', rffi.CFixedArray(rffi.CHAR, 8))])
 
 if _WIN32:
     CConfig.WSAEVENT = platform.SimpleType('WSAEVENT', rffi.VOIDP)
@@ -386,6 +388,8 @@ for name, default in constants_w_defaults:
         constants[name] = value
     else:
         constants[name] = default
+if not _HAS_AF_PACKET and 'AF_PACKET' in constants:
+    del constants['AF_PACKET']
 
 constants['has_ipv6'] = True # This is a configuration option in CPython
 for name, value in constants.items():
@@ -439,25 +443,18 @@ addrinfo = cConfig.addrinfo
 if _POSIX:
     nfds_t = cConfig.nfds_t
     pollfd = cConfig.pollfd
-    if cConfig.sockaddr_ll is not None:
+    if _HAS_AF_PACKET:
         sockaddr_ll = cConfig.sockaddr_ll
-    ifreq = cConfig.ifreq
+        ifreq = cConfig.ifreq
 if WIN32:
     WSAEVENT = cConfig.WSAEVENT
     WSANETWORKEVENTS = cConfig.WSANETWORKEVENTS
 timeval = cConfig.timeval
 
-#if _POSIX:
-#    includes = list(includes)
-#    for _name, _header in cond_includes:
-#        if getattr(cConfig, _name) is not None:
-#            includes.append(_header)
-#    eci = ExternalCompilationInfo(includes=includes, libraries=libraries,
-#                                  separate_module_sources=sources)
 
-def external(name, args, result):
+def external(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, compilation_info=eci,
-                           calling_conv=calling_conv)
+                           calling_conv=calling_conv, **kwds)
 
 def external_c(name, args, result, **kwargs):
     return rffi.llexternal(name, args, result, compilation_info=eci,
@@ -476,9 +473,9 @@ if _POSIX:
 socket = external('socket', [rffi.INT, rffi.INT, rffi.INT], socketfd_type)
 
 if WIN32:
-    socketclose = external('closesocket', [socketfd_type], rffi.INT)
+    socketclose = external('closesocket', [socketfd_type], rffi.INT, threadsafe=False)
 else:
-    socketclose = external('close', [socketfd_type], rffi.INT)
+    socketclose = external('close', [socketfd_type], rffi.INT, threadsafe=False)
 
 socketconnect = external('connect', [socketfd_type, sockaddr_ptr, socklen_t], rffi.INT)
 
@@ -489,10 +486,10 @@ freeaddrinfo = external('freeaddrinfo', [addrinfo_ptr], lltype.Void)
 getnameinfo = external('getnameinfo', [sockaddr_ptr, socklen_t, CCHARP,
                        size_t, CCHARP, size_t, rffi.INT], rffi.INT)
 
-htonl = external('htonl', [rffi.UINT], rffi.UINT)
-htons = external('htons', [rffi.USHORT], rffi.USHORT)
-ntohl = external('ntohl', [rffi.UINT], rffi.UINT)
-ntohs = external('ntohs', [rffi.USHORT], rffi.USHORT)
+htonl = external('htonl', [rffi.UINT], rffi.UINT, threadsafe=False)
+htons = external('htons', [rffi.USHORT], rffi.USHORT, threadsafe=False)
+ntohl = external('ntohl', [rffi.UINT], rffi.UINT, threadsafe=False)
+ntohs = external('ntohs', [rffi.USHORT], rffi.USHORT, threadsafe=False)
 
 if _POSIX:
     inet_aton = external('inet_aton', [CCHARP, lltype.Ptr(in_addr)],
@@ -544,7 +541,7 @@ if _POSIX:
     socketpair_t = rffi.CArray(socketfd_type)
     socketpair = external('socketpair', [rffi.INT, rffi.INT, rffi.INT,
                           lltype.Ptr(socketpair_t)], rffi.INT)
-    if ifreq is not None:
+    if _HAS_AF_PACKET:
         ioctl = external('ioctl', [socketfd_type, rffi.INT, lltype.Ptr(ifreq)],
                          rffi.INT)
 

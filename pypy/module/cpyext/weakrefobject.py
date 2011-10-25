@@ -21,6 +21,13 @@ def PyWeakref_GetObject(space, w_ref):
     """Return the referenced object from a weak reference.  If the referent is
     no longer live, returns None. This function returns a borrowed reference.
     """
+    return PyWeakref_GET_OBJECT(space, w_ref)
+
+@cpython_api([PyObject], PyObject)
+def PyWeakref_GET_OBJECT(space, w_ref):
+    """Similar to PyWeakref_GetObject(), but implemented as a macro that does no
+    error checking.
+    """
     return borrow_from(w_ref, space.call_function(w_ref))
 
 @cpython_api([PyObject], PyObject)

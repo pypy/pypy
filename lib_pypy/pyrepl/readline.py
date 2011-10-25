@@ -33,7 +33,7 @@ from pyrepl.completing_reader import CompletingReader
 from pyrepl.unix_console import UnixConsole, _error
 
 
-ENCODING = 'latin1'     # XXX hard-coded
+ENCODING = sys.getfilesystemencoding() or 'latin1'     # XXX review
 
 __all__ = ['add_history',
            'clear_history',
@@ -198,7 +198,7 @@ class _ReadlineWrapper(object):
         reader.ps1 = prompt
         return reader.readline()
 
-    def multiline_input(self, more_lines, ps1, ps2):
+    def multiline_input(self, more_lines, ps1, ps2, returns_unicode=False):
         """Read an input on possibly multiple lines, asking for more
         lines as long as 'more_lines(unicodetext)' returns an object whose
         boolean value is true.
@@ -209,7 +209,7 @@ class _ReadlineWrapper(object):
             reader.more_lines = more_lines
             reader.ps1 = reader.ps2 = ps1
             reader.ps3 = reader.ps4 = ps2
-            return reader.readline()
+            return reader.readline(returns_unicode=returns_unicode)
         finally:
             reader.more_lines = saved
 
@@ -395,9 +395,21 @@ def _setup():
     _wrapper.f_in = f_in
     _wrapper.f_out = f_out
 
-    if hasattr(sys, '__raw_input__'):    # PyPy
-        _old_raw_input = sys.__raw_input__
+    if '__pypy__' in sys.builtin_module_names:    # PyPy
+
+        def _old_raw_input(prompt=''):
+            # sys.__raw_input__() is only called when stdin and stdout are
+            # as expected and are ttys.  If it is the case, then get_reader()
+            # should not really fail in _wrapper.raw_input().  If it still
+            # does, then we will just cancel the redirection and call again
+            # the built-in raw_input().
+            try:
+                del sys.__raw_input__
+            except AttributeError:
+                pass
+            return raw_input(prompt)
         sys.__raw_input__ = _wrapper.raw_input
+
     else:
         # this is not really what readline.c does.  Better than nothing I guess
         import __builtin__

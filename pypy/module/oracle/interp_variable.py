@@ -167,6 +167,12 @@ class W_Variable(Wrappable):
         self.initialize(self.environment.space, cursor)
 
     def __del__(self):
+        self.enqueue_for_destruction(self.environment.space,
+                                     W_Variable.destructor,
+                                     '__del__ method of ')
+
+    def destructor(self):
+        assert isinstance(self, W_Variable)
         self.finalize()
         lltype.free(self.actualElementsPtr, flavor='raw')
         if self.actualLength:
@@ -1484,7 +1490,7 @@ def typeByValue(space, w_value, numElements):
     raise OperationError(
         moduledict.w_NotSupportedError,
         space.wrap("Variable_TypeByValue(): unhandled data type %s" %
-                   (space.type(w_value).getname(space, '?'),)))
+                   (space.type(w_value).getname(space),)))
 
 def newByInputTypeHandler(space, cursor, w_inputTypeHandler, w_value, numElements):
     w_var = space.call(w_inputTypeHandler,

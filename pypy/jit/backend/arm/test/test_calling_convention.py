@@ -2,6 +2,7 @@ from pypy.rpython.annlowlevel import llhelper
 from pypy.jit.metainterp.history import LoopToken
 from pypy.jit.backend.test.calling_convention_test import TestCallingConv, parse
 from pypy.rpython.lltypesystem import lltype
+from pypy.jit.codewriter.effectinfo import EffectInfo
 
 # ../../test/calling_convention_test.py
 class TestARMCallingConvention(TestCallingConv):
@@ -16,7 +17,7 @@ class TestARMCallingConvention(TestCallingConv):
         FUNC = self.FuncType([I], I)
         FPTR = self.Ptr(FUNC)
         func_ptr = llhelper(FPTR, func)
-        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT)
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, EffectInfo.MOST_GENERAL)
         funcbox = self.get_funcbox(self.cpu, func_ptr)
 
         args = ', '.join(['i%d' % i for i in range(11)])

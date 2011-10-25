@@ -27,19 +27,24 @@ default_modules.update(dict.fromkeys(
 # --allworkingmodules
 working_modules = default_modules.copy()
 working_modules.update(dict.fromkeys(
-    ["_socket", "unicodedata", "mmap", "fcntl", "_locale",
+    ["_socket", "unicodedata", "mmap", "fcntl", "_locale", "pwd",
      "rctime" , "select", "zipimport", "_lsprof",
      "crypt", "signal", "_rawffi", "termios", "zlib", "bz2",
      "struct", "_hashlib", "_md5", "_sha", "_minimal_curses", "cStringIO",
      "thread", "itertools", "pyexpat", "_ssl", "cpyext", "array",
      "_bisect", "binascii", "_multiprocessing", '_warnings',
-     "_collections", "_multibytecodec", "micronumpy"]
+     "_collections", "_multibytecodec", "micronumpy", "_ffi",
+     "_continuation"]
 ))
 
 translation_modules = default_modules.copy()
 translation_modules.update(dict.fromkeys(
     ["fcntl", "rctime", "select", "signal", "_rawffi", "zlib",
-     "struct", "_md5", "cStringIO", "array"]))
+     "struct", "_md5", "cStringIO", "array", "_ffi",
+     # the following are needed for pyrepl (and hence for the
+     # interactive prompt/pdb)
+     "termios", "_minimal_curses",
+     ]))
 
 working_oo_modules = default_modules.copy()
 working_oo_modules.update(dict.fromkeys(
@@ -53,6 +58,7 @@ if sys.platform == "win32":
     # unix only modules
     del working_modules["crypt"]
     del working_modules["fcntl"]
+    del working_modules["pwd"]
     del working_modules["termios"]
     del working_modules["_minimal_curses"]
 
@@ -66,6 +72,7 @@ if sys.platform == "sunos5":
     del working_modules['fcntl']  # LOCK_NB not defined
     del working_modules["_minimal_curses"]
     del working_modules["termios"]
+    del working_modules["_multiprocessing"]   # depends on rctime
 
 
 
@@ -80,6 +87,7 @@ module_suggests = {
     "_rawffi": [("objspace.usemodules.struct", True)],
     "cpyext": [("translation.secondaryentrypoints", "cpyext"),
                ("translation.shared", sys.platform == "win32")],
+    "_ffi":    [("translation.jit_ffi", True)],
 }
 
 module_import_dependencies = {
@@ -94,6 +102,7 @@ module_import_dependencies = {
     "_ssl"      : ["pypy.module._ssl.interp_ssl"],
     "_hashlib"  : ["pypy.module._ssl.interp_ssl"],
     "_minimal_curses": ["pypy.module._minimal_curses.fficurses"],
+    "_continuation": ["pypy.rlib.rstacklet"],
     }
 
 def get_module_validator(modname):
@@ -119,14 +128,11 @@ def get_module_validator(modname):
 
 pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
     ChoiceOption("name", "Object Space name",
-                 ["std", "flow", "thunk", "dump", "taint"],
+                 ["std", "flow", "thunk", "dump"],
                  "std",
                  cmdline='--objspace -o'),
 
     OptionDescription("opcodes", "opcodes to enable in the interpreter", [
-        BoolOption("CALL_LIKELY_BUILTIN", "emit a special bytecode for likely calls to builtin functions",
-                   default=False,
-                   requires=[("translation.stackless", False)]),
         BoolOption("CALL_METHOD", "emit a special bytecode for expr.name()",
                    default=False),
         ]),
@@ -261,13 +267,7 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("withcelldict",
                    "use dictionaries that are optimized for being used as module dicts",
                    default=False,
-                   requires=[("objspace.opcodes.CALL_LIKELY_BUILTIN", False),
-                             ("objspace.honor__builtins__", False)]),
-
-        BoolOption("withdictmeasurement",
-                   "create huge files with masses of information "
-                   "about dictionaries",
-                   default=False),
+                   requires=[("objspace.honor__builtins__", False)]),
 
         BoolOption("withmapdict",
                    "make instances really small but slow without the JIT",
@@ -331,6 +331,9 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
         BoolOption("mutable_builtintypes",
                    "Allow the changing of builtin types", default=False,
                    requires=[("objspace.std.builtinshortcut", True)]),
+        BoolOption("withidentitydict",
+                   "track types that override __hash__, __eq__ or __cmp__ and use a special dict strategy for those which do not",
+                   default=True),
      ]),
 ])
 
@@ -350,8 +353,6 @@ def set_pypy_opt_level(config, level):
     backend = config.translation.backend
 
     # all the good optimizations for PyPy should be listed here
-    if level in ['2', '3']:
-        config.objspace.opcodes.suggest(CALL_LIKELY_BUILTIN=True)
     if level in ['2', '3', 'jit']:
         config.objspace.opcodes.suggest(CALL_METHOD=True)
         config.objspace.std.suggest(withrangelist=True)

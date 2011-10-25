@@ -48,6 +48,13 @@ def test_get_current_qmut_instance():
 
 class QuasiImmutTests(object):
 
+    def setup_method(self, meth):
+        self.prev_compress_limit = QuasiImmut.compress_limit
+        QuasiImmut.compress_limit = 1
+
+    def teardown_method(self, meth):
+        QuasiImmut.compress_limit = self.prev_compress_limit
+
     def test_simple_1(self):
         myjitdriver = JitDriver(greens=['foo'], reds=['x', 'total'])
         class Foo:
@@ -289,7 +296,7 @@ class QuasiImmutTests(object):
             return total
 
         res = self.meta_interp(main, [])
-        self.check_loop_count(7)
+        self.check_tree_loop_count(6)
         assert res == main()
 
     def test_change_during_running(self):
@@ -317,7 +324,7 @@ class QuasiImmutTests(object):
         assert f(100, 15) == 3009
         res = self.meta_interp(f, [100, 15])
         assert res == 3009
-        self.check_loops(guard_not_invalidated=2, getfield_gc=0,
+        self.check_loops(guard_not_invalidated=4, getfield_gc=0,
                          call_may_force=0, guard_not_forced=0)
 
     def test_list_simple_1(self):
@@ -453,9 +460,29 @@ class QuasiImmutTests(object):
         assert f(100, 15) == 3009
         res = self.meta_interp(f, [100, 15])
         assert res == 3009
-        self.check_loops(guard_not_invalidated=2, getfield_gc=0,
+        self.check_loops(guard_not_invalidated=4, getfield_gc=0,
                          getarrayitem_gc=0, getarrayitem_gc_pure=0,
                          call_may_force=0, guard_not_forced=0)
+
+    def test_invalidated_loop_is_not_used_any_more_as_target(self):
+        myjitdriver = JitDriver(greens=['foo'], reds=['x'])
+        class Foo:
+            _immutable_fields_ = ['step?']
+        @dont_look_inside
+        def residual(x, foo):
+            if x == 20:
+                foo.step = 1
+        def f(x):
+            foo = Foo()
+            foo.step = 2
+            while x > 0:
+                myjitdriver.jit_merge_point(foo=foo, x=x)
+                residual(x, foo)
+                x -= foo.step
+            return foo.step
+        res = self.meta_interp(f, [60])
+        assert res == 1
+        self.check_tree_loop_count(4)   # at least not 2 like before
 
 
 class TestLLtypeGreenFieldsTests(QuasiImmutTests, LLJitMixin):

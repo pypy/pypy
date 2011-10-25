@@ -119,7 +119,10 @@ class PythonAstCompiler(PyCodeCompiler):
             raise OperationError(self.space.w_TypeError, self.space.wrap(
                 "invalid node type"))
 
-        future_pos = misc.parse_future(node)
+        fut = misc.parse_future(node, self.future_flags.compiler_features)
+        f_flags, f_lineno, f_col = fut
+        future_pos = f_lineno, f_col
+        flags |= f_flags
         info = pyparse.CompileInfo(filename, mode, flags, future_pos)
         return self._compile_ast(node, info)
 

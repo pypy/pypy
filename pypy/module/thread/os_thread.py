@@ -6,7 +6,6 @@ from pypy.module.thread import ll_thread as thread
 from pypy.module.thread.error import wrap_thread_error
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec, NoneNotWrapped, Arguments
-from pypy.rlib.objectmodel import free_non_gc_object
 
 # Here are the steps performed to start a new thread:
 #
@@ -15,11 +14,6 @@ from pypy.rlib.objectmodel import free_non_gc_object
 #
 # * The start-up data (the app-level callable and arguments) is
 #   stored in the global bootstrapper object.
-#
-# * The GC is notified that a new thread is about to start; in the
-#   framework GC with shadow stacks, this allocates a fresh new shadow
-#   stack (but doesn't use it yet).  See gc_thread_prepare().  This
-#   has no effect in asmgcc.
 #
 # * The new thread is launched at RPython level using an rffi call
 #   to the C function RPyThreadStart() defined in
@@ -34,8 +28,8 @@ from pypy.rlib.objectmodel import free_non_gc_object
 #   operation is called (this is all done by gil.after_external_call(),
 #   called from the rffi-generated wrapper).  The gc_thread_run()
 #   operation will automatically notice that the current thread id was
-#   not seen before, and start using the freshly prepared shadow stack.
-#   Again, this has no effect in asmgcc.
+#   not seen before, and (in shadowstack) it will allocate and use a
+#   fresh new stack.  Again, this has no effect in asmgcc.
 #
 # * Only then does bootstrap() really run.  The first thing it does
 #   is grab the start-up information (app-level callable and args)
@@ -167,21 +161,21 @@ function returns; the return value is ignored.  The thread will also exit
 when the function raises an unhandled exception; a stack trace will be
 printed unless the exception is SystemExit."""
     setup_threads(space)
-    if not space.is_true(space.isinstance(w_args, space.w_tuple)): 
-        raise OperationError(space.w_TypeError, 
-                space.wrap("2nd arg must be a tuple")) 
-    if w_kwargs is not None and not space.is_true(space.isinstance(w_kwargs, space.w_dict)): 
-        raise OperationError(space.w_TypeError, 
-                space.wrap("optional 3rd arg must be a dictionary")) 
+    if not space.is_true(space.isinstance(w_args, space.w_tuple)):
+        raise OperationError(space.w_TypeError,
+                space.wrap("2nd arg must be a tuple"))
+    if w_kwargs is not None and not space.is_true(space.isinstance(w_kwargs, space.w_dict)):
+        raise OperationError(space.w_TypeError,
+                space.wrap("optional 3rd arg must be a dictionary"))
     if not space.is_true(space.callable(w_callable)):
-        raise OperationError(space.w_TypeError, 
+        raise OperationError(space.w_TypeError,
                 space.wrap("first arg must be callable"))
 
     args = Arguments.frompacked(space, w_args, w_kwargs)
     bootstrapper.acquire(space, w_callable, args)
     try:
         try:
-            thread.gc_thread_prepare()
+            thread.gc_thread_prepare()     # (this has no effect any more)
             ident = thread.start_new_thread(bootstrapper.bootstrap, ())
         except Exception, e:
             bootstrapper.release()     # normally called by the new thread
@@ -253,4 +247,6 @@ thread to exit silently unless the exception is caught."""
 def interrupt_main(space):
     """Raise a KeyboardInterrupt in the main thread.
 A subthread can use this function to interrupt the main thread."""
+    if space.check_signal_action is None:   # no signal module!
+        raise OperationError(space.w_KeyboardInterrupt, space.w_None)
     space.check_signal_action.set_interrupt()

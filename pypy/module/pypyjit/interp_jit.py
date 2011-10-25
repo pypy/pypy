@@ -13,16 +13,18 @@ from pypy.interpreter.pycode import PyCode, CO_GENERATOR
 from pypy.interpreter.pyframe import PyFrame
 from pypy.interpreter.pyopcode import ExitFrame
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.interpreter.baseobjspace import ObjSpace, W_Root
 from opcode import opmap
-from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.nonconst import NonConstant
+from pypy.jit.metainterp.resoperation import rop
+from pypy.module.pypyjit.interp_resop import debug_merge_point_from_boxes
 
 PyFrame._virtualizable2_ = ['last_instr', 'pycode',
-                            'valuestackdepth', 'valuestack_w[*]',
-                            'fastlocals_w[*]',
+                            'valuestackdepth', 'locals_stack_w[*]',
+                            'cells[*]',
                             'last_exception',
                             'lastblock',
                             'is_being_profiled',
+                            'w_globals',
                             ]
 
 JUMP_ABSOLUTE = opmap['JUMP_ABSOLUTE']
@@ -43,8 +45,20 @@ def confirm_enter_jit(next_instr, is_being_profiled, bytecode, frame, ec):
             ec.w_tracefunc is None)
 
 def can_never_inline(next_instr, is_being_profiled, bytecode):
+    return False
+
+def should_unroll_one_iteration(next_instr, is_being_profiled, bytecode):
     return (bytecode.co_flags & CO_GENERATOR) != 0
 
+def wrap_oplist(space, logops, operations):
+    list_w = []
+    for op in operations:
+        if op.getopnum() == rop.DEBUG_MERGE_POINT:
+            list_w.append(space.wrap(debug_merge_point_from_boxes(
+                op.getarglist())))
+        else:
+            list_w.append(space.wrap(logops.repr_of_resop(op)))
+    return list_w
 
 class PyPyJitDriver(JitDriver):
     reds = ['frame', 'ec']
@@ -54,14 +68,16 @@ class PyPyJitDriver(JitDriver):
     def on_compile(self, logger, looptoken, operations, type, next_instr,
                    is_being_profiled, ll_pycode):
         from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
-        
+
         space = self.space
         cache = space.fromcache(Cache)
+        if cache.in_recursion:
+            return
         if space.is_true(cache.w_compile_hook):
-            memo = {}
-            list_w = [space.wrap(logger.repr_of_resop(memo, op))
-                      for op in operations]
+            logops = logger._make_log_operations()
+            list_w = wrap_oplist(space, logops, operations)
             pycode = cast_base_ptr_to_instance(PyCode, ll_pycode)
+            cache.in_recursion = True
             try:
                 space.call_function(cache.w_compile_hook,
                                     space.wrap('main'),
@@ -72,14 +88,17 @@ class PyPyJitDriver(JitDriver):
                                     space.newlist(list_w))
             except OperationError, e:
                 e.write_unraisable(space, "jit hook ", cache.w_compile_hook)
+            cache.in_recursion = False
 
     def on_compile_bridge(self, logger, orig_looptoken, operations, n):
         space = self.space
         cache = space.fromcache(Cache)
+        if cache.in_recursion:
+            return
         if space.is_true(cache.w_compile_hook):
-            memo = {}
-            list_w = [space.wrap(logger.repr_of_resop(memo, op))
-                      for op in operations]
+            logops = logger._make_log_operations()
+            list_w = wrap_oplist(space, logops, operations)
+            cache.in_recursion = True
             try:
                 space.call_function(cache.w_compile_hook,
                                     space.wrap('main'),
@@ -88,12 +107,15 @@ class PyPyJitDriver(JitDriver):
                                     space.newlist(list_w))
             except OperationError, e:
                 e.write_unraisable(space, "jit hook ", cache.w_compile_hook)
+            cache.in_recursion = False
 
 pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
                               get_jitcell_at = get_jitcell_at,
                               set_jitcell_at = set_jitcell_at,
                               confirm_enter_jit = confirm_enter_jit,
-                              can_never_inline = can_never_inline)
+                              can_never_inline = can_never_inline,
+                              should_unroll_one_iteration =
+                              should_unroll_one_iteration)
 
 class __extend__(PyFrame):
 
@@ -115,26 +137,35 @@ class __extend__(PyFrame):
 
     def jump_absolute(self, jumpto, _, ec=None):
         if we_are_jitted():
-            # Normally, the tick counter is decremented by 100 for every
-            # Python opcode.  Here, to better support JIT compilation of
-            # small loops, we decrement it by a possibly smaller constant.
-            # We get the maximum 100 when the (unoptimized) trace length
-            # is at least 3200 (a bit randomly).
-            trace_length = r_uint(current_trace_length())
-            decr_by = trace_length // 32
-            if decr_by < 1:
-                decr_by = 1
-            elif decr_by > 100:    # also if current_trace_length() returned -1
-                decr_by = 100
+            #
+            # assume that only threads are using the bytecode counter
+            decr_by = 0
+            if self.space.actionflag.has_bytecode_counter:   # constant-folded
+                if self.space.threadlocals.gil_ready:   # quasi-immutable field
+                    decr_by = _get_adapted_tick_counter()
             #
             self.last_instr = intmask(jumpto)
-            ec.bytecode_trace(self, intmask(decr_by))
+            ec.bytecode_trace(self, decr_by)
             jumpto = r_uint(self.last_instr)
         #
         pypyjitdriver.can_enter_jit(frame=self, ec=ec, next_instr=jumpto,
                                     pycode=self.getcode(),
                                     is_being_profiled=self.is_being_profiled)
         return jumpto
+
+def _get_adapted_tick_counter():
+    # Normally, the tick counter is decremented by 100 for every
+    # Python opcode.  Here, to better support JIT compilation of
+    # small loops, we decrement it by a possibly smaller constant.
+    # We get the maximum 100 when the (unoptimized) trace length
+    # is at least 3200 (a bit randomly).
+    trace_length = r_uint(current_trace_length())
+    decr_by = trace_length // 32
+    if decr_by < 1:
+        decr_by = 1
+    elif decr_by > 100:    # also if current_trace_length() returned -1
+        decr_by = 100
+    return intmask(decr_by)
 
 
 PyCode__initialize = PyCode._initialize
@@ -152,12 +183,14 @@ class __extend__(PyCode):
 
 # ____________________________________________________________
 #
-# Public interface    
+# Public interface
 
 def set_param(space, __args__):
     '''Configure the tunable JIT parameters.
         * set_param(name=value, ...)            # as keyword arguments
         * set_param("name=value,name=value")    # as a user-supplied string
+        * set_param("off")                      # disable the jit
+        * set_param("default")                  # restore all defaults
     '''
     # XXXXXXXXX
     args_w, kwds_w = __args__.unpack()
@@ -191,10 +224,11 @@ def residual_call(space, w_callable, __args__):
     return space.call_args(w_callable, __args__)
 
 class Cache(object):
+    in_recursion = False
+
     def __init__(self, space):
         self.w_compile_hook = space.w_None
 
-@unwrap_spec(ObjSpace, W_Root)
 def set_compile_hook(space, w_hook):
     """ set_compile_hook(hook)
 
@@ -209,8 +243,13 @@ def set_compile_hook(space, w_hook):
     for jit merge point. in case it's `main` it'll be a tuple
     (code, offset, is_being_profiled)
 
+    Note that jit hook is not reentrant. It means that if the code
+    inside the jit hook is itself jitted, it will get compiled, but the
+    jit hook won't be called for that.
+
     XXX write down what else
     """
     cache = space.fromcache(Cache)
     cache.w_compile_hook = w_hook
+    cache.in_recursion = NonConstant(False)
     return space.w_None

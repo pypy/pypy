@@ -16,12 +16,13 @@ from pypy.jit.tool.oparser import parse
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import rclass, rstr
-from pypy.jit.backend.llsupport.gc import GcLLDescr_framework, GcRefList, GcPtrFieldDescr
+from pypy.jit.backend.llsupport.gc import GcLLDescr_framework, GcPtrFieldDescr
 
 from pypy.jit.backend.arm.test.test_regalloc import MockAssembler
 from pypy.jit.backend.arm.test.test_regalloc import BaseTestRegalloc
 from pypy.jit.backend.arm.regalloc import ARMv7RegisterMananger, ARMFrameManager,\
      VFPRegisterManager
+from pypy.jit.codewriter.effectinfo import EffectInfo
 
 CPU = getcpuclass()
 
@@ -54,6 +55,7 @@ class MockGcRootMap2(object):
         return ['compressed'] + shape[1:]
 
 class MockGcDescr(GcCache):
+    is_shadow_stack = False
     def get_funcptr_for_new(self):
         return 123
     get_funcptr_for_newarray = get_funcptr_for_new
@@ -65,11 +67,9 @@ class MockGcDescr(GcCache):
     gcrootmap = MockGcRootMap()
 
     def initialize(self):
-        self.gcrefs = GcRefList()
-        self.gcrefs.initialize()
-        self.single_gcref_descr = GcPtrFieldDescr('', 0)
-        
-    replace_constptrs_with_getfield_raw = GcLLDescr_framework.replace_constptrs_with_getfield_raw.im_func
+        pass
+
+    record_constptrs = GcLLDescr_framework.record_constptrs.im_func
     rewrite_assembler = GcLLDescr_framework.rewrite_assembler.im_func
 
 class TestRegallocDirectGcIntegration(object):
@@ -93,7 +93,7 @@ class TestRegallocDirectGcIntegration(object):
         for box in boxes:
             regalloc.rm.try_allocate_reg(box)
         TP = lltype.FuncType([], lltype.Signed)
-        calldescr = cpu.calldescrof(TP, TP.ARGS, TP.RESULT)
+        calldescr = cpu.calldescrof(TP, TP.ARGS, TP.RESULT, EffectInfo.MOST_GENERAL)
         regalloc.rm._check_invariants()
         box = boxes[0]
         regalloc.position = 0

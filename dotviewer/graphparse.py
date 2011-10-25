@@ -36,48 +36,45 @@ def guess_type(content):
     print >> sys.stderr, "Warning: could not guess file type, using 'dot'"
     return 'unknown'
 
-def dot2plain(content, contenttype, use_codespeak=False):
-    if contenttype == 'plain':
-        # already a .plain file
-        return content
-
-    if not use_codespeak:
-        if contenttype != 'neato':
-            cmdline = 'dot -Tplain'
-        else:
-            cmdline = 'neato -Tplain'
-        #print >> sys.stderr, '* running:', cmdline
-        close_fds = sys.platform != 'win32'
-        p = subprocess.Popen(cmdline, shell=True, close_fds=close_fds,
-                             stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-        (child_in, child_out) = (p.stdin, p.stdout)
-        try:
-            import thread
-        except ImportError:
-            bkgndwrite(child_in, content)
-        else:
-            thread.start_new_thread(bkgndwrite, (child_in, content))
-        plaincontent = child_out.read()
-        child_out.close()
-        if not plaincontent:    # 'dot' is likely not installed
-            raise PlainParseError("no result from running 'dot'")
+def dot2plain_graphviz(content, contenttype, use_codespeak=False):
+    if contenttype != 'neato':
+        cmdline = 'dot -Tplain'
     else:
-        import urllib
-        request = urllib.urlencode({'dot': content})
-        url = 'http://codespeak.net/pypy/convertdot.cgi'
-        print >> sys.stderr, '* posting:', url
-        g = urllib.urlopen(url, data=request)
-        result = []
-        while True:
-            data = g.read(16384)
-            if not data:
-                break
-            result.append(data)
-        g.close()
-        plaincontent = ''.join(result)
-        # very simple-minded way to give a somewhat better error message
-        if plaincontent.startswith('<body'):
-            raise Exception("the dot on codespeak has very likely crashed")
+        cmdline = 'neato -Tplain'
+    #print >> sys.stderr, '* running:', cmdline
+    close_fds = sys.platform != 'win32'
+    p = subprocess.Popen(cmdline, shell=True, close_fds=close_fds,
+                         stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    (child_in, child_out) = (p.stdin, p.stdout)
+    try:
+        import thread
+    except ImportError:
+        bkgndwrite(child_in, content)
+    else:
+        thread.start_new_thread(bkgndwrite, (child_in, content))
+    plaincontent = child_out.read()
+    child_out.close()
+    if not plaincontent:    # 'dot' is likely not installed
+        raise PlainParseError("no result from running 'dot'")
+    return plaincontent
+
+def dot2plain_codespeak(content, contenttype):
+    import urllib
+    request = urllib.urlencode({'dot': content})
+    url = 'http://codespeak.net/pypy/convertdot.cgi'
+    print >> sys.stderr, '* posting:', url
+    g = urllib.urlopen(url, data=request)
+    result = []
+    while True:
+        data = g.read(16384)
+        if not data:
+            break
+        result.append(data)
+    g.close()
+    plaincontent = ''.join(result)
+    # very simple-minded way to give a somewhat better error message
+    if plaincontent.startswith('<body'):
+        raise Exception("the dot on codespeak has very likely crashed")
     return plaincontent
 
 def bkgndwrite(f, data):
@@ -148,10 +145,13 @@ def parse_plain(graph_id, plaincontent, links={}, fixedfont=False):
 
 def parse_dot(graph_id, content, links={}, fixedfont=False):
     contenttype = guess_type(content)
-    try:
-        plaincontent = dot2plain(content, contenttype, use_codespeak=False)
-        return list(parse_plain(graph_id, plaincontent, links, fixedfont))
-    except PlainParseError:
-        # failed, retry via codespeak
-        plaincontent = dot2plain(content, contenttype, use_codespeak=True)
-        return list(parse_plain(graph_id, plaincontent, links, fixedfont))
+    if contenttype == 'plain':
+        plaincontent = content
+    else:
+        try:
+            plaincontent = dot2plain_graphviz(content, contenttype)
+        except PlainParseError, e:
+            print e
+            # failed, retry via codespeak
+            plaincontent = dot2plain_codespeak(content, contenttype)
+    return list(parse_plain(graph_id, plaincontent, links, fixedfont))

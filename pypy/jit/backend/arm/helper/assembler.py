@@ -4,6 +4,7 @@ from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm.codebuilder import AbstractARMv7Builder
 from pypy.jit.metainterp.history import ConstInt, BoxInt, FLOAT
 from pypy.rlib.rarithmetic import r_uint, r_longlong, intmask
+from pypy.jit.metainterp.resoperation import rop
 
 def gen_emit_op_unary_cmp(true_cond, false_cond):
     def f(self, op, arglocs, regalloc, fcond):
@@ -33,10 +34,10 @@ def gen_emit_op_by_helper_call(opname):
     def f(self, op, arglocs, regalloc, fcond):
         assert fcond is not None
         if op.result:
-            regs = r.caller_resp[1:]
+            regs = r.caller_resp[1:] + [r.ip]
         else:
             regs = r.caller_resp
-        with saved_registers(self.mc, regs, r.caller_vfp_resp, regalloc=regalloc):
+        with saved_registers(self.mc, regs, r.caller_vfp_resp):
             helper(self.mc, fcond)
         return fcond
     return f
@@ -52,6 +53,24 @@ def gen_emit_cmp_op(condition):
             self.mc.CMP_rr(l0.value, l1.value, cond=fcond)
         self.mc.MOV_ri(res.value, 1, cond=condition)
         self.mc.MOV_ri(res.value, 0, cond=inv)
+        return fcond
+    return f
+
+def gen_emit_cmp_op_guard(condition):
+    def f(self, op, guard, arglocs, regalloc, fcond):
+        l0 = arglocs[0]
+        l1 = arglocs[1]
+
+        inv = c.get_opposite_of(condition)
+        if l1.is_imm():
+            self.mc.CMP_ri(l0.value, imm=l1.getint(), cond=fcond)
+        else:
+            self.mc.CMP_rr(l0.value, l1.value, cond=fcond)
+        guard_opnum = guard.getopnum()
+        cond = condition
+        if guard_opnum == rop.GUARD_FALSE:
+            cond = inv
+        self._emit_guard(guard, arglocs[2:], cond)
         return fcond
     return f
 
@@ -81,10 +100,26 @@ def gen_emit_float_cmp_op(cond):
         return fcond
     return f
 
+def gen_emit_float_cmp_op_guard(guard_cond):
+    def f(self, op, guard, arglocs, regalloc, fcond):
+        arg1 = arglocs[0]
+        arg2 = arglocs[1]
+        inv = c.get_opposite_of(guard_cond)
+        self.mc.VCMP(arg1.value, arg2.value)
+        self.mc.VMRS(cond=fcond)
+        cond = guard_cond
+        guard_opnum = guard.getopnum()
+        if guard_opnum == rop.GUARD_FALSE:
+            cond = inv
+        self._emit_guard(guard, arglocs[2:], cond)
+        return fcond
+    return f
+
 class saved_registers(object):
     def __init__(self, assembler, regs_to_save, vfp_regs_to_save=None, regalloc=None):
+        assert regalloc is None
         self.assembler = assembler
-        self.regalloc = regalloc
+        self.regalloc = None
         if vfp_regs_to_save is None:
             vfp_regs_to_save = []
         if self.regalloc:

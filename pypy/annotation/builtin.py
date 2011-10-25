@@ -308,11 +308,14 @@ def robjmodel_instantiate(s_clspbc):
             clsdef = clsdef.commonbase(cdef)
     return SomeInstance(clsdef)
 
-def robjmodel_we_are_translated():
-    return immutablevalue(True)
-
-def robjmodel_r_dict(s_eqfn, s_hashfn):
-    dictdef = getbookkeeper().getdictdef(is_r_dict=True)
+def robjmodel_r_dict(s_eqfn, s_hashfn, s_force_non_null=None):
+    if s_force_non_null is None:
+        force_non_null = False
+    else:
+        assert s_force_non_null.is_constant()
+        force_non_null = s_force_non_null.const
+    dictdef = getbookkeeper().getdictdef(is_r_dict=True,
+                                         force_non_null=force_non_null)
     dictdef.dictkey.update_rdict_annotations(s_eqfn, s_hashfn)
     return SomeDict(dictdef)
 
@@ -351,17 +354,6 @@ def llmemory_cast_adr_to_int(s, s_mode=None):
 def llmemory_cast_int_to_adr(s):
     return SomeAddress()
 
-
-##def rarith_ovfcheck(s_obj):
-##    if isinstance(s_obj, SomeInteger) and s_obj.unsigned:
-##        getbookkeeper().warning("ovfcheck on unsigned")
-##    return s_obj
-
-##def rarith_ovfcheck_lshift(s_obj1, s_obj2):
-##    if isinstance(s_obj1, SomeInteger) and s_obj1.unsigned:
-##        getbookkeeper().warning("ovfcheck_lshift with unsigned")
-##    return SomeInteger()
-
 def unicodedata_decimal(s_uchr):
     raise TypeError, "unicodedate.decimal() calls should not happen at interp-level"    
 
@@ -379,12 +371,8 @@ for name, value in globals().items():
         original = getattr(__builtin__, name[8:])
         BUILTIN_ANALYZERS[original] = value
 
-##BUILTIN_ANALYZERS[pypy.rlib.rarithmetic.ovfcheck] = rarith_ovfcheck
-##BUILTIN_ANALYZERS[pypy.rlib.rarithmetic.ovfcheck_lshift] = rarith_ovfcheck_lshift
 BUILTIN_ANALYZERS[pypy.rlib.rarithmetic.intmask] = rarith_intmask
 BUILTIN_ANALYZERS[pypy.rlib.objectmodel.instantiate] = robjmodel_instantiate
-BUILTIN_ANALYZERS[pypy.rlib.objectmodel.we_are_translated] = (
-    robjmodel_we_are_translated)
 BUILTIN_ANALYZERS[pypy.rlib.objectmodel.r_dict] = robjmodel_r_dict
 BUILTIN_ANALYZERS[pypy.rlib.objectmodel.hlinvoke] = robjmodel_hlinvoke
 BUILTIN_ANALYZERS[pypy.rlib.objectmodel.keepalive_until_here] = robjmodel_keepalive_until_here
@@ -423,7 +411,8 @@ BUILTIN_ANALYZERS[__import__] = import_func
 from pypy.annotation.model import SomePtr
 from pypy.rpython.lltypesystem import lltype
 
-def malloc(s_T, s_n=None, s_flavor=None, s_zero=None, s_track_allocation=None):
+def malloc(s_T, s_n=None, s_flavor=None, s_zero=None, s_track_allocation=None,
+           s_add_memory_pressure=None):
     assert (s_n is None or s_n.knowntype == int
             or issubclass(s_n.knowntype, pypy.rlib.rarithmetic.base_int))
     assert s_T.is_constant()
@@ -439,6 +428,8 @@ def malloc(s_T, s_n=None, s_flavor=None, s_zero=None, s_track_allocation=None):
     else:
         assert s_flavor.is_constant()
         assert s_track_allocation is None or s_track_allocation.is_constant()
+        assert (s_add_memory_pressure is None or
+                s_add_memory_pressure.is_constant())
         # not sure how to call malloc() for the example 'p' in the
         # presence of s_extraargs
         r = SomePtr(lltype.Ptr(s_T.const))

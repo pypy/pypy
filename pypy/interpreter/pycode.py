@@ -10,7 +10,7 @@ from pypy.interpreter import eval
 from pypy.interpreter.argument import Signature
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped, unwrap_spec
-from pypy.interpreter.astcompiler.consts import (CO_OPTIMIZED,
+from pypy.interpreter.astcompiler.consts import (
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
     CO_GENERATOR, CO_CONTAINSGLOBALS)
 from pypy.rlib.rarithmetic import intmask
@@ -63,6 +63,7 @@ class PyCode(eval.Code):
         the pypy compiler"""
         self.space = space
         eval.Code.__init__(self, name)
+        assert nlocals >= 0
         self.co_argcount = argcount
         self.co_nlocals = nlocals
         self.co_stacksize = stacksize
@@ -95,7 +96,7 @@ class PyCode(eval.Code):
             if self.co_flags & CO_VARKEYWORDS:
                 argcount += 1
             # Cell vars could shadow already-set arguments.
-            # astcompiler.pyassem used to be clever about the order of
+            # The compiler used to be clever about the order of
             # the variables in both co_varnames and co_cellvars, but
             # it no longer is for the sake of simplicity.  Moreover
             # code objects loaded from CPython don't necessarily follow
@@ -197,12 +198,12 @@ class PyCode(eval.Code):
 
     def funcrun(self, func, args):
         frame = self.space.createframe(self, func.w_func_globals,
-                                  func.closure)
+                                  func)
         sig = self._signature
         # speed hack
         fresh_frame = jit.hint(frame, access_directly=True,
                                       fresh_virtualizable=True)
-        args_matched = args.parse_into_scope(None, fresh_frame.fastlocals_w,
+        args_matched = args.parse_into_scope(None, fresh_frame.locals_stack_w,
                                              func.name,
                                              sig, func.defs_w)
         fresh_frame.init_cells()
@@ -210,12 +211,12 @@ class PyCode(eval.Code):
 
     def funcrun_obj(self, func, w_obj, args):
         frame = self.space.createframe(self, func.w_func_globals,
-                                  func.closure)
+                                  func)
         sig = self._signature
         # speed hack
         fresh_frame = jit.hint(frame, access_directly=True,
                                       fresh_virtualizable=True)
-        args_matched = args.parse_into_scope(w_obj, fresh_frame.fastlocals_w,
+        args_matched = args.parse_into_scope(w_obj, fresh_frame.locals_stack_w,
                                              func.name,
                                              sig, func.defs_w)
         fresh_frame.init_cells()
@@ -256,7 +257,7 @@ class PyCode(eval.Code):
                          tuple(self.co_freevars),
                          tuple(self.co_cellvars) )
 
-    def exec_host_bytecode(self, w_dict, w_globals, w_locals):
+    def exec_host_bytecode(self, w_globals, w_locals):
         from pypy.interpreter.pyframe import CPythonFrame
         frame = CPythonFrame(self.space, self, w_globals, None)
         frame.setdictscope(w_locals)
