@@ -157,11 +157,7 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
             bad[other] = True
             return False
         renum[self.position] = other.position
-        if not isinstance(other, VArrayStateInfo):
-            bad[self] = True
-            bad[other] = True
-            return False
-        if self.arraydescr is not other.arraydescr:
+        if not self._generalization_of(other):
             bad[self] = True
             bad[other] = True
             return False
@@ -176,6 +172,10 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
                 bad[other] = True
                 return False
         return True
+
+    def _generalization_of(self, other):
+        return (isinstance(other, VArrayStateInfo) and
+            self.arraydescr is other.arraydescr)
 
     def enum_forced_boxes(self, boxes, value, optimizer):
         assert isinstance(value, virtualize.VArrayValue)
@@ -197,6 +197,48 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
     def __init__(self, arraydescr, fielddescrs):
         self.arraydescr = arraydescr
         self.fielddescrs = fielddescrs
+
+    def generalization_of(self, other, renum, bad):
+        assert self.position != -1
+        if self.position in renum:
+            if renum[self.position] == other.position:
+                return True
+            bad[self] = True
+            bad[other] = True
+            return False
+        renum[self.position] = other.position
+        if not self._generalization_of(other):
+            bad[self] = True
+            bad[other] = True
+            return False
+
+        if len(self.fielddescrs) != len(other.fielddescrs):
+            bad[self] = True
+            bad[other] = True
+            return False
+
+        p = 0
+        for i in range(len(self.fielddescrs)):
+            if len(self.fielddescrs[i]) != len(other.fielddescrs[i]):
+                bad[self] = True
+                bad[other] = True
+                return False
+            for j in range(len(self.fielddescrs[i])):
+                if self.fielddescrs[i][j] is not other.fielddescrs[i][j]:
+                    bad[self] = True
+                    bad[other] = True
+                    return False
+                if not self.fieldstate[p].generalization_of(other.fieldstate[p],
+                                                            renum, bad):
+                    bad[self] = True
+                    bad[other] = True
+                    return False
+                p += 1
+        return True
+
+    def _generalization_of(self, other):
+        return (isinstance(other, VArrayStructStateInfo) and
+            self.arraydescr is other.arraydescr)
 
     def _enum(self, virtual_state):
         for s in self.fieldstate:

@@ -3494,12 +3494,12 @@ class BaseLLtypeTests(BasicTests):
             d = None
             while n > 0:
                 myjitdriver.jit_merge_point(n=n, d=d)
-                d = {}
+                d = {"q": 1}
                 if n % 2:
                     d["k"] = n
                 else:
                     d["z"] = n
-                n -= len(d)
+                n -= len(d) - d["q"]
             return n
         res = self.meta_interp(f, [10])
         assert res == 0

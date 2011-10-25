@@ -540,6 +540,7 @@ class VArrayInfo(AbstractVirtualInfo):
         for i in self.fieldnums:
             debug_print("\t\t", str(untag(i)))
 
+
 class VArrayStructInfo(AbstractVirtualInfo):
     def __init__(self, arraydescr, fielddescrs):
         self.arraydescr = arraydescr
@@ -549,6 +550,18 @@ class VArrayStructInfo(AbstractVirtualInfo):
         debug_print("\tvarraystructinfo", self.arraydescr)
         for i in self.fieldnums:
             debug_print("\t\t", str(untag(i)))
+
+    @specialize.argtype(1)
+    def allocate(self, decoder, index):
+        array = decoder.allocate_array(self.arraydescr, len(self.fielddescrs))
+        decoder.virtuals_cache[index] = array
+        p = 0
+        for i in range(len(self.fielddescrs)):
+            for j in range(len(self.fielddescrs[i])):
+                decoder.setinteriorfield(i, self.fielddescrs[i][j], array, self.fieldnums[p])
+                p += 1
+        return array
+
 
 class VStrPlainInfo(AbstractVirtualInfo):
     """Stands for the string made out of the characters of all fieldnums."""
@@ -897,6 +910,17 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         self.metainterp.execute_and_record(rop.SETFIELD_GC, descr,
                                            structbox, fieldbox)
 
+    def setinteriorfield(self, index, descr, array, fieldnum):
+        if descr.is_pointer_field():
+            kind = REF
+        elif descr.is_float_field():
+            kind = FLOAT
+        else:
+            kind = INT
+        fieldbox = self.decode_box(fieldnum, kind)
+        self.metainterp.execute_and_record(rop.SETINTERIORFIELD_GC, descr,
+                                           array, ConstInt(index), fieldbox)
+
     def setarrayitem_int(self, arraydescr, arraybox, index, fieldnum):
         self._setarrayitem(arraydescr, arraybox, index, fieldnum, INT)
 
@@ -1176,6 +1200,17 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         else:
             newvalue = self.decode_int(fieldnum)
             self.cpu.bh_setfield_gc_i(struct, descr, newvalue)
+
+    def setinteriorfield(self, index, descr, array, fieldnum):
+        if descr.is_pointer_field():
+            newvalue = self.decode_ref(fieldnum)
+            self.cpu.bh_setinteriorfield_gc_r(array, index, descr, newvalue)
+        elif descr.is_float_field():
+            newvalue = self.decode_float(fieldnum)
+            self.cpu.bh_setinteriorfield_gc_f(array, index, descr, newvalue)
+        else:
+            newvalue = self.decode_int(fieldnum)
+            self.cpu.bh_setinteriorfield_gc_i(array, index, descr, newvalue)
 
     def setarrayitem_int(self, arraydescr, array, index, fieldnum):
         newvalue = self.decode_int(fieldnum)
