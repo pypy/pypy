@@ -3616,7 +3616,7 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         res = self.meta_interp(main, [False, 100, True], taggedpointers=True)
 
     def test_rerased(self):
-        eraseX, uneraseX = rerased,new_erasing_pair("X")
+        eraseX, uneraseX = rerased.new_erasing_pair("X")
         #
         class X:
             def __init__(self, a, b):
