@@ -439,7 +439,6 @@ _oplist = [
     'PTR_NE/2b',
     'INSTANCE_PTR_EQ/2b',
     'INSTANCE_PTR_NE/2b',
-    'CAST_OPAQUE_PTR/1b',
     #
     'ARRAYLEN_GC/1d',
     'STRLEN/1',
@@ -471,6 +470,7 @@ _oplist = [
     'FORCE_TOKEN/0',
     'VIRTUAL_REF/2',         # removed before it's passed to the backend
     'READ_TIMESTAMP/0',
+    'MARK_OPAQUE_PTR/1b',
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
 
     'SETARRAYITEM_GC/3d',

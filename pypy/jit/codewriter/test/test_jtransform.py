@@ -1128,3 +1128,16 @@ def test_no_gcstruct_nesting_outside_of_OBJECT():
                         varoftype(lltype.Signed))
     tr = Transformer(None, None)
     raises(NotImplementedError, tr.rewrite_operation, op)
+
+def test_cast_opaque_ptr():
+    S = lltype.GcStruct("S", ("x", lltype.Signed))
+    v1 = varoftype(lltype.Ptr(S))
+    v2 = varoftype(lltype.Ptr(rclass.OBJECT))
+
+    op = SpaceOperation('cast_opaque_ptr', [v1], v2)
+    tr = Transformer()
+    [op1, op2] = tr.rewrite_operation(op)
+    assert op1.opname == 'mark_opaque_ptr'
+    assert op1.args == [v1]
+    assert op1.result is None
+    assert op2 is None

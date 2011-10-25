@@ -41,8 +41,8 @@ class HeapCache(object):
                 self.dependencies.setdefault(box, []).append(valuebox)
             else:
                 self._escape(valuebox)
-        # GETFIELD_GC doesn't escape it's argument
-        elif opnum != rop.GETFIELD_GC:
+        # GETFIELD_GC and MARK_OPAQUE_PTR doesn't escape their arguments
+        elif opnum != rop.GETFIELD_GC and opnum != rop.MARK_OPAQUE_PTR:
             idx = 0
             for box in argboxes:
                 # setarrayitem_gc don't escape its first argument
