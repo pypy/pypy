@@ -16,7 +16,8 @@ from pypy.jit.backend.llsupport.descr import BaseFieldDescr, BaseArrayDescr, \
                                              BaseCallDescr, BaseSizeDescr
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.ppc.ppcgen import locations
-from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rpython.lltypesystem import rffi, lltype, rstr
+from pypy.jit.backend.llsupport import symbolic
 import pypy.jit.backend.ppc.ppcgen.register as r
 
 class TempInt(TempBox):
@@ -412,6 +413,67 @@ class Regalloc(object):
         res = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
         return [res, base_loc, ofs_loc, imm(scale), imm(ofs)]
+
+    def prepare_strlen(self, op):
+        l0, box = self._ensure_value_is_boxed(op.getarg(0))
+        boxes = [box]
+
+        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
+                                         self.cpu.translate_support_code)
+        ofs_box = ConstInt(ofs_length)
+        imm_ofs = _check_imm_arg(ofs_box)
+
+        if imm_ofs:
+            l1 = self.make_sure_var_in_reg(ofs_box, boxes)
+        else:
+            l1, box1 = self._ensure_value_is_boxed(ofs_box, boxes)
+            boxes.append(box1)
+
+        self.possibly_free_vars(boxes)
+        res = self.force_allocate_reg(op.result)
+        self.possibly_free_var(op.result)
+        return [l0, l1, res]
+
+    def prepare_strgetitem(self, op):
+        boxes = list(op.getarglist())
+        base_loc, box = self._ensure_value_is_boxed(boxes[0])
+        boxes.append(box)
+
+        a1 = boxes[1]
+        imm_a1 = _check_imm_arg(a1)
+        if imm_a1:
+            ofs_loc = self.make_sure_var_in_reg(a1, boxes)
+        else:
+            ofs_loc, box = self._ensure_value_is_boxed(a1, boxes)
+            boxes.append(box)
+
+        self.possibly_free_vars(boxes)
+        res = self.force_allocate_reg(op.result)
+        self.possibly_free_var(op.result)
+
+        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
+                                         self.cpu.translate_support_code)
+        assert itemsize == 1
+        return [res, base_loc, ofs_loc, imm(basesize)]
+
+    def prepare_strsetitem(self, op):
+        boxes = list(op.getarglist())
+
+        base_loc, box = self._ensure_value_is_boxed(boxes[0], boxes)
+        boxes.append(box)
+
+        ofs_loc, box = self._ensure_value_is_boxed(boxes[1], boxes)
+        boxes.append(box)
+
+        value_loc, box = self._ensure_value_is_boxed(boxes[2], boxes)
+        boxes.append(box)
+
+        self.possibly_free_vars(boxes)
+
+        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
+                                         self.cpu.translate_support_code)
+        assert itemsize == 1
+        return [value_loc, base_loc, ofs_loc, imm(basesize)]
 
     # from ../x86/regalloc.py:791
     def _unpack_fielddescr(self, fielddescr):

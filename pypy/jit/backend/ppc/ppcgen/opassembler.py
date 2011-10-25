@@ -371,5 +371,32 @@ class OpAssembler(object):
             signed = descr.is_item_signed()
             self._ensure_result_bit_extension(res, size, signed)
 
+    # XXX 64 bit adjustment needed
+    def emit_strlen(self, op, arglocs, regalloc):
+        l0, l1, res = arglocs
+        if l1.is_imm():
+            self.mc.lwz(res.value, l0.value, l1.getint())
+        else:
+            self.mc.lwzx(res.value, l0.value, l1.value)
+
+    def emit_strgetitem(self, op, arglocs, regalloc):
+        res, base_loc, ofs_loc, basesize = arglocs
+        if ofs_loc.is_imm():
+            self.mc.addi(res.value, base_loc.value, ofs_loc.getint())
+        else:
+            self.mc.add(res.value, base_loc.value, ofs_loc.value)
+        
+        self.mc.load_imm(r.r0, basesize.value)
+        self.mc.lbzx(res.value, res.value, r.r0.value)
+
+    def emit_strsetitem(self, op, arglocs, regalloc):
+        value_loc, base_loc, ofs_loc, basesize = arglocs
+        if ofs_loc.is_imm():
+            self.mc.addi(base_loc.value, base_loc.value, ofs_loc.getint())
+        else:
+            self.mc.add(base_loc.value, base_loc.value, ofs_loc.value)
+        self.mc.load_imm(r.r0, basesize.value)
+        self.mc.stbx(value_loc.value, base_loc.value, r.r0.value)
+
     def nop(self):
         self.mc.ori(0, 0, 0)
