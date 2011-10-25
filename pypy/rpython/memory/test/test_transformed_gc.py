@@ -807,7 +807,7 @@ class GenericMovingGCTests(GenericGCTests):
                     op.args = [Constant(type_id, llgroup.HALFWORD),
                                Constant(llmemory.sizeof(P), lltype.Signed),
                                Constant(False, lltype.Bool), # has_finalizer
-                               Constant(False, lltype.Bool), # has_light_finalizer
+                               Constant(False, lltype.Bool), # is_finalizer_light
                                Constant(False, lltype.Bool)] # contains_weakptr
                     break
             else:
@@ -844,7 +844,7 @@ class GenericMovingGCTests(GenericGCTests):
                     op.args = [Constant(type_id, llgroup.HALFWORD),
                                Constant(llmemory.sizeof(P), lltype.Signed),
                                Constant(False, lltype.Bool), # has_finalizer
-                               Constant(False, lltype.Bool), # has_light_finalizer
+                               Constant(False, lltype.Bool), # is_finalizer_light
                                Constant(False, lltype.Bool)] # contains_weakptr
                     break
             else:

@@ -95,7 +95,7 @@ class SemiSpaceGC(MovingGCBase):
 
     def malloc_fixedsize_clear(self, typeid16, size,
                                has_finalizer=False,
-                               has_light_finalizer=False,
+                               is_finalizer_light=False,
                                contains_weakptr=False):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + size
@@ -105,7 +105,7 @@ class SemiSpaceGC(MovingGCBase):
         llarena.arena_reserve(result, totalsize)
         self.init_gc_object(result, typeid16)
         self.free = result + totalsize
-        if has_light_finalizer:
+        if is_finalizer_light:
             self.objects_with_light_finalizers.append(result + size_gc_header)
         elif has_finalizer:
             self.objects_with_finalizers.append(result + size_gc_header)

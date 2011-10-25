@@ -459,7 +459,7 @@ class MiniMarkGC(MovingGCBase):
 
     def malloc_fixedsize_clear(self, typeid, size,
                                needs_finalizer=False,
-                               has_light_finalizer=False,
+                               is_finalizer_light=False,
                                contains_weakptr=False):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + size
@@ -467,7 +467,7 @@ class MiniMarkGC(MovingGCBase):
         #
         # If the object needs a finalizer, ask for a rawmalloc.
         # The following check should be constant-folded.
-        if needs_finalizer and not has_light_finalizer:
+        if needs_finalizer and not is_finalizer_light:
             ll_assert(not contains_weakptr,
                      "'needs_finalizer' and 'contains_weakptr' both specified")
             obj = self.external_malloc(typeid, 0, can_make_young=False)
@@ -498,7 +498,7 @@ class MiniMarkGC(MovingGCBase):
             # Build the object.
             llarena.arena_reserve(result, totalsize)
             obj = result + size_gc_header
-            if has_light_finalizer:
+            if is_finalizer_light:
                 self.young_objects_with_light_finalizers.append(obj)
             self.init_gc_object(result, typeid, flags=0)
             #

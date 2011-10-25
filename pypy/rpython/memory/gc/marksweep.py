@@ -93,7 +93,7 @@ class MarkSweepGC(GCBase):
         pass
 
     def malloc_fixedsize(self, typeid16, size,
-                         has_finalizer=False, has_light_finalizer=False,
+                         has_finalizer=False, is_finalizer_light=False,
                          contains_weakptr=False):
         self.maybe_collect()
         size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -130,7 +130,7 @@ class MarkSweepGC(GCBase):
 
     def malloc_fixedsize_clear(self, typeid16, size,
                                has_finalizer=False,
-                               has_light_finalizer=False,
+                               is_finalizer_light=False,
                                contains_weakptr=False):
         self.maybe_collect()
         size_gc_header = self.gcheaderbuilder.size_gc_header
