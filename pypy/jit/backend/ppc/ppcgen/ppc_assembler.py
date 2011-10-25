@@ -613,8 +613,7 @@ class AssemblerPPC(OpAssembler):
             value = prev_loc.getint()
             # move immediate value to register
             if loc.is_reg():
-                reg = loc.as_key()
-                self.mc.load_imm(reg, value)
+                self.mc.load_imm(loc, value)
                 return
             # move immediate value to memory
             elif loc.is_stack():

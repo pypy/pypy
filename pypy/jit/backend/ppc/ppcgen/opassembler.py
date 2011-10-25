@@ -428,5 +428,9 @@ class OpAssembler(object):
         else:
             assert 0, itemsize.value
 
+    def emit_same_as(self, op, arglocs, regalloc):
+        argloc, resloc = arglocs
+        self.regalloc_mov(argloc, resloc)
+
     def nop(self):
         self.mc.ori(0, 0, 0)

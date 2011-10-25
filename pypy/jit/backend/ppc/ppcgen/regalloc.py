@@ -526,6 +526,19 @@ class Regalloc(object):
         scale = itemsize/2
         return [value_loc, base_loc, ofs_loc, imm(scale), imm(basesize), imm(itemsize)]
 
+    def prepare_same_as(self, op):
+        arg = op.getarg(0)
+        imm_arg = _check_imm_arg(arg)
+        if imm_arg:
+            argloc = self.make_sure_var_in_reg(arg)
+        else:
+            argloc, box = self._ensure_value_is_boxed(arg)
+            self.possibly_free_var(box)
+
+        resloc = self.force_allocate_reg(op.result)
+        self.possibly_free_var(op.result)
+        return [argloc, resloc]
+
     # from ../x86/regalloc.py:791
     def _unpack_fielddescr(self, fielddescr):
         assert isinstance(fielddescr, BaseFieldDescr)

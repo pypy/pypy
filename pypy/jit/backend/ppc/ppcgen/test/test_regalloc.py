@@ -81,12 +81,12 @@ class TestRegallocMov(object):
         self.asm.mc = self.builder
 
     def test_immediate_to_reg(self):
-        self.asm.regalloc_mov(imm(5), reg(10))
+        self.asm.regalloc_mov(imm(5), r10)
         big = 2 << 28
-        self.asm.regalloc_mov(imm(big), reg(0))
+        self.asm.regalloc_mov(imm(big), r0)
 
-        exp_instr = [MI("load_imm", 10, 5), 
-                     MI("load_imm", 0, big)]
+        exp_instr = [MI("load_imm", r10, 5), 
+                     MI("load_imm", r0, big)]
         assert self.asm.mc.instrs == exp_instr
 
     def test_immediate_to_mem(self):
