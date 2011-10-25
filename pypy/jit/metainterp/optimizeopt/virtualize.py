@@ -280,12 +280,12 @@ class VArrayStructValue(AbstractVirtualValue):
     def getlength(self):
         return len(self._items)
 
-    def getinteriorfield(self, index, descr, default):
-        return self._items[index].get(descr, default)
+    def getinteriorfield(self, index, ofs, default):
+        return self._items[index].get(ofs, default)
 
-    def setinteriorfield(self, index, descr, itemvalue):
+    def setinteriorfield(self, index, ofs, itemvalue):
         assert isinstance(itemvalue, optimizer.OptValue)
-        self._items[index][descr] = itemvalue
+        self._items[index][ofs] = itemvalue
 
     def _really_force(self, optforce):
         assert self.source_op is not None
@@ -296,7 +296,9 @@ class VArrayStructValue(AbstractVirtualValue):
         for index in range(len(self._items)):
             for descr, value in self._items[index].iteritems():
                 subbox = value.force_box(optforce)
-                op = ResOperation(rop.SETINTERIORFIELD_GC, [box, ConstInt(index), subbox], None, descr=descr)
+                op = ResOperation(rop.SETINTERIORFIELD_GC,
+                    [box, ConstInt(index), subbox], None, descr=descr
+                )
                 optforce.emit_operation(op)
 
     def _get_list_of_descrs(self):
