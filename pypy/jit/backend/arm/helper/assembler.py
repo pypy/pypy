@@ -100,6 +100,21 @@ def gen_emit_float_cmp_op(cond):
         return fcond
     return f
 
+def gen_emit_float_cmp_op_guard(guard_cond):
+    def f(self, op, guard, arglocs, regalloc, fcond):
+        arg1 = arglocs[0]
+        arg2 = arglocs[1]
+        inv = c.get_opposite_of(guard_cond)
+        self.mc.VCMP(arg1.value, arg2.value)
+        self.mc.VMRS(cond=fcond)
+        cond = guard_cond
+        guard_opnum = guard.getopnum()
+        if guard_opnum == rop.GUARD_FALSE:
+            cond = inv
+        self._emit_guard(guard, arglocs[2:], cond)
+        return fcond
+    return f
+
 class saved_registers(object):
     def __init__(self, assembler, regs_to_save, vfp_regs_to_save=None, regalloc=None):
         assert regalloc is None

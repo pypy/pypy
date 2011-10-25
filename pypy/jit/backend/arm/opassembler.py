@@ -14,6 +14,7 @@ from pypy.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call,
                                                     gen_emit_cmp_op_guard,
                                                     gen_emit_float_op,
                                                     gen_emit_float_cmp_op,
+                                                    gen_emit_float_cmp_op_guard,
                                                     gen_emit_unary_float_op, 
                                                     saved_registers,
                                                     count_reg_args)
@@ -1156,6 +1157,13 @@ class FloatOpAssemlber(object):
     emit_op_float_ne = gen_emit_float_cmp_op(c.NE)
     emit_op_float_gt = gen_emit_float_cmp_op(c.GT)
     emit_op_float_ge = gen_emit_float_cmp_op(c.GE)
+
+    emit_guard_float_lt = gen_emit_float_cmp_op_guard(c.VFP_LT)
+    emit_guard_float_le = gen_emit_float_cmp_op_guard(c.VFP_LE)
+    emit_guard_float_eq = gen_emit_float_cmp_op_guard(c.EQ)
+    emit_guard_float_ne = gen_emit_float_cmp_op_guard(c.NE)
+    emit_guard_float_gt = gen_emit_float_cmp_op_guard(c.GT)
+    emit_guard_float_ge = gen_emit_float_cmp_op_guard(c.GE)
 
     def emit_op_cast_float_to_int(self, op, arglocs, regalloc, fcond):
         arg, temp, res = arglocs

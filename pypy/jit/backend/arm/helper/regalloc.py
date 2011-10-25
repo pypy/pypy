@@ -56,21 +56,42 @@ def prepare_op_ri(name=None, imm_size=0xFF, commutative=True, allow_zero=True):
         f.__name__ = name
     return f
 
-def prepare_float_op(name=None, base=True, float_result=True):
-    def f(self, op, fcond):
-        locs = []
-        loc1, box1 = self._ensure_value_is_boxed(op.getarg(0))
-        locs.append(loc1)
-        if base:
-            loc2, box2 = self._ensure_value_is_boxed(op.getarg(1))
-            locs.append(loc2)
-            self.possibly_free_var(box2)
-        self.possibly_free_var(box1)
-        res = self.force_allocate_reg(op.result)
-        assert float_result == (op.result.type == FLOAT)
-        self.possibly_free_var(op.result)
-        locs.append(res)
-        return locs
+def prepare_float_op(name=None, base=True, float_result=True, guard=False):
+    if guard:
+        def f(self, op, guard_op, fcond):
+            locs = []
+            loc1, box1 = self._ensure_value_is_boxed(op.getarg(0))
+            locs.append(loc1)
+            if base:
+                loc2, box2 = self._ensure_value_is_boxed(op.getarg(1))
+                locs.append(loc2)
+                self.possibly_free_var(box2)
+            self.possibly_free_var(box1)
+            if guard_op is None:
+                res = self.force_allocate_reg(op.result)
+                assert float_result == (op.result.type == FLOAT)
+                self.possibly_free_var(op.result)
+                locs.append(res)
+                return locs
+            else:
+                args = self._prepare_guard(guard_op, locs)
+                self.possibly_free_vars(guard_op.getfailargs())
+                return args
+    else:
+        def f(self, op, fcond):
+            locs = []
+            loc1, box1 = self._ensure_value_is_boxed(op.getarg(0))
+            locs.append(loc1)
+            if base:
+                loc2, box2 = self._ensure_value_is_boxed(op.getarg(1))
+                locs.append(loc2)
+                self.possibly_free_var(box2)
+            self.possibly_free_var(box1)
+            res = self.force_allocate_reg(op.result)
+            assert float_result == (op.result.type == FLOAT)
+            self.possibly_free_var(op.result)
+            locs.append(res)
+            return locs
     if name:
         f.__name__ = name
     return f
