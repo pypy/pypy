@@ -6,7 +6,7 @@ from pypy.jit.metainterp.history import ConstInt, BoxInt, FLOAT
 from pypy.rlib.rarithmetic import r_uint, r_longlong, intmask
 from pypy.jit.metainterp.resoperation import rop
 
-def gen_emit_op_unary_cmp(true_cond, false_cond):
+def gen_emit_op_unary_cmp(name, true_cond, false_cond):
     def f(self, op, arglocs, regalloc, fcond):
         assert fcond is not None
         reg, res = arglocs
@@ -14,9 +14,10 @@ def gen_emit_op_unary_cmp(true_cond, false_cond):
         self.mc.MOV_ri(res.value, 1, true_cond)
         self.mc.MOV_ri(res.value, 0, false_cond)
         return fcond
+    f.__name__ = 'emit_op_%s' % name
     return f
 
-def gen_emit_op_ri(opname):
+def gen_emit_op_ri(name, opname):
     ri_op = getattr(AbstractARMv7Builder, '%s_ri' % opname)
     rr_op = getattr(AbstractARMv7Builder, '%s_rr' % opname)
     def f(self, op, arglocs, regalloc, fcond):
@@ -27,9 +28,10 @@ def gen_emit_op_ri(opname):
         else:
             rr_op(self.mc, res.value, l0.value, l1.value)
         return fcond
+    f.__name__ = 'emit_op_%s' % name
     return f
 
-def gen_emit_op_by_helper_call(opname):
+def gen_emit_op_by_helper_call(name, opname):
     helper = getattr(AbstractARMv7Builder, opname)
     def f(self, op, arglocs, regalloc, fcond):
         assert fcond is not None
@@ -40,9 +42,10 @@ def gen_emit_op_by_helper_call(opname):
         with saved_registers(self.mc, regs, r.caller_vfp_resp):
             helper(self.mc, fcond)
         return fcond
+    f.__name__ = 'emit_op_%s' % name
     return f
 
-def gen_emit_cmp_op(condition):
+def gen_emit_cmp_op(name, condition):
     def f(self, op, arglocs, regalloc, fcond):
         l0, l1, res = arglocs
 
@@ -54,9 +57,10 @@ def gen_emit_cmp_op(condition):
         self.mc.MOV_ri(res.value, 1, cond=condition)
         self.mc.MOV_ri(res.value, 0, cond=inv)
         return fcond
+    f.__name__ = 'emit_op_%s' % name
     return f
 
-def gen_emit_cmp_op_guard(condition):
+def gen_emit_cmp_op_guard(name, condition):
     def f(self, op, guard, arglocs, regalloc, fcond):
         l0 = arglocs[0]
         l1 = arglocs[1]
@@ -72,24 +76,27 @@ def gen_emit_cmp_op_guard(condition):
             cond = inv
         self._emit_guard(guard, arglocs[2:], cond)
         return fcond
+    f.__name__ = 'emit_guard_%s' % name
+    f.__name__ = 'emit_op_%s' % name
     return f
 
-def gen_emit_float_op(opname):
+def gen_emit_float_op(name, opname):
     op_rr = getattr(AbstractARMv7Builder, opname)
     def f(self, op, arglocs, regalloc, fcond):
         arg1, arg2, result = arglocs
         op_rr(self.mc, result.value, arg1.value, arg2.value)
         return fcond
     return f
-def gen_emit_unary_float_op(opname):
+def gen_emit_unary_float_op(name, opname):
     op_rr = getattr(AbstractARMv7Builder, opname)
     def f(self, op, arglocs, regalloc, fcond):
         arg1, result = arglocs
         op_rr(self.mc, result.value, arg1.value)
         return fcond
+    f.__name__ = 'emit_op_%s' % name
     return f
 
-def gen_emit_float_cmp_op(cond):
+def gen_emit_float_cmp_op(name, cond):
     def f(self, op, arglocs, regalloc, fcond):
         arg1, arg2, res = arglocs
         inv = c.get_opposite_of(cond)
@@ -98,9 +105,10 @@ def gen_emit_float_cmp_op(cond):
         self.mc.MOV_ri(res.value, 1, cond=cond)
         self.mc.MOV_ri(res.value, 0, cond=inv)
         return fcond
+    f.__name__ = 'emit_op_%s' % name
     return f
 
-def gen_emit_float_cmp_op_guard(guard_cond):
+def gen_emit_float_cmp_op_guard(name, guard_cond):
     def f(self, op, guard, arglocs, regalloc, fcond):
         arg1 = arglocs[0]
         arg2 = arglocs[1]
@@ -113,6 +121,7 @@ def gen_emit_float_cmp_op_guard(guard_cond):
             cond = inv
         self._emit_guard(guard, arglocs[2:], cond)
         return fcond
+    f.__name__ = 'emit_guard_%s' % name
     return f
 
 class saved_registers(object):

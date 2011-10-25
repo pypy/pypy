@@ -9,6 +9,7 @@ from pypy.jit.backend.arm.arch import (WORD, FUNC_ALIGN, arm_int_div,
 
 from pypy.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call,
                                                     gen_emit_op_unary_cmp,
+                                                    gen_emit_guard_unary_cmp,
                                                     gen_emit_op_ri,
                                                     gen_emit_cmp_op,
                                                     gen_emit_cmp_op_guard,
@@ -117,45 +118,45 @@ class IntOpAsslember(object):
         self._emit_guard_overflow(guard, arglocs[3:], fcond)
         return fcond
 
-    emit_op_int_floordiv = gen_emit_op_by_helper_call('DIV')
-    emit_op_int_mod = gen_emit_op_by_helper_call('MOD')
-    emit_op_uint_floordiv = gen_emit_op_by_helper_call('UDIV')
+    emit_op_int_floordiv = gen_emit_op_by_helper_call('int_floordiv', 'DIV')
+    emit_op_int_mod = gen_emit_op_by_helper_call('int_mod', 'MOD')
+    emit_op_uint_floordiv = gen_emit_op_by_helper_call('uint_floordiv', 'UDIV')
 
-    emit_op_int_and = gen_emit_op_ri('AND')
-    emit_op_int_or = gen_emit_op_ri('ORR')
-    emit_op_int_xor = gen_emit_op_ri('EOR')
-    emit_op_int_lshift = gen_emit_op_ri('LSL')
-    emit_op_int_rshift = gen_emit_op_ri('ASR')
-    emit_op_uint_rshift = gen_emit_op_ri('LSR')
+    emit_op_int_and = gen_emit_op_ri('int_and', 'AND')
+    emit_op_int_or = gen_emit_op_ri('int_or', 'ORR')
+    emit_op_int_xor = gen_emit_op_ri('int_xor', 'EOR')
+    emit_op_int_lshift = gen_emit_op_ri('int_lshift', 'LSL')
+    emit_op_int_rshift = gen_emit_op_ri('int_rshift', 'ASR')
+    emit_op_uint_rshift = gen_emit_op_ri('uint_rshift', 'LSR')
 
-    emit_op_int_lt = gen_emit_cmp_op(c.LT)
-    emit_op_int_le = gen_emit_cmp_op(c.LE)
-    emit_op_int_eq = gen_emit_cmp_op(c.EQ)
-    emit_op_int_ne = gen_emit_cmp_op(c.NE)
-    emit_op_int_gt = gen_emit_cmp_op(c.GT)
-    emit_op_int_ge = gen_emit_cmp_op(c.GE)
+    emit_op_int_lt = gen_emit_cmp_op('int_lt', c.LT)
+    emit_op_int_le = gen_emit_cmp_op('int_le', c.LE)
+    emit_op_int_eq = gen_emit_cmp_op('int_eq', c.EQ)
+    emit_op_int_ne = gen_emit_cmp_op('int_ne', c.NE)
+    emit_op_int_gt = gen_emit_cmp_op('int_gt', c.GT)
+    emit_op_int_ge = gen_emit_cmp_op('int_ge', c.GE)
 
-    emit_op_uint_le = gen_emit_cmp_op(c.LS)
-    emit_op_uint_gt = gen_emit_cmp_op(c.HI)
+    emit_op_uint_le = gen_emit_cmp_op('uint_le', c.LS)
+    emit_op_uint_gt = gen_emit_cmp_op('uint_gt', c.HI)
 
-    emit_op_uint_lt = gen_emit_cmp_op(c.HI)
-    emit_op_uint_ge = gen_emit_cmp_op(c.LS)
+    emit_op_uint_lt = gen_emit_cmp_op('uint_lt', c.HI)
+    emit_op_uint_ge = gen_emit_cmp_op('uint_ge', c.LS)
 
     emit_op_ptr_eq = emit_op_int_eq
     emit_op_ptr_ne = emit_op_int_ne
 
-    emit_guard_int_lt = gen_emit_cmp_op_guard(c.LT)
-    emit_guard_int_le = gen_emit_cmp_op_guard(c.LE)
-    emit_guard_int_eq = gen_emit_cmp_op_guard(c.EQ)
-    emit_guard_int_ne = gen_emit_cmp_op_guard(c.NE)
-    emit_guard_int_gt = gen_emit_cmp_op_guard(c.GT)
-    emit_guard_int_ge = gen_emit_cmp_op_guard(c.GE)
+    emit_guard_int_lt = gen_emit_cmp_op_guard('int_lt', c.LT)
+    emit_guard_int_le = gen_emit_cmp_op_guard('int_le', c.LE)
+    emit_guard_int_eq = gen_emit_cmp_op_guard('int_eq', c.EQ)
+    emit_guard_int_ne = gen_emit_cmp_op_guard('int_ne', c.NE)
+    emit_guard_int_gt = gen_emit_cmp_op_guard('int_gt', c.GT)
+    emit_guard_int_ge = gen_emit_cmp_op_guard('int_ge', c.GE)
 
-    emit_guard_uint_le = gen_emit_cmp_op_guard(c.LS)
-    emit_guard_uint_gt = gen_emit_cmp_op_guard(c.HI)
+    emit_guard_uint_le = gen_emit_cmp_op_guard('uint_le', c.LS)
+    emit_guard_uint_gt = gen_emit_cmp_op_guard('uint_gt', c.HI)
 
-    emit_guard_uint_lt = gen_emit_cmp_op_guard(c.HI)
-    emit_guard_uint_ge = gen_emit_cmp_op_guard(c.LS)
+    emit_guard_uint_lt = gen_emit_cmp_op_guard('uint_lt', c.HI)
+    emit_guard_uint_ge = gen_emit_cmp_op_guard('uint_ge', c.LS)
 
     emit_guard_ptr_eq = emit_guard_int_eq
     emit_guard_ptr_ne = emit_guard_int_ne
@@ -169,8 +170,8 @@ class UnaryIntOpAssembler(object):
 
     _mixin_ = True
 
-    emit_op_int_is_true = gen_emit_op_unary_cmp(c.NE, c.EQ)
-    emit_op_int_is_zero = gen_emit_op_unary_cmp(c.EQ, c.NE)
+    emit_op_int_is_true = gen_emit_op_unary_cmp('int_is_true', c.NE, c.EQ)
+    emit_op_int_is_zero = gen_emit_op_unary_cmp('int_is_zero', c.EQ, c.NE)
 
     def emit_op_int_invert(self, op, arglocs, regalloc, fcond):
         reg, res = arglocs
@@ -1142,28 +1143,28 @@ class AllocOpAssembler(object):
 class FloatOpAssemlber(object):
     _mixin_ = True
 
-    emit_op_float_add = gen_emit_float_op('VADD')
-    emit_op_float_sub = gen_emit_float_op('VSUB')
-    emit_op_float_mul = gen_emit_float_op('VMUL')
-    emit_op_float_truediv = gen_emit_float_op('VDIV')
+    emit_op_float_add = gen_emit_float_op('float_add', 'VADD')
+    emit_op_float_sub = gen_emit_float_op('float_sub', 'VSUB')
+    emit_op_float_mul = gen_emit_float_op('float_mul', 'VMUL')
+    emit_op_float_truediv = gen_emit_float_op('float_truediv', 'VDIV')
 
-    emit_op_float_neg = gen_emit_unary_float_op('VNEG')
-    emit_op_float_abs = gen_emit_unary_float_op('VABS')
-    emit_op_math_sqrt = gen_emit_unary_float_op('VSQRT')
+    emit_op_float_neg = gen_emit_unary_float_op('float_neg', 'VNEG')
+    emit_op_float_abs = gen_emit_unary_float_op('float_abs', 'VABS')
+    emit_op_math_sqrt = gen_emit_unary_float_op('math_sqrt', 'VSQRT')
 
-    emit_op_float_lt = gen_emit_float_cmp_op(c.VFP_LT)
-    emit_op_float_le = gen_emit_float_cmp_op(c.VFP_LE)
-    emit_op_float_eq = gen_emit_float_cmp_op(c.EQ)
-    emit_op_float_ne = gen_emit_float_cmp_op(c.NE)
-    emit_op_float_gt = gen_emit_float_cmp_op(c.GT)
-    emit_op_float_ge = gen_emit_float_cmp_op(c.GE)
+    emit_op_float_lt = gen_emit_float_cmp_op('float_lt', c.VFP_LT)
+    emit_op_float_le = gen_emit_float_cmp_op('float_le', c.VFP_LE)
+    emit_op_float_eq = gen_emit_float_cmp_op('float_eq', c.EQ)
+    emit_op_float_ne = gen_emit_float_cmp_op('float_ne', c.NE)
+    emit_op_float_gt = gen_emit_float_cmp_op('float_gt', c.GT)
+    emit_op_float_ge = gen_emit_float_cmp_op('float_ge', c.GE)
 
-    emit_guard_float_lt = gen_emit_float_cmp_op_guard(c.VFP_LT)
-    emit_guard_float_le = gen_emit_float_cmp_op_guard(c.VFP_LE)
-    emit_guard_float_eq = gen_emit_float_cmp_op_guard(c.EQ)
-    emit_guard_float_ne = gen_emit_float_cmp_op_guard(c.NE)
-    emit_guard_float_gt = gen_emit_float_cmp_op_guard(c.GT)
-    emit_guard_float_ge = gen_emit_float_cmp_op_guard(c.GE)
+    emit_guard_float_lt = gen_emit_float_cmp_op_guard('float_lt', c.VFP_LT)
+    emit_guard_float_le = gen_emit_float_cmp_op_guard('float_le', c.VFP_LE)
+    emit_guard_float_eq = gen_emit_float_cmp_op_guard('float_eq', c.EQ)
+    emit_guard_float_ne = gen_emit_float_cmp_op_guard('float_ne', c.NE)
+    emit_guard_float_gt = gen_emit_float_cmp_op_guard('float_gt', c.GT)
+    emit_guard_float_ge = gen_emit_float_cmp_op_guard('float_ge', c.GE)
 
     def emit_op_cast_float_to_int(self, op, arglocs, regalloc, fcond):
         arg, temp, res = arglocs
