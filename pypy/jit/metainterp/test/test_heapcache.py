@@ -371,3 +371,17 @@ class TestHeapCache(object):
         assert h.is_unescaped(box1)
         h.invalidate_caches(rop.SETARRAYITEM_GC, None, [box2, index1, box1])
         assert not h.is_unescaped(box1)
+
+        h = HeapCache()
+        h.new_array(box1, lengthbox1)
+        h.new(box2)
+        assert h.is_unescaped(box1)
+        assert h.is_unescaped(box2)
+        h.invalidate_caches(rop.SETARRAYITEM_GC, None, [box1, lengthbox2, box2])
+        assert h.is_unescaped(box1)
+        assert h.is_unescaped(box2)
+        h.invalidate_caches(
+            rop.CALL, FakeCallDescr(FakeEffektinfo.EF_RANDOM_EFFECTS), [box1]
+        )
+        assert not h.is_unescaped(box1)
+        assert not h.is_unescaped(box2)

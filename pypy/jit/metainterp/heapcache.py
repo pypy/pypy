@@ -72,6 +72,7 @@ class HeapCache(object):
             opnum == rop.SETFIELD_RAW or
             opnum == rop.SETARRAYITEM_RAW or
             opnum == rop.SETINTERIORFIELD_GC):
+            return
         if rop._OVF_FIRST <= opnum <= rop._OVF_LAST:
             return
         if rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST:
