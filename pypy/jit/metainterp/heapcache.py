@@ -34,7 +34,6 @@ class HeapCache(object):
         self.clear_caches(opnum, descr, argboxes)
 
     def mark_escaped(self, opnum, argboxes):
-        idx = 0
         if opnum == rop.SETFIELD_GC:
             assert len(argboxes) == 2
             box, valuebox = argboxes
@@ -44,6 +43,7 @@ class HeapCache(object):
                 self._escape(valuebox)
         # GETFIELD_GC doesn't escape it's argument
         elif opnum != rop.GETFIELD_GC:
+            idx = 0
             for box in argboxes:
                 # setarrayitem_gc don't escape its first argument
                 if not (idx == 0 and opnum in [rop.SETARRAYITEM_GC]):
