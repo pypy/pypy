@@ -398,5 +398,40 @@ class OpAssembler(object):
         self.mc.load_imm(r.r0, basesize.value)
         self.mc.stbx(value_loc.value, base_loc.value, r.r0.value)
 
+    emit_unicodelen = emit_strlen
+
+    # XXX 64 bit adjustment
+    def emit_unicodegetitem(self, op, arglocs, regalloc):
+        res, base_loc, ofs_loc, scale, basesize, itemsize = arglocs
+
+        # XXX arrrrgh, why does PPC not have an SLWI instruction ?
+        self.mc.li(r.r0.value, scale.value)
+        self.mc.slw(ofs_loc.value, ofs_loc.value, r.r0.value)
+        self.mc.add(res.value, base_loc.value, ofs_loc.value)
+        self.mc.li(r.r0.value, basesize.value)
+
+        if scale.value == 2:
+            self.mc.lwzx(res.value, res.value, r.r0.value)
+        elif scale.value == 1:
+            self.mc.lhzx(res.value, res.value, r.r0.value)
+        else:
+            assert 0, itemsize.value
+
+    # XXX 64 bit adjustment
+    def emit_unicodesetitem(self, op, arglocs, regalloc):
+        value_loc, base_loc, ofs_loc, scale, basesize, itemsize = arglocs
+
+        self.mc.li(r.r0.value, scale.value)
+        self.mc.slw(ofs_loc.value, ofs_loc.value, r.r0.value)
+        self.mc.add(base_loc.value, base_loc.value, ofs_loc.value)
+        self.mc.li(r.r0.value, basesize.value)
+
+        if scale.value == 2:
+            self.mc.stwx(value_loc.value, base_loc.value, r.r0.value)
+        elif scale.value == 1:
+            self.mc.sthx(value_loc.value, base_loc.value, r.r0.value)
+        else:
+            assert 0, itemsize.value
+
     def nop(self):
         self.mc.ori(0, 0, 0)

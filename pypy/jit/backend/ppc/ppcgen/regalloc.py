@@ -475,6 +475,57 @@ class Regalloc(object):
         assert itemsize == 1
         return [value_loc, base_loc, ofs_loc, imm(basesize)]
 
+    def prepare_unicodelen(self, op):
+        l0, box = self._ensure_value_is_boxed(op.getarg(0))
+        boxes = [box]
+        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
+                                         self.cpu.translate_support_code)
+        ofs_box = ConstInt(ofs_length)
+        imm_ofs = _check_imm_arg(ofs_box)
+
+        if imm_ofs:
+            l1 = imm(ofs_length)
+        else:
+            l1, box1 = self._ensure_value_is_boxed(ofs_box, boxes)
+            boxes.append(box1)
+
+        self.possibly_free_vars(boxes)
+        res = self.force_allocate_reg(op.result)
+        self.possibly_free_var(op.result)
+        return [l0, l1, res]
+
+    def prepare_unicodegetitem(self, op):
+        boxes = list(op.getarglist())
+        base_loc, box = self._ensure_value_is_boxed(boxes[0], boxes)
+        boxes.append(box)
+        ofs_loc, box = self._ensure_value_is_boxed(boxes[1], boxes)
+        boxes.append(box)
+        self.possibly_free_vars(boxes)
+
+        res = self.force_allocate_reg(op.result)
+        self.possibly_free_var(op.result)
+
+        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
+                                         self.cpu.translate_support_code)
+        scale = itemsize/2
+        return [res, base_loc, ofs_loc, imm(scale), imm(basesize), imm(itemsize)]
+
+    def prepare_unicodesetitem(self, op):
+        boxes = list(op.getarglist())
+        base_loc, box = self._ensure_value_is_boxed(boxes[0], boxes)
+        boxes.append(box)
+        ofs_loc, box = self._ensure_value_is_boxed(boxes[1], boxes)
+        boxes.append(box)
+        value_loc, box = self._ensure_value_is_boxed(boxes[2], boxes)
+        boxes.append(box)
+
+        self.possibly_free_vars(boxes)
+
+        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
+                                         self.cpu.translate_support_code)
+        scale = itemsize/2
+        return [value_loc, base_loc, ofs_loc, imm(scale), imm(basesize), imm(itemsize)]
+
     # from ../x86/regalloc.py:791
     def _unpack_fielddescr(self, fielddescr):
         assert isinstance(fielddescr, BaseFieldDescr)

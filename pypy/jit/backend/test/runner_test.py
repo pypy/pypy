@@ -1056,6 +1056,9 @@ class BaseBackendTest(Runner):
         r = self.execute_operation(rop.UNICODEGETITEM, [u_box, BoxInt(5)],
                                    'int')
         assert r.value == 0x1234
+        r = self.execute_operation(rop.UNICODEGETITEM, [u_box, BoxInt(4)],
+                                   'int')
+        assert r.value == 0x6F # 0x6F = 'o'
         r = self.execute_operation(rop.UNICODESETITEM, [u_box, BoxInt(4),
                                                         BoxInt(31313)], 'void')
         assert r is None
