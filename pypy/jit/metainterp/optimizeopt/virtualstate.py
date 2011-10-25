@@ -77,6 +77,8 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
             bad[self] = True
             bad[other] = True
             return False
+
+        assert isinstance(other, AbstractVirtualStructStateInfo)
         assert len(self.fielddescrs) == len(self.fieldstate)
         assert len(other.fielddescrs) == len(other.fieldstate)
         if len(self.fielddescrs) != len(other.fielddescrs):
@@ -212,6 +214,7 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
             bad[other] = True
             return False
 
+        assert isinstance(other, VArrayStructStateInfo)
         if len(self.fielddescrs) != len(other.fielddescrs):
             bad[self] = True
             bad[other] = True
