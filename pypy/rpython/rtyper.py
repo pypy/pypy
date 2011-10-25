@@ -717,7 +717,7 @@ class RPythonTyper(object):
             raise TyperError("runtime type info function %r returns %r, "
                              "excepted Ptr(RuntimeTypeInfo)" % (func, s))
         funcptr = self.getcallable(graph)
-        attachRuntimeTypeInfo(GCSTRUCT, funcptr, destrptr)
+        attachRuntimeTypeInfo(GCSTRUCT, funcptr, destrptr, None)
 
 # register operations from annotation model
 RPythonTyper._registeroperations(annmodel)
