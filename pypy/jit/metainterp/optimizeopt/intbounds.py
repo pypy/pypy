@@ -305,20 +305,20 @@ class OptIntBounds(Optimization):
 
     def optimize_INT_TAG(self, op):
         v1 = self.getvalue(op.getarg(0))
+        self.emit_operation(op)
         r = self.getvalue(op.result)
         resbound = v1.intbound.mul(2).add(1)
         r.intbound.intersect(resbound)
         maxbounds = IntBound((-sys.maxint-1) >> 1, sys.maxint >> 1)
         v1.intbound.intersect(maxbounds)
         self.pure(rop.INT_UNTAG, [op.result], op.getarg(0))
-        self.emit_operation(op)
 
     def optimize_INT_UNTAG(self, op):
         v1 = self.getvalue(op.getarg(0))
         self.pure(rop.INT_TAG, [op.result], op.getarg(0))
+        self.emit_operation(op)
         r = self.getvalue(op.result)
         r.intbound.intersect(v1.intbound.rshift_bound(IntBound(1, 1)))
-        self.emit_operation(op)
 
     def optimize_ARRAYLEN_GC(self, op):
         self.emit_operation(op)

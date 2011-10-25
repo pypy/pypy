@@ -5124,6 +5124,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i0]
         i1 = int_lt(i0, 1000)
         guard_true(i1), []
+        i2 = int_tag(i0)
         i3 = int_add(i0, 1)
         jump(i3)
         """
