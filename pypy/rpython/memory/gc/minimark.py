@@ -291,6 +291,7 @@ class MiniMarkGC(MovingGCBase):
         # A list of all objects with finalizers (these are never young).
         self.objects_with_finalizers = self.AddressDeque()
         self.young_objects_with_light_finalizers = self.AddressStack()
+        self.old_objects_with_light_finalizers = self.AddressStack()
         #
         # Two lists of the objects with weakrefs.  No weakref can be an
         # old object weakly pointing to a young object: indeed, weakrefs
@@ -1588,6 +1589,9 @@ class MiniMarkGC(MovingGCBase):
         # Weakref support: clear the weak pointers to dying objects
         if self.old_objects_with_weakrefs.non_empty():
             self.invalidate_old_weakrefs()
+        if self.old_objects_with_light_finalizers.non_empty():
+            self.deal_with_old_objects_with_finalizers()
+
         #
         # Walk all rawmalloced objects and free the ones that don't
         # have the GCFLAG_VISITED flag.
@@ -1653,11 +1657,7 @@ class MiniMarkGC(MovingGCBase):
         if self.header(obj).tid & GCFLAG_VISITED:
             self.header(obj).tid &= ~GCFLAG_VISITED
             return False     # survives
-        else:
-            finalizer = self.getlightfinalizer(self.get_type_id(obj))
-            if finalizer:
-                finalizer(obj, llmemory.NULL)
-            return True      # dies
+        return True      # dies
 
     def _reset_gcflag_visited(self, obj, ignored):
         self.header(obj).tid &= ~GCFLAG_VISITED
@@ -1670,9 +1670,6 @@ class MiniMarkGC(MovingGCBase):
             size_gc_header = self.gcheaderbuilder.size_gc_header
             totalsize = size_gc_header + self.get_size(obj)
             allocsize = raw_malloc_usage(totalsize)
-            finalizer = self.getlightfinalizer(self.get_type_id(obj))
-            if finalizer:
-                finalizer(obj, llmemory.NULL)            
             arena = llarena.getfakearenaaddress(obj - size_gc_header)
             #
             # Must also include the card marker area, if any
@@ -1851,6 +1848,26 @@ class MiniMarkGC(MovingGCBase):
                 finalizer = self.getlightfinalizer(self.get_type_id(obj))
                 ll_assert(bool(finalizer), "no light finalizer found")
                 finalizer(obj, llmemory.NULL)
+
+    def deal_with_old_objects_with_finalizers(self):
+        """ This is a much simpler version of dealing with finalizers
+        and an optimization - we can reasonably assume that those finalizers
+        don't do anything fancy and *just* call them. Among other things
+        they won't resurrect objects
+        """
+        new_objects = self.AddressStack()
+        while self.old_objects_with_light_finalizers.non_empty():
+            obj = self.old_objects_with_light_finalizers.pop()
+            if self.header(obj).tid & GCFLAG_VISITED:
+                # surviving
+                new_objects.append(obj)
+            else:
+                # dying
+                finalizer = self.getlightfinalizer(self.get_type_id(obj))
+                ll_assert(bool(finalizer), "no light finalizer found")
+                finalizer(obj, llmemory.NULL)
+        self.old_objects_with_light_finalizers.delete()
+        self.old_objects_with_light_finalizers = new_objects
 
     def deal_with_objects_with_finalizers(self):
         # Walk over list of objects with finalizers.
