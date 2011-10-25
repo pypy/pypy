@@ -311,6 +311,7 @@ class OptIntBounds(Optimization):
         maxbounds = IntBound((-sys.maxint-1) >> 1, sys.maxint >> 1)
         v1.intbound.intersect(maxbounds)
         self.pure(rop.INT_UNTAG, [op.result], op.getarg(0))
+        self.emit_operation(op)
 
     def optimize_INT_UNTAG(self, op):
         v1 = self.getvalue(op.getarg(0))
