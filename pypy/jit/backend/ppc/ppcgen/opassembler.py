@@ -385,9 +385,7 @@ class OpAssembler(object):
             self.mc.addi(res.value, base_loc.value, ofs_loc.getint())
         else:
             self.mc.add(res.value, base_loc.value, ofs_loc.value)
-        
-        self.mc.load_imm(r.r0, basesize.value)
-        self.mc.lbzx(res.value, res.value, r.r0.value)
+        self.mc.lbz(res.value, res.value, basesize.value)
 
     def emit_strsetitem(self, op, arglocs, regalloc):
         value_loc, base_loc, ofs_loc, basesize = arglocs
@@ -395,8 +393,7 @@ class OpAssembler(object):
             self.mc.addi(base_loc.value, base_loc.value, ofs_loc.getint())
         else:
             self.mc.add(base_loc.value, base_loc.value, ofs_loc.value)
-        self.mc.load_imm(r.r0, basesize.value)
-        self.mc.stbx(value_loc.value, base_loc.value, r.r0.value)
+        self.mc.stb(value_loc.value, base_loc.value, basesize.value)
 
     emit_unicodelen = emit_strlen
 
