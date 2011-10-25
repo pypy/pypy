@@ -1,4 +1,5 @@
 from __future__ import with_statement
+import os
 from pypy.jit.backend.arm.helper.assembler import saved_registers, count_reg_args, \
                                                     decode32, encode32, \
                                                     decode64, encode64
@@ -1162,13 +1163,17 @@ class AssemblerARM(ResOpAssembler):
         else:
             return 0
 
-def notimplemented(self, op, arglocs, regalloc, fcond):
+def not_implemented(msg):
+    os.write(2, '[ARM/asm] %s\n' % msg)
+    raise NotImplementedError(msg)
+
+def notimplemented_op(self, op, arglocs, regalloc, fcond):
     raise NotImplementedError, op
-def notimplemented_with_guard(self, op, guard_op, arglocs, regalloc, fcond):
+def notimplemented_op_with_guard(self, op, guard_op, arglocs, regalloc, fcond):
     raise NotImplementedError, op
 
-asm_operations = [notimplemented] * (rop._LAST + 1)
-asm_operations_with_guard = [notimplemented_with_guard] * (rop._LAST + 1)
+asm_operations = [notimplemented_op] * (rop._LAST + 1)
+asm_operations_with_guard = [notimplemented_op_with_guard] * (rop._LAST + 1)
 
 for key, value in rop.__dict__.items():
     key = key.lower()
