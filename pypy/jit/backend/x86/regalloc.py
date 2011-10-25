@@ -651,8 +651,8 @@ class RegAlloc(object):
     consider_uint_lt = _consider_compop
     consider_uint_le = _consider_compop
     consider_uint_ge = _consider_compop
-    consider_ptr_eq = _consider_compop
-    consider_ptr_ne = _consider_compop
+    consider_ptr_eq = consider_instance_ptr_eq = _consider_compop
+    consider_ptr_ne = consider_instance_ptr_ne = _consider_compop
 
     def _consider_float_op(self, op):
         loc1 = self.xrm.loc(op.getarg(1))
