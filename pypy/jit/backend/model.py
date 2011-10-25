@@ -84,24 +84,14 @@ class AbstractCPU(object):
         """Print a disassembled version of looptoken to stdout"""
         raise NotImplementedError
 
-    def execute_token(self, looptoken):
+    def execute_token(self, looptoken, *args):
         """Execute the generated code referenced by the looptoken.
         Returns the descr of the last executed operation: either the one
         attached to the failing guard, or the one attached to the FINISH.
-        Use set_future_value_xxx() before, and get_latest_value_xxx() after.
+        Use get_latest_value_xxx() afterwards to read the result(s).
+        (This method is automatically specialized by the front-end if
+        needed, for various types and numbers of *args.)
         """
-        raise NotImplementedError
-
-    def set_future_value_int(self, index, intvalue):
-        """Set the value for the index'th argument for the loop to run."""
-        raise NotImplementedError
-
-    def set_future_value_float(self, index, floatvalue):
-        """Set the value for the index'th argument for the loop to run."""
-        raise NotImplementedError
-
-    def set_future_value_ref(self, index, objvalue):
-        """Set the value for the index'th argument for the loop to run."""
         raise NotImplementedError
 
     def get_latest_value_int(self, index):

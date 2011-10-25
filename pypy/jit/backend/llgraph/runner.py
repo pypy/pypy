@@ -257,21 +257,24 @@ class BaseCPU(model.AbstractCPU):
         self.latest_frame = frame
         return fail_index
 
-    def execute_token(self, loop_token):
+    def execute_token(self, loop_token, *args):
         """Calls the assembler generated for the given loop.
         Returns the ResOperation that failed, of type rop.FAIL.
         """
+        # XXX RPythonize me
+        for index, x in enumerate(args):
+            TYPE = lltype.typeOf(x)
+            if TYPE == lltype.Signed:
+                llimpl.set_future_value_int(index, x)
+            elif TYPE == llmemory.GCREF:
+                llimpl.set_future_value_ref(index, x)
+            elif TYPE == longlong.FLOATSTORAGE:
+                llimpl.set_future_value_float(index, x)
+            else:
+                raise ValueError(TYPE)
+        #
         fail_index = self._execute_token(loop_token)
         return self.get_fail_descr_from_number(fail_index)
-
-    def set_future_value_int(self, index, intvalue):
-        llimpl.set_future_value_int(index, intvalue)
-
-    def set_future_value_ref(self, index, objvalue):
-        llimpl.set_future_value_ref(index, objvalue)
-
-    def set_future_value_float(self, index, floatvalue):
-        llimpl.set_future_value_float(index, floatvalue)
 
     def get_latest_value_int(self, index):
         return llimpl.frame_int_getvalue(self.latest_frame, index)
