@@ -451,6 +451,9 @@ class Regalloc(object):
     prepare_op_int_is_true = prepare_op_unary_cmp('int_is_true')
     prepare_op_int_is_zero = prepare_op_unary_cmp('int_is_zero')
 
+    prepare_guard_int_is_true = prepare_op_unary_cmp('int_is_true')
+    prepare_guard_int_is_zero = prepare_op_unary_cmp('int_is_zero')
+
     def prepare_op_int_neg(self, op, fcond):
         l0, box = self._ensure_value_is_boxed(op.getarg(0))
         self.possibly_free_var(box)

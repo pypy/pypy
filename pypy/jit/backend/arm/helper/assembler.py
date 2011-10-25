@@ -17,6 +17,21 @@ def gen_emit_op_unary_cmp(name, true_cond, false_cond):
     f.__name__ = 'emit_op_%s' % name
     return f
 
+def gen_emit_guard_unary_cmp(name, true_cond, false_cond):
+    def f(self, op, guard, arglocs, regalloc, fcond):
+        assert fcond is not None
+        assert guard is not None
+        reg = arglocs[0]
+        self.mc.CMP_ri(reg.value, 0)
+        cond = true_cond
+        guard_opnum = guard.getopnum()
+        if guard_opnum == rop.GUARD_FALSE:
+            cond = false_cond
+        self._emit_guard(guard, arglocs[1:], cond)
+        return fcond
+    f.__name__ = 'emit_guard_%s' % name
+    return f
+
 def gen_emit_op_ri(name, opname):
     ri_op = getattr(AbstractARMv7Builder, '%s_ri' % opname)
     rr_op = getattr(AbstractARMv7Builder, '%s_rr' % opname)
@@ -77,7 +92,6 @@ def gen_emit_cmp_op_guard(name, condition):
         self._emit_guard(guard, arglocs[2:], cond)
         return fcond
     f.__name__ = 'emit_guard_%s' % name
-    f.__name__ = 'emit_op_%s' % name
     return f
 
 def gen_emit_float_op(name, opname):
@@ -86,6 +100,7 @@ def gen_emit_float_op(name, opname):
         arg1, arg2, result = arglocs
         op_rr(self.mc, result.value, arg1.value, arg2.value)
         return fcond
+    f.__name__ = 'emit_op_%s' % name
     return f
 def gen_emit_unary_float_op(name, opname):
     op_rr = getattr(AbstractARMv7Builder, opname)

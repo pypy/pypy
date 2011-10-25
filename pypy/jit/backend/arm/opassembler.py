@@ -173,6 +173,9 @@ class UnaryIntOpAssembler(object):
     emit_op_int_is_true = gen_emit_op_unary_cmp('int_is_true', c.NE, c.EQ)
     emit_op_int_is_zero = gen_emit_op_unary_cmp('int_is_zero', c.EQ, c.NE)
 
+    emit_guard_int_is_true = gen_emit_guard_unary_cmp('int_is_true', c.NE, c.EQ)
+    emit_guard_int_is_zero = gen_emit_guard_unary_cmp('int_is_zero', c.EQ, c.NE)
+
     def emit_op_int_invert(self, op, arglocs, regalloc, fcond):
         reg, res = arglocs
 
