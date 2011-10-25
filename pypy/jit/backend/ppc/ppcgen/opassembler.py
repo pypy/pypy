@@ -222,9 +222,15 @@ class OpAssembler(object):
         offset = locs[2]
         if offset is not None:
             if offset.is_imm():
-                self.mc.lwz(r.r0.value, locs[0].value, offset.value)
+                if IS_PPC_32:
+                    self.mc.lwz(r.r0.value, locs[0].value, offset.value)
+                else:
+                    self.mc.ld(r.r0.value, locs[0].value, offset.value)
             else:
-                self.mc.lwzx(r.r0.value, locs[0].value, offset.value)
+                if IS_PPC_32:
+                    self.mc.lwzx(r.r0.value, locs[0].value, offset.value)
+                else:
+                    self.mc.ldx(r.r0.value, locs[0].value, offset.value)
             self.mc.cmp(r.r0.value, locs[1].value)
         else:
             assert 0, "not implemented yet"
@@ -313,7 +319,10 @@ class OpAssembler(object):
     # XXX 64 bit adjustment
     def emit_arraylen_gc(self, op, arglocs, regalloc):
         res, base_loc, ofs = arglocs
-        self.mc.lwz(res.value, base_loc.value, ofs.value)
+        if IS_PPC_32:
+            self.mc.lwz(res.value, base_loc.value, ofs.value)
+        else:
+            self.mc.ld(res.value, base_loc.value, ofs.value)
 
     # XXX 64 bit adjustment
     def emit_setarrayitem_gc(self, op, arglocs, regalloc):
@@ -330,7 +339,7 @@ class OpAssembler(object):
             scale_loc = r.r0
 
         if scale.value == 3:
-            assert 0, "not implemented yet"
+            self.mc.stdx(value_loc.value, base_loc.value, scale_loc.value)
         elif scale.value == 2:
             self.mc.stwx(value_loc.value, base_loc.value, scale_loc.value)
         elif scale.value == 1:
@@ -354,7 +363,7 @@ class OpAssembler(object):
             scale_loc = r.r0
 
         if scale.value == 3:
-            assert 0, "not implemented yet"
+            self.mc.ldx(res.value, base_loc.value, scale_loc.value)
         elif scale.value == 2:
             self.mc.lwzx(res.value, base_loc.value, scale_loc.value)
         elif scale.value == 1:
