@@ -81,6 +81,7 @@ class AssemblerPPC(OpAssembler):
         self.datablockwrapper = None
         self.memcpy_addr = 0
         self.fail_boxes_count = 0
+        self.current_clt = None
 
     def load_imm(self, rD, word):
         if word <= 32767 and word >= -32768:
@@ -378,10 +379,10 @@ class AssemblerPPC(OpAssembler):
                 self.regalloc_mov(r.r0, loc)
 
     def setup(self, looptoken, operations):
-        operations = self.cpu.gc_ll_descr.rewrite_assembler(self.cpu, 
-                                                            operations)
         assert self.memcpy_addr != 0
-        self.current_clt = looptoken.compiled_loop_token
+        self.current_clt = looptoken.compiled_loop_token 
+        operations = self.cpu.gc_ll_descr.rewrite_assembler(self.cpu, 
+                operations, self.current_clt.allgcrefs)
         self.mc = PPCBuilder()
         self.pending_guards = []
         assert self.datablockwrapper is None
@@ -399,6 +400,7 @@ class AssemblerPPC(OpAssembler):
     def assemble_loop(self, inputargs, operations, looptoken, log):
 
         clt = CompiledLoopToken(self.cpu, looptoken.number)
+        clt.allgcrefs = []
         looptoken.compiled_loop_token = clt
 
         self.setup(looptoken, operations)
