@@ -384,9 +384,15 @@ class OpAssembler(object):
     def emit_strlen(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
         if l1.is_imm():
-            self.mc.lwz(res.value, l0.value, l1.getint())
+            if IS_PPC_32:
+                self.mc.lwz(res.value, l0.value, l1.getint())
+            else:
+                self.mc.ld(res.value, l0.value, l1.getint())
         else:
-            self.mc.lwzx(res.value, l0.value, l1.value)
+            if IS_PPC_32:
+                self.mc.lwzx(res.value, l0.value, l1.value)
+            else:
+                self.mc.ldx(res.value, l0.value, l1.value)
 
     def emit_strgetitem(self, op, arglocs, regalloc):
         res, base_loc, ofs_loc, basesize = arglocs
