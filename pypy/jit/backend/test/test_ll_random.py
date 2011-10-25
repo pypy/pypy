@@ -652,7 +652,7 @@ for i in range(4):      # make more common
     OPERATIONS.append(GetFieldOperation(rop.GETFIELD_GC))
     OPERATIONS.append(GetInteriorFieldOperation(rop.GETINTERIORFIELD_GC))
     OPERATIONS.append(SetFieldOperation(rop.SETFIELD_GC))
-    #OPERATIONS.append(SetInteriorFieldOperation(rop.GETINTERIORFIELD_GC))
+    #OPERATIONS.append(SetInteriorFieldOperation(rop.SETINTERIORFIELD_GC))
     OPERATIONS.append(NewOperation(rop.NEW))
     OPERATIONS.append(NewOperation(rop.NEW_WITH_VTABLE))
 
