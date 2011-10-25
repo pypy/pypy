@@ -408,12 +408,11 @@ class OpAssembler(object):
         self.mc.li(r.r0.value, scale.value)
         self.mc.slw(ofs_loc.value, ofs_loc.value, r.r0.value)
         self.mc.add(res.value, base_loc.value, ofs_loc.value)
-        self.mc.li(r.r0.value, basesize.value)
 
         if scale.value == 2:
-            self.mc.lwzx(res.value, res.value, r.r0.value)
+            self.mc.lwz(res.value, res.value, basesize.value)
         elif scale.value == 1:
-            self.mc.lhzx(res.value, res.value, r.r0.value)
+            self.mc.lhz(res.value, res.value, basesize.value)
         else:
             assert 0, itemsize.value
 
@@ -424,12 +423,11 @@ class OpAssembler(object):
         self.mc.li(r.r0.value, scale.value)
         self.mc.slw(ofs_loc.value, ofs_loc.value, r.r0.value)
         self.mc.add(base_loc.value, base_loc.value, ofs_loc.value)
-        self.mc.li(r.r0.value, basesize.value)
 
         if scale.value == 2:
-            self.mc.stwx(value_loc.value, base_loc.value, r.r0.value)
+            self.mc.stw(value_loc.value, base_loc.value, basesize.value)
         elif scale.value == 1:
-            self.mc.sthx(value_loc.value, base_loc.value, r.r0.value)
+            self.mc.sth(value_loc.value, base_loc.value, basesize.value)
         else:
             assert 0, itemsize.value
 
