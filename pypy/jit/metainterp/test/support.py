@@ -4,9 +4,9 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.ootypesystem import ootype
 from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp.warmspot import ll_meta_interp, get_stats
+from pypy.jit.metainterp.warmstate import unspecialize_value
 from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 from pypy.jit.metainterp import pyjitpl, history
-from pypy.jit.metainterp.warmstate import set_future_value
 from pypy.jit.codewriter.policy import JitPolicy
 from pypy.jit.codewriter import codewriter, longlong
 from pypy.rlib.rfloat import isnan
@@ -136,11 +136,11 @@ def _run_with_machine_code(testself, args):
         return NotImplemented
     # a loop was successfully created by _run_with_pyjitpl(); call it
     cpu = metainterp.cpu
+    args1 = []
     for i in range(len(args) - num_green_args):
         x = args[num_green_args + i]
-        typecode = history.getkind(lltype.typeOf(x))
-        set_future_value(cpu, i, x, typecode)
-    faildescr = cpu.execute_token(loop_tokens[0])
+        args1.append(unspecialize_value(x))
+    faildescr = cpu.execute_token(loop_tokens[0], *args1)
     assert faildescr.__class__.__name__.startswith('DoneWithThisFrameDescr')
     if metainterp.jitdriver_sd.result_type == history.INT:
         return cpu.get_latest_value_int(0)

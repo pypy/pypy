@@ -895,10 +895,3 @@ class WarmRunnerDesc(object):
         graphs = self.translator.graphs
         for graph, block, i in find_force_quasi_immutable(graphs):
             self.replace_force_quasiimmut_with_direct_call(block.operations[i])
-
-    # ____________________________________________________________
-
-    def execute_token(self, loop_token):
-        fail_descr = self.cpu.execute_token(loop_token)
-        self.memory_manager.keep_loop_alive(loop_token)
-        return fail_descr

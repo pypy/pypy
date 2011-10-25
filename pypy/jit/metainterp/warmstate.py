@@ -142,26 +142,6 @@ def hash_whatever(TYPE, x):
     else:
         return rffi.cast(lltype.Signed, x)
 
-@specialize.ll_and_arg(3)
-def set_future_value(cpu, j, value, typecode):
-    if typecode == 'ref':
-        refvalue = cpu.ts.cast_to_ref(value)
-        cpu.set_future_value_ref(j, refvalue)
-    elif typecode == 'int':
-        if isinstance(lltype.typeOf(value), lltype.Ptr):
-            intvalue = llmemory.AddressAsInt(llmemory.cast_ptr_to_adr(value))
-        else:
-            intvalue = lltype.cast_primitive(lltype.Signed, value)
-        cpu.set_future_value_int(j, intvalue)
-    elif typecode == 'float':
-        if lltype.typeOf(value) is lltype.Float:
-            value = longlong.getfloatstorage(value)
-        else:
-            assert longlong.is_longlong(lltype.typeOf(value))
-            value = rffi.cast(lltype.SignedLongLong, value)
-        cpu.set_future_value_float(j, value)
-    else:
-        assert False
 
 class JitCell(BaseJitCell):
     # the counter can mean the following things:
@@ -310,20 +290,36 @@ class WarmEnterState(object):
         index_of_virtualizable = jitdriver_sd.index_of_virtualizable
         num_green_args = jitdriver_sd.num_green_args
         get_jitcell = self.make_jitcell_getter()
-        set_future_values = self.make_set_future_values()
         self.make_jitdriver_callbacks()
         confirm_enter_jit = self.confirm_enter_jit
+        range_red_args = unrolling_iterable(
+            range(num_green_args, num_green_args + jitdriver_sd.num_red_args))
+
+        def execute_assembler(loop_token, *args):
+            # Call the backend to run the 'looptoken' with the given
+            # input args.
+            fail_descr = self.cpu.execute_token(loop_token, *args)
+            #
+            # If we have a virtualizable, we have to reset its
+            # 'vable_token' field afterwards
+            if vinfo is not None:
+                virtualizable = args[index_of_virtualizable]
+                virtualizable = vinfo.cast_to_vtype(virtualizable)
+                vinfo.reset_vable_token(virtualizable)
+            #
+            # Record in the memmgr that we just ran this loop,
+            # so that it will keep it alive for a longer time
+            warmrunnerdesc.memory_manager.keep_loop_alive(loop_token)
+            #
+            # Handle the failure
+            fail_descr.handle_fail(metainterp_sd, jitdriver_sd)
+            #
+            assert 0, "should have raised"
 
         def maybe_compile_and_run(threshold, *args):
             """Entry point to the JIT.  Called at the point with the
             can_enter_jit() hint.
             """
-            if vinfo is not None:
-                virtualizable = args[num_green_args + index_of_virtualizable]
-                virtualizable = vinfo.cast_to_vtype(virtualizable)
-            else:
-                virtualizable = None
-
             # look for the cell corresponding to the current greenargs
             greenargs = args[:num_green_args]
             cell = get_jitcell(True, *greenargs)
@@ -343,42 +339,36 @@ class WarmEnterState(object):
                 # set counter to -2, to mean "tracing in effect"
                 cell.counter = -2
                 try:
-                    loop_token = metainterp.compile_and_run_once(jitdriver_sd,
-                                                                 *args)
+                    metainterp.compile_and_run_once(jitdriver_sd, *args)
                 finally:
                     if cell.counter == -2:
                         cell.counter = 0
             else:
-                if cell.counter == -2:
+                if cell.counter != -1:
+                    assert cell.counter == -2
                     # tracing already happening in some outer invocation of
                     # this function. don't trace a second time.
                     return
-                assert cell.counter == -1
                 if not confirm_enter_jit(*args):
                     return
+                # machine code was already compiled for these greenargs
                 loop_token = cell.get_entry_loop_token()
                 if loop_token is None:   # it was a weakref that has been freed
                     cell.counter = 0
                     return
-                # machine code was already compiled for these greenargs
-                # get the assembler and fill in the boxes
-                set_future_values(*args[num_green_args:])
-
-            # ---------- execute assembler ----------
-            while True:     # until interrupted by an exception
-                metainterp_sd.profiler.start_running()
-                #debug_start("jit-running")
-                fail_descr = warmrunnerdesc.execute_token(loop_token)
-                #debug_stop("jit-running")
-                metainterp_sd.profiler.end_running()
-                loop_token = None     # for test_memmgr
-                if vinfo is not None:
-                    vinfo.reset_vable_token(virtualizable)
-                loop_token = fail_descr.handle_fail(metainterp_sd,
-                                                    jitdriver_sd)
+                # extract and unspecialize the red arguments to pass to
+                # the assembler
+                execute_args = ()
+                for i in range_red_args:
+                    execute_args += (unspecialize_value(args[i]), )
+                # run it!  this executes until interrupted by an exception
+                execute_assembler(loop_token, *execute_args)
+            #
+            assert 0, "should not reach this point"
 
         maybe_compile_and_run._dont_inline_ = True
         self.maybe_compile_and_run = maybe_compile_and_run
+        self.execute_assembler = execute_assembler
         return maybe_compile_and_run
 
     # ----------
@@ -512,56 +502,6 @@ class WarmEnterState(object):
                 fn(cellref, *greenargs)
             return cell
         return get_jitcell
-
-    # ----------
-
-    def make_set_future_values(self):
-        "NOT_RPYTHON"
-        if hasattr(self, 'set_future_values'):
-            return self.set_future_values
-
-        jitdriver_sd   = self.jitdriver_sd
-        cpu = self.cpu
-        vinfo = jitdriver_sd.virtualizable_info
-        red_args_types = unrolling_iterable(jitdriver_sd._red_args_types)
-        #
-        def set_future_values(*redargs):
-            i = 0
-            for typecode in red_args_types:
-                set_future_value(cpu, i, redargs[i], typecode)
-                i = i + 1
-            if vinfo is not None:
-                set_future_values_from_vinfo(*redargs)
-        #
-        if vinfo is not None:
-            i0 = len(jitdriver_sd._red_args_types)
-            index_of_virtualizable = jitdriver_sd.index_of_virtualizable
-            vable_static_fields = unrolling_iterable(
-                zip(vinfo.static_extra_types, vinfo.static_fields))
-            vable_array_fields = unrolling_iterable(
-                zip(vinfo.arrayitem_extra_types, vinfo.array_fields))
-            getlength = cpu.ts.getlength
-            getarrayitem = cpu.ts.getarrayitem
-            #
-            def set_future_values_from_vinfo(*redargs):
-                i = i0
-                virtualizable = redargs[index_of_virtualizable]
-                virtualizable = vinfo.cast_to_vtype(virtualizable)
-                for typecode, fieldname in vable_static_fields:
-                    x = getattr(virtualizable, fieldname)
-                    set_future_value(cpu, i, x, typecode)
-                    i = i + 1
-                for typecode, fieldname in vable_array_fields:
-                    lst = getattr(virtualizable, fieldname)
-                    for j in range(getlength(lst)):
-                        x = getarrayitem(lst, j)
-                        set_future_value(cpu, i, x, typecode)
-                        i = i + 1
-        else:
-            set_future_values_from_vinfo = None
-        #
-        self.set_future_values = set_future_values
-        return set_future_values
 
     # ----------
 

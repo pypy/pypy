@@ -340,12 +340,11 @@ class ResumeGuardDescr(ResumeDescr):
 
     def handle_fail(self, metainterp_sd, jitdriver_sd):
         if self.must_compile(metainterp_sd, jitdriver_sd):
-            return self._trace_and_compile_from_bridge(metainterp_sd,
-                                                       jitdriver_sd)
+            self._trace_and_compile_from_bridge(metainterp_sd, jitdriver_sd)
         else:
             from pypy.jit.metainterp.blackhole import resume_in_blackhole
             resume_in_blackhole(metainterp_sd, jitdriver_sd, self)
-            assert 0, "unreachable"
+        assert 0, "unreachable"
 
     def _trace_and_compile_from_bridge(self, metainterp_sd, jitdriver_sd):
         # 'jitdriver_sd' corresponds to the outermost one, i.e. the one
@@ -354,7 +353,7 @@ class ResumeGuardDescr(ResumeDescr):
         # jitdrivers.
         from pypy.jit.metainterp.pyjitpl import MetaInterp
         metainterp = MetaInterp(metainterp_sd, jitdriver_sd)
-        return metainterp.handle_guard_failure(self)
+        metainterp.handle_guard_failure(self)
     _trace_and_compile_from_bridge._dont_inline_ = True
 
     def must_compile(self, metainterp_sd, jitdriver_sd):

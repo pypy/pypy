@@ -1795,7 +1795,7 @@ class MetaInterp(object):
 
     def _interpret(self):
         # Execute the frames forward until we raise a DoneWithThisFrame,
-        # a ExitFrameWithException, or a GenerateMergePoint exception.
+        # a ExitFrameWithException, or a ContinueRunningNormally exception.
         self.staticdata.stats.entered()
         while True:
             self.framestack[-1].run_one_step()
@@ -1843,8 +1843,6 @@ class MetaInterp(object):
         self.seen_loop_header_for_jdindex = -1
         try:
             self.interpret()
-        except GenerateMergePoint, gmp:
-            return self.designate_target_loop(gmp)
         except SwitchToBlackhole, stb:
             self.run_blackhole_interp_to_cancel_tracing(stb)
         assert False, "should always raise"
@@ -1879,8 +1877,6 @@ class MetaInterp(object):
             if self.resumekey_original_loop_token is None:   # very rare case
                 raise SwitchToBlackhole(ABORT_BRIDGE)
             self.interpret()
-        except GenerateMergePoint, gmp:
-            return self.designate_target_loop(gmp)
         except SwitchToBlackhole, stb:
             self.run_blackhole_interp_to_cancel_tracing(stb)
         assert False, "should always raise"
@@ -1974,12 +1970,25 @@ class MetaInterp(object):
         start = len(self.history.operations)
         self.current_merge_points.append((live_arg_boxes, start))
 
-    def designate_target_loop(self, gmp):
-        loop_token = gmp.target_loop_token
+    def _unpack_boxes(self, boxes, start, stop):
+        ints = []; refs = []; floats = []
+        for i in range(start, stop):
+            box = boxes[i]
+            if   box.type == history.INT: ints.append(box.getint())
+            elif box.type == history.REF: refs.append(box.getref_base())
+            elif box.type == history.FLOAT:floats.append(box.getfloatstorage())
+            else: assert 0
+        return ints[:], refs[:], floats[:]
+
+    def raise_continue_running_normally(self, live_arg_boxes):
+        self.history.inputargs = None
+        self.history.operations = None
         num_green_args = self.jitdriver_sd.num_green_args
-        residual_args = gmp.argboxes[num_green_args:]
-        history.set_future_values(self.cpu, residual_args)
-        return loop_token
+        gi, gr, gf = self._unpack_boxes(live_arg_boxes, 0, num_green_args)
+        ri, rr, rf = self._unpack_boxes(live_arg_boxes, num_green_args,
+                                        len(live_arg_boxes))
+        CRN = self.staticdata.ContinueRunningNormally
+        raise CRN(gi, gr, gf, ri, rr, rf)
 
     def prepare_resume_from_failure(self, opnum, dont_change_position=False):
         frame = self.framestack[-1]
@@ -2042,9 +2051,7 @@ class MetaInterp(object):
                                               greenkey, start, start_resumedescr)
         if loop_token is not None: # raise if it *worked* correctly
             self.set_compiled_merge_points(greenkey, old_loop_tokens)
-            self.history.inputargs = None
-            self.history.operations = None
-            raise GenerateMergePoint(live_arg_boxes, loop_token)
+            self.raise_continue_running_normally(live_arg_boxes)
 
         self.history.inputargs = original_inputargs
         self.history.operations.pop()     # remove the JUMP
@@ -2065,9 +2072,7 @@ class MetaInterp(object):
         finally:
             self.history.operations.pop()     # remove the JUMP
         if target_loop_token is not None: # raise if it *worked* correctly
-            self.history.inputargs = None
-            self.history.operations = None
-            raise GenerateMergePoint(live_arg_boxes, target_loop_token)
+            self.raise_continue_running_normally(live_arg_boxes)
 
     def compile_bridge_and_loop(self, original_boxes, live_arg_boxes, start,
                                 bridge_arg_boxes, start_resumedescr):
@@ -2103,10 +2108,7 @@ class MetaInterp(object):
         except RetraceLoop:
             assert False
         assert target_loop_token is not None
-
-        self.history.inputargs = None
-        self.history.operations = None
-        raise GenerateMergePoint(live_arg_boxes, old_loop_tokens[0])
+        self.raise_continue_running_normally(live_arg_boxes)
 
     def compile_done_with_this_frame(self, exitbox):
         self.gen_store_back_in_virtualizable()
@@ -2483,12 +2485,6 @@ class MetaInterp(object):
         self.history.operations.append(op)
 
 # ____________________________________________________________
-
-class GenerateMergePoint(JitException):
-    def __init__(self, args, target_loop_token):
-        assert target_loop_token is not None
-        self.argboxes = args
-        self.target_loop_token = target_loop_token
 
 class ChangeFrame(JitException):
     """Raised after we mutated metainterp.framestack, in order to force

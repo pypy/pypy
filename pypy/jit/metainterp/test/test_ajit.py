@@ -9,7 +9,6 @@ from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin, noConst
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from pypy.jit.metainterp.warmspot import get_stats
-from pypy.jit.metainterp.warmstate import set_future_value
 from pypy.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
     loop_invariant, elidable, promote, jit_debug, assert_green,
     AssertGreenFailed, unroll_safe, current_trace_length, look_inside_iff,
