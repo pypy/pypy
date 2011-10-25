@@ -167,13 +167,13 @@ class TestARM(LLtypeBackendTest):
           ('y19', lltype.Signed), ('y20', lltype.Signed),
           ('float', lltype.Float)))
 
-    T = lltype.GcStruct('T', ('parent', SFloat),
+    TFloat = lltype.GcStruct('TFloat', ('parent', SFloat),
                              ('next', lltype.Ptr(SFloat)))
     def test_float_field(self):
         if not self.cpu.supports_floats:
             py.test.skip('requires floats')
         floatdescr = self.cpu.fielddescrof(self.SFloat, 'float')
-        t_box, T_box = self.alloc_instance(self.T)
+        t_box, T_box = self.alloc_instance(self.TFloat)
         self.execute_operation(rop.SETFIELD_GC, [t_box, boxfloat(3.4)],
                                'void', descr=floatdescr)
         res = self.execute_operation(rop.GETFIELD_GC, [t_box],
