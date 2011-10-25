@@ -75,7 +75,9 @@ class HeapCache(object):
             opnum == rop.SETARRAYITEM_GC or
             opnum == rop.SETFIELD_RAW or
             opnum == rop.SETARRAYITEM_RAW or
-            opnum == rop.SETINTERIORFIELD_GC):
+            opnum == rop.SETINTERIORFIELD_GC or
+            opnum == rop.COPYSTRCONTENT or
+            opnum == rop.COPYUNICODECONTENT):
             return
         if rop._OVF_FIRST <= opnum <= rop._OVF_LAST:
             return
