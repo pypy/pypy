@@ -41,6 +41,13 @@ class HeapCache(object):
                 self.dependencies.setdefault(box, []).append(valuebox)
             else:
                 self._escape(valuebox)
+        elif opnum == rop.SETARRAYITEM_GC:
+            assert len(argboxes) == 3
+            box, indexbox, valuebox = argboxes
+            if self.is_unescaped(box) and self.is_unescaped(valuebox):
+                self.dependencies.setdefault(box, []).append(valuebox)
+            else:
+                self._escape(valuebox)
         # GETFIELD_GC and MARK_OPAQUE_PTR doesn't escape their arguments
         elif opnum != rop.GETFIELD_GC and opnum != rop.MARK_OPAQUE_PTR:
             idx = 0
@@ -60,14 +67,11 @@ class HeapCache(object):
                 self._escape(dep)
 
     def clear_caches(self, opnum, descr, argboxes):
-        if opnum == rop.SETFIELD_GC:
-            return
-        if opnum == rop.SETARRAYITEM_GC:
-            return
-        if opnum == rop.SETFIELD_RAW:
-            return
-        if opnum == rop.SETARRAYITEM_RAW:
-            return
+        if (opnum == rop.SETFIELD_GC or
+            opnum == rop.SETARRAYITEM_GC or
+            opnum == rop.SETFIELD_RAW or
+            opnum == rop.SETARRAYITEM_RAW or
+            opnum == rop.SETINTERIORFIELD_GC):
         if rop._OVF_FIRST <= opnum <= rop._OVF_LAST:
             return
         if rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST:
@@ -75,9 +79,9 @@ class HeapCache(object):
         if opnum == rop.CALL or opnum == rop.CALL_LOOPINVARIANT:
             effectinfo = descr.get_extra_info()
             ef = effectinfo.extraeffect
-            if ef == effectinfo.EF_LOOPINVARIANT or \
-               ef == effectinfo.EF_ELIDABLE_CANNOT_RAISE or \
-               ef == effectinfo.EF_ELIDABLE_CAN_RAISE:
+            if (ef == effectinfo.EF_LOOPINVARIANT or
+                ef == effectinfo.EF_ELIDABLE_CANNOT_RAISE or
+                ef == effectinfo.EF_ELIDABLE_CAN_RAISE):
                 return
             # A special case for ll_arraycopy, because it is so common, and its
             # effects are so well defined.

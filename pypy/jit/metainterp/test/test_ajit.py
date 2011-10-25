@@ -3521,7 +3521,7 @@ class BaseLLtypeTests(BasicTests):
         self.check_loops({"int_sub": 1, "int_gt": 1, "guard_true": 1, "jump": 1})
 
     def test_virtual_opaque_ptr(self):
-        myjitdriver = JitDriver(greens = [], reds=["n"])
+        myjitdriver = JitDriver(greens = [], reds = ["n"])
         erase, unerase = rerased.new_erasing_pair("x")
         @look_inside_iff(lambda x: isvirtual(x))
         def g(x):
@@ -3538,6 +3538,27 @@ class BaseLLtypeTests(BasicTests):
         res = self.meta_interp(f, [10])
         assert res == 0
         self.check_loops({"int_sub": 1, "int_gt": 1, "guard_true": 1, "jump": 1})
+
+    def test_virtual_opaque_dict(self):
+        myjitdriver = JitDriver(greens = [], reds = ["n"])
+        erase, unerase = rerased.new_erasing_pair("x")
+        @look_inside_iff(lambda x: isvirtual(x))
+        def g(x):
+            return x[0]["key"] - 1
+        def f(n):
+            while n > 0:
+                myjitdriver.jit_merge_point(n=n)
+                x = [{}]
+                x[0]["key"] = n
+                x[0]["other key"] = n
+                y = erase(x)
+                z = unerase(y)
+                n = g(x)
+            return n
+        res = self.meta_interp(f, [10])
+        assert res == 0
+        self.check_loops({"int_sub": 1, "int_gt": 1, "guard_true": 1, "jump": 1})
+
 
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
