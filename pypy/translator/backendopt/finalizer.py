@@ -2,6 +2,11 @@
 from pypy.translator.backendopt import graphanalyze
 from pypy.rpython.lltypesystem import lltype
 
+class FinalizerError(Exception):
+    """ __del__ marked as lightweight finalizer, but the analyzer did
+    not agreed
+    """
+
 class FinalizerAnalyzer(graphanalyze.BoolGraphAnalyzer):
     """ Analyzer that determines whether a finalizer is lightweight enough
     so it can be called without all the complicated logic in the garbage
@@ -14,6 +19,13 @@ class FinalizerAnalyzer(graphanalyze.BoolGraphAnalyzer):
     ok_operations = ['ptr_nonzero', 'ptr_eq', 'ptr_ne', 'free', 'same_as',
                      'direct_ptradd', 'force_cast', 'track_alloc_stop',
                      'raw_free']
+    
+    def analyze_light_finalizer(self, graph):
+        result = self.analyze_direct_call(graph)
+        if (result is self.top_result() and
+            getattr(graph.func, '_is_light_finalizer_', False)):
+            raise FinalizerError(FinalizerError.__doc__, graph)
+        return result
     
     def analyze_simple_operation(self, op, graphinfo):
         if op.opname in self.ok_operations:

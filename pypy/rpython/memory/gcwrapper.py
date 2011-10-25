@@ -201,7 +201,7 @@ class DirectRunLayoutBuilder(gctypelayout.TypeLayoutBuilder):
 
         assert not type_contains_pyobjs(TYPE), "not implemented"
         t = self.llinterp.typer.annotator.translator
-        light = not FinalizerAnalyzer(t).analyze_direct_call(destrgraph)
+        light = not FinalizerAnalyzer(t).analyze_light_finalizer(destrgraph)
         def ll_finalizer(addr, dummy):
             assert dummy == llmemory.NULL
             try:

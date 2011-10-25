@@ -1,11 +1,13 @@
 
 import py
-from pypy.translator.backendopt.finalizer import FinalizerAnalyzer
+from pypy.translator.backendopt.finalizer import FinalizerAnalyzer,\
+     FinalizerError
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.translator.backendopt.all import backend_optimizations
 from pypy.translator.unsimplify import varoftype
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.conftest import option
+from pypy.rlib import rgc
 
 
 class BaseFinalizerAnalyzerTests(object):
@@ -26,7 +28,7 @@ class BaseFinalizerAnalyzerTests(object):
             t.view()
         a = FinalizerAnalyzer(t)
         fgraph = graphof(t, func_to_analyze)
-        result = a.analyze_direct_call(fgraph)
+        result = a.analyze_light_finalizer(fgraph)
         return result
 
     def test_nothing(self):
@@ -124,15 +126,17 @@ class TestLLType(BaseFinalizerAnalyzerTests):
         r = self.analyze(f, [], A.__del__.im_func)
         assert r
 
-    def test_os_call(self):
-        py.test.skip("can allocate OSError, but also can raise, ignore for now")
-        import os
-        
-        def f(i):
-            os.close(i)
+    def test_is_light_finalizer_decorator(self):
+        S = lltype.GcStruct('S')
 
-        r = self.analyze(f, [int], backendopt=True)
-        assert not r
+        @rgc.is_light_finalizer
+        def f():
+            lltype.malloc(S)
+        @rgc.is_light_finalizer
+        def g():
+            pass
+        self.analyze(g, []) # did not explode
+        py.test.raises(FinalizerError, self.analyze, f, [])
 
 class TestOOType(BaseFinalizerAnalyzerTests):
     type_system = 'ootype'
