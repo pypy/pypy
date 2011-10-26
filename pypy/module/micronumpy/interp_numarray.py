@@ -310,7 +310,7 @@ def scalar_w(space, dtype, w_obj):
 
 class Scalar(BaseArray):
     """
-    Intermediate class representing a float literal.
+    Intermediate class representing a literal.
     """
     signature = signature.BaseSignature()
 
