@@ -16,7 +16,8 @@ class PyPyJitPolicy(JitPolicy):
         if modname in ['pypyjit', 'signal', 'micronumpy', 'math', 'exceptions',
                        'imp', 'sys', 'array', '_ffi', 'itertools', 'operator',
                        'posix', '_socket', '_sre', '_lsprof', '_weakref',
-                       '__pypy__', 'cStringIO', '_collections', 'struct']:
+                       '__pypy__', 'cStringIO', '_collections', 'struct',
+                       'mmap']:
             return True
         return False
 

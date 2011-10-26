@@ -2683,7 +2683,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p1]
         guard_class(p1, ConstClass(node_vtable2)) []
-        i = ptr_ne(ConstPtr(myptr), p1)
+        i = instance_ptr_ne(ConstPtr(myptr), p1)
         guard_true(i) []
         jump(p1)
         """
@@ -3331,7 +3331,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p1, i1, i2, i6)
         '''
         self.optimize_loop(ops, expected, preamble)
-        
+
 
     # ----------
 
@@ -7280,7 +7280,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p1, p2]
         setarrayitem_gc(p1, 2, 10, descr=arraydescr)
-        setarrayitem_gc(p2, 3, 13, descr=arraydescr)        
+        setarrayitem_gc(p2, 3, 13, descr=arraydescr)
         call(0, p1, p2, 0, 0, 10, descr=arraycopydescr)
         jump(p1, p2)
         """

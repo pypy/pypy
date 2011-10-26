@@ -28,16 +28,27 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
         fork.structure_types_and_vtables = self.structure_types_and_vtables
         return fork
 
-    def get_structptr_var(self, r, must_have_vtable=False, type=lltype.Struct):
+    def _choose_ptr_vars(self, from_, type, array_of_structs):
+        ptrvars = []
+        for i in range(len(from_)):
+            v, S = from_[i][:2]
+            if not isinstance(S, type):
+                continue
+            if (isinstance(S, lltype.Array) and
+                isinstance(S.OF, lltype.Struct) == array_of_structs):
+                ptrvars.append((v, S))
+        return ptrvars
+
+    def get_structptr_var(self, r, must_have_vtable=False, type=lltype.Struct,
+                          array_of_structs=False):
         while True:
-            ptrvars = [(v, S) for (v, S) in self.ptrvars
-                              if isinstance(S, type)]
+            ptrvars = self._choose_ptr_vars(self.ptrvars, type,
+                                            array_of_structs)
             if ptrvars and r.random() < 0.8:
                 v, S = r.choice(ptrvars)
             else:
-                prebuilt_ptr_consts = [(v, S)
-                                 for (v, S, _) in self.prebuilt_ptr_consts
-                                 if isinstance(S, type)]
+                prebuilt_ptr_consts = self._choose_ptr_vars(
+                    self.prebuilt_ptr_consts, type, array_of_structs)
                 if prebuilt_ptr_consts and r.random() < 0.7:
                     v, S = r.choice(prebuilt_ptr_consts)
                 else:
@@ -48,7 +59,8 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
                                                 has_vtable=must_have_vtable)
                     else:
                         # create a new constant array
-                        p = self.get_random_array(r)
+                        p = self.get_random_array(r,
+                                    must_be_array_of_structs=array_of_structs)
                     S = lltype.typeOf(p).TO
                     v = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, p))
                     self.prebuilt_ptr_consts.append((v, S,
@@ -74,7 +86,8 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
                 TYPE = lltype.Signed
         return TYPE
 
-    def get_random_structure_type(self, r, with_vtable=None, cache=True):
+    def get_random_structure_type(self, r, with_vtable=None, cache=True,
+                                  type=lltype.GcStruct):
         if cache and self.structure_types and r.random() < 0.5:
             return r.choice(self.structure_types)
         fields = []
@@ -85,7 +98,7 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
         for i in range(r.randrange(1, 5)):
             TYPE = self.get_random_primitive_type(r)
             fields.append(('f%d' % i, TYPE))
-        S = lltype.GcStruct('S%d' % self.counter, *fields, **kwds)
+        S = type('S%d' % self.counter, *fields, **kwds)
         self.counter += 1
         if cache:
             self.structure_types.append(S)
@@ -125,17 +138,29 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
                 setattr(p, fieldname, rffi.cast(TYPE, r.random_integer()))
         return p
 
-    def get_random_array_type(self, r):
-        TYPE = self.get_random_primitive_type(r)
+    def get_random_array_type(self, r, can_be_array_of_struct=False,
+                              must_be_array_of_structs=False):
+        if ((can_be_array_of_struct and r.random() < 0.1) or
+            must_be_array_of_structs):
+            TYPE = self.get_random_structure_type(r, cache=False,
+                                                  type=lltype.Struct)
+        else:
+            TYPE = self.get_random_primitive_type(r)
         return lltype.GcArray(TYPE)
 
-    def get_random_array(self, r):
-        A = self.get_random_array_type(r)
+    def get_random_array(self, r, must_be_array_of_structs=False):
+        A = self.get_random_array_type(r,
+                           must_be_array_of_structs=must_be_array_of_structs)
         length = (r.random_integer() // 15) % 300  # length: between 0 and 299
                                                    # likely to be small
         p = lltype.malloc(A, length)
-        for i in range(length):
-            p[i] = rffi.cast(A.OF, r.random_integer())
+        if isinstance(A.OF, lltype.Primitive):
+            for i in range(length):
+                p[i] = rffi.cast(A.OF, r.random_integer())
+        else:
+            for i in range(length):
+                for fname, TP in A.OF._flds.iteritems():
+                    setattr(p[i], fname, rffi.cast(TP, r.random_integer()))
         return p
 
     def get_index(self, length, r):
@@ -220,7 +245,7 @@ class GuardNonNullClassOperation(GuardClassOperation):
 
 class GetFieldOperation(test_random.AbstractOperation):
     def field_descr(self, builder, r):
-        v, S = builder.get_structptr_var(r)
+        v, S = builder.get_structptr_var(r, )
         names = S._names
         if names[0] == 'parent':
             names = names[1:]
@@ -239,8 +264,47 @@ class GetFieldOperation(test_random.AbstractOperation):
                 continue
             break
 
+class GetInteriorFieldOperation(test_random.AbstractOperation):
+    def field_descr(self, builder, r):
+        v, A = builder.get_structptr_var(r, type=lltype.Array,
+                                         array_of_structs=True)
+        array = v.getref(lltype.Ptr(A))
+        v_index = builder.get_index(len(array), r)
+        names = A.OF._names
+        if names[0] == 'parent':
+            names = names[1:]
+        name = r.choice(names)
+        descr = builder.cpu.interiorfielddescrof(A, name)
+        descr._random_info = 'cpu.interiorfielddescrof(%s, %r)' % (A.OF._name,
+                                                                   name)
+        TYPE = getattr(A.OF, name)
+        return v, v_index, descr, TYPE
+
+    def produce_into(self, builder, r):
+        while True:
+            try:
+                v, v_index, descr, _ = self.field_descr(builder, r)
+                self.put(builder, [v, v_index], descr)
+            except lltype.UninitializedMemoryAccess:
+                continue
+            break
+
 class SetFieldOperation(GetFieldOperation):
     def produce_into(self, builder, r):
+        v, descr, TYPE = self.field_descr(builder, r)
+        while True:
+            if r.random() < 0.3:
+                w = ConstInt(r.random_integer())
+            else:
+                w = r.choice(builder.intvars)
+            if rffi.cast(lltype.Signed, rffi.cast(TYPE, w.value)) == w.value:
+                break
+        builder.do(self.opnum, [v, w], descr)
+
+class SetInteriorFieldOperation(GetFieldOperation):
+    def produce_into(self, builder, r):
+        import pdb
+        pdb.set_trace()
         v, descr, TYPE = self.field_descr(builder, r)
         while True:
             if r.random() < 0.3:
@@ -306,7 +370,7 @@ class SetArrayItemOperation(GetArrayItemOperation):
 
 class NewArrayOperation(ArrayOperation):
     def produce_into(self, builder, r):
-        A = builder.get_random_array_type(r)
+        A = builder.get_random_array_type(r, can_be_array_of_struct=True)
         v_size = builder.get_index(300, r)
         v_ptr = builder.do(self.opnum, [v_size], self.array_descr(builder, A))
         builder.ptrvars.append((v_ptr, A))
@@ -586,7 +650,9 @@ OPERATIONS = test_random.OPERATIONS[:]
 for i in range(4):      # make more common
     OPERATIONS.append(GetFieldOperation(rop.GETFIELD_GC))
     OPERATIONS.append(GetFieldOperation(rop.GETFIELD_GC))
+    OPERATIONS.append(GetInteriorFieldOperation(rop.GETINTERIORFIELD_GC))
     OPERATIONS.append(SetFieldOperation(rop.SETFIELD_GC))
+    #OPERATIONS.append(SetInteriorFieldOperation(rop.SETINTERIORFIELD_GC))
     OPERATIONS.append(NewOperation(rop.NEW))
     OPERATIONS.append(NewOperation(rop.NEW_WITH_VTABLE))
 

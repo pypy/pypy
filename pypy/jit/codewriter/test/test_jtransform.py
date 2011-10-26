@@ -576,10 +576,10 @@ def test_int_eq():
         assert op1.args == [v2]
 
 def test_ptr_eq():
-    v1 = varoftype(rclass.OBJECTPTR)
-    v2 = varoftype(rclass.OBJECTPTR)
+    v1 = varoftype(lltype.Ptr(rstr.STR))
+    v2 = varoftype(lltype.Ptr(rstr.STR))
     v3 = varoftype(lltype.Bool)
-    c0 = const(lltype.nullptr(rclass.OBJECT))
+    c0 = const(lltype.nullptr(rstr.STR))
     #
     for opname, reducedname in [('ptr_eq', 'ptr_iszero'),
                                 ('ptr_ne', 'ptr_nonzero')]:
@@ -597,6 +597,31 @@ def test_ptr_eq():
         op1 = Transformer().rewrite_operation(op)
         assert op1.opname == reducedname
         assert op1.args == [v2]
+
+def test_instance_ptr_eq():
+    v1 = varoftype(rclass.OBJECTPTR)
+    v2 = varoftype(rclass.OBJECTPTR)
+    v3 = varoftype(lltype.Bool)
+    c0 = const(lltype.nullptr(rclass.OBJECT))
+
+    for opname, newopname, reducedname in [
+        ('ptr_eq', 'instance_ptr_eq', 'instance_ptr_iszero'),
+        ('ptr_ne', 'instance_ptr_ne', 'instance_ptr_nonzero')
+    ]:
+        op = SpaceOperation(opname, [v1, v2], v3)
+        op1 = Transformer().rewrite_operation(op)
+        assert op1.opname == newopname
+        assert op1.args == [v1, v2]
+
+        op = SpaceOperation(opname, [v1, c0], v3)
+        op1 = Transformer().rewrite_operation(op)
+        assert op1.opname == reducedname
+        assert op1.args == [v1]
+
+        op = SpaceOperation(opname, [c0, v1], v3)
+        op1 = Transformer().rewrite_operation(op)
+        assert op1.opname == reducedname
+        assert op1.args == [v1]
 
 def test_nongc_ptr_eq():
     v1 = varoftype(rclass.NONGCOBJECTPTR)
