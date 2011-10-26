@@ -124,17 +124,12 @@ def _unicode_join_many_items(space, w_self, list_w, size):
         if self and i != 0:
             sb.append(self)
         w_s = list_w[i]
-        if isinstance(w_s, W_UnicodeObject):
-            # shortcut for performance
-            sb.append(w_s._value)
-        else:
-            try:
-                sb.append(space.unicode_w(w_s))
-            except OperationError, e:
-                if not e.match(space, space.w_TypeError):
-                    raise
-                raise operationerrfmt(space.w_TypeError,
-                    "sequence item %d: expected string or Unicode", i)
+        if not isinstance(w_s, W_UnicodeObject):
+            raise operationerrfmt(
+                space.w_TypeError,
+                "sequence item %d: expected string, %s "
+                "found", i, space.type(w_s).getname(space))
+        sb.append(w_s._value)
     return space.wrap(sb.build())
 
 def hash__Unicode(space, w_uni):

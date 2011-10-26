@@ -28,6 +28,7 @@ class AppTestUnicodeString:
             assert a == b
             assert type(a) == type(b)
         check(', '.join(['a']), 'a')
+        raises(TypeError, ','.join, [b'a']) 
 
     def test_contains(self):
         assert '' in 'abc'
