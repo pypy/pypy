@@ -517,16 +517,16 @@ class W_TypeObject(W_Object):
                 space.isinstance_w(w_self.getdictvalue(space, '__module__'),
                                                space.w_unicode)):
                 return w_self.getdictvalue(space, '__module__')
-            return space.wrap('__builtin__')
+            return space.wrap('builtins')
 
     def get_module_type_name(w_self):
         space = w_self.space
         w_mod = w_self.get_module()
         if not space.isinstance_w(w_mod, space.w_str):
-            mod = '__builtin__'
+            mod = 'builtins'
         else:
             mod = space.str_w(w_mod)
-        if mod !='__builtin__':
+        if mod != 'builtins':
             return '%s.%s' % (mod, w_self.name)
         else:
             return w_self.name
@@ -884,7 +884,7 @@ def repr__Type(space, w_obj):
         kind = 'type'
     else:
         kind = 'class'
-    if mod is not None and mod !='__builtin__':
+    if mod is not None and mod !='builtins':
         return space.wrap("<%s '%s.%s'>" % (kind, mod, w_obj.name))
     else:
         return space.wrap("<%s '%s'>" % (kind, w_obj.name))
