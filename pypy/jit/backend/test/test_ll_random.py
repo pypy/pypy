@@ -306,11 +306,9 @@ class SetFieldOperation(GetFieldOperation):
                 break
         builder.do(self.opnum, [v, w], descr)
 
-class SetInteriorFieldOperation(GetFieldOperation):
+class SetInteriorFieldOperation(GetInteriorFieldOperation):
     def produce_into(self, builder, r):
-        import pdb
-        pdb.set_trace()
-        v, descr, TYPE = self.field_descr(builder, r)
+        v, v_index, descr, TYPE = self.field_descr(builder, r)
         while True:
             if r.random() < 0.3:
                 w = ConstInt(r.random_integer())
@@ -318,7 +316,7 @@ class SetInteriorFieldOperation(GetFieldOperation):
                 w = r.choice(builder.intvars)
             if rffi.cast(lltype.Signed, rffi.cast(TYPE, w.value)) == w.value:
                 break
-        builder.do(self.opnum, [v, w], descr)
+        builder.do(self.opnum, [v, v_index, w], descr)
 
 class NewOperation(test_random.AbstractOperation):
     def size_descr(self, builder, S):
@@ -657,7 +655,7 @@ for i in range(4):      # make more common
     OPERATIONS.append(GetFieldOperation(rop.GETFIELD_GC))
     OPERATIONS.append(GetInteriorFieldOperation(rop.GETINTERIORFIELD_GC))
     OPERATIONS.append(SetFieldOperation(rop.SETFIELD_GC))
-    #OPERATIONS.append(SetInteriorFieldOperation(rop.SETINTERIORFIELD_GC))
+    OPERATIONS.append(SetInteriorFieldOperation(rop.SETINTERIORFIELD_GC))
     OPERATIONS.append(NewOperation(rop.NEW))
     OPERATIONS.append(NewOperation(rop.NEW_WITH_VTABLE))
 
