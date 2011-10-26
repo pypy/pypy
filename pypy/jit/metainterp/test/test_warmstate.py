@@ -151,29 +151,6 @@ def test_make_jitcell_getter_custom():
     assert get_jitcell(False, 42, 0.25) is cell4
     assert cell1 is not cell3 is not cell4 is not cell1
 
-def test_make_set_future_values():
-    future_values = {}
-    class FakeCPU:
-        def set_future_value_int(self, j, value):
-            future_values[j] = "int", value
-        def set_future_value_float(self, j, value):
-            future_values[j] = "float", value
-    class FakeWarmRunnerDesc:
-        cpu = FakeCPU()
-        memory_manager = None
-    class FakeJitDriverSD:
-        _red_args_types = ["int", "float"]
-        virtualizable_info = None
-    #
-    state = WarmEnterState(FakeWarmRunnerDesc(), FakeJitDriverSD())
-    set_future_values = state.make_set_future_values()
-    set_future_values(5, 42.5)
-    assert future_values == {
-        0: ("int", 5),
-        1: ("float", longlong.getfloatstorage(42.5)),
-    }
-    assert set_future_values is state.make_set_future_values()
-
 def test_make_unwrap_greenkey():
     class FakeJitDriverSD:
         _green_args_spec = [lltype.Signed, lltype.Float]
