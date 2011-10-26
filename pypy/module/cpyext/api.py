@@ -392,6 +392,7 @@ def build_exported_objects():
         'Slice': 'space.gettypeobject(W_SliceObject.typedef)',
         'StaticMethod': 'space.gettypeobject(StaticMethod.typedef)',
         'CFunction': 'space.gettypeobject(cpyext.methodobject.W_PyCFunctionObject.typedef)',
+        'WrapperDescr': 'space.gettypeobject(cpyext.methodobject.W_PyCMethodObject.typedef)'
         }.items():
         GLOBALS['Py%s_Type#' % (cpyname, )] = ('PyTypeObject*', pypyexpr)
 
