@@ -1079,14 +1079,18 @@ class ASTBuilder(object):
                 # UnicodeError in literal: turn into SyntaxError
                 self.error(e.errorstr(space), atom_node)
                 sub_strings_w = [] # please annotator
-            # This implements implicit string concatenation.
-            if len(sub_strings_w) > 1:
-                w_sub_strings = space.newlist(sub_strings_w)
-                w_join = space.getattr(space.wrap(""), space.wrap("join"))
-                final_string = space.call_function(w_join, w_sub_strings)
-            else:
-                final_string = sub_strings_w[0]
-            return ast.Str(final_string, atom_node.lineno, atom_node.column)
+            # Implement implicit string concatenation.
+            w_string = sub_strings_w[0]
+            for i in range(1, len(sub_strings_w)):
+                try:
+                    w_string = space.add(w_string, sub_strings_w[i])
+                except error.OperationError, e:
+                    if not e.match(space, space.w_TypeError):
+                        raise
+                    self.error("cannot mix bytes and nonbytes literals",
+                              atom_node)
+                # UnicodeError in literal: turn into SyntaxError
+            return ast.Str(w_string, atom_node.lineno, atom_node.column)
         elif first_child_type == tokens.NUMBER:
             num_value = self.parse_number(first_child.value)
             return ast.Num(num_value, atom_node.lineno, atom_node.column)

@@ -1026,6 +1026,10 @@ class TestAstBuilder:
         s = self.get_first_expr("'hi' ' implicitly' ' extra'")
         assert isinstance(s, ast.Str)
         assert space.eq_w(s.s, space.wrap("hi implicitly extra"))
+        s = self.get_first_expr("b'hi' b' implicitly' b' extra'")
+        assert isinstance(s, ast.Str)
+        assert space.eq_w(s.s, space.wrapbytes("hi implicitly extra"))
+        raises(SyntaxError, self.get_first_expr, "b'hello' 'world'")
         sentence = u"Die Männer ärgen sich!"
         source = u"# coding: utf-7\nstuff = u'%s'" % (sentence,)
         info = pyparse.CompileInfo("<test>", "exec")
