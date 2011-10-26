@@ -5,7 +5,7 @@ It should not be imported by the module itself
 
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
 from pypy.module.micronumpy.interp_dtype import W_Float64Dtype
-from pypy.module.micronumpy.interp_numarray import Scalar, SingleDimArray, BaseArray
+from pypy.module.micronumpy.interp_numarray import Scalar, NDimArray, BaseArray
 from pypy.rlib.objectmodel import specialize
 
 
@@ -13,7 +13,7 @@ class BogusBytecode(Exception):
     pass
 
 def create_array(dtype, size):
-    a = SingleDimArray(size, dtype=dtype)
+    a = NDimArray(size, dtype=dtype)
     for i in range(size):
         dtype.setitem(a.storage, i, dtype.box(float(i % 10)))
     return a

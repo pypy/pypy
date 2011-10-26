@@ -9,7 +9,7 @@ FLOAT_SIZE = rffi.sizeof(lltype.Float)
 
 @unwrap_spec(s=str)
 def fromstring(space, s):
-    from pypy.module.micronumpy.interp_numarray import SingleDimArray
+    from pypy.module.micronumpy.interp_numarray import NDimArray
     length = len(s)
 
     if length % FLOAT_SIZE == 0:
@@ -19,7 +19,7 @@ def fromstring(space, s):
             "string length %d not divisable by %d" % (length, FLOAT_SIZE)))
 
     dtype = space.fromcache(W_Float64Dtype)
-    a = SingleDimArray(number, dtype=dtype)
+    a = NDimArray(number, dtype=dtype)
 
     start = 0
     end = FLOAT_SIZE

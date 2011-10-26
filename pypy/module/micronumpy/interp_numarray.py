@@ -46,7 +46,7 @@ class BaseArray(Wrappable):
         dtype = space.interp_w(interp_dtype.W_Dtype,
             space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
         )
-        arr = SingleDimArray(len(l), dtype=dtype)
+        arr = NDimArray(len(l), [len(l)], dtype=dtype)
         i = 0
         for w_elem in l:
             dtype.setitem_w(space, arr.storage, i, w_elem)
@@ -348,7 +348,7 @@ class VirtualArray(BaseArray):
         i = 0
         signature = self.signature
         result_size = self.find_size()
-        result = SingleDimArray(result_size, self.find_dtype())
+        result = NDimArray(result_size, [result_size], self.find_dtype())
         while i < result_size:
             numpy_driver.jit_merge_point(signature=signature,
                                          result_size=result_size, i=i,
@@ -468,6 +468,7 @@ class ViewArray(BaseArray):
         raise NotImplementedError
 
     def descr_len(self, space):
+        # XXX find shape first
         return space.wrap(self.find_size())
 
     def calc_index(self, item):
@@ -510,10 +511,11 @@ class SingleDimSlice(ViewArray):
         return (self.start + item * self.step)
 
 
-class SingleDimArray(BaseArray):
-    def __init__(self, size, dtype):
+class NDimArray(BaseArray):
+    def __init__(self, size, shape, dtype):
         BaseArray.__init__(self)
         self.size = size
+        self.shape = shape
         self.dtype = dtype
         self.storage = dtype.malloc(size)
         self.signature = dtype.signature
@@ -534,7 +536,7 @@ class SingleDimArray(BaseArray):
         return self.dtype.getitem(self.storage, i)
 
     def descr_len(self, space):
-        return space.wrap(self.size)
+        return space.wrap(self.shape[0])
 
     def setitem_w(self, space, item, w_value):
         self.invalidated()
@@ -550,12 +552,21 @@ class SingleDimArray(BaseArray):
     def __del__(self):
         lltype.free(self.storage, flavor='raw', track_allocation=False)
 
-@unwrap_spec(size=int)
-def zeros(space, size, w_dtype=None):
+def zeros(space, w_size, w_dtype=None):
     dtype = space.interp_w(interp_dtype.W_Dtype,
         space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
     )
-    return space.wrap(SingleDimArray(size, dtype=dtype))
+    if space.isinstance_w(w_size, space.w_int):
+        size = space.int_w(w_size)
+        shape = [size]
+    else:
+        size = 1
+        shape = []
+        for w_item in space.fixedview(w_size):
+            item = space.int_w(w_item)
+            size *= item
+            shape.append(item)
+    return space.wrap(NDimArray(size, shape, dtype=dtype))
 
 @unwrap_spec(size=int)
 def ones(space, size, w_dtype=None):
@@ -563,7 +574,7 @@ def ones(space, size, w_dtype=None):
         space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
     )
 
-    arr = SingleDimArray(size, dtype=dtype)
+    arr = NDimArray(size, [size], dtype=dtype)
     one = dtype.adapt_val(1)
     for i in xrange(size):
         arr.dtype.setitem(arr.storage, i, one)

@@ -599,6 +599,11 @@ class AppTestNumArray(BaseNumpyAppTest):
             for i in xrange(5):
                 assert c[i] == func(b[i], 3)
 
+class AppTestMultiDim(BaseNumpyAppTest):
+    def test_init(self):
+        import numpy
+        a = numpy.zeros((2, 2))
+        assert len(a) == 2
 
 class AppTestSupport(object):
     def setup_class(cls):
