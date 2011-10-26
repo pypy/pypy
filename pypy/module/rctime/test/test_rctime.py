@@ -21,7 +21,8 @@ class AppTestRCTime:
         import os
         raises(TypeError, rctime.sleep, "foo")
         rctime.sleep(1.2345)
-        
+        raises(IOError, rctime.sleep, -1.0)
+
     def test_clock(self):
         import time as rctime
         rctime.clock()
