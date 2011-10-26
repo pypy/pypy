@@ -89,6 +89,12 @@ class TestW_StringObject:
 
 class AppTestStringObject:
 
+    def test_constructor(self):
+        assert bytes() == b''
+        assert bytes(3) == b'\0\0\0'
+        assert bytes(b'abc') == b'abc'
+        assert bytes('abc', 'ascii') == b'abc'
+
     def test_format(self):
         import operator
         raises(TypeError, operator.mod, b"%s", (1,))
@@ -627,7 +633,8 @@ class AppTestStringObject:
         assert b'a' in b'abc'
         assert b'ab' in b'abc'
         assert not b'd' in b'abc'
-        raises(TypeError, b'a'.__contains__, 1)
+        assert 97 in b'a'
+        raises(TypeError, b'a'.__contains__, 1.0)
 
     def test_decode(self):
         assert b'hello'.decode('ascii') == 'hello'

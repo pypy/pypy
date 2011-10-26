@@ -271,7 +271,36 @@ def getbytevalue(space, w_value):
             "byte must be in range(0, 256)"))
     return chr(value)
 
-def makebytesdata_w(space, w_source):
+def makebytesdata_w(space, w_source, encoding=None, errors=None):
+    # None value
+    if w_source is None:
+        if encoding is not None or errors is not None:
+            raise OperationError(space.w_TypeError, space.wrap(
+                    "encoding or errors without string argument"))
+        return []
+    # Is it an int?
+    try:
+        count = space.int_w(w_source)
+    except OperationError, e:
+        if not e.match(space, space.w_TypeError):
+            raise
+    else:
+        if count < 0:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap("negative count"))
+        if encoding is not None or errors is not None:
+            raise OperationError(space.w_TypeError, space.wrap(
+                    "encoding or errors without string argument"))
+        return ['\0'] * count
+    # Unicode with encoding
+    if space.isinstance_w(w_source, space.w_unicode):
+        if encoding is None:
+            raise OperationError(space.w_TypeError, space.wrap(
+                    "string argument without an encoding"))
+        from pypy.objspace.std.unicodetype import encode_object
+        w_source = encode_object(space, w_source, encoding, errors)
+        # and continue with the encoded string
+
     # String-like argument
     try:
         string = space.bufferstr_new_w(w_source)
@@ -295,11 +324,13 @@ def makebytesdata_w(space, w_source):
         data.append(value)
     return data
 
-def descr__new__(space, w_stringtype, w_source=gateway.NoneNotWrapped):
+@gateway.unwrap_spec(encoding='str_or_None', errors='str_or_None')
+def descr__new__(space, w_stringtype, w_source=gateway.NoneNotWrapped,
+                 encoding=None, errors=None):
     if (w_source and space.is_w(space.type(w_source), space.w_bytes) and
         space.is_w(w_stringtype, space.w_bytes)):
         return w_source
-    value = ''.join(makebytesdata_w(space, w_source))
+    value = ''.join(makebytesdata_w(space, w_source, encoding, errors))
     if space.config.objspace.std.withrope:
         from pypy.objspace.std.ropeobject import rope, W_RopeObject
         w_obj = space.allocate_instance(W_RopeObject, w_stringtype)

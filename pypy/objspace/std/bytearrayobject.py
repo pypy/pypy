@@ -39,49 +39,6 @@ class W_BytearrayObject(W_Object):
 
 registerimplementation(W_BytearrayObject)
 
-init_signature = Signature(['source', 'encoding', 'errors'], None, None)
-init_defaults = [None, None, None]
-
-def init__Bytearray(space, w_bytearray, __args__):
-    # this is on the silly side
-    w_source, w_encoding, w_errors = __args__.parse_obj(
-            None, 'bytearray', init_signature, init_defaults)
-
-    if w_source is None:
-        w_source = space.wrap('')
-    if w_encoding is None:
-        w_encoding = space.w_None
-    if w_errors is None:
-        w_errors = space.w_None
-
-    # Unicode argument
-    if not space.is_w(w_encoding, space.w_None):
-        from pypy.objspace.std.unicodetype import (
-            _get_encoding_and_errors, encode_object
-        )
-        encoding, errors = _get_encoding_and_errors(space, w_encoding, w_errors)
-
-        # if w_source is an integer this correctly raises a TypeError
-        # the CPython error message is: "encoding or errors without a string argument"
-        # ours is: "expected unicode, got int object"
-        w_source = encode_object(space, w_source, encoding, errors)
-
-    # Is it an int?
-    try:
-        count = space.int_w(w_source)
-    except OperationError, e:
-        if not e.match(space, space.w_TypeError):
-            raise
-    else:
-        if count < 0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("bytearray negative count"))
-        w_bytearray.data = ['\0'] * count
-        return
-
-    data = makebytesdata_w(space, w_source)
-    w_bytearray.data = data
-
 def len__Bytearray(space, w_bytearray):
     result = len(w_bytearray.data)
     return wrapint(space, result)

@@ -14,6 +14,7 @@ from pypy.objspace.std.stringtype import (
     str_expandtabs, str_ljust, str_rjust, str_center, str_zfill,
     str_join, str_split, str_rsplit, str_partition, str_rpartition,
     str_splitlines, str_translate)
+from pypy.objspace.std.stringtype import makebytesdata_w
 from pypy.objspace.std.listtype import (
     list_append, list_extend)
 
@@ -60,6 +61,12 @@ def new_bytearray(space, w_bytearraytype, data):
 
 def descr__new__(space, w_bytearraytype, __args__):
     return new_bytearray(space,w_bytearraytype, [])
+
+@gateway.unwrap_spec(encoding='str_or_None', errors='str_or_None')
+def descr__init__(space, w_bytearray, w_source=gateway.NoneNotWrapped,
+                  encoding=None, errors=None):
+    data = makebytesdata_w(space, w_source, encoding, errors)
+    w_bytearray.data = data
 
 
 def descr_bytearray__reduce__(space, w_self):
@@ -125,6 +132,7 @@ bytearray(sequence) -> bytearray initialized from sequence\'s items
 
 If the argument is a bytearray, the return value is the same object.''',
     __new__ = gateway.interp2app(descr__new__),
+    __init__ = gateway.interp2app(descr__init__),
     __hash__ = None,
     __reduce__ = gateway.interp2app(descr_bytearray__reduce__),
     fromhex = gateway.interp2app(descr_fromhex, as_classmethod=True)
