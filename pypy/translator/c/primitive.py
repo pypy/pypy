@@ -144,13 +144,18 @@ def name_gcref(value, db):
         obj = value._obj
         if isinstance(obj, int):
             # a tagged pointer
-            assert obj & 1 == 1
-            return '((%s) %d)' % (cdecl("void*", ''), obj)
+            return _name_tagged(obj, db)
         realobj = obj.container
+        if isinstance(realobj, int):
+            return _name_tagged(realobj, db)
         realvalue = cast_opaque_ptr(Ptr(typeOf(realobj)), value)
         return db.get(realvalue)
     else:
         return 'NULL'
+
+def _name_tagged(obj, db):
+    assert obj & 1 == 1
+    return '((%s) %d)' % (cdecl("void*", ''), obj)
 
 def name_small_integer(value, db):
     """Works for integers of size at most INT or UINT."""
