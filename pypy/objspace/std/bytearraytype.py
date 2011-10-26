@@ -63,10 +63,12 @@ def descr__new__(space, w_bytearraytype, __args__):
     return new_bytearray(space,w_bytearraytype, [])
 
 @gateway.unwrap_spec(encoding='str_or_None', errors='str_or_None')
-def descr__init__(space, w_bytearray, w_source=gateway.NoneNotWrapped,
+def descr__init__(space, w_self, w_source=gateway.NoneNotWrapped,
                   encoding=None, errors=None):
+    from pypy.objspace.std.bytearrayobject import W_BytearrayObject
+    assert isinstance(w_self, W_BytearrayObject)
     data = makebytesdata_w(space, w_source, encoding, errors)
-    w_bytearray.data = data
+    w_self.data = data
 
 
 def descr_bytearray__reduce__(space, w_self):
