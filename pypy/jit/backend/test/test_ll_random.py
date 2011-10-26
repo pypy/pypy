@@ -34,8 +34,8 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
             v, S = from_[i][:2]
             if not isinstance(S, type):
                 continue
-            if (isinstance(S, lltype.Array) and
-                isinstance(S.OF, lltype.Struct) == array_of_structs):
+            if ((isinstance(S, lltype.Array) and
+                 isinstance(S.OF, lltype.Struct)) == array_of_structs):
                 ptrvars.append((v, S))
         return ptrvars
 
@@ -270,10 +270,7 @@ class GetInteriorFieldOperation(test_random.AbstractOperation):
                                          array_of_structs=True)
         array = v.getref(lltype.Ptr(A))
         v_index = builder.get_index(len(array), r)
-        names = A.OF._names
-        if names[0] == 'parent':
-            names = names[1:]
-        name = r.choice(names)
+        name = r.choice(A.OF._names)
         descr = builder.cpu.interiorfielddescrof(A, name)
         descr._random_info = 'cpu.interiorfielddescrof(%s, %r)' % (A.OF._name,
                                                                    name)
