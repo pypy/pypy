@@ -246,8 +246,8 @@ if sys.platform != 'win32':
     @unwrap_spec(secs=float)
     def sleep(space, secs):
         if secs < 0:
-            raise space.OperationError(space.w_IOError,
-                                       space.wrap("Invalid argument: negative time in sleep"))
+            raise OperationError(space.w_IOError,
+                                 space.wrap("Invalid argument: negative time in sleep"))
         pytime.sleep(secs)
 else:
     from pypy.rlib import rwin32
@@ -269,8 +269,8 @@ else:
     @unwrap_spec(secs=float)
     def sleep(space, secs):
         if secs < 0:
-            raise space.OperationError(space.w_IOError,
-                                       space.wrap("Invalid argument: negative time in sleep"))
+            raise OperationError(space.w_IOError,
+                                 space.wrap("Invalid argument: negative time in sleep"))
         # as decreed by Guido, only the main thread can be
         # interrupted.
         main_thread = space.fromcache(State).main_thread
