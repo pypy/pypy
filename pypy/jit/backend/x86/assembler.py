@@ -1613,7 +1613,10 @@ class Assembler386(object):
     def genop_discard_setinteriorfield_gc(self, op, arglocs):
         base_loc, ofs_loc, itemsize_loc, fieldsize_loc, index_loc, value_loc = arglocs
         # XXX should not use IMUL in most cases
-        self.mc.IMUL(index_loc, itemsize_loc)
+        if isinstance(index_loc, ImmedLoc):
+            index_loc = imm(index_loc.value * itemsize_loc.value)
+        else:
+            self.mc.IMUL(index_loc, itemsize_loc)
         dest_addr = AddressLoc(base_loc, index_loc, 0, ofs_loc.value)
         self.save_into_mem(dest_addr, value_loc, fieldsize_loc)
 

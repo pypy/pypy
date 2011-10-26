@@ -1042,14 +1042,18 @@ class RegAlloc(object):
         t = self._unpack_interiorfielddescr(op.getdescr())
         ofs, itemsize, fieldsize, _ = t
         args = op.getarglist()
-        tmpvar = TempBox()
+        if fieldsize.value == 1:
+            need_lower_byte = True
+        else:
+            need_lower_byte = False
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        index_loc = self.rm.force_result_in_reg(tmpvar, op.getarg(1),
-                                                args)
+        tempvar = TempBox()
+        index_loc = self.rm.force_result_in_reg(tempvar, op.getarg(1), args)
         # we're free to modify index now
-        value_loc = self.make_sure_var_in_reg(op.getarg(2), args)
+        value_loc = self.make_sure_var_in_reg(op.getarg(2), args,
+                                              need_lower_byte=need_lower_byte)
+        self.rm.possibly_free_var(tempvar)
         self.possibly_free_vars(args)
-        self.rm.possibly_free_var(tmpvar)
         self.PerformDiscard(op, [base_loc, ofs, itemsize, fieldsize,
                                  index_loc, value_loc])
 

@@ -102,7 +102,6 @@ class W_TypeObject(W_Object):
                           'instancetypedef',
                           'terminator',
                           '_version_tag?',
-                          'interplevel_cls',
                           ]
 
     # for config.objspace.std.getattributeshortcut
@@ -116,9 +115,6 @@ class W_TypeObject(W_Object):
     # != 'type', in that case call__Type will also assumes the result
     # of the __new__ is an instance of the type
     w_bltin_new = None
-
-    interplevel_cls = None # not None for prebuilt instances of
-                           # interpreter-level types
 
     @dont_look_inside
     def __init__(w_self, space, name, bases_w, dict_w,
