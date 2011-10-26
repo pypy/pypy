@@ -105,16 +105,13 @@ def descr__reduce_ex__(space, w_obj, proto=0):
     w_st_reduce = space.wrap('__reduce__')
     w_reduce = space.findattr(w_obj, w_st_reduce)
     if w_reduce is not None:
-        w_cls = space.getattr(w_obj, space.wrap('__class__'))
-        w_cls_reduce_meth = space.getattr(w_cls, w_st_reduce)
-        w_cls_reduce = space.getattr(w_cls_reduce_meth, space.wrap('im_func'))
-        w_objtype = space.w_object
-        w_obj_dict = space.getattr(w_objtype, space.wrap('__dict__'))
-        w_obj_reduce = space.getitem(w_obj_dict, w_st_reduce)
+        # Check if __reduce__ has been overridden:
+        # "type(obj).__reduce__ is not object.__reduce__"
+        w_cls_reduce = space.getattr(space.type(w_obj), w_st_reduce)
+        w_obj_reduce = space.getattr(space.w_object, w_st_reduce)
         override = not space.is_w(w_cls_reduce, w_obj_reduce)
-        # print 'OVR', override, w_cls_reduce, w_obj_reduce
         if override:
-            return space.call(w_reduce, space.newtuple([]))
+            return space.call_function(w_reduce)
     return descr__reduce__(space, w_obj, proto)
 
 def descr___format__(space, w_obj, w_format_spec):
