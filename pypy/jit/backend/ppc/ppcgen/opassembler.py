@@ -222,9 +222,15 @@ class OpAssembler(object):
         offset = locs[2]
         if offset is not None:
             if offset.is_imm():
-                self.mc.lwz(r.r0.value, locs[0].value, offset.value)
+                if IS_PPC_32:
+                    self.mc.lwz(r.r0.value, locs[0].value, offset.value)
+                else:
+                    self.mc.ld(r.r0.value, locs[0].value, offset.value)
             else:
-                self.mc.lwzx(r.r0.value, locs[0].value, offset.value)
+                if IS_PPC_32:
+                    self.mc.lwzx(r.r0.value, locs[0].value, offset.value)
+                else:
+                    self.mc.ldx(r.r0.value, locs[0].value, offset.value)
             self.mc.cmp(r.r0.value, locs[1].value)
         else:
             assert 0, "not implemented yet"
@@ -310,12 +316,13 @@ class OpAssembler(object):
         else:
             assert 0, "size not supported"
 
-    # XXX 64 bit adjustment
     def emit_arraylen_gc(self, op, arglocs, regalloc):
         res, base_loc, ofs = arglocs
-        self.mc.lwz(res.value, base_loc.value, ofs.value)
+        if IS_PPC_32:
+            self.mc.lwz(res.value, base_loc.value, ofs.value)
+        else:
+            self.mc.ld(res.value, base_loc.value, ofs.value)
 
-    # XXX 64 bit adjustment
     def emit_setarrayitem_gc(self, op, arglocs, regalloc):
         value_loc, base_loc, ofs_loc, scale, ofs = arglocs
         if scale.value > 0:
@@ -330,7 +337,7 @@ class OpAssembler(object):
             scale_loc = r.r0
 
         if scale.value == 3:
-            assert 0, "not implemented yet"
+            self.mc.stdx(value_loc.value, base_loc.value, scale_loc.value)
         elif scale.value == 2:
             self.mc.stwx(value_loc.value, base_loc.value, scale_loc.value)
         elif scale.value == 1:
@@ -340,7 +347,6 @@ class OpAssembler(object):
         else:
             assert 0, "scale %s not supported" % (scale.value)
 
-    # XXX 64 bit adjustment
     def emit_getarrayitem_gc(self, op, arglocs, regalloc):
         res, base_loc, ofs_loc, scale, ofs = arglocs
         if scale.value > 0:
@@ -354,7 +360,7 @@ class OpAssembler(object):
             scale_loc = r.r0
 
         if scale.value == 3:
-            assert 0, "not implemented yet"
+            self.mc.ldx(res.value, base_loc.value, scale_loc.value)
         elif scale.value == 2:
             self.mc.lwzx(res.value, base_loc.value, scale_loc.value)
         elif scale.value == 1:
@@ -371,13 +377,18 @@ class OpAssembler(object):
             signed = descr.is_item_signed()
             self._ensure_result_bit_extension(res, size, signed)
 
-    # XXX 64 bit adjustment needed
     def emit_strlen(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
         if l1.is_imm():
-            self.mc.lwz(res.value, l0.value, l1.getint())
+            if IS_PPC_32:
+                self.mc.lwz(res.value, l0.value, l1.getint())
+            else:
+                self.mc.ld(res.value, l0.value, l1.getint())
         else:
-            self.mc.lwzx(res.value, l0.value, l1.value)
+            if IS_PPC_32:
+                self.mc.lwzx(res.value, l0.value, l1.value)
+            else:
+                self.mc.ldx(res.value, l0.value, l1.value)
 
     def emit_strgetitem(self, op, arglocs, regalloc):
         res, base_loc, ofs_loc, basesize = arglocs
