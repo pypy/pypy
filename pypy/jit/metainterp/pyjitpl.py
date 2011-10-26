@@ -1980,15 +1980,37 @@ class MetaInterp(object):
             else: assert 0
         return ints[:], refs[:], floats[:]
 
-    def raise_continue_running_normally(self, live_arg_boxes):
+    def raise_continue_running_normally(self, live_arg_boxes, loop_token):
         self.history.inputargs = None
         self.history.operations = None
+        # For simplicity, we just raise ContinueRunningNormally here and
+        # ignore the loop_token passed in.  It means that we go back to
+        # interpreted mode, but it should come back very quickly to the
+        # JIT, find probably the same 'loop_token', and execute it.
+        if we_are_translated():
+            num_green_args = self.jitdriver_sd.num_green_args
+            gi, gr, gf = self._unpack_boxes(live_arg_boxes, 0, num_green_args)
+            ri, rr, rf = self._unpack_boxes(live_arg_boxes, num_green_args,
+                                            len(live_arg_boxes))
+            CRN = self.staticdata.ContinueRunningNormally
+            raise CRN(gi, gr, gf, ri, rr, rf)
+        else:
+            # However, in order to keep the existing tests working
+            # (which are based on the assumption that 'loop_token' is
+            # directly used here), a bit of custom non-translatable code...
+            self._nontranslated_run_directly(live_arg_boxes, loop_token)
+            assert 0, "unreachable"
+
+    def _nontranslated_run_directly(self, live_arg_boxes, loop_token):
+        "NOT_RPYTHON"
+        args = []
         num_green_args = self.jitdriver_sd.num_green_args
-        gi, gr, gf = self._unpack_boxes(live_arg_boxes, 0, num_green_args)
-        ri, rr, rf = self._unpack_boxes(live_arg_boxes, num_green_args,
-                                        len(live_arg_boxes))
-        CRN = self.staticdata.ContinueRunningNormally
-        raise CRN(gi, gr, gf, ri, rr, rf)
+        for box in live_arg_boxes[num_green_args:]:
+            if   box.type == history.INT: args.append(box.getint())
+            elif box.type == history.REF: args.append(box.getref_base())
+            elif box.type == history.FLOAT: args.append(box.getfloatstorage())
+            else: assert 0
+        self.jitdriver_sd.warmstate.execute_assembler(loop_token, *args)
 
     def prepare_resume_from_failure(self, opnum, dont_change_position=False):
         frame = self.framestack[-1]
@@ -2051,7 +2073,7 @@ class MetaInterp(object):
                                               greenkey, start, start_resumedescr)
         if loop_token is not None: # raise if it *worked* correctly
             self.set_compiled_merge_points(greenkey, old_loop_tokens)
-            self.raise_continue_running_normally(live_arg_boxes)
+            self.raise_continue_running_normally(live_arg_boxes, loop_token)
 
         self.history.inputargs = original_inputargs
         self.history.operations.pop()     # remove the JUMP
@@ -2072,7 +2094,8 @@ class MetaInterp(object):
         finally:
             self.history.operations.pop()     # remove the JUMP
         if target_loop_token is not None: # raise if it *worked* correctly
-            self.raise_continue_running_normally(live_arg_boxes)
+            self.raise_continue_running_normally(live_arg_boxes,
+                                                 target_loop_token)
 
     def compile_bridge_and_loop(self, original_boxes, live_arg_boxes, start,
                                 bridge_arg_boxes, start_resumedescr):
@@ -2108,7 +2131,8 @@ class MetaInterp(object):
         except RetraceLoop:
             assert False
         assert target_loop_token is not None
-        self.raise_continue_running_normally(live_arg_boxes)
+        self.raise_continue_running_normally(live_arg_boxes,
+                                             old_loop_tokens[0])
 
     def compile_done_with_this_frame(self, exitbox):
         self.gen_store_back_in_virtualizable()
