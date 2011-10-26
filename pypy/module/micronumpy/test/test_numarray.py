@@ -605,6 +605,14 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = numpy.zeros((2, 2))
         assert len(a) == 2
 
+    def test_shape(self):
+        import numpy
+        assert numpy.zeros(1).shape == (1,)
+        assert numpy.zeros((2, 2)).shape == (2,2)
+        assert numpy.zeros((3, 1, 2)).shape == (3, 1, 2)
+        assert len(numpy.zeros((3, 1, 2))) == 3
+        
+
 class AppTestSupport(object):
     def setup_class(cls):
         import struct

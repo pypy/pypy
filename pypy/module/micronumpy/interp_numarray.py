@@ -199,7 +199,7 @@ class BaseArray(Wrappable):
         return space.wrap(self.find_dtype())
 
     def descr_get_shape(self, space):
-        return space.newtuple([self.descr_len(space)])
+        return space.newtuple([space.wrap(i) for i in self.shape])
 
     def descr_copy(self, space):
         return space.call_function(space.gettypefor(BaseArray), self, self.find_dtype())
