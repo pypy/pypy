@@ -180,3 +180,7 @@ def release_lock(space):
 def reinit_lock(space):
     if space.config.objspace.usemodules.thread:
         importing.getimportlock(space).reinit_lock()
+
+@unwrap_spec(pathname=str)
+def cache_from_source(space, pathname):
+    return space.wrap(importing.make_compiled_pathname(pathname))

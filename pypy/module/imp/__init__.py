@@ -34,6 +34,8 @@ class Module(MixedModule):
         'lock_held':       'interp_imp.lock_held',
         'acquire_lock':    'interp_imp.acquire_lock',
         'release_lock':    'interp_imp.release_lock',
+
+        'cache_from_source': 'interp_imp.cache_from_source',
         }
 
     appleveldefs = {

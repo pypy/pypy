@@ -137,7 +137,8 @@ def _setup(space):
 
 def _teardown(space, w_saved_modules):
     space.appexec([w_saved_modules], """
-        ((saved_path, saved_modules)): 
+        (path_and_modules):
+            saved_path, saved_modules = path_and_modules
             import sys
             sys.path[:] = saved_path
             sys.modules.clear()
@@ -570,6 +571,10 @@ class AppTestImport:
             pass    # ok
         else:
             assert False, 'should not work'
+
+    def test_cache_from_source(self):
+        import imp
+        assert imp.cache_from_source('a/b/c.py') == 'a/b/c.pyc'
 
 class TestAbi:
     def test_abi_tag(self):

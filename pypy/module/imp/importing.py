@@ -852,6 +852,9 @@ def exec_code_module(space, w_mod, code_w):
                       space.wrap(space.builtin))
     code_w.exec_code(space, w_dict, w_dict)
 
+def make_compiled_pathname(pathname):
+    "Given the path to a .py file, return the path to its .pyc file."
+    return pathname + 'c'
 
 @jit.dont_look_inside
 def load_source_module(space, w_modulename, w_mod, pathname, source,
@@ -863,7 +866,7 @@ def load_source_module(space, w_modulename, w_mod, pathname, source,
     w = space.wrap
 
     if space.config.objspace.usepycfiles:
-        cpathname = pathname + 'c'
+        cpathname = make_compiled_pathname(pathname)
         src_stat = os.stat(pathname)
         mtime = int(src_stat[stat.ST_MTIME])
         mode = src_stat[stat.ST_MODE]
