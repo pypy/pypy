@@ -401,9 +401,7 @@ class OpAssembler(object):
     def emit_unicodegetitem(self, op, arglocs, regalloc):
         res, base_loc, ofs_loc, scale, basesize, itemsize = arglocs
 
-        # XXX arrrrgh, why does PPC not have an SLWI instruction ?
-        self.mc.li(r.r0.value, scale.value)
-        self.mc.slw(ofs_loc.value, ofs_loc.value, r.r0.value)
+        self.mc.slwi(ofs_loc.value, ofs_loc.value, scale.value)
         self.mc.add(res.value, base_loc.value, ofs_loc.value)
 
         if scale.value == 2:
@@ -417,8 +415,7 @@ class OpAssembler(object):
     def emit_unicodesetitem(self, op, arglocs, regalloc):
         value_loc, base_loc, ofs_loc, scale, basesize, itemsize = arglocs
 
-        self.mc.li(r.r0.value, scale.value)
-        self.mc.slw(ofs_loc.value, ofs_loc.value, r.r0.value)
+        self.mc.slwi(ofs_loc.value, ofs_loc.value, scale.value)
         self.mc.add(base_loc.value, base_loc.value, ofs_loc.value)
 
         if scale.value == 2:
