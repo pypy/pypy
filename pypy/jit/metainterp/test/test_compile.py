@@ -200,19 +200,14 @@ def test_compile_tmp_callback():
                                       [BoxInt(56), ConstInt(78), BoxInt(90)])
     #
     raiseme = None
-    cpu.set_future_value_int(0, -156)
-    cpu.set_future_value_int(1, -178)
-    cpu.set_future_value_int(2, -190)     # passed in, but dropped
-    fail_descr = cpu.execute_token(loop_token)
+    # arg -190 is passed in, but dropped
+    fail_descr = cpu.execute_token(loop_token, -156, -178, -190)
     assert fail_descr is FakeJitDriverSD().portal_finishtoken
     #
     EXC = lltype.GcStruct('EXC')
     llexc = lltype.malloc(EXC)
     raiseme = LLException("exception class", llexc)
-    cpu.set_future_value_int(0, -156)
-    cpu.set_future_value_int(1, -178)
-    cpu.set_future_value_int(2, -190)
-    fail_descr = cpu.execute_token(loop_token)
+    fail_descr = cpu.execute_token(loop_token, -156, -178, -190)
     assert isinstance(fail_descr, compile.PropagateExceptionDescr)
     got = cpu.grab_exc_value()
     assert lltype.cast_opaque_ptr(lltype.Ptr(EXC), got) == llexc
@@ -221,10 +216,7 @@ def test_compile_tmp_callback():
         class ExitFrameWithExceptionRef(Exception):
             pass
     FakeMetaInterpSD.cpu = cpu
-    cpu.set_future_value_int(0, -156)
-    cpu.set_future_value_int(1, -178)
-    cpu.set_future_value_int(2, -190)
-    fail_descr = cpu.execute_token(loop_token)
+    fail_descr = cpu.execute_token(loop_token, -156, -178, -190)
     try:
         fail_descr.handle_fail(FakeMetaInterpSD(), None)
     except FakeMetaInterpSD.ExitFrameWithExceptionRef, e:
