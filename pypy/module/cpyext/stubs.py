@@ -586,10 +586,6 @@ def PyDescr_NewGetSet(space, type, getset):
 def PyDescr_NewMember(space, type, meth):
     raise NotImplementedError
 
-@cpython_api([PyTypeObjectPtr, PyMethodDef], PyObject)
-def PyDescr_NewMethod(space, type, meth):
-    raise NotImplementedError
-
 @cpython_api([PyTypeObjectPtr, wrapperbase, rffi.VOIDP], PyObject)
 def PyDescr_NewWrapper(space, type, wrapper, wrapped):
     raise NotImplementedError
@@ -608,14 +604,6 @@ def PyDescr_IsData(space, descr):
 
 @cpython_api([PyObject, PyObject], PyObject)
 def PyWrapper_New(space, w_d, w_self):
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
-def PyDictProxy_New(space, dict):
-    """Return a proxy object for a mapping which enforces read-only behavior.
-    This is normally used to create a proxy to prevent modification of the
-    dictionary for non-dynamic class types.
-    """
     raise NotImplementedError
 
 @cpython_api([PyObject, PyObject, rffi.INT_real], rffi.INT_real, error=-1)
@@ -2479,31 +2467,6 @@ def PyUnicode_AsRawUnicodeEscapeString(space, unicode):
     """Encode a Unicode object using Raw-Unicode-Escape and return the result as
     Python string object. Error handling is "strict". Return NULL if an exception
     was raised by the codec."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP], PyObject)
-def PyUnicode_DecodeLatin1(space, s, size, errors):
-    """Create a Unicode object by decoding size bytes of the Latin-1 encoded string
-    s.  Return NULL if an exception was raised by the codec.
-
-    This function used an int type for size. This might require
-    changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CWCHARP, Py_ssize_t, rffi.CCHARP], PyObject)
-def PyUnicode_EncodeLatin1(space, s, size, errors):
-    """Encode the Py_UNICODE buffer of the given size using Latin-1 and return
-    a Python string object.  Return NULL if an exception was raised by the codec.
-
-    This function used an int type for size. This might require
-    changes in your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
-def PyUnicode_AsLatin1String(space, unicode):
-    """Encode a Unicode object using Latin-1 and return the result as Python string
-    object.  Error handling is "strict".  Return NULL if an exception was raised
-    by the codec."""
     raise NotImplementedError
 
 @cpython_api([rffi.CCHARP, Py_ssize_t, PyObject, rffi.CCHARP], PyObject)
