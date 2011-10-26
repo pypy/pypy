@@ -10,7 +10,7 @@ class FakeProfiler(Profiler):
         self.counter = 123456
         Profiler.start(self)
         self.events = []
-        self.times = [0, 0, 0, 0]
+        self.times = [0, 0]
     
     def timer(self):
         self.counter += 1
@@ -23,12 +23,6 @@ class FakeProfiler(Profiler):
     def _end(self, event):
         Profiler._end(self, event)
         self.events.append(~event)
-
-    def start_running(self):   self._start(RUNNING)
-    def end_running(self):     self._end(RUNNING)
-
-    def start_blackhole(self): self._start(BLACKHOLE)
-    def end_blackhole(self):   self._end(BLACKHOLE)
 
 class ProfilerMixin(LLJitMixin):
     def meta_interp(self, *args, **kwds):
@@ -58,14 +52,10 @@ class TestProfile(ProfilerMixin):
             BACKEND,
             ~ BACKEND,
             ~ TRACING,
-            RUNNING,
-            ~ RUNNING,
-            BLACKHOLE,
-            ~ BLACKHOLE
             ]
         assert profiler.events == expected
-        assert profiler.times == [3, 2, 1, 1]
-        assert profiler.counters == [1, 2, 1, 1, 3, 3, 1, 13, 2, 0, 0, 0, 0,
+        assert profiler.times == [3, 2]
+        assert profiler.counters == [1, 2, 3, 3, 1, 13, 2, 0, 0, 0, 0,
                                      0, 0, 0, 0, 0]
 
     def test_simple_loop_with_call(self):
