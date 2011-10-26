@@ -180,8 +180,16 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
                     dic[fieldname] = getattr(p, fieldname)
         else:
             assert isinstance(S, lltype.Array)
-            for i in range(len(p)):
-                dic[i] = p[i]
+            if isinstance(S.OF, lltype.Struct):
+                for i in range(len(p)):
+                    item = p[i]
+                    s1 = {}
+                    for fieldname in S.OF._names:
+                        s1[fieldname] = getattr(item, fieldname)
+                    dic[i] = s1
+            else:
+                for i in range(len(p)):
+                    dic[i] = p[i]
         return dic
 
     def print_loop_prebuilt(self, names, writevar, s):
