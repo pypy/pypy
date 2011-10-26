@@ -504,8 +504,10 @@ class OptVirtualize(optimizer.Optimization):
             if indexbox is not None:
                 descr = op.getdescr()
                 fieldvalue = value.getinteriorfield(
-                    indexbox.getint(), descr, self.new_const(descr)
+                    indexbox.getint(), descr, None
                 )
+                if fieldvalue is None:
+                    fieldvalue = self.new_const(descr)
                 self.make_equal_to(op.result, fieldvalue)
                 return
         value.ensure_nonnull()
