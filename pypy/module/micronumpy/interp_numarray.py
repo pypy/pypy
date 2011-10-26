@@ -223,17 +223,32 @@ class BaseArray(Wrappable):
         concrete = self.get_concrete()
         return space.wrap("[" + " ".join(concrete._getnums(True)) + "]")
 
+    def item_at_index(self, index, space):
+        # we assume C ordering for now
+        item = 0
+        for i in range(len(index)):
+            if i != 0:
+                item *= self.shape[i]
+            if index[i] >= self.shape[i]:
+                raise OperationError(space.w_IndexError,
+                                     space.wrap("index (%d) out of range (0<=index<%d" % (index[i], self.shape[i])))
+            item += index[i]
+        return item
+
     def descr_getitem(self, space, w_idx):
         # TODO: indexing by arrays and lists
         if space.isinstance_w(w_idx, space.w_tuple):
+            # or any other sequence actually
             length = space.len_w(w_idx)
             if length == 0:
                 return space.wrap(self)
-            if length > 1: # only one dimension for now.
+            if length > len(self.shape):
                 raise OperationError(space.w_IndexError,
                                      space.wrap("invalid index"))
-            w_idx = space.getitem(w_idx, space.wrap(0))
-        start, stop, step, slice_length = space.decode_index4(w_idx, self.find_size())
+            indices = [space.int_w(w_item) for w_item in space.fixedview(w_idx)]
+            item = self.item_at_index(indices, space)
+            return self.get_concrete().eval(item).wrap(space)
+        start, stop, step, slice_length = space.decode_index4(w_idx, self.shape[0])
         if step == 0:
             # Single index
             return self.get_concrete().eval(start).wrap(space)
