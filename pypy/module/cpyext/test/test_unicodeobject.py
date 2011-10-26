@@ -385,6 +385,24 @@ class TestUnicode(BaseApiTest):
                     data, len(u), lltype.nullptr(rffi.CCHARP.TO))
         rffi.free_wcharp(data)
 
+    def test_latin1(self, space, api):
+        s = 'abcdefg'
+        data = rffi.str2charp(s)
+        w_u = api.PyUnicode_DecodeLatin1(data, len(s), lltype.nullptr(rffi.CCHARP.TO))
+        assert space.eq_w(w_u, space.wrap(u"abcdefg"))
+        rffi.free_charp(data)
+
+        uni = u'abcdefg'
+        data = rffi.unicode2wcharp(uni)
+        w_s = api.PyUnicode_EncodeLatin1(data, len(uni), lltype.nullptr(rffi.CCHARP.TO))
+        assert space.eq_w(space.wrap("abcdefg"), w_s)
+        rffi.free_wcharp(data)
+
+        ustr = "abcdef"
+        w_ustr = space.wrap(ustr.decode("ascii"))
+        result = api.PyUnicode_AsLatin1String(w_ustr)
+        assert space.eq_w(space.wrap(ustr), result)
+
     def test_format(self, space, api):
         w_format = space.wrap(u'hi %s')
         w_args = space.wrap((u'test',))
