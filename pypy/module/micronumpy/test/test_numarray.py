@@ -655,6 +655,8 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert b[2,1] == 0.0
         assert b[0,1] == 13
         raises(IndexError, b.__getitem__, (4, 1))
+        assert a[0][1][1] == 13
+        assert a[1][2][1] == 15
 
 class AppTestSupport(object):
     def setup_class(cls):
