@@ -630,7 +630,30 @@ class AppTestMultiDim(BaseNumpyAppTest):
         raises(IndexError, a.__getitem__, (4,))
         raises(IndexError, a.__getitem__, (3, 3))
         raises(IndexError, a.__getitem__, (slice(None), 3))
-        
+        a[0,1,1] = 13
+        a[1,2,1] = 15
+        b = a[0]
+        assert len(b) == 3
+        assert b.shape == (3, 2)
+        assert b[1,1] == 13
+        b = a[1]
+        assert b.shape == (3, 2)
+        assert b[2,1] == 15
+        b = a[:,1]
+        assert b.shape == (4, 2)
+        assert b[0,1] == 13
+        b = a[:,1,:]
+        assert b.shape == (4, 2)
+        assert b[0,1] == 13
+        b = a[1, 2]
+        assert b[1] == 15
+        b = a[:]
+        assert b.shape == (4, 3, 2)
+        assert b[1,2,1] == 15
+        assert b[0,1,1] == 13
+        b = a[:][:,1][:]
+        assert b[2,1] == 0.0
+        assert b[0,1] == 13
 
 class AppTestSupport(object):
     def setup_class(cls):

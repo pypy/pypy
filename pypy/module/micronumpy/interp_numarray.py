@@ -211,7 +211,8 @@ class BaseArray(Wrappable):
     def descr_repr(self, space):
         # Simple implementation so that we can see the array. Needs work.
         concrete = self.get_concrete()
-        res = "array([" + ", ".join(concrete._getnums(False)) + "]"
+        #res = "array([" + ", ".join(concrete._getnums(False)) + "]"
+        res = 'array()'
         dtype = concrete.find_dtype()
         if (dtype is not space.fromcache(interp_dtype.W_Float64Dtype) and
             dtype is not space.fromcache(interp_dtype.W_Int64Dtype)) or not self.find_size():
@@ -240,20 +241,29 @@ class BaseArray(Wrappable):
             item += index[i]
         return item
 
+    def len_of_shape(self):
+        return len(self.shape)
+
+    def get_root_shape(self):
+        return self.shape
+
     def _single_item_result(self, space, w_idx):
         """ The result of getitem/setitem is a single item if w_idx
         is a list of scalars that match the size of shape
         """
-        if len(self.shape) == 1:
-            if (space.isinstance_w(w_idx, space.w_slice) or
-                space.isinstance_w(w_idx, space.w_int)):
+        shape_len = self.len_of_shape()
+        if shape_len == 1:
+            if space.isinstance_w(w_idx, space.w_int):
                 return True
             return False
+        if (space.isinstance_w(w_idx, space.w_slice) or
+            space.isinstance_w(w_idx, space.w_int)):
+            return False
         lgt = space.len_w(w_idx)
-        if lgt > len(self.shape):
+        if lgt > shape_len:
             raise OperationError(space.w_IndexError,
                                  space.wrap("invalid index"))
-        if lgt < len(self.shape):
+        if lgt < shape_len:
             return False
         for w_item in space.fixedview(w_idx):
             if space.isinstance_w(w_item, space.w_slice):
@@ -266,12 +276,25 @@ class BaseArray(Wrappable):
         ])
         if (space.isinstance_w(w_idx, space.w_int) or
             space.isinstance_w(w_idx, space.w_slice)):
-            chunks = [space.decode_index4(w_idx, self.shape[0])]
+            start, stop, step, lgt = space.decode_index4(w_idx, self.shape[0])
+            if lgt == 1:
+                shape = self.shape[1:]
+            else:
+                shape = self.shape
+            chunks = [(start, stop, step, lgt)]
         else:
             chunks = []
+            shape = self.shape[:]
             for i, w_item in enumerate(space.fixedview(w_idx)):
-                chunks.append(space.decode_index4(w_item, self.shape[i]))
-        return NDimSlice(self, new_sig, chunks)
+                start, stop, step, lgt = space.decode_index4(w_item,
+                                                             self.shape[i])
+                chunks.append((start, stop, step, lgt))
+                if lgt == 1:
+                    shape[i] = -1
+                else:
+                    shape[i] = lgt
+            shape = [i for i in shape if i != -1]
+        return NDimSlice(self, new_sig, chunks, shape)
 
     def descr_getitem(self, space, w_idx):
         if self._single_item_result(space, w_idx):
@@ -481,10 +504,13 @@ class ViewArray(BaseArray):
     Class for representing views of arrays, they will reflect changes of parent
     arrays. Example: slices
     """
-    def __init__(self, parent, signature):
-        BaseArray.__init__(self)
+    def __init__(self, parent, signature, shape):
+        BaseArray.__init__(self, shape)
         self.signature = signature
         self.parent = parent
+        self.size = 1
+        for elem in shape:
+            self.size *= elem
         self.invalidates = parent.invalidates
 
     def get_concrete(self):
@@ -506,9 +532,7 @@ class ViewArray(BaseArray):
         raise NotImplementedError
 
     def descr_len(self, space):
-        xxx
-        # XXX find shape first
-        return space.wrap(self.find_size())
+        return space.wrap(self.shape[0])
 
     def calc_index(self, item):
         raise NotImplementedError
@@ -516,11 +540,13 @@ class ViewArray(BaseArray):
 class NDimSlice(ViewArray):
     signature = signature.BaseSignature()
 
-    def __init__(self, parent, signature, chunks):
-        ViewArray.__init__(self, parent, signature)
+    def __init__(self, parent, signature, chunks, shape):
+        ViewArray.__init__(self, parent, signature, shape)
         self.chunks = chunks
-        xxxx
-        self.size = slice_length
+        self.shape_reduction = 0
+        for chunk in chunks:
+            if chunk[-1] == 1:
+                self.shape_reduction += 1
 
     def get_root_storage(self):
         return self.parent.get_concrete().get_root_storage()
@@ -532,14 +558,53 @@ class NDimSlice(ViewArray):
         return self.parent.find_dtype()
 
     def setslice(self, space, start, stop, step, slice_length, arr):
+        xxx
         start = self.calc_index(start)
         if stop != -1:
             stop = self.calc_index(stop)
         step = self.step * step
         self._sliceloop(start, stop, step, arr, self.parent)
 
+    def len_of_shape(self):
+        return self.parent.len_of_shape() - self.shape_reduction
+
+    def get_root_shape(self):
+        return self.parent.get_root_shape()
+
+    # XXX we might want to provide a custom finder of where we look for
+    #     a particular item, right now we'll do the calculations again
+
     def calc_index(self, item):
-        return (self.start + item * self.step)
+        index = []
+        _item = item
+        for i in range(len(self.shape) -1, 0, -1):
+            s = self.shape[i]
+            index.append(_item % s)
+            _item //= s
+        index.append(_item)
+        index.reverse()
+        i = 0
+        item = 0
+        k = 0
+        shape = self.parent.shape
+        for chunk in self.chunks:
+            if k != 0:
+                item *= shape[k]
+            k += 1
+            start, stop, step, lgt = chunk
+            if lgt == 1:
+                # we don't consume an index
+                item += start
+            else:
+                item += start + step * index[i]
+                i += 1
+        while k < len(shape):
+            if k != 0:
+                item *= shape[k]
+            k += 1
+            item += index[i]
+            i += 1
+        return item
 
 
 class NDimArray(BaseArray):
