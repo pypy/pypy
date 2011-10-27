@@ -27,9 +27,8 @@ class LLSTMFrame(LLFrame):
         'stm_getfield', 'stm_setfield',
         'stm_commit_transaction',
         ])
-    ALLOW_WHEN_INEVITABLE_TRANSACTION = ALLOW_WHEN_REGULAR_TRANSACTION.union(
-        set([
-        ]))
+    ALLOW_WHEN_INEVITABLE_TRANSACTION = ALLOW_WHEN_REGULAR_TRANSACTION.union([
+        ])
 
     def getoperationhandler(self, opname):
         stm_mode = self.llinterpreter.stm_mode
