@@ -17,7 +17,11 @@ class STMTransformer(object):
             self.transform_block(block)
 
     def stt_getfield(self, newoperations, op):
-        op1 = SpaceOperation('stm_getfield', op.args, op.result)
+        STRUCT = op.args[0].concretetype.TO
+        if STRUCT._immutable_field(op.args[1].value):
+            op1 = op
+        else:
+            op1 = SpaceOperation('stm_getfield', op.args, op.result)
         newoperations.append(op1)
 
     def stt_setfield(self, newoperations, op):
