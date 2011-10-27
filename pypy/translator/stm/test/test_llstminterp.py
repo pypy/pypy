@@ -6,6 +6,9 @@ from pypy.translator.stm.llstminterp import ForbiddenInstructionInSTMMode
 from pypy.translator.stm.llstminterp import ReturnWithTransactionActive
 from pypy.translator.stm import rstm
 
+ALL_STM_MODES = ["not_in_transaction",
+                 "regular_transaction",
+                 "inevitable_transaction"]
 
 def test_simple():
     def func(n):
@@ -42,6 +45,18 @@ def test_stm_getfield():
     res = eval_stm_graph(interp, graph, [p], stm_mode="inevitable_transaction")
     assert res == 42
 
+def test_getfield_immutable():
+    S = lltype.GcStruct('S', ('x', lltype.Signed), hints = {'immutable': True})
+    p = lltype.malloc(S, immortal=True)
+    p.x = 42
+    def func(p):
+        return p.x
+    interp, graph = get_interpreter(func, [p])
+    # a plain 'getfield' of an immutable field works in all modes
+    for mode in ALL_STM_MODES:
+        res = eval_stm_graph(interp, graph, [p], stm_mode=mode)
+        assert res == 42
+
 def test_begin_commit_transaction():
     S = lltype.GcStruct('S', ('x', lltype.Signed))
     p = lltype.malloc(S, immortal=True)
@@ -72,6 +87,21 @@ def test_cannot_return_with_regular_transaction():
     g._dont_inline_ = True
     def func():
         g()
+        rstm.commit_transaction()
+    interp, graph = get_interpreter(func, [])
+    py.test.raises(ReturnWithTransactionActive,
+                   eval_stm_graph, interp, graph, [])
+
+def test_cannot_raise_with_regular_transaction():
+    def g():
+        rstm.begin_transaction()
+        raise ValueError
+    g._dont_inline_ = True
+    def func():
+        try:
+            g()
+        except ValueError:
+            pass
         rstm.commit_transaction()
     interp, graph = get_interpreter(func, [])
     py.test.raises(ReturnWithTransactionActive,
