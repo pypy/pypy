@@ -991,6 +991,8 @@ class BaseBackendTest(Runner):
         assert r.value == 7441
 
     def test_array_of_structs(self):
+        if not self.cpu.supports_floats:
+            py.test.skip("floats are not supported")
         TP = lltype.GcStruct('x')
         ITEM = lltype.Struct('x',
                              ('vs', lltype.Signed),
