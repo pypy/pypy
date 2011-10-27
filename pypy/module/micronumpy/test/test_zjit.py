@@ -1,12 +1,11 @@
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.module.micronumpy import interp_ufuncs, signature
-from pypy.module.micronumpy.compile import (InterpreterState, FakeSpace,
-    FloatObject, IntObject, Parser)
-from pypy.module.micronumpy.interp_dtype import W_Int32Dtype, W_Float64Dtype, W_Int64Dtype, W_UInt64Dtype
+from pypy.module.micronumpy.compile import (FakeSpace,
+    FloatObject, IntObject, numpy_compile)
 from pypy.module.micronumpy.interp_numarray import (BaseArray, SingleDimArray,
-    SingleDimSlice, scalar_w, Scalar)
+    SingleDimSlice, scalar_w)
 from pypy.rlib.nonconst import NonConstant
-from pypy.rpython.annlowlevel import llstr
+from pypy.rpython.annlowlevel import llstr, hlstr
 from pypy.rpython.test.test_llinterp import interpret
 
 import py
@@ -14,24 +13,16 @@ import py
 
 class TestNumpyJIt(LLJitMixin):
     def run(self, code):
-        # trick annotator
-        c = """
-        a = 3
-        b = [1,2] + [3,4]
-        c = a
-        """
         
         space = FakeSpace()
-        parser = Parser()
-        codes = [parser.parse(code), parser.parse(c)]
         
-        def f(i):
-            interp = InterpreterState(codes[i])
+        def f(code):
+            interp = numpy_compile(hlstr(code))
             interp.run(space)
             res = interp.results[0]
             assert isinstance(res, BaseArray)
             return interp.space.float_w(res.eval(0).wrap(interp.space))
-        return self.meta_interp(f, [0], listops=True, backendopt=True)
+        return self.meta_interp(f, [llstr(code)], listops=True, backendopt=True)
 
     def test_add(self):
         result = self.run("""
@@ -45,21 +36,14 @@ class TestNumpyJIt(LLJitMixin):
         assert result == 3 + 3
 
     def test_floatadd(self):
-        def f(i):
-            ar = SingleDimArray(i, dtype=self.float64_dtype)
-            v = interp_ufuncs.get(self.space).add.call(self.space, [
-                    ar,
-                    scalar_w(self.space, self.float64_dtype, self.space.wrap(4.5))
-                ],
-            )
-            assert isinstance(v, BaseArray)
-            return v.get_concrete().eval(3).val
-
-        result = self.meta_interp(f, [5], listops=True, backendopt=True)
+        result = self.run("""
+        a = |30| + 3
+        a -> 3
+        """)
+        assert result == 3 + 3
         self.check_loops({"getarrayitem_raw": 1, "float_add": 1,
                           "setarrayitem_raw": 1, "int_add": 1,
                           "int_lt": 1, "guard_true": 1, "jump": 1})
-        assert result == f(5)
 
     def test_sum(self):
         space = self.space

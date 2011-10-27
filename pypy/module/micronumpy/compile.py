@@ -280,17 +280,19 @@ class Parser(object):
         return stack[-1]
 
     def parse_constant(self, v):
+        lgt = len(v)-1
+        assert lgt >= 0
         if v[0] == '[':
             return ArrayConstant([self.parse_constant(elem)
-                                  for elem in v[1:-1].split(",")])
+                                  for elem in v[1:lgt].split(",")])
         if v[0] == '|':
-            return RangeConstant(v[1:-1])
+            return RangeConstant(v[1:lgt])
         return FloatConstant(v)
 
     def is_identifier_or_const(self, v):
         c = v[0]
         if ((c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or
-            (c >= '0' and c <= '9') or c in '-.['):
+            (c >= '0' and c <= '9') or c in '-.[|'):
             if v == '-' or v == "->":
                 return False
             return True
