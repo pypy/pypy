@@ -395,11 +395,7 @@ class OpenerDirector:
         meth_name = protocol+"_response"
         for processor in self.process_response.get(protocol, []):
             meth = getattr(processor, meth_name)
-            try:
-                response = meth(req, response)
-            except:
-                response.close()
-                raise
+            response = meth(req, response)
 
         return response
 

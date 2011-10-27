@@ -292,6 +292,9 @@ class MMap(object):
         elif _POSIX:
             self.closed = True
             if self.fd != -1:
+                # XXX this is buggy - raising in an RPython del is not a good
+                #     idea, we should swallow the exception or ignore the
+                #     underlaying close error code
                 os.close(self.fd)
                 self.fd = -1
             if self.size > 0:

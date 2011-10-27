@@ -1105,13 +1105,6 @@ class LLFrame(object):
         assert x & 1, "argument has to be tagged!"
         return x >> 1
 
-    def op_cast_float_to_int(self, f):
-        assert type(f) is float
-        try:
-            return ovfcheck(int(f))
-        except OverflowError:
-            self.make_llexception()
-
     def op_int_is_true(self, x):
         # special case
         if type(x) is CDefinedIntSymbolic:

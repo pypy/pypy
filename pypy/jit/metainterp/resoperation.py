@@ -1,5 +1,4 @@
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.debug import make_sure_not_resized
 
 def ResOperation(opnum, args, result, descr=None):
     cls = opclasses[opnum]
@@ -405,8 +404,8 @@ _oplist = [
     'FLOAT_TRUEDIV/2',
     'FLOAT_NEG/1',
     'FLOAT_ABS/1',
-    'CAST_FLOAT_TO_INT/1',
-    'CAST_INT_TO_FLOAT/1',
+    'CAST_FLOAT_TO_INT/1',          # don't use for unsigned ints; we would
+    'CAST_INT_TO_FLOAT/1',          # need some messy code in the backend
     'CAST_FLOAT_TO_SINGLEFLOAT/1',
     'CAST_SINGLEFLOAT_TO_FLOAT/1',
     #
@@ -440,6 +439,8 @@ _oplist = [
     #
     'PTR_EQ/2b',
     'PTR_NE/2b',
+    'INSTANCE_PTR_EQ/2b',
+    'INSTANCE_PTR_NE/2b',
     'CAST_OPAQUE_PTR/1b',
     #
     'ARRAYLEN_GC/1d',
@@ -459,6 +460,7 @@ _oplist = [
 
     'GETARRAYITEM_GC/2d',
     'GETARRAYITEM_RAW/2d',
+    'GETINTERIORFIELD_GC/2d',
     'GETFIELD_GC/1d',
     'GETFIELD_RAW/1d',
     '_MALLOC_FIRST',
@@ -475,6 +477,7 @@ _oplist = [
 
     'SETARRAYITEM_GC/3d',
     'SETARRAYITEM_RAW/3d',
+    'SETINTERIORFIELD_GC/3d',
     'SETFIELD_GC/2d',
     'SETFIELD_RAW/2d',
     'STRSETITEM/3',
