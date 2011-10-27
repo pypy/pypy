@@ -16,6 +16,42 @@ any_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self',
                                                        'dtype'])
 slice_driver = jit.JitDriver(greens=['signature'], reds=['i', 'self', 'source'])
 
+def _find_dtype(space, w_iterable):
+    stack = [w_iterable]
+    w_dtype = None
+    while stack:
+        w_next = stack.pop()
+        if space.issequence_w(w_next):
+            for w_item in space.listview(w_next):
+                stack.append(w_item)
+        else:
+            w_dtype = interp_ufuncs.find_dtype_for_scalar(space, w_item, w_dtype)
+            if w_dtype is space.fromcache(interp_dtype.W_Float64Dtype):
+                return w_dtype
+    if w_dtype is None:
+        return space.w_None
+    return w_dtype
+
+def _find_shape_and_elems(space, w_iterable):
+    shape = [space.len_w(w_iterable)]
+    batch = space.listview(w_iterable)
+    while True:
+        new_batch = []
+        if not space.issequence_w(batch[0]):
+            for elem in batch:
+                if space.issequence_w(elem):
+                    raise OperationError(space.w_ValueError, space.wrap(
+                        "setting an array element with a sequence"))
+            return shape, batch
+        size = space.len_w(batch[0])
+        for w_elem in batch:
+            if not space.issequence_w(w_elem) or space.len_w(w_elem) != size:
+                raise OperationError(space.w_ValueError, space.wrap(
+                    "setting an array element with a sequence"))
+            new_batch += space.listview(w_elem)
+        shape.append(size)
+        batch = new_batch
+
 class BaseArray(Wrappable):
     _attrs_ = ["invalidates", "signature"]
 
@@ -36,24 +72,18 @@ class BaseArray(Wrappable):
         self.invalidates.append(other)
 
     def descr__new__(space, w_subtype, w_size_or_iterable, w_dtype=None):
-        l = space.listview(w_size_or_iterable)
+        # find scalar
         if space.is_w(w_dtype, space.w_None):
-            w_dtype = None
-            for w_item in l:
-                w_dtype = interp_ufuncs.find_dtype_for_scalar(space, w_item, w_dtype)
-                if w_dtype is space.fromcache(interp_dtype.W_Float64Dtype):
-                    break
-            if w_dtype is None:
-                w_dtype = space.w_None
-
+            w_dtype = _find_dtype(space, w_size_or_iterable)
         dtype = space.interp_w(interp_dtype.W_Dtype,
             space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
         )
-        arr = NDimArray(len(l), [len(l)], dtype=dtype)
+        shape, elems_w = _find_shape_and_elems(space, w_size_or_iterable)
+        size = len(elems_w)
+        arr = NDimArray(size, shape, dtype=dtype)
         i = 0
-        for w_elem in l:
+        for i, w_elem in enumerate(elems_w):
             dtype.setitem_w(space, arr.storage, i, w_elem)
-            i += 1
         return arr
 
     def _unaryop_impl(ufunc_name):

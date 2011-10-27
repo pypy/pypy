@@ -49,6 +49,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpy import array
         a = array(range(5))
         assert a[3] == 3
+        a = array(1)
+        assert a[0] == 1
+        assert a.shape == ()
 
     def test_repr(self):
         from numpy import array, zeros
@@ -659,6 +662,17 @@ class AppTestMultiDim(BaseNumpyAppTest):
         raises(IndexError, b.__getitem__, (4, 1))
         assert a[0][1][1] == 13
         assert a[1][2][1] == 15
+
+    def test_init_2(self):
+        import numpy
+        raises(ValueError, numpy.array, [[1], 2])
+        raises(ValueError, numpy.array, [[1, 2], [3]])
+        raises(ValueError, numpy.array, [[[1, 2], [3, 4], 5]])
+        raises(ValueError, numpy.array, [[[1, 2], [3, 4], [5]]])
+        a = numpy.array([[1, 2], [4, 5]])
+        assert a[0, 1] == a[0][1] == 2
+        a = numpy.array(([[[1, 2], [3, 4], [5, 6]]]))
+        assert a[0, 1] == [3, 4]
 
     def test_setitem_slice(self):
         import numpy
