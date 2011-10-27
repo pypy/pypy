@@ -696,8 +696,8 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert (a == [[1, 2], [5, 6]]).all()
         a[:,1] = numpy.array([8, 10])
         assert (a == [[1, 8], [5, 10]]).all()
-        a[:,::-1] = numpy.array([11, 12])
-        assert (a == [[12, 11], [12, 11]]).all()
+        a[0,::-1] = numpy.array([11, 12])
+        assert (a == [[12, 11], [5, 10]]).all()
 
 class AppTestSupport(object):
     def setup_class(cls):
