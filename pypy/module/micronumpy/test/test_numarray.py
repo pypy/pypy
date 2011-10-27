@@ -699,6 +699,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a[0,::-1] = numpy.array([11, 12])
         assert (a == [[12, 11], [5, 10]]).all()
 
+    def test_ufunc(self):
+        from numpy import array
+        a = array([[1, 2], [3, 4], [5, 6]])
+        assert ((a + a) == array([[1+1, 2+2], [3+3, 4+4], [5+5, 6+6]])).all()
+
 class AppTestSupport(object):
     def setup_class(cls):
         import struct
