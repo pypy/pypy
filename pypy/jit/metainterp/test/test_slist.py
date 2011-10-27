@@ -31,7 +31,7 @@ class ListTests(object):
             lst2.append(FooBar(5))
             m += lst2.pop().z     # 49
             return m
-        res = self.interp_operations(f, [11], listops=True)
+        res = self.interp_operations(f, [11])
         assert res == 49
         self.check_operations_history(call=3)
 

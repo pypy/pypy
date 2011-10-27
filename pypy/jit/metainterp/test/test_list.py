@@ -123,7 +123,7 @@ class ListTests:
             l2 = l[:]
             return l2[0] + l2[1] + l2[2] + l2[3]
 
-        res = self.interp_operations(f, [], listops=True)
+        res = self.interp_operations(f, [])
         assert res == 10
 
     def test_arraycopy_full(self):
