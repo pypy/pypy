@@ -680,6 +680,12 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a[1] = [1, 2, 3, 4]
         assert a[1, 2] == 3
         raises(TypeError, a[1].__setitem__, [1, 2, 3])
+        a = numpy.array([[1, 2], [3, 4]])
+        assert a == [[1, 2], [3, 4]]
+        a[1] = numpy.array([5, 6])
+        assert a == [[1, 2], [5, 6]]
+        a[:,1] = numpy.array([8, 10])
+        assert a == [[1, 8], [5, 10]]
 
 class AppTestSupport(object):
     def setup_class(cls):
