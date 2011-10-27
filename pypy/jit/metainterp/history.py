@@ -929,6 +929,9 @@ class NoStats(object):
     def view(self, **kwds):
         pass
 
+    def clear(self):
+        pass
+
 class Stats(object):
     """For tests."""
 
@@ -942,6 +945,12 @@ class Stats(object):
         self.locations = []
         self.aborted_keys = []
         self.invalidated_token_numbers = set()
+
+    def clear(self):
+        del self.loops[:]
+        del self.locations[:]
+        del self.aborted_keys[:]
+        self.invalidated_token_numbers.clear()
 
     def set_history(self, history):
         self.operations = history.operations

@@ -7,13 +7,16 @@ from pypy.module.micronumpy.interp_numarray import (BaseArray, SingleDimArray,
 from pypy.rlib.nonconst import NonConstant
 from pypy.rpython.annlowlevel import llstr, hlstr
 from pypy.rpython.test.test_llinterp import interpret
+from pypy.jit.metainterp.warmspot import reset_stats
 
 import py
 
 
 class TestNumpyJIt(LLJitMixin):
-    def run(self, code):
+    graph = None
+    interp = None
         
+    def run(self, code):
         space = FakeSpace()
         
         def f(code):
@@ -22,7 +25,17 @@ class TestNumpyJIt(LLJitMixin):
             res = interp.results[0]
             assert isinstance(res, BaseArray)
             return interp.space.float_w(res.eval(0).wrap(interp.space))
-        return self.meta_interp(f, [llstr(code)], listops=True, backendopt=True)
+
+        if self.graph is None:
+            interp, graph = self.meta_interp(f, [llstr(code)],
+                                             listops=True,
+                                             backendopt=True,
+                                             graph_and_interp_only=True)
+            self.__class__.interp = interp
+            self.__class__.graph = graph
+
+        reset_stats()
+        return self.interp.eval_graph(self.graph, [llstr(code)])
 
     def test_add(self):
         result = self.run("""
@@ -45,6 +58,7 @@ class TestNumpyJIt(LLJitMixin):
                           "setarrayitem_raw": 1, "int_add": 1,
                           "int_lt": 1, "guard_true": 1, "jump": 1})
 
+class TstXyz(object):
     def test_sum(self):
         space = self.space
         float64_dtype = self.float64_dtype
