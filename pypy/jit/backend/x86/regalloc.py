@@ -1050,7 +1050,7 @@ class RegAlloc(object):
         tempvar = TempBox()
         index_loc = self.rm.force_result_in_reg(tempvar, op.getarg(1), args)
         # we're free to modify index now
-        value_loc = self.make_sure_var_in_reg(op.getarg(2), args,
+        value_loc = self.make_sure_var_in_reg(op.getarg(2), args + [tempvar],
                                               need_lower_byte=need_lower_byte)
         self.rm.possibly_free_var(tempvar)
         self.possibly_free_vars(args)
