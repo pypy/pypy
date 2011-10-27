@@ -440,5 +440,10 @@ class OpAssembler(object):
         argloc, resloc = arglocs
         self.regalloc_mov(argloc, resloc)
 
+    def emit_debug_merge_point(self, op, arglocs, regalloc):
+        pass
+
+    emit_jit_debug = emit_debug_merge_point
+
     def nop(self):
         self.mc.ori(0, 0, 0)

@@ -539,6 +539,12 @@ class Regalloc(object):
         self.possibly_free_var(op.result)
         return [argloc, resloc]
 
+    def void(self, op):
+        return []
+
+    prepare_debug_merge_point = void
+    prepare_jit_debug = void
+
     # from ../x86/regalloc.py:791
     def _unpack_fielddescr(self, fielddescr):
         assert isinstance(fielddescr, BaseFieldDescr)
