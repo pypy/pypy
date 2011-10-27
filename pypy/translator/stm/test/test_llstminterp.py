@@ -3,6 +3,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.test.test_llinterp import get_interpreter
 from pypy.translator.stm.llstminterp import eval_stm_graph
 from pypy.translator.stm.llstminterp import ForbiddenInstructionInSTMMode
+from pypy.translator.stm.llstminterp import ReturnWithTransactionActive
 from pypy.translator.stm import rstm
 
 
@@ -53,3 +54,25 @@ def test_begin_commit_transaction():
     interp, graph = get_interpreter(func, [p])
     res = eval_stm_graph(interp, graph, [p])
     assert res == 42
+
+def test_call_and_return_with_regular_transaction():
+    def g():
+        pass
+    g._dont_inline_ = True
+    def func():
+        rstm.begin_transaction()
+        g()
+        rstm.commit_transaction()
+    interp, graph = get_interpreter(func, [])
+    eval_stm_graph(interp, graph, [])
+
+def test_cannot_return_with_regular_transaction():
+    def g():
+        rstm.begin_transaction()
+    g._dont_inline_ = True
+    def func():
+        g()
+        rstm.commit_transaction()
+    interp, graph = get_interpreter(func, [])
+    py.test.raises(ReturnWithTransactionActive,
+                   eval_stm_graph, interp, graph, [])
