@@ -223,8 +223,12 @@ class BaseArray(Wrappable):
         concrete = self.get_concrete()
         return space.wrap("[" + " ".join(concrete._getnums(True)) + "]")
 
-    def item_at_index(self, index, space):
+    def _single_item_at_index(self, space, w_idx):
         # we assume C ordering for now
+        if len(self.shape) == 1:
+            return space.int_w(w_idx)
+        index = [space.int_w(w_item)
+                 for w_item in space.fixedview(w_idx)]
         item = 0
         for i in range(len(index)):
             if i != 0:
@@ -235,19 +239,31 @@ class BaseArray(Wrappable):
             item += index[i]
         return item
 
+    def _single_item_result(self, space, w_idx):
+        """ The result of getitem/setitem is a single item if w_idx
+        is a list of scalars that match the size of shape
+        """
+        if len(self.shape) == 1:
+            if (space.isinstance_w(w_idx, space.w_slice) or
+                space.isinstance_w(w_idx, space.w_int)):
+                return True
+            return False
+        lgt = space.len_w(w_idx)
+        if lgt > len(self.shape):
+            raise OperationError(space.w_IndexError,
+                                 space.wrap("invalid index"))
+        if lgt < len(self.shape):
+            return False
+        for w_item in space.fixedview(w_idx):
+            if space.isinstance_w(w_item, space.w_slice):
+                return False
+        return True
+
     def descr_getitem(self, space, w_idx):
-        # TODO: indexing by arrays and lists
-        if space.isinstance_w(w_idx, space.w_tuple):
-            # or any other sequence actually
-            length = space.len_w(w_idx)
-            if length == 0:
-                return space.wrap(self)
-            if length > len(self.shape):
-                raise OperationError(space.w_IndexError,
-                                     space.wrap("invalid index"))
-            indices = [space.int_w(w_item) for w_item in space.fixedview(w_idx)]
-            item = self.item_at_index(indices, space)
+        if self._single_item_result(space, w_idx):
+            item = self._single_item_at_index(space, w_idx)
             return self.get_concrete().eval(item).wrap(space)
+        xxx
         start, stop, step, slice_length = space.decode_index4(w_idx, self.shape[0])
         if step == 0:
             # Single index
@@ -263,6 +279,11 @@ class BaseArray(Wrappable):
     def descr_setitem(self, space, w_idx, w_value):
         # TODO: indexing by arrays and lists
         self.invalidated()
+        if self._single_item_at_index(space, w_idx):
+            item = self._single_item_at_index(space, w_idx)
+            self.get_concrete().setitem_w(space, item, w_value)
+            return
+        xxx
         if space.isinstance_w(w_idx, space.w_tuple):
             length = space.len_w(w_idx)
             if length > 1: # only one dimension for now.
