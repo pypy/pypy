@@ -260,22 +260,24 @@ class BaseArray(Wrappable):
                 return False
         return True
 
+    def _create_slice(self, space, w_idx):
+        new_sig = signature.Signature.find_sig([
+            NDimSlice.signature, self.signature
+        ])
+        if (space.isinstance_w(w_idx, space.w_int) or
+            space.isinstance_w(w_idx, space.w_slice)):
+            chunks = [space.decode_index4(w_idx, self.shape[0])]
+        else:
+            chunks = []
+            for i, w_item in enumerate(space.fixedview(w_idx)):
+                chunks.append(space.decode_index4(w_item, self.shape[i]))
+        return NDimSlice(self, new_sig, chunks)
+
     def descr_getitem(self, space, w_idx):
         if self._single_item_result(space, w_idx):
             item = self._single_item_at_index(space, w_idx)
             return self.get_concrete().eval(item).wrap(space)
-        xxx
-        start, stop, step, slice_length = space.decode_index4(w_idx, self.shape[0])
-        if step == 0:
-            # Single index
-            return self.get_concrete().eval(start).wrap(space)
-        else:
-            # Slice
-            new_sig = signature.Signature.find_sig([
-                SingleDimSlice.signature, self.signature
-            ])
-            res = SingleDimSlice(start, stop, step, slice_length, self, new_sig)
-            return space.wrap(res)
+        return space.wrap(self._create_slice(space, w_idx))
 
     def descr_setitem(self, space, w_idx, w_value):
         self.invalidated()
@@ -514,18 +516,10 @@ class ViewArray(BaseArray):
 class NDimSlice(ViewArray):
     signature = signature.BaseSignature()
 
-    def __init__(self, start, stop, step, slice_length, parent, signature):
+    def __init__(self, parent, signature, chunks):
         ViewArray.__init__(self, parent, signature)
-        if isinstance(parent, NDimSlice):
-            self.start = parent.calc_index(start)
-            self.stop = parent.calc_index(stop)
-            self.step = parent.step * step
-            self.parent = parent.parent
-        else:
-            self.start = start
-            self.stop = stop
-            self.step = step
-            self.parent = parent
+        self.chunks = chunks
+        xxxx
         self.size = slice_length
 
     def get_root_storage(self):

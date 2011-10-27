@@ -624,6 +624,14 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert a[1, 2, 0] == 3
         assert a[1, 1, 0] == 0
 
+    def test_slices(self):
+        import numpy
+        a = numpy.zeros((4, 3, 2))
+        raises(IndexError, a.__getitem__, (4,))
+        raises(IndexError, a.__getitem__, (3, 3))
+        raises(IndexError, a.__getitem__, (:, 3))
+        
+
 class AppTestSupport(object):
     def setup_class(cls):
         import struct
