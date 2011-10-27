@@ -372,12 +372,16 @@ class AbstractTestRstr(BaseRtypingTest):
             return const('!ab!').lstrip(const('!'))
         def right():
             return const('!ab!').rstrip(const('!'))
+        def empty():
+            return const('    ').strip(' ')
         res = self.interpret(both, [])
         assert self.ll_to_string(res) == const('ab')
         res = self.interpret(left, [])
         assert self.ll_to_string(res) == const('ab!')
         res = self.interpret(right, [])
         assert self.ll_to_string(res) == const('!ab')
+        res = self.interpret(empty, [])
+        assert self.ll_to_string(res) == const('')
 
     def test_upper(self):
         const = self.const
