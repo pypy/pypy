@@ -102,6 +102,8 @@ translation_optiondescription = OptionDescription(
     # other noticeable options
     BoolOption("thread", "enable use of threading primitives",
                default=False, cmdline="--thread"),
+    BoolOption("stm", "enable use of Software Transactional Memory",
+               default=False, cmdline="--stm"),
     BoolOption("sandbox", "Produce a fully-sandboxed executable",
                default=False, cmdline="--sandbox",
                requires=[("translation.thread", False)],

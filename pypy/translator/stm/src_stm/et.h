@@ -9,6 +9,7 @@
 #define _ET_H
 
 #include <setjmp.h>
+#include "src/commondefs.h"
 
 
 void stm_descriptor_init(void);
@@ -40,8 +41,10 @@ double stm_read_double(long *addr);
 void stm_write_double(long *addr, double val);
 float stm_read_float(long *addr);
 void stm_write_float(long *addr, float val);
+#if PYPY_LONG_BIT == 32
 long long stm_read_doubleword(long *addr);
 void stm_write_doubleword(long *addr, long long val);
+#endif
 
 
 #endif  /* _ET_H */

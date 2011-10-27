@@ -84,7 +84,14 @@ def stm_setfield(funcgen, op):
             cdecl(funcgen.db.gettype(STRUCT), ''),
             structdef.c_struct_field_name(fieldname), newvalue))
 
+def stm_begin_transaction(funcgen, op):
+    return 'STM_begin_transaction();'
+
+def stm_commit_transaction(funcgen, op):
+    return 'stm_commit_transaction();'
+
 
 def op_stm(funcgen, op):
+    assert funcgen.db.translator.stm_transformation_applied
     func = globals()[op.opname]
     return func(funcgen, op)

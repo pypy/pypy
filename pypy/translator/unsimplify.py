@@ -144,7 +144,8 @@ def call_initial_function(translator, initial_func, annhelper=None):
     if own_annhelper:
         annhelper.finish()
 
-    entry_point = translator.entry_point_graph
+    entry_point = getattr(translator, 'entry_point_graph',
+                          translator.graphs[0])
     args = [copyvar(translator.annotator, v) for v in entry_point.getargs()]
     extrablock = Block(args)
     v_none = varoftype(lltype.Void)
@@ -169,7 +170,8 @@ def call_final_function(translator, final_func, annhelper=None):
     if own_annhelper:
         annhelper.finish()
 
-    entry_point = translator.entry_point_graph
+    entry_point = getattr(translator, 'entry_point_graph',
+                          translator.graphs[0])
     v = copyvar(translator.annotator, entry_point.getreturnvar())
     extrablock = Block([v])
     v_none = varoftype(lltype.Void)

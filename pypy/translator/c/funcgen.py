@@ -596,6 +596,8 @@ class FunctionCodeGenerator(object):
         return self.op_stm(op)
     OP_STM_GETFIELD = _OP_STM
     OP_STM_SETFIELD = _OP_STM
+    OP_STM_BEGIN_TRANSACTION = _OP_STM
+    OP_STM_COMMIT_TRANSACTION = _OP_STM
 
 
     def OP_PTR_NONZERO(self, op):

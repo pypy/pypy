@@ -131,6 +131,12 @@ class CBuilder(object):
     def build_database(self):
         translator = self.translator
 
+        if self.config.translation.stm:
+            from pypy.translator.stm import transform
+            transformer = transform.STMTransformer(self.translator)
+            transformer.transform()
+            log.info("Software Transactional Memory transformation applied")
+
         gcpolicyclass = self.get_gcpolicyclass()
 
         if self.config.translation.gcrootfinder == "asmgcc":
@@ -178,6 +184,10 @@ class CBuilder(object):
     def collect_compilation_info(self, db):
         # we need a concrete gcpolicy to do this
         self.merge_eci(db.gcpolicy.compilation_info())
+
+        if self.config.translation.stm:
+            from pypy.translator.stm._rffi_stm import eci
+            self.merge_eci(eci)
 
         all = []
         for node in self.db.globalcontainers():

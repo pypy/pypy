@@ -775,6 +775,7 @@ void stm_write_partial_word(int fieldsize, char *base, long offset,
   stm_write_word(p, val);
 }
 
+#if PYPY_LONG_BIT == 32
 long long stm_read_doubleword(long *addr)
 {
   /* 32-bit only */
@@ -789,15 +790,17 @@ void stm_write_doubleword(long *addr, long long val)
   stm_write_word(addr, (long)val);
   stm_write_word(addr + 1, (long)(val >> 32));
 }
+#endif
 
 double stm_read_double(long *addr)
 {
   long long x;
   double dd;
-  if (sizeof(double) > sizeof(long))
-    x = stm_read_doubleword(addr);   /* 32 bits */
-  else
-    x = stm_read_word(addr);         /* 64 bits */
+#if PYPY_LONG_BIT == 32
+  x = stm_read_doubleword(addr);   /* 32 bits */
+#else
+  x = stm_read_word(addr);         /* 64 bits */
+#endif
   assert(sizeof(double) == 8 && sizeof(long long) == 8);
   memcpy(&dd, &x, 8);
   return dd;
@@ -808,24 +811,27 @@ void stm_write_double(long *addr, double val)
   long long ll;
   assert(sizeof(double) == 8 && sizeof(long long) == 8);
   memcpy(&ll, &val, 8);
-  if (sizeof(double) > sizeof(long))
-    stm_write_doubleword(addr, ll);   /* 32 bits */
-  else
-    stm_write_word(addr, ll);         /* 64 bits */
+#if PYPY_LONG_BIT == 32
+  stm_write_doubleword(addr, ll);   /* 32 bits */
+#else
+  stm_write_word(addr, ll);         /* 64 bits */
+#endif
 }
 
 float stm_read_float(long *addr)
 {
   unsigned int x;
   float ff;
-  if (sizeof(float) == sizeof(long))
-    x = stm_read_word(addr);         /* 32 bits */
-  else if (((long)(char*)addr) & 7) {
+#if PYPY_LONG_BIT == 32
+  x = stm_read_word(addr);         /* 32 bits */
+#else
+  if (((long)(char*)addr) & 7) {
     addr = (long *)(((char *)addr) - 4);
     x = (unsigned int)(stm_read_word(addr) >> 32);   /* 64 bits, unaligned */
   }
   else
     x = (unsigned int)stm_read_word(addr);           /* 64 bits, aligned */
+#endif
   assert(sizeof(float) == 4 && sizeof(unsigned int) == 4);
   memcpy(&ff, &x, 4);
   return ff;
@@ -836,11 +842,13 @@ void stm_write_float(long *addr, float val)
   unsigned int ii;
   assert(sizeof(float) == 4 && sizeof(unsigned int) == 4);
   memcpy(&ii, &val, 4);
-  if (sizeof(float) == sizeof(long))
-    stm_write_word(addr, ii);         /* 32 bits */
-  else if (((long)(char*)addr) & 7)
+#if PYPY_LONG_BIT == 32
+  stm_write_word(addr, ii);         /* 32 bits */
+#else
+  if (((long)(char*)addr) & 7)
     stm_write_partial_word(4, (((char *)addr) - 4),
                            4, ii);                   /* 64 bits, unaligned */
   else
     stm_write_partial_word(4, (char *)addr, 0, ii);    /* 64 bits, aligned */
+#endif
 }

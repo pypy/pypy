@@ -161,6 +161,7 @@ class StmTests(object):
         t.config.translation.gc = 'boehm'
         t.buildannotator().build_types(entry_point, [s_list_of_strings])
         t.buildrtyper().specialize()
+        t.stm_transformation_applied = True   # not really, but for these tests
         cbuilder = CStandaloneBuilder(t, entry_point, t.config)
         force_debug = ExternalCompilationInfo(pre_include_bits=[
             "#define RPY_ASSERT 1\n"
