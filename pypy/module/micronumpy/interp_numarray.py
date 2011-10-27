@@ -565,8 +565,7 @@ def ones(space, size, w_dtype=None):
 
     arr = SingleDimArray(size, dtype=dtype)
     one = dtype.adapt_val(1)
-    for i in xrange(size):
-        arr.dtype.setitem(arr.storage, i, one)
+    arr.dtype.fill(arr.storage, one, 0, size)
     return space.wrap(arr)
 
 BaseArray.typedef = TypeDef(

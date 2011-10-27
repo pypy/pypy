@@ -108,6 +108,12 @@ def create_low_level_dtype(num, kind, name, aliases, applevel_types, T, valtype,
         def setitem_w(self, space, storage, i, w_item):
             self.setitem(storage, i, self.unwrap(space, w_item))
 
+        def fill(self, storage, item, start, stop):
+            storage = self.unerase(storage)
+            item = self.unbox(item)
+            for i in xrange(start, stop):
+                storage[i] = item
+
         @specialize.argtype(1)
         def adapt_val(self, val):
             return self.box(rffi.cast(TP.TO.OF, val))
