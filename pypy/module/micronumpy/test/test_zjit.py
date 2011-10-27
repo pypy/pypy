@@ -20,6 +20,13 @@ class TestNumpyJIt(LLJitMixin):
         cls.uint64_dtype = cls.space.fromcache(W_UInt64Dtype)
         cls.int32_dtype = cls.space.fromcache(W_Int32Dtype)
 
+    def run(self, code):
+        space = FakeSpace()
+        interp = numpy_compile(code)
+        def f():
+            interp.run(space)
+        self.meta_interpxxx
+
     def test_add(self):
         def f(i):
             ar = SingleDimArray(i, dtype=self.float64_dtype)

@@ -14,6 +14,27 @@ all_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self', 'dty
 any_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self', 'dtype'])
 slice_driver = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop', 'source', 'dest'])
 
+def descr_new_array(space, w_subtype, w_size_or_iterable, w_dtype=None):
+    l = space.listview(w_size_or_iterable)
+    if space.is_w(w_dtype, space.w_None):
+        w_dtype = None
+        for w_item in l:
+            w_dtype = interp_ufuncs.find_dtype_for_scalar(space, w_item, w_dtype)
+            if w_dtype is space.fromcache(interp_dtype.W_Float64Dtype):
+                break
+        if w_dtype is None:
+            w_dtype = space.w_None
+
+    dtype = space.interp_w(interp_dtype.W_Dtype,
+        space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
+    )
+    arr = SingleDimArray(len(l), dtype=dtype)
+    i = 0
+    for w_elem in l:
+        dtype.setitem_w(space, arr.storage, i, w_elem)
+        i += 1
+    return arr
+
 class BaseArray(Wrappable):
     _attrs_ = ["invalidates", "signature"]
 
@@ -31,27 +52,6 @@ class BaseArray(Wrappable):
 
     def add_invalidates(self, other):
         self.invalidates.append(other)
-
-    def descr__new__(space, w_subtype, w_size_or_iterable, w_dtype=None):
-        l = space.listview(w_size_or_iterable)
-        if space.is_w(w_dtype, space.w_None):
-            w_dtype = None
-            for w_item in l:
-                w_dtype = interp_ufuncs.find_dtype_for_scalar(space, w_item, w_dtype)
-                if w_dtype is space.fromcache(interp_dtype.W_Float64Dtype):
-                    break
-            if w_dtype is None:
-                w_dtype = space.w_None
-
-        dtype = space.interp_w(interp_dtype.W_Dtype,
-            space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
-        )
-        arr = SingleDimArray(len(l), dtype=dtype)
-        i = 0
-        for w_elem in l:
-            dtype.setitem_w(space, arr.storage, i, w_elem)
-            i += 1
-        return arr
 
     def _unaryop_impl(ufunc_name):
         def impl(self, space):
@@ -571,7 +571,7 @@ def ones(space, size, w_dtype=None):
 
 BaseArray.typedef = TypeDef(
     'numarray',
-    __new__ = interp2app(BaseArray.descr__new__.im_func),
+    __new__ = interp2app(descr_new_array),
 
 
     __len__ = interp2app(BaseArray.descr_len),
