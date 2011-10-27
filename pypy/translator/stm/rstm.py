@@ -79,6 +79,14 @@ def stm_setfield(structptr, fieldname, newvalue):
         #print 'getting %x, mask=%x, replacing with %x' % (word, mask, val)
         _rffi_stm.stm_write_word(p, val)
 
+def begin_transaction():
+    "NOT_RPYTHON"
+    raise NotImplementedError("hard to really emulate")
+
+def commit_transaction():
+    "NOT_RPYTHON"
+    raise NotImplementedError("hard to really emulate")
+
 # ____________________________________________________________
 
 
@@ -93,6 +101,7 @@ class ExtEntry(ExtRegistryEntry):
         v_structptr = hop.inputarg(r_structptr, arg=0)
         fieldname = hop.args_v[1].value
         c_fieldname = hop.inputconst(lltype.Void, fieldname)
+        hop.exception_cannot_occur()
         return hop.genop('stm_getfield', [v_structptr, c_fieldname],
                          resulttype = hop.r_result)
 
@@ -109,4 +118,16 @@ class ExtEntry(ExtRegistryEntry):
         fieldname = hop.args_v[1].value
         v_newvalue = hop.inputarg(hop.args_r[2], arg=2)
         c_fieldname = hop.inputconst(lltype.Void, fieldname)
+        hop.exception_cannot_occur()
         hop.genop('stm_setfield', [v_structptr, c_fieldname, v_newvalue])
+
+
+class ExtEntry(ExtRegistryEntry):
+    _about_ = (begin_transaction, commit_transaction)
+
+    def compute_result_annotation(self):
+        return None
+
+    def specialize_call(self, hop):
+        hop.exception_cannot_occur()
+        hop.genop("stm_" + self.instance.__name__, [])
