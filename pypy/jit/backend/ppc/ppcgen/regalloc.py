@@ -539,6 +539,9 @@ class Regalloc(object):
         self.possibly_free_var(op.result)
         return [argloc, resloc]
 
+    prepare_cast_ptr_to_int = prepare_same_as
+    prepare_cast_int_to_ptr = prepare_same_as
+
     def void(self, op):
         return []
 
