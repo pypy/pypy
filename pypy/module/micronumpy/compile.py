@@ -114,8 +114,6 @@ class ListObject(W_Root):
         self.items = items
 
 
-space = FakeSpace()
-
 class InterpreterState(object):
     def __init__(self, code):
         self.code = code
@@ -176,7 +174,8 @@ class Operator(Node):
             return w_lhs.descr_add(interp.space, w_rhs)
         elif self.name == '->':
             if isinstance(w_rhs, Scalar):
-                index = int(space.float_w(w_rhs.value.wrap(interp.space)))
+                index = int(interp.space.float_w(
+                    w_rhs.value.wrap(interp.space)))
                 return w_lhs.get_concrete().eval(index)
             else:
                 raise NotImplementedError
@@ -197,7 +196,8 @@ class FloatConstant(Node):
         return space.wrap(self.v)
 
     def execute(self, interp):
-        dtype = space.w_float64dtype
+        dtype = interp.space.fromcache(W_Float64Dtype)
+        assert isinstance(dtype, W_Float64Dtype)
         return Scalar(dtype, dtype.box(self.v))
 
 class RangeConstant(Node):

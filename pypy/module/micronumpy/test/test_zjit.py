@@ -13,13 +13,6 @@ import py
 
 
 class TestNumpyJIt(LLJitMixin):
-    def setup_class(cls):
-        cls.space = FakeSpace()
-        cls.float64_dtype = cls.space.fromcache(W_Float64Dtype)
-        cls.int64_dtype = cls.space.fromcache(W_Int64Dtype)
-        cls.uint64_dtype = cls.space.fromcache(W_UInt64Dtype)
-        cls.int32_dtype = cls.space.fromcache(W_Int32Dtype)
-
     def run(self, code):
         # trick annotator
         c = """
