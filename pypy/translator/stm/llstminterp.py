@@ -46,17 +46,12 @@ class LLSTMFrame(LLFrame):
             raise ReturnWithTransactionActive(self.graph)
 
     def getoperationhandler(self, opname):
-        try:
-            return getattr(self, 'opstm_' + opname)
-        except AttributeError:
-            stm_mode = self.llinterpreter.stm_mode
-            attrname = '_opstm_%s__%s' % (stm_mode, opname)
-            ophandler = getattr(self, attrname, None)
-            if ophandler is None:
-                self._validate_stmoperation_handler(stm_mode, opname)
-                ophandler = LLFrame.getoperationhandler(self, opname)
-                setattr(self, attrname, ophandler)
-            return ophandler
+        ophandler = getattr(self, 'opstm_' + opname, None)
+        if ophandler is None:
+            self._validate_stmoperation_handler(opname)
+            ophandler = LLFrame.getoperationhandler(self, opname)
+            setattr(self, 'opstm_' + opname, ophandler)
+        return ophandler
 
     def _op_in_set(self, opname, set):
         if opname in set:
@@ -66,10 +61,10 @@ class LLSTMFrame(LLFrame):
                 return True
         return False
 
-    def _validate_stmoperation_handler(self, stm_mode, opname):
+    def _validate_stmoperation_handler(self, opname):
         if self._op_in_set(opname, self.ALWAYS_ALLOW_OPERATIONS):
             return
-        raise ForbiddenInstructionInSTMMode(stm_mode, opname, self.graph)
+        raise ForbiddenInstructionInSTMMode(opname, self.graph)
 
     # ---------- operations that are sometimes safe ----------
 
