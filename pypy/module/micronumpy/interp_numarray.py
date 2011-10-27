@@ -213,8 +213,7 @@ class BaseArray(Wrappable):
     def descr_repr(self, space):
         # Simple implementation so that we can see the array. Needs work.
         concrete = self.get_concrete()
-        #res = "array([" + ", ".join(concrete._getnums(False)) + "]"
-        res = 'array()'
+        res = "array([" + ", ".join(concrete._getnums(False)) + "]"
         dtype = concrete.find_dtype()
         if (dtype is not space.fromcache(interp_dtype.W_Float64Dtype) and
             dtype is not space.fromcache(interp_dtype.W_Int64Dtype)) or not self.find_size():
@@ -229,18 +228,27 @@ class BaseArray(Wrappable):
 
     def _single_item_at_index(self, space, w_idx):
         # we assume C ordering for now
-        if len(self.shape) == 1:
-            return space.int_w(w_idx)
+        if space.isinstance_w(w_idx, space.w_int):
+            idx = space.int_w(w_idx)
+            if idx < 0:
+                idx = self.shape[0] + idx
+            if idx < 0 or idx >= self.shape[0]:
+                raise OperationError(space.w_IndexError,
+                                     space.wrap("index out of range"))
+            return idx
         index = [space.int_w(w_item)
                  for w_item in space.fixedview(w_idx)]
         item = 0
         for i in range(len(index)):
-            if i != 0:
-                item *= self.shape[i]
-            if index[i] >= self.shape[i]:
+            v = index[i]
+            if v < 0:
+                v += self.shape[i]
+            if v < 0 or v >= self.shape[i]:
                 raise OperationError(space.w_IndexError,
                                      space.wrap("index (%d) out of range (0<=index<%d" % (index[i], self.shape[i])))
-            item += index[i]
+            if i != 0:
+                item *= self.shape[i]
+            item += v
         return item
 
     def len_of_shape(self):
@@ -257,9 +265,10 @@ class BaseArray(Wrappable):
         if shape_len == 1:
             if space.isinstance_w(w_idx, space.w_int):
                 return True
-            return False
-        if (space.isinstance_w(w_idx, space.w_slice) or
-            space.isinstance_w(w_idx, space.w_int)):
+            if space.isinstance_w(w_idx, space.w_slice):
+                return False
+        elif (space.isinstance_w(w_idx, space.w_slice) or
+              space.isinstance_w(w_idx, space.w_int)):
             return False
         lgt = space.len_w(w_idx)
         if lgt > shape_len:
@@ -279,10 +288,10 @@ class BaseArray(Wrappable):
         if (space.isinstance_w(w_idx, space.w_int) or
             space.isinstance_w(w_idx, space.w_slice)):
             start, stop, step, lgt = space.decode_index4(w_idx, self.shape[0])
-            if lgt == 1:
+            if step == 0:
                 shape = self.shape[1:]
             else:
-                shape = self.shape
+                shape = [lgt] + self.shape[1:]
             chunks = [(start, stop, step, lgt)]
         else:
             chunks = []
@@ -291,7 +300,7 @@ class BaseArray(Wrappable):
                 start, stop, step, lgt = space.decode_index4(w_item,
                                                              self.shape[i])
                 chunks.append((start, stop, step, lgt))
-                if lgt == 1:
+                if step == 0:
                     shape[i] = -1
                 else:
                     shape[i] = lgt
@@ -368,8 +377,8 @@ class VirtualArray(BaseArray):
     """
     Class for representing virtual arrays, such as binary ops or ufuncs
     """
-    def __init__(self, signature, res_dtype):
-        BaseArray.__init__(self)
+    def __init__(self, signature, shape, res_dtype):
+        BaseArray.__init__(self, shape)
         self.forced_result = None
         self.signature = signature
         self.res_dtype = res_dtype
@@ -419,8 +428,8 @@ class VirtualArray(BaseArray):
 
 
 class Call1(VirtualArray):
-    def __init__(self, signature, res_dtype, values):
-        VirtualArray.__init__(self, signature, res_dtype)
+    def __init__(self, signature, shape, res_dtype, values):
+        VirtualArray.__init__(self, signature, shape, res_dtype)
         self.values = values
 
     def _del_sources(self):
@@ -445,8 +454,8 @@ class Call2(VirtualArray):
     """
     Intermediate class for performing binary operations.
     """
-    def __init__(self, signature, calc_dtype, res_dtype, left, right):
-        VirtualArray.__init__(self, signature, res_dtype)
+    def __init__(self, signature, shape, calc_dtype, res_dtype, left, right):
+        VirtualArray.__init__(self, signature, shape, res_dtype)
         self.left = left
         self.right = right
         self.calc_dtype = calc_dtype
@@ -505,7 +514,9 @@ class ViewArray(BaseArray):
         raise NotImplementedError
 
     def descr_len(self, space):
-        return space.wrap(self.shape[0])
+        if self.shape:
+            return space.wrap(self.shape[0])
+        return space.wrap(1)
 
     def calc_index(self, item):
         raise NotImplementedError
@@ -531,10 +542,10 @@ class NDimSlice(ViewArray):
         return self.parent.find_dtype()
 
     def setslice(self, space, w_value):
-        assert isinstance(w_value, NDimArray)
-        if self.shape != w_value.shape:
-            raise OperationError(space.w_TypeError, space.wrap(
-                "wrong assignment"))
+        if isinstance(w_value, NDimArray):
+            if self.shape != w_value.shape:
+                raise OperationError(space.w_TypeError, space.wrap(
+                    "wrong assignment"))
         self._sliceloop(w_value)
 
     def _sliceloop(self, source):
@@ -575,7 +586,7 @@ class NDimSlice(ViewArray):
                 item *= shape[k]
             k += 1
             start, stop, step, lgt = chunk
-            if lgt == 1:
+            if step == 0:
                 # we don't consume an index
                 item += start
             else:

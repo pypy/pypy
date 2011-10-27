@@ -19,7 +19,7 @@ def fromstring(space, s):
             "string length %d not divisable by %d" % (length, FLOAT_SIZE)))
 
     dtype = space.fromcache(W_Float64Dtype)
-    a = NDimArray(number, dtype=dtype)
+    a = NDimArray(number, [number], dtype=dtype)
 
     start = 0
     end = FLOAT_SIZE

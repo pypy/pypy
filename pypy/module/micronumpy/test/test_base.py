@@ -13,7 +13,7 @@ class TestSignature(object):
     def test_binop_signature(self, space):
         float64_dtype = space.fromcache(interp_dtype.W_Float64Dtype)
 
-        ar = NDimArray(10, dtype=float64_dtype)
+        ar = NDimArray(10, [10], dtype=float64_dtype)
         v1 = ar.descr_add(space, ar)
         v2 = ar.descr_add(space, Scalar(float64_dtype, 2.0))
         assert v1.signature is not v2.signature
@@ -22,7 +22,7 @@ class TestSignature(object):
         v4 = ar.descr_add(space, ar)
         assert v1.signature is v4.signature
 
-        bool_ar = NDimArray(10, dtype=space.fromcache(interp_dtype.W_BoolDtype))
+        bool_ar = NDimArray(10, [10], dtype=space.fromcache(interp_dtype.W_BoolDtype))
         v5 = ar.descr_add(space, bool_ar)
         assert v5.signature is not v1.signature
         assert v5.signature is not v2.signature
@@ -30,7 +30,7 @@ class TestSignature(object):
         assert v5.signature is v6.signature
 
     def test_slice_signature(self, space):
-        ar = NDimArray(10, dtype=space.fromcache(interp_dtype.W_Float64Dtype))
+        ar = NDimArray(10, [10], dtype=space.fromcache(interp_dtype.W_Float64Dtype))
         v1 = ar.descr_getitem(space, space.wrap(slice(1, 5, 1)))
         v2 = ar.descr_getitem(space, space.wrap(slice(4, 6, 1)))
         assert v1.signature is v2.signature

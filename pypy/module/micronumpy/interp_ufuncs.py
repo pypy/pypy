@@ -105,7 +105,7 @@ class W_Ufunc1(W_Ufunc):
             return self.func(res_dtype, w_obj.value.convert_to(res_dtype)).wrap(space)
 
         new_sig = signature.Signature.find_sig([self.signature, w_obj.signature])
-        w_res = Call1(new_sig, res_dtype, w_obj)
+        w_res = Call1(new_sig, w_obj.shape, res_dtype, w_obj)
         w_obj.add_invalidates(w_res)
         return w_res
 
@@ -147,7 +147,8 @@ class W_Ufunc2(W_Ufunc):
         new_sig = signature.Signature.find_sig([
             self.signature, w_lhs.signature, w_rhs.signature
         ])
-        w_res = Call2(new_sig, calc_dtype, res_dtype, w_lhs, w_rhs)
+        w_res = Call2(new_sig, w_lhs.shape or w_rhs.shape, calc_dtype,
+                      res_dtype, w_lhs, w_rhs)
         w_lhs.add_invalidates(w_res)
         w_rhs.add_invalidates(w_res)
         return w_res

@@ -42,6 +42,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = a.copy()
         for i in xrange(5):
             assert b[i] == a[i]
+        a[3] = 22
+        assert b[3] == 3
 
     def test_iterator_init(self):
         from numpy import array
