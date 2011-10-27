@@ -264,7 +264,6 @@ class OpAssembler(object):
                          descr._ppc_frame_manager_depth)
             regalloc.frame_manager.frame_depth = new_fd
 
-    # XXX adjust 64 bit
     def emit_setfield_gc(self, op, arglocs, regalloc):
         value_loc, base_loc, ofs, size = arglocs
         if size.value == 8:
@@ -289,8 +288,8 @@ class OpAssembler(object):
                 self.mc.stbx(value_loc.value, base_loc.value, ofs.value)
         else:
             assert 0, "size not supported"
+    emit_setfield_raw = emit_setfield_gc
 
-    # XXX adjust 64 bit
     def emit_getfield_gc(self, op, arglocs, regalloc):
         base_loc, ofs, res, size = arglocs
         if size.value == 8:
@@ -315,6 +314,9 @@ class OpAssembler(object):
                 self.mc.lbzx(res.value, base_loc.value, ofs.value)
         else:
             assert 0, "size not supported"
+    emit_getfield_raw = emit_getfield_gc
+    emit_getfield_raw_pure = emit_getfield_gc
+    emit_getfield_gc_pure = emit_getfield_gc
 
     def emit_arraylen_gc(self, op, arglocs, regalloc):
         res, base_loc, ofs = arglocs

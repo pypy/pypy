@@ -359,6 +359,8 @@ class Regalloc(object):
         self.possibly_free_vars(boxes)
         return [value_loc, base_loc, ofs_loc, imm(size)]
 
+    prepare_setfield_raw = prepare_setfield_gc
+
     def prepare_getfield_gc(self, op):
         a0 = op.getarg(0)
         ofs, size, ptr = self._unpack_fielddescr(op.getdescr())
@@ -374,6 +376,10 @@ class Regalloc(object):
         res = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
         return [base_loc, ofs_loc, res, imm(size)]
+
+    prepare_getfield_raw = prepare_getfield_gc
+    prepare_getfield_raw_pure = prepare_getfield_gc
+    prepare_getfield_gc_pure = prepare_getfield_gc
 
     def prepare_arraylen_gc(self, op):
         arraydescr = op.getdescr()
