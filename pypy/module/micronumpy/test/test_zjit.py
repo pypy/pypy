@@ -1,7 +1,7 @@
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.module.micronumpy import interp_ufuncs, signature
-from pypy.module.micronumpy.compile import (numpy_compile, FakeSpace,
-    FloatObject, IntObject)
+from pypy.module.micronumpy.compile import (InterpreterState, FakeSpace,
+    FloatObject, IntObject, Parser)
 from pypy.module.micronumpy.interp_dtype import W_Int32Dtype, W_Float64Dtype, W_Int64Dtype, W_UInt64Dtype
 from pypy.module.micronumpy.interp_numarray import (BaseArray, SingleDimArray,
     SingleDimSlice, scalar_w)
@@ -21,23 +21,31 @@ class TestNumpyJIt(LLJitMixin):
         cls.int32_dtype = cls.space.fromcache(W_Int32Dtype)
 
     def run(self, code):
+        # trick annotator
+        c = """
+        a = 3
+        """
+        
         space = FakeSpace()
-        interp = numpy_compile(code)
-        def f():
+        parser = Parser()
+        codes = [parser.parse(code), parser.parse(c)]
+        
+        def f(i):
+            interp = InterpreterState(codes[i])
             interp.run(space)
-        self.meta_interpxxx
+            return interp.results[0]
+        return self.meta_interp(f, [0], listops=True, backendopt=True)
 
     def test_add(self):
-        def f(i):
-            ar = SingleDimArray(i, dtype=self.float64_dtype)
-            v = interp_ufuncs.get(self.space).add.call(self.space, [ar, ar])
-            return v.get_concrete().eval(3).val
-
-        result = self.meta_interp(f, [5], listops=True, backendopt=True)
+        result = self.run("""
+        a = |30|
+        b = a + a
+        b -> 3
+        """)
         self.check_loops({'getarrayitem_raw': 2, 'float_add': 1,
                           'setarrayitem_raw': 1, 'int_add': 1,
                           'int_lt': 1, 'guard_true': 1, 'jump': 1})
-        assert result == f(5)
+        assert result == 3 + 3
 
     def test_floatadd(self):
         def f(i):

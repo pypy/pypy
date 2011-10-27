@@ -32,6 +32,7 @@ class FakeSpace(object):
     def __init__(self):
         """NOT_RPYTHON"""
         self.fromcache = InternalSpaceCache(self).getorbuild
+        self.w_float64dtype = W_Float64Dtype(self)
 
     def issequence_w(self, w_obj):
         return w_obj.seq
@@ -58,7 +59,19 @@ class FakeSpace(object):
         return w_obj
 
     def float_w(self, w_obj):
+        assert isinstance(w_obj, FloatObject)        
         return w_obj.floatval
+
+    def int_w(self, w_obj):
+        assert isinstance(w_obj, IntObject)
+        return w_obj.intval
+
+    def int(self, w_obj):
+        return w_obj
+
+    def is_true(self, w_obj):
+        assert isinstance(w_obj, BoolObject)
+        return w_obj.boolval
 
     def is_w(self, w_obj, w_what):
         return w_obj is w_what
@@ -156,18 +169,19 @@ class Operator(Node):
         self.rhs = rhs
 
     def execute(self, interp):
+        w_lhs = self.lhs.execute(interp)
+        w_rhs = self.rhs.execute(interp)
+        assert isinstance(w_lhs, BaseArray)
         if self.name == '+':
-            w_lhs = self.lhs.execute(interp)
-            w_rhs = self.rhs.execute(interp)
             return w_lhs.descr_add(interp.space, w_rhs)
         elif self.name == '->':
-            w_lhs = self.lhs.execute(interp)
-            w_rhs = self.rhs.execute(interp)
             if isinstance(w_rhs, Scalar):
                 index = int(space.float_w(w_rhs.value.wrap(interp.space)))
                 return w_lhs.get_concrete().eval(index)
             else:
-                xxx
+                raise NotImplementedError
+        else:
+            raise NotImplementedError
 
     def __repr__(self):
         return '(%r %s %r)' % (self.lhs, self.name, self.rhs)
@@ -183,7 +197,7 @@ class FloatConstant(Node):
         return space.wrap(self.v)
 
     def execute(self, interp):
-        dtype = interp.space.fromcache(W_Float64Dtype)
+        dtype = space.w_float64dtype
         return Scalar(dtype, dtype.box(self.v))
 
 class RangeConstant(Node):
@@ -226,8 +240,8 @@ class Execute(Node):
 
 class Parser(object):
     def parse_identifier(self, id):
-        id = id.strip()
-        assert id.isalpha()
+        id = id.strip(" ")
+        #assert id.isalpha()
         return Variable(id)
 
     def parse_expression(self, expr):
@@ -239,17 +253,17 @@ class Parser(object):
         while tokens:
             token = tokens.pop()
             if token == ')':
-                xxx
+                raise NotImplementedError
             elif self.is_identifier_or_const(token):
                 if stack:
-                    name = stack.pop()
+                    name = stack.pop().name
                     lhs = stack.pop()
                     rhs = self.parse_constant_or_identifier(token)
                     stack.append(Operator(lhs, name, rhs))
                 else:
                     stack.append(self.parse_constant_or_identifier(token))
             else:
-                stack.append(token)
+                stack.append(Variable(token))
         assert len(stack) == 1
         return stack[-1]
 
