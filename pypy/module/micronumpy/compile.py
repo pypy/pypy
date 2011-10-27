@@ -37,6 +37,9 @@ class FakeSpace(object):
     def issequence_w(self, w_obj):
         return w_obj.seq
 
+    def isinstance_w(self, w_obj, w_tp):
+        return False
+
     @specialize.argtype(1)
     def wrap(self, obj):
         if isinstance(obj, float):
@@ -87,6 +90,7 @@ class FakeSpace(object):
 
     @specialize.arg(1)
     def interp_w(self, tp, what):
+        assert isinstance(what, tp)
         return what
 
 class FloatObject(W_Root):
@@ -176,7 +180,8 @@ class Operator(Node):
             if isinstance(w_rhs, Scalar):
                 index = int(interp.space.float_w(
                     w_rhs.value.wrap(interp.space)))
-                return w_lhs.get_concrete().eval(index)
+                dtype = interp.space.fromcache(W_Float64Dtype)
+                return Scalar(dtype, w_lhs.get_concrete().eval(index))
             else:
                 raise NotImplementedError
         else:
@@ -204,6 +209,12 @@ class RangeConstant(Node):
     def __init__(self, v):
         self.v = int(v)
 
+    def execute(self, interp):
+        w_list = interp.space.newlist(
+            [interp.space.wrap(float(i)) for i in range(self.v)])
+        dtype = interp.space.fromcache(W_Float64Dtype)
+        return descr_new_array(interp.space, None, w_list, w_dtype=dtype)
+
     def __repr__(self):
         return 'Range(%s)' % self.v
 
@@ -223,7 +234,8 @@ class ArrayConstant(Node):
 
     def execute(self, interp):
         w_list = self.wrap(interp.space)
-        return descr_new_array(interp.space, None, w_list)
+        dtype = interp.space.fromcache(W_Float64Dtype)
+        return descr_new_array(interp.space, None, w_list, w_dtype=dtype)
 
     def __repr__(self):
         return "[" + ", ".join([repr(item) for item in self.items]) + "]"

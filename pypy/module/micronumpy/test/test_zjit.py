@@ -4,7 +4,7 @@ from pypy.module.micronumpy.compile import (InterpreterState, FakeSpace,
     FloatObject, IntObject, Parser)
 from pypy.module.micronumpy.interp_dtype import W_Int32Dtype, W_Float64Dtype, W_Int64Dtype, W_UInt64Dtype
 from pypy.module.micronumpy.interp_numarray import (BaseArray, SingleDimArray,
-    SingleDimSlice, scalar_w)
+    SingleDimSlice, scalar_w, Scalar)
 from pypy.rlib.nonconst import NonConstant
 from pypy.rpython.annlowlevel import llstr
 from pypy.rpython.test.test_llinterp import interpret
@@ -17,6 +17,8 @@ class TestNumpyJIt(LLJitMixin):
         # trick annotator
         c = """
         a = 3
+        b = [1,2] + [3,4]
+        c = a
         """
         
         space = FakeSpace()
@@ -26,7 +28,9 @@ class TestNumpyJIt(LLJitMixin):
         def f(i):
             interp = InterpreterState(codes[i])
             interp.run(space)
-            return interp.results[0]
+            res = interp.results[0]
+            assert isinstance(res, BaseArray)
+            return interp.space.float_w(res.eval(0).wrap(interp.space))
         return self.meta_interp(f, [0], listops=True, backendopt=True)
 
     def test_add(self):

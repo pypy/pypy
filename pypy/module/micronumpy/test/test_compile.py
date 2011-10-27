@@ -112,5 +112,12 @@ class TestRunner(object):
         a + b -> 3
         """
         interp = self.run(code)
-        assert interp.results[0].val == 3 + 6
+        assert interp.results[0].value.val == 3 + 6
         
+    def test_range_getitem(self):
+        code = """
+        r = |20|
+        r -> 3
+        """
+        interp = self.run(code)
+        assert interp.results[0].value.val == 3
