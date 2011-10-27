@@ -658,6 +658,12 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert a[0][1][1] == 13
         assert a[1][2][1] == 15
 
+    def test_setitem_slice(self):
+        import numpy
+        a = numpy.zeros((3, 4))
+        a[1] = [1, 2, 3, 4]
+        assert a[1, 2] == 3
+
 class AppTestSupport(object):
     def setup_class(cls):
         import struct
