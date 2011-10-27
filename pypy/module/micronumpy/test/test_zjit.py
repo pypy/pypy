@@ -58,7 +58,7 @@ class TestNumpyJIt(LLJitMixin):
                           "setarrayitem_raw": 1, "int_add": 1,
                           "int_lt": 1, "guard_true": 1, "jump": 1})
 
-class TstXyz(object):
+class DisabledTestNumpy(object):
     def test_sum(self):
         space = self.space
         float64_dtype = self.float64_dtype
@@ -342,17 +342,3 @@ class TstXyz(object):
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
         assert result == f(5)
 
-class TestTranslation(object):
-    def test_compile(self):
-        x = numpy_compile('aa+f*f/a-', 10)
-        x = x.compute()
-        assert isinstance(x, SingleDimArray)
-        assert x.size == 10
-        assert x.eval(0).val == 0
-        assert x.eval(1).val == ((1 + 1) * 1.2) / 1.2 - 1
-
-    def test_translation(self):
-        # we import main to check if the target compiles
-        from pypy.translator.goal.targetnumpystandalone import main
-
-        interpret(main, [llstr('af+'), 100])

@@ -4,19 +4,13 @@ It should not be imported by the module itself
 """
 
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
-from pypy.module.micronumpy.interp_dtype import W_Float64Dtype, W_Int32Dtype
+from pypy.module.micronumpy.interp_dtype import W_Float64Dtype
 from pypy.module.micronumpy.interp_numarray import Scalar, BaseArray, descr_new_array
 from pypy.rlib.objectmodel import specialize
 
 
 class BogusBytecode(Exception):
     pass
-
-def create_array(dtype, size):
-    a = SingleDimArray(size, dtype=dtype)
-    for i in range(size):
-        dtype.setitem(a.storage, i, dtype.box(float(i % 10)))
-    return a
 
 class FakeSpace(object):
     w_ValueError = None
@@ -323,50 +317,3 @@ class Parser(object):
 def numpy_compile(code):
     parser = Parser()
     return InterpreterState(parser.parse(code))
-
-def xxx_numpy_compile(bytecode, array_size):
-    stack = []
-    i = 0
-    dtype = space.fromcache(W_Float64Dtype)
-    for b in bytecode:
-        if b == 'a':
-            stack.append(create_array(dtype, array_size))
-            i += 1
-        elif b == 'f':
-            stack.append(Scalar(dtype, dtype.box(1.2)))
-        elif b == '+':
-            right = stack.pop()
-            res = stack.pop().descr_add(space, right)
-            assert isinstance(res, BaseArray)
-            stack.append(res)
-        elif b == '-':
-            right = stack.pop()
-            res = stack.pop().descr_sub(space, right)
-            assert isinstance(res, BaseArray)
-            stack.append(res)
-        elif b == '*':
-            right = stack.pop()
-            res = stack.pop().descr_mul(space, right)
-            assert isinstance(res, BaseArray)
-            stack.append(res)
-        elif b == '/':
-            right = stack.pop()
-            res = stack.pop().descr_div(space, right)
-            assert isinstance(res, BaseArray)
-            stack.append(res)
-        elif b == '%':
-            right = stack.pop()
-            res = stack.pop().descr_mod(space, right)
-            assert isinstance(res, BaseArray)
-            stack.append(res)
-        elif b == '|':
-            res = stack.pop().descr_abs(space)
-            assert isinstance(res, BaseArray)
-            stack.append(res)
-        else:
-            print "Unknown opcode: %s" % b
-            raise BogusBytecode()
-    if len(stack) != 1:
-        print "Bogus bytecode, uneven stack length"
-        raise BogusBytecode()
-    return stack[0]
