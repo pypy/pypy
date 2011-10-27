@@ -245,7 +245,7 @@ long RPyGilYieldThread(void)
     if (pending_acquires <= 0)
         return 0;
     InterlockedIncrement(&pending_acquires);
-    PulseEvent(&cond_gil);
+    PulseEvent(cond_gil);
 
     /* hack: the three following lines do a pthread_cond_wait(), and
        normally specifying a timeout of INFINITE would be fine.  But the
@@ -253,7 +253,7 @@ long RPyGilYieldThread(void)
        (small) risk that PulseEvent misses the WaitForSingleObject().
        In this case the process will just sleep a few milliseconds. */
     LeaveCriticalSection(&mutex_gil);
-    WaitForSingleObject(&cond_gil, 15);
+    WaitForSingleObject(cond_gil, 15);
     EnterCriticalSection(&mutex_gil);
 
     InterlockedDecrement(&pending_acquires);
@@ -263,7 +263,7 @@ long RPyGilYieldThread(void)
 void RPyGilRelease(void)
 {
     LeaveCriticalSection(&mutex_gil);
-    PulseEvent(&cond_gil);
+    PulseEvent(cond_gil);
 }
 
 void RPyGilAcquire(void)

@@ -1,15 +1,13 @@
 from pypy.tool.pairtype import pairtype
-from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
-from pypy.rpython.rdict import AbstractDictRepr, AbstractDictIteratorRepr,\
-     rtype_newdict
+from pypy.rpython.rdict import (AbstractDictRepr, AbstractDictIteratorRepr,
+     rtype_newdict)
 from pypy.rpython.lltypesystem import lltype
-from pypy.rlib.rarithmetic import r_uint, intmask, LONG_BIT
-from pypy.rlib.objectmodel import hlinvoke
-from pypy.rpython import robject
 from pypy.rlib import objectmodel, jit
+from pypy.rlib.rarithmetic import r_uint, intmask, LONG_BIT
 from pypy.rpython import rmodel
 from pypy.rpython.error import TyperError
+
 
 HIGHEST_BIT = intmask(1 << (LONG_BIT - 1))
 MASK = intmask(HIGHEST_BIT - 1)
@@ -417,17 +415,16 @@ def ll_hash_recomputed(entries, i):
     ENTRIES = lltype.typeOf(entries).TO
     return ENTRIES.fasthashfn(entries[i].key)
 
-@jit.dont_look_inside
 def ll_get_value(d, i):
     return d.entries[i].value
 
 def ll_keyhash_custom(d, key):
     DICT = lltype.typeOf(d).TO
-    return hlinvoke(DICT.r_rdict_hashfn, d.fnkeyhash, key)
+    return objectmodel.hlinvoke(DICT.r_rdict_hashfn, d.fnkeyhash, key)
 
 def ll_keyeq_custom(d, key1, key2):
     DICT = lltype.typeOf(d).TO
-    return hlinvoke(DICT.r_rdict_eqfn, d.fnkeyeq, key1, key2)
+    return objectmodel.hlinvoke(DICT.r_rdict_eqfn, d.fnkeyeq, key1, key2)
 
 def ll_dict_len(d):
     return d.num_items
@@ -448,7 +445,9 @@ def ll_dict_setitem(d, key, value):
     i = ll_dict_lookup(d, key, hash)
     return _ll_dict_setitem_lookup_done(d, key, value, hash, i)
 
-@jit.dont_look_inside
+# It may be safe to look inside always, it has a few branches though, and their
+# frequencies needs to be investigated.
+@jit.look_inside_iff(lambda d, key, value, hash, i: jit.isvirtual(d) and jit.isconstant(key))
 def _ll_dict_setitem_lookup_done(d, key, value, hash, i):
     valid = (i & HIGHEST_BIT) == 0
     i = i & MASK
@@ -492,6 +491,8 @@ def ll_dict_delitem(d, key):
         raise KeyError
     _ll_dict_del(d, i)
 
+# XXX: Move the size checking and resize into a single call which is opauqe to
+# the JIT to avoid extra branches.
 @jit.dont_look_inside
 def _ll_dict_del(d, i):
     d.entries.mark_deleted(i)
@@ -532,6 +533,7 @@ ll_dict_resize.oopspec = 'dict.resize(d)'
 # ------- a port of CPython's dictobject.c's lookdict implementation -------
 PERTURB_SHIFT = 5
 
+@jit.look_inside_iff(lambda d, key, hash: jit.isvirtual(d) and jit.isconstant(key))
 def ll_dict_lookup(d, key, hash):
     entries = d.entries
     ENTRIES = lltype.typeOf(entries).TO
@@ -621,7 +623,6 @@ def ll_newdict(DICT):
     d.num_items = 0
     d.resize_counter = DICT_INITSIZE * 2
     return d
-ll_newdict.oopspec = 'newdict()'
 
 def ll_newdict_size(DICT, length_estimate):
     length_estimate = (length_estimate // 2) * 3
@@ -633,7 +634,6 @@ def ll_newdict_size(DICT, length_estimate):
     d.num_items = 0
     d.resize_counter = n * 2
     return d
-ll_newdict_size.oopspec = 'newdict()'
 
 # pypy.rpython.memory.lldict uses a dict based on Struct and Array
 # instead of GcStruct and GcArray, which is done by using different
@@ -866,7 +866,6 @@ def _ll_getnextitem(dic):
         global_popitem_index.nextindex = base + counter
     return i
 
-@jit.dont_look_inside
 def ll_popitem(ELEM, dic):
     i = _ll_getnextitem(dic)
     entry = dic.entries[i]

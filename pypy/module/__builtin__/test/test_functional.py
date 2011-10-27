@@ -147,7 +147,7 @@ class AppTestXRange:
        assert list(xrange(A())) == [0, 1, 2, 3, 4]
        assert list(xrange(0, A())) == [0, 1, 2, 3, 4]
        assert list(xrange(0, 10, A())) == [0, 5]
- 
+
    def test_xrange_float(self):
       assert list(xrange(0.1, 2.0, 1.1)) == [0, 1]
 

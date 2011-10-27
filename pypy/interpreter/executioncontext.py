@@ -391,8 +391,11 @@ class ActionFlag(AbstractActionFlag):
     def decrement_ticker(self, by):
         value = self._ticker
         if self.has_bytecode_counter:    # this 'if' is constant-folded
-            value -= by
-            self._ticker = value
+            if jit.isconstant(by) and by == 0:
+                pass     # normally constant-folded too
+            else:
+                value -= by
+                self._ticker = value
         return value
 
 

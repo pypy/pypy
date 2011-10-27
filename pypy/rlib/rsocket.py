@@ -8,6 +8,7 @@ a drop-in replacement for the 'socket' module.
 # Known missing features:
 #
 #   - address families other than AF_INET, AF_INET6, AF_UNIX, AF_PACKET
+#   - AF_PACKET is only supported on Linux
 #   - methods makefile(),
 #   - SSL
 #
@@ -55,6 +56,7 @@ def htonl(x):
 
 
 _FAMILIES = {}
+
 class Address(object):
     """The base class for RPython-level objects representing addresses.
     Fields:  addr    - a _c.sockaddr_ptr (memory owned by the Address instance)
@@ -76,9 +78,8 @@ class Address(object):
         self.addrlen = addrlen
 
     def __del__(self):
-        addr = self.addr_p
-        if addr:
-            lltype.free(addr, flavor='raw')
+        if self.addr_p:
+            lltype.free(self.addr_p, flavor='raw')
 
     def setdata(self, addr, addrlen):
         # initialize self.addr and self.addrlen.  'addr' can be a different
@@ -612,7 +613,10 @@ class RSocket(object):
         self.timeout = defaults.timeout
         
     def __del__(self):
-        self.close()
+        fd = self.fd
+        if fd != _c.INVALID_SOCKET:
+            self.fd = _c.INVALID_SOCKET
+            _c.socketclose(fd)
 
     if hasattr(_c, 'fcntl'):
         def _setblocking(self, block):

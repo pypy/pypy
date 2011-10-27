@@ -25,7 +25,8 @@ class OptSimplify(Optimization):
         #     but it's a bit hard to implement robustly if heap.py is also run
         pass
 
-    optimize_CAST_OPAQUE_PTR = optimize_VIRTUAL_REF
+    def optimize_MARK_OPAQUE_PTR(self, op):
+        pass
 
 
 dispatch_opt = make_dispatcher_method(OptSimplify, 'optimize_',

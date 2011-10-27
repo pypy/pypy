@@ -135,6 +135,8 @@ class Entry(ExtRegistryEntry):
     _about_ = erase_int
 
     def compute_result_annotation(self, s_obj):
+        config = self.bookkeeper.annotator.translator.config
+        assert config.translation.taggedpointers, "need to enable tagged pointers to use erase_int"
         assert annmodel.SomeInteger().contains(s_obj)
         return SomeErased()
 
@@ -218,18 +220,18 @@ class ErasedRepr(Repr):
         [v_value] = hop.inputargs(lltype.Signed)
         c_one = hop.inputconst(lltype.Signed, 1)
         hop.exception_is_here()
-        v2 = hop.genop('int_lshift_ovf', [v_value, c_one],
+        v2 = hop.genop('int_add_ovf', [v_value, v_value],
                        resulttype = lltype.Signed)
         v2p1 = hop.genop('int_add', [v2, c_one],
                          resulttype = lltype.Signed)
         v_instance = hop.genop('cast_int_to_ptr', [v2p1],
                                resulttype=self.lowleveltype)
-        v = hop.genop('cast_opaque_ptr', [v_instance],
-                      resulttype=self.lowleveltype)
-        return v
+        return v_instance
 
     def convert_const(self, value):
         if value._identity is _identity_for_ints:
+            config = self.rtyper.annotator.translator.config
+            assert config.translation.taggedpointers, "need to enable tagged pointers to use erase_int"
             return lltype.cast_int_to_ptr(self.lowleveltype, value._x * 2 + 1)
         bk = self.rtyper.annotator.bookkeeper
         s_obj = value._identity.get_input_annotation(bk)
@@ -266,10 +268,10 @@ class OOErasedRepr(Repr):
         return hop.genop('int_rshift', [v2, c_one], resulttype=lltype.Signed)
 
     def rtype_erase_int(self, hop):
-        hop.exception_is_here()
         [v_value] = hop.inputargs(lltype.Signed)
         c_one = hop.inputconst(lltype.Signed, 1)
-        v2 = hop.genop('int_lshift_ovf', [v_value, c_one],
+        hop.exception_is_here()
+        v2 = hop.genop('int_add_ovf', [v_value, v_value],
                        resulttype = lltype.Signed)
         v2p1 = hop.genop('int_add', [v2, c_one],
                          resulttype = lltype.Signed)

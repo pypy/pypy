@@ -214,6 +214,10 @@ def no_collect(func):
     func._gc_no_collect_ = True
     return func
 
+def is_light_finalizer(func):
+    func._is_light_finalizer_ = True
+    return func
+
 # ____________________________________________________________
 
 def get_rpy_roots():

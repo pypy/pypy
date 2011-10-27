@@ -186,6 +186,11 @@ class TestHeapPython(TestHeap):
         self.assertFalse(sys.modules['heapq'] is self.module)
         self.assertTrue(hasattr(self.module.heapify, 'func_code'))
 
+    def test_islice_protection(self):
+        m = self.module
+        self.assertFalse(m.nsmallest(-1, [1]))
+        self.assertFalse(m.nlargest(-1, [1]))
+
 
 class TestHeapC(TestHeap):
     module = c_heapq

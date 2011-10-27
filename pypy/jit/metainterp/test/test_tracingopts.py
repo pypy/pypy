@@ -3,6 +3,7 @@ import sys
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.rlib import jit
 from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rlib.rstring import StringBuilder
 
 import py
 
@@ -591,3 +592,13 @@ class TestLLtype(LLJitMixin):
         self.check_operations_history(int_add_ovf=0)
         res = self.interp_operations(fn, [sys.maxint])
         assert res == 12
+
+    def test_copy_str_content(self):
+        def fn(n):
+            a = StringBuilder()
+            x = [1]
+            a.append("hello world")
+            return x[0]
+        res = self.interp_operations(fn, [0])
+        assert res == 1
+        self.check_operations_history(getarrayitem_gc=0, getarrayitem_gc_pure=0 )

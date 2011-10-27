@@ -106,10 +106,9 @@ class OptRewrite(Optimization):
             self.make_equal_to(op.result, v1)
         else:
             self.emit_operation(op)
-
-        # Synthesize the reverse ops for optimize_default to reuse
-        self.pure(rop.INT_ADD, [op.result, op.getarg(1)], op.getarg(0))
-        self.pure(rop.INT_SUB, [op.getarg(0), op.result], op.getarg(1))
+            # Synthesize the reverse ops for optimize_default to reuse
+            self.pure(rop.INT_ADD, [op.result, op.getarg(1)], op.getarg(0))
+            self.pure(rop.INT_SUB, [op.getarg(0), op.result], op.getarg(1))
 
     def optimize_INT_ADD(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -122,10 +121,9 @@ class OptRewrite(Optimization):
             self.make_equal_to(op.result, v1)
         else:
             self.emit_operation(op)
-
-        # Synthesize the reverse op for optimize_default to reuse
-        self.pure(rop.INT_SUB, [op.result, op.getarg(1)], op.getarg(0))
-        self.pure(rop.INT_SUB, [op.result, op.getarg(0)], op.getarg(1))
+            # Synthesize the reverse op for optimize_default to reuse
+            self.pure(rop.INT_SUB, [op.result, op.getarg(1)], op.getarg(0))
+            self.pure(rop.INT_SUB, [op.result, op.getarg(0)], op.getarg(1))
 
     def optimize_INT_MUL(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -141,13 +139,13 @@ class OptRewrite(Optimization):
             self.make_constant_int(op.result, 0)
         else:
             for lhs, rhs in [(v1, v2), (v2, v1)]:
-                # x & (x -1) == 0 is a quick test for power of 2
-                if (lhs.is_constant() and
-                    (lhs.box.getint() & (lhs.box.getint() - 1)) == 0):
-                    new_rhs = ConstInt(highest_bit(lhs.box.getint()))
-                    op = op.copy_and_change(rop.INT_LSHIFT, args=[rhs.box, new_rhs])
-                    break
-
+                if lhs.is_constant():
+                    x = lhs.box.getint()
+                    # x & (x - 1) == 0 is a quick test for power of 2
+                    if x & (x - 1) == 0:
+                        new_rhs = ConstInt(highest_bit(lhs.box.getint()))
+                        op = op.copy_and_change(rop.INT_LSHIFT, args=[rhs.box, new_rhs])
+                        break
             self.emit_operation(op)
 
     def optimize_UINT_FLOORDIV(self, op):
@@ -339,7 +337,7 @@ class OptRewrite(Optimization):
     def optimize_INT_IS_ZERO(self, op):
         self._optimize_nullness(op, op.getarg(0), False)
 
-    def _optimize_oois_ooisnot(self, op, expect_isnot):
+    def _optimize_oois_ooisnot(self, op, expect_isnot, instance):
         value0 = self.getvalue(op.getarg(0))
         value1 = self.getvalue(op.getarg(1))
         if value0.is_virtual():
@@ -357,21 +355,28 @@ class OptRewrite(Optimization):
         elif value0 is value1:
             self.make_constant_int(op.result, not expect_isnot)
         else:
-            cls0 = value0.get_constant_class(self.optimizer.cpu)
-            if cls0 is not None:
-                cls1 = value1.get_constant_class(self.optimizer.cpu)
-                if cls1 is not None and not cls0.same_constant(cls1):
-                    # cannot be the same object, as we know that their
-                    # class is different
-                    self.make_constant_int(op.result, expect_isnot)
-                    return
+            if instance:
+                cls0 = value0.get_constant_class(self.optimizer.cpu)
+                if cls0 is not None:
+                    cls1 = value1.get_constant_class(self.optimizer.cpu)
+                    if cls1 is not None and not cls0.same_constant(cls1):
+                        # cannot be the same object, as we know that their
+                        # class is different
+                        self.make_constant_int(op.result, expect_isnot)
+                        return
             self.emit_operation(op)
 
-    def optimize_PTR_NE(self, op):
-        self._optimize_oois_ooisnot(op, True)
-
     def optimize_PTR_EQ(self, op):
-        self._optimize_oois_ooisnot(op, False)
+        self._optimize_oois_ooisnot(op, False, False)
+
+    def optimize_PTR_NE(self, op):
+        self._optimize_oois_ooisnot(op, True, False)
+
+    def optimize_INSTANCE_PTR_EQ(self, op):
+        self._optimize_oois_ooisnot(op, False, True)
+
+    def optimize_INSTANCE_PTR_NE(self, op):
+        self._optimize_oois_ooisnot(op, True, True)
 
 ##    def optimize_INSTANCEOF(self, op):
 ##        value = self.getvalue(op.args[0])
@@ -450,6 +455,9 @@ class OptRewrite(Optimization):
         if v2.is_constant() and v2.box.getint() == 1:
             self.make_equal_to(op.result, v1)
             return
+        elif v1.is_constant() and v1.box.getint() == 0:
+            self.make_constant_int(op.result, 0)
+            return
         if v1.intbound.known_ge(IntBound(0, 0)) and v2.is_constant():
             val = v2.box.getint()
             if val & (val - 1) == 0 and val > 0: # val == 2**shift
@@ -457,10 +465,17 @@ class OptRewrite(Optimization):
                                         args = [op.getarg(0), ConstInt(highest_bit(val))])
         self.emit_operation(op)
 
-    def optimize_CAST_OPAQUE_PTR(self, op):
+    def optimize_MARK_OPAQUE_PTR(self, op):
         value = self.getvalue(op.getarg(0))
         self.optimizer.opaque_pointers[value] = True
-        self.make_equal_to(op.result, value)
+
+    def optimize_CAST_PTR_TO_INT(self, op):
+        self.pure(rop.CAST_INT_TO_PTR, [op.result], op.getarg(0))
+        self.emit_operation(op)
+
+    def optimize_CAST_INT_TO_PTR(self, op):
+        self.pure(rop.CAST_PTR_TO_INT, [op.result], op.getarg(0))
+        self.emit_operation(op)
 
 dispatch_opt = make_dispatcher_method(OptRewrite, 'optimize_',
         default=OptRewrite.emit_operation)

@@ -355,6 +355,10 @@ def op_cast_bool_to_float(b):
     assert type(b) is bool
     return float(b)
 
+def op_cast_float_to_int(f):
+    assert type(f) is float
+    return intmask(int(f))
+
 def op_cast_float_to_uint(f):
     assert type(f) is float
     return r_uint(long(f))
@@ -537,6 +541,9 @@ def op_jit_force_virtualizable(*args):
 
 def op_jit_force_virtual(x):
     return x
+
+def op_jit_is_virtual(x):
+    return False
 
 def op_jit_force_quasi_immutable(*args):
     pass

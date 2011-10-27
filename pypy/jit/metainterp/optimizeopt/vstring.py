@@ -163,17 +163,6 @@ class VStringPlainValue(VAbstractStringValue):
             for value in self._chars:
                 value.get_args_for_fail(modifier)
 
-    def FIXME_enum_forced_boxes(self, boxes, already_seen):
-        key = self.get_key_box()
-        if key in already_seen:
-            return
-        already_seen[key] = None
-        if self.box is None:
-            for box in self._chars:
-                box.enum_forced_boxes(boxes, already_seen)
-        else:
-            boxes.append(self.box)
-
     def _make_virtual(self, modifier):
         return modifier.make_vstrplain(self.mode is mode_unicode)
 
@@ -226,18 +215,6 @@ class VStringConcatValue(VAbstractStringValue):
             self.left.get_args_for_fail(modifier)
             self.right.get_args_for_fail(modifier)
 
-    def FIXME_enum_forced_boxes(self, boxes, already_seen):
-        key = self.get_key_box()
-        if key in already_seen:
-            return
-        already_seen[key] = None
-        if self.box is None:
-            self.left.enum_forced_boxes(boxes, already_seen)
-            self.right.enum_forced_boxes(boxes, already_seen)
-            self.lengthbox = None
-        else:
-            boxes.append(self.box)
-
     def _make_virtual(self, modifier):
         return modifier.make_vstrconcat(self.mode is mode_unicode)
 
@@ -283,18 +260,6 @@ class VStringSliceValue(VAbstractStringValue):
             self.vstr.get_args_for_fail(modifier)
             self.vstart.get_args_for_fail(modifier)
             self.vlength.get_args_for_fail(modifier)
-
-    def FIXME_enum_forced_boxes(self, boxes, already_seen):
-        key = self.get_key_box()
-        if key in already_seen:
-            return
-        already_seen[key] = None
-        if self.box is None:
-            self.vstr.enum_forced_boxes(boxes, already_seen)
-            self.vstart.enum_forced_boxes(boxes, already_seen)
-            self.vlength.enum_forced_boxes(boxes, already_seen)
-        else:
-            boxes.append(self.box)
 
     def _make_virtual(self, modifier):
         return modifier.make_vstrslice(self.mode is mode_unicode)
@@ -587,10 +552,7 @@ class OptString(optimizer.Optimization):
             return True
         #
         if v1.is_nonnull() and v2.is_nonnull():
-            if l1box is not None and l2box is not None and (
-                l1box == l2box or (isinstance(l1box, ConstInt) and
-                                   isinstance(l2box, ConstInt) and
-                                   l1box.value == l2box.value)):
+            if l1box is not None and l2box is not None and l1box.same_box(l2box):
                 do = EffectInfo.OS_STREQ_LENGTHOK
             else:
                 do = EffectInfo.OS_STREQ_NONNULL
