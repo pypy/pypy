@@ -17,8 +17,9 @@ slice_driver = jit.JitDriver(greens=['signature'], reds=['i', 'j', 'step', 'stop
 class BaseArray(Wrappable):
     _attrs_ = ["invalidates", "signature"]
 
-    def __init__(self):
+    def __init__(self, shape):
         self.invalidates = []
+        self.shape = shape
 
     def invalidated(self):
         if self.invalidates:
@@ -277,7 +278,6 @@ class BaseArray(Wrappable):
             return space.wrap(res)
 
     def descr_setitem(self, space, w_idx, w_value):
-        # TODO: indexing by arrays and lists
         self.invalidated()
         if self._single_item_at_index(space, w_idx):
             item = self._single_item_at_index(space, w_idx)
@@ -353,7 +353,7 @@ class Scalar(BaseArray):
     _attrs_ = ["dtype", "value"]
 
     def __init__(self, dtype, value):
-        BaseArray.__init__(self)
+        BaseArray.__init__(self, [])
         self.dtype = dtype
         self.value = value
 
@@ -504,18 +504,19 @@ class ViewArray(BaseArray):
         raise NotImplementedError
 
     def descr_len(self, space):
+        xxx
         # XXX find shape first
         return space.wrap(self.find_size())
 
     def calc_index(self, item):
         raise NotImplementedError
 
-class SingleDimSlice(ViewArray):
+class NDimSlice(ViewArray):
     signature = signature.BaseSignature()
 
     def __init__(self, start, stop, step, slice_length, parent, signature):
         ViewArray.__init__(self, parent, signature)
-        if isinstance(parent, SingleDimSlice):
+        if isinstance(parent, NDimSlice):
             self.start = parent.calc_index(start)
             self.stop = parent.calc_index(stop)
             self.step = parent.step * step
@@ -549,9 +550,8 @@ class SingleDimSlice(ViewArray):
 
 class NDimArray(BaseArray):
     def __init__(self, size, shape, dtype):
-        BaseArray.__init__(self)
+        BaseArray.__init__(self, shape)
         self.size = size
-        self.shape = shape
         self.dtype = dtype
         self.storage = dtype.malloc(size)
         self.signature = dtype.signature
@@ -572,7 +572,10 @@ class NDimArray(BaseArray):
         return self.dtype.getitem(self.storage, i)
 
     def descr_len(self, space):
-        return space.wrap(self.shape[0])
+        if len(self.shape):
+            return space.wrap(self.shape[0])
+        raise OperationError(space.w_TypeError, space.wrap(
+            "len() of unsized object"))
 
     def setitem_w(self, space, item, w_value):
         self.invalidated()

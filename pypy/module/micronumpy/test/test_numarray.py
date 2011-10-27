@@ -611,13 +611,14 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert numpy.zeros((2, 2)).shape == (2,2)
         assert numpy.zeros((3, 1, 2)).shape == (3, 1, 2)
         assert len(numpy.zeros((3, 1, 2))) == 3
+        raises(TypeError, len, numpy.zeros(()))
 
     def test_getsetitem(self):
         import numpy
         a = numpy.zeros((2, 3, 1))
-        #raises(IndexError, a.__getitem__, (0, 0, 0, 0))
-        #raises(IndexError, a.__getitem__, (3,))
-        #raises(IndexError, a.__getitem__, (1, 3))
+        raises(IndexError, a.__getitem__, (2, 0, 0))
+        raises(IndexError, a.__getitem__, (0, 3, 0))
+        raises(IndexError, a.__getitem__, (0, 0, 1))
         assert a[1, 1, 0] == 0
         a[1, 2, 0] = 3
         assert a[1, 2, 0] == 3
