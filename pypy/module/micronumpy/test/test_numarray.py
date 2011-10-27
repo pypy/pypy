@@ -604,6 +604,16 @@ class AppTestNumArray(BaseNumpyAppTest):
             for i in xrange(5):
                 assert c[i] == func(b[i], 3)
 
+    def test_nonzero(self):
+        from numpy import array
+        a = array([1, 2])
+        raises(ValueError, bool, a)
+        raises(ValueError, bool, a == a)
+        assert bool(array(1))
+        assert not bool(array(0))
+        assert bool(array([1]))
+        assert not bool(array([0]))
+
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
         import numpy
@@ -672,7 +682,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = numpy.array([[1, 2], [4, 5]])
         assert a[0, 1] == a[0][1] == 2
         a = numpy.array(([[[1, 2], [3, 4], [5, 6]]]))
-        assert a[0, 1] == [3, 4]
+        assert (a[0, 1] == [3, 4]).all()
 
     def test_setitem_slice(self):
         import numpy
@@ -681,11 +691,13 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert a[1, 2] == 3
         raises(TypeError, a[1].__setitem__, [1, 2, 3])
         a = numpy.array([[1, 2], [3, 4]])
-        assert a == [[1, 2], [3, 4]]
+        assert (a == [[1, 2], [3, 4]]).all()
         a[1] = numpy.array([5, 6])
-        assert a == [[1, 2], [5, 6]]
+        assert (a == [[1, 2], [5, 6]]).all()
         a[:,1] = numpy.array([8, 10])
-        assert a == [[1, 8], [5, 10]]
+        assert (a == [[1, 8], [5, 10]]).all()
+        a[:,::-1] = numpy.array([11, 12])
+        assert (a == [[12, 11], [12, 11]]).all()
 
 class AppTestSupport(object):
     def setup_class(cls):

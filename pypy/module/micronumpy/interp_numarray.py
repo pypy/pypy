@@ -25,7 +25,7 @@ def _find_dtype(space, w_iterable):
             for w_item in space.listview(w_next):
                 stack.append(w_item)
         else:
-            w_dtype = interp_ufuncs.find_dtype_for_scalar(space, w_item, w_dtype)
+            w_dtype = interp_ufuncs.find_dtype_for_scalar(space, w_next, w_dtype)
             if w_dtype is space.fromcache(interp_dtype.W_Float64Dtype):
                 return w_dtype
     if w_dtype is None:
@@ -71,14 +71,16 @@ class BaseArray(Wrappable):
     def add_invalidates(self, other):
         self.invalidates.append(other)
 
-    def descr__new__(space, w_subtype, w_size_or_iterable, w_dtype=None):
+    def descr__new__(space, w_subtype, w_item_or_iterable, w_dtype=None):
         # find scalar
         if space.is_w(w_dtype, space.w_None):
-            w_dtype = _find_dtype(space, w_size_or_iterable)
+            w_dtype = _find_dtype(space, w_item_or_iterable)
         dtype = space.interp_w(interp_dtype.W_Dtype,
             space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
         )
-        shape, elems_w = _find_shape_and_elems(space, w_size_or_iterable)
+        if not space.issequence_w(w_item_or_iterable):
+            return scalar_w(space, dtype, w_item_or_iterable)
+        shape, elems_w = _find_shape_and_elems(space, w_item_or_iterable)
         size = len(elems_w)
         arr = NDimArray(size, shape, dtype=dtype)
         i = 0
@@ -365,6 +367,12 @@ class BaseArray(Wrappable):
     def descr_mean(self, space):
         return space.wrap(space.float_w(self.descr_sum(space))/self.find_size())
 
+    def descr_nonzero(self, space):
+        if self.find_size() > 1:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()"))
+        return self.get_concrete().eval(0).wrap(space)
+
 def convert_to_array(space, w_obj):
     if isinstance(w_obj, BaseArray):
         return w_obj
@@ -395,7 +403,10 @@ class Scalar(BaseArray):
         self.value = value
 
     def find_size(self):
-        raise ValueError
+        return 1
+
+    def get_concrete(self):
+        return self
 
     def find_dtype(self):
         return self.dtype
@@ -711,6 +722,7 @@ BaseArray.typedef = TypeDef(
     __pos__ = interp2app(BaseArray.descr_pos),
     __neg__ = interp2app(BaseArray.descr_neg),
     __abs__ = interp2app(BaseArray.descr_abs),
+    __nonzero__ = interp2app(BaseArray.descr_nonzero),
 
     __add__ = interp2app(BaseArray.descr_add),
     __sub__ = interp2app(BaseArray.descr_sub),
