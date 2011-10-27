@@ -629,7 +629,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = numpy.zeros((4, 3, 2))
         raises(IndexError, a.__getitem__, (4,))
         raises(IndexError, a.__getitem__, (3, 3))
-        raises(IndexError, a.__getitem__, (:, 3))
+        raises(IndexError, a.__getitem__, (slice(None), 3))
         
 
 class AppTestSupport(object):
