@@ -32,11 +32,17 @@ class W_Ufunc(Wrappable):
         return self.identity.wrap(space)
 
     def descr_call(self, space, __args__):
-        try:
-            args_w = __args__.fixedunpack(self.argcount)
-        except ValueError, e:
-            raise OperationError(space.w_TypeError, space.wrap(str(e)))
-        return self.call(space, args_w)
+        if __args__.keywords or len(__args__.arguments_w) < self.argcount:
+            raise OperationError(space.w_ValueError,
+                space.wrap("invalid number of arguments")
+            )
+        elif len(__args__.arguments_w) > self.argcount:
+            # The extra arguments should actually be the output array, but we
+            # don't support that yet.
+            raise OperationError(space.w_TypeError,
+                space.wrap("invalid number of arguments")
+            )
+        return self.call(space, __args__.arguments_w)
 
     def descr_reduce(self, space, w_obj):
         from pypy.module.micronumpy.interp_numarray import convert_to_array, Scalar
