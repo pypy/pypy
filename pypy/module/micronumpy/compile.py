@@ -4,9 +4,10 @@ It should not be imported by the module itself
 """
 
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
-from pypy.module.micronumpy.interp_dtype import W_Float64Dtype
+from pypy.module.micronumpy.interp_dtype import W_Float64Dtype, W_BoolDtype
 from pypy.module.micronumpy.interp_numarray import (Scalar, BaseArray,
      descr_new_array, scalar_w, SingleDimArray)
+from pypy.module.micronumpy import interp_ufuncs
 from pypy.rlib.objectmodel import specialize
 
 
@@ -22,7 +23,7 @@ class ArgumentNotAnArray(Exception):
 class WrongFunctionName(Exception):
     pass
 
-SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min"]
+SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any", "unegative"]
 
 class FakeSpace(object):
     w_ValueError = None
@@ -200,10 +201,10 @@ class Operator(Node):
         assert isinstance(w_lhs, BaseArray)
         if self.name == '+':
             w_res = w_lhs.descr_add(interp.space, w_rhs)
-            if not isinstance(w_res, BaseArray):
-                dtype = interp.space.fromcache(W_Float64Dtype)
-                w_res = scalar_w(interp.space, dtype, w_res)
-            return w_res
+        elif self.name == '*':
+            w_res = w_lhs.descr_mul(interp.space, w_rhs)
+        elif self.name == '-':
+            w_res = w_lhs.descr_sub(interp.space, w_rhs)            
         elif self.name == '->':
             if isinstance(w_rhs, Scalar):
                 index = int(interp.space.float_w(
@@ -214,6 +215,10 @@ class Operator(Node):
                 raise NotImplementedError
         else:
             raise NotImplementedError
+        if not isinstance(w_res, BaseArray):
+            dtype = interp.space.fromcache(W_Float64Dtype)
+            w_res = scalar_w(interp.space, dtype, w_res)
+        return w_res
 
     def __repr__(self):
         return '(%r %s %r)' % (self.lhs, self.name, self.rhs)
@@ -302,9 +307,23 @@ class FunctionCall(Node):
                 w_res = arr.descr_max(interp.space)
             elif self.name == "min":
                 w_res = arr.descr_min(interp.space)
+            elif self.name == "any":
+                w_res = arr.descr_any(interp.space)
+            elif self.name == "all":
+                w_res = arr.descr_all(interp.space)
+            elif self.name == "unegative":
+                neg = interp_ufuncs.get(interp.space).negative
+                w_res = neg.call(interp.space, [arr])
             else:
                 assert False # unreachable code
-            dtype = interp.space.fromcache(W_Float64Dtype)
+            if isinstance(w_res, BaseArray):
+                return w_res
+            if isinstance(w_res, FloatObject):
+                dtype = interp.space.fromcache(W_Float64Dtype)
+            elif isinstance(w_res, BoolObject):
+                dtype = interp.space.fromcache(W_BoolDtype)
+            else:
+                dtype = None
             return scalar_w(interp.space, dtype, w_res)
         else:
             raise WrongFunctionName
@@ -398,6 +417,8 @@ class Parser(object):
     def parse(self, code):
         statements = []
         for line in code.split("\n"):
+            if '#' in line:
+                line = line.split('#', 1)[0]
             line = line.strip(" ")
             if line:
                 statements.append(self.parse_statement(line))

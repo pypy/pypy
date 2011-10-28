@@ -71,6 +71,15 @@ class TestCompiler(object):
         assert interp.code.statements[0] == Execute(
             FunctionCall("sum", [Variable("a")]))
 
+    def test_comment(self):
+        code = """
+        # some comment
+        a = b + 3  # another comment
+        """
+        interp = self.compile(code)
+        assert interp.code.statements[0] == Assignment(
+            'a', Operator(Variable('b'), "+", FloatConstant(3)))
+
 class TestRunner(object):
     def run(self, code):
         interp = numpy_compile(code)

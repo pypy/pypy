@@ -951,6 +951,9 @@ class Stats(object):
         del self.locations[:]
         del self.aborted_keys[:]
         self.invalidated_token_numbers.clear()
+        self.compiled_count = 0
+        self.enter_count = 0
+        self.aborted_count = 0
 
     def set_history(self, history):
         self.operations = history.operations
