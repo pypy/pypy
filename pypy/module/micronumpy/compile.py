@@ -53,7 +53,10 @@ class FakeSpace(object):
         return False
 
     def decode_index4(self, w_idx, size):
-        return (self.int_w(w_idx), 0, 0, 1)
+        if isinstance(w_idx, IntObject):
+            return (self.int_w(w_idx), 0, 0, 1)
+        else:
+            return (0, size, 1, size)
 
     @specialize.argtype(1)
     def wrap(self, obj):
@@ -63,7 +66,7 @@ class FakeSpace(object):
             return BoolObject(obj)
         elif isinstance(obj, int):
             return IntObject(obj)
-        raise Exception
+        return obj
 
     def newlist(self, items):
         return ListObject(items)
@@ -138,6 +141,9 @@ class ListObject(W_Root):
     def __init__(self, items):
         self.items = items
 
+class SliceObject(W_Root):
+    tp = FakeSpace.w_slice
+
 class InterpreterState(object):
     def __init__(self, code):
         self.code = code
@@ -210,11 +216,11 @@ class Operator(Node):
 
     def execute(self, interp):
         w_lhs = self.lhs.execute(interp)
-        assert isinstance(w_lhs, BaseArray)
         if isinstance(self.rhs, SliceConstant):
-            # XXX interface has changed on multidim branch
-            raise NotImplementedError
-        w_rhs = self.rhs.execute(interp)
+            w_rhs = self.rhs.wrap(interp.space)
+        else:
+            w_rhs = self.rhs.execute(interp)
+        assert isinstance(w_lhs, BaseArray)
         if self.name == '+':
             w_res = w_lhs.descr_add(interp.space, w_rhs)
         elif self.name == '*':
@@ -223,12 +229,10 @@ class Operator(Node):
             w_res = w_lhs.descr_sub(interp.space, w_rhs)            
         elif self.name == '->':
             if isinstance(w_rhs, Scalar):
-                index = int(interp.space.float_w(
-                    w_rhs.value.wrap(interp.space)))
-                dtype = interp.space.fromcache(W_Float64Dtype)
-                return Scalar(dtype, w_lhs.get_concrete().eval(index))
-            else:
-                raise NotImplementedError
+                w_rhs = w_rhs.eval(0).wrap(interp.space)
+                assert isinstance(w_rhs, FloatObject)
+                w_rhs = IntObject(int(w_rhs.floatval))
+            w_res = w_lhs.descr_getitem(interp.space, w_rhs)
         else:
             raise NotImplementedError
         if not isinstance(w_res, BaseArray):
@@ -292,6 +296,9 @@ class ArrayConstant(Node):
 class SliceConstant(Node):
     def __init__(self):
         pass
+
+    def wrap(self, space):
+        return SliceObject()
 
     def __repr__(self):
         return 'slice()'
