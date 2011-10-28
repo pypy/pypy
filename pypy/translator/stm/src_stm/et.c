@@ -1,11 +1,14 @@
 /* -*- c-basic-offset: 2 -*- */
 
+#ifndef PYPY_NOT_MAIN_FILE
+
 /* XXX assumes that time never wraps around (in a 'long'), which may be
  * correct on 64-bit machines but not on 32-bit machines if the process
  * runs for long enough.
  *
  * XXX measure the overhead of the global_timestamp
  */
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
@@ -74,6 +77,9 @@ struct tx_descriptor {
   owner_version_t my_lock_word;
   unsigned init_counter;
   struct RedoLog redolog;   /* last item, because it's the biggest one */
+#ifdef RPY_ASSERT
+  int transaction_active;
+#endif
 };
 
 /* global_timestamp contains in its lowest bit a flag equal to 1
@@ -235,6 +241,10 @@ static void common_cleanup(struct tx_descriptor *d)
 {
   d->reads.size = 0;
   redolog_clear(&d->redolog);
+#ifdef RPY_ASSERT
+  assert(d->transaction_active);
+  d->transaction_active = 0;
+#endif
 }
 
 static void tx_cleanup(struct tx_descriptor *d)
@@ -597,6 +607,10 @@ void* stm_perform_transaction(void*(*callback)(void*), void *arg)
 void stm_begin_transaction(jmp_buf* buf)
 {
   struct tx_descriptor *d = thread_descriptor;
+#ifdef RPY_ASSERT
+  assert(!d->transaction_active);
+  d->transaction_active = 1;
+#endif
   d->setjmp_buf = buf;
   d->start_time = d->last_known_global_timestamp & ~1;
 }
@@ -852,3 +866,5 @@ void stm_write_float(long *addr, float val)
     stm_write_partial_word(4, (char *)addr, 0, ii);    /* 64 bits, aligned */
 #endif
 }
+
+#endif  /* PYPY_NOT_MAIN_FILE */

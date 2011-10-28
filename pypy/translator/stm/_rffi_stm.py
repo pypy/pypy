@@ -11,9 +11,9 @@ cdir2 = py.path.local(pypydir) / 'translator' / 'c'
 
 eci = ExternalCompilationInfo(
     include_dirs = [cdir, cdir2],
-    includes = ['src_stm/et.h'],
+    includes = ['src_stm/et.h', 'src_stm/et.c'],
     pre_include_bits = ['#define PYPY_LONG_BIT %d' % LONG_BIT],
-    separate_module_sources = ['#include "src_stm/et.c"\n'],
+    separate_module_sources = ['\n'],    # hack for test_rffi_stm
 )
 
 def llexternal(name, args, result, **kwds):

@@ -39,7 +39,7 @@ class TestTransformSingleThread(StandaloneTests):
         from pypy.config.pypyoption import get_pypy_config
         self.config = get_pypy_config(translating=True)
         self.config.translation.stm = True
-        return StandaloneTests.compile(self, entry_point)
+        return StandaloneTests.compile(self, entry_point, debug=True)
 
     def test_no_pointer_operations(self):
         def simplefunc(argv):
@@ -54,3 +54,21 @@ class TestTransformSingleThread(StandaloneTests):
         dataout, dataerr = cbuilder.cmdexec('', err=True)
         assert dataout == ''
         assert '102' in dataerr.splitlines()
+
+    def test_fails_when_nonbalanced_begin(self):
+        def g():
+            rstm.begin_transaction()
+        g._dont_inline_ = True
+        def simplefunc(argv):
+            rstm.begin_transaction()
+            g()
+            return 0
+        t, cbuilder = self.compile(simplefunc)
+        cbuilder.cmdexec('', expect_crash=True)
+
+    def test_fails_when_nonbalanced_commit(self):
+        def simplefunc(argv):
+            rstm.commit_transaction()
+            return 0
+        t, cbuilder = self.compile(simplefunc)
+        cbuilder.cmdexec('', expect_crash=True)
