@@ -43,7 +43,8 @@ class STMTransformer(object):
             try:
                 meth = getattr(self, 'stt_' + op.opname)
             except AttributeError:
-                if op_in_set(op.opname, ALWAYS_ALLOW_OPERATIONS):
+                if (op_in_set(op.opname, ALWAYS_ALLOW_OPERATIONS) or
+                        op.opname.startswith('stm_')):
                     meth = list.append
                 else:
                     meth = turn_inevitable_and_proceed

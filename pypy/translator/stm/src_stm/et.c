@@ -698,6 +698,10 @@ void stm_try_inevitable(void)
      to 1. */
   struct tx_descriptor *d = thread_descriptor;
 
+#ifdef RPY_ASSERT
+  assert(d->transaction_active);
+#endif
+
   if (is_inevitable(d))
     return;  /* I am already inevitable */
 
