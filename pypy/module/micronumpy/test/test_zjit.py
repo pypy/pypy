@@ -23,7 +23,7 @@ class TestNumpyJIt(LLJitMixin):
             interp = numpy_compile(hlstr(code))
             interp.run(space)
             res = interp.results[0]
-            return interp.space.float_w(res)
+            return interp.space.float_w(res.eval(0).wrap(interp.space))
 
         if self.graph is None:
             interp, graph = self.meta_interp(f, [llstr(code)],
@@ -68,48 +68,45 @@ class TestNumpyJIt(LLJitMixin):
                           "int_add": 1,
                           "int_lt": 1, "guard_true": 1, "jump": 1})
 
-class DisabledTestNumpy(object):
-    def test_sum(self):
-        space = self.space
-        float64_dtype = self.float64_dtype
-        int64_dtype = self.int64_dtype
-
-        def f(i):
-            if NonConstant(False):
-                dtype = int64_dtype
-            else:
-                dtype = float64_dtype
-            ar = SingleDimArray(i, dtype=dtype)
-            v = ar.descr_add(space, ar).descr_sum(space)
-            assert isinstance(v, FloatObject)
-            return v.floatval
-
-        result = self.meta_interp(f, [5], listops=True, backendopt=True)
-        self.check_loops({"getarrayitem_raw": 2, "float_add": 2,
-                          "int_add": 1,
-                          "int_lt": 1, "guard_true": 1, "jump": 1})
-        assert result == f(5)
-
     def test_prod(self):
-        space = self.space
-        float64_dtype = self.float64_dtype
-        int64_dtype = self.int64_dtype
-
-        def f(i):
-            if NonConstant(False):
-                dtype = int64_dtype
-            else:
-                dtype = float64_dtype
-            ar = SingleDimArray(i, dtype=dtype)
-            v = ar.descr_add(space, ar).descr_prod(space)
-            assert isinstance(v, FloatObject)
-            return v.floatval
-
-        result = self.meta_interp(f, [5], listops=True, backendopt=True)
+        result = self.run("""
+        a = |30|
+        b = a + a
+        prod(b)
+        """)
+        expected = 1
+        for i in range(30):
+            expected *= i * 2
+        assert result == expected
         self.check_loops({"getarrayitem_raw": 2, "float_add": 1,
                           "float_mul": 1, "int_add": 1,
                           "int_lt": 1, "guard_true": 1, "jump": 1})
-        assert result == f(5)
+
+    def test_max(self):
+        result = self.run("""
+        a = |30|
+        a[13] = 128
+        b = a + a
+        max(b)
+        """)
+        assert result == 256
+        self.check_loops({"getarrayitem_raw": 2, "float_add": 1,
+                          "float_mul": 1, "int_add": 1,
+                          "int_lt": 1, "guard_true": 1, "jump": 1})
+
+    def test_min(self):
+        result = self.run("""
+        a = |30|
+        a[15] = -12
+        b = a + a
+        min(b)
+        """)
+        assert result == -24
+        self.check_loops({"getarrayitem_raw": 2, "float_add": 1,
+                          "float_mul": 1, "int_add": 1,
+                          "int_lt": 1, "guard_true": 1, "jump": 1})
+
+class DisabledTestNumpy(object):
 
     def test_max(self):
         space = self.space

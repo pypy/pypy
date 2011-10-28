@@ -12,9 +12,9 @@ class TestCompiler(object):
         """
         interp = self.compile(code)
         assert isinstance(interp.code.statements[0], Assignment)
-        assert interp.code.statements[0].id.name == 'a'
+        assert interp.code.statements[0].name == 'a'
         assert interp.code.statements[0].expr.v == 2
-        assert interp.code.statements[1].id.name == 'b'
+        assert interp.code.statements[1].name == 'b'
         assert interp.code.statements[1].expr.v == 3
 
     def test_array_literal(self):
@@ -104,7 +104,7 @@ class TestRunner(object):
         a + b -> 3
         """
         interp = self.run(code)
-        assert interp.results[0].floatval == 3 + 6
+        assert interp.results[0].value.val == 3 + 6
         
     def test_range_getitem(self):
         code = """
@@ -112,7 +112,7 @@ class TestRunner(object):
         r -> 3
         """
         interp = self.run(code)
-        assert interp.results[0].floatval == 6
+        assert interp.results[0].value.val == 6
 
     def test_sum(self):
         code = """
@@ -121,4 +121,31 @@ class TestRunner(object):
         r
         """
         interp = self.run(code)
-        assert interp.results[0].floatval == 15
+        assert interp.results[0].value.val == 15
+
+    def test_array_write(self):
+        code = """
+        a = [1,2,3,4,5]
+        a[3] = 15
+        a -> 3
+        """
+        interp = self.run(code)
+        assert interp.results[0].value.val == 15
+
+    def test_min(self):
+        interp = self.run("""
+        a = |30|
+        a[15] = -12
+        b = a + a
+        min(b)
+        """)
+        assert interp.results[0].value.val == -24
+
+    def test_max(self):
+        interp = self.run("""
+        a = |30|
+        a[13] = 128
+        b = a + a
+        max(b)
+        """)
+        assert interp.results[0].value.val == 256

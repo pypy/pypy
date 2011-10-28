@@ -5,7 +5,8 @@ It should not be imported by the module itself
 
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
 from pypy.module.micronumpy.interp_dtype import W_Float64Dtype
-from pypy.module.micronumpy.interp_numarray import Scalar, BaseArray, descr_new_array
+from pypy.module.micronumpy.interp_numarray import (Scalar, BaseArray,
+     descr_new_array, scalar_w, SingleDimArray)
 from pypy.rlib.objectmodel import specialize
 
 
@@ -21,6 +22,8 @@ class ArgumentNotAnArray(Exception):
 class WrongFunctionName(Exception):
     pass
 
+SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min"]
+
 class FakeSpace(object):
     w_ValueError = None
     w_TypeError = None
@@ -31,6 +34,7 @@ class FakeSpace(object):
     w_float = "float"
     w_list = "list"
     w_long = "long"
+    w_tuple = 'tuple'
 
     def __init__(self):
         """NOT_RPYTHON"""
@@ -38,10 +42,13 @@ class FakeSpace(object):
         self.w_float64dtype = W_Float64Dtype(self)
 
     def issequence_w(self, w_obj):
-        return w_obj.seq
+        return isinstance(w_obj, ListObject) or isinstance(w_obj, SingleDimArray)
 
     def isinstance_w(self, w_obj, w_tp):
         return False
+
+    def decode_index4(self, w_idx, size):
+        return (self.int_w(w_idx), 0, 0, 1)
 
     @specialize.argtype(1)
     def wrap(self, obj):
@@ -69,8 +76,11 @@ class FakeSpace(object):
         return w_obj.floatval
 
     def int_w(self, w_obj):
-        assert isinstance(w_obj, IntObject)
-        return w_obj.intval
+        if isinstance(w_obj, IntObject):
+            return w_obj.intval
+        elif isinstance(w_obj, FloatObject):
+            return int(w_obj.floatval)
+        raise NotImplementedError
 
     def int(self, w_obj):
         return w_obj
@@ -97,25 +107,21 @@ class FakeSpace(object):
         return what
 
 class FloatObject(W_Root):
-    seq = False
     tp = FakeSpace.w_float
     def __init__(self, floatval):
         self.floatval = floatval
 
 class BoolObject(W_Root):
-    seq = False
     tp = FakeSpace.w_bool
     def __init__(self, boolval):
         self.boolval = boolval
 
 class IntObject(W_Root):
-    seq = False
     tp = FakeSpace.w_int
     def __init__(self, intval):
         self.intval = intval
 
 class ListObject(W_Root):
-    seq = True
     tp = FakeSpace.w_list
     def __init__(self, items):
         self.items = items
@@ -147,15 +153,30 @@ class Node(object):
         raise NotImplementedError
 
 class Assignment(Node):
-    def __init__(self, id, expr):
-        self.id = id
+    def __init__(self, name, expr):
+        self.name = name
         self.expr = expr
 
     def execute(self, interp):
-        interp.variables[self.id.name] = self.expr.execute(interp)
+        interp.variables[self.name] = self.expr.execute(interp)
 
     def __repr__(self):
-        return "%r = %r" % (self.id, self.expr)
+        return "%% = %r" % (self.name, self.expr)
+
+class ArrayAssignment(Node):
+    def __init__(self, name, index, expr):
+        self.name = name
+        self.index = index
+        self.expr = expr
+
+    def execute(self, interp):
+        arr = interp.variables[self.name]
+        w_index = self.index.execute(interp).eval(0).wrap(interp.space)
+        w_val = self.expr.execute(interp).eval(0).wrap(interp.space)
+        arr.descr_setitem(interp.space, w_index, w_val)
+
+    def __repr__(self):
+        return "%s[%r] = %r" % (self.name, self.index, self.expr)
 
 class Variable(Node):
     def __init__(self, name):
@@ -178,12 +199,17 @@ class Operator(Node):
         w_rhs = self.rhs.execute(interp)
         assert isinstance(w_lhs, BaseArray)
         if self.name == '+':
-            return w_lhs.descr_add(interp.space, w_rhs)
+            w_res = w_lhs.descr_add(interp.space, w_rhs)
+            if not isinstance(w_res, BaseArray):
+                dtype = interp.space.fromcache(W_Float64Dtype)
+                w_res = scalar_w(interp.space, dtype, w_res)
+            return w_res
         elif self.name == '->':
             if isinstance(w_rhs, Scalar):
                 index = int(interp.space.float_w(
                     w_rhs.value.wrap(interp.space)))
-                return w_lhs.get_concrete().eval(index).wrap(interp.space)
+                dtype = interp.space.fromcache(W_Float64Dtype)
+                return Scalar(dtype, w_lhs.get_concrete().eval(index))
             else:
                 raise NotImplementedError
         else:
@@ -262,13 +288,24 @@ class FunctionCall(Node):
                                                  for arg in self.args]))
 
     def execute(self, interp):
-        if self.name == 'sum':
+        if self.name in SINGLE_ARG_FUNCTIONS:
             if len(self.args) != 1:
                 raise ArgumentMismatch
             arr = self.args[0].execute(interp)
             if not isinstance(arr, BaseArray):
                 raise ArgumentNotAnArray
-            return arr.descr_sum(interp.space)
+            if self.name == "sum":
+                w_res = arr.descr_sum(interp.space)
+            elif self.name == "prod":
+                w_res = arr.descr_prod(interp.space)
+            elif self.name == "max":
+                w_res = arr.descr_max(interp.space)
+            elif self.name == "min":
+                w_res = arr.descr_min(interp.space)
+            else:
+                assert False # unreachable code
+            dtype = interp.space.fromcache(W_Float64Dtype)
+            return scalar_w(interp.space, dtype, w_res)
         else:
             raise WrongFunctionName
 
@@ -337,12 +374,24 @@ class Parser(object):
                 return self.parse_function_call(v)
             return self.parse_identifier(v)
         return self.parse_constant(v)
+
+    def parse_array_subscript(self, v):
+        v = v.strip(" ")
+        l = v.split("[")
+        lgt = len(l[1]) - 1
+        assert lgt >= 0
+        rhs = self.parse_constant_or_identifier(l[1][:lgt])
+        return l[0], rhs
         
     def parse_statement(self, line):
         if '=' in line:
             lhs, rhs = line.split("=")
-            return Assignment(self.parse_identifier(lhs),
-                              self.parse_expression(rhs))
+            lhs = lhs.strip(" ")
+            if '[' in lhs:
+                name, index = self.parse_array_subscript(lhs)
+                return ArrayAssignment(name, index, self.parse_expression(rhs))
+            else: 
+                return Assignment(lhs, self.parse_expression(rhs))
         else:
             return Execute(self.parse_expression(line))
 
