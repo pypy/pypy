@@ -448,6 +448,7 @@ class BlackholeInterpreter(object):
 
     @arguments("i", returns="i")
     def bhimpl_int_untag(a):
+        ll_assert((a & 1) == 1, "bhimpl_int_untag: not an odd int")
         return a >> 1
     @arguments("i", returns="i")
     def bhimpl_int_tag(a):
@@ -522,7 +523,6 @@ class BlackholeInterpreter(object):
     @arguments("r", returns="i")
     def bhimpl_cast_ptr_to_int(a):
         i = lltype.cast_ptr_to_int(a)
-        ll_assert((i & 1) == 1, "bhimpl_cast_ptr_to_int: not an odd int")
         return i
     @arguments("i", returns="r")
     def bhimpl_cast_int_to_ptr(i):
