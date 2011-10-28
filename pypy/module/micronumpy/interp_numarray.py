@@ -257,7 +257,7 @@ class BaseArray(Wrappable):
         concrete = self.get_concrete()
         return space.wrap("[" + " ".join(concrete._getnums(True)) + "]")
 
-    def _single_item_at_index(self, space, w_idx):
+    def _index_of_single_item(self, space, w_idx):
         # we assume C ordering for now
         if space.isinstance_w(w_idx, space.w_int):
             idx = space.int_w(w_idx)
@@ -350,14 +350,14 @@ class BaseArray(Wrappable):
 
     def descr_getitem(self, space, w_idx):
         if self._single_item_result(space, w_idx):
-            item = self._single_item_at_index(space, w_idx)
+            item = self._index_of_single_item(space, w_idx)
             return self.get_concrete().eval(item).wrap(space)
         return space.wrap(self._create_slice(space, w_idx))
 
     def descr_setitem(self, space, w_idx, w_value):
         self.invalidated()
         if self._single_item_result(space, w_idx):
-            item = self._single_item_at_index(space, w_idx)
+            item = self._index_of_single_item(space, w_idx)
             self.get_concrete().setitem_w(space, item, w_value)
             return
         concrete = self.get_concrete()
