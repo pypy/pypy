@@ -51,15 +51,17 @@ class LLSTMFrame(LLFrame):
     def getoperationhandler(self, opname):
         ophandler = getattr(self, 'opstm_' + opname, None)
         if ophandler is None:
-            self._validate_stmoperation_handler(opname)
             ophandler = LLFrame.getoperationhandler(self, opname)
-            setattr(self, 'opstm_' + opname, ophandler)
+            if op_in_set(opname, ALWAYS_ALLOW_OPERATIONS):
+                # always allow this, so store it back on self.__class__
+                setattr(self.__class__, 'opstm_' + opname,
+                        staticmethod(ophandler))
+            else:
+                # only allow this if we're not in the "regular_transaction"
+                # mode; check every time, so don't store it on self.__class__
+                if self.llinterpreter.stm_mode == "regular_transaction":
+                    raise ForbiddenInstructionInSTMMode(opname, self.graph)
         return ophandler
-
-    def _validate_stmoperation_handler(self, opname):
-        if op_in_set(opname, ALWAYS_ALLOW_OPERATIONS):
-            return
-        raise ForbiddenInstructionInSTMMode(opname, self.graph)
 
     # ---------- operations that are sometimes safe ----------
 
@@ -103,3 +105,7 @@ class LLSTMFrame(LLFrame):
         self.check_stm_mode(lambda m: m != "not_in_transaction")
         self.llinterpreter.stm_mode = "regular_transaction"
         self.llinterpreter.last_transaction_started_in_frame = self
+
+    def opstm_stm_try_inevitable(self):
+        self.check_stm_mode(lambda m: m != "not_in_transaction")
+        self.llinterpreter.stm_mode = "inevitable_transaction"

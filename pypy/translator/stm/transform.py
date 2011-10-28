@@ -5,9 +5,11 @@ from pypy.rpython.lltypesystem import lltype
 
 
 ALWAYS_ALLOW_OPERATIONS = set([
-    'int_*', 'same_as', 'cast_*',
+    'int_*', 'uint_*', 'llong_*', 'ullong_*',
+    'same_as', 'cast_*',
     'direct_call',
-    'debug_print',
+    'debug_print', 'debug_assert',
+    'malloc', 'malloc_varsize',
     ])
 
 def op_in_set(opname, set):
