@@ -236,22 +236,20 @@ def find_unaryop_result_dtype(space, dt, promote_to_float=False,
     return dt
 
 def find_dtype_for_scalar(space, w_obj, current_guess=None):
-    w_type = space.type(w_obj)
-
     bool_dtype = space.fromcache(interp_dtype.W_BoolDtype)
     long_dtype = space.fromcache(interp_dtype.W_LongDtype)
     int64_dtype = space.fromcache(interp_dtype.W_Int64Dtype)
 
-    if space.is_w(w_type, space.w_bool):
+    if space.isinstance_w(w_obj, space.w_bool):
         if current_guess is None or current_guess is bool_dtype:
             return bool_dtype
         return current_guess
-    elif space.is_w(w_type, space.w_int):
+    elif space.isinstance_w(w_obj, space.w_int):
         if (current_guess is None or current_guess is bool_dtype or
             current_guess is long_dtype):
             return long_dtype
         return current_guess
-    elif space.is_w(w_type, space.w_long):
+    elif space.isinstance_w(w_obj, space.w_long):
         if (current_guess is None or current_guess is bool_dtype or
             current_guess is long_dtype or current_guess is int64_dtype):
             return int64_dtype
