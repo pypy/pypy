@@ -71,6 +71,8 @@ def descr_new_array(space, w_subtype, w_item_or_iterable, w_dtype=None):
 class BaseArray(Wrappable):
     _attrs_ = ["invalidates", "signature", "shape"]
 
+    _immutable_fields_ = ['shape[*]']
+
     def __init__(self, shape):
         self.invalidates = []
         self.shape = shape
@@ -577,6 +579,8 @@ class ViewArray(BaseArray):
 class NDimSlice(ViewArray):
     signature = signature.BaseSignature()
     
+    _immutable_fields_ = ['shape[*]', 'chunks[*]']
+
     def __init__(self, parent, signature, chunks, shape):
         ViewArray.__init__(self, parent, signature, shape)
         self.chunks = chunks
