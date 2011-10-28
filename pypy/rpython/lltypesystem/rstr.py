@@ -365,9 +365,9 @@ class LLHelpers(AbstractLLHelpers):
             while lpos < rpos and s.chars[lpos] == ch:
                 lpos += 1
         if right:
-            while lpos < rpos and s.chars[rpos] == ch:
+            while lpos < rpos + 1 and s.chars[rpos] == ch:
                 rpos -= 1
-        if rpos <= lpos:
+        if rpos < lpos:
             return s.empty()
         r_len = rpos - lpos + 1
         result = s.malloc(r_len)

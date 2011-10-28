@@ -374,6 +374,8 @@ class AbstractTestRstr(BaseRtypingTest):
             return const('!ab!').rstrip(const('!'))
         def empty():
             return const('    ').strip(' ')
+        def left2():
+            return const('a  ').strip(' ')
         res = self.interpret(both, [])
         assert self.ll_to_string(res) == const('ab')
         res = self.interpret(left, [])
@@ -382,6 +384,8 @@ class AbstractTestRstr(BaseRtypingTest):
         assert self.ll_to_string(res) == const('!ab')
         res = self.interpret(empty, [])
         assert self.ll_to_string(res) == const('')
+        res = self.interpret(left2, [])
+        assert self.ll_to_string(res) == const('a')
 
     def test_upper(self):
         const = self.const
