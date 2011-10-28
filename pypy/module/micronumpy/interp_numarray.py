@@ -621,6 +621,7 @@ class NDimSlice(ViewArray):
     # XXX we might want to provide a custom finder of where we look for
     #     a particular item, right now we'll do the calculations again
 
+    @jit.unroll_safe
     def calc_index(self, item):
         index = []
         _item = item
