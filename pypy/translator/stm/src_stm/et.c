@@ -762,6 +762,10 @@ void stm_begin_inevitable_transaction(void)
       if (bool_cas(&global_timestamp, curtime, curtime + 1))
         break;
     }
+#ifdef RPY_ASSERT
+  assert(!d->transaction_active);
+  d->transaction_active = 1;
+#endif
   d->setjmp_buf = NULL;
   d->start_time = curtime;
 #ifdef COMMIT_OTHER_INEV

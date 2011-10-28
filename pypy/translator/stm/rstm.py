@@ -87,6 +87,10 @@ def commit_transaction():
     "NOT_RPYTHON.  For tests only"
     raise NotImplementedError("hard to really emulate")
 
+def begin_inevitable_transaction():
+    "NOT_RPYTHON.  For tests only, and at start up, but not in normal code."
+    raise NotImplementedError("hard to really emulate")
+
 def transaction_boundary():
     "NOT_RPYTHON.  This is the one normally used"
     raise NotImplementedError("hard to really emulate")
@@ -127,7 +131,8 @@ class ExtEntry(ExtRegistryEntry):
 
 
 class ExtEntry(ExtRegistryEntry):
-    _about_ = (begin_transaction, commit_transaction, transaction_boundary)
+    _about_ = (begin_transaction, commit_transaction,
+               begin_inevitable_transaction, transaction_boundary)
 
     def compute_result_annotation(self):
         return None

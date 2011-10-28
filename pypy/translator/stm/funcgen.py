@@ -90,6 +90,9 @@ def stm_begin_transaction(funcgen, op):
 def stm_commit_transaction(funcgen, op):
     return 'stm_commit_transaction();'
 
+def stm_begin_inevitable_transaction(funcgen, op):
+    return 'stm_begin_inevitable_transaction();'
+
 
 def op_stm(funcgen, op):
     assert funcgen.db.translator.stm_transformation_applied

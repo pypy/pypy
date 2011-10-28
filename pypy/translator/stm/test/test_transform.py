@@ -72,3 +72,11 @@ class TestTransformSingleThread(StandaloneTests):
             return 0
         t, cbuilder = self.compile(simplefunc)
         cbuilder.cmdexec('', expect_crash=True)
+
+    def test_begin_inevitable_transaction(self):
+        def simplefunc(argv):
+            rstm.begin_inevitable_transaction()
+            rstm.commit_transaction()
+            return 0
+        t, cbuilder = self.compile(simplefunc)
+        cbuilder.cmdexec('')
