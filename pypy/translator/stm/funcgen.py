@@ -104,6 +104,9 @@ def stm_transaction_boundary(funcgen, op):
     assert funcgen.exception_policy == 'stm'
     return 'STM_TRANSACTION_BOUNDARY();'
 
+def stm_try_inevitable(funcgen, op):
+    return 'stm_try_inevitable();'
+
 
 def op_stm(funcgen, op):
     assert funcgen.db.translator.stm_transformation_applied

@@ -4,6 +4,23 @@ from pypy.translator.unsimplify import varoftype
 from pypy.rpython.lltypesystem import lltype
 
 
+ALWAYS_ALLOW_OPERATIONS = set([
+    'int_*', 'same_as', 'cast_*',
+    'direct_call',
+    'debug_print',
+    ])
+
+def op_in_set(opname, set):
+    if opname in set:
+        return True
+    for i in range(len(opname)-1, -1, -1):
+        if (opname[:i] + '*') in set:
+            return True
+    return False
+
+# ____________________________________________________________
+
+
 class STMTransformer(object):
 
     def __init__(self, translator=None):
@@ -23,7 +40,15 @@ class STMTransformer(object):
             return
         newoperations = []
         for op in block.operations:
-            meth = getattr(self, 'stt_' + op.opname, list.append)
+            try:
+                meth = getattr(self, 'stt_' + op.opname)
+            except AttributeError:
+                if op_in_set(op.opname, ALWAYS_ALLOW_OPERATIONS):
+                    meth = list.append
+                else:
+                    meth = turn_inevitable_and_proceed
+                setattr(self.__class__, 'stt_' + op.opname,
+                        staticmethod(meth))
             meth(newoperations, op)
         block.operations = newoperations
 
@@ -71,3 +96,9 @@ class STMTransformer(object):
 def transform_graph(graph):
     # for tests: only transforms one graph
     STMTransformer().transform_graph(graph)
+
+
+def turn_inevitable_and_proceed(newoperations, op):
+    op1 = SpaceOperation('stm_try_inevitable', [], varoftype(lltype.Void))
+    newoperations.append(op1)
+    newoperations.append(op)

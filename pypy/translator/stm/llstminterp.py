@@ -1,6 +1,7 @@
 from pypy.rpython.lltypesystem import lltype
 from pypy.rpython.llinterp import LLFrame, LLException
 from pypy.translator.stm import rstm
+from pypy.translator.stm.transform import op_in_set, ALWAYS_ALLOW_OPERATIONS
 
 
 class ForbiddenInstructionInSTMMode(Exception):
@@ -30,11 +31,6 @@ def eval_stm_graph(llinterp, graph, values, stm_mode="not_in_transaction",
 
 class LLSTMFrame(LLFrame):
 
-    ALWAYS_ALLOW_OPERATIONS = set([
-        'int_*', 'same_as', 'cast_*',
-        'direct_call',
-        ])
-
     def eval(self):
         try:
             res = LLFrame.eval(self)
@@ -60,16 +56,8 @@ class LLSTMFrame(LLFrame):
             setattr(self, 'opstm_' + opname, ophandler)
         return ophandler
 
-    def _op_in_set(self, opname, set):
-        if opname in set:
-            return True
-        for i in range(len(opname)-1, -1, -1):
-            if (opname[:i] + '*') in set:
-                return True
-        return False
-
     def _validate_stmoperation_handler(self, opname):
-        if self._op_in_set(opname, self.ALWAYS_ALLOW_OPERATIONS):
+        if op_in_set(opname, ALWAYS_ALLOW_OPERATIONS):
             return
         raise ForbiddenInstructionInSTMMode(opname, self.graph)
 
