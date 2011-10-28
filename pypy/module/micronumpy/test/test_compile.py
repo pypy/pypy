@@ -167,3 +167,12 @@ class TestRunner(object):
         b -> 3
         """)
         assert interp.results[0].value.val == 4
+
+    def test_slice_step(self):
+        interp = self.run("""
+        a = |30|
+        b = a -> ::2
+        b -> 3
+        """)
+        assert interp.results[0].value.val == 6
+        

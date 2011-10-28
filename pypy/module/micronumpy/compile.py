@@ -56,7 +56,15 @@ class FakeSpace(object):
         if isinstance(w_idx, IntObject):
             return (self.int_w(w_idx), 0, 0, 1)
         else:
-            return (0, size, 1, size)
+            assert isinstance(w_idx, SliceObject)
+            start, stop, step = w_idx.start, w_idx.stop, w_idx.step
+            if step == 0:
+                return (0, size, 1, size)
+            if start < 0:
+                start += size
+            if stop < 0:
+                stop += size
+            return (start, stop, step, size//step)
 
     @specialize.argtype(1)
     def wrap(self, obj):
@@ -143,6 +151,10 @@ class ListObject(W_Root):
 
 class SliceObject(W_Root):
     tp = FakeSpace.w_slice
+    def __init__(self, start, stop, step):
+        self.start = start
+        self.stop = stop
+        self.step = step
 
 class InterpreterState(object):
     def __init__(self, code):
@@ -294,14 +306,17 @@ class ArrayConstant(Node):
         return "[" + ", ".join([repr(item) for item in self.items]) + "]"
 
 class SliceConstant(Node):
-    def __init__(self):
-        pass
+    def __init__(self, start, stop, step):
+        # no negative support for now
+        self.start = start
+        self.stop = stop
+        self.step = step
 
     def wrap(self, space):
-        return SliceObject()
+        return SliceObject(self.start, self.stop, self.step)
 
     def __repr__(self):
-        return 'slice()'
+        return 'slice(%s,%s,%s)' % (self.start, self.stop, self.step)
 
 class Execute(Node):
     def __init__(self, expr):
@@ -392,8 +407,31 @@ class Parser(object):
         assert lgt >= 0
         if ':' in v:
             # a slice
-            assert v == ':'
-            return SliceConstant()
+            if v == ':':
+                return SliceConstant(0, 0, 0)
+            else:
+                l = v.split(':')
+                if len(l) == 2:
+                    one = l[0]
+                    two = l[1]
+                    if not one:
+                        one = 0
+                    else:
+                        one = int(one)
+                    return SliceConstant(int(l[0]), int(l[1]), 1)
+                else:
+                    three = int(l[2])
+                    # all can be empty
+                    if l[0]:
+                        one = int(l[0])
+                    else:
+                        one = 0
+                    if l[1]:
+                        two = int(l[1])
+                    else:
+                        two = -1
+                    return SliceConstant(one, two, three)
+                
         if v[0] == '[':
             return ArrayConstant([self.parse_constant(elem)
                                   for elem in v[1:lgt].split(",")])
