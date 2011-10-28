@@ -61,7 +61,7 @@ def descr_new_array(space, w_subtype, w_item_or_iterable, w_dtype=None):
     dtype = space.interp_w(interp_dtype.W_Dtype,
         space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
     )
-    arr = NDimArray(size, shape, dtype=dtype)
+    arr = NDimArray(size, shape[:], dtype=dtype)
     i = 0
     for i in range(len(elems_w)):
         w_elem = elems_w[i]
@@ -345,8 +345,8 @@ class BaseArray(Wrappable):
                     shape[i] = -1
                 else:
                     shape[i] = lgt
-            shape = [i for i in shape if i != -1]
-        return NDimSlice(self, new_sig, chunks, shape)
+            shape = [i for i in shape if i != -1][:]
+        return NDimSlice(self, new_sig, chunks[:], shape)
 
     def descr_getitem(self, space, w_idx):
         if self._single_item_result(space, w_idx):
@@ -576,7 +576,7 @@ class ViewArray(BaseArray):
 
 class NDimSlice(ViewArray):
     signature = signature.BaseSignature()
-
+    
     def __init__(self, parent, signature, chunks, shape):
         ViewArray.__init__(self, parent, signature, shape)
         self.chunks = chunks
