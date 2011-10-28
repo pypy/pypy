@@ -80,6 +80,14 @@ class OptIntBounds(Optimization):
     def optimize_INT_AND(self, op):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
+        if (self.optimizer.metainterp_sd.config.translation.taggedpointers and
+                v2.is_constant() and v2.box.getint() == 1):
+            if self.has_pure_result(rop.INT_UNTAG, [v1.box], None):
+                # the result of untagging the int is known, so the box must be
+                # tagged, so int_and(x, 1) == 1
+                value = self.getvalue(ConstInt(1))
+                self.optimizer.make_equal_to(op.result, value)
+                return
         self.emit_operation(op)
 
         r = self.getvalue(op.result)
