@@ -28,6 +28,7 @@ SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any", "unegative"]
 class FakeSpace(object):
     w_ValueError = None
     w_TypeError = None
+    w_IndexError = None
     w_None = None
 
     w_bool = "bool"
@@ -70,6 +71,7 @@ class FakeSpace(object):
     def listview(self, obj):
         assert isinstance(obj, ListObject)
         return obj.items
+    fixedview = listview
 
     def float(self, w_obj):
         assert isinstance(w_obj, FloatObject)

@@ -63,12 +63,13 @@ def descr_new_array(space, w_subtype, w_item_or_iterable, w_dtype=None):
     )
     arr = NDimArray(size, shape, dtype=dtype)
     i = 0
-    for i, w_elem in enumerate(elems_w):
+    for i in range(len(elems_w)):
+        w_elem = elems_w[i]
         dtype.setitem_w(space, arr.storage, i, w_elem)
     return arr
 
 class BaseArray(Wrappable):
-    _attrs_ = ["invalidates", "signature"]
+    _attrs_ = ["invalidates", "signature", "shape"]
 
     def __init__(self, shape):
         self.invalidates = []
@@ -406,7 +407,7 @@ class Scalar(BaseArray):
     """
     signature = signature.BaseSignature()
 
-    _attrs_ = ["dtype", "value"]
+    _attrs_ = ["dtype", "value", "shape"]
 
     def __init__(self, dtype, value):
         BaseArray.__init__(self, [])
