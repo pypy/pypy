@@ -23,7 +23,7 @@ def eval_stm_graph(llinterp, graph, values, stm_mode="not_in_transaction",
             final_stm_mode = stm_mode
         assert llinterp.stm_mode == final_stm_mode, (
             "llinterp.stm_mode is %r after eval_graph, but should be %r" % (
-            llinterp.stm_mode, stm_mode))
+            llinterp.stm_mode, final_stm_mode))
         return res
     finally:
         llinterp.frame_class = LLFrame
@@ -53,9 +53,8 @@ class LLSTMFrame(LLFrame):
         if ophandler is None:
             ophandler = LLFrame.getoperationhandler(self, opname)
             if op_in_set(opname, ALWAYS_ALLOW_OPERATIONS):
-                # always allow this, so store it back on self.__class__
-                setattr(self.__class__, 'opstm_' + opname,
-                        staticmethod(ophandler))
+                # always allow this, so store it back on 'self'
+                setattr(self, 'opstm_' + opname, ophandler)
             else:
                 # only allow this if we're not in the "regular_transaction"
                 # mode; check every time, so don't store it on self.__class__
@@ -109,3 +108,8 @@ class LLSTMFrame(LLFrame):
     def opstm_stm_try_inevitable(self):
         self.check_stm_mode(lambda m: m != "not_in_transaction")
         self.llinterpreter.stm_mode = "inevitable_transaction"
+
+    def opstm_malloc(self, TYPE, flags):
+        if flags['flavor'] != 'gc':
+            self.check_stm_mode(lambda m: m != "regular_transaction")
+        return LLFrame.op_malloc(self, TYPE, flags)

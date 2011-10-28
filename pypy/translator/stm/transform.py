@@ -9,7 +9,6 @@ ALWAYS_ALLOW_OPERATIONS = set([
     'same_as', 'cast_*',
     'direct_call',
     'debug_print', 'debug_assert',
-    'malloc', 'malloc_varsize',
     ])
 
 def op_in_set(opname, set):
@@ -52,7 +51,13 @@ class STMTransformer(object):
                     meth = turn_inevitable_and_proceed
                 setattr(self.__class__, 'stt_' + op.opname,
                         staticmethod(meth))
-            meth(newoperations, op)
+            res = meth(newoperations, op)
+            if res is True:
+                newoperations.append(op)
+            elif res is False:
+                turn_inevitable_and_proceed(newoperations, op)
+            else:
+                assert res is None
         block.operations = newoperations
 
     def transform_graph(self, graph):
@@ -93,7 +98,11 @@ class STMTransformer(object):
 
     def stt_stm_transaction_boundary(self, newoperations, op):
         self.seen_transaction_boundary = True
-        newoperations.append(op)
+        return True
+
+    def stt_malloc(self, newoperations, op):
+        flags = op.args[1].value
+        return flags['flavor'] == 'gc'
 
 
 def transform_graph(graph):

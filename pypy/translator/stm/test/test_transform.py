@@ -57,6 +57,19 @@ def test_unsupported_operation():
     res = eval_stm_func(func, [13], final_stm_mode="inevitable_transaction")
     assert res == 14
 
+def test_supported_malloc():
+    S = lltype.GcStruct('S', ('x', lltype.Signed))   # GC structure
+    def func():
+        lltype.malloc(S)
+    eval_stm_func(func, [], final_stm_mode="regular_transaction")
+
+def test_unsupported_malloc():
+    S = lltype.Struct('S', ('x', lltype.Signed))   # non-GC structure
+    def func():
+        lltype.malloc(S, flavor='raw')
+    eval_stm_func(func, [], final_stm_mode="inevitable_transaction")
+test_unsupported_malloc.dont_track_allocations = True
+
 # ____________________________________________________________
 
 class TestTransformSingleThread(StandaloneTests):
