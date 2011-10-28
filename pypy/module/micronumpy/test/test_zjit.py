@@ -184,6 +184,17 @@ class TestNumpyJIt(LLJitMixin):
         # This is 3, not 2 because there is a bridge for the exit.
         self.check_loop_count(3)
 
+    def test_slice(self):
+        result = self.run("""
+        a = |30| * 3
+        b = a -> ::3
+        c = b + b
+        c -> 3
+        """)
+        assert result == 27 * 2
+        self.check_loops({'int_mul': 1, 'getarrayitem_raw': 2, 'float_mul': 2,
+                          'setarrayitem_raw': 1, 'int_add': 1,
+                          'int_lt': 1, 'guard_true': 1, 'jump': 1})
 
 class TestNumpyOld(LLJitMixin):
     def setup_class(cls):

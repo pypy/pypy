@@ -74,7 +74,9 @@ class FakeSpace(object):
             return BoolObject(obj)
         elif isinstance(obj, int):
             return IntObject(obj)
-        return obj
+        elif isinstance(obj, W_Root):
+            return obj
+        raise NotImplementedError
 
     def newlist(self, items):
         return ListObject(items)
