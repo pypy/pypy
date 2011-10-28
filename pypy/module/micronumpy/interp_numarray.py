@@ -16,22 +16,6 @@ any_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self',
                                                        'dtype'])
 slice_driver = jit.JitDriver(greens=['signature'], reds=['i', 'self', 'source'])
 
-def _find_dtype(space, w_iterable):
-    stack = [w_iterable]
-    w_dtype = None
-    while stack:
-        w_next = stack.pop()
-        if space.issequence_w(w_next):
-            for w_item in space.listview(w_next):
-                stack.append(w_item)
-        else:
-            w_dtype = interp_ufuncs.find_dtype_for_scalar(space, w_next, w_dtype)
-            if w_dtype is space.fromcache(interp_dtype.W_Float64Dtype):
-                return w_dtype
-    if w_dtype is None:
-        return space.w_None
-    return w_dtype
-
 def _find_shape_and_elems(space, w_iterable):
     shape = [space.len_w(w_iterable)]
     batch = space.listview(w_iterable)
@@ -56,15 +40,27 @@ def _find_shape_and_elems(space, w_iterable):
 
 def descr_new_array(space, w_subtype, w_item_or_iterable, w_dtype=None):
     # find scalar
-    if space.is_w(w_dtype, space.w_None):
-        w_dtype = _find_dtype(space, w_item_or_iterable)
-    dtype = space.interp_w(interp_dtype.W_Dtype,
-        space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
-    )
     if not space.issequence_w(w_item_or_iterable):
+        w_dtype = interp_ufuncs.find_dtype_for_scalar(space,
+                                                      w_item_or_iterable,
+                                                      w_dtype)
+        dtype = space.interp_w(interp_dtype.W_Dtype,
+           space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
         return scalar_w(space, dtype, w_item_or_iterable)
     shape, elems_w = _find_shape_and_elems(space, w_item_or_iterable)
     size = len(elems_w)
+    if space.is_w(w_dtype, space.w_None):
+        w_dtype = None
+        for w_elem in elems_w:
+            w_dtype = interp_ufuncs.find_dtype_for_scalar(space, w_elem,
+                                                          w_dtype)
+            if w_dtype is space.fromcache(interp_dtype.W_Float64Dtype):
+                break
+    if w_dtype is None:
+        w_dtype = space.w_None
+    dtype = space.interp_w(interp_dtype.W_Dtype,
+        space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
+    )
     arr = NDimArray(size, shape, dtype=dtype)
     i = 0
     for i, w_elem in enumerate(elems_w):
@@ -380,10 +376,13 @@ class BaseArray(Wrappable):
         return space.wrap(space.float_w(self.descr_sum(space))/self.find_size())
 
     def descr_nonzero(self, space):
-        if self.find_size() > 1:
-            raise OperationError(space.w_ValueError, space.wrap(
-                "The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()"))
-        return self.get_concrete().eval(0).wrap(space)
+        try:
+            if self.find_size() > 1:
+                raise OperationError(space.w_ValueError, space.wrap(
+                    "The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()"))
+        except ValueError:
+            pass
+        return space.wrap(space.is_true(self.get_concrete().eval(0).wrap(space)))
 
 def convert_to_array(space, w_obj):
     if isinstance(w_obj, BaseArray):
@@ -582,7 +581,7 @@ class NDimSlice(ViewArray):
         self.chunks = chunks
         self.shape_reduction = 0
         for chunk in chunks:
-            if chunk[-1] == 1:
+            if chunk[-2] == 0:
                 self.shape_reduction += 1
 
     def get_root_storage(self):

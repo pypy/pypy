@@ -219,7 +219,7 @@ class AppTestNumArray(BaseNumpyAppTest):
     def test_add_other(self):
         from numpy import array
         a = array(range(5))
-        b = array(reversed(range(5)))
+        b = array([i for i in reversed(range(5))])
         c = a + b
         for i in range(5):
             assert c[i] == 4
