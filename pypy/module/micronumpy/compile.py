@@ -127,7 +127,6 @@ class ListObject(W_Root):
     def __init__(self, items):
         self.items = items
 
-
 class InterpreterState(object):
     def __init__(self, code):
         self.code = code
@@ -197,8 +196,11 @@ class Operator(Node):
 
     def execute(self, interp):
         w_lhs = self.lhs.execute(interp)
-        w_rhs = self.rhs.execute(interp)
         assert isinstance(w_lhs, BaseArray)
+        if isinstance(self.rhs, SliceConstant):
+            # XXX interface has changed on multidim branch
+            raise NotImplementedError
+        w_rhs = self.rhs.execute(interp)
         if self.name == '+':
             w_res = w_lhs.descr_add(interp.space, w_rhs)
         elif self.name == '*':
@@ -272,6 +274,13 @@ class ArrayConstant(Node):
 
     def __repr__(self):
         return "[" + ", ".join([repr(item) for item in self.items]) + "]"
+
+class SliceConstant(Node):
+    def __init__(self):
+        pass
+
+    def __repr__(self):
+        return 'slice()'
 
 class Execute(Node):
     def __init__(self, expr):
@@ -360,6 +369,10 @@ class Parser(object):
     def parse_constant(self, v):
         lgt = len(v)-1
         assert lgt >= 0
+        if ':' in v:
+            # a slice
+            assert v == ':'
+            return SliceConstant()
         if v[0] == '[':
             return ArrayConstant([self.parse_constant(elem)
                                   for elem in v[1:lgt].split(",")])
@@ -370,7 +383,7 @@ class Parser(object):
     def is_identifier_or_const(self, v):
         c = v[0]
         if ((c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or
-            (c >= '0' and c <= '9') or c in '-.[|'):
+            (c >= '0' and c <= '9') or c in '-.[|:'):
             if v == '-' or v == "->":
                 return False
             return True

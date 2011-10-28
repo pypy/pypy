@@ -2,7 +2,7 @@ from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.module.micronumpy import interp_ufuncs, signature
 from pypy.module.micronumpy.compile import (FakeSpace,
     FloatObject, IntObject, numpy_compile, BoolObject)
-from pypy.module.micronumpy.interp_numarray import (BaseArray, SingleDimArray,
+from pypy.module.micronumpy.interp_numarray import (SingleDimArray,
     SingleDimSlice)
 from pypy.rlib.nonconst import NonConstant
 from pypy.rpython.annlowlevel import llstr, hlstr
@@ -182,7 +182,14 @@ class TestNumpyJIt(LLJitMixin):
         self.check_loop_count(3)
 
 
-class DisabledTestNumpy(object):
+class TestNumpyOld(LLJitMixin):
+    def setup_class(cls):
+        from pypy.module.micronumpy.compile import FakeSpace
+        from pypy.module.micronumpy.interp_dtype import W_Float64Dtype
+        
+        cls.space = FakeSpace()
+        cls.float64_dtype = cls.space.fromcache(W_Float64Dtype)
+    
     def test_slice(self):
         def f(i):
             step = 3

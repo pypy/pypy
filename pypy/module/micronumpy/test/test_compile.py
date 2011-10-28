@@ -158,3 +158,12 @@ class TestRunner(object):
         max(b)
         """)
         assert interp.results[0].value.val == 256
+
+    def test_slice(self):
+        py.test.skip("in progress")
+        interp = self.run("""
+        a = [1,2,3,4]
+        b = a -> :
+        b -> 3
+        """)
+        assert interp.results[0].value.val == 3
