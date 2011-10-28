@@ -976,6 +976,29 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_virtual_array_of_struct_forced(self):
+        ops = """
+        [f0, f1]
+        p0 = new_array(1, descr=complexarraydescr)
+        setinteriorfield_gc(p0, 0, f0, descr=complexrealdescr)
+        setinteriorfield_gc(p0, 0, f1, descr=compleximagdescr)
+        f2 = getinteriorfield_gc(p0, 0, descr=complexrealdescr)
+        f3 = getinteriorfield_gc(p0, 0, descr=compleximagdescr)
+        f4 = float_mul(f2, f3)
+        i0 = escape(f4, p0)
+        finish(i0)
+        """
+        expected = """
+        [f0, f1]
+        f2 = float_mul(f0, f1)
+        p0 = new_array(1, descr=complexarraydescr)
+        setinteriorfield_gc(p0, 0, f0, descr=complexrealdescr)
+        setinteriorfield_gc(p0, 0, f1, descr=compleximagdescr)
+        i0 = escape(f2, p0)
+        finish(i0)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_nonvirtual_1(self):
         ops = """
         [i]
