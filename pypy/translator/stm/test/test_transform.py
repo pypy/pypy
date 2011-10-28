@@ -39,7 +39,16 @@ class TestTransformSingleThread(StandaloneTests):
         from pypy.config.pypyoption import get_pypy_config
         self.config = get_pypy_config(translating=True)
         self.config.translation.stm = True
-        return StandaloneTests.compile(self, entry_point, debug=True)
+        #
+        # Prevent the RaiseAnalyzer from just emitting "WARNING: Unknown
+        # operation".  We want instead it to crash.
+        from pypy.translator.backendopt.canraise import RaiseAnalyzer
+        RaiseAnalyzer.fail_on_unknown_operation = True
+        try:
+            res = StandaloneTests.compile(self, entry_point, debug=True)
+        finally:
+            del RaiseAnalyzer.fail_on_unknown_operation
+        return res
 
     def test_no_pointer_operations(self):
         def simplefunc(argv):

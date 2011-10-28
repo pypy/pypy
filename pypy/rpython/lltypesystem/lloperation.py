@@ -392,6 +392,13 @@ LL_OPERATIONS = {
     'stm_getfield':         LLOp(sideeffects=False, canrun=True),
     'stm_setfield':         LLOp(),
 
+    'stm_begin_transaction':            LLOp(),
+    'stm_commit_transaction':           LLOp(),
+    'stm_begin_inevitable_transaction': LLOp(),
+    'stm_transaction_boundary':         LLOp(),
+    'stm_declare_variable':             LLOp(),
+    'stm_try_inevitable':               LLOp(),
+
     # __________ address operations __________
 
     'boehm_malloc':         LLOp(),

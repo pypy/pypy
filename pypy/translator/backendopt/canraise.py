@@ -10,10 +10,14 @@ log = py.log.Producer("canraise")
 py.log.setconsumer("canraise", ansi_log) 
 
 class RaiseAnalyzer(graphanalyze.BoolGraphAnalyzer):
+    fail_on_unknown_operation = False
+
     def analyze_simple_operation(self, op, graphinfo):
         try:
             return bool(LL_OPERATIONS[op.opname].canraise)
         except KeyError:
+            if self.fail_on_unknown_operation:
+                raise
             log.WARNING("Unknown operation: %s" % op.opname)
             return True
 
