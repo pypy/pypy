@@ -974,6 +974,11 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
         self.mtctr(0)
         self.bctr()
 
+    def bl_abs(self, address):
+        self.load_imm(r.r0, address)
+        self.mtctr(r.r0.value)
+        self.bctrl()
+
     def prepare_insts_blocks(self, show=False):
         self.assemble(show)
         insts = self.insts

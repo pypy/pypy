@@ -51,40 +51,6 @@ class PPC_64_CPU(AbstractLLCPU):
         self.asm.assemble_bridge(faildescr, inputargs, operations,
                                        original_loop_token, log=log)
 
-    #def compile_bridge(self, descr, inputargs, operations, looptoken):
-    #    self.saved_descr = {}
-    #    self.patch_list = []
-    #    self.reg_map = {}
-    #    self.fail_box_count = 0
-
-    #    codebuilder = looptoken.codebuilder
-    #    # jump to the bridge
-    #    current_pos = codebuilder.get_relative_pos()
-    #    offset = current_pos - descr.patch_pos
-    #    codebuilder.b(offset)
-    #    codebuilder.patch_op(descr.patch_op)
-
-    #    # initialize registers from memory
-    #    self.next_free_register = 3
-    #    use_index = 0
-    #    for index, arg in enumerate(inputargs):
-    #        self.reg_map[arg] = self.next_free_register
-    #        addr = self.fail_boxes_int.get_addr_for_num(
-    #                descr.used_mem_indices[use_index])
-    #        codebuilder.load_from(self.next_free_register, addr)
-    #        self.next_free_register += 1
-    #        use_index += 1
-    #        
-    #    self._walk_trace_ops(codebuilder, operations)
-    #    self._make_epilogue(codebuilder)
-
-    #    f = codebuilder.assemble()
-    #    looptoken.ppc_code = f
-    #    looptoken.codebuilder = codebuilder
-
-    #    self.total_compiled_bridges += 1
-    #    self.teardown()
-
     # set value in fail_boxes_int
     def set_future_value_int(self, index, value_int):
         self.asm.fail_boxes_int.setitem(index, value_int)

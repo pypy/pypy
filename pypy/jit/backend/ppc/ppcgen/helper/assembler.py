@@ -1,5 +1,7 @@
 import pypy.jit.backend.ppc.ppcgen.condition as c
 from pypy.rlib.rarithmetic import r_uint, r_longlong, intmask
+from pypy.jit.backend.ppc.ppcgen.arch import MAX_REG_PARAMS
+from pypy.jit.metainterp.history import FLOAT
 
 def gen_emit_cmp_op(condition, signed=True):
     def f(self, op, arglocs, regalloc):
@@ -79,6 +81,22 @@ def decode32(mem, index):
             | ord(mem[index+2]) << 8
             | ord(mem[index+1]) << 16
             | ord(mem[index]) << 24)
+
+def count_reg_args(args):
+    reg_args = 0
+    words = 0
+    count = 0
+    for x in range(min(len(args), MAX_REG_PARAMS)):
+        if args[x].type == FLOAT:
+            assert 0, "not implemented yet"
+        else:
+            count += 1
+            words += 1
+        reg_args += 1
+        if words > MAX_REG_PARAMS:
+            reg_args = x
+            break
+    return reg_args
 
 class saved_registers(object):
     def __init__(self, assembler, regs_to_save, regalloc=None):

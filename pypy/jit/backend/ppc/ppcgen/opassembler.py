@@ -4,8 +4,10 @@ import pypy.jit.backend.ppc.ppcgen.condition as c
 import pypy.jit.backend.ppc.ppcgen.register as r
 from pypy.jit.backend.ppc.ppcgen.arch import GPR_SAVE_AREA, IS_PPC_32, WORD
 
-from pypy.jit.metainterp.history import LoopToken, AbstractFailDescr
+from pypy.jit.metainterp.history import LoopToken, AbstractFailDescr, FLOAT
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.jit.backend.ppc.ppcgen.helper.assembler import count_reg_args 
+from pypy.jit.backend.ppc.ppcgen.jump import remap_frame_layout
 
 class GuardToken(object):
     def __init__(self, descr, failargs, faillocs, offset, fcond=c.NE,
@@ -444,6 +446,89 @@ class OpAssembler(object):
 
     emit_cast_ptr_to_int = emit_same_as
     emit_cast_int_to_ptr = emit_same_as
+
+    def emit_call(self, op, args, regalloc, force_index=-1):
+        adr = args[0].value
+        arglist = op.getarglist()[1:]
+        if force_index == -1:
+            force_index = self.write_new_force_index()
+        self._emit_call(force_index, adr, arglist, regalloc, op.result)
+        descr = op.getdescr()
+        #XXX Hack, Hack, Hack
+        if op.result and not we_are_translated() and not isinstance(descr,
+                LoopToken):
+            import pdb; pdb.set_trace()
+            #XXX check result type
+            loc = regalloc.rm.call_result_location(op.result)
+            size = descr.get_result_size(False)
+            signed = descr.is_result_signed()
+            self._ensure_result_bit_extension(loc, size, signed)
+
+    def _emit_call(self, force_index, adr, args, regalloc, result=None):
+        n_args = len(args)
+        reg_args = count_reg_args(args)
+
+        n = 0   # used to count the number of words pushed on the stack, so we
+                #can later modify the SP back to its original value
+        if n_args > reg_args:
+            assert 0, "not implemented yet"
+
+        # collect variables that need to go in registers
+        # and the registers they will be stored in 
+        num = 0
+        count = 0
+        non_float_locs = []
+        non_float_regs = []
+        for i in range(reg_args):
+            arg = args[i]
+            if arg.type == FLOAT and count % 2 != 0:
+                assert 0, "not implemented yet"
+            reg = r.PARAM_REGS[num]
+
+            if arg.type == FLOAT:
+                assert 0, "not implemented yet"
+            else:
+                non_float_locs.append(regalloc.loc(arg))
+                non_float_regs.append(reg)
+
+            if arg.type == FLOAT:
+                assert 0, "not implemented yet"
+            else:
+                num += 1
+                count += 1
+
+        # spill variables that need to be saved around calls
+        regalloc.before_call(save_all_regs=2)
+
+        # remap values stored in core registers
+        remap_frame_layout(self, non_float_locs, non_float_regs, r.r0)
+
+        #the actual call
+        self.mc.bl_abs(adr)
+        self.mark_gc_roots(force_index)
+        regalloc.possibly_free_vars(args)
+        # readjust the sp in case we passed some args on the stack
+        if n > 0:
+            assert 0, "not implemented yet"
+
+        # restore the arguments stored on the stack
+        if result is not None:
+            resloc = regalloc.after_call(result)
+        self.mc.trap()
+
+    def write_new_force_index(self):
+        # for shadowstack only: get a new, unused force_index number and
+        # write it to FORCE_INDEX_OFS.  Used to record the call shape
+        # (i.e. where the GC pointers are in the stack) around a CALL
+        # instruction that doesn't already have a force_index.
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            clt = self.current_clt
+            force_index = clt.reserve_and_record_some_faildescr_index()
+            self._write_fail_index(force_index)
+            return force_index
+        else:
+            return 0
 
     def emit_debug_merge_point(self, op, arglocs, regalloc):
         pass

@@ -18,6 +18,7 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.ppc.ppcgen import locations
 from pypy.rpython.lltypesystem import rffi, lltype, rstr
 from pypy.jit.backend.llsupport import symbolic
+from pypy.jit.codewriter.effectinfo import EffectInfo
 import pypy.jit.backend.ppc.ppcgen.register as r
 
 class TempInt(TempBox):
@@ -180,6 +181,21 @@ class Regalloc(object):
 
     def next_instruction(self):
         self.rm.next_instruction()
+
+    def before_call(self, force_store=[], save_all_regs=False):
+        self.rm.before_call(force_store, save_all_regs)
+
+    def after_call(self, v):
+        if v.type == FLOAT:
+            assert 0, "not implemented yet"
+        else:
+            return self.rm.after_call(v)
+
+    def call_result_location(self, v):
+        if v.type == FLOAT:
+            assert 0, "not implemented yet"
+        else:
+            return self.rm.call_result_location(v)
 
     def _ensure_value_is_boxed(self, thing, forbidden_vars=[]):
         box = None
@@ -547,6 +563,17 @@ class Regalloc(object):
 
     prepare_cast_ptr_to_int = prepare_same_as
     prepare_cast_int_to_ptr = prepare_same_as
+
+    def prepare_call(self, op):
+        effectinfo = op.getdescr().get_extra_info()
+        if effectinfo is not None:
+            oopspecindex = effectinfo.oopspecindex
+            if oopspecindex == EffectInfo.OS_MATH_SQRT:
+                args = self.prepare_op_math_sqrt(op, fcond)
+                self.assembler.emit_op_math_sqrt(op, args, self, fcond)
+                return
+        args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
+        return args
 
     def void(self, op):
         return []

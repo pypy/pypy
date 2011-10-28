@@ -230,14 +230,16 @@ class AssemblerPPC(OpAssembler):
                     i += 4
                     continue
             elif res == self.STACK_LOC:
-                stack_loc = decode32(enc, i+1)
+                stack_location = decode32(enc, i+1)
                 i += 4
                 if group == self.FLOAT_TYPE:
-                    value = decode64(stack, frame_depth - stack_loc*WORD)
+                    value = decode64(stack, frame_depth - stack_location*WORD)
                     self.fail_boxes_float.setitem(fail_index, value)
                     continue
                 else:
-                    value = decode32(spilling_area, spilling_area - stack_loc * WORD)
+                    #value = decode32(spilling_area, spilling_area - stack_location * WORD)
+                    #import pdb; pdb.set_trace()
+                    value = decode32(spilling_area, spilling_depth - stack_location * WORD)
             else: # REG_LOC
                 reg = ord(enc[i])
                 if group == self.FLOAT_TYPE:
@@ -673,6 +675,15 @@ class AssemblerPPC(OpAssembler):
                 self.mc.load_imm(r.r0, 16)
                 self.mc.slw(resloc.value, resloc.value, r.r0.value)
                 self.mc.sraw(resloc.value, resloc.value, r.r0.value)
+
+    def mark_gc_roots(self, force_index, use_copy_area=False):
+        if force_index < 0:
+            return     # not needed
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap:
+            mark = self._regalloc.get_mark_gc_roots(gcrootmap, use_copy_area)
+            assert gcrootmap.is_shadow_stack
+            gcrootmap.write_callshape(mark, force_index)
 
 def make_operations():
     def not_implemented(builder, trace_op, cpu, *rest_args):
