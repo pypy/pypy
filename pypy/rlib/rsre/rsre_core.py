@@ -391,6 +391,8 @@ class MaxUntilMatchResult(AbstractUntilMatchResult):
             if self.num_pending >= min:
                 while enum is not None and ptr == ctx.match_end:
                     enum = enum.move_to_next_result(ctx)
+                    # matched marks for zero-width assertions
+                    marks = ctx.match_marks
             #
             if enum is not None:
                 # matched one more 'item'.  record it and continue.

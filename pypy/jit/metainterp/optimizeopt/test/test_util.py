@@ -185,6 +185,18 @@ class LLtypeMixin(object):
              EffectInfo([], [arraydescr], [], [arraydescr],
                         oopspecindex=EffectInfo.OS_ARRAYCOPY))
 
+
+    # array of structs (complex data)
+    complexarray = lltype.GcArray(
+        lltype.Struct("complex",
+            ("real", lltype.Float),
+            ("imag", lltype.Float),
+        )
+    )
+    complexarraydescr = cpu.arraydescrof(complexarray)
+    complexrealdescr = cpu.interiorfielddescrof(complexarray, "real")
+    compleximagdescr = cpu.interiorfielddescrof(complexarray, "imag")
+
     for _name, _os in [
         ('strconcatdescr',               'OS_STR_CONCAT'),
         ('strslicedescr',                'OS_STR_SLICE'),
@@ -240,7 +252,7 @@ class OOtypeMixin_xxx_disabled(object):
 ##    def get_class_of_box(self, box):
 ##        root = box.getref(ootype.ROOT)
 ##        return ootype.classof(root)
-    
+
 ##    cpu = runner.OOtypeCPU(None)
 ##    NODE = ootype.Instance('NODE', ootype.ROOT, {})
 ##    NODE._add_fields({'value': ootype.Signed,

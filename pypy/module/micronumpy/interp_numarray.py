@@ -37,6 +37,8 @@ def _find_shape_and_elems(space, w_iterable):
     batch = space.listview(w_iterable)
     while True:
         new_batch = []
+        if not batch:
+            return shape, []
         if not space.issequence_w(batch[0]):
             for elem in batch:
                 if space.issequence_w(elem):
@@ -51,6 +53,23 @@ def _find_shape_and_elems(space, w_iterable):
             new_batch += space.listview(w_elem)
         shape.append(size)
         batch = new_batch
+
+def descr_new_array(space, w_subtype, w_item_or_iterable, w_dtype=None):
+    # find scalar
+    if space.is_w(w_dtype, space.w_None):
+        w_dtype = _find_dtype(space, w_item_or_iterable)
+    dtype = space.interp_w(interp_dtype.W_Dtype,
+        space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
+    )
+    if not space.issequence_w(w_item_or_iterable):
+        return scalar_w(space, dtype, w_item_or_iterable)
+    shape, elems_w = _find_shape_and_elems(space, w_item_or_iterable)
+    size = len(elems_w)
+    arr = NDimArray(size, shape, dtype=dtype)
+    i = 0
+    for i, w_elem in enumerate(elems_w):
+        dtype.setitem_w(space, arr.storage, i, w_elem)
+    return arr
 
 class BaseArray(Wrappable):
     _attrs_ = ["invalidates", "signature"]
@@ -70,23 +89,6 @@ class BaseArray(Wrappable):
 
     def add_invalidates(self, other):
         self.invalidates.append(other)
-
-    def descr__new__(space, w_subtype, w_item_or_iterable, w_dtype=None):
-        # find scalar
-        if space.is_w(w_dtype, space.w_None):
-            w_dtype = _find_dtype(space, w_item_or_iterable)
-        dtype = space.interp_w(interp_dtype.W_Dtype,
-            space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
-        )
-        if not space.issequence_w(w_item_or_iterable):
-            return scalar_w(space, dtype, w_item_or_iterable)
-        shape, elems_w = _find_shape_and_elems(space, w_item_or_iterable)
-        size = len(elems_w)
-        arr = NDimArray(size, shape, dtype=dtype)
-        i = 0
-        for i, w_elem in enumerate(elems_w):
-            dtype.setitem_w(space, arr.storage, i, w_elem)
-        return arr
 
     def _unaryop_impl(ufunc_name):
         def impl(self, space):
@@ -262,6 +264,11 @@ class BaseArray(Wrappable):
         # we assume C ordering for now
         if space.isinstance_w(w_idx, space.w_int):
             idx = space.int_w(w_idx)
+            if not self.shape:
+                if idx != 0:
+                    raise OperationError(space.w_IndexError,
+                                         space.wrap("index out of range"))
+                return 0
             if idx < 0:
                 idx = self.shape[0] + idx
             if idx < 0 or idx >= self.shape[0]:
@@ -294,6 +301,11 @@ class BaseArray(Wrappable):
         is a list of scalars that match the size of shape
         """
         shape_len = self.len_of_shape()
+        if shape_len == 0:
+            if not space.isinstance_w(w_idx, space.w_int):
+                raise OperationError(space.w_IndexError, space.wrap(
+                    "wrong index"))
+            return True
         if shape_len == 1:
             if space.isinstance_w(w_idx, space.w_int):
                 return True
@@ -403,7 +415,7 @@ class Scalar(BaseArray):
         self.value = value
 
     def find_size(self):
-        return 1
+        raise ValueError
 
     def get_concrete(self):
         return self
@@ -432,7 +444,7 @@ class VirtualArray(BaseArray):
         i = 0
         signature = self.signature
         result_size = self.find_size()
-        result = NDimArray(result_size, [result_size], self.find_dtype())
+        result = NDimArray(result_size, self.shape, self.find_dtype())
         while i < result_size:
             numpy_driver.jit_merge_point(signature=signature,
                                          result_size=result_size, i=i,
@@ -706,13 +718,12 @@ def ones(space, size, w_dtype=None):
 
     arr = NDimArray(size, [size], dtype=dtype)
     one = dtype.adapt_val(1)
-    for i in xrange(size):
-        arr.dtype.setitem(arr.storage, i, one)
+    arr.dtype.fill(arr.storage, one, 0, size)
     return space.wrap(arr)
 
 BaseArray.typedef = TypeDef(
     'numarray',
-    __new__ = interp2app(BaseArray.descr__new__.im_func),
+    __new__ = interp2app(descr_new_array),
 
 
     __len__ = interp2app(BaseArray.descr_len),

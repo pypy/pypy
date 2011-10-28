@@ -20,6 +20,7 @@ from pypy.rpython.lltypesystem.lltype import \
 from pypy.rpython.rmodel import Repr
 from pypy.rpython.lltypesystem import llmemory
 from pypy.tool.sourcetools import func_with_new_name
+from pypy.rpython.lltypesystem.lloperation import llop
 
 # ____________________________________________________________
 #
@@ -364,8 +365,10 @@ class LLHelpers(AbstractLLHelpers):
             while lpos < rpos and s.chars[lpos] == ch:
                 lpos += 1
         if right:
-            while lpos < rpos and s.chars[rpos] == ch:
+            while lpos < rpos + 1 and s.chars[rpos] == ch:
                 rpos -= 1
+        if rpos < lpos:
+            return s.empty()
         r_len = rpos - lpos + 1
         result = s.malloc(r_len)
         s.copy_contents(s, result, lpos, 0, r_len)

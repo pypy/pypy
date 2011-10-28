@@ -1046,16 +1046,26 @@ class RegAlloc(object):
             need_lower_byte = True
         else:
             need_lower_byte = False
-        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        tempvar = TempBox()
-        index_loc = self.rm.force_result_in_reg(tempvar, op.getarg(1), args)
-        # we're free to modify index now
-        value_loc = self.make_sure_var_in_reg(op.getarg(2), args + [tempvar],
+        box_base, box_index, box_value = args
+        base_loc = self.rm.make_sure_var_in_reg(box_base, args)
+        index_loc = self.rm.make_sure_var_in_reg(box_index, args)
+        value_loc = self.make_sure_var_in_reg(box_value, args,
                                               need_lower_byte=need_lower_byte)
-        self.rm.possibly_free_var(tempvar)
-        self.possibly_free_vars(args)
+        # If 'index_loc' is not an immediate, then we need a 'temp_loc' that
+        # is a register whose value will be destroyed.  It's fine to destroy
+        # the same register as 'index_loc', but not the other ones.
+        self.rm.possibly_free_var(box_index)
+        if not isinstance(index_loc, ImmedLoc):
+            tempvar = TempBox()
+            temp_loc = self.rm.force_allocate_reg(tempvar, [box_base,
+                                                            box_value])
+            self.rm.possibly_free_var(tempvar)
+        else:
+            temp_loc = None
+        self.rm.possibly_free_var(box_base)
+        self.possibly_free_var(box_value)
         self.PerformDiscard(op, [base_loc, ofs, itemsize, fieldsize,
-                                 index_loc, value_loc])
+                                 index_loc, temp_loc, value_loc])
 
     def consider_strsetitem(self, op):
         args = op.getarglist()
@@ -1126,13 +1136,14 @@ class RegAlloc(object):
         else:
             sign_loc = imm0
         args = op.getarglist()
-        tmpvar = TempBox()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        index_loc = self.rm.force_result_in_reg(tmpvar, op.getarg(1),
-                                                args)
-        self.rm.possibly_free_vars_for_op(op)
-        self.rm.possibly_free_var(tmpvar)
-        result_loc = self.force_allocate_reg(op.result)
+        index_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
+        # 'base' and 'index' are put in two registers (or one if 'index'
+        # is an immediate).  'result' can be in the same register as
+        # 'index' but must be in a different register than 'base'.
+        self.rm.possibly_free_var(op.getarg(1))
+        result_loc = self.force_allocate_reg(op.result, [op.getarg(0)])
+        self.rm.possibly_free_var(op.getarg(0))
         self.Perform(op, [base_loc, ofs, itemsize, fieldsize,
                           index_loc, sign_loc], result_loc)
 

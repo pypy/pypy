@@ -935,7 +935,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
-
     def test_virtual_constant_isnonnull(self):
         ops = """
         [i0]
@@ -948,6 +947,32 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         expected = """
         [i0]
         jump(0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_virtual_array_of_struct(self):
+        ops = """
+        [f0, f1, f2, f3]
+        p0 = new_array(2, descr=complexarraydescr)
+        setinteriorfield_gc(p0, 0, f0, descr=complexrealdescr)
+        setinteriorfield_gc(p0, 0, f1, descr=compleximagdescr)
+        setinteriorfield_gc(p0, 1, f2, descr=complexrealdescr)
+        setinteriorfield_gc(p0, 1, f3, descr=compleximagdescr)
+        f4 = getinteriorfield_gc(p0, 0, descr=complexrealdescr)
+        f5 = getinteriorfield_gc(p0, 1, descr=complexrealdescr)
+        f6 = float_mul(f4, f5)
+        f7 = getinteriorfield_gc(p0, 0, descr=compleximagdescr)
+        f8 = getinteriorfield_gc(p0, 1, descr=compleximagdescr)
+        f9 = float_mul(f7, f8)
+        f10 = float_add(f6, f9)
+        finish(f10)
+        """
+        expected = """
+        [f0, f1, f2, f3]
+        f4 = float_mul(f0, f2)
+        f5 = float_mul(f1, f3)
+        f6 = float_add(f4, f5)
+        finish(f6)
         """
         self.optimize_loop(ops, expected)
 
@@ -4181,10 +4206,12 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         class FakeCallInfoCollection:
             def callinfo_for_oopspec(self, oopspecindex):
                 calldescrtype = type(LLtypeMixin.strequaldescr)
+                effectinfotype = type(LLtypeMixin.strequaldescr.get_extra_info())
                 for value in LLtypeMixin.__dict__.values():
                     if isinstance(value, calldescrtype):
                         extra = value.get_extra_info()
-                        if extra and extra.oopspecindex == oopspecindex:
+                        if (extra and isinstance(extra, effectinfotype) and
+                            extra.oopspecindex == oopspecindex):
                             # returns 0 for 'func' in this test
                             return value, 0
                 raise AssertionError("not found: oopspecindex=%d" %

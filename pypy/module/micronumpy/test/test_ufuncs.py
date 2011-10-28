@@ -82,6 +82,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = negative(a)
         a[0] = 5.0
         assert b[0] == 5.0
+        a = array(range(30))
+        assert negative(a + a)[3] == -6
 
     def test_abs(self):
         from numpy import array, absolute
