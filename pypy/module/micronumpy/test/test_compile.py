@@ -1,4 +1,5 @@
 
+import py
 from pypy.module.micronumpy.compile import *
 
 class TestCompiler(object):
