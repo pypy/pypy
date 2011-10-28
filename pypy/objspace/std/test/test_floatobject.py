@@ -66,6 +66,8 @@ class AppTestAppFloatTest:
     def test_isinteger(self):
         assert (1.).is_integer()
         assert not (1.1).is_integer()
+        assert not float("inf").is_integer()
+        assert not float("nan").is_integer()
 
     def test_conjugate(self):
         assert (1.).conjugate() == 1.

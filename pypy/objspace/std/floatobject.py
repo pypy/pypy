@@ -547,7 +547,10 @@ def float_as_integer_ratio__Float(space, w_float):
     return space.newtuple([space.int(w_num), space.int(w_den)])
 
 def float_is_integer__Float(space, w_float):
-    return space.wrap(math.floor(w_float.floatval) == w_float.floatval)
+    v = w_float.floatval
+    if not rfloat.isfinite(v):
+        return space.w_False
+    return space.wrap(math.floor(v) == v)
 
 from pypy.objspace.std import floattype
 register_all(vars(), floattype)
