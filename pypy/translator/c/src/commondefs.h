@@ -36,6 +36,10 @@
 #  error "unsupported value for LLONG_MIN"
 #endif
 
+#ifndef PYPY_LONG_BIT
+#  error "PYPY_LONG_BIT must be defined before this file can be imported"
+#endif
+
 
 /******************** 32-bit support ********************/
 #if PYPY_LONG_BIT == 32

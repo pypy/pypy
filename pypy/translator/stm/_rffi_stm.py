@@ -7,9 +7,10 @@ from pypy.rlib.rarithmetic import LONG_BIT
 
 
 cdir = py.path.local(pypydir) / 'translator' / 'stm'
+cdir2 = py.path.local(pypydir) / 'translator' / 'c'
 
 eci = ExternalCompilationInfo(
-    include_dirs = [cdir],
+    include_dirs = [cdir, cdir2],
     includes = ['src_stm/et.h'],
     pre_include_bits = ['#define PYPY_LONG_BIT %d' % LONG_BIT],
     separate_module_sources = ['#include "src_stm/et.c"\n'],
@@ -19,7 +20,7 @@ def llexternal(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, compilation_info=eci,
                            _nowrapper=True, **kwds)
 
-SignedP = lltype.Ptr(lltype.Array(lltype.Signed, hints={'nolength': True}))
+SignedP = rffi.CArrayPtr(lltype.Signed)
 
 
 descriptor_init = llexternal('stm_descriptor_init', [], lltype.Void)
