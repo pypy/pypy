@@ -108,58 +108,6 @@ class TestNumpyJIt(LLJitMixin):
 
 class DisabledTestNumpy(object):
 
-    def test_max(self):
-        space = self.space
-        float64_dtype = self.float64_dtype
-        int64_dtype = self.int64_dtype
-
-        def f(i):
-            if NonConstant(False):
-                dtype = int64_dtype
-            else:
-                dtype = float64_dtype
-            ar = SingleDimArray(i, dtype=dtype)
-            j = 0
-            while j < i:
-                ar.get_concrete().setitem(j, float64_dtype.box(float(j)))
-                j += 1
-            v = ar.descr_add(space, ar).descr_max(space)
-            assert isinstance(v, FloatObject)
-            return v.floatval
-
-        result = self.meta_interp(f, [5], listops=True, backendopt=True)
-        self.check_loops({"getarrayitem_raw": 2, "float_add": 1,
-                          "float_gt": 1, "int_add": 1,
-                          "int_lt": 1, "guard_true": 1,
-                          "guard_false": 1, "jump": 1})
-        assert result == f(5)
-
-    def test_min(self):
-        space = self.space
-        float64_dtype = self.float64_dtype
-        int64_dtype = self.int64_dtype
-
-        def f(i):
-            if NonConstant(False):
-                dtype = int64_dtype
-            else:
-                dtype = float64_dtype
-            ar = SingleDimArray(i, dtype=dtype)
-            j = 0
-            while j < i:
-                ar.get_concrete().setitem(j, float64_dtype.box(float(j)))
-                j += 1
-            v = ar.descr_add(space, ar).descr_min(space)
-            assert isinstance(v, FloatObject)
-            return v.floatval
-
-        result = self.meta_interp(f, [5], listops=True, backendopt=True)
-        self.check_loops({"getarrayitem_raw": 2, "float_add": 1,
-                           "float_lt": 1, "int_add": 1,
-                           "int_lt": 1, "guard_true": 2,
-                           "jump": 1})
-        assert result == f(5)
-
     def test_argmin(self):
         space = self.space
         float64_dtype = self.float64_dtype
