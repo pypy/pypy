@@ -23,8 +23,7 @@ class TestNumpyJIt(LLJitMixin):
             interp = numpy_compile(hlstr(code))
             interp.run(space)
             res = interp.results[0]
-            assert isinstance(res, BaseArray)
-            return interp.space.float_w(res.eval(0).wrap(interp.space))
+            return interp.space.float_w(res)
 
         if self.graph is None:
             interp, graph = self.meta_interp(f, [llstr(code)],
@@ -56,6 +55,17 @@ class TestNumpyJIt(LLJitMixin):
         assert result == 3 + 3
         self.check_loops({"getarrayitem_raw": 1, "float_add": 1,
                           "setarrayitem_raw": 1, "int_add": 1,
+                          "int_lt": 1, "guard_true": 1, "jump": 1})
+
+    def test_sum(self):
+        result = self.run("""
+        a = |30|
+        b = a + a
+        sum(b)
+        """)
+        assert result == 2 * sum(range(30))
+        self.check_loops({"getarrayitem_raw": 2, "float_add": 2,
+                          "int_add": 1,
                           "int_lt": 1, "guard_true": 1, "jump": 1})
 
 class DisabledTestNumpy(object):

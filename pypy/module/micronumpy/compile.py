@@ -12,6 +12,15 @@ from pypy.rlib.objectmodel import specialize
 class BogusBytecode(Exception):
     pass
 
+class ArgumentMismatch(Exception):
+    pass
+
+class ArgumentNotAnArray(Exception):
+    pass
+
+class WrongFunctionName(Exception):
+    pass
+
 class FakeSpace(object):
     w_ValueError = None
     w_TypeError = None
@@ -174,8 +183,7 @@ class Operator(Node):
             if isinstance(w_rhs, Scalar):
                 index = int(interp.space.float_w(
                     w_rhs.value.wrap(interp.space)))
-                dtype = interp.space.fromcache(W_Float64Dtype)
-                return Scalar(dtype, w_lhs.get_concrete().eval(index))
+                return w_lhs.get_concrete().eval(index).wrap(interp.space)
             else:
                 raise NotImplementedError
         else:
@@ -244,6 +252,26 @@ class Execute(Node):
     def execute(self, interp):
         interp.results.append(self.expr.execute(interp))
 
+class FunctionCall(Node):
+    def __init__(self, name, args):
+        self.name = name
+        self.args = args
+
+    def __repr__(self):
+        return "%s(%s)" % (self.name, ", ".join([repr(arg)
+                                                 for arg in self.args]))
+
+    def execute(self, interp):
+        if self.name == 'sum':
+            if len(self.args) != 1:
+                raise ArgumentMismatch
+            arr = self.args[0].execute(interp)
+            if not isinstance(arr, BaseArray):
+                raise ArgumentNotAnArray
+            return arr.descr_sum(interp.space)
+        else:
+            raise WrongFunctionName
+
 class Parser(object):
     def parse_identifier(self, id):
         id = id.strip(" ")
@@ -292,9 +320,21 @@ class Parser(object):
             return True
         return False
 
+    def parse_function_call(self, v):
+        l = v.split('(')
+        assert len(l) == 2
+        name = l[0]
+        cut = len(l[1]) - 1
+        assert cut >= 0
+        args = [self.parse_constant_or_identifier(id)
+                for id in l[1][:cut].split(",")]
+        return FunctionCall(name, args)
+
     def parse_constant_or_identifier(self, v):
         c = v[0]
         if (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z'):
+            if '(' in v:
+                return self.parse_function_call(v)
             return self.parse_identifier(v)
         return self.parse_constant(v)
         

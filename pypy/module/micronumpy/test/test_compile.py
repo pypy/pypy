@@ -18,9 +18,7 @@ class TestCompiler(object):
         assert interp.code.statements[1].expr.v == 3
 
     def test_array_literal(self):
-        code = """
-        a = [1,2,3]
-        """
+        code = "a = [1,2,3]"
         interp = self.compile(code)
         assert isinstance(interp.code.statements[0].expr, ArrayConstant)
         st = interp.code.statements[0]
@@ -28,9 +26,7 @@ class TestCompiler(object):
                                  FloatConstant(3)]
     
     def test_array_literal2(self):
-        code = """
-        a = [[1],[2],[3]]
-        """
+        code = "a = [[1],[2],[3]]"
         interp = self.compile(code)
         assert isinstance(interp.code.statements[0].expr, ArrayConstant)
         st = interp.code.statements[0]
@@ -39,17 +35,13 @@ class TestCompiler(object):
                                  ArrayConstant([FloatConstant(3)])]
 
     def test_expr_1(self):
-        code = """
-        b = a + 1
-        """
+        code = "b = a + 1"
         interp = self.compile(code)
         assert (interp.code.statements[0].expr ==
                 Operator(Variable("a"), "+", FloatConstant(1)))
 
     def test_expr_2(self):
-        code = """
-        b = a + b - 3
-        """
+        code = "b = a + b - 3"
         interp = self.compile(code)
         assert (interp.code.statements[0].expr ==
                 Operator(Operator(Variable("a"), "+", Variable("b")), "-",
@@ -57,27 +49,27 @@ class TestCompiler(object):
 
     def test_expr_3(self):
         # an equivalent of range
-        code = """
-        a = |20|
-        """
+        code = "a = |20|"
         interp = self.compile(code)
         assert interp.code.statements[0].expr == RangeConstant(20)
 
     def test_expr_only(self):
-        code = """
-        3 + a
-        """
+        code = "3 + a"
         interp = self.compile(code)
         assert interp.code.statements[0] == Execute(
             Operator(FloatConstant(3), "+", Variable("a")))
 
     def test_array_access(self):
-        code = """
-        a -> 3
-        """
+        code = "a -> 3"
         interp = self.compile(code)
         assert interp.code.statements[0] == Execute(
             Operator(Variable("a"), "->", FloatConstant(3)))
+
+    def test_function_call(self):
+        code = "sum(a)"
+        interp = self.compile(code)
+        assert interp.code.statements[0] == Execute(
+            FunctionCall("sum", [Variable("a")]))
 
 class TestRunner(object):
     def run(self, code):
@@ -112,7 +104,7 @@ class TestRunner(object):
         a + b -> 3
         """
         interp = self.run(code)
-        assert interp.results[0].value.val == 3 + 6
+        assert interp.results[0].floatval == 3 + 6
         
     def test_range_getitem(self):
         code = """
@@ -120,4 +112,13 @@ class TestRunner(object):
         r -> 3
         """
         interp = self.run(code)
-        assert interp.results[0].value.val == 6
+        assert interp.results[0].floatval == 6
+
+    def test_sum(self):
+        code = """
+        a = [1,2,3,4,5]
+        r = sum(a)
+        r
+        """
+        interp = self.run(code)
+        assert interp.results[0].floatval == 15
