@@ -3556,6 +3556,7 @@ class BaseLLtypeTests(BasicTests):
                 pc += 1
             return pc
         res = self.meta_interp(main, [False, 100, True], taggedpointers=True)
+        self.check_loops(int_untag=1, int_tag_ovf=2)
 
     def test_rerased(self):
         from pypy.rlib.rerased import erase_int, unerase_int, new_erasing_pair

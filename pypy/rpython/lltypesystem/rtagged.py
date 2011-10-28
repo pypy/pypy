@@ -59,8 +59,7 @@ class TaggedInstanceRepr(InstanceRepr):
     def getvalue_from_unboxed(self, llops, vinst):
         assert not self.is_parent
         v2 = llops.genop('cast_ptr_to_int', [vinst],  resulttype=lltype.Signed)
-        c_one = inputconst(lltype.Signed, 1)
-        return llops.genop('int_rshift', [v2, c_one], resulttype=lltype.Signed)
+        return llops.genop('int_untag', [v2], resulttype=lltype.Signed)
 
     def gettype_from_unboxed(self, llops, vinst, can_be_none=False):
         unboxedclass_repr = getclassrepr(self.rtyper, self.unboxedclassdef)
