@@ -80,11 +80,15 @@ def stm_setfield(structptr, fieldname, newvalue):
         _rffi_stm.stm_write_word(p, val)
 
 def begin_transaction():
-    "NOT_RPYTHON"
+    "NOT_RPYTHON.  For tests only"
     raise NotImplementedError("hard to really emulate")
 
 def commit_transaction():
-    "NOT_RPYTHON"
+    "NOT_RPYTHON.  For tests only"
+    raise NotImplementedError("hard to really emulate")
+
+def transaction_boundary():
+    "NOT_RPYTHON.  This is the one normally used"
     raise NotImplementedError("hard to really emulate")
 
 # ____________________________________________________________
@@ -123,7 +127,7 @@ class ExtEntry(ExtRegistryEntry):
 
 
 class ExtEntry(ExtRegistryEntry):
-    _about_ = (begin_transaction, commit_transaction)
+    _about_ = (begin_transaction, commit_transaction, transaction_boundary)
 
     def compute_result_annotation(self):
         return None

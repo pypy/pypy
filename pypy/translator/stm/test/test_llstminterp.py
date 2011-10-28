@@ -37,7 +37,8 @@ def test_stm_getfield():
     interp, graph = get_interpreter(func, [p])
     # forbidden in "not_in_transaction" mode
     py.test.raises(ForbiddenInstructionInSTMMode,
-                   eval_stm_graph, interp, graph, [p])
+                   eval_stm_graph, interp, graph, [p],
+                   stm_mode="not_in_transaction")
     # works in "regular_transaction" mode
     res = eval_stm_graph(interp, graph, [p], stm_mode="regular_transaction")
     assert res == 42
@@ -106,3 +107,17 @@ def test_cannot_raise_with_regular_transaction():
     interp, graph = get_interpreter(func, [])
     py.test.raises(ReturnWithTransactionActive,
                    eval_stm_graph, interp, graph, [])
+
+def test_transaction_boundary():
+    def func(n):
+        if n > 5:
+            rstm.transaction_boundary()
+    interp, graph = get_interpreter(func, [2])
+    eval_stm_graph(interp, graph, [10],
+                   stm_mode="regular_transaction",
+                   final_stm_mode="inevitable_transaction",
+                   automatic_promotion=True)
+    eval_stm_graph(interp, graph, [1],
+                   stm_mode="regular_transaction",
+                   final_stm_mode="regular_transaction",
+                   automatic_promotion=True)

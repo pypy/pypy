@@ -10,13 +10,17 @@ class ReturnWithTransactionActive(Exception):
     pass
 
 
-def eval_stm_graph(llinterp, graph, values, stm_mode="not_in_transaction"):
+def eval_stm_graph(llinterp, graph, values, stm_mode="not_in_transaction",
+                   final_stm_mode=Ellipsis, automatic_promotion=False):
     llinterp.frame_class = LLSTMFrame
     try:
         llinterp.stm_mode = stm_mode
+        llinterp.stm_automatic_promotion = automatic_promotion
         llinterp.last_transaction_started_in_frame = None
         res = llinterp.eval_graph(graph, values)
-        assert llinterp.stm_mode == stm_mode, (
+        if final_stm_mode is Ellipsis:
+            final_stm_mode = stm_mode
+        assert llinterp.stm_mode == final_stm_mode, (
             "llinterp.stm_mode is %r after eval_graph, but should be %r" % (
             llinterp.stm_mode, stm_mode))
         return res
@@ -43,7 +47,10 @@ class LLSTMFrame(LLFrame):
     def returning_from_frame_now(self):
         if (self.llinterpreter.stm_mode == "regular_transaction" and
                 self.llinterpreter.last_transaction_started_in_frame is self):
-            raise ReturnWithTransactionActive(self.graph)
+            if self.llinterpreter.stm_automatic_promotion:
+                self.llinterpreter.stm_mode = "inevitable_transaction"
+            else:
+                raise ReturnWithTransactionActive(self.graph)
 
     def getoperationhandler(self, opname):
         ophandler = getattr(self, 'opstm_' + opname, None)
@@ -103,3 +110,8 @@ class LLSTMFrame(LLFrame):
     def opstm_stm_commit_transaction(self):
         self.check_stm_mode(lambda m: m != "not_in_transaction")
         self.llinterpreter.stm_mode = "not_in_transaction"
+
+    def opstm_stm_transaction_boundary(self):
+        self.check_stm_mode(lambda m: m != "not_in_transaction")
+        self.llinterpreter.stm_mode = "regular_transaction"
+        self.llinterpreter.last_transaction_started_in_frame = self
