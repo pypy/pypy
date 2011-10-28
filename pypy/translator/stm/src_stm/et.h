@@ -20,13 +20,20 @@ long stm_commit_transaction(void);
 long stm_read_word(long* addr);
 void stm_write_word(long* addr, long val);
 void stm_try_inevitable(void);
+void stm_try_inevitable_if(jmp_buf* buf);
 void stm_begin_inevitable_transaction(void);
 void stm_abort_and_retry(void);
+void stm_transaction_boundary(jmp_buf* buf);
 
+/* for testing only: */
 #define STM_begin_transaction()         ; \
        jmp_buf _jmpbuf;                   \
        setjmp(_jmpbuf);                   \
        stm_begin_transaction(&_jmpbuf)
+
+#define STM_DECLARE_VARIABLE()          jmp_buf jmpbuf
+#define STM_MAKE_INEVITABLE()           stm_try_inevitable_if(&jmpbuf)
+#define STM_TRANSACTION_BOUNDARY()      stm_transaction_boundary(&jmpbuf)
 
 // XXX little-endian only!
 #define STM_read_partial_word(T, base, offset)                          \

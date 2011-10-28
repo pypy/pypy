@@ -26,8 +26,10 @@ SignedP = rffi.CArrayPtr(lltype.Signed)
 descriptor_init = llexternal('stm_descriptor_init', [], lltype.Void)
 descriptor_done = llexternal('stm_descriptor_done', [], lltype.Void)
 
-#begin_transaction = llexternal('STM_begin_transaction', [], lltype.Void)
-#commit_transaction = llexternal('stm_commit_transaction', [], lltype.Signed)
+begin_transaction = llexternal('STM_begin_transaction', [], lltype.Void)
+begin_inevitable_transaction = llexternal('stm_begin_inevitable_transaction',
+                                          [], lltype.Void)
+commit_transaction = llexternal('stm_commit_transaction', [], lltype.Signed)
 
 stm_read_word = llexternal('stm_read_word', [SignedP], lltype.Signed)
 stm_write_word = llexternal('stm_write_word', [SignedP, lltype.Signed],

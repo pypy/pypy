@@ -738,6 +738,13 @@ void stm_try_inevitable(void)
 #endif
 }
 
+void stm_try_inevitable_if(jmp_buf *buf)
+{
+  struct tx_descriptor *d = thread_descriptor;
+  if (d && d->setjmp_buf == buf)    /* XXX remove the test for 'd != NULL' */
+    stm_try_inevitable();
+}
+
 void stm_begin_inevitable_transaction(void)
 {
   struct tx_descriptor *d = thread_descriptor;
@@ -778,6 +785,13 @@ void stm_begin_inevitable_transaction(void)
 void stm_abort_and_retry(void)
 {
   tx_abort(7);     /* manual abort */
+}
+
+void stm_transaction_boundary(jmp_buf* buf)
+{
+  stm_commit_transaction();
+  setjmp(*buf);
+  stm_begin_transaction(buf);
 }
 
 // XXX little-endian only!

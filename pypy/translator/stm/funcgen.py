@@ -93,6 +93,17 @@ def stm_commit_transaction(funcgen, op):
 def stm_begin_inevitable_transaction(funcgen, op):
     return 'stm_begin_inevitable_transaction();'
 
+def stm_declare_variable(funcgen, op):
+    # this operation occurs only once at the start of a function if
+    # it uses stm_transaction_boundary
+    assert funcgen.exception_policy is None
+    funcgen.exception_policy = 'stm'
+    return 'STM_DECLARE_VARIABLE();'
+
+def stm_transaction_boundary(funcgen, op):
+    assert funcgen.exception_policy == 'stm'
+    return 'STM_TRANSACTION_BOUNDARY();'
+
 
 def op_stm(funcgen, op):
     assert funcgen.db.translator.stm_transformation_applied

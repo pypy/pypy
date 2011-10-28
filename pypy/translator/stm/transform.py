@@ -1,5 +1,7 @@
 from pypy.objspace.flow.model import SpaceOperation
 from pypy.translator.stm import _rffi_stm
+from pypy.translator.unsimplify import varoftype
+from pypy.rpython.lltypesystem import lltype
 
 
 class STMTransformer(object):
@@ -8,9 +10,12 @@ class STMTransformer(object):
         self.translator = translator
 
     def transform(self):
-        self.add_descriptor_init_stuff()
         for graph in self.translator.graphs:
+            self.seen_transaction_boundary = False
             self.transform_graph(graph)
+            if self.seen_transaction_boundary:
+                self.add_stm_declare_variable(graph)
+        self.add_descriptor_init_stuff()
         self.translator.stm_transformation_applied = True
 
     def transform_block(self, block):
@@ -31,10 +36,18 @@ class STMTransformer(object):
         from pypy.translator.unsimplify import call_final_function
         def descriptor_init():
             _rffi_stm.descriptor_init()
+            _rffi_stm.begin_inevitable_transaction()
         def descriptor_done():
+            _rffi_stm.commit_transaction()
             _rffi_stm.descriptor_done()
         call_initial_function(self.translator, descriptor_init)
         call_final_function(self.translator, descriptor_done)
+
+    def add_stm_declare_variable(self, graph):
+        block = graph.startblock
+        v = varoftype(lltype.Void)
+        op = SpaceOperation('stm_declare_variable', [], v)
+        block.operations.insert(0, op)
 
     # ----------
 
@@ -49,6 +62,10 @@ class STMTransformer(object):
     def stt_setfield(self, newoperations, op):
         op1 = SpaceOperation('stm_setfield', op.args, op.result)
         newoperations.append(op1)
+
+    def stt_stm_transaction_boundary(self, newoperations, op):
+        self.seen_transaction_boundary = True
+        newoperations.append(op)
 
 
 def transform_graph(graph):

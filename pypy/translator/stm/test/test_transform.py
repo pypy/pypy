@@ -43,11 +43,9 @@ class TestTransformSingleThread(StandaloneTests):
 
     def test_no_pointer_operations(self):
         def simplefunc(argv):
-            rstm.begin_transaction()
             i = 0
             while i < 100:
                 i += 3
-            rstm.commit_transaction()
             debug_print(i)
             return 0
         t, cbuilder = self.compile(simplefunc)
@@ -56,12 +54,8 @@ class TestTransformSingleThread(StandaloneTests):
         assert '102' in dataerr.splitlines()
 
     def test_fails_when_nonbalanced_begin(self):
-        def g():
-            rstm.begin_transaction()
-        g._dont_inline_ = True
         def simplefunc(argv):
             rstm.begin_transaction()
-            g()
             return 0
         t, cbuilder = self.compile(simplefunc)
         cbuilder.cmdexec('', expect_crash=True)
@@ -69,14 +63,22 @@ class TestTransformSingleThread(StandaloneTests):
     def test_fails_when_nonbalanced_commit(self):
         def simplefunc(argv):
             rstm.commit_transaction()
+            rstm.commit_transaction()
             return 0
         t, cbuilder = self.compile(simplefunc)
         cbuilder.cmdexec('', expect_crash=True)
 
     def test_begin_inevitable_transaction(self):
         def simplefunc(argv):
-            rstm.begin_inevitable_transaction()
             rstm.commit_transaction()
+            rstm.begin_inevitable_transaction()
+            return 0
+        t, cbuilder = self.compile(simplefunc)
+        cbuilder.cmdexec('')
+
+    def test_transaction_boundary_1(self):
+        def simplefunc(argv):
+            rstm.transaction_boundary()
             return 0
         t, cbuilder = self.compile(simplefunc)
         cbuilder.cmdexec('')
