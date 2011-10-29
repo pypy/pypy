@@ -93,7 +93,7 @@ class TestDicts(BaseTestPyPyC):
             p15 = new_array(8, descr=<dictentryArrayDescr>)
             setfield_gc(p13, p15, descr=<GcPtrFieldDescr dicttable.entries .*>)
             i17 = call(ConstClass(ll_dict_lookup_trampoline), p13, p10, i12, descr=<SignedCallDescr>)
-            setfield_gc(p13, 16, descr=<SignedFieldDescr dicttable.resize_counter 16>)
+            setfield_gc(p13, 16, descr=<SignedFieldDescr dicttable.resize_counter .*>)
             guard_no_exception(descr=...)
             p20 = new_with_vtable(ConstClass(W_IntObject))
             call(ConstClass(_ll_dict_setitem_lookup_done_trampoline), p13, p10, p20, i12, i17, descr=<VoidCallDescr>)
