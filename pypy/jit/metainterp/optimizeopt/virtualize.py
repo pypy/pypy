@@ -294,7 +294,12 @@ class VArrayStructValue(AbstractVirtualValue):
         optforce.emit_operation(self.source_op)
         self.box = box = self.source_op.result
         for index in range(len(self._items)):
-            for descr, value in self._items[index].iteritems():
+            iteritems = self._items[index].iteritems()
+            # random order is fine, except for tests
+            if not we_are_translated():
+                iteritems = list(iteritems)
+                iteritems.sort(key = lambda (x, y): x.sort_key())
+            for descr, value in iteritems:
                 subbox = value.force_box(optforce)
                 op = ResOperation(rop.SETINTERIORFIELD_GC,
                     [box, ConstInt(index), subbox], None, descr=descr
