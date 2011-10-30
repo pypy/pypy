@@ -74,6 +74,13 @@ class LLSTMFrame(LLFrame):
             self.check_stm_mode(lambda m: False)
             xxx
 
+    def opstm_malloc(self, TYPE, flags):
+        # non-GC must not occur in a regular transaction,
+        # but can occur in inevitable mode or outside a transaction
+        if flags['flavor'] != 'gc':
+            self.check_stm_mode(lambda m: m != "regular_transaction")
+        return LLFrame.op_malloc(self, TYPE, flags)
+
     # ---------- stm-only operations ----------
     # Note that for these tests we assume no real multithreading,
     # so that we just emulate the operations the easy way
@@ -108,8 +115,3 @@ class LLSTMFrame(LLFrame):
     def opstm_stm_try_inevitable(self):
         self.check_stm_mode(lambda m: m != "not_in_transaction")
         self.llinterpreter.stm_mode = "inevitable_transaction"
-
-    def opstm_malloc(self, TYPE, flags):
-        if flags['flavor'] != 'gc':
-            self.check_stm_mode(lambda m: m != "regular_transaction")
-        return LLFrame.op_malloc(self, TYPE, flags)
