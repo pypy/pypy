@@ -4783,6 +4783,52 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+
+    def test_division_nonneg(self):
+        py.test.skip("harder")
+        # this is how an app-level division turns into right now
+        ops = """
+        [i4]
+        i1 = int_ge(i4, 0)
+        guard_true(i1) []
+        i16 = int_floordiv(i4, 3)
+        i18 = int_mul(i16, 3)
+        i19 = int_sub(i4, i18)
+        i21 = int_rshift(i19, %d)
+        i22 = int_add(i16, i21)
+        finish(i22)
+        """ % (LONG_BIT-1)
+        expected = """
+        [i4]
+        i1 = int_ge(i4, 0)
+        guard_true(i1) []
+        i16 = int_floordiv(i4, 3)
+        finish(i16)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_division_by_2(self):
+        py.test.skip("harder")
+        ops = """
+        [i4]
+        i1 = int_ge(i4, 0)
+        guard_true(i1) []
+        i16 = int_floordiv(i4, 2)
+        i18 = int_mul(i16, 2)
+        i19 = int_sub(i4, i18)
+        i21 = int_rshift(i19, %d)
+        i22 = int_add(i16, i21)
+        finish(i22)
+        """ % (LONG_BIT-1)
+        expected = """
+        [i4]
+        i1 = int_ge(i4, 0)
+        guard_true(i1) []
+        i16 = int_rshift(i4, 1)
+        finish(i16)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_subsub_ovf(self):
         ops = """
         [i0]

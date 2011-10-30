@@ -9,6 +9,7 @@ from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
 from pypy.jit.metainterp import executor, compile, resume, history
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
+from pypy.rlib.rarithmetic import LONG_BIT
 
 
 def test_store_final_boxes_in_guard():
@@ -4714,11 +4715,11 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i5 = int_ge(i0, 0)
         guard_true(i5) []
         i1 = int_mod(i0, 42)
-        i2 = int_rshift(i1, 63)
+        i2 = int_rshift(i1, %d)
         i3 = int_and(42, i2)
         i4 = int_add(i1, i3)
         finish(i4)
-        """
+        """ % (LONG_BIT-1)
         expected = """
         [i0]
         i5 = int_ge(i0, 0)
@@ -4726,21 +4727,41 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i1 = int_mod(i0, 42)
         finish(i1)
         """
-        py.test.skip("in-progress")
         self.optimize_loop(ops, expected)
 
-        # Also, 'n % power-of-two' can be turned into int_and(),
-        # but that's a bit harder to detect here because it turns into
-        # several operations, and of course it is wrong to just turn
+        # 'n % power-of-two' can be turned into int_and(); at least that's
+        # easy to do now if n is known to be non-negative.
+        ops = """
+        [i0]
+        i5 = int_ge(i0, 0)
+        guard_true(i5) []
+        i1 = int_mod(i0, 8)
+        i2 = int_rshift(i1, %d)
+        i3 = int_and(42, i2)
+        i4 = int_add(i1, i3)
+        finish(i4)
+        """ % (LONG_BIT-1)
+        expected = """
+        [i0]
+        i5 = int_ge(i0, 0)
+        guard_true(i5) []
+        i1 = int_and(i0, 7)
+        finish(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+        # Of course any 'maybe-negative % power-of-two' can be turned into
+        # int_and(), but that's a bit harder to detect here because it turns
+        # into several operations, and of course it is wrong to just turn
         # int_mod(i0, 16) into int_and(i0, 15).
         ops = """
         [i0]
         i1 = int_mod(i0, 16)
-        i2 = int_rshift(i1, 63)
+        i2 = int_rshift(i1, %d)
         i3 = int_and(16, i2)
         i4 = int_add(i1, i3)
         finish(i4)
-        """
+        """ % (LONG_BIT-1)
         expected = """
         [i0]
         i4 = int_and(i0, 15)
