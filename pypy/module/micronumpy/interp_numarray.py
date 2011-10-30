@@ -249,7 +249,7 @@ class BaseArray(Wrappable):
         new_sig = signature.Signature.find_sig([
             NDimSlice.signature, self.signature
         ])
-        res = "array(" + NDimSlice(concrete, new_sig, [], self.shape[:]).tostr(True)
+        res = "array(" + NDimSlice(concrete, new_sig, [], self.shape[:]).tostr(True, indent='       ')
         dtype = concrete.find_dtype()
         if (dtype is not space.fromcache(interp_dtype.W_Float64Dtype) and
             dtype is not space.fromcache(interp_dtype.W_Int64Dtype)) or not self.find_size():
@@ -588,7 +588,6 @@ class NDimSlice(ViewArray):
     _immutable_fields_ = ['shape[*]', 'chunks[*]']
 
     def __init__(self, parent, signature, chunks, shape):
-        print 'NDimSlice.__init__(...,',chunks,',',shape,')'
         ViewArray.__init__(self, parent, signature, shape)
         self.chunks = chunks
         self.shape_reduction = 0
@@ -662,21 +661,17 @@ class NDimSlice(ViewArray):
             if k != 0:
                 item *= shape[k]
             k += 1
-            try:
-                item += index[i]
-            except:
-               import pdb;pdb.set_trace()
+            item += index[i]
             i += 1
         return item
-    def tostr(self, comma):
+    def tostr(self, comma,indent=' '):
         ret = ''
         dtype = self.find_dtype()
         ndims = len(self.shape)#-self.shape_reduction
         if ndims>2:
             ret += '['
             for i in range(self.shape[0]):
-                res = NDimSlice(self.parent, self.signature, [(i,0,0,1)], self.shape[1:]).tostr(comma)
-                ret += '\n '.join(res.split('\n'))
+                ret += NDimSlice(self.parent, self.signature, [(i,0,0,1)], self.shape[1:]).tostr(commai,indent=indent+' ')
                 if i+1<self.shape[0]:
                     ret += ',\n\n'
             ret += ']'
@@ -688,7 +683,7 @@ class NDimSlice(ViewArray):
                                                     for j in range(self.shape[1])])
                 ret += ']'
                 if i+1< self.shape[0]:
-                    ret += ',\n       '
+                    ret += ',\n' + indent
             ret += ']'
         elif ndims==1:
             ret += '['
@@ -703,7 +698,7 @@ class NDimSlice(ViewArray):
                                                     for j in range(self.shape[0])])
             ret += ']'
         else:
-            ret += 'shape=%s, reduction=%s'%(str(self.shape), str(self.shape_reduction))
+            ret += '[]'
         return ret
 class NDimArray(BaseArray):
     def __init__(self, size, shape, dtype):

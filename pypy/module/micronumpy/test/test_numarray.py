@@ -80,6 +80,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = zeros(2002)
         b = a[::2]
         assert repr(b) == "array([0.0, 0.0, 0.0, ..., 0.0, 0.0, 0.0])"
+        a = array((range(5),range(5,10)), dtype="int16")
+        b=a[1,2:]
+        assert repr(b) == "array([7, 8, 9], dtype=int16)"
 
     def test_str(self):
         from numpy import array, zeros
@@ -100,6 +103,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array(range(5), dtype="int16")
         assert str(a) == "[0 1 2 3 4]"
 
+        a = array((range(5),range(5,10)), dtype="int16")
+        assert str(a) == "[[0 1 2 3 4],\n [5 6 7 8 9]]"
+
     def test_str_slice(self):
         from numpy import array, zeros
         a = array(range(5), float)
@@ -108,6 +114,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = zeros(2002)
         b = a[::2]
         assert str(b) == "[0.0 0.0 0.0 ..., 0.0 0.0 0.0]"
+        a = array((range(5),range(5,10)), dtype="int16")
+        b=a[1,2:]
+        assert str(b) == "[7 8 9]"
 
     def test_getitem(self):
         from numpy import array
