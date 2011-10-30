@@ -11,7 +11,7 @@
 #include <setjmp.h>
 #include "src/commondefs.h"
 
-#ifdef RPY_ASSERT
+#ifdef RPY_STM_ASSERT
 #  define STM_CCHARP(arg)     , char* arg
 #  define STM_CCHARP1(arg)    char* arg
 #  define STM_EXPLAIN(info)   , info

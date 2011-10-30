@@ -112,6 +112,7 @@ class LLSTMFrame(LLFrame):
         self.llinterpreter.stm_mode = "regular_transaction"
         self.llinterpreter.last_transaction_started_in_frame = self
 
-    def opstm_stm_try_inevitable(self):
+    def opstm_stm_try_inevitable(self, why):
         self.check_stm_mode(lambda m: m != "not_in_transaction")
         self.llinterpreter.stm_mode = "inevitable_transaction"
+        print why

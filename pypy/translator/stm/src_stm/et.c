@@ -21,7 +21,10 @@
 
 #include "src_stm/et.h"
 #include "src_stm/atomic_ops.h"
-#include "src/debug_print.h"
+
+#ifdef RPY_STM_ASSERT
+# include "src/debug_print.h"
+#endif
 
 /************************************************************/
 
@@ -44,7 +47,7 @@ static char orecs[NUM_STRIPES * sizeof(orec_t)];
 inline static volatile orec_t* get_orec(void* addr)
 {
   unsigned long index = (unsigned long)addr;
-#ifdef RPY_ASSERT
+#ifdef RPY_STM_ASSERT
   assert(!(index & (sizeof(orec_t)-1)));
 #endif
   char *p = orecs + (index & ((NUM_STRIPES-1) * sizeof(orec_t)));
@@ -78,7 +81,7 @@ struct tx_descriptor {
   owner_version_t my_lock_word;
   unsigned init_counter;
   struct RedoLog redolog;   /* last item, because it's the biggest one */
-#ifdef RPY_ASSERT
+#ifdef RPY_STM_ASSERT
   int transaction_active;
 #endif
 };
@@ -242,7 +245,7 @@ static void common_cleanup(struct tx_descriptor *d)
 {
   d->reads.size = 0;
   redolog_clear(&d->redolog);
-#ifdef RPY_ASSERT
+#ifdef RPY_STM_ASSERT
   assert(d->transaction_active);
   d->transaction_active = 0;
 #endif
@@ -538,7 +541,9 @@ void stm_write_word(long* addr, long val)
 
 void stm_descriptor_init(void)
 {
+#ifdef RPY_STM_ASSERT
   PYPY_DEBUG_START("stm-init");
+#endif
   if (thread_descriptor != NULL)
     thread_descriptor->init_counter++;
   else
@@ -556,7 +561,9 @@ void stm_descriptor_init(void)
 
       thread_descriptor = d;
     }
+#ifdef RPY_STM_ASSERT
   PYPY_DEBUG_STOP("stm-init");
+#endif
 }
 
 void stm_descriptor_done(void)
@@ -566,9 +573,10 @@ void stm_descriptor_done(void)
   if (d->init_counter > 0)
     return;
 
-  PYPY_DEBUG_START("stm-done");
   thread_descriptor = NULL;
 
+#ifdef RPY_STM_ASSERT
+  PYPY_DEBUG_START("stm-done");
   if (PYPY_HAVE_DEBUG_PRINTS) {
     int num_aborts = 0, num_spinloops = 0;
     int i, prevchar;
@@ -598,8 +606,10 @@ void stm_descriptor_done(void)
 
     fprintf(PYPY_DEBUG_FILE, "]\n");
   }
-  free(d);
   PYPY_DEBUG_STOP("stm-done");
+#endif
+
+  free(d);
 }
 
 void* stm_perform_transaction(void*(*callback)(void*), void *arg)
@@ -614,7 +624,7 @@ void* stm_perform_transaction(void*(*callback)(void*), void *arg)
 void stm_begin_transaction(jmp_buf* buf)
 {
   struct tx_descriptor *d = thread_descriptor;
-#ifdef RPY_ASSERT
+#ifdef RPY_STM_ASSERT
   assert(!d->transaction_active);
   d->transaction_active = 1;
 #endif
@@ -705,7 +715,7 @@ void stm_try_inevitable(STM_CCHARP1(why))
      to 1. */
   struct tx_descriptor *d = thread_descriptor;
 
-#ifdef RPY_ASSERT
+#ifdef RPY_STM_ASSERT
   PYPY_DEBUG_START("stm-inevitable");
   if (PYPY_HAVE_DEBUG_PRINTS)
     {
@@ -717,7 +727,7 @@ void stm_try_inevitable(STM_CCHARP1(why))
 
   if (is_inevitable(d))
     {
-#ifdef RPY_ASSERT
+#ifdef RPY_STM_ASSERT
       PYPY_DEBUG_STOP("stm-inevitable");
 #endif
       return;  /* I am already inevitable */
@@ -758,7 +768,7 @@ void stm_try_inevitable(STM_CCHARP1(why))
   CFENCE;
   d_inev_checking = 1;
 #endif
-#ifdef RPY_ASSERT
+#ifdef RPY_STM_ASSERT
   PYPY_DEBUG_STOP("stm-inevitable");
 #endif
 }
@@ -794,7 +804,7 @@ void stm_begin_inevitable_transaction(void)
       if (bool_cas(&global_timestamp, curtime, curtime + 1))
         break;
     }
-#ifdef RPY_ASSERT
+#ifdef RPY_STM_ASSERT
   assert(!d->transaction_active);
   d->transaction_active = 1;
 #endif
@@ -814,14 +824,14 @@ void stm_abort_and_retry(void)
 
 void stm_transaction_boundary(jmp_buf* buf)
 {
-#ifdef RPY_ASSERT
-  PYPY_DEBUG_START("stm-boundary");
+#ifdef RPY_STM_ASSERT
+  PYPY_DEBUG_START("stm-transaction-boundary");
 #endif
   stm_commit_transaction();
   setjmp(*buf);
   stm_begin_transaction(buf);
-#ifdef RPY_ASSERT
-  PYPY_DEBUG_STOP("stm-boundary");
+#ifdef RPY_STM_ASSERT
+  PYPY_DEBUG_STOP("stm-transaction-boundary");
 #endif
 }
 

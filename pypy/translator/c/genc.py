@@ -207,7 +207,8 @@ class CBuilder(object):
     # use generate_source(defines=DEBUG_DEFINES) to force the #definition
     # of the macros that enable debugging assertions
     DEBUG_DEFINES = {'RPY_ASSERT': 1,
-                     'RPY_LL_ASSERT': 1}
+                     'RPY_LL_ASSERT': 1,
+                     'RPY_STM_ASSERT': 1}
 
     def generate_graphs_for_llinterp(self, db=None):
         # prepare the graphs as when the source is generated, but without
@@ -561,7 +562,7 @@ class CStandaloneBuilder(CBuilder):
             ('no_obmalloc', '', '$(MAKE) CFLAGS="-g -O2 -DRPY_ASSERT -DNO_OBMALLOC" $(TARGET)'),
             ('linuxmemchk', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DLINUXMEMCHK" $(TARGET)'),
             ('llsafer', '', '$(MAKE) CFLAGS="-O2 -DRPY_LL_ASSERT" $(TARGET)'),
-            ('lldebug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DRPY_LL_ASSERT" $(TARGET)'),
+            ('lldebug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DRPY_LL_ASSERT -DRPY_STM_ASSERT" $(TARGET)'),
             ('profile', '', '$(MAKE) CFLAGS="-g -O1 -pg $(CFLAGS) -fno-omit-frame-pointer" LDFLAGS="-pg $(LDFLAGS)" $(TARGET)'),
             ]
         if self.has_profopt():
