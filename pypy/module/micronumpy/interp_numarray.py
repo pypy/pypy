@@ -246,7 +246,10 @@ class BaseArray(Wrappable):
     def descr_repr(self, space):
         # Simple implementation so that we can see the array. Needs work.
         concrete = self.get_concrete()
-        res = "array([" + ", ".join(concrete._getnums(False)) + "]"
+        new_sig = signature.Signature.find_sig([
+            NDimSlice.signature, self.signature
+        ])
+        res = "array(" + NDimSlice(concrete, new_sig, [], self.shape[:]).tostr(True)
         dtype = concrete.find_dtype()
         if (dtype is not space.fromcache(interp_dtype.W_Float64Dtype) and
             dtype is not space.fromcache(interp_dtype.W_Int64Dtype)) or not self.find_size():
@@ -257,7 +260,10 @@ class BaseArray(Wrappable):
     def descr_str(self, space):
         # Simple implementation so that we can see the array. Needs work.
         concrete = self.get_concrete()
-        return space.wrap("[" + " ".join(concrete._getnums(True)) + "]")
+        new_sig = signature.Signature.find_sig([
+            NDimSlice.signature, self.signature
+        ])
+        return space.wrap(NDimSlice(concrete, new_sig, [], self.shape[:]).tostr(False))
 
     def _index_of_single_item(self, space, w_idx):
         # we assume C ordering for now
@@ -582,6 +588,7 @@ class NDimSlice(ViewArray):
     _immutable_fields_ = ['shape[*]', 'chunks[*]']
 
     def __init__(self, parent, signature, chunks, shape):
+        print 'NDimSlice.__init__(...,',chunks,',',shape,')'
         ViewArray.__init__(self, parent, signature, shape)
         self.chunks = chunks
         self.shape_reduction = 0
@@ -628,6 +635,7 @@ class NDimSlice(ViewArray):
     @jit.unroll_safe
     def calc_index(self, item):
         index = []
+        __item = item
         _item = item
         for i in range(len(self.shape) -1, 0, -1):
             s = self.shape[i]
@@ -654,11 +662,49 @@ class NDimSlice(ViewArray):
             if k != 0:
                 item *= shape[k]
             k += 1
-            item += index[i]
+            try:
+                item += index[i]
+            except:
+               import pdb;pdb.set_trace()
             i += 1
         return item
-
-
+    def tostr(self, comma):
+        ret = ''
+        dtype = self.find_dtype()
+        ndims = len(self.shape)#-self.shape_reduction
+        if ndims>2:
+            ret += '['
+            for i in range(self.shape[0]):
+                res = NDimSlice(self.parent, self.signature, [(i,0,0,1)], self.shape[1:]).tostr(comma)
+                ret += '\n '.join(res.split('\n'))
+                if i+1<self.shape[0]:
+                    ret += ',\n\n'
+            ret += ']'
+        elif ndims==2:
+            ret += '['
+            for i in range(self.shape[0]):
+                ret += '['
+                ret += (','*comma + ' ' ).join([dtype.str_format(self.eval(i*self.shape[1]+j)) \
+                                                    for j in range(self.shape[1])])
+                ret += ']'
+                if i+1< self.shape[0]:
+                    ret += ',\n       '
+            ret += ']'
+        elif ndims==1:
+            ret += '['
+            if self.shape[0]>1000:
+                ret += (','*comma + ' ').join([dtype.str_format(self.eval(j)) \
+                                                    for j in range(3)])
+                ret += ','*comma + ' ..., '
+                ret += (','*comma + ' ').join([dtype.str_format(self.eval(j)) \
+                                                    for j in range(self.shape[0]-3,self.shape[0])])
+            else:
+                ret += (','*comma + ' ').join([dtype.str_format(self.eval(j)) \
+                                                    for j in range(self.shape[0])])
+            ret += ']'
+        else:
+            ret += 'shape=%s, reduction=%s'%(str(self.shape), str(self.shape_reduction))
+        return ret
 class NDimArray(BaseArray):
     def __init__(self, size, shape, dtype):
         BaseArray.__init__(self, shape)
