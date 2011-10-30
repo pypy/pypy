@@ -3559,6 +3559,33 @@ class BaseLLtypeTests(BasicTests):
         assert res == 0
         self.check_loops({"int_sub": 1, "int_gt": 1, "guard_true": 1, "jump": 1})
 
+    def test_convert_from_SmallFunctionSetPBCRepr_to_FunctionsPBCRepr(self):
+        f1 = lambda n: n+1
+        f2 = lambda n: n+2
+        f3 = lambda n: n+3
+        f4 = lambda n: n+4
+        f5 = lambda n: n+5
+        f6 = lambda n: n+6
+        f7 = lambda n: n+7
+        f8 = lambda n: n+8
+        def h(n, x):
+            return x(n)
+        h._dont_inline = True
+        def g(n, x):
+            return h(n, x)
+        g._dont_inline = True
+        def f(n):
+            n = g(n, f1)
+            n = g(n, f2)
+            n = h(n, f3)
+            n = h(n, f4)
+            n = h(n, f5)
+            n = h(n, f6)
+            n = h(n, f7)
+            n = h(n, f8)
+            return n
+        assert f(5) == 41
+        self.interp_operations(f, [5])
 
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):

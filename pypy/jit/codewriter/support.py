@@ -40,6 +40,7 @@ def annotate(func, values, inline=None, backendoptimize=True,
              type_system="lltype"):
     # build the normal ll graphs for ll_function
     t = TranslationContext()
+    t.config.translation.withsmallfuncsets = 3
     annpolicy = AnnotatorPolicy()
     annpolicy.allow_someobjects = False
     a = t.buildannotator(policy=annpolicy)
