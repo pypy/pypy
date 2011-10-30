@@ -134,7 +134,7 @@ class CBuilder(object):
         if self.config.translation.stm:
             from pypy.translator.stm import transform
             transformer = transform.STMTransformer(self.translator)
-            transformer.transform()
+            transformer.transform(self.getentrypointptr())
             log.info("Software Transactional Memory transformation applied")
 
         gcpolicyclass = self.get_gcpolicyclass()
@@ -472,7 +472,9 @@ class CStandaloneBuilder(CBuilder):
         s_result = annmodel.SomeInteger()
         graph = mix.getgraph(entrypoint_wrapper, args_s, s_result)
         mix.finish()
-        return getfunctionptr(graph)
+        res = getfunctionptr(graph)
+        self._entrypoint_wrapper = res
+        return res
 
     def cmdexec(self, args='', env=None, err=False, expect_crash=False):
         assert self._compiled

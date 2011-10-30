@@ -21,6 +21,7 @@
 
 #include "src_stm/et.h"
 #include "src_stm/atomic_ops.h"
+#include "src/debug_print.h"
 
 /************************************************************/
 
@@ -537,6 +538,7 @@ void stm_write_word(long* addr, long val)
 
 void stm_descriptor_init(void)
 {
+  PYPY_DEBUG_START("stm-init");
   if (thread_descriptor != NULL)
     thread_descriptor->init_counter++;
   else
@@ -554,6 +556,7 @@ void stm_descriptor_init(void)
 
       thread_descriptor = d;
     }
+  PYPY_DEBUG_STOP("stm-init");
 }
 
 void stm_descriptor_done(void)
@@ -563,36 +566,40 @@ void stm_descriptor_done(void)
   if (d->init_counter > 0)
     return;
 
+  PYPY_DEBUG_START("stm-done");
   thread_descriptor = NULL;
 
-  int num_aborts = 0, num_spinloops = 0;
-  int i, prevchar;
-  for (i=0; i<ABORT_REASONS; i++)
-    num_aborts += d->num_aborts[i];
-  for (i=0; i<SPINLOOP_REASONS; i++)
-    num_spinloops += d->num_spinloops[i];
+  if (PYPY_HAVE_DEBUG_PRINTS) {
+    int num_aborts = 0, num_spinloops = 0;
+    int i, prevchar;
+    for (i=0; i<ABORT_REASONS; i++)
+      num_aborts += d->num_aborts[i];
+    for (i=0; i<SPINLOOP_REASONS; i++)
+      num_spinloops += d->num_spinloops[i];
 
-  fprintf(stderr, "thread %lx: %d commits, %d aborts ",
-          d->my_lock_word,
-          d->num_commits,
-          num_aborts);
+    fprintf(PYPY_DEBUG_FILE, "thread %lx: %d commits, %d aborts ",
+            d->my_lock_word,
+            d->num_commits,
+            num_aborts);
 
-  for (i=0; i<ABORT_REASONS; i++)
-    fprintf(stderr, "%c%d", i == 0 ? '[' : ',',
-            d->num_aborts[i]);
+    for (i=0; i<ABORT_REASONS; i++)
+      fprintf(PYPY_DEBUG_FILE, "%c%d", i == 0 ? '[' : ',',
+              d->num_aborts[i]);
 
-  for (i=1; i<SPINLOOP_REASONS; i++)  /* num_spinloops[0] == num_aborts */
-    fprintf(stderr, "%c%d", i == 1 ? '|' : ',',
-            d->num_spinloops[i]);
+    for (i=1; i<SPINLOOP_REASONS; i++)  /* num_spinloops[0] == num_aborts */
+      fprintf(PYPY_DEBUG_FILE, "%c%d", i == 1 ? '|' : ',',
+              d->num_spinloops[i]);
 
 #ifdef COMMIT_OTHER_INEV
-  for (i=0; i<OTHERINEV_REASONS; i++)
-    fprintf(stderr, "%c%d", i == 0 ? '|' : ',',
-            d->num_otherinev[i]);
+    for (i=0; i<OTHERINEV_REASONS; i++)
+      fprintf(PYPY_DEBUG_FILE, "%c%d", i == 0 ? '|' : ',',
+              d->num_otherinev[i]);
 #endif
 
-  fprintf(stderr, "]\n");
+    fprintf(PYPY_DEBUG_FILE, "]\n");
+  }
   free(d);
+  PYPY_DEBUG_STOP("stm-done");
 }
 
 void* stm_perform_transaction(void*(*callback)(void*), void *arg)
@@ -690,7 +697,7 @@ long stm_commit_transaction(void)
   return d->end_time;
 }
 
-void stm_try_inevitable(void)
+void stm_try_inevitable(STM_CCHARP1(why))
 {
   /* when a transaction is inevitable, its start_time is equal to
      global_timestamp and global_timestamp cannot be incremented
@@ -699,11 +706,22 @@ void stm_try_inevitable(void)
   struct tx_descriptor *d = thread_descriptor;
 
 #ifdef RPY_ASSERT
+  PYPY_DEBUG_START("stm-inevitable");
+  if (PYPY_HAVE_DEBUG_PRINTS)
+    {
+      fprintf(PYPY_DEBUG_FILE, "%s%s\n", why,
+              is_inevitable(d) ? " (already inevitable)" : "");
+    }
   assert(d->transaction_active);
 #endif
 
   if (is_inevitable(d))
-    return;  /* I am already inevitable */
+    {
+#ifdef RPY_ASSERT
+      PYPY_DEBUG_STOP("stm-inevitable");
+#endif
+      return;  /* I am already inevitable */
+    }
 
   while (1)
     {
@@ -740,13 +758,16 @@ void stm_try_inevitable(void)
   CFENCE;
   d_inev_checking = 1;
 #endif
+#ifdef RPY_ASSERT
+  PYPY_DEBUG_STOP("stm-inevitable");
+#endif
 }
 
-void stm_try_inevitable_if(jmp_buf *buf)
+void stm_try_inevitable_if(jmp_buf *buf  STM_CCHARP(why))
 {
   struct tx_descriptor *d = thread_descriptor;
-  if (d && d->setjmp_buf == buf)    /* XXX remove the test for 'd != NULL' */
-    stm_try_inevitable();
+  if (d->setjmp_buf == buf)
+    stm_try_inevitable(STM_EXPLAIN1(why));
 }
 
 void stm_begin_inevitable_transaction(void)
@@ -793,9 +814,15 @@ void stm_abort_and_retry(void)
 
 void stm_transaction_boundary(jmp_buf* buf)
 {
+#ifdef RPY_ASSERT
+  PYPY_DEBUG_START("stm-boundary");
+#endif
   stm_commit_transaction();
   setjmp(*buf);
   stm_begin_transaction(buf);
+#ifdef RPY_ASSERT
+  PYPY_DEBUG_STOP("stm-boundary");
+#endif
 }
 
 // XXX little-endian only!

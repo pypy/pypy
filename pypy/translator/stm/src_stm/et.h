@@ -11,6 +11,18 @@
 #include <setjmp.h>
 #include "src/commondefs.h"
 
+#ifdef RPY_ASSERT
+#  define STM_CCHARP(arg)     , char* arg
+#  define STM_CCHARP1(arg)    char* arg
+#  define STM_EXPLAIN(info)   , info
+#  define STM_EXPLAIN1(info)  info
+#else
+#  define STM_CCHARP(arg)     /* nothing */
+#  define STM_CCHARP1(arg)    void
+#  define STM_EXPLAIN(info)   /* nothing */
+#  define STM_EXPLAIN1(info)  /* nothing */
+#endif
+
 
 void stm_descriptor_init(void);
 void stm_descriptor_done(void);
@@ -19,8 +31,8 @@ void stm_begin_transaction(jmp_buf* buf);
 long stm_commit_transaction(void);
 long stm_read_word(long* addr);
 void stm_write_word(long* addr, long val);
-void stm_try_inevitable(void);
-void stm_try_inevitable_if(jmp_buf* buf);
+void stm_try_inevitable(STM_CCHARP1(why));
+void stm_try_inevitable_if(jmp_buf* buf  STM_CCHARP(why));
 void stm_begin_inevitable_transaction(void);
 void stm_abort_and_retry(void);
 void stm_transaction_boundary(jmp_buf* buf);
@@ -31,8 +43,9 @@ void stm_transaction_boundary(jmp_buf* buf);
        setjmp(_jmpbuf);                   \
        stm_begin_transaction(&_jmpbuf)
 
-#define STM_DECLARE_VARIABLE()          jmp_buf jmpbuf
-#define STM_MAKE_INEVITABLE()           stm_try_inevitable_if(&jmpbuf)
+#define STM_DECLARE_VARIABLE()          ; jmp_buf jmpbuf
+#define STM_MAKE_INEVITABLE()           stm_try_inevitable_if(&jmpbuf  \
+                                                        STM_EXPLAIN("return"))
 #define STM_TRANSACTION_BOUNDARY()      stm_transaction_boundary(&jmpbuf)
 
 // XXX little-endian only!

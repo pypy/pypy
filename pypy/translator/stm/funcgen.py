@@ -1,6 +1,6 @@
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.objspace.flow.model import Constant
-from pypy.translator.c.support import cdecl
+from pypy.translator.c.support import cdecl, c_string_constant
 from pypy.translator.stm.rstm import size_of_voidp
 
 
@@ -105,7 +105,9 @@ def stm_transaction_boundary(funcgen, op):
     return 'STM_TRANSACTION_BOUNDARY();'
 
 def stm_try_inevitable(funcgen, op):
-    return 'stm_try_inevitable();'
+    info = op.args[0].value
+    string_literal = c_string_constant(info)
+    return 'stm_try_inevitable(STM_EXPLAIN1(%s));' % (string_literal,)
 
 
 def op_stm(funcgen, op):
