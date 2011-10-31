@@ -3585,7 +3585,8 @@ class BaseLLtypeTests(BasicTests):
             n = h(n, f8)
             return n
         assert f(5) == 41
-        self.interp_operations(f, [5])
+        translationoptions = {'withsmallfuncsets': 3}
+        self.interp_operations(f, [5], translationoptions=translationoptions)
 
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
