@@ -671,9 +671,9 @@ class NDimSlice(ViewArray):
         if ndims>2:
             ret += '['
             for i in range(self.shape[0]):
-                ret += NDimSlice(self.parent, self.signature, [(i,0,0,1)], self.shape[1:]).tostr(commai,indent=indent+' ')
+                ret += NDimSlice(self.parent, self.signature, [(i,0,0,1)], self.shape[1:]).tostr(comma,indent=indent+' ')
                 if i+1<self.shape[0]:
-                    ret += ',\n\n'
+                    ret += ',\n\n'+ indent
             ret += ']'
         elif ndims==2:
             ret += '['

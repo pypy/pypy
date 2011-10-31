@@ -71,6 +71,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert repr(a) == '''array([[0.0, 0.0, 0.0, 0.0],
        [0.0, 0.0, 0.0, 0.0],
        [0.0, 0.0, 0.0, 0.0]])'''
+        a = zeros((2,3,4))
+        assert repr(a) == '''array([[[0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0]],
+
+       [[0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0]]])'''
 
     def test_repr_slice(self):
         from numpy import array, zeros
@@ -200,6 +208,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[1:4:2] = 0.
         assert a[1] == 0.
         assert a[3] == 0.
+    def test_scalar(self):
+        from numpy import array
+        a = array(3)
+        assert a[0] == 3 
 
     def test_len(self):
         from numpy import array
