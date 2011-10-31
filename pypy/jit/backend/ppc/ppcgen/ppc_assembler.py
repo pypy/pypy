@@ -8,7 +8,8 @@ from pypy.jit.backend.ppc.ppcgen.assembler import Assembler
 from pypy.jit.backend.ppc.ppcgen.opassembler import OpAssembler
 from pypy.jit.backend.ppc.ppcgen.symbol_lookup import lookup
 from pypy.jit.backend.ppc.ppcgen.codebuilder import PPCBuilder
-from pypy.jit.backend.ppc.ppcgen.arch import (IS_PPC_32, WORD, NONVOLATILES,
+from pypy.jit.backend.ppc.ppcgen.arch import (IS_PPC_32, IS_PPC_64,
+                                              WORD, NONVOLATILES,
                                               GPR_SAVE_AREA)
 from pypy.jit.backend.ppc.ppcgen.helper.assembler import (gen_emit_cmp_op, 
                                                           encode32, decode32)
@@ -136,6 +137,7 @@ class AssemblerPPC(OpAssembler):
             self.mc.stdu(r.SP.value, r.SP.value, -frame_depth)
             self.mc.mflr(r.r0.value)
             self.mc.std(r.r0.value, r.SP.value, frame_depth + 2 * WORD)
+            self.mc.std(r.SPP.value, r.SP.value, WORD)
         offset = GPR_SAVE_AREA + WORD
         # compute spilling pointer (SPP)
         self.mc.addi(r.SPP.value, r.SP.value, frame_depth - offset)
@@ -294,6 +296,7 @@ class AssemblerPPC(OpAssembler):
         self._save_managed_regs(mc)
         # adjust SP (r1)
         size = WORD * len(r.MANAGED_REGS)
+        # XXX PPC64 needs to push larger stack frame
         mc.addi(r.SP.value, r.SP.value, -size)
         #
         decode_func_addr = llhelper(self.recovery_func_sign,
@@ -301,16 +304,28 @@ class AssemblerPPC(OpAssembler):
         addr = rffi.cast(lltype.Signed, decode_func_addr)
         #
         # load parameters into parameter registers
-        mc.lwz(r.r3.value, r.SPP.value, 0)
+        if IS_PPC_32:
+            mc.lwz(r.r3.value, r.SPP.value, 0)
+        else:
+            mc.ld(r.r3.value, r.SPP.value, 0)
         #mc.mr(r.r3.value, r.r0.value)          # address of state encoding 
         mc.mr(r.r4.value, r.SP.value)          # load stack pointer
         mc.mr(r.r5.value, r.SPP.value)         # load spilling pointer
         #
         # load address of decoding function into r0
-        mc.load_imm(r.r0, addr)
+        if IS_PPC_32:
+            mc.load_imm(r.r0, addr)
+        else:
+            mc.std(r.r2.value, r.SP.value, 40)
+            mc.load_from_addr(r.r0, addr)
+            mc.load_from_addr(r.r2, addr+WORD)
+            mc.load_from_addr(r.r11, addr+2*WORD)
         # ... and branch there
         mc.mtctr(r.r0.value)
         mc.bctrl()
+        #
+        if IS_PPC_64:
+            mc.ld(r.r2.value, r.SP.value, 40)
         #
         mc.addi(r.SP.value, r.SP.value, size)
         # save SPP in r5
@@ -338,7 +353,7 @@ class AssemblerPPC(OpAssembler):
             if IS_PPC_32:
                 mc.stw(reg.value, r.SP.value, -(len(r.MANAGED_REGS) - i) * WORD)
             else:
-                assert 0, "not implemented yet"
+                mc.std(reg.value, r.SP.value, -(len(r.MANAGED_REGS) - i) * WORD)
 
     def gen_bootstrap_code(self, nonfloatlocs, inputargs):
         for i in range(len(nonfloatlocs)):
@@ -550,7 +565,10 @@ class AssemblerPPC(OpAssembler):
 
         # store addr in force index field
         self.mc.load_imm(r.r0, memaddr)
-        self.mc.stw(r.r0.value, r.SPP.value, 0)
+        if IS_PPC_32:
+            self.mc.stw(r.r0.value, r.SPP.value, 0)
+        else:
+            self.mc.std(r.r0.value, r.SPP.value, 0)
 
         if save_exc:
             path = self._leave_jitted_hook_save_exc
@@ -602,7 +620,10 @@ class AssemblerPPC(OpAssembler):
             elif loc.is_stack():
                 offset = loc.as_key() * WORD - WORD
                 self.mc.load_imm(r.r0.value, value)
-                self.mc.stw(r.r0.value, r.SPP.value, offset)
+                if IS_PPC_32:
+                    self.mc.stw(r.r0.value, r.SPP.value, offset)
+                else:
+                    self.mc.std(r.r0.value, r.SPP.value, offset)
                 return
             assert 0, "not supported location"
         elif prev_loc.is_stack():
@@ -610,13 +631,20 @@ class AssemblerPPC(OpAssembler):
             # move from memory to register
             if loc.is_reg():
                 reg = loc.as_key()
-                self.mc.lwz(reg, r.SPP.value, offset)
+                if IS_PPC_32:
+                    self.mc.lwz(reg, r.SPP.value, offset)
+                else:
+                    self.mc.ld(reg, r.SPP.value, offset)
                 return
             # move in memory
             elif loc.is_stack():
                 target_offset = loc.as_key() * WORD - WORD
-                self.mc.lwz(r.r0.value, r.SPP.value, offset)
-                self.mc.stw(r.r0.value, r.SPP.value, target_offset)
+                if IS_PPC_32:
+                    self.mc.lwz(r.r0.value, r.SPP.value, offset)
+                    self.mc.stw(r.r0.value, r.SPP.value, target_offset)
+                else:
+                    self.mc.ld(r.r0.value, r.SPP.value, offset)
+                    self.mc.std(r.r0.value, r.SPP.value, target_offset)
                 return
             assert 0, "not supported location"
         elif prev_loc.is_reg():
@@ -629,7 +657,10 @@ class AssemblerPPC(OpAssembler):
             # move to memory
             elif loc.is_stack():
                 offset = loc.as_key() * WORD - WORD
-                self.mc.stw(reg, r.SPP.value, offset)
+                if IS_PPC_32:
+                    self.mc.stw(reg, r.SPP.value, offset)
+                else:
+                    self.mc.std(reg, r.SPP.value, offset)
                 return
             assert 0, "not supported location"
         assert 0, "not supported location"
