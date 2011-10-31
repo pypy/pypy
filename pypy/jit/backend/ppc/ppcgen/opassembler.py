@@ -503,7 +503,17 @@ class OpAssembler(object):
         remap_frame_layout(self, non_float_locs, non_float_regs, r.r0)
 
         #the actual call
-        self.mc.bl_abs(adr)
+        if IS_PPC_32:
+            self.mc.bl_abs(adr)
+        else:
+            self.mc.std(r.r2.value, r.SP.value, 40)
+            self.mc.load_from_addr(r.r0, adr)
+            self.mc.load_from_addr(r.r2, adr+WORD)
+            self.mc.load_from_addr(r.r11, adr+2*WORD)
+            self.mc.mtctr(r.r0.value)
+            self.mc.bctrl()
+            self.mc.ld(r.r2.value, r.SP.value, 40)
+
         self.mark_gc_roots(force_index)
         regalloc.possibly_free_vars(args)
         # readjust the sp in case we passed some args on the stack
