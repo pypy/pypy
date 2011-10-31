@@ -3641,7 +3641,9 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
                     o = o.dec()
                 pc += 1
             return pc
-        res = self.meta_interp(main, [False, 100, True], taggedpointers=True)
+        topt = {'taggedpointers': True}
+        res = self.meta_interp(main, [False, 100, True],
+                               translationoptions=topt)
 
     def test_rerased(self):
         eraseX, uneraseX = rerased.new_erasing_pair("X")
@@ -3666,10 +3668,11 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             else:
                 return rerased.unerase_int(e)
         #
-        x = self.interp_operations(f, [-128, 0], taggedpointers=True)
+        topt = {'taggedpointers': True}
+        x = self.interp_operations(f, [-128, 0], translationoptions=topt)
         assert x == -128
         bigint = sys.maxint//2 + 1
-        x = self.interp_operations(f, [bigint, 0], taggedpointers=True)
+        x = self.interp_operations(f, [bigint, 0], translationoptions=topt)
         assert x == -42
-        x = self.interp_operations(f, [1000, 1], taggedpointers=True)
+        x = self.interp_operations(f, [1000, 1], translationoptions=topt)
         assert x == 999
