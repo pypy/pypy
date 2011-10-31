@@ -116,7 +116,7 @@ class FunctionsPBCRepr(AbstractFunctionsPBCRepr):
             fields.append((row.attrname, row.fntype))
         kwds = {'hints': {'immutable': True}}
         return Ptr(Struct('specfunc', *fields, **kwds))
-        
+
     def create_specfunc(self):
         return malloc(self.lowleveltype.TO, immortal=True)
 
@@ -316,7 +316,7 @@ def conversion_table(r_from, r_to):
         if l == range(len(r_from.descriptions)):
             r = None
         else:
-            r = inputconst(Ptr(Array(Char)), t)
+            r = inputconst(Ptr(Array(Char, hints={'nolength': True})), t)
         r_from._conversion_tables[r_to] = r
         return r
 
@@ -404,12 +404,12 @@ class ClassesPBCRepr(AbstractClassesPBCRepr):
 
 # ____________________________________________________________
 
-##def rtype_call_memo(hop): 
+##def rtype_call_memo(hop):
 ##    memo_table = hop.args_v[0].value
 ##    if memo_table.s_result.is_constant():
 ##        return hop.inputconst(hop.r_result, memo_table.s_result.const)
-##    fieldname = memo_table.fieldname 
-##    assert hop.nb_args == 2, "XXX"  
+##    fieldname = memo_table.fieldname
+##    assert hop.nb_args == 2, "XXX"
 
 ##    r_pbc = hop.args_r[1]
 ##    assert isinstance(r_pbc, (MultipleFrozenPBCRepr, ClassesPBCRepr))
