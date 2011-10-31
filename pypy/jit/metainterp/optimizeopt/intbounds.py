@@ -1,3 +1,4 @@
+import sys
 from pypy.jit.metainterp.optimizeopt.optimizer import Optimization, CONST_1, CONST_0, \
                                                   MODE_ARRAY, MODE_STR, MODE_UNICODE
 from pypy.jit.metainterp.history import ConstInt
@@ -142,7 +143,9 @@ class OptIntBounds(Optimization):
         if v2.is_constant():
             val = v2.box.getint()
             r = self.getvalue(op.result)
-            if val < 0:     # what if val == -sys.maxint-1?
+            if val < 0:
+                if val == -sys.maxint-1:
+                    return     # give up
                 val = -val
             if known_nonneg:
                 r.intbound.make_ge(IntBound(0, 0))

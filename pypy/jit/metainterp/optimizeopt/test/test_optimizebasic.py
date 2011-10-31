@@ -4770,6 +4770,16 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         py.test.skip("harder")
         self.optimize_loop(ops, expected)
 
+    def test_intmod_bounds_bug1(self):
+        ops = """
+        [i0]
+        i1 = int_mod(i0, %d)
+        i2 = int_eq(i1, 0)
+        guard_false(i2) []
+        finish()
+        """ % (-(1<<(LONG_BIT-1)),)
+        self.optimize_loop(ops, ops)
+
     def test_bounded_lazy_setfield(self):
         ops = """
         [p0, i0]
