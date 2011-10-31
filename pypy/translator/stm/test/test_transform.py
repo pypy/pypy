@@ -33,6 +33,17 @@ def test_simple():
     res = eval_stm_graph(interp, graph, [p], stm_mode="regular_transaction")
     assert res == 42
 
+def test_setfield():
+    S = lltype.GcStruct('S', ('x', lltype.Signed))
+    p = lltype.malloc(S, immortal=True)
+    p.x = 42
+    def func(p):
+        p.x = 43
+    interp, graph = get_interpreter(func, [p])
+    transform_graph(graph)
+    assert summary(graph) == {'stm_setfield': 1}
+    eval_stm_graph(interp, graph, [p], stm_mode="regular_transaction")
+
 def test_immutable_field():
     S = lltype.GcStruct('S', ('x', lltype.Signed), hints = {'immutable': True})
     p = lltype.malloc(S, immortal=True)
@@ -69,6 +80,31 @@ def test_unsupported_malloc():
         lltype.malloc(S, flavor='raw')
     eval_stm_func(func, [], final_stm_mode="inevitable_transaction")
 test_unsupported_malloc.dont_track_allocations = True
+
+def test_unsupported_getfield_raw():
+    S = lltype.Struct('S', ('x', lltype.Signed))
+    p = lltype.malloc(S, immortal=True)
+    p.x = 42
+    def func(p):
+        return p.x
+    interp, graph = get_interpreter(func, [p])
+    transform_graph(graph)
+    assert summary(graph) == {'stm_try_inevitable': 1, 'getfield': 1}
+    res = eval_stm_graph(interp, graph, [p], stm_mode="regular_transaction",
+                         final_stm_mode="inevitable_transaction")
+    assert res == 42
+
+def test_unsupported_setfield_raw():
+    S = lltype.Struct('S', ('x', lltype.Signed))
+    p = lltype.malloc(S, immortal=True)
+    p.x = 42
+    def func(p):
+        p.x = 43
+    interp, graph = get_interpreter(func, [p])
+    transform_graph(graph)
+    assert summary(graph) == {'stm_try_inevitable': 1, 'setfield': 1}
+    eval_stm_graph(interp, graph, [p], stm_mode="regular_transaction",
+                   final_stm_mode="inevitable_transaction")
 
 # ____________________________________________________________
 

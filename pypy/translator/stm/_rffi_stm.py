@@ -32,6 +32,11 @@ begin_inevitable_transaction = llexternal('stm_begin_inevitable_transaction',
 commit_transaction = llexternal('stm_commit_transaction', [], lltype.Signed)
 try_inevitable = llexternal('stm_try_inevitable', [], lltype.Void)
 
+descriptor_init_and_being_inevitable_transaction = llexternal(
+    'stm_descriptor_init_and_being_inevitable_transaction', [], lltype.Void)
+commit_transaction_and_descriptor_done = llexternal(
+    'stm_commit_transaction_and_descriptor_done', [], lltype.Void)
+
 stm_read_word = llexternal('stm_read_word', [SignedP], lltype.Signed)
 stm_write_word = llexternal('stm_write_word', [SignedP, lltype.Signed],
                             lltype.Void)

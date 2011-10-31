@@ -69,10 +69,30 @@ class LLSTMFrame(LLFrame):
         if STRUCT._immutable_field(fieldname):
             # immutable field reads are always allowed
             return LLFrame.op_getfield(self, struct, fieldname)
+        elif STRUCT._gckind == 'raw':
+            # raw getfields are allowed outside a regular transaction
+            self.check_stm_mode(lambda m: m != "regular_transaction")
+            return LLFrame.op_getfield(self, struct, fieldname)
         else:
             # mutable 'getfields' are always forbidden for now
             self.check_stm_mode(lambda m: False)
-            xxx
+            assert 0
+
+    def opstm_setfield(self, struct, fieldname, newvalue):
+        STRUCT = lltype.typeOf(struct).TO
+        if STRUCT._immutable_field(fieldname):
+            # immutable field writes (i.e. initializing writes) should
+            # always be fine, because they should occur into newly malloced
+            # structures
+            LLFrame.op_setfield(self, struct, fieldname, newvalue)
+        elif STRUCT._gckind == 'raw':
+            # raw setfields are allowed outside a regular transaction
+            self.check_stm_mode(lambda m: m != "regular_transaction")
+            LLFrame.op_setfield(self, struct, fieldname, newvalue)
+        else:
+            # mutable 'setfields' are always forbidden for now
+            self.check_stm_mode(lambda m: False)
+            assert 0
 
     def opstm_malloc(self, TYPE, flags):
         # non-GC must not occur in a regular transaction,

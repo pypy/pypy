@@ -580,31 +580,34 @@ void stm_descriptor_done(void)
   if (PYPY_HAVE_DEBUG_PRINTS) {
     int num_aborts = 0, num_spinloops = 0;
     int i, prevchar;
+    char line[256], *p = line;
+
     for (i=0; i<ABORT_REASONS; i++)
       num_aborts += d->num_aborts[i];
     for (i=0; i<SPINLOOP_REASONS; i++)
       num_spinloops += d->num_spinloops[i];
 
-    fprintf(PYPY_DEBUG_FILE, "thread %lx: %d commits, %d aborts ",
-            d->my_lock_word,
-            d->num_commits,
-            num_aborts);
+    p += sprintf(p, "thread %lx: %d commits, %d aborts ",
+                 d->my_lock_word,
+                 d->num_commits,
+                 num_aborts);
 
     for (i=0; i<ABORT_REASONS; i++)
-      fprintf(PYPY_DEBUG_FILE, "%c%d", i == 0 ? '[' : ',',
-              d->num_aborts[i]);
+      p += sprintf(p, "%c%d", i == 0 ? '[' : ',',
+                   d->num_aborts[i]);
 
     for (i=1; i<SPINLOOP_REASONS; i++)  /* num_spinloops[0] == num_aborts */
-      fprintf(PYPY_DEBUG_FILE, "%c%d", i == 1 ? '|' : ',',
-              d->num_spinloops[i]);
+      p += sprintf(p, "%c%d", i == 1 ? '|' : ',',
+                   d->num_spinloops[i]);
 
 #ifdef COMMIT_OTHER_INEV
     for (i=0; i<OTHERINEV_REASONS; i++)
-      fprintf(PYPY_DEBUG_FILE, "%c%d", i == 0 ? '|' : ',',
-              d->num_otherinev[i]);
+      p += sprintf(p, "%c%d", i == 0 ? '|' : ',',
+                   d->num_otherinev[i]);
 #endif
 
-    fprintf(PYPY_DEBUG_FILE, "]\n");
+    p += sprintf(p, "]\n");
+    fwrite(line, 1, p - line, PYPY_DEBUG_FILE);
   }
   PYPY_DEBUG_STOP("stm-done");
 #endif
@@ -833,6 +836,21 @@ void stm_transaction_boundary(jmp_buf* buf)
 #ifdef RPY_STM_ASSERT
   PYPY_DEBUG_STOP("stm-transaction-boundary");
 #endif
+}
+
+void stm_descriptor_init_and_being_inevitable_transaction(void)
+{
+  int was_not_started = (thread_descriptor == NULL);
+  stm_descriptor_init();
+  if (was_not_started)
+    stm_begin_inevitable_transaction();
+}
+
+void stm_commit_transaction_and_descriptor_done(void)
+{
+  if (thread_descriptor->init_counter == 1)
+    stm_commit_transaction();
+  stm_descriptor_done();
 }
 
 // XXX little-endian only!

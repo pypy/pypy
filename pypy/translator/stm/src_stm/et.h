@@ -36,6 +36,8 @@ void stm_try_inevitable_if(jmp_buf* buf  STM_CCHARP(why));
 void stm_begin_inevitable_transaction(void);
 void stm_abort_and_retry(void);
 void stm_transaction_boundary(jmp_buf* buf);
+void stm_descriptor_init_and_being_inevitable_transaction(void);
+void stm_commit_transaction_and_descriptor_done(void);
 
 /* for testing only: */
 #define STM_begin_transaction()         ; \
