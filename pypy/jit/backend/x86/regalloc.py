@@ -1143,9 +1143,20 @@ class RegAlloc(object):
         # 'index' but must be in a different register than 'base'.
         self.rm.possibly_free_var(op.getarg(1))
         result_loc = self.force_allocate_reg(op.result, [op.getarg(0)])
+        assert isinstance(result_loc, RegLoc)
+        # two cases: 1) if result_loc is a normal register, use it as temp_loc
+        if not result_loc.is_xmm:
+            temp_loc = result_loc
+        else:
+            # 2) if result_loc is an xmm register, we (likely) need another
+            # temp_loc that is a normal register.  It can be in the same
+            # register as 'index' but not 'base'.
+            tempvar = TempBox()
+            temp_loc = self.rm.force_allocate_reg(tempvar, [op.getarg(0)])
+            self.rm.possibly_free_var(tempvar)
         self.rm.possibly_free_var(op.getarg(0))
         self.Perform(op, [base_loc, ofs, itemsize, fieldsize,
-                          index_loc, sign_loc], result_loc)
+                          index_loc, temp_loc, sign_loc], result_loc)
 
     def consider_int_is_true(self, op, guard_op):
         # doesn't need arg to be in a register
