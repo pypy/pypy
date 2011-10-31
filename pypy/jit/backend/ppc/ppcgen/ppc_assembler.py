@@ -83,27 +83,6 @@ class AssemblerPPC(OpAssembler):
         self.fail_boxes_count = 0
         self.current_clt = None
 
-    def load_imm(self, rD, word):
-        if word <= 32767 and word >= -32768:
-            self.mc.li(rD, word)
-        elif IS_PPC_32 or (word <= 2147483647 and word >= -2147483648):
-            self.mc.lis(rD, hi(word))
-            if word & 0xFFFF != 0:
-                self.mc.ori(rD, rD, lo(word))
-        else:
-            self.mc.lis(rD, highest(word))
-            self.mc.ori(rD, rD, higher(word))
-            self.mc.sldi(rD, rD, 32)
-            self.mc.oris(rD, rD, high(word))
-            self.mc.ori(rD, rD, lo(word))
-
-    def store_reg(self, source_reg, addr):
-        self.load_imm(r.r0.value, addr)
-        if IS_PPC_32:
-            self.mc.stwx(source_reg.value, 0, 0)
-        else:
-            self.mc.stdx(source_reg.value, 0, 0)
-
     def _save_nonvolatiles(self):
         for i, reg in enumerate(NONVOLATILES):
             # save r31 later on
