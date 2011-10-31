@@ -468,7 +468,7 @@ class MiniMarkGC(MovingGCBase):
         #
         # If the object needs a finalizer, ask for a rawmalloc.
         # The following check should be constant-folded.
-        if needs_finalizer and not is_finalizer_light:
+        if needs_finalizer:  ## and not is_finalizer_light:
             ll_assert(not contains_weakptr,
                      "'needs_finalizer' and 'contains_weakptr' both specified")
             obj = self.external_malloc(typeid, 0, can_make_young=False)
