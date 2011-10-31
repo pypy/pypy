@@ -3513,7 +3513,9 @@ class BaseLLtypeTests(BasicTests):
         def f(n):
             while n > 0:
                 myjitdriver.jit_merge_point(n=n)
-                n = g({"key": n})
+                x = {"key": n}
+                n = g(x)
+                del x["key"]
             return n
 
         res = self.meta_interp(f, [10])
