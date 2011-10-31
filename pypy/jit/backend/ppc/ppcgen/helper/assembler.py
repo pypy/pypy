@@ -1,6 +1,6 @@
 import pypy.jit.backend.ppc.ppcgen.condition as c
 from pypy.rlib.rarithmetic import r_uint, r_longlong, intmask
-from pypy.jit.backend.ppc.ppcgen.arch import MAX_REG_PARAMS
+from pypy.jit.backend.ppc.ppcgen.arch import MAX_REG_PARAMS, IS_PPC_32
 from pypy.jit.metainterp.history import FLOAT
 
 def gen_emit_cmp_op(condition, signed=True):
@@ -9,9 +9,15 @@ def gen_emit_cmp_op(condition, signed=True):
         # do the comparison
         if signed:
             if l1.is_imm():
-                self.mc.cmpwi(0, l0.value, l1.value)
+                if IS_PPC_32:
+                    self.mc.cmpwi(0, l0.value, l1.value)
+                else:
+                    self.mc.cmpdi(0, l0.value, l1.value)
             else:
-                self.mc.cmpw(0, l0.value, l1.value)
+                if IS_PPC_32:
+                    self.mc.cmpw(0, l0.value, l1.value)
+                else:
+                    self.mc.cmpd(0, l0.value, l1.value)
 
             # After the comparison, place the result
             # in the first bit of the CR
@@ -32,9 +38,15 @@ def gen_emit_cmp_op(condition, signed=True):
 
         else:
             if l1.is_imm():
-                self.mc.cmpli(0, l0.value, l1.value)
+                if IS_PPC_32:
+                    self.mc.cmplwi(0, l0.value, l1.value)
+                else:
+                    self.mc.cmpldi(0, l0.value, l1.value)
             else:
-                self.mc.cmpl(0, l0.value, l1.value)
+                if IS_PPC_32:
+                    self.mc.cmplw(0, l0.value, l1.value)
+                else:
+                    self.mc.cmpld(0, l0.value, l1.value)
 
             if condition == c.U_LT:
                 self.mc.cror(0, 0, 0)
