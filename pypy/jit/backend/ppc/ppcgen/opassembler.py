@@ -457,7 +457,6 @@ class OpAssembler(object):
         #XXX Hack, Hack, Hack
         if op.result and not we_are_translated() and not isinstance(descr,
                 LoopToken):
-            import pdb; pdb.set_trace()
             #XXX check result type
             loc = regalloc.rm.call_result_location(op.result)
             size = descr.get_result_size(False)
@@ -514,7 +513,6 @@ class OpAssembler(object):
         # restore the arguments stored on the stack
         if result is not None:
             resloc = regalloc.after_call(result)
-        self.mc.trap()
 
     def write_new_force_index(self):
         # for shadowstack only: get a new, unused force_index number and
