@@ -414,7 +414,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         else:
             if unroll:
                 return make_sure_not_resized(ObjSpace.unpackiterable_unroll(
-                    self, w_obj, expected_length)[:])
+                    self, w_obj, expected_length))
             else:
                 return make_sure_not_resized(ObjSpace.unpackiterable(
                     self, w_obj, expected_length)[:])
@@ -422,7 +422,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
             raise self._wrap_expected_length(expected_length, len(t))
         return make_sure_not_resized(t)
 
-    def fixedview_unroll(self, w_obj, expected_length=-1):
+    def fixedview_unroll(self, w_obj, expected_length):
+        assert expected_length >= 0
         return self.fixedview(w_obj, expected_length, unroll=True)
 
     def listview(self, w_obj, expected_length=-1):
