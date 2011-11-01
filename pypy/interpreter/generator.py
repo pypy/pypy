@@ -169,9 +169,11 @@ return next yielded value or raise StopIteration."""
             return
         self.running = True
         try:
+            pycode = self.pycode
             while True:
                 jitdriver.jit_merge_point(self=self, frame=frame,
-                                          results_w=results_w)
+                                          results_w=results_w,
+                                          pycode=pycode)
                 w_result = frame.execute_frame(space.w_None)
                 # if the frame is now marked as finished, it was RETURNed from
                 if frame.frame_finished_execution:
@@ -182,5 +184,5 @@ return next yielded value or raise StopIteration."""
             self.running = False
             self.frame = None
 
-jitdriver = jit.JitDriver(greens=['self.pycode'],
+jitdriver = jit.JitDriver(greens=['pycode'],
                           reds=['self', 'frame', 'results_w'])
