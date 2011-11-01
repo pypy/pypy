@@ -801,6 +801,20 @@ class AppTestW_ListObject(object):
         l.__delslice__(0, 2)
         assert l == [3, 4]
 
+    def test_list_from_set(self):
+        l = ['a']
+        l.__init__(set('b'))
+        assert l == ['b']
+
+    def test_list_from_generator(self):
+        l = ['a']
+        g = (i*i for i in range(5))
+        l.__init__(g)
+        assert l == [0, 1, 4, 9, 16]
+        l.__init__(g)
+        assert l == []
+        assert list(g) == []
+
 
 class AppTestListFastSubscr:
 

@@ -156,7 +156,7 @@ return next yielded value or raise StopIteration."""
                     break
                 block = block.previous
 
-    def unpackiterable(self):
+    def unpack_into(self, results_w):
         """This is a hack for performance: runs the generator and collects
         all produced items in a list."""
         # XXX copied and simplified version of send_ex()
@@ -164,10 +164,9 @@ return next yielded value or raise StopIteration."""
         if self.running:
             raise OperationError(space.w_ValueError,
                                  space.wrap('generator already executing'))
-        results_w = []
         frame = self.frame
         if frame is None:    # already finished
-            return results_w
+            return
         self.running = True
         try:
             while True:
@@ -182,7 +181,6 @@ return next yielded value or raise StopIteration."""
             frame.f_backref = jit.vref_None
             self.running = False
             self.frame = None
-        return results_w
 
 jitdriver = jit.JitDriver(greens=['self.pycode'],
                           reds=['self', 'frame', 'results_w'])

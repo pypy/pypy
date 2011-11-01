@@ -781,7 +781,9 @@ class ObjSpace(object):
             # xxx special hack for speed
             from pypy.interpreter.generator import GeneratorIterator
             if isinstance(w_iterator, GeneratorIterator):
-                return w_iterator.unpackiterable()
+                lst_w = []
+                w_iterator.unpack_into(lst_w)
+                return lst_w
             # /xxx
             return self._unpackiterable_unknown_length(w_iterator, w_iterable)
         else:
