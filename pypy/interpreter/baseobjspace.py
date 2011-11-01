@@ -778,6 +778,11 @@ class ObjSpace(object):
         Raise an OperationError(w_ValueError) if the length is wrong."""
         w_iterator = self.iter(w_iterable)
         if expected_length == -1:
+            # xxx special hack for speed
+            from pypy.interpreter.generator import GeneratorIterator
+            if isinstance(w_iterator, GeneratorIterator):
+                return w_iterator.unpackiterable()
+            # /xxx
             return self._unpackiterable_unknown_length(w_iterator, w_iterable)
         else:
             return self._unpackiterable_known_length(w_iterator,

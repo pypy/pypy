@@ -155,3 +155,32 @@ return next yielded value or raise StopIteration."""
                                                  "interrupting generator of ")
                     break
                 block = block.previous
+
+    def unpackiterable(self):
+        """This is a hack for performance: runs the generator and collects
+        all produced items in a list."""
+        # XXX copied and simplified version of send_ex()
+        space = self.space
+        if self.running:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap('generator already executing'))
+        results_w = []
+        frame = self.frame
+        if frame is None:    # already finished
+            return results_w
+        self.running = True
+        try:
+            while True:
+                jitdriver.jit_merge_point(frame=frame)
+                w_result = frame.execute_frame(space.w_None)
+                # if the frame is now marked as finished, it was RETURNed from
+                if frame.frame_finished_execution:
+                    break
+                results_w.append(w_result)     # YIELDed
+        finally:
+            frame.f_backref = jit.vref_None
+            self.running = False
+            self.frame = None
+        return results_w
+
+jitdriver = jit.JitDriver(greens=['frame.pycode'], reds=['frame'])

@@ -267,3 +267,9 @@ res = f()
         assert r.startswith("<generator object myFunc at 0x")
         assert list(g) == [1]
         assert repr(g) == r
+
+    def test_unpackiterable_gen(self):
+        g = (i*i for i in range(-5, 3))
+        assert set(g) == set([0, 1, 4, 9, 16, 25])
+        assert set(g) == set()
+        assert set(i for i in range(0)) == set()
