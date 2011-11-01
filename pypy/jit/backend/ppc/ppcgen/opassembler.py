@@ -332,7 +332,10 @@ class OpAssembler(object):
         if scale.value > 0:
             scale_loc = r.r0
             self.mc.load_imm(r.r0, scale.value)
-            self.mc.slw(r.r0.value, ofs_loc.value, r.r0.value)
+            if IS_PPC_32:
+                self.mc.slw(r.r0.value, ofs_loc.value, r.r0.value)
+            else:
+                self.mc.sld(r.r0.value, ofs_loc.value, r.r0.value)
         else:
             scale_loc = ofs_loc
 
@@ -356,7 +359,10 @@ class OpAssembler(object):
         if scale.value > 0:
             scale_loc = r.r0
             self.mc.load_imm(r.r0, scale.value)
-            self.mc.slw(r.r0.value, ofs_loc.value, scale.value)
+            if IS_PPC_32:
+                self.mc.slw(r.r0.value, ofs_loc.value, scale.value)
+            else:
+                self.mc.sld(r.r0.value, ofs_loc.value, scale.value)
         else:
             scale_loc = ofs_loc
         if ofs.value > 0:
@@ -416,7 +422,10 @@ class OpAssembler(object):
     def emit_unicodegetitem(self, op, arglocs, regalloc):
         res, base_loc, ofs_loc, scale, basesize, itemsize = arglocs
 
-        self.mc.slwi(ofs_loc.value, ofs_loc.value, scale.value)
+        if IS_PPC_32:
+            self.mc.slwi(ofs_loc.value, ofs_loc.value, scale.value)
+        else:
+            self.mc.sldi(ofs_loc.value, ofs_loc.value, scale.value)
         self.mc.add(res.value, base_loc.value, ofs_loc.value)
 
         if scale.value == 2:
@@ -430,7 +439,10 @@ class OpAssembler(object):
     def emit_unicodesetitem(self, op, arglocs, regalloc):
         value_loc, base_loc, ofs_loc, scale, basesize, itemsize = arglocs
 
-        self.mc.slwi(ofs_loc.value, ofs_loc.value, scale.value)
+        if IS_PPC_32:
+            self.mc.slwi(ofs_loc.value, ofs_loc.value, scale.value)
+        else:
+            self.mc.sldi(ofs_loc.value, ofs_loc.value, scale.value)
         self.mc.add(base_loc.value, base_loc.value, ofs_loc.value)
 
         if scale.value == 2:
