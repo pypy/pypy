@@ -783,7 +783,8 @@ class ObjSpace(object):
             if isinstance(w_iterator, GeneratorIterator):
                 return w_iterator.unpackiterable()
             # /xxx
-            return self._unpackiterable_unknown_length(w_iterator, w_iterable)
+            lst_w = self._unpackiterable_unknown_length(w_iterator, w_iterable)
+            return lst_w[:]     # make the resulting list resizable
         else:
             return self._unpackiterable_known_length(w_iterator,
                                                      expected_length)
