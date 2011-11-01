@@ -666,25 +666,30 @@ class AssemblerPPC(OpAssembler):
         assert 0, "not supported location"
 
     def _ensure_result_bit_extension(self, resloc, size, signed):
-        if size == 4:
-            return
         if size == 1:
             if not signed: #unsigned char
-                self.mc.load_imm(r.r0, 0xFF)
-                self.mc.and_(resloc.value, resloc.value, r.r0.value)
+                if IS_PPC32:
+                    self.mc.load_imm(r.r0, 0xFF)
+                    self.mc.and_(resloc.value, resloc.value, r.r0.value)
+                else:
+                    self.mc.rldicl(resloc.value, resloc.value, 0, 56)
             else:
-                self.mc.load_imm(r.r0, 24)
-                self.mc.slw(resloc.value, resloc.value, r.r0.value)
-                self.mc.sraw(resloc.value, resloc.value, r.r0.value)
+                self.mc.extsb(resloc.value, resloc.value)
         elif size == 2:
             if not signed:
-                self.mc.load_imm(r.r0, 16)
-                self.mc.slw(resloc.value, resloc.value, r.r0.value)
-                self.mc.srw(resloc.value, resloc.value, r.r0.value)
+                if IS_PPC_32:
+                    self.mc.load_imm(r.r0, 16)
+                    self.mc.slw(resloc.value, resloc.value, r.r0.value)
+                    self.mc.srw(resloc.value, resloc.value, r.r0.value)
+                else:
+                    self.mc.rldicl(resloc.value, resloc.value, 0, 48)
             else:
-                self.mc.load_imm(r.r0, 16)
-                self.mc.slw(resloc.value, resloc.value, r.r0.value)
-                self.mc.sraw(resloc.value, resloc.value, r.r0.value)
+                self.mc.extsh(resloc.value, resloc.value)
+        elif size == 4:
+            if not signed:
+                self.mc.rldicl(resloc.value, resloc.value, 0, 32)
+            else:
+                self.mc.extsw(resloc.value, resloc.value)
 
     def mark_gc_roots(self, force_index, use_copy_area=False):
         if force_index < 0:
