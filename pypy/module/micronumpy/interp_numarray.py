@@ -244,12 +244,15 @@ class BaseArray(Wrappable):
         return self.get_concrete().descr_len(space)
 
     def descr_repr(self, space):
-        # Simple implementation so that we can see the array. Needs work.
+        # Simple implementation so that we can see the array.
+        # Since what we want is to print a plethora of 2d views, 
+        # use recursive calls to  tostr() to do the work.
         concrete = self.get_concrete()
-        new_sig = signature.Signature.find_sig([
-            NDimSlice.signature, self.signature
-        ])
-        res = "array(" + NDimSlice(concrete, new_sig, [], self.shape[:]).tostr(True, indent='       ')
+        res = "array("
+        res0 = NDimSlice(concrete, self.signature, [], self.shape).tostr(True, indent='       ')
+        if res0=="[]" and isinstance(self,NDimSlice):
+            res0 += ", shape=%s"%(tuple(self.shape),)
+        res += res0
         dtype = concrete.find_dtype()
         if (dtype is not space.fromcache(interp_dtype.W_Float64Dtype) and
             dtype is not space.fromcache(interp_dtype.W_Int64Dtype)) or not self.find_size():
@@ -258,12 +261,11 @@ class BaseArray(Wrappable):
         return space.wrap(res)
 
     def descr_str(self, space):
-        # Simple implementation so that we can see the array. Needs work.
+        # Simple implementation so that we can see the array. 
+        # Since what we want is to print a plethora of 2d views, let
+        # a slice do the work for us.
         concrete = self.get_concrete()
-        new_sig = signature.Signature.find_sig([
-            NDimSlice.signature, self.signature
-        ])
-        return space.wrap(NDimSlice(concrete, new_sig, [], self.shape[:]).tostr(False))
+        return space.wrap(NDimSlice(concrete, self.signature, [], self.shape).tostr(False))
 
     def _index_of_single_item(self, space, w_idx):
         # we assume C ordering for now
@@ -668,6 +670,9 @@ class NDimSlice(ViewArray):
         ret = ''
         dtype = self.find_dtype()
         ndims = len(self.shape)#-self.shape_reduction
+        if any([s==0 for s in self.shape]):
+            ret += '[]'
+            return ret
         if ndims>2:
             ret += '['
             for i in range(self.shape[0]):
@@ -698,7 +703,7 @@ class NDimSlice(ViewArray):
                                                     for j in range(self.shape[0])])
             ret += ']'
         else:
-            ret += '[]'
+            ret += dtype.str_format(self.eval(0))
         return ret
 class NDimArray(BaseArray):
     def __init__(self, size, shape, dtype):

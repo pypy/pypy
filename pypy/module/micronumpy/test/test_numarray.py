@@ -91,6 +91,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array((range(5),range(5,10)), dtype="int16")
         b=a[1,2:]
         assert repr(b) == "array([7, 8, 9], dtype=int16)"
+        #This is the way cpython numpy does it - an empty slice prints its shape
+        b=a[2:1,]
+        assert repr(b) == "array([], shape=(0, 5), dtype=int16)"
 
     def test_str(self):
         from numpy import array, zeros
@@ -114,6 +117,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array((range(5),range(5,10)), dtype="int16")
         assert str(a) == "[[0 1 2 3 4],\n [5 6 7 8 9]]"
 
+        a = array(3,dtype=int)
+        assert str(a) == "3"
+
     def test_str_slice(self):
         from numpy import array, zeros
         a = array(range(5), float)
@@ -125,6 +131,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array((range(5),range(5,10)), dtype="int16")
         b=a[1,2:]
         assert str(b) == "[7 8 9]"
+        b=a[2:1,]
+        assert str(b) == "[]"
 
     def test_getitem(self):
         from numpy import array
