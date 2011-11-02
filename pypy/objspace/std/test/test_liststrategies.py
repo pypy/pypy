@@ -367,11 +367,18 @@ class TestW_ListStrategies(TestW_ListObject):
         w_l = self.space.newlist([self.space.wrap('a'), self.space.wrap('b')])
         assert space.listview_str(w_l) == ["a", "b"]
 
-    def test_string_uses_listview_str(self):
+    def test_string_join_uses_listview_str(self):
         space = self.space
         w_l = self.space.newlist([self.space.wrap('a'), self.space.wrap('b')])
         w_l.getitems = None
         assert space.str_w(space.call_method(space.wrap("c"), "join", w_l)) == "acb"
+
+    def test_string_join_returns_same_instance(self):
+        space = self.space
+        w_text = space.wrap("text")
+        w_l = self.space.newlist([w_text])
+        w_l.getitems = None
+        assert space.is_w(space.call_method(space.wrap(" -- "), "join", w_l), w_text)
 
     def test_newlist_str(self):
         space = self.space
