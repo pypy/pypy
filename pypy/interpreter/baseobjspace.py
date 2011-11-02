@@ -777,22 +777,63 @@ class ObjSpace(object):
         """Unpack an iterable object into a real (interpreter-level) list.
         Raise an OperationError(w_ValueError) if the length is wrong."""
         w_iterator = self.iter(w_iterable)
-        # If we know the expected length we can preallocate.
         if expected_length == -1:
-            try:
-                lgt_estimate = self.len_w(w_iterable)
-            except OperationError, o:
-                if (not o.match(self, self.w_AttributeError) and
-                    not o.match(self, self.w_TypeError)):
-                    raise
-                items = []
-            else:
-                try:
-                    items = newlist(lgt_estimate)
-                except MemoryError:
-                    items = [] # it might have lied
+            # xxx special hack for speed
+            from pypy.interpreter.generator import GeneratorIterator
+            if isinstance(w_iterator, GeneratorIterator):
+                lst_w = []
+                w_iterator.unpack_into(lst_w)
+                return lst_w
+            # /xxx
+            return self._unpackiterable_unknown_length(w_iterator, w_iterable)
         else:
-            items = [None] * expected_length
+            lst_w = self._unpackiterable_known_length(w_iterator,
+                                                      expected_length)
+            return lst_w[:]     # make the resulting list resizable
+
+    @jit.dont_look_inside
+    def _unpackiterable_unknown_length(self, w_iterator, w_iterable):
+        # Unpack a variable-size list of unknown length.
+        # The JIT does not look inside this function because it
+        # contains a loop (made explicit with the decorator above).
+        #
+        # If we can guess the expected length we can preallocate.
+        try:
+            lgt_estimate = self.len_w(w_iterable)
+        except OperationError, o:
+            if (not o.match(self, self.w_AttributeError) and
+                not o.match(self, self.w_TypeError)):
+                raise
+            items = []
+        else:
+            try:
+                items = newlist(lgt_estimate)
+            except MemoryError:
+                items = [] # it might have lied
+        #
+        while True:
+            try:
+                w_item = self.next(w_iterator)
+            except OperationError, e:
+                if not e.match(self, self.w_StopIteration):
+                    raise
+                break  # done
+            items.append(w_item)
+        #
+        return items
+
+    @jit.dont_look_inside
+    def _unpackiterable_known_length(self, w_iterator, expected_length):
+        # Unpack a known length list, without letting the JIT look inside.
+        # Implemented by just calling the @jit.unroll_safe version, but
+        # the JIT stopped looking inside already.
+        return self._unpackiterable_known_length_jitlook(w_iterator,
+                                                         expected_length)
+
+    @jit.unroll_safe
+    def _unpackiterable_known_length_jitlook(self, w_iterator,
+                                             expected_length):
+        items = [None] * expected_length
         idx = 0
         while True:
             try:
@@ -801,26 +842,29 @@ class ObjSpace(object):
                 if not e.match(self, self.w_StopIteration):
                     raise
                 break  # done
-            if expected_length != -1 and idx == expected_length:
+            if idx == expected_length:
                 raise OperationError(self.w_ValueError,
-                                     self.wrap("too many values to unpack"))
-            if expected_length == -1:
-                items.append(w_item)
-            else:
-                items[idx] = w_item
+                                    self.wrap("too many values to unpack"))
+            items[idx] = w_item
             idx += 1
-        if expected_length != -1 and idx < expected_length:
+        if idx < expected_length:
             if idx == 1:
                 plural = ""
             else:
                 plural = "s"
-            raise OperationError(self.w_ValueError,
-                      self.wrap("need more than %d value%s to unpack" %
-                                (idx, plural)))
+            raise operationerrfmt(self.w_ValueError,
+                                  "need more than %d value%s to unpack",
+                                  idx, plural)
         return items
 
-    unpackiterable_unroll = jit.unroll_safe(func_with_new_name(unpackiterable,
-                                            'unpackiterable_unroll'))
+    def unpackiterable_unroll(self, w_iterable, expected_length):
+        # Like unpackiterable(), but for the cases where we have
+        # an expected_length and want to unroll when JITted.
+        # Returns a fixed-size list.
+        w_iterator = self.iter(w_iterable)
+        assert expected_length != -1
+        return self._unpackiterable_known_length_jitlook(w_iterator,
+                                                         expected_length)
 
     def fixedview(self, w_iterable, expected_length=-1):
         """ A fixed list view of w_iterable. Don't modify the result

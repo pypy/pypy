@@ -3513,7 +3513,9 @@ class BaseLLtypeTests(BasicTests):
         def f(n):
             while n > 0:
                 myjitdriver.jit_merge_point(n=n)
-                n = g({"key": n})
+                x = {"key": n}
+                n = g(x)
+                del x["key"]
             return n
 
         res = self.meta_interp(f, [10])
@@ -3559,6 +3561,34 @@ class BaseLLtypeTests(BasicTests):
         assert res == 0
         self.check_loops({"int_sub": 1, "int_gt": 1, "guard_true": 1, "jump": 1})
 
+    def test_convert_from_SmallFunctionSetPBCRepr_to_FunctionsPBCRepr(self):
+        f1 = lambda n: n+1
+        f2 = lambda n: n+2
+        f3 = lambda n: n+3
+        f4 = lambda n: n+4
+        f5 = lambda n: n+5
+        f6 = lambda n: n+6
+        f7 = lambda n: n+7
+        f8 = lambda n: n+8
+        def h(n, x):
+            return x(n)
+        h._dont_inline = True
+        def g(n, x):
+            return h(n, x)
+        g._dont_inline = True
+        def f(n):
+            n = g(n, f1)
+            n = g(n, f2)
+            n = h(n, f3)
+            n = h(n, f4)
+            n = h(n, f5)
+            n = h(n, f6)
+            n = h(n, f7)
+            n = h(n, f8)
+            return n
+        assert f(5) == 41
+        translationoptions = {'withsmallfuncsets': 3}
+        self.interp_operations(f, [5], translationoptions=translationoptions)
 
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
@@ -3613,7 +3643,9 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
                     o = o.dec()
                 pc += 1
             return pc
-        res = self.meta_interp(main, [False, 100, True], taggedpointers=True)
+        topt = {'taggedpointers': True}
+        res = self.meta_interp(main, [False, 100, True],
+                               translationoptions=topt)
 
     def test_rerased(self):
         eraseX, uneraseX = rerased.new_erasing_pair("X")
@@ -3638,10 +3670,11 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
             else:
                 return rerased.unerase_int(e)
         #
-        x = self.interp_operations(f, [-128, 0], taggedpointers=True)
+        topt = {'taggedpointers': True}
+        x = self.interp_operations(f, [-128, 0], translationoptions=topt)
         assert x == -128
         bigint = sys.maxint//2 + 1
-        x = self.interp_operations(f, [bigint, 0], taggedpointers=True)
+        x = self.interp_operations(f, [bigint, 0], translationoptions=topt)
         assert x == -42
-        x = self.interp_operations(f, [1000, 1], taggedpointers=True)
+        x = self.interp_operations(f, [1000, 1], translationoptions=topt)
         assert x == 999

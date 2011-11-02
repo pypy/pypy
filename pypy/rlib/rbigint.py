@@ -921,7 +921,7 @@ def _k_mul(a, b):
     ah, al = _kmul_split(a, shift)
     assert ah.sign == 1    # the split isn't degenerate
 
-    if a == b:
+    if a is b:
         bh = ah
         bl = al
     else:
@@ -975,26 +975,21 @@ def _k_mul(a, b):
     i = ret.numdigits() - shift  # # digits after shift
     _v_isub(ret, shift, i, t2, t2.numdigits())
     _v_isub(ret, shift, i, t1, t1.numdigits())
-    del t1, t2
 
     # 6. t3 <- (ah+al)(bh+bl), and add into result.
     t1 = _x_add(ah, al)
-    del ah, al
 
-    if a == b:
+    if a is b:
         t2 = t1
     else:
         t2 = _x_add(bh, bl)
-    del bh, bl
 
     t3 = _k_mul(t1, t2)
-    del t1, t2
     assert t3.sign >=0
 
     # Add t3.  It's not obvious why we can't run out of room here.
     # See the (*) comment after this function.
     _v_iadd(ret, shift, i, t3, t3.numdigits())
-    del t3
 
     ret._normalize()
     return ret
@@ -1085,7 +1080,6 @@ def _k_lopsided_mul(a, b):
         # Add into result.
         _v_iadd(ret, nbdone, ret.numdigits() - nbdone,
                  product, product.numdigits())
-        del product
 
         bsize -= nbtouse
         nbdone += nbtouse

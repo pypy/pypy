@@ -1605,6 +1605,7 @@ class Assembler386(object):
             # XXX should not use IMUL in most cases
             assert isinstance(temp_loc, RegLoc)
             assert isinstance(index_loc, RegLoc)
+            assert not temp_loc.is_xmm
             self.mc.IMUL_rri(temp_loc.value, index_loc.value,
                              itemsize_loc.value)
         assert isinstance(ofs_loc, ImmedLoc)
@@ -1612,8 +1613,8 @@ class Assembler386(object):
 
     def genop_getinteriorfield_gc(self, op, arglocs, resloc):
         (base_loc, ofs_loc, itemsize_loc, fieldsize_loc,
-            index_loc, sign_loc) = arglocs
-        src_addr = self._get_interiorfield_addr(resloc, index_loc,
+            index_loc, temp_loc, sign_loc) = arglocs
+        src_addr = self._get_interiorfield_addr(temp_loc, index_loc,
                                                 itemsize_loc, base_loc,
                                                 ofs_loc)
         self.load_from_mem(resloc, src_addr, fieldsize_loc, sign_loc)

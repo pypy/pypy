@@ -108,15 +108,10 @@ def eq__Tuple_Tuple(space, w_tuple1, w_tuple2):
             return space.w_False
     return space.w_True
 
-def _min(a, b):
-    if a < b:
-        return a
-    return b
-
 def lt__Tuple_Tuple(space, w_tuple1, w_tuple2):
     items1 = w_tuple1.wrappeditems
     items2 = w_tuple2.wrappeditems
-    ncmp = _min(len(items1), len(items2))
+    ncmp = min(len(items1), len(items2))
     # Search for the first index where items are different
     for p in range(ncmp):
         if not space.eq_w(items1[p], items2[p]):
@@ -127,7 +122,7 @@ def lt__Tuple_Tuple(space, w_tuple1, w_tuple2):
 def gt__Tuple_Tuple(space, w_tuple1, w_tuple2):
     items1 = w_tuple1.wrappeditems
     items2 = w_tuple2.wrappeditems
-    ncmp = _min(len(items1), len(items2))
+    ncmp = min(len(items1), len(items2))
     # Search for the first index where items are different
     for p in range(ncmp):
         if not space.eq_w(items1[p], items2[p]):

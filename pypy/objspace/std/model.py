@@ -69,19 +69,11 @@ class StdTypeModel:
         from pypy.objspace.std import floatobject
         from pypy.objspace.std import complexobject
         from pypy.objspace.std import setobject
-        from pypy.objspace.std import smallintobject
-        from pypy.objspace.std import smalllongobject
         from pypy.objspace.std import tupleobject
-        from pypy.objspace.std import smalltupleobject
         from pypy.objspace.std import listobject
         from pypy.objspace.std import dictmultiobject
         from pypy.objspace.std import stringobject
         from pypy.objspace.std import bytearrayobject
-        from pypy.objspace.std import ropeobject
-        from pypy.objspace.std import ropeunicodeobject
-        from pypy.objspace.std import strsliceobject
-        from pypy.objspace.std import strjoinobject
-        from pypy.objspace.std import strbufobject
         from pypy.objspace.std import typeobject
         from pypy.objspace.std import sliceobject
         from pypy.objspace.std import longobject
@@ -89,7 +81,6 @@ class StdTypeModel:
         from pypy.objspace.std import iterobject
         from pypy.objspace.std import unicodeobject
         from pypy.objspace.std import dictproxyobject
-        from pypy.objspace.std import rangeobject
         from pypy.objspace.std import proxyobject
         from pypy.objspace.std import fake
         import pypy.objspace.std.default # register a few catch-all multimethods
@@ -141,7 +132,12 @@ class StdTypeModel:
         for option, value in config.objspace.std:
             if option.startswith("with") and option in option_to_typename:
                 for classname in option_to_typename[option]:
-                    implcls = eval(classname)
+                    modname = classname[:classname.index('.')]
+                    classname = classname[classname.index('.')+1:]
+                    d = {}
+                    exec "from pypy.objspace.std.%s import %s" % (
+                        modname, classname) in d
+                    implcls = d[classname]
                     if value:
                         self.typeorder[implcls] = []
                     else:
@@ -167,6 +163,7 @@ class StdTypeModel:
         # XXX build these lists a bit more automatically later
 
         if config.objspace.std.withsmallint:
+            from pypy.objspace.std import smallintobject
             self.typeorder[boolobject.W_BoolObject] += [
                 (smallintobject.W_SmallIntObject, boolobject.delegate_Bool2SmallInt),
                 ]
@@ -189,6 +186,7 @@ class StdTypeModel:
             (complexobject.W_ComplexObject, complexobject.delegate_Int2Complex),
             ]
         if config.objspace.std.withsmalllong:
+            from pypy.objspace.std import smalllongobject
             self.typeorder[boolobject.W_BoolObject] += [
                 (smalllongobject.W_SmallLongObject, smalllongobject.delegate_Bool2SmallLong),
                 ]
@@ -220,7 +218,9 @@ class StdTypeModel:
              (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),
                 ]
         else:
+            from pypy.objspace.std import ropeobject
             if config.objspace.std.withropeunicode:
+                from pypy.objspace.std import ropeunicodeobject
                 self.typeorder[ropeobject.W_RopeObject] += [
                  (ropeunicodeobject.W_RopeUnicodeObject,
                      ropeunicodeobject.delegate_Rope2RopeUnicode),
@@ -230,6 +230,7 @@ class StdTypeModel:
                  (unicodeobject.W_UnicodeObject, unicodeobject.delegate_String2Unicode),
                     ]
         if config.objspace.std.withstrslice:
+            from pypy.objspace.std import strsliceobject
             self.typeorder[strsliceobject.W_StringSliceObject] += [
                 (stringobject.W_StringObject,
                                        strsliceobject.delegate_slice2str),
@@ -237,6 +238,7 @@ class StdTypeModel:
                                        strsliceobject.delegate_slice2unicode),
                 ]
         if config.objspace.std.withstrjoin:
+            from pypy.objspace.std import strjoinobject
             self.typeorder[strjoinobject.W_StringJoinObject] += [
                 (stringobject.W_StringObject,
                                        strjoinobject.delegate_join2str),
@@ -244,6 +246,7 @@ class StdTypeModel:
                                        strjoinobject.delegate_join2unicode)
                 ]
         elif config.objspace.std.withstrbuf:
+            from pypy.objspace.std import strbufobject
             self.typeorder[strbufobject.W_StringBufferObject] += [
                 (stringobject.W_StringObject,
                                        strbufobject.delegate_buf2str),
@@ -251,11 +254,13 @@ class StdTypeModel:
                                        strbufobject.delegate_buf2unicode)
                 ]
         if config.objspace.std.withrangelist:
+            from pypy.objspace.std import rangeobject
             self.typeorder[rangeobject.W_RangeListObject] += [
                 (listobject.W_ListObject,
                                        rangeobject.delegate_range2list),
                 ]
         if config.objspace.std.withsmalltuple:
+            from pypy.objspace.std import smalltupleobject
             self.typeorder[smalltupleobject.W_SmallTupleObject] += [
                 (tupleobject.W_TupleObject, smalltupleobject.delegate_SmallTuple2Tuple)]
 
