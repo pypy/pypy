@@ -117,7 +117,7 @@ class AppTestGenerator:
         g = f()
         raises(NameError, g.throw, NameError, "Error", None)
 
-    
+
     def test_throw_fail(self):
         def f():
             yield 1
@@ -129,7 +129,7 @@ class AppTestGenerator:
             yield 1
         g = f()
         raises(TypeError, g.throw, list())
- 
+
     def test_throw_fail3(self):
         def f():
             yield 1
@@ -188,7 +188,7 @@ class AppTestGenerator:
         g = f()
         g.next()
         raises(NameError, g.close)
- 
+
     def test_close_fail(self):
         def f():
             try:
@@ -273,3 +273,9 @@ res = f()
         assert set(g) == set([0, 1, 4, 9, 16, 25])
         assert set(g) == set()
         assert set(i for i in range(0)) == set()
+
+    def test_explicit_stop_iteration_unpackiterable(self):
+        def f():
+            yield 1
+            raise StopIteration
+        assert tuple(f()) == (1,)
