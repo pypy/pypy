@@ -669,8 +669,7 @@ class AssemblerPPC(OpAssembler):
         if size == 1:
             if not signed: #unsigned char
                 if IS_PPC32:
-                    self.mc.load_imm(r.r0, 0xFF)
-                    self.mc.and_(resloc.value, resloc.value, r.r0.value)
+                    self.mc.rlwinm(resloc.value, resloc.value, 0, 24, 31)
                 else:
                     self.mc.rldicl(resloc.value, resloc.value, 0, 56)
             else:
@@ -678,9 +677,7 @@ class AssemblerPPC(OpAssembler):
         elif size == 2:
             if not signed:
                 if IS_PPC_32:
-                    self.mc.load_imm(r.r0, 16)
-                    self.mc.slw(resloc.value, resloc.value, r.r0.value)
-                    self.mc.srw(resloc.value, resloc.value, r.r0.value)
+                    self.mc.rlwinm(resloc.value, resloc.value, 0, 16, 31)
                 else:
                     self.mc.rldicl(resloc.value, resloc.value, 0, 48)
             else:
