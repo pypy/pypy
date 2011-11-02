@@ -3,6 +3,7 @@ import sys
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.rlib import jit
 from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rlib.rstring import StringBuilder
 
 import py
 
@@ -592,8 +593,6 @@ class TestLLtype(LLJitMixin):
         res = self.interp_operations(fn, [sys.maxint])
         assert res == 12
 
-
-
     def test_opaque_list(self):
         from pypy.rlib.rerased import new_erasing_pair
         erase, unerase = new_erasing_pair("test_opaque_list")
@@ -619,3 +618,13 @@ class TestLLtype(LLJitMixin):
         assert res == -7 * 2
         self.check_operations_history(getarrayitem_gc=0,
                 getfield_gc=0)
+
+    def test_copy_str_content(self):
+        def fn(n):
+            a = StringBuilder()
+            x = [1]
+            a.append("hello world")
+            return x[0]
+        res = self.interp_operations(fn, [0])
+        assert res == 1
+        self.check_operations_history(getarrayitem_gc=0, getarrayitem_gc_pure=0)

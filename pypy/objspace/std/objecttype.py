@@ -44,7 +44,6 @@ def descr_set___class__(space, w_obj, w_newcls):
         raise OperationError(space.w_TypeError,
                              space.wrap("__class__ assignment: only for heap types"))
     w_oldcls = space.type(w_obj)
-    # XXX taint space should raise a TaintError here if w_oldcls is tainted
     assert isinstance(w_oldcls, W_TypeObject)
     if w_oldcls.get_full_instance_layout() == w_newcls.get_full_instance_layout():
         w_obj.setclass(space, w_newcls)

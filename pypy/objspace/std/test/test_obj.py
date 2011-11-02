@@ -115,6 +115,7 @@ class AppTestObject:
                 return 123456
         assert A().__str__() == 123456
 
+
     def test_is_on_primitives(self):
         if self.cpython_apptest:
             skip("cpython behaves differently")
@@ -225,3 +226,9 @@ class AppTestObject:
                 if a is b:
                     assert a == b
 
+def test_isinstance_shortcut():
+    from pypy.objspace.std import objspace
+    space = objspace.StdObjSpace()
+    w_a = space.wrap("a")
+    space.type = None
+    space.isinstance_w(w_a, space.w_str) # does not crash

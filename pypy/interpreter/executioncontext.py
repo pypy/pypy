@@ -175,6 +175,9 @@ class ExecutionContext(object):
             self.w_tracefunc = w_func
             self.space.frame_trace_action.fire()
 
+    def gettrace(self):
+        return self.w_tracefunc
+
     def setprofile(self, w_func):
         """Set the global trace function."""
         if self.space.is_w(w_func, self.space.w_None):
@@ -388,8 +391,11 @@ class ActionFlag(AbstractActionFlag):
     def decrement_ticker(self, by):
         value = self._ticker
         if self.has_bytecode_counter:    # this 'if' is constant-folded
-            value -= by
-            self._ticker = value
+            if jit.isconstant(by) and by == 0:
+                pass     # normally constant-folded too
+            else:
+                value -= by
+                self._ticker = value
         return value
 
 

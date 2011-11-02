@@ -137,26 +137,35 @@ class __extend__(PyFrame):
 
     def jump_absolute(self, jumpto, _, ec=None):
         if we_are_jitted():
-            # Normally, the tick counter is decremented by 100 for every
-            # Python opcode.  Here, to better support JIT compilation of
-            # small loops, we decrement it by a possibly smaller constant.
-            # We get the maximum 100 when the (unoptimized) trace length
-            # is at least 3200 (a bit randomly).
-            trace_length = r_uint(current_trace_length())
-            decr_by = trace_length // 32
-            if decr_by < 1:
-                decr_by = 1
-            elif decr_by > 100:    # also if current_trace_length() returned -1
-                decr_by = 100
+            #
+            # assume that only threads are using the bytecode counter
+            decr_by = 0
+            if self.space.actionflag.has_bytecode_counter:   # constant-folded
+                if self.space.threadlocals.gil_ready:   # quasi-immutable field
+                    decr_by = _get_adapted_tick_counter()
             #
             self.last_instr = intmask(jumpto)
-            ec.bytecode_trace(self, intmask(decr_by))
+            ec.bytecode_trace(self, decr_by)
             jumpto = r_uint(self.last_instr)
         #
         pypyjitdriver.can_enter_jit(frame=self, ec=ec, next_instr=jumpto,
                                     pycode=self.getcode(),
                                     is_being_profiled=self.is_being_profiled)
         return jumpto
+
+def _get_adapted_tick_counter():
+    # Normally, the tick counter is decremented by 100 for every
+    # Python opcode.  Here, to better support JIT compilation of
+    # small loops, we decrement it by a possibly smaller constant.
+    # We get the maximum 100 when the (unoptimized) trace length
+    # is at least 3200 (a bit randomly).
+    trace_length = r_uint(current_trace_length())
+    decr_by = trace_length // 32
+    if decr_by < 1:
+        decr_by = 1
+    elif decr_by > 100:    # also if current_trace_length() returned -1
+        decr_by = 100
+    return intmask(decr_by)
 
 
 PyCode__initialize = PyCode._initialize

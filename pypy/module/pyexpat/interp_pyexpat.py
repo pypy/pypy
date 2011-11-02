@@ -76,6 +76,18 @@ xml_error_list = [
     "XML_ERROR_FINISHED",
     "XML_ERROR_SUSPEND_PE",
     ]
+xml_model_list = [
+    "XML_CTYPE_EMPTY",
+    "XML_CTYPE_ANY",
+    "XML_CTYPE_MIXED",
+    "XML_CTYPE_NAME",
+    "XML_CTYPE_CHOICE",
+    "XML_CTYPE_SEQ",
+    "XML_CQUANT_NONE",
+    "XML_CQUANT_OPT",
+    "XML_CQUANT_REP",
+    "XML_CQUANT_PLUS",
+    ]
 
 class CConfigure:
     _compilation_info_ = eci
@@ -103,6 +115,8 @@ class CConfigure:
     XML_TRUE = rffi_platform.ConstantInteger('XML_TRUE')
 
     for name in xml_error_list:
+        locals()[name] = rffi_platform.ConstantInteger(name)
+    for name in xml_model_list:
         locals()[name] = rffi_platform.ConstantInteger(name)
 
 for k, v in rffi_platform.configure(CConfigure).items():

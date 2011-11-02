@@ -234,6 +234,30 @@ class OptimizeOptTest(BaseTestWithUnroll):
             """ % expected_value
             self.optimize_loop(ops, expected)
 
+    def test_reverse_of_cast(self):
+        ops = """
+        [i0]
+        p0 = cast_int_to_ptr(i0)
+        i1 = cast_ptr_to_int(p0)
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(i0)
+        """
+        self.optimize_loop(ops, expected)
+        ops = """
+        [p0]
+        i1 = cast_ptr_to_int(p0)
+        p1 = cast_int_to_ptr(i1)
+        jump(p1)
+        """
+        expected = """
+        [p0]
+        jump(p0)
+        """
+        self.optimize_loop(ops, expected)
+
     # ----------
 
     def test_remove_guard_class_1(self):
@@ -2659,7 +2683,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p1]
         guard_class(p1, ConstClass(node_vtable2)) []
-        i = ptr_ne(ConstPtr(myptr), p1)
+        i = instance_ptr_ne(ConstPtr(myptr), p1)
         guard_true(i) []
         jump(p1)
         """
@@ -3307,7 +3331,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p1, i1, i2, i6)
         '''
         self.optimize_loop(ops, expected, preamble)
-        
+
 
     # ----------
 
@@ -4759,6 +4783,52 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+
+    def test_division_nonneg(self):
+        py.test.skip("harder")
+        # this is how an app-level division turns into right now
+        ops = """
+        [i4]
+        i1 = int_ge(i4, 0)
+        guard_true(i1) []
+        i16 = int_floordiv(i4, 3)
+        i18 = int_mul(i16, 3)
+        i19 = int_sub(i4, i18)
+        i21 = int_rshift(i19, %d)
+        i22 = int_add(i16, i21)
+        finish(i22)
+        """ % (LONG_BIT-1)
+        expected = """
+        [i4]
+        i1 = int_ge(i4, 0)
+        guard_true(i1) []
+        i16 = int_floordiv(i4, 3)
+        finish(i16)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_division_by_2(self):
+        py.test.skip("harder")
+        ops = """
+        [i4]
+        i1 = int_ge(i4, 0)
+        guard_true(i1) []
+        i16 = int_floordiv(i4, 2)
+        i18 = int_mul(i16, 2)
+        i19 = int_sub(i4, i18)
+        i21 = int_rshift(i19, %d)
+        i22 = int_add(i16, i21)
+        finish(i22)
+        """ % (LONG_BIT-1)
+        expected = """
+        [i4]
+        i1 = int_ge(i4, 0)
+        guard_true(i1) []
+        i16 = int_rshift(i4, 1)
+        finish(i16)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_subsub_ovf(self):
         ops = """
         [i0]
@@ -5776,10 +5846,12 @@ class OptimizeOptTest(BaseTestWithUnroll):
         class FakeCallInfoCollection:
             def callinfo_for_oopspec(self, oopspecindex):
                 calldescrtype = type(LLtypeMixin.strequaldescr)
+                effectinfotype = type(LLtypeMixin.strequaldescr.get_extra_info())
                 for value in LLtypeMixin.__dict__.values():
                     if isinstance(value, calldescrtype):
                         extra = value.get_extra_info()
-                        if extra and extra.oopspecindex == oopspecindex:
+                        if (extra and isinstance(extra, effectinfotype) and
+                            extra.oopspecindex == oopspecindex):
                             # returns 0 for 'func' in this test
                             return value, 0
                 raise AssertionError("not found: oopspecindex=%d" %
@@ -7256,7 +7328,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p1, p2]
         setarrayitem_gc(p1, 2, 10, descr=arraydescr)
-        setarrayitem_gc(p2, 3, 13, descr=arraydescr)        
+        setarrayitem_gc(p2, 3, 13, descr=arraydescr)
         call(0, p1, p2, 0, 0, 10, descr=arraycopydescr)
         jump(p1, p2)
         """

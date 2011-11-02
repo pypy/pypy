@@ -38,7 +38,9 @@ class AppTestBuilders(object):
         b = StringBuilder()
         b.append("abc")
         b.append("123")
+        assert len(b) == 6
         b.append("you and me")
         s = b.build()
+        raises(ValueError, len, b)
         assert s == "abc123you and me"
         raises(ValueError, b.build)

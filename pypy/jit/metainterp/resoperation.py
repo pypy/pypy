@@ -1,5 +1,4 @@
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.rlib.debug import make_sure_not_resized
 
 def ResOperation(opnum, args, result, descr=None):
     cls = opclasses[opnum]
@@ -405,8 +404,8 @@ _oplist = [
     'FLOAT_TRUEDIV/2',
     'FLOAT_NEG/1',
     'FLOAT_ABS/1',
-    'CAST_FLOAT_TO_INT/1',
-    'CAST_INT_TO_FLOAT/1',
+    'CAST_FLOAT_TO_INT/1',          # don't use for unsigned ints; we would
+    'CAST_INT_TO_FLOAT/1',          # need some messy code in the backend
     'CAST_FLOAT_TO_SINGLEFLOAT/1',
     'CAST_SINGLEFLOAT_TO_FLOAT/1',
     #
@@ -433,10 +432,13 @@ _oplist = [
     'INT_INVERT/1',
     #
     'SAME_AS/1',      # gets a Const or a Box, turns it into another Box
+    'CAST_PTR_TO_INT/1',
+    'CAST_INT_TO_PTR/1',
     #
     'PTR_EQ/2b',
     'PTR_NE/2b',
-    'CAST_OPAQUE_PTR/1b',
+    'INSTANCE_PTR_EQ/2b',
+    'INSTANCE_PTR_NE/2b',
     #
     'ARRAYLEN_GC/1d',
     'STRLEN/1',
@@ -455,6 +457,7 @@ _oplist = [
 
     'GETARRAYITEM_GC/2d',
     'GETARRAYITEM_RAW/2d',
+    'GETINTERIORFIELD_GC/2d',
     'GETFIELD_GC/1d',
     'GETFIELD_RAW/1d',
     '_MALLOC_FIRST',
@@ -467,10 +470,12 @@ _oplist = [
     'FORCE_TOKEN/0',
     'VIRTUAL_REF/2',         # removed before it's passed to the backend
     'READ_TIMESTAMP/0',
+    'MARK_OPAQUE_PTR/1b',
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
 
     'SETARRAYITEM_GC/3d',
     'SETARRAYITEM_RAW/3d',
+    'SETINTERIORFIELD_GC/3d',
     'SETFIELD_GC/2d',
     'SETFIELD_RAW/2d',
     'STRSETITEM/3',

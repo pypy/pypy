@@ -41,7 +41,7 @@ class TestString(BaseTestPyPyC):
             guard_true(i32, descr=...)
             i34 = int_add(i6, 1)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, i34, p7, p8, i9, i10, p11, i12, p13, descr=<Loop4>)
+            jump(p0, p1, p2, p3, p4, p5, i34, p7, p8, i9, i10, p11, i12, p13, descr=...)
         """)
 
     def test_long(self):
@@ -93,7 +93,8 @@ class TestString(BaseTestPyPyC):
             i46 = call(ConstClass(ll_startswith__rpy_stringPtr_rpy_stringPtr), p28, ConstPtr(ptr45), descr=<BoolCallDescr>)
             guard_false(i46, descr=...)
             p51 = new_with_vtable(21136408)
-            setfield_gc(p51, _, descr=...)    # 6 setfields, but the order is dict-order-dependent
+            setfield_gc(p51, _, descr=...)    # 7 setfields, but the order is dict-order-dependent
+            setfield_gc(p51, _, descr=...)
             setfield_gc(p51, _, descr=...)
             setfield_gc(p51, _, descr=...)
             setfield_gc(p51, _, descr=...)
@@ -106,7 +107,7 @@ class TestString(BaseTestPyPyC):
             i58 = int_add_ovf(i6, i57)
             guard_no_overflow(descr=...)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, i58, i7, descr=<Loop4>)
+            jump(p0, p1, p2, p3, p4, p5, i58, i7, descr=...)
         """)
 
     def test_str_mod(self):
@@ -157,3 +158,40 @@ class TestString(BaseTestPyPyC):
             --TICK--
             jump(p0, p1, p2, p3, i40, i38, descr=<Loop0>)
         """)
+
+    def test_getattr_promote(self):
+        def main(n):
+            class A(object):
+                def meth_a(self):
+                    return 1
+                def meth_b(self):
+                    return 2
+            a = A()
+
+            l = ['a', 'b']
+            s = 0
+            for i in range(n):
+                name = 'meth_' + l[i & 1]
+                meth = getattr(a, name) # ID: getattr
+                s += meth()
+            return s
+
+        log = self.run(main, [1000])
+        assert log.result == main(1000)
+        loops = log.loops_by_filename(self.filepath)
+        assert len(loops) == 2
+        for loop in loops:
+            loop.match_by_id('getattr','''
+            guard_not_invalidated(descr=...)
+            i32 = strlen(p31)
+            i34 = int_add(5, i32)
+            p35 = newstr(i34)
+            strsetitem(p35, 0, 109)
+            strsetitem(p35, 1, 101)
+            strsetitem(p35, 2, 116)
+            strsetitem(p35, 3, 104)
+            strsetitem(p35, 4, 95)
+            copystrcontent(p31, p35, 0, 5, i32)
+            i49 = call(ConstClass(_ll_2_str_eq_nonnull__rpy_stringPtr_rpy_stringPtr), p35, ConstPtr(ptr48), descr=<SignedCallDescr>)
+            guard_value(i49, 1, descr=<Guard8>)
+            ''')

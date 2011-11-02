@@ -463,3 +463,25 @@ class TestCall(BaseTestPyPyC):
             setfield_gc(p4, p22, descr=<GcPtrFieldDescr pypy.interpreter.nestedscope.Cell.inst_w_value .*>)
             jump(p0, p1, p2, p3, p4, p7, p22, p7, descr=<Loop0>)
         """)
+
+    def test_kwargs_virtual(self):
+        def main(n):
+            def g(**kwargs):
+                return kwargs["x"] + 1
+
+            i = 0
+            while i < n:
+                i = g(x=i)
+            return i
+
+        log = self.run(main, [500])
+        assert log.result == 500
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i2 = int_lt(i0, i1)
+            guard_true(i2, descr=...)
+            i3 = force_token()
+            i4 = int_add(i0, 1)
+            --TICK--
+            jump(..., descr=...)
+        """)

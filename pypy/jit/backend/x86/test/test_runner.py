@@ -31,7 +31,7 @@ class TestX86(LLtypeBackendTest):
 
     # for the individual tests see
     # ====> ../../test/runner_test.py
-    
+
     def setup_method(self, meth):
         self.cpu = CPU(rtyper=None, stats=FakeStats())
         self.cpu.setup_once()
@@ -69,22 +69,16 @@ class TestX86(LLtypeBackendTest):
 
     def test_allocations(self):
         from pypy.rpython.lltypesystem import rstr
-        
+
         allocs = [None]
         all = []
+        orig_new = self.cpu.gc_ll_descr.funcptr_for_new
         def f(size):
             allocs.insert(0, size)
-            buf = ctypes.create_string_buffer(size)
-            all.append(buf)
-            return ctypes.cast(buf, ctypes.c_void_p).value
-        func = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int)(f)
-        addr = ctypes.cast(func, ctypes.c_void_p).value
-        # ctypes produces an unsigned value. We need it to be signed for, eg,
-        # relative addressing to work properly.
-        addr = rffi.cast(lltype.Signed, addr)
-        
+            return orig_new(size)
+
         self.cpu.assembler.setup_once()
-        self.cpu.assembler.malloc_func_addr = addr
+        self.cpu.gc_ll_descr.funcptr_for_new = f
         ofs = symbolic.get_field_token(rstr.STR, 'chars', False)[0]
 
         res = self.execute_operation(rop.NEWSTR, [ConstInt(7)], 'ref')
@@ -108,7 +102,7 @@ class TestX86(LLtypeBackendTest):
         res = self.execute_operation(rop.NEW_ARRAY, [ConstInt(10)],
                                          'ref', descr)
         assert allocs[0] == 10*WORD + ofs + WORD
-        resbuf = self._resbuf(res)            
+        resbuf = self._resbuf(res)
         assert resbuf[ofs/WORD] == 10
 
         # ------------------------------------------------------------
@@ -116,7 +110,7 @@ class TestX86(LLtypeBackendTest):
         res = self.execute_operation(rop.NEW_ARRAY, [BoxInt(10)],
                                          'ref', descr)
         assert allocs[0] == 10*WORD + ofs + WORD
-        resbuf = self._resbuf(res)                        
+        resbuf = self._resbuf(res)
         assert resbuf[ofs/WORD] == 10
 
     def test_stringitems(self):
@@ -146,7 +140,7 @@ class TestX86(LLtypeBackendTest):
                                                      ConstInt(2), BoxInt(38)],
                                'void', descr)
         assert resbuf[itemsofs/WORD + 2] == 38
-        
+
         self.execute_operation(rop.SETARRAYITEM_GC, [res,
                                                      BoxInt(3), BoxInt(42)],
                                'void', descr)
@@ -167,7 +161,7 @@ class TestX86(LLtypeBackendTest):
                                                          BoxInt(2)],
                                    'int', descr)
         assert r.value == 38
-        
+
         r = self.execute_operation(rop.GETARRAYITEM_GC, [res, BoxInt(3)],
                                    'int', descr)
         assert r.value == 42
@@ -226,7 +220,7 @@ class TestX86(LLtypeBackendTest):
         self.execute_operation(rop.SETFIELD_GC, [res, BoxInt(1234)], 'void', ofs_i)
         i = self.execute_operation(rop.GETFIELD_GC, [res], 'int', ofs_i)
         assert i.value == 1234
-        
+
         #u = self.execute_operation(rop.GETFIELD_GC, [res, ofs_u], 'int')
         #assert u.value == 5
         self.execute_operation(rop.SETFIELD_GC, [res, ConstInt(1)], 'void',
@@ -299,7 +293,7 @@ class TestX86(LLtypeBackendTest):
                     else:
                         assert result != execute(self.cpu, None,
                                                  op, None, b).value
-                    
+
 
     def test_stuff_followed_by_guard(self):
         boxes = [(BoxInt(1), BoxInt(0)),
@@ -523,7 +517,7 @@ class TestDebuggingAssembler(object):
     def test_debugger_on(self):
         from pypy.tool.logparser import parse_log_file, extract_category
         from pypy.rlib import debug
-        
+
         loop = """
         [i0]
         debug_merge_point('xyz', 0)

@@ -13,7 +13,6 @@ from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.translator.simplify import get_funcobj
 from pypy.translator.unsimplify import split_block
 from pypy.objspace.flow.model import Constant
-from pypy import conftest
 from pypy.translator.translator import TranslationContext
 from pypy.annotation.policy import AnnotatorPolicy
 from pypy.annotation import model as annmodel
@@ -38,9 +37,11 @@ def _annotation(a, x):
     return a.typeannotation(t)
 
 def annotate(func, values, inline=None, backendoptimize=True,
-             type_system="lltype"):
+             type_system="lltype", translationoptions={}):
     # build the normal ll graphs for ll_function
     t = TranslationContext()
+    for key, value in translationoptions.items():
+        setattr(t.config.translation, key, value)
     annpolicy = AnnotatorPolicy()
     annpolicy.allow_someobjects = False
     a = t.buildannotator(policy=annpolicy)
@@ -48,15 +49,13 @@ def annotate(func, values, inline=None, backendoptimize=True,
     a.build_types(func, argtypes, main_entry_point=True)
     rtyper = t.buildrtyper(type_system = type_system)
     rtyper.specialize()
-    if inline:
-        auto_inlining(t, threshold=inline)
+    #if inline:
+    #    auto_inlining(t, threshold=inline)
     if backendoptimize:
         from pypy.translator.backendopt.all import backend_optimizations
         backend_optimizations(t, inline_threshold=inline or 0,
                 remove_asserts=True, really_remove_asserts=True)
 
-    #if conftest.option.view:
-    #    t.view()
     return rtyper
 
 def getgraph(func, values):
@@ -231,6 +230,17 @@ def _ll_1_int_abs(x):
         return -x
     else:
         return x
+
+def _ll_1_cast_uint_to_float(x):
+    # XXX on 32-bit platforms, this should be done using cast_longlong_to_float
+    # (which is a residual call right now in the x86 backend)
+    return llop.cast_uint_to_float(lltype.Float, x)
+
+def _ll_1_cast_float_to_uint(x):
+    # XXX on 32-bit platforms, this should be done using cast_float_to_longlong
+    # (which is a residual call right now in the x86 backend)
+    return llop.cast_float_to_uint(lltype.Unsigned, x)
+
 
 # math support
 # ------------
@@ -455,6 +465,8 @@ class LLtypeHelpers:
     def _ll_1_dictiter_nextitems(RES, iter):
         return LLtypeHelpers._dictnext_items(lltype.Ptr(RES), iter)
     _ll_1_dictiter_nextitems.need_result_type = True
+
+    _ll_1_dict_resize = ll_rdict.ll_dict_resize
 
     # ---------- strings and unicode ----------
 

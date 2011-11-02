@@ -103,7 +103,7 @@ class TestW_ListObject(object):
             w_list = W_ListObject(self.space, [w(i) for i in testlist])
             w_result = self.space.getitem(w_list, w_slice)
             assert self.space.unwrap(w_result) == expected
-        
+
         for testlist in [[], [5,3,99]]:
             for start in [-2, 0, 1, 10]:
                 for end in [-1, 2, 999]:
@@ -125,7 +125,7 @@ class TestW_ListObject(object):
             w_rhslist = W_ListObject(self.space, [w(i) for i in rhslist])
             self.space.setitem(w_lhslist, w_slice, w_rhslist)
             assert self.space.unwrap(w_lhslist) == expected
-        
+
 
         test1([5,7,1,4], 1, 3, [9,8],  [5,9,8,4])
         test1([5,7,1,4], 1, 3, [9],    [5,9,4])
@@ -229,7 +229,7 @@ class TestW_ListObject(object):
 
     def test_eq(self):
         w = self.space.wrap
-        
+
         w_list0 = W_ListObject(self.space, [])
         w_list1 = W_ListObject(self.space, [w(5), w(3), w(99)])
         w_list2 = W_ListObject(self.space, [w(5), w(3), w(99)])
@@ -247,7 +247,7 @@ class TestW_ListObject(object):
                            self.space.w_False)
     def test_ne(self):
         w = self.space.wrap
-        
+
         w_list0 = W_ListObject(self.space, [])
         w_list1 = W_ListObject(self.space, [w(5), w(3), w(99)])
         w_list2 = W_ListObject(self.space, [w(5), w(3), w(99)])
@@ -265,7 +265,7 @@ class TestW_ListObject(object):
                            self.space.w_True)
     def test_lt(self):
         w = self.space.wrap
-        
+
         w_list0 = W_ListObject(self.space, [])
         w_list1 = W_ListObject(self.space, [w(5), w(3), w(99)])
         w_list2 = W_ListObject(self.space, [w(5), w(3), w(99)])
@@ -284,10 +284,10 @@ class TestW_ListObject(object):
                            self.space.w_True)
         assert self.space.eq_w(self.space.lt(w_list4, w_list3),
                            self.space.w_True)
-        
+
     def test_ge(self):
         w = self.space.wrap
-        
+
         w_list0 = W_ListObject(self.space, [])
         w_list1 = W_ListObject(self.space, [w(5), w(3), w(99)])
         w_list2 = W_ListObject(self.space, [w(5), w(3), w(99)])
@@ -306,10 +306,10 @@ class TestW_ListObject(object):
                            self.space.w_False)
         assert self.space.eq_w(self.space.ge(w_list4, w_list3),
                            self.space.w_False)
-        
+
     def test_gt(self):
         w = self.space.wrap
-        
+
         w_list0 = W_ListObject(self.space, [])
         w_list1 = W_ListObject(self.space, [w(5), w(3), w(99)])
         w_list2 = W_ListObject(self.space, [w(5), w(3), w(99)])
@@ -328,10 +328,10 @@ class TestW_ListObject(object):
                            self.space.w_False)
         assert self.space.eq_w(self.space.gt(w_list4, w_list3),
                            self.space.w_False)
-        
+
     def test_le(self):
         w = self.space.wrap
-        
+
         w_list0 = W_ListObject(self.space, [])
         w_list1 = W_ListObject(self.space, [w(5), w(3), w(99)])
         w_list2 = W_ListObject(self.space, [w(5), w(3), w(99)])
@@ -605,7 +605,7 @@ class AppTestW_ListObject(object):
         assert l[::] == l
         assert l[0::-2] == l
         assert l[-1::-5] == l
-        
+
         l = ['']
         assert l[1:] == []
         assert l[1::2] == []
@@ -682,7 +682,7 @@ class AppTestW_ListObject(object):
         l *= (-1)
         assert l is l0
         assert l == []
-        
+
         l = l0 = ['a', 'b']
         l *= 2
         assert l is l0
@@ -708,7 +708,7 @@ class AppTestW_ListObject(object):
         c = range(10)
         assert c.index(0) == 0
         raises(ValueError, c.index, 10)
-        
+
         c = list('hello world')
         assert c.index('l') == 2
         raises(ValueError, c.index, '!')
@@ -978,7 +978,6 @@ class AppTestW_ListObject(object):
         s = u"\ufffd\ufffd\ufffd"
         assert s.encode("ascii", "replace") == "???"
         assert s.encode("ascii", "ignore") == ""
-
         l1 = [s.encode("ascii", "replace")]
         assert l1[0] == "???"
 
@@ -987,6 +986,20 @@ class AppTestW_ListObject(object):
 
         l3 = [s]
         assert l1[0].encode("ascii", "replace") == "???"
+
+    def test_list_from_set(self):
+        l = ['a']
+        l.__init__(set('b'))
+        assert l == ['b']
+
+    def test_list_from_generator(self):
+        l = ['a']
+        g = (i*i for i in range(5))
+        l.__init__(g)
+        assert l == [0, 1, 4, 9, 16]
+        l.__init__(g)
+        assert l == []
+        assert list(g) == []
 
 class AppTestForRangeLists(AppTestW_ListObject):
 
@@ -1077,6 +1090,7 @@ class AppTestForRangeLists(AppTestW_ListObject):
         l = range(3)
         l.reverse()
         assert l == [2,1,0]
+
 
 class AppTestListFastSubscr:
 

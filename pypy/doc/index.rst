@@ -309,7 +309,6 @@ Directory                          explanation/links
 .. _`object space`: objspace.html
 .. _FlowObjSpace: objspace.html#the-flow-object-space 
 .. _`trace object space`: objspace.html#the-trace-object-space 
-.. _`taint object space`: objspace-proxies.html#taint
 .. _`thunk object space`: objspace-proxies.html#thunk
 .. _`transparent proxies`: objspace-proxies.html#tproxy
 .. _`Differences between PyPy and CPython`: cpython_differences.html

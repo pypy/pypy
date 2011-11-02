@@ -345,22 +345,22 @@ class GenericGCTests(GCTest):
         b = B()
         b.nextid = 0
         b.num_deleted = 0
-        class A(object):
+        class AAA(object):
             def __init__(self):
                 self.id = b.nextid
                 b.nextid += 1
             def __del__(self):
                 b.num_deleted += 1
                 C()
-        class C(A):
+        class C(AAA):
             def __del__(self):
                 b.num_deleted += 1
         def f(x, y):
-            a = A()
+            a = AAA()
             i = 0
             while i < x:
                 i += 1
-                a = A()
+                a = AAA()
             llop.gc__collect(lltype.Void)
             llop.gc__collect(lltype.Void)
             return b.num_deleted
@@ -807,6 +807,7 @@ class GenericMovingGCTests(GenericGCTests):
                     op.args = [Constant(type_id, llgroup.HALFWORD),
                                Constant(llmemory.sizeof(P), lltype.Signed),
                                Constant(False, lltype.Bool), # has_finalizer
+                               Constant(False, lltype.Bool), # is_finalizer_light
                                Constant(False, lltype.Bool)] # contains_weakptr
                     break
             else:
@@ -843,6 +844,7 @@ class GenericMovingGCTests(GenericGCTests):
                     op.args = [Constant(type_id, llgroup.HALFWORD),
                                Constant(llmemory.sizeof(P), lltype.Signed),
                                Constant(False, lltype.Bool), # has_finalizer
+                               Constant(False, lltype.Bool), # is_finalizer_light
                                Constant(False, lltype.Bool)] # contains_weakptr
                     break
             else:

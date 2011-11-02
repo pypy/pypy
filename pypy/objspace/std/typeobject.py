@@ -10,7 +10,8 @@ from pypy.objspace.std.objecttype import object_typedef
 from pypy.objspace.std import identitydict
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.objectmodel import current_object_addr_as_int, compute_hash
-from pypy.rlib.jit import promote, elidable_promote, we_are_jitted
+from pypy.rlib.jit import promote, elidable_promote, we_are_jitted,\
+     promote_string
 from pypy.rlib.jit import elidable, dont_look_inside, unroll_safe
 from pypy.rlib.rarithmetic import intmask, r_uint
 
@@ -114,9 +115,6 @@ class W_TypeObject(W_Object):
     # != 'type', in that case call__Type will also assumes the result
     # of the __new__ is an instance of the type
     w_bltin_new = None
-
-    interplevel_cls = None # not None for prebuilt instances of
-                           # interpreter-level types
 
     @dont_look_inside
     def __init__(w_self, space, name, bases_w, dict_w,
@@ -399,6 +397,7 @@ class W_TypeObject(W_Object):
         if version_tag is None:
             tup = w_self._lookup_where(name)
             return tup
+        name = promote_string(name)
         w_class, w_value = w_self._pure_lookup_where_with_method_cache(name, version_tag)
         return w_class, unwrap_cell(space, w_value)
 

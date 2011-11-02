@@ -214,7 +214,7 @@ class AppTestNumArray(BaseNumpyAppTest):
     def test_add_other(self):
         from numpy import array
         a = array(range(5))
-        b = array(reversed(range(5)))
+        b = array(range(4, -1, -1))
         c = a + b
         for i in range(5):
             assert c[i] == 4
@@ -264,18 +264,19 @@ class AppTestNumArray(BaseNumpyAppTest):
             assert b[i] == i - 5
 
     def test_mul(self):
-        from numpy import array, dtype
-        a = array(range(5))
+        import numpy
+
+        a = numpy.array(range(5))
         b = a * a
         for i in range(5):
             assert b[i] == i * i
 
-        a = array(range(5), dtype=bool)
+        a = numpy.array(range(5), dtype=bool)
         b = a * a
-        assert b.dtype is dtype(bool)
-        assert b[0] is False
+        assert b.dtype is numpy.dtype(bool)
+        assert b[0] is numpy.False_
         for i in range(1, 5):
-            assert b[i] is True
+            assert b[i] is numpy.True_
 
     def test_mul_constant(self):
         from numpy import array
@@ -285,7 +286,9 @@ class AppTestNumArray(BaseNumpyAppTest):
             assert b[i] == i * 5
 
     def test_div(self):
-        from numpy import array, dtype
+        from math import isnan
+        from numpy import array, dtype, inf
+
         a = array(range(1, 6))
         b = a / a
         for i in range(5):
@@ -296,6 +299,24 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert b.dtype is dtype("int8")
         for i in range(5):
             assert b[i] == 1
+
+        a = array([-1, 0, 1])
+        b = array([0, 0, 0])
+        c = a / b
+        assert (c == [0, 0, 0]).all()
+
+        a = array([-1.0, 0.0, 1.0])
+        b = array([0.0, 0.0, 0.0])
+        c = a / b
+        assert c[0] == -inf
+        assert isnan(c[1])
+        assert c[2] == inf
+
+        b = array([-0.0, -0.0, -0.0])
+        c = a / b
+        assert c[0] == inf
+        assert isnan(c[1])
+        assert c[2] == -inf
 
     def test_div_other(self):
         from numpy import array

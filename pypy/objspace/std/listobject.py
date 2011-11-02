@@ -940,7 +940,12 @@ def init__List(space, w_list, __args__):
 
 def _init_from_iterable(space, w_list, w_iterable):
     # in its own function to make the JIT look into init__List
-    # XXX this would need a JIT driver somehow?
+    # xxx special hack for speed
+    from pypy.interpreter.generator import GeneratorIterator
+    if isinstance(w_iterable, GeneratorIterator):
+        w_iterable.unpack_into(items_w)
+        return
+    # /xxx
     w_iterator = space.iter(w_iterable)
     while True:
         try:

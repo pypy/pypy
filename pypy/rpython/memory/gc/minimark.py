@@ -290,6 +290,8 @@ class MiniMarkGC(MovingGCBase):
         #
         # A list of all objects with finalizers (these are never young).
         self.objects_with_finalizers = self.AddressDeque()
+        self.young_objects_with_light_finalizers = self.AddressStack()
+        self.old_objects_with_light_finalizers = self.AddressStack()
         #
         # Two lists of the objects with weakrefs.  No weakref can be an
         # old object weakly pointing to a young object: indeed, weakrefs
@@ -457,14 +459,16 @@ class MiniMarkGC(MovingGCBase):
 
 
     def malloc_fixedsize_clear(self, typeid, size,
-                               needs_finalizer=False, contains_weakptr=False):
+                               needs_finalizer=False,
+                               is_finalizer_light=False,
+                               contains_weakptr=False):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + size
         rawtotalsize = raw_malloc_usage(totalsize)
         #
         # If the object needs a finalizer, ask for a rawmalloc.
         # The following check should be constant-folded.
-        if needs_finalizer:
+        if needs_finalizer:  ## and not is_finalizer_light:
             ll_assert(not contains_weakptr,
                      "'needs_finalizer' and 'contains_weakptr' both specified")
             obj = self.external_malloc(typeid, 0, can_make_young=False)
@@ -494,13 +498,14 @@ class MiniMarkGC(MovingGCBase):
             #
             # Build the object.
             llarena.arena_reserve(result, totalsize)
+            obj = result + size_gc_header
+            if is_finalizer_light:
+                self.young_objects_with_light_finalizers.append(obj)
             self.init_gc_object(result, typeid, flags=0)
             #
             # If it is a weakref, record it (check constant-folded).
             if contains_weakptr:
-                self.young_objects_with_weakrefs.append(result+size_gc_header)
-            #
-            obj = result + size_gc_header
+                self.young_objects_with_weakrefs.append(obj)
         #
         return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
@@ -1264,6 +1269,8 @@ class MiniMarkGC(MovingGCBase):
         # weakrefs' targets.
         if self.young_objects_with_weakrefs.non_empty():
             self.invalidate_young_weakrefs()
+        if self.young_objects_with_light_finalizers.non_empty():
+            self.deal_with_young_objects_with_finalizers()
         #
         # Clear this mapping.
         if self.nursery_objects_shadows.length() > 0:
@@ -1292,10 +1299,12 @@ class MiniMarkGC(MovingGCBase):
         # if a prebuilt GcStruct contains a pointer to a young object,
         # then the write_barrier must have ensured that the prebuilt
         # GcStruct is in the list self.old_objects_pointing_to_young.
+        debug_start("gc-minor-walkroots")
         self.root_walker.walk_roots(
             MiniMarkGC._trace_drag_out1,  # stack roots
             MiniMarkGC._trace_drag_out1,  # static in prebuilt non-gc
             None)                         # static in prebuilt gc
+        debug_stop("gc-minor-walkroots")
 
     def collect_cardrefs_to_nursery(self):
         size_gc_header = self.gcheaderbuilder.size_gc_header
@@ -1582,6 +1591,9 @@ class MiniMarkGC(MovingGCBase):
         # Weakref support: clear the weak pointers to dying objects
         if self.old_objects_with_weakrefs.non_empty():
             self.invalidate_old_weakrefs()
+        if self.old_objects_with_light_finalizers.non_empty():
+            self.deal_with_old_objects_with_finalizers()
+
         #
         # Walk all rawmalloced objects and free the ones that don't
         # have the GCFLAG_VISITED flag.
@@ -1647,8 +1659,7 @@ class MiniMarkGC(MovingGCBase):
         if self.header(obj).tid & GCFLAG_VISITED:
             self.header(obj).tid &= ~GCFLAG_VISITED
             return False     # survives
-        else:
-            return True      # dies
+        return True      # dies
 
     def _reset_gcflag_visited(self, obj, ignored):
         self.header(obj).tid &= ~GCFLAG_VISITED
@@ -1827,6 +1838,39 @@ class MiniMarkGC(MovingGCBase):
     # ----------
     # Finalizers
 
+    def deal_with_young_objects_with_finalizers(self):
+        """ This is a much simpler version of dealing with finalizers
+        and an optimization - we can reasonably assume that those finalizers
+        don't do anything fancy and *just* call them. Among other things
+        they won't resurrect objects
+        """
+        while self.young_objects_with_light_finalizers.non_empty():
+            obj = self.young_objects_with_light_finalizers.pop()
+            if not self.is_forwarded(obj):
+                finalizer = self.getlightfinalizer(self.get_type_id(obj))
+                ll_assert(bool(finalizer), "no light finalizer found")
+                finalizer(obj, llmemory.NULL)
+
+    def deal_with_old_objects_with_finalizers(self):
+        """ This is a much simpler version of dealing with finalizers
+        and an optimization - we can reasonably assume that those finalizers
+        don't do anything fancy and *just* call them. Among other things
+        they won't resurrect objects
+        """
+        new_objects = self.AddressStack()
+        while self.old_objects_with_light_finalizers.non_empty():
+            obj = self.old_objects_with_light_finalizers.pop()
+            if self.header(obj).tid & GCFLAG_VISITED:
+                # surviving
+                new_objects.append(obj)
+            else:
+                # dying
+                finalizer = self.getlightfinalizer(self.get_type_id(obj))
+                ll_assert(bool(finalizer), "no light finalizer found")
+                finalizer(obj, llmemory.NULL)
+        self.old_objects_with_light_finalizers.delete()
+        self.old_objects_with_light_finalizers = new_objects
+
     def deal_with_objects_with_finalizers(self):
         # Walk over list of objects with finalizers.
         # If it is not surviving, add it to the list of to-be-called
@@ -1956,7 +2000,6 @@ class MiniMarkGC(MovingGCBase):
                     continue    # no need to remember this weakref any longer
             #
             self.old_objects_with_weakrefs.append(obj)
-
 
     def invalidate_old_weakrefs(self):
         """Called during a major collection."""

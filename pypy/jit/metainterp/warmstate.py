@@ -178,7 +178,7 @@ class JitCell(BaseJitCell):
         if self.compiled_merge_points_wref is not None:
             for wref in self.compiled_merge_points_wref:
                 looptoken = wref()
-                if looptoken is not None:
+                if looptoken is not None and not looptoken.invalidated:
                     result.append(looptoken)
         return result
 

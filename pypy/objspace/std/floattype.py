@@ -12,6 +12,7 @@ from pypy.objspace.std.strutil import string_to_float
 
 
 float_as_integer_ratio = SMM("as_integer_ratio", 1)
+float_is_integer = SMM("is_integer", 1)
 float_hex = SMM("hex", 1)
 
 def descr_conjugate(space, w_float):

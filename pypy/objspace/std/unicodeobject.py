@@ -417,54 +417,54 @@ def unicode_capitalize__Unicode(space, w_self):
     input = w_self._value
     if len(input) == 0:
         return W_UnicodeObject.EMPTY
-    result = [u'\0'] * len(input)
-    result[0] = unichr(unicodedb.toupper(ord(input[0])))
+    builder = UnicodeBuilder(len(input))
+    builder.append(unichr(unicodedb.toupper(ord(input[0]))))
     for i in range(1, len(input)):
-        result[i] = unichr(unicodedb.tolower(ord(input[i])))
-    return W_UnicodeObject(u''.join(result))
+        builder.append(unichr(unicodedb.tolower(ord(input[i]))))
+    return W_UnicodeObject(builder.build())
 
 def unicode_title__Unicode(space, w_self):
     input = w_self._value
     if len(input) == 0:
         return w_self
-    result = [u'\0'] * len(input)
+    builder = UnicodeBuilder(len(input))
 
     previous_is_cased = False
     for i in range(len(input)):
         unichar = ord(input[i])
         if previous_is_cased:
-            result[i] = unichr(unicodedb.tolower(unichar))
+            builder.append(unichr(unicodedb.tolower(unichar)))
         else:
-            result[i] = unichr(unicodedb.totitle(unichar))
+            builder.append(unichr(unicodedb.totitle(unichar)))
         previous_is_cased = unicodedb.iscased(unichar)
-    return W_UnicodeObject(u''.join(result))
+    return W_UnicodeObject(builder.build())
 
 def unicode_lower__Unicode(space, w_self):
     input = w_self._value
-    result = [u'\0'] * len(input)
+    builder = UnicodeBuilder(len(input))
     for i in range(len(input)):
-        result[i] = unichr(unicodedb.tolower(ord(input[i])))
-    return W_UnicodeObject(u''.join(result))
+        builder.append(unichr(unicodedb.tolower(ord(input[i]))))
+    return W_UnicodeObject(builder.build())
 
 def unicode_upper__Unicode(space, w_self):
     input = w_self._value
-    result = [u'\0'] * len(input)
+    builder = UnicodeBuilder(len(input))
     for i in range(len(input)):
-        result[i] = unichr(unicodedb.toupper(ord(input[i])))
-    return W_UnicodeObject(u''.join(result))
+        builder.append(unichr(unicodedb.toupper(ord(input[i]))))
+    return W_UnicodeObject(builder.build())
 
 def unicode_swapcase__Unicode(space, w_self):
     input = w_self._value
-    result = [u'\0'] * len(input)
+    builder = UnicodeBuilder(len(input))
     for i in range(len(input)):
         unichar = ord(input[i])
         if unicodedb.islower(unichar):
-            result[i] = unichr(unicodedb.toupper(unichar))
+            builder.append(unichr(unicodedb.toupper(unichar)))
         elif unicodedb.isupper(unichar):
-            result[i] = unichr(unicodedb.tolower(unichar))
+            builder.append(unichr(unicodedb.tolower(unichar)))
         else:
-            result[i] = input[i]
-    return W_UnicodeObject(u''.join(result))
+            builder.append(input[i])
+    return W_UnicodeObject(builder.build())
 
 def _normalize_index(length, index):
     if index < 0:
