@@ -943,7 +943,7 @@ def _init_from_iterable(space, w_list, w_iterable):
     # xxx special hack for speed
     from pypy.interpreter.generator import GeneratorIterator
     if isinstance(w_iterable, GeneratorIterator):
-        w_iterable.unpack_into(items_w)
+        w_iterable.unpack_into_w(w_list)
         return
     # /xxx
     w_iterator = space.iter(w_iterable)
