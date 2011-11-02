@@ -12,6 +12,7 @@ from pypy.rlib.objectmodel import instantiate
 from pypy.interpreter.generator import GeneratorIterator
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.intobject import W_IntObject
+from pypy.objspace.std.stringobject import W_StringObject
 
 class W_BaseSetObject(W_Object):
     typedef = None
@@ -705,6 +706,30 @@ class AbstractUnwrappedSetStrategy(object):
                             self.space.wrap('pop from an empty set'))
         return self.wrap(result[0])
 
+class StringSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
+    erase, unerase = rerased.new_erasing_pair("string")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def get_empty_storage(self):
+        return self.erase({})
+
+    def get_empty_dict(self):
+        return {}
+
+    def is_correct_type(self, w_key):
+        return type(w_key) is W_StringObject
+
+    def unwrap(self, w_item):
+        return self.space.str_w(w_item)
+
+    def wrap(self, item):
+        return self.space.wrap(item)
+
+    def iter(self, w_set):
+        return StringIteratorImplementation(self.space, self, w_set)
+
+
 class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     erase, unerase = rerased.new_erasing_pair("integer")
     erase = staticmethod(erase)
@@ -798,6 +823,19 @@ class EmptyIteratorImplementation(IteratorImplementation):
     def next_entry(self):
         return None
 
+
+class StringIteratorImplementation(IteratorImplementation):
+    def __init__(self, space, strategy, w_set):
+        IteratorImplementation.__init__(self, space, w_set)
+        d = strategy.unerase(w_set.sstorage)
+        self.iterator = d.iterkeys()
+
+    def next_entry(self):
+        for key in self.iterator:
+            return self.space.wrap(key)
+        else:
+            return None
+
 class IntegerIteratorImplementation(IteratorImplementation):
     #XXX same implementation in dictmultiobject on dictstrategy-branch
     def __init__(self, space, strategy, dictimplementation):
@@ -875,12 +913,23 @@ def set_strategy_and_setdata(space, w_set, w_iterable):
         w_set.sstorage = strategy.get_empty_storage()
         return
 
+    #XXX check ints and strings at once
+
     # check for integers
     for w_item in iterable_w:
         if type(w_item) is not W_IntObject:
             break
     else:
         w_set.strategy = space.fromcache(IntegerSetStrategy)
+        w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
+        return
+
+    # check for strings
+    for w_item in iterable_w:
+        if type(w_item) is not W_StringObject:
+            break
+    else:
+        w_set.strategy = space.fromcache(StringSetStrategy)
         w_set.sstorage = w_set.strategy.get_storage_from_list(iterable_w)
         return
 
