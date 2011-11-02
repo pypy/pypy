@@ -216,9 +216,11 @@ def compile_template(source, resultname):
 
 # ____________________________________________________________
 
-def func_with_new_name(func, newname):
+def func_with_new_name(func, newname, globals=None):
     """Make a renamed copy of a function."""
-    f = new.function(func.func_code, func.func_globals,
+    if globals is None:
+        globals = func.func_globals
+    f = new.function(func.func_code, globals,
                         newname, func.func_defaults,
                         func.func_closure)
     if func.func_dict:

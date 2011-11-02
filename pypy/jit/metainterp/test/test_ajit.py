@@ -10,6 +10,7 @@ from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin, noConst
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from pypy.jit.metainterp.warmspot import get_stats
 from pypy.jit.metainterp.warmstate import set_future_value
+from pypy.rlib import rerased
 from pypy.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
     loop_invariant, elidable, promote, jit_debug, assert_green,
     AssertGreenFailed, unroll_safe, current_trace_length, look_inside_iff,
@@ -3494,15 +3495,69 @@ class BaseLLtypeTests(BasicTests):
             d = None
             while n > 0:
                 myjitdriver.jit_merge_point(n=n, d=d)
-                d = {}
+                d = {"q": 1}
                 if n % 2:
                     d["k"] = n
                 else:
                     d["z"] = n
-                n -= len(d)
+                n -= len(d) - d["q"]
             return n
         res = self.meta_interp(f, [10])
         assert res == 0
+
+    def test_virtual_dict_constant_keys(self):
+        myjitdriver = JitDriver(greens = [], reds = ["n"])
+        def g(d):
+            return d["key"] - 1
+
+        def f(n):
+            while n > 0:
+                myjitdriver.jit_merge_point(n=n)
+                n = g({"key": n})
+            return n
+
+        res = self.meta_interp(f, [10])
+        assert res == 0
+        self.check_loops({"int_sub": 1, "int_gt": 1, "guard_true": 1, "jump": 1})
+
+    def test_virtual_opaque_ptr(self):
+        myjitdriver = JitDriver(greens = [], reds = ["n"])
+        erase, unerase = rerased.new_erasing_pair("x")
+        @look_inside_iff(lambda x: isvirtual(x))
+        def g(x):
+            return x[0]
+        def f(n):
+            while n > 0:
+                myjitdriver.jit_merge_point(n=n)
+                x = []
+                y = erase(x)
+                z = unerase(y)
+                z.append(1)
+                n -= g(z)
+            return n
+        res = self.meta_interp(f, [10])
+        assert res == 0
+        self.check_loops({"int_sub": 1, "int_gt": 1, "guard_true": 1, "jump": 1})
+
+    def test_virtual_opaque_dict(self):
+        myjitdriver = JitDriver(greens = [], reds = ["n"])
+        erase, unerase = rerased.new_erasing_pair("x")
+        @look_inside_iff(lambda x: isvirtual(x))
+        def g(x):
+            return x[0]["key"] - 1
+        def f(n):
+            while n > 0:
+                myjitdriver.jit_merge_point(n=n)
+                x = [{}]
+                x[0]["key"] = n
+                x[0]["other key"] = n
+                y = erase(x)
+                z = unerase(y)
+                n = g(x)
+            return n
+        res = self.meta_interp(f, [10])
+        assert res == 0
+        self.check_loops({"int_sub": 1, "int_gt": 1, "guard_true": 1, "jump": 1})
 
 
 
@@ -3561,8 +3616,7 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         res = self.meta_interp(main, [False, 100, True], taggedpointers=True)
 
     def test_rerased(self):
-        from pypy.rlib.rerased import erase_int, unerase_int, new_erasing_pair
-        eraseX, uneraseX = new_erasing_pair("X")
+        eraseX, uneraseX = rerased.new_erasing_pair("X")
         #
         class X:
             def __init__(self, a, b):
@@ -3575,14 +3629,14 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
                 e = eraseX(X(i, j))
             else:
                 try:
-                    e = erase_int(i)
+                    e = rerased.erase_int(i)
                 except OverflowError:
                     return -42
             if j & 1:
                 x = uneraseX(e)
                 return x.a - x.b
             else:
-                return unerase_int(e)
+                return rerased.unerase_int(e)
         #
         x = self.interp_operations(f, [-128, 0], taggedpointers=True)
         assert x == -128

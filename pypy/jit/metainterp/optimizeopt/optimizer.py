@@ -209,13 +209,19 @@ class OptValue(object):
     def setfield(self, ofs, value):
         raise NotImplementedError
 
-    def getitem(self, index):
-        raise NotImplementedError
-
     def getlength(self):
         raise NotImplementedError
 
+    def getitem(self, index):
+        raise NotImplementedError
+
     def setitem(self, index, value):
+        raise NotImplementedError
+
+    def getinteriorfield(self, index, ofs, default):
+        raise NotImplementedError
+
+    def setinteriorfield(self, index, ofs, value):
         raise NotImplementedError
 
 
@@ -283,11 +289,11 @@ class Optimization(object):
             return self.optimizer.optpure.has_pure_result(opnum, args, descr)
         return False
 
-    def get_pure_result(self, key):    
+    def get_pure_result(self, key):
         if self.optimizer.optpure:
             return self.optimizer.optpure.get_pure_result(key)
         return None
-    
+
     def setup(self):
         pass
 
@@ -524,7 +530,7 @@ class Optimizer(Optimization):
 
     def replace_op(self, old_op, new_op):
         # XXX: Do we want to cache indexes to prevent search?
-        i = len(self._newoperations) 
+        i = len(self._newoperations)
         while i > 0:
             i -= 1
             if self._newoperations[i] is old_op:

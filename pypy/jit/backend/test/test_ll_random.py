@@ -34,8 +34,8 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
             v, S = from_[i][:2]
             if not isinstance(S, type):
                 continue
-            if (isinstance(S, lltype.Array) and
-                isinstance(S.OF, lltype.Struct) == array_of_structs):
+            if ((isinstance(S, lltype.Array) and
+                 isinstance(S.OF, lltype.Struct)) == array_of_structs):
                 ptrvars.append((v, S))
         return ptrvars
 
@@ -180,8 +180,16 @@ class LLtypeOperationBuilder(test_random.OperationBuilder):
                     dic[fieldname] = getattr(p, fieldname)
         else:
             assert isinstance(S, lltype.Array)
-            for i in range(len(p)):
-                dic[i] = p[i]
+            if isinstance(S.OF, lltype.Struct):
+                for i in range(len(p)):
+                    item = p[i]
+                    s1 = {}
+                    for fieldname in S.OF._names:
+                        s1[fieldname] = getattr(item, fieldname)
+                    dic[i] = s1
+            else:
+                for i in range(len(p)):
+                    dic[i] = p[i]
         return dic
 
     def print_loop_prebuilt(self, names, writevar, s):
@@ -270,10 +278,7 @@ class GetInteriorFieldOperation(test_random.AbstractOperation):
                                          array_of_structs=True)
         array = v.getref(lltype.Ptr(A))
         v_index = builder.get_index(len(array), r)
-        names = A.OF._names
-        if names[0] == 'parent':
-            names = names[1:]
-        name = r.choice(names)
+        name = r.choice(A.OF._names)
         descr = builder.cpu.interiorfielddescrof(A, name)
         descr._random_info = 'cpu.interiorfielddescrof(%s, %r)' % (A.OF._name,
                                                                    name)
@@ -301,11 +306,9 @@ class SetFieldOperation(GetFieldOperation):
                 break
         builder.do(self.opnum, [v, w], descr)
 
-class SetInteriorFieldOperation(GetFieldOperation):
+class SetInteriorFieldOperation(GetInteriorFieldOperation):
     def produce_into(self, builder, r):
-        import pdb
-        pdb.set_trace()
-        v, descr, TYPE = self.field_descr(builder, r)
+        v, v_index, descr, TYPE = self.field_descr(builder, r)
         while True:
             if r.random() < 0.3:
                 w = ConstInt(r.random_integer())
@@ -313,7 +316,7 @@ class SetInteriorFieldOperation(GetFieldOperation):
                 w = r.choice(builder.intvars)
             if rffi.cast(lltype.Signed, rffi.cast(TYPE, w.value)) == w.value:
                 break
-        builder.do(self.opnum, [v, w], descr)
+        builder.do(self.opnum, [v, v_index, w], descr)
 
 class NewOperation(test_random.AbstractOperation):
     def size_descr(self, builder, S):
@@ -652,7 +655,7 @@ for i in range(4):      # make more common
     OPERATIONS.append(GetFieldOperation(rop.GETFIELD_GC))
     OPERATIONS.append(GetInteriorFieldOperation(rop.GETINTERIORFIELD_GC))
     OPERATIONS.append(SetFieldOperation(rop.SETFIELD_GC))
-    #OPERATIONS.append(SetInteriorFieldOperation(rop.SETINTERIORFIELD_GC))
+    OPERATIONS.append(SetInteriorFieldOperation(rop.SETINTERIORFIELD_GC))
     OPERATIONS.append(NewOperation(rop.NEW))
     OPERATIONS.append(NewOperation(rop.NEW_WITH_VTABLE))
 
