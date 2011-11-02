@@ -8,7 +8,7 @@ from pypy.interpreter.pyopcode import LoopBlock
 class GeneratorIterator(Wrappable):
     "An iterator created by a generator."
     _immutable_fields_ = ['pycode']
-    
+
     def __init__(self, frame):
         self.space = frame.space
         self.frame = frame     # turned into None when frame_finished_execution
@@ -81,7 +81,7 @@ return next yielded value or raise StopIteration."""
             # if the frame is now marked as finished, it was RETURNed from
             if frame.frame_finished_execution:
                 self.frame = None
-                raise OperationError(space.w_StopIteration, space.w_None) 
+                raise OperationError(space.w_StopIteration, space.w_None)
             else:
                 return w_result     # YIELDed
         finally:
@@ -97,21 +97,21 @@ return next yielded value or raise StopIteration."""
     def throw(self, w_type, w_val, w_tb):
         from pypy.interpreter.pytraceback import check_traceback
         space = self.space
-        
+
         msg = "throw() third argument must be a traceback object"
         if space.is_w(w_tb, space.w_None):
             tb = None
         else:
             tb = check_traceback(space, w_tb, msg)
-       
+
         operr = OperationError(w_type, w_val, tb)
         operr.normalize_exception(space)
         return self.send_ex(space.w_None, operr)
-             
+
     def descr_next(self):
         """x.next() -> the next value, or raise StopIteration"""
         return self.send_ex(self.space.w_None)
- 
+
     def descr_close(self):
         """x.close(arg) -> raise GeneratorExit inside generator."""
         assert isinstance(self, GeneratorIterator)
@@ -124,7 +124,7 @@ return next yielded value or raise StopIteration."""
                     e.match(space, space.w_GeneratorExit):
                 return space.w_None
             raise
-        
+
         if w_retval is not None:
             msg = "generator ignored GeneratorExit"
             raise OperationError(space.w_RuntimeError, space.wrap(msg))
@@ -174,7 +174,12 @@ return next yielded value or raise StopIteration."""
                 jitdriver.jit_merge_point(self=self, frame=frame,
                                           results_w=results_w,
                                           pycode=pycode)
-                w_result = frame.execute_frame(space.w_None)
+                try:
+                    w_result = frame.execute_frame(space.w_None)
+                except OperationError, e:
+                    if not e.match(space, space.w_StopIteration):
+                        raise
+                    break
                 # if the frame is now marked as finished, it was RETURNed from
                 if frame.frame_finished_execution:
                     break
