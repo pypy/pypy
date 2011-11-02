@@ -201,10 +201,10 @@ class TestMisc(BaseTestPyPyC):
         assert log.result == 1000000
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
-            i14 = getfield_gc(p12, descr=<SignedFieldDescr list.length 4>)
+            i14 = getfield_gc(p12, descr=<SignedFieldDescr list.length .*>)
             i16 = uint_ge(i12, i14)
             guard_false(i16, descr=...)
-            p16 = getfield_gc(p12, descr=<GcPtrFieldDescr list.items 8>)
+            p16 = getfield_gc(p12, descr=<GcPtrFieldDescr list.items .*>)
             p17 = getarrayitem_gc(p16, i12, descr=<GcPtrArrayDescr>)
             i19 = int_add(i12, 1)
             setfield_gc(p9, i19, descr=<SignedFieldDescr .*W_AbstractSeqIterObject.inst_index .*>)
