@@ -250,8 +250,12 @@ class BaseArray(Wrappable):
         concrete = self.get_concrete()
         res = "array("
         res0 = NDimSlice(concrete, self.signature, [], self.shape).tostr(True, indent='       ')
+        #This is for numpy compliance: an empty slice reports its shape
         if res0=="[]" and isinstance(self,NDimSlice):
-            res0 += ", shape=%s"%(tuple(self.shape),)
+            res0 += ", shape="
+            res1 = str(self.shape)
+            assert len(res1)>1
+            res0 += '('+ res1[1:max(len(res1)-1,1)]+')'
         res += res0
         dtype = concrete.find_dtype()
         if (dtype is not space.fromcache(interp_dtype.W_Float64Dtype) and
@@ -409,6 +413,7 @@ def convert_to_array(space, w_obj):
         return scalar_w(space, dtype, w_obj)
 
 def scalar_w(space, dtype, w_obj):
+    assert isinstance(dtype, interp_dtype.W_Dtype)
     return Scalar(dtype, dtype.unwrap(space, w_obj))
 
 class Scalar(BaseArray):
@@ -670,9 +675,10 @@ class NDimSlice(ViewArray):
         ret = ''
         dtype = self.find_dtype()
         ndims = len(self.shape)#-self.shape_reduction
-        if any([s==0 for s in self.shape]):
-            ret += '[]'
-            return ret
+        for s in self.shape:
+            if s==0:
+                ret += '[]'
+                return ret
         if ndims>2:
             ret += '['
             for i in range(self.shape[0]):
