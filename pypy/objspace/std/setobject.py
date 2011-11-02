@@ -506,6 +506,9 @@ class AbstractUnwrappedSetStrategy(object):
         if self is w_other.strategy:
             strategy = w_set.strategy
             storage = self._difference_unwrapped(w_set, w_other)
+        elif not_comparable(self.space, w_set.strategy, w_other.strategy):
+            strategy = w_set.strategy
+            storage = w_set.sstorage
         else:
             strategy = self.space.fromcache(ObjectSetStrategy)
             storage = self._difference_wrapped(w_set, w_other)
@@ -890,6 +893,17 @@ def next__SetIterObject(space, w_setiter):
 ##    return space.wrap(w_setiter.len - w_setiter.pos)
 
 # some helper functions
+
+def not_comparable(space, strategy1, strategy2):
+    # add all strategies here that cannot be compared. this way is safer than
+    # adding only types that can be compared. else we get wrong results if
+    # someone adds new strategies and forgets to define them here. since this
+    # is only a fastpath we want to avoid possible errors
+    if strategy1 is space.fromcache(StringSetStrategy) and strategy2 is space.fromcache(IntegerSetStrategy):
+        return True
+    if strategy1 is space.fromcache(EmptySetStrategy) or strategy2 is space.fromcache(EmptySetStrategy):
+        return True
+    return False
 
 def newset(space):
     return r_dict(space.eq_w, space.hash_w, force_non_null=True)
