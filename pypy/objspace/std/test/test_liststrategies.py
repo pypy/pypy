@@ -1,4 +1,5 @@
 from pypy.objspace.std.listobject import W_ListObject, EmptyListStrategy, ObjectListStrategy, IntegerListStrategy, StringListStrategy, RangeListStrategy, make_range_list
+from pypy.objspace.std import listobject
 from pypy.objspace.std.test.test_listobject import TestW_ListObject
 
 from pypy.conftest import gettestobjspace
@@ -237,6 +238,18 @@ class TestW_ListStrategies(TestW_ListObject):
 
         l = make_range_list(self.space, 1,3,7)
         assert isinstance(l.strategy, RangeListStrategy)
+        v = l.pop(0)
+        assert self.space.eq_w(v, self.space.wrap(1))
+        assert isinstance(l.strategy, RangeListStrategy)
+        v = l.pop(l.length() - 1)
+        assert self.space.eq_w(v, self.space.wrap(19))
+        assert isinstance(l.strategy, RangeListStrategy)
+        v = l.pop_end()
+        assert self.space.eq_w(v, self.space.wrap(16))
+        assert isinstance(l.strategy, RangeListStrategy)
+
+        l = make_range_list(self.space, 1,3,7)
+        assert isinstance(l.strategy, RangeListStrategy)
         l.append(self.space.wrap("string"))
         assert isinstance(l.strategy, ObjectListStrategy)
 
@@ -378,6 +391,13 @@ class TestW_ListStrategies(TestW_ListObject):
             del space.newlist
         assert space.listview_str(w_l) == ["a", "b", "c"]
         assert space.listview_str(w_l2) == ["a", "b", "c"]
+
+    def test_pop_without_argument_is_fast(self):
+        space = self.space
+        w_l = W_ListObject(space, [space.wrap(1), space.wrap(2), space.wrap(3)])
+        w_l.pop = None
+        w_res = listobject.list_pop__List_ANY(space, w_l, space.w_None) # does not crash
+        assert space.unwrap(w_res) == 3
 
 
 class TestW_ListStrategiesDisabled:

@@ -189,6 +189,10 @@ class W_ListObject(W_Object):
         May raise IndexError."""
         return self.strategy.pop(self, index)
 
+    def pop_end(self):
+        """ Pop the last element from the list."""
+        return self.strategy.pop_end(self)
+
     def setitem(self, index, w_item):
         """Inserts a wrapped item at the given (unwrapped) index.
         May raise IndexError."""
@@ -282,6 +286,9 @@ class ListStrategy(object):
     def pop(self, w_list, index):
         raise NotImplementedError
 
+    def pop_end(self, w_list):
+        return self.pop(w_list, self.length(w_list) - 1)
+
     def setitem(self, w_list, index, w_item):
         raise NotImplementedError
 
@@ -372,7 +379,7 @@ class EmptyListStrategy(ListStrategy):
         pass
 
     def pop(self, w_list, index):
-        # will not be called becuase IndexError was already raised in
+        # will not be called because IndexError was already raised in
         # list_pop__List_ANY
         raise IndexError
 
@@ -527,21 +534,25 @@ class RangeListStrategy(ListStrategy):
         self.switch_to_integer_strategy(w_list)
         w_list.deleteslice(start, step, slicelength)
 
+    def pop_end(self, w_list):
+        start, step, length = self.unerase(w_list.lstorage)
+        w_result = self.wrap(start + (length - 1) * step)
+        new = self.erase((start, step, length - 1))
+        w_list.lstorage = new
+        return w_result
+
     def pop(self, w_list, index):
         l = self.unerase(w_list.lstorage)
         start = l[0]
         step = l[1]
         length = l[2]
         if index == 0:
-            r = self.getitem(w_list, index)
+            w_result = self.wrap(start)
             new = self.erase((start + step, step, length - 1))
             w_list.lstorage = new
-            return r
+            return w_result
         elif index == length - 1:
-            r = self.getitem(w_list, index)
-            new = self.erase((start, step, length - 1))
-            w_list.lstorage = new
-            return r
+            return self.pop_end(w_list)
         else:
             self.switch_to_integer_strategy(w_list)
             return w_list.pop(index)
@@ -811,6 +822,10 @@ class AbstractUnwrappedStrategy(object):
             start = n - slicelength
             assert start >= 0 # annotator hint
             del items[start:]
+
+    def pop_end(self, w_list):
+        l = self.unerase(w_list.lstorage)
+        return self.wrap(l.pop())
 
     def pop(self, w_list, index):
         l = self.unerase(w_list.lstorage)
@@ -1196,12 +1211,15 @@ def list_extend__List_ANY(space, w_list, w_any):
     w_list.extend(w_other)
     return space.w_None
 
-# note that the default value will come back wrapped!!!
-def list_pop__List_ANY(space, w_list, w_idx=-1):
+# default of w_idx is space.w_None (see listtype.py)
+def list_pop__List_ANY(space, w_list, w_idx):
     length = w_list.length()
     if length == 0:
         raise OperationError(space.w_IndexError,
                              space.wrap("pop from empty list"))
+    # clearly differentiate between list.pop() and list.pop(index)
+    if space.is_w(w_idx, space.w_None):
+        return w_list.pop_end() # cannot raise because list is not empty
     if space.isinstance_w(w_idx, space.w_float):
         raise OperationError(space.w_TypeError,
             space.wrap("integer argument expected, got float")

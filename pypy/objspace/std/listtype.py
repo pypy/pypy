@@ -11,7 +11,7 @@ list_insert   = SMM('insert', 3,
 list_extend   = SMM('extend', 2,
                     doc='L.extend(iterable) -- extend list by appending'
                         ' elements from the iterable')
-list_pop      = SMM('pop',    2, defaults=(-1,),
+list_pop      = SMM('pop',    2, defaults=(None,),
                     doc='L.pop([index]) -> item -- remove and return item at'
                         ' index (default last)')
 list_remove   = SMM('remove', 2,
