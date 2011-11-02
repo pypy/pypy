@@ -4225,6 +4225,27 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_strunicode_loop(ops, expected)
 
+    def test_str_slice_plain_virtual(self):
+        ops = """
+        []
+        p0 = newstr(11)
+        copystrcontent(s"hello world", p0, 0, 0, 11)
+        p1 = call(0, p0, 0, 5, descr=strslicedescr)
+        finish(p1)
+        """
+        expected = """
+        []
+        p0 = newstr(11)
+        copystrcontent(s"hello world", p0, 0, 0, 11)
+        # Eventually this should just return s"hello", but ATM this test is
+        # just verifying that it doesn't return "\0\0\0\0\0", so being
+        # slightly underoptimized is ok.
+        p1 = newstr(5)
+        copystrcontent(p0, p1, 0, 0, 5)
+        finish(p1)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
     # ----------
     def optimize_strunicode_loop_extradescrs(self, ops, optops):
         class FakeCallInfoCollection:

@@ -505,11 +505,17 @@ class OptString(optimizer.Optimization):
         #
         if (isinstance(vstr, VStringPlainValue) and vstart.is_constant()
             and vstop.is_constant()):
-            # slicing with constant bounds of a VStringPlainValue
-            value = self.make_vstring_plain(op.result, op, mode)
-            value.setup_slice(vstr._chars, vstart.box.getint(),
-                                           vstop.box.getint())
-            return True
+            # slicing with constant bounds of a VStringPlainValue, if any of
+            # the characters is unitialized we don't do this special slice, we
+            # do the regular copy contents.
+            for i in range(vstart.box.getint(), vstop.box.getint()):
+                if vstr.getitem(i) is optimizer.CVAL_UNINITIALIZED_ZERO:
+                    break
+            else:
+                value = self.make_vstring_plain(op.result, op, mode)
+                value.setup_slice(vstr._chars, vstart.box.getint(),
+                                               vstop.box.getint())
+                return True
         #
         vstr.ensure_nonnull()
         lengthbox = _int_sub(self, vstop.force_box(self),
