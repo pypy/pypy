@@ -626,7 +626,29 @@ class AbstractUnwrappedSetStrategy(object):
     def intersect_multiple(self, w_set, others_w):
         #XXX find smarter implementations
         result = w_set.copy_real()
+
+        # find smallest set in others_w to reduce comparisons
+        # XXX maybe we can do this smarter
+        if len(others_w) > 1:
+            startset, startlength = None, 0
+            for w_other in others_w:
+                try:
+                    length = self.space.len(w_other)
+                except OperationError, e:
+                    if not e.match(self.space, self.space.w_TypeError):
+                        raise
+                    continue
+
+                if startset is None or self.space.is_true(self.space.lt(length, startlength)):
+                    startset = w_other
+                    startlength = length
+
+            others_w[others_w.index(startset)] = others_w[0]
+            others_w[0] = startset
+
         for w_other in others_w:
+            if result.length() == 0:
+                break
             if isinstance(w_other, W_BaseSetObject):
                 # optimization only
                 result.intersect_update(w_other)
