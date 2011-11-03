@@ -9,9 +9,9 @@ from pypy.jit.backend.ppc.ppcgen.opassembler import OpAssembler
 from pypy.jit.backend.ppc.ppcgen.symbol_lookup import lookup
 from pypy.jit.backend.ppc.ppcgen.codebuilder import PPCBuilder
 from pypy.jit.backend.ppc.ppcgen.arch import (IS_PPC_32, WORD, NONVOLATILES,
-                                              GPR_SAVE_AREA)
+                                              GPR_SAVE_AREA, BACKCHAIN_SIZE)
 from pypy.jit.backend.ppc.ppcgen.helper.assembler import (gen_emit_cmp_op, 
-                                                          encode32, decode32)
+                                                          encode32, decode32, decode32_test)
 import pypy.jit.backend.ppc.ppcgen.register as r
 import pypy.jit.backend.ppc.ppcgen.condition as c
 from pypy.jit.metainterp.history import (Const, ConstPtr, LoopToken,
@@ -156,12 +156,12 @@ class AssemblerPPC(OpAssembler):
     def setup_failure_recovery(self):
 
         @rgc.no_collect
-        def failure_recovery_func(mem_loc, frame_pointer, stack_pointer):
+        def failure_recovery_func(mem_loc, stack_pointer, spilling_pointer):
             """mem_loc is a structure in memory describing where the values for
             the failargs are stored.
             frame loc is the address of the frame pointer for the frame to be
             decoded frame """
-            return self.decode_registers_and_descr(mem_loc, frame_pointer, stack_pointer)
+            return self.decode_registers_and_descr(mem_loc, stack_pointer, spilling_pointer)
 
         self.failure_recovery_func = failure_recovery_func
 
@@ -177,11 +177,13 @@ class AssemblerPPC(OpAssembler):
             '''
         enc = rffi.cast(rffi.CCHARP, mem_loc)
         managed_size = WORD * len(r.MANAGED_REGS)
+        # XXX do some sanity considerations
         spilling_depth = spp_loc - stack_loc + managed_size
         spilling_area = rffi.cast(rffi.CCHARP, stack_loc + managed_size)
         assert spilling_depth >= 0
+        assert spp_loc > stack_loc
 
-        regs = rffi.cast(rffi.CCHARP, stack_loc)
+        regs = rffi.cast(rffi.CCHARP, stack_loc + BACKCHAIN_SIZE)
         i = -1
         fail_index = -1
         while(True):
@@ -226,8 +228,8 @@ class AssemblerPPC(OpAssembler):
                     self.fail_boxes_float.setitem(fail_index, value)
                     continue
                 else:
-                    value = decode32(regs, reg*WORD - 2 * WORD)
-
+                    value = decode32(regs, (reg - 3) * WORD)
+    
             if group == self.INT_TYPE:
                 self.fail_boxes_int.setitem(fail_index, value)
             elif group == self.REF_TYPE:
@@ -268,8 +270,7 @@ class AssemblerPPC(OpAssembler):
                 j += 4
             else: # REG_LOC
                 #loc = r.all_regs[ord(res)]
-                #import pdb; pdb.set_trace()
-                loc = r.MANAGED_REGS[ord(res) - 2]
+                loc = r.MANAGED_REGS[ord(res) - 3]
             j += 1
             locs.append(loc)
         return locs
@@ -293,7 +294,10 @@ class AssemblerPPC(OpAssembler):
         #
         self._save_managed_regs(mc)
         # adjust SP (r1)
-        size = WORD * len(r.MANAGED_REGS)
+        size = WORD * (len(r.MANAGED_REGS)) + BACKCHAIN_SIZE
+        # XXX do quadword alignment
+        #while size % (4 * WORD) != 0:
+        #    size += WORD
         mc.addi(r.SP.value, r.SP.value, -size)
         #
         decode_func_addr = llhelper(self.recovery_func_sign,
@@ -301,8 +305,7 @@ class AssemblerPPC(OpAssembler):
         addr = rffi.cast(lltype.Signed, decode_func_addr)
         #
         # load parameters into parameter registers
-        mc.lwz(r.r3.value, r.SPP.value, 0)
-        #mc.mr(r.r3.value, r.r0.value)          # address of state encoding 
+        mc.lwz(r.r3.value, r.SPP.value, 0)     # address of state encoding 
         mc.mr(r.r4.value, r.SP.value)          # load stack pointer
         mc.mr(r.r5.value, r.SPP.value)         # load spilling pointer
         #

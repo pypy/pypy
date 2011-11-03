@@ -207,7 +207,7 @@ class Regalloc(object):
                 box = TempInt()
             loc = self.force_allocate_reg(box, forbidden_vars=forbidden_vars)
             imm = self.rm.convert_to_imm(thing)
-            self.assembler.load_imm(loc.value, imm.value)
+            self.assembler.mc.load_imm(loc, imm.value)
         else:
             loc = self.make_sure_var_in_reg(thing,
                     forbidden_vars=forbidden_vars)
