@@ -4,7 +4,7 @@ from pypy.translator.stm import rstm
 
 
 NUM_THREADS = 4
-LENGTH      = 10000
+LENGTH      = 5000
 
 
 class Node:

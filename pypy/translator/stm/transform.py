@@ -3,23 +3,17 @@ from pypy.objspace.flow.model import Block, Link, checkgraph
 from pypy.annotation import model as annmodel
 from pypy.translator.stm import _rffi_stm
 from pypy.translator.unsimplify import varoftype, copyvar
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, lloperation
 
 
 ALWAYS_ALLOW_OPERATIONS = set([
-    'int_*', 'uint_*', 'llong_*', 'ullong_*', 'float_*',
-    'same_as', 'cast_*',
     'direct_call',
     'debug_print', 'debug_assert',
     ])
+ALWAYS_ALLOW_OPERATIONS |= set(lloperation.enum_foldable_ops())
 
 def op_in_set(opname, set):
-    if opname in set:
-        return True
-    for i in range(len(opname)-1, -1, -1):
-        if (opname[:i] + '*') in set:
-            return True
-    return False
+    return opname in set
 
 # ____________________________________________________________
 
