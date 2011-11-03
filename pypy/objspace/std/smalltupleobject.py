@@ -71,7 +71,7 @@ def make_specialized_class(n):
             if self.length() != w_other.length():
                 return space.w_False
             for i in iter_n:
-                item1 = self.getitem(i)
+                item1 = getattr(self,'w_value%s' % i)
                 item2 = w_other.getitem(i)
                 if not space.eq_w(item1, item2):
                     return space.w_False
@@ -82,7 +82,7 @@ def make_specialized_class(n):
             x = 0x345678
             z = self.length()
             for i in iter_n:
-                w_item = self.getitem(i)
+                w_item = getattr(self, 'w_value%s' % i)
                 y = space.int_w(space.hash(w_item))
                 x = (x ^ y) * mult
                 z -= 1
