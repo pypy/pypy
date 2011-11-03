@@ -7,7 +7,7 @@ from pypy.rpython.lltypesystem import lltype, lloperation
 
 
 ALWAYS_ALLOW_OPERATIONS = set([
-    'direct_call',
+    'direct_call', 'force_cast',
     'debug_print', 'debug_assert',
     ])
 ALWAYS_ALLOW_OPERATIONS |= set(lloperation.enum_foldable_ops())
