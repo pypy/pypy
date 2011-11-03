@@ -30,6 +30,7 @@ def run_me():
         add_at_end_of_chained_list(glob.anchor, i)
         rstm.transaction_boundary()
     print "thread done."
+    glob.done += 1
 
 
 
@@ -55,10 +56,12 @@ after_external_call._dont_reach_me_in_del_ = True
 def entry_point(argv):
     invoke_around_extcall(before_external_call, after_external_call)
     print "hello world"
+    glob.done = 0
     for i in range(NUM_THREADS):
         ll_thread.start_new_thread(run_me, ())
     print "sleeping..."
-    time.sleep(10)
+    while glob.done < NUM_THREADS:    # poor man's lock
+        time.sleep(1)
     print "done sleeping."
     return 0
 
