@@ -7355,7 +7355,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
-    def test_repeated_setfield_mixed_with_guard(self):
+    def test_repeated_constant_setfield_mixed_with_guard(self):
         ops = """
         [p22, p18]
         setfield_gc(p22, 2, descr=valuedescr)
@@ -7369,11 +7369,48 @@ class OptimizeOptTest(BaseTestWithUnroll):
         guard_nonnull_class(p18, ConstClass(node_vtable)) []
         jump(p22, p18)
         """
+        short = """
+        [p22, p18]
+        i1 = getfield_gc(p22, descr=valuedescr)
+        guard_value(i1, 2) []
+        jump(p22, p18)
+        """
         expected = """
         [p22, p18]
         jump(p22, p18)
         """
-        self.optimize_loop(ops, expected, preamble)
+        self.optimize_loop(ops, expected, preamble, expected_short=short)
+
+    def test_repeated_setfield_mixed_with_guard(self):
+        ops = """
+        [p22, p18, i1]
+        i2 = getfield_gc(p22, descr=valuedescr)
+        call(i2, descr=nonwritedescr)
+        setfield_gc(p22, i1, descr=valuedescr)
+        guard_nonnull_class(p18, ConstClass(node_vtable)) []
+        setfield_gc(p22, i1, descr=valuedescr)
+        jump(p22, p18, i1)
+        """
+        preamble = """
+        [p22, p18, i1]
+        i2 = getfield_gc(p22, descr=valuedescr)
+        call(i2, descr=nonwritedescr)
+        setfield_gc(p22, i1, descr=valuedescr)
+        guard_nonnull_class(p18, ConstClass(node_vtable)) []
+        jump(p22, p18, i1, i1)
+        """
+        short = """
+        [p22, p18, i1]
+        i2 = getfield_gc(p22, descr=valuedescr)
+        jump(p22, p18, i1, i2)
+        """
+        expected = """
+        [p22, p18, i1, i2]
+        call(i2, descr=nonwritedescr)
+        setfield_gc(p22, i1, descr=valuedescr)        
+        jump(p22, p18, i1, i1)
+        """
+        self.optimize_loop(ops, expected, preamble, expected_short=short)
 
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
