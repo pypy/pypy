@@ -862,19 +862,6 @@ void stm_abort_and_retry(void)
   tx_abort(7);     /* manual abort */
 }
 
-void stm_transaction_boundary(jmp_buf* buf)
-{
-#ifdef RPY_STM_ASSERT
-  PYPY_DEBUG_START("stm-transaction-boundary");
-#endif
-  stm_commit_transaction();
-  setjmp(*buf);
-  stm_begin_transaction(buf);
-#ifdef RPY_STM_ASSERT
-  PYPY_DEBUG_STOP("stm-transaction-boundary");
-#endif
-}
-
 // XXX little-endian only!
 void stm_write_partial_word(int fieldsize, char *base, long offset,
                             unsigned long nval)
