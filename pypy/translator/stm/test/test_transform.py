@@ -108,12 +108,13 @@ def test_unsupported_setfield_raw():
 
 # ____________________________________________________________
 
-class TestTransformSingleThread(StandaloneTests):
+class CompiledSTMTests(StandaloneTests):
 
     def compile(self, entry_point):
         from pypy.config.pypyoption import get_pypy_config
         self.config = get_pypy_config(translating=True)
         self.config.translation.stm = True
+        self.config.translation.gc = "none"
         #
         # Prevent the RaiseAnalyzer from just emitting "WARNING: Unknown
         # operation".  We want instead it to crash.
@@ -124,6 +125,9 @@ class TestTransformSingleThread(StandaloneTests):
         finally:
             del RaiseAnalyzer.fail_on_unknown_operation
         return res
+
+
+class TestTransformSingleThread(CompiledSTMTests):
 
     def test_no_pointer_operations(self):
         def simplefunc(argv):

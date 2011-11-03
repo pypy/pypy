@@ -47,11 +47,6 @@ void stm_commit_transaction_and_descriptor_done(void);
 #define STM_DECLARE_VARIABLE()          ; jmp_buf jmpbuf
 #define STM_MAKE_INEVITABLE()           stm_try_inevitable_if(&jmpbuf  \
                                                         STM_EXPLAIN("return"))
-#define STM_TRANSACTION_BOUNDARY()      \
-       stm_commit_transaction();        \
-       setjmp(jmpbuf);                  \
-       stm_begin_transaction(&jmpbuf);
-
 
 // XXX little-endian only!
 #define STM_read_partial_word(T, base, offset)                          \

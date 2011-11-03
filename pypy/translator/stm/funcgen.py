@@ -102,15 +102,29 @@ def stm_declare_variable(funcgen, op):
 
 def stm_transaction_boundary(funcgen, op):
     assert funcgen.exception_policy == 'stm'
-    lines = ['STM_TRANSACTION_BOUNDARY();']
-    TMPVAR = 'ty_%s'
+    # make code looking like this:
+    #
+    #     stm_commit_transaction();
+    #     {
+    #         volatile long tmp_123 = l_123;
+    #         setjmp(jmpbuf);
+    #         l_123 = tmp_123;
+    #     }
+    #     stm_begin_transaction(&jmpbuf);
+    #
+    lines = ['\tsetjmp(jmpbuf);']
+    TMPVAR = 'tmp_%s'
     for v in op.args:
         tmpname = TMPVAR % v.name
         cdeclname = cdecl(funcgen.lltypename(v), 'volatile ' + tmpname)
         realname = funcgen.expr(v)
-        lines.insert(0, '%s = %s;' % (cdeclname, realname))
-        lines.append('%s = %s;' % (realname, tmpname))
-    return '{\n\t' + '\n\t'.join(lines) + '\n}'
+        lines.insert(0, '\t%s = %s;' % (cdeclname, realname))
+        lines.append('\t%s = %s;' % (realname, tmpname))
+    lines.insert(0, '{')
+    lines.insert(0, 'stm_commit_transaction();')
+    lines.append('}')
+    lines.append('stm_begin_transaction(&jmpbuf);')
+    return '\n'.join(lines)
 
 def stm_try_inevitable(funcgen, op):
     info = op.args[0].value
