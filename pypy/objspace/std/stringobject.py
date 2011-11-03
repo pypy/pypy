@@ -420,14 +420,13 @@ def str_ljust__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
 
     return space.wrap(u_self)
 
-def _convert_idx_params(space, w_self, w_sub, w_start, w_end, upper_bound=False):
+def _convert_idx_params(space, w_self, w_start, w_end, upper_bound=False):
     self = w_self._value
     lenself = len(self)
-    sub = w_sub._value
 
     start, end = slicetype.unwrap_start_stop(
             space, lenself, w_start, w_end, upper_bound=upper_bound)
-    return (self, sub, start, end)
+    return (self, start, end)
 _convert_idx_params._annspecialcase_ = 'specialize:arg(5)'
 
 def contains__String_String(space, w_self, w_sub):
@@ -436,13 +435,13 @@ def contains__String_String(space, w_self, w_sub):
     return space.newbool(self.find(sub) >= 0)
 
 def str_find__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
-    (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
-    res = self.find(sub, start, end)
+    (self, start, end) =  _convert_idx_params(space, w_self, w_start, w_end)
+    res = self.find(w_sub._value, start, end)
     return space.wrap(res)
 
 def str_rfind__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
-    (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
-    res = self.rfind(sub, start, end)
+    (self, start, end) =  _convert_idx_params(space, w_self, w_start, w_end)
+    res = self.rfind(w_sub._value, start, end)
     return space.wrap(res)
 
 def str_partition__String_String(space, w_self, w_sub):
@@ -476,8 +475,8 @@ def str_rpartition__String_String(space, w_self, w_sub):
 
 
 def str_index__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
-    (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
-    res = self.find(sub, start, end)
+    (self, start, end) =  _convert_idx_params(space, w_self, w_start, w_end)
+    res = self.find(w_sub._value, start, end)
     if res < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("substring not found in string.index"))
@@ -486,8 +485,8 @@ def str_index__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
 
 
 def str_rindex__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
-    (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
-    res = self.rfind(sub, start, end)
+    (self, start, end) =  _convert_idx_params(space, w_self, w_start, w_end)
+    res = self.rfind(w_sub._value, start, end)
     if res < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("substring not found in string.rindex"))
@@ -629,20 +628,17 @@ def str_center__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
     return wrapstr(space, u_centered)
 
 def str_count__String_String_ANY_ANY(space, w_self, w_arg, w_start, w_end):
-    u_self, u_arg, u_start, u_end = _convert_idx_params(space, w_self, w_arg,
-                                                        w_start, w_end)
-    return wrapint(space, u_self.count(u_arg, u_start, u_end))
+    u_self, u_start, u_end = _convert_idx_params(space, w_self, w_start, w_end)
+    return wrapint(space, u_self.count(w_arg._value, u_start, u_end))
 
 def str_endswith__String_String_ANY_ANY(space, w_self, w_suffix, w_start, w_end):
-    (u_self, suffix, start, end) = _convert_idx_params(space, w_self,
-                                                       w_suffix, w_start,
-                                                       w_end, True)
-    return space.newbool(stringendswith(u_self, suffix, start, end))
+    (u_self, start, end) = _convert_idx_params(space, w_self, w_start,
+                                               w_end, True)
+    return space.newbool(stringendswith(u_self, w_suffix._value, start, end))
 
 def str_endswith__String_Tuple_ANY_ANY(space, w_self, w_suffixes, w_start, w_end):
-    (u_self, _, start, end) = _convert_idx_params(space, w_self,
-                                                  space.wrap(''), w_start,
-                                                  w_end, True)
+    (u_self, start, end) = _convert_idx_params(space, w_self, w_start,
+                                               w_end, True)
     for w_suffix in space.fixedview(w_suffixes):
         if space.isinstance_w(w_suffix, space.w_unicode):
             w_u = space.call_function(space.w_unicode, w_self)
@@ -654,14 +650,13 @@ def str_endswith__String_Tuple_ANY_ANY(space, w_self, w_suffixes, w_start, w_end
     return space.w_False
 
 def str_startswith__String_String_ANY_ANY(space, w_self, w_prefix, w_start, w_end):
-    (u_self, prefix, start, end) = _convert_idx_params(space, w_self,
-                                                       w_prefix, w_start,
-                                                       w_end, True)
-    return space.newbool(stringstartswith(u_self, prefix, start, end))
+    (u_self, start, end) = _convert_idx_params(space, w_self, w_start,
+                                               w_end, True)
+    return space.newbool(stringstartswith(u_self, w_prefix._value, start, end))
 
 def str_startswith__String_Tuple_ANY_ANY(space, w_self, w_prefixes, w_start, w_end):
-    (u_self, _, start, end) = _convert_idx_params(space, w_self, space.wrap(''),
-                                                  w_start, w_end, True)
+    (u_self, start, end) = _convert_idx_params(space, w_self,
+                                               w_start, w_end, True)
     for w_prefix in space.fixedview(w_prefixes):
         if space.isinstance_w(w_prefix, space.w_unicode):
             w_u = space.call_function(space.w_unicode, w_self)
