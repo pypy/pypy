@@ -506,7 +506,7 @@ class AbstractUnwrappedSetStrategy(object):
         if self is w_other.strategy:
             strategy = w_set.strategy
             storage = self._difference_unwrapped(w_set, w_other)
-        elif not_comparable(self.space, w_set.strategy, w_other.strategy):
+        elif not_contain_equal_elements(self.space, w_set, w_other):
             strategy = w_set.strategy
             storage = w_set.sstorage
         else:
@@ -894,14 +894,14 @@ def next__SetIterObject(space, w_setiter):
 
 # some helper functions
 
-def not_comparable(space, strategy1, strategy2):
-    # add all strategies here that cannot be compared. this way is safer than
-    # adding only types that can be compared. else we get wrong results if
-    # someone adds new strategies and forgets to define them here. since this
-    # is only a fastpath we want to avoid possible errors
+def not_contain_equal_elements(space, w_set, w_other):
+    strategy1 = w_set.strategy
+    strategy2 = w_other.strategy
+    # add strategies here for which elements from sets with theses strategies are never equal.
     if strategy1 is space.fromcache(StringSetStrategy) and strategy2 is space.fromcache(IntegerSetStrategy):
         return True
     if strategy1 is space.fromcache(EmptySetStrategy) or strategy2 is space.fromcache(EmptySetStrategy):
+        # an empty set and another set will never have any equal element
         return True
     return False
 
