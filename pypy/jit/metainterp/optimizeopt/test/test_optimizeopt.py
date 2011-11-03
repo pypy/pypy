@@ -7450,6 +7450,55 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_setarrayitem_p0_p0(self):
+        ops = """
+        [i0, i1]
+        p0 = escape()
+        setarrayitem_gc(p0, 2, p0, descr=arraydescr)
+        jump(i0, i1)
+        """
+        expected = """
+        [i0, i1]
+        p0 = escape()
+        setarrayitem_gc(p0, 2, p0, descr=arraydescr)
+        jump(i0, i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_setfield_p0_p0(self):
+        ops = """
+        [i0, i1]
+        p0 = escape()
+        setfield_gc(p0, p0, descr=arraydescr)
+        jump(i0, i1)
+        """
+        expected = """
+        [i0, i1]
+        p0 = escape()
+        setfield_gc(p0, p0, descr=arraydescr)
+        jump(i0, i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_setfield_p0_p1_p0(self):
+        ops = """
+        [i0, i1]
+        p0 = escape()
+        p1 = escape()
+        setfield_gc(p0, p1, descr=adescr)
+        setfield_gc(p1, p0, descr=bdescr)
+        jump(i0, i1)
+        """
+        expected = """
+        [i0, i1]
+        p0 = escape()
+        p1 = escape()
+        setfield_gc(p0, p1, descr=adescr)
+        setfield_gc(p1, p0, descr=bdescr)
+        jump(i0, i1)
+        """
+        self.optimize_loop(ops, expected)
+
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
 
