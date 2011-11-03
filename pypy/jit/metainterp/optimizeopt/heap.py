@@ -140,6 +140,17 @@ class CachedField(object):
                     getop = ResOperation(rop.GETFIELD_GC, [op.getarg(0)],
                                          result, op.getdescr())
                     shortboxes.add_potential(getop, synthetic=True)
+                if op.getopnum() == rop.SETARRAYITEM_GC:
+                    result = op.getarg(2)
+                    if isinstance(result, Const):
+                        newresult = result.clonebox()
+                        optimizer.make_constant(newresult, result)
+                        result = newresult
+                    if result is op.getarg(0): # FIXME: Unsupported corner case??
+                        continue
+                    getop = ResOperation(rop.GETARRAYITEM_GC, [op.getarg(0), op.getarg(1)],
+                                         result, op.getdescr())
+                    shortboxes.add_potential(getop, synthetic=True)
                 elif op.result is not None:
                     shortboxes.add_potential(op)
 

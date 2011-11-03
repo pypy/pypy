@@ -7412,6 +7412,44 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected, preamble, expected_short=short)
 
+    def test_cache_setfield_across_loop_boundaries(self):
+        ops = """
+        [p1]
+        p2 = getfield_gc(p1, descr=valuedescr)
+        guard_nonnull_class(p2, ConstClass(node_vtable)) []
+        call(p2, descr=nonwritedescr)
+        p3 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1, p3, descr=valuedescr)
+        jump(p1)
+        """
+        expected = """
+        [p1, p2]
+        call(p2, descr=nonwritedescr)
+        p3 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1, p3, descr=valuedescr)
+        jump(p1, p3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_cache_setarrayitem_across_loop_boundaries(self):
+        ops = """
+        [p1]
+        p2 = getarrayitem_gc(p1, 3, descr=arraydescr)        
+        guard_nonnull_class(p2, ConstClass(node_vtable)) []
+        call(p2, descr=nonwritedescr)
+        p3 = new_with_vtable(ConstClass(node_vtable))
+        setarrayitem_gc(p1, 3, p3, descr=arraydescr)
+        jump(p1)
+        """
+        expected = """
+        [p1, p2]
+        call(p2, descr=nonwritedescr)
+        p3 = new_with_vtable(ConstClass(node_vtable))
+        setarrayitem_gc(p1, 3, p3, descr=arraydescr)
+        jump(p1, p3)
+        """
+        self.optimize_loop(ops, expected)
+
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
 
