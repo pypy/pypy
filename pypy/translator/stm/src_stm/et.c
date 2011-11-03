@@ -875,21 +875,6 @@ void stm_transaction_boundary(jmp_buf* buf)
 #endif
 }
 
-void stm_descriptor_init_and_being_inevitable_transaction(void)
-{
-  int was_not_started = (thread_descriptor == NULL);
-  stm_descriptor_init();
-  if (was_not_started)
-    stm_begin_inevitable_transaction();
-}
-
-void stm_commit_transaction_and_descriptor_done(void)
-{
-  if (thread_descriptor->init_counter == 1)
-    stm_commit_transaction();
-  stm_descriptor_done();
-}
-
 // XXX little-endian only!
 void stm_write_partial_word(int fieldsize, char *base, long offset,
                             unsigned long nval)

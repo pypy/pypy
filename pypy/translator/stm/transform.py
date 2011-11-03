@@ -67,11 +67,14 @@ class STMTransformer(object):
 
     def add_descriptor_init_stuff(self, graph, main=False):
         if main:
-            f_init = _rffi_stm.descriptor_init_and_being_inevitable_transaction
-            f_done = _rffi_stm.commit_transaction_and_descriptor_done
-        else:
-            f_init = _rffi_stm.descriptor_init
-            f_done = _rffi_stm.descriptor_done
+            self._add_calls_around(graph,
+                                   _rffi_stm.begin_inevitable_transaction,
+                                   _rffi_stm.commit_transaction)
+        self._add_calls_around(graph,
+                               _rffi_stm.descriptor_init,
+                               _rffi_stm.descriptor_done)
+
+    def _add_calls_around(self, graph, f_init, f_done):
         c_init = Constant(f_init, lltype.typeOf(f_init))
         c_done = Constant(f_done, lltype.typeOf(f_done))
         #
