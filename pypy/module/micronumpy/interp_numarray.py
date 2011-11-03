@@ -7,7 +7,6 @@ from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.sourcetools import func_with_new_name
 
-
 numpy_driver = jit.JitDriver(greens = ['signature'],
                              reds = ['result_size', 'i', 'self', 'result'])
 all_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self',
@@ -209,25 +208,6 @@ class BaseArray(Wrappable):
             assert isinstance(w_res, BaseArray)
             return w_res.descr_sum(space)
 
-    def _getnums(self, comma):
-        dtype = self.find_dtype()
-        if self.find_size() > 1000:
-            nums = [
-                dtype.str_format(self.eval(index))
-                for index in range(3)
-            ]
-            nums.append("..." + "," * comma)
-            nums.extend([
-                dtype.str_format(self.eval(index))
-                for index in range(self.find_size() - 3, self.find_size())
-            ])
-        else:
-            nums = [
-                dtype.str_format(self.eval(index))
-                for index in range(self.find_size())
-            ]
-        return nums
-
     def get_concrete(self):
         raise NotImplementedError
 
@@ -269,7 +249,8 @@ class BaseArray(Wrappable):
         # Since what we want is to print a plethora of 2d views, let
         # a slice do the work for us.
         concrete = self.get_concrete()
-        return space.wrap(NDimSlice(concrete, self.signature, [], self.shape).tostr(False))
+        r = NDimSlice(concrete, self.signature, [], self.shape).tostr(False)
+        return space.wrap(r)
 
     def _index_of_single_item(self, space, w_idx):
         # we assume C ordering for now
@@ -641,7 +622,6 @@ class NDimSlice(ViewArray):
     @jit.unroll_safe
     def calc_index(self, item):
         index = []
-        __item = item
         _item = item
         for i in range(len(self.shape) -1, 0, -1):
             s = self.shape[i]
@@ -671,18 +651,21 @@ class NDimSlice(ViewArray):
             item += index[i]
             i += 1
         return item
-    def tostr(self, comma,indent=' '):
+    
+    def tostr(self, comma, indent=' '):
         ret = ''
         dtype = self.find_dtype()
         ndims = len(self.shape)#-self.shape_reduction
         for s in self.shape:
-            if s==0:
+            if s == 0:
                 ret += '[]'
                 return ret
-        if ndims>2:
+        if ndims > 2:
             ret += '['
             for i in range(self.shape[0]):
-                ret += NDimSlice(self.parent, self.signature, [(i,0,0,1)], self.shape[1:]).tostr(comma,indent=indent+' ')
+                chunks = [(i, 0, 0, 1)]
+                ret += NDimSlice(self.parent, self.signature, chunks,
+                                 self.shape[1:]).tostr(comma,indent=indent + ' ')
                 if i+1<self.shape[0]:
                     ret += ',\n\n'+ indent
             ret += ']'
