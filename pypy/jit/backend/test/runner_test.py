@@ -3,7 +3,7 @@ from pypy.jit.metainterp.history import (AbstractFailDescr,
                                          AbstractDescr,
                                          BasicFailDescr,
                                          BoxInt, Box, BoxPtr,
-                                         LoopToken,
+                                         LoopToken, TargetToken,
                                          ConstInt, ConstPtr,
                                          BoxObj,
                                          ConstObj, BoxFloat, ConstFloat)
@@ -2971,7 +2971,7 @@ class LLtypeBackendTest(BaseBackendTest):
         i2 = BoxInt()
         i3 = BoxInt()
         looptoken = LoopToken()
-        targettoken = LoopToken()
+        targettoken = TargetToken()
         faildescr = BasicFailDescr(2)
         operations = [
             ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),

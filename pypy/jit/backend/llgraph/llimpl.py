@@ -8,6 +8,7 @@ import weakref
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.annotation import model as annmodel
 from pypy.jit.metainterp.history import REF, INT, FLOAT
+from pypy.jit.metainterp import history
 from pypy.jit.codewriter import heaptracker
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr, rffi
 from pypy.rpython.ootypesystem import ootype
@@ -339,16 +340,20 @@ def compile_add_descr_arg(loop, ofs, type, arg_types):
     assert isinstance(type, str) and len(type) == 1
     op.args.append(Descr(ofs, type, arg_types=arg_types))
 
-def compile_add_loop_token(loop, descr, clt):
+def compile_add_loop_token(loop, descr):
     if we_are_translated():
         raise ValueError("CALL_ASSEMBLER not supported")
     loop = _from_opaque(loop)
     op = loop.operations[-1]
     op.descr = weakref.ref(descr)
-    if op.opnum == rop.TARGET:
-        descr.compiled_loop_token = clt
-        descr.target_opindex = len(loop.operations)
-        descr.target_arguments = op.args
+
+def compile_add_target_token(loop, descr):
+    compiled_version = loop
+    loop = _from_opaque(loop)
+    op = loop.operations[-1]
+    descr.compiled_version = compiled_version
+    descr.target_opindex = len(loop.operations)
+    descr.target_arguments = op.args
 
 def compile_add_var(loop, intvar):
     loop = _from_opaque(loop)
@@ -384,11 +389,19 @@ def compile_add_ref_result(loop, TYPE):
     _variables.append(v)
     return r
 
-def compile_add_jump_target(loop, loop_target, target_opindex, target_inputargs):
+def compile_add_jump_target(loop, targettoken):
     loop = _from_opaque(loop)
-    loop_target = _from_opaque(loop_target)
-    if not target_inputargs:
+    if isinstance(targettoken, history.LoopToken):
+        loop_target = _from_opaque(targettoken.compiled_loop_token.compiled_version)
+        target_opindex = 0
         target_inputargs = loop_target.inputargs
+    elif isinstance(targettoken, history.TargetToken):
+        loop_target = _from_opaque(targettoken.compiled_version)
+        target_opindex = targettoken.target_opindex
+        target_inputargs = targettoken.target_arguments
+    else:
+        assert False
+
     op = loop.operations[-1]
     op.jump_target = loop_target
     op.jump_target_opindex = target_opindex
