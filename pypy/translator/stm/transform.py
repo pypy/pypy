@@ -7,10 +7,10 @@ from pypy.rpython.lltypesystem import lltype, lloperation
 
 
 ALWAYS_ALLOW_OPERATIONS = set([
-    'direct_call', 'force_cast',
+    'direct_call', 'force_cast', 'keepalive', 'cast_ptr_to_adr',
     'debug_print', 'debug_assert',
     ])
-ALWAYS_ALLOW_OPERATIONS |= set(lloperation.enum_foldable_ops())
+ALWAYS_ALLOW_OPERATIONS |= set(lloperation.enum_tryfold_ops())
 
 def op_in_set(opname, set):
     return opname in set

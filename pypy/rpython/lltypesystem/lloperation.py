@@ -147,6 +147,12 @@ def enum_foldable_ops(_ignored=None):
             assert not opdesc.canraise
             yield opname
 
+def enum_tryfold_ops():
+    """Enumerate operations that can be constant-folded."""
+    for opname, opdesc in LL_OPERATIONS.iteritems():
+        if opdesc.tryfold:
+            yield opname
+
 
 class Entry(ExtRegistryEntry):
     "Annotation and rtyping of LLOp instances, which are callable."
