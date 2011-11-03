@@ -42,7 +42,7 @@ def adapt_bound(space, size, w_index):
     return index
 
 @specialize.arg(4)
-def unwrap_start_stop(space, size, w_start, w_end, upper_bound):
+def unwrap_start_stop(space, size, w_start, w_end, upper_bound=False):
     if space.is_w(w_start, space.w_None):
         start = 0
     elif upper_bound:
