@@ -397,6 +397,7 @@ LL_OPERATIONS = {
 
     'stm_getfield':         LLOp(sideeffects=False, canrun=True),
     'stm_setfield':         LLOp(),
+    'stm_getarrayitem':     LLOp(sideeffects=False, canrun=True),
     'stm_setarrayitem':     LLOp(),
 
     'stm_begin_transaction':            LLOp(),

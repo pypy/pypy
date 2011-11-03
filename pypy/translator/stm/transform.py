@@ -129,7 +129,18 @@ class STMTransformer(object):
             op1 = SpaceOperation('stm_setfield', op.args, op.result)
         newoperations.append(op1)
 
-    def stt_setarrayitem(self, newoperations, op):
+    def FINISHME_stt_getarrayitem(self, newoperations, op):
+        ARRAY = op.args[0].concretetype.TO
+        if ARRAY._immutable_field():
+            op1 = op
+        elif ARRAY._gckind == 'raw':
+            turn_inevitable(newoperations, "getarrayitem-raw")
+            op1 = op
+        else:
+            op1 = SpaceOperation('stm_getarrayitem', op.args, op.result)
+        newoperations.append(op1)
+
+    def FINISHME_stt_setarrayitem(self, newoperations, op):
         ARRAY = op.args[0].concretetype.TO
         if ARRAY._immutable_field():
             op1 = op

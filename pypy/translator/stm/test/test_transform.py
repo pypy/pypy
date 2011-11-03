@@ -56,6 +56,18 @@ def test_immutable_field():
     res = eval_stm_graph(interp, graph, [p], stm_mode="regular_transaction")
     assert res == 42
 
+def test_getarrayitem():
+    A = lltype.GcArray(lltype.Signed)
+    p = lltype.malloc(A, 100, immortal=True)
+    p[42] = 666
+    def func(p):
+        return p[42]
+    interp, graph = get_interpreter(func, [p])
+    transform_graph(graph)
+    assert summary(graph) == {'stm_getarrayitem': 1}
+    res = eval_stm_graph(interp, graph, [p], stm_mode="regular_transaction")
+    assert res == 666
+
 def test_setarrayitem():
     A = lltype.GcArray(lltype.Signed)
     p = lltype.malloc(A, 100, immortal=True)

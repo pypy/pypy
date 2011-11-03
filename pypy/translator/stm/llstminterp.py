@@ -94,6 +94,20 @@ class LLSTMFrame(LLFrame):
             self.check_stm_mode(lambda m: False)
             assert 0
 
+    def opstm_getarrayitem(self, array, index):
+        ARRAY = lltype.typeOf(struct).TO
+        if ARRAY._immutable_field():
+            # immutable item reads are always allowed
+            return LLFrame.op_getarrayitem(self, array, index)
+        elif ARRAY._gckind == 'raw':
+            # raw getfields are allowed outside a regular transaction
+            self.check_stm_mode(lambda m: m != "regular_transaction")
+            return LLFrame.op_getarrayitem(self, array, index)
+        else:
+            # mutable 'getarrayitems' are always forbidden for now
+            self.check_stm_mode(lambda m: False)
+            assert 0
+
     def opstm_setarrayitem(self, array, index, newvalue):
         ARRAY = lltype.typeOf(struct).TO
         if ARRAY._immutable_field():
@@ -133,6 +147,10 @@ class LLSTMFrame(LLFrame):
     def opstm_stm_setfield(self, struct, fieldname, value):
         self.check_stm_mode(lambda m: m != "not_in_transaction")
         LLFrame.op_setfield(self, struct, fieldname, value)
+
+    def opstm_stm_getarrayitem(self, array, index):
+        self.check_stm_mode(lambda m: m != "not_in_transaction")
+        return LLFrame.op_getarrayitem(self, array, index)
 
     def opstm_stm_setarrayitem(self, array, index, value):
         self.check_stm_mode(lambda m: m != "not_in_transaction")
