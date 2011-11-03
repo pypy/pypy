@@ -128,6 +128,36 @@ class TestMisc(BaseTestPyPyC):
             jump(..., descr=...)
             """)
 
+    def test_xrange_iter(self):
+        def main(n):
+            def g(n):
+                return xrange(n)
+            s = 0
+            for i in xrange(n):  # ID: for
+                tmp = g(n)
+                s += tmp[i]     # ID: getitem
+                a = 0
+            return s
+        #
+        log = self.run(main, [1000])
+        assert log.result == 1000 * 999 / 2
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+        i15 = int_lt(i10, i11)
+        guard_true(i15, descr=...)
+        i17 = int_add(i10, 1)
+        i18 = force_token()
+        setfield_gc(p9, i17, descr=<.* .*W_XRangeIterator.inst_current .*>)
+        guard_not_invalidated(descr=...)
+        i21 = int_lt(i10, 0)
+        guard_false(i21, descr=...)
+        i22 = int_lt(i10, i14)
+        guard_true(i22, descr=...)
+        i23 = int_add_ovf(i6, i10)
+        guard_no_overflow(descr=...)
+        --TICK--
+        jump(..., descr=<Loop0>)
+        """)
 
     def test_range_iter(self):
         def main(n):
