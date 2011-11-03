@@ -8,7 +8,7 @@ import py
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.module.micronumpy import interp_ufuncs, signature
 from pypy.module.micronumpy.compile import (numpy_compile, FakeSpace,
-    FloatObject, IntObject, BoolObject)
+    FloatObject, IntObject, BoolObject, Parser, InterpreterState)
 from pypy.module.micronumpy.interp_numarray import NDimArray, NDimSlice
 from pypy.rlib.nonconst import NonConstant
 from pypy.rpython.annlowlevel import llstr, hlstr
@@ -18,12 +18,33 @@ from pypy.jit.metainterp import pyjitpl
 class TestNumpyJIt(LLJitMixin):
     graph = None
     interp = None
+
+    def setup_class(cls):
+        default = """
+        a = [1,2,3,4]
+        c = a + b
+        sum(c) -> 1::1
+        a -> 3:1:2
+        """
+
+        d = {}
+        p = Parser()
+        allcodes = [p.parse(default)]
+        for name, meth in cls.__dict__.iteritems():
+            if name.startswith("define_"):
+                code = meth()
+                d[name[len("define_"):]] = len(allcodes)
+                allcodes.append(p.parse(code))
+        cls.code_mapping = d
+        cls.codes = allcodes
         
-    def run(self, code):
+    def run(self, name):
         space = FakeSpace()
+        i = self.code_mapping[name]
+        codes = self.codes
         
-        def f(code):
-            interp = numpy_compile(hlstr(code))
+        def f(i):
+            interp = InterpreterState(codes[i])
             interp.run(space)
             res = interp.results[-1]
             w_res = res.eval(0).wrap(interp.space)
@@ -37,55 +58,66 @@ class TestNumpyJIt(LLJitMixin):
                 return -42.
 
         if self.graph is None:
-            interp, graph = self.meta_interp(f, [llstr(code)],
+            interp, graph = self.meta_interp(f, [i],
                                              listops=True,
                                              backendopt=True,
                                              graph_and_interp_only=True)
             self.__class__.interp = interp
             self.__class__.graph = graph
-
         reset_stats()
         pyjitpl._warmrunnerdesc.memory_manager.alive_loops.clear()
-        return self.interp.eval_graph(self.graph, [llstr(code)])
+        return self.interp.eval_graph(self.graph, [i])
 
-    def test_add(self):
-        result = self.run("""
+    def define_add():
+        return """
         a = |30|
         b = a + a
         b -> 3
-        """)
+        """
+
+    def test_add(self):
+        result = self.run("add")
         self.check_loops({'getarrayitem_raw': 2, 'float_add': 1,
                           'setarrayitem_raw': 1, 'int_add': 1,
                           'int_lt': 1, 'guard_true': 1, 'jump': 1})
         assert result == 3 + 3
 
-    def test_floatadd(self):
-        result = self.run("""
+    def define_float_add():
+        return """
         a = |30| + 3
         a -> 3
-        """)
+        """
+
+    def test_floatadd(self):
+        result = self.run("float_add")
         assert result == 3 + 3
         self.check_loops({"getarrayitem_raw": 1, "float_add": 1,
                           "setarrayitem_raw": 1, "int_add": 1,
                           "int_lt": 1, "guard_true": 1, "jump": 1})
 
-    def test_sum(self):
-        result = self.run("""
+    def define_sum():
+        return """
         a = |30|
         b = a + a
         sum(b)
-        """)
+        """
+
+    def test_sum(self):
+        result = self.run("sum")
         assert result == 2 * sum(range(30))
         self.check_loops({"getarrayitem_raw": 2, "float_add": 2,
                           "int_add": 1,
                           "int_lt": 1, "guard_true": 1, "jump": 1})
 
-    def test_prod(self):
-        result = self.run("""
+    def define_prod():
+        return """
         a = |30|
         b = a + a
         prod(b)
-        """)
+        """
+
+    def test_prod(self):
+        result = self.run("prod")
         expected = 1
         for i in range(30):
             expected *= i * 2
@@ -120,27 +152,33 @@ class TestNumpyJIt(LLJitMixin):
                           "float_mul": 1, "int_add": 1,
                           "int_lt": 1, "guard_true": 1, "jump": 1})
 
-    def test_any(self):
-        result = self.run("""
+    def define_any():
+        return """
         a = [0,0,0,0,0,0,0,0,0,0,0]
         a[8] = -12
         b = a + a
         any(b)
-        """)
+        """
+
+    def test_any(self):
+        result = self.run("any")
         assert result == 1
         self.check_loops({"getarrayitem_raw": 2, "float_add": 1,
                           "float_ne": 1, "int_add": 1,
                           "int_lt": 1, "guard_true": 1, "jump": 1,
                           "guard_false": 1})
 
-    def test_already_forced(self):
-        result = self.run("""
+    def define_already_forced():
+        return """
         a = |30|
         b = a + 4.5
         b -> 5 # forces
         c = b * 8
         c -> 5
-        """)
+        """
+
+    def test_already_forced(self):
+        result = self.run("already_forced")
         assert result == (5 + 4.5) * 8
         # This is the sum of the ops for both loops, however if you remove the
         # optimization then you end up with 2 float_adds, so we can still be
@@ -149,21 +187,24 @@ class TestNumpyJIt(LLJitMixin):
                            "setarrayitem_raw": 2, "int_add": 2,
                            "int_lt": 2, "guard_true": 2, "jump": 2})
 
-    def test_ufunc(self):
-        result = self.run("""
+    def define_ufunc():
+        return """
         a = |30|
         b = a + a
         c = unegative(b)
         c -> 3
-        """)
+        """
+
+    def test_ufunc(self):
+        result = self.run("ufunc")
         assert result == -6
         self.check_loops({"getarrayitem_raw": 2, "float_add": 1, "float_neg": 1,
                           "setarrayitem_raw": 1, "int_add": 1,
                           "int_lt": 1, "guard_true": 1, "jump": 1,
         })
 
-    def test_specialization(self):
-        self.run("""
+    def define_specialization():
+        return """
         a = |30|
         b = a + a
         c = unegative(b)
@@ -180,17 +221,23 @@ class TestNumpyJIt(LLJitMixin):
         d = a * a
         unegative(d)
         d -> 3
-        """)
+        """
+
+    def test_specialization(self):
+        self.run("specialization")
         # This is 3, not 2 because there is a bridge for the exit.
         self.check_loop_count(3)
 
-    def test_slice(self):
-        result = self.run("""
+    def define_slice():
+        return """
         a = |30|
         b = a -> ::3
         c = b + b
         c -> 3
-        """)
+        """
+
+    def test_slice(self):
+        result = self.run("slice")
         assert result == 18
         self.check_loops({'int_mul': 2, 'getarrayitem_raw': 2, 'float_add': 1,
                           'setarrayitem_raw': 1, 'int_add': 3,

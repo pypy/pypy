@@ -177,3 +177,9 @@ class TestRunner(object):
         """)
         assert interp.results[0].value.val == 6
         
+    def test_multidim_getitem(self):
+        interp = self.run("""
+        a = [[1,2]]
+        a -> 0 -> 1
+        """)
+        assert interp.results[0].value.val == 2
