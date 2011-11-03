@@ -40,7 +40,7 @@ class STMTransformer(object):
                 self.add_stm_declare_variable(graph)
             if self.seen_gc_stack_bottom:
                 self.add_descriptor_init_stuff(graph)
-        self.add_descriptor_init_stuff(entrypointgraph)
+        self.add_descriptor_init_stuff(entrypointgraph, main=True)
         self.translator.stm_transformation_applied = True
 
     def transform_block(self, block):
@@ -71,9 +71,13 @@ class STMTransformer(object):
         for block in graph.iterblocks():
             self.transform_block(block)
 
-    def add_descriptor_init_stuff(self, graph):
-        f_init = _rffi_stm.descriptor_init_and_being_inevitable_transaction
-        f_done = _rffi_stm.commit_transaction_and_descriptor_done
+    def add_descriptor_init_stuff(self, graph, main=False):
+        if main:
+            f_init = _rffi_stm.descriptor_init_and_being_inevitable_transaction
+            f_done = _rffi_stm.commit_transaction_and_descriptor_done
+        else:
+            f_init = _rffi_stm.descriptor_init
+            f_done = _rffi_stm.descriptor_done
         c_init = Constant(f_init, lltype.typeOf(f_init))
         c_done = Constant(f_done, lltype.typeOf(f_done))
         #
@@ -108,7 +112,7 @@ class STMTransformer(object):
         if STRUCT._immutable_field(op.args[1].value):
             op1 = op
         elif STRUCT._gckind == 'raw':
-            turn_inevitable(newoperations, "getfield_raw")
+            turn_inevitable(newoperations, "getfield-raw")
             op1 = op
         else:
             op1 = SpaceOperation('stm_getfield', op.args, op.result)
@@ -119,7 +123,7 @@ class STMTransformer(object):
         if STRUCT._immutable_field(op.args[1].value):
             op1 = op
         elif STRUCT._gckind == 'raw':
-            turn_inevitable(newoperations, "setfield_raw")
+            turn_inevitable(newoperations, "setfield-raw")
             op1 = op
         else:
             op1 = SpaceOperation('stm_setfield', op.args, op.result)

@@ -22,7 +22,8 @@
 #include "src_stm/et.h"
 #include "src_stm/atomic_ops.h"
 
-#ifdef RPY_STM_ASSERT
+#ifdef PYPY_STANDALONE         /* obscure: cannot include debug_print.h if compiled */
+# define RPY_STM_DEBUG_PRINT   /* via ll2ctypes; only include it in normal builds */
 # include "src/debug_print.h"
 #endif
 
@@ -346,18 +347,22 @@ static void validate(struct tx_descriptor *d)
 /* mutex: only to avoid busy-looping too much in tx_spinloop() below */
 static pthread_mutex_t mutex_inevitable = PTHREAD_MUTEX_INITIALIZER;
 # ifdef RPY_STM_ASSERT
+unsigned long locked_by = 0;
 void mutex_lock(void)
 {
   unsigned long pself = (unsigned long)pthread_self();
   if (PYPY_HAVE_DEBUG_PRINTS) fprintf(PYPY_DEBUG_FILE,
                                       "%lx: mutex inev locking...\n", pself);
+  assert(locked_by != pself);
   pthread_mutex_lock(&mutex_inevitable);
+  locked_by = pself;
   if (PYPY_HAVE_DEBUG_PRINTS) fprintf(PYPY_DEBUG_FILE,
                                       "%lx: mutex inev locked\n", pself);
 }
 void mutex_unlock(void)
 {
   unsigned long pself = (unsigned long)pthread_self();
+  locked_by = 0;
   pthread_mutex_unlock(&mutex_inevitable);
   if (PYPY_HAVE_DEBUG_PRINTS) fprintf(PYPY_DEBUG_FILE,
                                       "%lx: mutex inev unlocked\n", pself);
@@ -577,15 +582,16 @@ void stm_write_word(long* addr, long val)
 
 void stm_descriptor_init(void)
 {
-#ifdef RPY_STM_ASSERT
-  PYPY_DEBUG_START("stm-init");
-#endif
   if (thread_descriptor != NULL)
     thread_descriptor->init_counter++;
   else
     {
       struct tx_descriptor *d = malloc(sizeof(struct tx_descriptor));
       memset(d, 0, sizeof(struct tx_descriptor));
+
+#ifdef RPY_STM_DEBUG_PRINT
+      PYPY_DEBUG_START("stm-init");
+#endif
 
       /* initialize 'my_lock_word' to be a unique negative number */
       d->my_lock_word = (owner_version_t)d;
@@ -596,10 +602,13 @@ void stm_descriptor_init(void)
       d->init_counter = 1;
 
       thread_descriptor = d;
-    }
-#ifdef RPY_STM_ASSERT
-  PYPY_DEBUG_STOP("stm-init");
+
+#ifdef RPY_STM_DEBUG_PRINT
+      if (PYPY_HAVE_DEBUG_PRINTS) fprintf(PYPY_DEBUG_FILE, "thread %lx starting\n",
+                                          d->my_lock_word);
+      PYPY_DEBUG_STOP("stm-init");
 #endif
+    }
 }
 
 void stm_descriptor_done(void)
@@ -611,7 +620,7 @@ void stm_descriptor_done(void)
 
   thread_descriptor = NULL;
 
-#ifdef RPY_STM_ASSERT
+#ifdef RPY_STM_DEBUG_PRINT
   PYPY_DEBUG_START("stm-done");
   if (PYPY_HAVE_DEBUG_PRINTS) {
     int num_aborts = 0, num_spinloops = 0;
@@ -815,6 +824,10 @@ void stm_begin_inevitable_transaction(void)
 {
   struct tx_descriptor *d = thread_descriptor;
   unsigned long curtime;
+
+#ifdef RPY_STM_ASSERT
+  assert(!d->transaction_active);
+#endif
 
  retry:
   mutex_lock();   /* possibly waiting here */

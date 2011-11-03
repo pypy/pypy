@@ -111,6 +111,7 @@ def stm_try_inevitable(funcgen, op):
 
 
 def op_stm(funcgen, op):
-    assert funcgen.db.translator.stm_transformation_applied
+    if not getattr(funcgen.db.translator, 'stm_transformation_applied', None):
+        raise AssertionError("STM transformation not applied.  You need '--stm'")
     func = globals()[op.opname]
     return func(funcgen, op)
