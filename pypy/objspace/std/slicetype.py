@@ -34,11 +34,7 @@ def adapt_lower_bound(space, size, w_index):
     return index
 
 def adapt_bound(space, size, w_index):
-    index = eval_slice_index(space, w_index)
-    if index < 0:
-        index = index + size
-        if index < 0:
-            index = 0
+    index = adapt_lower_bound(space, size, w_index)
     if index > size:
         index = size
     assert index >= 0
