@@ -357,16 +357,8 @@ def _convert_idx_params(space, w_self, w_sub, w_start, w_end, upper_bound=False)
     self = w_self._node
     sub = w_sub._node
 
-    if space.is_w(w_start, space.w_None):
-        w_start = space.wrap(0)
-    if space.is_w(w_end, space.w_None):
-        w_end = space.len(w_self)
-    if upper_bound:
-        start = slicetype.adapt_bound(space, self.length(), w_start)
-        end = slicetype.adapt_bound(space, self.length(), w_end)
-    else:
-        start = slicetype.adapt_lower_bound(space, self.length(), w_start)
-        end = slicetype.adapt_lower_bound(space, self.length(), w_end)
+    start, end = slicetype.unwrap_start_stop(
+            space, self.length(), w_start, w_end, upper_bound)
 
     return (self, sub, start, end)
 _convert_idx_params._annspecialcase_ = 'specialize:arg(5)'

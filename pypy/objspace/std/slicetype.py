@@ -3,6 +3,7 @@ from pypy.interpreter.typedef import GetSetProperty
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
 from pypy.objspace.std.register_all import register_all
 from pypy.interpreter.error import OperationError
+from pypy.rlib.objectmodel import specialize
 
 # indices multimehtod
 slice_indices = SMM('indices', 2,
@@ -39,6 +40,23 @@ def adapt_bound(space, size, w_index):
         index = size
     assert index >= 0
     return index
+
+@specialize.arg(4)
+def unwrap_start_stop(space, size, w_start, w_end, upper_bound):
+    if space.is_w(w_start, space.w_None):
+        start = 0
+    elif upper_bound:
+        start = adapt_bound(space, size, w_start)
+    else:
+        start = adapt_lower_bound(space, size, w_start)
+
+    if space.is_w(w_end, space.w_None):
+        end = size
+    elif upper_bound:
+        end = adapt_bound(space, size, w_end)
+    else:
+        end = adapt_lower_bound(space, size, w_end)
+    return start, end
 
 register_all(vars(), globals())
 
