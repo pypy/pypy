@@ -140,9 +140,17 @@ static void tx_spinloop(int num)
   }
 }
 
-static _Bool is_inevitable(struct tx_descriptor *d)
+static _Bool is_inevitable_or_inactive(struct tx_descriptor *d)
 {
   return d->setjmp_buf == NULL;
+}
+
+static _Bool is_inevitable(struct tx_descriptor *d)
+{
+#ifdef RPY_STM_ASSERT
+  assert(d->transaction_active);
+#endif
+  return is_inevitable_or_inactive(d);
 }
 
 /*** run the redo log to commit a transaction, and release the locks */
@@ -249,6 +257,7 @@ static void common_cleanup(struct tx_descriptor *d)
   assert(d->transaction_active);
   d->transaction_active = 0;
 #endif
+  d->setjmp_buf = NULL;
 }
 
 static void tx_cleanup(struct tx_descriptor *d)
@@ -261,9 +270,10 @@ static void tx_cleanup(struct tx_descriptor *d)
 
 static void tx_restart(struct tx_descriptor *d)
 {
+  jmp_buf *env = d->setjmp_buf;
   tx_cleanup(d);
   tx_spinloop(0);
-  longjmp(*d->setjmp_buf, 1);
+  longjmp(*env, 1);
 }
 
 /*** increase the abort count and restart the transaction */
@@ -335,6 +345,30 @@ static void validate(struct tx_descriptor *d)
 #ifdef USE_PTHREAD_MUTEX
 /* mutex: only to avoid busy-looping too much in tx_spinloop() below */
 static pthread_mutex_t mutex_inevitable = PTHREAD_MUTEX_INITIALIZER;
+# ifdef RPY_STM_ASSERT
+void mutex_lock(void)
+{
+  unsigned long pself = (unsigned long)pthread_self();
+  if (PYPY_HAVE_DEBUG_PRINTS) fprintf(PYPY_DEBUG_FILE,
+                                      "%lx: mutex inev locking...\n", pself);
+  pthread_mutex_lock(&mutex_inevitable);
+  if (PYPY_HAVE_DEBUG_PRINTS) fprintf(PYPY_DEBUG_FILE,
+                                      "%lx: mutex inev locked\n", pself);
+}
+void mutex_unlock(void)
+{
+  unsigned long pself = (unsigned long)pthread_self();
+  pthread_mutex_unlock(&mutex_inevitable);
+  if (PYPY_HAVE_DEBUG_PRINTS) fprintf(PYPY_DEBUG_FILE,
+                                      "%lx: mutex inev unlocked\n", pself);
+}
+# else
+#  define mutex_lock()    pthread_mutex_lock(&mutex_inevitable)
+#  define mutex_unlock()  pthread_mutex_unlock(&mutex_inevitable)
+# endif
+#else
+# define mutex_lock()     /* nothing */
+# define mutex_unlock()   /* nothing */
 #endif
 
 #ifdef COMMIT_OTHER_INEV
@@ -436,10 +470,8 @@ void wait_end_inevitability(struct tx_descriptor *d)
           d->start_time = curts - 1;
         }
       tx_spinloop(4);
-#ifdef USE_PTHREAD_MUTEX
-      pthread_mutex_lock(&mutex_inevitable);
-      pthread_mutex_unlock(&mutex_inevitable);
-#endif
+      mutex_lock();
+      mutex_unlock();
     }
   acquireLocks(d);
 }
@@ -465,15 +497,16 @@ void commitInevitableTransaction(struct tx_descriptor *d)
   // run the redo log, and release the locks
   tx_redo(d);
 
-#ifdef USE_PTHREAD_MUTEX
-  pthread_mutex_unlock(&mutex_inevitable);
-#endif
+  mutex_unlock();
 }
 
 /* lazy/lazy read instrumentation */
 long stm_read_word(long* addr)
 {
   struct tx_descriptor *d = thread_descriptor;
+#ifdef RPY_STM_ASSERT
+  assert(d->transaction_active);
+#endif
 
   // check writeset first
   wlog_t* found;
@@ -535,6 +568,9 @@ long stm_read_word(long* addr)
 void stm_write_word(long* addr, long val)
 {
   struct tx_descriptor *d = thread_descriptor;
+#ifdef RPY_STM_ASSERT
+  assert(d->transaction_active);
+#endif
   redolog_insert(&d->redolog, addr, val);
 }
 
@@ -647,9 +683,7 @@ long stm_commit_transaction(void)
           unsigned long ts = get_global_timestamp(d);
           assert(ts & 1);
           set_global_timestamp(d, ts - 1);
-#ifdef USE_PTHREAD_MUTEX
-          pthread_mutex_unlock(&mutex_inevitable);
-#endif
+          mutex_unlock();
         }
       d->num_commits++;
       common_cleanup(d);
@@ -723,17 +757,17 @@ void stm_try_inevitable(STM_CCHARP1(why))
   if (PYPY_HAVE_DEBUG_PRINTS)
     {
       fprintf(PYPY_DEBUG_FILE, "%s%s\n", why,
+              (!d->transaction_active) ? " (inactive)" :
               is_inevitable(d) ? " (already inevitable)" : "");
     }
-  assert(d->transaction_active);
 #endif
 
-  if (is_inevitable(d))
+  if (is_inevitable_or_inactive(d))
     {
 #ifdef RPY_STM_ASSERT
       PYPY_DEBUG_STOP("stm-inevitable");
 #endif
-      return;  /* I am already inevitable */
+      return;  /* I am already inevitable, or not in a transaction at all */
     }
 
   while (1)
@@ -744,26 +778,20 @@ void stm_try_inevitable(STM_CCHARP1(why))
           validate_fast(d, 2);
           d->start_time = curtime & ~1;
         }
-#ifdef USE_PTHREAD_MUTEX
-      pthread_mutex_lock(&mutex_inevitable);
-#endif
+      mutex_lock();
       if (curtime & 1)   /* there is, or was, already an inevitable thread */
         {
           /* should we spinloop here, or abort (and likely come back
              in try_inevitable() very soon)?  unclear.  For now
              let's try to spinloop, after the waiting done by
              acquiring the mutex */
-#ifdef USE_PTHREAD_MUTEX
-          pthread_mutex_unlock(&mutex_inevitable);
-#endif
+          mutex_unlock();
           tx_spinloop(6);
           continue;
         }
       if (change_global_timestamp(d, curtime, curtime + 1))
         break;
-#ifdef USE_PTHREAD_MUTEX
-      pthread_mutex_unlock(&mutex_inevitable);
-#endif
+      mutex_unlock();
     }
   d->setjmp_buf = NULL;   /* inevitable from now on */
 #ifdef COMMIT_OTHER_INEV
@@ -789,18 +817,14 @@ void stm_begin_inevitable_transaction(void)
   unsigned long curtime;
 
  retry:
-#ifdef USE_PTHREAD_MUTEX
-  pthread_mutex_lock(&mutex_inevitable);   /* possibly waiting here */
-#endif
+  mutex_lock();   /* possibly waiting here */
 
   while (1)
     {
       curtime = global_timestamp;
       if (curtime & 1)
         {
-#ifdef USE_PTHREAD_MUTEX
-          pthread_mutex_unlock(&mutex_inevitable);
-#endif
+          mutex_unlock();
           tx_spinloop(5);
           goto retry;
         }
