@@ -632,7 +632,7 @@ void stm_descriptor_done(void)
     for (i=0; i<SPINLOOP_REASONS; i++)
       num_spinloops += d->num_spinloops[i];
 
-    p += sprintf(p, "thread %lx: %d commits, %d aborts ",
+    p += sprintf(p, "thread %lx: %d commits, %d aborts\n",
                  d->my_lock_word,
                  d->num_commits,
                  num_aborts);
