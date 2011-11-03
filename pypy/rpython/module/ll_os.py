@@ -959,8 +959,6 @@ class RegisterOs(BaseLazyRegistering):
                             os_ftruncate(rffi.cast(rffi.INT, fd),
                                          rffi.cast(rffi.LONGLONG, length)))
             if res < 0:
-                # Note: for consistency we raise OSError, but CPython
-                # raises IOError here
                 raise OSError(rposix.get_errno(), "os_ftruncate failed")
 
         return extdef([int, r_longlong], s_None,

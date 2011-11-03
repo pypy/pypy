@@ -120,6 +120,8 @@ def make_template_formatting_class():
             out.append_slice(s, last_literal, end)
             return out.build()
 
+        # This is only ever called if we're already unrolling _do_build_string
+        @jit.unroll_safe
         def _parse_field(self, start, end):
             s = self.template
             # Find ":" or "!"
@@ -149,6 +151,7 @@ def make_template_formatting_class():
                 i += 1
             return s[start:end], None, end
 
+        @jit.unroll_safe
         def _get_argument(self, name):
             # First, find the argument.
             space = self.space
@@ -207,6 +210,7 @@ def make_template_formatting_class():
                     raise OperationError(space.w_IndexError, w_msg)
             return self._resolve_lookups(w_arg, name, i, end)
 
+        @jit.unroll_safe
         def _resolve_lookups(self, w_obj, name, start, end):
             # Resolve attribute and item lookups.
             space = self.space

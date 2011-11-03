@@ -16,6 +16,7 @@ from pypy.rlib.objectmodel import compute_identity_hash
 INT   = 'i'
 REF   = 'r'
 FLOAT = 'f'
+STRUCT = 's'
 HOLE  = '_'
 VOID  = 'v'
 
@@ -168,6 +169,11 @@ class AbstractDescr(AbstractValue):
         raise NotImplementedError
 
     def is_array_of_floats(self):
+        """ Implement for array descr
+        """
+        raise NotImplementedError
+
+    def is_array_of_structs(self):
         """ Implement for array descr
         """
         raise NotImplementedError
@@ -923,6 +929,9 @@ class NoStats(object):
     def view(self, **kwds):
         pass
 
+    def clear(self):
+        pass
+
 class Stats(object):
     """For tests."""
 
@@ -936,6 +945,15 @@ class Stats(object):
         self.locations = []
         self.aborted_keys = []
         self.invalidated_token_numbers = set()
+
+    def clear(self):
+        del self.loops[:]
+        del self.locations[:]
+        del self.aborted_keys[:]
+        self.invalidated_token_numbers.clear()
+        self.compiled_count = 0
+        self.enter_count = 0
+        self.aborted_count = 0
 
     def set_history(self, history):
         self.operations = history.operations

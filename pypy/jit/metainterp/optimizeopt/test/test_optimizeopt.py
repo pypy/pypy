@@ -2683,7 +2683,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p1]
         guard_class(p1, ConstClass(node_vtable2)) []
-        i = ptr_ne(ConstPtr(myptr), p1)
+        i = instance_ptr_ne(ConstPtr(myptr), p1)
         guard_true(i) []
         jump(p1)
         """
@@ -3331,7 +3331,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(p1, i1, i2, i6)
         '''
         self.optimize_loop(ops, expected, preamble)
-        
+
 
     # ----------
 
@@ -4783,6 +4783,52 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+
+    def test_division_nonneg(self):
+        py.test.skip("harder")
+        # this is how an app-level division turns into right now
+        ops = """
+        [i4]
+        i1 = int_ge(i4, 0)
+        guard_true(i1) []
+        i16 = int_floordiv(i4, 3)
+        i18 = int_mul(i16, 3)
+        i19 = int_sub(i4, i18)
+        i21 = int_rshift(i19, %d)
+        i22 = int_add(i16, i21)
+        finish(i22)
+        """ % (LONG_BIT-1)
+        expected = """
+        [i4]
+        i1 = int_ge(i4, 0)
+        guard_true(i1) []
+        i16 = int_floordiv(i4, 3)
+        finish(i16)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_division_by_2(self):
+        py.test.skip("harder")
+        ops = """
+        [i4]
+        i1 = int_ge(i4, 0)
+        guard_true(i1) []
+        i16 = int_floordiv(i4, 2)
+        i18 = int_mul(i16, 2)
+        i19 = int_sub(i4, i18)
+        i21 = int_rshift(i19, %d)
+        i22 = int_add(i16, i21)
+        finish(i22)
+        """ % (LONG_BIT-1)
+        expected = """
+        [i4]
+        i1 = int_ge(i4, 0)
+        guard_true(i1) []
+        i16 = int_rshift(i4, 1)
+        finish(i16)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_subsub_ovf(self):
         ops = """
         [i0]
@@ -5800,10 +5846,12 @@ class OptimizeOptTest(BaseTestWithUnroll):
         class FakeCallInfoCollection:
             def callinfo_for_oopspec(self, oopspecindex):
                 calldescrtype = type(LLtypeMixin.strequaldescr)
+                effectinfotype = type(LLtypeMixin.strequaldescr.get_extra_info())
                 for value in LLtypeMixin.__dict__.values():
                     if isinstance(value, calldescrtype):
                         extra = value.get_extra_info()
-                        if extra and extra.oopspecindex == oopspecindex:
+                        if (extra and isinstance(extra, effectinfotype) and
+                            extra.oopspecindex == oopspecindex):
                             # returns 0 for 'func' in this test
                             return value, 0
                 raise AssertionError("not found: oopspecindex=%d" %
@@ -7280,7 +7328,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p1, p2]
         setarrayitem_gc(p1, 2, 10, descr=arraydescr)
-        setarrayitem_gc(p2, 3, 13, descr=arraydescr)        
+        setarrayitem_gc(p2, 3, 13, descr=arraydescr)
         call(0, p1, p2, 0, 0, 10, descr=arraycopydescr)
         jump(p1, p2)
         """
@@ -7304,6 +7352,150 @@ class OptimizeOptTest(BaseTestWithUnroll):
         setfield_gc(p0, p1, descr=adescr)
         call(p0, descr=writeadescr)
         jump(i1, p0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_repeated_constant_setfield_mixed_with_guard(self):
+        ops = """
+        [p22, p18]
+        setfield_gc(p22, 2, descr=valuedescr)
+        guard_nonnull_class(p18, ConstClass(node_vtable)) []
+        setfield_gc(p22, 2, descr=valuedescr)
+        jump(p22, p18)
+        """
+        preamble = """
+        [p22, p18]
+        setfield_gc(p22, 2, descr=valuedescr)
+        guard_nonnull_class(p18, ConstClass(node_vtable)) []
+        jump(p22, p18)
+        """
+        short = """
+        [p22, p18]
+        i1 = getfield_gc(p22, descr=valuedescr)
+        guard_value(i1, 2) []
+        jump(p22, p18)
+        """
+        expected = """
+        [p22, p18]
+        jump(p22, p18)
+        """
+        self.optimize_loop(ops, expected, preamble, expected_short=short)
+
+    def test_repeated_setfield_mixed_with_guard(self):
+        ops = """
+        [p22, p18, i1]
+        i2 = getfield_gc(p22, descr=valuedescr)
+        call(i2, descr=nonwritedescr)
+        setfield_gc(p22, i1, descr=valuedescr)
+        guard_nonnull_class(p18, ConstClass(node_vtable)) []
+        setfield_gc(p22, i1, descr=valuedescr)
+        jump(p22, p18, i1)
+        """
+        preamble = """
+        [p22, p18, i1]
+        i2 = getfield_gc(p22, descr=valuedescr)
+        call(i2, descr=nonwritedescr)
+        setfield_gc(p22, i1, descr=valuedescr)
+        guard_nonnull_class(p18, ConstClass(node_vtable)) []
+        jump(p22, p18, i1, i1)
+        """
+        short = """
+        [p22, p18, i1]
+        i2 = getfield_gc(p22, descr=valuedescr)
+        jump(p22, p18, i1, i2)
+        """
+        expected = """
+        [p22, p18, i1, i2]
+        call(i2, descr=nonwritedescr)
+        setfield_gc(p22, i1, descr=valuedescr)        
+        jump(p22, p18, i1, i1)
+        """
+        self.optimize_loop(ops, expected, preamble, expected_short=short)
+
+    def test_cache_setfield_across_loop_boundaries(self):
+        ops = """
+        [p1]
+        p2 = getfield_gc(p1, descr=valuedescr)
+        guard_nonnull_class(p2, ConstClass(node_vtable)) []
+        call(p2, descr=nonwritedescr)
+        p3 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1, p3, descr=valuedescr)
+        jump(p1)
+        """
+        expected = """
+        [p1, p2]
+        call(p2, descr=nonwritedescr)
+        p3 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p1, p3, descr=valuedescr)
+        jump(p1, p3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_cache_setarrayitem_across_loop_boundaries(self):
+        ops = """
+        [p1]
+        p2 = getarrayitem_gc(p1, 3, descr=arraydescr)        
+        guard_nonnull_class(p2, ConstClass(node_vtable)) []
+        call(p2, descr=nonwritedescr)
+        p3 = new_with_vtable(ConstClass(node_vtable))
+        setarrayitem_gc(p1, 3, p3, descr=arraydescr)
+        jump(p1)
+        """
+        expected = """
+        [p1, p2]
+        call(p2, descr=nonwritedescr)
+        p3 = new_with_vtable(ConstClass(node_vtable))
+        setarrayitem_gc(p1, 3, p3, descr=arraydescr)
+        jump(p1, p3)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_setarrayitem_p0_p0(self):
+        ops = """
+        [i0, i1]
+        p0 = escape()
+        setarrayitem_gc(p0, 2, p0, descr=arraydescr)
+        jump(i0, i1)
+        """
+        expected = """
+        [i0, i1]
+        p0 = escape()
+        setarrayitem_gc(p0, 2, p0, descr=arraydescr)
+        jump(i0, i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_setfield_p0_p0(self):
+        ops = """
+        [i0, i1]
+        p0 = escape()
+        setfield_gc(p0, p0, descr=arraydescr)
+        jump(i0, i1)
+        """
+        expected = """
+        [i0, i1]
+        p0 = escape()
+        setfield_gc(p0, p0, descr=arraydescr)
+        jump(i0, i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_setfield_p0_p1_p0(self):
+        ops = """
+        [i0, i1]
+        p0 = escape()
+        p1 = escape()
+        setfield_gc(p0, p1, descr=adescr)
+        setfield_gc(p1, p0, descr=bdescr)
+        jump(i0, i1)
+        """
+        expected = """
+        [i0, i1]
+        p0 = escape()
+        p1 = escape()
+        setfield_gc(p0, p1, descr=adescr)
+        setfield_gc(p1, p0, descr=bdescr)
+        jump(i0, i1)
         """
         self.optimize_loop(ops, expected)
 

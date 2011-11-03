@@ -163,17 +163,6 @@ class VStringPlainValue(VAbstractStringValue):
             for value in self._chars:
                 value.get_args_for_fail(modifier)
 
-    def FIXME_enum_forced_boxes(self, boxes, already_seen):
-        key = self.get_key_box()
-        if key in already_seen:
-            return
-        already_seen[key] = None
-        if self.box is None:
-            for box in self._chars:
-                box.enum_forced_boxes(boxes, already_seen)
-        else:
-            boxes.append(self.box)
-
     def _make_virtual(self, modifier):
         return modifier.make_vstrplain(self.mode is mode_unicode)
 
@@ -226,18 +215,6 @@ class VStringConcatValue(VAbstractStringValue):
             self.left.get_args_for_fail(modifier)
             self.right.get_args_for_fail(modifier)
 
-    def FIXME_enum_forced_boxes(self, boxes, already_seen):
-        key = self.get_key_box()
-        if key in already_seen:
-            return
-        already_seen[key] = None
-        if self.box is None:
-            self.left.enum_forced_boxes(boxes, already_seen)
-            self.right.enum_forced_boxes(boxes, already_seen)
-            self.lengthbox = None
-        else:
-            boxes.append(self.box)
-
     def _make_virtual(self, modifier):
         return modifier.make_vstrconcat(self.mode is mode_unicode)
 
@@ -283,18 +260,6 @@ class VStringSliceValue(VAbstractStringValue):
             self.vstr.get_args_for_fail(modifier)
             self.vstart.get_args_for_fail(modifier)
             self.vlength.get_args_for_fail(modifier)
-
-    def FIXME_enum_forced_boxes(self, boxes, already_seen):
-        key = self.get_key_box()
-        if key in already_seen:
-            return
-        already_seen[key] = None
-        if self.box is None:
-            self.vstr.enum_forced_boxes(boxes, already_seen)
-            self.vstart.enum_forced_boxes(boxes, already_seen)
-            self.vlength.enum_forced_boxes(boxes, already_seen)
-        else:
-            boxes.append(self.box)
 
     def _make_virtual(self, modifier):
         return modifier.make_vstrslice(self.mode is mode_unicode)
@@ -540,11 +505,17 @@ class OptString(optimizer.Optimization):
         #
         if (isinstance(vstr, VStringPlainValue) and vstart.is_constant()
             and vstop.is_constant()):
-            # slicing with constant bounds of a VStringPlainValue
-            value = self.make_vstring_plain(op.result, op, mode)
-            value.setup_slice(vstr._chars, vstart.box.getint(),
-                                           vstop.box.getint())
-            return True
+            # slicing with constant bounds of a VStringPlainValue, if any of
+            # the characters is unitialized we don't do this special slice, we
+            # do the regular copy contents.
+            for i in range(vstart.box.getint(), vstop.box.getint()):
+                if vstr.getitem(i) is optimizer.CVAL_UNINITIALIZED_ZERO:
+                    break
+            else:
+                value = self.make_vstring_plain(op.result, op, mode)
+                value.setup_slice(vstr._chars, vstart.box.getint(),
+                                               vstop.box.getint())
+                return True
         #
         vstr.ensure_nonnull()
         lengthbox = _int_sub(self, vstop.force_box(self),
