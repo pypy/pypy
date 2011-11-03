@@ -6,6 +6,7 @@ from pypy.module.micronumpy import interp_ufuncs, interp_dtype, signature
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.sourcetools import func_with_new_name
+from pypy.rlib.rstring import StringBuilder
 
 numpy_driver = jit.JitDriver(greens = ['signature'],
                              reds = ['result_size', 'i', 'self', 'result'])
@@ -226,30 +227,34 @@ class BaseArray(Wrappable):
     def descr_repr(self, space):
         # Simple implementation so that we can see the array.
         # Since what we want is to print a plethora of 2d views, 
-        # use recursive calls to  tostr() to do the work.
+        # use recursive calls to  to_str() to do the work.
         concrete = self.get_concrete()
-        res = "array("
-        res0 = NDimSlice(concrete, self.signature, [], self.shape).tostr(True, indent='       ')
+        res = StringBuilder()
+        res.append("array(")
+        myview = NDimSlice(concrete, self.signature, [], self.shape)
+        res0 = myview.to_str(True, indent='       ')
         #This is for numpy compliance: an empty slice reports its shape
-        if res0=="[]" and isinstance(self,NDimSlice):
-            res0 += ", shape="
-            res1 = str(self.shape)
-            assert len(res1)>1
-            res0 += '('+ res1[1:max(len(res1)-1,1)]+')'
-        res += res0
+        if res0 == "[]" and isinstance(self, NDimSlice):
+            res.append("[], shape=(")
+            self_shape = str(self.shape)
+            res.append_slice(str(self_shape),1,len(self_shape)-1)
+            res.append(')')
+        else:
+            res.append(res0)
         dtype = concrete.find_dtype()
         if (dtype is not space.fromcache(interp_dtype.W_Float64Dtype) and
-            dtype is not space.fromcache(interp_dtype.W_Int64Dtype)) or not self.find_size():
-            res += ", dtype=" + dtype.name
-        res += ")"
-        return space.wrap(res)
+            dtype is not space.fromcache(interp_dtype.W_Int64Dtype)) or \
+            not self.find_size():
+            res.append(", dtype=" + dtype.name)
+        res.append(")")
+        return space.wrap(res.build())
 
     def descr_str(self, space):
         # Simple implementation so that we can see the array. 
         # Since what we want is to print a plethora of 2d views, let
         # a slice do the work for us.
         concrete = self.get_concrete()
-        r = NDimSlice(concrete, self.signature, [], self.shape).tostr(False)
+        r = NDimSlice(concrete, self.signature, [], self.shape).to_str(False)
         return space.wrap(r)
 
     def _index_of_single_item(self, space, w_idx):
@@ -572,7 +577,7 @@ class ViewArray(BaseArray):
 
 class NDimSlice(ViewArray):
     signature = signature.BaseSignature()
-    
+
     _immutable_fields_ = ['shape[*]', 'chunks[*]']
 
     def __init__(self, parent, signature, chunks, shape):
@@ -651,49 +656,53 @@ class NDimSlice(ViewArray):
             item += index[i]
             i += 1
         return item
-    
-    def tostr(self, comma, indent=' '):
-        ret = ''
+
+    def to_str(self, comma, indent=' '):
+        ret = StringBuilder()
         dtype = self.find_dtype()
-        ndims = len(self.shape)#-self.shape_reduction
+        ndims = len(self.shape)
         for s in self.shape:
             if s == 0:
-                ret += '[]'
-                return ret
+                ret.append('[]')
+                return ret.build()
         if ndims > 2:
-            ret += '['
+            ret.append('[')
             for i in range(self.shape[0]):
-                chunks = [(i, 0, 0, 1)]
-                ret += NDimSlice(self.parent, self.signature, chunks,
-                                 self.shape[1:]).tostr(comma,indent=indent + ' ')
-                if i+1<self.shape[0]:
-                    ret += ',\n\n'+ indent
-            ret += ']'
-        elif ndims==2:
-            ret += '['
+                smallerview = NDimSlice(self.parent, self.signature,
+                                        [(i, 0, 0, 1)], self.shape[1:])
+                ret.append(smallerview.to_str(comma, indent=indent + ' '))
+                if i + 1 < self.shape[0]:
+                    ret.append(',\n\n' + indent)
+            ret.append(']')
+        elif ndims == 2:
+            ret.append('[')
             for i in range(self.shape[0]):
-                ret += '['
-                ret += (','*comma + ' ' ).join([dtype.str_format(self.eval(i*self.shape[1]+j)) \
-                                                    for j in range(self.shape[1])])
-                ret += ']'
-                if i+1< self.shape[0]:
-                    ret += ',\n' + indent
-            ret += ']'
-        elif ndims==1:
-            ret += '['
-            if self.shape[0]>1000:
-                ret += (','*comma + ' ').join([dtype.str_format(self.eval(j)) \
-                                                    for j in range(3)])
-                ret += ','*comma + ' ..., '
-                ret += (','*comma + ' ').join([dtype.str_format(self.eval(j)) \
-                                                    for j in range(self.shape[0]-3,self.shape[0])])
+                ret.append('[')
+                spacer = ',' * comma + ' '
+                ret.append(spacer.join(\
+                    [dtype.str_format(self.eval(i * self.shape[1] + j)) \
+                    for j in range(self.shape[1])]))
+                ret.append(']')
+                if i + 1 < self.shape[0]:
+                    ret.append(',\n' + indent)
+            ret.append(']')
+        elif ndims == 1:
+            ret.append('[')
+            spacer = ',' * comma + ' '
+            if self.shape[0] > 1000:
+                ret.append(spacer.join([dtype.str_format(self.eval(j)) \
+                           for j in range(3)]))
+                ret.append(',' * comma + ' ..., ')
+                ret.append(spacer.join([dtype.str_format(self.eval(j)) \
+                           for j in range(self.shape[0] - 3, self.shape[0])]))
             else:
-                ret += (','*comma + ' ').join([dtype.str_format(self.eval(j)) \
-                                                    for j in range(self.shape[0])])
-            ret += ']'
+                ret.append(spacer.join([dtype.str_format(self.eval(j)) \
+                           for j in range(self.shape[0])]))
+            ret.append(']')
         else:
-            ret += dtype.str_format(self.eval(0))
-        return ret
+            ret.append(dtype.str_format(self.eval(0)))
+        return ret.build()
+
 class NDimArray(BaseArray):
     def __init__(self, size, shape, dtype):
         BaseArray.__init__(self, shape)
