@@ -145,6 +145,13 @@ class OptValue(object):
             return not box.nonnull()
         return False
 
+    def same_value(self, other):
+        if not other:
+            return False
+        if self.is_constant() and other.is_constant():
+            return self.box.same_constant(other.box)
+        return self is other
+
     def make_constant(self, constbox):
         """Replace 'self.box' with a Const box."""
         assert isinstance(constbox, Const)
