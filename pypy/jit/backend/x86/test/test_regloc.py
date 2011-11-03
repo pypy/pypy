@@ -146,8 +146,10 @@ class Test64Bits:
         expected_instructions = (
                 # mov r11, 0xFEDCBA9876543210
                 '\x49\xBB\x10\x32\x54\x76\x98\xBA\xDC\xFE'
-                # mov rcx, [rdx+r11]
-                '\x4A\x8B\x0C\x1A'
+                # lea r11, [rdx+r11]
+                '\x4E\x8D\x1C\x1A'
+                # mov rcx, [r11]
+                '\x49\x8B\x0B'
         )
         assert cb.getvalue() == expected_instructions
 
@@ -217,8 +219,10 @@ class Test64Bits:
         expected_instructions = (
                 # mov r11, 0xFEDCBA9876543210
                 '\x49\xBB\x10\x32\x54\x76\x98\xBA\xDC\xFE'
-                # mov [rdx+r11], -0x01234567
-                '\x4A\xC7\x04\x1A\x99\xBA\xDC\xFE'
+                # lea r11, [rdx+r11]
+                '\x4E\x8D\x1C\x1A'
+                # mov [r11], -0x01234567
+                '\x49\xC7\x03\x99\xBA\xDC\xFE'
         )
         assert cb.getvalue() == expected_instructions
 
@@ -300,8 +304,10 @@ class Test64Bits:
                 '\x48\xBA\xEF\xCD\xAB\x89\x67\x45\x23\x01'
                 # mov r11, 0xFEDCBA9876543210
                 '\x49\xBB\x10\x32\x54\x76\x98\xBA\xDC\xFE'
-                # mov [rax+r11], rdx
-                '\x4A\x89\x14\x18'
+                # lea r11, [rax+r11]
+                '\x4E\x8D\x1C\x18'
+                # mov [r11], rdx
+                '\x49\x89\x13'
                 # pop rdx
                 '\x5A'
         )
