@@ -298,6 +298,8 @@ class LocationCodeBuilder(object):
             else:
                 # For this case, we should not need the scratch register more than here.
                 self._load_scratch(val2)
+                if name == 'MOV' and loc1 is X86_64_SCRATCH_REG:
+                    return     # don't need a dummy "MOV r11, r11"
                 INSN(self, loc1, X86_64_SCRATCH_REG)
 
         def invoke(self, codes, val1, val2):

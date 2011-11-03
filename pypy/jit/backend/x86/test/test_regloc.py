@@ -176,6 +176,30 @@ class Test64Bits:
 
     # ------------------------------------------------------------
 
+    def test_MOV_64bit_constant_into_r11(self):
+        base_constant = 0xFEDCBA9876543210
+        cb = LocationCodeBuilder64()
+        cb.MOV(r11, imm(base_constant))
+
+        expected_instructions = (
+                # mov r11, 0xFEDCBA9876543210
+                '\x49\xBB\x10\x32\x54\x76\x98\xBA\xDC\xFE'
+        )
+        assert cb.getvalue() == expected_instructions
+
+    def test_MOV_64bit_address_into_r11(self):
+        base_addr = 0xFEDCBA9876543210
+        cb = LocationCodeBuilder64()
+        cb.MOV(r11, heap(base_addr))
+
+        expected_instructions = (
+                # mov r11, 0xFEDCBA9876543210
+                '\x49\xBB\x10\x32\x54\x76\x98\xBA\xDC\xFE' +
+                # mov r11, [r11]
+                '\x4D\x8B\x1B'
+        )
+        assert cb.getvalue() == expected_instructions
+
     def test_MOV_immed32_into_64bit_address_1(self):
         immed = -0x01234567
         base_addr = 0xFEDCBA9876543210
