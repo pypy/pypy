@@ -578,6 +578,9 @@ class AbstractUnwrappedSetStrategy(object):
         if self is w_other.strategy:
             strategy = w_set.strategy
             storage = strategy._intersect_unwrapped(w_set, w_other)
+        elif not_contain_equal_elements(self.space, w_set, w_other):
+            strategy = self.space.fromcache(EmptySetStrategy)
+            storage = strategy.get_empty_storage()
         else:
             strategy = self.space.fromcache(ObjectSetStrategy)
             storage = self._intersect_wrapped(w_set, w_other)
@@ -893,11 +896,16 @@ def next__SetIterObject(space, w_setiter):
 # some helper functions
 
 def not_contain_equal_elements(space, w_set, w_other):
+    # add strategies here for which elements from sets with theses strategies are never equal.
+
     strategy1 = w_set.strategy
     strategy2 = w_other.strategy
-    # add strategies here for which elements from sets with theses strategies are never equal.
+
     if strategy1 is space.fromcache(StringSetStrategy) and strategy2 is space.fromcache(IntegerSetStrategy):
         return True
+    if strategy1 is space.fromcache(IntegerSetStrategy) and strategy2 is space.fromcache(StringSetStrategy):
+        return True
+
     if strategy1 is space.fromcache(EmptySetStrategy) or strategy2 is space.fromcache(EmptySetStrategy):
         # an empty set and another set will never have any equal element
         return True

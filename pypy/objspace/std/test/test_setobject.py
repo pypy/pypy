@@ -604,11 +604,16 @@ class AppTestAppSetTest:
         x.symmetric_difference_update(set())
         assert x == set([1,2,3])
 
-    def test_difference_uncomparable_strategies(self):
+    def test_fastpath_with_strategies(self):
         a = set([1,2,3])
         b = set(["a","b","c"])
         assert a.difference(b) == a
         assert b.difference(a) == b
+
+        a = set([1,2,3])
+        b = set(["a","b","c"])
+        assert a.intersection(b) == set()
+        assert b.intersection(a) == set()
 
     def test_empty_intersect(self):
         e = set()
