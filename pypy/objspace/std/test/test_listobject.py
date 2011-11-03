@@ -6,6 +6,12 @@ from pypy.conftest import gettestobjspace
 
 
 class TestW_ListObject(object):
+    def setup_class(cls):
+        import sys
+        on_cpython = (option.runappdirect and
+                            not hasattr(sys, 'pypy_translation_info'))
+
+        cls.w_on_cpython = cls.space.wrap(on_cpython)
 
     def test_is_true(self):
         w = self.space.wrap
@@ -615,6 +621,14 @@ class AppTestW_ListObject(object):
         c = [0, 2, 4]
         assert c.index(0) == 0
         raises(ValueError, c.index, 3)
+
+    def test_index_cpython_bug(self):
+        if self.on_cpython:
+            skip("cpython has a bug here")
+        c = list('hello world')
+        assert c.index('l', None, None) == 2
+        assert c.index('l', 3, None) == 3
+        assert c.index('l', None, 4) == 2
 
     def test_ass_slice(self):
         l = range(6)
