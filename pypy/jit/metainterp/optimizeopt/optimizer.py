@@ -1,6 +1,6 @@
 from pypy.jit.metainterp import jitprof, resume, compile
 from pypy.jit.metainterp.executor import execute_nonspec
-from pypy.jit.metainterp.history import BoxInt, BoxFloat, Const, ConstInt, REF
+from pypy.jit.metainterp.history import BoxInt, BoxFloat, Const, ConstInt, REF, INT
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded, \
                                                      ImmutableIntUnbounded, \
                                                      IntLowerBound, MININT, MAXINT
@@ -326,6 +326,7 @@ class Optimizer(Optimization):
         self.bridge = bridge
         self.values = {}
         self.interned_refs = self.cpu.ts.new_ref_dict()
+        self.interned_ints = {}
         self.resumedata_memo = resume.ResumeDataLoopMemo(metainterp_sd)
         self.bool_boxes = {}
         self.producer = {}
@@ -398,6 +399,9 @@ class Optimizer(Optimization):
             if not value:
                 return box
             return self.interned_refs.setdefault(value, box)
+        elif constbox.type == INT:
+            value = constbox.getint()
+            return self.interned_ints.setdefault(value, box)
         else:
             return box
 
