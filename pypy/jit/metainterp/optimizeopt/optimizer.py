@@ -95,6 +95,10 @@ class OptValue(object):
         return guards
 
     def import_from(self, other, optimizer):
+        if self.level == LEVEL_CONSTANT:
+            assert other.level == LEVEL_CONSTANT
+            assert other.box.same_constant(self.box)
+            return
         assert self.level <= LEVEL_NONNULL
         if other.level == LEVEL_CONSTANT:
             self.make_constant(other.get_key_box())
