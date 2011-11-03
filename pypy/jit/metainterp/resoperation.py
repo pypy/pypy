@@ -366,6 +366,8 @@ _oplist = [
     'FINISH/*d',
     '_FINAL_LAST',
 
+    'TARGET/*d',
+
     '_GUARD_FIRST',
     '_GUARD_FOLDABLE_FIRST',
     'GUARD_TRUE/1d',

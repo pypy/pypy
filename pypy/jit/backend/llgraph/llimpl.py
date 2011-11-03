@@ -339,12 +339,16 @@ def compile_add_descr_arg(loop, ofs, type, arg_types):
     assert isinstance(type, str) and len(type) == 1
     op.args.append(Descr(ofs, type, arg_types=arg_types))
 
-def compile_add_loop_token(loop, descr):
+def compile_add_loop_token(loop, descr, clt):
     if we_are_translated():
         raise ValueError("CALL_ASSEMBLER not supported")
     loop = _from_opaque(loop)
     op = loop.operations[-1]
     op.descr = weakref.ref(descr)
+    if op.opnum == rop.TARGET:
+        descr.compiled_loop_token = clt
+        descr.target_opindex = len(loop.operations)
+        descr.target_arguments = op.args
 
 def compile_add_var(loop, intvar):
     loop = _from_opaque(loop)
@@ -380,13 +384,17 @@ def compile_add_ref_result(loop, TYPE):
     _variables.append(v)
     return r
 
-def compile_add_jump_target(loop, loop_target):
+def compile_add_jump_target(loop, loop_target, target_opindex, target_inputargs):
     loop = _from_opaque(loop)
     loop_target = _from_opaque(loop_target)
+    if not target_inputargs:
+        target_inputargs = loop_target.inputargs
     op = loop.operations[-1]
     op.jump_target = loop_target
+    op.jump_target_opindex = target_opindex
+    op.jump_target_inputargs = target_inputargs
     assert op.opnum == rop.JUMP
-    assert len(op.args) == len(loop_target.inputargs)
+    assert len(op.args) == len(target_inputargs)
     if loop_target == loop:
         log.info("compiling new loop")
     else:
@@ -520,10 +528,11 @@ class Frame(object):
                 self.opindex += 1
                 continue
             if op.opnum == rop.JUMP:
-                assert len(op.jump_target.inputargs) == len(args)
-                self.env = dict(zip(op.jump_target.inputargs, args))
+                inputargs = op.jump_target_inputargs
+                assert len(inputargs) == len(args)
+                self.env = dict(zip(inputargs, args))
                 self.loop = op.jump_target
-                self.opindex = 0
+                self.opindex = op.jump_target_opindex
                 _stats.exec_jumps += 1
             elif op.opnum == rop.FINISH:
                 if self.verbose:
@@ -616,6 +625,9 @@ class Frame(object):
         #
         return _op_default_implementation
 
+    def op_target(self, _, *args):
+        pass
+        
     def op_debug_merge_point(self, _, *args):
         from pypy.jit.metainterp.warmspot import get_stats
         try:

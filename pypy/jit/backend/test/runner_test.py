@@ -2965,7 +2965,48 @@ class LLtypeBackendTest(BaseBackendTest):
         fail = self.cpu.execute_token(looptoken)
         assert fail.identifier == excdescr.identifier
 
+    def test_compile_loop_with_target(self):
+        i0 = BoxInt()
+        i1 = BoxInt()
+        i2 = BoxInt()
+        i3 = BoxInt()
+        looptoken = LoopToken()
+        targettoken = LoopToken()
+        faildescr = BasicFailDescr(2)
+        operations = [
+            ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
+            ResOperation(rop.INT_LE, [i1, ConstInt(9)], i2),
+            ResOperation(rop.GUARD_TRUE, [i2], None, descr=faildescr),
+            ResOperation(rop.TARGET, [i1], None, descr=targettoken),
+            ResOperation(rop.INT_GE, [i1, ConstInt(0)], i3),
+            ResOperation(rop.GUARD_TRUE, [i3], None, descr=BasicFailDescr(3)),
+            ResOperation(rop.JUMP, [i1], None, descr=looptoken),
+            ]
+        inputargs = [i0]
+        operations[2].setfailargs([i1])
+        operations[5].setfailargs([i1])
 
+        self.cpu.compile_loop(inputargs, operations, looptoken)
+        self.cpu.set_future_value_int(0, 2)
+        fail = self.cpu.execute_token(looptoken)
+        assert fail.identifier == 2
+        res = self.cpu.get_latest_value_int(0)
+        assert res == 10
+
+        inputargs = [i0]
+        operations = [
+            ResOperation(rop.INT_SUB, [i0, ConstInt(20)], i2),
+            ResOperation(rop.JUMP, [i2], None, descr=targettoken),
+            ]
+        self.cpu.compile_bridge(faildescr, inputargs, operations, looptoken)
+        
+        self.cpu.set_future_value_int(0, 2)
+        fail = self.cpu.execute_token(looptoken)
+        assert fail.identifier == 3
+        res = self.cpu.get_latest_value_int(0)
+        assert res == -10
+
+        
 class OOtypeBackendTest(BaseBackendTest):
 
     type_system = 'ootype'

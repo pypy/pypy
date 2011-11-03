@@ -136,7 +136,7 @@ class BaseCPU(model.AbstractCPU):
         clt = original_loop_token.compiled_loop_token
         clt.loop_and_bridges.append(c)
         clt.compiling_a_bridge()
-        self._compile_loop_or_bridge(c, inputargs, operations)
+        self._compile_loop_or_bridge(c, inputargs, operations, clt)
         old, oldindex = faildescr._compiled_fail
         llimpl.compile_redirect_fail(old, oldindex, c)
 
@@ -151,14 +151,16 @@ class BaseCPU(model.AbstractCPU):
         clt.loop_and_bridges = [c]
         clt.compiled_version = c
         looptoken.compiled_loop_token = clt
-        self._compile_loop_or_bridge(c, inputargs, operations)
+        looptoken.target_opindex = 0
+        looptoken.target_arguments = None
+        self._compile_loop_or_bridge(c, inputargs, operations, clt)
 
     def free_loop_and_bridges(self, compiled_loop_token):
         for c in compiled_loop_token.loop_and_bridges:
             llimpl.mark_as_free(c)
         model.AbstractCPU.free_loop_and_bridges(self, compiled_loop_token)
 
-    def _compile_loop_or_bridge(self, c, inputargs, operations):
+    def _compile_loop_or_bridge(self, c, inputargs, operations, clt):
         var2index = {}
         for box in inputargs:
             if isinstance(box, history.BoxInt):
@@ -170,19 +172,19 @@ class BaseCPU(model.AbstractCPU):
                 var2index[box] = llimpl.compile_start_float_var(c)
             else:
                 raise Exception("box is: %r" % (box,))
-        self._compile_operations(c, operations, var2index)
+        self._compile_operations(c, operations, var2index, clt)
         return c
 
-    def _compile_operations(self, c, operations, var2index):
+    def _compile_operations(self, c, operations, var2index, clt):
         for op in operations:
             llimpl.compile_add(c, op.getopnum())
             descr = op.getdescr()
             if isinstance(descr, Descr):
                 llimpl.compile_add_descr(c, descr.ofs, descr.typeinfo,
                                          descr.arg_types)
-            if (isinstance(descr, history.LoopToken) and
-                op.getopnum() != rop.JUMP):
-                llimpl.compile_add_loop_token(c, descr)
+            if isinstance(descr, history.LoopToken):
+                if op.getopnum() != rop.JUMP:
+                    llimpl.compile_add_loop_token(c, descr, clt)
             if self.is_oo and isinstance(descr, (OODescr, MethDescr)):
                 # hack hack, not rpython
                 c._obj.externalobj.operations[-1].setdescr(descr)
@@ -238,7 +240,8 @@ class BaseCPU(model.AbstractCPU):
             targettoken = op.getdescr()
             assert isinstance(targettoken, history.LoopToken)
             compiled_version = targettoken.compiled_loop_token.compiled_version
-            llimpl.compile_add_jump_target(c, compiled_version)
+            opindex = targettoken.target_opindex
+            llimpl.compile_add_jump_target(c, compiled_version, opindex, targettoken.target_arguments)
         elif op.getopnum() == rop.FINISH:
             faildescr = op.getdescr()
             index = self.get_fail_descr_number(faildescr)
