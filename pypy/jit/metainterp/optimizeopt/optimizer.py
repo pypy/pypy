@@ -403,9 +403,9 @@ class Optimizer(Optimization):
             if not value:
                 return box
             return self.interned_refs.setdefault(value, box)
-        elif constbox.type == INT:
-            value = constbox.getint()
-            return self.interned_ints.setdefault(value, box)
+        #elif constbox.type == INT:
+        #    value = constbox.getint()
+        #    return self.interned_ints.setdefault(value, box)
         else:
             return box
 
