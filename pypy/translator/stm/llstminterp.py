@@ -94,6 +94,22 @@ class LLSTMFrame(LLFrame):
             self.check_stm_mode(lambda m: False)
             assert 0
 
+    def opstm_setarrayitem(self, array, index, newvalue):
+        ARRAY = lltype.typeOf(struct).TO
+        if ARRAY._immutable_field():
+            # immutable item writes (i.e. initializing writes) should
+            # always be fine, because they should occur into newly malloced
+            # arrays
+            LLFrame.op_setarrayitem(self, array, index, newvalue)
+        elif ARRAY._gckind == 'raw':
+            # raw setarrayitems are allowed outside a regular transaction
+            self.check_stm_mode(lambda m: m != "regular_transaction")
+            LLFrame.op_setarrayitem(self, array, index, newvalue)
+        else:
+            # mutable 'setarrayitems' are always forbidden for now
+            self.check_stm_mode(lambda m: False)
+            assert 0
+
     def opstm_malloc(self, TYPE, flags):
         # non-GC must not occur in a regular transaction,
         # but can occur in inevitable mode or outside a transaction
@@ -117,6 +133,10 @@ class LLSTMFrame(LLFrame):
     def opstm_stm_setfield(self, struct, fieldname, value):
         self.check_stm_mode(lambda m: m != "not_in_transaction")
         LLFrame.op_setfield(self, struct, fieldname, value)
+
+    def opstm_stm_setarrayitem(self, array, index, value):
+        self.check_stm_mode(lambda m: m != "not_in_transaction")
+        LLFrame.op_setarrayitem(self, array, index, value)
 
     def opstm_stm_begin_transaction(self):
         self.check_stm_mode(lambda m: m == "not_in_transaction")

@@ -129,6 +129,17 @@ class STMTransformer(object):
             op1 = SpaceOperation('stm_setfield', op.args, op.result)
         newoperations.append(op1)
 
+    def stt_setarrayitem(self, newoperations, op):
+        ARRAY = op.args[0].concretetype.TO
+        if ARRAY._immutable_field():
+            op1 = op
+        elif ARRAY._gckind == 'raw':
+            turn_inevitable(newoperations, "setarrayitem-raw")
+            op1 = op
+        else:
+            op1 = SpaceOperation('stm_setarrayitem', op.args, op.result)
+        newoperations.append(op1)
+
     def stt_stm_transaction_boundary(self, newoperations, op):
         self.seen_transaction_boundary = True
         v_result = op.result

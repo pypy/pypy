@@ -24,7 +24,7 @@ def check_chained_list(node):
     seen[-1] = NUM_THREADS
     while node is not None:
         value = node.value
-        print value
+        #print value
         if not (0 <= value < LENGTH):
             print "node.value out of bounds:", value
             raise AssertionError
