@@ -9,7 +9,7 @@ from pypy.module.micronumpy.interp_numarray import (Scalar, BaseArray,
      descr_new_array, scalar_w, NDimArray)
 from pypy.module.micronumpy import interp_ufuncs
 from pypy.rlib.objectmodel import specialize
-
+import re
 
 class BogusBytecode(Exception):
     pass
@@ -220,7 +220,7 @@ class ArrayAssignment(Node):
 
 class Variable(Node):
     def __init__(self, name):
-        self.name = name.strip()
+        self.name = name.strip(" ")
 
     def execute(self, interp):
         return interp.variables[self.name]
@@ -338,7 +338,7 @@ class Execute(Node):
 
 class FunctionCall(Node):
     def __init__(self, name, args):
-        self.name = name.strip()
+        self.name = name.strip(" ")
         self.args = args
 
     def __repr__(self):
@@ -381,10 +381,8 @@ class FunctionCall(Node):
         else:
             raise WrongFunctionName
 
-import re
-
 _REGEXES = [
-    ('-?[\d]+', 'number'),
+    ('-?[\d\.]+', 'number'),
     ('\[', 'array_left'),
     (':', 'colon'),
     ('\w+', 'identifier'),
@@ -399,7 +397,7 @@ _REGEXES = [
 REGEXES = []
 
 for r, name in _REGEXES:
-    REGEXES.append((re.compile(' *(' + r + ')'), name))
+    REGEXES.append((re.compile(r' *(' + r + ')'), name))
 del _REGEXES
 
 class Token(object):
@@ -457,9 +455,9 @@ class Parser(object):
         if start_tok.name == 'colon':
             start = 0
         else:
-            start = int(start_tok.v)
             if tokens.get(0).name != 'colon':
-                return FloatConstant(start)
+                return FloatConstant(start_tok.v)
+            start = int(start_tok.v)
             tokens.pop()
         if not tokens.get(0).name in ['colon', 'number']:
             stop = -1
