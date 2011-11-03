@@ -46,9 +46,6 @@ class FunctionCodeGenerator(object):
         self.gcpolicy = db.gcpolicy
         self.exception_policy = exception_policy
         self.functionname = functionname
-        # apply the stackless transformation
-        if db.stacklesstransformer:
-            db.stacklesstransformer.transform_graph(graph)
         # apply the exception transformation
         if self.db.exctransformer:
             self.db.exctransformer.create_exception_handling(self.graph)
@@ -823,6 +820,11 @@ class FunctionCodeGenerator(object):
                                          cdecl(typename, ''))
         return result
 
+    def OP_DEBUG_NONNULL_POINTER(self, op):
+        expr = self.expr(op.args[0])
+        return 'if ((-8192 <= (long)%s) && (((long)%s) < 8192)) abort();' % (
+            expr, expr)
+
     def OP_INSTRUMENT_COUNT(self, op):
         counter_label = op.args[1].value
         self.db.instrument_ncounter = max(self.db.instrument_ncounter,
@@ -831,7 +833,7 @@ class FunctionCodeGenerator(object):
         return 'INSTRUMENT_COUNT(%s);' % counter_label
             
     def OP_IS_EARLY_CONSTANT(self, op):
-        return self.expr(op.result)  + ' = 0;' # Allways false
+        return '%s = 0; /* IS_EARLY_CONSTANT */' % (self.expr(op.result),)
 
     def OP_JIT_MARKER(self, op):
         return '/* JIT_MARKER %s */' % op
@@ -842,6 +844,9 @@ class FunctionCodeGenerator(object):
     def OP_JIT_FORCE_VIRTUAL(self, op):
         return '%s = %s; /* JIT_FORCE_VIRTUAL */' % (self.expr(op.result),
                                                      self.expr(op.args[0]))
+
+    def OP_JIT_IS_VIRTUAL(self, op):
+        return '%s = 0; /* JIT_IS_VIRTUAL */' % (self.expr(op.result),)
 
     def OP_JIT_FORCE_QUASI_IMMUTABLE(self, op):
         return '/* JIT_FORCE_QUASI_IMMUTABLE %s */' % op

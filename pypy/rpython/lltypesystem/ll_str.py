@@ -16,34 +16,31 @@ def ll_unsigned(i):
         return r_uint(i)
 
 @jit.elidable
-def ll_int2dec(i):
+def ll_int2dec(val):
     from pypy.rpython.lltypesystem.rstr import mallocstr
-    temp = malloc(CHAR_ARRAY, 20)
+
+    sign = int(val < 0)
+    if sign:
+        val = ll_unsigned(-val)
+    else:
+        val = ll_unsigned(val)
     len = 0
-    sign = 0
-    if i < 0:
-        sign = 1
-        i = ll_unsigned(-i)
-    else:
-        i = ll_unsigned(i)
-    if i == 0:
-        len = 1
-        temp[0] = '0'
-    else:
-        while i:
-            temp[len] = chr(i%10+ord('0'))
-            i //= 10
-            len += 1
-    len += sign
-    result = mallocstr(len)
-    result.hash = 0
+    i = val
+    while i:
+        len += 1
+        i //= 10
+
+    total_len = sign + len + int(val == 0)
+    result = mallocstr(total_len)
     if sign:
         result.chars[0] = '-'
-        j = 1
-    else:
-        j = 0
+    elif val == 0:
+        result.chars[0] = '0'
+
+    j = 0
     while j < len:
-        result.chars[j] = temp[len-j-1]
+        result.chars[total_len - j - 1] = chr(val % 10 + ord('0'))
+        val //= 10
         j += 1
     return result
 

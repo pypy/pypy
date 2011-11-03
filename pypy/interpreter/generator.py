@@ -8,7 +8,7 @@ from pypy.interpreter.pyopcode import LoopBlock
 class GeneratorIterator(Wrappable):
     "An iterator created by a generator."
     _immutable_fields_ = ['pycode']
-    
+
     def __init__(self, frame):
         self.space = frame.space
         self.frame = frame     # turned into None when frame_finished_execution
@@ -81,7 +81,7 @@ return next yielded value or raise StopIteration."""
             # if the frame is now marked as finished, it was RETURNed from
             if frame.frame_finished_execution:
                 self.frame = None
-                raise OperationError(space.w_StopIteration, space.w_None) 
+                raise OperationError(space.w_StopIteration, space.w_None)
             else:
                 return w_result     # YIELDed
         finally:
@@ -97,23 +97,24 @@ return next yielded value or raise StopIteration."""
     def throw(self, w_type, w_val, w_tb):
         from pypy.interpreter.pytraceback import check_traceback
         space = self.space
-        
+
         msg = "throw() third argument must be a traceback object"
         if space.is_w(w_tb, space.w_None):
             tb = None
         else:
             tb = check_traceback(space, w_tb, msg)
-       
+
         operr = OperationError(w_type, w_val, tb)
         operr.normalize_exception(space)
         return self.send_ex(space.w_None, operr)
-             
+
     def descr_next(self):
         """x.next() -> the next value, or raise StopIteration"""
         return self.send_ex(self.space.w_None)
- 
+
     def descr_close(self):
         """x.close(arg) -> raise GeneratorExit inside generator."""
+        assert isinstance(self, GeneratorIterator)
         space = self.space
         try:
             w_retval = self.throw(space.w_GeneratorExit, space.w_None,
@@ -123,7 +124,7 @@ return next yielded value or raise StopIteration."""
                     e.match(space, space.w_GeneratorExit):
                 return space.w_None
             raise
-        
+
         if w_retval is not None:
             msg = "generator ignored GeneratorExit"
             raise OperationError(space.w_RuntimeError, space.wrap(msg))
@@ -141,22 +142,52 @@ return next yielded value or raise StopIteration."""
         code_name = self.pycode.co_name
         return space.wrap(code_name)
 
-    def descr__del__(self):        
-        """
-        applevel __del__, which is called at a safe point after the
-        interp-level __del__ enqueued the object for destruction
-        """
-        self.descr_close()
-
     def __del__(self):
         # Only bother enqueuing self to raise an exception if the frame is
         # still not finished and finally or except blocks are present.
-        must_call_close = False
+        self.clear_all_weakrefs()
         if self.frame is not None:
             block = self.frame.lastblock
             while block is not None:
                 if not isinstance(block, LoopBlock):
-                    must_call_close = True
+                    self.enqueue_for_destruction(self.space,
+                                                 GeneratorIterator.descr_close,
+                                                 "interrupting generator of ")
                     break
                 block = block.previous
-        self._enqueue_for_destruction(self.space, must_call_close)
+
+    def unpack_into(self, results_w):
+        """This is a hack for performance: runs the generator and collects
+        all produced items in a list."""
+        # XXX copied and simplified version of send_ex()
+        space = self.space
+        if self.running:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap('generator already executing'))
+        frame = self.frame
+        if frame is None:    # already finished
+            return
+        self.running = True
+        try:
+            pycode = self.pycode
+            while True:
+                jitdriver.jit_merge_point(self=self, frame=frame,
+                                          results_w=results_w,
+                                          pycode=pycode)
+                try:
+                    w_result = frame.execute_frame(space.w_None)
+                except OperationError, e:
+                    if not e.match(space, space.w_StopIteration):
+                        raise
+                    break
+                # if the frame is now marked as finished, it was RETURNed from
+                if frame.frame_finished_execution:
+                    break
+                results_w.append(w_result)     # YIELDed
+        finally:
+            frame.f_backref = jit.vref_None
+            self.running = False
+            self.frame = None
+
+jitdriver = jit.JitDriver(greens=['pycode'],
+                          reds=['self', 'frame', 'results_w'])

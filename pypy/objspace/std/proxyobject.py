@@ -52,10 +52,10 @@ def transparent_class(name, BaseCls):
                     raise
                 return False
         
-        def deldictvalue(self, space, w_attr):
+        def deldictvalue(self, space, attr):
             try:
                 space.call_function(self.w_controller, space.wrap('__delattr__'),
-                   w_attr)
+                   space.wrap(attr))
                 return True
             except OperationError, e:
                 if not e.match(space, space.w_AttributeError):

@@ -122,6 +122,38 @@ def Py_UNICODE_TOUPPER(space, ch):
     """Return the character ch converted to upper case."""
     return unichr(unicodedb.toupper(ord(ch)))
 
+@cpython_api([Py_UNICODE], Py_UNICODE, error=CANNOT_FAIL)
+def Py_UNICODE_TOTITLE(space, ch):
+    """Return the character ch converted to title case."""
+    return unichr(unicodedb.totitle(ord(ch)))
+
+@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+def Py_UNICODE_TODECIMAL(space, ch):
+    """Return the character ch converted to a decimal positive integer.  Return
+    -1 if this is not possible.  This macro does not raise exceptions."""
+    try:
+        return unicodedb.decimal(ord(ch))
+    except KeyError:
+        return -1
+
+@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
+def Py_UNICODE_TODIGIT(space, ch):
+    """Return the character ch converted to a single digit integer. Return -1 if
+    this is not possible.  This macro does not raise exceptions."""
+    try:
+        return unicodedb.digit(ord(ch))
+    except KeyError:
+        return -1
+
+@cpython_api([Py_UNICODE], rffi.DOUBLE, error=CANNOT_FAIL)
+def Py_UNICODE_TONUMERIC(space, ch):
+    """Return the character ch converted to a double. Return -1.0 if this is not
+    possible.  This macro does not raise exceptions."""
+    try:
+        return unicodedb.numeric(ord(ch))
+    except KeyError:
+        return -1.0
+
 @cpython_api([PyObject], rffi.CCHARP, error=CANNOT_FAIL)
 def PyUnicode_AS_DATA(space, ref):
     """Return a pointer to the internal buffer of the object. o has to be a
@@ -526,8 +558,12 @@ def Py_UNICODE_COPY(space, target, source, length):
 
 @cpython_api([PyObject, PyObject], PyObject)
 def PyUnicode_Format(space, w_format, w_args):
+    """Return a new string object from format and args; this is analogous to
+    format % args.  The args argument must be a tuple."""
     return space.mod(w_format, w_args)
 
 @cpython_api([PyObject, PyObject], PyObject)
 def PyUnicode_Join(space, w_sep, w_seq):
+    """Join a sequence of strings using the given separator and return the resulting
+    Unicode string."""
     return space.call_method(w_sep, 'join', w_seq)

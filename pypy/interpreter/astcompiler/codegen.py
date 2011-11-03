@@ -295,15 +295,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_FunctionDef(self, func):
         self.update_position(func.lineno, True)
         # Load decorators first, but apply them after the function is created.
-        if func.decorator_list:
-            self.visit_sequence(func.decorator_list)
+        self.visit_sequence(func.decorator_list)
         args = func.args
         assert isinstance(args, ast.arguments)
-        if args.defaults:
-            self.visit_sequence(args.defaults)
-            num_defaults = len(args.defaults)
-        else:
-            num_defaults = 0
+        self.visit_sequence(args.defaults)
+        num_defaults = len(args.defaults) if args.defaults is not None else 0
         code = self.sub_scope(FunctionCodeGenerator, func.name, func,
                               func.lineno)
         self._make_function(code, num_defaults)
@@ -317,24 +313,17 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.update_position(lam.lineno)
         args = lam.args
         assert isinstance(args, ast.arguments)
-        if args.defaults:
-            self.visit_sequence(args.defaults)
-            default_count = len(args.defaults)
-        else:
-            default_count = 0
+        self.visit_sequence(args.defaults)
+        default_count = len(args.defaults) if args.defaults is not None else 0
         code = self.sub_scope(LambdaCodeGenerator, "<lambda>", lam, lam.lineno)
         self._make_function(code, default_count)
 
     def visit_ClassDef(self, cls):
         self.update_position(cls.lineno, True)
-        if cls.decorator_list:
-            self.visit_sequence(cls.decorator_list)
+        self.visit_sequence(cls.decorator_list)
         self.load_const(self.space.wrap(cls.name))
-        if cls.bases:
-            bases_count = len(cls.bases)
-            self.visit_sequence(cls.bases)
-        else:
-            bases_count = 0
+        self.visit_sequence(cls.bases)
+        bases_count = len(cls.bases) if cls.bases is not None else 0
         self.emit_op_arg(ops.BUILD_TUPLE, bases_count)
         code = self.sub_scope(ClassCodeGenerator, cls.name, cls, cls.lineno)
         self._make_function(code, 0)
@@ -446,8 +435,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         end = self.new_block()
         test_constant = if_.test.as_constant_truth(self.space)
         if test_constant == optimize.CONST_FALSE:
-            if if_.orelse:
-                self.visit_sequence(if_.orelse)
+            self.visit_sequence(if_.orelse)
         elif test_constant == optimize.CONST_TRUE:
             self.visit_sequence(if_.body)
         else:
@@ -515,16 +503,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.use_next_block(cleanup)
         self.emit_op(ops.POP_BLOCK)
         self.pop_frame_block(F_BLOCK_LOOP, start)
-        if fr.orelse:
-            self.visit_sequence(fr.orelse)
+        self.visit_sequence(fr.orelse)
         self.use_next_block(end)
 
     def visit_While(self, wh):
         self.update_position(wh.lineno, True)
         test_constant = wh.test.as_constant_truth(self.space)
         if test_constant == optimize.CONST_FALSE:
-            if wh.orelse:
-                self.visit_sequence(wh.orelse)
+            self.visit_sequence(wh.orelse)
         else:
             end = self.new_block()
             anchor = None
@@ -544,8 +530,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.use_next_block(anchor)
                 self.emit_op(ops.POP_BLOCK)
             self.pop_frame_block(F_BLOCK_LOOP, loop)
-            if wh.orelse:
-                self.visit_sequence(wh.orelse)
+            self.visit_sequence(wh.orelse)
             self.use_next_block(end)
 
     def visit_TryExcept(self, te):
@@ -581,8 +566,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.use_next_block(next_except)
         self.emit_op(ops.END_FINALLY)
         self.use_next_block(otherwise)
-        if te.orelse:
-            self.visit_sequence(te.orelse)
+        self.visit_sequence(te.orelse)
         self.use_next_block(end)
 
     def visit_TryFinally(self, tf):
@@ -893,27 +877,19 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_Tuple(self, tup):
         self.update_position(tup.lineno)
-        if tup.elts:
-            elt_count = len(tup.elts)
-        else:
-            elt_count = 0
+        elt_count = len(tup.elts) if tup.elts is not None else 0
         if tup.ctx == ast.Store:
             self.emit_op_arg(ops.UNPACK_SEQUENCE, elt_count)
-        if elt_count:
-            self.visit_sequence(tup.elts)
+        self.visit_sequence(tup.elts)
         if tup.ctx == ast.Load:
             self.emit_op_arg(ops.BUILD_TUPLE, elt_count)
 
     def visit_List(self, l):
         self.update_position(l.lineno)
-        if l.elts:
-            elt_count = len(l.elts)
-        else:
-            elt_count = 0
+        elt_count = len(l.elts) if l.elts is not None else 0
         if l.ctx == ast.Store:
             self.emit_op_arg(ops.UNPACK_SEQUENCE, elt_count)
-        if elt_count:
-            self.visit_sequence(l.elts)
+        self.visit_sequence(l.elts)
         if l.ctx == ast.Load:
             self.emit_op_arg(ops.BUILD_LIST, elt_count)
 
@@ -944,11 +920,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if self._optimize_method_call(call):
             return
         call.func.walkabout(self)
-        arg = 0
+        arg = len(call.args) if call.args is not None else 0
         call_type = 0
-        if call.args:
-            arg = len(call.args)
-            self.visit_sequence(call.args)
+        self.visit_sequence(call.args)
         if call.keywords:
             self.visit_sequence(call.keywords)
             arg |= len(call.keywords) << 8
@@ -984,16 +958,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         assert isinstance(attr_lookup, ast.Attribute)
         attr_lookup.value.walkabout(self)
         self.emit_op_name(ops.LOOKUP_METHOD, self.names, attr_lookup.attr)
-        if call.args:
-            self.visit_sequence(call.args)
-            arg_count = len(call.args)
-        else:
-            arg_count = 0
-        if call.keywords:
-            self.visit_sequence(call.keywords)
-            kwarg_count = len(call.keywords)
-        else:
-            kwarg_count = 0
+        self.visit_sequence(call.args)
+        arg_count = len(call.args) if call.args is not None else 0
+        self.visit_sequence(call.keywords)
+        kwarg_count = len(call.keywords) if call.keywords is not None else 0
         self.emit_op_arg(ops.CALL_METHOD, (kwarg_count << 8) | arg_count)
         return True
 
@@ -1251,7 +1219,10 @@ class FunctionCodeGenerator(AbstractFunctionCodeGenerator):
     def _compile(self, func):
         assert isinstance(func, ast.FunctionDef)
         # If there's a docstring, store it as the first constant.
-        doc_expr = self.possible_docstring(func.body[0])
+        if func.body:
+            doc_expr = self.possible_docstring(func.body[0])
+        else:
+            doc_expr = None
         if doc_expr is not None:
             self.add_const(doc_expr.s)
             start = 1
@@ -1263,8 +1234,9 @@ class FunctionCodeGenerator(AbstractFunctionCodeGenerator):
         if args.args:
             self._handle_nested_args(args.args)
             self.argcount = len(args.args)
-        for i in range(start, len(func.body)):
-            func.body[i].walkabout(self)
+        if func.body:
+            for i in range(start, len(func.body)):
+                func.body[i].walkabout(self)
 
 
 class LambdaCodeGenerator(AbstractFunctionCodeGenerator):

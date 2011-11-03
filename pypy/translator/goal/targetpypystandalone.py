@@ -173,15 +173,15 @@ class PyPyTarget(object):
                 # command-line directly instead of via --allworkingmodules.
                 config.objspace.usemodules.thread = False
 
-        if config.translation.stackless:
-            config.objspace.usemodules._stackless = True
-        elif config.objspace.usemodules._stackless:
+        if config.translation.continuation:
+            config.objspace.usemodules._continuation = True
+        elif config.objspace.usemodules._continuation:
             try:
-                config.translation.stackless = True
+                config.translation.continuation = True
             except ConflictConfigError:
-                raise ConflictConfigError("please use the --stackless option "
-                                          "to translate.py instead of "
-                                          "--withmod-_stackless directly")
+                # Same as above: try to auto-disable the _continuation
+                # module if translation.continuation cannot be enabled
+                config.objspace.usemodules._continuation = False
 
         if not config.translation.rweakref:
             config.objspace.usemodules._weakref = False

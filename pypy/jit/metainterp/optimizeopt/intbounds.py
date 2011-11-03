@@ -1,9 +1,13 @@
-from pypy.jit.metainterp.optimizeopt.optimizer import Optimization, CONST_1, CONST_0
+import sys
+from pypy.jit.metainterp.optimizeopt.optimizer import Optimization, CONST_1, CONST_0, \
+                                                  MODE_ARRAY, MODE_STR, MODE_UNICODE
+from pypy.jit.metainterp.history import ConstInt
+from pypy.jit.metainterp.optimizeopt.intutils import (IntBound, IntLowerBound,
+    IntUpperBound)
 from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
-from pypy.jit.metainterp.optimizeopt.intutils import (IntBound, IntUnbounded,
-    IntLowerBound, IntUpperBound)
-from pypy.jit.metainterp.history import Const, ConstInt
-from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.jit.metainterp.resoperation import rop
+from pypy.rlib.rarithmetic import LONG_BIT
+
 
 class OptIntBounds(Optimization):
     """Keeps track of the bounds placed on integers by guards and remove
@@ -13,17 +17,16 @@ class OptIntBounds(Optimization):
         self.posponedop = None
         self.nextop = None
 
-    def reconstruct_for_next_iteration(self, optimizer, valuemap):
+    def new(self):
         assert self.posponedop is None
-        return self
+        return OptIntBounds()
+        
+    def flush(self):
+        assert self.posponedop is None
 
     def setup(self):
         self.posponedop = None
         self.nextop = None
-
-    def reconstruct_for_next_iteration(self, optimizer, valuemap):
-        assert self.posponedop is None
-        return self
 
     def propagate_forward(self, op):
         if op.is_ovf():
@@ -124,6 +127,32 @@ class OptIntBounds(Optimization):
         r = self.getvalue(op.result)
         r.intbound.intersect(v1.intbound.div_bound(v2.intbound))
 
+    def optimize_INT_MOD(self, op):
+        v1 = self.getvalue(op.getarg(0))
+        v2 = self.getvalue(op.getarg(1))
+        known_nonneg = (v1.intbound.known_ge(IntBound(0, 0)) and 
+                        v2.intbound.known_ge(IntBound(0, 0)))
+        if known_nonneg and v2.is_constant():
+            val = v2.box.getint()
+            if (val & (val-1)) == 0:
+                # nonneg % power-of-two ==> nonneg & (power-of-two - 1)
+                arg1 = op.getarg(0)
+                arg2 = ConstInt(val-1)
+                op = op.copy_and_change(rop.INT_AND, args=[arg1, arg2])
+        self.emit_operation(op)
+        if v2.is_constant():
+            val = v2.box.getint()
+            r = self.getvalue(op.result)
+            if val < 0:
+                if val == -sys.maxint-1:
+                    return     # give up
+                val = -val
+            if known_nonneg:
+                r.intbound.make_ge(IntBound(0, 0))
+            else:
+                r.intbound.make_gt(IntBound(-val, -val))
+            r.intbound.make_lt(IntBound(val, val))
+
     def optimize_INT_LSHIFT(self, op):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
@@ -141,9 +170,14 @@ class OptIntBounds(Optimization):
     def optimize_INT_RSHIFT(self, op):
         v1 = self.getvalue(op.getarg(0))
         v2 = self.getvalue(op.getarg(1))
-        self.emit_operation(op)
-        r = self.getvalue(op.result)
-        r.intbound.intersect(v1.intbound.rshift_bound(v2.intbound))
+        b = v1.intbound.rshift_bound(v2.intbound)
+        if b.has_lower and b.has_upper and b.lower == b.upper:
+            # constant result (likely 0, for rshifts that kill all bits)
+            self.make_constant_int(op.result, b.lower)
+        else:
+            self.emit_operation(op)
+            r = self.getvalue(op.result)
+            r.intbound.intersect(b)
 
     def optimize_INT_ADD_OVF(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -274,10 +308,27 @@ class OptIntBounds(Optimization):
 
     def optimize_ARRAYLEN_GC(self, op):
         self.emit_operation(op)
-        v1 = self.getvalue(op.result)
-        v1.intbound.make_ge(IntLowerBound(0))
+        array  = self.getvalue(op.getarg(0))
+        result = self.getvalue(op.result)
+        array.make_len_gt(MODE_ARRAY, op.getdescr(), -1)
+        array.lenbound.bound.intersect(result.intbound)
+        result.intbound = array.lenbound.bound
 
-    optimize_STRLEN = optimize_UNICODELEN = optimize_ARRAYLEN_GC
+    def optimize_STRLEN(self, op):
+        self.emit_operation(op)
+        array  = self.getvalue(op.getarg(0))
+        result = self.getvalue(op.result)
+        array.make_len_gt(MODE_STR, op.getdescr(), -1)
+        array.lenbound.bound.intersect(result.intbound)
+        result.intbound = array.lenbound.bound
+
+    def optimize_UNICODELEN(self, op):
+        self.emit_operation(op)
+        array  = self.getvalue(op.getarg(0))
+        result = self.getvalue(op.result)
+        array.make_len_gt(MODE_UNICODE, op.getdescr(), -1)
+        array.lenbound.bound.intersect(result.intbound)
+        result.intbound = array.lenbound.bound
 
     def optimize_STRGETITEM(self, op):
         self.emit_operation(op)

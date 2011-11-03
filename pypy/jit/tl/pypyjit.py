@@ -37,13 +37,13 @@ config.translating = True
 set_opt_level(config, level='jit')
 config.objspace.allworkingmodules = False
 config.objspace.usemodules.pypyjit = True
-config.objspace.usemodules.array = True
+config.objspace.usemodules.array = False
 config.objspace.usemodules._weakref = True
 config.objspace.usemodules._sre = False
-config.objspace.usemodules._lsprof = True
+config.objspace.usemodules._lsprof = False
 #
 config.objspace.usemodules._ffi = True
-config.objspace.usemodules.micronumpy = True
+config.objspace.usemodules.micronumpy = False
 #
 set_pypy_opt_level(config, level='jit')
 
@@ -77,7 +77,7 @@ def readfile(filename):
 
 def read_code():
     from pypy.module.marshal.interp_marshal import dumps
-    
+
     filename = 'pypyjit_demo.py'
     source = readfile(filename)
     ec = space.getexecutioncontext()

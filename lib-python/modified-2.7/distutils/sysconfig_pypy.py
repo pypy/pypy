@@ -116,6 +116,12 @@ def customize_compiler(compiler):
     if compiler.compiler_type == "unix":
         compiler.compiler_so.extend(['-fPIC', '-Wimplicit'])
         compiler.shared_lib_extension = get_config_var('SO')
+        if "CFLAGS" in os.environ:
+            cflags = os.environ["CFLAGS"]
+            compiler.compiler.append(cflags)
+            compiler.compiler_so.append(cflags)
+            compiler.linker_so.append(cflags)
+
 
 from sysconfig_cpython import (
     parse_makefile, _variable_rx, expand_makefile_vars)

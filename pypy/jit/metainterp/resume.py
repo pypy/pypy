@@ -139,7 +139,7 @@ class ResumeDataLoopMemo(object):
         self.numberings = {}
         self.cached_boxes = {}
         self.cached_virtuals = {}
-    
+
         self.nvirtuals = 0
         self.nvholes = 0
         self.nvreused = 0
@@ -273,6 +273,9 @@ class ResumeDataVirtualAdder(object):
     def make_varray(self, arraydescr):
         return VArrayInfo(arraydescr)
 
+    def make_varraystruct(self, arraydescr, fielddescrs):
+        return VArrayStructInfo(arraydescr, fielddescrs)
+
     def make_vstrplain(self, is_unicode=False):
         if is_unicode:
             return VUniPlainInfo()
@@ -402,7 +405,7 @@ class ResumeDataVirtualAdder(object):
                 virtuals[num] = vinfo
 
         if self._invalidation_needed(len(liveboxes), nholes):
-            memo.clear_box_virtual_numbers()           
+            memo.clear_box_virtual_numbers()
 
     def _invalidation_needed(self, nliveboxes, nholes):
         memo = self.memo
@@ -456,17 +459,6 @@ class AbstractVirtualInfo(object):
     def debug_prints(self):
         raise NotImplementedError
 
-    def generalization_of(self, other):
-        raise NotImplementedError
-
-    def generate_guards(self, other, box, cpu, extra_guards):
-        if self.generalization_of(other):
-            return
-        self._generate_guards(other, box, cpu, extra_guards)
-
-    def _generate_guards(self, other, box, cpu, extra_guards):
-        raise InvalidLoop
-        
 class AbstractVirtualStructInfo(AbstractVirtualInfo):
     def __init__(self, fielddescrs):
         self.fielddescrs = fielddescrs
@@ -486,26 +478,6 @@ class AbstractVirtualStructInfo(AbstractVirtualInfo):
                         str(self.fielddescrs[i]),
                         str(untag(self.fieldnums[i])))
 
-    def generalization_of(self, other):
-        if not self._generalization_of(other):
-            return False
-        assert len(self.fielddescrs) == len(self.fieldstate)
-        assert len(other.fielddescrs) == len(other.fieldstate)
-        if len(self.fielddescrs) != len(other.fielddescrs):
-            return False
-        
-        for i in range(len(self.fielddescrs)):
-            if other.fielddescrs[i] is not self.fielddescrs[i]:
-                return False
-            if not self.fieldstate[i].generalization_of(other.fieldstate[i]):
-                return False
-
-        return True
-
-    def _generalization_of(self, other):
-        raise NotImplementedError
-
-
 class VirtualInfo(AbstractVirtualStructInfo):
     def __init__(self, known_class, fielddescrs):
         AbstractVirtualStructInfo.__init__(self, fielddescrs)
@@ -521,13 +493,6 @@ class VirtualInfo(AbstractVirtualStructInfo):
         debug_print("\tvirtualinfo", self.known_class.repr_rpython())
         AbstractVirtualStructInfo.debug_prints(self)
 
-    def _generalization_of(self, other):        
-        if not isinstance(other, VirtualInfo):
-            return False
-        if not self.known_class.same_constant(other.known_class):
-            return False
-        return True
-        
 
 class VStructInfo(AbstractVirtualStructInfo):
     def __init__(self, typedescr, fielddescrs):
@@ -543,14 +508,6 @@ class VStructInfo(AbstractVirtualStructInfo):
     def debug_prints(self):
         debug_print("\tvstructinfo", self.typedescr.repr_rpython())
         AbstractVirtualStructInfo.debug_prints(self)
-
-    def _generalization_of(self, other):        
-        if not isinstance(other, VStructInfo):
-            return False
-        if self.typedescr is not other.typedescr:
-            return False
-        return True
-        
 
 class VArrayInfo(AbstractVirtualInfo):
     def __init__(self, arraydescr):
@@ -583,15 +540,27 @@ class VArrayInfo(AbstractVirtualInfo):
         for i in self.fieldnums:
             debug_print("\t\t", str(untag(i)))
 
-    def generalization_of(self, other):
-        if self.arraydescr is not other.arraydescr:
-            return False
-        if len(self.fieldstate) != len(other.fieldstate):
-            return False
-        for i in range(len(self.fieldstate)):
-            if not self.fieldstate[i].generalization_of(other.fieldstate[i]):
-                return False
-        return True
+
+class VArrayStructInfo(AbstractVirtualInfo):
+    def __init__(self, arraydescr, fielddescrs):
+        self.arraydescr = arraydescr
+        self.fielddescrs = fielddescrs
+
+    def debug_prints(self):
+        debug_print("\tvarraystructinfo", self.arraydescr)
+        for i in self.fieldnums:
+            debug_print("\t\t", str(untag(i)))
+
+    @specialize.argtype(1)
+    def allocate(self, decoder, index):
+        array = decoder.allocate_array(self.arraydescr, len(self.fielddescrs))
+        decoder.virtuals_cache[index] = array
+        p = 0
+        for i in range(len(self.fielddescrs)):
+            for j in range(len(self.fielddescrs[i])):
+                decoder.setinteriorfield(i, self.fielddescrs[i][j], array, self.fieldnums[p])
+                p += 1
+        return array
 
 
 class VStrPlainInfo(AbstractVirtualInfo):
@@ -941,6 +910,17 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         self.metainterp.execute_and_record(rop.SETFIELD_GC, descr,
                                            structbox, fieldbox)
 
+    def setinteriorfield(self, index, descr, array, fieldnum):
+        if descr.is_pointer_field():
+            kind = REF
+        elif descr.is_float_field():
+            kind = FLOAT
+        else:
+            kind = INT
+        fieldbox = self.decode_box(fieldnum, kind)
+        self.metainterp.execute_and_record(rop.SETINTERIORFIELD_GC, descr,
+                                           array, ConstInt(index), fieldbox)
+
     def setarrayitem_int(self, arraydescr, arraybox, index, fieldnum):
         self._setarrayitem(arraydescr, arraybox, index, fieldnum, INT)
 
@@ -1220,6 +1200,17 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         else:
             newvalue = self.decode_int(fieldnum)
             self.cpu.bh_setfield_gc_i(struct, descr, newvalue)
+
+    def setinteriorfield(self, index, descr, array, fieldnum):
+        if descr.is_pointer_field():
+            newvalue = self.decode_ref(fieldnum)
+            self.cpu.bh_setinteriorfield_gc_r(array, index, descr, newvalue)
+        elif descr.is_float_field():
+            newvalue = self.decode_float(fieldnum)
+            self.cpu.bh_setinteriorfield_gc_f(array, index, descr, newvalue)
+        else:
+            newvalue = self.decode_int(fieldnum)
+            self.cpu.bh_setinteriorfield_gc_i(array, index, descr, newvalue)
 
     def setarrayitem_int(self, arraydescr, array, index, fieldnum):
         newvalue = self.decode_int(fieldnum)

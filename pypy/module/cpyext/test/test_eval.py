@@ -221,4 +221,38 @@ class AppTestCall(AppTestCpythonExtensionBase):
             return args
         assert module.call_func(f) == (None,)
         assert module.call_method("text") == 2
-        
+
+    def test_CompileString_and_Exec(self):
+        module = self.import_extension('foo', [
+            ("compile_string", "METH_NOARGS",
+             """
+                return Py_CompileString(
+                   "f = lambda x: x+5", "someFile", Py_file_input);
+             """),
+            ("exec_code", "METH_O",
+             """
+                return PyImport_ExecCodeModule("cpyext_test_modname", args);
+             """),
+            ("exec_code_ex", "METH_O",
+             """
+                return PyImport_ExecCodeModuleEx("cpyext_test_modname",
+                                                 args, "otherFile");
+             """),
+            ])
+        code = module.compile_string()
+        assert code.co_filename == "someFile"
+        assert code.co_name == "<module>"
+
+        mod = module.exec_code(code)
+        assert mod.__name__ == "cpyext_test_modname"
+        assert mod.__file__ == "someFile"
+        print dir(mod)
+        print mod.__dict__
+        assert mod.f(42) == 47
+
+        mod = module.exec_code_ex(code)
+        assert mod.__name__ == "cpyext_test_modname"
+        assert mod.__file__ == "otherFile"
+        print dir(mod)
+        print mod.__dict__
+        assert mod.f(42) == 47

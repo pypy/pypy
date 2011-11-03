@@ -24,6 +24,7 @@ List of extension modules that we support:
     _bisect
     _codecs
     _collections
+    `_continuation`_
     `_ffi`_
     _hashlib
     _io
@@ -84,9 +85,12 @@ List of extension modules that we support:
 
     _winreg
 
-  Extra module with Stackless_ only:
-
-    _stackless
+  Note that only some of these modules are built-in in a typical
+  CPython installation, and the rest is from non built-in extension
+  modules.  This means that e.g. ``import parser`` will, on CPython,
+  find a local file ``parser.py``, while ``import sys`` will not find a
+  local file ``sys.py``.  In PyPy the difference does not exist: all
+  these modules are built-in.
 
 * Supported by being rewritten in pure Python (possibly using ``ctypes``):
   see the `lib_pypy/`_ directory.  Examples of modules that we
@@ -101,11 +105,11 @@ that are neither mentioned above nor in `lib_pypy/`_ are not available in PyPy.
 
 .. the nonstandard modules are listed below...
 .. _`__pypy__`: __pypy__-module.html
+.. _`_continuation`: stackless.html
 .. _`_ffi`: ctypes-implementation.html
 .. _`_rawffi`: ctypes-implementation.html
 .. _`_minimal_curses`: config/objspace.usemodules._minimal_curses.html
 .. _`cpyext`: http://morepypy.blogspot.com/2010/04/using-cpython-extension-modules-with.html
-.. _Stackless: stackless.html
 
 
 Differences related to garbage collection strategies
@@ -211,6 +215,38 @@ but ``foo`` on CPython::
     >>>> print d1['a']
     42
 
+Mutating classes of objects which are already used as dictionary keys
+---------------------------------------------------------------------
+
+Consider the following snippet of code::
+
+    class X(object):
+        pass
+
+    def __evil_eq__(self, other):
+        print 'hello world'
+        return False
+
+    def evil(y):
+        d = {x(): 1}
+        X.__eq__ = __evil_eq__
+        d[y] # might trigger a call to __eq__?
+
+In CPython, __evil_eq__ **might** be called, although there is no way to write
+a test which reliably calls it.  It happens if ``y is not x`` and ``hash(y) ==
+hash(x)``, where ``hash(x)`` is computed when ``x`` is inserted into the
+dictionary.  If **by chance** the condition is satisfied, then ``__evil_eq__``
+is called.
+
+PyPy uses a special strategy to optimize dictionaries whose keys are instances
+of user-defined classes which do not override the default ``__hash__``,
+``__eq__`` and ``__cmp__``: when using this strategy, ``__eq__`` and
+``__cmp__`` are never called, but instead the lookup is done by identity, so
+in the case above it is guaranteed that ``__eq__`` won't be called.
+
+Note that in all other cases (e.g., if you have a custom ``__hash__`` and
+``__eq__`` in ``y``) the behavior is exactly the same as CPython.
+
 
 Ignored exceptions
 -----------------------
@@ -248,7 +284,14 @@ Miscellaneous
   never a dictionary as it sometimes is in CPython. Assigning to
   ``__builtins__`` has no effect.
 
-* object identity of immutable keys in dictionaries is not necessarily preserved.
-  Never compare immutable objects with ``is``.
+* Do not compare immutable objects with ``is``.  For example on CPython
+  it is true that ``x is 0`` works, i.e. does the same as ``type(x) is
+  int and x == 0``, but it is so by accident.  If you do instead
+  ``x is 1000``, then it stops working, because 1000 is too large and
+  doesn't come from the internal cache.  In PyPy it fails to work in
+  both cases, because we have no need for a cache at all.
+
+* Also, object identity of immutable keys in dictionaries is not necessarily
+  preserved.
 
 .. include:: _ref.txt

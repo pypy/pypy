@@ -1,7 +1,7 @@
-
-from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.optimizeopt.optimizer import Optimization
 from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
+from pypy.jit.metainterp.resoperation import ResOperation, rop
+
 
 class OptSimplify(Optimization):
     def optimize_CALL_PURE(self, op):
@@ -23,6 +23,9 @@ class OptSimplify(Optimization):
     def optimize_QUASIIMMUT_FIELD(self, op):
         # xxx ideally we could also kill the following GUARD_NOT_INVALIDATED
         #     but it's a bit hard to implement robustly if heap.py is also run
+        pass
+
+    def optimize_MARK_OPAQUE_PTR(self, op):
         pass
 
 

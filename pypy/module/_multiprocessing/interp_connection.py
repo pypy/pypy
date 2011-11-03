@@ -4,7 +4,7 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import (
     OperationError, wrap_oserror, operationerrfmt)
-from pypy.rpython.lltypesystem import rffi, lltype, llmemory
+from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import rpoll
 import sys
@@ -225,7 +225,9 @@ class W_FileConnection(W_BaseConnection):
             except OSError:
                 pass
 
-    def __init__(self, fd, flags):
+    def __init__(self, space, fd, flags):
+        if fd == self.INVALID_HANDLE_VALUE or fd < 0:
+            raise OperationError(space.w_IOError, space.wrap("invalid handle %d" % fd))
         W_BaseConnection.__init__(self, flags)
         self.fd = fd
 
@@ -234,7 +236,7 @@ class W_FileConnection(W_BaseConnection):
         flags = (readable and READABLE) | (writable and WRITABLE)
 
         self = space.allocate_instance(W_FileConnection, w_subtype)
-        W_FileConnection.__init__(self, fd, flags)
+        W_FileConnection.__init__(self, space, fd, flags)
         return space.wrap(self)
 
     def fileno(self, space):

@@ -15,13 +15,11 @@ Getting into PyPy ...
 
 * `FAQ`_: some frequently asked questions.
 
-* `Release 1.5`_: the latest official release
+* `Release 1.6`_: the latest official release
 
 * `PyPy Blog`_: news and status info about PyPy 
 
 * `Papers`_: Academic papers, talks, and related projects
-
-* `Videos`_: Videos of PyPy talks and presentations
 
 * `speed.pypy.org`_: Daily benchmarks of how fast PyPy is
 
@@ -35,7 +33,7 @@ Translation Framework:
 
   * `Differences between PyPy and CPython`_
   * `What PyPy can do for your objects`_
-  * `Stackless and coroutines`_
+  * `Continulets and greenlets`_
   * `JIT Generation in PyPy`_ 
   * `Sandboxing Python code`_
 
@@ -77,7 +75,7 @@ on the `development mailing list`_.
 .. _`Getting Started`: getting-started.html
 .. _`Papers`: extradoc.html
 .. _`Videos`: video-index.html
-.. _`Release 1.5`: http://pypy.org/download.html
+.. _`Release 1.6`: http://pypy.org/download.html
 .. _`speed.pypy.org`: http://speed.pypy.org
 .. _`RPython toolchain`: translation.html
 .. _`potential project ideas`: project-ideas.html
@@ -122,9 +120,9 @@ PyPy can be used to run Python programs on Linux, OS/X,
 Windows, on top of .NET, and on top of Java.
 To dig into PyPy it is recommended to try out the current
 Mercurial default branch, which is always working or mostly working,
-instead of the latest release, which is `1.5`__.
+instead of the latest release, which is `1.6`__.
 
-.. __: release-1.5.0.html
+.. __: release-1.6.0.html
 
 PyPy is mainly developed on Linux and Mac OS X.  Windows is supported,
 but platform-specific bugs tend to take longer before we notice and fix
@@ -292,8 +290,6 @@ Directory                          explanation/links
 
 `pypy/translator/jvm/`_            the Java backend
 
-`pypy/translator/stackless/`_      the `Stackless Transform`_
-
 `pypy/translator/tool/`_           helper tools for translation, including the Pygame
                                    `graph viewer`_
 
@@ -313,12 +309,11 @@ Directory                          explanation/links
 .. _`object space`: objspace.html
 .. _FlowObjSpace: objspace.html#the-flow-object-space 
 .. _`trace object space`: objspace.html#the-trace-object-space 
-.. _`taint object space`: objspace-proxies.html#taint
 .. _`thunk object space`: objspace-proxies.html#thunk
 .. _`transparent proxies`: objspace-proxies.html#tproxy
 .. _`Differences between PyPy and CPython`: cpython_differences.html
 .. _`What PyPy can do for your objects`: objspace-proxies.html
-.. _`Stackless and coroutines`: stackless.html
+.. _`Continulets and greenlets`: stackless.html
 .. _StdObjSpace: objspace.html#the-standard-object-space 
 .. _`abstract interpretation`: http://en.wikipedia.org/wiki/Abstract_interpretation
 .. _`rpython`: coding-guide.html#rpython 
@@ -337,7 +332,6 @@ Directory                          explanation/links
 .. _`low-level type system`: rtyper.html#low-level-type
 .. _`object-oriented type system`: rtyper.html#oo-type
 .. _`garbage collector`: garbage_collection.html
-.. _`Stackless Transform`: translation.html#the-stackless-transform
 .. _`main PyPy-translation scripts`: getting-started-python.html#translating-the-pypy-python-interpreter
 .. _`.NET`: http://www.microsoft.com/net/
 .. _Mono: http://www.mono-project.com/

@@ -40,6 +40,12 @@ class W_UnicodeObject(W_Object):
             return w_self
         return W_UnicodeObject(w_self._value)
 
+    def str_w(self, space):
+        return space.str_w(space.str(self))
+
+    def unicode_w(self, space):
+        return self._value
+
 W_UnicodeObject.EMPTY = W_UnicodeObject(u'')
 
 registerimplementation(W_UnicodeObject)
@@ -98,12 +104,6 @@ def _unicode_string_comparison(space, w_uni, w_str, inverse, uni_from_str):
     if inverse:
         return space.not_(result)
     return result
-
-def str_w__Unicode(space, w_uni):
-    return space.str_w(str__Unicode(space, w_uni))
-
-def unicode_w__Unicode(space, w_uni):
-    return w_uni._value
 
 def str__Unicode(space, w_uni):
     from pypy.objspace.std.unicodetype import encode_object
@@ -417,54 +417,54 @@ def unicode_capitalize__Unicode(space, w_self):
     input = w_self._value
     if len(input) == 0:
         return W_UnicodeObject.EMPTY
-    result = [u'\0'] * len(input)
-    result[0] = unichr(unicodedb.toupper(ord(input[0])))
+    builder = UnicodeBuilder(len(input))
+    builder.append(unichr(unicodedb.toupper(ord(input[0]))))
     for i in range(1, len(input)):
-        result[i] = unichr(unicodedb.tolower(ord(input[i])))
-    return W_UnicodeObject(u''.join(result))
+        builder.append(unichr(unicodedb.tolower(ord(input[i]))))
+    return W_UnicodeObject(builder.build())
 
 def unicode_title__Unicode(space, w_self):
     input = w_self._value
     if len(input) == 0:
         return w_self
-    result = [u'\0'] * len(input)
+    builder = UnicodeBuilder(len(input))
 
     previous_is_cased = False
     for i in range(len(input)):
         unichar = ord(input[i])
         if previous_is_cased:
-            result[i] = unichr(unicodedb.tolower(unichar))
+            builder.append(unichr(unicodedb.tolower(unichar)))
         else:
-            result[i] = unichr(unicodedb.totitle(unichar))
+            builder.append(unichr(unicodedb.totitle(unichar)))
         previous_is_cased = unicodedb.iscased(unichar)
-    return W_UnicodeObject(u''.join(result))
+    return W_UnicodeObject(builder.build())
 
 def unicode_lower__Unicode(space, w_self):
     input = w_self._value
-    result = [u'\0'] * len(input)
+    builder = UnicodeBuilder(len(input))
     for i in range(len(input)):
-        result[i] = unichr(unicodedb.tolower(ord(input[i])))
-    return W_UnicodeObject(u''.join(result))
+        builder.append(unichr(unicodedb.tolower(ord(input[i]))))
+    return W_UnicodeObject(builder.build())
 
 def unicode_upper__Unicode(space, w_self):
     input = w_self._value
-    result = [u'\0'] * len(input)
+    builder = UnicodeBuilder(len(input))
     for i in range(len(input)):
-        result[i] = unichr(unicodedb.toupper(ord(input[i])))
-    return W_UnicodeObject(u''.join(result))
+        builder.append(unichr(unicodedb.toupper(ord(input[i]))))
+    return W_UnicodeObject(builder.build())
 
 def unicode_swapcase__Unicode(space, w_self):
     input = w_self._value
-    result = [u'\0'] * len(input)
+    builder = UnicodeBuilder(len(input))
     for i in range(len(input)):
         unichar = ord(input[i])
         if unicodedb.islower(unichar):
-            result[i] = unichr(unicodedb.toupper(unichar))
+            builder.append(unichr(unicodedb.toupper(unichar)))
         elif unicodedb.isupper(unichar):
-            result[i] = unichr(unicodedb.tolower(unichar))
+            builder.append(unichr(unicodedb.tolower(unichar)))
         else:
-            result[i] = input[i]
-    return W_UnicodeObject(u''.join(result))
+            builder.append(input[i])
+    return W_UnicodeObject(builder.build())
 
 def _normalize_index(length, index):
     if index < 0:
@@ -893,21 +893,21 @@ def unicode_translate__Unicode_ANY(space, w_self, w_table):
         try:
             w_newval = space.getitem(w_table, space.wrap(ord(unichar)))
         except OperationError, e:
-            if e.match(space, space.w_KeyError):
+            if e.match(space, space.w_LookupError):
                 result.append(unichar)
             else:
                 raise
         else:
             if space.is_w(w_newval, space.w_None):
                 continue
-            elif space.is_true(space.isinstance(w_newval, space.w_int)):
+            elif space.isinstance_w(w_newval, space.w_int):
                 newval = space.int_w(w_newval)
                 if newval < 0 or newval > maxunicode:
                     raise OperationError(
                             space.w_TypeError,
                             space.wrap("character mapping must be in range(0x%x)" % (maxunicode + 1,)))
                 result.append(unichr(newval))
-            elif space.is_true(space.isinstance(w_newval, space.w_unicode)):
+            elif space.isinstance_w(w_newval, space.w_unicode):
                 result.append(space.unicode_w(w_newval))
             else:
                 raise OperationError(

@@ -36,6 +36,8 @@ class W_BaseSetObject(W_Object):
         return self._lifeline_
     def setweakref(self, space, weakreflifeline):
         self._lifeline_ = weakreflifeline
+    def delweakref(self):
+        self._lifeline_ = None
 
 class W_SetObject(W_BaseSetObject):
     from pypy.objspace.std.settype import set_typedef as typedef
@@ -130,7 +132,7 @@ def _initialize_set(space, w_obj, w_iterable=None):
         w_obj.setdata = make_setdata_from_w_iterable(space, w_iterable)
 
 def _convert_set_to_frozenset(space, w_obj):
-    if space.is_true(space.isinstance(w_obj, space.w_set)):
+    if space.isinstance_w(w_obj, space.w_set):
         return W_FrozensetObject(space,
                                  make_setdata_from_w_iterable(space, w_obj))
     else:

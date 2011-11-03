@@ -25,6 +25,9 @@ def PyWeakref_GetObject(space, w_ref):
 
 @cpython_api([PyObject], PyObject)
 def PyWeakref_GET_OBJECT(space, w_ref):
+    """Similar to PyWeakref_GetObject(), but implemented as a macro that does no
+    error checking.
+    """
     return borrow_from(w_ref, space.call_function(w_ref))
 
 @cpython_api([PyObject], PyObject)

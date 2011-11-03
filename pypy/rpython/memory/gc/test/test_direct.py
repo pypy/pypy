@@ -525,6 +525,7 @@ class TestMiniMarkGCSimple(DirectGCTest):
     def test_writebarrier_before_copy(self):
         from pypy.rpython.memory.gc import minimark
         largeobj_size =  self.gc.nonlarge_max + 1
+        self.gc.next_major_collection_threshold = 99999.0
         p_src = self.malloc(VAR, largeobj_size)
         p_dst = self.malloc(VAR, largeobj_size)
         # make them old
@@ -564,6 +565,7 @@ class TestMiniMarkGCSimple(DirectGCTest):
         from pypy.rpython.memory.gc import minimark
         tid = self.get_type_id(VAR)
         largeobj_size =  self.gc.nonlarge_max + 1
+        self.gc.next_major_collection_threshold = 99999.0
         addr_src = self.gc.external_malloc(tid, largeobj_size)
         addr_dst = self.gc.external_malloc(tid, largeobj_size)
         hdr_src = self.gc.header(addr_src)

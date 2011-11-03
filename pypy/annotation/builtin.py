@@ -308,9 +308,6 @@ def robjmodel_instantiate(s_clspbc):
             clsdef = clsdef.commonbase(cdef)
     return SomeInstance(clsdef)
 
-def robjmodel_we_are_translated():
-    return immutablevalue(True)
-
 def robjmodel_r_dict(s_eqfn, s_hashfn, s_force_non_null=None):
     if s_force_non_null is None:
         force_non_null = False
@@ -376,8 +373,6 @@ for name, value in globals().items():
 
 BUILTIN_ANALYZERS[pypy.rlib.rarithmetic.intmask] = rarith_intmask
 BUILTIN_ANALYZERS[pypy.rlib.objectmodel.instantiate] = robjmodel_instantiate
-BUILTIN_ANALYZERS[pypy.rlib.objectmodel.we_are_translated] = (
-    robjmodel_we_are_translated)
 BUILTIN_ANALYZERS[pypy.rlib.objectmodel.r_dict] = robjmodel_r_dict
 BUILTIN_ANALYZERS[pypy.rlib.objectmodel.hlinvoke] = robjmodel_hlinvoke
 BUILTIN_ANALYZERS[pypy.rlib.objectmodel.keepalive_until_here] = robjmodel_keepalive_until_here
@@ -416,7 +411,8 @@ BUILTIN_ANALYZERS[__import__] = import_func
 from pypy.annotation.model import SomePtr
 from pypy.rpython.lltypesystem import lltype
 
-def malloc(s_T, s_n=None, s_flavor=None, s_zero=None, s_track_allocation=None):
+def malloc(s_T, s_n=None, s_flavor=None, s_zero=None, s_track_allocation=None,
+           s_add_memory_pressure=None):
     assert (s_n is None or s_n.knowntype == int
             or issubclass(s_n.knowntype, pypy.rlib.rarithmetic.base_int))
     assert s_T.is_constant()
@@ -432,6 +428,8 @@ def malloc(s_T, s_n=None, s_flavor=None, s_zero=None, s_track_allocation=None):
     else:
         assert s_flavor.is_constant()
         assert s_track_allocation is None or s_track_allocation.is_constant()
+        assert (s_add_memory_pressure is None or
+                s_add_memory_pressure.is_constant())
         # not sure how to call malloc() for the example 'p' in the
         # presence of s_extraargs
         r = SomePtr(lltype.Ptr(s_T.const))

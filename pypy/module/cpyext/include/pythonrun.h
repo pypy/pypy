@@ -12,6 +12,13 @@ extern "C" {
 #define Py_Py3kWarningFlag 0
 
 #define Py_FrozenFlag 0
+#define Py_VerboseFlag 0
+
+typedef struct {
+    int cf_flags;  /* bitmask of CO_xxx flags relevant to future */
+} PyCompilerFlags;
+
+#define Py_CompileString(str, filename, start) Py_CompileStringFlags(str, filename, start, NULL)
 
 #ifdef __cplusplus
 }

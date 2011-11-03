@@ -8,6 +8,7 @@ from pypy.rpython.lltypesystem.ll2ctypes import standard_c_lib
 from pypy.rpython.lltypesystem.ll2ctypes import uninitialized2ctypes
 from pypy.rpython.lltypesystem.ll2ctypes import ALLOCATED, force_cast
 from pypy.rpython.lltypesystem.ll2ctypes import cast_adr_to_int, get_ctypes_type
+from pypy.rpython.lltypesystem.ll2ctypes import _llgcopaque
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib import rposix
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
@@ -95,6 +96,25 @@ class TestLL2Ctypes(object):
         assert sc.contents.y == 52
         lltype.free(s, flavor='raw')
         assert not ALLOCATED     # detects memory leaks in the test
+
+    def test_get_pointer(self):
+        # Equivalent of the C code::
+        #     struct S1 { struct S2 *ptr; struct S2 buf; };
+        #     struct S1 s1;
+        #     s1.ptr = & s1.buf;
+        S2 = lltype.Struct('S2', ('y', lltype.Signed))
+        S1 = lltype.Struct('S',
+                           ('sub', lltype.Struct('SUB', 
+                                                 ('ptr', lltype.Ptr(S2)))),
+                           ('ptr', lltype.Ptr(S2)),
+                           ('buf', S2), # Works when this field is first!
+                           )
+        s1 = lltype.malloc(S1, flavor='raw')
+        s1.ptr = s1.buf
+        s1.sub.ptr = s1.buf
+
+        x = rffi.cast(rffi.CCHARP, s1)
+        lltype.free(s1, flavor='raw')
 
     def test_struct_ptrs(self):
         S2 = lltype.Struct('S2', ('y', lltype.Signed))
@@ -201,7 +221,7 @@ class TestLL2Ctypes(object):
         assert not hasattr(sc.contents, 'length')
         lltype.free(s, flavor='raw')
         assert not ALLOCATED
-        
+
     def test_strlen(self):
         eci = ExternalCompilationInfo(includes=['string.h'])
         strlen = rffi.llexternal('strlen', [rffi.CCHARP], rffi.SIZE_T,
@@ -431,7 +451,7 @@ class TestLL2Ctypes(object):
         assert f() == 'z'
         res = interpret(f, [])
         assert res == 'z'
-    
+
     def test_funcptr1(self):
         def dummy(n):
             return n+1
@@ -691,7 +711,7 @@ class TestLL2Ctypes(object):
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_arrayofstruct(self):
-        S1 = lltype.Struct('S1', ('x', lltype.Signed))
+        S1 = lltype.Struct('S2', ('x', lltype.Signed))
         A = lltype.Array(S1, hints={'nolength': True})
         a = lltype.malloc(A, 5, flavor='raw')
         a[0].x = 100
@@ -813,9 +833,9 @@ class TestLL2Ctypes(object):
         eci = ExternalCompilationInfo(
             post_include_bits = ["#define fn(x) (42 + x)"],
         )
-        fn1 = rffi.llexternal('fn', [rffi.INT], rffi.INT, 
+        fn1 = rffi.llexternal('fn', [rffi.INT], rffi.INT,
                               compilation_info=eci, macro=True)
-        fn2 = rffi.llexternal('fn2', [rffi.DOUBLE], rffi.DOUBLE, 
+        fn2 = rffi.llexternal('fn2', [rffi.DOUBLE], rffi.DOUBLE,
                               compilation_info=eci, macro='fn')
         res = fn1(10)
         assert res == 52
@@ -826,9 +846,9 @@ class TestLL2Ctypes(object):
         header = py.code.Source("""
         #ifndef _SOME_H
         #define _SOME_H
-        
+
         #include <stdlib.h>
-        
+
         static long x = 3;
         static int y = 5;
         char **z = NULL;
@@ -837,10 +857,10 @@ class TestLL2Ctypes(object):
         """)
         h_file = udir.join("some_h.h")
         h_file.write(header)
-        
+
         eci = ExternalCompilationInfo(includes=['stdio.h', str(h_file.basename)],
                                       include_dirs=[str(udir)])
-        
+
         get_x, set_x = rffi.CExternVariable(rffi.LONG, 'x', eci, c_type='long')
         get_y, set_y = rffi.CExternVariable(rffi.INT, 'y', eci, c_type='int')
         get_z, set_z = rffi.CExternVariable(rffi.CCHARPP, 'z', eci)
@@ -1096,7 +1116,7 @@ class TestLL2Ctypes(object):
         assert not ref0
 
         p1234 = ctypes.c_void_p(1234)
-        ref1234 = ctypes2lltype(llmemory.GCREF, p1234)        
+        ref1234 = ctypes2lltype(llmemory.GCREF, p1234)
         assert p1234
 
     def test_gcref_casts(self):
@@ -1120,11 +1140,14 @@ class TestLL2Ctypes(object):
         ref2 = ctypes2lltype(llmemory.GCREF, intval1)
 
         assert lltype.cast_opaque_ptr(lltype.Ptr(NODE), ref2) == node
-        
+
         #addr = llmemory.cast_ptr_to_adr(ref1)
         #assert llmemory.cast_adr_to_int(addr) == intval
 
         #assert lltype.cast_ptr_to_int(ref1) == intval
+
+        x = rffi.cast(llmemory.GCREF, -17)
+        assert lltype.cast_ptr_to_int(x) == -17
 
     def test_ptr_truth(self):
         abc = rffi.cast(lltype.Ptr(lltype.FuncType([], lltype.Void)), 0)
@@ -1169,7 +1192,7 @@ class TestLL2Ctypes(object):
         A = lltype.GcArray(lltype.Signed)
         a = lltype.malloc(A, 20)
         inside = lltype.direct_ptradd(lltype.direct_arrayitems(a), 3)
- 
+
         lltype2ctypes(inside)
 
         start = rffi.cast(lltype.Signed, lltype.direct_arrayitems(a))
@@ -1184,7 +1207,7 @@ class TestLL2Ctypes(object):
 
         n1 = lltype.malloc(NODE)
         i1 = rffi.cast(lltype.Signed, n1)
-        ref1 = rffi.cast(llmemory.GCREF, i1)        
+        ref1 = rffi.cast(llmemory.GCREF, i1)
         adr1 = llmemory.cast_ptr_to_adr(ref1)
 
         assert adr1 != adr0
@@ -1332,7 +1355,7 @@ class TestLL2Ctypes(object):
         from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
         from pypy.rpython.annlowlevel import cast_instance_to_base_ptr
         from pypy.rpython.lltypesystem import rclass
-        
+
         class Opaque(object):
             llopaque = True
 
@@ -1349,6 +1372,11 @@ class TestLL2Ctypes(object):
         round = ctypes2lltype(llmemory.GCREF, lltype2ctypes(opaque.hide()))
         assert Opaque.show(round) is opaque
 
+    def test_array_of_structs(self):
+        A = lltype.GcArray(lltype.Struct('x', ('v', lltype.Signed)))
+        a = lltype.malloc(A, 5)
+        a2 = ctypes2lltype(lltype.Ptr(A), lltype2ctypes(a))
+        assert a2._obj.getitem(0)._obj._parentstructure() is a2._obj
 
 class TestPlatform(object):
     def test_lib_on_libpaths(self):
@@ -1370,7 +1398,7 @@ class TestPlatform(object):
 
     def test_prefix(self):
 
-        if sys.platform != 'linux2':
+        if not sys.platform.startswith('linux'):
             py.test.skip("Not supported")
 
         from pypy.translator.platform import platform
@@ -1390,3 +1418,7 @@ class TestPlatform(object):
         f = rffi.llexternal('f', [rffi.INT, rffi.INT], rffi.INT,
                             compilation_info=eci)
         assert f(3, 4) == 7
+
+    def test_llgcopaque_eq(self):
+        assert _llgcopaque(1) != None
+        assert _llgcopaque(0) == None

@@ -1,3 +1,5 @@
+import contextlib
+
 class Codebuilder(object):
     def __init__(self):
         self.blocks = []
@@ -27,10 +29,12 @@ class Codebuilder(object):
         assert blockstarter.endswith(":")
         self.emit(blockstarter)
         self.blocks.append(blockstarter)
-        def BlockEnder():
-            yield None
-            self.end_block(blockstarter)
-        return BlockEnder()
+
+    @contextlib.contextmanager
+    def block(self, blockstarter):
+        self.start_block(blockstarter)
+        yield None
+        self.end_block(blockstarter)
 
     def end_block(self, starterpart=""):
         block = self.blocks.pop()

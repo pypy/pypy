@@ -47,7 +47,8 @@ class AppTestFcntl:
                             'freebsd2', 'freebsd3', 'freebsd4', 'freebsd5',
                             'freebsd6', 'freebsd7', 'freebsd8', 'freebsd9',
                             'bsdos2', 'bsdos3', 'bsdos4',
-                            'openbsd', 'openbsd2', 'openbsd3'):
+                            'openbsd', 'openbsd2', 'openbsd3', 'openbsd4',
+                            'openbsd5'):
             if struct.calcsize('l') == 8:
                 off_t = 'l'
                 pid_t = 'i'
@@ -181,7 +182,7 @@ class AppTestFcntl:
 
     def test_large_flag(self):
         import sys
-        if sys.platform == "darwin":
+        if sys.platform == "darwin" or sys.platform.startswith("openbsd"):
             skip("Mac OS doesn't have any large flag in fcntl.h")
         import fcntl, sys
         if sys.maxint == 2147483647:

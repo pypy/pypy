@@ -5,8 +5,6 @@ import os
 
 import ctypes
 
-py.test.skip("bitfields not supported")
-
 def setup_module(mod):
     import conftest
     _ctypes_test = str(conftest.sofile)
@@ -14,7 +12,7 @@ def setup_module(mod):
     func.argtypes = POINTER(BITS), c_char
     mod.func = func
 
-class BITS(BaseCTypesTestChecker):
+class BITS(Structure):
     _fields_ = [("A", c_int, 1),
                 ("B", c_int, 2),
                 ("C", c_int, 3),
@@ -197,6 +195,8 @@ class TestBitField:
         try:
             func(*args, **kw)
         except Exception, detail:
+            import traceback
+            traceback.print_exc()
             return detail.__class__, str(detail)
 
     def test_mixed_1(self):
@@ -228,3 +228,24 @@ class TestBitField:
         class Y(Structure):
             _anonymous_ = ["_"]
             _fields_ = [("_", X)]
+
+    def test_set_fields_attr(self):
+        class A(Structure):
+            pass
+        A._fields_ = [("a", c_byte),
+                      ("b", c_ubyte)]
+
+    def test_set_fields_attr_bitfields(self):
+        class A(Structure):
+            pass
+        A._fields_ = [("a", POINTER(A)),
+                      ("b", c_ubyte, 4)]
+
+
+    def test_set_fields_cycle_fails(self):
+        class A(Structure):
+            pass
+        import pytest
+        pytest.raises(AttributeError, """
+            A._fields_ = [("a", A)]
+                      """)

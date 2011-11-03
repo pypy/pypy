@@ -132,6 +132,16 @@ class TestFunctions(BaseCTypesTestChecker):
         # You cannot assing character format codes as restype any longer
         raises(TypeError, setattr, f, "restype", "i")
 
+
+    def test_truncate_python_longs(self):
+        f = dll._testfunc_i_bhilfd
+        f.argtypes = [c_byte, c_short, c_int, c_long, c_float, c_double]
+        f.restype = c_int
+        x = sys.maxint * 2
+        result = f(x, x, x, x, 0, 0)
+        assert result == -8
+
+
     def test_floatresult(self):
         f = dll._testfunc_f_bhilfd
         f.argtypes = [c_byte, c_short, c_int, c_long, c_float, c_double]
@@ -478,11 +488,9 @@ class TestFunctions(BaseCTypesTestChecker):
         warnings.simplefilter("always")
         with warnings.catch_warnings(record=True) as w:
             dll.get_an_integer()
-            assert len(w) == 2
+            assert len(w) == 1
             assert issubclass(w[0].category, RuntimeWarning)
-            assert issubclass(w[1].category, RuntimeWarning)
             assert "C function without declared arguments called" in str(w[0].message)
-            assert "C function without declared return type called" in str(w[1].message)
 
     def test_errcheck(self):
         py.test.skip('fixme')

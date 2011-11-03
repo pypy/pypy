@@ -920,12 +920,6 @@ def PyFunction_New(space, code, globals):
     raise NotImplementedError
 
 @cpython_api([PyObject], PyObject)
-def PyFunction_GetCode(space, op):
-    """Return the code object associated with the function object op."""
-    borrow_from()
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
 def PyFunction_GetGlobals(space, op):
     """Return the globals dictionary associated with the function object op."""
     borrow_from()
@@ -1046,37 +1040,6 @@ def PyImport_ImportModuleLevel(space, name, globals, locals, fromlist, level):
     the return value when a submodule of a package was requested is normally the
     top-level package, unless a non-empty fromlist was given.
     """
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, PyObject], PyObject)
-def PyImport_ExecCodeModule(space, name, co):
-    """Given a module name (possibly of the form package.module) and a code
-    object read from a Python bytecode file or obtained from the built-in
-    function compile(), load the module.  Return a new reference to the module
-    object, or NULL with an exception set if an error occurred.  Before Python
-    2.4, the module could still be created in error cases.  Starting with Python
-    2.4, name is removed from sys.modules in error cases, and even if name was
-    already in sys.modules on entry to PyImport_ExecCodeModule().  Leaving
-    incompletely initialized modules in sys.modules is dangerous, as imports of
-    such modules have no way to know that the module object is an unknown (and
-    probably damaged with respect to the module author's intents) state.
-
-    The module's __file__ attribute will be set to the code object's
-    co_filename.
-
-    This function will reload the module if it was already imported.  See
-    PyImport_ReloadModule() for the intended way to reload a module.
-
-    If name points to a dotted name of the form package.module, any package
-    structures not already created will still not be created.
-
-    name is removed from sys.modules in error cases."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, PyObject, rffi.CCHARP], PyObject)
-def PyImport_ExecCodeModuleEx(space, name, co, pathname):
-    """Like PyImport_ExecCodeModule(), but the __file__ attribute of
-    the module object is set to pathname if it is non-NULL."""
     raise NotImplementedError
 
 @cpython_api([], lltype.Signed, error=CANNOT_FAIL)
@@ -1958,12 +1921,6 @@ def PySequence_Fast_ITEMS(space, o):
     raise NotImplementedError
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PySet_Check(space, p):
-    """Return true if p is a set object or an instance of a subtype.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyFrozenSet_Check(space, p):
     """Return true if p is a frozenset object or an instance of a
     subtype.
@@ -1989,15 +1946,6 @@ def PyFrozenSet_CheckExact(space, p):
     raise NotImplementedError
 
 @cpython_api([PyObject], PyObject)
-def PySet_New(space, iterable):
-    """Return a new set containing objects returned by the iterable.  The
-    iterable may be NULL to create a new empty set.  Return the new set on
-    success or NULL on failure.  Raise TypeError if iterable is not
-    actually iterable.  The constructor is also useful for copying a set
-    (c=set(s))."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
 def PyFrozenSet_New(space, iterable):
     """Return a new frozenset containing objects returned by the iterable.
     The iterable may be NULL to create a new empty frozenset.  Return the new
@@ -2007,53 +1955,6 @@ def PyFrozenSet_New(space, iterable):
     Now guaranteed to return a brand-new frozenset.  Formerly,
     frozensets of zero-length were a singleton.  This got in the way of
     building-up new frozensets with PySet_Add()."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], Py_ssize_t, error=-1)
-def PySet_Size(space, anyset):
-    """Return the length of a set or frozenset object. Equivalent to
-    len(anyset).  Raises a PyExc_SystemError if anyset is not a set, frozenset,
-    or an instance of a subtype.
-
-    This function returned an int. This might require changes in
-    your code for properly supporting 64-bit systems."""
-    raise NotImplementedError
-
-@cpython_api([PyObject], Py_ssize_t, error=-1)
-def PySet_GET_SIZE(space, anyset):
-    """Macro form of PySet_Size() without error checking."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
-def PySet_Contains(space, anyset, key):
-    """Return 1 if found, 0 if not found, and -1 if an error is encountered.  Unlike
-    the Python __contains__() method, this function does not automatically
-    convert unhashable sets into temporary frozensets.  Raise a TypeError if
-    the key is unhashable. Raise PyExc_SystemError if anyset is not a
-    set, frozenset, or an instance of a subtype."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
-def PySet_Add(space, set, key):
-    """Add key to a set instance.  Does not apply to frozenset
-    instances.  Return 0 on success or -1 on failure. Raise a TypeError if
-    the key is unhashable. Raise a MemoryError if there is no room to grow.
-    Raise a SystemError if set is an not an instance of set or its
-    subtype.
-
-    Now works with instances of frozenset or its subtypes.
-    Like PyTuple_SetItem() in that it can be used to fill-in the
-    values of brand new frozensets before they are exposed to other code."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
-def PySet_Discard(space, set, key):
-    """Return 1 if found and removed, 0 if not found (no action taken), and -1 if an
-    error is encountered.  Does not raise KeyError for missing keys.  Raise a
-    TypeError if the key is unhashable.  Unlike the Python discard()
-    method, this function does not automatically convert unhashable sets into
-    temporary frozensets. Raise PyExc_SystemError if set is an not an
-    instance of set or its subtype."""
     raise NotImplementedError
 
 @cpython_api([PyObject], PyObject)
@@ -2222,29 +2123,6 @@ def Py_UNICODE_ISNUMERIC(space, ch):
 @cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
 def Py_UNICODE_ISALPHA(space, ch):
     """Return 1 or 0 depending on whether ch is an alphabetic character."""
-    raise NotImplementedError
-
-@cpython_api([Py_UNICODE], Py_UNICODE, error=CANNOT_FAIL)
-def Py_UNICODE_TOTITLE(space, ch):
-    """Return the character ch converted to title case."""
-    raise NotImplementedError
-
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
-def Py_UNICODE_TODECIMAL(space, ch):
-    """Return the character ch converted to a decimal positive integer.  Return
-    -1 if this is not possible.  This macro does not raise exceptions."""
-    raise NotImplementedError
-
-@cpython_api([Py_UNICODE], rffi.INT_real, error=CANNOT_FAIL)
-def Py_UNICODE_TODIGIT(space, ch):
-    """Return the character ch converted to a single digit integer. Return -1 if
-    this is not possible.  This macro does not raise exceptions."""
-    raise NotImplementedError
-
-@cpython_api([Py_UNICODE], rffi.DOUBLE, error=CANNOT_FAIL)
-def Py_UNICODE_TONUMERIC(space, ch):
-    """Return the character ch converted to a double. Return -1.0 if this is not
-    possible.  This macro does not raise exceptions."""
     raise NotImplementedError
 
 @cpython_api([rffi.CCHARP], PyObject)
@@ -2732,12 +2610,6 @@ def PyUnicode_Translate(space, str, table, errors):
     use the default error handling."""
     raise NotImplementedError
 
-@cpython_api([PyObject, PyObject], PyObject)
-def PyUnicode_Join(space, separator, seq):
-    """Join a sequence of strings using the given separator and return the resulting
-    Unicode string."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, PyObject, Py_ssize_t, Py_ssize_t, rffi.INT_real], rffi.INT_real, error=-1)
 def PyUnicode_Tailmatch(space, str, substr, start, end, direction):
     """Return 1 if substr matches str*[*start:end] at the given tail end
@@ -2798,12 +2670,6 @@ def PyUnicode_RichCompare(space, left, right, op):
 
     Possible values for op are Py_GT, Py_GE, Py_EQ,
     Py_NE, Py_LT, and Py_LE."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject], PyObject)
-def PyUnicode_Format(space, format, args):
-    """Return a new string object from format and args; this is analogous to
-    format % args.  The args argument must be a tuple."""
     raise NotImplementedError
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
@@ -2992,23 +2858,6 @@ def PyRun_FileExFlags(space, fp, filename, start, globals, locals, closeit, flag
     returns."""
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP, rffi.CCHARP, rffi.INT_real], PyObject)
-def Py_CompileString(space, str, filename, start):
-    """This is a simplified interface to Py_CompileStringFlags() below, leaving
-    flags set to NULL."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP, rffi.CCHARP, rffi.INT_real, PyCompilerFlags], PyObject)
-def Py_CompileStringFlags(space, str, filename, start, flags):
-    """Parse and compile the Python source code in str, returning the resulting code
-    object.  The start token is given by start; this can be used to constrain the
-    code which can be compiled and should be Py_eval_input,
-    Py_file_input, or Py_single_input.  The filename specified by
-    filename is used to construct the code object and may appear in tracebacks or
-    SyntaxError exception messages.  This returns NULL if the code cannot
-    be parsed or compiled."""
-    raise NotImplementedError
-
 @cpython_api([PyCodeObject, PyObject, PyObject], PyObject)
 def PyEval_EvalCode(space, co, globals, locals):
     """This is a simplified interface to PyEval_EvalCodeEx(), with just
@@ -3075,12 +2924,4 @@ def PyWeakref_NewProxy(space, ob, callback):
     is not a weakly-referencable object, or if callback is not callable,
     None, or NULL, this will return NULL and raise TypeError.
     """
-    raise NotImplementedError
-
-@cpython_api([PyObject], PyObject)
-def PyWeakref_GET_OBJECT(space, ref):
-    """Similar to PyWeakref_GetObject(), but implemented as a macro that does no
-    error checking.
-    """
-    borrow_from()
     raise NotImplementedError

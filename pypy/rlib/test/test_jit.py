@@ -1,7 +1,7 @@
 import py
 from pypy.conftest import option
 from pypy.rlib.jit import hint, we_are_jitted, JitDriver, elidable_promote
-from pypy.rlib.jit import JitHintError, oopspec
+from pypy.rlib.jit import JitHintError, oopspec, isconstant
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rpython.lltypesystem import lltype
@@ -83,6 +83,9 @@ class BaseTestJIT(BaseRtypingTest):
 
         t, rtyper, fngraph = self.gengraph(fn, [int])
 
+        # added by compute_result_annotation()
+        assert fn._dont_reach_me_in_del_ == True
+
         def getargs(func):
             for graph in t.graphs:
                 if getattr(graph, 'func', None) is func:
@@ -133,6 +136,15 @@ class BaseTestJIT(BaseRtypingTest):
         if option.view:
             t.view()
         # assert did not raise
+
+    def test_isconstant(self):
+        def f(n):
+            assert isconstant(n) is False
+            l = []
+            l.append(n)
+            return len(l)
+        res = self.interpret(f, [-234])
+        assert res == 1
 
 
 class TestJITLLtype(BaseTestJIT, LLRtypeMixin):

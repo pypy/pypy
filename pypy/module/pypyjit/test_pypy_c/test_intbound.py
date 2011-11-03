@@ -145,6 +145,7 @@ class TestIntbound(BaseTestPyPyC):
             guard_no_overflow(descr=...)
             i14 = int_add_ovf(i7, 1)
             guard_no_overflow(descr=...)
+            i16s = int_sub(i8, 1)            
             i16 = int_add_ovf(i6, 1)
             guard_no_overflow(descr=...)
             i19 = int_add(i8, 1)

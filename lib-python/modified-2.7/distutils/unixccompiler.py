@@ -324,7 +324,7 @@ class UnixCCompiler(CCompiler):
             # On OSX users can specify an alternate SDK using
             # '-isysroot', calculate the SDK root if it is specified
             # (and use it further on)
-            cflags = sysconfig.get_config_var('CFLAGS')
+            cflags = sysconfig.get_config_var('CFLAGS') or ''
             m = re.search(r'-isysroot\s+(\S+)', cflags)
             if m is None:
                 sysroot = '/'

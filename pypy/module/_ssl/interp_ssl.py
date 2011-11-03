@@ -1,7 +1,7 @@
 from __future__ import with_statement
 from pypy.rpython.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace, Wrappable
+from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 
@@ -11,7 +11,6 @@ from pypy.rlib.ropenssl import *
 
 from pypy.module._socket import interp_socket
 
-import sys
 
 ## user defined constants
 X509_NAME_MAXLEN = 256
@@ -53,7 +52,8 @@ constants["CERT_NONE"]     = PY_SSL_CERT_NONE
 constants["CERT_OPTIONAL"] = PY_SSL_CERT_OPTIONAL
 constants["CERT_REQUIRED"] = PY_SSL_CERT_REQUIRED
 
-constants["PROTOCOL_SSLv2"]  = PY_SSL_VERSION_SSL2
+if not OPENSSL_NO_SSL2:
+    constants["PROTOCOL_SSLv2"]  = PY_SSL_VERSION_SSL2
 constants["PROTOCOL_SSLv3"]  = PY_SSL_VERSION_SSL3
 constants["PROTOCOL_SSLv23"] = PY_SSL_VERSION_SSL23
 constants["PROTOCOL_TLSv1"]  = PY_SSL_VERSION_TLS1
@@ -131,14 +131,19 @@ class SSLObject(Wrappable):
         self._issuer = lltype.malloc(rffi.CCHARP.TO, X509_NAME_MAXLEN, flavor='raw')
         self._issuer[0] = '\0'
         self.shutdown_seen_zero = False
-    
+
     def server(self):
         return self.space.wrap(rffi.charp2str(self._server))
-    
+
     def issuer(self):
         return self.space.wrap(rffi.charp2str(self._issuer))
-    
+
     def __del__(self):
+        self.enqueue_for_destruction(self.space, SSLObject.destructor,
+                                     '__del__() method of ')
+
+    def destructor(self):
+        assert isinstance(self, SSLObject)
         if self.peer_cert:
             libssl_X509_free(self.peer_cert)
         if self.ssl:
@@ -147,7 +152,7 @@ class SSLObject(Wrappable):
             libssl_SSL_CTX_free(self.ctx)
         lltype.free(self._server, flavor='raw')
         lltype.free(self._issuer, flavor='raw')
-    
+
     @unwrap_spec(data='bufferstr')
     def write(self, data):
         """write(s) -> len
@@ -230,10 +235,10 @@ class SSLObject(Wrappable):
         raw_buf, gc_buf = rffi.alloc_buffer(num_bytes)
         while True:
             err = 0
-            
+
             count = libssl_SSL_read(self.ssl, raw_buf, num_bytes)
             err = libssl_SSL_get_error(self.ssl, count)
-        
+
             if err == SSL_ERROR_WANT_READ:
                 sockstate = check_socket_and_wait_for_timeout(self.space,
                     self.w_socket, False)
@@ -245,17 +250,17 @@ class SSLObject(Wrappable):
                 return self.space.wrap("")
             else:
                 sockstate = SOCKET_OPERATION_OK
-        
+
             if sockstate == SOCKET_HAS_TIMED_OUT:
                 raise ssl_error(self.space, "The read operation timed out")
             elif sockstate == SOCKET_IS_NONBLOCKING:
                 break
-        
+
             if err == SSL_ERROR_WANT_READ or err == SSL_ERROR_WANT_WRITE:
                 continue
             else:
                 break
-                
+
         if count <= 0:
             raise _ssl_seterror(self.space, self, count)
 
@@ -351,7 +356,7 @@ class SSLObject(Wrappable):
                 self.shutdown_seen_zero = True
                 continue
 
-            # Possibly retry shutdown until timeout or failure 
+            # Possibly retry shutdown until timeout or failure
             ssl_err = libssl_SSL_get_error(self.ssl, ret)
             if ssl_err == SSL_ERROR_WANT_READ:
                 sockstate = check_socket_and_wait_for_timeout(
@@ -397,7 +402,7 @@ class SSLObject(Wrappable):
         else:
             w_proto = space.w_None
 
-        bits = libssl_SSL_CIPHER_get_bits(current, 
+        bits = libssl_SSL_CIPHER_get_bits(current,
                                           lltype.nullptr(rffi.INTP.TO))
         w_bits = space.newint(bits)
 
@@ -552,7 +557,7 @@ def _get_peer_alt_names(space, certificate):
             ext = libssl_X509_get_ext(certificate, i)
             method = libssl_X509V3_EXT_get(ext)
             if not method:
-                raise ssl_error(space, 
+                raise ssl_error(space,
                                 "No method for internalizing subjectAltName!'")
 
             with lltype.scoped_alloc(rffi.CCHARPP.TO, 1) as p_ptr:
@@ -669,7 +674,7 @@ def new_sslobject(space, w_sock, side, w_key_file, w_cert_file,
         method = libssl_TLSv1_method()
     elif protocol == PY_SSL_VERSION_SSL3:
         method = libssl_SSLv3_method()
-    elif protocol == PY_SSL_VERSION_SSL2:
+    elif protocol == PY_SSL_VERSION_SSL2 and not OPENSSL_NO_SSL2:
         method = libssl_SSLv2_method()
     elif protocol == PY_SSL_VERSION_SSL23:
         method = libssl_SSLv23_method()
@@ -858,7 +863,7 @@ def _test_decode_cert(space, filename, verbose=True):
     cert = libssl_BIO_new(libssl_BIO_s_file())
     if not cert:
         raise ssl_error(space, "Can't malloc memory to read file")
-    
+
     try:
         if libssl_BIO_read_filename(cert, filename) <= 0:
             raise ssl_error(space, "Can't open file")
@@ -873,7 +878,7 @@ def _test_decode_cert(space, filename, verbose=True):
             libssl_X509_free(x)
     finally:
         libssl_BIO_free(cert)
-    
+
 # this function is needed to perform locking on shared data
 # structures. (Note that OpenSSL uses a number of global data
 # structures that will be implicitly shared whenever multiple threads

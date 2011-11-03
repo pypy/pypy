@@ -14,12 +14,15 @@ class MyCallDescr(AbstractDescr):
     can check that the signature of a call is really what you want.
     """
 
-    def __init__(self, arg_types, typeinfo):
+    def __init__(self, arg_types, typeinfo, flags):
         self.arg_types = arg_types
         self.typeinfo = typeinfo   # return type
+        self.flags = flags
 
     def __eq__(self, other):
-        return self.arg_types == other.arg_types and self.typeinfo == other.typeinfo
+        return (self.arg_types == other.arg_types and
+                self.typeinfo == other.typeinfo and
+                self.flags == other.get_ffi_flags())
 
 class FakeLLObject(object):
 
@@ -33,7 +36,7 @@ class FakeLLObject(object):
 
 class TestFfiCall(BaseTestBasic, LLtypeMixin):
 
-    enable_opts = "intbounds:rewrite:virtualize:string:heap:ffi"
+    enable_opts = "intbounds:rewrite:virtualize:string:pure:earlyforce:heap:ffi"
 
     class namespace:
         cpu = LLtypeMixin.cpu
@@ -41,24 +44,31 @@ class TestFfiCall(BaseTestBasic, LLtypeMixin):
         vable_token_descr = LLtypeMixin.valuedescr
         valuedescr = LLtypeMixin.valuedescr
 
-        int_float__int = MyCallDescr('if', 'i')
+        int_float__int_42 = MyCallDescr('if', 'i', 42)
+        int_float__int_43 = MyCallDescr('if', 'i', 43)
         funcptr = FakeLLObject()
         func = FakeLLObject(_fake_class=Func,
                             argtypes=[types.sint, types.double],
-                            restype=types.sint)
+                            restype=types.sint,
+                            flags=42)
         func2 = FakeLLObject(_fake_class=Func,
                              argtypes=[types.sint, types.double],
-                             restype=types.sint)
+                             restype=types.sint,
+                             flags=43)
         #
         def calldescr(cpu, FUNC, oopspecindex, extraeffect=None):
-            einfo = EffectInfo([], [], [], [], oopspecindex=oopspecindex,
+            if extraeffect == EffectInfo.EF_RANDOM_EFFECTS:
+                f = None   # means "can force all" really
+            else:
+                f = []
+            einfo = EffectInfo(f, f, f, f, oopspecindex=oopspecindex,
                                extraeffect=extraeffect)
             return cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, einfo)
         #
         libffi_prepare =  calldescr(cpu, FUNC, EffectInfo.OS_LIBFFI_PREPARE)
         libffi_push_arg = calldescr(cpu, FUNC, EffectInfo.OS_LIBFFI_PUSH_ARG)
         libffi_call =     calldescr(cpu, FUNC, EffectInfo.OS_LIBFFI_CALL,
-                                 EffectInfo.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE)
+                                    EffectInfo.EF_RANDOM_EFFECTS)
     
     namespace = namespace.__dict__
 
@@ -79,7 +89,7 @@ class TestFfiCall(BaseTestBasic, LLtypeMixin):
         """
         expected = """
         [i0, f1]
-        i3 = call_release_gil(12345, i0, f1, descr=int_float__int)
+        i3 = call_release_gil(12345, i0, f1, descr=int_float__int_42)
         guard_not_forced() []
         guard_no_exception() []
         jump(i3, f1)
@@ -119,7 +129,7 @@ class TestFfiCall(BaseTestBasic, LLtypeMixin):
         [i0, f1, p2]
         i4 = force_token()
         setfield_gc(p2, i4, descr=vable_token_descr)
-        i3 = call_release_gil(12345, i0, f1, descr=int_float__int)
+        i3 = call_release_gil(12345, i0, f1, descr=int_float__int_42)
         guard_not_forced() [p2]
         guard_no_exception() [p2]
         jump(i3, f1, p2)
@@ -216,7 +226,7 @@ class TestFfiCall(BaseTestBasic, LLtypeMixin):
         call(0, ConstPtr(func),                        descr=libffi_prepare)
         #
         # this "nested" call is nicely optimized
-        i4 = call_release_gil(67890, i0, f1, descr=int_float__int)
+        i4 = call_release_gil(67890, i0, f1, descr=int_float__int_43)
         guard_not_forced() []
         guard_no_exception() []
         #
@@ -261,7 +271,7 @@ class TestFfiCall(BaseTestBasic, LLtypeMixin):
         expected = """
         [i0, f1, p2]
         setfield_gc(p2, i0, descr=valuedescr)
-        i3 = call_release_gil(12345, i0, f1, descr=int_float__int)
+        i3 = call_release_gil(12345, i0, f1, descr=int_float__int_42)
         guard_not_forced() []
         guard_no_exception() []
         jump(i3, f1, p2)

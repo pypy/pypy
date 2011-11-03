@@ -24,6 +24,6 @@ def make_pypy(tag, options):
 shutil.copy(str(pypydir.join('..', '..', 'expat-2.0.1', 'win32', 'bin', 'release', 'libexpat.dll')), str(builddir))
 
 make_pypy('',            ['-Ojit'])
-make_pypy('-nojit',      [])
+make_pypy('-nojit',      ['-O2'])
 #make_pypy('-stackless', [--stackless])
 #make_pypy('-sandbox',   [--sandbox])

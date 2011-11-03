@@ -246,20 +246,20 @@ class FakeLLOp(object):
     def __init__(self):
         self.record = []
 
-    def do_malloc_fixedsize_clear(self, RESTYPE, type_id, size, can_collect,
-                                  has_finalizer, contains_weakptr):
-        assert can_collect
+    def do_malloc_fixedsize_clear(self, RESTYPE, type_id, size,
+                                  has_finalizer, has_light_finalizer,
+                                  contains_weakptr):
         assert not contains_weakptr
+        assert not has_finalizer           # in these tests
+        assert not has_light_finalizer     # in these tests
         p = llmemory.raw_malloc(size)
         p = llmemory.cast_adr_to_ptr(p, RESTYPE)
-        flags = int(has_finalizer) << 16
-        tid = llop.combine_ushort(lltype.Signed, type_id, flags)
+        tid = llop.combine_ushort(lltype.Signed, type_id, 0)
         self.record.append(("fixedsize", repr(size), tid, p))
         return p
 
     def do_malloc_varsize_clear(self, RESTYPE, type_id, length, size,
-                                itemsize, offset_to_length, can_collect):
-        assert can_collect
+                                itemsize, offset_to_length):
         p = llmemory.raw_malloc(size + itemsize * length)
         (p + offset_to_length).signed[0] = length
         p = llmemory.cast_adr_to_ptr(p, RESTYPE)

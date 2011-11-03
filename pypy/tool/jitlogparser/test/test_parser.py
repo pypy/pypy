@@ -1,6 +1,6 @@
 from pypy.tool.jitlogparser.parser import (SimpleParser, TraceForOpcode,
                                            Function, adjust_bridges,
-                                           import_log)
+                                           import_log, Op)
 from pypy.tool.jitlogparser.storage import LoopStorage
 import py, sys
 
@@ -181,7 +181,7 @@ def test_parsing_strliteral():
     """)
     ops = Function.from_operations(loop.operations, LoopStorage())
     chunk = ops.chunks[0]
-    assert chunk.bytecode_name == 'StrLiteralSearch'
+    assert chunk.bytecode_name.startswith('StrLiteralSearch')
 
 def test_parsing_assembler():
     backend_dump = "554889E5534154415541564157488DA500000000488B042590C5540148C7042590C554010000000048898570FFFFFF488B042598C5540148C7042598C554010000000048898568FFFFFF488B0425A0C5540148C70425A0C554010000000048898560FFFFFF488B0425A8C5540148C70425A8C554010000000048898558FFFFFF4C8B3C2550525B0149BB30E06C96FC7F00004D8B334983C60149BB30E06C96FC7F00004D89334981FF102700000F8D000000004983C7014C8B342580F76A024983EE014C89342580F76A024983FE000F8C00000000E9AEFFFFFF488B042588F76A024829E0483B042580EC3C01760D49BB05F30894FC7F000041FFD3554889E5534154415541564157488DA550FFFFFF4889BD70FFFFFF4889B568FFFFFF48899560FFFFFF48898D58FFFFFF4D89C7E954FFFFFF49BB00F00894FC7F000041FFD34440484C3D030300000049BB00F00894FC7F000041FFD34440484C3D070304000000"
@@ -213,4 +213,21 @@ def test_parsing_assembler():
 def test_import_log():
     _, loops = import_log(str(py.path.local(__file__).join('..',
                                                            'logtest.log')))
+    for loop in loops:
+        loop.force_asm()
     assert 'jge' in loops[0].operations[3].asm
+
+def test_import_log_2():
+    _, loops = import_log(str(py.path.local(__file__).join('..',
+                                                           'logtest2.log')))
+    for loop in loops:
+        loop.force_asm()
+    assert 'cmp' in loops[1].operations[1].asm
+    # bridge
+    assert 'jo' in loops[3].operations[3].asm
+
+def test_Op_repr_is_pure():
+    op = Op('foobar', ['a', 'b'], 'c', 'mydescr')
+    myrepr = 'c = foobar(a, b, descr=mydescr)'
+    assert op.repr() == myrepr
+    assert op.repr() == myrepr # do it twice

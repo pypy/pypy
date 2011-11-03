@@ -25,8 +25,11 @@ class MachineCodeBlockWrapper(BlockBuilderMixin,
         self.init_block_builder()
         # a list of relative positions; for each position p, the bytes
         # at [p-4:p] encode an absolute address that will need to be
-        # made relative.
-        self.relocations = []
+        # made relative.  Only works on 32-bit!
+        if WORD == 4:
+            self.relocations = []
+        else:
+            self.relocations = None
         #
         # ResOperation --> offset in the assembly.
         # ops_offset[None] represents the beginning of the code after the last op
@@ -42,9 +45,10 @@ class MachineCodeBlockWrapper(BlockBuilderMixin,
 
     def copy_to_raw_memory(self, addr):
         self._copy_to_raw_memory(addr)
-        for reloc in self.relocations:
-            p = addr + reloc
-            adr = rffi.cast(rffi.LONGP, p - WORD)
-            adr[0] = intmask(adr[0] - p)
+        if self.relocations is not None:
+            for reloc in self.relocations:
+                p = addr + reloc
+                adr = rffi.cast(rffi.LONGP, p - WORD)
+                adr[0] = intmask(adr[0] - p)
         valgrind.discard_translations(addr, self.get_relative_pos())
         self._dump(addr, "jit-backend-dump", backend_name)

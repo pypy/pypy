@@ -1,10 +1,11 @@
 import py
 from pypy.translator.jvm.test.runtest import JvmTest
 from pypy.rpython.test.test_rint import BaseTestRint
+from pypy.rpython.test.test_rint import TestOOtype as _TestOOtype # so py.test won't run the base test
 
 # ====> ../../../rpython/test/test_rint.py
 
-class TestJvmInt(JvmTest, BaseTestRint):
+class TestJvmInt(JvmTest, _TestOOtype):
     def test_char_constant(self):
         def dummyfn(i):
             return chr(i)

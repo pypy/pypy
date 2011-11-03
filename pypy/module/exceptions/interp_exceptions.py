@@ -73,9 +73,8 @@ BaseException
 """
 
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.typedef import TypeDef, interp_attrproperty_w,\
-     GetSetProperty, interp_attrproperty, descr_get_dict, descr_set_dict,\
-     descr_del_dict
+from pypy.interpreter.typedef import (TypeDef, GetSetProperty, descr_get_dict,
+    descr_set_dict, descr_del_dict)
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError
 from pypy.rlib import rwin32

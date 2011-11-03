@@ -639,33 +639,6 @@ class AppTestFfi:
         a1.free()
         cb.free()
 
-    def test_another_callback_in_stackless(self):
-        try:
-            import _stackless
-        except ImportError:
-            skip("only valid in a stackless pypy-c")
-
-        import _rawffi
-        lib = _rawffi.CDLL(self.lib_name)
-        runcallback = lib.ptr('runcallback', ['P'], 'q')
-        def callback():
-            co = _stackless.coroutine()
-            def f():
-                pass
-            try:
-                co.bind(f)
-                co.switch()
-            except RuntimeError:
-                return 1<<42
-            return -5
-
-        cb = _rawffi.CallbackPtr(callback, [], 'q')
-        a1 = cb.byptr()
-        res = runcallback(a1)
-        assert res[0] == 1<<42
-        a1.free()
-        cb.free()
-
     def test_raising_callback(self):
         import _rawffi, sys
         import StringIO

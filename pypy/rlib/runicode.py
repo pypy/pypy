@@ -1403,7 +1403,7 @@ def str_decode_unicode_internal(s, size, errors, final=False,
                                     s, pos, pos + unicode_bytes)
             result.append(res)
             continue
-        result.append(unichr(t))
+        result.append(UNICHR(t))
         pos += unicode_bytes
     return result.build(), pos
 
@@ -1505,17 +1505,16 @@ if sys.platform == 'win32':
             rffi.free_nonmovingbuffer(s, dataptr)
 
     def unicode_encode_mbcs(p, size, errors, errorhandler=None):
+        if size == 0:
+            return ''
         dataptr = rffi.get_nonmoving_unicodebuffer(p)
         try:
             # first get the size of the result
-            if size > 0:
-                mbcssize = WideCharToMultiByte(CP_ACP, 0,
-                                               dataptr, size, None, 0,
-                                               None, None)
-                if mbcssize == 0:
-                    raise rwin32.lastWindowsError()
-            else:
-                mbcssize = 0
+            mbcssize = WideCharToMultiByte(CP_ACP, 0,
+                                           dataptr, size, None, 0,
+                                           None, None)
+            if mbcssize == 0:
+                raise rwin32.lastWindowsError()
 
             raw_buf, gc_buf = rffi.alloc_buffer(mbcssize)
             try:

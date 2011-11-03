@@ -36,11 +36,11 @@ class TestException(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
         i5 = int_is_true(i3)
-        guard_true(i5, descr=<Guard3>)
-        guard_not_invalidated(descr=<Guard4>)
+        guard_true(i5, descr=...)
+        guard_not_invalidated(descr=...)
         --EXC-TICK--
         i12 = int_sub_ovf(i3, 1)
-        guard_no_overflow(descr=<Guard6>)
+        guard_no_overflow(descr=...)
         --TICK--
         jump(..., descr=<Loop0>)
         """)
@@ -84,8 +84,8 @@ class TestException(BaseTestPyPyC):
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
             i7 = int_lt(i4, i5)
-            guard_true(i7, descr=<Guard3>)
-            guard_not_invalidated(descr=<Guard4>)
+            guard_true(i7, descr=...)
+            guard_not_invalidated(descr=...)
             --EXC-TICK--
             i14 = int_add(i4, 1)
             --TICK--

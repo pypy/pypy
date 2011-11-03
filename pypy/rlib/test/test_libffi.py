@@ -5,7 +5,7 @@ from pypy.rpython.lltypesystem.ll2ctypes import ALLOCATED
 from pypy.rlib.rarithmetic import r_singlefloat, r_longlong, r_ulonglong
 from pypy.rlib.test.test_clibffi import BaseFfiTest, get_libm_name, make_struct_ffitype_e
 from pypy.rlib.libffi import CDLL, Func, get_libc_name, ArgChain, types
-from pypy.rlib.libffi import longlong2float, float2longlong, IS_32_BIT
+from pypy.rlib.libffi import IS_32_BIT
 
 class TestLibffiMisc(BaseFfiTest):
 
@@ -51,19 +51,6 @@ class TestLibffiMisc(BaseFfiTest):
         del ptr
         del lib
         assert not ALLOCATED
-
-    def test_longlong_as_float(self):
-        from pypy.translator.c.test.test_genc import compile
-        maxint64 = r_longlong(9223372036854775807)
-        def fn(x):
-            d = longlong2float(x)
-            ll = float2longlong(d)
-            return ll
-        assert fn(maxint64) == maxint64
-        #
-        fn2 = compile(fn, [r_longlong])
-        res = fn2(maxint64)
-        assert res == maxint64
 
 class TestLibffiCall(BaseFfiTest):
     """
@@ -111,7 +98,7 @@ class TestLibffiCall(BaseFfiTest):
     def get_libfoo(self):
         return self.CDLL(self.libfoo_name)
 
-    def call(self, funcspec, args, RESULT, init_result=0, is_struct=False):
+    def call(self, funcspec, args, RESULT, is_struct=False, jitif=[]):
         """
         Call the specified function after constructing and ArgChain with the
         arguments in ``args``.
@@ -128,14 +115,7 @@ class TestLibffiCall(BaseFfiTest):
         func = lib.getpointer(name, argtypes, restype)
         chain = ArgChain()
         for arg in args:
-            if isinstance(arg, r_singlefloat):
-                chain.arg_singlefloat(float(arg))
-            elif IS_32_BIT and isinstance(arg, r_longlong):
-                chain.arg_longlong(longlong2float(arg))
-            elif IS_32_BIT and isinstance(arg, r_ulonglong):
-                arg = rffi.cast(rffi.LONGLONG, arg)
-                chain.arg_longlong(longlong2float(arg))
-            elif isinstance(arg, tuple):
+            if isinstance(arg, tuple):
                 methname, arg = arg
                 meth = getattr(chain, methname)
                 meth(arg)
@@ -143,13 +123,19 @@ class TestLibffiCall(BaseFfiTest):
                 chain.arg(arg)
         return func.call(chain, RESULT, is_struct=is_struct)
 
-    def check_loops(self, *args, **kwds):
-        """
-        Ignored here, but does something in the JIT tests
-        """
-        pass
-
     # ------------------------------------------------------------------------
+
+    def test_very_simple(self):
+        """
+            int diff_xy(int x, long y)
+            {
+                return x - y;
+            }
+        """
+        libfoo = self.get_libfoo() 
+        func = (libfoo, 'diff_xy', [types.sint, types.slong], types.sint)
+        res = self.call(func, [50, 8], lltype.Signed)
+        assert res == 42
 
     def test_simple(self):
         """
@@ -160,23 +146,14 @@ class TestLibffiCall(BaseFfiTest):
         """
         libfoo = self.get_libfoo() 
         func = (libfoo, 'sum_xy', [types.sint, types.double], types.sint)
-        res = self.call(func, [38, 4.2], rffi.LONG)
+        res = self.call(func, [38, 4.2], lltype.Signed, jitif=["floats"])
         assert res == 42
-        self.check_loops({
-                'call_release_gil': 1,
-                'guard_no_exception': 1,
-                'guard_not_forced': 1,
-                'int_add': 1,
-                'int_lt': 1,
-                'guard_true': 1,
-                'jump': 1})
 
     def test_float_result(self):
         libm = self.get_libm()
         func = (libm, 'pow', [types.double, types.double], types.double)
-        res = self.call(func, [2.0, 3.0], rffi.DOUBLE, init_result=0.0)
+        res = self.call(func, [2.0, 3.0], rffi.DOUBLE, jitif=["floats"])
         assert res == 8.0
-        self.check_loops(call_release_gil=1, guard_no_exception=1, guard_not_forced=1)
 
     def test_cast_result(self):
         """
@@ -189,7 +166,6 @@ class TestLibffiCall(BaseFfiTest):
         func = (libfoo, 'cast_to_uchar_and_ovf', [types.sint], types.uchar)
         res = self.call(func, [0], rffi.UCHAR)
         assert res == 200
-        self.check_loops(call_release_gil=1, guard_no_exception=1, guard_not_forced=1)
 
     def test_cast_argument(self):
         """
@@ -271,8 +247,7 @@ class TestLibffiCall(BaseFfiTest):
         libfoo = self.get_libfoo()
         func = (libfoo, 'get_pointer_to_b', [], types.pointer)
         LONGP = lltype.Ptr(rffi.CArray(rffi.LONG))
-        null = lltype.nullptr(LONGP.TO)
-        res = self.call(func, [], LONGP, init_result=null)
+        res = self.call(func, [], LONGP)
         assert res[0] == 20
 
     def test_void_result(self):
@@ -287,7 +262,7 @@ class TestLibffiCall(BaseFfiTest):
         #
         initval = self.call(get_dummy, [], rffi.LONG)
         #
-        res = self.call(set_dummy, [initval+1], lltype.Void, init_result=None)
+        res = self.call(set_dummy, [initval+1], lltype.Void)
         assert res is None
         #
         res = self.call(get_dummy, [], rffi.LONG)
@@ -305,9 +280,9 @@ class TestLibffiCall(BaseFfiTest):
         func = (libfoo, 'sum_xy_float', [types.float, types.float], types.float)
         x = r_singlefloat(12.34)
         y = r_singlefloat(56.78)
-        res = self.call(func, [x, y], rffi.FLOAT, init_result=0.0)
+        res = self.call(func, [x, y], rffi.FLOAT, jitif=["singlefloats"])
         expected = c_float(c_float(12.34).value + c_float(56.78).value).value
-        assert res == expected
+        assert float(res) == expected
 
     def test_slonglong_args(self):
         """
@@ -325,16 +300,10 @@ class TestLibffiCall(BaseFfiTest):
         if IS_32_BIT:
             x = r_longlong(maxint32+1)
             y = r_longlong(maxint32+2)
-            zero = longlong2float(r_longlong(0))
         else:
             x = maxint32+1
             y = maxint32+2
-            zero = 0
-        res = self.call(func, [x, y], rffi.LONGLONG, init_result=zero)
-        if IS_32_BIT:
-            # obscure, on 32bit it's really a long long, so it returns a
-            # DOUBLE because of the JIT hack
-            res = float2longlong(res)
+        res = self.call(func, [x, y], rffi.LONGLONG, jitif=["longlong"])
         expected = maxint32*2 + 3
         assert res == expected
 
@@ -354,12 +323,7 @@ class TestLibffiCall(BaseFfiTest):
                 types.ulonglong)
         x = r_ulonglong(maxint64+1)
         y = r_ulonglong(2)
-        res = self.call(func, [x, y], rffi.ULONGLONG, init_result=0)
-        if IS_32_BIT:
-            # obscure, on 32bit it's really a long long, so it returns a
-            # DOUBLE because of the JIT hack
-            res = float2longlong(res)
-            res = rffi.cast(rffi.ULONGLONG, res)
+        res = self.call(func, [x, y], rffi.ULONGLONG, jitif=["longlong"])
         expected = maxint64 + 3
         assert res == expected
 
@@ -406,7 +370,8 @@ class TestLibffiCall(BaseFfiTest):
         buf[0] = 30
         buf[1] = 12
         adr = rffi.cast(rffi.VOIDP, buf)
-        res = self.call(sum_point, [('arg_raw', adr)], rffi.LONG, init_result=0)
+        res = self.call(sum_point, [('arg_raw', adr)], rffi.LONG,
+                        jitif=["byval"])
         assert res == 42
         # check that we still have the ownership on the buffer
         assert buf[0] == 30
@@ -431,8 +396,8 @@ class TestLibffiCall(BaseFfiTest):
         make_point = (libfoo, 'make_point', [types.slong, types.slong], ffi_point)
         #
         PTR = lltype.Ptr(rffi.CArray(rffi.LONG))
-        p = self.call(make_point, [12, 34], PTR, init_result=lltype.nullptr(PTR.TO),
-                      is_struct=True)
+        p = self.call(make_point, [12, 34], PTR, is_struct=True,
+                      jitif=["byval"])
         assert p[0] == 12
         assert p[1] == 34
         lltype.free(p, flavor='raw')

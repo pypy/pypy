@@ -168,7 +168,7 @@ class AppTestStringObject:
 
     def test_incomplete_format(self):
         raises(ValueError, '%'.__mod__, ((23,),))
-        raises(ValueError, '%('.__mod__, ({},))
+        raises((ValueError, TypeError), '%('.__mod__, ({},))
 
     def test_format_char(self):
         import sys

@@ -116,7 +116,7 @@ class FunctionsPBCRepr(AbstractFunctionsPBCRepr):
             fields.append((row.attrname, row.fntype))
         kwds = {'hints': {'immutable': True}}
         return Ptr(Struct('specfunc', *fields, **kwds))
-        
+
     def create_specfunc(self):
         return malloc(self.lowleveltype.TO, immortal=True)
 
@@ -149,7 +149,8 @@ class SmallFunctionSetPBCRepr(Repr):
         self.descriptions = list(self.s_pbc.descriptions)
         if self.s_pbc.can_be_None:
             self.descriptions.insert(0, None)
-        POINTER_TABLE = Array(self.pointer_repr.lowleveltype)
+        POINTER_TABLE = Array(self.pointer_repr.lowleveltype,
+                              hints={'nolength': True})
         pointer_table = malloc(POINTER_TABLE, len(self.descriptions),
                                immortal=True)
         for i, desc in enumerate(self.descriptions):
@@ -230,7 +231,8 @@ class SmallFunctionSetPBCRepr(Repr):
         args = bk.build_args(opname, hop.args_s[1:])
         s_pbc = hop.args_s[0]   # possibly more precise than self.s_pbc
         descs = list(s_pbc.descriptions)
-        shape, index = description.FunctionDesc.variant_for_call_site(bk, self.callfamily, descs, args)
+        vfcs = description.FunctionDesc.variant_for_call_site
+        shape, index = vfcs(bk, self.callfamily, descs, args, hop.spaceop)
         row_of_graphs = self.callfamily.calltables[shape][index]
         anygraph = row_of_graphs.itervalues().next()  # pick any witness
         vlist = [hop.inputarg(self, arg=0)]
@@ -301,7 +303,8 @@ def conversion_table(r_from, r_to):
     if r_to in r_from._conversion_tables:
         return r_from._conversion_tables[r_to]
     else:
-        t = malloc(Array(Char), len(r_from.descriptions), immortal=True)
+        t = malloc(Array(Char, hints={'nolength': True}),
+                   len(r_from.descriptions), immortal=True)
         l = []
         for i, d in enumerate(r_from.descriptions):
             if d in r_to.descriptions:
@@ -313,7 +316,7 @@ def conversion_table(r_from, r_to):
         if l == range(len(r_from.descriptions)):
             r = None
         else:
-            r = inputconst(Ptr(Array(Char)), t)
+            r = inputconst(Ptr(Array(Char, hints={'nolength': True})), t)
         r_from._conversion_tables[r_to] = r
         return r
 
@@ -401,12 +404,12 @@ class ClassesPBCRepr(AbstractClassesPBCRepr):
 
 # ____________________________________________________________
 
-##def rtype_call_memo(hop): 
+##def rtype_call_memo(hop):
 ##    memo_table = hop.args_v[0].value
 ##    if memo_table.s_result.is_constant():
 ##        return hop.inputconst(hop.r_result, memo_table.s_result.const)
-##    fieldname = memo_table.fieldname 
-##    assert hop.nb_args == 2, "XXX"  
+##    fieldname = memo_table.fieldname
+##    assert hop.nb_args == 2, "XXX"
 
 ##    r_pbc = hop.args_r[1]
 ##    assert isinstance(r_pbc, (MultipleFrozenPBCRepr, ClassesPBCRepr))

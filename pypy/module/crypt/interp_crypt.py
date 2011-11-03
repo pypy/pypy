@@ -1,6 +1,5 @@
-from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rpython.lltypesystem import rffi
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 import sys
 
@@ -22,4 +21,4 @@ def crypt(space, word, salt):
     if not res:
         return space.w_None
     str_res = rffi.charp2str(res)
-    return space.wrap(str_res) 
+    return space.wrap(str_res)

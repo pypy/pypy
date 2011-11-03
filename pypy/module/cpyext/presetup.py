@@ -42,4 +42,4 @@ def patch_distutils():
 patch_distutils()
 
 del sys.argv[0]
-execfile(sys.argv[0])
+execfile(sys.argv[0], {'__file__': sys.argv[0]})

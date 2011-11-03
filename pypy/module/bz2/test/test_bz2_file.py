@@ -133,6 +133,7 @@ class AppTestBZ2File: #(CheckAllocation):
         
         bz2f.seek(0)
         assert bz2f.tell() == 0
+        del bz2f   # delete from this frame, which is captured in the traceback
 
     def test_open_close_del(self):
         from bz2 import BZ2File
@@ -246,11 +247,18 @@ class AppTestBZ2File: #(CheckAllocation):
         assert text_read == self.TEXT
         bz2f.close()
 
+    def test_silently_closes(self):
+        from bz2 import BZ2File
+        self.create_broken_temp_file()
+        BZ2File(self.temppath)
+        # check that no C-level malloc is left behind
+
     def test_read_broken_file(self):
         from bz2 import BZ2File
         self.create_broken_temp_file()
         bz2f = BZ2File(self.temppath)
         raises(EOFError, bz2f.read)
+        del bz2f   # delete from this frame, which is captured in the traceback
 
     def test_subsequent_read_broken_file(self):
         from bz2 import BZ2File
@@ -264,15 +272,16 @@ class AppTestBZ2File: #(CheckAllocation):
                 raise Exception("should generate EOFError earlier")
         except EOFError:
             pass
+        del bz2f   # delete from this frame, which is captured in the traceback
 
-    def test_read_chunk10(self):
+    def test_read_chunk9(self):
         from bz2 import BZ2File
         self.create_temp_file()
         
         bz2f = BZ2File(self.temppath)
         text_read = ""
         while True:
-            data = bz2f.read(10)
+            data = bz2f.read(9) # 9 doesn't divide evenly into data length
             if not data:
                 break
             text_read = "%s%s" % (text_read, data)
@@ -416,6 +425,7 @@ class AppTestBZ2File: #(CheckAllocation):
         bz2f.close()
         bz2f = BZ2File(self.temppath, 'r')
         assert bz2f.read() == self.random_data
+        del bz2f   # delete from this frame, which is captured in the traceback
 
     def test_context_manager(self):
         from bz2 import BZ2File

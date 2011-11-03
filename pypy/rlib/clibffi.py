@@ -286,10 +286,10 @@ if _WIN32:
 
 FFI_OK = cConfig.FFI_OK
 FFI_BAD_TYPEDEF = cConfig.FFI_BAD_TYPEDEF
-FFI_DEFAULT_ABI = rffi.cast(rffi.USHORT, cConfig.FFI_DEFAULT_ABI)
+FFI_DEFAULT_ABI = cConfig.FFI_DEFAULT_ABI
 if _WIN32:
-    FFI_STDCALL = rffi.cast(rffi.USHORT, cConfig.FFI_STDCALL)
-FFI_TYPE_STRUCT = rffi.cast(rffi.USHORT, cConfig.FFI_TYPE_STRUCT)
+    FFI_STDCALL = cConfig.FFI_STDCALL
+FFI_TYPE_STRUCT = cConfig.FFI_TYPE_STRUCT
 FFI_CIFP = rffi.COpaquePtr('ffi_cif', compilation_info=eci)
 
 FFI_CLOSUREP = lltype.Ptr(cConfig.ffi_closure)
@@ -319,7 +319,7 @@ def make_struct_ffitype_e(size, aligment, field_types):
        which the 'ffistruct' member is a regular FFI_TYPE.
     """
     tpe = lltype.malloc(FFI_STRUCT_P.TO, len(field_types)+1, flavor='raw')
-    tpe.ffistruct.c_type = FFI_TYPE_STRUCT
+    tpe.ffistruct.c_type = rffi.cast(rffi.USHORT, FFI_TYPE_STRUCT)
     tpe.ffistruct.c_size = rffi.cast(rffi.SIZE_T, size)
     tpe.ffistruct.c_alignment = rffi.cast(rffi.USHORT, aligment)
     tpe.ffistruct.c_elements = rffi.cast(FFI_TYPE_PP,
@@ -402,11 +402,19 @@ class ClosureHeap(object):
 
 closureHeap = ClosureHeap()
 
-FUNCFLAG_STDCALL   = 0
-FUNCFLAG_CDECL     = 1  # for WINAPI calls
+FUNCFLAG_STDCALL   = 0    # on Windows: for WINAPI calls
+FUNCFLAG_CDECL     = 1    # on Windows: for __cdecl calls
 FUNCFLAG_PYTHONAPI = 4
 FUNCFLAG_USE_ERRNO = 8
 FUNCFLAG_USE_LASTERROR = 16
+
+def get_call_conv(flags, from_jit):
+    if _WIN32 and (flags & FUNCFLAG_CDECL == 0):
+        return FFI_STDCALL
+    else:
+        return FFI_DEFAULT_ABI
+get_call_conv._annspecialcase_ = 'specialize:arg(1)'     # hack :-/
+
 
 class AbstractFuncPtr(object):
     ll_cif = lltype.nullptr(FFI_CIFP.TO)
@@ -427,21 +435,17 @@ class AbstractFuncPtr(object):
         self.ll_cif = lltype.malloc(FFI_CIFP.TO, flavor='raw',
                                     track_allocation=False) # freed by the __del__
 
-        if _WIN32 and (flags & FUNCFLAG_CDECL == 0):
-            cc = FFI_STDCALL
-        else:
-            cc = FFI_DEFAULT_ABI
-
         if _MSVC:
             # This little trick works correctly with MSVC.
             # It returns small structures in registers
-            if r_uint(restype.c_type) == FFI_TYPE_STRUCT:
+            if intmask(restype.c_type) == FFI_TYPE_STRUCT:
                 if restype.c_size <= 4:
                     restype = ffi_type_sint32
                 elif restype.c_size <= 8:
                     restype = ffi_type_sint64
 
-        res = c_ffi_prep_cif(self.ll_cif, cc,
+        res = c_ffi_prep_cif(self.ll_cif,
+                             rffi.cast(rffi.USHORT, get_call_conv(flags,False)),
                              rffi.cast(rffi.UINT, argnum), restype,
                              self.ll_argtypes)
         if not res == FFI_OK:

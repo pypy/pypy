@@ -81,16 +81,30 @@ class __extend__(AbstractStringRepr):
             return super(AbstractStringRepr, self).rtype_is_true(hop)
 
     def rtype_method_startswith(self, hop):
-        str1_repr, str2_repr = self._str_reprs(hop)
-        v_str, v_value = hop.inputargs(str1_repr, str2_repr)
+        str1_repr = hop.args_r[0].repr
+        str2_repr = hop.args_r[1]
+        v_str = hop.inputarg(str1_repr, arg=0)
+        if str2_repr == str2_repr.char_repr:
+            v_value = hop.inputarg(str2_repr.char_repr, arg=1)
+            fn = self.ll.ll_startswith_char
+        else:
+            v_value = hop.inputarg(str2_repr, arg=1)
+            fn = self.ll.ll_startswith
         hop.exception_cannot_occur()
-        return hop.gendirectcall(self.ll.ll_startswith, v_str, v_value)
+        return hop.gendirectcall(fn, v_str, v_value)
 
     def rtype_method_endswith(self, hop):
-        str1_repr, str2_repr = self._str_reprs(hop)
-        v_str, v_value = hop.inputargs(str1_repr, str2_repr)
+        str1_repr = hop.args_r[0].repr
+        str2_repr = hop.args_r[1]
+        v_str = hop.inputarg(str1_repr, arg=0)
+        if str2_repr == str2_repr.char_repr:
+            v_value = hop.inputarg(str2_repr.char_repr, arg=1)
+            fn = self.ll.ll_endswith_char
+        else:
+            v_value = hop.inputarg(str2_repr, arg=1)
+            fn = self.ll.ll_endswith
         hop.exception_cannot_occur()
-        return hop.gendirectcall(self.ll.ll_endswith, v_str, v_value)
+        return hop.gendirectcall(fn, v_str, v_value)
 
     def rtype_method_find(self, hop, reverse=False):
         # XXX binaryop

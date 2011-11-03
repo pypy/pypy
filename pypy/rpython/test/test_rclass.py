@@ -3,10 +3,11 @@ import sys
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.ootypesystem import ootype
-from pypy.rlib.rarithmetic import intmask, r_longlong
+from pypy.rlib.rarithmetic import r_longlong
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rpython.rclass import IR_IMMUTABLE, IR_IMMUTABLE_ARRAY
 from pypy.rpython.rclass import IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY
+from pypy.rpython.error import TyperError
 from pypy.objspace.flow.model import summary
 
 class EmptyBase(object):
@@ -971,10 +972,10 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
         graph = graphof(t, f)
         TYPE = graph.startblock.operations[0].args[0].value
         RTTI = getRuntimeTypeInfo(TYPE)
-        queryptr = RTTI._obj.query_funcptr # should not raise
+        RTTI._obj.query_funcptr # should not raise
         destrptr = RTTI._obj.destructor_funcptr
         assert destrptr is not None
-    
+
     def test_del_inheritance(self):
         from pypy.rlib import rgc
         class State:
@@ -1021,7 +1022,25 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
         assert typeOf(destrptra).TO.ARGS[0] != typeOf(destrptrb).TO.ARGS[0]
         assert destrptra is not None
         assert destrptrb is not None
-        
+
+    def test_del_forbidden(self):
+        class A(object):
+            def __del__(self):
+                self.foo()
+            def foo(self):
+                self.bar()
+            def bar(self):
+                pass
+            bar._dont_reach_me_in_del_ = True
+        def f():
+            a = A()
+            a.foo()
+            a.bar()
+        t = TranslationContext()
+        t.buildannotator().build_types(f, [])
+        e = py.test.raises(TyperError, t.buildrtyper().specialize)
+        print e.value
+
     def test_instance_repr(self):
         from pypy.rlib.objectmodel import current_object_addr_as_int
         class FooBar(object):

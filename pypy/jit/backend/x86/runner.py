@@ -19,6 +19,7 @@ py.log.setconsumer('jitbackend', ansi_log)
 class AbstractX86CPU(AbstractLLCPU):
     debug = True
     supports_floats = True
+    supports_singlefloats = True
 
     BOOTSTRAP_TP = lltype.FuncType([], lltype.Signed)
     dont_keepalive_stuff = False # for tests
@@ -118,7 +119,8 @@ class AbstractX86CPU(AbstractLLCPU):
             setitem(index, null)
 
     def get_latest_force_token(self):
-        return self.assembler.fail_ebp + FORCE_INDEX_OFS
+        # the FORCE_TOKEN operation and this helper both return 'ebp'.
+        return self.assembler.fail_ebp
 
     def execute_token(self, executable_token):
         addr = executable_token._x86_bootstrap_code
@@ -152,8 +154,9 @@ class AbstractX86CPU(AbstractLLCPU):
                                        flavor='raw', zero=True,
                                        immortal=True)
 
-    def force(self, addr_of_force_index):
+    def force(self, addr_of_force_token):
         TP = rffi.CArrayPtr(lltype.Signed)
+        addr_of_force_index = addr_of_force_token + FORCE_INDEX_OFS
         fail_index = rffi.cast(TP, addr_of_force_index)[0]
         assert fail_index >= 0, "already forced!"
         faildescr = self.get_fail_descr_from_number(fail_index)
@@ -163,7 +166,7 @@ class AbstractX86CPU(AbstractLLCPU):
         # start of "no gc operation!" block
         fail_index_2 = self.assembler.grab_frame_values(
             bytecode,
-            addr_of_force_index - FORCE_INDEX_OFS,
+            addr_of_force_token,
             self.all_null_registers)
         self.assembler.leave_jitted_hook()
         # end of "no gc operation!" block

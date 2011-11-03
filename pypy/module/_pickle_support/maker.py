@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError 
+from pypy.interpreter.error import OperationError
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.function import Function, Method
@@ -8,7 +8,6 @@ from pypy.interpreter.pytraceback import PyTraceback
 from pypy.interpreter.generator import GeneratorIterator
 from pypy.rlib.objectmodel import instantiate
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.objspace.std.dicttype import dictiter_typedef
 from pypy.objspace.std.iterobject import W_SeqIterObject, W_ReverseSeqIterObject
 
 
@@ -67,10 +66,10 @@ def generator_new(space, w_frame, running):
     new_generator.running = running
     return space.wrap(new_generator)
 
-@unwrap_spec(current=int, remaining=int, step=int)
-def xrangeiter_new(space, current, remaining, step):
+@unwrap_spec(current=int, stop=int, step=int)
+def xrangeiter_new(space, current, stop, step):
     from pypy.module.__builtin__.functional import W_XRangeIterator
-    new_iter = W_XRangeIterator(space, current, remaining, step)
+    new_iter = W_XRangeIterator(space, current, stop, step)
     return space.wrap(new_iter)
 
 @unwrap_spec(identifier=str)
@@ -79,7 +78,7 @@ def builtin_code(space, identifier):
     try:
         return gateway.BuiltinCode.find(identifier)
     except KeyError:
-        raise OperationError(space.w_RuntimeError, 
+        raise OperationError(space.w_RuntimeError,
                              space.wrap("cannot unpickle builtin code: "+
                                         identifier))
 
@@ -89,7 +88,7 @@ def builtin_function(space, identifier):
     try:
         return function.Function.find(identifier)
     except KeyError:
-        raise OperationError(space.w_RuntimeError, 
+        raise OperationError(space.w_RuntimeError,
                              space.wrap("cannot unpickle builtin function: "+
                                         identifier))
 

@@ -16,6 +16,12 @@ class W_ObjectType(Wrappable):
         self.initialize(connection, param)
 
     def __del__(self):
+        self.enqueue_for_destruction(self.environment.space,
+                                     W_ObjectType.destructor,
+                                     '__del__ method of ')
+
+    def destructor(self):
+        assert isinstance(self, W_ObjectType)
         if self.tdo:
             roci.OCIObjectUnpin(
                 self.environment.handle,

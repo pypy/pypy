@@ -77,3 +77,17 @@ def test_gcc_ask_doesnt_log_errors():
     finally:
         sys.stderr = oldstderr
     assert 'ERROR' not in capture.getvalue().upper()
+
+def test_execute_code_ignore_errors():
+    f = localudir.join('z.c')
+    f.write("""this file is not valid C code\n""")
+    eci = ExternalCompilationInfo()
+    oldstderr = sys.stderr
+    try:
+        sys.stderr = capture = cStringIO.StringIO()
+        py.test.raises(CompilationError, build_executable_cache,
+                       [f], eci, True)
+    finally:
+        sys.stderr = oldstderr
+    assert 'ERROR' not in capture.getvalue().upper()
+    

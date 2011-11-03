@@ -132,7 +132,10 @@ class AbstractAttribute(object):
             cache[selector] = attr
         return attr
 
-    @jit.unroll_safe
+    @jit.look_inside_iff(lambda self, obj, selector, w_value:
+            jit.isconstant(self) and
+            jit.isconstant(selector[0]) and
+            jit.isconstant(selector[1]))
     def add_attr(self, obj, selector, w_value):
         # grumble, jit needs this
         attr = self._get_new_attr(selector[0], selector[1])
@@ -347,7 +350,7 @@ INVALID = 2
 SLOTS_STARTING_FROM = 3
 
 
-class BaseMapdictObject: # slightly evil to make it inherit from W_Root
+class BaseMapdictObject:
     _mixin_ = True
 
     def _init_empty(self, map):
@@ -369,8 +372,7 @@ class BaseMapdictObject: # slightly evil to make it inherit from W_Root
     def setdictvalue(self, space, attrname, w_value):
         return self._get_mapdict_map().write(self, (attrname, DICT), w_value)
 
-    def deldictvalue(self, space, w_name):
-        attrname = space.str_w(w_name)
+    def deldictvalue(self, space, attrname):
         new_obj = self._get_mapdict_map().delete(self, (attrname, DICT))
         if new_obj is None:
             return False
@@ -422,6 +424,14 @@ class BaseMapdictObject: # slightly evil to make it inherit from W_Root
         key = ("slot", SLOTS_STARTING_FROM + index)
         self._get_mapdict_map().write(self, key, w_value)
 
+    def delslotvalue(self, index):
+        key = ("slot", SLOTS_STARTING_FROM + index)
+        new_obj = self._get_mapdict_map().delete(self, key)
+        if new_obj is None:
+            return False
+        self._become(new_obj)
+        return True
+
     # used by _weakref implemenation
 
     def getweakref(self):
@@ -431,12 +441,17 @@ class BaseMapdictObject: # slightly evil to make it inherit from W_Root
             return None
         assert isinstance(lifeline, WeakrefLifeline)
         return lifeline
+    getweakref._cannot_really_call_random_things_ = True
 
     def setweakref(self, space, weakreflifeline):
         from pypy.module._weakref.interp__weakref import WeakrefLifeline
-        assert (isinstance(weakreflifeline, WeakrefLifeline) or
-                    weakreflifeline is None)
+        assert isinstance(weakreflifeline, WeakrefLifeline)
         self._get_mapdict_map().write(self, ("weakref", SPECIAL), weakreflifeline)
+    setweakref._cannot_really_call_random_things_ = True
+
+    def delweakref(self):
+        self._get_mapdict_map().write(self, ("weakref", SPECIAL), None)
+    delweakref._cannot_really_call_random_things_ = True
 
 class ObjectMixin(object):
     _mixin_ = True
@@ -642,7 +657,8 @@ class MapDictStrategy(DictStrategy):
         w_key_type = space.type(w_key)
         w_obj = self.unerase(w_dict.dstorage)
         if space.is_w(w_key_type, space.w_str):
-            flag = w_obj.deldictvalue(space, w_key)
+            key = self.space.str_w(w_key)
+            flag = w_obj.deldictvalue(space, key)
             if not flag:
                 raise KeyError
         elif _never_equal_to_string(space, w_key_type):

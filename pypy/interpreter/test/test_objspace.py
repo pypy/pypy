@@ -71,6 +71,23 @@ class TestObjSpace:
         assert err.value.match(space, space.w_ValueError)
         err = raises(OperationError, space.unpackiterable, w_l, 5)
         assert err.value.match(space, space.w_ValueError)
+        w_a = space.appexec((), """():
+        class A(object):
+            def __iter__(self):
+                return self
+            def next(self):
+                raise StopIteration
+            def __len__(self):
+                1/0
+        return A()
+        """)
+        try:
+            space.unpackiterable(w_a)
+        except OperationError, o:
+            if not o.match(space, space.w_ZeroDivisionError):
+                raise Exception("DID NOT RAISE")
+        else:
+            raise Exception("DID NOT RAISE")
 
     def test_fixedview(self):
         space = self.space

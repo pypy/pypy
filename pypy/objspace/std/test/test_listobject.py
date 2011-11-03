@@ -705,6 +705,20 @@ class AppTestW_ListObject(object):
         l.pop()
         assert l == range(9)
 
+    def test_pop_custom_int(self):
+        class A(object):
+            def __init__(self, x):
+                self.x = x
+
+            def __int__(self):
+                return self.x
+
+        l = range(10)
+        x = l.pop(A(-1))
+        assert x == 9
+        assert l == range(9)
+        raises(TypeError, range(10).pop, 1.0)
+
     def test_remove(self):
         c = list('hello world')
         c.remove('l')
@@ -786,6 +800,20 @@ class AppTestW_ListObject(object):
         l = [1,2,3,4]
         l.__delslice__(0, 2)
         assert l == [3, 4]
+
+    def test_list_from_set(self):
+        l = ['a']
+        l.__init__(set('b'))
+        assert l == ['b']
+
+    def test_list_from_generator(self):
+        l = ['a']
+        g = (i*i for i in range(5))
+        l.__init__(g)
+        assert l == [0, 1, 4, 9, 16]
+        l.__init__(g)
+        assert l == []
+        assert list(g) == []
 
 
 class AppTestListFastSubscr:

@@ -1,9 +1,7 @@
-from pypy.translator.simplify import get_funcobj
 from pypy.jit.metainterp import history
-from pypy.rpython.lltypesystem import lltype, rclass
 from pypy.tool.udir import udir
 
-import py, sys
+import py
 from pypy.tool.ansi_print import ansi_log
 log = py.log.Producer('jitcodewriter')
 py.log.setconsumer('jitcodewriter', ansi_log)
@@ -14,12 +12,16 @@ class JitPolicy(object):
         self.unsafe_loopy_graphs = set()
         self.supports_floats = False
         self.supports_longlong = False
+        self.supports_singlefloats = False
 
     def set_supports_floats(self, flag):
         self.supports_floats = flag
 
     def set_supports_longlong(self, flag):
         self.supports_longlong = flag
+
+    def set_supports_singlefloats(self, flag):
+        self.supports_singlefloats = flag
 
     def dump_unsafe_loops(self):
         f = udir.join("unsafe-loops.txt").open('w')
@@ -60,8 +62,9 @@ class JitPolicy(object):
                     func, '_jit_unroll_safe_', False)
 
         unsupported = contains_unsupported_variable_type(graph,
-                                                         self.supports_floats,
-                                                         self.supports_longlong)
+                            self.supports_floats,
+                            self.supports_longlong,
+                            self.supports_singlefloats)
         res = see_function and not unsupported
         if res and contains_loop:
             self.unsafe_loopy_graphs.add(graph)
@@ -82,17 +85,24 @@ class JitPolicy(object):
         return res
 
 def contains_unsupported_variable_type(graph, supports_floats,
-                                       supports_longlong):
+                                              supports_longlong,
+                                              supports_singlefloats):
     getkind = history.getkind
     try:
         for block in graph.iterblocks():
             for v in block.inputargs:
-                getkind(v.concretetype, supports_floats, supports_longlong)
+                getkind(v.concretetype, supports_floats,
+                                        supports_longlong,
+                                        supports_singlefloats)
             for op in block.operations:
                 for v in op.args:
-                    getkind(v.concretetype, supports_floats, supports_longlong)
+                    getkind(v.concretetype, supports_floats,
+                                            supports_longlong,
+                                            supports_singlefloats)
                 v = op.result
-                getkind(v.concretetype, supports_floats, supports_longlong)
+                getkind(v.concretetype, supports_floats,
+                                        supports_longlong,
+                                        supports_singlefloats)
     except NotImplementedError, e:
         log.WARNING('%s, ignoring graph' % (e,))
         log.WARNING('  %s' % (graph,))

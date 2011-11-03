@@ -245,6 +245,9 @@ class MsvcPlatform(Platform):
             linkflags = self._args_for_shared(linkflags) + [
                 '/EXPORT:$(PYPY_MAIN_FUNCTION)']
         linkflags += self._exportsymbols_link_flags(eci, relto=path)
+        # Make sure different functions end up at different addresses!
+        # This is required for the JIT.
+        linkflags.append('/opt:noicf')
 
         if shared:
             so_name = exe_name.new(purebasename='lib' + exe_name.purebasename,

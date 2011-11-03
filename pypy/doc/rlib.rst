@@ -134,69 +134,6 @@ so on, which is not suitable for RPython.  Instead, ``rsocket`` contains
 a hierarchy of Address classes, in a typical static-OO-programming style.
 
 
-``rstack``
-==========
-
-The `pypy/rlib/rstack.py`_ module allows an RPython program to control its own execution stack.
-This is only useful if the program is translated using stackless. An old
-description of the exposed functions is below.
-
-We introduce an RPython type ``frame_stack_top`` and a built-in function
-``yield_current_frame_to_caller()`` that work as follows (see example below):
-
-* The built-in function ``yield_current_frame_to_caller()`` causes the current
-  function's state to be captured in a new ``frame_stack_top`` object that is
-  returned to the parent.  Only one frame, the current one, is captured this
-  way.  The current frame is suspended and the caller continues to run.  Note
-  that the caller is only resumed once: when
-  ``yield_current_frame_to_caller()`` is called.  See below.
-
-* A ``frame_stack_top`` object can be jumped to by calling its ``switch()``
-  method with no argument.
-
-* ``yield_current_frame_to_caller()`` and ``switch()`` themselves return a new
-  ``frame_stack_top`` object: the freshly captured state of the caller of the
-  source ``switch()`` that was just executed, or None in the case described
-  below.
-
-* the function that called ``yield_current_frame_to_caller()`` also has a
-  normal return statement, like all functions.  This statement must return
-  another ``frame_stack_top`` object.  The latter is *not* returned to the
-  original caller; there is no way to return several times to the caller.
-  Instead, it designates the place to which the execution must jump, as if by
-  a ``switch()``.  The place to which we jump this way will see a None as the
-  source frame stack top.
-
-* every frame stack top must be resumed once and only once.  Not resuming
-  it at all causes a leak.  Resuming it several times causes a crash.
-
-* a function that called ``yield_current_frame_to_caller()`` should not raise.
-  It would have no implicit parent frame to propagate the exception to.  That
-  would be a crashingly bad idea.
-
-The following example would print the numbers from 1 to 7 in order::
-
-    def g():
-        print 2
-        frametop_before_5 = yield_current_frame_to_caller()
-        print 4
-        frametop_before_7 = frametop_before_5.switch()
-        print 6
-        return frametop_before_7
-
-    def f():
-        print 1
-        frametop_before_4 = g()
-        print 3
-        frametop_before_6 = frametop_before_4.switch()
-        print 5
-        frametop_after_return = frametop_before_6.switch()
-        print 7
-        assert frametop_after_return is None
-
-    f()
-
-
 ``streamio``
 ============
 

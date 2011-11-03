@@ -26,6 +26,7 @@ def fatalerror(msg, traceback=False):
         llop.debug_print_traceback(lltype.Void)
     llop.debug_fatalerror(lltype.Void, msg)
 fatalerror._dont_inline_ = True
+fatalerror._annspecialcase_ = 'specialize:arg(1)'
 
 
 class DebugLog(list):

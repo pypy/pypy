@@ -1,10 +1,15 @@
-import py
 import sys
-from pypy.rpython.extregistry import ExtRegistryEntry
-from pypy.rlib.objectmodel import CDefinedIntSymbolic
-from pypy.rlib.objectmodel import keepalive_until_here, specialize
-from pypy.rlib.unroll import unrolling_iterable
+
+import py
+
 from pypy.rlib.nonconst import NonConstant
+from pypy.rlib.objectmodel import CDefinedIntSymbolic, keepalive_until_here, specialize
+from pypy.rlib.unroll import unrolling_iterable
+from pypy.rpython.extregistry import ExtRegistryEntry
+from pypy.tool.sourcetools import func_with_new_name
+
+DEBUG_ELIDABLE_FUNCTIONS = False
+
 
 def elidable(func):
     """ Decorate a function as "trace-elidable". This means precisely that:
@@ -13,11 +18,26 @@ def elidable(func):
         the same (same numbers or same pointers)
     (2) it's fine to remove the call completely if we can guess the result
     according to rule 1
+    (3) the function call can be moved around by optimizer,
+        but only so it'll be called earlier and not later.
 
     Most importantly it doesn't mean that an elidable function has no observable
     side effect, but those side effects are idempotent (ie caching).
-    For now, such a function should never raise an exception.
+    If a particular call to this function ends up raising an exception, then it
+    is handled like a normal function call (this decorator is ignored).
     """
+    if DEBUG_ELIDABLE_FUNCTIONS:
+        cache = {}
+        oldfunc = func
+        def func(*args):
+            result = oldfunc(*args)    # if it raises, no caching
+            try:
+                oldresult = cache.setdefault(args, result)
+            except TypeError:
+                pass           # unhashable args
+            else:
+                assert oldresult == result
+            return result
     func._elidable_function_ = True
     return func
 
@@ -32,6 +52,7 @@ def hint(x, **kwds):
     possible arguments are:
 
     * promote - promote the argument from a variable into a constant
+    * promote_string - same, but promote string by *value*
     * access_directly - directly access a virtualizable, as a structure
                         and don't treat it as a virtualizable
     * fresh_virtualizable - means that virtualizable was just allocated.
@@ -44,6 +65,9 @@ def hint(x, **kwds):
 @specialize.argtype(0)
 def promote(x):
     return hint(x, promote=True)
+
+def promote_string(x):
+    return hint(x, promote_string=True)
 
 def dont_look_inside(func):
     """ Make sure the JIT does not trace inside decorated function
@@ -69,17 +93,22 @@ def loop_invariant(func):
     func._jit_loop_invariant_ = True
     return func
 
+def _get_args(func):
+    import inspect
+
+    args, varargs, varkw, defaults = inspect.getargspec(func)
+    args = ["v%s" % (i, ) for i in range(len(args))]
+    assert varargs is None and varkw is None
+    assert not defaults
+    return args
+
 def elidable_promote(promote_args='all'):
     """ A decorator that promotes all arguments and then calls the supplied
     function
     """
     def decorator(func):
-        import inspect
         elidable(func)
-        args, varargs, varkw, defaults = inspect.getargspec(func)
-        args = ["v%s" % (i, ) for i in range(len(args))]
-        assert varargs is None and varkw is None
-        assert not defaults
+        args = _get_args(func)
         argstring = ", ".join(args)
         code = ["def f(%s):\n" % (argstring, )]
         if promote_args != 'all':
@@ -99,12 +128,75 @@ def purefunction_promote(*args, **kwargs):
     warnings.warn("purefunction_promote is deprecated, use elidable_promote instead", DeprecationWarning)
     return elidable_promote(*args, **kwargs)
 
+def look_inside_iff(predicate):
+    """
+    look inside (including unrolling loops) the target function, if and only if
+    predicate(*args) returns True
+    """
+    def inner(func):
+        func = unroll_safe(func)
+        # When we return the new function, it might be specialized in some
+        # way. We "propogate" this specialization by using
+        # specialize:call_location on relevant functions.
+        for thing in [func, predicate]:
+            thing._annspecialcase_ = "specialize:call_location"
+
+        args = _get_args(func)
+        d = {
+            "dont_look_inside": dont_look_inside,
+            "predicate": predicate,
+            "func": func,
+            "we_are_jitted": we_are_jitted,
+        }
+        exec py.code.Source("""
+            @dont_look_inside
+            def trampoline(%(arguments)s):
+                return func(%(arguments)s)
+            if hasattr(func, "oopspec"):
+                # XXX: This seems like it should be here, but it causes errors.
+                # trampoline.oopspec = func.oopspec
+                del func.oopspec
+            trampoline.__name__ = func.__name__ + "_trampoline"
+            trampoline._annspecialcase_ = "specialize:call_location"
+
+            def f(%(arguments)s):
+                if not we_are_jitted() or predicate(%(arguments)s):
+                    return func(%(arguments)s)
+                else:
+                    return trampoline(%(arguments)s)
+            f.__name__ = func.__name__ + "_look_inside_iff"
+        """ % {"arguments": ", ".join(args)}).compile() in d
+        return d["f"]
+    return inner
 
 def oopspec(spec):
     def decorator(func):
         func.oopspec = spec
         return func
     return decorator
+
+@oopspec("jit.isconstant(value)")
+@specialize.ll()
+def isconstant(value):
+    """
+    While tracing, returns whether or not the value is currently known to be
+    constant. This is not perfect, values can become constant later. Mostly for
+    use with @look_inside_iff.
+
+    This is for advanced usage only.
+    """
+    return NonConstant(False)
+
+@oopspec("jit.isvirtual(value)")
+@specialize.ll()
+def isvirtual(value):
+    """
+    Returns if this value is virtual, while tracing, it's relatively
+    conservative and will miss some cases.
+
+    This is for advanced usage only.
+    """
+    return NonConstant(False)
 
 class Entry(ExtRegistryEntry):
     _about_ = hint
@@ -114,7 +206,7 @@ class Entry(ExtRegistryEntry):
         s_x = annmodel.not_const(s_x)
         access_directly = 's_access_directly' in kwds_s
         fresh_virtualizable = 's_fresh_virtualizable' in kwds_s
-        if  access_directly or fresh_virtualizable:
+        if access_directly or fresh_virtualizable:
             assert access_directly, "lone fresh_virtualizable hint"
             if isinstance(s_x, annmodel.SomeInstance):
                 from pypy.objspace.flow.model import Constant
@@ -239,6 +331,12 @@ class DirectVRef(object):
             raise InvalidVirtualRef
         return self._x
 
+    @property
+    def virtual(self):
+        """A property that is True if the vref contains a virtual that would
+        be forced by the '()' operator."""
+        return self._state == 'non-forced'
+
     def _finish(self):
         if self._state == 'non-forced':
             self._state = 'invalid'
@@ -279,7 +377,7 @@ class Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         pass
-    
+
 vref_None = non_virtual_ref(None)
 
 # ____________________________________________________________
@@ -288,13 +386,14 @@ vref_None = non_virtual_ref(None)
 class JitHintError(Exception):
     """Inconsistency in the JIT hints."""
 
-PARAMETERS = {'threshold': 1032, # just above 1024
-              'function_threshold': 1617, # slightly more than one above 
+PARAMETERS = {'threshold': 1039, # just above 1024, prime
+              'function_threshold': 1619, # slightly more than one above, also prime
               'trace_eagerness': 200,
-              'trace_limit': 12000,
+              'trace_limit': 6000,
               'inlining': 1,
               'loop_longevity': 1000,
               'retrace_limit': 5,
+              'max_retrace_guards': 15,
               'enable_opts': 'all',
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
@@ -315,7 +414,7 @@ class JitDriver(object):
     def __init__(self, greens=None, reds=None, virtualizables=None,
                  get_jitcell_at=None, set_jitcell_at=None,
                  get_printable_location=None, confirm_enter_jit=None,
-                 can_never_inline=None):
+                 can_never_inline=None, should_unroll_one_iteration=None):
         if greens is not None:
             self.greens = greens
         if reds is not None:
@@ -334,6 +433,7 @@ class JitDriver(object):
         self.get_printable_location = get_printable_location
         self.confirm_enter_jit = confirm_enter_jit
         self.can_never_inline = can_never_inline
+        self.should_unroll_one_iteration = should_unroll_one_iteration
 
     def _freeze_(self):
         return True
@@ -398,7 +498,7 @@ class JitDriver(object):
                             raise
     set_user_param._annspecialcase_ = 'specialize:arg(0)'
 
-    
+
     def on_compile(self, logger, looptoken, operations, type, *greenargs):
         """ A hook called when loop is compiled. Overwrite
         for your own jitdriver if you want to do something special, like
@@ -482,6 +582,13 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
                                    key[2:])
             cache[key] = s_value
 
+        # add the attribute _dont_reach_me_in_del_ (see pypy.rpython.rclass)
+        try:
+            graph = self.bookkeeper.position_key[0]
+            graph.func._dont_reach_me_in_del_ = True
+        except (TypeError, AttributeError):
+            pass
+
         return annmodel.s_None
 
     def annotate_hooks(self, **kwds_s):
@@ -562,7 +669,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
                 c_llname = hop.inputconst(lltype.Void, mangled_name)
                 getfield_op = self.get_getfield_op(hop.rtyper)
                 v_green = hop.genop(getfield_op, [v_red, c_llname],
-                                    resulttype = r_field)
+                                    resulttype=r_field)
                 s_green = s_red.classdef.about_attribute(fieldname)
                 assert s_green is not None
                 hop.rtyper.annotator.setbinding(v_green, s_green)

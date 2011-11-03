@@ -17,7 +17,6 @@ def setup_module(mod):
 
 class AbstractGCTestClass(object):
     gcpolicy = "boehm"
-    stacklessgc = False
     use_threads = False
    
     # deal with cleanups
@@ -34,8 +33,6 @@ class AbstractGCTestClass(object):
         config = get_pypy_config(translating=True)
         config.translation.gc = self.gcpolicy
         config.translation.thread = self.use_threads
-        if self.stacklessgc:
-            config.translation.gcrootfinder = "stackless"
         config.translation.simplifying = True
         t = TranslationContext(config=config)
         self.t = t

@@ -17,6 +17,7 @@ class TestMinMax(BaseTestPyPyC):
         assert loop.match("""
             i7 = int_lt(i4, 300)
             guard_true(i7, descr=...)
+            guard_not_invalidated(descr=...)
             i9 = int_add_ovf(i5, 3000)
             guard_no_overflow(descr=...)
             i11 = int_add(i4, 1)
@@ -41,7 +42,7 @@ class TestMinMax(BaseTestPyPyC):
         assert len(guards) < 20
         assert loop.match_by_id('max',"""
             ...
-            p76 = call_may_force(ConstClass(min_max_loop__max), _, _, descr=...)
+            p76 = call_may_force(ConstClass(min_max_trampoline), _, _, descr=...)
             ...
         """)
 
@@ -62,6 +63,6 @@ class TestMinMax(BaseTestPyPyC):
         assert len(guards) < 20
         assert loop.match_by_id('max',"""
             ...
-            p76 = call_may_force(ConstClass(min_max_loop__max), _, _, descr=...)
+            p76 = call_may_force(ConstClass(min_max_trampoline), _, _, descr=...)
             ...
         """)

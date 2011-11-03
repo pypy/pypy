@@ -43,28 +43,31 @@ def fix_permissions(basedir):
 def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
             copy_to_dir = None, override_pypy_c = None):
     basedir = py.path.local(basedir)
-    if sys.platform == 'win32':
-        # Can't rename a DLL
-        if override_pypy_c is not None:
-            rename_pypy_c = py.path.local(override_pypy_c).purebasename
-            pypy_c_dir = py.path.local(override_pypy_c).dirname
-        else:
-            pypy_c_dir = basedir.join('pypy', 'translator', 'goal')
-        pypy_c = pypy_c_dir.join(rename_pypy_c + '.exe')
-        libpypy_c = pypy_c_dir.join('lib' + rename_pypy_c + '.dll')
-        binaries = [(pypy_c, pypy_c.basename),
-                    (libpypy_c, libpypy_c.basename),
-                    (pypy_c_dir.join('libexpat.dll'), 'libexpat.dll')]
-    else:
+    if override_pypy_c is None:
         basename = 'pypy-c'
-        if override_pypy_c is None:
-            pypy_c = basedir.join('pypy', 'translator', 'goal', basename)
-        else:
-            pypy_c = py.path.local(override_pypy_c)
-        binaries = [(pypy_c, rename_pypy_c)]
+        if sys.platform == 'win32':
+            basename += '.exe'
+        pypy_c = basedir.join('pypy', 'translator', 'goal', basename)
+    else:
+        pypy_c = py.path.local(override_pypy_c)
     if not pypy_c.check():
         print pypy_c
         raise PyPyCNotFound('Please compile pypy first, using translate.py')
+    if sys.platform == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
+        rename_pypy_c += '.exe'
+    binaries = [(pypy_c, rename_pypy_c)]
+    #
+    if sys.platform == 'win32':
+        # Can't rename a DLL: it is always called 'libpypy-c.dll'
+        for extra in ['libpypy-c.dll',
+                      'libexpat.dll', 'sqlite3.dll', 'msvcr90.dll']:
+            p = pypy_c.dirpath().join(extra)
+            if not p.check():
+                p = py.path.local.sysfind(extra)
+                assert p, "%s not found" % (extra,)
+            print "Picking %s" % p
+            binaries.append((p, p.basename))
+    #
     builddir = udir.ensure("build", dir=True)
     pypydir = builddir.ensure(name, dir=True)
     # Careful: to copy lib_pypy, copying just the svn-tracked files
@@ -133,6 +136,8 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     if copy_to_dir is not None:
         print "Copying %s to %s" % (archive, copy_to_dir)
         shutil.copy(archive, str(copy_to_dir))
+    else:
+        print "Ready in %s" % (builddir,)
     return builddir # for tests
 
 if __name__ == '__main__':

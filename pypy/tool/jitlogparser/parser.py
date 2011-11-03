@@ -8,6 +8,7 @@ class Op(object):
     bridge = None
     offset = None
     asm = None
+    failargs = ()
 
     def __init__(self, name, args, res, descr):
         self.name = name
@@ -18,8 +19,8 @@ class Op(object):
         if self._is_guard:
             self.guard_no = int(self.descr[len('<Guard'):-1])
 
-    def setfailargs(self, _):
-        pass
+    def setfailargs(self, failargs):
+        self.failargs = failargs
 
     def getarg(self, i):
         return self._getvar(self.args[i])
@@ -30,6 +31,9 @@ class Op(object):
     def getres(self):
         return self._getvar(self.res)
 
+    def getdescr(self):
+        return self.descr
+
     def _getvar(self, v):
         return v
 
@@ -39,7 +43,7 @@ class Op(object):
     def repr(self):
         args = self.getargs()
         if self.descr is not None:
-            args.append('descr=%s' % self.descr)
+            args.append('descr=%s' % self.getdescr())
         arglist = ', '.join(args)
         if self.res is not None:
             return '%s = %s(%s)' % (self.getres(), self.name, arglist)
@@ -89,7 +93,7 @@ class SimpleParser(OpParser):
                     while asm[asm_index][0] < op.offset:
                         asm_index += 1
                     end_index = asm_index
-                    while asm[end_index][0] < end:
+                    while asm[end_index][0] < end and end_index < len(asm) - 1:
                         end_index += 1
                     op.asm = '\n'.join([asm[i][1] for i in range(asm_index, end_index)])
         return loop
@@ -145,10 +149,10 @@ class TraceForOpcode(object):
         if operations[0].name == 'debug_merge_point':
             self.inline_level = int(operations[0].args[0])
             m = re.search('<code object ([<>\w]+)\. file \'(.+?)\'\. line (\d+)> #(\d+) (\w+)',
-                         operations[0].getarg(1))
+                         operations[0].args[1])
             if m is None:
                 # a non-code loop, like StrLiteralSearch or something
-                self.bytecode_name = operations[0].args[1].split(" ")[0][1:]
+                self.bytecode_name = operations[0].args[1][1:-1]
             else:
                 self.name, self.filename, lineno, bytecode_no, self.bytecode_name = m.groups()
                 self.startlineno = int(lineno)
@@ -171,6 +175,8 @@ class TraceForOpcode(object):
         return self.code is not None
 
     def getopcode(self):
+        if self.code is None:
+            return None
         return self.code.map[self.bytecode_no]
 
     def getlineno(self):
@@ -271,16 +277,16 @@ class Function(object):
 
     def has_valid_code(self):
         for chunk in self.chunks:
-            if not chunk.has_valid_code():
-                return False
-        return True
+            if chunk.has_valid_code():
+                return True
+        return False
 
     def _compute_linerange(self):
         self._lineset = set()
         minline = sys.maxint
         maxline = -1
         for chunk in self.chunks:
-            if chunk.is_bytecode and chunk.filename is not None:
+            if chunk.is_bytecode and chunk.has_valid_code():
                 lineno = chunk.lineno
                 minline = min(minline, lineno)
                 maxline = max(maxline, lineno)
@@ -325,6 +331,8 @@ def adjust_bridges(loop, bridges):
         if op.is_guard() and bridges.get('loop-' + str(op.guard_no), None):
             res.append(op)
             i = 0
+            if hasattr(op.bridge, 'force_asm'):
+                op.bridge.force_asm()
             ops = op.bridge.operations
         else:
             res.append(op)
@@ -336,27 +344,45 @@ def import_log(logname, ParserCls=SimpleParser):
     log = parse_log_file(logname)
     addrs = {}
     for entry in extract_category(log, 'jit-backend-addr'):
-        m = re.search('bootstrap ([\da-f]+)', entry)
-        name = entry[:entry.find('(') - 1]
-        addrs[int(m.group(1), 16)] = name
+        m = re.search('bootstrap ([-\da-f]+)', entry)
+        if not m:
+            # a bridge
+            m = re.search('has address ([-\da-f]+)', entry)
+            addr = int(m.group(1), 16)
+            entry = entry.lower()
+            m = re.search('guard \d+', entry)
+            name = m.group(0)
+        else:
+            name = entry[:entry.find('(') - 1].lower()
+            addr = int(m.group(1), 16)
+        addrs.setdefault(addr, []).append(name)
     dumps = {}
     for entry in extract_category(log, 'jit-backend-dump'):
         backend, _, dump, _ = entry.split("\n")
         _, addr, _, data = re.split(" +", dump)
         backend_name = backend.split(" ")[1]
         addr = int(addr[1:], 16)
-        if addr in addrs:
-            dumps[addrs[addr]] = (backend_name, addr, data)
+        if addr in addrs and addrs[addr]:
+            name = addrs[addr].pop(0) # they should come in order
+            dumps[name] = (backend_name, addr, data)
     loops = []
     for entry in extract_category(log, 'jit-log-opt'):
         parser = ParserCls(entry, None, {}, 'lltype', None,
                            nonstrict=True)
         loop = parser.parse()
         comm = loop.comment
-        name = comm[2:comm.find(':')-1]
+        comm = comm.lower()
+        if comm.startswith('# bridge'):
+            m = re.search('guard \d+', comm)
+            name = m.group(0)
+        else:
+            name = comm[2:comm.find(':')-1]
         if name in dumps:
             bname, start_ofs, dump = dumps[name]
-            parser.postprocess(loop, backend_tp=bname, backend_dump=dump,
-                               dump_start=start_ofs)
+            loop.force_asm = (lambda dump=dump, start_ofs=start_ofs,
+                              bname=bname, loop=loop:
+                              parser.postprocess(loop, backend_tp=bname,
+                                                 backend_dump=dump,
+                                                 dump_start=start_ofs))
         loops.append(loop)
     return log, loops

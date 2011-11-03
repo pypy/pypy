@@ -138,7 +138,7 @@ class AppTestEpoll(object):
         expected.sort()
 
         assert events == expected
-        assert then - now < 0.01
+        assert then - now < 0.02
 
         now = time.time()
         events = ep.poll(timeout=2.1, maxevents=4)
@@ -151,7 +151,7 @@ class AppTestEpoll(object):
         now = time.time()
         events = ep.poll(1, 4)
         then = time.time()
-        assert then - now < 0.01
+        assert then - now < 0.02
 
         events.sort()
         expected = [
@@ -168,7 +168,7 @@ class AppTestEpoll(object):
         now = time.time()
         events = ep.poll(1, 4)
         then = time.time()
-        assert then - now < 0.01
+        assert then - now < 0.02
 
         expected = [(server.fileno(), select.EPOLLOUT)]
         assert events == expected
@@ -192,7 +192,7 @@ class AppTestEpoll(object):
         now = time.time()
         ep.poll(1, 4)
         then = time.time()
-        assert then - now < 0.01
+        assert then - now < 0.02
 
         server.close()
         ep.unregister(fd)

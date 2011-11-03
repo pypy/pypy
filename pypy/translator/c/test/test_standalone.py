@@ -55,6 +55,13 @@ class TestStandalone(StandaloneTests):
         data = cbuilder.cmdexec('hi there')
         assert data.startswith('''hello world\nargument count: 2\n   'hi'\n   'there'\n''')
 
+        # Verify that the generated C files have sane names:
+        gen_c_files = [str(f) for f in cbuilder.extrafiles]
+        for expfile in ('rlib_rposix.c', 
+                        'rpython_lltypesystem_rstr.c',
+                        'translator_c_test_test_standalone.c'):
+            assert cbuilder.targetdir.join(expfile) in gen_c_files
+
     def test_print(self):
         def entry_point(argv):
             print "hello simpler world"
@@ -1011,6 +1018,27 @@ class TestThread(object):
                                      '4 ok',
                                      '5 ok']
 
+
+    def test_gc_with_fork_without_threads(self):
+        from pypy.rlib.objectmodel import invoke_around_extcall
+        if not hasattr(os, 'fork'):
+            py.test.skip("requires fork()")
+
+        def entry_point(argv):
+            childpid = os.fork()
+            if childpid == 0:
+                print "Testing..."
+            else:
+                pid, status = os.waitpid(childpid, 0)
+                assert pid == childpid
+                assert status == 0
+                print "OK."
+            return 0
+
+        t, cbuilder = self.compile(entry_point)
+        data = cbuilder.cmdexec('')
+        print repr(data)
+        assert data.startswith('Testing...\nOK.')
 
     def test_thread_and_gc_with_fork(self):
         # This checks that memory allocated for the shadow stacks of the

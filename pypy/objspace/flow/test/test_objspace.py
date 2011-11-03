@@ -501,6 +501,24 @@ class TestFlowObjSpace(Base):
             assert op.args[1].value == 3
 
     #__________________________________________________________
+
+    def wearetranslated(x):
+        from pypy.rlib.objectmodel import we_are_translated
+        if we_are_translated():
+            return x
+        else:
+            some_name_error_here
+
+    def test_wearetranslated(self):
+        x = self.codetest(self.wearetranslated)
+        from pypy.translator.simplify import join_blocks
+        join_blocks(x)
+        # check that 'x' is an empty graph
+        assert len(x.startblock.operations) == 0
+        assert len(x.startblock.exits) == 1
+        assert x.startblock.exits[0].target is x.returnblock
+
+    #__________________________________________________________
     def jump_target_specialization(x):
         if x:
             n = 5

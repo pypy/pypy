@@ -2,21 +2,19 @@
 Minimal-API wrapper around the llinterpreter to run operations.
 """
 
-import sys
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.jit.metainterp import history
-from pypy.jit.metainterp.history import REF, INT, FLOAT
+from pypy.jit.metainterp.history import REF, INT, FLOAT, STRUCT
 from pypy.jit.metainterp.warmstate import unwrap
-from pypy.jit.metainterp.resoperation import ResOperation, rop
+from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend import model
 from pypy.jit.backend.llgraph import llimpl, symbolic
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.jit.codewriter import heaptracker, longlong
-from pypy.rlib import rgc
 
 class MiniStats:
     pass
@@ -25,13 +23,14 @@ class MiniStats:
 class Descr(history.AbstractDescr):
 
     def __init__(self, ofs, typeinfo, extrainfo=None, name=None,
-                 arg_types=None, count_fields_if_immut=-1):
+                 arg_types=None, count_fields_if_immut=-1, ffi_flags=0):
         self.ofs = ofs
         self.typeinfo = typeinfo
         self.extrainfo = extrainfo
         self.name = name
         self.arg_types = arg_types
         self.count_fields_if_immut = count_fields_if_immut
+        self.ffi_flags = ffi_flags
 
     def get_arg_types(self):
         return self.arg_types
@@ -61,11 +60,17 @@ class Descr(history.AbstractDescr):
     def is_array_of_floats(self):
         return self.typeinfo == FLOAT
 
+    def is_array_of_structs(self):
+        return self.typeinfo == STRUCT
+
     def as_vtable_size_descr(self):
         return self
 
     def count_fields_if_immutable(self):
         return self.count_fields_if_immut
+
+    def get_ffi_flags(self):
+        return self.ffi_flags
 
     def __lt__(self, other):
         raise TypeError("cannot use comparison on Descrs")
@@ -91,6 +96,7 @@ history.TreeLoop._compiled_version = lltype.nullptr(llimpl.COMPILEDLOOP.TO)
 class BaseCPU(model.AbstractCPU):
     supports_floats = True
     supports_longlong = llimpl.IS_32_BIT
+    supports_singlefloats = True
 
     def __init__(self, rtyper, stats=None, opts=None,
                  translate_support_code=False,
@@ -113,14 +119,14 @@ class BaseCPU(model.AbstractCPU):
         return False
 
     def getdescr(self, ofs, typeinfo='?', extrainfo=None, name=None,
-                 arg_types=None, count_fields_if_immut=-1):
+                 arg_types=None, count_fields_if_immut=-1, ffi_flags=0):
         key = (ofs, typeinfo, extrainfo, name, arg_types,
-               count_fields_if_immut)
+               count_fields_if_immut, ffi_flags)
         try:
             return self._descrs[key]
         except KeyError:
             descr = Descr(ofs, typeinfo, extrainfo, name, arg_types,
-                          count_fields_if_immut)
+                          count_fields_if_immut, ffi_flags)
             self._descrs[key] = descr
             return descr
 
@@ -172,8 +178,10 @@ class BaseCPU(model.AbstractCPU):
             llimpl.compile_add(c, op.getopnum())
             descr = op.getdescr()
             if isinstance(descr, Descr):
-                llimpl.compile_add_descr(c, descr.ofs, descr.typeinfo, descr.arg_types)
-            if isinstance(descr, history.LoopToken) and op.getopnum() != rop.JUMP:
+                llimpl.compile_add_descr(c, descr.ofs, descr.typeinfo,
+                                         descr.arg_types)
+            if (isinstance(descr, history.LoopToken) and
+                op.getopnum() != rop.JUMP):
                 llimpl.compile_add_loop_token(c, descr)
             if self.is_oo and isinstance(descr, (OODescr, MethDescr)):
                 # hack hack, not rpython
@@ -188,6 +196,9 @@ class BaseCPU(model.AbstractCPU):
                     llimpl.compile_add_ref_const(c, x.value, self.ts.BASETYPE)
                 elif isinstance(x, history.ConstFloat):
                     llimpl.compile_add_float_const(c, x.value)
+                elif isinstance(x, Descr):
+                    llimpl.compile_add_descr_arg(c, x.ofs, x.typeinfo,
+                                                 x.arg_types)
                 else:
                     raise Exception("'%s' args contain: %r" % (op.getopname(),
                                                                x))
@@ -311,7 +322,14 @@ class LLtypeCPU(BaseCPU):
         token = history.getkind(getattr(S, fieldname))
         return self.getdescr(ofs, token[0], name=fieldname)
 
-    def calldescrof(self, FUNC, ARGS, RESULT, extrainfo=None):
+    def interiorfielddescrof(self, A, fieldname):
+        S = A.OF
+        ofs2 = symbolic.get_size(A)
+        ofs, size = symbolic.get_field_token(S, fieldname)
+        token = history.getkind(getattr(S, fieldname))
+        return self.getdescr(ofs, token[0], name=fieldname, extrainfo=ofs2)
+
+    def calldescrof(self, FUNC, ARGS, RESULT, extrainfo):
         arg_types = []
         for ARG in ARGS:
             token = history.getkind(ARG)
@@ -325,16 +343,21 @@ class LLtypeCPU(BaseCPU):
         return self.getdescr(0, token[0], extrainfo=extrainfo,
                              arg_types=''.join(arg_types))
 
-    def calldescrof_dynamic(self, ffi_args, ffi_result, extrainfo=None):
+    def calldescrof_dynamic(self, ffi_args, ffi_result, extrainfo, ffi_flags):
         from pypy.jit.backend.llsupport.ffisupport import get_ffi_type_kind
+        from pypy.jit.backend.llsupport.ffisupport import UnsupportedKind
         arg_types = []
-        for arg in ffi_args:
-            kind = get_ffi_type_kind(arg)
-            if kind != history.VOID:
-                arg_types.append(kind)
-        reskind = get_ffi_type_kind(ffi_result)
+        try:
+            for arg in ffi_args:
+                kind = get_ffi_type_kind(self, arg)
+                if kind != history.VOID:
+                    arg_types.append(kind)
+            reskind = get_ffi_type_kind(self, ffi_result)
+        except UnsupportedKind:
+            return None
         return self.getdescr(0, reskind, extrainfo=extrainfo,
-                             arg_types=''.join(arg_types))
+                             arg_types=''.join(arg_types),
+                             ffi_flags=ffi_flags)
 
 
     def grab_exc_value(self):
@@ -342,9 +365,15 @@ class LLtypeCPU(BaseCPU):
 
     def arraydescrof(self, A):
         assert A.OF != lltype.Void
+        assert isinstance(A, lltype.GcArray) or A._hints.get('nolength', False)
         size = symbolic.get_size(A)
-        token = history.getkind(A.OF)
-        return self.getdescr(size, token[0])
+        if isinstance(A.OF, lltype.Ptr) or isinstance(A.OF, lltype.Primitive):
+            token = history.getkind(A.OF)[0]
+        elif isinstance(A.OF, lltype.Struct):
+            token = 's'
+        else:
+            token = '?'
+        return self.getdescr(size, token)
 
     # ---------- the backend-dependent operations ----------
 
@@ -396,6 +425,29 @@ class LLtypeCPU(BaseCPU):
         assert isinstance(fielddescr, Descr)
         return llimpl.do_getfield_raw_float(struct, fielddescr.ofs)
 
+    def bh_getinteriorfield_gc_i(self, array, index, descr):
+        assert isinstance(descr, Descr)
+        return llimpl.do_getinteriorfield_gc_int(array, index, descr.ofs)
+    def bh_getinteriorfield_gc_r(self, array, index, descr):
+        assert isinstance(descr, Descr)
+        return llimpl.do_getinteriorfield_gc_ptr(array, index, descr.ofs)
+    def bh_getinteriorfield_gc_f(self, array, index, descr):
+        assert isinstance(descr, Descr)
+        return llimpl.do_getinteriorfield_gc_float(array, index, descr.ofs)
+
+    def bh_setinteriorfield_gc_i(self, array, index, descr, value):
+        assert isinstance(descr, Descr)
+        return llimpl.do_setinteriorfield_gc_int(array, index, descr.ofs,
+                                                 value)
+    def bh_setinteriorfield_gc_r(self, array, index, descr, value):
+        assert isinstance(descr, Descr)
+        return llimpl.do_setinteriorfield_gc_ptr(array, index, descr.ofs,
+                                                 value)
+    def bh_setinteriorfield_gc_f(self, array, index, descr, value):
+        assert isinstance(descr, Descr)
+        return llimpl.do_setinteriorfield_gc_float(array, index, descr.ofs,
+                                                   value)
+
     def bh_new(self, sizedescr):
         assert isinstance(sizedescr, Descr)
         return llimpl.do_new(sizedescr.ofs)
@@ -408,7 +460,6 @@ class LLtypeCPU(BaseCPU):
 
     def bh_classof(self, struct):
         struct = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct)
-        result = struct.typeptr
         result_adr = llmemory.cast_ptr_to_adr(struct.typeptr)
         return heaptracker.adr2int(result_adr)
 
@@ -517,7 +568,7 @@ class OOtypeCPU_xxx_disabled(BaseCPU):
         return FieldDescr.new(T1, fieldname)
 
     @staticmethod
-    def calldescrof(FUNC, ARGS, RESULT, extrainfo=None):
+    def calldescrof(FUNC, ARGS, RESULT, extrainfo):
         return StaticMethDescr.new(FUNC, ARGS, RESULT, extrainfo)
 
     @staticmethod

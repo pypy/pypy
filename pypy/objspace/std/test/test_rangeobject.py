@@ -89,6 +89,9 @@ class AppTestRangeListObject(object):
         assert not self.not_forced(r)
         r.sort()
         assert r == range(1, 100) + [999]
+        r = range(10)
+        r.sort(key=lambda x: -x)
+        assert r == range(9, -1, -1)
 
     def test_pop(self):
         r = range(10)

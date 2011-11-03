@@ -11,9 +11,8 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode
-from pypy.rlib import streamio, jit, rposix
+from pypy.rlib import streamio, jit
 from pypy.rlib.streamio import StreamErrors
-from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import we_are_translated, specialize
 from pypy.module.sys.version import PYPY_VERSION
 
@@ -86,7 +85,7 @@ def find_modtype(space, filepart):
 
     return SEARCH_ERROR, None, None
 
-if sys.platform == 'linux2' or 'freebsd' in sys.platform:
+if sys.platform.startswith('linux') or 'freebsd' in sys.platform:
     def case_ok(filename):
         return True
 else:
@@ -541,6 +540,13 @@ def _prepare_module(space, w_mod, filename, pkgdir):
     if pkgdir is not None:
         space.setattr(w_mod, w('__path__'), space.newlist([w(pkgdir)]))
 
+def add_module(space, w_name):
+    w_mod = check_sys_modules(space, w_name)
+    if w_mod is None:
+        w_mod = space.wrap(Module(space, w_name))
+        space.sys.setmodule(w_mod)
+    return w_mod
+
 def load_c_extension(space, filename, modulename):
     # the next line is mandatory to init cpyext
     space.getbuiltinmodule("cpyext")
@@ -879,7 +885,8 @@ def load_source_module(space, w_modulename, w_mod, pathname, source,
         code_w = parse_source_module(space, pathname, source)
 
         if space.config.objspace.usepycfiles and write_pyc:
-            write_compiled_module(space, code_w, cpathname, mode, mtime)
+            if not space.is_true(space.sys.get('dont_write_bytecode')):
+                write_compiled_module(space, code_w, cpathname, mode, mtime)
 
     update_code_filenames(space, code_w, pathname)
     exec_code_module(space, w_mod, code_w)

@@ -1,5 +1,4 @@
 import sys
-from pypy.interpreter.miscutils import Stack
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.rlib.unroll import unrolling_iterable
@@ -48,6 +47,7 @@ class ExecutionContext(object):
         return frame
 
     @staticmethod
+    @jit.unroll_safe  # should usually loop 0 times, very rarely more than once
     def getnextframe_nohidden(frame):
         frame = frame.f_backref()
         while frame and frame.hide():
@@ -80,58 +80,6 @@ class ExecutionContext(object):
             self.space.frame_trace_action.fire()
 
     # ________________________________________________________________
-
-
-    class Subcontext(object):
-        # coroutine: subcontext support
-
-        def __init__(self):
-            self.topframe = None
-            self.w_tracefunc = None
-            self.profilefunc = None
-            self.w_profilefuncarg = None
-            self.is_tracing = 0
-
-        def enter(self, ec):
-            ec.topframeref = jit.non_virtual_ref(self.topframe)
-            ec.w_tracefunc = self.w_tracefunc
-            ec.profilefunc = self.profilefunc
-            ec.w_profilefuncarg = self.w_profilefuncarg
-            ec.is_tracing = self.is_tracing
-            ec.space.frame_trace_action.fire()
-
-        def leave(self, ec):
-            self.topframe = ec.gettopframe()
-            self.w_tracefunc = ec.w_tracefunc
-            self.profilefunc = ec.profilefunc
-            self.w_profilefuncarg = ec.w_profilefuncarg
-            self.is_tracing = ec.is_tracing
-
-        def clear_framestack(self):
-            self.topframe = None
-
-        # the following interface is for pickling and unpickling
-        def getstate(self, space):
-            if self.topframe is None:
-                return space.w_None
-            return self.topframe
-
-        def setstate(self, space, w_state):
-            from pypy.interpreter.pyframe import PyFrame
-            if space.is_w(w_state, space.w_None):
-                self.topframe = None
-            else:
-                self.topframe = space.interp_w(PyFrame, w_state)
-
-        def getframestack(self):
-            lst = []
-            f = self.topframe
-            while f is not None:
-                lst.append(f)
-                f = f.f_backref()
-            lst.reverse()
-            return lst
-        # coroutine: I think this is all, folks!
 
     def c_call_trace(self, frame, w_func, args=None):
         "Profile the call of a builtin function"
@@ -226,6 +174,9 @@ class ExecutionContext(object):
             self.force_all_frames()
             self.w_tracefunc = w_func
             self.space.frame_trace_action.fire()
+
+    def gettrace(self):
+        return self.w_tracefunc
 
     def setprofile(self, w_func):
         """Set the global trace function."""
@@ -359,7 +310,11 @@ class AbstractActionFlag(object):
         self._nonperiodic_actions = []
         self.has_bytecode_counter = False
         self.fired_actions = None
-        self.checkinterval_scaled = 100 * TICK_COUNTER_STEP
+        # the default value is not 100, unlike CPython 2.7, but a much
+        # larger value, because we use a technique that not only allows
+        # but actually *forces* another thread to run whenever the counter
+        # reaches zero.
+        self.checkinterval_scaled = 10000 * TICK_COUNTER_STEP
         self._rebuild_action_dispatcher()
 
     def fire(self, action):
@@ -398,6 +353,7 @@ class AbstractActionFlag(object):
         elif interval > MAX:
             interval = MAX
         self.checkinterval_scaled = interval * TICK_COUNTER_STEP
+        self.reset_ticker(-1)
 
     def _rebuild_action_dispatcher(self):
         periodic_actions = unrolling_iterable(self._periodic_actions)
@@ -435,8 +391,11 @@ class ActionFlag(AbstractActionFlag):
     def decrement_ticker(self, by):
         value = self._ticker
         if self.has_bytecode_counter:    # this 'if' is constant-folded
-            value -= by
-            self._ticker = value
+            if jit.isconstant(by) and by == 0:
+                pass     # normally constant-folded too
+            else:
+                value -= by
+                self._ticker = value
         return value
 
 
@@ -484,44 +443,31 @@ class UserDelAction(AsyncAction):
 
     def __init__(self, space):
         AsyncAction.__init__(self, space)
-        self.dying_objects_w = []
-        self.weakrefs_w = []
+        self.dying_objects = []
         self.finalizers_lock_count = 0
 
-    def register_dying_object(self, w_obj):
-        self.dying_objects_w.append(w_obj)
-        self.fire()
-
-    def register_weakref_callback(self, w_ref):
-        self.weakrefs_w.append(w_ref)
+    def register_callback(self, w_obj, callback, descrname):
+        self.dying_objects.append((w_obj, callback, descrname))
         self.fire()
 
     def perform(self, executioncontext, frame):
         if self.finalizers_lock_count > 0:
             return
-        # Each call to perform() first grabs the self.dying_objects_w
+        # Each call to perform() first grabs the self.dying_objects
         # and replaces it with an empty list.  We do this to try to
         # avoid too deep recursions of the kind of __del__ being called
         # while in the middle of another __del__ call.
-        pending_w = self.dying_objects_w
-        self.dying_objects_w = []
+        pending = self.dying_objects
+        self.dying_objects = []
         space = self.space
-        for i in range(len(pending_w)):
-            w_obj = pending_w[i]
-            pending_w[i] = None
+        for i in range(len(pending)):
+            w_obj, callback, descrname = pending[i]
+            pending[i] = (None, None, None)
             try:
-                space.userdel(w_obj)
+                callback(w_obj)
             except OperationError, e:
-                e.write_unraisable(space, 'method __del__ of ', w_obj)
+                e.write_unraisable(space, descrname, w_obj)
                 e.clear(space)   # break up reference cycles
-            # finally, this calls the interp-level destructor for the
-            # cases where there is both an app-level and a built-in __del__.
-            w_obj._call_builtin_destructor()
-        pending_w = self.weakrefs_w
-        self.weakrefs_w = []
-        for i in range(len(pending_w)):
-            w_ref = pending_w[i]
-            w_ref.activate_callback()
 
 class FrameTraceAction(AsyncAction):
     """An action that calls the local trace functions (w_f_trace)."""

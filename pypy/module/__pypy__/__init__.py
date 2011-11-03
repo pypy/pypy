@@ -8,6 +8,7 @@ class BuildersModule(MixedModule):
     appleveldefs = {}
 
     interpleveldefs = {
+        "StringBuilder": "interp_builders.W_StringBuilder",
         "UnicodeBuilder": "interp_builders.W_UnicodeBuilder",
     }
 
@@ -25,6 +26,7 @@ class Module(MixedModule):
         'debug_print_once'          : 'interp_debug.debug_print_once',
         'builtinify'                : 'interp_magic.builtinify',
         'lookup_special'            : 'interp_magic.lookup_special',
+        'do_what_I_mean'            : 'interp_magic.do_what_I_mean',
     }
 
     submodules = {

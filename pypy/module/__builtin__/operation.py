@@ -4,12 +4,10 @@ Interp-level implementation of the basic space operations.
 
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import interp2app, unwrap_spec
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.rlib.runicode import UNICHR
 from pypy.rlib.rfloat import isnan, isinf, round_double
 from pypy.rlib import rfloat
-import math
 import __builtin__
 NoneNotWrapped = gateway.NoneNotWrapped
 

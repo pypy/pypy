@@ -1,10 +1,11 @@
-from pypy.jit.metainterp.optimizeopt.optimizer import *
-from pypy.jit.metainterp.resoperation import opboolinvers, opboolreflex
-from pypy.jit.metainterp.history import ConstInt
-from pypy.jit.metainterp.optimizeopt.util import _findall, make_dispatcher_method
-from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.codewriter.effectinfo import EffectInfo
+from pypy.jit.metainterp.history import ConstInt, make_hashable_int
+from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound
+from pypy.jit.metainterp.optimizeopt.optimizer import *
+from pypy.jit.metainterp.optimizeopt.util import _findall, make_dispatcher_method
+from pypy.jit.metainterp.resoperation import (opboolinvers, opboolreflex, rop,
+    ResOperation)
 from pypy.rlib.rarithmetic import highest_bit
 
 
@@ -12,9 +13,16 @@ class OptRewrite(Optimization):
     """Rewrite operations into equivalent, cheaper operations.
        This includes already executed operations and constants.
     """
+    def __init__(self):
+        self.loop_invariant_results = {}
+        self.loop_invariant_producer = {}
 
-    def reconstruct_for_next_iteration(self, optimizer, valuemap):
-        return self
+    def new(self):
+        return OptRewrite()
+
+    def produce_potential_short_preamble_ops(self, sb):
+        for op in self.loop_invariant_producer.values():
+            sb.add_potential(op)
 
     def propagate_forward(self, op):
         args = self.optimizer.make_args_key(op)
@@ -23,21 +31,8 @@ class OptRewrite(Optimization):
 
         dispatch_opt(self, op)
 
-    def test_emittable(self, op):
-        opnum = op.getopnum()
-        for value, cls, func in optimize_guards:
-            if opnum == value:
-                assert isinstance(op, cls)
-                try:
-                    func(self, op, dryrun=True)
-                    return self.is_emittable(op)
-                except InvalidLoop:
-                    return False
-        return self.is_emittable(op)
-
-
     def try_boolinvers(self, op, targs):
-        oldop = self.optimizer.pure_operations.get(targs, None)
+        oldop = self.get_pure_result(targs)
         if oldop is not None and oldop.getdescr() is op.getdescr():
             value = self.getvalue(oldop.result)
             if value.is_constant():
@@ -54,32 +49,35 @@ class OptRewrite(Optimization):
     def find_rewritable_bool(self, op, args):
         try:
             oldopnum = opboolinvers[op.getopnum()]
+        except KeyError:
+            pass
+        else:
             targs = self.optimizer.make_args_key(ResOperation(oldopnum, [args[0], args[1]],
                                                               None))
             if self.try_boolinvers(op, targs):
                 return True
-        except KeyError:
-            pass
 
         try:
             oldopnum = opboolreflex[op.getopnum()] # FIXME: add INT_ADD, INT_MUL
+        except KeyError:
+            pass
+        else:
             targs = self.optimizer.make_args_key(ResOperation(oldopnum, [args[1], args[0]],
                                                               None))
-            oldop = self.optimizer.pure_operations.get(targs, None)
+            oldop = self.get_pure_result(targs)
             if oldop is not None and oldop.getdescr() is op.getdescr():
                 self.make_equal_to(op.result, self.getvalue(oldop.result))
                 return True
-        except KeyError:
-            pass
 
         try:
             oldopnum = opboolinvers[opboolreflex[op.getopnum()]]
+        except KeyError:
+            pass
+        else:
             targs = self.optimizer.make_args_key(ResOperation(oldopnum, [args[1], args[0]],
                                                               None))
             if self.try_boolinvers(op, targs):
                 return True
-        except KeyError:
-            pass
 
         return False
 
@@ -108,10 +106,9 @@ class OptRewrite(Optimization):
             self.make_equal_to(op.result, v1)
         else:
             self.emit_operation(op)
-
-        # Synthesize the reverse ops for optimize_default to reuse
-        self.pure(rop.INT_ADD, [op.result, op.getarg(1)], op.getarg(0))
-        self.pure(rop.INT_SUB, [op.getarg(0), op.result], op.getarg(1))
+            # Synthesize the reverse ops for optimize_default to reuse
+            self.pure(rop.INT_ADD, [op.result, op.getarg(1)], op.getarg(0))
+            self.pure(rop.INT_SUB, [op.getarg(0), op.result], op.getarg(1))
 
     def optimize_INT_ADD(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -124,10 +121,9 @@ class OptRewrite(Optimization):
             self.make_equal_to(op.result, v1)
         else:
             self.emit_operation(op)
-
-        # Synthesize the reverse op for optimize_default to reuse
-        self.pure(rop.INT_SUB, [op.result, op.getarg(1)], op.getarg(0))
-        self.pure(rop.INT_SUB, [op.result, op.getarg(0)], op.getarg(1))
+            # Synthesize the reverse op for optimize_default to reuse
+            self.pure(rop.INT_SUB, [op.result, op.getarg(1)], op.getarg(0))
+            self.pure(rop.INT_SUB, [op.result, op.getarg(0)], op.getarg(1))
 
     def optimize_INT_MUL(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -143,13 +139,13 @@ class OptRewrite(Optimization):
             self.make_constant_int(op.result, 0)
         else:
             for lhs, rhs in [(v1, v2), (v2, v1)]:
-                # x & (x -1) == 0 is a quick test for power of 2
-                if (lhs.is_constant() and
-                    (lhs.box.getint() & (lhs.box.getint() - 1)) == 0):
-                    new_rhs = ConstInt(highest_bit(lhs.box.getint()))
-                    op = op.copy_and_change(rop.INT_LSHIFT, args=[rhs.box, new_rhs])
-                    break
-
+                if lhs.is_constant():
+                    x = lhs.box.getint()
+                    # x & (x - 1) == 0 is a quick test for power of 2
+                    if x & (x - 1) == 0:
+                        new_rhs = ConstInt(highest_bit(lhs.box.getint()))
+                        op = op.copy_and_change(rop.INT_LSHIFT, args=[rhs.box, new_rhs])
+                        break
             self.emit_operation(op)
 
     def optimize_UINT_FLOORDIV(self, op):
@@ -199,35 +195,14 @@ class OptRewrite(Optimization):
                     ))
                     return
         self.emit_operation(op)
+        self.pure(rop.FLOAT_MUL, [arg2, arg1], op.result)
 
     def optimize_FLOAT_NEG(self, op):
         v1 = op.getarg(0)
         self.emit_operation(op)
         self.pure(rop.FLOAT_NEG, [op.result], v1)
 
-    def optimize_CALL_PURE(self, op):
-        arg_consts = []
-        for i in range(op.numargs()):
-            arg = op.getarg(i)
-            const = self.get_constant_box(arg)
-            if const is None:
-                break
-            arg_consts.append(const)
-        else:
-            # all constant arguments: check if we already know the result
-            try:
-                result = self.optimizer.call_pure_results[arg_consts]
-            except KeyError:
-                pass
-            else:
-                self.make_constant(op.result, result)
-                return
-        # replace CALL_PURE with just CALL
-        args = op.getarglist()
-        self.emit_operation(ResOperation(rop.CALL, args, op.result,
-                                         op.getdescr()))
-
-    def optimize_guard(self, op, constbox, emit_operation=True, dryrun=False):
+    def optimize_guard(self, op, constbox, emit_operation=True):
         value = self.getvalue(op.getarg(0))
         if value.is_constant():
             box = value.box
@@ -235,62 +210,57 @@ class OptRewrite(Optimization):
             if not box.same_constant(constbox):
                 raise InvalidLoop
             return
-        if dryrun: return
         if emit_operation:
             self.emit_operation(op)
         value.make_constant(constbox)
         self.optimizer.turned_constant(value)
 
-    def optimize_GUARD_ISNULL(self, op, dryrun=False):
+    def optimize_GUARD_ISNULL(self, op):
         value = self.getvalue(op.getarg(0))
         if value.is_null():
             return
         elif value.is_nonnull():
             raise InvalidLoop
-        if dryrun: return
         self.emit_operation(op)
         value.make_constant(self.optimizer.cpu.ts.CONST_NULL)
 
-    def optimize_GUARD_NONNULL(self, op, dryrun=False):
+    def optimize_GUARD_NONNULL(self, op):
         value = self.getvalue(op.getarg(0))
         if value.is_nonnull():
             return
         elif value.is_null():
             raise InvalidLoop
-        if dryrun: return
         self.emit_operation(op)
-        value.make_nonnull(len(self.optimizer.newoperations) - 1)
+        value.make_nonnull(op)
 
-    def optimize_GUARD_VALUE(self, op, dryrun=False):
+    def optimize_GUARD_VALUE(self, op):
         value = self.getvalue(op.getarg(0))
-        emit_operation = True
-        if not dryrun and value.last_guard_index != -1:
+        if value.last_guard:
             # there already has been a guard_nonnull or guard_class or
             # guard_nonnull_class on this value, which is rather silly.
             # replace the original guard with a guard_value
-            old_guard_op = self.optimizer.newoperations[value.last_guard_index]
-            new_guard_op = old_guard_op.copy_and_change(rop.GUARD_VALUE,
-                                             args = [old_guard_op.getarg(0), op.getarg(1)])
-            self.optimizer.newoperations[value.last_guard_index] = new_guard_op
+            old_guard_op = value.last_guard
+            op = old_guard_op.copy_and_change(rop.GUARD_VALUE,
+                                      args = [old_guard_op.getarg(0), op.getarg(1)])
+            self.optimizer.replaces_guard[op] = old_guard_op
             # hack hack hack.  Change the guard_opnum on
             # new_guard_op.getdescr() so that when resuming,
             # the operation is not skipped by pyjitpl.py.
-            descr = new_guard_op.getdescr()
+            descr = op.getdescr()
             assert isinstance(descr, compile.ResumeGuardDescr)
             descr.guard_opnum = rop.GUARD_VALUE
-            descr.make_a_counter_per_value(new_guard_op)
-            emit_operation = False
+            descr.make_a_counter_per_value(op)
         constbox = op.getarg(1)
         assert isinstance(constbox, Const)
-        self.optimize_guard(op, constbox, emit_operation, dryrun)
+        self.optimize_guard(op, constbox)
 
-    def optimize_GUARD_TRUE(self, op, dryrun=False):
-        self.optimize_guard(op, CONST_1, dryrun=dryrun)
+    def optimize_GUARD_TRUE(self, op):
+        self.optimize_guard(op, CONST_1)
 
-    def optimize_GUARD_FALSE(self, op, dryrun=False):
-        self.optimize_guard(op, CONST_0, dryrun=dryrun)
+    def optimize_GUARD_FALSE(self, op):
+        self.optimize_guard(op, CONST_0)
 
-    def optimize_GUARD_CLASS(self, op, dryrun=False):
+    def optimize_GUARD_CLASS(self, op):
         value = self.getvalue(op.getarg(0))
         expectedclassbox = op.getarg(1)
         assert isinstance(expectedclassbox, Const)
@@ -299,38 +269,32 @@ class OptRewrite(Optimization):
             if realclassbox.same_constant(expectedclassbox):
                 return
             raise InvalidLoop
-        if dryrun: return
-        emit_operation = True
-        if value.last_guard_index != -1:
+        if value.last_guard:
             # there already has been a guard_nonnull or guard_class or
             # guard_nonnull_class on this value.
-            old_guard_op = self.optimizer.newoperations[value.last_guard_index]
+            old_guard_op = value.last_guard
             if old_guard_op.getopnum() == rop.GUARD_NONNULL:
                 # it was a guard_nonnull, which we replace with a
                 # guard_nonnull_class.
-                new_guard_op = old_guard_op.copy_and_change (rop.GUARD_NONNULL_CLASS,
+                op = old_guard_op.copy_and_change (rop.GUARD_NONNULL_CLASS,
                                          args = [old_guard_op.getarg(0), op.getarg(1)])
-                self.optimizer.newoperations[value.last_guard_index] = new_guard_op
+                self.optimizer.replaces_guard[op] = old_guard_op
                 # hack hack hack.  Change the guard_opnum on
                 # new_guard_op.getdescr() so that when resuming,
                 # the operation is not skipped by pyjitpl.py.
-                descr = new_guard_op.getdescr()
+                descr = op.getdescr()
                 assert isinstance(descr, compile.ResumeGuardDescr)
                 descr.guard_opnum = rop.GUARD_NONNULL_CLASS
-                emit_operation = False
-        if emit_operation:
-            self.emit_operation(op)
-            last_guard_index = len(self.optimizer.newoperations) - 1
-        else:
-            last_guard_index = value.last_guard_index
-        value.make_constant_class(expectedclassbox, last_guard_index)
+        self.emit_operation(op)
+        value.make_constant_class(expectedclassbox, op)
 
-    def optimize_GUARD_NONNULL_CLASS(self, op, dryrun=False):
-        self.optimize_GUARD_NONNULL(op, True)
-        self.optimize_GUARD_CLASS(op, dryrun)
+    def optimize_GUARD_NONNULL_CLASS(self, op):
+        value = self.getvalue(op.getarg(0))
+        if value.is_null():
+            raise InvalidLoop
+        self.optimize_GUARD_CLASS(op)
 
-    def optimize_GUARD_NO_EXCEPTION(self, op, dryrun=False):
-        if dryrun: return
+    def optimize_GUARD_NO_EXCEPTION(self, op):
         if not self.optimizer.exception_might_have_happened:
             return
         self.emit_operation(op)
@@ -342,16 +306,18 @@ class OptRewrite(Optimization):
         # expects a compile-time constant
         assert isinstance(arg, Const)
         key = make_hashable_int(arg.getint())
-        resvalue = self.optimizer.loop_invariant_results.get(key, None)
+
+        resvalue = self.loop_invariant_results.get(key, None)
         if resvalue is not None:
             self.make_equal_to(op.result, resvalue)
             return
         # change the op to be a normal call, from the backend's point of view
         # there is no reason to have a separate operation for this
+        self.loop_invariant_producer[key] = op
         op = op.copy_and_change(rop.CALL)
         self.emit_operation(op)
         resvalue = self.getvalue(op.result)
-        self.optimizer.loop_invariant_results[key] = resvalue
+        self.loop_invariant_results[key] = resvalue
 
     def _optimize_nullness(self, op, box, expect_nonnull):
         value = self.getvalue(box)
@@ -371,7 +337,7 @@ class OptRewrite(Optimization):
     def optimize_INT_IS_ZERO(self, op):
         self._optimize_nullness(op, op.getarg(0), False)
 
-    def _optimize_oois_ooisnot(self, op, expect_isnot):
+    def _optimize_oois_ooisnot(self, op, expect_isnot, instance):
         value0 = self.getvalue(op.getarg(0))
         value1 = self.getvalue(op.getarg(1))
         if value0.is_virtual():
@@ -389,21 +355,28 @@ class OptRewrite(Optimization):
         elif value0 is value1:
             self.make_constant_int(op.result, not expect_isnot)
         else:
-            cls0 = value0.get_constant_class(self.optimizer.cpu)
-            if cls0 is not None:
-                cls1 = value1.get_constant_class(self.optimizer.cpu)
-                if cls1 is not None and not cls0.same_constant(cls1):
-                    # cannot be the same object, as we know that their
-                    # class is different
-                    self.make_constant_int(op.result, expect_isnot)
-                    return
+            if instance:
+                cls0 = value0.get_constant_class(self.optimizer.cpu)
+                if cls0 is not None:
+                    cls1 = value1.get_constant_class(self.optimizer.cpu)
+                    if cls1 is not None and not cls0.same_constant(cls1):
+                        # cannot be the same object, as we know that their
+                        # class is different
+                        self.make_constant_int(op.result, expect_isnot)
+                        return
             self.emit_operation(op)
 
-    def optimize_PTR_NE(self, op):
-        self._optimize_oois_ooisnot(op, True)
-
     def optimize_PTR_EQ(self, op):
-        self._optimize_oois_ooisnot(op, False)
+        self._optimize_oois_ooisnot(op, False, False)
+
+    def optimize_PTR_NE(self, op):
+        self._optimize_oois_ooisnot(op, True, False)
+
+    def optimize_INSTANCE_PTR_EQ(self, op):
+        self._optimize_oois_ooisnot(op, False, True)
+
+    def optimize_INSTANCE_PTR_NE(self, op):
+        self._optimize_oois_ooisnot(op, True, True)
 
 ##    def optimize_INSTANCEOF(self, op):
 ##        value = self.getvalue(op.args[0])
@@ -422,11 +395,10 @@ class OptRewrite(Optimization):
         # specifically the given oopspec call.  For non-oopspec calls,
         # oopspecindex is just zero.
         effectinfo = op.getdescr().get_extra_info()
-        if effectinfo is not None:
-            oopspecindex = effectinfo.oopspecindex
-            if oopspecindex == EffectInfo.OS_ARRAYCOPY:
-                if self._optimize_CALL_ARRAYCOPY(op):
-                    return
+        oopspecindex = effectinfo.oopspecindex
+        if oopspecindex == EffectInfo.OS_ARRAYCOPY:
+            if self._optimize_CALL_ARRAYCOPY(op):
+                return
         self.emit_operation(op)
 
     def _optimize_CALL_ARRAYCOPY(self, op):
@@ -449,13 +421,32 @@ class OptRewrite(Optimization):
                     newop = ResOperation(rop.SETARRAYITEM_GC,
                                          [op.getarg(2),
                                           ConstInt(index + dest_start),
-                                          val.force_box()], None,
+                                          val.get_key_box()], None,
                                          descr=source_value.arraydescr)
                     self.emit_operation(newop)
             return True
         if length and length.getint() == 0:
             return True # 0-length arraycopy
         return False
+
+    def optimize_CALL_PURE(self, op):
+        arg_consts = []
+        for i in range(op.numargs()):
+            arg = op.getarg(i)
+            const = self.get_constant_box(arg)
+            if const is None:
+                break
+            arg_consts.append(const)
+        else:
+            # all constant arguments: check if we already know the result
+            try:
+                result = self.optimizer.call_pure_results[arg_consts]
+            except KeyError:
+                pass
+            else:
+                self.make_constant(op.result, result)
+                return
+        self.emit_operation(op)
 
     def optimize_INT_FLOORDIV(self, op):
         v1 = self.getvalue(op.getarg(0))
@@ -464,6 +455,9 @@ class OptRewrite(Optimization):
         if v2.is_constant() and v2.box.getint() == 1:
             self.make_equal_to(op.result, v1)
             return
+        elif v1.is_constant() and v1.box.getint() == 0:
+            self.make_constant_int(op.result, 0)
+            return
         if v1.intbound.known_ge(IntBound(0, 0)) and v2.is_constant():
             val = v2.box.getint()
             if val & (val - 1) == 0 and val > 0: # val == 2**shift
@@ -471,6 +465,17 @@ class OptRewrite(Optimization):
                                         args = [op.getarg(0), ConstInt(highest_bit(val))])
         self.emit_operation(op)
 
+    def optimize_MARK_OPAQUE_PTR(self, op):
+        value = self.getvalue(op.getarg(0))
+        self.optimizer.opaque_pointers[value] = True
+
+    def optimize_CAST_PTR_TO_INT(self, op):
+        self.pure(rop.CAST_INT_TO_PTR, [op.result], op.getarg(0))
+        self.emit_operation(op)
+
+    def optimize_CAST_INT_TO_PTR(self, op):
+        self.pure(rop.CAST_PTR_TO_INT, [op.result], op.getarg(0))
+        self.emit_operation(op)
 
 dispatch_opt = make_dispatcher_method(OptRewrite, 'optimize_',
         default=OptRewrite.emit_operation)

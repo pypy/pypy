@@ -769,6 +769,27 @@ class TestPycStuff:
         cpathname = udir.join('test.pyc')
         assert not cpathname.check()
 
+    def test_load_source_module_dont_write_bytecode(self):
+        space = self.space
+        w_modulename = space.wrap('somemodule')
+        w_mod = space.wrap(Module(space, w_modulename))
+        pathname = _testfilesource()
+        stream = streamio.open_file_as_stream(pathname, "r")
+        try:
+            space.setattr(space.sys, space.wrap('dont_write_bytecode'),
+                          space.w_True)
+            w_ret = importing.load_source_module(space,
+                                                 w_modulename,
+                                                 w_mod,
+                                                 pathname,
+                                                 stream.readall())
+        finally:
+            space.setattr(space.sys, space.wrap('dont_write_bytecode'),
+                          space.w_False)
+            stream.close()
+        cpathname = udir.join('test.pyc')
+        assert not cpathname.check()
+
     def test_load_source_module_syntaxerror(self):
         # No .pyc file on SyntaxError
         space = self.space

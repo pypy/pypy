@@ -1,7 +1,7 @@
 import py
 from pypy.rlib.rarithmetic import (r_int, r_uint, intmask, r_singlefloat,
                                    r_ulonglong, r_longlong, r_longfloat,
-                                   base_int, normalizedinttype)
+                                   base_int, normalizedinttype, longlongmask)
 from pypy.rlib.objectmodel import Symbolic
 from pypy.tool.uid import Hashable
 from pypy.tool.identity_dict import identity_dict
@@ -362,7 +362,8 @@ class RttiStruct(Struct):
                                                 about=self)._obj
         Struct._install_extras(self, **kwds)
 
-    def _attach_runtime_type_info_funcptr(self, funcptr, destrptr):
+    def _attach_runtime_type_info_funcptr(self, funcptr, destrptr,
+                                          customtraceptr):
         if self._runtime_type_info is None:
             raise TypeError("attachRuntimeTypeInfo: %r must have been built "
                             "with the rtti=True argument" % (self,))
@@ -376,7 +377,7 @@ class RttiStruct(Struct):
                 raise TypeError("expected a runtime type info function "
                                 "implementation, got: %s" % funcptr)
             self._runtime_type_info.query_funcptr = funcptr
-        if destrptr is not None :
+        if destrptr is not None:
             T = typeOf(destrptr)
             if (not isinstance(T, Ptr) or
                 not isinstance(T.TO, FuncType) or
@@ -386,6 +387,18 @@ class RttiStruct(Struct):
                 raise TypeError("expected a destructor function "
                                 "implementation, got: %s" % destrptr)
             self._runtime_type_info.destructor_funcptr = destrptr
+        if customtraceptr is not None:
+            from pypy.rpython.lltypesystem import llmemory
+            T = typeOf(customtraceptr)
+            if (not isinstance(T, Ptr) or
+                not isinstance(T.TO, FuncType) or
+                len(T.TO.ARGS) != 2 or
+                T.TO.RESULT != llmemory.Address or
+                T.TO.ARGS[0] != llmemory.Address or
+                T.TO.ARGS[1] != llmemory.Address):
+                raise TypeError("expected a custom trace function "
+                                "implementation, got: %s" % customtraceptr)
+            self._runtime_type_info.custom_trace_funcptr = customtraceptr
 
 class GcStruct(RttiStruct):
     _gckind = 'gc'
@@ -654,6 +667,9 @@ class Number(Primitive):
 
 _numbertypes = {int: Number("Signed", int, intmask)}
 _numbertypes[r_int] = _numbertypes[int]
+if r_longlong is not r_int:
+    _numbertypes[r_longlong] = Number("SignedLongLong", r_longlong,
+                                      longlongmask)
 
 def build_number(name, type):
     try:
@@ -1146,7 +1162,7 @@ class _abstract_ptr(object):
         try:
             return self._lookup_adtmeth(field_name)
         except AttributeError:
-            raise AttributeError("%r instance has no field %r" % (self._T,
+            raise AttributeError("%r instance has no field %r" % (self._T._name,
                                                                   field_name))
 
     def __setattr__(self, field_name, val):
@@ -1267,6 +1283,8 @@ class _abstract_ptr(object):
         try:
             return p._obj._hash_cache_
         except AttributeError:
+            assert self._T._gckind == 'gc'
+            assert self      # not for NULL
             result = hash(p._obj)
             if cache:
                 try:
@@ -1342,6 +1360,8 @@ class _ptr(_abstract_ptr):
         obj = normalizeptr(self, check)._getobj(check)
         if isinstance(obj, int):
             return obj     # special case for cast_int_to_ptr() results put into opaques
+        if getattr(obj, '_read_directly_intval', False):
+            return obj.intval   # special case for _llgcopaque
         result = intmask(obj._getid())
         # assume that id() returns an addressish value which is
         # not zero and aligned to at least a multiple of 4
@@ -1502,7 +1522,7 @@ class _parentable(_container):
             and parentindex in (self._parent_type._names[0], 0)
             and self._TYPE._gckind == typeOf(parent)._gckind):
             # keep strong reference to parent, we share the same allocation
-            self._keepparent = parent 
+            self._keepparent = parent
 
     def _parentstructure(self, check=True):
         if self._wrparent is not None:
@@ -1693,6 +1713,7 @@ class _array(_parentable):
         return v
 
     def setitem(self, index, value):
+        assert typeOf(value) == self._TYPE.OF
         self.items[index] = value
 
 assert not '__dict__' in dir(_array)
@@ -1710,7 +1731,8 @@ class _subarray(_parentable):     # only for direct_fieldptr()
         # Keep the parent array alive, we share the same allocation.
         # Don't do it if we are inside a GC object, though -- it's someone
         # else's job to keep the GC object alive
-        if typeOf(top_container(parent))._gckind == 'raw':
+        if (typeOf(top_container(parent))._gckind == 'raw' or
+            hasattr(top_container(parent)._storage, 'contents')):  # ll2ctypes
             self._keepparent = parent
 
     def __str__(self):
@@ -1936,7 +1958,7 @@ class _pyobject(Hashable, _container):
 
 
 def malloc(T, n=None, flavor='gc', immortal=False, zero=False,
-           track_allocation=True):
+           track_allocation=True, add_memory_pressure=False):
     assert flavor in ('gc', 'raw')
     if zero or immortal:
         initialization = 'example'
@@ -2039,10 +2061,12 @@ def cast_int_to_ptr(PTRTYPE, oddint):
         raise ValueError("only odd integers can be cast back to ptr")
     return _ptr(PTRTYPE, oddint, solid=True)
 
-def attachRuntimeTypeInfo(GCSTRUCT, funcptr=None, destrptr=None):
+def attachRuntimeTypeInfo(GCSTRUCT, funcptr=None, destrptr=None,
+                          customtraceptr=None):
     if not isinstance(GCSTRUCT, RttiStruct):
         raise TypeError, "expected a RttiStruct: %s" % GCSTRUCT
-    GCSTRUCT._attach_runtime_type_info_funcptr(funcptr, destrptr)
+    GCSTRUCT._attach_runtime_type_info_funcptr(funcptr, destrptr,
+                                               customtraceptr)
     return _ptr(Ptr(RuntimeTypeInfo), GCSTRUCT._runtime_type_info)
 
 def getRuntimeTypeInfo(GCSTRUCT):

@@ -21,7 +21,7 @@ def _findall(Class, name_prefix, op_prefix=None):
             continue
         if hasattr(Class, name_prefix + name):
             opclass = resoperation.opclasses[getattr(rop, name)]
-            print value, name, opclass
+            assert name in opclass.__name__
             result.append((value, opclass, getattr(Class, name_prefix + name)))
     return unrolling_iterable(result)
 
@@ -90,14 +90,11 @@ def args_eq(args1, args2):
     for i in range(len(args1)):
         arg1 = args1[i]
         arg2 = args2[i]
-        if isinstance(arg1, history.Const):
-            if arg1.__class__ is not arg2.__class__:
+        if arg1 is None:
+            if arg2 is not None:
                 return False
-            if not arg1.same_constant(arg2):
-                return False
-        else:
-            if not arg1 is arg2:
-                return False
+        elif not arg1.same_box(arg2):
+            return False
     return True
 
 def args_hash(args):
@@ -106,10 +103,8 @@ def args_hash(args):
     for arg in args:
         if arg is None:
             y = 17
-        elif isinstance(arg, history.Const):
-            y = arg._get_hash_()
         else:
-            y = compute_identity_hash(arg)
+            y = arg._get_hash_()
         res = intmask((1000003 * res) ^ y)
     return res
 
@@ -145,9 +140,12 @@ def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={},
         for i in range(op1.numargs()):
             x = op1.getarg(i)
             y = op2.getarg(i)
-            assert x == remap.get(y, y)
+            assert x.same_box(remap.get(y, y))
         if op2.result in remap:
-            assert op1.result == remap[op2.result]
+            if op2.result is None:
+                assert op1.result == remap[op2.result]
+            else:
+                assert op1.result.same_box(remap[op2.result])
         else:
             remap[op2.result] = op1.result
         if op1.getopnum() != rop.JUMP:      # xxx obscure
@@ -156,11 +154,20 @@ def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={},
             assert len(op1.getfailargs()) == len(op2.getfailargs())
             if strict_fail_args:
                 for x, y in zip(op1.getfailargs(), op2.getfailargs()):
-                    assert x == remap.get(y, y)
+                    if x is None:
+                        assert remap.get(y, y) is None
+                    else:
+                        assert x.same_box(remap.get(y, y))
             else:
                 fail_args1 = set(op1.getfailargs())
                 fail_args2 = set([remap.get(y, y) for y in op2.getfailargs()])
-                assert fail_args1 == fail_args2
+                for x in fail_args1:
+                    for y in fail_args2:
+                        if x.same_box(y):
+                            fail_args2.remove(y)
+                            break
+                    else:
+                        assert False
     assert len(oplist1) == len(oplist2)
     print '-'*totwidth
     return True

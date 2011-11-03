@@ -5,7 +5,6 @@ from pypy.rpython.memory import gcwrapper
 from pypy.rpython.memory.test import snippet
 from pypy.rpython.test.test_llinterp import get_interpreter
 from pypy.rpython.lltypesystem import lltype
-from pypy.rpython.lltypesystem.rstr import STR
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.objectmodel import compute_unique_id
@@ -57,7 +56,7 @@ class GCTest(object):
                 while j < 20:
                     j += 1
                     a.append(j)
-        res = self.interpret(malloc_a_lot, [])
+        self.interpret(malloc_a_lot, [])
         #assert simulator.current_size - curr < 16000 * INT_SIZE / 4
         #print "size before: %s, size after %s" % (curr, simulator.current_size)
 
@@ -73,7 +72,7 @@ class GCTest(object):
                 while j < 20:
                     j += 1
                     b.append((1, j, i))
-        res = self.interpret(malloc_a_lot, [])
+        self.interpret(malloc_a_lot, [])
         #assert simulator.current_size - curr < 16000 * INT_SIZE / 4
         #print "size before: %s, size after %s" % (curr, simulator.current_size)
 
@@ -129,7 +128,7 @@ class GCTest(object):
         res = self.interpret(concat, [100])
         assert res == concat(100)
         #assert simulator.current_size - curr < 16000 * INT_SIZE / 4
-        
+
     def test_finalizer(self):
         class B(object):
             pass
@@ -237,8 +236,48 @@ class GCTest(object):
         res = self.interpret(f, [5])
         assert 160 <= res <= 165
 
+    def test_custom_trace(self):
+        from pypy.rpython.annlowlevel import llhelper
+        from pypy.rpython.lltypesystem import llmemory
+        from pypy.rpython.lltypesystem.llarena import ArenaError
+        #
+        S = lltype.GcStruct('S', ('x', llmemory.Address),
+                                 ('y', llmemory.Address), rtti=True)
+        T = lltype.GcStruct('T', ('z', lltype.Signed))
+        offset_of_x = llmemory.offsetof(S, 'x')
+        def customtrace(obj, prev):
+            if not prev:
+                return obj + offset_of_x
+            else:
+                return llmemory.NULL
+        CUSTOMTRACEFUNC = lltype.FuncType([llmemory.Address, llmemory.Address],
+                                          llmemory.Address)
+        customtraceptr = llhelper(lltype.Ptr(CUSTOMTRACEFUNC), customtrace)
+        lltype.attachRuntimeTypeInfo(S, customtraceptr=customtraceptr)
+        #
+        for attrname in ['x', 'y']:
+            def setup():
+                s1 = lltype.malloc(S)
+                tx = lltype.malloc(T)
+                tx.z = 42
+                ty = lltype.malloc(T)
+                s1.x = llmemory.cast_ptr_to_adr(tx)
+                s1.y = llmemory.cast_ptr_to_adr(ty)
+                return s1
+            def f():
+                s1 = setup()
+                llop.gc__collect(lltype.Void)
+                return llmemory.cast_adr_to_ptr(getattr(s1, attrname),
+                                                lltype.Ptr(T))
+            if attrname == 'x':
+                res = self.interpret(f, [])
+                assert res.z == 42
+            else:
+                py.test.raises((RuntimeError, ArenaError),
+                               self.interpret, f, [])
+
     def test_weakref(self):
-        import weakref, gc
+        import weakref
         class A(object):
             pass
         def g():
@@ -259,7 +298,7 @@ class GCTest(object):
         assert res
 
     def test_weakref_to_object_with_finalizer(self):
-        import weakref, gc
+        import weakref
         class A(object):
             count = 0
         a = A()
@@ -298,7 +337,7 @@ class GCTest(object):
         assert res
 
     def test_cycle_with_weakref_and_del(self):
-        import weakref, gc
+        import weakref
         class A(object):
             count = 0
         a = A()
@@ -327,7 +366,7 @@ class GCTest(object):
         assert res == 11
 
     def test_weakref_to_object_with_finalizer_ordering(self):
-        import weakref, gc
+        import weakref
         class A(object):
             count = 0
         a = A()
@@ -576,7 +615,7 @@ class GCTest(object):
                     assert not rgc.can_move(a)
                     return 1
                 return 0
-            except Exception, e:
+            except Exception:
                 return 2
 
         assert self.interpret(func, []) == int(self.GC_CAN_MALLOC_NONMOVABLE)
@@ -607,8 +646,6 @@ class GCTest(object):
         assert self.interpret(f, [bigsize, 0, flag]) == 0x62024241
 
     def test_tagged_simple(self):
-        from pypy.rlib.objectmodel import UnboxedValue
-
         class Unrelated(object):
             pass
 
@@ -649,8 +686,6 @@ class GCTest(object):
         assert res == -897
 
     def test_tagged_id(self):
-        from pypy.rlib.objectmodel import UnboxedValue, compute_unique_id
-
         class Unrelated(object):
             pass
 

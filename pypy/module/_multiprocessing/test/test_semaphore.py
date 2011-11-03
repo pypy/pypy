@@ -39,6 +39,10 @@ class AppTestSemaphore:
         sem.release()
         assert sem._count() == 0
 
+        sem.acquire()
+        sem._after_fork()
+        assert sem._count() == 0
+
     def test_recursive(self):
         from _multiprocessing import SemLock
         kind = self.RECURSIVE

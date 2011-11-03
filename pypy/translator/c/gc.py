@@ -11,7 +11,6 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 class BasicGcPolicy(object):
-    requires_stackless = False
     stores_hash_at_the_end = False
 
     def __init__(self, db, thread_enabled=False):
@@ -151,11 +150,11 @@ class RefcountingGcPolicy(BasicGcPolicy):
     def OP_GC_CALL_RTTI_DESTRUCTOR(self, funcgen, op):
         args = [funcgen.expr(v) for v in op.args]
         line = '%s(%s);' % (args[0], ', '.join(args[1:]))
-        return line     
-    
+        return line
+
     def OP_GC_FREE(self, funcgen, op):
         args = [funcgen.expr(v) for v in op.args]
-        return 'OP_FREE(%s);' % (args[0], )    
+        return 'OP_FREE(%s);' % (args[0], )
 
     def OP_GC__COLLECT(self, funcgen, op):
         return ''
@@ -171,6 +170,7 @@ class RefcountingRuntimeTypeInfo_OpaqueNode(ContainerNode):
     nodekind = 'refcnt rtti'
     globalcontainer = True
     typename = 'void (@)(void *)'
+    _funccodegen_owner = None
 
     def __init__(self, db, T, obj):
         assert T == RuntimeTypeInfo
@@ -226,10 +226,10 @@ class BoehmGcPolicy(BasicGcPolicy):
         eci = eci.merge(configure_boehm())
 
         pre_include_bits = []
-        if sys.platform == "linux2":
+        if sys.platform.startswith('linux'):
             pre_include_bits += ["#define _REENTRANT 1",
                                  "#define GC_LINUX_THREADS 1"]
-        if sys.platform != "win32":
+        if sys.platform != "win32" and not sys.platform.startswith("openbsd"):
             # GC_REDIRECT_TO_LOCAL is not supported on Win32 by gc6.8
             pre_include_bits += ["#define GC_REDIRECT_TO_LOCAL 1"]
 
@@ -267,6 +267,7 @@ class BoehmGcRuntimeTypeInfo_OpaqueNode(ContainerNode):
     nodekind = 'boehm rtti'
     globalcontainer = True
     typename = 'char @'
+    _funccodegen_owner = None
 
     def __init__(self, db, T, obj):
         assert T == RuntimeTypeInfo
@@ -320,8 +321,10 @@ class FrameworkGcPolicy(BasicGcPolicy):
             # still important to see it so that it can be followed as soon as
             # the mixlevelannotator resolves it.
             gctransf = self.db.gctransformer
-            fptr = gctransf.finalizer_funcptr_for_type(structdefnode.STRUCT)
-            self.db.get(fptr)
+            TYPE = structdefnode.STRUCT
+            kind_and_fptr = gctransf.special_funcptr_for_type(TYPE)
+            if kind_and_fptr:
+                self.db.get(kind_and_fptr[1])
 
     def array_setup(self, arraydefnode):
         pass
@@ -390,6 +393,9 @@ class FrameworkGcPolicy(BasicGcPolicy):
                funcgen.expr(v_obj),
                fieldname,
                funcgen.expr(c_skipoffset)))
+
+    def OP_GC_ASSUME_YOUNG_POINTERS(self, funcgen, op):
+        raise Exception("the FramewokGCTransformer should handle this")
 
 class AsmGcRootFrameworkGcPolicy(FrameworkGcPolicy):
     transformerclass = asmgcroot.AsmGcRootFrameworkGCTransformer

@@ -68,15 +68,21 @@ class LocalVar(object):
 class Insn(object):
     _args_ = []
     _locals_ = []
+    hack = None
 
     def __repr__(self):
-        return '%s(%s)' % (self.__class__.__name__,
+        return '%s(%s) --- %r' % (self.__class__.__name__,
                            ', '.join([str(getattr(self, name))
-                                      for name in self._args_]))
+                                      for name in self._args_]),
+                                  self.hack)
     def requestgcroots(self, tracker):
         return {}
 
     def source_of(self, localvar, tag):
+        if tag is None:
+            if self.hack is None:
+                self.hack = set()
+            self.hack.add(localvar)
         return localvar
 
     def all_sources_of(self, localvar):
@@ -139,7 +145,7 @@ class InsnSetLocal(Insn):
     def source_of(self, localvar, tag):
         if localvar == self.target:
             return somenewvalue
-        return localvar
+        return Insn.source_of(self, localvar, tag)
 
     def all_sources_of(self, localvar):
         if localvar == self.target:
@@ -157,7 +163,7 @@ class InsnCopyLocal(Insn):
     def source_of(self, localvar, tag):
         if localvar == self.target:
             return self.source
-        return localvar
+        return Insn.source_of(self, localvar, tag)
 
     def all_sources_of(self, localvar):
         if localvar == self.target:

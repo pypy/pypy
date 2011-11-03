@@ -31,7 +31,7 @@ class TestX86(LLtypeBackendTest):
 
     # for the individual tests see
     # ====> ../../test/runner_test.py
-    
+
     def setup_method(self, meth):
         self.cpu = CPU(rtyper=None, stats=FakeStats())
         self.cpu.setup_once()
@@ -69,22 +69,16 @@ class TestX86(LLtypeBackendTest):
 
     def test_allocations(self):
         from pypy.rpython.lltypesystem import rstr
-        
+
         allocs = [None]
         all = []
+        orig_new = self.cpu.gc_ll_descr.funcptr_for_new
         def f(size):
             allocs.insert(0, size)
-            buf = ctypes.create_string_buffer(size)
-            all.append(buf)
-            return ctypes.cast(buf, ctypes.c_void_p).value
-        func = ctypes.CFUNCTYPE(ctypes.c_int, ctypes.c_int)(f)
-        addr = ctypes.cast(func, ctypes.c_void_p).value
-        # ctypes produces an unsigned value. We need it to be signed for, eg,
-        # relative addressing to work properly.
-        addr = rffi.cast(lltype.Signed, addr)
-        
+            return orig_new(size)
+
         self.cpu.assembler.setup_once()
-        self.cpu.assembler.malloc_func_addr = addr
+        self.cpu.gc_ll_descr.funcptr_for_new = f
         ofs = symbolic.get_field_token(rstr.STR, 'chars', False)[0]
 
         res = self.execute_operation(rop.NEWSTR, [ConstInt(7)], 'ref')
@@ -108,7 +102,7 @@ class TestX86(LLtypeBackendTest):
         res = self.execute_operation(rop.NEW_ARRAY, [ConstInt(10)],
                                          'ref', descr)
         assert allocs[0] == 10*WORD + ofs + WORD
-        resbuf = self._resbuf(res)            
+        resbuf = self._resbuf(res)
         assert resbuf[ofs/WORD] == 10
 
         # ------------------------------------------------------------
@@ -116,7 +110,7 @@ class TestX86(LLtypeBackendTest):
         res = self.execute_operation(rop.NEW_ARRAY, [BoxInt(10)],
                                          'ref', descr)
         assert allocs[0] == 10*WORD + ofs + WORD
-        resbuf = self._resbuf(res)                        
+        resbuf = self._resbuf(res)
         assert resbuf[ofs/WORD] == 10
 
     def test_stringitems(self):
@@ -146,7 +140,7 @@ class TestX86(LLtypeBackendTest):
                                                      ConstInt(2), BoxInt(38)],
                                'void', descr)
         assert resbuf[itemsofs/WORD + 2] == 38
-        
+
         self.execute_operation(rop.SETARRAYITEM_GC, [res,
                                                      BoxInt(3), BoxInt(42)],
                                'void', descr)
@@ -167,7 +161,7 @@ class TestX86(LLtypeBackendTest):
                                                          BoxInt(2)],
                                    'int', descr)
         assert r.value == 38
-        
+
         r = self.execute_operation(rop.GETARRAYITEM_GC, [res, BoxInt(3)],
                                    'int', descr)
         assert r.value == 42
@@ -226,7 +220,7 @@ class TestX86(LLtypeBackendTest):
         self.execute_operation(rop.SETFIELD_GC, [res, BoxInt(1234)], 'void', ofs_i)
         i = self.execute_operation(rop.GETFIELD_GC, [res], 'int', ofs_i)
         assert i.value == 1234
-        
+
         #u = self.execute_operation(rop.GETFIELD_GC, [res, ofs_u], 'int')
         #assert u.value == 5
         self.execute_operation(rop.SETFIELD_GC, [res, ConstInt(1)], 'void',
@@ -299,7 +293,7 @@ class TestX86(LLtypeBackendTest):
                     else:
                         assert result != execute(self.cpu, None,
                                                  op, None, b).value
-                    
+
 
     def test_stuff_followed_by_guard(self):
         boxes = [(BoxInt(1), BoxInt(0)),
@@ -433,6 +427,88 @@ class TestX86(LLtypeBackendTest):
                 ops_offset[operations[2]] <=
                 ops_offset[None])
 
+    def test_calling_convention(self, monkeypatch):
+        if WORD != 4:
+            py.test.skip("32-bit only test")
+        from pypy.jit.backend.x86.regloc import eax, edx
+        from pypy.jit.backend.x86 import codebuf
+        from pypy.jit.codewriter.effectinfo import EffectInfo
+        from pypy.rlib.libffi import types, clibffi
+        had_stdcall = hasattr(clibffi, 'FFI_STDCALL')
+        if not had_stdcall:    # not running on Windows, but we can still test
+            monkeypatch.setattr(clibffi, 'FFI_STDCALL', 12345, raising=False)
+        #
+        for ffi in [clibffi.FFI_DEFAULT_ABI, clibffi.FFI_STDCALL]:
+            cpu = self.cpu
+            mc = codebuf.MachineCodeBlockWrapper()
+            mc.MOV_rs(eax.value, 4)      # argument 1
+            mc.MOV_rs(edx.value, 40)     # argument 10
+            mc.SUB_rr(eax.value, edx.value)     # return arg1 - arg10
+            if ffi == clibffi.FFI_DEFAULT_ABI:
+                mc.RET()
+            else:
+                mc.RET16_i(40)
+            rawstart = mc.materialize(cpu.asmmemmgr, [])
+            #
+            calldescr = cpu.calldescrof_dynamic([types.slong] * 10,
+                                                types.slong,
+                                                EffectInfo.MOST_GENERAL,
+                                                ffi_flags=-1)
+            calldescr.get_call_conv = lambda: ffi      # <==== hack
+            funcbox = ConstInt(rawstart)
+            i1 = BoxInt()
+            i2 = BoxInt()
+            i3 = BoxInt()
+            i4 = BoxInt()
+            i5 = BoxInt()
+            i6 = BoxInt()
+            c = ConstInt(-1)
+            faildescr = BasicFailDescr(1)
+            # we must call it repeatedly: if the stack pointer gets increased
+            # by 40 bytes by the STDCALL call, and if we don't expect it,
+            # then we are going to get our stack emptied unexpectedly by
+            # several repeated calls
+            ops = [
+            ResOperation(rop.CALL_RELEASE_GIL,
+                         [funcbox, i1, c, c, c, c, c, c, c, c, i2],
+                         i3, descr=calldescr),
+            ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+
+            ResOperation(rop.CALL_RELEASE_GIL,
+                         [funcbox, i1, c, c, c, c, c, c, c, c, i2],
+                         i4, descr=calldescr),
+            ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+
+            ResOperation(rop.CALL_RELEASE_GIL,
+                         [funcbox, i1, c, c, c, c, c, c, c, c, i2],
+                         i5, descr=calldescr),
+            ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+
+            ResOperation(rop.CALL_RELEASE_GIL,
+                         [funcbox, i1, c, c, c, c, c, c, c, c, i2],
+                         i6, descr=calldescr),
+            ResOperation(rop.GUARD_NOT_FORCED, [], None, descr=faildescr),
+
+            ResOperation(rop.FINISH, [i3, i4, i5, i6], None,
+                         descr=BasicFailDescr(0))
+            ]
+            ops[1].setfailargs([])
+            ops[3].setfailargs([])
+            ops[5].setfailargs([])
+            ops[7].setfailargs([])
+            looptoken = LoopToken()
+            self.cpu.compile_loop([i1, i2], ops, looptoken)
+
+            self.cpu.set_future_value_int(0, 123450)
+            self.cpu.set_future_value_int(1, 123408)
+            fail = self.cpu.execute_token(looptoken)
+            assert fail.identifier == 0
+            assert self.cpu.get_latest_value_int(0) == 42
+            assert self.cpu.get_latest_value_int(1) == 42
+            assert self.cpu.get_latest_value_int(2) == 42
+            assert self.cpu.get_latest_value_int(3) == 42
+
+
 class TestDebuggingAssembler(object):
     def setup_method(self, meth):
         self.cpu = CPU(rtyper=None, stats=FakeStats())
@@ -441,7 +517,7 @@ class TestDebuggingAssembler(object):
     def test_debugger_on(self):
         from pypy.tool.logparser import parse_log_file, extract_category
         from pypy.rlib import debug
-        
+
         loop = """
         [i0]
         debug_merge_point('xyz', 0)
@@ -463,7 +539,7 @@ class TestDebuggingAssembler(object):
             self.cpu.finish_once()
         finally:
             debug._log = None
-        assert ('jit-backend-counts', [('debug_print', '0:10')]) in dlog
+        assert ('jit-backend-counts', [('debug_print', 'loop -1:10')]) in dlog
 
     def test_debugger_checksum(self):
         loop = """

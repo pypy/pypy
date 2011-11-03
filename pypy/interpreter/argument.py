@@ -125,6 +125,7 @@ class Arguments(object):
 
     ###  Manipulation  ###
 
+    @jit.look_inside_iff(lambda self: not self._dont_jit)
     def unpack(self): # slowish
         "Return a ([w1,w2...], {'kw':w3...}) pair."
         kwds_w = {}
@@ -245,6 +246,8 @@ class Arguments(object):
 
     ###  Parsing for function calls  ###
 
+    # XXX: this should be @jit.look_inside_iff, but we need key word arguments,
+    # and it doesn't support them for now.
     def _match_signature(self, w_firstarg, scope_w, signature, defaults_w=None,
                          blindargs=0):
         """Parse args and kwargs according to the signature of a code object,

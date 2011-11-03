@@ -24,9 +24,14 @@ def test_mov_16():
     assert_encodes_as(cb64, "MOV16", (r8, ebx), '\x66\x41\x89\xD8')  # 11 011 000
     assert_encodes_as(cb64, "MOV16", (ebx, r8), '\x66\x44\x89\xC3')  # 11 000 011
     assert_encodes_as(cb64, "MOV16", (ecx, ebx), '\x66\x40\x89\xD9')
-    # XXX: What we are testing for here is actually not the most compact
-    # encoding.
-    assert_encodes_as(cb64, "MOV16", (ecx, ImmedLoc(12345)), '\x66\x40\xC7\xC1\x39\x30')
+    assert_encodes_as(cb64, "MOV16", (ecx, ImmedLoc(12345)), '\x66\xB9\x39\x30')
+    # for the next case we don't pick the most efficient encoding, but well
+    expected = '\x66\x40\xC7\xC1\xC7\xCF'  # could be '\x66\xB9\xC7\xCF'
+    assert_encodes_as(cb64, "MOV16", (ecx, ImmedLoc(-12345)), expected)
+    assert_encodes_as(cb64, "MOV16", (r9, ImmedLoc(12345)), '\x66\x41\xB9\x39\x30')
+    # for the next case we don't pick the most efficient encoding, but well
+    expected = '\x66\x41\xC7\xC1\xC7\xCF'  # could be '\x66\x41\xB9\xC7\xCF'
+    assert_encodes_as(cb64, "MOV16", (r9, ImmedLoc(-12345)), expected)
     assert_encodes_as(cb64, "MOV16", (AddressLoc(r13, ImmedLoc(0), 0, 0), ImmedLoc(12345)), '\x66\x41\xC7\x45\x00\x39\x30')
 
 def test_cmp_16():
@@ -44,7 +49,7 @@ def test_cmp_16():
 def test_relocation():
     from pypy.rpython.lltypesystem import lltype, rffi
     from pypy.jit.backend.x86 import codebuf
-    for target in [0x01020304, 0x0102030405060708]:
+    for target in [0x01020304, -0x05060708, 0x0102030405060708]:
         if target > sys.maxint:
             continue
         mc = codebuf.MachineCodeBlockWrapper()
@@ -57,11 +62,16 @@ def test_relocation():
             assert mc.relocations == [5]
             expected = "\xE8" + struct.pack('<i', target - (rawstart + 5))
         elif IS_X86_64:
-            assert mc.relocations == []
-            if target <= 0x7fffffff:
+            assert mc.relocations is None
+            if 0 <= target <= 0xffffffff:
+                assert length == 9
+                expected = (
+                    "\x41\xBB\x04\x03\x02\x01"      # MOV %r11, target
+                    "\x41\xFF\xD3")                 # CALL *%r11
+            elif -0x80000000 <= target < 0:
                 assert length == 10
                 expected = (
-                    "\x49\xC7\xC3\x04\x03\x02\x01"  # MOV %r11, target
+                    "\x49\xC7\xC3\xF8\xF8\xF9\xFA"  # MOV %r11, target
                     "\x41\xFF\xD3")                 # CALL *%r11
             else:
                 assert length == 13
@@ -136,8 +146,10 @@ class Test64Bits:
         expected_instructions = (
                 # mov r11, 0xFEDCBA9876543210
                 '\x49\xBB\x10\x32\x54\x76\x98\xBA\xDC\xFE'
-                # mov rcx, [rdx+r11]
-                '\x4A\x8B\x0C\x1A'
+                # lea r11, [rdx+r11]
+                '\x4E\x8D\x1C\x1A'
+                # mov rcx, [r11]
+                '\x49\x8B\x0B'
         )
         assert cb.getvalue() == expected_instructions
 
@@ -163,6 +175,30 @@ class Test64Bits:
         assert cb.getvalue() == expected_instructions
 
     # ------------------------------------------------------------
+
+    def test_MOV_64bit_constant_into_r11(self):
+        base_constant = 0xFEDCBA9876543210
+        cb = LocationCodeBuilder64()
+        cb.MOV(r11, imm(base_constant))
+
+        expected_instructions = (
+                # mov r11, 0xFEDCBA9876543210
+                '\x49\xBB\x10\x32\x54\x76\x98\xBA\xDC\xFE'
+        )
+        assert cb.getvalue() == expected_instructions
+
+    def test_MOV_64bit_address_into_r11(self):
+        base_addr = 0xFEDCBA9876543210
+        cb = LocationCodeBuilder64()
+        cb.MOV(r11, heap(base_addr))
+
+        expected_instructions = (
+                # mov r11, 0xFEDCBA9876543210
+                '\x49\xBB\x10\x32\x54\x76\x98\xBA\xDC\xFE' +
+                # mov r11, [r11]
+                '\x4D\x8B\x1B'
+        )
+        assert cb.getvalue() == expected_instructions
 
     def test_MOV_immed32_into_64bit_address_1(self):
         immed = -0x01234567
@@ -207,8 +243,10 @@ class Test64Bits:
         expected_instructions = (
                 # mov r11, 0xFEDCBA9876543210
                 '\x49\xBB\x10\x32\x54\x76\x98\xBA\xDC\xFE'
-                # mov [rdx+r11], -0x01234567
-                '\x4A\xC7\x04\x1A\x99\xBA\xDC\xFE'
+                # lea r11, [rdx+r11]
+                '\x4E\x8D\x1C\x1A'
+                # mov [r11], -0x01234567
+                '\x49\xC7\x03\x99\xBA\xDC\xFE'
         )
         assert cb.getvalue() == expected_instructions
 
@@ -290,8 +328,10 @@ class Test64Bits:
                 '\x48\xBA\xEF\xCD\xAB\x89\x67\x45\x23\x01'
                 # mov r11, 0xFEDCBA9876543210
                 '\x49\xBB\x10\x32\x54\x76\x98\xBA\xDC\xFE'
-                # mov [rax+r11], rdx
-                '\x4A\x89\x14\x18'
+                # lea r11, [rax+r11]
+                '\x4E\x8D\x1C\x18'
+                # mov [r11], rdx
+                '\x49\x89\x13'
                 # pop rdx
                 '\x5A'
         )

@@ -31,6 +31,9 @@ class W_StringSliceObject(W_Object):
         w_self.stop = len(str)
         return str
 
+    def str_w(w_self, space):
+        return w_self.force()
+
     def __repr__(w_self):
         """ representation for debugging purposes """
         return "%s(%r[%d:%d])" % (w_self.__class__.__name__,
@@ -164,11 +167,6 @@ def str_startswith__StringSlice_Tuple_ANY_ANY(space, w_self, w_prefixes, w_start
         if stringstartswith(u_self, prefix, start, end):
             return space.w_True
     return space.w_False
-
-
-def str_w__StringSlice(space, w_str):
-    return w_str.force()
-
 
 def getitem__StringSlice_ANY(space, w_str, w_index):
     ival = space.getindex_w(w_index, space.w_IndexError, "string index")

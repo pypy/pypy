@@ -3,7 +3,6 @@ from pypy.rpython.ootypesystem import ootype
 # ____________________________________________________________
 # Implementation of the 'canfold' oo operations
 
-
 def op_ooupcast(INST, inst):
     return ootype.ooupcast(INST, inst)
 op_ooupcast.need_result_type = True

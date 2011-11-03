@@ -149,7 +149,7 @@ class RPythonAnnotator(object):
         desc = olddesc.bind_self(classdef)
         args = self.bookkeeper.build_args("simple_call", args_s[:])
         desc.consider_call_site(self.bookkeeper, desc.getcallfamily(), [desc],
-            args, annmodel.s_ImpossibleValue)
+            args, annmodel.s_ImpossibleValue, None)
         result = []
         def schedule(graph, inputcells):
             result.append((graph, inputcells))
