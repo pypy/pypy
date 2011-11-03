@@ -7355,6 +7355,26 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_repeated_setfield_mixed_with_guard(self):
+        ops = """
+        [p22, p18]
+        setfield_gc(p22, 2, descr=valuedescr)
+        guard_nonnull_class(p18, ConstClass(node_vtable)) []
+        setfield_gc(p22, 2, descr=valuedescr)
+        jump(p22, p18)
+        """
+        preamble = """
+        [p22, p18]
+        setfield_gc(p22, 2, descr=valuedescr)
+        guard_nonnull_class(p18, ConstClass(node_vtable)) []
+        jump(p22, p18)
+        """
+        expected = """
+        [p22, p18]
+        jump(p22, p18)
+        """
+        self.optimize_loop(ops, expected, preamble)
+
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
 
