@@ -237,7 +237,7 @@ class BaseArray(Wrappable):
         if res0 == "[]" and isinstance(self, NDimSlice):
             res.append("[], shape=(")
             self_shape = str(self.shape)
-            res.append_slice(str(self_shape),1,len(self_shape)-1)
+            res.append_slice(str(self_shape), 1, len(self_shape)-1)
             res.append(')')
         else:
             res.append(res0)
