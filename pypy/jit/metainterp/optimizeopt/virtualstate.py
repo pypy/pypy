@@ -551,6 +551,7 @@ class ShortBoxes(object):
         optimizer.produce_potential_short_preamble_ops(self)
 
         self.short_boxes = {}
+        self.short_boxes_in_production = {}
 
         for box in self.potential_ops.keys():
             try:
@@ -606,6 +607,10 @@ class ShortBoxes(object):
             return
         if isinstance(box, Const):
             return
+        if box in self.short_boxes_in_production:
+            raise BoxNotProducable
+        self.short_boxes_in_production[box] = True
+        
         if box in self.potential_ops:
             ops = self.prioritized_alternatives(box)
             produced_one = False
