@@ -11,7 +11,7 @@ from pypy.jit.backend.ppc.ppcgen.codebuilder import PPCBuilder
 from pypy.jit.backend.ppc.ppcgen.arch import (IS_PPC_32, WORD, NONVOLATILES,
                                               GPR_SAVE_AREA, BACKCHAIN_SIZE)
 from pypy.jit.backend.ppc.ppcgen.helper.assembler import (gen_emit_cmp_op, 
-                                                          encode32, decode32, decode32_test)
+                                                          encode32, decode32)
 import pypy.jit.backend.ppc.ppcgen.register as r
 import pypy.jit.backend.ppc.ppcgen.condition as c
 from pypy.jit.metainterp.history import (Const, ConstPtr, LoopToken,
