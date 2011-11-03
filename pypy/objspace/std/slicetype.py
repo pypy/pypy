@@ -15,7 +15,9 @@ slice_indices = SMM('indices', 2,
                         ' normal slices.')
 
 # utility functions
-def eval_slice_index(space, w_int):
+def _eval_slice_index(space, w_int):
+    # note that it is the *callers* responsibility to check for w_None
+    # otherwise you can get funny error messages
     try:
         return space.getindex_w(w_int, None) # clamp if long integer too large
     except OperationError, err:
@@ -26,7 +28,7 @@ def eval_slice_index(space, w_int):
                                         "None or have an __index__ method"))
 
 def adapt_lower_bound(space, size, w_index):
-    index = eval_slice_index(space, w_index)
+    index = _eval_slice_index(space, w_index)
     if index < 0:
         index = index + size
         if index < 0:
