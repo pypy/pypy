@@ -283,6 +283,12 @@ static void tx_abort(int reason)
   struct tx_descriptor *d = thread_descriptor;
   assert(!is_inevitable(d));
   d->num_aborts[reason]++;
+#ifdef RPY_STM_DEBUG_PRINT
+  PYPY_DEBUG_START("stm-abort");
+  if (PYPY_HAVE_DEBUG_PRINTS) fprintf(PYPY_DEBUG_FILE, "thread %lx aborting\n",
+                                      (long)pthread_self());
+  PYPY_DEBUG_STOP("stm-abort");
+#endif
   tx_restart(d);
 }
 
@@ -363,9 +369,9 @@ void mutex_unlock(void)
 {
   unsigned long pself = (unsigned long)pthread_self();
   locked_by = 0;
-  pthread_mutex_unlock(&mutex_inevitable);
   if (PYPY_HAVE_DEBUG_PRINTS) fprintf(PYPY_DEBUG_FILE,
                                       "%lx: mutex inev unlocked\n", pself);
+  pthread_mutex_unlock(&mutex_inevitable);
 }
 # else
 #  define mutex_lock()    pthread_mutex_lock(&mutex_inevitable)
@@ -605,7 +611,7 @@ void stm_descriptor_init(void)
 
 #ifdef RPY_STM_DEBUG_PRINT
       if (PYPY_HAVE_DEBUG_PRINTS) fprintf(PYPY_DEBUG_FILE, "thread %lx starting\n",
-                                          d->my_lock_word);
+                                          (long)pthread_self());
       PYPY_DEBUG_STOP("stm-init");
 #endif
     }
@@ -633,7 +639,7 @@ void stm_descriptor_done(void)
       num_spinloops += d->num_spinloops[i];
 
     p += sprintf(p, "thread %lx: %d commits, %d aborts\n",
-                 d->my_lock_word,
+                 (long)pthread_self(),
                  d->num_commits,
                  num_aborts);
 

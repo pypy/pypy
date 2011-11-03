@@ -19,6 +19,26 @@ def add_at_end_of_chained_list(node, value):
     newnode = Node(value)
     node.next = newnode
 
+def check_chained_list(node):
+    seen = [0] * (LENGTH+1)
+    seen[-1] = NUM_THREADS
+    while node is not None:
+        value = node.value
+        print value
+        if not (0 <= value < LENGTH):
+            print "node.value out of bounds:", value
+            raise AssertionError
+        seen[value] += 1
+        if seen[value] > seen[value-1]:
+            print "seen[%d] = %d, seen[%d] = %d" % (value-1, seen[value-1],
+                                                    value, seen[value])
+            raise AssertionError
+        node = node.next
+    if seen[LENGTH-1] != NUM_THREADS:
+        print "seen[LENGTH-1] != NUM_THREADS"
+        raise AssertionError
+    print "check ok!"
+
 
 class Global:
     anchor = Node(-1)
@@ -63,6 +83,7 @@ def entry_point(argv):
     while glob.done < NUM_THREADS:    # poor man's lock
         time.sleep(1)
     print "done sleeping."
+    check_chained_list(glob.anchor.next)
     return 0
 
 # _____ Define and setup target ___
