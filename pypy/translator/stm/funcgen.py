@@ -102,7 +102,15 @@ def stm_declare_variable(funcgen, op):
 
 def stm_transaction_boundary(funcgen, op):
     assert funcgen.exception_policy == 'stm'
-    return 'STM_TRANSACTION_BOUNDARY();'
+    lines = ['STM_TRANSACTION_BOUNDARY();']
+    TMPVAR = 'ty_%s'
+    for v in op.args:
+        tmpname = TMPVAR % v.name
+        cdeclname = cdecl(funcgen.lltypename(v), 'volatile ' + tmpname)
+        realname = funcgen.expr(v)
+        lines.insert(0, '%s = %s;' % (cdeclname, realname))
+        lines.append('%s = %s;' % (realname, tmpname))
+    return '{\n\t' + '\n\t'.join(lines) + '\n}'
 
 def stm_try_inevitable(funcgen, op):
     info = op.args[0].value

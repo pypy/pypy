@@ -175,3 +175,21 @@ class TestTransformSingleThread(StandaloneTests):
             return 0
         t, cbuilder = self.compile(simplefunc)
         cbuilder.cmdexec('')
+
+    def test_transaction_boundary_3(self):
+        def simplefunc(argv):
+            s1 = argv[0]
+            debug_print('STEP1:', len(s1))
+            rstm.transaction_boundary()
+            rstm.transaction_boundary()
+            rstm.transaction_boundary()
+            debug_print('STEP2:', len(s1))
+            return 0
+        t, cbuilder = self.compile(simplefunc)
+        data, err = cbuilder.cmdexec('', err=True)
+        lines = err.splitlines()
+        steps = [(line[:6], line[6:])
+                 for line in lines if line.startswith('STEP')]
+        steps = zip(*steps)
+        assert steps[0] == ('STEP1:', 'STEP2:')
+        assert steps[1][0] == steps[1][1]

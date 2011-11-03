@@ -1,4 +1,4 @@
-from pypy.objspace.flow.model import SpaceOperation, Constant
+from pypy.objspace.flow.model import SpaceOperation, Constant, Variable
 from pypy.objspace.flow.model import Block, Link, checkgraph
 from pypy.annotation import model as annmodel
 from pypy.translator.stm import _rffi_stm
@@ -41,7 +41,9 @@ class STMTransformer(object):
         if block.operations == ():
             return
         newoperations = []
-        for op in block.operations:
+        self.current_block = block
+        for i, op in enumerate(block.operations):
+            self.current_op_index = i
             try:
                 meth = getattr(self, 'stt_' + op.opname)
             except AttributeError:
@@ -60,6 +62,7 @@ class STMTransformer(object):
             else:
                 assert res is None
         block.operations = newoperations
+        self.current_block = None
 
     def transform_graph(self, graph):
         for block in graph.iterblocks():
@@ -128,7 +131,20 @@ class STMTransformer(object):
 
     def stt_stm_transaction_boundary(self, newoperations, op):
         self.seen_transaction_boundary = True
-        return True
+        v_result = op.result
+        # record in op.args the list of variables that are alive across
+        # this call
+        block = self.current_block
+        vars = set()
+        for op in block.operations[:self.current_op_index:-1]:
+            vars.discard(op.result)
+            vars.update(op.args)
+        for link in block.exits:
+            vars.update(link.args)
+            vars.update(link.getextravars())
+        livevars = [v for v in vars if isinstance(v, Variable)]
+        newop = SpaceOperation('stm_transaction_boundary', livevars, v_result)
+        newoperations.append(newop)
 
     def stt_malloc(self, newoperations, op):
         flags = op.args[1].value
