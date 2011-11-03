@@ -515,13 +515,11 @@ class AbstractUnwrappedSetStrategy(object):
         return storage, strategy
 
     def difference(self, w_set, w_other):
-        #XXX return clone for ANY with Empty (and later different strategies)
         storage, strategy = self._difference_base(w_set, w_other)
         w_newset = w_set.from_storage_and_strategy(storage, strategy)
         return w_newset
 
     def difference_update(self, w_set, w_other):
-        #XXX do nothing for ANY with Empty
         storage, strategy = self._difference_base(w_set, w_other)
         w_set.strategy = strategy
         w_set.sstorage = storage
