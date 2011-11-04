@@ -32,7 +32,8 @@ class TestRunningAssembler(object):
 
     def test_make_operation_list(self):
         i = rop.INT_ADD
-        assert self.a.operations[i] is AssemblerARM.emit_op_int_add.im_func
+        from pypy.jit.backend.arm import assembler
+        assert assembler.asm_operations[i] is AssemblerARM.emit_op_int_add.im_func
 
     def test_load_small_int_to_reg(self):
         self.a.gen_func_prolog()
