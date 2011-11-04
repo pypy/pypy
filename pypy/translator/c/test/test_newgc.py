@@ -37,7 +37,7 @@ class TestUsingFramework(object):
             else:
                 print res
             return 0
-        
+
         t = Translation(main, standalone=True, gc=cls.gcpolicy,
                         policy=annpolicy.StrictAnnotatorPolicy(),
                         taggedpointers=cls.taggedpointers,
@@ -128,10 +128,10 @@ class TestUsingFramework(object):
         if not args:
             args = (-1, )
         res = self.allfuncs(name, *args)
-        num = self.name_to_func[name]        
+        num = self.name_to_func[name]
         if self.funcsstr[num]:
             return res
-        return int(res)        
+        return int(res)
 
     def define_empty_collect(cls):
         def f():
@@ -228,7 +228,7 @@ class TestUsingFramework(object):
         T = lltype.GcStruct("T", ('y', lltype.Signed),
                                  ('s', lltype.Ptr(S)))
         ARRAY_Ts = lltype.GcArray(lltype.Ptr(T))
-        
+
         def f():
             r = 0
             for i in range(30):
@@ -250,7 +250,7 @@ class TestUsingFramework(object):
     def test_framework_varsized(self):
         res = self.run('framework_varsized')
         assert res == self.run_orig('framework_varsized')
-            
+
     def define_framework_using_lists(cls):
         class A(object):
             pass
@@ -271,7 +271,7 @@ class TestUsingFramework(object):
         N = 1000
         res = self.run('framework_using_lists')
         assert res == N*(N - 1)/2
-    
+
     def define_framework_static_roots(cls):
         class A(object):
             def __init__(self, y):
@@ -318,8 +318,8 @@ class TestUsingFramework(object):
     def test_framework_void_array(self):
         res = self.run('framework_void_array')
         assert res == 44
-        
-        
+
+
     def define_framework_malloc_failure(cls):
         def f():
             a = [1] * (sys.maxint//2)
@@ -342,7 +342,7 @@ class TestUsingFramework(object):
     def test_framework_array_of_void(self):
         res = self.run('framework_array_of_void')
         assert res == 43 + 1000000
-        
+
     def define_framework_opaque(cls):
         A = lltype.GcStruct('A', ('value', lltype.Signed))
         O = lltype.GcOpaqueType('test.framework')
@@ -437,7 +437,7 @@ class TestUsingFramework(object):
             b = B()
             return 0
         return func
-    
+
     def test_del_raises(self):
         self.run('del_raises') # does not raise
 
@@ -712,7 +712,7 @@ class TestUsingFramework(object):
 
     def test_callback_with_collect(self):
         assert self.run('callback_with_collect')
-    
+
     def define_can_move(cls):
         class A:
             pass
@@ -1255,7 +1255,7 @@ class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
         l1 = []
         l2 = []
         l3 = []
-        
+
         def f():
             for i in range(10):
                 s = lltype.malloc(S)
@@ -1298,7 +1298,7 @@ class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
     def test_string_builder(self):
         res = self.run('string_builder')
         assert res == "aabcbdddd"
-    
+
     def definestr_string_builder_over_allocation(cls):
         import gc
         def fn(_):
@@ -1457,6 +1457,37 @@ class TestMiniMarkGC(TestSemiSpaceGC):
     def test_nongc_attached_to_gc(self):
         res = self.run("nongc_attached_to_gc")
         assert res == -99997
+
+    def define_nongc_opaque_attached_to_gc(cls):
+        from pypy.module._hashlib.interp_hashlib import HASH_MALLOC_SIZE
+        from pypy.rlib import rgc, ropenssl
+        from pypy.rpython.lltypesystem import rffi
+
+        class A:
+            def __init__(self):
+                self.ctx = lltype.malloc(ropenssl.EVP_MD_CTX.TO,
+                    flavor='raw')
+                digest = ropenssl.EVP_get_digestbyname('sha1')
+                ropenssl.EVP_DigestInit(self.ctx, digest)
+                rgc.add_memory_pressure(HASH_MALLOC_SIZE + 64)
+
+            def __del__(self):
+                ropenssl.EVP_MD_CTX_cleanup(self.ctx)
+                lltype.free(self.ctx, flavor='raw')
+        A()
+        def f():
+            am1 = am2 = am3 = None
+            for i in range(100000):
+                am3 = am2
+                am2 = am1
+                am1 = A()
+            # what can we use for the res?
+            return 0
+        return f
+
+    def test_nongc_opaque_attached_to_gc(self):
+        res = self.run("nongc_opaque_attached_to_gc")
+        assert res == 0
 
 # ____________________________________________________________________
 
