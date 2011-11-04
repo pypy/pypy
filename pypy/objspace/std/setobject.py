@@ -508,7 +508,7 @@ class AbstractUnwrappedSetStrategy(object):
         if self is w_other.strategy:
             strategy = w_set.strategy
             storage = self._difference_unwrapped(w_set, w_other)
-        elif not_contain_equal_elements(self.space, w_set, w_other):
+        elif not w_set.strategy.may_contain_equal_elements(w_other.strategy):
             strategy = w_set.strategy
             storage = w_set.sstorage
         else:
@@ -580,7 +580,7 @@ class AbstractUnwrappedSetStrategy(object):
         if self is w_other.strategy:
             strategy = w_set.strategy
             storage = strategy._intersect_unwrapped(w_set, w_other)
-        elif not_contain_equal_elements(self.space, w_set, w_other):
+        elif not w_set.strategy.may_contain_equal_elements(w_other.strategy):
             strategy = self.space.fromcache(EmptySetStrategy)
             storage = strategy.get_empty_storage()
         else:
@@ -748,6 +748,13 @@ class StringSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     def is_correct_type(self, w_key):
         return type(w_key) is W_StringObject
 
+    def may_contain_equal_elements(self, strategy):
+        if strategy is self.space.fromcache(IntegerSetStrategy):
+            return False
+        if strategy is self.space.fromcache(EmptySetStrategy):
+            return False
+        return True
+
     def unwrap(self, w_item):
         return self.space.str_w(w_item)
 
@@ -756,7 +763,6 @@ class StringSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
 
     def iter(self, w_set):
         return StringIteratorImplementation(self.space, self, w_set)
-
 
 class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     erase, unerase = rerased.new_erasing_pair("integer")
@@ -772,6 +778,13 @@ class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
     def is_correct_type(self, w_key):
         from pypy.objspace.std.intobject import W_IntObject
         return type(w_key) is W_IntObject
+
+    def may_contain_equal_elements(self, strategy):
+        if strategy is self.space.fromcache(StringSetStrategy):
+            return False
+        if strategy is self.space.fromcache(EmptySetStrategy):
+            return False
+        return True
 
     def unwrap(self, w_item):
         return self.space.int_w(w_item)
@@ -794,6 +807,11 @@ class ObjectSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
         return newset(self.space)
 
     def is_correct_type(self, w_key):
+        return True
+
+    def may_contain_equal_elements(self, strategy):
+        if strategy is self.space.fromcache(EmptySetStrategy):
+            return False
         return True
 
     def unwrap(self, w_item):
@@ -918,22 +936,6 @@ def next__SetIterObject(space, w_setiter):
 ##    return space.wrap(w_setiter.len - w_setiter.pos)
 
 # some helper functions
-
-def not_contain_equal_elements(space, w_set, w_other):
-    # add strategies here for which elements from sets with theses strategies are never equal.
-
-    strategy1 = w_set.strategy
-    strategy2 = w_other.strategy
-
-    if strategy1 is space.fromcache(StringSetStrategy) and strategy2 is space.fromcache(IntegerSetStrategy):
-        return True
-    if strategy1 is space.fromcache(IntegerSetStrategy) and strategy2 is space.fromcache(StringSetStrategy):
-        return True
-
-    if strategy1 is space.fromcache(EmptySetStrategy) or strategy2 is space.fromcache(EmptySetStrategy):
-        # an empty set and another set will never have any equal element
-        return True
-    return False
 
 def newset(space):
     return r_dict(space.eq_w, space.hash_w, force_non_null=True)
