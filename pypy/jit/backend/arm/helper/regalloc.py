@@ -103,7 +103,7 @@ def prepare_op_by_helper_call(name):
     f.__name__ = name
     return f
 
-def prepare_cmp_op(name=None, inverse=False):
+def prepare_cmp_op(name=None):
     def f(self, op, guard_op, fcond):
         assert fcond is not None
         boxes = list(op.getarglist())

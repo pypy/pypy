@@ -422,8 +422,8 @@ class Regalloc(object):
     prepare_op_uint_le = prepare_cmp_op('uint_le')
     prepare_op_uint_gt = prepare_cmp_op('uint_gt')
 
-    prepare_op_uint_lt = prepare_cmp_op('uint_lt', inverse=True)
-    prepare_op_uint_ge = prepare_cmp_op('uint_ge', inverse=True)
+    prepare_op_uint_lt = prepare_cmp_op('uint_lt')
+    prepare_op_uint_ge = prepare_cmp_op('uint_ge')
 
     prepare_op_ptr_eq = prepare_op_int_eq
     prepare_op_ptr_ne = prepare_op_int_ne
@@ -438,8 +438,8 @@ class Regalloc(object):
     prepare_guard_uint_le = prepare_cmp_op('guard_uint_le')
     prepare_guard_uint_gt = prepare_cmp_op('guard_uint_gt')
 
-    prepare_guard_uint_lt = prepare_cmp_op('guard_uint_lt', inverse=True)
-    prepare_guard_uint_ge = prepare_cmp_op('guard_uint_ge', inverse=True)
+    prepare_guard_uint_lt = prepare_cmp_op('guard_uint_lt')
+    prepare_guard_uint_ge = prepare_cmp_op('guard_uint_ge')
 
     prepare_guard_ptr_eq = prepare_guard_int_eq
     prepare_guard_ptr_ne = prepare_guard_int_ne

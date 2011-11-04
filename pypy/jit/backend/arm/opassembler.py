@@ -136,11 +136,6 @@ class IntOpAsslember(object):
     emit_op_int_gt = gen_emit_cmp_op('int_gt', c.GT)
     emit_op_int_ge = gen_emit_cmp_op('int_ge', c.GE)
 
-    emit_op_uint_le = gen_emit_cmp_op('uint_le', c.LS)
-    emit_op_uint_gt = gen_emit_cmp_op('uint_gt', c.HI)
-
-    emit_op_uint_lt = gen_emit_cmp_op('uint_lt', c.HI)
-    emit_op_uint_ge = gen_emit_cmp_op('uint_ge', c.LS)
 
     emit_op_ptr_eq = emit_op_int_eq
     emit_op_ptr_ne = emit_op_int_ne
@@ -151,6 +146,13 @@ class IntOpAsslember(object):
     emit_guard_int_ne = gen_emit_cmp_op_guard('int_ne', c.NE)
     emit_guard_int_gt = gen_emit_cmp_op_guard('int_gt', c.GT)
     emit_guard_int_ge = gen_emit_cmp_op_guard('int_ge', c.GE)
+
+    emit_op_uint_le = gen_emit_cmp_op('uint_le', c.LS)
+    emit_op_uint_gt = gen_emit_cmp_op('uint_gt', c.HI)
+    emit_op_uint_lt = gen_emit_cmp_op('uint_lt', c.LO)
+    emit_op_uint_ge = gen_emit_cmp_op('uint_ge', c.HS)
+    emit_guard_uint_lt = gen_emit_cmp_op_guard('uint_lt', c.LO)
+    emit_guard_uint_ge = gen_emit_cmp_op_guard('uint_ge', c.HS)
 
     emit_guard_uint_le = gen_emit_cmp_op_guard('uint_le', c.LS)
     emit_guard_uint_gt = gen_emit_cmp_op_guard('uint_gt', c.HI)
