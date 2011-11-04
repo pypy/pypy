@@ -13,7 +13,6 @@ class TestW_SpecialisedTupleObject():
         cls.space = gettestobjspace(**{"objspace.std.withspecialisedtuple": True})
 
     def test_isspecialisedtupleobjectintint(self):
-        py.test.skip('in progress')
         w_tuple = self.space.newtuple([self.space.wrap(1), self.space.wrap(2)])
         assert isinstance(w_tuple, W_SpecialisedTupleObjectIntInt)
         
