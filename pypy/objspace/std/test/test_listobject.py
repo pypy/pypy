@@ -413,8 +413,6 @@ class AppTestW_ListObject(object):
         assert not l.__contains__(-20)
         assert not l.__contains__(-21)
 
-=======
->>>>>>> other
     def test_call_list(self):
         assert list('') == []
         assert list('abc') == ['a', 'b', 'c']
