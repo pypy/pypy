@@ -47,6 +47,7 @@ W_StringObject.EMPTY = W_StringObject('')
 W_StringObject.PREBUILT = [W_StringObject(chr(i)) for i in range(256)]
 del i
 
+@specialize.arg(2)
 def _is_generic(space, w_self, fun):
     v = w_self._value
     if len(v) == 0:
@@ -56,14 +57,13 @@ def _is_generic(space, w_self, fun):
         return space.newbool(fun(c))
     else:
         return _is_generic_loop(space, v, fun)
-_is_generic._annspecialcase_ = "specialize:arg(2)"
 
+@specialize.arg(2)
 def _is_generic_loop(space, v, fun):
     for idx in range(len(v)):
         if not fun(v[idx]):
             return space.w_False
     return space.w_True
-_is_generic_loop._annspecialcase_ = "specialize:arg(2)"
 
 def _upper(ch):
     if ch.islower():
