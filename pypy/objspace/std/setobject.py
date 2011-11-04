@@ -311,6 +311,8 @@ class EmptySetStrategy(SetStrategy):
     def add(self, w_set, w_key):
         if type(w_key) is W_IntObject:
             strategy = self.space.fromcache(IntegerSetStrategy)
+        elif type(w_key) is W_StringObject:
+            strategy = self.space.fromcache(StringSetStrategy)
         else:
             strategy = self.space.fromcache(ObjectSetStrategy)
         w_set.strategy = strategy
