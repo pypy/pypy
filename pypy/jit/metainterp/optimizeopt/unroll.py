@@ -152,8 +152,8 @@ class UnrollOptimizer(Optimization):
             loop.operations = self.optimizer.get_newoperations()
 
     def export_state(self, targetop):
-        jump_args = targetop.getarglist()
-        jump_args = [self.getvalue(a).get_key_box() for a in jump_args]
+        original_jump_args = targetop.getarglist()
+        jump_args = [self.getvalue(a).get_key_box() for a in original_jump_args]
 
         start_resumedescr = self.optimizer.loop.start_resumedescr.clone_if_mutable()
         assert isinstance(start_resumedescr, ResumeGuardDescr)
@@ -173,6 +173,9 @@ class UnrollOptimizer(Optimization):
                 constant_inputargs[box] = const
 
         short_boxes = ShortBoxes(self.optimizer, inputargs + constant_inputargs.keys())
+        for i in range(len(original_jump_args)):
+            if original_jump_args[i] is not jump_args[i]:
+                short_boxes.alias(original_jump_args[i], jump_args[i])
 
         self.optimizer.clear_newoperations()
         for box in short_inputargs:
@@ -215,6 +218,9 @@ class UnrollOptimizer(Optimization):
             preamble_value = exported_state.optimizer.getvalue(box)
             value = self.optimizer.getvalue(box)
             value.import_from(preamble_value, self.optimizer)
+
+        for newbox, oldbox in self.short_boxes.aliases.items():
+            self.optimizer.make_equal_to(newbox, self.optimizer.getvalue(oldbox))
         
         # Setup the state of the new optimizer by emiting the
         # short operations and discarding the result

@@ -97,12 +97,12 @@ class BaseTestWithUnroll(BaseTest):
                               [ResOperation(rop.TARGET, jump_args, None, descr=targettoken)] 
         self._do_optimize_loop(preamble, call_pure_results)
 
-        jump_args = preamble.operations[-1].getdescr().exported_state.jump_args  # FIXME!!
         inliner = Inliner(inputargs, jump_args)
         loop.inputargs = None
         loop.start_resumedescr = preamble.start_resumedescr
         loop.operations = [preamble.operations[-1]] + \
                           [inliner.inline_op(op, clone=False) for op in cloned_operations]
+
         self._do_optimize_loop(loop, call_pure_results)
         extra_same_as = []
         while loop.operations[0].getopnum() != rop.TARGET:
