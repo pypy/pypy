@@ -1738,7 +1738,8 @@ class EnvironExtRegistry(ControllerEntryForPrebuilt):
 # ____________________________________________________________
 # Support for the WindowsError exception
 
-if sys.platform == 'win32':
+# XXX temporarily disabled
+if 0 and sys.platform == 'win32':
     from pypy.rlib import rwin32
 
     class RegisterFormatError(BaseLazyRegistering):
