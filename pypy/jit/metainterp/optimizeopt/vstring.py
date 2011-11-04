@@ -1,6 +1,6 @@
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.history import (BoxInt, Const, ConstInt, ConstPtr,
-    get_const_ptr_for_string, get_const_ptr_for_unicode)
+    get_const_ptr_for_string, get_const_ptr_for_unicode, BoxPtr, REF, INT)
 from pypy.jit.metainterp.optimizeopt import optimizer, virtualize
 from pypy.jit.metainterp.optimizeopt.optimizer import CONST_0, CONST_1, llhelper
 from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
@@ -174,6 +174,7 @@ class VStringPlainValue(VAbstractStringValue):
             return VAbstractStringValue.string_copy_parts(
                 self, string_optimizer, targetbox, offsetbox, mode)
         for i in range(len(self._chars)):
+            assert isinstance(targetbox, BoxPtr)   # ConstPtr never makes sense
             charbox = self._chars[i].force_box(string_optimizer)
             if not (isinstance(charbox, Const) and charbox.same_constant(CONST_0)):
                 string_optimizer.emit_operation(ResOperation(mode.STRSETITEM, [targetbox,
@@ -305,6 +306,7 @@ def copy_str_content(string_optimizer, srcbox, targetbox,
         for i in range(lengthbox.value):
             charbox = _strgetitem(string_optimizer, srcbox, srcoffsetbox, mode)
             srcoffsetbox = _int_add(string_optimizer, srcoffsetbox, CONST_1)
+            assert isinstance(targetbox, BoxPtr)   # ConstPtr never makes sense
             string_optimizer.emit_operation(ResOperation(mode.STRSETITEM, [targetbox,
                                                                            offsetbox,
                                                                            charbox],
@@ -315,6 +317,7 @@ def copy_str_content(string_optimizer, srcbox, targetbox,
             nextoffsetbox = _int_add(string_optimizer, offsetbox, lengthbox)
         else:
             nextoffsetbox = None
+        assert isinstance(targetbox, BoxPtr)   # ConstPtr never makes sense
         op = ResOperation(mode.COPYSTRCONTENT, [srcbox, targetbox,
                                                 srcoffsetbox, offsetbox,
                                                 lengthbox], None)
@@ -401,6 +404,7 @@ class OptString(optimizer.Optimization):
 
     def optimize_STRSETITEM(self, op):
         value = self.getvalue(op.getarg(0))
+        assert not value.is_constant() # strsetitem(ConstPtr) never makes sense
         if (value.is_virtual() and isinstance(value, VStringPlainValue)
             and value.is_valid()):
             indexbox = self.get_constant_box(op.getarg(1))
@@ -458,6 +462,11 @@ class OptString(optimizer.Optimization):
 
     def _optimize_COPYSTRCONTENT(self, op, mode):
         # args: src dst srcstart dststart length
+        assert op.getarg(0).type == REF
+        assert op.getarg(1).type == REF
+        assert op.getarg(2).type == INT
+        assert op.getarg(3).type == INT
+        assert op.getarg(4).type == INT
         src = self.getvalue(op.getarg(0))
         dst = self.getvalue(op.getarg(1))
         srcstart = self.getvalue(op.getarg(2))

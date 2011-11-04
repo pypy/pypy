@@ -2168,13 +2168,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p0, i0, p1, i1, i2]
         setfield_gc(p0, i1, descr=valuedescr)
-        copystrcontent(p0, i0, p1, i1, i2)
+        copystrcontent(p0, p1, i0, i1, i2)
         escape()
         jump(p0, i0, p1, i1, i2)
         """
         expected = """
         [p0, i0, p1, i1, i2]
-        copystrcontent(p0, i0, p1, i1, i2)
+        copystrcontent(p0, p1, i0, i1, i2)
         setfield_gc(p0, i1, descr=valuedescr)
         escape()
         jump(p0, i0, p1, i1, i2)
