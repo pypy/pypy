@@ -174,6 +174,8 @@ class Regalloc(object):
         self.rm._check_invariants()
 
     def loc(self, var):
+        if var.type == FLOAT:
+            assert 0, "not implemented yet"
         return self.rm.loc(var)
 
     def position(self):
