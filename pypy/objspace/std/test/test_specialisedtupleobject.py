@@ -34,7 +34,7 @@ class TestW_SpecialisedTupleObject():
         assert specialisedspace.is_true(specialisedspace.eq(normalspace.hash(w_tuple), specialisedspace.hash(w_specialisedtuple)))
 
     def test_setitem(self):
-        py.test.skip('in progress')
+        py.test.skip('skip for now, only needed for cpyext')
         w_specialisedtuple = self.space.newtuple([self.space.wrap(1)])
         w_specialisedtuple.setitem(0, self.space.wrap(5))
         list_w = w_specialisedtuple.tolist()
@@ -53,11 +53,9 @@ class AppTestW_SpecialisedTupleObject(AppTestW_TupleObject):
         """)
 
     def test_specialisedtuple(self):
-        skip('in progress')
         assert self.isspecialised((42,43))
 
     def test_notspecialisedtuple(self):
-        skip('in progress')
         assert not self.isspecialised((42,43,44))
         
     def test_slicing_to_specialised(self):
