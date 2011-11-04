@@ -72,7 +72,6 @@ class AppTestW_SpecialisedTupleObject(AppTestW_TupleObject):
         assert (1,2,3)[0:2:1] == (1,2)
 
     def test_eq(self):
-        skip('in progress')
         a = (1,2)
         b = (1,2)
         assert a == b
@@ -81,20 +80,11 @@ class AppTestW_SpecialisedTupleObject(AppTestW_TupleObject):
         assert a != c
 
     def test_hash(self):
-        skip('in progress')
-        a = (1,)
-        b = (1,)
+        a = (1,2)
+        b = (1,2)
         assert hash(a) == hash(b)
 
-        a = ('1',)
-        b = ('1',)
-        assert hash(a) == hash(b)
-
-        a = (1.1,)
-        b = (1.1,)
-        assert hash(a) == hash(b)
-
-        c = (2,)
+        c = (2,4)
         assert hash(a) != hash(c)
 
         
