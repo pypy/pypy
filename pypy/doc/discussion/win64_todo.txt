@@ -1,0 +1,4 @@
+20011-11-4
+ll_os.py has a problem with the file rwin32.py.
+Temporarily disabled for the win64_gborg branch. This needs to be
+investigated and re-enabled.
