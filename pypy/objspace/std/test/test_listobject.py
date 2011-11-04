@@ -2,17 +2,10 @@ import random
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.interpreter.error import OperationError
 
-from pypy.conftest import gettestobjspace
+from pypy.conftest import gettestobjspace, option
 
 
 class TestW_ListObject(object):
-    def setup_class(cls):
-        import sys
-        on_cpython = (option.runappdirect and
-                            not hasattr(sys, 'pypy_translation_info'))
-
-        cls.w_on_cpython = cls.space.wrap(on_cpython)
-
     def test_is_true(self):
         w = self.space.wrap
         w_list = W_ListObject([])
@@ -349,6 +342,13 @@ class TestW_ListObject(object):
 
 
 class AppTestW_ListObject(object):
+    def setup_class(cls):
+        import sys
+        on_cpython = (option.runappdirect and
+                            not hasattr(sys, 'pypy_translation_info'))
+
+        cls.w_on_cpython = cls.space.wrap(on_cpython)
+
     def test_call_list(self):
         assert list('') == []
         assert list('abc') == ['a', 'b', 'c']
