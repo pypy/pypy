@@ -598,6 +598,7 @@ class ShortBoxes(object):
                 newbox = newop.result = op.result.clonebox()
                 self.short_boxes[newop.result] = newop
             value = self.optimizer.getvalue(box)
+            self.optimizer.emit_operation(ResOperation(rop.SAME_AS, [box], newbox))
             self.optimizer.make_equal_to(newbox, value)
         else:
             self.short_boxes[box] = op

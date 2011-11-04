@@ -80,3 +80,14 @@ def optimize_bridge_1(metainterp_sd, bridge, enable_opts,
 
 if __name__ == '__main__':
     print ALL_OPTS_NAMES
+
+def optimize_trace(metainterp_sd, loop, enable_opts):
+    """Optimize loop.operations to remove internal overheadish operations.
+    """
+
+    optimizations, unroll = build_opt_chain(metainterp_sd, enable_opts, False, False)
+    if unroll:
+        optimize_unroll(metainterp_sd, loop, optimizations)
+    else:
+        optimizer = Optimizer(metainterp_sd, loop, optimizations, bridge)
+        optimizer.propagate_all_forward()

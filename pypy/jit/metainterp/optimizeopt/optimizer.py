@@ -497,9 +497,10 @@ class Optimizer(Optimization):
         else:
             return CVAL_ZERO
 
-    def propagate_all_forward(self):
+    def propagate_all_forward(self, clear=True):
         self.exception_might_have_happened = self.bridge
-        self.clear_newoperations()
+        if clear:
+            self.clear_newoperations()
         for op in self.loop.operations:
             self.first_optimization.propagate_forward(op)
         self.loop.operations = self.get_newoperations()
@@ -556,6 +557,7 @@ class Optimizer(Optimization):
 
     def store_final_boxes_in_guard(self, op):
         descr = op.getdescr()
+        print 'HHHHHHHHHHHH', descr, id(descr)
         assert isinstance(descr, compile.ResumeGuardDescr)
         modifier = resume.ResumeDataVirtualAdder(descr, self.resumedata_memo)
         newboxes = modifier.finish(self.values, self.pendingfields)

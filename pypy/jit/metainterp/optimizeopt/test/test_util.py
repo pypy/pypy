@@ -384,7 +384,7 @@ class BaseTest(object):
                             expected.operations, False, remap, text_right)
 
     def _do_optimize_loop(self, loop, call_pure_results):
-        from pypy.jit.metainterp.optimizeopt import optimize_loop_1
+        from pypy.jit.metainterp.optimizeopt import optimize_trace
         from pypy.jit.metainterp.optimizeopt.util import args_dict
 
         self.loop = loop
@@ -398,7 +398,7 @@ class BaseTest(object):
         if hasattr(self, 'callinfocollection'):
             metainterp_sd.callinfocollection = self.callinfocollection
         #
-        optimize_loop_1(metainterp_sd, loop, self.enable_opts)
+        optimize_trace(metainterp_sd, loop, self.enable_opts)
 
 # ____________________________________________________________
 
