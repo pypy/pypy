@@ -59,23 +59,17 @@ class AppTestW_SpecialisedTupleObject(AppTestW_TupleObject):
         assert not self.isspecialised((42,43,44))
         
     def test_slicing_to_specialised(self):
-        skip('in progress')
-        assert self.isspecialised((1, 2, 3)[0:1])   
-        assert self.isspecialised((1, '2', 1.3)[0:5:5])
-        assert self.isspecialised((1, '2', 1.3)[1:5:5])
-        assert self.isspecialised((1, '2', 1.3)[2:5:5])
+        assert self.isspecialised((1, 2, 3)[0:2])   
+        assert self.isspecialised((1, '2', 3)[0:5:2])
 
     def test_adding_to_specialised(self):
-        skip('in progress')
         assert self.isspecialised((1,)+(2,))
 
     def test_multiply_to_specialised(self):
-        skip('in progress')
         assert self.isspecialised((1,)*2)
 
     def test_slicing_from_specialised(self):
-        skip('in progress')
-        assert (1,2,3)[0:2:1] == (1,)
+        assert (1,2,3)[0:2:1] == (1,2)
 
     def test_eq(self):
         skip('in progress')
