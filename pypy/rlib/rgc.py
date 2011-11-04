@@ -259,6 +259,24 @@ def _keep_object(x):
     except Exception:
         return False      # don't keep objects whose _freeze_() method explodes
 
+def add_memory_pressure(estimate):
+    """Add memory pressure for OpaquePtrs."""
+    pass
+
+class AddMemoryPressureEntry(ExtRegistryEntry):
+    _about_ = add_memory_pressure
+
+    def compute_result_annotation(self, s_nbytes):
+        from pypy.annotation import model as annmodel
+        return annmodel.s_None
+
+    def specialize_call(self, hop):
+        [v_size] = hop.inputargs(lltype.Signed)
+        hop.exception_cannot_occur()
+        return hop.genop('gc_add_memory_pressure', [v_size],
+                         resulttype=lltype.Void)
+
+
 def get_rpy_memory_usage(gcref):
     "NOT_RPYTHON"
     # approximate implementation using CPython's type info
