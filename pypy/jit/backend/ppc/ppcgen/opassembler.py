@@ -475,14 +475,43 @@ class OpAssembler(object):
             signed = descr.is_result_signed()
             self._ensure_result_bit_extension(loc, size, signed)
 
+    # XXX 64 bit adjustment
     def _emit_call(self, force_index, adr, args, regalloc, result=None):
         n_args = len(args)
         reg_args = count_reg_args(args)
 
         n = 0   # used to count the number of words pushed on the stack, so we
-                #can later modify the SP back to its original value
+                # can later modify the SP back to its original value
+        stack_args = []
         if n_args > reg_args:
-            assert 0, "not implemented yet"
+            # first we need to prepare the list so it stays aligned
+            count = 0
+            for i in range(reg_args, n_args):
+                arg = args[i]
+                if arg.type == FLOAT:
+                    assert 0, "not implemented yet"
+                else:
+                    count += 1
+                    n += WORD
+                stack_args.append(arg)
+            if count % 2 != 0:
+                n += WORD
+                stack_args.append(None)
+
+        # adjust SP and compute size of parameter save area
+        stack_space = 4 * (WORD + len(stack_args))
+        self.mc.stwu(1, 1, -stack_space)
+        self.mc.mflr(0)
+        self.mc.stw(0, 1, stack_space + WORD)
+
+        # then we push everything on the stack
+        for i, arg in enumerate(stack_args):
+            offset = (2 + i) * WORD
+            self.mc.load_imm(r.r0, arg.value)
+            if IS_PPC_32:
+                self.mc.stw(r.r0.value, r.SP.value, offset)
+            else:
+                assert 0, "not implemented yet"
 
         # collect variables that need to go in registers
         # and the registers they will be stored in 
@@ -517,6 +546,9 @@ class OpAssembler(object):
         #the actual call
         if IS_PPC_32:
             self.mc.bl_abs(adr)
+            self.mc.lwz(0, 1, stack_space + WORD)
+            self.mc.mtlr(0)
+            self.mc.addi(1, 1, stack_space)
         else:
             self.mc.std(r.r2.value, r.SP.value, 40)
             self.mc.load_from_addr(r.r0, adr)
@@ -528,9 +560,6 @@ class OpAssembler(object):
 
         self.mark_gc_roots(force_index)
         regalloc.possibly_free_vars(args)
-        # readjust the sp in case we passed some args on the stack
-        if n > 0:
-            assert 0, "not implemented yet"
 
         # restore the arguments stored on the stack
         if result is not None:
