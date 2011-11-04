@@ -1248,8 +1248,8 @@ def list_remove__List_ANY(space, w_list, w_any):
 def list_index__List_ANY_ANY_ANY(space, w_list, w_any, w_start, w_stop):
     # needs to be safe against eq_w() mutating the w_list behind our back
     size = w_list.length()
-    i = slicetype.adapt_bound(space, size, w_start)
-    stop = slicetype.adapt_bound(space, size, w_stop)
+    i, stop = slicetype.unwrap_start_stop(
+            space, size, w_start, w_stop, True)
     while i < stop and i < w_list.length():
         if space.eq_w(w_list.getitem(i), w_any):
             return space.wrap(i)

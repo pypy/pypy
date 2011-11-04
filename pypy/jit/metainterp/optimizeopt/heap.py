@@ -43,7 +43,7 @@ class CachedField(object):
             optheap.optimizer.ensure_imported(cached_fieldvalue)
             cached_fieldvalue = self._cached_fields.get(structvalue, None)
 
-        if cached_fieldvalue is not fieldvalue:
+        if not fieldvalue.same_value(cached_fieldvalue):
             # common case: store the 'op' as lazy_setfield, and register
             # myself in the optheap's _lazy_setfields_and_arrayitems list
             self._lazy_setfield = op
@@ -138,6 +138,15 @@ class CachedField(object):
                         optimizer.make_constant(newresult, result)
                         result = newresult
                     getop = ResOperation(rop.GETFIELD_GC, [op.getarg(0)],
+                                         result, op.getdescr())
+                    shortboxes.add_potential(getop, synthetic=True)
+                if op.getopnum() == rop.SETARRAYITEM_GC:
+                    result = op.getarg(2)
+                    if isinstance(result, Const):
+                        newresult = result.clonebox()
+                        optimizer.make_constant(newresult, result)
+                        result = newresult
+                    getop = ResOperation(rop.GETARRAYITEM_GC, [op.getarg(0), op.getarg(1)],
                                          result, op.getdescr())
                     shortboxes.add_potential(getop, synthetic=True)
                 elif op.result is not None:

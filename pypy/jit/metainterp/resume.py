@@ -126,6 +126,7 @@ TAGVIRTUAL  = 3
 UNASSIGNED = tag(-1<<13, TAGBOX)
 UNASSIGNEDVIRTUAL = tag(-1<<13, TAGVIRTUAL)
 NULLREF = tag(-1, TAGCONST)
+UNINITIALIZED = tag(-2, TAGCONST)   # used for uninitialized string characters
 
 
 class ResumeDataLoopMemo(object):
@@ -439,6 +440,8 @@ class ResumeDataVirtualAdder(object):
         self.storage.rd_pendingfields = rd_pendingfields
 
     def _gettagged(self, box):
+        if box is None:
+            return UNINITIALIZED
         if isinstance(box, Const):
             return self.memo.getconst(box)
         else:
@@ -572,7 +575,9 @@ class VStrPlainInfo(AbstractVirtualInfo):
         string = decoder.allocate_string(length)
         decoder.virtuals_cache[index] = string
         for i in range(length):
-            decoder.string_setitem(string, i, self.fieldnums[i])
+            charnum = self.fieldnums[i]
+            if not tagged_eq(charnum, UNINITIALIZED):
+                decoder.string_setitem(string, i, charnum)
         return string
 
     def debug_prints(self):
@@ -625,7 +630,9 @@ class VUniPlainInfo(AbstractVirtualInfo):
         string = decoder.allocate_unicode(length)
         decoder.virtuals_cache[index] = string
         for i in range(length):
-            decoder.unicode_setitem(string, i, self.fieldnums[i])
+            charnum = self.fieldnums[i]
+            if not tagged_eq(charnum, UNINITIALIZED):
+                decoder.unicode_setitem(string, i, charnum)
         return string
 
     def debug_prints(self):

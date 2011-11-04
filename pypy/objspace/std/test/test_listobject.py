@@ -3,11 +3,10 @@ import random
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.interpreter.error import OperationError
 
-from pypy.conftest import gettestobjspace
+from pypy.conftest import gettestobjspace, option
 
 
 class TestW_ListObject(object):
-
     def test_is_true(self):
         w = self.space.wrap
         w_list = W_ListObject(self.space, [])
@@ -353,10 +352,14 @@ class TestW_ListObject(object):
 
 
 class AppTestW_ListObject(object):
+    def setup_class(cls):
+        import sys
+        on_cpython = (option.runappdirect and
+                            not hasattr(sys, 'pypy_translation_info'))
+        cls.w_on_cpython = cls.space.wrap(on_cpython)
 
     def test_getstrategyfromlist_w(self):
         l0 = ["a", "2", "a", True]
-
         # this raised TypeError on ListStrategies
         l1 = ["a", "2", True, "a"]
         l2 = [1, "2", "a", "a"]
@@ -410,6 +413,8 @@ class AppTestW_ListObject(object):
         assert not l.__contains__(-20)
         assert not l.__contains__(-21)
 
+=======
+>>>>>>> other
     def test_call_list(self):
         assert list('') == []
         assert list('abc') == ['a', 'b', 'c']
@@ -728,7 +733,15 @@ class AppTestW_ListObject(object):
         assert c.index(0) == 0
         raises(ValueError, c.index, 3)
 
-    def test_assign_slice(self):
+    def test_index_cpython_bug(self):
+        if self.on_cpython:
+            skip("cpython has a bug here")
+        c = list('hello world')
+        assert c.index('l', None, None) == 2
+        assert c.index('l', 3, None) == 3
+        assert c.index('l', None, 4) == 2
+
+    def test_ass_slice(self):
         l = range(6)
         l[1:3] = 'abc'
         assert l == [0, 'a', 'b', 'c', 3, 4, 5]

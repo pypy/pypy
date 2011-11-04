@@ -1,6 +1,6 @@
 from pypy.jit.metainterp import jitprof, resume, compile
 from pypy.jit.metainterp.executor import execute_nonspec
-from pypy.jit.metainterp.history import BoxInt, BoxFloat, Const, ConstInt, REF
+from pypy.jit.metainterp.history import BoxInt, BoxFloat, Const, ConstInt, REF, INT
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded, \
                                                      ImmutableIntUnbounded, \
                                                      IntLowerBound, MININT, MAXINT
@@ -95,6 +95,10 @@ class OptValue(object):
         return guards
 
     def import_from(self, other, optimizer):
+        if self.level == LEVEL_CONSTANT:
+            assert other.level == LEVEL_CONSTANT
+            assert other.box.same_constant(self.box)
+            return
         assert self.level <= LEVEL_NONNULL
         if other.level == LEVEL_CONSTANT:
             self.make_constant(other.get_key_box())
@@ -140,6 +144,13 @@ class OptValue(object):
             assert isinstance(box, Const)
             return not box.nonnull()
         return False
+
+    def same_value(self, other):
+        if not other:
+            return False
+        if self.is_constant() and other.is_constant():
+            return self.box.same_constant(other.box)
+        return self is other
 
     def make_constant(self, constbox):
         """Replace 'self.box' with a Const box."""
@@ -236,7 +247,6 @@ CONST_0      = ConstInt(0)
 CONST_1      = ConstInt(1)
 CVAL_ZERO    = ConstantValue(CONST_0)
 CVAL_ZERO_FLOAT = ConstantValue(Const._new(0.0))
-CVAL_UNINITIALIZED_ZERO = ConstantValue(CONST_0)
 llhelper.CVAL_NULLREF = ConstantValue(llhelper.CONST_NULL)
 oohelper.CVAL_NULLREF = ConstantValue(oohelper.CONST_NULL)
 
@@ -326,6 +336,7 @@ class Optimizer(Optimization):
         self.bridge = bridge
         self.values = {}
         self.interned_refs = self.cpu.ts.new_ref_dict()
+        self.interned_ints = {}
         self.resumedata_memo = resume.ResumeDataLoopMemo(metainterp_sd)
         self.bool_boxes = {}
         self.producer = {}
@@ -398,6 +409,9 @@ class Optimizer(Optimization):
             if not value:
                 return box
             return self.interned_refs.setdefault(value, box)
+        #elif constbox.type == INT:
+        #    value = constbox.getint()
+        #    return self.interned_ints.setdefault(value, box)
         else:
             return box
 
