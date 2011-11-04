@@ -2,6 +2,8 @@ import sys
 from pypy.interpreter import gateway
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
+from  types import IntType, FloatType, StringType
+
 
 def wraptuple(space, list_w):
     from pypy.objspace.std.tupleobject import W_TupleObject
@@ -12,6 +14,23 @@ def wraptuple(space, list_w):
     from pypy.objspace.std.smalltupleobject import W_SmallTupleObject6
     from pypy.objspace.std.smalltupleobject import W_SmallTupleObject7
     from pypy.objspace.std.smalltupleobject import W_SmallTupleObject8
+        
+    from pypy.objspace.std.specialisedtupleobject import W_SpecialisedTupleObjectInt	#one element tuples
+    from pypy.objspace.std.specialisedtupleobject import W_SpecialisedTupleObjectFloat
+    from pypy.objspace.std.specialisedtupleobject import W_SpecialisedTupleObjectString
+    from pypy.objspace.std.intobject import W_IntObject
+    from pypy.objspace.std.floatobject import W_FloatObject
+    from pypy.objspace.std.stringobject import W_StringObject
+    
+    if space.config.objspace.std.withspecialisedtuple:
+        if len(list_w) == 1:
+            if isinstance(list_w[0], W_IntObject):
+                 return W_SpecialisedTupleObjectInt(list_w[0].intval)
+            if isinstance(list_w[0], W_FloatObject):
+                 return W_SpecialisedTupleObjectFloat(list_w[0].floatval)
+            if isinstance(list_w[0], W_StringObject):
+                 return W_SpecialisedTupleObjectString(list_w[0]._value)
+
     if space.config.objspace.std.withsmalltuple:
         if len(list_w) == 2:
             return W_SmallTupleObject2(list_w)
