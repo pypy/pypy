@@ -4,7 +4,7 @@ from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter import gateway
 from pypy.rlib.rarithmetic import ovfcheck
-from pypy.rlib.objectmodel import we_are_translated, compute_hash
+from pypy.rlib.objectmodel import we_are_translated, compute_hash, specialize
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype, newformat
@@ -420,6 +420,7 @@ def str_ljust__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
 
     return space.wrap(u_self)
 
+@specialize.arg(4)
 def _convert_idx_params(space, w_self, w_start, w_end, upper_bound=False):
     self = w_self._value
     lenself = len(self)
@@ -427,7 +428,6 @@ def _convert_idx_params(space, w_self, w_start, w_end, upper_bound=False):
     start, end = slicetype.unwrap_start_stop(
             space, lenself, w_start, w_end, upper_bound=upper_bound)
     return (self, start, end)
-_convert_idx_params._annspecialcase_ = 'specialize:arg(5)'
 
 def contains__String_String(space, w_self, w_sub):
     self = w_self._value
