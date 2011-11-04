@@ -41,18 +41,31 @@ class W_SpecialisedTupleObject(W_Object):
                         
 
 class W_SpecialisedTupleObjectIntInt(W_SpecialisedTupleObject):
-    def __init__(self, intval0, intval1):
+    def __init__(self, space, intval0, intval1):
         assert isinstance(intval0, int)
         assert isinstance(intval1, int)
+        self.space = space
         self.intval0 = intval0
         self.intval1 = intval1
 
     def length(self):
         return 2
-'''
-    def tolist(self):
-        return [W_IntObject(self.intval)]
 
+    def tolist(self):
+        return [self.space.wrap(self.intval0), self.space.wrap(self.intval1)]
+        
+    def hash(self, space):
+        return space.wrap(0)
+
+    def eq(self, space, w_other):
+        if w_other.length() != 2:
+            return space.w_False
+        if self.intval0 == w_other.intval0 and self.intval1 == w_other.intval1:	#xxx
+            return space.w_True
+        else:
+            return space.w_False
+
+'''
     def getitem(self, index):
         if index == 0:
             self.wrap(self.intval)
@@ -65,21 +78,13 @@ class W_SpecialisedTupleObjectIntInt(W_SpecialisedTupleObject):
             self.intval = w_item.intval
             return
         raise IndexError
-        
-    def eq(self, space, w_other):
-        if w_other.length() != 1:
-            return space.w_False
-        if self.intval == w_other.intval:	#is it safe to assume all 1-tuples are specialised ?
-            return space.w_True
-        else:
-            return space.w_False
-'''
+'''        
 
 registerimplementation(W_SpecialisedTupleObject)
 
 def delegate_SpecialisedTuple2Tuple(space, w_specialised):
     return W_TupleObject(w_specialised.tolist())
-
+'''
 def len__SpecialisedTuple(space, w_tuple):
     return space.wrap(w_tuple.length())
 
@@ -123,7 +128,7 @@ def mul__ANY_SpecialisedTuple(space, w_times, w_tuple):
 
 def eq__SpecialisedTuple_SpecialisedTuple(space, w_tuple1, w_tuple2):
     return w_tuple1.eq(space, w_tuple2)
-
+'''
 def hash__SpecialisedTuple(space, w_tuple):
     return w_tuple.hash(space)
 
