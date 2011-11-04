@@ -500,6 +500,8 @@ class OpAssembler(object):
 
         # adjust SP and compute size of parameter save area
         stack_space = 4 * (WORD + len(stack_args))
+        while stack_space % (4 * WORD) != 0:
+            stack_space += 1
         self.mc.stwu(1, 1, -stack_space)
         self.mc.mflr(0)
         self.mc.stw(0, 1, stack_space + WORD)
@@ -507,11 +509,12 @@ class OpAssembler(object):
         # then we push everything on the stack
         for i, arg in enumerate(stack_args):
             offset = (2 + i) * WORD
-            self.mc.load_imm(r.r0, arg.value)
+            if arg is not None:
+                self.mc.load_imm(r.r0, arg.value)
             if IS_PPC_32:
                 self.mc.stw(r.r0.value, r.SP.value, offset)
             else:
-                assert 0, "not implemented yet"
+                self.mc.std(r.r0.value, r.SP.value, offset)
 
         # collect variables that need to go in registers
         # and the registers they will be stored in 
