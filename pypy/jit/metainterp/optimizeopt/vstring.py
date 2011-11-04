@@ -113,6 +113,33 @@ class VStringPlainValue(VAbstractStringValue):
     """A string built with newstr(const)."""
     _lengthbox = None     # cache only
 
+    # Warning: an issue with VStringPlainValue is that sometimes it is
+    # initialized unpredictably by some copystrcontent.  When this occurs
+    # we set self._chars to None.  Be careful to check for is_valid().
+
+    def is_valid(self):
+        return self._chars is not None
+
+    def _invalidate(self):
+        assert self.is_valid()
+        if self._lengthbox is None:
+            self._lengthbox = ConstInt(len(self._chars))
+        self._chars = None
+
+    def _really_force(self, optforce):
+        VAbstractStringValue._really_force(self, optforce)
+        assert self.box is not None
+        if self.is_valid():
+            for c in self._chars:
+                if c is optimizer.CVAL_UNINITIALIZED_ZERO:
+                    # the string has uninitialized null bytes in it, so
+                    # assume that it is forced for being further mutated
+                    # (e.g. by copystrcontent).  So it becomes invalid
+                    # as a VStringPlainValue: the _chars must not be used
+                    # any longer.
+                    self._invalidate()
+                    break
+
     def setup(self, size):
         self._chars = [optimizer.CVAL_UNINITIALIZED_ZERO] * size
 
@@ -134,6 +161,8 @@ class VStringPlainValue(VAbstractStringValue):
 
     @specialize.arg(1)
     def get_constant_string_spec(self, mode):
+        if not self.is_valid():
+            return None
         for c in self._chars:
             if c is optimizer.CVAL_UNINITIALIZED_ZERO or not c.is_constant():
                 return None
@@ -141,11 +170,9 @@ class VStringPlainValue(VAbstractStringValue):
                                    for c in self._chars])
 
     def string_copy_parts(self, string_optimizer, targetbox, offsetbox, mode):
-        if not self.is_virtual() and targetbox is not self.box:
-            lengthbox = self.getstrlen(string_optimizer, mode)
-            srcbox = self.force_box(string_optimizer)
-            return copy_str_content(string_optimizer, srcbox, targetbox,
-                                CONST_0, offsetbox, lengthbox, mode)
+        if not self.is_valid():
+            return VAbstractStringValue.string_copy_parts(
+                self, string_optimizer, targetbox, offsetbox, mode)
         for i in range(len(self._chars)):
             charbox = self._chars[i].force_box(string_optimizer)
             if not (isinstance(charbox, Const) and charbox.same_constant(CONST_0)):
@@ -158,6 +185,7 @@ class VStringPlainValue(VAbstractStringValue):
 
     def get_args_for_fail(self, modifier):
         if self.box is None and not modifier.already_seen_virtual(self.keybox):
+            assert self.is_valid()
             charboxes = [value.get_key_box() for value in self._chars]
             modifier.register_virtual_fields(self.keybox, charboxes)
             for value in self._chars:
@@ -373,7 +401,8 @@ class OptString(optimizer.Optimization):
 
     def optimize_STRSETITEM(self, op):
         value = self.getvalue(op.getarg(0))
-        if value.is_virtual() and isinstance(value, VStringPlainValue):
+        if (value.is_virtual() and isinstance(value, VStringPlainValue)
+            and value.is_valid()):
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
                 value.setitem(indexbox.getint(), self.getvalue(op.getarg(2)))
@@ -404,13 +433,10 @@ class OptString(optimizer.Optimization):
             value = value.vstr
             vindex = self.getvalue(fullindexbox)
         #
-        if isinstance(value, VStringPlainValue):  # even if no longer virtual
+        if (isinstance(value, VStringPlainValue)  # even if no longer virtual
+            and value.is_valid()):                # but make sure it is valid
             if vindex.is_constant():
-                res = value.getitem(vindex.box.getint())
-                # If it is uninitialized we can't return it, it was set by a
-                # COPYSTRCONTENT, not a STRSETITEM
-                if res is not optimizer.CVAL_UNINITIALIZED_ZERO:
-                    return res
+                return value.getitem(vindex.box.getint())
         #
         resbox = _strgetitem(self, value.force_box(self), vindex.force_box(self), mode)
         return self.getvalue(resbox)
@@ -503,19 +529,12 @@ class OptString(optimizer.Optimization):
         vstart = self.getvalue(op.getarg(2))
         vstop = self.getvalue(op.getarg(3))
         #
-        if (isinstance(vstr, VStringPlainValue) and vstart.is_constant()
-            and vstop.is_constant()):
-            # slicing with constant bounds of a VStringPlainValue, if any of
-            # the characters is unitialized we don't do this special slice, we
-            # do the regular copy contents.
-            for i in range(vstart.box.getint(), vstop.box.getint()):
-                if vstr.getitem(i) is optimizer.CVAL_UNINITIALIZED_ZERO:
-                    break
-            else:
-                value = self.make_vstring_plain(op.result, op, mode)
-                value.setup_slice(vstr._chars, vstart.box.getint(),
-                                               vstop.box.getint())
-                return True
+        if (isinstance(vstr, VStringPlainValue) and vstr.is_valid()
+            and vstart.is_constant() and vstop.is_constant()):
+            value = self.make_vstring_plain(op.result, op, mode)
+            value.setup_slice(vstr._chars, vstart.box.getint(),
+                              vstop.box.getint())
+            return True
         #
         vstr.ensure_nonnull()
         lengthbox = _int_sub(self, vstop.force_box(self),
