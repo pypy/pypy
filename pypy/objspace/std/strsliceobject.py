@@ -60,8 +60,8 @@ def contains__StringSlice_String(space, w_self, w_sub):
 def _convert_idx_params(space, w_self, w_sub, w_start, w_end):
     length = w_self.stop - w_self.start
     sub = w_sub._value
-    start = slicetype.adapt_bound(space, length, w_start)
-    end = slicetype.adapt_bound(space, length, w_end)
+    start, end = slicetype.unwrap_start_stop(
+            space, length, w_start, w_end, True)
 
     assert start >= 0
     assert end >= 0
