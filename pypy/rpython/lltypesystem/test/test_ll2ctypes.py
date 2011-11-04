@@ -742,6 +742,8 @@ class TestLL2Ctypes(object):
         eci = ExternalCompilationInfo(includes=['string.h'])
         if sys.platform.startswith('win'):
             underscore_on_windows = '_'
+            if sys.version.startswith('2.7.2 '):
+                py.test.skip('ctypes is buggy. errno crashes with win64 and python 2.7.2')
         else:
             underscore_on_windows = ''
         strlen = rffi.llexternal('strlen', [rffi.CCHARP], rffi.SIZE_T,

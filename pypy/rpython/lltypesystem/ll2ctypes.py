@@ -177,8 +177,17 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
     assert max_n >= 0
     ITEM = A.OF
     ctypes_item = get_ctypes_type(ITEM, delayed_builders)
+    # Python 2.5 ctypes can raise OverflowError on 64-bit builds
+    for n in [sys.maxint, 2**31]:
+        MAX_SIZE = n/64
+        try:
+            PtrType = ctypes.POINTER(MAX_SIZE * ctypes_item)
         except (OverflowError, AttributeError), e:
             pass      #        ^^^ bah, blame ctypes
+        else:
+            break
+    else:
+        raise e
 
     class CArray(ctypes.Structure):
         if not A._hints.get('nolength'):
@@ -210,6 +219,9 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
                     cls._ptrtype = ctypes.POINTER(cls.MAX_SIZE * ctypes_item)
                 except OverflowError, e:
                     pass
+                except AttributeError, e:
+                    pass # XXX win64 failure and segfault, afterwards:
+                    # AttributeError: class must define a '_length_' attribute, which must be a positive integer
                 else:
                     break
             else:
