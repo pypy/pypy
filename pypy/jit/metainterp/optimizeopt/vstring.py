@@ -451,6 +451,17 @@ class OptString(optimizer.Optimization):
                 if result is not None:
                     return result
         #
+        if isinstance(value, VStringConcatValue) and vindex.is_constant():
+            len1box = value.left.getstrlen(self, mode)
+            if isinstance(len1box, ConstInt):
+                index = vindex.box.getint()
+                len1 = len1box.getint()
+                if index < len1:
+                    return self.strgetitem(value.left, vindex, mode)
+                else:
+                    vindex = optimizer.ConstantValue(ConstInt(index - len1))
+                    return self.strgetitem(value.right, vindex, mode)
+        #
         resbox = _strgetitem(self, value.force_box(self), vindex.force_box(self), mode)
         return self.getvalue(resbox)
 
