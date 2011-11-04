@@ -21,12 +21,11 @@ class TestW_SpecialisedTupleObject():
         assert not isinstance(w_tuple, W_SpecialisedTupleObject)
         
     def test_hash_against_normal_tuple(self):
-        py.test.skip('in progress')
         normalspace = gettestobjspace(**{"objspace.std.withspecialisedtuple": False})
-        w_tuple = normalspace.newtuple([self.space.wrap(1)])
+        w_tuple = normalspace.newtuple([self.space.wrap(1), self.space.wrap(2)])
 
         specialisedspace = gettestobjspace(**{"objspace.std.withspecialisedtuple": True})
-        w_specialisedtuple = specialisedspace.newtuple([self.space.wrap(1)])
+        w_specialisedtuple = specialisedspace.newtuple([self.space.wrap(1), self.space.wrap(2)])
 
         assert isinstance(w_specialisedtuple, W_SpecialisedTupleObject)
         assert isinstance(w_tuple, W_TupleObject)

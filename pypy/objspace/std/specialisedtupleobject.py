@@ -55,7 +55,18 @@ class W_SpecialisedTupleObjectIntInt(W_SpecialisedTupleObject):
         return [self.space.wrap(self.intval0), self.space.wrap(self.intval1)]
         
     def hash(self, space):
-        return space.wrap(0)
+        mult = 1000003
+        x = 0x345678
+        z = 2
+        for intval in [self.intval0, self.intval1]:
+            # we assume that hash value of an intger is the integer itself
+            # look at intobject.py hash__Int to check this!
+            y = intval		
+            x = (x ^ y) * mult
+            z -= 1
+            mult += 82520 + z + z
+        x += 97531
+        return space.wrap(intmask(x))
 
     def eq(self, space, w_other):
         if w_other.length() != 2:
