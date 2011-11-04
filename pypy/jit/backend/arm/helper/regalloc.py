@@ -107,17 +107,12 @@ def prepare_cmp_op(name=None):
     def f(self, op, guard_op, fcond):
         assert fcond is not None
         boxes = list(op.getarglist())
-        if not inverse:
-            arg0, arg1 = boxes
-        else:
-            arg1, arg0 = boxes
-        # XXX consider swapping argumentes if arg0 is const
-        imm_a0 = _check_imm_arg(arg0)
+        arg0, arg1 = boxes
         imm_a1 = _check_imm_arg(arg1)
 
         l0, box = self._ensure_value_is_boxed(arg0, forbidden_vars=boxes)
         boxes.append(box)
-        if imm_a1 and not imm_a0:
+        if imm_a1:
             l1 = self.make_sure_var_in_reg(arg1, boxes)
         else:
             l1, box = self._ensure_value_is_boxed(arg1, forbidden_vars=boxes)

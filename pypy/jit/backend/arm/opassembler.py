@@ -137,8 +137,6 @@ class IntOpAsslember(object):
     emit_op_int_ge = gen_emit_cmp_op('int_ge', c.GE)
 
 
-    emit_op_ptr_eq = emit_op_int_eq
-    emit_op_ptr_ne = emit_op_int_ne
 
     emit_guard_int_lt = gen_emit_cmp_op_guard('int_lt', c.LT)
     emit_guard_int_le = gen_emit_cmp_op_guard('int_le', c.LE)
@@ -151,15 +149,14 @@ class IntOpAsslember(object):
     emit_op_uint_gt = gen_emit_cmp_op('uint_gt', c.HI)
     emit_op_uint_lt = gen_emit_cmp_op('uint_lt', c.LO)
     emit_op_uint_ge = gen_emit_cmp_op('uint_ge', c.HS)
-    emit_guard_uint_lt = gen_emit_cmp_op_guard('uint_lt', c.LO)
-    emit_guard_uint_ge = gen_emit_cmp_op_guard('uint_ge', c.HS)
 
     emit_guard_uint_le = gen_emit_cmp_op_guard('uint_le', c.LS)
     emit_guard_uint_gt = gen_emit_cmp_op_guard('uint_gt', c.HI)
+    emit_guard_uint_lt = gen_emit_cmp_op_guard('uint_lt', c.LO)
+    emit_guard_uint_ge = gen_emit_cmp_op_guard('uint_ge', c.HS)
 
-    emit_guard_uint_lt = gen_emit_cmp_op_guard('uint_lt', c.HI)
-    emit_guard_uint_ge = gen_emit_cmp_op_guard('uint_ge', c.LS)
-
+    emit_op_ptr_eq = emit_op_int_eq
+    emit_op_ptr_ne = emit_op_int_ne
     emit_guard_ptr_eq = emit_guard_int_eq
     emit_guard_ptr_ne = emit_guard_int_ne
 
@@ -172,11 +169,11 @@ class UnaryIntOpAssembler(object):
 
     _mixin_ = True
 
-    emit_op_int_is_true = gen_emit_op_unary_cmp('int_is_true', c.NE, c.EQ)
-    emit_op_int_is_zero = gen_emit_op_unary_cmp('int_is_zero', c.EQ, c.NE)
+    emit_op_int_is_true = gen_emit_op_unary_cmp('int_is_true', c.NE)
+    emit_op_int_is_zero = gen_emit_op_unary_cmp('int_is_zero', c.EQ)
 
-    emit_guard_int_is_true = gen_emit_guard_unary_cmp('int_is_true', c.NE, c.EQ)
-    emit_guard_int_is_zero = gen_emit_guard_unary_cmp('int_is_zero', c.EQ, c.NE)
+    emit_guard_int_is_true = gen_emit_guard_unary_cmp('int_is_true', c.NE)
+    emit_guard_int_is_zero = gen_emit_guard_unary_cmp('int_is_zero', c.EQ)
 
     def emit_op_int_invert(self, op, arglocs, regalloc, fcond):
         reg, res = arglocs
@@ -193,7 +190,6 @@ class GuardOpAssembler(object):
 
     _mixin_ = True
 
-    guard_size = 5*WORD
     def _emit_guard(self, op, arglocs, fcond, save_exc=False, is_guard_not_ivalidated=False):
         descr = op.getdescr()
         assert isinstance(descr, AbstractFailDescr)
