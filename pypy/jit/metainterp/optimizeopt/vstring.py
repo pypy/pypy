@@ -207,6 +207,7 @@ class VStringPlainValue(VAbstractStringValue):
 
 class VStringConcatValue(VAbstractStringValue):
     """The concatenation of two other strings."""
+    _attrs_ = ('left', 'right', 'lengthbox')
 
     lengthbox = None     # or the computed length
 
