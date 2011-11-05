@@ -1023,16 +1023,43 @@ class Stats(object):
                 "found %d %r, expected %d" % (found, insn, expected_count))
         return insns
 
-    def check_loops(self, expected=None, everywhere=False, **check):
+    def check_resops(self, expected=None, **check):
         insns = {}
         for loop in self.loops:
-            if not everywhere:
-                if getattr(loop, '_ignore_during_counting', False):
-                    continue
             insns = loop.summary(adding_insns=insns)
         if expected is not None:
             insns.pop('debug_merge_point', None)
             assert insns == expected
+        for insn, expected_count in check.items():
+            getattr(rop, insn.upper())  # fails if 'rop.INSN' does not exist
+            found = insns.get(insn, 0)
+            assert found == expected_count, (
+                "found %d %r, expected %d" % (found, insn, expected_count))
+        return insns
+        
+    def check_loops(self, expected=None, everywhere=False, **check):
+        insns = {}
+        for loop in self.loops:
+            #if not everywhere:
+            #    if getattr(loop, '_ignore_during_counting', False):
+            #        continue
+            insns = loop.summary(adding_insns=insns)
+        if expected is not None:
+            insns.pop('debug_merge_point', None)
+            print
+            print
+            print "        self.check_resops(%s)" % str(insns)
+            print
+            import pdb; pdb.set_trace()
+        else:
+            chk = ['%s=%d' % (i, insns.get(i, 0)) for i in check]
+            print
+            print
+            print "        self.check_resops(%s)" % ', '.join(chk)
+            print
+            import pdb; pdb.set_trace()
+        return
+        
         for insn, expected_count in check.items():
             getattr(rop, insn.upper())  # fails if 'rop.INSN' does not exist
             found = insns.get(insn, 0)
