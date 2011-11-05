@@ -1,0 +1,7 @@
+Things I changed (or hacked) outside the pypy/translator/stm
+directory and that need to be cleaned up before the 'stm'
+branch can be merged::
+    
+    2869bd44f830  Make the exc_data structure a thread-local.
+
+    c456e6bccc2a  gc_can_move returns always True.
