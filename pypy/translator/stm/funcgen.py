@@ -4,7 +4,7 @@ from pypy.translator.c.support import cdecl, c_string_constant
 from pypy.translator.stm.rstm import size_of_voidp
 
 
-def _stm_generic_get(funcgen, op, expr):
+def _stm_generic_get(funcgen, op, expr, simple_struct=False):
     T = funcgen.lltypemap(op.result)
     resulttypename = funcgen.db.gettype(T)
     cresulttypename = cdecl(resulttypename, '')
@@ -27,11 +27,11 @@ def _stm_generic_get(funcgen, op, expr):
         return '%s = (%s)%s((long*)&%s);' % (
             newvalue, cresulttypename, funcname, expr)
     else:
-        STRUCT = funcgen.lltypemap(op.args[0]).TO
-        if isinstance(STRUCT, lltype.Struct):
+        if simple_struct:
             # assume that the object is aligned, and any possible misalignment
             # comes from the field offset, so that it can be resolved at
             # compile-time (by using C macros)
+            STRUCT = funcgen.lltypemap(op.args[0]).TO
             structdef = funcgen.db.gettypedefnode(STRUCT)
             basename = funcgen.expr(op.args[0])
             fieldname = op.args[1].value
@@ -85,7 +85,7 @@ def field_expr(funcgen, args):
 
 def stm_getfield(funcgen, op):
     expr = field_expr(funcgen, op.args)
-    return _stm_generic_get(funcgen, op, expr)
+    return _stm_generic_get(funcgen, op, expr, simple_struct=True)
 
 def stm_setfield(funcgen, op):
     expr = field_expr(funcgen, op.args)
