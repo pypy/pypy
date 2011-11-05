@@ -52,16 +52,15 @@ class AppTestW_SpecialisedTupleObject(object):
             return w_tuple
         cls.w_forbid_delegation = cls.space.wrap(gateway.interp2app(forbid_delegation))
             
-        
-    
     def w_isspecialised(self, obj):
        import __pypy__
        return "SpecialisedTuple" in __pypy__.internal_repr(obj)
-        
+       
 
-
-    def test_specialisedtuple(self):
+    def test_createspecialisedtuple(self):
         assert self.isspecialised((42,43))
+        assert self.isspecialised((4.2,4.3))
+        assert self.isspecialised((1.0,2.0))
         
     def test_len(self):
         t = self.forbid_delegation((42,43))
@@ -69,7 +68,9 @@ class AppTestW_SpecialisedTupleObject(object):
 
     def test_notspecialisedtuple(self):
         assert not self.isspecialised((42,43,44))
-        
+        assert not self.isspecialised((1,1.5))
+        assert not self.isspecialised((1,1.0))
+
     def test_slicing_to_specialised(self):
         assert self.isspecialised((1, 2, 3)[0:2])   
         assert self.isspecialised((1, '2', 3)[0:5:2])
