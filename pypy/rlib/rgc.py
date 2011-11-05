@@ -186,8 +186,11 @@ def ll_shrink_array(p, smallerlength):
     from pypy.rpython.lltypesystem.lloperation import llop
     from pypy.rlib.objectmodel import keepalive_until_here
 
-    if llop.shrink_array(lltype.Bool, p, smallerlength):
-        return p    # done by the GC
+    # XXX --- custom version for STM ---
+    # the next two lines are disabled:
+##    if llop.shrink_array(lltype.Bool, p, smallerlength):
+##        return p    # done by the GC
+
     # XXX we assume for now that the type of p is GcStruct containing a
     # variable array, with no further pointers anywhere, and exactly one
     # field in the fixed part -- like STR and UNICODE.
