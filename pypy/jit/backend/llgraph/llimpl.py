@@ -639,7 +639,7 @@ class Frame(object):
         #
         return _op_default_implementation
 
-    def op_target(self, _, *args):
+    def op_label(self, _, *args):
         pass
         
     def op_debug_merge_point(self, _, *args):

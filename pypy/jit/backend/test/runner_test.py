@@ -2971,13 +2971,13 @@ class LLtypeBackendTest(BaseBackendTest):
         i2 = BoxInt()
         i3 = BoxInt()
         looptoken = LoopToken()
-        targettoken = TargetToken()
+        targettoken = TargetToken(None)
         faildescr = BasicFailDescr(2)
         operations = [
             ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
             ResOperation(rop.INT_LE, [i1, ConstInt(9)], i2),
             ResOperation(rop.GUARD_TRUE, [i2], None, descr=faildescr),
-            ResOperation(rop.TARGET, [i1], None, descr=targettoken),
+            ResOperation(rop.LABEL, [i1], None, descr=targettoken),
             ResOperation(rop.INT_GE, [i1, ConstInt(0)], i3),
             ResOperation(rop.GUARD_TRUE, [i3], None, descr=BasicFailDescr(3)),
             ResOperation(rop.JUMP, [i1], None, descr=looptoken),
