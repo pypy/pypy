@@ -4,4 +4,4 @@ branch can be merged::
     
     2869bd44f830  Make the exc_data structure a thread-local.
 
-    c456e6bccc2a  gc_can_move returns always True.
+    e23ab2c195c1  Added a number of "# XXX --- custom version for STM ---"
