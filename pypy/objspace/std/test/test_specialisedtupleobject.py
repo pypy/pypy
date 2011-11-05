@@ -3,7 +3,7 @@ from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.objspace.std.specialisedtupleobject import W_SpecialisedTupleObject,W_SpecialisedTupleObjectIntInt
 from pypy.interpreter.error import OperationError
 from pypy.conftest import gettestobjspace
-from pypy.objspace.std.test.test_tupleobject import AppTestW_TupleObject
+#from pypy.objspace.std.test.test_tupleobject import AppTestW_TupleObject
 from pypy.interpreter import gateway
 
 
@@ -41,7 +41,7 @@ class TestW_SpecialisedTupleObject():
         assert len(list_w) == 1
         assert self.space.eq_w(list_w[0], self.space.wrap(5))        
 
-class AppTestW_SpecialisedTupleObject(AppTestW_TupleObject):
+class AppTestW_SpecialisedTupleObject(object):
 
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withspecialisedtuple": True})
@@ -99,6 +99,13 @@ class AppTestW_SpecialisedTupleObject(AppTestW_TupleObject):
         c = (2,4)
         assert hash(a) != hash(c)
 
+    def test_getitem(self):
+        t = self.forbid_delegation((5,3))
+        assert (t)[0] == 5
+        assert (t)[1] == 3
+        assert (t)[-1] == 3
+        assert (t)[-2] == 5
+        raises(IndexError, "t[2]")
         
         
         

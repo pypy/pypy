@@ -112,7 +112,6 @@ def getitem__SpecialisedTuple_ANY(space, w_tuple, w_index):
         raise OperationError(space.w_IndexError,
                              space.wrap("tuple index out of range"))
 '''
-
 def getitem__SpecialisedTuple_Slice(space, w_tuple, w_slice):
     length = w_tuple.length()
     start, stop, step, slicelength = w_slice.indices4(space, length)
