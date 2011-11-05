@@ -25,6 +25,7 @@ def makespecialisedtuple(space, list_w):
 
 class W_SpecialisedTupleObject(W_Object):
     from pypy.objspace.std.tupletype import tuple_typedef as typedef
+    __slots__ = []
 
     def tolist(self):
         raise NotImplementedError
@@ -50,50 +51,55 @@ class W_SpecialisedTupleObject(W_Object):
     def unwrap(w_tuple, space):
         return tuple(self.tolist)
                         
-
-class W_SpecialisedTupleObjectIntInt(W_SpecialisedTupleObject):
-    def __init__(self, space, intval0, intval1):
-        assert isinstance(intval0, int)
-        assert isinstance(intval1, int)
-        self.space = space
-        self.intval0 = intval0
-        self.intval1 = intval1
-
-    def length(self):
-        return 2
-
-    def tolist(self):
-        return [self.space.wrap(self.intval0), self.space.wrap(self.intval1)]
-        
-    def hash(self, space):
-        mult = 1000003
-        x = 0x345678
-        z = 2
-        for intval in [self.intval0, self.intval1]:
-            # we assume that hash value of an integer is the integer itself
-            # look at intobject.py hash__Int to check this!
-            y = intval		
-            x = (x ^ y) * mult
-            z -= 1
-            mult += 82520 + z + z
-        x += 97531
-        return space.wrap(intmask(x))
-
-    def eq(self, space, w_other):
-        if w_other.length() != 2:
-            return space.w_False
-        if self.intval0 == w_other.intval0 and self.intval1 == w_other.intval1:	#xxx
-            return space.w_True
-        else:
-            return space.w_False
-
-    def getitem(self, index):
-        if index == 0:
-            return self.space.wrap(self.intval0)
-        if index == 1:
-            return self.space.wrap(self.intval1)
-        raise IndexError
-
+def make_specialised_class(type0, type1):
+    class cls(W_SpecialisedTupleObject):
+        def __init__(self, space, intval0, intval1):
+            assert isinstance(intval0, int)
+            assert isinstance(intval1, int)
+            self.space = space
+            self.intval0 = intval0
+            self.intval1 = intval1
+    
+        def length(self):
+            return 2
+    
+        def tolist(self):
+            return [self.space.wrap(self.intval0), self.space.wrap(self.intval1)]
+            
+        def hash(self, space):
+            mult = 1000003
+            x = 0x345678
+            z = 2
+            for intval in [self.intval0, self.intval1]:
+                # we assume that hash value of an integer is the integer itself
+                # look at intobject.py hash__Int to check this!
+                y = intval		
+                x = (x ^ y) * mult
+                z -= 1
+                mult += 82520 + z + z
+            x += 97531
+            return space.wrap(intmask(x))
+    
+        def eq(self, space, w_other):
+            if w_other.length() != 2:
+                return space.w_False
+            if self.intval0 == w_other.intval0 and self.intval1 == w_other.intval1:	#xxx
+                return space.w_True
+            else:
+                return space.w_False
+    
+        def getitem(self, index):
+            if index == 0:
+                return self.space.wrap(self.intval0)
+            if index == 1:
+                return self.space.wrap(self.intval1)
+            raise IndexError
+    cls.__name__ = 'W_SpecialisedTupleObjectIntInt'        
+    return cls
+    
+    
+W_SpecialisedTupleObjectIntInt = make_specialised_class(int,int)
+    
 registerimplementation(W_SpecialisedTupleObject)
 
 def delegate_SpecialisedTuple2Tuple(space, w_specialised):
