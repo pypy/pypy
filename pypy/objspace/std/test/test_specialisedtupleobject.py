@@ -84,12 +84,12 @@ class AppTestW_SpecialisedTupleObject(object):
         assert (1,2,3)[0:2:1] == (1,2)
 
     def test_eq(self):
-        a = (1,2)
+        a = self.forbid_delegation((1,2))
         b = (1,2)
         assert a == b
-
+        
         c = (1,3,2)
-        assert a != c
+        assert not a == c
 
     def test_hash(self):
         a = (1,2)
@@ -106,6 +106,7 @@ class AppTestW_SpecialisedTupleObject(object):
         assert (t)[-1] == 3
         assert (t)[-2] == 5
         raises(IndexError, "t[2]")
+        
         
         
         
