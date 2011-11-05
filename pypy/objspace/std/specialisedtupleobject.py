@@ -10,7 +10,18 @@ from pypy.objspace.std import slicetype
 from pypy.rlib.rarithmetic import intmask
 from pypy.objspace.std.tupleobject import W_TupleObject
 
-from  types import IntType, FloatType, StringType
+class NotSpecialised(Exception):
+    pass         
+            
+def makespecilisedtuple(space, list_w):            
+    if len(list_w) == 2:
+        w_item0 = list_w[0]
+        w_item1 = list_w[1]
+        if space.type(w_item0) == space.w_int and space.type(w_item1) == space.w_int:
+                val0 = space.int_w(w_item0)
+                val1 = space.int_w(w_item1)
+                return W_SpecialisedTupleObjectIntInt(space, val0, val1)
+    raise NotSpecialised                        
 
 class W_SpecialisedTupleObject(W_Object):
     from pypy.objspace.std.tupletype import tuple_typedef as typedef
@@ -59,7 +70,7 @@ class W_SpecialisedTupleObjectIntInt(W_SpecialisedTupleObject):
         x = 0x345678
         z = 2
         for intval in [self.intval0, self.intval1]:
-            # we assume that hash value of an intger is the integer itself
+            # we assume that hash value of an integer is the integer itself
             # look at intobject.py hash__Int to check this!
             y = intval		
             x = (x ^ y) * mult
@@ -76,13 +87,13 @@ class W_SpecialisedTupleObjectIntInt(W_SpecialisedTupleObject):
         else:
             return space.w_False
 
-'''
     def getitem(self, index):
         if index == 0:
-            self.wrap(self.intval)
-            return W_IntObject(self.intval)
+            return self.space.wrap(self.intval0)
+        if index == 1:
+            return self.space.wrap(self.intval1)
         raise IndexError
-
+'''
     def setitem(self, index, w_item):
         assert isinstance(w_item, W_IntObject)
         if index == 0:
@@ -95,7 +106,7 @@ registerimplementation(W_SpecialisedTupleObject)
 
 def delegate_SpecialisedTuple2Tuple(space, w_specialised):
     return W_TupleObject(w_specialised.tolist())
-'''
+
 def len__SpecialisedTuple(space, w_tuple):
     return space.wrap(w_tuple.length())
 
@@ -108,6 +119,7 @@ def getitem__SpecialisedTuple_ANY(space, w_tuple, w_index):
     except IndexError:
         raise OperationError(space.w_IndexError,
                              space.wrap("tuple index out of range"))
+'''
 
 def getitem__SpecialisedTuple_Slice(space, w_tuple, w_slice):
     length = w_tuple.length()

@@ -14,23 +14,14 @@ def wraptuple(space, list_w):
     from pypy.objspace.std.smalltupleobject import W_SmallTupleObject6
     from pypy.objspace.std.smalltupleobject import W_SmallTupleObject7
     from pypy.objspace.std.smalltupleobject import W_SmallTupleObject8
-
-
-    from pypy.objspace.std.specialisedtupleobject import W_SpecialisedTupleObjectIntInt
-        
-    from pypy.objspace.std.intobject import W_IntObject
-    from pypy.objspace.std.floatobject import W_FloatObject
-    from pypy.objspace.std.stringobject import W_StringObject
-    
+            
     if space.config.objspace.std.withspecialisedtuple:
-        if len(list_w) == 2:
-            w_item0 = list_w[0]
-            w_item1 = list_w[1]
-            if space.type(w_item0) == space.w_int and space.type(w_item1) == space.w_int:
-                 val0 = space.int_w(w_item0)
-                 val1 = space.int_w(w_item1)
-                 return W_SpecialisedTupleObjectIntInt(space, val0, val1)
-                            
+        from specialisedtupleobject import makespecilisedtuple, NotSpecialised
+        try:
+            return makespecilisedtuple(space, list_w)
+        except NotSpecialised:
+            pass
+
     if space.config.objspace.std.withsmalltuple:
         if len(list_w) == 2:
             return W_SmallTupleObject2(list_w)
