@@ -4,7 +4,7 @@ from pypy.objspace.std.specialisedtupleobject import W_SpecialisedTupleObject,W_
 from pypy.interpreter.error import OperationError
 from pypy.conftest import gettestobjspace
 from pypy.objspace.std.test.test_tupleobject import AppTestW_TupleObject
-
+from pypy.interpreter import gateway
 
 
 class TestW_SpecialisedTupleObject():
@@ -45,17 +45,27 @@ class AppTestW_SpecialisedTupleObject(AppTestW_TupleObject):
 
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withspecialisedtuple": True})
+        def forbid_delegation(space, w_tuple):
+            def delegation_forbidden():
+                raise NotImplementedError
+            w_tuple.tolist = delegation_forbidden
+            return w_tuple
+        cls.w_forbid_delegation = cls.space.wrap(gateway.interp2app(forbid_delegation))
+            
+        
     
     def w_isspecialised(self, obj):
        import __pypy__
        return "SpecialisedTuple" in __pypy__.internal_repr(obj)
         
 
+
     def test_specialisedtuple(self):
         assert self.isspecialised((42,43))
         
     def test_len(self):
-        assert len((42,43)) == 2
+        t = self.forbid_delegation((42,43))
+        assert len(t) == 2
 
     def test_notspecialisedtuple(self):
         assert not self.isspecialised((42,43,44))

@@ -93,14 +93,6 @@ class W_SpecialisedTupleObjectIntInt(W_SpecialisedTupleObject):
         if index == 1:
             return self.space.wrap(self.intval1)
         raise IndexError
-'''
-    def setitem(self, index, w_item):
-        assert isinstance(w_item, W_IntObject)
-        if index == 0:
-            self.intval = w_item.intval
-            return
-        raise IndexError
-'''        
 
 registerimplementation(W_SpecialisedTupleObject)
 
