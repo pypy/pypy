@@ -312,11 +312,10 @@ def _make_reversed(space, w_seq, w_remaining):
 
 
 class W_XRange(Wrappable):
-    def __init__(self, space, start, stop, step):
+    def __init__(self, space, start, len, step):
         self.space = space
         self.start = start
-        self.stop = stop
-        self.len = get_len_of_range(space, start, stop, step)
+        self.len   = len
         self.step  = step
 
     def descr_new(space, w_subtype, w_start, w_stop=None, w_step=1):
@@ -326,8 +325,9 @@ class W_XRange(Wrappable):
             start, stop = 0, start
         else:
             stop = _toint(space, w_stop)
+        howmany = get_len_of_range(space, start, stop, step)
         obj = space.allocate_instance(W_XRange, w_subtype)
-        W_XRange.__init__(obj, space, start, stop, step)
+        W_XRange.__init__(obj, space, start, howmany, step)
         return space.wrap(obj)
 
     def descr_repr(self):
@@ -357,12 +357,12 @@ class W_XRange(Wrappable):
 
     def descr_iter(self):
         return self.space.wrap(W_XRangeIterator(self.space, self.start,
-                                                self.stop, self.step))
+                                                self.len, self.step))
 
     def descr_reversed(self):
         lastitem = self.start + (self.len-1) * self.step
         return self.space.wrap(W_XRangeIterator(self.space, lastitem,
-                                                self.start, -self.step, True))
+                                                self.len, -self.step))
 
     def descr_reduce(self):
         space = self.space
@@ -389,29 +389,25 @@ W_XRange.typedef = TypeDef("xrange",
 )
 
 class W_XRangeIterator(Wrappable):
-    def __init__(self, space, start, stop, step, inclusive=False):
+    def __init__(self, space, current, remaining, step):
         self.space = space
-        self.current = start
-        self.stop = stop
+        self.current = current
+        self.remaining = remaining
         self.step = step
-        self.inclusive = inclusive
 
     def descr_iter(self):
         return self.space.wrap(self)
 
     def descr_next(self):
-        if self.inclusive:
-            if not ((self.step > 0 and self.current <= self.stop) or (self.step < 0 and self.current >= self.stop)):
-                raise OperationError(self.space.w_StopIteration, self.space.w_None)
-        else:
-            if not ((self.step > 0 and self.current < self.stop) or (self.step < 0 and self.current > self.stop)):
-                raise OperationError(self.space.w_StopIteration, self.space.w_None)
-        item = self.current
-        self.current = item + self.step
-        return self.space.wrap(item)
+        if self.remaining > 0:
+            item = self.current
+            self.current = item + self.step
+            self.remaining -= 1
+            return self.space.wrap(item)
+        raise OperationError(self.space.w_StopIteration, self.space.w_None)
 
-    #def descr_len(self):
-    #    return self.space.wrap(self.remaining)
+    def descr_len(self):
+        return self.space.wrap(self.remaining)
 
     def descr_reduce(self):
         from pypy.interpreter.mixedmodule import MixedModule
@@ -422,7 +418,7 @@ class W_XRangeIterator(Wrappable):
         w        = space.wrap
         nt = space.newtuple
 
-        tup = [w(self.current), w(self.stop), w(self.step)]
+        tup = [w(self.current), w(self.remaining), w(self.step)]
         return nt([new_inst, nt(tup)])
 
 W_XRangeIterator.typedef = TypeDef("rangeiterator",

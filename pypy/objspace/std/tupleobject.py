@@ -167,17 +167,8 @@ def tuple_count__Tuple_ANY(space, w_tuple, w_obj):
     return space.wrap(count)
 
 def tuple_index__Tuple_ANY_ANY_ANY(space, w_tuple, w_obj, w_start, w_stop):
-    start = slicetype.eval_slice_index(space, w_start)
-    stop = slicetype.eval_slice_index(space, w_stop)
     length = len(w_tuple.wrappeditems)
-    if start < 0:
-        start += length
-        if start < 0:
-            start = 0
-    if stop < 0:
-        stop += length
-        if stop < 0:
-            stop = 0
+    start, stop = slicetype.unwrap_start_stop(space, length, w_start, w_stop)
     for i in range(start, min(stop, length)):
         w_item = w_tuple.wrappeditems[i]
         if space.eq_w(w_item, w_obj):
