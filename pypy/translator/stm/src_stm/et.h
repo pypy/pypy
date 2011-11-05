@@ -54,8 +54,8 @@ void stm_commit_transaction_and_descriptor_done(void);
            (long*)(((char*)(base)) + ((offset) & ~(sizeof(void*)-1))))  \
         >> (8 * ((offset) & (sizeof(void*)-1))))
 
-void stm_write_partial_word(int fieldsize, char *base, long offset,
-                            unsigned long nval);
+unsigned long stm_read_partial_word(int fieldsize, char *addr);
+void stm_write_partial_word(int fieldsize, char *addr, unsigned long nval);
 
 double stm_read_double(long *addr);
 void stm_write_double(long *addr, double val);

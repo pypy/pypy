@@ -129,7 +129,7 @@ class STMTransformer(object):
             op1 = SpaceOperation('stm_setfield', op.args, op.result)
         newoperations.append(op1)
 
-    def FINISHME_stt_getarrayitem(self, newoperations, op):
+    def stt_getarrayitem(self, newoperations, op):
         ARRAY = op.args[0].concretetype.TO
         if ARRAY._immutable_field():
             op1 = op

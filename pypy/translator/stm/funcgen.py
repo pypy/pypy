@@ -4,12 +4,7 @@ from pypy.translator.c.support import cdecl, c_string_constant
 from pypy.translator.stm.rstm import size_of_voidp
 
 
-def stm_getfield(funcgen, op):
-    STRUCT = funcgen.lltypemap(op.args[0]).TO
-    structdef = funcgen.db.gettypedefnode(STRUCT)
-    baseexpr_is_const = isinstance(op.args[0], Constant)
-    basename = funcgen.expr(op.args[0])
-    fieldname = op.args[1].value
+def _stm_generic_get(funcgen, op, expr):
     T = funcgen.lltypemap(op.result)
     fieldtypename = funcgen.db.gettype(T)
     cfieldtypename = cdecl(fieldtypename, '')
@@ -29,19 +24,34 @@ def stm_getfield(funcgen, op):
             funcname = 'stm_read_doubleword'
         else:
             raise NotImplementedError(fieldsize)
-        expr = structdef.ptr_access_expr(basename,
-                                         fieldname,
-                                         baseexpr_is_const)
         return '%s = (%s)%s((long*)&%s);' % (
             newvalue, cfieldtypename, funcname, expr)
     else:
-        # assume that the object is aligned, and any possible misalignment
-        # comes from the field offset, so that it can be resolved at
-        # compile-time (by using C macros)
-        return '%s = STM_read_partial_word(%s, %s, offsetof(%s, %s));' % (
-            newvalue, cfieldtypename, basename,
-            cdecl(funcgen.db.gettype(STRUCT), ''),
-            structdef.c_struct_field_name(fieldname))
+        STRUCT = funcgen.lltypemap(op.args[0]).TO
+        if isinstance(STRUCT, lltype.Struct):
+            # assume that the object is aligned, and any possible misalignment
+            # comes from the field offset, so that it can be resolved at
+            # compile-time (by using C macros)
+            structdef = funcgen.db.gettypedefnode(STRUCT)
+            basename = funcgen.expr(op.args[0])
+            fieldname = op.args[1].value
+            return '%s = STM_read_partial_word(%s, %s, offsetof(%s, %s));' % (
+                newvalue, cfieldtypename, basename,
+                cdecl(funcgen.db.gettype(STRUCT), ''),
+                structdef.c_struct_field_name(fieldname))
+        #
+        else:
+            return '%s = stm_read_partial_word(sizeof(%s), &%s);' % (
+                newvalue, cfieldtypename, expr)
+
+def stm_getfield(funcgen, op):
+    STRUCT = funcgen.lltypemap(op.args[0]).TO
+    structdef = funcgen.db.gettypedefnode(STRUCT)
+    baseexpr_is_const = isinstance(op.args[0], Constant)
+    expr = structdef.ptr_access_expr(funcgen.expr(op.args[0]),
+                                     op.args[1].value,
+                                     baseexpr_is_const)
+    return _stm_generic_get(funcgen, op, expr)
 
 def stm_setfield(funcgen, op):
     STRUCT = funcgen.lltypemap(op.args[0]).TO
@@ -52,6 +62,10 @@ def stm_setfield(funcgen, op):
     T = funcgen.lltypemap(op.args[2])
     fieldtypename = funcgen.db.gettype(T)
     newvalue = funcgen.expr(op.args[2], special_case_void=False)
+    #
+    expr = structdef.ptr_access_expr(basename,
+                                     fieldname,
+                                     baseexpr_is_const)
     #
     assert T is not lltype.Void     # XXX
     fieldsize = rffi.sizeof(T)
@@ -71,18 +85,21 @@ def stm_setfield(funcgen, op):
             newtype = 'long long'
         else:
             raise NotImplementedError(fieldsize)
-        expr = structdef.ptr_access_expr(basename,
-                                         fieldname,
-                                         baseexpr_is_const)
         return '%s((long*)&%s, (%s)%s);' % (
             funcname, expr, newtype, newvalue)
     else:
         cfieldtypename = cdecl(fieldtypename, '')
-        return ('stm_write_partial_word(sizeof(%s), (char*)%s, '
-                'offsetof(%s, %s), (long)%s);' % (
-            cfieldtypename, basename,
-            cdecl(funcgen.db.gettype(STRUCT), ''),
-            structdef.c_struct_field_name(fieldname), newvalue))
+        return ('stm_write_partial_word(sizeof(%s), &%s, %s);' % (
+            cfieldtypename, expr, newvalue))
+
+def stm_getarrayitem(funcgen, op):
+    ARRAY = funcgen.lltypemap(op.args[0]).TO
+    ptr = funcgen.expr(op.args[0])
+    index = funcgen.expr(op.args[1])
+    arraydef = funcgen.db.gettypedefnode(ARRAY)
+    expr = arraydef.itemindex_access_expr(ptr, index)
+    return _stm_generic_get(funcgen, op, expr)
+
 
 def stm_begin_transaction(funcgen, op):
     return 'STM_begin_transaction();'

@@ -869,11 +869,19 @@ void stm_abort_and_retry(void)
 }
 
 // XXX little-endian only!
-void stm_write_partial_word(int fieldsize, char *base, long offset,
-                            unsigned long nval)
+unsigned long stm_read_partial_word(int fieldsize, char *addr)
 {
-  long *p = (long*)(base + (offset & ~(sizeof(void*)-1)));
-  int misalignment = offset & (sizeof(void*)-1);
+  int misalignment = ((long)addr) & (sizeof(void*)-1);
+  long *p = (long*)(addr - misalignment);
+  unsigned long word = stm_read_word(p);
+  return word >> (misalignment * 8);
+}
+
+// XXX little-endian only!
+void stm_write_partial_word(int fieldsize, char *addr, unsigned long nval)
+{
+  int misalignment = ((long)addr) & (sizeof(void*)-1);
+  long *p = (long*)(addr - misalignment);
   long val = nval << (misalignment * 8);
   long word = stm_read_word(p);
   long mask = ((1L << (fieldsize * 8)) - 1) << (misalignment * 8);
