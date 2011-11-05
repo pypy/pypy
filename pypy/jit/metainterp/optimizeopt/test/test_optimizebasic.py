@@ -4123,6 +4123,38 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_strunicode_loop(ops, expected)
 
+    def test_str_concat_constant_lengths(self):
+        ops = """
+        [i0]
+        p0 = newstr(1)
+        strsetitem(p0, 0, i0)
+        p1 = newstr(0)
+        p2 = call(0, p0, p1, descr=strconcatdescr)
+        i1 = call(0, p2, p0, descr=strequaldescr)
+        finish(i1)
+        """
+        expected = """
+        [i0]
+        finish(1)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
+    def test_str_concat_constant_lengths_2(self):
+        ops = """
+        [i0]
+        p0 = newstr(0)
+        p1 = newstr(1)
+        strsetitem(p1, 0, i0)
+        p2 = call(0, p0, p1, descr=strconcatdescr)
+        i1 = call(0, p2, p1, descr=strequaldescr)
+        finish(i1)
+        """
+        expected = """
+        [i0]
+        finish(1)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
     def test_str_slice_1(self):
         ops = """
         [p1, i1, i2]
@@ -4883,6 +4915,27 @@ class BaseTestOptimizeBasic(BaseTestBasic):
 
     def test_plain_virtual_string_copy_content(self):
         ops = """
+        [i1]
+        p0 = newstr(6)
+        copystrcontent(s"hello!", p0, 0, 0, 6)
+        p1 = call(0, p0, s"abc123", descr=strconcatdescr)
+        i0 = strgetitem(p1, i1)
+        finish(i0)
+        """
+        expected = """
+        [i1]
+        p0 = newstr(6)
+        copystrcontent(s"hello!", p0, 0, 0, 6)
+        p1 = newstr(12)
+        copystrcontent(p0, p1, 0, 0, 6)
+        copystrcontent(s"abc123", p1, 0, 6, 6)
+        i0 = strgetitem(p1, i1)
+        finish(i0)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
+    def test_plain_virtual_string_copy_content_2(self):
+        ops = """
         []
         p0 = newstr(6)
         copystrcontent(s"hello!", p0, 0, 0, 6)
@@ -4894,10 +4947,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         []
         p0 = newstr(6)
         copystrcontent(s"hello!", p0, 0, 0, 6)
-        p1 = newstr(12)
-        copystrcontent(p0, p1, 0, 0, 6)
-        copystrcontent(s"abc123", p1, 0, 6, 6)
-        i0 = strgetitem(p1, 0)
+        i0 = strgetitem(p0, 0)
         finish(i0)
         """
         self.optimize_strunicode_loop(ops, expected)
