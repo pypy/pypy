@@ -16,9 +16,9 @@ def wraptuple(space, list_w):
     from pypy.objspace.std.smalltupleobject import W_SmallTupleObject8
             
     if space.config.objspace.std.withspecialisedtuple:
-        from specialisedtupleobject import makespecilisedtuple, NotSpecialised
+        from specialisedtupleobject import makespecialisedtuple, NotSpecialised
         try:
-            return makespecilisedtuple(space, list_w)
+            return makespecialisedtuple(space, list_w)
         except NotSpecialised:
             pass
 

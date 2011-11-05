@@ -13,7 +13,7 @@ from pypy.objspace.std.tupleobject import W_TupleObject
 class NotSpecialised(Exception):
     pass         
             
-def makespecilisedtuple(space, list_w):            
+def makespecialisedtuple(space, list_w):            
     if len(list_w) == 2:
         w_item0 = list_w[0]
         w_item1 = list_w[1]
