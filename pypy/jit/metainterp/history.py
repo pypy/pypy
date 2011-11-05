@@ -1029,6 +1029,7 @@ class Stats(object):
             insns = loop.summary(adding_insns=insns)
         if expected is not None:
             insns.pop('debug_merge_point', None)
+            insns.pop('label', None)
             assert insns == expected
         for insn, expected_count in check.items():
             getattr(rop, insn.upper())  # fails if 'rop.INSN' does not exist

@@ -66,7 +66,7 @@ class BasicTests:
         res = self.interp_operations(f, [8, 98])
         assert res == 110
 
-    def test_loop(self):
+    def test_loop_1(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
         def f(x, y):
             res = 0
@@ -79,7 +79,8 @@ class BasicTests:
         res = self.meta_interp(f, [6, 7])
         assert res == 42
         self.check_loop_count(1)
-        self.check_resops({'jump': 2, 'int_gt': 2, 'int_add': 2, 'guard_true': 2, 'int_sub': 2})
+        self.check_resops({'jump': 1, 'int_gt': 2, 'int_add': 2,
+                           'guard_true': 2, 'int_sub': 2})
 
         if self.basic:
             found = 0
@@ -90,7 +91,7 @@ class BasicTests:
                     for box in liveboxes:
                         assert isinstance(box, history.BoxInt)
                     found += 1
-            assert found == 1
+            assert found == 2
 
     def test_loop_variant_mul1(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
