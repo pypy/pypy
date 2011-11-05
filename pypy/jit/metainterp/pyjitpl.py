@@ -2034,7 +2034,7 @@ class MetaInterp(object):
                                                     live_arg_boxes[num_green_args:],
                                                     start_resumedescr)
         if procedure_token is not None: # raise if it *worked* correctly
-            self.jitdriver_sd.attach_procedure_to_interp(greenkey, procedure_token)
+            self.jitdriver_sd.warmstate.attach_procedure_to_interp(greenkey, procedure_token)
             self.history.inputargs = None
             self.history.operations = None
             raise GenerateMergePoint(live_arg_boxes, procedure_token)

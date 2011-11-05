@@ -134,7 +134,7 @@ def compile_procedure(metainterp, greenkey, start,
             return None
             
         loop.operations = loop.operations[:-1] + part.operations
-    
+
     for box in loop.inputargs:
         assert isinstance(box, Box)
 
@@ -142,7 +142,7 @@ def compile_procedure(metainterp, greenkey, start,
 
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop")
     record_loop_or_bridge(metainterp_sd, loop)
-    return loop.token
+    return procedure_token
 
 
     if False: # FIXME: full_preamble_needed??
