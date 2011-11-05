@@ -95,22 +95,22 @@ class BaseTestWithUnroll(BaseTest):
         preamble.start_resumedescr = FakeDescr()
 
         token = LoopToken() # FIXME: Make this a MergePointToken?
-        preamble.operations = [ResOperation(rop.TARGET, inputargs, None, descr=TargetToken(token))] + \
+        preamble.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(token))] + \
                               operations +  \
-                              [ResOperation(rop.TARGET, jump_args, None, descr=TargetToken(token))]
+                              [ResOperation(rop.LABEL, jump_args, None, descr=TargetToken(token))]
         self._do_optimize_loop(preamble, call_pure_results)
 
         inliner = Inliner(inputargs, jump_args)
         loop.start_resumedescr = preamble.start_resumedescr
         loop.operations = [preamble.operations[-1]] + \
                           [inliner.inline_op(op, clone=False) for op in cloned_operations] + \
-                          [ResOperation(rop.TARGET, [inliner.inline_arg(a) for a in jump_args],
+                          [ResOperation(rop.LABEL, [inliner.inline_arg(a) for a in jump_args],
                                         None, descr=TargetToken(token))] 
                           #[inliner.inline_op(jumpop)]
 
         self._do_optimize_loop(loop, call_pure_results)
         extra_same_as = []
-        while loop.operations[0].getopnum() != rop.TARGET:
+        while loop.operations[0].getopnum() != rop.LABEL:
             extra_same_as.append(loop.operations[0])
             del loop.operations[0]
             
@@ -155,11 +155,11 @@ class BaseTestWithUnroll(BaseTest):
 
 def convert_old_style_to_targets(loop, jump):
     newloop = TreeLoop(loop.name)
-    newloop.operations = [ResOperation(rop.TARGET, loop.inputargs, None, descr=FakeDescr())] + \
+    newloop.operations = [ResOperation(rop.LABEL, loop.inputargs, None, descr=FakeDescr())] + \
                       loop.operations
     if not jump:
         assert newloop.operations[-1].getopnum() == rop.JUMP
-        newloop.operations[-1] = ResOperation(rop.TARGET, newloop.operations[-1].getarglist(), None, descr=FakeDescr())
+        newloop.operations[-1] = ResOperation(rop.LABEL, newloop.operations[-1].getarglist(), None, descr=FakeDescr())
     return newloop
 
 class OptimizeOptTest(BaseTestWithUnroll):

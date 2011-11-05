@@ -118,7 +118,7 @@ class UnrollOptimizer(Optimization):
     def propagate_all_forward(self):
         loop = self.optimizer.loop
         start_targetop = loop.operations[0]
-        assert start_targetop.getopnum() == rop.TARGET
+        assert start_targetop.getopnum() == rop.LABEL
         loop.operations = loop.operations[1:]
         self.optimizer.clear_newoperations()
         self.optimizer.send_extra_operation(start_targetop)
@@ -126,15 +126,15 @@ class UnrollOptimizer(Optimization):
         self.import_state(start_targetop)
         
         lastop = loop.operations[-1]
-        assert lastop.getopnum() == rop.TARGET
+        assert lastop.getopnum() == rop.LABEL
         loop.operations = loop.operations[:-1]
-        #if lastop.getopnum() == rop.TARGET or lastop.getopnum() == rop.JUMP:
+        #if lastop.getopnum() == rop.LABEL or lastop.getopnum() == rop.JUMP:
         #    loop.operations = loop.operations[:-1]
         #FIXME: FINISH
         
         self.optimizer.propagate_all_forward(clear=False)
         
-        #if lastop.getopnum() == rop.TARGET:
+        #if lastop.getopnum() == rop.LABEL:
         if not self.did_peel_one: # Enforce the previous behaviour of always peeling  exactly one iteration (for now)
             self.optimizer.flush()
             KillHugeIntBounds(self.optimizer).apply()
@@ -189,7 +189,7 @@ class UnrollOptimizer(Optimization):
         assert isinstance(target_token, TargetToken)
         targetop.initarglist(inputargs)
         target_token.virtual_state = virtual_state
-        target_token.short_preamble = [ResOperation(rop.TARGET, short_inputargs, None)]
+        target_token.short_preamble = [ResOperation(rop.LABEL, short_inputargs, None)]
         target_token.exported_state = ExportedState(constant_inputargs, short_boxes,
                                                     inputarg_setup_ops, self.optimizer,
                                                     start_resumedescr)
@@ -276,7 +276,7 @@ class UnrollOptimizer(Optimization):
         newoperations = self.optimizer.get_newoperations()
         self.boxes_created_this_iteration = {}
         i = j = 0
-        while newoperations[i].getopnum() != rop.TARGET:
+        while newoperations[i].getopnum() != rop.LABEL:
             i += 1
         while i < len(newoperations) or j < len(jumpargs):
             if i == len(newoperations):

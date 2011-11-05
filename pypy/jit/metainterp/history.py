@@ -790,7 +790,7 @@ class TreeLoop(object):
         "NOT_RPYTHON"
         if self._inputargs is not None:
             return self._inputargs
-        assert self.operations[0].getopnum() == rop.TARGET
+        assert self.operations[0].getopnum() == rop.LABEL
         return self.operations[0].getarglist()
 
     def set_inputargs(self, inputargs):
@@ -829,7 +829,7 @@ class TreeLoop(object):
 
     @staticmethod
     def check_consistency_of(operations):
-        assert operations[0].getopnum() == rop.TARGET
+        assert operations[0].getopnum() == rop.LABEL
         inputargs = operations[0].getarglist()
         seen = dict.fromkeys(inputargs)
         TreeLoop.check_consistency_of_branch(operations, seen)
@@ -858,13 +858,13 @@ class TreeLoop(object):
                 assert isinstance(box, Box)
                 assert box not in seen
                 seen[box] = True
-            if op.getopnum() == rop.TARGET:
+            if op.getopnum() == rop.LABEL:
                 inputargs = op.getarglist()
                 for box in inputargs:
-                    assert isinstance(box, Box), "TARGET contains %r" % (box,)
+                    assert isinstance(box, Box), "LABEL contains %r" % (box,)
                 seen = dict.fromkeys(inputargs)
                 assert len(seen) == len(inputargs), (
-                    "duplicate Box in the TARGET arguments")
+                    "duplicate Box in the LABEL arguments")
                 
         assert operations[-1].is_final()
         if operations[-1].getopnum() == rop.JUMP:
