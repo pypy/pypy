@@ -306,11 +306,21 @@ _make_wrapper_for._annspecialcase_ = 'specialize:memo'
 
 AroundFnPtr = lltype.Ptr(lltype.FuncType([], lltype.Void))
 class AroundState:
-    _alloc_flavor_ = "raw"
+    # XXX for stm with need to comment out this, and use a custom logic
+##    def _freeze_(self):
+##        self.before = None    # or a regular RPython function
+##        self.after = None     # or a regular RPython function
+##        return False
+    @staticmethod
+    def before():
+        from pypy.translator.stm import rstm
+        rstm.commit_transaction()
+    @staticmethod
+    def after():
+        from pypy.translator.stm import rstm
+        rstm.begin_inevitable_transaction()
     def _freeze_(self):
-        self.before = None    # or a regular RPython function
-        self.after = None     # or a regular RPython function
-        return False
+        return True
 aroundstate = AroundState()
 aroundstate._freeze_()
 
