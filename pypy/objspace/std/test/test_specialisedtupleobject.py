@@ -88,8 +88,15 @@ class AppTestW_SpecialisedTupleObject(object):
         b = (1,2)
         assert a == b
         
-        c = (1,3,2)
-        assert not a == c
+    def test_eq_can_delegate(self):        
+        a = (1,2)
+        b = (1,3,2)
+        assert not a == b
+        
+        values = [2, 2L, 2.0, 1, 1L, 1.0]
+        for x in values:
+            for y in values:
+                assert ((1,2) == (x,y)) == (1 == x and 2 == y)
 
     def test_hash(self):
         a = (1,2)
