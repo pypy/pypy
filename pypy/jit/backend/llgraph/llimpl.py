@@ -391,7 +391,8 @@ def compile_add_ref_result(loop, TYPE):
 
 def compile_add_jump_target(loop, targettoken):
     loop = _from_opaque(loop)
-    if isinstance(targettoken, history.LoopToken):
+    if isinstance(targettoken, history.ProcedureToken):
+        assert False
         loop_target = _from_opaque(targettoken.compiled_loop_token.compiled_version)
         target_opindex = 0
         target_inputargs = loop_target.inputargs

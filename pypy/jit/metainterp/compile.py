@@ -9,12 +9,13 @@ from pypy.conftest import option
 from pypy.tool.sourcetools import func_with_new_name
 
 from pypy.jit.metainterp.resoperation import ResOperation, rop, get_deep_immutable_oplist
-from pypy.jit.metainterp.history import TreeLoop, Box, History, LoopToken
+from pypy.jit.metainterp.history import TreeLoop, Box, History, ProcedureToken, TargetToken
 from pypy.jit.metainterp.history import AbstractFailDescr, BoxInt
 from pypy.jit.metainterp.history import BoxPtr, BoxObj, BoxFloat, Const
 from pypy.jit.metainterp import history
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.jit.metainterp.optimize import InvalidLoop
+from pypy.jit.metainterp.inliner import Inliner
 from pypy.jit.metainterp.resume import NUMBERING, PENDINGFIELDSP
 from pypy.jit.codewriter import heaptracker, longlong
 
@@ -45,10 +46,10 @@ def create_empty_loop(metainterp, name_prefix=''):
     return loop
 
 
-def make_loop_token(nb_args, jitdriver_sd):
-    loop_token = LoopToken()
-    loop_token.outermost_jitdriver_sd = jitdriver_sd
-    return loop_token
+def make_procedure_token(jitdriver_sd):
+    procedure_token = ProcedureToken()
+    procedure_token.outermost_jitdriver_sd = jitdriver_sd
+    return procedure_token
 
 def record_loop_or_bridge(metainterp_sd, loop):
     """Do post-backend recordings and cleanups on 'loop'.
@@ -67,16 +68,18 @@ def record_loop_or_bridge(metainterp_sd, loop):
             n = descr.index
             if n >= 0:       # we also record the resumedescr number
                 looptoken.compiled_loop_token.record_faildescr_index(n)
-        elif isinstance(descr, LoopToken):
+        elif isinstance(descr, ProcedureToken):
+            assert False, "FIXME"
+        elif isinstance(descr, TargetToken):
             # for a JUMP or a CALL_ASSEMBLER: record it as a potential jump.
             # (the following test is not enough to prevent more complicated
             # cases of cycles, but at least it helps in simple tests of
             # test_memgr.py)
-            if descr is not looptoken:
-                looptoken.record_jump_to(descr)
+            if descr.procedure_token is not looptoken:
+                looptoken.record_jump_to(descr.procedure_token)
             op._descr = None    # clear reference, mostly for tests
             if not we_are_translated():
-                op._jumptarget_number = descr.number
+                op._jumptarget_number = descr.procedure_token.number
     # record this looptoken on the QuasiImmut used in the code
     if loop.quasi_immutable_deps is not None:
         for qmut in loop.quasi_immutable_deps:
@@ -89,47 +92,60 @@ def record_loop_or_bridge(metainterp_sd, loop):
 
 # ____________________________________________________________
 
-def compile_new_loop(metainterp, old_loop_tokens, greenkey, start,
-                     start_resumedescr, full_preamble_needed=True):
-    """Try to compile a new loop by closing the current history back
+def compile_procedure(metainterp, greenkey, start,
+                      inputargs, jumpargs,
+                      start_resumedescr, full_preamble_needed=True):
+    """Try to compile a new procedure by closing the current history back
     to the first operation.
     """
-    from pypy.jit.metainterp.optimize import optimize_loop
+    from pypy.jit.metainterp.optimizeopt import optimize_trace
 
     history = metainterp.history
-    loop = create_empty_loop(metainterp)
-    loop.inputargs = history.inputargs[:]
-    for box in loop.inputargs:
-        assert isinstance(box, Box)
-    # make a copy, because optimize_loop can mutate the ops and descrs
-    h_ops = history.operations
-    loop.operations = [h_ops[i].clone() for i in range(start, len(h_ops))]
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
-    loop_token = make_loop_token(len(loop.inputargs), jitdriver_sd)
-    loop.token = loop_token
-    loop.operations[-1].setdescr(loop_token)     # patch the target of the JUMP
 
-    loop.preamble = create_empty_loop(metainterp, 'Preamble ')
-    loop.preamble.inputargs = loop.inputargs
-    loop.preamble.token = make_loop_token(len(loop.inputargs), jitdriver_sd)
-    loop.preamble.start_resumedescr = start_resumedescr
-
+    loop = create_empty_loop(metainterp)
+    loop.inputargs = inputargs[:]
+    
+    procedure_token = make_procedure_token(jitdriver_sd)
+    part = create_empty_loop(metainterp)
+    h_ops = history.operations
+    part.start_resumedescr = start_resumedescr
+    part.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(procedure_token))] + \
+                      [h_ops[i].clone() for i in range(start, len(h_ops))] + \
+                      [ResOperation(rop.LABEL, jumpargs, None, descr=TargetToken(procedure_token))]
     try:
-        old_loop_token = optimize_loop(metainterp_sd, old_loop_tokens, loop,
-                                       jitdriver_sd.warmstate.enable_opts)
+        optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts)
     except InvalidLoop:
-        debug_print("compile_new_loop: got an InvalidLoop")
         return None
-    if old_loop_token is not None:
-        metainterp.staticdata.log("reusing old loop")
-        return old_loop_token
+    loop.operations = part.operations
+    while part.operations[-1].getopnum() == rop.LABEL:
+        inliner = Inliner(inputargs, jumpargs)
+        part.operations = [part.operations[-1]] + \
+                          [inliner.inline_op(h_ops[i]) for i in range(start, len(h_ops))] + \
+                          [ResOperation(rop.LABEL, [inliner.inline_arg(a) for a in jumpargs],
+                                        None, descr=TargetToken(procedure_token))]
+        inputargs = jumpargs
+        jumpargs = part.operations[-1].getarglist()
 
-    if loop.preamble.operations is not None:
-        send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop,
-                             "loop")
-        record_loop_or_bridge(metainterp_sd, loop)
-        token = loop.preamble.token
+        try:
+            optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts)
+        except InvalidLoop:
+            return None
+            
+        loop.operations = loop.operations[:-1] + part.operations
+    
+    for box in loop.inputargs:
+        assert isinstance(box, Box)
+
+    loop.token = procedure_token
+
+    send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop")
+    record_loop_or_bridge(metainterp_sd, loop)
+    return loop.token
+
+
+    if False: # FIXME: full_preamble_needed??
         if full_preamble_needed:
             send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd,
                                  loop.preamble, "entry bridge")
@@ -263,7 +279,7 @@ class ExitFrameWithExceptionDescrRef(_DoneWithThisFrameDescr):
         raise metainterp_sd.ExitFrameWithExceptionRef(cpu, value)
 
 
-class TerminatingLoopToken(LoopToken):
+class TerminatingLoopToken(ProcedureToken): # FIXME:!!
     terminating = True
 
     def __init__(self, nargs, finishdescr):

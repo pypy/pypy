@@ -1928,7 +1928,8 @@ class MetaInterp(object):
         #   that failed;
         # - if self.resumekey is a ResumeFromInterpDescr, it starts directly
         #   from the interpreter.
-        if not self.retracing_loop_from:
+        if False: # FIXME
+          if not self.retracing_loop_from:
             try:
                 self.compile_bridge(live_arg_boxes)
             except RetraceLoop:
@@ -1964,7 +1965,7 @@ class MetaInterp(object):
                                                  live_arg_boxes, start,
                                                  bridge_arg_boxes, resumedescr)
                 else:
-                    self.compile(original_boxes, live_arg_boxes, start, resumedescr)
+                    self.compile_procedure(original_boxes, live_arg_boxes, start, resumedescr)
                 # creation of the loop was cancelled!
                 self.staticdata.log('cancelled, tracing more...')
                 #self.staticdata.log('cancelled, stopping tracing')
@@ -2020,36 +2021,25 @@ class MetaInterp(object):
             from pypy.jit.metainterp.resoperation import opname
             raise NotImplementedError(opname[opnum])
 
-    def get_compiled_merge_points(self, greenkey):
-        """Get the list of looptokens corresponding to the greenkey.
-        Turns the (internal) list of weakrefs into regular refs.
-        """
+    def get_procedure_token(self, greenkey):
         cell = self.jitdriver_sd.warmstate.jit_cell_at_key(greenkey)
-        return cell.get_compiled_merge_points()
-
-    def set_compiled_merge_points(self, greenkey, looptokens):
-        cell = self.jitdriver_sd.warmstate.jit_cell_at_key(greenkey)
-        cell.set_compiled_merge_points(looptokens)
-
-    def compile(self, original_boxes, live_arg_boxes, start, start_resumedescr):
+        return cell.get_procedure_token()
+        
+    def compile_procedure(self, original_boxes, live_arg_boxes, start, start_resumedescr):
         num_green_args = self.jitdriver_sd.num_green_args
-        original_inputargs = self.history.inputargs
-        self.history.inputargs = original_boxes[num_green_args:]
         greenkey = original_boxes[:num_green_args]
-        old_loop_tokens = self.get_compiled_merge_points(greenkey)
-        self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
-        loop_token = compile.compile_new_loop(self, old_loop_tokens,
-                                              greenkey, start, start_resumedescr)
-        if loop_token is not None: # raise if it *worked* correctly
-            self.set_compiled_merge_points(greenkey, old_loop_tokens)
+        assert self.get_procedure_token(greenkey) == None # FIXME: recursion?
+        procedure_token = compile.compile_procedure(self, greenkey, start,
+                                                    original_boxes[num_green_args:],
+                                                    live_arg_boxes[num_green_args:],
+                                                    start_resumedescr)
+        if procedure_token is not None: # raise if it *worked* correctly
+            self.jitdriver_sd.attach_procedure_to_interp(greenkey, procedure_token)
             self.history.inputargs = None
             self.history.operations = None
-            raise GenerateMergePoint(live_arg_boxes, loop_token)
+            raise GenerateMergePoint(live_arg_boxes, procedure_token)
 
-        self.history.inputargs = original_inputargs
-        self.history.operations.pop()     # remove the JUMP
-
-    def compile_bridge(self, live_arg_boxes):
+    def compile_trace(self, live_arg_boxes):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = live_arg_boxes[:num_green_args]
         old_loop_tokens = self.get_compiled_merge_points(greenkey)

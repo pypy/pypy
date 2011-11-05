@@ -169,34 +169,20 @@ class JitCell(BaseJitCell):
     #     counter == -1: there is an entry bridge for this cell
     #     counter == -2: tracing is currently going on for this cell
     counter = 0
-    compiled_merge_points_wref = None    # list of weakrefs to LoopToken
     dont_trace_here = False
-    wref_entry_loop_token = None         # (possibly) one weakref to LoopToken
+    wref_procedure_token = None
 
-    def get_compiled_merge_points(self):
-        result = []
-        if self.compiled_merge_points_wref is not None:
-            for wref in self.compiled_merge_points_wref:
-                looptoken = wref()
-                if looptoken is not None and not looptoken.invalidated:
-                    result.append(looptoken)
-        return result
-
-    def set_compiled_merge_points(self, looptokens):
-        self.compiled_merge_points_wref = [self._makeref(token)
-                                           for token in looptokens]
-
-    def get_entry_loop_token(self):
-        if self.wref_entry_loop_token is not None:
-            return self.wref_entry_loop_token()
+    def get_procedure_token(self):
+        if self.wref_procedure_token is not None:
+            return self.wref_procedure_token()
         return None
 
-    def set_entry_loop_token(self, looptoken):
-        self.wref_entry_loop_token = self._makeref(looptoken)
+    def set_procedure_token(self, token):
+        self.wref_procedure_token = self._makeref(token)
 
-    def _makeref(self, looptoken):
-        assert looptoken is not None
-        return weakref.ref(looptoken)
+    def _makeref(self, token):
+        assert token is not None
+        return weakref.ref(token)
 
 # ____________________________________________________________
 
@@ -283,18 +269,17 @@ class WarmEnterState(object):
         debug_print("disabled inlining", loc)
         debug_stop("jit-disableinlining")
 
-    def attach_unoptimized_bridge_from_interp(self, greenkey,
-                                              entry_loop_token):
+    def attach_procedure_to_interp(self, greenkey, procedure_token):
         cell = self.jit_cell_at_key(greenkey)
-        old_token = cell.get_entry_loop_token()
-        cell.set_entry_loop_token(entry_loop_token)
-        cell.counter = -1       # valid entry bridge attached
+        old_token = cell.get_procedure_token()
+        cell.set_procedure_token(procedure_token)
+        cell.counter = -1       # valid procedure bridge attached
         if old_token is not None:
-            self.cpu.redirect_call_assembler(old_token, entry_loop_token)
-            # entry_loop_token is also kept alive by any loop that used
+            self.cpu.redirect_call_assembler(old_token, procedure_token)
+            # procedure_token is also kept alive by any loop that used
             # to point to old_token.  Actually freeing old_token early
             # is a pointless optimization (it is tiny).
-            old_token.record_jump_to(entry_loop_token)
+            old_token.record_jump_to(procedure_token)
 
     # ----------
 
@@ -617,16 +602,16 @@ class WarmEnterState(object):
         def get_assembler_token(greenkey, redboxes):
             # 'redboxes' is only used to know the types of red arguments
             cell = self.jit_cell_at_key(greenkey)
-            entry_loop_token = cell.get_entry_loop_token()
-            if entry_loop_token is None:
+            procedure_token = cell.get_procedure_token()
+            if procedure_token is None:
                 from pypy.jit.metainterp.compile import compile_tmp_callback
                 if cell.counter == -1:    # used to be a valid entry bridge,
                     cell.counter = 0      # but was freed in the meantime.
                 memmgr = warmrunnerdesc.memory_manager
-                entry_loop_token = compile_tmp_callback(cpu, jd, greenkey,
-                                                        redboxes, memmgr)
-                cell.set_entry_loop_token(entry_loop_token)
-            return entry_loop_token
+                procedure_token = compile_tmp_callback(cpu, jd, greenkey,
+                                                   redboxes, memmgr)
+                cell.set_procedure_token(procedure_token)
+            return procedure_token
         self.get_assembler_token = get_assembler_token
 
         #

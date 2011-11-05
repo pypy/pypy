@@ -171,3 +171,4 @@ def equaloplists(oplist1, oplist2, strict_fail_args=True, remap={},
     assert len(oplist1) == len(oplist2)
     print '-'*totwidth
     return True
+

@@ -1,11 +1,12 @@
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.optimizeopt.virtualstate import VirtualStateAdder, ShortBoxes
 from pypy.jit.metainterp.compile import ResumeGuardDescr
-from pypy.jit.metainterp.history import TreeLoop, LoopToken, TargetToken
+from pypy.jit.metainterp.history import TreeLoop, TargetToken
 from pypy.jit.metainterp.jitexc import JitException
 from pypy.jit.metainterp.optimize import InvalidLoop, RetraceLoop
 from pypy.jit.metainterp.optimizeopt.optimizer import *
 from pypy.jit.metainterp.optimizeopt.generalize import KillHugeIntBounds
+from pypy.jit.metainterp.inliner import Inliner
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.resume import Snapshot
 from pypy.rlib.debug import debug_print
@@ -16,59 +17,6 @@ import sys, os
 def optimize_unroll(metainterp_sd, loop, optimizations):
     opt = UnrollOptimizer(metainterp_sd, loop, optimizations)
     opt.propagate_all_forward()
-
-class Inliner(object):
-    def __init__(self, inputargs, jump_args):
-        assert len(inputargs) == len(jump_args)
-        self.argmap = {}
-        for i in range(len(inputargs)):
-            if inputargs[i] in self.argmap:
-                assert self.argmap[inputargs[i]] == jump_args[i]
-            else:
-                self.argmap[inputargs[i]] = jump_args[i]
-        self.snapshot_map = {None: None}
-
-    def inline_op(self, newop, ignore_result=False, clone=True,
-                  ignore_failargs=False):
-        if clone:
-            newop = newop.clone()
-        args = newop.getarglist()
-        newop.initarglist([self.inline_arg(a) for a in args])
-
-        if newop.is_guard():
-            args = newop.getfailargs()
-            if args and not ignore_failargs:
-                newop.setfailargs([self.inline_arg(a) for a in args])
-            else:
-                newop.setfailargs([])
-
-        if newop.result and not ignore_result:
-            old_result = newop.result
-            newop.result = newop.result.clonebox()
-            self.argmap[old_result] = newop.result
-
-        self.inline_descr_inplace(newop.getdescr())
-
-        return newop
-
-    def inline_descr_inplace(self, descr):
-        if isinstance(descr, ResumeGuardDescr):
-            descr.rd_snapshot = self.inline_snapshot(descr.rd_snapshot)
-
-    def inline_arg(self, arg):
-        if arg is None:
-            return None
-        if isinstance(arg, Const):
-            return arg
-        return self.argmap[arg]
-
-    def inline_snapshot(self, snapshot):
-        if snapshot in self.snapshot_map:
-            return self.snapshot_map[snapshot]
-        boxes = [self.inline_arg(a) for a in snapshot.boxes]
-        new_snapshot = Snapshot(self.inline_snapshot(snapshot.prev), boxes)
-        self.snapshot_map[snapshot] = new_snapshot
-        return new_snapshot
 
 class UnrollableOptimizer(Optimizer):
     def setup(self):
@@ -143,7 +91,7 @@ class UnrollOptimizer(Optimization):
             self.export_state(lastop)
             loop.operations.append(lastop)
         else:
-            assert lastop.getdescr().merge_point is start_targetop.getdescr().merge_point
+            assert lastop.getdescr().procedure_token is start_targetop.getdescr().procedure_token
             jumpop = ResOperation(rop.JUMP, lastop.getarglist(), None, descr=start_targetop.getdescr())
 
             self.close_loop(jumpop)
@@ -474,7 +422,9 @@ class OptInlineShortPreamble(Optimization):
     def propagate_forward(self, op):
         if op.getopnum() == rop.JUMP:
             loop_token = op.getdescr()
-            assert isinstance(loop_token, TargetToken)
+            if not isinstance(loop_token, TargetToken):
+                self.emit_operation(op)
+                return
             short = loop_token.short_preamble
             if short:
                 args = op.getarglist()

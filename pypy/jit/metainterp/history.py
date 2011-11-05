@@ -727,7 +727,7 @@ _const_ptr_for_unicode = {}
 # of operations.  Each branch ends in a jump which can go either to
 # the top of the same loop, or to another TreeLoop; or it ends in a FINISH.
 
-class LoopToken(AbstractDescr):
+class ProcedureToken(AbstractDescr):
     """Used for rop.JUMP, giving the target of the jump.
     This is different from TreeLoop: the TreeLoop class contains the
     whole loop, including 'operations', and goes away after the loop
@@ -766,8 +766,8 @@ class LoopToken(AbstractDescr):
         self.compiled_loop_token.cpu.dump_loop_token(self)
 
 class TargetToken(AbstractDescr):
-    def __init__(self, merge_point):
-        self.merge_point = merge_point
+    def __init__(self, procedure_token):
+        self.procedure_token = procedure_token
         self.virtual_state = None
         self.exported_state = None
         
@@ -870,7 +870,7 @@ class TreeLoop(object):
         if operations[-1].getopnum() == rop.JUMP:
             target = operations[-1].getdescr()
             if target is not None:
-                assert isinstance(target, LoopToken)
+                assert isinstance(target, TargetToken)
 
     def dump(self):
         # RPython-friendly
