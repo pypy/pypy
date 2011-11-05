@@ -190,8 +190,7 @@ class UnrollOptimizer(Optimization):
         target_token.exported_state = ExportedState(values, short_inputargs,
                                                     constant_inputargs, short_boxes,
                                                     inputarg_setup_ops, self.optimizer,
-                                                    jump_args, virtual_state,
-                                                    start_resumedescr)
+                                                    virtual_state, start_resumedescr)
 
     def import_state(self, targetop):
         target_token = targetop.getdescr()
@@ -570,7 +569,7 @@ class ValueImporter(object):
 
 class ExportedState(object):
     def __init__(self, values, short_inputargs, constant_inputargs,
-                 short_boxes, inputarg_setup_ops, optimizer, jump_args, virtual_state,
+                 short_boxes, inputarg_setup_ops, optimizer, virtual_state,
                  start_resumedescr):
         self.values = values
         self.short_inputargs = short_inputargs
@@ -578,7 +577,6 @@ class ExportedState(object):
         self.short_boxes = short_boxes
         self.inputarg_setup_ops = inputarg_setup_ops
         self.optimizer = optimizer
-        self.jump_args = jump_args
         self.virtual_state = virtual_state
         self.start_resumedescr = start_resumedescr
         
