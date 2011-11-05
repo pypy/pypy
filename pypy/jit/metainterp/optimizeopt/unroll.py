@@ -145,13 +145,10 @@ class UnrollOptimizer(Optimization):
         else:
             assert lastop.getdescr().merge_point is start_targetop.getdescr().merge_point
             jumpop = ResOperation(rop.JUMP, lastop.getarglist(), None, descr=start_targetop.getdescr())
+
             self.close_loop(jumpop)
-            short_preamble_loop = self.produce_short_preamble(lastop)
-            assert isinstance(loop.token, LoopToken)
-            if loop.token.short_preamble:
-                loop.token.short_preamble.append(short_preamble_loop) # FIXME: ??
-            else:
-                loop.token.short_preamble = [short_preamble_loop]
+            self.finilize_short_preamble(lastop)
+            start_targetop.getdescr().short_preamble = self.short
         #else:
         #    loop.operations = self.optimizer.get_newoperations()
 
@@ -192,8 +189,8 @@ class UnrollOptimizer(Optimization):
         assert isinstance(target_token, TargetToken)
         targetop.initarglist(inputargs)
         target_token.virtual_state = virtual_state
-        target_token.exported_state = ExportedState(short_inputargs,
-                                                    constant_inputargs, short_boxes,
+        target_token.short_preamble = [ResOperation(rop.TARGET, short_inputargs, None)]
+        target_token.exported_state = ExportedState(constant_inputargs, short_boxes,
                                                     inputarg_setup_ops, self.optimizer,
                                                     start_resumedescr)
 
@@ -207,7 +204,7 @@ class UnrollOptimizer(Optimization):
             return
         self.did_peel_one = True
         
-        self.short = []
+        self.short = target_token.short_preamble
         self.short_seen = {}
         self.short_boxes = exported_state.short_boxes
         for box, const in exported_state.constant_inputargs.items():
@@ -255,7 +252,7 @@ class UnrollOptimizer(Optimization):
 
     def close_loop(self, jumpop):        
         virtual_state = self.initial_virtual_state
-        short_inputargs = self.imported_state.short_inputargs
+        short_inputargs = self.short[0].getarglist()
         constant_inputargs = self.imported_state.constant_inputargs
         inputargs = self.inputargs
         short_jumpargs = inputargs[:]
@@ -271,7 +268,7 @@ class UnrollOptimizer(Optimization):
         self.short_inliner = Inliner(short_inputargs, jmp_to_short_args)
         for box, const in constant_inputargs.items():
             self.short_inliner.argmap[box] = const
-        for op in self.short:
+        for op in self.short[1:]:
             newop = self.short_inliner.inline_op(op)
             self.optimizer.send_extra_operation(newop)
 
@@ -329,7 +326,7 @@ class UnrollOptimizer(Optimization):
             raise InvalidLoop
         debug_stop('jit-log-virtualstate')
 
-    def produce_short_preamble(self, lastop):
+    def finilize_short_preamble(self, lastop):
         short = self.short
         assert short[-1].getopnum() == rop.JUMP
 
@@ -343,12 +340,8 @@ class UnrollOptimizer(Optimization):
                 op.setdescr(descr)
                 short[i] = op
 
-        short_loop = TreeLoop('short preamble')
-        short_inputargs = self.imported_state.short_inputargs
-        short_loop.operations = [ResOperation(rop.TARGET, short_inputargs, None)] + \
-                                short
-
         # Clone ops and boxes to get private versions and
+        short_inputargs = short[0].getarglist()
         boxmap = {}
         newargs = [None] * len(short_inputargs)
         for i in range(len(short_inputargs)):
@@ -361,20 +354,20 @@ class UnrollOptimizer(Optimization):
         inliner = Inliner(short_inputargs, newargs)
         for box, const in self.imported_state.constant_inputargs.items():
             inliner.argmap[box] = const
-        ops = [inliner.inline_op(op) for op in short_loop.operations]
-        short_loop.operations = ops
-        descr = self.start_resumedescr.clone_if_mutable()
-        inliner.inline_descr_inplace(descr)
-        short_loop.start_resumedescr = descr
+        for i in range(len(short)):
+            short[i] = inliner.inline_op(short[i])
+
+        self.start_resumedescr = self.start_resumedescr.clone_if_mutable()
+        inliner.inline_descr_inplace(self.start_resumedescr)
+        #short_loop.start_resumedescr = descr
+        # FIXME: move this to targettoken
 
         # Forget the values to allow them to be freed
-        for box in short_loop.inputargs:
+        for box in short[0].getarglist():
             box.forget_value()
-        for op in short_loop.operations:
+        for op in short:
             if op.result:
                 op.result.forget_value()
-
-        return short_loop
         
     def FIXME_old_stuff():
             preamble_optimizer = self.optimizer
@@ -573,10 +566,9 @@ class ValueImporter(object):
         self.unroll.add_op_to_short(self.op, False, True)        
 
 class ExportedState(object):
-    def __init__(self, short_inputargs, constant_inputargs,
+    def __init__(self, constant_inputargs,
                  short_boxes, inputarg_setup_ops, optimizer,
                  start_resumedescr):
-        self.short_inputargs = short_inputargs
         self.constant_inputargs = constant_inputargs
         self.short_boxes = short_boxes
         self.inputarg_setup_ops = inputarg_setup_ops

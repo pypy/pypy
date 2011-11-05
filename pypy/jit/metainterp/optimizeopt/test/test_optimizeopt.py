@@ -133,9 +133,8 @@ class BaseTestWithUnroll(BaseTest):
         print
         if expected_short:
             print "Short Preamble:"
-            short = loop.token.short_preamble[0]
-            print short.inputargs
-            print '\n'.join([str(o) for o in short.operations])
+            short = loop.operations[0].getdescr().short_preamble
+            print '\n'.join([str(o) for o in short])
             print
 
         assert expected != "crash!", "should have raised an exception"
@@ -146,9 +145,11 @@ class BaseTestWithUnroll(BaseTest):
                               text_right='expected preamble')
             assert preamble.operations[-1].getdescr() == loop.operations[0].getdescr()
         if expected_short:
-            self.assert_equal(short, convert_old_style_to_targets(expected_short, jump=True),
+            short_preamble = TreeLoop('short preamble')
+            short_preamble.operations = short
+            self.assert_equal(short_preamble, convert_old_style_to_targets(expected_short, jump=True),
                               text_right='expected short preamble')
-            assert short.operations[-1].getdescr() == loop.operations[0].getdescr()
+            assert short[-1].getdescr() == loop.operations[0].getdescr()
 
         return loop
 
