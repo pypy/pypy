@@ -141,6 +141,19 @@ def test_unsupported_setfield_raw():
     eval_stm_graph(interp, graph, [p], stm_mode="regular_transaction",
                    final_stm_mode="inevitable_transaction")
 
+def test_unsupported_getarrayitem_raw():
+    A = lltype.Array(lltype.Signed)
+    p = lltype.malloc(A, 5, immortal=True)
+    p[3] = 42
+    def func(p):
+        return p[3]
+    interp, graph = get_interpreter(func, [p])
+    transform_graph(graph)
+    assert summary(graph) == {'stm_try_inevitable': 1, 'getarrayitem': 1}
+    res = eval_stm_graph(interp, graph, [p], stm_mode="regular_transaction",
+                         final_stm_mode="inevitable_transaction")
+    assert res == 42
+
 # ____________________________________________________________
 
 class CompiledSTMTests(StandaloneTests):

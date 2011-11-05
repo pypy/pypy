@@ -46,6 +46,24 @@ def test_stm_getfield():
     res = eval_stm_graph(interp, graph, [p], stm_mode="inevitable_transaction")
     assert res == 42
 
+def test_stm_getarrayitem():
+    A = lltype.GcArray(lltype.Signed)
+    p = lltype.malloc(A, 5, immortal=True)
+    p[3] = 42
+    def func(p):
+        return rstm.stm_getarrayitem(p, 3)
+    interp, graph = get_interpreter(func, [p])
+    # forbidden in "not_in_transaction" mode
+    py.test.raises(ForbiddenInstructionInSTMMode,
+                   eval_stm_graph, interp, graph, [p],
+                   stm_mode="not_in_transaction")
+    # works in "regular_transaction" mode
+    res = eval_stm_graph(interp, graph, [p], stm_mode="regular_transaction")
+    assert res == 42
+    # works in "inevitable_transaction" mode
+    res = eval_stm_graph(interp, graph, [p], stm_mode="inevitable_transaction")
+    assert res == 42
+
 def test_getfield_immutable():
     S = lltype.GcStruct('S', ('x', lltype.Signed), hints = {'immutable': True})
     p = lltype.malloc(S, immortal=True)

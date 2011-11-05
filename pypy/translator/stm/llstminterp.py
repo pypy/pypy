@@ -95,7 +95,7 @@ class LLSTMFrame(LLFrame):
             assert 0
 
     def opstm_getarrayitem(self, array, index):
-        ARRAY = lltype.typeOf(struct).TO
+        ARRAY = lltype.typeOf(array).TO
         if ARRAY._immutable_field():
             # immutable item reads are always allowed
             return LLFrame.op_getarrayitem(self, array, index)
