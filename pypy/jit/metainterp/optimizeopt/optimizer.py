@@ -557,7 +557,6 @@ class Optimizer(Optimization):
 
     def store_final_boxes_in_guard(self, op):
         descr = op.getdescr()
-        print 'HHHHHHHHHHHH', descr, id(descr)
         assert isinstance(descr, compile.ResumeGuardDescr)
         modifier = resume.ResumeDataVirtualAdder(descr, self.resumedata_memo)
         newboxes = modifier.finish(self.values, self.pendingfields)

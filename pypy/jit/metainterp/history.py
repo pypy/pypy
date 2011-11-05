@@ -766,7 +766,8 @@ class LoopToken(AbstractDescr):
         self.compiled_loop_token.cpu.dump_loop_token(self)
 
 class TargetToken(AbstractDescr):
-    def __init__(self):
+    def __init__(self, merge_point):
+        self.merge_point = merge_point
         self.exported_state = None
         
 class TreeLoop(object):

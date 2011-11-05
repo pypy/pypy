@@ -80,28 +80,33 @@ class BaseTestWithUnroll(BaseTest):
         if expected_short:
             expected_short = self.parse(expected_short)
         operations =  loop.operations
+        jumpop = operations[-1]
+        assert jumpop.getopnum() == rop.JUMP
+        inputargs = loop.inputargs
+        loop.inputargs = None
+
+        jump_args = jumpop.getarglist()[:]
+        operations = operations[:-1]
         cloned_operations = [op.clone() for op in operations]
         
         preamble = TreeLoop('preamble')
         #loop.preamble.inputargs = loop.inputargs
         #loop.preamble.token = LoopToken()
         preamble.start_resumedescr = FakeDescr()
-        assert operations[-1].getopnum() == rop.JUMP
-        inputargs = loop.inputargs
-        jump_args = operations[-1].getarglist()
-        targettoken = TargetToken()
-        operations[-1].setdescr(targettoken)
-        cloned_operations[-1].setdescr(targettoken)
-        preamble.operations = [ResOperation(rop.TARGET, inputargs, None, descr=TargetToken())] + \
-                              operations[:-1] +  \
-                              [ResOperation(rop.TARGET, jump_args, None, descr=targettoken)] 
+
+        token = LoopToken() # FIXME: Make this a MergePointToken?
+        preamble.operations = [ResOperation(rop.TARGET, inputargs, None, descr=TargetToken(token))] + \
+                              operations +  \
+                              [ResOperation(rop.TARGET, jump_args, None, descr=TargetToken(token))]
         self._do_optimize_loop(preamble, call_pure_results)
 
         inliner = Inliner(inputargs, jump_args)
-        loop.inputargs = None
         loop.start_resumedescr = preamble.start_resumedescr
         loop.operations = [preamble.operations[-1]] + \
-                          [inliner.inline_op(op, clone=False) for op in cloned_operations]
+                          [inliner.inline_op(op, clone=False) for op in cloned_operations] + \
+                          [ResOperation(rop.TARGET, [inliner.inline_arg(a) for a in jump_args],
+                                        None, descr=TargetToken(token))] 
+                          #[inliner.inline_op(jumpop)]
 
         self._do_optimize_loop(loop, call_pure_results)
         extra_same_as = []

@@ -126,30 +126,34 @@ class UnrollOptimizer(Optimization):
         self.import_state(start_targetop)
         
         lastop = loop.operations[-1]
-        if lastop.getopnum() == rop.TARGET or lastop.getopnum() == rop.JUMP:
-            loop.operations = loop.operations[:-1]
+        assert lastop.getopnum() == rop.TARGET
+        loop.operations = loop.operations[:-1]
+        #if lastop.getopnum() == rop.TARGET or lastop.getopnum() == rop.JUMP:
+        #    loop.operations = loop.operations[:-1]
         #FIXME: FINISH
         
         self.optimizer.propagate_all_forward(clear=False)
         
-        if lastop.getopnum() == rop.TARGET:
+        #if lastop.getopnum() == rop.TARGET:
+        if not self.did_peel_one: # Enforce the previous behaviour of always peeling  exactly one iteration (for now)
             self.optimizer.flush()
             KillHugeIntBounds(self.optimizer).apply()
 
             loop.operations = self.optimizer.get_newoperations()
             self.export_state(lastop)
             loop.operations.append(lastop)
-        elif lastop.getopnum() == rop.JUMP:
-            assert lastop.getdescr() is start_targetop.getdescr()
-            self.close_loop(lastop)
+        else:
+            assert lastop.getdescr().merge_point is start_targetop.getdescr().merge_point
+            jumpop = ResOperation(rop.JUMP, lastop.getarglist(), None, descr=start_targetop.getdescr())
+            self.close_loop(jumpop)
             short_preamble_loop = self.produce_short_preamble(lastop)
             assert isinstance(loop.token, LoopToken)
             if loop.token.short_preamble:
                 loop.token.short_preamble.append(short_preamble_loop) # FIXME: ??
             else:
                 loop.token.short_preamble = [short_preamble_loop]
-        else:
-            loop.operations = self.optimizer.get_newoperations()
+        #else:
+        #    loop.operations = self.optimizer.get_newoperations()
 
     def export_state(self, targetop):
         original_jump_args = targetop.getarglist()
@@ -197,9 +201,11 @@ class UnrollOptimizer(Optimization):
         assert isinstance(target_token, TargetToken)
         exported_state = target_token.exported_state
         if not exported_state:
+            self.did_peel_one = False
             # FIXME: Set up some sort of empty state with no virtuals
             return
-
+        self.did_peel_one = True
+        
         self.short = []
         self.short_seen = {}
         self.short_boxes = exported_state.short_boxes
@@ -245,8 +251,7 @@ class UnrollOptimizer(Optimization):
         self.optimizer.flush()
         self.optimizer.emitting_dissabled = False
 
-    def close_loop(self, jumpop):
-        assert jumpop
+    def close_loop(self, jumpop):        
         virtual_state = self.imported_state.virtual_state
         short_inputargs = self.imported_state.short_inputargs
         constant_inputargs = self.imported_state.constant_inputargs
