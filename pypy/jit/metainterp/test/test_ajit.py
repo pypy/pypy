@@ -140,7 +140,7 @@ class BasicTests:
         res = self.meta_interp(f, [6, 7])
         assert res == 252
         self.check_loop_count(1)
-        self.check_resops({'jump': 2, 'int_gt': 2, 'int_add': 2,
+        self.check_resops({'jump': 1, 'int_gt': 2, 'int_add': 2,
                            'int_mul': 1, 'guard_true': 2, 'int_sub': 2})
 
 
@@ -158,7 +158,7 @@ class BasicTests:
         res = self.meta_interp(f, [6, 7])
         assert res == 308
         self.check_loop_count(1)
-        self.check_resops({'jump': 2, 'int_lshift': 2, 'int_gt': 2,
+        self.check_resops({'jump': 1, 'int_lshift': 2, 'int_gt': 2,
                            'int_mul_ovf': 1, 'int_add': 4,
                            'guard_true': 2, 'guard_no_overflow': 1,
                            'int_sub': 2})
