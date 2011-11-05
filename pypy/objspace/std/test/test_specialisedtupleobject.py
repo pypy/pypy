@@ -45,16 +45,15 @@ class AppTestW_SpecialisedTupleObject(AppTestW_TupleObject):
 
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withspecialisedtuple": True})
-        cls.w_isspecialised = cls.space.appexec([], """():
-            import __pypy__
-            def isspecialised(obj):
-                return "SpecialisedTuple" in __pypy__.internal_repr(obj)
-            return isspecialised
-        """)
+    
+    def w_isspecialised(self, obj):
+       import __pypy__
+       return "SpecialisedTuple" in __pypy__.internal_repr(obj)
+        
 
     def test_specialisedtuple(self):
         assert self.isspecialised((42,43))
-
+        
     def test_len(self):
         assert len((42,43)) == 2
 
