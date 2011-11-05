@@ -129,6 +129,12 @@ def test_supported_malloc():
         lltype.malloc(S)
     eval_stm_func(func, [], final_stm_mode="regular_transaction")
 
+def test_supported_malloc_varsize():
+    A = lltype.GcArray(lltype.Signed)
+    def func():
+        lltype.malloc(A, 5)
+    eval_stm_func(func, [], final_stm_mode="regular_transaction")
+
 def test_unsupported_malloc():
     S = lltype.Struct('S', ('x', lltype.Signed))   # non-GC structure
     def func():

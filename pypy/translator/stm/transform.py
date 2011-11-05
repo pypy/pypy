@@ -194,6 +194,10 @@ class STMTransformer(object):
         flags = op.args[1].value
         return flags['flavor'] == 'gc'
 
+    def stt_malloc_varsize(self, newoperations, op):
+        flags = op.args[1].value
+        return flags['flavor'] == 'gc'
+
     def stt_gc_stack_bottom(self, newoperations, op):
         self.seen_gc_stack_bottom = True
         newoperations.append(op)

@@ -131,6 +131,11 @@ class LLSTMFrame(LLFrame):
             self.check_stm_mode(lambda m: m != "regular_transaction")
         return LLFrame.op_malloc(self, TYPE, flags)
 
+    def opstm_malloc_varsize(self, TYPE, flags, size):
+        if flags['flavor'] != 'gc':
+            self.check_stm_mode(lambda m: m != "regular_transaction")
+        return LLFrame.op_malloc_varsize(self, TYPE, flags, size)
+
     # ---------- stm-only operations ----------
     # Note that for these tests we assume no real multithreading,
     # so that we just emulate the operations the easy way
