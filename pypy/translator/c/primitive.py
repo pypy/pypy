@@ -1,7 +1,7 @@
 import sys
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.rlib.objectmodel import CDefinedIntSymbolic
-from pypy.rlib.rarithmetic import r_longlong
+from pypy.rlib.rarithmetic import r_longlong, is_emulated_long
 from pypy.rlib.rfloat import isinf, isnan
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.lltypesystem import rffi, llgroup
@@ -204,6 +204,13 @@ PrimitiveType = {
     GCREF:    'void* @',
     }
 
+# support for win64, where sizeof(long) == 4
+if is_emulated_long:
+    PrimitiveType.update( {
+        Signed:   '__int64 @',
+        Unsigned: 'unsigned __int64 @',
+    } )
+
 def define_c_primitive(ll_type, c_name, suffix=''):
     if ll_type in PrimitiveName:
         return
@@ -221,7 +228,11 @@ define_c_primitive(rffi.USHORT, 'unsigned short')
 define_c_primitive(rffi.INT, 'int')
 define_c_primitive(rffi.INT_real, 'int')
 define_c_primitive(rffi.UINT, 'unsigned int')
-define_c_primitive(rffi.LONG, 'long', 'L')
-define_c_primitive(rffi.ULONG, 'unsigned long', 'UL')
+if is_emulated_long: # special case for win64
+    define_c_primitive(rffi.LONG, '__int64', 'LL')
+    define_c_primitive(rffi.ULONG, 'unsigned __int64', 'ULL')
+else:
+    define_c_primitive(rffi.LONG, 'long', 'L')
+    define_c_primitive(rffi.ULONG, 'unsigned long', 'UL')
 define_c_primitive(rffi.LONGLONG, 'long long', 'LL')
 define_c_primitive(rffi.ULONGLONG, 'unsigned long long', 'ULL')

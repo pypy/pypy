@@ -402,9 +402,13 @@ class RegisterOs(BaseLazyRegistering):
         UTIMBUFP = lltype.Ptr(self.UTIMBUF)
         os_utime = self.llexternal('utime', [rffi.CCHARP, UTIMBUFP], rffi.INT)
 
+        if not _WIM32:
+            includes = ['sys/time.h']
+        else:
+            includes = ['time.h']
         class CConfig:
             _compilation_info_ = ExternalCompilationInfo(
-                includes=['sys/time.h']
+                includes=includes
             )
             HAVE_UTIMES = platform.Has('utimes')
         config = platform.configure(CConfig)
@@ -414,9 +418,14 @@ class RegisterOs(BaseLazyRegistering):
 
         if config['HAVE_UTIMES']:
             class CConfig:
-                _compilation_info_ = ExternalCompilationInfo(
-                    includes = ['sys/time.h']
-                )
+                if not _WIN32:
+                    _compilation_info_ = ExternalCompilationInfo(
+                        includes = ['sys/time.h']
+                    )
+                else:
+                    _compilation_info_ = ExternalCompilationInfo(
+                        includes = ['time.h']
+                    )
                 TIMEVAL = platform.Struct('struct timeval', [('tv_sec', rffi.LONG),
                                                              ('tv_usec', rffi.LONG)])
             config = platform.configure(CConfig)

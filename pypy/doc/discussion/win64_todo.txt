@@ -1,4 +1,8 @@
-20011-11-4
+2011-11-04
 ll_os.py has a problem with the file rwin32.py.
 Temporarily disabled for the win64_gborg branch. This needs to be
 investigated and re-enabled.
+
+2011-11-05
+test_typed.py needs explicit tests to ensure that we
+handle word sizes right.
