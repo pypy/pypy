@@ -55,6 +55,9 @@ class AppTestW_SpecialisedTupleObject(AppTestW_TupleObject):
     def test_specialisedtuple(self):
         assert self.isspecialised((42,43))
 
+    def test_len(self):
+        assert len((42,43)) == 2
+
     def test_notspecialisedtuple(self):
         assert not self.isspecialised((42,43,44))
         
