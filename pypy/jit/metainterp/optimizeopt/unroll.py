@@ -191,10 +191,11 @@ class UnrollOptimizer(Optimization):
         target_token = targetop.getdescr()
         assert isinstance(target_token, TargetToken)
         targetop.initarglist(inputargs)
+        target_token.virtual_state = virtual_state
         target_token.exported_state = ExportedState(values, short_inputargs,
                                                     constant_inputargs, short_boxes,
                                                     inputarg_setup_ops, self.optimizer,
-                                                    virtual_state, start_resumedescr)
+                                                    start_resumedescr)
 
     def import_state(self, targetop):
         target_token = targetop.getdescr()
@@ -214,6 +215,7 @@ class UnrollOptimizer(Optimization):
         self.imported_state = exported_state
         self.inputargs = targetop.getarglist()
         self.start_resumedescr = exported_state.start_resumedescr
+        self.initial_virtual_state = target_token.virtual_state
 
         seen = {}
         for box in self.inputargs:
@@ -252,7 +254,7 @@ class UnrollOptimizer(Optimization):
         self.optimizer.emitting_dissabled = False
 
     def close_loop(self, jumpop):        
-        virtual_state = self.imported_state.virtual_state
+        virtual_state = self.initial_virtual_state
         short_inputargs = self.imported_state.short_inputargs
         constant_inputargs = self.imported_state.constant_inputargs
         inputargs = self.inputargs
@@ -364,8 +366,6 @@ class UnrollOptimizer(Optimization):
         descr = self.start_resumedescr.clone_if_mutable()
         inliner.inline_descr_inplace(descr)
         short_loop.start_resumedescr = descr
-
-        short_loop.virtual_state = self.imported_state.virtual_state
 
         # Forget the values to allow them to be freed
         for box in short_loop.inputargs:
@@ -574,7 +574,7 @@ class ValueImporter(object):
 
 class ExportedState(object):
     def __init__(self, values, short_inputargs, constant_inputargs,
-                 short_boxes, inputarg_setup_ops, optimizer, virtual_state,
+                 short_boxes, inputarg_setup_ops, optimizer,
                  start_resumedescr):
         self.values = values
         self.short_inputargs = short_inputargs
@@ -582,6 +582,5 @@ class ExportedState(object):
         self.short_boxes = short_boxes
         self.inputarg_setup_ops = inputarg_setup_ops
         self.optimizer = optimizer
-        self.virtual_state = virtual_state
         self.start_resumedescr = start_resumedescr
         

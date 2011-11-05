@@ -768,6 +768,7 @@ class LoopToken(AbstractDescr):
 class TargetToken(AbstractDescr):
     def __init__(self, merge_point):
         self.merge_point = merge_point
+        self.virtual_state = None
         self.exported_state = None
         
 class TreeLoop(object):
