@@ -6,9 +6,11 @@ from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.floatobject import W_FloatObject
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
+from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.objspace.std import slicetype
 from pypy.rlib.rarithmetic import intmask
-from pypy.objspace.std.tupleobject import W_TupleObject
+from pypy.rlib.objectmodel import compute_hash
+
 
 class NotSpecialised(Exception):
     pass         
@@ -51,29 +53,27 @@ class W_SpecialisedTupleObject(W_Object):
     def unwrap(w_tuple, space):
         return tuple(self.tolist)
                         
-def make_specialised_class(type0, type1):
+def make_specialised_class(class_name, type0, type1):
     class cls(W_SpecialisedTupleObject):
-        def __init__(self, space, intval0, intval1):
-            assert isinstance(intval0, int)
-            assert isinstance(intval1, int)
+        def __init__(self, space, val0, val1):
+            assert isinstance(val0, type0)
+            assert isinstance(val1, type1)
             self.space = space
-            self.intval0 = intval0
-            self.intval1 = intval1
+            self.val0 = val0
+            self.val1 = val1
     
         def length(self):
             return 2
     
         def tolist(self):
-            return [self.space.wrap(self.intval0), self.space.wrap(self.intval1)]
+            return [self.space.wrap(self.val0), self.space.wrap(self.val1)]
             
         def hash(self, space):
             mult = 1000003
             x = 0x345678
             z = 2
-            for intval in [self.intval0, self.intval1]:
-                # we assume that hash value of an integer is the integer itself
-                # look at intobject.py hash__Int to check this!
-                y = intval		
+            for val in [self.val0, self.val1]:
+                y = compute_hash(val)		
                 x = (x ^ y) * mult
                 z -= 1
                 mult += 82520 + z + z
@@ -83,22 +83,22 @@ def make_specialised_class(type0, type1):
         def eq(self, space, w_other):
             if w_other.length() != 2:
                 return space.w_False
-            if self.intval0 == w_other.intval0 and self.intval1 == w_other.intval1:	#xxx
+            if self.val0 == w_other.val0 and self.val1 == w_other.val1:	#xxx
                 return space.w_True
             else:
                 return space.w_False
     
         def getitem(self, index):
             if index == 0:
-                return self.space.wrap(self.intval0)
+                return self.space.wrap(self.val0)
             if index == 1:
-                return self.space.wrap(self.intval1)
+                return self.space.wrap(self.val1)
             raise IndexError
-    cls.__name__ = 'W_SpecialisedTupleObjectIntInt'        
+    cls.__name__ = class_name      
     return cls
     
     
-W_SpecialisedTupleObjectIntInt = make_specialised_class(int,int)
+W_SpecialisedTupleObjectIntInt = make_specialised_class('W_SpecialisedTupleObjectIntInt', int,int)
     
 registerimplementation(W_SpecialisedTupleObject)
 
