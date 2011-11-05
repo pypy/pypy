@@ -152,14 +152,13 @@ class Assembler386(object):
         allblocks = self.get_asmmemmgr_blocks(looptoken)
         self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
                                                         allblocks)
+        self.target_tokens_currently_compiling = {}
 
     def teardown(self):
         self.pending_guard_tokens = None
         if WORD == 8:
             self.pending_memoryerror_trampoline_from = None
         self.mc = None
-        self.looppos = -1
-        self.currently_compiling_loop = None
         self.current_clt = None
 
     def finish_once(self):
@@ -443,7 +442,6 @@ class Assembler386(object):
             assert len(set(inputargs)) == len(inputargs)
 
         self.setup(looptoken)
-        self.currently_compiling_loop = looptoken
         if log:
             self._register_counter(False, looptoken.number)
             operations = self._inject_debugging_code(looptoken, operations)
@@ -455,7 +453,9 @@ class Assembler386(object):
 
         bootstrappos = self.mc.get_relative_pos()
         stackadjustpos = self._assemble_bootstrap_code(inputargs, arglocs)
-        self.looppos = self.mc.get_relative_pos()
+        looppos = self.mc.get_relative_pos()
+        looptoken._x86_loop_code = looppos
+        self.target_tokens_currently_compiling[looptoken] = None
         looptoken._x86_frame_depth = -1     # temporarily
         looptoken._x86_param_depth = -1     # temporarily
         frame_depth, param_depth = self._assemble(regalloc, operations)
@@ -463,7 +463,7 @@ class Assembler386(object):
         looptoken._x86_param_depth = param_depth
 
         directbootstrappos = self.mc.get_relative_pos()
-        self._assemble_bootstrap_direct_call(arglocs, self.looppos,
+        self._assemble_bootstrap_direct_call(arglocs, looppos,
                                              frame_depth+param_depth)
         self.write_pending_failure_recoveries()
         fullsize = self.mc.get_relative_pos()
@@ -472,7 +472,7 @@ class Assembler386(object):
         debug_start("jit-backend-addr")
         debug_print("Loop %d (%s) has address %x to %x (bootstrap %x)" % (
             looptoken.number, loopname,
-            rawstart + self.looppos,
+            rawstart + looppos,
             rawstart + directbootstrappos,
             rawstart))
         debug_stop("jit-backend-addr")
@@ -488,8 +488,8 @@ class Assembler386(object):
             looptoken._x86_ops_offset = ops_offset
 
         looptoken._x86_bootstrap_code = rawstart + bootstrappos
-        looptoken._x86_loop_code = rawstart + self.looppos
         looptoken._x86_direct_bootstrap_code = rawstart + directbootstrappos
+        self.fixup_target_tokens(rawstart)
         self.teardown()
         # oprofile support
         if self.cpu.profile_agent is not None:
@@ -548,6 +548,7 @@ class Assembler386(object):
         # patch the jump from original guard
         self.patch_jump_for_descr(faildescr, rawstart)
         ops_offset = self.mc.ops_offset
+        self.fixup_target_tokens(rawstart)
         self.teardown()
         # oprofile support
         if self.cpu.profile_agent is not None:
@@ -667,6 +668,11 @@ class Assembler386(object):
             adr_target = adr_jump_offset + 4 + rffi.cast(lltype.Signed, p[0])
             mc.copy_to_raw_memory(adr_target)
         faildescr._x86_adr_jump_offset = 0    # means "patched"
+
+    def fixup_target_tokens(self, rawstart):
+        for looptoken in self.target_tokens_currently_compiling:
+            looptoken._x86_loop_code += rawstart
+        self.target_tokens_currently_compiling = None
 
     @specialize.argtype(1)
     def _inject_debugging_code(self, looptoken, operations):
@@ -2576,11 +2582,12 @@ class Assembler386(object):
         return loop_token._x86_arglocs
 
     def closing_jump(self, loop_token):
-        if loop_token is self.currently_compiling_loop:
+        target = loop_token._x86_loop_code
+        if loop_token in self.target_tokens_currently_compiling:
             curpos = self.mc.get_relative_pos() + 5
-            self.mc.JMP_l(self.looppos - curpos)
+            self.mc.JMP_l(target - curpos)
         else:
-            self.mc.JMP(imm(loop_token._x86_loop_code))
+            self.mc.JMP(imm(target))
 
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, tid):
         size = max(size, self.cpu.gc_ll_descr.minimal_size_in_nursery)

@@ -5,7 +5,8 @@
 import os
 from pypy.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
                                          ResOperation, BoxPtr, ConstFloat,
-                                         BoxFloat, LoopToken, INT, REF, FLOAT)
+                                         BoxFloat, LoopToken, INT, REF, FLOAT,
+                                         TargetToken)
 from pypy.jit.backend.x86.regloc import *
 from pypy.rpython.lltypesystem import lltype, rffi, rstr
 from pypy.rlib.objectmodel import we_are_translated
@@ -1313,9 +1314,9 @@ class RegAlloc(object):
         assembler = self.assembler
         assert self.jump_target_descr is None
         descr = op.getdescr()
-        assert isinstance(descr, LoopToken)
+        assert isinstance(descr, (LoopToken, TargetToken))  # XXX refactor!
+        nonfloatlocs, floatlocs = assembler.target_arglocs(descr)
         self.jump_target_descr = descr
-        nonfloatlocs, floatlocs = assembler.target_arglocs(self.jump_target_descr)
         # compute 'tmploc' to be all_regs[0] by spilling what is there
         box = TempBox()
         box1 = TempBox()
@@ -1387,6 +1388,27 @@ class RegAlloc(object):
     def consider_force_token(self, op):
         # the FORCE_TOKEN operation returns directly 'ebp'
         self.rm.force_allocate_frame_reg(op.result)
+
+    def consider_label(self, op):
+        # XXX big refactoring needed?
+        descr = op.getdescr()
+        assert isinstance(descr, TargetToken)
+        inputargs = op.getarglist()
+        floatlocs = [None] * len(inputargs)
+        nonfloatlocs = [None] * len(inputargs)
+        for i in range(len(inputargs)):
+            arg = inputargs[i]
+            assert not isinstance(arg, Const)
+            loc = self.loc(arg)
+            if arg.type == FLOAT:
+                floatlocs[i] = loc
+            else:
+                nonfloatlocs[i] = loc
+        descr._x86_arglocs = nonfloatlocs, floatlocs
+        descr._x86_loop_code = self.assembler.mc.get_relative_pos()
+        descr._x86_frame_depth = self.fm.frame_depth
+        descr._x86_param_depth = self.param_depth
+        self.assembler.target_tokens_currently_compiling[descr] = None
 
     def not_implemented_op(self, op):
         not_implemented("not implemented operation: %s" % op.getopname())

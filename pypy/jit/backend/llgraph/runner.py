@@ -183,7 +183,7 @@ class BaseCPU(model.AbstractCPU):
             if isinstance(descr, history.LoopToken):
                 if op.getopnum() != rop.JUMP:
                     llimpl.compile_add_loop_token(c, descr)
-            if isinstance(descr, history.TargetToken) and op.getopnum() == rop.TARGET:
+            if isinstance(descr, history.TargetToken) and op.getopnum() == rop.LABEL:
                 llimpl.compile_add_target_token(c, descr)
             if self.is_oo and isinstance(descr, (OODescr, MethDescr)):
                 # hack hack, not rpython
