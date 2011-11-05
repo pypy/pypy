@@ -628,11 +628,7 @@ class GCTransformer(BaseGCTransformer):
             assert False, "%s has no support for free with flavor %r" % (self, flavor)           
 
     def gct_gc_can_move(self, hop):
-        #return hop.cast_result(rmodel.inputconst(lltype.Bool, False))
-        # XXX hack: in case of STM, we cannot pass a pointer inside a
-        # GcStruct or GcArray to the C world, because some of the
-        # content may still live in the STM buffers
-        return hop.cast_result(rmodel.inputconst(lltype.Bool, True))
+        return hop.cast_result(rmodel.inputconst(lltype.Bool, False))
 
     def gct_shrink_array(self, hop):
         return hop.cast_result(rmodel.inputconst(lltype.Bool, False))

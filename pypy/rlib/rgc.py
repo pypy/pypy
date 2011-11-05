@@ -154,29 +154,33 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
             assert (source_start + length <= dest_start or
                     dest_start + length <= source_start)
 
-    TP = lltype.typeOf(source).TO
-    assert TP == lltype.typeOf(dest).TO
-    if isinstance(TP.OF, lltype.Ptr) and TP.OF.TO._gckind == 'gc':
-        # perform a write barrier that copies necessary flags from
-        # source to dest
-        if not llop.gc_writebarrier_before_copy(lltype.Bool, source, dest,
-                                                source_start, dest_start,
-                                                length):
-            # if the write barrier is not supported, copy by hand
-            for i in range(length):
-                dest[i + dest_start] = source[i + source_start]
-            return
-    source_addr = llmemory.cast_ptr_to_adr(source)
-    dest_addr   = llmemory.cast_ptr_to_adr(dest)
-    cp_source_addr = (source_addr + llmemory.itemoffsetof(TP, 0) +
-                      llmemory.sizeof(TP.OF) * source_start)
-    cp_dest_addr = (dest_addr + llmemory.itemoffsetof(TP, 0) +
-                    llmemory.sizeof(TP.OF) * dest_start)
+    # XXX --- custom version for STM ---
+    # the old version first:
+##    TP = lltype.typeOf(source).TO
+##    assert TP == lltype.typeOf(dest).TO
+##    if isinstance(TP.OF, lltype.Ptr) and TP.OF.TO._gckind == 'gc':
+##        # perform a write barrier that copies necessary flags from
+##        # source to dest
+##        if not llop.gc_writebarrier_before_copy(lltype.Bool, source, dest,
+##                                                source_start, dest_start,
+##                                                length):
+##            # if the write barrier is not supported, copy by hand
+##            for i in range(length):
+##                dest[i + dest_start] = source[i + source_start]
+##            return
+##    source_addr = llmemory.cast_ptr_to_adr(source)
+##    dest_addr   = llmemory.cast_ptr_to_adr(dest)
+##    cp_source_addr = (source_addr + llmemory.itemoffsetof(TP, 0) +
+##                      llmemory.sizeof(TP.OF) * source_start)
+##    cp_dest_addr = (dest_addr + llmemory.itemoffsetof(TP, 0) +
+##                    llmemory.sizeof(TP.OF) * dest_start)
 
-    llmemory.raw_memcopy(cp_source_addr, cp_dest_addr,
-                         llmemory.sizeof(TP.OF) * length)
-    keepalive_until_here(source)
-    keepalive_until_here(dest)
+##    llmemory.raw_memcopy(cp_source_addr, cp_dest_addr,
+##                         llmemory.sizeof(TP.OF) * length)
+##    keepalive_until_here(source)
+##    keepalive_until_here(dest)
+    for i in range(length):
+        dest[i + dest_start] = source[i + source_start]
 
 def ll_shrink_array(p, smallerlength):
     from pypy.rpython.lltypesystem.lloperation import llop
@@ -195,16 +199,24 @@ def ll_shrink_array(p, smallerlength):
     field = getattr(p, TP._names[0])
     setattr(newp, TP._names[0], field)
 
-    ARRAY = getattr(TP, TP._arrayfld)
-    offset = (llmemory.offsetof(TP, TP._arrayfld) +
-              llmemory.itemoffsetof(ARRAY, 0))
-    source_addr = llmemory.cast_ptr_to_adr(p)    + offset
-    dest_addr   = llmemory.cast_ptr_to_adr(newp) + offset
-    llmemory.raw_memcopy(source_addr, dest_addr,
-                         llmemory.sizeof(ARRAY.OF) * smallerlength)
+    # XXX --- custom version for STM ---
+    # the old version first:
+##    ARRAY = getattr(TP, TP._arrayfld)
+##    offset = (llmemory.offsetof(TP, TP._arrayfld) +
+##              llmemory.itemoffsetof(ARRAY, 0))
+##    source_addr = llmemory.cast_ptr_to_adr(p)    + offset
+##    dest_addr   = llmemory.cast_ptr_to_adr(newp) + offset
+##    llmemory.raw_memcopy(source_addr, dest_addr,
+##                         llmemory.sizeof(ARRAY.OF) * smallerlength)
 
-    keepalive_until_here(p)
-    keepalive_until_here(newp)
+##    keepalive_until_here(p)
+##    keepalive_until_here(newp)
+
+    i = 0
+    while i < smallerlength:
+        newp.chars[i] = p.chars[i]
+        i += 1
+
     return newp
 ll_shrink_array._annspecialcase_ = 'specialize:ll'
 ll_shrink_array._jit_look_inside_ = False

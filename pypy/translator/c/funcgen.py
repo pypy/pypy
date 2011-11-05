@@ -591,8 +591,14 @@ class FunctionCodeGenerator(object):
             return '%s = %s.length;'%(self.expr(op.result), expr)
 
 
+    def _is_stm(self):
+        return getattr(self.db.translator, 'stm_transformation_applied', False)
+
     def _OP_STM(self, op):
         if not hasattr(self, 'op_stm'):
+            if not self._is_stm():
+                raise AssertionError("STM transformation not applied.  "
+                                     "You need '--stm'")
             from pypy.translator.stm.funcgen import op_stm
             self.__class__.op_stm = op_stm
         return self.op_stm(op)
@@ -681,9 +687,15 @@ class FunctionCodeGenerator(object):
                                         self.expr(op.args[0])))
         return '\t'.join(result)
 
-    OP_CAST_PTR_TO_ADR = OP_CAST_POINTER
     OP_CAST_ADR_TO_PTR = OP_CAST_POINTER
     OP_CAST_OPAQUE_PTR = OP_CAST_POINTER
+
+    def OP_CAST_PTR_TO_ADR(self, op):
+        if self.lltypemap(op.args[0]).TO._gckind == 'gc' and self._is_stm():
+            raise AssertionError("cast_ptr_to_adr(gcref) is a bad idea "
+                                 "with STM.  Consider checking config.stm "
+                                 "in %r" % (self.graph,))
+        return self.OP_CAST_POINTER(op)
 
     def OP_CAST_INT_TO_PTR(self, op):
         TYPE = self.lltypemap(op.result)
