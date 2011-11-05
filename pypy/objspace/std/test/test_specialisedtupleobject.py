@@ -88,6 +88,9 @@ class AppTestW_SpecialisedTupleObject(object):
         b = (1,2)
         assert a == b
         
+        c = (2,1)
+        assert not a == c
+        
     def test_eq_can_delegate(self):        
         a = (1,2)
         b = (1,3,2)

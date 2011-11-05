@@ -111,35 +111,7 @@ def getitem__SpecialisedTuple_ANY(space, w_tuple, w_index):
     except IndexError:
         raise OperationError(space.w_IndexError,
                              space.wrap("tuple index out of range"))
-'''
-def getitem__SpecialisedTuple_Slice(space, w_tuple, w_slice):
-    length = w_tuple.length()
-    start, stop, step, slicelength = w_slice.indices4(space, length)
-    assert slicelength >= 0
-    subitems = [None] * slicelength
-    for i in range(slicelength):
-        subitems[i] = w_tuple.getitem(start)
-        start += step
-    return space.newtuple(subitems)
 
-def mul_specialisedtuple_times(space, w_tuple, w_times):
-    try:
-        times = space.getindex_w(w_times, space.w_OverflowError)
-    except OperationError, e:
-        if e.match(space, space.w_TypeError):
-            raise FailedToImplement
-        raise
-    if times == 1 and space.type(w_tuple) == space.w_tuple:
-        return w_tuple
-    items = w_tuple.tolist()
-    return space.newtuple(items * times)
-
-def mul__SpecialisedTuple_ANY(space, w_tuple, w_times):
-    return mul_specialisedtuple_times(space, w_tuple, w_times)
-
-def mul__ANY_SpecialisedTuple(space, w_times, w_tuple):
-    return mul_specialisedtuple_times(space, w_tuple, w_times)
-'''
 def eq__SpecialisedTuple_SpecialisedTuple(space, w_tuple1, w_tuple2):
     return w_tuple1.eq(space, w_tuple2)
 
