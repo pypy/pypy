@@ -137,6 +137,61 @@ def do_stm_setarrayitem(argv):
     return 0
 
 
+def make_array_of_structs(T1, T2):
+    S = lltype.Struct('S', ('x', T1), ('y', T2))
+    a = lltype.malloc(lltype.GcArray(S), 3, immortal=True)
+    for i, (value1, value2) in enumerate([(1, 10), (-1, 20), (-50, -30)]):
+        a[i].x = rffi.cast(T1, value1)
+        a[i].y = rffi.cast(T2, value2)
+    return a
+
+prebuilt_array_signed_signed = make_array_of_structs(lltype.Signed,
+                                                     lltype.Signed)
+prebuilt_array_char_char = make_array_of_structs(lltype.Char,
+                                                 lltype.Char)
+
+def check2(array, expected1, expected2):
+    assert len(array) == len(expected1) == len(expected2)
+    for i in range(len(expected1)):
+        assert array[i].x == expected1[i]
+        assert array[i].y == expected2[i]
+check2._annspecialcase_ = 'specialize:ll'
+
+def change2(array, newvalues1, newvalues2):
+    assert len(newvalues1) <= len(array)
+    assert len(newvalues2) <= len(array)
+    for i in range(len(newvalues1)):
+        array[i].x = rffi.cast(lltype.typeOf(array).TO.OF.x, newvalues1[i])
+    for i in range(len(newvalues2)):
+        array[i].y = rffi.cast(lltype.typeOf(array).TO.OF.y, newvalues2[i])
+change2._annspecialcase_ = 'specialize:ll'
+
+def do_stm_getinteriorfield(argv):
+    check2(prebuilt_array_signed_signed, [1, -1, -50], [10, 20, -30])
+    check2(prebuilt_array_char_char, [chr(1), chr(255), chr(206)],
+                                     [chr(10), chr(20), chr(226)])
+    return 0
+
+def do_stm_setinteriorfield(argv):
+    change2(prebuilt_array_signed_signed, [500000, -10000000], [102101202])
+    check2(prebuilt_array_signed_signed, [500000, -10000000, -50],
+                                         [102101202, 20, -30])
+    change2(prebuilt_array_char_char, ['a'], ['b'])
+    check2(prebuilt_array_char_char, ['a', chr(255), chr(206)],
+                                     ['b', chr(20), chr(226)])
+    #
+    rstm.transaction_boundary()
+    #
+    check2(prebuilt_array_signed_signed, [500000, -10000000, -50],
+                                         [102101202, 20, -30])
+    check2(prebuilt_array_char_char, ['a', chr(255), chr(206)],
+                                     ['b', chr(20), chr(226)])
+    return 0
+
+
+# ____________________________________________________________
+
+
 class TestFuncGen(CompiledSTMTests):
 
     def test_getfield_all_sizes(self):
@@ -153,4 +208,12 @@ class TestFuncGen(CompiledSTMTests):
 
     def test_setarrayitem_all_sizes(self):
         t, cbuilder = self.compile(do_stm_setarrayitem)
+        cbuilder.cmdexec('')
+
+    def test_getinteriorfield_all_sizes(self):
+        t, cbuilder = self.compile(do_stm_getinteriorfield)
+        cbuilder.cmdexec('')
+
+    def test_setinteriorfield_all_sizes(self):
+        t, cbuilder = self.compile(do_stm_setinteriorfield)
         cbuilder.cmdexec('')

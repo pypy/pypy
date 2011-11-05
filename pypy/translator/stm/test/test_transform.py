@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem import lltype, llmemory
+from pypy.rpython.lltypesystem import lltype, llmemory, rstr
 from pypy.rpython.test.test_llinterp import get_interpreter
 from pypy.objspace.flow.model import summary
 from pypy.translator.stm.llstminterp import eval_stm_graph
@@ -90,6 +90,26 @@ def test_setarrayitem():
     transform_graph(graph)
     assert summary(graph) == {'stm_setarrayitem': 1}
     eval_stm_graph(interp, graph, [p], stm_mode="regular_transaction")
+
+def test_getinteriorfield():
+    p = lltype.malloc(rstr.STR, 100, immortal=True)
+    p.chars[42] = 'X'
+    def func(p):
+        return p.chars[42]
+    interp, graph = get_interpreter(func, [p])
+    transform_graph(graph)
+    assert summary(graph) == {'stm_getinteriorfield': 1}
+    res = eval_stm_graph(interp, graph, [p], stm_mode="regular_transaction")
+    assert res == 'X'
+
+def test_setinteriorfield():
+    p = lltype.malloc(rstr.STR, 100, immortal=True)
+    def func(p):
+        p.chars[42] = 'Y'
+    interp, graph = get_interpreter(func, [p])
+    transform_graph(graph)
+    assert summary(graph) == {'stm_setinteriorfield': 1}
+    res = eval_stm_graph(interp, graph, [p], stm_mode="regular_transaction")
 
 def test_unsupported_operation():
     def func(n):

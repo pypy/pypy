@@ -151,6 +151,28 @@ class STMTransformer(object):
             op1 = SpaceOperation('stm_setarrayitem', op.args, op.result)
         newoperations.append(op1)
 
+    def stt_getinteriorfield(self, newoperations, op):
+        OUTER = op.args[0].concretetype.TO
+        if OUTER._hints.get('immutable'):
+            op1 = op
+        elif OUTER._gckind == 'raw':
+            turn_inevitable(newoperations, "getinteriorfield-raw")
+            op1 = op
+        else:
+            op1 = SpaceOperation('stm_getinteriorfield', op.args, op.result)
+        newoperations.append(op1)
+
+    def stt_setinteriorfield(self, newoperations, op):
+        OUTER = op.args[0].concretetype.TO
+        if OUTER._hints.get('immutable'):
+            op1 = op
+        elif OUTER._gckind == 'raw':
+            turn_inevitable(newoperations, "setinteriorfield-raw")
+            op1 = op
+        else:
+            op1 = SpaceOperation('stm_setinteriorfield', op.args, op.result)
+        newoperations.append(op1)
+
     def stt_stm_transaction_boundary(self, newoperations, op):
         self.seen_transaction_boundary = True
         v_result = op.result

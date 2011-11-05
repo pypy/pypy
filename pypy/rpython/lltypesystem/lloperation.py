@@ -399,6 +399,8 @@ LL_OPERATIONS = {
     'stm_setfield':         LLOp(),
     'stm_getarrayitem':     LLOp(sideeffects=False, canrun=True),
     'stm_setarrayitem':     LLOp(),
+    'stm_getinteriorfield': LLOp(sideeffects=False, canrun=True),
+    'stm_setinteriorfield': LLOp(),
 
     'stm_begin_transaction':            LLOp(),
     'stm_commit_transaction':           LLOp(),

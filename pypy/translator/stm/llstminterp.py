@@ -156,6 +156,14 @@ class LLSTMFrame(LLFrame):
         self.check_stm_mode(lambda m: m != "not_in_transaction")
         LLFrame.op_setarrayitem(self, array, index, value)
 
+    def opstm_stm_getinteriorfield(self, obj, *offsets):
+        self.check_stm_mode(lambda m: m != "not_in_transaction")
+        return LLFrame.op_getinteriorfield(self, obj, *offsets)
+
+    def opstm_stm_setinteriorfield(self, obj, *fieldnamesval):
+        self.check_stm_mode(lambda m: m != "not_in_transaction")
+        LLFrame.op_setinteriorfield(self, obj, *fieldnamesval)
+
     def opstm_stm_begin_transaction(self):
         self.check_stm_mode(lambda m: m == "not_in_transaction")
         self.llinterpreter.stm_mode = "regular_transaction"

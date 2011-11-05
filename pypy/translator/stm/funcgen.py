@@ -46,7 +46,7 @@ def _stm_generic_get(funcgen, op, expr):
 
 def _stm_generic_set(funcgen, op, targetexpr, T):
     basename = funcgen.expr(op.args[0])
-    newvalue = funcgen.expr(op.args[2], special_case_void=False)
+    newvalue = funcgen.expr(op.args[-1], special_case_void=False)
     #
     assert T is not lltype.Void     # XXX
     fieldsize = rffi.sizeof(T)
@@ -75,40 +75,46 @@ def _stm_generic_set(funcgen, op, targetexpr, T):
             citemtypename, targetexpr, newvalue))
 
 
-def stm_getfield(funcgen, op):
-    STRUCT = funcgen.lltypemap(op.args[0]).TO
+def field_expr(funcgen, args):
+    STRUCT = funcgen.lltypemap(args[0]).TO
     structdef = funcgen.db.gettypedefnode(STRUCT)
-    baseexpr_is_const = isinstance(op.args[0], Constant)
-    expr = structdef.ptr_access_expr(funcgen.expr(op.args[0]),
-                                     op.args[1].value,
+    baseexpr_is_const = isinstance(args[0], Constant)
+    return structdef.ptr_access_expr(funcgen.expr(args[0]),
+                                     args[1].value,
                                      baseexpr_is_const)
+
+def stm_getfield(funcgen, op):
+    expr = field_expr(funcgen, op.args)
     return _stm_generic_get(funcgen, op, expr)
 
 def stm_setfield(funcgen, op):
-    STRUCT = funcgen.lltypemap(op.args[0]).TO
-    structdef = funcgen.db.gettypedefnode(STRUCT)
-    baseexpr_is_const = isinstance(op.args[0], Constant)
-    expr = structdef.ptr_access_expr(funcgen.expr(op.args[0]),
-                                     op.args[1].value,
-                                     baseexpr_is_const)
+    expr = field_expr(funcgen, op.args)
     T = op.args[2].concretetype
     return _stm_generic_set(funcgen, op, expr, T)
 
-def stm_getarrayitem(funcgen, op):
-    ARRAY = funcgen.lltypemap(op.args[0]).TO
-    ptr = funcgen.expr(op.args[0])
-    index = funcgen.expr(op.args[1])
+def array_expr(funcgen, args):
+    ARRAY = funcgen.lltypemap(args[0]).TO
+    ptr = funcgen.expr(args[0])
+    index = funcgen.expr(args[1])
     arraydef = funcgen.db.gettypedefnode(ARRAY)
-    expr = arraydef.itemindex_access_expr(ptr, index)
+    return arraydef.itemindex_access_expr(ptr, index)
+
+def stm_getarrayitem(funcgen, op):
+    expr = array_expr(funcgen, op.args)
     return _stm_generic_get(funcgen, op, expr)
 
 def stm_setarrayitem(funcgen, op):
-    ARRAY = funcgen.lltypemap(op.args[0]).TO
-    ptr = funcgen.expr(op.args[0])
-    index = funcgen.expr(op.args[1])
-    arraydef = funcgen.db.gettypedefnode(ARRAY)
-    expr = arraydef.itemindex_access_expr(ptr, index)
+    expr = array_expr(funcgen, op.args)
     T = op.args[2].concretetype
+    return _stm_generic_set(funcgen, op, expr, T)
+
+def stm_getinteriorfield(funcgen, op):
+    expr = funcgen.interior_expr(op.args)
+    return _stm_generic_get(funcgen, op, expr)
+
+def stm_setinteriorfield(funcgen, op):
+    expr = funcgen.interior_expr(op.args[:-1])
+    T = op.args[-1].concretetype
     return _stm_generic_set(funcgen, op, expr, T)
 
 
