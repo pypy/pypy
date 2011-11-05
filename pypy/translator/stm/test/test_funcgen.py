@@ -116,8 +116,24 @@ def do_stm_getarrayitem(argv):
 def do_stm_setarrayitem(argv):
     change(prebuilt_array_signed, [500000, -10000000, 3])
     check(prebuilt_array_signed,  [500000, -10000000, 3, -10, 42])
-    change(prebuilt_array_char,   ['A', 'B', 'C'])
-    check(prebuilt_array_char,    ['A', 'B', 'C', chr(246), chr(42)])
+    prebuilt_array_char[0] = 'A'
+    check(prebuilt_array_char,    ['A', chr(10), chr(255), chr(246), chr(42)])
+    prebuilt_array_char[3] = 'B'
+    check(prebuilt_array_char,    ['A', chr(10), chr(255), 'B', chr(42)])
+    prebuilt_array_char[4] = 'C'
+    check(prebuilt_array_char,    ['A', chr(10), chr(255), 'B', 'C'])
+    #
+    rstm.transaction_boundary()
+    #
+    check(prebuilt_array_char,    ['A', chr(10), chr(255), 'B', 'C'])
+    prebuilt_array_char[1] = 'D'
+    check(prebuilt_array_char,    ['A', 'D', chr(255), 'B', 'C'])
+    prebuilt_array_char[2] = 'E'
+    check(prebuilt_array_char,    ['A', 'D', 'E', 'B', 'C'])
+    #
+    rstm.transaction_boundary()
+    #
+    check(prebuilt_array_char,    ['A', 'D', 'E', 'B', 'C'])
     return 0
 
 
