@@ -101,10 +101,23 @@ def check(array, expected):
         assert array[i] == expected[i]
 check._annspecialcase_ = 'specialize:ll'
 
+def change(array, newvalues):
+    assert len(newvalues) <= len(array)
+    for i in range(len(newvalues)):
+        array[i] = rffi.cast(lltype.typeOf(array).TO.OF, newvalues[i])
+change._annspecialcase_ = 'specialize:ll'
+
 def do_stm_getarrayitem(argv):
     check(prebuilt_array_signed, [1, 10, -1, -10, 42])
     check(prebuilt_array_char,   [chr(1), chr(10), chr(255),
                                   chr(246), chr(42)])
+    return 0
+
+def do_stm_setarrayitem(argv):
+    change(prebuilt_array_signed, [500000, -10000000, 3])
+    check(prebuilt_array_signed,  [500000, -10000000, 3, -10, 42])
+    change(prebuilt_array_char,   ['A', 'B', 'C'])
+    check(prebuilt_array_char,    ['A', 'B', 'C', chr(246), chr(42)])
     return 0
 
 
@@ -120,4 +133,8 @@ class TestFuncGen(CompiledSTMTests):
 
     def test_getarrayitem_all_sizes(self):
         t, cbuilder = self.compile(do_stm_getarrayitem)
+        cbuilder.cmdexec('')
+
+    def test_setarrayitem_all_sizes(self):
+        t, cbuilder = self.compile(do_stm_setarrayitem)
         cbuilder.cmdexec('')
