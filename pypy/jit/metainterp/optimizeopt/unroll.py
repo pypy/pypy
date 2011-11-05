@@ -74,15 +74,18 @@ class UnrollOptimizer(Optimization):
         self.import_state(start_targetop)
         
         lastop = loop.operations[-1]
-        assert lastop.getopnum() == rop.LABEL
-        loop.operations = loop.operations[:-1]
-        #if lastop.getopnum() == rop.LABEL or lastop.getopnum() == rop.JUMP:
-        #    loop.operations = loop.operations[:-1]
-        #FIXME: FINISH
+        if lastop.getopnum() == rop.LABEL:
+            loop.operations = loop.operations[:-1]
+        else:
+            lastop = None
         
         self.optimizer.propagate_all_forward(clear=False)
+
+        if not lastop:
+            self.optimizer.flush()
+            loop.operations = self.optimizer.get_newoperations()
+            return
         
-        #if lastop.getopnum() == rop.LABEL:
         if not self.did_peel_one: # Enforce the previous behaviour of always peeling  exactly one iteration (for now)
             self.optimizer.flush()
             KillHugeIntBounds(self.optimizer).apply()
@@ -97,8 +100,6 @@ class UnrollOptimizer(Optimization):
             self.close_loop(jumpop)
             self.finilize_short_preamble(lastop)
             start_targetop.getdescr().short_preamble = self.short
-        #else:
-        #    loop.operations = self.optimizer.get_newoperations()
 
     def export_state(self, targetop):
         original_jump_args = targetop.getarglist()

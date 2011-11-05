@@ -596,6 +596,7 @@ class ResumeGuardCountersFloat(AbstractResumeGuardCounters):
 class ResumeFromInterpDescr(ResumeDescr):
     def __init__(self, original_greenkey):
         self.original_greenkey = original_greenkey
+        self.procedure_token = ProcedureToken()
 
     def compile_and_attach(self, metainterp, new_loop):
         # We managed to create a bridge going from the interpreter
@@ -605,34 +606,23 @@ class ResumeFromInterpDescr(ResumeDescr):
         metainterp_sd = metainterp.staticdata
         jitdriver_sd = metainterp.jitdriver_sd
         redargs = new_loop.inputargs
-        # We make a new LoopToken for this entry bridge, and stick it
-        # to every guard in the loop.
-        new_loop_token = make_loop_token(len(redargs), jitdriver_sd)
-        new_loop.token = new_loop_token
+        self.procedure_token.outermost_jitdriver_sd = jitdriver_sd
+        new_loop.token = self.procedure_token
         send_loop_to_backend(self.original_greenkey, metainterp.jitdriver_sd,
                              metainterp_sd, new_loop, "entry bridge")
         # send the new_loop to warmspot.py, to be called directly the next time
-        jitdriver_sd.warmstate.attach_unoptimized_bridge_from_interp(
-            self.original_greenkey,
-            new_loop_token)
-        # store the new loop in compiled_merge_points_wref too
-        old_loop_tokens = metainterp.get_compiled_merge_points(
-            self.original_greenkey)
-        # it always goes at the end of the list, as it is the most
-        # general loop token
-        old_loop_tokens.append(new_loop_token)
-        metainterp.set_compiled_merge_points(self.original_greenkey,
-                                             old_loop_tokens)
+        jitdriver_sd.warmstate.attach_procedure_to_interp(
+            self.original_greenkey, self.procedure_token)
 
     def reset_counter_from_failure(self):
         pass
 
 
-def compile_new_bridge(metainterp, old_loop_tokens, resumekey, retraced=False):
+def compile_new_bridge(metainterp, resumekey, retraced=False):
     """Try to compile a new bridge leading from the beginning of the history
     to some existing place.
     """
-    from pypy.jit.metainterp.optimize import optimize_bridge
+    from pypy.jit.metainterp.optimizeopt import optimize_trace
     
     # The history contains new operations to attach as the code for the
     # failure of 'resumekey.guard_op'.
@@ -640,9 +630,11 @@ def compile_new_bridge(metainterp, old_loop_tokens, resumekey, retraced=False):
     # Attempt to use optimize_bridge().  This may return None in case
     # it does not work -- i.e. none of the existing old_loop_tokens match.
     new_loop = create_empty_loop(metainterp)
-    new_loop.inputargs = metainterp.history.inputargs[:]
+    new_loop.inputargs = inputargs = metainterp.history.inputargs[:]
     # clone ops, as optimize_bridge can mutate the ops
-    new_loop.operations = [op.clone() for op in metainterp.history.operations]
+    procedure_token = resumekey.procedure_token
+    new_loop.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(procedure_token))] + \
+                          [op.clone() for op in metainterp.history.operations]
     metainterp_sd = metainterp.staticdata
     state = metainterp.jitdriver_sd.warmstate
     if isinstance(resumekey, ResumeAtPositionDescr):
@@ -650,38 +642,18 @@ def compile_new_bridge(metainterp, old_loop_tokens, resumekey, retraced=False):
     else:
         inline_short_preamble = True
     try:
-        target_loop_token = optimize_bridge(metainterp_sd, old_loop_tokens,
-                                            new_loop, state.enable_opts,
-                                            inline_short_preamble, retraced)
+        optimize_trace(metainterp_sd, new_loop, state.enable_opts)
     except InvalidLoop:
         debug_print("compile_new_bridge: got an InvalidLoop")
         # XXX I am fairly convinced that optimize_bridge cannot actually raise
         # InvalidLoop
         debug_print('InvalidLoop in compile_new_bridge')
         return None
-    # Did it work?
-    if target_loop_token is not None:
-        # Yes, we managed to create a bridge.  Dispatch to resumekey to
-        # know exactly what we must do (ResumeGuardDescr/ResumeFromInterpDescr)
-        prepare_last_operation(new_loop, target_loop_token)
-        resumekey.compile_and_attach(metainterp, new_loop)
-        record_loop_or_bridge(metainterp_sd, new_loop)
-    return target_loop_token
-
-def prepare_last_operation(new_loop, target_loop_token):
-    op = new_loop.operations[-1]
-    if not isinstance(target_loop_token, TerminatingLoopToken):
-        # normal case
-        #op.setdescr(target_loop_token)     # patch the jump target
-        pass
-    else:
-        # The target_loop_token is a pseudo loop token,
-        # e.g. loop_tokens_done_with_this_frame_void[0]
-        # Replace the operation with the real operation we want, i.e. a FINISH
-        descr = target_loop_token.finishdescr
-        args = op.getarglist()
-        new_op = ResOperation(rop.FINISH, args, None, descr=descr)
-        new_loop.operations[-1] = new_op
+    # We managed to create a bridge.  Dispatch to resumekey to
+    # know exactly what we must do (ResumeGuardDescr/ResumeFromInterpDescr)
+    resumekey.compile_and_attach(metainterp, new_loop)
+    record_loop_or_bridge(metainterp_sd, new_loop)
+    return new_loop.operations[-1].getdescr()
 
 # ____________________________________________________________
 

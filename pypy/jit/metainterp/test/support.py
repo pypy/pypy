@@ -16,15 +16,16 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system,
     from pypy.jit.codewriter import support
 
     class FakeJitCell(object):
-        __compiled_merge_points = []
-        def get_compiled_merge_points(self):
-            return self.__compiled_merge_points[:]
-        def set_compiled_merge_points(self, lst):
-            self.__compiled_merge_points = lst
+        __product_token = None
+        def get_procedure_token(self):
+            return self.__product_token
+        def set_procedure_token(self, token):
+            self.__product_token = token
 
     class FakeWarmRunnerState(object):
-        def attach_unoptimized_bridge_from_interp(self, greenkey, newloop):
-            pass
+        def attach_procedure_to_interp(self, greenkey, procedure_token):
+            cell = self.jit_cell_at_key(greenkey)
+            cell.set_procedure_token(procedure_token)
 
         def helper_func(self, FUNCPTR, func):
             from pypy.rpython.annlowlevel import llhelper
@@ -132,16 +133,14 @@ def _run_with_pyjitpl(testself, args):
 def _run_with_machine_code(testself, args):
     metainterp = testself.metainterp
     num_green_args = metainterp.jitdriver_sd.num_green_args
-    loop_tokens = metainterp.get_compiled_merge_points(args[:num_green_args])
-    if len(loop_tokens) != 1:
-        return NotImplemented
+    procedure_token = metainterp.get_procedure_token(args[:num_green_args])
     # a loop was successfully created by _run_with_pyjitpl(); call it
     cpu = metainterp.cpu
     for i in range(len(args) - num_green_args):
         x = args[num_green_args + i]
         typecode = history.getkind(lltype.typeOf(x))
         set_future_value(cpu, i, x, typecode)
-    faildescr = cpu.execute_token(loop_tokens[0])
+    faildescr = cpu.execute_token(procedure_token)
     assert faildescr.__class__.__name__.startswith('DoneWithThisFrameDescr')
     if metainterp.jitdriver_sd.result_type == history.INT:
         return cpu.get_latest_value_int(0)

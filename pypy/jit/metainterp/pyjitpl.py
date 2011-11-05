@@ -2118,10 +2118,10 @@ class MetaInterp(object):
             loop_tokens = sd.loop_tokens_done_with_this_frame_float
         else:
             assert False
-        self.history.record(rop.JUMP, exits, None)
-        target_loop_token = compile.compile_new_bridge(self, loop_tokens,
-                                                       self.resumekey)
-        if target_loop_token is not loop_tokens[0]:
+        # FIXME: kill TerminatingLoopToken?
+        self.history.record(rop.FINISH, exits, None, descr=loop_tokens[0].finishdescr)
+        target_loop_token = compile.compile_new_bridge(self, self.resumekey)
+        if not target_loop_token:
             compile.giveup()
 
     def compile_exit_frame_with_exception(self, valuebox):
