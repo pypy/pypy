@@ -16,6 +16,15 @@ from pypy.translator.c.support import cdecl, barebonearray
 #
 # Primitives
 
+# win64: we need different constants, since we emulate 64 bit long.
+# this function simply replaces 'L' by 'LL' in a format string
+if is_emulated_long:
+    def lll(fmt):
+        return fmt.replace('L', 'LL')
+else:
+    def lll(fmt):
+        return fmt
+    
 def name_signed(value, db):
     if isinstance(value, Symbolic):
         if isinstance(value, FieldOffset):
@@ -61,22 +70,22 @@ def name_signed(value, db):
         elif isinstance(value, llgroup.CombinedSymbolic):
             name = name_small_integer(value.lowpart, db)
             assert (value.rest & value.MASK) == 0
-            return '(%s+%dL)' % (name, value.rest)
+            return lll('(%s+%dL)') % (name, value.rest)
         elif isinstance(value, AddressAsInt):
-            return '((long)%s)' % name_address(value.adr, db)
+            return '((Signed)%s)' % name_address(value.adr, db)
         else:
             raise Exception("unimplemented symbolic %r"%value)
     if value is None:
         assert not db.completed
         return None
     if value == -sys.maxint-1:   # blame C
-        return '(-%dL-1L)' % sys.maxint
+        return lll('(-%dL-1L)') % sys.maxint
     else:
-        return '%dL' % value
+        return lll('%dL') % value
 
 def name_unsigned(value, db):
     assert value >= 0
-    return '%dUL' % value
+    return lll('%dUL') % value
 
 def name_unsignedlonglong(value, db):
     assert value >= 0
@@ -190,9 +199,9 @@ PrimitiveName = {
 
 PrimitiveType = {
     SignedLongLong:   'long long @',
-    Signed:   'long @',
+    Signed:   'long @', # but see below
     UnsignedLongLong: 'unsigned long long @',
-    Unsigned: 'unsigned long @',
+    Unsigned: 'unsigned long @', # but see below
     Float:    'double @',
     SingleFloat: 'float @',
     LongFloat: 'long double @',
@@ -228,11 +237,7 @@ define_c_primitive(rffi.USHORT, 'unsigned short')
 define_c_primitive(rffi.INT, 'int')
 define_c_primitive(rffi.INT_real, 'int')
 define_c_primitive(rffi.UINT, 'unsigned int')
-if is_emulated_long: # special case for win64
-    define_c_primitive(rffi.LONG, '__int64', 'LL')
-    define_c_primitive(rffi.ULONG, 'unsigned __int64', 'ULL')
-else:
-    define_c_primitive(rffi.LONG, 'long', 'L')
-    define_c_primitive(rffi.ULONG, 'unsigned long', 'UL')
+define_c_primitive(rffi.LONG, 'long', 'L')
+define_c_primitive(rffi.ULONG, 'unsigned long', 'UL')
 define_c_primitive(rffi.LONGLONG, 'long long', 'LL')
 define_c_primitive(rffi.ULONGLONG, 'unsigned long long', 'ULL')
