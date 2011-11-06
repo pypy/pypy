@@ -114,6 +114,7 @@ def display_exception():
 # Option parsing
 
 def print_info(*args):
+    initstdio()
     try:
         options = sys.pypy_translation_info
     except AttributeError:
@@ -126,6 +127,7 @@ def print_info(*args):
     raise SystemExit
 
 def print_help(*args):
+    initstdio()
     print('usage: %s [options] [-c cmd|-m mod|file.py|-] [arg...]' % (
         sys.executable,))
     print(__doc__.rstrip())
@@ -144,11 +146,13 @@ def _print_jit_help():
     print('  --jit off                  turn off the JIT')
 
 def print_version(*args):
+    initstdio()
     print ("Python", sys.version, file=sys.stderr)
     raise SystemExit
 
 def set_jit_option(options, jitparam, *args):
     if 'pypyjit' not in sys.builtin_module_names:
+        initstdio()
         print("Warning: No jit support in %s" % (sys.executable,),
               file=sys.stderr)
     else:
@@ -249,7 +253,9 @@ def setup_initial_paths(ignore_environment=False, **extra):
             sys.path.append(dir)
             _seen[dir] = True
 
-def initstdio(encoding, unbuffered):
+def initstdio(encoding=None, unbuffered=False):
+    if not encoding:
+        encoding = sys.getfilesystemencoding()
     if ':' in encoding:
         encoding, errors = encoding.split(':', 1)
     else:
@@ -510,8 +516,7 @@ def run_command_line(interactive,
         sys.setrecursionlimit(5000)
 
     readenv = not ignore_environment
-    io_encoding = ((readenv and os.getenv("PYTHONIOENCODING"))
-                   or sys.getfilesystemencoding())
+    io_encoding = readenv and os.getenv("PYTHONIOENCODING")
     initstdio(io_encoding, unbuffered)
 
     mainmodule = type(sys)('__main__')
@@ -694,6 +699,7 @@ def entry_point(executable, argv, nanos):
     try:
         cmdline = parse_command_line(argv)
     except CommandLineError as e:
+        initstdio()
         print_error(str(e))
         return 2
     except SystemExit as e:
