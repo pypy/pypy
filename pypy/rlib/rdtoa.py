@@ -58,8 +58,8 @@ def strtod(input):
         try:
             result = dg_strtod(ll_input, end_ptr)
 
-            endpos = (rffi.cast(rffi.LONG, end_ptr[0]) -
-                      rffi.cast(rffi.LONG, ll_input))
+            endpos = (rffi.cast(lltype.Signed, end_ptr[0]) -
+                      rffi.cast(lltype.Signed, ll_input))
 
             if endpos == 0 or endpos < len(input):
                 raise ValueError("invalid input at position %d" % (endpos,))
