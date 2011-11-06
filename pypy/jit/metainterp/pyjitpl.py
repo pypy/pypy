@@ -2037,20 +2037,20 @@ class MetaInterp(object):
     def compile_trace(self, live_arg_boxes):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = live_arg_boxes[:num_green_args]
-        target_procedure = self.get_procedure_token(greenkey)
-        if not target_procedure:
+        target_jitcell_token = self.get_procedure_token(greenkey)
+        if not target_jitcell_token:
             return
 
-        self.history.record(rop.LABEL, live_arg_boxes[num_green_args:], None,
-                            descr=TargetToken(target_procedure))
+        self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None,
+                            descr=target_jitcell_token)
         try:
-            target_token = compile.compile_new_bridge(self, self.resumekey)
+            target_token = compile.compile_trace(self, self.resumekey)
         finally:
             self.history.operations.pop()     # remove the JUMP
         if target_token is not None: # raise if it *worked* correctly
             self.history.inputargs = None
             self.history.operations = None
-            raise GenerateMergePoint(live_arg_boxes, target_token.procedure_token)
+            raise GenerateMergePoint(live_arg_boxes, target_token.cell_token)
 
     def compile_bridge_and_loop(self, original_boxes, live_arg_boxes, start,
                                 bridge_arg_boxes, start_resumedescr):

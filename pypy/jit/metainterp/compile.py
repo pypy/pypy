@@ -426,13 +426,13 @@ class ResumeGuardDescr(ResumeDescr):
         # We managed to create a bridge.  Attach the new operations
         # to the corresponding guard_op and compile from there
         assert metainterp.resumekey_original_loop_token is not None
-        new_loop.token = metainterp.resumekey_original_loop_token
+        new_loop.original_jitcell_token = metainterp.resumekey_original_loop_token
         inputargs = metainterp.history.inputargs
         if not we_are_translated():
             self._debug_suboperations = new_loop.operations
         send_bridge_to_backend(metainterp.jitdriver_sd, metainterp.staticdata,
                                self, inputargs, new_loop.operations,
-                               new_loop.token)
+                               new_loop.original_jitcell_token)
 
     def copy_all_attributes_into(self, res):
         # XXX a bit ugly to have to list them all here

@@ -442,7 +442,7 @@ class UnrollOptimizer(Optimization):
         debug_start('jit-log-virtualstate')
         virtual_state.debug_print("Looking for ")
 
-        for target in procedure_token.target_tokens:
+        for target in cell_token.target_tokens:
             if not target.virtual_state:
                 continue
             ok = False
@@ -481,24 +481,24 @@ class UnrollOptimizer(Optimization):
                         descr = target.start_resumedescr.clone_if_mutable()
                         inliner.inline_descr_inplace(descr)
                         guard.setdescr(descr)
-                    self.emit_operation(guard)
+                    self.optimizer.send_extra_operation(guard)
 
                 try:
                     for shop in target.short_preamble[1:]:
                         newop = inliner.inline_op(shop)
-                        self.emit_operation(newop)
+                        self.optimizer.send_extra_operation(newop)
                 except InvalidLoop:
                     debug_print("Inlining failed unexpectedly",
                                 "jumping to preamble instead")
                     assert False, "FIXME: Construct jump op"
-                    self.emit_operation(op)
+                    self.optimizer.send_extra_operation(op)
                 return True
         debug_stop('jit-log-virtualstate')
 
-        retraced_count = procedure_token.retraced_count
+        retraced_count = cell_token.retraced_count
         limit = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.retrace_limit
         if not self.retraced and retraced_count<limit:
-            procedure_token.retraced_count += 1
+            cell_token.retraced_count += 1
             return False
 
         
