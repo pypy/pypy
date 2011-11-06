@@ -188,6 +188,12 @@ class TestUnicode(BaseApiTest):
         assert space.unwrap(w_u) == 'sp'
         rffi.free_charp(u)
 
+    def test_encode_utf8(self, space, api):
+        u = rffi.unicode2wcharp(u'späm')
+        w_s = api.PyUnicode_EncodeUTF8(u, 4, None)
+        assert space.unwrap(w_s) == u'späm'.encode('utf-8')
+        rffi.free_wcharp(u)
+
     def test_IS(self, space, api):
         for char in [0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x1c, 0x1d, 0x1e, 0x1f,
                      0x20, 0x85, 0xa0, 0x1680, 0x2000, 0x2001, 0x2002,

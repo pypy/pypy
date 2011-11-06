@@ -438,6 +438,16 @@ def PyUnicode_DecodeUTF8(space, s, size, errors):
         w_errors = space.w_None
     return space.call_method(w_str, 'decode', space.wrap("utf-8"), w_errors)
 
+@cpython_api([CONST_WSTRING, Py_ssize_t, CONST_STRING], PyObject)
+def PyUnicode_EncodeUTF8(space, s, size, errors):
+    """Encode the Py_UNICODE buffer of the given size using UTF-8 and return a
+    Python string object.  Return NULL if an exception was raised by the codec.
+
+    This function used an int type for size. This might require
+    changes in your code for properly supporting 64-bit systems."""
+    w_s = space.wrap(rffi.wcharpsize2unicode(s, size))
+    return space.call_method(w_s, 'encode', space.wrap('utf-8'))
+
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.INTP], PyObject)
 def PyUnicode_DecodeUTF16(space, s, size, llerrors, pbyteorder):
     """Decode length bytes from a UTF-16 encoded buffer string and return the
