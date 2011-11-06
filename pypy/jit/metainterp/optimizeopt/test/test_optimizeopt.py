@@ -7,7 +7,7 @@ import pypy.jit.metainterp.optimizeopt.virtualize as virtualize
 from pypy.jit.metainterp.optimizeopt import optimize_loop_1, ALL_OPTS_DICT, build_opt_chain
 from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
-from pypy.jit.metainterp.history import TreeLoop, LoopToken, TargetToken
+from pypy.jit.metainterp.history import TreeLoop, ProcedureToken, TargetToken
 from pypy.jit.metainterp.jitprof import EmptyProfiler
 from pypy.jit.metainterp import executor, compile, resume, history
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
@@ -83,18 +83,16 @@ class BaseTestWithUnroll(BaseTest):
         jumpop = operations[-1]
         assert jumpop.getopnum() == rop.JUMP
         inputargs = loop.inputargs
-        loop.inputargs = None
 
         jump_args = jumpop.getarglist()[:]
         operations = operations[:-1]
         cloned_operations = [op.clone() for op in operations]
         
         preamble = TreeLoop('preamble')
-        #loop.preamble.inputargs = loop.inputargs
-        #loop.preamble.token = LoopToken()
+        preamble.inputargs = inputargs
         preamble.start_resumedescr = FakeDescr()
 
-        token = LoopToken() # FIXME: Make this a MergePointToken?
+        token = ProcedureToken() 
         preamble.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(token))] + \
                               operations +  \
                               [ResOperation(rop.LABEL, jump_args, None, descr=TargetToken(token))]
@@ -107,6 +105,8 @@ class BaseTestWithUnroll(BaseTest):
                           [ResOperation(rop.LABEL, [inliner.inline_arg(a) for a in jump_args],
                                         None, descr=TargetToken(token))] 
                           #[inliner.inline_op(jumpop)]
+        assert loop.operations[0].getopnum() == rop.LABEL
+        loop.inputargs = loop.operations[0].getarglist()
 
         self._do_optimize_loop(loop, call_pure_results)
         extra_same_as = []
@@ -146,6 +146,8 @@ class BaseTestWithUnroll(BaseTest):
             assert preamble.operations[-1].getdescr() == loop.operations[0].getdescr()
         if expected_short:
             short_preamble = TreeLoop('short preamble')
+            assert short[0].getopnum() == rop.LABEL
+            short_preamble.inputargs = short[0].getarglist()
             short_preamble.operations = short
             self.assert_equal(short_preamble, convert_old_style_to_targets(expected_short, jump=True),
                               text_right='expected short preamble')
@@ -155,6 +157,7 @@ class BaseTestWithUnroll(BaseTest):
 
 def convert_old_style_to_targets(loop, jump):
     newloop = TreeLoop(loop.name)
+    newloop.inputargs = loop.inputargs
     newloop.operations = [ResOperation(rop.LABEL, loop.inputargs, None, descr=FakeDescr())] + \
                       loop.operations
     if not jump:

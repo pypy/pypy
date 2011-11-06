@@ -772,6 +772,7 @@ class TargetToken(AbstractDescr):
         self.exported_state = None
         
 class TreeLoop(object):
+    inputargs = None
     operations = None
     token = None
     call_pure_results = None
@@ -783,20 +784,6 @@ class TreeLoop(object):
         # self.operations = list of ResOperations
         #   ops of the kind 'guard_xxx' contain a further list of operations,
         #   which may itself contain 'guard_xxx' and so on, making a tree.
-
-    _inputargs = None
-    
-    def get_inputargs(self):
-        "NOT_RPYTHON"
-        if self._inputargs is not None:
-            return self._inputargs
-        assert self.operations[0].getopnum() == rop.LABEL
-        return self.operations[0].getarglist()
-
-    def set_inputargs(self, inputargs):
-        self._inputargs = inputargs
-
-    inputargs = property(get_inputargs, set_inputargs)
 
     def _all_operations(self, omit_finish=False):
         "NOT_RPYTHON"
@@ -825,14 +812,15 @@ class TreeLoop(object):
 
     def check_consistency(self):     # for testing
         "NOT_RPYTHON"
-        seen = dict.fromkeys(self.inputargs)        
-        self.check_consistency_of_branch(self.operations, seen)
+        self.check_consistency_of(self.inputargs, self.operations)
 
     @staticmethod
-    def check_consistency_of(operations):
-        assert operations[0].getopnum() == rop.LABEL
-        inputargs = operations[0].getarglist()
+    def check_consistency_of(inputargs, operations):
+        for box in inputargs:
+            assert isinstance(box, Box), "Loop.inputargs contains %r" % (box,)
         seen = dict.fromkeys(inputargs)
+        assert len(seen) == len(inputargs), (
+               "duplicate Box in the Loop.inputargs")
         TreeLoop.check_consistency_of_branch(operations, seen)
 
     @staticmethod
@@ -875,7 +863,7 @@ class TreeLoop(object):
 
     def dump(self):
         # RPython-friendly
-        print '%r: ' % self
+        print '%r: inputargs =' % self, self._dump_args(self.inputargs)        
         for op in self.operations:
             args = op.getarglist()
             print '\t', op.getopname(), self._dump_args(args), \

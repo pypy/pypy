@@ -70,7 +70,7 @@ class OpParser(object):
         self.invent_fail_descr = invent_fail_descr
         self.nonstrict = nonstrict
         self.model = get_model(self.use_mock_model)
-        self.looptoken = self.model.LoopToken()
+        self.looptoken = self.model.ProcedureToken()
 
     def get_const(self, name, typ):
         if self._consts is None:

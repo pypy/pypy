@@ -3,7 +3,7 @@ class Boxes(object):
 
 def get_real_model():
     class LoopModel(object):
-        from pypy.jit.metainterp.history import TreeLoop, LoopToken
+        from pypy.jit.metainterp.history import TreeLoop, ProcedureToken
         from pypy.jit.metainterp.history import Box, BoxInt, BoxFloat
         from pypy.jit.metainterp.history import ConstInt, ConstObj, ConstPtr, ConstFloat
         from pypy.jit.metainterp.history import BasicFailDescr
