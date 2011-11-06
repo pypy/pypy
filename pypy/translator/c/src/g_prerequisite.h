@@ -9,12 +9,13 @@
 #endif
 
 #ifdef _WIN64
-#  define new_long __int64
-#  define NEW_LONG_MIN LLONG_MIN
+#  define Signed __int64
+#  define SIGNED_MIN LLONG_MIN 
 #else
-#  define new_long long
-#  define NEW_LONG_MIN LONG_MIN
+#  define Signed long
+#  define SIGNED_MIN LONG_MIN
 #endif
+#define Unsigned unsigned Signed
 
 #ifdef _WIN32
 #  include <io.h>   /* needed, otherwise _lseeki64 truncates to 32-bits (??) */

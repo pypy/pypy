@@ -72,7 +72,8 @@ def get_long_pattern(x):
     """get the bit pattern for a long, adjusted to pointer size"""
     return struct.pack(_long_typecode, x)
 
-# used in tests for ctypes:
+# used in tests for ctypes and for genc and friends
+# to handle the win64 special case:
 is_emulated_long = _long_typecode <> 'l'
     
 LONG_BIT = _get_long_bit()
