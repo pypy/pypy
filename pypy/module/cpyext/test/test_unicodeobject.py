@@ -188,6 +188,12 @@ class TestUnicode(BaseApiTest):
         assert space.unwrap(w_u) == 'sp'
         rffi.free_charp(u)
 
+    def test_encode_utf8(self, space, api):
+        u = rffi.unicode2wcharp(u'späm')
+        w_s = api.PyUnicode_EncodeUTF8(u, 4, None)
+        assert space.unwrap(w_s) == u'späm'.encode('utf-8')
+        rffi.free_wcharp(u)
+
     def test_IS(self, space, api):
         for char in [0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x1c, 0x1d, 0x1e, 0x1f,
                      0x20, 0x85, 0xa0, 0x1680, 0x2000, 0x2001, 0x2002,
@@ -384,6 +390,24 @@ class TestUnicode(BaseApiTest):
         self.raises(space, api, UnicodeEncodeError, api.PyUnicode_EncodeASCII,
                     data, len(u), lltype.nullptr(rffi.CCHARP.TO))
         rffi.free_wcharp(data)
+
+    def test_latin1(self, space, api):
+        s = 'abcdefg'
+        data = rffi.str2charp(s)
+        w_u = api.PyUnicode_DecodeLatin1(data, len(s), lltype.nullptr(rffi.CCHARP.TO))
+        assert space.eq_w(w_u, space.wrap(u"abcdefg"))
+        rffi.free_charp(data)
+
+        uni = u'abcdefg'
+        data = rffi.unicode2wcharp(uni)
+        w_s = api.PyUnicode_EncodeLatin1(data, len(uni), lltype.nullptr(rffi.CCHARP.TO))
+        assert space.eq_w(space.wrap("abcdefg"), w_s)
+        rffi.free_wcharp(data)
+
+        ustr = "abcdef"
+        w_ustr = space.wrap(ustr.decode("ascii"))
+        result = api.PyUnicode_AsLatin1String(w_ustr)
+        assert space.eq_w(space.wrap(ustr), result)
 
     def test_format(self, space, api):
         w_format = space.wrap(u'hi %s')

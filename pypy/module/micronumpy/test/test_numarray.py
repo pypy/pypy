@@ -21,7 +21,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpy import array
         # XXX fixed on multidim branch
         #assert array(3).size == 1
-        assert array([1, 2, 3]).size == 3
+        a = array([1, 2, 3])
+        assert a.size == 3
+        assert (a + a).size == 3
 
     def test_empty(self):
         """
