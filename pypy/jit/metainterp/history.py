@@ -825,7 +825,8 @@ class TreeLoop(object):
 
     def check_consistency(self):     # for testing
         "NOT_RPYTHON"
-        self.check_consistency_of(self.operations)
+        seen = dict.fromkeys(self.inputargs)        
+        self.check_consistency_of_branch(self.operations, seen)
 
     @staticmethod
     def check_consistency_of(operations):
