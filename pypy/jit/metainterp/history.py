@@ -806,7 +806,7 @@ class TreeLoop(object):
         return self.operations
 
     def get_display_text(self):    # for graphpage.py
-        return self.name
+        return self.name + '\n' + repr(self.inputargs)
 
     def show(self, errmsg=None):
         "NOT_RPYTHON"
@@ -1069,19 +1069,19 @@ class Stats(object):
         if option.view:
             self.view()
 
-    def view(self, errmsg=None, extraloops=[]):
-        from pypy.jit.metainterp.graphpage import display_loops
-        loops = self.get_all_loops()[:]
-        for loop in extraloops:
-            if loop in loops:
-                loops.remove(loop)
-            loops.append(loop)
-        highlight_loops = dict.fromkeys(extraloops, 1)
-        for loop in loops:
-            if hasattr(loop, '_looptoken_number') and (
-                    loop._looptoken_number in self.invalidated_token_numbers):
-                highlight_loops.setdefault(loop, 2)
-        display_loops(loops, errmsg, highlight_loops)
+    def view(self, errmsg=None, extraprocedures=[]):
+        from pypy.jit.metainterp.graphpage import display_procedures
+        procedures = self.get_all_loops()[:]
+        for procedure in extraprocedures:
+            if procedure in procedures:
+                procedures.remove(procedure)
+            procedures.append(procedure)
+        highlight_procedures = dict.fromkeys(extraprocedures, 1)
+        for procedure in procedures:
+            if hasattr(procedure, '_looptoken_number') and (
+               procedure._looptoken_number in self.invalidated_token_numbers):
+                highlight_procedures.setdefault(procedure, 2)
+        display_procedures(procedures, errmsg, highlight_procedures)
 
 # ----------------------------------------------------------------
 

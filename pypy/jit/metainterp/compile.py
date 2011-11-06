@@ -24,7 +24,7 @@ def giveup():
     from pypy.jit.metainterp.jitprof import ABORT_BRIDGE
     raise SwitchToBlackhole(ABORT_BRIDGE)
 
-def show_loop(metainterp_sd, loop=None, error=None):
+def show_procedures(metainterp_sd, procedure=None, error=None):
     # debugging
     if option.view or option.viewloops:
         if error:
@@ -33,11 +33,12 @@ def show_loop(metainterp_sd, loop=None, error=None):
                 errmsg += ': ' + str(error)
         else:
             errmsg = None
-        if loop is None: # or type(loop) is TerminatingLoop:
-            extraloops = []
+        if procedure is None:
+            extraprocedures = []
         else:
-            extraloops = [loop]
-        metainterp_sd.stats.view(errmsg=errmsg, extraloops=extraloops)
+            extraprocedures = [procedure]
+        metainterp_sd.stats.view(errmsg=errmsg,
+                                 extraprocedures=extraprocedures)
 
 def create_empty_loop(metainterp, name_prefix=''):
     name = metainterp.staticdata.stats.name_for_new_loop()
@@ -78,8 +79,6 @@ def record_loop_or_bridge(metainterp_sd, loop):
             if descr.procedure_token is not looptoken:
                 looptoken.record_jump_to(descr.procedure_token)
             op._descr = None    # clear reference, mostly for tests
-            if not we_are_translated():
-                op._jumptarget_number = descr.procedure_token.number
     # record this looptoken on the QuasiImmut used in the code
     if loop.quasi_immutable_deps is not None:
         for qmut in loop.quasi_immutable_deps:
@@ -194,7 +193,7 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     globaldata.loopnumbering += 1
 
     if not we_are_translated():
-        show_loop(metainterp_sd, loop)
+        show_procedures(metainterp_sd, loop)
         loop.check_consistency()
 
     operations = get_deep_immutable_oplist(loop.operations)
@@ -225,7 +224,7 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
     jitdriver_sd.on_compile_bridge(metainterp_sd.logger_ops,
                                    original_loop_token, operations, n)
     if not we_are_translated():
-        show_loop(metainterp_sd)
+        show_procedures(metainterp_sd)
         seen = dict.fromkeys(inputargs)
         TreeLoop.check_consistency_of_branch(operations, seen)
     metainterp_sd.profiler.start_backend()
