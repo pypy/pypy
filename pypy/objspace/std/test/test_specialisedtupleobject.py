@@ -22,17 +22,23 @@ class TestW_SpecialisedTupleObject():
         
     def test_hash_against_normal_tuple(self):
         normalspace = gettestobjspace(**{"objspace.std.withspecialisedtuple": False})
-        w_tuple = normalspace.newtuple([self.space.wrap(1), self.space.wrap(2)])
-
         specialisedspace = gettestobjspace(**{"objspace.std.withspecialisedtuple": True})
-        w_specialisedtuple = specialisedspace.newtuple([self.space.wrap(1), self.space.wrap(2)])
 
-        assert isinstance(w_specialisedtuple, W_SpecialisedTupleObject)
-        assert isinstance(w_tuple, W_TupleObject)
-        assert not normalspace.is_true(normalspace.eq(w_tuple, w_specialisedtuple))
-        assert specialisedspace.is_true(specialisedspace.eq(w_tuple, w_specialisedtuple))
-        assert specialisedspace.is_true(specialisedspace.eq(normalspace.hash(w_tuple), specialisedspace.hash(w_specialisedtuple)))
+        def hash_test(values):
+            values_w = [self.space.wrap(value) for value in values]
+            w_tuple =                 normalspace.newtuple(values_w)
+            w_specialisedtuple = specialisedspace.newtuple(values_w)
+    
+            assert isinstance(w_specialisedtuple, W_SpecialisedTupleObject)
+            assert isinstance(w_tuple, W_TupleObject)
+            assert not normalspace.is_true(normalspace.eq(w_tuple, w_specialisedtuple))
+            assert specialisedspace.is_true(specialisedspace.eq(w_tuple, w_specialisedtuple))
+            assert specialisedspace.is_true(specialisedspace.eq(normalspace.hash(w_tuple), specialisedspace.hash(w_specialisedtuple)))
 
+        hash_test([1,2])
+        hash_test([1.5,2.8])
+        hash_test(['arbitrary','strings'])
+        
     def test_setitem(self):
         py.test.skip('skip for now, only needed for cpyext')
         w_specialisedtuple = self.space.newtuple([self.space.wrap(1)])
@@ -61,6 +67,7 @@ class AppTestW_SpecialisedTupleObject(object):
         assert self.isspecialised((42,43))
         assert self.isspecialised((4.2,4.3))
         assert self.isspecialised((1.0,2.0))
+        assert self.isspecialised(('a','b'))
         
     def test_len(self):
         t = self.forbid_delegation((42,43))
@@ -91,6 +98,12 @@ class AppTestW_SpecialisedTupleObject(object):
         
         c = (2,1)
         assert not a == c
+        
+        d = (1.0,2.0)
+        assert a == d
+        
+        e = ('r','s')
+        assert not a == e
         
     def test_eq_can_delegate(self):        
         a = (1,2)
