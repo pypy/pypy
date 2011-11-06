@@ -17,6 +17,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[13] = 5.3
         assert a[13] == 5.3
 
+    def test_size(self):
+        from numpy import array
+        # XXX fixed on multidim branch
+        #assert array(3).size == 1
+        assert array([1, 2, 3]).size == 3
+
     def test_empty(self):
         """
         Test that empty() works.
