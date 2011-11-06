@@ -17,7 +17,7 @@
 
 typedef struct {
 	void (*func)(void);
-	new_long id;
+	long id;
 	HANDLE done;
 } callobj;
 
@@ -28,7 +28,7 @@ typedef struct RPyOpaque_ThreadLock {
 } NRMUTEX, *PNRMUTEX ;
 
 /* prototypes */
-new_long RPyThreadStart(void (*func)(void));
+long RPyThreadStart(void (*func)(void));
 BOOL InitializeNonRecursiveMutex(PNRMUTEX mutex);
 VOID DeleteNonRecursiveMutex(PNRMUTEX mutex);
 DWORD EnterNonRecursiveMutex(PNRMUTEX mutex, BOOL wait);
@@ -36,15 +36,15 @@ BOOL LeaveNonRecursiveMutex(PNRMUTEX mutex);
 void RPyOpaqueDealloc_ThreadLock(struct RPyOpaque_ThreadLock *lock);
 int RPyThreadAcquireLock(struct RPyOpaque_ThreadLock *lock, int waitflag);
 void RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock);
-new_long RPyThreadGetStackSize(void);
-new_long RPyThreadSetStackSize(new_long);
+long RPyThreadGetStackSize(void);
+long RPyThreadSetStackSize(long);
 
 
 /* implementations */
 
 #ifndef PYPY_NOT_MAIN_FILE
 
-static new_long _pypythread_stacksize = 0;
+static long _pypythread_stacksize = 0;
 
 /*
  * Return the thread Id instead of an handle. The Id is said to uniquely
@@ -67,9 +67,9 @@ bootstrap(void *call)
 	func();
 }
 
-new_long RPyThreadStart(void (*func)(void))
+long RPyThreadStart(void (*func)(void))
 {
-	unsigned new_long rv;
+	unsigned long rv;
 	callobj obj;
 
 	obj.id = -1;	/* guilty until proved innocent */
@@ -79,7 +79,7 @@ new_long RPyThreadStart(void (*func)(void))
 		return -1;
 
 	rv = _beginthread(bootstrap, _pypythread_stacksize, &obj);
-	if (rv == (unsigned new_long)-1) {
+	if (rv == (unsigned long)-1) {
 		/* I've seen errno == EAGAIN here, which means "there are
 		 * too many threads".
 		 */
@@ -100,12 +100,12 @@ new_long RPyThreadStart(void (*func)(void))
 #define THREAD_MIN_STACKSIZE    0x8000      /* 32kB */
 #define THREAD_MAX_STACKSIZE    0x10000000  /* 256MB */
 
-new_long RPyThreadGetStackSize(void)
+long RPyThreadGetStackSize(void)
 {
 	return _pypythread_stacksize;
 }
 
-new_long RPyThreadSetStackSize(new_long newsize)
+long RPyThreadSetStackSize(long newsize)
 {
 	if (newsize == 0) {    /* set to default */
 		_pypythread_stacksize = 0;
@@ -229,7 +229,7 @@ static volatile LONG pending_acquires = -1;
 static CRITICAL_SECTION mutex_gil;
 static HANDLE cond_gil;
 
-new_long RPyGilAllocate(void)
+long RPyGilAllocate(void)
 {
     pending_acquires = 0;
     InitializeCriticalSection(&mutex_gil);
@@ -238,7 +238,7 @@ new_long RPyGilAllocate(void)
     return 1;
 }
 
-new_long RPyGilYieldThread(void)
+long RPyGilYieldThread(void)
 {
     /* can be called even before RPyGilAllocate(), but in this case,
        pending_acquires will be -1 */
