@@ -727,7 +727,7 @@ _const_ptr_for_unicode = {}
 # of operations.  Each branch ends in a jump which can go either to
 # the top of the same loop, or to another TreeLoop; or it ends in a FINISH.
 
-class ProcedureToken(AbstractDescr):
+class JitCellToken(AbstractDescr):
     """Used for rop.JUMP, giving the target of the jump.
     This is different from TreeLoop: the TreeLoop class contains the
     whole loop, including 'operations', and goes away after the loop
@@ -766,18 +766,21 @@ class ProcedureToken(AbstractDescr):
         self.compiled_loop_token.cpu.dump_loop_token(self)
 
 class TargetToken(AbstractDescr):
-    def __init__(self, procedure_token):
-        self.procedure_token = procedure_token
+    def __init__(self, cell_token):
+        self.cell_token = cell_token
         self.virtual_state = None
         self.exported_state = None
         
 class TreeLoop(object):
     inputargs = None
     operations = None
-    token = None
     call_pure_results = None
     logops = None
     quasi_immutable_deps = None
+
+    def _token(*args):
+        raise Exception("TreeLoop.token is killed")
+    token = property(_token, _token)
 
     def __init__(self, name):
         self.name = name

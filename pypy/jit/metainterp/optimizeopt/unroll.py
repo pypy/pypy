@@ -1,7 +1,7 @@
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.optimizeopt.virtualstate import VirtualStateAdder, ShortBoxes
 from pypy.jit.metainterp.compile import ResumeGuardDescr
-from pypy.jit.metainterp.history import TreeLoop, TargetToken
+from pypy.jit.metainterp.history import TreeLoop, TargetToken, JitCellToken
 from pypy.jit.metainterp.jitexc import JitException
 from pypy.jit.metainterp.optimize import InvalidLoop, RetraceLoop
 from pypy.jit.metainterp.optimizeopt.optimizer import *
@@ -67,6 +67,7 @@ class UnrollOptimizer(Optimization):
         loop = self.optimizer.loop
         self.optimizer.clear_newoperations()
 
+
         start_label = loop.operations[0]
         if start_label.getopnum() == rop.LABEL:
             loop.operations = loop.operations[1:]
@@ -75,39 +76,31 @@ class UnrollOptimizer(Optimization):
             self.optimizer.send_extra_operation(start_label)
         else:
             start_label = None            
-        
-        stop_label = loop.operations[-1]
-        if stop_label.getopnum() == rop.LABEL:
-            loop.operations = loop.operations[:-1]
-        else:
-            stop_label = None
+
+        jumpop = loop.operations[-1]
+        assert jumpop.getopnum() == rop.JUMP
+        loop.operations = loop.operations[:-1]
 
         self.import_state(start_label)
         self.optimizer.propagate_all_forward(clear=False)
 
-        if not stop_label:
-            self.optimizer.flush()
-            loop.operations = self.optimizer.get_newoperations()
+        if self.jump_to_already_compiled_trace(jumpop):
             return
-        elif not start_label:
-            try:
-                self.optimizer.send_extra_operation(stop_label)
-            except RetraceLoop:
-                pass
-            else:
-                self.optimizer.flush()
-                loop.operations = self.optimizer.get_newoperations()
-                return
 
+        # Failed to find a compiled trace to jump to, produce a label instead
+        cell_token = jumpop.getdescr()
+        assert isinstance(cell_token, JitCellToken)
+        stop_label = ResOperation(rop.LABEL, jumpop.getarglist(), None, TargetToken(cell_token))
+        
         if not self.did_peel_one: # Enforce the previous behaviour of always peeling  exactly one iteration (for now)
             self.optimizer.flush()
             KillHugeIntBounds(self.optimizer).apply()
 
             loop.operations = self.optimizer.get_newoperations()
             self.export_state(stop_label)
-            loop.operations.append(stop_label)
+            loop.operations.append(stop_label)            
         else:
-            assert stop_label.getdescr().procedure_token is start_label.getdescr().procedure_token
+            assert stop_label.getdescr().cell_token is start_label.getdescr().cell_token
             jumpop = ResOperation(rop.JUMP, stop_label.getarglist(), None, descr=start_label.getdescr())
 
             self.close_loop(jumpop)
@@ -430,8 +423,82 @@ class UnrollOptimizer(Optimization):
         if box in self.optimizer.values:
             box = self.optimizer.values[box].force_box(self.optimizer)
         jumpargs.append(box)
-        
 
+    def jump_to_already_compiled_trace(self, jumpop):
+        assert jumpop.getopnum() == rop.JUMP
+        cell_token = jumpop.getdescr()
+
+        assert isinstance(cell_token, JitCellToken)
+        if not cell_token.target_tokens:
+            return False
+
+        args = jumpop.getarglist()
+        modifier = VirtualStateAdder(self.optimizer)
+        virtual_state = modifier.get_virtual_state(args)
+        debug_start('jit-log-virtualstate')
+        virtual_state.debug_print("Looking for ")
+
+        for target in procedure_token.target_tokens:
+            if not target.virtual_state:
+                continue
+            ok = False
+            extra_guards = []
+
+            bad = {}
+            debugmsg = 'Did not match '
+            if target.virtual_state.generalization_of(virtual_state, bad):
+                ok = True
+                debugmsg = 'Matched '
+            else:
+                try:
+                    cpu = self.optimizer.cpu
+                    target.virtual_state.generate_guards(virtual_state,
+                                                         args, cpu,
+                                                         extra_guards)
+
+                    ok = True
+                    debugmsg = 'Guarded to match '
+                except InvalidLoop:
+                    pass
+            target.virtual_state.debug_print(debugmsg, bad)
+
+            if ok:
+                debug_stop('jit-log-virtualstate')
+
+                values = [self.getvalue(arg)
+                          for arg in jumpop.getarglist()]
+                args = target.virtual_state.make_inputargs(values, self.optimizer,
+                                                           keyboxes=True)
+                short_inputargs = target.short_preamble[0].getarglist()
+                inliner = Inliner(short_inputargs, args)
+
+                for guard in extra_guards:
+                    if guard.is_guard():
+                        descr = target.start_resumedescr.clone_if_mutable()
+                        inliner.inline_descr_inplace(descr)
+                        guard.setdescr(descr)
+                    self.emit_operation(guard)
+
+                try:
+                    for shop in target.short_preamble[1:]:
+                        newop = inliner.inline_op(shop)
+                        self.emit_operation(newop)
+                except InvalidLoop:
+                    debug_print("Inlining failed unexpectedly",
+                                "jumping to preamble instead")
+                    assert False, "FIXME: Construct jump op"
+                    self.emit_operation(op)
+                return True
+        debug_stop('jit-log-virtualstate')
+
+        retraced_count = procedure_token.retraced_count
+        limit = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.retrace_limit
+        if not self.retraced and retraced_count<limit:
+            procedure_token.retraced_count += 1
+            return False
+
+        
+# FIXME: kill
 class OptInlineShortPreamble(Optimization):
     def __init__(self, retraced):
         self.retraced = retraced
@@ -440,82 +507,6 @@ class OptInlineShortPreamble(Optimization):
         return OptInlineShortPreamble(self.retraced)
 
     def propagate_forward(self, op):
-        if op.getopnum() == rop.JUMP:
-            self.emit_operation(op)
-            return
-        elif op.getopnum() == rop.LABEL:
-            target_token = op.getdescr()
-            assert isinstance(target_token, TargetToken)
-            procedure_token = target_token.procedure_token
-            if not procedure_token.target_tokens:
-                self.emit_operation(op)
-                return
-
-            args = op.getarglist()
-            modifier = VirtualStateAdder(self.optimizer)
-            virtual_state = modifier.get_virtual_state(args)
-            debug_start('jit-log-virtualstate')
-            virtual_state.debug_print("Looking for ")
-
-            for target in procedure_token.target_tokens:
-                if not target.virtual_state:
-                    continue
-                ok = False
-                extra_guards = []
-
-                bad = {}
-                debugmsg = 'Did not match '
-                if target.virtual_state.generalization_of(virtual_state, bad):
-                    ok = True
-                    debugmsg = 'Matched '
-                else:
-                    try:
-                        cpu = self.optimizer.cpu
-                        target.virtual_state.generate_guards(virtual_state,
-                                                             args, cpu,
-                                                             extra_guards)
-
-                        ok = True
-                        debugmsg = 'Guarded to match '
-                    except InvalidLoop:
-                        pass
-                target.virtual_state.debug_print(debugmsg, bad)
-
-                if ok:
-                    debug_stop('jit-log-virtualstate')
-
-                    values = [self.getvalue(arg)
-                              for arg in op.getarglist()]
-                    args = target.virtual_state.make_inputargs(values, self.optimizer,
-                                                               keyboxes=True)
-                    short_inputargs = target.short_preamble[0].getarglist()
-                    inliner = Inliner(short_inputargs, args)
-
-                    for guard in extra_guards:
-                        if guard.is_guard():
-                            descr = target.start_resumedescr.clone_if_mutable()
-                            inliner.inline_descr_inplace(descr)
-                            guard.setdescr(descr)
-                        self.emit_operation(guard)
-
-                    try:
-                        for shop in target.short_preamble[1:]:
-                            newop = inliner.inline_op(shop)
-                            self.emit_operation(newop)
-                    except InvalidLoop:
-                        debug_print("Inlining failed unexpectedly",
-                                    "jumping to preamble instead")
-                        assert False, "FIXME: Construct jump op"
-                        self.emit_operation(op)
-                    return
-            debug_stop('jit-log-virtualstate')
-            
-            retraced_count = procedure_token.retraced_count
-            limit = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.retrace_limit
-            if not self.retraced and retraced_count<limit:
-                procedure_token.retraced_count += 1
-                raise RetraceLoop
-
             ## # We should not be failing much anymore...
             ##     if not procedure_token.failed_states:
             ##         debug_print("Retracing (%d of %d)" % (retraced_count,
@@ -535,7 +526,8 @@ class OptInlineShortPreamble(Optimization):
             ##         loop_token.failed_states=[virtual_state]
             ##     else:
             ##         loop_token.failed_states.append(virtual_state)
-        self.emit_operation(op)
+            self.emit_operation(op)
+
 
 class ValueImporter(object):
     def __init__(self, unroll, value, op):

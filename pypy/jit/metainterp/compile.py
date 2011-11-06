@@ -9,7 +9,7 @@ from pypy.conftest import option
 from pypy.tool.sourcetools import func_with_new_name
 
 from pypy.jit.metainterp.resoperation import ResOperation, rop, get_deep_immutable_oplist
-from pypy.jit.metainterp.history import TreeLoop, Box, History, ProcedureToken, TargetToken
+from pypy.jit.metainterp.history import TreeLoop, Box, History, JitCellToken, TargetToken
 from pypy.jit.metainterp.history import AbstractFailDescr, BoxInt
 from pypy.jit.metainterp.history import BoxPtr, BoxObj, BoxFloat, Const
 from pypy.jit.metainterp import history
@@ -47,7 +47,7 @@ def create_empty_loop(metainterp, name_prefix=''):
 
 
 def make_procedure_token(jitdriver_sd):
-    procedure_token = ProcedureToken()
+    procedure_token = JitCellToken()
     procedure_token.outermost_jitdriver_sd = jitdriver_sd
     return procedure_token
 
@@ -68,7 +68,7 @@ def record_loop_or_bridge(metainterp_sd, loop):
             n = descr.index
             if n >= 0:       # we also record the resumedescr number
                 looptoken.compiled_loop_token.record_faildescr_index(n)
-        elif isinstance(descr, ProcedureToken):
+        elif isinstance(descr, JitCellToken):
             assert False, "FIXME"
         elif isinstance(descr, TargetToken):
             # for a JUMP or a CALL_ASSEMBLER: record it as a potential jump.
@@ -285,7 +285,7 @@ class ExitFrameWithExceptionDescrRef(_DoneWithThisFrameDescr):
         raise metainterp_sd.ExitFrameWithExceptionRef(cpu, value)
 
 
-class TerminatingLoopToken(ProcedureToken): # FIXME:!!
+class TerminatingLoopToken(JitCellToken): # FIXME: kill?
     terminating = True
 
     def __init__(self, nargs, finishdescr):

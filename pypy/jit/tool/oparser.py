@@ -70,7 +70,7 @@ class OpParser(object):
         self.invent_fail_descr = invent_fail_descr
         self.nonstrict = nonstrict
         self.model = get_model(self.use_mock_model)
-        self.looptoken = self.model.ProcedureToken()
+        self.celltoken = self.model.JitCellToken()
 
     def get_const(self, name, typ):
         if self._consts is None:
@@ -243,7 +243,7 @@ class OpParser(object):
                     descr = self.invent_fail_descr(self.model, fail_args)
             elif opnum == rop.JUMP:
                 if descr is None and self.invent_fail_descr:
-                    descr = self.looptoken
+                    descr = self.celltoken
         return opnum, args, descr, fail_args
 
     def create_op(self, opnum, args, result, descr):
@@ -307,7 +307,6 @@ class OpParser(object):
             raise ParseError("unexpected dedent at line: %s" % newlines[num])
         loop = self.model.ExtendedTreeLoop("loop")
         loop.comment = first_comment
-        loop.token = self.looptoken
         loop.operations = ops
         loop.inputargs = inpargs
         loop.last_offset = last_offset

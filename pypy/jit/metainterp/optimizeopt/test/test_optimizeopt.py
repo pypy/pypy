@@ -7,7 +7,7 @@ import pypy.jit.metainterp.optimizeopt.virtualize as virtualize
 from pypy.jit.metainterp.optimizeopt import optimize_loop_1, ALL_OPTS_DICT, build_opt_chain
 from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
-from pypy.jit.metainterp.history import TreeLoop, ProcedureToken, TargetToken
+from pypy.jit.metainterp.history import TreeLoop, JitCellToken, TargetToken
 from pypy.jit.metainterp.jitprof import EmptyProfiler
 from pypy.jit.metainterp import executor, compile, resume, history
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
@@ -92,19 +92,22 @@ class BaseTestWithUnroll(BaseTest):
         preamble.inputargs = inputargs
         preamble.start_resumedescr = FakeDescr()
 
-        token = ProcedureToken() 
+        token = JitCellToken() 
         preamble.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(token))] + \
                               operations +  \
-                              [ResOperation(rop.LABEL, jump_args, None, descr=TargetToken(token))]
+                              [ResOperation(rop.JUMP, jump_args, None, descr=token)]
         self._do_optimize_loop(preamble, call_pure_results)
+
+        assert preamble.operations[-1].getopnum() == rop.LABEL
 
         inliner = Inliner(inputargs, jump_args)
         loop.start_resumedescr = preamble.start_resumedescr
         loop.operations = [preamble.operations[-1]] + \
                           [inliner.inline_op(op, clone=False) for op in cloned_operations] + \
-                          [ResOperation(rop.LABEL, [inliner.inline_arg(a) for a in jump_args],
-                                        None, descr=TargetToken(token))] 
+                          [ResOperation(rop.JUMP, [inliner.inline_arg(a) for a in jump_args],
+                                        None, descr=token)] 
                           #[inliner.inline_op(jumpop)]
+        assert loop.operations[-1].getopnum() == rop.JUMP
         assert loop.operations[0].getopnum() == rop.LABEL
         loop.inputargs = loop.operations[0].getarglist()
 

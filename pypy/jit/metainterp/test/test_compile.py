@@ -1,5 +1,5 @@
 from pypy.config.pypyoption import get_pypy_config
-from pypy.jit.metainterp.history import ProcedureToken, TargetToken, ConstInt, History, Stats
+from pypy.jit.metainterp.history import TargetToken, ConstInt, History, Stats
 from pypy.jit.metainterp.history import BoxInt, INT
 from pypy.jit.metainterp.compile import insert_loop_token, compile_procedure
 from pypy.jit.metainterp.compile import ResumeGuardDescr
