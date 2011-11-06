@@ -328,7 +328,7 @@ class WarmEnterState(object):
                 # set counter to -2, to mean "tracing in effect"
                 cell.counter = -2
                 try:
-                    loop_token = metainterp.compile_and_run_once(jitdriver_sd,
+                    procedure_token = metainterp.compile_and_run_once(jitdriver_sd,
                                                                  *args)
                 finally:
                     if cell.counter == -2:
@@ -341,8 +341,8 @@ class WarmEnterState(object):
                 assert cell.counter == -1
                 if not confirm_enter_jit(*args):
                     return
-                loop_token = cell.get_entry_loop_token()
-                if loop_token is None:   # it was a weakref that has been freed
+                procedure_token = cell.get_procedure_token()
+                if procedure_token is None:   # it was a weakref that has been freed
                     cell.counter = 0
                     return
                 # machine code was already compiled for these greenargs
@@ -353,14 +353,14 @@ class WarmEnterState(object):
             while True:     # until interrupted by an exception
                 metainterp_sd.profiler.start_running()
                 #debug_start("jit-running")
-                fail_descr = warmrunnerdesc.execute_token(loop_token)
+                fail_descr = warmrunnerdesc.execute_token(procedure_token)
                 #debug_stop("jit-running")
                 metainterp_sd.profiler.end_running()
-                loop_token = None     # for test_memmgr
+                procedure_token = None     # for test_memmgr
                 if vinfo is not None:
                     vinfo.reset_vable_token(virtualizable)
-                loop_token = fail_descr.handle_fail(metainterp_sd,
-                                                    jitdriver_sd)
+                procedure_token = fail_descr.handle_fail(metainterp_sd,
+                                                         jitdriver_sd)
 
         maybe_compile_and_run._dont_inline_ = True
         self.maybe_compile_and_run = maybe_compile_and_run

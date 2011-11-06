@@ -734,7 +734,7 @@ class ProcedureToken(AbstractDescr):
     was compiled; but the LoopDescr remains alive and points to the
     generated assembler.
     """
-    short_preamble = None
+    target_tokens = None
     failed_states = None
     retraced_count = 0
     terminating = False # see TerminatingLoopToken in compile.py

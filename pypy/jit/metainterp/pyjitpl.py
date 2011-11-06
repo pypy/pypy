@@ -8,7 +8,7 @@ from pypy.rlib import nonconst, rstack
 
 from pypy.jit.metainterp import history, compile, resume
 from pypy.jit.metainterp.history import Const, ConstInt, ConstPtr, ConstFloat
-from pypy.jit.metainterp.history import Box
+from pypy.jit.metainterp.history import Box, TargetToken
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp import executor
 from pypy.jit.metainterp.logger import Logger
@@ -1928,10 +1928,9 @@ class MetaInterp(object):
         #   that failed;
         # - if self.resumekey is a ResumeFromInterpDescr, it starts directly
         #   from the interpreter.
-        if False: # FIXME
-          if not self.retracing_loop_from:
+        if not self.retracing_loop_from:
             try:
-                self.compile_bridge(live_arg_boxes)
+                self.compile_trace(live_arg_boxes)
             except RetraceLoop:
                 start = len(self.history.operations)
                 self.current_merge_points.append((live_arg_boxes, start))
@@ -2042,22 +2041,20 @@ class MetaInterp(object):
     def compile_trace(self, live_arg_boxes):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = live_arg_boxes[:num_green_args]
-        old_loop_tokens = self.get_compiled_merge_points(greenkey)
-        if len(old_loop_tokens) == 0:
+        target_procedure = self.get_procedure_token(greenkey)
+        if not target_procedure:
             return
-        #if self.resumekey.guard_opnum == rop.GUARD_CLASS:
-        #    return # Kepp tracing for another iteration
-        self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
+
+        self.history.record(rop.LABEL, live_arg_boxes[num_green_args:], None,
+                            descr=TargetToken(target_procedure))
         try:
-            target_loop_token = compile.compile_new_bridge(self,
-                                                           old_loop_tokens,
-                                                           self.resumekey)
+            target_token = compile.compile_new_bridge(self, self.resumekey)
         finally:
             self.history.operations.pop()     # remove the JUMP
-        if target_loop_token is not None: # raise if it *worked* correctly
+        if target_token is not None: # raise if it *worked* correctly
             self.history.inputargs = None
             self.history.operations = None
-            raise GenerateMergePoint(live_arg_boxes, target_loop_token)
+            raise GenerateMergePoint(live_arg_boxes, target_token.procedure_token)
 
     def compile_bridge_and_loop(self, original_boxes, live_arg_boxes, start,
                                 bridge_arg_boxes, start_resumedescr):
@@ -2119,6 +2116,7 @@ class MetaInterp(object):
         else:
             assert False
         # FIXME: kill TerminatingLoopToken?
+        # FIXME: can we call compile_trace?
         self.history.record(rop.FINISH, exits, None, descr=loop_tokens[0].finishdescr)
         target_loop_token = compile.compile_new_bridge(self, self.resumekey)
         if not target_loop_token:

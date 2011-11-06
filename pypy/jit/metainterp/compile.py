@@ -119,12 +119,14 @@ def compile_procedure(metainterp, greenkey, start,
     except InvalidLoop:
         return None
     loop.operations = part.operations
+    all_target_tokens = [part.operations[0].getdescr()]
     while part.operations[-1].getopnum() == rop.LABEL:
         inliner = Inliner(inputargs, jumpargs)
         part.operations = [part.operations[-1]] + \
                           [inliner.inline_op(h_ops[i]) for i in range(start, len(h_ops))] + \
                           [ResOperation(rop.LABEL, [inliner.inline_arg(a) for a in jumpargs],
                                         None, descr=TargetToken(procedure_token))]
+        all_target_tokens.append(part.operations[0].getdescr())
         inputargs = jumpargs
         jumpargs = part.operations[-1].getarglist()
 
@@ -139,7 +141,7 @@ def compile_procedure(metainterp, greenkey, start,
         assert isinstance(box, Box)
 
     loop.token = procedure_token
-
+    procedure_token.target_tokens = all_target_tokens
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop")
     record_loop_or_bridge(metainterp_sd, loop)
     return procedure_token
@@ -206,10 +208,6 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     metainterp_sd.log("compiled new " + type)
     #
     metainterp_sd.logger_ops.log_loop(loop.inputargs, loop.operations, n, type, ops_offset)
-    short = loop.token.short_preamble
-    if short:
-        metainterp_sd.logger_ops.log_short_preamble(short[-1].inputargs,
-                                                    short[-1].operations)
     #
     if metainterp_sd.warmrunnerdesc is not None:    # for tests
         metainterp_sd.warmrunnerdesc.memory_manager.keep_loop_alive(loop.token)
@@ -221,7 +219,8 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
                                    original_loop_token, operations, n)
     if not we_are_translated():
         show_loop(metainterp_sd)
-        TreeLoop.check_consistency_of(inputargs, operations)
+        seen = dict.fromkeys(inputargs)
+        TreeLoop.check_consistency_of_branch(operations, seen)
     metainterp_sd.profiler.start_backend()
     operations = get_deep_immutable_oplist(operations)
     debug_start("jit-backend")
@@ -596,7 +595,6 @@ class ResumeGuardCountersFloat(AbstractResumeGuardCounters):
 class ResumeFromInterpDescr(ResumeDescr):
     def __init__(self, original_greenkey):
         self.original_greenkey = original_greenkey
-        self.procedure_token = ProcedureToken()
 
     def compile_and_attach(self, metainterp, new_loop):
         # We managed to create a bridge going from the interpreter
@@ -606,13 +604,13 @@ class ResumeFromInterpDescr(ResumeDescr):
         metainterp_sd = metainterp.staticdata
         jitdriver_sd = metainterp.jitdriver_sd
         redargs = new_loop.inputargs
-        self.procedure_token.outermost_jitdriver_sd = jitdriver_sd
-        new_loop.token = self.procedure_token
+        procedure_token = make_procedure_token(jitdriver_sd)
+        new_loop.token = procedure_token
         send_loop_to_backend(self.original_greenkey, metainterp.jitdriver_sd,
                              metainterp_sd, new_loop, "entry bridge")
         # send the new_loop to warmspot.py, to be called directly the next time
         jitdriver_sd.warmstate.attach_procedure_to_interp(
-            self.original_greenkey, self.procedure_token)
+            self.original_greenkey, procedure_token)
 
     def reset_counter_from_failure(self):
         pass
@@ -626,15 +624,17 @@ def compile_new_bridge(metainterp, resumekey, retraced=False):
     
     # The history contains new operations to attach as the code for the
     # failure of 'resumekey.guard_op'.
-    #
+    # 
     # Attempt to use optimize_bridge().  This may return None in case
     # it does not work -- i.e. none of the existing old_loop_tokens match.
     new_loop = create_empty_loop(metainterp)
     new_loop.inputargs = inputargs = metainterp.history.inputargs[:]
     # clone ops, as optimize_bridge can mutate the ops
-    procedure_token = resumekey.procedure_token
-    new_loop.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(procedure_token))] + \
-                          [op.clone() for op in metainterp.history.operations]
+
+    # A LABEL with descr=None will be killed by optimizer. Its only use
+    # is to pass along the inputargs to the optimizer
+    #[ResOperation(rop.LABEL, inputargs, None, descr=None)] + \
+    new_loop.operations = [op.clone() for op in metainterp.history.operations]
     metainterp_sd = metainterp.staticdata
     state = metainterp.jitdriver_sd.warmstate
     if isinstance(resumekey, ResumeAtPositionDescr):
