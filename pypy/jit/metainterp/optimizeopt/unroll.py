@@ -174,6 +174,7 @@ class UnrollOptimizer(Optimization):
         self.imported_state = exported_state
         self.inputargs = targetop.getarglist()
         self.initial_virtual_state = target_token.virtual_state
+        self.start_resumedescr = target_token.start_resumedescr
 
         seen = {}
         for box in self.inputargs:
