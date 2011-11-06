@@ -77,8 +77,7 @@ def record_loop_or_bridge(metainterp_sd, loop):
             # test_memgr.py)
             if descr.procedure_token is not looptoken:
                 looptoken.record_jump_to(descr.procedure_token)
-            # FIXME: Why? How is the jump supposed to work without a target??
-            #op._descr = None    # clear reference, mostly for tests
+            op._descr = None    # clear reference, mostly for tests
             if not we_are_translated():
                 op._jumptarget_number = descr.procedure_token.number
     # record this looptoken on the QuasiImmut used in the code
@@ -649,10 +648,11 @@ def compile_new_bridge(metainterp, resumekey, retraced=False):
         return None
     # We managed to create a bridge.  Dispatch to resumekey to
     # know exactly what we must do (ResumeGuardDescr/ResumeFromInterpDescr)
+    target_token = new_loop.operations[-1].getdescr()
     resumekey.compile_and_attach(metainterp, new_loop)
     record_loop_or_bridge(metainterp_sd, new_loop)
 
-    return new_loop.operations[-1].getdescr()
+    return target_token
 
 # ____________________________________________________________
 
