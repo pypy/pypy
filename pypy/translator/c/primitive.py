@@ -199,9 +199,9 @@ PrimitiveName = {
 
 PrimitiveType = {
     SignedLongLong:   'long long @',
-    Signed:   'long @', # but see below
+    Signed:   'Signed @',
     UnsignedLongLong: 'unsigned long long @',
-    Unsigned: 'unsigned long @', # but see below
+    Unsigned: 'Unsigned @',
     Float:    'double @',
     SingleFloat: 'float @',
     LongFloat: 'long double @',
@@ -212,13 +212,6 @@ PrimitiveType = {
     Address:  'void* @',
     GCREF:    'void* @',
     }
-
-# support for win64, where sizeof(long) == 4
-if is_emulated_long:
-    PrimitiveType.update( {
-        Signed:   '__int64 @',
-        Unsigned: 'unsigned __int64 @',
-    } )
 
 def define_c_primitive(ll_type, c_name, suffix=''):
     if ll_type in PrimitiveName:
