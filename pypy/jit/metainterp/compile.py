@@ -107,18 +107,19 @@ def compile_procedure(metainterp, greenkey, start,
 
     if partial_trace:
         part = partial_trace
-        procedure_token = metainterp.get_procedure_token(greenkey)
+        assert False
+        procedur_token = metainterp.get_procedure_token(greenkey)
         assert procedure_token
         all_target_tokens = []
     else:
-        procedure_token = make_procedure_token(jitdriver_sd)
+        jitcell_token = make_jitcell_token(jitdriver_sd)
         part = create_empty_loop(metainterp)
         part.inputargs = inputargs[:]
         h_ops = history.operations
         part.start_resumedescr = start_resumedescr
-        part.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(procedure_token))] + \
+        part.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(jitcell_token))] + \
                           [h_ops[i].clone() for i in range(start, len(h_ops))] + \
-                          [ResOperation(rop.LABEL, jumpargs, None, descr=TargetToken(procedure_token))]
+                          [ResOperation(rop.JUMP, jumpargs, None, descr=jitcell_token)]
         try:
             optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts)
         except InvalidLoop:
@@ -132,8 +133,8 @@ def compile_procedure(metainterp, greenkey, start,
         inliner = Inliner(inputargs, jumpargs)
         part.operations = [part.operations[-1]] + \
                           [inliner.inline_op(h_ops[i]) for i in range(start, len(h_ops))] + \
-                          [ResOperation(rop.LABEL, [inliner.inline_arg(a) for a in jumpargs],
-                                        None, descr=TargetToken(procedure_token))]
+                          [ResOperation(rop.JUMP, [inliner.inline_arg(a) for a in jumpargs],
+                                        None, descr=jitcell_token)]
         all_target_tokens.append(part.operations[0].getdescr())
         inputargs = jumpargs
         jumpargs = part.operations[-1].getarglist()
@@ -148,11 +149,13 @@ def compile_procedure(metainterp, greenkey, start,
     for box in loop.inputargs:
         assert isinstance(box, Box)
 
-    loop.token = procedure_token
-    procedure_token.target_tokens = all_target_tokens
+    loop.original_jitcell_token = jitcell_token
+    for label in all_target_tokens:
+        label.original_jitcell_token = jitcell_token
+    jitcell_token.target_tokens = all_target_tokens
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop")
     record_loop_or_bridge(metainterp_sd, loop)
-    return procedure_token
+    return jitcell_token
 
 
     if False: # FIXME: full_preamble_needed??
