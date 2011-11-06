@@ -6,9 +6,16 @@
 /*** unary operations ***/
 
 /************ win64 support:
+
    'new_long' must be defined as
-   __int64          in case of win64
-   long             in all other cases
+
+       __int64          in case of win64
+       long             in all other cases
+
+   'NEW_LONG_MIN' must be defined as
+
+       LLONG_MIN        in case of win64
+       LONG_MIN         in all other cases
  */
 
 #define OP_INT_IS_TRUE(x,r)   r = ((x) != 0)

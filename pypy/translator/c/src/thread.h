@@ -37,8 +37,8 @@
 
 #endif
 
-long RPyGilAllocate(void);
-long RPyGilYieldThread(void);
+new_long RPyGilAllocate(void);
+new_long RPyGilYieldThread(void);
 void RPyGilRelease(void);
 void RPyGilAcquire(void);
 

@@ -11,11 +11,9 @@
 #ifdef _WIN64
 #  define new_long __int64
 #  define NEW_LONG_MIN LLONG_MIN
-#  define NEW_LONG_MAX LLONG_MAX
 #else
-#  define new_log long
+#  define new_long long
 #  define NEW_LONG_MIN LONG_MIN
-#  define NEW_LONG_MAX LONG_MAX
 #endif
 
 #ifdef _WIN32

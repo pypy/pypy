@@ -54,7 +54,7 @@ int pypysig_poll(void);   /* => signum or -1 */
 /* When a signal is received, pypysig_counter is set to -1. */
 /* This is a struct for the JIT. See interp_signal.py. */
 struct pypysig_long_struct {
-    long value;
+    new_long value;
 };
 extern struct pypysig_long_struct pypysig_counter;
 
