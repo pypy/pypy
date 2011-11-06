@@ -235,7 +235,7 @@ class BasicTests:
         assert res == 1692
         self.check_loop_count(3)
         self.check_resops({'int_lt': 2, 'int_gt': 4, 'guard_false': 2,
-                           'guard_true': 4, 'int_sub': 4, 'jump': 4,
+                           'guard_true': 4, 'int_sub': 4, 'jump': 3,
                            'int_mul': 3, 'int_add': 4})
 
     def test_loop_invariant_intbox(self):

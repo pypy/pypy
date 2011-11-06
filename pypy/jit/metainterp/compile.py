@@ -77,7 +77,8 @@ def record_loop_or_bridge(metainterp_sd, loop):
             # test_memgr.py)
             if descr.procedure_token is not looptoken:
                 looptoken.record_jump_to(descr.procedure_token)
-            op._descr = None    # clear reference, mostly for tests
+            # FIXME: Why? How is the jump supposed to work without a target??
+            #op._descr = None    # clear reference, mostly for tests
             if not we_are_translated():
                 op._jumptarget_number = descr.procedure_token.number
     # record this looptoken on the QuasiImmut used in the code
@@ -631,9 +632,6 @@ def compile_new_bridge(metainterp, resumekey, retraced=False):
     new_loop.inputargs = inputargs = metainterp.history.inputargs[:]
     # clone ops, as optimize_bridge can mutate the ops
 
-    # A LABEL with descr=None will be killed by optimizer. Its only use
-    # is to pass along the inputargs to the optimizer
-    #[ResOperation(rop.LABEL, inputargs, None, descr=None)] + \
     new_loop.operations = [op.clone() for op in metainterp.history.operations]
     metainterp_sd = metainterp.staticdata
     state = metainterp.jitdriver_sd.warmstate
@@ -653,6 +651,7 @@ def compile_new_bridge(metainterp, resumekey, retraced=False):
     # know exactly what we must do (ResumeGuardDescr/ResumeFromInterpDescr)
     resumekey.compile_and_attach(metainterp, new_loop)
     record_loop_or_bridge(metainterp_sd, new_loop)
+
     return new_loop.operations[-1].getdescr()
 
 # ____________________________________________________________

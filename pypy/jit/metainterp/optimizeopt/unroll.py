@@ -67,8 +67,6 @@ class UnrollOptimizer(Optimization):
         loop = self.optimizer.loop
         self.optimizer.clear_newoperations()
 
-        import pdb; pdb.set_trace()
-
         start_label = loop.operations[0]
         if start_label.getopnum() == rop.LABEL:
             loop.operations = loop.operations[1:]
