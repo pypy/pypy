@@ -23,6 +23,14 @@ def makespecialisedtuple(space, list_w):
                 val0 = space.int_w(w_item0)
                 val1 = space.int_w(w_item1)
                 return W_SpecialisedTupleObjectIntInt(space, val0, val1)
+        if space.type(w_item0) == space.w_float and space.type(w_item1) == space.w_float:
+                val0 = space.float_w(w_item0)
+                val1 = space.float_w(w_item1)
+                return W_SpecialisedTupleObjectFloatFloat(space, val0, val1)
+        if space.type(w_item0) == space.w_str and space.type(w_item1) == space.w_str:
+                val0 = space.str_w(w_item0)
+                val1 = space.str_w(w_item1)
+                return W_SpecialisedTupleObjectStrStr(space, val0, val1)
     raise NotSpecialised                        
 
 class W_SpecialisedTupleObject(W_Object):
@@ -98,8 +106,10 @@ def make_specialised_class(class_name, type0, type1):
     return cls
     
     
-W_SpecialisedTupleObjectIntInt = make_specialised_class('W_SpecialisedTupleObjectIntInt', int,int)
-    
+W_SpecialisedTupleObjectIntInt     = make_specialised_class('W_SpecialisedTupleObjectIntInt',     int,int)
+W_SpecialisedTupleObjectFloatFloat = make_specialised_class('W_SpecialisedTupleObjectFloatFloat', float,float)
+W_SpecialisedTupleObjectStrStr     = make_specialised_class('W_SpecialisedTupleObjectStrStr',     str, str)
+
 registerimplementation(W_SpecialisedTupleObject)
 
 def delegate_SpecialisedTuple2Tuple(space, w_specialised):
