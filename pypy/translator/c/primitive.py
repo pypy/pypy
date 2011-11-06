@@ -181,6 +181,7 @@ def name_small_integer(value, db):
 
 # On 64 bit machines, SignedLongLong and Signed are the same, so the
 # order matters, because we want the Signed implementation.
+# (some entries collapse during dict creation)
 PrimitiveName = {
     SignedLongLong:   name_signedlonglong,
     Signed:   name_signed,
