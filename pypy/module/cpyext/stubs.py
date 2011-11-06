@@ -2518,13 +2518,6 @@ def PyUnicode_DecodeMBCSStateful(space, s, size, errors, consumed):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject], PyObject)
-def PyUnicode_AsMBCSString(space, unicode):
-    """Encode a Unicode object using MBCS and return the result as Python string
-    object.  Error handling is "strict".  Return NULL if an exception was raised
-    by the codec."""
-    raise NotImplementedError
-
 @cpython_api([PyObject, PyObject], PyObject)
 def PyUnicode_Concat(space, left, right):
     """Concat two strings giving a new Unicode string."""

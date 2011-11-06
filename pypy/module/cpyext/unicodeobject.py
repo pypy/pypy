@@ -14,6 +14,7 @@ from pypy.module.cpyext.stringobject import PyString_Check
 from pypy.module.sys.interp_encoding import setdefaultencoding
 from pypy.objspace.std import unicodeobject, unicodetype
 from pypy.rlib import runicode
+from pypy.tool.sourcetools import func_renamer
 import sys
 
 ## See comment in stringobject.py.
@@ -417,36 +418,49 @@ def PyUnicode_Resize(space, ref, newsize):
     ref[0] = rffi.cast(PyObject, py_newuni)
     return 0
 
-@cpython_api([PyObject], PyObject)
-def PyUnicode_AsUTF8String(space, w_unicode):
-    """Encode a Unicode object using UTF-8 and return the result as Python string
-    object.  Error handling is "strict".  Return NULL if an exception was raised
-    by the codec."""
-    if not PyUnicode_Check(space, w_unicode):
-        PyErr_BadArgument(space)
-    return unicodetype.encode_object(space, w_unicode, "utf-8", "strict")
+def make_conversion_functions(suffix, encoding):
+    @cpython_api([PyObject], PyObject)
+    @func_renamer('PyUnicode_As%sString' % suffix)
+    def PyUnicode_AsXXXString(space, w_unicode):
+        """Encode a Unicode object and return the result as Python
+        string object.  Error handling is "strict".  Return NULL if an
+        exception was raised by the codec."""
+        if not PyUnicode_Check(space, w_unicode):
+            PyErr_BadArgument(space)
+        return unicodetype.encode_object(space, w_unicode, encoding, "strict")
 
-@cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING], PyObject)
-def PyUnicode_DecodeUTF8(space, s, size, errors):
-    """Create a Unicode object by decoding size bytes of the UTF-8 encoded string
-    s. Return NULL if an exception was raised by the codec.
-    """
-    w_str = space.wrap(rffi.charpsize2str(s, size))
-    if errors:
-        w_errors = space.wrap(rffi.charp2str(errors))
-    else:
-        w_errors = space.w_None
-    return space.call_method(w_str, 'decode', space.wrap("utf-8"), w_errors)
+    @cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING], PyObject)
+    @func_renamer('PyUnicode_Decode%s' % suffix)
+    def PyUnicode_DecodeXXX(space, s, size, errors):
+        """Create a Unicode object by decoding size bytes of the
+        encoded string s. Return NULL if an exception was raised by
+        the codec.
+        """
+        w_s = space.wrap(rffi.charpsize2str(s, size))
+        if errors:
+            w_errors = space.wrap(rffi.charp2str(errors))
+        else:
+            w_errors = space.w_None
+        return space.call_method(w_s, 'decode', space.wrap(encoding), w_errors)
 
-@cpython_api([CONST_WSTRING, Py_ssize_t, CONST_STRING], PyObject)
-def PyUnicode_EncodeUTF8(space, s, size, errors):
-    """Encode the Py_UNICODE buffer of the given size using UTF-8 and return a
-    Python string object.  Return NULL if an exception was raised by the codec.
+    @cpython_api([CONST_WSTRING, Py_ssize_t, CONST_STRING], PyObject)
+    @func_renamer('PyUnicode_Encode%s' % suffix)
+    def PyUnicode_EncodeXXX(space, s, size, errors):
+        """Encode the Py_UNICODE buffer of the given size and return a
+        Python string object.  Return NULL if an exception was raised
+        by the codec."""
+        w_u = space.wrap(rffi.wcharpsize2unicode(s, size))
+        if errors:
+            w_errors = space.wrap(rffi.charp2str(errors))
+        else:
+            w_errors = space.w_None
+        return space.call_method(w_u, 'encode', space.wrap(encoding), w_errors)
 
-    This function used an int type for size. This might require
-    changes in your code for properly supporting 64-bit systems."""
-    w_s = space.wrap(rffi.wcharpsize2unicode(s, size))
-    return space.call_method(w_s, 'encode', space.wrap('utf-8'))
+make_conversion_functions('UTF8', 'utf-8')
+make_conversion_functions('ASCII', 'ascii')
+make_conversion_functions('Latin1', 'latin-1')
+if sys.platform == 'win32':
+    make_conversion_functions('MBCS', 'mbcs')
 
 @cpython_api([rffi.CCHARP, Py_ssize_t, rffi.CCHARP, rffi.INTP], PyObject)
 def PyUnicode_DecodeUTF16(space, s, size, llerrors, pbyteorder):
@@ -502,83 +516,6 @@ def PyUnicode_DecodeUTF16(space, s, size, llerrors, pbyteorder):
         pbyteorder[0] = rffi.cast(rffi.INT, byteorder)
 
     return space.wrap(result)
-
-@cpython_api([PyObject], PyObject)
-def PyUnicode_AsASCIIString(space, w_unicode):
-    """Encode a Unicode object using ASCII and return the result as Python string
-    object.  Error handling is "strict".  Return NULL if an exception was raised
-    by the codec."""
-    return space.call_method(w_unicode, 'encode', space.wrap('ascii'))
-
-@cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING], PyObject)
-def PyUnicode_DecodeASCII(space, s, size, errors):
-    """Create a Unicode object by decoding size bytes of the ASCII encoded string
-    s.  Return NULL if an exception was raised by the codec."""
-    w_s = space.wrap(rffi.charpsize2str(s, size))
-    return space.call_method(w_s, 'decode', space.wrap('ascii'))
-
-@cpython_api([CONST_WSTRING, Py_ssize_t, CONST_STRING], PyObject)
-def PyUnicode_EncodeASCII(space, s, size, errors):
-    """Encode the Py_UNICODE buffer of the given size using ASCII and return a
-    Python string object.  Return NULL if an exception was raised by the codec.
-    """
-
-    w_s = space.wrap(rffi.wcharpsize2unicode(s, size))
-    return space.call_method(w_s, 'encode', space.wrap('ascii'))
-
-@cpython_api([PyObject], PyObject)
-def PyUnicode_AsLatin1String(space, w_unicode):
-    """Encode a Unicode object using Latin-1 and return the result as Python string
-    object.  Error handling is "strict".  Return NULL if an exception was raised
-    by the codec."""
-    return space.call_method(w_unicode, 'encode', space.wrap('latin-1'))
-
-@cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING], PyObject)
-def PyUnicode_DecodeLatin1(space, s, size, errors):
-    """Create a Unicode object by decoding size bytes of the Latin-1 encoded string
-    s.  Return NULL if an exception was raised by the codec.
-
-    This function used an int type for size. This might require
-    changes in your code for properly supporting 64-bit systems."""
-    w_s = space.wrap(rffi.charpsize2str(s, size))
-    return space.call_method(w_s, 'decode', space.wrap('latin-1'))
-
-@cpython_api([CONST_WSTRING, Py_ssize_t, CONST_STRING], PyObject)
-def PyUnicode_EncodeLatin1(space, s, size, errors):
-    """Encode the Py_UNICODE buffer of the given size using Latin-1 and return
-    a Python string object.  Return NULL if an exception was raised by the codec.
-
-    This function used an int type for size. This might require
-    changes in your code for properly supporting 64-bit systems."""
-    w_s = space.wrap(rffi.wcharpsize2unicode(s, size))
-    return space.call_method(w_s, 'encode', space.wrap('latin-1'))
-
-if sys.platform == 'win32':
-    @cpython_api([CONST_WSTRING, Py_ssize_t, CONST_STRING], PyObject)
-    def PyUnicode_EncodeMBCS(space, wchar_p, length, errors):
-        """Encode the Py_UNICODE buffer of the given size using MBCS and return a
-        Python string object.  Return NULL if an exception was raised by the codec.
-        """
-        w_unicode = space.wrap(rffi.wcharpsize2unicode(wchar_p, length))
-        if errors:
-            w_errors = space.wrap(rffi.charp2str(errors))
-        else:
-            w_errors = space.w_None
-        return space.call_method(w_unicode, "encode",
-                                 space.wrap("mbcs"), w_errors)
-
-    @cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING], PyObject)
-    def PyUnicode_DecodeMBCS(space, s, size, errors):
-        """Create a Unicode object by decoding size bytes of the MBCS encoded string s.
-        Return NULL if an exception was raised by the codec.
-        """
-        w_str = space.wrap(rffi.charpsize2str(s, size))
-        w_encoding = space.wrap("mbcs")
-        if errors:
-            w_errors = space.wrap(rffi.charp2str(errors))
-        else:
-            w_errors = space.w_None
-        return space.call_method(w_str, 'decode', w_encoding, w_errors)
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-2)
 def PyUnicode_Compare(space, w_left, w_right):
