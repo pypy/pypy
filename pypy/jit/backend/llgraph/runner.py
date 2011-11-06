@@ -140,17 +140,17 @@ class BaseCPU(model.AbstractCPU):
         old, oldindex = faildescr._compiled_fail
         llimpl.compile_redirect_fail(old, oldindex, c)
 
-    def compile_loop(self, inputargs, operations, looptoken, log=True, name=''):
+    def compile_loop(self, inputargs, operations, jitcell_token, log=True, name=''):
         """In a real assembler backend, this should assemble the given
         list of operations.  Here we just generate a similar CompiledLoop
         instance.  The code here is RPython, whereas the code in llimpl
         is not.
         """
         c = llimpl.compile_start()
-        clt = model.CompiledLoopToken(self, looptoken.number)
+        clt = model.CompiledLoopToken(self, jitcell_token.number)
         clt.loop_and_bridges = [c]
         clt.compiled_version = c
-        looptoken.compiled_loop_token = clt
+        jitcell_token.compiled_loop_token = clt
         self._compile_loop_or_bridge(c, inputargs, operations)
 
     def free_loop_and_bridges(self, compiled_loop_token):
@@ -180,7 +180,7 @@ class BaseCPU(model.AbstractCPU):
             if isinstance(descr, Descr):
                 llimpl.compile_add_descr(c, descr.ofs, descr.typeinfo,
                                          descr.arg_types)
-            if isinstance(descr, history.ProcedureToken):
+            if isinstance(descr, history.JitCellToken):
                 assert False
                 if op.getopnum() != rop.JUMP:
                     llimpl.compile_add_loop_token(c, descr)

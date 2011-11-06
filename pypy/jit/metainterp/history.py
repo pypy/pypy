@@ -770,6 +770,7 @@ class TargetToken(AbstractDescr):
         self.cell_token = cell_token
         self.virtual_state = None
         self.exported_state = None
+        self.original_jitcell_token = None
         
 class TreeLoop(object):
     inputargs = None
@@ -781,6 +782,11 @@ class TreeLoop(object):
     def _token(*args):
         raise Exception("TreeLoop.token is killed")
     token = property(_token, _token)
+
+    # This is the jitcell where the trace starts. Labels within the trace might
+    # belong to some other jitcells in the sens that jumping to this other
+    # jitcell will result in a jump to the label.
+    original_jitcell_token = None
 
     def __init__(self, name):
         self.name = name
@@ -816,6 +822,10 @@ class TreeLoop(object):
     def check_consistency(self):     # for testing
         "NOT_RPYTHON"
         self.check_consistency_of(self.inputargs, self.operations)
+        for op in self.operations:
+            descr = op.getdescr()
+            if isinstance(descr, TargetToken):
+                assert descr.original_jitcell_token is self.original_jitcell_token
 
     @staticmethod
     def check_consistency_of(inputargs, operations):

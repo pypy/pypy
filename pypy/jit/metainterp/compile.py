@@ -47,37 +47,39 @@ def create_empty_loop(metainterp, name_prefix=''):
     return loop
 
 
-def make_procedure_token(jitdriver_sd):
-    procedure_token = JitCellToken()
-    procedure_token.outermost_jitdriver_sd = jitdriver_sd
-    return procedure_token
+def make_jitcell_token(jitdriver_sd):
+    jitcell_token = JitCellToken()
+    jitcell_token.outermost_jitdriver_sd = jitdriver_sd
+    return jitcell_token
 
 def record_loop_or_bridge(metainterp_sd, loop):
     """Do post-backend recordings and cleanups on 'loop'.
     """
-    # get the original loop token (corresponding to 'loop', or if that is
-    # a bridge, to the loop that this bridge belongs to)
-    looptoken = loop.token
-    assert looptoken is not None
+    # get the original jitcell token corresponding to jitcell form which
+    # this trace starts
+    original_jitcell_token = loop.original_jitcell_token
+    assert original_jitcell_token is not None
     if metainterp_sd.warmrunnerdesc is not None:    # for tests
-        assert looptoken.generation > 0     # has been registered with memmgr
-    wref = weakref.ref(looptoken)
+        assert original_jitcell_token.generation > 0     # has been registered with memmgr
+    wref = weakref.ref(original_jitcell_token)
     for op in loop.operations:
         descr = op.getdescr()
         if isinstance(descr, ResumeDescr):
             descr.wref_original_loop_token = wref   # stick it there
             n = descr.index
             if n >= 0:       # we also record the resumedescr number
-                looptoken.compiled_loop_token.record_faildescr_index(n)
+                original_jitcell_token.compiled_loop_token.record_faildescr_index(n)
         elif isinstance(descr, JitCellToken):
+            # for a CALL_ASSEMBLER ...
             assert False, "FIXME"
         elif isinstance(descr, TargetToken):
-            # for a JUMP or a CALL_ASSEMBLER: record it as a potential jump.
+            # for a JUMP: record it as a potential jump.
             # (the following test is not enough to prevent more complicated
             # cases of cycles, but at least it helps in simple tests of
             # test_memgr.py)
-            if descr.procedure_token is not looptoken:
-                looptoken.record_jump_to(descr.procedure_token)
+            if descr.original_jitcell_token is not original_jitcell_token:
+                assert descr.original_jitcell_token is not None
+                original_jitcell_token.record_jump_to(descr.original_jitcell_token)
             op._descr = None    # clear reference, mostly for tests
     # record this looptoken on the QuasiImmut used in the code
     if loop.quasi_immutable_deps is not None:
@@ -85,9 +87,9 @@ def record_loop_or_bridge(metainterp_sd, loop):
             qmut.register_loop_token(wref)
         # XXX maybe we should clear the dictionary here
     # mostly for tests: make sure we don't keep a reference to the LoopToken
-    loop.token = None
+    loop.original_jitcell_token = None
     if not we_are_translated():
-        loop._looptoken_number = looptoken.number
+        loop._looptoken_number = original_jitcell_token.number
 
 # ____________________________________________________________
 
@@ -184,12 +186,12 @@ def insert_loop_token(old_loop_tokens, loop_token):
     old_loop_tokens.append(loop_token)
 
 def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
-    jitdriver_sd.on_compile(metainterp_sd.logger_ops, loop.token,
+    original_jitcell_token = loop.original_jitcell_token
+    jitdriver_sd.on_compile(metainterp_sd.logger_ops, original_jitcell_token,
                             loop.operations, type, greenkey)
     loopname = jitdriver_sd.warmstate.get_location_str(greenkey)
     globaldata = metainterp_sd.globaldata
-    loop_token = loop.token
-    loop_token.number = n = globaldata.loopnumbering
+    original_jitcell_token.number = n = globaldata.loopnumbering
     globaldata.loopnumbering += 1
 
     if not we_are_translated():
@@ -201,7 +203,7 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     debug_start("jit-backend")
     try:
         ops_offset = metainterp_sd.cpu.compile_loop(loop.inputargs, operations,
-                                                    loop.token, name=loopname)
+                                                    original_jitcell_token, name=loopname)
     finally:
         debug_stop("jit-backend")
     metainterp_sd.profiler.end_backend()
@@ -216,7 +218,7 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     metainterp_sd.logger_ops.log_loop(loop.inputargs, loop.operations, n, type, ops_offset)
     #
     if metainterp_sd.warmrunnerdesc is not None:    # for tests
-        metainterp_sd.warmrunnerdesc.memory_manager.keep_loop_alive(loop.token)
+        metainterp_sd.warmrunnerdesc.memory_manager.keep_loop_alive(original_jitcell_token)
 
 def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
                            operations, original_loop_token):
@@ -610,19 +612,18 @@ class ResumeFromInterpDescr(ResumeDescr):
         metainterp_sd = metainterp.staticdata
         jitdriver_sd = metainterp.jitdriver_sd
         redargs = new_loop.inputargs
-        procedure_token = make_procedure_token(jitdriver_sd)
-        new_loop.token = procedure_token
+        new_loop.original_jitcell_token = jitcell_token = make_jitcell_token(jitdriver_sd)
         send_loop_to_backend(self.original_greenkey, metainterp.jitdriver_sd,
                              metainterp_sd, new_loop, "entry bridge")
         # send the new_loop to warmspot.py, to be called directly the next time
         jitdriver_sd.warmstate.attach_procedure_to_interp(
-            self.original_greenkey, procedure_token)
+            self.original_greenkey, jitcell_token)
 
     def reset_counter_from_failure(self):
         pass
 
 
-def compile_new_bridge(metainterp, resumekey, retraced=False):
+def compile_trace(metainterp, resumekey, retraced=False):
     """Try to compile a new bridge leading from the beginning of the history
     to some existing place.
     """
@@ -653,7 +654,7 @@ def compile_new_bridge(metainterp, resumekey, retraced=False):
         debug_print('InvalidLoop in compile_new_bridge')
         return None
 
-    if new_trace.operations[-1].getopnum() == rop.JUMP:
+    if new_trace.operations[-1].getopnum() != rop.LABEL:
         # We managed to create a bridge.  Dispatch to resumekey to
         # know exactly what we must do (ResumeGuardDescr/ResumeFromInterpDescr)
         target_token = new_trace.operations[-1].getdescr()

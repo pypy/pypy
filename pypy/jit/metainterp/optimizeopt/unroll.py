@@ -78,12 +78,16 @@ class UnrollOptimizer(Optimization):
             start_label = None            
 
         jumpop = loop.operations[-1]
-        assert jumpop.getopnum() == rop.JUMP
-        loop.operations = loop.operations[:-1]
+        if jumpop.getopnum() == rop.JUMP:
+            loop.operations = loop.operations[:-1]
+        else:
+            jumpop = None
 
         self.import_state(start_label)
         self.optimizer.propagate_all_forward(clear=False)
 
+        if not jumpop:
+            return 
         if self.jump_to_already_compiled_trace(jumpop):
             return
 

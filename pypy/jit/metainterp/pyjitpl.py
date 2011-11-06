@@ -2114,7 +2114,7 @@ class MetaInterp(object):
         # FIXME: kill TerminatingLoopToken?
         # FIXME: can we call compile_trace?
         self.history.record(rop.FINISH, exits, None, descr=loop_tokens[0].finishdescr)
-        target_loop_token = compile.compile_new_bridge(self, self.resumekey)
+        target_loop_token = compile.compile_trace(self, self.resumekey)
         if not target_loop_token:
             compile.giveup()
 
