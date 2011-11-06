@@ -22,7 +22,6 @@ from pypy.rlib.objectmodel import specialize
 from pypy.jit.codewriter.jitcode import JitCode, SwitchDictDescr
 from pypy.jit.codewriter import heaptracker
 from pypy.jit.metainterp.optimizeopt.util import args_dict_box
-from pypy.jit.metainterp.optimize import RetraceLoop
 
 # ____________________________________________________________
 
@@ -1557,9 +1556,16 @@ class MetaInterp(object):
         self.portal_trace_positions = []
         self.free_frames_list = []
         self.last_exc_value_box = None
-        self.retracing_loop_from = None
+        self.partial_trace = None
+        self.retracing_from = -1
         self.call_pure_results = args_dict_box()
         self.heapcache = HeapCache()
+
+    def retrace_needed(self, trace):
+        self.partial_trace = trace
+        self.retracing_from = len(self.history)
+        self.heapcache.reset()
+        
 
     def perform_call(self, jitcode, boxes, greenkey=None):
         # causes the metainterp to enter the given subfunction
@@ -1928,14 +1934,8 @@ class MetaInterp(object):
         #   that failed;
         # - if self.resumekey is a ResumeFromInterpDescr, it starts directly
         #   from the interpreter.
-        if not self.retracing_loop_from:
-            try:
-                self.compile_trace(live_arg_boxes)
-            except RetraceLoop:
-                start = len(self.history.operations)
-                self.current_merge_points.append((live_arg_boxes, start))
-                self.retracing_loop_from = RetraceState(self, live_arg_boxes)
-                return
+        if not self.partial_trace:
+            self.compile_trace(live_arg_boxes)
 
         # raises in case it works -- which is the common case, hopefully,
         # at least for bridges starting from a guard.
@@ -1957,14 +1957,9 @@ class MetaInterp(object):
             else:
                 # Found!  Compile it as a loop.
                 # raises in case it works -- which is the common case
-                if self.retracing_loop_from and \
-                   self.retracing_loop_from.merge_point == j:
-                    bridge_arg_boxes = self.retracing_loop_from.live_arg_boxes
-                    self.compile_bridge_and_loop(original_boxes, \
-                                                 live_arg_boxes, start,
-                                                 bridge_arg_boxes, resumedescr)
-                else:
-                    self.compile_procedure(original_boxes, live_arg_boxes, start, resumedescr)
+                if self.partial_trace:
+                    assert start == self.retracing_from # FIXME: Giveup
+                self.compile_procedure(original_boxes, live_arg_boxes, start, resumedescr)
                 # creation of the loop was cancelled!
                 self.staticdata.log('cancelled, tracing more...')
                 #self.staticdata.log('cancelled, stopping tracing')
@@ -2027,11 +2022,12 @@ class MetaInterp(object):
     def compile_procedure(self, original_boxes, live_arg_boxes, start, start_resumedescr):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = original_boxes[:num_green_args]
-        assert self.get_procedure_token(greenkey) == None # FIXME: recursion?
+        if not self.partial_trace:
+            assert self.get_procedure_token(greenkey) == None # FIXME: recursion?
         procedure_token = compile.compile_procedure(self, greenkey, start,
                                                     original_boxes[num_green_args:],
                                                     live_arg_boxes[num_green_args:],
-                                                    start_resumedescr)
+                                                    start_resumedescr, partial_trace=self.partial_trace)
         if procedure_token is not None: # raise if it *worked* correctly
             self.jitdriver_sd.warmstate.attach_procedure_to_interp(greenkey, procedure_token)
             self.history.inputargs = None

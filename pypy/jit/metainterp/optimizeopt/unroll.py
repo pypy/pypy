@@ -88,12 +88,18 @@ class UnrollOptimizer(Optimization):
         if not stop_label:
             self.optimizer.flush()
             loop.operations = self.optimizer.get_newoperations()
+            return
         elif not start_label:
-            #jumpop = ResOperation(rop.JUMP, stop_label.getarglist(), None, descr=stop_label.getdescr())
-            self.optimizer.send_extra_operation(stop_label)
-            self.optimizer.flush()
-            loop.operations = self.optimizer.get_newoperations()
-        elif not self.did_peel_one: # Enforce the previous behaviour of always peeling  exactly one iteration (for now)
+            try:
+                self.optimizer.send_extra_operation(stop_label)
+            except RetraceLoop:
+                pass
+            else:
+                self.optimizer.flush()
+                loop.operations = self.optimizer.get_newoperations()
+                return
+
+        if not self.did_peel_one: # Enforce the previous behaviour of always peeling  exactly one iteration (for now)
             self.optimizer.flush()
             KillHugeIntBounds(self.optimizer).apply()
 
@@ -152,6 +158,7 @@ class UnrollOptimizer(Optimization):
                                                     inputarg_setup_ops, self.optimizer)
 
     def import_state(self, targetop):
+        self.did_peel_one = False
         if not targetop:
             # FIXME: Set up some sort of empty state with no virtuals?
             return
@@ -161,7 +168,6 @@ class UnrollOptimizer(Optimization):
         assert isinstance(target_token, TargetToken)
         exported_state = target_token.exported_state
         if not exported_state:
-            self.did_peel_one = False
             # FIXME: Set up some sort of empty state with no virtuals
             return
         self.did_peel_one = True
@@ -504,29 +510,31 @@ class OptInlineShortPreamble(Optimization):
                     return
             debug_stop('jit-log-virtualstate')
             
-            if False: # FIXME: retrace
-                retraced_count = loop_token.retraced_count
-                limit = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.retrace_limit
-                if not self.retraced and retraced_count<limit:
-                    loop_token.retraced_count += 1
-                    if not loop_token.failed_states:
-                        debug_print("Retracing (%d of %d)" % (retraced_count,
-                                                              limit))
-                        raise RetraceLoop
-                    for failed in loop_token.failed_states:
-                        if failed.generalization_of(virtual_state):
-                            # Retracing once more will most likely fail again
-                            break
-                    else:
-                        debug_print("Retracing (%d of %d)" % (retraced_count,
-                                                              limit))
+            retraced_count = procedure_token.retraced_count
+            limit = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.retrace_limit
+            if not self.retraced and retraced_count<limit:
+                procedure_token.retraced_count += 1
+                raise RetraceLoop
 
-                        raise RetraceLoop
-                else:
-                    if not loop_token.failed_states:
-                        loop_token.failed_states=[virtual_state]
-                    else:
-                        loop_token.failed_states.append(virtual_state)
+            ## # We should not be failing much anymore...
+            ##     if not procedure_token.failed_states:
+            ##         debug_print("Retracing (%d of %d)" % (retraced_count,
+            ##                                               limit))
+            ##         raise RetraceLoop
+            ##     for failed in loop_token.failed_states:
+            ##         if failed.generalization_of(virtual_state):
+            ##             # Retracing once more will most likely fail again
+            ##             break
+            ##     else:
+            ##         debug_print("Retracing (%d of %d)" % (retraced_count,
+            ##                                               limit))
+
+            ##         raise RetraceLoop
+            ## else:
+            ##     if not loop_token.failed_states:
+            ##         loop_token.failed_states=[virtual_state]
+            ##     else:
+            ##         loop_token.failed_states.append(virtual_state)
         self.emit_operation(op)
 
 class ValueImporter(object):

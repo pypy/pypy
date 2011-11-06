@@ -94,7 +94,7 @@ def record_loop_or_bridge(metainterp_sd, loop):
 
 def compile_procedure(metainterp, greenkey, start,
                       inputargs, jumpargs,
-                      start_resumedescr, full_preamble_needed=True):
+                      start_resumedescr, full_preamble_needed=True, partial_trace=None):
     """Try to compile a new procedure by closing the current history back
     to the first operation.
     """
@@ -104,22 +104,29 @@ def compile_procedure(metainterp, greenkey, start,
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
 
-    loop = create_empty_loop(metainterp)
-    loop.inputargs = inputargs[:]
-    
-    procedure_token = make_procedure_token(jitdriver_sd)
-    part = create_empty_loop(metainterp)
-    h_ops = history.operations
-    part.start_resumedescr = start_resumedescr
-    part.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(procedure_token))] + \
-                      [h_ops[i].clone() for i in range(start, len(h_ops))] + \
-                      [ResOperation(rop.LABEL, jumpargs, None, descr=TargetToken(procedure_token))]
-    try:
-        optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts)
-    except InvalidLoop:
-        return None
+    if partial_trace:
+        part = partial_trace
+        procedure_token = metainterp.get_procedure_token(greenkey)
+        assert procedure_token
+        all_target_tokens = []
+    else:
+        procedure_token = make_procedure_token(jitdriver_sd)
+        part = create_empty_loop(metainterp)
+        part.inputargs = inputargs[:]
+        h_ops = history.operations
+        part.start_resumedescr = start_resumedescr
+        part.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(procedure_token))] + \
+                          [h_ops[i].clone() for i in range(start, len(h_ops))] + \
+                          [ResOperation(rop.LABEL, jumpargs, None, descr=TargetToken(procedure_token))]
+        try:
+            optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts)
+        except InvalidLoop:
+            return None
+        all_target_tokens = [part.operations[0].getdescr()]
+
+    loop = create_empty_loop(metainterp)        
+    loop.inputargs = part.inputargs
     loop.operations = part.operations
-    all_target_tokens = [part.operations[0].getdescr()]
     while part.operations[-1].getopnum() == rop.LABEL:
         inliner = Inliner(inputargs, jumpargs)
         part.operations = [part.operations[-1]] + \
@@ -627,11 +634,11 @@ def compile_new_bridge(metainterp, resumekey, retraced=False):
     # 
     # Attempt to use optimize_bridge().  This may return None in case
     # it does not work -- i.e. none of the existing old_loop_tokens match.
-    new_loop = create_empty_loop(metainterp)
-    new_loop.inputargs = inputargs = metainterp.history.inputargs[:]
+    new_trace = create_empty_loop(metainterp)
+    new_trace.inputargs = inputargs = metainterp.history.inputargs[:]
     # clone ops, as optimize_bridge can mutate the ops
 
-    new_loop.operations = [op.clone() for op in metainterp.history.operations]
+    new_trace.operations = [op.clone() for op in metainterp.history.operations]
     metainterp_sd = metainterp.staticdata
     state = metainterp.jitdriver_sd.warmstate
     if isinstance(resumekey, ResumeAtPositionDescr):
@@ -639,20 +646,25 @@ def compile_new_bridge(metainterp, resumekey, retraced=False):
     else:
         inline_short_preamble = True
     try:
-        optimize_trace(metainterp_sd, new_loop, state.enable_opts)
+        optimize_trace(metainterp_sd, new_trace, state.enable_opts)
     except InvalidLoop:
         debug_print("compile_new_bridge: got an InvalidLoop")
         # XXX I am fairly convinced that optimize_bridge cannot actually raise
         # InvalidLoop
         debug_print('InvalidLoop in compile_new_bridge')
         return None
-    # We managed to create a bridge.  Dispatch to resumekey to
-    # know exactly what we must do (ResumeGuardDescr/ResumeFromInterpDescr)
-    target_token = new_loop.operations[-1].getdescr()
-    resumekey.compile_and_attach(metainterp, new_loop)
-    record_loop_or_bridge(metainterp_sd, new_loop)
 
-    return target_token
+    if new_trace.operations[-1].getopnum() == rop.JUMP:
+        # We managed to create a bridge.  Dispatch to resumekey to
+        # know exactly what we must do (ResumeGuardDescr/ResumeFromInterpDescr)
+        target_token = new_trace.operations[-1].getdescr()
+        resumekey.compile_and_attach(metainterp, new_trace)
+        record_loop_or_bridge(metainterp_sd, new_trace)
+        return target_token
+    else:
+        metainterp.retrace_needed(new_trace)
+        return None
+        
 
 # ____________________________________________________________
 
