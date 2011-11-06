@@ -1563,7 +1563,7 @@ class MetaInterp(object):
 
     def retrace_needed(self, trace):
         self.partial_trace = trace
-        self.retracing_from = len(self.history)
+        self.retracing_from = len(self.history.operations) - 1
         self.heapcache.reset()
         
 
@@ -1935,6 +1935,7 @@ class MetaInterp(object):
         # - if self.resumekey is a ResumeFromInterpDescr, it starts directly
         #   from the interpreter.
         if not self.partial_trace:
+            # FIXME: Support a retrace to be a bridge as well as a loop
             self.compile_trace(live_arg_boxes)
 
         # raises in case it works -- which is the common case, hopefully,
@@ -1959,7 +1960,7 @@ class MetaInterp(object):
                 # raises in case it works -- which is the common case
                 if self.partial_trace:
                     assert start == self.retracing_from # FIXME: Giveup
-                self.compile_procedure(original_boxes, live_arg_boxes, start, resumedescr)
+                self.compile_loop(original_boxes, live_arg_boxes, start, resumedescr)
                 # creation of the loop was cancelled!
                 self.staticdata.log('cancelled, tracing more...')
                 #self.staticdata.log('cancelled, stopping tracing')
@@ -2019,20 +2020,27 @@ class MetaInterp(object):
         cell = self.jitdriver_sd.warmstate.jit_cell_at_key(greenkey)
         return cell.get_procedure_token()
         
-    def compile_procedure(self, original_boxes, live_arg_boxes, start, start_resumedescr):
+    def compile_loop(self, original_boxes, live_arg_boxes, start, start_resumedescr):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = original_boxes[:num_green_args]
         if not self.partial_trace:
             assert self.get_procedure_token(greenkey) == None # FIXME: recursion?
-        procedure_token = compile.compile_procedure(self, greenkey, start,
-                                                    original_boxes[num_green_args:],
-                                                    live_arg_boxes[num_green_args:],
-                                                    start_resumedescr, partial_trace=self.partial_trace)
-        if procedure_token is not None: # raise if it *worked* correctly
-            self.jitdriver_sd.warmstate.attach_procedure_to_interp(greenkey, procedure_token)
+        if self.partial_trace:
+            target_token = compile.compile_retrace(self, greenkey, start,
+                                                   original_boxes[num_green_args:],
+                                                   live_arg_boxes[num_green_args:],
+                                                   start_resumedescr, self.partial_trace,
+                                                   self.resumekey)
+        else:
+            target_token = compile.compile_loop(self, greenkey, start,
+                                                original_boxes[num_green_args:],
+                                                live_arg_boxes[num_green_args:],
+                                                start_resumedescr)
+        if target_token is not None: # raise if it *worked* correctly
+            self.jitdriver_sd.warmstate.attach_procedure_to_interp(greenkey, target_token.cell_token)
             self.history.inputargs = None
             self.history.operations = None
-            raise GenerateMergePoint(live_arg_boxes, procedure_token)
+            raise GenerateMergePoint(live_arg_boxes, target_token.cell_token)
 
     def compile_trace(self, live_arg_boxes):
         num_green_args = self.jitdriver_sd.num_green_args
@@ -2114,8 +2122,8 @@ class MetaInterp(object):
         # FIXME: kill TerminatingLoopToken?
         # FIXME: can we call compile_trace?
         self.history.record(rop.FINISH, exits, None, descr=loop_tokens[0].finishdescr)
-        target_loop_token = compile.compile_trace(self, self.resumekey)
-        if not target_loop_token:
+        target_token = compile.compile_trace(self, self.resumekey)
+        if not target_token:
             compile.giveup()
 
     def compile_exit_frame_with_exception(self, valuebox):

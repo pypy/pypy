@@ -93,9 +93,9 @@ def record_loop_or_bridge(metainterp_sd, loop):
 
 # ____________________________________________________________
 
-def compile_procedure(metainterp, greenkey, start,
+def compile_loop(metainterp, greenkey, start,
                       inputargs, jumpargs,
-                      start_resumedescr, full_preamble_needed=True, partial_trace=None):
+                      start_resumedescr, full_preamble_needed=True):
     """Try to compile a new procedure by closing the current history back
     to the first operation.
     """
@@ -105,7 +105,7 @@ def compile_procedure(metainterp, greenkey, start,
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
 
-    if partial_trace:
+    if False:
         part = partial_trace
         assert False
         procedur_token = metainterp.get_procedure_token(greenkey)
@@ -155,7 +155,7 @@ def compile_procedure(metainterp, greenkey, start,
     jitcell_token.target_tokens = all_target_tokens
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop")
     record_loop_or_bridge(metainterp_sd, loop)
-    return jitcell_token
+    return all_target_tokens[0]
 
 
     if False: # FIXME: full_preamble_needed??
@@ -179,6 +179,53 @@ def compile_procedure(metainterp, greenkey, start,
             greenkey, loop.token)
         record_loop_or_bridge(metainterp_sd, loop)
         return loop_token
+
+def compile_retrace(metainterp, greenkey, start,
+                    inputargs, jumpargs,
+                    start_resumedescr, partial_trace, resumekey):
+    """Try to compile a new procedure by closing the current history back
+    to the first operation.
+    """
+    from pypy.jit.metainterp.optimizeopt import optimize_trace
+
+    history = metainterp.history
+    metainterp_sd = metainterp.staticdata
+    jitdriver_sd = metainterp.jitdriver_sd
+
+    loop_jitcell_token = metainterp.get_procedure_token(greenkey)
+    assert loop_jitcell_token
+    assert partial_trace.operations[-1].getopnum() == rop.LABEL
+
+    part = create_empty_loop(metainterp)
+    part.inputargs = inputargs[:]
+    part.start_resumedescr = start_resumedescr
+    h_ops = history.operations    
+    part.operations = [partial_trace.operations[-1]] + \
+                      [h_ops[i].clone() for i in range(start, len(h_ops))] + \
+                      [ResOperation(rop.JUMP, jumpargs, None, descr=loop_jitcell_token)]
+    try:
+        optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts)
+    except InvalidLoop:
+        return None
+    assert part.operations[-1].getopnum() != rop.LABEL
+    label = part.operations[0]
+    assert label.getopnum() == rop.LABEL
+    target_token = label.getdescr()
+    assert isinstance(target_token, TargetToken)
+    assert loop_jitcell_token.target_tokens
+    loop_jitcell_token.target_tokens.append(target_token)
+
+    loop = partial_trace
+    loop.operations = loop.operations[:-1] + part.operations
+
+    for box in loop.inputargs:
+        assert isinstance(box, Box)
+
+    target_token = loop.operations[-1].getdescr()
+    resumekey.compile_and_attach(metainterp, loop)
+    label.getdescr().original_jitcell_token = loop.original_jitcell_token
+    record_loop_or_bridge(metainterp_sd, loop)
+    return target_token
 
 def insert_loop_token(old_loop_tokens, loop_token):
     # Find where in old_loop_tokens we should insert this new loop_token.
