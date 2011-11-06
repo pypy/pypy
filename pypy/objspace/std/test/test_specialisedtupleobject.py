@@ -117,29 +117,30 @@ class AppTestW_SpecialisedTupleObject(object):
 
     def test_neq(self):
         a = self.forbid_delegation((1,2))
-        b = (1,2)
+        b = (1,)
+        b = b+(2,)
         assert not a != b
         
-        c = (2,1)
+        c = (1,3)
         assert a != c
         
-        d = (1.0,2.0)
-        assert a != d
-        
-        e = ('r','s')
-        assert a != e
-        
-    def test_ordering (self):
+    def test_ordering(self):
         a = self.forbid_delegation((1,2))
         assert a <  (2,2)    
-        assert a <= (1,2)    
-        assert a >= (1,2)    
-        assert a >  (0,2)    
-        
         assert a <  (1,3)    
-        assert a <= (1,2)    
+        assert not a <  (1,2) 
+           
+        assert a <=  (2,2)    
+        assert a <=  (1,2) 
+        assert not a <=  (1,1) 
+           
+        assert a >= (0,2)    
         assert a >= (1,2)    
-        assert a >  (1,1) 
+        assert not a >= (1,3)    
+        
+        assert a > (0,2)    
+        assert a > (1,1)    
+        assert not a > (1,3)    
         
     def test_hash(self):
         a = (1,2)

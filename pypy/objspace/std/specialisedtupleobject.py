@@ -11,7 +11,6 @@ from pypy.objspace.std import slicetype
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import compute_hash
 
-
 class NotSpecialised(Exception):
     pass         
             
@@ -96,6 +95,59 @@ def make_specialised_class(class_name, type0, type1):
             else:
                 return space.w_False
     
+        def ne(self, space, w_other):
+            if w_other.length() != 2:
+                return space.w_True
+            if self.val0 != w_other.val0:
+                return space.w_True
+            if self.val1 != w_other.val1:
+                return space.w_True
+            return space.w_False
+    
+        def lt(self, space, w_other):
+            assert self.length() <= 2
+            ncmp = min(self.length(), w_other.length())
+            if ncmp >= 1:
+                if not self.val0 == w_other.val0:
+                    return space.newbool(self.val0 < w_other.val0)
+            if ncmp >= 2:
+                if not self.val1 == w_other.val1:
+                    return space.newbool(self.val1 < w_other.val1)
+            return space.newbool(self.length() < w_other.length())
+    
+        def le(self, space, w_other):
+            assert self.length() <= 2
+            ncmp = min(self.length(), w_other.length())
+            if ncmp >= 1:
+                if not self.val0 == w_other.val0:
+                    return space.newbool(self.val0 <= w_other.val0)
+            if ncmp >= 2:
+                if not self.val1 == w_other.val1:
+                    return space.newbool(self.val1 <= w_other.val1)
+            return space.newbool(self.length() <= w_other.length())
+    
+        def ge(self, space, w_other):
+            assert self.length() <= 2
+            ncmp = min(self.length(), w_other.length())
+            if ncmp >= 1:
+                if not self.val0 == w_other.val0:
+                    return space.newbool(self.val0 >= w_other.val0)
+            if ncmp >= 2:
+                if not self.val1 == w_other.val1:
+                    return space.newbool(self.val1 >= w_other.val1)
+            return space.newbool(self.length() >= w_other.length())
+    
+        def gt(self, space, w_other):
+            assert self.length() <= 2
+            ncmp = min(self.length(), w_other.length())
+            if ncmp >= 1:
+                if not self.val0 == w_other.val0:
+                    return space.newbool(self.val0 > w_other.val0)
+            if ncmp >= 2:
+                if not self.val1 == w_other.val1:
+                    return space.newbool(self.val1 > w_other.val1)
+            return space.newbool(self.length() > w_other.length())
+    
         def getitem(self, index):
             if index == 0:
                 return self.space.wrap(self.val0)
@@ -130,6 +182,21 @@ def getitem__SpecialisedTuple_ANY(space, w_tuple, w_index):
 
 def eq__SpecialisedTuple_SpecialisedTuple(space, w_tuple1, w_tuple2):
     return w_tuple1.eq(space, w_tuple2)
+
+def ne__SpecialisedTuple_SpecialisedTuple(space, w_tuple1, w_tuple2):
+    return w_tuple1.ne(space, w_tuple2)
+
+def lt__SpecialisedTuple_SpecialisedTuple(space, w_tuple1, w_tuple2):
+    return w_tuple1.lt(space, w_tuple2)
+
+def le__SpecialisedTuple_SpecialisedTuple(space, w_tuple1, w_tuple2):
+    return w_tuple1.le(space, w_tuple2)
+
+def ge__SpecialisedTuple_SpecialisedTuple(space, w_tuple1, w_tuple2):
+    return w_tuple1.ge(space, w_tuple2)
+
+def gt__SpecialisedTuple_SpecialisedTuple(space, w_tuple1, w_tuple2):
+    return w_tuple1.gt(space, w_tuple2)
 
 def hash__SpecialisedTuple(space, w_tuple):
     return w_tuple.hash(space)
