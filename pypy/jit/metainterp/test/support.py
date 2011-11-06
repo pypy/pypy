@@ -228,7 +228,7 @@ class JitMixin:
         # this can be used after interp_operations
         if expected is not None:
             expected = dict(expected)
-            expected['jump'] = 1
+            expected['finish'] = 1
         self.metainterp.staticdata.stats.check_history(expected, **isns)
 
 

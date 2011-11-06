@@ -195,7 +195,7 @@ class BasicTests:
         assert res == 1167
         self.check_loop_count(3)
         self.check_resops({'int_lt': 3, 'int_gt': 2, 'int_add': 5,
-                           'guard_true': 3, 'int_sub': 4, 'jump': 4,
+                           'guard_true': 3, 'int_sub': 4, 'jump': 2,
                            'int_mul': 2, 'guard_false': 2})
 
     def test_loop_invariant_mul_bridge_maintaining2(self):
@@ -215,7 +215,7 @@ class BasicTests:
         assert res == 1692
         self.check_loop_count(3)
         self.check_resops({'int_lt': 3, 'int_gt': 2, 'int_add': 5,
-                           'guard_true': 3, 'int_sub': 4, 'jump': 4,
+                           'guard_true': 3, 'int_sub': 4, 'jump': 2,
                            'int_mul': 2, 'guard_false': 2})
 
     def test_loop_invariant_mul_bridge_maintaining3(self):
@@ -257,7 +257,7 @@ class BasicTests:
         res = self.meta_interp(f, [6, 7])
         assert res == 252
         self.check_loop_count(1)
-        self.check_resops({'jump': 2, 'int_gt': 2, 'int_add': 2,
+        self.check_resops({'jump': 1, 'int_gt': 2, 'int_add': 2,
                            'getfield_gc_pure': 1, 'int_mul': 1,
                            'guard_true': 2, 'int_sub': 2})
 
@@ -861,7 +861,7 @@ class BasicTests:
         res = self.meta_interp(f, [6, 7])
         assert res == 42.0
         self.check_loop_count(1)
-        self.check_resops({'jump': 2, 'float_gt': 2, 'float_add': 2,
+        self.check_resops({'jump': 1, 'float_gt': 2, 'float_add': 2,
                            'float_sub': 2, 'guard_true': 2})
 
     def test_print(self):
