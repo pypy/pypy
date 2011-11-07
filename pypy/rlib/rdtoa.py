@@ -244,8 +244,8 @@ def dtoa(value, code='r', mode=0, precision=0, flags=0,
                     # The only failure mode is no memory
                     raise MemoryError
                 try:
-                    buflen = (rffi.cast(rffi.LONG, end_ptr[0]) -
-                              rffi.cast(rffi.LONG, digits))
+                    buflen = (rffi.cast(lltype.Signed, end_ptr[0]) -
+                              rffi.cast(lltype.Signed, digits))
                     sign = rffi.cast(lltype.Signed, sign_ptr[0])
 
                     # Handle nan and inf
