@@ -1936,7 +1936,7 @@ class MetaInterp(object):
         #   from the interpreter.
         if not self.partial_trace:
             # FIXME: Support a retrace to be a bridge as well as a loop
-            self.compile_trace(live_arg_boxes)
+            self.compile_trace(live_arg_boxes, resumedescr)
 
         # raises in case it works -- which is the common case, hopefully,
         # at least for bridges starting from a guard.
@@ -2042,7 +2042,7 @@ class MetaInterp(object):
             self.history.operations = None
             raise GenerateMergePoint(live_arg_boxes, target_token.cell_token)
 
-    def compile_trace(self, live_arg_boxes):
+    def compile_trace(self, live_arg_boxes, start_resumedescr):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = live_arg_boxes[:num_green_args]
         target_jitcell_token = self.get_procedure_token(greenkey)
@@ -2052,7 +2052,7 @@ class MetaInterp(object):
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None,
                             descr=target_jitcell_token)
         try:
-            target_token = compile.compile_trace(self, self.resumekey)
+            target_token = compile.compile_trace(self, self.resumekey, start_resumedescr)
         finally:
             self.history.operations.pop()     # remove the JUMP
         if target_token is not None: # raise if it *worked* correctly

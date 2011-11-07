@@ -80,6 +80,7 @@ def record_loop_or_bridge(metainterp_sd, loop):
             if descr.original_jitcell_token is not original_jitcell_token:
                 assert descr.original_jitcell_token is not None
                 original_jitcell_token.record_jump_to(descr.original_jitcell_token)
+            descr.exported_state = None
             op._descr = None    # clear reference, mostly for tests
     # record this looptoken on the QuasiImmut used in the code
     if loop.quasi_immutable_deps is not None:
@@ -673,7 +674,7 @@ class ResumeFromInterpDescr(ResumeDescr):
         pass
 
 
-def compile_trace(metainterp, resumekey, retraced=False):
+def compile_trace(metainterp, resumekey, start_resumedescr=None):
     """Try to compile a new bridge leading from the beginning of the history
     to some existing place.
     """
@@ -689,6 +690,7 @@ def compile_trace(metainterp, resumekey, retraced=False):
     # clone ops, as optimize_bridge can mutate the ops
 
     new_trace.operations = [op.clone() for op in metainterp.history.operations]
+    new_trace.start_resumedescr = start_resumedescr
     metainterp_sd = metainterp.staticdata
     state = metainterp.jitdriver_sd.warmstate
     if isinstance(resumekey, ResumeAtPositionDescr):

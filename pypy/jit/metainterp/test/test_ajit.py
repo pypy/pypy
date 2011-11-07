@@ -288,9 +288,7 @@ class BasicTests:
         assert res == f(6, 15)
         gc.collect()
 
-        #assert not [wr for wr in wr_loops if wr()]
-        for loop in [wr for wr in wr_loops if wr()]:
-            assert loop().name == 'short preamble'
+        assert not [wr for wr in wr_loops if wr()]
 
     def test_string(self):
         def f(n):

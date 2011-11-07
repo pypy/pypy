@@ -115,13 +115,11 @@ class UnrollOptimizer(Optimization):
         original_jump_args = targetop.getarglist()
         jump_args = [self.getvalue(a).get_key_box() for a in original_jump_args]
 
-        # FIXME: I dont thnik we need this anymore
-        if self.optimizer.loop.start_resumedescr:
-            start_resumedescr = self.optimizer.loop.start_resumedescr.clone_if_mutable()
-            assert isinstance(start_resumedescr, ResumeGuardDescr)
-            start_resumedescr.rd_snapshot = self.fix_snapshot(jump_args, start_resumedescr.rd_snapshot)
-        else:
-            start_resumedescr = None
+        assert self.optimizer.loop.start_resumedescr
+        start_resumedescr = self.optimizer.loop.start_resumedescr.clone_if_mutable()
+        assert isinstance(start_resumedescr, ResumeGuardDescr)
+        start_resumedescr.rd_snapshot = self.fix_snapshot(jump_args, start_resumedescr.rd_snapshot)
+        # FIXME: I dont thnik we need fix_snapshot anymore
 
         modifier = VirtualStateAdder(self.optimizer)
         virtual_state = modifier.get_virtual_state(jump_args)
@@ -180,8 +178,7 @@ class UnrollOptimizer(Optimization):
         self.imported_state = exported_state
         self.inputargs = targetop.getarglist()
         self.initial_virtual_state = target_token.virtual_state
-        #self.start_resumedescr = target_token.start_resumedescr
-        self.start_resumedescr = self.optimizer.loop.start_resumedescr
+        self.start_resumedescr = target_token.start_resumedescr
 
         seen = {}
         for box in self.inputargs:
@@ -328,14 +325,7 @@ class UnrollOptimizer(Optimization):
         for i in range(len(short)):
             short[i] = inliner.inline_op(short[i])
 
-        if target_token.start_resumedescr is None: # FIXME: Hack!
-            target_token.start_resumedescr = self.start_resumedescr.clone_if_mutable()
-            fix = Inliner(self.optimizer.loop.operations[-1].getarglist(),
-                          self.optimizer.loop.inputargs)
-                          
-            fix.inline_descr_inplace(target_token.start_resumedescr)
-        else:
-            target_token.start_resumedescr = self.start_resumedescr.clone_if_mutable()            
+        target_token.start_resumedescr = self.start_resumedescr.clone_if_mutable()            
         inliner.inline_descr_inplace(target_token.start_resumedescr)
 
         # Forget the values to allow them to be freed
