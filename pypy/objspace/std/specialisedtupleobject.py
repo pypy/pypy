@@ -80,7 +80,8 @@ def make_specialised_class(class_name, type0, type1):
             x = 0x345678
             z = 2
             for val in [self.val0, self.val1]:
-                y = compute_hash(val)		
+#                y = compute_hash(val)
+                y = space.int_w(space.hash(space.wrap(val)))                		
                 x = (x ^ y) * mult
                 z -= 1
                 mult += 82520 + z + z
