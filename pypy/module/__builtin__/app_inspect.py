@@ -54,9 +54,7 @@ def dir(*args):
         raise TypeError("dir expected at most 1 arguments, got %d"
                         % len(args))
     if len(args) == 0:
-        local_names = _caller_locals().keys() # 2 stackframes away
-        if not isinstance(local_names, list):
-            raise TypeError("expected locals().keys() to be a list")
+        local_names = list(_caller_locals().keys()) # 2 stackframes away
         local_names.sort()
         return local_names
 
@@ -82,7 +80,7 @@ def dir(*args):
 
     elif isinstance(obj, type):
         #Don't look at __class__, as metaclass methods would be confusing.
-        result = _classdir(obj).keys()
+        result = list(_classdir(obj).keys())
         result.sort()
         return result
 
@@ -113,7 +111,7 @@ def dir(*args):
             except (AttributeError, TypeError):
                 pass
 
-        result = Dict.keys()
+        result = list(Dict.keys())
         result.sort()
         return result
 
