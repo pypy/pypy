@@ -477,7 +477,7 @@ class _WrappedIteratorMixin(object):
 
 class _UnwrappedIteratorMixin:
     _mixin_ = True
-    
+
     def __init__(self, space, strategy, dictimplementation):
         IteratorImplementation.__init__(self, space, dictimplementation)
         self.iterator = strategy.unerase(dictimplementation.dstorage).iteritems()
@@ -601,8 +601,6 @@ def len__DictMulti(space, w_dict):
 def contains__DictMulti_ANY(space, w_dict, w_key):
     return space.newbool(w_dict.getitem(w_key) is not None)
 
-dict_has_key__DictMulti_ANY = contains__DictMulti_ANY
-
 def iter__DictMulti(space, w_dict):
     return W_DictMultiIterObject(space, w_dict.iter(), KEYSITER)
 
@@ -672,14 +670,15 @@ def dict_copy__DictMulti(space, w_self):
     update1_dict_dict(space, w_new, w_self)
     return w_new
 
+
 def dict_items__DictMulti(space, w_self):
-    return space.newlist(w_self.items())
+    return W_DictViewItemsObject(space, w_self)
 
 def dict_keys__DictMulti(space, w_self):
-    return space.newlist(w_self.keys())
+    return W_DictViewKeysObject(space, w_self)
 
 def dict_values__DictMulti(space, w_self):
-    return space.newlist(w_self.values())
+    return W_DictViewValuesObject(space, w_self)
 
 def dict_iteritems__DictMulti(space, w_self):
     return W_DictMultiIterObject(space, w_self.iter(), ITEMSITER)
@@ -689,15 +688,6 @@ def dict_iterkeys__DictMulti(space, w_self):
 
 def dict_itervalues__DictMulti(space, w_self):
     return W_DictMultiIterObject(space, w_self.iter(), VALUESITER)
-
-def dict_viewitems__DictMulti(space, w_self):
-    return W_DictViewItemsObject(space, w_self)
-
-def dict_viewkeys__DictMulti(space, w_self):
-    return W_DictViewKeysObject(space, w_self)
-
-def dict_viewvalues__DictMulti(space, w_self):
-    return W_DictViewValuesObject(space, w_self)
 
 def dict_clear__DictMulti(space, w_self):
     w_self.clear()

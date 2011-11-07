@@ -57,7 +57,7 @@ class MixedModule(Module):
         if self.w_initialdict is None:
             Module.init(self, space)
             if not self.lazy and self.w_initialdict is None:
-                self.w_initialdict = space.call_method(self.w_dict, 'items')
+                self.w_initialdict = space.call_method(self.w_dict, 'copy')
 
 
     def get_applevel_name(cls):
@@ -121,7 +121,7 @@ class MixedModule(Module):
                 w_value = self.get(name)
                 space.setitem(self.w_dict, space.new_interned_str(name), w_value)
             self.lazy = False
-            self.w_initialdict = space.call_method(self.w_dict, 'items')
+            self.w_initialdict = space.call_method(self.w_dict, 'copy')
         return self.w_dict
 
     def _freeze_(self):

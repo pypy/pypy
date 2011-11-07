@@ -175,14 +175,9 @@ class AppTest_DictObject:
         assert len(dd) == 1
         raises(KeyError, dd.pop, 33)
 
-    def test_has_key(self):
-        d = {1: 2, 3: 4}
-        assert d.has_key(1)
-        assert not d.has_key(33)
-
     def test_items(self):
         d = {1: 2, 3: 4}
-        its = d.items()
+        its = list(d.items())
         its.sort()
         assert its == [(1, 2), (3, 4)]
 
@@ -206,11 +201,11 @@ class AppTest_DictObject:
         values = []
         for k in d.itervalues():
             values.append(k)
-        assert values == d.values()
+        assert values == list(d.values())
 
     def test_keys(self):
         d = {1: 2, 3: 4}
-        kys = d.keys()
+        kys = list(d.keys())
         kys.sort()
         assert kys == [1, 3]
 
@@ -323,9 +318,9 @@ class AppTest_DictObject:
 
     def test_values(self):
         d = {1: 2, 3: 4}
-        vals = d.values()
+        vals = list(d.values())
         vals.sort()
-        assert vals == [2,4]
+        assert vals == [2, 4]
 
     def test_eq(self):
         d1 = {1: 2, 3: 4}
@@ -551,9 +546,9 @@ class AppTest_DictObject:
     def test_empty_dict(self):
         d = {}
         raises(KeyError, d.popitem)
-        assert d.items() == []
-        assert d.values() == []
-        assert d.keys() == []
+        assert list(d.items()) == []
+        assert list(d.values()) == []
+        assert list(d.keys()) == []
 
 class AppTest_DictMultiObject(AppTest_DictObject):
 
@@ -570,7 +565,7 @@ class AppTest_DictMultiObject(AppTest_DictObject):
         a = A()
         s = S("abc")
         setattr(a, s, 42)
-        key = a.__dict__.keys()[0]
+        key = next(iter(a.__dict__.keys()))
         assert key == s
         assert key is not s
         assert type(key) is str
@@ -590,24 +585,24 @@ class AppTest_DictMultiObject(AppTest_DictObject):
 class AppTestDictViews:
     def test_dictview(self):
         d = {1: 2, 3: 4}
-        assert len(d.viewkeys()) == 2
-        assert len(d.viewitems()) == 2
-        assert len(d.viewvalues()) == 2
+        assert len(d.keys()) == 2
+        assert len(d.items()) == 2
+        assert len(d.values()) == 2
 
     def test_constructors_not_callable(self):
-        kt = type({}.viewkeys())
+        kt = type({}.keys())
         raises(TypeError, kt, {})
         raises(TypeError, kt)
-        it = type({}.viewitems())
+        it = type({}.items())
         raises(TypeError, it, {})
         raises(TypeError, it)
-        vt = type({}.viewvalues())
+        vt = type({}.values())
         raises(TypeError, vt, {})
         raises(TypeError, vt)
 
     def test_dict_keys(self):
         d = {1: 10, "a": "ABC"}
-        keys = d.viewkeys()
+        keys = d.keys()
         assert len(keys) == 2
         assert set(keys) == set([1, "a"])
         assert keys == set([1, "a"])
@@ -619,15 +614,15 @@ class AppTestDictViews:
         assert "a" in keys
         assert 10 not in keys
         assert "Z" not in keys
-        assert d.viewkeys() == d.viewkeys()
+        assert d.keys() == d.keys()
         e = {1: 11, "a": "def"}
-        assert d.viewkeys() == e.viewkeys()
+        assert d.keys() == e.keys()
         del e["a"]
-        assert d.viewkeys() != e.viewkeys()
+        assert d.keys() != e.keys()
 
     def test_dict_items(self):
         d = {1: 10, "a": "ABC"}
-        items = d.viewitems()
+        items = d.items()
         assert len(items) == 2
         assert set(items) == set([(1, 10), ("a", "ABC")])
         assert items == set([(1, 10), ("a", "ABC")])
@@ -642,36 +637,36 @@ class AppTestDictViews:
         assert () not in items
         assert (1,) not in items
         assert (1, 2, 3) not in items
-        assert d.viewitems() == d.viewitems()
+        assert d.items() == d.items()
         e = d.copy()
-        assert d.viewitems() == e.viewitems()
+        assert d.items() == e.items()
         e["a"] = "def"
-        assert d.viewitems() != e.viewitems()
+        assert d.items() != e.items()
 
     def test_dict_mixed_keys_items(self):
         d = {(1, 1): 11, (2, 2): 22}
         e = {1: 1, 2: 2}
-        assert d.viewkeys() == e.viewitems()
-        assert d.viewitems() != e.viewkeys()
+        assert d.keys() == e.items()
+        assert d.items() != e.keys()
 
     def test_dict_values(self):
         d = {1: 10, "a": "ABC"}
-        values = d.viewvalues()
+        values = d.values()
         assert set(values) == set([10, "ABC"])
         assert len(values) == 2
 
     def test_dict_repr(self):
         d = {1: 10, "a": "ABC"}
         assert isinstance(repr(d), str)
-        r = repr(d.viewitems())
+        r = repr(d.items())
         assert isinstance(r, str)
         assert (r == "dict_items([('a', 'ABC'), (1, 10)])" or
                 r == "dict_items([(1, 10), ('a', 'ABC')])")
-        r = repr(d.viewkeys())
+        r = repr(d.keys())
         assert isinstance(r, str)
         assert (r == "dict_keys(['a', 1])" or
                 r == "dict_keys([1, 'a'])")
-        r = repr(d.viewvalues())
+        r = repr(d.values())
         assert isinstance(r, str)
         assert (r == "dict_values(['ABC', 10])" or
                 r == "dict_values([10, 'ABC'])")
@@ -680,53 +675,53 @@ class AppTestDictViews:
         d1 = {'a': 1, 'b': 2}
         d2 = {'b': 3, 'c': 2}
         d3 = {'d': 4, 'e': 5}
-        assert d1.viewkeys() & d1.viewkeys() == set('ab')
-        assert d1.viewkeys() & d2.viewkeys() == set('b')
-        assert d1.viewkeys() & d3.viewkeys() == set()
-        assert d1.viewkeys() & set(d1.viewkeys()) == set('ab')
-        assert d1.viewkeys() & set(d2.viewkeys()) == set('b')
-        assert d1.viewkeys() & set(d3.viewkeys()) == set()
+        assert d1.keys() & d1.keys() == set('ab')
+        assert d1.keys() & d2.keys() == set('b')
+        assert d1.keys() & d3.keys() == set()
+        assert d1.keys() & set(d1.keys()) == set('ab')
+        assert d1.keys() & set(d2.keys()) == set('b')
+        assert d1.keys() & set(d3.keys()) == set()
 
-        assert d1.viewkeys() | d1.viewkeys() == set('ab')
-        assert d1.viewkeys() | d2.viewkeys() == set('abc')
-        assert d1.viewkeys() | d3.viewkeys() == set('abde')
-        assert d1.viewkeys() | set(d1.viewkeys()) == set('ab')
-        assert d1.viewkeys() | set(d2.viewkeys()) == set('abc')
-        assert d1.viewkeys() | set(d3.viewkeys()) == set('abde')
+        assert d1.keys() | d1.keys() == set('ab')
+        assert d1.keys() | d2.keys() == set('abc')
+        assert d1.keys() | d3.keys() == set('abde')
+        assert d1.keys() | set(d1.keys()) == set('ab')
+        assert d1.keys() | set(d2.keys()) == set('abc')
+        assert d1.keys() | set(d3.keys()) == set('abde')
 
-        assert d1.viewkeys() ^ d1.viewkeys() == set()
-        assert d1.viewkeys() ^ d2.viewkeys() == set('ac')
-        assert d1.viewkeys() ^ d3.viewkeys() == set('abde')
-        assert d1.viewkeys() ^ set(d1.viewkeys()) == set()
-        assert d1.viewkeys() ^ set(d2.viewkeys()) == set('ac')
-        assert d1.viewkeys() ^ set(d3.viewkeys()) == set('abde')
+        assert d1.keys() ^ d1.keys() == set()
+        assert d1.keys() ^ d2.keys() == set('ac')
+        assert d1.keys() ^ d3.keys() == set('abde')
+        assert d1.keys() ^ set(d1.keys()) == set()
+        assert d1.keys() ^ set(d2.keys()) == set('ac')
+        assert d1.keys() ^ set(d3.keys()) == set('abde')
 
     def test_items_set_operations(self):
         d1 = {'a': 1, 'b': 2}
         d2 = {'a': 2, 'b': 2}
         d3 = {'d': 4, 'e': 5}
-        assert d1.viewitems() & d1.viewitems() == set([('a', 1), ('b', 2)])
-        assert d1.viewitems() & d2.viewitems() == set([('b', 2)])
-        assert d1.viewitems() & d3.viewitems() == set()
-        assert d1.viewitems() & set(d1.viewitems()) == set([('a', 1), ('b', 2)])
-        assert d1.viewitems() & set(d2.viewitems()) == set([('b', 2)])
-        assert d1.viewitems() & set(d3.viewitems()) == set()
+        assert d1.items() & d1.items() == set([('a', 1), ('b', 2)])
+        assert d1.items() & d2.items() == set([('b', 2)])
+        assert d1.items() & d3.items() == set()
+        assert d1.items() & set(d1.items()) == set([('a', 1), ('b', 2)])
+        assert d1.items() & set(d2.items()) == set([('b', 2)])
+        assert d1.items() & set(d3.items()) == set()
 
-        assert d1.viewitems() | d1.viewitems() == set([('a', 1), ('b', 2)])
-        assert (d1.viewitems() | d2.viewitems() ==
+        assert d1.items() | d1.items() == set([('a', 1), ('b', 2)])
+        assert (d1.items() | d2.items() ==
                 set([('a', 1), ('a', 2), ('b', 2)]))
-        assert (d1.viewitems() | d3.viewitems() ==
+        assert (d1.items() | d3.items() ==
                 set([('a', 1), ('b', 2), ('d', 4), ('e', 5)]))
-        assert (d1.viewitems() | set(d1.viewitems()) ==
+        assert (d1.items() | set(d1.items()) ==
                 set([('a', 1), ('b', 2)]))
-        assert (d1.viewitems() | set(d2.viewitems()) ==
+        assert (d1.items() | set(d2.items()) ==
                 set([('a', 1), ('a', 2), ('b', 2)]))
-        assert (d1.viewitems() | set(d3.viewitems()) ==
+        assert (d1.items() | set(d3.items()) ==
                 set([('a', 1), ('b', 2), ('d', 4), ('e', 5)]))
 
-        assert d1.viewitems() ^ d1.viewitems() == set()
-        assert d1.viewitems() ^ d2.viewitems() == set([('a', 1), ('a', 2)])
-        assert (d1.viewitems() ^ d3.viewitems() ==
+        assert d1.items() ^ d1.items() == set()
+        assert d1.items() ^ d2.items() == set([('a', 1), ('a', 2)])
+        assert (d1.items() ^ d3.items() ==
                 set([('a', 1), ('b', 2), ('d', 4), ('e', 5)]))
 
 
@@ -841,6 +836,7 @@ class FakeSpace:
     w_float = float
     StringObjectCls = FakeString
     w_dict = W_DictMultiObject
+    w_text = str
     iter = iter
     fixedview = list
     listview  = list

@@ -199,11 +199,11 @@ class W_Root(object):
     def int_w(self, space):
         raise OperationError(space.w_TypeError,
                              typed_unwrap_error_msg(space, "integer", self))
-    
+
     def uint_w(self, space):
         raise OperationError(space.w_TypeError,
                              typed_unwrap_error_msg(space, "integer", self))
-    
+
     def bigint_w(self, space):
         raise OperationError(space.w_TypeError,
                              typed_unwrap_error_msg(space, "integer", self))
@@ -543,9 +543,15 @@ class ObjSpace(object):
     def export_builtin_exceptions(self):
         """NOT_RPYTHON"""
         w_dic = self.exceptions_module.getdict(self)
-        w_keys = self.call_method(w_dic, "keys")
         exc_types_w = {}
-        for w_name in self.unpackiterable(w_keys):
+        w_iter = self.iter(w_dic)
+        while True:
+            try:
+                w_name = self.next(w_iter)
+            except OperationError, e:
+                if not e.match(self, self.w_StopIteration):
+                    raise
+                break
             name = self.str_w(w_name)
             if not name.startswith('__'):
                 excname = name

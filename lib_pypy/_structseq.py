@@ -43,7 +43,7 @@ class structseqtype(type):
                 field.__name__ = name
         dict['n_fields'] = len(fields_by_index)
 
-        extra_fields = fields_by_index.items()
+        extra_fields = list(fields_by_index.items())
         extra_fields.sort()
         n_sequence_fields = 0
         while extra_fields and extra_fields[0][0] == n_sequence_fields:
