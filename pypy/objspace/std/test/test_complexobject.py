@@ -1,10 +1,13 @@
+from __future__ import print_function
+
 import py
-from pypy.objspace.std.complexobject import W_ComplexObject, \
-    pow__Complex_Complex_ANY
-from pypy.objspace.std import complextype as cobjtype
+
+from pypy.objspace.std import complextype as cobjtype, StdObjSpace
+from pypy.objspace.std.complexobject import (W_ComplexObject,
+    pow__Complex_Complex_ANY)
 from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.stringobject import W_StringObject
-from pypy.objspace.std import StdObjSpace
+
 
 EPS = 1e-9
 
@@ -134,7 +137,7 @@ class AppTestAppComplexTest:
         from random import random
         # XXX this test passed but took waaaaay to long
         # look at dist/lib-python/modified-2.5.2/test/test_complex.py
-        #simple_real = [float(i) for i in xrange(-5, 6)]
+        #simple_real = [float(i) for i in range(-5, 6)]
         simple_real = [-2.0, 0.0, 1.0]
         simple_complex = [complex(x, y) for x in simple_real for y in simple_real]
         for x in simple_complex:
@@ -147,7 +150,7 @@ class AppTestAppComplexTest:
         self.check_div(complex(1e-200, 1e-200), 1+0j)
 
         # Just for fun.
-        for i in xrange(100):
+        for i in range(100):
             self.check_div(complex(random(), random()),
                            complex(random(), random()))
 
@@ -160,8 +163,7 @@ class AppTestAppComplexTest:
         raises(ZeroDivisionError, complex.__truediv__, 1+1j, 0+0j)
 
     def test_floordiv(self):
-        assert self.almost_equal(complex.__floordiv__(3+0j, 1.5+0j), 2)
-        raises(ZeroDivisionError, complex.__floordiv__, 3+0j, 0+0j)
+        raises(TypeError, "3+0j // 0+0j")
 
     def test_coerce(self):
         raises(OverflowError, complex.__coerce__, 1+1j, 1L<<10000)
@@ -183,13 +185,11 @@ class AppTestAppComplexTest:
         assert large != (5+0j)
 
     def test_mod(self):
-        raises(ZeroDivisionError, (1+1j).__mod__, 0+0j)
-
         a = 3.33+4.43j
-        raises(ZeroDivisionError, "a % 0")
+        raises(TypeError, "a % a")
 
     def test_divmod(self):
-        raises(ZeroDivisionError, divmod, 1+1j, 0+0j)
+        raises(TypeError, divmod, 1+1j, 0+0j)
 
     def test_pow(self):
         assert self.almost_equal(pow(1+1j, 0+0j), 1.0)
@@ -221,7 +221,7 @@ class AppTestAppComplexTest:
 
     def test_boolcontext(self):
         from random import random
-        for i in xrange(100):
+        for i in range(100):
             assert complex(random() + 1e-6, random() + 1e-6)
         assert not complex(0.0, 0.0)
 
@@ -354,13 +354,13 @@ class AppTestAppComplexTest:
         raises(TypeError, complex, float2(None))
 
     def test_hash(self):
-        for x in xrange(-30, 30):
+        for x in range(-30, 30):
             assert hash(x) == hash(complex(x, 0))
             x /= 3.0    # now check against floating point
             assert hash(x) == hash(complex(x, 0.))
 
     def test_abs(self):
-        nums = [complex(x/3., y/7.) for x in xrange(-9,9) for y in xrange(-9,9)]
+        nums = [complex(x/3., y/7.) for x in range(-9,9) for y in range(-9,9)]
         for num in nums:
             assert self.almost_equal((num.real**2 + num.imag**2)  ** 0.5, abs(num))
 
@@ -409,7 +409,7 @@ class AppTestAppComplexTest:
         try:
             pth = tempfile.mktemp()
             fo = open(pth,"wb")
-            print >>fo, a, b
+            print(a, b, file=fo)
             fo.close()
             fo = open(pth, "rb")
             res = fo.read()
