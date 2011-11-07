@@ -684,6 +684,8 @@ class AbstractUnwrappedSetStrategy(object):
 
         if w_set.strategy is w_other.strategy:
             return self._issubset_unwrapped(w_set, w_other)
+        elif not w_set.strategy.may_contain_equal_elements(w_other.strategy):
+            return False
         else:
             return self._issubset_wrapped(w_set, w_other)
 
@@ -710,6 +712,8 @@ class AbstractUnwrappedSetStrategy(object):
 
         if w_set.strategy is w_other.strategy:
             return self._isdisjoint_unwrapped(w_set, w_other)
+        elif not w_set.strategy.may_contain_equal_elements(w_other.strategy):
+            return True
         else:
             return self._isdisjoint_wrapped(w_set, w_other)
 

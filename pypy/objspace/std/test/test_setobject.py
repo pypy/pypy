@@ -615,6 +615,16 @@ class AppTestAppSetTest:
         assert a.intersection(b) == set()
         assert b.intersection(a) == set()
 
+        a = set([1,2,3])
+        b = set(["a","b","c"])
+        assert not a.issubset(b)
+        assert not b.issubset(a)
+
+        a = set([1,2,3])
+        b = set(["a","b","c"])
+        assert a.isdisjoint(b)
+        assert b.isdisjoint(a)
+
     def test_empty_intersect(self):
         e = set()
         x = set([1,2,3])
