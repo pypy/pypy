@@ -72,7 +72,7 @@ def gettestobjspace(name=None, **kwds):
     """
     try:
         config = make_config(option, objspace=name, **kwds)
-    except ConflictConfigError as e:
+    except ConflictConfigError, e:
         # this exception is typically only raised if a module is not available.
         # in this case the test should be skipped
         py.test.skip(str(e))
@@ -96,7 +96,7 @@ def maketestobjspace(config=None):
         config = make_config(option)
     try:
         space = make_objspace(config)
-    except OperationError as e:
+    except OperationError, e:
         check_keyboard_interrupt(e)
         if option.verbose:
             import traceback
@@ -118,7 +118,7 @@ class TinyObjSpace(object):
     def __init__(self, **kwds):
         import sys
         info = getattr(sys, 'pypy_translation_info', None)
-        for key, value in kwds.items():
+        for key, value in kwds.iteritems():
             if key == 'usemodules':
                 if info is not None:
                     for modname in value:
@@ -148,7 +148,7 @@ class TinyObjSpace(object):
         assert body.startswith('(')
         src = py.code.Source("def anonymous" + body)
         d = {}
-        exec(src.compile(), d)
+        exec src.compile() in d
         return d['anonymous'](*args)
 
     def wrap(self, obj):
@@ -210,9 +210,9 @@ def run_with_python(python, target):
     source = py.code.Source(target)[1:].deindent()
     res, stdout, stderr = runsubprocess.run_subprocess(
         python, ["-c", helpers + str(source)])
-    print(source)
-    print(stdout, file=sys.stdout)
-    print(stderr, file=sys.stderr)
+    print source
+    print >> sys.stdout, stdout
+    print >> sys.stderr, stderr
     if res > 0:
         raise AssertionError("Subprocess failed")
 
@@ -225,7 +225,7 @@ def check_keyboard_interrupt(e):
     try:
         if e.w_type.name == 'KeyboardInterrupt':
             tb = sys.exc_info()[2]
-            raise OpErrKeyboardInterrupt().with_traceback(tb)
+            raise OpErrKeyboardInterrupt, OpErrKeyboardInterrupt(), tb
     except AttributeError:
         pass
 
@@ -240,7 +240,7 @@ def ensure_pytest_builtin_helpers(helpers='skip raises'.split()):
         apparently earlier on "raises" was already added
         to module's globals.
     """
-    import builtins
+    import __builtin__
     for helper in helpers:
         if not hasattr(__builtin__, helper):
             setattr(__builtin__, helper, getattr(py.test, helper))
@@ -304,10 +304,10 @@ class PyPyModule(py.test.collect.Module):
 
         elif hasattr(obj, 'func_code') and self.funcnamefilter(name):
             if name.startswith('app_test_'):
-                assert not obj.__code__.co_flags & 32, \
+                assert not obj.func_code.co_flags & 32, \
                     "generator app level functions? you must be joking"
                 return AppTestFunction(name, parent=self)
-            elif obj.__code__.co_flags & 32: # generator function
+            elif obj.func_code.co_flags & 32: # generator function
                 return pytest.Generator(name, parent=self)
             else:
                 return IntTestFunction(name, parent=self)
@@ -321,7 +321,7 @@ def skip_on_missing_buildoption(**ropts):
                      "(btw, i would need options: %s)" %
                      (ropts,))
     for opt in ropts:
-        if opt not in options or options[opt] != ropts[opt]:
+        if not options.has_key(opt) or options[opt] != ropts[opt]:
             break
     else:
         return
@@ -387,10 +387,10 @@ class IntTestFunction(py.test.collect.Function):
     def runtest(self):
         try:
             super(IntTestFunction, self).runtest()
-        except OperationError as e:
+        except OperationError, e:
             check_keyboard_interrupt(e)
             raise
-        except Exception as e:
+        except Exception, e:
             cls = e.__class__
             while cls is not Exception:
                 if cls.__name__ == 'DistutilsPlatformError':
@@ -411,13 +411,13 @@ class AppTestFunction(py.test.collect.Function):
     def execute_appex(self, space, target, *args):
         try:
             target(*args)
-        except OperationError as e:
+        except OperationError, e:
             tb = sys.exc_info()[2]
             if e.match(space, space.w_KeyboardInterrupt):
-                raise OpErrKeyboardInterrupt().with_traceback(tb)
+                raise OpErrKeyboardInterrupt, OpErrKeyboardInterrupt(), tb
             appexcinfo = appsupport.AppExceptionInfo(space, e)
             if appexcinfo.traceback:
-                raise AppError(appexcinfo).with_traceback(tb)
+                raise AppError, AppError(appexcinfo), tb
             raise
 
     def runtest(self):
@@ -429,7 +429,7 @@ class AppTestFunction(py.test.collect.Function):
         space = gettestobjspace()
         filename = self._getdynfilename(target)
         func = app2interp_temp(target, filename=filename)
-        print("executing", func)
+        print "executing", func
         self.execute_appex(space, func, space)
 
     def repr_failure(self, excinfo):
@@ -438,7 +438,7 @@ class AppTestFunction(py.test.collect.Function):
         return super(AppTestFunction, self).repr_failure(excinfo)
 
     def _getdynfilename(self, func):
-        code = getattr(func, 'im_func', func).__code__
+        code = getattr(func, 'im_func', func).func_code
         return "[%s:%s]" % (code.co_filename, code.co_firstlineno)
 
 class AppTestMethod(AppTestFunction):
@@ -471,9 +471,9 @@ class AppTestMethod(AppTestFunction):
             if self.config.option.appdirect:
                 return run_with_python(self.config.option.appdirect, target)
             return target()
-        space = target.__self__.space
+        space = target.im_self.space
         filename = self._getdynfilename(target)
-        func = app2interp_temp(target.__func__, filename=filename)
+        func = app2interp_temp(target.im_func, filename=filename)
         w_instance = self.parent.w_instance
         self.execute_appex(space, func, space, w_instance)
 
