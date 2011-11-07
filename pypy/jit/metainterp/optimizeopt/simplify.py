@@ -43,7 +43,8 @@ class OptSimplify(Optimization):
             assert self.last_label_descr.targeting_jitcell_token is descr
             op.setdescr(self.last_label_descr)
         else:
-            import pdb; pdb.set_trace()
+            assert len(descr.target_tokens) == 1
+            op.setdescr(descr.target_tokens[0])
         self.emit_operation(op)
 
 dispatch_opt = make_dispatcher_method(OptSimplify, 'optimize_',
