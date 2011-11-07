@@ -34,9 +34,9 @@ class AppTestZlib(object):
             import zlib
             return zlib
         """)
-        expanded = 'some bytes which will be compressed'
-        cls.w_expanded = cls.space.wrap(expanded)
-        cls.w_compressed = cls.space.wrap(zlib.compress(expanded))
+        expanded = b'some bytes which will be compressed'
+        cls.w_expanded = cls.space.wrapbytes(expanded)
+        cls.w_compressed = cls.space.wrapbytes(zlib.compress(expanded))
 
 
     def test_error(self):
@@ -52,9 +52,9 @@ class AppTestZlib(object):
         return it as a signed 32 bit integer.  On 64-bit machines too
         (it is a bug in CPython < 2.6 to return unsigned values in this case).
         """
-        assert self.zlib.crc32('') == 0
-        assert self.zlib.crc32('\0') == -771559539
-        assert self.zlib.crc32('hello, world.') == -936931198
+        assert self.zlib.crc32(b'') == 0
+        assert self.zlib.crc32(b'\0') == -771559539
+        assert self.zlib.crc32(b'hello, world.') == -936931198
 
 
     def test_crc32_start_value(self):
@@ -62,29 +62,29 @@ class AppTestZlib(object):
         When called with a string and an integer, zlib.crc32 should compute the
         CRC32 of the string using the integer as the starting value.
         """
-        assert self.zlib.crc32('', 42) == 42
-        assert self.zlib.crc32('\0', 42) == 163128923
-        assert self.zlib.crc32('hello, world.', 42) == 1090960721
-        hello = 'hello, '
+        assert self.zlib.crc32(b'', 42) == 42
+        assert self.zlib.crc32(b'\0', 42) == 163128923
+        assert self.zlib.crc32(b'hello, world.', 42) == 1090960721
+        hello = b'hello, '
         hellocrc = self.zlib.crc32(hello)
-        world = 'world.'
+        world = b'world.'
         helloworldcrc = self.zlib.crc32(world, hellocrc)
         assert helloworldcrc == self.zlib.crc32(hello + world)
 
     def test_crc32_negative_start(self):
-        v = self.zlib.crc32('', -1)
+        v = self.zlib.crc32(b'', -1)
         assert v == -1
 
     def test_crc32_negative_long_start(self):
-        v = self.zlib.crc32('', -1L)
+        v = self.zlib.crc32(b'', -1L)
         assert v == -1
-        assert self.zlib.crc32('foo', -99999999999999999999999) == 1611238463
+        assert self.zlib.crc32(b'foo', -99999999999999999999999) == 1611238463
 
     def test_crc32_long_start(self):
         import sys
-        v = self.zlib.crc32('', sys.maxint*2)
+        v = self.zlib.crc32(b'', sys.maxint*2)
         assert v == -2
-        assert self.zlib.crc32('foo', 99999999999999999999999) == 1635107045
+        assert self.zlib.crc32(b'foo', 99999999999999999999999) == 1635107045
 
     def test_adler32(self):
         """
@@ -93,10 +93,10 @@ class AppTestZlib(object):
         On 64-bit machines too
         (it is a bug in CPython < 2.6 to return unsigned values in this case).
         """
-        assert self.zlib.adler32('') == 1
-        assert self.zlib.adler32('\0') == 65537
-        assert self.zlib.adler32('hello, world.') == 571147447
-        assert self.zlib.adler32('x' * 23) == -2122904887
+        assert self.zlib.adler32(b'') == 1
+        assert self.zlib.adler32(b'\0') == 65537
+        assert self.zlib.adler32(b'hello, world.') == 571147447
+        assert self.zlib.adler32(b'x' * 23) == -2122904887
 
 
     def test_adler32_start_value(self):
@@ -105,18 +105,18 @@ class AppTestZlib(object):
         the adler 32 checksum of the string using the integer as the starting
         value.
         """
-        assert self.zlib.adler32('', 42) == 42
-        assert self.zlib.adler32('\0', 42) == 2752554
-        assert self.zlib.adler32('hello, world.', 42) == 606078176
-        assert self.zlib.adler32('x' * 23, 42) == -2061104398
-        hello = 'hello, '
+        assert self.zlib.adler32(b'', 42) == 42
+        assert self.zlib.adler32(b'\0', 42) == 2752554
+        assert self.zlib.adler32(b'hello, world.', 42) == 606078176
+        assert self.zlib.adler32(b'x' * 23, 42) == -2061104398
+        hello = b'hello, '
         hellosum = self.zlib.adler32(hello)
-        world = 'world.'
+        world = b'world.'
         helloworldsum = self.zlib.adler32(world, hellosum)
         assert helloworldsum == self.zlib.adler32(hello + world)
 
-        assert self.zlib.adler32('foo', -1) == 45547858
-        assert self.zlib.adler32('foo', 99999999999999999999999) == -114818734
+        assert self.zlib.adler32(b'foo', -1) == 45547858
+        assert self.zlib.adler32(b'foo', 99999999999999999999999) == -114818734
 
 
     def test_invalidLevel(self):
@@ -171,7 +171,7 @@ class AppTestZlib(object):
         Try to feed garbage to zlib.decompress().
         """
         raises(self.zlib.error, self.zlib.decompress, self.compressed[:-2])
-        raises(self.zlib.error, self.zlib.decompress, 'foobar')
+        raises(self.zlib.error, self.zlib.decompress, b'foobar')
 
 
     def test_unused_data(self):
@@ -180,21 +180,21 @@ class AppTestZlib(object):
         It should show up in the unused_data attribute.
         """
         d = self.zlib.decompressobj()
-        s = d.decompress(self.compressed + 'extrastuff')
+        s = d.decompress(self.compressed + b'extrastuff')
         assert s == self.expanded
-        assert d.unused_data == 'extrastuff'
+        assert d.unused_data == b'extrastuff'
         # try again with several decompression steps
         d = self.zlib.decompressobj()
         s1 = d.decompress(self.compressed[:10])
-        assert d.unused_data == ''
+        assert d.unused_data == b''
         s2 = d.decompress(self.compressed[10:-3])
-        assert d.unused_data == ''
-        s3 = d.decompress(self.compressed[-3:] + 'spam' * 100)
-        assert d.unused_data == 'spam' * 100
+        assert d.unused_data == b''
+        s3 = d.decompress(self.compressed[-3:] + b'spam' * 100)
+        assert d.unused_data == b'spam' * 100
         assert s1 + s2 + s3 == self.expanded
-        s4 = d.decompress('egg' * 50)
-        assert d.unused_data == 'egg' * 50
-        assert s4 == ''
+        s4 = d.decompress(b'egg' * 50)
+        assert d.unused_data == b'egg' * 50
+        assert s4 == b''
 
 
     def test_max_length(self):
@@ -215,8 +215,8 @@ class AppTestZlib(object):
         """
         We should be able to pass buffer objects instead of strings.
         """
-        assert self.zlib.crc32(buffer('hello, world.')) == -936931198
-        assert self.zlib.adler32(buffer('hello, world.')) == 571147447
+        assert self.zlib.crc32(buffer(b'hello, world.')) == -936931198
+        assert self.zlib.adler32(buffer(b'hello, world.')) == 571147447
 
         compressor = self.zlib.compressobj()
         bytes = compressor.compress(buffer(self.expanded))

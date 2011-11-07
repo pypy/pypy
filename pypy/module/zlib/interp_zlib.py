@@ -1,7 +1,7 @@
 import sys
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.typedef import TypeDef, interp_attrproperty
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty_bytes
 from pypy.interpreter.error import OperationError
 from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.rlib.objectmodel import keepalive_until_here
@@ -84,7 +84,7 @@ def compress(space, string, level=rzlib.Z_DEFAULT_COMPRESSION):
             rzlib.deflateEnd(stream)
     except rzlib.RZlibError, e:
         raise zlib_error(space, e.msg)
-    return space.wrap(result)
+    return space.wrapbytes(result)
 
 
 @unwrap_spec(string='bufferstr', wbits=int, bufsize=int)
@@ -106,7 +106,7 @@ def decompress(space, string, wbits=rzlib.MAX_WBITS, bufsize=0):
             rzlib.inflateEnd(stream)
     except rzlib.RZlibError, e:
         raise zlib_error(space, e.msg)
-    return space.wrap(result)
+    return space.wrapbytes(result)
 
 
 class ZLibObject(Wrappable):
@@ -179,7 +179,7 @@ class Compress(ZLibObject):
                 self.unlock()
         except rzlib.RZlibError, e:
             raise zlib_error(self.space, e.msg)
-        return self.space.wrap(result)
+        return self.space.wrapbytes(result)
 
 
     @unwrap_spec(mode=int)
@@ -209,7 +209,7 @@ class Compress(ZLibObject):
                 self.unlock()
         except rzlib.RZlibError, e:
             raise zlib_error(self.space, e.msg)
-        return self.space.wrap(result)
+        return self.space.wrapbytes(result)
 
 
 @unwrap_spec(level=int, method=int, wbits=int, memLevel=int, strategy=int)
@@ -302,11 +302,11 @@ class Decompress(ZLibObject):
         assert unused_start >= 0
         tail = data[unused_start:]
         if finished:
-            self.unconsumed_tail = ''
+            self.unconsumed_tail = b''
             self.unused_data = tail
         else:
             self.unconsumed_tail = tail
-        return self.space.wrap(string)
+        return self.space.wrapbytes(string)
 
 
     @unwrap_spec(length=int)
@@ -324,7 +324,7 @@ class Decompress(ZLibObject):
         # however CPython's zlib module does not behave like that.
         # I could not figure out a case in which flush() in CPython
         # doesn't simply return an empty string without complaining.
-        return self.space.wrap("")
+        return self.space.wrapbytes("")
 
 
 @unwrap_spec(wbits=int)
@@ -343,8 +343,8 @@ Decompress.typedef = TypeDef(
     __new__ = interp2app(Decompress___new__),
     decompress = interp2app(Decompress.decompress),
     flush = interp2app(Decompress.flush),
-    unused_data = interp_attrproperty('unused_data', Decompress),
-    unconsumed_tail = interp_attrproperty('unconsumed_tail', Decompress),
+    unused_data = interp_attrproperty_bytes('unused_data', Decompress),
+    unconsumed_tail = interp_attrproperty_bytes('unconsumed_tail', Decompress),
     __doc__ = """decompressobj([wbits]) -- Return a decompressor object.
 
 Optional arg wbits is the window buffer size.
