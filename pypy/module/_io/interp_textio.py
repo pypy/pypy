@@ -334,9 +334,10 @@ class W_TextIOWrapper(W_TextIOBase):
                                               # of the stream
         self.snapshot = None
 
-    @unwrap_spec(encoding="str_or_None", line_buffering=int)
+    @unwrap_spec(encoding="str_or_None", line_buffering=int, write_through=int)
     def descr_init(self, space, w_buffer, encoding=None,
-                   w_errors=None, w_newline=None, line_buffering=0):
+                   w_errors=None, w_newline=None, line_buffering=0,
+                   write_through=0):
         self.state = STATE_ZERO
 
         self.w_buffer = w_buffer
@@ -379,6 +380,7 @@ class W_TextIOWrapper(W_TextIOBase):
                 "illegal newline value: %s" % (r,)))
 
         self.line_buffering = line_buffering
+        self.write_through = write_through
 
         self.readuniversal = not newline # null or empty
         self.readtranslate = newline is None
@@ -414,6 +416,8 @@ class W_TextIOWrapper(W_TextIOBase):
 
         self.seekable = space.is_true(space.call_method(w_buffer, "seekable"))
         self.telling = self.seekable
+
+        self.has_read1 = space.findattr(w_buffer, space.wrap("read1"))
 
         self.encoding_start_of_stream = False
         if self.seekable and self.w_encoder:
@@ -553,7 +557,8 @@ class W_TextIOWrapper(W_TextIOBase):
             dec_flags = 0
 
         # Read a chunk, decode it, and put the result in self._decoded_chars
-        w_input = space.call_method(self.w_buffer, "read1",
+        w_input = space.call_method(self.w_buffer,
+                                    "read1" if self.has_read1 else "read",
                                     space.wrap(self.chunk_size))
         eof = space.len_w(w_input) == 0
         w_decoded = space.call_method(self.w_decoder, "decode",
@@ -723,7 +728,9 @@ class W_TextIOWrapper(W_TextIOBase):
             text = space.unicode_w(w_text)
 
         needflush = False
-        if self.line_buffering and (haslf or text.find(u'\r') >= 0):
+        if self.write_through:
+            needflush = True
+        elif self.line_buffering and (haslf or text.find(u'\r') >= 0):
             needflush = True
 
         # XXX What if we were just reading?
