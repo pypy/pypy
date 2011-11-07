@@ -120,14 +120,6 @@ class W_BaseSetObject(W_Object):
         """ Keeps only those elements found in both sets, removing all other elements. """
         return self.strategy.intersect_update(self, w_other)
 
-    def intersect_multiple(self, others_w):
-        """ Returns a new set of all elements that exist in all of the given iterables."""
-        return self.strategy.intersect_multiple(self, others_w)
-
-    def intersect_multiple_update(self, others_w):
-        """ Same as intersect_multiple but overwrites this set with the result. """
-        self.strategy.intersect_multiple_update(self, others_w)
-
     def issubset(self, w_other):
         """ Checks wether this set is a subset of w_other. W_other must be a set. """
         return self.strategy.issubset(self, w_other)
@@ -247,12 +239,6 @@ class SetStrategy(object):
     def intersect_update(self, w_set, w_other):
         raise NotImplementedError
 
-    def intersect_multiple(self, w_set, others_w):
-        raise NotImplementedError
-
-    def intersect_multiple_update(self, w_set, others_w):
-        raise NotImplementedError
-
     def issubset(self, w_set, w_other):
         raise NotImplementedError
 
@@ -352,14 +338,6 @@ class EmptySetStrategy(SetStrategy):
     def intersect_update(self, w_set, w_other):
         self.check_for_unhashable_objects(w_other)
         return w_set.copy_real()
-
-    def intersect_multiple(self, w_set, others_w):
-        self.intersect_multiple_update(w_set, others_w)
-        return w_set.copy_real()
-
-    def intersect_multiple_update(self, w_set, others_w):
-        for w_other in others_w:
-            self.check_for_unhashable_objects(w_other)
 
     def isdisjoint(self, w_set, w_other):
         return True
@@ -624,45 +602,6 @@ class AbstractUnwrappedSetStrategy(object):
         w_set.strategy = strategy
         w_set.sstorage = storage
         return w_set
-
-    def intersect_multiple(self, w_set, others_w):
-        #XXX find smarter implementations
-        result = w_set.copy_real()
-
-        # find smallest set in others_w to reduce comparisons
-        # XXX maybe we can do this smarter
-        if len(others_w) > 1:
-            startset, startlength = None, 0
-            for w_other in others_w:
-                try:
-                    length = self.space.len(w_other)
-                except OperationError, e:
-                    if not e.match(self.space, self.space.w_TypeError):
-                        raise
-                    continue
-
-                if startset is None or self.space.is_true(self.space.lt(length, startlength)):
-                    startset = w_other
-                    startlength = length
-
-            others_w[others_w.index(startset)] = others_w[0]
-            others_w[0] = startset
-
-        for w_other in others_w:
-            if result.length() == 0:
-                break
-            if isinstance(w_other, W_BaseSetObject):
-                # optimization only
-                result.intersect_update(w_other)
-            else:
-                w_other_as_set = w_set._newobj(self.space, w_other)
-                result.intersect_update(w_other_as_set)
-        return result
-
-    def intersect_multiple_update(self, w_set, others_w):
-        result = self.intersect_multiple(w_set, others_w)
-        w_set.strategy = result.strategy
-        w_set.sstorage = result.sstorage
 
     def _issubset_unwrapped(self, w_set, w_other):
         d_other = self.unerase(w_other.sstorage)
@@ -1270,7 +1209,36 @@ and__Frozenset_Set = and__Set_Set
 and__Frozenset_Frozenset = and__Set_Set
 
 def _intersection_multiple(space, w_left, others_w):
-    return w_left.intersect_multiple(others_w)
+    #XXX find smarter implementations
+    others_w.append(w_left)
+
+    # find smallest set in others_w to reduce comparisons
+    startindex, startlength = -1, -1
+    for i in range(len(others_w)):
+        w_other = others_w[i]
+        try:
+            length = space.int_w(space.len(w_other))
+        except OperationError, e:
+            if not e.match(space, space.w_TypeError):
+                raise
+            continue
+
+        if length < startlength:
+            startindex = i
+            startlength = length
+
+    others_w[i], others_w[0] = others_w[0], others_w[i]
+
+    result = w_left._newobj(space, others_w[0])
+    for i in range(1,len(others_w)):
+        w_other = others_w[i]
+        if isinstance(w_other, W_BaseSetObject):
+            # optimization only
+            result.intersect_update(w_other)
+        else:
+            w_other_as_set = w_left._newobj(space, w_other)
+            result.intersect_update(w_other_as_set)
+    return result
 
 def set_intersection__Set(space, w_left, others_w):
     if len(others_w) == 0:
@@ -1281,7 +1249,9 @@ def set_intersection__Set(space, w_left, others_w):
 frozenset_intersection__Frozenset = set_intersection__Set
 
 def set_intersection_update__Set(space, w_left, others_w):
-    w_left.intersect_multiple_update(others_w)
+    result = set_intersection__Set(space, w_left, others_w)
+    w_left.strategy = result.strategy
+    w_left.sstorage = result.sstorage
     return
 
 def inplace_and__Set_Set(space, w_left, w_other):

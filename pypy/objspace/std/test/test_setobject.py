@@ -665,7 +665,7 @@ class AppTestAppSetTest:
         assert e.isdisjoint(x) == True
         assert x.isdisjoint(e) == True
 
-    def test_empty_typeerror(self):
+    def test_empty_unhashable(self):
         s = set()
         raises(TypeError, s.difference, [[]])
         raises(TypeError, s.difference_update, [[]])
