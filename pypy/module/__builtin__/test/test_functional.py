@@ -70,7 +70,7 @@ class AppTestMap:
       class B(object):
          def __init__(self, n):
             self.n = n
-         def next(self):
+         def __next__(self):
             self.n -= 1
             if self.n == 0: raise StopIteration
             return self.n
@@ -126,12 +126,12 @@ class AppTestRange:
       x = range(2, 9, 3)
       it = iter(x)
       assert iter(it) is it
-      assert it.next() == 2
-      assert it.next() == 5
-      assert it.next() == 8
-      raises(StopIteration, it.next)
+      assert it.__next__() == 2
+      assert it.__next__() == 5
+      assert it.__next__() == 8
+      raises(StopIteration, it.__next__)
       # test again, to make sure that range() is not its own iterator
-      assert iter(x).next() == 2
+      assert iter(x).__next__() == 2
 
    def test_range_object_with___int__(self):
        class A(object):
@@ -143,7 +143,7 @@ class AppTestRange:
        assert list(range(0, 10, A())) == [0, 5]
 
    def test_range_float(self):
-      assert list(range(0.1, 2.0, 1.1)) == [0, 1]
+      raises(TypeError, range(0.1, 2.0, 1.1))
 
    def test_range_long(self):
        import sys
@@ -162,12 +162,12 @@ class AppTestReversed:
    def test_reversed(self):
       r = reversed("hello")
       assert iter(r) is r
-      assert r.next() == "o"
-      assert r.next() == "l"
-      assert r.next() == "l"
-      assert r.next() == "e"
-      assert r.next() == "h"
-      raises(StopIteration, r.next)
+      assert r.__next__() == "o"
+      assert r.__next__() == "l"
+      assert r.__next__() == "l"
+      assert r.__next__() == "e"
+      assert r.__next__() == "h"
+      raises(StopIteration, r.__next__)
       assert list(reversed(list(reversed("hello")))) == ['h','e','l','l','o']
       raises(TypeError, reversed, reversed("hello"))
 

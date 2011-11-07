@@ -342,7 +342,7 @@ class AppTestBuiltinApp:
         except ZeroDivisionError:
             pass
         else:
-            raise Exception, "expected ZeroDivisionError from bad property"
+            raise Exception("expected ZeroDivisionError from bad property")
 
     def test_property_subclass(self):
         class P(property):

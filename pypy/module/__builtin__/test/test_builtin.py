@@ -27,8 +27,8 @@ class AppTestBuiltinApp:
             cls.w_safe_runtimerror = cls.space.wrap(sys.version_info < (2, 6))
 
     def test_bytes_alias(self):
-        assert bytes is str
-        assert isinstance(eval("b'hi'"), str)
+        assert bytes is not str
+        assert isinstance(eval("b'hi'"), bytes)
 
     def test_import(self):
         m = __import__('pprint')
@@ -73,7 +73,7 @@ class AppTestBuiltinApp:
 
     def test_globals(self):
         d = {"foo":"bar"}
-        exec "def f(): return globals()" in d
+        exec("def f(): return globals()", d)
         d2 = d["f"]()
         assert d2 is d
 
@@ -157,7 +157,7 @@ class AppTestBuiltinApp:
         assert format(10, "o") == "12"
         assert format(10, "#o") == "0o12"
         assert format("hi") == "hi"
-        assert isinstance(format(4, u""), unicode)
+        assert isinstance(format(4, u""), str)
 
     def test_vars(self):
         def f():
@@ -208,10 +208,10 @@ class AppTestBuiltinApp:
     def test_iter_sequence(self):
         raises(TypeError,iter,3)
         x = iter(['a','b','c'])
-        assert x.next() =='a'
-        assert x.next() =='b'
-        assert x.next() =='c'
-        raises(StopIteration,x.next)
+        assert next(x) =='a'
+        assert next(x) =='b'
+        assert next(x) =='c'
+        raises(StopIteration, next, x)
 
     def test_iter___iter__(self):
         # This test assumes that dict.keys() method returns keys in
@@ -235,16 +235,16 @@ class AppTestBuiltinApp:
         #self.assertRaises(TypeError,iter,[],5)
         #self.assertRaises(TypeError,iter,{},5)
         x = iter(count(),3)
-        assert x.next() ==1
-        assert x.next() ==2
-        raises(StopIteration,x.next)
+        assert next(x) ==1
+        assert next(x) ==2
+        raises(StopIteration, next, x)
 
     def test_enumerate(self):
         seq = range(2,4)
         enum = enumerate(seq)
-        assert enum.next() == (0, 2)
-        assert enum.next() == (1, 3)
-        raises(StopIteration, enum.next)
+        assert next(enum) == (0, 2)
+        assert next(enum) == (1, 3)
+        raises(StopIteration, next, enum)
         raises(TypeError, enumerate, 1)
         raises(TypeError, enumerate, None)
         enum = enumerate(range(5), 2)
@@ -262,7 +262,7 @@ class AppTestBuiltinApp:
         class Counter:
             def __init__(self):
                 self.count = 0
-            def next(self):
+            def __next__(self):
                 self.count += 1
                 return self.count
         x = Counter()
@@ -297,17 +297,17 @@ class AppTestBuiltinApp:
     def test_range_up(self):
         x = range(2)
         iter_x = iter(x)
-        assert iter_x.next() == 0
-        assert iter_x.next() == 1
-        raises(StopIteration, iter_x.next)
+        assert next(iter_x) == 0
+        assert next(iter_x) == 1
+        raises(StopIteration, next, iter_x)
 
     def test_range_down(self):
         x = range(4,2,-1)
 
         iter_x = iter(x)
-        assert iter_x.next() == 4
-        assert iter_x.next() == 3
-        raises(StopIteration, iter_x.next)
+        assert next(iter_x) == 4
+        assert next(iter_x) == 3
+        raises(StopIteration, next, iter_x)
 
     def test_range_has_type_identity(self):
         assert type(range(1)) == type(range(1))
@@ -315,13 +315,12 @@ class AppTestBuiltinApp:
     def test_range_len(self):
         x = range(33)
         assert len(x) == 33
-        x = range(33.2)
-        assert len(x) == 33
+        raises(TypeError, range, 33.2)
         x = range(33,0,-1)
         assert len(x) == 33
         x = range(33,0)
         assert len(x) == 0
-        x = range(33,0.2)
+        raises(TypeError, range, 33, 0.2)
         assert len(x) == 0
         x = range(0,33)
         assert len(x) == 33
@@ -495,7 +494,7 @@ class AppTestBuiltinApp:
         assert eval(co) == 3
         compile("from __future__ import with_statement", "<test>", "exec")
         raises(SyntaxError, compile, '-', '?', 'eval')
-        raises(ValueError, compile, '"\\xt"', '?', 'eval')
+        raises(SyntaxError, compile, '"\\xt"', '?', 'eval')
         raises(ValueError, compile, '1+2', '?', 'maybenot')
         raises(ValueError, compile, "\n", "<string>", "exec", 0xff)
         raises(TypeError, compile, '1+2', 12, 34)
@@ -510,10 +509,14 @@ class AppTestBuiltinApp:
         code = u"# -*- coding: utf-8 -*-\npass\n"
         raises(SyntaxError, compile, code, "tmp", "exec")
 
+    def test_bytes_compile(self):
+        code = b"# -*- coding: utf-8 -*-\npass\n"
+        compile(code, "tmp", "exec")
+
     def test_recompile_ast(self):
         import _ast
         # raise exception when node type doesn't match with compile mode
-        co1 = compile('print 1', '<string>', 'exec', _ast.PyCF_ONLY_AST)
+        co1 = compile('print(1)', '<string>', 'exec', _ast.PyCF_ONLY_AST)
         raises(TypeError, compile, co1, '<ast>', 'eval')
         co2 = compile('1+1', '<string>', 'eval', _ast.PyCF_ONLY_AST)
         compile(co2, '<ast>', 'eval')
@@ -589,39 +592,39 @@ def fn(): pass
         assert firstlineno == 2
 
     def test_print_function(self):
-        import __builtin__
+        import builtins
         import sys
-        import StringIO
-        pr = getattr(__builtin__, "print")
+        import io
+        pr = getattr(builtins, "print")
         save = sys.stdout
-        out = sys.stdout = StringIO.StringIO()
+        out = sys.stdout = io.StringIO()
         try:
             pr("Hello,", "person!")
         finally:
             sys.stdout = save
         assert out.getvalue() == "Hello, person!\n"
-        out = StringIO.StringIO()
+        out = io.StringIO()
         pr("Hello,", "person!", file=out)
         assert out.getvalue() == "Hello, person!\n"
-        out = StringIO.StringIO()
+        out = io.StringIO()
         pr("Hello,", "person!", file=out, end="")
         assert out.getvalue() == "Hello, person!"
-        out = StringIO.StringIO()
+        out = io.StringIO()
         pr("Hello,", "person!", file=out, sep="X")
         assert out.getvalue() == "Hello,Xperson!\n"
-        out = StringIO.StringIO()
+        out = io.StringIO()
         pr(u"Hello,", u"person!", file=out)
         result = out.getvalue()
-        assert isinstance(result, unicode)
+        assert isinstance(result, str)
         assert result == u"Hello, person!\n"
         pr("Hello", file=None) # This works.
-        out = StringIO.StringIO()
+        out = io.StringIO()
         pr(None, file=out)
         assert out.getvalue() == "None\n"
 
     def test_print_exceptions(self):
-        import __builtin__
-        pr = getattr(__builtin__, "print")
+        import builtins
+        pr = getattr(builtins, "print")
         raises(TypeError, pr, x=3)
         raises(TypeError, pr, end=3)
         raises(TypeError, pr, sep=42)

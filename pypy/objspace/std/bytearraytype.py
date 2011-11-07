@@ -93,18 +93,13 @@ def _hex_digit_to_int(d):
         return val - 87
     return -1
 
-def descr_fromhex(space, w_type, w_hexstring):
-    "bytearray.fromhex(string) -> bytearray\n\nCreate a bytearray object "
-    "from a string of hexadecimal numbers.\nSpaces between two numbers are "
-    "accepted.\nExample: bytearray.fromhex('B9 01EF') -> "
-    "bytearray(b'\\xb9\\x01\\xef')."
-    hexstring = space.unicode_w(w_hexstring)
+def _hexstring_to_array(space, s):
     data = []
-    length = len(hexstring)
+    length = len(s)
     i = -2
     while True:
         i += 2
-        while i < length and hexstring[i] == ' ':
+        while i < length and s[i] == ' ':
             i += 1
         if i >= length:
             break
@@ -112,16 +107,28 @@ def descr_fromhex(space, w_type, w_hexstring):
             raise OperationError(space.w_ValueError, space.wrap(
                 "non-hexadecimal number found in fromhex() arg at position %d" % i))
 
-        top = _hex_digit_to_int(hexstring[i])
+        top = _hex_digit_to_int(s[i])
         if top == -1:
             raise OperationError(space.w_ValueError, space.wrap(
                 "non-hexadecimal number found in fromhex() arg at position %d" % i))
-        bot = _hex_digit_to_int(hexstring[i+1])
+        bot = _hex_digit_to_int(s[i+1])
         if bot == -1:
             raise OperationError(space.w_ValueError, space.wrap(
                 "non-hexadecimal number found in fromhex() arg at position %d" % (i+1,)))
         data.append(chr(top*16 + bot))
+    return data
 
+def descr_fromhex(space, w_type, w_hexstring):
+    "bytearray.fromhex(string) -> bytearray\n\nCreate a bytearray object "
+    "from a string of hexadecimal numbers.\nSpaces between two numbers are "
+    "accepted.\nExample: bytearray.fromhex('B9 01EF') -> "
+    "bytearray(b'\\xb9\\x01\\xef')."
+    if not space.is_w(space.type(w_hexstring), space.w_unicode):
+        raise OperationError(space.w_TypeError, space.wrap(
+                "must be str, not %s" % space.type(w_hexstring).name))
+    hexstring = space.unicode_w(w_hexstring)
+    
+    data = _hexstring_to_array(space, hexstring)
     # in CPython bytearray.fromhex is a staticmethod, so
     # we ignore w_type and always return a bytearray
     return new_bytearray(space, space.w_bytearray, data)

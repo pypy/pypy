@@ -30,6 +30,8 @@ in addition to any features explicitly specified.
     if space.is_true(space.isinstance(w_source, w_ast_type)):
         ast_node = space.interp_w(ast.mod, w_source)
         ast_node.sync_app_attrs(space)
+    elif space.isinstance_w(w_source, space.w_bytes):
+        source_str = space.bytes_w(w_source)
     else:
         source_str = space.str_w(w_source)
         # This flag tells the parser to reject any coding cookies it sees.

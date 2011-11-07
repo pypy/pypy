@@ -342,14 +342,43 @@ def descr__new__(space, w_stringtype, w_source=gateway.NoneNotWrapped,
         W_StringObject.__init__(w_obj, value)
         return w_obj
 
+def descr_fromhex(space, w_type, w_hexstring):
+    "bytes.fromhex(string) -> bytes\n"
+    "\n"
+    "Create a bytes object from a string of hexadecimal numbers.\n"
+    "Spaces between two numbers are accepted.\n"
+    "Example: bytes.fromhex('B9 01EF') -> bytes(b'\\xb9\\x01\\xef')."
+    from pypy.objspace.std.bytearraytype import _hexstring_to_array
+    if not space.is_w(space.type(w_hexstring), space.w_unicode):
+        raise OperationError(space.w_TypeError, space.wrap(
+                "must be str, not %s" % space.type(w_hexstring).name))
+    hexstring = space.unicode_w(w_hexstring)
+    chars = ''.join(_hexstring_to_array(space, hexstring))
+    if space.config.objspace.std.withrope:
+        from pypy.objspace.std.ropeobject import rope, W_RopeObject
+        w_obj = space.allocate_instance(W_RopeObject, w_type)
+        W_RopeObject.__init__(w_obj, rope.LiteralStringNode(chars))
+        return w_obj
+    else:
+        from pypy.objspace.std.stringobject import W_StringObject
+        w_obj = space.allocate_instance(W_StringObject, w_type)
+        W_StringObject.__init__(w_obj, chars)
+        return w_obj
+
 # ____________________________________________________________
 
 str_typedef = StdTypeDef("bytes",
     __new__ = gateway.interp2app(descr__new__),
-    __doc__ = '''str(object) -> string
-
-Return a nice string representation of the object.
-If the argument is a string, the return value is the same object.'''
+    __doc__ = 'bytes(iterable_of_ints) -> bytes\n'
+              'bytes(string, encoding[, errors]) -> bytes\n'
+              'bytes(bytes_or_buffer) -> immutable copy of bytes_or_buffer\n'
+              'bytes(memory_view) -> bytes\n\n'
+              'Construct an immutable array of bytes from:\n'
+              '    - an iterable yielding integers in range(256)\n'
+              '    - a text string encoded using the specified encoding\n'
+              '    - a bytes or a buffer object\n'
+              '    - any object implementing the buffer API.',
+    fromhex = gateway.interp2app(descr_fromhex, as_classmethod=True)
     )
 
 str_typedef.registermethods(globals())

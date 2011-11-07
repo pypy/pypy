@@ -163,3 +163,18 @@ if os.name == 'nt':
             return nt._getfullpathname(path)
         else:
             return nt._getfullpathname(path.as_bytes())
+
+@specialize.argtype(0, 1)
+def putenv(name, value):
+    if isinstance(name, str):
+        os.environ[name] = value
+    else:
+        os.environ[name.as_bytes()] = value.as_bytes()
+
+@specialize.argtype(0)
+def unsetenv(name):
+    if isinstance(name, str):
+        del os.environ[name]
+    else:
+        del os.environ[name.as_bytes()]
+

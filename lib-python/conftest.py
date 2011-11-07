@@ -61,7 +61,7 @@ class RegrTest:
                                  usemodules = '',
                                  skip=None): 
         self.basename = basename 
-        self._usemodules = usemodules.split() + ['signal']
+        self._usemodules = usemodules.split() + ['signal', '_warnings']
         self._compiler = compiler 
         self.core = core
         self.skip = skip
@@ -237,7 +237,7 @@ testmap = [
     RegrTest('test_global.py', core=True),
     RegrTest('test_grammar.py', core=True),
     RegrTest('test_grp.py', skip=skip_win32),
-    RegrTest('test_gzip.py'),
+    RegrTest('test_gzip.py', usemodules='zlib'),
     RegrTest('test_hash.py', core=True),
     RegrTest('test_hashlib.py', core=True),
     RegrTest('test_heapq.py', core=True),

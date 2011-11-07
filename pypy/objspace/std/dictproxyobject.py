@@ -20,7 +20,7 @@ class DictProxyStrategy(DictStrategy):
     def getitem(self, w_dict, w_key):
         space = self.space
         w_lookup_type = space.type(w_key)
-        if space.is_w(w_lookup_type, space.w_str):
+        if space.is_w(w_lookup_type, space.w_unicode):
             return self.getitem_str(w_dict, space.str_w(w_key))
         else:
             return None
@@ -30,7 +30,7 @@ class DictProxyStrategy(DictStrategy):
 
     def setitem(self, w_dict, w_key, w_value):
         space = self.space
-        if space.is_w(space.type(w_key), space.w_str):
+        if space.is_w(space.type(w_key), space.w_unicode):
             self.setitem_str(w_dict, self.space.str_w(w_key), w_value)
         else:
             raise OperationError(space.w_TypeError, space.wrap("cannot add non-string keys to dict of a type"))
@@ -60,7 +60,7 @@ class DictProxyStrategy(DictStrategy):
     def delitem(self, w_dict, w_key):
         space = self.space
         w_key_type = space.type(w_key)
-        if space.is_w(w_key_type, space.w_str):
+        if space.is_w(w_key_type, space.w_unicode):
             key = self.space.str_w(w_key)
             if not self.unerase(w_dict.dstorage).deldictvalue(space, key):
                 raise KeyError
