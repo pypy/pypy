@@ -1760,7 +1760,7 @@ class BasicTests:
                                             array=array)
                 res = res.binop(x)
                 res.val += array[idx] + array[1]
-                if y < 7:
+                if y < 10:
                     idx = 2
                 y -= 1
             return res
@@ -1772,10 +1772,10 @@ class BasicTests:
             assert a1.val == a2.val
             assert b1.val == b2.val
             return a1.val + b1.val
-        res = self.meta_interp(g, [6, 14])
-        assert res == g(6, 14)
+        res = self.meta_interp(g, [6, 20])
+        assert res == g(6, 20)
         self.check_loop_count(9)
-        self.check_resops(getarrayitem_gc=8)
+        self.check_resops(getarrayitem_gc=10)
 
     def test_multiple_specialied_versions_bridge(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'z', 'res'])
