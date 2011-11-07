@@ -104,7 +104,7 @@ class UnrollOptimizer(Optimization):
             self.export_state(stop_label)
             loop.operations.append(stop_label)            
         else:
-            assert stop_label.getdescr().cell_token is start_label.getdescr().cell_token
+            assert stop_label.getdescr().targeting_jitcell_token is start_label.getdescr().targeting_jitcell_token
             jumpop = ResOperation(rop.JUMP, stop_label.getarglist(), None, descr=start_label.getdescr())
 
             self.close_loop(jumpop)

@@ -2037,10 +2037,10 @@ class MetaInterp(object):
                                                 live_arg_boxes[num_green_args:],
                                                 start_resumedescr)
         if target_token is not None: # raise if it *worked* correctly
-            self.jitdriver_sd.warmstate.attach_procedure_to_interp(greenkey, target_token.cell_token)
+            self.jitdriver_sd.warmstate.attach_procedure_to_interp(greenkey, target_token.targeting_jitcell_token)
             self.history.inputargs = None
             self.history.operations = None
-            raise GenerateMergePoint(live_arg_boxes, target_token.cell_token)
+            raise GenerateMergePoint(live_arg_boxes, target_token.targeting_jitcell_token)
 
     def compile_trace(self, live_arg_boxes, start_resumedescr):
         num_green_args = self.jitdriver_sd.num_green_args
@@ -2058,7 +2058,7 @@ class MetaInterp(object):
         if target_token is not None: # raise if it *worked* correctly
             self.history.inputargs = None
             self.history.operations = None
-            raise GenerateMergePoint(live_arg_boxes, target_token.cell_token)
+            raise GenerateMergePoint(live_arg_boxes, target_token.targeting_jitcell_token)
 
     def compile_bridge_and_loop(self, original_boxes, live_arg_boxes, start,
                                 bridge_arg_boxes, start_resumedescr):

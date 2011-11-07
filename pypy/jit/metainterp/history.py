@@ -766,11 +766,15 @@ class JitCellToken(AbstractDescr):
         self.compiled_loop_token.cpu.dump_loop_token(self)
 
 class TargetToken(AbstractDescr):
-    def __init__(self, cell_token):
-        self.cell_token = cell_token
+    def __init__(self, targeting_jitcell_token):
+        # The jitcell to which jumps might result in a jump to this label
+        self.targeting_jitcell_token = targeting_jitcell_token
+        
+        # The jitcell where the trace containing the label with this TargetToken begins
+        self.original_jitcell_token = None
+
         self.virtual_state = None
         self.exported_state = None
-        self.original_jitcell_token = None
         
 class TreeLoop(object):
     inputargs = None
