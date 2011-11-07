@@ -20,6 +20,10 @@ class TestW_SpecialisedTupleObject():
         w_tuple = self.space.newtuple([self.space.wrap({})])
         assert not isinstance(w_tuple, W_SpecialisedTupleObject)
         
+    def test_specialisedtupleclassname(self):
+        w_tuple = self.space.newtuple([self.space.wrap(1), self.space.wrap(2)])
+        assert w_tuple.__class__.__name__ == 'W_SpecialisedTupleObjectIntInt'
+        
     def test_hash_against_normal_tuple(self):
         normalspace = gettestobjspace(**{"objspace.std.withspecialisedtuple": False})
         specialisedspace = gettestobjspace(**{"objspace.std.withspecialisedtuple": True})

@@ -61,7 +61,7 @@ class W_SpecialisedTupleObject(W_Object):
         return tuple(self.tolist)
                         
 
-def make_specialised_class(class_name, typelist):
+def make_specialised_class(typelist):
     iter_n = unrolling_iterable(range(len(typelist)))
     class cls(W_SpecialisedTupleObject):
         def __init__(self, space, *values):
@@ -122,16 +122,16 @@ def make_specialised_class(class_name, typelist):
                     return self.space.wrap(getattr(self, 'value%s' % i))
             raise IndexError
 
-    cls.__name__ = class_name      
+    cls.__name__ = 'W_SpecialisedTupleObject' + ''.join([t.__name__.capitalize() for t in typelist])      
     _specialisations.append((cls,typelist))
     return cls
     
     
-W_SpecialisedTupleObjectIntInt     = make_specialised_class('W_SpecialisedTupleObjectIntInt',     (int,int))
-W_SpecialisedTupleObjectIntIntInt  = make_specialised_class('W_SpecialisedTupleObjectFloatFloat', (int,int,int))
-W_SpecialisedTupleObjectFloatFloat = make_specialised_class('W_SpecialisedTupleObjectFloatFloat', (float,float))
-W_SpecialisedTupleObjectStrStr     = make_specialised_class('W_SpecialisedTupleObjectStrStr',     (str, str))
-W_SpecialisedTupleObjectIntFloatStr= make_specialised_class('W_SpecialisedTupleObjectStrStr',     (int, float, str))
+W_SpecialisedTupleObjectIntInt     = make_specialised_class((int,int))
+W_SpecialisedTupleObjectIntIntInt  = make_specialised_class((int,int,int))
+W_SpecialisedTupleObjectFloatFloat = make_specialised_class((float,float))
+W_SpecialisedTupleObjectStrStr     = make_specialised_class((str, str))
+W_SpecialisedTupleObjectIntFloatStr= make_specialised_class((int, float, str))
 
 registerimplementation(W_SpecialisedTupleObject)
 
