@@ -202,7 +202,7 @@ class BaseArray(Wrappable):
         return space.newtuple([self.descr_len(space)])
 
     def descr_get_size(self, space):
-        return space.wrap(self.size)
+        return space.wrap(self.find_size())
 
     def descr_copy(self, space):
         return space.call_function(space.gettypefor(BaseArray), self, self.find_dtype())
