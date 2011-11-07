@@ -1959,7 +1959,8 @@ class MetaInterp(object):
                 # Found!  Compile it as a loop.
                 # raises in case it works -- which is the common case
                 if self.partial_trace:
-                    assert start == self.retracing_from # FIXME: Giveup
+                    if  start != self.retracing_from: 
+                        raise SwitchToBlackhole(ABORT_BAD_LOOP) # For now
                 self.compile_loop(original_boxes, live_arg_boxes, start, resumedescr)
                 # creation of the loop was cancelled!
                 self.staticdata.log('cancelled, tracing more...')

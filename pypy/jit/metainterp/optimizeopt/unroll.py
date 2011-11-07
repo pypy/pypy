@@ -527,6 +527,7 @@ class UnrollOptimizer(Optimization):
         retraced_count = cell_token.retraced_count
         limit = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.retrace_limit
         if retraced_count<limit:
+            debug_print('Retracing (%d/%d)', retraced_count, limit)
             cell_token.retraced_count += 1
             return False
 
