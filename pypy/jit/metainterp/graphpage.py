@@ -26,6 +26,13 @@ def display_procedures(procedures, errmsg=None, highlight_procedures={}):
 def is_interesting_guard(op):
     return hasattr(op.getdescr(), '_debug_suboperations')
 
+def getdescr(op):
+    if op._descr is not None:
+        return op._descr
+    if hasattr(op, '_descr_wref'):
+        return op._descr_wref()
+    return None
+
 
 class ResOpGraphPage(GraphPage):
 
@@ -77,7 +84,7 @@ class ResOpGen(object):
                         mergepointblock = i
                 elif op.getopnum() == rop.LABEL:
                     self.mark_starter(graphindex, i)
-                    self.target_tokens[op.getdescr()] = (graphindex, i)
+                    self.target_tokens[getdescr(op)] = (graphindex, i)
                     mergepointblock = i
                 else:
                     if mergepointblock is not None:
@@ -172,8 +179,8 @@ class ResOpGen(object):
                              (graphindex, opindex))
                 break
         if op.getopnum() == rop.JUMP:
-            tgt_descr = op.getdescr()
-            if tgt_descr in self.target_tokens:
+            tgt_descr = getdescr(op)
+            if tgt_descr is not None and tgt_descr in self.target_tokens:
                 self.genedge((graphindex, opstartindex),
                              self.target_tokens[tgt_descr],
                              weight="0")
