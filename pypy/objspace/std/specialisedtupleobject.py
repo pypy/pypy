@@ -2,6 +2,7 @@ from pypy.interpreter.error import OperationError
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.tupleobject import W_TupleObject
+from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import compute_hash
 from pypy.rlib.unroll import unrolling_iterable
@@ -127,8 +128,10 @@ def make_specialised_class(class_name, typelist):
     
     
 W_SpecialisedTupleObjectIntInt     = make_specialised_class('W_SpecialisedTupleObjectIntInt',     (int,int))
+W_SpecialisedTupleObjectIntIntInt  = make_specialised_class('W_SpecialisedTupleObjectFloatFloat', (int,int,int))
 W_SpecialisedTupleObjectFloatFloat = make_specialised_class('W_SpecialisedTupleObjectFloatFloat', (float,float))
 W_SpecialisedTupleObjectStrStr     = make_specialised_class('W_SpecialisedTupleObjectStrStr',     (str, str))
+W_SpecialisedTupleObjectIntFloatStr= make_specialised_class('W_SpecialisedTupleObjectStrStr',     (int, float, str))
 
 registerimplementation(W_SpecialisedTupleObject)
 
@@ -147,6 +150,16 @@ def getitem__SpecialisedTuple_ANY(space, w_tuple, w_index):
     except IndexError:
         raise OperationError(space.w_IndexError,
                              space.wrap("tuple index out of range"))
+
+def getitem__SpecialisedTuple_Slice(space, w_tuple, w_slice):
+    length = w_tuple.length()
+    start, stop, step, slicelength = w_slice.indices4(space, length)
+    assert slicelength >= 0
+    subitems = [None] * slicelength
+    for i in range(slicelength):
+        subitems[i] = w_tuple.getitem(start)
+        start += step
+    return space.newtuple(subitems)
 
 def eq__SpecialisedTuple_SpecialisedTuple(space, w_tuple1, w_tuple2):
     return w_tuple1.eq(space, w_tuple2)

@@ -75,7 +75,7 @@ class AppTestW_SpecialisedTupleObject(object):
         assert len(t) == 2
 
     def test_notspecialisedtuple(self):
-        assert not self.isspecialised((42,43,44))
+        assert not self.isspecialised((42,43,44,45))
         assert not self.isspecialised((1,1.5))
         assert not self.isspecialised((1,1.0))
 
@@ -92,7 +92,7 @@ class AppTestW_SpecialisedTupleObject(object):
     def test_slicing_from_specialised(self):
         assert (1,2,3)[0:2:1] == (1,2)
 
-    def test_eq(self):
+    def test_eq_no_delegation(self):
         a = self.forbid_delegation((1,2))
         b = (1,2)
         assert a == b
@@ -110,7 +110,7 @@ class AppTestW_SpecialisedTupleObject(object):
         a = (1,2)
         b = (1,3,2)
         assert not a == b
-        
+         
         values = [2, 2L, 2.0, 1, 1L, 1.0]
         for x in values:
             for y in values:
@@ -145,7 +145,7 @@ class AppTestW_SpecialisedTupleObject(object):
         
     def test_hash(self):
         a = (1,2)
-        b = (1,2)
+        b = (1,) + (2,) # else a and b refer to same constant
         assert hash(a) == hash(b)
 
         c = (2,4)
@@ -159,8 +159,26 @@ class AppTestW_SpecialisedTupleObject(object):
         assert (t)[-2] == 5
         raises(IndexError, "t[2]")
         
+    def test_three_tuples(self):
+        if not self.isspecialised((1,2,3)):
+            skip('3-tuples of ints are not specialised, so skip specific tests on them')
+        a = self.forbid_delegation((1,2))
+        b = self.forbid_delegation((1,2,3))
+        c = (1,)
+        d = c + (2,3)
+        assert not a == b 
+        assert not b == a
+        assert a < b
+        assert b > a
+        assert self.isspecialised(d)
+        assert b == d
+        assert b <= d
         
-        
-        
-        
-        
+    def test_mongrel(self):
+        a = self.forbid_delegation((1, 2.2, '333'))
+        if not self.isspecialised(a):
+            skip('my chosen kind of mixed type tuple is not specialised, so skip specific tests on them')
+        assert len(a) == 3
+        assert a[0] == 1 and a[1] == 2.2 and a[2] == '333'
+        assert a == (1,) + (2.2,) + ('333',)
+        assert a < (1, 2.2, '334')
