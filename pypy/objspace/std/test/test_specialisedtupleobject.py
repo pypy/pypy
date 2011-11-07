@@ -37,6 +37,7 @@ class TestW_SpecialisedTupleObject():
 
         hash_test([1,2])
         hash_test([1.5,2.8])
+        hash_test([1.0,2.0])
         hash_test(['arbitrary','strings'])
         
     def test_setitem(self):
