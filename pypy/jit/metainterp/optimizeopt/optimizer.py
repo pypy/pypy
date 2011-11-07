@@ -329,11 +329,10 @@ class Optimization(object):
 
 class Optimizer(Optimization):
 
-    def __init__(self, metainterp_sd, loop, optimizations=None, bridge=False):
+    def __init__(self, metainterp_sd, loop, optimizations=None):
         self.metainterp_sd = metainterp_sd
         self.cpu = metainterp_sd.cpu
         self.loop = loop
-        self.bridge = bridge
         self.values = {}
         self.interned_refs = self.cpu.ts.new_ref_dict()
         self.interned_ints = {}
@@ -497,7 +496,7 @@ class Optimizer(Optimization):
             return CVAL_ZERO
 
     def propagate_all_forward(self, clear=True):
-        self.exception_might_have_happened = self.bridge
+        self.exception_might_have_happened = True
         if clear:
             self.clear_newoperations()
         for op in self.loop.operations:

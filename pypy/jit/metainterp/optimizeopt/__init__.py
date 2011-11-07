@@ -89,5 +89,5 @@ def optimize_trace(metainterp_sd, loop, enable_opts):
     if unroll:
         optimize_unroll(metainterp_sd, loop, optimizations)
     else:
-        optimizer = Optimizer(metainterp_sd, loop, optimizations, bridge)
+        optimizer = Optimizer(metainterp_sd, loop, optimizations)
         optimizer.propagate_all_forward()
