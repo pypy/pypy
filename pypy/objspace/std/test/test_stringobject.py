@@ -99,6 +99,14 @@ class AppTestStringObject:
         import operator
         raises(TypeError, operator.mod, b"%s", (1,))
 
+    def test_fromhex(self):
+        assert bytes.fromhex("abcd") == b'\xab\xcd'
+        assert b''.fromhex("abcd") == b'\xab\xcd'
+        assert bytes.fromhex("ab cd  ef") == b'\xab\xcd\xef'
+        raises(TypeError, bytes.fromhex, b"abcd")
+        raises(TypeError, bytes.fromhex, True)
+        raises(ValueError, bytes.fromhex, "hello world")
+
     def test_split(self):
         assert b"".split() == []
         assert b"".split(b'x') == [b'']
