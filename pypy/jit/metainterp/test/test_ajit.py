@@ -1733,7 +1733,7 @@ class BasicTests:
         self.check_loop_count(5)
         self.check_resops({'guard_class': 2, 'int_gt': 4,
                            'getfield_gc': 4, 'guard_true': 4,
-                           'int_sub': 4, 'jump': 4, 'int_mul': 2,
+                           'int_sub': 4, 'jump': 2, 'int_mul': 2,
                            'int_add': 2})
 
     def test_multiple_specialied_versions_array(self):
