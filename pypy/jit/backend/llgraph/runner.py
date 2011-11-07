@@ -181,9 +181,8 @@ class BaseCPU(model.AbstractCPU):
                 llimpl.compile_add_descr(c, descr.ofs, descr.typeinfo,
                                          descr.arg_types)
             if isinstance(descr, history.JitCellToken):
-                assert False
-                if op.getopnum() != rop.JUMP:
-                    llimpl.compile_add_loop_token(c, descr)
+                assert op.getopnum() != rop.JUMP
+                llimpl.compile_add_loop_token(c, descr)
             if isinstance(descr, history.TargetToken) and op.getopnum() == rop.LABEL:
                 llimpl.compile_add_target_token(c, descr)
             if self.is_oo and isinstance(descr, (OODescr, MethDescr)):
