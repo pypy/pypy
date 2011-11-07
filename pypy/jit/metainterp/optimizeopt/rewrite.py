@@ -294,12 +294,6 @@ class OptRewrite(Optimization):
             raise InvalidLoop
         self.optimize_GUARD_CLASS(op)
 
-    def optimize_GUARD_NO_EXCEPTION(self, op):
-        if not self.optimizer.exception_might_have_happened:
-            return
-        self.emit_operation(op)
-        self.optimizer.exception_might_have_happened = False
-
     def optimize_CALL_LOOPINVARIANT(self, op):
         arg = op.getarg(0)
         # 'arg' must be a Const, because residual_call in codewriter
@@ -310,6 +304,7 @@ class OptRewrite(Optimization):
         resvalue = self.loop_invariant_results.get(key, None)
         if resvalue is not None:
             self.make_equal_to(op.result, resvalue)
+            self.last_emitted_operation = REMOVED
             return
         # change the op to be a normal call, from the backend's point of view
         # there is no reason to have a separate operation for this
@@ -444,8 +439,17 @@ class OptRewrite(Optimization):
             except KeyError:
                 pass
             else:
+                # this removes a CALL_PURE with all constant arguments.
                 self.make_constant(op.result, result)
+                self.last_emitted_operation = REMOVED
                 return
+        self.emit_operation(op)
+
+    def optimize_GUARD_NO_EXCEPTION(self, op):
+        if self.last_emitted_operation is REMOVED:
+            # it was a CALL_PURE or a CALL_LOOPINVARIANT that was killed;
+            # so we also kill the following GUARD_NO_EXCEPTION
+            return
         self.emit_operation(op)
 
     def optimize_INT_FLOORDIV(self, op):
