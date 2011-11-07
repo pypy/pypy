@@ -61,7 +61,7 @@ class RegrTest:
                                  usemodules = '',
                                  skip=None): 
         self.basename = basename 
-        self._usemodules = usemodules.split() + ['signal']
+        self._usemodules = usemodules.split() + ['signal', '_warnings']
         self._compiler = compiler 
         self.core = core
         self.skip = skip
