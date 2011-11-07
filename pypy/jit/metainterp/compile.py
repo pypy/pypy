@@ -83,7 +83,10 @@ def record_loop_or_bridge(metainterp_sd, loop):
             if descr.original_jitcell_token is not original_jitcell_token:
                 assert descr.original_jitcell_token is not None
                 original_jitcell_token.record_jump_to(descr.original_jitcell_token)
-            descr.exported_state = None
+            # exported_state is clear by optimizeopt when the short preamble is
+            # constrcucted. if that did not happen the label should not show up
+            # in a trace that will be used
+            assert descr.exported_state is None 
             op._descr = None    # clear reference, mostly for tests
     # record this looptoken on the QuasiImmut used in the code
     if loop.quasi_immutable_deps is not None:
@@ -203,7 +206,8 @@ def compile_retrace(metainterp, greenkey, start,
     part = create_empty_loop(metainterp)
     part.inputargs = inputargs[:]
     part.start_resumedescr = start_resumedescr
-    h_ops = history.operations    
+    h_ops = history.operations
+
     part.operations = [partial_trace.operations[-1]] + \
                       [h_ops[i].clone() for i in range(start, len(h_ops))] + \
                       [ResOperation(rop.JUMP, jumpargs, None, descr=loop_jitcell_token)]
