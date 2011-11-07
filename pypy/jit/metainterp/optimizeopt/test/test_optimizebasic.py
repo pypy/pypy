@@ -685,25 +685,60 @@ class BaseTestOptimizeBasic(BaseTestBasic):
 
     # ----------
 
-    def test_fold_guard_no_exception(self):
+    def test_keep_guard_no_exception(self):
         ops = """
-        [i]
-        guard_no_exception() []
-        i1 = int_add(i, 3)
-        guard_no_exception() []
+        [i1]
         i2 = call(i1, descr=nonwritedescr)
         guard_no_exception() [i1, i2]
-        guard_no_exception() []
-        i3 = call(i2, descr=nonwritedescr)
-        jump(i1)       # the exception is considered lost when we loop back
+        jump(i2)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_keep_guard_no_exception_with_call_pure_that_is_not_folded(self):
+        ops = """
+        [i1]
+        i2 = call_pure(123456, i1, descr=nonwritedescr)
+        guard_no_exception() [i1, i2]
+        jump(i2)
         """
         expected = """
-        [i]
-        i1 = int_add(i, 3)
-        i2 = call(i1, descr=nonwritedescr)
+        [i1]
+        i2 = call(123456, i1, descr=nonwritedescr)
         guard_no_exception() [i1, i2]
-        i3 = call(i2, descr=nonwritedescr)
-        jump(i1)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_remove_guard_no_exception_with_call_pure_on_constant_args(self):
+        arg_consts = [ConstInt(i) for i in (123456, 81)]
+        call_pure_results = {tuple(arg_consts): ConstInt(5)}
+        ops = """
+        [i1]
+        i3 = same_as(81)
+        i2 = call_pure(123456, i3, descr=nonwritedescr)
+        guard_no_exception() [i1, i2]
+        jump(i2)
+        """
+        expected = """
+        [i1]
+        jump(5)
+        """
+        self.optimize_loop(ops, expected, call_pure_results)
+
+    def test_remove_guard_no_exception_with_duplicated_call_pure(self):
+        ops = """
+        [i1]
+        i2 = call_pure(123456, i1, descr=nonwritedescr)
+        guard_no_exception() [i1, i2]
+        i3 = call_pure(123456, i1, descr=nonwritedescr)
+        guard_no_exception() [i1, i2, i3]
+        jump(i3)
+        """
+        expected = """
+        [i1]
+        i2 = call(123456, i1, descr=nonwritedescr)
+        guard_no_exception() [i1, i2]
+        jump(i2)
         """
         self.optimize_loop(ops, expected)
 

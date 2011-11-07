@@ -201,6 +201,9 @@ class BaseArray(Wrappable):
     def descr_get_shape(self, space):
         return space.newtuple([self.descr_len(space)])
 
+    def descr_get_size(self, space):
+        return space.wrap(self.find_size())
+
     def descr_copy(self, space):
         return space.call_function(space.gettypefor(BaseArray), self, self.find_dtype())
 
@@ -607,6 +610,7 @@ BaseArray.typedef = TypeDef(
 
     dtype = GetSetProperty(BaseArray.descr_get_dtype),
     shape = GetSetProperty(BaseArray.descr_get_shape),
+    size = GetSetProperty(BaseArray.descr_get_size),
 
     mean = interp2app(BaseArray.descr_mean),
     sum = interp2app(BaseArray.descr_sum),

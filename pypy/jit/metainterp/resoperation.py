@@ -90,7 +90,10 @@ class AbstractResOp(object):
         return op
 
     def __repr__(self):
-        return self.repr()
+        try:
+            return self.repr()
+        except NotImplementedError:
+            return object.__repr__(self)
 
     def repr(self, graytext=False):
         # RPython-friendly version
