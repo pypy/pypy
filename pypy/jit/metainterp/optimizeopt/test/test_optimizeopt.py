@@ -958,6 +958,24 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected, preamble)
 
+    def test_bug_guard_no_exception(self):
+        py.test.skip("missing optimization for this corner case")
+        ops = """
+        []
+        i0 = call(123, descr=nonwritedescr)
+        p0 = call(0, "xy", descr=s2u_descr)      # string -> unicode
+        guard_no_exception() []
+        escape(p0)
+        jump()
+        """
+        expected = """
+        []
+        i0 = call(123, descr=nonwritedescr)
+        escape(u"xy")
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
     # ----------
 
     def test_call_loopinvariant(self):
