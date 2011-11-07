@@ -195,10 +195,12 @@ class AppTestAbstractInst:
                 """Implement issubclass(sub, cls)."""
                 candidates = cls.__dict__.get("__subclass__", set()) | set([cls])
                 return any(c in candidates for c in sub.mro())
-        class Integer:
 
-            __metaclass__ = ABC
+        # Equivalent to::
+        #     class Integer(metaclass=ABC):
+        #         __subclass__ = set([int])
+        # But with a syntax compatible with 2.x
+        Integer = ABC('Integer', (), dict(__subclass__=set([int])))
 
-            __subclass__ = set([int])
         assert issubclass(int, Integer)
         assert issubclass(int, (Integer,))

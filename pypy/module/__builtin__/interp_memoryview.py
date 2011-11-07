@@ -72,7 +72,7 @@ class W_MemoryView(Wrappable):
         return space.wrap(self.buf)
 
     def descr_tobytes(self, space):
-        return space.wrap(self.as_str())
+        return space.wrapbytes(self.as_str())
 
     def descr_tolist(self, space):
         buf = self.buf
