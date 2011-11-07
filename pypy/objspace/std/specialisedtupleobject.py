@@ -64,11 +64,13 @@ class W_SpecialisedTupleObject(W_Object):
     def unwrap(w_tuple, space):
         return tuple(self.tolist)
                         
-def make_specialised_class(class_name, type0, type1):
+
+def make_specialised_class(class_name, typelist):
     class cls(W_SpecialisedTupleObject):
         def __init__(self, space, val0, val1):
-            assert isinstance(val0, type0)
-            assert isinstance(val1, type1)
+            assert len(typelist) == 2
+            assert isinstance(val0, typelist[0])
+            assert isinstance(val1, typelist[1])
             self.space = space
             self.val0 = val0
             self.val1 = val1
@@ -160,13 +162,13 @@ def make_specialised_class(class_name, type0, type1):
                 return self.space.wrap(self.val1)
             raise IndexError
     cls.__name__ = class_name      
-    _specialisations.append((cls,(type0,type1)))
+    _specialisations.append((cls,typelist))
     return cls
     
     
-W_SpecialisedTupleObjectIntInt     = make_specialised_class('W_SpecialisedTupleObjectIntInt',     int,int)
-W_SpecialisedTupleObjectFloatFloat = make_specialised_class('W_SpecialisedTupleObjectFloatFloat', float,float)
-W_SpecialisedTupleObjectStrStr     = make_specialised_class('W_SpecialisedTupleObjectStrStr',     str, str)
+W_SpecialisedTupleObjectIntInt     = make_specialised_class('W_SpecialisedTupleObjectIntInt',     (int,int))
+W_SpecialisedTupleObjectFloatFloat = make_specialised_class('W_SpecialisedTupleObjectFloatFloat', (float,float))
+W_SpecialisedTupleObjectStrStr     = make_specialised_class('W_SpecialisedTupleObjectStrStr',     (str, str))
 
 registerimplementation(W_SpecialisedTupleObject)
 
