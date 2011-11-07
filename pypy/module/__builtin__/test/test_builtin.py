@@ -509,6 +509,10 @@ class AppTestBuiltinApp:
         code = u"# -*- coding: utf-8 -*-\npass\n"
         raises(SyntaxError, compile, code, "tmp", "exec")
 
+    def test_bytes_compile(self):
+        code = b"# -*- coding: utf-8 -*-\npass\n"
+        compile(code, "tmp", "exec")
+
     def test_recompile_ast(self):
         import _ast
         # raise exception when node type doesn't match with compile mode
