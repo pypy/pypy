@@ -340,7 +340,7 @@ def descr_new_(space, w_unicodetype, w_string='', w_encoding=None, w_errors=None
 
 unicode_typedef = StdTypeDef("str",
     __new__ = gateway.interp2app(descr_new_),
-    __doc__ = '''unicode(string [, encoding[, errors]]) -> object
+    __doc__ = '''str(string [, encoding[, errors]]) -> object
 
 Create a new Unicode object from the given encoded string.
 encoding defaults to the current default string encoding.

@@ -369,10 +369,15 @@ def descr_fromhex(space, w_type, w_hexstring):
 
 str_typedef = StdTypeDef("bytes",
     __new__ = gateway.interp2app(descr__new__),
-    __doc__ = '''str(object) -> string
-
-Return a nice string representation of the object.
-If the argument is a string, the return value is the same object.''',
+    __doc__ = 'bytes(iterable_of_ints) -> bytes\n'
+              'bytes(string, encoding[, errors]) -> bytes\n'
+              'bytes(bytes_or_buffer) -> immutable copy of bytes_or_buffer\n'
+              'bytes(memory_view) -> bytes\n\n'
+              'Construct an immutable array of bytes from:\n'
+              '    - an iterable yielding integers in range(256)\n'
+              '    - a text string encoded using the specified encoding\n'
+              '    - a bytes or a buffer object\n'
+              '    - any object implementing the buffer API.',
     fromhex = gateway.interp2app(descr_fromhex, as_classmethod=True)
     )
 
