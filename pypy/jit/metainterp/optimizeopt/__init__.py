@@ -28,8 +28,7 @@ ALL_OPTS_DICT = dict.fromkeys([name for name, _ in ALL_OPTS])
 ALL_OPTS_LIST = [name for name, _ in ALL_OPTS]
 ALL_OPTS_NAMES = ':'.join([name for name, _ in ALL_OPTS])
 
-def build_opt_chain(metainterp_sd, enable_opts,
-                    inline_short_preamble=True, retraced=False):
+def build_opt_chain(metainterp_sd, enable_opts):
     config = metainterp_sd.config
     optimizations = []
     unroll = 'unroll' in enable_opts    # 'enable_opts' is normally a dict
@@ -47,9 +46,6 @@ def build_opt_chain(metainterp_sd, enable_opts,
     if ('rewrite' not in enable_opts or 'virtualize' not in enable_opts
         or 'heap' not in enable_opts or 'unroll' not in enable_opts):
         optimizations.append(OptSimplify())
-
-    if inline_short_preamble:
-        optimizations = [OptInlineShortPreamble(retraced)] + optimizations
 
     return optimizations, unroll
 
@@ -81,13 +77,13 @@ def optimize_bridge_1(metainterp_sd, bridge, enable_opts,
 if __name__ == '__main__':
     print ALL_OPTS_NAMES
 
-def optimize_trace(metainterp_sd, loop, enable_opts):
+def optimize_trace(metainterp_sd, loop, enable_opts, inline_short_preamble=True):
     """Optimize loop.operations to remove internal overheadish operations.
     """
 
-    optimizations, unroll = build_opt_chain(metainterp_sd, enable_opts, True, False)
+    optimizations, unroll = build_opt_chain(metainterp_sd, enable_opts)
     if unroll:
-        optimize_unroll(metainterp_sd, loop, optimizations)
+        optimize_unroll(metainterp_sd, loop, optimizations, inline_short_preamble)
     else:
         optimizer = Optimizer(metainterp_sd, loop, optimizations)
         optimizer.propagate_all_forward()

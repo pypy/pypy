@@ -708,7 +708,7 @@ def compile_trace(metainterp, resumekey, start_resumedescr=None):
     else:
         inline_short_preamble = True
     try:
-        optimize_trace(metainterp_sd, new_trace, state.enable_opts)
+        optimize_trace(metainterp_sd, new_trace, state.enable_opts, inline_short_preamble)
     except InvalidLoop:
         debug_print("compile_new_bridge: got an InvalidLoop")
         # XXX I am fairly convinced that optimize_bridge cannot actually raise

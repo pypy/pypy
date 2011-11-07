@@ -14,8 +14,9 @@ import sys, os
 
 # FIXME: Introduce some VirtualOptimizer super class instead
 
-def optimize_unroll(metainterp_sd, loop, optimizations):
+def optimize_unroll(metainterp_sd, loop, optimizations, inline_short_preamble=True):
     opt = UnrollOptimizer(metainterp_sd, loop, optimizations)
+    opt.inline_short_preamble = inline_short_preamble
     opt.propagate_all_forward()
 
 class UnrollableOptimizer(Optimizer):
@@ -23,6 +24,7 @@ class UnrollableOptimizer(Optimizer):
         self.importable_values = {}
         self.emitting_dissabled = False
         self.emitted_guards = 0
+        self.inline_short_preamble = True
 
     def ensure_imported(self, value):
         if not self.emitting_dissabled and value in self.importable_values:
@@ -463,6 +465,12 @@ class UnrollOptimizer(Optimization):
         assert isinstance(cell_token, JitCellToken)
         if not cell_token.target_tokens:
             return False
+
+        if not self.inline_short_preamble:
+            assert cell_token.target_tokens[0].virtual_state is None
+            jumpop.setdescr(cell_token.target_tokens[0])
+            self.optimizer.send_extra_operation(jumpop)
+            return True
 
         args = jumpop.getarglist()
         modifier = VirtualStateAdder(self.optimizer)
