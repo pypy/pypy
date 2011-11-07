@@ -15,6 +15,7 @@ from pypy.objspace.std.setobject import and__Set_Set
 from pypy.objspace.std.setobject import set_intersection__Set
 from pypy.objspace.std.setobject import eq__Set_Set
 from pypy.conftest import gettestobjspace
+from pypy.objspace.std.listobject import W_ListObject
 
 letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
 
@@ -53,6 +54,31 @@ class TestW_SetObject:
     def test_space_newset(self):
         s = self.space.newset()
         assert self.space.str_w(self.space.repr(s)) == 'set([])'
+
+    def test_intersection_order(self):
+        # theses tests make sure that intersection is done in the correct order
+        # (smallest first)
+        space = self.space
+        a = W_SetObject(self.space)
+        _initialize_set(self.space, a, self.space.wrap("abcdefg"))
+        a.intersect = None
+
+        b = W_SetObject(self.space)
+        _initialize_set(self.space, b, self.space.wrap("abc"))
+
+        result = set_intersection__Set(space, a, [b])
+        assert space.is_true(self.space.eq(result, W_SetObject(space, self.space.wrap("abc"))))
+
+        c = W_SetObject(self.space)
+        _initialize_set(self.space, c, self.space.wrap("e"))
+
+        d = W_SetObject(self.space)
+        _initialize_set(self.space, d, self.space.wrap("ab"))
+        d.intersect = None
+
+        result = set_intersection__Set(space, a, [d,c,b])
+        assert space.is_true(self.space.eq(result, W_SetObject(space, self.space.wrap(""))))
+
 
 class AppTestAppSetTest:
 
