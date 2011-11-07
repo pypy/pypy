@@ -14,23 +14,27 @@ from pypy.rlib.objectmodel import compute_hash
 class NotSpecialised(Exception):
     pass         
             
-def makespecialisedtuple(space, list_w):            
-    if len(list_w) == 2:
-        w_item0 = list_w[0]
-        w_item1 = list_w[1]
-        if space.type(w_item0) == space.w_int and space.type(w_item1) == space.w_int:
-                val0 = space.int_w(w_item0)
-                val1 = space.int_w(w_item1)
-                return W_SpecialisedTupleObjectIntInt(space, val0, val1)
-        if space.type(w_item0) == space.w_float and space.type(w_item1) == space.w_float:
-                val0 = space.float_w(w_item0)
-                val1 = space.float_w(w_item1)
-                return W_SpecialisedTupleObjectFloatFloat(space, val0, val1)
-        if space.type(w_item0) == space.w_str and space.type(w_item1) == space.w_str:
-                val0 = space.str_w(w_item0)
-                val1 = space.str_w(w_item1)
-                return W_SpecialisedTupleObjectStrStr(space, val0, val1)
-    raise NotSpecialised                        
+_specialisations = []
+
+def makespecialisedtuple(space, list_w):          
+    w_type_of = {int:space.w_int, float:space.w_float, str:space.w_str}  
+    unwrap_as = {int:space.int_w, float:space.float_w, str:space.str_w}  
+    
+    def try_specialisation((specialisedClass, paramtypes)):
+        if len(list_w) != len(paramtypes):
+            raise NotSpecialised
+        for param,paramtype in zip(list_w,paramtypes):
+            if space.type(param) != w_type_of[paramtype]:
+                raise NotSpecialised
+        unwrappedparams = [unwrap_as[paramtype](param) for param,paramtype in zip(list_w,paramtypes)]
+        return specialisedClass(space, *unwrappedparams)
+        
+    for spec in _specialisations:
+         try:
+             return try_specialisation(spec)
+         except NotSpecialised:
+             pass
+    raise NotSpecialised
 
 class W_SpecialisedTupleObject(W_Object):
     from pypy.objspace.std.tupletype import tuple_typedef as typedef
@@ -156,6 +160,7 @@ def make_specialised_class(class_name, type0, type1):
                 return self.space.wrap(self.val1)
             raise IndexError
     cls.__name__ = class_name      
+    _specialisations.append((cls,(type0,type1)))
     return cls
     
     
