@@ -17,6 +17,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[13] = 5.3
         assert a[13] == 5.3
 
+    def test_size(self):
+        from numpy import array
+        # XXX fixed on multidim branch
+        #assert array(3).size == 1
+        a = array([1, 2, 3])
+        assert a.size == 3
+        assert (a + a).size == 3
+
     def test_empty(self):
         """
         Test that empty() works.
@@ -214,7 +222,7 @@ class AppTestNumArray(BaseNumpyAppTest):
     def test_add_other(self):
         from numpy import array
         a = array(range(5))
-        b = array(reversed(range(5)))
+        b = array(range(4, -1, -1))
         c = a + b
         for i in range(5):
             assert c[i] == 4
@@ -264,18 +272,19 @@ class AppTestNumArray(BaseNumpyAppTest):
             assert b[i] == i - 5
 
     def test_mul(self):
-        from numpy import array, dtype
-        a = array(range(5))
+        import numpy
+
+        a = numpy.array(range(5))
         b = a * a
         for i in range(5):
             assert b[i] == i * i
 
-        a = array(range(5), dtype=bool)
+        a = numpy.array(range(5), dtype=bool)
         b = a * a
-        assert b.dtype is dtype(bool)
-        assert b[0] is False
+        assert b.dtype is numpy.dtype(bool)
+        assert b[0] is numpy.False_
         for i in range(1, 5):
-            assert b[i] is True
+            assert b[i] is numpy.True_
 
     def test_mul_constant(self):
         from numpy import array

@@ -98,7 +98,7 @@ module_suggests = {
 
 module_import_dependencies = {
     # no _rawffi if importing pypy.rlib.clibffi raises ImportError
-    # or CompilationError
+    # or CompilationError or py.test.skip.Exception
     "_rawffi"   : ["pypy.rlib.clibffi"],
     "_ffi"      : ["pypy.rlib.clibffi"],
 
@@ -119,7 +119,7 @@ def get_module_validator(modname):
             try:
                 for name in modlist:
                     __import__(name)
-            except (ImportError, CompilationError), e:
+            except (ImportError, CompilationError, py.test.skip.Exception), e:
                 errcls = e.__class__.__name__
                 config.add_warning(
                     "The module %r is disabled\n" % (modname,) +

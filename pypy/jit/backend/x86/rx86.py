@@ -745,6 +745,7 @@ def define_pxmm_insn(insnname_template, insn_char):
     assert insnname_template.count('*') == 1
     add_insn('x', register(2), '\xC0')
     add_insn('j', abs_, immediate(2))
+    add_insn('m', mem_reg_plus_const(2))
 
 define_pxmm_insn('PADDQ_x*',     '\xD4')
 define_pxmm_insn('PSUBQ_x*',     '\xFB')

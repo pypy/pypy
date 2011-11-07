@@ -16,9 +16,6 @@ class SignalChecker:
         self.space.getexecutioncontext().checksignals()
 
 class W_RSocket(Wrappable, RSocket):
-    def __del__(self):
-        self.close()
-
     def _accept_w(self, space):
         """_accept() -> (socket object, address info)
 

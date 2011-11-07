@@ -79,7 +79,7 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         raises(TypeError, mod.isSameFunction, 1)
 
 class TestPyCMethodObject(BaseApiTest):
-    def test_repr(self, space):
+    def test_repr(self, space, api):
         """
         W_PyCMethodObject has a repr string which describes it as a method
         and gives its name and the name of its class.
@@ -94,7 +94,7 @@ class TestPyCMethodObject(BaseApiTest):
         ml.c_ml_meth = rffi.cast(PyCFunction_typedef,
                                  c_func.get_llhelper(space))
 
-        method = PyDescr_NewMethod(space, space.w_str, ml)
+        method = api.PyDescr_NewMethod(space.w_str, ml)
         assert repr(method).startswith(
             "<built-in method 'func' of 'str' object ")
 

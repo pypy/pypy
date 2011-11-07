@@ -107,10 +107,8 @@ def getsource(object):
     else:
         try:
             src = inspect.getsource(object)
-        except IOError:
-            return None
-        except IndentationError:
-            return None
+        except Exception:   # catch IOError, IndentationError, and also rarely
+            return None     # some other exceptions like IndexError
     if hasattr(name, "__sourceargs__"):
         return src % name.__sourceargs__
     return src
@@ -216,9 +214,11 @@ def compile_template(source, resultname):
 
 # ____________________________________________________________
 
-def func_with_new_name(func, newname):
+def func_with_new_name(func, newname, globals=None):
     """Make a renamed copy of a function."""
-    f = new.function(func.func_code, func.func_globals,
+    if globals is None:
+        globals = func.func_globals
+    f = new.function(func.func_code, globals,
                         newname, func.func_defaults,
                         func.func_closure)
     if func.func_dict:

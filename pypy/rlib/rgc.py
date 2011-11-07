@@ -214,6 +214,10 @@ def no_collect(func):
     func._gc_no_collect_ = True
     return func
 
+def is_light_finalizer(func):
+    func._is_light_finalizer_ = True
+    return func
+
 # ____________________________________________________________
 
 def get_rpy_roots():
@@ -254,6 +258,24 @@ def _keep_object(x):
         return type(x).__module__ != '__builtin__'   # keep non-builtins
     except Exception:
         return False      # don't keep objects whose _freeze_() method explodes
+
+def add_memory_pressure(estimate):
+    """Add memory pressure for OpaquePtrs."""
+    pass
+
+class AddMemoryPressureEntry(ExtRegistryEntry):
+    _about_ = add_memory_pressure
+
+    def compute_result_annotation(self, s_nbytes):
+        from pypy.annotation import model as annmodel
+        return annmodel.s_None
+
+    def specialize_call(self, hop):
+        [v_size] = hop.inputargs(lltype.Signed)
+        hop.exception_cannot_occur()
+        return hop.genop('gc_add_memory_pressure', [v_size],
+                         resulttype=lltype.Void)
+
 
 def get_rpy_memory_usage(gcref):
     "NOT_RPYTHON"

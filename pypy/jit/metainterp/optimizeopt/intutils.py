@@ -1,4 +1,5 @@
 from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift, LONG_BIT
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.metainterp.history import BoxInt, ConstInt
 import sys
@@ -13,6 +14,10 @@ class IntBound(object):
         self.has_lower = True
         self.upper = upper
         self.lower = lower
+        # check for unexpected overflows:
+        if not we_are_translated():
+            assert type(upper) is not long
+            assert type(lower) is not long
 
     # Returns True if the bound was updated
     def make_le(self, other):
