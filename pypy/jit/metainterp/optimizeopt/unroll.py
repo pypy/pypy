@@ -518,8 +518,9 @@ class UnrollOptimizer(Optimization):
                 except InvalidLoop:
                     debug_print("Inlining failed unexpectedly",
                                 "jumping to preamble instead")
-                    assert False, "FIXME: Construct jump op"
-                    self.optimizer.send_extra_operation(op)
+                    assert cell_token.target_tokens[0].virtual_state is None
+                    jumpop.setdescr(cell_token.target_tokens[0])
+                    self.optimizer.send_extra_operation(jumpop)
                 return True
         debug_stop('jit-log-virtualstate')
 
