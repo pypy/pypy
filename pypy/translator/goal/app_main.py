@@ -120,7 +120,7 @@ def print_info(*args):
     except AttributeError:
         print('no translation information found', file=sys.stderr)
     else:
-        optitems = options.items()
+        optitems = list(options.items())
         optitems.sort()
         for name, value in optitems:
             print(' %51s: %s' % (name, value))
@@ -138,7 +138,7 @@ def print_help(*args):
 
 def _print_jit_help():
     import pypyjit
-    items = pypyjit.defaults.items()
+    items = list(pypyjit.defaults.items())
     items.sort()
     for key, value in items:
         print('  --jit %s=N %slow-level JIT parameter (default %s)' % (
@@ -304,7 +304,7 @@ def create_stdio(fd, writing, name, encoding, errors, unbuffered):
                               newline=newline,
                               line_buffering=line_buffering)
     return stream
-    
+
 def set_io_encoding(io_encoding):
     try:
         import _file
@@ -510,7 +510,7 @@ def run_command_line(interactive,
                      unbuffered,
                      ignore_environment,
                      **ignored):
-    # with PyPy in top of CPython we can only have around 100 
+    # with PyPy in top of CPython we can only have around 100
     # but we need more in the translated PyPy for the compiler package
     if '__pypy__' not in sys.builtin_module_names:
         sys.setrecursionlimit(5000)
