@@ -56,7 +56,7 @@ class FileDecoder(object):
         self.w_obj = w_obj
 
     def as_bytes(self):
-        return self.space.str_w(self.w_obj)
+        return self.space.bytes_w(self.w_obj)
 
     def as_unicode(self):
         space = self.space
@@ -71,7 +71,7 @@ def dispatch_filename(func, tag=0):
             fname = FileEncoder(space, w_fname)
             return func(fname, *args)
         else:
-            fname = space.str_w(w_fname)
+            fname = space.bytes_w(w_fname)
             return func(fname, *args)
     return dispatch
 
@@ -512,19 +512,17 @@ def _convertenviron(space, w_env):
     for key, value in os.environ.items():
         space.setitem(w_env, space.wrapbytes(key), space.wrapbytes(value))
 
-@unwrap_spec(name=str, value=str)
-def putenv(space, name, value):
+def putenv(space, w_name, w_value):
     """Change or add an environment variable."""
     try:
-        os.environ[name] = value
+        dispatch_filename_2(rposix.putenv)(space, w_name, w_value)
     except OSError, e:
         raise wrap_oserror(space, e)
 
-@unwrap_spec(name=str)
-def unsetenv(space, name):
+def unsetenv(space, w_name):
     """Delete an environment variable."""
     try:
-        del os.environ[name]
+        dispatch_filename(rposix.unsetenv)(space, w_name)
     except KeyError:
         pass
     except OSError, e:

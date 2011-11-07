@@ -24,7 +24,7 @@ def strptime(string, format="%a %b %d %H:%M:%S %Y"):
     (same as strftime())."""
 
     import _strptime     # from the CPython standard library
-    return _strptime._strptime(string, format)[0]
+    return _strptime._strptime_time(string, format)
 
 __doc__ = """This module provides various functions to manipulate time values.
 

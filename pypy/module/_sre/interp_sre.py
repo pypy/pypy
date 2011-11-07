@@ -78,8 +78,7 @@ def allgroups_w(space, ctx, fmarks, num_groups, w_default):
     return space.newtuple(grps)
 
 def import_re(space):
-    w_builtin = space.getbuiltinmodule('__builtin__')
-    w_import = space.getattr(w_builtin, space.wrap("__import__"))
+    w_import = space.getattr(space.builtin, space.wrap("__import__"))
     return space.call_function(w_import, space.wrap("re"))
 
 def matchcontext(space, ctx):

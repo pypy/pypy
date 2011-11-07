@@ -199,7 +199,7 @@ class AppTestRCTime:
             # rely on it.
             if org_TZ is not None:
                 os.environ['TZ'] = org_TZ
-            elif os.environ.has_key('TZ'):
+            elif 'TZ' in os.environ:
                 del os.environ['TZ']
             rctime.tzset()
 
@@ -279,7 +279,7 @@ class AppTestRCTime:
                           'j', 'm', 'M', 'p', 'S',
                           'U', 'w', 'W', 'x', 'X', 'y', 'Y', 'Z', '%'):
             format = ' %' + directive
-            print format
+            print(format)
             rctime.strptime(rctime.strftime(format, tt), format)
 
     def test_pickle(self):
