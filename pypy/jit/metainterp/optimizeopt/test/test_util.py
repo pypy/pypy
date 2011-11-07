@@ -18,6 +18,7 @@ from pypy.jit.metainterp.quasiimmut import QuasiImmutDescr
 from pypy.jit.metainterp import compile, resume, history
 from pypy.jit.metainterp.jitprof import EmptyProfiler
 from pypy.config.pypyoption import get_pypy_config
+from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
 
 def test_sort_descrs():
     class PseudoDescr(AbstractDescr):
@@ -399,6 +400,22 @@ class BaseTest(object):
             metainterp_sd.callinfocollection = self.callinfocollection
         #
         optimize_trace(metainterp_sd, loop, self.enable_opts)
+
+class FakeDescr(compile.ResumeGuardDescr):
+    def clone_if_mutable(self):
+        return FakeDescr()
+    def __eq__(self, other):
+        return isinstance(other, FakeDescr)
+
+def convert_old_style_to_targets(loop, jump):
+    newloop = TreeLoop(loop.name)
+    newloop.inputargs = loop.inputargs
+    newloop.operations = [ResOperation(rop.LABEL, loop.inputargs, None, descr=FakeDescr())] + \
+                      loop.operations
+    if not jump:
+        assert newloop.operations[-1].getopnum() == rop.JUMP
+        newloop.operations[-1] = ResOperation(rop.LABEL, newloop.operations[-1].getarglist(), None, descr=FakeDescr())
+    return newloop
 
 # ____________________________________________________________
 

@@ -1,7 +1,7 @@
 import py
 from pypy.rlib.objectmodel import instantiate
 from pypy.jit.metainterp.optimizeopt.test.test_util import (
-    LLtypeMixin, BaseTest, Storage, _sortboxes)
+    LLtypeMixin, BaseTest, Storage, _sortboxes, convert_old_style_to_targets)
 import pypy.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import pypy.jit.metainterp.optimizeopt.virtualize as virtualize
 from pypy.jit.metainterp.optimizeopt import optimize_loop_1, ALL_OPTS_DICT, build_opt_chain
@@ -157,16 +157,6 @@ class BaseTestWithUnroll(BaseTest):
             assert short[-1].getdescr() == loop.operations[0].getdescr()
 
         return loop
-
-def convert_old_style_to_targets(loop, jump):
-    newloop = TreeLoop(loop.name)
-    newloop.inputargs = loop.inputargs
-    newloop.operations = [ResOperation(rop.LABEL, loop.inputargs, None, descr=FakeDescr())] + \
-                      loop.operations
-    if not jump:
-        assert newloop.operations[-1].getopnum() == rop.JUMP
-        newloop.operations[-1] = ResOperation(rop.LABEL, newloop.operations[-1].getarglist(), None, descr=FakeDescr())
-    return newloop
 
 class OptimizeOptTest(BaseTestWithUnroll):
 
