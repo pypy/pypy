@@ -3365,7 +3365,7 @@ class BaseLLtypeTests(BasicTests):
         res = self.meta_interp(main, [10])
         assert res == main(10)
         self.check_resops({'int_gt': 2, 'strlen': 2, 'guard_true': 2,
-                           'int_sub': 2, 'jump': 2, 'call': 2,
+                           'int_sub': 2, 'jump': 1, 'call': 2,
                            'guard_no_exception': 2, 'int_add': 4})
 
     def test_look_inside_iff_const_getarrayitem_gc_pure(self):
@@ -3502,7 +3502,7 @@ class BaseLLtypeTests(BasicTests):
 
         res = self.meta_interp(f, [10])
         assert res == 0
-        self.check_resops({'jump': 2, 'guard_true': 2, 'int_gt': 2,
+        self.check_resops({'jump': 1, 'guard_true': 2, 'int_gt': 2,
                            'int_sub': 2})
 
     def test_virtual_opaque_ptr(self):
@@ -3522,7 +3522,7 @@ class BaseLLtypeTests(BasicTests):
             return n
         res = self.meta_interp(f, [10])
         assert res == 0
-        self.check_resops({'jump': 2, 'guard_true': 2, 'int_gt': 2,
+        self.check_resops({'jump': 1, 'guard_true': 2, 'int_gt': 2,
                            'int_sub': 2})
 
 
@@ -3545,7 +3545,7 @@ class BaseLLtypeTests(BasicTests):
         res = self.meta_interp(f, [10])
         assert res == 0
         self.check_resops({'int_gt': 2, 'getfield_gc': 1, 'int_eq': 1,
-                           'guard_true': 2, 'int_sub': 2, 'jump': 2,
+                           'guard_true': 2, 'int_sub': 2, 'jump': 1,
                            'guard_false': 1})
 
 
