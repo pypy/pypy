@@ -210,6 +210,90 @@ class AppTestTextIO:
         b.name = "dummy"
         assert repr(t) == "<_io.TextIOWrapper name='dummy' encoding='utf-8'>"
 
+    def test_rawio(self):
+        # Issue #12591: TextIOWrapper must work with raw I/O objects, so
+        # that subprocess.Popen() can have the required unbuffered
+        # semantics with universal_newlines=True.
+        import _io
+        class MockRawIO(_io._RawIOBase):
+            def __init__(self, read_stack=()):
+                self._read_stack = list(read_stack)
+                self._write_stack = []
+                self._reads = 0
+                self._extraneous_reads = 0
+
+            def write(self, b):
+                self._write_stack.append(bytes(b))
+                return len(b)
+
+            def writable(self):
+                return True
+
+            def fileno(self):
+                return 42
+
+            def readable(self):
+                return True
+
+            def seekable(self):
+                return True
+
+            def seek(self, pos, whence):
+                return 0   # wrong but we gotta return something
+
+            def tell(self):
+                return 0   # same comment as above
+
+            def readinto(self, buf):
+                self._reads += 1
+                max_len = len(buf)
+                try:
+                    data = self._read_stack[0]
+                except IndexError:
+                    self._extraneous_reads += 1
+                    return 0
+                if data is None:
+                    del self._read_stack[0]
+                    return None
+                n = len(data)
+                if len(data) <= max_len:
+                    del self._read_stack[0]
+                    buf[:n] = data
+                    return n
+                else:
+                    buf[:] = data[:max_len]
+                    self._read_stack[0] = data[max_len:]
+                    return max_len
+
+            def truncate(self, pos=None):
+                return pos
+
+            def read(self, n=None):
+                self._reads += 1
+                try:
+                    return self._read_stack.pop(0)
+                except:
+                    self._extraneous_reads += 1
+                    return b""
+
+        raw = MockRawIO([b'abc', b'def', b'ghi\njkl\nopq\n'])
+        txt = _io.TextIOWrapper(raw, encoding='ascii', newline='\n')
+        # Reads
+        assert txt.read(4) == 'abcd'
+        assert txt.readline() == 'efghi\n'
+        assert list(txt) == ['jkl\n', 'opq\n']
+#
+#    def test_rawio_write_through(self):
+#        # Issue #12591: with write_through=True, writes don't need a flush
+#        import _io
+        raw = MockRawIO([b'abc', b'def', b'ghi\njkl\nopq\n'])
+        txt = _io.TextIOWrapper(raw, encoding='ascii', newline='\n',
+                                write_through=True)
+        txt.write('1')
+        txt.write('23\n4')
+        txt.write('5')
+        assert b''.join(raw._write_stack) == b'123\n45'
+
 
 class AppTestIncrementalNewlineDecoder:
 
