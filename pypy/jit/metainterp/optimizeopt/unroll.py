@@ -510,34 +510,34 @@ class UnrollOptimizer(Optimization):
                     pass
             target.virtual_state.debug_print(debugmsg, bad)
 
-        if ok:
-            debug_stop('jit-log-virtualstate')
+            if ok:
+                debug_stop('jit-log-virtualstate')
 
-            values = [self.getvalue(arg)
-                      for arg in jumpop.getarglist()]
-            args = target.virtual_state.make_inputargs(values, self.optimizer,
-                                                       keyboxes=True)
-            short_inputargs = target.short_preamble[0].getarglist()
-            inliner = Inliner(short_inputargs, args)
+                values = [self.getvalue(arg)
+                          for arg in jumpop.getarglist()]
+                args = target.virtual_state.make_inputargs(values, self.optimizer,
+                                                           keyboxes=True)
+                short_inputargs = target.short_preamble[0].getarglist()
+                inliner = Inliner(short_inputargs, args)
 
-            for guard in extra_guards:
-                if guard.is_guard():
-                    descr = target.start_resumedescr.clone_if_mutable()
-                    inliner.inline_descr_inplace(descr)
-                    guard.setdescr(descr)
-                self.optimizer.send_extra_operation(guard)
+                for guard in extra_guards:
+                    if guard.is_guard():
+                        descr = target.start_resumedescr.clone_if_mutable()
+                        inliner.inline_descr_inplace(descr)
+                        guard.setdescr(descr)
+                    self.optimizer.send_extra_operation(guard)
 
-            try:
-                for shop in target.short_preamble[1:]:
-                    newop = inliner.inline_op(shop)
-                    self.optimizer.send_extra_operation(newop)
-            except InvalidLoop:
-                debug_print("Inlining failed unexpectedly",
-                            "jumping to preamble instead")
-                assert cell_token.target_tokens[0].virtual_state is None
-                jumpop.setdescr(cell_token.target_tokens[0])
-                self.optimizer.send_extra_operation(jumpop)
-            return True
+                try:
+                    for shop in target.short_preamble[1:]:
+                        newop = inliner.inline_op(shop)
+                        self.optimizer.send_extra_operation(newop)
+                except InvalidLoop:
+                    debug_print("Inlining failed unexpectedly",
+                                "jumping to preamble instead")
+                    assert cell_token.target_tokens[0].virtual_state is None
+                    jumpop.setdescr(cell_token.target_tokens[0])
+                    self.optimizer.send_extra_operation(jumpop)
+                return True
         debug_stop('jit-log-virtualstate')
 
         if self.did_import:
