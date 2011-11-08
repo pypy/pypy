@@ -30,7 +30,7 @@ class StringTests:
             return i
         res = self.meta_interp(f, [10, True, _str('h')], listops=True)
         assert res == 5
-        self.check_loops(**{self.CALL: 1, self.CALL_PURE: 0, 'everywhere': True})
+        self.check_resops(**{self.CALL: 1, self.CALL_PURE: 0})
 
     def test_eq_folded(self):
         _str = self._str
@@ -50,7 +50,7 @@ class StringTests:
             return i
         res = self.meta_interp(f, [10, True, _str('h')], listops=True)
         assert res == 5
-        self.check_loops(**{self.CALL: 0, self.CALL_PURE: 0})
+        self.check_resops(**{self.CALL: 0, self.CALL_PURE: 0})
 
     def test_newstr(self):
         _str, _chr = self._str, self._chr
@@ -85,7 +85,7 @@ class StringTests:
                 n -= 1
             return 42
         self.meta_interp(f, [6])
-        self.check_loops(newstr=0, strsetitem=0, strlen=0,
+        self.check_resops(newstr=0, strsetitem=0, strlen=0,
                          newunicode=0, unicodesetitem=0, unicodelen=0)
 
     def test_char2string_escape(self):
@@ -126,7 +126,7 @@ class StringTests:
             return total
         res = self.meta_interp(f, [6])
         assert res == 21
-        self.check_loops(newstr=0, strgetitem=0, strsetitem=0, strlen=0,
+        self.check_resops(newstr=0, strgetitem=0, strsetitem=0, strlen=0,
                          newunicode=0, unicodegetitem=0, unicodesetitem=0,
                          unicodelen=0)
 
@@ -147,7 +147,7 @@ class StringTests:
                 m -= 1
             return 42
         self.meta_interp(f, [6, 7])
-        self.check_loops(newstr=0, strsetitem=0,
+        self.check_resops(newstr=0, strsetitem=0,
                          newunicode=0, unicodesetitem=0,
                          call=0, call_pure=0)
 
