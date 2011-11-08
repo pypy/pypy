@@ -2643,9 +2643,11 @@ class BasicTests:
                 i += 1
             return sa
         assert self.meta_interp(f, [20, 2]) == f(20, 2)
-        self.check_jitcell_token_count(4)
+        self.check_jitcell_token_count(1)
+        assert len(list(get_stats().jitcell_tokens)[0].target_tokens) == 4
         assert self.meta_interp(f, [20, 3]) == f(20, 3)
-        self.check_jitcell_token_count(5)
+        self.check_jitcell_token_count(1)
+        assert len(list(get_stats().jitcell_tokens)[0].target_tokens) == 5
 
     def test_retrace_ending_up_retrazing_another_loop(self):
 
@@ -2688,12 +2690,8 @@ class BasicTests:
 
         # The attempts of retracing first loop will end up retracing the
         # second and thus fail 5 times, saturating the retrace_count. Instead a
-        # bridge back to the preamble of the first loop is produced. A guard in
-        # this bridge is later traced resulting in a retrace of the second loop.
-        # Thus we end up with:
-        #   1 preamble and 1 specialized version of first loop
-        #   1 preamble and 2 specialized version of second loop
-        self.check_jitcell_token_count(2 + 3)
+        # bridge back to the preamble of the first loop is produced. 
+        self.check_trace_count(6)
 
         # FIXME: Add a gloabl retrace counter and test that we are not trying more than 5 times.
 
@@ -2704,10 +2702,12 @@ class BasicTests:
 
         res = self.meta_interp(g, [10])
         assert res == g(10)
-        # 1 preamble and 6 speciealized versions of each loop
-        for loop in get_stats().loops:
-            assert len(loop.operations[0].getdescr().targeting_jitcell_token.target_tokens) <= 7
 
+        self.check_jitcell_token_count(2)
+        for cell in get_stats().jitcell_tokens:
+            # Initialal trace with two labels and 5 retraces
+            assert len(cell.target_tokens) <= 7
+            
     def test_nested_retrace(self):
 
         myjitdriver = JitDriver(greens = ['pc'], reds = ['n', 'a', 'i', 'j', 'sa'])
