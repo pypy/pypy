@@ -829,7 +829,7 @@ class TreeLoop(object):
         self.check_consistency_of(self.inputargs, self.operations)
         for op in self.operations:
             descr = op.getdescr()
-            if isinstance(descr, TargetToken):
+            if op.getopnum() == rop.LABEL and isinstance(descr, TargetToken):
                 assert descr.original_jitcell_token is self.original_jitcell_token
 
     @staticmethod

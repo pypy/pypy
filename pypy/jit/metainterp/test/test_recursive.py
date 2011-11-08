@@ -530,8 +530,8 @@ class RecursiveTests:
             result = 0
             for i in range(m):
                 result += f('+-cl--', i)
-        g(50)
-        self.meta_interp(g, [50], backendopt=True)
+        res = self.meta_interp(g, [50], backendopt=True)
+        assert res == g(50)
         py.test.skip("tracing from start is by now only longer enabled "
                      "if a trace gets too big")
         self.check_tree_loop_count(3)
