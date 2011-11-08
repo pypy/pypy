@@ -19,31 +19,6 @@ def rewrap_error(space, e):
     return OperationError(space.gettypeobject(W_Error.typedef),
                           space.wrap(e.message))
 
-def _fixup_ulcase(space):
-    stringmod = space.call_function(
-        space.getattr(space.getbuiltinmodule('builtins'),
-                      space.wrap('__import__')), space.wrap('string'))
-    # create uppercase map string
-    ul = []
-    for c in xrange(256):
-        if rlocale.isupper(c):
-            ul.append(chr(c))
-    space.setattr(stringmod, space.wrap('uppercase'), space.wrap(''.join(ul)))
-
-    # create lowercase string
-    ul = []
-    for c in xrange(256):
-        if rlocale.islower(c):
-            ul.append(chr(c))
-    space.setattr(stringmod, space.wrap('lowercase'), space.wrap(''.join(ul)))
-
-    # create letters string
-    ul = []
-    for c in xrange(256):
-        if rlocale.isalpha(c):
-            ul.append(chr(c))
-    space.setattr(stringmod, space.wrap('letters'), space.wrap(''.join(ul)))
-
 @unwrap_spec(category=int)
 def setlocale(space, category, w_locale=None):
     "(integer,string=None) -> string. Activates/queries locale processing."
@@ -56,11 +31,6 @@ def setlocale(space, category, w_locale=None):
         result = rlocale.setlocale(category, locale)
     except rlocale.LocaleError, e:
         raise rewrap_error(space, e)
-
-    # record changes to LC_CTYPE
-    if category in (rlocale.LC_CTYPE, rlocale.LC_ALL):
-        _fixup_ulcase(space)
-
     return space.wrap(result)
 
 def _w_copy_grouping(space, text):
