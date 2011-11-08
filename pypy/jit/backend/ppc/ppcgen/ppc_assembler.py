@@ -122,7 +122,6 @@ class AssemblerPPC(OpAssembler):
             clt.asmmemmgr = []
         return clt.asmmemmgr_blocks
 
-    # XXX adjust for 64 bit
     def _make_prologue(self, target_pos, frame_depth):
         if IS_PPC_32:
             # save it in previous frame (Backchain)
@@ -288,7 +287,6 @@ class AssemblerPPC(OpAssembler):
         return mc.materialize(self.cpu.asmmemmgr, [],
                                self.cpu.gc_ll_descr.gcrootmap)
 
-    # XXX 64 bit adjustment needed
     def _gen_exit_path(self):
         mc = PPCBuilder() 
         #
@@ -334,7 +332,6 @@ class AssemblerPPC(OpAssembler):
 
     # Save all registers which are managed by the register
     # allocator on top of the stack before decoding.
-    # XXX adjust for 64 bit
     def _save_managed_regs(self, mc):
         for i in range(len(r.MANAGED_REGS) - 1, -1, -1):
             reg = r.MANAGED_REGS[i]
@@ -553,7 +550,10 @@ class AssemblerPPC(OpAssembler):
 
         # store addr in force index field
         self.mc.load_imm(r.r0, memaddr)
-        self.mc.stw(r.r0.value, r.SPP.value, 0)
+        if IS_PPC_32:
+            self.mc.stw(r.r0.value, r.SPP.value, 0)
+        else:
+            self.mc.std(r.r0.value, r.SPP.value, 0)
 
         if save_exc:
             path = self._leave_jitted_hook_save_exc
@@ -593,7 +593,6 @@ class AssemblerPPC(OpAssembler):
             clt.asmmemmgr_blocks = []
         return clt.asmmemmgr_blocks
 
-    # XXX fix for 64 bit
     def regalloc_mov(self, prev_loc, loc):
         if prev_loc.is_imm():
             value = prev_loc.getint()
@@ -605,7 +604,10 @@ class AssemblerPPC(OpAssembler):
             elif loc.is_stack():
                 offset = loc.as_key() * WORD - WORD
                 self.mc.load_imm(r.r0.value, value)
-                self.mc.stw(r.r0.value, r.SPP.value, offset)
+                if IS_PPC_32:
+                    self.mc.stw(r.r0.value, r.SPP.value, offset)
+                else:
+                    self.mc.std(r.r0.value, r.SPP.value, offset)
                 return
             assert 0, "not supported location"
         elif prev_loc.is_stack():
@@ -613,13 +615,20 @@ class AssemblerPPC(OpAssembler):
             # move from memory to register
             if loc.is_reg():
                 reg = loc.as_key()
-                self.mc.lwz(reg, r.SPP.value, offset)
+                if IS_PPC_32:
+                    self.mc.lwz(reg, r.SPP.value, offset)
+                else:
+                    self.mc.ld(reg, r.SPP.value, offset)
                 return
             # move in memory
             elif loc.is_stack():
                 target_offset = loc.as_key() * WORD - WORD
-                self.mc.lwz(r.r0.value, r.SPP.value, offset)
-                self.mc.stw(r.r0.value, r.SPP.value, target_offset)
+                if IS_PPC_32:
+                    self.mc.lwz(r.r0.value, r.SPP.value, offset)
+                    self.mc.stw(r.r0.value, r.SPP.value, target_offset)
+                else:
+                    self.mc.ld(r.r0.value, r.SPP.value, offset)
+                    self.mc.std(r.r0.value, r.SPP.value, target_offset)
                 return
             assert 0, "not supported location"
         elif prev_loc.is_reg():
@@ -632,31 +641,36 @@ class AssemblerPPC(OpAssembler):
             # move to memory
             elif loc.is_stack():
                 offset = loc.as_key() * WORD - WORD
-                self.mc.stw(reg, r.SPP.value, offset)
+                if IS_PPC_32:
+                    self.mc.stw(reg, r.SPP.value, offset)
+                else:
+                    self.mc.std(reg, r.SPP.value, offset)
                 return
             assert 0, "not supported location"
         assert 0, "not supported location"
 
     def _ensure_result_bit_extension(self, resloc, size, signed):
-        if size == 4:
-            return
         if size == 1:
             if not signed: #unsigned char
-                self.mc.load_imm(r.r0, 0xFF)
-                self.mc.and_(resloc.value, resloc.value, r.r0.value)
+                if IS_PPC32:
+                    self.mc.rlwinm(resloc.value, resloc.value, 0, 24, 31)
+                else:
+                    self.mc.rldicl(resloc.value, resloc.value, 0, 56)
             else:
-                self.mc.load_imm(r.r0, 24)
-                self.mc.slw(resloc.value, resloc.value, r.r0.value)
-                self.mc.sraw(resloc.value, resloc.value, r.r0.value)
+                self.mc.extsb(resloc.value, resloc.value)
         elif size == 2:
             if not signed:
-                self.mc.load_imm(r.r0, 16)
-                self.mc.slw(resloc.value, resloc.value, r.r0.value)
-                self.mc.srw(resloc.value, resloc.value, r.r0.value)
+                if IS_PPC_32:
+                    self.mc.rlwinm(resloc.value, resloc.value, 0, 16, 31)
+                else:
+                    self.mc.rldicl(resloc.value, resloc.value, 0, 48)
             else:
-                self.mc.load_imm(r.r0, 16)
-                self.mc.slw(resloc.value, resloc.value, r.r0.value)
-                self.mc.sraw(resloc.value, resloc.value, r.r0.value)
+                self.mc.extsh(resloc.value, resloc.value)
+        elif size == 4:
+            if not signed:
+                self.mc.rldicl(resloc.value, resloc.value, 0, 32)
+            else:
+                self.mc.extsw(resloc.value, resloc.value)
 
     def mark_gc_roots(self, force_index, use_copy_area=False):
         if force_index < 0:
