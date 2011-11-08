@@ -92,6 +92,18 @@ class AppTestCMath:
         assert cmath.isnan(complex("inf+nanj"))
         assert cmath.isnan(complex("nan+infj"))
 
+    def test_isfinite(self):
+        import cmath
+        import math
+
+        real_vals = [
+            float('-inf'), -2.3, -0.0, 0.0, 2.3, float('inf'), float('nan')
+        ]
+        for x in real_vals:
+            for y in real_vals:
+                z = complex(x, y)
+                assert cmath.isfinite(z) == (math.isfinite(x) and math.isfinite(y))
+
     def test_user_defined_complex(self):
         import cmath
         class Foo(object):

@@ -29,7 +29,8 @@ names_and_docstrings = {
     'phase': "Return argument, also known as the phase angle, of a complex.",
     'isinf': "Checks if the real or imaginary part of z is infinite.",
     'isnan': "Checks if the real or imaginary part of z is not a number (NaN)",
-    }
+    'isfinite': "isfinite(z) -> bool\nReturn True if both the real and imaginary parts of z are finite, else False.",
+}
 
 
 class Module(MixedModule):

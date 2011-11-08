@@ -8,8 +8,8 @@ class Module(MixedModule):
     }
 
     interpleveldefs = {
-       'e'              : 'interp_math.get(space).w_e', 
-       'pi'             : 'interp_math.get(space).w_pi', 
+       'e'              : 'interp_math.get(space).w_e',
+       'pi'             : 'interp_math.get(space).w_pi',
        'pow'            : 'interp_math.pow',
        'cosh'           : 'interp_math.cosh',
        'copysign'       : 'interp_math.copysign',
@@ -39,6 +39,7 @@ class Module(MixedModule):
        'acos'           : 'interp_math.acos',
        'isinf'          : 'interp_math.isinf',
        'isnan'          : 'interp_math.isnan',
+       'isfinite'       : 'interp_math.isfinite',
        'trunc'          : 'interp_math.trunc',
        'fsum'           : 'interp_math.fsum',
        'asinh'          : 'interp_math.asinh',

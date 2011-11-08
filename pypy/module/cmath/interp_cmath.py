@@ -1,32 +1,24 @@
 import math
 from math import fabs
-from pypy.rlib.objectmodel import specialize
-from pypy.rlib.rfloat import copysign, asinh, log1p, isinf, isnan
-from pypy.tool.sourcetools import func_with_new_name
+
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import NoneNotWrapped
 from pypy.module.cmath import names_and_docstrings
-from pypy.module.cmath.constant import DBL_MIN, CM_SCALE_UP, CM_SCALE_DOWN
-from pypy.module.cmath.constant import CM_LARGE_DOUBLE, DBL_MANT_DIG
-from pypy.module.cmath.constant import M_LN2, M_LN10
-from pypy.module.cmath.constant import CM_SQRT_LARGE_DOUBLE, CM_SQRT_DBL_MIN
-from pypy.module.cmath.constant import CM_LOG_LARGE_DOUBLE
-from pypy.module.cmath.special_value import isfinite, special_type, INF, NAN
-from pypy.module.cmath.special_value import sqrt_special_values
-from pypy.module.cmath.special_value import acos_special_values
-from pypy.module.cmath.special_value import acosh_special_values
-from pypy.module.cmath.special_value import asinh_special_values
-from pypy.module.cmath.special_value import atanh_special_values
-from pypy.module.cmath.special_value import log_special_values
-from pypy.module.cmath.special_value import exp_special_values
-from pypy.module.cmath.special_value import cosh_special_values
-from pypy.module.cmath.special_value import sinh_special_values
-from pypy.module.cmath.special_value import tanh_special_values
-from pypy.module.cmath.special_value import rect_special_values
+from pypy.module.cmath.constant import (DBL_MIN, CM_SCALE_UP, CM_SCALE_DOWN,
+    CM_LARGE_DOUBLE, DBL_MANT_DIG, M_LN2, M_LN10, CM_SQRT_LARGE_DOUBLE,
+    CM_SQRT_DBL_MIN, CM_LOG_LARGE_DOUBLE)
+from pypy.module.cmath.special_value import (special_type, INF, NAN,
+    sqrt_special_values, acos_special_values, acosh_special_values,
+    asinh_special_values, atanh_special_values, log_special_values,
+    exp_special_values, cosh_special_values, sinh_special_values,
+    tanh_special_values, rect_special_values)
+from pypy.rlib.objectmodel import specialize
+from pypy.rlib.rfloat import copysign, asinh, log1p, isinf, isnan, isfinite
+from pypy.tool.sourcetools import func_with_new_name
+
 
 pi = math.pi
 e  = math.e
-
 
 @specialize.arg(0)
 def call_c_func(c_func, space, x, y):
@@ -579,3 +571,12 @@ def wrapped_isnan(space, w_z):
     res = c_isnan(x, y)
     return space.newbool(res)
 wrapped_isnan.func_doc = names_and_docstrings['isnan']
+
+def c_isfinite(x, y):
+    return isfinite(x) and isfinite(y)
+
+def wrapped_isfinite(space, w_z):
+    x, y = space.unpackcomplex(w_z)
+    res = c_isfinite(x, y)
+    return space.newbool(res)
+wrapped_isfinite.func_doc = names_and_docstrings['isfinite']

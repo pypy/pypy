@@ -32,9 +32,6 @@ def special_type(d):
             else:
                 return ST_NZERO
 
-def isfinite(d):
-    return not isinf(d) and not isnan(d)
-
 
 P   = math.pi
 P14 = 0.25 * math.pi

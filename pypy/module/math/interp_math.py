@@ -77,6 +77,12 @@ def isnan(space, w_x):
     """Return True if x is not a number."""
     return space.wrap(rfloat.isnan(_get_double(space, w_x)))
 
+def isfinite(space, w_x):
+    """isfinite(x) -> bool
+
+    Return True if x is neither an infinity nor a NaN, and False otherwise."""
+    return space.wrap(rfloat.isfinite(_get_double(space, w_x)))
+
 def pow(space, w_x, w_y):
     """pow(x,y)
 
