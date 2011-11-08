@@ -1655,7 +1655,7 @@ class _array(_parentable):
     __slots__ = ('items',)
 
     def __init__(self, TYPE, n, initialization=None, parent=None, parentindex=None):
-        if not isinstance(n, int):
+        if not isinstance(n, (int, long)):
             raise TypeError, "array length must be an int"
         if n < 0:
             raise ValueError, "negative array length"
