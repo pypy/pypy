@@ -338,7 +338,7 @@ class AssemblerPPC(OpAssembler):
             if IS_PPC_32:
                 mc.stw(reg.value, r.SP.value, -(len(r.MANAGED_REGS) - i) * WORD)
             else:
-                assert 0, "not implemented yet"
+                mc.std(reg.value, r.SP.value, -(len(r.MANAGED_REGS) - i) * WORD)
 
     def gen_bootstrap_code(self, nonfloatlocs, inputargs):
         for i in range(len(nonfloatlocs)):
