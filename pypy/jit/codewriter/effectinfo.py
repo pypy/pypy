@@ -130,6 +130,10 @@ class EffectInfo(object):
     def check_can_invalidate(self):
         return self.can_invalidate
 
+    def check_is_elidable(self):
+        return (self.extraeffect == self.EF_ELIDABLE_CAN_RAISE or
+                self.extraeffect == self.EF_ELIDABLE_CANNOT_RAISE)
+
     def check_forces_virtual_or_virtualizable(self):
         return self.extraeffect >= self.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE
 
