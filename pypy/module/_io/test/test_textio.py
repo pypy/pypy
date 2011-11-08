@@ -215,6 +215,26 @@ class AppTestTextIO:
         # that subprocess.Popen() can have the required unbuffered
         # semantics with universal_newlines=True.
         import _io
+        raw = self.get_MockRawIO()([b'abc', b'def', b'ghi\njkl\nopq\n'])
+        txt = _io.TextIOWrapper(raw, encoding='ascii', newline='\n')
+        # Reads
+        assert txt.read(4) == 'abcd'
+        assert txt.readline() == 'efghi\n'
+        assert list(txt) == ['jkl\n', 'opq\n']
+
+    def test_rawio_write_through(self):
+        # Issue #12591: with write_through=True, writes don't need a flush
+        import _io
+        raw = self.get_MockRawIO()([b'abc', b'def', b'ghi\njkl\nopq\n'])
+        txt = _io.TextIOWrapper(raw, encoding='ascii', newline='\n',
+                                write_through=True)
+        txt.write('1')
+        txt.write('23\n4')
+        txt.write('5')
+        assert b''.join(raw._write_stack) == b'123\n45'
+
+    def w_get_MockRawIO(self):
+        import _io
         class MockRawIO(_io._RawIOBase):
             def __init__(self, read_stack=()):
                 self._read_stack = list(read_stack)
@@ -275,24 +295,7 @@ class AppTestTextIO:
                 except:
                     self._extraneous_reads += 1
                     return b""
-
-        raw = MockRawIO([b'abc', b'def', b'ghi\njkl\nopq\n'])
-        txt = _io.TextIOWrapper(raw, encoding='ascii', newline='\n')
-        # Reads
-        assert txt.read(4) == 'abcd'
-        assert txt.readline() == 'efghi\n'
-        assert list(txt) == ['jkl\n', 'opq\n']
-#
-#    def test_rawio_write_through(self):
-#        # Issue #12591: with write_through=True, writes don't need a flush
-#        import _io
-        raw = MockRawIO([b'abc', b'def', b'ghi\njkl\nopq\n'])
-        txt = _io.TextIOWrapper(raw, encoding='ascii', newline='\n',
-                                write_through=True)
-        txt.write('1')
-        txt.write('23\n4')
-        txt.write('5')
-        assert b''.join(raw._write_stack) == b'123\n45'
+        return MockRawIO
 
 
 class AppTestIncrementalNewlineDecoder:
