@@ -129,18 +129,15 @@ class W__StructInstance(Wrappable):
     @unwrap_spec(name=str)
     def getfield(self, space, name):
         w_ffitype, offset = self.structdescr.get_type_and_offset_for_field(name)
-        assert w_ffitype is app_types.slong # XXX: handle all cases
-        FIELD_TYPE  = rffi.LONG
-        #
         value = libffi.struct_getfield_int(w_ffitype.ffitype, self.rawmem, offset)
         return space.wrap(value)
 
     @unwrap_spec(name=str)
     def setfield(self, space, name, w_value):
         w_ffitype, offset = self.structdescr.get_type_and_offset_for_field(name)
-        assert w_ffitype is app_types.slong # XXX: handle all cases
-        FIELD_TYPE  = rffi.LONG
-        value = space.int_w(w_value)
+        # XXX: add support for long long
+        if w_ffitype.is_signed() or w_ffitype.is_unsigned():
+            value = rffi.cast(rffi.LONG, space.uint_w(w_value))
         #
         libffi.struct_setfield_int(w_ffitype.ffitype, self.rawmem, offset, value)
 
