@@ -163,8 +163,10 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
                                                 source_start, dest_start,
                                                 length):
             # if the write barrier is not supported, copy by hand
-            for i in range(length):
+            i = 0
+            while i < length:
                 dest[i + dest_start] = source[i + source_start]
+                i += 1
             return
     source_addr = llmemory.cast_ptr_to_adr(source)
     dest_addr   = llmemory.cast_ptr_to_adr(dest)
