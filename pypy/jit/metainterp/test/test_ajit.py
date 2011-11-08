@@ -180,43 +180,39 @@ class BasicTests:
         self.check_trace_count(3)
 
     def test_loop_invariant_mul_bridge_maintaining1(self):
-        myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
-        def f(x, y):
+        myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x', 'n'])
+        def f(x, y, n):
             res = 0
             while y > 0:
-                myjitdriver.can_enter_jit(x=x, y=y, res=res)
-                myjitdriver.jit_merge_point(x=x, y=y, res=res)
+                myjitdriver.can_enter_jit(x=x, y=y, res=res, n=n)
+                myjitdriver.jit_merge_point(x=x, y=y, res=res, n=n)
                 res += x * x
-                if y<16:
+                if y<n:
                     res += 1
                 y -= 1
             return res
-        res = self.meta_interp(f, [6, 32])
+        res = self.meta_interp(f, [6, 32, 16])
         assert res == 1167
         self.check_trace_count(3)
-        self.check_resops({'int_lt': 3, 'int_gt': 2, 'int_add': 5,
-                           'guard_true': 3, 'int_sub': 4, 'jump': 2,
-                           'int_mul': 2, 'guard_false': 2})
+        self.check_resops(int_mul=3)
 
     def test_loop_invariant_mul_bridge_maintaining2(self):
-        myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
-        def f(x, y):
+        myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x', 'n'])
+        def f(x, y, n):
             res = 0
             while y > 0:
-                myjitdriver.can_enter_jit(x=x, y=y, res=res)
-                myjitdriver.jit_merge_point(x=x, y=y, res=res)
+                myjitdriver.can_enter_jit(x=x, y=y, res=res, n=n)
+                myjitdriver.jit_merge_point(x=x, y=y, res=res, n=n)
                 z = x * x
                 res += z
-                if y<16:
+                if y<n:
                     res += z
                 y -= 1
             return res
-        res = self.meta_interp(f, [6, 32])
+        res = self.meta_interp(f, [6, 32, 16])
         assert res == 1692
         self.check_trace_count(3)
-        self.check_resops({'int_lt': 3, 'int_gt': 2, 'int_add': 5,
-                           'guard_true': 3, 'int_sub': 4, 'jump': 2,
-                           'int_mul': 2, 'guard_false': 2})
+        self.check_resops(int_mul=3)
 
     def test_loop_invariant_mul_bridge_maintaining3(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x', 'm'])
