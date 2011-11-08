@@ -30,7 +30,7 @@ class StringTests:
             return i
         res = self.meta_interp(f, [10, True, _str('h')], listops=True)
         assert res == 5
-        self.check_loops(**{self.CALL: 1, self.CALL_PURE: 0, 'everywhere': True})
+        self.check_resops(**{self.CALL: 1, self.CALL_PURE: 0})
 
     def test_eq_folded(self):
         _str = self._str
@@ -50,7 +50,7 @@ class StringTests:
             return i
         res = self.meta_interp(f, [10, True, _str('h')], listops=True)
         assert res == 5
-        self.check_loops(**{self.CALL: 0, self.CALL_PURE: 0})
+        self.check_resops(**{self.CALL: 0, self.CALL_PURE: 0})
 
     def test_newstr(self):
         _str, _chr = self._str, self._chr
@@ -85,7 +85,7 @@ class StringTests:
                 n -= 1
             return 42
         self.meta_interp(f, [6])
-        self.check_loops(newstr=0, strsetitem=0, strlen=0,
+        self.check_resops(newstr=0, strsetitem=0, strlen=0,
                          newunicode=0, unicodesetitem=0, unicodelen=0)
 
     def test_char2string_escape(self):
@@ -126,7 +126,7 @@ class StringTests:
             return total
         res = self.meta_interp(f, [6])
         assert res == 21
-        self.check_loops(newstr=0, strgetitem=0, strsetitem=0, strlen=0,
+        self.check_resops(newstr=0, strgetitem=0, strsetitem=0, strlen=0,
                          newunicode=0, unicodegetitem=0, unicodesetitem=0,
                          unicodelen=0)
 
@@ -147,7 +147,7 @@ class StringTests:
                 m -= 1
             return 42
         self.meta_interp(f, [6, 7])
-        self.check_loops(newstr=0, strsetitem=0,
+        self.check_resops(newstr=0, strsetitem=0,
                          newunicode=0, unicodesetitem=0,
                          call=0, call_pure=0)
 
@@ -168,12 +168,11 @@ class StringTests:
             return 42
         self.meta_interp(f, [6, 7])
         if _str is str:
-            self.check_loops(newstr=1, strsetitem=0, copystrcontent=2,
-                             call=1, call_pure=0)   # escape
+            self.check_resops(call_pure=0, copystrcontent=4,
+                              strsetitem=0, call=2, newstr=2)
         else:
-            self.check_loops(newunicode=1, unicodesetitem=0,
-                             copyunicodecontent=2,
-                             call=1, call_pure=0)   # escape
+            self.check_resops(call_pure=0, unicodesetitem=0, call=2,
+                              copyunicodecontent=4, newunicode=2)
 
     def test_strconcat_escape_str_char(self):
         _str, _chr = self._str, self._chr
@@ -192,12 +191,11 @@ class StringTests:
             return 42
         self.meta_interp(f, [6, 7])
         if _str is str:
-            self.check_loops(newstr=1, strsetitem=1, copystrcontent=1,
-                             call=1, call_pure=0)   # escape
+            self.check_resops(call_pure=0, copystrcontent=2, strsetitem=2,
+                              call=2, newstr=2)
         else:
-            self.check_loops(newunicode=1, unicodesetitem=1,
-                             copyunicodecontent=1,
-                             call=1, call_pure=0)   # escape
+            self.check_resops(call_pure=0, unicodesetitem=2, call=2,
+                              copyunicodecontent=2, newunicode=2)
 
     def test_strconcat_escape_char_str(self):
         _str, _chr = self._str, self._chr
@@ -216,12 +214,11 @@ class StringTests:
             return 42
         self.meta_interp(f, [6, 7])
         if _str is str:
-            self.check_loops(newstr=1, strsetitem=1, copystrcontent=1,
-                             call=1, call_pure=0)   # escape
+            self.check_resops(call_pure=0, copystrcontent=2,
+                              strsetitem=2, call=2, newstr=2)
         else:
-            self.check_loops(newunicode=1, unicodesetitem=1,
-                             copyunicodecontent=1,
-                             call=1, call_pure=0)   # escape
+            self.check_resops(call_pure=0, unicodesetitem=2, call=2,
+                              copyunicodecontent=2, newunicode=2)
 
     def test_strconcat_escape_char_char(self):
         _str, _chr = self._str, self._chr
@@ -239,12 +236,11 @@ class StringTests:
             return 42
         self.meta_interp(f, [6, 7])
         if _str is str:
-            self.check_loops(newstr=1, strsetitem=2, copystrcontent=0,
-                             call=1, call_pure=0)   # escape
+            self.check_resops(call_pure=0, copystrcontent=0,
+                              strsetitem=4, call=2, newstr=2)
         else:
-            self.check_loops(newunicode=1, unicodesetitem=2,
-                             copyunicodecontent=0,
-                             call=1, call_pure=0)   # escape
+            self.check_resops(call_pure=0, unicodesetitem=4, call=2,
+                              copyunicodecontent=0, newunicode=2)
 
     def test_strconcat_escape_str_char_str(self):
         _str, _chr = self._str, self._chr
@@ -263,12 +259,11 @@ class StringTests:
             return 42
         self.meta_interp(f, [6, 7])
         if _str is str:
-            self.check_loops(newstr=1, strsetitem=1, copystrcontent=2,
-                             call=1, call_pure=0)   # escape
+            self.check_resops(call_pure=0, copystrcontent=4, strsetitem=2,
+                              call=2, newstr=2)
         else:
-            self.check_loops(newunicode=1, unicodesetitem=1,
-                             copyunicodecontent=2,
-                             call=1, call_pure=0)   # escape
+            self.check_resops(call_pure=0, unicodesetitem=2, call=2,
+                              copyunicodecontent=4, newunicode=2)
 
     def test_strconcat_guard_fail(self):
         _str = self._str
@@ -325,7 +320,7 @@ class StringTests:
                 m -= 1
             return 42
         self.meta_interp(f, [6, 7])
-        self.check_loops(newstr=0, newunicode=0)
+        self.check_resops(newunicode=0, newstr=0)
 
     def test_str_slice_len_surviving(self):
         _str = self._str
@@ -504,9 +499,9 @@ class StringTests:
             sys.defaultencoding = _str('utf-8')
             return sa
         assert self.meta_interp(f, [8]) == f(8)
-        self.check_loops({'int_add': 1, 'guard_true': 1, 'int_sub': 1,
-                          'jump': 1, 'int_is_true': 1,
-                          'guard_not_invalidated': 1})
+        self.check_resops({'jump': 2, 'int_is_true': 2, 'int_add': 2,
+                           'guard_true': 2, 'guard_not_invalidated': 2,
+                           'int_sub': 2})
 
     def test_promote_string(self):
         driver = JitDriver(greens = [], reds = ['n'])
@@ -519,7 +514,7 @@ class StringTests:
             return 0
 
         self.meta_interp(f, [0])
-        self.check_loops(call=3 + 1) # one for int2str
+        self.check_resops(call=7)
 
 #class TestOOtype(StringTests, OOJitMixin):
 #    CALL = "oosend"
@@ -552,9 +547,8 @@ class TestLLtypeUnicode(TestLLtype):
                 m -= 1
             return 42
         self.meta_interp(f, [6, 7])
-        self.check_loops(call=1,    # escape()
-                         newunicode=1, unicodegetitem=0,
-                         unicodesetitem=1, copyunicodecontent=1)
+        self.check_resops(unicodesetitem=2, newunicode=2, call=4,
+                          copyunicodecontent=2, unicodegetitem=0)
 
     def test_str2unicode_fold(self):
         _str = self._str
@@ -572,9 +566,9 @@ class TestLLtypeUnicode(TestLLtype):
                 m -= 1
             return 42
         self.meta_interp(f, [6, 7])
-        self.check_loops(call_pure=0, call=1,
-                         newunicode=0, unicodegetitem=0,
-                         unicodesetitem=0, copyunicodecontent=0)
+        self.check_resops(call_pure=0, unicodesetitem=0, call=2,
+                          newunicode=0, unicodegetitem=0,
+                          copyunicodecontent=0)
 
     def test_join_chars(self):
         jitdriver = JitDriver(reds=['a', 'b', 'c', 'i'], greens=[])
@@ -596,9 +590,8 @@ class TestLLtypeUnicode(TestLLtype):
         # The "".join should be unrolled, since the length of x is known since
         # it is virtual, ensure there are no calls to ll_join_chars, or
         # allocations.
-        self.check_loops({
-            "guard_true": 5, "int_is_true": 3, "int_lt": 2, "int_add": 2, "jump": 2,
-        }, everywhere=True)
+        self.check_resops({'jump': 2, 'guard_true': 5, 'int_lt': 2,
+                           'int_add': 2, 'int_is_true': 3})
 
     def test_virtual_copystringcontent(self):
         jitdriver = JitDriver(reds=['n', 'result'], greens=[])

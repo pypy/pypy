@@ -68,23 +68,23 @@ class TestFfiCall(LLJitMixin, _TestLibffiCall):
              'byval': False}
         supported = all(d[check] for check in jitif)
         if supported:
-            self.check_loops(
-                call_release_gil=1,   # a CALL_RELEASE_GIL, and no other CALLs
+            self.check_resops(
+                call_release_gil=2,   # a CALL_RELEASE_GIL, and no other CALLs
                 call=0,
                 call_may_force=0,
-                guard_no_exception=1,
-                guard_not_forced=1,
-                int_add=1,
-                int_lt=1,
-                guard_true=1,
-                jump=1)
+                guard_no_exception=2,
+                guard_not_forced=2,
+                int_add=2,
+                int_lt=2,
+                guard_true=2,
+                jump=2)
         else:
-            self.check_loops(
+            self.check_resops(
                 call_release_gil=0,   # no CALL_RELEASE_GIL
-                int_add=1,
-                int_lt=1,
-                guard_true=1,
-                jump=1)
+                int_add=2,
+                int_lt=2,
+                guard_true=2,
+                jump=2)
         return res
 
     def test_byval_result(self):
