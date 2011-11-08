@@ -27,6 +27,19 @@ class AppTestStruct(BaseAppTestFFI):
         assert descr.ffitype.sizeof() == longsize*2
         assert descr.ffitype.name == 'struct foo'
 
+    def test_alignment(self):
+        from _ffi import _StructDescr, Field, types
+        longsize = types.slong.sizeof()
+        fields = [
+            Field('x', types.sbyte),
+            Field('y', types.slong),
+            ]
+        descr = _StructDescr('foo', fields)
+        assert descr.ffitype.sizeof() == longsize*2
+        assert fields[0].offset == 0
+        assert fields[1].offset == longsize # aligned to WORD
+
+
     def test_getfield_setfield(self):
         from _ffi import _StructDescr, Field, types
         longsize = types.slong.sizeof()

@@ -62,21 +62,26 @@ class W__StructDescr(Wrappable):
 
 @unwrap_spec(name=str)
 def descr_new_structdescr(space, w_type, name, w_fields):
+    fields_w = space.fixedview(w_fields)
+    # note that the fields_w returned by compute_size_and_alignemnt has a
+    # different annotation than the original: list(W_Root) vs list(W_Field)
+    size, alignment, fields_w = compute_size_and_alignemnt(space, fields_w)
+    field_types = [] # clibffi's types
+    for w_field in fields_w:
+        field_types.append(w_field.w_ffitype.ffitype)
+    ffistruct = clibffi.make_struct_ffitype_e(size, alignment, field_types)
+    return W__StructDescr(space, name, fields_w, ffistruct)
+
+def compute_size_and_alignemnt(space, fields_w):
     size = 0
     alignment = 0 # XXX
-    fields_w = space.fixedview(w_fields)
-    fields_w2 = [] # its items are annotated as W_Field
-    field_types = []
+    fields_w2 = []
     for w_field in fields_w:
         w_field = space.interp_w(W_Field, w_field)
         w_field.offset = size # XXX: alignment!
         size += w_field.w_ffitype.sizeof()
         fields_w2.append(w_field)
-        field_types.append(w_field.w_ffitype.ffitype)
-    #
-    ffistruct = clibffi.make_struct_ffitype_e(size, alignment, field_types)
-    return W__StructDescr(space, name, fields_w2, ffistruct)
-
+    return size, alignment, fields_w2
 
 
 W__StructDescr.typedef = TypeDef(
