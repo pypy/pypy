@@ -2744,22 +2744,33 @@ class BasicTests:
 
         res = self.meta_interp(f, [10, 7])
         assert res == f(10, 7)
-        self.check_jitcell_token_count(4)
+        self.check_jitcell_token_count(2)
+        for cell in get_stats().jitcell_tokens:
+            assert len(cell.target_tokens) == 2
 
         def g(n):
             return f(n, 2) + f(n, 3)
 
         res = self.meta_interp(g, [10])
         assert res == g(10)
-        self.check_jitcell_token_count(6)
-
+        self.check_jitcell_token_count(2)
+        for cell in get_stats().jitcell_tokens:
+            assert len(cell.target_tokens) <= 3
 
         def g(n):
             return f(n, 2) + f(n, 3) + f(n, 4) + f(n, 5) + f(n, 6) + f(n, 7)
 
         res = self.meta_interp(g, [10])
         assert res == g(10)
-        self.check_jitcell_token_count(8)
+        # 2 loops and one function
+        self.check_jitcell_token_count(3)
+        cnt = 0
+        for cell in get_stats().jitcell_tokens:
+            if cell.target_tokens is None:
+                cnt += 1
+            else:
+                assert len(cell.target_tokens) <= 4
+        assert cnt == 1
 
     def test_frame_finished_during_retrace(self):
         class Base(object):
