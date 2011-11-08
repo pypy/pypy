@@ -81,7 +81,8 @@ def test_chdir():
         import ctypes
         buf = ctypes.create_string_buffer(1000)
         ctypes.windll.kernel32.GetEnvironmentVariableA('=%c:' % pwd[0], buf, 1000)
-        assert str(buf.value) == pwd
+        assert str(buf.value).lower() == pwd
+        # ctypes returns the drive letter in uppercase, os.getcwd does not
 
     pwd = os.getcwd()
     try:
