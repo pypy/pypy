@@ -243,6 +243,35 @@ class TestNumpyJIt(LLJitMixin):
                           'setarrayitem_raw': 1, 'int_add': 3,
                           'int_lt': 1, 'guard_true': 1, 'jump': 1})
 
+    def define_multidim():
+        return """
+        a = [[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]]
+        b = a + a
+        b -> 1 -> 1
+        """
+
+    def test_multidim(self):
+        result = self.run('multidim')
+        assert result == 8
+        self.check_loops({'float_add': 1, 'getarrayitem_raw': 2,
+                          'guard_true': 1, 'int_add': 1, 'int_lt': 1,
+                          'jump': 1, 'setarrayitem_raw': 1})
+
+    def define_multidim_slice():
+        return """
+        a = [[1, 2], [3, 4], [5, 6], [7, 8], [9, 10], [11, 12], [13, 14]]
+        b = a -> ::2
+        c = b + b
+        c -> 1 -> 1
+        """
+
+    def test_multidim_slice(self):
+        result = self.run('multidim_slice')
+        assert result == 12
+        py.test.skip("improve")
+        self.check_loops({})
+    
+
 class TestNumpyOld(LLJitMixin):
     def setup_class(cls):
         py.test.skip("old")

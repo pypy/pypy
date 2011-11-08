@@ -737,6 +737,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = array([[1, 2], [3, 4], [5, 6]])
         assert ((a + a) == array([[1+1, 2+2], [3+3, 4+4], [5+5, 6+6]])).all()
 
+    def test_getitem_add(self):
+        from numpy import array
+        a = array([[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]])
+        assert (a + a)[1, 1] == 8
+
 class AppTestSupport(object):
     def setup_class(cls):
         import struct
