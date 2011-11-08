@@ -878,7 +878,7 @@ def sizeof(tp):
             size = llmemory.sizeof(tp)    # a symbolic result in this case
         return size
     if isinstance(tp, lltype.Ptr) or tp is llmemory.Address:
-        tp = ULONG     # XXX!
+        tp = lltype.Signed
     if tp is lltype.Char or tp is lltype.Bool:
         return 1
     if tp is lltype.UniChar:
