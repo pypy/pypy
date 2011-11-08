@@ -14,21 +14,9 @@ class NotSpecialised(Exception):
 _specialisations = []
 
 def makespecialisedtuple(space, list_w):          
-    w_type_of = {int:space.w_int, float:space.w_float, str:space.w_str}  
-    unwrap_as = {int:space.int_w, float:space.float_w, str:space.str_w}  
-    
-    def try_specialisation((specialisedClass, paramtypes)):
-        if len(list_w) != len(paramtypes):
-            raise NotSpecialised
-        for param,paramtype in zip(list_w,paramtypes):
-            if space.type(param) != w_type_of[paramtype]:
-                raise NotSpecialised
-        unwrappedparams = [unwrap_as[paramtype](param) for param,paramtype in zip(list_w,paramtypes)]
-        return specialisedClass(space, *unwrappedparams)
-        
-    for spec in _specialisations:
+    for specialisedClass,paramtypes in unrolling_iterable(_specialisations):
          try:
-             return try_specialisation(spec)
+             return specialisedClass.try_specialisation(space, paramtypes, list_w)
          except NotSpecialised:
              pass
     raise NotSpecialised
@@ -73,6 +61,22 @@ def make_specialised_class(typetuple):
             self.space = space
             for i in iter_n:
                 setattr(self, 'value%s' % i, values[i])
+        
+        @classmethod
+        def try_specialisation(specialisedClass, space, paramtypes, paramlist):
+
+
+            _w_type_of = {int:space.w_int, float:space.w_float, str:space.w_str}  
+            _unwrap_as = {int:space.int_w, float:space.float_w, str:space.str_w}  
+
+
+            if len(paramlist) != len(paramtypes):
+                raise NotSpecialised
+            for param,paramtype in zip(paramlist, paramtypes):
+                if space.type(param) != _w_type_of[paramtype]:
+                    raise NotSpecialised
+            unwrappedparams = [_unwrap_as[paramtype](param) for param,paramtype in zip(paramlist, paramtypes)]
+            return specialisedClass(space, *unwrappedparams)
     
         def length(self):
             return len(typetuple)
