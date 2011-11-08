@@ -963,6 +963,9 @@ class NoStats(object):
     def clear(self):
         pass
 
+    def add_jitcell_token(self, token):
+        pass
+
 class Stats(object):
     """For tests."""
 
@@ -976,6 +979,7 @@ class Stats(object):
         self.locations = []
         self.aborted_keys = []
         self.invalidated_token_numbers = set()
+        self.jitcell_tokens = set()
 
     def clear(self):
         del self.loops[:]
@@ -986,6 +990,9 @@ class Stats(object):
         self.enter_count = 0
         self.aborted_count = 0
 
+    def add_jitcell_token(self, token):
+        self.jitcell_tokens.add(token)
+        
     def set_history(self, history):
         self.operations = history.operations
 

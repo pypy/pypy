@@ -2040,6 +2040,8 @@ class MetaInterp(object):
                                                 start_resumedescr)
             if target_token is not None:
                 self.jitdriver_sd.warmstate.attach_procedure_to_interp(greenkey, target_token.targeting_jitcell_token)
+                self.staticdata.stats.add_jitcell_token(target_token.targeting_jitcell_token)
+
 
         if target_token is not None: # raise if it *worked* correctly
             self.history.inputargs = None

@@ -270,10 +270,7 @@ def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     metainterp_sd.profiler.end_backend()
     metainterp_sd.stats.add_new_loop(loop)
     if not we_are_translated():
-        if type != "entry bridge":
-            metainterp_sd.stats.compiled()
-        else:
-            loop._ignore_during_counting = True
+        metainterp_sd.stats.compiled()
     metainterp_sd.log("compiled new " + type)
     #
     metainterp_sd.logger_ops.log_loop(loop.inputargs, loop.operations, n, type, ops_offset)
@@ -679,6 +676,7 @@ class ResumeFromInterpDescr(ResumeDescr):
         # send the new_loop to warmspot.py, to be called directly the next time
         jitdriver_sd.warmstate.attach_procedure_to_interp(
             self.original_greenkey, jitcell_token)
+        metainterp_sd.stats.add_jitcell_token(jitcell_token)
 
     def reset_counter_from_failure(self):
         pass

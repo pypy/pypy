@@ -161,22 +161,15 @@ class JitMixin:
     def check_loops(self, expected=None, everywhere=False, **check):
         get_stats().check_loops(expected=expected, everywhere=everywhere,
                                 **check)        
+
     def check_trace_count(self, count):
         # The number of traces compiled
-        assert len(get_stats().loops) == count
+        assert get_stats().compiled_count == count
     def check_trace_count_at_most(self, count):
-        assert len(get_stats().loops) <= count
+        assert get_stats().compiled_count <= count
 
     def check_jitcell_token_count(self, count):
-        tokens = set()
-        for loop in get_stats().loops:
-            for op in loop.operations:
-                descr = op.getdescr()
-                if isinstance(descr, history.TargetToken):
-                    descr = descr.targeting_jitcell_token
-                if isinstance(descr, history.JitCellToken):
-                    tokens.add(descr)
-        assert len(tokens) == count
+        assert len(get_stats().jitcell_tokens) == count
 
     def check_enter_count(self, count):
         assert get_stats().enter_count == count
