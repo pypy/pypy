@@ -67,7 +67,7 @@ class AppTestRandom:
         for arg in [None, 0, 0L, 1, 1L, -1, -1L, 10**20, -(10**20),
                     3.14, 1+2j, 'a', tuple('abc'), 0xffffffffffL]:
             rnd.seed(arg)
-        for arg in [range(3), dict(one=1)]:
+        for arg in [[1, 2, 3], dict(one=1)]:
             raises(TypeError, rnd.seed, arg)
         raises(TypeError, rnd.seed, 1, 2)
         raises(TypeError, type(rnd), [])
@@ -92,7 +92,10 @@ class AppTestRandom:
     def test_randbits(self):
         import _random
         rnd = _random.Random()
-        for n in range(1, 10) + range(10, 1000, 15):
+        for n in range(1, 10):
+            k = rnd.getrandbits(n)
+            assert 0 <= k < 2 ** n
+        for n in range(10, 1000, 15):
             k = rnd.getrandbits(n)
             assert 0 <= k < 2 ** n
 

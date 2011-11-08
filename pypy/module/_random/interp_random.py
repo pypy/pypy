@@ -2,8 +2,8 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import NoneNotWrapped, interp2app, unwrap_spec
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.rlib.rarithmetic import r_uint, intmask
-from pypy.rlib import rrandom
+from pypy.rlib.rarithmetic import r_uint, r_longlong, intmask
+from pypy.rlib import rbigint, rrandom
 
 import time
 
@@ -83,31 +83,22 @@ class W_Random(Wrappable):
             n = space.int_w(w_n)
         self._rnd.jumpahead(n)
 
+    assert rbigint.SHIFT <= 32
     @unwrap_spec(k=int)
     def getrandbits(self, space, k):
         if k <= 0:
             strerror = space.wrap("number of bits must be greater than zero")
             raise OperationError(space.w_ValueError, strerror)
-        bytes = ((k - 1) // 32 + 1) * 4
-        bytesarray = [0] * bytes
-        for i in range(0, bytes, 4):
-            r = self._rnd.genrand32()
-            if k < 32:
-                r >>= (32 - k)
-            bytesarray[i + 0] = r & r_uint(0xff)
-            bytesarray[i + 1] = (r >> 8) & r_uint(0xff)
-            bytesarray[i + 2] = (r >> 16) & r_uint(0xff)
-            bytesarray[i + 3] = (r >> 24) & r_uint(0xff)
-            k -= 32
-
-        # XXX so far this is quadratic
-        w_result = space.newint(0)
-        w_eight = space.newint(8)
-        for i in range(len(bytesarray) - 1, -1, -1):
-            byte = bytesarray[i]
-            w_result = space.or_(space.lshift(w_result, w_eight),
-                                 space.newint(intmask(byte)))
-        return w_result
+        needed = (k - 1) // rbigint.SHIFT + 1
+        result = rbigint.rbigint([rbigint.NULLDIGIT] * needed, 1)
+        for i in range(needed - 1):
+            # This loses some random digits, but not too many since SHIFT=31
+            value = self._rnd.genrand32()
+            if i < needed - 1:
+                result.setdigit(i, value & rbigint.MASK)
+            else:
+                result.setdigit(i, value >> ((needed * rbigint.SHIFT) - k))
+        return space.newlong_from_rbigint(result)
 
 
 W_Random.typedef = TypeDef("Random",
