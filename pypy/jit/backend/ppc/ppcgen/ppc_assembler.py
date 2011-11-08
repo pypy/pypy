@@ -306,15 +306,20 @@ class AssemblerPPC(OpAssembler):
             intp = lltype.Ptr(lltype.Array(lltype.Signed, hints={'nolength': True}))
             descr = rffi.cast(intp, decode_func_addr)
             addr = descr[0]
+            r11_value = descr[2]
 
         #
         # load parameters into parameter registers
-        mc.lwz(r.r3.value, r.SPP.value, 0)     # address of state encoding 
+        if IS_PPC_32:
+            mc.lwz(r.r3.value, r.SPP.value, 0)     # address of state encoding 
+        else:
+            mc.lwz(r.r3.value, r.SPP.value, 0)     # address of state encoding 
         mc.mr(r.r4.value, r.SP.value)          # load stack pointer
         mc.mr(r.r5.value, r.SPP.value)         # load spilling pointer
         #
         # load address of decoding function into r0
         mc.load_imm(r.r0, addr)
+        mc.load_imm(r.r11, r11_value)
         # ... and branch there
         mc.mtctr(r.r0.value)
         mc.bctrl()
