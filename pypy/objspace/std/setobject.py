@@ -1210,10 +1210,11 @@ and__Frozenset_Frozenset = and__Set_Set
 
 def _intersection_multiple(space, w_left, others_w):
     #XXX find smarter implementations
+    others_w = others_w[:] # original others_w can't be resized
     others_w.append(w_left)
 
     # find smallest set in others_w to reduce comparisons
-    i, startindex, startlength = 0, -1, -1
+    startindex, startlength = -1, -1
     for i in range(len(others_w)):
         w_other = others_w[i]
         try:
