@@ -308,6 +308,9 @@ class MsvcPlatform(Platform):
                    ['$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA) $(OBJECTS) $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) /MANIFEST /MANIFESTFILE:$*.manifest',
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
                     ])
+        m.rule('debugmode_$(TARGET)', '$(OBJECTS)',
+               ['$(CC_LINK) /nologo /DEBUG $(LDFLAGS) $(LDFLAGSEXTRA) $(OBJECTS) $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS)',
+                ])
 
         if shared:
             m.definition('SHARED_IMPORT_LIB', so_name.new(ext='lib').basename)
@@ -320,6 +323,9 @@ class MsvcPlatform(Platform):
             m.rule('$(DEFAULT_TARGET)', ['$(TARGET)', 'main.obj'],
                    ['$(CC_LINK) /nologo main.obj $(SHARED_IMPORT_LIB) /out:$@ /MANIFEST /MANIFESTFILE:$*.manifest',
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
+                    ])
+            m.rule('debugmode_$(DEFAULT_TARGET)', ['debugmode_$(TARGET)', 'main.obj'],
+                   ['$(CC_LINK) /nologo /DEBUG main.obj $(SHARED_IMPORT_LIB) /out:$@'
                     ])
 
         return m
