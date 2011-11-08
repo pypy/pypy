@@ -3149,7 +3149,7 @@ class BaseLLtypeTests(BasicTests):
             return sa
         res = self.meta_interp(f, [32])
         assert res == f(32)
-        self.check_jitcell_token_count(3)
+        self.check_trace_count(2)
 
     def test_two_loopinvariant_arrays2(self):
         from pypy.rpython.lltypesystem import lltype, llmemory, rffi
@@ -3172,7 +3172,7 @@ class BaseLLtypeTests(BasicTests):
             return sa
         res = self.meta_interp(f, [32])
         assert res == f(32)
-        self.check_jitcell_token_count(3)
+        self.check_trace_count(2)
 
     def test_two_loopinvariant_arrays3(self):
         from pypy.rpython.lltypesystem import lltype, llmemory, rffi
@@ -3196,7 +3196,7 @@ class BaseLLtypeTests(BasicTests):
             return sa
         res = self.meta_interp(f, [32])
         assert res == f(32)
-        self.check_jitcell_token_count(2)
+        self.check_trace_count(3)
 
     def test_two_loopinvariant_arrays_boxed(self):
         class A(object):
