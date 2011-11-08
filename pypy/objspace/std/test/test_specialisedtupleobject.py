@@ -103,13 +103,7 @@ class AppTestW_SpecialisedTupleObject(AppTestW_TupleObject):
         
         c = (2,1)
         assert not a == c
-        
-        d = (1.0,2.0)
-        assert a == d
-        
-        e = ('r','s')
-        assert not a == e
-        
+                
     def test_eq_can_delegate(self):        
         a = (1,2)
         b = (1,3,2)
@@ -166,14 +160,9 @@ class AppTestW_SpecialisedTupleObject(AppTestW_TupleObject):
     def test_three_tuples(self):
         if not self.isspecialised((1,2,3)):
             skip('3-tuples of ints are not specialised, so skip specific tests on them')
-        a = self.forbid_delegation((1,2))
         b = self.forbid_delegation((1,2,3))
         c = (1,)
         d = c + (2,3)
-        assert not a == b 
-        assert not b == a
-        assert a < b
-        assert b > a
         assert self.isspecialised(d)
         assert b == d
         assert b <= d

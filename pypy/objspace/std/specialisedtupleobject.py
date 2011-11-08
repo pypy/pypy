@@ -1,6 +1,7 @@
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
+from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.rlib.rarithmetic import intmask
@@ -93,8 +94,8 @@ def make_specialised_class(typetuple):
             return space.wrap(intmask(x))
     
         def _eq(self, w_other):
-            if w_other.length() != len(typetuple):
-                return False
+            if not isinstance(w_other, cls): #so we will be sure we are comparing same types
+                raise FailedToImplement
             for i in iter_n:
                 if getattr(self, 'value%s' % i) != getattr(w_other, 'value%s' % i):
                     return False
@@ -108,6 +109,8 @@ def make_specialised_class(typetuple):
             return space.newbool(not self._eq(w_other))
     
         def _compare(self, compare_op, w_other):
+            if not isinstance(w_other, cls):
+                raise FailedToImplement
             ncmp = min(self.length(), w_other.length())
             for i in iter_n:
                 if ncmp > i:
