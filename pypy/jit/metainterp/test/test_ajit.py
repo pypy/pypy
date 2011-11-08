@@ -3667,3 +3667,6 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         assert x == -42
         x = self.interp_operations(f, [1000, 1], translationoptions=topt)
         assert x == 999
+
+    def test_retracing_bridge_from_interpreter_to_finnish(self):
+        assert False # FIXME 

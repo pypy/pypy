@@ -2025,7 +2025,8 @@ class MetaInterp(object):
         num_green_args = self.jitdriver_sd.num_green_args
         greenkey = original_boxes[:num_green_args]
         if not self.partial_trace:
-            assert self.get_procedure_token(greenkey) == None # FIXME: recursion?
+            assert self.get_procedure_token(greenkey) is None or \
+                   self.get_procedure_token(greenkey).target_tokens is None
         if self.partial_trace:
             target_token = compile.compile_retrace(self, greenkey, start,
                                                    original_boxes[num_green_args:],
@@ -2050,6 +2051,8 @@ class MetaInterp(object):
         greenkey = live_arg_boxes[:num_green_args]
         target_jitcell_token = self.get_procedure_token(greenkey)
         if not target_jitcell_token:
+            return
+        if not target_jitcell_token.target_tokens:
             return
 
         self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None,
