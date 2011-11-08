@@ -1483,7 +1483,7 @@ ObjSpace.MethodTable = [
     ('trunc',           'trunc',     1, ['__trunc__']),
     ('pos',             'pos',       1, ['__pos__']),
     ('neg',             'neg',       1, ['__neg__']),
-    ('nonzero',         'truth',     1, ['__nonzero__']),
+    ('nonzero',         'truth',     1, ['__bool__']),
     ('abs' ,            'abs',       1, ['__abs__']),
     ('hex',             'hex',       1, ['__hex__']),
     ('oct',             'oct',       1, ['__oct__']),

@@ -20,7 +20,7 @@ class TestObject(BaseApiTest):
 
     def test_exception(self, space, api):
         class C:
-            def __nonzero__(self):
+            def __bool__(self):
                 raise ValueError
 
         assert api.PyObject_IsTrue(space.wrap(C())) == -1
@@ -90,27 +90,27 @@ class TestObject(BaseApiTest):
 
     def test_size(self, space, api):
         assert api.PyObject_Size(space.newlist([space.w_None])) == 1
-        
+
     def test_repr(self, space, api):
         w_list = space.newlist([space.w_None, space.wrap(42)])
         assert space.str_w(api.PyObject_Repr(w_list)) == "[None, 42]"
         assert space.str_w(api.PyObject_Repr(space.wrap("a"))) == "'a'"
-        
+
         w_list = space.newlist([space.w_None, space.wrap(42)])
         assert space.str_w(api.PyObject_Str(w_list)) == "[None, 42]"
         assert space.str_w(api.PyObject_Str(space.wrap("a"))) == "a"
-        
+
     def test_RichCompare(self, space, api):
         def compare(w_o1, w_o2, opid):
             res = api.PyObject_RichCompareBool(w_o1, w_o2, opid)
             w_res = api.PyObject_RichCompare(w_o1, w_o2, opid)
             assert space.is_true(w_res) == res
             return res
-        
+
         def test_compare(o1, o2):
             w_o1 = space.wrap(o1)
             w_o2 = space.wrap(o2)
-            
+
             for opid, expected in [
                     (Py_LT, o1 <  o2), (Py_LE, o1 <= o2),
                     (Py_NE, o1 != o2), (Py_EQ, o1 == o2),
@@ -120,12 +120,12 @@ class TestObject(BaseApiTest):
         test_compare(1, 2)
         test_compare(2, 2)
         test_compare('2', '1')
-        
+
         w_i = space.wrap(1)
         assert api.PyObject_RichCompareBool(w_i, w_i, 123456) == -1
         assert api.PyErr_Occurred() is space.w_SystemError
         api.PyErr_Clear()
-        
+
     def test_IsInstance(self, space, api):
         assert api.PyObject_IsInstance(space.wrap(1), space.w_int) == 1
         assert api.PyObject_IsInstance(space.wrap(1), space.w_float) == 0
@@ -158,7 +158,7 @@ class TestObject(BaseApiTest):
             return File""")
         w_f = space.call_function(w_File)
         assert api.PyObject_AsFileDescriptor(w_f) == 42
-    
+
     def test_hash(self, space, api):
         assert api.PyObject_Hash(space.wrap(72)) == 72
         assert api.PyObject_Hash(space.wrap(-1)) == -1

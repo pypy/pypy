@@ -186,8 +186,8 @@ class SimpleType(_CDataMeta):
                 elif value is None:
                     value = 0
                 self._buffer[0] = value
-            result.value = property(_getvalue, _setvalue)            
-        
+            result.value = property(_getvalue, _setvalue)
+
         elif tp == 'u':
             def _setvalue(self, val):
                 if isinstance(val, str):
@@ -264,7 +264,7 @@ class SimpleType(_CDataMeta):
             def _as_ffi_pointer_(self, ffitype):
                 return as_ffi_pointer(self, ffitype)
             result._as_ffi_pointer_ = _as_ffi_pointer_
-            
+
         return result
 
     from_address = cdata_from_address
@@ -272,7 +272,7 @@ class SimpleType(_CDataMeta):
     def from_param(self, value):
         if isinstance(value, self):
             return value
-        
+
         from_param_f = FROM_PARAM_BY_TYPE.get(self._type_)
         if from_param_f:
             res = from_param_f(self, value)
@@ -291,7 +291,7 @@ class SimpleType(_CDataMeta):
         if self.__bases__[0] is _SimpleCData:
             return output.value
         return output
-    
+
     def _sizeofinstances(self):
         return _rawffi.sizeof(self._type_)
 
@@ -338,7 +338,7 @@ class _SimpleCData(_CData):
             return "<%s object at 0x%x>" % (type(self).__name__,
                                             id(self))
 
-    def __nonzero__(self):
+    def __bool__(self):
         return self._buffer[0] not in (0, '\x00')
 
 from _ctypes.function import CFuncPtr

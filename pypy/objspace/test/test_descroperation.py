@@ -228,7 +228,7 @@ class AppTest_Descroperation:
         class myint(int):
             pass
         class X(object):
-            def __nonzero__(self):
+            def __bool__(self):
                 return myint(1)
         raises(TypeError, "not X()")
 
@@ -640,9 +640,9 @@ class AppTest_Descroperation:
     def test_truth_of_long(self):
         class X(object):
             def __len__(self): return 1L
-            __nonzero__ = __len__
+            __bool__ = __len__
         assert X()
-        del X.__nonzero__
+        del X.__bool__
         assert X()
 
     def test_len_overflow(self):

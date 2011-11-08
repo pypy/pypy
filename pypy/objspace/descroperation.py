@@ -222,7 +222,7 @@ class DescrOperation(object):
         return space.get_and_call_function(w_descr, w_obj, w_name)
 
     def is_true(space, w_obj):
-        method = "__nonzero__"
+        method = "__bool__"
         w_descr = space.lookup(w_obj, method)
         if w_descr is None:
             method = "__len__"

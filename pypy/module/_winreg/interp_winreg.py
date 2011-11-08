@@ -23,7 +23,7 @@ class W_HKEY(Wrappable):
     def as_int(self):
         return rffi.cast(rffi.SIZE_T, self.hkey)
 
-    def descr_nonzero(self, space):
+    def descr_bool(self, space):
         return space.wrap(self.as_int() != 0)
 
     def descr_handle_get(self, space):
@@ -87,14 +87,14 @@ Properties:
 handle - The integer Win32 handle.
 
 Operations:
-__nonzero__ - Handles with an open object return true, otherwise false.
+__bool__ - Handles with an open object return true, otherwise false.
 __int__ - Converting a handle to an integer returns the Win32 handle.
 __cmp__ - Handle objects are compared using the handle value.""",
     __new__ = descr_HKEY_new,
     __del__ = interp2app(W_HKEY.descr_del),
     __repr__ = interp2app(W_HKEY.descr_repr),
     __int__ = interp2app(W_HKEY.descr_int),
-    __nonzero__ = interp2app(W_HKEY.descr_nonzero),
+    __bool__ = interp2app(W_HKEY.descr_bool),
     __enter__ = interp2app(W_HKEY.descr__enter__),
     __exit__ = interp2app(W_HKEY.descr__exit__),
     handle = GetSetProperty(W_HKEY.descr_handle_get),

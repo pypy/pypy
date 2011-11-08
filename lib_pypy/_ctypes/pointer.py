@@ -111,7 +111,7 @@ class _Pointer(_CData):
             store_reference(self, index, cobj._objects)
         self._subarray(index)[0] = cobj._get_buffer_value()
 
-    def __nonzero__(self):
+    def __bool__(self):
         return self._buffer[0] != 0
 
     contents = property(getcontents, setcontents)

@@ -87,7 +87,7 @@ class greenlet(_continulet):
         else:
             return args
 
-    def __nonzero__(self):
+    def __bool__(self):
         return self.__main or _continulet.is_pending(self)
 
     @property

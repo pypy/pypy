@@ -50,7 +50,7 @@ for _name, _, _, _specialmethods in ObjSpace.MethodTable:
 
 def filter_out_conversions(typeorder):
     res = {}
-    for cls, order in typeorder.iteritems():        
+    for cls, order in typeorder.iteritems():
         res[cls] = [(target_type, converter) for (target_type, converter) in
                                                  order if converter is None]
     return res
@@ -113,7 +113,7 @@ def install_is_true(space, mm_nonzero, mm_len):
         except FailedToImplement:
             pass
         else:
-            # the __nonzero__ method of built-in objects should
+            # the __bool__ method of built-in objects should
             # always directly return a Bool; however, the __len__ method
             # of built-in objects typically returns an unwrappable integer
             if isinstance(w_res, W_BoolObject):
