@@ -1227,7 +1227,8 @@ def _intersection_multiple(space, w_left, others_w):
             startindex = i
             startlength = length
 
-    others_w[i], others_w[0] = others_w[0], others_w[i]
+    if i > 0:
+        others_w[i], others_w[0] = others_w[0], others_w[i]
 
     result = w_left._newobj(space, others_w[0])
     for i in range(1,len(others_w)):
