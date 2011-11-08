@@ -745,7 +745,7 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redboxes,
     """
     # 'redboxes' is only used to know the types of red arguments.
     inputargs = [box.clonebox() for box in redboxes]
-    loop_token = make_loop_token(len(inputargs), jitdriver_sd)
+    jitcell_token = make_jitcell_token(jitdriver_sd)
     # 'nb_red_args' might be smaller than len(redboxes),
     # because it doesn't include the virtualizable boxes.
     nb_red_args = jitdriver_sd.num_red_args
@@ -778,7 +778,7 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redboxes,
         ]
     operations[1].setfailargs([])
     operations = get_deep_immutable_oplist(operations)
-    cpu.compile_loop(inputargs, operations, loop_token, log=False)
+    cpu.compile_loop(inputargs, operations, jitcell_token, log=False)
     if memory_manager is not None:    # for tests
-        memory_manager.keep_loop_alive(loop_token)
-    return loop_token
+        memory_manager.keep_loop_alive(jitcell_token)
+    return jitcell_token
