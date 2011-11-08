@@ -2704,7 +2704,8 @@ class BasicTests:
         res = self.meta_interp(g, [10])
         assert res == g(10)
         # 1 preamble and 6 speciealized versions of each loop
-        self.check_tree_loop_count(2*(1 + 6))
+        for loop in get_stats().loops:
+            assert len(loop.operations[0].getdescr().targeting_jitcell_token.target_tokens) <= 7
 
     def test_nested_retrace(self):
 
