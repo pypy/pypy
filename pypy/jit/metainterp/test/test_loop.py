@@ -60,7 +60,8 @@ class LoopTest(object):
         assert res == f(6, 13)
         self.check_loop_count(1)
         if self.enable_opts:
-            self.check_loops(getfield_gc = 0, setfield_gc = 1)
+            self.check_resops(setfield_gc=2, getfield_gc=0)
+
 
     def test_loop_with_two_paths(self):
         from pypy.rpython.lltypesystem import lltype
@@ -180,7 +181,10 @@ class LoopTest(object):
         assert res == 42
         self.check_loop_count(1)
         # the 'int_eq' and following 'guard' should be constant-folded
-        self.check_loops(int_eq=0, guard_true=1, guard_false=0)
+        if 'unroll' in self.enable_opts:
+            self.check_resops(int_eq=0, guard_true=2, guard_false=0)
+        else:
+            self.check_resops(int_eq=0, guard_true=1, guard_false=0)
         if self.basic:
             found = 0
             for op in get_stats().loops[0]._all_operations():
@@ -643,8 +647,12 @@ class LoopTest(object):
         res = self.meta_interp(main_interpreter_loop, [1])
         assert res == 102
         self.check_loop_count(1)
-        self.check_loops({'int_add' : 3, 'int_gt' : 1,
-                          'guard_false' : 1, 'jump' : 1})
+        if 'unroll' in self.enable_opts:
+            self.check_resops({'int_add' : 6, 'int_gt' : 2,
+                               'guard_false' : 2, 'jump' : 2})
+        else:
+            self.check_resops({'int_add' : 3, 'int_gt' : 1,
+                               'guard_false' : 1, 'jump' : 1})
 
     def test_automatic_promotion(self):
         myjitdriver = JitDriver(greens = ['i'],
@@ -686,7 +694,7 @@ class LoopTest(object):
         self.check_loop_count(1)
         # These loops do different numbers of ops based on which optimizer we
         # are testing with.
-        self.check_loops(self.automatic_promotion_result)
+        self.check_resops(self.automatic_promotion_result)
 
     def test_can_enter_jit_outside_main_loop(self):
         myjitdriver = JitDriver(greens=[], reds=['i', 'j', 'a'])
