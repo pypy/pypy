@@ -104,8 +104,8 @@ def record_loop_or_bridge(metainterp_sd, loop):
 # ____________________________________________________________
 
 def compile_loop(metainterp, greenkey, start,
-                      inputargs, jumpargs,
-                      start_resumedescr, full_preamble_needed=True):
+                 inputargs, jumpargs,
+                 start_resumedescr, full_preamble_needed=True):
     """Try to compile a new procedure by closing the current history back
     to the first operation.
     """

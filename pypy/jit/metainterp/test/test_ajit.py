@@ -3621,4 +3621,26 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         assert x == 999
 
     def test_retracing_bridge_from_interpreter_to_finnish(self):
-        assert False # FIXME 
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa'])
+        def f(n):
+            sa = i = 0
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, i=i, sa=sa)
+                n = hint(n, promote=True)
+                sa += 2*n
+                i += 1
+            return sa
+        def g(n):
+            return f(n) + f(n) + f(n) + f(n) + f(10*n) + f(11*n)
+        res = self.meta_interp(g, [1], repeat=3)
+        assert res == g(1)
+        #self.check_jitcell_token_count(1)
+        self.check_jitcell_token_count(2)
+        # XXX A bridge from the interpreter to a finish is first
+        # constructed for n=1. It is later replaced with a trace for
+        # the case n=10 which is extended with a retrace for n=11 and
+        # finnaly a new bridge to finnish is again traced and created
+        # for the case n=1. We were not able to reuse the orignial n=1
+        # bridge as a preamble since it does not start with a
+        # label. The alternative would be to have all such bridges
+        # start with labels. I dont know which is better...
