@@ -536,6 +536,8 @@ class UnrollOptimizer(Optimization):
             return True
         debug_stop('jit-log-virtualstate')
 
+        if self.did_import:
+            return False
         limit = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.retrace_limit
         if cell_token.retraced_count<limit:
             cell_token.retraced_count += 1

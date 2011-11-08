@@ -2598,10 +2598,12 @@ class BasicTests:
                 i += 1
             return sa
         assert self.meta_interp(f, [20, 2]) == f(20, 2)
-        self.check_jitcell_token_count(3)
+        self.check_jitcell_token_count(1)
+        assert len(get_stats().jitcell_tokens.pop().target_tokens) == 4
         assert self.meta_interp(f, [20, 3]) == f(20, 3)
-        self.check_jitcell_token_count(4)
-
+        self.check_jitcell_token_count(1)
+        assert len(get_stats().jitcell_tokens.pop().target_tokens) == 5
+        
     def test_max_retrace_guards(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a'])
 
