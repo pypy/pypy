@@ -1002,6 +1002,16 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
         self.writechar(chr((word >> 8) & 0xFF))
         self.writechar(chr(word & 0xFF))
 
+    def write64(self, word):
+        self.writechar(chr((word >> 56) & 0xFF))
+        self.writechar(chr((word >> 48) & 0xFF))
+        self.writechar(chr((word >> 40) & 0xFF))
+        self.writechar(chr((word >> 32) & 0xFF))
+        self.writechar(chr((word >> 24) & 0xFF))
+        self.writechar(chr((word >> 16) & 0xFF))
+        self.writechar(chr((word >> 8) & 0xFF))
+        self.writechar(chr(word & 0xFF))
+
     def currpos(self):
         return self.get_rel_pos()
 

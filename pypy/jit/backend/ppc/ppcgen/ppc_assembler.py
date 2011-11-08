@@ -410,7 +410,11 @@ class AssemblerPPC(OpAssembler):
         self.write_pending_failure_recoveries()
         loop_start = self.materialize_loop(looptoken, False)
         looptoken._ppc_bootstrap_code = loop_start
-        looptoken.ppc_code = loop_start + start_pos
+        real_start = loop_start + start_pos
+        if IS_PPC_32:
+            looptoken.ppc_code = real_start
+        else:
+            looptoken.ppc_code = self.gen_64_bit_func_descr(real_start)
         self.process_pending_guards(loop_start)
         self._teardown()
 
@@ -515,6 +519,14 @@ class AssemblerPPC(OpAssembler):
                 regalloc.possibly_free_var(op.result)
             regalloc.possibly_free_vars_for_op(op)
             regalloc._check_invariants()
+
+    def gen_64_bit_func_descr(self, start_addr):
+        mc = PPCBuilder()
+        mc.write64(start_addr)
+        mc.write64(0)
+        mc.write64(0)
+        return mc.materialize(self.cpu.asmmemmgr, [], 
+                              self.cpu.gc_ll_descr.gcrootmap)
 
     def compute_frame_depth(self, regalloc):
         frame_depth = (GPR_SAVE_AREA                        # GPR space
