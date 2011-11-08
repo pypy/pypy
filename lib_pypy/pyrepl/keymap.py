@@ -106,22 +106,22 @@ def _parse_key1(key, s):
                 s += 2
             elif c == "c":
                 if key[s + 2] != '-':
-                    raise KeySpecError, \
+                    raise KeySpecError(
                               "\\C must be followed by `-' (char %d of %s)"%(
-                        s + 2, repr(key))
+                        s + 2, repr(key)))
                 if ctrl:
-                    raise KeySpecError, "doubled \\C- (char %d of %s)"%(
-                        s + 1, repr(key))
+                    raise KeySpecError("doubled \\C- (char %d of %s)"%(
+                        s + 1, repr(key)))
                 ctrl = 1
                 s += 3
             elif c == "m":
                 if key[s + 2] != '-':
-                    raise KeySpecError, \
+                    raise KeySpecError(
                               "\\M must be followed by `-' (char %d of %s)"%(
-                        s + 2, repr(key))
+                        s + 2, repr(key)))
                 if meta:
-                    raise KeySpecError, "doubled \\M- (char %d of %s)"%(
-                        s + 1, repr(key))
+                    raise KeySpecError("doubled \\M- (char %d of %s)"%(
+                        s + 1, repr(key)))
                 meta = 1
                 s += 3
             elif c.isdigit():
@@ -135,26 +135,26 @@ def _parse_key1(key, s):
             elif c == '<':
                 t = key.find('>', s)
                 if t == -1:
-                    raise KeySpecError, \
+                    raise KeySpecError(
                               "unterminated \\< starting at char %d of %s"%(
-                        s + 1, repr(key))                        
+                        s + 1, repr(key)))                        
                 ret = key[s+2:t].lower()
                 if ret not in _keynames:
-                    raise KeySpecError, \
+                    raise KeySpecError(
                               "unrecognised keyname `%s' at char %d of %s"%(
-                        ret, s + 2, repr(key))
+                        ret, s + 2, repr(key)))
                 ret = _keynames[ret]
                 s = t + 1
             else:
-                raise KeySpecError, \
+                raise KeySpecError(
                           "unknown backslash escape %s at char %d of %s"%(
-                    `c`, s + 2, repr(key))
+                    repr(c), s + 2, repr(key)))
         else:
             ret = key[s]
             s += 1
     if ctrl:
         if len(ret) > 1:
-            raise KeySpecError, "\\C- must be followed by a character"
+            raise KeySpecError("\\C- must be followed by a character")
         ret = chr(ord(ret) & 0x1f)   # curses.ascii.ctrl()
     if meta:
         ret = ['\033', ret]
@@ -177,8 +177,8 @@ def compile_keymap(keymap, empty=''):
     for key, value in r.items():
         if empty in value:
             if len(value) <> 1:
-                raise KeySpecError, \
-                      "key definitions for %s clash"%(value.values(),)
+                raise KeySpecError(
+                      "key definitions for %s clash"%(value.values(),))
             else:
                 r[key] = value[empty]
         else:

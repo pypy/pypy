@@ -88,6 +88,9 @@ class W_IOBase(Wrappable):
             raise OperationError(
                 space.w_ValueError, space.wrap(message))
 
+    def check_closed_w(self, space):
+        self._check_closed(space)
+
     def closed_get_w(self, space):
         return space.newbool(self.__IOBase_closed)
 
@@ -253,6 +256,7 @@ W_IOBase.typedef = TypeDef(
     _checkWritable = interp2app(check_writable_w),
     _checkSeekable = interp2app(check_seekable_w),
     closed = GetSetProperty(W_IOBase.closed_get_w),
+    _checkClosed = interp2app(W_IOBase.check_closed_w),
     __dict__ = GetSetProperty(descr_get_dict, descr_set_dict, cls=W_IOBase),
     __weakref__ = make_weakref_descr(W_IOBase),
 

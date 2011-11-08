@@ -41,8 +41,8 @@ TIOCGWINSZ = getattr(termios, "TIOCGWINSZ", None)
 def _my_getstr(cap, optional=0):
     r = curses.tigetstr(cap)
     if not optional and r is None:
-        raise InvalidTerminal, \
-              "terminal doesn't have the required '%s' capability"%cap
+        raise InvalidTerminal(
+              "terminal doesn't have the required '%s' capability"%cap)
     return r
 
 # at this point, can we say: AAAAAAAAAAAAAAAAAAAAAARGH!
@@ -131,14 +131,14 @@ class UnixConsole(Console):
         elif self._cub1 and self._cuf1:
             self.__move_x = self.__move_x_cub1_cuf1
         else:
-            raise RuntimeError, "insufficient terminal (horizontal)"
+            raise RuntimeError("insufficient terminal (horizontal)")
 
         if self._cuu and self._cud:
             self.__move_y = self.__move_y_cuu_cud
         elif self._cuu1 and self._cud1:
             self.__move_y = self.__move_y_cuu1_cud1
         else:
-            raise RuntimeError, "insufficient terminal (vertical)"
+            raise RuntimeError("insufficient terminal (vertical)")
 
         if self._dch1:
             self.dch1 = self._dch1

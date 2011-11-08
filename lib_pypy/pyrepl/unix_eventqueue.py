@@ -52,7 +52,7 @@ class EventQueue(object):
         for key, tiname in _keynames.items():
             keycode = curses.tigetstr(tiname)
             if keycode:
-                our_keycodes[keycode] = unicode(key)
+                our_keycodes[keycode] = str(key)
         if os.isatty(fd):
             our_keycodes[tcgetattr(fd)[6][VERASE]] = u'backspace'
         self.k = self.ck = keymap.compile_keymap(our_keycodes)

@@ -26,17 +26,17 @@ from pyrepl import input
 
 def _make_unctrl_map():
     uc_map = {}
-    for c in map(unichr, range(256)):
+    for c in map(chr, range(256)):
         if unicodedata_.category(c)[0] <> 'C':
             uc_map[c] = c
     for i in range(32):
-        c = unichr(i)
-        uc_map[c] = u'^' + unichr(ord('A') + i - 1)
+        c = chr(i)
+        uc_map[c] = u'^' + chr(ord('A') + i - 1)
     uc_map['\t'] = '    ' # display TABs as 4 characters
     uc_map['\177'] = u'^?'
     for i in range(256):
-        c = unichr(i)
-        if not uc_map.has_key(c):
+        c = chr(i)
+        if c not in uc_map:
             uc_map[c] = u'\\%03o'%i 
     return uc_map
 
@@ -56,7 +56,7 @@ except ImportError:
             return u[c]
         else:
             if unicodedata_.category(c).startswith('C'):
-                return '\u%04x'%(ord(c),)
+                return '\\u%04x'%(ord(c),)
             else:
                 return c
 
