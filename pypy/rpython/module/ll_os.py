@@ -530,10 +530,10 @@ class RegisterOs(BaseLazyRegistering):
                 # The fields of a FILETIME structure are the hi and lo parts
                 # of a 64-bit value expressed in 100 nanosecond units
                 # (of course).
-                result = (pkernel.c_dwHighDateTime*429.4967296 +
-                          pkernel.c_dwLowDateTime*1E-7,
-                          puser.c_dwHighDateTime*429.4967296 +
-                          puser.c_dwLowDateTime*1E-7,
+                result = (rffi.cast(lltype.Signed, pkernel.c_dwHighDateTime) * 429.4967296 +
+                          rffi.cast(lltype.Signed, pkernel.c_dwLowDateTime) * 1E-7,
+                          rffi.cast(lltype.Signed, puser.c_dwHighDateTime) * 429.4967296 +
+                          rffi.cast(lltype.Signed, puser.c_dwLowDateTime) * 1E-7,
                           0, 0, 0)
                 lltype.free(puser,   flavor='raw')
                 lltype.free(pkernel, flavor='raw')
