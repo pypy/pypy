@@ -224,6 +224,10 @@ class UnrollOptimizer(Optimization):
     def close_bridge(self, start_label):
         inputargs = self.inputargs        
         short_jumpargs = inputargs[:]
+
+        # We dont need to inline the short preamble we are creating as we are conneting
+        # the bridge to a different trace with a different short preamble
+        self.short_inliner = None
         
         newoperations = self.optimizer.get_newoperations()
         self.boxes_created_this_iteration = {}
@@ -406,7 +410,7 @@ class UnrollOptimizer(Optimization):
         if op is None:
             return None
         if op.result is not None and op.result in self.short_seen:
-            if emit:
+            if emit and self.short_inliner:                
                 return self.short_inliner.inline_arg(op.result)
             else:
                 return None
@@ -425,7 +429,7 @@ class UnrollOptimizer(Optimization):
 
         self.short.append(op)
         self.short_seen[op.result] = True
-        if emit:
+        if emit and self.short_inliner:
             newop = self.short_inliner.inline_op(op)
             self.optimizer.send_extra_operation(newop)
         else:
@@ -535,7 +539,7 @@ class UnrollOptimizer(Optimization):
         retraced_count = cell_token.retraced_count
         limit = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.retrace_limit
         if retraced_count<limit:
-            debug_print('Retracing (%d/%d)', retraced_count, limit)
+            debug_print('Retracing (%d/%d)' % (retraced_count, limit))
             cell_token.retraced_count += 1
             return False
 
