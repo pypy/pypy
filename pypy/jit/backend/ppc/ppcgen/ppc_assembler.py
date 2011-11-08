@@ -313,7 +313,7 @@ class AssemblerPPC(OpAssembler):
         if IS_PPC_32:
             mc.lwz(r.r3.value, r.SPP.value, 0)     # address of state encoding 
         else:
-            mc.lwz(r.r3.value, r.SPP.value, 0)     # address of state encoding 
+            mc.ld(r.r3.value, r.SPP.value, 0)     
         mc.mr(r.r4.value, r.SP.value)          # load stack pointer
         mc.mr(r.r5.value, r.SPP.value)         # load spilling pointer
         #
