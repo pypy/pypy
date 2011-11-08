@@ -300,7 +300,13 @@ class AssemblerPPC(OpAssembler):
         #
         decode_func_addr = llhelper(self.recovery_func_sign,
                 self.failure_recovery_func)
-        addr = rffi.cast(lltype.Signed, decode_func_addr)
+        if IS_PPC_32:
+            addr = rffi.cast(lltype.Signed, decode_func_addr)
+        else:
+            intp = lltype.Ptr(lltype.Array(lltype.Signed, hints={'nolength': True}))
+            descr = rffi.cast(intp, decode_func_addr)
+            addr = descr[0]
+
         #
         # load parameters into parameter registers
         mc.lwz(r.r3.value, r.SPP.value, 0)     # address of state encoding 
