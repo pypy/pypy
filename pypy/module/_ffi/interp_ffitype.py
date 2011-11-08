@@ -28,6 +28,9 @@ class W_FFIType(Wrappable):
     def sizeof(self):
         return intmask(self.ffitype.c_size)
 
+    def get_alignment(self):
+        return intmask(self.ffitype.c_alignment)
+
     def repr(self, space):
         return space.wrap(self.__repr__())
 

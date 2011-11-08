@@ -1,4 +1,5 @@
 from pypy.module._ffi.test.test_funcptr import BaseAppTestFFI
+    
 
 class AppTestStruct(BaseAppTestFFI):
 
