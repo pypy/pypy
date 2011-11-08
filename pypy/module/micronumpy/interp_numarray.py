@@ -68,6 +68,14 @@ def descr_new_array(space, w_subtype, w_item_or_iterable, w_dtype=None):
         dtype.setitem_w(space, arr.storage, i, w_elem)
     return arr
 
+class ArrayIndex(object):
+    """ An index into an array or view. Offset is a data offset, indexes
+    are respective indexes in dimensions
+    """
+    def __init__(self, indexes, offset):
+        self.indexes = indexes
+        self.offset = offset
+
 class BaseArray(Wrappable):
     _attrs_ = ["invalidates", "signature", "shape"]
 
@@ -287,9 +295,6 @@ class BaseArray(Wrappable):
             item += v
         return item
 
-    def len_of_shape(self):
-        return len(self.shape)
-
     def get_root_shape(self):
         return self.shape
 
@@ -297,7 +302,7 @@ class BaseArray(Wrappable):
         """ The result of getitem/setitem is a single item if w_idx
         is a list of scalars that match the size of shape
         """
-        shape_len = self.len_of_shape()
+        shape_len = len(self.shape)
         if shape_len == 0:
             if not space.isinstance_w(w_idx, space.w_int):
                 raise OperationError(space.w_IndexError, space.wrap(
@@ -583,10 +588,6 @@ class NDimSlice(ViewArray):
     def __init__(self, parent, signature, chunks, shape):
         ViewArray.__init__(self, parent, signature, shape)
         self.chunks = chunks
-        self.shape_reduction = 0
-        for chunk in chunks:
-            if chunk[-2] == 0:
-                self.shape_reduction += 1
 
     def get_root_storage(self):
         return self.parent.get_concrete().get_root_storage()
@@ -614,9 +615,6 @@ class NDimSlice(ViewArray):
 
     def setitem(self, item, value):
         self.parent.setitem(self.calc_index(item), value)
-
-    def len_of_shape(self):
-        return self.parent.len_of_shape() - self.shape_reduction
 
     def get_root_shape(self):
         return self.parent.get_root_shape()
@@ -704,6 +702,9 @@ class NDimSlice(ViewArray):
         return ret.build()
 
 class NDimArray(BaseArray):
+    """ A class representing contiguous array. We know that each iteration
+    by say ufunc will increase the data index by one
+    """
     def __init__(self, size, shape, dtype):
         BaseArray.__init__(self, shape)
         self.size = size
