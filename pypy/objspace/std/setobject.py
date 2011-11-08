@@ -1213,7 +1213,7 @@ def _intersection_multiple(space, w_left, others_w):
     others_w.append(w_left)
 
     # find smallest set in others_w to reduce comparisons
-    startindex, startlength = -1, -1
+    i, startindex, startlength = 0, -1, -1
     for i in range(len(others_w)):
         w_other = others_w[i]
         try:
@@ -1227,8 +1227,7 @@ def _intersection_multiple(space, w_left, others_w):
             startindex = i
             startlength = length
 
-    if i > 0:
-        others_w[i], others_w[0] = others_w[0], others_w[i]
+    others_w[i], others_w[0] = others_w[0], others_w[i]
 
     result = w_left._newobj(space, others_w[0])
     for i in range(1,len(others_w)):
