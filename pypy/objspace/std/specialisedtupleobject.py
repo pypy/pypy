@@ -61,19 +61,20 @@ class W_SpecialisedTupleObject(W_Object):
         return tuple(self.tolist)
                         
 
-def make_specialised_class(typelist):
-    iter_n = unrolling_iterable(range(len(typelist)))
+def make_specialised_class(typetuple):
+    assert type(typetuple) == tuple
+    iter_n = unrolling_iterable(range(len(typetuple)))
     class cls(W_SpecialisedTupleObject):
         def __init__(self, space, *values):
-            assert len(typelist) == len(values)
+            assert len(typetuple) == len(values)
             for i in iter_n:
-                assert isinstance(values[i], typelist[i])
+                assert isinstance(values[i], typetuple[i])
             self.space = space
             for i in iter_n:
                 setattr(self, 'value%s' % i, values[i])
     
         def length(self):
-            return len(typelist)
+            return len(typetuple)
     
         def tolist(self):
             return [self.space.wrap(getattr(self, 'value%s' % i)) for i in iter_n]
@@ -92,7 +93,7 @@ def make_specialised_class(typelist):
             return space.wrap(intmask(x))
     
         def _eq(self, w_other):
-            if w_other.length() != len(typelist):
+            if w_other.length() != len(typetuple):
                 return False
             for i in iter_n:
                 if getattr(self, 'value%s' % i) != getattr(w_other, 'value%s' % i):
@@ -122,8 +123,8 @@ def make_specialised_class(typelist):
                     return self.space.wrap(getattr(self, 'value%s' % i))
             raise IndexError
 
-    cls.__name__ = 'W_SpecialisedTupleObject' + ''.join([t.__name__.capitalize() for t in typelist])      
-    _specialisations.append((cls,typelist))
+    cls.__name__ = 'W_SpecialisedTupleObject' + ''.join([t.__name__.capitalize() for t in typetuple])      
+    _specialisations.append((cls,typetuple))
     return cls
     
     
