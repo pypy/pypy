@@ -74,7 +74,11 @@ class TestW_SetObject:
 
         d = W_SetObject(self.space)
         _initialize_set(self.space, d, self.space.wrap("ab"))
-        d.intersect = None
+
+        # if ordering works correct we should start with set e
+        a.get_storage_copy = None
+        b.get_storage_copy = None
+        d.get_storage_copy = None
 
         result = set_intersection__Set(space, a, [d,c,b])
         assert space.is_true(self.space.eq(result, W_SetObject(space, self.space.wrap(""))))
