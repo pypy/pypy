@@ -402,7 +402,7 @@ class RegisterOs(BaseLazyRegistering):
         UTIMBUFP = lltype.Ptr(self.UTIMBUF)
         os_utime = self.llexternal('utime', [rffi.CCHARP, UTIMBUFP], rffi.INT)
 
-        if not _WIM32:
+        if not _WIN32:
             includes = ['sys/time.h']
         else:
             includes = ['time.h']

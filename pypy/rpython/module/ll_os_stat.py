@@ -456,6 +456,6 @@ def FILE_TIME_to_time_t_nsec(filetime):
 
 def time_t_to_FILE_TIME(time, filetime):
     ft = lltype.r_longlong((time + secs_between_epochs) * 10000000)
-    filetime.c_dwHighDateTime = lltype.r_uint(ft >> 32)
-    filetime.c_dwLowDateTime = lltype.r_uint(ft & lltype.r_uint(-1))
+    filetime.c_dwHighDateTime = lltype.r_uint32(ft >> 32)
+    filetime.c_dwLowDateTime = lltype.r_uint32(ft & lltype.r_uint(-1))
 

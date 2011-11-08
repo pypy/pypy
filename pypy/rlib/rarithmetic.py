@@ -471,12 +471,21 @@ r_uint = build_int('r_uint', False, LONG_BIT)
 r_longlong = build_int('r_longlong', True, 64)
 r_ulonglong = build_int('r_ulonglong', False, 64)
 
+r_long = build_int('r_long', True, 32)
+r_ulong = build_int('r_ulong', False, 32)
+
 longlongmax = r_longlong(LONGLONG_TEST - 1)
 
 if r_longlong is not r_int:
     r_int64 = r_longlong
 else:
     r_int64 = int
+
+# needed for ll_os_stat.time_t_to_FILE_TIME in the 64 bit case
+if r_long is not r_int:
+    r_uint32 = r_ulong
+else:
+    r_uint32 = r_uint
 
 
 # the 'float' C type
