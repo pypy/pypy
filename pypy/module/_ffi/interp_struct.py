@@ -16,6 +16,9 @@ class W_Field(Wrappable):
         self.w_ffitype = w_ffitype
         self.offset = -1
 
+    def __repr__(self):
+        return '<Field %s %s>' % (self.name, self.w_ffitype.name)
+
 @unwrap_spec(name=str)
 def descr_new_field(space, w_type, name, w_ffitype):
     w_ffitype = space.interp_w(W_FFIType, w_ffitype)
@@ -88,6 +91,8 @@ def compute_size_and_alignement(space, fields_w):
         w_field.offset = size
         size += fieldsize
         fields_w2.append(w_field)
+    #
+    size = round_up(size, alignment)
     return size, alignment, fields_w2
 
 

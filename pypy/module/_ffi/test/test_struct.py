@@ -30,10 +30,10 @@ class TestComputeSizeAndAlignement(object):
         assert self.sizeof([T.sbyte, T.sbyte, T.slonglong]) == llong_align + llong_size
         assert self.sizeof([T.sbyte, T.sbyte, T.sbyte, T.slonglong]) == llong_align + llong_size
         assert self.sizeof([T.sbyte, T.sbyte, T.sbyte, T.sbyte, T.slonglong]) == llong_align + llong_size
-        ## assert self.sizeof([T.slonglong, T.sbyte]) == llong_size + llong_align
-        ## assert self.sizeof([T.slonglong, T.sbyte, T.sbyte]) == llong_size + llong_align
-        ## assert self.sizeof([T.slonglong, T.sbyte, T.sbyte, T.sbyte]) == llong_size + llong_align
-        ## assert self.sizeof([T.slonglong, T.sbyte, T.sbyte, T.sbyte, T.sbyte]) == llong_size + llong_align
+        assert self.sizeof([T.slonglong, T.sbyte]) == llong_size + llong_align
+        assert self.sizeof([T.slonglong, T.sbyte, T.sbyte]) == llong_size + llong_align
+        assert self.sizeof([T.slonglong, T.sbyte, T.sbyte, T.sbyte]) == llong_size + llong_align
+        assert self.sizeof([T.slonglong, T.sbyte, T.sbyte, T.sbyte, T.sbyte]) == llong_size + llong_align
 
 
 class AppTestStruct(BaseAppTestFFI):
