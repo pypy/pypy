@@ -4,7 +4,7 @@ from pypy.jit.metainterp.optimizeopt.intbounds import OptIntBounds
 from pypy.jit.metainterp.optimizeopt.virtualize import OptVirtualize
 from pypy.jit.metainterp.optimizeopt.heap import OptHeap
 from pypy.jit.metainterp.optimizeopt.vstring import OptString
-from pypy.jit.metainterp.optimizeopt.unroll import optimize_unroll, OptInlineShortPreamble
+from pypy.jit.metainterp.optimizeopt.unroll import optimize_unroll
 from pypy.jit.metainterp.optimizeopt.fficall import OptFfiCall
 from pypy.jit.metainterp.optimizeopt.simplify import OptSimplify
 from pypy.jit.metainterp.optimizeopt.pure import OptPure

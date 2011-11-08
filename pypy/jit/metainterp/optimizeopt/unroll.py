@@ -553,39 +553,6 @@ class UnrollOptimizer(Optimization):
             jumpop.setdescr(cell_token.target_tokens[0])
             self.optimizer.send_extra_operation(jumpop)
             return True
-            
-
-        
-# FIXME: kill
-class OptInlineShortPreamble(Optimization):
-    def __init__(self, retraced):
-        self.retraced = retraced
-
-    def new(self):
-        return OptInlineShortPreamble(self.retraced)
-
-    def propagate_forward(self, op):
-            ## # We should not be failing much anymore...
-            ##     if not procedure_token.failed_states:
-            ##         debug_print("Retracing (%d of %d)" % (retraced_count,
-            ##                                               limit))
-            ##         raise RetraceLoop
-            ##     for failed in loop_token.failed_states:
-            ##         if failed.generalization_of(virtual_state):
-            ##             # Retracing once more will most likely fail again
-            ##             break
-            ##     else:
-            ##         debug_print("Retracing (%d of %d)" % (retraced_count,
-            ##                                               limit))
-
-            ##         raise RetraceLoop
-            ## else:
-            ##     if not loop_token.failed_states:
-            ##         loop_token.failed_states=[virtual_state]
-            ##     else:
-            ##         loop_token.failed_states.append(virtual_state)
-            self.emit_operation(op)
-
 
 class ValueImporter(object):
     def __init__(self, unroll, value, op):

@@ -23,31 +23,31 @@ def test_build_opt_chain():
         assert names == expected_names
     #
     metainterp_sd = FakeMetaInterpStaticData(None)
-    chain, _ = build_opt_chain(metainterp_sd, "", inline_short_preamble=False)
+    chain, _ = build_opt_chain(metainterp_sd, "")
     check(chain, ["OptSimplify"])
     #
     chain, _ = build_opt_chain(metainterp_sd, "")
-    check(chain, ["OptInlineShortPreamble", "OptSimplify"])
+    check(chain, ["OptSimplify"])
     #
     chain, _ = build_opt_chain(metainterp_sd, "")
-    check(chain, ["OptInlineShortPreamble", "OptSimplify"])
+    check(chain, ["OptSimplify"])
     #
     chain, _ = build_opt_chain(metainterp_sd, "heap:intbounds")
-    check(chain, ["OptInlineShortPreamble", "OptIntBounds", "OptHeap", "OptSimplify"])
+    check(chain, ["OptIntBounds", "OptHeap", "OptSimplify"])
     #
     chain, unroll = build_opt_chain(metainterp_sd, "unroll")
-    check(chain, ["OptInlineShortPreamble", "OptSimplify"])
+    check(chain, ["OptSimplify"])
     assert unroll
     #
-    chain, _ = build_opt_chain(metainterp_sd, "aaa:bbb", inline_short_preamble=False)
+    chain, _ = build_opt_chain(metainterp_sd, "aaa:bbb")
     check(chain, ["OptSimplify"])
     #
-    chain, _ = build_opt_chain(metainterp_sd, "ffi", inline_short_preamble=False)
+    chain, _ = build_opt_chain(metainterp_sd, "ffi")
     check(chain, ["OptFfiCall", "OptSimplify"])
     #
     metainterp_sd.config = get_pypy_config(translating=True)
     assert not metainterp_sd.config.translation.jit_ffi
-    chain, _ = build_opt_chain(metainterp_sd, "ffi", inline_short_preamble=False)
+    chain, _ = build_opt_chain(metainterp_sd, "ffi")
     check(chain, ["OptSimplify"])
 
 
