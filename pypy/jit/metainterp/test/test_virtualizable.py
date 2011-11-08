@@ -1095,39 +1095,39 @@ class ImplicitVirtualizableTests:
         self.check_resops(new_with_vtable=0)
 
     def test_check_for_nonstandardness_only_once(self):
-         myjitdriver = JitDriver(greens = [], reds = ['frame'],
-                                 virtualizables = ['frame'])
+        myjitdriver = JitDriver(greens = [], reds = ['frame'],
+                                virtualizables = ['frame'])
 
-         class Frame(object):
-             _virtualizable2_ = ['x', 'y', 'z']
+        class Frame(object):
+            _virtualizable2_ = ['x', 'y', 'z']
 
-             def __init__(self, x, y, z=1):
-                 self = hint(self, access_directly=True)
-                 self.x = x
-                 self.y = y
-                 self.z = z
+            def __init__(self, x, y, z=1):
+                self = hint(self, access_directly=True)
+                self.x = x
+                self.y = y
+                self.z = z
 
-         class SomewhereElse:
-             pass
-         somewhere_else = SomewhereElse()
+        class SomewhereElse:
+            pass
+        somewhere_else = SomewhereElse()
 
-         def f(n):
-             frame = Frame(n, 0)
-             somewhere_else.top_frame = frame        # escapes
-             frame = hint(frame, access_directly=True)
-             while frame.x > 0:
-                 myjitdriver.can_enter_jit(frame=frame)
-                 myjitdriver.jit_merge_point(frame=frame)
-                 top_frame = somewhere_else.top_frame
-                 child_frame = Frame(frame.x, top_frame.z, 17)
-                 frame.y += child_frame.x
-                 frame.x -= top_frame.z
-             return somewhere_else.top_frame.y
- 
-         res = self.meta_interp(f, [10])
-         assert res == 55
-         self.check_resops(new_with_vtable=0, ptr_eq=1)
-         self.check_history(ptr_eq=2)
+        def f(n):
+            frame = Frame(n, 0)
+            somewhere_else.top_frame = frame        # escapes
+            frame = hint(frame, access_directly=True)
+            while frame.x > 0:
+                myjitdriver.can_enter_jit(frame=frame)
+                myjitdriver.jit_merge_point(frame=frame)
+                top_frame = somewhere_else.top_frame
+                child_frame = Frame(frame.x, top_frame.z, 17)
+                frame.y += child_frame.x
+                frame.x -= top_frame.z
+            return somewhere_else.top_frame.y
+
+        res = self.meta_interp(f, [10])
+        assert res == 55
+        self.check_resops(new_with_vtable=0, ptr_eq=1)
+        self.check_history(ptr_eq=2)
 
     def test_virtual_child_frame_with_arrays(self):
         myjitdriver = JitDriver(greens = [], reds = ['frame'],
