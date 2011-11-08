@@ -161,34 +161,35 @@ class JitMixin:
     def check_loops(self, expected=None, everywhere=False, **check):
         get_stats().check_loops(expected=expected, everywhere=everywhere,
                                 **check)        
-    def check_loop_count(self, count):
-        """NB. This is a hack; use check_tree_loop_count() or
-        check_enter_count() for the real thing.
-        This counts as 1 every bridge in addition to every loop; and it does
-        not count at all the entry bridges from interpreter, although they
-        are TreeLoops as well."""
-        return # FIXME
-        assert get_stats().compiled_count == count
-    def check_tree_loop_count(self, count):
-        return # FIXME
+    def check_trace_count(self, count):
+        # The number of traces compiled
         assert len(get_stats().loops) == count
-    def check_loop_count_at_most(self, count):
-        return # FIXME
-        assert get_stats().compiled_count <= count
+    def check_trace_count_at_most(self, count):
+        assert len(get_stats().loops) <= count
+
+    def check_jitcell_token_count(self, count):
+        tokens = set()
+        for loop in get_stats().loops:
+            for op in loop.operations:
+                descr = op.getdescr()
+                if isinstance(descr, history.TargetToken):
+                    descr = descr.targeting_jitcell_token
+                if isinstance(descr, history.JitCellToken):
+                    tokens.add(descr)
+        assert len(tokens) == count
+
     def check_enter_count(self, count):
-        return # FIXME
         assert get_stats().enter_count == count
     def check_enter_count_at_most(self, count):
-        return # FIXME
         assert get_stats().enter_count <= count
+
     def check_jumps(self, maxcount):
         return # FIXME
         assert get_stats().exec_jumps <= maxcount
+
     def check_aborted_count(self, count):
-        return # FIXME
         assert get_stats().aborted_count == count
     def check_aborted_count_at_least(self, count):
-        return # FIXME
         assert get_stats().aborted_count >= count
 
     def meta_interp(self, *args, **kwds):
