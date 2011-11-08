@@ -880,7 +880,9 @@ class BasicTests:
                 n -= 1
 
         self.meta_interp(f, [20], repeat=7)
-        self.check_jitcell_token_count(2)      # the loop and the entry path
+        # the loop and the entry path as a single trace
+        self.check_jitcell_token_count(1)
+        
         # we get:
         #    ENTER             - compile the new loop and the entry bridge
         #    ENTER             - compile the leaving path
@@ -1251,7 +1253,7 @@ class BasicTests:
 
         res = self.meta_interp(f, [10, 3])
         assert res == 9 + 8 + 7 + 6 + 5 + 4 + 3 + 2 + 1 + 0
-        self.check_jitcell_token_count(2)
+        self.check_jitcell_token_count(1)
 
         res = self.meta_interp(f, [10, 13])
         assert res == 9 + 8 + 7 + 6 + 5 + 4 + 3 + 2 + 1 + 0
@@ -1726,7 +1728,7 @@ class BasicTests:
             return a1.val + b1.val
         res = self.meta_interp(g, [6, 7])
         assert res == 6*8 + 6**8
-        self.check_trace_count(5)
+        self.check_trace_count(4)
         self.check_resops({'guard_class': 2, 'int_gt': 4,
                            'getfield_gc': 4, 'guard_true': 4,
                            'int_sub': 4, 'jump': 2, 'int_mul': 2,
@@ -1770,7 +1772,7 @@ class BasicTests:
             return a1.val + b1.val
         res = self.meta_interp(g, [6, 20])
         assert res == g(6, 20)
-        self.check_trace_count(9)
+        self.check_trace_count(8)
         self.check_resops(getarrayitem_gc=10)
 
     def test_multiple_specialied_versions_bridge(self):
@@ -1958,7 +1960,7 @@ class BasicTests:
             return a1.val + b1.val
         res = self.meta_interp(g, [3, 23])
         assert res == 7068153
-        self.check_trace_count(7)
+        self.check_trace_count(6)
         self.check_resops(guard_true=6, guard_class=2, int_mul=3,
                           int_add=3, guard_false=3)
 
@@ -2044,7 +2046,7 @@ class BasicTests:
             return n
         res = self.meta_interp(f, [sys.maxint-10])
         assert res == 11
-        self.check_jitcell_token_count(2)
+        self.check_jitcell_token_count(1)
 
     def test_wrap_around_mul(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'n'])
@@ -2060,7 +2062,7 @@ class BasicTests:
             return n
         res = self.meta_interp(f, [sys.maxint>>10])
         assert res == 11
-        self.check_jitcell_token_count(2)
+        self.check_jitcell_token_count(1)
 
     def test_wrap_around_sub(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'n'])
@@ -2076,7 +2078,7 @@ class BasicTests:
             return n
         res = self.meta_interp(f, [10-sys.maxint])
         assert res == 12
-        self.check_jitcell_token_count(2)
+        self.check_jitcell_token_count(1)
 
     def test_caching_setfield(self):
         myjitdriver = JitDriver(greens = [], reds = ['sa', 'i', 'n', 'a', 'node'])
@@ -2596,9 +2598,9 @@ class BasicTests:
                 i += 1
             return sa
         assert self.meta_interp(f, [20, 2]) == f(20, 2)
-        self.check_jitcell_token_count(4)
+        self.check_jitcell_token_count(3)
         assert self.meta_interp(f, [20, 3]) == f(20, 3)
-        self.check_jitcell_token_count(5)
+        self.check_jitcell_token_count(4)
 
     def test_max_retrace_guards(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a'])
