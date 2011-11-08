@@ -742,6 +742,14 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = array([[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]])
         assert (a + a)[1, 1] == 8
 
+    def test_broadcast(self):
+        skip("not working")
+        import numpy
+        a = numpy.zeros((100, 100))
+        b = numpy.ones(100)
+        a[:,:] = b
+        assert a[13,15] == 1
+
 class AppTestSupport(object):
     def setup_class(cls):
         import struct
