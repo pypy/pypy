@@ -1,5 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import app2interp
+from pypy.conftest import gettestobjspace
 
 class TestW_StdObjSpace:
 
@@ -60,3 +61,10 @@ class TestW_StdObjSpace:
             typedef = None
 
         assert space.isinstance_w(X(), space.w_str)
+
+    def test_withstrbuf_fastpath_isinstance(self):
+        from pypy.objspace.std.stringobject import W_StringObject
+
+        space = gettestobjspace(withstrbuf=True) 
+        assert space._get_interplevel_cls(space.w_str) is W_StringObject
+        
