@@ -1,5 +1,40 @@
 from pypy.module._ffi.test.test_funcptr import BaseAppTestFFI
-    
+from pypy.module._ffi.interp_struct import compute_size_and_alignement, W_Field
+from pypy.module._ffi.interp_ffitype import app_types
+
+class TestComputeSizeAndAlignement(object):
+
+    class FakeSpace(object):
+        def interp_w(self, cls, obj):
+            return obj
+
+    def compute(self, ffitypes_w):
+        fields_w = [W_Field('<dummy>', w_ffitype) for
+                    w_ffitype in ffitypes_w]
+        return compute_size_and_alignement(self.FakeSpace(), fields_w)
+
+    def sizeof(self, ffitypes_w):
+        size, aligned, fields_w = self.compute(ffitypes_w)
+        return size
+
+    def test_compute_size(self):
+        T = app_types
+        byte_size = app_types.sbyte.sizeof()
+        long_size = app_types.slong.sizeof()
+        llong_size = app_types.slonglong.sizeof()
+        llong_align = app_types.slonglong.get_alignment()
+        #
+        assert llong_align >= 4
+        assert self.sizeof([T.sbyte, T.slong]) == 2*long_size
+        assert self.sizeof([T.sbyte, T.slonglong]) == llong_align + llong_size
+        assert self.sizeof([T.sbyte, T.sbyte, T.slonglong]) == llong_align + llong_size
+        assert self.sizeof([T.sbyte, T.sbyte, T.sbyte, T.slonglong]) == llong_align + llong_size
+        assert self.sizeof([T.sbyte, T.sbyte, T.sbyte, T.sbyte, T.slonglong]) == llong_align + llong_size
+        ## assert self.sizeof([T.slonglong, T.sbyte]) == llong_size + llong_align
+        ## assert self.sizeof([T.slonglong, T.sbyte, T.sbyte]) == llong_size + llong_align
+        ## assert self.sizeof([T.slonglong, T.sbyte, T.sbyte, T.sbyte]) == llong_size + llong_align
+        ## assert self.sizeof([T.slonglong, T.sbyte, T.sbyte, T.sbyte, T.sbyte]) == llong_size + llong_align
+
 
 class AppTestStruct(BaseAppTestFFI):
 
