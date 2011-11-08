@@ -322,6 +322,10 @@ class UnrollOptimizer(Optimization):
             raise InvalidLoop
         debug_stop('jit-log-virtualstate')
 
+        maxguards = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.max_retrace_guards
+        if self.optimizer.emitted_guards > maxguards:
+            jumpop.getdescr().targeting_jitcell_token.retraced_count = sys.maxint
+            
     def finilize_short_preamble(self, start_label):
         short = self.short
         assert short[-1].getopnum() == rop.JUMP
