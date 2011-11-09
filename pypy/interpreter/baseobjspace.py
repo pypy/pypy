@@ -1298,6 +1298,17 @@ class ObjSpace(object):
             from pypy.rlib.rarithmetic import intmask
             return intmask(self.bigint_w(w_obj).uintmask())
 
+    def truncatedlonglong_w(self, w_obj):
+        # Like space.gateway_r_longlong_w(), but return the integer truncated
+        # instead of raising OverflowError.
+        try:
+            return self.r_longlong_w(w_obj)
+        except OperationError, e:
+            if not e.match(self, self.w_OverflowError):
+                raise
+            from pypy.rlib.rarithmetic import longlongmask
+            return longlongmask(self.bigint_w(w_obj).ulonglongmask())
+
     def c_filedescriptor_w(self, w_fd):
         # This is only used sometimes in CPython, e.g. for os.fsync() but
         # not os.close().  It's likely designed for 'select'.  It's irregular

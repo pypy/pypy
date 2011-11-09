@@ -213,6 +213,29 @@ class TestObjSpace:
         w_obj = space.wrap(-12)
         space.raises_w(space.w_ValueError, space.r_ulonglong_w, w_obj)
 
+    def test_truncatedlonglong_w(self):
+        space = self.space
+        w_value = space.wrap(12)
+        res = space.truncatedlonglong_w(w_value)
+        assert res == 12
+        assert type(res) is r_longlong
+        #
+        w_value = space.wrap(r_ulonglong(9223372036854775808))
+        res = space.truncatedlonglong_w(w_value)
+        assert res == -9223372036854775808
+        assert type(res) is r_longlong
+        #
+        w_value = space.wrap(r_ulonglong(18446744073709551615))
+        res = space.truncatedlonglong_w(w_value)
+        assert res == -1
+        assert type(res) is r_longlong
+        #
+        w_value = space.wrap(r_ulonglong(18446744073709551616))
+        res = space.truncatedlonglong_w(w_value)
+        assert res == 0
+        assert type(res) is r_longlong
+
+
     def test_call_obj_args(self):
         from pypy.interpreter.argument import Arguments
         
