@@ -171,6 +171,10 @@ class JitMixin:
     def check_jitcell_token_count(self, count):
         assert len(get_stats().jitcell_tokens) == count
 
+    def check_target_token_count(self, count):
+        n = sum([len(t.target_tokens) for t in get_stats().jitcell_tokens])
+        assert n == count
+
     def check_enter_count(self, count):
         assert get_stats().enter_count == count
     def check_enter_count_at_most(self, count):
