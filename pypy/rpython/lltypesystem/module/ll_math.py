@@ -11,15 +11,17 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import platform
 from pypy.rlib.rfloat import isfinite, isinf, isnan, INFINITY, NAN
 
+use_library_isinf_isnan = False
 if sys.platform == "win32":
     if platform.name == "msvc":
         # When compiled with /O2 or /Oi (enable intrinsic functions)
         # It's no more possible to take the address of some math functions.
         # Ensure that the compiler chooses real functions instead.
         eci = ExternalCompilationInfo(
-            includes = ['math.h'],
+            includes = ['math.h', 'float.h'],
             post_include_bits = ['#pragma function(floor)'],
             )
+        use_library_isinf_isnan = True
     else:
         eci = ExternalCompilationInfo()
     # Some math functions are C99 and not defined by the Microsoft compiler
@@ -112,17 +114,28 @@ VERY_LARGE_FLOAT = 1.0
 while VERY_LARGE_FLOAT * 100.0 != INFINITY:
     VERY_LARGE_FLOAT *= 64.0
 
+_lib_isnan = rffi.llexternal("_isnan", [lltype.Float], lltype.Signed,
+                             compilation_info=eci)
+_lib_finite = rffi.llexternal("_finite", [lltype.Float], lltype.Signed,
+                             compilation_info=eci)
+
 def ll_math_isnan(y):
     # By not calling into the external function the JIT can inline this.
     # Floats are awesome.
+    if use_library_isinf_isnan and not jit.we_are_jitted():
+        return _lib_isnan(y)
     return y != y
 
 def ll_math_isinf(y):
+    if use_library_isinf_isnan and not jit.we_are_jitted():
+        return not _lib_finite(y) and not _lib_isnan(y)
     return (y + VERY_LARGE_FLOAT) == y
 
 def ll_math_isfinite(y):
     # Use a custom hack that is reasonably well-suited to the JIT.
     # Floats are awesome (bis).
+    if use_library_isinf_isnan and not jit.we_are_jitted():
+        return _lib_finite(y)
     z = 0.0 * y
     return z == z       # i.e.: z is not a NaN
 
