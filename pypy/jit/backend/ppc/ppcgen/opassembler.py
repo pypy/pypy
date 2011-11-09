@@ -549,9 +549,7 @@ class OpAssembler(object):
         #the actual call
         if IS_PPC_32:
             self.mc.bl_abs(adr)
-            self.mc.lwz(0, 1, stack_space + WORD)
-            self.mc.mtlr(0)
-            self.mc.addi(1, 1, stack_space)
+            self.mc.lwz(r.r0.value, r.SP.value, stack_space + WORD)
         else:
             self.mc.std(r.r2.value, r.SP.value, 40)
             self.mc.load_from_addr(r.r0, adr)
@@ -560,6 +558,9 @@ class OpAssembler(object):
             self.mc.mtctr(r.r0.value)
             self.mc.bctrl()
             self.mc.ld(r.r2.value, r.SP.value, 40)
+            self.mc.ld(r.r0.value, r.SP.value, stack_space + WORD)
+        self.mc.mtlr(r.r0.value)
+        self.mc.addi(r.SP.value, r.SP.value, stack_space)
 
         self.mark_gc_roots(force_index)
         regalloc.possibly_free_vars(args)
