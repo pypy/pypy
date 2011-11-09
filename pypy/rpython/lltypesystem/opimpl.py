@@ -232,8 +232,8 @@ def op_int_xor(x, y):
     # used in computing hashes
     if isinstance(x, AddressAsInt): x = llmemory.cast_adr_to_int(x.adr)
     if isinstance(y, AddressAsInt): y = llmemory.cast_adr_to_int(y.adr)
-    assert isinstance(x, int)
-    assert isinstance(y, int)
+    assert isinstance(x, (int, long))
+    assert isinstance(y, (int, long))
     return x ^ y
 
 def op_int_mul(x, y):
