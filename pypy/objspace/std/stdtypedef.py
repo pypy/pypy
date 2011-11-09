@@ -37,7 +37,7 @@ def issubtypedef(a, b):
     if a is b:
         return True
     for a1 in a.bases:
-        if issubtypedef(a1, b1):
+        if issubtypedef(a1, b):
             return True
     return False
 
