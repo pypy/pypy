@@ -161,7 +161,7 @@ class W__StructInstance(Wrappable):
             value = libffi.struct_getfield_singlefloat(w_ffitype.ffitype, self.rawmem, offset)
             return space.wrap(float(value))
         #
-        assert False, 'unknown type'
+        raise operationerrfmt(space.w_TypeError, 'Unknown type: %s', w_ffitype.name)
 
     @unwrap_spec(name=str)
     def setfield(self, space, name, w_value):
@@ -191,7 +191,7 @@ class W__StructInstance(Wrappable):
             libffi.struct_setfield_singlefloat(w_ffitype.ffitype, self.rawmem, offset, value)
             return
         #
-        assert False, 'unknown type'
+        raise operationerrfmt(space.w_TypeError, 'Unknown type: %s', w_ffitype.name)
 
 W__StructInstance.typedef = TypeDef(
     '_StructInstance',

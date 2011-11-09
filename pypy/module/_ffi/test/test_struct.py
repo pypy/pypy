@@ -2,7 +2,7 @@ import sys
 from pypy.conftest import gettestobjspace
 from pypy.module._ffi.test.test_funcptr import BaseAppTestFFI
 from pypy.module._ffi.interp_struct import compute_size_and_alignement, W_Field
-from pypy.module._ffi.interp_ffitype import app_types
+from pypy.module._ffi.interp_ffitype import app_types, W_FFIType
 
 
 class TestStruct(object):
@@ -53,6 +53,14 @@ class AppTestStruct(BaseAppTestFFI):
             lst = [array[i] for i in range(length)]
             return lst
         cls.w_read_raw_mem = cls.space.wrap(read_raw_mem)
+        #
+        from pypy.rlib import clibffi
+        from pypy.rlib.rarithmetic import r_uint
+        from pypy.rpython.lltypesystem import lltype, rffi
+        dummy_type = lltype.malloc(clibffi.FFI_TYPE_P.TO, flavor='raw')
+        dummy_type.c_size = r_uint(123)
+        dummy_type.c_alignment = rffi.cast(rffi.USHORT, 0)
+        cls.w_dummy_type = W_FFIType('dummy', dummy_type)
         
     def test__StructDescr(self):
         from _ffi import _StructDescr, Field, types
@@ -88,6 +96,16 @@ class AppTestStruct(BaseAppTestFFI):
         struct = descr.allocate()
         raises(AttributeError, "struct.getfield('missing')")
         raises(AttributeError, "struct.setfield('missing', 42)")
+
+    def test_unknown_type(self):
+        from _ffi import _StructDescr, Field
+        fields = [
+            Field('x', self.dummy_type),
+            ]
+        descr = _StructDescr('foo', fields)
+        struct = descr.allocate()
+        raises(TypeError, "struct.getfield('x')")
+        raises(TypeError, "struct.setfield('x', 42)")
 
     def test_getfield_setfield(self):
         from _ffi import _StructDescr, Field, types
