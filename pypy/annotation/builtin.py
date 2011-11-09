@@ -294,6 +294,9 @@ def conf():
 def rarith_intmask(s_obj):
     return SomeInteger()
 
+def rarith_longlongmask(s_obj):
+    return SomeInteger(knowntype=pypy.rlib.rarithmetic.r_longlong)
+
 def robjmodel_instantiate(s_clspbc):
     assert isinstance(s_clspbc, SomePBC)
     clsdef = None
@@ -372,6 +375,7 @@ for name, value in globals().items():
         BUILTIN_ANALYZERS[original] = value
 
 BUILTIN_ANALYZERS[pypy.rlib.rarithmetic.intmask] = rarith_intmask
+BUILTIN_ANALYZERS[pypy.rlib.rarithmetic.longlongmask] = rarith_longlongmask
 BUILTIN_ANALYZERS[pypy.rlib.objectmodel.instantiate] = robjmodel_instantiate
 BUILTIN_ANALYZERS[pypy.rlib.objectmodel.r_dict] = robjmodel_r_dict
 BUILTIN_ANALYZERS[pypy.rlib.objectmodel.hlinvoke] = robjmodel_hlinvoke

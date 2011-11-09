@@ -5,7 +5,7 @@ from pypy.rlib.objectmodel import running_on_llinterp
 from pypy.rlib.debug import llinterpcall
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool import udir
-from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask, longlongmask, r_int64
 from pypy.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
 from pypy.annotation.builtin import *
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
@@ -78,6 +78,16 @@ class BaseTestRbuiltin(BaseRtypingTest):
 
         res = self.interpret(f, [r_uint(5)])
         assert type(res) is int and res == 5
+
+    def test_longlongmask(self):
+        def f(x=r_ulonglong):
+            try:
+                return longlongmask(x)
+            except ValueError:
+                return 0
+
+        res = self.interpret(f, [r_ulonglong(5)])
+        assert type(res) is r_int64 and res == 5
 
     def test_rbuiltin_list(self):
         def f(): 
