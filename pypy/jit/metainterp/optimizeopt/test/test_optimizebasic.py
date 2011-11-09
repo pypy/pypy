@@ -9,6 +9,7 @@ from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
 from pypy.jit.metainterp import executor, compile, resume, history
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
+from pypy.rlib.rarithmetic import LONG_BIT
 
 
 def test_store_final_boxes_in_guard():
@@ -39,8 +40,9 @@ def test_store_final_boxes_in_guard():
 
 def test_sharing_field_lists_of_virtual():
     class FakeOptimizer(object):
-        class cpu(object):
-            pass
+        class optimizer(object):
+            class cpu(object):
+                pass
     opt = FakeOptimizer()
     virt1 = virtualize.AbstractVirtualStructValue(opt, None)
     lst1 = virt1._get_field_descr_list()
@@ -69,7 +71,7 @@ def test_reuse_vinfo():
     class FakeVirtualValue(virtualize.AbstractVirtualValue):
         def _make_virtual(self, *args):
             return FakeVInfo()
-    v1 = FakeVirtualValue(None, None, None)
+    v1 = FakeVirtualValue(None, None)
     vinfo1 = v1.make_virtual_info(None, [1, 2, 4])
     vinfo2 = v1.make_virtual_info(None, [1, 2, 4])
     assert vinfo1 is vinfo2
@@ -111,7 +113,7 @@ def test_descrlist_dict():
 
 class BaseTestBasic(BaseTest):
 
-    enable_opts = "intbounds:rewrite:virtualize:string:heap"
+    enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap"
 
     def optimize_loop(self, ops, optops, call_pure_results=None):
 
@@ -507,13 +509,13 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [p0]
         guard_class(p0, ConstClass(node_vtable)) []
-        i0 = ptr_ne(p0, NULL)
+        i0 = instance_ptr_ne(p0, NULL)
         guard_true(i0) []
-        i1 = ptr_eq(p0, NULL)
+        i1 = instance_ptr_eq(p0, NULL)
         guard_false(i1) []
-        i2 = ptr_ne(NULL, p0)
+        i2 = instance_ptr_ne(NULL, p0)
         guard_true(i0) []
-        i3 = ptr_eq(NULL, p0)
+        i3 = instance_ptr_eq(NULL, p0)
         guard_false(i1) []
         jump(p0)
         """
@@ -651,8 +653,8 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i3 = getfield_gc(p3, descr=valuedescr)
         escape(i3)
         p1 = new_with_vtable(ConstClass(node_vtable))
-        setfield_gc(p1, i1, descr=valuedescr)
         p1sub = new_with_vtable(ConstClass(node_vtable2))
+        setfield_gc(p1, i1, descr=valuedescr)
         setfield_gc(p1sub, i1, descr=valuedescr)
         setfield_gc(p1, p1sub, descr=nextdescr)
         jump(i1, p1, p2)
@@ -667,10 +669,10 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         p3sub = getfield_gc(p3, descr=nextdescr)
         i3 = getfield_gc(p3sub, descr=valuedescr)
         escape(i3)
+        p1 = new_with_vtable(ConstClass(node_vtable))
         p2sub = new_with_vtable(ConstClass(node_vtable2))
         setfield_gc(p2sub, i1, descr=valuedescr)
         setfield_gc(p2, p2sub, descr=nextdescr)
-        p1 = new_with_vtable(ConstClass(node_vtable))
         jump(i1, p1, p2)
         """
         # The same as test_p123_simple, but in the end the "old" p2 contains
@@ -679,25 +681,60 @@ class BaseTestOptimizeBasic(BaseTestBasic):
 
     # ----------
 
-    def test_fold_guard_no_exception(self):
+    def test_keep_guard_no_exception(self):
         ops = """
-        [i]
-        guard_no_exception() []
-        i1 = int_add(i, 3)
-        guard_no_exception() []
+        [i1]
         i2 = call(i1, descr=nonwritedescr)
         guard_no_exception() [i1, i2]
-        guard_no_exception() []
-        i3 = call(i2, descr=nonwritedescr)
-        jump(i1)       # the exception is considered lost when we loop back
+        jump(i2)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_keep_guard_no_exception_with_call_pure_that_is_not_folded(self):
+        ops = """
+        [i1]
+        i2 = call_pure(123456, i1, descr=nonwritedescr)
+        guard_no_exception() [i1, i2]
+        jump(i2)
         """
         expected = """
-        [i]
-        i1 = int_add(i, 3)
-        i2 = call(i1, descr=nonwritedescr)
+        [i1]
+        i2 = call(123456, i1, descr=nonwritedescr)
         guard_no_exception() [i1, i2]
-        i3 = call(i2, descr=nonwritedescr)
-        jump(i1)
+        jump(i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_remove_guard_no_exception_with_call_pure_on_constant_args(self):
+        arg_consts = [ConstInt(i) for i in (123456, 81)]
+        call_pure_results = {tuple(arg_consts): ConstInt(5)}
+        ops = """
+        [i1]
+        i3 = same_as(81)
+        i2 = call_pure(123456, i3, descr=nonwritedescr)
+        guard_no_exception() [i1, i2]
+        jump(i2)
+        """
+        expected = """
+        [i1]
+        jump(5)
+        """
+        self.optimize_loop(ops, expected, call_pure_results)
+
+    def test_remove_guard_no_exception_with_duplicated_call_pure(self):
+        ops = """
+        [i1]
+        i2 = call_pure(123456, i1, descr=nonwritedescr)
+        guard_no_exception() [i1, i2]
+        i3 = call_pure(123456, i1, descr=nonwritedescr)
+        guard_no_exception() [i1, i2, i3]
+        jump(i3)
+        """
+        expected = """
+        [i1]
+        i2 = call(123456, i1, descr=nonwritedescr)
+        guard_no_exception() [i1, i2]
+        jump(i2)
         """
         self.optimize_loop(ops, expected)
 
@@ -934,7 +971,6 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
-
     def test_virtual_constant_isnonnull(self):
         ops = """
         [i0]
@@ -947,6 +983,55 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         expected = """
         [i0]
         jump(0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_virtual_array_of_struct(self):
+        ops = """
+        [f0, f1, f2, f3]
+        p0 = new_array(2, descr=complexarraydescr)
+        setinteriorfield_gc(p0, 0, f0, descr=complexrealdescr)
+        setinteriorfield_gc(p0, 0, f1, descr=compleximagdescr)
+        setinteriorfield_gc(p0, 1, f2, descr=complexrealdescr)
+        setinteriorfield_gc(p0, 1, f3, descr=compleximagdescr)
+        f4 = getinteriorfield_gc(p0, 0, descr=complexrealdescr)
+        f5 = getinteriorfield_gc(p0, 1, descr=complexrealdescr)
+        f6 = float_mul(f4, f5)
+        f7 = getinteriorfield_gc(p0, 0, descr=compleximagdescr)
+        f8 = getinteriorfield_gc(p0, 1, descr=compleximagdescr)
+        f9 = float_mul(f7, f8)
+        f10 = float_add(f6, f9)
+        finish(f10)
+        """
+        expected = """
+        [f0, f1, f2, f3]
+        f4 = float_mul(f0, f2)
+        f5 = float_mul(f1, f3)
+        f6 = float_add(f4, f5)
+        finish(f6)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_virtual_array_of_struct_forced(self):
+        ops = """
+        [f0, f1]
+        p0 = new_array(1, descr=complexarraydescr)
+        setinteriorfield_gc(p0, 0, f0, descr=complexrealdescr)
+        setinteriorfield_gc(p0, 0, f1, descr=compleximagdescr)
+        f2 = getinteriorfield_gc(p0, 0, descr=complexrealdescr)
+        f3 = getinteriorfield_gc(p0, 0, descr=compleximagdescr)
+        f4 = float_mul(f2, f3)
+        i0 = escape(f4, p0)
+        finish(i0)
+        """
+        expected = """
+        [f0, f1]
+        f2 = float_mul(f0, f1)
+        p0 = new_array(1, descr=complexarraydescr)
+        setinteriorfield_gc(p0, 0, f0, descr=complexrealdescr)
+        setinteriorfield_gc(p0, 0, f1, descr=compleximagdescr)
+        i0 = escape(f2, p0)
+        finish(i0)
         """
         self.optimize_loop(ops, expected)
 
@@ -2025,7 +2110,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         ops = """
         [p1]
         guard_class(p1, ConstClass(node_vtable2)) []
-        i = ptr_ne(ConstPtr(myptr), p1)
+        i = instance_ptr_ne(ConstPtr(myptr), p1)
         guard_true(i) []
         jump(p1)
         """
@@ -2180,6 +2265,17 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+        ops = """
+        [i0]
+        i1 = int_floordiv(0, i0)
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(0)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_fold_partially_constant_ops_ovf(self):
         ops = """
         [i0]
@@ -2328,7 +2424,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         def _variables_equal(box, varname, strict):
             if varname not in virtuals:
                 if strict:
-                    assert box == oparse.getvar(varname)
+                    assert box.same_box(oparse.getvar(varname))
                 else:
                     assert box.value == oparse.getvar(varname).value
             else:
@@ -4062,6 +4158,38 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_strunicode_loop(ops, expected)
 
+    def test_str_concat_constant_lengths(self):
+        ops = """
+        [i0]
+        p0 = newstr(1)
+        strsetitem(p0, 0, i0)
+        p1 = newstr(0)
+        p2 = call(0, p0, p1, descr=strconcatdescr)
+        i1 = call(0, p2, p0, descr=strequaldescr)
+        finish(i1)
+        """
+        expected = """
+        [i0]
+        finish(1)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
+    def test_str_concat_constant_lengths_2(self):
+        ops = """
+        [i0]
+        p0 = newstr(0)
+        p1 = newstr(1)
+        strsetitem(p1, 0, i0)
+        p2 = call(0, p0, p1, descr=strconcatdescr)
+        i1 = call(0, p2, p1, descr=strequaldescr)
+        finish(i1)
+        """
+        expected = """
+        [i0]
+        finish(1)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
     def test_str_slice_1(self):
         ops = """
         [p1, i1, i2]
@@ -4164,15 +4292,38 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_strunicode_loop(ops, expected)
 
+    def test_str_slice_plain_virtual(self):
+        ops = """
+        []
+        p0 = newstr(11)
+        copystrcontent(s"hello world", p0, 0, 0, 11)
+        p1 = call(0, p0, 0, 5, descr=strslicedescr)
+        finish(p1)
+        """
+        expected = """
+        []
+        p0 = newstr(11)
+        copystrcontent(s"hello world", p0, 0, 0, 11)
+        # Eventually this should just return s"hello", but ATM this test is
+        # just verifying that it doesn't return "\0\0\0\0\0", so being
+        # slightly underoptimized is ok.
+        p1 = newstr(5)
+        copystrcontent(p0, p1, 0, 0, 5)
+        finish(p1)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
     # ----------
     def optimize_strunicode_loop_extradescrs(self, ops, optops):
         class FakeCallInfoCollection:
             def callinfo_for_oopspec(self, oopspecindex):
                 calldescrtype = type(LLtypeMixin.strequaldescr)
+                effectinfotype = type(LLtypeMixin.strequaldescr.get_extra_info())
                 for value in LLtypeMixin.__dict__.values():
                     if isinstance(value, calldescrtype):
                         extra = value.get_extra_info()
-                        if extra and extra.oopspecindex == oopspecindex:
+                        if (extra and isinstance(extra, effectinfotype) and
+                            extra.oopspecindex == oopspecindex):
                             # returns 0 for 'func' in this test
                             return value, 0
                 raise AssertionError("not found: oopspecindex=%d" %
@@ -4652,11 +4803,11 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i5 = int_ge(i0, 0)
         guard_true(i5) []
         i1 = int_mod(i0, 42)
-        i2 = int_rshift(i1, 63)
+        i2 = int_rshift(i1, %d)
         i3 = int_and(42, i2)
         i4 = int_add(i1, i3)
         finish(i4)
-        """
+        """ % (LONG_BIT-1)
         expected = """
         [i0]
         i5 = int_ge(i0, 0)
@@ -4664,21 +4815,41 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         i1 = int_mod(i0, 42)
         finish(i1)
         """
-        py.test.skip("in-progress")
         self.optimize_loop(ops, expected)
 
-        # Also, 'n % power-of-two' can be turned into int_and(),
-        # but that's a bit harder to detect here because it turns into
-        # several operations, and of course it is wrong to just turn
+        # 'n % power-of-two' can be turned into int_and(); at least that's
+        # easy to do now if n is known to be non-negative.
+        ops = """
+        [i0]
+        i5 = int_ge(i0, 0)
+        guard_true(i5) []
+        i1 = int_mod(i0, 8)
+        i2 = int_rshift(i1, %d)
+        i3 = int_and(42, i2)
+        i4 = int_add(i1, i3)
+        finish(i4)
+        """ % (LONG_BIT-1)
+        expected = """
+        [i0]
+        i5 = int_ge(i0, 0)
+        guard_true(i5) []
+        i1 = int_and(i0, 7)
+        finish(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+        # Of course any 'maybe-negative % power-of-two' can be turned into
+        # int_and(), but that's a bit harder to detect here because it turns
+        # into several operations, and of course it is wrong to just turn
         # int_mod(i0, 16) into int_and(i0, 15).
         ops = """
         [i0]
         i1 = int_mod(i0, 16)
-        i2 = int_rshift(i1, 63)
+        i2 = int_rshift(i1, %d)
         i3 = int_and(16, i2)
         i4 = int_add(i1, i3)
         finish(i4)
-        """
+        """ % (LONG_BIT-1)
         expected = """
         [i0]
         i4 = int_and(i0, 15)
@@ -4686,6 +4857,16 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         py.test.skip("harder")
         self.optimize_loop(ops, expected)
+
+    def test_intmod_bounds_bug1(self):
+        ops = """
+        [i0]
+        i1 = int_mod(i0, %d)
+        i2 = int_eq(i1, 0)
+        guard_false(i2) []
+        finish()
+        """ % (-(1<<(LONG_BIT-1)),)
+        self.optimize_loop(ops, ops)
 
     def test_bounded_lazy_setfield(self):
         ops = """
@@ -4708,6 +4889,141 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         setarrayitem_gc(p0, 0, 3)
         setarrayitem_gc(p0, 2, 4)
         jump(p0, 4)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_empty_copystrunicontent(self):
+        ops = """
+        [p0, p1, i0, i2, i3]
+        i4 = int_eq(i3, 0)
+        guard_true(i4) []
+        copystrcontent(p0, p1, i0, i2, i3)
+        jump(p0, p1, i0, i2, i3)
+        """
+        expected = """
+        [p0, p1, i0, i2, i3]
+        i4 = int_eq(i3, 0)
+        guard_true(i4) []
+        jump(p0, p1, i0, i2, 0)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
+    def test_empty_copystrunicontent_virtual(self):
+        ops = """
+        [p0]
+        p1 = newstr(23)
+        copystrcontent(p0, p1, 0, 0, 0)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        jump(p0)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
+    def test_forced_virtuals_aliasing(self):
+        ops = """
+        [i0, i1]
+        p0 = new(descr=ssize)
+        p1 = new(descr=ssize)
+        escape(p0)
+        escape(p1)
+        setfield_gc(p0, i0, descr=adescr)
+        setfield_gc(p1, i1, descr=adescr)
+        i2 = getfield_gc(p0, descr=adescr)
+        jump(i2, i2)
+        """
+        expected = """
+        [i0, i1]
+        p0 = new(descr=ssize)
+        escape(p0)
+        p1 = new(descr=ssize)
+        escape(p1)
+        setfield_gc(p0, i0, descr=adescr)
+        setfield_gc(p1, i1, descr=adescr)
+        jump(i0, i0)
+        """
+        py.test.skip("not implemented")
+        # setfields on things that used to be virtual still can't alias each
+        # other
+        self.optimize_loop(ops, expected)
+
+    def test_plain_virtual_string_copy_content(self):
+        ops = """
+        [i1]
+        p0 = newstr(6)
+        copystrcontent(s"hello!", p0, 0, 0, 6)
+        p1 = call(0, p0, s"abc123", descr=strconcatdescr)
+        i0 = strgetitem(p1, i1)
+        finish(i0)
+        """
+        expected = """
+        [i1]
+        p0 = newstr(6)
+        copystrcontent(s"hello!", p0, 0, 0, 6)
+        p1 = newstr(12)
+        copystrcontent(p0, p1, 0, 0, 6)
+        copystrcontent(s"abc123", p1, 0, 6, 6)
+        i0 = strgetitem(p1, i1)
+        finish(i0)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
+    def test_plain_virtual_string_copy_content_2(self):
+        ops = """
+        []
+        p0 = newstr(6)
+        copystrcontent(s"hello!", p0, 0, 0, 6)
+        p1 = call(0, p0, s"abc123", descr=strconcatdescr)
+        i0 = strgetitem(p1, 0)
+        finish(i0)
+        """
+        expected = """
+        []
+        p0 = newstr(6)
+        copystrcontent(s"hello!", p0, 0, 0, 6)
+        i0 = strgetitem(p0, 0)
+        finish(i0)
+        """
+        self.optimize_strunicode_loop(ops, expected)
+
+    def test_ptr_eq_str_constant(self):
+        ops = """
+        []
+        i0 = ptr_eq(s"abc", s"\x00")
+        finish(i0)
+        """
+        expected = """
+        []
+        finish(0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_known_equal_ints(self):
+        py.test.skip("in-progress")
+        ops = """
+        [i0, i1, i2, p0]
+        i3 = int_eq(i0, i1)
+        guard_true(i3) []
+
+        i4 = int_lt(i2, i0)
+        guard_true(i4) []
+        i5 = int_lt(i2, i1)
+        guard_true(i5) []
+
+        i6 = getarrayitem_gc(p0, i2)
+        finish(i6)
+        """
+        expected = """
+        [i0, i1, i2, p0]
+        i3 = int_eq(i0, i1)
+        guard_true(i3) []
+
+        i4 = int_lt(i2, i0)
+        guard_true(i4) []
+
+        i6 = getarrayitem_gc(p0, i3)
+        finish(i6)
         """
         self.optimize_loop(ops, expected)
 

@@ -57,6 +57,9 @@ class CConfig:
         compile_extra=['-DPy_BUILD_CORE'],
         )
 
+class CConfig2:
+    _compilation_info_ = CConfig._compilation_info_
+
 class CConfig_constants:
     _compilation_info_ = CConfig._compilation_info_
 
@@ -300,9 +303,13 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, external=True):
         return unwrapper_raise # used in 'normal' RPython code.
     return decorate
 
-def cpython_struct(name, fields, forward=None):
+def cpython_struct(name, fields, forward=None, level=1):
     configname = name.replace(' ', '__')
-    setattr(CConfig, configname, rffi_platform.Struct(name, fields))
+    if level == 1:
+        config = CConfig
+    else:
+        config = CConfig2
+    setattr(config, configname, rffi_platform.Struct(name, fields))
     if forward is None:
         forward = lltype.ForwardReference()
     TYPES[configname] = forward
@@ -385,6 +392,7 @@ def build_exported_objects():
         'Slice': 'space.gettypeobject(W_SliceObject.typedef)',
         'StaticMethod': 'space.gettypeobject(StaticMethod.typedef)',
         'CFunction': 'space.gettypeobject(cpyext.methodobject.W_PyCFunctionObject.typedef)',
+        'WrapperDescr': 'space.gettypeobject(cpyext.methodobject.W_PyCMethodObject.typedef)'
         }.items():
         GLOBALS['Py%s_Type#' % (cpyname, )] = ('PyTypeObject*', pypyexpr)
 
@@ -445,9 +453,10 @@ VA_TP_LIST = {}
 #              'int*': rffi.INTP}
 
 def configure_types():
-    for name, TYPE in rffi_platform.configure(CConfig).iteritems():
-        if name in TYPES:
-            TYPES[name].become(TYPE)
+    for config in (CConfig, CConfig2):
+        for name, TYPE in rffi_platform.configure(config).iteritems():
+            if name in TYPES:
+                TYPES[name].become(TYPE)
 
 def build_type_checkers(type_name, cls=None):
     """

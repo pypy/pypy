@@ -18,8 +18,8 @@ class TestSnippet(object):
         t = TranslationContext()
         t.buildannotator().build_types(func, types)
         t.buildrtyper().specialize()
-        t.checkgraphs()    
-     
+        t.checkgraphs()
+
     def test_not1(self):
         self._test(snippet.not1, [int])
 
@@ -44,7 +44,7 @@ class TestSnippet(object):
 
 
 class BaseTestRint(BaseRtypingTest):
-    
+
     def test_char_constant(self):
         def dummyfn(i):
             return chr(i)

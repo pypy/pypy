@@ -83,7 +83,7 @@ ENTRIES = lltype.Array(ENTRY,
                        })
 DICT = lltype.Struct('DICT', ('entries', lltype.Ptr(ENTRIES)),
                              ('num_items', lltype.Signed),
-                             ('num_pristine_entries', lltype.Signed),
+                             ('resize_counter', lltype.Signed),
                      adtmeths = {
                          'allocate': dict_allocate,
                          'delete': dict_delete,

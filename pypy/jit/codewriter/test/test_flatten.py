@@ -5,10 +5,10 @@ from pypy.jit.codewriter.flatten import GraphFlattener, ListOfKind, Register
 from pypy.jit.codewriter.format import assert_format
 from pypy.jit.codewriter import longlong
 from pypy.jit.metainterp.history import AbstractDescr
-from pypy.rpython.lltypesystem import lltype, rclass, rstr
+from pypy.rpython.lltypesystem import lltype, rclass, rstr, rffi
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.translator.unsimplify import varoftype
-from pypy.rlib.rarithmetic import ovfcheck, r_uint
+from pypy.rlib.rarithmetic import ovfcheck, r_uint, r_longlong, r_ulonglong
 from pypy.rlib.jit import dont_look_inside, _we_are_jitted, JitDriver
 from pypy.rlib.objectmodel import keepalive_until_here
 from pypy.rlib import jit
@@ -70,7 +70,8 @@ class FakeCallControl:
         return 'residual'
     def getcalldescr(self, op, oopspecindex=None, extraeffect=None):
         try:
-            if 'cannot_raise' in op.args[0].value._obj.graph.name:
+            name = op.args[0].value._obj._name
+            if 'cannot_raise' in name or name.startswith('cast_'):
                 return self._descr_cannot_raise
         except AttributeError:
             pass
@@ -742,7 +743,6 @@ class TestFlatten:
         """, transform=True)
 
     def test_force_cast(self):
-        from pypy.rpython.lltypesystem import rffi
         # NB: we don't need to test for INT here, the logic in jtransform is
         # general enough so that if we have the below cases it should
         # generalize also to INT
@@ -829,14 +829,15 @@ class TestFlatten:
                     self.encoding_test(f, [rffi.cast(FROM, 42)], expectedstr,
                                        transform=True)
                 elif TO in (rffi.LONG, rffi.ULONG):
-                    if TO == rffi.LONG:
-                        TO = rffi.LONGLONG
-                    else:
-                        TO = rffi.ULONGLONG
                     if rffi.cast(FROM, -1) < 0:
                         fnname = "llong_from_int"
                     else:
                         fnname = "llong_from_uint"
+                    if TO == rffi.LONG:
+                        TO = rffi.LONGLONG
+                    else:
+                        TO = rffi.ULONGLONG
+                        fnname = "u" + fnname
                     expected.pop()   # remove int_return
                     expected.append(
                         "residual_call_irf_f $<* fn %s>, <Descr>, I[%s], R[], F[] -> %%f0"
@@ -847,7 +848,6 @@ class TestFlatten:
                                        transform=True)
 
     def test_force_cast_pointer(self):
-        from pypy.rpython.lltypesystem import rffi
         def h(p):
             return rffi.cast(rffi.VOIDP, p)
         self.encoding_test(h, [lltype.nullptr(rffi.CCHARP.TO)], """
@@ -855,7 +855,6 @@ class TestFlatten:
         """, transform=True)
 
     def test_force_cast_floats(self):
-        from pypy.rpython.lltypesystem import rffi
         # Caststs to lltype.Float
         def f(n):
             return rffi.cast(lltype.Float, n)
@@ -899,9 +898,69 @@ class TestFlatten:
             int_return %i4
         """, transform=True)
 
+        def f(dbl):
+            return rffi.cast(rffi.UCHAR, dbl)
+        self.encoding_test(f, [12.456], """
+            cast_float_to_int %f0 -> %i0
+            int_and %i0, $255 -> %i1
+            int_return %i1
+        """, transform=True)
+
+        def f(dbl):
+            return rffi.cast(lltype.Unsigned, dbl)
+        self.encoding_test(f, [12.456], """
+            residual_call_irf_i $<* fn cast_float_to_uint>, <Descr>, I[], R[], F[%f0] -> %i0
+            int_return %i0
+        """, transform=True)
+
+        def f(i):
+            return rffi.cast(lltype.Float, chr(i))    # "char -> float"
+        self.encoding_test(f, [12], """
+            cast_int_to_float %i0 -> %f0
+            float_return %f0
+        """, transform=True)
+
+        def f(i):
+            return rffi.cast(lltype.Float, r_uint(i))    # "uint -> float"
+        self.encoding_test(f, [12], """
+            residual_call_irf_f $<* fn cast_uint_to_float>, <Descr>, I[%i0], R[], F[] -> %f0
+            float_return %f0
+        """, transform=True)
+
+        if not longlong.is_64_bit:
+            def f(dbl):
+                return rffi.cast(lltype.SignedLongLong, dbl)
+            self.encoding_test(f, [12.3], """
+                residual_call_irf_f $<* fn llong_from_float>, <Descr>, I[], R[], F[%f0] -> %f1
+                float_return %f1
+            """, transform=True)
+
+            def f(dbl):
+                return rffi.cast(lltype.UnsignedLongLong, dbl)
+            self.encoding_test(f, [12.3], """
+                residual_call_irf_f $<* fn ullong_from_float>, <Descr>, I[], R[], F[%f0] -> %f1
+                float_return %f1
+            """, transform=True)
+
+            def f(x):
+                ll = r_longlong(x)
+                return rffi.cast(lltype.Float, ll)
+            self.encoding_test(f, [12], """
+                residual_call_irf_f $<* fn llong_from_int>, <Descr>, I[%i0], R[], F[] -> %f0
+                residual_call_irf_f $<* fn llong_to_float>, <Descr>, I[], R[], F[%f0] -> %f1
+                float_return %f1
+            """, transform=True)
+
+            def f(x):
+                ll = r_ulonglong(x)
+                return rffi.cast(lltype.Float, ll)
+            self.encoding_test(f, [12], """
+                residual_call_irf_f $<* fn ullong_from_int>, <Descr>, I[%i0], R[], F[] -> %f0
+                residual_call_irf_f $<* fn ullong_u_to_float>, <Descr>, I[], R[], F[%f0] -> %f1
+                float_return %f1
+            """, transform=True)
 
     def test_direct_ptradd(self):
-        from pypy.rpython.lltypesystem import rffi
         def f(p, n):
             return lltype.direct_ptradd(p, n)
         self.encoding_test(f, [lltype.nullptr(rffi.CCHARP.TO), 123], """
@@ -912,7 +971,6 @@ class TestFlatten:
 
 def check_force_cast(FROM, TO, operations, value):
     """Check that the test is correctly written..."""
-    from pypy.rpython.lltypesystem import rffi
     import re
     r = re.compile('(\w+) \%i\d, \$(-?\d+)')
     #

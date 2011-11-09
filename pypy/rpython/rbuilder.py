@@ -1,13 +1,11 @@
 
 from pypy.rpython.rmodel import Repr
-from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype
 from pypy.rlib.rstring import INIT_SIZE
 from pypy.annotation.model import SomeChar, SomeUnicodeCodePoint
 
 class AbstractStringBuilderRepr(Repr):
     def rtyper_new(self, hop):
-        repr = hop.r_result
         if len(hop.args_v) == 0:
             v_arg = hop.inputconst(lltype.Signed, INIT_SIZE)
         else:
@@ -50,3 +48,13 @@ class AbstractStringBuilderRepr(Repr):
         vlist = hop.inputargs(self)
         hop.exception_cannot_occur()
         return hop.gendirectcall(self.ll_build, *vlist)
+
+    def rtype_is_true(self, hop):
+        vlist = hop.inputargs(self)
+        hop.exception_cannot_occur()
+        return hop.gendirectcall(self.ll_is_true, *vlist)
+        
+    def convert_const(self, value):
+        if not value is None:
+            raise TypeError("Prebuilt builedrs that are not none unsupported")
+        return self.empty()

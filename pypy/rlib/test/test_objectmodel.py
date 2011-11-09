@@ -339,6 +339,19 @@ class BaseTestObjectModel(BaseRtypingTest):
         res = self.interpret(f, [42])
         assert res == 84
 
+    def test_isconstant(self):
+        from pypy.rlib.objectmodel import is_annotation_constant, specialize
+
+        @specialize.arg_or_var(0)
+        def f(arg):
+            if is_annotation_constant(arg):
+                return 1
+            return 10
+
+        def fn(arg):
+            return f(arg) + f(3)
+
+        assert self.interpret(fn, [15]) == 11
 
 class TestLLtype(BaseTestObjectModel, LLRtypeMixin):
 
@@ -424,3 +437,31 @@ def getgraph(f, argtypes):
     if option.view:
         graph.show()
     return graph
+
+
+def test_newlist():
+    from pypy.annotation.model import SomeInteger
+    def f(z):
+        x = newlist(sizehint=38)
+        if z < 0:
+            x.append(1)
+        return len(x)
+
+    graph = getgraph(f, [SomeInteger()])
+    for llop in graph.startblock.operations:
+        if llop.opname == 'malloc_varsize':
+            break
+    assert llop.args[2].value == 38
+
+def test_newlist_nonconst():
+    from pypy.annotation.model import SomeInteger
+    def f(z):
+        x = newlist(sizehint=z)
+        return len(x)
+
+    graph = getgraph(f, [SomeInteger()])
+    for llop in graph.startblock.operations:
+        if llop.opname == 'malloc_varsize':
+            break
+    assert llop.args[2] is graph.startblock.inputargs[0]
+    

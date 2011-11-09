@@ -7,9 +7,7 @@ when executing on top of the llinterpreter.
 import weakref
 from pypy.objspace.flow.model import Variable, Constant
 from pypy.annotation import model as annmodel
-from pypy.jit.metainterp.history import (ConstInt, ConstPtr,
-                                         BoxInt, BoxPtr, BoxObj, BoxFloat,
-                                         REF, INT, FLOAT)
+from pypy.jit.metainterp.history import REF, INT, FLOAT
 from pypy.jit.codewriter import heaptracker
 from pypy.rpython.lltypesystem import lltype, llmemory, rclass, rstr, rffi
 from pypy.rpython.ootypesystem import ootype
@@ -17,7 +15,7 @@ from pypy.rpython.module.support import LLSupport, OOSupport
 from pypy.rpython.llinterp import LLException
 from pypy.rpython.extregistry import ExtRegistryEntry
 
-from pypy.jit.metainterp import resoperation, executor
+from pypy.jit.metainterp import resoperation
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llgraph import symbolic
 from pypy.jit.codewriter import longlong
@@ -165,6 +163,7 @@ TYPES = {
     'unicodegetitem'  : (('ref', 'int'), 'int'),
     'unicodesetitem'  : (('ref', 'int', 'int'), 'int'),
     'cast_ptr_to_int' : (('ref',), 'int'),
+    'cast_int_to_ptr' : (('int',), 'ref'),
     'debug_merge_point': (('ref', 'int'), None),
     'force_token'     : ((), 'int'),
     'call_may_force'  : (('int', 'varargs'), 'intorptr'),
@@ -333,6 +332,13 @@ def compile_add_descr(loop, ofs, type, arg_types):
     assert isinstance(type, str) and len(type) == 1
     op.descr = Descr(ofs, type, arg_types=arg_types)
 
+def compile_add_descr_arg(loop, ofs, type, arg_types):
+    from pypy.jit.backend.llgraph.runner import Descr
+    loop = _from_opaque(loop)
+    op = loop.operations[-1]
+    assert isinstance(type, str) and len(type) == 1
+    op.args.append(Descr(ofs, type, arg_types=arg_types))
+
 def compile_add_loop_token(loop, descr):
     if we_are_translated():
         raise ValueError("CALL_ASSEMBLER not supported")
@@ -437,8 +443,11 @@ class Frame(object):
         self._may_force = -1
 
     def getenv(self, v):
+        from pypy.jit.backend.llgraph.runner import Descr
         if isinstance(v, Constant):
             return v.value
+        elif isinstance(v, Descr):
+            return v
         else:
             return self.env[v]
 
@@ -808,6 +817,29 @@ class Frame(object):
         else:
             raise NotImplementedError
 
+    def op_getinteriorfield_gc(self, descr, array, index):
+        if descr.typeinfo == REF:
+            return do_getinteriorfield_gc_ptr(array, index, descr.ofs)
+        elif descr.typeinfo == INT:
+            return do_getinteriorfield_gc_int(array, index, descr.ofs)
+        elif descr.typeinfo == FLOAT:
+            return do_getinteriorfield_gc_float(array, index, descr.ofs)
+        else:
+            raise NotImplementedError
+
+    def op_setinteriorfield_gc(self, descr, array, index, newvalue):
+        if descr.typeinfo == REF:
+            return do_setinteriorfield_gc_ptr(array, index, descr.ofs,
+                                              newvalue)
+        elif descr.typeinfo == INT:
+            return do_setinteriorfield_gc_int(array, index, descr.ofs,
+                                              newvalue)
+        elif descr.typeinfo == FLOAT:
+            return do_setinteriorfield_gc_float(array, index, descr.ofs,
+                                                newvalue)
+        else:
+            raise NotImplementedError
+
     def op_setfield_gc(self, fielddescr, struct, newvalue):
         if fielddescr.typeinfo == REF:
             do_setfield_gc_ptr(struct, fielddescr.ofs, newvalue)
@@ -878,9 +910,6 @@ class Frame(object):
 
     def op_new_array(self, arraydescr, count):
         return do_new_array(arraydescr.ofs, count)
-
-    def op_cast_ptr_to_int(self, descr, ptr):
-        return cast_to_int(ptr)
 
     def op_force_token(self, descr):
         opaque_frame = _to_opaque(self)
@@ -1089,7 +1118,9 @@ def cast_from_int(TYPE, x):
     if isinstance(TYPE, lltype.Ptr):
         if isinstance(x, (int, long, llmemory.AddressAsInt)):
             x = llmemory.cast_int_to_adr(x)
-        if TYPE is rffi.VOIDP or TYPE.TO._hints.get("uncast_on_llgraph"):
+        if TYPE is rffi.VOIDP or (
+                hasattr(TYPE.TO, '_hints') and
+                TYPE.TO._hints.get("uncast_on_llgraph")):
             # assume that we want a "C-style" cast, without typechecking the value
             return rffi.cast(TYPE, x)
         return llmemory.cast_adr_to_ptr(x, TYPE)
@@ -1360,6 +1391,22 @@ def do_getfield_gc_float(struct, fieldnum):
 def do_getfield_gc_ptr(struct, fieldnum):
     return cast_to_ptr(_getfield_gc(struct, fieldnum))
 
+def _getinteriorfield_gc(struct, fieldnum):
+    STRUCT, fieldname = symbolic.TokenToField[fieldnum]
+    return getattr(struct, fieldname)
+
+def do_getinteriorfield_gc_int(array, index, fieldnum):
+    struct = array._obj.container.getitem(index)
+    return cast_to_int(_getinteriorfield_gc(struct, fieldnum))
+
+def do_getinteriorfield_gc_float(array, index, fieldnum):
+    struct = array._obj.container.getitem(index)
+    return cast_to_floatstorage(_getinteriorfield_gc(struct, fieldnum))
+
+def do_getinteriorfield_gc_ptr(array, index, fieldnum):
+    struct = array._obj.container.getitem(index)
+    return cast_to_ptr(_getinteriorfield_gc(struct, fieldnum))
+
 def _getfield_raw(struct, fieldnum):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]
     ptr = cast_from_int(lltype.Ptr(STRUCT), struct)
@@ -1426,26 +1473,28 @@ def do_setarrayitem_gc_ptr(array, index, newvalue):
     newvalue = cast_from_ptr(ITEMTYPE, newvalue)
     array.setitem(index, newvalue)
 
-def do_setfield_gc_int(struct, fieldnum, newvalue):
-    STRUCT, fieldname = symbolic.TokenToField[fieldnum]
-    ptr = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), struct)
-    FIELDTYPE = getattr(STRUCT, fieldname)
-    newvalue = cast_from_int(FIELDTYPE, newvalue)
-    setattr(ptr, fieldname, newvalue)
+def new_setfield_gc(cast_func):
+    def do_setfield_gc(struct, fieldnum, newvalue):
+        STRUCT, fieldname = symbolic.TokenToField[fieldnum]
+        ptr = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), struct)
+        FIELDTYPE = getattr(STRUCT, fieldname)
+        newvalue = cast_func(FIELDTYPE, newvalue)
+        setattr(ptr, fieldname, newvalue)
+    return do_setfield_gc
+do_setfield_gc_int = new_setfield_gc(cast_from_int)
+do_setfield_gc_float = new_setfield_gc(cast_from_floatstorage)
+do_setfield_gc_ptr = new_setfield_gc(cast_from_ptr)
 
-def do_setfield_gc_float(struct, fieldnum, newvalue):
-    STRUCT, fieldname = symbolic.TokenToField[fieldnum]
-    ptr = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), struct)
-    FIELDTYPE = getattr(STRUCT, fieldname)
-    newvalue = cast_from_floatstorage(FIELDTYPE, newvalue)
-    setattr(ptr, fieldname, newvalue)
-
-def do_setfield_gc_ptr(struct, fieldnum, newvalue):
-    STRUCT, fieldname = symbolic.TokenToField[fieldnum]
-    ptr = lltype.cast_opaque_ptr(lltype.Ptr(STRUCT), struct)
-    FIELDTYPE = getattr(STRUCT, fieldname)
-    newvalue = cast_from_ptr(FIELDTYPE, newvalue)
-    setattr(ptr, fieldname, newvalue)
+def new_setinteriorfield_gc(cast_func):
+    def do_setinteriorfield_gc(array, index, fieldnum, newvalue):
+        STRUCT, fieldname = symbolic.TokenToField[fieldnum]
+        struct = array._obj.container.getitem(index)
+        FIELDTYPE = getattr(STRUCT, fieldname)
+        setattr(struct, fieldname, cast_func(FIELDTYPE, newvalue))
+    return do_setinteriorfield_gc
+do_setinteriorfield_gc_int = new_setinteriorfield_gc(cast_from_int)
+do_setinteriorfield_gc_float = new_setinteriorfield_gc(cast_from_floatstorage)
+do_setinteriorfield_gc_ptr = new_setinteriorfield_gc(cast_from_ptr)        
 
 def do_setfield_raw_int(struct, fieldnum, newvalue):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]
@@ -1722,6 +1771,7 @@ setannotation(compile_start_ref_var, annmodel.SomeInteger())
 setannotation(compile_start_float_var, annmodel.SomeInteger())
 setannotation(compile_add, annmodel.s_None)
 setannotation(compile_add_descr, annmodel.s_None)
+setannotation(compile_add_descr_arg, annmodel.s_None)
 setannotation(compile_add_var, annmodel.s_None)
 setannotation(compile_add_int_const, annmodel.s_None)
 setannotation(compile_add_ref_const, annmodel.s_None)
@@ -1769,6 +1819,9 @@ setannotation(do_getfield_gc_float, s_FloatStorage)
 setannotation(do_getfield_raw_int, annmodel.SomeInteger())
 setannotation(do_getfield_raw_ptr, annmodel.SomePtr(llmemory.GCREF))
 setannotation(do_getfield_raw_float, s_FloatStorage)
+setannotation(do_getinteriorfield_gc_int, annmodel.SomeInteger())
+setannotation(do_getinteriorfield_gc_ptr, annmodel.SomePtr(llmemory.GCREF))
+setannotation(do_getinteriorfield_gc_float, s_FloatStorage)
 setannotation(do_new, annmodel.SomePtr(llmemory.GCREF))
 setannotation(do_new_array, annmodel.SomePtr(llmemory.GCREF))
 setannotation(do_setarrayitem_gc_int, annmodel.s_None)
@@ -1782,6 +1835,9 @@ setannotation(do_setfield_gc_float, annmodel.s_None)
 setannotation(do_setfield_raw_int, annmodel.s_None)
 setannotation(do_setfield_raw_ptr, annmodel.s_None)
 setannotation(do_setfield_raw_float, annmodel.s_None)
+setannotation(do_setinteriorfield_gc_int, annmodel.s_None)
+setannotation(do_setinteriorfield_gc_ptr, annmodel.s_None)
+setannotation(do_setinteriorfield_gc_float, annmodel.s_None)
 setannotation(do_newstr, annmodel.SomePtr(llmemory.GCREF))
 setannotation(do_strsetitem, annmodel.s_None)
 setannotation(do_newunicode, annmodel.SomePtr(llmemory.GCREF))

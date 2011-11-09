@@ -27,7 +27,7 @@ default_modules.update(dict.fromkeys(
 # --allworkingmodules
 working_modules = default_modules.copy()
 working_modules.update(dict.fromkeys(
-    ["_socket", "unicodedata", "mmap", "fcntl", "_locale",
+    ["_socket", "unicodedata", "mmap", "fcntl", "_locale", "pwd",
      "rctime" , "select", "zipimport", "_lsprof",
      "crypt", "signal", "_rawffi", "termios", "zlib", "bz2",
      "struct", "_hashlib", "_md5", "_sha", "_minimal_curses", "cStringIO",
@@ -58,6 +58,7 @@ if sys.platform == "win32":
     # unix only modules
     del working_modules["crypt"]
     del working_modules["fcntl"]
+    del working_modules["pwd"]
     del working_modules["termios"]
     del working_modules["_minimal_curses"]
 
@@ -71,6 +72,7 @@ if sys.platform == "sunos5":
     del working_modules['fcntl']  # LOCK_NB not defined
     del working_modules["_minimal_curses"]
     del working_modules["termios"]
+    del working_modules["_multiprocessing"]   # depends on rctime
 
 
 
@@ -90,7 +92,7 @@ module_suggests = {
 
 module_import_dependencies = {
     # no _rawffi if importing pypy.rlib.clibffi raises ImportError
-    # or CompilationError
+    # or CompilationError or py.test.skip.Exception
     "_rawffi"   : ["pypy.rlib.clibffi"],
     "_ffi"      : ["pypy.rlib.clibffi"],
 
@@ -111,7 +113,7 @@ def get_module_validator(modname):
             try:
                 for name in modlist:
                     __import__(name)
-            except (ImportError, CompilationError), e:
+            except (ImportError, CompilationError, py.test.skip.Exception), e:
                 errcls = e.__class__.__name__
                 config.add_warning(
                     "The module %r is disabled\n" % (modname,) +
@@ -126,7 +128,7 @@ def get_module_validator(modname):
 
 pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
     ChoiceOption("name", "Object Space name",
-                 ["std", "flow", "thunk", "dump", "taint"],
+                 ["std", "flow", "thunk", "dump"],
                  "std",
                  cmdline='--objspace -o'),
 

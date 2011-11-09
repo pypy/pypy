@@ -1,10 +1,10 @@
-from pypy.rlib import rgc
+from pypy.rlib import rgc, jit
 from pypy.rlib.objectmodel import enforceargs
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.annlowlevel import llstr
 from pypy.rpython.rptr import PtrRepr
 from pypy.rpython.lltypesystem import lltype, rstr
-from pypy.rpython.lltypesystem.lltype import staticAdtMethod
+from pypy.rpython.lltypesystem.lltype import staticAdtMethod, nullptr
 from pypy.rpython.lltypesystem.rstr import (STR, UNICODE, char_repr,
     string_repr, unichar_repr, unicode_repr)
 from pypy.rpython.rbuilder import AbstractStringBuilderRepr
@@ -29,7 +29,7 @@ def new_grow_func(name, mallocfn, copycontentsfn):
         except OverflowError:
             raise MemoryError
         newbuf = mallocfn(new_allocated)
-        copycontentsfn(ll_builder.buf, newbuf, 0, 0, ll_builder.allocated)
+        copycontentsfn(ll_builder.buf, newbuf, 0, 0, ll_builder.used)
         ll_builder.buf = newbuf
         ll_builder.allocated = new_allocated
     return func_with_new_name(stringbuilder_grow, name)
@@ -54,6 +54,9 @@ UNICODEBUILDER = lltype.GcStruct('unicodebuilder',
 MAX = 16*1024*1024
 
 class BaseStringBuilderRepr(AbstractStringBuilderRepr):
+    def empty(self):
+        return nullptr(self.lowleveltype.TO)
+
     @classmethod
     def ll_new(cls, init_size):
         if init_size < 0 or init_size > MAX:
@@ -92,6 +95,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         ll_builder.used = needed + used
 
     @staticmethod
+    @jit.look_inside_iff(lambda ll_builder, char, times: jit.isconstant(times) and times <= 4)
     def ll_append_multiple_char(ll_builder, char, times):
         used = ll_builder.used
         if times + used > ll_builder.allocated:
@@ -122,6 +126,10 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         if final_size == ll_builder.allocated:
             return ll_builder.buf
         return rgc.ll_shrink_array(ll_builder.buf, final_size)
+
+    @classmethod
+    def ll_is_true(cls, ll_builder):
+        return ll_builder != nullptr(cls.lowleveltype.TO)
 
 class StringBuilderRepr(BaseStringBuilderRepr):
     lowleveltype = lltype.Ptr(STRINGBUILDER)

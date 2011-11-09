@@ -1,19 +1,17 @@
 import __builtin__
 import types
-from pypy.interpreter import pyframe, function, special
+from pypy.interpreter import special
 from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.typedef import get_unique_interplevel_subclass
 from pypy.objspace.std import (builtinshortcut, stdtypedef, frame, model,
                                transparent, callmethod, proxyobject)
 from pypy.objspace.descroperation import DescrOperation, raiseattrerror
-from pypy.rlib.objectmodel import instantiate, r_dict, specialize
+from pypy.rlib.objectmodel import instantiate, r_dict, specialize, is_annotation_constant
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.rarithmetic import base_int, widen
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import jit
-from pypy.rlib.rbigint import rbigint
-from pypy.tool.sourcetools import func_with_new_name
 
 # Object imports
 from pypy.objspace.std.boolobject import W_BoolObject
@@ -84,6 +82,13 @@ class StdObjSpace(ObjSpace, DescrOperation):
         # Adding transparent proxy call
         if self.config.objspace.std.withtproxy:
             transparent.setup(self)
+
+        interplevel_classes = {}
+        for type, classes in self.model.typeorder.iteritems():
+            if len(classes) >= 3: # XXX what does this 3 mean??!
+                # W_Root, AnyXxx and actual object
+                interplevel_classes[self.gettypefor(type)] = classes[0][0]
+        self._interplevel_classes = interplevel_classes
 
     def get_builtin_types(self):
         return self.builtin_types
@@ -409,7 +414,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         else:
             if unroll:
                 return make_sure_not_resized(ObjSpace.unpackiterable_unroll(
-                    self, w_obj, expected_length)[:])
+                    self, w_obj, expected_length))
             else:
                 return make_sure_not_resized(ObjSpace.unpackiterable(
                     self, w_obj, expected_length)[:])
@@ -417,7 +422,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
             raise self._wrap_expected_length(expected_length, len(t))
         return make_sure_not_resized(t)
 
-    def fixedview_unroll(self, w_obj, expected_length=-1):
+    def fixedview_unroll(self, w_obj, expected_length):
+        assert expected_length >= 0
         return self.fixedview(w_obj, expected_length, unroll=True)
 
     def listview(self, w_obj, expected_length=-1):
@@ -569,7 +575,25 @@ class StdObjSpace(ObjSpace, DescrOperation):
             return self.wrap(w_sub.issubtype(w_type))
         raise OperationError(self.w_TypeError, self.wrap("need type objects"))
 
+    @specialize.arg_or_var(2)
     def _type_isinstance(self, w_inst, w_type):
-        if isinstance(w_type, W_TypeObject):
-            return self.wrap(self.type(w_inst).issubtype(w_type))
-        raise OperationError(self.w_TypeError, self.wrap("need type object"))
+        if not isinstance(w_type, W_TypeObject):
+            raise OperationError(self.w_TypeError,
+                                 self.wrap("need type object"))
+        if is_annotation_constant(w_type):
+            cls = self._get_interplevel_cls(w_type)
+            if cls is not None:
+                assert w_inst is not None
+                if isinstance(w_inst, cls):
+                    return True
+        return self.type(w_inst).issubtype(w_type)
+
+    @specialize.arg_or_var(2)
+    def isinstance_w(space, w_inst, w_type):
+        return space._type_isinstance(w_inst, w_type)
+
+    @specialize.memo()
+    def _get_interplevel_cls(self, w_type):
+        if not hasattr(self, "_interplevel_classes"):
+            return None # before running initialize
+        return self._interplevel_classes.get(w_type, None)

@@ -2,22 +2,16 @@ import pypyjit
 pypyjit.set_param(threshold=200)
 
 
-def main(a, b):
-    i = sa = 0
-    while i < 300:
-        if a > 0: # Specialises the loop
-            pass
-        if b < 2 and b > 0:
-            pass
-        if (a >> b) >= 0:
-            sa += 1
-        if (a << b) > 2:
-            sa += 10000
-        i += 1
-    return sa
+def f(n):
+    pairs = [(0.0, 1.0), (2.0, 3.0)] * n
+    mag = 0
+    for (x1, x2) in pairs:
+        dx = x1 - x2
+        mag += ((dx * dx ) ** (-1.5))            
+    return n
 
 try:
-    print main(2, 1)
+    print f(301)
 
 except Exception, e:
     print "Exception: ", type(e)

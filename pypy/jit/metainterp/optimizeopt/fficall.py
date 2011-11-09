@@ -182,10 +182,10 @@ class OptFfiCall(Optimization):
             funcinfo.descr is None):
             return [op] # cannot optimize
         funcsymval = self.getvalue(op.getarg(2))
-        arglist = [funcsymval.force_box()]
+        arglist = [funcsymval.get_key_box()]
         for push_op in funcinfo.opargs:
             argval = self.getvalue(push_op.getarg(2))
-            arglist.append(argval.force_box())
+            arglist.append(argval.get_key_box())
         newop = ResOperation(rop.CALL_RELEASE_GIL, arglist, op.result,
                              descr=funcinfo.descr)
         self.commit_optimization()
@@ -207,13 +207,13 @@ class OptFfiCall(Optimization):
         offset = offsetval.box.getint()
         descr = self._get_field_descr(ffitype, offset)
         #
-        arglist = [addrval.force_box()]
+        arglist = [addrval.force_box(self.optimizer)]
         if oopspec == EffectInfo.OS_LIBFFI_STRUCT_GETFIELD:
             opnum = rop.GETFIELD_RAW
         else:
             opnum = rop.SETFIELD_RAW
             newval = self.getvalue(op.getarg(4))
-            arglist.append(newval.force_box())
+            arglist.append(newval.force_box(self.optimizer))
         #
         newop = ResOperation(opnum, arglist, op.result, descr=descr)
         return [newop]

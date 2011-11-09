@@ -11,7 +11,7 @@ import sys
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import compile2
-from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift
+from pypy.rlib.rarithmetic import ovfcheck
 from pypy.objspace.flow import model
 
 
@@ -144,7 +144,7 @@ def mod_ovf(x, y):
     return ovfcheck(x % y)
 
 def lshift_ovf(x, y):
-    return ovfcheck_lshift(x, y)
+    return ovfcheck(x << y)
 
 # slicing: operator.{get,set,del}slice() don't support b=None or c=None
 def do_getslice(a, b, c):

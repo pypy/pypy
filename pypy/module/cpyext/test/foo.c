@@ -215,36 +215,36 @@ static PyTypeObject footype = {
 typedef struct {
     PyUnicodeObject HEAD;
     int val;
-} FuuObject;
+} UnicodeSubclassObject;
 
 
-static int Fuu_init(FuuObject *self, PyObject *args, PyObject *kwargs) {
+static int UnicodeSubclass_init(UnicodeSubclassObject *self, PyObject *args, PyObject *kwargs) {
     self->val = 42;
     return 0;
 }
 
 static PyObject *
-Fuu_escape(PyTypeObject* type, PyObject *args)
+UnicodeSubclass_escape(PyTypeObject* type, PyObject *args)
 {
     Py_RETURN_TRUE;
 }
 
 static PyObject *
-Fuu_get_val(FuuObject *self) {
+UnicodeSubclass_get_val(UnicodeSubclassObject *self) {
     return PyInt_FromLong(self->val);
 }
 
-static PyMethodDef Fuu_methods[] = {
-    {"escape", (PyCFunction) Fuu_escape, METH_VARARGS, NULL},
-    {"get_val", (PyCFunction) Fuu_get_val, METH_NOARGS, NULL},
+static PyMethodDef UnicodeSubclass_methods[] = {
+    {"escape", (PyCFunction) UnicodeSubclass_escape, METH_VARARGS, NULL},
+    {"get_val", (PyCFunction) UnicodeSubclass_get_val, METH_NOARGS, NULL},
     {NULL}  /* Sentinel */
 };
 
-PyTypeObject FuuType = {
+PyTypeObject UnicodeSubtype = {
     PyObject_HEAD_INIT(NULL)
     0,
     "foo.fuu",
-    sizeof(FuuObject),
+    sizeof(UnicodeSubclassObject),
     0,
     0,          /*tp_dealloc*/
     0,          /*tp_print*/
@@ -277,7 +277,7 @@ PyTypeObject FuuType = {
 
     /* Attribute descriptor and subclassing stuff */
 
-    Fuu_methods,/*tp_methods*/
+    UnicodeSubclass_methods,/*tp_methods*/
     0,          /*tp_members*/
     0,          /*tp_getset*/
     0,          /*tp_base*/
@@ -287,7 +287,7 @@ PyTypeObject FuuType = {
     0,          /*tp_descr_set*/
     0,          /*tp_dictoffset*/
 
-    (initproc) Fuu_init, /*tp_init*/
+    (initproc) UnicodeSubclass_init, /*tp_init*/
     0,          /*tp_alloc  will be set to PyType_GenericAlloc in module init*/
     0,          /*tp_new*/
     0,          /*tp_free  Low-level free-memory routine */
@@ -299,11 +299,11 @@ PyTypeObject FuuType = {
     0           /*tp_weaklist*/
 };
 
-PyTypeObject Fuu2Type = {
+PyTypeObject UnicodeSubtype2 = {
     PyObject_HEAD_INIT(NULL)
     0,
     "foo.fuu2",
-    sizeof(FuuObject),
+    sizeof(UnicodeSubclassObject),
     0,
     0,          /*tp_dealloc*/
     0,          /*tp_print*/
@@ -628,15 +628,15 @@ void initfoo(void)
 
     footype.tp_new = PyType_GenericNew;
 
-    FuuType.tp_base = &PyUnicode_Type;
-    Fuu2Type.tp_base = &FuuType;
+    UnicodeSubtype.tp_base = &PyUnicode_Type;
+    UnicodeSubtype2.tp_base = &UnicodeSubtype;
     MetaType.tp_base = &PyType_Type;
 
     if (PyType_Ready(&footype) < 0)
         return;
-    if (PyType_Ready(&FuuType) < 0)
+    if (PyType_Ready(&UnicodeSubtype) < 0)
         return;
-    if (PyType_Ready(&Fuu2Type) < 0)
+    if (PyType_Ready(&UnicodeSubtype2) < 0)
         return;
     if (PyType_Ready(&MetaType) < 0)
         return;
@@ -655,9 +655,9 @@ void initfoo(void)
         return;
     if (PyDict_SetItemString(d, "fooType", (PyObject *)&footype) < 0)
         return;
-    if (PyDict_SetItemString(d, "FuuType", (PyObject *) &FuuType) < 0)
+    if (PyDict_SetItemString(d, "UnicodeSubtype", (PyObject *) &UnicodeSubtype) < 0)
         return;
-    if(PyDict_SetItemString(d, "Fuu2Type", (PyObject *) &Fuu2Type) < 0)
+    if (PyDict_SetItemString(d, "UnicodeSubtype2", (PyObject *) &UnicodeSubtype2) < 0)
         return;
     if (PyDict_SetItemString(d, "MetaType", (PyObject *) &MetaType) < 0)
         return;

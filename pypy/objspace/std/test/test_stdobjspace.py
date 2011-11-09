@@ -1,5 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import app2interp
+from pypy.conftest import gettestobjspace
 
 class TestW_StdObjSpace:
 
@@ -14,11 +15,11 @@ class TestW_StdObjSpace:
 
     def test_int_w_non_int(self):
         raises(OperationError,self.space.int_w,self.space.wrap(None))
-        raises(OperationError,self.space.int_w,self.space.wrap(""))        
+        raises(OperationError,self.space.int_w,self.space.wrap(""))
 
     def test_uint_w_non_int(self):
         raises(OperationError,self.space.uint_w,self.space.wrap(None))
-        raises(OperationError,self.space.uint_w,self.space.wrap(""))        
+        raises(OperationError,self.space.uint_w,self.space.wrap(""))
 
     def test_multimethods_defined_on(self):
         from pypy.objspace.std.stdtypedef import multimethods_defined_on
@@ -46,3 +47,24 @@ class TestW_StdObjSpace:
         assert space.sliceindices(w_slice, w(3)) == (1,2,1)
         assert space.sliceindices(w_obj, w(3)) == (1,2,3)
 
+    def test_fastpath_isinstance(self):
+        from pypy.objspace.std.stringobject import W_StringObject
+        from pypy.objspace.std.intobject import W_IntObject
+
+        space = self.space
+        assert space._get_interplevel_cls(space.w_str) is W_StringObject
+        assert space._get_interplevel_cls(space.w_int) is W_IntObject
+        class X(W_StringObject):
+            def __init__(self):
+                pass
+
+            typedef = None
+
+        assert space.isinstance_w(X(), space.w_str)
+
+    def test_withstrbuf_fastpath_isinstance(self):
+        from pypy.objspace.std.stringobject import W_StringObject
+
+        space = gettestobjspace(withstrbuf=True) 
+        assert space._get_interplevel_cls(space.w_str) is W_StringObject
+        

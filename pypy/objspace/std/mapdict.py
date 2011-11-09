@@ -132,7 +132,10 @@ class AbstractAttribute(object):
             cache[selector] = attr
         return attr
 
-    @jit.unroll_safe
+    @jit.look_inside_iff(lambda self, obj, selector, w_value:
+            jit.isconstant(self) and
+            jit.isconstant(selector[0]) and
+            jit.isconstant(selector[1]))
     def add_attr(self, obj, selector, w_value):
         # grumble, jit needs this
         attr = self._get_new_attr(selector[0], selector[1])
@@ -347,7 +350,7 @@ INVALID = 2
 SLOTS_STARTING_FROM = 3
 
 
-class BaseMapdictObject: # slightly evil to make it inherit from W_Root
+class BaseMapdictObject:
     _mixin_ = True
 
     def _init_empty(self, map):

@@ -1,15 +1,16 @@
 from pypy.jit.metainterp import jitprof, resume, compile
 from pypy.jit.metainterp.executor import execute_nonspec
-from pypy.jit.metainterp.history import BoxInt, BoxFloat, Const, ConstInt, REF
+from pypy.jit.metainterp.history import BoxInt, BoxFloat, Const, ConstInt, REF, INT
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded, \
                                                      ImmutableIntUnbounded, \
                                                      IntLowerBound, MININT, MAXINT
 from pypy.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
     args_dict)
-from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.jit.metainterp.resoperation import rop, ResOperation, AbstractResOp
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.tool.pairtype import extendabletype
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
+from pypy.rlib.objectmodel import specialize
 
 LEVEL_UNKNOWN    = '\x00'
 LEVEL_NONNULL    = '\x01'
@@ -25,10 +26,13 @@ class LenBound(object):
         self.descr = descr
         self.bound = bound
 
+    def clone(self):
+        return LenBound(self.mode, self.descr, self.bound.clone())
+
 class OptValue(object):
     __metaclass__ = extendabletype
-    _attrs_ = ('box', 'known_class', 'last_guard_index', 'level', 'intbound', 'lenbound')
-    last_guard_index = -1
+    _attrs_ = ('box', 'known_class', 'last_guard', 'level', 'intbound', 'lenbound')
+    last_guard = None
 
     level = LEVEL_UNKNOWN
     known_class = None
@@ -67,7 +71,7 @@ class OptValue(object):
             guards.append(op)
         elif self.level == LEVEL_KNOWNCLASS:
             op = ResOperation(rop.GUARD_NONNULL, [box], None)
-            guards.append(op)            
+            guards.append(op)
             op = ResOperation(rop.GUARD_CLASS, [box, self.known_class], None)
             guards.append(op)
         else:
@@ -88,16 +92,39 @@ class OptValue(object):
                     assert False
                 guards.append(op)
                 self.lenbound.bound.make_guards(lenbox, guards)
-
         return guards
 
-    def force_box(self):
+    def import_from(self, other, optimizer):
+        if self.level == LEVEL_CONSTANT:
+            assert other.level == LEVEL_CONSTANT
+            assert other.box.same_constant(self.box)
+            return
+        assert self.level <= LEVEL_NONNULL
+        if other.level == LEVEL_CONSTANT:
+            self.make_constant(other.get_key_box())
+            optimizer.turned_constant(self)
+        elif other.level == LEVEL_KNOWNCLASS:
+            self.make_constant_class(other.known_class, None)
+        else:
+            if other.level == LEVEL_NONNULL:
+                self.ensure_nonnull()
+            self.intbound.intersect(other.intbound)
+            if other.lenbound:
+                if self.lenbound:
+                    assert other.lenbound.mode == self.lenbound.mode
+                    assert other.lenbound.descr == self.lenbound.descr
+                    self.lenbound.bound.intersect(other.lenbound.bound)
+                else:
+                    self.lenbound = other.lenbound.clone()
+
+
+    def force_box(self, optforce):
         return self.box
 
     def get_key_box(self):
         return self.box
 
-    def force_at_end_of_preamble(self, already_forced):
+    def force_at_end_of_preamble(self, already_forced, optforce):
         return self
 
     def get_args_for_fail(self, modifier):
@@ -118,12 +145,19 @@ class OptValue(object):
             return not box.nonnull()
         return False
 
+    def same_value(self, other):
+        if not other:
+            return False
+        if self.is_constant() and other.is_constant():
+            return self.box.same_constant(other.box)
+        return self is other
+
     def make_constant(self, constbox):
         """Replace 'self.box' with a Const box."""
         assert isinstance(constbox, Const)
         self.box = constbox
         self.level = LEVEL_CONSTANT
-        
+
         if isinstance(constbox, ConstInt):
             val = constbox.getint()
             self.intbound = IntBound(val, val)
@@ -139,16 +173,16 @@ class OptValue(object):
         else:
             return None
 
-    def make_constant_class(self, classbox, opindex):
+    def make_constant_class(self, classbox, guardop):
         assert self.level < LEVEL_KNOWNCLASS
         self.known_class = classbox
         self.level = LEVEL_KNOWNCLASS
-        self.last_guard_index = opindex
+        self.last_guard = guardop
 
-    def make_nonnull(self, opindex):
+    def make_nonnull(self, guardop):
         assert self.level < LEVEL_NONNULL
         self.level = LEVEL_NONNULL
-        self.last_guard_index = opindex
+        self.last_guard = guardop
 
     def is_nonnull(self):
         level = self.level
@@ -186,13 +220,19 @@ class OptValue(object):
     def setfield(self, ofs, value):
         raise NotImplementedError
 
-    def getitem(self, index):
-        raise NotImplementedError
-
     def getlength(self):
         raise NotImplementedError
 
+    def getitem(self, index):
+        raise NotImplementedError
+
     def setitem(self, index, value):
+        raise NotImplementedError
+
+    def getinteriorfield(self, index, ofs, default):
+        raise NotImplementedError
+
+    def setinteriorfield(self, index, ofs, value):
         raise NotImplementedError
 
 
@@ -200,13 +240,17 @@ class ConstantValue(OptValue):
     def __init__(self, box):
         self.make_constant(box)
 
+    def __repr__(self):
+        return 'Constant(%r)' % (self.box,)
+
 CONST_0      = ConstInt(0)
 CONST_1      = ConstInt(1)
 CVAL_ZERO    = ConstantValue(CONST_0)
 CVAL_ZERO_FLOAT = ConstantValue(Const._new(0.0))
-CVAL_UNINITIALIZED_ZERO = ConstantValue(CONST_0)
 llhelper.CVAL_NULLREF = ConstantValue(llhelper.CONST_NULL)
 oohelper.CVAL_NULLREF = ConstantValue(oohelper.CONST_NULL)
+REMOVED = AbstractResOp(None)
+
 
 class Optimization(object):
     next_optimization = None
@@ -214,25 +258,12 @@ class Optimization(object):
     def __init__(self):
         pass # make rpython happy
 
-    def propagate_begin_forward(self):
-        if self.next_optimization:
-            self.next_optimization.propagate_begin_forward()
-
-    def propagate_end_forward(self):
-        if self.next_optimization:
-            self.next_optimization.propagate_end_forward()
-
     def propagate_forward(self, op):
         raise NotImplementedError
 
     def emit_operation(self, op):
+        self.last_emitted_operation = op
         self.next_optimization.propagate_forward(op)
-
-    def test_emittable(self, op):
-        return self.is_emittable(op)
-
-    def is_emittable(self, op):
-        return self.next_optimization.test_emittable(op)
 
     # FIXME: Move some of these here?
     def getvalue(self, box):
@@ -263,18 +294,18 @@ class Optimization(object):
         return self.optimizer.new_const_item(arraydescr)
 
     def pure(self, opnum, args, result):
-        op = ResOperation(opnum, args, result)
-        key = self.optimizer.make_args_key(op)
-        if key not in self.optimizer.pure_operations:
-            self.optimizer.pure_operations[key] = op
+        if self.optimizer.optpure:
+            self.optimizer.optpure.pure(opnum, args, result)
 
     def has_pure_result(self, opnum, args, descr):
-        op = ResOperation(opnum, args, None, descr)
-        key = self.optimizer.make_args_key(op)
-        op = self.optimizer.pure_operations.get(key, None)
-        if op is None:
-            return False
-        return op.getdescr() is descr
+        if self.optimizer.optpure:
+            return self.optimizer.optpure.has_pure_result(opnum, args, descr)
+        return False
+
+    def get_pure_result(self, key):
+        if self.optimizer.optpure:
+            return self.optimizer.optpure.get_pure_result(key)
+        return None
 
     def setup(self):
         pass
@@ -296,32 +327,35 @@ class Optimization(object):
     def produce_potential_short_preamble_ops(self, potential_ops):
         pass
 
+    def forget_numberings(self, box):
+        self.optimizer.forget_numberings(box)
+
+
 class Optimizer(Optimization):
 
-    def __init__(self, metainterp_sd, loop, optimizations=None, bridge=False):
+    def __init__(self, metainterp_sd, loop, optimizations=None):
         self.metainterp_sd = metainterp_sd
         self.cpu = metainterp_sd.cpu
         self.loop = loop
-        self.bridge = bridge
         self.values = {}
         self.interned_refs = self.cpu.ts.new_ref_dict()
+        self.interned_ints = {}
         self.resumedata_memo = resume.ResumeDataLoopMemo(metainterp_sd)
         self.bool_boxes = {}
-        self.pure_operations = args_dict()
-        self.emitted_pure_operations = {}
         self.producer = {}
         self.pendingfields = []
-        self.posponedop = None
-        self.exception_might_have_happened = False
         self.quasi_immutable_deps = None
         self.opaque_pointers = {}
-        self.newoperations = []
-        self.emitting_dissabled = False
-        self.emitted_guards = 0        
+        self.replaces_guard = {}
+        self._newoperations = []
+        self.optimizer = self
+        self.optpure = None
+        self.optearlyforce = None
         if loop is not None:
             self.call_pure_results = loop.call_pure_results
 
         self.set_optimizations(optimizations)
+        self.setup()
 
     def set_optimizations(self, optimizations):
         if optimizations:
@@ -331,6 +365,7 @@ class Optimizer(Optimization):
             optimizations[-1].next_optimization = self
             for o in optimizations:
                 o.optimizer = self
+                o.last_emitted_operation = None
                 o.setup()
         else:
             optimizations = []
@@ -345,24 +380,18 @@ class Optimizer(Optimization):
     def flush(self):
         for o in self.optimizations:
             o.flush()
-        assert self.posponedop is None
 
     def new(self):
-        assert self.posponedop is None
         new = Optimizer(self.metainterp_sd, self.loop)
+        return self._new(new)
+
+    def _new(self, new):
         optimizations = [o.new() for o in self.optimizations]
         new.set_optimizations(optimizations)
         new.quasi_immutable_deps = self.quasi_immutable_deps
         return new
-        
+
     def produce_potential_short_preamble_ops(self, sb):
-        for op in self.emitted_pure_operations:
-            if op.getopnum() == rop.GETARRAYITEM_GC_PURE or \
-               op.getopnum() == rop.STRGETITEM or \
-               op.getopnum() == rop.UNICODEGETITEM:
-                if not self.getvalue(op.getarg(1)).is_constant():
-                    continue
-            sb.add_potential(op)
         for opt in self.optimizations:
             opt.produce_potential_short_preamble_ops(sb)
 
@@ -383,22 +412,32 @@ class Optimizer(Optimization):
             if not value:
                 return box
             return self.interned_refs.setdefault(value, box)
+        #elif constbox.type == INT:
+        #    value = constbox.getint()
+        #    return self.interned_ints.setdefault(value, box)
         else:
             return box
 
+    @specialize.argtype(0)
     def getvalue(self, box):
         box = self.getinterned(box)
         try:
             value = self.values[box]
         except KeyError:
             value = self.values[box] = OptValue(box)
+        self.ensure_imported(value)
         return value
 
+    def ensure_imported(self, value):
+        pass
+
+    @specialize.argtype(0)
     def get_constant_box(self, box):
         if isinstance(box, Const):
             return box
         try:
             value = self.values[box]
+            self.ensure_imported(value)
         except KeyError:
             return None
         if value.is_constant():
@@ -406,6 +445,13 @@ class Optimizer(Optimization):
             assert isinstance(constbox, Const)
             return constbox
         return None
+
+    def get_newoperations(self):
+        self.flush()
+        return self._newoperations
+
+    def clear_newoperations(self):
+        self._newoperations = []
 
     def make_equal_to(self, box, value, replace=False):
         assert isinstance(value, OptValue)
@@ -454,16 +500,10 @@ class Optimizer(Optimization):
             return CVAL_ZERO
 
     def propagate_all_forward(self):
-        self.exception_might_have_happened = self.bridge
-        self.newoperations = []
-        self.first_optimization.propagate_begin_forward()
-        self.i = 0
-        while self.i < len(self.loop.operations):
-            op = self.loop.operations[self.i]
+        self.clear_newoperations()
+        for op in self.loop.operations:
             self.first_optimization.propagate_forward(op)
-            self.i += 1
-        self.first_optimization.propagate_end_forward()
-        self.loop.operations = self.newoperations
+        self.loop.operations = self.get_newoperations()
         self.loop.quasi_immutable_deps = self.quasi_immutable_deps
         # accumulate counters
         self.resumedata_memo.update_counters(self.metainterp_sd.profiler)
@@ -475,28 +515,45 @@ class Optimizer(Optimization):
         self.producer[op.result] = op
         dispatch_opt(self, op)
 
-    def test_emittable(self, op):
-        return True
-
     def emit_operation(self, op):
         if op.returns_bool_result():
             self.bool_boxes[self.getvalue(op.result)] = None
-        if self.emitting_dissabled:
-            return
-        
+        self._emit_operation(op)
+
+    @specialize.argtype(0)
+    def _emit_operation(self, op):
         for i in range(op.numargs()):
             arg = op.getarg(i)
-            if arg in self.values:
-                box = self.values[arg].force_box()
-                op.setarg(i, box)
+            try:
+                value = self.values[arg]
+            except KeyError:
+                pass
+            else:
+                self.ensure_imported(value)
+                op.setarg(i, value.force_box(self))
         self.metainterp_sd.profiler.count(jitprof.OPT_OPS)
         if op.is_guard():
             self.metainterp_sd.profiler.count(jitprof.OPT_GUARDS)
-            self.emitted_guards += 1 # FIXME: can we reuse above counter?
-            op = self.store_final_boxes_in_guard(op)
+            if self.replaces_guard and op in self.replaces_guard:
+                self.replace_op(self.replaces_guard[op], op)
+                del self.replaces_guard[op]
+                return
+            else:
+                op = self.store_final_boxes_in_guard(op)
         elif op.can_raise():
             self.exception_might_have_happened = True
-        self.newoperations.append(op)
+        self._newoperations.append(op)
+
+    def replace_op(self, old_op, new_op):
+        # XXX: Do we want to cache indexes to prevent search?
+        i = len(self._newoperations)
+        while i > 0:
+            i -= 1
+            if self._newoperations[i] is old_op:
+                self._newoperations[i] = new_op
+                break
+        else:
+            assert False
 
     def store_final_boxes_in_guard(self, op):
         descr = op.getdescr()
@@ -541,50 +598,11 @@ class Optimizer(Optimization):
                 arg = value.get_key_box()
             args[i] = arg
         args[n] = ConstInt(op.getopnum())
-        args[n+1] = op.getdescr()
+        args[n + 1] = op.getdescr()
         return args
 
     def optimize_default(self, op):
-        canfold = op.is_always_pure()
-        if op.is_ovf():
-            self.posponedop = op
-            return
-        if self.posponedop:
-            nextop = op
-            op = self.posponedop
-            self.posponedop = None
-            canfold = nextop.getopnum() == rop.GUARD_NO_OVERFLOW
-        else:
-            nextop = None
-
-        if canfold:
-            for i in range(op.numargs()):
-                if self.get_constant_box(op.getarg(i)) is None:
-                    break
-            else:
-                # all constant arguments: constant-fold away
-                resbox = self.constant_fold(op)
-                # note that INT_xxx_OVF is not done from here, and the
-                # overflows in the INT_xxx operations are ignored
-                self.make_constant(op.result, resbox)
-                return
-
-            # did we do the exact same operation already?
-            args = self.make_args_key(op)
-            oldop = self.pure_operations.get(args, None)
-            if oldop is not None and oldop.getdescr() is op.getdescr():
-                assert oldop.getopnum() == op.getopnum()
-                self.make_equal_to(op.result, self.getvalue(oldop.result),
-                                   True)
-                return
-            else:
-                self.pure_operations[args] = op
-                self.emitted_pure_operations[op] = True
-
-        # otherwise, the operation remains
         self.emit_operation(op)
-        if nextop:
-            self.emit_operation(nextop)
 
     def constant_fold(self, op):
         argboxes = [self.get_constant_box(op.getarg(i))
@@ -601,11 +619,6 @@ class Optimizer(Optimization):
 
     def optimize_DEBUG_MERGE_POINT(self, op):
         self.emit_operation(op)
-
-    def optimize_CAST_OPAQUE_PTR(self, op):
-        value = self.getvalue(op.getarg(0))
-        self.opaque_pointers[value] = True
-        self.make_equal_to(op.result, value)
 
     def optimize_GETARRAYITEM_GC_PURE(self, op):
         indexvalue = self.getvalue(op.getarg(1))
@@ -627,9 +640,9 @@ class Optimizer(Optimization):
             arrayvalue = self.getvalue(op.getarg(0))
             arrayvalue.make_len_gt(MODE_UNICODE, op.getdescr(), indexvalue.box.getint())
         self.optimize_default(op)
-        
 
-    
+
+
 
 dispatch_opt = make_dispatcher_method(Optimizer, 'optimize_',
         default=Optimizer.optimize_default)

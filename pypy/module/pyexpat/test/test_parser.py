@@ -131,3 +131,7 @@ class AppTestPyexpat:
                'encoding specified in XML declaration is incorrect')
         assert (pyexpat.errors.XML_ERROR_XML_DECL ==
                 'XML declaration not well-formed')
+
+    def test_model(self):
+        import pyexpat
+        assert isinstance(pyexpat.model.XML_CTYPE_EMPTY, int)

@@ -337,7 +337,9 @@ class TestCall(BaseTestPyPyC):
         assert loop.match_by_id('append', """
             i13 = getfield_gc(p8, descr=<SignedFieldDescr list.length .*>)
             i15 = int_add(i13, 1)
-            call(ConstClass(_ll_list_resize_ge__listPtr_Signed), p8, i15, descr=<VoidCallDescr>)
+            # Will be killed by the backend
+            i17 = arraylen_gc(p7, descr=<GcPtrArrayDescr>)
+            call(ConstClass(_ll_list_resize_ge), p8, i15, descr=<VoidCallDescr>)
             guard_no_exception(descr=...)
             p17 = getfield_gc(p8, descr=<GcPtrFieldDescr list.items .*>)
             p19 = new_with_vtable(ConstClass(W_IntObject))
@@ -364,12 +366,12 @@ class TestCall(BaseTestPyPyC):
             # make sure that the "block" is not allocated
             ...
             i20 = force_token()
-            setfield_gc(p0, i20, descr=<SignedFieldDescr .*PyFrame.vable_token .*>)
             p22 = new_with_vtable(19511408)
             p24 = new_array(1, descr=<GcPtrArrayDescr>)
             p26 = new_with_vtable(ConstClass(W_ListObject))
             p27 = new(descr=<SizeDescr .*>)
             p29 = new_array(0, descr=<GcPtrArrayDescr>)
+            setfield_gc(p0, i20, descr=<SignedFieldDescr .*PyFrame.vable_token .*>)
             setfield_gc(p27, p29, descr=<GcPtrFieldDescr list.items .*>)
             setfield_gc(p26, p27, descr=<.* .*W_ListObject.inst_wrappeditems .*>)
             setarrayitem_gc(p24, 0, p26, descr=<GcPtrArrayDescr>)
@@ -462,4 +464,26 @@ class TestCall(BaseTestPyPyC):
             setfield_gc(p22, i13, descr=<SignedFieldDescr pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
             setfield_gc(p4, p22, descr=<GcPtrFieldDescr pypy.interpreter.nestedscope.Cell.inst_w_value .*>)
             jump(p0, p1, p2, p3, p4, p7, p22, p7, descr=<Loop0>)
+        """)
+
+    def test_kwargs_virtual(self):
+        def main(n):
+            def g(**kwargs):
+                return kwargs["x"] + 1
+
+            i = 0
+            while i < n:
+                i = g(x=i)
+            return i
+
+        log = self.run(main, [500])
+        assert log.result == 500
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i2 = int_lt(i0, i1)
+            guard_true(i2, descr=...)
+            i3 = force_token()
+            i4 = int_add(i0, 1)
+            --TICK--
+            jump(..., descr=...)
         """)

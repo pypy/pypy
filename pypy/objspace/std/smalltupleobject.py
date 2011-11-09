@@ -68,10 +68,10 @@ def make_specialized_class(n):
             raise IndexError
 
         def eq(self, space, w_other):
-            if self.length() != w_other.length():
+            if n != w_other.length():
                 return space.w_False
             for i in iter_n:
-                item1 = self.getitem(i)
+                item1 = getattr(self,'w_value%s' % i)
                 item2 = w_other.getitem(i)
                 if not space.eq_w(item1, item2):
                     return space.w_False
@@ -80,9 +80,9 @@ def make_specialized_class(n):
         def hash(self, space):
             mult = 1000003
             x = 0x345678
-            z = self.length()
+            z = n
             for i in iter_n:
-                w_item = self.getitem(i)
+                w_item = getattr(self, 'w_value%s' % i)
                 y = space.int_w(space.hash(w_item))
                 x = (x ^ y) * mult
                 z -= 1

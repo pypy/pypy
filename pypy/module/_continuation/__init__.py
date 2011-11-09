@@ -37,4 +37,5 @@ one-shot continuation stored in two (or more) continulets.
     interpleveldefs = {
         'continulet': 'interp_continuation.W_Continulet',
         'permute': 'interp_continuation.permute',
+        '_p': 'interp_continuation.unpickle',      # pickle support
     }

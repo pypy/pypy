@@ -485,6 +485,7 @@ class ContainerNode(object):
         __slots__ = """db obj 
                        typename implementationtypename
                         name
+                        _funccodegen_owner
                         globalcontainer""".split()
     eci_name = '_compilation_info'
 
@@ -509,6 +510,7 @@ class ContainerNode(object):
         if self.typename != self.implementationtypename:
             if db.gettypedefnode(T).extra_union_for_varlength:
                 self.name += '.b'
+        self._funccodegen_owner = None
 
     def getptrname(self):
         return '(&%s)' % self.name
@@ -842,6 +844,9 @@ class FuncNode(ContainerNode):
         if self.funcgens:
             argnames = self.funcgens[0].argnames()  #Assume identical for all funcgens
             self.implementationtypename = self.db.gettype(self.T, argnames=argnames)
+            self._funccodegen_owner = self.funcgens[0]
+        else:
+            self._funccodegen_owner = None
 
     def basename(self):
         return self.obj._name
@@ -1005,6 +1010,7 @@ class PyObjectNode(ContainerNode):
     globalcontainer = True
     typename = 'PyObject @'
     implementationtypename = 'PyObject *@'
+    _funccodegen_owner = None
 
     def __init__(self, db, T, obj):
         # obj is a _pyobject here; obj.value is the underlying CPython object

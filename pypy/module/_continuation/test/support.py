@@ -9,4 +9,4 @@ class BaseAppTest:
             import pypy.rlib.rstacklet
         except CompilationError, e:
             py.test.skip("cannot import rstacklet: %s" % e)
-        cls.space = gettestobjspace(usemodules=['_continuation'])
+        cls.space = gettestobjspace(usemodules=['_continuation'], continuation=True)

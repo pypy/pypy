@@ -12,10 +12,11 @@ from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
 from pypy.rlib.objectmodel import we_are_translated
+import os
 
 class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
     position = -1
-    
+
     def generalization_of(self, other, renum, bad):
         raise NotImplementedError
 
@@ -29,7 +30,7 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
     def _generate_guards(self, other, box, cpu, extra_guards):
         raise InvalidLoop
 
-    def enum_forced_boxes(self, boxes, value):
+    def enum_forced_boxes(self, boxes, value, optimizer):
         raise NotImplementedError
 
     def enum(self, virtual_state):
@@ -53,7 +54,7 @@ class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
                 s.debug_print(indent + "    ", seen, bad)
         else:
             debug_print(indent + "    ...")
-                
+
 
     def debug_header(self, indent):
         raise NotImplementedError
@@ -76,13 +77,15 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
             bad[self] = True
             bad[other] = True
             return False
+
+        assert isinstance(other, AbstractVirtualStructStateInfo)
         assert len(self.fielddescrs) == len(self.fieldstate)
         assert len(other.fielddescrs) == len(other.fieldstate)
         if len(self.fielddescrs) != len(other.fielddescrs):
             bad[self] = True
             bad[other] = True
             return False
-        
+
         for i in range(len(self.fielddescrs)):
             if other.fielddescrs[i] is not self.fielddescrs[i]:
                 bad[self] = True
@@ -99,20 +102,20 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
     def _generalization_of(self, other):
         raise NotImplementedError
 
-    def enum_forced_boxes(self, boxes, value):
+    def enum_forced_boxes(self, boxes, value, optimizer):
         assert isinstance(value, virtualize.AbstractVirtualStructValue)
         assert value.is_virtual()
         for i in range(len(self.fielddescrs)):
             v = value._fields[self.fielddescrs[i]]
             s = self.fieldstate[i]
             if s.position > self.position:
-                s.enum_forced_boxes(boxes, v)
+                s.enum_forced_boxes(boxes, v, optimizer)
 
     def _enum(self, virtual_state):
         for s in self.fieldstate:
             s.enum(virtual_state)
-        
-        
+
+
 class VirtualStateInfo(AbstractVirtualStructStateInfo):
     def __init__(self, known_class, fielddescrs):
         AbstractVirtualStructStateInfo.__init__(self, fielddescrs)
@@ -127,13 +130,13 @@ class VirtualStateInfo(AbstractVirtualStructStateInfo):
 
     def debug_header(self, indent):
         debug_print(indent + 'VirtualStateInfo(%d):' % self.position)
-        
+
 class VStructStateInfo(AbstractVirtualStructStateInfo):
     def __init__(self, typedescr, fielddescrs):
         AbstractVirtualStructStateInfo.__init__(self, fielddescrs)
         self.typedescr = typedescr
 
-    def _generalization_of(self, other):        
+    def _generalization_of(self, other):
         if not isinstance(other, VStructStateInfo):
             return False
         if self.typedescr is not other.typedescr:
@@ -142,7 +145,7 @@ class VStructStateInfo(AbstractVirtualStructStateInfo):
 
     def debug_header(self, indent):
         debug_print(indent + 'VStructStateInfo(%d):' % self.position)
-        
+
 class VArrayStateInfo(AbstractVirtualStateInfo):
     def __init__(self, arraydescr):
         self.arraydescr = arraydescr
@@ -156,11 +159,7 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
             bad[other] = True
             return False
         renum[self.position] = other.position
-        if not isinstance(other, VArrayStateInfo):
-            bad[self] = True
-            bad[other] = True
-            return False
-        if self.arraydescr is not other.arraydescr:
+        if not self._generalization_of(other):
             bad[self] = True
             bad[other] = True
             return False
@@ -176,14 +175,18 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
                 return False
         return True
 
-    def enum_forced_boxes(self, boxes, value):
+    def _generalization_of(self, other):
+        return (isinstance(other, VArrayStateInfo) and
+            self.arraydescr is other.arraydescr)
+
+    def enum_forced_boxes(self, boxes, value, optimizer):
         assert isinstance(value, virtualize.VArrayValue)
         assert value.is_virtual()
         for i in range(len(self.fieldstate)):
             v = value._items[i]
             s = self.fieldstate[i]
             if s.position > self.position:
-                s.enum_forced_boxes(boxes, v)
+                s.enum_forced_boxes(boxes, v, optimizer)
 
     def _enum(self, virtual_state):
         for s in self.fieldstate:
@@ -191,8 +194,75 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
 
     def debug_header(self, indent):
         debug_print(indent + 'VArrayStateInfo(%d):' % self.position)
-            
-        
+
+class VArrayStructStateInfo(AbstractVirtualStateInfo):
+    def __init__(self, arraydescr, fielddescrs):
+        self.arraydescr = arraydescr
+        self.fielddescrs = fielddescrs
+
+    def generalization_of(self, other, renum, bad):
+        assert self.position != -1
+        if self.position in renum:
+            if renum[self.position] == other.position:
+                return True
+            bad[self] = True
+            bad[other] = True
+            return False
+        renum[self.position] = other.position
+        if not self._generalization_of(other):
+            bad[self] = True
+            bad[other] = True
+            return False
+
+        assert isinstance(other, VArrayStructStateInfo)
+        if len(self.fielddescrs) != len(other.fielddescrs):
+            bad[self] = True
+            bad[other] = True
+            return False
+
+        p = 0
+        for i in range(len(self.fielddescrs)):
+            if len(self.fielddescrs[i]) != len(other.fielddescrs[i]):
+                bad[self] = True
+                bad[other] = True
+                return False
+            for j in range(len(self.fielddescrs[i])):
+                if self.fielddescrs[i][j] is not other.fielddescrs[i][j]:
+                    bad[self] = True
+                    bad[other] = True
+                    return False
+                if not self.fieldstate[p].generalization_of(other.fieldstate[p],
+                                                            renum, bad):
+                    bad[self] = True
+                    bad[other] = True
+                    return False
+                p += 1
+        return True
+
+    def _generalization_of(self, other):
+        return (isinstance(other, VArrayStructStateInfo) and
+            self.arraydescr is other.arraydescr)
+
+    def _enum(self, virtual_state):
+        for s in self.fieldstate:
+            s.enum(virtual_state)
+
+    def enum_forced_boxes(self, boxes, value, optimizer):
+        assert isinstance(value, virtualize.VArrayStructValue)
+        assert value.is_virtual()
+        p = 0
+        for i in range(len(self.fielddescrs)):
+            for j in range(len(self.fielddescrs[i])):
+                v = value._items[i][self.fielddescrs[i][j]]
+                s = self.fieldstate[p]
+                if s.position > self.position:
+                    s.enum_forced_boxes(boxes, v, optimizer)
+                p += 1
+
+    def debug_header(self, indent):
+        debug_print(indent + 'VArrayStructStateInfo(%d):' % self.position)
+
+
 class NotVirtualStateInfo(AbstractVirtualStateInfo):
     def __init__(self, value):
         self.known_class = value.known_class
@@ -276,7 +346,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             op = ResOperation(rop.GUARD_CLASS, [box, self.known_class], None)
             extra_guards.append(op)
             return
-        
+
         if self.level == LEVEL_NONNULL and \
                other.level == LEVEL_UNKNOWN and \
                isinstance(box, BoxPtr) and \
@@ -284,7 +354,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
             op = ResOperation(rop.GUARD_NONNULL, [box], None)
             extra_guards.append(op)
             return
-        
+
         if self.level == LEVEL_UNKNOWN and \
                other.level == LEVEL_UNKNOWN and \
                isinstance(box, BoxInt) and \
@@ -308,18 +378,18 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
                     op = ResOperation(rop.GUARD_TRUE, [res], None)
                     extra_guards.append(op)
             return
-        
+
         # Remaining cases are probably not interesting
         raise InvalidLoop
         if self.level == LEVEL_CONSTANT:
             import pdb; pdb.set_trace()
             raise NotImplementedError
 
-    def enum_forced_boxes(self, boxes, value):
+    def enum_forced_boxes(self, boxes, value, optimizer):
         if self.level == LEVEL_CONSTANT:
             return
-        assert 0 <= self.position_in_notvirtuals 
-        boxes[self.position_in_notvirtuals] = value.force_box()
+        assert 0 <= self.position_in_notvirtuals
+        boxes[self.position_in_notvirtuals] = value.force_box(optimizer)
 
     def _enum(self, virtual_state):
         if self.level == LEVEL_CONSTANT:
@@ -347,7 +417,7 @@ class NotVirtualStateInfo(AbstractVirtualStateInfo):
         lb = ''
         if self.lenbound:
             lb = ', ' + self.lenbound.bound.__repr__()
-        
+
         debug_print(indent + mark + 'NotVirtualInfo(%d' % self.position +
                     ', ' + l + ', ' + self.intbound.__repr__() + lb + ')')
 
@@ -369,18 +439,20 @@ class VirtualState(object):
                 return False
         return True
 
-    def generate_guards(self, other, args, cpu, extra_guards):        
+    def generate_guards(self, other, args, cpu, extra_guards):
         assert len(self.state) == len(other.state) == len(args)
         renum = {}
         for i in range(len(self.state)):
             self.state[i].generate_guards(other.state[i], args[i],
                                           cpu, extra_guards, renum)
 
-    def make_inputargs(self, values, keyboxes=False):
+    def make_inputargs(self, values, optimizer, keyboxes=False):
+        if optimizer.optearlyforce:
+            optimizer = optimizer.optearlyforce
         assert len(values) == len(self.state)
         inputargs = [None] * len(self.notvirtuals)
         for i in range(len(values)):
-            self.state[i].enum_forced_boxes(inputargs, values[i])
+            self.state[i].enum_forced_boxes(inputargs, values[i], optimizer)
 
         if keyboxes:
             for i in range(len(values)):
@@ -390,7 +462,7 @@ class VirtualState(object):
                     inputargs.append(box)
 
         assert None not in inputargs
-            
+
         return inputargs
 
     def debug_print(self, hdr='', bad=None):
@@ -409,7 +481,7 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
 
     def register_virtual_fields(self, keybox, fieldboxes):
         self.fieldboxes[keybox] = fieldboxes
-        
+
     def already_seen_virtual(self, keybox):
         return keybox in self.fieldboxes
 
@@ -433,7 +505,12 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
     def get_virtual_state(self, jump_args):
         self.optimizer.force_at_end_of_preamble()
         already_forced = {}
-        values = [self.getvalue(box).force_at_end_of_preamble(already_forced)
+        if self.optimizer.optearlyforce:
+            opt = self.optimizer.optearlyforce
+        else:
+            opt = self.optimizer
+        values = [self.getvalue(box).force_at_end_of_preamble(already_forced,
+                                                              opt)
                   for box in jump_args]
 
         for value in values:
@@ -455,20 +532,26 @@ class VirtualStateAdder(resume.ResumeDataVirtualAdder):
     def make_varray(self, arraydescr):
         return VArrayStateInfo(arraydescr)
 
+    def make_varraystruct(self, arraydescr, fielddescrs):
+        return VArrayStructStateInfo(arraydescr, fielddescrs)
+
 class BoxNotProducable(Exception):
     pass
 
 class ShortBoxes(object):
     def __init__(self, optimizer, surviving_boxes):
         self.potential_ops = {}
-        self.duplicates = {}
+        self.alternatives = {}
+        self.synthetic = {}
         self.aliases = {}
+        self.rename = {}
         self.optimizer = optimizer
         for box in surviving_boxes:
             self.potential_ops[box] = None
         optimizer.produce_potential_short_preamble_ops(self)
 
         self.short_boxes = {}
+        self.short_boxes_in_production = {}
 
         for box in self.potential_ops.keys():
             try:
@@ -476,33 +559,85 @@ class ShortBoxes(object):
             except BoxNotProducable:
                 pass
 
+    def prioritized_alternatives(self, box):
+        if box not in self.alternatives:
+            return [self.potential_ops[box]]
+        alts = self.alternatives[box]
+        hi, lo = 0, len(alts) - 1
+        while hi < lo:
+            if alts[lo] is None: # Inputarg, lowest priority
+                alts[lo], alts[-1] = alts[-1], alts[lo]
+                lo -= 1
+            elif alts[lo] not in self.synthetic: # Hi priority
+                alts[hi], alts[lo] = alts[lo], alts[hi]
+                hi += 1
+            else: # Low priority
+                lo -= 1
+        return alts
+
+    def renamed(self, box):
+        if box in self.rename:
+            return self.rename[box]
+        return box
+
+    def add_to_short(self, box, op):
+        if op:
+            op = op.clone()
+            for i in range(op.numargs()):
+                op.setarg(i, self.renamed(op.getarg(i)))
+        if box in self.short_boxes:
+            if op is None:
+                oldop = self.short_boxes[box].clone()
+                oldres = oldop.result
+                newbox = oldop.result = oldres.clonebox()
+                self.rename[box] = newbox
+                self.short_boxes[box] = None
+                self.short_boxes[newbox] = oldop
+            else:
+                newop = op.clone()
+                newbox = newop.result = op.result.clonebox()
+                self.short_boxes[newop.result] = newop
+            value = self.optimizer.getvalue(box)
+            self.optimizer.make_equal_to(newbox, value)
+        else:
+            self.short_boxes[box] = op
+
     def produce_short_preamble_box(self, box):
         if box in self.short_boxes:
-            return 
+            return
         if isinstance(box, Const):
-            return 
+            return
+        if box in self.short_boxes_in_production:
+            raise BoxNotProducable
+        self.short_boxes_in_production[box] = True
+        
         if box in self.potential_ops:
-            op = self.potential_ops[box]
-            if op:
-                for arg in op.getarglist():
-                    self.produce_short_preamble_box(arg)
-            self.short_boxes[box] = op
+            ops = self.prioritized_alternatives(box)
+            produced_one = False
+            for op in ops:
+                try:
+                    if op:
+                        for arg in op.getarglist():
+                            self.produce_short_preamble_box(arg)
+                except BoxNotProducable:
+                    pass
+                else:
+                    produced_one = True
+                    self.add_to_short(box, op)
+            if not produced_one:
+                raise BoxNotProducable
         else:
             raise BoxNotProducable
 
-    def add_potential(self, op):
+    def add_potential(self, op, synthetic=False):
         if op.result not in self.potential_ops:
             self.potential_ops[op.result] = op
-            return op
-        newop = op.clone()
-        newop.result = op.result.clonebox()
-        self.potential_ops[newop.result] = newop
-        if op.result in self.duplicates:
-            self.duplicates[op.result].append(newop.result)
         else:
-            self.duplicates[op.result] = [newop.result]
-        self.optimizer.make_equal_to(newop.result, self.optimizer.getvalue(op.result))
-        return newop
+            if op.result not in self.alternatives:
+                self.alternatives[op.result] = [self.potential_ops[op.result]]
+            self.alternatives[op.result].append(op)
+        if synthetic:
+            self.synthetic[op] = True
 
     def debug_print(self, logops):
         debug_start('jit-short-boxes')
@@ -512,7 +647,7 @@ class ShortBoxes(object):
             else:
                 debug_print(logops.repr_of_arg(box) + ': None')
         debug_stop('jit-short-boxes')
-        
+
     def operations(self):
         if not we_are_translated(): # For tests
             ops = self.short_boxes.values()
@@ -530,7 +665,7 @@ class ShortBoxes(object):
         if not isinstance(oldbox, Const) and newbox not in self.short_boxes:
             self.short_boxes[newbox] = self.short_boxes[oldbox]
         self.aliases[newbox] = oldbox
-        
+
     def original(self, box):
         while box in self.aliases:
             box = self.aliases[box]

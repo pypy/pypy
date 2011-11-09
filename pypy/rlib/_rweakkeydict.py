@@ -117,7 +117,7 @@ def ll_new_weakdict():
     d = lltype.malloc(WEAKDICT)
     d.entries = WEAKDICT.entries.TO.allocate(rdict.DICT_INITSIZE)
     d.num_items = 0
-    d.num_pristine_entries = rdict.DICT_INITSIZE
+    d.resize_counter = rdict.DICT_INITSIZE * 2
     return d
 
 @jit.dont_look_inside
@@ -152,8 +152,8 @@ def ll_set_nonnull(d, llkey, llvalue):
     #                 ll_debugrepr(llkey),
     #                 ll_debugrepr(llvalue))
     if not everused:
-        d.num_pristine_entries -= 1
-        if d.num_pristine_entries * 3 <= len(d.entries):
+        d.resize_counter -= 3
+        if d.resize_counter <= 0:
             #llop.debug_print(lltype.Void, 'RESIZE')
             ll_weakdict_resize(d)
 
@@ -206,6 +206,6 @@ dictmeths = {
 
 WEAKDICT = lltype.GcStruct("weakkeydict",
                            ("num_items", lltype.Signed),
-                           ("num_pristine_entries", lltype.Signed),
+                           ("resize_counter", lltype.Signed),
                            ("entries", lltype.Ptr(WEAKDICTENTRYARRAY)),
                            adtmeths=dictmeths)

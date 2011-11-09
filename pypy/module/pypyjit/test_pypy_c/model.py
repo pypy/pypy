@@ -2,7 +2,10 @@ import py
 import sys
 import re
 import os.path
-from _pytest.assertion import newinterpret
+try:
+    from _pytest.assertion import newinterpret
+except ImportError:   # e.g. Python 2.5
+    newinterpret = None
 from pypy.tool.jitlogparser.parser import SimpleParser, Function, TraceForOpcode
 from pypy.tool.jitlogparser.storage import LoopStorage
 
@@ -196,7 +199,7 @@ class InvalidMatch(Exception):
                     source = str(source.deindent()).strip()
         except py.error.ENOENT:
             source = None
-        if source and source.startswith('self._assert('):
+        if source and source.startswith('self._assert(') and newinterpret:
             # transform self._assert(x, 'foo') into assert x, 'foo'
             source = source.replace('self._assert(', 'assert ')
             source = source[:-1] # remove the trailing ')'
@@ -222,6 +225,8 @@ class OpMatcher(object):
         # strip comment
         if '#' in line:
             line = line[:line.index('#')]
+        if line.strip() == 'guard_not_invalidated?':
+            return 'guard_not_invalidated', None, [], '...', False
         # find the resvar, if any
         if ' = ' in line:
             resvar, _, line = line.partition(' = ')
@@ -246,7 +251,7 @@ class OpMatcher(object):
             descr = descr[len('descr='):]
         else:
             descr = None
-        return opname, resvar, args, descr
+        return opname, resvar, args, descr, True
 
     @classmethod
     def preprocess_expected_src(cls, src):
@@ -255,13 +260,23 @@ class OpMatcher(object):
         # replaced with the corresponding operations, so that tests don't have
         # to repeat it every time
         ticker_check = """
+            guard_not_invalidated?
+            ticker0 = getfield_raw(ticker_address, descr=<SignedFieldDescr pypysig_long_struct.c_value .*>)
+            ticker_cond0 = int_lt(ticker0, 0)
+            guard_false(ticker_cond0, descr=...)
+        """
+        src = src.replace('--TICK--', ticker_check)
+        #
+        # this is the ticker check generated if we have threads
+        thread_ticker_check = """
+            guard_not_invalidated?
             ticker0 = getfield_raw(ticker_address, descr=<SignedFieldDescr pypysig_long_struct.c_value .*>)
             ticker1 = int_sub(ticker0, 1)
             setfield_raw(ticker_address, ticker1, descr=<SignedFieldDescr pypysig_long_struct.c_value .*>)
             ticker_cond0 = int_lt(ticker1, 0)
             guard_false(ticker_cond0, descr=...)
         """
-        src = src.replace('--TICK--', ticker_check)
+        src = src.replace('--THREAD-TICK--', thread_ticker_check)
         #
         # this is the ticker check generated in PyFrame.handle_operation_error
         exc_ticker_check = """
@@ -295,7 +310,7 @@ class OpMatcher(object):
         if not cond:
             raise InvalidMatch(message, frame=sys._getframe(1))
 
-    def match_op(self, op, (exp_opname, exp_res, exp_args, exp_descr)):
+    def match_op(self, op, (exp_opname, exp_res, exp_args, exp_descr, _)):
         self._assert(op.name == exp_opname, "operation mismatch")
         self.match_var(op.res, exp_res)
         if exp_args != ['...']:
@@ -338,7 +353,7 @@ class OpMatcher(object):
         what is after the '...'
         """
         iter_exp_ops = iter(expected_ops)
-        iter_ops = iter(self.ops)
+        iter_ops = RevertableIterator(self.ops)
         for opindex, exp_op in enumerate(iter_exp_ops):
             try:
                 if exp_op == '...':
@@ -357,6 +372,9 @@ class OpMatcher(object):
                             break
                 self.match_op(op, exp_op)
             except InvalidMatch, e:
+                if exp_op[4] is False:    # optional operation
+                    iter_ops.revert_one()
+                    continue       # try to match with the next exp_op
                 e.opindex = opindex
                 raise
         #
@@ -369,8 +387,8 @@ class OpMatcher(object):
                 return ''
             text = str(py.code.Source(src).deindent().indent())
             lines = text.splitlines(True)
-            if opindex is not None and 0 <= opindex < len(lines):
-                lines[opindex] = lines[opindex].rstrip() + '\t<=====\n'
+            if opindex is not None and 0 <= opindex <= len(lines):
+                lines.insert(opindex, '\n\t===== HERE =====\n')
             return ''.join(lines)
         #
         expected_src = self.preprocess_expected_src(expected_src)
@@ -395,3 +413,18 @@ class OpMatcher(object):
         else:
             return True
 
+
+class RevertableIterator(object):
+    def __init__(self, sequence):
+        self.sequence = sequence
+        self.index = 0
+    def __iter__(self):
+        return self
+    def next(self):
+        index = self.index
+        if index == len(self.sequence):
+            raise StopIteration
+        self.index = index + 1
+        return self.sequence[index]
+    def revert_one(self):
+        self.index -= 1

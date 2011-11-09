@@ -2,11 +2,10 @@ import random
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.interpreter.error import OperationError
 
-from pypy.conftest import gettestobjspace
+from pypy.conftest import gettestobjspace, option
 
 
 class TestW_ListObject(object):
-
     def test_is_true(self):
         w = self.space.wrap
         w_list = W_ListObject([])
@@ -343,6 +342,13 @@ class TestW_ListObject(object):
 
 
 class AppTestW_ListObject(object):
+    def setup_class(cls):
+        import sys
+        on_cpython = (option.runappdirect and
+                            not hasattr(sys, 'pypy_translation_info'))
+
+        cls.w_on_cpython = cls.space.wrap(on_cpython)
+
     def test_call_list(self):
         assert list('') == []
         assert list('abc') == ['a', 'b', 'c']
@@ -616,6 +622,14 @@ class AppTestW_ListObject(object):
         assert c.index(0) == 0
         raises(ValueError, c.index, 3)
 
+    def test_index_cpython_bug(self):
+        if self.on_cpython:
+            skip("cpython has a bug here")
+        c = list('hello world')
+        assert c.index('l', None, None) == 2
+        assert c.index('l', 3, None) == 3
+        assert c.index('l', None, 4) == 2
+
     def test_ass_slice(self):
         l = range(6)
         l[1:3] = 'abc'
@@ -705,6 +719,20 @@ class AppTestW_ListObject(object):
         l.pop()
         assert l == range(9)
 
+    def test_pop_custom_int(self):
+        class A(object):
+            def __init__(self, x):
+                self.x = x
+
+            def __int__(self):
+                return self.x
+
+        l = range(10)
+        x = l.pop(A(-1))
+        assert x == 9
+        assert l == range(9)
+        raises(TypeError, range(10).pop, 1.0)
+
     def test_remove(self):
         c = list('hello world')
         c.remove('l')
@@ -786,6 +814,20 @@ class AppTestW_ListObject(object):
         l = [1,2,3,4]
         l.__delslice__(0, 2)
         assert l == [3, 4]
+
+    def test_list_from_set(self):
+        l = ['a']
+        l.__init__(set('b'))
+        assert l == ['b']
+
+    def test_list_from_generator(self):
+        l = ['a']
+        g = (i*i for i in range(5))
+        l.__init__(g)
+        assert l == [0, 1, 4, 9, 16]
+        l.__init__(g)
+        assert l == []
+        assert list(g) == []
 
 
 class AppTestListFastSubscr:

@@ -4,7 +4,7 @@ from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter import gateway
 from pypy.rlib.rarithmetic import ovfcheck
-from pypy.rlib.objectmodel import we_are_translated, compute_hash
+from pypy.rlib.objectmodel import we_are_translated, compute_hash, specialize
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype, newformat
@@ -33,17 +33,21 @@ class W_StringObject(W_Object):
     def unwrap(w_self, space):
         return w_self._value
 
+    def str_w(w_self, space):
+        return w_self._value
+
+    def unicode_w(w_self, space):
+        # XXX should this use the default encoding?
+        from pypy.objspace.std.unicodetype import plain_str2unicode
+        return plain_str2unicode(space, w_self._value)
+
 registerimplementation(W_StringObject)
 
 W_StringObject.EMPTY = W_StringObject('')
 W_StringObject.PREBUILT = [W_StringObject(chr(i)) for i in range(256)]
 del i
 
-def unicode_w__String(space, w_self):
-    # XXX should this use the default encoding?
-    from pypy.objspace.std.unicodetype import plain_str2unicode
-    return plain_str2unicode(space, w_self._value)
-
+@specialize.arg(2)
 def _is_generic(space, w_self, fun):
     v = w_self._value
     if len(v) == 0:
@@ -53,14 +57,13 @@ def _is_generic(space, w_self, fun):
         return space.newbool(fun(c))
     else:
         return _is_generic_loop(space, v, fun)
-_is_generic._annspecialcase_ = "specialize:arg(2)"
 
+@specialize.arg(2)
 def _is_generic_loop(space, v, fun):
     for idx in range(len(v)):
         if not fun(v[idx]):
             return space.w_False
     return space.w_True
-_is_generic_loop._annspecialcase_ = "specialize:arg(2)"
 
 def _upper(ch):
     if ch.islower():
@@ -158,57 +161,59 @@ def str_lower__String(space, w_self):
 
 def str_swapcase__String(space, w_self):
     self = w_self._value
-    res = [' '] * len(self)
+    builder = StringBuilder(len(self))
     for i in range(len(self)):
         ch = self[i]
         if ch.isupper():
             o = ord(ch) + 32
-            res[i] = chr(o)
+            builder.append(chr(o))
         elif ch.islower():
             o = ord(ch) - 32
-            res[i] = chr(o)
+            builder.append(chr(o))
         else:
-            res[i] = ch
+            builder.append(ch)
 
-    return space.wrap("".join(res))
+    return space.wrap(builder.build())
 
 
 def str_capitalize__String(space, w_self):
     input = w_self._value
-    buffer = [' '] * len(input)
+    builder = StringBuilder(len(input))
     if len(input) > 0:
         ch = input[0]
         if ch.islower():
             o = ord(ch) - 32
-            buffer[0] = chr(o)
+            builder.append(chr(o))
         else:
-            buffer[0] = ch
+            builder.append(ch)
 
         for i in range(1, len(input)):
             ch = input[i]
             if ch.isupper():
                 o = ord(ch) + 32
-                buffer[i] = chr(o)
+                builder.append(chr(o))
             else:
-                buffer[i] = ch
+                builder.append(ch)
 
-    return space.wrap("".join(buffer))
+    return space.wrap(builder.build())
 
 def str_title__String(space, w_self):
     input = w_self._value
-    buffer = [' '] * len(input)
+    builder = StringBuilder(len(input))
     prev_letter=' '
 
-    for pos in range(0, len(input)):
+    for pos in range(len(input)):
         ch = input[pos]
         if not prev_letter.isalpha():
-            buffer[pos] = _upper(ch)
+            ch = _upper(ch)
+            builder.append(ch)
         else:
-            buffer[pos] = _lower(ch)
+            ch = _lower(ch)
+            builder.append(ch)
 
-        prev_letter = buffer[pos]
+        prev_letter = ch
 
-    return space.wrap("".join(buffer))
+    return space.wrap(builder.build())
 
 def str_split__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
     maxsplit = space.int_w(w_maxsplit)
@@ -364,8 +369,8 @@ def _str_join_many_items(space, w_self, list_w, size):
     reslen = len(self) * (size - 1)
     for i in range(size):
         w_s = list_w[i]
-        if not space.is_true(space.isinstance(w_s, space.w_str)):
-            if space.is_true(space.isinstance(w_s, space.w_unicode)):
+        if not space.isinstance_w(w_s, space.w_str):
+            if space.isinstance_w(w_s, space.w_unicode):
                 # we need to rebuild w_list here, because the original
                 # w_list might be an iterable which we already consumed
                 w_list = space.newlist(list_w)
@@ -415,22 +420,14 @@ def str_ljust__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
 
     return space.wrap(u_self)
 
-def _convert_idx_params(space, w_self, w_sub, w_start, w_end, upper_bound=False):
+@specialize.arg(4)
+def _convert_idx_params(space, w_self, w_start, w_end, upper_bound=False):
     self = w_self._value
-    sub = w_sub._value
+    lenself = len(self)
 
-    if space.is_w(w_start, space.w_None):
-        w_start = space.wrap(0)
-    if space.is_w(w_end, space.w_None):
-        w_end = space.len(w_self)
-    if upper_bound:
-        start = slicetype.adapt_bound(space, len(self), w_start)
-        end = slicetype.adapt_bound(space, len(self), w_end)
-    else:
-        start = slicetype.adapt_lower_bound(space, len(self), w_start)
-        end = slicetype.adapt_lower_bound(space, len(self), w_end)
-    return (self, sub, start, end)
-_convert_idx_params._annspecialcase_ = 'specialize:arg(5)'
+    start, end = slicetype.unwrap_start_stop(
+            space, lenself, w_start, w_end, upper_bound=upper_bound)
+    return (self, start, end)
 
 def contains__String_String(space, w_self, w_sub):
     self = w_self._value
@@ -438,13 +435,13 @@ def contains__String_String(space, w_self, w_sub):
     return space.newbool(self.find(sub) >= 0)
 
 def str_find__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
-    (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
-    res = self.find(sub, start, end)
+    (self, start, end) =  _convert_idx_params(space, w_self, w_start, w_end)
+    res = self.find(w_sub._value, start, end)
     return space.wrap(res)
 
 def str_rfind__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
-    (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
-    res = self.rfind(sub, start, end)
+    (self, start, end) =  _convert_idx_params(space, w_self, w_start, w_end)
+    res = self.rfind(w_sub._value, start, end)
     return space.wrap(res)
 
 def str_partition__String_String(space, w_self, w_sub):
@@ -478,8 +475,8 @@ def str_rpartition__String_String(space, w_self, w_sub):
 
 
 def str_index__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
-    (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
-    res = self.find(sub, start, end)
+    (self, start, end) =  _convert_idx_params(space, w_self, w_start, w_end)
+    res = self.find(w_sub._value, start, end)
     if res < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("substring not found in string.index"))
@@ -488,8 +485,8 @@ def str_index__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
 
 
 def str_rindex__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
-    (self, sub, start, end) =  _convert_idx_params(space, w_self, w_sub, w_start, w_end)
-    res = self.rfind(sub, start, end)
+    (self, start, end) =  _convert_idx_params(space, w_self, w_start, w_end)
+    res = self.rfind(w_sub._value, start, end)
     if res < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap("substring not found in string.rindex"))
@@ -631,22 +628,19 @@ def str_center__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
     return wrapstr(space, u_centered)
 
 def str_count__String_String_ANY_ANY(space, w_self, w_arg, w_start, w_end):
-    u_self, u_arg, u_start, u_end = _convert_idx_params(space, w_self, w_arg,
-                                                        w_start, w_end)
-    return wrapint(space, u_self.count(u_arg, u_start, u_end))
+    u_self, u_start, u_end = _convert_idx_params(space, w_self, w_start, w_end)
+    return wrapint(space, u_self.count(w_arg._value, u_start, u_end))
 
 def str_endswith__String_String_ANY_ANY(space, w_self, w_suffix, w_start, w_end):
-    (u_self, suffix, start, end) = _convert_idx_params(space, w_self,
-                                                       w_suffix, w_start,
-                                                       w_end, True)
-    return space.newbool(stringendswith(u_self, suffix, start, end))
+    (u_self, start, end) = _convert_idx_params(space, w_self, w_start,
+                                               w_end, True)
+    return space.newbool(stringendswith(u_self, w_suffix._value, start, end))
 
 def str_endswith__String_Tuple_ANY_ANY(space, w_self, w_suffixes, w_start, w_end):
-    (u_self, _, start, end) = _convert_idx_params(space, w_self,
-                                                  space.wrap(''), w_start,
-                                                  w_end, True)
+    (u_self, start, end) = _convert_idx_params(space, w_self, w_start,
+                                               w_end, True)
     for w_suffix in space.fixedview(w_suffixes):
-        if space.is_true(space.isinstance(w_suffix, space.w_unicode)):
+        if space.isinstance_w(w_suffix, space.w_unicode):
             w_u = space.call_function(space.w_unicode, w_self)
             return space.call_method(w_u, "endswith", w_suffixes, w_start,
                                      w_end)
@@ -656,16 +650,15 @@ def str_endswith__String_Tuple_ANY_ANY(space, w_self, w_suffixes, w_start, w_end
     return space.w_False
 
 def str_startswith__String_String_ANY_ANY(space, w_self, w_prefix, w_start, w_end):
-    (u_self, prefix, start, end) = _convert_idx_params(space, w_self,
-                                                       w_prefix, w_start,
-                                                       w_end, True)
-    return space.newbool(stringstartswith(u_self, prefix, start, end))
+    (u_self, start, end) = _convert_idx_params(space, w_self, w_start,
+                                               w_end, True)
+    return space.newbool(stringstartswith(u_self, w_prefix._value, start, end))
 
 def str_startswith__String_Tuple_ANY_ANY(space, w_self, w_prefixes, w_start, w_end):
-    (u_self, _, start, end) = _convert_idx_params(space, w_self, space.wrap(''),
-                                                  w_start, w_end, True)
+    (u_self, start, end) = _convert_idx_params(space, w_self,
+                                               w_start, w_end, True)
     for w_prefix in space.fixedview(w_prefixes):
-        if space.is_true(space.isinstance(w_prefix, space.w_unicode)):
+        if space.isinstance_w(w_prefix, space.w_unicode):
             w_u = space.call_function(space.w_unicode, w_self)
             return space.call_method(w_u, "startswith", w_prefixes, w_start,
                                      w_end)
@@ -751,30 +744,22 @@ def str_zfill__String_ANY(space, w_self, w_width):
     input = w_self._value
     width = space.int_w(w_width)
 
-    if len(input) >= width:
+    num_zeros = width - len(input)
+    if num_zeros <= 0:
         # cannot return w_self, in case it is a subclass of str
         return space.wrap(input)
 
-    buf = [' '] * width
+    builder = StringBuilder(width)
     if len(input) > 0 and (input[0] == '+' or input[0] == '-'):
-        buf[0] = input[0]
+        builder.append(input[0])
         start = 1
-        middle = width - len(input) + 1
     else:
         start = 0
-        middle = width - len(input)
 
-    for i in range(start, middle):
-        buf[i] = '0'
+    builder.append_multiple_char('0', num_zeros)
+    builder.append_slice(input, start, len(input))
+    return space.wrap(builder.build())
 
-    for i in range(middle, width):
-        buf[i] = input[start]
-        start = start + 1
-
-    return space.wrap("".join(buf))
-
-def str_w__String(space, w_str):
-    return w_str._value
 
 def hash__String(space, w_str):
     s = w_str._value

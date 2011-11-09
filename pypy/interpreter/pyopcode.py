@@ -1523,10 +1523,8 @@ app = gateway.applevel(r'''
 
         if not isinstance(prog, codetype):
             filename = '<string>'
-            if not isinstance(prog, str):
-                if isinstance(prog, basestring):
-                    prog = str(prog)
-                elif isinstance(prog, file):
+            if not isinstance(prog, basestring):
+                if isinstance(prog, file):
                     filename = prog.name
                     prog = prog.read()
                 else:

@@ -170,6 +170,7 @@ class RefcountingRuntimeTypeInfo_OpaqueNode(ContainerNode):
     nodekind = 'refcnt rtti'
     globalcontainer = True
     typename = 'void (@)(void *)'
+    _funccodegen_owner = None
 
     def __init__(self, db, T, obj):
         assert T == RuntimeTypeInfo
@@ -266,6 +267,7 @@ class BoehmGcRuntimeTypeInfo_OpaqueNode(ContainerNode):
     nodekind = 'boehm rtti'
     globalcontainer = True
     typename = 'char @'
+    _funccodegen_owner = None
 
     def __init__(self, db, T, obj):
         assert T == RuntimeTypeInfo

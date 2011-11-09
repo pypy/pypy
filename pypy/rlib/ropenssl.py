@@ -25,6 +25,7 @@ includes += [
     'openssl/err.h',
     'openssl/rand.h',
     'openssl/evp.h',
+    'openssl/ossl_typ.h',
     'openssl/x509v3.h']
 
 eci = ExternalCompilationInfo(
@@ -62,6 +63,7 @@ class CConfig:
         "OPENSSL_VERSION_NUMBER")
     SSLEAY_VERSION = rffi_platform.DefinedConstantString(
         "SSLEAY_VERSION", "SSLeay_version(SSLEAY_VERSION)")
+    OPENSSL_NO_SSL2 = rffi_platform.Defined("OPENSSL_NO_SSL2")
     SSL_FILETYPE_PEM = rffi_platform.ConstantInteger("SSL_FILETYPE_PEM")
     SSL_OP_ALL = rffi_platform.ConstantInteger("SSL_OP_ALL")
     SSL_VERIFY_NONE = rffi_platform.ConstantInteger("SSL_VERIFY_NONE")
@@ -107,7 +109,9 @@ class CConfig:
     GENERAL_NAME_st = rffi_platform.Struct(
         'struct GENERAL_NAME_st',
         [('type', rffi.INT),
-         ]) 
+         ])
+    EVP_MD_SIZE = rffi_platform.SizeOf('EVP_MD')
+    EVP_MD_CTX_SIZE = rffi_platform.SizeOf('EVP_MD_CTX')
 
 
 for k, v in rffi_platform.configure(CConfig).items():
@@ -153,7 +157,7 @@ ssl_external('CRYPTO_set_locking_callback',
 ssl_external('CRYPTO_set_id_callback',
              [lltype.Ptr(lltype.FuncType([], rffi.LONG))],
              lltype.Void)
-             
+
 if HAVE_OPENSSL_RAND:
     ssl_external('RAND_add', [rffi.CCHARP, rffi.INT, rffi.DOUBLE], lltype.Void)
     ssl_external('RAND_status', [], rffi.INT)
@@ -254,7 +258,7 @@ ssl_external('PEM_read_bio_X509_AUX',
              [BIO, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP], X509)
 
 EVP_MD_CTX = rffi.COpaquePtr('EVP_MD_CTX', compilation_info=eci)
-EVP_MD     = rffi.COpaquePtr('EVP_MD')
+EVP_MD     = rffi.COpaquePtr('EVP_MD', compilation_info=eci)
 
 OpenSSL_add_all_digests = external(
     'OpenSSL_add_all_digests', [], lltype.Void)

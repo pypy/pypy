@@ -37,7 +37,7 @@ an outout-buffering stream.
 # return value of tell(), but not as argument to read().
 #
 
-import os, sys
+import os, sys, errno
 from pypy.rlib.objectmodel import specialize, we_are_translated
 from pypy.rlib.rarithmetic import r_longlong, intmask
 from pypy.rlib import rposix
@@ -587,12 +587,22 @@ class BufferingInputStream(Stream):
     def readall(self):
         pos = self.pos
         assert pos >= 0
-        chunks = [self.buf[pos:]]
+        if self.buf:
+            chunks = [self.buf[pos:]]
+        else:
+            chunks = []
         self.buf = ""
         self.pos = 0
         bufsize = self.bufsize
         while 1:
-            data = self.do_read(bufsize)
+            try:
+                data = self.do_read(bufsize)
+            except OSError, o:
+                if o.errno != errno.EAGAIN:
+                    raise
+                if not chunks:
+                    raise
+                break
             if not data:
                 break
             chunks.append(data)

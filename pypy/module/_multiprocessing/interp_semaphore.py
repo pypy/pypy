@@ -4,6 +4,7 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import wrap_oserror, OperationError
 from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rlib import rgc
 from pypy.rlib.rarithmetic import r_uint
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.tool import rffi_platform as platform
@@ -23,6 +24,8 @@ if sys.platform == 'win32':
     _CreateSemaphore = rwin32.winexternal(
         'CreateSemaphoreA', [rffi.VOIDP, rffi.LONG, rffi.LONG, rwin32.LPCSTR],
         rwin32.HANDLE)
+    _CloseHandle = rwin32.winexternal('CloseHandle', [rwin32.HANDLE],
+        rwin32.BOOL, threadsafe=False)
     _ReleaseSemaphore = rwin32.winexternal(
         'ReleaseSemaphore', [rwin32.HANDLE, rffi.LONG, rffi.LONGP],
         rwin32.BOOL)
@@ -51,6 +54,7 @@ else:
         SEM_FAILED = platform.ConstantInteger('SEM_FAILED')
         SEM_VALUE_MAX = platform.ConstantInteger('SEM_VALUE_MAX')
         SEM_TIMED_WAIT = platform.Has('sem_timedwait')
+        SEM_T_SIZE = platform.SizeOf('sem_t')
 
     config = platform.configure(CConfig)
     TIMEVAL        = config['TIMEVAL']
@@ -61,18 +65,21 @@ else:
     SEM_FAILED     = config['SEM_FAILED'] # rffi.cast(SEM_T, config['SEM_FAILED'])
     SEM_VALUE_MAX  = config['SEM_VALUE_MAX']
     SEM_TIMED_WAIT = config['SEM_TIMED_WAIT']
+    SEM_T_SIZE = config['SEM_T_SIZE']
     if sys.platform == 'darwin':
         HAVE_BROKEN_SEM_GETVALUE = True
     else:
         HAVE_BROKEN_SEM_GETVALUE = False
 
-    def external(name, args, result):
+    def external(name, args, result, **kwargs):
         return rffi.llexternal(name, args, result,
-                               compilation_info=eci)
+                               compilation_info=eci, **kwargs)
 
     _sem_open = external('sem_open',
                          [rffi.CCHARP, rffi.INT, rffi.INT, rffi.UINT],
                          SEM_T)
+    # tread sem_close as not threadsafe for now to be able to use the __del__
+    _sem_close = external('sem_close', [SEM_T], rffi.INT, threadsafe=False)
     _sem_unlink = external('sem_unlink', [rffi.CCHARP], rffi.INT)
     _sem_wait = external('sem_wait', [SEM_T], rffi.INT)
     _sem_trywait = external('sem_trywait', [SEM_T], rffi.INT)
@@ -89,6 +96,11 @@ else:
         if res == rffi.cast(SEM_T, SEM_FAILED):
             raise OSError(rposix.get_errno(), "sem_open failed")
         return res
+
+    def sem_close(handle):
+        res = _sem_close(handle)
+        if res < 0:
+            raise OSError(rposix.get_errno(), "sem_close failed")
 
     def sem_unlink(name):
         res = _sem_unlink(name)
@@ -205,6 +217,11 @@ if sys.platform == 'win32':
             raise WindowsError(err, "CreateSemaphore")
         return handle
 
+    def delete_semaphore(handle):
+        if not _CloseHandle(handle):
+            err = rwin32.GetLastError()
+            raise WindowsError(err, "CloseHandle")
+
     def semlock_acquire(self, space, block, w_timeout):
         if not block:
             full_msecs = 0
@@ -291,7 +308,12 @@ else:
             sem_unlink(name)
         except OSError:
             pass
+        else:
+            rgc.add_memory_pressure(SEM_T_SIZE)
         return sem
+
+    def delete_semaphore(handle):
+        sem_close(handle)
 
     def semlock_acquire(self, space, block, w_timeout):
         if not block:
@@ -468,6 +490,9 @@ class W_SemLock(Wrappable):
 
         self.count -= 1
 
+    def after_fork(self):
+        self.count = 0
+
     @unwrap_spec(kind=int, maxvalue=int)
     def rebuild(space, w_cls, w_handle, kind, maxvalue):
         self = space.allocate_instance(W_SemLock, w_cls)
@@ -479,6 +504,9 @@ class W_SemLock(Wrappable):
 
     def exit(self, space, __args__):
         self.release(space)
+
+    def __del__(self):
+        delete_semaphore(self.handle)
 
 @unwrap_spec(kind=int, value=int, maxvalue=int)
 def descr_new(space, w_subtype, kind, value, maxvalue):
@@ -512,6 +540,7 @@ W_SemLock.typedef = TypeDef(
     acquire = interp2app(W_SemLock.acquire),
     release = interp2app(W_SemLock.release),
     _rebuild = interp2app(W_SemLock.rebuild.im_func, as_classmethod=True),
+    _after_fork = interp2app(W_SemLock.after_fork),
     __enter__=interp2app(W_SemLock.enter),
     __exit__=interp2app(W_SemLock.exit),
     SEM_VALUE_MAX=SEM_VALUE_MAX,

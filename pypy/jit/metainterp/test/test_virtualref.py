@@ -3,6 +3,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, lloperation
 from pypy.rpython.llinterp import LLException
 from pypy.rlib.jit import JitDriver, dont_look_inside, vref_None
 from pypy.rlib.jit import virtual_ref, virtual_ref_finish, InvalidVirtualRef
+from pypy.rlib.jit import non_virtual_ref
 from pypy.rlib.objectmodel import compute_unique_id
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin, _get_jitcodes
 from pypy.jit.metainterp.resoperation import rop
@@ -594,6 +595,65 @@ class VRefTests:
         assert fn(10) == 6
         res = self.meta_interp(fn, [10])
         assert res == 6
+
+    def test_is_virtual(self):
+        myjitdriver = JitDriver(greens=[], reds=['n', 'res1'])
+        class X:
+            pass
+        @dont_look_inside
+        def residual(vref):
+            return vref.virtual
+        #
+        def f(n):
+            res1 = -42
+            while n > 0:
+                myjitdriver.jit_merge_point(n=n, res1=res1)
+                x = X()
+                vref = virtual_ref(x)
+                res1 = residual(vref)
+                virtual_ref_finish(vref, x)
+                n -= 1
+            return res1
+        #
+        res = self.meta_interp(f, [10])
+        assert res == 1
+
+    def test_is_not_virtual_none(self):
+        myjitdriver = JitDriver(greens=[], reds=['n', 'res1'])
+        @dont_look_inside
+        def residual(vref):
+            return vref.virtual
+        #
+        def f(n):
+            res1 = -42
+            while n > 0:
+                myjitdriver.jit_merge_point(n=n, res1=res1)
+                res1 = residual(vref_None)
+                n -= 1
+            return res1
+        #
+        res = self.meta_interp(f, [10])
+        assert res == 0
+
+    def test_is_not_virtual_non_none(self):
+        myjitdriver = JitDriver(greens=[], reds=['n', 'res1'])
+        class X:
+            pass
+        @dont_look_inside
+        def residual(vref):
+            return vref.virtual
+        #
+        def f(n):
+            res1 = -42
+            while n > 0:
+                myjitdriver.jit_merge_point(n=n, res1=res1)
+                x = X()
+                res1 = residual(non_virtual_ref(x))
+                n -= 1
+            return res1
+        #
+        res = self.meta_interp(f, [10])
+        assert res == 0
 
 
 class TestLLtype(VRefTests, LLJitMixin):

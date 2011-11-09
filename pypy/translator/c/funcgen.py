@@ -833,7 +833,7 @@ class FunctionCodeGenerator(object):
         return 'INSTRUMENT_COUNT(%s);' % counter_label
             
     def OP_IS_EARLY_CONSTANT(self, op):
-        return self.expr(op.result)  + ' = 0;' # Allways false
+        return '%s = 0; /* IS_EARLY_CONSTANT */' % (self.expr(op.result),)
 
     def OP_JIT_MARKER(self, op):
         return '/* JIT_MARKER %s */' % op
@@ -844,6 +844,9 @@ class FunctionCodeGenerator(object):
     def OP_JIT_FORCE_VIRTUAL(self, op):
         return '%s = %s; /* JIT_FORCE_VIRTUAL */' % (self.expr(op.result),
                                                      self.expr(op.args[0]))
+
+    def OP_JIT_IS_VIRTUAL(self, op):
+        return '%s = 0; /* JIT_IS_VIRTUAL */' % (self.expr(op.result),)
 
     def OP_JIT_FORCE_QUASI_IMMUTABLE(self, op):
         return '/* JIT_FORCE_QUASI_IMMUTABLE %s */' % op
