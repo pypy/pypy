@@ -137,6 +137,7 @@ class AppTestStruct(BaseAppTestFFI):
         longsize = types.slong.sizeof()
         fields = [
             Field('sbyte', types.sbyte),
+            Field('sshort', types.sshort),
             Field('sint', types.sint),
             Field('slong', types.slong),
             ]
@@ -144,13 +145,14 @@ class AppTestStruct(BaseAppTestFFI):
         struct = descr.allocate()
         struct.setfield('sbyte', 128)
         assert struct.getfield('sbyte') == -128
+        struct.setfield('sshort', 32768)
+        assert struct.getfield('sshort') == -32768
         struct.setfield('sint', 43)
         assert struct.getfield('sint') == 43
         struct.setfield('slong', sys.maxint+1)
         assert struct.getfield('slong') == -sys.maxint-1
         struct.setfield('slong', sys.maxint*3)
         assert struct.getfield('slong') == sys.maxint-2
-
         
     def test_compute_shape(self):
         from _ffi import Structure, Field, types
