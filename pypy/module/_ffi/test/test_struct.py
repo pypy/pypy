@@ -1,8 +1,11 @@
+import sys
+from pypy.conftest import gettestobjspace
 from pypy.module._ffi.test.test_funcptr import BaseAppTestFFI
 from pypy.module._ffi.interp_struct import compute_size_and_alignement, W_Field
 from pypy.module._ffi.interp_ffitype import app_types
 
-class TestComputeSizeAndAlignement(object):
+
+class TestStruct(object):
 
     class FakeSpace(object):
         def interp_w(self, cls, obj):
@@ -34,6 +37,15 @@ class TestComputeSizeAndAlignement(object):
         assert self.sizeof([T.slonglong, T.sbyte, T.sbyte]) == llong_size + llong_align
         assert self.sizeof([T.slonglong, T.sbyte, T.sbyte, T.sbyte]) == llong_size + llong_align
         assert self.sizeof([T.slonglong, T.sbyte, T.sbyte, T.sbyte, T.sbyte]) == llong_size + llong_align
+
+    def test_truncatedint(self):
+        space = gettestobjspace()
+        assert space.truncatedint(space.wrap(42)) == 42
+        assert space.truncatedint(space.wrap(sys.maxint)) == sys.maxint
+        assert space.truncatedint(space.wrap(sys.maxint+1)) == -sys.maxint-1
+        assert space.truncatedint(space.wrap(-1)) == -1
+        assert space.truncatedint(space.wrap(-sys.maxint-2)) == sys.maxint
+
 
 
 class AppTestStruct(BaseAppTestFFI):
@@ -131,12 +143,15 @@ class AppTestStruct(BaseAppTestFFI):
         descr = _StructDescr('foo', fields)
         struct = descr.allocate()
         struct.setfield('sbyte', 128)
-        struct.setfield('sint', 43)
-        struct.setfield('slong', sys.maxint+1)
         assert struct.getfield('sbyte') == -128
+        struct.setfield('sint', 43)
         assert struct.getfield('sint') == 43
+        struct.setfield('slong', sys.maxint+1)
         assert struct.getfield('slong') == -sys.maxint-1
+        struct.setfield('slong', sys.maxint*3)
+        assert struct.getfield('slong') == sys.maxint-2
 
+        
     def test_compute_shape(self):
         from _ffi import Structure, Field, types
         class Point(Structure):

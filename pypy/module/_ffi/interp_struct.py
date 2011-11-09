@@ -137,11 +137,9 @@ class W__StructInstance(Wrappable):
         w_ffitype, offset = self.structdescr.get_type_and_offset_for_field(name)
         # XXX: add support for long long
         if w_ffitype.is_signed() or w_ffitype.is_unsigned():
-            value = rffi.cast(rffi.LONG, space.uint_w(w_value))
+            value = space.truncatedint(w_value)
         #
         libffi.struct_setfield_int(w_ffitype.ffitype, self.rawmem, offset, value)
-
-
 
 W__StructInstance.typedef = TypeDef(
     '_StructInstance',
