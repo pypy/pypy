@@ -391,7 +391,7 @@ class VirtualTests:
         fieldname = self._field_prefix + 'value'
         assert getattr(res, fieldname, -100) == f(21).value
 
-        self.check_jitcell_token_count(2)      # the loop and the entry path
+        self.check_jitcell_token_count(1)   # the loop and the entry path
         # we get:
         #    ENTER             - compile the new loop and entry bridge
         #    ENTER             - compile the leaving path
