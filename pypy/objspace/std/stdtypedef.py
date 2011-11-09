@@ -37,9 +37,8 @@ def issubtypedef(a, b):
     if a is b:
         return True
     for a1 in a.bases:
-        for b1 in b.bases:
-            if issubtypedef(a1, b1):
-                return True
+        if issubtypedef(a1, b1):
+            return True
     return False
 
 std_dict_descr = GetSetProperty(descr_get_dict, descr_set_dict, descr_del_dict,
