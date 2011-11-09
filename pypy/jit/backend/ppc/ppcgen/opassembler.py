@@ -502,9 +502,14 @@ class OpAssembler(object):
         stack_space = 4 * (WORD + len(stack_args))
         while stack_space % (4 * WORD) != 0:
             stack_space += 1
-        self.mc.stwu(1, 1, -stack_space)
-        self.mc.mflr(0)
-        self.mc.stw(0, 1, stack_space + WORD)
+        if IS_PPC_32:
+            self.mc.stwu(r.SP.value, r.SP.value, -stack_space)
+            self.mc.mflr(r.r0.value)
+            self.mc.stw(r.r0.value, r.SP.value, stack_space + WORD)
+        else:
+            self.mc.stdu(r.SP.value, r.SP.value, -stack_space)
+            self.mc.mflr(r.r0.value)
+            self.mc.std(r.r0.value, r.SP.value, stack_space + WORD)
 
         # then we push everything on the stack
         for i, arg in enumerate(stack_args):
