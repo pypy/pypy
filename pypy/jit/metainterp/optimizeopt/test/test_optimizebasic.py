@@ -5000,6 +5000,7 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         self.optimize_loop(ops, expected)
 
     def test_known_equal_ints(self):
+        py.test.skip("in-progress")
         ops = """
         [i0, i1, i2, p0]
         i3 = int_eq(i0, i1)

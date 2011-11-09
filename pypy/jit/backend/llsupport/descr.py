@@ -305,12 +305,16 @@ class BaseCallDescr(AbstractDescr):
     _clsname = ''
     loop_token = None
     arg_classes = ''     # <-- annotation hack
-    ffi_flags = 0
+    ffi_flags = 1
 
-    def __init__(self, arg_classes, extrainfo=None, ffi_flags=0):
+    def __init__(self, arg_classes, extrainfo=None, ffi_flags=1):
         self.arg_classes = arg_classes    # string of "r" and "i" (ref/int)
         self.extrainfo = extrainfo
         self.ffi_flags = ffi_flags
+        # NB. the default ffi_flags is 1, meaning FUNCFLAG_CDECL, which
+        # makes sense on Windows as it's the one for all the C functions
+        # we are compiling together with the JIT.  On non-Windows platforms
+        # it is just ignored anyway.
 
     def __repr__(self):
         res = '%s(%s)' % (self.__class__.__name__, self.arg_classes)
@@ -445,7 +449,7 @@ class DynamicIntCallDescr(BaseIntCallDescr):
     """
     _clsname = 'DynamicIntCallDescr'
 
-    def __init__(self, arg_classes, result_size, result_sign, extrainfo=None, ffi_flags=0):
+    def __init__(self, arg_classes, result_size, result_sign, extrainfo, ffi_flags):
         BaseIntCallDescr.__init__(self, arg_classes, extrainfo, ffi_flags)
         assert isinstance(result_sign, bool)
         self._result_size = chr(result_size)

@@ -622,9 +622,9 @@ class CStandaloneBuilder(CBuilder):
             else:
                 mk.definition('DEBUGFLAGS', '-O1 -g')
         if sys.platform == 'win32':
-            mk.rule('debug_target', 'debugmode_$(DEFAULT_TARGET)')
+            mk.rule('debug_target', 'debugmode_$(DEFAULT_TARGET)', 'rem')
         else:
-            mk.rule('debug_target', '$(TARGET)')
+            mk.rule('debug_target', '$(TARGET)', '#')
         mk.write()
         #self.translator.platform,
         #                           ,
