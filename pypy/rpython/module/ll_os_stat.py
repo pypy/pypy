@@ -319,6 +319,7 @@ def make_win32_stat_impl(name, traits):
     assert len(STAT_FIELDS) == 10    # no extra fields on Windows
 
     def attributes_to_mode(attributes):
+        attributes = lltype.r_uint(attributes)
         m = 0
         if attributes & win32traits.FILE_ATTRIBUTE_DIRECTORY:
             m |= win32traits._S_IFDIR | 0111 # IFEXEC for user,group,other
