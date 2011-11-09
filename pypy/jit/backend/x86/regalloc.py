@@ -5,8 +5,8 @@
 import os
 from pypy.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
                                          ResOperation, BoxPtr, ConstFloat,
-                                         BoxFloat, LoopToken, INT, REF, FLOAT,
-                                         TargetToken)
+                                         BoxFloat, INT, REF, FLOAT,
+                                         TargetToken, JitCellToken)
 from pypy.jit.backend.x86.regloc import *
 from pypy.rpython.lltypesystem import lltype, rffi, rstr
 from pypy.rlib.objectmodel import we_are_translated
@@ -884,7 +884,7 @@ class RegAlloc(object):
 
     def consider_call_assembler(self, op, guard_op):
         descr = op.getdescr()
-        assert isinstance(descr, LoopToken)
+        assert isinstance(descr, JitCellToken)
         jd = descr.outermost_jitdriver_sd
         assert jd is not None
         size = jd.portal_calldescr.get_result_size(self.translate_support_code)
@@ -1314,8 +1314,8 @@ class RegAlloc(object):
         assembler = self.assembler
         assert self.jump_target_descr is None
         descr = op.getdescr()
-        assert isinstance(descr, (LoopToken, TargetToken))  # XXX refactor!
-        nonfloatlocs, floatlocs = assembler.target_arglocs(descr)
+        assert isinstance(descr, TargetToken)
+        nonfloatlocs, floatlocs = descr._x86_arglocs
         self.jump_target_descr = descr
         # compute 'tmploc' to be all_regs[0] by spilling what is there
         box = TempBox()
@@ -1396,19 +1396,32 @@ class RegAlloc(object):
         inputargs = op.getarglist()
         floatlocs = [None] * len(inputargs)
         nonfloatlocs = [None] * len(inputargs)
+        #
+        # we need to make sure that the tmpreg and xmmtmp are free
+        tmpreg = X86RegisterManager.all_regs[0]
+        tmpvar = TempBox()
+        self.rm.force_allocate_reg(tmpvar, selected_reg=tmpreg)
+        self.rm.possibly_free_var(tmpvar)
+        #
+        xmmtmp = X86XMMRegisterManager.all_regs[0]
+        tmpvar = TempBox()
+        self.xrm.force_allocate_reg(tmpvar, selected_reg=xmmtmp)
+        self.xrm.possibly_free_var(tmpvar)
+        #
         for i in range(len(inputargs)):
             arg = inputargs[i]
             assert not isinstance(arg, Const)
             loc = self.loc(arg)
+            assert not (loc is tmpreg or loc is xmmtmp)
             if arg.type == FLOAT:
                 floatlocs[i] = loc
             else:
                 nonfloatlocs[i] = loc
         descr._x86_arglocs = nonfloatlocs, floatlocs
         descr._x86_loop_code = self.assembler.mc.get_relative_pos()
-        descr._x86_frame_depth = self.fm.frame_depth
-        descr._x86_param_depth = self.param_depth
+        descr._x86_clt = self.assembler.current_clt
         self.assembler.target_tokens_currently_compiling[descr] = None
+        self.possibly_free_vars_for_op(op)
 
     def not_implemented_op(self, op):
         not_implemented("not implemented operation: %s" % op.getopname())

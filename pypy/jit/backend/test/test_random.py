@@ -3,8 +3,8 @@ import pytest
 from pypy.rlib.rarithmetic import intmask, LONG_BIT
 from pypy.rpython.lltypesystem import llmemory
 from pypy.jit.metainterp.history import BasicFailDescr, TreeLoop
-from pypy.jit.metainterp.history import BoxInt, ConstInt, LoopToken
-from pypy.jit.metainterp.history import BoxPtr, ConstPtr
+from pypy.jit.metainterp.history import BoxInt, ConstInt, JitCellToken
+from pypy.jit.metainterp.history import BoxPtr, ConstPtr, TargetToken
 from pypy.jit.metainterp.history import BoxFloat, ConstFloat, Const
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.executor import execute_nonspec
@@ -179,7 +179,7 @@ class OperationBuilder(object):
                 #print >>s, '    operations[%d].suboperations = [' % i
                 #print >>s, '        ResOperation(rop.FAIL, [%s], None)]' % (
                 #    ', '.join([names[v] for v in op.args]))
-        print >>s, '    looptoken = LoopToken()'
+        print >>s, '    looptoken = JitCellToken()'
         print >>s, '    cpu.compile_loop(inputargs, operations, looptoken)'
         if hasattr(self.loop, 'inputargs'):
             for i, v in enumerate(self.loop.inputargs):
@@ -536,13 +536,15 @@ class RandomLoop(object):
         loop = TreeLoop('test_random_function')
         loop.inputargs = startvars[:]
         loop.operations = []
-        loop.token = LoopToken()
-
+        loop._jitcelltoken = JitCellToken()
+        loop._targettoken = TargetToken()
+        loop.operations.append(ResOperation(rop.LABEL, loop.inputargs, None,
+                                            loop._targettoken))
         builder = builder_factory(cpu, loop, startvars[:])
         self.generate_ops(builder, r, loop, startvars)
         self.builder = builder
         self.loop = loop
-        cpu.compile_loop(loop.inputargs, loop.operations, loop.token)
+        cpu.compile_loop(loop.inputargs, loop.operations, loop._jitcelltoken)
 
     def generate_ops(self, builder, r, loop, startvars):
         block_length = pytest.config.option.block_length
@@ -615,7 +617,7 @@ class RandomLoop(object):
                 cpu.set_future_value_float(i, box.value)
             else:
                 raise NotImplementedError(box)
-        fail = cpu.execute_token(self.loop.token)
+        fail = cpu.execute_token(self.loop._jitcelltoken)
         assert fail is self.should_fail_by.getdescr()
         for i, v in enumerate(self.get_fail_args()):
             if isinstance(v, (BoxFloat, ConstFloat)):
@@ -684,23 +686,25 @@ class RandomLoop(object):
             rl = RandomLoop(self.builder.cpu, self.builder.fork,
                                      r, args)
             self.cpu.compile_loop(rl.loop.inputargs, rl.loop.operations,
-                                  rl.loop.token)
+                                  rl.loop._jitcelltoken)
             # done
             self.should_fail_by = rl.should_fail_by
             self.expected = rl.expected
             assert len(rl.loop.inputargs) == len(args)
             # The new bridge's execution will end normally at its FINISH.
             # Just replace the FINISH with the JUMP to the new loop.
-            jump_op = ResOperation(rop.JUMP, subset, None, descr=rl.loop.token)
+            jump_op = ResOperation(rop.JUMP, subset, None,
+                                   descr=rl.loop._targettoken)
             subloop.operations[-1] = jump_op
             self.guard_op = rl.guard_op
             self.prebuilt_ptr_consts += rl.prebuilt_ptr_consts
-            self.loop.token.record_jump_to(rl.loop.token)
+            self.loop._jitcelltoken.record_jump_to(rl.loop._jitcelltoken)
             self.dont_generate_more = True
         if r.random() < .05:
             return False
         self.builder.cpu.compile_bridge(fail_descr, fail_args,
-                                        subloop.operations, self.loop.token)
+                                        subloop.operations,
+                                        self.loop._jitcelltoken)
         return True
 
 def check_random_function(cpu, BuilderClass, r, num=None, max=None):
