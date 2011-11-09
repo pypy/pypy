@@ -1396,10 +1396,23 @@ class RegAlloc(object):
         inputargs = op.getarglist()
         floatlocs = [None] * len(inputargs)
         nonfloatlocs = [None] * len(inputargs)
+        #
+        # we need to make sure that the tmpreg and xmmtmp are free
+        tmpreg = X86RegisterManager.all_regs[0]
+        tmpvar = TempBox()
+        self.rm.force_allocate_reg(tmpvar, selected_reg=tmpreg)
+        self.rm.possibly_free_var(tmpvar)
+        #
+        xmmtmp = X86XMMRegisterManager.all_regs[0]
+        tmpvar = TempBox()
+        self.xrm.force_allocate_reg(tmpvar, selected_reg=xmmtmp)
+        self.xrm.possibly_free_var(tmpvar)
+        #
         for i in range(len(inputargs)):
             arg = inputargs[i]
             assert not isinstance(arg, Const)
             loc = self.loc(arg)
+            assert not (loc is tmpreg or loc is xmmtmp)
             if arg.type == FLOAT:
                 floatlocs[i] = loc
             else:
