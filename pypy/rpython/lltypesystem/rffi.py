@@ -640,6 +640,9 @@ DOUBLEP = lltype.Ptr(lltype.Array(DOUBLE, hints={'nolength': True}))
 # float *
 FLOATP = lltype.Ptr(lltype.Array(FLOAT, hints={'nolength': True}))
 
+# Signed *
+SIGNEDP = lltype.Ptr(lltype.Array(lltype.Signed, hints={'nolength': True}))
+
 # various type mapping
 
 # conversions between str and char*
