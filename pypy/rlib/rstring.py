@@ -2,7 +2,8 @@
 """
 
 from pypy.annotation.model import (SomeObject, SomeString, s_None, SomeChar,
-    SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString, SomePtr)
+    SomeInteger, SomeUnicodeCodePoint, SomeUnicodeString, SomePtr, SomePBC)
+from pypy.tool.pairtype import pair, pairtype
 from pypy.rpython.extregistry import ExtRegistryEntry
 
 
@@ -170,3 +171,24 @@ class StringBuilderEntry(BaseEntry, ExtRegistryEntry):
 class UnicodeBuilderEntry(BaseEntry, ExtRegistryEntry):
     _about_ = UnicodeBuilder
     use_unicode = True
+
+class __extend__(pairtype(SomeStringBuilder, SomePBC)):
+    def union((sb, p)):
+        assert p.const is None
+        return SomeStringBuilder(can_be_None=True)
+
+class __extend__(pairtype(SomePBC, SomeStringBuilder)):
+    def union((p, sb)):
+        assert p.const is None
+        return SomeStringBuilder(can_be_None=True)
+
+class __extend__(pairtype(SomeUnicodeBuilder, SomePBC)):
+    def union((sb, p)):
+        assert p.const is None
+        return SomeUnicodeBuilder(can_be_None=True)
+
+class __extend__(pairtype(SomePBC, SomeUnicodeBuilder)):
+    def union((p, sb)):
+        assert p.const is None
+        return SomeUnicodeBuilder(can_be_None=True)
+

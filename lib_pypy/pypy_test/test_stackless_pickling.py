@@ -1,7 +1,3 @@
-"""
-this test should probably not run from CPython or py.py.
-I'm not entirely sure, how to do that.
-"""
 from __future__ import absolute_import
 from py.test import skip
 try:
@@ -16,11 +12,15 @@ except ImportError:
 
 class Test_StacklessPickling:
 
+    def test_pickle_main_coroutine(self):
+        import stackless, pickle
+        s = pickle.dumps(stackless.coroutine.getcurrent())
+        print s
+        c = pickle.loads(s)
+        assert c is stackless.coroutine.getcurrent()
+
     def test_basic_tasklet_pickling(self):
-        try:
-            import stackless
-        except ImportError:
-            skip("can't load stackless and don't know why!!!")
+        import stackless
         from stackless import run, schedule, tasklet
         import pickle
 

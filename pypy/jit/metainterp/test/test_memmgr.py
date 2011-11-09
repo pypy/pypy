@@ -18,6 +18,7 @@ from pypy.rlib.jit import JitDriver, dont_look_inside
 
 class FakeLoopToken:
     generation = 0
+    invalidated = False
 
 
 class _TestMemoryManager:

@@ -13,7 +13,6 @@ from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.translator.simplify import get_funcobj
 from pypy.translator.unsimplify import split_block
 from pypy.objspace.flow.model import Constant
-from pypy import conftest
 from pypy.translator.translator import TranslationContext
 from pypy.annotation.policy import AnnotatorPolicy
 from pypy.annotation import model as annmodel
@@ -38,9 +37,11 @@ def _annotation(a, x):
     return a.typeannotation(t)
 
 def annotate(func, values, inline=None, backendoptimize=True,
-             type_system="lltype"):
+             type_system="lltype", translationoptions={}):
     # build the normal ll graphs for ll_function
     t = TranslationContext()
+    for key, value in translationoptions.items():
+        setattr(t.config.translation, key, value)
     annpolicy = AnnotatorPolicy()
     annpolicy.allow_someobjects = False
     a = t.buildannotator(policy=annpolicy)
@@ -48,15 +49,13 @@ def annotate(func, values, inline=None, backendoptimize=True,
     a.build_types(func, argtypes, main_entry_point=True)
     rtyper = t.buildrtyper(type_system = type_system)
     rtyper.specialize()
-    if inline:
-        auto_inlining(t, threshold=inline)
+    #if inline:
+    #    auto_inlining(t, threshold=inline)
     if backendoptimize:
         from pypy.translator.backendopt.all import backend_optimizations
         backend_optimizations(t, inline_threshold=inline or 0,
                 remove_asserts=True, really_remove_asserts=True)
 
-    #if conftest.option.view:
-    #    t.view()
     return rtyper
 
 def getgraph(func, values):
@@ -232,6 +231,17 @@ def _ll_1_int_abs(x):
     else:
         return x
 
+def _ll_1_cast_uint_to_float(x):
+    # XXX on 32-bit platforms, this should be done using cast_longlong_to_float
+    # (which is a residual call right now in the x86 backend)
+    return llop.cast_uint_to_float(lltype.Float, x)
+
+def _ll_1_cast_float_to_uint(x):
+    # XXX on 32-bit platforms, this should be done using cast_float_to_longlong
+    # (which is a residual call right now in the x86 backend)
+    return llop.cast_float_to_uint(lltype.Unsigned, x)
+
+
 # math support
 # ------------
 
@@ -315,8 +325,14 @@ def _ll_2_llong_urshift(xull, y):
 def _ll_1_llong_from_int(x):
     return r_longlong(intmask(x))
 
+def _ll_1_ullong_from_int(x):
+    return r_ulonglong(intmask(x))
+
 def _ll_1_llong_from_uint(x):
     return r_longlong(r_uint(x))
+
+def _ll_1_ullong_from_uint(x):
+    return r_ulonglong(r_uint(x))
 
 def _ll_1_llong_to_int(xll):
     return intmask(xll)
@@ -324,8 +340,14 @@ def _ll_1_llong_to_int(xll):
 def _ll_1_llong_from_float(xf):
     return r_longlong(xf)
 
+def _ll_1_ullong_from_float(xf):
+    return r_ulonglong(xf)
+
 def _ll_1_llong_to_float(xll):
     return float(rffi.cast(lltype.SignedLongLong, xll))
+
+def _ll_1_ullong_u_to_float(xull):
+    return float(rffi.cast(lltype.UnsignedLongLong, xull))
 
 
 def _ll_1_llong_abs(xll):
@@ -351,20 +373,23 @@ def _ll_2_llong_mod_zer(xll, yll):
     return llop.llong_mod(lltype.SignedLongLong, xll, yll)
 
 def _ll_2_ullong_floordiv(xll, yll):
-    return llop.ullong_floordiv(lltype.SignedLongLong, xll, yll)
+    return llop.ullong_floordiv(lltype.UnsignedLongLong, xll, yll)
 
 def _ll_2_ullong_floordiv_zer(xll, yll):
     if yll == 0:
         raise ZeroDivisionError
-    return llop.ullong_floordiv(lltype.SignedLongLong, xll, yll)
+    return llop.ullong_floordiv(lltype.UnsignedLongLong, xll, yll)
 
 def _ll_2_ullong_mod(xll, yll):
-    return llop.ullong_mod(lltype.SignedLongLong, xll, yll)
+    return llop.ullong_mod(lltype.UnsignedLongLong, xll, yll)
 
 def _ll_2_ullong_mod_zer(xll, yll):
     if yll == 0:
         raise ZeroDivisionError
-    return llop.ullong_mod(lltype.SignedLongLong, xll, yll)
+    return llop.ullong_mod(lltype.UnsignedLongLong, xll, yll)
+
+def _ll_2_uint_mod(xll, yll):
+    return llop.uint_mod(lltype.Unsigned, xll, yll)
 
 
 # libffi support
@@ -439,6 +464,8 @@ class LLtypeHelpers:
     def _ll_1_dictiter_nextitems(RES, iter):
         return LLtypeHelpers._dictnext_items(lltype.Ptr(RES), iter)
     _ll_1_dictiter_nextitems.need_result_type = True
+
+    _ll_1_dict_resize = ll_rdict.ll_dict_resize
 
     # ---------- strings and unicode ----------
 

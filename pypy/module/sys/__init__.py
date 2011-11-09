@@ -47,6 +47,7 @@ class Module(MixedModule):
         'pypy_initial_path'     : 'state.pypy_initial_path',
 
         '_getframe'             : 'vm._getframe', 
+        '_current_frames'       : 'currentframes._current_frames', 
         'setrecursionlimit'     : 'vm.setrecursionlimit', 
         'getrecursionlimit'     : 'vm.getrecursionlimit', 
         'setcheckinterval'      : 'vm.setcheckinterval', 
@@ -54,6 +55,7 @@ class Module(MixedModule):
         'exc_info'              : 'vm.exc_info', 
         'exc_clear'             : 'vm.exc_clear', 
         'settrace'              : 'vm.settrace',
+        'gettrace'              : 'vm.gettrace',
         'setprofile'            : 'vm.setprofile',
         'getprofile'            : 'vm.getprofile',
         'call_tracing'          : 'vm.call_tracing',

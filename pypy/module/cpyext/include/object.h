@@ -321,6 +321,15 @@ typedef struct _typeobject {
 
 } PyTypeObject;
 
+typedef struct {
+    PyTypeObject ht_type;
+    PyNumberMethods as_number;
+    PyMappingMethods as_mapping;
+    PySequenceMethods as_sequence;
+    PyBufferProcs as_buffer;
+    PyObject *ht_name, *ht_slots;
+} PyHeapTypeObject;
+
 /* Flag bits for printing: */
 #define Py_PRINT_RAW	1	/* No string quotes etc. */
 
@@ -500,6 +509,9 @@ typedef union _gc_head {
 
 #define PyObject_TypeCheck(ob, tp) \
     ((ob)->ob_type == (tp) || PyType_IsSubtype((ob)->ob_type, (tp)))
+
+#define Py_TRASHCAN_SAFE_BEGIN(pyObj)
+#define Py_TRASHCAN_SAFE_END(pyObj)
 
 /* Copied from CPython ----------------------------- */
 int PyObject_AsReadBuffer(PyObject *, const void **, Py_ssize_t *);

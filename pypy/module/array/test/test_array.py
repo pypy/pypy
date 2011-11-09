@@ -824,6 +824,22 @@ class BaseArrayTests:
         r = weakref.ref(a)
         assert r() is a
 
+    def test_subclass_del(self):
+        import array, gc, weakref
+        l = []
+        
+        class A(array.array):
+            pass
+
+        a = A('d')
+        a.append(3.0)
+        r = weakref.ref(a, lambda a: l.append(a()))
+        del a
+        gc.collect(); gc.collect()   # XXX needs two of them right now...
+        assert l
+        assert l[0] is None or len(l[0]) == 0
+
+
 class TestCPythonsOwnArray(BaseArrayTests):
 
     def setup_class(cls):
@@ -844,11 +860,7 @@ class AppTestArray(BaseArrayTests):
         cls.w_tempfile = cls.space.wrap(
             str(py.test.ensuretemp('array').join('tmpfile')))
         cls.w_maxint = cls.space.wrap(sys.maxint)
-
-
-
-
-
+    
     def test_buffer_info(self):
         a = self.array('c', 'Hi!')
         bi = a.buffer_info()

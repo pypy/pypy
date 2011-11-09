@@ -210,38 +210,42 @@ def _unsigned_type_for(TYPE):
     elif sz == 8: return ffi_type_uint64
     else: raise ValueError("unsupported type size for %r" % (TYPE,))
 
-TYPE_MAP_INT = {
-    rffi.UCHAR  : ffi_type_uchar,
-    rffi.CHAR   : ffi_type_schar,
-    rffi.SHORT  : ffi_type_sshort,
-    rffi.USHORT : ffi_type_ushort,
-    rffi.UINT   : ffi_type_uint,
-    rffi.INT    : ffi_type_sint,
+__int_type_map = [
+    (rffi.UCHAR, ffi_type_uchar),
+    (rffi.SIGNEDCHAR, ffi_type_schar),
+    (rffi.SHORT, ffi_type_sshort),
+    (rffi.USHORT, ffi_type_ushort),
+    (rffi.UINT, ffi_type_uint),
+    (rffi.INT, ffi_type_sint),
     # xxx don't use ffi_type_slong and ffi_type_ulong - their meaning
     # changes from a libffi version to another :-((
-    rffi.ULONG     : _unsigned_type_for(rffi.ULONG),
-    rffi.LONG      : _signed_type_for(rffi.LONG),
-    rffi.ULONGLONG : _unsigned_type_for(rffi.ULONGLONG),
-    rffi.LONGLONG  : _signed_type_for(rffi.LONGLONG),
-    lltype.UniChar : _unsigned_type_for(lltype.UniChar),
-    lltype.Bool    : _unsigned_type_for(lltype.Bool),
-}    
+    (rffi.ULONG, _unsigned_type_for(rffi.ULONG)),
+    (rffi.LONG, _signed_type_for(rffi.LONG)),
+    (rffi.ULONGLONG, _unsigned_type_for(rffi.ULONGLONG)),
+    (rffi.LONGLONG, _signed_type_for(rffi.LONGLONG)),
+    (lltype.UniChar, _unsigned_type_for(lltype.UniChar)),
+    (lltype.Bool, _unsigned_type_for(lltype.Bool)),
+    ]
 
-TYPE_MAP_FLOAT = {
-    rffi.DOUBLE : ffi_type_double,
-    rffi.FLOAT  : ffi_type_float,
-    rffi.LONGDOUBLE : ffi_type_longdouble,
-    }
+__float_type_map = [
+    (rffi.DOUBLE, ffi_type_double),
+    (rffi.FLOAT, ffi_type_float),
+    (rffi.LONGDOUBLE, ffi_type_longdouble),
+    ]
 
-TYPE_MAP = {
-    lltype.Void    : ffi_type_void,
-    }
-TYPE_MAP.update(TYPE_MAP_INT)
-TYPE_MAP.update(TYPE_MAP_FLOAT)
+__type_map = __int_type_map + __float_type_map + [
+    (lltype.Void, ffi_type_void)
+    ]
 
-ffitype_map_int = unrolling_iterable(TYPE_MAP_INT.iteritems())
-ffitype_map_float = unrolling_iterable(TYPE_MAP_FLOAT.iteritems())
-ffitype_map = unrolling_iterable(TYPE_MAP.iteritems())
+TYPE_MAP_INT = dict(__int_type_map)
+TYPE_MAP_FLOAT = dict(__float_type_map)
+TYPE_MAP = dict(__type_map)
+
+ffitype_map_int = unrolling_iterable(__int_type_map)
+ffitype_map_float = unrolling_iterable(__float_type_map)
+ffitype_map = unrolling_iterable(__type_map)
+
+del __int_type_map, __float_type_map, __type_map
 
 
 def external(name, args, result, **kwds):

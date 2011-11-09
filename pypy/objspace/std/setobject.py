@@ -132,7 +132,7 @@ def _initialize_set(space, w_obj, w_iterable=None):
         w_obj.setdata = make_setdata_from_w_iterable(space, w_iterable)
 
 def _convert_set_to_frozenset(space, w_obj):
-    if space.is_true(space.isinstance(w_obj, space.w_set)):
+    if space.isinstance_w(w_obj, space.w_set):
         return W_FrozensetObject(space,
                                  make_setdata_from_w_iterable(space, w_obj))
     else:

@@ -24,10 +24,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
     def test_wrong_arguments(self):
         from numpy import add, sin
 
-        raises(TypeError, add, 1)
+        raises(ValueError, add, 1)
         raises(TypeError, add, 1, 2, 3)
         raises(TypeError, sin, 1, 2)
-        raises(TypeError, sin)
+        raises(ValueError, sin)
 
     def test_single_item(self):
         from numpy import negative, sign, minimum
@@ -82,6 +82,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = negative(a)
         a[0] = 5.0
         assert b[0] == 5.0
+        a = array(range(30))
+        assert negative(a + a)[3] == -6
 
     def test_abs(self):
         from numpy import array, absolute
@@ -234,7 +236,7 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert b[i] == math.sin(a[i])
 
         a = sin(array([True, False], dtype=bool))
-        assert a[0] == sin(1)
+        assert abs(a[0] - sin(1)) < 1e-7 # a[0] will be less precise
         assert a[1] == 0.0
 
     def test_cos(self):
@@ -298,6 +300,25 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = arctan(a)
         assert math.isnan(b[0])
 
+    def test_arcsinh(self):
+        import math
+        from numpy import arcsinh, inf
+
+        for v in [inf, -inf, 1.0, math.e]:
+            assert math.asinh(v) == arcsinh(v)
+        assert math.isnan(arcsinh(float("nan")))
+
+    def test_arctanh(self):
+        import math
+        from numpy import arctanh
+
+        for v in [.99, .5, 0, -.5, -.99]:
+            assert math.atanh(v) == arctanh(v)
+        for v in [2.0, -2.0]:
+            assert math.isnan(arctanh(v))
+        for v in [1.0, -1.0]:
+            assert arctanh(v) == math.copysign(float("inf"), v)
+
     def test_reduce_errors(self):
         from numpy import sin, add
 
@@ -311,3 +332,29 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert maximum.reduce([1]) == 1
         assert maximum.reduce([1, 2, 3]) == 3
         raises(ValueError, maximum.reduce, [])
+
+    def test_comparisons(self):
+        import operator
+        from numpy import equal, not_equal, less, less_equal, greater, greater_equal
+
+        for ufunc, func in [
+            (equal, operator.eq),
+            (not_equal, operator.ne),
+            (less, operator.lt),
+            (less_equal, operator.le),
+            (greater, operator.gt),
+            (greater_equal, operator.ge),
+        ]:
+            for a, b in [
+                (3, 3),
+                (3, 4),
+                (4, 3),
+                (3.0, 3.0),
+                (3.0, 3.5),
+                (3.5, 3.0),
+                (3.0, 3),
+                (3, 3.0),
+                (3.5, 3),
+                (3, 3.5),
+            ]:
+                assert ufunc(a, b) == func(a, b)

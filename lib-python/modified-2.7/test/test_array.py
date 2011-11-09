@@ -295,9 +295,10 @@ class BaseTest(unittest.TestCase):
         )
 
         b = array.array(self.badtypecode())
-        self.assertRaises(TypeError, "a + b")
-
-        self.assertRaises(TypeError, "a + 'bad'")
+        with self.assertRaises(TypeError):
+            a + b
+        with self.assertRaises(TypeError):
+            a + 'bad'
 
     def test_iadd(self):
         a = array.array(self.typecode, self.example[::-1])
@@ -316,9 +317,10 @@ class BaseTest(unittest.TestCase):
         )
 
         b = array.array(self.badtypecode())
-        self.assertRaises(TypeError, "a += b")
-
-        self.assertRaises(TypeError, "a += 'bad'")
+        with self.assertRaises(TypeError):
+            a += b
+        with self.assertRaises(TypeError):
+            a += 'bad'
 
     def test_mul(self):
         a = 5*array.array(self.typecode, self.example)
@@ -345,7 +347,8 @@ class BaseTest(unittest.TestCase):
             array.array(self.typecode)
         )
 
-        self.assertRaises(TypeError, "a * 'bad'")
+        with self.assertRaises(TypeError):
+            a * 'bad'
 
     def test_imul(self):
         a = array.array(self.typecode, self.example)
@@ -374,7 +377,8 @@ class BaseTest(unittest.TestCase):
         a *= -1
         self.assertEqual(a, array.array(self.typecode))
 
-        self.assertRaises(TypeError, "a *= 'bad'")
+        with self.assertRaises(TypeError):
+            a *= 'bad'
 
     def test_getitem(self):
         a = array.array(self.typecode, self.example)

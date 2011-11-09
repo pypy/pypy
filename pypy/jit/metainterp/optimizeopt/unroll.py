@@ -70,6 +70,31 @@ class Inliner(object):
         self.snapshot_map[snapshot] = new_snapshot
         return new_snapshot
 
+class UnrollableOptimizer(Optimizer):
+    def setup(self):
+        self.importable_values = {}
+        self.emitting_dissabled = False
+        self.emitted_guards = 0
+
+    def ensure_imported(self, value):
+        if not self.emitting_dissabled and value in self.importable_values:
+            imp = self.importable_values[value]
+            del self.importable_values[value]
+            imp.import_value(value)
+
+    def emit_operation(self, op):
+        if op.returns_bool_result():
+            self.bool_boxes[self.getvalue(op.result)] = None
+        if self.emitting_dissabled:
+            return
+        if op.is_guard():
+            self.emitted_guards += 1 # FIXME: can we use counter in self._emit_operation?
+        self._emit_operation(op)
+
+    def new(self):
+        new = UnrollableOptimizer(self.metainterp_sd, self.loop)
+        return self._new(new)
+
 
 class UnrollOptimizer(Optimization):
     """Unroll the loop into two iterations. The first one will
@@ -77,7 +102,7 @@ class UnrollOptimizer(Optimization):
     distinction anymore)"""
 
     def __init__(self, metainterp_sd, loop, optimizations):
-        self.optimizer = Optimizer(metainterp_sd, loop, optimizations)
+        self.optimizer = UnrollableOptimizer(metainterp_sd, loop, optimizations)
         self.cloned_operations = []
         for op in self.optimizer.loop.operations:
             newop = op.clone()
@@ -113,7 +138,7 @@ class UnrollOptimizer(Optimization):
 
             KillHugeIntBounds(self.optimizer).apply()
             
-            loop.preamble.operations = self.optimizer.newoperations
+            loop.preamble.operations = self.optimizer.get_newoperations()
             jump_args = [self.getvalue(a).get_key_box() for a in jump_args]
 
             start_resumedescr = loop.preamble.start_resumedescr.clone_if_mutable()
@@ -126,8 +151,9 @@ class UnrollOptimizer(Optimization):
             virtual_state = modifier.get_virtual_state(jump_args)
             
             values = [self.getvalue(arg) for arg in jump_args]
-            inputargs = virtual_state.make_inputargs(values)
-            short_inputargs = virtual_state.make_inputargs(values, keyboxes=True)
+            inputargs = virtual_state.make_inputargs(values, self.optimizer)
+            short_inputargs = virtual_state.make_inputargs(values, self.optimizer,
+                                                           keyboxes=True)
 
             self.constant_inputargs = {}
             for box in jump_args: 
@@ -150,27 +176,28 @@ class UnrollOptimizer(Optimization):
                 args = ", ".join([logops.repr_of_arg(arg) for arg in short_inputargs])
                 debug_print('short inputargs: ' + args)
                 self.short_boxes.debug_print(logops)
+                
 
             # Force virtuals amoung the jump_args of the preamble to get the
             # operations needed to setup the proper state of those virtuals
             # in the peeled loop
             inputarg_setup_ops = []
-            preamble_optimizer.newoperations = []
+            preamble_optimizer.clear_newoperations()
             seen = {}
             for box in inputargs:
                 if box in seen:
                     continue
                 seen[box] = True
-                value = preamble_optimizer.getvalue(box)
-                inputarg_setup_ops.extend(value.make_guards(box))
+                preamble_value = preamble_optimizer.getvalue(box)
+                value = self.optimizer.getvalue(box)
+                value.import_from(preamble_value, self.optimizer)
             for box in short_inputargs:
                 if box in seen:
                     continue
                 seen[box] = True
                 value = preamble_optimizer.getvalue(box)
-                value.force_box()
-            preamble_optimizer.flush()
-            inputarg_setup_ops += preamble_optimizer.newoperations
+                value.force_box(preamble_optimizer)
+            inputarg_setup_ops += preamble_optimizer.get_newoperations()
 
             # Setup the state of the new optimizer by emiting the
             # short preamble operations and discarding the result
@@ -181,22 +208,16 @@ class UnrollOptimizer(Optimization):
             for op in self.short_boxes.operations():
                 self.ensure_short_op_emitted(op, self.optimizer, seen)
                 if op and op.result:
-                    # The order of these guards is not important as 
-                    # self.optimizer.emitting_dissabled is False
-                    value = preamble_optimizer.getvalue(op.result)
-                    for guard in value.make_guards(op.result):
-                        self.optimizer.send_extra_operation(guard)
+                    preamble_value = preamble_optimizer.getvalue(op.result)
+                    value = self.optimizer.getvalue(op.result)
+                    if not value.is_virtual():
+                        imp = ValueImporter(self, preamble_value, op)
+                        self.optimizer.importable_values[value] = imp
                     newresult = self.optimizer.getvalue(op.result).get_key_box()
                     if newresult is not op.result:
                         self.short_boxes.alias(newresult, op.result)
             self.optimizer.flush()
             self.optimizer.emitting_dissabled = False
-
-            # XXX Hack to prevent the arraylen/strlen/unicodelen ops generated
-            #     by value.make_guards() from ending up in pure_operations
-            for key, op in self.optimizer.pure_operations.items():
-                if not self.short_boxes.has_producer(op.result):
-                    del self.optimizer.pure_operations[key]
 
             initial_inputargs_len = len(inputargs)
             self.inliner = Inliner(loop.inputargs, jump_args)
@@ -207,13 +228,13 @@ class UnrollOptimizer(Optimization):
                                 virtual_state)
             
             loop.inputargs = inputargs
-            args = [preamble_optimizer.getvalue(self.short_boxes.original(a)).force_box()\
+            args = [preamble_optimizer.getvalue(self.short_boxes.original(a)).force_box(preamble_optimizer)\
                     for a in inputargs]
             jmp = ResOperation(rop.JUMP, args, None)
             jmp.setdescr(loop.token)
             loop.preamble.operations.append(jmp)
 
-            loop.operations = self.optimizer.newoperations
+            loop.operations = self.optimizer.get_newoperations()
             maxguards = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.max_retrace_guards
             
             if self.optimizer.emitted_guards > maxguards:
@@ -276,15 +297,10 @@ class UnrollOptimizer(Optimization):
 
         short_jumpargs = inputargs[:]
 
-        short = []
-        short_seen = {}
+        short = self.short = []
+        short_seen = self.short_seen = {}
         for box, const in self.constant_inputargs.items():
             short_seen[box] = True
-
-        for op in self.short_boxes.operations():
-            if op is not None:
-                if len(self.getvalue(op.result).make_guards(op.result)) > 0:
-                    self.add_op_to_short(op, short, short_seen, False, True)
 
         # This loop is equivalent to the main optimization loop in
         # Optimizer.propagate_all_forward
@@ -303,9 +319,10 @@ class UnrollOptimizer(Optimization):
         assert jumpop
         original_jumpargs = jumpop.getarglist()[:]
         values = [self.getvalue(arg) for arg in jumpop.getarglist()]
-        jumpargs = virtual_state.make_inputargs(values)
+        jumpargs = virtual_state.make_inputargs(values, self.optimizer)
         jumpop.initarglist(jumpargs)
-        jmp_to_short_args = virtual_state.make_inputargs(values, keyboxes=True)
+        jmp_to_short_args = virtual_state.make_inputargs(values, self.optimizer,
+                                                         keyboxes=True)
         self.short_inliner = Inliner(short_inputargs, jmp_to_short_args)
         
         for box, const in self.constant_inputargs.items():
@@ -315,11 +332,11 @@ class UnrollOptimizer(Optimization):
             newop = self.short_inliner.inline_op(op)
             self.optimizer.send_extra_operation(newop)
         
-        self.optimizer.flush()
+        newoperations = self.optimizer.get_newoperations()
 
         i = j = 0
-        while i < len(self.optimizer.newoperations) or j < len(jumpargs):
-            if i == len(self.optimizer.newoperations):
+        while i < len(newoperations) or j < len(jumpargs):
+            if i == len(newoperations):
                 while j < len(jumpargs):
                     a = jumpargs[j]
                     if self.optimizer.loop.logops:
@@ -328,7 +345,7 @@ class UnrollOptimizer(Optimization):
                                     jumpargs, short_seen)
                     j += 1
             else:
-                op = self.optimizer.newoperations[i]
+                op = newoperations[i]
 
                 self.boxes_created_this_iteration[op.result] = True
                 args = op.getarglist()
@@ -343,6 +360,7 @@ class UnrollOptimizer(Optimization):
                     self.import_box(a, inputargs, short, short_jumpargs,
                                     jumpargs, short_seen)
                 i += 1
+            newoperations = self.optimizer.get_newoperations()
 
         jumpop.initarglist(jumpargs)
         self.optimizer.send_extra_operation(jumpop)
@@ -380,7 +398,7 @@ class UnrollOptimizer(Optimization):
         if op.is_ovf():
             guard = ResOperation(rop.GUARD_NO_OVERFLOW, [], None)
             optimizer.send_extra_operation(guard)
-        
+
     def add_op_to_short(self, op, short, short_seen, emit=True, guards_needed=False):
         if op is None:
             return None
@@ -436,7 +454,7 @@ class UnrollOptimizer(Optimization):
         inputargs.append(box)
         box = newresult
         if box in self.optimizer.values:
-            box = self.optimizer.values[box].force_box()
+            box = self.optimizer.values[box].force_box(self.optimizer)
         jumpargs.append(box)
         
 
@@ -451,11 +469,6 @@ class OptInlineShortPreamble(Optimization):
         if op.getopnum() == rop.JUMP:
             loop_token = op.getdescr()
             assert isinstance(loop_token, LoopToken)
-            # FIXME: Use a tree, similar to the tree formed by the full
-            # preamble and it's bridges, instead of a list to save time and
-            # memory. This should also allow better behaviour in
-            # situations that the is_emittable() chain currently cant
-            # handle and the inlining fails unexpectedly belwo.
             short = loop_token.short_preamble
             if short:
                 args = op.getarglist()
@@ -491,7 +504,7 @@ class OptInlineShortPreamble(Optimization):
 
                         values = [self.getvalue(arg)
                                   for arg in op.getarglist()]
-                        args = sh.virtual_state.make_inputargs(values,
+                        args = sh.virtual_state.make_inputargs(values, self.optimizer,
                                                                keyboxes=True)
                         inliner = Inliner(sh.inputargs, args)
                         
@@ -536,6 +549,13 @@ class OptInlineShortPreamble(Optimization):
                         loop_token.failed_states.append(virtual_state)
         self.emit_operation(op)
 
+class ValueImporter(object):
+    def __init__(self, unroll, value, op):
+        self.unroll = unroll
+        self.preamble_value = value
+        self.op = op
 
-
-
+    def import_value(self, value):
+        value.import_from(self.preamble_value, self.unroll.optimizer)
+        self.unroll.add_op_to_short(self.op, self.unroll.short, self.unroll.short_seen, False, True)        
+        

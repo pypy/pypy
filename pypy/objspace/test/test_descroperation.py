@@ -667,5 +667,19 @@ class AppTest_Descroperation:
                 return -1L
         raises(ValueError, len, Y())
 
+    def test_len_custom__int__(self):
+        class X(object):
+            def __init__(self, x):
+                self.x = x
+            def __len__(self):
+                return self.x
+            def __int__(self):
+                return self.x
+
+        l = len(X(3.0))
+        assert l == 3 and type(l) is int
+        l = len(X(X(2)))
+        assert l == 2 and type(l) is int
+
 class AppTestWithBuiltinShortcut(AppTest_Descroperation):
     OPTIONS = {'objspace.std.builtinshortcut': True}

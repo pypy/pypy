@@ -144,7 +144,7 @@ def _print_jit_help():
     print '  --jit off                  turn off the JIT'
 
 def print_version(*args):
-    print "Python", sys.version
+    print >> sys.stderr, "Python", sys.version
     raise SystemExit
 
 def set_jit_option(options, jitparam, *args):

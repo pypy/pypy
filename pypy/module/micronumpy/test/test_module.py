@@ -11,3 +11,11 @@ class AppTestNumPyModule(BaseNumpyAppTest):
         from numpy import array, average
         assert average(range(10)) == 4.5
         assert average(array(range(10))) == 4.5
+
+    def test_constants(self):
+        import math
+        from numpy import inf, e
+        assert type(inf) is float
+        assert inf == float("inf")
+        assert e == math.e
+        assert type(e) is float

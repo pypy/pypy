@@ -94,3 +94,19 @@ class AppTestObject:
         #assert len(log) == 1
         #assert log[0].message.args == ("object.__init__() takes no parameters",)
         #assert type(log[0].message) is DeprecationWarning
+
+    def test_object_str(self):
+        # obscure case: __str__() must delegate to __repr__() without adding
+        # type checking on its own
+        class A(object):
+            def __repr__(self):
+                return 123456
+        assert A().__str__() == 123456
+
+def test_isinstance_shortcut():
+    from pypy.objspace.std import objspace
+    space = objspace.StdObjSpace()
+    w_a = space.wrap("a")
+    space.type = None
+    space.isinstance_w(w_a, space.w_str) # does not crash
+

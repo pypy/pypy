@@ -8,6 +8,7 @@ class Op(object):
     bridge = None
     offset = None
     asm = None
+    failargs = ()
 
     def __init__(self, name, args, res, descr):
         self.name = name
@@ -18,8 +19,8 @@ class Op(object):
         if self._is_guard:
             self.guard_no = int(self.descr[len('<Guard'):-1])
 
-    def setfailargs(self, _):
-        pass
+    def setfailargs(self, failargs):
+        self.failargs = failargs
 
     def getarg(self, i):
         return self._getvar(self.args[i])
@@ -276,16 +277,16 @@ class Function(object):
 
     def has_valid_code(self):
         for chunk in self.chunks:
-            if not chunk.has_valid_code():
-                return False
-        return True
+            if chunk.has_valid_code():
+                return True
+        return False
 
     def _compute_linerange(self):
         self._lineset = set()
         minline = sys.maxint
         maxline = -1
         for chunk in self.chunks:
-            if chunk.is_bytecode and chunk.filename is not None:
+            if chunk.is_bytecode and chunk.has_valid_code():
                 lineno = chunk.lineno
                 minline = min(minline, lineno)
                 maxline = max(maxline, lineno)

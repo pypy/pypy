@@ -145,3 +145,9 @@ class AppTestSocketConnection(BaseConnectionTest):
             else:
                 c.close()
         space.delslice(w_connections, space.wrap(0), space.wrap(100))
+
+    def test_bad_fd(self):
+        import _multiprocessing
+
+        raises(IOError, _multiprocessing.Connection, -1)
+        raises(IOError, _multiprocessing.Connection, -15)

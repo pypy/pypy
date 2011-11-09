@@ -25,6 +25,10 @@ class SomeVRef(annmodel.SomeObject):
     def simple_call(self):
         return self.s_instance
 
+    def getattr(self, s_attr):
+        assert s_attr.const == 'virtual'
+        return annmodel.s_Bool
+
     def rtyper_makerepr(self, rtyper):
         if rtyper.type_system.name == 'lltypesystem':
             return vrefrepr
@@ -46,6 +50,7 @@ class VRefRepr(Repr):
     def specialize_call(self, hop):
         r_generic_object = getinstancerepr(hop.rtyper, None)
         [v] = hop.inputargs(r_generic_object)   # might generate a cast_pointer
+        hop.exception_cannot_occur()
         return v
 
     def rtype_simple_call(self, hop):
@@ -59,6 +64,13 @@ class VRefRepr(Repr):
             raise TyperError("only supports virtual_ref_None as a"
                              " prebuilt virtual_ref")
         return lltype.nullptr(OBJECTPTR.TO)
+
+    def rtype_getattr(self, hop):
+        s_attr = hop.args_s[1]
+        assert s_attr.const == 'virtual'
+        v = hop.inputarg(self, arg=0)
+        hop.exception_cannot_occur()
+        return hop.genop('jit_is_virtual', [v], resulttype = lltype.Bool)
 
 from pypy.rpython.ootypesystem.rclass import OBJECT
 

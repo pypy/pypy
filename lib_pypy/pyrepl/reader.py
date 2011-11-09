@@ -576,7 +576,7 @@ feeling more loquacious than I am now."""
         self.console.push_char(char)
         self.handle1(0)
     
-    def readline(self):
+    def readline(self, returns_unicode=False):
         """Read a line.  The implementation of this method also shows
         how to drive Reader if you want more control over the event
         loop."""
@@ -585,6 +585,8 @@ feeling more loquacious than I am now."""
             self.refresh()
             while not self.finished:
                 self.handle1()
+            if returns_unicode:
+                return self.get_unicode()
             return self.get_buffer()
         finally:
             self.restore()

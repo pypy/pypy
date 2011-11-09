@@ -27,10 +27,13 @@ def test_direct_forced():
     x1 = X()
     vref = virtual_ref(x1)
     assert vref._state == 'non-forced'
+    assert vref.virtual is True
     assert vref() is x1
     assert vref._state == 'forced'
+    assert vref.virtual is False
     virtual_ref_finish(vref, x1)
     assert vref._state == 'forced'
+    assert vref.virtual is False
     assert vref() is x1
 
 def test_direct_invalid():
@@ -134,6 +137,13 @@ class BaseTestVRef(BaseRtypingTest):
                 return -1
         x = self.interpret(f, [])
         assert x == 42
+
+    def test_rtype_virtualattr(self):
+        def f():
+            vref = virtual_ref(X())
+            return vref.virtual
+        x = self.interpret(f, [])
+        assert x is False
 
 
 class TestLLtype(BaseTestVRef, LLRtypeMixin):

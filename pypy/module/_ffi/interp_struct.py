@@ -2,6 +2,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib import clibffi
 from pypy.rlib import libffi
 from pypy.rlib import jit
+from pypy.rlib.rarithmetic import r_uint, r_ulonglong
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -15,6 +16,9 @@ class W_Field(Wrappable):
         self.name = name
         self.w_ffitype = w_ffitype
         self.offset = -1
+
+    def __repr__(self):
+        return '<Field %s %s>' % (self.name, self.w_ffitype.name)
 
 @unwrap_spec(name=str)
 def descr_new_field(space, w_type, name, w_ffitype):
@@ -62,20 +66,35 @@ class W__StructDescr(Wrappable):
 
 @unwrap_spec(name=str)
 def descr_new_structdescr(space, w_type, name, w_fields):
-    size = 0
-    alignment = 0 # XXX
     fields_w = space.fixedview(w_fields)
-    fields_w2 = [] # its items are annotated as W_Field
-    field_types = []
+    # note that the fields_w returned by compute_size_and_alignement has a
+    # different annotation than the original: list(W_Root) vs list(W_Field)
+    size, alignment, fields_w = compute_size_and_alignement(space, fields_w)
+    field_types = [] # clibffi's types
+    for w_field in fields_w:
+        field_types.append(w_field.w_ffitype.ffitype)
+    ffistruct = clibffi.make_struct_ffitype_e(size, alignment, field_types)
+    return W__StructDescr(space, name, fields_w, ffistruct)
+
+def round_up(size, alignment):
+    return (size + alignment - 1) & -alignment
+
+def compute_size_and_alignement(space, fields_w):
+    size = 0
+    alignment = 1
+    fields_w2 = []
     for w_field in fields_w:
         w_field = space.interp_w(W_Field, w_field)
-        w_field.offset = size # XXX: alignment!
-        size += w_field.w_ffitype.sizeof()
+        fieldsize = w_field.w_ffitype.sizeof()
+        fieldalignment = w_field.w_ffitype.get_alignment()
+        alignment = max(alignment, fieldalignment)
+        size = round_up(size, fieldalignment)
+        w_field.offset = size
+        size += fieldsize
         fields_w2.append(w_field)
-        field_types.append(w_field.w_ffitype.ffitype)
     #
-    ffistruct = clibffi.make_struct_ffitype_e(size, alignment, field_types)
-    return W__StructDescr(space, name, fields_w2, ffistruct)
+    size = round_up(size, alignment)
+    return size, alignment, fields_w2
 
 
 
@@ -100,6 +119,7 @@ class W__StructInstance(Wrappable):
                                     zero=True, add_memory_pressure=True)
 
     def __del__(self):
+        # XXX: check whether I can turn this into a lightweight destructor
         if self.rawmem:
             lltype.free(self.rawmem, flavor='raw')
             self.rawmem = lltype.nullptr(rffi.VOIDP.TO)
@@ -111,22 +131,34 @@ class W__StructInstance(Wrappable):
     @unwrap_spec(name=str)
     def getfield(self, space, name):
         w_ffitype, offset = self.structdescr.get_type_and_offset_for_field(name)
-        assert w_ffitype is app_types.slong # XXX: handle all cases
-        FIELD_TYPE  = rffi.LONG
+        if w_ffitype.is_longlong():
+            value = libffi.struct_getfield_longlong(w_ffitype.ffitype, self.rawmem, offset)
+            if w_ffitype is app_types.ulonglong:
+                return space.wrap(r_ulonglong(value))
+            return space.wrap(value)
         #
-        value = libffi.struct_getfield_int(w_ffitype.ffitype, self.rawmem, offset)
-        return space.wrap(value)
+        if w_ffitype.is_signed() or w_ffitype.is_unsigned():
+            value = libffi.struct_getfield_int(w_ffitype.ffitype, self.rawmem, offset)
+            if w_ffitype.is_unsigned():
+                return space.wrap(r_uint(value))
+            return space.wrap(value)
+        #
+        assert False, 'unknown type'
 
     @unwrap_spec(name=str)
     def setfield(self, space, name, w_value):
         w_ffitype, offset = self.structdescr.get_type_and_offset_for_field(name)
-        assert w_ffitype is app_types.slong # XXX: handle all cases
-        FIELD_TYPE  = rffi.LONG
-        value = space.int_w(w_value)
+        if w_ffitype.is_longlong():
+            value = space.truncatedlonglong_w(w_value)
+            libffi.struct_setfield_longlong(w_ffitype.ffitype, self.rawmem, offset, value)
+            return
         #
-        libffi.struct_setfield_int(w_ffitype.ffitype, self.rawmem, offset, value)
-
-
+        if w_ffitype.is_signed() or w_ffitype.is_unsigned():
+            value = space.truncatedint_w(w_value)
+            libffi.struct_setfield_int(w_ffitype.ffitype, self.rawmem, offset, value)
+            return
+        #
+        assert False, 'unknown type'
 
 W__StructInstance.typedef = TypeDef(
     '_StructInstance',

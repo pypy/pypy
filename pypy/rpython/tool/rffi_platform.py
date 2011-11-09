@@ -171,7 +171,7 @@ class _CWriter(object):
         eci = self.config._compilation_info_
         try_compile_cache([self.path], eci)
 
-def configure(CConfig):
+def configure(CConfig, ignore_errors=False):
     """Examine the local system by running the C compiler.
     The CConfig class contains CConfigEntry attribues that describe
     what should be inspected; configure() returns a dict mapping
@@ -199,7 +199,8 @@ def configure(CConfig):
         writer.close()
 
         eci = CConfig._compilation_info_
-        infolist = list(run_example_code(writer.path, eci))
+        infolist = list(run_example_code(writer.path, eci,
+                                         ignore_errors=ignore_errors))
         assert len(infolist) == len(entries)
 
         resultinfo = {}
@@ -680,10 +681,10 @@ void dump(char* key, int value) {
 }
 """
 
-def run_example_code(filepath, eci):
+def run_example_code(filepath, eci, ignore_errors=False):
     eci = eci.convert_sources_to_files(being_main=True)
     files = [filepath]
-    output = build_executable_cache(files, eci)
+    output = build_executable_cache(files, eci, ignore_errors=ignore_errors)
     section = None
     for line in output.splitlines():
         line = line.strip()

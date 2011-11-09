@@ -1,7 +1,11 @@
-import py
 import sys
-from pypy.rlib import jit
+
 from pypy.jit.metainterp.test.support import LLJitMixin
+from pypy.rlib import jit
+from pypy.rlib.rarithmetic import ovfcheck
+from pypy.rlib.rstring import StringBuilder
+
+import py
 
 
 class TestLLtype(LLJitMixin):
@@ -257,6 +261,28 @@ class TestLLtype(LLJitMixin):
         self.check_operations_history(setarrayitem_gc=2, setfield_gc=2,
                                       getarrayitem_gc=0, getfield_gc=2)
 
+    def test_promote_changes_array_cache(self):
+        a1 = [0, 0]
+        a2 = [0, 0]
+        def fn(n):
+            if n > 0:
+                a = a1
+            else:
+                a = a2
+            a[0] = n
+            jit.hint(n, promote=True)
+            x1 = a[0]
+            jit.hint(x1, promote=True)
+            a[n - n] = n + 1
+            return a[0] + x1
+        res = self.interp_operations(fn, [7])
+        assert res == 7 + 7 + 1
+        self.check_operations_history(getarrayitem_gc=0, guard_value=1)
+        res = self.interp_operations(fn, [-7])
+        assert res == -7 - 7 + 1
+        self.check_operations_history(getarrayitem_gc=0, guard_value=1)
+
+
     def test_list_caching(self):
         a1 = [0, 0]
         a2 = [0, 0]
@@ -357,7 +383,7 @@ class TestLLtype(LLJitMixin):
         assert res == f(10, 1, 1)
         self.check_history(getarrayitem_gc=0, getfield_gc=0)
 
-    def test_heap_caching_pure(self):
+    def test_heap_caching_array_pure(self):
         class A(object):
             pass
         p1 = A()
@@ -405,3 +431,174 @@ class TestLLtype(LLJitMixin):
         assert res == -7 + 7
         self.check_operations_history(getfield_gc=0)
         return
+
+    def test_heap_caching_multiple_objects(self):
+        class Gbl(object):
+            pass
+        g = Gbl()
+        class A(object):
+            pass
+        a1 = A()
+        g.a1 = a1
+        a1.x = 7
+        a2 = A()
+        g.a2 = a2
+        a2.x = 7
+        def gn(a1, a2):
+            return a1.x + a2.x
+        def fn(n):
+            if n < 0:
+                a1 = A()
+                g.a1 = a1
+                a1.x = n
+                a2 = A()
+                g.a2 = a2
+                a2.x = n - 1
+            else:
+                a1 = g.a1
+                a2 = g.a2
+            return a1.x + a2.x + gn(a1, a2)
+        res = self.interp_operations(fn, [-7])
+        assert res == 2 * -7 + 2 * -8
+        self.check_operations_history(setfield_gc=4, getfield_gc=0)
+        res = self.interp_operations(fn, [7])
+        assert res == 4 * 7
+        self.check_operations_history(getfield_gc=4)
+
+    def test_heap_caching_multiple_tuples(self):
+        class Gbl(object):
+            pass
+        g = Gbl()
+        def gn(a1, a2):
+            return a1[0] + a2[0]
+        def fn(n):
+            a1 = (n, )
+            g.a = a1
+            a2 = (n - 1, )
+            g.a = a2
+            jit.promote(n)
+            return a1[0] + a2[0] + gn(a1, a2)
+        res = self.interp_operations(fn, [7])
+        assert res == 2 * 7 + 2 * 6
+        self.check_operations_history(getfield_gc_pure=0)
+        res = self.interp_operations(fn, [-7])
+        assert res == 2 * -7 + 2 * -8
+        self.check_operations_history(getfield_gc_pure=0)
+
+    def test_heap_caching_multiple_arrays(self):
+        class Gbl(object):
+            pass
+        g = Gbl()
+        def fn(n):
+            a1 = [n, n, n]
+            g.a = a1
+            a1[0] = n
+            a2 = [n, n, n]
+            g.a = a2
+            a2[0] = n - 1
+            return a1[0] + a2[0] + a1[0] + a2[0]
+        res = self.interp_operations(fn, [7])
+        assert res == 2 * 7 + 2 * 6
+        self.check_operations_history(getarrayitem_gc=0)
+        res = self.interp_operations(fn, [-7])
+        assert res == 2 * -7 + 2 * -8
+        self.check_operations_history(getarrayitem_gc=0)
+
+    def test_heap_caching_multiple_arrays_getarrayitem(self):
+        class Gbl(object):
+            pass
+        g = Gbl()
+        g.a1 = [7, 8, 9]
+        g.a2 = [8, 9, 10, 11]
+
+        def fn(i):
+            if i < 0:
+                g.a1 = [7, 8, 9]
+                g.a2 = [7, 8, 9, 10]
+            jit.promote(i)
+            a1 = g.a1
+            a1[i + 1] = 15 # make lists mutable
+            a2 = g.a2
+            a2[i + 1] = 19
+            return a1[i] + a2[i] + a1[i] + a2[i]
+        res = self.interp_operations(fn, [0])
+        assert res == 2 * 7 + 2 * 8
+        self.check_operations_history(getarrayitem_gc=2)
+
+
+    def test_heap_caching_multiple_lists(self):
+        class Gbl(object):
+            pass
+        g = Gbl()
+        g.l = []
+        def fn(n):
+            if n < -100:
+                g.l.append(1)
+            a1 = [n, n, n]
+            g.l = a1
+            a1[0] = n
+            a2 = [n, n, n]
+            g.l = a2
+            a2[0] = n - 1
+            return a1[0] + a2[0] + a1[0] + a2[0]
+        res = self.interp_operations(fn, [7])
+        assert res == 2 * 7 + 2 * 6
+        self.check_operations_history(getarrayitem_gc=0, getfield_gc=0)
+        res = self.interp_operations(fn, [-7])
+        assert res == 2 * -7 + 2 * -8
+        self.check_operations_history(getarrayitem_gc=0, getfield_gc=0)
+
+    def test_length_caching(self):
+        class Gbl(object):
+            pass
+        g = Gbl()
+        g.a = [0] * 7
+        def fn(n):
+            a = g.a
+            res = len(a) + len(a)
+            a1 = [0] * n
+            g.a = a1
+            return len(a1) + res
+        res = self.interp_operations(fn, [7])
+        assert res == 7 * 3
+        self.check_operations_history(arraylen_gc=1)
+
+    def test_arraycopy(self):
+        class Gbl(object):
+            pass
+        g = Gbl()
+        g.a = [0] * 7
+        def fn(n):
+            assert n >= 0
+            a = g.a
+            x = [0] * n
+            x[2] = 21
+            return len(a[:n]) + x[2]
+        res = self.interp_operations(fn, [3])
+        assert res == 24
+        self.check_operations_history(getarrayitem_gc=0)
+
+    def test_fold_int_add_ovf(self):
+        def fn(n):
+            jit.promote(n)
+            try:
+                n = ovfcheck(n + 1)
+            except OverflowError:
+                return 12
+            else:
+                return n
+        res = self.interp_operations(fn, [3])
+        assert res == 4
+        self.check_operations_history(int_add_ovf=0)
+        res = self.interp_operations(fn, [sys.maxint])
+        assert res == 12
+
+    def test_copy_str_content(self):
+        def fn(n):
+            a = StringBuilder()
+            x = [1]
+            a.append("hello world")
+            return x[0]
+        res = self.interp_operations(fn, [0])
+        assert res == 1
+        self.check_operations_history(getarrayitem_gc=0, getarrayitem_gc_pure=0 )

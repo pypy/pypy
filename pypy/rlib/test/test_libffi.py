@@ -5,7 +5,8 @@ from pypy.rpython.lltypesystem.ll2ctypes import ALLOCATED
 from pypy.rlib.rarithmetic import r_singlefloat, r_longlong, r_ulonglong
 from pypy.rlib.test.test_clibffi import BaseFfiTest, get_libm_name, make_struct_ffitype_e
 from pypy.rlib.libffi import CDLL, Func, get_libc_name, ArgChain, types
-from pypy.rlib.libffi import IS_32_BIT, struct_getfield_int, struct_setfield_int
+from pypy.rlib.libffi import (IS_32_BIT, struct_getfield_int, struct_setfield_int,
+                              struct_getfield_longlong, struct_setfield_longlong)
 
 class TestLibffiMisc(BaseFfiTest):
 
@@ -72,7 +73,28 @@ class TestLibffiMisc(BaseFfiTest):
         assert p.y == -2
         #
         lltype.free(p, flavor='raw')
-        
+
+    def test_struct_fields_longlong(self):
+        POINT = lltype.Struct('POINT',
+                              ('x', rffi.LONGLONG),
+                              ('y', rffi.ULONGLONG)
+                              )
+        y_ofs = 8
+        p = lltype.malloc(POINT, flavor='raw')
+        p.x = r_longlong(123)
+        p.y = r_ulonglong(456)
+        addr = rffi.cast(rffi.VOIDP, p)
+        assert struct_getfield_longlong(types.slonglong, addr, 0) == 123
+        assert struct_getfield_longlong(types.ulonglong, addr, y_ofs) == 456
+        #
+        v = rffi.cast(lltype.SignedLongLong, r_ulonglong(9223372036854775808))
+        struct_setfield_longlong(types.slonglong, addr, 0, v)
+        struct_setfield_longlong(types.ulonglong, addr, y_ofs, r_longlong(-1))
+        assert p.x == -9223372036854775808
+        assert rffi.cast(lltype.UnsignedLongLong, p.y) == 18446744073709551615
+        #
+        lltype.free(p, flavor='raw')
+
 
 class TestLibffiCall(BaseFfiTest):
     """

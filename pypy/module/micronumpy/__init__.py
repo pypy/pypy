@@ -13,6 +13,9 @@ class Module(MixedModule):
         'empty': 'interp_numarray.zeros',
         'ones': 'interp_numarray.ones',
         'fromstring': 'interp_support.fromstring',
+
+        'True_': 'space.w_True',
+        'False_': 'space.w_False',
     }
 
     # ufuncs
@@ -23,16 +26,24 @@ class Module(MixedModule):
         ("arccos", "arccos"),
         ("arcsin", "arcsin"),
         ("arctan", "arctan"),
+        ("arcsinh", "arcsinh"),
+        ("arctanh", "arctanh"),
         ("copysign", "copysign"),
         ("cos", "cos"),
         ("divide", "divide"),
+        ("equal", "equal"),
         ("exp", "exp"),
         ("fabs", "fabs"),
         ("floor", "floor"),
+        ("greater", "greater"),
+        ("greater_equal", "greater_equal"),
+        ("less", "less"),
+        ("less_equal", "less_equal"),
         ("maximum", "maximum"),
         ("minimum", "minimum"),
         ("multiply", "multiply"),
         ("negative", "negative"),
+        ("not_equal", "not_equal"),
         ("reciprocal", "reciprocal"),
         ("sign", "sign"),
         ("sin", "sin"),
@@ -44,4 +55,6 @@ class Module(MixedModule):
     appleveldefs = {
         'average': 'app_numpy.average',
         'mean': 'app_numpy.mean',
+        'inf': 'app_numpy.inf',
+        'e': 'app_numpy.e',
     }

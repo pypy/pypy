@@ -178,7 +178,7 @@ class JitCell(BaseJitCell):
         if self.compiled_merge_points_wref is not None:
             for wref in self.compiled_merge_points_wref:
                 looptoken = wref()
-                if looptoken is not None:
+                if looptoken is not None and not looptoken.invalidated:
                     result.append(looptoken)
         return result
 
@@ -367,9 +367,9 @@ class WarmEnterState(object):
             # ---------- execute assembler ----------
             while True:     # until interrupted by an exception
                 metainterp_sd.profiler.start_running()
-                debug_start("jit-running")
+                #debug_start("jit-running")
                 fail_descr = warmrunnerdesc.execute_token(loop_token)
-                debug_stop("jit-running")
+                #debug_stop("jit-running")
                 metainterp_sd.profiler.end_running()
                 loop_token = None     # for test_memmgr
                 if vinfo is not None:

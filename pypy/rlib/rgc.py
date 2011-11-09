@@ -1,6 +1,10 @@
-import gc, types
+import gc
+import types
+
+from pypy.rlib import jit
+from pypy.rlib.objectmodel import we_are_translated, enforceargs, specialize
+from pypy.rlib.nonconst import NonConstant
 from pypy.rpython.extregistry import ExtRegistryEntry
-from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.lltypesystem import lltype, llmemory
 
 # ____________________________________________________________
@@ -32,7 +36,7 @@ class CollectEntry(ExtRegistryEntry):
         if len(hop.args_s) == 1:
             args_v = hop.inputargs(lltype.Signed)
         return hop.genop('gc__collect', args_v, resulttype=hop.r_result)
-    
+
 class SetMaxHeapSizeEntry(ExtRegistryEntry):
     _about_ = set_max_heap_size
 
@@ -133,9 +137,16 @@ class MallocNonMovingEntry(ExtRegistryEntry):
         hop.exception_cannot_occur()
         return hop.genop(opname, vlist, resulttype = hop.r_result.lowleveltype)
 
+@jit.oopspec('list.ll_arraycopy(source, dest, source_start, dest_start, length)')
+@specialize.ll()
+@enforceargs(None, None, int, int, int)
 def ll_arraycopy(source, dest, source_start, dest_start, length):
     from pypy.rpython.lltypesystem.lloperation import llop
     from pypy.rlib.objectmodel import keepalive_until_here
+
+    # XXX: Hack to ensure that we get a proper effectinfo.write_descrs_arrays
+    if NonConstant(False):
+        dest[dest_start] = source[source_start]
 
     # supports non-overlapping copies only
     if not we_are_translated():
@@ -152,8 +163,10 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
                                                 source_start, dest_start,
                                                 length):
             # if the write barrier is not supported, copy by hand
-            for i in range(length):
+            i = 0
+            while i < length:
                 dest[i + dest_start] = source[i + source_start]
+                i += 1
             return
     source_addr = llmemory.cast_ptr_to_adr(source)
     dest_addr   = llmemory.cast_ptr_to_adr(dest)
@@ -161,14 +174,11 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
                       llmemory.sizeof(TP.OF) * source_start)
     cp_dest_addr = (dest_addr + llmemory.itemoffsetof(TP, 0) +
                     llmemory.sizeof(TP.OF) * dest_start)
-    
+
     llmemory.raw_memcopy(cp_source_addr, cp_dest_addr,
                          llmemory.sizeof(TP.OF) * length)
     keepalive_until_here(source)
     keepalive_until_here(dest)
-ll_arraycopy._annenforceargs_ = [None, None, int, int, int]
-ll_arraycopy._annspecialcase_ = 'specialize:ll'
-ll_arraycopy.oopspec = 'list.ll_arraycopy(source, dest, source_start, dest_start, length)'
 
 def ll_shrink_array(p, smallerlength):
     from pypy.rpython.lltypesystem.lloperation import llop
@@ -192,7 +202,7 @@ def ll_shrink_array(p, smallerlength):
               llmemory.itemoffsetof(ARRAY, 0))
     source_addr = llmemory.cast_ptr_to_adr(p)    + offset
     dest_addr   = llmemory.cast_ptr_to_adr(newp) + offset
-    llmemory.raw_memcopy(source_addr, dest_addr, 
+    llmemory.raw_memcopy(source_addr, dest_addr,
                          llmemory.sizeof(ARRAY.OF) * smallerlength)
 
     keepalive_until_here(p)
@@ -204,6 +214,10 @@ ll_shrink_array._jit_look_inside_ = False
 def no_collect(func):
     func._dont_inline_ = True
     func._gc_no_collect_ = True
+    return func
+
+def is_light_finalizer(func):
+    func._is_light_finalizer_ = True
     return func
 
 # ____________________________________________________________
@@ -246,6 +260,24 @@ def _keep_object(x):
         return type(x).__module__ != '__builtin__'   # keep non-builtins
     except Exception:
         return False      # don't keep objects whose _freeze_() method explodes
+
+def add_memory_pressure(estimate):
+    """Add memory pressure for OpaquePtrs."""
+    pass
+
+class AddMemoryPressureEntry(ExtRegistryEntry):
+    _about_ = add_memory_pressure
+
+    def compute_result_annotation(self, s_nbytes):
+        from pypy.annotation import model as annmodel
+        return annmodel.s_None
+
+    def specialize_call(self, hop):
+        [v_size] = hop.inputargs(lltype.Signed)
+        hop.exception_cannot_occur()
+        return hop.genop('gc_add_memory_pressure', [v_size],
+                         resulttype=lltype.Void)
+
 
 def get_rpy_memory_usage(gcref):
     "NOT_RPYTHON"

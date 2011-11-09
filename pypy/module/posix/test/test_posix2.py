@@ -415,6 +415,23 @@ class AppTestPosix:
                 else:
                     py.test.fail("didn't raise")
 
+        def test_execv_unicode(self):
+            os = self.posix
+            import sys
+            if not hasattr(os, "fork"):
+                skip("Need fork() to test execv()")
+            try:
+                output = u"caf\xe9 \u1234\n".encode(sys.getfilesystemencoding())
+            except UnicodeEncodeError:
+                skip("encoding not good enough")
+            pid = os.fork()
+            if pid == 0:
+                os.execv(u"/bin/sh", ["sh", "-c",
+                                      u"echo caf\xe9 \u1234 > onefile"])
+            os.waitpid(pid, 0)
+            assert open("onefile").read() == output
+            os.unlink("onefile")
+
         def test_execve(self):
             os = self.posix
             if not hasattr(os, "fork"):
@@ -424,6 +441,24 @@ class AppTestPosix:
                 os.execve("/usr/bin/env", ["env", "python", "-c", "import os; open('onefile', 'w').write(os.environ['ddd'])"], {'ddd':'xxx'})
             os.waitpid(pid, 0)
             assert open("onefile").read() == "xxx"
+            os.unlink("onefile")
+
+        def test_execve_unicode(self):
+            os = self.posix
+            import sys
+            if not hasattr(os, "fork"):
+                skip("Need fork() to test execve()")
+            try:
+                output = u"caf\xe9 \u1234\n".encode(sys.getfilesystemencoding())
+            except UnicodeEncodeError:
+                skip("encoding not good enough")
+            pid = os.fork()
+            if pid == 0:
+                os.execve(u"/bin/sh", ["sh", "-c",
+                                      u"echo caf\xe9 \u1234 > onefile"],
+                          {'ddd': 'xxx'})
+            os.waitpid(pid, 0)
+            assert open("onefile").read() == output
             os.unlink("onefile")
         pass # <- please, inspect.getsource(), don't crash
 

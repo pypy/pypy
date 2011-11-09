@@ -1,15 +1,13 @@
 from pypy.tool.pairtype import pairtype
-from pypy.annotation import model as annmodel
 from pypy.objspace.flow.model import Constant
-from pypy.rpython.rdict import AbstractDictRepr, AbstractDictIteratorRepr,\
-     rtype_newdict
+from pypy.rpython.rdict import (AbstractDictRepr, AbstractDictIteratorRepr,
+     rtype_newdict)
 from pypy.rpython.lltypesystem import lltype
-from pypy.rlib.rarithmetic import r_uint, intmask, LONG_BIT
-from pypy.rlib.objectmodel import hlinvoke
-from pypy.rpython import robject
 from pypy.rlib import objectmodel, jit
+from pypy.rlib.rarithmetic import r_uint, intmask, LONG_BIT
 from pypy.rpython import rmodel
 from pypy.rpython.error import TyperError
+
 
 HIGHEST_BIT = intmask(1 << (LONG_BIT - 1))
 MASK = intmask(HIGHEST_BIT - 1)
@@ -20,7 +18,7 @@ MASK = intmask(HIGHEST_BIT - 1)
 #  DICTVALUE types.
 #
 #  XXX for immutable dicts, the array should be inlined and
-#      num_pristine_entries and everused are not needed.
+#      resize_counter and everused are not needed.
 #
 #    struct dictentry {
 #        DICTKEY key;
@@ -32,7 +30,7 @@ MASK = intmask(HIGHEST_BIT - 1)
 #
 #    struct dicttable {
 #        int num_items;
-#        int num_pristine_entries;  # never used entries
+#        int resize_counter;
 #        Array *entries;
 #        (Function DICTKEY, DICTKEY -> bool) *fnkeyeq;
 #        (Function DICTKEY -> int) *fnkeyhash;
@@ -176,7 +174,7 @@ class DictRepr(AbstractDictRepr):
             self.DICTENTRYARRAY = lltype.GcArray(self.DICTENTRY,
                                                  adtmeths=entrymeths)
             fields =          [ ("num_items", lltype.Signed),
-                                ("num_pristine_entries", lltype.Signed),
+                                ("resize_counter", lltype.Signed),
                                 ("entries", lltype.Ptr(self.DICTENTRYARRAY)) ]
             if self.custom_eq_hash:
                 self.r_rdict_eqfn, self.r_rdict_hashfn = self._custom_eq_hash_repr()
@@ -417,17 +415,16 @@ def ll_hash_recomputed(entries, i):
     ENTRIES = lltype.typeOf(entries).TO
     return ENTRIES.fasthashfn(entries[i].key)
 
-@jit.dont_look_inside
 def ll_get_value(d, i):
     return d.entries[i].value
 
 def ll_keyhash_custom(d, key):
     DICT = lltype.typeOf(d).TO
-    return hlinvoke(DICT.r_rdict_hashfn, d.fnkeyhash, key)
+    return objectmodel.hlinvoke(DICT.r_rdict_hashfn, d.fnkeyhash, key)
 
 def ll_keyeq_custom(d, key1, key2):
     DICT = lltype.typeOf(d).TO
-    return hlinvoke(DICT.r_rdict_eqfn, d.fnkeyeq, key1, key2)
+    return objectmodel.hlinvoke(DICT.r_rdict_eqfn, d.fnkeyeq, key1, key2)
 
 def ll_dict_len(d):
     return d.num_items
@@ -448,7 +445,9 @@ def ll_dict_setitem(d, key, value):
     i = ll_dict_lookup(d, key, hash)
     return _ll_dict_setitem_lookup_done(d, key, value, hash, i)
 
-@jit.dont_look_inside
+# It may be safe to look inside always, it has a few branches though, and their
+# frequencies needs to be investigated.
+@jit.look_inside_iff(lambda d, key, value, hash, i: jit.isvirtual(d) and jit.isconstant(key))
 def _ll_dict_setitem_lookup_done(d, key, value, hash, i):
     valid = (i & HIGHEST_BIT) == 0
     i = i & MASK
@@ -465,8 +464,8 @@ def _ll_dict_setitem_lookup_done(d, key, value, hash, i):
     d.num_items += 1
     if not everused:
         if hasattr(ENTRY, 'f_everused'): entry.f_everused = True
-        d.num_pristine_entries -= 1
-        if d.num_pristine_entries <= len(d.entries) / 3:
+        d.resize_counter -= 3
+        if d.resize_counter <= 0:
             ll_dict_resize(d)
 
 def ll_dict_insertclean(d, key, value, hash):
@@ -484,7 +483,7 @@ def ll_dict_insertclean(d, key, value, hash):
     if hasattr(ENTRY, 'f_valid'):    entry.f_valid = True
     if hasattr(ENTRY, 'f_everused'): entry.f_everused = True
     d.num_items += 1
-    d.num_pristine_entries -= 1
+    d.resize_counter -= 3
 
 def ll_dict_delitem(d, key):
     i = ll_dict_lookup(d, key, d.keyhash(key))
@@ -492,7 +491,9 @@ def ll_dict_delitem(d, key):
         raise KeyError
     _ll_dict_del(d, i)
 
-@jit.dont_look_inside
+# XXX: Move the size checking and resize into a single call which is opauqe to
+# the JIT when the dict isn't virtual, to avoid extra branches.
+@jit.look_inside_iff(lambda d, i: jit.isvirtual(d) and jit.isconstant(i))
 def _ll_dict_del(d, i):
     d.entries.mark_deleted(i)
     d.num_items -= 1
@@ -518,7 +519,7 @@ def ll_dict_resize(d):
         new_size /= 2
     d.entries = lltype.typeOf(old_entries).TO.allocate(new_size)
     d.num_items = 0
-    d.num_pristine_entries = new_size
+    d.resize_counter = new_size * 2
     i = 0
     while i < old_size:
         if old_entries.valid(i):
@@ -532,6 +533,7 @@ ll_dict_resize.oopspec = 'dict.resize(d)'
 # ------- a port of CPython's dictobject.c's lookdict implementation -------
 PERTURB_SHIFT = 5
 
+@jit.look_inside_iff(lambda d, key, hash: jit.isvirtual(d) and jit.isconstant(key))
 def ll_dict_lookup(d, key, hash):
     entries = d.entries
     ENTRIES = lltype.typeOf(entries).TO
@@ -619,9 +621,8 @@ def ll_newdict(DICT):
     d = DICT.allocate()
     d.entries = DICT.entries.TO.allocate(DICT_INITSIZE)
     d.num_items = 0
-    d.num_pristine_entries = DICT_INITSIZE
+    d.resize_counter = DICT_INITSIZE * 2
     return d
-ll_newdict.oopspec = 'newdict()'
 
 def ll_newdict_size(DICT, length_estimate):
     length_estimate = (length_estimate // 2) * 3
@@ -631,9 +632,8 @@ def ll_newdict_size(DICT, length_estimate):
     d = DICT.allocate()
     d.entries = DICT.entries.TO.allocate(n)
     d.num_items = 0
-    d.num_pristine_entries = n
+    d.resize_counter = n * 2
     return d
-ll_newdict_size.oopspec = 'newdict()'
 
 # pypy.rpython.memory.lldict uses a dict based on Struct and Array
 # instead of GcStruct and GcArray, which is done by using different
@@ -749,7 +749,7 @@ def ll_copy(dict):
     d = DICT.allocate()
     d.entries = DICT.entries.TO.allocate(dictsize)
     d.num_items = dict.num_items
-    d.num_pristine_entries = dict.num_pristine_entries
+    d.resize_counter = dict.resize_counter
     if hasattr(DICT, 'fnkeyeq'):   d.fnkeyeq   = dict.fnkeyeq
     if hasattr(DICT, 'fnkeyhash'): d.fnkeyhash = dict.fnkeyhash
     i = 0
@@ -767,12 +767,13 @@ def ll_copy(dict):
 ll_copy.oopspec = 'dict.copy(dict)'
 
 def ll_clear(d):
-    if len(d.entries) == d.num_pristine_entries == DICT_INITSIZE:
+    if (len(d.entries) == DICT_INITSIZE and
+        d.resize_counter == DICT_INITSIZE * 2):
         return
     old_entries = d.entries
     d.entries = lltype.typeOf(old_entries).TO.allocate(DICT_INITSIZE)
     d.num_items = 0
-    d.num_pristine_entries = DICT_INITSIZE
+    d.resize_counter = DICT_INITSIZE * 2
     old_entries.delete()
 ll_clear.oopspec = 'dict.clear(d)'
 
@@ -865,7 +866,6 @@ def _ll_getnextitem(dic):
         global_popitem_index.nextindex = base + counter
     return i
 
-@jit.dont_look_inside
 def ll_popitem(ELEM, dic):
     i = _ll_getnextitem(dic)
     entry = dic.entries[i]

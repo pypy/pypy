@@ -92,6 +92,43 @@ class TestMisc(BaseTestPyPyC):
         """)
 
 
+    def test_cached_pure_func_of_equal_fields(self):
+        def main(n):
+            class A(object):
+                def __init__(self, val):
+                    self.val1 = self.val2 = val
+            a = A(1)
+            b = A(1)
+            sa = 0
+            while n:
+                sa += 2*a.val1
+                sa += 2*b.val2
+                b.val2 = a.val1
+                n -= 1
+            return sa
+        #
+        log = self.run(main, [1000])
+        assert log.result == 4000
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i12 = int_is_true(i4)
+            guard_true(i12, descr=...)
+            guard_not_invalidated(descr=...)
+            i13 = int_add_ovf(i8, i9)
+            guard_no_overflow(descr=...)
+            i10p = getfield_gc_pure(p10, descr=...)
+            i10 = int_mul_ovf(2, i10p)
+            guard_no_overflow(descr=...)
+            i14 = int_add_ovf(i13, i10)
+            guard_no_overflow(descr=...)
+            setfield_gc(p7, p11, descr=...)
+            i17 = int_sub_ovf(i4, 1)
+            guard_no_overflow(descr=...)
+            --TICK--
+            jump(..., descr=...)
+            """)
+
+
     def test_range_iter(self):
         def main(n):
             def g(n):
@@ -115,7 +152,6 @@ class TestMisc(BaseTestPyPyC):
             i21 = force_token()
             setfield_gc(p4, i20, descr=<.* .*W_AbstractSeqIterObject.inst_index .*>)
             guard_not_invalidated(descr=...)
-            i26 = int_sub(i9, 1)
             i23 = int_lt(i18, 0)
             guard_false(i23, descr=...)
             i25 = int_ge(i18, i9)
@@ -249,3 +285,64 @@ class TestMisc(BaseTestPyPyC):
 
         loop, = log.loops_by_id("globalread", is_entry_bridge=True)
         assert len(loop.ops_by_id("globalread")) == 0
+
+    def test_struct_module(self):
+        def main():
+            import struct
+            i = 1
+            while i < 1000:
+                x = struct.unpack("i", struct.pack("i", i))[0] # ID: struct
+                i += x / i
+            return i
+
+        log = self.run(main)
+        assert log.result == main()
+
+        loop, = log.loops_by_id("struct")
+        if sys.maxint == 2 ** 63 - 1:
+            extra = """
+            i8 = int_lt(i4, -2147483648)
+            guard_false(i8, descr=...)
+            """
+        else:
+            extra = ""
+        # This could, of course stand some improvement, to remove all these
+        # arithmatic ops, but we've removed all the core overhead.
+        assert loop.match_by_id("struct", """
+            guard_not_invalidated(descr=...)
+            # struct.pack
+            %(32_bit_only)s
+            i11 = int_and(i4, 255)
+            i13 = int_rshift(i4, 8)
+            i14 = int_and(i13, 255)
+            i16 = int_rshift(i13, 8)
+            i17 = int_and(i16, 255)
+            i19 = int_rshift(i16, 8)
+            i20 = int_and(i19, 255)
+
+            # struct.unpack
+            i22 = int_lshift(i14, 8)
+            i23 = int_or(i11, i22)
+            i25 = int_lshift(i17, 16)
+            i26 = int_or(i23, i25)
+            i28 = int_ge(i20, 128)
+            guard_false(i28, descr=...)
+            i30 = int_lshift(i20, 24)
+            i31 = int_or(i26, i30)
+        """ % {"32_bit_only": extra})
+
+    def test_eval(self):
+        def main():
+            i = 1
+            a = compile('x+x+x+x+x+x', 'eval', 'eval')
+            b = {'x': 7}
+            while i < 1000:
+                y = eval(a,b,b)  # ID: eval
+                i += 1
+            return y
+
+        log = self.run(main)
+        assert log.result == 42
+        # the following assertion fails if the loop was cancelled due
+        # to "abort: vable escape"
+        assert len(log.loops_by_id("eval")) == 1

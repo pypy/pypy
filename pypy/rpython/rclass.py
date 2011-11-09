@@ -191,6 +191,10 @@ class AbstractInstanceRepr(Repr):
                     "class %r inherits from its parent _immutable_=True, "
                     "so it should also declare _immutable_=True" % (
                     self.classdef,))
+            if loc.classdict.get('_immutable_').value is not True:
+                raise TyperError(
+                    "class %r: _immutable_ = something else than True" % (
+                    self.classdef,))
             hints = hints.copy()
             hints['immutable'] = True
         self.immutable_field_set = set()  # unless overwritten below

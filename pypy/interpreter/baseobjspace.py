@@ -3,18 +3,18 @@ import pypy
 from pypy.interpreter.executioncontext import ExecutionContext, ActionFlag
 from pypy.interpreter.executioncontext import UserDelAction, FrameTraceAction
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.error import new_exception_class
+from pypy.interpreter.error import new_exception_class, typed_unwrap_error_msg
 from pypy.interpreter.argument import Arguments
 from pypy.interpreter.miscutils import ThreadLocals
 from pypy.tool.cache import Cache
 from pypy.tool.uid import HUGEVAL_BYTES
-from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import we_are_translated, newlist, compute_unique_id
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.timer import DummyTimer, Timer
 from pypy.rlib.rarithmetic import r_uint
 from pypy.rlib import jit
 from pypy.tool.sourcetools import func_with_new_name
-import os, sys, py
+import os, sys
 
 __all__ = ['ObjSpace', 'OperationError', 'Wrappable', 'W_Root']
 
@@ -185,6 +185,28 @@ class W_Root(object):
         raise NotImplementedError
     def _set_mapdict_storage_and_map(self, storage, map):
         raise NotImplementedError
+
+    # -------------------------------------------------------------------
+
+    def str_w(self, space):
+        w_msg = typed_unwrap_error_msg(space, "string", self)
+        raise OperationError(space.w_TypeError, w_msg)
+
+    def unicode_w(self, space):
+        raise OperationError(space.w_TypeError,
+                             typed_unwrap_error_msg(space, "unicode", self))
+
+    def int_w(self, space):
+        raise OperationError(space.w_TypeError,
+                             typed_unwrap_error_msg(space, "integer", self))
+    
+    def uint_w(self, space):
+        raise OperationError(space.w_TypeError,
+                             typed_unwrap_error_msg(space, "integer", self))
+    
+    def bigint_w(self, space):
+        raise OperationError(space.w_TypeError,
+                             typed_unwrap_error_msg(space, "integer", self))
 
 
 class Wrappable(W_Root):
@@ -755,11 +777,63 @@ class ObjSpace(object):
         """Unpack an iterable object into a real (interpreter-level) list.
         Raise an OperationError(w_ValueError) if the length is wrong."""
         w_iterator = self.iter(w_iterable)
-        # If we know the expected length we can preallocate.
         if expected_length == -1:
+            # xxx special hack for speed
+            from pypy.interpreter.generator import GeneratorIterator
+            if isinstance(w_iterator, GeneratorIterator):
+                lst_w = []
+                w_iterator.unpack_into(lst_w)
+                return lst_w
+            # /xxx
+            return self._unpackiterable_unknown_length(w_iterator, w_iterable)
+        else:
+            lst_w = self._unpackiterable_known_length(w_iterator,
+                                                      expected_length)
+            return lst_w[:]     # make the resulting list resizable
+
+    @jit.dont_look_inside
+    def _unpackiterable_unknown_length(self, w_iterator, w_iterable):
+        # Unpack a variable-size list of unknown length.
+        # The JIT does not look inside this function because it
+        # contains a loop (made explicit with the decorator above).
+        #
+        # If we can guess the expected length we can preallocate.
+        try:
+            lgt_estimate = self.len_w(w_iterable)
+        except OperationError, o:
+            if (not o.match(self, self.w_AttributeError) and
+                not o.match(self, self.w_TypeError)):
+                raise
             items = []
         else:
-            items = [None] * expected_length
+            try:
+                items = newlist(lgt_estimate)
+            except MemoryError:
+                items = [] # it might have lied
+        #
+        while True:
+            try:
+                w_item = self.next(w_iterator)
+            except OperationError, e:
+                if not e.match(self, self.w_StopIteration):
+                    raise
+                break  # done
+            items.append(w_item)
+        #
+        return items
+
+    @jit.dont_look_inside
+    def _unpackiterable_known_length(self, w_iterator, expected_length):
+        # Unpack a known length list, without letting the JIT look inside.
+        # Implemented by just calling the @jit.unroll_safe version, but
+        # the JIT stopped looking inside already.
+        return self._unpackiterable_known_length_jitlook(w_iterator,
+                                                         expected_length)
+
+    @jit.unroll_safe
+    def _unpackiterable_known_length_jitlook(self, w_iterator,
+                                             expected_length):
+        items = [None] * expected_length
         idx = 0
         while True:
             try:
@@ -768,26 +842,29 @@ class ObjSpace(object):
                 if not e.match(self, self.w_StopIteration):
                     raise
                 break  # done
-            if expected_length != -1 and idx == expected_length:
+            if idx == expected_length:
                 raise OperationError(self.w_ValueError,
-                                     self.wrap("too many values to unpack"))
-            if expected_length == -1:
-                items.append(w_item)
-            else:
-                items[idx] = w_item
+                                    self.wrap("too many values to unpack"))
+            items[idx] = w_item
             idx += 1
-        if expected_length != -1 and idx < expected_length:
+        if idx < expected_length:
             if idx == 1:
                 plural = ""
             else:
                 plural = "s"
-            raise OperationError(self.w_ValueError,
-                      self.wrap("need more than %d value%s to unpack" %
-                                (idx, plural)))
+            raise operationerrfmt(self.w_ValueError,
+                                  "need more than %d value%s to unpack",
+                                  idx, plural)
         return items
 
-    unpackiterable_unroll = jit.unroll_safe(func_with_new_name(unpackiterable,
-                                            'unpackiterable_unroll'))
+    def unpackiterable_unroll(self, w_iterable, expected_length):
+        # Like unpackiterable(), but for the cases where we have
+        # an expected_length and want to unroll when JITted.
+        # Returns a fixed-size list.
+        w_iterator = self.iter(w_iterable)
+        assert expected_length != -1
+        return self._unpackiterable_known_length_jitlook(w_iterator,
+                                                         expected_length)
 
     def fixedview(self, w_iterable, expected_length=-1):
         """ A fixed list view of w_iterable. Don't modify the result
@@ -890,7 +967,7 @@ class ObjSpace(object):
         ec.c_call_trace(frame, w_func, args)
         try:
             w_res = self.call_args(w_func, args)
-        except OperationError, e:
+        except OperationError:
             ec.c_exception_trace(frame, w_func)
             raise
         ec.c_return_trace(frame, w_func, args)
@@ -935,6 +1012,9 @@ class ObjSpace(object):
 
     def isinstance_w(self, w_obj, w_type):
         return self.is_true(self.isinstance(w_obj, w_type))
+
+    def id(self, w_obj):
+        return self.wrap(compute_unique_id(w_obj))
 
     # The code below only works
     # for the simple case (new-style instance).
@@ -988,8 +1068,6 @@ class ObjSpace(object):
 
     def eval(self, expression, w_globals, w_locals, hidden_applevel=False):
         "NOT_RPYTHON: For internal debugging."
-        import types
-        from pypy.interpreter.pycode import PyCode
         if isinstance(expression, str):
             compiler = self.createcompiler()
             expression = compiler.compile(expression, '?', 'eval', 0,
@@ -1001,7 +1079,6 @@ class ObjSpace(object):
     def exec_(self, statement, w_globals, w_locals, hidden_applevel=False,
               filename=None):
         "NOT_RPYTHON: For internal debugging."
-        import types
         if filename is None:
             filename = '?'
         from pypy.interpreter.pycode import PyCode
@@ -1199,12 +1276,27 @@ class ObjSpace(object):
             return None
         return self.str_w(w_obj)
 
+    def str_w(self, w_obj):
+        return w_obj.str_w(self)
+
+    def int_w(self, w_obj):
+        return w_obj.int_w(self)
+
+    def uint_w(self, w_obj):
+        return w_obj.uint_w(self)
+
+    def bigint_w(self, w_obj):
+        return w_obj.bigint_w(self)
+
     def realstr_w(self, w_obj):
         # Like str_w, but only works if w_obj is really of type 'str'.
         if not self.is_true(self.isinstance(w_obj, self.w_str)):
             raise OperationError(self.w_TypeError,
                                  self.wrap('argument must be a string'))
         return self.str_w(w_obj)
+
+    def unicode_w(self, w_obj):
+        return w_obj.unicode_w(self)
 
     def realunicode_w(self, w_obj):
         # Like unicode_w, but only works if w_obj is really of type
@@ -1287,7 +1379,7 @@ class ObjSpace(object):
                                  self.wrap("expected a 32-bit integer"))
         return value
 
-    def truncatedint(self, w_obj):
+    def truncatedint_w(self, w_obj):
         # Like space.gateway_int_w(), but return the integer truncated
         # instead of raising OverflowError.  For obscure cases only.
         try:
@@ -1297,6 +1389,17 @@ class ObjSpace(object):
                 raise
             from pypy.rlib.rarithmetic import intmask
             return intmask(self.bigint_w(w_obj).uintmask())
+
+    def truncatedlonglong_w(self, w_obj):
+        # Like space.gateway_r_longlong_w(), but return the integer truncated
+        # instead of raising OverflowError.
+        try:
+            return self.r_longlong_w(w_obj)
+        except OperationError, e:
+            if not e.match(self, self.w_OverflowError):
+                raise
+            from pypy.rlib.rarithmetic import longlongmask
+            return longlongmask(self.bigint_w(w_obj).ulonglongmask())
 
     def c_filedescriptor_w(self, w_fd):
         # This is only used sometimes in CPython, e.g. for os.fsync() but

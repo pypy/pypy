@@ -2,6 +2,7 @@ import weakref
 from pypy.rpython.lltypesystem import lltype, rclass
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.jit.metainterp.history import AbstractDescr
+from pypy.rlib.objectmodel import we_are_translated
 
 
 def get_mutate_field_name(fieldname):
@@ -50,13 +51,13 @@ def do_force_quasi_immutable(cpu, p, mutatefielddescr):
 
 class QuasiImmut(object):
     llopaque = True
+    compress_limit = 30
     
     def __init__(self, cpu):
         self.cpu = cpu
         # list of weakrefs to the LoopTokens that must be invalidated if
         # this value ever changes
         self.looptokens_wrefs = []
-        self.compress_limit = 30
 
     def hide(self):
         qmut_ptr = self.cpu.ts.cast_instance_to_base_ref(self)
@@ -75,6 +76,8 @@ class QuasiImmut(object):
     def compress_looptokens_list(self):
         self.looptokens_wrefs = [wref for wref in self.looptokens_wrefs
                                       if wref() is not None]
+        # NB. we must keep around the looptoken_wrefs that are
+        # already invalidated; see below
         self.compress_limit = (len(self.looptokens_wrefs) + 15) * 2
 
     def invalidate(self):
@@ -86,7 +89,16 @@ class QuasiImmut(object):
         for wref in wrefs:
             looptoken = wref()
             if looptoken is not None:
+                looptoken.invalidated = True
                 self.cpu.invalidate_loop(looptoken)
+                # NB. we must call cpu.invalidate_loop() even if
+                # looptoken.invalidated was already set to True.
+                # It's possible to invalidate several times the
+                # same looptoken; see comments in jit.backend.model
+                # in invalidate_loop().
+                if not we_are_translated():
+                    self.cpu.stats.invalidated_token_numbers.add(
+                        looptoken.number)
 
 
 class QuasiImmutDescr(AbstractDescr):

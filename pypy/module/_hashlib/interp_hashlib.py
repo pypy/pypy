@@ -4,32 +4,44 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.error import OperationError
 from pypy.tool.sourcetools import func_renamer
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rpython.lltypesystem import lltype, llmemory, rffi
+from pypy.rlib import rgc, ropenssl
 from pypy.rlib.objectmodel import keepalive_until_here
-from pypy.rlib import ropenssl
 from pypy.rlib.rstring import StringBuilder
 from pypy.module.thread.os_lock import Lock
 
 algorithms = ('md5', 'sha1', 'sha224', 'sha256', 'sha384', 'sha512')
 
+# HASH_MALLOC_SIZE is the size of EVP_MD, EVP_MD_CTX plus their points
+# Used for adding memory pressure. Last number is an (under?)estimate of
+# EVP_PKEY_CTX's size.
+# XXX: Make a better estimate here
+HASH_MALLOC_SIZE = ropenssl.EVP_MD_SIZE + ropenssl.EVP_MD_CTX_SIZE \
+        + rffi.sizeof(ropenssl.EVP_MD) * 2 + 208
+
 class W_Hash(Wrappable):
     ctx = lltype.nullptr(ropenssl.EVP_MD_CTX.TO)
+    _block_size = -1
 
     def __init__(self, space, name):
         self.name = name
+        self.digest_size = self.compute_digest_size()
 
         # Allocate a lock for each HASH object.
         # An optimization would be to not release the GIL on small requests,
         # and use a custom lock only when needed.
         self.lock = Lock(space)
 
+        ctx = lltype.malloc(ropenssl.EVP_MD_CTX.TO, flavor='raw')
+        rgc.add_memory_pressure(HASH_MALLOC_SIZE + self.digest_size)
+        self.ctx = ctx
+
+    def initdigest(self, space, name):
         digest = ropenssl.EVP_get_digestbyname(name)
         if not digest:
             raise OperationError(space.w_ValueError,
                                  space.wrap("unknown hash function"))
-        ctx = lltype.malloc(ropenssl.EVP_MD_CTX.TO, flavor='raw')
-        ropenssl.EVP_DigestInit(ctx, digest)
-        self.ctx = ctx
+        ropenssl.EVP_DigestInit(self.ctx, digest)
 
     def __del__(self):
         # self.lock.free()
@@ -65,33 +77,29 @@ class W_Hash(Wrappable):
         "Return the digest value as a string of hexadecimal digits."
         digest = self._digest(space)
         hexdigits = '0123456789abcdef'
-        result = StringBuilder(self._digest_size() * 2)
+        result = StringBuilder(self.digest_size * 2)
         for c in digest:
             result.append(hexdigits[(ord(c) >> 4) & 0xf])
             result.append(hexdigits[ ord(c)       & 0xf])
         return space.wrap(result.build())
 
     def get_digest_size(self, space):
-        return space.wrap(self._digest_size())
+        return space.wrap(self.digest_size)
 
     def get_block_size(self, space):
-        return space.wrap(self._block_size())
+        return space.wrap(self.compute_block_size())
 
     def _digest(self, space):
-        copy = self.copy(space)
-        ctx = copy.ctx
-        digest_size = self._digest_size()
-        digest = lltype.malloc(rffi.CCHARP.TO, digest_size, flavor='raw')
+        with lltype.scoped_alloc(ropenssl.EVP_MD_CTX.TO) as ctx:
+            with self.lock:
+                ropenssl.EVP_MD_CTX_copy(ctx, self.ctx)
+            digest_size = self.digest_size
+            with lltype.scoped_alloc(rffi.CCHARP.TO, digest_size) as digest:
+                ropenssl.EVP_DigestFinal(ctx, digest, None)
+                ropenssl.EVP_MD_CTX_cleanup(ctx)
+                return rffi.charpsize2str(digest, digest_size)
 
-        try:
-            ropenssl.EVP_DigestFinal(ctx, digest, None)
-            return rffi.charpsize2str(digest, digest_size)
-        finally:
-            keepalive_until_here(copy)
-            lltype.free(digest, flavor='raw')
-
-
-    def _digest_size(self):
+    def compute_digest_size(self):
         # XXX This isn't the nicest way, but the EVP_MD_size OpenSSL
         # XXX function is defined as a C macro on OS X and would be
         # XXX significantly harder to implement in another way.
@@ -105,12 +113,14 @@ class W_Hash(Wrappable):
             'sha512': 64, 'SHA512': 64,
             }.get(self.name, 0)
 
-    def _block_size(self):
+    def compute_block_size(self):
+        if self._block_size != -1:
+            return self._block_size
         # XXX This isn't the nicest way, but the EVP_MD_CTX_block_size
         # XXX OpenSSL function is defined as a C macro on some systems
         # XXX and would be significantly harder to implement in
         # XXX another way.
-        return {
+        self._block_size = {
             'md5':     64, 'MD5':     64,
             'sha1':    64, 'SHA1':    64,
             'sha224':  64, 'SHA224':  64,
@@ -118,6 +128,7 @@ class W_Hash(Wrappable):
             'sha384': 128, 'SHA384': 128,
             'sha512': 128, 'SHA512': 128,
             }.get(self.name, 0)
+        return self._block_size
 
 W_Hash.typedef = TypeDef(
     'HASH',
@@ -135,6 +146,7 @@ W_Hash.typedef = TypeDef(
 @unwrap_spec(name=str, string='bufferstr')
 def new(space, name, string=''):
     w_hash = W_Hash(space, name)
+    w_hash.initdigest(space, name)
     w_hash.update(space, string)
     return space.wrap(w_hash)
 

@@ -71,6 +71,23 @@ class TestObjSpace:
         assert err.value.match(space, space.w_ValueError)
         err = raises(OperationError, space.unpackiterable, w_l, 5)
         assert err.value.match(space, space.w_ValueError)
+        w_a = space.appexec((), """():
+        class A(object):
+            def __iter__(self):
+                return self
+            def next(self):
+                raise StopIteration
+            def __len__(self):
+                1/0
+        return A()
+        """)
+        try:
+            space.unpackiterable(w_a)
+        except OperationError, o:
+            if not o.match(space, space.w_ZeroDivisionError):
+                raise Exception("DID NOT RAISE")
+        else:
+            raise Exception("DID NOT RAISE")
 
     def test_fixedview(self):
         space = self.space
@@ -212,6 +229,37 @@ class TestObjSpace:
         space.raises_w(space.w_TypeError, space.r_ulonglong_w, w_obj)
         w_obj = space.wrap(-12)
         space.raises_w(space.w_ValueError, space.r_ulonglong_w, w_obj)
+
+    def test_truncatedint_w(self):
+        space = self.space
+        assert space.truncatedint_w(space.wrap(42)) == 42
+        assert space.truncatedint_w(space.wrap(sys.maxint)) == sys.maxint
+        assert space.truncatedint_w(space.wrap(sys.maxint+1)) == -sys.maxint-1
+        assert space.truncatedint_w(space.wrap(-1)) == -1
+        assert space.truncatedint_w(space.wrap(-sys.maxint-2)) == sys.maxint
+
+    def test_truncatedlonglong_w(self):
+        space = self.space
+        w_value = space.wrap(12)
+        res = space.truncatedlonglong_w(w_value)
+        assert res == 12
+        assert type(res) is r_longlong
+        #
+        w_value = space.wrap(r_ulonglong(9223372036854775808))
+        res = space.truncatedlonglong_w(w_value)
+        assert res == -9223372036854775808
+        assert type(res) is r_longlong
+        #
+        w_value = space.wrap(r_ulonglong(18446744073709551615))
+        res = space.truncatedlonglong_w(w_value)
+        assert res == -1
+        assert type(res) is r_longlong
+        #
+        w_value = space.wrap(r_ulonglong(18446744073709551616))
+        res = space.truncatedlonglong_w(w_value)
+        assert res == 0
+        assert type(res) is r_longlong
+
 
     def test_call_obj_args(self):
         from pypy.interpreter.argument import Arguments

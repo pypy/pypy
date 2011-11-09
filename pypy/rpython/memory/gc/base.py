@@ -1,4 +1,5 @@
-from pypy.rpython.lltypesystem import lltype, llmemory, llarena
+from pypy.rpython.lltypesystem import lltype, llmemory, llarena, rffi
+from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rlib.debug import ll_assert
 from pypy.rpython.memory.gcheader import GCHeaderBuilder
 from pypy.rpython.memory.support import DEFAULT_CHUNK_SIZE
@@ -62,6 +63,7 @@ class GCBase(object):
     def set_query_functions(self, is_varsize, has_gcptr_in_varsize,
                             is_gcarrayofgcptr,
                             getfinalizer,
+                            getlightfinalizer,
                             offsets_to_gc_pointers,
                             fixed_size, varsize_item_sizes,
                             varsize_offset_to_variable_part,
@@ -74,6 +76,7 @@ class GCBase(object):
                             get_custom_trace,
                             fast_path_tracing):
         self.getfinalizer = getfinalizer
+        self.getlightfinalizer = getlightfinalizer
         self.is_varsize = is_varsize
         self.has_gcptr_in_varsize = has_gcptr_in_varsize
         self.is_gcarrayofgcptr = is_gcarrayofgcptr
@@ -139,6 +142,7 @@ class GCBase(object):
 
         size = self.fixed_size(typeid)
         needs_finalizer = bool(self.getfinalizer(typeid))
+        finalizer_is_light = bool(self.getlightfinalizer(typeid))
         contains_weakptr = self.weakpointer_offset(typeid) >= 0
         assert not (needs_finalizer and contains_weakptr)
         if self.is_varsize(typeid):
@@ -158,6 +162,7 @@ class GCBase(object):
             else:
                 malloc_fixedsize = self.malloc_fixedsize
             ref = malloc_fixedsize(typeid, size, needs_finalizer,
+                                   finalizer_is_light,
                                    contains_weakptr)
         # lots of cast and reverse-cast around...
         return llmemory.cast_ptr_to_adr(ref)

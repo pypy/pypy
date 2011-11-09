@@ -25,7 +25,7 @@ class CachedField(object):
         #      'cached_fields'.
         #
         self._cached_fields = {}
-        self._cached_fields_getfield_op = {}        
+        self._cached_fields_getfield_op = {}
         self._lazy_setfield = None
         self._lazy_setfield_registered = False
 
@@ -37,13 +37,20 @@ class CachedField(object):
             self.force_lazy_setfield(optheap)
             assert not self.possible_aliasing(optheap, structvalue)
         cached_fieldvalue = self._cached_fields.get(structvalue, None)
-        if cached_fieldvalue is not fieldvalue:
+
+        # Hack to ensure constants are imported from the preamble
+        if cached_fieldvalue and fieldvalue.is_constant(): 
+            optheap.optimizer.ensure_imported(cached_fieldvalue)
+            cached_fieldvalue = self._cached_fields.get(structvalue, None)
+
+        if not fieldvalue.same_value(cached_fieldvalue):
             # common case: store the 'op' as lazy_setfield, and register
             # myself in the optheap's _lazy_setfields_and_arrayitems list
             self._lazy_setfield = op
             if not self._lazy_setfield_registered:
                 optheap._lazy_setfields_and_arrayitems.append(self)
                 self._lazy_setfield_registered = True
+            
         else:
             # this is the case where the pending setfield ends up
             # storing precisely the value that is already there,
@@ -75,7 +82,7 @@ class CachedField(object):
     def remember_field_value(self, structvalue, fieldvalue, getfield_op=None):
         assert self._lazy_setfield is None
         self._cached_fields[structvalue] = fieldvalue
-        self._cached_fields_getfield_op[structvalue] = getfield_op        
+        self._cached_fields_getfield_op[structvalue] = getfield_op
 
     def force_lazy_setfield(self, optheap, can_cache=True):
         op = self._lazy_setfield
@@ -132,9 +139,16 @@ class CachedField(object):
                         result = newresult
                     getop = ResOperation(rop.GETFIELD_GC, [op.getarg(0)],
                                          result, op.getdescr())
-                    getop = shortboxes.add_potential(getop)
-                    self._cached_fields_getfield_op[structvalue] = getop
-                    self._cached_fields[structvalue] = optimizer.getvalue(result)
+                    shortboxes.add_potential(getop, synthetic=True)
+                if op.getopnum() == rop.SETARRAYITEM_GC:
+                    result = op.getarg(2)
+                    if isinstance(result, Const):
+                        newresult = result.clonebox()
+                        optimizer.make_constant(newresult, result)
+                        result = newresult
+                    getop = ResOperation(rop.GETARRAYITEM_GC, [op.getarg(0), op.getarg(1)],
+                                         result, op.getdescr())
+                    shortboxes.add_potential(getop, synthetic=True)
                 elif op.result is not None:
                     shortboxes.add_potential(op)
 
@@ -154,16 +168,21 @@ class OptHeap(Optimization):
         self._lazy_setfields_and_arrayitems = []
         self._remove_guard_not_invalidated = False
         self._seen_guard_not_invalidated = False
+        self.posponedop = None
 
     def force_at_end_of_preamble(self):
         self.force_all_lazy_setfields_and_arrayitems()
 
     def flush(self):
         self.force_all_lazy_setfields_and_arrayitems()
+        if self.posponedop:
+            posponedop = self.posponedop
+            self.posponedop = None
+            self.next_optimization.propagate_forward(posponedop)
 
     def new(self):
         return OptHeap()
-        
+
     def produce_potential_short_preamble_ops(self, sb):
         descrkeys = self.cached_fields.keys()
         if not we_are_translated():
@@ -207,7 +226,15 @@ class OptHeap(Optimization):
 
     def emit_operation(self, op):
         self.emitting_operation(op)
-        self.next_optimization.propagate_forward(op)
+        if self.posponedop:
+            posponedop = self.posponedop
+            self.posponedop = None
+            self.next_optimization.propagate_forward(posponedop)
+        if (op.is_comparison() or op.getopnum() == rop.CALL_MAY_FORCE
+            or op.is_ovf()):
+            self.posponedop = op
+        else:
+            Optimization.emit_operation(self, op)
 
     def emitting_operation(self, op):
         if op.has_no_side_effect():
@@ -289,30 +316,6 @@ class OptHeap(Optimization):
             if indexvalue is None or indexvalue.intbound.contains(idx):
                 cf.force_lazy_setfield(self, can_cache)
 
-    def fixup_guard_situation(self):
-        # hackish: reverse the order of the last two operations if it makes
-        # sense to avoid a situation like "int_eq/setfield_gc/guard_true",
-        # which the backend (at least the x86 backend) does not handle well.
-        newoperations = self.optimizer.newoperations
-        if len(newoperations) < 2:
-            return
-        lastop = newoperations[-1]
-        if (lastop.getopnum() != rop.SETFIELD_GC and
-            lastop.getopnum() != rop.SETARRAYITEM_GC):
-            return
-        # - is_comparison() for cases like "int_eq/setfield_gc/guard_true"
-        # - CALL_MAY_FORCE: "call_may_force/setfield_gc/guard_not_forced"
-        # - is_ovf(): "int_add_ovf/setfield_gc/guard_no_overflow"
-        prevop = newoperations[-2]
-        opnum = prevop.getopnum()
-        if not (prevop.is_comparison() or opnum == rop.CALL_MAY_FORCE
-                or prevop.is_ovf()):
-            return
-        if prevop.result in lastop.getarglist():
-            return
-        newoperations[-2] = lastop
-        newoperations[-1] = prevop
-
     def _assert_valid_cf(self, cf):
         # check that 'cf' is in cached_fields or cached_arrayitems
         if not we_are_translated():
@@ -358,7 +361,6 @@ class OptHeap(Optimization):
                                       fieldvalue.get_key_box(), itemindex))
             else:
                 cf.force_lazy_setfield(self)
-                self.fixup_guard_situation()
         return pendingfields
 
     def optimize_GETFIELD_GC(self, op):
@@ -370,11 +372,21 @@ class OptHeap(Optimization):
             return
         # default case: produce the operation
         structvalue.ensure_nonnull()
-        ###self.optimizer.optimize_default(op)
         self.emit_operation(op)
         # then remember the result of reading the field
         fieldvalue = self.getvalue(op.result)
         cf.remember_field_value(structvalue, fieldvalue, op)
+
+    def optimize_GETFIELD_GC_PURE(self, op):
+        structvalue = self.getvalue(op.getarg(0))
+        cf = self.field_cache(op.getdescr())
+        fieldvalue = cf.getfield_from_cache(self, structvalue)
+        if fieldvalue is not None:
+            self.make_equal_to(op.result, fieldvalue)
+            return
+        # default case: produce the operation
+        structvalue.ensure_nonnull()
+        self.emit_operation(op)
 
     def optimize_SETFIELD_GC(self, op):
         if self.has_pure_result(rop.GETFIELD_GC_PURE, [op.getarg(0)],
@@ -385,6 +397,7 @@ class OptHeap(Optimization):
         #
         cf = self.field_cache(op.getdescr())
         cf.do_setfield(self, op)
+        
 
     def optimize_GETARRAYITEM_GC(self, op):
         arrayvalue = self.getvalue(op.getarg(0))
@@ -408,6 +421,25 @@ class OptHeap(Optimization):
         if cf is not None:
             fieldvalue = self.getvalue(op.result)
             cf.remember_field_value(arrayvalue, fieldvalue, op)
+
+    def optimize_GETARRAYITEM_GC_PURE(self, op):
+        arrayvalue = self.getvalue(op.getarg(0))
+        indexvalue = self.getvalue(op.getarg(1))
+        cf = None
+        if indexvalue.is_constant():
+            arrayvalue.make_len_gt(MODE_ARRAY, op.getdescr(), indexvalue.box.getint())
+            # use the cache on (arraydescr, index), which is a constant
+            cf = self.arrayitem_cache(op.getdescr(), indexvalue.box.getint())
+            fieldvalue = cf.getfield_from_cache(self, arrayvalue)
+            if fieldvalue is not None:
+                self.make_equal_to(op.result, fieldvalue)
+                return
+        else:
+            # variable index, so make sure the lazy setarrayitems are done
+            self.force_lazy_setarrayitem(op.getdescr(), indexvalue=indexvalue)
+        # default case: produce the operation
+        arrayvalue.ensure_nonnull()
+        self.emit_operation(op)
 
     def optimize_SETARRAYITEM_GC(self, op):
         if self.has_pure_result(rop.GETARRAYITEM_GC_PURE, [op.getarg(0),

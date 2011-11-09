@@ -3,7 +3,6 @@ from pypy.jit.backend.llsupport.descr import *
 from pypy.jit.backend.llsupport import symbolic
 from pypy.rlib.objectmodel import Symbolic
 from pypy.rpython.annlowlevel import llhelper
-from pypy.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr
 from pypy.jit.metainterp import history
 from pypy.jit.codewriter import longlong
 import sys, struct, py
@@ -149,7 +148,9 @@ def test_get_array_descr():
     A2 = lltype.GcArray(lltype.Ptr(T))
     A3 = lltype.GcArray(lltype.Ptr(U))
     A4 = lltype.GcArray(lltype.Float)
-    A5 = lltype.GcArray(lltype.SingleFloat)
+    A5 = lltype.GcArray(lltype.Struct('x', ('v', lltype.Signed),
+                                      ('k', lltype.Signed)))
+    A6 = lltype.GcArray(lltype.SingleFloat)
     assert getArrayDescrClass(A2) is GcPtrArrayDescr
     assert getArrayDescrClass(A3) is NonGcPtrArrayDescr
     cls = getArrayDescrClass(A1)
@@ -158,7 +159,7 @@ def test_get_array_descr():
     clsf = getArrayDescrClass(A4)
     assert clsf != cls
     assert clsf == getArrayDescrClass(lltype.GcArray(lltype.Float))
-    clss = getArrayDescrClass(A5)
+    clss = getArrayDescrClass(A6)
     assert clss not in (clsf, cls)
     assert clss == getArrayDescrClass(lltype.GcArray(rffi.UINT))
     #
@@ -168,11 +169,12 @@ def test_get_array_descr():
     descr3 = get_array_descr(c0, A3)
     descr4 = get_array_descr(c0, A4)
     descr5 = get_array_descr(c0, A5)
+    descr6 = get_array_descr(c0, A6)
     assert descr1.__class__ is cls
     assert descr2.__class__ is GcPtrArrayDescr
     assert descr3.__class__ is NonGcPtrArrayDescr
     assert descr4.__class__ is clsf
-    assert descr5.__class__ is clss
+    assert descr6.__class__ is clss
     assert descr1 == get_array_descr(c0, lltype.GcArray(lltype.Char))
     assert not descr1.is_array_of_pointers()
     assert     descr2.is_array_of_pointers()
@@ -202,7 +204,8 @@ def test_get_array_descr():
     assert descr2.get_item_size(False) == rffi.sizeof(lltype.Ptr(T))
     assert descr3.get_item_size(False) == rffi.sizeof(lltype.Ptr(U))
     assert descr4.get_item_size(False) == rffi.sizeof(lltype.Float)
-    assert descr5.get_item_size(False) == rffi.sizeof(lltype.SingleFloat)
+    assert descr5.get_item_size(False) == rffi.sizeof(lltype.Signed) * 2
+    assert descr6.get_item_size(False) == rffi.sizeof(lltype.SingleFloat)
     #
     assert isinstance(descr1.get_base_size(True), Symbolic)
     assert isinstance(descr2.get_base_size(True), Symbolic)
@@ -348,7 +351,6 @@ def test_get_call_descr_sign():
                             (rffi.SHORT,      True), (rffi.USHORT, False),
                             (rffi.INT,        True), (rffi.UINT,   False),
                             (rffi.LONG,       True), (rffi.ULONG,  False)]:
-        A = lltype.GcArray(RESTYPE)
         for tsc in [False, True]:
             c2 = GcCache(tsc)
             descr1 = get_call_descr(c2, [], RESTYPE)
@@ -379,7 +381,6 @@ def test_repr_of_descr():
     descr3i = get_array_descr(c0, lltype.GcArray(lltype.Char))
     assert descr3i.repr_of_descr() == '<CharArrayDescr>'
     #
-    cache = {}
     descr4 = get_call_descr(c0, [lltype.Char, lltype.Ptr(S)], lltype.Ptr(S))
     assert 'GcPtrCallDescr' in descr4.repr_of_descr()
     #
@@ -412,10 +413,10 @@ def test_call_stubs_2():
     ARGS = [lltype.Float, lltype.Ptr(ARRAY)]
     RES = lltype.Float
 
-    def f(a, b):
+    def f2(a, b):
         return float(b[0]) + a
 
-    fnptr = llhelper(lltype.Ptr(lltype.FuncType(ARGS, RES)), f)
+    fnptr = llhelper(lltype.Ptr(lltype.FuncType(ARGS, RES)), f2)
     descr2 = get_call_descr(c0, ARGS, RES)
     a = lltype.malloc(ARRAY, 3)
     opaquea = lltype.cast_opaque_ptr(llmemory.GCREF, a)

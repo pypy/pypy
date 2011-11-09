@@ -3,7 +3,7 @@ import pypy.interpreter.pyparser.future as future
 from pypy.tool import stdlib___future__ as fut
 
 def run(s):
-    f = future.FutureAutomaton(future.futureFlags_2_5, s)
+    f = future.FutureAutomaton(future.futureFlags_2_7, s)
     try:
         f.start()
     except future.DoneException:
@@ -110,6 +110,14 @@ def test_froms_paren_as():
     assert f.pos == len(s)
     assert f.flags == (fut.CO_FUTURE_DIVISION |
                        fut.CO_GENERATOR_ALLOWED)
+    assert f.lineno == 1
+    assert f.col_offset == 0
+
+def test_paren_with_newline():
+    s = 'from __future__ import (division,\nabsolute_import)\n'
+    f = run(s)
+    assert f.pos == len(s)
+    assert f.flags == (fut.CO_FUTURE_DIVISION | fut.CO_FUTURE_ABSOLUTE_IMPORT)
     assert f.lineno == 1
     assert f.col_offset == 0
 

@@ -226,6 +226,13 @@ class TestRe:
                          (None, 'b', None))
         assert pat.match('ac').group(1, 'b2', 3) == ('a', None, 'c')
 
+    def test_bug_923(self):
+        # Issue923: grouping inside optional lookahead problem
+        assert re.match(r'a(?=(b))?', "ab").groups() == ("b",)
+        assert re.match(r'(a(?=(b))?)', "ab").groups() == ('a', 'b')
+        assert re.match(r'(a)(?=(b))?', "ab").groups() == ('a', 'b')
+        assert re.match(r'(?P<g1>a)(?=(?P<g2>b))?', "ab").groupdict() == {'g1': 'a', 'g2': 'b'}
+
     def test_re_groupref_exists(self):
         assert re.match('^(\()?([^()]+)(?(1)\))$', '(a)').groups() == (
                          ('(', 'a'))

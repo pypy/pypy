@@ -8,6 +8,7 @@ class BuildersModule(MixedModule):
     appleveldefs = {}
 
     interpleveldefs = {
+        "StringBuilder": "interp_builders.W_StringBuilder",
         "UnicodeBuilder": "interp_builders.W_UnicodeBuilder",
     }
 
