@@ -77,22 +77,6 @@ class AppTestStruct(BaseAppTestFFI):
         assert fields[0].offset == 0
         assert fields[1].offset == longsize # aligned to WORD
 
-    def test_getfield_setfield(self):
-        from _ffi import _StructDescr, Field, types
-        longsize = types.slong.sizeof()
-        fields = [
-            Field('x', types.slong),
-            Field('y', types.slong),
-            ]
-        descr = _StructDescr('foo', fields)
-        struct = descr.allocate()
-        struct.setfield('x', 42)
-        struct.setfield('y', 43)
-        assert struct.getfield('x') == 42
-        assert struct.getfield('y') == 43
-        mem = self.read_raw_mem(struct.getaddr(), 'c_long', 2)
-        assert mem == [42, 43]
-
     def test_missing_field(self):
         from _ffi import _StructDescr, Field, types
         longsize = types.slong.sizeof()
