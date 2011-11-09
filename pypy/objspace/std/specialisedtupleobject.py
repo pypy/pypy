@@ -7,16 +7,20 @@ from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import compute_hash
 from pypy.rlib.unroll import unrolling_iterable
+#from types import NoneType as ANY #deliberately misread this as 'None _specified_'
+
+class ANY(type):
+    pass
 
 class NotSpecialised(Exception):
     pass         
-            
+
 _specialisations = []
 
 def makespecialisedtuple(space, list_w):          
-    for specialisedClass,paramtypes in unrolling_iterable(_specialisations):
+    for specialisedClass in unrolling_iterable(_specialisations):
          try:
-             return specialisedClass.try_specialisation(space, paramtypes, list_w)
+             return specialisedClass.try_specialisation(space, list_w)
          except NotSpecialised:
              pass
     raise NotSpecialised
@@ -46,40 +50,62 @@ class W_SpecialisedTupleObject(W_Object):
     def setitem(self, index, w_item):
         raise NotImplementedError
 
-    def unwrap(w_tuple, space):
+    def unwrap(self, space):
         return tuple(self.tolist)
                         
 
 def make_specialised_class(typetuple):
     assert type(typetuple) == tuple
-    iter_n = unrolling_iterable(range(len(typetuple)))
+    
+    nValues = len(typetuple)
+    iter_n = unrolling_iterable(range(nValues))
+    
     class cls(W_SpecialisedTupleObject):
-        def __init__(self, space, *values):
-            assert len(typetuple) == len(values)
+        def __init__(self, space, values):
+            assert len(values) == nValues
             for i in iter_n:
-                assert isinstance(values[i], typetuple[i])
+                if typetuple[i] != ANY:
+                    assert isinstance(values[i], typetuple[i])
             self.space = space
             for i in iter_n:
                 setattr(self, 'value%s' % i, values[i])
         
         @classmethod
-        def try_specialisation(specialisedClass, space, paramtypes, paramlist):
-
-
-            _w_type_of = {int:space.w_int, float:space.w_float, str:space.w_str}  
-            _unwrap_as = {int:space.int_w, float:space.float_w, str:space.str_w}  
-
-
-            if len(paramlist) != len(paramtypes):
+        def try_specialisation(cls, space, paramlist):
+            if len(paramlist) != nValues:
                 raise NotSpecialised
-            for param,paramtype in zip(paramlist, paramtypes):
-                if space.type(param) != _w_type_of[paramtype]:
-                    raise NotSpecialised
-            unwrappedparams = [_unwrap_as[paramtype](param) for param,paramtype in zip(paramlist, paramtypes)]
-            return specialisedClass(space, *unwrappedparams)
+            for param,val_type in unrolling_iterable(zip(paramlist, typetuple)):
+                if val_type == int:
+                    if space.type(param) != space.w_int:
+                        raise NotSpecialised
+                elif val_type == float:
+                    if space.type(param) != space.w_float:
+                        raise NotSpecialised
+                elif val_type == str:
+                    if space.type(param) != space.w_str:
+                        raise NotSpecialised
+                elif val_type == ANY:
+                    if space.type(param) == space.w_type:# else specialise (-1,int) somewhere and unwrap fails 
+                        raise NotSpecialised  
+                    pass
+                else:
+                    raise NotSpecialised 
+            unwrappedparams = [None] * nValues            
+            for i in iter_n:
+                if typetuple[i] == int:
+                    unwrappedparams[i] = space.int_w(paramlist[i])
+                elif typetuple[i] == float:
+                    unwrappedparams[i] = space.float_w(paramlist[i])
+                elif typetuple[i] == str:
+                    unwrappedparams[i] = space.str_w(paramlist[i])
+                elif typetuple[i] == ANY:
+                    unwrappedparams[i] = space.unwrap(paramlist[i])#xxx
+                else:
+                    raise NotSpecialised 
+            return cls(space, unwrappedparams)
     
         def length(self):
-            return len(typetuple)
+            return nValues
     
         def tolist(self):
             return [self.space.wrap(getattr(self, 'value%s' % i)) for i in iter_n]
@@ -101,6 +127,8 @@ def make_specialised_class(typetuple):
             if not isinstance(w_other, cls): #so we will be sure we are comparing same types
                 raise FailedToImplement
             for i in iter_n:
+                if typetuple[i] == ANY:
+                    raise FailedToImplement
                 if getattr(self, 'value%s' % i) != getattr(w_other, 'value%s' % i):
                     return False
             else:
@@ -117,6 +145,8 @@ def make_specialised_class(typetuple):
                 raise FailedToImplement
             ncmp = min(self.length(), w_other.length())
             for i in iter_n:
+                if typetuple[i] == ANY:
+                    raise FailedToImplement
                 if ncmp > i:
                     l_val = getattr(self, 'value%s' % i)
                     r_val = getattr(w_other, 'value%s' % i)
@@ -131,15 +161,17 @@ def make_specialised_class(typetuple):
             raise IndexError
 
     cls.__name__ = 'W_SpecialisedTupleObject' + ''.join([t.__name__.capitalize() for t in typetuple])      
-    _specialisations.append((cls,typetuple))
+    _specialisations.append(cls)
     return cls
     
     
 W_SpecialisedTupleObjectIntInt     = make_specialised_class((int,int))
+W_SpecialisedTupleObjectIntAny     = make_specialised_class((int, ANY))
 W_SpecialisedTupleObjectIntIntInt  = make_specialised_class((int,int,int))
 W_SpecialisedTupleObjectFloatFloat = make_specialised_class((float,float))
 W_SpecialisedTupleObjectStrStr     = make_specialised_class((str, str))
 W_SpecialisedTupleObjectIntFloatStr= make_specialised_class((int, float, str))
+W_SpecialisedTupleObjectIntStrFloatAny= make_specialised_class((int, float, str, ANY))
 
 registerimplementation(W_SpecialisedTupleObject)
 

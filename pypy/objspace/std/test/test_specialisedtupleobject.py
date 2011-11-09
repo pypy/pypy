@@ -80,8 +80,8 @@ class AppTestW_SpecialisedTupleObject(AppTestW_TupleObject):
 
     def test_notspecialisedtuple(self):
         assert not self.isspecialised((42,43,44,45))
-        assert not self.isspecialised((1,1.5))
-        assert not self.isspecialised((1,1.0))
+        assert not self.isspecialised((1.5,2))
+        assert not self.isspecialised((1.0,2))
 
     def test_slicing_to_specialised(self):
         assert self.isspecialised((1, 2, 3)[0:2])   
@@ -175,3 +175,15 @@ class AppTestW_SpecialisedTupleObject(AppTestW_TupleObject):
         assert a[0] == 1 and a[1] == 2.2 and a[2] == '333'
         assert a == (1,) + (2.2,) + ('333',)
         assert a < (1, 2.2, '334')
+        
+    def test_mongrel_with_any(self):
+        a = self.forbid_delegation((1, 2.2, '333',[]))
+        b = (1, 2.2) + ('333', [])
+        if not self.isspecialised(a):
+            skip('my chosen kind of mixed type tuple is not specialised, so skip specific tests on them')
+        assert len(a) == 4
+        assert a[0] == 1 and a[1] == 2.2 and a[2] == '333' and a[3] == []
+        assert a != (1, 2.2, '334', [])
+#        assert b == a
+#        assert a == (1,) + (2.2,) + ('333',) + ([],)
+#        assert a < (1, 2.2, '334', {})
