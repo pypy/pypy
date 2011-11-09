@@ -2,7 +2,7 @@ from pypy.jit.metainterp.history import (AbstractFailDescr,
                                          AbstractDescr,
                                          BasicFailDescr,
                                          BoxInt, Box, BoxPtr,
-                                         LoopToken,
+                                         JitCellToken,
                                          ConstInt, ConstPtr,
                                          BoxObj, Const,
                                          ConstObj, BoxFloat, ConstFloat)
@@ -107,7 +107,7 @@ class TestCallingConv(Runner):
             ops += 'finish(f99, %s)\n' % arguments
 
             loop = parse(ops, namespace=locals())
-            looptoken = LoopToken()
+            looptoken = JitCellToken()
             done_number = self.cpu.get_fail_descr_number(loop.operations[-1].getdescr())
             self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
             expected_result = self._prepare_args(args, floats, ints)
@@ -253,7 +253,7 @@ class TestCallingConv(Runner):
             called_ops += 'finish(f%d, descr=fdescr3)\n' % total_index
             # compile called loop
             called_loop = parse(called_ops, namespace=locals())
-            called_looptoken = LoopToken()
+            called_looptoken = JitCellToken()
             called_looptoken.outermost_jitdriver_sd = FakeJitDriverSD()
             done_number = self.cpu.get_fail_descr_number(called_loop.operations[-1].getdescr())
             self.cpu.compile_loop(called_loop.inputargs, called_loop.operations, called_looptoken)
@@ -284,7 +284,7 @@ class TestCallingConv(Runner):
             # we want to take the fast path
             self.cpu.done_with_this_frame_float_v = done_number
             try:
-                othertoken = LoopToken()
+                othertoken = JitCellToken()
                 self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
 
                 # prepare call to called_loop
