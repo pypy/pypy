@@ -175,7 +175,10 @@ class OpAssembler(object):
     def emit_guard_true(self, op, arglocs, regalloc):
         l0 = arglocs[0]
         failargs = arglocs[1:]
-        self.mc.cmpi(l0.value, 0)
+        if IS_PPC_32:
+            self.mc.cmpwi(l0.value, 0)
+        else:
+            self.mc.cmpdi(l0.value, 0)
         self._emit_guard(op, failargs, c.EQ)
         #                        #      ^^^^ If this condition is met,
         #                        #           then the guard fails.
@@ -183,7 +186,10 @@ class OpAssembler(object):
     def emit_guard_false(self, op, arglocs, regalloc):
             l0 = arglocs[0]
             failargs = arglocs[1:]
-            self.mc.cmpi(l0.value, 0)
+            if IS_PPC_32:
+                self.mc.cmpwi(l0.value, 0)
+            else:
+                self.mc.cmpdi(l0.value, 0)
             self._emit_guard(op, failargs, c.NE)
 
     # TODO - Evaluate whether this can be done with 
@@ -210,9 +216,15 @@ class OpAssembler(object):
 
         if l0.is_reg():
             if l1.is_imm():
-                self.mc.cmpi(l0.value, l1.getint())
+                if IS_PPC_32:
+                    self.mc.cmpwi(l0.value, l1.getint())
+                else:
+                    self.mc.cmpdi(l0.value, l1.getint())
             else:
-                self.mc.cmp(l0.value, l1.value)
+                if IS_PPC_32:
+                    self.mc.cmpw(l0.value, l1.value)
+                else:
+                    self.mc.cmpd(l0.value, l1.value)
         else:
             assert 0, "not implemented yet"
         self._emit_guard(op, failargs, c.NE)
@@ -243,7 +255,10 @@ class OpAssembler(object):
 
     def emit_guard_nonnull_class(self, op, arglocs, regalloc):
         offset = self.cpu.vtable_offset
-        self.mc.cmpi(arglocs[0].value, 0)
+        if IS_PPC_32:
+            self.mc.cmpwi(arglocs[0].value, 0)
+        else:
+            self.mc.cmpdi(arglocs[0].value, 0)
         if offset is not None:
             self._emit_guard(op, arglocs[3:], c.EQ)
         else:
@@ -576,7 +591,10 @@ class OpAssembler(object):
 
     def emit_guard_call_may_force(self, op, guard_op, arglocs, regalloc):
         self.mc.mr(r.r0.value, r.SP.value)
-        self.mc.cmpi(r.r0.value, 0)
+        if IS_PPC_32:
+            self.mc.cmpwi(r.r0.value, 0)
+        else:
+            self.mc.cmpdi(r.r0.value, 0)
         self._emit_guard(guard_op, arglocs, c.EQ)
 
     emit_guard_call_release_gil = emit_guard_call_may_force
