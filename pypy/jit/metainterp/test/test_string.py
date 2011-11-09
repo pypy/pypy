@@ -499,7 +499,7 @@ class StringTests:
             sys.defaultencoding = _str('utf-8')
             return sa
         assert self.meta_interp(f, [8]) == f(8)
-        self.check_resops({'jump': 2, 'int_is_true': 2, 'int_add': 2,
+        self.check_resops({'jump': 1, 'int_is_true': 2, 'int_add': 2,
                            'guard_true': 2, 'guard_not_invalidated': 2,
                            'int_sub': 2})
 
@@ -590,7 +590,7 @@ class TestLLtypeUnicode(TestLLtype):
         # The "".join should be unrolled, since the length of x is known since
         # it is virtual, ensure there are no calls to ll_join_chars, or
         # allocations.
-        self.check_resops({'jump': 2, 'guard_true': 5, 'int_lt': 2,
+        self.check_resops({'jump': 1, 'guard_true': 5, 'int_lt': 2,
                            'int_add': 2, 'int_is_true': 3})
 
     def test_virtual_copystringcontent(self):
