@@ -487,6 +487,8 @@ if r_long is not r_int:
 else:
     r_uint32 = r_uint
 
+# needed for ll_time.time_sleep_llimpl
+maxint32 = int((1 << 31) -1)
 
 # the 'float' C type
 
