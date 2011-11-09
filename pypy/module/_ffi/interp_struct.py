@@ -2,7 +2,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib import clibffi
 from pypy.rlib import libffi
 from pypy.rlib import jit
-from pypy.rlib.rarithmetic import r_uint
+from pypy.rlib.rarithmetic import r_uint, r_ulonglong
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -130,19 +130,34 @@ class W__StructInstance(Wrappable):
     @unwrap_spec(name=str)
     def getfield(self, space, name):
         w_ffitype, offset = self.structdescr.get_type_and_offset_for_field(name)
-        value = libffi.struct_getfield_int(w_ffitype.ffitype, self.rawmem, offset)
-        if w_ffitype.is_unsigned():
-            return space.wrap(r_uint(value))
-        return space.wrap(value)
+        if w_ffitype.is_longlong():
+            value = libffi.struct_getfield_longlong(w_ffitype.ffitype, self.rawmem, offset)
+            if w_ffitype is app_types.ulonglong:
+                return space.wrap(r_ulonglong(value))
+            return space.wrap(value)
+        #
+        if w_ffitype.is_signed() or w_ffitype.is_unsigned():
+            value = libffi.struct_getfield_int(w_ffitype.ffitype, self.rawmem, offset)
+            if w_ffitype.is_unsigned():
+                return space.wrap(r_uint(value))
+            return space.wrap(value)
+        #
+        assert False, 'unknown type'
 
     @unwrap_spec(name=str)
     def setfield(self, space, name, w_value):
         w_ffitype, offset = self.structdescr.get_type_and_offset_for_field(name)
-        # XXX: add support for long long
+        if w_ffitype.is_longlong():
+            value = space.truncatedlonglong_w(w_value)
+            libffi.struct_setfield_longlong(w_ffitype.ffitype, self.rawmem, offset, value)
+            return
+        #
         if w_ffitype.is_signed() or w_ffitype.is_unsigned():
             value = space.truncatedint(w_value)
+            libffi.struct_setfield_int(w_ffitype.ffitype, self.rawmem, offset, value)
+            return
         #
-        libffi.struct_setfield_int(w_ffitype.ffitype, self.rawmem, offset, value)
+        assert False, 'unknown type'
 
 W__StructInstance.typedef = TypeDef(
     '_StructInstance',

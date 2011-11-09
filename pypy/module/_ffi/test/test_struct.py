@@ -177,6 +177,23 @@ class AppTestStruct(BaseAppTestFFI):
         struct.setfield('ulong', sys.maxint*2 + 2)
         assert struct.getfield('ulong') == 0
 
+    def test_getfield_setfield_longlong(self):
+        import sys
+        from _ffi import _StructDescr, Field, types
+        longsize = types.slong.sizeof()
+        fields = [
+            Field('slonglong', types.slonglong),
+            Field('ulonglong', types.ulonglong),
+            ]
+        descr = _StructDescr('foo', fields)
+        struct = descr.allocate()
+        struct.setfield('slonglong', 9223372036854775808)
+        assert struct.getfield('slonglong') == -9223372036854775808
+        struct.setfield('ulonglong', -1)
+        assert struct.getfield('ulonglong') == 18446744073709551615        
+        mem = self.read_raw_mem(struct.getaddr(), 'c_longlong', 2)
+        assert mem == [-9223372036854775808, -1]
+
     def test_compute_shape(self):
         from _ffi import Structure, Field, types
         class Point(Structure):
