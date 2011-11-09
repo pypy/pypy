@@ -153,7 +153,30 @@ class AppTestStruct(BaseAppTestFFI):
         assert struct.getfield('slong') == -sys.maxint-1
         struct.setfield('slong', sys.maxint*3)
         assert struct.getfield('slong') == sys.maxint-2
-        
+
+    def test_getfield_setfield_unsigned_types(self):
+        import sys
+        from _ffi import _StructDescr, Field, types
+        longsize = types.slong.sizeof()
+        fields = [
+            Field('ubyte', types.ubyte),
+            Field('ushort', types.ushort),
+            Field('uint', types.uint),
+            Field('ulong', types.ulong),
+            ]
+        descr = _StructDescr('foo', fields)
+        struct = descr.allocate()
+        struct.setfield('ubyte', -1)
+        assert struct.getfield('ubyte') == 255
+        struct.setfield('ushort', -1)
+        assert struct.getfield('ushort') == 65535
+        struct.setfield('uint', 43)
+        assert struct.getfield('uint') == 43
+        struct.setfield('ulong', -1)
+        assert struct.getfield('ulong') == sys.maxint*2 + 1
+        struct.setfield('ulong', sys.maxint*2 + 2)
+        assert struct.getfield('ulong') == 0
+
     def test_compute_shape(self):
         from _ffi import Structure, Field, types
         class Point(Structure):

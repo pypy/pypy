@@ -2,6 +2,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib import clibffi
 from pypy.rlib import libffi
 from pypy.rlib import jit
+from pypy.rlib.rarithmetic import r_uint
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -130,6 +131,8 @@ class W__StructInstance(Wrappable):
     def getfield(self, space, name):
         w_ffitype, offset = self.structdescr.get_type_and_offset_for_field(name)
         value = libffi.struct_getfield_int(w_ffitype.ffitype, self.rawmem, offset)
+        if w_ffitype.is_unsigned():
+            return space.wrap(r_uint(value))
         return space.wrap(value)
 
     @unwrap_spec(name=str)
