@@ -65,21 +65,21 @@ class BaseTestPosix(BaseRtypingTest):
 
 
     def test_lseek(self):
-        def f(fi,pos):
-            posix.lseek(fi,pos,0)
-        fi = os.open(path,os.O_RDONLY,0777)
-        func = self.interpret(f,[fi,5]) 
-        res = os.read(fi,2)
+        def f(fi, pos):
+            posix.lseek(fi, pos, 0)
+        fi = os.open(path, os.O_RDONLY, 0777)
+        func = self.interpret(f, [fi, 5]) 
+        res = os.read(fi, 2)
         assert res =='is'
 
     def test_isatty(self):
         def f(fi):
             posix.isatty(fi)
-        fi = os.open(path,os.O_RDONLY,0777)
-        func = self.interpret(f,[fi])
+        fi = os.open(path, os.O_RDONLY, 0777)
+        func = self.interpret(f, [fi])
         assert not func
         os.close(fi)
-        func = self.interpret(f,[fi])
+        func = self.interpret(f, [fi])
         assert not func
 
     def test_getcwd(self):
