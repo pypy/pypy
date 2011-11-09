@@ -30,7 +30,7 @@ class VirtualTests:
         assert f(10) == 55 * 10
         res = self.meta_interp(f, [10])
         assert res == 55 * 10
-        self.check_loop_count(1)
+        self.check_trace_count(1)
         self.check_resops(new_with_vtable=0, setfield_gc=0,
                           getfield_gc=2, new=0)
 
@@ -79,7 +79,7 @@ class VirtualTests:
         assert f(10) == 55 * 10
         res = self.meta_interp(f, [10])
         assert res == 55 * 10
-        self.check_loop_count(1)
+        self.check_trace_count(1)
         self.check_resops(new_with_vtable=0, setfield_gc=0,
                           getfield_gc=3, new=0)
 
@@ -97,7 +97,7 @@ class VirtualTests:
             return node.floatval
         res = self.meta_interp(f, [10])
         assert res == f(10)
-        self.check_loop_count(1)
+        self.check_trace_count(1)
         self.check_resops(new=0, float_add=1)
 
     def test_virtualized_float2(self):
@@ -115,7 +115,7 @@ class VirtualTests:
             return node.floatval
         res = self.meta_interp(f, [10])
         assert res == f(10)
-        self.check_loop_count(1)
+        self.check_trace_count(1)
         self.check_resops(new=0, float_add=2)
 
 
@@ -140,7 +140,7 @@ class VirtualTests:
             return node.value * node.extra
         res = self.meta_interp(f, [10])
         assert res == 55 * 30
-        self.check_loop_count(1)
+        self.check_trace_count(1)
         self.check_resops(new_with_vtable=0, setfield_gc=0, getfield_gc=2,
                           new=0)
 
@@ -161,7 +161,7 @@ class VirtualTests:
             return node.value
         res = self.meta_interp(f, [500])
         assert res == 640
-        self.check_loop_count(1)
+        self.check_trace_count(1)
         self.check_resops(new_with_vtable=0, setfield_gc=0,
                           getfield_gc=1, new=0)
 
@@ -185,7 +185,7 @@ class VirtualTests:
             return node.value
         res = self.meta_interp(f, [18])
         assert res == f(18)
-        self.check_loop_count(2)
+        self.check_trace_count(2)
         self.check_resops(new_with_vtable=0, setfield_gc=0,
                           getfield_gc=2, new=0)
 
@@ -214,7 +214,7 @@ class VirtualTests:
             return node.value
         res = self.meta_interp(f, [20], policy=StopAtXPolicy(externfn))
         assert res == f(20)
-        self.check_loop_count(3)
+        self.check_trace_count(2)
         self.check_resops(**{self._new_op: 1})
         self.check_resops(int_mul=0, call=1)
 
@@ -391,7 +391,7 @@ class VirtualTests:
         fieldname = self._field_prefix + 'value'
         assert getattr(res, fieldname, -100) == f(21).value
 
-        self.check_tree_loop_count(2)      # the loop and the entry path
+        self.check_jitcell_token_count(2)      # the loop and the entry path
         # we get:
         #    ENTER             - compile the new loop and entry bridge
         #    ENTER             - compile the leaving path
@@ -565,7 +565,7 @@ class VirtualTests:
                 n -= 1
             return node1.value + node2.value
         assert self.meta_interp(f, [40, 3]) == f(40, 3)
-        self.check_loop_count(6)
+        self.check_trace_count(6)
 
     def test_single_virtual_forced_in_bridge(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 's', 'node'])
@@ -612,10 +612,10 @@ class VirtualTests:
             return node.value
         res = self.meta_interp(f, [48, 3], policy=StopAtXPolicy(externfn))
         assert res == f(48, 3)
-        self.check_loop_count(3)
+        self.check_trace_count(3)
         res = self.meta_interp(f, [40, 3], policy=StopAtXPolicy(externfn))
         assert res == f(40, 3)
-        self.check_loop_count(3)
+        self.check_trace_count(3)
 
     def test_forced_virtual_assigned_different_class_in_bridge(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 's', 'node', 'node2'])
@@ -987,7 +987,7 @@ class TestLLtype_Instance(VirtualTests, LLJitMixin):
         assert f(10) == 20
         res = self.meta_interp(f, [10])
         assert res == 20
-        self.check_loop_count(1)
+        self.check_trace_count(1)
         self.check_resops(new_with_vtable=0, setfield_gc=0, getfield_gc=0,
                           new=0)
 
