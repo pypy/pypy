@@ -182,6 +182,25 @@ class AppTestStruct(BaseAppTestFFI):
         mem = self.read_raw_mem(struct.getaddr(), 'c_double', 1)
         assert mem == [123.4]
 
+    def test_getfield_setfield_singlefloat(self):
+        import sys
+        from _ffi import _StructDescr, Field, types
+        longsize = types.slong.sizeof()
+        fields = [
+            Field('x', types.float),
+            ]
+        descr = _StructDescr('foo', fields)
+        struct = descr.allocate()
+        struct.setfield('x', 123.4) # this is a value which DOES loose
+                                    # precision in a single float
+        assert 0 < abs(struct.getfield('x') - 123.4) < 0.0001
+        #
+        struct.setfield('x', 123.5) # this is a value which does not loose
+                                    # precision in a single float
+        assert struct.getfield('x') == 123.5
+        mem = self.read_raw_mem(struct.getaddr(), 'c_float', 1)
+        assert mem == [123.5]
+
     def test_compute_shape(self):
         from _ffi import Structure, Field, types
         class Point(Structure):

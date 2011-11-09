@@ -3,7 +3,7 @@ from pypy.rlib import clibffi
 from pypy.rlib import libffi
 from pypy.rlib import jit
 from pypy.rlib.rgc import must_be_light_finalizer
-from pypy.rlib.rarithmetic import r_uint, r_ulonglong
+from pypy.rlib.rarithmetic import r_uint, r_ulonglong, r_singlefloat
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -149,6 +149,10 @@ class W__StructInstance(Wrappable):
             value = libffi.struct_getfield_float(w_ffitype.ffitype, self.rawmem, offset)
             return space.wrap(value)
         #
+        if w_ffitype.is_singlefloat():
+            value = libffi.struct_getfield_singlefloat(w_ffitype.ffitype, self.rawmem, offset)
+            return space.wrap(float(value))
+        #
         assert False, 'unknown type'
 
     @unwrap_spec(name=str)
@@ -167,6 +171,11 @@ class W__StructInstance(Wrappable):
         if w_ffitype.is_double():
             value = space.float_w(w_value)
             libffi.struct_setfield_float(w_ffitype.ffitype, self.rawmem, offset, value)
+            return
+        #
+        if w_ffitype.is_singlefloat():
+            value = r_singlefloat(space.float_w(w_value))
+            libffi.struct_setfield_singlefloat(w_ffitype.ffitype, self.rawmem, offset, value)
             return
         #
         assert False, 'unknown type'
