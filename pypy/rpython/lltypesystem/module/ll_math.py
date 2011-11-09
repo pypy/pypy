@@ -223,13 +223,21 @@ def ll_math_modf(x):
 
 
 def ll_math_fmod(x, y):
-    if isinf(x) and not isnan(y):
-        raise ValueError("math domain error")
+    # fmod(x, +/-Inf) returns x for finite x.
+    if isinf(y) and isfinite(x):
+        return x
 
-    if y == 0:
-        raise ValueError("math domain error")
-
-    return math_fmod(x, y)
+    _error_reset()
+    r = math_fmod(x, y)
+    errno = rposix.get_errno()
+    if isnan(r):
+        if isnan(x) or isnan(y):
+            errno = 0
+        else:
+            errno = EDOM
+    if errno:
+        _likely_raise(errno, r)
+    return r
 
 
 def ll_math_hypot(x, y):
