@@ -640,8 +640,14 @@ class Frame(object):
         return _op_default_implementation
 
     def op_label(self, _, *args):
-        pass
-        
+        op = self.loop.operations[self.opindex]
+        assert op.opnum == rop.LABEL
+        assert len(op.args) == len(args)
+        newenv = {}
+        for v, value in zip(op.args, args):
+            newenv[v] = value
+        self.env = newenv
+
     def op_debug_merge_point(self, _, *args):
         from pypy.jit.metainterp.warmspot import get_stats
         try:
