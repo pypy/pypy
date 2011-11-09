@@ -568,6 +568,13 @@ class OpAssembler(object):
         if result is not None:
             resloc = regalloc.after_call(result)
 
+    def emit_guard_call_may_force(self, op, guard_op, arglocs, regalloc):
+        self.mc.mr(r.r0.value, r.SP.value)
+        self.mc.cmpi(r.r0.value, 0)
+        self._emit_guard(guard_op, arglocs, c.EQ)
+
+    emit_guard_call_release_gil = emit_guard_call_may_force
+
     def write_new_force_index(self):
         # for shadowstack only: get a new, unused force_index number and
         # write it to FORCE_INDEX_OFS.  Used to record the call shape

@@ -332,7 +332,7 @@ class Regalloc(object):
         y = self.force_allocate_reg(t, boxes)
         boxes.append(t)
         y_val = rffi.cast(lltype.Signed, op.getarg(1).getint())
-        self.assembler.load_imm(y.value, y_val)
+        self.assembler.mc.load_imm(y, y_val)
 
         offset = self.cpu.vtable_offset
         assert offset is not None
@@ -344,6 +344,30 @@ class Regalloc(object):
         return arglocs
 
     prepare_guard_nonnull_class = prepare_guard_class
+
+    def prepare_guard_call_release_gil(self, op, guard_op):
+        # first, close the stack in the sense of the asmgcc GC root tracker
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap:
+            arglocs = []
+            argboxes = []
+            for i in range(op.numargs()):
+                loc, box = self._ensure_value_is_boxed(op.getarg(i), argboxes)
+                arglocs.append(loc)
+                argboxes.append(box)
+            self.assembler.call_release_gil(gcrootmap, arglocs, fcond)
+            self.possibly_free_vars(argboxes)
+        # do the call
+        faildescr = guard_op.getdescr()
+        fail_index = self.cpu.get_fail_descr_number(faildescr)
+        args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
+        self.assembler.emit_call(op, args, self, fail_index)
+        # then reopen the stack
+        if gcrootmap:
+            self.assembler.call_reacquire_gil(gcrootmap, r.r0, fcond)
+        locs = self._prepare_guard(guard_op)
+        self.possibly_free_vars(guard_op.getfailargs())
+        return locs
 
     def prepare_jump(self, op):
         descr = op.getdescr()
@@ -605,21 +629,37 @@ class Regalloc(object):
         assert (1 << scale) == size
         return size, scale, ofs, ofs_length, ptr
 
-def make_operation_list():
-    def not_implemented(self, op, *args):
-        raise NotImplementedError, op
+def add_none_argument(fn):
+    return lambda self, op: fn(self, op, None)
 
-    operations = [None] * (rop._LAST + 1)
-    for key, val in rop.__dict__.items():
-        key = key.lower()
-        if key.startswith("_"):
-            continue
-        methname = "prepare_%s" % key
-        if hasattr(Regalloc, methname):
-            func = getattr(Regalloc, methname).im_func
-        else:
-            func = not_implemented
-        operations[val] = func
-    return operations
+def notimplemented(self, op):
+    raise NotImplementedError, op
 
-Regalloc.operations = make_operation_list()
+def notimplemented_with_guard(self, op, guard_op):
+
+    raise NotImplementedError, op
+
+operations = [notimplemented] * (rop._LAST + 1)
+operations_with_guard = [notimplemented_with_guard] * (rop._LAST + 1)
+
+for key, value in rop.__dict__.items():
+    key = key.lower()
+    if key.startswith('_'):
+        continue
+    methname = 'prepare_%s' % key
+    if hasattr(Regalloc, methname):
+        func = getattr(Regalloc, methname).im_func
+        operations[value] = func
+
+for key, value in rop.__dict__.items():
+    key = key.lower()
+    if key.startswith('_'):
+        continue
+    methname = 'prepare_guard_%s' % key
+    if hasattr(Regalloc, methname):
+        func = getattr(Regalloc, methname).im_func
+        operations_with_guard[value] = func
+        operations[value] = add_none_argument(func)
+
+Regalloc.operations = operations
+Regalloc.operations_with_guard = operations_with_guard
