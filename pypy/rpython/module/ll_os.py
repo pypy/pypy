@@ -791,7 +791,7 @@ class RegisterOs(BaseLazyRegistering):
                                   [traits.CCHARP, rffi.INT, rffi.MODE_T],
                                   rffi.INT)
         def os_open_llimpl(path, flags, mode):
-            result = rffi.cast(rffi.LONG, os_open(path, flags, mode))
+            result = rffi.cast(lltype.Signed, os_open(path, flags, mode))
             if result == -1:
                 raise OSError(rposix.get_errno(), "os_open failed")
             return result

@@ -18,10 +18,10 @@ class BaseTestPosix(BaseRtypingTest):
 
     def test_open(self):
         def f():
-            ff = posix.open(path,posix.O_RDONLY,0777)
+            ff = posix.open(path, posix.O_RDONLY, 0777)
             return ff
-        func = self.interpret(f,[])
-        assert type(func) == int
+        func = self.interpret(f, [])
+        assert isinstance(func, (int, long))
 
     def test_fstat(self):
         def fo(fi):
