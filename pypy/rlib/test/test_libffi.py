@@ -59,20 +59,26 @@ class TestLibffiMisc(BaseFfiTest):
         longsize = 4 if IS_32_BIT else 8
         POINT = lltype.Struct('POINT',
                               ('x', rffi.LONG),
-                              ('y', rffi.SHORT)
+                              ('y', rffi.SHORT),
+                              ('z', rffi.VOIDP),
                               )
         y_ofs = longsize
+        z_ofs = longsize*2
         p = lltype.malloc(POINT, flavor='raw')
         p.x = 42
         p.y = rffi.cast(rffi.SHORT, -1)
+        p.z = rffi.cast(rffi.VOIDP, 0x1234)
         addr = rffi.cast(rffi.VOIDP, p)
         assert struct_getfield_int(types.slong, addr, 0) == 42
         assert struct_getfield_int(types.sshort, addr, y_ofs) == -1
+        assert struct_getfield_int(types.pointer, addr, z_ofs) == 0x1234
         #
         struct_setfield_int(types.slong, addr, 0, 43)
         struct_setfield_int(types.sshort, addr, y_ofs, 0x1234FFFE) # 0x1234 is masked out
+        struct_setfield_int(types.pointer, addr, z_ofs, 0x4321)
         assert p.x == 43
         assert p.y == -2
+        assert rffi.cast(rffi.LONG, p.z) == 0x4321
         #
         lltype.free(p, flavor='raw')
 

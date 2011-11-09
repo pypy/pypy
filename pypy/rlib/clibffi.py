@@ -233,6 +233,10 @@ __float_type_map = [
     (rffi.LONGDOUBLE, ffi_type_longdouble),
     ]
 
+__ptr_type_map = [
+    (rffi.VOIDP, ffi_type_pointer),
+    ]
+
 __type_map = __int_type_map + __float_type_map + [
     (lltype.Void, ffi_type_void)
     ]
@@ -242,10 +246,11 @@ TYPE_MAP_FLOAT = dict(__float_type_map)
 TYPE_MAP = dict(__type_map)
 
 ffitype_map_int = unrolling_iterable(__int_type_map)
+ffitype_map_int_or_ptr = unrolling_iterable(__int_type_map + __ptr_type_map)
 ffitype_map_float = unrolling_iterable(__float_type_map)
 ffitype_map = unrolling_iterable(__type_map)
 
-del __int_type_map, __float_type_map, __type_map
+del __int_type_map, __float_type_map, __ptr_type_map, __type_map
 
 
 def external(name, args, result, **kwds):
