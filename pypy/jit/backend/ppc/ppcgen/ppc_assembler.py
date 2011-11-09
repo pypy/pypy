@@ -134,7 +134,7 @@ class AssemblerPPC(OpAssembler):
         else:
             self.mc.stdu(r.SP.value, r.SP.value, -frame_depth)
             self.mc.mflr(r.r0.value)
-            self.mc.std(r.r0.value, r.SP.value, frame_depth + 2 * WORD)
+            self.mc.std(r.r0.value, r.SP.value, frame_depth + WORD)
         offset = GPR_SAVE_AREA + WORD
         # compute spilling pointer (SPP)
         self.mc.addi(r.SPP.value, r.SP.value, frame_depth - offset)
@@ -296,7 +296,10 @@ class AssemblerPPC(OpAssembler):
         # XXX do quadword alignment
         #while size % (4 * WORD) != 0:
         #    size += WORD
-        mc.addi(r.SP.value, r.SP.value, -size)
+        if IS_PPC_32:
+            mc.stwu(r.SP.value, r.SP.value, -size)
+        else:
+            mc.stdu(r.SP.value, r.SP.value, -size)
         #
         decode_func_addr = llhelper(self.recovery_func_sign,
                 self.failure_recovery_func)
@@ -306,6 +309,7 @@ class AssemblerPPC(OpAssembler):
             intp = lltype.Ptr(lltype.Array(lltype.Signed, hints={'nolength': True}))
             descr = rffi.cast(intp, decode_func_addr)
             addr = descr[0]
+            r2_value = descr[1]
             r11_value = descr[2]
 
         #
@@ -319,6 +323,7 @@ class AssemblerPPC(OpAssembler):
         #
         # load address of decoding function into r0
         mc.load_imm(r.r0, addr)
+        mc.load_imm(r.r2, r2_value)
         mc.load_imm(r.r11, r11_value)
         # ... and branch there
         mc.mtctr(r.r0.value)
