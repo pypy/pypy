@@ -119,6 +119,7 @@ class W__StructInstance(Wrappable):
                                     zero=True, add_memory_pressure=True)
 
     def __del__(self):
+        # XXX: check whether I can turn this into a lightweight destructor
         if self.rawmem:
             lltype.free(self.rawmem, flavor='raw')
             self.rawmem = lltype.nullptr(rffi.VOIDP.TO)
