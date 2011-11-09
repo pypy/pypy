@@ -130,10 +130,10 @@ class AppTestStruct(BaseAppTestFFI):
             ]
         descr = _StructDescr('foo', fields)
         struct = descr.allocate()
-        struct.setfield('sbyte', 42)
+        struct.setfield('sbyte', 128)
         struct.setfield('sint', 43)
         struct.setfield('slong', 44)
-        assert struct.getfield('sbyte') == 42
+        assert struct.getfield('sbyte') == -128
         assert struct.getfield('sint') == 43
         assert struct.getfield('slong') == 44
 

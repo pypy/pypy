@@ -212,7 +212,7 @@ def _unsigned_type_for(TYPE):
 
 __int_type_map = [
     (rffi.UCHAR, ffi_type_uchar),
-    (rffi.CHAR, ffi_type_schar),
+    (rffi.SIGNEDCHAR, ffi_type_schar),
     (rffi.SHORT, ffi_type_sshort),
     (rffi.USHORT, ffi_type_ushort),
     (rffi.UINT, ffi_type_uint),
