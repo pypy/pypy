@@ -38,16 +38,6 @@ class TestStruct(object):
         assert self.sizeof([T.slonglong, T.sbyte, T.sbyte, T.sbyte]) == llong_size + llong_align
         assert self.sizeof([T.slonglong, T.sbyte, T.sbyte, T.sbyte, T.sbyte]) == llong_size + llong_align
 
-    def test_truncatedint(self):
-        space = gettestobjspace()
-        assert space.truncatedint(space.wrap(42)) == 42
-        assert space.truncatedint(space.wrap(sys.maxint)) == sys.maxint
-        assert space.truncatedint(space.wrap(sys.maxint+1)) == -sys.maxint-1
-        assert space.truncatedint(space.wrap(-1)) == -1
-        assert space.truncatedint(space.wrap(-sys.maxint-2)) == sys.maxint
-
-
-
 class AppTestStruct(BaseAppTestFFI):
 
     def setup_class(cls):

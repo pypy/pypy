@@ -154,7 +154,7 @@ class W__StructInstance(Wrappable):
             return
         #
         if w_ffitype.is_signed() or w_ffitype.is_unsigned():
-            value = space.truncatedint(w_value)
+            value = space.truncatedint_w(w_value)
             libffi.struct_setfield_int(w_ffitype.ffitype, self.rawmem, offset, value)
             return
         #

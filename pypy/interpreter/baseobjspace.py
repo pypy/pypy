@@ -1287,7 +1287,7 @@ class ObjSpace(object):
                                  self.wrap("expected a 32-bit integer"))
         return value
 
-    def truncatedint(self, w_obj):
+    def truncatedint_w(self, w_obj):
         # Like space.gateway_int_w(), but return the integer truncated
         # instead of raising OverflowError.  For obscure cases only.
         try:
