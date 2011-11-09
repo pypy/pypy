@@ -1,9 +1,10 @@
 import py
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rstr, rclass
 from pypy.rpython.annlowlevel import llhelper
-from pypy.jit.metainterp.history import ResOperation, JitCellToken
+from pypy.jit.metainterp.history import ResOperation, TargetToken, JitCellToken
 from pypy.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt, ConstFloat,
-                                         ConstPtr, Box, BoxFloat, BasicFailDescr)
+                                         ConstPtr, Box, BoxFloat,
+                                         BasicFailDescr)
 from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.backend.x86.arch import WORD
 from pypy.jit.backend.x86.rx86 import fits_in_32bits

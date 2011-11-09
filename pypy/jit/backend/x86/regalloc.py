@@ -1408,6 +1408,7 @@ class RegAlloc(object):
         descr._x86_loop_code = self.assembler.mc.get_relative_pos()
         descr._x86_clt = self.assembler.current_clt
         self.assembler.target_tokens_currently_compiling[descr] = None
+        self.possibly_free_vars_for_op(op)
 
     def not_implemented_op(self, op):
         not_implemented("not implemented operation: %s" % op.getopname())
