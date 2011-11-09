@@ -108,14 +108,17 @@ def _likely_raise(errno, x):
 #
 # Custom implementations
 
+VERY_LARGE_FLOAT = 1.0
+while VERY_LARGE_FLOAT * 100.0 != INFINITY:
+    VERY_LARGE_FLOAT *= 64.0
+
 def ll_math_isnan(y):
     # By not calling into the external function the JIT can inline this.
     # Floats are awesome.
     return y != y
 
 def ll_math_isinf(y):
-    # Use a bitwise OR so the JIT doesn't produce 2 different guards.
-    return (y == INFINITY) | (y == -INFINITY)
+    return (y + VERY_LARGE_FLOAT) == y
 
 def ll_math_isfinite(y):
     # Use a custom hack that is reasonably well-suited to the JIT.
