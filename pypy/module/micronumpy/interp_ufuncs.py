@@ -74,7 +74,7 @@ class W_Ufunc(Wrappable):
         new_sig = signature.Signature.find_sig([
             self.reduce_signature, obj.signature
         ])
-        return self.reduce(new_sig, start, value, obj, dtype, size).wrap(space)
+        return self.reduce(new_sig, start, value, obj, dtype, size)
 
     def reduce(self, signature, start, value, obj, dtype, size):
         i = start
@@ -235,7 +235,7 @@ def find_unaryop_result_dtype(space, dt, promote_to_float=False,
         if dt.kind == interp_dtype.BOOLLTR or dt.kind == interp_dtype.SIGNEDLTR:
             return space.fromcache(interp_dtype.W_Int64Dtype)
         elif dt.kind == interp_dtype.FLOATINGLTR:
-            return space.fromcache(interp_dtype.W_Float64Dtype)
+            return interp_dtype.get_dtype_cache(space).w_float64dtype
         elif dt.kind == interp_dtype.UNSIGNEDLTR:
             return space.fromcache(interp_dtype.W_UInt64Dtype)
         else:

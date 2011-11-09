@@ -4,7 +4,7 @@ It should not be imported by the module itself
 """
 
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
-from pypy.module.micronumpy.interp_boxes import W_GenericBox
+from pypy.module.micronumpy import interp_boxes
 from pypy.module.micronumpy.interp_dtype import get_dtype_cache
 from pypy.module.micronumpy.interp_numarray import (Scalar, BaseArray,
      descr_new_array, scalar_w, SingleDimArray)
@@ -70,8 +70,10 @@ class FakeSpace(object):
         return obj.items
 
     def float(self, w_obj):
-        assert isinstance(w_obj, FloatObject)
-        return w_obj
+        if isinstance(w_obj, FloatObject):
+            return w_obj
+        assert isinstance(w_obj, interp_boxes.W_FloatingBox)
+        return FloatObject(w_obj.value)
 
     def float_w(self, w_obj):
         assert isinstance(w_obj, FloatObject)
@@ -172,8 +174,8 @@ class ArrayAssignment(Node):
 
     def execute(self, interp):
         arr = interp.variables[self.name]
-        w_index = self.index.execute(interp).eval(0).wrap(interp.space)
-        w_val = self.expr.execute(interp).eval(0).wrap(interp.space)
+        w_index = self.index.execute(interp).eval(0)
+        w_val = self.expr.execute(interp).eval(0)
         arr.descr_setitem(interp.space, w_index, w_val)
 
     def __repr__(self):
@@ -210,15 +212,15 @@ class Operator(Node):
             w_res = w_lhs.descr_sub(interp.space, w_rhs)
         elif self.name == '->':
             if isinstance(w_rhs, Scalar):
-                index = int(interp.space.float_w(
-                    w_rhs.value))
-                dtype = interp.space.fromcache(W_Float64Dtype)
+                index = int(interp.space.float_w(interp.space.float(w_rhs.value)))
+                dtype = get_dtype_cache(interp.space).w_float64dtype
                 return Scalar(dtype, w_lhs.get_concrete().eval(index))
             else:
                 raise NotImplementedError
         else:
             raise NotImplementedError
-        if not isinstance(w_res, BaseArray) and not isinstance(w_res, W_GenericBox):
+        if (not isinstance(w_res, BaseArray) and
+            not isinstance(w_res, interp_boxes.W_GenericBox)):
             dtype = interp.space.fromcache(W_Float64Dtype)
             w_res = scalar_w(interp.space, dtype, w_res)
         return w_res
@@ -246,8 +248,9 @@ class RangeConstant(Node):
 
     def execute(self, interp):
         w_list = interp.space.newlist(
-            [interp.space.wrap(float(i)) for i in range(self.v)])
-        dtype = interp.space.fromcache(W_Float64Dtype)
+            [interp.space.wrap(float(i)) for i in range(self.v)]
+        )
+        dtype = get_dtype_cache(interp.space).w_float64dtype
         return descr_new_array(interp.space, None, w_list, w_dtype=dtype)
 
     def __repr__(self):
@@ -331,6 +334,8 @@ class FunctionCall(Node):
                 dtype = interp.space.fromcache(W_Float64Dtype)
             elif isinstance(w_res, BoolObject):
                 dtype = interp.space.fromcache(W_BoolDtype)
+            elif isinstance(w_res, interp_boxes.W_GenericBox):
+                dtype = w_res.descr_get_dtype(interp.space)
             else:
                 dtype = None
             return scalar_w(interp.space, dtype, w_res)

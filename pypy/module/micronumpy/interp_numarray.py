@@ -309,7 +309,7 @@ def convert_to_array(space, w_obj):
         return scalar_w(space, dtype, w_obj)
 
 def scalar_w(space, dtype, w_obj):
-    return Scalar(dtype, dtype.unwrap(space, w_obj))
+    return Scalar(dtype, dtype.coerce(space, w_obj))
 
 class Scalar(BaseArray):
     """

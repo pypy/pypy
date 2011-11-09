@@ -5,7 +5,7 @@ from pypy.module.micronumpy.compile import *
 class TestCompiler(object):
     def compile(self, code):
         return numpy_compile(code)
-    
+
     def test_vars(self):
         code = """
         a = 2
@@ -25,7 +25,7 @@ class TestCompiler(object):
         st = interp.code.statements[0]
         assert st.expr.items == [FloatConstant(1), FloatConstant(2),
                                  FloatConstant(3)]
-    
+
     def test_array_literal2(self):
         code = "a = [[1],[2],[3]]"
         interp = self.compile(code)
@@ -114,15 +114,15 @@ class TestRunner(object):
         a + b -> 3
         """
         interp = self.run(code)
-        assert interp.results[0].value.val == 3 + 6
-        
+        assert interp.results[0].value.value == 3 + 6
+
     def test_range_getitem(self):
         code = """
         r = |20| + 3
         r -> 3
         """
         interp = self.run(code)
-        assert interp.results[0].value.val == 6
+        assert interp.results[0].value.value == 6
 
     def test_sum(self):
         code = """
@@ -131,7 +131,7 @@ class TestRunner(object):
         r
         """
         interp = self.run(code)
-        assert interp.results[0].value.val == 15
+        assert interp.results[0].value.value == 15
 
     def test_array_write(self):
         code = """
