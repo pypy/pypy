@@ -441,6 +441,24 @@ def struct_setfield_int(ffitype, addr, offset, value):
     assert False, "cannot find the given ffitype"
 
 
+@jit.oopspec('libffi_struct_getfield(ffitype, addr, offset)')
+def struct_getfield_longlong(ffitype, addr, offset):
+    """
+    Return the field of type ``ffitype`` at ``addr+offset``, casted to
+    lltype.LongLong.
+    """
+    value = _struct_getfield(lltype.SignedLongLong, addr, offset)
+    return value
+
+@jit.oopspec('libffi_struct_setfield(ffitype, addr, offset, value)')
+def struct_setfield_longlong(ffitype, addr, offset, value):
+    """
+    Set the field of type ``ffitype`` at ``addr+offset``.  ``value`` is of
+    type lltype.LongLong
+    """
+    _struct_setfield(lltype.SignedLongLong, addr, offset, value)
+
+
 @specialize.arg(0)
 def _struct_getfield(TYPE, addr, offset):
     """
