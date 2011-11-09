@@ -168,6 +168,20 @@ class AppTestStruct(BaseAppTestFFI):
         mem = self.read_raw_mem(struct.getaddr(), 'c_longlong', 2)
         assert mem == [-9223372036854775808, -1]
 
+    def test_getfield_setfield_float(self):
+        import sys
+        from _ffi import _StructDescr, Field, types
+        longsize = types.slong.sizeof()
+        fields = [
+            Field('x', types.double),
+            ]
+        descr = _StructDescr('foo', fields)
+        struct = descr.allocate()
+        struct.setfield('x', 123.4)
+        assert struct.getfield('x') == 123.4
+        mem = self.read_raw_mem(struct.getaddr(), 'c_double', 1)
+        assert mem == [123.4]
+
     def test_compute_shape(self):
         from _ffi import Structure, Field, types
         class Point(Structure):
