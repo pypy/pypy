@@ -31,7 +31,7 @@ def descr_new_array(space, w_subtype, w_size_or_iterable, w_dtype=None):
     arr = SingleDimArray(len(l), dtype=dtype)
     i = 0
     for w_elem in l:
-        dtype.setitem_w(space, arr.storage, i, w_elem)
+        dtype.setitem(arr.storage, i, dtype.coerce(space, w_elem))
         i += 1
     return arr
 
@@ -187,7 +187,7 @@ class BaseArray(Wrappable):
             ])
         else:
             nums = [
-                dtype.str_format(self.eval(index))
+                dtype.itemtype.str_format(self.eval(index))
                 for index in range(self.find_size())
             ]
         return nums

@@ -2,7 +2,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
-from pypy.module.micronumpy import interp_dtype, signature
+from pypy.module.micronumpy import interp_dtype, signature, types
 from pypy.rlib import jit
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
@@ -148,7 +148,7 @@ class W_Ufunc2(W_Ufunc):
             return self.func(calc_dtype,
                 w_lhs.value.convert_to(calc_dtype),
                 w_rhs.value.convert_to(calc_dtype)
-            ).wrap(space)
+            )
 
         new_sig = signature.Signature.find_sig([
             self.signature, w_lhs.signature, w_rhs.signature
@@ -178,7 +178,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         dt1, dt2 = dt2, dt1
     # Some operations promote op(bool, bool) to return int8, rather than bool
     if promote_bools and (dt1.kind == dt2.kind == interp_dtype.BOOLLTR):
-        return space.fromcache(interp_dtype.W_Int8Dtype)
+        return interp_dtype.get_dtype_cache(space).w_int8dtype
     if promote_to_float:
         return find_unaryop_result_dtype(space, dt2, promote_to_float=True)
     # If they're the same kind, choose the greater one.
@@ -221,15 +221,16 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
 def find_unaryop_result_dtype(space, dt, promote_to_float=False,
     promote_bools=False, promote_to_largest=False):
     if promote_bools and (dt.kind == interp_dtype.BOOLLTR):
-        return space.fromcache(interp_dtype.W_Int8Dtype)
+        return interp_dtype.get_dtype_cache(space).w_int8dtype
     if promote_to_float:
         if dt.kind == interp_dtype.FLOATINGLTR:
             return dt
         if dt.num >= 5:
-            return space.fromcache(interp_dtype.W_Float64Dtype)
-        for bytes, dtype in interp_dtype.dtypes_by_num_bytes:
-            if dtype.kind == interp_dtype.FLOATINGLTR and dtype.num_bytes > dt.num_bytes:
-                return space.fromcache(dtype)
+            return interp_dtype.get_dtype_cache(space).w_float64dtype
+        for bytes, dtype in interp_dtype.get_dtype_cache(space).dtypes_by_num_bytes:
+            if (dtype.kind == interp_dtype.FLOATINGLTR and
+                dtype.itemtype.get_element_size() > dt.itemtype.get_element_size()):
+                return dtype
     if promote_to_largest:
         if dt.kind == interp_dtype.BOOLLTR or dt.kind == interp_dtype.SIGNEDLTR:
             return space.fromcache(interp_dtype.W_Int64Dtype)
@@ -264,12 +265,13 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
 
 
 def ufunc_dtype_caller(space, ufunc_name, op_name, argcount, comparison_func):
+    assert hasattr(types.BaseType, op_name)
     if argcount == 1:
         def impl(res_dtype, value):
-            return getattr(res_dtype, op_name)(value)
+            return getattr(res_dtype.itemtype, op_name)(value)
     elif argcount == 2:
         def impl(res_dtype, lvalue, rvalue):
-            res = getattr(res_dtype, op_name)(lvalue, rvalue)
+            res = getattr(res_dtype.itemtype, op_name)(lvalue, rvalue)
             if comparison_func:
                 booldtype = space.fromcache(interp_dtype.W_BoolDtype)
                 assert isinstance(booldtype, interp_dtype.W_BoolDtype)
@@ -327,7 +329,7 @@ class UfuncState(object):
 
         identity = extra_kwargs.get("identity")
         if identity is not None:
-            identity = space.fromcache(interp_dtype.W_LongDtype).adapt_val(identity)
+            identity = interp_dtype.get_dtype_cache(space).w_longdtype.box(identity)
         extra_kwargs["identity"] = identity
 
         func = ufunc_dtype_caller(space, ufunc_name, op_name, argcount,

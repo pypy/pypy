@@ -4,7 +4,8 @@ It should not be imported by the module itself
 """
 
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
-from pypy.module.micronumpy.interp_dtype import W_Float64Dtype, W_BoolDtype
+from pypy.module.micronumpy.interp_boxes import W_GenericBox
+from pypy.module.micronumpy.interp_dtype import get_dtype_cache
 from pypy.module.micronumpy.interp_numarray import (Scalar, BaseArray,
      descr_new_array, scalar_w, SingleDimArray)
 from pypy.module.micronumpy import interp_ufuncs
@@ -40,7 +41,7 @@ class FakeSpace(object):
     def __init__(self):
         """NOT_RPYTHON"""
         self.fromcache = InternalSpaceCache(self).getorbuild
-        self.w_float64dtype = W_Float64Dtype(self)
+        self.w_float64dtype = get_dtype_cache(self).w_float64dtype
 
     def issequence_w(self, w_obj):
         return isinstance(w_obj, ListObject) or isinstance(w_obj, SingleDimArray)
@@ -73,7 +74,7 @@ class FakeSpace(object):
         return w_obj
 
     def float_w(self, w_obj):
-        assert isinstance(w_obj, FloatObject)        
+        assert isinstance(w_obj, FloatObject)
         return w_obj.floatval
 
     def int_w(self, w_obj):
@@ -206,18 +207,18 @@ class Operator(Node):
         elif self.name == '*':
             w_res = w_lhs.descr_mul(interp.space, w_rhs)
         elif self.name == '-':
-            w_res = w_lhs.descr_sub(interp.space, w_rhs)            
+            w_res = w_lhs.descr_sub(interp.space, w_rhs)
         elif self.name == '->':
             if isinstance(w_rhs, Scalar):
                 index = int(interp.space.float_w(
-                    w_rhs.value.wrap(interp.space)))
+                    w_rhs.value))
                 dtype = interp.space.fromcache(W_Float64Dtype)
                 return Scalar(dtype, w_lhs.get_concrete().eval(index))
             else:
                 raise NotImplementedError
         else:
             raise NotImplementedError
-        if not isinstance(w_res, BaseArray):
+        if not isinstance(w_res, BaseArray) and not isinstance(w_res, W_GenericBox):
             dtype = interp.space.fromcache(W_Float64Dtype)
             w_res = scalar_w(interp.space, dtype, w_res)
         return w_res
@@ -236,8 +237,7 @@ class FloatConstant(Node):
         return space.wrap(self.v)
 
     def execute(self, interp):
-        dtype = interp.space.fromcache(W_Float64Dtype)
-        assert isinstance(dtype, W_Float64Dtype)
+        dtype = get_dtype_cache(interp.space).w_float64dtype
         return Scalar(dtype, dtype.box(self.v))
 
 class RangeConstant(Node):
@@ -269,7 +269,7 @@ class ArrayConstant(Node):
 
     def execute(self, interp):
         w_list = self.wrap(interp.space)
-        dtype = interp.space.fromcache(W_Float64Dtype)
+        dtype = get_dtype_cache(interp.space).w_float64dtype
         return descr_new_array(interp.space, None, w_list, w_dtype=dtype)
 
     def __repr__(self):
@@ -414,7 +414,7 @@ class Parser(object):
         assert lgt >= 0
         rhs = self.parse_constant_or_identifier(l[1][:lgt])
         return l[0], rhs
-        
+
     def parse_statement(self, line):
         if '=' in line:
             lhs, rhs = line.split("=")
@@ -422,7 +422,7 @@ class Parser(object):
             if '[' in lhs:
                 name, index = self.parse_array_subscript(lhs)
                 return ArrayAssignment(name, index, self.parse_expression(rhs))
-            else: 
+            else:
                 return Assignment(lhs, self.parse_expression(rhs))
         else:
             return Execute(self.parse_expression(line))
