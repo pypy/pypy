@@ -16,11 +16,11 @@ class TypeDef:
         "NOT_RPYTHON: initialization-time only"
         self.name = __name
         if __base is None:
-            bases = ()
+            bases = []
         elif isinstance(__base, tuple):
-            bases = __base
+            bases = list(__base)
         else:
-            bases = (__base,)
+            bases = [__base]
         self.bases = bases
         self.hasdict = '__dict__' in rawdict
         self.weakrefable = '__weakref__' in rawdict
