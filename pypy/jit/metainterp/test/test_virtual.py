@@ -565,7 +565,10 @@ class VirtualTests:
                 n -= 1
             return node1.value + node2.value
         assert self.meta_interp(f, [40, 3]) == f(40, 3)
-        self.check_trace_count(6)
+        # We get 4 versions of this loop:
+        #   preamble (no virtuals), node1 virtual, node2 virtual, both virtual
+        self.check_target_token_count(4)
+        self.check_resops(new=0, new_with_vtable=0)
 
     def test_single_virtual_forced_in_bridge(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 's', 'node'])
