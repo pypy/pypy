@@ -1,6 +1,6 @@
 from pypy.objspace.flow.model import FunctionGraph, Constant, Variable, c_last_exception
 from pypy.rlib.rarithmetic import intmask, r_uint, ovfcheck, r_longlong
-from pypy.rlib.rarithmetic import r_ulonglong, ovfcheck_lshift
+from pypy.rlib.rarithmetic import r_ulonglong
 from pypy.rpython.lltypesystem import lltype, llmemory, lloperation, llheap
 from pypy.rpython.lltypesystem import rclass
 from pypy.rpython.ootypesystem import ootype
@@ -1038,7 +1038,7 @@ class LLFrame(object):
         assert isinstance(x, (int, long))
         assert isinstance(y, (int, long))
         try:
-            return ovfcheck_lshift(x, y)
+            return ovfcheck(x << y)
         except OverflowError:
             self.make_llexception()
 
