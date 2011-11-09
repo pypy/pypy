@@ -14,8 +14,8 @@ class Module(MixedModule):
         'ones': 'interp_numarray.ones',
         'fromstring': 'interp_support.fromstring',
 
-        'True_': 'space.w_True',
-        'False_': 'space.w_False',
+        'True_': 'types.Bool.True',
+        'False_': 'types.Bool.False',
     }
 
     # ufuncs
