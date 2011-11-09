@@ -64,6 +64,11 @@ stuff = "nothing"
         assert exc.msg == ("'ascii' codec can't decode byte 0xc3 "
                            "in position 16: ordinal not in range(128)")
 
+    def test_encoding_pep3120(self):
+        info = pyparse.CompileInfo("<test>", "exec")
+        tree = self.parse("""foo = '日本'""", info=info)
+        assert info.encoding == 'utf-8'
+
     def test_syntax_error(self):
         parse = self.parse
         exc = py.test.raises(SyntaxError, parse, "name another for").value

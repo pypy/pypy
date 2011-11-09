@@ -5,8 +5,6 @@ from pypy.interpreter.astcompiler import consts
 
 
 def recode_to_utf8(space, bytes, encoding=None):
-    if encoding is None:
-        encoding = 'utf-8'
     if encoding == 'utf-8':
         return bytes
     w_text = space.call_method(space.wrapbytes(bytes), "decode",
@@ -121,6 +119,8 @@ class PythonParser(parser.Parser):
             textsrc = bytessrc
         else:
             enc = _normalize_encoding(_check_for_encoding(bytessrc))
+            if enc is None:
+                enc = 'utf-8'
             try:
                 textsrc = recode_to_utf8(self.space, bytessrc, enc)
             except OperationError, e:

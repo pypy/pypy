@@ -1039,6 +1039,17 @@ class TestAstBuilder:
         assert isinstance(s, ast.Str)
         assert space.eq_w(s.s, space.wrap(sentence))
 
+    def test_string_pep3120(self):
+        space = self.space
+        japan = u'日本'
+        source = u"foo = '%s'" % japan
+        info = pyparse.CompileInfo("<test>", "exec")
+        tree = self.parser.parse_source(source.encode("utf-8"), info)
+        assert info.encoding == "utf-8"
+        s = ast_from_node(space, tree, info).body[0].value
+        assert isinstance(s, ast.Str)
+        assert space.eq_w(s.s, space.wrap(japan))
+
     def test_number(self):
         def get_num(s):
             node = self.get_first_expr(s)
