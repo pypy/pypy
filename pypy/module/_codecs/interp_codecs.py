@@ -733,12 +733,8 @@ def unicode_internal_decode(space, w_string, errors="strict"):
 @unwrap_spec(data="bufferstr", errors='str_or_None')
 def escape_encode(space, data, errors='strict'):
     from pypy.objspace.std.stringobject import string_escape_encode
-    result = string_escape_encode(data, quote="'")
-    start = 1
-    end = len(result) - 1
-    assert end >= 0
-    w_result = space.wrapbytes(result[start:end])
-    return space.newtuple([w_result, space.wrap(len(data))])
+    result = string_escape_encode(data, False)
+    return space.newtuple([space.wrapbytes(result), space.wrap(len(data))])
 
 @unwrap_spec(data="bufferstr", errors='str_or_None')
 def escape_decode(space, data, errors='strict'):

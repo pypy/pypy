@@ -887,20 +887,19 @@ def getnewargs__String(space, w_str):
     return space.newtuple([wrapstr(space, w_str._value)])
 
 def repr__String(space, w_str):
-    s = w_str._value
+    return space.wrap(string_escape_encode(w_str._value, True))
+
+def string_escape_encode(s, quotes):
+    buf = StringBuilder(len(s) + 3 if quotes else 0)
 
     quote = "'"
-    if quote in s and '"' not in s:
-        quote = '"'
+    if quotes:
+        if quote in s and '"' not in s:
+            quote = '"'
+            buf.append('b"')
+        else:
+            buf.append("b'")
 
-    return space.wrap(string_escape_encode(s, quote))
-
-def string_escape_encode(s, quote):
-
-    buf = StringBuilder(len(s) + 3)
-
-    buf.append('b')
-    buf.append(quote)
     startslice = 0
 
     for i in range(len(s)):
@@ -938,7 +937,8 @@ def string_escape_encode(s, quote):
     if len(s) != startslice:
         buf.append_slice(s, startslice, len(s))
 
-    buf.append(quote)
+    if quotes:
+        buf.append(quote)
 
     return buf.build()
 
