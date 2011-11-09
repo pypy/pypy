@@ -2,6 +2,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib import clibffi
 from pypy.rlib import libffi
 from pypy.rlib import jit
+from pypy.rlib.rgc import must_be_light_finalizer
 from pypy.rlib.rarithmetic import r_uint, r_ulonglong
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
@@ -59,6 +60,7 @@ class W__StructDescr(Wrappable):
 
         return w_field.w_ffitype, w_field.offset
 
+    @must_be_light_finalizer
     def __del__(self):
         if self.ffistruct:
             lltype.free(self.ffistruct, flavor='raw')
@@ -118,8 +120,8 @@ class W__StructInstance(Wrappable):
         self.rawmem = lltype.malloc(rffi.VOIDP.TO, size, flavor='raw',
                                     zero=True, add_memory_pressure=True)
 
+    @must_be_light_finalizer
     def __del__(self):
-        # XXX: check whether I can turn this into a lightweight destructor
         if self.rawmem:
             lltype.free(self.rawmem, flavor='raw')
             self.rawmem = lltype.nullptr(rffi.VOIDP.TO)
