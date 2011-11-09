@@ -12,6 +12,7 @@ VOLATILES       = [r0, r3, r4, r5, r6, r7, r8, r9, r10, r11, r12, r13]
 
 SPP = r31
 SP  = r1
+TOC = r2
 RES = r3
 
 MANAGED_REGS = [r3, r4, r5, r6, r7, r8, r9, r10,

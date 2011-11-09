@@ -8,7 +8,8 @@ from pypy.jit.backend.ppc.ppcgen.assembler import Assembler
 from pypy.jit.backend.ppc.ppcgen.opassembler import OpAssembler
 from pypy.jit.backend.ppc.ppcgen.symbol_lookup import lookup
 from pypy.jit.backend.ppc.ppcgen.codebuilder import PPCBuilder
-from pypy.jit.backend.ppc.ppcgen.arch import (IS_PPC_32, WORD, NONVOLATILES,
+from pypy.jit.backend.ppc.ppcgen.arch import (IS_PPC_32, IS_PPC_64, WORD,
+                                              NONVOLATILES,
                                               GPR_SAVE_AREA, BACKCHAIN_SIZE)
 from pypy.jit.backend.ppc.ppcgen.helper.assembler import (gen_emit_cmp_op, 
                                                           encode32, decode32)
@@ -134,7 +135,7 @@ class AssemblerPPC(OpAssembler):
         else:
             self.mc.stdu(r.SP.value, r.SP.value, -frame_depth)
             self.mc.mflr(r.r0.value)
-            self.mc.std(r.r0.value, r.SP.value, frame_depth + 2 * WORD)
+            self.mc.std(r.r0.value, r.SP.value, frame_depth + WORD)
         offset = GPR_SAVE_AREA + WORD
         # compute spilling pointer (SPP)
         self.mc.addi(r.SPP.value, r.SP.value, frame_depth - offset)
@@ -296,7 +297,10 @@ class AssemblerPPC(OpAssembler):
         # XXX do quadword alignment
         #while size % (4 * WORD) != 0:
         #    size += WORD
-        mc.addi(r.SP.value, r.SP.value, -size)
+        if IS_PPC_32:
+            mc.stwu(r.SP.value, r.SP.value, -size)
+        else:
+            mc.stdu(r.SP.value, r.SP.value, -size)
         #
         decode_func_addr = llhelper(self.recovery_func_sign,
                 self.failure_recovery_func)
@@ -306,6 +310,7 @@ class AssemblerPPC(OpAssembler):
             intp = lltype.Ptr(lltype.Array(lltype.Signed, hints={'nolength': True}))
             descr = rffi.cast(intp, decode_func_addr)
             addr = descr[0]
+            r2_value = descr[1]
             r11_value = descr[2]
 
         #
@@ -319,7 +324,9 @@ class AssemblerPPC(OpAssembler):
         #
         # load address of decoding function into r0
         mc.load_imm(r.r0, addr)
-        mc.load_imm(r.r11, r11_value)
+        if IS_PPC_64:
+            mc.load_imm(r.r2, r2_value)
+            mc.load_imm(r.r11, r11_value)
         # ... and branch there
         mc.mtctr(r.r0.value)
         mc.bctrl()
@@ -675,7 +682,7 @@ class AssemblerPPC(OpAssembler):
     def _ensure_result_bit_extension(self, resloc, size, signed):
         if size == 1:
             if not signed: #unsigned char
-                if IS_PPC32:
+                if IS_PPC_32:
                     self.mc.rlwinm(resloc.value, resloc.value, 0, 24, 31)
                 else:
                     self.mc.rldicl(resloc.value, resloc.value, 0, 56)
