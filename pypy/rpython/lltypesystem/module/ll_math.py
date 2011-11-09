@@ -123,7 +123,7 @@ def ll_math_isnan(y):
     # By not calling into the external function the JIT can inline this.
     # Floats are awesome.
     if use_library_isinf_isnan and not jit.we_are_jitted():
-        return _lib_isnan(y)
+        return bool(_lib_isnan(y))
     return y != y
 
 def ll_math_isinf(y):
@@ -135,7 +135,7 @@ def ll_math_isfinite(y):
     # Use a custom hack that is reasonably well-suited to the JIT.
     # Floats are awesome (bis).
     if use_library_isinf_isnan and not jit.we_are_jitted():
-        return _lib_finite(y)
+        return bool(_lib_finite(y))
     z = 0.0 * y
     return z == z       # i.e.: z is not a NaN
 
