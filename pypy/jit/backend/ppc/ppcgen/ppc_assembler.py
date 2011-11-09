@@ -83,6 +83,7 @@ class AssemblerPPC(OpAssembler):
         self.memcpy_addr = 0
         self.fail_boxes_count = 0
         self.current_clt = None
+        self._regalloc = None
 
     def _save_nonvolatiles(self):
         for i, reg in enumerate(NONVOLATILES):
@@ -520,8 +521,10 @@ class AssemblerPPC(OpAssembler):
         self.pending_guards = None
         self.current_clt = None
         self.mc = None
+        self._regalloc = None
 
     def _walk_operations(self, operations, regalloc):
+        self._regalloc = regalloc
         while regalloc.position() < len(operations) - 1:
             regalloc.next_instruction()
             pos = regalloc.position()
@@ -529,6 +532,14 @@ class AssemblerPPC(OpAssembler):
             opnum = op.getopnum()
             if op.has_no_side_effect() and op.result not in regalloc.longevity:
                 regalloc.possibly_free_vars_for_op(op)
+            elif self.can_merge_with_next_guard(op, pos, operations)\
+                    # XXX fix this later on
+                    and opnum == rop.CALL_RELEASE_GIL:   
+                regalloc.next_instruction()
+                arglocs = regalloc.operations_with_guard[opnum](regalloc, op,
+                                        operations[pos+1])
+                operations_with_guard[opnum](self, op,
+                                        operations[pos+1], arglocs, regalloc)
             else:
                 arglocs = regalloc.operations[opnum](regalloc, op)
                 if arglocs is not None:
@@ -537,6 +548,30 @@ class AssemblerPPC(OpAssembler):
                 regalloc.possibly_free_var(op.result)
             regalloc.possibly_free_vars_for_op(op)
             regalloc._check_invariants()
+
+    def can_merge_with_next_guard(self, op, i, operations):
+        if (op.getopnum() == rop.CALL_MAY_FORCE or
+            op.getopnum() == rop.CALL_ASSEMBLER or
+            op.getopnum() == rop.CALL_RELEASE_GIL):
+            assert operations[i + 1].getopnum() == rop.GUARD_NOT_FORCED
+            return True
+        if not op.is_comparison():
+            if op.is_ovf():
+                if (operations[i + 1].getopnum() != rop.GUARD_NO_OVERFLOW and
+                    operations[i + 1].getopnum() != rop.GUARD_OVERFLOW):
+                    not_implemented("int_xxx_ovf not followed by "
+                                    "guard_(no)_overflow")
+                return True
+            return False
+        if (operations[i + 1].getopnum() != rop.GUARD_TRUE and
+            operations[i + 1].getopnum() != rop.GUARD_FALSE):
+            return False
+        if operations[i + 1].getarg(0) is not op.result:
+            return False
+        if (self._regalloc.longevity[op.result][1] > i + 1 or
+            op.result in operations[i + 1].getfailargs()):
+            return False
+        return True
 
     def gen_64_bit_func_descr(self, start_addr):
         mc = PPCBuilder()
@@ -711,20 +746,32 @@ class AssemblerPPC(OpAssembler):
             assert gcrootmap.is_shadow_stack
             gcrootmap.write_callshape(mark, force_index)
 
-def make_operations():
-    def not_implemented(builder, trace_op, cpu, *rest_args):
-        raise NotImplementedError, trace_op
+def notimplemented_op(self, op, arglocs, regalloc):
+    raise NotImplementedError, op
 
-    oplist = [None] * (rop._LAST + 1)
-    for key, val in rop.__dict__.items():
-        if key.startswith("_"):
-            continue
-        opname = key.lower()
-        methname = "emit_%s" % opname
-        if hasattr(AssemblerPPC, methname):
-            oplist[val] = getattr(AssemblerPPC, methname).im_func
-        else:
-            oplist[val] = not_implemented
-    return oplist
+def notimplemented_op_with_guard(self, op, guard_op, arglocs, regalloc):
+    raise NotImplementedError, op
 
-AssemblerPPC.operations = make_operations()
+operations = [notimplemented_op] * (rop._LAST + 1)
+operations_with_guard = [notimplemented_op_with_guard] * (rop._LAST + 1)
+
+for key, value in rop.__dict__.items():
+    key = key.lower()
+    if key.startswith('_'):
+        continue
+    methname = 'emit_%s' % key
+    if hasattr(AssemblerPPC, methname):
+        func = getattr(AssemblerPPC, methname).im_func
+        operations[value] = func
+
+for key, value in rop.__dict__.items():
+    key = key.lower()
+    if key.startswith('_'):
+        continue
+    methname = 'emit_guard_%s' % key
+    if hasattr(AssemblerPPC, methname):
+        func = getattr(AssemblerPPC, methname).im_func
+        operations_with_guard[value] = func
+
+AssemblerPPC.operations = operations
+AssemblerPPC.operations_with_guard = operations_with_guard
