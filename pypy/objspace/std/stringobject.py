@@ -897,8 +897,9 @@ def repr__String(space, w_str):
 
 def string_escape_encode(s, quote):
 
-    buf = StringBuilder(len(s) + 2)
+    buf = StringBuilder(len(s) + 3)
 
+    buf.append('b')
     buf.append(quote)
     startslice = 0
 

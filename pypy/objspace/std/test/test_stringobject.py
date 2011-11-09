@@ -618,23 +618,23 @@ class AppTestStringObject:
         assert l == [52, 50]
 
     def test_repr(self):
-        assert repr(b"")       =="''"
-        assert repr(b"a")      =="'a'"
-        assert repr(b"'")      =='"\'"'
-        assert repr(b"\'")     =="\"\'\""
-        assert repr(b"\"")     =='\'"\''
-        assert repr(b"\t")     =="'\\t'"
-        assert repr(b"\\")     =="'\\\\'"
-        assert repr(b'')       =="''"
-        assert repr(b'a')      =="'a'"
-        assert repr(b'"')      =="'\"'"
-        assert repr(b'\'')     =='"\'"'
-        assert repr(b'\"')     =="'\"'"
-        assert repr(b'\t')     =="'\\t'"
-        assert repr(b'\\')     =="'\\\\'"
-        assert repr(b"'''\"")  =='\'\\\'\\\'\\\'"\''
-        assert repr(b"\x13")   =="'\\x13'"
-        assert repr(b"\x02")   =="'\\x02'"
+        assert repr(b"")       =="b''"
+        assert repr(b"a")      =="b'a'"
+        assert repr(b"'")      =='b"\'"'
+        assert repr(b"\'")     =="b\"\'\""
+        assert repr(b"\"")     =='b\'"\''
+        assert repr(b"\t")     =="b'\\t'"
+        assert repr(b"\\")     =="b'\\\\'"
+        assert repr(b'')       =="b''"
+        assert repr(b'a')      =="b'a'"
+        assert repr(b'"')      =="b'\"'"
+        assert repr(b'\'')     =='b"\'"'
+        assert repr(b'\"')     =="b'\"'"
+        assert repr(b'\t')     =="b'\\t'"
+        assert repr(b'\\')     =="b'\\\\'"
+        assert repr(b"'''\"")  =='b\'\\\'\\\'\\\'"\''
+        assert repr(b"\x13")   =="b'\\x13'"
+        assert repr(b"\x02")   =="b'\\x02'"
 
     def test_contains(self):
         assert b'' in b'abc'
