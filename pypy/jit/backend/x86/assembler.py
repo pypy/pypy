@@ -2,8 +2,8 @@ import sys, os
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from pypy.jit.metainterp.history import Const, Box, BoxInt, ConstInt
-from pypy.jit.metainterp.history import (AbstractFailDescr, INT, REF, FLOAT,
-                                         LoopToken)
+from pypy.jit.metainterp.history import AbstractFailDescr, INT, REF, FLOAT
+from pypy.jit.metainterp.history import JitCellToken
 from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import llhelper
@@ -424,8 +424,6 @@ class Assembler386(object):
                _x86_loop_code       (an integer giving an address)
                _x86_bootstrap_code  (an integer giving an address)
                _x86_direct_bootstrap_code  ( "    "     "    "   )
-               _x86_frame_depth
-               _x86_param_depth
                _x86_arglocs
                _x86_debug_checksum
         '''
@@ -455,12 +453,11 @@ class Assembler386(object):
         stackadjustpos = self._assemble_bootstrap_code(inputargs, arglocs)
         looppos = self.mc.get_relative_pos()
         looptoken._x86_loop_code = looppos
-        self.target_tokens_currently_compiling[looptoken] = None
-        looptoken._x86_frame_depth = -1     # temporarily
-        looptoken._x86_param_depth = -1     # temporarily
+        clt.frame_depth = -1     # temporarily
+        clt.param_depth = -1     # temporarily
         frame_depth, param_depth = self._assemble(regalloc, operations)
-        looptoken._x86_frame_depth = frame_depth
-        looptoken._x86_param_depth = param_depth
+        clt.frame_depth = frame_depth
+        clt.param_depth = param_depth
 
         directbootstrappos = self.mc.get_relative_pos()
         self._assemble_bootstrap_direct_call(arglocs, looppos,
@@ -670,8 +667,8 @@ class Assembler386(object):
         faildescr._x86_adr_jump_offset = 0    # means "patched"
 
     def fixup_target_tokens(self, rawstart):
-        for looptoken in self.target_tokens_currently_compiling:
-            looptoken._x86_loop_code += rawstart
+        for targettoken in self.target_tokens_currently_compiling:
+            targettoken._x86_loop_code += rawstart
         self.target_tokens_currently_compiling = None
 
     @specialize.argtype(1)
@@ -703,8 +700,8 @@ class Assembler386(object):
         param_depth = regalloc.param_depth
         jump_target_descr = regalloc.jump_target_descr
         if jump_target_descr is not None:
-            target_frame_depth = jump_target_descr._x86_frame_depth
-            target_param_depth = jump_target_descr._x86_param_depth
+            target_frame_depth = jump_target_descr._x86_clt.frame_depth
+            target_param_depth = jump_target_descr._x86_clt.param_depth
             frame_depth = max(frame_depth, target_frame_depth)
             param_depth = max(param_depth, target_param_depth)
         return frame_depth, param_depth
@@ -2344,7 +2341,7 @@ class Assembler386(object):
         fail_index = self.cpu.get_fail_descr_number(faildescr)
         self.mc.MOV_bi(FORCE_INDEX_OFS, fail_index)
         descr = op.getdescr()
-        assert isinstance(descr, LoopToken)
+        assert isinstance(descr, JitCellToken)
         assert len(arglocs) - 2 == len(descr._x86_arglocs[0])
         #
         # Write a call to the direct_bootstrap_code of the target assembler
@@ -2578,12 +2575,9 @@ class Assembler386(object):
                     gcrootmap.put(self.gcrootmap_retaddr_forced, mark)
                     self.gcrootmap_retaddr_forced = -1
 
-    def target_arglocs(self, loop_token):
-        return loop_token._x86_arglocs
-
-    def closing_jump(self, loop_token):
-        target = loop_token._x86_loop_code
-        if loop_token in self.target_tokens_currently_compiling:
+    def closing_jump(self, target_token):
+        target = target_token._x86_loop_code
+        if target_token in self.target_tokens_currently_compiling:
             curpos = self.mc.get_relative_pos() + 5
             self.mc.JMP_l(target - curpos)
         else:

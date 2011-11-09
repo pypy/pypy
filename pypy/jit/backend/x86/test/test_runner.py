@@ -1,7 +1,7 @@
 import py
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rstr, rclass
 from pypy.rpython.annlowlevel import llhelper
-from pypy.jit.metainterp.history import ResOperation, LoopToken
+from pypy.jit.metainterp.history import ResOperation, JitCellToken
 from pypy.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt, ConstFloat,
                                          ConstPtr, Box, BoxFloat, BasicFailDescr)
 from pypy.jit.backend.detect_cpu import getcpuclass
@@ -279,7 +279,7 @@ class TestX86(LLtypeBackendTest):
                                      descr=BasicFailDescr()),
                         ]
                     ops[-2].setfailargs([i1])
-                    looptoken = LoopToken()
+                    looptoken = JitCellToken()
                     self.cpu.compile_loop([b], ops, looptoken)
                     if op == rop.INT_IS_TRUE:
                         self.cpu.set_future_value_int(0, b.value)
@@ -329,7 +329,7 @@ class TestX86(LLtypeBackendTest):
                         ]
                     ops[-2].setfailargs([i1])
                     inputargs = [i for i in (a, b) if isinstance(i, Box)]
-                    looptoken = LoopToken()
+                    looptoken = JitCellToken()
                     self.cpu.compile_loop(inputargs, ops, looptoken)
                     for i, box in enumerate(inputargs):
                         self.cpu.set_future_value_int(i, box.value)
@@ -353,9 +353,10 @@ class TestX86(LLtypeBackendTest):
         i0 = BoxInt()
         i1 = BoxInt()
         i2 = BoxInt()
+        targettoken = TargetToken()
         faildescr1 = BasicFailDescr(1)
         faildescr2 = BasicFailDescr(2)
-        looptoken = LoopToken()
+        looptoken = JitCellToken()
         looptoken.number = 17
         class FakeString(object):
             def __init__(self, val):
@@ -365,14 +366,15 @@ class TestX86(LLtypeBackendTest):
                 return self.val
 
         operations = [
+            ResOperation(rop.LABEL, [i0], None, descr=targettoken),
             ResOperation(rop.DEBUG_MERGE_POINT, [FakeString("hello"), 0], None),
             ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
             ResOperation(rop.INT_LE, [i1, ConstInt(9)], i2),
             ResOperation(rop.GUARD_TRUE, [i2], None, descr=faildescr1),
-            ResOperation(rop.JUMP, [i1], None, descr=looptoken),
+            ResOperation(rop.JUMP, [i1], None, descr=targettoken),
             ]
         inputargs = [i0]
-        operations[3].setfailargs([i1])
+        operations[-2].setfailargs([i1])
         self.cpu.compile_loop(inputargs, operations, looptoken)
         name, loopaddress, loopsize = agent.functions[0]
         assert name == "Loop # 17: hello (loop counter 0)"
@@ -385,7 +387,7 @@ class TestX86(LLtypeBackendTest):
             ResOperation(rop.INT_LE, [i1b, ConstInt(19)], i3),
             ResOperation(rop.GUARD_TRUE, [i3], None, descr=faildescr2),
             ResOperation(rop.DEBUG_MERGE_POINT, [FakeString("bye"), 0], None),
-            ResOperation(rop.JUMP, [i1b], None, descr=looptoken),
+            ResOperation(rop.JUMP, [i1b], None, descr=targettoken),
         ]
         bridge[1].setfailargs([i1b])
 
@@ -408,11 +410,13 @@ class TestX86(LLtypeBackendTest):
         i0 = BoxInt()
         i1 = BoxInt()
         i2 = BoxInt()
-        looptoken = LoopToken()
+        looptoken = JitCellToken()
+        targettoken = TargetToken()
         operations = [
+            ResOperation(rop.LABEL, [i0], None, descr=targettoken),
             ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
             ResOperation(rop.INT_LE, [i1, ConstInt(9)], i2),
-            ResOperation(rop.JUMP, [i1], None, descr=looptoken),
+            ResOperation(rop.JUMP, [i1], None, descr=targettoken),
             ]
         inputargs = [i0]
         debug._log = dlog = debug.DebugLog()
@@ -496,7 +500,7 @@ class TestX86(LLtypeBackendTest):
             ops[3].setfailargs([])
             ops[5].setfailargs([])
             ops[7].setfailargs([])
-            looptoken = LoopToken()
+            looptoken = JitCellToken()
             self.cpu.compile_loop([i1, i2], ops, looptoken)
 
             self.cpu.set_future_value_int(0, 123450)
