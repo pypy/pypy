@@ -140,7 +140,7 @@ class TestRunner(object):
         a -> 3
         """
         interp = self.run(code)
-        assert interp.results[0].value.val == 15
+        assert interp.results[0].value.value == 15
 
     def test_min(self):
         interp = self.run("""
@@ -149,7 +149,7 @@ class TestRunner(object):
         b = a + a
         min(b)
         """)
-        assert interp.results[0].value.val == -24
+        assert interp.results[0].value.value == -24
 
     def test_max(self):
         interp = self.run("""
@@ -158,7 +158,7 @@ class TestRunner(object):
         b = a + a
         max(b)
         """)
-        assert interp.results[0].value.val == 256
+        assert interp.results[0].value.value == 256
 
     def test_slice(self):
         py.test.skip("in progress")

@@ -239,7 +239,7 @@ class BaseArray(Wrappable):
         start, stop, step, slice_length = space.decode_index4(w_idx, self.find_size())
         if step == 0:
             # Single index
-            return self.get_concrete().eval(start).wrap(space)
+            return self.get_concrete().eval(start)
         else:
             # Slice
             new_sig = signature.Signature.find_sig([
@@ -540,8 +540,7 @@ class SingleDimArray(BaseArray):
         return space.wrap(self.size)
 
     def setitem_w(self, space, item, w_value):
-        self.invalidated()
-        self.dtype.setitem_w(space, self.storage, item, w_value)
+        return self.setitem(item, self.dtype.coerce(space, w_value))
 
     def setitem(self, item, value):
         self.invalidated()

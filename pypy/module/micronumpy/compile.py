@@ -50,7 +50,7 @@ class FakeSpace(object):
         return False
 
     def decode_index4(self, w_idx, size):
-        return (self.int_w(w_idx), 0, 0, 1)
+        return (self.int_w(self.int(w_idx)), 0, 0, 1)
 
     @specialize.argtype(1)
     def wrap(self, obj):
@@ -87,7 +87,10 @@ class FakeSpace(object):
         raise NotImplementedError
 
     def int(self, w_obj):
-        return w_obj
+        if isinstance(w_obj, IntObject):
+            return w_obj
+        assert isinstance(w_obj, interp_boxes.W_GenericBox)
+        return IntObject(int(w_obj.value))
 
     def is_true(self, w_obj):
         assert isinstance(w_obj, BoolObject)
