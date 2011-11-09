@@ -6,7 +6,8 @@ from pypy.rlib.rarithmetic import r_singlefloat, r_longlong, r_ulonglong
 from pypy.rlib.test.test_clibffi import BaseFfiTest, get_libm_name, make_struct_ffitype_e
 from pypy.rlib.libffi import CDLL, Func, get_libc_name, ArgChain, types
 from pypy.rlib.libffi import (IS_32_BIT, struct_getfield_int, struct_setfield_int,
-                              struct_getfield_longlong, struct_setfield_longlong)
+                              struct_getfield_longlong, struct_setfield_longlong,
+                              struct_getfield_float, struct_setfield_float)
 
 class TestLibffiMisc(BaseFfiTest):
 
@@ -92,6 +93,26 @@ class TestLibffiMisc(BaseFfiTest):
         struct_setfield_longlong(types.ulonglong, addr, y_ofs, r_longlong(-1))
         assert p.x == -9223372036854775808
         assert rffi.cast(lltype.UnsignedLongLong, p.y) == 18446744073709551615
+        #
+        lltype.free(p, flavor='raw')
+
+    def test_struct_fields_float(self):
+        POINT = lltype.Struct('POINT',
+                              ('x', rffi.DOUBLE),
+                              ('y', rffi.DOUBLE)
+                              )
+        y_ofs = 8
+        p = lltype.malloc(POINT, flavor='raw')
+        p.x = 123.4
+        p.y = 567.8
+        addr = rffi.cast(rffi.VOIDP, p)
+        assert struct_getfield_float(types.double, addr, 0) == 123.4
+        assert struct_getfield_float(types.double, addr, y_ofs) == 567.8
+        #
+        struct_setfield_float(types.double, addr, 0, 321.0)
+        struct_setfield_float(types.double, addr, y_ofs, 876.5)
+        assert p.x == 321.0
+        assert p.y == 876.5
         #
         lltype.free(p, flavor='raw')
 

@@ -459,6 +459,16 @@ def struct_setfield_longlong(ffitype, addr, offset, value):
     _struct_setfield(lltype.SignedLongLong, addr, offset, value)
 
 
+@jit.oopspec('libffi_struct_getfield(ffitype, addr, offset)')
+def struct_getfield_float(ffitype, addr, offset):
+    value = _struct_getfield(lltype.Float, addr, offset)
+    return value
+
+@jit.oopspec('libffi_struct_setfield(ffitype, addr, offset, value)')
+def struct_setfield_float(ffitype, addr, offset, value):
+    _struct_setfield(lltype.Float, addr, offset, value)
+
+
 @specialize.arg(0)
 def _struct_getfield(TYPE, addr, offset):
     """
