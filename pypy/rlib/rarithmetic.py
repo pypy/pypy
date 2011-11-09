@@ -56,6 +56,9 @@ while (1 << LONG_BIT_SHIFT) != LONG_BIT:
     assert LONG_BIT_SHIFT < 99, "LONG_BIT_SHIFT value not found?"
 
 def intmask(n):
+    """
+    NOT_RPYTHON
+    """
     if isinstance(n, int):
         return int(n)   # possibly bool->int
     if isinstance(n, objectmodel.Symbolic):
@@ -68,6 +71,9 @@ def intmask(n):
     return int(n)
 
 def longlongmask(n):
+    """
+    NOT_RPYTHON
+    """
     assert isinstance(n, (int, long))
     n = long(n)
     n &= LONGLONG_MASK
