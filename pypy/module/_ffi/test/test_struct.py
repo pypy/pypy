@@ -137,6 +137,8 @@ class AppTestStruct(BaseAppTestFFI):
             Field('ushort', types.ushort),
             Field('uint', types.uint),
             Field('ulong', types.ulong),
+            Field('char', types.char),
+            Field('unichar', types.unichar),
             ]
         descr = _StructDescr('foo', fields)
         struct = descr.allocate()
@@ -150,6 +152,11 @@ class AppTestStruct(BaseAppTestFFI):
         assert struct.getfield('ulong') == sys.maxint*2 + 1
         struct.setfield('ulong', sys.maxint*2 + 2)
         assert struct.getfield('ulong') == 0
+        struct.setfield('char', 'a')
+        assert struct.getfield('char') == 'a'
+        struct.setfield('unichar', u'\u1234')
+        assert struct.getfield('unichar') == u'\u1234'
+        
 
     def test_getfield_setfield_longlong(self):
         import sys

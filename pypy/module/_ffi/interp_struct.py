@@ -145,6 +145,14 @@ class W__StructInstance(Wrappable):
                 return space.wrap(r_uint(value))
             return space.wrap(value)
         #
+        if w_ffitype.is_char():
+            value = libffi.struct_getfield_int(w_ffitype.ffitype, self.rawmem, offset)
+            return space.wrap(chr(value))
+        #
+        if w_ffitype.is_unichar():
+            value = libffi.struct_getfield_int(w_ffitype.ffitype, self.rawmem, offset)
+            return space.wrap(unichr(value))
+        #
         if w_ffitype.is_double():
             value = libffi.struct_getfield_float(w_ffitype.ffitype, self.rawmem, offset)
             return space.wrap(value)
@@ -165,6 +173,11 @@ class W__StructInstance(Wrappable):
         #
         if w_ffitype.is_signed() or w_ffitype.is_unsigned():
             value = space.truncatedint_w(w_value)
+            libffi.struct_setfield_int(w_ffitype.ffitype, self.rawmem, offset, value)
+            return
+        #
+        if w_ffitype.is_char() or w_ffitype.is_unichar():
+            value = space.int_w(space.ord(w_value))
             libffi.struct_setfield_int(w_ffitype.ffitype, self.rawmem, offset, value)
             return
         #
