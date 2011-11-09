@@ -30,6 +30,9 @@ _WIN32 = _MSVC or _MINGW
 _MAC_OS = platform.name == "darwin"
 _FREEBSD_7 = platform.name == "freebsd7"
 
+_LITTLE_ENDIAN = sys.byteorder == 'little'
+_BIG_ENDIAN = sys.byteorder == 'big'
+
 if _WIN32:
     from pypy.rlib import rwin32
 
@@ -337,15 +340,46 @@ def cast_type_to_ffitype(tp):
     return TYPE_MAP[tp]
 cast_type_to_ffitype._annspecialcase_ = 'specialize:memo'
 
-def push_arg_as_ffiptr(ffitp, arg, ll_buf):
+def push_arg_as_ffiptr_base(ffitp, arg, ll_buf):
     # this is for primitive types. For structures and arrays
     # would be something different (more dynamic)
+    # XXX is this valid in C?, for args that are larger than the size of
+    # ll_buf we write over the boundaries of the allocated char array and
+    # just keep as much bytes as we need for the target type. Maybe using
+    # memcpy would be better here. Also this
+    # only works on little endian architectures
     TP = lltype.typeOf(arg)
     TP_P = lltype.Ptr(rffi.CArray(TP))
     buf = rffi.cast(TP_P, ll_buf)
     buf[0] = arg
-push_arg_as_ffiptr._annspecialcase_ = 'specialize:argtype(1)'
+push_arg_as_ffiptr_base._annspecialcase_ = 'specialize:argtype(1)'
 
+def push_arg_as_ffiptr_memcpy(ffitp, arg, ll_buf):
+    # this is for primitive types. For structures and arrays
+    # would be something different (more dynamic)
+    TP = lltype.typeOf(arg)
+    TP_P = lltype.Ptr(rffi.CArray(TP))
+    TP_size = rffi.sizeof(TP)
+    c_size = intmask(ffitp.c_size)
+
+    # if both types have the same size, we do not can directly write the
+    # value to the buffer
+    if c_size == TP_size:
+        return push_arg_as_ffiptr_base(ffitp, arg, ll_buf)
+
+    # store arg in a small box in memory
+    # and copy the relevant bytes over to the target buffer (ll_buf)
+    with lltype.scoped_alloc(TP_P.TO, TP_size) as argbuf:
+        argbuf[0] = arg
+        cargbuf = rffi.cast(rffi.CCHARP, argbuf)
+        ptr = rffi.ptradd(cargbuf, TP_size - c_size)
+        rffi.c_memcpy(ll_buf, ptr, c_size)
+push_arg_as_ffiptr_memcpy._annspecialcase_ = 'specialize:argtype(1)'
+
+if _LITTLE_ENDIAN:
+    push_arg_as_ffiptr = push_arg_as_ffiptr_base
+else:
+    push_arg_as_ffiptr = push_arg_as_ffiptr_memcpy
 
 # type defs for callback and closure userdata
 USERDATA_P = lltype.Ptr(lltype.ForwardReference())
