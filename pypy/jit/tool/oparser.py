@@ -241,9 +241,9 @@ class OpParser(object):
             if opnum == rop.FINISH:
                 if descr is None and self.invent_fail_descr:
                     descr = self.invent_fail_descr(self.model, fail_args)
-            elif opnum == rop.JUMP:
-                if descr is None and self.invent_fail_descr:
-                    descr = self.celltoken
+##            elif opnum == rop.JUMP:
+##                if descr is None and self.invent_fail_descr:
+##                    ...
         return opnum, args, descr, fail_args
 
     def create_op(self, opnum, args, result, descr):
