@@ -723,9 +723,8 @@ _const_ptr_for_unicode = {}
 
 # ____________________________________________________________
 
-# The TreeLoop class contains a loop or a generalized loop, i.e. a tree
-# of operations.  Each branch ends in a jump which can go either to
-# the top of the same loop, or to another TreeLoop; or it ends in a FINISH.
+# The JitCellToken class is the root of a tree of traces.  Each branch ends
+# in a jump which goes to a LABEL operation; or it ends in a FINISH.
 
 class JitCellToken(AbstractDescr):
     """Used for rop.JUMP, giving the target of the jump.
@@ -766,7 +765,7 @@ class JitCellToken(AbstractDescr):
         self.compiled_loop_token.cpu.dump_loop_token(self)
 
 class TargetToken(AbstractDescr):
-    def __init__(self, targeting_jitcell_token):
+    def __init__(self, targeting_jitcell_token=None):
         # The jitcell to which jumps might result in a jump to this label
         self.targeting_jitcell_token = targeting_jitcell_token
         
