@@ -5,7 +5,7 @@ Interp-level implementation of the basic space operations.
 from pypy.interpreter import gateway
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.rlib.runicode import UNICHR
+from pypy.rlib.runicode import UNICHR, str_decode_ascii, unicode_encode_ascii
 from pypy.rlib.rfloat import isnan, isinf, round_double
 from pypy.rlib import rfloat
 import __builtin__
@@ -22,9 +22,12 @@ def ascii(space, w_obj):
     object, but escape the non-ASCII characters in the string returned by
     repr() using \\x, \\u or \\U escapes.  This generates a string similar
     to that returned by repr() in Python 2."""
+    len_ = __builtin__.len
     # repr is guaranteed to be unicode
-    repr = space.unwrap(space.repr(w_obj))
-    return space.wrap(repr.encode('ascii', 'backslashreplace').decode('ascii'))
+    repr = space.unicode_w(space.repr(w_obj))
+    encoded = unicode_encode_ascii(repr, len_(repr), 'backslashreplace')
+    decoded = str_decode_ascii(encoded, len_(encoded), None, final=True)[0]
+    return space.wrap(decoded)
 
 @unwrap_spec(code=int)
 def chr(space, code):
