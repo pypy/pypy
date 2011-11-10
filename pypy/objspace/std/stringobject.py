@@ -870,9 +870,9 @@ def len__String(space, w_str):
     return space.wrap(len(w_str._value))
 
 def str__String(space, w_str):
-    if type(w_str) is W_StringObject:
-        return w_str
-    return wrapstr(space, w_str._value)
+    if space.sys.get_flag('bytes_warning'):
+        space.warn("str() on a bytes instance", space.w_BytesWarning)
+    return repr__String(space, w_str)
 
 def ord__String(space, w_str):
     u_str = w_str._value

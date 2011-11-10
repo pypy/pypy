@@ -392,6 +392,7 @@ cmdline_options = {
     'v': (simple_option, 'verbose'),
     'U': (simple_option, 'unicode'),
     'u': (simple_option, 'unbuffered'),
+    'b': (simple_option, 'bytes_warning'),
     # more complex options
     'Q':         (div_option,      Ellipsis),
     'c':         (c_option,        Ellipsis),
@@ -411,7 +412,6 @@ if PYTHON26:
         '3': (simple_option, 'py3k_warning'),
         'B': (simple_option, 'dont_write_bytecode'),
         's': (simple_option, 'no_user_site'),
-        'b': (simple_option, 'bytes_warning'),
         })
 
 

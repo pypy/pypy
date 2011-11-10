@@ -280,24 +280,17 @@ def unicode_from_encoded_object(space, w_obj, encoding, errors):
 def unicode_from_object(space, w_obj):
     if space.is_w(space.type(w_obj), space.w_unicode):
         return w_obj
-    elif space.is_w(space.type(w_obj), space.w_str):
-        w_res = w_obj
-    else:
-        w_unicode_method = space.lookup(w_obj, "__unicode__")
-        # obscure workaround: for the next two lines see
-        # test_unicode_conversion_with__str__
-        if w_unicode_method is None:
-            if space.isinstance_w(w_obj, space.w_unicode):
-                return space.wrap(space.unicode_w(w_obj))
-            w_unicode_method = space.lookup(w_obj, "__str__")
-        if w_unicode_method is not None:
-            w_res = space.get_and_call_function(w_unicode_method, w_obj)
-        else:
-            w_res = space.str(w_obj)
-        if space.isinstance_w(w_res, space.w_unicode):
-            return w_res
-    return unicode_from_encoded_object(space, w_res, None, "strict")
 
+    w_unicode_method = space.lookup(w_obj, "__str__")
+    if w_unicode_method is None:
+        return space.repr(w_obj)
+
+    w_res = space.get_and_call_function(w_unicode_method, w_obj)
+    if not space.isinstance_w(w_res, space.w_unicode):
+        typename = space.type(w_res).getname(space)
+        msg = "__str__ returned non-string (type %.200s)" % typename
+        raise OperationError(space.w_TypeError, space.wrap(msg))
+    return w_res
 
 def descr_new_(space, w_unicodetype, w_string='', w_encoding=None, w_errors=None):
     # NB. the default value of w_obj is really a *wrapped* empty string:
