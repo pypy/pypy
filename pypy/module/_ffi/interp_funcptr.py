@@ -3,7 +3,6 @@ from pypy.interpreter.error import OperationError, wrap_oserror, \
     operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef
-from pypy.module._rawffi.structure import W_StructureInstance, W_Structure
 from pypy.module._ffi.interp_ffitype import W_FFIType
 #
 from pypy.rpython.lltypesystem import lltype, rffi
@@ -13,7 +12,7 @@ from pypy.rlib import libffi
 from pypy.rlib.rdynload import DLOpenError
 from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.module._ffi.dispatcher import AbstractDispatcher
+from pypy.module._ffi.dispatcher import UnwrapDispatcher, WrapDispatcher
 
 
 def unwrap_ffitype(space, w_argtype, allow_void=False):
@@ -49,7 +48,7 @@ class W_FuncPtr(Wrappable):
                                   self.func.name, expected, arg, given)
         #
         argchain = libffi.ArgChain()
-        argpusher = ArgumentPusherDispatcher(space, argchain, self.to_free)
+        argpusher = PushArgumentDispatcher(space, argchain, self.to_free)
         for i in range(expected):
             w_argtype = self.argtypes_w[i]
             w_arg = args_w[i]
@@ -59,7 +58,9 @@ class W_FuncPtr(Wrappable):
     def call(self, space, args_w):
         self = jit.promote(self)
         argchain = self.build_argchain(space, args_w)
-        return self._do_call(space, argchain)
+        func_caller = CallFunctionDispatcher(space, self.func, argchain)
+        return func_caller.do_and_wrap(self.w_restype)
+        #return self._do_call(space, argchain)
 
     def free_temp_buffers(self, space):
         for buf in self.to_free:
@@ -69,122 +70,6 @@ class W_FuncPtr(Wrappable):
             lltype.free(buf, flavor='raw')
         self.to_free = []
 
-    def _do_call(self, space, argchain):
-        w_restype = self.w_restype
-        if w_restype.is_longlong():
-            # note that we must check for longlong first, because either
-            # is_signed or is_unsigned returns true anyway
-            assert libffi.IS_32_BIT
-            return self._call_longlong(space, argchain)
-        elif w_restype.is_signed():
-            return self._call_int(space, argchain)
-        elif w_restype.is_unsigned() or w_restype.is_pointer():
-            return self._call_uint(space, argchain)
-        elif w_restype.is_char():
-            intres = self.func.call(argchain, rffi.UCHAR)
-            return space.wrap(chr(intres))
-        elif w_restype.is_unichar():
-            intres = self.func.call(argchain, rffi.WCHAR_T)
-            return space.wrap(unichr(intres))
-        elif w_restype.is_double():
-            return self._call_float(space, argchain)
-        elif w_restype.is_singlefloat():
-            return self._call_singlefloat(space, argchain)
-        elif w_restype.is_struct():
-            w_datashape = w_restype.w_datashape
-            assert isinstance(w_datashape, W_Structure)
-            ptrval = self.func.call(argchain, rffi.ULONG, is_struct=True)
-            return w_datashape.fromaddress(space, ptrval)
-        elif w_restype.is_void():
-            voidres = self.func.call(argchain, lltype.Void)
-            assert voidres is None
-            return space.w_None
-        else:
-            assert False, "Return value shape '%s' not supported" % w_restype
-
-    def _call_int(self, space, argchain):
-        # if the declared return type of the function is smaller than LONG,
-        # the result buffer may contains garbage in its higher bits.  To get
-        # the correct value, and to be sure to handle the signed/unsigned case
-        # correctly, we need to cast the result to the correct type.  After
-        # that, we cast it back to LONG, because this is what we want to pass
-        # to space.wrap in order to get a nice applevel <int>.
-        #
-        restype = self.func.restype
-        call = self.func.call
-        if restype is libffi.types.slong:
-            intres = call(argchain, rffi.LONG)
-        elif restype is libffi.types.sint:
-            intres = rffi.cast(rffi.LONG, call(argchain, rffi.INT))
-        elif restype is libffi.types.sshort:
-            intres = rffi.cast(rffi.LONG, call(argchain, rffi.SHORT))
-        elif restype is libffi.types.schar:
-            intres = rffi.cast(rffi.LONG, call(argchain, rffi.SIGNEDCHAR))
-        else:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap('Unsupported restype'))
-        return space.wrap(intres)
-
-    def _call_uint(self, space, argchain):
-        # the same comment as above apply. Moreover, we need to be careful
-        # when the return type is ULONG, because the value might not fit into
-        # a signed LONG: this is the only case in which we cast the result to
-        # something different than LONG; as a result, the applevel value will
-        # be a <long>.
-        #
-        # Note that we check for ULONG before UINT: this is needed on 32bit
-        # machines, where they are they same: if we checked for UINT before
-        # ULONG, we would cast to the wrong type.  Note that this also means
-        # that on 32bit the UINT case will never be entered (because it is
-        # handled by the ULONG case).
-        restype = self.func.restype
-        call = self.func.call
-        if restype is libffi.types.ulong:
-            # special case
-            uintres = call(argchain, rffi.ULONG)
-            return space.wrap(uintres)
-        elif restype is libffi.types.pointer:
-            ptrres = call(argchain, rffi.VOIDP)
-            uintres = rffi.cast(rffi.ULONG, ptrres)
-            return space.wrap(uintres)
-        elif restype is libffi.types.uint:
-            intres = rffi.cast(rffi.LONG, call(argchain, rffi.UINT))
-        elif restype is libffi.types.ushort:
-            intres = rffi.cast(rffi.LONG, call(argchain, rffi.USHORT))
-        elif restype is libffi.types.uchar:
-            intres = rffi.cast(rffi.LONG, call(argchain, rffi.UCHAR))
-        else:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap('Unsupported restype'))
-        return space.wrap(intres)
-
-    def _call_float(self, space, argchain):
-        # a separate function, which can be seen by the jit or not,
-        # depending on whether floats are supported
-        floatres = self.func.call(argchain, rffi.DOUBLE)
-        return space.wrap(floatres)
-
-    def _call_longlong(self, space, argchain):
-        # a separate function, which can be seen by the jit or not,
-        # depending on whether longlongs are supported
-        restype = self.func.restype
-        call = self.func.call
-        if restype is libffi.types.slonglong:
-            llres = call(argchain, rffi.LONGLONG)
-            return space.wrap(llres)
-        elif restype is libffi.types.ulonglong:
-            ullres = call(argchain, rffi.ULONGLONG)
-            return space.wrap(ullres)
-        else:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap('Unsupported longlong restype'))
-
-    def _call_singlefloat(self, space, argchain):
-        # a separate function, which can be seen by the jit or not,
-        # depending on whether singlefloats are supported
-        sfres = self.func.call(argchain, rffi.FLOAT)
-        return space.wrap(float(sfres))
-
     def getaddr(self, space):
         """
         Return the physical address in memory of the function
@@ -192,14 +77,14 @@ class W_FuncPtr(Wrappable):
         return space.wrap(rffi.cast(rffi.LONG, self.func.funcsym))
 
 
-class ArgumentPusherDispatcher(AbstractDispatcher):
+class PushArgumentDispatcher(UnwrapDispatcher):
     """
     A dispatcher used by W_FuncPtr to unwrap the app-level objects into
     low-level types and push them to the argchain.
     """
 
     def __init__(self, space, argchain, to_free):
-        AbstractDispatcher.__init__(self, space)
+        UnwrapDispatcher.__init__(self, space)
         self.argchain = argchain
         self.to_free = to_free
 
@@ -244,6 +129,91 @@ class ArgumentPusherDispatcher(AbstractDispatcher):
         self.argchain.arg_raw(ptrval)
 
 
+class CallFunctionDispatcher(WrapDispatcher):
+    """
+    A dispatcher used by W_FuncPtr to call the function, expect the result of
+    a correct low-level type and wrap it to the corresponding app-level type
+    """
+
+    def __init__(self, space, func, argchain):
+        WrapDispatcher.__init__(self, space)
+        self.func = func
+        self.argchain = argchain
+
+    def get_longlong(self, w_ffitype):
+        return self.func.call(self.argchain, rffi.LONGLONG)
+
+    def get_ulonglong(self, w_ffitype):
+        return self.func.call(self.argchain, rffi.ULONGLONG)
+
+    def get_signed(self, w_ffitype):
+        # if the declared return type of the function is smaller than LONG,
+        # the result buffer may contains garbage in its higher bits.  To get
+        # the correct value, and to be sure to handle the signed/unsigned case
+        # correctly, we need to cast the result to the correct type.  After
+        # that, we cast it back to LONG, because this is what we want to pass
+        # to space.wrap in order to get a nice applevel <int>.
+        #
+        restype = w_ffitype.ffitype
+        call = self.func.call
+        if restype is libffi.types.slong:
+            return call(self.argchain, rffi.LONG)
+        elif restype is libffi.types.sint:
+            return rffi.cast(rffi.LONG, call(self.argchain, rffi.INT))
+        elif restype is libffi.types.sshort:
+            return rffi.cast(rffi.LONG, call(self.argchain, rffi.SHORT))
+        elif restype is libffi.types.schar:
+            return rffi.cast(rffi.LONG, call(self.argchain, rffi.SIGNEDCHAR))
+        else:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap('Unsupported restype'))
+
+    def get_unsigned(self, w_ffitype):
+        return self.func.call(self.argchain, rffi.ULONG)
+
+    def get_unsigned_which_fits_into_a_signed(self, w_ffitype):
+        # the same comment as get_signed apply
+        restype = w_ffitype.ffitype
+        call = self.func.call
+        if restype is libffi.types.uint:
+            assert not libffi.IS_32_BIT
+            # on 32bit machines, we should never get here, because it's a case
+            # which has already been handled by get_unsigned above.
+            return rffi.cast(rffi.LONG, call(self.argchain, rffi.UINT))
+        elif restype is libffi.types.ushort:
+            return rffi.cast(rffi.LONG, call(self.argchain, rffi.USHORT))
+        elif restype is libffi.types.uchar:
+            return rffi.cast(rffi.LONG, call(self.argchain, rffi.UCHAR))
+        else:
+            raise OperationError(space.w_ValueError,
+                                 space.wrap('Unsupported restype'))
+        return space.wrap(intres)
+
+    def get_pointer(self, w_ffitype):
+        ptrres = self.func.call(self.argchain, rffi.VOIDP)
+        return rffi.cast(rffi.ULONG, ptrres)
+
+    def get_char(self, w_ffitype):
+        return self.func.call(self.argchain, rffi.UCHAR)
+
+    def get_unichar(self, w_ffitype):
+        return self.func.call(self.argchain, rffi.WCHAR_T)
+
+    def get_float(self, w_ffitype):
+        return self.func.call(self.argchain, rffi.DOUBLE)
+
+    def get_singlefloat(self, w_ffitype):
+        return self.func.call(self.argchain, rffi.FLOAT)
+
+    def get_struct(self, w_datashape):
+        """
+        XXX: write nice docstring in the base class, must return an ULONG
+        """
+        return self.func.call(self.argchain, rffi.ULONG, is_struct=True)
+
+    def get_void(self, w_ffitype):
+        return self.func.call(self.argchain, lltype.Void)
+    
 
 def unpack_argtypes(space, w_argtypes, w_restype):
     argtypes_w = [space.interp_w(W_FFIType, w_argtype)
