@@ -192,7 +192,7 @@ class DtypeCache(object):
             types.Float64(),
             num=12,
             kind=FLOATINGLTR,
-            name="float32",
+            name="float64",
             char="d",
             alternate_constructors=[space.w_float],
         )

@@ -52,6 +52,9 @@ class Primitive(BaseType):
     def add(self, v1, v2):
         return self.box(self.unbox(v1) + self.unbox(v2))
 
+    def div(self, v1, v2):
+        return self.box(self.unbox(v1) / self.unbox(v2))
+
     def eq(self, v1, v2):
         return self.unbox(v1) == self.unbox(v2)
 
@@ -77,6 +80,10 @@ class Bool(Primitive):
 
     def _coerce(self, space, w_item):
         return self.box(space.is_true(w_item))
+
+    def str_format(self, box):
+        value = self.unbox(box)
+        return "True" if value else "False"
 
 class Integer(Primitive):
     def _coerce(self, space, w_item):

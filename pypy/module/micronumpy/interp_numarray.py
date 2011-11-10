@@ -20,7 +20,7 @@ def descr_new_array(space, w_subtype, w_size_or_iterable, w_dtype=None):
         w_dtype = None
         for w_item in l:
             w_dtype = interp_ufuncs.find_dtype_for_scalar(space, w_item, w_dtype)
-            if w_dtype is space.fromcache(interp_dtype.W_Float64Dtype):
+            if w_dtype is interp_dtype.get_dtype_cache(space).w_float64dtype:
                 break
         if w_dtype is None:
             w_dtype = space.w_None
@@ -177,12 +177,12 @@ class BaseArray(Wrappable):
         dtype = self.find_dtype()
         if self.find_size() > 1000:
             nums = [
-                dtype.str_format(self.eval(index))
+                dtype.itemtype.str_format(self.eval(index))
                 for index in range(3)
             ]
             nums.append("..." + "," * comma)
             nums.extend([
-                dtype.str_format(self.eval(index))
+                dtype.itemtype.str_format(self.eval(index))
                 for index in range(self.find_size() - 3, self.find_size())
             ])
         else:
@@ -215,8 +215,8 @@ class BaseArray(Wrappable):
         concrete = self.get_concrete()
         res = "array([" + ", ".join(concrete._getnums(False)) + "]"
         dtype = concrete.find_dtype()
-        if (dtype is not space.fromcache(interp_dtype.W_Float64Dtype) and
-            dtype is not space.fromcache(interp_dtype.W_Int64Dtype)) or not self.find_size():
+        if (dtype is not interp_dtype.get_dtype_cache(space).w_float64dtype and
+            dtype is not interp_dtype.get_dtype_cache(space).w_int64dtype) or not self.find_size():
             res += ", dtype=" + dtype.name
         res += ")"
         return space.wrap(res)
@@ -282,7 +282,7 @@ class BaseArray(Wrappable):
                                                slice_length, w_value)
 
     def descr_mean(self, space):
-        return space.wrap(space.float_w(self.descr_sum(space))/self.find_size())
+        return space.div(self.descr_sum(space), space.wrap(self.find_size()))
 
     def _sliceloop(self, start, stop, step, source, dest):
         i = start

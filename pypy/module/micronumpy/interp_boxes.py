@@ -31,6 +31,8 @@ class W_GenericBox(Wrappable):
             return getattr(interp_ufuncs.get(space), ufunc_name).call(space, [self, w_other])
         return func_with_new_name(impl, "binop_%s_impl" % ufunc_name)
 
+    descr_div = _binop_impl("divide")
+
     descr_eq = _binop_impl("equal")
 
 
@@ -105,6 +107,7 @@ W_GenericBox.typedef = TypeDef("generic",
     __int__ = interp2app(W_GenericBox.descr_int),
     __float__ = interp2app(W_GenericBox.descr_float),
 
+    __div__ = interp2app(W_GenericBox.descr_div),
     __eq__ = interp2app(W_GenericBox.descr_eq),
 
 )
