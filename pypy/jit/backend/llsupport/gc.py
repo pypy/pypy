@@ -672,6 +672,7 @@ class GcLLDescr_framework(GcLLDescription):
         self.WB_ARRAY_FUNCPTR = lltype.Ptr(lltype.FuncType(
             [llmemory.Address, lltype.Signed, llmemory.Address], lltype.Void))
         self.write_barrier_descr = WriteBarrierDescr(self)
+        self.fielddescr_tid = self.write_barrier_descr.fielddescr_tid
         #
         def malloc_array(itemsize, tid, num_elem):
             type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
@@ -809,17 +810,52 @@ class GcLLDescr_framework(GcLLDescription):
         newops = []
         known_lengths = {}
         # we can only remember one malloc since the next malloc can possibly
-        # collect
-        last_malloc = None
+        # collect; but we can try to collapse several known-size mallocs into
+        # one, both for performance and to reduce the number of write
+        # barriers.  We do this on each "basic block" of operations, which in
+        # this case means between CALLs or unknown-size mallocs.
+        op_malloc_gc = None
+        v_last_malloc = None
+        previous_size = -1
+        current_mallocs = {}
+        #
         for op in operations:
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
                 continue
             # ---------- record the ConstPtrs ----------
             self.record_constptrs(op, gcrefs_output_list)
+            # ---------- fold the NEWxxx operations into MALLOC_GC ----------
             if op.is_malloc():
-                last_malloc = op.result
+                if op.getopnum() == rop.NEW:
+                    descr = op.getdescr()
+                    assert isinstance(descr, BaseSizeDescr)
+                    if op_malloc_gc is None:
+                        # it is the first we see: emit MALLOC_GC
+                        op = ResOperation(rop.MALLOC_GC,
+                                          [ConstInt(descr.size)],
+                                          op.result)
+                        op_malloc_gc = op
+                    else:
+                        # already a MALLOC_GC: increment its total size
+                        total_size = op_malloc_gc.getarg(0).getint()
+                        total_size += descr.size
+                        op_malloc_gc.setarg(0, ConstInt(total_size))
+                        op = ResOperation(rop.INT_ADD,
+                                          [v_last_malloc,
+                                           ConstInt(previous_size)],
+                                          op.result)
+                    previous_size = descr.size
+                    v_last_malloc = op.result
+                    newops.append(op)
+                    # NEW: add a SETFIELD to initialize the GC header
+                    op = ResOperation(rop.SETFIELD_GC,
+                                      [op.result, ConstInt(descr.tid)],
+                                      None, descr=self.fielddescr_tid)
+                    newops.append(op)
+                    continue
+                op_last_malloc = op
             elif op.can_malloc():
-                last_malloc = None
+                op_last_malloc = None
             # ---------- write barrier for SETFIELD_GC ----------
             if op.getopnum() == rop.SETFIELD_GC:
                 val = op.getarg(0)

@@ -570,6 +570,68 @@ class TestFramework(object):
             assert operations[1].getarg(2) == v_value
             assert operations[1].getdescr() == array_descr
 
+    def test_rewrite_assembler_new_to_malloc(self):
+        self.gc_ll_descr.translate_support_code = False
+        try:
+            S = lltype.GcStruct('S', ('x', lltype.Signed))
+            sdescr = get_size_descr(self.gc_ll_descr, S)
+            sdescr.tid = 1234
+        finally:
+            self.gc_ll_descr.translate_support_code = True
+        tiddescr = self.gc_ll_descr.fielddescr_tid
+        ops = parse("""
+        [p1]
+        p0 = new(descr=sdescr)
+        jump()
+        """, namespace=locals())
+        expected = parse("""
+        [p1]
+        p0 = malloc_gc(%d)
+        setfield_gc(p0, 1234, descr=tiddescr)
+        jump()
+        """ % (sdescr.size,), namespace=locals())
+        operations = get_deep_immutable_oplist(ops.operations)
+        operations = self.gc_ll_descr.rewrite_assembler(self.fake_cpu,
+                                                        operations, [])
+        equaloplists(operations, expected.operations)
+
+    def test_rewrite_assembler_new3_to_malloc(self):
+        self.gc_ll_descr.translate_support_code = False
+        try:
+            S = lltype.GcStruct('S', ('x', lltype.Signed))
+            sdescr = get_size_descr(self.gc_ll_descr, S)
+            sdescr.tid = 1234
+            T = lltype.GcStruct('T', ('y', lltype.Signed),
+                                     ('z', lltype.Signed))
+            tdescr = get_size_descr(self.gc_ll_descr, T)
+            tdescr.tid = 5678
+        finally:
+            self.gc_ll_descr.translate_support_code = True
+        tiddescr = self.gc_ll_descr.fielddescr_tid
+        ops = parse("""
+        []
+        p0 = new(descr=sdescr)
+        p1 = new(descr=tdescr)
+        p2 = new(descr=sdescr)
+        jump()
+        """, namespace=locals())
+        expected = parse("""
+        []
+        p0 = malloc_gc(%d)
+        setfield_gc(p0, 1234, descr=tiddescr)
+        p1 = int_add(p0, %d)
+        setfield_gc(p1, 5678, descr=tiddescr)
+        p2 = int_add(p1, %d)
+        setfield_gc(p2, 1234, descr=tiddescr)
+        jump()
+        """ % (sdescr.size + tdescr.size + sdescr.size,
+               sdescr.size,
+               tdescr.size), namespace=locals())
+        operations = get_deep_immutable_oplist(ops.operations)
+        operations = self.gc_ll_descr.rewrite_assembler(self.fake_cpu,
+                                                        operations, [])
+        equaloplists(operations, expected.operations)
+
     def test_rewrite_assembler_initialization_store(self):
         S = lltype.GcStruct('S', ('parent', OBJECT),
                             ('x', lltype.Signed))
