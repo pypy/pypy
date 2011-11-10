@@ -1,6 +1,5 @@
 import unittest
 from ctypes import *
-from ctypes.test import xfail
 
 class MyInt(c_int):
     def __cmp__(self, other):
@@ -27,7 +26,6 @@ class Test(unittest.TestCase):
         self.assertEqual(None, cb())
 
 
-    @xfail
     def test_int_callback(self):
         args = []
         def func(arg):

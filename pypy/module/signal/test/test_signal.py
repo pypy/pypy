@@ -1,4 +1,4 @@
-import os, py
+import os, py, sys
 import signal as cpy_signal
 from pypy.conftest import gettestobjspace
 
@@ -263,6 +263,10 @@ class AppTestSignalSocket:
 
 class AppTestItimer:
     spaceconfig = dict(usemodules=['signal'])
+
+    def setup_class(cls):
+        if sys.platform == 'win32':
+            py.test.skip("Unix only")
 
     def test_itimer_real(self):
         import signal
