@@ -288,7 +288,7 @@ def unicode_from_object(space, w_obj):
     w_res = space.get_and_call_function(w_unicode_method, w_obj)
     if not space.isinstance_w(w_res, space.w_unicode):
         typename = space.type(w_res).getname(space)
-        msg = "__str__ returned non-string (type %.200s)" % typename
+        msg = "__str__ returned non-string (type %s)" % typename
         raise OperationError(space.w_TypeError, space.wrap(msg))
     return w_res
 
