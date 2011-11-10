@@ -13,6 +13,7 @@ from pypy.rlib import libffi
 from pypy.rlib.rdynload import DLOpenError
 from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.module._ffi.dispatcher import AbstractDispatcher
 
 
 def unwrap_ffitype(space, w_argtype, allow_void=False):
@@ -22,12 +23,6 @@ def unwrap_ffitype(space, w_argtype, allow_void=False):
         raise OperationError(space.w_TypeError, space.wrap(msg))
     return res
 
-def unwrap_truncate_int(TP, space, w_arg):
-    if space.is_true(space.isinstance(w_arg, space.w_int)):
-        return rffi.cast(TP, space.int_w(w_arg))
-    else:
-        return rffi.cast(TP, space.bigint_w(w_arg).ulonglongmask())
-unwrap_truncate_int._annspecialcase_ = 'specialize:arg(0)'
 
 # ========================================================================
 
@@ -54,96 +49,12 @@ class W_FuncPtr(Wrappable):
                                   self.func.name, expected, arg, given)
         #
         argchain = libffi.ArgChain()
+        argpusher = ArgumentPusherDispatcher(space, argchain, self.to_free)
         for i in range(expected):
             w_argtype = self.argtypes_w[i]
             w_arg = args_w[i]
-            if w_argtype.is_longlong():
-                # note that we must check for longlong first, because either
-                # is_signed or is_unsigned returns true anyway
-                assert libffi.IS_32_BIT
-                self.arg_longlong(space, argchain, w_arg)
-            elif w_argtype.is_signed():
-                argchain.arg(unwrap_truncate_int(rffi.LONG, space, w_arg))
-            elif self.add_char_p_maybe(space, argchain, w_arg, w_argtype):
-                # the argument is added to the argchain direcly by the method above
-                pass
-            elif w_argtype.is_pointer():
-                w_arg = self.convert_pointer_arg_maybe(space, w_arg, w_argtype)
-                argchain.arg(intmask(space.uint_w(w_arg)))
-            elif w_argtype.is_unsigned():
-                argchain.arg(unwrap_truncate_int(rffi.ULONG, space, w_arg))
-            elif w_argtype.is_char():
-                w_arg = space.ord(w_arg)
-                argchain.arg(space.int_w(w_arg))
-            elif w_argtype.is_unichar():
-                w_arg = space.ord(w_arg)
-                argchain.arg(space.int_w(w_arg))
-            elif w_argtype.is_double():
-                self.arg_float(space, argchain, w_arg)
-            elif w_argtype.is_singlefloat():
-                self.arg_singlefloat(space, argchain, w_arg)
-            elif w_argtype.is_struct():
-                # arg_raw directly takes value to put inside ll_args
-                w_arg = space.interp_w(W_StructureInstance, w_arg)
-                ptrval = w_arg.ll_buffer
-                argchain.arg_raw(ptrval)
-            else:
-                assert False, "Argument shape '%s' not supported" % w_argtype
+            argpusher.unwrap_and_do(w_argtype, w_arg)
         return argchain
-
-    def add_char_p_maybe(self, space, argchain, w_arg, w_argtype):
-        """
-        Automatic conversion from string to char_p. The allocated buffer will
-        be automatically freed after the call.
-        """
-        w_type = jit.promote(space.type(w_arg))
-        if w_argtype.is_char_p() and w_type is space.w_str:
-            strval = space.str_w(w_arg)
-            buf = rffi.str2charp(strval)
-            self.to_free.append(rffi.cast(rffi.VOIDP, buf))
-            addr = rffi.cast(rffi.ULONG, buf)
-            argchain.arg(addr)
-            return True
-        elif w_argtype.is_unichar_p() and (w_type is space.w_str or
-                                           w_type is space.w_unicode):
-            unicodeval = space.unicode_w(w_arg)
-            buf = rffi.unicode2wcharp(unicodeval)
-            self.to_free.append(rffi.cast(rffi.VOIDP, buf))
-            addr = rffi.cast(rffi.ULONG, buf)
-            argchain.arg(addr)
-            return True
-        return False
-
-    def convert_pointer_arg_maybe(self, space, w_arg, w_argtype):
-        """
-        Try to convert the argument by calling _as_ffi_pointer_()
-        """
-        meth = space.lookup(w_arg, '_as_ffi_pointer_') # this also promotes the type
-        if meth:
-            return space.call_function(meth, w_arg, w_argtype)
-        else:
-            return w_arg
-
-    def arg_float(self, space, argchain, w_arg):
-        # a separate function, which can be seen by the jit or not,
-        # depending on whether floats are supported
-        argchain.arg(space.float_w(w_arg))
-
-    def arg_longlong(self, space, argchain, w_arg):
-        # a separate function, which can be seen by the jit or not,
-        # depending on whether longlongs are supported
-        bigarg = space.bigint_w(w_arg)
-        ullval = bigarg.ulonglongmask()
-        llval = rffi.cast(rffi.LONGLONG, ullval)
-        argchain.arg(llval)
-
-    def arg_singlefloat(self, space, argchain, w_arg):
-        # a separate function, which can be seen by the jit or not,
-        # depending on whether singlefloats are supported
-        from pypy.rlib.rarithmetic import r_singlefloat
-        fval = space.float_w(w_arg)
-        sfval = r_singlefloat(fval)
-        argchain.arg(sfval)
 
     def call(self, space, args_w):
         self = jit.promote(self)
@@ -281,6 +192,58 @@ class W_FuncPtr(Wrappable):
         return space.wrap(rffi.cast(rffi.LONG, self.func.funcsym))
 
 
+class ArgumentPusherDispatcher(AbstractDispatcher):
+    """
+    A dispatcher used by W_FuncPtr to unwrap the app-level objects into
+    low-level types and push them to the argchain.
+    """
+
+    def __init__(self, space, argchain, to_free):
+        AbstractDispatcher.__init__(self, space)
+        self.argchain = argchain
+        self.to_free = to_free
+
+    def handle_signed(self, w_ffitype, w_obj, intval):
+        self.argchain.arg(intval)
+
+    def handle_unsigned(self, w_ffitype, w_obj, uintval):
+        self.argchain.arg(uintval)
+
+    def handle_pointer(self, w_ffitype, w_obj, intval):
+        self.argchain.arg(intval)
+
+    def handle_char(self, w_ffitype, w_obj, intval):
+        self.argchain.arg(intval)
+
+    def handle_unichar(self, w_ffitype, w_obj, intval):
+        self.argchain.arg(intval)
+
+    def handle_longlong(self, w_ffitype, w_obj, longlongval):
+        self.argchain.arg(longlongval)
+
+    def handle_char_p(self, w_ffitype, w_obj, strval):
+        buf = rffi.str2charp(strval)
+        self.to_free.append(rffi.cast(rffi.VOIDP, buf))
+        addr = rffi.cast(rffi.ULONG, buf)
+        self.argchain.arg(addr)
+
+    def handle_unichar_p(self, w_ffitype, w_obj, unicodeval):
+        buf = rffi.unicode2wcharp(unicodeval)
+        self.to_free.append(rffi.cast(rffi.VOIDP, buf))
+        addr = rffi.cast(rffi.ULONG, buf)
+        self.argchain.arg(addr)
+
+    def handle_float(self, w_ffitype, w_obj, floatval):
+        self.argchain.arg(floatval)
+
+    def handle_singlefloat(self, w_ffitype, w_obj, singlefloatval):
+        self.argchain.arg(singlefloatval)
+
+    def handle_struct(self, w_ffitype, w_structinstance):
+        ptrval = w_structinstance.ll_buffer
+        self.argchain.arg_raw(ptrval)
+
+
 
 def unpack_argtypes(space, w_argtypes, w_restype):
     argtypes_w = [space.interp_w(W_FFIType, w_argtype)
@@ -369,3 +332,4 @@ def get_libc(space):
         return space.wrap(W_CDLL(space, get_libc_name()))
     except OSError, e:
         raise wrap_oserror(space, e)
+
