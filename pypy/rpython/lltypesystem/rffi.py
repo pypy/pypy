@@ -125,6 +125,7 @@ def llexternal(name, args, result, _callable=None,
                                  canraise=False,
                                  random_effects_on_gcobjs=
                                      random_effects_on_gcobjs,
+                                 calling_conv=calling_conv,
                                  **kwds)
     if isinstance(_callable, ll2ctypes.LL2CtypesCallable):
         _callable.funcptr = funcptr
