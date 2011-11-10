@@ -31,14 +31,17 @@ class W_GenericBox(Wrappable):
             return getattr(interp_ufuncs.get(space), ufunc_name).call(space, [self, w_other])
         return func_with_new_name(impl, "binop_%s_impl" % ufunc_name)
 
+    descr_add = _binop_impl("add")
     descr_div = _binop_impl("divide")
-
     descr_eq = _binop_impl("equal")
 
 
-class W_BoolBox(Wrappable):
+class W_BoolBox(W_GenericBox):
     def __init__(self, value):
         self.value = value
+
+    def convert_to(self, dtype):
+        return dtype.box(self.value)
 
 class W_NumberBox(W_GenericBox):
     def __init__(self, value):
@@ -107,6 +110,7 @@ W_GenericBox.typedef = TypeDef("generic",
     __int__ = interp2app(W_GenericBox.descr_int),
     __float__ = interp2app(W_GenericBox.descr_float),
 
+    __add__ = interp2app(W_GenericBox.descr_add),
     __div__ = interp2app(W_GenericBox.descr_div),
     __eq__ = interp2app(W_GenericBox.descr_eq),
 

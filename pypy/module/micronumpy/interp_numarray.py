@@ -141,7 +141,7 @@ class BaseArray(Wrappable):
         i = 0
         while i < size:
             all_driver.jit_merge_point(signature=self.signature, self=self, dtype=dtype, size=size, i=i)
-            if not dtype.bool(self.eval(i)):
+            if not dtype.itemtype.bool(self.eval(i)):
                 return False
             i += 1
         return True

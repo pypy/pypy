@@ -1,9 +1,16 @@
+import math
+
 from pypy.module.micronumpy import interp_boxes
 from pypy.objspace.std.floatobject import float2string
 from pypy.rlib import rfloat
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.rpython.lltypesystem import lltype, rffi
 
+
+def simple_op(func):
+    def dispatcher(self, v1, v2):
+        return self.box(func(self, self.unbox(v1), self.unbox(v2)))
+    return dispatcher
 
 class BaseType(object):
     def _unimplemented_ufunc(self, *args):
@@ -52,11 +59,17 @@ class Primitive(BaseType):
     def add(self, v1, v2):
         return self.box(self.unbox(v1) + self.unbox(v2))
 
-    def div(self, v1, v2):
-        return self.box(self.unbox(v1) / self.unbox(v2))
+    def sub(self, v1, v2):
+        return self.box(self.unbox(v1) - self.unbox(v2))
+
+    def mul(self, v1, v2):
+        return self.box(self.unbox(v1) * self.unbox(v2))
 
     def eq(self, v1, v2):
         return self.unbox(v1) == self.unbox(v2)
+
+    def bool(self, v):
+        return bool(v)
 
     def max(self, v1, v2):
         return self.box(max(self.unbox(v1), self.unbox(v2)))
@@ -92,6 +105,12 @@ class Integer(Primitive):
     def str_format(self, box):
         value = self.unbox(box)
         return str(value)
+
+    @simple_op
+    def div(self, v1, v2):
+        if v2 == 0:
+            return 0
+        return v1 / v2
 
 class Int8(Integer):
     T = rffi.SIGNEDCHAR
@@ -140,6 +159,19 @@ class Float(Primitive):
     def str_format(self, box):
         value = self.unbox(box)
         return float2string(value, "g", rfloat.DTSF_STR_PRECISION)
+
+    @simple_op
+    def div(self, v1, v2):
+        try:
+            return v1 / v2
+        except ZeroDivisionError:
+            if v1 == v2 == 0.0:
+                return rfloat.NAN
+            return rfloat.copysign(rfloat.INFINITY, v1 * v2)
+
+    @simple_op
+    def pow(self, v1, v2):
+        return math.pow(v1, v2)
 
 class Float32(Float):
     T = rffi.FLOAT
