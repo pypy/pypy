@@ -1,4 +1,6 @@
+import sys
 from pypy.conftest import gettestobjspace
+from pypy.rlib.rarithmetic import r_uint
 from pypy.module._ffi.interp_ffitype import app_types
 from pypy.module._ffi.type_converter import FromAppLevelConverter, ToAppLevelConverter
 
@@ -40,3 +42,19 @@ class TestFromAppLevel(object):
 
     def test_int(self):
         self.check(app_types.sint, self.space.wrap(42), 42)
+        self.check(app_types.sint, self.space.wrap(sys.maxint+1), -sys.maxint-1)
+        self.check(app_types.sint, self.space.wrap(sys.maxint*2), -2)
+
+    def test_uint(self):
+        self.check(app_types.uint, self.space.wrap(42), r_uint(42))
+        self.check(app_types.uint, self.space.wrap(-1), r_uint(sys.maxint*2 +1))
+        self.check(app_types.uint, self.space.wrap(sys.maxint*3),
+                   r_uint(sys.maxint - 2))
+
+    def test_pointer(self):
+        # pointers are "unsigned" at applevel, but signed at interp-level (for
+        # no good reason, at interp-level Signed or Unsigned makes no
+        # difference for passing bits around)
+        self.check(app_types.void_p, self.space.wrap(42), 42)
+        self.check(
+            app_types.void_p, self.space.wrap(sys.maxint+1), -sys.maxint-1)
