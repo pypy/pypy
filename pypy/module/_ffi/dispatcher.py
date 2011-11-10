@@ -1,17 +1,8 @@
 from pypy.rlib import libffi
 from pypy.rlib import jit
-from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.rpython.lltypesystem import rffi
 from pypy.module._rawffi.structure import W_StructureInstance
-
-
-def unwrap_truncate_int(TP, space, w_arg):
-    if space.is_true(space.isinstance(w_arg, space.w_int)):
-        return rffi.cast(TP, space.int_w(w_arg))
-    else:
-        return rffi.cast(TP, space.bigint_w(w_arg).ulonglongmask())
-unwrap_truncate_int._annspecialcase_ = 'specialize:arg(0)'
-
 
 class AbstractDispatcher(object):
 
@@ -26,7 +17,7 @@ class AbstractDispatcher(object):
             assert libffi.IS_32_BIT
             self._longlong(w_ffitype, w_obj)
         elif w_ffitype.is_signed():
-            intval = unwrap_truncate_int(rffi.LONG, space, w_obj)
+            intval = space.truncatedint_w(w_obj)
             self.handle_signed(w_ffitype, w_obj, intval)
         elif self.maybe_handle_char_or_unichar_p(w_ffitype, w_obj):
             # the object was already handled from within
@@ -37,7 +28,7 @@ class AbstractDispatcher(object):
             intval = intmask(space.uint_w(w_obj))
             self.handle_pointer(w_ffitype, w_obj, intval)
         elif w_ffitype.is_unsigned():
-            uintval = unwrap_truncate_int(rffi.ULONG, space, w_obj)
+            uintval = r_uint(space.truncatedint_w(w_obj))
             self.handle_unsigned(w_ffitype, w_obj, uintval)
         elif w_ffitype.is_char():
             intval = space.int_w(space.ord(w_obj))
