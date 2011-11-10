@@ -5,7 +5,13 @@ from pypy.rpython.lltypesystem import rffi
 from pypy.module._rawffi.structure import W_StructureInstance, W_Structure
 from pypy.module._ffi.interp_ffitype import app_types
 
-class UnwrapDispatcher(object):
+class FromAppLevelConverter(object):
+    """
+    Unwrap an app-level object to the corresponding low-level type, following
+    the conversion rules which apply to the specified w_ffitype.  Once
+    unwrapped, the value is passed to the corresponding handle_* method.
+    Subclasses should override the desired ones.
+    """
 
     def __init__(self, space):
         self.space = space
@@ -166,7 +172,13 @@ class UnwrapDispatcher(object):
 
 
 
-class WrapDispatcher(object):
+class ToAppLevelConverter(object):
+    """
+    Wrap a low-level value to an app-level object, following the conversion
+    rules which apply to the specified w_ffitype.  The value is got by calling
+    the get_* method corresponding to the w_ffitype. Subclasses should
+    override the desired ones.
+    """
 
     def __init__(self, space):
         self.space = space

@@ -12,7 +12,7 @@ from pypy.rlib import libffi
 from pypy.rlib.rdynload import DLOpenError
 from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.module._ffi.dispatcher import UnwrapDispatcher, WrapDispatcher
+from pypy.module._ffi.type_converter import FromAppLevelConverter, ToAppLevelConverter
 
 
 def unwrap_ffitype(space, w_argtype, allow_void=False):
@@ -48,7 +48,7 @@ class W_FuncPtr(Wrappable):
                                   self.func.name, expected, arg, given)
         #
         argchain = libffi.ArgChain()
-        argpusher = PushArgumentDispatcher(space, argchain, self.to_free)
+        argpusher = PushArgumentConverter(space, argchain, self.to_free)
         for i in range(expected):
             w_argtype = self.argtypes_w[i]
             w_arg = args_w[i]
@@ -58,7 +58,7 @@ class W_FuncPtr(Wrappable):
     def call(self, space, args_w):
         self = jit.promote(self)
         argchain = self.build_argchain(space, args_w)
-        func_caller = CallFunctionDispatcher(space, self.func, argchain)
+        func_caller = CallFunctionConverter(space, self.func, argchain)
         return func_caller.do_and_wrap(self.w_restype)
         #return self._do_call(space, argchain)
 
@@ -77,14 +77,14 @@ class W_FuncPtr(Wrappable):
         return space.wrap(rffi.cast(rffi.LONG, self.func.funcsym))
 
 
-class PushArgumentDispatcher(UnwrapDispatcher):
+class PushArgumentConverter(FromAppLevelConverter):
     """
-    A dispatcher used by W_FuncPtr to unwrap the app-level objects into
+    A converter used by W_FuncPtr to unwrap the app-level objects into
     low-level types and push them to the argchain.
     """
 
     def __init__(self, space, argchain, to_free):
-        UnwrapDispatcher.__init__(self, space)
+        FromAppLevelConverter.__init__(self, space)
         self.argchain = argchain
         self.to_free = to_free
 
@@ -129,14 +129,14 @@ class PushArgumentDispatcher(UnwrapDispatcher):
         self.argchain.arg_raw(ptrval)
 
 
-class CallFunctionDispatcher(WrapDispatcher):
+class CallFunctionConverter(ToAppLevelConverter):
     """
-    A dispatcher used by W_FuncPtr to call the function, expect the result of
+    A converter used by W_FuncPtr to call the function, expect the result of
     a correct low-level type and wrap it to the corresponding app-level type
     """
 
     def __init__(self, space, func, argchain):
-        WrapDispatcher.__init__(self, space)
+        ToAppLevelConverter.__init__(self, space)
         self.func = func
         self.argchain = argchain
 
