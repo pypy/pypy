@@ -78,6 +78,9 @@ class W_Dtype(Wrappable):
     def descr_get_itemsize(self, space):
         return space.wrap(self.itemtype.get_element_size())
 
+    def descr_get_shape(self, space):
+        return space.newtuple([])
+
 W_Dtype.typedef = TypeDef("dtype",
     __module__ = "numpy",
     __new__ = interp2app(W_Dtype.descr__new__.im_func),
@@ -88,7 +91,9 @@ W_Dtype.typedef = TypeDef("dtype",
     num = interp_attrproperty("num", cls=W_Dtype),
     kind = interp_attrproperty("kind", cls=W_Dtype),
     itemsize = GetSetProperty(W_Dtype.descr_get_itemsize),
+    shape = GetSetProperty(W_Dtype.descr_get_shape),
 )
+W_Dtype.typedef.acceptable_as_base_class = False
 
 class DtypeCache(object):
     def __init__(self, space):

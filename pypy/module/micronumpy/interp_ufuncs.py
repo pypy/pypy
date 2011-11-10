@@ -188,14 +188,14 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
     # Everything promotes to float, and bool promotes to everything.
     if dt2.kind == interp_dtype.FLOATINGLTR or dt1.kind == interp_dtype.BOOLLTR:
         # Float32 + 8-bit int = Float64
-        if dt2.num == 11 and dt1.num_bytes >= 4:
-            return space.fromcache(interp_dtype.W_Float64Dtype)
+        if dt2.num == 11 and dt1.itemtype.get_element_size() >= 4:
+            return interp_dtype.get_dtype_cache(space).w_float64dtype
         return dt2
 
     # for now this means mixing signed and unsigned
     if dt2.kind == interp_dtype.SIGNEDLTR:
         # if dt2 has a greater number of bytes, then just go with it
-        if dt1.num_bytes < dt2.num_bytes:
+        if dt1.itemtype.get_element_size() < dt2.itemtype.get_element_size():
             return dt2
         # we need to promote both dtypes
         dtypenum = dt2.num + 2
@@ -205,10 +205,11 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
         # UInt64 + signed = Float64
         if dt2.num == 10:
             dtypenum += 1
-    newdtype = interp_dtype.ALL_DTYPES[dtypenum]
+    newdtype = interp_dtype.get_dtype_cache(space).builtin_dtypes[dtypenum]
 
-    if newdtype.num_bytes > dt2.num_bytes or newdtype.kind == interp_dtype.FLOATINGLTR:
-        return space.fromcache(newdtype)
+    if (newdtype.itemtype.get_element_size() > dt2.itemtype.get_element_size() or
+        newdtype.kind == interp_dtype.FLOATINGLTR):
+        return newdtype
     else:
         # we only promoted to long on 32-bit or to longlong on 64-bit
         # this is really for dealing with the Long and Ulong dtypes
@@ -216,7 +217,7 @@ def find_binop_result_dtype(space, dt1, dt2, promote_to_float=False,
             dtypenum += 2
         else:
             dtypenum += 3
-        return space.fromcache(interp_dtype.ALL_DTYPES[dtypenum])
+        return interp_dtype.get_dtype_cache(space).builtin_dtypes[dtypenum]
 
 def find_unaryop_result_dtype(space, dt, promote_to_float=False,
     promote_bools=False, promote_to_largest=False):
