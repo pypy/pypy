@@ -144,7 +144,7 @@ def ovfcheck(r):
     assert not isinstance(r, r_longlong), "ovfcheck not supported on r_longlong"
     assert not isinstance(r, r_ulonglong), "ovfcheck not supported on r_ulonglong"
     if type(r) is long and not is_valid_int(r):
-        # the type check is needed to make this chek skip symbolics.
+        # the type check is needed to make ovfcheck skip symbolics.
         # this happens in the garbage collector.
         raise OverflowError, "signed integer expression did overflow"
     return r
