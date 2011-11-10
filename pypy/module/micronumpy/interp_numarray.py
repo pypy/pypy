@@ -6,7 +6,7 @@ from pypy.module.micronumpy import interp_ufuncs, interp_dtype, signature
 from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.sourcetools import func_with_new_name
-
+from pypy.rlib.rstring import StringBuilder
 
 numpy_driver = jit.JitDriver(greens = ['signature'],
                              reds = ['result_size', 'i', 'self', 'result'])
@@ -67,6 +67,14 @@ def descr_new_array(space, w_subtype, w_item_or_iterable, w_dtype=None):
         w_elem = elems_w[i]
         dtype.setitem_w(space, arr.storage, i, w_elem)
     return arr
+
+class ArrayIndex(object):
+    """ An index into an array or view. Offset is a data offset, indexes
+    are respective indexes in dimensions
+    """
+    def __init__(self, indexes, offset):
+        self.indexes = indexes
+        self.offset = offset
 
 class BaseArray(Wrappable):
     _attrs_ = ["invalidates", "signature", "shape"]
@@ -209,25 +217,6 @@ class BaseArray(Wrappable):
             assert isinstance(w_res, BaseArray)
             return w_res.descr_sum(space)
 
-    def _getnums(self, comma):
-        dtype = self.find_dtype()
-        if self.find_size() > 1000:
-            nums = [
-                dtype.str_format(self.eval(index))
-                for index in range(3)
-            ]
-            nums.append("..." + "," * comma)
-            nums.extend([
-                dtype.str_format(self.eval(index))
-                for index in range(self.find_size() - 3, self.find_size())
-            ])
-        else:
-            nums = [
-                dtype.str_format(self.eval(index))
-                for index in range(self.find_size())
-            ]
-        return nums
-
     def get_concrete(self):
         raise NotImplementedError
 
@@ -246,26 +235,35 @@ class BaseArray(Wrappable):
     def descr_repr(self, space):
         # Simple implementation so that we can see the array.
         # Since what we want is to print a plethora of 2d views, 
-        # use recursive calls to  tostr() to do the work.
+        # use recursive calls to  to_str() to do the work.
         concrete = self.get_concrete()
-        res = "array("
-        res0 = NDimSlice(concrete, self.signature, [], self.shape).tostr(True, indent='       ')
-        if res0=="[]" and isinstance(self,NDimSlice):
-            res0 += ", shape=%s"%(tuple(self.shape),)
-        res += res0
+        res = StringBuilder()
+        res.append("array(")
+        myview = NDimSlice(concrete, self.signature, [], self.shape)
+        res0 = myview.to_str(True, indent='       ')
+        #This is for numpy compliance: an empty slice reports its shape
+        if res0 == "[]" and isinstance(self, NDimSlice):
+            res.append("[], shape=(")
+            self_shape = str(self.shape)
+            res.append_slice(str(self_shape), 1, len(self_shape)-1)
+            res.append(')')
+        else:
+            res.append(res0)
         dtype = concrete.find_dtype()
         if (dtype is not space.fromcache(interp_dtype.W_Float64Dtype) and
-            dtype is not space.fromcache(interp_dtype.W_Int64Dtype)) or not self.find_size():
-            res += ", dtype=" + dtype.name
-        res += ")"
-        return space.wrap(res)
+            dtype is not space.fromcache(interp_dtype.W_Int64Dtype)) or \
+            not self.find_size():
+            res.append(", dtype=" + dtype.name)
+        res.append(")")
+        return space.wrap(res.build())
 
     def descr_str(self, space):
         # Simple implementation so that we can see the array. 
         # Since what we want is to print a plethora of 2d views, let
         # a slice do the work for us.
         concrete = self.get_concrete()
-        return space.wrap(NDimSlice(concrete, self.signature, [], self.shape).tostr(False))
+        r = NDimSlice(concrete, self.signature, [], self.shape).to_str(False)
+        return space.wrap(r)
 
     def _index_of_single_item(self, space, w_idx):
         # we assume C ordering for now
@@ -297,9 +295,6 @@ class BaseArray(Wrappable):
             item += v
         return item
 
-    def len_of_shape(self):
-        return len(self.shape)
-
     def get_root_shape(self):
         return self.shape
 
@@ -307,7 +302,7 @@ class BaseArray(Wrappable):
         """ The result of getitem/setitem is a single item if w_idx
         is a list of scalars that match the size of shape
         """
-        shape_len = self.len_of_shape()
+        shape_len = len(self.shape)
         if shape_len == 0:
             if not space.isinstance_w(w_idx, space.w_int):
                 raise OperationError(space.w_IndexError, space.wrap(
@@ -409,6 +404,7 @@ def convert_to_array(space, w_obj):
         return scalar_w(space, dtype, w_obj)
 
 def scalar_w(space, dtype, w_obj):
+    assert isinstance(dtype, interp_dtype.W_Dtype)
     return Scalar(dtype, dtype.unwrap(space, w_obj))
 
 class Scalar(BaseArray):
@@ -586,16 +582,12 @@ class ViewArray(BaseArray):
 
 class NDimSlice(ViewArray):
     signature = signature.BaseSignature()
-    
+
     _immutable_fields_ = ['shape[*]', 'chunks[*]']
 
     def __init__(self, parent, signature, chunks, shape):
         ViewArray.__init__(self, parent, signature, shape)
         self.chunks = chunks
-        self.shape_reduction = 0
-        for chunk in chunks:
-            if chunk[-2] == 0:
-                self.shape_reduction += 1
 
     def get_root_storage(self):
         return self.parent.get_concrete().get_root_storage()
@@ -624,9 +616,6 @@ class NDimSlice(ViewArray):
     def setitem(self, item, value):
         self.parent.setitem(self.calc_index(item), value)
 
-    def len_of_shape(self):
-        return self.parent.len_of_shape() - self.shape_reduction
-
     def get_root_shape(self):
         return self.parent.get_root_shape()
 
@@ -636,7 +625,6 @@ class NDimSlice(ViewArray):
     @jit.unroll_safe
     def calc_index(self, item):
         index = []
-        __item = item
         _item = item
         for i in range(len(self.shape) -1, 0, -1):
             s = self.shape[i]
@@ -666,46 +654,57 @@ class NDimSlice(ViewArray):
             item += index[i]
             i += 1
         return item
-    def tostr(self, comma,indent=' '):
-        ret = ''
+
+    def to_str(self, comma, indent=' '):
+        ret = StringBuilder()
         dtype = self.find_dtype()
-        ndims = len(self.shape)#-self.shape_reduction
-        if any([s==0 for s in self.shape]):
-            ret += '[]'
-            return ret
-        if ndims>2:
-            ret += '['
+        ndims = len(self.shape)
+        for s in self.shape:
+            if s == 0:
+                ret.append('[]')
+                return ret.build()
+        if ndims > 2:
+            ret.append('[')
             for i in range(self.shape[0]):
-                ret += NDimSlice(self.parent, self.signature, [(i,0,0,1)], self.shape[1:]).tostr(comma,indent=indent+' ')
-                if i+1<self.shape[0]:
-                    ret += ',\n\n'+ indent
-            ret += ']'
-        elif ndims==2:
-            ret += '['
+                smallerview = NDimSlice(self.parent, self.signature,
+                                        [(i, 0, 0, 1)], self.shape[1:])
+                ret.append(smallerview.to_str(comma, indent=indent + ' '))
+                if i + 1 < self.shape[0]:
+                    ret.append(',\n\n' + indent)
+            ret.append(']')
+        elif ndims == 2:
+            ret.append('[')
             for i in range(self.shape[0]):
-                ret += '['
-                ret += (','*comma + ' ' ).join([dtype.str_format(self.eval(i*self.shape[1]+j)) \
-                                                    for j in range(self.shape[1])])
-                ret += ']'
-                if i+1< self.shape[0]:
-                    ret += ',\n' + indent
-            ret += ']'
-        elif ndims==1:
-            ret += '['
-            if self.shape[0]>1000:
-                ret += (','*comma + ' ').join([dtype.str_format(self.eval(j)) \
-                                                    for j in range(3)])
-                ret += ','*comma + ' ..., '
-                ret += (','*comma + ' ').join([dtype.str_format(self.eval(j)) \
-                                                    for j in range(self.shape[0]-3,self.shape[0])])
+                ret.append('[')
+                spacer = ',' * comma + ' '
+                ret.append(spacer.join(\
+                    [dtype.str_format(self.eval(i * self.shape[1] + j)) \
+                    for j in range(self.shape[1])]))
+                ret.append(']')
+                if i + 1 < self.shape[0]:
+                    ret.append(',\n' + indent)
+            ret.append(']')
+        elif ndims == 1:
+            ret.append('[')
+            spacer = ',' * comma + ' '
+            if self.shape[0] > 1000:
+                ret.append(spacer.join([dtype.str_format(self.eval(j)) \
+                           for j in range(3)]))
+                ret.append(',' * comma + ' ..., ')
+                ret.append(spacer.join([dtype.str_format(self.eval(j)) \
+                           for j in range(self.shape[0] - 3, self.shape[0])]))
             else:
-                ret += (','*comma + ' ').join([dtype.str_format(self.eval(j)) \
-                                                    for j in range(self.shape[0])])
-            ret += ']'
+                ret.append(spacer.join([dtype.str_format(self.eval(j)) \
+                           for j in range(self.shape[0])]))
+            ret.append(']')
         else:
-            ret += dtype.str_format(self.eval(0))
-        return ret
+            ret.append(dtype.str_format(self.eval(0)))
+        return ret.build()
+
 class NDimArray(BaseArray):
+    """ A class representing contiguous array. We know that each iteration
+    by say ufunc will increase the data index by one
+    """
     def __init__(self, size, shape, dtype):
         BaseArray.__init__(self, shape)
         self.size = size

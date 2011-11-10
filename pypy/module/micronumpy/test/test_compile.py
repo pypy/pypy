@@ -102,10 +102,11 @@ class TestRunner(object):
         code = """
         a = [1,2,3,4]
         b = [4,5,6,5]
-        a + b
+        c = a + b
+        c -> 3
         """
         interp = self.run(code)
-        assert interp.results[0]._getnums(False) == ["5.0", "7.0", "9.0", "9.0"]
+        assert interp.results[-1].value.val == 9
 
     def test_array_getitem(self):
         code = """
@@ -176,3 +177,17 @@ class TestRunner(object):
         """)
         assert interp.results[0].value.val == 6
         
+    def test_multidim_getitem(self):
+        interp = self.run("""
+        a = [[1,2]]
+        a -> 0 -> 1
+        """)
+        assert interp.results[0].value.val == 2
+
+    def test_multidim_getitem_2(self):
+        interp = self.run("""
+        a = [[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]]
+        b = a + a
+        b -> 1 -> 1
+        """)
+        assert interp.results[0].value.val == 8
