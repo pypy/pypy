@@ -23,26 +23,31 @@ class TestW_SpecialisedTupleObject():
     def test_specialisedtupleclassname(self):
         w_tuple = self.space.newtuple([self.space.wrap(1), self.space.wrap(2)])
         assert w_tuple.__class__.__name__ == 'W_SpecialisedTupleObjectIntInt'
-        
+            
     def test_hash_against_normal_tuple(self):
-        normalspace = gettestobjspace(**{"objspace.std.withspecialisedtuple": False})
-        specialisedspace = gettestobjspace(**{"objspace.std.withspecialisedtuple": True})
-
+        N_space = gettestobjspace(**{"objspace.std.withspecialisedtuple": False})
+        S_space = gettestobjspace(**{"objspace.std.withspecialisedtuple": True})
+        
         def hash_test(values):
-            values_w = [self.space.wrap(value) for value in values]
-            w_tuple =                 normalspace.newtuple(values_w)
-            w_specialisedtuple = specialisedspace.newtuple(values_w)
+            N_values_w = [N_space.wrap(value) for value in values]
+            S_values_w = [S_space.wrap(value) for value in values]
+            N_w_tuple = N_space.newtuple(N_values_w)
+            S_w_tuple = S_space.newtuple(S_values_w)
     
-            assert isinstance(w_specialisedtuple, W_SpecialisedTupleObject)
-            assert isinstance(w_tuple, W_TupleObject)
-            assert not normalspace.is_true(normalspace.eq(w_tuple, w_specialisedtuple))
-            assert specialisedspace.is_true(specialisedspace.eq(w_tuple, w_specialisedtuple))
-            assert specialisedspace.is_true(specialisedspace.eq(normalspace.hash(w_tuple), specialisedspace.hash(w_specialisedtuple)))
+            assert isinstance(S_w_tuple, W_SpecialisedTupleObject)
+            assert isinstance(N_w_tuple, W_TupleObject)
+            assert not N_space.is_true(N_space.eq(N_w_tuple, S_w_tuple))
+            assert S_space.is_true(S_space.eq(N_w_tuple, S_w_tuple))
+            assert S_space.is_true(S_space.eq(N_space.hash(N_w_tuple), S_space.hash(S_w_tuple)))
 
         hash_test([1,2])
         hash_test([1.5,2.8])
         hash_test([1.0,2.0])
         hash_test(['arbitrary','strings'])
+        hash_test([1,(1,2,3,4)])
+        hash_test([1,(1,2)])
+        hash_test([1,('a',2)])
+        hash_test([1,()])
         
     def test_setitem(self):
         py.test.skip('skip for now, only needed for cpyext')
