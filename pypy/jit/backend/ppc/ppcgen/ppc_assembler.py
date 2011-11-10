@@ -292,16 +292,18 @@ class AssemblerPPC(OpAssembler):
     def _gen_exit_path(self):
         mc = PPCBuilder() 
         #
-        self._save_managed_regs(mc)
-        # adjust SP (r1)
+        # compute offset to new SP
         size = WORD * (len(r.MANAGED_REGS)) + BACKCHAIN_SIZE
-        # XXX do quadword alignment
-        #while size % (4 * WORD) != 0:
-        #    size += WORD
+        # set SP
         if IS_PPC_32:
             mc.stwu(r.SP.value, r.SP.value, -size)
         else:
             mc.stdu(r.SP.value, r.SP.value, -size)
+        self._save_managed_regs(mc)
+        # adjust SP (r1)
+        # XXX do quadword alignment
+        #while size % (4 * WORD) != 0:
+        #    size += WORD
         #
         decode_func_addr = llhelper(self.recovery_func_sign,
                 self.failure_recovery_func)
@@ -352,12 +354,12 @@ class AssemblerPPC(OpAssembler):
     # Save all registers which are managed by the register
     # allocator on top of the stack before decoding.
     def _save_managed_regs(self, mc):
-        for i in range(len(r.MANAGED_REGS) - 1, -1, -1):
+        for i in range(len(r.MANAGED_REGS)):
             reg = r.MANAGED_REGS[i]
             if IS_PPC_32:
-                mc.stw(reg.value, r.SP.value, -(len(r.MANAGED_REGS) - i) * WORD)
+                mc.stw(reg.value, r.SP.value, i * WORD + BACKCHAIN_SIZE)
             else:
-                mc.std(reg.value, r.SP.value, -(len(r.MANAGED_REGS) - i) * WORD)
+                mc.std(reg.value, r.SP.value, i * WORD + BACKCHAIN_SIZE)
 
     def gen_bootstrap_code(self, nonfloatlocs, inputargs):
         for i in range(len(nonfloatlocs)):
