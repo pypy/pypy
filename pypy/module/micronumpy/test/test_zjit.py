@@ -51,9 +51,11 @@ class TestNumpyJIt(LLJitMixin):
         b = a + a
         b -> 3
         """)
-        self.check_loops({'getarrayitem_raw': 2, 'float_add': 1,
-                          'setarrayitem_raw': 1, 'int_add': 1,
-                          'int_lt': 1, 'guard_true': 1, 'jump': 1})
+        self.check_resops({'setarrayitem_raw': 2, 'getfield_gc': 11,
+                           'guard_class': 7, 'guard_true': 2,
+                           'guard_isnull': 1, 'jump': 2, 'int_lt': 2,
+                           'float_add': 2, 'int_add': 2, 'guard_value': 1,
+                           'getarrayitem_raw': 4})
         assert result == 3 + 3
 
     def test_floatadd(self):
@@ -62,9 +64,11 @@ class TestNumpyJIt(LLJitMixin):
         a -> 3
         """)
         assert result == 3 + 3
-        self.check_loops({"getarrayitem_raw": 1, "float_add": 1,
-                          "setarrayitem_raw": 1, "int_add": 1,
-                          "int_lt": 1, "guard_true": 1, "jump": 1})
+        self.check_resops({'setarrayitem_raw': 2, 'getfield_gc': 11,
+                           'guard_class': 7, 'guard_true': 2,
+                           'guard_isnull': 1, 'jump': 2, 'int_lt': 2,
+                           'float_add': 2, 'int_add': 2, 'guard_value': 1,
+                           'getarrayitem_raw': 2})
 
     def test_sum(self):
         result = self.run("""
@@ -73,9 +77,10 @@ class TestNumpyJIt(LLJitMixin):
         sum(b)
         """)
         assert result == 2 * sum(range(30))
-        self.check_loops({"getarrayitem_raw": 2, "float_add": 2,
-                          "int_add": 1,
-                          "int_lt": 1, "guard_true": 1, "jump": 1})
+        self.check_resops({'guard_class': 7, 'getfield_gc': 11,
+                           'guard_true': 2, 'jump': 2, 'getarrayitem_raw': 4,
+                           'guard_value': 2, 'guard_isnull': 1, 'int_lt': 2,
+                           'float_add': 4, 'int_add': 2})
 
     def test_prod(self):
         result = self.run("""
@@ -87,9 +92,10 @@ class TestNumpyJIt(LLJitMixin):
         for i in range(30):
             expected *= i * 2
         assert result == expected
-        self.check_loops({"getarrayitem_raw": 2, "float_add": 1,
-                          "float_mul": 1, "int_add": 1,
-                          "int_lt": 1, "guard_true": 1, "jump": 1})
+        self.check_resops({'int_lt': 2, 'getfield_gc': 11, 'guard_class': 7,
+                           'float_mul': 2, 'guard_true': 2, 'guard_isnull': 1,
+                           'jump': 2, 'getarrayitem_raw': 4, 'float_add': 2,
+                           'int_add': 2, 'guard_value': 2})
 
     def test_max(self):
         py.test.skip("broken, investigate")
@@ -125,10 +131,10 @@ class TestNumpyJIt(LLJitMixin):
         any(b)
         """)
         assert result == 1
-        self.check_loops({"getarrayitem_raw": 2, "float_add": 1,
-                          "float_ne": 1, "int_add": 1,
-                          "int_lt": 1, "guard_true": 1, "jump": 1,
-                          "guard_false": 1})
+        self.check_resops({'int_lt': 2, 'getfield_gc': 9, 'guard_class': 7,
+                           'guard_value': 1, 'int_add': 2, 'guard_true': 2,
+                           'guard_isnull': 1, 'jump': 2, 'getarrayitem_raw': 4,
+                           'float_add': 2, 'guard_false': 2, 'float_ne': 2})
 
     def test_already_forced(self):
         result = self.run("""
@@ -142,9 +148,12 @@ class TestNumpyJIt(LLJitMixin):
         # This is the sum of the ops for both loops, however if you remove the
         # optimization then you end up with 2 float_adds, so we can still be
         # sure it was optimized correctly.
-        self.check_loops({"getarrayitem_raw": 2, "float_mul": 1, "float_add": 1,
-                           "setarrayitem_raw": 2, "int_add": 2,
-                           "int_lt": 2, "guard_true": 2, "jump": 2})
+        self.check_resops({'setarrayitem_raw': 4, 'guard_nonnull': 1,
+                           'getfield_gc': 23, 'guard_class': 14,
+                           'guard_true': 4, 'float_mul': 2, 'guard_isnull': 2,
+                           'jump': 4, 'int_lt': 4, 'float_add': 2,
+                           'int_add': 4, 'guard_value': 2,
+                           'getarrayitem_raw': 4})
 
     def test_ufunc(self):
         result = self.run("""
@@ -154,10 +163,11 @@ class TestNumpyJIt(LLJitMixin):
         c -> 3
         """)
         assert result == -6
-        self.check_loops({"getarrayitem_raw": 2, "float_add": 1, "float_neg": 1,
-                          "setarrayitem_raw": 1, "int_add": 1,
-                          "int_lt": 1, "guard_true": 1, "jump": 1,
-        })
+        self.check_resops({'setarrayitem_raw': 2, 'getfield_gc': 15,
+                           'guard_class': 9, 'float_neg': 2, 'guard_true': 2,
+                           'guard_isnull': 2, 'jump': 2, 'int_lt': 2,
+                           'float_add': 2, 'int_add': 2, 'guard_value': 2,
+                           'getarrayitem_raw': 4})
 
     def test_specialization(self):
         self.run("""
@@ -202,9 +212,11 @@ class TestNumpyOld(LLJitMixin):
             return v.get_concrete().eval(3).val
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
-        self.check_loops({'int_mul': 1, 'getarrayitem_raw': 2, 'float_add': 1,
-                          'setarrayitem_raw': 1, 'int_add': 1,
-                          'int_lt': 1, 'guard_true': 1, 'jump': 1})
+        self.check_resops({'setarrayitem_raw': 2, 'getfield_gc': 9,
+                           'guard_true': 2, 'guard_isnull': 1, 'jump': 2,
+                           'int_lt': 2, 'float_add': 2, 'int_mul': 2,
+                           'int_add': 2, 'guard_value': 1,
+                           'getarrayitem_raw': 4})
         assert result == f(5)
 
     def test_slice2(self):
@@ -224,9 +236,11 @@ class TestNumpyOld(LLJitMixin):
             return v.get_concrete().eval(3).val
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
-        self.check_loops({'int_mul': 2, 'getarrayitem_raw': 2, 'float_add': 1,
-                          'setarrayitem_raw': 1, 'int_add': 1,
-                          'int_lt': 1, 'guard_true': 1, 'jump': 1})
+        self.check_resops({'setarrayitem_raw': 2, 'getfield_gc': 11,
+                           'guard_true': 2, 'guard_isnull': 1, 'jump': 2,
+                           'int_lt': 2, 'float_add': 2, 'int_mul': 4,
+                           'int_add': 2, 'guard_value': 1,
+                           'getarrayitem_raw': 4})
         assert result == f(5)
 
     def test_setslice(self):
@@ -243,10 +257,12 @@ class TestNumpyOld(LLJitMixin):
             return ar.get_concrete().eval(3).val
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
-        self.check_loops({'getarrayitem_raw': 2,
-                          'float_add' : 1,
-                          'setarrayitem_raw': 1, 'int_add': 2,
-                          'int_lt': 1, 'guard_true': 1, 'jump': 1})
+        self.check_resops({'int_is_true': 1, 'setarrayitem_raw': 2,
+                           'guard_nonnull': 1, 'getfield_gc': 9,
+                           'guard_false': 1, 'guard_true': 3,
+                           'guard_isnull': 1, 'jump': 2, 'int_lt': 2,
+                           'float_add': 2, 'int_gt': 1, 'int_add': 4,
+                           'guard_value': 1, 'getarrayitem_raw': 4})
         assert result == 11.0
 
     def test_int32_sum(self):
