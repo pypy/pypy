@@ -141,7 +141,7 @@ class W_Ufunc2(W_Ufunc):
             promote_bools=self.promote_bools,
         )
         if self.comparison_func:
-            res_dtype = space.fromcache(interp_dtype.W_BoolDtype)
+            res_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
         else:
             res_dtype = calc_dtype
         if isinstance(w_lhs, Scalar) and isinstance(w_rhs, Scalar):
@@ -243,9 +243,9 @@ def find_unaryop_result_dtype(space, dt, promote_to_float=False,
     return dt
 
 def find_dtype_for_scalar(space, w_obj, current_guess=None):
-    bool_dtype = space.fromcache(interp_dtype.W_BoolDtype)
-    long_dtype = space.fromcache(interp_dtype.W_LongDtype)
-    int64_dtype = space.fromcache(interp_dtype.W_Int64Dtype)
+    bool_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
+    long_dtype = interp_dtype.get_dtype_cache(space).w_longdtype
+    int64_dtype = interp_dtype.get_dtype_cache(space).w_int64dtype
 
     if space.isinstance_w(w_obj, space.w_bool):
         if current_guess is None or current_guess is bool_dtype:
@@ -261,7 +261,7 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
             current_guess is long_dtype or current_guess is int64_dtype):
             return int64_dtype
         return current_guess
-    return space.fromcache(interp_dtype.W_Float64Dtype)
+    return interp_dtype.get_dtype_cache(space).w_float64dtype
 
 
 def ufunc_dtype_caller(space, ufunc_name, op_name, argcount, comparison_func):
@@ -273,9 +273,8 @@ def ufunc_dtype_caller(space, ufunc_name, op_name, argcount, comparison_func):
         def impl(res_dtype, lvalue, rvalue):
             res = getattr(res_dtype.itemtype, op_name)(lvalue, rvalue)
             if comparison_func:
-                booldtype = space.fromcache(interp_dtype.W_BoolDtype)
-                assert isinstance(booldtype, interp_dtype.W_BoolDtype)
-                res = booldtype.box(res)
+                bool_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
+                res = bool_dtype.box(res)
             return res
     return func_with_new_name(impl, ufunc_name)
 

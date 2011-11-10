@@ -566,7 +566,7 @@ def ones(space, size, w_dtype=None):
     )
 
     arr = SingleDimArray(size, dtype=dtype)
-    one = dtype.adapt_val(1)
+    one = dtype.box(1)
     arr.dtype.fill(arr.storage, one, 0, size)
     return space.wrap(arr)
 

@@ -25,6 +25,11 @@ class Primitive(BaseType):
         return box.value
 
     def coerce(self, space, w_item):
+        if isinstance(w_item, self.BoxType):
+            return w_item
+        return self._coerce(space, w_item)
+
+    def _coerce(self, space, w_item):
         raise NotImplementedError
 
     def read(self, ptr, offset):
@@ -38,8 +43,17 @@ class Primitive(BaseType):
         ptr = rffi.ptradd(ptr, offset)
         rffi.cast(lltype.Ptr(lltype.Array(self.T, hints={"nolength": True})), ptr)[0] = value
 
+    def fill(self, ptr, box, n):
+        value = self.unbox(box)
+        for i in xrange(n):
+            rffi.cast(lltype.Ptr(lltype.Array(self.T, hints={"nolength": True})), ptr)[0] = value
+            ptr = rffi.ptradd(ptr, self.get_element_size())
+
     def add(self, v1, v2):
         return self.box(self.unbox(v1) + self.unbox(v2))
+
+    def eq(self, v1, v2):
+        return self.unbox(v1) == self.unbox(v2)
 
     def max(self, v1, v2):
         return self.box(max(self.unbox(v1), self.unbox(v2)))
@@ -61,55 +75,68 @@ class Bool(Primitive):
         else:
             return self.False
 
-    def coerce(self, space, w_item):
+    def _coerce(self, space, w_item):
         return self.box(space.is_true(w_item))
 
 class Integer(Primitive):
-    def coerce(self, space, w_item):
+    def _coerce(self, space, w_item):
         return self.box(space.int_w(space.int(w_item)))
 
-class Int8(Primitive):
+    def str_format(self, box):
+        value = self.unbox(box)
+        return str(value)
+
+class Int8(Integer):
     T = rffi.SIGNEDCHAR
+    BoxType = interp_boxes.W_Int8Box
 
-class UInt8(Primitive):
+class UInt8(Integer):
     T = rffi.UCHAR
+    BoxType = interp_boxes.W_UInt8Box
 
-class Int16(Primitive):
+class Int16(Integer):
     T = rffi.SHORT
+    BoxType = interp_boxes.W_Int16Box
 
-class UInt16(Primitive):
+class UInt16(Integer):
     T = rffi.USHORT
+    BoxType = interp_boxes.W_UInt16Box
 
-class Int32(Primitive):
+class Int32(Integer):
     T = rffi.INT
+    BoxType = interp_boxes.W_Int32Box
 
-class UInt32(Primitive):
+class UInt32(Integer):
     T = rffi.UINT
+    BoxType = interp_boxes.W_UInt32Box
 
-class Long(Primitive):
+class Long(Integer):
     T = rffi.LONG
     BoxType = interp_boxes.W_LongBox
 
-class ULong(Primitive):
+class ULong(Integer):
     T = rffi.ULONG
+    BoxType = interp_boxes.W_ULongBox
 
 class Int64(Integer):
     T = rffi.LONGLONG
     BoxType = interp_boxes.W_Int64Box
 
-class UInt64(Primitive):
+class UInt64(Integer):
     T = rffi.ULONGLONG
+    BoxType = interp_boxes.W_UInt64Box
 
 class Float(Primitive):
-    def coerce(self, space, w_item):
+    def _coerce(self, space, w_item):
         return self.box(space.float_w(space.float(w_item)))
 
     def str_format(self, box):
         value = self.unbox(box)
         return float2string(value, "g", rfloat.DTSF_STR_PRECISION)
 
-class Float32(Primitive):
+class Float32(Float):
     T = rffi.FLOAT
+    BoxType = interp_boxes.W_Float32Box
 
 class Float64(Float):
     T = rffi.DOUBLE

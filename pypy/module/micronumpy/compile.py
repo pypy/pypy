@@ -338,7 +338,7 @@ class FunctionCall(Node):
             elif isinstance(w_res, BoolObject):
                 dtype = interp.space.fromcache(W_BoolDtype)
             elif isinstance(w_res, interp_boxes.W_GenericBox):
-                dtype = w_res.descr_get_dtype(interp.space)
+                dtype = w_res.get_dtype(interp.space)
             else:
                 dtype = None
             return scalar_w(interp.space, dtype, w_res)

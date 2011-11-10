@@ -1,7 +1,7 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import interp2app
-from pypy.interpreter.typedef import TypeDef, interp_attrproperty
+from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.module.micronumpy import types, signature
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import LONG_BIT
@@ -47,6 +47,10 @@ class W_Dtype(Wrappable):
         struct_ptr = rffi.ptradd(storage, i * self.itemtype.get_element_size())
         self.itemtype.store(struct_ptr, 0, box)
 
+    def fill(self, storage, box, start, stop):
+        start_ptr = rffi.ptradd(storage, start * self.itemtype.get_element_size())
+        self.itemtype.fill(start_ptr, box, stop - start)
+
     def descr__new__(space, w_subtype, w_dtype):
         cache = get_dtype_cache(space)
 
@@ -71,6 +75,9 @@ class W_Dtype(Wrappable):
     def descr_repr(self, space):
         return space.wrap("dtype('%s')" % self.name)
 
+    def descr_get_itemsize(self, space):
+        return space.wrap(self.itemtype.get_element_size())
+
 W_Dtype.typedef = TypeDef("dtype",
     __module__ = "numpy",
     __new__ = interp2app(W_Dtype.descr__new__.im_func),
@@ -80,6 +87,7 @@ W_Dtype.typedef = TypeDef("dtype",
 
     num = interp_attrproperty("num", cls=W_Dtype),
     kind = interp_attrproperty("kind", cls=W_Dtype),
+    itemsize = GetSetProperty(W_Dtype.descr_get_itemsize),
 )
 
 class DtypeCache(object):
