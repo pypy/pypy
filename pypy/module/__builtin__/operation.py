@@ -15,6 +15,17 @@ def abs(space, w_val):
     "abs(number) -> number\n\nReturn the absolute value of the argument."
     return space.abs(w_val)
 
+def ascii(space, w_obj):
+    """"ascii(object) -> string
+
+    As repr(), return a string containing a printable representation of an
+    object, but escape the non-ASCII characters in the string returned by
+    repr() using \\x, \\u or \\U escapes.  This generates a string similar
+    to that returned by repr() in Python 2."""
+    # repr is guaranteed to be unicode
+    repr = space.unwrap(space.repr(w_obj))
+    return space.wrap(repr.encode('ascii', 'backslashreplace').decode('ascii'))
+
 @unwrap_spec(code=int)
 def chr(space, code):
     "Return a Unicode string of one character with the given ordinal."

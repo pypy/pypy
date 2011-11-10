@@ -1,3 +1,4 @@
+# coding: utf-8
 import autopath
 import sys
 from pypy import conftest
@@ -36,6 +37,41 @@ class AppTestBuiltinApp:
         assert m.__name__ == "pprint"
         raises(ImportError, __import__, 'spamspam')
         raises(TypeError, __import__, 1, 2, 3, 4)
+
+    def test_ascii(self):
+        assert ascii('') == '\'\''
+        assert ascii(0) == '0'
+        assert ascii(()) == '()'
+        assert ascii([]) == '[]'
+        assert ascii({}) == '{}'
+        a = []
+        a.append(a)
+        assert ascii(a) == '[[...]]'
+        a = {}
+        a[0] = a
+        assert ascii(a) == '{0: {...}}'
+        # Advanced checks for unicode strings
+        def _check_uni(s):
+            assert ascii(s) == repr(s)
+        _check_uni("'")
+        _check_uni('"')
+        _check_uni('"\'')
+        _check_uni('\0')
+        _check_uni('\r\n\t .')
+        # Unprintable non-ASCII characters
+        _check_uni('\x85')
+        _check_uni('\u1fff')
+        _check_uni('\U00012fff')
+        # Lone surrogates
+        _check_uni('\ud800')
+        _check_uni('\udfff')
+        # Issue #9804: surrogates should be joined even for printable
+        # wide characters (UCS-2 builds).
+        assert ascii('\U0001d121') == "'\\U0001d121'"
+        # All together
+        s = "'\0\"\n\r\t abcd\x85é\U00012fff\uD800\U0001D121xxx."
+        assert ascii(s) == \
+            r"""'\'\x00"\n\r\t abcd\x85\xe9\U00012fff\ud800\U0001d121xxx.'"""
 
     def test_bin(self):
         assert bin(0) == "0b0"

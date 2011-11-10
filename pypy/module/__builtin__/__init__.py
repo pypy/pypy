@@ -50,6 +50,7 @@ class Module(MixedModule):
 
         # interp-level function definitions
         'abs'           : 'operation.abs',
+        'ascii'         : 'operation.ascii',
         'chr'           : 'operation.chr',
         'len'           : 'operation.len',
         'ord'           : 'operation.ord',
