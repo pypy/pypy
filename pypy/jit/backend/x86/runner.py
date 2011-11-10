@@ -150,7 +150,7 @@ class AbstractX86CPU(AbstractLLCPU):
     cast_ptr_to_int._annspecialcase_ = 'specialize:arglltype(0)'
     cast_ptr_to_int = staticmethod(cast_ptr_to_int)
 
-    all_null_registers = lltype.malloc(rffi.LONGP.TO, 24,
+    all_null_registers = lltype.malloc(rffi.SIGNEDP.TO, 24,
                                        flavor='raw', zero=True,
                                        immortal=True)
 

@@ -536,7 +536,7 @@ if sys.platform == 'win32':
         while start < end:
             code = rffi.cast(rffi.CCHARP, start.address[0])[0]
             if code == '\xe9': # jmp
-                rel32 = rffi.cast(rffi.LONGP, start.address[0]+1)[0]
+                rel32 = rffi.cast(rffi.SIGNEDP, start.address[0]+1)[0]
                 target = start.address[0] + (rel32 + 5)
                 start.address[0] = target
             start += arrayitemsize
