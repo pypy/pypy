@@ -200,7 +200,10 @@ class OpAssembler(object):
         self.mc.mfspr(r.r0.value, 1)
         # shift and mask to get comparison result
         self.mc.rlwinm(r.r0.value, r.r0.value, 1, 0, 0)
-        self.mc.cmpi(r.r0.value, 0)
+        if IS_PPC_32:
+            self.mc.cmpwi(r.r0.value, 0)
+        else:
+            self.mc.cmpdi(r.r0.value, 0)
         self._emit_guard(op, arglocs, cond)
 
     def emit_guard_no_overflow(self, op, arglocs, regalloc):
