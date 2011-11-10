@@ -245,8 +245,14 @@ def llexternal(name, args, result, _callable=None,
     wrapper._always_inline_ = True
     # for debugging, stick ll func ptr to that
     wrapper._ptr = funcptr
+    wrapper = func_with_new_name(wrapper, name)
 
-    return func_with_new_name(wrapper, name)
+    if calling_conv != "c":
+        from pypy.rlib.jit import dont_look_inside
+        wrapper = dont_look_inside(wrapper)
+
+    return wrapper
+
 
 class CallbackHolder:
     def __init__(self):
