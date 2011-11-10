@@ -135,15 +135,11 @@ class DtypeCache(object):
             char="I",
         )
         if LONG_BIT == 32:
-            longtype = types.Int32()
-            unsigned_longtype = types.UInt32()
             name = "int32"
         elif LONG_BIT == 64:
-            longtype = types.Int64()
-            unsigned_longtype = types.UInt64()
             name = "int64"
         self.w_longdtype = W_Dtype(
-            longtype,
+            types.Long(),
             num=7,
             kind=SIGNEDLTR,
             name=name,
@@ -151,7 +147,7 @@ class DtypeCache(object):
             alternate_constructors=[space.w_int],
         )
         self.w_ulongdtype = W_Dtype(
-            unsigned_longtype,
+            types.ULong(),
             num=8,
             kind=UNSIGNEDLTR,
             name="u" + name,

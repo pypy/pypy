@@ -1,6 +1,7 @@
 from pypy.module.micronumpy import interp_boxes
 from pypy.objspace.std.floatobject import float2string
 from pypy.rlib import rfloat
+from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.rpython.lltypesystem import lltype, rffi
 
 
@@ -84,6 +85,13 @@ class Int32(Primitive):
 
 class UInt32(Primitive):
     T = rffi.UINT
+
+class Long(Primitive):
+    T = rffi.LONG
+    BoxType = interp_boxes.W_LongBox
+
+class ULong(Primitive):
+    T = rffi.ULONG
 
 class Int64(Integer):
     T = rffi.LONGLONG
