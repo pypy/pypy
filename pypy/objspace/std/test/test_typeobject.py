@@ -739,10 +739,10 @@ class AppTestTypeObject:
         class A(object):
             pass
         assert repr(A) == "<class 'a.A'>"
-        assert repr(type(type)) == "<type 'type'>" 
-        assert repr(complex) == "<type 'complex'>"
-        assert repr(property) == "<type 'property'>"
-        assert repr(TypeError) == "<type 'exceptions.TypeError'>"
+        assert repr(type(type)) == "<class 'type'>"
+        assert repr(complex) == "<class 'complex'>"
+        assert repr(property) == "<class 'property'>"
+        assert repr(TypeError) == "<class 'TypeError'>"
         
     def test_invalid_mro(self):
         class A(object):
