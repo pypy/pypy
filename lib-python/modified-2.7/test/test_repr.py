@@ -254,8 +254,14 @@ class LongReprTest(unittest.TestCase):
         eq = self.assertEqual
         touch(os.path.join(self.subpkgname, self.pkgname + os.extsep + 'py'))
         from areallylongpackageandmodulenametotestreprtruncation.areallylongpackageandmodulenametotestreprtruncation import areallylongpackageandmodulenametotestreprtruncation
-        eq(repr(areallylongpackageandmodulenametotestreprtruncation),
-           "<module '%s' from '%s'>" % (areallylongpackageandmodulenametotestreprtruncation.__name__, areallylongpackageandmodulenametotestreprtruncation.__file__))
+        # On PyPy, we use %r to format the file name; on CPython it is done
+        # with '%s'.  It seems to me that %r is safer <arigo>.
+        if '__pypy__' in sys.builtin_module_names:
+            eq(repr(areallylongpackageandmodulenametotestreprtruncation),
+               "<module %r from %r>" % (areallylongpackageandmodulenametotestreprtruncation.__name__, areallylongpackageandmodulenametotestreprtruncation.__file__))
+        else:
+            eq(repr(areallylongpackageandmodulenametotestreprtruncation),
+               "<module '%s' from '%s'>" % (areallylongpackageandmodulenametotestreprtruncation.__name__, areallylongpackageandmodulenametotestreprtruncation.__file__))
         eq(repr(sys), "<module 'sys' (built-in)>")
 
     def test_type(self):
