@@ -165,9 +165,8 @@ class CallFunctionDispatcher(WrapDispatcher):
         elif restype is libffi.types.schar:
             return rffi.cast(rffi.LONG, call(self.argchain, rffi.SIGNEDCHAR))
         else:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap('Unsupported restype'))
-
+            self.error(w_ffitype)
+            
     def get_unsigned(self, w_ffitype):
         return self.func.call(self.argchain, rffi.ULONG)
 
@@ -185,9 +184,8 @@ class CallFunctionDispatcher(WrapDispatcher):
         elif restype is libffi.types.uchar:
             return rffi.cast(rffi.LONG, call(self.argchain, rffi.UCHAR))
         else:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap('Unsupported restype'))
-        return space.wrap(intres)
+            self.error(w_ffitype)
+
 
     def get_pointer(self, w_ffitype):
         ptrres = self.func.call(self.argchain, rffi.VOIDP)
@@ -206,9 +204,6 @@ class CallFunctionDispatcher(WrapDispatcher):
         return self.func.call(self.argchain, rffi.FLOAT)
 
     def get_struct(self, w_datashape):
-        """
-        XXX: write nice docstring in the base class, must return an ULONG
-        """
         return self.func.call(self.argchain, rffi.ULONG, is_struct=True)
 
     def get_void(self, w_ffitype):

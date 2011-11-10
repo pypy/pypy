@@ -94,7 +94,9 @@ class UnwrapDispatcher(object):
             return w_arg
 
     def error(self, w_ffitype, w_obj):
-        assert False # XXX raise a proper app-level exception
+        raise operationerrfmt(space.w_TypeError,
+                              'Unsupported ffi type to convert: %s',
+                              w_ffitype.name)
 
     def handle_signed(self, w_ffitype, w_obj, intval):
         """
@@ -238,44 +240,83 @@ class WrapDispatcher(object):
         singlefloatval = self.get_singlefloat(w_ffitype)
         return self.space.wrap(float(singlefloatval))
 
-    def error(self, w_ffitype, w_obj):
-        assert False # XXX raise a proper app-level exception
+    def error(self, w_ffitype):
+        raise operationerrfmt(space.w_TypeError,
+                              'Unsupported ffi type to convert: %s',
+                              w_ffitype.name)
 
     def get_longlong(self, w_ffitype):
+        """
+        Return type: lltype.SignedLongLong
+        """
         self.error(w_ffitype)
 
     def get_ulonglong(self, w_ffitype):
+        """
+        Return type: lltype.UnsignedLongLong
+        """
         self.error(w_ffitype)
 
     def get_signed(self, w_ffitype):
+        """
+        Return type: lltype.Signed
+        """
         self.error(w_ffitype)
 
     def get_unsigned(self, w_ffitype):
+        """
+        Return type: lltype.Unsigned
+        """
         self.error(w_ffitype)
 
     def get_unsigned_which_fits_into_a_signed(self, w_ffitype):
+        """
+        Return type: lltype.Signed.
+        
+        We return Signed even if the input type is unsigned, because this way
+        we get an app-level <int> instead of a <long>.
+        """
         self.error(w_ffitype)
 
     def get_pointer(self, w_ffitype):
+        """
+        Return type: lltype.Unsigned
+        """
         self.error(w_ffitype)
 
     def get_char(self, w_ffitype):
+        """
+        Return type: rffi.UCHAR
+        """
         self.error(w_ffitype)
 
     def get_unichar(self, w_ffitype):
+        """
+        Return type: rffi.WCHAR_T
+        """
         self.error(w_ffitype)
 
     def get_float(self, w_ffitype):
+        """
+        Return type: lltype.Float
+        """
         self.error(w_ffitype)
 
     def get_singlefloat(self, w_ffitype):
+        """
+        Return type: lltype.SingleFloat
+        """
         self.error(w_ffitype)
 
     def get_struct(self, w_datashape):
         """
-        XXX: write nice docstring in the base class, must return an ULONG
+        Return type: lltype.Unsigned
+        (the address of the structure)
         """
         return self.func.call(self.argchain, rffi.ULONG, is_struct=True)
 
     def get_void(self, w_ffitype):
+        """
+        Return type: None
+        """
         self.error(w_ffitype)
