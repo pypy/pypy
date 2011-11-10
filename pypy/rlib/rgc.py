@@ -216,8 +216,8 @@ def no_collect(func):
     func._gc_no_collect_ = True
     return func
 
-def is_light_finalizer(func):
-    func._is_light_finalizer_ = True
+def must_be_light_finalizer(func):
+    func._must_be_light_finalizer_ = True
     return func
 
 # ____________________________________________________________
