@@ -533,8 +533,7 @@ class AssemblerPPC(OpAssembler):
             if op.has_no_side_effect() and op.result not in regalloc.longevity:
                 regalloc.possibly_free_vars_for_op(op)
             elif self.can_merge_with_next_guard(op, pos, operations)\
-                    # XXX fix this later on
-                    and opnum == rop.CALL_RELEASE_GIL:   
+                    and opnum == rop.CALL_RELEASE_GIL:  # XXX fix  
                 regalloc.next_instruction()
                 arglocs = regalloc.operations_with_guard[opnum](regalloc, op,
                                         operations[pos+1])
