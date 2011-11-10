@@ -8,7 +8,7 @@ from pypy.jit.backend.llsupport.descr import (
 class UnsupportedKind(Exception):
     pass
 
-def get_call_descr_dynamic(cpu, ffi_args, ffi_result, extrainfo=None, ffi_flags=0):
+def get_call_descr_dynamic(cpu, ffi_args, ffi_result, extrainfo, ffi_flags):
     """Get a call descr: the types of result and args are represented by
     rlib.libffi.types.*"""
     try:

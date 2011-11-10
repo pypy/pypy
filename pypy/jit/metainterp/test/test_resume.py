@@ -1,3 +1,4 @@
+from __future__ import with_statement
 import py
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.jit.metainterp.optimizeopt.optimizer import OptValue
@@ -1134,16 +1135,11 @@ def test_virtual_adder_make_virtual():
     assert ptr2.parent.next == ptr
 
 class CompareableConsts(object):
-    def __init__(self):
-        self.oldeq = None
-        
     def __enter__(self):
-        assert self.oldeq is None
-        self.oldeq = Const.__eq__
         Const.__eq__ = Const.same_box
-        
+
     def __exit__(self, type, value, traceback):
-        Const.__eq__ = self.oldeq
+        del Const.__eq__
 
 def test_virtual_adder_make_varray():
     b2s, b4s = [BoxPtr(), BoxInt(4)]

@@ -116,9 +116,6 @@ class W_TypeObject(W_Object):
     # of the __new__ is an instance of the type
     w_bltin_new = None
 
-    interplevel_cls = None # not None for prebuilt instances of
-                           # interpreter-level types
-
     @dont_look_inside
     def __init__(w_self, space, name, bases_w, dict_w,
                  overridetypedef=None):

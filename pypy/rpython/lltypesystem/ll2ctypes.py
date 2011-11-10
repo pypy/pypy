@@ -15,12 +15,11 @@ else:
     load_library_kwargs = {}
 
 import os
-from pypy import conftest
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.extfunc import ExtRegistryEntry
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.tool.uid import fixid
-from pypy.rlib.rarithmetic import r_uint, r_singlefloat, r_longfloat, base_int, intmask
+from pypy.rlib.rarithmetic import r_singlefloat, r_longfloat, base_int, intmask
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter, LLException
 from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
@@ -531,6 +530,10 @@ class _parentable_mixin(object):
     def __str__(self):
         return repr(self)
 
+    def _setparentstructure(self, parent, parentindex):
+        super(_parentable_mixin, self)._setparentstructure(parent, parentindex)
+        self._keepparent = parent   # always keep a strong ref
+
 class _struct_mixin(_parentable_mixin):
     """Mixin added to _struct containers when they become ctypes-based."""
     __slots__ = ()
@@ -566,7 +569,10 @@ class _array_of_unknown_length(_parentable_mixin, lltype._parentable):
         return 0, sys.maxint
 
     def getitem(self, index, uninitialized_ok=False):
-        return self._storage.contents._getitem(index, boundscheck=False)
+        res = self._storage.contents._getitem(index, boundscheck=False)
+        if isinstance(self._TYPE.OF, lltype.ContainerType):
+            res._obj._setparentstructure(self, index)
+        return res
 
     def setitem(self, index, value):
         self._storage.contents._setitem(index, value, boundscheck=False)
@@ -658,6 +664,8 @@ def lltype2ctypes(llobj, normalize=True):
         if T == llmemory.GCREF:
             if isinstance(llobj._obj, _llgcopaque):
                 return ctypes.c_void_p(llobj._obj.intval)
+            if isinstance(llobj._obj, int):    # tagged pointer
+                return ctypes.c_void_p(llobj._obj)
             container = llobj._obj.container
             T = lltype.Ptr(lltype.typeOf(container))
             # otherwise it came from integer and we want a c_void_p with
@@ -1268,6 +1276,7 @@ class _lladdress(long):
 class _llgcopaque(lltype._container):
     _TYPE = llmemory.GCREF.TO
     _name = "_llgcopaque"
+    _read_directly_intval = True     # for _ptr._cast_to_int()
 
     def __init__(self, void_p):
         if isinstance(void_p, (int, long)):
@@ -1276,6 +1285,8 @@ class _llgcopaque(lltype._container):
             self.intval = intmask(void_p.value)
 
     def __eq__(self, other):
+        if not other:
+            return self.intval == 0
         if isinstance(other, _llgcopaque):
             return self.intval == other.intval
         storage = object()
@@ -1299,11 +1310,6 @@ class _llgcopaque(lltype._container):
             return _opaque_objs[self.intval // 2]
         return force_cast(PTRTYPE, self.intval)
 
-##     def _cast_to_int(self):
-##         return self.intval
-
-##     def _cast_to_adr(self):
-##         return _lladdress(self.intval)
 
 def cast_adr_to_int(addr):
     if isinstance(addr, llmemory.fakeaddress):

@@ -231,7 +231,11 @@ class _ReadlineWrapper(object):
         return ''.join(chars)
 
     def _histline(self, line):
-        return unicode(line.rstrip('\n'), ENCODING)
+        line = line.rstrip('\n')
+        try:
+            return unicode(line, ENCODING)
+        except UnicodeDecodeError:   # bah, silently fall back...
+            return unicode(line, 'utf-8')
 
     def get_history_length(self):
         return self.saved_history_length
@@ -268,7 +272,10 @@ class _ReadlineWrapper(object):
         f = open(os.path.expanduser(filename), 'w')
         for entry in history:
             if isinstance(entry, unicode):
-                entry = entry.encode(ENCODING)
+                try:
+                    entry = entry.encode(ENCODING)
+                except UnicodeEncodeError:   # bah, silently fall back...
+                    entry = entry.encode('utf-8')
             entry = entry.replace('\n', '\r\n')   # multiline history support
             f.write(entry + '\n')
         f.close()
@@ -395,9 +402,21 @@ def _setup():
     _wrapper.f_in = f_in
     _wrapper.f_out = f_out
 
-    if hasattr(sys, '__raw_input__'):    # PyPy
-        _old_raw_input = sys.__raw_input__
+    if '__pypy__' in sys.builtin_module_names:    # PyPy
+
+        def _old_raw_input(prompt=''):
+            # sys.__raw_input__() is only called when stdin and stdout are
+            # as expected and are ttys.  If it is the case, then get_reader()
+            # should not really fail in _wrapper.raw_input().  If it still
+            # does, then we will just cancel the redirection and call again
+            # the built-in raw_input().
+            try:
+                del sys.__raw_input__
+            except AttributeError:
+                pass
+            return raw_input(prompt)
         sys.__raw_input__ = _wrapper.raw_input
+
     else:
         # this is not really what readline.c does.  Better than nothing I guess
         import __builtin__

@@ -48,7 +48,7 @@ class _uninitialized(object):
         self.TYPE = TYPE
     def __repr__(self):
         return '<Uninitialized %r>'%(self.TYPE,)
-        
+
 
 def saferecursive(func, defl, TLS=TLS):
     def safe(*args):
@@ -537,9 +537,9 @@ class FuncType(ContainerType):
         return "Func ( %s ) -> %s" % (args, self.RESULT)
     __str__ = saferecursive(__str__, '...')
 
-    def _short_name(self):        
+    def _short_name(self):
         args = ', '.join([ARG._short_name() for ARG in self.ARGS])
-        return "Func(%s)->%s" % (args, self.RESULT._short_name())        
+        return "Func(%s)->%s" % (args, self.RESULT._short_name())
     _short_name = saferecursive(_short_name, '...')
 
     def _container_example(self):
@@ -553,7 +553,7 @@ class FuncType(ContainerType):
 
 class OpaqueType(ContainerType):
     _gckind = 'raw'
-    
+
     def __init__(self, tag, hints={}):
         """ if hints['render_structure'] is set, the type is internal and not considered
             to come from somewhere else (it should be rendered as a structure) """
@@ -723,10 +723,10 @@ class Ptr(LowLevelType):
 
     def __str__(self):
         return '* %s' % (self.TO, )
-    
+
     def _short_name(self):
         return 'Ptr %s' % (self.TO._short_name(), )
-    
+
     def _is_atomic(self):
         return self.TO._gckind == 'raw'
 
@@ -1360,6 +1360,8 @@ class _ptr(_abstract_ptr):
         obj = normalizeptr(self, check)._getobj(check)
         if isinstance(obj, int):
             return obj     # special case for cast_int_to_ptr() results put into opaques
+        if getattr(obj, '_read_directly_intval', False):
+            return obj.intval   # special case for _llgcopaque
         result = intmask(obj._getid())
         # assume that id() returns an addressish value which is
         # not zero and aligned to at least a multiple of 4
@@ -1520,7 +1522,7 @@ class _parentable(_container):
             and parentindex in (self._parent_type._names[0], 0)
             and self._TYPE._gckind == typeOf(parent)._gckind):
             # keep strong reference to parent, we share the same allocation
-            self._keepparent = parent 
+            self._keepparent = parent
 
     def _parentstructure(self, check=True):
         if self._wrparent is not None:
@@ -1711,6 +1713,7 @@ class _array(_parentable):
         return v
 
     def setitem(self, index, value):
+        assert typeOf(value) == self._TYPE.OF
         self.items[index] = value
 
 assert not '__dict__' in dir(_array)
@@ -1728,7 +1731,8 @@ class _subarray(_parentable):     # only for direct_fieldptr()
         # Keep the parent array alive, we share the same allocation.
         # Don't do it if we are inside a GC object, though -- it's someone
         # else's job to keep the GC object alive
-        if typeOf(top_container(parent))._gckind == 'raw':
+        if (typeOf(top_container(parent))._gckind == 'raw' or
+            hasattr(top_container(parent)._storage, 'contents')):  # ll2ctypes
             self._keepparent = parent
 
     def __str__(self):

@@ -8,6 +8,8 @@ from pypy.rlib.unroll import unrolling_iterable
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.tool.sourcetools import func_with_new_name
 
+DEBUG_ELIDABLE_FUNCTIONS = False
+
 
 def elidable(func):
     """ Decorate a function as "trace-elidable". This means precisely that:
@@ -24,6 +26,18 @@ def elidable(func):
     If a particular call to this function ends up raising an exception, then it
     is handled like a normal function call (this decorator is ignored).
     """
+    if DEBUG_ELIDABLE_FUNCTIONS:
+        cache = {}
+        oldfunc = func
+        def func(*args):
+            result = oldfunc(*args)    # if it raises, no caching
+            try:
+                oldresult = cache.setdefault(args, result)
+            except TypeError:
+                pass           # unhashable args
+            else:
+                assert oldresult == result
+            return result
     func._elidable_function_ = True
     return func
 
@@ -316,6 +330,12 @@ class DirectVRef(object):
         elif self._state == 'invalid':
             raise InvalidVirtualRef
         return self._x
+
+    @property
+    def virtual(self):
+        """A property that is True if the vref contains a virtual that would
+        be forced by the '()' operator."""
+        return self._state == 'non-forced'
 
     def _finish(self):
         if self._state == 'non-forced':

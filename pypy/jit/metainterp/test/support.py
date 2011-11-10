@@ -12,7 +12,7 @@ from pypy.jit.codewriter import codewriter, longlong
 from pypy.rlib.rfloat import isnan
 
 def _get_jitcodes(testself, CPUClass, func, values, type_system,
-                  supports_longlong=False, **kwds):
+                  supports_longlong=False, translationoptions={}, **kwds):
     from pypy.jit.codewriter import support
 
     class FakeJitCell(object):
@@ -42,7 +42,8 @@ def _get_jitcodes(testself, CPUClass, func, values, type_system,
         enable_opts = ALL_OPTS_DICT
 
     func._jit_unroll_safe_ = True
-    rtyper = support.annotate(func, values, type_system=type_system)
+    rtyper = support.annotate(func, values, type_system=type_system,
+                              translationoptions=translationoptions)
     graphs = rtyper.annotator.translator.graphs
     testself.all_graphs = graphs
     result_kind = history.getkind(graphs[0].getreturnvar().concretetype)[0]

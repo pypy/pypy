@@ -27,7 +27,7 @@ def rtype(func, inputtypes, specialize=True, gcname='ref',
     t.config.set(**extraconfigopts)
     ann = t.buildannotator(policy=annpolicy.StrictAnnotatorPolicy())
     ann.build_types(func, inputtypes)
-                                   
+
     if specialize:
         t.buildrtyper().specialize()
     if backendopt:
@@ -44,7 +44,7 @@ class GCTest(object):
     GC_CAN_MOVE = False
     GC_CAN_MALLOC_NONMOVABLE = True
     taggedpointers = False
-    
+
     def setup_class(cls):
         funcs0 = []
         funcs2 = []
@@ -155,7 +155,7 @@ class GCTest(object):
             return run, gct
         else:
             return run
-        
+
 class GenericGCTests(GCTest):
     GC_CAN_SHRINK_ARRAY = False
 
@@ -190,7 +190,7 @@ class GenericGCTests(GCTest):
                     j += 1
             return 0
         return malloc_a_lot
-    
+
     def test_instances(self):
         run, statistics = self.runner("instances", statistics=True)
         run([])
@@ -276,7 +276,7 @@ class GenericGCTests(GCTest):
         for i in range(1, 5):
             res = run([i, i - 1])
             assert res == i - 1 # crashes if constants are not considered roots
-            
+
     def define_string_concatenation(cls):
         def concat(j, dummy):
             lst = []
@@ -345,22 +345,22 @@ class GenericGCTests(GCTest):
         b = B()
         b.nextid = 0
         b.num_deleted = 0
-        class A(object):
+        class AAA(object):
             def __init__(self):
                 self.id = b.nextid
                 b.nextid += 1
             def __del__(self):
                 b.num_deleted += 1
                 C()
-        class C(A):
+        class C(AAA):
             def __del__(self):
                 b.num_deleted += 1
         def f(x, y):
-            a = A()
+            a = AAA()
             i = 0
             while i < x:
                 i += 1
-                a = A()
+                a = AAA()
             llop.gc__collect(lltype.Void)
             llop.gc__collect(lltype.Void)
             return b.num_deleted
@@ -656,7 +656,7 @@ class GenericGCTests(GCTest):
             #    return 2
 
         return func
-    
+
     def test_malloc_nonmovable(self):
         run = self.runner("malloc_nonmovable")
         assert int(self.GC_CAN_MALLOC_NONMOVABLE) == run([])
@@ -676,7 +676,7 @@ class GenericGCTests(GCTest):
                 return 2
 
         return func
-    
+
     def test_malloc_nonmovable_fixsize(self):
         run = self.runner("malloc_nonmovable_fixsize")
         assert run([]) == int(self.GC_CAN_MALLOC_NONMOVABLE)
@@ -757,7 +757,7 @@ class GenericMovingGCTests(GenericGCTests):
             lltype.free(idarray, flavor='raw')
             return 0
         return f
-    
+
     def test_many_ids(self):
         if not self.GC_CAN_TEST_ID:
             py.test.skip("fails for bad reasons in lltype.py :-(")
@@ -807,12 +807,13 @@ class GenericMovingGCTests(GenericGCTests):
                     op.args = [Constant(type_id, llgroup.HALFWORD),
                                Constant(llmemory.sizeof(P), lltype.Signed),
                                Constant(False, lltype.Bool), # has_finalizer
+                               Constant(False, lltype.Bool), # is_finalizer_light
                                Constant(False, lltype.Bool)] # contains_weakptr
                     break
             else:
                 assert 0, "oups, not found"
         return f, None, fix_graph_of_g
-            
+
     def test_do_malloc_operations(self):
         run = self.runner("do_malloc_operations")
         run([])
@@ -843,12 +844,13 @@ class GenericMovingGCTests(GenericGCTests):
                     op.args = [Constant(type_id, llgroup.HALFWORD),
                                Constant(llmemory.sizeof(P), lltype.Signed),
                                Constant(False, lltype.Bool), # has_finalizer
+                               Constant(False, lltype.Bool), # is_finalizer_light
                                Constant(False, lltype.Bool)] # contains_weakptr
                     break
             else:
                 assert 0, "oups, not found"
         return f, None, fix_graph_of_g
-        
+
     def test_do_malloc_operations_in_call(self):
         run = self.runner("do_malloc_operations_in_call")
         run([])
@@ -859,7 +861,7 @@ class GenericMovingGCTests(GenericGCTests):
         l2 = []
         l3 = []
         l4 = []
-        
+
         def f():
             for i in range(10):
                 s = lltype.malloc(S)
@@ -1024,7 +1026,7 @@ class TestGenerationGC(GenericMovingGCTests):
             llop.gc__collect(lltype.Void)
             return static.p.x + i
         def cleanup():
-            static.p = lltype.nullptr(T1)        
+            static.p = lltype.nullptr(T1)
         return f, cleanup, None
 
     def test_nongc_static_root_minor_collect(self):
@@ -1079,7 +1081,7 @@ class TestGenerationGC(GenericMovingGCTests):
             return 0
 
         return f
-        
+
     def test_many_weakrefs(self):
         run = self.runner("many_weakrefs")
         run([])
@@ -1129,7 +1131,7 @@ class TestGenerationGC(GenericMovingGCTests):
     def define_adr_of_nursery(cls):
         class A(object):
             pass
-        
+
         def f():
             # we need at least 1 obj to allocate a nursery
             a = A()
@@ -1145,9 +1147,9 @@ class TestGenerationGC(GenericMovingGCTests):
             assert nt1 > nf1
             assert nt1 == nt0
             return 0
-        
+
         return f
-    
+
     def test_adr_of_nursery(self):
         run = self.runner("adr_of_nursery")
         res = run([])        
@@ -1173,7 +1175,7 @@ class TestGenerationalNoFullCollectGC(GCTest):
             def _teardown(self):
                 self.__ready = False # collecting here is expected
                 GenerationGC._teardown(self)
-                
+
             GC_PARAMS = {'space_size': 512*WORD,
                          'nursery_size': 128*WORD,
                          'translated_to_c': False}

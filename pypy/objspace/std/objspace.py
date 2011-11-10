@@ -83,11 +83,12 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if self.config.objspace.std.withtproxy:
             transparent.setup(self)
 
+        interplevel_classes = {}
         for type, classes in self.model.typeorder.iteritems():
-            if len(classes) >= 3:
+            if len(classes) >= 3: # XXX what does this 3 mean??!
                 # W_Root, AnyXxx and actual object
-                self.gettypefor(type).interplevel_cls = classes[0][0]
-
+                interplevel_classes[self.gettypefor(type)] = classes[0][0]
+        self._interplevel_classes = interplevel_classes
 
     def get_builtin_types(self):
         return self.builtin_types
@@ -410,7 +411,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         else:
             if unroll:
                 return make_sure_not_resized(ObjSpace.unpackiterable_unroll(
-                    self, w_obj, expected_length)[:])
+                    self, w_obj, expected_length))
             else:
                 return make_sure_not_resized(ObjSpace.unpackiterable(
                     self, w_obj, expected_length)[:])
@@ -418,7 +419,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
             raise self._wrap_expected_length(expected_length, len(t))
         return make_sure_not_resized(t)
 
-    def fixedview_unroll(self, w_obj, expected_length=-1):
+    def fixedview_unroll(self, w_obj, expected_length):
+        assert expected_length >= 0
         return self.fixedview(w_obj, expected_length, unroll=True)
 
     def listview(self, w_obj, expected_length=-1):
@@ -576,7 +578,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             raise OperationError(self.w_TypeError,
                                  self.wrap("need type object"))
         if is_annotation_constant(w_type):
-            cls = w_type.interplevel_cls
+            cls = self._get_interplevel_cls(w_type)
             if cls is not None:
                 assert w_inst is not None
                 if isinstance(w_inst, cls):
@@ -586,3 +588,9 @@ class StdObjSpace(ObjSpace, DescrOperation):
     @specialize.arg_or_var(2)
     def isinstance_w(space, w_inst, w_type):
         return space._type_isinstance(w_inst, w_type)
+
+    @specialize.memo()
+    def _get_interplevel_cls(self, w_type):
+        if not hasattr(self, "_interplevel_classes"):
+            return None # before running initialize
+        return self._interplevel_classes.get(w_type, None)

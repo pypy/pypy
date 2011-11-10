@@ -39,6 +39,7 @@ class VirtualRefInfo:
     def replace_force_virtual_with_call(self, graphs):
         # similar to rvirtualizable2.replace_force_virtualizable_with_call().
         c_force_virtual_ptr = None
+        c_is_virtual_ptr = None
         force_virtual_count = 0
         for graph in graphs:
             for block in graph.iterblocks():
@@ -52,6 +53,13 @@ class VirtualRefInfo:
                         op.opname = 'direct_call'
                         op.args = [c_force_virtual_ptr, op.args[0]]
                         force_virtual_count += 1
+                    #
+                    if op.opname == 'jit_is_virtual':
+                        if c_is_virtual_ptr is None:
+                            c_is_virtual_ptr = self.get_is_virtual_fnptr()
+                        #
+                        op.opname = 'direct_call'
+                        op.args = [c_is_virtual_ptr, op.args[0]]
         #
         if c_force_virtual_ptr is not None:
             log("replaced %d 'jit_force_virtual' with %r" % (force_virtual_count,
@@ -127,6 +135,17 @@ class VirtualRefInfo:
         funcptr = self.warmrunnerdesc.helper_func(
             lltype.Ptr(FUNC),
             force_virtual_if_necessary)
+        return inputconst(lltype.typeOf(funcptr), funcptr)
+
+    def get_is_virtual_fnptr(self):
+        #
+        def is_virtual(inst):
+            if not inst:
+                return False
+            return inst.typeptr == self.jit_virtual_ref_vtable
+        #
+        FUNC = lltype.FuncType([rclass.OBJECTPTR], lltype.Bool)
+        funcptr = self.warmrunnerdesc.helper_func(lltype.Ptr(FUNC), is_virtual)
         return inputconst(lltype.typeOf(funcptr), funcptr)
 
     def force_virtual(self, inst):

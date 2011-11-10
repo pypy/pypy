@@ -54,7 +54,12 @@ def init__List(space, w_list, __args__):
 
 def _init_from_iterable(space, items_w, w_iterable):
     # in its own function to make the JIT look into init__List
-    # XXX this would need a JIT driver somehow?
+    # xxx special hack for speed
+    from pypy.interpreter.generator import GeneratorIterator
+    if isinstance(w_iterable, GeneratorIterator):
+        w_iterable.unpack_into(items_w)
+        return
+    # /xxx
     w_iterator = space.iter(w_iterable)
     while True:
         try:
@@ -414,8 +419,8 @@ def list_index__List_ANY_ANY_ANY(space, w_list, w_any, w_start, w_stop):
     # needs to be safe against eq_w() mutating the w_list behind our back
     items = w_list.wrappeditems
     size = len(items)
-    i = slicetype.adapt_bound(space, size, w_start)
-    stop = slicetype.adapt_bound(space, size, w_stop)
+    i, stop = slicetype.unwrap_start_stop(
+            space, size, w_start, w_stop, True)
     while i < stop and i < len(items):
         if space.eq_w(items[i], w_any):
             return space.wrap(i)

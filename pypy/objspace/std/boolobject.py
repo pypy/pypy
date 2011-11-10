@@ -27,11 +27,7 @@ class W_BoolObject(W_Object):
 
     def uint_w(w_self, space):
         intval = int(w_self.boolval)
-        if intval < 0:
-            raise OperationError(space.w_ValueError,
-                                 space.wrap("cannot convert negative integer to unsigned"))
-        else:
-            return r_uint(intval)
+        return r_uint(intval)
 
     def bigint_w(w_self, space):
         return rbigint.fromint(int(w_self.boolval))

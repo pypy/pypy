@@ -521,13 +521,13 @@ class CStandaloneBuilder(CBuilder):
         rules = [
             ('clean', '', 'rm -f $(OBJECTS) $(TARGET) $(GCMAPFILES) $(ASMFILES) *.gc?? ../module_cache/*.gc??'),
             ('clean_noprof', '', 'rm -f $(OBJECTS) $(TARGET) $(GCMAPFILES) $(ASMFILES)'),
-            ('debug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT" $(TARGET)'),
-            ('debug_exc', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DDO_LOG_EXC" $(TARGET)'),
-            ('debug_mem', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DTRIVIAL_MALLOC_DEBUG" $(TARGET)'),
+            ('debug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT" debug_target'),
+            ('debug_exc', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DDO_LOG_EXC" debug_target'),
+            ('debug_mem', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DTRIVIAL_MALLOC_DEBUG" debug_target'),
             ('no_obmalloc', '', '$(MAKE) CFLAGS="-g -O2 -DRPY_ASSERT -DNO_OBMALLOC" $(TARGET)'),
-            ('linuxmemchk', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DLINUXMEMCHK" $(TARGET)'),
+            ('linuxmemchk', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DLINUXMEMCHK" debug_target'),
             ('llsafer', '', '$(MAKE) CFLAGS="-O2 -DRPY_LL_ASSERT" $(TARGET)'),
-            ('lldebug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DRPY_LL_ASSERT" $(TARGET)'),
+            ('lldebug', '', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
             ('profile', '', '$(MAKE) CFLAGS="-g -O1 -pg $(CFLAGS) -fno-omit-frame-pointer" LDFLAGS="-pg $(LDFLAGS)" $(TARGET)'),
             ]
         if self.has_profopt():
@@ -554,7 +554,7 @@ class CStandaloneBuilder(CBuilder):
             mk.definition('ASMLBLFILES', lblsfiles)
             mk.definition('GCMAPFILES', gcmapfiles)
             if sys.platform == 'win32':
-                mk.definition('DEBUGFLAGS', '/Zi')
+                mk.definition('DEBUGFLAGS', '/MD /Zi')
             else:
                 mk.definition('DEBUGFLAGS', '-O2 -fomit-frame-pointer -g')
 
@@ -618,9 +618,13 @@ class CStandaloneBuilder(CBuilder):
 
         else:
             if sys.platform == 'win32':
-                mk.definition('DEBUGFLAGS', '/Zi')
+                mk.definition('DEBUGFLAGS', '/MD /Zi')
             else:
                 mk.definition('DEBUGFLAGS', '-O1 -g')
+        if sys.platform == 'win32':
+            mk.rule('debug_target', 'debugmode_$(DEFAULT_TARGET)', 'rem')
+        else:
+            mk.rule('debug_target', '$(TARGET)', '#')
         mk.write()
         #self.translator.platform,
         #                           ,
@@ -682,8 +686,7 @@ class SourceGenerator:
     def getbasecfilefornode(self, node, basecname):
         # For FuncNode instances, use the python source filename (relative to
         # the top directory):
-        if hasattr(node.obj, 'graph'):
-            g = node.obj.graph
+        def invent_nice_name(g):
             # Lookup the filename from the function.
             # However, not all FunctionGraph objs actually have a "func":
             if hasattr(g, 'func'):
@@ -693,6 +696,15 @@ class SourceGenerator:
                     if pypkgpath:
                         relpypath =  localpath.relto(pypkgpath)
                         return relpypath.replace('.py', '.c')
+            return None
+        if hasattr(node.obj, 'graph'):
+            name = invent_nice_name(node.obj.graph)
+            if name is not None:
+                return name
+        elif node._funccodegen_owner is not None:
+            name = invent_nice_name(node._funccodegen_owner.graph)
+            if name is not None:
+                return "data_" + name
         return basecname
 
     def splitnodesimpl(self, basecname, nodes, nextra, nbetween,

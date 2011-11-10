@@ -41,7 +41,7 @@ class TestString(BaseTestPyPyC):
             guard_true(i32, descr=...)
             i34 = int_add(i6, 1)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, i34, p7, p8, i9, i10, p11, i12, p13, descr=<Loop4>)
+            jump(p0, p1, p2, p3, p4, p5, i34, p7, p8, i9, i10, p11, i12, p13, descr=...)
         """)
 
     def test_long(self):
@@ -93,7 +93,8 @@ class TestString(BaseTestPyPyC):
             i46 = call(ConstClass(ll_startswith__rpy_stringPtr_rpy_stringPtr), p28, ConstPtr(ptr45), descr=<BoolCallDescr>)
             guard_false(i46, descr=...)
             p51 = new_with_vtable(21136408)
-            setfield_gc(p51, _, descr=...)    # 6 setfields, but the order is dict-order-dependent
+            setfield_gc(p51, _, descr=...)    # 7 setfields, but the order is dict-order-dependent
+            setfield_gc(p51, _, descr=...)
             setfield_gc(p51, _, descr=...)
             setfield_gc(p51, _, descr=...)
             setfield_gc(p51, _, descr=...)
@@ -106,7 +107,7 @@ class TestString(BaseTestPyPyC):
             i58 = int_add_ovf(i6, i57)
             guard_no_overflow(descr=...)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, i58, i7, descr=<Loop4>)
+            jump(p0, p1, p2, p3, p4, p5, i58, i7, descr=...)
         """)
 
     def test_str_mod(self):

@@ -23,6 +23,7 @@ class Module(MixedModule):
         'map'           : 'app_functional.map',
         'reduce'        : 'app_functional.reduce',
         'filter'        : 'app_functional.filter',
+        'zip'           : 'app_functional.zip',
         'vars'          : 'app_inspect.vars',
         'dir'           : 'app_inspect.dir',
 
@@ -89,7 +90,6 @@ class Module(MixedModule):
         'enumerate'     : 'functional.W_Enumerate',
         'min'           : 'functional.min',
         'max'           : 'functional.max',
-        'zip'           : 'functional.zip',
         'reversed'      : 'functional.reversed',
         'super'         : 'descriptor.W_Super',
         'staticmethod'  : 'descriptor.StaticMethod',
@@ -119,7 +119,7 @@ class Module(MixedModule):
            builtin = space.interpclass_w(w_builtin)
            if isinstance(builtin, module.Module):
                return builtin
-       # no builtin! make a default one.  Given them None, at least.
+       # no builtin! make a default one.  Give them None, at least.
        builtin = module.Module(space, None)
        space.setitem(builtin.w_dict, space.wrap('None'), space.w_None)
        return builtin

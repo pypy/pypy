@@ -35,7 +35,7 @@ class NumberStringParser:
 
     def error(self):
         raise ParseStringError("invalid literal for %s() with base %d: '%s'" %
-                               (self.fname, self.base, self.literal))
+                               (self.fname, self.original_base, self.literal))
 
     def __init__(self, s, literal, base, fname):
         self.literal = literal
@@ -47,7 +47,8 @@ class NumberStringParser:
         elif s.startswith('+'):
             s = strip_spaces(s[1:])
         self.sign = sign
-        
+        self.original_base = base
+
         if base == 0:
             if s.startswith('0x') or s.startswith('0X'):
                 base = 16

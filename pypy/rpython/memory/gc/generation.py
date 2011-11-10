@@ -167,7 +167,9 @@ class GenerationGC(SemiSpaceGC):
         return self.nursery <= addr < self.nursery_top
 
     def malloc_fixedsize_clear(self, typeid, size,
-                               has_finalizer=False, contains_weakptr=False):
+                               has_finalizer=False,
+                               is_finalizer_light=False,
+                               contains_weakptr=False):
         if (has_finalizer or
             (raw_malloc_usage(size) > self.lb_young_fixedsize and
              raw_malloc_usage(size) > self.largest_young_fixedsize)):
@@ -179,6 +181,7 @@ class GenerationGC(SemiSpaceGC):
             # "non-simple" case or object too big: don't use the nursery
             return SemiSpaceGC.malloc_fixedsize_clear(self, typeid, size,
                                                       has_finalizer,
+                                                      is_finalizer_light,
                                                       contains_weakptr)
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + size

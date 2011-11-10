@@ -45,6 +45,14 @@ class GcLLDescription(GcCache):
     def freeing_block(self, start, stop):
         pass
 
+    def get_funcptr_for_newarray(self):
+        return llhelper(self.GC_MALLOC_ARRAY, self.malloc_array)
+    def get_funcptr_for_newstr(self):
+        return llhelper(self.GC_MALLOC_STR_UNICODE, self.malloc_str)
+    def get_funcptr_for_newunicode(self):
+        return llhelper(self.GC_MALLOC_STR_UNICODE, self.malloc_unicode)
+
+
     def record_constptrs(self, op, gcrefs_output_list):
         for i in range(op.numargs()):
             v = op.getarg(i)
@@ -96,6 +104,39 @@ class GcLLDescr_boehm(GcLLDescription):
         malloc_fn_ptr = self.configure_boehm_once()
         self.funcptr_for_new = malloc_fn_ptr
 
+        def malloc_array(basesize, itemsize, ofs_length, num_elem):
+            try:
+                size = ovfcheck(basesize + ovfcheck(itemsize * num_elem))
+            except OverflowError:
+                return lltype.nullptr(llmemory.GCREF.TO)
+            res = self.funcptr_for_new(size)
+            if not res:
+                return res
+            rffi.cast(rffi.CArrayPtr(lltype.Signed), res)[ofs_length/WORD] = num_elem
+            return res
+        self.malloc_array = malloc_array
+        self.GC_MALLOC_ARRAY = lltype.Ptr(lltype.FuncType(
+            [lltype.Signed] * 4, llmemory.GCREF))
+
+
+        (str_basesize, str_itemsize, str_ofs_length
+         ) = symbolic.get_array_token(rstr.STR, self.translate_support_code)
+        (unicode_basesize, unicode_itemsize, unicode_ofs_length
+         ) = symbolic.get_array_token(rstr.UNICODE, self.translate_support_code)
+        def malloc_str(length):
+            return self.malloc_array(
+                str_basesize, str_itemsize, str_ofs_length, length
+            )
+        def malloc_unicode(length):
+            return self.malloc_array(
+                unicode_basesize, unicode_itemsize, unicode_ofs_length, length
+            )
+        self.malloc_str = malloc_str
+        self.malloc_unicode = malloc_unicode
+        self.GC_MALLOC_STR_UNICODE = lltype.Ptr(lltype.FuncType(
+            [lltype.Signed], llmemory.GCREF))
+
+
         # on some platform GC_init is required before any other
         # GC_* functions, call it here for the benefit of tests
         # XXX move this to tests
@@ -116,38 +157,26 @@ class GcLLDescr_boehm(GcLLDescription):
         ofs_length = arraydescr.get_ofs_length(self.translate_support_code)
         basesize = arraydescr.get_base_size(self.translate_support_code)
         itemsize = arraydescr.get_item_size(self.translate_support_code)
-        size = basesize + itemsize * num_elem
-        res = self.funcptr_for_new(size)
-        rffi.cast(rffi.CArrayPtr(lltype.Signed), res)[ofs_length/WORD] = num_elem
-        return res
+        return self.malloc_array(basesize, itemsize, ofs_length, num_elem)
 
     def gc_malloc_str(self, num_elem):
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
-                                                   self.translate_support_code)
-        assert itemsize == 1
-        size = basesize + num_elem
-        res = self.funcptr_for_new(size)
-        rffi.cast(rffi.CArrayPtr(lltype.Signed), res)[ofs_length/WORD] = num_elem
-        return res
+        return self.malloc_str(num_elem)
 
     def gc_malloc_unicode(self, num_elem):
-        basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
-                                                   self.translate_support_code)
-        size = basesize + num_elem * itemsize
-        res = self.funcptr_for_new(size)
-        rffi.cast(rffi.CArrayPtr(lltype.Signed), res)[ofs_length/WORD] = num_elem
-        return res
+        return self.malloc_unicode(num_elem)
 
     def args_for_new(self, sizedescr):
         assert isinstance(sizedescr, BaseSizeDescr)
         return [sizedescr.size]
 
+    def args_for_new_array(self, arraydescr):
+        ofs_length = arraydescr.get_ofs_length(self.translate_support_code)
+        basesize = arraydescr.get_base_size(self.translate_support_code)
+        itemsize = arraydescr.get_item_size(self.translate_support_code)
+        return [basesize, itemsize, ofs_length]
+
     def get_funcptr_for_new(self):
         return self.funcptr_for_new
-
-    get_funcptr_for_newarray = None
-    get_funcptr_for_newstr = None
-    get_funcptr_for_newunicode = None
 
     def rewrite_assembler(self, cpu, operations, gcrefs_output_list):
         # record all GCREFs too, because Boehm cannot see them and keep them
@@ -620,10 +649,13 @@ class GcLLDescr_framework(GcLLDescription):
         def malloc_basic(size, tid):
             type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
             has_finalizer = bool(tid & (1<<llgroup.HALFSHIFT))
+            has_light_finalizer = bool(tid & (1<<(llgroup.HALFSHIFT + 1)))
             check_typeid(type_id)
             res = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
                                                   type_id, size,
-                                                  has_finalizer, False)
+                                                  has_finalizer,
+                                                  has_light_finalizer,
+                                                  False)
             # In case the operation above failed, we are returning NULL
             # from this function to assembler.  There is also an RPython
             # exception set, typically MemoryError; but it's easier and
@@ -694,7 +726,7 @@ class GcLLDescr_framework(GcLLDescription):
             # also use it to allocate varsized objects.  The tid
             # and possibly the length are both set afterward.
             gcref = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
-                                        0, size, False, False)
+                                        0, size, False, False, False)
             return rffi.cast(lltype.Signed, gcref)
         self.malloc_slowpath = malloc_slowpath
         self.MALLOC_SLOWPATH = lltype.FuncType([lltype.Signed], lltype.Signed)
@@ -718,7 +750,9 @@ class GcLLDescr_framework(GcLLDescription):
         type_id = self.layoutbuilder.get_type_id(S)
         assert not self.layoutbuilder.is_weakref_type(S)
         has_finalizer = bool(self.layoutbuilder.has_finalizer(S))
-        flags = int(has_finalizer) << llgroup.HALFSHIFT
+        has_light_finalizer = bool(self.layoutbuilder.has_light_finalizer(S))
+        flags = (int(has_finalizer) << llgroup.HALFSHIFT |
+                 int(has_light_finalizer) << (llgroup.HALFSHIFT + 1))
         descr.tid = llop.combine_ushort(lltype.Signed, type_id, flags)
 
     def init_array_descr(self, A, descr):
@@ -751,15 +785,6 @@ class GcLLDescr_framework(GcLLDescription):
 
     def get_funcptr_for_new(self):
         return llhelper(self.GC_MALLOC_BASIC, self.malloc_basic)
-
-    def get_funcptr_for_newarray(self):
-        return llhelper(self.GC_MALLOC_ARRAY, self.malloc_array)
-
-    def get_funcptr_for_newstr(self):
-        return llhelper(self.GC_MALLOC_STR_UNICODE, self.malloc_str)
-
-    def get_funcptr_for_newunicode(self):
-        return llhelper(self.GC_MALLOC_STR_UNICODE, self.malloc_unicode)
 
     def do_write_barrier(self, gcref_struct, gcref_newptr):
         hdr_addr = llmemory.cast_ptr_to_adr(gcref_struct)

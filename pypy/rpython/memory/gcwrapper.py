@@ -1,3 +1,4 @@
+from pypy.translator.backendopt.finalizer import FinalizerAnalyzer
 from pypy.rpython.lltypesystem import lltype, llmemory, llheap
 from pypy.rpython import llinterp
 from pypy.rpython.annlowlevel import llhelper
@@ -64,6 +65,10 @@ class GCManagedHeap(object):
         if not self.gc.malloc_zero_filled:
             gctypelayout.zero_gc_pointers(result)
         return result
+
+    def add_memory_pressure(self, size):
+        if hasattr(self.gc, 'raw_malloc_memory_pressure'):
+            self.gc.raw_malloc_memory_pressure(size)
 
     def shrink_array(self, p, smallersize):
         if hasattr(self.gc, 'shrink_array'):
@@ -196,9 +201,11 @@ class DirectRunLayoutBuilder(gctypelayout.TypeLayoutBuilder):
             DESTR_ARG = lltype.typeOf(destrptr).TO.ARGS[0]
             destrgraph = destrptr._obj.graph
         else:
-            return None
+            return None, False
 
         assert not type_contains_pyobjs(TYPE), "not implemented"
+        t = self.llinterp.typer.annotator.translator
+        light = not FinalizerAnalyzer(t).analyze_light_finalizer(destrgraph)
         def ll_finalizer(addr, dummy):
             assert dummy == llmemory.NULL
             try:
@@ -208,7 +215,7 @@ class DirectRunLayoutBuilder(gctypelayout.TypeLayoutBuilder):
                 raise RuntimeError(
                     "a finalizer raised an exception, shouldn't happen")
             return llmemory.NULL
-        return llhelper(gctypelayout.GCData.FINALIZER_OR_CT, ll_finalizer)
+        return llhelper(gctypelayout.GCData.FINALIZER_OR_CT, ll_finalizer), light
 
     def make_custom_trace_funcptr_for_type(self, TYPE):
         from pypy.rpython.memory.gctransform.support import get_rtti, \

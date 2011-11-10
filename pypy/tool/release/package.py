@@ -53,11 +53,13 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     if not pypy_c.check():
         print pypy_c
         raise PyPyCNotFound('Please compile pypy first, using translate.py')
+    if sys.platform == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
+        rename_pypy_c += '.exe'
     binaries = [(pypy_c, rename_pypy_c)]
     #
     if sys.platform == 'win32':
-        # Can't rename a DLL: it is always called 'libpypy_c.dll'
-        for extra in ['libpypy_c.dll',
+        # Can't rename a DLL: it is always called 'libpypy-c.dll'
+        for extra in ['libpypy-c.dll',
                       'libexpat.dll', 'sqlite3.dll', 'msvcr90.dll']:
             p = pypy_c.dirpath().join(extra)
             if not p.check():

@@ -201,27 +201,6 @@ def min(space, __args__):
     """
     return min_max(space, __args__, "min")
 
-@unwrap_spec(sequences_w="args_w")
-def zip(space, sequences_w):
-    """Return a list of tuples, where the nth tuple contains every nth item of
-    each collection.
-
-    If the collections have different lengths, zip returns a list as long as the
-    shortest collection, ignoring the trailing items in the other collections.
-    """
-    if not sequences_w:
-        return space.newlist([])
-    result_w = []
-    iterators_w = [space.iter(w_seq) for w_seq in sequences_w]
-    while True:
-        try:
-            items_w = [space.next(w_it) for w_it in iterators_w]
-        except OperationError, e:
-            if not e.match(space, space.w_StopIteration):
-                raise
-            return space.newlist(result_w)
-        result_w.append(space.newtuple(items_w))
-
 class W_Enumerate(Wrappable):
 
     def __init__(self, w_iter, w_start):

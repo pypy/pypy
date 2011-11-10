@@ -201,7 +201,7 @@ testmap = [
     RegrTest('test_difflib.py'),
     RegrTest('test_dircache.py', core=True),
     RegrTest('test_dis.py'),
-    RegrTest('test_distutils.py'),
+    RegrTest('test_distutils.py', skip=True),
     RegrTest('test_dl.py', skip=True),
     RegrTest('test_doctest.py', usemodules="thread"),
     RegrTest('test_doctest2.py'),
