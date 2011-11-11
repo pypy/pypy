@@ -91,11 +91,11 @@ class W_Random(Wrappable):
             raise OperationError(space.w_ValueError, strerror)
         needed = (k - 1) // rbigint.SHIFT + 1
         result = rbigint.rbigint([rbigint.NULLDIGIT] * needed, 1)
-        for i in range(needed - 1):
-            # This loses some random digits, but not too many since SHIFT=31
-            value = self._rnd.genrand32()
+        for i in range(needed):
+            # This wastes some random digits, but not too many since SHIFT=31
+            value = self._rnd.genrand32() & rbigint.MASK
             if i < needed - 1:
-                result.setdigit(i, value & rbigint.MASK)
+                result.setdigit(i, value)
             else:
                 result.setdigit(i, value >> ((needed * rbigint.SHIFT) - k))
         return space.newlong_from_rbigint(result)

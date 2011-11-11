@@ -98,6 +98,7 @@ class AppTestRandom:
         for n in range(10, 1000, 15):
             k = rnd.getrandbits(n)
             assert 0 <= k < 2 ** n
+        assert rnd.getrandbits(30) != 0 # Fails every 1e10 runs
 
     def test_subclass(self):
         import _random
