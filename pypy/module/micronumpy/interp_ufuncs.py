@@ -238,7 +238,7 @@ def find_unaryop_result_dtype(space, dt, promote_to_float=False,
         elif dt.kind == interp_dtype.FLOATINGLTR:
             return interp_dtype.get_dtype_cache(space).w_float64dtype
         elif dt.kind == interp_dtype.UNSIGNEDLTR:
-            return space.fromcache(interp_dtype.W_UInt64Dtype)
+            return interp_dtype.get_dtype_cache(space).w_uint64dtype
         else:
             assert False
     return dt

@@ -25,7 +25,8 @@ class BaseType(object):
         exp = sin = cos = tan = arcsin = arccos = arctan = arcsinh = \
         arctanh = _unimplemented_ufunc
 
-class Primitive(BaseType):
+class Primitive(object):
+    _mixin_ = True
     def get_element_size(self):
         return rffi.sizeof(self.T)
 
@@ -47,18 +48,18 @@ class Primitive(BaseType):
     def read(self, ptr, offset):
         ptr = rffi.ptradd(ptr, offset)
         return self.box(
-            rffi.cast(lltype.Ptr(lltype.Array(self.T, hints={"nolength": True})), ptr)[0]
+            rffi.cast(rffi.CArrayPtr(self.T), ptr)[0]
         )
 
     def store(self, ptr, offset, box):
         value = self.unbox(box)
         ptr = rffi.ptradd(ptr, offset)
-        rffi.cast(lltype.Ptr(lltype.Array(self.T, hints={"nolength": True})), ptr)[0] = value
+        rffi.cast(rffi.CArrayPtr(self.T), ptr)[0] = value
 
     def fill(self, ptr, box, n):
         value = self.unbox(box)
         for i in xrange(n):
-            rffi.cast(lltype.Ptr(lltype.Array(self.T, hints={"nolength": True})), ptr)[0] = value
+            rffi.cast(rffi.CArrayPtr(self.T), ptr)[0] = value
             ptr = rffi.ptradd(ptr, self.get_element_size())
 
     def add(self, v1, v2):
@@ -107,7 +108,7 @@ class Primitive(BaseType):
     def min(self, v1, v2):
         return self.box(min(self.unbox(v1), self.unbox(v2)))
 
-class Bool(Primitive):
+class Bool(BaseType, Primitive):
     T = lltype.Bool
     BoxType = interp_boxes.W_BoolBox
 
@@ -129,6 +130,8 @@ class Bool(Primitive):
         return "True" if value else "False"
 
 class Integer(Primitive):
+    _mixin_ = True
+
     def _coerce(self, space, w_item):
         return self.box(space.int_w(space.int(w_item)))
 
@@ -156,47 +159,49 @@ class Integer(Primitive):
             assert v == 0
             return 0
 
-class Int8(Integer):
+class Int8(BaseType, Integer):
     T = rffi.SIGNEDCHAR
     BoxType = interp_boxes.W_Int8Box
 
-class UInt8(Integer):
+class UInt8(BaseType, Integer):
     T = rffi.UCHAR
     BoxType = interp_boxes.W_UInt8Box
 
-class Int16(Integer):
+class Int16(BaseType, Integer):
     T = rffi.SHORT
     BoxType = interp_boxes.W_Int16Box
 
-class UInt16(Integer):
+class UInt16(BaseType, Integer):
     T = rffi.USHORT
     BoxType = interp_boxes.W_UInt16Box
 
-class Int32(Integer):
+class Int32(BaseType, Integer):
     T = rffi.INT
     BoxType = interp_boxes.W_Int32Box
 
-class UInt32(Integer):
+class UInt32(BaseType, Integer):
     T = rffi.UINT
     BoxType = interp_boxes.W_UInt32Box
 
-class Long(Integer):
+class Long(BaseType, Integer):
     T = rffi.LONG
     BoxType = interp_boxes.W_LongBox
 
-class ULong(Integer):
+class ULong(BaseType, Integer):
     T = rffi.ULONG
     BoxType = interp_boxes.W_ULongBox
 
-class Int64(Integer):
+class Int64(BaseType, Integer):
     T = rffi.LONGLONG
     BoxType = interp_boxes.W_Int64Box
 
-class UInt64(Integer):
+class UInt64(BaseType, Integer):
     T = rffi.ULONGLONG
     BoxType = interp_boxes.W_UInt64Box
 
 class Float(Primitive):
+    _mixin_ = True
+
     def _coerce(self, space, w_item):
         return self.box(space.float_w(space.float(w_item)))
 
@@ -293,10 +298,10 @@ class Float(Primitive):
         return math.atanh(v)
 
 
-class Float32(Float):
+class Float32(BaseType, Float):
     T = rffi.FLOAT
     BoxType = interp_boxes.W_Float32Box
 
-class Float64(Float):
+class Float64(BaseType, Float):
     T = rffi.DOUBLE
     BoxType = interp_boxes.W_Float64Box
