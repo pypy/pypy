@@ -1,3 +1,4 @@
+import py
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 
 
@@ -61,6 +62,7 @@ class TestMath(BaseTestPyPyC):
         """)
 
     def test_fmod(self):
+        py.test.skip("test relies on the old and broken ll_math_fmod")
         def main(n):
             import math
 
