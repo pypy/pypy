@@ -710,6 +710,9 @@ class TestRffiInternals:
         res = cast(lltype.SingleFloat, res)
         assert res == r_singlefloat(12.3)
 
+        res = cast(lltype.Float, r_singlefloat(12.))
+        assert res == 12.
+
     def test_rffi_sizeof(self):
         try:
             import ctypes
