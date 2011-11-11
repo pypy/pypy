@@ -74,6 +74,41 @@ class AssemblerPPC(OpAssembler):
     EMPTY_LOC = '\xFE'
     END_OF_LOCS = '\xFF'
 
+
+    '''
+    PyPy's PPC stack frame layout
+    =============================
+
+    .                          .
+    .                          . 
+    ----------------------------
+    |         BACKCHAIN        |       OLD  FRAME
+    ------------------------------------------------------
+    |                          |       PyPy Frame
+    |      GPR  SAVE  AREA     |
+    |                          |
+    ----------------------------
+    |       FORCE  INDEX       |
+    ----------------------------  <- Spilling Pointer (SPP) 
+    |                          |
+    |       SPILLING  AREA     |
+    |                          |
+    ----------------------------  <- Stack Pointer (SP)
+
+    The size of the GPR save area and the force index area fixed:
+
+        GPR SAVE AREA: len(NONVOLATILES) * WORD
+        FORCE INDEX  : WORD
+
+
+    The size of the spilling area is known when the trace operations
+    have been generated.
+    '''
+
+    GPR_SAVE_AREA_AND_FORCE_INDEX = GPR_SAVE_AREA + WORD
+                                  # ^^^^^^^^^^^^^   ^^^^
+                                  # save GRP regs   force index
+
     def __init__(self, cpu, failargs_limit=1000):
         self.cpu = cpu
         self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
@@ -124,6 +159,8 @@ class AssemblerPPC(OpAssembler):
             clt.asmmemmgr = []
         return clt.asmmemmgr_blocks
 
+    # The code generated here allocates a new stackframe 
+    # and is the first machine code to be executed.
     def _make_prologue(self, target_pos, frame_depth):
         if IS_PPC_32:
             # save it in previous frame (Backchain)
@@ -158,10 +195,14 @@ class AssemblerPPC(OpAssembler):
 
         @rgc.no_collect
         def failure_recovery_func(mem_loc, stack_pointer, spilling_pointer):
-            """mem_loc is a structure in memory describing where the values for
-            the failargs are stored.
-            frame loc is the address of the frame pointer for the frame to be
-            decoded frame """
+            """
+                mem_loc is a structure in memory describing where the values for
+                the failargs are stored.
+            
+                stack_pointer is the address of top of the stack.
+
+                spilling_pointer is the address of the FORCE_INDEX.
+            """
             return self.decode_registers_and_descr(mem_loc, stack_pointer, spilling_pointer)
 
         self.failure_recovery_func = failure_recovery_func
@@ -289,9 +330,17 @@ class AssemblerPPC(OpAssembler):
         return mc.materialize(self.cpu.asmmemmgr, [],
                                self.cpu.gc_ll_descr.gcrootmap)
 
+    # The code generated here serves as an exit stub from
+    # the executed machine code.
+    # It is generated only once when the backend is initialized.
+    #
+    # The following actions are performed:
+    #   - The fail boxes are filled with the computed values 
+    #        (failure_recovery_func)
+    #   - The nonvolatile registers are restored 
+    #   - jump back to the calling code
     def _gen_exit_path(self):
         mc = PPCBuilder() 
-        #
         # compute offset to new SP
         size = WORD * (len(r.MANAGED_REGS)) + BACKCHAIN_SIZE
         # set SP
@@ -316,7 +365,6 @@ class AssemblerPPC(OpAssembler):
             r2_value = descr[1]
             r11_value = descr[2]
 
-        #
         # load parameters into parameter registers
         if IS_PPC_32:
             mc.lwz(r.r3.value, r.SPP.value, 0)     # address of state encoding 
@@ -328,6 +376,7 @@ class AssemblerPPC(OpAssembler):
         # load address of decoding function into r0
         mc.load_imm(r.r0, addr)
         if IS_PPC_64:
+            # load TOC pointer and environment pointer
             mc.load_imm(r.r2, r2_value)
             mc.load_imm(r.r11, r11_value)
         # ... and branch there
@@ -340,12 +389,19 @@ class AssemblerPPC(OpAssembler):
         mc.mr(r.r5.value, r.SPP.value)
         self._restore_nonvolatiles(mc, r.r5)
         # load old backchain into r4
+        offset_to_old_backchain = self.GPR_SAVE_AREA_AND_FORCE_INDEX + WORD
         if IS_PPC_32:
             mc.lwz(r.r4.value, r.r5.value, GPR_SAVE_AREA + 2 * WORD) 
         else:
             mc.ld(r.r4.value, r.r5.value, GPR_SAVE_AREA + 2 * WORD)
         mc.mtlr(r.r4.value)     # restore LR
         mc.addi(r.SP.value, r.r5.value, GPR_SAVE_AREA + WORD) # restore old SP
+
+        # From SPP, we have a constant offset of GPR_SAVE_AREA_AND_FORCE_INDEX 
+        # to the old backchain. We use the SPP to re-establish the old backchain
+        # because this exit stub is generated before we know how much space
+        # the entire frame will need.
+        mc.addi(r.SP.value, r.r5.value, self.GPR_SAVE_AREA_AND_FORCE_INDEX) # restore old SP
         mc.blr()
         mc.prepare_insts_blocks()
         return mc.materialize(self.cpu.asmmemmgr, [],
@@ -361,6 +417,7 @@ class AssemblerPPC(OpAssembler):
             else:
                 mc.std(reg.value, r.SP.value, i * WORD + BACKCHAIN_SIZE)
 
+    # Load parameters from fail args into locations (stack or registers)
     def gen_bootstrap_code(self, nonfloatlocs, inputargs):
         for i in range(len(nonfloatlocs)):
             loc = nonfloatlocs[i]
