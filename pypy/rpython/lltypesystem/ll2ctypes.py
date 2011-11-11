@@ -1166,7 +1166,9 @@ def force_cast(RESTYPE, value):
     TYPE1 = lltype.typeOf(value)
     cvalue = lltype2ctypes(value)
     cresulttype = get_ctypes_type(RESTYPE)
-    if isinstance(TYPE1, lltype.Ptr):
+    if RESTYPE == TYPE1:
+        return value
+    elif isinstance(TYPE1, lltype.Ptr):
         if isinstance(RESTYPE, lltype.Ptr):
             # shortcut: ptr->ptr cast
             cptr = ctypes.cast(cvalue, cresulttype)
@@ -1179,8 +1181,6 @@ def force_cast(RESTYPE, value):
         cvalue = ord(cvalue)     # character -> integer
     elif hasattr(RESTYPE, "_type") and issubclass(RESTYPE._type, base_int):
         cvalue = int(cvalue)
-    elif RESTYPE is TYPE1:
-        return value
 
     if not isinstance(cvalue, (int, long, float)):
         raise NotImplementedError("casting %r to %r" % (TYPE1, RESTYPE))
