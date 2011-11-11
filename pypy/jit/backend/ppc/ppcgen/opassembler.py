@@ -56,15 +56,17 @@ class OpAssembler(object):
 
     def emit_int_mul(self, op, arglocs, regalloc):
         reg1, reg2, res = arglocs
-        self.mc.mullw(res.value, reg1.value, reg2.value)
-
-    def emit_int_mul_ovf(self, op, arglocs, regalloc):
-        reg1, reg2, res = arglocs
-        self.mc.mullwo(res.value, reg1.value, reg2.value)
+        if IS_PPC_32:
+            self.mc.mullw(res.value, reg1.value, reg2.value)
+        else:
+            self.mc.mulld(res.value, reg1.value, reg2.value)
 
     def emit_int_mul_ovf(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
-        self.mc.mullwo(res.value, l0.value, l1.value)
+        if IS_PPC_32:
+            self.mc.mullwo(res.value, l0.value, l1.value)
+        else:
+            self.mc.mulldo(res.value, l0.value, l1.value)
 
     def emit_int_floordiv(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
