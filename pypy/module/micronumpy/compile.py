@@ -177,10 +177,12 @@ class ArrayAssignment(Node):
 
     def execute(self, interp):
         arr = interp.variables[self.name]
-        w_index = self.index.execute(interp).eval(0)
-        w_val = self.expr.execute(interp).eval(0)
+        w_index = self.index.execute(interp)
+        assert isinstance(w_index, BaseArray)
+        w_val = self.expr.execute(interp)
+        assert isinstance(w_val, BaseArray)
         assert isinstance(arr, BaseArray)
-        arr.descr_setitem(interp.space, w_index, w_val)
+        arr.descr_setitem(interp.space, w_index.eval(0), w_val.eval(0))
 
     def __repr__(self):
         return "%s[%r] = %r" % (self.name, self.index, self.expr)
