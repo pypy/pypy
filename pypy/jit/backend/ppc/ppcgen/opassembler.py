@@ -3,7 +3,8 @@ from pypy.jit.backend.ppc.ppcgen.helper.assembler import (gen_emit_cmp_op,
 import pypy.jit.backend.ppc.ppcgen.condition as c
 import pypy.jit.backend.ppc.ppcgen.register as r
 from pypy.jit.backend.ppc.ppcgen.arch import (IS_PPC_32, WORD,
-                                              GPR_SAVE_AREA, BACKCHAIN_SIZE)
+                                              GPR_SAVE_AREA, BACKCHAIN_SIZE,
+                                              MAX_REG_PARAMS)
 
 from pypy.jit.metainterp.history import LoopToken, AbstractFailDescr, FLOAT
 from pypy.rlib.objectmodel import we_are_translated
@@ -529,7 +530,9 @@ class OpAssembler(object):
             self.mc.stw(r.r0.value, r.SP.value, stack_space + WORD)
         else:
             # ABI fixed frame + 8 GPRs + arguments
-            stack_space = (6 + 8 + len(stack_args)) * WORD
+            stack_space = (6 + MAX_REG_PARAMS + len(stack_args)) * WORD
+            while stack_space % (2 * WORD) != 0:
+                stack_space += 1
             self.mc.stdu(r.SP.value, r.SP.value, -stack_space)
             self.mc.mflr(r.r0.value)
             self.mc.std(r.r0.value, r.SP.value, stack_space + 2 * WORD)
