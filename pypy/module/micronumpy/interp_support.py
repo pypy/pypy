@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.module.micronumpy.interp_dtype import W_Float64Dtype
+from pypy.module.micronumpy.interp_dtype import get_dtype_cache
 from pypy.rlib.rstruct.runpack import runpack
 from pypy.rpython.lltypesystem import lltype, rffi
 
@@ -18,7 +18,7 @@ def fromstring(space, s):
         raise OperationError(space.w_ValueError, space.wrap(
             "string length %d not divisable by %d" % (length, FLOAT_SIZE)))
 
-    dtype = space.fromcache(W_Float64Dtype)
+    dtype = get_dtype_cache(space).w_float64dtype
     a = SingleDimArray(number, dtype=dtype)
 
     start = 0

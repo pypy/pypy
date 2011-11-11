@@ -31,9 +31,28 @@ class W_GenericBox(Wrappable):
             return getattr(interp_ufuncs.get(space), ufunc_name).call(space, [self, w_other])
         return func_with_new_name(impl, "binop_%s_impl" % ufunc_name)
 
+    def _binop_right_impl(ufunc_name):
+        def impl(self, space, w_other):
+            from pypy.module.micronumpy import interp_ufuncs
+            return getattr(interp_ufuncs.get(space), ufunc_name).call(space, [w_other, self])
+        return func_with_new_name(impl, "binop_right_%s_impl" % ufunc_name)
+
+    def _unaryop_impl(ufunc_name):
+        def impl(self, space):
+            from pypy.module.micronumpy import interp_ufuncs
+            return getattr(interp_ufuncs.get(space), ufunc_name).call(space, [self])
+        return func_with_new_name(impl, "unaryop_%s_impl" % ufunc_name)
+
     descr_add = _binop_impl("add")
+    descr_sub = _binop_impl("subtract")
+    descr_mul = _binop_impl("multiply")
     descr_div = _binop_impl("divide")
     descr_eq = _binop_impl("equal")
+
+    descr_rmul = _binop_right_impl("multiply")
+
+    descr_neg = _unaryop_impl("negative")
+    descr_abs = _unaryop_impl("absolute")
 
 
 class W_BoolBox(W_GenericBox):
@@ -111,9 +130,16 @@ W_GenericBox.typedef = TypeDef("generic",
     __float__ = interp2app(W_GenericBox.descr_float),
 
     __add__ = interp2app(W_GenericBox.descr_add),
+    __sub__ = interp2app(W_GenericBox.descr_sub),
+    __mul__ = interp2app(W_GenericBox.descr_mul),
     __div__ = interp2app(W_GenericBox.descr_div),
+
+    __rmul__ = interp2app(W_GenericBox.descr_rmul),
+
     __eq__ = interp2app(W_GenericBox.descr_eq),
 
+    __neg__ = interp2app(W_GenericBox.descr_neg),
+    __abs__ = interp2app(W_GenericBox.descr_abs),
 )
 
 W_BoolBox.typedef = TypeDef("bool_", W_GenericBox.typedef,

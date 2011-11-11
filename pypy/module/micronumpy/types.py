@@ -7,7 +7,12 @@ from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.rpython.lltypesystem import lltype, rffi
 
 
-def simple_op(func):
+def simple_unary_op(func):
+    def dispatcher(self, v):
+        return self.box(func(self, self.unbox(v)))
+    return dispatcher
+
+def simple_binary_op(func):
     def dispatcher(self, v1, v2):
         return self.box(func(self, self.unbox(v1), self.unbox(v2)))
     return dispatcher
@@ -65,11 +70,36 @@ class Primitive(BaseType):
     def mul(self, v1, v2):
         return self.box(self.unbox(v1) * self.unbox(v2))
 
+    def pos(self, v):
+        return self.box(+self.unbox(v))
+
+    def neg(self, v):
+        return self.box(-self.unbox(v))
+
+    @simple_unary_op
+    def abs(self, v):
+        return abs(v)
+
     def eq(self, v1, v2):
         return self.unbox(v1) == self.unbox(v2)
 
+    def ne(self, v1, v2):
+        return self.unbox(v1) != self.unbox(v2)
+
+    def lt(self, v1, v2):
+        return self.unbox(v1) < self.unbox(v2)
+
+    def le(self, v1, v2):
+        return self.unbox(v1) <= self.unbox(v2)
+
+    def gt(self, v1, v2):
+        return self.unbox(v1) > self.unbox(v2)
+
+    def ge(self, v1, v2):
+        return self.unbox(v1) >= self.unbox(v2)
+
     def bool(self, v):
-        return bool(v)
+        return bool(self.unbox(v))
 
     def max(self, v1, v2):
         return self.box(max(self.unbox(v1), self.unbox(v2)))
@@ -106,11 +136,25 @@ class Integer(Primitive):
         value = self.unbox(box)
         return str(value)
 
-    @simple_op
+    @simple_binary_op
     def div(self, v1, v2):
         if v2 == 0:
             return 0
         return v1 / v2
+
+    @simple_binary_op
+    def mod(self, v1, v2):
+        return v1 % v2
+
+    @simple_unary_op
+    def sign(self, v):
+        if v > 0:
+            return 1
+        elif v < 0:
+            return -1
+        else:
+            assert v == 0
+            return 0
 
 class Int8(Integer):
     T = rffi.SIGNEDCHAR
@@ -160,7 +204,7 @@ class Float(Primitive):
         value = self.unbox(box)
         return float2string(value, "g", rfloat.DTSF_STR_PRECISION)
 
-    @simple_op
+    @simple_binary_op
     def div(self, v1, v2):
         try:
             return v1 / v2
@@ -169,9 +213,48 @@ class Float(Primitive):
                 return rfloat.NAN
             return rfloat.copysign(rfloat.INFINITY, v1 * v2)
 
-    @simple_op
+    @simple_binary_op
+    def mod(self, v1, v2):
+        return math.fmod(v1, v2)
+
+    @simple_binary_op
     def pow(self, v1, v2):
         return math.pow(v1, v2)
+
+    @simple_binary_op
+    def copysign(self, v1, v2):
+        return math.copysign(v1, v2)
+
+    @simple_unary_op
+    def sign(self, v):
+        if v == 0.0:
+            return 0.0
+        return rfloat.copysign(1.0, v)
+
+    @simple_unary_op
+    def fabs(self, v):
+        return math.fabs(v)
+
+    @simple_unary_op
+    def reciprocal(self, v):
+        if v == 0.0:
+            return rfloat.copysign(rfloat.INFINITY, v)
+        return 1.0 / v
+
+    @simple_unary_op
+    def floor(self, v):
+        return math.floor(v)
+
+    @simple_unary_op
+    def exp(self, v):
+        try:
+            return math.exp(v)
+        except OverflowError:
+            return rfloat.INFINITY
+
+    @simple_unary_op
+    def sin(self, v):
+        return math.sin(v)
 
 class Float32(Float):
     T = rffi.FLOAT

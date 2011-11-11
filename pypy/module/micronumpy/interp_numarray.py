@@ -120,8 +120,8 @@ class BaseArray(Wrappable):
                                               self=self, dtype=dtype,
                                               size=size, i=i, result=result,
                                               cur_best=cur_best)
-                new_best = getattr(dtype, op_name)(cur_best, self.eval(i))
-                if dtype.ne(new_best, cur_best):
+                new_best = getattr(dtype.itemtype, op_name)(cur_best, self.eval(i))
+                if dtype.itemtype.ne(new_best, cur_best):
                     result = i
                     cur_best = new_best
                 i += 1
@@ -154,7 +154,7 @@ class BaseArray(Wrappable):
         i = 0
         while i < size:
             any_driver.jit_merge_point(signature=self.signature, self=self, size=size, dtype=dtype, i=i)
-            if dtype.bool(self.eval(i)):
+            if dtype.itemtype.bool(self.eval(i)):
                 return True
             i += 1
         return False

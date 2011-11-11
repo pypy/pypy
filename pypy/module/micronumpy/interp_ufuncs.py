@@ -29,7 +29,7 @@ class W_Ufunc(Wrappable):
     def descr_get_identity(self, space):
         if self.identity is None:
             return space.w_None
-        return self.identity.wrap(space)
+        return self.identity
 
     def descr_call(self, space, __args__):
         if __args__.keywords or len(__args__.arguments_w) < self.argcount:
@@ -108,7 +108,7 @@ class W_Ufunc1(W_Ufunc):
             promote_bools=self.promote_bools,
         )
         if isinstance(w_obj, Scalar):
-            return self.func(res_dtype, w_obj.value.convert_to(res_dtype)).wrap(space)
+            return self.func(res_dtype, w_obj.value.convert_to(res_dtype))
 
         new_sig = signature.Signature.find_sig([self.signature, w_obj.signature])
         w_res = Call1(new_sig, res_dtype, w_obj)
