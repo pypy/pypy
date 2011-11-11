@@ -8,57 +8,24 @@ def gen_emit_cmp_op(condition, signed=True):
     def f(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
         # do the comparison
-        if signed:
-            if l1.is_imm():
-                if IS_PPC_32:
-                    self.mc.cmpwi(0, l0.value, l1.value)
-                else:
-                    self.mc.cmpdi(0, l0.value, l1.value)
-            else:
-                if IS_PPC_32:
-                    self.mc.cmpw(0, l0.value, l1.value)
-                else:
-                    self.mc.cmpd(0, l0.value, l1.value)
-
-            # After the comparison, place the result
-            # in the first bit of the CR
-            if condition == c.LT:
-                self.mc.cror(0, 0, 0)
-            elif condition == c.LE:
-                self.mc.cror(0, 0, 2)
-            elif condition == c.EQ:
-                self.mc.cror(0, 2, 2)
-            elif condition == c.GE:
-                self.mc.cror(0, 1, 2)
-            elif condition == c.GT:
-                self.mc.cror(0, 1, 1)
-            elif condition == c.NE:
-                self.mc.cror(0, 0, 1)
-            else:
-                assert 0, "condition not known"
-
+        self.mc.cmp_op(0, l0.value, l1.value,
+                       imm=l1.is_imm(), signed=signed)
+        # After the comparison, place the result
+        # in the first bit of the CR
+        if condition == c.LT or condition == c.U_LT:
+            self.mc.cror(0, 0, 0)
+        elif condition == c.LE or condition == c.U_LE:
+            self.mc.cror(0, 0, 2)
+        elif condition == c.EQ:
+            self.mc.cror(0, 2, 2)
+        elif condition == c.GE or condition == c.U_GE:
+            self.mc.cror(0, 1, 2)
+        elif condition == c.GT or condition == c.U_GT:
+            self.mc.cror(0, 1, 1)
+        elif condition == c.NE:
+            self.mc.cror(0, 0, 1)
         else:
-            if l1.is_imm():
-                if IS_PPC_32:
-                    self.mc.cmplwi(0, l0.value, l1.value)
-                else:
-                    self.mc.cmpldi(0, l0.value, l1.value)
-            else:
-                if IS_PPC_32:
-                    self.mc.cmplw(0, l0.value, l1.value)
-                else:
-                    self.mc.cmpld(0, l0.value, l1.value)
-
-            if condition == c.U_LT:
-                self.mc.cror(0, 0, 0)
-            elif condition == c.U_LE:
-                self.mc.cror(0, 0, 2)
-            elif condition == c.U_GT:
-                self.mc.cror(0, 1, 1)
-            elif condition == c.U_GE:
-                self.mc.cror(0, 1, 2)
-            else:
-                assert 0, "condition not known"
+            assert 0, "condition not known"
 
         resval = res.value 
         # move the content of the CR to resval
@@ -71,7 +38,7 @@ def gen_emit_unary_cmp_op(condition):
     def f(self, op, arglocs, regalloc):
         reg, res = arglocs
 
-        self.mc.cmpwi(0, reg.value, 0)
+        self.mc.cmp_op(0, reg.value, 0, imm=True)
         if condition == c.IS_ZERO:
             self.mc.cror(0, 2, 2)
         elif condition == c.IS_TRUE:

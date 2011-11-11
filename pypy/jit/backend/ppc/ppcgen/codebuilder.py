@@ -1018,6 +1018,39 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
     def copy_to_raw_memory(self, addr):
         self._copy_to_raw_memory(addr)
 
+    def cmp_op(self, block, a, b, imm=False, signed=True):
+        if IS_PPC_32:
+            if signed:
+                if imm:
+                    # 32 bit immediate signed
+                    self.cmpwi(block, a, b)
+                else:
+                    # 32 bit signed
+                    self.cmpw(block, a, b)
+            else:
+                if imm:
+                    # 32 bit immediate unsigned
+                    self.cmplwi(block, a, b)
+                else:
+                    # 32 bit unsigned
+                    self.cmplw(block, a, b)
+        else:
+            if signed:
+                if imm:
+                    # 64 bit immediate signed
+                    self.cmpdi(block, a, b)
+                else:
+                    # 64 bit signed
+                    self.cmpd(block, a, b)
+            else:
+                if imm:
+                    # 64 bit immediate unsigned
+                    self.cmpldi(block, a, b)
+                else:
+                    # 64 bit unsigned
+                    self.cmpld(block, a, b)
+                
+
 class BranchUpdater(PPCAssembler):
     def __init__(self):
         PPCAssembler.__init__(self)
