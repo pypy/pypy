@@ -224,7 +224,7 @@ class Operator(Node):
             raise NotImplementedError
         if (not isinstance(w_res, BaseArray) and
             not isinstance(w_res, interp_boxes.W_GenericBox)):
-            dtype = interp.space.fromcache(W_Float64Dtype)
+            dtype = get_dtype_cache(interp.space).w_float64dtype
             w_res = scalar_w(interp.space, dtype, w_res)
         return w_res
 
@@ -334,9 +334,9 @@ class FunctionCall(Node):
             if isinstance(w_res, BaseArray):
                 return w_res
             if isinstance(w_res, FloatObject):
-                dtype = interp.space.fromcache(W_Float64Dtype)
+                dtype = get_dtype_cache(interp.space).w_float64dtype
             elif isinstance(w_res, BoolObject):
-                dtype = interp.space.fromcache(W_BoolDtype)
+                dtype = get_dtype_cache(interp.space).w_booldtype
             elif isinstance(w_res, interp_boxes.W_GenericBox):
                 dtype = w_res.get_dtype(interp.space)
             else:
