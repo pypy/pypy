@@ -6,15 +6,14 @@ import sys
 if sys.maxint == (2**31 - 1):
     WORD = 4
     IS_PPC_32 = True
-    IS_PPC_64 = False
+    BACKCHAIN_SIZE = 2 * WORD
 else:
     WORD = 8
     IS_PPC_32 = False
-    IS_PPC_64 = True
+    BACKCHAIN_SIZE = 3 * WORD
 
+IS_PPC_64 = not IS_PPC_32
 MY_COPY_OF_REGS = 0
 
 GPR_SAVE_AREA   = len(NONVOLATILES) * WORD
 MAX_REG_PARAMS = 8
-
-BACKCHAIN_SIZE = 3 * WORD
