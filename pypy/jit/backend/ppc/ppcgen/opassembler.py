@@ -527,7 +527,7 @@ class OpAssembler(object):
         else:
             self.mc.stdu(r.SP.value, r.SP.value, -stack_space)
             self.mc.mflr(r.r0.value)
-            self.mc.std(r.r0.value, r.SP.value, stack_space + WORD)
+            self.mc.std(r.r0.value, r.SP.value, stack_space + 2 * WORD)
 
         # then we push everything on the stack
         for i, arg in enumerate(stack_args):
@@ -574,14 +574,14 @@ class OpAssembler(object):
             self.mc.bl_abs(adr)
             self.mc.lwz(r.r0.value, r.SP.value, stack_space + WORD)
         else:
-            self.mc.std(r.r2.value, r.SP.value, 40)
+            self.mc.std(r.r2.value, r.SP.value, 3 * WORD)
             self.mc.load_from_addr(r.r0, adr)
-            self.mc.load_from_addr(r.r2, adr+WORD)
-            self.mc.load_from_addr(r.r11, adr+2*WORD)
+            self.mc.load_from_addr(r.r2, adr + WORD)
+            self.mc.load_from_addr(r.r11, adr + 2 * WORD)
             self.mc.mtctr(r.r0.value)
             self.mc.bctrl()
-            self.mc.ld(r.r2.value, r.SP.value, 40)
-            self.mc.ld(r.r0.value, r.SP.value, stack_space + WORD)
+            self.mc.ld(r.r2.value, r.SP.value, 3 * WORD)
+            self.mc.ld(r.r0.value, r.SP.value, stack_space + 2 * WORD)
         self.mc.mtlr(r.r0.value)
         self.mc.addi(r.SP.value, r.SP.value, stack_space)
 

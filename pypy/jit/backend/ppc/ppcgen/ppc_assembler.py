@@ -174,7 +174,7 @@ class AssemblerPPC(OpAssembler):
         else:
             self.mc.stdu(r.SP.value, r.SP.value, -frame_depth)
             self.mc.mflr(r.r0.value)
-            self.mc.std(r.r0.value, r.SP.value, frame_depth + WORD)
+            self.mc.std(r.r0.value, r.SP.value, frame_depth + 2 * WORD)
 
         # compute spilling pointer (SPP)
         self.mc.addi(r.SPP.value, r.SP.value, frame_depth
@@ -381,12 +381,15 @@ class AssemblerPPC(OpAssembler):
         # load address of decoding function into r0
         mc.load_imm(r.r0, addr)
         if IS_PPC_64:
+            mc.std(r.r2.value, r.SP.value, 3 * WORD)
             # load TOC pointer and environment pointer
             mc.load_imm(r.r2, r2_value)
             mc.load_imm(r.r11, r11_value)
         # ... and branch there
         mc.mtctr(r.r0.value)
         mc.bctrl()
+        if IS_PPC_64:
+            mc.ld(r.r2.value, r.SP.value, 3 * WORD)
         #
         mc.addi(r.SP.value, r.SP.value, size)
         # save SPP in r5
@@ -398,7 +401,7 @@ class AssemblerPPC(OpAssembler):
         if IS_PPC_32:
             mc.lwz(r.r4.value, r.r5.value, offset_to_old_backchain) 
         else:
-            mc.ld(r.r4.value, r.r5.value, offset_to_old_backchain)
+            mc.ld(r.r4.value, r.r5.value, offset_to_old_backchain + WORD)
         mc.mtlr(r.r4.value)     # restore LR
 
         # From SPP, we have a constant offset of GPR_SAVE_AREA_AND_FORCE_INDEX 
