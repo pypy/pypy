@@ -11,15 +11,17 @@ from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.translator.platform import platform
 from pypy.rlib.rfloat import isfinite, isinf, isnan, INFINITY, NAN
 
+use_library_isinf_isnan = False
 if sys.platform == "win32":
     if platform.name == "msvc":
         # When compiled with /O2 or /Oi (enable intrinsic functions)
         # It's no more possible to take the address of some math functions.
         # Ensure that the compiler chooses real functions instead.
         eci = ExternalCompilationInfo(
-            includes = ['math.h'],
+            includes = ['math.h', 'float.h'],
             post_include_bits = ['#pragma function(floor)'],
             )
+        use_library_isinf_isnan = True
     else:
         eci = ExternalCompilationInfo()
     # Some math functions are C99 and not defined by the Microsoft compiler
@@ -108,18 +110,32 @@ def _likely_raise(errno, x):
 #
 # Custom implementations
 
+VERY_LARGE_FLOAT = 1.0
+while VERY_LARGE_FLOAT * 100.0 != INFINITY:
+    VERY_LARGE_FLOAT *= 64.0
+
+_lib_isnan = rffi.llexternal("_isnan", [lltype.Float], lltype.Signed,
+                             compilation_info=eci)
+_lib_finite = rffi.llexternal("_finite", [lltype.Float], lltype.Signed,
+                             compilation_info=eci)
+
 def ll_math_isnan(y):
     # By not calling into the external function the JIT can inline this.
     # Floats are awesome.
+    if use_library_isinf_isnan and not jit.we_are_jitted():
+        return bool(_lib_isnan(y))
     return y != y
 
 def ll_math_isinf(y):
-    # Use a bitwise OR so the JIT doesn't produce 2 different guards.
-    return (y == INFINITY) | (y == -INFINITY)
+    if use_library_isinf_isnan and not jit.we_are_jitted():
+        return not _lib_finite(y) and not _lib_isnan(y)
+    return (y + VERY_LARGE_FLOAT) == y
 
 def ll_math_isfinite(y):
     # Use a custom hack that is reasonably well-suited to the JIT.
     # Floats are awesome (bis).
+    if use_library_isinf_isnan and not jit.we_are_jitted():
+        return bool(_lib_finite(y))
     z = 0.0 * y
     return z == z       # i.e.: z is not a NaN
 
@@ -136,10 +152,12 @@ def ll_math_atan2(y, x):
     Windows, FreeBSD and alpha Tru64 are amongst platforms that don't
     always follow C99.
     """
-    if isnan(x) or isnan(y):
+    if isnan(x):
         return NAN
 
-    if isinf(y):
+    if not isfinite(y):
+        if isnan(y):
+            return NAN
         if isinf(x):
             if math_copysign(1.0, x) == 1.0:
                 # atan2(+-inf, +inf) == +-pi/4
@@ -168,7 +186,7 @@ def ll_math_atan2(y, x):
 
 def ll_math_frexp(x):
     # deal with special cases directly, to sidestep platform differences
-    if isnan(x) or isinf(x) or not x:
+    if not isfinite(x) or not x:
         mantissa = x
         exponent = 0
     else:
@@ -185,7 +203,7 @@ INT_MAX = int(2**31-1)
 INT_MIN = int(-2**31)
 
 def ll_math_ldexp(x, exp):
-    if x == 0.0 or isinf(x) or isnan(x):
+    if x == 0.0 or not isfinite(x):
         return x    # NaNs, zeros and infinities are returned unchanged
     if exp > INT_MAX:
         # overflow (64-bit platforms only)
@@ -209,10 +227,11 @@ def ll_math_ldexp(x, exp):
 def ll_math_modf(x):
     # some platforms don't do the right thing for NaNs and
     # infinities, so we take care of special cases directly.
-    if isinf(x):
-        return (math_copysign(0.0, x), x)
-    elif isnan(x):
-        return (x, x)
+    if not isfinite(x):
+        if isnan(x):
+            return (x, x)
+        else:   # isinf(x)
+            return (math_copysign(0.0, x), x)
     intpart_p = lltype.malloc(rffi.DOUBLEP.TO, 1, flavor='raw')
     try:
         fracpart = math_modf(x, intpart_p)
@@ -223,13 +242,21 @@ def ll_math_modf(x):
 
 
 def ll_math_fmod(x, y):
-    if isinf(x) and not isnan(y):
-        raise ValueError("math domain error")
+    # fmod(x, +/-Inf) returns x for finite x.
+    if isinf(y) and isfinite(x):
+        return x
 
-    if y == 0:
-        raise ValueError("math domain error")
-
-    return math_fmod(x, y)
+    _error_reset()
+    r = math_fmod(x, y)
+    errno = rposix.get_errno()
+    if isnan(r):
+        if isnan(x) or isnan(y):
+            errno = 0
+        else:
+            errno = EDOM
+    if errno:
+        _likely_raise(errno, r)
+    return r
 
 
 def ll_math_hypot(x, y):
@@ -242,16 +269,17 @@ def ll_math_hypot(x, y):
     _error_reset()
     r = math_hypot(x, y)
     errno = rposix.get_errno()
-    if isnan(r):
-        if isnan(x) or isnan(y):
-            errno = 0
-        else:
-            errno = EDOM
-    elif isinf(r):
-        if isinf(x) or isnan(x) or isinf(y) or isnan(y):
-            errno = 0
-        else:
-            errno = ERANGE
+    if not isfinite(r):
+        if isnan(r):
+            if isnan(x) or isnan(y):
+                errno = 0
+            else:
+                errno = EDOM
+        else:  # isinf(r)
+            if isfinite(x) and isfinite(y):
+                errno = ERANGE
+            else:
+                errno = 0
     if errno:
         _likely_raise(errno, r)
     return r
@@ -261,30 +289,30 @@ def ll_math_pow(x, y):
     # deal directly with IEEE specials, to cope with problems on various
     # platforms whose semantics don't exactly match C99
 
-    if isnan(x):
-        if y == 0.0:
-            return 1.0   # NaN**0 = 1
-        return x
-
-    elif isnan(y):
+    if isnan(y):
         if x == 1.0:
             return 1.0   # 1**Nan = 1
         return y
 
-    elif isinf(x):
-        odd_y = not isinf(y) and math_fmod(math_fabs(y), 2.0) == 1.0
-        if y > 0.0:
-            if odd_y:
-                return x
-            return math_fabs(x)
-        elif y == 0.0:
-            return 1.0
-        else:   # y < 0.0
-            if odd_y:
-                return math_copysign(0.0, x)
-            return 0.0
+    if not isfinite(x):
+        if isnan(x):
+            if y == 0.0:
+                return 1.0   # NaN**0 = 1
+            return x
+        else:   # isinf(x)
+            odd_y = not isinf(y) and math_fmod(math_fabs(y), 2.0) == 1.0
+            if y > 0.0:
+                if odd_y:
+                    return x
+                return math_fabs(x)
+            elif y == 0.0:
+                return 1.0
+            else:   # y < 0.0
+                if odd_y:
+                    return math_copysign(0.0, x)
+                return 0.0
 
-    elif isinf(y):
+    if isinf(y):
         if math_fabs(x) == 1.0:
             return 1.0
         elif y > 0.0 and math_fabs(x) > 1.0:
@@ -299,17 +327,18 @@ def ll_math_pow(x, y):
     _error_reset()
     r = math_pow(x, y)
     errno = rposix.get_errno()
-    if isnan(r):
-        # a NaN result should arise only from (-ve)**(finite non-integer)
-        errno = EDOM
-    elif isinf(r):
-        # an infinite result here arises either from:
-        # (A) (+/-0.)**negative (-> divide-by-zero)
-        # (B) overflow of x**y with x and y finite
-        if x == 0.0:
+    if not isfinite(r):
+        if isnan(r):
+            # a NaN result should arise only from (-ve)**(finite non-integer)
             errno = EDOM
-        else:
-            errno = ERANGE
+        else:   # isinf(r)
+            # an infinite result here arises either from:
+            # (A) (+/-0.)**negative (-> divide-by-zero)
+            # (B) overflow of x**y with x and y finite
+            if x == 0.0:
+                errno = EDOM
+            else:
+                errno = ERANGE
     if errno:
         _likely_raise(errno, r)
     return r
@@ -358,18 +387,19 @@ def new_unary_math_function(name, can_overflow, c99):
         r = c_func(x)
         # Error checking fun.  Copied from CPython 2.6
         errno = rposix.get_errno()
-        if isnan(r):
-            if isnan(x):
-                errno = 0
-            else:
-                errno = EDOM
-        elif isinf(r):
-            if isinf(x) or isnan(x):
-                errno = 0
-            elif can_overflow:
-                errno = ERANGE
-            else:
-                errno = EDOM
+        if not isfinite(r):
+            if isnan(r):
+                if isnan(x):
+                    errno = 0
+                else:
+                    errno = EDOM
+            else:  # isinf(r)
+                if not isfinite(x):
+                    errno = 0
+                elif can_overflow:
+                    errno = ERANGE
+                else:
+                    errno = EDOM
         if errno:
             _likely_raise(errno, r)
         return r
