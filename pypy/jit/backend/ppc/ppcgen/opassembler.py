@@ -2,7 +2,8 @@ from pypy.jit.backend.ppc.ppcgen.helper.assembler import (gen_emit_cmp_op,
                                                           gen_emit_unary_cmp_op)
 import pypy.jit.backend.ppc.ppcgen.condition as c
 import pypy.jit.backend.ppc.ppcgen.register as r
-from pypy.jit.backend.ppc.ppcgen.arch import GPR_SAVE_AREA, IS_PPC_32, WORD
+from pypy.jit.backend.ppc.ppcgen.arch import (GPR_SAVE_AREA, IS_PPC_32, WORD,
+                                              BACKCHAIN_SIZE)
 
 from pypy.jit.metainterp.history import LoopToken, AbstractFailDescr, FLOAT
 from pypy.rlib.objectmodel import we_are_translated
@@ -517,7 +518,7 @@ class OpAssembler(object):
                 stack_args.append(None)
 
         # adjust SP and compute size of parameter save area
-        stack_space = 4 * (WORD + len(stack_args))
+        stack_space = len(stack_args) * WORD + BACKCHAIN_SIZE
         while stack_space % (4 * WORD) != 0:
             stack_space += 1
         if IS_PPC_32:
