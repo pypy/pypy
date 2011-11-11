@@ -37,6 +37,7 @@ Written by Marc-Andre Lemburg (mal@lemburg.com).
 
 Copyright (c) Corporation for National Research Initiatives.
 """
+    cannot_override_in_import_statements = True
 
     appleveldefs = {}
 

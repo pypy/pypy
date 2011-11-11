@@ -3,6 +3,7 @@ from pypy.interpreter.astcompiler import ast, consts
 
 
 class Module(MixedModule):
+    cannot_override_in_import_statements = True
 
     interpleveldefs = {
         "PyCF_ONLY_AST" : "space.wrap(%s)" % consts.PyCF_ONLY_AST,

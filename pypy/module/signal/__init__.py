@@ -4,6 +4,7 @@ import os
 import signal as cpy_signal
 
 class Module(MixedModule):
+    cannot_override_in_import_statements = True
     interpleveldefs = {
         'signal':              'interp_signal.signal',
         'getsignal':           'interp_signal.getsignal',

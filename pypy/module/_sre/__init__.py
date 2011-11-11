@@ -1,6 +1,7 @@
 from pypy.interpreter.mixedmodule import MixedModule 
 
 class Module(MixedModule):
+    cannot_override_in_import_statements = True
 
     appleveldefs = {
     }

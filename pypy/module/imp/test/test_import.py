@@ -918,6 +918,34 @@ class TestPycStuff:
                 finally:
                     stream.close()
 
+    def test_cannot_hide_builtin_exceptions(self):
+        import sys, os
+        filename = os.path.join(sys.path[0], 'exceptions.py')
+        f = open(filename, 'w')
+        f.close()
+        try:
+            import exceptions
+            assert hasattr(exceptions, 'NotImplementedError')
+        finally:
+            os.unlink(filename)
+
+    def test_can_hide_builtin_parser(self):
+        import sys, os
+        filename = os.path.join(sys.path[0], 'parser.py')
+        f = open(filename, 'w')
+        f.write('I_have_been_hidden = 42\n')
+        f.close()
+        old = sys.modules.pop('parser', None)
+        try:
+            import parser
+            assert hasattr(parser, 'I_have_been_hidden')
+        finally:
+            os.unlink(filename)
+            if old is not None:
+                sys.modules['parser'] = old
+            else:
+                del sys.modules['parser']
+
 
 def test_PYTHONPATH_takes_precedence(space): 
     if sys.platform == "win32":

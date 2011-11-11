@@ -5,6 +5,7 @@ Implementation of the interpreter-level default import logic.
 import sys, os, stat
 
 from pypy.interpreter.module import Module
+from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, generic_new_descr
 from pypy.interpreter.error import OperationError, operationerrfmt
@@ -483,10 +484,19 @@ def find_module(space, modulename, w_modulename, partname, w_path,
     # XXX Check for frozen modules?
     #     when w_path is a string
 
+    default_result = None
+
     if w_path is None:
         # check the builtin modules
-        if modulename in space.builtin_modules:
-            return FindInfo(C_BUILTIN, modulename, None)
+        w_mod = space.builtin_modules.get(modulename, None)
+        if w_mod is not None:
+            default_result = FindInfo(C_BUILTIN, modulename, None)
+            mod = space.interpclass_w(w_mod)
+            if (isinstance(mod, MixedModule) and
+                mod.cannot_override_in_import_statements):
+                return default_result
+            #else:
+            #   continue looking and only return it if no xxx.py found
         w_path = space.sys.get('path')
 
     # XXX check frozen modules?
@@ -530,7 +540,7 @@ def find_module(space, modulename, w_modulename, partname, w_path,
                        # Out of file descriptors.
 
     # not found
-    return None
+    return default_result
 
 def _prepare_module(space, w_mod, filename, pkgdir):
     w = space.wrap

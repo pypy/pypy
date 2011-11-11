@@ -8,6 +8,7 @@ _WIN = sys.platform == 'win32'
 class Module(MixedModule):
     """Sys Builtin Module. """
     _immutable_fields_ = ["defaultencoding?"]
+    cannot_override_in_import_statements = True
 
     def __init__(self, space, w_name):
         """NOT_RPYTHON""" # because parent __init__ isn't
