@@ -177,8 +177,8 @@ class ArrayAssignment(Node):
 
     def execute(self, interp):
         arr = interp.variables[self.name]
-        w_index = self.index.execute(interp)
-        w_val = self.expr.execute(interp)
+        w_index = self.index.execute(interp).eval(0)
+        w_val = self.expr.execute(interp).eval(0)
         assert isinstance(arr, BaseArray)
         arr.descr_setitem(interp.space, w_index, w_val)
 
