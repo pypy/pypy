@@ -256,6 +256,43 @@ class Float(Primitive):
     def sin(self, v):
         return math.sin(v)
 
+    @simple_unary_op
+    def cos(self, v):
+        return math.cos(v)
+
+    @simple_unary_op
+    def tan(self, v):
+        return math.tan(v)
+
+    @simple_unary_op
+    def arcsin(self, v):
+        if not -1.0 <= v <= 1.0:
+            return rfloat.NAN
+        return math.asin(v)
+
+    @simple_unary_op
+    def arccos(self, v):
+        if not -1.0 <= v <= 1.0:
+            return rfloat.NAN
+        return math.acos(v)
+
+    @simple_unary_op
+    def arctan(self, v):
+        return math.atan(v)
+
+    @simple_unary_op
+    def arcsinh(self, v):
+        return math.asinh(v)
+
+    @simple_unary_op
+    def arctanh(self, v):
+        if v == 1.0 or v == -1.0:
+            return math.copysign(rfloat.INFINITY, v)
+        if not -1.0 < v < 1.0:
+            return rfloat.NAN
+        return math.atanh(v)
+
+
 class Float32(Float):
     T = rffi.FLOAT
     BoxType = interp_boxes.W_Float32Box

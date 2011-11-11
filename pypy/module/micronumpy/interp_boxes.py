@@ -48,6 +48,7 @@ class W_GenericBox(Wrappable):
     descr_mul = _binop_impl("multiply")
     descr_div = _binop_impl("divide")
     descr_eq = _binop_impl("equal")
+    descr_lt = _binop_impl("less")
 
     descr_rmul = _binop_right_impl("multiply")
 
@@ -115,7 +116,7 @@ class W_FloatingBox(W_InexactBox):
     pass
 
 class W_Float32Box(W_FloatingBox):
-    pass
+    get_dtype = dtype_getter("float32")
 
 class W_Float64Box(W_FloatingBox):
     get_dtype = dtype_getter("float64")
@@ -137,6 +138,7 @@ W_GenericBox.typedef = TypeDef("generic",
     __rmul__ = interp2app(W_GenericBox.descr_rmul),
 
     __eq__ = interp2app(W_GenericBox.descr_eq),
+    __lt__ = interp2app(W_GenericBox.descr_lt),
 
     __neg__ = interp2app(W_GenericBox.descr_neg),
     __abs__ = interp2app(W_GenericBox.descr_abs),
