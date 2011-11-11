@@ -2,8 +2,8 @@ from pypy.jit.backend.ppc.ppcgen.helper.assembler import (gen_emit_cmp_op,
                                                           gen_emit_unary_cmp_op)
 import pypy.jit.backend.ppc.ppcgen.condition as c
 import pypy.jit.backend.ppc.ppcgen.register as r
-from pypy.jit.backend.ppc.ppcgen.arch import (GPR_SAVE_AREA, IS_PPC_32, WORD,
-                                              BACKCHAIN_SIZE)
+from pypy.jit.backend.ppc.ppcgen.arch import (IS_PPC_32, WORD,
+                                              GPR_SAVE_AREA, BACKCHAIN_SIZE)
 
 from pypy.jit.metainterp.history import LoopToken, AbstractFailDescr, FLOAT
 from pypy.rlib.objectmodel import we_are_translated
@@ -518,21 +518,27 @@ class OpAssembler(object):
                 stack_args.append(None)
 
         # adjust SP and compute size of parameter save area
-        stack_space = len(stack_args) * WORD + BACKCHAIN_SIZE
-        while stack_space % (4 * WORD) != 0:
-            stack_space += 1
         if IS_PPC_32:
+            stack_space = BACKCHAIN_SIZE + len(stack_args) * WORD
+            while stack_space % (4 * WORD) != 0:
+                stack_space += 1
             self.mc.stwu(r.SP.value, r.SP.value, -stack_space)
             self.mc.mflr(r.r0.value)
             self.mc.stw(r.r0.value, r.SP.value, stack_space + WORD)
         else:
+            # ABI fixed frame + 8 GPRs + arguments
+            stack_space = (6 + 8 + len(stack_args)) * WORD
             self.mc.stdu(r.SP.value, r.SP.value, -stack_space)
             self.mc.mflr(r.r0.value)
             self.mc.std(r.r0.value, r.SP.value, stack_space + 2 * WORD)
 
         # then we push everything on the stack
         for i, arg in enumerate(stack_args):
-            offset = (2 + i) * WORD
+            if IS_PPC_32:
+                abi = 2
+            else:
+                abi = 14
+            offset = (abi + i) * WORD
             if arg is not None:
                 self.mc.load_imm(r.r0, arg.value)
             if IS_PPC_32:
