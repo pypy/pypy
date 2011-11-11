@@ -2,6 +2,7 @@ import pypy.jit.backend.ppc.ppcgen.condition as c
 from pypy.rlib.rarithmetic import r_uint, r_longlong, intmask
 from pypy.jit.backend.ppc.ppcgen.arch import MAX_REG_PARAMS, IS_PPC_32
 from pypy.jit.metainterp.history import FLOAT
+from pypy.rlib.unroll import unrolling_iterable
 
 def gen_emit_cmp_op(condition, signed=True):
     def f(self, op, arglocs, regalloc):
@@ -95,10 +96,10 @@ def decode32(mem, index):
             | ord(mem[index]) << 24)
 
 def decode64(mem, index):
-    high = decode32(mem, index)
-    index += 4
-    low = decode32(mem, index)
-    return (r_longlong(high) << 32) | r_longlong(r_uint(low))
+    value = 0
+    for x in unrolling_iterable(range(8)):
+        value |= (ord(mem[index + x]) << (56 - x * 8))
+    return intmask(value)
 
 def count_reg_args(args):
     reg_args = 0
