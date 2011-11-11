@@ -44,8 +44,6 @@ KARATSUBA_SQUARE_CUTOFF = 2 * KARATSUBA_CUTOFF
 
 
 def _mask_digit(x):
-    if not we_are_translated():
-        assert is_valid_int(x>>1), "overflow occurred!"
     return intmask(x & MASK)
 _mask_digit._annspecialcase_ = 'specialize:argtype(0)'
 
