@@ -71,6 +71,11 @@ class Darwin_i386(Darwin):
     link_flags = ('-arch', 'i386')
     cflags = ('-arch', 'i386', '-O3', '-fomit-frame-pointer')
 
+class Darwin_PowerPC(Darwin):#xxx fixme, mwp
+    name = "darwin_powerpc"
+    link_flags = ()
+    cflags = ('-O3', '-fomit-frame-pointer')
+
 class Darwin_x86_64(Darwin):
     name = "darwin_x86_64"
     link_flags = ('-arch', 'x86_64')

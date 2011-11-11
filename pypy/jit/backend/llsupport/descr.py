@@ -355,6 +355,10 @@ class BaseCallDescr(AbstractDescr):
         return False    # unless overridden
 
     def create_call_stub(self, rtyper, RESULT):
+        from pypy.rlib.clibffi import FFI_DEFAULT_ABI
+        assert self.get_call_conv() == FFI_DEFAULT_ABI, (
+            "%r: create_call_stub() with a non-default call ABI" % (self,))
+
         def process(c):
             if c == 'L':
                 assert longlong.supports_longlong

@@ -1166,7 +1166,9 @@ def force_cast(RESTYPE, value):
     TYPE1 = lltype.typeOf(value)
     cvalue = lltype2ctypes(value)
     cresulttype = get_ctypes_type(RESTYPE)
-    if isinstance(TYPE1, lltype.Ptr):
+    if RESTYPE == TYPE1:
+        return value
+    elif isinstance(TYPE1, lltype.Ptr):
         if isinstance(RESTYPE, lltype.Ptr):
             # shortcut: ptr->ptr cast
             cptr = ctypes.cast(cvalue, cresulttype)

@@ -30,6 +30,9 @@ _WIN32 = _MSVC or _MINGW
 _MAC_OS = platform.name == "darwin"
 _FREEBSD_7 = platform.name == "freebsd7"
 
+_LITTLE_ENDIAN = sys.byteorder == 'little'
+_BIG_ENDIAN = sys.byteorder == 'big'
+
 if _WIN32:
     from pypy.rlib import rwin32
 
@@ -338,14 +341,37 @@ def cast_type_to_ffitype(tp):
 cast_type_to_ffitype._annspecialcase_ = 'specialize:memo'
 
 def push_arg_as_ffiptr(ffitp, arg, ll_buf):
-    # this is for primitive types. For structures and arrays
-    # would be something different (more dynamic)
+    # This is for primitive types.  Note that the exact type of 'arg' may be
+    # different from the expected 'c_size'.  To cope with that, we fall back
+    # to a byte-by-byte copy.
     TP = lltype.typeOf(arg)
     TP_P = lltype.Ptr(rffi.CArray(TP))
-    buf = rffi.cast(TP_P, ll_buf)
-    buf[0] = arg
+    TP_size = rffi.sizeof(TP)
+    c_size = intmask(ffitp.c_size)
+    # if both types have the same size, we can directly write the
+    # value to the buffer
+    if c_size == TP_size:
+        buf = rffi.cast(TP_P, ll_buf)
+        buf[0] = arg
+    else:
+        # needs byte-by-byte copying.  Make sure 'arg' is an integer type.
+        # Note that this won't work for rffi.FLOAT/rffi.DOUBLE.
+        assert TP is not rffi.FLOAT and TP is not rffi.DOUBLE
+        if TP_size <= rffi.sizeof(lltype.Signed):
+            arg = rffi.cast(lltype.Unsigned, arg)
+        else:
+            arg = rffi.cast(lltype.UnsignedLongLong, arg)
+        if _LITTLE_ENDIAN:
+            for i in range(c_size):
+                ll_buf[i] = chr(arg & 0xFF)
+                arg >>= 8
+        elif _BIG_ENDIAN:
+            for i in range(c_size-1, -1, -1):
+                ll_buf[i] = chr(arg & 0xFF)
+                arg >>= 8
+        else:
+            raise AssertionError
 push_arg_as_ffiptr._annspecialcase_ = 'specialize:argtype(1)'
-
 
 # type defs for callback and closure userdata
 USERDATA_P = lltype.Ptr(lltype.ForwardReference())

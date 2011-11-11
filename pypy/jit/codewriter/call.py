@@ -212,7 +212,10 @@ class CallControl(object):
         elidable = False
         loopinvariant = False
         if op.opname == "direct_call":
-            func = getattr(get_funcobj(op.args[0].value), '_callable', None)
+            funcobj = get_funcobj(op.args[0].value)
+            assert getattr(funcobj, 'calling_conv', 'c') == 'c', (
+                "%r: getcalldescr() with a non-default call ABI" % (op,))
+            func = getattr(funcobj, '_callable', None)
             elidable = getattr(func, "_elidable_function_", False)
             loopinvariant = getattr(func, "_jit_loop_invariant_", False)
             if loopinvariant:
