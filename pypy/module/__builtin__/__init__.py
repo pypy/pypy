@@ -7,7 +7,6 @@ import pypy.module.imp.importing
 
 class Module(MixedModule):
     """Built-in functions, exceptions, and other objects."""
-    cannot_override_in_import_statements = True
     expose__file__attribute = False
 
     appleveldefs = {

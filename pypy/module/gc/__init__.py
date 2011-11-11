@@ -1,7 +1,6 @@
 from pypy.interpreter.mixedmodule import MixedModule
     
 class Module(MixedModule):
-    cannot_override_in_import_statements = True
     appleveldefs = {
         'enable': 'app_gc.enable',
         'disable': 'app_gc.disable',

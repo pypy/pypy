@@ -30,7 +30,6 @@ standardized by the C Standard and the POSIX standard (a thinly
 disguised Unix interface).  Refer to the library manual and
 corresponding Unix manual entries for more information on calls."""
 
-    cannot_override_in_import_statements = True
     applevel_name = os.name
 
     appleveldefs = {

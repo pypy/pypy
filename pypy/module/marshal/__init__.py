@@ -5,7 +5,6 @@ class Module(MixedModule):
     """
     This module implements marshal at interpreter level.
     """
-    cannot_override_in_import_statements = True
 
     appleveldefs = {
     }

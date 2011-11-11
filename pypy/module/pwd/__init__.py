@@ -11,7 +11,6 @@ class Module(MixedModule):
     The uid and gid items are integers, all others are strings. An
     exception is raised if the entry asked for cannot be found.
     """
-    cannot_override_in_import_statements = True
 
     interpleveldefs = {
         'getpwuid': 'interp_pwd.getpwuid',

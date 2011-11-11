@@ -13,7 +13,6 @@ class MixedModule(Module):
 
     applevel_name = None
     expose__file__attribute = True
-    cannot_override_in_import_statements = False
 
     # The following attribute is None as long as the module has not been
     # imported yet, and when it has been, it is mod.__dict__.items() just

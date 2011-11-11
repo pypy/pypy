@@ -16,7 +16,6 @@ class Module(MixedModule):
     To map error codes to error messages, use the function os.strerror(),
     e.g. os.strerror(2) could return 'No such file or directory'."""
 
-    cannot_override_in_import_statements = True
     appleveldefs = {}
     interpleveldefs = {"errorcode": "interp_errno.get_errorcode(space)"}
     

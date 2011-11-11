@@ -3,7 +3,6 @@ from pypy.interpreter.mixedmodule import MixedModule
 class Module(MixedModule):
     """provides basic warning filtering support.
     It is a helper module to speed up interpreter start-up."""
-    cannot_override_in_import_statements = True
 
     interpleveldefs = {
         'warn'         : 'interp_warnings.warn',
