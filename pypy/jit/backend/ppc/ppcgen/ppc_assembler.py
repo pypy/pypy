@@ -12,7 +12,8 @@ from pypy.jit.backend.ppc.ppcgen.arch import (IS_PPC_32, IS_PPC_64, WORD,
                                               NONVOLATILES,
                                               GPR_SAVE_AREA, BACKCHAIN_SIZE)
 from pypy.jit.backend.ppc.ppcgen.helper.assembler import (gen_emit_cmp_op, 
-                                                          encode32, decode32)
+                                                          encode32, decode32,
+                                                          decode64)
 import pypy.jit.backend.ppc.ppcgen.register as r
 import pypy.jit.backend.ppc.ppcgen.condition as c
 from pypy.jit.metainterp.history import (Const, ConstPtr, LoopToken,
@@ -271,7 +272,10 @@ class AssemblerPPC(OpAssembler):
                     self.fail_boxes_float.setitem(fail_index, value)
                     continue
                 else:
-                    value = decode32(regs, (reg - 3) * WORD)
+                    if IS_PPC_32:
+                        value = decode32(regs, (reg - 3) * WORD)
+                    else:
+                        value = decode64(regs, (reg - 3) * WORD)
     
             if group == self.INT_TYPE:
                 self.fail_boxes_int.setitem(fail_index, value)

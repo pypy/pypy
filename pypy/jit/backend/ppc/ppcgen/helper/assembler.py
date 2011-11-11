@@ -94,6 +94,12 @@ def decode32(mem, index):
             | ord(mem[index+1]) << 16
             | ord(mem[index]) << 24)
 
+def decode64(mem, index):
+    high = decode32(mem, index)
+    index += 4
+    low = decode32(mem, index)
+    return (r_longlong(high) << 32) | r_longlong(r_uint(low))
+
 def count_reg_args(args):
     reg_args = 0
     words = 0
