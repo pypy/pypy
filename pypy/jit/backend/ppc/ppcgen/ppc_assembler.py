@@ -174,9 +174,10 @@ class AssemblerPPC(OpAssembler):
             self.mc.stdu(r.SP.value, r.SP.value, -frame_depth)
             self.mc.mflr(r.r0.value)
             self.mc.std(r.r0.value, r.SP.value, frame_depth + WORD)
-        offset = GPR_SAVE_AREA + WORD
+
         # compute spilling pointer (SPP)
-        self.mc.addi(r.SPP.value, r.SP.value, frame_depth - offset)
+        self.mc.addi(r.SPP.value, r.SP.value, frame_depth
+                     - self.GPR_SAVE_AREA_AND_FORCE_INDEX)
         self._save_nonvolatiles()
         # save r31, use r30 as scratch register
         # this is safe because r30 has been saved already
@@ -391,11 +392,10 @@ class AssemblerPPC(OpAssembler):
         # load old backchain into r4
         offset_to_old_backchain = self.GPR_SAVE_AREA_AND_FORCE_INDEX + WORD
         if IS_PPC_32:
-            mc.lwz(r.r4.value, r.r5.value, GPR_SAVE_AREA + 2 * WORD) 
+            mc.lwz(r.r4.value, r.r5.value, offset_to_old_backchain) 
         else:
-            mc.ld(r.r4.value, r.r5.value, GPR_SAVE_AREA + 2 * WORD)
+            mc.ld(r.r4.value, r.r5.value, offset_to_old_backchain)
         mc.mtlr(r.r4.value)     # restore LR
-        mc.addi(r.SP.value, r.r5.value, GPR_SAVE_AREA + WORD) # restore old SP
 
         # From SPP, we have a constant offset of GPR_SAVE_AREA_AND_FORCE_INDEX 
         # to the old backchain. We use the SPP to re-establish the old backchain
