@@ -31,10 +31,14 @@ class W_GenericBox(Wrappable):
         return space.wrap(self.get_dtype(space).itemtype.str_format(self))
 
     def descr_int(self, space):
-        return space.wrap(self.convert_to(W_LongBox.get_dtype(space)).value)
+        box = self.convert_to(W_LongBox.get_dtype(space))
+        assert isinstance(box, W_LongBox)
+        return space.wrap(box.value)
 
     def descr_float(self, space):
-        return space.wrap(self.convert_to(W_Float64Box.get_dtype(space)).value)
+        box = self.convert_to(W_Float64Box.get_dtype(space))
+        assert isinstance(box, W_Float64Box)
+        return space.wrap(box.value)
 
     def _binop_impl(ufunc_name):
         def impl(self, space, w_other):
@@ -71,7 +75,7 @@ class W_BoolBox(W_GenericBox, PrimitiveBox):
     pass
 
 class W_NumberBox(W_GenericBox):
-    pass
+    _attrs_ = ()
 
 class W_IntegerBox(W_NumberBox):
     pass
@@ -113,10 +117,10 @@ class W_UInt64Box(W_UnsignedIntgerBox, PrimitiveBox):
     pass
 
 class W_InexactBox(W_NumberBox):
-    pass
+    _attrs_ = ()
 
 class W_FloatingBox(W_InexactBox):
-    pass
+    _attrs_ = ()
 
 class W_Float32Box(W_FloatingBox, PrimitiveBox):
     get_dtype = dtype_getter("float32")

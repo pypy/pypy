@@ -3,6 +3,7 @@ import math
 from pypy.module.micronumpy import interp_boxes
 from pypy.objspace.std.floatobject import float2string
 from pypy.rlib import rfloat
+from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.rpython.lltypesystem import lltype, rffi
 
@@ -30,6 +31,7 @@ class Primitive(object):
     def get_element_size(self):
         return rffi.sizeof(self.T)
 
+    @specialize.argtype(1)
     def box(self, value):
         return self.BoxType(rffi.cast(self.T, value))
 
@@ -115,6 +117,7 @@ class Bool(BaseType, Primitive):
     True = BoxType(True)
     False = BoxType(False)
 
+    @specialize.argtype(1)
     def box(self, value):
         box = Primitive.box(self, value)
         if box.value:

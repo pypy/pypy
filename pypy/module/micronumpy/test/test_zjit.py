@@ -1,8 +1,8 @@
 from pypy.jit.metainterp.test.support import LLJitMixin
-from pypy.module.micronumpy import interp_ufuncs, signature
+from pypy.module.micronumpy import interp_boxes, interp_ufuncs, signature
 from pypy.module.micronumpy.compile import (FakeSpace,
     FloatObject, IntObject, numpy_compile, BoolObject)
-from pypy.module.micronumpy.interp_numarray import (SingleDimArray,
+from pypy.module.micronumpy.interp_numarray import (BaseArray, SingleDimArray,
     SingleDimSlice)
 from pypy.rlib.nonconst import NonConstant
 from pypy.rpython.annlowlevel import llstr, hlstr
@@ -15,21 +15,22 @@ import py
 class TestNumpyJIt(LLJitMixin):
     graph = None
     interp = None
-        
+
     def run(self, code):
         space = FakeSpace()
-        
+
         def f(code):
             interp = numpy_compile(hlstr(code))
             interp.run(space)
             res = interp.results[-1]
-            w_res = res.eval(0).wrap(interp.space)
-            if isinstance(w_res, BoolObject):
-                return float(w_res.boolval)
-            elif isinstance(w_res, FloatObject):
-                return w_res.floatval
-            elif isinstance(w_res, IntObject):
-                return w_res.intval
+            assert isinstance(res, BaseArray)
+            w_res = res.eval(0)
+            if isinstance(w_res, interp_boxes.W_BoolBox):
+                return float(w_res.value)
+            elif isinstance(w_res, interp_boxes.W_Float64Box):
+                return w_res.value
+            elif isinstance(w_res, interp_boxes.W_LongBox):
+                return w_res.value
             else:
                 return -42.
 
@@ -186,10 +187,10 @@ class TestNumpyOld(LLJitMixin):
     def setup_class(cls):
         from pypy.module.micronumpy.compile import FakeSpace
         from pypy.module.micronumpy.interp_dtype import W_Float64Dtype
-        
+
         cls.space = FakeSpace()
         cls.float64_dtype = cls.space.fromcache(W_Float64Dtype)
-    
+
     def test_slice(self):
         def f(i):
             step = 3
