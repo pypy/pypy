@@ -28,14 +28,14 @@ class TestSnippets(BaseTestSnippets, CliTest):
         res = self.interpret(fn, [], backendopt=False)
         
     def test_link_vars_overlapping(self):
-        from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift
+        from pypy.rlib.rarithmetic import ovfcheck
         def fn(maxofs):
             lastofs = 0
             ofs = 1
             while ofs < maxofs:
                 lastofs = ofs
                 try:
-                    ofs = ovfcheck_lshift(ofs, 1)
+                    ofs = ovfcheck(ofs << 1)
                 except OverflowError:
                     ofs = maxofs
                 else:

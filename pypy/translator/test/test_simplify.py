@@ -42,24 +42,6 @@ def test_remove_ovfcheck_bug():
     assert graph.startblock.operations[0].opname == 'int_mul_ovf'
     assert graph.startblock.operations[1].opname == 'int_sub'
 
-def test_remove_ovfcheck_lshift():
-    # check that ovfcheck_lshift() is handled
-    from pypy.rlib.rarithmetic import ovfcheck_lshift
-    def f(x):
-        try:
-            return ovfcheck_lshift(x, 2)
-        except OverflowError:
-            return -42
-    graph, _ = translate(f, [int])
-    assert len(graph.startblock.operations) == 1
-    assert graph.startblock.operations[0].opname == 'int_lshift_ovf'
-    assert len(graph.startblock.operations[0].args) == 2
-    assert len(graph.startblock.exits) == 2
-    assert [link.exitcase for link in graph.startblock.exits] == \
-           [None, OverflowError]
-    assert [link.target.operations for link in graph.startblock.exits] == \
-           [(), ()]
-
 def test_remove_ovfcheck_floordiv():
     # check that ovfcheck() is handled even if the operation raises
     # and catches another exception too, here ZeroDivisionError

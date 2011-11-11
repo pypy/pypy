@@ -513,7 +513,7 @@ def find_module(space, modulename, w_modulename, partname, w_path,
                     space.warn(msg, space.w_ImportWarning)
             modtype, suffix, filemode = find_modtype(space, filepart)
             try:
-                if modtype in (PY_SOURCE, PY_COMPILED):
+                if modtype in (PY_SOURCE, PY_COMPILED, C_EXTENSION):
                     assert suffix is not None
                     filename = filepart + suffix
                     stream = streamio.open_file_as_stream(filename, filemode)
@@ -522,9 +522,6 @@ def find_module(space, modulename, w_modulename, partname, w_path,
                     except:
                         stream.close()
                         raise
-                if modtype == C_EXTENSION:
-                    filename = filepart + suffix
-                    return FindInfo(modtype, filename, None, suffix, filemode)
             except StreamErrors:
                 pass   # XXX! must not eat all exceptions, e.g.
                        # Out of file descriptors.

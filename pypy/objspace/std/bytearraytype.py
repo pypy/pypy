@@ -119,10 +119,11 @@ def _hexstring_to_array(space, s):
     return data
 
 def descr_fromhex(space, w_type, w_hexstring):
-    "bytearray.fromhex(string) -> bytearray\n\nCreate a bytearray object "
-    "from a string of hexadecimal numbers.\nSpaces between two numbers are "
-    "accepted.\nExample: bytearray.fromhex('B9 01EF') -> "
-    "bytearray(b'\\xb9\\x01\\xef')."
+    "bytearray.fromhex(string) -> bytearray\n"
+    "\n"
+    "Create a bytearray object from a string of hexadecimal numbers.\n"
+    "Spaces between two numbers are accepted.\n"
+    "Example: bytearray.fromhex('B9 01EF') -> bytearray(b'\\xb9\\x01\\xef')."
     if not space.is_w(space.type(w_hexstring), space.w_unicode):
         raise OperationError(space.w_TypeError, space.wrap(
                 "must be str, not %s" % space.type(w_hexstring).name))
