@@ -1179,6 +1179,8 @@ def force_cast(RESTYPE, value):
         cvalue = ord(cvalue)     # character -> integer
     elif hasattr(RESTYPE, "_type") and issubclass(RESTYPE._type, base_int):
         cvalue = int(cvalue)
+    elif RESTYPE is TYPE1:
+        return value
 
     if not isinstance(cvalue, (int, long, float)):
         raise NotImplementedError("casting %r to %r" % (TYPE1, RESTYPE))
