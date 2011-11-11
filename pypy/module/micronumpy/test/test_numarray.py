@@ -1,6 +1,55 @@
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
+from pypy.module.micronumpy.interp_numarray import NDimArray
+from pypy.module.micronumpy import signature
 from pypy.conftest import gettestobjspace
 
+class MockDtype(object):
+    signature = signature.BaseSignature()
+    def malloc(self, size):
+        return None
+
+class TestNumArrayDirect(object):
+    def newslice(self, *args):
+        return self.space.newslice(*[self.space.wrap(arg) for arg in args])
+    
+    def test_shards(self):
+        a = NDimArray(100, [10, 5, 3], MockDtype())
+        assert a.shards == [1, 10, 50]
+        assert a.backshards == [9, 40, 100]
+
+    def test_create_slice(self):
+        space = self.space
+        a = NDimArray(10*5*3, [10, 5, 3], MockDtype())
+        s = a._create_slice(space, space.wrap(3))
+        assert s.start == 3
+        assert s.shards == [10, 50]
+        assert s.backshards == [40, 100]
+        s = a._create_slice(space, self.newslice(1, 9, 2))
+        assert s.start == 1
+        assert s.shards == [2, 10, 50]
+        assert s.backshards == [8, 40, 100]
+        s = a._create_slice(space, space.newtuple([
+            self.newslice(1, 5, 3), self.newslice(1, 2, 1), space.wrap(1)]))
+        assert s.start == 1
+        assert s.shape == [2, 1]
+        assert s.shards == [3, 10]
+        assert s.backshards == [6, 10]
+
+    def test_slice_of_slice(self):
+        space = self.space
+        a = NDimArray(10*5*3, [10, 5, 3], MockDtype())
+        s = a._create_slice(space, space.wrap(5))
+        s2 = s._create_slice(space, space.wrap(3))
+        assert s2.shape == [3]
+        assert s2.shards == [50]
+        assert s2.parent is a
+        assert s2.backshards == [100]
+        s = a._create_slice(space, self.newslice(1, 5, 3))
+        s2 = s._create_slice(space, space.newtuple([
+            self.newslice(None, None, None), space.wrap(2)]))
+        assert s2.shape == [2, 3]
+        assert s2.shards == [3, 50]
+        assert s2.backshards == [6, 100]
 
 class AppTestNumArray(BaseNumpyAppTest):
     def test_type(self):
@@ -52,87 +101,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array(1)
         assert a[0] == 1
         assert a.shape == ()
-
-    def test_repr(self):
-        from numpy import array, zeros
-        a = array(range(5), float)
-        assert repr(a) == "array([0.0, 1.0, 2.0, 3.0, 4.0])"
-        a = array([], float)
-        assert repr(a) == "array([], dtype=float64)"
-        a = zeros(1001)
-        assert repr(a) == "array([0.0, 0.0, 0.0, ..., 0.0, 0.0, 0.0])"
-        a = array(range(5), long)
-        assert repr(a) == "array([0, 1, 2, 3, 4])"
-        a = array([], long)
-        assert repr(a) == "array([], dtype=int64)"
-        a = array([True, False, True, False], "?")
-        assert repr(a) == "array([True, False, True, False], dtype=bool)"
-        a = zeros((3,4))
-        assert repr(a) == '''array([[0.0, 0.0, 0.0, 0.0],
-       [0.0, 0.0, 0.0, 0.0],
-       [0.0, 0.0, 0.0, 0.0]])'''
-        a = zeros((2,3,4))
-        assert repr(a) == '''array([[[0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0]],
-
-       [[0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0],
-        [0.0, 0.0, 0.0, 0.0]]])'''
-
-    def test_repr_slice(self):
-        from numpy import array, zeros
-        a = array(range(5), float)
-        b = a[1::2]
-        assert repr(b) == "array([1.0, 3.0])"
-        a = zeros(2002)
-        b = a[::2]
-        assert repr(b) == "array([0.0, 0.0, 0.0, ..., 0.0, 0.0, 0.0])"
-        a = array((range(5),range(5,10)), dtype="int16")
-        b=a[1,2:]
-        assert repr(b) == "array([7, 8, 9], dtype=int16)"
-        #This is the way cpython numpy does it - an empty slice prints its shape
-        b=a[2:1,]
-        assert repr(b) == "array([], shape=(0, 5), dtype=int16)"
-
-    def test_str(self):
-        from numpy import array, zeros
-        a = array(range(5), float)
-        assert str(a) == "[0.0 1.0 2.0 3.0 4.0]"
-        assert str((2*a)[:]) == "[0.0 2.0 4.0 6.0 8.0]"
-        a = zeros(1001)
-        assert str(a) == "[0.0 0.0 0.0 ..., 0.0 0.0 0.0]"
-
-        a = array(range(5), dtype=long)
-        assert str(a) == "[0 1 2 3 4]"
-        a = array([True, False, True, False], dtype="?")
-        assert str(a) == "[True False True False]"
-
-        a = array(range(5), dtype="int8")
-        assert str(a) == "[0 1 2 3 4]"
-
-        a = array(range(5), dtype="int16")
-        assert str(a) == "[0 1 2 3 4]"
-
-        a = array((range(5),range(5,10)), dtype="int16")
-        assert str(a) == "[[0 1 2 3 4],\n [5 6 7 8 9]]"
-
-        a = array(3,dtype=int)
-        assert str(a) == "3"
-
-    def test_str_slice(self):
-        from numpy import array, zeros
-        a = array(range(5), float)
-        b = a[1::2]
-        assert str(b) == "[1.0 3.0]"
-        a = zeros(2002)
-        b = a[::2]
-        assert str(b) == "[0.0 0.0 0.0 ..., 0.0 0.0 0.0]"
-        a = array((range(5),range(5,10)), dtype="int16")
-        b=a[1,2:]
-        assert str(b) == "[7 8 9]"
-        b=a[2:1,]
-        assert str(b) == "[]"
 
     def test_getitem(self):
         from numpy import array
@@ -762,3 +730,85 @@ class AppTestSupport(object):
         for i in range(4):
             assert a[i] == i + 1
         raises(ValueError, fromstring, "abc")
+
+class AppTestRepr(BaseNumpyAppTest):
+    def test_repr(self):
+        from numpy import array, zeros
+        a = array(range(5), float)
+        assert repr(a) == "array([0.0, 1.0, 2.0, 3.0, 4.0])"
+        a = array([], float)
+        assert repr(a) == "array([], dtype=float64)"
+        a = zeros(1001)
+        assert repr(a) == "array([0.0, 0.0, 0.0, ..., 0.0, 0.0, 0.0])"
+        a = array(range(5), long)
+        assert repr(a) == "array([0, 1, 2, 3, 4])"
+        a = array([], long)
+        assert repr(a) == "array([], dtype=int64)"
+        a = array([True, False, True, False], "?")
+        assert repr(a) == "array([True, False, True, False], dtype=bool)"
+        a = zeros((3,4))
+        assert repr(a) == '''array([[0.0, 0.0, 0.0, 0.0],
+       [0.0, 0.0, 0.0, 0.0],
+       [0.0, 0.0, 0.0, 0.0]])'''
+        a = zeros((2,3,4))
+        assert repr(a) == '''array([[[0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0]],
+
+       [[0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 0.0]]])'''
+
+    def test_repr_slice(self):
+        from numpy import array, zeros
+        a = array(range(5), float)
+        b = a[1::2]
+        assert repr(b) == "array([1.0, 3.0])"
+        a = zeros(2002)
+        b = a[::2]
+        assert repr(b) == "array([0.0, 0.0, 0.0, ..., 0.0, 0.0, 0.0])"
+        a = array((range(5),range(5,10)), dtype="int16")
+        b=a[1,2:]
+        assert repr(b) == "array([7, 8, 9], dtype=int16)"
+        #This is the way cpython numpy does it - an empty slice prints its shape
+        b=a[2:1,]
+        assert repr(b) == "array([], shape=(0, 5), dtype=int16)"
+
+    def test_str(self):
+        from numpy import array, zeros
+        a = array(range(5), float)
+        assert str(a) == "[0.0 1.0 2.0 3.0 4.0]"
+        assert str((2*a)[:]) == "[0.0 2.0 4.0 6.0 8.0]"
+        a = zeros(1001)
+        assert str(a) == "[0.0 0.0 0.0 ..., 0.0 0.0 0.0]"
+
+        a = array(range(5), dtype=long)
+        assert str(a) == "[0 1 2 3 4]"
+        a = array([True, False, True, False], dtype="?")
+        assert str(a) == "[True False True False]"
+
+        a = array(range(5), dtype="int8")
+        assert str(a) == "[0 1 2 3 4]"
+
+        a = array(range(5), dtype="int16")
+        assert str(a) == "[0 1 2 3 4]"
+
+        a = array((range(5),range(5,10)), dtype="int16")
+        assert str(a) == "[[0 1 2 3 4],\n [5 6 7 8 9]]"
+
+        a = array(3,dtype=int)
+        assert str(a) == "3"
+
+    def test_str_slice(self):
+        from numpy import array, zeros
+        a = array(range(5), float)
+        b = a[1::2]
+        assert str(b) == "[1.0 3.0]"
+        a = zeros(2002)
+        b = a[::2]
+        assert str(b) == "[0.0 0.0 0.0 ..., 0.0 0.0 0.0]"
+        a = array((range(5),range(5,10)), dtype="int16")
+        b=a[1,2:]
+        assert str(b) == "[7 8 9]"
+        b=a[2:1,]
+        assert str(b) == "[]"
