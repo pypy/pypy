@@ -862,11 +862,12 @@ def size_and_sign(tp):
     try:
         unsigned = not tp._type.SIGNED
     except AttributeError:
-        if tp in [lltype.Char, lltype.Float, lltype.Signed] or\
-               isinstance(tp, lltype.Ptr):
+        if (not isinstance(tp, lltype.Primitive) or
+            tp in (FLOAT, DOUBLE) or
+            cast(lltype.SignedLongLong, cast(tp, -1)) < 0):
             unsigned = False
         else:
-            unsigned = False
+            unsigned = True
     return size, unsigned
 
 def sizeof(tp):
