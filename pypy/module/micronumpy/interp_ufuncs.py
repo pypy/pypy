@@ -266,7 +266,6 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
 
 
 def ufunc_dtype_caller(space, ufunc_name, op_name, argcount, comparison_func):
-    assert hasattr(types.BaseType, op_name)
     if argcount == 1:
         def impl(res_dtype, value):
             return getattr(res_dtype.itemtype, op_name)(value)

@@ -21,10 +21,10 @@ def simple_binary_op(func):
 class BaseType(object):
     def _unimplemented_ufunc(self, *args):
         raise NotImplementedError
-    add = sub = mul = div = mod = pow = eq = ne = lt = le = gt = ge = max = \
-        min = copysign = pos = neg = abs = sign = reciprocal = fabs = floor = \
-        exp = sin = cos = tan = arcsin = arccos = arctan = arcsinh = \
-        arctanh = _unimplemented_ufunc
+    # add = sub = mul = div = mod = pow = eq = ne = lt = le = gt = ge = max = \
+    #     min = copysign = pos = neg = abs = sign = reciprocal = fabs = floor = \
+    #     exp = sin = cos = tan = arcsin = arccos = arctan = arcsinh = \
+    #     arctanh = _unimplemented_ufunc
 
 class Primitive(object):
     _mixin_ = True
