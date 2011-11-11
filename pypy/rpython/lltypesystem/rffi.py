@@ -862,7 +862,7 @@ def size_and_sign(tp):
     try:
         unsigned = not tp._type.SIGNED
     except AttributeError:
-        if (isinstance(tp, lltype.Ptr) or
+        if (not isinstance(tp, lltype.Primitive) or
             tp in (FLOAT, DOUBLE) or
             cast(lltype.SignedLongLong, cast(tp, -1)) < 0):
             unsigned = False
