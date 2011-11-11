@@ -72,8 +72,8 @@ class FakeSpace(object):
     def float(self, w_obj):
         if isinstance(w_obj, FloatObject):
             return w_obj
-        assert isinstance(w_obj, interp_boxes.W_FloatingBox)
-        return FloatObject(w_obj.value)
+        assert isinstance(w_obj, interp_boxes.W_GenericBox)
+        return self.float(w_obj.descr_float(self))
 
     def float_w(self, w_obj):
         assert isinstance(w_obj, FloatObject)
@@ -90,7 +90,7 @@ class FakeSpace(object):
         if isinstance(w_obj, IntObject):
             return w_obj
         assert isinstance(w_obj, interp_boxes.W_GenericBox)
-        return IntObject(int(w_obj.value))
+        return self.int(w_obj.descr_int(self))
 
     def is_true(self, w_obj):
         assert isinstance(w_obj, BoolObject)

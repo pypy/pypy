@@ -15,7 +15,18 @@ def dtype_getter(name):
         return getattr(get_dtype_cache(space), "w_%sdtype" % name)
     return get_dtype
 
+class PrimitiveBox(object):
+    _mixin_ = True
+
+    def __init__(self, value):
+        self.value = value
+
+    def convert_to(self, dtype):
+        return dtype.box(self.value)
+
 class W_GenericBox(Wrappable):
+    _attrs_ = ()
+
     def descr_repr(self, space):
         return space.wrap(self.get_dtype(space).itemtype.str_format(self))
 
@@ -56,19 +67,11 @@ class W_GenericBox(Wrappable):
     descr_abs = _unaryop_impl("absolute")
 
 
-class W_BoolBox(W_GenericBox):
-    def __init__(self, value):
-        self.value = value
-
-    def convert_to(self, dtype):
-        return dtype.box(self.value)
+class W_BoolBox(W_GenericBox, PrimitiveBox):
+    pass
 
 class W_NumberBox(W_GenericBox):
-    def __init__(self, value):
-        self.value = value
-
-    def convert_to(self, dtype):
-        return dtype.box(self.value)
+    pass
 
 class W_IntegerBox(W_NumberBox):
     pass
@@ -79,34 +82,34 @@ class W_SignedIntegerBox(W_IntegerBox):
 class W_UnsignedIntgerBox(W_IntegerBox):
     pass
 
-class W_Int8Box(W_SignedIntegerBox):
+class W_Int8Box(W_SignedIntegerBox, PrimitiveBox):
     pass
 
-class W_UInt8Box(W_UnsignedIntgerBox):
+class W_UInt8Box(W_UnsignedIntgerBox, PrimitiveBox):
     pass
 
-class W_Int16Box(W_SignedIntegerBox):
+class W_Int16Box(W_SignedIntegerBox, PrimitiveBox):
     pass
 
-class W_UInt16Box(W_UnsignedIntgerBox):
+class W_UInt16Box(W_UnsignedIntgerBox, PrimitiveBox):
     pass
 
-class W_Int32Box(W_SignedIntegerBox):
+class W_Int32Box(W_SignedIntegerBox, PrimitiveBox):
     pass
 
-class W_UInt32Box(W_UnsignedIntgerBox):
+class W_UInt32Box(W_UnsignedIntgerBox, PrimitiveBox):
     pass
 
-class W_LongBox(W_SignedIntegerBox):
+class W_LongBox(W_SignedIntegerBox, PrimitiveBox):
     get_dtype = dtype_getter("long")
 
-class W_ULongBox(W_UnsignedIntgerBox):
+class W_ULongBox(W_UnsignedIntgerBox, PrimitiveBox):
     pass
 
-class W_Int64Box(W_SignedIntegerBox):
+class W_Int64Box(W_SignedIntegerBox, PrimitiveBox):
     get_dtype = dtype_getter("int64")
 
-class W_UInt64Box(W_UnsignedIntgerBox):
+class W_UInt64Box(W_UnsignedIntgerBox, PrimitiveBox):
     pass
 
 class W_InexactBox(W_NumberBox):
@@ -115,10 +118,10 @@ class W_InexactBox(W_NumberBox):
 class W_FloatingBox(W_InexactBox):
     pass
 
-class W_Float32Box(W_FloatingBox):
+class W_Float32Box(W_FloatingBox, PrimitiveBox):
     get_dtype = dtype_getter("float32")
 
-class W_Float64Box(W_FloatingBox):
+class W_Float64Box(W_FloatingBox, PrimitiveBox):
     get_dtype = dtype_getter("float64")
 
 
