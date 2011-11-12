@@ -118,7 +118,7 @@ class Primitive(object):
         return self.unbox(v1) >= self.unbox(v2)
 
     def bool(self, v):
-        return bool(self.unbox(v))
+        return bool(self.for_computation(self.unbox(v)))
 
     @simple_binary_op
     def max(self, v1, v2):
