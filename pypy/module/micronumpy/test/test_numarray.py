@@ -11,6 +11,9 @@ class MockDtype(object):
 class TestNumArrayDirect(object):
     def newslice(self, *args):
         return self.space.newslice(*[self.space.wrap(arg) for arg in args])
+
+    def newtuple(self, *args):
+        return self.space.newtuple([self.space.wrap(arg) for arg in args])
     
     def test_shards(self):
         a = NDimArray(100, [10, 5, 3], MockDtype())
@@ -50,6 +53,19 @@ class TestNumArrayDirect(object):
         assert s2.shape == [2, 3]
         assert s2.shards == [3, 50]
         assert s2.backshards == [6, 100]
+
+    def test_negative_step(self):
+        space = self.space
+        a = NDimArray(10*5*3, [10, 5, 3], MockDtype())
+        s = a._create_slice(space, self.newslice(None, None, -2))
+        assert s.start == 9
+        assert s.shards == [-2, 10, 50]
+        assert s.backshards == [-10, 40, 100]
+
+    def test_index_of_single_item(self):
+        a = NDimArray(10*5*3, [10, 5, 3], MockDtype())
+        r = a._index_of_single_item(self.space, self.newtuple(1, 2, 2))
+        assert r == 1 + 2*10 + 2*10*5
 
 class AppTestNumArray(BaseNumpyAppTest):
     def test_type(self):
@@ -184,6 +200,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[1:4:2] = 0.
         assert a[1] == 0.
         assert a[3] == 0.
+    
     def test_scalar(self):
         from numpy import array
         a = array(3)

@@ -14,7 +14,9 @@ all_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self',
                                                        'dtype'])
 any_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self',
                                                        'dtype'])
-slice_driver = jit.JitDriver(greens=['signature'], reds=['i', 'self', 'source'])
+slice_driver = jit.JitDriver(greens=['signature'], reds=['self', 'source',
+                                                         'source_iter',
+                                                         'res_iter'])
 
 def _find_shape_and_elems(space, w_iterable):
     shape = [space.len_w(w_iterable)]
@@ -68,7 +70,14 @@ def descr_new_array(space, w_subtype, w_item_or_iterable, w_dtype=None):
         dtype.setitem_w(space, arr.storage, i, w_elem)
     return arr
 
-class ArrayIterator(object):
+class BaseIterator(object):
+    def next(self):
+        raise NotImplementedError
+
+    def done(self):
+        raise NotImplementedError
+
+class ArrayIterator(BaseIterator):
     def __init__(self, size):
         self.offset = 0
         self.size   = size
@@ -79,17 +88,17 @@ class ArrayIterator(object):
     def done(self):
         return self.offset >= self.size
 
-class ViewIterator(object):
+class ViewIterator(BaseIterator):
     def __init__(self, arr):
         self.indices = [0] * len(arr.shape)
         self.offset  = arr.start
         self.arr     = arr
-        self.done    = False
+        self._done    = False
 
     @jit.unroll_safe
     def next(self):
         for i in range(len(self.indices)):
-            if self.indices[i] < self.arr.shape[i]:
+            if self.indices[i] < self.arr.shape[i] - 1:
                 self.indices[i] += 1
                 self.offset += self.arr.shards[i]
                 break
@@ -97,12 +106,12 @@ class ViewIterator(object):
                 self.indices[i] = 0
                 self.offset -= self.arr.backshards[i]
         else:
-            self.done = True
+            self._done = True
 
     def done(self):
-        return self.done
+        return self._done
 
-class Call2Iterator(object):
+class Call2Iterator(BaseIterator):
     def __init__(self, left, right):
         self.left = left
         self.right = right
@@ -112,9 +121,9 @@ class Call2Iterator(object):
         self.right.next()
 
     def done(self):
-        return self.left.done()
+        return self.left.done() or self.right.done()
 
-class Call1Iterator(object):
+class Call1Iterator(BaseIterator):
     def __init__(self, child):
         self.child = child
 
@@ -123,6 +132,13 @@ class Call1Iterator(object):
 
     def done(self):
         return self.child.done()
+
+class ConstantIterator(BaseIterator):
+    def next(self):
+        pass
+
+    def done(self):
+        return False
 
 class BaseArray(Wrappable):
     _attrs_ = ["invalidates", "signature", "shape", "shards", "backshards",
@@ -338,8 +354,7 @@ class BaseArray(Wrappable):
             return self.start + idx * self.shards[0]
         index = [space.int_w(w_item)
                  for w_item in space.fixedview(w_idx)]
-        item = 0
-        xxx
+        item = self.start
         for i in range(len(index)):
             v = index[i]
             if v < 0:
@@ -347,9 +362,7 @@ class BaseArray(Wrappable):
             if v < 0 or v >= self.shape[i]:
                 raise OperationError(space.w_IndexError,
                                      space.wrap("index (%d) out of range (0<=index<%d" % (index[i], self.shape[i])))
-            if i != 0:
-                item *= self.shape[i]
-            item += v
+            item += v * self.shards[i]
         return item
 
     def get_root_shape(self):
@@ -388,7 +401,7 @@ class BaseArray(Wrappable):
         if self._single_item_result(space, w_idx):
             concrete = self.get_concrete()
             item = concrete._index_of_single_item(space, w_idx)
-            return concrete.eval(item).wrap(space)
+            return concrete.getitem(item).wrap(space)
         return space.wrap(self._create_slice(space, w_idx))
 
     def descr_setitem(self, space, w_idx, w_value):
@@ -425,12 +438,14 @@ class BaseArray(Wrappable):
                 shape = [lgt] + self.shape[1:]
                 shards = [self.shards[0] * step] + self.shards[1:]
                 backshards = [lgt * self.shards[0] * step] + self.backshards[1:]
+            start *= self.shards[0]
+            start += self.start
         else:
             shape = []
             shards = []
             backshards = []
             start = -1
-            i = 0
+            i = -1
             for i, w_item in enumerate(space.fixedview(w_idx)):
                 start_, stop, step, lgt = space.decode_index4(w_item,
                                                              self.shape[i])
@@ -440,11 +455,13 @@ class BaseArray(Wrappable):
                     shape.append(lgt)
                     shards.append(self.shards[i] * step)
                     backshards.append(self.shards[i] * lgt * step)
+            if start == -1:
+                start = self.start
             # add a reminder
             shape += self.shape[i + 1:]
             shards += self.shards[i + 1:]
             backshards += self.backshards[i + 1:]
-        return NDimSlice(self, new_sig, start, end, shards, backshards, shape)
+        return NDimSlice(self, new_sig, start, shards, backshards, shape)
 
     def descr_mean(self, space):
         return space.wrap(space.float_w(self.descr_sum(space))/self.find_size())
@@ -457,6 +474,12 @@ class BaseArray(Wrappable):
         except ValueError:
             pass
         return space.wrap(space.is_true(self.get_concrete().eval(self.start).wrap(space)))
+
+    def getitem(self, item):
+        raise NotImplementedError
+
+    def start_iter(self):
+        raise NotImplementedError
 
 def convert_to_array(space, w_obj):
     if isinstance(w_obj, BaseArray):
@@ -497,8 +520,14 @@ class Scalar(BaseArray):
     def find_dtype(self):
         return self.dtype
 
-    def eval(self, offset):
+    def getitem(self, item):
         return self.value
+
+    def eval(self, iter):
+        return self.value
+
+    def start_iter(self):
+        return ConstantIterator()
 
 class VirtualArray(BaseArray):
     """
@@ -520,12 +549,14 @@ class VirtualArray(BaseArray):
         result_size = self.find_size()
         result = NDimArray(result_size, self.shape, self.find_dtype())
         i = self.start_iter()
+        ri = result.start_iter()
         while not i.done():
             numpy_driver.jit_merge_point(signature=signature,
                                          result_size=result_size, i=i,
                                          self=self, result=result)
-            result.dtype.setitem(result.storage, i.offset, self.eval(i.offset))
-            i = self.next_index(i)
+            result.dtype.setitem(result.storage, ri.offset, self.eval(i))
+            i.next()
+            ri.next()
         return result
 
     def force_if_needed(self):
@@ -535,12 +566,12 @@ class VirtualArray(BaseArray):
 
     def get_concrete(self):
         self.force_if_needed()
-        return self.forced_result
+        return self.forced_result        
 
-    def eval(self, offset):
+    def eval(self, iter):
         if self.forced_result is not None:
-            return self.forced_result.eval(offset)
-        return self._eval(offset)
+            return self.forced_result.eval(iter)
+        return self._eval(iter)
 
     def setitem(self, item, value):
         return self.get_concrete().setitem(item, value)
@@ -569,7 +600,9 @@ class Call1(VirtualArray):
     def _find_dtype(self):
         return self.res_dtype
 
-    def _eval(self, i):
+    def _eval(self, iter):
+        assert isinstance(iter, Call1Iterator)
+        xxx
         val = self.values.eval(i).convert_to(self.res_dtype)
 
         sig = jit.promote(self.signature)
@@ -599,10 +632,13 @@ class Call2(VirtualArray):
             pass
         return self.right.find_size()
 
-    def _eval(self, i):
-        lhs = self.left.eval(i).convert_to(self.calc_dtype)
-        rhs = self.right.eval(i).convert_to(self.calc_dtype)
+    def start_iter(self):
+        return Call2Iterator(self.left.start_iter(), self.right.start_iter())
 
+    def _eval(self, iter):
+        assert isinstance(iter, Call2Iterator)
+        lhs = self.left.eval(iter.left).convert_to(self.calc_dtype)
+        rhs = self.right.eval(iter.right).convert_to(self.calc_dtype)
         sig = jit.promote(self.signature)
         assert isinstance(sig, signature.Signature)
         call_sig = sig.components[0]
@@ -627,8 +663,12 @@ class ViewArray(BaseArray):
         self.parent.get_concrete()
         return self
 
-    def eval(self, offset):
-        return self.parent.eval(offset)
+    def getitem(self, item):
+        return self.parent.getitem(item)
+
+    def eval(self, iter):
+        assert isinstance(iter, ViewIterator)
+        return self.parent.getitem(iter.offset)
 
     @unwrap_spec(item=int)
     def setitem_w(self, space, item, w_value):
@@ -648,13 +688,14 @@ class NDimSlice(ViewArray):
 
     _immutable_fields_ = ['shape[*]', 'shards[*]', 'backshards[*]', 'start']
 
-    def __init__(self, parent, signature, start, end, shards, backshards,
+    def __init__(self, parent, signature, start, shards, backshards,
                  shape):
         if isinstance(parent, NDimSlice):
             parent = parent.parent
+        else:
+            assert isinstance(parent, NDimArray)
         ViewArray.__init__(self, parent, signature, shards, backshards, shape)
         self.start = start
-        self.end   = end
 
     def get_root_storage(self):
         return self.parent.get_concrete().get_root_storage()
@@ -673,17 +714,23 @@ class NDimSlice(ViewArray):
         self._sliceloop(w_value)
 
     def _sliceloop(self, source):
-        xxx
-        i = 0
-        while i < self.size:
-            slice_driver.jit_merge_point(signature=source.signature, i=i,
-                                         self=self, source=source)
-            self.setitem(i, source.eval(i).convert_to(self.find_dtype()))
-            i += 1
+        source_iter = source.start_iter()
+        res_iter = self.start_iter()
+        while not res_iter.done():
+            slice_driver.jit_merge_point(signature=source.signature,
+                                         self=self, source=source,
+                                         res_iter=res_iter,
+                                         source_iter=source_iter)
+            self.setitem(res_iter.offset, source.eval(source_iter).convert_to(
+                self.find_dtype()))
+            source_iter.next()
+            res_iter.next()
+
+    def start_iter(self):
+        return ViewIterator(self)
 
     def setitem(self, item, value):
-        xxx
-        self.parent.setitem(self.calc_index(item), value)
+        self.parent.setitem(item, value)
 
     def get_root_shape(self):
         return self.parent.get_root_shape()
@@ -800,8 +847,12 @@ class NDimArray(BaseArray):
     def find_dtype(self):
         return self.dtype
 
-    def eval(self, offset):
-        return self.dtype.getitem(self.storage, offset)
+    def getitem(self, item):
+        return self.dtype.getitem(self.storage, item)
+        
+    def eval(self, iter):
+        assert isinstance(iter, ArrayIterator)
+        return self.dtype.getitem(self.storage, iter.offset)
 
     def descr_len(self, space):
         if len(self.shape):
@@ -816,6 +867,9 @@ class NDimArray(BaseArray):
     def setitem(self, item, value):
         self.invalidated()
         self.dtype.setitem(self.storage, item, value)
+
+    def start_iter(self):
+        return ArrayIterator(self.size)
 
     def __del__(self):
         lltype.free(self.storage, flavor='raw', track_allocation=False)
