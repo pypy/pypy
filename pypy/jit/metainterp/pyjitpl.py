@@ -1344,10 +1344,8 @@ class MIFrame(object):
             if effect == effectinfo.EF_LOOPINVARIANT:
                 return self.execute_varargs(rop.CALL_LOOPINVARIANT, allboxes,
                                             descr, False, False)
-            exc = (effect != effectinfo.EF_CANNOT_RAISE and
-                   effect != effectinfo.EF_ELIDABLE_CANNOT_RAISE)
-            pure = (effect == effectinfo.EF_ELIDABLE_CAN_RAISE or
-                    effect == effectinfo.EF_ELIDABLE_CANNOT_RAISE)
+            exc = effectinfo.check_can_raise()
+            pure = effectinfo.check_is_elidable()
             return self.execute_varargs(rop.CALL, allboxes, descr, exc, pure)
 
     def do_residual_or_indirect_call(self, funcbox, calldescr, argboxes):

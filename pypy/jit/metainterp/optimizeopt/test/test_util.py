@@ -184,6 +184,7 @@ class LLtypeMixin(object):
                             can_invalidate=True))
     arraycopydescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
              EffectInfo([], [arraydescr], [], [arraydescr],
+                        EffectInfo.EF_CANNOT_RAISE,
                         oopspecindex=EffectInfo.OS_ARRAYCOPY))
 
 
@@ -213,12 +214,14 @@ class LLtypeMixin(object):
         _oopspecindex = getattr(EffectInfo, _os)
         locals()[_name] = \
             cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                EffectInfo([], [], [], [], oopspecindex=_oopspecindex))
+                EffectInfo([], [], [], [], EffectInfo.EF_CANNOT_RAISE,
+                           oopspecindex=_oopspecindex))
         #
         _oopspecindex = getattr(EffectInfo, _os.replace('STR', 'UNI'))
         locals()[_name.replace('str', 'unicode')] = \
             cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                EffectInfo([], [], [], [], oopspecindex=_oopspecindex))
+                EffectInfo([], [], [], [], EffectInfo.EF_CANNOT_RAISE,
+                           oopspecindex=_oopspecindex))
 
     s2u_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
             EffectInfo([], [], [], [], oopspecindex=EffectInfo.OS_STR2UNICODE))

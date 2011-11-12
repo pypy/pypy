@@ -5003,6 +5003,34 @@ class BaseTestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_known_equal_ints(self):
+        py.test.skip("in-progress")
+        ops = """
+        [i0, i1, i2, p0]
+        i3 = int_eq(i0, i1)
+        guard_true(i3) []
+
+        i4 = int_lt(i2, i0)
+        guard_true(i4) []
+        i5 = int_lt(i2, i1)
+        guard_true(i5) []
+
+        i6 = getarrayitem_gc(p0, i2)
+        finish(i6)
+        """
+        expected = """
+        [i0, i1, i2, p0]
+        i3 = int_eq(i0, i1)
+        guard_true(i3) []
+
+        i4 = int_lt(i2, i0)
+        guard_true(i4) []
+
+        i6 = getarrayitem_gc(p0, i3)
+        finish(i6)
+        """
+        self.optimize_loop(ops, expected)
+
 
 class TestLLtype(BaseTestOptimizeBasic, LLtypeMixin):
     pass

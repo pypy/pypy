@@ -3644,3 +3644,16 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
         # bridge as a preamble since it does not start with a
         # label. The alternative would be to have all such bridges
         # start with labels. I dont know which is better...
+
+    def test_ll_arraycopy(self):
+        from pypy.rlib import rgc
+        A = lltype.GcArray(lltype.Char)
+        a = lltype.malloc(A, 10)
+        for i in range(10): a[i] = chr(i)
+        b = lltype.malloc(A, 10)
+        #
+        def f(c, d, e):
+            rgc.ll_arraycopy(a, b, c, d, e)
+            return 42
+        self.interp_operations(f, [1, 2, 3])
+        self.check_operations_history(call=1, guard_no_exception=0)
