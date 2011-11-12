@@ -56,5 +56,21 @@ class TestFromAppLevel(object):
         # no good reason, at interp-level Signed or Unsigned makes no
         # difference for passing bits around)
         self.check(app_types.void_p, self.space.wrap(42), 42)
-        self.check(
-            app_types.void_p, self.space.wrap(sys.maxint+1), -sys.maxint-1)
+        self.check(app_types.void_p, self.space.wrap(sys.maxint+1),
+                   -sys.maxint-1)
+
+    def test__as_ffi_pointer_(self):
+        space = self.space
+        w_MyPointerWrapper = space.appexec([], """():
+            import _ffi
+            class MyPointerWrapper(object):
+                def __init__(self, value):
+                    self.value = value
+                def _as_ffi_pointer_(self, ffitype):
+                    assert ffitype is _ffi.types.void_p
+                    return self.value
+
+            return MyPointerWrapper
+        """)
+        w_obj = space.call_function(w_MyPointerWrapper, space.wrap(42))
+        self.check(app_types.void_p, w_obj, 42)
