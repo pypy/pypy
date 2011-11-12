@@ -4,7 +4,12 @@ unit and functional testing with Python.
 """
 __all__ = ['main']
 
-from _pytest.core import main, UsageError, _preloadplugins
+# XXX hack for win64:
+# this needs to be done without hacking maxint
+import sys
+if hasattr(sys, "maxsize"):
+    sys.maxint = max(sys.maxint, sys.maxsize)
+
 from _pytest import core as cmdline
 from _pytest import __version__
 
