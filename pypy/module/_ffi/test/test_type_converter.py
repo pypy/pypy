@@ -1,7 +1,7 @@
 import sys
 from pypy.conftest import gettestobjspace
 from pypy.rlib.rarithmetic import r_uint
-from pypy.module._ffi.interp_ffitype import app_types
+from pypy.module._ffi.interp_ffitype import app_types, descr_new_pointer
 from pypy.module._ffi.type_converter import FromAppLevelConverter, ToAppLevelConverter
 
 class DummyFromAppLevelConverter(FromAppLevelConverter):
@@ -55,9 +55,14 @@ class TestFromAppLevel(object):
         # pointers are "unsigned" at applevel, but signed at interp-level (for
         # no good reason, at interp-level Signed or Unsigned makes no
         # difference for passing bits around)
-        self.check(app_types.void_p, self.space.wrap(42), 42)
-        self.check(app_types.void_p, self.space.wrap(sys.maxint+1),
-                   -sys.maxint-1)
+        space = self.space
+        self.check(app_types.void_p, space.wrap(42), 42)
+        self.check(app_types.void_p, space.wrap(sys.maxint+1), -sys.maxint-1)
+        #
+        # typed pointers
+        w_ptr_sint = descr_new_pointer(space, None, app_types.sint)
+        self.check(w_ptr_sint, space.wrap(sys.maxint+1), -sys.maxint-1)
+
 
     def test__as_ffi_pointer_(self):
         space = self.space
@@ -74,3 +79,12 @@ class TestFromAppLevel(object):
         """)
         w_obj = space.call_function(w_MyPointerWrapper, space.wrap(42))
         self.check(app_types.void_p, w_obj, 42)
+
+    def test_strings(self):
+        # first, try automatic conversion from applevel
+        self.check(app_types.char_p, self.space.wrap('foo'), 'foo')
+        self.check(app_types.unichar_p, self.space.wrap(u'foo\u1234'), u'foo\u1234')    
+        self.check(app_types.unichar_p, self.space.wrap('foo'), u'foo')    
+        # then, try to pass explicit pointers
+        self.check(app_types.char_p, self.space.wrap(42), 42)
+        self.check(app_types.unichar_p, self.space.wrap(42), 42)        
