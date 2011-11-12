@@ -4,18 +4,29 @@ from pypy.module.micronumpy import interp_boxes
 from pypy.objspace.std.floatobject import float2string
 from pypy.rlib import rfloat
 from pypy.rlib.objectmodel import specialize
-from pypy.rlib.rarithmetic import LONG_BIT
+from pypy.rlib.rarithmetic import LONG_BIT, widen
 from pypy.rpython.lltypesystem import lltype, rffi
 
 
 def simple_unary_op(func):
     def dispatcher(self, v):
-        return self.box(func(self, self.unbox(v)))
+        return self.box(
+            func(
+                self,
+                self.for_computation(self.unbox(v))
+            )
+        )
     return dispatcher
 
 def simple_binary_op(func):
     def dispatcher(self, v1, v2):
-        return self.box(func(self, self.unbox(v1), self.unbox(v2)))
+        return self.box(
+            func(
+                self,
+                self.for_computation(self.unbox(v1)),
+                self.for_computation(self.unbox(v2)),
+            )
+        )
     return dispatcher
 
 class BaseType(object):
@@ -64,20 +75,25 @@ class Primitive(object):
             rffi.cast(rffi.CArrayPtr(self.T), ptr)[0] = value
             ptr = rffi.ptradd(ptr, self.get_element_size())
 
+    @simple_binary_op
     def add(self, v1, v2):
-        return self.box(self.unbox(v1) + self.unbox(v2))
+        return v1 + v2
 
+    @simple_binary_op
     def sub(self, v1, v2):
-        return self.box(self.unbox(v1) - self.unbox(v2))
+        return v1 - v2
 
+    @simple_binary_op
     def mul(self, v1, v2):
-        return self.box(self.unbox(v1) * self.unbox(v2))
+        return v1 * v2
 
+    @simple_unary_op
     def pos(self, v):
-        return self.box(+self.unbox(v))
+        return +v
 
+    @simple_unary_op
     def neg(self, v):
-        return self.box(-self.unbox(v))
+        return -v
 
     @simple_unary_op
     def abs(self, v):
@@ -104,11 +120,13 @@ class Primitive(object):
     def bool(self, v):
         return bool(self.unbox(v))
 
+    @simple_binary_op
     def max(self, v1, v2):
-        return self.box(max(self.unbox(v1), self.unbox(v2)))
+        return max(v1, v2)
 
+    @simple_binary_op
     def min(self, v1, v2):
-        return self.box(min(self.unbox(v1), self.unbox(v2)))
+        return min(v1, v2)
 
 class Bool(BaseType, Primitive):
     T = lltype.Bool
@@ -132,6 +150,9 @@ class Bool(BaseType, Primitive):
         value = self.unbox(box)
         return "True" if value else "False"
 
+    def for_computation(self, v):
+        return int(v)
+
 class Integer(Primitive):
     _mixin_ = True
 
@@ -141,6 +162,9 @@ class Integer(Primitive):
     def str_format(self, box):
         value = self.unbox(box)
         return str(value)
+
+    def for_computation(self, v):
+        return widen(v)
 
     @simple_binary_op
     def div(self, v1, v2):
@@ -211,6 +235,9 @@ class Float(Primitive):
     def str_format(self, box):
         value = self.unbox(box)
         return float2string(value, "g", rfloat.DTSF_STR_PRECISION)
+
+    def for_computation(self, v):
+        return float(v)
 
     @simple_binary_op
     def div(self, v1, v2):
