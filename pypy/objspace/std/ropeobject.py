@@ -6,7 +6,7 @@ from pypy.interpreter import gateway
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
-from pypy.objspace.std import slicetype
+from pypy.objspace.std import stringobject, slicetype, iterobject
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.tupleobject import W_TupleObject
@@ -19,7 +19,7 @@ from pypy.objspace.std.stringobject import (
     str_format__String as str_format__Rope,
     _upper, _lower, DEFAULT_NOOP_TABLE)
 
-class W_RopeObject(W_Object):
+class W_RopeObject(stringobject.W_AbstractStringObject):
     from pypy.objspace.std.stringtype import str_typedef as typedef
     _immutable_fields_ = ['_node']
 
@@ -59,7 +59,7 @@ def rope_w(space, w_str):
 
 registerimplementation(W_RopeObject)
 
-class W_RopeIterObject(W_Object):
+class W_RopeIterObject(iterobject.W_AbstractIterObject):
     from pypy.objspace.std.itertype import iter_typedef as typedef
 
     def __init__(w_self, w_rope, index=0):

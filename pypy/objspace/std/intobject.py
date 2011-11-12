@@ -16,7 +16,10 @@ from rarithmetic to explicitly check for overflows,
 something CPython does not do anymore.
 """
 
-class W_IntObject(W_Object):
+class W_AbstractIntObject(W_Object):
+    pass
+
+class W_IntObject(W_AbstractIntObject):
     __slots__ = 'intval'
     _immutable_fields_ = ['intval']
 
