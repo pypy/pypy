@@ -167,29 +167,6 @@ def compile_loop(metainterp, greenkey, start,
     record_loop_or_bridge(metainterp_sd, loop)
     return all_target_tokens[0]
 
-
-    if False: # FIXME: full_preamble_needed??
-        if full_preamble_needed:
-            send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd,
-                                 loop.preamble, "entry bridge")
-            insert_loop_token(old_loop_tokens, loop.preamble.token)
-            jitdriver_sd.warmstate.attach_unoptimized_bridge_from_interp(
-                greenkey, loop.preamble.token)
-            record_loop_or_bridge(metainterp_sd, loop.preamble)
-        elif token.short_preamble:
-            short = token.short_preamble[-1]
-            metainterp_sd.logger_ops.log_short_preamble(short.inputargs,
-                                                        short.operations)
-        return token
-    else:
-        send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop,
-                             "loop")
-        insert_loop_token(old_loop_tokens, loop_token)
-        jitdriver_sd.warmstate.attach_unoptimized_bridge_from_interp(
-            greenkey, loop.token)
-        record_loop_or_bridge(metainterp_sd, loop)
-        return loop_token
-
 def compile_retrace(metainterp, greenkey, start,
                     inputargs, jumpargs,
                     start_resumedescr, partial_trace, resumekey):
@@ -237,14 +214,6 @@ def compile_retrace(metainterp, greenkey, start,
     label.getdescr().original_jitcell_token = loop.original_jitcell_token
     record_loop_or_bridge(metainterp_sd, loop)
     return target_token
-
-def insert_loop_token(old_loop_tokens, loop_token):
-    # Find where in old_loop_tokens we should insert this new loop_token.
-    # The following algo means "as late as possible, but before another
-    # loop token that would be more general and so completely mask off
-    # the new loop_token".
-    # XXX do we still need a list?
-    old_loop_tokens.append(loop_token)
 
 def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
     original_jitcell_token = loop.original_jitcell_token

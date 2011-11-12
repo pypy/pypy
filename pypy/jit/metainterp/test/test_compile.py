@@ -1,7 +1,7 @@
 from pypy.config.pypyoption import get_pypy_config
 from pypy.jit.metainterp.history import TargetToken, ConstInt, History, Stats
 from pypy.jit.metainterp.history import BoxInt, INT
-from pypy.jit.metainterp.compile import insert_loop_token, compile_loop
+from pypy.jit.metainterp.compile import compile_loop
 from pypy.jit.metainterp.compile import ResumeGuardDescr
 from pypy.jit.metainterp.compile import ResumeGuardCountersInt
 from pypy.jit.metainterp.compile import compile_tmp_callback
@@ -9,23 +9,6 @@ from pypy.jit.metainterp import jitprof, typesystem, compile
 from pypy.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin
 from pypy.jit.tool.oparser import parse
 from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT
-
-def test_insert_loop_token():
-    # XXX this test is a bit useless now that there are no specnodes
-    lst = []
-    #
-    tok1 = LoopToken()
-    insert_loop_token(lst, tok1)
-    assert lst == [tok1]
-    #
-    tok2 = LoopToken()
-    insert_loop_token(lst, tok2)
-    assert lst == [tok1, tok2]
-    #
-    tok3 = LoopToken()
-    insert_loop_token(lst, tok3)
-    assert lst == [tok1, tok2, tok3]
-
 
 class FakeCPU(object):
     ts = typesystem.llhelper
