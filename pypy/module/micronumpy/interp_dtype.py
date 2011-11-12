@@ -8,7 +8,7 @@ from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.rpython.lltypesystem import lltype, rffi
 
 
-STORAGE_TYPE = lltype.Array(lltype.Char, hints={"nolength": True})
+STORAGE_TYPE = rffi.CArray(lltype.Char)
 
 UNSIGNEDLTR = "u"
 SIGNEDLTR = "i"
