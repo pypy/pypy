@@ -9,7 +9,10 @@ from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
 from pypy.rlib.debug import make_sure_not_resized
 
-class W_TupleObject(W_Object):
+class W_AbstractTupleObject(W_Object):
+    pass
+
+class W_TupleObject(W_AbstractTupleObject):
     from pypy.objspace.std.tupletype import tuple_typedef as typedef
     _immutable_fields_ = ['wrappeditems[*]']
 

@@ -4,7 +4,10 @@ from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 
 
-class W_AbstractSeqIterObject(W_Object):
+class W_AbstractIterObject(W_Object):
+    pass
+
+class W_AbstractSeqIterObject(W_AbstractIterObject):
     from pypy.objspace.std.itertype import iter_typedef as typedef
 
     def __init__(w_self, w_seq, index=0):

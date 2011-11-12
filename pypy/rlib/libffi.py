@@ -234,7 +234,7 @@ class Func(AbstractFuncPtr):
         # It is important that there is no other operation in the middle, else
         # the optimizer will fail to recognize the pattern and won't turn it
         # into a fast CALL.  Note that "arg = arg.next" is optimized away,
-        # assuming that archain is completely virtual.
+        # assuming that argchain is completely virtual.
         self = jit.promote(self)
         if argchain.numargs != len(self.argtypes):
             raise TypeError, 'Wrong number of arguments: %d expected, got %d' %\

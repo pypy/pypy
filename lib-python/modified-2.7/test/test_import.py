@@ -64,6 +64,7 @@ class ImportTests(unittest.TestCase):
             except ImportError, err:
                 self.fail("import from %s failed: %s" % (ext, err))
             else:
+                # XXX importing .pyw is missing on Windows
                 self.assertEqual(mod.a, a,
                     "module loaded (%s) but contents invalid" % mod)
                 self.assertEqual(mod.b, b,
