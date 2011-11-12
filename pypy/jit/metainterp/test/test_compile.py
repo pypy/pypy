@@ -56,7 +56,7 @@ class FakeMetaInterp:
         on_compile = staticmethod(lambda *args: None)
         on_compile_bridge = staticmethod(lambda *args: None)
 
-def test_compile_new_loop():
+def test_compile_loop():
     cpu = FakeCPU()
     staticdata = FakeMetaInterpStaticData()
     staticdata.cpu = cpu
@@ -76,34 +76,26 @@ def test_compile_new_loop():
     metainterp.staticdata = staticdata
     metainterp.cpu = cpu
     metainterp.history = History()
-    metainterp.history.operations = loop.operations[:]
+    metainterp.history.operations = loop.operations[:-1]
     metainterp.history.inputargs = loop.inputargs[:]
     cpu._all_size_descrs_with_vtable = (
         LLtypeMixin.cpu._all_size_descrs_with_vtable)
     #
-    loop_tokens = []
-    loop_token = compile_new_loop(metainterp, loop_tokens, [], 0, None)
-    assert loop_tokens == [loop_token]
-    assert loop_token.number == 1
+    greenkey = 'faked'
+    target_token = compile_loop(metainterp, greenkey, 0,
+                                loop.inputargs,
+                                loop.operations[-1].getarglist(),
+                                None)
+    jitcell_token = target_token.targeting_jitcell_token
+    assert jitcell_token == target_token.original_jitcell_token
+    assert jitcell_token.target_tokens == [target_token]
+    assert jitcell_token.number == 1
     assert staticdata.globaldata.loopnumbering == 2
     #
     assert len(cpu.seen) == 1
-    assert cpu.seen[0][2] == loop_token
+    assert cpu.seen[0][2] == jitcell_token
     #
     del cpu.seen[:]
-    metainterp = FakeMetaInterp()
-    metainterp.staticdata = staticdata
-    metainterp.cpu = cpu
-    metainterp.history = History()
-    metainterp.history.operations = loop.operations[:]
-    metainterp.history.inputargs = loop.inputargs[:]
-    #
-    loop_token_2 = compile_new_loop(metainterp, loop_tokens, [], 0, None)
-    assert loop_token_2 is loop_token
-    assert loop_tokens == [loop_token]
-    assert len(cpu.seen) == 0
-    assert staticdata.globaldata.loopnumbering == 2
-
 
 def test_resume_guard_counters():
     rgc = ResumeGuardCountersInt()
