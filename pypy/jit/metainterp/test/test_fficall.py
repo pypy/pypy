@@ -77,14 +77,14 @@ class TestFfiCall(LLJitMixin, _TestLibffiCall):
                 int_add=2,
                 int_lt=2,
                 guard_true=2,
-                jump=2)
+                jump=1)
         else:
             self.check_resops(
                 call_release_gil=0,   # no CALL_RELEASE_GIL
                 int_add=2,
                 int_lt=2,
                 guard_true=2,
-                jump=2)
+                jump=1)
         return res
 
     def test_byval_result(self):

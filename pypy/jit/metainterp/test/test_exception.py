@@ -512,7 +512,7 @@ class ExceptionTests:
 
         res = self.meta_interp(main, [41], repeat=7)
         assert res == -1
-        self.check_tree_loop_count(2)      # the loop and the entry path
+        self.check_target_token_count(2)      # the loop and the entry path
         # we get:
         #    ENTER    - compile the new loop and the entry bridge
         #    ENTER    - compile the leaving path (raising MyError)

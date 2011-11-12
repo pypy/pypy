@@ -28,10 +28,10 @@ class JitDriverTests(object):
                 i += 1
 
         self.meta_interp(loop, [1, 4])
-        assert sorted(called.keys()) == [(4, 1, "entry bridge"), (4, 1, "loop")]
+        assert sorted(called.keys()) == [(4, 1, "loop")]
         self.meta_interp(loop, [2, 4])
-        assert sorted(called.keys()) == [(4, 1, "entry bridge"), (4, 1, "loop"),
-                                         (4, 2, "entry bridge"), (4, 2, "loop")]
+        assert sorted(called.keys()) == [(4, 1, "loop"),
+                                         (4, 2, "loop")]
 
     def test_on_compile_bridge(self):
         called = {}
@@ -55,8 +55,7 @@ class JitDriverTests(object):
                 i += 1
 
         self.meta_interp(loop, [1, 10])
-        assert sorted(called.keys()) == ['bridge', (10, 1, "entry bridge"),
-                                         (10, 1, "loop")]
+        assert sorted(called.keys()) == ['bridge', (10, 1, "loop")]
 
 
 class TestLLtypeSingle(JitDriverTests, LLJitMixin):
@@ -92,8 +91,9 @@ class MultipleJitDriversTests(object):
         # the following numbers are not really expectations of the test
         # itself, but just the numbers that we got after looking carefully
         # at the generated machine code
-        self.check_loop_count(5)
-        self.check_tree_loop_count(4)    # 2 x loop, 2 x enter bridge
+        self.check_trace_count(5)
+        self.check_jitcell_token_count(2)    # 2 x loop including enter bridge
+        self.check_target_token_count(4)    # 2 x loop, 2 x enter bridge
         self.check_enter_count(5)
 
     def test_inline(self):
@@ -125,7 +125,7 @@ class MultipleJitDriversTests(object):
         # we expect no loop at all for 'loop1': it should always be inlined
         # we do however get several version of 'loop2', all of which contains
         # at least one int_add, while there are no int_add's in 'loop1'
-        self.check_tree_loop_count(5)
+        self.check_jitcell_token_count(1)
         for loop in get_stats().loops:
             assert loop.summary()['int_add'] >= 1
 

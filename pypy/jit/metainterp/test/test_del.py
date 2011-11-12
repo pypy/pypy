@@ -25,7 +25,7 @@ class DelTests:
                            'int_sub': 2,
                            'int_gt': 2,
                            'guard_true': 2,
-                           'jump': 2})
+                           'jump': 1})
 
     def test_class_of_allocated(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'x'])
