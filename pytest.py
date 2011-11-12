@@ -10,6 +10,7 @@ import sys
 if hasattr(sys, "maxsize"):
     sys.maxint = max(sys.maxint, sys.maxsize)
 
+from _pytest.core import main, UsageError, _preloadplugins
 from _pytest import core as cmdline
 from _pytest import __version__
 
