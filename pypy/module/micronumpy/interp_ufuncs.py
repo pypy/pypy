@@ -10,7 +10,7 @@ from pypy.tool.sourcetools import func_with_new_name
 
 reduce_driver = jit.JitDriver(
     greens = ["signature"],
-    reds = ["i", "size", "self", "dtype", "value", "obj"]
+    reds = ["i", "self", "dtype", "value", "obj"]
 )
 
 class W_Ufunc(Wrappable):
@@ -56,28 +56,27 @@ class W_Ufunc(Wrappable):
             space, obj.find_dtype(),
             promote_to_largest=True
         )
-        start = 0
+        start = obj.start_iter()
         if self.identity is None:
             if size == 0:
                 raise operationerrfmt(space.w_ValueError, "zero-size array to "
                     "%s.reduce without identity", self.name)
-            value = obj.eval(0).convert_to(dtype)
-            start += 1
+            value = obj.eval(start).convert_to(dtype)
+            start.next()
         else:
             value = self.identity.convert_to(dtype)
         new_sig = signature.Signature.find_sig([
             self.reduce_signature, obj.signature
         ])
-        return self.reduce(new_sig, start, value, obj, dtype, size).wrap(space)
+        return self.reduce(new_sig, start, value, obj, dtype).wrap(space)
 
-    def reduce(self, signature, start, value, obj, dtype, size):
-        i = start
-        while i < size:
+    def reduce(self, signature, i, value, obj, dtype):
+        while not i.done():
             reduce_driver.jit_merge_point(signature=signature, self=self,
                                           value=value, obj=obj, i=i,
-                                          dtype=dtype, size=size)
+                                          dtype=dtype)
             value = self.func(dtype, value, obj.eval(i).convert_to(dtype))
-            i += 1
+            i.next()
         return value
 
 class W_Ufunc1(W_Ufunc):

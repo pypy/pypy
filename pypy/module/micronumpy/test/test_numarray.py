@@ -560,14 +560,27 @@ class AppTestNumArray(BaseNumpyAppTest):
         raises(ValueError, "b.min()")
 
     def test_argmax(self):
+        import sys
         from numpy import array
         a = array([-1.2, 3.4, 5.7, -3.0, 2.7])
-        assert a.argmax() == 2
+        r = a.argmax()
+        assert r == 2
         b = array([])
-        raises(ValueError, "b.argmax()")
+        try:
+            b.argmax()
+        except:
+            pass
+        else:
+            raise Exception("Did not raise")
 
         a = array(range(-5, 5))
-        assert a.argmax() == 9
+        r = a.argmax()
+        assert r == 9
+        b = a[::2]
+        r = b.argmax()
+        assert r == 4
+        r = (a + a).argmax()
+        assert r == 9
 
     def test_argmin(self):
         from numpy import array

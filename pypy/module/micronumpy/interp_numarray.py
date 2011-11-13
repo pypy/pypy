@@ -75,6 +75,9 @@ class BaseIterator(object):
     def done(self):
         raise NotImplementedError
 
+    def get_offset(self):
+        raise NotImplementedError
+
 class ArrayIterator(BaseIterator):
     def __init__(self, size):
         self.offset = 0
@@ -85,6 +88,9 @@ class ArrayIterator(BaseIterator):
 
     def done(self):
         return self.offset >= self.size
+
+    def get_offset(self):
+        return self.offset
 
 class ViewIterator(BaseIterator):
     def __init__(self, arr):
@@ -109,6 +115,9 @@ class ViewIterator(BaseIterator):
     def done(self):
         return self._done
 
+    def get_offset(self):
+        return self.offset
+
 class Call2Iterator(BaseIterator):
     def __init__(self, left, right):
         self.left = left
@@ -121,6 +130,11 @@ class Call2Iterator(BaseIterator):
     def done(self):
         return self.left.done() or self.right.done()
 
+    def get_offset(self):
+        if isinstance(self.left, ConstantIterator):
+            return self.right.get_offset()
+        return self.left.get_offset()
+
 class Call1Iterator(BaseIterator):
     def __init__(self, child):
         self.child = child
@@ -131,12 +145,18 @@ class Call1Iterator(BaseIterator):
     def done(self):
         return self.child.done()
 
+    def get_offset(self):
+        return self.child.get_offset()
+
 class ConstantIterator(BaseIterator):
     def next(self):
         pass
 
     def done(self):
         return False
+
+    def get_offset(self):
+        return 0
 
 class BaseArray(Wrappable):
     _attrs_ = ["invalidates", "signature", "shape", "shards", "backshards",
@@ -231,24 +251,23 @@ class BaseArray(Wrappable):
 
     def _reduce_argmax_argmin_impl(op_name):
         reduce_driver = jit.JitDriver(greens=['signature'],
-                         reds = ['i', 'size', 'result', 'self', 'cur_best', 'dtype'])
-        def loop(self, size):
-            xxx
-            result = 0
-            cur_best = self.eval(self.start)
-            i = 1
+                         reds = ['i', 'result', 'self', 'cur_best', 'dtype'])
+        def loop(self):
+            i = self.start_iter()
+            result = i.get_offset()
+            cur_best = self.eval(i)
+            i.next()
             dtype = self.find_dtype()
-            while i < size:
+            while not i.done():
                 reduce_driver.jit_merge_point(signature=self.signature,
                                               self=self, dtype=dtype,
-                                              size=size, i=i, result=result,
+                                              i=i, result=result,
                                               cur_best=cur_best)
-                xxx
                 new_best = getattr(dtype, op_name)(cur_best, self.eval(i))
                 if dtype.ne(new_best, cur_best):
-                    result = i
+                    result = i.get_offset()
                     cur_best = new_best
-                i += 1
+                i.next()
             return result
         def impl(self, space):
             size = self.find_size()
@@ -256,7 +275,7 @@ class BaseArray(Wrappable):
                 raise OperationError(space.w_ValueError,
                     space.wrap("Can't call %s on zero-size arrays" \
                             % op_name))
-            return space.wrap(loop(self, size))
+            return self.compute_index(space, loop(self))
         return func_with_new_name(impl, "reduce_arg%s_impl" % op_name)
 
     def _all(self):
@@ -485,6 +504,17 @@ class BaseArray(Wrappable):
 
     def start_iter(self):
         raise NotImplementedError
+
+    def compute_index(self, space, offset):
+        offset -= self.start
+        if len(self.shape) == 1:
+            return space.wrap(offset // self.shards[0])
+        indices_w = []
+        for shard in self.shards:
+            r = offset // shard
+            indices_w.append(space.wrap(r))
+            offset -= shard * r
+        return space.newtuple(indices_w)
 
 def convert_to_array(space, w_obj):
     if isinstance(w_obj, BaseArray):
