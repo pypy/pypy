@@ -13,59 +13,78 @@ class TestNumArrayDirect(object):
         return self.space.newslice(*[self.space.wrap(arg) for arg in args])
 
     def newtuple(self, *args):
-        return self.space.newtuple([self.space.wrap(arg) for arg in args])
+        args_w = []
+        for arg in args:
+            if isinstance(arg, int):
+                args_w.append(self.space.wrap(arg))
+            else:
+                args_w.append(arg)
+        return self.space.newtuple(args_w)
     
     def test_shards(self):
         a = NDimArray(100, [10, 5, 3], MockDtype())
-        assert a.shards == [1, 10, 50]
-        assert a.backshards == [9, 40, 100]
+        assert a.shards == [15, 3, 1]
+        assert a.backshards == [135, 12, 2]
 
     def test_create_slice(self):
         space = self.space
         a = NDimArray(10*5*3, [10, 5, 3], MockDtype())
         s = a._create_slice(space, space.wrap(3))
-        assert s.start == 3
-        assert s.shards == [10, 50]
-        assert s.backshards == [40, 100]
+        assert s.start == 45
+        assert s.shards == [3, 1]
+        assert s.backshards == [12, 2]
         s = a._create_slice(space, self.newslice(1, 9, 2))
-        assert s.start == 1
-        assert s.shards == [2, 10, 50]
-        assert s.backshards == [8, 40, 100]
+        assert s.start == 15
+        assert s.shards == [30, 3, 1]
+        assert s.backshards == [120, 12, 2]
         s = a._create_slice(space, space.newtuple([
             self.newslice(1, 5, 3), self.newslice(1, 2, 1), space.wrap(1)]))
-        assert s.start == 1
+        assert s.start == 19
         assert s.shape == [2, 1]
-        assert s.shards == [3, 10]
-        assert s.backshards == [6, 10]
+        assert s.shards == [45, 3]
+        assert s.backshards == [90, 3]
+        s = a._create_slice(space, self.newtuple(
+            self.newslice(None, None, None), space.wrap(2)))
+        assert s.start == 6
+        assert s.shape == [10, 3]
 
     def test_slice_of_slice(self):
         space = self.space
         a = NDimArray(10*5*3, [10, 5, 3], MockDtype())
         s = a._create_slice(space, space.wrap(5))
+        assert s.start == 15*5
         s2 = s._create_slice(space, space.wrap(3))
         assert s2.shape == [3]
-        assert s2.shards == [50]
+        assert s2.shards == [1]
         assert s2.parent is a
-        assert s2.backshards == [100]
+        assert s2.backshards == [2]
+        assert s2.start == 5*15 + 3*3
         s = a._create_slice(space, self.newslice(1, 5, 3))
         s2 = s._create_slice(space, space.newtuple([
             self.newslice(None, None, None), space.wrap(2)]))
         assert s2.shape == [2, 3]
-        assert s2.shards == [3, 50]
-        assert s2.backshards == [6, 100]
+        assert s2.shards == [45, 1]
+        assert s2.backshards == [90, 2]
+        assert s2.start == 1*15 + 2*3
 
     def test_negative_step(self):
         space = self.space
         a = NDimArray(10*5*3, [10, 5, 3], MockDtype())
         s = a._create_slice(space, self.newslice(None, None, -2))
-        assert s.start == 9
-        assert s.shards == [-2, 10, 50]
-        assert s.backshards == [-10, 40, 100]
+        assert s.start == 135
+        assert s.shards == [-30, 3, 1]
+        assert s.backshards == [-150, 12, 2]
 
     def test_index_of_single_item(self):
         a = NDimArray(10*5*3, [10, 5, 3], MockDtype())
         r = a._index_of_single_item(self.space, self.newtuple(1, 2, 2))
-        assert r == 1 + 2*10 + 2*10*5
+        assert r == 1 * 3 * 5 + 2 * 3 + 2
+        s = a._create_slice(self.space, self.newtuple(
+            self.newslice(None, None, None), 2))
+        r = s._index_of_single_item(self.space, self.newtuple(1, 0))
+        assert r == a._index_of_single_item(self.space, self.newtuple(1, 2, 0))
+        r = s._index_of_single_item(self.space, self.newtuple(1, 1))
+        assert r == a._index_of_single_item(self.space, self.newtuple(1, 2, 1))
 
 class AppTestNumArray(BaseNumpyAppTest):
     def test_type(self):
@@ -698,7 +717,8 @@ class AppTestMultiDim(BaseNumpyAppTest):
         raises(ValueError, numpy.array, [[[1, 2], [3, 4], 5]])
         raises(ValueError, numpy.array, [[[1, 2], [3, 4], [5]]])
         a = numpy.array([[1, 2], [4, 5]])
-        assert a[0, 1] == a[0][1] == 2
+        assert a[0, 1] == 2
+        assert a[0][1] == 2
         a = numpy.array(([[[1, 2], [3, 4], [5, 6]]]))
         assert (a[0, 1] == [3, 4]).all()
 

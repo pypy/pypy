@@ -154,10 +154,14 @@ class BaseArray(Wrappable):
             self.shards = []
             self.backshards = []
             s = 1
-            for sh in shape:
+            shape_rev = shape[:]
+            shape_rev.reverse()
+            for sh in shape_rev:
                 self.shards.append(s)
                 self.backshards.append(s * (sh - 1))
                 s *= sh
+            self.shards.reverse()
+            self.backshards.reverse()
 
     def invalidated(self):
         if self.invalidates:
@@ -448,19 +452,16 @@ class BaseArray(Wrappable):
             shape = []
             shards = []
             backshards = []
-            start = -1
+            start = self.start
             i = -1
             for i, w_item in enumerate(space.fixedview(w_idx)):
                 start_, stop, step, lgt = space.decode_index4(w_item,
                                                              self.shape[i])
                 if step != 0:
-                    if start == -1:
-                        start = start_ * self.shards[i] + self.start
                     shape.append(lgt)
                     shards.append(self.shards[i] * step)
                     backshards.append(self.shards[i] * lgt * step)
-            if start == -1:
-                start = self.start
+                start += self.shards[i] * start_
             # add a reminder
             shape += self.shape[i + 1:]
             shards += self.shards[i + 1:]
