@@ -325,12 +325,12 @@ def compile_add(loop, opnum):
     loop = _from_opaque(loop)
     loop.operations.append(Operation(opnum))
 
-def compile_add_descr(loop, ofs, type, arg_types):
+def compile_add_descr(loop, ofs, type, arg_types, extrainfo):
     from pypy.jit.backend.llgraph.runner import Descr
     loop = _from_opaque(loop)
     op = loop.operations[-1]
     assert isinstance(type, str) and len(type) == 1
-    op.descr = Descr(ofs, type, arg_types=arg_types)
+    op.descr = Descr(ofs, type, arg_types=arg_types, extrainfo=extrainfo)
 
 def compile_add_descr_arg(loop, ofs, type, arg_types):
     from pypy.jit.backend.llgraph.runner import Descr
@@ -822,6 +822,16 @@ class Frame(object):
             return do_getinteriorfield_gc_int(array, index, descr.ofs)
         elif descr.typeinfo == FLOAT:
             return do_getinteriorfield_gc_float(array, index, descr.ofs)
+        else:
+            raise NotImplementedError
+
+    def op_getinteriorfield_raw(self, descr, array, index):
+        if descr.typeinfo == REF:
+            return do_getinteriorfield_raw_ptr(array, index, descr.extrainfo, descr.ofs)
+        elif descr.typeinfo == INT:
+            return do_getinteriorfield_raw_int(array, index, descr.extrainfo, descr.ofs)
+        elif descr.typeinfo == FLOAT:
+            return do_getinteriorfield_raw_float(array, index, descr.extrainfo, descr.ofs)
         else:
             raise NotImplementedError
 
@@ -1403,6 +1413,15 @@ def do_getinteriorfield_gc_ptr(array, index, fieldnum):
     struct = array._obj.container.getitem(index)
     return cast_to_ptr(_getinteriorfield_gc(struct, fieldnum))
 
+def _getinteriorfield_raw(ffitype, array, index, width, ofs):
+    from pypy.rlib import libffi
+    addr = rffi.cast(rffi.VOIDP, array)
+    return libffi.array_getitem(ffitype, width, addr, index, ofs)
+
+def do_getinteriorfield_raw_int(array, index, width, ofs):
+    from pypy.rlib import libffi
+    res = _getinteriorfield_raw(libffi.types.slong, array, index, width, ofs)
+    return res
 
 def _getfield_raw(struct, fieldnum):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]

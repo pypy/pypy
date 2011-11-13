@@ -204,7 +204,7 @@ class OptFfiCall(Optimization):
         ffitypeaddr = ffitypeval.box.getaddr()
         ffitype = llmemory.cast_adr_to_ptr(ffitypeaddr, clibffi.FFI_TYPE_P)
         offset = offsetval.box.getint()
-        width = offsetval.box.getint()
+        width = widthval.box.getint()
         descr = self._get_interior_descr(ffitype, width, offset)
 
         arglist = [

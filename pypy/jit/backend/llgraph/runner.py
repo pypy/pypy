@@ -179,7 +179,7 @@ class BaseCPU(model.AbstractCPU):
             descr = op.getdescr()
             if isinstance(descr, Descr):
                 llimpl.compile_add_descr(c, descr.ofs, descr.typeinfo,
-                                         descr.arg_types)
+                                         descr.arg_types, descr.extrainfo)
             if (isinstance(descr, history.LoopToken) and
                 op.getopnum() != rop.JUMP):
                 llimpl.compile_add_loop_token(c, descr)
