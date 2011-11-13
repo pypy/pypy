@@ -1434,8 +1434,11 @@ def get_ebp_ofs(position):
     # i.e. the n'th word beyond the fixed frame size.
     return -WORD * (FRAME_FIXED_SIZE + position)
 
+def _valid_addressing_size(size):
+    return size == 1 or size == 2 or size == 4 or size == 8
+
 def _get_scale(size):
-    assert size == 1 or size == 2 or size == 4 or size == 8
+    assert _valid_addressing_size(size)
     if size < 4:
         return size - 1         # 1, 2 => 0, 1
     else:

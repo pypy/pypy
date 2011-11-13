@@ -8,8 +8,8 @@ from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import llhelper
 from pypy.jit.backend.model import CompiledLoopToken
-from pypy.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs,
-                                           _get_scale, gpr_reg_mgr_cls)
+from pypy.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs, _get_scale,
+    gpr_reg_mgr_cls, _valid_addressing_size)
 
 from pypy.jit.backend.x86.arch import (FRAME_FIXED_SIZE, FORCE_INDEX_OFS, WORD,
                                        IS_X86_32, IS_X86_64)
@@ -1601,8 +1601,10 @@ class Assembler386(object):
         assert isinstance(itemsize_loc, ImmedLoc)
         if isinstance(index_loc, ImmedLoc):
             temp_loc = imm(index_loc.value * itemsize_loc.value)
+        elif _valid_addressing_size(itemsize_loc.value):
+            return AddressLoc(base_loc, index_loc, _get_scale(itemsize_loc.value), ofs_loc.value)
         else:
-            # XXX should not use IMUL in most cases
+            # XXX should not use IMUL in more cases, it can use a clever LEA
             assert isinstance(temp_loc, RegLoc)
             assert isinstance(index_loc, RegLoc)
             assert not temp_loc.is_xmm
