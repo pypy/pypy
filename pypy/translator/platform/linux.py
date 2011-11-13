@@ -6,7 +6,8 @@ from pypy.translator.platform.posix import BasePosix
 class BaseLinux(BasePosix):
     name = "linux"
     
-    link_flags = ('-pthread', '-lrt')
+    link_flags = ('-pthread',)
+    extra_libs = ['-lrt']
     cflags = ('-O3', '-pthread', '-fomit-frame-pointer',
               '-Wall', '-Wno-unused')
     standalone_only = ()
