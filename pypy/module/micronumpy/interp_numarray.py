@@ -10,10 +10,8 @@ from pypy.rlib.rstring import StringBuilder
 
 numpy_driver = jit.JitDriver(greens = ['signature'],
                              reds = ['result_size', 'i', 'self', 'result'])
-all_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self',
-                                                       'dtype'])
-any_driver = jit.JitDriver(greens=['signature'], reds=['i', 'size', 'self',
-                                                       'dtype'])
+all_driver = jit.JitDriver(greens=['signature'], reds=['i', 'self', 'dtype'])
+any_driver = jit.JitDriver(greens=['signature'], reds=['i', 'self', 'dtype'])
 slice_driver = jit.JitDriver(greens=['signature'], reds=['self', 'source',
                                                          'source_iter',
                                                          'res_iter'])
@@ -249,29 +247,26 @@ class BaseArray(Wrappable):
         return func_with_new_name(impl, "reduce_arg%s_impl" % op_name)
 
     def _all(self):
-        xxx
-        size = self.find_size()
         dtype = self.find_dtype()
-        i = 0
-        while i < size:
-            all_driver.jit_merge_point(signature=self.signature, self=self, dtype=dtype, size=size, i=i)
+        i = self.start_iter()
+        while not i.done():
+            all_driver.jit_merge_point(signature=self.signature, self=self, dtype=dtype, i=i)
             if not dtype.bool(self.eval(i)):
                 return False
-            i += 1
+            i.next()
         return True
     def descr_all(self, space):
         return space.wrap(self._all())
 
     def _any(self):
-        xxx
-        size = self.find_size()
         dtype = self.find_dtype()
-        i = 0
-        while i < size:
-            any_driver.jit_merge_point(signature=self.signature, self=self, size=size, dtype=dtype, i=i)
+        i = self.start_iter()
+        while not i.done():
+            any_driver.jit_merge_point(signature=self.signature, self=self,
+                                       dtype=dtype, i=i)
             if dtype.bool(self.eval(i)):
                 return True
-            i += 1
+            i.next()
         return False
     def descr_any(self, space):
         return space.wrap(self._any())
@@ -602,14 +597,15 @@ class Call1(VirtualArray):
 
     def _eval(self, iter):
         assert isinstance(iter, Call1Iterator)
-        xxx
-        val = self.values.eval(i).convert_to(self.res_dtype)
-
+        val = self.values.eval(iter.child).convert_to(self.res_dtype)
         sig = jit.promote(self.signature)
         assert isinstance(sig, signature.Signature)
         call_sig = sig.components[0]
         assert isinstance(call_sig, signature.Call1)
         return call_sig.func(self.res_dtype, val)
+
+    def start_iter(self):
+        return Call1Iterator(self.values.start_iter())
 
 class Call2(VirtualArray):
     """
@@ -683,6 +679,9 @@ class ViewArray(BaseArray):
             return space.wrap(self.shape[0])
         return space.wrap(1)
 
+class VirtualView(VirtualArray):
+    pass
+
 class NDimSlice(ViewArray):
     signature = signature.BaseSignature()
 
@@ -734,39 +733,6 @@ class NDimSlice(ViewArray):
 
     def get_root_shape(self):
         return self.parent.get_root_shape()
-
-    @jit.unroll_safe
-    def calc_index(self, item):
-        index = []
-        _item = item
-        for i in range(len(self.shape) -1, 0, -1):
-            s = self.shape[i]
-            index.append(_item % s)
-            _item //= s
-        index.append(_item)
-        index.reverse()
-        i = 0
-        item = 0
-        k = 0
-        shape = self.parent.shape
-        for chunk in self.chunks:
-            if k != 0:
-                item *= shape[k]
-            k += 1
-            start, stop, step, lgt = chunk
-            if step == 0:
-                # we don't consume an index
-                item += start
-            else:
-                item += start + step * index[i]
-                i += 1
-        while k < len(shape):
-            if k != 0:
-                item *= shape[k]
-            k += 1
-            item += index[i]
-            i += 1
-        return item
 
     def to_str(self, comma, indent=' '):
         xxx
