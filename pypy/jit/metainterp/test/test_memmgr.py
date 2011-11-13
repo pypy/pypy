@@ -99,7 +99,7 @@ class _TestIntegration(LLJitMixin):
         assert res == 42
 
         # we should see only the loop and the entry bridge
-        self.check_tree_loop_count(2)
+        self.check_target_token_count(2)
 
     def test_target_loop_kept_alive_or_not(self):
         myjitdriver = JitDriver(greens=['m'], reds=['n'])
@@ -132,14 +132,15 @@ class _TestIntegration(LLJitMixin):
         # case A
         res = self.meta_interp(f, [], loop_longevity=3)
         assert res == 42
-        # we should see only the loop and the entry bridge for g(5) and g(7)
-        self.check_tree_loop_count(4)
+        # we should see only the loop with preamble and the exit bridge
+        # for g(5) and g(7)
+        self.check_enter_count(4)
 
         # case B, with a lower longevity
         res = self.meta_interp(f, [], loop_longevity=1)
         assert res == 42
         # we should see a loop for each call to g()
-        self.check_tree_loop_count(8 + 20*2*2)
+        self.check_enter_count(8 + 20*2)
 
     def test_throw_away_old_loops(self):
         myjitdriver = JitDriver(greens=['m'], reds=['n'])
@@ -154,7 +155,7 @@ class _TestIntegration(LLJitMixin):
             for i in range(10):
                 g(1)   # g(1) gets a loop and an entry bridge, stays alive
                 g(2)   # (and an exit bridge, which does not count in
-                g(1)   # check_tree_loop_count)
+                g(1)   # check_target_token_count)
                 g(3)
                 g(1)
                 g(4)   # g(2), g(3), g(4), g(5) are thrown away every iteration
@@ -164,7 +165,7 @@ class _TestIntegration(LLJitMixin):
 
         res = self.meta_interp(f, [], loop_longevity=3)
         assert res == 42
-        self.check_tree_loop_count(2 + 10*4*2)
+        self.check_enter_count(2 + 10*4*2)
 
     def test_call_assembler_keep_alive(self):
         myjitdriver1 = JitDriver(greens=['m'], reds=['n'])
@@ -198,7 +199,7 @@ class _TestIntegration(LLJitMixin):
 
         res = self.meta_interp(f, [1], loop_longevity=4, inline=True)
         assert res == 42
-        self.check_tree_loop_count(12)
+        self.check_enter_count(12)
 
 # ____________________________________________________________
 

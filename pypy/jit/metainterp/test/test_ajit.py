@@ -84,7 +84,7 @@ class BasicTests:
 
         if self.basic:
             found = 0
-            for op in get_stats().loops[0]._all_operations():
+            for op in get_stats().get_all_loops()[0]._all_operations():
                 if op.getopname() == 'guard_true':
                     liveboxes = op.getfailargs()
                     assert len(liveboxes) == 3
@@ -2704,7 +2704,7 @@ class BasicTests:
         assert res == g(10)
 
         self.check_jitcell_token_count(2)
-        for cell in get_stats().jitcell_tokens:
+        for cell in get_stats().get_all_jitcell_tokens():
             # Initialal trace with two labels and 5 retraces
             assert len(cell.target_tokens) <= 7
             
@@ -2745,7 +2745,7 @@ class BasicTests:
         res = self.meta_interp(f, [10, 7])
         assert res == f(10, 7)
         self.check_jitcell_token_count(2)
-        for cell in get_stats().jitcell_tokens:
+        for cell in get_stats().get_all_jitcell_tokens():
             assert len(cell.target_tokens) == 2
 
         def g(n):
@@ -2754,7 +2754,7 @@ class BasicTests:
         res = self.meta_interp(g, [10])
         assert res == g(10)
         self.check_jitcell_token_count(2)
-        for cell in get_stats().jitcell_tokens:
+        for cell in get_stats().get_all_jitcell_tokens():
             assert len(cell.target_tokens) <= 3
 
         def g(n):
@@ -2765,7 +2765,7 @@ class BasicTests:
         # 2 loops and one function
         self.check_jitcell_token_count(3)
         cnt = 0
-        for cell in get_stats().jitcell_tokens:
+        for cell in get_stats().get_all_jitcell_tokens():
             if cell.target_tokens is None:
                 cnt += 1
             else:

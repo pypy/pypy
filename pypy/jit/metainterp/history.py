@@ -10,6 +10,7 @@ from pypy.conftest import option
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.codewriter import heaptracker, longlong
 from pypy.rlib.objectmodel import compute_identity_hash
+import weakref
 
 # ____________________________________________________________
 
@@ -978,7 +979,7 @@ class Stats(object):
         self.locations = []
         self.aborted_keys = []
         self.invalidated_token_numbers = set()
-        self.jitcell_tokens = set()
+        self.jitcell_token_wrefs = set()
 
     def clear(self):
         del self.loops[:]
@@ -990,7 +991,7 @@ class Stats(object):
         self.aborted_count = 0
 
     def add_jitcell_token(self, token):
-        self.jitcell_tokens.add(token)
+        self.jitcell_token_wrefs.add(weakref.ref(token))
         
     def set_history(self, history):
         self.operations = history.operations
@@ -1021,6 +1022,15 @@ class Stats(object):
     def get_all_loops(self):
         return self.loops
 
+    def get_all_jitcell_tokens(self):
+        tokens = [t() for t in self.jitcell_token_wrefs]
+        if None in tokens:
+            assert False, "get_all_jitcell_tokens will not work as "+\
+                          "loops have been freed"
+        return tokens
+            
+        
+
     def check_history(self, expected=None, **check):
         insns = {}
         for op in self.operations:
@@ -1038,7 +1048,7 @@ class Stats(object):
 
     def check_resops(self, expected=None, **check):
         insns = {}
-        for loop in self.loops:
+        for loop in self.get_all_loops():
             insns = loop.summary(adding_insns=insns)
         if expected is not None:
             insns.pop('debug_merge_point', None)
@@ -1053,7 +1063,7 @@ class Stats(object):
         
     def check_loops(self, expected=None, everywhere=False, **check):
         insns = {}
-        for loop in self.loops:
+        for loop in self.get_all_loops():
             #if not everywhere:
             #    if getattr(loop, '_ignore_during_counting', False):
             #        continue
@@ -1083,7 +1093,7 @@ class Stats(object):
 
     def check_consistency(self):
         "NOT_RPYTHON"
-        for loop in self.loops:
+        for loop in self.get_all_loops():
             loop.check_consistency()
 
     def maybe_view(self):

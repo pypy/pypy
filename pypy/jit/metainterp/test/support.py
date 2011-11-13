@@ -169,10 +169,11 @@ class JitMixin:
         assert get_stats().compiled_count <= count
 
     def check_jitcell_token_count(self, count): # was check_tree_loop_count
-        assert len(get_stats().jitcell_tokens) == count
+        assert len(get_stats().jitcell_token_wrefs) == count
 
     def check_target_token_count(self, count):
-        n = sum([len(t.target_tokens) for t in get_stats().jitcell_tokens])
+        tokens = get_stats().get_all_jitcell_tokens()
+        n = sum ([len(t.target_tokens) for t in tokens])
         assert n == count
 
     def check_enter_count(self, count):
