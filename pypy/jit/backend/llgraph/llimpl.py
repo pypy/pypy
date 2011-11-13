@@ -20,6 +20,7 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llgraph import symbolic
 from pypy.jit.codewriter import longlong
 
+from pypy.rlib import libffi
 from pypy.rlib.objectmodel import ComputedIntSymbolic, we_are_translated
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint
@@ -848,6 +849,16 @@ class Frame(object):
         else:
             raise NotImplementedError
 
+    def op_setinteriorfield_raw(self, descr, array, index, newvalue):
+        if descr.typeinfo == REF:
+            return do_setinteriorfield_raw_ptr(array, index, newvalue, descr.extrainfo, descr.ofs)
+        elif descr.typeinfo == INT:
+            return do_setinteriorfield_raw_int(array, index, newvalue, descr.extrainfo, descr.ofs)
+        elif descr.typeinfo == FLOAT:
+            return do_setinteriorfield_raw_float(array, index, newvalue, descr.extrainfo, descr.ofs)
+        else:
+            raise NotImplementedError
+
     def op_setfield_gc(self, fielddescr, struct, newvalue):
         if fielddescr.typeinfo == REF:
             do_setfield_gc_ptr(struct, fielddescr.ofs, newvalue)
@@ -1414,12 +1425,10 @@ def do_getinteriorfield_gc_ptr(array, index, fieldnum):
     return cast_to_ptr(_getinteriorfield_gc(struct, fieldnum))
 
 def _getinteriorfield_raw(ffitype, array, index, width, ofs):
-    from pypy.rlib import libffi
     addr = rffi.cast(rffi.VOIDP, array)
     return libffi.array_getitem(ffitype, width, addr, index, ofs)
 
 def do_getinteriorfield_raw_int(array, index, width, ofs):
-    from pypy.rlib import libffi
     res = _getinteriorfield_raw(libffi.types.slong, array, index, width, ofs)
     return res
 
@@ -1500,6 +1509,13 @@ def new_setinteriorfield_gc(cast_func):
 do_setinteriorfield_gc_int = new_setinteriorfield_gc(cast_from_int)
 do_setinteriorfield_gc_float = new_setinteriorfield_gc(cast_from_floatstorage)
 do_setinteriorfield_gc_ptr = new_setinteriorfield_gc(cast_from_ptr)
+
+def new_setinteriorfield_raw(ffitype):
+    def do_setinteriorfield_raw(array, index, newvalue, width, ofs):
+        addr = rffi.cast(rffi.VOIDP, array)
+        return libffi.array_setitem(ffitype, width, addr, index, ofs, newvalue)
+    return do_setinteriorfield_raw
+do_setinteriorfield_raw_int = new_setinteriorfield_raw(libffi.types.slong)
 
 def do_setfield_raw_int(struct, fieldnum, newvalue):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]

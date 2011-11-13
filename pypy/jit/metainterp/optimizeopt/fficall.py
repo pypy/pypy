@@ -118,8 +118,9 @@ class OptFfiCall(Optimization):
             ops = self.do_push_arg(op)
         elif oopspec == EffectInfo.OS_LIBFFI_CALL:
             ops = self.do_call(op)
-        elif oopspec == EffectInfo.OS_LIBFFI_GETARRAYITEM:
-            ops = self.do_getarrayitem(op)
+        elif (oopspec == EffectInfo.OS_LIBFFI_GETARRAYITEM or
+            oopspec == EffectInfo.OS_LIBFFI_SETARRAYITEM):
+            ops = self.do_getsetarrayitem(op, oopspec)
         #
         for op in ops:
             self.emit_operation(op)
@@ -194,7 +195,7 @@ class OptFfiCall(Optimization):
         ops.append(newop)
         return ops
 
-    def do_getarrayitem(self, op):
+    def do_getsetarrayitem(self, op, oopspec):
         ffitypeval = self.getvalue(op.getarg(1))
         widthval = self.getvalue(op.getarg(2))
         offsetval = self.getvalue(op.getarg(5))
@@ -211,10 +212,13 @@ class OptFfiCall(Optimization):
             self.getvalue(op.getarg(3)).force_box(self.optimizer),
             self.getvalue(op.getarg(4)).force_box(self.optimizer),
         ]
+        if oopspec == EffectInfo.OS_LIBFFI_GETARRAYITEM:
+            opnum = rop.GETINTERIORFIELD_RAW
+        elif oopspec == EffectInfo.OS_LIBFFI_SETARRAYITEM:
+            opnum = rop.SETINTERIORFIELD_RAW
+            arglist.append(self.getvalue(op.getarg(6)).force_box(self.optimizer))
         return [
-            ResOperation(
-                rop.GETINTERIORFIELD_RAW, arglist, op.result, descr=descr
-            )
+            ResOperation(opnum, arglist, op.result, descr=descr),
         ]
 
     def _get_interior_descr(self, ffitype, width, offset):
