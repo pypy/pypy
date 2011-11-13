@@ -577,7 +577,7 @@ class RecursiveTests:
         self.meta_interp(g, [10], backendopt=True)
         self.check_aborted_count(1)
         self.check_resops(call=0, call_assembler=2)        
-        self.check_tree_loop_count(3)
+        self.check_jitcell_token_count(2)
 
     def test_directly_call_assembler(self):
         driver = JitDriver(greens = ['codeno'], reds = ['i'],
@@ -1211,11 +1211,11 @@ class RecursiveTests:
             portal(c, i, v)
 
         self.meta_interp(main, [10, 10, False, False], inline=True)
-        self.check_tree_loop_count(1)
-        self.check_loop_count(0)
+        self.check_jitcell_token_count(1)
+        self.check_trace_count(1)
         self.meta_interp(main, [3, 10, True, False], inline=True)
-        self.check_tree_loop_count(0)
-        self.check_loop_count(0)
+        self.check_jitcell_token_count(0)
+        self.check_trace_count(0)
 
     def test_trace_from_start_does_not_prevent_inlining(self):
         driver = JitDriver(greens = ['c', 'bc'], reds = ['i'])

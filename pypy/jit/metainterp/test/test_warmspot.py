@@ -203,7 +203,7 @@ class WarmspotTests(object):
                     m -= 1
             self.meta_interp(f2, [i2])
             try:
-                self.check_tree_loop_count(1)
+                self.check_jitcell_token_count(1)
                 break
             except AssertionError:
                 print "f2: no loop generated for i2==%d" % i2
@@ -218,7 +218,7 @@ class WarmspotTests(object):
                     m -= 1
             self.meta_interp(f1, [i1])
             try:
-                self.check_tree_loop_count(1)
+                self.check_jitcell_token_count(1)
                 break
             except AssertionError:
                 print "f1: no loop generated for i1==%d" % i1
@@ -238,8 +238,8 @@ class WarmspotTests(object):
         self.meta_interp(f1, [8])
         # it should generate one "loop" only, which ends in a FINISH
         # corresponding to the return from f2.
-        self.check_tree_loop_count(1)
-        self.check_loop_count(0)
+        self.check_trace_count(1)
+        self.check_resops(jump=0)
 
     def test_simple_loop(self):
         mydriver = JitDriver(greens=[], reds=['m'])
@@ -248,8 +248,8 @@ class WarmspotTests(object):
                 mydriver.jit_merge_point(m=m)
                 m = m - 1
         self.meta_interp(f1, [8])
-        self.check_loop_count(1)
-        self.check_resops({'jump': 2, 'guard_true': 2, 'int_gt': 2,
+        self.check_trace_count(1)
+        self.check_resops({'jump': 1, 'guard_true': 2, 'int_gt': 2,
                            'int_sub': 2})
 
     def test_void_red_variable(self):
