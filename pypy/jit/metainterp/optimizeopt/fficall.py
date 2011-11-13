@@ -217,6 +217,8 @@ class OptFfiCall(Optimization):
         elif oopspec == EffectInfo.OS_LIBFFI_SETARRAYITEM:
             opnum = rop.SETINTERIORFIELD_RAW
             arglist.append(self.getvalue(op.getarg(6)).force_box(self.optimizer))
+        else:
+            assert False
         return [
             ResOperation(opnum, arglist, op.result, descr=descr),
         ]
