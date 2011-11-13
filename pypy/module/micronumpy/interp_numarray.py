@@ -497,7 +497,8 @@ class BaseArray(Wrappable):
                     "The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()"))
         except ValueError:
             pass
-        return space.wrap(space.is_true(self.get_concrete().eval(self.start).wrap(space)))
+        return space.wrap(space.is_true(self.get_concrete().eval(
+            self.start_iter()).wrap(space)))
 
     def getitem(self, item):
         raise NotImplementedError
