@@ -42,7 +42,7 @@ class Platform(object):
 
     so_prefixes = ('',)
 
-    extra_libs = ()
+    extra_libs = []
 
     def __init__(self, cc):
         if self.__class__ is Platform:
