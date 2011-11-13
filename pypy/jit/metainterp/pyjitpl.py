@@ -2037,6 +2037,7 @@ class MetaInterp(object):
                                                 live_arg_boxes[num_green_args:],
                                                 start_resumedescr)
             if target_token is not None:
+                assert isinstance(target_token, TargetToken)
                 self.jitdriver_sd.warmstate.attach_procedure_to_interp(greenkey, target_token.targeting_jitcell_token)
                 self.staticdata.stats.add_jitcell_token(target_token.targeting_jitcell_token)
 
@@ -2044,6 +2045,7 @@ class MetaInterp(object):
         if target_token is not None: # raise if it *worked* correctly
             self.history.inputargs = None
             self.history.operations = None
+            assert isinstance(target_token, TargetToken)
             raise GenerateMergePoint(live_arg_boxes, target_token.targeting_jitcell_token)
 
     def compile_trace(self, live_arg_boxes, start_resumedescr):
@@ -2064,6 +2066,7 @@ class MetaInterp(object):
         if target_token is not None: # raise if it *worked* correctly
             self.history.inputargs = None
             self.history.operations = None
+            assert isinstance(target_token, TargetToken)
             raise GenerateMergePoint(live_arg_boxes, target_token.targeting_jitcell_token)
 
     def compile_bridge_and_loop(self, original_boxes, live_arg_boxes, start,

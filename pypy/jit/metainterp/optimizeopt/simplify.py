@@ -40,7 +40,9 @@ class OptSimplify(Optimization):
         assert isinstance(descr, JitCellToken)
         if not descr.target_tokens:
             assert self.last_label_descr is not None
-            assert self.last_label_descr.targeting_jitcell_token is descr
+            target_token = self.last_label_descr
+            assert isinstance(target_token, TargetToken)
+            assert target_token.targeting_jitcell_token is descr
             op.setdescr(self.last_label_descr)
         else:
             assert len(descr.target_tokens) == 1

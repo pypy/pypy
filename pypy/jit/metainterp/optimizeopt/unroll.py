@@ -24,7 +24,6 @@ class UnrollableOptimizer(Optimizer):
         self.importable_values = {}
         self.emitting_dissabled = False
         self.emitted_guards = 0
-        self.inline_short_preamble = True
 
     def ensure_imported(self, value):
         if not self.emitting_dissabled and value in self.importable_values:
@@ -51,6 +50,9 @@ class UnrollOptimizer(Optimization):
     become the preamble or entry bridge (don't think there is a
     distinction anymore)"""
 
+    inline_short_preamble = True
+    did_import = False
+    
     def __init__(self, metainterp_sd, loop, optimizations):
         self.optimizer = UnrollableOptimizer(metainterp_sd, loop, optimizations)
 
@@ -110,7 +112,11 @@ class UnrollOptimizer(Optimization):
             self.export_state(stop_label)
             loop.operations.append(stop_label)            
         else:
-            assert stop_label.getdescr().targeting_jitcell_token is start_label.getdescr().targeting_jitcell_token
+            stop_target = stop_label.getdescr()
+            start_target = start_label.getdescr()
+            assert isinstance(stop_target, TargetToken)
+            assert isinstance(start_target, TargetToken)
+            assert stop_target.targeting_jitcell_token is start_target.targeting_jitcell_token
             jumpop = ResOperation(rop.JUMP, stop_label.getarglist(), None, descr=start_label.getdescr())
 
             self.close_loop(jumpop)
@@ -324,7 +330,9 @@ class UnrollOptimizer(Optimization):
 
         maxguards = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.max_retrace_guards
         if self.optimizer.emitted_guards > maxguards:
-            jumpop.getdescr().targeting_jitcell_token.retraced_count = sys.maxint
+            target_token = jumpop.getdescr()
+            assert isinstance(target_token, TargetToken)
+            target_token.targeting_jitcell_token.retraced_count = sys.maxint
             
     def finilize_short_preamble(self, start_label):
         short = self.short

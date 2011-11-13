@@ -169,6 +169,7 @@ def compile_loop(metainterp, greenkey, start,
 
     loop.original_jitcell_token = jitcell_token
     for label in all_target_tokens:
+        assert isinstance(label, TargetToken)
         label.original_jitcell_token = jitcell_token
     jitcell_token.target_tokens = all_target_tokens
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop")
@@ -227,7 +228,9 @@ def compile_retrace(metainterp, greenkey, start,
 
     target_token = loop.operations[-1].getdescr()
     resumekey.compile_and_attach(metainterp, loop)
-    label.getdescr().original_jitcell_token = loop.original_jitcell_token
+    target_token = label.getdescr()
+    assert isinstance(target_token, TargetToken)
+    target_token.original_jitcell_token = loop.original_jitcell_token
     record_loop_or_bridge(metainterp_sd, loop)
     return target_token
 
