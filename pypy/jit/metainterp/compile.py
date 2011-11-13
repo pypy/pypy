@@ -139,8 +139,12 @@ def compile_loop(metainterp, greenkey, start,
     loop = create_empty_loop(metainterp)        
     loop.inputargs = part.inputargs
     loop.operations = part.operations
+    loop.quasi_immutable_deps = {}
+    if part.quasi_immutable_deps:
+        loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
     while part.operations[-1].getopnum() == rop.LABEL:
         inliner = Inliner(inputargs, jumpargs)
+        part.quasi_immutable_deps = None
         part.operations = [part.operations[-1]] + \
                           [inliner.inline_op(h_ops[i]) for i in range(start, len(h_ops))] + \
                           [ResOperation(rop.JUMP, [inliner.inline_arg(a) for a in jumpargs],
@@ -155,7 +159,11 @@ def compile_loop(metainterp, greenkey, start,
             return None
             
         loop.operations = loop.operations[:-1] + part.operations
+        if part.quasi_immutable_deps:
+            loop.quasi_immutable_deps.update(part.quasi_immutable_deps)
 
+    if not loop.quasi_immutable_deps:
+        loop.quasi_immutable_deps = None
     for box in loop.inputargs:
         assert isinstance(box, Box)
 
@@ -205,6 +213,14 @@ def compile_retrace(metainterp, greenkey, start,
 
     loop = partial_trace
     loop.operations = loop.operations[:-1] + part.operations
+
+    quasi_immutable_deps = {}
+    if loop.quasi_immutable_deps:
+        quasi_immutable_deps.update(loop.quasi_immutable_deps)
+    if part.quasi_immutable_deps:
+        quasi_immutable_deps.update(part.quasi_immutable_deps)
+    if quasi_immutable_deps:
+        loop.quasi_immutable_deps = quasi_immutable_deps
 
     for box in loop.inputargs:
         assert isinstance(box, Box)
