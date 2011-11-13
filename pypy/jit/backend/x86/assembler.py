@@ -1619,6 +1619,8 @@ class Assembler386(object):
                                                 ofs_loc)
         self.load_from_mem(resloc, src_addr, fieldsize_loc, sign_loc)
 
+    genop_getinteriorfield_raw = genop_getinteriorfield_gc
+
 
     def genop_discard_setfield_gc(self, op, arglocs):
         base_loc, ofs_loc, size_loc, value_loc = arglocs
@@ -1633,6 +1635,8 @@ class Assembler386(object):
                                                  itemsize_loc, base_loc,
                                                  ofs_loc)
         self.save_into_mem(dest_addr, value_loc, fieldsize_loc)
+
+    genop_discard_setinteriorfield_raw = genop_discard_setinteriorfield_gc
 
     def genop_discard_setarrayitem_gc(self, op, arglocs):
         base_loc, ofs_loc, value_loc, size_loc, baseofs = arglocs

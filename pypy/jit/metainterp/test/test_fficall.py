@@ -12,9 +12,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
 
 
-class TestFfiCall(LLJitMixin, _TestLibffiCall):
-    supports_all = False     # supports_{floats,longlong,singlefloats}
-
+class FfiCallTests(_TestLibffiCall):
     # ===> ../../../rlib/test/test_libffi.py
 
     def call(self, funcspec, args, RESULT, is_struct=False, jitif=[]):
@@ -93,10 +91,6 @@ class TestFfiCall(LLJitMixin, _TestLibffiCall):
     test_byval_result.__doc__ = _TestLibffiCall.test_byval_result.__doc__
     test_byval_result.dont_track_allocations = True
 
-
-class TestFfiCallSupportAll(TestFfiCall):
-    supports_all = True     # supports_{floats,longlong,singlefloats}
-
     def test_array_fields(self):
         myjitdriver = JitDriver(
             greens = [],
@@ -152,3 +146,11 @@ class TestFfiCallSupportAll(TestFfiCall):
         self.check_loops({"int_add": 3, "jump": 1, "int_lt": 1, "guard_true": 1,
                           "getinteriorfield_raw": 4, "setinteriorfield_raw": 2
         })
+
+
+
+class TestFfiCall(FfiCallTests, LLJitMixin):
+    supports_all = False
+
+class TestFfiCallSupportAll(FfiCallTests, LLJitMixin):
+    supports_all = True     # supports_{floats,longlong,singlefloats}
