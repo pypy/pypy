@@ -1,15 +1,16 @@
-
 import py
-from pypy.rlib.rarithmetic import r_singlefloat, r_longlong, r_ulonglong
-from pypy.rlib.jit import JitDriver, promote, dont_look_inside
-from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.libffi import ArgChain
-from pypy.rlib.libffi import IS_32_BIT
-from pypy.rlib.test.test_libffi import TestLibffiCall as _TestLibffiCall
-from pypy.rpython.lltypesystem import lltype, rffi
-from pypy.rlib.objectmodel import specialize
-from pypy.tool.sourcetools import func_with_new_name
+
 from pypy.jit.metainterp.test.support import LLJitMixin
+from pypy.rlib.jit import JitDriver, promote, dont_look_inside
+from pypy.rlib.libffi import (ArgChain, IS_32_BIT, array_getitem, array_setitem,
+    types)
+from pypy.rlib.objectmodel import specialize
+from pypy.rlib.rarithmetic import r_singlefloat, r_longlong, r_ulonglong
+from pypy.rlib.test.test_libffi import TestLibffiCall as _TestLibffiCall
+from pypy.rlib.unroll import unrolling_iterable
+from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.tool.sourcetools import func_with_new_name
+
 
 class TestFfiCall(LLJitMixin, _TestLibffiCall):
     supports_all = False     # supports_{floats,longlong,singlefloats}
@@ -95,3 +96,61 @@ class TestFfiCall(LLJitMixin, _TestLibffiCall):
 
 class TestFfiCallSupportAll(TestFfiCall):
     supports_all = True     # supports_{floats,longlong,singlefloats}
+
+    def test_array_fields(self):
+        myjitdriver = JitDriver(
+            greens = [],
+            reds = ["n", "i", "signed_size", "points", "result_point"],
+        )
+
+        POINT = lltype.Struct("POINT",
+            ("x", lltype.Signed),
+            ("y", lltype.Signed),
+        )
+        def f(n):
+            points = lltype.malloc(rffi.CArray(POINT), n, flavor="raw")
+            for i in xrange(n):
+                points[i].x = i * 2
+                points[i].y = i * 2 + 1
+            points = rffi.cast(rffi.CArrayPtr(lltype.Char), points)
+            result_point = lltype.malloc(rffi.CArray(POINT), 1, flavor="raw")
+            result_point[0].x = 0
+            result_point[0].y = 0
+            result_point = rffi.cast(rffi.CArrayPtr(lltype.Char), result_point)
+            i = 0
+            signed_size = rffi.sizeof(lltype.Signed)
+            while i < n:
+                myjitdriver.jit_merge_point(i=i, points=points, n=n,
+                                            signed_size=signed_size,
+                                            result_point=result_point)
+                x = array_getitem(
+                    types.slong, signed_size * 2, points, i, 0
+                )
+                y = array_getitem(
+                    types.slong, signed_size * 2, points, i, signed_size
+                )
+
+                cur_x = array_getitem(
+                    types.slong, signed_size * 2, result_point, 0, 0
+                )
+                cur_y = array_getitem(
+                    types.slong, signed_size * 2, result_point, 0, signed_size
+                )
+
+                array_setitem(
+                    types.slong, signed_size * 2, result_point, 0, 0, cur_x + x
+                )
+                array_setitem(
+                    types.slong, signed_size * 2, result_point, 0, signed_size, cur_y + y
+                )
+                i += 1
+            result_point = rffi.cast(rffi.CArrayPtr(POINT), result_point)
+            result = result_point[0].x * result_point[0].y
+            lltype.free(result_point, flavor="raw")
+            lltype.free(points, flavor="raw")
+            return result
+
+        assert self.meta_interp(f, [10]) == f(10) == 9000
+        self.check_loops({"int_add": 3, "jump": 1, "int_lt": 1,
+                          "getinteriorfield_raw": 4, "setinteriorfield_raw": 2
+        })
