@@ -142,13 +142,22 @@ class BaseArray(Wrappable):
     _attrs_ = ["invalidates", "signature", "shape", "shards", "backshards",
                "start"]
 
-    _immutable_fields_ = ['shape[*]', "shards[*]", "backshards[*]"]
+    _immutable_fields_ = ['shape[*]', "shards[*]", "backshards[*]", 'start']
 
-    def __init__(self, shards, backshards, shape):
+    shards = None
+    start = 0    
+
+    def __init__(self, shape):
         self.invalidates = []
         self.shape = shape
-        self.shards = shards
-        self.backshards = backshards
+        if self.shards is None:
+            self.shards = []
+            self.backshards = []
+            s = 1
+            for sh in shape:
+                self.shards.append(s)
+                self.backshards.append(s * (sh - 1))
+                s *= sh
 
     def invalidated(self):
         if self.invalidates:
@@ -502,7 +511,7 @@ class Scalar(BaseArray):
     _attrs_ = ["dtype", "value", "shape"]
 
     def __init__(self, dtype, value):
-        BaseArray.__init__(self, None, None, [])
+        BaseArray.__init__(self, [])
         self.dtype = dtype
         self.value = value
 
@@ -529,7 +538,7 @@ class VirtualArray(BaseArray):
     Class for representing virtual arrays, such as binary ops or ufuncs
     """
     def __init__(self, signature, shape, res_dtype):
-        BaseArray.__init__(self, None, None, shape)
+        BaseArray.__init__(self, shape)
         self.forced_result = None
         self.signature = signature
         self.res_dtype = res_dtype
@@ -545,7 +554,7 @@ class VirtualArray(BaseArray):
         result = NDimArray(result_size, self.shape, self.find_dtype())
         i = self.start_iter()
         ri = result.start_iter()
-        while not i.done():
+        while not ri.done():
             numpy_driver.jit_merge_point(signature=signature,
                                          result_size=result_size, i=i,
                                          self=self, result=result)
@@ -567,6 +576,9 @@ class VirtualArray(BaseArray):
         if self.forced_result is not None:
             return self.forced_result.eval(iter)
         return self._eval(iter)
+
+    def getitem(self, item):
+        return self.get_concrete().getitem(item)
 
     def setitem(self, item, value):
         return self.get_concrete().setitem(item, value)
@@ -647,7 +659,9 @@ class ViewArray(BaseArray):
     arrays. Example: slices
     """
     def __init__(self, parent, signature, shards, backshards, shape):
-        BaseArray.__init__(self, shards, backshards, shape)
+        self.shards = shards
+        self.backshards = backshards
+        BaseArray.__init__(self, shape)
         self.signature = signature
         self.parent = parent
         self.invalidates = parent.invalidates
@@ -691,10 +705,11 @@ class NDimSlice(ViewArray):
                  shape):
         if isinstance(parent, NDimSlice):
             parent = parent.parent
-        else:
-            assert isinstance(parent, NDimArray)
         ViewArray.__init__(self, parent, signature, shards, backshards, shape)
         self.start = start
+        self.size = 1
+        for sh in shape:
+            self.size *= sh
 
     def get_root_storage(self):
         return self.parent.get_concrete().get_root_storage()
@@ -785,17 +800,8 @@ class NDimArray(BaseArray):
     """ A class representing contiguous array. We know that each iteration
     by say ufunc will increase the data index by one
     """
-    start = 0
-    
     def __init__(self, size, shape, dtype):
-        shards = []
-        backshards = []
-        s = 1
-        for sh in shape:
-            shards.append(s)
-            backshards.append(s * (sh - 1))
-            s *= sh
-        BaseArray.__init__(self, shards, backshards, shape)
+        BaseArray.__init__(self, shape)
         self.size = size
         self.dtype = dtype
         self.storage = dtype.malloc(size)
