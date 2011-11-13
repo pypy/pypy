@@ -130,6 +130,16 @@ def do_getinteriorfield_gc(cpu, _, arraybox, indexbox, descr):
     else:
         return BoxInt(cpu.bh_getinteriorfield_gc_i(array, index, descr))
 
+def do_getinteriorfield_raw(cpu, _, arraybox, indexbox, descr):
+    array = arraybox.getref_base()
+    index = indexbox.getint()
+    if descr.is_pointer_field():
+        return BoxPtr(cpu.bh_getinteriorfield_raw_r(array, index, descr))
+    elif descr.is_float_field():
+        return BoxFloat(cpu.bh_getinteriorfield_raw_f(array, index, descr))
+    else:
+        return BoxInt(cpu.bh_getionteriorfield_raw_i(array, index, descr))
+
 def do_setinteriorfield_gc(cpu, _, arraybox, indexbox, valuebox, descr):
     array = arraybox.getref_base()
     index = indexbox.getint()
@@ -142,6 +152,7 @@ def do_setinteriorfield_gc(cpu, _, arraybox, indexbox, valuebox, descr):
     else:
         cpu.bh_setinteriorfield_gc_i(array, index, descr,
                                      valuebox.getint())
+
 
 def do_getfield_gc(cpu, _, structbox, fielddescr):
     struct = structbox.getref_base()

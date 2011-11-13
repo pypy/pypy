@@ -1403,6 +1403,7 @@ def do_getinteriorfield_gc_ptr(array, index, fieldnum):
     struct = array._obj.container.getitem(index)
     return cast_to_ptr(_getinteriorfield_gc(struct, fieldnum))
 
+
 def _getfield_raw(struct, fieldnum):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]
     ptr = cast_from_int(lltype.Ptr(STRUCT), struct)
@@ -1479,7 +1480,7 @@ def new_setinteriorfield_gc(cast_func):
     return do_setinteriorfield_gc
 do_setinteriorfield_gc_int = new_setinteriorfield_gc(cast_from_int)
 do_setinteriorfield_gc_float = new_setinteriorfield_gc(cast_from_floatstorage)
-do_setinteriorfield_gc_ptr = new_setinteriorfield_gc(cast_from_ptr)        
+do_setinteriorfield_gc_ptr = new_setinteriorfield_gc(cast_from_ptr)
 
 def do_setfield_raw_int(struct, fieldnum, newvalue):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]

@@ -411,7 +411,7 @@ class CDLL(object):
     def getaddressindll(self, name):
         return dlsym(self.lib, name)
 
-@jit.oopspec("libffi_array_getitem")
+@jit.oopspec("libffi_array_getitem(ffitype, width, addr, index, offset)")
 def array_getitem(ffitype, width, addr, index, offset):
     for TYPE, ffitype2 in clibffi.ffitype_map:
         if ffitype is ffitype2:
@@ -420,7 +420,7 @@ def array_getitem(ffitype, width, addr, index, offset):
             return rffi.cast(rffi.CArrayPtr(TYPE), addr)[0]
     assert False
 
-@jit.oopspec("libffi_array_setitem")
+@jit.oopspec("libffi_array_setitem(ffitype, width, addr, index, offset, value)")
 def array_setitem(ffitype, width, addr, index, offset, value):
     for TYPE, ffitype2 in clibffi.ffitype_map:
         if ffitype is ffitype2:
