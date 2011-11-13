@@ -312,6 +312,7 @@ class OpAssembler(object):
                 self.mc.stbx(value_loc.value, base_loc.value, ofs.value)
         else:
             assert 0, "size not supported"
+
     emit_setfield_raw = emit_setfield_gc
 
     def emit_getfield_gc(self, op, arglocs, regalloc):
@@ -338,6 +339,14 @@ class OpAssembler(object):
                 self.mc.lbzx(res.value, base_loc.value, ofs.value)
         else:
             assert 0, "size not supported"
+
+        #XXX Hack, Hack, Hack
+        if not we_are_translated():
+            descr = op.getdescr()
+            size =  descr.get_field_size(False)
+            signed = descr.is_field_signed()
+            self._ensure_result_bit_extension(res, size, signed)
+
     emit_getfield_raw = emit_getfield_gc
     emit_getfield_raw_pure = emit_getfield_gc
     emit_getfield_gc_pure = emit_getfield_gc
@@ -376,6 +385,8 @@ class OpAssembler(object):
         else:
             assert 0, "scale %s not supported" % (scale.value)
 
+    emit_setarrayitem_raw = emit_setarrayitem_gc
+
     def emit_getarrayitem_gc(self, op, arglocs, regalloc):
         res, base_loc, ofs_loc, scale, ofs = arglocs
         if scale.value > 0:
@@ -408,6 +419,9 @@ class OpAssembler(object):
             size =  descr.get_item_size(False)
             signed = descr.is_item_signed()
             self._ensure_result_bit_extension(res, size, signed)
+
+    emit_getarrayitem_raw = emit_getarrayitem_gc
+    emit_getarrayitem_gc_pure = emit_getarrayitem_gc
 
     def emit_strlen(self, op, arglocs, regalloc):
         l0, l1, res = arglocs

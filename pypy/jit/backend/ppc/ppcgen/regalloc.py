@@ -449,6 +449,8 @@ class Regalloc(object):
         self.possibly_free_vars(boxes)
         return [value_loc, base_loc, ofs_loc, imm(scale), imm(ofs)]
 
+        prepare_setarrayitem_raw = prepare_setarrayitem_gc
+
     def prepare_getarrayitem_gc(self, op):
         a0, a1 = boxes = list(op.getarglist())
         _, scale, ofs, _, ptr = self._unpack_arraydescr(op.getdescr())
@@ -461,6 +463,9 @@ class Regalloc(object):
         res = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
         return [res, base_loc, ofs_loc, imm(scale), imm(ofs)]
+
+    prepare_getarrayitem_raw = prepare_getarrayitem_gc
+    prepare_getarrayitem_gc_pure = prepare_getarrayitem_gc
 
     def prepare_strlen(self, op):
         l0, box = self._ensure_value_is_boxed(op.getarg(0))
