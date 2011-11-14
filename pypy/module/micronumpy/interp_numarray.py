@@ -346,12 +346,13 @@ class BaseArray(Wrappable):
         concrete = self.get_concrete()
         i = concrete.start_iter()
         start = True
+        dtype = concrete.find_dtype()
         while not i.done():
             if start:
                 start = False
             else:
                 res.append(", ")
-            res.append(concrete.dtype.str_format(concrete.eval(i)))
+            res.append(dtype.str_format(concrete.eval(i)))
             i = i.next()
         return space.wrap(res.build())
             
@@ -522,7 +523,7 @@ class BaseArray(Wrappable):
             else:
                 shape = [lgt] + self.shape[1:]
                 shards = [self.shards[0] * step] + self.shards[1:]
-                backshards = [lgt * self.shards[0] * step] + self.backshards[1:]
+                backshards = [(lgt - 1) * self.shards[0] * step] + self.backshards[1:]
             start *= self.shards[0]
             start += self.start
         else:
@@ -537,7 +538,7 @@ class BaseArray(Wrappable):
                 if step != 0:
                     shape.append(lgt)
                     shards.append(self.shards[i] * step)
-                    backshards.append(self.shards[i] * lgt * step)
+                    backshards.append(self.shards[i] * (lgt - 1) * step)
                 start += self.shards[i] * start_
             # add a reminder
             s = i + 1

@@ -36,13 +36,13 @@ class TestNumArrayDirect(object):
         s = a.create_slice(space, self.newslice(1, 9, 2))
         assert s.start == 15
         assert s.shards == [30, 3, 1]
-        assert s.backshards == [120, 12, 2]
+        assert s.backshards == [90, 12, 2]
         s = a.create_slice(space, space.newtuple([
             self.newslice(1, 5, 3), self.newslice(1, 2, 1), space.wrap(1)]))
         assert s.start == 19
         assert s.shape == [2, 1]
         assert s.shards == [45, 3]
-        assert s.backshards == [90, 3]
+        assert s.backshards == [45, 3]
         s = a.create_slice(space, self.newtuple(
             self.newslice(None, None, None), space.wrap(2)))
         assert s.start == 6
@@ -770,8 +770,9 @@ class AppTestMultiDim(BaseNumpyAppTest):
         from numpy import array
         a = array([[1, 2], [3, 4], [5, 6], [7, 8], [9, 10], [11, 12], [13, 14]])
         b = a[::2]
+        assert (b == [[1, 2], [5, 6], [9, 10], [13, 14]]).all()
         c = b + b
-        assert c[1][1] == 16
+        assert c[1][1] == 12
 
     def test_broadcast(self):
         skip("not working")
