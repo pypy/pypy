@@ -12,7 +12,7 @@ from pypy.rlib.listsort import make_timsort_class
 from pypy.interpreter.argument import Signature
 
 class W_AbstractListObject(W_Object):
-    pass
+    __slots__ = ()
 
 class W_ListObject(W_AbstractListObject):
     from pypy.objspace.std.listtype import list_typedef as typedef

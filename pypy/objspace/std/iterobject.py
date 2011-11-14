@@ -5,7 +5,7 @@ from pypy.objspace.std.register_all import register_all
 
 
 class W_AbstractIterObject(W_Object):
-    pass
+    __slots__ = ()
 
 class W_AbstractSeqIterObject(W_AbstractIterObject):
     from pypy.objspace.std.itertype import iter_typedef as typedef
