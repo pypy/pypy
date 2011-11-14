@@ -451,7 +451,6 @@ class AssemblerPPC(OpAssembler):
                 operations, self.current_clt.allgcrefs)
         self.mc = PPCBuilder()
         self.pending_guards = []
-        assert self.datablockwrapper is None
         allblocks = self.get_asmmemmgr_blocks(looptoken)
         self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
                                                         allblocks)
@@ -588,6 +587,7 @@ class AssemblerPPC(OpAssembler):
         self.current_clt = None
         self.mc = None
         self._regalloc = None
+        assert self.datablockwrapper is None
 
     def _walk_operations(self, operations, regalloc):
         self._regalloc = regalloc
