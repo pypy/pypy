@@ -462,6 +462,10 @@ class OpAssembler(object):
         assert len(arglocs) == 0
         self._emit_copystrcontent(op, regalloc, is_unicode=False)
 
+    def emit_copyunicodecontent(self, op, arglocs, regalloc):
+        assert len(arglocs) == 0
+        self._emit_copystrcontent(op, regalloc, is_unicode=True)
+
     def _emit_copystrcontent(self, op, regalloc, is_unicode):
         # compute the source address
         args = list(op.getarglist())
@@ -502,7 +506,18 @@ class OpAssembler(object):
         length_loc, length_box = regalloc._ensure_value_is_boxed(args[4], forbidden_vars)
         args.append(length_box)
         if is_unicode:
-            assert 0, "not implemented yet"
+            forbidden_vars = [srcaddr_box, dstaddr_box]
+            bytes_box = TempPtr()
+            bytes_loc = regalloc.force_allocate_reg(bytes_box, forbidden_vars)
+            scale = self._get_unicode_item_scale()
+            assert length_loc.is_reg()
+            self.mc.li(r.r0.value, 1<<scale)
+            if IS_PPC_32:
+                self.mc.mullw(bytes_loc.value, r.r0.value, length_loc.value)
+            else:
+                self.mc.mulld(bytes_loc.value, r.r0.value, length_loc.value)
+            length_box = bytes_box
+            length_loc = bytes_loc
         # call memcpy()
         self._emit_call(NO_FORCE_INDEX, self.memcpy_addr, 
                 [dstaddr_box, srcaddr_box, length_box], regalloc)
@@ -541,6 +556,16 @@ class OpAssembler(object):
             self.mc.addi(result.value, result.value, baseofs)
         else:
             self.mc.addi(result.value, scaled_loc.value, baseofs)
+
+    def _get_unicode_item_scale(self):
+        _, itemsize, _ = symbolic.get_array_token(rstr.UNICODE,
+                                                  self.cpu.translate_support_code)
+        if itemsize == 4:
+            return 2
+        elif itemsize == 2:
+            return 1
+        else:
+            raise AssertionError("bad unicode item size")
 
     emit_unicodelen = emit_strlen
 

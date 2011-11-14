@@ -533,6 +533,7 @@ class Regalloc(object):
         return [value_loc, base_loc, ofs_loc, imm(basesize)]
 
     prepare_copystrcontent = void
+    prepare_copyunicodecontent = void
 
     def prepare_unicodelen(self, op):
         l0, box = self._ensure_value_is_boxed(op.getarg(0))
