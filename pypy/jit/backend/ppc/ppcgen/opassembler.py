@@ -10,6 +10,11 @@ from pypy.jit.metainterp.history import LoopToken, AbstractFailDescr, FLOAT
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.backend.ppc.ppcgen.helper.assembler import count_reg_args 
 from pypy.jit.backend.ppc.ppcgen.jump import remap_frame_layout
+from pypy.jit.backend.ppc.ppcgen.regalloc import TempPtr
+from pypy.jit.backend.llsupport import symbolic
+from pypy.rpython.lltypesystem import rstr
+
+NO_FORCE_INDEX = -1
 
 class GuardToken(object):
     def __init__(self, descr, failargs, faillocs, offset, fcond=c.NE,
@@ -451,6 +456,91 @@ class OpAssembler(object):
         else:
             self.mc.add(base_loc.value, base_loc.value, ofs_loc.value)
         self.mc.stb(value_loc.value, base_loc.value, basesize.value)
+
+    #from ../x86/regalloc.py:928 ff.
+    def emit_copystrcontent(self, op, arglocs, regalloc):
+        assert len(arglocs) == 0
+        self._emit_copystrcontent(op, regalloc, is_unicode=False)
+
+    def _emit_copystrcontent(self, op, regalloc, is_unicode):
+        # compute the source address
+        args = list(op.getarglist())
+        base_loc, box = regalloc._ensure_value_is_boxed(args[0], args)
+        args.append(box)
+        ofs_loc, box = regalloc._ensure_value_is_boxed(args[2], args)
+        args.append(box)
+        assert args[0] is not args[1]    # forbidden case of aliasing
+        regalloc.possibly_free_var(args[0])
+        if args[3] is not args[2] is not args[4]:  # MESS MESS MESS: don't free
+            regalloc.possibly_free_var(args[2])     # it if ==args[3] or args[4]
+        srcaddr_box = TempPtr()
+        forbidden_vars = [args[1], args[3], args[4], srcaddr_box]
+        srcaddr_loc = regalloc.force_allocate_reg(srcaddr_box)
+        self._gen_address_inside_string(base_loc, ofs_loc, srcaddr_loc,
+                                        is_unicode=is_unicode)
+
+        # compute the destination address
+        forbidden_vars = [args[4], args[3], srcaddr_box]
+        dstaddr_box = TempPtr()
+        dstaddr_loc = regalloc.force_allocate_reg(dstaddr_box)
+        forbidden_vars.append(dstaddr_box)
+        base_loc, box = regalloc._ensure_value_is_boxed(args[1], forbidden_vars)
+        args.append(box)
+        forbidden_vars.append(box)
+        ofs_loc, box = regalloc._ensure_value_is_boxed(args[3], forbidden_vars)
+        args.append(box)
+        assert base_loc.is_reg()
+        assert ofs_loc.is_reg()
+        regalloc.possibly_free_var(args[1])
+        if args[3] is not args[4]:     # more of the MESS described above
+            regalloc.possibly_free_var(args[3])
+        self._gen_address_inside_string(base_loc, ofs_loc, dstaddr_loc,
+                                        is_unicode=is_unicode)
+
+        # compute the length in bytes
+        forbidden_vars = [srcaddr_box, dstaddr_box]
+        length_loc, length_box = regalloc._ensure_value_is_boxed(args[4], forbidden_vars)
+        args.append(length_box)
+        if is_unicode:
+            assert 0, "not implemented yet"
+        # call memcpy()
+        self._emit_call(NO_FORCE_INDEX, self.memcpy_addr, 
+                [dstaddr_box, srcaddr_box, length_box], regalloc)
+
+        regalloc.possibly_free_vars(args)
+        regalloc.possibly_free_var(length_box)
+        regalloc.possibly_free_var(dstaddr_box)
+        regalloc.possibly_free_var(srcaddr_box)
+
+    def _gen_address_inside_string(self, baseloc, ofsloc, resloc, is_unicode):
+        cpu = self.cpu
+        if is_unicode:
+            ofs_items, _, _ = symbolic.get_array_token(rstr.UNICODE,
+                                                  self.cpu.translate_support_code)
+            scale = self._get_unicode_item_scale()
+        else:
+            ofs_items, itemsize, _ = symbolic.get_array_token(rstr.STR,
+                                                  self.cpu.translate_support_code)
+            assert itemsize == 1
+            scale = 0
+        self._gen_address(ofsloc, ofs_items, scale, resloc, baseloc)
+
+    def _gen_address(self, sizereg, baseofs, scale, result, baseloc=None):
+        assert sizereg.is_reg()
+        if scale > 0:
+            scaled_loc = r.r0
+            if IS_PPC_32:
+                self.mc.slwi(scaled_loc.value, sizereg.value, scale)
+            else:
+                self.mc.sldi(scaled_loc.value, sizereg.value, scale)
+        else:
+            scaled_loc = sizereg
+        if baseloc is not None:
+            assert baseloc.is_reg()
+            self.mc.add(result.value, baseloc.value, scaled_loc.value)
+            self.mc.addi(result.value, result.value, baseofs)
+        else:
+            self.mc.addi(result.value, scaled_loc.value, baseofs)
 
     emit_unicodelen = emit_strlen
 

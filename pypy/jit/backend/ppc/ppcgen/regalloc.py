@@ -225,6 +225,10 @@ class Regalloc(object):
     # *         P R E P A R E  O P E R A T I O N S         * 
     # ******************************************************
 
+
+    def void(self, op):
+        return []
+
     prepare_int_add = prepare_binary_int_op_with_imm()
     prepare_int_sub = prepare_binary_int_op_with_imm()
     prepare_int_floordiv = prepare_binary_int_op_with_imm()
@@ -528,6 +532,8 @@ class Regalloc(object):
         assert itemsize == 1
         return [value_loc, base_loc, ofs_loc, imm(basesize)]
 
+    prepare_copystrcontent = void
+
     def prepare_unicodelen(self, op):
         l0, box = self._ensure_value_is_boxed(op.getarg(0))
         boxes = [box]
@@ -605,9 +611,6 @@ class Regalloc(object):
                 return
         args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
         return args
-
-    def void(self, op):
-        return []
 
     prepare_debug_merge_point = void
     prepare_jit_debug = void
