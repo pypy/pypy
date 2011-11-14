@@ -97,7 +97,7 @@ def register_known_gctype(cpu, vtable, STRUCT):
 
 def finish_registering(cpu):
     # annotation hack for small examples which have no vtable at all
-    if cpu._all_size_descrs_with_vtable is None:
+    if not hasattr(cpu, '_all_size_descrs_with_vtable') or cpu._all_size_descrs_with_vtable is None:
         vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
         register_known_gctype(cpu, vtable, rclass.OBJECT)
 

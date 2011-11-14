@@ -15,6 +15,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.llinterp import LLException
 from pypy.jit.codewriter import heaptracker, longlong
+from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.rlib.rarithmetic import intmask
 from pypy.jit.backend.detect_cpu import getcpuclass
 
@@ -31,7 +32,8 @@ class TestFrameSize(object):
 
     F1PTR = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
     f1ptr = llhelper(F1PTR, f1)
-    f1_calldescr = cpu.calldescrof(F1PTR.TO, F1PTR.TO.ARGS, F1PTR.TO.RESULT)
+    f1_calldescr = cpu.calldescrof(F1PTR.TO, F1PTR.TO.ARGS,
+                                F1PTR.TO.RESULT, EffectInfo.MOST_GENERAL)
     namespace = locals().copy()
     type_system = 'lltype'
 
