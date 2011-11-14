@@ -1276,8 +1276,8 @@ class Assembler386(object):
     genop_int_ne = _cmpop("NE", "NE")
     genop_int_gt = _cmpop("G", "L")
     genop_int_ge = _cmpop("GE", "LE")
-    genop_ptr_eq = genop_int_eq
-    genop_ptr_ne = genop_int_ne
+    genop_ptr_eq = genop_instance_ptr_eq = genop_int_eq
+    genop_ptr_ne = genop_instance_ptr_ne = genop_int_ne
 
     genop_float_lt = _cmpop_float('B', 'A')
     genop_float_le = _cmpop_float('BE', 'AE')
@@ -1297,8 +1297,8 @@ class Assembler386(object):
     genop_guard_int_ne = _cmpop_guard("NE", "NE", "E", "E")
     genop_guard_int_gt = _cmpop_guard("G", "L", "LE", "GE")
     genop_guard_int_ge = _cmpop_guard("GE", "LE", "L", "G")
-    genop_guard_ptr_eq = genop_guard_int_eq
-    genop_guard_ptr_ne = genop_guard_int_ne
+    genop_guard_ptr_eq = genop_guard_instance_ptr_eq = genop_guard_int_eq
+    genop_guard_ptr_ne = genop_guard_instance_ptr_ne = genop_guard_int_ne
 
     genop_guard_uint_gt = _cmpop_guard("A", "B", "BE", "AE")
     genop_guard_uint_lt = _cmpop_guard("B", "A", "AE", "BE")
@@ -1596,11 +1596,27 @@ class Assembler386(object):
     genop_getarrayitem_gc_pure = genop_getarrayitem_gc
     genop_getarrayitem_raw = genop_getarrayitem_gc
 
+    def _get_interiorfield_addr(self, temp_loc, index_loc, itemsize_loc,
+                                base_loc, ofs_loc):
+        assert isinstance(itemsize_loc, ImmedLoc)
+        if isinstance(index_loc, ImmedLoc):
+            temp_loc = imm(index_loc.value * itemsize_loc.value)
+        else:
+            # XXX should not use IMUL in most cases
+            assert isinstance(temp_loc, RegLoc)
+            assert isinstance(index_loc, RegLoc)
+            assert not temp_loc.is_xmm
+            self.mc.IMUL_rri(temp_loc.value, index_loc.value,
+                             itemsize_loc.value)
+        assert isinstance(ofs_loc, ImmedLoc)
+        return AddressLoc(base_loc, temp_loc, 0, ofs_loc.value)
+
     def genop_getinteriorfield_gc(self, op, arglocs, resloc):
-        base_loc, ofs_loc, itemsize_loc, fieldsize_loc, index_loc, sign_loc = arglocs
-        # XXX should not use IMUL in most cases
-        self.mc.IMUL(index_loc, itemsize_loc)
-        src_addr = AddressLoc(base_loc, index_loc, 0, ofs_loc.value)
+        (base_loc, ofs_loc, itemsize_loc, fieldsize_loc,
+            index_loc, temp_loc, sign_loc) = arglocs
+        src_addr = self._get_interiorfield_addr(temp_loc, index_loc,
+                                                itemsize_loc, base_loc,
+                                                ofs_loc)
         self.load_from_mem(resloc, src_addr, fieldsize_loc, sign_loc)
 
 
@@ -1611,10 +1627,11 @@ class Assembler386(object):
         self.save_into_mem(dest_addr, value_loc, size_loc)
 
     def genop_discard_setinteriorfield_gc(self, op, arglocs):
-        base_loc, ofs_loc, itemsize_loc, fieldsize_loc, index_loc, value_loc = arglocs
-        # XXX should not use IMUL in most cases
-        self.mc.IMUL(index_loc, itemsize_loc)
-        dest_addr = AddressLoc(base_loc, index_loc, 0, ofs_loc.value)
+        (base_loc, ofs_loc, itemsize_loc, fieldsize_loc,
+            index_loc, temp_loc, value_loc) = arglocs
+        dest_addr = self._get_interiorfield_addr(temp_loc, index_loc,
+                                                 itemsize_loc, base_loc,
+                                                 ofs_loc)
         self.save_into_mem(dest_addr, value_loc, fieldsize_loc)
 
     def genop_discard_setarrayitem_gc(self, op, arglocs):

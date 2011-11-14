@@ -1,6 +1,6 @@
 from pypy.objspace.flow.model import FunctionGraph, Constant, Variable, c_last_exception
 from pypy.rlib.rarithmetic import intmask, r_uint, ovfcheck, r_longlong
-from pypy.rlib.rarithmetic import r_ulonglong, ovfcheck_lshift
+from pypy.rlib.rarithmetic import r_ulonglong
 from pypy.rpython.lltypesystem import lltype, llmemory, lloperation, llheap
 from pypy.rpython.lltypesystem import rclass
 from pypy.rpython.ootypesystem import ootype
@@ -172,7 +172,7 @@ def checkptr(ptr):
 
 def checkadr(addr):
     assert lltype.typeOf(addr) is llmemory.Address
-    
+
 def is_inst(inst):
     return isinstance(lltype.typeOf(inst), (ootype.Instance, ootype.BuiltinType, ootype.StaticMethod))
 
@@ -657,7 +657,7 @@ class LLFrame(object):
                 raise TypeError("graph with %r args called with wrong func ptr type: %r" %
                                 (tuple([v.concretetype for v in args_v]), ARGS)) 
         frame = self.newsubframe(graph, args)
-        return frame.eval()        
+        return frame.eval()
 
     def op_direct_call(self, f, *args):
         FTYPE = self.llinterpreter.typer.type_system.derefType(lltype.typeOf(f))
@@ -698,13 +698,13 @@ class LLFrame(object):
             return ptr
         except MemoryError:
             self.make_llexception()
-            
+
     def op_malloc_nonmovable(self, TYPE, flags):
         flavor = flags['flavor']
         assert flavor == 'gc'
         zero = flags.get('zero', False)
         return self.heap.malloc_nonmovable(TYPE, zero=zero)
-        
+
     def op_malloc_nonmovable_varsize(self, TYPE, flags, size):
         flavor = flags['flavor']
         assert flavor == 'gc'
@@ -715,6 +715,9 @@ class LLFrame(object):
         assert flags['flavor'] == 'raw'
         track_allocation = flags.get('track_allocation', True)
         self.heap.free(obj, flavor='raw', track_allocation=track_allocation)
+
+    def op_gc_add_memory_pressure(self, size):
+        self.heap.add_memory_pressure(size)
 
     def op_shrink_array(self, obj, smallersize):
         return self.heap.shrink_array(obj, smallersize)
@@ -1032,7 +1035,7 @@ class LLFrame(object):
         assert isinstance(x, int)
         assert isinstance(y, int)
         try:
-            return ovfcheck_lshift(x, y)
+            return ovfcheck(x << y)
         except OverflowError:
             self.make_llexception()
 
@@ -1094,13 +1097,6 @@ class LLFrame(object):
         if isinstance(y, int):
             assert y >= 0
         return self.op_int_add_ovf(x, y)
-
-    def op_cast_float_to_int(self, f):
-        assert type(f) is float
-        try:
-            return ovfcheck(int(f))
-        except OverflowError:
-            self.make_llexception()
 
     def op_int_is_true(self, x):
         # special case
@@ -1325,7 +1321,7 @@ def wrap_callable(llinterpreter, fn, obj, method_name):
         func_graph = fn.graph
     else:
         # obj is an instance, we want to call 'method_name' on it
-        assert fn is None        
+        assert fn is None
         self_arg = [obj]
         func_graph = obj._TYPE._methods[method_name._str].graph
 

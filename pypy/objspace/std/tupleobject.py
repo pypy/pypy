@@ -9,7 +9,10 @@ from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
 from pypy.rlib.debug import make_sure_not_resized
 
-class W_TupleObject(W_Object):
+class W_AbstractTupleObject(W_Object):
+    pass
+
+class W_TupleObject(W_AbstractTupleObject):
     from pypy.objspace.std.tupletype import tuple_typedef as typedef
     _immutable_fields_ = ['wrappeditems[*]']
 
@@ -108,15 +111,10 @@ def eq__Tuple_Tuple(space, w_tuple1, w_tuple2):
             return space.w_False
     return space.w_True
 
-def _min(a, b):
-    if a < b:
-        return a
-    return b
-
 def lt__Tuple_Tuple(space, w_tuple1, w_tuple2):
     items1 = w_tuple1.wrappeditems
     items2 = w_tuple2.wrappeditems
-    ncmp = _min(len(items1), len(items2))
+    ncmp = min(len(items1), len(items2))
     # Search for the first index where items are different
     for p in range(ncmp):
         if not space.eq_w(items1[p], items2[p]):
@@ -127,7 +125,7 @@ def lt__Tuple_Tuple(space, w_tuple1, w_tuple2):
 def gt__Tuple_Tuple(space, w_tuple1, w_tuple2):
     items1 = w_tuple1.wrappeditems
     items2 = w_tuple2.wrappeditems
-    ncmp = _min(len(items1), len(items2))
+    ncmp = min(len(items1), len(items2))
     # Search for the first index where items are different
     for p in range(ncmp):
         if not space.eq_w(items1[p], items2[p]):
@@ -172,17 +170,8 @@ def tuple_count__Tuple_ANY(space, w_tuple, w_obj):
     return space.wrap(count)
 
 def tuple_index__Tuple_ANY_ANY_ANY(space, w_tuple, w_obj, w_start, w_stop):
-    start = slicetype.eval_slice_index(space, w_start)
-    stop = slicetype.eval_slice_index(space, w_stop)
     length = len(w_tuple.wrappeditems)
-    if start < 0:
-        start += length
-        if start < 0:
-            start = 0
-    if stop < 0:
-        stop += length
-        if stop < 0:
-            stop = 0
+    start, stop = slicetype.unwrap_start_stop(space, length, w_start, w_stop)
     for i in range(start, min(stop, length)):
         w_item = w_tuple.wrappeditems[i]
         if space.eq_w(w_item, w_obj):

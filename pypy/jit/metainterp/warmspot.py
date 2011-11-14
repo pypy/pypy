@@ -48,13 +48,13 @@ def apply_jit(translator, backend_name="auto", inline=False,
     translator.warmrunnerdesc = warmrunnerdesc    # for later debugging
 
 def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
-                   listcomp=False, **kwds):
+                   listcomp=False, translationoptions={}, **kwds):
     if listcomp:
         extraconfigopts = {'translation.list_comprehension_operations': True}
     else:
         extraconfigopts = {}
-    if kwds.pop("taggedpointers", False):
-        extraconfigopts["translation.taggedpointers"] = True
+    for key, value in translationoptions.items():
+        extraconfigopts['translation.' + key] = value
     interp, graph = get_interpreter(function, args,
                                     backendopt=False,  # will be done below
                                     type_system=type_system,
@@ -62,7 +62,7 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
     clear_tcache()
     return jittify_and_run(interp, graph, args, backendopt=backendopt, **kwds)
 
-def jittify_and_run(interp, graph, args, repeat=1,
+def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
                     backendopt=False, trace_limit=sys.maxint,
                     inline=False, loop_longevity=0, retrace_limit=5,
                     function_threshold=4,
@@ -93,6 +93,8 @@ def jittify_and_run(interp, graph, args, repeat=1,
         jd.warmstate.set_param_max_retrace_guards(max_retrace_guards)
         jd.warmstate.set_param_enable_opts(enable_opts)
     warmrunnerdesc.finish()
+    if graph_and_interp_only:
+        return interp, graph
     res = interp.eval_graph(graph, args)
     if not kwds.get('translate_support_code', False):
         warmrunnerdesc.metainterp_sd.profiler.finish()
@@ -156,6 +158,9 @@ def find_force_quasi_immutable(graphs):
 
 def get_stats():
     return pyjitpl._warmrunnerdesc.stats
+
+def reset_stats():
+    pyjitpl._warmrunnerdesc.stats.clear()
 
 def get_translator():
     return pyjitpl._warmrunnerdesc.translator

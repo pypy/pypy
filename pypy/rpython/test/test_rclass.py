@@ -3,7 +3,7 @@ import sys
 from pypy.translator.translator import TranslationContext, graphof
 from pypy.rpython.lltypesystem.lltype import *
 from pypy.rpython.ootypesystem import ootype
-from pypy.rlib.rarithmetic import intmask, r_longlong
+from pypy.rlib.rarithmetic import r_longlong
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.rpython.rclass import IR_IMMUTABLE, IR_IMMUTABLE_ARRAY
 from pypy.rpython.rclass import IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY
@@ -972,10 +972,10 @@ class TestLLtype(BaseTestRclass, LLRtypeMixin):
         graph = graphof(t, f)
         TYPE = graph.startblock.operations[0].args[0].value
         RTTI = getRuntimeTypeInfo(TYPE)
-        queryptr = RTTI._obj.query_funcptr # should not raise
+        RTTI._obj.query_funcptr # should not raise
         destrptr = RTTI._obj.destructor_funcptr
         assert destrptr is not None
-    
+
     def test_del_inheritance(self):
         from pypy.rlib import rgc
         class State:

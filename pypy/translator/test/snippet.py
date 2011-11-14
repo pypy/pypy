@@ -1210,7 +1210,7 @@ def class_spec():
     return istk.top(), sstk.top()
 
 
-from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift
+from pypy.rlib.rarithmetic import ovfcheck
 
 def add_func(i=numtype):
     try:
@@ -1253,7 +1253,7 @@ def hugo(a, b, c):pass
 def lshift_func(i=numtype):
     try:
         hugo(2, 3, 5)
-        return ovfcheck_lshift((-maxint-1), i)
+        return ovfcheck((-maxint-1) << i)
     except (hugelmugel, OverflowError, StandardError, ValueError):
         raise
 

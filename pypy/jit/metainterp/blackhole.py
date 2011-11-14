@@ -499,9 +499,12 @@ class BlackholeInterpreter(object):
     @arguments("r", returns="i")
     def bhimpl_ptr_nonzero(a):
         return bool(a)
-    @arguments("r", returns="r")
-    def bhimpl_cast_opaque_ptr(a):
-        return a
+    @arguments("r", "r", returns="i")
+    def bhimpl_instance_ptr_eq(a, b):
+        return a == b
+    @arguments("r", "r", returns="i")
+    def bhimpl_instance_ptr_ne(a, b):
+        return a != b
     @arguments("r", returns="i")
     def bhimpl_cast_ptr_to_int(a):
         i = lltype.cast_ptr_to_int(a)
@@ -511,6 +514,10 @@ class BlackholeInterpreter(object):
     def bhimpl_cast_int_to_ptr(i):
         ll_assert((i & 1) == 1, "bhimpl_cast_int_to_ptr: not an odd int")
         return lltype.cast_int_to_ptr(llmemory.GCREF, i)
+
+    @arguments("r")
+    def bhimpl_mark_opaque_ptr(a):
+        pass
 
     @arguments("i", returns="i")
     def bhimpl_int_copy(a):
@@ -630,6 +637,9 @@ class BlackholeInterpreter(object):
         a = longlong.getrealfloat(a)
         # note: we need to call int() twice to care for the fact that
         # int(-2147483648.0) returns a long :-(
+        # we could also call intmask() instead of the outermost int(), but
+        # it's probably better to explicitly crash (by getting a long) if a
+        # non-translated version tries to cast a too large float to an int.
         return int(int(a))
 
     @arguments("i", returns="f")

@@ -294,12 +294,6 @@ class OptRewrite(Optimization):
             raise InvalidLoop
         self.optimize_GUARD_CLASS(op)
 
-    def optimize_GUARD_NO_EXCEPTION(self, op):
-        if not self.optimizer.exception_might_have_happened:
-            return
-        self.emit_operation(op)
-        self.optimizer.exception_might_have_happened = False
-
     def optimize_CALL_LOOPINVARIANT(self, op):
         arg = op.getarg(0)
         # 'arg' must be a Const, because residual_call in codewriter
@@ -310,6 +304,7 @@ class OptRewrite(Optimization):
         resvalue = self.loop_invariant_results.get(key, None)
         if resvalue is not None:
             self.make_equal_to(op.result, resvalue)
+            self.last_emitted_operation = REMOVED
             return
         # change the op to be a normal call, from the backend's point of view
         # there is no reason to have a separate operation for this
@@ -337,7 +332,7 @@ class OptRewrite(Optimization):
     def optimize_INT_IS_ZERO(self, op):
         self._optimize_nullness(op, op.getarg(0), False)
 
-    def _optimize_oois_ooisnot(self, op, expect_isnot):
+    def _optimize_oois_ooisnot(self, op, expect_isnot, instance):
         value0 = self.getvalue(op.getarg(0))
         value1 = self.getvalue(op.getarg(1))
         if value0.is_virtual():
@@ -355,21 +350,28 @@ class OptRewrite(Optimization):
         elif value0 is value1:
             self.make_constant_int(op.result, not expect_isnot)
         else:
-            cls0 = value0.get_constant_class(self.optimizer.cpu)
-            if cls0 is not None:
-                cls1 = value1.get_constant_class(self.optimizer.cpu)
-                if cls1 is not None and not cls0.same_constant(cls1):
-                    # cannot be the same object, as we know that their
-                    # class is different
-                    self.make_constant_int(op.result, expect_isnot)
-                    return
+            if instance:
+                cls0 = value0.get_constant_class(self.optimizer.cpu)
+                if cls0 is not None:
+                    cls1 = value1.get_constant_class(self.optimizer.cpu)
+                    if cls1 is not None and not cls0.same_constant(cls1):
+                        # cannot be the same object, as we know that their
+                        # class is different
+                        self.make_constant_int(op.result, expect_isnot)
+                        return
             self.emit_operation(op)
 
-    def optimize_PTR_NE(self, op):
-        self._optimize_oois_ooisnot(op, True)
-
     def optimize_PTR_EQ(self, op):
-        self._optimize_oois_ooisnot(op, False)
+        self._optimize_oois_ooisnot(op, False, False)
+
+    def optimize_PTR_NE(self, op):
+        self._optimize_oois_ooisnot(op, True, False)
+
+    def optimize_INSTANCE_PTR_EQ(self, op):
+        self._optimize_oois_ooisnot(op, False, True)
+
+    def optimize_INSTANCE_PTR_NE(self, op):
+        self._optimize_oois_ooisnot(op, True, True)
 
 ##    def optimize_INSTANCEOF(self, op):
 ##        value = self.getvalue(op.args[0])
@@ -437,8 +439,17 @@ class OptRewrite(Optimization):
             except KeyError:
                 pass
             else:
+                # this removes a CALL_PURE with all constant arguments.
                 self.make_constant(op.result, result)
+                self.last_emitted_operation = REMOVED
                 return
+        self.emit_operation(op)
+
+    def optimize_GUARD_NO_EXCEPTION(self, op):
+        if self.last_emitted_operation is REMOVED:
+            # it was a CALL_PURE or a CALL_LOOPINVARIANT that was killed;
+            # so we also kill the following GUARD_NO_EXCEPTION
+            return
         self.emit_operation(op)
 
     def optimize_INT_FLOORDIV(self, op):
@@ -458,10 +469,9 @@ class OptRewrite(Optimization):
                                         args = [op.getarg(0), ConstInt(highest_bit(val))])
         self.emit_operation(op)
 
-    def optimize_CAST_OPAQUE_PTR(self, op):
+    def optimize_MARK_OPAQUE_PTR(self, op):
         value = self.getvalue(op.getarg(0))
         self.optimizer.opaque_pointers[value] = True
-        self.make_equal_to(op.result, value)
 
     def optimize_CAST_PTR_TO_INT(self, op):
         self.pure(rop.CAST_INT_TO_PTR, [op.result], op.getarg(0))

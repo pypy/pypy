@@ -365,6 +365,7 @@ class LLtypeCPU(BaseCPU):
 
     def arraydescrof(self, A):
         assert A.OF != lltype.Void
+        assert isinstance(A, lltype.GcArray) or A._hints.get('nolength', False)
         size = symbolic.get_size(A)
         if isinstance(A.OF, lltype.Ptr) or isinstance(A.OF, lltype.Primitive):
             token = history.getkind(A.OF)[0]

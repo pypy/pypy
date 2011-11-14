@@ -847,7 +847,8 @@ class BaseTestBridges(BaseTest):
         i5 = arraylen_gc(p2, descr=arraydescr)
         i6 = int_ge(i5, 1)
         guard_true(i6) []
-        jump(p0, p1, p2)
+        p3 = getarrayitem_gc(p2, 0, descr=arraydescr)
+        jump(p0, p1, p3, p2)
         """
         self.optimize_bridge(loop, bridge, expected, p0=self.myptr)
 

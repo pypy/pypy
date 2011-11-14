@@ -10,7 +10,7 @@ from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype, newformat
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.rlib.rarithmetic import intmask, ovfcheck
-from pypy.rlib.objectmodel import compute_hash
+from pypy.rlib.objectmodel import compute_hash, specialize
 from pypy.rlib.rstring import UnicodeBuilder
 from pypy.rlib.runicode import unicode_encode_unicode_escape
 from pypy.module.unicodedata import unicodedb
@@ -19,7 +19,10 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stringtype import stringstartswith, stringendswith
 
-class W_UnicodeObject(W_Object):
+class W_AbstractUnicodeObject(W_Object):
+    pass
+
+class W_UnicodeObject(W_AbstractUnicodeObject):
     from pypy.objspace.std.unicodetype import unicode_typedef as typedef
     _immutable_fields_ = ['_value']
 
@@ -475,42 +478,29 @@ def _normalize_index(length, index):
         index = length
     return index
 
-def _convert_idx_params(space, w_self, w_sub, w_start, w_end, upper_bound=False):
-    assert isinstance(w_sub, W_UnicodeObject)
+@specialize.arg(4)
+def _convert_idx_params(space, w_self, w_start, w_end, upper_bound=False):
     self = w_self._value
-    sub = w_sub._value
-
-    if space.is_w(w_start, space.w_None):
-        w_start = space.wrap(0)
-    if space.is_w(w_end, space.w_None):
-        w_end = space.len(w_self)
-
-    if upper_bound:
-        start = slicetype.adapt_bound(space, len(self), w_start)
-        end = slicetype.adapt_bound(space, len(self), w_end)
-    else:
-        start = slicetype.adapt_lower_bound(space, len(self), w_start)
-        end = slicetype.adapt_lower_bound(space, len(self), w_end)
-    return (self, sub, start, end)
-_convert_idx_params._annspecialcase_ = 'specialize:arg(5)'
+    start, end = slicetype.unwrap_start_stop(
+            space, len(self), w_start, w_end, upper_bound)
+    return (self, start, end)
 
 def unicode_endswith__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
-    self, substr, start, end = _convert_idx_params(space, w_self, w_substr,
+    self, start, end = _convert_idx_params(space, w_self,
                                                    w_start, w_end, True)
-    return space.newbool(stringendswith(self, substr, start, end))
+    return space.newbool(stringendswith(self, w_substr._value, start, end))
 
 def unicode_startswith__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
-    self, substr, start, end = _convert_idx_params(space, w_self, w_substr,
-                                                   w_start, w_end, True)
+    self, start, end = _convert_idx_params(space, w_self, w_start, w_end, True)
     # XXX this stuff can be waaay better for ootypebased backends if
     #     we re-use more of our rpython machinery (ie implement startswith
     #     with additional parameters as rpython)
-    return space.newbool(stringstartswith(self, substr, start, end))
+    return space.newbool(stringstartswith(self, w_substr._value, start, end))
 
 def unicode_startswith__Unicode_Tuple_ANY_ANY(space, w_unistr, w_prefixes,
                                               w_start, w_end):
-    unistr, _, start, end = _convert_idx_params(space, w_unistr, space.wrap(u''),
-                                                w_start, w_end, True)
+    unistr, start, end = _convert_idx_params(space, w_unistr,
+                                             w_start, w_end, True)
     for w_prefix in space.fixedview(w_prefixes):
         prefix = space.unicode_w(w_prefix)
         if stringstartswith(unistr, prefix, start, end):
@@ -519,7 +509,7 @@ def unicode_startswith__Unicode_Tuple_ANY_ANY(space, w_unistr, w_prefixes,
 
 def unicode_endswith__Unicode_Tuple_ANY_ANY(space, w_unistr, w_suffixes,
                                             w_start, w_end):
-    unistr, _, start, end = _convert_idx_params(space, w_unistr, space.wrap(u''),
+    unistr, start, end = _convert_idx_params(space, w_unistr,
                                              w_start, w_end, True)
     for w_suffix in space.fixedview(w_suffixes):
         suffix = space.unicode_w(w_suffix)
@@ -625,37 +615,32 @@ def unicode_splitlines__Unicode_ANY(space, w_self, w_keepends):
     return space.newlist(lines)
 
 def unicode_find__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
-    self, substr, start, end = _convert_idx_params(space, w_self, w_substr,
-                                                   w_start, w_end)
-    return space.wrap(self.find(substr, start, end))
+    self, start, end = _convert_idx_params(space, w_self, w_start, w_end)
+    return space.wrap(self.find(w_substr._value, start, end))
 
 def unicode_rfind__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
-    self, substr, start, end = _convert_idx_params(space, w_self, w_substr,
-                                                   w_start, w_end)
-    return space.wrap(self.rfind(substr, start, end))
+    self, start, end = _convert_idx_params(space, w_self, w_start, w_end)
+    return space.wrap(self.rfind(w_substr._value, start, end))
 
 def unicode_index__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
-    self, substr, start, end = _convert_idx_params(space, w_self, w_substr,
-                                                   w_start, w_end)
-    index = self.find(substr, start, end)
+    self, start, end = _convert_idx_params(space, w_self, w_start, w_end)
+    index = self.find(w_substr._value, start, end)
     if index < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap('substring not found'))
     return space.wrap(index)
 
 def unicode_rindex__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
-    self, substr, start, end = _convert_idx_params(space, w_self, w_substr,
-                                           w_start, w_end)
-    index = self.rfind(substr, start, end)
+    self, start, end = _convert_idx_params(space, w_self, w_start, w_end)
+    index = self.rfind(w_substr._value, start, end)
     if index < 0:
         raise OperationError(space.w_ValueError,
                              space.wrap('substring not found'))
     return space.wrap(index)
 
 def unicode_count__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_end):
-    self, substr, start, end = _convert_idx_params(space, w_self, w_substr,
-                                                   w_start, w_end)
-    return space.wrap(self.count(substr, start, end))
+    self, start, end = _convert_idx_params(space, w_self, w_start, w_end)
+    return space.wrap(self.count(w_substr._value, start, end))
 
 def unicode_split__Unicode_None_ANY(space, w_self, w_none, w_maxsplit):
     maxsplit = space.int_w(w_maxsplit)

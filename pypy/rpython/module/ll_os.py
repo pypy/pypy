@@ -356,6 +356,32 @@ class RegisterOs(BaseLazyRegistering):
         return extdef([int, str, [str]], int, llimpl=spawnv_llimpl,
                       export_name="ll_os.ll_os_spawnv")
 
+    @registering_if(os, 'spawnve')
+    def register_os_spawnve(self):
+        os_spawnve = self.llexternal('spawnve',
+                                     [rffi.INT, rffi.CCHARP, rffi.CCHARPP,
+                                      rffi.CCHARPP],
+                                     rffi.INT)
+
+        def spawnve_llimpl(mode, path, args, env):
+            envstrs = []
+            for item in env.iteritems():
+                envstrs.append("%s=%s" % item)
+
+            mode = rffi.cast(rffi.INT, mode)
+            l_args = rffi.liststr2charpp(args)
+            l_env = rffi.liststr2charpp(envstrs)
+            childpid = os_spawnve(mode, path, l_args, l_env)
+            rffi.free_charpp(l_env)
+            rffi.free_charpp(l_args)
+            if childpid == -1:
+                raise OSError(rposix.get_errno(), "os_spawnve failed")
+            return rffi.cast(lltype.Signed, childpid)
+
+        return extdef([int, str, [str], {str: str}], int,
+                      llimpl=spawnve_llimpl,
+                      export_name="ll_os.ll_os_spawnve")
+
     @registering(os.dup)
     def register_os_dup(self):
         os_dup = self.llexternal(underscore_on_windows+'dup', [rffi.INT], rffi.INT)
@@ -959,8 +985,6 @@ class RegisterOs(BaseLazyRegistering):
                             os_ftruncate(rffi.cast(rffi.INT, fd),
                                          rffi.cast(rffi.LONGLONG, length)))
             if res < 0:
-                # Note: for consistency we raise OSError, but CPython
-                # raises IOError here
                 raise OSError(rposix.get_errno(), "os_ftruncate failed")
 
         return extdef([int, r_longlong], s_None,

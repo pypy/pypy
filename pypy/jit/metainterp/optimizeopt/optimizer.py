@@ -1,12 +1,12 @@
 from pypy.jit.metainterp import jitprof, resume, compile
 from pypy.jit.metainterp.executor import execute_nonspec
-from pypy.jit.metainterp.history import BoxInt, BoxFloat, Const, ConstInt, REF
+from pypy.jit.metainterp.history import BoxInt, BoxFloat, Const, ConstInt, REF, INT
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded, \
                                                      ImmutableIntUnbounded, \
                                                      IntLowerBound, MININT, MAXINT
 from pypy.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
     args_dict)
-from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.jit.metainterp.resoperation import rop, ResOperation, AbstractResOp
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.tool.pairtype import extendabletype
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
@@ -95,6 +95,10 @@ class OptValue(object):
         return guards
 
     def import_from(self, other, optimizer):
+        if self.level == LEVEL_CONSTANT:
+            assert other.level == LEVEL_CONSTANT
+            assert other.box.same_constant(self.box)
+            return
         assert self.level <= LEVEL_NONNULL
         if other.level == LEVEL_CONSTANT:
             self.make_constant(other.get_key_box())
@@ -140,6 +144,13 @@ class OptValue(object):
             assert isinstance(box, Const)
             return not box.nonnull()
         return False
+
+    def same_value(self, other):
+        if not other:
+            return False
+        if self.is_constant() and other.is_constant():
+            return self.box.same_constant(other.box)
+        return self is other
 
     def make_constant(self, constbox):
         """Replace 'self.box' with a Const box."""
@@ -209,13 +220,19 @@ class OptValue(object):
     def setfield(self, ofs, value):
         raise NotImplementedError
 
-    def getitem(self, index):
-        raise NotImplementedError
-
     def getlength(self):
         raise NotImplementedError
 
+    def getitem(self, index):
+        raise NotImplementedError
+
     def setitem(self, index, value):
+        raise NotImplementedError
+
+    def getinteriorfield(self, index, ofs, default):
+        raise NotImplementedError
+
+    def setinteriorfield(self, index, ofs, value):
         raise NotImplementedError
 
 
@@ -230,9 +247,10 @@ CONST_0      = ConstInt(0)
 CONST_1      = ConstInt(1)
 CVAL_ZERO    = ConstantValue(CONST_0)
 CVAL_ZERO_FLOAT = ConstantValue(Const._new(0.0))
-CVAL_UNINITIALIZED_ZERO = ConstantValue(CONST_0)
 llhelper.CVAL_NULLREF = ConstantValue(llhelper.CONST_NULL)
 oohelper.CVAL_NULLREF = ConstantValue(oohelper.CONST_NULL)
+REMOVED = AbstractResOp(None)
+
 
 class Optimization(object):
     next_optimization = None
@@ -244,6 +262,7 @@ class Optimization(object):
         raise NotImplementedError
 
     def emit_operation(self, op):
+        self.last_emitted_operation = op
         self.next_optimization.propagate_forward(op)
 
     # FIXME: Move some of these here?
@@ -283,11 +302,11 @@ class Optimization(object):
             return self.optimizer.optpure.has_pure_result(opnum, args, descr)
         return False
 
-    def get_pure_result(self, key):    
+    def get_pure_result(self, key):
         if self.optimizer.optpure:
             return self.optimizer.optpure.get_pure_result(key)
         return None
-    
+
     def setup(self):
         pass
 
@@ -311,20 +330,20 @@ class Optimization(object):
     def forget_numberings(self, box):
         self.optimizer.forget_numberings(box)
 
+
 class Optimizer(Optimization):
 
-    def __init__(self, metainterp_sd, loop, optimizations=None, bridge=False):
+    def __init__(self, metainterp_sd, loop, optimizations=None):
         self.metainterp_sd = metainterp_sd
         self.cpu = metainterp_sd.cpu
         self.loop = loop
-        self.bridge = bridge
         self.values = {}
         self.interned_refs = self.cpu.ts.new_ref_dict()
+        self.interned_ints = {}
         self.resumedata_memo = resume.ResumeDataLoopMemo(metainterp_sd)
         self.bool_boxes = {}
         self.producer = {}
         self.pendingfields = []
-        self.exception_might_have_happened = False
         self.quasi_immutable_deps = None
         self.opaque_pointers = {}
         self.replaces_guard = {}
@@ -346,6 +365,7 @@ class Optimizer(Optimization):
             optimizations[-1].next_optimization = self
             for o in optimizations:
                 o.optimizer = self
+                o.last_emitted_operation = None
                 o.setup()
         else:
             optimizations = []
@@ -392,6 +412,9 @@ class Optimizer(Optimization):
             if not value:
                 return box
             return self.interned_refs.setdefault(value, box)
+        #elif constbox.type == INT:
+        #    value = constbox.getint()
+        #    return self.interned_ints.setdefault(value, box)
         else:
             return box
 
@@ -477,7 +500,6 @@ class Optimizer(Optimization):
             return CVAL_ZERO
 
     def propagate_all_forward(self):
-        self.exception_might_have_happened = self.bridge
         self.clear_newoperations()
         for op in self.loop.operations:
             self.first_optimization.propagate_forward(op)
@@ -524,7 +546,7 @@ class Optimizer(Optimization):
 
     def replace_op(self, old_op, new_op):
         # XXX: Do we want to cache indexes to prevent search?
-        i = len(self._newoperations) 
+        i = len(self._newoperations)
         while i > 0:
             i -= 1
             if self._newoperations[i] is old_op:

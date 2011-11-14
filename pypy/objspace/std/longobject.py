@@ -8,7 +8,10 @@ from pypy.objspace.std.intobject import W_IntObject
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.rlib.rbigint import rbigint, SHIFT
 
-class W_LongObject(W_Object):
+class W_AbstractLongObject(W_Object):
+    pass
+
+class W_LongObject(W_AbstractLongObject):
     """This is a wrapper of rbigint."""
     from pypy.objspace.std.longtype import long_typedef as typedef
     _immutable_fields_ = ['num']

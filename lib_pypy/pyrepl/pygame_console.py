@@ -130,7 +130,7 @@ class PyGameConsole(Console):
         s.fill(c, [0, 600 - bmargin, 800, bmargin])
         s.fill(c, [800 - rmargin, 0, lmargin, 600])
 
-    def refresh(self, screen, (cx, cy)):
+    def refresh(self, screen, cxy):
         self.screen = screen
         self.pygame_screen.fill(colors.bg,
                                 [0, tmargin + self.cur_top + self.scroll,
@@ -139,8 +139,8 @@ class PyGameConsole(Console):
 
         line_top = self.cur_top
         width, height = self.fontsize
-        self.cxy = (cx, cy)
-        cp = self.char_pos(cx, cy)
+        self.cxy = cxy
+        cp = self.char_pos(*cxy)
         if cp[1] < tmargin:
             self.scroll = - (cy*self.fh + self.cur_top)
             self.repaint()
@@ -148,7 +148,7 @@ class PyGameConsole(Console):
             self.scroll += (600 - bmargin) - (cp[1] + self.fh)
             self.repaint()
         if self.curs_vis:
-            self.pygame_screen.blit(self.cursor, self.char_pos(cx, cy))
+            self.pygame_screen.blit(self.cursor, self.char_pos(*cxy))
         for line in screen:
             if 0 <= line_top + self.scroll <= (600 - bmargin - tmargin - self.fh):
                 if line:
