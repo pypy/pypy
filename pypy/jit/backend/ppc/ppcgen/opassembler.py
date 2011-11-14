@@ -367,11 +367,10 @@ class OpAssembler(object):
         value_loc, base_loc, ofs_loc, scale, ofs = arglocs
         if scale.value > 0:
             scale_loc = r.r0
-            self.mc.load_imm(r.r0, scale.value)
             if IS_PPC_32:
-                self.mc.slw(r.r0.value, ofs_loc.value, r.r0.value)
+                self.mc.slwi(r.r0.value, ofs_loc.value, scale.value)
             else:
-                self.mc.sld(r.r0.value, ofs_loc.value, r.r0.value)
+                self.mc.sldi(r.r0.value, ofs_loc.value, scale.value)
         else:
             scale_loc = ofs_loc
 
@@ -396,11 +395,10 @@ class OpAssembler(object):
         res, base_loc, ofs_loc, scale, ofs = arglocs
         if scale.value > 0:
             scale_loc = r.r0
-            self.mc.load_imm(r.r0, scale.value)
             if IS_PPC_32:
-                self.mc.slw(r.r0.value, ofs_loc.value, scale.value)
+                self.mc.slwi(r.r0.value, ofs_loc.value, scale.value)
             else:
-                self.mc.sld(r.r0.value, ofs_loc.value, scale.value)
+                self.mc.sldi(r.r0.value, ofs_loc.value, scale.value)
         else:
             scale_loc = ofs_loc
         if ofs.value > 0:
