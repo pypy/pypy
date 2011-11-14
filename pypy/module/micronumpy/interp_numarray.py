@@ -80,12 +80,12 @@ class BaseIterator(object):
         raise NotImplementedError
 
 class ArrayIterator(BaseIterator):
-    def __init__(self, size):
-        self.offset = 0
+    def __init__(self, size, offset=0):
+        self.offset = offset
         self.size   = size
 
     def next(self):
-        self.offset += 1
+        return ArrayIterator(self.size, self.offset + 1)
 
     def done(self):
         return self.offset >= self.size
@@ -94,24 +94,32 @@ class ArrayIterator(BaseIterator):
         return self.offset
 
 class ViewIterator(BaseIterator):
-    def __init__(self, arr):
-        self.indices = [0] * len(arr.shape)
-        self.offset  = arr.start
-        self.arr     = arr
-        self._done    = False
+    def __init__(self, arr, offset=0, indices=None, done=False):
+        if indices is None:
+            self.indices = [0] * len(arr.shape)
+            self.offset  = arr.start
+        else:
+            self.offset  = offset
+            self.indices = indices
+        self.arr   = arr
+        self._done = done
 
     @jit.unroll_safe
     def next(self):
+        indices = self.indices[:]
+        done = False
+        offset = self.offset
         for i in range(len(self.indices)):
-            if self.indices[i] < self.arr.shape[i] - 1:
-                self.indices[i] += 1
-                self.offset += self.arr.shards[i]
+            if indices[i] < self.arr.shape[i] - 1:
+                indices[i] += 1
+                offset += self.arr.shards[i]
                 break
             else:
-                self.indices[i] = 0
-                self.offset -= self.arr.backshards[i]
+                indices[i] = 0
+                offset -= self.arr.backshards[i]
         else:
-            self._done = True
+            done = True
+        return ViewIterator(self.arr, offset, indices, done)
 
     def done(self):
         return self._done
@@ -125,8 +133,7 @@ class Call2Iterator(BaseIterator):
         self.right = right
 
     def next(self):
-        self.left.next()
-        self.right.next()
+        return Call2Iterator(self.left.next(), self.right.next())
 
     def done(self):
         return self.left.done() or self.right.done()
@@ -141,7 +148,7 @@ class Call1Iterator(BaseIterator):
         self.child = child
 
     def next(self):
-        self.child.next()
+        return Call1Iterator(self.child.next())
 
     def done(self):
         return self.child.done()
@@ -151,7 +158,7 @@ class Call1Iterator(BaseIterator):
 
 class ConstantIterator(BaseIterator):
     def next(self):
-        pass
+        return self
 
     def done(self):
         return False
@@ -268,7 +275,7 @@ class BaseArray(Wrappable):
                 if dtype.ne(new_best, cur_best):
                     result = i.get_offset()
                     cur_best = new_best
-                i.next()
+                i = i.next()
             return result
         def impl(self, space):
             size = self.find_size()
@@ -286,7 +293,7 @@ class BaseArray(Wrappable):
             all_driver.jit_merge_point(signature=self.signature, self=self, dtype=dtype, i=i)
             if not dtype.bool(self.eval(i)):
                 return False
-            i.next()
+            i = i.next()
         return True
     def descr_all(self, space):
         return space.wrap(self._all())
@@ -299,7 +306,7 @@ class BaseArray(Wrappable):
                                        dtype=dtype, i=i)
             if dtype.bool(self.eval(i)):
                 return True
-            i.next()
+            i = i.next()
         return False
     def descr_any(self, space):
         return space.wrap(self._any())
@@ -633,8 +640,8 @@ class VirtualArray(BaseArray):
                                          result_size=result_size, i=i, ri=ri,
                                          self=self, result=result)
             result.dtype.setitem(result.storage, ri.offset, self.eval(i))
-            i.next()
-            ri.next()
+            i = i.next()
+            ri = ri.next()
         return result
 
     def force_if_needed(self):
@@ -811,8 +818,8 @@ class NDimSlice(ViewArray):
                                          source_iter=source_iter)
             self.setitem(res_iter.offset, source.eval(source_iter).convert_to(
                 self.find_dtype()))
-            source_iter.next()
-            res_iter.next()
+            source_iter = source_iter.next()
+            res_iter = res_iter.next()
 
     def start_iter(self):
         return ViewIterator(self)
