@@ -760,6 +760,12 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = array([[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]])
         assert (a + a)[1, 1] == 8
 
+    def test_ufunc_negative(self):
+        from numpy import array, negative
+        a = array([[1, 2], [3, 4]])
+        b = negative(a + a)
+        assert (b == [[-1, -2], [-3, -4]]).all()
+
     def test_broadcast(self):
         skip("not working")
         import numpy

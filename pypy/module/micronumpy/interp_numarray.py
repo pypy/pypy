@@ -331,23 +331,20 @@ class BaseArray(Wrappable):
         return self.get_concrete().descr_len(space)
 
     def descr_repr(self, space):
-        xxx
         # Simple implementation so that we can see the array.
         # Since what we want is to print a plethora of 2d views, 
         # use recursive calls to  to_str() to do the work.
         concrete = self.get_concrete()
         res = StringBuilder()
         res.append("array(")
-        myview = NDimSlice(concrete, self.signature, [], self.shape)
-        res0 = myview.to_str(True, indent='       ')
         #This is for numpy compliance: an empty slice reports its shape
-        if res0 == "[]" and isinstance(self, NDimSlice):
+        if not concrete.find_size():
             res.append("[], shape=(")
             self_shape = str(self.shape)
             res.append_slice(str(self_shape), 1, len(self_shape)-1)
             res.append(')')
         else:
-            res.append(res0)
+            concrete.to_str(True, res, indent='       ')
         dtype = concrete.find_dtype()
         if (dtype is not space.fromcache(interp_dtype.W_Float64Dtype) and
             dtype is not space.fromcache(interp_dtype.W_Int64Dtype)) or \
@@ -429,7 +426,7 @@ class BaseArray(Wrappable):
             concrete = self.get_concrete()
             item = concrete._index_of_single_item(space, w_idx)
             return concrete.getitem(item).wrap(space)
-        return space.wrap(self._create_slice(space, w_idx))
+        return space.wrap(self.create_slice(space, w_idx))
 
     def descr_setitem(self, space, w_idx, w_value):
         self.invalidated()
@@ -447,10 +444,10 @@ class BaseArray(Wrappable):
                 assert isinstance(w_value, BaseArray)
         else:
             w_value = convert_to_array(space, w_value)
-        view = self._create_slice(space, w_idx)
+        view = self.create_slice(space, w_idx)
         view.setslice(space, w_value)
 
-    def _create_slice(self, space, w_idx):
+    def create_slice(self, space, w_idx):
         new_sig = signature.Signature.find_sig([
             NDimSlice.signature, self.signature
         ])
@@ -782,7 +779,6 @@ class NDimSlice(ViewArray):
         return self.parent.get_root_shape()
 
     def to_str(self, comma, indent=' '):
-        xxx
         ret = StringBuilder()
         dtype = self.find_dtype()
         ndims = len(self.shape)
