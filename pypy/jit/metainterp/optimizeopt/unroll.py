@@ -112,6 +112,8 @@ class UnrollOptimizer(Optimization):
             self.export_state(stop_label)
             loop.operations.append(stop_label)            
         else:
+            assert stop_label
+            assert start_label
             stop_target = stop_label.getdescr()
             start_target = start_label.getdescr()
             assert isinstance(stop_target, TargetToken)
