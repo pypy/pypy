@@ -353,6 +353,48 @@ class BaseArray(Wrappable):
         res.append(")")
         return space.wrap(res.build())
 
+    def to_str(self, comma, builder, indent=' '):
+        dtype = self.find_dtype()
+        ndims = len(self.shape)
+        if ndims > 2:
+            builder.append('[')
+            builder.append("xxx")
+            # for i in range(self.shape[0]):
+            #     smallerview = NDimSlice(self.parent, self.signature,
+            #                             [(i, 0, 0, 1)], self.shape[1:])
+            #     ret.append(smallerview.to_str(comma, indent=indent + ' '))
+            #     if i + 1 < self.shape[0]:
+            #         ret.append(',\n\n' + indent)
+            ret.append(']')
+        elif ndims == 2:
+            ret.append('[')
+            for i in range(self.shape[0]):
+                ret.append('[')
+                spacer = ',' * comma + ' '
+                ret.append(spacer.join(\
+                    [dtype.str_format(self.eval(i * self.shape[1] + j)) \
+                    for j in range(self.shape[1])]))
+                ret.append(']')
+                if i + 1 < self.shape[0]:
+                    ret.append(',\n' + indent)
+            ret.append(']')
+        elif ndims == 1:
+            ret.append('[')
+            spacer = ',' * comma + ' '
+            if self.shape[0] > 1000:
+                ret.append(spacer.join([dtype.str_format(self.eval(j)) \
+                           for j in range(3)]))
+                ret.append(',' * comma + ' ..., ')
+                ret.append(spacer.join([dtype.str_format(self.eval(j)) \
+                           for j in range(self.shape[0] - 3, self.shape[0])]))
+            else:
+                ret.append(spacer.join([dtype.str_format(self.eval(j)) \
+                           for j in range(self.shape[0])]))
+            ret.append(']')
+        else:
+            ret.append(dtype.str_format(self.eval(self.start)))
+        return ret.build()
+
     def descr_str(self, space):
         # Simple implementation so that we can see the array. 
         # Since what we want is to print a plethora of 2d views, let
@@ -777,52 +819,6 @@ class NDimSlice(ViewArray):
 
     def get_root_shape(self):
         return self.parent.get_root_shape()
-
-    def to_str(self, comma, indent=' '):
-        ret = StringBuilder()
-        dtype = self.find_dtype()
-        ndims = len(self.shape)
-        for s in self.shape:
-            if s == 0:
-                ret.append('[]')
-                return ret.build()
-        if ndims > 2:
-            ret.append('[')
-            for i in range(self.shape[0]):
-                smallerview = NDimSlice(self.parent, self.signature,
-                                        [(i, 0, 0, 1)], self.shape[1:])
-                ret.append(smallerview.to_str(comma, indent=indent + ' '))
-                if i + 1 < self.shape[0]:
-                    ret.append(',\n\n' + indent)
-            ret.append(']')
-        elif ndims == 2:
-            ret.append('[')
-            for i in range(self.shape[0]):
-                ret.append('[')
-                spacer = ',' * comma + ' '
-                ret.append(spacer.join(\
-                    [dtype.str_format(self.eval(i * self.shape[1] + j)) \
-                    for j in range(self.shape[1])]))
-                ret.append(']')
-                if i + 1 < self.shape[0]:
-                    ret.append(',\n' + indent)
-            ret.append(']')
-        elif ndims == 1:
-            ret.append('[')
-            spacer = ',' * comma + ' '
-            if self.shape[0] > 1000:
-                ret.append(spacer.join([dtype.str_format(self.eval(j)) \
-                           for j in range(3)]))
-                ret.append(',' * comma + ' ..., ')
-                ret.append(spacer.join([dtype.str_format(self.eval(j)) \
-                           for j in range(self.shape[0] - 3, self.shape[0])]))
-            else:
-                ret.append(spacer.join([dtype.str_format(self.eval(j)) \
-                           for j in range(self.shape[0])]))
-            ret.append(']')
-        else:
-            ret.append(dtype.str_format(self.eval(self.start)))
-        return ret.build()
 
 class NDimArray(BaseArray):
     """ A class representing contiguous array. We know that each iteration
