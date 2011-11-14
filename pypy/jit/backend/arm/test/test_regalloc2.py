@@ -4,6 +4,8 @@ from pypy.jit.metainterp.history import ResOperation, BoxInt, ConstInt,\
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.backend.arm.arch import WORD
+from pypy.jit.backend.arm.test.support import skip_unless_arm
+skip_unless_arm()
 CPU = getcpuclass()
 
 def test_bug_rshift():

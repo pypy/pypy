@@ -13,6 +13,8 @@ from pypy.rpython.test.test_llinterp import interpret
 from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.jit.backend.arm.runner import ArmCPU
 from pypy.tool.udir import udir
+from pypy.jit.backend.arm.test.support import skip_unless_arm
+skip_unless_arm()
 
 class FakeStats(object):
     pass

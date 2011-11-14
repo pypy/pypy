@@ -6,6 +6,8 @@ from pypy.jit.backend.arm.locations import *
 from pypy.jit.backend.arm.regalloc import ARMFrameManager
 from pypy.jit.backend.arm.jump import remap_frame_layout, remap_frame_layout_mixed
 from pypy.jit.metainterp.history import INT
+from pypy.jit.backend.arm.test.support import skip_unless_arm
+skip_unless_arm()
 
 frame_pos = ARMFrameManager.frame_pos
 

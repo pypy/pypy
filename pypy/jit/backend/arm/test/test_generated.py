@@ -10,6 +10,8 @@ from pypy.jit.metainterp.history import (AbstractFailDescr,
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.jit.backend.detect_cpu import getcpuclass
+from pypy.jit.backend.arm.test.support import skip_unless_arm
+skip_unless_arm()
 
 CPU = getcpuclass()
 class TestStuff(object):
