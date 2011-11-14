@@ -1,3 +1,6 @@
+from pypy.jit.backend.arm.test.support import skip_unless_arm
+skip_unless_arm()
+
 from pypy.jit.backend.x86.test.test_regalloc import BaseTestRegalloc
 from pypy.jit.backend.detect_cpu import getcpuclass
 from pypy.rpython.lltypesystem import lltype, llmemory

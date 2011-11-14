@@ -137,6 +137,8 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['execve'] = 'interp_posix.execve'
     if hasattr(posix, 'spawnv'):
         interpleveldefs['spawnv'] = 'interp_posix.spawnv'
+    if hasattr(posix, 'spawnve'):
+        interpleveldefs['spawnve'] = 'interp_posix.spawnve'
     if hasattr(os, 'uname'):
         interpleveldefs['uname'] = 'interp_posix.uname'
     if hasattr(os, 'sysconf'):

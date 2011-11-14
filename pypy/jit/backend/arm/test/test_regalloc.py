@@ -14,6 +14,8 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import rclass, rstr
 from pypy.jit.codewriter.effectinfo import EffectInfo
+from pypy.jit.backend.arm.test.support import skip_unless_arm
+skip_unless_arm()
 
 
 CPU = getcpuclass()

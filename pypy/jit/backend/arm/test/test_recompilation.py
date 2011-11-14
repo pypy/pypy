@@ -1,4 +1,6 @@
 from pypy.jit.backend.arm.test.test_regalloc import BaseTestRegalloc
+from pypy.jit.backend.arm.test.support import skip_unless_arm
+skip_unless_arm()
 
 class TestRecompilation(BaseTestRegalloc):
     def test_compile_bridge_not_deeper(self):

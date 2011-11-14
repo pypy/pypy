@@ -650,10 +650,13 @@ class GcLLDescr_framework(GcLLDescription):
             assert size > 0, 'size should be > 0'
             type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
             has_finalizer = bool(tid & (1<<llgroup.HALFSHIFT))
+            has_light_finalizer = bool(tid & (1<<(llgroup.HALFSHIFT + 1)))
             check_typeid(type_id)
             res = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
                                                   type_id, size,
-                                                  has_finalizer, False)
+                                                  has_finalizer,
+                                                  has_light_finalizer,
+                                                  False)
             # In case the operation above failed, we are returning NULL
             # from this function to assembler.  There is also an RPython
             # exception set, typically MemoryError; but it's easier and
@@ -725,7 +728,7 @@ class GcLLDescr_framework(GcLLDescription):
             # also use it to allocate varsized objects.  The tid
             # and possibly the length are both set afterward.
             gcref = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
-                                        0, size, False, False)
+                                        0, size, False, False, False)
             return rffi.cast(lltype.Signed, gcref)
         self.malloc_slowpath = malloc_slowpath
         self.MALLOC_SLOWPATH = lltype.FuncType([lltype.Signed], lltype.Signed)
@@ -749,7 +752,9 @@ class GcLLDescr_framework(GcLLDescription):
         type_id = self.layoutbuilder.get_type_id(S)
         assert not self.layoutbuilder.is_weakref_type(S)
         has_finalizer = bool(self.layoutbuilder.has_finalizer(S))
-        flags = int(has_finalizer) << llgroup.HALFSHIFT
+        has_light_finalizer = bool(self.layoutbuilder.has_light_finalizer(S))
+        flags = (int(has_finalizer) << llgroup.HALFSHIFT |
+                 int(has_light_finalizer) << (llgroup.HALFSHIFT + 1))
         descr.tid = llop.combine_ushort(lltype.Signed, type_id, flags)
 
     def init_array_descr(self, A, descr):

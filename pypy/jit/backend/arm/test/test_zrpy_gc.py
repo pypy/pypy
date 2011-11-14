@@ -14,6 +14,8 @@ from pypy.rlib.jit import elidable, unroll_safe
 from pypy.jit.backend.llsupport.gc import GcLLDescr_framework
 from pypy.tool.udir import udir
 from pypy.config.translationoption import DEFL_GC
+from pypy.jit.backend.arm.test.support import skip_unless_arm
+skip_unless_arm()
 
 class X(object):
     def __init__(self, x=0):

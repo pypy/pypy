@@ -23,6 +23,8 @@ from pypy.jit.backend.arm.test.test_regalloc import BaseTestRegalloc
 from pypy.jit.backend.arm.regalloc import ARMv7RegisterMananger, ARMFrameManager,\
      VFPRegisterManager
 from pypy.jit.codewriter.effectinfo import EffectInfo
+from pypy.jit.backend.arm.test.support import skip_unless_arm
+skip_unless_arm()
 
 CPU = getcpuclass()
 

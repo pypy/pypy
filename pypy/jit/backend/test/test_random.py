@@ -595,6 +595,10 @@ class RandomLoop(object):
             for name, value in fields.items():
                 if isinstance(name, str):
                     setattr(container, name, value)
+                elif isinstance(value, dict):
+                    item = container.getitem(name)
+                    for key1, value1 in value.items():
+                        setattr(item, key1, value1)
                 else:
                     container.setitem(name, value)
 

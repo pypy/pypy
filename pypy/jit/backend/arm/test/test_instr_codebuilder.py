@@ -5,6 +5,8 @@ from pypy.jit.backend.arm import instructions
 from pypy.jit.backend.arm.test.support import (requires_arm_as, define_test, gen_test_function)
 from gen import assemble
 import py
+from pypy.jit.backend.arm.test.support import skip_unless_arm
+skip_unless_arm()
 
 requires_arm_as()
 

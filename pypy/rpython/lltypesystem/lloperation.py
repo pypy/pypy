@@ -343,8 +343,8 @@ LL_OPERATIONS = {
     'cast_uint_to_float':   LLOp(canfold=True),
     'cast_longlong_to_float' :LLOp(canfold=True),
     'cast_ulonglong_to_float':LLOp(canfold=True),
-    'cast_float_to_int':    LLOp(canraise=(OverflowError,), tryfold=True),
-    'cast_float_to_uint':   LLOp(canfold=True),    # XXX need OverflowError?
+    'cast_float_to_int':    LLOp(canfold=True),
+    'cast_float_to_uint':   LLOp(canfold=True),
     'cast_float_to_longlong' :LLOp(canfold=True),
     'cast_float_to_ulonglong':LLOp(canfold=True),
     'truncate_longlong_to_int':LLOp(canfold=True),
@@ -473,6 +473,7 @@ LL_OPERATIONS = {
     'gc_is_rpy_instance'  : LLOp(),
     'gc_dump_rpy_heap'    : LLOp(),
     'gc_typeids_z'        : LLOp(),
+    'gc_add_memory_pressure': LLOp(),
 
     # ------- JIT & GC interaction, only for some GCs ----------
 

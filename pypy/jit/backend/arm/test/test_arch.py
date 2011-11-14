@@ -1,4 +1,6 @@
 from pypy.jit.backend.arm import arch
+from pypy.jit.backend.arm.test.support import skip_unless_arm
+skip_unless_arm()
 
 def test_mod():
     assert arch.arm_int_mod(10, 2) == 0

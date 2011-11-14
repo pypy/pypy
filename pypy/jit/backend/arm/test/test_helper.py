@@ -3,6 +3,8 @@ from pypy.jit.backend.arm.helper.assembler import count_reg_args, \
                                                     decode64, encode64
 from pypy.jit.metainterp.history import (BoxInt, BoxPtr, BoxFloat,
                                         INT, REF, FLOAT)
+from pypy.jit.backend.arm.test.support import skip_unless_arm
+skip_unless_arm()
 
 def test_count_reg_args():
     assert count_reg_args([BoxPtr()]) == 1

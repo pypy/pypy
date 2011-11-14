@@ -37,9 +37,11 @@ def _annotation(a, x):
     return a.typeannotation(t)
 
 def annotate(func, values, inline=None, backendoptimize=True,
-             type_system="lltype"):
+             type_system="lltype", translationoptions={}):
     # build the normal ll graphs for ll_function
     t = TranslationContext()
+    for key, value in translationoptions.items():
+        setattr(t.config.translation, key, value)
     annpolicy = AnnotatorPolicy()
     annpolicy.allow_someobjects = False
     a = t.buildannotator(policy=annpolicy)
@@ -228,6 +230,17 @@ def _ll_1_int_abs(x):
         return -x
     else:
         return x
+
+def _ll_1_cast_uint_to_float(x):
+    # XXX on 32-bit platforms, this should be done using cast_longlong_to_float
+    # (which is a residual call right now in the x86 backend)
+    return llop.cast_uint_to_float(lltype.Float, x)
+
+def _ll_1_cast_float_to_uint(x):
+    # XXX on 32-bit platforms, this should be done using cast_float_to_longlong
+    # (which is a residual call right now in the x86 backend)
+    return llop.cast_float_to_uint(lltype.Unsigned, x)
+
 
 # math support
 # ------------

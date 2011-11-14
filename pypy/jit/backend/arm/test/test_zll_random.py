@@ -4,6 +4,8 @@ from pypy.jit.backend.test import test_random
 from pypy.jit.backend.test.test_ll_random import LLtypeOperationBuilder
 from pypy.jit.backend.test.test_random import check_random_function, Random
 from pypy.jit.metainterp.resoperation import rop
+from pypy.jit.backend.arm.test.support import skip_unless_arm
+skip_unless_arm()
 
 CPU = getcpuclass()
 

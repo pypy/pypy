@@ -90,7 +90,10 @@ class AbstractResOp(object):
         return op
 
     def __repr__(self):
-        return self.repr()
+        try:
+            return self.repr()
+        except NotImplementedError:
+            return object.__repr__(self)
 
     def repr(self, graytext=False):
         # RPython-friendly version
@@ -404,8 +407,8 @@ _oplist = [
     'FLOAT_TRUEDIV/2',
     'FLOAT_NEG/1',
     'FLOAT_ABS/1',
-    'CAST_FLOAT_TO_INT/1',
-    'CAST_INT_TO_FLOAT/1',
+    'CAST_FLOAT_TO_INT/1',          # don't use for unsigned ints; we would
+    'CAST_INT_TO_FLOAT/1',          # need some messy code in the backend
     'CAST_FLOAT_TO_SINGLEFLOAT/1',
     'CAST_SINGLEFLOAT_TO_FLOAT/1',
     #
@@ -437,7 +440,8 @@ _oplist = [
     #
     'PTR_EQ/2b',
     'PTR_NE/2b',
-    'CAST_OPAQUE_PTR/1b',
+    'INSTANCE_PTR_EQ/2b',
+    'INSTANCE_PTR_NE/2b',
     #
     'ARRAYLEN_GC/1d',
     'STRLEN/1',
@@ -469,6 +473,7 @@ _oplist = [
     'FORCE_TOKEN/0',
     'VIRTUAL_REF/2',         # removed before it's passed to the backend
     'READ_TIMESTAMP/0',
+    'MARK_OPAQUE_PTR/1b',
     '_NOSIDEEFFECT_LAST', # ----- end of no_side_effect operations -----
 
     'SETARRAYITEM_GC/3d',

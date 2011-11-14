@@ -19,7 +19,7 @@ class SignalChecker:
 class W_RSocket(Wrappable, RSocket):
     def __del__(self):
         self.clear_all_weakrefs()
-        self.close()
+        RSocket.__del__(self)
 
     def accept_w(self, space):
         """accept() -> (socket object, address info)

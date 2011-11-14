@@ -7,6 +7,9 @@ from pypy.jit.backend.arm.registers import lr, ip, fp, vfp_ip
 from pypy.jit.backend.arm.conditions import AL
 from pypy.jit.metainterp.history import INT, FLOAT, REF
 import py
+from pypy.jit.backend.arm.test.support import skip_unless_arm
+skip_unless_arm()
+
 class MockInstr(object):
     def __init__(self, name, *args, **kwargs):
         self.name = name

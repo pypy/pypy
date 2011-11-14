@@ -165,7 +165,7 @@ class MIFrame(object):
         if not we_are_translated():
             for b in registers[count:]:
                 assert not oldbox.same_box(b)
-                
+
 
     def make_result_of_lastop(self, resultbox):
         got_type = resultbox.type
@@ -199,7 +199,7 @@ class MIFrame(object):
                     'float_add', 'float_sub', 'float_mul', 'float_truediv',
                     'float_lt', 'float_le', 'float_eq',
                     'float_ne', 'float_gt', 'float_ge',
-                    'ptr_eq', 'ptr_ne',
+                    'ptr_eq', 'ptr_ne', 'instance_ptr_eq', 'instance_ptr_ne',
                     ]:
         exec py.code.Source('''
             @arguments("box", "box")
@@ -240,8 +240,8 @@ class MIFrame(object):
         return self.execute(rop.PTR_EQ, box, history.CONST_NULL)
 
     @arguments("box")
-    def opimpl_cast_opaque_ptr(self, box):
-        return self.execute(rop.CAST_OPAQUE_PTR, box)
+    def opimpl_mark_opaque_ptr(self, box):
+        return self.execute(rop.MARK_OPAQUE_PTR, box)
 
     @arguments("box")
     def _opimpl_any_return(self, box):
@@ -604,7 +604,7 @@ class MIFrame(object):
     opimpl_setinteriorfield_gc_i = _opimpl_setinteriorfield_gc_any
     opimpl_setinteriorfield_gc_f = _opimpl_setinteriorfield_gc_any
     opimpl_setinteriorfield_gc_r = _opimpl_setinteriorfield_gc_any
-                                
+
 
     @arguments("box", "descr")
     def _opimpl_getfield_raw_any(self, box, fielddescr):
@@ -1345,10 +1345,8 @@ class MIFrame(object):
             if effect == effectinfo.EF_LOOPINVARIANT:
                 return self.execute_varargs(rop.CALL_LOOPINVARIANT, allboxes,
                                             descr, False, False)
-            exc = (effect != effectinfo.EF_CANNOT_RAISE and
-                   effect != effectinfo.EF_ELIDABLE_CANNOT_RAISE)
-            pure = (effect == effectinfo.EF_ELIDABLE_CAN_RAISE or
-                    effect == effectinfo.EF_ELIDABLE_CANNOT_RAISE)
+            exc = effectinfo.check_can_raise()
+            pure = effectinfo.check_is_elidable()
             return self.execute_varargs(rop.CALL, allboxes, descr, exc, pure)
 
     def do_residual_or_indirect_call(self, funcbox, calldescr, argboxes):

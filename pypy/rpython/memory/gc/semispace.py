@@ -82,6 +82,7 @@ class SemiSpaceGC(MovingGCBase):
         self.free = self.tospace
         MovingGCBase.setup(self)
         self.objects_with_finalizers = self.AddressDeque()
+        self.objects_with_light_finalizers = self.AddressStack()
         self.objects_with_weakrefs = self.AddressStack()
 
     def _teardown(self):
@@ -93,7 +94,9 @@ class SemiSpaceGC(MovingGCBase):
     # because the spaces are filled with zeroes in advance.
 
     def malloc_fixedsize_clear(self, typeid16, size,
-                               has_finalizer=False, contains_weakptr=False):
+                               has_finalizer=False,
+                               is_finalizer_light=False,
+                               contains_weakptr=False):
         size_gc_header = self.gcheaderbuilder.size_gc_header
         totalsize = size_gc_header + size
         result = self.free
@@ -102,6 +105,9 @@ class SemiSpaceGC(MovingGCBase):
         llarena.arena_reserve(result, totalsize)
         self.init_gc_object(result, typeid16)
         self.free = result + totalsize
+        #if is_finalizer_light:
+        #    self.objects_with_light_finalizers.append(result + size_gc_header)
+        #else:
         if has_finalizer:
             self.objects_with_finalizers.append(result + size_gc_header)
         if contains_weakptr:
@@ -263,6 +269,8 @@ class SemiSpaceGC(MovingGCBase):
         if self.run_finalizers.non_empty():
             self.update_run_finalizers()
         scan = self.scan_copied(scan)
+        if self.objects_with_light_finalizers.non_empty():
+            self.deal_with_objects_with_light_finalizers()
         if self.objects_with_finalizers.non_empty():
             scan = self.deal_with_objects_with_finalizers(scan)
         if self.objects_with_weakrefs.non_empty():
@@ -470,6 +478,23 @@ class SemiSpaceGC(MovingGCBase):
         hdr.tid = self.combine(typeid16, flags)
         # immortal objects always have GCFLAG_FORWARDED set;
         # see get_forwarding_address().
+
+    def deal_with_objects_with_light_finalizers(self):
+        """ This is a much simpler version of dealing with finalizers
+        and an optimization - we can reasonably assume that those finalizers
+        don't do anything fancy and *just* call them. Among other things
+        they won't resurrect objects
+        """
+        new_objects = self.AddressStack()
+        while self.objects_with_light_finalizers.non_empty():
+            obj = self.objects_with_light_finalizers.pop()
+            if self.surviving(obj):
+                new_objects.append(self.get_forwarding_address(obj))
+            else:
+                finalizer = self.getfinalizer(self.get_type_id(obj))
+                finalizer(obj, llmemory.NULL)
+        self.objects_with_light_finalizers.delete()
+        self.objects_with_light_finalizers = new_objects
 
     def deal_with_objects_with_finalizers(self, scan):
         # walk over list of objects with finalizers

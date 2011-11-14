@@ -15,18 +15,6 @@ def _check_imm_arg(arg, size=0xFF, allow_zero=True):
         return i <= size and lower_bound
     return False
 
-def prepare_op_unary_cmp(name=None):
-    def f(self, op, fcond):
-        assert fcond is not None
-        a0 = op.getarg(0)
-        reg, box = self._ensure_value_is_boxed(a0)
-        res = self.force_allocate_reg(op.result, [box])
-        self.possibly_free_vars([a0, box, op.result])
-        return [reg, res]
-    if name:
-        f.__name__ = name
-    return f
-
 def prepare_op_ri(name=None, imm_size=0xFF, commutative=True, allow_zero=True):
     def f(self, op, fcond):
         assert fcond is not None
@@ -115,21 +103,16 @@ def prepare_op_by_helper_call(name):
     f.__name__ = name
     return f
 
-def prepare_cmp_op(name=None, inverse=False):
+def prepare_cmp_op(name=None):
     def f(self, op, guard_op, fcond):
         assert fcond is not None
         boxes = list(op.getarglist())
-        if not inverse:
-            arg0, arg1 = boxes
-        else:
-            arg1, arg0 = boxes
-        # XXX consider swapping argumentes if arg0 is const
-        imm_a0 = _check_imm_arg(arg0)
+        arg0, arg1 = boxes
         imm_a1 = _check_imm_arg(arg1)
 
         l0, box = self._ensure_value_is_boxed(arg0, forbidden_vars=boxes)
         boxes.append(box)
-        if imm_a1 and not imm_a0:
+        if imm_a1:
             l1 = self.make_sure_var_in_reg(arg1, boxes)
         else:
             l1, box = self._ensure_value_is_boxed(arg1, forbidden_vars=boxes)
@@ -141,6 +124,23 @@ def prepare_cmp_op(name=None, inverse=False):
             return [l0, l1, res]
         else:
             args = self._prepare_guard(guard_op, [l0, l1])
+            self.possibly_free_vars(guard_op.getfailargs())
+            return args
+    if name:
+        f.__name__ = name
+    return f
+
+def prepare_op_unary_cmp(name=None):
+    def f(self, op, guard_op, fcond):
+        assert fcond is not None
+        a0 = op.getarg(0)
+        reg, box = self._ensure_value_is_boxed(a0)
+        if guard_op is None:
+            res = self.force_allocate_reg(op.result, [box])
+            self.possibly_free_vars([a0, box, op.result])
+            return [reg, res]
+        else:
+            args = self._prepare_guard(guard_op, [reg])
             self.possibly_free_vars(guard_op.getfailargs())
             return args
     if name:
