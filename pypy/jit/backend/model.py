@@ -222,10 +222,6 @@ class AbstractCPU(object):
     def typedescrof(TYPE):
         raise NotImplementedError
 
-    @staticmethod
-    def interiorfielddescrof(A, fieldname):
-        raise NotImplementedError
-
     # ---------- the backend-dependent operations ----------
 
     # lltype specific operations
