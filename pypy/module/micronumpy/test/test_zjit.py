@@ -47,7 +47,7 @@ class TestNumpyJIt(LLJitMixin):
             interp = InterpreterState(codes[i])
             interp.run(space)
             res = interp.results[-1]
-            w_res = res.eval(0).wrap(interp.space)
+            w_res = res.eval(res.start_iter()).wrap(interp.space)
             if isinstance(w_res, BoolObject):
                 return float(w_res.boolval)
             elif isinstance(w_res, FloatObject):

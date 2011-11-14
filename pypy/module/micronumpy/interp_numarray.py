@@ -9,7 +9,8 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder
 
 numpy_driver = jit.JitDriver(greens = ['signature'],
-                             reds = ['result_size', 'i', 'self', 'result'])
+                             reds = ['result_size', 'i', 'ri', 'self',
+                                     'result'])
 all_driver = jit.JitDriver(greens=['signature'], reds=['i', 'self', 'dtype'])
 any_driver = jit.JitDriver(greens=['signature'], reds=['i', 'self', 'dtype'])
 slice_driver = jit.JitDriver(greens=['signature'], reds=['self', 'source',
@@ -162,7 +163,7 @@ class BaseArray(Wrappable):
     _attrs_ = ["invalidates", "signature", "shape", "shards", "backshards",
                "start"]
 
-    _immutable_fields_ = ['shape[*]', "shards[*]", "backshards[*]", 'start']
+    #_immutable_fields_ = ['shape[*]', "shards[*]", "backshards[*]", 'start']
 
     shards = None
     start = 0    
@@ -521,9 +522,11 @@ class BaseArray(Wrappable):
                     backshards.append(self.shards[i] * lgt * step)
                 start += self.shards[i] * start_
             # add a reminder
-            shape += self.shape[i + 1:]
-            shards += self.shards[i + 1:]
-            backshards += self.backshards[i + 1:]
+            s = i + 1
+            assert s >= 0
+            shape += self.shape[s:]
+            shards += self.shards[s:]
+            backshards += self.backshards[s:]
         return NDimSlice(self, new_sig, start, shards, backshards, shape)
 
     def descr_mean(self, space):
@@ -627,7 +630,7 @@ class VirtualArray(BaseArray):
         ri = result.start_iter()
         while not ri.done():
             numpy_driver.jit_merge_point(signature=signature,
-                                         result_size=result_size, i=i,
+                                         result_size=result_size, i=i, ri=ri,
                                          self=self, result=result)
             result.dtype.setitem(result.storage, ri.offset, self.eval(i))
             i.next()
@@ -770,7 +773,7 @@ class VirtualView(VirtualArray):
 class NDimSlice(ViewArray):
     signature = signature.BaseSignature()
 
-    _immutable_fields_ = ['shape[*]', 'shards[*]', 'backshards[*]', 'start']
+    #_immutable_fields_ = ['shape[*]', 'shards[*]', 'backshards[*]', 'start']
 
     def __init__(self, parent, signature, start, shards, backshards,
                  shape):
