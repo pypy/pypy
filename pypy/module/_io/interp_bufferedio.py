@@ -11,11 +11,22 @@ from pypy.module._io.interp_iobase import (
     W_IOBase, DEFAULT_BUFFER_SIZE, convert_size,
     check_readable_w, check_writable_w, check_seekable_w)
 from pypy.module._io.interp_io import W_BlockingIOError
+import errno
 
 STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)
 
 class BlockingIOError(Exception):
     pass
+
+def trap_EINTR(space, e):
+    """Return True if an EnvironmentError with errno == EINTR is set."""
+    if not e.match(space, space.w_EnvironmentError):
+        return False
+    w_value = e.get_w_value(space)
+    w_errno = space.getattr(w_value, space.wrap("errno"))
+    if space.eq_w(w_errno, space.wrap(errno.EINTR)):
+        return True
+    return False
 
 class W_BufferedIOBase(W_IOBase):
     def _unsupportedoperation(self, space, message):
@@ -315,7 +326,18 @@ class BufferedMixin:
 
     def _write(self, space, data):
         w_data = space.wrapbytes(data)
-        w_written = space.call_method(self.w_raw, "write", w_data)
+        # NOTE: wrap_oserror() calls checksignals() when EINTR
+        #       occurs so we needn't do it ourselves.
+        #       We then retry writing, ignoring the signal if no handler has
+        #       raised (see issue #10956).
+        while True:
+            try:
+                w_written = space.call_method(self.w_raw, "write", w_data)
+                break
+            except OperationError, e:
+                if trap_EINTR(space, e):
+                    continue
+                raise
         written = space.getindex_w(w_written, space.w_IOError)
         if not 0 <= written <= len(data):
             raise OperationError(space.w_IOError, space.wrap(
@@ -481,7 +503,18 @@ class BufferedMixin:
     def _raw_read(self, space, buffer, start, length):
         length = intmask(length)
         w_buf = space.wrap(RawBuffer(buffer, start, length))
-        w_size = space.call_method(self.w_raw, "readinto", w_buf)
+        # NOTE: wrap_oserror() calls checksignals() when EINTR
+        #       occurs so we needn't do it ourselves.
+        #       We then retry reading, ignoring the signal if no handler has
+        #       raised (see issue #10956).
+        while True:
+            try:
+                w_size = space.call_method(self.w_raw, "readinto", w_buf)
+                break
+            except OperationError, e:
+                if trap_EINTR(space, e):
+                    continue
+                raise
         if space.is_w(w_size, space.w_None):
             raise BlockingIOError()
         size = space.int_w(w_size)
