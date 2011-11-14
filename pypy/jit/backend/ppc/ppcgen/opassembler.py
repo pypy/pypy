@@ -374,8 +374,10 @@ class OpAssembler(object):
         else:
             scale_loc = ofs_loc
 
+        # add the base offset
         if ofs.value > 0:
-            self.mc.addi(r.r0.value, scale_loc.value, ofs.value)
+            #XXX cannot use addi because scale_loc may be r0
+            self.mc.addic(r.r0.value, scale_loc.value, ofs.value)
             scale_loc = r.r0
 
         if scale.value == 3:
@@ -401,8 +403,11 @@ class OpAssembler(object):
                 self.mc.sldi(r.r0.value, ofs_loc.value, scale.value)
         else:
             scale_loc = ofs_loc
+
+        # add the base offset
         if ofs.value > 0:
-            self.mc.addi(r.r0.value, scale_loc.value, ofs.value)
+            #XXX cannot use addi because scale_loc may be r0
+            self.mc.addic(r.r0.value, scale_loc.value, ofs.value)
             scale_loc = r.r0
 
         if scale.value == 3:
