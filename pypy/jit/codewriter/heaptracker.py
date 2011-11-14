@@ -89,7 +89,7 @@ def register_known_gctype(cpu, vtable, STRUCT):
     except AttributeError:
         pass
     assert lltype.typeOf(vtable) == VTABLETYPE
-    if cpu._all_size_descrs_with_vtable is None:
+    if not hasattr(cpu, '_all_size_descrs_with_vtable') or cpu._all_size_descrs_with_vtable is None:
         cpu._all_size_descrs_with_vtable = []
         cpu._vtable_to_descr_dict = None
     cpu._all_size_descrs_with_vtable.append(sizedescr)
