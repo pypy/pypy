@@ -8,6 +8,7 @@ from pypy.interpreter.baseobjspace import ObjSpace, Wrappable
 from pypy.interpreter.pycode import PyCode, cpython_code_signature
 from pypy.interpreter.module import Module
 from pypy.interpreter.error import OperationError
+from pypy.interpreter.astcompiler.consts import CO_GENERATOR
 from pypy.interpreter import pyframe, argument
 from pypy.objspace.flow.model import *
 from pypy.objspace.flow import flowcontext, operation, specialcase
@@ -247,9 +248,7 @@ class FlowObjSpace(ObjSpace):
         if func.func_doc and func.func_doc.lstrip().startswith('NOT_RPYTHON'):
             raise Exception, "%r is tagged as NOT_RPYTHON" % (func,)
         code = func.func_code
-        if code.co_flags & 32:
-            # generator
-            raise TypeError("%r is a generator" % (func,))
+        is_generator = bool(code.co_flags & CO_GENERATOR)
         code = PyCode._from_code(self, code)
         if func.func_closure is None:
             cl = None
@@ -265,7 +264,8 @@ class FlowObjSpace(ObjSpace):
         class outerfunc: # hack
             closure = cl
         ec = flowcontext.FlowExecutionContext(self, code, func.func_globals,
-                                              constargs, outerfunc, name)
+                                              constargs, outerfunc, name,
+                                              is_generator)
         graph = ec.graph
         graph.func = func
         # attach a signature and defaults to the graph

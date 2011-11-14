@@ -185,7 +185,7 @@ class ConcreteNoOp(Recorder):
 class FlowExecutionContext(ExecutionContext):
 
     def __init__(self, space, code, globals, constargs={}, outer_func=None,
-                 name=None):
+                 name=None, is_generator=False):
         ExecutionContext.__init__(self, space)
         self.code = code
 
@@ -208,6 +208,7 @@ class FlowExecutionContext(ExecutionContext):
         initialblock = SpamBlock(FrameState(frame).copy())
         self.pendingblocks = collections.deque([initialblock])
         self.graph = FunctionGraph(name or code.co_name, initialblock)
+        self.is_generator = is_generator
 
     make_link = Link # overridable for transition tracking
 
@@ -247,6 +248,8 @@ class FlowExecutionContext(ExecutionContext):
         return outcome, w_exc_cls, w_exc_value
 
     def build_flow(self):
+        if self.is_generator:
+            self.produce_generator_entry()
         while self.pendingblocks:
             block = self.pendingblocks.popleft()
             frame = self.create_frame()
@@ -259,9 +262,15 @@ class FlowExecutionContext(ExecutionContext):
                 self.topframeref = jit.non_virtual_ref(frame)
                 self.crnt_frame = frame
                 try:
-                    w_result = frame.dispatch(frame.pycode,
-                                              frame.last_instr,
-                                              self)
+                    frame.frame_finished_execution = False
+                    while True:
+                        w_result = frame.dispatch(frame.pycode,
+                                                  frame.last_instr,
+                                                  self)
+                        if frame.frame_finished_execution:
+                            break
+                        else:
+                            self.generate_yield(frame, w_result)
                 finally:
                     self.crnt_frame = None
                     self.topframeref = old_frameref
@@ -306,6 +315,19 @@ class FlowExecutionContext(ExecutionContext):
 
             del self.recorder
         self.fixeggblocks()
+
+    def produce_generator_entry(self):
+        [initialblock] = self.pendingblocks
+        initialblock.operations.append(
+            SpaceOperation('generator_entry', list(initialblock.inputargs),
+                           Variable()))
+
+    def generate_yield(self, frame, w_result):
+        assert self.is_generator
+        self.recorder.crnt_block.operations.append(
+            SpaceOperation('yield', [w_result], Variable()))
+        frame.pushvalue(None)
+        frame.last_instr += 1
 
     def fixeggblocks(self):
         # EggBlocks reuse the variables of their previous block,

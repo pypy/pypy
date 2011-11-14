@@ -882,12 +882,6 @@ class TestFlowObjSpace(Base):
                 num = bytecode_spec.opmap[name]
                 flow_meth_names[num] = locals()['old_' + name]
 
-    def test_generator(self):
-        def f():
-            yield 3
-
-        py.test.raises(TypeError, "self.codetest(f)")
-
     def test_dont_capture_RuntimeError(self):
         class Foo:
             def __hash__(self):
