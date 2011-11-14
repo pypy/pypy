@@ -83,12 +83,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if self.config.objspace.std.withtproxy:
             transparent.setup(self)
 
-        interplevel_classes = {}
-        for type, classes in self.model.typeorder.iteritems():
-            if len(classes) >= 3: # XXX what does this 3 mean??!
-                # W_Root, AnyXxx and actual object
-                interplevel_classes[self.gettypefor(type)] = classes[0][0]
-        self._interplevel_classes = interplevel_classes
+        self.setup_isinstance_cache()
 
     def get_builtin_types(self):
         return self.builtin_types
@@ -588,6 +583,63 @@ class StdObjSpace(ObjSpace, DescrOperation):
     @specialize.arg_or_var(2)
     def isinstance_w(space, w_inst, w_type):
         return space._type_isinstance(w_inst, w_type)
+
+    def setup_isinstance_cache(self):
+        # This assumes that all classes in the stdobjspace implementing a
+        # particular app-level type are distinguished by a common base class.
+        # Alternatively, you can turn off the cache on specific classes,
+        # like e.g. proxyobject.  It is just a bit less performant but
+        # should not have any bad effect.
+        from pypy.objspace.std.model import W_Root, W_Object
+        #
+        # Build a dict {class: w_typeobject-or-None}.  The value None is used
+        # on classes that are known to be abstract base classes.
+        class2type = {}
+        class2type[W_Root] = None
+        class2type[W_Object] = None
+        for cls in self.model.typeorder.keys():
+            if getattr(cls, 'typedef', None) is None:
+                continue
+            if getattr(cls, 'ignore_for_isinstance_cache', False):
+                continue
+            w_type = self.gettypefor(cls)
+            w_oldtype = class2type.setdefault(cls, w_type)
+            assert w_oldtype is w_type
+        #
+        # Build the real dict {w_typeobject: class-or-base-class}.  For every
+        # w_typeobject we look for the most precise common base class of all
+        # the registered classes.  If no such class is found, we will find
+        # W_Object or W_Root, and complain.  Then you must either add an
+        # artificial common base class, or disable caching on one of the
+        # two classes with ignore_for_isinstance_cache.
+        def getmro(cls):
+            while True:
+                yield cls
+                if cls is W_Root:
+                    break
+                cls = cls.__bases__[0]
+        self._interplevel_classes = {}
+        for cls, w_type in class2type.items():
+            if w_type is None:
+                continue
+            if w_type not in self._interplevel_classes:
+                self._interplevel_classes[w_type] = cls
+            else:
+                cls1 = self._interplevel_classes[w_type]
+                mro1 = list(getmro(cls1))
+                for base in getmro(cls):
+                    if base in mro1:
+                        break
+                if base in class2type and class2type[base] is not w_type:
+                    if class2type.get(base) is None:
+                        msg = ("cannot find a common interp-level base class"
+                               " between %r and %r" % (cls1, cls))
+                    else:
+                        msg = ("%s is a base class of both %r and %r" % (
+                            class2type[base], cls1, cls))
+                    raise AssertionError("%r: %s" % (w_type, msg))
+                class2type[base] = w_type
+                self._interplevel_classes[w_type] = base
 
     @specialize.memo()
     def _get_interplevel_cls(self, w_type):

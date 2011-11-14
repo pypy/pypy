@@ -50,6 +50,8 @@ class TestW_StdObjSpace:
     def test_fastpath_isinstance(self):
         from pypy.objspace.std.stringobject import W_StringObject
         from pypy.objspace.std.intobject import W_IntObject
+        from pypy.objspace.std.iterobject import W_AbstractSeqIterObject
+        from pypy.objspace.std.iterobject import W_SeqIterObject
 
         space = self.space
         assert space._get_interplevel_cls(space.w_str) is W_StringObject
@@ -62,9 +64,13 @@ class TestW_StdObjSpace:
 
         assert space.isinstance_w(X(), space.w_str)
 
-    def test_withstrbuf_fastpath_isinstance(self):
-        from pypy.objspace.std.stringobject import W_StringObject
+        w_sequenceiterator = space.gettypefor(W_SeqIterObject)
+        cls = space._get_interplevel_cls(w_sequenceiterator)
+        assert cls is W_AbstractSeqIterObject
 
-        space = gettestobjspace(withstrbuf=True) 
-        assert space._get_interplevel_cls(space.w_str) is W_StringObject
-        
+    def test_withstrbuf_fastpath_isinstance(self):
+        from pypy.objspace.std.stringobject import W_AbstractStringObject
+
+        space = gettestobjspace(withstrbuf=True)
+        cls = space._get_interplevel_cls(space.w_str)
+        assert cls is W_AbstractStringObject

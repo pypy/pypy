@@ -179,6 +179,17 @@ class TestLibffiCall(BaseFfiTest):
         res = self.call(func, [chr(20), 22], rffi.LONG)
         assert res == 42
 
+    def test_char_args(self):
+        """
+        char sum_args(char a, char b) {
+            return a + b;
+        }
+        """
+        libfoo = self.get_libfoo()
+        func = (libfoo, 'sum_args', [types.schar, types.schar], types.schar)
+        res = self.call(func, [123, 43], rffi.CHAR)
+        assert res == chr(166)
+
     def test_unsigned_short_args(self):
         """
             unsigned short sum_xy_us(unsigned short x, unsigned short y)

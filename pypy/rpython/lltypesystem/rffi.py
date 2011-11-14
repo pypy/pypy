@@ -125,6 +125,7 @@ def llexternal(name, args, result, _callable=None,
                                  canraise=False,
                                  random_effects_on_gcobjs=
                                      random_effects_on_gcobjs,
+                                 calling_conv=calling_conv,
                                  **kwds)
     if isinstance(_callable, ll2ctypes.LL2CtypesCallable):
         _callable.funcptr = funcptr
@@ -861,11 +862,12 @@ def size_and_sign(tp):
     try:
         unsigned = not tp._type.SIGNED
     except AttributeError:
-        if tp in [lltype.Char, lltype.Float, lltype.Signed] or\
-               isinstance(tp, lltype.Ptr):
+        if (not isinstance(tp, lltype.Primitive) or
+            tp in (FLOAT, DOUBLE) or
+            cast(lltype.SignedLongLong, cast(tp, -1)) < 0):
             unsigned = False
         else:
-            unsigned = False
+            unsigned = True
     return size, unsigned
 
 def sizeof(tp):
