@@ -17,7 +17,7 @@ something CPython does not do anymore.
 """
 
 class W_AbstractIntObject(W_Object):
-    pass
+    __slots__ = ()
 
 class W_IntObject(W_AbstractIntObject):
     __slots__ = 'intval'
