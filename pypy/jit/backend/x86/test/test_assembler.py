@@ -16,7 +16,9 @@ ACTUAL_CPU = getcpuclass()
 class FakeCPU:
     rtyper = None
     supports_floats = True
-    NUM_REGS = ACTUAL_CPU.NUM_REGS
+
+    def __init__(self):
+        NUM_REGS = ACTUAL_CPU.NUM_REGS
 
     def fielddescrof(self, STRUCT, name):
         return 42
