@@ -342,8 +342,19 @@ class BaseArray(Wrappable):
         # Simple implementation so that we can see the array.
         # Since what we want is to print a plethora of 2d views, 
         # use recursive calls to  to_str() to do the work.
-        concrete = self.get_concrete()
         res = StringBuilder()
+        concrete = self.get_concrete()
+        i = concrete.start_iter()
+        start = True
+        while not i.done():
+            if start:
+                start = False
+            else:
+                res.append(", ")
+            res.append(concrete.dtype.str_format(concrete.eval(i)))
+            i = i.next()
+        return space.wrap(res.build())
+            
         res.append("array(")
         #This is for numpy compliance: an empty slice reports its shape
         if not concrete.find_size():
@@ -651,7 +662,7 @@ class VirtualArray(BaseArray):
 
     def get_concrete(self):
         self.force_if_needed()
-        return self.forced_result        
+        return self.forced_result
 
     def eval(self, iter):
         if self.forced_result is not None:
@@ -698,6 +709,8 @@ class Call1(VirtualArray):
         return call_sig.func(self.res_dtype, val)
 
     def start_iter(self):
+        if self.forced_result is not None:
+            return self.forced_result.start_iter()
         return Call1Iterator(self.values.start_iter())
 
 class Call2(VirtualArray):
@@ -722,6 +735,8 @@ class Call2(VirtualArray):
         return self.right.find_size()
 
     def start_iter(self):
+        if self.forced_result is not None:
+            return self.forced_result.start_iter()
         return Call2Iterator(self.left.start_iter(), self.right.start_iter())
 
     def _eval(self, iter):

@@ -764,8 +764,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         from numpy import array, negative
         a = array([[1, 2], [3, 4]])
         b = negative(a + a)
-        res = (b == [[-1, -2], [-3, -4]]).all()
-        assert res
+        assert (b == [[-2, -4], [-6, -8]]).all()
 
     def test_getitem_3(self):
         from numpy import array
