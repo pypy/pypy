@@ -20,7 +20,7 @@ from pypy.objspace.std.formatting import mod_format
 from pypy.objspace.std.stringtype import stringstartswith, stringendswith
 
 class W_AbstractUnicodeObject(W_Object):
-    pass
+    __slots__ = ()
 
 class W_UnicodeObject(W_AbstractUnicodeObject):
     from pypy.objspace.std.unicodetype import unicode_typedef as typedef

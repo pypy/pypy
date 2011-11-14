@@ -9,7 +9,7 @@ from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.rlib.rbigint import rbigint, SHIFT
 
 class W_AbstractLongObject(W_Object):
-    pass
+    __slots__ = ()
 
 class W_LongObject(W_AbstractLongObject):
     """This is a wrapper of rbigint."""

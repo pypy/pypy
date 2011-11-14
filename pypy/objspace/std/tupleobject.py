@@ -10,7 +10,7 @@ from pypy.interpreter import gateway
 from pypy.rlib.debug import make_sure_not_resized
 
 class W_AbstractTupleObject(W_Object):
-    pass
+    __slots__ = ()
 
 class W_TupleObject(W_AbstractTupleObject):
     from pypy.objspace.std.tupletype import tuple_typedef as typedef
