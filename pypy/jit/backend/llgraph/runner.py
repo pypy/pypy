@@ -339,7 +339,7 @@ class LLtypeCPU(BaseCPU):
         else:
             typeinfo = INT
         # we abuse the arg_types field to distinguish dynamic and static descrs
-        return self.getdescr(offset, typeinfo, arg_types='dynamic', name='<dynamic interior field>', extrainfo=width)
+        return Descr(offset, typeinfo, arg_types='dynamic', name='<dynamic interior field>', extrainfo=width)
 
     def calldescrof(self, FUNC, ARGS, RESULT, extrainfo):
         arg_types = []
