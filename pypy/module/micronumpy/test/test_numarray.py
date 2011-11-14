@@ -764,7 +764,15 @@ class AppTestMultiDim(BaseNumpyAppTest):
         from numpy import array, negative
         a = array([[1, 2], [3, 4]])
         b = negative(a + a)
-        assert (b == [[-1, -2], [-3, -4]]).all()
+        res = (b == [[-1, -2], [-3, -4]]).all()
+        assert res
+
+    def test_getitem_3(self):
+        from numpy import array
+        a = array([[1, 2], [3, 4], [5, 6], [7, 8], [9, 10], [11, 12], [13, 14]])
+        b = a[::2]
+        c = b + b
+        assert c[1][1] == 16
 
     def test_broadcast(self):
         skip("not working")
