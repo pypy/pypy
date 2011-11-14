@@ -140,7 +140,7 @@ class BasePosix(Platform):
             ('DEFAULT_TARGET', exe_name.basename),
             ('SOURCES', rel_cfiles),
             ('OBJECTS', rel_ofiles),
-            ('LIBS', self._libs(eci.libraries) + self.extra_libs),
+            ('LIBS', self._libs(eci.libraries) + list(self.extra_libs)),
             ('LIBDIRS', self._libdirs(rel_libdirs)),
             ('INCLUDEDIRS', self._includedirs(rel_includedirs)),
             ('CFLAGS', cflags),
