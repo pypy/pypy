@@ -5,7 +5,7 @@ from __future__ import with_statement
 from pypy.rpython.tool import rffi_platform
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.rlib.rarithmetic import intmask, r_uint
+from pypy.rlib.rarithmetic import intmask, r_uint, is_emulated_long
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.rmmap import alloc
 from pypy.rlib.rdynload import dlopen, dlclose, dlsym, dlsym_byordinal
@@ -27,6 +27,7 @@ py.log.setconsumer("libffi", ansi_log)
 _MSVC = platform.name == "msvc"
 _MINGW = platform.name == "mingw32"
 _WIN32 = _MSVC or _MINGW
+_WIN64 = _WIN32 and is_emulated_long
 _MAC_OS = platform.name == "darwin"
 _FREEBSD_7 = platform.name == "freebsd7"
 
@@ -139,7 +140,7 @@ class CConfig:
     FFI_OK = rffi_platform.ConstantInteger('FFI_OK')
     FFI_BAD_TYPEDEF = rffi_platform.ConstantInteger('FFI_BAD_TYPEDEF')
     FFI_DEFAULT_ABI = rffi_platform.ConstantInteger('FFI_DEFAULT_ABI')
-    if _WIN32:
+    if _WIN32 and not _WIN64:
         FFI_STDCALL = rffi_platform.ConstantInteger('FFI_STDCALL')
 
     FFI_TYPE_STRUCT = rffi_platform.ConstantInteger('FFI_TYPE_STRUCT')
@@ -409,7 +410,7 @@ FUNCFLAG_USE_ERRNO = 8
 FUNCFLAG_USE_LASTERROR = 16
 
 def get_call_conv(flags, from_jit):
-    if _WIN32 and (flags & FUNCFLAG_CDECL == 0):
+    if _WIN32 and not _WIN64 and (flags & FUNCFLAG_CDECL == 0):
         return FFI_STDCALL
     else:
         return FFI_DEFAULT_ABI
