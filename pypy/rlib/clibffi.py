@@ -120,6 +120,10 @@ elif _MINGW:
          ])
 else:
     libffidir = py.path.local(pypydir).join('translator', 'c', 'src', 'libffi_msvc')
+    if not _WIN64:
+        asm_ifc = 'win32.c'
+    else:
+        asm_ifc = 'win64.asm'
     eci = ExternalCompilationInfo(
         includes = ['ffi.h', 'windows.h'],
         libraries = ['kernel32'],
@@ -127,7 +131,7 @@ else:
         separate_module_sources = separate_module_sources,
         separate_module_files = [libffidir.join('ffi.c'),
                                  libffidir.join('prep_cif.c'),
-                                 libffidir.join('win32.c'),
+                                 libffidir.join(asm_ifc),
                                  libffidir.join('pypy_ffi.c'),
                                  ],
         export_symbols = ['ffi_call', 'ffi_prep_cif', 'ffi_prep_closure',
