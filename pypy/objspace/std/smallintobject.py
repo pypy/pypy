@@ -6,7 +6,7 @@ from pypy.objspace.std import intobject
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.noneobject import W_NoneObject
-from pypy.objspace.std.intobject import W_IntObject
+from pypy.objspace.std.intobject import W_AbstractIntObject, W_IntObject
 from pypy.interpreter.error import OperationError
 from pypy.rlib.objectmodel import UnboxedValue
 from pypy.rlib.rbigint import rbigint
@@ -14,7 +14,7 @@ from pypy.rlib.rarithmetic import r_uint
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.objspace.std.inttype import wrapint
 
-class W_SmallIntObject(W_Object, UnboxedValue):
+class W_SmallIntObject(W_AbstractIntObject, UnboxedValue):
     __slots__ = 'intval'
     from pypy.objspace.std.inttype import int_typedef as typedef
 
