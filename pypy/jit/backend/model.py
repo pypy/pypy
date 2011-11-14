@@ -195,6 +195,15 @@ class AbstractCPU(object):
         raise NotImplementedError
 
     @staticmethod
+    def interiorfielddescrof(A, fieldname):
+        raise NotImplementedError
+
+    @staticmethod
+    def interiorfielddescrof_dynamic(offset, width, fieldsize, is_pointer,
+        is_float, is_signed):
+        raise NotImplementedError
+
+    @staticmethod
     def arraydescrof(A):
         raise NotImplementedError
 
