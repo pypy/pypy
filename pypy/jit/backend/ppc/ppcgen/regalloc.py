@@ -475,7 +475,7 @@ class Regalloc(object):
         self.possibly_free_vars(boxes)
         return [value_loc, base_loc, ofs_loc, imm(scale), imm(ofs), tmp]
 
-        prepare_setarrayitem_raw = prepare_setarrayitem_gc
+    prepare_setarrayitem_raw = prepare_setarrayitem_gc
 
     def prepare_getarrayitem_gc(self, op):
         a0, a1 = boxes = list(op.getarglist())
