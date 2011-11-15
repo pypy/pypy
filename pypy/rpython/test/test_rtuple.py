@@ -180,6 +180,22 @@ class BaseTestRtuple(BaseRtypingTest):
         res2 = self.interpret(f, [27, 12])
         assert res1 != res2
 
+    def test_constant_tuple_hash_str(self):
+        def f(i):
+            d = {}
+            if i:
+                t = (None, "abc")
+                d[t] = 3
+            else:
+                t = ("abc", None)
+                d[t] = 4
+            return d[t]
+
+        res = self.interpret(f, [0])
+        assert res == 4
+        res = self.interpret(f, [1])
+        assert res == 3
+
     def test_tuple_to_list(self):
         def f(i, j):
             return list((i, j))
