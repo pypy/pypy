@@ -183,43 +183,35 @@ class AbstractCPU(object):
             lst[n] = None
         self.fail_descr_free_list.extend(faildescr_indices)
 
-    @staticmethod
-    def sizeof(S):
+    def sizeof(self, S):
         raise NotImplementedError
 
-    @staticmethod
-    def fielddescrof(S, fieldname):
+    def fielddescrof(self, S, fieldname):
         """Return the Descr corresponding to field 'fieldname' on the
         structure 'S'.  It is important that this function (at least)
         caches the results."""
         raise NotImplementedError
 
-    @staticmethod
-    def interiorfielddescrof(A, fieldname):
+    def interiorfielddescrof(self, A, fieldname):
         raise NotImplementedError
 
-    @staticmethod
-    def interiorfielddescrof_dynamic(offset, width, fieldsize, is_pointer,
+    def interiorfielddescrof_dynamic(self, offset, width, fieldsize, is_pointer,
         is_float, is_signed):
         raise NotImplementedError
 
-    @staticmethod
-    def arraydescrof(A):
+    def arraydescrof(self, A):
         raise NotImplementedError
 
-    @staticmethod
-    def calldescrof(FUNC, ARGS, RESULT):
+    def calldescrof(self, FUNC, ARGS, RESULT):
         # FUNC is the original function type, but ARGS is a list of types
         # with Voids removed
         raise NotImplementedError
 
-    @staticmethod
-    def methdescrof(SELFTYPE, methname):
+    def methdescrof(self, SELFTYPE, methname):
         # must return a subclass of history.AbstractMethDescr
         raise NotImplementedError
 
-    @staticmethod
-    def typedescrof(TYPE):
+    def typedescrof(self, TYPE):
         raise NotImplementedError
 
     # ---------- the backend-dependent operations ----------
