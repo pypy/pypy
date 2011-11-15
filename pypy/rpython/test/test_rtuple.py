@@ -181,20 +181,17 @@ class BaseTestRtuple(BaseRtypingTest):
         assert res1 != res2
 
     def test_constant_tuple_hash_str(self):
+        from pypy.rlib.objectmodel import compute_hash
         def f(i):
-            d = {}
             if i:
                 t = (None, "abc")
-                d[t] = 3
             else:
                 t = ("abc", None)
-                d[t] = 4
-            return d[t]
+            return compute_hash(t)
 
-        res = self.interpret(f, [0])
-        assert res == 4
-        res = self.interpret(f, [1])
-        assert res == 3
+        res1 = self.interpret(f, [0])
+        res2 = self.interpret(f, [1])
+        assert res1 != res2
 
     def test_tuple_to_list(self):
         def f(i, j):
