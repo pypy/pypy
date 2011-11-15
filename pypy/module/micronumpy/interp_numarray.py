@@ -339,33 +339,40 @@ class BaseArray(Wrappable):
         return self.get_concrete().descr_len(space)
 
     def descr_repr(self, space):
-        # Simple implementation so that we can see the array.
-        # Since what we want is to print a plethora of 2d views, 
-        # use recursive calls to  to_str() to do the work.
         res = StringBuilder()
+        res.append("array([")
         concrete = self.get_concrete()
-        i = concrete.start_iter()
+        i = concrete.start_iter(offset=0, indices=[0])
         start = True
         dtype = concrete.find_dtype()
-        while not i.done():
-            if start:
-                start = False
-            else:
-                res.append(", ")
-            res.append(dtype.str_format(concrete.eval(i)))
-            i = i.next()
-        return space.wrap(res.build())
-            
-        res.append("array(")
-        #This is for numpy compliance: an empty slice reports its shape
         if not concrete.find_size():
-            res.append("[], shape=(")
-            self_shape = str(self.shape)
-            res.append_slice(str(self_shape), 1, len(self_shape)-1)
-            res.append(')')
+            if len(self.shape) > 1:
+                #This is for numpy compliance: an empty slice reports its shape
+                res.append("], shape=(")
+                self_shape = str(self.shape)
+                res.append_slice(str(self_shape), 1, len(self_shape) - 1)
+                res.append(')')
+            else:
+                res.append(']')
         else:
-            concrete.to_str(True, res, indent='       ')
-        dtype = concrete.find_dtype()
+            if self.shape[0] > 1000:
+                for xx in range(3):
+                    if start:
+                        start = False
+                    else:
+                        res.append(", ")
+                    res.append(dtype.str_format(concrete.eval(i)))
+                    i = i.next()
+                res.append(', ...')
+                i = concrete.start_iter(offset=self.shape[0] - 3)
+            while not i.done():
+                if start:
+                    start = False
+                else:
+                    res.append(", ")
+                res.append(dtype.str_format(concrete.eval(i)))
+                i = i.next()
+            res.append(']')
         if (dtype is not space.fromcache(interp_dtype.W_Float64Dtype) and
             dtype is not space.fromcache(interp_dtype.W_Int64Dtype)) or \
             not self.find_size():
@@ -376,44 +383,32 @@ class BaseArray(Wrappable):
     def to_str(self, comma, builder, indent=' '):
         dtype = self.find_dtype()
         ndims = len(self.shape)
-        if ndims > 2:
+        if ndims > 1:
             builder.append('[')
             builder.append("xxx")
-            # for i in range(self.shape[0]):
-            #     smallerview = NDimSlice(self.parent, self.signature,
-            #                             [(i, 0, 0, 1)], self.shape[1:])
-            #     builder.append(smallerview.to_str(comma, indent=indent + ' '))
-            #     if i + 1 < self.shape[0]:
-            #         builder.append(',\n\n' + indent)
-            builder.append(']')
-        elif ndims == 2:
-            builder.append('[')
-            for i in range(self.shape[0]):
-                builder.append('[')
-                spacer = ',' * comma + ' '
-                builder.append(spacer.join(\
-                    [dtype.str_format(self.eval(i * self.shape[1] + j)) \
-                    for j in range(self.shape[1])]))
-                builder.append(']')
-                if i + 1 < self.shape[0]:
-                    builder.append(',\n' + indent)
+            i = self.start_iter(offest=0, indices=[0])
+            while not i.done():
+                i.to_str(comma, builder, indent=indent + ' ')
+                builder.append('\n')
+            i = i.next()
             builder.append(']')
         elif ndims == 1:
             builder.append('[')
             spacer = ',' * comma + ' '
             if self.shape[0] > 1000:
-                firstSlice = NDimSlice(self, self.signature, 0, [3,], [2,], [3,])
+                #This is wrong. Use iterator
+                firstSlice = NDimSlice(self, self.signature, 0, [3, ], [2, ], [3, ])
                 builder.append(firstSlice.to_str(comma, builder, indent))
                 builder.append(',' * comma + ' ..., ')
                 lastSlice = NDimSlice(self, self.signature, 
-                                    self.backshards[0]-2*self.shards[0], [3,], [2,], [3,])
+                                    self.backshards[0] - 2 * self.shards[0], [3, ], [2, ], [3, ])
                 builder.append(lastSlice.to_str(comma, builder, indent))
             else:
                 strs = []
                 i = self.start_iter()
                 while not i.done():
                     strs.append(dtype.str_format(self.eval(i)))
-                    i.next()
+                    i = i.next()
                 builder.append(spacer.join(strs))
             builder.append(']')
         else:
@@ -421,7 +416,7 @@ class BaseArray(Wrappable):
         return builder.build()
 
     def descr_str(self, space):
-        # Simple implementation so that we can see the array. 
+        # Simple implementation so that we can see the array.
         # Since what we want is to print a plethora of 2d views, let
         # a slice do the work for us.
         concrete = self.get_concrete()
@@ -843,8 +838,8 @@ class NDimSlice(ViewArray):
             source_iter = source_iter.next()
             res_iter = res_iter.next()
 
-    def start_iter(self):
-        return ViewIterator(self)
+    def start_iter(self, offset=0, indices=None):
+        return ViewIterator(self, offset=offset, indices=indices)
 
     def setitem(self, item, value):
         self.parent.setitem(item, value)
@@ -877,7 +872,7 @@ class NDimArray(BaseArray):
 
     def getitem(self, item):
         return self.dtype.getitem(self.storage, item)
-        
+
     def eval(self, iter):
         assert isinstance(iter, ArrayIterator)
         return self.dtype.getitem(self.storage, iter.offset)
@@ -896,8 +891,8 @@ class NDimArray(BaseArray):
         self.invalidated()
         self.dtype.setitem(self.storage, item, value)
 
-    def start_iter(self):
-        return ArrayIterator(self.size)
+    def start_iter(self, offset=0, indices=None):
+        return ArrayIterator(self.size, offset=offset)
 
     def __del__(self):
         lltype.free(self.storage, flavor='raw', track_allocation=False)

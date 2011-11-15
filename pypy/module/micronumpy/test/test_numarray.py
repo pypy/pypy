@@ -810,6 +810,9 @@ class AppTestRepr(BaseNumpyAppTest):
         assert repr(a) == "array([], dtype=int64)"
         a = array([True, False, True, False], "?")
         assert repr(a) == "array([True, False, True, False], dtype=bool)"
+
+    def test_repr_multi(self):
+        from numpy import array, zeros
         a = zeros((3,4))
         assert repr(a) == '''array([[0.0, 0.0, 0.0, 0.0],
        [0.0, 0.0, 0.0, 0.0],
