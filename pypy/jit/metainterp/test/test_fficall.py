@@ -91,6 +91,7 @@ class FfiCallTests(_TestLibffiCall):
     test_byval_result.__doc__ = _TestLibffiCall.test_byval_result.__doc__
     test_byval_result.dont_track_allocations = True
 
+class FfiLookupTests(object):
     def test_array_fields(self):
         myjitdriver = JitDriver(
             greens = [],
@@ -148,9 +149,11 @@ class FfiCallTests(_TestLibffiCall):
         })
 
 
-
 class TestFfiCall(FfiCallTests, LLJitMixin):
     supports_all = False
 
 class TestFfiCallSupportAll(FfiCallTests, LLJitMixin):
     supports_all = True     # supports_{floats,longlong,singlefloats}
+
+class TestFfiLookup(FfiLookupTests, LLJitMixin):
+    pass
