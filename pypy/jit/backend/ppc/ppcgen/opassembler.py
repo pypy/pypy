@@ -606,6 +606,10 @@ class OpAssembler(object):
         else:
             assert 0, itemsize.value
 
+    def emit_new(self, op, arglocs, regalloc):
+        # XXX do exception handling here!
+        pass
+
     def emit_same_as(self, op, arglocs, regalloc):
         argloc, resloc = arglocs
         self.regalloc_mov(argloc, resloc)

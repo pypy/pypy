@@ -627,6 +627,17 @@ class Regalloc(object):
     prepare_cast_ptr_to_int = prepare_same_as
     prepare_cast_int_to_ptr = prepare_same_as
 
+    def prepare_new(self, op):
+        gc_ll_descr = self.assembler.cpu.gc_ll_descr
+        # XXX introduce the fastpath for malloc
+        arglocs = self._prepare_args_for_new_op(op.getdescr())
+        force_index = self.assembler.write_new_force_index()
+        self.assembler._emit_call(force_index, self.assembler.malloc_func_addr,
+                                arglocs, self, result=op.result)
+        self.possibly_free_vars(arglocs)
+        self.possibly_free_var(op.result)
+        return []
+
     def prepare_call(self, op):
         effectinfo = op.getdescr().get_extra_info()
         if effectinfo is not None:
@@ -640,6 +651,18 @@ class Regalloc(object):
 
     prepare_debug_merge_point = void
     prepare_jit_debug = void
+
+    def _prepare_args_for_new_op(self, new_args):
+        gc_ll_descr = self.cpu.gc_ll_descr
+        args = gc_ll_descr.args_for_new(new_args)
+        arglocs = []
+        for i in range(len(args)):
+            arg = args[i]
+            t = TempInt()
+            l = self.force_allocate_reg(t, selected_reg=r.MANAGED_REGS[i])
+            self.assembler.load(l, imm(arg))
+            arglocs.append(t)
+        return arglocs
 
     # from ../x86/regalloc.py:791
     def _unpack_fielddescr(self, fielddescr):

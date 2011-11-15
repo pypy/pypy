@@ -115,6 +115,7 @@ class AssemblerPPC(OpAssembler):
         self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
         self.fail_boxes_ptr = values_array(llmemory.GCREF, failargs_limit)
         self.mc = None
+        self.malloc_func_addr = 0
         self.datablockwrapper = None
         self.memcpy_addr = 0
         self.fail_boxes_count = 0
@@ -456,6 +457,10 @@ class AssemblerPPC(OpAssembler):
                                                         allblocks)
 
     def setup_once(self):
+        gc_ll_descr = self.cpu.gc_ll_descr
+        gc_ll_descr.initialize()
+        ll_new = gc_ll_descr.get_funcptr_for_new()
+        self.malloc_func_addr = rffi.cast(lltype.Signed, ll_new)
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
         self.setup_failure_recovery()
         self.exit_code_adr = self._gen_exit_path()
@@ -856,6 +861,34 @@ class AssemblerPPC(OpAssembler):
             mark = self._regalloc.get_mark_gc_roots(gcrootmap, use_copy_area)
             assert gcrootmap.is_shadow_stack
             gcrootmap.write_callshape(mark, force_index)
+
+    def write_new_force_index(self):
+        # for shadowstack only: get a new, unused force_index number and
+        # write it to FORCE_INDEX_OFS.  Used to record the call shape
+        # (i.e. where the GC pointers are in the stack) around a CALL
+        # instruction that doesn't already have a force_index.
+        gcrootmap = self.cpu.gc_ll_descr.gcrootmap
+        if gcrootmap and gcrootmap.is_shadow_stack:
+            clt = self.current_clt
+            force_index = clt.reserve_and_record_some_faildescr_index()
+            self._write_fail_index(force_index)
+            return force_index
+        else:
+            return 0
+
+    def _write_fail_index(self, fail_index):
+        self.mc.load_imm(r.r0.value, fail_index)
+        if IS_PPC_32:
+            self.mc.stw(r.r0.value, r.SSP.value, 0)
+        else:
+            self.mc.std(r.r0.value, r.SSP.value, 0)
+            
+    def load(self, loc, value):
+        assert loc.is_reg() and value.is_imm()
+        if value.is_imm():
+            self.mc.load_imm(loc, value.getint())
+        elif value.is_imm_float():
+            assert 0, "not implemented yet"
 
 def notimplemented_op(self, op, arglocs, regalloc):
     raise NotImplementedError, op
