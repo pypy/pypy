@@ -364,18 +364,19 @@ class OpAssembler(object):
             self.mc.ld(res.value, base_loc.value, ofs.value)
 
     def emit_setarrayitem_gc(self, op, arglocs, regalloc):
-        value_loc, base_loc, ofs_loc, scale, ofs = arglocs
+        value_loc, base_loc, ofs_loc, scale, ofs, scratch_reg = arglocs
         if scale.value > 0:
-            scale_loc = r.r0
-            self.mc.load_imm(r.r0, scale.value)
+            scale_loc = scratch_reg
             if IS_PPC_32:
-                self.mc.slw(r.r0.value, ofs_loc.value, r.r0.value)
+                self.mc.slwi(scale_loc.value, ofs_loc.value, scale.value)
             else:
-                self.mc.sld(r.r0.value, ofs_loc.value, r.r0.value)
+                self.mc.sldi(scale_loc.value, ofs_loc.value, scale.value)
         else:
             scale_loc = ofs_loc
 
+        # add the base offset
         if ofs.value > 0:
+            assert scale_loc is not r.r0
             self.mc.addi(r.r0.value, scale_loc.value, ofs.value)
             scale_loc = r.r0
 
@@ -393,17 +394,19 @@ class OpAssembler(object):
     emit_setarrayitem_raw = emit_setarrayitem_gc
 
     def emit_getarrayitem_gc(self, op, arglocs, regalloc):
-        res, base_loc, ofs_loc, scale, ofs = arglocs
+        res, base_loc, ofs_loc, scale, ofs, scratch_reg = arglocs
         if scale.value > 0:
-            scale_loc = r.r0
-            self.mc.load_imm(r.r0, scale.value)
+            scale_loc = scratch_reg
             if IS_PPC_32:
-                self.mc.slw(r.r0.value, ofs_loc.value, scale.value)
+                self.mc.slwi(scale_loc.value, ofs_loc.value, scale.value)
             else:
-                self.mc.sld(r.r0.value, ofs_loc.value, scale.value)
+                self.mc.sldi(scale_loc.value, ofs_loc.value, scale.value)
         else:
             scale_loc = ofs_loc
+
+        # add the base offset
         if ofs.value > 0:
+            assert scale_loc is not r.r0
             self.mc.addi(r.r0.value, scale_loc.value, ofs.value)
             scale_loc = r.r0
 
