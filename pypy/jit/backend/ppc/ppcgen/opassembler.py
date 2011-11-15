@@ -619,6 +619,9 @@ class OpAssembler(object):
             else:
                 self.mc.std(value_loc.value, base_loc.value, ofs_length.value)
 
+    emit_newstr = emit_new_array
+    emit_newunicode = emit_new_array
+
     def emit_same_as(self, op, arglocs, regalloc):
         argloc, resloc = arglocs
         self.regalloc_mov(argloc, resloc)

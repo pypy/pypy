@@ -660,6 +660,35 @@ class Regalloc(object):
             self._unpack_arraydescr(op.getdescr()))
         return self._malloc_varsize(basesize, ofs_length, itemsize, op)
 
+    def prepare_newstr(self, op):
+        gc_ll_descr = self.cpu.gc_ll_descr
+        if gc_ll_descr.get_funcptr_for_newstr is not None:
+            force_index = self.assembler.write_new_force_index()
+            self.assembler._emit_call(force_index,
+                    self.assembler.malloc_str_func_addr, [op.getarg(0)],
+                    self, op.result)
+            return []
+        # boehm GC
+        ofs_items, itemsize, ofs = symbolic.get_array_token(rstr.STR,
+                            self.cpu.translate_support_code)
+        assert itemsize == 1
+        return self._malloc_varsize(ofs_items, ofs, itemsize, op)
+
+    def prepare_newunicode(self, op):
+        gc_ll_descr = self.cpu.gc_ll_descr
+        if gc_ll_descr.get_funcptr_for_newunicode is not None:
+            force_index = self.assembler.write_new_force_index()
+            self.assembler._emit_call(force_index, 
+                    self.assembler.malloc_unicode_func_addr,
+                    [op.getarg(0)], self, op.result)
+            return []
+        # boehm GC
+        ofs_items, _, ofs = symbolic.get_array_token(rstr.UNICODE,
+                            self.cpu.translate_support_code)
+        _, itemsize, _ = symbolic.get_array_token(rstr.UNICODE,
+                            self.cpu.translate_support_code)
+        return self._malloc_varsize(ofs_items, ofs, itemsize, op)
+
     def prepare_call(self, op):
         effectinfo = op.getdescr().get_extra_info()
         if effectinfo is not None:
