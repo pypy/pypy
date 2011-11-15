@@ -466,8 +466,13 @@ class Regalloc(object):
         #XXX check if imm would be fine here
         value_loc, value_box = self._ensure_value_is_boxed(b2, boxes)
         boxes.append(value_box)
+        if scale > 0:
+            tmp, box = self.allocate_scratch_reg(forbidden_vars=boxes)
+            boxes.append(box)
+        else:
+            tmp = None
         self.possibly_free_vars(boxes)
-        return [value_loc, base_loc, ofs_loc, imm(scale), imm(ofs)]
+        return [value_loc, base_loc, ofs_loc, imm(scale), imm(ofs), tmp]
 
         prepare_setarrayitem_raw = prepare_setarrayitem_gc
 
@@ -478,10 +483,15 @@ class Regalloc(object):
         boxes.append(base_box)
         ofs_loc, ofs_box = self._ensure_value_is_boxed(a1, boxes)
         boxes.append(ofs_box)
+        if scale > 0:
+            tmp, box = self.allocate_scratch_reg(forbidden_vars=boxes)
+            boxes.append(box)
+        else:
+            tmp = None
         self.possibly_free_vars(boxes)
         res = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
-        return [res, base_loc, ofs_loc, imm(scale), imm(ofs)]
+        return [res, base_loc, ofs_loc, imm(scale), imm(ofs), tmp]
 
     prepare_getarrayitem_raw = prepare_getarrayitem_gc
     prepare_getarrayitem_gc_pure = prepare_getarrayitem_gc

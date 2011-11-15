@@ -364,20 +364,20 @@ class OpAssembler(object):
             self.mc.ld(res.value, base_loc.value, ofs.value)
 
     def emit_setarrayitem_gc(self, op, arglocs, regalloc):
-        value_loc, base_loc, ofs_loc, scale, ofs = arglocs
+        value_loc, base_loc, ofs_loc, scale, ofs, scratch_reg = arglocs
         if scale.value > 0:
-            scale_loc = r.r0
+            scale_loc = scratch_reg
             if IS_PPC_32:
-                self.mc.slwi(r.r0.value, ofs_loc.value, scale.value)
+                self.mc.slwi(scale_loc.value, ofs_loc.value, scale.value)
             else:
-                self.mc.sldi(r.r0.value, ofs_loc.value, scale.value)
+                self.mc.sldi(scale_loc.value, ofs_loc.value, scale.value)
         else:
             scale_loc = ofs_loc
 
         # add the base offset
         if ofs.value > 0:
-            #XXX cannot use addi because scale_loc may be r0
-            self.mc.addic(r.r0.value, scale_loc.value, ofs.value)
+            assert scale_loc is not r.r0
+            self.mc.addi(r.r0.value, scale_loc.value, ofs.value)
             scale_loc = r.r0
 
         if scale.value == 3:
@@ -394,20 +394,20 @@ class OpAssembler(object):
     emit_setarrayitem_raw = emit_setarrayitem_gc
 
     def emit_getarrayitem_gc(self, op, arglocs, regalloc):
-        res, base_loc, ofs_loc, scale, ofs = arglocs
+        res, base_loc, ofs_loc, scale, ofs, scratch_reg = arglocs
         if scale.value > 0:
-            scale_loc = r.r0
+            scale_loc = scratch_reg
             if IS_PPC_32:
-                self.mc.slwi(r.r0.value, ofs_loc.value, scale.value)
+                self.mc.slwi(scale_loc.value, ofs_loc.value, scale.value)
             else:
-                self.mc.sldi(r.r0.value, ofs_loc.value, scale.value)
+                self.mc.sldi(scale_loc.value, ofs_loc.value, scale.value)
         else:
             scale_loc = ofs_loc
 
         # add the base offset
         if ofs.value > 0:
-            #XXX cannot use addi because scale_loc may be r0
-            self.mc.addic(r.r0.value, scale_loc.value, ofs.value)
+            assert scale_loc is not r.r0
+            self.mc.addi(r.r0.value, scale_loc.value, ofs.value)
             scale_loc = r.r0
 
         if scale.value == 3:
