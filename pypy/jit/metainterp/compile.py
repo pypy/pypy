@@ -134,7 +134,9 @@ def compile_loop(metainterp, greenkey, start,
             optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts)
         except InvalidLoop:
             return None
-        all_target_tokens = [part.operations[0].getdescr()]
+        target_token = part.operations[0].getdescr()
+        assert isinstance(target_token, TargetToken)
+        all_target_tokens = [target_token]
 
     loop = create_empty_loop(metainterp)        
     loop.inputargs = part.inputargs
@@ -149,7 +151,9 @@ def compile_loop(metainterp, greenkey, start,
                           [inliner.inline_op(h_ops[i]) for i in range(start, len(h_ops))] + \
                           [ResOperation(rop.JUMP, [inliner.inline_arg(a) for a in jumpargs],
                                         None, descr=jitcell_token)]
-        all_target_tokens.append(part.operations[0].getdescr())
+        target_token = part.operations[0].getdescr()
+        assert isinstance(target_token, TargetToken)
+        all_target_tokens.append(target_token)
         inputargs = jumpargs
         jumpargs = part.operations[-1].getarglist()
 
