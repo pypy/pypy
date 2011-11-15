@@ -86,6 +86,16 @@ class PPCRegisterManager(RegisterManager):
             assert isinstance(c, ConstPtr)
             return locations.ImmLocation(rffi.cast(lltype.Signed, c.value))
 
+    def allocate_scratch_reg(self, type=INT, selected_reg=None, forbidden_vars=None):
+        """Allocate a scratch register, possibly spilling a managed register.
+        This register is freed after emitting the current operation and can not
+        be spilled"""
+        box = TempBox()
+        reg = self.force_allocate_reg(box,
+                            selected_reg=selected_reg,
+                            forbidden_vars=forbidden_vars)
+        return reg, box
+
 class PPCFrameManager(FrameManager):
     def __init__(self):
         FrameManager.__init__(self)
@@ -169,6 +179,12 @@ class Regalloc(object):
             need_lower_byte=False):
         return self.rm.force_allocate_reg(var, forbidden_vars, selected_reg,
                 need_lower_byte)
+
+    def allocate_scratch_reg(self, type=INT, forbidden_vars=[], selected_reg=None):
+        assert type == INT # XXX extend this once floats are supported
+        return self.rm.allocate_scratch_reg(type=type,
+                        forbidden_vars=forbidden_vars,
+                        selected_reg=selected_reg)
 
     def _check_invariants(self):
         self.rm._check_invariants()
@@ -458,7 +474,6 @@ class Regalloc(object):
     def prepare_getarrayitem_gc(self, op):
         a0, a1 = boxes = list(op.getarglist())
         _, scale, ofs, _, ptr = self._unpack_arraydescr(op.getdescr())
-
         base_loc, base_box  = self._ensure_value_is_boxed(a0, boxes)
         boxes.append(base_box)
         ofs_loc, ofs_box = self._ensure_value_is_boxed(a1, boxes)
