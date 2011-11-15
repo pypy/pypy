@@ -20,7 +20,7 @@ class TestNumArrayDirect(object):
             else:
                 args_w.append(arg)
         return self.space.newtuple(args_w)
-    
+
     def test_shards(self):
         a = NDimArray(100, [10, 5, 3], MockDtype())
         assert a.shards == [15, 3, 1]

@@ -173,7 +173,7 @@ class BaseArray(Wrappable):
     #_immutable_fields_ = ['shape[*]', "shards[*]", "backshards[*]", 'start']
 
     shards = None
-    start = 0    
+    start = 0
 
     def __init__(self, shape):
         self.invalidates = []
@@ -400,7 +400,7 @@ class BaseArray(Wrappable):
                 firstSlice = NDimSlice(self, self.signature, 0, [3, ], [2, ], [3, ])
                 builder.append(firstSlice.to_str(comma, builder, indent))
                 builder.append(',' * comma + ' ..., ')
-                lastSlice = NDimSlice(self, self.signature, 
+                lastSlice = NDimSlice(self, self.signature,
                                     self.backshards[0] - 2 * self.shards[0], [3, ], [2, ], [3, ])
                 builder.append(lastSlice.to_str(comma, builder, indent))
             else:
@@ -550,7 +550,7 @@ class BaseArray(Wrappable):
         return NDimSlice(self, new_sig, start, shards, backshards, shape)
 
     def descr_mean(self, space):
-        return space.wrap(space.float_w(self.descr_sum(space))/self.find_size())
+        return space.wrap(space.float_w(self.descr_sum(space)) / self.find_size())
 
     def descr_nonzero(self, space):
         try:
