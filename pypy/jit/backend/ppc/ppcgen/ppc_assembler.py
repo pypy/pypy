@@ -455,6 +455,7 @@ class AssemblerPPC(OpAssembler):
         allblocks = self.get_asmmemmgr_blocks(looptoken)
         self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
                                                         allblocks)
+        self.stack_in_use = False
 
     def setup_once(self):
         gc_ll_descr = self.cpu.gc_ll_descr
@@ -593,6 +594,7 @@ class AssemblerPPC(OpAssembler):
         self.mc = None
         self._regalloc = None
         assert self.datablockwrapper is None
+        self.stack_in_use = False
 
     def _walk_operations(self, operations, regalloc):
         self._regalloc = regalloc
@@ -790,12 +792,12 @@ class AssemblerPPC(OpAssembler):
         loc"""
 
         if loc.is_stack():
-            if loc.type != FLOAT:
-                scratch_reg = r.r0
-            else:
+            if loc.type == FLOAT:
                 assert 0, "not implemented yet"
-            self.regalloc_mov(loc, scratch_reg)
-            self.regalloc_push(scratch_reg)
+            # XXX this code has to be verified
+            assert not self.stack_in_use
+            self.regalloc_mov(loc, r.r0)
+            self.stack_in_use = True
         elif loc.is_reg():
             self.mc.addi(r.SP.value, r.SP.value, -WORD) # decrease stack pointer
             # push value
@@ -814,12 +816,12 @@ class AssemblerPPC(OpAssembler):
         """Pops the value on top of the stack to loc. Can trash the current
         value of r0 when popping to a stack loc"""
         if loc.is_stack():
-            if loc.type != FLOAT:
-                scratch_reg = r.r0
-            else:
+            if loc.type == FLOAT:
                 assert 0, "not implemented yet"
-            self.regalloc_pop(scratch_reg)
-            self.regalloc_mov(scratch_reg, loc)
+            # XXX this code has to be verified
+            assert self.stack_in_use
+            self.regalloc_mov(r.r0, loc)
+            self.stack_in_use = False
         elif loc.is_reg():
             # pop value
             if IS_PPC_32:
