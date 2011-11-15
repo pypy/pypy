@@ -55,7 +55,8 @@ def test_huge_chain():
     current = Terminator(space, "cls")
     for i in range(20000):
         current = PlainAttribute((str(i), DICT), current)
-    assert current.index(("0", DICT)) == 0
+    attr = current.findmap(("0", DICT))
+    assert attr.position == 0
 
 
 def test_search():

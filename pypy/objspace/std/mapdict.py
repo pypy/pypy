@@ -29,42 +29,42 @@ class AbstractAttribute(object):
         self.terminator = terminator
 
     def read(self, obj, selector):
-        index = self.index(selector)
-        if index < 0:
+        attr = self.findmap(selector) # index = self.index(selector)
+        if attr is None:
             return self.terminator._read_terminator(obj, selector)
-        return obj._mapdict_read_storage(index)
+        return attr.read_attr(obj) #obj._mapdict_read_storage(index)
 
     def write(self, obj, selector, w_value):
-        index = self.index(selector)
-        if index < 0:
+        attr = self.findmap(selector) # index = self.index(selector)
+        if attr is None:
             return self.terminator._write_terminator(obj, selector, w_value)
-        obj._mapdict_write_storage(index, w_value)
+        attr.write_attr(obj, w_value) #obj._mapdict_write_storage(index, w_value)
         return True
 
     def delete(self, obj, selector):
         return None
 
-    def index(self, selector):
+    def findmap(self, selector):
         if jit.we_are_jitted():
             # hack for the jit:
             # the _index method is pure too, but its argument is never
             # constant, because it is always a new tuple
-            return self._index_jit_pure(selector[0], selector[1])
+            return self._findmap_jit_pure(selector[0], selector[1])
         else:
-            return self._index_indirection(selector)
+            return self._findmap_indirection(selector)
 
     @jit.elidable
-    def _index_jit_pure(self, name, index):
-        return self._index_indirection((name, index))
+    def _findmap_jit_pure(self, name, index):
+        return self._findmap_indirection((name, index))
 
     @jit.dont_look_inside
-    def _index_indirection(self, selector):
+    def _findmap_indirection(self, selector):
         if (self.space.config.objspace.std.withmethodcache):
-            return self._index_cache(selector)
-        return self._index(selector)
+            return self._findmap_cache(selector)
+        return self._findmap(selector)
 
     @jit.dont_look_inside
-    def _index_cache(self, selector):
+    def _findmap_cache(self, selector):
         space = self.space
         cache = space.fromcache(IndexCache)
         SHIFT2 = r_uint.BITS - space.config.objspace.std.methodcachesizeexp
@@ -80,26 +80,31 @@ class AbstractAttribute(object):
         if cached_attr is self:
             cached_selector = cache.selectors[index_hash]
             if cached_selector == selector:
-                index = cache.indices[index_hash]
+                attr = cache.cachedattrs[index_hash]
                 if space.config.objspace.std.withmethodcachecounter:
                     name = selector[0]
                     cache.hits[name] = cache.hits.get(name, 0) + 1
-                return index
-        index = self._index(selector)
+                # XXX return the correct Attribute here
+                return attr
+        attr = self._findmap(selector)
+        if attr is None:
+            index = -1
+        else:
+            index = attr.position
         cache.attrs[index_hash] = self
         cache.selectors[index_hash] = selector
-        cache.indices[index_hash] = index
+        cache.cachedattrs[index_hash] = attr
         if space.config.objspace.std.withmethodcachecounter:
             name = selector[0]
             cache.misses[name] = cache.misses.get(name, 0) + 1
-        return index
+        return attr
 
-    def _index(self, selector):
+    def _findmap(self, selector):
         while isinstance(self, PlainAttribute):
             if selector == self.selector:
-                return self.position
+                return self
             self = self.back
-        return -1
+        return None
 
     def copy(self, obj):
         raise NotImplementedError("abstract base class")
@@ -273,6 +278,14 @@ class PlainAttribute(AbstractAttribute):
         w_value = self.read(obj, self.selector)
         new_obj._get_mapdict_map().add_attr(new_obj, self.selector, w_value)
 
+    def read_attr(self, obj):
+        # XXX do the unerasing (and wrapping) here
+        return obj._mapdict_read_storage(self.position)
+
+    def write_attr(self, obj, w_value):
+        # XXX do the unerasing (and unwrapping) here
+        obj._mapdict_write_storage(self.position, w_value)
+
     def delete(self, obj, selector):
         if selector == self.selector:
             # ok, attribute is deleted
@@ -330,7 +343,7 @@ class IndexCache(object):
         self.attrs = [None] * SIZE
         self._empty_selector = (None, INVALID)
         self.selectors = [self._empty_selector] * SIZE
-        self.indices = [0] * SIZE
+        self.cachedattrs = [None] * SIZE
         if space.config.objspace.std.withmethodcachecounter:
             self.hits = {}
             self.misses = {}
@@ -819,12 +832,12 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
                 selector = (name, DICT)
             #
             if selector[1] != INVALID:
-                index = map.index(selector)
-                if index >= 0:
+                attr = map.findmap(selector)
+                if attr is not None:
                     # Note that if map.terminator is a DevolvedDictTerminator,
                     # map.index() will always return -1 if selector[1]==DICT.
-                    _fill_cache(pycode, nameindex, map, version_tag, index)
-                    return w_obj._mapdict_read_storage(index)
+                    _fill_cache(pycode, nameindex, map, version_tag, attr.position)
+                    return attr.read_attr(w_obj) #w_obj._mapdict_read_storage(index)
     if space.config.objspace.std.withmethodcachecounter:
         INVALID_CACHE_ENTRY.failure_counter += 1
     return space.getattr(w_obj, w_name)
