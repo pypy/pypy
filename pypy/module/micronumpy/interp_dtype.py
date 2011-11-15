@@ -8,8 +8,6 @@ from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.rpython.lltypesystem import lltype, rffi
 
 
-STORAGE_TYPE = rffi.CArray(lltype.Char)
-
 UNSIGNEDLTR = "u"
 SIGNEDLTR = "i"
 BOOLLTR = "b"
@@ -27,7 +25,7 @@ class W_Dtype(Wrappable):
 
     def malloc(self, length):
         # XXX find out why test_zjit explodes with tracking of allocations
-        return lltype.malloc(STORAGE_TYPE, self.itemtype.get_element_size() * length,
+        return lltype.malloc(rffi.CArray(lltype.Char), self.itemtype.get_element_size() * length,
             zero=True, flavor="raw",
             track_allocation=False, add_memory_pressure=True
         )
@@ -40,16 +38,13 @@ class W_Dtype(Wrappable):
         return self.itemtype.coerce(space, w_item)
 
     def getitem(self, storage, i):
-        struct_ptr = rffi.ptradd(storage, i * self.itemtype.get_element_size())
-        return self.itemtype.read(struct_ptr, 0)
+        return self.itemtype.read(storage, self.itemtype.get_element_size(), i, 0)
 
     def setitem(self, storage, i, box):
-        struct_ptr = rffi.ptradd(storage, i * self.itemtype.get_element_size())
-        self.itemtype.store(struct_ptr, 0, box)
+        self.itemtype.store(storage, self.itemtype.get_element_size(), i, 0, box)
 
     def fill(self, storage, box, start, stop):
-        start_ptr = rffi.ptradd(storage, start * self.itemtype.get_element_size())
-        self.itemtype.fill(start_ptr, box, stop - start)
+        self.itemtype.fill(storage, self.itemtype.get_element_size(), box, start, stop, 0)
 
     def descr__new__(space, w_subtype, w_dtype):
         cache = get_dtype_cache(space)

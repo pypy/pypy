@@ -2,7 +2,7 @@ import math
 
 from pypy.module.micronumpy import interp_boxes
 from pypy.objspace.std.floatobject import float2string
-from pypy.rlib import rfloat
+from pypy.rlib import rfloat, libffi, clibffi
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import LONG_BIT, widen
 from pypy.rpython.lltypesystem import lltype, rffi
@@ -58,22 +58,23 @@ class Primitive(object):
     def _coerce(self, space, w_item):
         raise NotImplementedError
 
-    def read(self, ptr, offset):
-        ptr = rffi.ptradd(ptr, offset)
-        return self.box(
-            rffi.cast(rffi.CArrayPtr(self.T), ptr)[0]
+    def read(self, storage, width, i, offset):
+        return self.box(libffi.array_getitem(clibffi.cast_type_to_ffitype(self.T),
+            width, storage, i, offset
+        ))
+
+    def store(self, storage, width, i, offset, box):
+        value = self.unbox(box)
+        libffi.array_setitem(clibffi.cast_type_to_ffitype(self.T),
+            width, storage, i, offset, value
         )
 
-    def store(self, ptr, offset, box):
+    def fill(self, storage, width, box, start, stop, offset):
         value = self.unbox(box)
-        ptr = rffi.ptradd(ptr, offset)
-        rffi.cast(rffi.CArrayPtr(self.T), ptr)[0] = value
-
-    def fill(self, ptr, box, n):
-        value = self.unbox(box)
-        for i in xrange(n):
-            rffi.cast(rffi.CArrayPtr(self.T), ptr)[0] = value
-            ptr = rffi.ptradd(ptr, self.get_element_size())
+        for i in xrange(start, stop):
+            libffi.array_setitem(clibffi.cast_type_to_ffitype(self.T),
+                width, storage, i, offset, value
+            )
 
     @simple_binary_op
     def add(self, v1, v2):
