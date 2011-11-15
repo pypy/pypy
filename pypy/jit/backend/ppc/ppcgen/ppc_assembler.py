@@ -779,6 +779,52 @@ class AssemblerPPC(OpAssembler):
             assert 0, "not supported location"
         assert 0, "not supported location"
 
+    def regalloc_push(self, loc):
+        """Pushes the value stored in loc to the stack
+        Can trash the current value of r0 when pushing a stack
+        loc"""
+
+        if loc.is_stack():
+            if loc.type != FLOAT:
+                scratch_reg = r.r0
+            else:
+                assert 0, "not implemented yet"
+            self.regalloc_mov(loc, scratch_reg)
+            self.regalloc_push(scratch_reg)
+        elif loc.is_reg():
+            self.mc.addi(r.SP.value, r.SP.value, -WORD) # decrease stack pointer
+            # push value
+            if IS_PPC_32:
+                self.mc.stw(loc.value, r.SP.value, 0)
+            else:
+                self.mc.std(loc.value, r.SP.value, 0)
+        elif loc.is_imm():
+            assert 0, "not implemented yet"
+        elif loc.is_imm_float():
+            assert 0, "not implemented yet"
+        else:
+            raise AssertionError('Trying to push an invalid location')
+
+    def regalloc_pop(self, loc):
+        """Pops the value on top of the stack to loc. Can trash the current
+        value of r0 when popping to a stack loc"""
+        if loc.is_stack():
+            if loc.type != FLOAT:
+                scratch_reg = r.r0
+            else:
+                assert 0, "not implemented yet"
+            self.regalloc_pop(scratch_reg)
+            self.regalloc_mov(scratch_reg, loc)
+        elif loc.is_reg():
+            # pop value
+            if IS_PPC_32:
+                self.mc.lwz(loc.value, r.SP.value, 0)
+            else:
+                self.mc.ld(loc.value, r.SP.value, 0)
+            self.mc.addi(r.SP.value, r.SP.value, WORD) # increase stack pointer
+        else:
+            raise AssertionError('Trying to pop to an invalid location')
+
     def _ensure_result_bit_extension(self, resloc, size, signed):
         if size == 1:
             if not signed: #unsigned char
