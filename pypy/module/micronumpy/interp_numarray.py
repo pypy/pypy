@@ -382,46 +382,52 @@ class BaseArray(Wrappable):
             # for i in range(self.shape[0]):
             #     smallerview = NDimSlice(self.parent, self.signature,
             #                             [(i, 0, 0, 1)], self.shape[1:])
-            #     ret.append(smallerview.to_str(comma, indent=indent + ' '))
+            #     builder.append(smallerview.to_str(comma, indent=indent + ' '))
             #     if i + 1 < self.shape[0]:
-            #         ret.append(',\n\n' + indent)
-            ret.append(']')
+            #         builder.append(',\n\n' + indent)
+            builder.append(']')
         elif ndims == 2:
-            ret.append('[')
+            builder.append('[')
             for i in range(self.shape[0]):
-                ret.append('[')
+                builder.append('[')
                 spacer = ',' * comma + ' '
-                ret.append(spacer.join(\
+                builder.append(spacer.join(\
                     [dtype.str_format(self.eval(i * self.shape[1] + j)) \
                     for j in range(self.shape[1])]))
-                ret.append(']')
+                builder.append(']')
                 if i + 1 < self.shape[0]:
-                    ret.append(',\n' + indent)
-            ret.append(']')
+                    builder.append(',\n' + indent)
+            builder.append(']')
         elif ndims == 1:
-            ret.append('[')
+            builder.append('[')
             spacer = ',' * comma + ' '
             if self.shape[0] > 1000:
-                ret.append(spacer.join([dtype.str_format(self.eval(j)) \
-                           for j in range(3)]))
-                ret.append(',' * comma + ' ..., ')
-                ret.append(spacer.join([dtype.str_format(self.eval(j)) \
-                           for j in range(self.shape[0] - 3, self.shape[0])]))
+                firstSlice = NDimSlice(self, self.signature, 0, [3,], [2,], [3,])
+                builder.append(firstSlice.to_str(comma, builder, indent))
+                builder.append(',' * comma + ' ..., ')
+                lastSlice = NDimSlice(self, self.signature, 
+                                    self.backshards[0]-2*self.shards[0], [3,], [2,], [3,])
+                builder.append(lastSlice.to_str(comma, builder, indent))
             else:
-                ret.append(spacer.join([dtype.str_format(self.eval(j)) \
-                           for j in range(self.shape[0])]))
-            ret.append(']')
+                strs = []
+                i = self.start_iter()
+                while not i.done():
+                    strs.append(dtype.str_format(self.eval(i)))
+                    i.next()
+                builder.append(spacer.join(strs))
+            builder.append(']')
         else:
-            ret.append(dtype.str_format(self.eval(self.start)))
-        return ret.build()
+            builder.append(dtype.str_format(self.eval(self.start)))
+        return builder.build()
 
     def descr_str(self, space):
         # Simple implementation so that we can see the array. 
         # Since what we want is to print a plethora of 2d views, let
         # a slice do the work for us.
         concrete = self.get_concrete()
-        r = NDimSlice(concrete, self.signature, [], self.shape).to_str(False)
-        return space.wrap(r)
+        s = StringBuilder()
+        r = NDimSlice(concrete, self.signature, 0, self.shards, self.backshards, self.shape)
+        return space.wrap(r.to_str(False, s))
 
     def _index_of_single_item(self, space, w_idx):
         # we assume C ordering for now
