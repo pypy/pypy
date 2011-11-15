@@ -42,6 +42,8 @@ class Platform(object):
 
     so_prefixes = ('',)
 
+    extra_libs = ()
+
     def __init__(self, cc):
         if self.__class__ is Platform:
             raise TypeError("You should not instantiate Platform class directly")
@@ -181,7 +183,8 @@ class Platform(object):
         link_files = self._linkfiles(eci.link_files)
         export_flags = self._exportsymbols_link_flags(eci)
         return (library_dirs + list(self.link_flags) + export_flags +
-                link_files + list(eci.link_extra) + libraries)
+                link_files + list(eci.link_extra) + libraries +
+                list(self.extra_libs))
 
     def _exportsymbols_link_flags(self, eci, relto=None):
         if eci.export_symbols:

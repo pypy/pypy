@@ -742,7 +742,7 @@ class TestRffiInternals:
             assert sizeof(ll) == ctypes.sizeof(ctp)
             assert sizeof(lltype.Typedef(ll, 'test')) == sizeof(ll)
         assert not size_and_sign(lltype.Signed)[1]
-        assert not size_and_sign(lltype.Char)[1]
+        assert size_and_sign(lltype.Char) == (1, True)
         assert not size_and_sign(lltype.UniChar)[1]
         assert size_and_sign(UINT)[1]
     

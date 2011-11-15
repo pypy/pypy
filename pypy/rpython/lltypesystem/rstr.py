@@ -331,6 +331,8 @@ class LLHelpers(AbstractLLHelpers):
         # unlike CPython, there is no reason to avoid to return -1
         # but our malloc initializes the memory to zero, so we use zero as the
         # special non-computed-yet value.
+        if not s:
+            return 0
         x = s.hash
         if x == 0:
             x = _hash_string(s.chars)
