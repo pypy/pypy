@@ -326,12 +326,12 @@ def compile_add(loop, opnum):
     loop = _from_opaque(loop)
     loop.operations.append(Operation(opnum))
 
-def compile_add_descr(loop, ofs, type, arg_types, extrainfo):
+def compile_add_descr(loop, ofs, type, arg_types, extrainfo, width):
     from pypy.jit.backend.llgraph.runner import Descr
     loop = _from_opaque(loop)
     op = loop.operations[-1]
     assert isinstance(type, str) and len(type) == 1
-    op.descr = Descr(ofs, type, arg_types=arg_types, extrainfo=extrainfo)
+    op.descr = Descr(ofs, type, arg_types=arg_types, extrainfo=extrainfo, width=width)
 
 def compile_add_descr_arg(loop, ofs, type, arg_types):
     from pypy.jit.backend.llgraph.runner import Descr
@@ -828,11 +828,11 @@ class Frame(object):
 
     def op_getinteriorfield_raw(self, descr, array, index):
         if descr.typeinfo == REF:
-            return do_getinteriorfield_raw_ptr(array, index, descr.extrainfo, descr.ofs)
+            return do_getinteriorfield_raw_ptr(array, index, descr.width, descr.ofs)
         elif descr.typeinfo == INT:
-            return do_getinteriorfield_raw_int(array, index, descr.extrainfo, descr.ofs)
+            return do_getinteriorfield_raw_int(array, index, descr.width, descr.ofs)
         elif descr.typeinfo == FLOAT:
-            return do_getinteriorfield_raw_float(array, index, descr.extrainfo, descr.ofs)
+            return do_getinteriorfield_raw_float(array, index, descr.width, descr.ofs)
         else:
             raise NotImplementedError
 
@@ -851,11 +851,11 @@ class Frame(object):
 
     def op_setinteriorfield_raw(self, descr, array, index, newvalue):
         if descr.typeinfo == REF:
-            return do_setinteriorfield_raw_ptr(array, index, newvalue, descr.extrainfo, descr.ofs)
+            return do_setinteriorfield_raw_ptr(array, index, newvalue, descr.width, descr.ofs)
         elif descr.typeinfo == INT:
-            return do_setinteriorfield_raw_int(array, index, newvalue, descr.extrainfo, descr.ofs)
+            return do_setinteriorfield_raw_int(array, index, newvalue, descr.width, descr.ofs)
         elif descr.typeinfo == FLOAT:
-            return do_setinteriorfield_raw_float(array, index, newvalue, descr.extrainfo, descr.ofs)
+            return do_setinteriorfield_raw_float(array, index, newvalue, descr.width, descr.ofs)
         else:
             raise NotImplementedError
 
