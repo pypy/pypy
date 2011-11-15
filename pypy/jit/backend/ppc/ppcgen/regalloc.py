@@ -20,6 +20,7 @@ from pypy.rpython.lltypesystem import rffi, lltype, rstr
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.codewriter.effectinfo import EffectInfo
 import pypy.jit.backend.ppc.ppcgen.register as r
+from pypy.jit.codewriter import heaptracker
 
 class TempInt(TempBox):
     type = INT
@@ -638,6 +639,27 @@ class Regalloc(object):
         self.possibly_free_var(op.result)
         return []
 
+    def prepare_new_array(self, op):
+        gc_ll_descr = self.cpu.gc_ll_descr
+        if gc_ll_descr.get_funcptr_for_newarray is not None:
+            # framework GC
+            box_num_elem = op.getarg(0)
+            if isinstance(box_num_elem, ConstInt):
+                num_elem = box_num_elem.value
+                # XXX implement fastpath for malloc
+            args = self.assembler.cpu.gc_ll_descr.args_for_new_array(
+                op.getdescr())
+            argboxes = [ConstInt(x) for x in args]
+            argboxes.append(box_num_elem)
+            force_index = self.assembler.write_new_force_index()
+            self.assembler._emit_call(force_index, self.assembler.malloc_array_func_addr,
+                                        argboxes, self, result=op.result)
+            return []
+        # boehm GC
+        itemsize, scale, basesize, ofs_length, _ = (
+            self._unpack_arraydescr(op.getdescr()))
+        return self._malloc_varsize(basesize, ofs_length, itemsize, op)
+
     def prepare_call(self, op):
         effectinfo = op.getdescr().get_extra_info()
         if effectinfo is not None:
@@ -663,6 +685,32 @@ class Regalloc(object):
             self.assembler.load(l, imm(arg))
             arglocs.append(t)
         return arglocs
+
+    def _malloc_varsize(self, ofs_items, ofs_length, itemsize, op):
+        v = op.getarg(0)
+        res_v = op.result
+        boxes = [v, res_v]
+        itemsize_box = ConstInt(itemsize)
+        ofs_items_box = ConstInt(ofs_items)
+        if _check_imm_arg(ofs_items_box):
+            ofs_items_loc = self.convert_to_imm(ofs_items_box)
+        else:
+            ofs_items_loc, ofs_items_box = self._ensure_value_is_boxed(ofs_items_box, boxes)
+            boxes.append(ofs_items_box)
+        vloc, vbox = self._ensure_value_is_boxed(v, [res_v])
+        boxes.append(vbox)
+        size, size_box = self._ensure_value_is_boxed(itemsize_box, boxes)
+        boxes.append(size_box)
+        self.assembler._regalloc_malloc_varsize(size, size_box,
+                                vloc, vbox, ofs_items_loc, self, res_v)
+        base_loc = self.make_sure_var_in_reg(res_v)
+
+        value_loc, vbox = self._ensure_value_is_boxed(v, [res_v])
+        boxes.append(vbox)
+        self.possibly_free_vars(boxes)
+        assert value_loc.is_reg()
+        assert base_loc.is_reg()
+        return [value_loc, base_loc, imm(ofs_length)]
 
     # from ../x86/regalloc.py:791
     def _unpack_fielddescr(self, fielddescr):

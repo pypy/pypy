@@ -12,7 +12,7 @@ from pypy.jit.backend.ppc.ppcgen.helper.assembler import count_reg_args
 from pypy.jit.backend.ppc.ppcgen.jump import remap_frame_layout
 from pypy.jit.backend.ppc.ppcgen.regalloc import TempPtr
 from pypy.jit.backend.llsupport import symbolic
-from pypy.rpython.lltypesystem import rstr
+from pypy.rpython.lltypesystem import rstr, rffi, lltype
 
 NO_FORCE_INDEX = -1
 
@@ -610,6 +610,15 @@ class OpAssembler(object):
         # XXX do exception handling here!
         pass
 
+    def emit_new_array(self, op, arglocs, regalloc):
+        # XXX handle memory errors
+        if len(arglocs) > 0:
+            value_loc, base_loc, ofs_length = arglocs
+            if IS_PPC_32:
+                self.mc.stw(value_loc.value, base_loc.value, ofs_length.value)
+            else:
+                self.mc.std(value_loc.value, base_loc.value, ofs_length.value)
+
     def emit_same_as(self, op, arglocs, regalloc):
         argloc, resloc = arglocs
         self.regalloc_mov(argloc, resloc)
@@ -771,3 +780,20 @@ class OpAssembler(object):
 
     def nop(self):
         self.mc.ori(0, 0, 0)
+
+    # from: ../x86/regalloc.py:750
+    # called from regalloc
+    # XXX kill this function at some point
+    def _regalloc_malloc_varsize(self, size, size_box, vloc, vbox, ofs_items_loc, regalloc, result):
+        if IS_PPC_32:
+            self.mc.mullw(size.value, size.value, vloc.value)
+        else:
+            self.mc.mulld(size.value, size.value, vloc.value)
+        if ofs_items_loc.is_imm():
+            self.mc.addi(size.value, size.value, ofs_items_loc.value)
+        else:
+            self.mc.add(size.value, size.value, ofs_items_loc.value)
+        force_index = self.write_new_force_index()
+        regalloc.force_spill_var(vbox)
+        self._emit_call(force_index, self.malloc_func_addr, [size_box], regalloc,
+                                    result=result)

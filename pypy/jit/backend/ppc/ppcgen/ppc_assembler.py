@@ -116,6 +116,7 @@ class AssemblerPPC(OpAssembler):
         self.fail_boxes_ptr = values_array(llmemory.GCREF, failargs_limit)
         self.mc = None
         self.malloc_func_addr = 0
+        self.malloc_array_func_addr = 0
         self.datablockwrapper = None
         self.memcpy_addr = 0
         self.fail_boxes_count = 0
@@ -462,6 +463,10 @@ class AssemblerPPC(OpAssembler):
         gc_ll_descr.initialize()
         ll_new = gc_ll_descr.get_funcptr_for_new()
         self.malloc_func_addr = rffi.cast(lltype.Signed, ll_new)
+        if gc_ll_descr.get_funcptr_for_newarray is not None:
+            ll_new_array = gc_ll_descr.get_funcptr_for_newarray()
+            self.malloc_array_func_addr = rffi.cast(lltype.Signed,
+                                                    ll_new_array)
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
         self.setup_failure_recovery()
         self.exit_code_adr = self._gen_exit_path()
