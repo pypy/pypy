@@ -176,7 +176,7 @@ class Integer(Primitive):
 
     def str_format(self, box):
         value = self.unbox(box)
-        return str(value)
+        return str(self.for_computation(value))
 
     def for_computation(self, v):
         return widen(v)
