@@ -125,15 +125,15 @@ class AbstractAttribute(object):
         return None
 
     @jit.elidable
-    def _get_new_attr(self, name, index):
-        selector = name, index
+    def _get_new_attr(self, name, index, attrclass):
+        key = name, index, attrclass
         cache = self.cache_attrs
         if cache is None:
             cache = self.cache_attrs = {}
-        attr = cache.get(selector, None)
+        attr = cache.get(key, None)
         if attr is None:
-            attr = PlainAttribute(selector, self)
-            cache[selector] = attr
+            attr = attrclass(key, self)
+            cache[key] = attr
         return attr
 
     @jit.look_inside_iff(lambda self, obj, selector, w_value:
@@ -141,8 +141,9 @@ class AbstractAttribute(object):
             jit.isconstant(selector[0]) and
             jit.isconstant(selector[1]))
     def add_attr(self, obj, selector, w_value):
+        attrclass = get_attrclass_from_value(self.space, w_value)
         # grumble, jit needs this
-        attr = self._get_new_attr(selector[0], selector[1])
+        attr = self._get_new_attr(selector[0], selector[1], attrclass)
         oldattr = obj._get_mapdict_map()
         if not jit.we_are_jitted():
             size_est = (oldattr._size_estimate + attr.size_estimate()
@@ -264,8 +265,10 @@ class DevolvedDictTerminator(Terminator):
             terminator = terminator.devolved_dict_terminator
         return Terminator.set_terminator(self, obj, terminator)
 
-class PlainAttribute(AbstractAttribute):
+class AbstractStoredAttribute(AbstractAttribute):
+
     _immutable_fields_ = ['selector', 'position', 'back']
+
     def __init__(self, selector, back):
         AbstractAttribute.__init__(self, back.space, back.terminator)
         self.selector = selector
@@ -276,17 +279,6 @@ class PlainAttribute(AbstractAttribute):
     def _copy_attr(self, obj, new_obj):
         w_value = self.read(obj, self.selector)
         new_obj._get_mapdict_map().add_attr(new_obj, self.selector, w_value)
-
-    def read_attr(self, obj):
-        # XXX do the unerasing (and wrapping) here
-        erased = obj._mapdict_read_storage(self.position)
-        w_value = unerase_item(erased)
-        return w_value
-
-    def write_attr(self, obj, w_value):
-        # XXX do the unerasing (and unwrapping) here
-        erased = erase_item(w_value)
-        obj._mapdict_write_storage(self.position, erased)
 
     def delete(self, obj, selector):
         if selector == self.selector:
@@ -332,6 +324,41 @@ class PlainAttribute(AbstractAttribute):
 
     def __repr__(self):
         return "<PlainAttribute %s %s %r>" % (self.selector, self.position, self.back)
+
+class PlainAttribute(AbstractStoredAttribute):
+
+    erase_item, unerase_item = rerased.new_erasing_pair("mapdict storage object item")
+    erase_item = staticmethod(erase_item)
+    unerase_item = staticmethod(unerase_item)
+
+    def read_attr(self, obj):
+        erased = obj._mapdict_read_storage(self.position)
+        w_value = self.unerase_item(erased)
+        return w_value
+
+    def write_attr(self, obj, w_value):
+        erased = self.erase_item(w_value)
+        obj._mapdict_write_storage(self.position, erased)
+
+class IntAttribute(AbstractStoredAttribute):
+
+    erase_item, unerase_item = rerased.erase_int, rerased.unerase_int
+    erase_item = staticmethod(erase_item)
+    unerase_item = staticmethod(unerase_item)
+
+    def read_attr(self, obj):
+        erased = obj._mapdict_read_storage(self.position)
+        value = self.unerase_item(erased)
+        return self.space.wrap(value)
+
+    def write_attr(self, obj, w_value):
+        erased = self.erase_item(self.space.int_w(w_value))
+        obj._mapdict_write_storage(self.position, erased)
+
+def get_attrclass_from_value(space, w_value):
+    if space.is_w(space.type(w_value), space.w_int):
+        return IntAttribute
+    return PlainAttribute
 
 def _become(w_obj, new_obj):
     # this is like the _become method, really, but we cannot use that due to
@@ -524,7 +551,6 @@ def memo_get_subclass_of_correct_size(space, supercls):
 memo_get_subclass_of_correct_size._annspecialcase_ = "specialize:memo"
 _subclass_cache = {}
 
-erase_item, unerase_item = rerased.new_erasing_pair("mapdict storage item")
 erase_list, unerase_list = rerased.new_erasing_pair("mapdict storage list")
 
 def _make_subclass_size_n(supercls, n):

@@ -5,12 +5,14 @@ from pypy.objspace.std.mapdict import *
 space = FakeSpace()
 
 class Class(object):
-    def __init__(self, hasdict=True):
+    def __init__(self, hasdict=True, sp=None):
         self.hasdict = True
+        if sp is None:
+            sp = space
         if hasdict:
-            self.terminator = DictTerminator(space, self)
+            self.terminator = DictTerminator(sp, self)
         else:
-            self.terminator = NoDictTerminator(space, self)
+            self.terminator = NoDictTerminator(sp, self)
 
     def instantiate(self, sp=None):
         if sp is None:
@@ -24,10 +26,10 @@ class Object(Object):
         hasdict = False
 
 def erase_storage_items(items):
-    return [erase_item(item) for item in items]
+    return [IntAttribute.erase_item(item) for item in items]
 
 def unerase_storage_items(storage):
-    return [unerase_item(item) for item in storage]
+    return [IntAttribute.unerase_item(item) for item in storage]
 
 def test_plain_attribute():
 
@@ -247,7 +249,6 @@ def test_getdict():
     assert obj.getdict(space) is obj.getdict(space)
     assert obj.getdict(space).length() == 3
 
-
 def test_materialize_r_dict():
     cls = Class()
     obj = cls.instantiate()
@@ -300,6 +301,50 @@ def test_size_prediction():
             for a in "klmnopqars":
                 obj.setdictvalue(space, a, 50)
         assert c.terminator.size_estimate() in [(i + 10) // 2, (i + 11) // 2]
+
+class TestTypeSpecializedAttributes(object):
+    def setup_class(cls):
+        cls.space = gettestobjspace(**{"objspace.std.withmapdict": True})
+
+    def test_attributes(self):
+        space = self.space
+        cls = Class(sp=space)
+        obj1 = cls.instantiate()
+        obj1.setdictvalue(space, "x", space.wrap(1))
+        #assert space.eq_w(obj1.getdictvalue(space, "x"), space.wrap(1))
+
+        obj2 = cls.instantiate()
+        w_str = space.wrap("string")
+        obj2.setdictvalue(space, "x", w_str)
+        #assert space.eq_w(obj1.getdictvalue(space, "x"), w_str)
+
+        assert obj1.map is not obj2.map
+        assert isinstance(obj1.map, IntAttribute)
+
+        obj3 = cls.instantiate()
+        obj3.setdictvalue(space, "x", space.wrap(5))
+
+        assert obj1.map is obj3.map
+
+        assert IntAttribute.unerase_item(obj1.storage[0]) == 1
+        assert PlainAttribute.unerase_item(obj2.storage[0]) == w_str
+
+    def test_add_more_attributes(self):
+        space = self.space
+        cls = Class(sp=space)
+
+        obj1 = cls.instantiate()
+        obj1.setdictvalue(space, "x", space.wrap(1))
+        obj1.setdictvalue(space, "y", space.wrap(2))
+
+    def test_switch_attribute_types(self):
+        space = self.space
+        cls = Class(sp=space)
+        obj1 = cls.instantiate()
+        obj1.setdictvalue(space, "x", space.wrap(1))
+        assert isinstance(obj1.map, IntAttribute)
+        obj1.setdictvalue(space, "y", space.wrap("str"))
+        assert isinstance(obj1.map, PlainAttribute)
 
 # ___________________________________________________________
 # dict tests
