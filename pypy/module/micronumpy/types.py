@@ -1,3 +1,4 @@
+import functools
 import math
 
 from pypy.module.micronumpy import interp_boxes
@@ -9,6 +10,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 
 
 def simple_unary_op(func):
+    @functools.wraps(func)
     def dispatcher(self, v):
         return self.box(
             func(
@@ -19,6 +21,7 @@ def simple_unary_op(func):
     return dispatcher
 
 def simple_binary_op(func):
+    @functools.wraps(func)
     def dispatcher(self, v1, v2):
         return self.box(
             func(
@@ -30,6 +33,7 @@ def simple_binary_op(func):
     return dispatcher
 
 def raw_binary_op(func):
+    @functools.wraps(func)
     def dispatcher(self, v1, v2):
         return func(self,
             self.for_computation(self.unbox(v1)),
