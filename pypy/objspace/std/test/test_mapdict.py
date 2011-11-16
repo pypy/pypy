@@ -311,12 +311,12 @@ class TestTypeSpecializedAttributes(object):
         cls = Class(sp=space)
         obj1 = cls.instantiate()
         obj1.setdictvalue(space, "x", space.wrap(1))
-        #assert space.eq_w(obj1.getdictvalue(space, "x"), space.wrap(1))
+        assert space.eq_w(obj1.getdictvalue(space, "x"), space.wrap(1))
 
         obj2 = cls.instantiate()
         w_str = space.wrap("string")
         obj2.setdictvalue(space, "x", w_str)
-        #assert space.eq_w(obj1.getdictvalue(space, "x"), w_str)
+        assert space.eq_w(obj2.getdictvalue(space, "x"), w_str)
 
         assert obj1.map is not obj2.map
         assert isinstance(obj1.map, IntAttribute)
@@ -501,9 +501,7 @@ class AppTestWithMapDict(object):
         a.x = 42
 
         assert a.x == 42
-        print "read once"
         assert a.x == 42
-        print "read twice"
 
     def test_simple(self):
         class A(object):
@@ -727,7 +725,6 @@ class AppTestWithMapDictAndCounters(object):
             INVALID_CACHE_ENTRY.failure_counter = 0
             #
             w_res = space.call_function(w_func)
-            print w_res
             assert space.eq_w(w_res, space.wrap(42))
             #
             entry = w_code._mapdict_caches[nameindex]
@@ -758,14 +755,9 @@ class AppTestWithMapDictAndCounters(object):
         def f():
             return a.x
         #
-        print "1"
         assert a.x == 42
-        print "2"
         assert a.x == 42
-        print "3"
-        print "first check"
         res = self.check(f, 'x')
-        print "second check"
         assert res == (1, 0, 0)
         res = self.check(f, 'x')
         assert res == (0, 1, 0)
