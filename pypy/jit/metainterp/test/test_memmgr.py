@@ -14,7 +14,7 @@ import py
 from pypy.jit.metainterp.memmgr import MemoryManager
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.rlib.jit import JitDriver, dont_look_inside
-
+from pypy.jit.metainterp.warmspot import get_stats
 
 class FakeLoopToken:
     generation = 0
@@ -155,9 +155,9 @@ class _TestIntegration(LLJitMixin):
             return 21
         def f():
             for i in range(10):
-                g(1)   # g(1) gets a loop and an entry bridge, stays alive
-                g(2)   # (and an exit bridge, which does not count in
-                g(1)   # check_target_token_count)
+                g(1)   # g(1) gets a loop with an entry bridge
+                g(2)   # and an exit bridge, stays alive
+                g(1)   
                 g(3)
                 g(1)
                 g(4)   # g(2), g(3), g(4), g(5) are thrown away every iteration
@@ -167,7 +167,7 @@ class _TestIntegration(LLJitMixin):
 
         res = self.meta_interp(f, [], loop_longevity=3)
         assert res == 42
-        self.check_enter_count(2 + 10*4*2)
+        self.check_enter_count(2 + 10*4)
 
     def test_call_assembler_keep_alive(self):
         myjitdriver1 = JitDriver(greens=['m'], reds=['n'])
@@ -190,7 +190,7 @@ class _TestIntegration(LLJitMixin):
             return 21
         def f(u):
             for i in range(8):
-                h(u, 32)  # make a loop and an entry bridge for h(u)
+                h(u, 32)  # make a loop and an exit bridge for h(u)
             g(u, 8)       # make a loop for g(u) with a call_assembler
             g(u, 0); g(u+1, 0)     # \
             g(u, 0); g(u+2, 0)     #  \  make more loops for g(u+1) to g(u+4),
@@ -201,7 +201,12 @@ class _TestIntegration(LLJitMixin):
 
         res = self.meta_interp(f, [1], loop_longevity=4, inline=True)
         assert res == 42
-        self.check_enter_count(12)
+        self.check_jitcell_token_count(6)
+        tokens = [t() for t in get_stats().jitcell_token_wrefs]
+        # Some loops have been freed
+        assert None in tokens
+        # Loop with number 0, h(), has not been freed
+        assert 0 in [t.number for t in tokens if t]
 
 # ____________________________________________________________
 
