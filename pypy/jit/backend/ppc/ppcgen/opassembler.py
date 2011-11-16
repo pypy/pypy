@@ -610,6 +610,19 @@ class OpAssembler(object):
         # XXX do exception handling here!
         pass
 
+    def emit_new_with_vtable(self, op, arglocs, regalloc):
+        classint = arglocs[0].value
+        self.set_vtable(op.result, classint)
+
+    def set_vtable(self, box, vtable):
+        if self.cpu.vtable_offset is not None:
+            adr = rffi.cast(lltype.Signed, vtable)
+            self.mc.load_imm(r.r0, adr)
+            if IS_PPC_32:
+                self.mc.stw(r.r0.value, r.r3.value, self.cpu.vtable_offset)
+            else:
+                self.mc.std(r.r0.value, r.r3.value, self.cpu.vtable_offset)
+
     def emit_new_array(self, op, arglocs, regalloc):
         # XXX handle memory errors
         if len(arglocs) > 0:

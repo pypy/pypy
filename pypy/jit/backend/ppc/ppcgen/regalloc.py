@@ -639,6 +639,18 @@ class Regalloc(object):
         self.possibly_free_var(op.result)
         return []
 
+    def prepare_new_with_vtable(self, op):
+        classint = op.getarg(0).getint()
+        descrsize = heaptracker.vtable2descr(self.cpu, classint)
+        # XXX add fastpath for allocation
+        callargs = self._prepare_args_for_new_op(descrsize)
+        force_index = self.assembler.write_new_force_index()
+        self.assembler._emit_call(force_index, self.assembler.malloc_func_addr,
+                                    callargs, self, result=op.result)
+        self.possibly_free_vars(callargs)
+        self.possibly_free_var(op.result)
+        return [imm(classint)]
+
     def prepare_new_array(self, op):
         gc_ll_descr = self.cpu.gc_ll_descr
         if gc_ll_descr.get_funcptr_for_newarray is not None:
