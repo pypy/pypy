@@ -42,7 +42,7 @@ class TestNumArrayDirect(object):
         assert s.start == 19
         assert s.shape == [2, 1]
         assert s.shards == [45, 3]
-        assert s.backshards == [45, 3]
+        assert s.backshards == [45, 0]
         s = a.create_slice(space, self.newtuple(
             self.newslice(None, None, None), space.wrap(2)))
         assert s.start == 6
@@ -64,7 +64,7 @@ class TestNumArrayDirect(object):
             self.newslice(None, None, None), space.wrap(2)]))
         assert s2.shape == [2, 3]
         assert s2.shards == [45, 1]
-        assert s2.backshards == [90, 2]
+        assert s2.backshards == [45, 2]
         assert s2.start == 1*15 + 2*3
 
     def test_negative_step(self):
@@ -73,7 +73,7 @@ class TestNumArrayDirect(object):
         s = a.create_slice(space, self.newslice(None, None, -2))
         assert s.start == 135
         assert s.shards == [-30, 3, 1]
-        assert s.backshards == [-150, 12, 2]
+        assert s.backshards == [-120, 12, 2]
 
     def test_index_of_single_item(self):
         a = NDimArray(10*5*3, [10, 5, 3], MockDtype())
