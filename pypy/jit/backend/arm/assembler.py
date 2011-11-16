@@ -799,12 +799,17 @@ class AssemblerARM(ResOpAssembler):
                                         operations[i+1], fcond)
                 fcond = asm_operations_with_guard[opnum](self, op,
                                         operations[i+1], arglocs, regalloc, fcond)
+                guard = operations[i+1]
+                regalloc.possibly_free_vars_for_op(guard)
+                regalloc.possibly_free_vars(guard.getfailargs())
             elif not we_are_translated() and op.getopnum() == -124:
                 regalloc.prepare_force_spill(op, fcond)
             else:
                 arglocs = regalloc_operations[opnum](regalloc, op, fcond)
                 if arglocs is not None:
                     fcond = asm_operations[opnum](self, op, arglocs, regalloc, fcond)
+            if op.is_guard():
+                regalloc.possibly_free_vars(op.getfailargs())
             if op.result:
                 regalloc.possibly_free_var(op.result)
             regalloc.possibly_free_vars_for_op(op)
