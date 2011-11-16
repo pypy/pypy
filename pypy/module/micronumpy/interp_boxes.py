@@ -3,6 +3,7 @@ from pypy.interpreter.error import operationerrfmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.inttype import int_typedef
+from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
 
@@ -35,6 +36,7 @@ class W_GenericBox(Wrappable):
         for dtype in get_dtype_cache(space).builtin_dtypes:
             if w_subtype is dtype.w_box_type:
                 return dtype.coerce(space, w_value)
+        assert isinstance(w_subtype, W_TypeObject)
         raise operationerrfmt(space.w_TypeError, "cannot create '%s' instances",
             w_subtype.get_module_type_name()
         )

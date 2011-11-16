@@ -29,6 +29,14 @@ def simple_binary_op(func):
         )
     return dispatcher
 
+def raw_binary_op(func):
+    def dispatcher(self, v1, v2):
+        return func(self,
+            self.for_computation(self.unbox(v1)),
+            self.for_computation(self.unbox(v2))
+        )
+    return dispatcher
+
 class BaseType(object):
     def _unimplemented_ufunc(self, *args):
         raise NotImplementedError
@@ -100,23 +108,29 @@ class Primitive(object):
     def abs(self, v):
         return abs(v)
 
+    @raw_binary_op
     def eq(self, v1, v2):
-        return self.unbox(v1) == self.unbox(v2)
+        return v1 == v2
 
+    @raw_binary_op
     def ne(self, v1, v2):
-        return self.unbox(v1) != self.unbox(v2)
+        return v1 != v2
 
+    @raw_binary_op
     def lt(self, v1, v2):
-        return self.unbox(v1) < self.unbox(v2)
+        return v1 < v2
 
+    @raw_binary_op
     def le(self, v1, v2):
-        return self.unbox(v1) <= self.unbox(v2)
+        return v1 <= v2
 
+    @raw_binary_op
     def gt(self, v1, v2):
-        return self.unbox(v1) > self.unbox(v2)
+        return v1 > v2
 
+    @raw_binary_op
     def ge(self, v1, v2):
-        return self.unbox(v1) >= self.unbox(v2)
+        return v1 >= v2
 
     def bool(self, v):
         return bool(self.for_computation(self.unbox(v)))
@@ -235,7 +249,7 @@ class Float(Primitive):
 
     def str_format(self, box):
         value = self.unbox(box)
-        return float2string(value, "g", rfloat.DTSF_STR_PRECISION)
+        return float2string(self.for_computation(value), "g", rfloat.DTSF_STR_PRECISION)
 
     def for_computation(self, v):
         return float(v)
