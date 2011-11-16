@@ -29,6 +29,9 @@ class TestARM(LLtypeBackendTest):
         cls.cpu = ArmCPU(rtyper=None, stats=FakeStats())
         cls.cpu.setup_once()
 
+    def teardown_method(self, method):
+        self.cpu.assembler.teardown()
+
     # for the individual tests see
     # ====> ../../test/runner_test.py
     def test_result_is_spilled(self):
