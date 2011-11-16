@@ -127,9 +127,12 @@ def ll_math_isnan(y):
     return y != y
 
 def ll_math_isinf(y):
-    if use_library_isinf_isnan and not jit.we_are_jitted():
+    if jit.we_are_jitted():
+        return (y + VERY_LARGE_FLOAT) == y
+    elif use_library_isinf_isnan:
         return not _lib_finite(y) and not _lib_isnan(y)
-    return (y + VERY_LARGE_FLOAT) == y
+    else:
+        return y == INFINITY or y == -INFINITY
 
 def ll_math_isfinite(y):
     # Use a custom hack that is reasonably well-suited to the JIT.
