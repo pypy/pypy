@@ -99,7 +99,7 @@ class AbstractAttribute(object):
         return attr
 
     def _findmap(self, selector):
-        while isinstance(self, PlainAttribute):
+        while isinstance(self, AbstractStoredAttribute):
             if selector == self.selector:
                 return self
             self = self.back
