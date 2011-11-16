@@ -813,6 +813,7 @@ class AssemblerARM(ResOpAssembler):
             if op.result:
                 regalloc.possibly_free_var(op.result)
             regalloc.possibly_free_vars_for_op(op)
+            regalloc.free_temp_vars()
             regalloc._check_invariants()
 
     # from ../x86/regalloc.py

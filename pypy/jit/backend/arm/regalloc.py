@@ -84,6 +84,13 @@ class VFPRegisterManager(RegisterManager):
         self._check_type(v)
         r = self.force_allocate_reg(v)
         return r
+    def get_scratch_reg(self, type=FLOAT, forbidden_vars=[], selected_reg=None):
+        assert type == FLOAT # for now
+        box = TempFloat()
+        self.temp_boxes.append(box)
+        return self.force_allocate_reg(box, forbidden_vars=forbidden_vars, selected_reg=selected_reg)
+
+
 class ARMv7RegisterMananger(RegisterManager):
     all_regs              = r.all_regs
     box_types             = None       # or a list of acceptable types
@@ -115,6 +122,12 @@ class ARMv7RegisterMananger(RegisterManager):
             assert isinstance(c, ConstPtr)
             return locations.ImmLocation(rffi.cast(lltype.Signed, c.value))
     
+    def get_scratch_reg(self, type=INT, forbidden_vars=[], selected_reg=None):
+        assert type == INT or type == REF
+        box = TempBox()
+        self.temp_boxes.append(box)
+        return self.force_allocate_reg(box, forbidden_vars=forbidden_vars, selected_reg=selected_reg)
+
 class Regalloc(object):
 
     def __init__(self, longevity, frame_manager=None, assembler=None):
@@ -190,6 +203,16 @@ class Regalloc(object):
         for var in vars:
             if var is not None: # xxx kludgy
                 self.possibly_free_var(var)
+
+    def get_scratch_reg(self, type, forbidden_vars=[], selected_reg=None):
+        if type == FLOAT:
+            return self.vfprm.get_scratch_reg(type, forbidden_vars, selected_reg)
+        else:
+            return self.rm.get_scratch_reg(type, forbidden_vars, selected_reg)
+
+    def free_temp_vars(self):
+        self.rm.free_temp_vars()
+        self.vfprm.free_temp_vars()
 
     def make_sure_var_in_reg(self, var, forbidden_vars=[],
                          selected_reg=None, need_lower_byte=False):
@@ -668,11 +691,9 @@ class Regalloc(object):
         if _check_imm_arg(c_ofs):
             ofs_loc = imm(ofs)
         else:
-            ofs_loc, ofs_box = self._ensure_value_is_boxed(c_ofs, [base_box, index_box])
-            self.possibly_free_var(ofs_box)
-        self.possibly_free_vars(args)
-        self.possibly_free_var(base_box)
-        self.possibly_free_var(index_box)
+            ofs_loc = self._ensure_value_is_boxed(c_ofs, args)
+        self.possibly_free_vars_for_op(op)
+        self.free_temp_vars()
         result_loc = self.force_allocate_reg(op.result)
         return [base_loc, index_loc, result_loc, ofs_loc, imm(ofs), 
                                         imm(itemsize), imm(fieldsize)]

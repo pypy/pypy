@@ -59,6 +59,7 @@ class RegisterManager(object):
     no_lower_byte_regs    = []
     save_around_call_regs = []
     frame_reg             = None
+    temp_boxes            = []
 
     def __init__(self, longevity, frame_manager=None, assembler=None):
         self.free_regs = self.all_regs[:]
@@ -101,6 +102,10 @@ class RegisterManager(object):
         for i in range(op.numargs()):
             self.possibly_free_var(op.getarg(i))
 
+    def free_temp_vars(self):
+        self.possibly_free_vars(self.temp_boxes)
+        self.temp_boxes = []
+
     def _check_invariants(self):
         if not we_are_translated():
             # make sure no duplicates
@@ -111,6 +116,7 @@ class RegisterManager(object):
             assert len(rev_regs) + len(self.free_regs) == len(self.all_regs)
         else:
             assert len(self.reg_bindings) + len(self.free_regs) == len(self.all_regs)
+        assert len(self.temp_boxes) == 0
         if self.longevity:
             for v in self.reg_bindings:
                 assert self.longevity[v][1] > self.position
@@ -381,6 +387,10 @@ class RegisterManager(object):
         """ Platform specific - tell where the result of a call will
         be stored by the cpu, according to the variable type
         """
+        raise NotImplementedError("Abstract")
+
+    def get_scratch_reg(self, forbidden_vars=[]):
+        """ Platform specific - Allocates a temporary register """
         raise NotImplementedError("Abstract")
 
 def compute_vars_longevity(inputargs, operations):
