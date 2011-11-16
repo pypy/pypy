@@ -294,9 +294,9 @@ def send_bridge_to_backend(jitdriver_sd, metainterp_sd, faildescr, inputargs,
     #
     metainterp_sd.logger_ops.log_bridge(inputargs, operations, n, ops_offset)
     #
-    if metainterp_sd.warmrunnerdesc is not None:    # for tests
-        metainterp_sd.warmrunnerdesc.memory_manager.keep_loop_alive(
-            original_loop_token)
+    #if metainterp_sd.warmrunnerdesc is not None:    # for tests
+    #    metainterp_sd.warmrunnerdesc.memory_manager.keep_loop_alive(
+    #        original_loop_token)
 
 # ____________________________________________________________
 

@@ -114,6 +114,8 @@ class _TestIntegration(LLJitMixin):
             # Depending on loop_longevity, either:
             # A. create the loop and the entry bridge for 'g(5)'
             # B. create 8 loops (and throw them away at each iteration)
+            #    Actually, it's 4 loops and 4 exit bridges thrown away
+            #    every second iteration
             for i in range(8):
                 g(5)
             # create another loop and another entry bridge for 'g(7)',
