@@ -41,7 +41,6 @@ class FakeSpace(object):
     def __init__(self):
         """NOT_RPYTHON"""
         self.fromcache = InternalSpaceCache(self).getorbuild
-        self.w_float64dtype = get_dtype_cache(self).w_float64dtype
 
     def issequence_w(self, w_obj):
         return isinstance(w_obj, ListObject) or isinstance(w_obj, SingleDimArray)
