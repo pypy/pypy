@@ -2,6 +2,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import operationerrfmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef
+from pypy.objspace.std.floattype import float_typedef
 from pypy.objspace.std.inttype import int_typedef
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.rlib.rarithmetic import LONG_BIT
@@ -41,6 +42,9 @@ class W_GenericBox(Wrappable):
             w_subtype.get_module_type_name()
         )
 
+    def descr_str(self, space):
+        return self.descr_repr(space)
+
     def descr_repr(self, space):
         return space.wrap(self.get_dtype(space).itemtype.str_format(self))
 
@@ -53,6 +57,10 @@ class W_GenericBox(Wrappable):
         box = self.convert_to(W_Float64Box.get_dtype(space))
         assert isinstance(box, W_Float64Box)
         return space.wrap(box.value)
+
+    def descr_nonzero(self, space):
+        dtype = self.get_dtype(space)
+        return space.wrap(dtype.itemtype.bool(self))
 
     def _binop_impl(ufunc_name):
         def impl(self, space, w_other):
@@ -77,7 +85,11 @@ class W_GenericBox(Wrappable):
     descr_mul = _binop_impl("multiply")
     descr_div = _binop_impl("divide")
     descr_eq = _binop_impl("equal")
+    descr_ne = _binop_impl("not_equal")
     descr_lt = _binop_impl("less")
+    descr_le = _binop_impl("less_equal")
+    descr_gt = _binop_impl("greater")
+    descr_ge = _binop_impl("greater_equal")
 
     descr_rmul = _binop_right_impl("multiply")
 
@@ -86,7 +98,7 @@ class W_GenericBox(Wrappable):
 
 
 class W_BoolBox(W_GenericBox, PrimitiveBox):
-    pass
+    get_dtype = dtype_getter("bool")
 
 class W_NumberBox(W_GenericBox):
     _attrs_ = ()
@@ -148,9 +160,11 @@ W_GenericBox.typedef = TypeDef("generic",
     __module__ = "numpy",
 
     __new__ = interp2app(W_GenericBox.descr__new__.im_func),
+    __str__ = interp2app(W_GenericBox.descr_str),
     __repr__ = interp2app(W_GenericBox.descr_repr),
     __int__ = interp2app(W_GenericBox.descr_int),
     __float__ = interp2app(W_GenericBox.descr_float),
+    __nonzero__ = interp2app(W_GenericBox.descr_nonzero),
 
     __add__ = interp2app(W_GenericBox.descr_add),
     __sub__ = interp2app(W_GenericBox.descr_sub),
@@ -160,7 +174,11 @@ W_GenericBox.typedef = TypeDef("generic",
     __rmul__ = interp2app(W_GenericBox.descr_rmul),
 
     __eq__ = interp2app(W_GenericBox.descr_eq),
+    __ne__ = interp2app(W_GenericBox.descr_ne),
     __lt__ = interp2app(W_GenericBox.descr_lt),
+    __le__ = interp2app(W_GenericBox.descr_le),
+    __gt__ = interp2app(W_GenericBox.descr_gt),
+    __ge__ = interp2app(W_GenericBox.descr_ge),
 
     __neg__ = interp2app(W_GenericBox.descr_neg),
     __abs__ = interp2app(W_GenericBox.descr_abs),
@@ -227,5 +245,17 @@ W_UInt64Box.typedef = TypeDef("uint64", W_UnsignedIntgerBox.typedef,
 )
 
 W_InexactBox.typedef = TypeDef("inexact", W_NumberBox.typedef,
+    __module__ = "numpy",
+)
+
+W_FloatingBox.typedef = TypeDef("floating", W_InexactBox.typedef,
+    __module__ = "numpy",
+)
+
+W_Float32Box.typedef = TypeDef("float32", W_FloatingBox.typedef,
+    __module__ = "numpy",
+)
+
+W_Float64Box.typedef = TypeDef("float64", (W_FloatingBox.typedef, float_typedef),
     __module__ = "numpy",
 )
