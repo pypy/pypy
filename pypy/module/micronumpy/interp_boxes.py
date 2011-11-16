@@ -1,4 +1,5 @@
 from pypy.interpreter.baseobjspace import Wrappable
+from pypy.interpreter.error import operationerrfmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.inttype import int_typedef
@@ -26,6 +27,17 @@ class PrimitiveBox(object):
 
 class W_GenericBox(Wrappable):
     _attrs_ = ()
+
+    def descr__new__(space, w_subtype, w_value):
+        from pypy.module.micronumpy.interp_dtype import get_dtype_cache
+        # XXX: not correct if w_subtype is a user defined subclass of a builtin
+        # type, this whole thing feels a little wrong.
+        for dtype in get_dtype_cache(space).builtin_dtypes:
+            if w_subtype is dtype.w_box_type:
+                return dtype.coerce(space, w_value)
+        raise operationerrfmt(space.w_TypeError, "cannot create '%s' instances",
+            w_subtype.get_module_type_name()
+        )
 
     def descr_repr(self, space):
         return space.wrap(self.get_dtype(space).itemtype.str_format(self))
@@ -87,7 +99,7 @@ class W_UnsignedIntgerBox(W_IntegerBox):
     pass
 
 class W_Int8Box(W_SignedIntegerBox, PrimitiveBox):
-    pass
+    get_dtype = dtype_getter("int8")
 
 class W_UInt8Box(W_UnsignedIntgerBox, PrimitiveBox):
     pass
@@ -133,6 +145,7 @@ class W_Float64Box(W_FloatingBox, PrimitiveBox):
 W_GenericBox.typedef = TypeDef("generic",
     __module__ = "numpy",
 
+    __new__ = interp2app(W_GenericBox.descr__new__.im_func),
     __repr__ = interp2app(W_GenericBox.descr_repr),
     __int__ = interp2app(W_GenericBox.descr_int),
     __float__ = interp2app(W_GenericBox.descr_float),
@@ -171,6 +184,26 @@ W_Int8Box.typedef = TypeDef("int8", W_SignedIntegerBox.typedef,
     __module__ = "numpy",
 )
 
+W_UInt8Box.typedef = TypeDef("uint8", W_UnsignedIntgerBox.typedef,
+    __module__ = "numpy",
+)
+
+W_Int16Box.typedef = TypeDef("int16", W_SignedIntegerBox.typedef,
+    __module__ = "numpy",
+)
+
+W_UInt16Box.typedef = TypeDef("uint16", W_UnsignedIntgerBox.typedef,
+    __module__ = "numpy",
+)
+
+W_Int32Box.typedef = TypeDef("int32", W_SignedIntegerBox.typedef,
+    __module__ = "numpy",
+)
+
+W_UInt32Box.typedef = TypeDef("uint32", W_UnsignedIntgerBox.typedef,
+    __module__ = "numpy",
+)
+
 if LONG_BIT == 32:
     long_name = "int32"
 elif LONG_BIT == 64:
@@ -179,6 +212,18 @@ W_LongBox.typedef = TypeDef(long_name, (W_SignedIntegerBox.typedef, int_typedef,
     __module__ = "numpy",
 )
 
+W_ULongBox.typedef = TypeDef("u" + long_name, W_UnsignedIntgerBox.typedef,
+    __module__ = "numpy",
+)
+
 W_Int64Box.typedef = TypeDef("int64", (W_SignedIntegerBox.typedef,) + MIXIN_64,
+    __module__ = "numpy",
+)
+
+W_UInt64Box.typedef = TypeDef("uint64", W_UnsignedIntgerBox.typedef,
+    __module__ = "numpy",
+)
+
+W_InexactBox.typedef = TypeDef("inexact", W_NumberBox.typedef,
     __module__ = "numpy",
 )

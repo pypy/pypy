@@ -167,6 +167,14 @@ class AppTestDtypes(BaseNumpyAppTest):
         raises(TypeError, type, "Foo", (dtype,), {})
 
 class AppTestTypes(BaseNumpyAppTest):
+    def test_abstract_types(self):
+        import numpy
+        raises(TypeError, numpy.generic, 0)
+        raises(TypeError, numpy.number, 0)
+        raises(TypeError, numpy.integer, 0)
+        exc = raises(TypeError, numpy.signedinteger, 0)
+        assert str(exc.value) == "cannot create 'numpy.signedinteger' instances"
+
     def test_int8(self):
         import numpy
 
@@ -175,3 +183,9 @@ class AppTestTypes(BaseNumpyAppTest):
         a = numpy.array([1, 2, 3], numpy.int8)
         assert type(a[1]) is numpy.int8
         assert numpy.dtype("int8").type is numpy.int8
+
+        x = numpy.int8(128)
+        assert x == -128
+        assert x != 128
+        assert type(x) is numpy.int8
+        assert repr(x) == "-128"
