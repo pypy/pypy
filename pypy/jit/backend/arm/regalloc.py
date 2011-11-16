@@ -141,7 +141,7 @@ class ARMv7RegisterMananger(RegisterManager):
         loc = None
         if isinstance(thing, Const):
             if isinstance(thing, ConstPtr):
-                tp = PTR
+                tp = REF
             else:
                 tp = INT
             loc = self.get_scratch_reg(tp, forbidden_vars=self.temp_boxes + forbidden_vars)
