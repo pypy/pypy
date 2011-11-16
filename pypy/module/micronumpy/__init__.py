@@ -16,6 +16,12 @@ class Module(MixedModule):
 
         'True_': 'types.Bool.True',
         'False_': 'types.Bool.False',
+
+        'generic': 'interp_boxes.W_GenericBox',
+        'number': 'interp_boxes.W_NumberBox',
+        'integer': 'interp_boxes.W_IntegerBox',
+        'signedinteger': 'interp_boxes.W_SignedIntegerBox',
+        'int8': 'interp_boxes.W_Int8Box',
     }
 
     # ufuncs

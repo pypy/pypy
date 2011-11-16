@@ -167,6 +167,10 @@ W_SignedIntegerBox.typedef = TypeDef("signedinteger", W_IntegerBox.typedef,
     __module__ = "numpy",
 )
 
+W_Int8Box.typedef = TypeDef("int8", W_SignedIntegerBox.typedef,
+    __module__ = "numpy",
+)
+
 if LONG_BIT == 32:
     long_name = "int32"
 elif LONG_BIT == 64:

@@ -165,3 +165,13 @@ class AppTestDtypes(BaseNumpyAppTest):
 
         # You can't subclass dtype
         raises(TypeError, type, "Foo", (dtype,), {})
+
+class AppTestTypes(BaseNumpyAppTest):
+    def test_int8(self):
+        import numpy
+
+        assert numpy.int8.mro() == [numpy.int8, numpy.signedinteger, numpy.integer, numpy.number, numpy.generic, object]
+
+        a = numpy.array([1, 2, 3], numpy.int8)
+        assert type(a[1]) is numpy.int8
+        assert numpy.dtype("int8").type is numpy.int8
