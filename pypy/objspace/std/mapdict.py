@@ -84,7 +84,6 @@ class AbstractAttribute(object):
                 if space.config.objspace.std.withmethodcachecounter:
                     name = selector[0]
                     cache.hits[name] = cache.hits.get(name, 0) + 1
-                # XXX return the correct Attribute here
                 return attr
         attr = self._findmap(selector)
         if attr is None:
@@ -160,7 +159,7 @@ class AbstractAttribute(object):
         # the order is important here: first change the map, then the storage,
         # for the benefit of the special subclasses
         obj._set_mapdict_map(attr)
-        obj._mapdict_write_storage(attr.position, w_value)
+        attr.write_attr(obj, w_value) #obj._mapdict_write_storage(attr.position, w_value)
 
     def materialize_r_dict(self, space, obj, dict_w):
         raise NotImplementedError("abstract base class")
@@ -280,11 +279,14 @@ class PlainAttribute(AbstractAttribute):
 
     def read_attr(self, obj):
         # XXX do the unerasing (and wrapping) here
-        return obj._mapdict_read_storage(self.position)
+        erased = obj._mapdict_read_storage(self.position)
+        w_value = unerase_item(erased)
+        return w_value
 
     def write_attr(self, obj, w_value):
         # XXX do the unerasing (and unwrapping) here
-        obj._mapdict_write_storage(self.position, w_value)
+        erased = erase_item(w_value)
+        obj._mapdict_write_storage(self.position, erased)
 
     def delete(self, obj, selector):
         if selector == self.selector:
@@ -317,7 +319,7 @@ class PlainAttribute(AbstractAttribute):
         new_obj = self.back.materialize_r_dict(space, obj, dict_w)
         if self.selector[1] == DICT:
             w_attr = space.wrap(self.selector[0])
-            dict_w[w_attr] = obj._mapdict_read_storage(self.position)
+            dict_w[w_attr] = self.read_attr(obj)
         else:
             self._copy_attr(obj, new_obj)
         return new_obj
@@ -550,20 +552,19 @@ def _make_subclass_size_n(supercls, n):
                 for i in rangenmin1:
                     if index == i:
                         erased = getattr(self, "_value%s" % i)
-                        return unerase_item(erased)
+                        return erased
             if self._has_storage_list():
                 return self._mapdict_get_storage_list()[index - nmin1]
             erased = getattr(self, "_value%s" % nmin1)
-            return unerase_item(erased)
+            return erased
 
-        def _mapdict_write_storage(self, index, value):
-            erased = erase_item(value)
+        def _mapdict_write_storage(self, index, erased):
             for i in rangenmin1:
                 if index == i:
                     setattr(self, "_value%s" % i, erased)
                     return
             if self._has_storage_list():
-                self._mapdict_get_storage_list()[index - nmin1] = value
+                self._mapdict_get_storage_list()[index - nmin1] = erased
                 return
             setattr(self, "_value%s" % nmin1, erased)
 
@@ -577,21 +578,23 @@ def _make_subclass_size_n(supercls, n):
             len_storage = len(storage)
             for i in rangenmin1:
                 if i < len_storage:
-                    erased = erase_item(storage[i])
+                    erased = storage[i]
                 else:
+                    # XXX later: use correct erase method from attribute
                     erased = erase_item(None)
                 setattr(self, "_value%s" % i, erased)
             has_storage_list = self._has_storage_list()
             if len_storage < n:
                 assert not has_storage_list
+                # XXX later: use correct erase method from attribute
                 erased = erase_item(None)
             elif len_storage == n:
                 assert not has_storage_list
-                erased = erase_item(storage[nmin1])
+                erased = storage[nmin1]
             elif not has_storage_list:
                 # storage is longer than self.map.length() only due to
                 # overallocation
-                erased = erase_item(storage[nmin1])
+                erased = storage[nmin1]
                 # in theory, we should be ultra-paranoid and check all entries,
                 # but checking just one should catch most problems anyway:
                 assert storage[n] is None
@@ -771,14 +774,14 @@ def init_mapdict_cache(pycode):
     pycode._mapdict_caches = [INVALID_CACHE_ENTRY] * num_entries
 
 @jit.dont_look_inside
-def _fill_cache(pycode, nameindex, map, version_tag, index, w_method=None):
+def _fill_cache(pycode, nameindex, map, version_tag, attr, w_method=None):
     entry = pycode._mapdict_caches[nameindex]
     if entry is INVALID_CACHE_ENTRY:
         entry = CacheEntry()
         pycode._mapdict_caches[nameindex] = entry
     entry.map_wref = weakref.ref(map)
     entry.version_tag = version_tag
-    entry.index = index
+    entry.attr = attr
     entry.w_method = w_method
     if pycode.space.config.objspace.std.withmethodcachecounter:
         entry.failure_counter += 1
@@ -790,7 +793,7 @@ def LOAD_ATTR_caching(pycode, w_obj, nameindex):
     map = w_obj._get_mapdict_map()
     if entry.is_valid_for_map(map) and entry.w_method is None:
         # everything matches, it's incredibly fast
-        return w_obj._mapdict_read_storage(entry.index)
+        return entry.attr.read_attr(w_obj) #._mapdict_read_storage(entry.index)
     return LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map)
 LOAD_ATTR_caching._always_inline_ = True
 
@@ -836,7 +839,7 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
                 if attr is not None:
                     # Note that if map.terminator is a DevolvedDictTerminator,
                     # map.index() will always return -1 if selector[1]==DICT.
-                    _fill_cache(pycode, nameindex, map, version_tag, attr.position)
+                    _fill_cache(pycode, nameindex, map, version_tag, attr)
                     return attr.read_attr(w_obj) #w_obj._mapdict_read_storage(index)
     if space.config.objspace.std.withmethodcachecounter:
         INVALID_CACHE_ENTRY.failure_counter += 1

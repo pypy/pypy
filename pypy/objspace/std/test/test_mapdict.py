@@ -23,7 +23,14 @@ class Object(Object):
     class typedef:
         hasdict = False
 
+def erase_storage_items(items):
+    return [erase_item(item) for item in items]
+
+def unerase_storage_items(storage):
+    return [unerase_item(item) for item in storage]
+
 def test_plain_attribute():
+
     w_cls = "class"
     aa = PlainAttribute(("b", DICT),
                         PlainAttribute(("a", DICT),
@@ -33,18 +40,18 @@ def test_plain_attribute():
     assert aa.get_terminator() is aa.terminator
 
     obj = Object()
-    obj.map, obj.storage = aa, [10, 20]
+    obj.map, obj.storage = aa, erase_storage_items([10, 20])
     assert obj.getdictvalue(space, "a") == 10
     assert obj.getdictvalue(space, "b") == 20
     assert obj.getdictvalue(space, "c") is None
 
     obj = Object()
-    obj.map, obj.storage = aa, [30, 40]
+    obj.map, obj.storage = aa, erase_storage_items([30, 40])
     obj.setdictvalue(space, "a", 50)
-    assert obj.storage == [50, 40]
+    assert unerase_storage_items(obj.storage) == [50, 40]
     assert obj.getdictvalue(space, "a") == 50
     obj.setdictvalue(space, "b", 60)
-    assert obj.storage == [50, 60]
+    assert unerase_storage_items(obj.storage) == [50, 60]
     assert obj.getdictvalue(space, "b") == 60
 
     assert aa.length() == 2
@@ -73,7 +80,7 @@ def test_add_attribute():
     cls = Class()
     obj = cls.instantiate()
     obj.setdictvalue(space, "a", 10)
-    assert obj.storage == [10]
+    assert unerase_storage_items(obj.storage) == [10]
     assert obj.getdictvalue(space, "a") == 10
     assert obj.getdictvalue(space, "b") is None
     assert obj.getdictvalue(space, "c") is None
@@ -83,7 +90,7 @@ def test_add_attribute():
     assert obj.getdictvalue(space, "c") is None
 
     obj.setdictvalue(space, "b", 30)
-    assert obj.storage == [20, 30]
+    assert unerase_storage_items(obj.storage) == [20, 30]
     assert obj.getdictvalue(space, "a") == 20
     assert obj.getdictvalue(space, "b") == 30
     assert obj.getdictvalue(space, "c") is None
@@ -106,12 +113,12 @@ def test_delete():
         obj.setdictvalue(space, "a", 50)
         obj.setdictvalue(space, "b", 60)
         obj.setdictvalue(space, "c", 70)
-        assert obj.storage == [50, 60, 70]
+        assert unerase_storage_items(obj.storage) == [50, 60, 70]
         res = obj.deldictvalue(space, dattr)
         assert res
         s = [50, 60, 70]
         del s[i]
-        assert obj.storage == s
+        assert unerase_storage_items(obj.storage) == s
 
     obj = c.instantiate()
     obj.setdictvalue(space, "a", 50)
@@ -134,7 +141,7 @@ def test_class():
     c2 = Class()
     obj.setclass(space, c2)
     assert obj.getclass(space) is c2
-    assert obj.storage == [50, 60, 70]
+    assert unerase_storage_items(obj.storage) == [50, 60, 70]
 
 def test_special():
     from pypy.module._weakref.interp__weakref import WeakrefLifeline
@@ -150,7 +157,7 @@ def test_special():
     assert obj.getdictvalue(space, "a") == 50
     assert obj.getdictvalue(space, "b") == 60
     assert obj.getdictvalue(space, "c") == 70
-    assert obj.storage == [50, 60, 70, lifeline1]
+    assert unerase_storage_items(obj.storage) == [50, 60, 70, lifeline1]
     assert obj.getweakref() is lifeline1
 
     obj2 = c.instantiate()
@@ -158,7 +165,7 @@ def test_special():
     obj2.setdictvalue(space, "b", 160)
     obj2.setdictvalue(space, "c", 170)
     obj2.setweakref(space, lifeline2)
-    assert obj2.storage == [150, 160, 170, lifeline2]
+    assert unerase_storage_items(obj2.storage) == [150, 160, 170, lifeline2]
     assert obj2.getweakref() is lifeline2
 
     assert obj2.map is obj.map
@@ -188,7 +195,7 @@ def test_slots():
     assert obj.getslotvalue(a) == 50
     assert obj.getslotvalue(b) == 60
     assert obj.getslotvalue(c) == 70
-    assert obj.storage == [50, 60, 70]
+    assert unerase_storage_items(obj.storage) == [50, 60, 70]
 
     obj.setdictvalue(space, "a", 5)
     obj.setdictvalue(space, "b", 6)
@@ -199,7 +206,7 @@ def test_slots():
     assert obj.getslotvalue(a) == 50
     assert obj.getslotvalue(b) == 60
     assert obj.getslotvalue(c) == 70
-    assert obj.storage == [50, 60, 70, 5, 6, 7]
+    assert unerase_storage_items(obj.storage) == [50, 60, 70, 5, 6, 7]
 
     obj2 = cls.instantiate()
     obj2.setslotvalue(a, 501)
@@ -208,13 +215,13 @@ def test_slots():
     obj2.setdictvalue(space, "a", 51)
     obj2.setdictvalue(space, "b", 61)
     obj2.setdictvalue(space, "c", 71)
-    assert obj2.storage == [501, 601, 701, 51, 61, 71]
+    assert unerase_storage_items(obj2.storage) == [501, 601, 701, 51, 61, 71]
     assert obj.map is obj2.map
 
     assert obj2.getslotvalue(b) == 601
     assert obj2.delslotvalue(b)
     assert obj2.getslotvalue(b) is None
-    assert obj2.storage == [501, 701, 51, 61, 71]
+    assert unerase_storage_items(obj2.storage) == [501, 701, 51, 61, 71]
     assert not obj2.delslotvalue(b)
 
 
@@ -228,7 +235,7 @@ def test_slots_no_dict():
     obj.setslotvalue(b, 60)
     assert obj.getslotvalue(a) == 50
     assert obj.getslotvalue(b) == 60
-    assert obj.storage == [50, 60]
+    assert unerase_storage_items(obj.storage) == [50, 60]
     assert not obj.setdictvalue(space, "a", 70)
 
 def test_getdict():
@@ -253,7 +260,7 @@ def test_materialize_r_dict():
     obj.setdictvalue(space, "a", 5)
     obj.setdictvalue(space, "b", 6)
     obj.setdictvalue(space, "c", 7)
-    assert obj.storage == [50, 60, 70, 5, 6, 7]
+    assert unerase_storage_items(obj.storage) == [50, 60, 70, 5, 6, 7]
 
     class FakeDict(W_DictMultiObject):
         def __init__(self, d):
@@ -270,7 +277,7 @@ def test_materialize_r_dict():
     assert flag
     materialize_r_dict(space, obj, d)
     assert d == {"a": 5, "b": 6, "c": 7}
-    assert obj.storage == [50, 60, 70, w_d]
+    assert unerase_storage_items(obj.storage) == [50, 60, 70, w_d]
 
 
 def test_size_prediction():
@@ -441,6 +448,17 @@ def test_specialized_class():
 class AppTestWithMapDict(object):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withmapdict": True})
+
+    def test_reading_twice(self):
+        class A(object):
+            pass
+        a = A()
+        a.x = 42
+
+        assert a.x == 42
+        print "read once"
+        assert a.x == 42
+        print "read twice"
 
     def test_simple(self):
         class A(object):
@@ -664,6 +682,7 @@ class AppTestWithMapDictAndCounters(object):
             INVALID_CACHE_ENTRY.failure_counter = 0
             #
             w_res = space.call_function(w_func)
+            print w_res
             assert space.eq_w(w_res, space.wrap(42))
             #
             entry = w_code._mapdict_caches[nameindex]
@@ -677,6 +696,15 @@ class AppTestWithMapDictAndCounters(object):
         check.unwrap_spec = [gateway.ObjSpace, gateway.W_Root, str]
         cls.w_check = cls.space.wrap(gateway.interp2app(check))
 
+    def test_do_not_change_while_counting(self):
+        class A(object):
+            pass
+        a = A()
+        a.x = 42
+
+        assert a.x == 42
+        assert a.x == 42
+
     def test_simple(self):
         class A(object):
             pass
@@ -685,7 +713,14 @@ class AppTestWithMapDictAndCounters(object):
         def f():
             return a.x
         #
+        print "1"
+        assert a.x == 42
+        print "2"
+        assert a.x == 42
+        print "3"
+        print "first check"
         res = self.check(f, 'x')
+        print "second check"
         assert res == (1, 0, 0)
         res = self.check(f, 'x')
         assert res == (0, 1, 0)
