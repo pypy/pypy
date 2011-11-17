@@ -5248,6 +5248,27 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_tag_constfold(self):
+        ops = """
+        [i0]
+        i1 = int_tag_ovf(1)
+        guard_no_overflow() []
+        i4 = int_untag(i1)
+        i5 = int_add(i4, 1)
+        escape(i5)
+        jump(i5)
+        """
+        expected = """
+        []
+        escape(2)
+        jump()
+        """
+        preamble = """
+        [i0]
+        escape(2)
+        jump()
+        """
+        self.optimize_loop(ops, expected, preamble)
 
     def test_mul_ovf(self):
         ops = """

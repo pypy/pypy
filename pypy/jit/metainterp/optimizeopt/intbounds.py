@@ -307,9 +307,7 @@ class OptIntBounds(Optimization):
 
     def optimize_INT_TAG_OVF(self, op):
         v1 = self.getvalue(op.getarg(0))
-        r = self.getvalue(op.result)
         resbound = v1.intbound.mul(2).add(1)
-        r.intbound.intersect(resbound)
         if resbound.bounded():
             op = op.copy_and_change(rop.INT_TAG)
             self.optimize_INT_TAG(op) # emit the op
