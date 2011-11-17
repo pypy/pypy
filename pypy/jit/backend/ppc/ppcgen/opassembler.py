@@ -27,14 +27,9 @@ class GuardToken(object):
         self.save_exc = save_exc
         self.fcond=fcond
 
-#class OpAssembler(object):
 class IntOpAssembler(object):
         
     _mixin_ = True
-
-    # ********************************************************
-    # *               I N T    O P E R A T I O N S           *
-    # ********************************************************
 
     def emit_int_add(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
@@ -434,6 +429,7 @@ class MiscOpAssembler(object):
         # restore the arguments stored on the stack
         if result is not None:
             resloc = regalloc.after_call(result)
+
 
 class FieldOpAssembler(object):
 
