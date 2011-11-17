@@ -839,22 +839,24 @@ class GcRewriterAssembler(object):
     # - Add COND_CALLs to the write barrier before SETFIELD_GC and
     #   SETARRAYITEM_GC operations.
 
+    _v_last_malloc = None
+    _previous_size = -1
+
     def __init__(self, gc_ll_descr, cpu):
         self.gc_ll_descr = gc_ll_descr
         self.cpu = cpu
         self.tsc = self.gc_ll_descr.translate_support_code
-
-    def rewrite(self, operations):
         self.newops = []
         self.known_lengths = {}
+        self.op_malloc_gc = None
+        self.current_mallocs = {}     # set of variables
+
+    def rewrite(self, operations):
         # we can only remember one malloc since the next malloc can possibly
         # collect; but we can try to collapse several known-size mallocs into
         # one, both for performance and to reduce the number of write
         # barriers.  We do this on each "basic block" of operations, which in
         # this case means between CALLs or unknown-size mallocs.
-        self.op_malloc_gc = None
-        self.v_last_malloc = None
-        self.previous_size = -1
         #
         for op in operations:
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
@@ -885,11 +887,12 @@ class GcRewriterAssembler(object):
                 xxxx
             elif op.can_malloc():
                 self.op_malloc_gc = None
+                self.current_mallocs.clear()
             # ---------- write barrier for SETFIELD_GC ----------
             if op.getopnum() == rop.SETFIELD_GC:
                 val = op.getarg(0)
                 # no need for a write barrier in the case of previous malloc
-                if val is not last_malloc:
+                if val not in self.current_mallocs:
                     v = op.getarg(1)
                     if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
                                             bool(v.value)): # store a non-NULL
@@ -899,7 +902,7 @@ class GcRewriterAssembler(object):
             if op.getopnum() == rop.SETARRAYITEM_GC:
                 val = op.getarg(0)
                 # no need for a write barrier in the case of previous malloc
-                if val is not last_malloc:
+                if val not in self.current_mallocs:
                     v = op.getarg(2)
                     if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
                                             bool(v.value)): # store a non-NULL
@@ -923,11 +926,12 @@ class GcRewriterAssembler(object):
             total_size += size
             self.op_malloc_gc.setarg(0, ConstInt(total_size))
             op = ResOperation(rop.INT_ADD,
-                              [self.v_last_malloc,
-                               ConstInt(self.previous_size)],
+                              [self._v_last_malloc,
+                               ConstInt(self._previous_size)],
                               v_result)
-        self.previous_size = size
-        self.v_last_malloc = v_result
+        self._previous_size = size
+        self._v_last_malloc = v_result
+        self.current_mallocs[v_result] = None
         self.newops.append(op)
 
     def gen_initialize_tid(self, v_newgcobj, tid):
@@ -945,9 +949,10 @@ class GcRewriterAssembler(object):
         self.newops.append(op)
 
     def gen_write_barrier(self, v_base, v_value):
+        write_barrier_descr = self.gc_ll_descr.write_barrier_descr
         args = [v_base, v_value]
         self.newops.append(ResOperation(rop.COND_CALL_GC_WB, args, None,
-                                        descr=self.write_barrier_descr))
+                                        descr=write_barrier_descr))
 
     def gen_write_barrier_array(self, v_base, v_index, v_value):
         write_barrier_descr = self.gc_ll_descr.write_barrier_descr
