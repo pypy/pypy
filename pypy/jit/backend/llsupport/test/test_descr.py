@@ -1,4 +1,4 @@
-from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rpython.lltypesystem import lltype, rffi, rstr
 from pypy.jit.backend.llsupport.descr import *
 from pypy.jit.backend.llsupport import symbolic
 from pypy.rlib.objectmodel import Symbolic
@@ -448,3 +448,19 @@ def test_call_stubs_single_float():
     res = descr2.call_stub(rffi.cast(lltype.Signed, fnptr),
                            [a, b, c], [], [])
     assert float(uint2singlefloat(rffi.r_uint(res))) == -11.5
+
+def test_field_arraylen_descr():
+    c0 = GcCache(True)
+    A1 = lltype.GcArray(lltype.Signed)
+    fielddescr = get_field_arraylen_descr(c0, A1)
+    assert isinstance(fielddescr, BaseFieldDescr)
+    ofs = fielddescr.offset
+    assert repr(ofs) == '< ArrayLengthOffset <GcArray of Signed > >'
+    #
+    fielddescr = get_field_arraylen_descr(c0, rstr.STR)
+    ofs = fielddescr.offset
+    assert repr(ofs) == ("< <FieldOffset <GcStruct rpy_string { hash, chars }>"
+                         " 'chars'> + < ArrayLengthOffset"
+                         " <Array of Char > > >")
+    # caching:
+    assert fielddescr is get_field_arraylen_descr(c0, rstr.STR)

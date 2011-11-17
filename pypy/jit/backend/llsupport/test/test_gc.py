@@ -632,6 +632,34 @@ class TestFramework(object):
                                                         operations, [])
         equaloplists(operations, expected.operations)
 
+    def test_rewrite_assembler_new_array_fixed_to_malloc(self):
+        self.gc_ll_descr.translate_support_code = False
+        try:
+            A = lltype.GcArray(lltype.Signed)
+            adescr = get_array_descr(self.gc_ll_descr, A)
+            adescr.tid = 1234
+            lengthdescr = get_field_arraylen_descr(self.gc_ll_descr, A)
+        finally:
+            self.gc_ll_descr.translate_support_code = True
+        tiddescr = self.gc_ll_descr.fielddescr_tid
+        ops = parse("""
+        []
+        p0 = new_array(10, descr=adescr)
+        jump()
+        """, namespace=locals())
+        expected = parse("""
+        []
+        p0 = malloc_gc(%d)
+        setfield_gc(p0, 1234, descr=tiddescr)
+        setfield_gc(p0, 10, descr=lengthdescr)
+        jump()
+        """ % (adescr.get_base_size(False) + 10 * adescr.get_item_size(False),),
+                         namespace=locals())
+        operations = get_deep_immutable_oplist(ops.operations)
+        operations = self.gc_ll_descr.rewrite_assembler(self.fake_cpu,
+                                                        operations, [])
+        equaloplists(operations, expected.operations)
+
     def test_rewrite_assembler_initialization_store(self):
         S = lltype.GcStruct('S', ('parent', OBJECT),
                             ('x', lltype.Signed))

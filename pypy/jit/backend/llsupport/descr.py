@@ -19,6 +19,7 @@ class GcCache(object):
         self._cache_size = {}
         self._cache_field = {}
         self._cache_array = {}
+        self._cache_arraylen = {}
         self._cache_call = {}
         self._cache_interiorfield = {}
 
@@ -150,6 +151,18 @@ def get_field_descr(gccache, STRUCT, fieldname):
         cachedict[fieldname] = fielddescr
         return fielddescr
 
+def get_field_arraylen_descr(gccache, ARRAY):
+    cache = gccache._cache_arraylen
+    try:
+        return cache[ARRAY]
+    except KeyError:
+        tsc = gccache.translate_support_code
+        (_, _, ofs) = symbolic.get_array_token(ARRAY, tsc)
+        SignedFieldDescr = getFieldDescrClass(lltype.Signed)
+        result = SignedFieldDescr("len", ofs)
+        cache[ARRAY] = result
+        return result
+
 # ____________________________________________________________
 # ArrayDescrs
 
@@ -270,6 +283,8 @@ def get_array_descr(gccache, ARRAY):
         else:
             assert isinstance(ARRAY, lltype.GcArray)
             arraydescr = getArrayDescrClass(ARRAY)()
+            arraydescr.field_arraylen_descr = get_field_arraylen_descr(
+                gccache, ARRAY)
         # verify basic assumption that all arrays' basesize and ofslength
         # are equal
         basesize, itemsize, ofslength = symbolic.get_array_token(ARRAY, False)
