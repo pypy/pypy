@@ -169,6 +169,10 @@ class Bool(BaseType, Primitive):
         else:
             return self.False
 
+    def coerce_subtype(self, space, w_subtype, w_item):
+        # Doesn't return subclasses so it can return the constants.
+        return self._coerce(space, w_item)
+
     def _coerce(self, space, w_item):
         return self.box(space.is_true(w_item))
 
