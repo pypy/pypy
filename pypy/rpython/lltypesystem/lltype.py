@@ -1788,7 +1788,8 @@ class _subarray(_parentable):     # only for direct_fieldptr()
             cache = d.setdefault(parent, {})
         except RuntimeError:    # pointer comparison with a freed structure
             _subarray._cleanup_cache()
-            cache = d.setdefault(parent, {})    # try again
+            # try again
+            return _subarray._makeptr(parent, baseoffset_or_fieldname, solid)
         try:
             subarray = cache[baseoffset_or_fieldname]
         except KeyError:
