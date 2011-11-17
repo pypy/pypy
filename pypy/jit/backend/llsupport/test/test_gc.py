@@ -564,6 +564,11 @@ class TestFramework(object):
             adescr.tid = 4321
             alendescr = get_field_arraylen_descr(self.gc_ll_descr, A)
             #
+            B = lltype.GcArray(lltype.Char)
+            bdescr = get_array_descr(self.gc_ll_descr, B)
+            bdescr.tid = 8765
+            blendescr = get_field_arraylen_descr(self.gc_ll_descr, B)
+            #
             tiddescr = self.gc_ll_descr.fielddescr_tid
             #
             ops = parse(frm_operations, namespace=locals())
@@ -635,6 +640,44 @@ class TestFramework(object):
             p1 = int_add(p0, %(sdescr.size)d)
             setfield_gc(p1, 4321, descr=tiddescr)
             setfield_gc(p1, 10, descr=alendescr)
+            jump()
+        """)
+
+    def test_rewrite_assembler_round_up(self):
+        self.check_rewrite("""
+            []
+            p0 = new_array(6, descr=bdescr)
+            jump()
+        """, """
+            []
+            p0 = malloc_gc(%(adescr.get_base_size(False) + 8)d)
+            setfield_gc(p0, 8765, descr=tiddescr)
+            setfield_gc(p0, 6, descr=blendescr)
+            jump()
+        """)
+
+    def test_rewrite_assembler_round_up_always(self):
+        self.check_rewrite("""
+            []
+            p0 = new_array(5, descr=bdescr)
+            p1 = new_array(5, descr=bdescr)
+            p2 = new_array(5, descr=bdescr)
+            p3 = new_array(5, descr=bdescr)
+            jump()
+        """, """
+            []
+            p0 = malloc_gc(%(4 * (adescr.get_base_size(False) + 8))d)
+            setfield_gc(p0, 8765, descr=tiddescr)
+            setfield_gc(p0, 5, descr=blendescr)
+            p1 = int_add(p0, %(adescr.get_base_size(False) + 8)d)
+            setfield_gc(p1, 8765, descr=tiddescr)
+            setfield_gc(p1, 5, descr=blendescr)
+            p2 = int_add(p1, %(adescr.get_base_size(False) + 8)d)
+            setfield_gc(p2, 8765, descr=tiddescr)
+            setfield_gc(p2, 5, descr=blendescr)
+            p3 = int_add(p2, %(adescr.get_base_size(False) + 8)d)
+            setfield_gc(p3, 8765, descr=tiddescr)
+            setfield_gc(p3, 5, descr=blendescr)
             jump()
         """)
 

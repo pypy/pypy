@@ -4,7 +4,7 @@ from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import fatalerror
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi, rclass, rstr
-from pypy.rpython.lltypesystem import llgroup
+from pypy.rpython.lltypesystem import llgroup, llarena
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import llhelper
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
@@ -879,6 +879,7 @@ class GcRewriterAssembler(object):
                         basesize = descr.get_base_size(self.tsc)
                         itemsize = descr.get_item_size(self.tsc)
                         fullsize = basesize + newlength * itemsize
+                        fullsize = self.round_up_for_allocation(fullsize)
                         self.gen_malloc_const(fullsize, op.result)
                         self.gen_initialize_tid(op.result, descr.tid)
                         self.gen_initialize_len(op.result, v_newlength, descr)
@@ -971,6 +972,16 @@ class GcRewriterAssembler(object):
                 return
         # fall-back case: produce a write_barrier
         self.gen_write_barrier(v_base, v_value)
+
+    def round_up_for_allocation(self, size):
+        if self.tsc:
+            return llarena.round_up_for_allocation(
+                size, self.gc_ll_descr.minimal_size_in_nursery)
+        else:
+            # non-translated: do it manually
+            # assume that "self.gc_ll_descr.minimal_size_in_nursery" is 2 WORDs
+            size = max(size, 2 * WORD)
+            return (size + WORD-1) & ~(WORD-1)     # round up
 
 # ____________________________________________________________
 
