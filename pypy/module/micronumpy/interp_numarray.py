@@ -116,10 +116,12 @@ class ViewIterator(BaseIterator):
 
     @jit.unroll_safe
     def next(self):
-        indices = self.indices[:]
+        indices = [0] * len(self.arr.shape)
+        for i in range(len(self.arr.shape)):
+            indices[i] = self.indices[i]
         done = False
         offset = self.offset
-        for i in range(len(self.indices) -1, -1, -1):
+        for i in range(len(self.arr.shape) -1, -1, -1):
             if indices[i] < self.arr.shape[i] - 1:
                 indices[i] += 1
                 offset += self.arr.shards[i]
@@ -180,7 +182,8 @@ class BaseArray(Wrappable):
     _attrs_ = ["invalidates", "signature", "shape", "shards", "backshards",
                "start", 'order']
 
-    #_immutable_fields_ = ['shape[*]', "shards[*]", "backshards[*]", 'start']
+    _immutable_fields_ = ['shape[*]', "shards[*]", "backshards[*]", 'start',
+                          "order"]
 
     shards = None
     start = 0
@@ -190,19 +193,21 @@ class BaseArray(Wrappable):
         self.shape = shape
         self.order = order
         if self.shards is None:
-            self.shards = []
-            self.backshards = []
+            shards = []
+            backshards = []
             s = 1
             shape_rev = shape[:]
             if order == 'C':
                 shape_rev.reverse()
             for sh in shape_rev:
-                self.shards.append(s)
-                self.backshards.append(s * (sh - 1))
+                shards.append(s)
+                backshards.append(s * (sh - 1))
                 s *= sh
             if order == 'C':
-                self.shards.reverse()
-                self.backshards.reverse()
+                shards.reverse()
+                backshards.reverse()
+            self.shards = shards[:]
+            self.backshards = backshards[:]
 
     def invalidated(self):
         if self.invalidates:
@@ -574,7 +579,8 @@ class BaseArray(Wrappable):
             shape += self.shape[s:]
             shards += self.shards[s:]
             backshards += self.backshards[s:]
-        return NDimSlice(self, new_sig, start, shards, backshards, shape)
+        return NDimSlice(self, new_sig, start, shards[:], backshards[:],
+                         shape[:])
 
     def descr_mean(self, space):
         return space.wrap(space.float_w(self.descr_sum(space)) / self.find_size())
@@ -826,8 +832,6 @@ class VirtualView(VirtualArray):
 class NDimSlice(ViewArray):
     signature = signature.BaseSignature()
 
-    #_immutable_fields_ = ['shape[*]', 'shards[*]', 'backshards[*]', 'start']
-
     def __init__(self, parent, signature, start, shards, backshards,
                  shape):
         if isinstance(parent, NDimSlice):
@@ -942,7 +946,7 @@ def zeros(space, w_size, w_dtype=None):
             item = space.int_w(w_item)
             size *= item
             shape.append(item)
-    return space.wrap(NDimArray(size, shape, dtype=dtype))
+    return space.wrap(NDimArray(size, shape[:], dtype=dtype))
 
 @unwrap_spec(size=int)
 def ones(space, size, w_dtype=None):
