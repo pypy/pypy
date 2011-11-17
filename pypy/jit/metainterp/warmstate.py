@@ -177,7 +177,9 @@ class JitCell(BaseJitCell):
             from pypy.rlib import rgc
             rgc.collect();
         if self.wref_procedure_token is not None:
-            return self.wref_procedure_token()
+            token = self.wref_procedure_token()
+            if token and not token.invalidated:
+                return token
         return None
 
     def set_procedure_token(self, token):

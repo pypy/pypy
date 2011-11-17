@@ -294,7 +294,8 @@ class QuasiImmutTests(object):
             return total
 
         res = self.meta_interp(main, [])
-        self.check_tree_loop_count(6)
+        self.check_trace_count(6)
+        self.check_jitcell_token_count(3)
         assert res == main()
 
     def test_change_during_running(self):
