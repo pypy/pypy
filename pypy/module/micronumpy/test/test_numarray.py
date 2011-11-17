@@ -34,61 +34,55 @@ class TestNumArrayDirect(object):
     def test_create_slice_f(self):
         space = self.space
         a = NDimArray(10*5*3, [10, 5, 3], MockDtype(), 'F')
-        s = a.create_slice(space, space.wrap(3))
+        s = a.create_slice(space, [(3, 0, 0, 1)])
         assert s.start == 3
         assert s.shards == [10, 50]
         assert s.backshards == [40, 100]
-        s = a.create_slice(space, self.newslice(1, 9, 2))
+        s = a.create_slice(space, [(1, 9, 2, 4)])
         assert s.start == 1
         assert s.shards == [2, 10, 50]
         assert s.backshards == [6, 40, 100]
-        s = a.create_slice(space, space.newtuple([
-            self.newslice(1, 5, 3), self.newslice(1, 2, 1), space.wrap(1)]))
-        assert s.start == 61
+        s = a.create_slice(space, [(1, 5, 3, 2), (1, 2, 1, 1), (1, 0, 0, 1)])
         assert s.shape == [2, 1]
         assert s.shards == [3, 10]
         assert s.backshards == [3, 0]
-        s = a.create_slice(space, self.newtuple(
-            self.newslice(None, None, None), space.wrap(2)))
+        s = a.create_slice(space, [(0, 10, 1, 10), (2, 0, 0, 1)])
         assert s.start == 20
         assert s.shape == [10, 3]
 
     def test_create_slice_c(self):
         space = self.space
         a = NDimArray(10*5*3, [10, 5, 3], MockDtype(), 'C')
-        s = a.create_slice(space, space.wrap(3))
+        s = a.create_slice(space, [(3, 0, 0, 1)])
         assert s.start == 45
         assert s.shards == [3, 1]
         assert s.backshards == [12, 2]
-        s = a.create_slice(space, self.newslice(1, 9, 2))
+        s = a.create_slice(space, [(1, 9, 2, 4)])
         assert s.start == 15
         assert s.shards == [30, 3, 1]
         assert s.backshards == [90, 12, 2]
-        s = a.create_slice(space, space.newtuple([
-            self.newslice(1, 5, 3), self.newslice(1, 2, 1), space.wrap(1)]))
+        s = a.create_slice(space, [(1, 5, 3, 2), (1, 2, 1, 1), (1, 0, 0, 1)])
         assert s.start == 19
         assert s.shape == [2, 1]
         assert s.shards == [45, 3]
         assert s.backshards == [45, 0]
-        s = a.create_slice(space, self.newtuple(
-            self.newslice(None, None, None), space.wrap(2)))
+        s = a.create_slice(space, [(0, 10, 1, 10), (2, 0, 0, 1)])
         assert s.start == 6
         assert s.shape == [10, 3]
 
     def test_slice_of_slice_f(self):
         space = self.space
         a = NDimArray(10*5*3, [10, 5, 3], MockDtype(), 'F')
-        s = a.create_slice(space, space.wrap(5))
+        s = a.create_slice(space, [(5, 0, 0, 1)])
         assert s.start == 5
-        s2 = s.create_slice(space, space.wrap(3))
+        s2 = s.create_slice(space, [(3, 0, 0, 1)])
         assert s2.shape == [3]
         assert s2.shards == [50]
         assert s2.parent is a
         assert s2.backshards == [100]
         assert s2.start == 35
-        s = a.create_slice(space, self.newslice(1, 5, 3))
-        s2 = s.create_slice(space, space.newtuple([
-            self.newslice(None, None, None), space.wrap(2)]))
+        s = a.create_slice(space, [(1, 5, 3, 2)])
+        s2 = s.create_slice(space, [(0, 2, 1, 2), (2, 0, 0, 1)])
         assert s2.shape == [2, 3]
         assert s2.shards == [3, 50]
         assert s2.backshards == [3, 100]
@@ -97,17 +91,16 @@ class TestNumArrayDirect(object):
     def test_slice_of_slice_c(self):
         space = self.space
         a = NDimArray(10*5*3, [10, 5, 3], MockDtype(), order='C')
-        s = a.create_slice(space, space.wrap(5))
+        s = a.create_slice(space, [(5, 0, 0, 1)])
         assert s.start == 15*5
-        s2 = s.create_slice(space, space.wrap(3))
+        s2 = s.create_slice(space, [(3, 0, 0, 1)])
         assert s2.shape == [3]
         assert s2.shards == [1]
         assert s2.parent is a
         assert s2.backshards == [2]
         assert s2.start == 5*15 + 3*3
-        s = a.create_slice(space, self.newslice(1, 5, 3))
-        s2 = s.create_slice(space, space.newtuple([
-            self.newslice(None, None, None), space.wrap(2)]))
+        s = a.create_slice(space, [(1, 5, 3, 2)])
+        s2 = s.create_slice(space, [(0, 2, 1, 2), (2, 0, 0, 1)])
         assert s2.shape == [2, 3]
         assert s2.shards == [45, 1]
         assert s2.backshards == [45, 2]
@@ -116,7 +109,7 @@ class TestNumArrayDirect(object):
     def test_negative_step_f(self):
         space = self.space
         a = NDimArray(10*5*3, [10, 5, 3], MockDtype(), 'F')
-        s = a.create_slice(space, self.newslice(None, None, -2))
+        s = a.create_slice(space, [(9, -1, -2, 5)])
         assert s.start == 9
         assert s.shards == [-2, 10, 50]
         assert s.backshards == [-8, 40, 100]
@@ -124,7 +117,7 @@ class TestNumArrayDirect(object):
     def test_negative_step_c(self):
         space = self.space
         a = NDimArray(10*5*3, [10, 5, 3], MockDtype(), order='C')
-        s = a.create_slice(space, self.newslice(None, None, -2))
+        s = a.create_slice(space, [(9, -1, -2, 5)])
         assert s.start == 135
         assert s.shards == [-30, 3, 1]
         assert s.backshards == [-120, 12, 2]
@@ -133,8 +126,7 @@ class TestNumArrayDirect(object):
         a = NDimArray(10*5*3, [10, 5, 3], MockDtype(), 'F')
         r = a._index_of_single_item(self.space, self.newtuple(1, 2, 2))
         assert r == 1  + 2 * 10 + 2 * 50
-        s = a.create_slice(self.space, self.newtuple(
-            self.newslice(None, None, None), 2))
+        s = a.create_slice(self.space, [(0, 10, 1, 10), (2, 0, 0, 1)])
         r = s._index_of_single_item(self.space, self.newtuple(1, 0))
         assert r == a._index_of_single_item(self.space, self.newtuple(1, 2, 0))
         r = s._index_of_single_item(self.space, self.newtuple(1, 1))
@@ -144,8 +136,7 @@ class TestNumArrayDirect(object):
         a = NDimArray(10*5*3, [10, 5, 3], MockDtype(), 'C')
         r = a._index_of_single_item(self.space, self.newtuple(1, 2, 2))
         assert r == 1 * 3 * 5 + 2 * 3 + 2
-        s = a.create_slice(self.space, self.newtuple(
-            self.newslice(None, None, None), 2))
+        s = a.create_slice(self.space, [(0, 10, 1, 10), (2, 0, 0, 1)])
         r = s._index_of_single_item(self.space, self.newtuple(1, 0))
         assert r == a._index_of_single_item(self.space, self.newtuple(1, 2, 0))
         r = s._index_of_single_item(self.space, self.newtuple(1, 1))

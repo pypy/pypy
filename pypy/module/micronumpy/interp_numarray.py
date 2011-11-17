@@ -370,7 +370,6 @@ class BaseArray(Wrappable):
             res.append(dtype.str_format(concrete.getitem(i.offset)))
             i = i.next()
         return space.wrap(res.build())
-        
         res = StringBuilder()
         res.append("array([")
         concrete = self.get_concrete()
@@ -412,6 +411,7 @@ class BaseArray(Wrappable):
         res.append(")")
         return space.wrap(res.build())
 
+        
     def to_str(self, comma, builder, indent=' '):
         dtype = self.find_dtype()
         ndims = len(self.shape)
@@ -480,7 +480,7 @@ class BaseArray(Wrappable):
                 v += self.shape[i]
             if v < 0 or v >= self.shape[i]:
                 raise OperationError(space.w_IndexError,
-                                     space.wrap("index (%d) out of range (0<=index<%d" % (index[i], self.shape[i])))
+                                     space.wrap("index (%d) out of range (0<=index<%d" % (i, self.shape[i])))
             item += v * self.shards[i]
         return item
 
@@ -516,12 +516,21 @@ class BaseArray(Wrappable):
                 return False
         return True
 
+    def _prepare_slice_args(self, space, w_idx):
+        if (space.isinstance_w(w_idx, space.w_int) or
+            space.isinstance_w(w_idx, space.w_slice)):
+            return [space.decode_index4(w_idx, self.shape[0])]
+        return [space.decode_index4(w_item, self.shape[i]) for i, w_item in
+                enumerate(space.fixedview(w_idx))]
+
+
     def descr_getitem(self, space, w_idx):
         if self._single_item_result(space, w_idx):
             concrete = self.get_concrete()
             item = concrete._index_of_single_item(space, w_idx)
             return concrete.getitem(item).wrap(space)
-        return space.wrap(self.create_slice(space, w_idx))
+        chunks = self._prepare_slice_args(space, w_idx)
+        return space.wrap(self.create_slice(space, chunks))
 
     def descr_setitem(self, space, w_idx, w_value):
         self.invalidated()
@@ -539,16 +548,16 @@ class BaseArray(Wrappable):
                 assert isinstance(w_value, BaseArray)
         else:
             w_value = convert_to_array(space, w_value)
-        view = self.create_slice(space, w_idx)
+        chunks = self._prepare_slice_args(space, w_idx)
+        view = self.create_slice(space, chunks)
         view.setslice(space, w_value)
 
-    def create_slice(self, space, w_idx):
+    def create_slice(self, space, chunks):
         new_sig = signature.Signature.find_sig([
             NDimSlice.signature, self.signature
         ])
-        if (space.isinstance_w(w_idx, space.w_int) or
-            space.isinstance_w(w_idx, space.w_slice)):
-            start, stop, step, lgt = space.decode_index4(w_idx, self.shape[0])
+        if len(chunks) == 1:
+            start, stop, step, lgt = chunks[0]
             if step == 0:
                 shape = self.shape[1:]
                 shards = self.shards[1:]
@@ -565,9 +574,7 @@ class BaseArray(Wrappable):
             backshards = []
             start = self.start
             i = -1
-            for i, w_item in enumerate(space.fixedview(w_idx)):
-                start_, stop, step, lgt = space.decode_index4(w_item,
-                                                             self.shape[i])
+            for i, (start_, stop, step, lgt) in enumerate(chunks):
                 if step != 0:
                     shape.append(lgt)
                     shards.append(self.shards[i] * step)
