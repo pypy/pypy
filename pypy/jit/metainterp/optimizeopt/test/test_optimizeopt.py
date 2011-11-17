@@ -216,7 +216,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
             args = []
             for argtype in argtypes:
                 assert argtype in ('int', 'bool')
-                args.append(random.randrange(1, 20))
+                arg = random.randrange(1, 20)
+                if opnum == rop.INT_UNTAG:
+                    arg = arg | 1 # must be an odd int
+                args.append(arg)
             assert restype in ('int', 'bool')
             ops = """
             []
