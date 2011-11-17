@@ -609,10 +609,10 @@ class AppTestNumArray(BaseNumpyAppTest):
                 assert c[i] == func(b[i], 3)
 
 
-class AppTestSupport(object):
+class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):
         import struct
-        cls.space = gettestobjspace(usemodules=('micronumpy',))
+        BaseNumpyAppTest.setup_class.im_func(cls)
         cls.w_data = cls.space.wrap(struct.pack('dddd', 1, 2, 3, 4))
 
     def test_fromstring(self):
