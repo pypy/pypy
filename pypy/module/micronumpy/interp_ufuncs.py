@@ -104,7 +104,7 @@ class W_Ufunc1(W_Ufunc):
             return self.func(res_dtype, w_obj.value.convert_to(res_dtype)).wrap(space)
 
         new_sig = signature.Signature.find_sig([self.signature, w_obj.signature])
-        w_res = Call1(new_sig, w_obj.shape, res_dtype, w_obj)
+        w_res = Call1(new_sig, w_obj.shape, res_dtype, w_obj, w_obj.order)
         w_obj.add_invalidates(w_res)
         return w_res
 

@@ -1,6 +1,6 @@
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.error import OperationError, operationerrfmt
+from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.micronumpy import interp_ufuncs, interp_dtype, signature
 from pypy.rlib import jit
@@ -39,7 +39,8 @@ def _find_shape_and_elems(space, w_iterable):
         shape.append(size)
         batch = new_batch
 
-def descr_new_array(space, w_subtype, w_item_or_iterable, w_dtype=None):
+def descr_new_array(space, w_subtype, w_item_or_iterable, w_dtype=None,
+                    w_order=NoneNotWrapped):
     # find scalar
     if not space.issequence_w(w_item_or_iterable):
         w_dtype = interp_ufuncs.find_dtype_for_scalar(space,
@@ -48,7 +49,15 @@ def descr_new_array(space, w_subtype, w_item_or_iterable, w_dtype=None):
         dtype = space.interp_w(interp_dtype.W_Dtype,
            space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
         return scalar_w(space, dtype, w_item_or_iterable)
+    if w_order is None:
+        order = 'C'
+    else:
+        order = space.str_w(w_order)
+        if order != 'C': # or order != 'F':
+            raise operationerrfmt(space.w_ValueError, "Unknown order: %s",
+                                  order)
     shape, elems_w = _find_shape_and_elems(space, w_item_or_iterable)
+    # they come back in C order
     size = len(elems_w)
     if space.is_w(w_dtype, space.w_None):
         w_dtype = None
@@ -62,11 +71,12 @@ def descr_new_array(space, w_subtype, w_item_or_iterable, w_dtype=None):
     dtype = space.interp_w(interp_dtype.W_Dtype,
         space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
     )
-    arr = NDimArray(size, shape[:], dtype=dtype)
-    i = 0
+    arr = NDimArray(size, shape[:], dtype=dtype, order=order)
+    arr_iter = arr.start_iter()
     for i in range(len(elems_w)):
         w_elem = elems_w[i]
-        dtype.setitem_w(space, arr.storage, i, w_elem)
+        dtype.setitem_w(space, arr.storage, arr_iter.offset, w_elem)
+        arr_iter = arr_iter.next()
     return arr
 
 class BaseIterator(object):
@@ -109,7 +119,7 @@ class ViewIterator(BaseIterator):
         indices = self.indices[:]
         done = False
         offset = self.offset
-        for i in range(len(self.indices)):
+        for i in range(len(self.indices) -1, -1, -1):
             if indices[i] < self.arr.shape[i] - 1:
                 indices[i] += 1
                 offset += self.arr.shards[i]
@@ -168,28 +178,31 @@ class ConstantIterator(BaseIterator):
 
 class BaseArray(Wrappable):
     _attrs_ = ["invalidates", "signature", "shape", "shards", "backshards",
-               "start"]
+               "start", 'order']
 
     #_immutable_fields_ = ['shape[*]', "shards[*]", "backshards[*]", 'start']
 
     shards = None
     start = 0
 
-    def __init__(self, shape):
+    def __init__(self, shape, order):
         self.invalidates = []
         self.shape = shape
+        self.order = order
         if self.shards is None:
             self.shards = []
             self.backshards = []
             s = 1
             shape_rev = shape[:]
-            shape_rev.reverse()
+            if order == 'C':
+                shape_rev.reverse()
             for sh in shape_rev:
                 self.shards.append(s)
                 self.backshards.append(s * (sh - 1))
                 s *= sh
-            self.shards.reverse()
-            self.backshards.reverse()
+            if order == 'C':
+                self.shards.reverse()
+                self.backshards.reverse()
 
     def invalidated(self):
         if self.invalidates:
@@ -340,9 +353,23 @@ class BaseArray(Wrappable):
 
     def descr_repr(self, space):
         res = StringBuilder()
+        concrete = self.get_concrete()
+        i = concrete.start_iter()
+        start = True
+        dtype = self.find_dtype()
+        while not i.done():
+            if start:
+                start = False
+            else:
+                res.append(", ")
+            res.append(dtype.str_format(concrete.getitem(i.offset)))
+            i = i.next()
+        return space.wrap(res.build())
+        
+        res = StringBuilder()
         res.append("array([")
         concrete = self.get_concrete()
-        i = concrete.start_iter(offset=0, indices=[0])
+        i = concrete.start_iter()#offset=0, indices=[0])
         start = True
         dtype = concrete.find_dtype()
         if not concrete.find_size():
@@ -386,7 +413,7 @@ class BaseArray(Wrappable):
         if ndims > 1:
             builder.append('[')
             builder.append("xxx")
-            i = self.start_iter(offest=0, indices=[0])
+            i = self.start_iter()
             while not i.done():
                 i.to_str(comma, builder, indent=indent + ' ')
                 builder.append('\n')
@@ -416,6 +443,7 @@ class BaseArray(Wrappable):
         return builder.build()
 
     def descr_str(self, space):
+        return self.descr_repr(space)
         # Simple implementation so that we can see the array.
         # Since what we want is to print a plethora of 2d views, let
         # a slice do the work for us.
@@ -425,7 +453,6 @@ class BaseArray(Wrappable):
         return space.wrap(r.to_str(False, s))
 
     def _index_of_single_item(self, space, w_idx):
-        # we assume C ordering for now
         if space.isinstance_w(w_idx, space.w_int):
             idx = space.int_w(w_idx)
             if not self.shape:
@@ -605,7 +632,7 @@ class Scalar(BaseArray):
     _attrs_ = ["dtype", "value", "shape"]
 
     def __init__(self, dtype, value):
-        BaseArray.__init__(self, [])
+        BaseArray.__init__(self, [], 'C')
         self.dtype = dtype
         self.value = value
 
@@ -631,8 +658,8 @@ class VirtualArray(BaseArray):
     """
     Class for representing virtual arrays, such as binary ops or ufuncs
     """
-    def __init__(self, signature, shape, res_dtype):
-        BaseArray.__init__(self, shape)
+    def __init__(self, signature, shape, res_dtype, order):
+        BaseArray.__init__(self, shape, order)
         self.forced_result = None
         self.signature = signature
         self.res_dtype = res_dtype
@@ -688,8 +715,9 @@ class VirtualArray(BaseArray):
 
 
 class Call1(VirtualArray):
-    def __init__(self, signature, shape, res_dtype, values):
-        VirtualArray.__init__(self, signature, shape, res_dtype)
+    def __init__(self, signature, shape, res_dtype, values, order):
+        VirtualArray.__init__(self, signature, shape, res_dtype,
+                              values.order)
         self.values = values
 
     def _del_sources(self):
@@ -720,7 +748,8 @@ class Call2(VirtualArray):
     Intermediate class for performing binary operations.
     """
     def __init__(self, signature, shape, calc_dtype, res_dtype, left, right):
-        VirtualArray.__init__(self, signature, shape, res_dtype)
+        # XXX do something if left.order != right.order
+        VirtualArray.__init__(self, signature, shape, res_dtype, left.order)
         self.left = left
         self.right = right
         self.calc_dtype = calc_dtype
@@ -759,7 +788,7 @@ class ViewArray(BaseArray):
     def __init__(self, parent, signature, shards, backshards, shape):
         self.shards = shards
         self.backshards = backshards
-        BaseArray.__init__(self, shape)
+        BaseArray.__init__(self, shape, parent.order)
         self.signature = signature
         self.parent = parent
         self.invalidates = parent.invalidates
@@ -851,8 +880,8 @@ class NDimArray(BaseArray):
     """ A class representing contiguous array. We know that each iteration
     by say ufunc will increase the data index by one
     """
-    def __init__(self, size, shape, dtype):
-        BaseArray.__init__(self, shape)
+    def __init__(self, size, shape, dtype, order='C'):
+        BaseArray.__init__(self, shape, order)
         self.size = size
         self.dtype = dtype
         self.storage = dtype.malloc(size)
@@ -892,7 +921,9 @@ class NDimArray(BaseArray):
         self.dtype.setitem(self.storage, item, value)
 
     def start_iter(self, offset=0, indices=None):
-        return ArrayIterator(self.size, offset=offset)
+        if self.order == 'C':
+            return ArrayIterator(self.size, offset=offset)
+        raise NotImplementedError # use ViewIterator simply, test it
 
     def __del__(self):
         lltype.free(self.storage, flavor='raw', track_allocation=False)
