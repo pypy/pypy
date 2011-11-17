@@ -27,8 +27,11 @@ class GuardToken(object):
         self.save_exc = save_exc
         self.fcond=fcond
 
-class OpAssembler(object):
+#class OpAssembler(object):
+class IntOpAssembler(object):
         
+    _mixin_ = True
+
     # ********************************************************
     # *               I N T    O P E R A T I O N S           *
     # ********************************************************
@@ -167,6 +170,11 @@ class OpAssembler(object):
         l0, res = arglocs
         self.mc.not_(res.value, l0.value)
 
+
+class GuardOpAssembler(object):
+
+    _mixin_ = True
+
     def _emit_guard(self, op, arglocs, fcond, save_exc=False,
             is_guard_not_invalidated=False):
         descr = op.getdescr()
@@ -277,6 +285,11 @@ class OpAssembler(object):
             raise NotImplementedError
         self._cmp_guard_class(op, arglocs, regalloc)
 
+
+class MiscOpAssembler(object):
+
+    _mixin_ = True
+
     def emit_finish(self, op, arglocs, regalloc):
         self.gen_exit_stub(op.getdescr(), op.getarglist(), arglocs)
 
@@ -292,6 +305,139 @@ class OpAssembler(object):
             new_fd = max(regalloc.frame_manager.frame_depth,
                          descr._ppc_frame_manager_depth)
             regalloc.frame_manager.frame_depth = new_fd
+
+    def emit_same_as(self, op, arglocs, regalloc):
+        argloc, resloc = arglocs
+        self.regalloc_mov(argloc, resloc)
+
+    emit_cast_ptr_to_int = emit_same_as
+    emit_cast_int_to_ptr = emit_same_as
+
+    def emit_call(self, op, args, regalloc, force_index=-1):
+        adr = args[0].value
+        arglist = op.getarglist()[1:]
+        if force_index == -1:
+            force_index = self.write_new_force_index()
+        self._emit_call(force_index, adr, arglist, regalloc, op.result)
+        descr = op.getdescr()
+        #XXX Hack, Hack, Hack
+        if op.result and not we_are_translated() and not isinstance(descr,
+                LoopToken):
+            #XXX check result type
+            loc = regalloc.rm.call_result_location(op.result)
+            size = descr.get_result_size(False)
+            signed = descr.is_result_signed()
+            self._ensure_result_bit_extension(loc, size, signed)
+
+    def _emit_call(self, force_index, adr, args, regalloc, result=None):
+        n_args = len(args)
+        reg_args = count_reg_args(args)
+
+        n = 0   # used to count the number of words pushed on the stack, so we
+                # can later modify the SP back to its original value
+        stack_args = []
+        if n_args > reg_args:
+            # first we need to prepare the list so it stays aligned
+            count = 0
+            for i in range(reg_args, n_args):
+                arg = args[i]
+                if arg.type == FLOAT:
+                    assert 0, "not implemented yet"
+                else:
+                    count += 1
+                    n += WORD
+                stack_args.append(arg)
+            if count % 2 != 0:
+                n += WORD
+                stack_args.append(None)
+
+        # adjust SP and compute size of parameter save area
+        if IS_PPC_32:
+            stack_space = BACKCHAIN_SIZE + len(stack_args) * WORD
+            while stack_space % (4 * WORD) != 0:
+                stack_space += 1
+            self.mc.stwu(r.SP.value, r.SP.value, -stack_space)
+            self.mc.mflr(r.r0.value)
+            self.mc.stw(r.r0.value, r.SP.value, stack_space + WORD)
+        else:
+            # ABI fixed frame + 8 GPRs + arguments
+            stack_space = (6 + MAX_REG_PARAMS + len(stack_args)) * WORD
+            while stack_space % (2 * WORD) != 0:
+                stack_space += 1
+            self.mc.stdu(r.SP.value, r.SP.value, -stack_space)
+            self.mc.mflr(r.r0.value)
+            self.mc.std(r.r0.value, r.SP.value, stack_space + 2 * WORD)
+
+        # then we push everything on the stack
+        for i, arg in enumerate(stack_args):
+            if IS_PPC_32:
+                abi = 2
+            else:
+                abi = 14
+            offset = (abi + i) * WORD
+            if arg is not None:
+                self.mc.load_imm(r.r0, arg.value)
+            if IS_PPC_32:
+                self.mc.stw(r.r0.value, r.SP.value, offset)
+            else:
+                self.mc.std(r.r0.value, r.SP.value, offset)
+
+        # collect variables that need to go in registers
+        # and the registers they will be stored in 
+        num = 0
+        count = 0
+        non_float_locs = []
+        non_float_regs = []
+        for i in range(reg_args):
+            arg = args[i]
+            if arg.type == FLOAT and count % 2 != 0:
+                assert 0, "not implemented yet"
+            reg = r.PARAM_REGS[num]
+
+            if arg.type == FLOAT:
+                assert 0, "not implemented yet"
+            else:
+                non_float_locs.append(regalloc.loc(arg))
+                non_float_regs.append(reg)
+
+            if arg.type == FLOAT:
+                assert 0, "not implemented yet"
+            else:
+                num += 1
+                count += 1
+
+        # spill variables that need to be saved around calls
+        regalloc.before_call(save_all_regs=2)
+
+        # remap values stored in core registers
+        remap_frame_layout(self, non_float_locs, non_float_regs, r.r0)
+
+        #the actual call
+        if IS_PPC_32:
+            self.mc.bl_abs(adr)
+            self.mc.lwz(r.r0.value, r.SP.value, stack_space + WORD)
+        else:
+            self.mc.std(r.r2.value, r.SP.value, 3 * WORD)
+            self.mc.load_from_addr(r.r0, adr)
+            self.mc.load_from_addr(r.r2, adr + WORD)
+            self.mc.load_from_addr(r.r11, adr + 2 * WORD)
+            self.mc.mtctr(r.r0.value)
+            self.mc.bctrl()
+            self.mc.ld(r.r2.value, r.SP.value, 3 * WORD)
+            self.mc.ld(r.r0.value, r.SP.value, stack_space + 2 * WORD)
+        self.mc.mtlr(r.r0.value)
+        self.mc.addi(r.SP.value, r.SP.value, stack_space)
+
+        self.mark_gc_roots(force_index)
+        regalloc.possibly_free_vars(args)
+
+        # restore the arguments stored on the stack
+        if result is not None:
+            resloc = regalloc.after_call(result)
+
+class FieldOpAssembler(object):
+
+    _mixin_ = True
 
     def emit_setfield_gc(self, op, arglocs, regalloc):
         value_loc, base_loc, ofs, size = arglocs
@@ -355,6 +501,11 @@ class OpAssembler(object):
     emit_getfield_raw = emit_getfield_gc
     emit_getfield_raw_pure = emit_getfield_gc
     emit_getfield_gc_pure = emit_getfield_gc
+
+
+class ArrayOpAssembler(object):
+    
+    _mixin_ = True
 
     def emit_arraylen_gc(self, op, arglocs, regalloc):
         res, base_loc, ofs = arglocs
@@ -430,6 +581,11 @@ class OpAssembler(object):
 
     emit_getarrayitem_raw = emit_getarrayitem_gc
     emit_getarrayitem_gc_pure = emit_getarrayitem_gc
+
+
+class StrOpAssembler(object):
+
+    _mixin_ = True
 
     def emit_strlen(self, op, arglocs, regalloc):
         l0, l1, res = arglocs
@@ -570,7 +726,12 @@ class OpAssembler(object):
         else:
             raise AssertionError("bad unicode item size")
 
-    emit_unicodelen = emit_strlen
+
+class UnicodeOpAssembler(object):
+
+    _mixin_ = True
+
+    emit_unicodelen = StrOpAssembler.emit_strlen
 
     # XXX 64 bit adjustment
     def emit_unicodegetitem(self, op, arglocs, regalloc):
@@ -606,6 +767,29 @@ class OpAssembler(object):
         else:
             assert 0, itemsize.value
 
+
+class AllocOpAssembler(object):
+
+    _mixin_ = True
+
+    # from: ../x86/regalloc.py:750
+    # called from regalloc
+    # XXX kill this function at some point
+    def _regalloc_malloc_varsize(self, size, size_box, vloc, vbox,
+            ofs_items_loc, regalloc, result):
+        if IS_PPC_32:
+            self.mc.mullw(size.value, size.value, vloc.value)
+        else:
+            self.mc.mulld(size.value, size.value, vloc.value)
+        if ofs_items_loc.is_imm():
+            self.mc.addi(size.value, size.value, ofs_items_loc.value)
+        else:
+            self.mc.add(size.value, size.value, ofs_items_loc.value)
+        force_index = self.write_new_force_index()
+        regalloc.force_spill_var(vbox)
+        self._emit_call(force_index, self.malloc_func_addr, [size_box], regalloc,
+                                    result=result)
+
     def emit_new(self, op, arglocs, regalloc):
         # XXX do exception handling here!
         pass
@@ -635,145 +819,6 @@ class OpAssembler(object):
     emit_newstr = emit_new_array
     emit_newunicode = emit_new_array
 
-    def emit_same_as(self, op, arglocs, regalloc):
-        argloc, resloc = arglocs
-        self.regalloc_mov(argloc, resloc)
-
-    emit_cast_ptr_to_int = emit_same_as
-    emit_cast_int_to_ptr = emit_same_as
-
-    def emit_call(self, op, args, regalloc, force_index=-1):
-        adr = args[0].value
-        arglist = op.getarglist()[1:]
-        if force_index == -1:
-            force_index = self.write_new_force_index()
-        self._emit_call(force_index, adr, arglist, regalloc, op.result)
-        descr = op.getdescr()
-        #XXX Hack, Hack, Hack
-        if op.result and not we_are_translated() and not isinstance(descr,
-                LoopToken):
-            #XXX check result type
-            loc = regalloc.rm.call_result_location(op.result)
-            size = descr.get_result_size(False)
-            signed = descr.is_result_signed()
-            self._ensure_result_bit_extension(loc, size, signed)
-
-    # XXX 64 bit adjustment
-    def _emit_call(self, force_index, adr, args, regalloc, result=None):
-        n_args = len(args)
-        reg_args = count_reg_args(args)
-
-        n = 0   # used to count the number of words pushed on the stack, so we
-                # can later modify the SP back to its original value
-        stack_args = []
-        if n_args > reg_args:
-            # first we need to prepare the list so it stays aligned
-            count = 0
-            for i in range(reg_args, n_args):
-                arg = args[i]
-                if arg.type == FLOAT:
-                    assert 0, "not implemented yet"
-                else:
-                    count += 1
-                    n += WORD
-                stack_args.append(arg)
-            if count % 2 != 0:
-                n += WORD
-                stack_args.append(None)
-
-        # adjust SP and compute size of parameter save area
-        if IS_PPC_32:
-            stack_space = BACKCHAIN_SIZE + len(stack_args) * WORD
-            while stack_space % (4 * WORD) != 0:
-                stack_space += 1
-            self.mc.stwu(r.SP.value, r.SP.value, -stack_space)
-            self.mc.mflr(r.r0.value)
-            self.mc.stw(r.r0.value, r.SP.value, stack_space + WORD)
-        else:
-            # ABI fixed frame + 8 GPRs + arguments
-            stack_space = (6 + MAX_REG_PARAMS + len(stack_args)) * WORD
-            while stack_space % (2 * WORD) != 0:
-                stack_space += 1
-            self.mc.stdu(r.SP.value, r.SP.value, -stack_space)
-            self.mc.mflr(r.r0.value)
-            self.mc.std(r.r0.value, r.SP.value, stack_space + 2 * WORD)
-
-        # then we push everything on the stack
-        for i, arg in enumerate(stack_args):
-            if IS_PPC_32:
-                abi = 2
-            else:
-                abi = 14
-            offset = (abi + i) * WORD
-            if arg is not None:
-                self.mc.load_imm(r.r0, arg.value)
-            if IS_PPC_32:
-                self.mc.stw(r.r0.value, r.SP.value, offset)
-            else:
-                self.mc.std(r.r0.value, r.SP.value, offset)
-
-        # collect variables that need to go in registers
-        # and the registers they will be stored in 
-        num = 0
-        count = 0
-        non_float_locs = []
-        non_float_regs = []
-        for i in range(reg_args):
-            arg = args[i]
-            if arg.type == FLOAT and count % 2 != 0:
-                assert 0, "not implemented yet"
-            reg = r.PARAM_REGS[num]
-
-            if arg.type == FLOAT:
-                assert 0, "not implemented yet"
-            else:
-                non_float_locs.append(regalloc.loc(arg))
-                non_float_regs.append(reg)
-
-            if arg.type == FLOAT:
-                assert 0, "not implemented yet"
-            else:
-                num += 1
-                count += 1
-
-        # spill variables that need to be saved around calls
-        regalloc.before_call(save_all_regs=2)
-
-        # remap values stored in core registers
-        remap_frame_layout(self, non_float_locs, non_float_regs, r.r0)
-
-        #the actual call
-        if IS_PPC_32:
-            self.mc.bl_abs(adr)
-            self.mc.lwz(r.r0.value, r.SP.value, stack_space + WORD)
-        else:
-            self.mc.std(r.r2.value, r.SP.value, 3 * WORD)
-            self.mc.load_from_addr(r.r0, adr)
-            self.mc.load_from_addr(r.r2, adr + WORD)
-            self.mc.load_from_addr(r.r11, adr + 2 * WORD)
-            self.mc.mtctr(r.r0.value)
-            self.mc.bctrl()
-            self.mc.ld(r.r2.value, r.SP.value, 3 * WORD)
-            self.mc.ld(r.r0.value, r.SP.value, stack_space + 2 * WORD)
-        self.mc.mtlr(r.r0.value)
-        self.mc.addi(r.SP.value, r.SP.value, stack_space)
-
-        self.mark_gc_roots(force_index)
-        regalloc.possibly_free_vars(args)
-
-        # restore the arguments stored on the stack
-        if result is not None:
-            resloc = regalloc.after_call(result)
-
-    def emit_guard_call_may_force(self, op, guard_op, arglocs, regalloc):
-        self.mc.mr(r.r0.value, r.SP.value)
-        if IS_PPC_32:
-            self.mc.cmpwi(r.r0.value, 0)
-        else:
-            self.mc.cmpdi(r.r0.value, 0)
-        self._emit_guard(guard_op, arglocs, c.EQ)
-
-    emit_guard_call_release_gil = emit_guard_call_may_force
 
     def write_new_force_index(self):
         # for shadowstack only: get a new, unused force_index number and
@@ -794,22 +839,27 @@ class OpAssembler(object):
 
     emit_jit_debug = emit_debug_merge_point
 
+
+class ForceOpAssembler(object):
+
+    _mixin_ = True
+
+    def emit_guard_call_may_force(self, op, guard_op, arglocs, regalloc):
+        self.mc.mr(r.r0.value, r.SP.value)
+        if IS_PPC_32:
+            self.mc.cmpwi(r.r0.value, 0)
+        else:
+            self.mc.cmpdi(r.r0.value, 0)
+        self._emit_guard(guard_op, arglocs, c.EQ)
+
+    emit_guard_call_release_gil = emit_guard_call_may_force
+
+
+class OpAssembler(IntOpAssembler, GuardOpAssembler,
+                  MiscOpAssembler, FieldOpAssembler,
+                  ArrayOpAssembler, StrOpAssembler,
+                  UnicodeOpAssembler, ForceOpAssembler,
+                  AllocOpAssembler):
+
     def nop(self):
         self.mc.ori(0, 0, 0)
-
-    # from: ../x86/regalloc.py:750
-    # called from regalloc
-    # XXX kill this function at some point
-    def _regalloc_malloc_varsize(self, size, size_box, vloc, vbox, ofs_items_loc, regalloc, result):
-        if IS_PPC_32:
-            self.mc.mullw(size.value, size.value, vloc.value)
-        else:
-            self.mc.mulld(size.value, size.value, vloc.value)
-        if ofs_items_loc.is_imm():
-            self.mc.addi(size.value, size.value, ofs_items_loc.value)
-        else:
-            self.mc.add(size.value, size.value, ofs_items_loc.value)
-        force_index = self.write_new_force_index()
-        regalloc.force_spill_var(vbox)
-        self._emit_call(force_index, self.malloc_func_addr, [size_box], regalloc,
-                                    result=result)
