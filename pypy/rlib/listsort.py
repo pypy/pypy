@@ -1,4 +1,4 @@
-from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift
+from pypy.rlib.rarithmetic import ovfcheck
 
 
 ## ------------------------------------------------------------------------
@@ -136,7 +136,7 @@ def make_timsort_class():
                     if lower(a.list[p + ofs], key):
                         lastofs = ofs
                         try:
-                            ofs = ovfcheck_lshift(ofs, 1)
+                            ofs = ovfcheck(ofs << 1)
                         except OverflowError:
                             ofs = maxofs
                         else:
@@ -161,7 +161,7 @@ def make_timsort_class():
                         # key <= a[hint - ofs]
                         lastofs = ofs
                         try:
-                            ofs = ovfcheck_lshift(ofs, 1)
+                            ofs = ovfcheck(ofs << 1)
                         except OverflowError:
                             ofs = maxofs
                         else:

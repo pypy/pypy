@@ -36,37 +36,40 @@ class AppTestDtypes(BaseNumpyAppTest):
         assert str(d) == "bool"
 
     def test_bool_array(self):
-        from numpy import array
+        import numpy
 
-        a = array([0, 1, 2, 2.5], dtype='?')
-        assert a[0] is False
+        a = numpy.array([0, 1, 2, 2.5], dtype='?')
+        assert a[0] is numpy.False_
         for i in xrange(1, 4):
-            assert a[i] is True
+            assert a[i] is numpy.True_
 
     def test_copy_array_with_dtype(self):
-        from numpy import array
-        a = array([0, 1, 2, 3], dtype=long)
+        import numpy
+
+        a = numpy.array([0, 1, 2, 3], dtype=long)
         # int on 64-bit, long in 32-bit
         assert isinstance(a[0], (int, long))
         b = a.copy()
         assert isinstance(b[0], (int, long))
 
-        a = array([0, 1, 2, 3], dtype=bool)
-        assert isinstance(a[0], bool)
+        a = numpy.array([0, 1, 2, 3], dtype=bool)
+        assert a[0] is numpy.False_
         b = a.copy()
-        assert isinstance(b[0], bool)
+        assert b[0] is numpy.False_
 
     def test_zeros_bool(self):
-        from numpy import zeros
-        a = zeros(10, dtype=bool)
+        import numpy
+
+        a = numpy.zeros(10, dtype=bool)
         for i in range(10):
-            assert a[i] is False
+            assert a[i] is numpy.False_
 
     def test_ones_bool(self):
-        from numpy import ones
-        a = ones(10, dtype=bool)
+        import numpy
+
+        a = numpy.ones(10, dtype=bool)
         for i in range(10):
-            assert a[i] is True
+            assert a[i] is numpy.True_
 
     def test_zeros_long(self):
         from numpy import zeros
@@ -77,7 +80,7 @@ class AppTestDtypes(BaseNumpyAppTest):
 
     def test_ones_long(self):
         from numpy import ones
-        a = ones(10, dtype=bool)
+        a = ones(10, dtype=long)
         for i in range(10):
             assert isinstance(a[i], (int, long))
             assert a[1] == 1
@@ -96,8 +99,9 @@ class AppTestDtypes(BaseNumpyAppTest):
 
     def test_bool_binop_types(self):
         from numpy import array, dtype
-        types = ('?','b','B','h','H','i','I','l','L','q','Q','f','d')
-        N = len(types)
+        types = [
+            '?', 'b', 'B', 'h', 'H', 'i', 'I', 'l', 'L', 'q', 'Q', 'f', 'd'
+        ]
         a = array([True], '?')
         for t in types:
             assert (a + array([0], t)).dtype is dtype(t)

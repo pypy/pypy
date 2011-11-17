@@ -37,10 +37,11 @@ def _annotation(a, x):
     return a.typeannotation(t)
 
 def annotate(func, values, inline=None, backendoptimize=True,
-             type_system="lltype", taggedpointers=False):
+             type_system="lltype", translationoptions={}):
     # build the normal ll graphs for ll_function
     t = TranslationContext()
-    t.config.translation.taggedpointers = taggedpointers
+    for key, value in translationoptions.items():
+        setattr(t.config.translation, key, value)
     annpolicy = AnnotatorPolicy()
     annpolicy.allow_someobjects = False
     a = t.buildannotator(policy=annpolicy)

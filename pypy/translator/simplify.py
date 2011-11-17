@@ -111,16 +111,13 @@ def eliminate_empty_blocks(graph):
                 # the while loop above will simplify recursively the new link
 
 def transform_ovfcheck(graph):
-    """The special function calls ovfcheck and ovfcheck_lshift need to
+    """The special function calls ovfcheck needs to
     be translated into primitive operations. ovfcheck is called directly
     after an operation that should be turned into an overflow-checked
     version. It is considered a syntax error if the resulting <op>_ovf
     is not defined in objspace/flow/objspace.py.
-    ovfcheck_lshift is special because there is no preceding operation.
-    Instead, it will be replaced by an OP_LSHIFT_OVF operation.
     """
     covf = Constant(rarithmetic.ovfcheck)
-    covfls = Constant(rarithmetic.ovfcheck_lshift)
 
     def check_syntax(opname):
         exlis = operation.implicit_exceptions.get("%s_ovf" % (opname,), [])
@@ -154,9 +151,6 @@ def transform_ovfcheck(graph):
                 op1.opname += '_ovf'
                 del block.operations[i]
                 block.renamevariables({op.result: op1.result})
-            elif op.args[0] == covfls:
-                op.opname = 'lshift_ovf'
-                del op.args[0]
 
 def simplify_exceptions(graph):
     """The exception handling caused by non-implicit exceptions

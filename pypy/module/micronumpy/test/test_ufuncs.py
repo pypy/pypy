@@ -24,10 +24,10 @@ class AppTestUfuncs(BaseNumpyAppTest):
     def test_wrong_arguments(self):
         from numpy import add, sin
 
-        raises(TypeError, add, 1)
+        raises(ValueError, add, 1)
         raises(TypeError, add, 1, 2, 3)
         raises(TypeError, sin, 1, 2)
-        raises(TypeError, sin)
+        raises(ValueError, sin)
 
     def test_single_item(self):
         from numpy import negative, sign, minimum
@@ -82,6 +82,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
         b = negative(a)
         a[0] = 5.0
         assert b[0] == 5.0
+        a = array(range(30))
+        assert negative(a + a)[3] == -6
 
     def test_abs(self):
         from numpy import array, absolute
@@ -355,4 +357,4 @@ class AppTestUfuncs(BaseNumpyAppTest):
                 (3.5, 3),
                 (3, 3.5),
             ]:
-                assert ufunc(a, b) is func(a, b)
+                assert ufunc(a, b) == func(a, b)

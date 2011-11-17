@@ -63,7 +63,7 @@ class GcHighLevelOp(object):
                     gct.push_alive(v_result, self.llops)
             elif opname not in ('direct_call', 'indirect_call'):
                 gct.push_alive(v_result, self.llops)
-        
+
 
 
     def rename(self, newopname):
@@ -118,7 +118,7 @@ class BaseGCTransformer(object):
             self.minimalgctransformer = self.MinimalGCTransformer(self)
         else:
             self.minimalgctransformer = None
-            
+
     def get_lltype_of_exception_value(self):
         if self.translator is not None:
             exceptiondata = self.translator.rtyper.getexceptiondata()
@@ -399,7 +399,7 @@ class BaseGCTransformer(object):
 
     def gct_gc_heap_stats(self, hop):
         from pypy.rpython.memory.gc.base import ARRAY_TYPEID_MAP
-        
+
         return hop.cast_result(rmodel.inputconst(lltype.Ptr(ARRAY_TYPEID_MAP),
                                         lltype.nullptr(ARRAY_TYPEID_MAP)))
 
@@ -427,7 +427,7 @@ class MinimalGCTransformer(BaseGCTransformer):
         assert flavor == 'raw'
         assert not flags.get('zero')
         return self.parenttransformer.gct_malloc_varsize(hop)
-    
+
     def gct_free(self, hop):
         flags = hop.spaceop.args[1].value
         flavor = flags['flavor']
@@ -502,7 +502,7 @@ class GCTransformer(BaseGCTransformer):
         stack_mh = mallocHelpers()
         stack_mh.allocate = lambda size: llop.stack_malloc(llmemory.Address, size)
         ll_stack_malloc_fixedsize = stack_mh._ll_malloc_fixedsize
-        
+
         if self.translator:
             self.raw_malloc_fixedsize_ptr = self.inittime_helper(
                 ll_raw_malloc_fixedsize, [lltype.Signed], llmemory.Address)
@@ -541,7 +541,7 @@ class GCTransformer(BaseGCTransformer):
                           resulttype=llmemory.Address)
         if flags.get('zero'):
             hop.genop("raw_memclear", [v_raw, c_size])
-        return v_raw        
+        return v_raw
 
     def gct_malloc_varsize(self, hop, add_flags=None):
         flags = hop.spaceop.args[1].value
@@ -558,6 +558,14 @@ class GCTransformer(BaseGCTransformer):
 
     def gct_malloc_nonmovable_varsize(self, *args, **kwds):
         return self.gct_malloc_varsize(*args, **kwds)
+
+    def gct_gc_add_memory_pressure(self, hop):
+        if hasattr(self, 'raw_malloc_memory_pressure_ptr'):
+            op = hop.spaceop
+            size = op.args[0]
+            return hop.genop("direct_call",
+                          [self.raw_malloc_memory_pressure_ptr,
+                           size])
 
     def varsize_malloc_helper(self, hop, flags, meth, extraargs):
         def intconst(c): return rmodel.inputconst(lltype.Signed, c)
@@ -590,9 +598,9 @@ class GCTransformer(BaseGCTransformer):
     def gct_fv_raw_malloc_varsize(self, hop, flags, TYPE, v_length, c_const_size, c_item_size,
                                                                     c_offset_to_length):
         if flags.get('add_memory_pressure', False):
-            if hasattr(self, 'raw_malloc_memory_pressure_ptr'):
+            if hasattr(self, 'raw_malloc_memory_pressure_varsize_ptr'):
                 hop.genop("direct_call",
-                          [self.raw_malloc_memory_pressure_ptr,
+                          [self.raw_malloc_memory_pressure_varsize_ptr,
                            v_length, c_item_size])
         if c_offset_to_length is None:
             if flags.get('zero'):
@@ -625,7 +633,7 @@ class GCTransformer(BaseGCTransformer):
                 hop.genop("track_alloc_stop", [v])
             hop.genop('raw_free', [v])
         else:
-            assert False, "%s has no support for free with flavor %r" % (self, flavor)           
+            assert False, "%s has no support for free with flavor %r" % (self, flavor)
 
     def gct_gc_can_move(self, hop):
         return hop.cast_result(rmodel.inputconst(lltype.Bool, False))

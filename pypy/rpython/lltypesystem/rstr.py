@@ -20,6 +20,7 @@ from pypy.rpython.lltypesystem.lltype import \
 from pypy.rpython.rmodel import Repr
 from pypy.rpython.lltypesystem import llmemory
 from pypy.tool.sourcetools import func_with_new_name
+from pypy.rpython.lltypesystem.lloperation import llop
 
 # ____________________________________________________________
 #
@@ -330,6 +331,8 @@ class LLHelpers(AbstractLLHelpers):
         # unlike CPython, there is no reason to avoid to return -1
         # but our malloc initializes the memory to zero, so we use zero as the
         # special non-computed-yet value.
+        if not s:
+            return 0
         x = s.hash
         if x == 0:
             x = _hash_string(s.chars)
@@ -364,8 +367,10 @@ class LLHelpers(AbstractLLHelpers):
             while lpos < rpos and s.chars[lpos] == ch:
                 lpos += 1
         if right:
-            while lpos < rpos and s.chars[rpos] == ch:
+            while lpos < rpos + 1 and s.chars[rpos] == ch:
                 rpos -= 1
+        if rpos < lpos:
+            return s.empty()
         r_len = rpos - lpos + 1
         result = s.malloc(r_len)
         s.copy_contents(s, result, lpos, 0, r_len)

@@ -848,6 +848,10 @@ class Transformer(object):
         if self._is_gc(op.args[0]):
             return op
 
+    def rewrite_op_cast_opaque_ptr(self, op):
+        # None causes the result of this op to get aliased to op.args[0]
+        return [SpaceOperation('mark_opaque_ptr', op.args, None), None]
+
     def rewrite_op_force_cast(self, op):
         v_arg = op.args[0]
         v_result = op.result
@@ -1615,6 +1619,12 @@ class Transformer(object):
         elif oopspec_name.startswith('libffi_call_'):
             oopspecindex = EffectInfo.OS_LIBFFI_CALL
             extraeffect = EffectInfo.EF_RANDOM_EFFECTS
+        elif oopspec_name == 'libffi_array_getitem':
+            oopspecindex = EffectInfo.OS_LIBFFI_GETARRAYITEM
+            extraeffect = EffectInfo.EF_CANNOT_RAISE
+        elif oopspec_name == 'libffi_array_setitem':
+            oopspecindex = EffectInfo.OS_LIBFFI_SETARRAYITEM
+            extraeffect = EffectInfo.EF_CANNOT_RAISE
         else:
             assert False, 'unsupported oopspec: %s' % oopspec_name
         return self._handle_oopspec_call(op, args, oopspecindex, extraeffect)

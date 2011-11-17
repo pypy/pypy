@@ -445,9 +445,9 @@ def ll_dict_setitem(d, key, value):
     i = ll_dict_lookup(d, key, hash)
     return _ll_dict_setitem_lookup_done(d, key, value, hash, i)
 
-# Leaving as dont_look_inside ATM, it has a few branches which could lead to
-# many bridges if we don't consider their possible frequency.
-@jit.dont_look_inside
+# It may be safe to look inside always, it has a few branches though, and their
+# frequencies needs to be investigated.
+@jit.look_inside_iff(lambda d, key, value, hash, i: jit.isvirtual(d) and jit.isconstant(key))
 def _ll_dict_setitem_lookup_done(d, key, value, hash, i):
     valid = (i & HIGHEST_BIT) == 0
     i = i & MASK
@@ -492,8 +492,8 @@ def ll_dict_delitem(d, key):
     _ll_dict_del(d, i)
 
 # XXX: Move the size checking and resize into a single call which is opauqe to
-# the JIT to avoid extra branches.
-@jit.dont_look_inside
+# the JIT when the dict isn't virtual, to avoid extra branches.
+@jit.look_inside_iff(lambda d, i: jit.isvirtual(d) and jit.isconstant(i))
 def _ll_dict_del(d, i):
     d.entries.mark_deleted(i)
     d.num_items -= 1
@@ -533,7 +533,7 @@ ll_dict_resize.oopspec = 'dict.resize(d)'
 # ------- a port of CPython's dictobject.c's lookdict implementation -------
 PERTURB_SHIFT = 5
 
-@jit.dont_look_inside
+@jit.look_inside_iff(lambda d, key, hash: jit.isvirtual(d) and jit.isconstant(key))
 def ll_dict_lookup(d, key, hash):
     entries = d.entries
     ENTRIES = lltype.typeOf(entries).TO

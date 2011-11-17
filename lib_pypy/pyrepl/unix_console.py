@@ -163,7 +163,7 @@ class UnixConsole(Console):
     def change_encoding(self, encoding):
         self.encoding = encoding
     
-    def refresh(self, screen, (cx, cy)):
+    def refresh(self, screen, cxy):
         # this function is still too long (over 90 lines)
 
         if not self.__gone_tall:
@@ -198,6 +198,7 @@ class UnixConsole(Console):
 
         # we make sure the cursor is on the screen, and that we're
         # using all of the screen if we can
+        cx, cy = cxy
         if cy < offset:
             offset = cy
         elif cy >= offset + height:

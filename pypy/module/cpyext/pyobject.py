@@ -116,8 +116,8 @@ def _get_typedescr_1(typedef):
     try:
         return typedescr_cache[typedef]
     except KeyError:
-        if typedef.base is not None:
-            return _get_typedescr_1(typedef.base)
+        if typedef.bases:
+            return _get_typedescr_1(typedef.bases[0])
         return typedescr_cache[None]
 
 def get_typedescr(typedef):

@@ -183,7 +183,20 @@ class LLtypeMixin(object):
                             can_invalidate=True))
     arraycopydescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
              EffectInfo([], [arraydescr], [], [arraydescr],
+                        EffectInfo.EF_CANNOT_RAISE,
                         oopspecindex=EffectInfo.OS_ARRAYCOPY))
+
+
+    # array of structs (complex data)
+    complexarray = lltype.GcArray(
+        lltype.Struct("complex",
+            ("real", lltype.Float),
+            ("imag", lltype.Float),
+        )
+    )
+    complexarraydescr = cpu.arraydescrof(complexarray)
+    complexrealdescr = cpu.interiorfielddescrof(complexarray, "real")
+    compleximagdescr = cpu.interiorfielddescrof(complexarray, "imag")
 
     for _name, _os in [
         ('strconcatdescr',               'OS_STR_CONCAT'),
@@ -200,12 +213,14 @@ class LLtypeMixin(object):
         _oopspecindex = getattr(EffectInfo, _os)
         locals()[_name] = \
             cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                EffectInfo([], [], [], [], oopspecindex=_oopspecindex))
+                EffectInfo([], [], [], [], EffectInfo.EF_CANNOT_RAISE,
+                           oopspecindex=_oopspecindex))
         #
         _oopspecindex = getattr(EffectInfo, _os.replace('STR', 'UNI'))
         locals()[_name.replace('str', 'unicode')] = \
             cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                EffectInfo([], [], [], [], oopspecindex=_oopspecindex))
+                EffectInfo([], [], [], [], EffectInfo.EF_CANNOT_RAISE,
+                           oopspecindex=_oopspecindex))
 
     s2u_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
             EffectInfo([], [], [], [], oopspecindex=EffectInfo.OS_STR2UNICODE))
@@ -240,7 +255,7 @@ class OOtypeMixin_xxx_disabled(object):
 ##    def get_class_of_box(self, box):
 ##        root = box.getref(ootype.ROOT)
 ##        return ootype.classof(root)
-    
+
 ##    cpu = runner.OOtypeCPU(None)
 ##    NODE = ootype.Instance('NODE', ootype.ROOT, {})
 ##    NODE._add_fields({'value': ootype.Signed,

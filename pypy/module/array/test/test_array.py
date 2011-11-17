@@ -835,7 +835,7 @@ class BaseArrayTests:
         a.append(3.0)
         r = weakref.ref(a, lambda a: l.append(a()))
         del a
-        gc.collect()
+        gc.collect(); gc.collect()   # XXX needs two of them right now...
         assert l
         assert l[0] is None or len(l[0]) == 0
 
