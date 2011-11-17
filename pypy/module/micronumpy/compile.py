@@ -286,7 +286,8 @@ class RangeConstant(Node):
         w_list = interp.space.newlist(
             [interp.space.wrap(float(i)) for i in range(self.v)])
         dtype = interp.space.fromcache(W_Float64Dtype)
-        return descr_new_array(interp.space, None, w_list, w_dtype=dtype)
+        return descr_new_array(interp.space, None, w_list, w_dtype=dtype,
+                               w_order=None)
 
     def __repr__(self):
         return 'Range(%s)' % self.v
@@ -308,7 +309,8 @@ class ArrayConstant(Node):
     def execute(self, interp):
         w_list = self.wrap(interp.space)
         dtype = interp.space.fromcache(W_Float64Dtype)
-        return descr_new_array(interp.space, None, w_list, w_dtype=dtype)
+        return descr_new_array(interp.space, None, w_list, w_dtype=dtype,
+                               w_order=None)
 
     def __repr__(self):
         return "[" + ", ".join([repr(item) for item in self.items]) + "]"
