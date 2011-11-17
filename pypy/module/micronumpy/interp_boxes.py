@@ -11,12 +11,14 @@ from pypy.tool.sourcetools import func_with_new_name
 
 MIXIN_64 = (int_typedef,) if LONG_BIT == 64 else ()
 
-def dtype_getter(name):
-    @staticmethod
+def new_dtype_getter(name):
     def get_dtype(space):
         from pypy.module.micronumpy.interp_dtype import get_dtype_cache
         return getattr(get_dtype_cache(space), "w_%sdtype" % name)
-    return get_dtype
+    def new(space, w_subtype, w_value):
+        dtype = get_dtype(space)
+        return dtype.itemtype.coerce_subtype(space, w_subtype, w_value)
+    return new, staticmethod(get_dtype)
 
 class PrimitiveBox(object):
     _mixin_ = True
@@ -30,13 +32,7 @@ class PrimitiveBox(object):
 class W_GenericBox(Wrappable):
     _attrs_ = ()
 
-    def descr__new__(space, w_subtype, w_value):
-        from pypy.module.micronumpy.interp_dtype import get_dtype_cache
-        # XXX: not correct if w_subtype is a user defined subclass of a builtin
-        # type, this whole thing feels a little wrong.
-        for dtype in get_dtype_cache(space).builtin_dtypes:
-            if w_subtype is dtype.w_box_type:
-                return dtype.coerce(space, w_value)
+    def descr__new__(space, w_subtype, __args__):
         assert isinstance(w_subtype, W_TypeObject)
         raise operationerrfmt(space.w_TypeError, "cannot create '%s' instances",
             w_subtype.get_module_type_name()
@@ -98,7 +94,7 @@ class W_GenericBox(Wrappable):
 
 
 class W_BoolBox(W_GenericBox, PrimitiveBox):
-    get_dtype = dtype_getter("bool")
+    descr__new__, get_dtype = new_dtype_getter("bool")
 
 class W_NumberBox(W_GenericBox):
     _attrs_ = ()
@@ -113,7 +109,7 @@ class W_UnsignedIntgerBox(W_IntegerBox):
     pass
 
 class W_Int8Box(W_SignedIntegerBox, PrimitiveBox):
-    get_dtype = dtype_getter("int8")
+    descr__new__, get_dtype = new_dtype_getter("int8")
 
 class W_UInt8Box(W_UnsignedIntgerBox, PrimitiveBox):
     pass
@@ -131,13 +127,13 @@ class W_UInt32Box(W_UnsignedIntgerBox, PrimitiveBox):
     pass
 
 class W_LongBox(W_SignedIntegerBox, PrimitiveBox):
-    get_dtype = dtype_getter("long")
+    descr__new__, get_dtype = new_dtype_getter("long")
 
 class W_ULongBox(W_UnsignedIntgerBox, PrimitiveBox):
     pass
 
 class W_Int64Box(W_SignedIntegerBox, PrimitiveBox):
-    get_dtype = dtype_getter("int64")
+    descr__new__, get_dtype = new_dtype_getter("int64")
 
 class W_UInt64Box(W_UnsignedIntgerBox, PrimitiveBox):
     pass
@@ -149,10 +145,10 @@ class W_FloatingBox(W_InexactBox):
     _attrs_ = ()
 
 class W_Float32Box(W_FloatingBox, PrimitiveBox):
-    get_dtype = dtype_getter("float32")
+    descr__new__, get_dtype = new_dtype_getter("float32")
 
 class W_Float64Box(W_FloatingBox, PrimitiveBox):
-    get_dtype = dtype_getter("float64")
+    descr__new__, get_dtype = new_dtype_getter("float64")
 
 
 
@@ -160,6 +156,7 @@ W_GenericBox.typedef = TypeDef("generic",
     __module__ = "numpy",
 
     __new__ = interp2app(W_GenericBox.descr__new__.im_func),
+
     __str__ = interp2app(W_GenericBox.descr_str),
     __repr__ = interp2app(W_GenericBox.descr_repr),
     __int__ = interp2app(W_GenericBox.descr_int),
@@ -186,6 +183,7 @@ W_GenericBox.typedef = TypeDef("generic",
 
 W_BoolBox.typedef = TypeDef("bool_", W_GenericBox.typedef,
     __module__ = "numpy",
+    __new__ = interp2app(W_BoolBox.descr__new__.im_func),
 )
 
 W_NumberBox.typedef = TypeDef("number", W_GenericBox.typedef,
@@ -202,6 +200,7 @@ W_SignedIntegerBox.typedef = TypeDef("signedinteger", W_IntegerBox.typedef,
 
 W_Int8Box.typedef = TypeDef("int8", W_SignedIntegerBox.typedef,
     __module__ = "numpy",
+    __new__ = interp2app(W_Int8Box.descr__new__.im_func),
 )
 
 W_UInt8Box.typedef = TypeDef("uint8", W_UnsignedIntgerBox.typedef,
@@ -258,4 +257,6 @@ W_Float32Box.typedef = TypeDef("float32", W_FloatingBox.typedef,
 
 W_Float64Box.typedef = TypeDef("float64", (W_FloatingBox.typedef, float_typedef),
     __module__ = "numpy",
+
+    __new__ = interp2app(W_Float64Box.descr__new__.im_func),
 )

@@ -186,6 +186,12 @@ class AppTestTypes(BaseNumpyAppTest):
         assert numpy.bool_("") is numpy.False_
         assert type(numpy.True_) is type(numpy.False_) is numpy.bool_
 
+        class X(numpy.bool_):
+            pass
+
+        assert type(X(True)) is numpy.bool_
+        assert X(True) is numpy.True_
+
     def test_int8(self):
         import numpy
 
@@ -206,8 +212,19 @@ class AppTestTypes(BaseNumpyAppTest):
 
         assert numpy.float64.mro() == [numpy.float64, numpy.floating, numpy.inexact, numpy.number, numpy.generic, float, object]
 
-        a  = numpy.array([1, 2, 3], numpy.float64)
+        a = numpy.array([1, 2, 3], numpy.float64)
         assert type(a[1]) is numpy.float64
         assert numpy.dtype(float).type is numpy.float64
 
         assert numpy.float64(2.0) == 2.0
+
+    def test_subclass_type(self):
+        import numpy
+
+        class X(numpy.float64):
+            def m(self):
+                return self + 2
+
+        b = X(10)
+        assert type(b) is X
+        assert b.m() == 12

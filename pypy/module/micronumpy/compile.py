@@ -9,7 +9,7 @@ from pypy.module.micronumpy.interp_dtype import get_dtype_cache
 from pypy.module.micronumpy.interp_numarray import (Scalar, BaseArray,
      descr_new_array, scalar_w, SingleDimArray)
 from pypy.module.micronumpy import interp_ufuncs
-from pypy.rlib.objectmodel import specialize
+from pypy.rlib.objectmodel import specialize, instantiate
 
 
 class BogusBytecode(Exception):
@@ -111,6 +111,9 @@ class FakeSpace(object):
     def interp_w(self, tp, what):
         assert isinstance(what, tp)
         return what
+
+    def allocate_instance(self, klass, w_subtype):
+        return instantiate(klass)
 
 class FloatObject(W_Root):
     tp = FakeSpace.w_float

@@ -65,7 +65,14 @@ class Primitive(object):
     def coerce(self, space, w_item):
         if isinstance(w_item, self.BoxType):
             return w_item
-        return self._coerce(space, w_item)
+        return self.coerce_subtype(space, space.gettypefor(self.BoxType), w_item)
+
+    def coerce_subtype(self, space, w_subtype, w_item):
+        # XXX: ugly
+        w_obj = space.allocate_instance(self.BoxType, w_subtype)
+        assert isinstance(w_obj, self.BoxType)
+        w_obj.__init__(self._coerce(space, w_item).value)
+        return w_obj
 
     def _coerce(self, space, w_item):
         raise NotImplementedError
