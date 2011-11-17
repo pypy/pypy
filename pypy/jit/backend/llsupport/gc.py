@@ -879,7 +879,6 @@ class GcRewriterAssembler(object):
                         basesize = descr.get_base_size(self.tsc)
                         itemsize = descr.get_item_size(self.tsc)
                         fullsize = basesize + newlength * itemsize
-                        fullsize = self.round_up_for_allocation(fullsize)
                         self.gen_malloc_const(fullsize, op.result)
                         self.gen_initialize_tid(op.result, descr.tid)
                         self.gen_initialize_len(op.result, v_newlength, descr)
@@ -915,6 +914,7 @@ class GcRewriterAssembler(object):
         return self.newops
 
     def gen_malloc_const(self, size, v_result):
+        size = self.round_up_for_allocation(size)
         if self.op_malloc_gc is None:
             # it is the first we see: emit MALLOC_GC
             op = ResOperation(rop.MALLOC_GC,

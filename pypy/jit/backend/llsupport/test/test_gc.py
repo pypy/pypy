@@ -550,12 +550,14 @@ class TestFramework(object):
     def check_rewrite(self, frm_operations, to_operations):
         self.gc_ll_descr.translate_support_code = False
         try:
-            S = lltype.GcStruct('S', ('x', lltype.Signed))
+            S = lltype.GcStruct('S', ('x', lltype.Signed),
+                                     ('y', lltype.Signed))
             sdescr = get_size_descr(self.gc_ll_descr, S)
             sdescr.tid = 1234
             #
             T = lltype.GcStruct('T', ('y', lltype.Signed),
-                                     ('z', lltype.Signed))
+                                     ('z', lltype.Signed),
+                                     ('t', lltype.Signed))
             tdescr = get_size_descr(self.gc_ll_descr, T)
             tdescr.tid = 5678
             #
@@ -569,7 +571,12 @@ class TestFramework(object):
             bdescr.tid = 8765
             blendescr = get_field_arraylen_descr(self.gc_ll_descr, B)
             #
+            E = lltype.GcStruct('Empty')
+            edescr = get_size_descr(self.gc_ll_descr, E)
+            edescr.tid = 9000
+            #
             tiddescr = self.gc_ll_descr.fielddescr_tid
+            WORD = globals()['WORD']
             #
             ops = parse(frm_operations, namespace=locals())
             expected = parse(to_operations % Evaluator(locals()),
@@ -678,6 +685,21 @@ class TestFramework(object):
             p3 = int_add(p2, %(adescr.get_base_size(False) + 8)d)
             setfield_gc(p3, 8765, descr=tiddescr)
             setfield_gc(p3, 5, descr=blendescr)
+            jump()
+        """)
+
+    def test_rewrite_assembler_minimal_size(self):
+        self.check_rewrite("""
+            []
+            p0 = new(descr=edescr)
+            p1 = new(descr=edescr)
+            jump()
+        """, """
+            []
+            p0 = malloc_gc(%(4*WORD)d)
+            setfield_gc(p0, 9000, descr=tiddescr)
+            p1 = int_add(p0, %(2*WORD)d)
+            setfield_gc(p1, 9000, descr=tiddescr)
             jump()
         """)
 
