@@ -1318,6 +1318,23 @@ class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
         res = self.run('string_builder_over_allocation')
         assert res[1000] == 'y'
 
+    def definestr_string_builder_multiple_builds(cls):
+        import gc
+        def fn(_):
+            s = StringBuilder(4)
+            got = []
+            for i in range(50):
+                s.append(chr(i))
+                got.append(s.build())
+                gc.collect()
+            return '/'.join(got)
+        return fn
+
+    def test_string_builder_multiple_builds(self):
+        res = self.run('string_builder_multiple_builds')
+        assert res == '/'.join([''.join(map(chr, range(length)))
+                                for length in range(1, 51)])
+
     def define_nursery_hash_base(cls):
         from pypy.rlib.objectmodel import compute_identity_hash
         class A:
