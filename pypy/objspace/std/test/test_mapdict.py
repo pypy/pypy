@@ -115,10 +115,8 @@ def test_delete():
         obj.setdictvalue(space, "a", 50)
         obj.setdictvalue(space, "b", 60)
         obj.setdictvalue(space, "c", 70)
-        print obj.storage
         assert unerase_storage_items(obj.storage) == [50, 60, 70]
         res = obj.deldictvalue(space, dattr)
-        print obj.storage
         assert res
         s = [50, 60, 70]
         del s[i]
