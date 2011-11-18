@@ -7,7 +7,7 @@ if sys.platform != 'darwin':
     py.test.skip("Darwin only")
 
 from pypy.tool.udir import udir
-from pypy.translator.platform.darwin import Darwin_i386, Darwin_x86_64
+from pypy.translator.platform.darwin import Darwin_i386, Darwin_x86_64, Darwin_PowerPC
 from pypy.translator.platform.test.test_platform import TestPlatform as BasicTest
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
@@ -17,7 +17,7 @@ if platform.machine() == 'i386':
     else:
         host_factory = Darwin_x86_64
 else:
-    host_factory = Darwin
+    host_factory = Darwin_PowerPC
 
 class TestDarwin(BasicTest):
     platform = host_factory()

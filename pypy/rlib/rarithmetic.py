@@ -12,9 +12,6 @@ intmask  mask a possibly long value when running on CPython
          back to a signed int value
 ovfcheck check on CPython whether the result of a signed
          integer operation did overflow
-ovfcheck_lshift
-         << with oveflow checking
-         catering to 2.3/2.4 differences about <<
 ovfcheck_float_to_int
          convert to an integer or raise OverflowError
 r_longlong
@@ -110,18 +107,6 @@ def ovfcheck(r):
     if type(r) is long:
         raise OverflowError, "signed integer expression did overflow"
     return r
-
-def _local_ovfcheck(r):
-    # a copy of the above, because we cannot call ovfcheck
-    # in a context where no primitiveoperator is involved.
-    assert not isinstance(r, r_uint), "unexpected ovf check on unsigned"
-    if isinstance(r, long):
-        raise OverflowError, "signed integer expression did overflow"
-    return r
-
-def ovfcheck_lshift(a, b):
-    "NOT_RPYTHON"
-    return _local_ovfcheck(int(long(a) << b))
 
 # Strange things happening for float to int on 64 bit:
 # int(float(i)) != i  because of rounding issues.

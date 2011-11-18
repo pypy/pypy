@@ -567,6 +567,11 @@ class AppTestCurrentFramesWithThread(AppTestCurrentFrames):
         import time
         import thread
 
+        # XXX workaround for now: to prevent deadlocks, call
+        # sys._current_frames() once before starting threads.
+        # This is an issue in non-translated versions only.
+        sys._current_frames()
+
         thread_id = thread.get_ident()
         def other_thread():
             print "thread started"
