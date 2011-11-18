@@ -1324,15 +1324,15 @@ class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
             s = StringBuilder(4)
             got = []
             for i in range(50):
-                s.append(chr(i))
+                s.append(chr(33+i))
                 got.append(s.build())
                 gc.collect()
-            return '/'.join(got)
+            return ' '.join(got)
         return fn
 
     def test_string_builder_multiple_builds(self):
         res = self.run('string_builder_multiple_builds')
-        assert res == '/'.join([''.join(map(chr, range(length)))
+        assert res == ' '.join([''.join(map(chr, range(33, 33+length)))
                                 for length in range(1, 51)])
 
     def define_nursery_hash_base(cls):
