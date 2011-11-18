@@ -184,6 +184,39 @@ class GcLLDescr_boehm(GcLLDescription):
     def get_funcptr_for_new(self):
         return self.funcptr_for_new
 
+    def rewrite_assembler(self, cpu, operations, gcrefs_output_list):
+        newops = []
+        c_zero = ConstInt(0)
+        tsc = self.translate_support_code
+        for op in operations:
+            if op.is_malloc():
+                # turn all NEW_xxx into a MALLOC_GC
+                opnum = op.getopnum()
+                if opnum == rop.NEW:
+                    descr = op.getdescr()
+                    assert isinstance(descr, BaseSizeDescr)
+                    c_size = ConstInt(descr.size)
+                    op = ResOperation(rop.MALLOC_GC, [c_size, c_zero, c_zero],
+                                      op.result)
+                elif opnum == rop.NEW_ARRAY:
+                    descr = op.getdescr()
+                    assert isinstance(descr, BaseArrayDescr)
+                    c_basesize = ConstInt(descr.get_base_size(tsc))
+                    c_itemsize = ConstInt(descr.get_item_size(tsc))
+                    v_length = op.getarg(0)
+                    op = ResOperation(rop.MALLOC_GC, [c_basesize,
+                                                      v_length,
+                                                      c_itemsize],
+                                      op.result)
+                    newops.append(op)
+                    op = ResOperation(rop.SETFIELD_GC, [op.result, v_length],
+                                      None, descr=descr.field_arraylen_descr)
+                else:
+                    raise NotImplementedError(op.getopname())
+            newops.append(op)
+        return GcLLDescription.rewrite_assembler(self, cpu, newops,
+                                                 gcrefs_output_list)
+
 # ____________________________________________________________
 # All code below is for the hybrid or minimark GC
 

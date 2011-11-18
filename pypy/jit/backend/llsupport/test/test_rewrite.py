@@ -2,6 +2,7 @@ from pypy.jit.backend.llsupport.descr import *
 from pypy.jit.backend.llsupport.gc import *
 from pypy.jit.metainterp.gc import get_description
 from pypy.jit.tool.oparser import parse
+from pypy.jit.metainterp.optimizeopt.util import equaloplists
 
 
 class Evaluator(object):
@@ -40,7 +41,10 @@ class RewriteTests(object):
             edescr = get_size_descr(self.gc_ll_descr, E)
             edescr.tid = 9000
             #
-            tiddescr = self.gc_ll_descr.fielddescr_tid
+            try:
+                tiddescr = self.gc_ll_descr.fielddescr_tid
+            except AttributeError:   # Boehm
+                pass
             WORD = globals()['WORD']
             #
             ops = parse(frm_operations, namespace=locals())
@@ -52,20 +56,6 @@ class RewriteTests(object):
         finally:
             self.gc_ll_descr.translate_support_code = True
         equaloplists(operations, expected.operations)
-
-    def test_new_array_variable(self):
-        self.check_rewrite("""
-            [i1]
-            p0 = new_array(i1, descr=adescr)
-            jump()
-        """, """
-            [i1]
-            p0 = malloc_gc(%(adescr.get_base_size(False))d,         \
-                           i1, %(adescr.get_item_size(False))d)
-            setfield_gc(p0, 4321, descr=tiddescr)
-            setfield_gc(p0, 10, descr=alendescr)
-            jump()
-        """)
 
 
 class TestBoehm(RewriteTests):
@@ -80,7 +70,6 @@ class TestBoehm(RewriteTests):
         """, """
             [p1]
             p0 = malloc_gc(%(sdescr.size)d, 0, 0)
-            setfield_gc(p0, 1234, descr=tiddescr)
             jump()
         """)
 
@@ -91,11 +80,9 @@ class TestBoehm(RewriteTests):
             p1 = new(descr=sdescr)
             jump()
         """, """
-            [p1]
+            []
             p0 = malloc_gc(%(sdescr.size)d, 0, 0)
-            setfield_gc(p0, 1234, descr=tiddescr)
             p1 = malloc_gc(%(sdescr.size)d, 0, 0)
-            setfield_gc(p1, 1234, descr=tiddescr)
             jump()
         """)
 
@@ -108,8 +95,20 @@ class TestBoehm(RewriteTests):
             []
             p0 = malloc_gc(%(adescr.get_base_size(False))d,         \
                            10, %(adescr.get_item_size(False))d)
-            setfield_gc(p0, 4321, descr=tiddescr)
             setfield_gc(p0, 10, descr=alendescr)
+            jump()
+        """)
+
+    def test_new_array_variable(self):
+        self.check_rewrite("""
+            [i1]
+            p0 = new_array(i1, descr=adescr)
+            jump()
+        """, """
+            [i1]
+            p0 = malloc_gc(%(adescr.get_base_size(False))d,         \
+                           i1, %(adescr.get_item_size(False))d)
+            setfield_gc(p0, i1, descr=alendescr)
             jump()
         """)
 
