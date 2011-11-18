@@ -703,6 +703,28 @@ class TestFramework(object):
             jump()
         """)
 
+    def test_rewrite_assembler_maximal_size(self):
+        xxx
+
+    def test_rewrite_assembler_variable_size(self):
+        xxx
+
+    def test_rewrite_assembler_new_with_vtable(self):
+        self.check_rewrite("""
+            [p1]
+            p0 = new_with_vtable(descr=vdescr)
+            jump()
+        """, """
+            [p1]
+            p0 = malloc_gc(%(vdescr.size)d)
+            setfield_gc(p0, 1234, descr=tiddescr)
+            ...
+            jump()
+        """)
+
+    def test_rewrite_assembler_newstr_newunicode(self):
+        xxx
+
     def test_rewrite_assembler_initialization_store(self):
         S = lltype.GcStruct('S', ('parent', OBJECT),
                             ('x', lltype.Signed))
