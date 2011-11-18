@@ -791,11 +791,13 @@ class AppTestAppSetTest:
         raises(TypeError, s.discard, set([1]))
 
     def test_create_set_from_set(self):
+        # no sharing
         x = set([1,2,3])
         y = set(x)
-        x.pop()
-        assert x == set([2,3])
+        a = x.pop()
         assert y == set([1,2,3])
+        assert len(x) == 2
+        assert x.union(set([a])) == y
 
     def test_never_change_frozenset(self):
         a = frozenset([1,2])
