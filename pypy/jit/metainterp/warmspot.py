@@ -873,6 +873,8 @@ class WarmRunnerDesc(object):
                 for jd in self.jitdrivers_sd:
                     if jd.jitdriver is op.args[1].value:
                         break
+                else:
+                    assert 0, "jitdriver of set_param() not found"
             else:
                 jd = None
             funcname = op.args[2].value
