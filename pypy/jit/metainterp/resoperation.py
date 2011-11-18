@@ -470,7 +470,8 @@ _oplist = [
     'NEW_ARRAY/1d',
     'NEWSTR/1',
     'NEWUNICODE/1',
-    'MALLOC_GC/1',        # added by llsupport/gc: GC malloc of ConstInt bytes
+    'MALLOC_GC/3',       # added by llsupport/gc: malloc of C1+N*C2 bytes
+    'MALLOC_NURSERY/1',  # added by llsupport/gc: nursery malloc, const bytes
     '_MALLOC_LAST',
     'FORCE_TOKEN/0',
     'VIRTUAL_REF/2',         # removed before it's passed to the backend
