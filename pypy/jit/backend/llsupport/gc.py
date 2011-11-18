@@ -8,6 +8,7 @@ from pypy.rpython.lltypesystem import llgroup, llarena
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.annlowlevel import llhelper
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
+from pypy.jit.codewriter import heaptracker
 from pypy.jit.metainterp.history import BoxInt, BoxPtr, ConstInt, ConstPtr
 from pypy.jit.metainterp.history import AbstractDescr
 from pypy.jit.metainterp.resoperation import ResOperation, rop
@@ -29,6 +30,11 @@ class GcLLDescription(GcCache):
     def __init__(self, gcdescr, translator=None, rtyper=None):
         GcCache.__init__(self, translator is not None, rtyper)
         self.gcdescr = gcdescr
+        if translator and translator.config.translation.gcremovetypeptr:
+            self.fielddescr_vtable = None
+        else:
+            self.fielddescr_vtable = get_field_descr(self, rclass.OBJECT,
+                                                     'typeptr')
     def _freeze_(self):
         return True
     def initialize(self):
@@ -198,6 +204,17 @@ class GcLLDescr_boehm(GcLLDescription):
                     c_size = ConstInt(descr.size)
                     op = ResOperation(rop.MALLOC_GC, [c_size, c_zero, c_zero],
                                       op.result)
+                elif opnum == rop.NEW_WITH_VTABLE:
+                    classint = op.getarg(0).getint()
+                    descr = heaptracker.vtable2descr(cpu, classint)
+                    c_size = ConstInt(descr.size)
+                    op = ResOperation(rop.MALLOC_GC, [c_size, c_zero, c_zero],
+                                      op.result)
+                    if self.fielddescr_vtable is not None:
+                        newops.append(op)
+                        op = ResOperation(rop.SETFIELD_GC,
+                                          [op.result, ConstInt(classint)],
+                                          None, descr=self.fielddescr_vtable)
                 elif opnum == rop.NEW_ARRAY:
                     descr = op.getdescr()
                     assert isinstance(descr, BaseArrayDescr)

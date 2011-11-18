@@ -3,6 +3,7 @@ from pypy.jit.backend.llsupport.gc import *
 from pypy.jit.metainterp.gc import get_description
 from pypy.jit.tool.oparser import parse
 from pypy.jit.metainterp.optimizeopt.util import equaloplists
+from pypy.jit.codewriter.heaptracker import register_known_gctype
 
 
 class Evaluator(object):
@@ -41,6 +42,12 @@ class RewriteTests(object):
             edescr = get_size_descr(self.gc_ll_descr, E)
             edescr.tid = 9000
             #
+            vtable_descr = self.gc_ll_descr.fielddescr_vtable
+            O = lltype.GcStruct('O', ('parent', rclass.OBJECT),
+                                     ('x', lltype.Signed))
+            o_vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
+            register_known_gctype(self.cpu, o_vtable, O)
+            #
             try:
                 tiddescr = self.gc_ll_descr.fielddescr_tid
             except AttributeError:   # Boehm
@@ -50,7 +57,7 @@ class RewriteTests(object):
             ops = parse(frm_operations, namespace=locals())
             expected = parse(to_operations % Evaluator(locals()),
                              namespace=locals())
-            operations = self.gc_ll_descr.rewrite_assembler(None,
+            operations = self.gc_ll_descr.rewrite_assembler(self.cpu,
                                                             ops.operations,
                                                             [])
         finally:
@@ -60,6 +67,10 @@ class RewriteTests(object):
 
 class TestBoehm(RewriteTests):
     def setup_method(self, meth):
+        class FakeCPU(object):
+            def sizeof(self, STRUCT):
+                return SizeDescrWithVTable(100)
+        self.cpu = FakeCPU()
         self.gc_ll_descr = GcLLDescr_boehm(None, None, None)
 
     def test_new(self):
@@ -109,6 +120,30 @@ class TestBoehm(RewriteTests):
             p0 = malloc_gc(%(adescr.get_base_size(False))d,         \
                            i1, %(adescr.get_item_size(False))d)
             setfield_gc(p0, i1, descr=alendescr)
+            jump()
+        """)
+
+    def test_new_with_vtable(self):
+        self.check_rewrite("""
+            []
+            p0 = new_with_vtable(ConstClass(o_vtable))
+            jump()
+        """, """
+            [p1]
+            p0 = malloc_gc(100, 0, 0)
+            setfield_gc(p0, ConstClass(o_vtable), descr=vtable_descr)
+            jump()
+        """)
+
+    def test_newstr(self):
+        self.check_rewrite("""
+            [i1]
+            p0 = newstr(i1)
+            jump()
+        """, """
+            [i1]
+            p0 = malloc_gc(%(str_basesize)d, i1, %(str_itemsize)d)
+            setfield_gc(p0, i1, descr=strlendescr)
             jump()
         """)
 
