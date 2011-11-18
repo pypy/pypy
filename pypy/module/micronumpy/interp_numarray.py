@@ -53,7 +53,7 @@ def descr_new_array(space, w_subtype, w_item_or_iterable, w_dtype=None,
         order = 'C'
     else:
         order = space.str_w(w_order)
-        if order != 'C': # or order != 'F':
+        if order != 'C':  # or order != 'F':
             raise operationerrfmt(space.w_ValueError, "Unknown order: %s",
                                   order)
     shape, elems_w = _find_shape_and_elems(space, w_item_or_iterable)
@@ -358,52 +358,20 @@ class BaseArray(Wrappable):
 
     def descr_repr(self, space):
         res = StringBuilder()
+        res.append("array(")
         concrete = self.get_concrete()
-        i = concrete.start_iter()
-        start = True
-        dtype = self.find_dtype()
-        while not i.done():
-            if start:
-                start = False
-            else:
-                res.append(", ")
-            res.append(dtype.str_format(concrete.getitem(i.offset)))
-            i = i.next()
-        return space.wrap(res.build())
-        res = StringBuilder()
-        res.append("array([")
-        concrete = self.get_concrete()
-        i = concrete.start_iter()#offset=0, indices=[0])
         start = True
         dtype = concrete.find_dtype()
         if not concrete.find_size():
+            res.append('[]')
             if len(self.shape) > 1:
                 #This is for numpy compliance: an empty slice reports its shape
-                res.append("], shape=(")
+                res.append(", shape=(")
                 self_shape = str(self.shape)
                 res.append_slice(str(self_shape), 1, len(self_shape) - 1)
                 res.append(')')
-            else:
-                res.append(']')
         else:
-            if self.shape[0] > 1000:
-                for xx in range(3):
-                    if start:
-                        start = False
-                    else:
-                        res.append(", ")
-                    res.append(dtype.str_format(concrete.eval(i)))
-                    i = i.next()
-                res.append(', ...')
-                i = concrete.start_iter(offset=self.shape[0] - 3)
-            while not i.done():
-                if start:
-                    start = False
-                else:
-                    res.append(", ")
-                res.append(dtype.str_format(concrete.eval(i)))
-                i = i.next()
-            res.append(']')
+            self.to_str(space, 1, res, indent='       ')
         if (dtype is not space.fromcache(interp_dtype.W_Float64Dtype) and
             dtype is not space.fromcache(interp_dtype.W_Int64Dtype)) or \
             not self.find_size():
@@ -411,51 +379,85 @@ class BaseArray(Wrappable):
         res.append(")")
         return space.wrap(res.build())
 
-        
-    def to_str(self, comma, builder, indent=' '):
+    def to_str(self, space, comma, builder, indent=' ', use_ellipsis=False):
+        '''Modifies builder with a representation of the array/slice
+        The items will be seperated by a comma if comma is 1
+        Multidimensional arrays/slices will span a number of lines,
+        each line will begin with indent.
+        '''
+        if self.size < 1:
+            builder.append('[]')
+            return
+        if self.size > 1000:
+            #Once this goes True it does not go back to False for recursive calls
+            use_ellipsis = True
         dtype = self.find_dtype()
         ndims = len(self.shape)
+        i = 0
+        start = True
+        builder.append('[')
         if ndims > 1:
-            builder.append('[')
-            builder.append("xxx")
-            i = self.start_iter()
-            while not i.done():
-                i.to_str(comma, builder, indent=indent + ' ')
-                builder.append('\n')
-            i = i.next()
-            builder.append(']')
+            if use_ellipsis:
+                for i in range(3):
+                    if start:
+                        start = False
+                    else:
+                        builder.append(',' * comma + '\n')
+                        if ndims == 3:
+                            builder.append('\n' + indent)
+                        else:
+                            builder.append(indent)
+                    #create_slice requires len(chunks)>1 in order to reduce shape
+                    view = self.create_slice(space, [(i, 0, 0, 1), (0, self.shape[1], 1, self.shape[1])])
+                    view.to_str(space, comma, builder, indent=indent + ' ', use_ellipsis=use_ellipsis)
+                builder.append('\n' + indent + '..., ')
+                i = self.shape[0] - 3
+            while i < self.shape[0]:
+                if start:
+                    start = False
+                else:
+                    builder.append(',' * comma + '\n')
+                    if ndims == 3:
+                        builder.append('\n' + indent)
+                    else:
+                        builder.append(indent)
+                #create_slice requires len(chunks)>1 in order to reduce shape
+                view = self.create_slice(space, [(i, 0, 0, 1), (0, self.shape[1], 1, self.shape[1])])
+                view.to_str(space, comma, builder, indent=indent + ' ', use_ellipsis=use_ellipsis)
+                i += 1
         elif ndims == 1:
-            builder.append('[')
+            #This should not directly access the start,shards: what happens if order changes?
             spacer = ',' * comma + ' '
-            if self.shape[0] > 1000:
-                #This is wrong. Use iterator
-                firstSlice = NDimSlice(self, self.signature, 0, [3, ], [2, ], [3, ])
-                builder.append(firstSlice.to_str(comma, builder, indent))
-                builder.append(',' * comma + ' ..., ')
-                lastSlice = NDimSlice(self, self.signature,
-                                    self.backshards[0] - 2 * self.shards[0], [3, ], [2, ], [3, ])
-                builder.append(lastSlice.to_str(comma, builder, indent))
-            else:
-                strs = []
-                i = self.start_iter()
-                while not i.done():
-                    strs.append(dtype.str_format(self.eval(i)))
-                    i = i.next()
-                builder.append(spacer.join(strs))
-            builder.append(']')
+            item = self.start
+            i = 0
+            if use_ellipsis:
+                for i in range(3):
+                    if start:
+                        start = False
+                    else:
+                        builder.append(spacer)
+                    builder.append(dtype.str_format(self.getitem(item)))
+                    item += self.shards[0]
+                #Add a comma only if comma is False - this prevents adding two commas
+                builder.append(spacer + '...' + ',' * (1 - comma))
+                item = self.start + self.backshards[0] - 2 * self.shards[0]
+                i = self.shape[0] - 3
+            while i < self.shape[0]:
+                if start:
+                    start = False
+                else:
+                    builder.append(spacer)
+                builder.append(dtype.str_format(self.getitem(item)))
+                item += self.shards[0]
+                i += 1
         else:
-            builder.append(dtype.str_format(self.eval(self.start)))
-        return builder.build()
+            builder.append('[')
+        builder.append(']')
 
     def descr_str(self, space):
-        return self.descr_repr(space)
-        # Simple implementation so that we can see the array.
-        # Since what we want is to print a plethora of 2d views, let
-        # a slice do the work for us.
-        concrete = self.get_concrete()
-        s = StringBuilder()
-        r = NDimSlice(concrete, self.signature, 0, self.shards, self.backshards, self.shape)
-        return space.wrap(r.to_str(False, s))
+        ret = StringBuilder()
+        self.to_str(space, 0, ret, ' ')
+        return space.wrap(ret.build())
 
     def _index_of_single_item(self, space, w_idx):
         if space.isinstance_w(w_idx, space.w_int):
@@ -522,7 +524,6 @@ class BaseArray(Wrappable):
             return [space.decode_index4(w_idx, self.shape[0])]
         return [space.decode_index4(w_item, self.shape[i]) for i, w_item in
                 enumerate(space.fixedview(w_idx))]
-
 
     def descr_getitem(self, space, w_idx):
         if self._single_item_result(space, w_idx):
@@ -666,6 +667,9 @@ class Scalar(BaseArray):
 
     def start_iter(self):
         return ConstantIterator()
+
+    def to_str(self, space, comma, builder, indent=' '):
+        builder.append(self.dtype.str_format(self.value))
 
 class VirtualArray(BaseArray):
     """
@@ -934,7 +938,7 @@ class NDimArray(BaseArray):
     def start_iter(self, offset=0, indices=None):
         if self.order == 'C':
             return ArrayIterator(self.size, offset=offset)
-        raise NotImplementedError # use ViewIterator simply, test it
+        raise NotImplementedError  # use ViewIterator simply, test it
 
     def __del__(self):
         lltype.free(self.storage, flavor='raw', track_allocation=False)
