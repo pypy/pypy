@@ -100,7 +100,8 @@ class AbstractAttribute(object):
 
     def _findmap(self, selector):
         while isinstance(self, AbstractStoredAttribute):
-            if selector == self.selector:
+            # XXX is this the right fix?
+            if selector == self.selector[:2]:
                 return self
             self = self.back
         return None
@@ -277,11 +278,12 @@ class AbstractStoredAttribute(AbstractAttribute):
         self._size_estimate = self.length() * NUM_DIGITS_POW2
 
     def _copy_attr(self, obj, new_obj):
-        w_value = self.read(obj, self.selector)
+        #XXX this the right fix?
+        w_value = self.read(obj, self.selector[:2])
         new_obj._get_mapdict_map().add_attr(new_obj, self.selector, w_value)
 
     def delete(self, obj, selector):
-        if selector == self.selector:
+        if selector == self.selector[:2]:
             # ok, attribute is deleted
             return self.back.copy(obj)
         new_obj = self.back.delete(obj, selector)
