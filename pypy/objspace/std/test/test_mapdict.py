@@ -28,14 +28,14 @@ class Object(Object):
 def erase_storage_items(items):
     return [IntAttribute.erase_item(item) for item in items]
 
-def unerase_storage_items(storage):
-    return [IntAttribute.unerase_item(item) for item in storage]
+def unerase_storage_items(storage, uneraser=IntAttribute):
+    return [uneraser.unerase_item(item) for item in storage]
 
 def test_plain_attribute():
 
     w_cls = "class"
-    aa = PlainAttribute(("b", DICT),
-                        PlainAttribute(("a", DICT),
+    aa = IntAttribute(("b", DICT, IntAttribute),
+                        IntAttribute(("a", DICT, IntAttribute),
                                        Terminator(space, w_cls)))
     assert aa.space is space
     assert aa.terminator.w_cls is w_cls
@@ -115,8 +115,10 @@ def test_delete():
         obj.setdictvalue(space, "a", 50)
         obj.setdictvalue(space, "b", 60)
         obj.setdictvalue(space, "c", 70)
+        print obj.storage
         assert unerase_storage_items(obj.storage) == [50, 60, 70]
         res = obj.deldictvalue(space, dattr)
+        print obj.storage
         assert res
         s = [50, 60, 70]
         del s[i]
@@ -159,7 +161,8 @@ def test_special():
     assert obj.getdictvalue(space, "a") == 50
     assert obj.getdictvalue(space, "b") == 60
     assert obj.getdictvalue(space, "c") == 70
-    assert unerase_storage_items(obj.storage) == [50, 60, 70, lifeline1]
+    assert unerase_storage_items(obj.storage[:-1], IntAttribute) == [50, 60, 70]
+    assert unerase_storage_items(obj.storage[-1:], PlainAttribute) == [lifeline1]
     assert obj.getweakref() is lifeline1
 
     obj2 = c.instantiate()
@@ -323,6 +326,7 @@ class TestTypeSpecializedAttributes(object):
 
         obj3 = cls.instantiate()
         obj3.setdictvalue(space, "x", space.wrap(5))
+        assert space.eq_w(obj3.getdictvalue(space, "x"), space.wrap(5))
 
         assert obj1.map is obj3.map
 
@@ -336,15 +340,27 @@ class TestTypeSpecializedAttributes(object):
         obj1 = cls.instantiate()
         obj1.setdictvalue(space, "x", space.wrap(1))
         obj1.setdictvalue(space, "y", space.wrap(2))
+        assert space.eq_w(obj1.getdictvalue(space, "x"), space.wrap(1))
+        assert space.eq_w(obj1.getdictvalue(space, "y"), space.wrap(2))
+
+        obj2 = cls.instantiate()
+        obj2.setdictvalue(space, "x", space.wrap(5)) # this is shared
+        obj2.setdictvalue(space, "y", space.wrap("str")) # this not
+        assert space.eq_w(obj2.getdictvalue(space, "x"), space.wrap(5))
+        assert space.eq_w(obj2.getdictvalue(space, "y"), space.wrap("str"))
 
     def test_switch_attribute_types(self):
         space = self.space
         cls = Class(sp=space)
         obj1 = cls.instantiate()
+
         obj1.setdictvalue(space, "x", space.wrap(1))
         assert isinstance(obj1.map, IntAttribute)
+        assert space.eq_w(obj1.getdictvalue(space, "x"), space.wrap(1))
+
         obj1.setdictvalue(space, "y", space.wrap("str"))
         assert isinstance(obj1.map, PlainAttribute)
+        assert space.eq_w(obj1.getdictvalue(space, "y"), space.wrap("str"))
 
 # ___________________________________________________________
 # dict tests
