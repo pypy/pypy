@@ -1,10 +1,7 @@
 import py
-from pypy.jit.metainterp.warmspot import ll_meta_interp
 from pypy.jit.metainterp.warmspot import get_stats
-from pypy.rlib.jit import JitDriver
-from pypy.rlib.jit import unroll_safe
+from pypy.rlib.jit import JitDriver, set_param, unroll_safe
 from pypy.jit.backend.llgraph import runner
-from pypy.jit.metainterp.history import BoxInt
 
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from pypy.jit.metainterp.optimizeopt import ALL_OPTS_NAMES
@@ -97,7 +94,7 @@ class WarmspotTests(object):
                 n = A().m(n)
             return n
         def f(n, enable_opts):
-            myjitdriver.set_param('enable_opts', hlstr(enable_opts))
+            set_param(None, 'enable_opts', hlstr(enable_opts))
             return g(n)
 
         # check that the set_param will override the default

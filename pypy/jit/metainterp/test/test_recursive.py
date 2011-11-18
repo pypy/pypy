@@ -1,5 +1,5 @@
 import py
-from pypy.rlib.jit import JitDriver, we_are_jitted, hint
+from pypy.rlib.jit import JitDriver, hint, set_param
 from pypy.rlib.jit import unroll_safe, dont_look_inside, promote
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.debug import fatalerror
@@ -308,8 +308,8 @@ class RecursiveTests:
                 pc += 1
             return n
         def main(n):
-            myjitdriver.set_param('threshold', 3)
-            myjitdriver.set_param('trace_eagerness', 5)            
+            set_param(None, 'threshold', 3)
+            set_param(None, 'trace_eagerness', 5)            
             return f("c-l", n)
         expected = main(100)
         res = self.meta_interp(main, [100], enable_opts='', inline=True)
@@ -329,7 +329,7 @@ class RecursiveTests:
                 return recursive(n - 1) + 1
             return 0
         def loop(n):            
-            myjitdriver.set_param("threshold", 10)
+            set_param(myjitdriver, "threshold", 10)
             pc = 0
             while n:
                 myjitdriver.can_enter_jit(n=n)
@@ -351,8 +351,8 @@ class RecursiveTests:
             return 0
         myjitdriver = JitDriver(greens=[], reds=['n'])
         def loop(n):
-            myjitdriver.set_param("threshold", 4)
-            myjitdriver.set_param("trace_eagerness", 2)
+            set_param(None, "threshold", 4)
+            set_param(None, "trace_eagerness", 2)
             while n:
                 myjitdriver.can_enter_jit(n=n)
                 myjitdriver.jit_merge_point(n=n)
@@ -482,12 +482,12 @@ class RecursiveTests:
         TRACE_LIMIT = 66
  
         def main(inline):
-            myjitdriver.set_param("threshold", 10)
-            myjitdriver.set_param('function_threshold', 60)
+            set_param(None, "threshold", 10)
+            set_param(None, 'function_threshold', 60)
             if inline:
-                myjitdriver.set_param('inlining', True)
+                set_param(None, 'inlining', True)
             else:
-                myjitdriver.set_param('inlining', False)
+                set_param(None, 'inlining', False)
             return loop(100)
 
         res = self.meta_interp(main, [0], enable_opts='', trace_limit=TRACE_LIMIT)
@@ -564,11 +564,11 @@ class RecursiveTests:
                 pc += 1
             return n
         def g(m):
-            myjitdriver.set_param('inlining', True)
+            set_param(None, 'inlining', True)
             # carefully chosen threshold to make sure that the inner function
             # cannot be inlined, but the inner function on its own is small
             # enough
-            myjitdriver.set_param('trace_limit', 40)
+            set_param(None, 'trace_limit', 40)
             if m > 1000000:
                 f('', 0)
             result = 0
@@ -1207,9 +1207,9 @@ class RecursiveTests:
                     driver.can_enter_jit(c=c, i=i, v=v)
                 break
 
-        def main(c, i, set_param, v):
-            if set_param:
-                driver.set_param('function_threshold', 0)
+        def main(c, i, _set_param, v):
+            if _set_param:
+                set_param(driver, 'function_threshold', 0)
             portal(c, i, v)
 
         self.meta_interp(main, [10, 10, False, False], inline=True)
