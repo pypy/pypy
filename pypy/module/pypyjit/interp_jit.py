@@ -6,6 +6,7 @@ This is transformed to become a JIT by code elsewhere: pypy/jit/*
 from pypy.tool.pairtype import extendabletype
 from pypy.rlib.rarithmetic import r_uint, intmask
 from pypy.rlib.jit import JitDriver, hint, we_are_jitted, dont_look_inside
+from pypy.rlib import jit
 from pypy.rlib.jit import current_trace_length, unroll_parameters
 import pypy.interpreter.pyopcode   # for side-effects
 from pypy.interpreter.error import OperationError, operationerrfmt
@@ -200,18 +201,18 @@ def set_param(space, __args__):
     if len(args_w) == 1:
         text = space.str_w(args_w[0])
         try:
-            pypyjitdriver.set_user_param(text)
+            jit.set_user_param(None, text)
         except ValueError:
             raise OperationError(space.w_ValueError,
                                  space.wrap("error in JIT parameters string"))
     for key, w_value in kwds_w.items():
         if key == 'enable_opts':
-            pypyjitdriver.set_param('enable_opts', space.str_w(w_value))
+            jit.set_param(None, 'enable_opts', space.str_w(w_value))
         else:
             intval = space.int_w(w_value)
             for name, _ in unroll_parameters:
                 if name == key and name != 'enable_opts':
-                    pypyjitdriver.set_param(name, intval)
+                    jit.set_param(None, name, intval)
                     break
             else:
                 raise operationerrfmt(space.w_TypeError,

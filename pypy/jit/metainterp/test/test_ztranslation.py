@@ -1,7 +1,7 @@
 import py
 from pypy.jit.metainterp.warmspot import rpython_ll_meta_interp, ll_meta_interp
 from pypy.jit.backend.llgraph import runner
-from pypy.rlib.jit import JitDriver, unroll_parameters
+from pypy.rlib.jit import JitDriver, unroll_parameters, set_param
 from pypy.rlib.jit import PARAMETERS, dont_look_inside, hint
 from pypy.jit.metainterp.jitprof import Profiler
 from pypy.rpython.lltypesystem import lltype, llmemory
@@ -57,9 +57,9 @@ class TranslationTest:
                               get_printable_location=get_printable_location)
         def f(i):
             for param, defl in unroll_parameters:
-                jitdriver.set_param(param, defl)
-            jitdriver.set_param("threshold", 3)
-            jitdriver.set_param("trace_eagerness", 2)
+                set_param(jitdriver, param, defl)
+            set_param(jitdriver, "threshold", 3)
+            set_param(jitdriver, "trace_eagerness", 2)
             total = 0
             frame = Frame(i)
             while frame.l[0] > 3:
@@ -117,8 +117,8 @@ class TranslationTest:
                 raise ValueError
             return 2
         def main(i):
-            jitdriver.set_param("threshold", 3)
-            jitdriver.set_param("trace_eagerness", 2)
+            set_param(jitdriver, "threshold", 3)
+            set_param(jitdriver, "trace_eagerness", 2)
             total = 0
             n = i
             while n > 3:
