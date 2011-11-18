@@ -179,7 +179,7 @@ class MsvcPlatform(Platform):
 
     def _compile_c_file(self, cc, cfile, compile_args):
         oname = cfile.new(ext='obj')
-        args = ['/nologo', '/c'] + compile_args + [str(cfile), '/Fo%s' % (oname,)]
+        args = ['/nologo', '/c'] + compile_args + ['/Fo%s' % (oname,), str(cfile)]
         self._execute_c_compiler(cc, args, oname)
         return oname
 

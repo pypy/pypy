@@ -743,8 +743,9 @@ class TestRffiInternals:
             assert sizeof(lltype.Typedef(ll, 'test')) == sizeof(ll)
         assert not size_and_sign(lltype.Signed)[1]
         assert size_and_sign(lltype.Char) == (1, True)
-        assert not size_and_sign(lltype.UniChar)[1]
+        assert size_and_sign(lltype.UniChar)[1]
         assert size_and_sign(UINT)[1]
+        assert not size_and_sign(INT)[1]
     
     def test_rffi_offsetof(self):
         import struct
