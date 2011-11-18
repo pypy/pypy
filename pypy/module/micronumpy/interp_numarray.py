@@ -360,7 +360,6 @@ class BaseArray(Wrappable):
         res = StringBuilder()
         res.append("array(")
         concrete = self.get_concrete()
-        start = True
         dtype = concrete.find_dtype()
         if not concrete.find_size():
             res.append('[]')
