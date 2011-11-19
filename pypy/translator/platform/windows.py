@@ -172,6 +172,12 @@ class MsvcPlatform(Platform):
 
     def _compile_c_file(self, cc, cfile, compile_args):
         oname = cfile.new(ext='obj')
+        # notabene: (tismer)
+        # This function may be called for .c but also .asm files.
+        # The c compiler accepts any order of arguments, while
+        # the assembler still has the old behavior that all options
+        # must come first, and after the file name all options are ignored.
+        # So please be careful with the oder of parameters! ;-)
         args = ['/nologo', '/c'] + compile_args + ['/Fo%s' % (oname,), str(cfile)]
         self._execute_c_compiler(cc, args, oname)
         return oname
