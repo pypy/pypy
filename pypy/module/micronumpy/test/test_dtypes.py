@@ -207,6 +207,12 @@ class AppTestTypes(BaseNumpyAppTest):
         assert type(x) is numpy.int8
         assert repr(x) == "-128"
 
+    def test_int_(self):
+        import numpypy as numpy
+
+        assert numpy.int_ is numpy.dtype(int).type
+        assert numpy.int_.mro() == [numpy.int_, numpy.signedinteger, numpy.integer, numpy.number, numpy.generic, int, object]
+
     def test_float64(self):
         import numpypy as numpy
 
