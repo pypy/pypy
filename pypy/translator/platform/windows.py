@@ -117,9 +117,16 @@ class MsvcPlatform(Platform):
                                                      env=self.c_environ)
         r = re.search('Macro Assembler', stderr)
         if r is None and os.path.exists('c:/masm32/bin/ml.exe'):
-            self.masm = 'c:/masm32/bin/ml.exe'
+            masm32 = 'c:/masm32/bin/ml.exe'
+            masm64 = 'c:/masm64/bin/ml64.exe'
         else:
-            self.masm = 'ml.exe'
+            masm32 = 'ml.exe'
+            masm64 = 'ml64.exe'
+        
+        if x64:
+            self.masm = masm64
+        else:
+            self.masm = masm32
 
         # Install debug options only when interpreter is in debug mode
         if sys.executable.lower().endswith('_d.exe'):
@@ -179,6 +186,12 @@ class MsvcPlatform(Platform):
 
     def _compile_c_file(self, cc, cfile, compile_args):
         oname = cfile.new(ext='obj')
+        # notabene: (tismer)
+        # This function may be called for .c but also .asm files.
+        # The c compiler accepts any order of arguments, while
+        # the assembler still has the old behavior that all options
+        # must come first, and after the file name all options are ignored.
+        # So please be careful with the oder of parameters! ;-)
         args = ['/nologo', '/c'] + compile_args + ['/Fo%s' % (oname,), str(cfile)]
         self._execute_c_compiler(cc, args, oname)
         return oname
