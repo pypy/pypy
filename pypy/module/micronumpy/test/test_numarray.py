@@ -475,7 +475,7 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_mod(self):
         from numpypy import array
-        a = array(range(1,6))
+        a = array(range(1, 6))
         b = a % a
         for i in range(5):
             assert b[i] == 0
@@ -855,18 +855,19 @@ class AppTestMultiDim(BaseNumpyAppTest):
         from numpypy import array
         a = array([[1, 2], [3, 4], [5, 6]])
         b = array([5, 6])
-        #print a + b
-        c = ((a + b) == [[1+5, 2+6], [3+5, 4+6], [5+5, 6+6]])
-        print c
-        print c.all()
+        c = ((a + b) == [[1 + 5, 2 + 6], [3 + 5, 4 + 6], [5 + 5, 6 + 6]])
         assert c.all()
 
     def test_broadcast_setslice(self):
-        import numpypy
-        a = numpypy.zeros((100, 100))
-        b = numpypy.ones(100)
+        from numpypy import zeros, ones, array
+        a = zeros((100, 100))
+        b = ones(100)
         a[:, :] = b
         assert a[13, 15] == 1
+        a = zeros((3, 1, 3))
+        b = array(((10, 11, 12), (20, 21, 22), (30, 31, 32)))
+        c = ((a + b) == [b, b, b])
+        assert c.all()
 
 class AppTestSupport(object):
     def setup_class(cls):

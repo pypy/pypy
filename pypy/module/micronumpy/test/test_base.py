@@ -31,12 +31,12 @@ class TestSignature(object):
 
     def test_slice_signature(self, space):
         ar = NDimArray(10, [10], dtype=space.fromcache(interp_dtype.W_Float64Dtype))
-        v1 = ar.descr_getitem(space, space.wrap(slice(1, 5, 1)))
+        v1 = ar.descr_getitem(space, space.wrap(slice(1, 3, 1)))
         v2 = ar.descr_getitem(space, space.wrap(slice(4, 6, 1)))
         assert v1.signature is v2.signature
 
-        v3 = ar.descr_add(space, v1)
-        v4 = ar.descr_add(space, v2)
+        v3 = v2.descr_add(space, v1)
+        v4 = v1.descr_add(space, v2)
         assert v3.signature is v4.signature
 
 class TestUfuncCoerscion(object):
