@@ -200,7 +200,9 @@ class TestNumpyOld(LLJitMixin):
             ])
             s = SingleDimSlice(0, step*i, step, i, ar, new_sig)
             v = interp_ufuncs.get(self.space).add.call(self.space, [s, s])
-            return v.get_concrete().eval(3).value
+            v = v.get_concrete().eval(3)
+            assert isinstance(v, interp_boxes.W_Float64Box)
+            return v.value
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
         self.check_loops({'int_mul': 1, 'getinteriorfield_raw': 2, 'float_add': 1,
@@ -222,7 +224,9 @@ class TestNumpyOld(LLJitMixin):
             ])
             s2 = SingleDimSlice(0, step2*i, step2, i, ar, new_sig)
             v = interp_ufuncs.get(self.space).add.call(self.space, [s1, s2])
-            return v.get_concrete().eval(3).value
+            v = v.get_concrete().eval(3)
+            assert isinstance(v, interp_boxes.W_Float64Box)
+            return v.value
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
         self.check_loops({'int_mul': 2, 'getinteriorfield_raw': 2, 'float_add': 1,
@@ -241,7 +245,9 @@ class TestNumpyOld(LLJitMixin):
             ar2.get_concrete().setitem(1, float64_dtype.box(5.5))
             arg = ar2.descr_add(space, ar2)
             ar.setslice(space, 0, step*i, step, i, arg)
-            return ar.get_concrete().eval(3).value
+            v = ar.get_concrete().eval(3)
+            assert isinstance(v, interp_boxes.W_Float64Box)
+            return v.value
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
         self.check_loops({'getinteriorfield_raw': 2,

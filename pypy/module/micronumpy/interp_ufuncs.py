@@ -270,11 +270,11 @@ def ufunc_dtype_caller(space, ufunc_name, op_name, argcount, comparison_func):
         def impl(res_dtype, value):
             return getattr(res_dtype.itemtype, op_name)(value)
     elif argcount == 2:
+        dtype_cache = interp_dtype.get_dtype_cache(space)
         def impl(res_dtype, lvalue, rvalue):
             res = getattr(res_dtype.itemtype, op_name)(lvalue, rvalue)
             if comparison_func:
-                bool_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
-                res = bool_dtype.box(res)
+                return dtype_cache.w_booldtype.box(res)
             return res
     return func_with_new_name(impl, ufunc_name)
 
