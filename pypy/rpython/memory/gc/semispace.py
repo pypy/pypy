@@ -105,9 +105,10 @@ class SemiSpaceGC(MovingGCBase):
         llarena.arena_reserve(result, totalsize)
         self.init_gc_object(result, typeid16)
         self.free = result + totalsize
-        if is_finalizer_light:
-            self.objects_with_light_finalizers.append(result + size_gc_header)
-        elif has_finalizer:
+        #if is_finalizer_light:
+        #    self.objects_with_light_finalizers.append(result + size_gc_header)
+        #else:
+        if has_finalizer:
             self.objects_with_finalizers.append(result + size_gc_header)
         if contains_weakptr:
             self.objects_with_weakrefs.append(result + size_gc_header)

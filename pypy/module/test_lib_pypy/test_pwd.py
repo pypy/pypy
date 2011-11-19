@@ -1,7 +1,10 @@
+import py, sys
 from pypy.conftest import gettestobjspace
 
 class AppTestPwd:
     def setup_class(cls):
+        if sys.platform == 'win32':
+            py.test.skip("Unix only")
         cls.space = gettestobjspace(usemodules=('_ffi', '_rawffi'))
         cls.space.appexec((), "(): import pwd")
 

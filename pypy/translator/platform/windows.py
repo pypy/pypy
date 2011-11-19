@@ -80,7 +80,7 @@ class MsvcPlatform(Platform):
     shared_only = ()
     environ = None
 
-    def __init__(self, cc=None):
+    def __init__(self, cc=None, x64=False):
         Platform.__init__(self, 'cl.exe')
         if msvc_compiler_environ:
             self.c_environ = os.environ.copy()
@@ -103,9 +103,16 @@ class MsvcPlatform(Platform):
                                                      env=self.c_environ)
         r = re.search('Macro Assembler', stderr)
         if r is None and os.path.exists('c:/masm32/bin/ml.exe'):
-            self.masm = 'c:/masm32/bin/ml.exe'
+            masm32 = 'c:/masm32/bin/ml.exe'
+            masm64 = 'c:/masm64/bin/ml64.exe'
         else:
-            self.masm = 'ml.exe'
+            masm32 = 'ml.exe'
+            masm64 = 'ml64.exe'
+        
+        if x64:
+            self.masm = masm64
+        else:
+            self.masm = masm32
 
         # Install debug options only when interpreter is in debug mode
         if sys.executable.lower().endswith('_d.exe'):
@@ -165,7 +172,7 @@ class MsvcPlatform(Platform):
 
     def _compile_c_file(self, cc, cfile, compile_args):
         oname = cfile.new(ext='obj')
-        args = ['/nologo', '/c'] + compile_args + [str(cfile), '/Fo%s' % (oname,)]
+        args = ['/nologo', '/c'] + compile_args + ['/Fo%s' % (oname,), str(cfile)]
         self._execute_c_compiler(cc, args, oname)
         return oname
 
@@ -294,6 +301,9 @@ class MsvcPlatform(Platform):
                    ['$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA) $(OBJECTS) $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) /MANIFEST /MANIFESTFILE:$*.manifest',
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
                     ])
+        m.rule('debugmode_$(TARGET)', '$(OBJECTS)',
+               ['$(CC_LINK) /nologo /DEBUG $(LDFLAGS) $(LDFLAGSEXTRA) $(OBJECTS) $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS)',
+                ])
 
         if shared:
             m.definition('SHARED_IMPORT_LIB', so_name.new(ext='lib').basename)
@@ -306,6 +316,9 @@ class MsvcPlatform(Platform):
             m.rule('$(DEFAULT_TARGET)', ['$(TARGET)', 'main.obj'],
                    ['$(CC_LINK) /nologo main.obj $(SHARED_IMPORT_LIB) /out:$@ /MANIFEST /MANIFESTFILE:$*.manifest',
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
+                    ])
+            m.rule('debugmode_$(DEFAULT_TARGET)', ['debugmode_$(TARGET)', 'main.obj'],
+                   ['$(CC_LINK) /nologo /DEBUG main.obj $(SHARED_IMPORT_LIB) /out:$@'
                     ])
 
         return m

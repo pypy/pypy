@@ -58,7 +58,7 @@ def machine_code_dump(data, originaddr, backend_name, label_list=None):
     assert not p.returncode, ('Encountered an error running objdump: %s' %
                               stderr)
     # drop some objdump cruft
-    lines = stdout.splitlines()[6:]
+    lines = stdout.splitlines(True)[6:]     # drop some objdump cruft
     return format_code_dump_with_labels(originaddr, lines, label_list)
 
 def format_code_dump_with_labels(originaddr, lines, label_list):
@@ -97,7 +97,7 @@ def load_symbols(filename):
     stdout, stderr = p.communicate()
     assert not p.returncode, ('Encountered an error running nm: %s' %
                               stderr)
-    for line in stdout.splitlines():
+    for line in stdout.splitlines(True):
         match = re_symbolentry.match(line)
         if match:
             addr = long(match.group(1), 16)

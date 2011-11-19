@@ -2,7 +2,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 
 
 class Module(MixedModule):
-    applevel_name = 'numpy'
+    applevel_name = 'numpypy'
 
     interpleveldefs = {
         'array': 'interp_numarray.NDimArray',
@@ -13,6 +13,9 @@ class Module(MixedModule):
         'empty': 'interp_numarray.zeros',
         'ones': 'interp_numarray.ones',
         'fromstring': 'interp_support.fromstring',
+
+        'True_': 'space.w_True',
+        'False_': 'space.w_False',
     }
 
     # ufuncs

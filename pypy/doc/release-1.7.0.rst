@@ -1,0 +1,44 @@
+=====================
+PyPy 1.7
+=====================
+
+Highlights
+==========
+
+* numerous performance improvements, PyPy 1.7 is xxx faster than 1.6
+
+* numerous bugfixes, compatibility fixes
+
+* windows fixes
+
+* stackless and JIT integration
+
+* numpy progress - dtypes, numpy -> numpypy renaming
+
+* brand new JSON encoder
+
+* improved memory footprint on heavy users of C APIs example - tornado
+
+* cpyext progress
+
+Things that didn't make it, expect in 1.8 soon
+==============================================
+
+* list strategies
+
+* multi-dimensional arrays for numpy
+
+* ARM backend
+
+* PPC backend
+
+Things we're working on with unclear ETA
+========================================
+
+* windows 64 (?)
+
+* Py3k
+
+* SSE for numpy
+
+* specialized objects
