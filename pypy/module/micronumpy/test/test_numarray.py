@@ -577,7 +577,7 @@ class AppTestNumArray(BaseNumpyAppTest):
             assert b[i] == 2.5 * a[i]
 
     def test_dtype_guessing(self):
-        from numpypy import array, dtype
+        from numpypy import array, dtype, float64, int8, bool_
 
         assert array([True]).dtype is dtype(bool)
         assert array([True, False]).dtype is dtype(bool)
@@ -587,6 +587,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert array([1.2, True]).dtype is dtype(float)
         assert array([1.2, 5]).dtype is dtype(float)
         assert array([]).dtype is dtype(float)
+        assert array([float64(2)]).dtype is dtype(float)
+        assert array([int8(3)]).dtype is dtype("int8")
+        assert array([bool_(True)]).dtype is dtype(bool)
+        assert array([bool_(True), 3.0]).dtype is dtype(float)
 
     def test_comparison(self):
         import operator

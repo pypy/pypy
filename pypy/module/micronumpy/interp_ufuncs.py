@@ -2,7 +2,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
-from pypy.module.micronumpy import interp_dtype, signature, types
+from pypy.module.micronumpy import interp_boxes, interp_dtype, signature, types
 from pypy.rlib import jit
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
@@ -247,6 +247,12 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
     bool_dtype = interp_dtype.get_dtype_cache(space).w_booldtype
     long_dtype = interp_dtype.get_dtype_cache(space).w_longdtype
     int64_dtype = interp_dtype.get_dtype_cache(space).w_int64dtype
+
+    if isinstance(w_obj, interp_boxes.W_GenericBox):
+        dtype = w_obj.get_dtype(space)
+        if current_guess is None:
+            return dtype
+        return find_binop_result_dtype(dtype, current_guess)
 
     if space.isinstance_w(w_obj, space.w_bool):
         if current_guess is None or current_guess is bool_dtype:
