@@ -168,7 +168,7 @@ class AppTestDtypes(BaseNumpyAppTest):
 
 class AppTestTypes(BaseNumpyAppTest):
     def test_abstract_types(self):
-        import numpy
+        import numpypy as numpy
         raises(TypeError, numpy.generic, 0)
         raises(TypeError, numpy.number, 0)
         raises(TypeError, numpy.integer, 0)
@@ -179,7 +179,7 @@ class AppTestTypes(BaseNumpyAppTest):
         raises(TypeError, numpy.inexact, 0)
 
     def test_bool(self):
-        import numpy
+        import numpypy as numpy
 
         assert numpy.bool_.mro() == [numpy.bool_, numpy.generic, object]
         assert numpy.bool_(3) is numpy.True_
@@ -193,7 +193,7 @@ class AppTestTypes(BaseNumpyAppTest):
         assert X(True) is numpy.True_
 
     def test_int8(self):
-        import numpy
+        import numpypy as numpy
 
         assert numpy.int8.mro() == [numpy.int8, numpy.signedinteger, numpy.integer, numpy.number, numpy.generic, object]
 
@@ -208,7 +208,7 @@ class AppTestTypes(BaseNumpyAppTest):
         assert repr(x) == "-128"
 
     def test_float64(self):
-        import numpy
+        import numpypy as numpy
 
         assert numpy.float64.mro() == [numpy.float64, numpy.floating, numpy.inexact, numpy.number, numpy.generic, float, object]
 
@@ -219,7 +219,7 @@ class AppTestTypes(BaseNumpyAppTest):
         assert numpy.float64(2.0) == 2.0
 
     def test_subclass_type(self):
-        import numpy
+        import numpypy as numpy
 
         class X(numpy.float64):
             def m(self):
