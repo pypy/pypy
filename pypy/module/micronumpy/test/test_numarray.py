@@ -296,7 +296,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[3] == 0.
 
     def test_scalar(self):
-        from numpy import array
+        from numpypy import array
         a = array(3)
         assert a[0] == 3
 
@@ -729,7 +729,7 @@ class AppTestNumArray(BaseNumpyAppTest):
                 assert c[i] == func(b[i], 3)
 
     def test_nonzero(self):
-        from numpy import array
+        from numpypy import array
         a = array([1, 2])
         raises(ValueError, bool, a)
         raises(ValueError, bool, a == a)
@@ -740,22 +740,22 @@ class AppTestNumArray(BaseNumpyAppTest):
 
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
-        import numpy
-        a = numpy.zeros((2, 2))
+        import numpypy
+        a = numpypy.zeros((2, 2))
         assert len(a) == 2
 
     def test_shape(self):
-        import numpy
-        assert numpy.zeros(1).shape == (1,)
-        assert numpy.zeros((2, 2)).shape == (2, 2)
-        assert numpy.zeros((3, 1, 2)).shape == (3, 1, 2)
-        assert numpy.array([[1], [2], [3]]).shape == (3, 1)
-        assert len(numpy.zeros((3, 1, 2))) == 3
-        raises(TypeError, len, numpy.zeros(()))
+        import numpypy
+        assert numpypy.zeros(1).shape == (1,)
+        assert numpypy.zeros((2, 2)).shape == (2, 2)
+        assert numpypy.zeros((3, 1, 2)).shape == (3, 1, 2)
+        assert numpypy.array([[1], [2], [3]]).shape == (3, 1)
+        assert len(numpypy.zeros((3, 1, 2))) == 3
+        raises(TypeError, len, numpypy.zeros(()))
 
     def test_getsetitem(self):
-        import numpy
-        a = numpy.zeros((2, 3, 1))
+        import numpypy
+        a = numpypy.zeros((2, 3, 1))
         raises(IndexError, a.__getitem__, (2, 0, 0))
         raises(IndexError, a.__getitem__, (0, 3, 0))
         raises(IndexError, a.__getitem__, (0, 0, 1))
@@ -765,8 +765,8 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert a[1, 1, 0] == 0
 
     def test_slices(self):
-        import numpy
-        a = numpy.zeros((4, 3, 2))
+        import numpypy
+        a = numpypy.zeros((4, 3, 2))
         raises(IndexError, a.__getitem__, (4,))
         raises(IndexError, a.__getitem__, (3, 3))
         raises(IndexError, a.__getitem__, (slice(None), 3))
@@ -799,50 +799,50 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert a[1][2][1] == 15
 
     def test_init_2(self):
-        import numpy
-        raises(ValueError, numpy.array, [[1], 2])
-        raises(ValueError, numpy.array, [[1, 2], [3]])
-        raises(ValueError, numpy.array, [[[1, 2], [3, 4], 5]])
-        raises(ValueError, numpy.array, [[[1, 2], [3, 4], [5]]])
-        a = numpy.array([[1, 2], [4, 5]])
+        import numpypy
+        raises(ValueError, numpypy.array, [[1], 2])
+        raises(ValueError, numpypy.array, [[1, 2], [3]])
+        raises(ValueError, numpypy.array, [[[1, 2], [3, 4], 5]])
+        raises(ValueError, numpypy.array, [[[1, 2], [3, 4], [5]]])
+        a = numpypy.array([[1, 2], [4, 5]])
         assert a[0, 1] == 2
         assert a[0][1] == 2
-        a = numpy.array(([[[1, 2], [3, 4], [5, 6]]]))
+        a = numpypy.array(([[[1, 2], [3, 4], [5, 6]]]))
         assert (a[0, 1] == [3, 4]).all()
 
     def test_setitem_slice(self):
-        import numpy
-        a = numpy.zeros((3, 4))
+        import numpypy
+        a = numpypy.zeros((3, 4))
         a[1] = [1, 2, 3, 4]
         assert a[1, 2] == 3
         raises(TypeError, a[1].__setitem__, [1, 2, 3])
-        a = numpy.array([[1, 2], [3, 4]])
+        a = numpypy.array([[1, 2], [3, 4]])
         assert (a == [[1, 2], [3, 4]]).all()
-        a[1] = numpy.array([5, 6])
+        a[1] = numpypy.array([5, 6])
         assert (a == [[1, 2], [5, 6]]).all()
-        a[:, 1] = numpy.array([8, 10])
+        a[:, 1] = numpypy.array([8, 10])
         assert (a == [[1, 8], [5, 10]]).all()
-        a[0, :: -1] = numpy.array([11, 12])
+        a[0, :: -1] = numpypy.array([11, 12])
         assert (a == [[12, 11], [5, 10]]).all()
 
     def test_ufunc(self):
-        from numpy import array
+        from numpypy import array
         a = array([[1, 2], [3, 4], [5, 6]])
         assert ((a + a) == array([[1 + 1, 2 + 2], [3 + 3, 4 + 4], [5 + 5, 6 + 6]])).all()
 
     def test_getitem_add(self):
-        from numpy import array
+        from numpypy import array
         a = array([[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]])
         assert (a + a)[1, 1] == 8
 
     def test_ufunc_negative(self):
-        from numpy import array, negative
+        from numpypy import array, negative
         a = array([[1, 2], [3, 4]])
         b = negative(a + a)
         assert (b == [[-2, -4], [-6, -8]]).all()
 
     def test_getitem_3(self):
-        from numpy import array
+        from numpypy import array
         a = array([[1, 2], [3, 4], [5, 6], [7, 8], [9, 10], [11, 12], [13, 14]])
         b = a[::2]
         print a
@@ -852,7 +852,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert c[1][1] == 12
 
     def test_broadcast_ufunc(self):
-        from numpy import array
+        from numpypy import array
         a = array([[1, 2], [3, 4], [5, 6]])
         b = array([5, 6])
         #print a + b
@@ -862,9 +862,9 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert c.all()
 
     def test_broadcast_setslice(self):
-        import numpy
-        a = numpy.zeros((100, 100))
-        b = numpy.ones(100)
+        import numpypy
+        a = numpypy.zeros((100, 100))
+        b = numpypy.ones(100)
         a[:, :] = b
         assert a[13, 15] == 1
 
@@ -883,7 +883,7 @@ class AppTestSupport(object):
 
 class AppTestRepr(BaseNumpyAppTest):
     def test_repr(self):
-        from numpy import array, zeros
+        from numpypy import array, zeros
         a = array(range(5), float)
         assert repr(a) == "array([0.0, 1.0, 2.0, 3.0, 4.0])"
         a = array([], float)
@@ -898,7 +898,7 @@ class AppTestRepr(BaseNumpyAppTest):
         assert repr(a) == "array([True, False, True, False], dtype=bool)"
 
     def test_repr_multi(self):
-        from numpy import array, zeros
+        from numpypy import array, zeros
         a = zeros((3, 4))
         assert repr(a) == '''array([[0.0, 0.0, 0.0, 0.0],
        [0.0, 0.0, 0.0, 0.0],
@@ -913,7 +913,7 @@ class AppTestRepr(BaseNumpyAppTest):
         [0.0, 0.0, 0.0, 0.0]]])'''
 
     def test_repr_slice(self):
-        from numpy import array, zeros
+        from numpypy import array, zeros
         a = array(range(5), float)
         b = a[1::2]
         assert repr(b) == "array([1.0, 3.0])"
@@ -928,7 +928,7 @@ class AppTestRepr(BaseNumpyAppTest):
         assert repr(b) == "array([], shape=(0, 5), dtype=int16)"
 
     def test_str(self):
-        from numpy import array, zeros
+        from numpypy import array, zeros
         a = array(range(5), float)
         assert str(a) == "[0.0 1.0 2.0 3.0 4.0]"
         assert str((2 * a)[:]) == "[0.0 2.0 4.0 6.0 8.0]"
@@ -955,7 +955,7 @@ class AppTestRepr(BaseNumpyAppTest):
         a = zeros((400, 400), dtype=int)
         assert str(a) == "[[0 0 0 ..., 0 0 0]\n [0 0 0 ..., 0 0 0]\n [0 0 0 ..., 0 0 0]\n ..., \n [0 0 0 ..., 0 0 0]\n [0 0 0 ..., 0 0 0]\n [0 0 0 ..., 0 0 0]]"
     def test_str_slice(self):
-        from numpy import array, zeros
+        from numpypy import array, zeros
         a = array(range(5), float)
         b = a[1::2]
         assert str(b) == "[1.0 3.0]"
