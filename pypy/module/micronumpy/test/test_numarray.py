@@ -843,8 +843,17 @@ class AppTestMultiDim(BaseNumpyAppTest):
         c = b + b
         assert c[1][1] == 12
 
-    def test_broadcast(self):
-        skip("not working")
+    def test_broadcast_ufunc(self):
+        from numpy import array
+        a = array([[1, 2], [3, 4], [5, 6]])
+        b = array([5, 6])
+        #print a + b
+        c = ((a + b) == [[1+5, 2+6], [3+5, 4+6], [5+5, 6+6]])
+        print c
+        print c.all()
+        assert c.all()
+
+    def test_broadcast_setslice(self):
         import numpy
         a = numpy.zeros((100, 100))
         b = numpy.ones(100)

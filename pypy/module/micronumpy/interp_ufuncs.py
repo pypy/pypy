@@ -56,7 +56,7 @@ class W_Ufunc(Wrappable):
             space, obj.find_dtype(),
             promote_to_largest=True
         )
-        start = obj.start_iter()
+        start = obj.start_iter(obj.shape)
         if self.identity is None:
             if size == 0:
                 raise operationerrfmt(space.w_ValueError, "zero-size array to "
@@ -123,7 +123,7 @@ class W_Ufunc2(W_Ufunc):
 
     def call(self, space, args_w):
         from pypy.module.micronumpy.interp_numarray import (Call2,
-            convert_to_array, Scalar)
+            convert_to_array, Scalar, shape_agreement)
 
         [w_lhs, w_rhs] = args_w
         w_lhs = convert_to_array(space, w_lhs)
@@ -146,7 +146,8 @@ class W_Ufunc2(W_Ufunc):
         new_sig = signature.Signature.find_sig([
             self.signature, w_lhs.signature, w_rhs.signature
         ])
-        w_res = Call2(new_sig, w_lhs.shape or w_rhs.shape, calc_dtype,
+        new_shape = shape_agreement(space, w_lhs.shape, w_rhs.shape)
+        w_res = Call2(new_sig, new_shape, calc_dtype,
                       res_dtype, w_lhs, w_rhs)
         w_lhs.add_invalidates(w_res)
         w_rhs.add_invalidates(w_res)
