@@ -252,7 +252,7 @@ def find_dtype_for_scalar(space, w_obj, current_guess=None):
         dtype = w_obj.get_dtype(space)
         if current_guess is None:
             return dtype
-        return find_binop_result_dtype(dtype, current_guess)
+        return find_binop_result_dtype(space, dtype, current_guess)
 
     if space.isinstance_w(w_obj, space.w_bool):
         if current_guess is None or current_guess is bool_dtype:

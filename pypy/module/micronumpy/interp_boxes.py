@@ -112,19 +112,19 @@ class W_Int8Box(W_SignedIntegerBox, PrimitiveBox):
     descr__new__, get_dtype = new_dtype_getter("int8")
 
 class W_UInt8Box(W_UnsignedIntgerBox, PrimitiveBox):
-    pass
+    descr__new__, get_dtype = new_dtype_getter("uint8")
 
 class W_Int16Box(W_SignedIntegerBox, PrimitiveBox):
-    pass
+    descr__new__, get_dtype = new_dtype_getter("int16")
 
 class W_UInt16Box(W_UnsignedIntgerBox, PrimitiveBox):
-    pass
+    descr__new__, get_dtype = new_dtype_getter("uint16")
 
 class W_Int32Box(W_SignedIntegerBox, PrimitiveBox):
     pass
 
 class W_UInt32Box(W_UnsignedIntgerBox, PrimitiveBox):
-    pass
+    descr__new__, get_dtype = new_dtype_getter("uint32")
 
 class W_LongBox(W_SignedIntegerBox, PrimitiveBox):
     descr__new__, get_dtype = new_dtype_getter("long")
