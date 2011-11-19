@@ -164,10 +164,12 @@ class ViewIterator(BaseIterator):
         self.offset  = arr.start
         self.arr     = arr
         self._done   = False
+        self.shape_len = len(arr.shape)
 
     @jit.unroll_safe
     def next(self):
-        for i in range(len(self.arr.shape) -1, -1, -1):
+        shape_len = jit.promote(self.shape_len)
+        for i in range(shape_len - 1, -1, -1):
             if self.indices[i] < self.arr.shape[i] - 1:
                 self.indices[i] += 1
                 self.offset += self.arr.shards[i]
