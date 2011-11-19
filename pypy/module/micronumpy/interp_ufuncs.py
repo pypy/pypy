@@ -82,7 +82,7 @@ class W_Ufunc(Wrappable):
                                           value=value, obj=obj, i=i,
                                           dtype=dtype)
             value = self.func(dtype, value, obj.eval(i).convert_to(dtype))
-            i = i.next()
+            i.next()
         return value
 
 class W_Ufunc1(W_Ufunc):
