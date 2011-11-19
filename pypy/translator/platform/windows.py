@@ -80,7 +80,7 @@ class MsvcPlatform(Platform):
     shared_only = ()
     environ = None
 
-    def __init__(self, cc=None):
+    def __init__(self, cc=None, x64=False):
         Platform.__init__(self, 'cl.exe')
         if msvc_compiler_environ:
             self.c_environ = os.environ.copy()
@@ -103,9 +103,16 @@ class MsvcPlatform(Platform):
                                                      env=self.c_environ)
         r = re.search('Macro Assembler', stderr)
         if r is None and os.path.exists('c:/masm32/bin/ml.exe'):
-            self.masm = 'c:/masm32/bin/ml.exe'
+            masm32 = 'c:/masm32/bin/ml.exe'
+            masm64 = 'c:/masm64/bin/ml64.exe'
         else:
-            self.masm = 'ml.exe'
+            masm32 = 'ml.exe'
+            masm64 = 'ml64.exe'
+        
+        if x64:
+            self.masm = masm64
+        else:
+            self.masm = masm32
 
         # Install debug options only when interpreter is in debug mode
         if sys.executable.lower().endswith('_d.exe'):
