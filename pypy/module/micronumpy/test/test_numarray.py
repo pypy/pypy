@@ -1,6 +1,9 @@
+
+import py
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
-from pypy.module.micronumpy.interp_numarray import NDimArray
+from pypy.module.micronumpy.interp_numarray import NDimArray, shape_agreement
 from pypy.module.micronumpy import signature
+from pypy.interpreter.error import OperationError
 from pypy.conftest import gettestobjspace
 
 class MockDtype(object):
@@ -141,6 +144,14 @@ class TestNumArrayDirect(object):
         assert r == a._index_of_single_item(self.space, self.newtuple(1, 2, 0))
         r = s._index_of_single_item(self.space, self.newtuple(1, 1))
         assert r == a._index_of_single_item(self.space, self.newtuple(1, 2, 1))
+
+    def test_shape_agreement(self):
+        assert shape_agreement(self.space, [3], [3]) == [3]
+        assert shape_agreement(self.space, [1, 2, 3], [1, 2, 3]) == [1, 2, 3]
+        py.test.raises(OperationError, shape_agreement, self.space, [2], [3])
+        assert shape_agreement(self.space, [4, 4], []) == [4, 4]
+        assert shape_agreement(self.space, [8, 1, 6, 1], [7, 1, 5]) == [8, 7, 6, 5]
+        assert shape_agreement(self.space, [5, 2], [4, 3, 5, 2]) == [4, 3, 5, 2]
 
 class AppTestNumArray(BaseNumpyAppTest):
     def test_type(self):

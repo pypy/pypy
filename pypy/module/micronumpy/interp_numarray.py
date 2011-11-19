@@ -39,6 +39,39 @@ def _find_shape_and_elems(space, w_iterable):
         shape.append(size)
         batch = new_batch
 
+def shape_agreement(space, shape1, shape2):
+    """ Checks agreement about two shapes with respect to broadcasting. Returns
+    the resulting shape.
+    """
+    lshift = 0
+    rshift = 0
+    if len(shape1) > len(shape2):
+        m = len(shape1)
+        n = len(shape2)
+        rshift = len(shape2) - len(shape1)
+        remainder = shape1
+    else:
+        m = len(shape2)
+        n = len(shape1)
+        lshift = len(shape1) - len(shape2)
+        remainder = shape2
+    endshape = [0] * m
+    for i in range(m - 1, m - n - 1, -1):
+        left = shape1[i + lshift]
+        right = shape2[i + rshift]
+        if left == right:
+            endshape[i] = left
+        elif left == 1:
+            endshape[i] = right
+        elif right == 1:
+            endshape[i] = left
+        else:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "frames are not aligned"))
+    for i in range(m - n):
+        endshape[i] = remainder[i]
+    return endshape
+
 def descr_new_array(space, w_subtype, w_item_or_iterable, w_dtype=None,
                     w_order=NoneNotWrapped):
     # find scalar
