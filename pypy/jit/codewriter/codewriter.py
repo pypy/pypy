@@ -105,7 +105,7 @@ class CodeWriter(object):
             name = 'unnamed' % id(ssarepr)
         i = 1
         # escape <lambda> names for windows
-        #name = name.replace('<lambda>', '_(lambda)_')
+        name = name.replace('<lambda>', '_(lambda)_')
         extra = ''
         while name+extra in self._seen_files:
             i += 1
