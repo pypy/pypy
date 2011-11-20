@@ -708,9 +708,7 @@ class BaseArray(Wrappable):
             r = offset // shard
             indices_w.append(space.wrap(r))
             offset -= shard * r
-        # XXX for reasons unclear indices_w becomes a resizable list, work
-        #     around for now
-        return space.newtuple(indices_w[:])
+        return space.newtuple(indices_w)
 
 def convert_to_array(space, w_obj):
     if isinstance(w_obj, BaseArray):
