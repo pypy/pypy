@@ -18,9 +18,9 @@ Highlights
 
 * numpy progress - dtypes, numpy -> numpypy renaming
 
-* brand new JSON encoder
+* brand new, faster, JSON encoder
 
-* improved memory footprint on heavy users of C APIs example - tornado
+* improved memory footprint on some RPython modules, such as hashlib
 
 * cpyext progress
 
