@@ -760,7 +760,7 @@ class Scalar(BaseArray):
     def start_iter(self, res_shape=None):
         return ConstantIterator()
 
-    def to_str(self, space, comma, builder, indent=' '):
+    def to_str(self, space, comma, builder, indent=' ', use_ellipsis=False):
         builder.append(self.dtype.str_format(self.value))
 
 class VirtualArray(BaseArray):
