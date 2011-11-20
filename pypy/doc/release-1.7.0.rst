@@ -12,6 +12,9 @@ Highlights
 * windows fixes
 
 * stackless and JIT integration
+  (stackless is now in the same executable, but any loop using
+  stackless features will interrupt the JIT for now, so no real
+  performance improvement for now)
 
 * numpy progress - dtypes, numpy -> numpypy renaming
 
