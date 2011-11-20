@@ -361,7 +361,7 @@ class BaseArray(Wrappable):
 
     def _reduce_argmax_argmin_impl(op_name):
         reduce_driver = jit.JitDriver(greens=['signature'],
-                         reds=['i', 'result', 'self', 'cur_best', 'dtype'])
+                         reds=['result', 'i', 'self', 'cur_best', 'dtype'])
         def loop(self):
             i = self.start_iter(self.shape)
             result = i.get_offset()
