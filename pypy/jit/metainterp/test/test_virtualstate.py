@@ -6,10 +6,11 @@ from pypy.jit.metainterp.optimizeopt.virtualstate import VirtualStateInfo, VStru
 from pypy.jit.metainterp.optimizeopt.optimizer import OptValue
 from pypy.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr, ConstInt, ConstPtr
 from pypy.rpython.lltypesystem import lltype
-from pypy.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin, BaseTest, equaloplists
+from pypy.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin, BaseTest, \
+                                                           equaloplists, FakeDescrWithSnapshot
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound
 from pypy.jit.metainterp.history import TreeLoop, JitCellToken
-from pypy.jit.metainterp.optimizeopt.test.test_optimizeopt import FakeDescr, FakeMetaInterpStaticData
+from pypy.jit.metainterp.optimizeopt.test.test_optimizeopt import FakeMetaInterpStaticData
 from pypy.jit.metainterp.optimize import RetraceLoop
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 
@@ -434,7 +435,7 @@ class BaseTestBridges(BaseTest):
     enable_opts = "intbounds:rewrite:virtualize:string:pure:heap:unroll"
 
     def _do_optimize_bridge(self, bridge, call_pure_results):
-        from pypy.jit.metainterp.optimizeopt import optimize_bridge_1, build_opt_chain
+        from pypy.jit.metainterp.optimizeopt import optimize_trace
         from pypy.jit.metainterp.optimizeopt.util import args_dict
 
         self.bridge = bridge
@@ -448,10 +449,9 @@ class BaseTestBridges(BaseTest):
         if hasattr(self, 'callinfocollection'):
             metainterp_sd.callinfocollection = self.callinfocollection
         #
-        d = {}
-        for name in self.enable_opts.split(":"):
-            d[name] = None
-        optimize_bridge_1(metainterp_sd, bridge,  d)
+        bridge.start_resumedescr = FakeDescrWithSnapshot()
+        optimize_trace(metainterp_sd, bridge, self.enable_opts)
+
         
     def optimize_bridge(self, loops, bridge, expected, expected_target='Loop', **boxvalues):
         if isinstance(loops, str):
@@ -459,24 +459,19 @@ class BaseTestBridges(BaseTest):
         loops = [self.parse(loop) for loop in loops]
         bridge = self.parse(bridge)
         for loop in loops:
-            loop.preamble = TreeLoop('preamble')
-            loop.preamble.inputargs = loop.inputargs
-            loop.preamble.token = JitCellToken()
-            loop.preamble.start_resumedescr = FakeDescr()        
-            self._do_optimize_loop(loop, None)
+            loop.preamble = self.unroll_and_optimize(loop)
         preamble = loops[0].preamble
-        for loop in loops[1:]:
-            preamble.token.short_preamble.extend(loop.preamble.token.short_preamble)
+        token = JitCellToken()
+        token.target_tokens = [l.operations[0].getdescr() for l in [preamble] + loops]
 
         boxes = {}
         for b in bridge.inputargs + [op.result for op in bridge.operations]:
             boxes[str(b)] = b
         for b, v in boxvalues.items():
             boxes[b].value = v
-        bridge.operations[-1].setdescr(preamble.token)
-        try:
-            self._do_optimize_bridge(bridge, None)
-        except RetraceLoop:
+        bridge.operations[-1].setdescr(token)
+        self._do_optimize_bridge(bridge, None)
+        if bridge.operations[-1].getopnum() == rop.LABEL:
             assert expected == 'RETRACE'
             return
 
@@ -485,13 +480,13 @@ class BaseTestBridges(BaseTest):
         self.assert_equal(bridge, expected)
 
         if expected_target == 'Preamble':
-            assert bridge.operations[-1].getdescr() is preamble.token
+            assert bridge.operations[-1].getdescr() is preamble.operations[0].getdescr()
         elif expected_target == 'Loop':
             assert len(loops) == 1
-            assert bridge.operations[-1].getdescr() is loops[0].token
+            assert bridge.operations[-1].getdescr() is loops[0].operations[0].getdescr()
         elif expected_target.startswith('Loop'):
             n = int(expected_target[4:])
-            assert bridge.operations[-1].getdescr() is loops[n].token
+            assert bridge.operations[-1].getdescr() is loops[n].operations[0].getdescr()
         else:
             assert False
 

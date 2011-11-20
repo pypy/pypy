@@ -406,7 +406,7 @@ class BaseTest(object):
         #
         optimize_trace(metainterp_sd, loop, self.enable_opts)
 
-    def unroll_and_optimize(self, loop, call_pure_results):
+    def unroll_and_optimize(self, loop, call_pure_results=None):
         operations =  loop.operations
         jumpop = operations[-1]
         assert jumpop.getopnum() == rop.JUMP
