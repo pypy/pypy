@@ -912,8 +912,7 @@ class ViewArray(BaseArray):
         return self.parent.getitem(item)
 
     def eval(self, iter):
-        assert isinstance(iter, (ViewIterator, BroadcastIterator))
-        return self.parent.getitem(iter.offset)
+        return self.parent.getitem(iter.get_offset())
 
     @unwrap_spec(item=int)
     def setitem_w(self, space, item, w_value):
@@ -1008,8 +1007,7 @@ class NDimArray(BaseArray):
         return self.dtype.getitem(self.storage, item)
 
     def eval(self, iter):
-        assert isinstance(iter, (ArrayIterator, BroadcastIterator))
-        return self.dtype.getitem(self.storage, iter.offset)
+        return self.dtype.getitem(self.storage, iter.get_offset())
 
     def descr_len(self, space):
         if len(self.shape):
