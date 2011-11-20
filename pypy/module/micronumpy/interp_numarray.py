@@ -972,13 +972,6 @@ class NDimSlice(ViewArray):
 
     def start_iter(self, res_shape=None):
         if res_shape is not None and res_shape != self.shape:
-            # I would prefer to throw the exception using a space,
-            # but do not have access to one here. Is there a way
-            # to get access to one and pass it into shape_agreement?
-            res_shape = _shape_agreement(self.shape, res_shape)
-            if len(res_shape) < len(self.shape):
-                raise ValueError("shape mismatch: objects cannot" + \
-                                 " be broadcast to a single shape")
             return BroadcastIterator(self, res_shape)
         return ViewIterator(self)
 
@@ -1035,13 +1028,6 @@ class NDimArray(BaseArray):
     def start_iter(self, res_shape=None):
         if self.order == 'C':
             if res_shape is not None and res_shape != self.shape:
-                res_shape = _shape_agreement(self.shape, res_shape)
-                # I would prefer to throw the exception using a space,
-                # but do not have access to one here. Is there a way
-                # to get access to one and pass it into shape_agreement?
-                if len(res_shape) < len(self.shape):
-                    raise ValueError("shape mismatch: objects cannot " + \
-                       "be broadcast to a single shape")
                 return BroadcastIterator(self, res_shape)
             return ArrayIterator(self.size)
         raise NotImplementedError  # use ViewIterator simply, test it
