@@ -305,6 +305,21 @@ class TestDetectListComprehension:
             'hint': 2,
             })
 
+    def test_iterate_over_list(self):
+        def wrap(elem):
+            return elem
+        
+        def f(i):
+            new_l = []
+            l = range(4)
+            for elem in l:
+                new_l.append(wrap(elem))
+            return new_l
+
+        self.check(f, {
+            })
+            
+
 class TestLLSpecializeListComprehension:
     typesystem = 'lltype'
 
