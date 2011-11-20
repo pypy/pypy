@@ -8,7 +8,7 @@ from pypy.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr, ConstInt, Cons
 from pypy.rpython.lltypesystem import lltype
 from pypy.jit.metainterp.optimizeopt.test.test_util import LLtypeMixin, BaseTest, equaloplists
 from pypy.jit.metainterp.optimizeopt.intutils import IntBound
-from pypy.jit.metainterp.history import TreeLoop, LoopToken
+from pypy.jit.metainterp.history import TreeLoop, JitCellToken
 from pypy.jit.metainterp.optimizeopt.test.test_optimizeopt import FakeDescr, FakeMetaInterpStaticData
 from pypy.jit.metainterp.optimize import RetraceLoop
 from pypy.jit.metainterp.resoperation import ResOperation, rop
@@ -461,7 +461,7 @@ class BaseTestBridges(BaseTest):
         for loop in loops:
             loop.preamble = TreeLoop('preamble')
             loop.preamble.inputargs = loop.inputargs
-            loop.preamble.token = LoopToken()
+            loop.preamble.token = JitCellToken()
             loop.preamble.start_resumedescr = FakeDescr()        
             self._do_optimize_loop(loop, None)
         preamble = loops[0].preamble

@@ -8,7 +8,8 @@ from pypy.rpython.rclass import FieldListAccessor, IR_QUASIIMMUTABLE
 from pypy.jit.backend.llgraph import runner
 from pypy.jit.metainterp.history import (BoxInt, BoxPtr, ConstInt, ConstPtr,
                                          Const, TreeLoop, BoxObj,
-                                         ConstObj, AbstractDescr)
+                                         ConstObj, AbstractDescr,
+                                         JitCellToken, TargetToken)
 from pypy.jit.metainterp.optimizeopt.util import sort_descrs, equaloplists
 from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.codewriter.effectinfo import EffectInfo
@@ -19,6 +20,7 @@ from pypy.jit.metainterp import compile, resume, history
 from pypy.jit.metainterp.jitprof import EmptyProfiler
 from pypy.config.pypyoption import get_pypy_config
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
+from pypy.jit.metainterp.optimizeopt.unroll import Inliner
 
 def test_sort_descrs():
     class PseudoDescr(AbstractDescr):
@@ -404,11 +406,71 @@ class BaseTest(object):
         #
         optimize_trace(metainterp_sd, loop, self.enable_opts)
 
+    def unroll_and_optimize(self, loop, call_pure_results):
+        operations =  loop.operations
+        jumpop = operations[-1]
+        assert jumpop.getopnum() == rop.JUMP
+        inputargs = loop.inputargs
+
+        jump_args = jumpop.getarglist()[:]
+        operations = operations[:-1]
+        cloned_operations = [op.clone() for op in operations]
+
+        preamble = TreeLoop('preamble')
+        preamble.inputargs = inputargs
+        preamble.start_resumedescr = FakeDescrWithSnapshot()
+
+        token = JitCellToken() 
+        preamble.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(token))] + \
+                              operations +  \
+                              [ResOperation(rop.JUMP, jump_args, None, descr=token)]
+        self._do_optimize_loop(preamble, call_pure_results)
+
+        assert preamble.operations[-1].getopnum() == rop.LABEL
+
+        inliner = Inliner(inputargs, jump_args)
+        loop.start_resumedescr = preamble.start_resumedescr
+        loop.operations = [preamble.operations[-1]] + \
+                          [inliner.inline_op(op, clone=False) for op in cloned_operations] + \
+                          [ResOperation(rop.JUMP, [inliner.inline_arg(a) for a in jump_args],
+                                        None, descr=token)] 
+                          #[inliner.inline_op(jumpop)]
+        assert loop.operations[-1].getopnum() == rop.JUMP
+        assert loop.operations[0].getopnum() == rop.LABEL
+        loop.inputargs = loop.operations[0].getarglist()
+
+        self._do_optimize_loop(loop, call_pure_results)
+        extra_same_as = []
+        while loop.operations[0].getopnum() != rop.LABEL:
+            extra_same_as.append(loop.operations[0])
+            del loop.operations[0]
+
+        # Hack to prevent random order of same_as ops
+        extra_same_as.sort(key=lambda op: str(preamble.operations).find(str(op.getarg(0))))
+
+        for op in extra_same_as:
+            preamble.operations.insert(-1, op)
+
+        return preamble
+        
+
 class FakeDescr(compile.ResumeGuardDescr):
     def clone_if_mutable(self):
         return FakeDescr()
     def __eq__(self, other):
         return isinstance(other, FakeDescr)
+
+class FakeDescrWithSnapshot(compile.ResumeGuardDescr):
+    class rd_snapshot:
+        class prev:
+            prev = None
+            boxes = []
+        boxes = []
+    def clone_if_mutable(self):
+        return FakeDescrWithSnapshot()
+    def __eq__(self, other):
+        return isinstance(other, Storage) or isinstance(other, FakeDescrWithSnapshot)
+
 
 def convert_old_style_to_targets(loop, jump):
     newloop = TreeLoop(loop.name)

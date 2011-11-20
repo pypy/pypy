@@ -54,18 +54,6 @@ def test_build_opt_chain():
 # ____________________________________________________________
 
 
-class FakeDescr(compile.ResumeGuardDescr):
-    class rd_snapshot:
-        class prev:
-            prev = None
-            boxes = []
-        boxes = []
-    def clone_if_mutable(self):
-        return FakeDescr()
-    def __eq__(self, other):
-        return isinstance(other, Storage) or isinstance(other, FakeDescr)
-
-
 class BaseTestWithUnroll(BaseTest):
 
     enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap:unroll"
@@ -79,49 +67,8 @@ class BaseTestWithUnroll(BaseTest):
             expected_preamble = self.parse(expected_preamble)
         if expected_short:
             expected_short = self.parse(expected_short)
-        operations =  loop.operations
-        jumpop = operations[-1]
-        assert jumpop.getopnum() == rop.JUMP
-        inputargs = loop.inputargs
 
-        jump_args = jumpop.getarglist()[:]
-        operations = operations[:-1]
-        cloned_operations = [op.clone() for op in operations]
-        
-        preamble = TreeLoop('preamble')
-        preamble.inputargs = inputargs
-        preamble.start_resumedescr = FakeDescr()
-
-        token = JitCellToken() 
-        preamble.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(token))] + \
-                              operations +  \
-                              [ResOperation(rop.JUMP, jump_args, None, descr=token)]
-        self._do_optimize_loop(preamble, call_pure_results)
-
-        assert preamble.operations[-1].getopnum() == rop.LABEL
-
-        inliner = Inliner(inputargs, jump_args)
-        loop.start_resumedescr = preamble.start_resumedescr
-        loop.operations = [preamble.operations[-1]] + \
-                          [inliner.inline_op(op, clone=False) for op in cloned_operations] + \
-                          [ResOperation(rop.JUMP, [inliner.inline_arg(a) for a in jump_args],
-                                        None, descr=token)] 
-                          #[inliner.inline_op(jumpop)]
-        assert loop.operations[-1].getopnum() == rop.JUMP
-        assert loop.operations[0].getopnum() == rop.LABEL
-        loop.inputargs = loop.operations[0].getarglist()
-
-        self._do_optimize_loop(loop, call_pure_results)
-        extra_same_as = []
-        while loop.operations[0].getopnum() != rop.LABEL:
-            extra_same_as.append(loop.operations[0])
-            del loop.operations[0]
-            
-        # Hack to prevent random order of same_as ops
-        extra_same_as.sort(key=lambda op: str(preamble.operations).find(str(op.getarg(0))))
-
-        for op in extra_same_as:
-            preamble.operations.insert(-1, op)
+        preamble = self.unroll_and_optimize(loop, call_pure_results)
         
         #
         print
