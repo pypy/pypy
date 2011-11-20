@@ -317,6 +317,12 @@ class TestDetectListComprehension:
             return new_l
 
         self.check(f, {
+            'hint': 2,
+            'newlist': 1,
+            'iter': 1,
+            'next': 1,
+            'getattr': 1,
+            'simple_call': 3,
             })
             
 
