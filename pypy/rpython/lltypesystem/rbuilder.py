@@ -120,6 +120,7 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
         return ll_builder.used
 
     @staticmethod
+    @jit.dont_look_inside
     def ll_build(ll_builder):
         final_size = ll_builder.used
         assert final_size >= 0
