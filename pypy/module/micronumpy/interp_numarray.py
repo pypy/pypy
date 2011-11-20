@@ -39,12 +39,6 @@ def _find_shape_and_elems(space, w_iterable):
         shape.append(size)
         batch = new_batch
 
-#class BroadcastDescription(object):
-#    def __init__(self, shape, indices1, indices2):
-#        self.shape = shape
-#        self.indices1 = indices1
-#        self.indices2 = indices2
-
 
 def shape_agreement(space, shape1, shape2):
     ret = _shape_agreement(shape1, shape2)
@@ -59,7 +53,6 @@ def _shape_agreement(shape1, shape2):
     """
     lshift = 0
     rshift = 0
-    adjustment = False
     if len(shape1) > len(shape2):
         m = len(shape1)
         n = len(shape2)
@@ -79,11 +72,9 @@ def _shape_agreement(shape1, shape2):
         if left == right:
             endshape[i] = left
         elif left == 1:
-            adjustment = True
             endshape[i] = right
             indices1[i + lshift] = False
         elif right == 1:
-            adjustment = True
             endshape[i] = left
             indices2[i + rshift] = False
         else:
@@ -91,14 +82,7 @@ def _shape_agreement(shape1, shape2):
             #raise OperationError(space.w_ValueError, space.wrap(
             #    "frames are not aligned"))
     for i in range(m - n):
-        adjustment = True
         endshape[i] = remainder[i]
-        #if len(shape1) > len(shape2):
-        #    xxx
-        #else:
-        #    xxx
-    #if not adjustment:
-    #    return None
     return endshape
 
 def descr_new_array(space, w_subtype, w_item_or_iterable, w_dtype=None,
@@ -158,7 +142,6 @@ class ArrayIterator(BaseIterator):
 
     def next(self):
         self.offset += 1
-        #return self
 
     def done(self):
         return self.offset >= self.size
@@ -187,7 +170,6 @@ class ViewIterator(BaseIterator):
                 self.offset -= self.arr.backshards[i]
         else:
             self._done = True
-        #return self
 
     def done(self):
         return self._done
@@ -215,11 +197,9 @@ class BroadcastIterator(BaseIterator):
                 self.backshards.append(arr.backshards[i])
         self.shape_len = len(res_shape)
         self.res_shape = res_shape
-        for i in range(self.shape_len - len(arr.shape)):
-            self.shards.insert(0, 0)
-            self.backshards.insert(0, 0)
+        self.shards = [0] * (len(res_shape) - len(arr.shape)) + self.shards
+        self.backshards = [0] * (len(res_shape) - len(arr.shape)) + self.backshards
         self._done = False
-        self.size = sum(arr.shape)
         self.arr = arr
 
     @jit.unroll_safe
@@ -235,41 +215,12 @@ class BroadcastIterator(BaseIterator):
                 self.offset -= self.backshards[i]
         else:
             self._done = True
-        #return self
 
     def done(self):
         return self._done
 
     def get_offset(self):
-        return self.offset % self.size
-
-class _ResizingIterator(object):
-    def __init__(self, iter, shape, orig_indices):
-        self.shape = shape
-        self.indices = [0] * len(shape)
-        self.orig_indices = orig_indices
-        self.iter = iter
-        self._done = False
-
-    @jit.unroll_safe
-    def next(self):
-        for i in range(len(self.shape) -1, -1, -1):
-            if self.indices[i] < self.shape[i] - 1:
-                self.indices[i] += 1
-                if self.orig_indices[i]:
-                    self.iter.next()
-                break
-            else:
-                self.indices[i] = 0
-        else:
-            self._done = True
-        #return self
-
-    def get_offset(self):
-        return self.iter.get_offset()
-
-    def done(self):
-        return self._done
+        return self.offset
 
 class Call2Iterator(BaseIterator):
     def __init__(self, left, right):
@@ -279,7 +230,6 @@ class Call2Iterator(BaseIterator):
     def next(self):
         self.left.next()
         self.right.next()
-        #return self
 
     def done(self):
         return self.left.done() or self.right.done()
@@ -295,7 +245,6 @@ class Call1Iterator(BaseIterator):
 
     def next(self):
         self.child.next()
-        #return self
 
     def done(self):
         return self.child.done()
@@ -306,7 +255,6 @@ class Call1Iterator(BaseIterator):
 class ConstantIterator(BaseIterator):
     def next(self):
         pass
-        #return self
 
     def done(self):
         return False
@@ -1032,7 +980,6 @@ class NDimSlice(ViewArray):
                 raise ValueError("shape mismatch: objects cannot" + \
                                  " be broadcast to a single shape")
             return BroadcastIterator(self, res_shape)
-            #return ResizingIterator(ViewIterator(self), res_shape, orig_indices)
         return ViewIterator(self)
 
     def setitem(self, item, value):
