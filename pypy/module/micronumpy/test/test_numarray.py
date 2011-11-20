@@ -883,6 +883,17 @@ class AppTestMultiDim(BaseNumpyAppTest):
         c = ((a + d) == array([[[10., 11., 12.]]*3, [[20.,21.,22.]]*3, [[30.,31.,32.]]*3]))
         assert c.all()
 
+    def test_broadcast_scalar(self):
+        from numpypy import zeros
+        a = zeros((4, 5), 'd')
+        a[:, 1] = 3
+        assert a[2, 1] == 3
+        assert a[0, 2] == 0
+        a[0, :] = 5
+        assert a[0, 3] == 5
+        assert a[2, 1] == 3
+        assert a[3, 2] == 0
+
     def test_broadcast_call2(self):
         from numpypy import zeros, ones
         a = zeros((4, 1, 5))
