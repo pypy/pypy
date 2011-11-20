@@ -471,10 +471,11 @@ class BaseArray(Wrappable):
         Multidimensional arrays/slices will span a number of lines,
         each line will begin with indent.
         '''
-        if self.size < 1:
+        size = self.find_size()
+        if size < 1:
             builder.append('[]')
             return
-        if self.size > 1000:
+        if size > 1000:
             #Once this goes True it does not go back to False for recursive calls
             use_ellipsis = True
         dtype = self.find_dtype()
