@@ -1049,13 +1049,21 @@ def zeros(space, w_size, w_dtype=None):
             shape.append(item)
     return space.wrap(NDimArray(size, shape[:], dtype=dtype))
 
-@unwrap_spec(size=int)
-def ones(space, size, w_dtype=None):
+def ones(space, w_size, w_dtype=None):
     dtype = space.interp_w(interp_dtype.W_Dtype,
         space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
     )
-
-    arr = NDimArray(size, [size], dtype=dtype)
+    if space.isinstance_w(w_size, space.w_int):
+        size = space.int_w(w_size)
+        shape = [size]
+    else:
+        size = 1
+        shape = []
+        for w_item in space.fixedview(w_size):
+            item = space.int_w(w_item)
+            size *= item
+            shape.append(item)
+    arr = NDimArray(size, shape[:], dtype=dtype)
     one = dtype.adapt_val(1)
     arr.dtype.fill(arr.storage, one, 0, size)
     return space.wrap(arr)

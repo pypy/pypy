@@ -851,6 +851,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
         c = b + b
         assert c[1][1] == 12
 
+    def test_multidim_ones(self):
+        from numpypy import ones
+        a = ones((1, 2, 3))
+        assert a[0, 1, 2] == 1.0
+
     def test_broadcast_ufunc(self):
         from numpypy import array
         a = array([[1, 2], [3, 4], [5, 6]])
@@ -877,7 +882,13 @@ class AppTestMultiDim(BaseNumpyAppTest):
         c = ((a + d) == [b, b, b])
         c = ((a + d) == array([[[10., 11., 12.]]*3, [[20.,21.,22.]]*3, [[30.,31.,32.]]*3]))
         assert c.all()
-        
+
+    def test_broadcast_call2(self):
+        from numpypy import zeros, ones
+        a = zeros((4, 1, 5))
+        b = ones((4, 3, 5))
+        b[:] = (a + a)
+        assert (b == zeros((4, 3, 5))).all()
 
 class AppTestSupport(object):
     def setup_class(cls):
