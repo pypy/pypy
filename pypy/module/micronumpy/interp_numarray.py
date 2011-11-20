@@ -203,8 +203,16 @@ class BroadcastIterator(BaseIterator):
     def __init__(self, arr, res_shape):
         self.indices = [0] * len(res_shape)
         self.offset  = arr.start
-        self.shards  = [s for s in arr.shards]  # Is there a better way to make a copy in rpython?
-        self.backshards = [s for s in arr.backshards]  # Is there a better way to make a copy in rpython?
+        #shards are 0 where original shape==1
+        self.shards = []
+        self.backshards = []
+        for i in range(len(arr.shape)):
+            if arr.shape[i]==1:
+                self.shards.append(0)
+                self.backshards.append(0)
+            else:
+                self.shards.append(arr.shards[i])
+                self.backshards.append(arr.backshards[i])
         self.shape_len = len(res_shape)
         self.res_shape = res_shape
         for i in range(self.shape_len - len(arr.shape)):

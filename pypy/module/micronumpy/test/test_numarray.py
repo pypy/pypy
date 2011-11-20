@@ -859,15 +859,25 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert c.all()
 
     def test_broadcast_setslice(self):
-        from numpypy import zeros, ones, array
+        from numpypy import zeros, ones
         a = zeros((100, 100))
         b = ones(100)
         a[:, :] = b
         assert a[13, 15] == 1
+
+    def test_broadcast_shape_agreement(self):
+        from numpypy import zeros, array
         a = zeros((3, 1, 3))
         b = array(((10, 11, 12), (20, 21, 22), (30, 31, 32)))
         c = ((a + b) == [b, b, b])
         assert c.all()
+        a = array((((10,11,12), ), ((20, 21, 22), ), ((30,31,32), )))
+        assert(a.shape == (3, 1, 3))
+        d = zeros((3, 3))
+        c = ((a + d) == [b, b, b])
+        c = ((a + d) == array([[[10., 11., 12.]]*3, [[20.,21.,22.]]*3, [[30.,31.,32.]]*3]))
+        assert c.all()
+        
 
 class AppTestSupport(object):
     def setup_class(cls):
