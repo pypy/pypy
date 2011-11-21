@@ -1,5 +1,4 @@
 from pypy.rpython.lltypesystem import lltype, llmemory, llarena
-from pypy.rlib.rarithmetic import is_emulated_long
 
 import struct
 
@@ -13,11 +12,7 @@ primitive_to_fmt = {lltype.Signed:          "l",
                     lltype.Float:           "d",
                     llmemory.Address:       "P",
                     }
-if is_emulated_long:
-    primitive_to_fmt.update( {
-        lltype.Signed:     "q",
-        lltype.Unsigned:   "Q",
-        } )
+
 
 #___________________________________________________________________________
 # Utility functions that know about the memory layout of the lltypes

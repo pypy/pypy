@@ -90,7 +90,7 @@ class MsvcPlatform(Platform):
     shared_only = ()
     environ = None
 
-    def __init__(self, cc=None, x64=False):
+    def __init__(self, cc=None, x64):
         if x64:
             msvc_compiler_environ = msvc_compiler_environ64
         else:

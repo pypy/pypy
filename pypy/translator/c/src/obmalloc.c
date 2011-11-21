@@ -224,10 +224,10 @@
 #define uint			unsigned int	/* assuming >= 16 bits */
 
 #undef  ulong
-#define ulong			Unsigned	/* assuming >= 32 bits */
+#define ulong			unsigned long	/* assuming >= 32 bits */
 
 #undef uptr
-#define uptr			Unsigned
+#define uptr			unsigned long
 
 /* When you say memory, my mind reasons in terms of (pointers to) blocks */
 typedef uchar block;
