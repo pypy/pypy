@@ -1191,6 +1191,33 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected, preamble)
 
+    def test_virtual_recursive(self):
+        ops = """
+        [p0]
+        p41 = getfield_gc(p0, descr=nextdescr)
+        i0 = getfield_gc(p41, descr=valuedescr)
+        p1 = new_with_vtable(ConstClass(node_vtable2))
+        p2 = new_with_vtable(ConstClass(node_vtable2))
+        setfield_gc(p2, p1, descr=nextdescr)
+        setfield_gc(p1, p2, descr=nextdescr)
+        i1 = int_add(i0, 1)
+        setfield_gc(p2, i1, descr=valuedescr)
+        jump(p1)
+        """
+        preamble = """
+        [p0]
+        p41 = getfield_gc(p0, descr=nextdescr)
+        i0 = getfield_gc(p41, descr=valuedescr)
+        i3 = int_add(i0, 1)
+        jump(i3)
+        """
+        expected = """
+        [i0]
+        i1 = int_add(i0, 1)
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected, preamble)
+
     def test_virtual_constant_isnull(self):
         ops = """
         [i0]
