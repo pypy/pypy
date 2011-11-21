@@ -80,6 +80,8 @@ class MsvcPlatform(Platform):
     name = "msvc"
     so_ext = 'dll'
     exe_ext = 'exe'
+    
+    relevant_environ = ('PATH', 'INCLUDE', 'LIB')
 
     cc = 'cl.exe'
     link = 'link.exe'
