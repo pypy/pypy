@@ -562,7 +562,7 @@ def _make_subclass_size_n(supercls, n):
         def _init_empty(self, map):
             from pypy.rlib.debug import make_sure_not_resized
             for i in rangen:
-                setattr(self, "_value%s" % i, erase_item(None))
+                setattr(self, "_value%s" % i, PlainAttribute.erase_item(None))
             self.map = map
 
         def _has_storage_list(self):
@@ -606,14 +606,13 @@ def _make_subclass_size_n(supercls, n):
                 if i < len_storage:
                     erased = storage[i]
                 else:
-                    # XXX later: use correct erase method from attribute
-                    erased = erase_item(None)
+                    erased = PlainAttribute.erase_item(None)
                 setattr(self, "_value%s" % i, erased)
             has_storage_list = self._has_storage_list()
             if len_storage < n:
                 assert not has_storage_list
                 # XXX later: use correct erase method from attribute
-                erased = erase_item(None)
+                erased = PlainAttribute.erase_item(None)
             elif len_storage == n:
                 assert not has_storage_list
                 erased = storage[nmin1]
