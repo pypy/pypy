@@ -1723,7 +1723,7 @@ assert not '__dict__' in dir(_struct)
 class _subarray(_parentable):     # only for direct_fieldptr()
                                   # and direct_arrayitems()
     _kind = "subarray"
-    _cache = weakref.WeakKeyDictionary()  # parentarray -> {subarrays}
+    _cache = {}  # TYPE -> weak{ parentarray -> {subarrays} }
 
     def __init__(self, TYPE, parent, baseoffset_or_fieldname):
         _parentable.__init__(self, TYPE)
@@ -1781,10 +1781,15 @@ class _subarray(_parentable):     # only for direct_fieldptr()
 
     def _makeptr(parent, baseoffset_or_fieldname, solid=False):
         try:
-            cache = _subarray._cache.setdefault(parent, {})
+            d = _subarray._cache[parent._TYPE]
+        except KeyError:
+            d = _subarray._cache[parent._TYPE] = weakref.WeakKeyDictionary()
+        try:
+            cache = d.setdefault(parent, {})
         except RuntimeError:    # pointer comparison with a freed structure
             _subarray._cleanup_cache()
-            cache = _subarray._cache.setdefault(parent, {})    # try again
+            # try again
+            return _subarray._makeptr(parent, baseoffset_or_fieldname, solid)
         try:
             subarray = cache[baseoffset_or_fieldname]
         except KeyError:
@@ -1805,14 +1810,18 @@ class _subarray(_parentable):     # only for direct_fieldptr()
         raise NotImplementedError('_subarray._getid()')
 
     def _cleanup_cache():
-        newcache = weakref.WeakKeyDictionary()
-        for key, value in _subarray._cache.items():
-            try:
-                if not key._was_freed():
-                    newcache[key] = value
-            except RuntimeError:
-                pass    # ignore "accessing subxxx, but already gc-ed parent"
-        _subarray._cache = newcache
+        for T, d in _subarray._cache.items():
+            newcache = weakref.WeakKeyDictionary()
+            for key, value in d.items():
+                try:
+                    if not key._was_freed():
+                        newcache[key] = value
+                except RuntimeError:
+                    pass    # ignore "accessing subxxx, but already gc-ed parent"
+            if newcache:
+                _subarray._cache[T] = newcache
+            else:
+                del _subarray._cache[T]
     _cleanup_cache = staticmethod(_cleanup_cache)
 
 

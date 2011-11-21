@@ -864,7 +864,7 @@ def size_and_sign(tp):
     except AttributeError:
         if not isinstance(tp, lltype.Primitive):
             unsigned = False
-        elif tp in (lltype.Signed, FLOAT, DOUBLE):
+        elif tp in (lltype.Signed, FLOAT, DOUBLE, llmemory.Address):
             unsigned = False
         elif tp in (lltype.Char, lltype.UniChar, lltype.Bool):
             unsigned = True
