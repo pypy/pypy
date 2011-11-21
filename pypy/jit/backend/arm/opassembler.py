@@ -190,7 +190,7 @@ class GuardOpAssembler(object):
 
     _mixin_ = True
 
-    def _emit_guard(self, op, arglocs, fcond, save_exc=False, is_guard_not_ivalidated=False):
+    def _emit_guard(self, op, arglocs, fcond, save_exc=False, is_guard_not_invalidated=False):
         descr = op.getdescr()
         assert isinstance(descr, AbstractFailDescr)
 
@@ -205,7 +205,7 @@ class GuardOpAssembler(object):
                                     faillocs=arglocs,
                                     offset=pos,
                                     fcond=fcond,
-                                    is_invalidate=is_guard_not_ivalidated,
+                                    is_invalidate=is_guard_not_invalidated,
                                     save_exc=save_exc))
         return c.AL
 
@@ -275,7 +275,7 @@ class GuardOpAssembler(object):
         return fcond
 
     def emit_op_guard_not_invalidated(self, op, locs, regalloc, fcond):
-        return self._emit_guard(op, locs, fcond, is_guard_not_ivalidated=True)
+        return self._emit_guard(op, locs, fcond, is_guard_not_invalidated=True)
 
     def _cmp_guard_class(self, op, locs, regalloc, fcond):
         offset = locs[2]
