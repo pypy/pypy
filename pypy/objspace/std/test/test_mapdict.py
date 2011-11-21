@@ -34,8 +34,8 @@ def unerase_storage_items(storage, uneraser=IntAttribute):
 def test_plain_attribute():
 
     w_cls = "class"
-    aa = IntAttribute(("b", DICT, IntAttribute),
-                        IntAttribute(("a", DICT, IntAttribute),
+    aa = IntAttribute(("b", DICT),
+                        IntAttribute(("a", DICT),
                                        Terminator(space, w_cls)))
     assert aa.space is space
     assert aa.terminator.w_cls is w_cls
