@@ -5567,7 +5567,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape(ConstPtr(ptrobjself))
         jump()
         """
-        self.optimize_loop(ops, ops)
+        self.optimize_loop(ops, expected)
 
     # ----------
     def optimize_strunicode_loop(self, ops, optops, preamble):
