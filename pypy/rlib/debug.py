@@ -325,7 +325,7 @@ def check_regular_int(x):
     """Give a translation-time error if 'x' is not a plain int
     (e.g. if it's a r_longlong or an r_uint).
     """
-    assert type(x) is int
+    assert type(x) in (int, long)
     return x
 
 class Entry(ExtRegistryEntry):

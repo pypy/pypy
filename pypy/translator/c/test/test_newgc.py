@@ -675,8 +675,8 @@ class TestUsingFramework(object):
             gc.collect()
             p_a1 = rffi.cast(rffi.VOIDPP, ll_args[0])[0]
             p_a2 = rffi.cast(rffi.VOIDPP, ll_args[1])[0]
-            a1 = rffi.cast(rffi.LONGP, p_a1)[0]
-            a2 = rffi.cast(rffi.LONGP, p_a2)[0]
+            a1 = rffi.cast(rffi.SIGNEDP, p_a1)[0]
+            a2 = rffi.cast(rffi.SIGNEDP, p_a2)[0]
             res = rffi.cast(rffi.INTP, ll_res)
             if a1 > a2:
                 res[0] = rffi.cast(rffi.INT, 1)
@@ -1202,7 +1202,7 @@ class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
         def f():
             from pypy.rpython.lltypesystem import lltype, rffi
             alist = [A() for i in range(50000)]
-            idarray = lltype.malloc(rffi.LONGP.TO, len(alist), flavor='raw')
+            idarray = lltype.malloc(rffi.SIGNEDP.TO, len(alist), flavor='raw')
             # Compute the id of all elements of the list.  The goal is
             # to not allocate memory, so that if the GC needs memory to
             # remember the ids, it will trigger some collections itself
@@ -1317,6 +1317,23 @@ class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
     def test_string_builder_over_allocation(self):
         res = self.run('string_builder_over_allocation')
         assert res[1000] == 'y'
+
+    def definestr_string_builder_multiple_builds(cls):
+        import gc
+        def fn(_):
+            s = StringBuilder(4)
+            got = []
+            for i in range(50):
+                s.append(chr(33+i))
+                got.append(s.build())
+                gc.collect()
+            return ' '.join(got)
+        return fn
+
+    def test_string_builder_multiple_builds(self):
+        res = self.run('string_builder_multiple_builds')
+        assert res == ' '.join([''.join(map(chr, range(33, 33+length)))
+                                for length in range(1, 51)])
 
     def define_nursery_hash_base(cls):
         from pypy.rlib.objectmodel import compute_identity_hash

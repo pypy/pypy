@@ -123,9 +123,10 @@ class BaseStringBuilderRepr(AbstractStringBuilderRepr):
     def ll_build(ll_builder):
         final_size = ll_builder.used
         assert final_size >= 0
-        if final_size == ll_builder.allocated:
-            return ll_builder.buf
-        return rgc.ll_shrink_array(ll_builder.buf, final_size)
+        if final_size < ll_builder.allocated:
+            ll_builder.allocated = final_size
+            ll_builder.buf = rgc.ll_shrink_array(ll_builder.buf, final_size)
+        return ll_builder.buf
 
     @classmethod
     def ll_is_true(cls, ll_builder):

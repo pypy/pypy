@@ -31,8 +31,8 @@
 
 /*** conversions ***/
 
-#define OP_CAST_FLOAT_TO_INT(x,r)    r = (long)(x)
-#define OP_CAST_FLOAT_TO_UINT(x,r)   r = (unsigned long)(x)
+#define OP_CAST_FLOAT_TO_INT(x,r)    r = (Signed)(x)
+#define OP_CAST_FLOAT_TO_UINT(x,r)   r = (Unsigned)(x)
 #define OP_CAST_INT_TO_FLOAT(x,r)    r = (double)(x)
 #define OP_CAST_UINT_TO_FLOAT(x,r)   r = (double)(x)
 #define OP_CAST_LONGLONG_TO_FLOAT(x,r) r = (double)(x)
