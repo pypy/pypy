@@ -6,12 +6,13 @@ from pypy.tool import autopath
 from pypy.translator.platform import CompilationError
 from pypy.translator.platform import log, _run_subprocess
 from pypy.translator.platform import Platform, posix
+from pypy.rlib.rarithmetic import is_emulated_long
 
 def Windows(cc=None):
     if cc == 'mingw32':
         return MingwPlatform(cc)
     else:
-        return MsvcPlatform(cc)
+        return MsvcPlatform(x64=is_emulated_long)
 
 def _get_msvc_env(vsver):
     try:
@@ -80,7 +81,8 @@ class MsvcPlatform(Platform):
     shared_only = ()
     environ = None
 
-    def __init__(self, cc=None, x64=False):
+    def __init__(self, cc=None, x64='error'):
+        assert x64 <> 'error', "explicit platform definition is mandatory for windows!"
         Platform.__init__(self, 'cl.exe')
         if msvc_compiler_environ:
             self.c_environ = os.environ.copy()

@@ -319,6 +319,7 @@ def make_win32_stat_impl(name, traits):
     assert len(STAT_FIELDS) == 10    # no extra fields on Windows
 
     def attributes_to_mode(attributes):
+        attributes = lltype.r_uint(attributes)
         m = 0
         if attributes & win32traits.FILE_ATTRIBUTE_DIRECTORY:
             m |= win32traits._S_IFDIR | 0111 # IFEXEC for user,group,other
@@ -456,6 +457,6 @@ def FILE_TIME_to_time_t_nsec(filetime):
 
 def time_t_to_FILE_TIME(time, filetime):
     ft = lltype.r_longlong((time + secs_between_epochs) * 10000000)
-    filetime.c_dwHighDateTime = lltype.r_uint(ft >> 32)
-    filetime.c_dwLowDateTime = lltype.r_uint(ft & lltype.r_uint(-1))
+    filetime.c_dwHighDateTime = lltype.r_uint32(ft >> 32)
+    filetime.c_dwLowDateTime = lltype.r_uint32(ft & lltype.r_uint(-1))
 

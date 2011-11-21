@@ -1018,22 +1018,25 @@ class LLFrame(object):
     # Overflow-detecting variants
 
     def op_int_neg_ovf(self, x):
-        assert type(x) is int
+        # assert type(x) is int
+        assert isinstance(x, (int, long))
         try:
             return ovfcheck(-x)
         except OverflowError:
             self.make_llexception()
 
     def op_int_abs_ovf(self, x):
-        assert type(x) is int
+        # assert type(x) is int
+        assert isinstance(x, (int, long))
         try:
             return ovfcheck(abs(x))
         except OverflowError:
             self.make_llexception()
 
     def op_int_lshift_ovf(self, x, y):
-        assert isinstance(x, int)
-        assert isinstance(y, int)
+        # win64: int or long because target size differs
+        assert isinstance(x, (int, long))
+        assert isinstance(y, (int, long))
         try:
             return ovfcheck(x << y)
         except OverflowError:
@@ -1074,15 +1077,15 @@ class LLFrame(object):
                 self.make_llexception()
         """ % locals()).compile() in globals(), d
 
-    _makefunc2('op_int_add_ovf', '+', '(int, llmemory.AddressOffset)')
-    _makefunc2('op_int_mul_ovf', '*', '(int, llmemory.AddressOffset)', 'int')
-    _makefunc2('op_int_sub_ovf',          '-',  'int')
-    _makefunc2('op_int_floordiv_ovf',     '//', 'int')  # XXX negative args
-    _makefunc2('op_int_floordiv_zer',     '//', 'int')  # can get off-by-one
-    _makefunc2('op_int_floordiv_ovf_zer', '//', 'int')  # (see op_int_floordiv)
-    _makefunc2('op_int_mod_ovf',          '%',  'int')
-    _makefunc2('op_int_mod_zer',          '%',  'int')
-    _makefunc2('op_int_mod_ovf_zer',      '%',  'int')
+    _makefunc2('op_int_add_ovf', '+', '(int, long, llmemory.AddressOffset)')
+    _makefunc2('op_int_mul_ovf', '*', '(int, long, llmemory.AddressOffset)', '(int, long)')
+    _makefunc2('op_int_sub_ovf',          '-',  '(int, long)')
+    _makefunc2('op_int_floordiv_ovf',     '//', '(int, long)')  # XXX negative args
+    _makefunc2('op_int_floordiv_zer',     '//', '(int, long)')  # can get off-by-one
+    _makefunc2('op_int_floordiv_ovf_zer', '//', '(int, long)')  # (see op_int_floordiv)
+    _makefunc2('op_int_mod_ovf',          '%',  '(int, long)')
+    _makefunc2('op_int_mod_zer',          '%',  '(int, long)')
+    _makefunc2('op_int_mod_ovf_zer',      '%',  '(int, long)')
 
     _makefunc2('op_uint_floordiv_zer',    '//', 'r_uint')
     _makefunc2('op_uint_mod_zer',         '%',  'r_uint')
@@ -1104,7 +1107,7 @@ class LLFrame(object):
             x = x.default
         # if type(x) is a subclass of Symbolic, bool(x) will usually raise
         # a TypeError -- unless __nonzero__ has been explicitly overridden.
-        assert isinstance(x, (int, Symbolic))
+        assert isinstance(x, (int, long, Symbolic))
         return bool(x)
 
     # hack for jit.codegen.llgraph

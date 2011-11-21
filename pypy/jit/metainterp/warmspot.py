@@ -120,8 +120,7 @@ def _find_jit_marker(graphs, marker_name):
                 op = block.operations[i]
                 if (op.opname == 'jit_marker' and
                     op.args[0].value == marker_name and
-                    (op.args[1].value is None or
-                    op.args[1].value.active)):   # the jitdriver
+                    op.args[1].value.active):   # the jitdriver
                     results.append((graph, block, i))
     return results
 
@@ -847,18 +846,11 @@ class WarmRunnerDesc(object):
         _, PTR_SET_PARAM_STR_FUNCTYPE = self.cpu.ts.get_FuncType(
             [lltype.Ptr(STR)], lltype.Void)
         def make_closure(jd, fullfuncname, is_string):
-            if jd is None:
-                def closure(i):
-                    if is_string:
-                        i = hlstr(i)
-                    for jd in self.jitdrivers_sd:
-                        getattr(jd.warmstate, fullfuncname)(i)
-            else:
-                state = jd.warmstate
-                def closure(i):
-                    if is_string:
-                        i = hlstr(i)
-                    getattr(state, fullfuncname)(i)
+            state = jd.warmstate
+            def closure(i):
+                if is_string:
+                    i = hlstr(i)
+                getattr(state, fullfuncname)(i)
             if is_string:
                 TP = PTR_SET_PARAM_STR_FUNCTYPE
             else:
@@ -867,16 +859,12 @@ class WarmRunnerDesc(object):
             return Constant(funcptr, TP)
         #
         for graph, block, i in find_set_param(graphs):
-            
             op = block.operations[i]
-            if op.args[1].value is not None:
-                for jd in self.jitdrivers_sd:
-                    if jd.jitdriver is op.args[1].value:
-                        break
-                else:
-                    assert 0, "jitdriver of set_param() not found"
+            for jd in self.jitdrivers_sd:
+                if jd.jitdriver is op.args[1].value:
+                    break
             else:
-                jd = None
+                assert 0, "jitdriver of set_param() not found"
             funcname = op.args[2].value
             key = jd, funcname
             if key not in closures:

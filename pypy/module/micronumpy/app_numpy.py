@@ -1,6 +1,6 @@
 import math
 
-import numpypy
+import numpy
 
 
 inf = float("inf")
@@ -13,5 +13,5 @@ def average(a):
 
 def mean(a):
     if not hasattr(a, "mean"):
-        a = numpypy.array(a)
+        a = numpy.array(a)
     return a.mean()

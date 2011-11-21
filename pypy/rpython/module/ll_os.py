@@ -428,9 +428,13 @@ class RegisterOs(BaseLazyRegistering):
         UTIMBUFP = lltype.Ptr(self.UTIMBUF)
         os_utime = self.llexternal('utime', [rffi.CCHARP, UTIMBUFP], rffi.INT)
 
+        if not _WIN32:
+            includes = ['sys/time.h']
+        else:
+            includes = ['time.h']
         class CConfig:
             _compilation_info_ = ExternalCompilationInfo(
-                includes=['sys/time.h']
+                includes=includes
             )
             HAVE_UTIMES = platform.Has('utimes')
         config = platform.configure(CConfig)
@@ -440,9 +444,14 @@ class RegisterOs(BaseLazyRegistering):
 
         if config['HAVE_UTIMES']:
             class CConfig:
-                _compilation_info_ = ExternalCompilationInfo(
-                    includes = ['sys/time.h']
-                )
+                if not _WIN32:
+                    _compilation_info_ = ExternalCompilationInfo(
+                        includes = ['sys/time.h']
+                    )
+                else:
+                    _compilation_info_ = ExternalCompilationInfo(
+                        includes = ['time.h']
+                    )
                 TIMEVAL = platform.Struct('struct timeval', [('tv_sec', rffi.LONG),
                                                              ('tv_usec', rffi.LONG)])
             config = platform.configure(CConfig)
@@ -547,10 +556,10 @@ class RegisterOs(BaseLazyRegistering):
                 # The fields of a FILETIME structure are the hi and lo parts
                 # of a 64-bit value expressed in 100 nanosecond units
                 # (of course).
-                result = (pkernel.c_dwHighDateTime*429.4967296 +
-                          pkernel.c_dwLowDateTime*1E-7,
-                          puser.c_dwHighDateTime*429.4967296 +
-                          puser.c_dwLowDateTime*1E-7,
+                result = (rffi.cast(lltype.Signed, pkernel.c_dwHighDateTime) * 429.4967296 +
+                          rffi.cast(lltype.Signed, pkernel.c_dwLowDateTime) * 1E-7,
+                          rffi.cast(lltype.Signed, puser.c_dwHighDateTime) * 429.4967296 +
+                          rffi.cast(lltype.Signed, puser.c_dwLowDateTime) * 1E-7,
                           0, 0, 0)
                 lltype.free(puser,   flavor='raw')
                 lltype.free(pkernel, flavor='raw')
@@ -808,7 +817,7 @@ class RegisterOs(BaseLazyRegistering):
                                   [traits.CCHARP, rffi.INT, rffi.MODE_T],
                                   rffi.INT)
         def os_open_llimpl(path, flags, mode):
-            result = rffi.cast(rffi.LONG, os_open(path, flags, mode))
+            result = rffi.cast(lltype.Signed, os_open(path, flags, mode))
             if result == -1:
                 raise OSError(rposix.get_errno(), "os_open failed")
             return result
@@ -1334,7 +1343,7 @@ class RegisterOs(BaseLazyRegistering):
         os_isatty = self.llexternal(underscore_on_windows+'isatty', [rffi.INT], rffi.INT)
 
         def isatty_llimpl(fd):
-            res = rffi.cast(rffi.LONG, os_isatty(rffi.cast(rffi.INT, fd)))
+            res = rffi.cast(lltype.Signed, os_isatty(rffi.cast(rffi.INT, fd)))
             return res != 0
 
         return extdef([int], bool, llimpl=isatty_llimpl,

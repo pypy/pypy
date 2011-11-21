@@ -48,7 +48,7 @@ class MachineCodeBlockWrapper(BlockBuilderMixin,
         if self.relocations is not None:
             for reloc in self.relocations:
                 p = addr + reloc
-                adr = rffi.cast(rffi.LONGP, p - WORD)
+                adr = rffi.cast(rffi.SIGNEDP, p - WORD)
                 adr[0] = intmask(adr[0] - p)
         valgrind.discard_translations(addr, self.get_relative_pos())
         self._dump(addr, "jit-backend-dump", backend_name)
