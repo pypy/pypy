@@ -17,6 +17,7 @@ from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.rstring import StringBuilder, UnicodeBuilder
 from pypy.rpython.lltypesystem import llmemory
+from pypy.rlib.rarithmetic import LONG_BIT
 import os, sys
 
 class CConstant(Symbolic):
@@ -646,6 +647,9 @@ DOUBLEP = lltype.Ptr(lltype.Array(DOUBLE, hints={'nolength': True}))
 # float *
 FLOATP = lltype.Ptr(lltype.Array(FLOAT, hints={'nolength': True}))
 
+# Signed *
+SIGNEDP = lltype.Ptr(lltype.Array(lltype.Signed, hints={'nolength': True}))
+
 # various type mapping
 
 # conversions between str and char*
@@ -887,7 +891,7 @@ def sizeof(tp):
             size = llmemory.sizeof(tp)    # a symbolic result in this case
         return size
     if isinstance(tp, lltype.Ptr) or tp is llmemory.Address:
-        tp = ULONG     # XXX!
+        tp = lltype.Signed
     if tp is lltype.Char or tp is lltype.Bool:
         return 1
     if tp is lltype.UniChar:
@@ -898,7 +902,7 @@ def sizeof(tp):
         return 4
     assert isinstance(tp, lltype.Number)
     if tp is lltype.Signed:
-        return ULONG._type.BITS/8
+        return LONG_BIT/8
     return tp._type.BITS/8
 sizeof._annspecialcase_ = 'specialize:memo'
 
@@ -918,11 +922,14 @@ def offsetof(STRUCT, fieldname):
 offsetof._annspecialcase_ = 'specialize:memo'
 
 # check that we have a sane configuration
-assert sys.maxint == (1 << (8 * sizeof(lltype.Signed) - 1)) - 1, (
+# XXX re-enable this after correcting the windows case
+"""
+assert maxint == (1 << (8 * sizeof(lltype.Signed) - 1)) - 1, (
     "Mixed configuration of the word size of the machine:\n\t"
     "the underlying Python was compiled with maxint=%d,\n\t"
     "but the C compiler says that 'long' is %d bytes" % (
-    sys.maxint, sizeof(lltype.Signed)))
+    maxint, sizeof(lltype.Signed)))
+"""
 
 # ********************** some helpers *******************
 

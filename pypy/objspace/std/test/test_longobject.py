@@ -225,6 +225,7 @@ class AppTestLong:
         assert x ^ 0x555555555L == 0x5FFFFFFFFL
 
     def test_hash(self):
+        import sys
         # ints have the same hash as equal longs
         for i in range(-4, 14):
             assert hash(i) == hash(long(i))
@@ -233,6 +234,8 @@ class AppTestLong:
         assert hash(1234567890123456789L) in (
             -1895067127,            # with 32-bit platforms
             1234567890123456789)    # with 64-bit platforms
+        assert hash(long(sys.maxint)) == sys.maxint
+        assert hash(long(-sys.maxint-1)) == -sys.maxint-1
 
     def test_math_log(self):
         import math

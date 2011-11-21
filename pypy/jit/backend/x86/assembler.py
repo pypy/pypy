@@ -403,7 +403,7 @@ class Assembler386(object):
             after()
 
     _NOARG_FUNC = lltype.Ptr(lltype.FuncType([], lltype.Void))
-    _CLOSESTACK_FUNC = lltype.Ptr(lltype.FuncType([rffi.LONGP],
+    _CLOSESTACK_FUNC = lltype.Ptr(lltype.FuncType([rffi.SIGNEDP],
                                                   lltype.Void))
 
     def _build_release_gil(self, gcrootmap):
@@ -1980,10 +1980,10 @@ class Assembler386(object):
                 kind = code & 3
                 code = (code - self.CODE_FROMSTACK) >> 2
                 stackloc = frame_addr + get_ebp_ofs(code)
-                value = rffi.cast(rffi.LONGP, stackloc)[0]
+                value = rffi.cast(rffi.SIGNEDP, stackloc)[0]
                 if kind == self.DESCR_FLOAT and WORD == 4:
                     value_hi = value
-                    value = rffi.cast(rffi.LONGP, stackloc - 4)[0]
+                    value = rffi.cast(rffi.SIGNEDP, stackloc - 4)[0]
             else:
                 # 'code' identifies a register: load its value
                 kind = code & 3
@@ -2011,10 +2011,10 @@ class Assembler386(object):
             elif kind == self.DESCR_FLOAT:
                 tgt = self.fail_boxes_float.get_addr_for_num(num)
                 if WORD == 4:
-                    rffi.cast(rffi.LONGP, tgt)[1] = value_hi
+                    rffi.cast(rffi.SIGNEDP, tgt)[1] = value_hi
             else:
                 assert 0, "bogus kind"
-            rffi.cast(rffi.LONGP, tgt)[0] = value
+            rffi.cast(rffi.SIGNEDP, tgt)[0] = value
             num += 1
         #
         if not we_are_translated():
@@ -2040,7 +2040,7 @@ class Assembler386(object):
         self.failure_recovery_func = failure_recovery_func
         self.failure_recovery_code = [0, 0, 0, 0]
 
-    _FAILURE_RECOVERY_FUNC = lltype.Ptr(lltype.FuncType([rffi.LONGP],
+    _FAILURE_RECOVERY_FUNC = lltype.Ptr(lltype.FuncType([rffi.SIGNEDP],
                                                         lltype.Signed))
 
     def _build_failure_recovery(self, exc, withfloats=False):

@@ -101,7 +101,7 @@ class TestGcRootMapAsmGcc:
         gcrootmap.put(retaddr, shapeaddr)
         assert gcrootmap._gcmap[0] == retaddr
         assert gcrootmap._gcmap[1] == shapeaddr
-        p = rffi.cast(rffi.LONGP, gcrootmap.gcmapstart())
+        p = rffi.cast(rffi.SIGNEDP, gcrootmap.gcmapstart())
         assert p[0] == retaddr
         assert (gcrootmap.gcmapend() ==
                 gcrootmap.gcmapstart() + rffi.sizeof(lltype.Signed) * 2)

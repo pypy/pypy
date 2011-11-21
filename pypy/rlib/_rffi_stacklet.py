@@ -3,6 +3,7 @@ from pypy.tool.autopath import pypydir
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.tool import rffi_platform
+from pypy.rlib.rarithmetic import is_emulated_long
 import sys
 
 
@@ -14,7 +15,11 @@ eci = ExternalCompilationInfo(
     separate_module_sources = ['#include "src/stacklet/stacklet.c"\n'],
 )
 if sys.platform == 'win32':
-    eci.separate_module_files += (cdir / "src/stacklet/switch_x86_msvc.asm", )
+    if is_emulated_long:
+        asmsrc = 'switch_x64_msvc.asm'
+    else:
+        asmsrc = 'switch_x86_msvc.asm'
+    eci.separate_module_files += (cdir / 'src' / 'stacklet' / asmsrc, )
     eci.export_symbols += (
         'stacklet_newthread',
         'stacklet_deletethread',

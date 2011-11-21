@@ -30,22 +30,54 @@ mark where overflow checking is required.
 
 
 """
-import sys
+import sys, struct
 from pypy.rpython import extregistry
 from pypy.rlib import objectmodel
 
-# set up of machine internals
-_bits = 0
-_itest = 1
-_Ltest = 1L
-while _itest == _Ltest and type(_itest) is int:
-    _itest *= 2
-    _Ltest *= 2
-    _bits += 1
+"""
+Long-term target:
+We want to make pypy very flexible concerning its data type layout.
+This is a larger task for later.
 
-LONG_BIT = _bits+1
-LONG_MASK = _Ltest*2-1
-LONG_TEST = _Ltest
+Short-term target:
+We want to run PyPy on windows 64 bit.
+
+Problem:
+On windows 64 bit, integers are only 32 bit. This is a problem for PyPy
+right now, since it assumes that a c long can hold a pointer.
+We therefore set up the target machine constants to obey this rule.
+Right now this affects 64 bit Python only on windows.
+
+Note: We use the struct module, because the array module doesn's support
+all typecodes.
+"""
+
+def _get_bitsize(typecode):
+    return len(struct.pack(typecode, 1)) * 8
+
+_long_typecode = 'l'
+if _get_bitsize('P') > _get_bitsize('l'):
+    _long_typecode = 'P'
+
+def _get_long_bit():
+    # whatever size a long has, make it big enough for a pointer.
+    return _get_bitsize(_long_typecode)
+
+# exported for now for testing array values. 
+# might go into its own module.
+def get_long_pattern(x):
+    """get the bit pattern for a long, adjusted to pointer size"""
+    return struct.pack(_long_typecode, x)
+
+# used in tests for ctypes and for genc and friends
+# to handle the win64 special case:
+is_emulated_long = _long_typecode <> 'l'
+    
+LONG_BIT = _get_long_bit()
+LONG_MASK = (2**LONG_BIT)-1
+LONG_TEST = 2**(LONG_BIT-1)
+
+# XXX this is a good guess, but what if a long long is 128 bit?
 LONGLONG_BIT  = 64
 LONGLONG_MASK = (2**LONGLONG_BIT)-1
 LONGLONG_TEST = 2**(LONGLONG_BIT-1)
@@ -55,17 +87,23 @@ while (1 << LONG_BIT_SHIFT) != LONG_BIT:
     LONG_BIT_SHIFT += 1
     assert LONG_BIT_SHIFT < 99, "LONG_BIT_SHIFT value not found?"
 
+"""
+int is no longer necessarily the same size as the target int.
+We therefore can no longer use the int type as it is, but need
+to use long everywhere.
+"""
+    
 def intmask(n):
-    if isinstance(n, int):
-        return int(n)   # possibly bool->int
     if isinstance(n, objectmodel.Symbolic):
         return n        # assume Symbolics don't overflow
     assert not isinstance(n, float)
+    if is_valid_int(n):
+        return int(n)
     n = long(n)
     n &= LONG_MASK
     if n >= LONG_TEST:
         n -= 2*LONG_TEST
-    return int(n)
+    return n
 
 def longlongmask(n):
     assert isinstance(n, (int, long))
@@ -95,7 +133,8 @@ def _should_widen_type(tp):
         r_class.BITS == LONG_BIT and r_class.SIGNED)
 _should_widen_type._annspecialcase_ = 'specialize:memo'
 
-del _bits, _itest, _Ltest
+def is_valid_int(r):
+    return -sys.maxint - 1 <= r <= sys.maxint
 
 def ovfcheck(r):
     "NOT_RPYTHON"
@@ -103,8 +142,10 @@ def ovfcheck(r):
     # raise OverflowError if the operation did overflow
     assert not isinstance(r, r_uint), "unexpected ovf check on unsigned"
     assert not isinstance(r, r_longlong), "ovfcheck not supported on r_longlong"
-    assert not isinstance(r,r_ulonglong),"ovfcheck not supported on r_ulonglong"
-    if type(r) is long:
+    assert not isinstance(r, r_ulonglong), "ovfcheck not supported on r_ulonglong"
+    if type(r) is long and not is_valid_int(r):
+        # the type check is needed to make ovfcheck skip symbolics.
+        # this happens in the garbage collector.
         raise OverflowError, "signed integer expression did overflow"
     return r
 
@@ -416,6 +457,9 @@ r_uint = build_int('r_uint', False, LONG_BIT)
 r_longlong = build_int('r_longlong', True, 64)
 r_ulonglong = build_int('r_ulonglong', False, 64)
 
+r_long = build_int('r_long', True, 32)
+r_ulong = build_int('r_ulong', False, 32)
+
 longlongmax = r_longlong(LONGLONG_TEST - 1)
 
 if r_longlong is not r_int:
@@ -423,6 +467,14 @@ if r_longlong is not r_int:
 else:
     r_int64 = int
 
+# needed for ll_os_stat.time_t_to_FILE_TIME in the 64 bit case
+if r_long is not r_int:
+    r_uint32 = r_ulong
+else:
+    r_uint32 = r_uint
+
+# needed for ll_time.time_sleep_llimpl
+maxint32 = int((1 << 31) -1)
 
 # the 'float' C type
 

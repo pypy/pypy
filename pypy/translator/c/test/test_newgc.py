@@ -675,8 +675,8 @@ class TestUsingFramework(object):
             gc.collect()
             p_a1 = rffi.cast(rffi.VOIDPP, ll_args[0])[0]
             p_a2 = rffi.cast(rffi.VOIDPP, ll_args[1])[0]
-            a1 = rffi.cast(rffi.LONGP, p_a1)[0]
-            a2 = rffi.cast(rffi.LONGP, p_a2)[0]
+            a1 = rffi.cast(rffi.SIGNEDP, p_a1)[0]
+            a2 = rffi.cast(rffi.SIGNEDP, p_a2)[0]
             res = rffi.cast(rffi.INTP, ll_res)
             if a1 > a2:
                 res[0] = rffi.cast(rffi.INT, 1)
@@ -1202,7 +1202,7 @@ class TestSemiSpaceGC(TestUsingFramework, snippet.SemiSpaceGCTestDefines):
         def f():
             from pypy.rpython.lltypesystem import lltype, rffi
             alist = [A() for i in range(50000)]
-            idarray = lltype.malloc(rffi.LONGP.TO, len(alist), flavor='raw')
+            idarray = lltype.malloc(rffi.SIGNEDP.TO, len(alist), flavor='raw')
             # Compute the id of all elements of the list.  The goal is
             # to not allocate memory, so that if the GC needs memory to
             # remember the ids, it will trigger some collections itself
