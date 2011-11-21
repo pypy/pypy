@@ -777,7 +777,7 @@ class Regalloc(object):
         if imm_ofs:
             l1 = imm(ofs_length)
         else:
-            l1 = self._ensure_value_is_boxed(ofs_box, boxes)
+            l1 = self._ensure_value_is_boxed(ofs_box)
 
         self.possibly_free_vars_for_op(op)
         self.free_temp_vars()
