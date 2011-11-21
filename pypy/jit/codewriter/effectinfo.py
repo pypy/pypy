@@ -48,8 +48,6 @@ class EffectInfo(object):
     OS_LIBFFI_PREPARE           = 60
     OS_LIBFFI_PUSH_ARG          = 61
     OS_LIBFFI_CALL              = 62
-    OS_LIBFFI_GETARRAYITEM      = 63
-    OS_LIBFFI_SETARRAYITEM      = 64
     #
     OS_LLONG_INVERT             = 69
     OS_LLONG_ADD                = 70

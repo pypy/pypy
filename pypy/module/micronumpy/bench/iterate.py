@@ -1,8 +1,5 @@
 
-try:
-    import numpypy as numpy
-except:
-    import numpy
+import numpy
 
 def f():
     sum = 0

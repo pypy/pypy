@@ -23,10 +23,8 @@ class MiniStats:
 class Descr(history.AbstractDescr):
 
     def __init__(self, ofs, typeinfo, extrainfo=None, name=None,
-                 arg_types=None, count_fields_if_immut=-1, ffi_flags=0, width=-1):
-
+                 arg_types=None, count_fields_if_immut=-1, ffi_flags=0):
         self.ofs = ofs
-        self.width = width
         self.typeinfo = typeinfo
         self.extrainfo = extrainfo
         self.name = name
@@ -121,14 +119,14 @@ class BaseCPU(model.AbstractCPU):
         return False
 
     def getdescr(self, ofs, typeinfo='?', extrainfo=None, name=None,
-                 arg_types=None, count_fields_if_immut=-1, ffi_flags=0, width=-1):
+                 arg_types=None, count_fields_if_immut=-1, ffi_flags=0):
         key = (ofs, typeinfo, extrainfo, name, arg_types,
-               count_fields_if_immut, ffi_flags, width)
+               count_fields_if_immut, ffi_flags)
         try:
             return self._descrs[key]
         except KeyError:
             descr = Descr(ofs, typeinfo, extrainfo, name, arg_types,
-                          count_fields_if_immut, ffi_flags, width)
+                          count_fields_if_immut, ffi_flags)
             self._descrs[key] = descr
             return descr
 
@@ -181,8 +179,7 @@ class BaseCPU(model.AbstractCPU):
             descr = op.getdescr()
             if isinstance(descr, Descr):
                 llimpl.compile_add_descr(c, descr.ofs, descr.typeinfo,
-                                         descr.arg_types, descr.extrainfo,
-                                         descr.width)
+                                         descr.arg_types)
             if (isinstance(descr, history.LoopToken) and
                 op.getopnum() != rop.JUMP):
                 llimpl.compile_add_loop_token(c, descr)
@@ -327,22 +324,10 @@ class LLtypeCPU(BaseCPU):
 
     def interiorfielddescrof(self, A, fieldname):
         S = A.OF
-        width = symbolic.get_size(A)
+        ofs2 = symbolic.get_size(A)
         ofs, size = symbolic.get_field_token(S, fieldname)
         token = history.getkind(getattr(S, fieldname))
-        return self.getdescr(ofs, token[0], name=fieldname, width=width)
-
-    def interiorfielddescrof_dynamic(self, offset, width, fieldsize,
-        is_pointer, is_float, is_signed):
-
-        if is_pointer:
-            typeinfo = REF
-        elif is_float:
-            typeinfo = FLOAT
-        else:
-            typeinfo = INT
-        # we abuse the arg_types field to distinguish dynamic and static descrs
-        return Descr(offset, typeinfo, arg_types='dynamic', name='<dynamic interior field>', width=width)
+        return self.getdescr(ofs, token[0], name=fieldname, extrainfo=ofs2)
 
     def calldescrof(self, FUNC, ARGS, RESULT, extrainfo):
         arg_types = []
