@@ -24,7 +24,7 @@ Windows 32. Windows 64 work is ongoing, but not yet natively supported.
 The main topic of this release is widening the range of code which PyPy
 can greatly speed up. On average on
 our benchmark suite, PyPy 1.7 is around **30%** faster than PyPy 1.6 and up
-to **20x** faster on some benchmarks.
+to **20 times** faster on some benchmarks.
 
 .. _`pypy 1.7 and cpython 2.7.1`: http://speed.pypy.org
 
@@ -54,8 +54,8 @@ Highlights
 
 * JSON encoder (but not decoder) has been replaced with a new one. This one
   is written in pure Python, but is known to outperform CPython's C extension
-  up to **2x** in some cases. It's about **20x** faster than the one that
-  we had in 1.6.
+  up to **2 times** in some cases. It's about **20 times** faster than
+  the one that we had in 1.6.
 
 * The memory footprint of some of our RPython modules has been drastically
   improved. This should impact any applications using for example cryptography,
