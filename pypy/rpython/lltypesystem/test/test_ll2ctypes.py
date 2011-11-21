@@ -16,12 +16,27 @@ from pypy.tool.udir import udir
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.rpython.rtyper import RPythonTyper
-
+from pypy.rlib.rarithmetic import r_uint, get_long_pattern, is_emulated_long
 
 if False:    # for now, please keep it False by default
     from pypy.rpython.lltypesystem import ll2ctypes
     ll2ctypes.do_allocation_in_far_regions()
 
+"""
+Win64:
+To decouple the cpython machine level long from the faked integer
+of the target rpython, I replaced most 'lltype.Signed' by 'rffi.LONG'.
+It would be nicer to replace all lltypes constants by rffi equivalents,
+or better if we had a way to address the specific different types of
+the current and the target system layout explicitly.
+Let's think of that when we go further and make the target completely
+independent and configurable.
+Why most and not all replaced?
+Tests with direct tests become cumbersome, instead of direct number
+assignment rffi.setintfield(s, 'x', 123) must be used.
+So in cases with number constants, where the size is not relevant,
+I kept lltype.signed .
+"""
 
 class TestLL2Ctypes(object):
 
@@ -33,7 +48,7 @@ class TestLL2Ctypes(object):
         assert lltype2ctypes('?') == ord('?')
         assert lltype2ctypes('\xE0') == 0xE0
         assert lltype2ctypes(unichr(1234)) == 1234
-        assert ctypes2lltype(lltype.Signed, 5) == 5
+        assert ctypes2lltype(rffi.LONG, 5) == 5
         assert ctypes2lltype(lltype.Char, ord('a')) == 'a'
         assert ctypes2lltype(lltype.UniChar, ord(u'x')) == u'x'
         assert ctypes2lltype(lltype.Char, 0xFF) == '\xFF'
@@ -46,15 +61,15 @@ class TestLL2Ctypes(object):
         res = ctypes2lltype(lltype.SingleFloat, ctypes.c_float(-3.5))
         assert isinstance(res, rffi.r_singlefloat)
         assert float(res) == -3.5
-        assert lltype2ctypes(rffi.r_ulong(-1)) == sys.maxint * 2 + 1
+        assert lltype2ctypes(rffi.r_ulong(-1)) == (1 << rffi.r_ulong.BITS) - 1
         res = ctypes2lltype(lltype.Unsigned, sys.maxint * 2 + 1)
-        assert (res, type(res)) == (rffi.r_ulong(-1), rffi.r_ulong)
+        assert (res, type(res)) == (r_uint(-1), r_uint)
         assert ctypes2lltype(lltype.Bool, 0) is False
         assert ctypes2lltype(lltype.Bool, 1) is True
 
-        res = lltype2ctypes(llmemory.sizeof(lltype.Signed))
+        res = lltype2ctypes(llmemory.sizeof(rffi.LONG))
         assert res == struct.calcsize("l")
-        S = lltype.Struct('S', ('x', lltype.Signed), ('y', lltype.Signed))
+        S = lltype.Struct('S', ('x', rffi.LONG), ('y', rffi.LONG))
         res = lltype2ctypes(llmemory.sizeof(S))
         assert res == struct.calcsize("ll")
 
@@ -69,7 +84,7 @@ class TestLL2Ctypes(object):
     def test_simple_struct(self):
         S = lltype.Struct('S', ('x', lltype.Signed), ('y', lltype.Signed))
         s = lltype.malloc(S, flavor='raw')
-        s.x = 123
+        rffi.setintfield(s, 'x', 123)
         sc = lltype2ctypes(s)
         assert isinstance(sc.contents, ctypes.Structure)
         assert sc.contents.x == 123
@@ -144,7 +159,7 @@ class TestLL2Ctypes(object):
 
     def test_array_inside_struct(self):
         # like rstr.STR, but not Gc
-        STR = lltype.Struct('STR', ('x', lltype.Signed), ('y', lltype.Array(lltype.Char)))
+        STR = lltype.Struct('STR', ('x', rffi.LONG), ('y', lltype.Array(lltype.Char)))
         a = lltype.malloc(STR, 3, flavor='raw')
         a.y[0] = 'x'
         a.y[1] = 'y'
@@ -171,7 +186,7 @@ class TestLL2Ctypes(object):
         assert a[2] == 456
         a[3] = 789
         assert ac.contents.items[3] == 789
-        assert ctypes.sizeof(ac.contents) == 10 * ctypes.sizeof(ctypes.c_long)
+        assert ctypes.sizeof(ac.contents) == 10 * rffi.sizeof(lltype.Signed)
         lltype.free(a, flavor='raw')
         assert not ALLOCATED     # detects memory leaks in the test
 
@@ -223,20 +238,20 @@ class TestLL2Ctypes(object):
 
     def test_func_not_in_clib(self):
         eci = ExternalCompilationInfo(libraries=['m'])
-        foobar = rffi.llexternal('I_really_dont_exist', [], lltype.Signed)
+        foobar = rffi.llexternal('I_really_dont_exist', [], rffi.LONG)
         py.test.raises(NotImplementedError, foobar)
 
-        foobar = rffi.llexternal('I_really_dont_exist', [], lltype.Signed,
+        foobar = rffi.llexternal('I_really_dont_exist', [], rffi.LONG,
                                  compilation_info=eci)    # math library
         py.test.raises(NotImplementedError, foobar)
 
         eci = ExternalCompilationInfo(libraries=['m', 'z'])
-        foobar = rffi.llexternal('I_really_dont_exist', [], lltype.Signed,
+        foobar = rffi.llexternal('I_really_dont_exist', [], rffi.LONG,
                                  compilation_info=eci)  # math and zlib
         py.test.raises(NotImplementedError, foobar)
 
         eci = ExternalCompilationInfo(libraries=['I_really_dont_exist_either'])
-        foobar = rffi.llexternal('I_really_dont_exist', [], lltype.Signed,
+        foobar = rffi.llexternal('I_really_dont_exist', [], rffi.LONG,
                                  compilation_info=eci)
         py.test.raises(NotImplementedError, foobar)
         assert not ALLOCATED     # detects memory leaks in the test
@@ -399,10 +414,9 @@ class TestLL2Ctypes(object):
 
         b = rffi.cast(lltype.Ptr(B), a)
 
-        checker = array.array('l')
+        expected = ''
         for i in range(10):
-            checker.append(i*i)
-        expected = checker.tostring()
+            expected += get_long_pattern(i*i)
 
         for i in range(len(expected)):
             assert b[i] == expected[i]
@@ -418,7 +432,7 @@ class TestLL2Ctypes(object):
             assert e[i] == i*i
 
         c = lltype.nullptr(rffi.VOIDP.TO)
-        addr = rffi.cast(lltype.Signed, c)
+        addr = rffi.cast(rffi.LONG, c)
         assert addr == 0
 
         lltype.free(a, flavor='raw')
@@ -444,8 +458,13 @@ class TestLL2Ctypes(object):
 
         FUNCTYPE = lltype.FuncType([lltype.Signed], lltype.Signed)
         cdummy = lltype2ctypes(llhelper(lltype.Ptr(FUNCTYPE), dummy))
-        assert isinstance(cdummy,
-                          ctypes.CFUNCTYPE(ctypes.c_long, ctypes.c_long))
+        if not is_emulated_long:
+            assert isinstance(cdummy,
+                              ctypes.CFUNCTYPE(ctypes.c_long, ctypes.c_long))
+        else:
+            # XXX maybe we skip this if it breaks on some platforms
+            assert isinstance(cdummy,
+                              ctypes.CFUNCTYPE(ctypes.c_longlong, ctypes.c_longlong))
         res = cdummy(41)
         assert res == 42
         lldummy = ctypes2lltype(lltype.Ptr(FUNCTYPE), cdummy)
@@ -455,7 +474,7 @@ class TestLL2Ctypes(object):
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_funcptr2(self):
-        FUNCTYPE = lltype.FuncType([rffi.CCHARP], lltype.Signed)
+        FUNCTYPE = lltype.FuncType([rffi.CCHARP], rffi.LONG)
         cstrlen = standard_c_lib.strlen
         llstrlen = ctypes2lltype(lltype.Ptr(FUNCTYPE), cstrlen)
         assert lltype.typeOf(llstrlen) == lltype.Ptr(FUNCTYPE)
@@ -545,8 +564,9 @@ class TestLL2Ctypes(object):
 
         checkval(uninitialized2ctypes(rffi.CHAR), 'B')
         checkval(uninitialized2ctypes(rffi.SHORT), 'h')
-        checkval(uninitialized2ctypes(rffi.INT), 'i')
-        checkval(uninitialized2ctypes(rffi.UINT), 'I')
+        if not is_emulated_long:
+            checkval(uninitialized2ctypes(rffi.INT), 'i')
+            checkval(uninitialized2ctypes(rffi.UINT), 'I')
         checkval(uninitialized2ctypes(rffi.LONGLONG), 'q')
         checkval(uninitialized2ctypes(rffi.DOUBLE), 'd')
         checkobj(uninitialized2ctypes(rffi.INTP),
@@ -554,7 +574,7 @@ class TestLL2Ctypes(object):
         checkobj(uninitialized2ctypes(rffi.CCHARP),
                  ctypes.sizeof(ctypes.c_void_p))
 
-        S = lltype.Struct('S', ('x', lltype.Signed), ('y', lltype.Signed))
+        S = lltype.Struct('S', ('x', rffi.LONG), ('y', rffi.LONG))
         s = lltype.malloc(S, flavor='raw')
         sc = lltype2ctypes(s)
         checkval(sc.contents.x, 'l')
@@ -717,9 +737,13 @@ class TestLL2Ctypes(object):
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_get_errno(self):
+        # win64: works with python 2.6.7, but not with 2.7.2
+        # XXX check what is different with ctypes!
         eci = ExternalCompilationInfo(includes=['string.h'])
         if sys.platform.startswith('win'):
             underscore_on_windows = '_'
+            if sys.version.startswith('2.7.2 '):
+                py.test.skip('ctypes is buggy. errno crashes with win64 and python 2.7.2')
         else:
             underscore_on_windows = ''
         strlen = rffi.llexternal('strlen', [rffi.CCHARP], rffi.SIZE_T,
@@ -730,7 +754,7 @@ class TestLL2Ctypes(object):
         buffer = lltype.malloc(rffi.CCHARP.TO, 5, flavor='raw')
         written = os_write(12312312, buffer, 5)
         lltype.free(buffer, flavor='raw')
-        assert rffi.cast(lltype.Signed, written) < 0
+        assert rffi.cast(rffi.LONG, written) < 0
         # the next line is a random external function call,
         # to check that it doesn't reset errno
         strlen("hi!")
@@ -849,9 +873,9 @@ class TestLL2Ctypes(object):
             return one + get_x()
 
         def fy():
-            one = rffi.cast(lltype.Signed, get_y())
+            one = rffi.cast(rffi.LONG, get_y())
             set_y(rffi.cast(rffi.INT, 13))
-            return one + rffi.cast(lltype.Signed, get_y())
+            return one + rffi.cast(rffi.LONG, get_y())
 
         def g():
             l = rffi.liststr2charpp(["a", "b", "c"])
@@ -916,7 +940,7 @@ class TestLL2Ctypes(object):
         lltype.free(a, flavor='raw')
 
     def test_array_type_bug(self):
-        A = lltype.Array(lltype.Signed)
+        A = lltype.Array(rffi.LONG)
         a1 = lltype.malloc(A, 0, flavor='raw')
         a2 = lltype.malloc(A, 0, flavor='raw')
         c1 = lltype2ctypes(a1)
@@ -1006,7 +1030,7 @@ class TestLL2Ctypes(object):
 
     def test_recursive_struct_more(self):
         NODE = lltype.ForwardReference()
-        NODE.become(lltype.Struct('NODE', ('value', lltype.Signed),
+        NODE.become(lltype.Struct('NODE', ('value', rffi.LONG),
                                           ('next', lltype.Ptr(NODE))))
         CNODEPTR = get_ctypes_type(NODE)
         pc = CNODEPTR()
@@ -1034,11 +1058,11 @@ class TestLL2Ctypes(object):
         assert p.pong.ping == p
 
     def test_typedef(self):
-        assert ctypes2lltype(lltype.Typedef(lltype.Signed, 'test'), 6) == 6
+        assert ctypes2lltype(lltype.Typedef(rffi.LONG, 'test'), 6) == 6
         assert ctypes2lltype(lltype.Typedef(lltype.Float, 'test2'), 3.4) == 3.4
 
-        assert get_ctypes_type(lltype.Signed) == get_ctypes_type(
-            lltype.Typedef(lltype.Signed, 'test3'))
+        assert get_ctypes_type(rffi.LONG) == get_ctypes_type(
+            lltype.Typedef(rffi.LONG, 'test3'))
 
     def test_cast_adr_to_int(self):
         class someaddr(object):
@@ -1046,7 +1070,7 @@ class TestLL2Ctypes(object):
                 return sys.maxint/2 * 3
 
         res = cast_adr_to_int(someaddr())
-        assert isinstance(res, int)
+        assert isinstance(res, (int, long))
         assert res == -sys.maxint/2 - 3
 
     def test_cast_gcref_back_and_forth(self):
@@ -1299,7 +1323,7 @@ class TestLL2Ctypes(object):
         p = lltype.malloc(S, flavor='raw')
         a = llmemory.cast_ptr_to_adr(p)
         i = llmemory.cast_adr_to_int(a, "forced")
-        assert type(i) is int
+        assert isinstance(i, (int, long))
         assert i == llmemory.cast_adr_to_int(a, "forced")
         lltype.free(p, flavor='raw')
 

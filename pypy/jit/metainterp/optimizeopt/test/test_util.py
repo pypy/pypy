@@ -139,12 +139,6 @@ class LLtypeMixin(object):
     noimmut_intval = cpu.fielddescrof(INTOBJ_NOIMMUT, 'intval')
     immut_intval = cpu.fielddescrof(INTOBJ_IMMUT, 'intval')
 
-    PTROBJ_IMMUT = lltype.GcStruct('PTROBJ_IMMUT', ('parent', OBJECT),
-                                            ('ptrval', lltype.Ptr(OBJECT)),
-                                            hints={'immutable': True})
-    ptrobj_immut_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
-    immut_ptrval = cpu.fielddescrof(PTROBJ_IMMUT, 'ptrval')
-
     arraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Signed))
     floatarraydescr = cpu.arraydescrof(lltype.GcArray(lltype.Float))
 
@@ -252,7 +246,6 @@ class LLtypeMixin(object):
     register_known_gctype(cpu, jit_virtual_ref_vtable,vrefinfo.JIT_VIRTUAL_REF)
     register_known_gctype(cpu, intobj_noimmut_vtable, INTOBJ_NOIMMUT)
     register_known_gctype(cpu, intobj_immut_vtable,   INTOBJ_IMMUT)
-    register_known_gctype(cpu, ptrobj_immut_vtable,   PTROBJ_IMMUT)
 
     namespace = locals()
 

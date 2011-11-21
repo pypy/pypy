@@ -339,11 +339,11 @@ class IntegerRepr(FloatRepr):
 
     def _get_opprefix(self):
         if self._opprefix is None:
-            raise TyperError("arithmetic not supported on %r" %
+            raise TyperError("arithmetic not supported on %r, it's size is too small" %
                              self.lowleveltype)
         return self._opprefix
 
-    opprefix =property(_get_opprefix)
+    opprefix = property(_get_opprefix)
     
 class BoolRepr(IntegerRepr):
     lowleveltype = Bool

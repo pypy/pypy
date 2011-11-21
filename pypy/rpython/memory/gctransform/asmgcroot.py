@@ -533,10 +533,11 @@ if sys.platform == 'win32':
         # The initial gcmap table contains addresses to a JMP
         # instruction that jumps indirectly to the real code.
         # Replace them with the target addresses.
+        assert rffi.SIGNEDP is rffi.LONGP, "win64 support missing"
         while start < end:
             code = rffi.cast(rffi.CCHARP, start.address[0])[0]
             if code == '\xe9': # jmp
-                rel32 = rffi.cast(rffi.LONGP, start.address[0]+1)[0]
+                rel32 = rffi.cast(rffi.SIGNEDP, start.address[0]+1)[0]
                 target = start.address[0] + (rel32 + 5)
                 start.address[0] = target
             start += arrayitemsize

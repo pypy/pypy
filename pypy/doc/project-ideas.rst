@@ -26,11 +26,14 @@ Find out why and optimize them.
 Numpy improvements
 ------------------
 
-The numpy is rapidly progressing in pypy, so feel free to come to IRC and
-ask for proposed topic. A not necesarilly up-to-date `list of topics`_
-is also available.
+This is more of a project-container than a single project. Possible ideas:
 
-.. _`list of topics`: https://bitbucket.org/pypy/extradoc/src/extradoc/planning/micronumpy.txt
+* experiment with auto-vectorization using SSE or implement vectorization
+  without automatically detecting it for array operations.
+
+* improve numpy, for example implement memory views.
+
+* interface with fortran/C libraries.
 
 Improving the jitviewer
 ------------------------

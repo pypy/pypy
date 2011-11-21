@@ -101,7 +101,7 @@ def do_failure_recovery_func(withfloats):
         assert withfloats
         value = random.random() - 0.5
         # make sure it fits into 64 bits
-        tmp = lltype.malloc(rffi.LONGP.TO, 2, flavor='raw',
+        tmp = lltype.malloc(rffi.SIGNEDP.TO, 2, flavor='raw',
                             track_allocation=False)
         rffi.cast(rffi.DOUBLEP, tmp)[0] = value
         return rffi.cast(rffi.DOUBLEP, tmp)[0], tmp[0], tmp[1]
@@ -139,11 +139,11 @@ def do_failure_recovery_func(withfloats):
 
     # prepare the expected target arrays, the descr_bytecode,
     # the 'registers' and the 'stack' arrays according to 'content'
-    xmmregisters = lltype.malloc(rffi.LONGP.TO, 16+ACTUAL_CPU.NUM_REGS+1,
+    xmmregisters = lltype.malloc(rffi.SIGNEDP.TO, 16+ACTUAL_CPU.NUM_REGS+1,
                                  flavor='raw', immortal=True)
     registers = rffi.ptradd(xmmregisters, 16)
     stacklen = baseloc + 30
-    stack = lltype.malloc(rffi.LONGP.TO, stacklen, flavor='raw',
+    stack = lltype.malloc(rffi.SIGNEDP.TO, stacklen, flavor='raw',
                           immortal=True)
     expected_ints = [0] * len(content)
     expected_ptrs = [lltype.nullptr(llmemory.GCREF.TO)] * len(content)

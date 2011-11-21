@@ -15,7 +15,7 @@ from pypy.rlib.rarithmetic import intmask
 
 def setup():
     for key, value in cpy_signal.__dict__.items():
-        if key.startswith('SIG') and isinstance(value, int):
+        if key.startswith('SIG') and isinstance(value, (int, long)):
             globals()[key] = value
             yield key
 

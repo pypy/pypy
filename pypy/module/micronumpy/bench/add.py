@@ -1,8 +1,5 @@
 
-try:
-    import numpypy as numpy
-except:
-    import numpy
+import numpy
 
 def f():
     a = numpy.zeros(10000000)

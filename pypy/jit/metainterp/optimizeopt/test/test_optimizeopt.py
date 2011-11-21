@@ -1218,48 +1218,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected, preamble)
 
-    def test_virtual_recursive_forced(self):
-        ops = """
-        [p0]
-        p41 = getfield_gc(p0, descr=nextdescr)
-        i0 = getfield_gc(p41, descr=valuedescr)
-        p1 = new_with_vtable(ConstClass(node_vtable2))
-        p2 = new_with_vtable(ConstClass(node_vtable2))
-        setfield_gc(p2, p1, descr=nextdescr)
-        setfield_gc(p1, p2, descr=nextdescr)
-        i1 = int_add(i0, 1)
-        setfield_gc(p2, i1, descr=valuedescr)
-        setfield_gc(p0, p1, descr=nextdescr)
-        jump(p1)
-        """
-        preamble = """
-        [p0]
-        p41 = getfield_gc(p0, descr=nextdescr)
-        i0 = getfield_gc(p41, descr=valuedescr)
-        i1 = int_add(i0, 1)
-        p1 = new_with_vtable(ConstClass(node_vtable2))
-        p2 = new_with_vtable(ConstClass(node_vtable2))
-        setfield_gc(p2, i1, descr=valuedescr)
-        setfield_gc(p2, p1, descr=nextdescr)
-        setfield_gc(p1, p2, descr=nextdescr)
-        setfield_gc(p0, p1, descr=nextdescr)
-        jump(p1)
-        """
-        loop = """
-        [p0]
-        p41 = getfield_gc(p0, descr=nextdescr)
-        i0 = getfield_gc(p41, descr=valuedescr)
-        i1 = int_add(i0, 1)
-        p1 = new_with_vtable(ConstClass(node_vtable2))
-        p2 = new_with_vtable(ConstClass(node_vtable2))
-        setfield_gc(p0, p1, descr=nextdescr)
-        setfield_gc(p2, p1, descr=nextdescr)
-        setfield_gc(p1, p2, descr=nextdescr)
-        setfield_gc(p2, i1, descr=valuedescr)
-        jump(p1)
-        """
-        self.optimize_loop(ops, loop, preamble)
-
     def test_virtual_constant_isnull(self):
         ops = """
         [i0]
@@ -5507,16 +5465,6 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump()
         """
         self.optimize_loop(ops, expected)
-
-    def test_immutable_dont_constantfold_recursive(self):
-        ops = """
-        []
-        p0 = new_with_vtable(ConstClass(ptrobj_immut_vtable))
-        setfield_gc(p0, p0, descr=immut_ptrval)
-        escape(p0)
-        jump()
-        """
-        self.optimize_loop(ops, ops)
 
     # ----------
     def optimize_strunicode_loop(self, ops, optops, preamble):

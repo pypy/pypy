@@ -713,7 +713,7 @@ def _findall_call_oopspec():
     for name in dir(OptString):
         if name.startswith(prefix):
             value = getattr(EffectInfo, 'OS_' + name[len(prefix):])
-            assert isinstance(value, int) and value != 0
+            assert isinstance(value, (int, long)) and value != 0
             result.append((value, getattr(OptString, name)))
     return unrolling_iterable(result)
 opt_call_oopspec_ops = _findall_call_oopspec()
