@@ -6,12 +6,13 @@ from pypy.tool import autopath
 from pypy.translator.platform import CompilationError
 from pypy.translator.platform import log, _run_subprocess
 from pypy.translator.platform import Platform, posix
+from pypy.rlib.rarithmetic import is_emulated_long
 
 def Windows(cc=None):
     if cc == 'mingw32':
         return MingwPlatform(cc)
     else:
-        return MsvcPlatform(cc)
+        return MsvcPlatform(x64=is_emulated_long)
     
 def Windows_x64(cc=None):
     return MsvcPlatform(cc, True)
