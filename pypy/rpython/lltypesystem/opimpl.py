@@ -22,14 +22,14 @@ from pypy.rlib.rarithmetic import r_int, r_uint, r_longlong, r_ulonglong
 from pypy.rpython.lltypesystem.llmemory import AddressAsInt
 
 if r_longlong is r_int:
-    r_longlong_arg = (r_longlong, int, long)
-    r_longlong_result = long # XXX was int
+    r_longlong_arg = (r_longlong, int)
+    r_longlong_result = int
 else:
     r_longlong_arg = r_longlong
     r_longlong_result = r_longlong
 
 argtype_by_name = {
-    'int': (int, long),
+    'int': int,
     'float': float,
     'uint': r_uint,
     'llong': r_longlong_arg,
@@ -173,7 +173,7 @@ def op_direct_arrayitems(obj):
 
 def op_direct_ptradd(obj, index):
     checkptr(obj)
-    assert isinstance(index, (int, long))
+    assert isinstance(index, int)
     return lltype.direct_ptradd(obj, index)
 
 
@@ -182,30 +182,29 @@ def op_bool_not(b):
     return not b
 
 def op_int_add(x, y):
-    if not isinstance(x, (int, long, llmemory.AddressOffset)):
+    if not isinstance(x, (int, llmemory.AddressOffset)):
         from pypy.rpython.lltypesystem import llgroup
         assert isinstance(x, llgroup.CombinedSymbolic)
-    assert isinstance(y, (int, long, llmemory.AddressOffset))
+    assert isinstance(y, (int, llmemory.AddressOffset))
     return intmask(x + y)
 
 def op_int_sub(x, y):
-    if not isinstance(x, (int, long)):
+    if not isinstance(x, int):
         from pypy.rpython.lltypesystem import llgroup
         assert isinstance(x, llgroup.CombinedSymbolic)
-    assert isinstance(y, (int, long))
+    assert isinstance(y, int)
     return intmask(x - y)
 
 def op_int_ge(x, y):
     # special case for 'AddressOffset >= 0'
-    assert isinstance(x, (int, long, llmemory.AddressOffset))
-    assert isinstance(y, (int, long))
+    assert isinstance(x, (int, llmemory.AddressOffset))
+    assert isinstance(y, int)
     return x >= y
 
 def op_int_lt(x, y):
     # special case for 'AddressOffset < 0'
-    # hack for win64
-    assert isinstance(x, (int, long, llmemory.AddressOffset))
-    assert isinstance(y, (int, long))
+    assert isinstance(x, (int, llmemory.AddressOffset))
+    assert isinstance(y, int)
     return x < y
 
 def op_int_between(a, b, c):
@@ -215,51 +214,50 @@ def op_int_between(a, b, c):
     return a <= b < c
 
 def op_int_and(x, y):
-    if not isinstance(x, (int, long)):
+    if not isinstance(x, int):
         from pypy.rpython.lltypesystem import llgroup
         assert isinstance(x, llgroup.CombinedSymbolic)
-    assert isinstance(y, (int, long))
+    assert isinstance(y, int)
     return x & y
 
 def op_int_or(x, y):
-    if not isinstance(x, (int, long)):
+    if not isinstance(x, int):
         from pypy.rpython.lltypesystem import llgroup
         assert isinstance(x, llgroup.CombinedSymbolic)
-    assert isinstance(y, (int, long))
+    assert isinstance(y, int)
     return x | y
 
 def op_int_xor(x, y):
     # used in computing hashes
     if isinstance(x, AddressAsInt): x = llmemory.cast_adr_to_int(x.adr)
     if isinstance(y, AddressAsInt): y = llmemory.cast_adr_to_int(y.adr)
-    assert isinstance(x, (int, long))
-    assert isinstance(y, (int, long))
+    assert isinstance(x, int)
+    assert isinstance(y, int)
     return x ^ y
 
 def op_int_mul(x, y):
-    assert isinstance(x, (int, long, llmemory.AddressOffset))
-    assert isinstance(y, (int, long, llmemory.AddressOffset))
+    assert isinstance(x, (int, llmemory.AddressOffset))
+    assert isinstance(y, (int, llmemory.AddressOffset))
     return intmask(x * y)
 
 def op_int_rshift(x, y):
-    if not isinstance(x, (int, long)):
+    if not isinstance(x, int):
         from pypy.rpython.lltypesystem import llgroup
         assert isinstance(x, llgroup.CombinedSymbolic)
-    assert isinstance(y, (int, long))
+    assert isinstance(y, int)
     return x >> y
 
 def op_int_floordiv(x, y):
-    # hack for win64
-    assert isinstance(x, (int, long, llmemory.AddressOffset))
-    assert isinstance(y, (int, long, llmemory.AddressOffset))
+    assert isinstance(x, (int, llmemory.AddressOffset))
+    assert isinstance(y, (int, llmemory.AddressOffset))
     r = x//y
     if x^y < 0 and x%y != 0:
         r += 1
     return r
 
 def op_int_mod(x, y):
-    assert isinstance(x, (int, long, llmemory.AddressOffset))
-    assert isinstance(y, (int, long, llmemory.AddressOffset))
+    assert isinstance(x, (int, llmemory.AddressOffset))
+    assert isinstance(y, (int, llmemory.AddressOffset))
     r = x%y
     if x^y < 0 and x%y != 0:
         r -= y
@@ -283,22 +281,22 @@ def op_llong_mod(x, y):
 
 def op_uint_lshift(x, y):
     assert isinstance(x, r_uint)
-    assert isinstance(y, (int, long))
+    assert isinstance(y, int)
     return r_uint(x << y)
 
 def op_uint_rshift(x, y):
     assert isinstance(x, r_uint)
-    assert isinstance(y, (int, long))
+    assert isinstance(y, int)
     return r_uint(x >> y)
 
 def op_llong_lshift(x, y):
     assert isinstance(x, r_longlong_arg)
-    assert isinstance(y, (int, long))
+    assert isinstance(y, int)
     return r_longlong_result(x << y)
 
 def op_llong_rshift(x, y):
     assert isinstance(x, r_longlong_arg)
-    assert isinstance(y, (int, long))
+    assert isinstance(y, int)
     return r_longlong_result(x >> y)
 
 def op_ullong_lshift(x, y):
@@ -308,7 +306,7 @@ def op_ullong_lshift(x, y):
 
 def op_ullong_rshift(x, y):
     assert isinstance(x, r_ulonglong)
-    assert isinstance(y, (int, long))
+    assert isinstance(y, int)
     return r_ulonglong(x >> y)
 
 def op_same_as(x):
@@ -320,8 +318,7 @@ def op_cast_primitive(TYPE, value):
 op_cast_primitive.need_result_type = True
 
 def op_cast_int_to_float(i):
-    # assert type(i) is int
-    assert isinstance(i, (int, long))
+    assert type(i) is int
     return float(i)
 
 def op_cast_uint_to_float(u):
@@ -343,8 +340,7 @@ def op_cast_ulonglong_to_float(i):
     return ui + li
 
 def op_cast_int_to_char(b):
-    #assert type(b) is int
-    assert isinstance(b, (int, long))
+    assert type(b) is int
     return chr(b)
 
 def op_cast_bool_to_int(b):
@@ -388,12 +384,11 @@ def op_cast_unichar_to_int(b):
     return ord(b)
 
 def op_cast_int_to_unichar(b):
-    assert isinstance(b, (int, long))
+    assert type(b) is int
     return unichr(b)
 
 def op_cast_int_to_uint(b):
-    # assert type(b) is int
-    assert isinstance(b, (int, long))
+    assert type(b) is int
     return r_uint(b)
 
 def op_cast_uint_to_int(b):
@@ -401,7 +396,7 @@ def op_cast_uint_to_int(b):
     return intmask(b)
 
 def op_cast_int_to_longlong(b):
-    assert isinstance(b, (int, long))
+    assert type(b) is int
     return r_longlong_result(b)
 
 def op_truncate_longlong_to_int(b):
@@ -572,7 +567,7 @@ def op_is_group_member_nonzero(memberoffset):
     if isinstance(memberoffset, llgroup.GroupMemberOffset):
         return memberoffset.index != 0
     else:
-        assert isinstance(memberoffset, (int, long))
+        assert isinstance(memberoffset, int)
         return memberoffset != 0
 
 def op_extract_ushort(combinedoffset):

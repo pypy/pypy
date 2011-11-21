@@ -1,8 +1,7 @@
 import py
 from pypy.rlib.rarithmetic import (r_int, r_uint, intmask, r_singlefloat,
                                    r_ulonglong, r_longlong, r_longfloat,
-                                   base_int, normalizedinttype, longlongmask,
-                                   r_uint32)
+                                   base_int, normalizedinttype, longlongmask)
 from pypy.rlib.objectmodel import Symbolic
 from pypy.tool.uid import Hashable
 from pypy.tool.identity_dict import identity_dict
@@ -1655,7 +1654,7 @@ class _array(_parentable):
     __slots__ = ('items',)
 
     def __init__(self, TYPE, n, initialization=None, parent=None, parentindex=None):
-        if not isinstance(n, (int, long)):
+        if not isinstance(n, int):
             raise TypeError, "array length must be an int"
         if n < 0:
             raise ValueError, "negative array length"

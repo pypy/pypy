@@ -26,7 +26,7 @@ class TestWin32Implementation:
             assert wstat(unicode(f)).st_mtime == expected
 
         check('c:/')
-        check(os.environ['TEMP'])
+        check('c:/temp')
         check('c:/pagefile.sys')
 
     def test_fstat(self):

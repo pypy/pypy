@@ -57,7 +57,7 @@ class ItemOffset(AddressOffset):
         return "<ItemOffset %r %r>" % (self.TYPE, self.repeat)
 
     def __mul__(self, other):
-        if not isinstance(other, (int, long)):
+        if not isinstance(other, int):
             return NotImplemented
         return ItemOffset(self.TYPE, self.repeat * other)
 

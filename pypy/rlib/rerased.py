@@ -28,7 +28,7 @@ from pypy.rpython.error import TyperError
 
 
 def erase_int(x):
-    assert isinstance(x, (int, long))
+    assert isinstance(x, int)
     res = 2 * x + 1
     if res > sys.maxint or res < -sys.maxint - 1:
         raise OverflowError
@@ -36,7 +36,7 @@ def erase_int(x):
 
 def unerase_int(y):
     assert y._identity is _identity_for_ints
-    assert isinstance(y._x, (int, long))
+    assert isinstance(y._x, int)
     return y._x
 
 
