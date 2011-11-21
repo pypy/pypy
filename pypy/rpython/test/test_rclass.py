@@ -462,7 +462,7 @@ class BaseTestRclass(BaseRtypingTest):
         # the following property is essential on top of the lltypesystem
         # otherwise prebuilt dictionaries are broken.  It's wrong on
         # top of the ootypesystem though.
-        if type(self) is TestLLtype:
+        if isinstance(self, LLRtypeMixin):
             assert res.item2 == h_c
             assert res.item3 == h_d
 
