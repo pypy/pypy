@@ -14,7 +14,12 @@ eci = ExternalCompilationInfo(
     separate_module_sources = ['#include "src/stacklet/stacklet.c"\n'],
 )
 if sys.platform == 'win32':
-    eci.separate_module_files += (cdir / "src/stacklet/switch_x86_msvc.asm", )
+    import platform
+    if platform.architecture()[0] == '32bit':
+        asmfile = "src/stacklet/switch_x86_msvc.asm"
+    else:
+        asmfile = "src/stacklet/switch_x64_msvc.asm"
+    eci.separate_module_files += (cdir / asmfile, )
     eci.export_symbols += (
         'stacklet_newthread',
         'stacklet_deletethread',
