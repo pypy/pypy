@@ -191,7 +191,7 @@ class TestW_ListObject(object):
                 self.space.raises_w(self.space.w_IndexError,
                                     self.space.setitem, w_list, w(key), w(42))
             else:
-                if isinstance(value, (int, long)):   # non-slicing
+                if isinstance(value, int):   # non-slicing
                     if random.random() < 0.25:   # deleting
                         self.space.delitem(w_list, w(key))
                         del expected[key]

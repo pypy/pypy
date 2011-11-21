@@ -268,7 +268,7 @@ class ConstInt(Const):
 
     def __init__(self, value):
         if not we_are_translated():
-            if isinstance(value, (int, long)):
+            if isinstance(value, int):
                 value = int(value)    # bool -> int
             else:
                 assert isinstance(value, Symbolic)
@@ -515,7 +515,7 @@ class BoxInt(Box):
 
     def __init__(self, value=0):
         if not we_are_translated():
-            if isinstance(value, (int, long)):
+            if isinstance(value, int):
                 value = int(value)    # bool -> int
             else:
                 assert isinstance(value, Symbolic)
