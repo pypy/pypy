@@ -61,7 +61,7 @@ class BaseTestPosix(BaseRtypingTest):
         assert isinstance(times, tuple)
         assert len(times) == 5
         for value in times:
-            assert isinstance(value, int)
+            assert isinstance(value, (int, long))
 
 
     def test_lseek(self):

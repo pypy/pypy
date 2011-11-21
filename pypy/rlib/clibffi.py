@@ -314,7 +314,7 @@ if _WIN32:
 FFI_OK = cConfig.FFI_OK
 FFI_BAD_TYPEDEF = cConfig.FFI_BAD_TYPEDEF
 FFI_DEFAULT_ABI = cConfig.FFI_DEFAULT_ABI
-if _WIN32:
+if _WIN32 and not _WIN64:
     FFI_STDCALL = cConfig.FFI_STDCALL
 FFI_TYPE_STRUCT = cConfig.FFI_TYPE_STRUCT
 FFI_CIFP = rffi.COpaquePtr('ffi_cif', compilation_info=eci)

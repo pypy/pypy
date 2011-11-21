@@ -371,7 +371,7 @@ class XMLParserType(object):
                 self._flush_character_buffer()
                 self.buffer = None
         elif name == 'buffer_size':
-            if not isinstance(value, int):
+            if not isinstance(value, (int, long)):
                 raise TypeError("Expected int")
             if value <= 0:
                 raise ValueError("Expected positive int")
