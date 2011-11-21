@@ -12,7 +12,7 @@ def pytest_addoption(parser):
                     help="choose a fixed random seed")
     group.addoption('--backend', action="store",
                     default='llgraph',
-                    choices=['llgraph', 'x86'],
+                    choices=['llgraph', 'x86', 'arm'],
                     dest="backend",
                     help="select the backend to run the functions with")
     group.addoption('--block-length', action="store", type="int",

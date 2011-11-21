@@ -498,6 +498,9 @@ def get_cpu():
     elif pytest.config.option.backend == 'x86':
         from pypy.jit.backend.x86.runner import CPU386
         return CPU386(None, None)
+    elif pytest.config.option.backend == 'arm':
+        from pypy.jit.backend.arm.runner import ArmCPU
+        return ArmCPU(None, None)
     else:
         assert 0, "unknown backend %r" % pytest.config.option.backend
 
