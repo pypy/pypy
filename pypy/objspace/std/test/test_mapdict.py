@@ -159,6 +159,7 @@ def test_special():
     assert obj.getdictvalue(space, "a") == 50
     assert obj.getdictvalue(space, "b") == 60
     assert obj.getdictvalue(space, "c") == 70
+    #assert unerase_storage_items(obj.storage) == [50, 60, 70, lifeline1]
     assert unerase_storage_items(obj.storage[:-1], IntAttribute) == [50, 60, 70]
     assert unerase_storage_items(obj.storage[-1:], PlainAttribute) == [lifeline1]
     assert obj.getweakref() is lifeline1
@@ -168,7 +169,9 @@ def test_special():
     obj2.setdictvalue(space, "b", 160)
     obj2.setdictvalue(space, "c", 170)
     obj2.setweakref(space, lifeline2)
-    assert unerase_storage_items(obj2.storage) == [150, 160, 170, lifeline2]
+    #assert unerase_storage_items(obj2.storage) == [150, 160, 170, lifeline2]
+    assert unerase_storage_items(obj2.storage[:-1], IntAttribute) == [150, 160, 170]
+    assert unerase_storage_items(obj2.storage[-1:], PlainAttribute) == [lifeline2]
     assert obj2.getweakref() is lifeline2
 
     assert obj2.map is obj.map
@@ -279,7 +282,9 @@ def test_materialize_r_dict():
     assert flag
     materialize_r_dict(space, obj, d)
     assert d == {"a": 5, "b": 6, "c": 7}
-    assert unerase_storage_items(obj.storage) == [50, 60, 70, w_d]
+    #assert unerase_storage_items(obj.storage) == [50, 60, 70, w_d]
+    assert unerase_storage_items(obj.storage[:-1], IntAttribute) == [50, 60, 70]
+    assert unerase_storage_items(obj.storage[-1:], PlainAttribute) == [w_d]
 
 
 def test_size_prediction():
@@ -463,12 +468,12 @@ def test_specialized_class():
         obj = objectcls()
         obj.user_setup(space, cls)
         obj.setdictvalue(space, "a", w1)
-        assert unerase_item(obj._value0) is w1
+        assert PlainAttribute.unerase_item(obj._value0) is w1
         assert obj.getdictvalue(space, "a") is w1
         assert obj.getdictvalue(space, "b") is None
         assert obj.getdictvalue(space, "c") is None
         obj.setdictvalue(space, "a", w2)
-        assert unerase_item(obj._value0) is w2
+        assert PlainAttribute.unerase_item(obj._value0) is w2
         assert obj.getdictvalue(space, "a") == w2
         assert obj.getdictvalue(space, "b") is None
         assert obj.getdictvalue(space, "c") is None
@@ -486,7 +491,7 @@ def test_specialized_class():
 
         res = obj.deldictvalue(space, "a")
         assert res
-        assert unerase_item(obj._value0) is w4
+        assert PlainAttribute.unerase_item(obj._value0) is w4
         assert obj.getdictvalue(space, "a") is None
         assert obj.getdictvalue(space, "b") is w4
         assert obj.getdictvalue(space, "c") is None
