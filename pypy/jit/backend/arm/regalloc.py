@@ -672,7 +672,7 @@ class Regalloc(object):
         if _check_imm_arg(c_ofs):
             ofs_loc = imm(ofs)
         else:
-            ofs_loc = self._ensure_value_is_boxed(c_ofs, boxes)
+            ofs_loc = self._ensure_value_is_boxed(c_ofs, op.getarglist())
         return [base_loc, index_loc, value_loc, ofs_loc, imm(ofs),
                                         imm(itemsize), imm(fieldsize)]
 
@@ -725,7 +725,7 @@ class Regalloc(object):
         if imm_ofs:
             l1 = self.make_sure_var_in_reg(ofs_box, args)
         else:
-            l1, box1 = self._ensure_value_is_boxed(ofs_box, args)
+            l1 = self._ensure_value_is_boxed(ofs_box, args)
 
         self.possibly_free_vars_for_op(op)
         self.free_temp_vars()
