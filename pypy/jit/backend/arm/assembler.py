@@ -794,12 +794,13 @@ class AssemblerARM(ResOpAssembler):
             if op.has_no_side_effect() and op.result not in regalloc.longevity:
                 regalloc.possibly_free_vars_for_op(op)
             elif self.can_merge_with_next_guard(op, i, operations):
-                regalloc.next_instruction()
-                arglocs = regalloc_operations_with_guard[opnum](regalloc, op,
-                                        operations[i+1], fcond)
-                fcond = asm_operations_with_guard[opnum](self, op,
-                                        operations[i+1], arglocs, regalloc, fcond)
                 guard = operations[i+1]
+                assert guard.is_guard()
+                arglocs = regalloc_operations_with_guard[opnum](regalloc, op,
+                                        guard, fcond)
+                fcond = asm_operations_with_guard[opnum](self, op,
+                                        guard, arglocs, regalloc, fcond)
+                regalloc.next_instruction()
                 regalloc.possibly_free_vars_for_op(guard)
                 regalloc.possibly_free_vars(guard.getfailargs())
             elif not we_are_translated() and op.getopnum() == -124:

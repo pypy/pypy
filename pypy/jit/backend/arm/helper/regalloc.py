@@ -132,8 +132,7 @@ def prepare_op_unary_cmp(name=None):
             res = self.force_allocate_reg(op.result, [a0])
             return [reg, res]
         else:
-            args = self._prepare_guard(guard_op, [reg])
-            return args
+            return self._prepare_guard(guard_op, [reg])
     if name:
         f.__name__ = name
     return f
