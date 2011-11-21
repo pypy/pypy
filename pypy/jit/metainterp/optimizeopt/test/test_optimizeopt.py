@@ -5508,6 +5508,16 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_immutable_dont_constantfold_recursive(self):
+        ops = """
+        []
+        p0 = new_with_vtable(ConstClass(ptrobj_immut_vtable))
+        setfield_gc(p0, p0, descr=immut_ptrval)
+        escape(p0)
+        jump()
+        """
+        self.optimize_loop(ops, ops)
+
     # ----------
     def optimize_strunicode_loop(self, ops, optops, preamble):
         # check with the arguments passed in
