@@ -356,9 +356,13 @@ class IntAttribute(AbstractStoredAttribute):
         obj._mapdict_write_storage(self.position, erased)
 
 def get_attrclass_from_value(space, w_value):
-    if space.is_w(space.type(w_value), space.w_int):
-        return IntAttribute
-    return PlainAttribute
+    attrclass = PlainAttribute
+    try:
+        if space.is_w(space.type(w_value), space.w_int):
+            attrclass = IntAttribute
+    except AttributeError:
+        pass
+    return attrclass
 
 def _become(w_obj, new_obj):
     # this is like the _become method, really, but we cannot use that due to
