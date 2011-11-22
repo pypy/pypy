@@ -5,7 +5,7 @@ from pypy.jit.codewriter.flatten import GraphFlattener, ListOfKind, Register
 from pypy.jit.codewriter.format import assert_format
 from pypy.jit.codewriter import longlong
 from pypy.jit.metainterp.history import AbstractDescr
-from pypy.rpython.lltypesystem import lltype, rclass, rstr
+from pypy.rpython.lltypesystem import lltype, rclass, rstr, rffi
 from pypy.objspace.flow.model import SpaceOperation, Variable, Constant
 from pypy.translator.unsimplify import varoftype
 from pypy.rlib.rarithmetic import ovfcheck, r_uint, r_longlong, r_ulonglong
@@ -743,7 +743,6 @@ class TestFlatten:
         """, transform=True)
 
     def test_force_cast(self):
-        from pypy.rpython.lltypesystem import rffi
         # NB: we don't need to test for INT here, the logic in jtransform is
         # general enough so that if we have the below cases it should
         # generalize also to INT
@@ -849,7 +848,6 @@ class TestFlatten:
                                        transform=True)
 
     def test_force_cast_pointer(self):
-        from pypy.rpython.lltypesystem import rffi
         def h(p):
             return rffi.cast(rffi.VOIDP, p)
         self.encoding_test(h, [lltype.nullptr(rffi.CCHARP.TO)], """
@@ -857,7 +855,6 @@ class TestFlatten:
         """, transform=True)
 
     def test_force_cast_floats(self):
-        from pypy.rpython.lltypesystem import rffi
         # Caststs to lltype.Float
         def f(n):
             return rffi.cast(lltype.Float, n)
@@ -964,7 +961,6 @@ class TestFlatten:
             """, transform=True)
 
     def test_direct_ptradd(self):
-        from pypy.rpython.lltypesystem import rffi
         def f(p, n):
             return lltype.direct_ptradd(p, n)
         self.encoding_test(f, [lltype.nullptr(rffi.CCHARP.TO), 123], """
@@ -975,7 +971,6 @@ class TestFlatten:
 
 def check_force_cast(FROM, TO, operations, value):
     """Check that the test is correctly written..."""
-    from pypy.rpython.lltypesystem import rffi
     import re
     r = re.compile('(\w+) \%i\d, \$(-?\d+)')
     #

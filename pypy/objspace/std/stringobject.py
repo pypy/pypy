@@ -19,7 +19,10 @@ from pypy.objspace.std.stringtype import sliced, wrapstr, wrapchar, \
 
 from pypy.objspace.std.formatting import mod_format
 
-class W_StringObject(W_Object):
+class W_AbstractStringObject(W_Object):
+    __slots__ = ()
+
+class W_StringObject(W_AbstractStringObject):
     from pypy.objspace.std.stringtype import str_typedef as typedef
     _immutable_fields_ = ['_value']
 

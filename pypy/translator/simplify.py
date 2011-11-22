@@ -111,16 +111,13 @@ def eliminate_empty_blocks(graph):
                 # the while loop above will simplify recursively the new link
 
 def transform_ovfcheck(graph):
-    """The special function calls ovfcheck and ovfcheck_lshift need to
+    """The special function calls ovfcheck needs to
     be translated into primitive operations. ovfcheck is called directly
     after an operation that should be turned into an overflow-checked
     version. It is considered a syntax error if the resulting <op>_ovf
     is not defined in objspace/flow/objspace.py.
-    ovfcheck_lshift is special because there is no preceding operation.
-    Instead, it will be replaced by an OP_LSHIFT_OVF operation.
     """
     covf = Constant(rarithmetic.ovfcheck)
-    covfls = Constant(rarithmetic.ovfcheck_lshift)
 
     def check_syntax(opname):
         exlis = operation.implicit_exceptions.get("%s_ovf" % (opname,), [])
@@ -154,9 +151,6 @@ def transform_ovfcheck(graph):
                 op1.opname += '_ovf'
                 del block.operations[i]
                 block.renamevariables({op.result: op1.result})
-            elif op.args[0] == covfls:
-                op.opname = 'lshift_ovf'
-                del op.args[0]
 
 def simplify_exceptions(graph):
     """The exception handling caused by non-implicit exceptions
@@ -703,10 +697,12 @@ def detect_list_comprehension(graph):
             if op.opname == 'getattr' and op.args[1] == c_append:
                 vlist = variable_families.find_rep(op.args[0])
                 if vlist in newlist_v:
-                    op2 = block.operations[i+1]
-                    if (op2.opname == 'simple_call' and len(op2.args) == 2
-                        and op2.args[0] is op.result):
-                        append_v.append((op.args[0], op.result, block))
+                    for j in range(i + 1, len(block.operations)):
+                        op2 = block.operations[j]
+                        if (op2.opname == 'simple_call' and len(op2.args) == 2
+                            and op2.args[0] is op.result):
+                            append_v.append((op.args[0], op.result, block))
+                            break
     if not append_v:
         return
     detector = ListComprehensionDetector(graph, loops, newlist_v,

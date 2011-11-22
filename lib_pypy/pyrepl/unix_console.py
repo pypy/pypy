@@ -163,7 +163,7 @@ class UnixConsole(Console):
     def change_encoding(self, encoding):
         self.encoding = encoding
     
-    def refresh(self, screen, (cx, cy)):
+    def refresh(self, screen, cxy):
         # this function is still too long (over 90 lines)
 
         if not self.__gone_tall:
@@ -198,6 +198,7 @@ class UnixConsole(Console):
 
         # we make sure the cursor is on the screen, and that we're
         # using all of the screen if we can
+        cx, cy = cxy
         if cy < offset:
             offset = cy
         elif cy >= offset + height:
@@ -411,7 +412,12 @@ class UnixConsole(Console):
                    e.args[4] == 'unexpected end of data':
                 pass
             else:
-                raise
+                # was: "raise".  But it crashes pyrepl, and by extension the
+                # pypy currently running, in which we are e.g. in the middle
+                # of some debugging session.  Argh.  Instead just print an
+                # error message to stderr and continue running, for now.
+                self.partial_char = ''
+                sys.stderr.write('\n%s: %s\n' % (e.__class__.__name__, e))
         else:
             self.partial_char = ''
             self.event_queue.push(c)

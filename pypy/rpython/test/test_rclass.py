@@ -457,12 +457,16 @@ class BaseTestRclass(BaseRtypingTest):
                     compute_identity_hash(d))
 
         res = self.interpret(f, [])
-        # xxx this is too precise, checking the exact implementation
-        assert res.item0 == res.item1
+        # xxx the following test is too precise, checking the exact
+        # implementation.  On Python 2.7 it doesn't work anyway, because
+        # object.__hash__(x) is different from id(x).  The test is disabled
+        # for now, and nobody should rely on compute_identity_hash() returning
+        # a value that is (or was) the current_object_addr_as_int().
+        # --- disabled: assert res.item0 == res.item1
         # the following property is essential on top of the lltypesystem
         # otherwise prebuilt dictionaries are broken.  It's wrong on
         # top of the ootypesystem though.
-        if type(self) is TestLLtype:
+        if isinstance(self, LLRtypeMixin):
             assert res.item2 == h_c
             assert res.item3 == h_d
 

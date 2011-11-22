@@ -157,8 +157,7 @@ class AppTestXRange:
        raises(OverflowError, xrange, a)
        raises(OverflowError, xrange, 0, a)
        raises(OverflowError, xrange, 0, 1, a)
-       assert list(reversed(xrange(-sys.maxint-1, -sys.maxint-1, -2))) == []
-       
+
    def test_xrange_reduce(self):
       x = xrange(2, 9, 3)
       callable, args = x.__reduce__()

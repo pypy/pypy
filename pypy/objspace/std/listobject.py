@@ -14,6 +14,9 @@ from pypy.interpreter.argument import Signature
 
 UNROLL_CUTOFF = 5
 
+class W_AbstractListObject(W_Object):
+    __slots__ = ()
+
 def make_range_list(space, start, step, length):
     if length <= 0:
         strategy = space.fromcache(EmptyListStrategy)
@@ -59,7 +62,7 @@ def is_W_StringObject(w_object):
 
 
 
-class W_ListObject(W_Object):
+class W_ListObject(W_AbstractListObject):
     from pypy.objspace.std.listtype import list_typedef as typedef
 
     def __init__(w_self, space, wrappeditems):

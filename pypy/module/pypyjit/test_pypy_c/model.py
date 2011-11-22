@@ -285,6 +285,11 @@ class OpMatcher(object):
             guard_false(ticker_cond1, descr=...)
         """
         src = src.replace('--EXC-TICK--', exc_ticker_check)
+        #
+        # ISINF is done as a macro; fix it here
+        r = re.compile('(\w+) = --ISINF--[(](\w+)[)]')
+        src = r.sub(r'\2\B999 = float_add(\2, ...)\n\1 = float_eq(\2\B999, \2)',
+                    src)
         return src
 
     @classmethod

@@ -2,7 +2,8 @@ from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.metainterp.history import (BoxInt, Const, ConstInt, ConstPtr,
     get_const_ptr_for_string, get_const_ptr_for_unicode, BoxPtr, REF, INT)
 from pypy.jit.metainterp.optimizeopt import optimizer, virtualize
-from pypy.jit.metainterp.optimizeopt.optimizer import CONST_0, CONST_1, llhelper
+from pypy.jit.metainterp.optimizeopt.optimizer import CONST_0, CONST_1
+from pypy.jit.metainterp.optimizeopt.optimizer import llhelper, REMOVED
 from pypy.jit.metainterp.optimizeopt.util import make_dispatcher_method
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.rlib.objectmodel import specialize, we_are_translated
@@ -207,6 +208,7 @@ class VStringPlainValue(VAbstractStringValue):
 
 class VStringConcatValue(VAbstractStringValue):
     """The concatenation of two other strings."""
+    _attrs_ = ('left', 'right', 'lengthbox')
 
     lengthbox = None     # or the computed length
 
@@ -528,6 +530,11 @@ class OptString(optimizer.Optimization):
 
     optimize_CALL_PURE = optimize_CALL
 
+    def optimize_GUARD_NO_EXCEPTION(self, op):
+        if self.last_emitted_operation is REMOVED:
+            return
+        self.emit_operation(op)
+
     def opt_call_str_STR2UNICODE(self, op):
         # Constant-fold unicode("constant string").
         # More generally, supporting non-constant but virtual cases is
@@ -542,6 +549,7 @@ class OptString(optimizer.Optimization):
         except UnicodeDecodeError:
             return False
         self.make_constant(op.result, get_const_ptr_for_unicode(u))
+        self.last_emitted_operation = REMOVED
         return True
 
     def opt_call_stroruni_STR_CONCAT(self, op, mode):

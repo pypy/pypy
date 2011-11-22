@@ -234,7 +234,7 @@ class OptHeap(Optimization):
             or op.is_ovf()):
             self.posponedop = op
         else:
-            self.next_optimization.propagate_forward(op)
+            Optimization.emit_operation(self, op)
 
     def emitting_operation(self, op):
         if op.has_no_side_effect():
