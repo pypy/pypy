@@ -371,7 +371,7 @@ class MiscOpAssembler(object):
             if IS_PPC_32:
                 abi = 2
             else:
-                abi = 14
+                abi = 6 + MAX_REG_PARAMS
             offset = (abi + i) * WORD
             if arg is not None:
                 self.mc.load_imm(r.r0, arg.value)
