@@ -365,6 +365,51 @@ class TestTypeSpecializedAttributes(object):
         assert isinstance(obj1.map, PlainAttribute)
         assert space.eq_w(obj1.getdictvalue(space, "y"), space.wrap("str"))
 
+    def test_overwrite_attribute_with_another_type(self):
+        space = self.space
+        cls = Class(sp=space)
+        obj1 = cls.instantiate()
+
+        obj1.setdictvalue(space, "x", space.wrap(1))
+        assert isinstance(obj1.map, IntAttribute)
+        assert space.eq_w(obj1.getdictvalue(space, "x"), space.wrap(1))
+
+        obj1.setdictvalue(space, "x", space.wrap("a"))
+        assert isinstance(obj1.map, PlainAttribute)
+        assert space.eq_w(obj1.getdictvalue(space, "x"), space.wrap("a"))
+
+    def test_overwrite_attribute_with_another_type2(self):
+        space = self.space
+        cls = Class(sp=space)
+        obj1 = cls.instantiate()
+
+        obj1.setdictvalue(space, "x", space.wrap(1))
+        assert isinstance(obj1.map, IntAttribute)
+        assert space.eq_w(obj1.getdictvalue(space, "x"), space.wrap(1))
+
+        obj1.setdictvalue(space, "y", space.wrap(2))
+        assert isinstance(obj1.map.back, IntAttribute)
+        assert space.eq_w(obj1.getdictvalue(space, "y"), space.wrap(2))
+
+        # overwrite 'x' with new type
+        obj1.setdictvalue(space, "x", space.wrap("a"))
+        assert isinstance(obj1.map, PlainAttribute)
+        assert space.eq_w(obj1.getdictvalue(space, "x"), space.wrap("a"))
+
+        # check if 'y' is still reachable
+        assert isinstance(obj1.map.back, IntAttribute)
+        assert space.eq_w(obj1.getdictvalue(space, "y"), space.wrap(2))
+
+    def test_int_does_not_fit(self):
+        import sys
+        space = self.space
+        cls = Class(sp=space)
+        obj1 = cls.instantiate()
+
+        obj1.setdictvalue(space, "x", space.wrap(sys.maxint))
+        assert isinstance(obj1.map, PlainAttribute)
+        assert space.eq_w(obj1.getdictvalue(space, "x"), space.wrap(sys.maxint))
+
 # ___________________________________________________________
 # dict tests
 

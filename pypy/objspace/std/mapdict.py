@@ -35,10 +35,16 @@ class AbstractAttribute(object):
         return attr.read_attr(obj) #obj._mapdict_read_storage(index)
 
     def write(self, obj, selector, w_value):
+        from pypy.interpreter.error import OperationError
         attr = self.findmap(selector) # index = self.index(selector)
         if attr is None:
             return self.terminator._write_terminator(obj, selector, w_value)
-        attr.write_attr(obj, w_value) #obj._mapdict_write_storage(index, w_value)
+        try:
+            attr.write_attr(obj, w_value) #obj._mapdict_write_storage(index, w_value)
+        except OperationError:
+            firstattr = obj.map
+            firstattr.delete(obj, selector)
+            firstattr.add_attr(obj, selector, w_value)
         return True
 
     def delete(self, obj, selector):
@@ -355,13 +361,20 @@ class IntAttribute(AbstractStoredAttribute):
         erased = self.erase_item(self.space.int_w(w_value))
         obj._mapdict_write_storage(self.position, erased)
 
+def is_taggable_int(space, w_value):
+    from pypy.objspace.std.intobject import W_IntObject
+    if type(w_value) is W_IntObject:
+        try:
+            IntAttribute.erase_item(space.int_w(w_value))
+            return True
+        except OverflowError:
+            pass
+    return False
+
 def get_attrclass_from_value(space, w_value):
     attrclass = PlainAttribute
-    try:
-        if space.is_w(space.type(w_value), space.w_int):
-            attrclass = IntAttribute
-    except AttributeError:
-        pass
+    if is_taggable_int(space, w_value):
+        attrclass = IntAttribute
     return attrclass
 
 def _become(w_obj, new_obj):
