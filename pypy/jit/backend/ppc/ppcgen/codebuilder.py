@@ -929,10 +929,11 @@ class GuardToken(object):
         self.save_exc = save_exc
 
 class PPCBuilder(BlockBuilderMixin, PPCAssembler):
-    def __init__(self, failargs_limit=1000):
+    def __init__(self, failargs_limit=1000, r0_in_use=False):
         PPCAssembler.__init__(self)
         self.init_block_builder()
         self.fail_boxes_int = values_array(lltype.Signed, failargs_limit)
+        self.r0_in_use = r0_in_use
 
     def load_imm(self, rD, word):
         rD = rD.as_key()
@@ -1049,6 +1050,14 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
                     # 64 bit unsigned
                     self.cmpld(block, a, b)
                 
+    def alloc_scratch_reg(self, value):
+        assert not self.r0_in_use
+        self.r0_in_use = True
+        self.load_imm(r.r0, value)
+
+    def free_scratch_reg(self):
+        assert self.r0_in_use
+        self.r0_in_use = False
 
 class BranchUpdater(PPCAssembler):
     def __init__(self):
