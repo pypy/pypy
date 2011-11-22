@@ -5507,8 +5507,43 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump()
         """
         self.optimize_loop(ops, expected)
+        # ----------
+        ops = """
+        [p1]
+        p0 = new_with_vtable(ConstClass(ptrobj_immut_vtable))
+        setfield_gc(p0, p1, descr=immut_ptrval)
+        escape(p0)
+        jump(p1)
+        """
+        self.optimize_loop(ops, ops)
+        # ----------
+        ops = """
+        []
+        p0 = new_with_vtable(ConstClass(ptrobj_immut_vtable))
+        p1 = new_with_vtable(ConstClass(intobj_immut_vtable))
+        setfield_gc(p1, 1242, descr=immut_intval)
+        setfield_gc(p0, p1, descr=immut_ptrval)
+        escape(p0)
+        jump()
+        """
+        class PtrObj1242(object):
+            _TYPE = llmemory.GCREF.TO
+            def __eq__(slf, other):
+                if slf is other:
+                    return 1
+                p1 = other.container.ptrval
+                p1cast = lltype.cast_pointer(lltype.Ptr(self.INTOBJ_IMMUT), p1)
+                return p1cast.intval == 1242
+        self.namespace['ptrobj1242'] = lltype._ptr(llmemory.GCREF,
+                                                   PtrObj1242())
+        expected = """
+        []
+        escape(ConstPtr(ptrobj1242))
+        jump()
+        """
+        self.optimize_loop(ops, expected)
 
-    def test_immutable_dont_constantfold_recursive(self):
+    def test_immutable_constantfold_recursive(self):
         ops = """
         []
         p0 = new_with_vtable(ConstClass(ptrobj_immut_vtable))
@@ -5516,7 +5551,23 @@ class OptimizeOptTest(BaseTestWithUnroll):
         escape(p0)
         jump()
         """
-        self.optimize_loop(ops, ops)
+        from pypy.rpython.lltypesystem import lltype, llmemory
+        class PtrObjSelf(object):
+            _TYPE = llmemory.GCREF.TO
+            def __eq__(slf, other):
+                if slf is other:
+                    return 1
+                p1 = other.container.ptrval
+                p1cast = lltype.cast_pointer(lltype.Ptr(self.PTROBJ_IMMUT), p1)
+                return p1cast.ptrval == p1
+        self.namespace['ptrobjself'] = lltype._ptr(llmemory.GCREF,
+                                                   PtrObjSelf())
+        expected = """
+        []
+        escape(ConstPtr(ptrobjself))
+        jump()
+        """
+        self.optimize_loop(ops, expected)
 
     # ----------
     def optimize_strunicode_loop(self, ops, optops, preamble):
