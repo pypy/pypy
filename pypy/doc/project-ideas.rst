@@ -23,6 +23,12 @@ Make big integers faster
 PyPy's implementation of the Python ``long`` type is slower than CPython's.
 Find out why and optimize them.
 
+Make bytearray type fast
+------------------------
+
+PyPy's bytearray type is very inefficient. It would be an interesting
+task to look into possible optimizations on this.
+
 Numpy improvements
 ------------------
 
