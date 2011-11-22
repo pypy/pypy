@@ -111,7 +111,7 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
             if value.is_constant():
                 pass            # it is a constant value: ok
             elif (isinstance(value, AbstractVirtualStructValue)
-                  and value.box is None):
+                  and value.is_virtual()):
                 # recursive check
                 if not value._is_immutable_and_filled_with_constants(memo):
                     return False
