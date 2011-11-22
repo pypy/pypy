@@ -444,14 +444,9 @@ class RegisterOs(BaseLazyRegistering):
 
         if config['HAVE_UTIMES']:
             class CConfig:
-                if not _WIN32:
-                    _compilation_info_ = ExternalCompilationInfo(
-                        includes = ['sys/time.h']
-                    )
-                else:
-                    _compilation_info_ = ExternalCompilationInfo(
-                        includes = ['time.h']
-                    )
+                _compilation_info_ = ExternalCompilationInfo(
+                    includes = includes
+                )
                 TIMEVAL = platform.Struct('struct timeval', [('tv_sec', rffi.LONG),
                                                              ('tv_usec', rffi.LONG)])
             config = platform.configure(CConfig)

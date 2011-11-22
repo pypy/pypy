@@ -48,7 +48,7 @@ class TestLL2Ctypes(object):
         assert lltype2ctypes('?') == ord('?')
         assert lltype2ctypes('\xE0') == 0xE0
         assert lltype2ctypes(unichr(1234)) == 1234
-        assert ctypes2lltype(rffi.LONG, 5) == 5
+        assert ctypes2lltype(lltype.Signed, 5) == 5
         assert ctypes2lltype(lltype.Char, ord('a')) == 'a'
         assert ctypes2lltype(lltype.UniChar, ord(u'x')) == u'x'
         assert ctypes2lltype(lltype.Char, 0xFF) == '\xFF'

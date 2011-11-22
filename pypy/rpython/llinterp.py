@@ -1018,7 +1018,6 @@ class LLFrame(object):
     # Overflow-detecting variants
 
     def op_int_neg_ovf(self, x):
-        # assert type(x) is int
         assert isinstance(x, (int, long))
         try:
             return ovfcheck(-x)
@@ -1026,7 +1025,6 @@ class LLFrame(object):
             self.make_llexception()
 
     def op_int_abs_ovf(self, x):
-        # assert type(x) is int
         assert isinstance(x, (int, long))
         try:
             return ovfcheck(abs(x))
@@ -1034,7 +1032,6 @@ class LLFrame(object):
             self.make_llexception()
 
     def op_int_lshift_ovf(self, x, y):
-        # win64: int or long because target size differs
         assert isinstance(x, (int, long))
         assert isinstance(y, (int, long))
         try:
