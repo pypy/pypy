@@ -5568,6 +5568,35 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump()
         """
         self.optimize_loop(ops, expected)
+        #
+        ops = """
+        []
+        p0 = new_with_vtable(ConstClass(ptrobj_immut_vtable))
+        p1 = new_with_vtable(ConstClass(ptrobj_immut_vtable))
+        setfield_gc(p0, p1, descr=immut_ptrval)
+        setfield_gc(p1, p0, descr=immut_ptrval)
+        escape(p0)
+        jump()
+        """
+        class PtrObjSelf2(object):
+            _TYPE = llmemory.GCREF.TO
+            def __eq__(slf, other):
+                if slf is other:
+                    return 1
+                p1 = other.container.ptrval
+                p1cast = lltype.cast_pointer(lltype.Ptr(self.PTROBJ_IMMUT), p1)
+                p2 = p1cast.ptrval
+                assert p2 != p1
+                p2cast = lltype.cast_pointer(lltype.Ptr(self.PTROBJ_IMMUT), p2)
+                return p2cast.ptrval == p1
+        self.namespace['ptrobjself2'] = lltype._ptr(llmemory.GCREF,
+                                                    PtrObjSelf2())
+        expected = """
+        []
+        escape(ConstPtr(ptrobjself2))
+        jump()
+        """
+        self.optimize_loop(ops, expected)
 
     # ----------
     def optimize_strunicode_loop(self, ops, optops, preamble):
