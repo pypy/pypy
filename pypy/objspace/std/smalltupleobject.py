@@ -9,9 +9,9 @@ from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway
 from pypy.rlib.debug import make_sure_not_resized
 from pypy.rlib.unroll import unrolling_iterable
-from pypy.objspace.std.tupleobject import W_TupleObject
+from pypy.objspace.std.tupleobject import W_AbstractTupleObject, W_TupleObject
 
-class W_SmallTupleObject(W_Object):
+class W_SmallTupleObject(W_AbstractTupleObject):
     from pypy.objspace.std.tupletype import tuple_typedef as typedef
 
     def tolist(self):

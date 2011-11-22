@@ -11,7 +11,10 @@ from pypy.interpreter import gateway, baseobjspace
 from pypy.rlib.listsort import make_timsort_class
 from pypy.interpreter.argument import Signature
 
-class W_ListObject(W_Object):
+class W_AbstractListObject(W_Object):
+    __slots__ = ()
+
+class W_ListObject(W_AbstractListObject):
     from pypy.objspace.std.listtype import list_typedef as typedef
 
     def __init__(w_self, wrappeditems):

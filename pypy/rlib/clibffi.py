@@ -30,9 +30,6 @@ _WIN32 = _MSVC or _MINGW
 _MAC_OS = platform.name == "darwin"
 _FREEBSD_7 = platform.name == "freebsd7"
 
-_LITTLE_ENDIAN = sys.byteorder == 'little'
-_BIG_ENDIAN = sys.byteorder == 'big'
-
 if _WIN32:
     from pypy.rlib import rwin32
 
@@ -213,26 +210,48 @@ def _unsigned_type_for(TYPE):
     elif sz == 8: return ffi_type_uint64
     else: raise ValueError("unsupported type size for %r" % (TYPE,))
 
-TYPE_MAP = {
-    rffi.DOUBLE : ffi_type_double,
-    rffi.FLOAT  : ffi_type_float,
-    rffi.LONGDOUBLE : ffi_type_longdouble,
-    rffi.UCHAR  : ffi_type_uchar,
-    rffi.CHAR   : ffi_type_schar,
-    rffi.SHORT  : ffi_type_sshort,
-    rffi.USHORT : ffi_type_ushort,
-    rffi.UINT   : ffi_type_uint,
-    rffi.INT    : ffi_type_sint,
+__int_type_map = [
+    (rffi.UCHAR, ffi_type_uchar),
+    (rffi.SIGNEDCHAR, ffi_type_schar),
+    (rffi.SHORT, ffi_type_sshort),
+    (rffi.USHORT, ffi_type_ushort),
+    (rffi.UINT, ffi_type_uint),
+    (rffi.INT, ffi_type_sint),
     # xxx don't use ffi_type_slong and ffi_type_ulong - their meaning
     # changes from a libffi version to another :-((
-    rffi.ULONG     : _unsigned_type_for(rffi.ULONG),
-    rffi.LONG      : _signed_type_for(rffi.LONG),
-    rffi.ULONGLONG : _unsigned_type_for(rffi.ULONGLONG),
-    rffi.LONGLONG  : _signed_type_for(rffi.LONGLONG),
-    lltype.Void    : ffi_type_void,
-    lltype.UniChar : _unsigned_type_for(lltype.UniChar),
-    lltype.Bool    : _unsigned_type_for(lltype.Bool),
-    }
+    (rffi.ULONG, _unsigned_type_for(rffi.ULONG)),
+    (rffi.LONG, _signed_type_for(rffi.LONG)),
+    (rffi.ULONGLONG, _unsigned_type_for(rffi.ULONGLONG)),
+    (rffi.LONGLONG, _signed_type_for(rffi.LONGLONG)),
+    (lltype.UniChar, _unsigned_type_for(lltype.UniChar)),
+    (lltype.Bool, _unsigned_type_for(lltype.Bool)),
+    ]
+
+__float_type_map = [
+    (rffi.DOUBLE, ffi_type_double),
+    (rffi.FLOAT, ffi_type_float),
+    (rffi.LONGDOUBLE, ffi_type_longdouble),
+    ]
+
+__ptr_type_map = [
+    (rffi.VOIDP, ffi_type_pointer),
+    ]
+
+__type_map = __int_type_map + __float_type_map + [
+    (lltype.Void, ffi_type_void)
+    ]
+
+TYPE_MAP_INT = dict(__int_type_map)
+TYPE_MAP_FLOAT = dict(__float_type_map)
+TYPE_MAP = dict(__type_map)
+
+ffitype_map_int = unrolling_iterable(__int_type_map)
+ffitype_map_int_or_ptr = unrolling_iterable(__int_type_map + __ptr_type_map)
+ffitype_map_float = unrolling_iterable(__float_type_map)
+ffitype_map = unrolling_iterable(__type_map)
+
+del __int_type_map, __float_type_map, __ptr_type_map, __type_map
+
 
 def external(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, compilation_info=eci, **kwds)
@@ -341,37 +360,14 @@ def cast_type_to_ffitype(tp):
 cast_type_to_ffitype._annspecialcase_ = 'specialize:memo'
 
 def push_arg_as_ffiptr(ffitp, arg, ll_buf):
-    # This is for primitive types.  Note that the exact type of 'arg' may be
-    # different from the expected 'c_size'.  To cope with that, we fall back
-    # to a byte-by-byte copy.
+    # this is for primitive types. For structures and arrays
+    # would be something different (more dynamic)
     TP = lltype.typeOf(arg)
     TP_P = lltype.Ptr(rffi.CArray(TP))
-    TP_size = rffi.sizeof(TP)
-    c_size = intmask(ffitp.c_size)
-    # if both types have the same size, we can directly write the
-    # value to the buffer
-    if c_size == TP_size:
-        buf = rffi.cast(TP_P, ll_buf)
-        buf[0] = arg
-    else:
-        # needs byte-by-byte copying.  Make sure 'arg' is an integer type.
-        # Note that this won't work for rffi.FLOAT/rffi.DOUBLE.
-        assert TP is not rffi.FLOAT and TP is not rffi.DOUBLE
-        if TP_size <= rffi.sizeof(lltype.Signed):
-            arg = rffi.cast(lltype.Unsigned, arg)
-        else:
-            arg = rffi.cast(lltype.UnsignedLongLong, arg)
-        if _LITTLE_ENDIAN:
-            for i in range(c_size):
-                ll_buf[i] = chr(arg & 0xFF)
-                arg >>= 8
-        elif _BIG_ENDIAN:
-            for i in range(c_size-1, -1, -1):
-                ll_buf[i] = chr(arg & 0xFF)
-                arg >>= 8
-        else:
-            raise AssertionError
+    buf = rffi.cast(TP_P, ll_buf)
+    buf[0] = arg
 push_arg_as_ffiptr._annspecialcase_ = 'specialize:argtype(1)'
+
 
 # type defs for callback and closure userdata
 USERDATA_P = lltype.Ptr(lltype.ForwardReference())

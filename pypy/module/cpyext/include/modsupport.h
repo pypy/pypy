@@ -48,7 +48,11 @@ int PyArg_UnpackTuple(PyObject *args, const char *name, Py_ssize_t min, Py_ssize
 /*
  * This is from pyport.h.  Perhaps it belongs elsewhere.
  */
+#ifdef __cplusplus
+#define PyMODINIT_FUNC extern "C" void
+#else
 #define PyMODINIT_FUNC void
+#endif
 
 
 #ifdef __cplusplus
