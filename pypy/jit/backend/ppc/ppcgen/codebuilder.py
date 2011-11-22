@@ -1050,10 +1050,11 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
                     # 64 bit unsigned
                     self.cmpld(block, a, b)
                 
-    def alloc_scratch_reg(self, value):
+    def alloc_scratch_reg(self, value=None):
         assert not self.r0_in_use
         self.r0_in_use = True
-        self.load_imm(r.r0, value)
+        if value is not None:
+            self.load_imm(r.r0, value)
 
     def free_scratch_reg(self):
         assert self.r0_in_use
