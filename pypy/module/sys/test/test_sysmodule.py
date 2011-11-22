@@ -127,6 +127,18 @@ class AppTestAppSysTests:
         assert isinstance(li.bits_per_digit, int)
         assert isinstance(li.sizeof_digit, int)
 
+    def test_hash_info(self):
+        import sys
+        li = sys.hash_info
+        assert isinstance(li.width, int)
+        assert isinstance(li.modulus, int)
+        assert isinstance(li.inf, int)
+        assert isinstance(li.nan, int)
+        assert isinstance(li.imag, int)
+        print(li)
+        sys.stdout.flush()
+        assert 0
+
 class AppTestSysModulePortedFromCPython:
 
     def setup_class(cls):

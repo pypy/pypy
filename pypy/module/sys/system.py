@@ -1,8 +1,8 @@
 """Information about the current system."""
 from pypy.interpreter import gateway
 from pypy.rlib import rfloat, rbigint
-from pypy.rpython.lltypesystem import rffi
-
+from pypy.rpython.lltypesystem import rffi, lltype
+from pypy.rlib.objectmodel import HASH_INF, HASH_NAN, HASH_IMAG
 
 app = gateway.applevel("""
 "NOT_RPYTHON"
@@ -24,6 +24,13 @@ class float_info(metaclass=structseqtype):
 class int_info(metaclass=structseqtype):
     bits_per_digit = structseqfield(0)
     sizeof_digit = structseqfield(1)
+    
+class hash_info(metaclass=structseqtype):
+    width = structseqfield(0)
+    modulus = structseqfield(1)
+    inf = structseqfield(2)
+    nan = structseqfield(3)
+    imag = structseqfield(4)
 """)
 
 
@@ -54,6 +61,19 @@ def get_int_info(space):
     ]
     w_int_info = app.wget(space, "int_info")
     return space.call_function(w_int_info, space.newtuple(info_w))
+
+def get_hash_info(space):
+    # XXX our _hash_float() always give values that fit in 32bit
+    modulus = (1 << 31) - 1  # Must be a prime number
+    info_w = [
+        space.wrap(8 * rffi.sizeof(lltype.Signed)),
+        space.wrap(modulus),
+        space.wrap(HASH_INF),
+        space.wrap(HASH_NAN),
+        space.wrap(HASH_IMAG),
+    ]
+    w_hash_info = app.wget(space, "hash_info")
+    return space.call_function(w_hash_info, space.newtuple(info_w))
 
 def get_float_repr_style(space):
     if rfloat.USE_SHORT_FLOAT_REPR:

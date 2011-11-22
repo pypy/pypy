@@ -78,6 +78,7 @@ class Module(MixedModule):
 
         'float_info'            : 'system.get_float_info(space)',
         'int_info'              : 'system.get_int_info(space)',
+        'hash_info'             : 'system.get_hash_info(space)',
         'float_repr_style'      : 'system.get_float_repr_style(space)'
         }
 

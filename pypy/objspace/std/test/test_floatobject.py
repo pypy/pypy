@@ -104,7 +104,7 @@ class AppTestAppFloatTest:
         # testing special overflow values
         inf = 1e200 * 1e200
         assert hash(inf) == 314159
-        assert hash(-inf) == -271828
+        assert hash(-inf) == -314159
         assert hash(inf/inf) == 0
 
     def test_int_float(self):

@@ -14,6 +14,7 @@ from pypy.rlib.rfloat import (
     DTSF_ADD_DOT_0, DTSF_STR_PRECISION)
 from pypy.rlib.rbigint import rbigint
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.objectmodel import HASH_INF, HASH_NAN
 from pypy.rlib import rfloat
 from pypy.tool.sourcetools import func_with_new_name
 
@@ -272,7 +273,7 @@ def _hash_float(space, v):
     from pypy.objspace.std.longobject import hash__Long
 
     if isnan(v):
-        return 0
+        return HASH_NAN
 
     # This is designed so that Python numbers of different types
     # that compare equal hash to the same value; otherwise comparisons
@@ -292,9 +293,9 @@ def _hash_float(space, v):
             except OverflowError:
                 # can't convert to long int -- arbitrary
                 if v < 0:
-                    return -271828
+                    return -HASH_INF
                 else:
-                    return 314159
+                    return HASH_INF
             return space.int_w(space.hash(w_lval))
 
     # The fractional part is non-zero, so we don't have to worry about
