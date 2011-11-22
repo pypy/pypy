@@ -6,11 +6,14 @@ from pypy.jit.backend.ppc.ppcgen.arch import (IS_PPC_32, WORD,
                                               GPR_SAVE_AREA, BACKCHAIN_SIZE,
                                               MAX_REG_PARAMS)
 
-from pypy.jit.metainterp.history import LoopToken, AbstractFailDescr, FLOAT
+from pypy.jit.metainterp.history import (LoopToken, AbstractFailDescr, FLOAT,
+                                         INT)
 from pypy.rlib.objectmodel import we_are_translated
-from pypy.jit.backend.ppc.ppcgen.helper.assembler import count_reg_args 
+from pypy.jit.backend.ppc.ppcgen.helper.assembler import (count_reg_args,
+                                                          saved_registers)
 from pypy.jit.backend.ppc.ppcgen.jump import remap_frame_layout
-from pypy.jit.backend.ppc.ppcgen.regalloc import TempPtr
+from pypy.jit.backend.ppc.ppcgen.codebuilder import OverwritingBuilder
+from pypy.jit.backend.ppc.ppcgen.regalloc import TempPtr, TempInt
 from pypy.jit.backend.llsupport import symbolic
 from pypy.rpython.lltypesystem import rstr, rffi, lltype
 
@@ -839,6 +842,128 @@ class AllocOpAssembler(object):
 class ForceOpAssembler(object):
 
     _mixin_ = True
+
+    # from: ../x86/assembler.py:1668
+    # XXX Split into some helper methods
+    def emit_guard_call_assembler(self, op, guard_op, arglocs, regalloc):
+        faildescr = guard_op.getdescr()
+        fail_index = self.cpu.get_fail_descr_number(faildescr)
+        self._write_fail_index(fail_index)
+
+        descr = op.getdescr()
+        assert isinstance(descr, LoopToken)
+        # XXX check this
+        assert op.numargs() == len(descr._ppc_arglocs[0])
+        resbox = TempInt()
+        self._emit_call(fail_index, descr._ppc_direct_bootstrap_code, op.getarglist(),
+                                regalloc, result=resbox)
+        if op.result is None:
+            value = self.cpu.done_with_this_frame_void_v
+        else:
+            kind = op.result.type
+            if kind == INT:
+                value = self.cpu.done_with_this_frame_int_v
+            elif kind == REF:
+                value = self.cpu.done_with_this_frame_ref_v
+            elif kind == FLOAT:
+                assert 0, "not implemented yet"
+            else:
+                raise AssertionError(kind)
+        # check value
+        resloc = regalloc.try_allocate_reg(resbox)
+        assert resloc is r.r3
+        self.mc.alloc_scratch_reg(value)
+        if IS_PPC_32:
+            self.mc.cmpw(0, resloc.value, r.r0.value)
+        else:
+            self.mc.cmpd(0, resloc.value, r.r0.value)
+        self.mc.free_scratch_reg()
+        regalloc.possibly_free_var(resbox)
+
+        fast_jmp_pos = self.mc.currpos()
+        self.mc.nop()
+
+        # Path A: use assembler helper
+        # if values are equal we take the fast path
+        # Slow path, calling helper
+        # jump to merge point
+        jd = descr.outermost_jitdriver_sd
+        assert jd is not None
+        asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
+        with saved_registers(self.mc, r.NONVOLATILES + [r.r3]):
+            # resbox is already in r3
+            self.mov_loc_loc(arglocs[1], r.r4)
+            self.mc.bl_abs(asm_helper_adr)
+            if op.result:
+                resloc = regalloc.after_call(op.result)
+                if resloc.is_vfp_reg():
+                    assert 0, "not implemented yet"
+
+        # jump to merge point
+        jmp_pos = self.mc.currpos()
+        self.mc.nop()
+
+        # Path B: load return value and reset token
+        # Fast Path using result boxes
+        # patch the jump to the fast path
+        offset = self.mc.currpos() - fast_jmp_pos
+        pmc = OverwritingBuilder(self.mc, fast_jmp_pos, WORD)
+        pmc.b(offset)
+
+        # Reset the vable token --- XXX really too much special logic here:-(
+        if jd.index_of_virtualizable >= 0:
+            from pypy.jit.backend.llsupport.descr import BaseFieldDescr
+            fielddescr = jd.vable_token_descr
+            assert isinstance(fielddescr, BaseFieldDescr)
+            ofs = fielddescr.offset
+            resloc = regalloc.force_allocate_reg(resbox)
+            self.alloc_scratch_reg()
+            self.mov_loc_loc(arglocs[1], r.r0)
+            self.mc.li(resloc.value, 0)
+            if IS_PPC_32:
+                self.mc.stwx(resloc.value, 0, r.r0.value)
+            else:
+                self.mc.stdx(resloc.value, 0, r.r0.value)
+            self.free_scratch_reg()
+            regalloc.possibly_free_var(resbox)
+
+        if op.result is not None:
+            # load the return value from fail_boxes_xxx[0]
+            kind = op.result.type
+            if kind == INT:
+                adr = self.fail_boxes_int.get_addr_for_num(0)
+            elif kind == REF:
+                adr = self.fail_boxes_ptr.get_addr_for_num(0)
+            elif kind == FLOAT:
+                assert 0, "not implemented yet"
+            else:
+                raise AssertionError(kind)
+            resloc = regalloc.force_allocate_reg(op.result)
+            regalloc.possibly_free_var(resbox)
+            self.mc.alloc_scratch_reg(adr)
+            if op.result.type == FLOAT:
+                assert 0, "not implemented yet"
+            else:
+                if IS_PPC_32:
+                    self.mc.lwzx(resloc.value, 0, r.r0.value)
+                else:
+                    self.mc.ldx(resloc.value, 0, r.r0.value)
+            self.mc.free_scratch_reg()
+
+        # merge point
+        offset = self.mc.currpos() - jmp_pos
+
+        self.mc.alloc_scratch_reg()
+        if IS_PPC_32:
+            self.mc.cmpwi(0, r.r0.value, 0)
+            self.mc.lwz(r.r0.value, r.SPP.value, 0)
+        else:
+            self.mc.cmpdi(0, r.r0.value, 0)
+            self.mc.ld(r.r0.value, r.SPP.value, 0)
+        self.mc.cror(2, 1, 2)
+        self.mc.free_scratch_reg()
+
+        self._emit_guard(guard_op, regalloc._prepare_guard(guard_op), c.EQ)
 
     def emit_guard_call_may_force(self, op, guard_op, arglocs, regalloc):
         self.mc.mr(r.r0.value, r.SP.value)

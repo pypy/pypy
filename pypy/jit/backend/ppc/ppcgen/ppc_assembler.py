@@ -8,12 +8,14 @@ from pypy.jit.backend.ppc.ppcgen.assembler import Assembler
 from pypy.jit.backend.ppc.ppcgen.opassembler import OpAssembler
 from pypy.jit.backend.ppc.ppcgen.symbol_lookup import lookup
 from pypy.jit.backend.ppc.ppcgen.codebuilder import PPCBuilder
+from pypy.jit.backend.ppc.ppcgen.jump import remap_frame_layout
 from pypy.jit.backend.ppc.ppcgen.arch import (IS_PPC_32, IS_PPC_64, WORD,
                                               NONVOLATILES,
                                               GPR_SAVE_AREA, BACKCHAIN_SIZE)
 from pypy.jit.backend.ppc.ppcgen.helper.assembler import (gen_emit_cmp_op, 
                                                           encode32, decode32,
-                                                          decode64)
+                                                          decode64,
+                                                          count_reg_args)
 import pypy.jit.backend.ppc.ppcgen.register as r
 import pypy.jit.backend.ppc.ppcgen.condition as c
 from pypy.jit.metainterp.history import (Const, ConstPtr, LoopToken,
@@ -164,9 +166,15 @@ class AssemblerPPC(OpAssembler):
             clt.asmmemmgr = []
         return clt.asmmemmgr_blocks
 
+    def _make_prologue(self, target_pos, frame_depth):
+        self._make_frame(frame_depth)
+        curpos = self.mc.currpos()
+        offset = target_pos - curpos
+        self.mc.b(offset)
+
     # The code generated here allocates a new stackframe 
     # and is the first machine code to be executed.
-    def _make_prologue(self, target_pos, frame_depth):
+    def _make_frame(self, frame_depth):
         if IS_PPC_32:
             # save it in previous frame (Backchain)
             self.mc.stwu(r.SP.value, r.SP.value, -frame_depth)
@@ -192,10 +200,6 @@ class AssemblerPPC(OpAssembler):
         else:
             self.mc.ld(r.r30.value, r.SP.value, WORD)
             self.mc.std(r.r30.value, r.SPP.value, WORD * len(NONVOLATILES))
-        # branch to loop code
-        curpos = self.mc.currpos()
-        offset = target_pos - curpos
-        self.mc.b(offset)
 
     def setup_failure_recovery(self):
 
@@ -448,6 +452,86 @@ class AssemblerPPC(OpAssembler):
             if loc.is_stack():
                 self.regalloc_mov(r.r0, loc)
 
+    def gen_direct_bootstrap_code(self, loophead, looptoken, inputargs, frame_depth):
+        self._make_frame(frame_depth)
+        nonfloatlocs = looptoken._ppc_arglocs[0]
+
+        reg_args = count_reg_args(inputargs)
+
+        stack_locs = len(inputargs) - reg_args
+
+        selected_reg = 0
+        count = 0
+        nonfloat_args = []
+        nonfloat_regs = []
+        # load reg args
+        for i in range(reg_args):
+            arg = inputargs[i]
+            if arg.type == FLOAT and count % 2 != 0:
+                assert 0, "not implemented yet"
+            reg = r.PARAM_REGS[selected_reg]
+
+            if arg.type == FLOAT:
+                assert 0, "not implemented yet"
+            else:
+                nonfloat_args.append(reg)
+                nonfloat_regs.append(nonfloatlocs[i])
+
+            if arg.type == FLOAT:
+                assert 0, "not implemented yet"
+            else:
+                selected_reg += 1
+                count += 1
+
+        # remap values stored in core registers
+        self.mc.alloc_scratch_reg()
+        remap_frame_layout(self, nonfloat_args, nonfloat_regs, r.r0)
+        self.mc.free_scratch_reg()
+
+        # load values passed on the stack to the corresponding locations
+        stack_position = self.GPR_SAVE_AREA_AND_FORCE_INDEX
+
+        count = 0
+        for i in range(reg_args, len(inputargs)):
+            arg = inputargs[i]
+            if arg.type == FLOAT:
+                assert 0, "not implemented yet"
+            else:
+                loc = nonfloatlocs[i]
+            if loc.is_reg():
+                if IS_PPC_32:
+                    self.mc.lwz(loc.value, r.SPP.value, stack_position)
+                else:
+                    self.mc.ld(loc.value, r.SPP.value, stack_position)
+                count += 1
+            elif loc.is_vfp_reg():
+                assert 0, "not implemented yet"
+            elif loc.is_stack():
+                if loc.type == FLOAT:
+                    assert 0, "not implemented yet"
+                elif loc.type == INT or loc.type == REF:
+                    count += 1
+                    self.mc.alloc_scratch_reg()
+                    if IS_PPC_32:
+                        self.mc.lwz(r.r0.value, r.SPP.value, stack_position)
+                    else:
+                        self.mc.ld(r.r0.value, r.SPP.value, stack_position)
+                    self.mov_loc_loc(r.r0, loc)
+                    self.mc.free_scratch_reg()
+                else:
+                    assert 0, 'invalid location'
+            else:
+                assert 0, 'invalid location'
+            if loc.type == FLOAT:
+                assert 0, "not implemented yet"
+            else:
+                size = 1
+            stack_position += size * WORD
+
+        #sp_patch_location = self._prepare_sp_patch_position()
+        self.mc.b_offset(loophead)
+        #self._patch_sp_offset(sp_patch_location, looptoken._ppc_frame_depth)
+
     def setup(self, looptoken, operations):
         assert self.memcpy_addr != 0
         self.current_clt = looptoken.compiled_loop_token 
@@ -512,9 +596,13 @@ class AssemblerPPC(OpAssembler):
         looptoken._ppc_frame_manager_depth = regalloc.frame_manager.frame_depth
         self._make_prologue(regalloc_head, frame_depth)
      
+        direct_bootstrap_code = self.mc.currpos()
+        self.gen_direct_bootstrap_code(loophead, looptoken, inputargs, frame_depth)
+
         self.write_pending_failure_recoveries()
         loop_start = self.materialize_loop(looptoken, False)
         looptoken._ppc_bootstrap_code = loop_start
+        looptoken._ppc_direct_bootstrap_code = loop_start + direct_bootstrap_code
         real_start = loop_start + start_pos
         if IS_PPC_32:
             looptoken.ppc_code = real_start
@@ -621,7 +709,7 @@ class AssemblerPPC(OpAssembler):
             if op.has_no_side_effect() and op.result not in regalloc.longevity:
                 regalloc.possibly_free_vars_for_op(op)
             elif self.can_merge_with_next_guard(op, pos, operations)\
-                    and opnum == rop.CALL_RELEASE_GIL:  # XXX fix  
+                    and opnum in (rop.CALL_RELEASE_GIL, rop.CALL_ASSEMBLER):  # XXX fix  
                 regalloc.next_instruction()
                 arglocs = regalloc.operations_with_guard[opnum](regalloc, op,
                                         operations[pos+1])
@@ -800,6 +888,7 @@ class AssemblerPPC(OpAssembler):
                 return
             assert 0, "not supported location"
         assert 0, "not supported location"
+    mov_loc_loc = regalloc_mov
 
     def regalloc_push(self, loc):
         """Pushes the value stored in loc to the stack
@@ -894,11 +983,11 @@ class AssemblerPPC(OpAssembler):
             return 0
 
     def _write_fail_index(self, fail_index):
-        self.mc.load_imm(r.r0.value, fail_index)
+        self.mc.load_imm(r.r0, fail_index)
         if IS_PPC_32:
-            self.mc.stw(r.r0.value, r.SSP.value, 0)
+            self.mc.stw(r.r0.value, r.SPP.value, 0)
         else:
-            self.mc.std(r.r0.value, r.SSP.value, 0)
+            self.mc.std(r.r0.value, r.SPP.value, 0)
             
     def load(self, loc, value):
         assert loc.is_reg() and value.is_imm()

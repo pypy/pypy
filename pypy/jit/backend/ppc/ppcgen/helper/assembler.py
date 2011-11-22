@@ -1,8 +1,9 @@
 import pypy.jit.backend.ppc.ppcgen.condition as c
 from pypy.rlib.rarithmetic import r_uint, r_longlong, intmask
-from pypy.jit.backend.ppc.ppcgen.arch import MAX_REG_PARAMS, IS_PPC_32
+from pypy.jit.backend.ppc.ppcgen.arch import MAX_REG_PARAMS, IS_PPC_32, WORD
 from pypy.jit.metainterp.history import FLOAT
 from pypy.rlib.unroll import unrolling_iterable
+import pypy.jit.backend.ppc.ppcgen.register as r
 
 def gen_emit_cmp_op(condition, signed=True):
     def f(self, op, arglocs, regalloc):
@@ -86,20 +87,28 @@ def count_reg_args(args):
 
 class saved_registers(object):
     def __init__(self, assembler, regs_to_save, regalloc=None):
-        self.assembler = assembler
+        self.mc = assembler
         self.regalloc = regalloc
         if self.regalloc:
-            self._filter_regs(regs_to_save, vfp_regs_to_save)
+            assert 0, "not implemented yet"
         else:
             self.regs = regs_to_save
 
     def __enter__(self):
         if len(self.regs) > 0:
-            self.assembler.PUSH([r.value for r in self.regs])
+            space = WORD * len(self.regs)
+            self.mc.addi(r.SP.value, r.SP.value, -space)
+            for i, reg in enumerate(self.regs):
+                if IS_PPC_32:
+                    self.mc.stw(reg.value, r.SP.value, i * WORD)
+                else:
+                    self.mc.std(reg.value, r.SP.value, i * WORD)
 
-    def _filter_regs(self, regs_to_save, vfp_regs_to_save):
-        regs = []
-        for box, reg in self.regalloc.rm.reg_bindings.iteritems():
-            if reg is r.ip or (reg in regs_to_save and self.regalloc.stays_alive(box)):
-                regs.append(reg)
-        self.regs = regs
+    def __exit__(self, *args):
+        if len(self.regs) > 0:
+            space = WORD * len(self.regs)
+            for i, reg in enumerate(self.regs):
+                if IS_PPC_32:
+                    self.mc.lwz(reg.value, r.SP.value, i * WORD)
+                else:
+                    self.mc.ld(reg.value, r.SP.value, i * WORD)

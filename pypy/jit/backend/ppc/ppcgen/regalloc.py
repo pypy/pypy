@@ -238,6 +238,12 @@ class Regalloc(object):
         return self.rm.make_sure_var_in_reg(var, forbidden_vars,
                 selected_reg, need_lower_byte)
 
+    def _sync_var(self, v):
+        if v.type == FLOAT:
+            assert 0, "not implemented yet"
+        else:
+            self.rm._sync_var(v)
+
     # ******************************************************
     # *         P R E P A R E  O P E R A T I O N S         * 
     # ******************************************************
@@ -714,6 +720,21 @@ class Regalloc(object):
 
     prepare_debug_merge_point = void
     prepare_jit_debug = void
+
+    def prepare_guard_call_assembler(self, op, guard_op):
+        descr = op.getdescr()
+        assert isinstance(descr, LoopToken)
+        jd = descr.outermost_jitdriver_sd
+        assert jd is not None
+        size = jd.portal_calldescr.get_result_size(self.cpu.translate_support_code)
+        vable_index = jd.index_of_virtualizable
+        if vable_index >= 0:
+            self._sync_var(op.getarg(vable_index))
+            vable = self.frame_manager.loc(op.getarg(vable_index))
+        else:
+            vable = imm(0)
+        self.possibly_free_vars(guard_op.getfailargs())
+        return [imm(size), vable]
 
     def _prepare_args_for_new_op(self, new_args):
         gc_ll_descr = self.cpu.gc_ll_descr

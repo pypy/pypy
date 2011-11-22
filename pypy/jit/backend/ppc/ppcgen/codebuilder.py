@@ -928,6 +928,21 @@ class GuardToken(object):
         self.faillocs = faillocs
         self.save_exc = save_exc
 
+class OverwritingBuilder(PPCAssembler):
+    def __init__(self, cb, start, size):
+        PPCAssembler.__init__(self)
+        self.cb = cb
+        self.index = start
+        self.end = start + size
+
+    def currpos(self):
+        return self.index
+
+    def writechar(self, char):
+        assert self.index <= self.end
+        self.cb.overwrite(self.index, char)
+        self.index += 1
+
 class PPCBuilder(BlockBuilderMixin, PPCAssembler):
     def __init__(self, failargs_limit=1000, r0_in_use=False):
         PPCAssembler.__init__(self)
@@ -963,6 +978,12 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
             self.stwx(source_reg.value, 0, r.r0.value)
         else:
             self.stdx(source_reg.value, 0, r.r0.value)
+
+    def b_offset(self, offset):
+        curpos = self.currpos()
+        target_ofs = offset - curpos
+        assert target_ofs < (1 << 24)
+        self.b(target_ofs)
 
     def b_cond_offset(self, offset, condition):
         pos = self.currpos()
