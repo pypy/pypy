@@ -335,6 +335,14 @@ def test_int_real_union():
     from pypy.rpython.lltypesystem.rffi import r_int_real
     assert compute_restype(r_int_real, r_int_real) is r_int_real
 
+def test_compute_restype_incompatible():
+    from pypy.rpython.lltypesystem.rffi import r_int_real, r_short, r_ushort
+    testcases = [(r_uint, r_longlong), (r_int_real, r_uint),
+                (r_short, r_ushort), (r_ushort, r_uint)]
+    for t1, t2 in testcases:
+        py.test.raises(AssertionError, compute_restype, t1, t2)
+        py.test.raises(AssertionError, compute_restype, t2, t1)
+
 def test_most_neg_value_of():
     assert most_neg_value_of_same_type(123) == -sys.maxint-1
     assert most_neg_value_of_same_type(r_uint(123)) == 0
