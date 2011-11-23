@@ -91,8 +91,9 @@ class MsvcPlatform(Platform):
     standalone_only = ()
     shared_only = ()
     environ = None
-
+    
     def __init__(self, cc=None, x64=False):
+        self.x64 = x64
         if x64:
             msvc_compiler_environ = msvc_compiler_environ64
         else:
@@ -302,7 +303,10 @@ class MsvcPlatform(Platform):
             ('CC_LINK', self.link),
             ('LINKFILES', eci.link_files),
             ('MASM', self.masm),
+            ('_WIN32', '1'),
             ]
+        if self.x64:
+            definitions.append(('_WIN64', '1'))
 
         for args in definitions:
             m.definition(*args)
