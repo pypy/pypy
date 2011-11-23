@@ -53,7 +53,7 @@ class TestNumpyJIt(LLJitMixin):
         """)
         self.check_resops({'setarrayitem_raw': 2, 'getfield_gc': 11,
                            'guard_class': 7, 'guard_true': 2,
-                           'guard_isnull': 1, 'jump': 2, 'int_lt': 2,
+                           'guard_isnull': 1, 'jump': 1, 'int_lt': 2,
                            'float_add': 2, 'int_add': 2, 'guard_value': 1,
                            'getarrayitem_raw': 4})
         assert result == 3 + 3
@@ -66,7 +66,7 @@ class TestNumpyJIt(LLJitMixin):
         assert result == 3 + 3
         self.check_resops({'setarrayitem_raw': 2, 'getfield_gc': 11,
                            'guard_class': 7, 'guard_true': 2,
-                           'guard_isnull': 1, 'jump': 2, 'int_lt': 2,
+                           'guard_isnull': 1, 'jump': 1, 'int_lt': 2,
                            'float_add': 2, 'int_add': 2, 'guard_value': 1,
                            'getarrayitem_raw': 2})
 
@@ -78,7 +78,7 @@ class TestNumpyJIt(LLJitMixin):
         """)
         assert result == 2 * sum(range(30))
         self.check_resops({'guard_class': 7, 'getfield_gc': 11,
-                           'guard_true': 2, 'jump': 2, 'getarrayitem_raw': 4,
+                           'guard_true': 2, 'jump': 1, 'getarrayitem_raw': 4,
                            'guard_value': 2, 'guard_isnull': 1, 'int_lt': 2,
                            'float_add': 4, 'int_add': 2})
 
@@ -94,7 +94,7 @@ class TestNumpyJIt(LLJitMixin):
         assert result == expected
         self.check_resops({'int_lt': 2, 'getfield_gc': 11, 'guard_class': 7,
                            'float_mul': 2, 'guard_true': 2, 'guard_isnull': 1,
-                           'jump': 2, 'getarrayitem_raw': 4, 'float_add': 2,
+                           'jump': 1, 'getarrayitem_raw': 4, 'float_add': 2,
                            'int_add': 2, 'guard_value': 2})
 
     def test_max(self):
@@ -133,7 +133,7 @@ class TestNumpyJIt(LLJitMixin):
         assert result == 1
         self.check_resops({'int_lt': 2, 'getfield_gc': 9, 'guard_class': 7,
                            'guard_value': 1, 'int_add': 2, 'guard_true': 2,
-                           'guard_isnull': 1, 'jump': 2, 'getarrayitem_raw': 4,
+                           'guard_isnull': 1, 'jump': 1, 'getarrayitem_raw': 4,
                            'float_add': 2, 'guard_false': 2, 'float_ne': 2})
 
     def test_already_forced(self):
@@ -151,7 +151,7 @@ class TestNumpyJIt(LLJitMixin):
         self.check_resops({'setarrayitem_raw': 4, 'guard_nonnull': 1,
                            'getfield_gc': 23, 'guard_class': 14,
                            'guard_true': 4, 'float_mul': 2, 'guard_isnull': 2,
-                           'jump': 4, 'int_lt': 4, 'float_add': 2,
+                           'jump': 2, 'int_lt': 4, 'float_add': 2,
                            'int_add': 4, 'guard_value': 2,
                            'getarrayitem_raw': 4})
 
@@ -165,7 +165,7 @@ class TestNumpyJIt(LLJitMixin):
         assert result == -6
         self.check_resops({'setarrayitem_raw': 2, 'getfield_gc': 15,
                            'guard_class': 9, 'float_neg': 2, 'guard_true': 2,
-                           'guard_isnull': 2, 'jump': 2, 'int_lt': 2,
+                           'guard_isnull': 2, 'jump': 1, 'int_lt': 2,
                            'float_add': 2, 'int_add': 2, 'guard_value': 2,
                            'getarrayitem_raw': 4})
 
@@ -189,7 +189,7 @@ class TestNumpyJIt(LLJitMixin):
         d -> 3
         """)
         # This is 3, not 2 because there is a bridge for the exit.
-        self.check_loop_count(3)
+        self.check_trace_count(3)
 
 
 class TestNumpyOld(LLJitMixin):
@@ -213,7 +213,7 @@ class TestNumpyOld(LLJitMixin):
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
         self.check_resops({'setarrayitem_raw': 2, 'getfield_gc': 9,
-                           'guard_true': 2, 'guard_isnull': 1, 'jump': 2,
+                           'guard_true': 2, 'guard_isnull': 1, 'jump': 1,
                            'int_lt': 2, 'float_add': 2, 'int_mul': 2,
                            'int_add': 2, 'guard_value': 1,
                            'getarrayitem_raw': 4})
@@ -237,7 +237,7 @@ class TestNumpyOld(LLJitMixin):
 
         result = self.meta_interp(f, [5], listops=True, backendopt=True)
         self.check_resops({'setarrayitem_raw': 2, 'getfield_gc': 11,
-                           'guard_true': 2, 'guard_isnull': 1, 'jump': 2,
+                           'guard_true': 2, 'guard_isnull': 1, 'jump': 1,
                            'int_lt': 2, 'float_add': 2, 'int_mul': 4,
                            'int_add': 2, 'guard_value': 1,
                            'getarrayitem_raw': 4})
@@ -260,7 +260,7 @@ class TestNumpyOld(LLJitMixin):
         self.check_resops({'int_is_true': 1, 'setarrayitem_raw': 2,
                            'guard_nonnull': 1, 'getfield_gc': 9,
                            'guard_false': 1, 'guard_true': 3,
-                           'guard_isnull': 1, 'jump': 2, 'int_lt': 2,
+                           'guard_isnull': 1, 'jump': 1, 'int_lt': 2,
                            'float_add': 2, 'int_gt': 1, 'int_add': 4,
                            'guard_value': 1, 'getarrayitem_raw': 4})
         assert result == 11.0
