@@ -119,7 +119,7 @@ class BaseTestOparser(object):
         jump()
         '''
         loop = self.parse(x)
-        assert loop.operations[0].getdescr() is loop.token
+        assert loop.operations[0].getdescr() is loop.original_jitcell_token
 
     def test_jump_target_other(self):
         looptoken = JitCellToken()
