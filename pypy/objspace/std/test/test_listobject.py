@@ -779,6 +779,32 @@ class AppTestW_ListObject(object):
         l[::3] = ('a', 'b')
         assert l == ['a', 1, 2, 'b', 4, 5]
 
+    def test_setslice_with_self(self):
+        l = [1,2,3,4]
+        l[:] = l
+        assert l == [1,2,3,4]
+
+        l = [1,2,3,4]
+        l[0:2] = l
+        assert l == [1,2,3,4,3,4]
+
+        l = [1,2,3,4]
+        l[0:2] = l
+        assert l == [1,2,3,4,3,4]
+
+        l = [1,2,3,4,5,6,7,8,9,10]
+        raises(ValueError, "l[5::-1] = l")
+
+        l = [1,2,3,4,5,6,7,8,9,10]
+        raises(ValueError, "l[::2] = l")
+
+        l = [1,2,3,4,5,6,7,8,9,10]
+        l[5:] = l
+        assert l == [1,2,3,4,5,1,2,3,4,5,6,7,8,9,10]
+
+        l = [1,2,3,4,5,6]
+        l[::-1] = l
+        assert l == [6,5,4,3,2,1]
 
     def test_recursive_repr(self):
         l = []

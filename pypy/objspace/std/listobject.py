@@ -774,7 +774,6 @@ class AbstractUnwrappedStrategy(object):
             # self.unerase is valid for both of them
             other_items = self.unerase(w_other.lstorage)
         if other_items is items:
-            XXX # untested paths
             if step > 0:
                 # Always copy starting from the right to avoid
                 # having to make a shallow copy in the case where
