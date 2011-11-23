@@ -261,6 +261,9 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
 
         if t1 is t2:
             knowntype = t1
+        elif (t1 is int and t2 is rarithmetic.r_int) or (
+              t2 is int and t1 is rarithmetic.r_int):
+            knowntype = rarithmetic.r_int
         elif t2 is int:
             if not int2.is_constant():
                raise UnionError, "Merging %s and a non-constant int is not allowed" % t1
