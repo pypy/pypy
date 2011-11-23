@@ -68,7 +68,7 @@ class W_Ufunc(Wrappable):
                 raise operationerrfmt(space.w_ValueError, "zero-size array to "
                     "%s.reduce without identity", self.name)
             value = obj.eval(start).convert_to(dtype)
-            start.next()
+            start = start.next()
         else:
             value = self.identity.convert_to(dtype)
         new_sig = signature.Signature.find_sig([
@@ -82,7 +82,7 @@ class W_Ufunc(Wrappable):
                                           value=value, obj=obj, i=i,
                                           dtype=dtype)
             value = self.func(dtype, value, obj.eval(i).convert_to(dtype))
-            i.next()
+            i = i.next()
         return value
 
 class W_Ufunc1(W_Ufunc):

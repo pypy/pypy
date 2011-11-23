@@ -7,6 +7,7 @@ from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder
+from pypy.rlib.objectmodel import instantiate
 
 numpy_driver = jit.JitDriver(greens=['signature'],
                              reds=['result_size', 'i', 'ri', 'self',
@@ -122,7 +123,7 @@ def descr_new_array(space, w_subtype, w_item_or_iterable, w_dtype=None,
     for i in range(len(elems_w)):
         w_elem = elems_w[i]
         dtype.setitem_w(space, arr.storage, arr_iter.offset, w_elem)
-        arr_iter.next()
+        arr_iter = arr_iter.next()
     return arr
 
 class BaseIterator(object):
@@ -141,7 +142,10 @@ class ArrayIterator(BaseIterator):
         self.size = size
 
     def next(self):
-        self.offset += 1
+        arr = instantiate(ArrayIterator)
+        arr.size = self.size
+        arr.offset = self.offset + 1
+        return arr
 
     def done(self):
         return self.offset >= self.size
@@ -170,6 +174,7 @@ class ViewIterator(BaseIterator):
                 self.offset -= self.arr.backstrides[i]
         else:
             self._done = True
+        return self
 
     def done(self):
         return self._done
@@ -215,6 +220,7 @@ class BroadcastIterator(BaseIterator):
                 self.offset -= self.backstrides[i]
         else:
             self._done = True
+        return self
 
     def done(self):
         return self._done
@@ -228,11 +234,12 @@ class Call2Iterator(BaseIterator):
         self.right = right
 
     def next(self):
-        self.left.next()
-        self.right.next()
+        return Call2Iterator(self.left.next(), self.right.next())
 
     def done(self):
-        return self.left.done() or self.right.done()
+        if isinstance(self.left, ConstantIterator):
+            return self.right.done()
+        return self.left.done()
 
     def get_offset(self):
         if isinstance(self.left, ConstantIterator):
@@ -244,7 +251,7 @@ class Call1Iterator(BaseIterator):
         self.child = child
 
     def next(self):
-        self.child.next()
+        return Call1Iterator(self.child.next())
 
     def done(self):
         return self.child.done()
@@ -254,7 +261,7 @@ class Call1Iterator(BaseIterator):
 
 class ConstantIterator(BaseIterator):
     def next(self):
-        pass
+        return self
 
     def done(self):
         return False
@@ -377,7 +384,7 @@ class BaseArray(Wrappable):
                 if dtype.ne(new_best, cur_best):
                     result = i.get_offset()
                     cur_best = new_best
-                i.next()
+                i = i.next()
             return result
         def impl(self, space):
             size = self.find_size()
@@ -395,7 +402,7 @@ class BaseArray(Wrappable):
             all_driver.jit_merge_point(signature=self.signature, self=self, dtype=dtype, i=i)
             if not dtype.bool(self.eval(i)):
                 return False
-            i.next()
+            i = i.next()
         return True
     def descr_all(self, space):
         return space.wrap(self._all())
@@ -408,7 +415,7 @@ class BaseArray(Wrappable):
                                        dtype=dtype, i=i)
             if dtype.bool(self.eval(i)):
                 return True
-            i.next()
+            i = i.next()
         return False
     def descr_any(self, space):
         return space.wrap(self._any())
@@ -787,8 +794,8 @@ class VirtualArray(BaseArray):
                                          result_size=result_size, i=i, ri=ri,
                                          self=self, result=result)
             result.dtype.setitem(result.storage, ri.offset, self.eval(i))
-            i.next()
-            ri.next()
+            i = i.next()
+            ri = ri.next()
         return result
 
     def force_if_needed(self):
@@ -967,8 +974,8 @@ class NDimSlice(ViewArray):
                                          source_iter=source_iter)
             self.setitem(res_iter.offset, source.eval(source_iter).convert_to(
                 self.find_dtype()))
-            source_iter.next()
-            res_iter.next()
+            source_iter = source_iter.next()
+            res_iter = res_iter.next()
 
     def start_iter(self, res_shape=None):
         if res_shape is not None and res_shape != self.shape:

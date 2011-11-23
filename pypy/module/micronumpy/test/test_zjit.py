@@ -78,8 +78,8 @@ class TestNumpyJIt(LLJitMixin):
     def test_add(self):
         result = self.run("add")
         self.check_loops({'getarrayitem_raw': 2, 'float_add': 1,
-                          'setarrayitem_raw': 1, 'int_add': 1,
-                          'int_lt': 1, 'guard_true': 1, 'jump': 1})
+                          'setarrayitem_raw': 1, 'int_add': 3,
+                          'int_ge': 1, 'guard_false': 1, 'jump': 1})
         assert result == 3 + 3
 
     def define_float_add():
@@ -92,8 +92,8 @@ class TestNumpyJIt(LLJitMixin):
         result = self.run("float_add")
         assert result == 3 + 3
         self.check_loops({"getarrayitem_raw": 1, "float_add": 1,
-                          "setarrayitem_raw": 1, "int_add": 1,
-                          "int_lt": 1, "guard_true": 1, "jump": 1})
+                          "setarrayitem_raw": 1, "int_add": 2,
+                          "int_ge": 1, "guard_false": 1, "jump": 1})
 
     def define_sum():
         return """
@@ -106,8 +106,8 @@ class TestNumpyJIt(LLJitMixin):
         result = self.run("sum")
         assert result == 2 * sum(range(30))
         self.check_loops({"getarrayitem_raw": 2, "float_add": 2,
-                          "int_add": 1,
-                          "int_lt": 1, "guard_true": 1, "jump": 1})
+                          "int_add": 2,
+                          "int_ge": 1, "guard_false": 1, "jump": 1})
 
     def define_prod():
         return """
@@ -123,8 +123,8 @@ class TestNumpyJIt(LLJitMixin):
             expected *= i * 2
         assert result == expected
         self.check_loops({"getarrayitem_raw": 2, "float_add": 1,
-                          "float_mul": 1, "int_add": 1,
-                          "int_lt": 1, "guard_true": 1, "jump": 1})
+                          "float_mul": 1, "int_add": 2,
+                          "int_ge": 1, "guard_false": 1, "jump": 1})
 
     def test_max(self):
         py.test.skip("broken, investigate")
@@ -164,9 +164,9 @@ class TestNumpyJIt(LLJitMixin):
         result = self.run("any")
         assert result == 1
         self.check_loops({"getarrayitem_raw": 2, "float_add": 1,
-                          "float_ne": 1, "int_add": 1,
-                          "int_lt": 1, "guard_true": 1, "jump": 1,
-                          "guard_false": 1})
+                          "float_ne": 1, "int_add": 2,
+                          "int_ge": 1, "jump": 1,
+                          "guard_false": 2})
 
     def define_already_forced():
         return """
@@ -184,8 +184,8 @@ class TestNumpyJIt(LLJitMixin):
         # optimization then you end up with 2 float_adds, so we can still be
         # sure it was optimized correctly.
         self.check_loops({"getarrayitem_raw": 2, "float_mul": 1, "float_add": 1,
-                           "setarrayitem_raw": 2, "int_add": 2,
-                           "int_lt": 2, "guard_true": 2, "jump": 2})
+                           "setarrayitem_raw": 2, "int_add": 4,
+                           "int_ge": 2, "guard_false": 2, "jump": 2})
 
     def define_ufunc():
         return """
@@ -199,8 +199,8 @@ class TestNumpyJIt(LLJitMixin):
         result = self.run("ufunc")
         assert result == -6
         self.check_loops({"getarrayitem_raw": 2, "float_add": 1, "float_neg": 1,
-                          "setarrayitem_raw": 1, "int_add": 1,
-                          "int_lt": 1, "guard_true": 1, "jump": 1,
+                          "setarrayitem_raw": 1, "int_add": 3,
+                          "int_ge": 1, "guard_false": 1, "jump": 1,
         })
 
     def define_specialization():
