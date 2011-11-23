@@ -1,6 +1,7 @@
 import pypy.jit.backend.ppc.ppcgen.condition as c
 from pypy.rlib.rarithmetic import r_uint, r_longlong, intmask
-from pypy.jit.backend.ppc.ppcgen.arch import MAX_REG_PARAMS, IS_PPC_32, WORD
+from pypy.jit.backend.ppc.ppcgen.arch import (MAX_REG_PARAMS, IS_PPC_32, WORD,
+                                              BACKCHAIN_SIZE)
 from pypy.jit.metainterp.history import FLOAT
 from pypy.rlib.unroll import unrolling_iterable
 import pypy.jit.backend.ppc.ppcgen.register as r
@@ -96,19 +97,28 @@ class saved_registers(object):
 
     def __enter__(self):
         if len(self.regs) > 0:
-            space = WORD * len(self.regs)
-            self.mc.addi(r.SP.value, r.SP.value, -space)
+            if IS_PPC_32:
+                space = BACKCHAIN_SIZE + WORD * len(self.regs)
+                self.mc.stwu(r.SP.value, r.SP.value, -space)
+            else:
+                space = (6 + MAX_REG_PARAMS + len(self.regs)) * WORD
+                self.mc.stdu(r.SP.value, r.SP.value, -space)
             for i, reg in enumerate(self.regs):
                 if IS_PPC_32:
-                    self.mc.stw(reg.value, r.SP.value, i * WORD)
+                    self.mc.stw(reg.value, r.SP.value, BACKCHAIN_SIZE + i * WORD)
                 else:
-                    self.mc.std(reg.value, r.SP.value, i * WORD)
+                    self.mc.std(reg.value, r.SP.value, (14 + i) * WORD)
 
     def __exit__(self, *args):
         if len(self.regs) > 0:
-            space = WORD * len(self.regs)
             for i, reg in enumerate(self.regs):
                 if IS_PPC_32:
-                    self.mc.lwz(reg.value, r.SP.value, i * WORD)
+                    self.mc.lwz(reg.value, r.SP.value, BACKCHAIN_SIZE + i * WORD)
                 else:
-                    self.mc.ld(reg.value, r.SP.value, i * WORD)
+                    self.mc.ld(reg.value, r.SP.value, (14 + i) * WORD)
+            if IS_PPC_32:
+                space = BACKCHAIN_SIZE + WORD * len(self.regs)
+            else:
+                space = (6 + MAX_REG_PARAMS + len(self.regs)) * WORD
+            self.mc.addi(r.SP.value, r.SP.value, space)
+
