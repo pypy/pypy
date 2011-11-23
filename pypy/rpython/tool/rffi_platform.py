@@ -784,9 +784,15 @@ def configure_boehm(platform=None):
     if platform is None:
         from pypy.translator.platform import platform
     if sys.platform == 'win32':
-        library_dir = 'Release'
-        libraries = ['gc']
-        includes=['gc.h']
+        import platform as host_platform # just to ask for the arch. Confusion-alert!
+        if host_platform.architecture()[0] == '32bit':
+            library_dir = 'Release'
+            libraries = ['gc']
+            includes=['gc.h']
+        else:
+            library_dir = ''
+            libraries = ['gc64_dll']
+            includes = ['gc.h']
     else:
         library_dir = ''
         libraries = ['gc', 'dl']
