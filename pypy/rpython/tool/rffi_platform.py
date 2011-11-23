@@ -704,9 +704,13 @@ def run_example_code(filepath, eci, ignore_errors=False):
 PYPY_EXTERNAL_DIR = py.path.local(pypydir).join('..', '..')
 # XXX make this configurable
 if sys.platform == 'win32':
-    libdir = py.path.local('c:/buildslave/support') # on the bigboard buildbot
-    if libdir.check():
-        PYPY_EXTERNAL_DIR = libdir
+    for libdir in [
+        py.path.local('c:/buildslave/support'), # on the bigboard buildbot
+        py.path.local('d:/myslave'), # on the snakepit buildbot
+        ]:
+        if libdir.check():
+            PYPY_EXTERNAL_DIR = libdir
+            break
 
 def configure_external_library(name, eci, configurations,
                                symbol=None, _cache={}):
