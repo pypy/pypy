@@ -163,11 +163,11 @@ class ViewIterator(BaseIterator):
         for i in range(shape_len - 1, -1, -1):
             if self.indices[i] < self.arr.shape[i] - 1:
                 self.indices[i] += 1
-                self.offset += self.arr.shards[i]
+                self.offset += self.arr.strides[i]
                 break
             else:
                 self.indices[i] = 0
-                self.offset -= self.arr.backshards[i]
+                self.offset -= self.arr.backstrides[i]
         else:
             self._done = True
 
@@ -185,20 +185,20 @@ class BroadcastIterator(BaseIterator):
     def __init__(self, arr, res_shape):
         self.indices = [0] * len(res_shape)
         self.offset  = arr.start
-        #shards are 0 where original shape==1
-        self.shards = []
-        self.backshards = []
+        #strides are 0 where original shape==1
+        self.strides = []
+        self.backstrides = []
         for i in range(len(arr.shape)):
             if arr.shape[i]==1:
-                self.shards.append(0)
-                self.backshards.append(0)
+                self.strides.append(0)
+                self.backstrides.append(0)
             else:
-                self.shards.append(arr.shards[i])
-                self.backshards.append(arr.backshards[i])
+                self.strides.append(arr.strides[i])
+                self.backstrides.append(arr.backstrides[i])
         self.shape_len = len(res_shape)
         self.res_shape = res_shape
-        self.shards = [0] * (len(res_shape) - len(arr.shape)) + self.shards
-        self.backshards = [0] * (len(res_shape) - len(arr.shape)) + self.backshards
+        self.strides = [0] * (len(res_shape) - len(arr.shape)) + self.strides
+        self.backstrides = [0] * (len(res_shape) - len(arr.shape)) + self.backstrides
         self._done = False
         self.arr = arr
 
@@ -208,11 +208,11 @@ class BroadcastIterator(BaseIterator):
         for i in range(shape_len - 1, -1, -1):
             if self.indices[i] < self.res_shape[i] - 1:
                 self.indices[i] += 1
-                self.offset += self.shards[i]
+                self.offset += self.strides[i]
                 break
             else:
                 self.indices[i] = 0
-                self.offset -= self.backshards[i]
+                self.offset -= self.backstrides[i]
         else:
             self._done = True
 
@@ -263,35 +263,35 @@ class ConstantIterator(BaseIterator):
         return 0
 
 class BaseArray(Wrappable):
-    _attrs_ = ["invalidates", "signature", "shape", "shards", "backshards",
+    _attrs_ = ["invalidates", "signature", "shape", "strides", "backstrides",
                "start", 'order']
 
-    _immutable_fields_ = ['shape[*]', "shards[*]", "backshards[*]", 'start',
+    _immutable_fields_ = ['shape[*]', "strides[*]", "backstrides[*]", 'start',
                           "order"]
 
-    shards = None
+    strides = None
     start = 0
 
     def __init__(self, shape, order):
         self.invalidates = []
         self.shape = shape
         self.order = order
-        if self.shards is None:
-            shards = []
-            backshards = []
+        if self.strides is None:
+            strides = []
+            backstrides = []
             s = 1
             shape_rev = shape[:]
             if order == 'C':
                 shape_rev.reverse()
             for sh in shape_rev:
-                shards.append(s)
-                backshards.append(s * (sh - 1))
+                strides.append(s)
+                backstrides.append(s * (sh - 1))
                 s *= sh
             if order == 'C':
-                shards.reverse()
-                backshards.reverse()
-            self.shards = shards[:]
-            self.backshards = backshards[:]
+                strides.reverse()
+                backstrides.reverse()
+            self.strides = strides[:]
+            self.backstrides = backstrides[:]
 
     def invalidated(self):
         if self.invalidates:
@@ -525,11 +525,11 @@ class BaseArray(Wrappable):
                     else:
                         builder.append(spacer)
                     builder.append(dtype.str_format(self.getitem(item)))
-                    item += self.shards[0]
+                    item += self.strides[0]
                 #Add a comma only if comma is False - this prevents adding two commas
                 builder.append(spacer + '...' + ',' * (1 - comma))
                 #Ugly, but can this be done with an iterator?
-                item = self.start + self.backshards[0] - 2 * self.shards[0]
+                item = self.start + self.backstrides[0] - 2 * self.strides[0]
                 i = self.shape[0] - 3
             while i < self.shape[0]:
                 if start:
@@ -537,7 +537,7 @@ class BaseArray(Wrappable):
                 else:
                     builder.append(spacer)
                 builder.append(dtype.str_format(self.getitem(item)))
-                item += self.shards[0]
+                item += self.strides[0]
                 i += 1
         else:
             builder.append('[')
@@ -562,7 +562,7 @@ class BaseArray(Wrappable):
             if idx < 0 or idx >= self.shape[0]:
                 raise OperationError(space.w_IndexError,
                                      space.wrap("index out of range"))
-            return self.start + idx * self.shards[0]
+            return self.start + idx * self.strides[0]
         index = [space.int_w(w_item)
                  for w_item in space.fixedview(w_idx)]
         item = self.start
@@ -573,7 +573,7 @@ class BaseArray(Wrappable):
             if v < 0 or v >= self.shape[i]:
                 raise OperationError(space.w_IndexError,
                                      space.wrap("index (%d) out of range (0<=index<%d" % (i, self.shape[i])))
-            item += v * self.shards[i]
+            item += v * self.strides[i]
         return item
 
     def get_root_shape(self):
@@ -651,33 +651,33 @@ class BaseArray(Wrappable):
             start, stop, step, lgt = chunks[0]
             if step == 0:
                 shape = self.shape[1:]
-                shards = self.shards[1:]
-                backshards = self.backshards[1:]
+                strides = self.strides[1:]
+                backstrides = self.backstrides[1:]
             else:
                 shape = [lgt] + self.shape[1:]
-                shards = [self.shards[0] * step] + self.shards[1:]
-                backshards = [(lgt - 1) * self.shards[0] * step] + self.backshards[1:]
-            start *= self.shards[0]
+                strides = [self.strides[0] * step] + self.strides[1:]
+                backstrides = [(lgt - 1) * self.strides[0] * step] + self.backstrides[1:]
+            start *= self.strides[0]
             start += self.start
         else:
             shape = []
-            shards = []
-            backshards = []
+            strides = []
+            backstrides = []
             start = self.start
             i = -1
             for i, (start_, stop, step, lgt) in enumerate(chunks):
                 if step != 0:
                     shape.append(lgt)
-                    shards.append(self.shards[i] * step)
-                    backshards.append(self.shards[i] * (lgt - 1) * step)
-                start += self.shards[i] * start_
+                    strides.append(self.strides[i] * step)
+                    backstrides.append(self.strides[i] * (lgt - 1) * step)
+                start += self.strides[i] * start_
             # add a reminder
             s = i + 1
             assert s >= 0
             shape += self.shape[s:]
-            shards += self.shards[s:]
-            backshards += self.backshards[s:]
-        return NDimSlice(self, new_sig, start, shards[:], backshards[:],
+            strides += self.strides[s:]
+            backstrides += self.backstrides[s:]
+        return NDimSlice(self, new_sig, start, strides[:], backstrides[:],
                          shape[:])
 
     def descr_mean(self, space):
@@ -702,9 +702,9 @@ class BaseArray(Wrappable):
     def compute_index(self, space, offset):
         offset -= self.start
         if len(self.shape) == 1:
-            return space.wrap(offset // self.shards[0])
+            return space.wrap(offset // self.strides[0])
         indices_w = []
-        for shard in self.shards:
+        for shard in self.strides:
             r = offset // shard
             indices_w.append(space.wrap(r))
             offset -= shard * r
@@ -894,9 +894,9 @@ class ViewArray(BaseArray):
     Class for representing views of arrays, they will reflect changes of parent
     arrays. Example: slices
     """
-    def __init__(self, parent, signature, shards, backshards, shape):
-        self.shards = shards
-        self.backshards = backshards
+    def __init__(self, parent, signature, strides, backstrides, shape):
+        self.strides = strides
+        self.backstrides = backstrides
         BaseArray.__init__(self, shape, parent.order)
         self.signature = signature
         self.parent = parent
@@ -934,11 +934,11 @@ class VirtualView(VirtualArray):
 class NDimSlice(ViewArray):
     signature = signature.BaseSignature()
 
-    def __init__(self, parent, signature, start, shards, backshards,
+    def __init__(self, parent, signature, start, strides, backstrides,
                  shape):
         if isinstance(parent, NDimSlice):
             parent = parent.parent
-        ViewArray.__init__(self, parent, signature, shards, backshards, shape)
+        ViewArray.__init__(self, parent, signature, strides, backstrides, shape)
         self.start = start
         self.size = 1
         for sh in shape:

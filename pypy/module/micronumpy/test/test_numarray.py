@@ -24,31 +24,31 @@ class TestNumArrayDirect(object):
                 args_w.append(arg)
         return self.space.newtuple(args_w)
 
-    def test_shards_f(self):
+    def test_strides_f(self):
         a = NDimArray(100, [10, 5, 3], MockDtype(), 'F')
-        assert a.shards == [1, 10, 50]
-        assert a.backshards == [9, 40, 100]
+        assert a.strides == [1, 10, 50]
+        assert a.backstrides == [9, 40, 100]
 
-    def test_shards_c(self):
+    def test_strides_c(self):
         a = NDimArray(100, [10, 5, 3], MockDtype(), 'C')
-        assert a.shards == [15, 3, 1]
-        assert a.backshards == [135, 12, 2]
+        assert a.strides == [15, 3, 1]
+        assert a.backstrides == [135, 12, 2]
 
     def test_create_slice_f(self):
         space = self.space
         a = NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'F')
         s = a.create_slice(space, [(3, 0, 0, 1)])
         assert s.start == 3
-        assert s.shards == [10, 50]
-        assert s.backshards == [40, 100]
+        assert s.strides == [10, 50]
+        assert s.backstrides == [40, 100]
         s = a.create_slice(space, [(1, 9, 2, 4)])
         assert s.start == 1
-        assert s.shards == [2, 10, 50]
-        assert s.backshards == [6, 40, 100]
+        assert s.strides == [2, 10, 50]
+        assert s.backstrides == [6, 40, 100]
         s = a.create_slice(space, [(1, 5, 3, 2), (1, 2, 1, 1), (1, 0, 0, 1)])
         assert s.shape == [2, 1]
-        assert s.shards == [3, 10]
-        assert s.backshards == [3, 0]
+        assert s.strides == [3, 10]
+        assert s.backstrides == [3, 0]
         s = a.create_slice(space, [(0, 10, 1, 10), (2, 0, 0, 1)])
         assert s.start == 20
         assert s.shape == [10, 3]
@@ -58,17 +58,17 @@ class TestNumArrayDirect(object):
         a = NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'C')
         s = a.create_slice(space, [(3, 0, 0, 1)])
         assert s.start == 45
-        assert s.shards == [3, 1]
-        assert s.backshards == [12, 2]
+        assert s.strides == [3, 1]
+        assert s.backstrides == [12, 2]
         s = a.create_slice(space, [(1, 9, 2, 4)])
         assert s.start == 15
-        assert s.shards == [30, 3, 1]
-        assert s.backshards == [90, 12, 2]
+        assert s.strides == [30, 3, 1]
+        assert s.backstrides == [90, 12, 2]
         s = a.create_slice(space, [(1, 5, 3, 2), (1, 2, 1, 1), (1, 0, 0, 1)])
         assert s.start == 19
         assert s.shape == [2, 1]
-        assert s.shards == [45, 3]
-        assert s.backshards == [45, 0]
+        assert s.strides == [45, 3]
+        assert s.backstrides == [45, 0]
         s = a.create_slice(space, [(0, 10, 1, 10), (2, 0, 0, 1)])
         assert s.start == 6
         assert s.shape == [10, 3]
@@ -80,15 +80,15 @@ class TestNumArrayDirect(object):
         assert s.start == 5
         s2 = s.create_slice(space, [(3, 0, 0, 1)])
         assert s2.shape == [3]
-        assert s2.shards == [50]
+        assert s2.strides == [50]
         assert s2.parent is a
-        assert s2.backshards == [100]
+        assert s2.backstrides == [100]
         assert s2.start == 35
         s = a.create_slice(space, [(1, 5, 3, 2)])
         s2 = s.create_slice(space, [(0, 2, 1, 2), (2, 0, 0, 1)])
         assert s2.shape == [2, 3]
-        assert s2.shards == [3, 50]
-        assert s2.backshards == [3, 100]
+        assert s2.strides == [3, 50]
+        assert s2.backstrides == [3, 100]
         assert s2.start == 1 * 15 + 2 * 3
 
     def test_slice_of_slice_c(self):
@@ -98,15 +98,15 @@ class TestNumArrayDirect(object):
         assert s.start == 15 * 5
         s2 = s.create_slice(space, [(3, 0, 0, 1)])
         assert s2.shape == [3]
-        assert s2.shards == [1]
+        assert s2.strides == [1]
         assert s2.parent is a
-        assert s2.backshards == [2]
+        assert s2.backstrides == [2]
         assert s2.start == 5 * 15 + 3 * 3
         s = a.create_slice(space, [(1, 5, 3, 2)])
         s2 = s.create_slice(space, [(0, 2, 1, 2), (2, 0, 0, 1)])
         assert s2.shape == [2, 3]
-        assert s2.shards == [45, 1]
-        assert s2.backshards == [45, 2]
+        assert s2.strides == [45, 1]
+        assert s2.backstrides == [45, 2]
         assert s2.start == 1 * 15 + 2 * 3
 
     def test_negative_step_f(self):
@@ -114,16 +114,16 @@ class TestNumArrayDirect(object):
         a = NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'F')
         s = a.create_slice(space, [(9, -1, -2, 5)])
         assert s.start == 9
-        assert s.shards == [-2, 10, 50]
-        assert s.backshards == [-8, 40, 100]
+        assert s.strides == [-2, 10, 50]
+        assert s.backstrides == [-8, 40, 100]
 
     def test_negative_step_c(self):
         space = self.space
         a = NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), order='C')
         s = a.create_slice(space, [(9, -1, -2, 5)])
         assert s.start == 135
-        assert s.shards == [-30, 3, 1]
-        assert s.backshards == [-120, 12, 2]
+        assert s.strides == [-30, 3, 1]
+        assert s.backstrides == [-120, 12, 2]
 
     def test_index_of_single_item_f(self):
         a = NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'F')
