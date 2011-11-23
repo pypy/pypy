@@ -893,7 +893,14 @@ class ForceOpAssembler(object):
         with saved_registers(self.mc, r.NONVOLATILES + [r.r3]):
             # resbox is already in r3
             self.mov_loc_loc(arglocs[1], r.r4)
-            self.mc.bl_abs(asm_helper_adr)
+            if IS_PPC_32:
+                self.mc.bl_abs(asm_helper_adr)
+            else:
+                self.mc.load_from_addr(r.r0, asm_helper_adr)
+                self.mc.load_from_addr(r.r2, asm_helper_adr + WORD)
+                self.mc.load_from_addr(r.r11, asm_helper_adr + 2 * WORD)
+                self.mc.mtctr(r.r0.value)
+                self.mc.bctrl()
             if op.result:
                 resloc = regalloc.after_call(op.result)
                 if resloc.is_vfp_reg():
