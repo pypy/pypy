@@ -263,18 +263,18 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
             knowntype = t1
         elif t2 is int:
             if not int2.is_constant():
-               raise Exception, "Merging %s and a non-constant int is not allowed" % t1
+               raise UnionError, "Merging %s and a non-constant int is not allowed" % t1
             knowntype = t1
             # ensure constant int2 is in range of t1
             t1(int2.const)
         elif t1 is int:
             if not int1.is_constant():
-               raise Exception, "Merging %s and a non-constant int is not allowed" % t2
+               raise UnionError, "Merging %s and a non-constant int is not allowed" % t2
             knowntype = t2
             # ensure constant int1 is in range of t2
             t2(int1.const)
         else:
-            raise Exception, "Merging these types (%s, %s) is not supported" % (t1, t2)
+            raise UnionError, "Merging these types (%s, %s) is not supported" % (t1, t2)
         return SomeInteger(nonneg=int1.nonneg and int2.nonneg,
                            knowntype=knowntype)
 
