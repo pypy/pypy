@@ -913,6 +913,9 @@ class FakeOptimizer:
         pass
     def getvalue(*args):
         pass
+    def emit_operation(*args):
+        pass
+
 
 class TestShortBoxes:
     p1 = BoxPtr()
