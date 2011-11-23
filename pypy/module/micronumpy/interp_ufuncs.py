@@ -10,7 +10,7 @@ from pypy.tool.sourcetools import func_with_new_name
 
 reduce_driver = jit.JitDriver(
     greens = ["signature"],
-    reds = ["i", "size", "self", "dtype", "value", "obj"]
+    reds = ["i", "self", "dtype", "value", "obj"]
 )
 
 class W_Ufunc(Wrappable):
@@ -32,11 +32,17 @@ class W_Ufunc(Wrappable):
         return self.identity.wrap(space)
 
     def descr_call(self, space, __args__):
-        try:
-            args_w = __args__.fixedunpack(self.argcount)
-        except ValueError, e:
-            raise OperationError(space.w_TypeError, space.wrap(str(e)))
-        return self.call(space, args_w)
+        if __args__.keywords or len(__args__.arguments_w) < self.argcount:
+            raise OperationError(space.w_ValueError,
+                space.wrap("invalid number of arguments")
+            )
+        elif len(__args__.arguments_w) > self.argcount:
+            # The extra arguments should actually be the output array, but we
+            # don't support that yet.
+            raise OperationError(space.w_TypeError,
+                space.wrap("invalid number of arguments")
+            )
+        return self.call(space, __args__.arguments_w)
 
     def descr_reduce(self, space, w_obj):
         from pypy.module.micronumpy.interp_numarray import convert_to_array, Scalar
@@ -56,28 +62,27 @@ class W_Ufunc(Wrappable):
             space, obj.find_dtype(),
             promote_to_largest=True
         )
-        start = 0
+        start = obj.start_iter(obj.shape)
         if self.identity is None:
             if size == 0:
                 raise operationerrfmt(space.w_ValueError, "zero-size array to "
                     "%s.reduce without identity", self.name)
-            value = obj.eval(0).convert_to(dtype)
-            start += 1
+            value = obj.eval(start).convert_to(dtype)
+            start.next()
         else:
             value = self.identity.convert_to(dtype)
         new_sig = signature.Signature.find_sig([
             self.reduce_signature, obj.signature
         ])
-        return self.reduce(new_sig, start, value, obj, dtype, size).wrap(space)
+        return self.reduce(new_sig, start, value, obj, dtype).wrap(space)
 
-    def reduce(self, signature, start, value, obj, dtype, size):
-        i = start
-        while i < size:
+    def reduce(self, signature, i, value, obj, dtype):
+        while not i.done():
             reduce_driver.jit_merge_point(signature=signature, self=self,
                                           value=value, obj=obj, i=i,
-                                          dtype=dtype, size=size)
+                                          dtype=dtype)
             value = self.func(dtype, value, obj.eval(i).convert_to(dtype))
-            i += 1
+            i.next()
         return value
 
 class W_Ufunc1(W_Ufunc):
@@ -105,7 +110,7 @@ class W_Ufunc1(W_Ufunc):
             return self.func(res_dtype, w_obj.value.convert_to(res_dtype)).wrap(space)
 
         new_sig = signature.Signature.find_sig([self.signature, w_obj.signature])
-        w_res = Call1(new_sig, w_obj.shape, res_dtype, w_obj)
+        w_res = Call1(new_sig, w_obj.shape, res_dtype, w_obj, w_obj.order)
         w_obj.add_invalidates(w_res)
         return w_res
 
@@ -124,7 +129,7 @@ class W_Ufunc2(W_Ufunc):
 
     def call(self, space, args_w):
         from pypy.module.micronumpy.interp_numarray import (Call2,
-            convert_to_array, Scalar)
+            convert_to_array, Scalar, shape_agreement)
 
         [w_lhs, w_rhs] = args_w
         w_lhs = convert_to_array(space, w_lhs)
@@ -147,7 +152,8 @@ class W_Ufunc2(W_Ufunc):
         new_sig = signature.Signature.find_sig([
             self.signature, w_lhs.signature, w_rhs.signature
         ])
-        w_res = Call2(new_sig, w_lhs.shape or w_rhs.shape, calc_dtype,
+        new_shape = shape_agreement(space, w_lhs.shape, w_rhs.shape)
+        w_res = Call2(new_sig, new_shape, calc_dtype,
                       res_dtype, w_lhs, w_rhs)
         w_lhs.add_invalidates(w_res)
         w_rhs.add_invalidates(w_res)

@@ -492,8 +492,8 @@ def ll_dict_delitem(d, key):
     _ll_dict_del(d, i)
 
 # XXX: Move the size checking and resize into a single call which is opauqe to
-# the JIT to avoid extra branches.
-@jit.dont_look_inside
+# the JIT when the dict isn't virtual, to avoid extra branches.
+@jit.look_inside_iff(lambda d, i: jit.isvirtual(d) and jit.isconstant(i))
 def _ll_dict_del(d, i):
     d.entries.mark_deleted(i)
     d.num_items -= 1

@@ -17,7 +17,7 @@ def names_and_fields(self, _fields_, superclass, anonymous_fields=None):
         if len(f) == 3:
             if (not hasattr(tp, '_type_')
                 or not isinstance(tp._type_, str)
-                or tp._type_ not in "iIhHbBlL"):
+                or tp._type_ not in "iIhHbBlLqQ"):
                 #XXX: are those all types?
                 #     we just dont get the type name
                 #     in the interp levle thrown TypeError

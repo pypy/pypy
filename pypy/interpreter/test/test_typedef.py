@@ -2,7 +2,7 @@ import gc
 from pypy.interpreter import typedef
 from pypy.tool.udir import udir
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.gateway import ObjSpace
+from pypy.interpreter.gateway import ObjSpace, interp2app
 
 # this test isn't so much to test that the objspace interface *works*
 # -- it's more to test that it's *there*
@@ -259,6 +259,50 @@ class TestTypeDef:
         """)
         gc.collect(); gc.collect()
         assert space.unwrap(w_seen) == [6, 2]
+
+    def test_multiple_inheritance(self):
+        class W_A(Wrappable):
+            a = 1
+            b = 2
+        class W_C(W_A):
+            b = 3
+        W_A.typedef = typedef.TypeDef("A",
+            a = typedef.interp_attrproperty("a", cls=W_A),
+            b = typedef.interp_attrproperty("b", cls=W_A),
+        )
+        class W_B(Wrappable):
+            pass
+        def standalone_method(space, w_obj):
+            if isinstance(w_obj, W_A):
+                return space.w_True
+            else:
+                return space.w_False
+        W_B.typedef = typedef.TypeDef("B",
+            c = interp2app(standalone_method)
+        )
+        W_C.typedef = typedef.TypeDef("C", (W_A.typedef, W_B.typedef,))
+
+        w_o1 = self.space.wrap(W_C())
+        w_o2 = self.space.wrap(W_B())
+        w_c = self.space.gettypefor(W_C)
+        w_b = self.space.gettypefor(W_B)
+        w_a = self.space.gettypefor(W_A)
+        assert w_c.mro_w == [
+            w_c,
+            w_a,
+            w_b,
+            self.space.w_object,
+        ]
+        for w_tp in w_c.mro_w:
+            assert self.space.isinstance_w(w_o1, w_tp)
+        def assert_attr(w_obj, name, value):
+            assert self.space.unwrap(self.space.getattr(w_obj, self.space.wrap(name))) == value
+        def assert_method(w_obj, name, value):
+            assert self.space.unwrap(self.space.call_method(w_obj, name)) == value
+        assert_attr(w_o1, "a", 1)
+        assert_attr(w_o1, "b", 3)
+        assert_method(w_o1, "c", True)
+        assert_method(w_o2, "c", False)
 
 
 class AppTestTypeDef:

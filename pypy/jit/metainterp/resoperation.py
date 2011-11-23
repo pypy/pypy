@@ -90,7 +90,10 @@ class AbstractResOp(object):
         return op
 
     def __repr__(self):
-        return self.repr()
+        try:
+            return self.repr()
+        except NotImplementedError:
+            return object.__repr__(self)
 
     def repr(self, graytext=False):
         # RPython-friendly version
@@ -458,6 +461,7 @@ _oplist = [
     'GETARRAYITEM_GC/2d',
     'GETARRAYITEM_RAW/2d',
     'GETINTERIORFIELD_GC/2d',
+    'GETINTERIORFIELD_RAW/2d',
     'GETFIELD_GC/1d',
     'GETFIELD_RAW/1d',
     '_MALLOC_FIRST',
@@ -476,6 +480,7 @@ _oplist = [
     'SETARRAYITEM_GC/3d',
     'SETARRAYITEM_RAW/3d',
     'SETINTERIORFIELD_GC/3d',
+    'SETINTERIORFIELD_RAW/3d',
     'SETFIELD_GC/2d',
     'SETFIELD_RAW/2d',
     'STRSETITEM/3',

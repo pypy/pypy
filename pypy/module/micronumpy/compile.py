@@ -208,11 +208,11 @@ class ArrayAssignment(Node):
 
     def execute(self, interp):
         arr = interp.variables[self.name]
-        w_index = self.index.execute(interp).eval(0).wrap(interp.space)
+        w_index = self.index.execute(interp).eval(arr.start_iter()).wrap(interp.space)
         # cast to int
         if isinstance(w_index, FloatObject):
             w_index = IntObject(int(w_index.floatval))
-        w_val = self.expr.execute(interp).eval(0).wrap(interp.space)
+        w_val = self.expr.execute(interp).eval(arr.start_iter()).wrap(interp.space)
         arr.descr_setitem(interp.space, w_index, w_val)
 
     def __repr__(self):
@@ -249,7 +249,7 @@ class Operator(Node):
             w_res = w_lhs.descr_sub(interp.space, w_rhs)            
         elif self.name == '->':
             if isinstance(w_rhs, Scalar):
-                w_rhs = w_rhs.eval(0).wrap(interp.space)
+                w_rhs = w_rhs.eval(w_rhs.start_iter()).wrap(interp.space)
                 assert isinstance(w_rhs, FloatObject)
                 w_rhs = IntObject(int(w_rhs.floatval))
             w_res = w_lhs.descr_getitem(interp.space, w_rhs)
@@ -286,7 +286,8 @@ class RangeConstant(Node):
         w_list = interp.space.newlist(
             [interp.space.wrap(float(i)) for i in range(self.v)])
         dtype = interp.space.fromcache(W_Float64Dtype)
-        return descr_new_array(interp.space, None, w_list, w_dtype=dtype)
+        return descr_new_array(interp.space, None, w_list, w_dtype=dtype,
+                               w_order=None)
 
     def __repr__(self):
         return 'Range(%s)' % self.v
@@ -308,7 +309,8 @@ class ArrayConstant(Node):
     def execute(self, interp):
         w_list = self.wrap(interp.space)
         dtype = interp.space.fromcache(W_Float64Dtype)
-        return descr_new_array(interp.space, None, w_list, w_dtype=dtype)
+        return descr_new_array(interp.space, None, w_list, w_dtype=dtype,
+                               w_order=None)
 
     def __repr__(self):
         return "[" + ", ".join([repr(item) for item in self.items]) + "]"

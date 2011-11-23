@@ -473,6 +473,7 @@ LL_OPERATIONS = {
     'gc_is_rpy_instance'  : LLOp(),
     'gc_dump_rpy_heap'    : LLOp(),
     'gc_typeids_z'        : LLOp(),
+    'gc_add_memory_pressure': LLOp(),
 
     # ------- JIT & GC interaction, only for some GCs ----------
 

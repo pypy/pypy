@@ -53,6 +53,8 @@ def package(basedir, name='pypy-nightly', rename_pypy_c='pypy',
     if not pypy_c.check():
         print pypy_c
         raise PyPyCNotFound('Please compile pypy first, using translate.py')
+    if sys.platform == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
+        rename_pypy_c += '.exe'
     binaries = [(pypy_c, rename_pypy_c)]
     #
     if sys.platform == 'win32':

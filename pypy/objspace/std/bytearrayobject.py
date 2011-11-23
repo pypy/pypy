@@ -282,23 +282,12 @@ def repr__Bytearray(space, w_bytearray):
 def str__Bytearray(space, w_bytearray):
     return space.wrap(''.join(w_bytearray.data))
 
-def _convert_idx_params(space, w_self, w_start, w_stop):
-    start = slicetype.eval_slice_index(space, w_start)
-    stop = slicetype.eval_slice_index(space, w_stop)
-    length = len(w_self.data)
-    if start < 0:
-        start += length
-        if start < 0:
-            start = 0
-    if stop < 0:
-        stop += length
-        if stop < 0:
-            stop = 0
-    return start, stop, length
-
 def str_count__Bytearray_Int_ANY_ANY(space, w_bytearray, w_char, w_start, w_stop):
     char = w_char.intval
-    start, stop, length = _convert_idx_params(space, w_bytearray, w_start, w_stop)
+    bytearray = w_bytearray.data
+    length = len(bytearray)
+    start, stop = slicetype.unwrap_start_stop(
+            space, length, w_start, w_stop, False)
     count = 0
     for i in range(start, min(stop, length)):
         c = w_bytearray.data[i]

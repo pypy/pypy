@@ -5,7 +5,7 @@ from pypy.objspace.std.multimethod import FailedToImplement
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
-from pypy.objspace.std.listobject import W_ListObject
+from pypy.objspace.std.listobject import W_AbstractListObject, W_ListObject
 from pypy.objspace.std import listtype, iterobject, slicetype
 from pypy.interpreter import gateway, baseobjspace
 
@@ -21,7 +21,7 @@ def length(start, stop, step):
         return (start - stop - step  - 1)/-step
 
 
-class W_RangeListObject(W_Object):
+class W_RangeListObject(W_AbstractListObject):
     typedef = listtype.list_typedef
 
     def __init__(w_self, start, step, length):

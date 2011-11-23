@@ -48,6 +48,8 @@ class EffectInfo(object):
     OS_LIBFFI_PREPARE           = 60
     OS_LIBFFI_PUSH_ARG          = 61
     OS_LIBFFI_CALL              = 62
+    OS_LIBFFI_GETARRAYITEM      = 63
+    OS_LIBFFI_SETARRAYITEM      = 64
     #
     OS_LLONG_INVERT             = 69
     OS_LLONG_ADD                = 70
@@ -77,6 +79,9 @@ class EffectInfo(object):
     OS_LLONG_U_TO_FLOAT         = 94
     #
     OS_MATH_SQRT                = 100
+
+    # for debugging:
+    _OS_CANRAISE = set([OS_NONE, OS_STR2UNICODE, OS_LIBFFI_CALL])
 
     def __new__(cls, readonly_descrs_fields, readonly_descrs_arrays,
                 write_descrs_fields, write_descrs_arrays,
@@ -116,6 +121,8 @@ class EffectInfo(object):
         result.extraeffect = extraeffect
         result.can_invalidate = can_invalidate
         result.oopspecindex = oopspecindex
+        if result.check_can_raise():
+            assert oopspecindex in cls._OS_CANRAISE
         cls._cache[key] = result
         return result
 
@@ -124,6 +131,10 @@ class EffectInfo(object):
 
     def check_can_invalidate(self):
         return self.can_invalidate
+
+    def check_is_elidable(self):
+        return (self.extraeffect == self.EF_ELIDABLE_CAN_RAISE or
+                self.extraeffect == self.EF_ELIDABLE_CANNOT_RAISE)
 
     def check_forces_virtual_or_virtualizable(self):
         return self.extraeffect >= self.EF_FORCES_VIRTUAL_OR_VIRTUALIZABLE

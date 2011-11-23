@@ -66,6 +66,10 @@ class GCManagedHeap(object):
             gctypelayout.zero_gc_pointers(result)
         return result
 
+    def add_memory_pressure(self, size):
+        if hasattr(self.gc, 'raw_malloc_memory_pressure'):
+            self.gc.raw_malloc_memory_pressure(size)
+
     def shrink_array(self, p, smallersize):
         if hasattr(self.gc, 'shrink_array'):
             addr = llmemory.cast_ptr_to_adr(p)

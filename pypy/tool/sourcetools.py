@@ -107,10 +107,8 @@ def getsource(object):
     else:
         try:
             src = inspect.getsource(object)
-        except IOError:
-            return None
-        except IndentationError:
-            return None
+        except Exception:   # catch IOError, IndentationError, and also rarely
+            return None     # some other exceptions like IndexError
     if hasattr(name, "__sourceargs__"):
         return src % name.__sourceargs__
     return src
