@@ -248,7 +248,7 @@ def do_copyunicodecontent(cpu, _, srcbox, dstbox,
 def do_read_timestamp(cpu, _):
     x = read_timestamp()
     if longlong.is_64_bit:
-        assert isinstance(x, int)         # 64-bit
+        assert isinstance(x, (int, long))         # 64-bit
         return BoxInt(x)
     else:
         assert isinstance(x, r_longlong)  # 32-bit

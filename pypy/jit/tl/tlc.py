@@ -219,7 +219,7 @@ def char2int(c):
 class Frame(object):
 
     def __init__(self, args, pc):
-        assert isinstance(pc, int)
+        assert isinstance(pc, (int, long))
         self.args  = args
         self.pc    = pc
         self.stack = []
@@ -239,7 +239,7 @@ def make_interp(supports_call, jitted=True):
         return interp_eval(code, pc, args, pool).int_o()
 
     def interp_eval(code, pc, args, pool):
-        assert isinstance(pc, int)
+        assert isinstance(pc, (int, long))
         frame = Frame(args, pc)
         pc = frame.pc
 

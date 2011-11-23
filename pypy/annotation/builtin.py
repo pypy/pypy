@@ -163,7 +163,7 @@ def builtin_isinstance(s_obj, s_type, variables=None):
                         r.const = False
                 return r
                 
-            assert not issubclass(typ, (int,long)) or typ in (bool, int), (
+            assert not issubclass(typ, (int, long)) or typ in (bool, int), (
                 "for integers only isinstance(.,int|r_uint) are supported")
  
             if s_obj.is_constant():

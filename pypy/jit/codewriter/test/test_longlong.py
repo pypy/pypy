@@ -32,7 +32,7 @@ class FakeCPU:
 def test_functions():
     xll = longlong.getfloatstorage(3.5)
     assert longlong.getrealfloat(xll) == 3.5
-    assert isinstance(longlong.gethash(xll), int)
+    assert isinstance(longlong.gethash(xll), (int, long))
 
 
 class TestLongLong:
