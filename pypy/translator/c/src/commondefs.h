@@ -11,6 +11,21 @@
 
    In particular, Win64 is not supported because it has sizeof(long) == 4.
    To fix this, find and review all the places that cast a pointer to a long.
+
+   Update:
+   We are trying to lift this restriction for Win64:
+
+   Win64         int     long     long long     void*
+   --64-bit--    32      32         64          64
+
+   The migration to this platform is complicated and tedious, because
+   PyPy assumes that a void* fits into a long. Therefore, the created PyPy
+   will (first) have a 64 bit int type. The dependency of sys.maxint must
+   be removed in very many places, and the distinction between Python int
+   and long must be changed in explicit range checks.
+
+   This is work in progress with first successes.
+
 */
 
 #include <limits.h>
