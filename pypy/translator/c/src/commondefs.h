@@ -69,16 +69,32 @@
 /******************** 64-bit support ********************/
 #else
 
-#  if LONG_MAX != 9223372036854775807L
-#    error "error in LONG_MAX (64-bit sources but a 32-bit compiler?)"
-#  endif
-#  if LONG_MIN != -9223372036854775807L-1L
-#    error "unsupported value for LONG_MIN"
-#  endif
+#  ifndef _WIN64
+#    if LONG_MAX != 9223372036854775807L
+#      error "error in LONG_MAX (64-bit sources but a 32-bit compiler?)"
+#    endif
+#    if LONG_MIN != -9223372036854775807L-1L
+#      error "unsupported value for LONG_MIN"
+#    endif
 
-#  define SIZEOF_INT        4
-#  define SIZEOF_LONG       8
-#  define SIZEOF_LONG_LONG  8
+#    define SIZEOF_INT        4
+#    define SIZEOF_LONG       8
+#    define SIZEOF_LONG_LONG  8
+
+/******************** Win-64 support ********************/
+#  else
+#    if LONG_MAX != 2147483647L
+#      error "error in LONG_MAX (64-bit sources but incompatible compiler?)"
+#    endif
+#    if LONG_MIN != -2147483647L-1L
+#      error "unsupported value for LONG_MIN"
+#    endif
+
+#    define SIZEOF_INT        4
+#    define SIZEOF_LONG       4
+#    define SIZEOF_LONG_LONG  8
+
+#  endif
 
 #endif
 
