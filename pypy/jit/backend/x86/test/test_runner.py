@@ -528,19 +528,21 @@ class TestDebuggingAssembler(object):
 
         loop = """
         [i0]
+        label(i0, descr=targettoken)
         debug_merge_point('xyz', 0)
         i1 = int_add(i0, 1)
         i2 = int_ge(i1, 10)
         guard_false(i2) []
-        jump(i1)
+        jump(i1, descr=targettoken)
         """
-        ops = parse(loop)
+        ops = parse(loop, namespace={'targettoken': TargetToken()})
         debug._log = dlog = debug.DebugLog()
         try:
             self.cpu.assembler.set_debug(True)
-            self.cpu.compile_loop(ops.inputargs, ops.operations, ops.token)
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(ops.inputargs, ops.operations, looptoken)
             self.cpu.set_future_value_int(0, 0)
-            self.cpu.execute_token(ops.token)
+            self.cpu.execute_token(looptoken)
             # check debugging info
             struct = self.cpu.assembler.loop_run_counters[0]
             assert struct.i == 10
@@ -552,16 +554,18 @@ class TestDebuggingAssembler(object):
     def test_debugger_checksum(self):
         loop = """
         [i0]
+        label(i0, descr=targettoken)
         debug_merge_point('xyz', 0)
         i1 = int_add(i0, 1)
         i2 = int_ge(i1, 10)
         guard_false(i2) []
-        jump(i1)
+        jump(i1, descr=targettoken)
         """
-        ops = parse(loop)
+        ops = parse(loop, namespace={'targettoken': TargetToken()})
         self.cpu.assembler.set_debug(True)
-        self.cpu.compile_loop(ops.inputargs, ops.operations, ops.token)
+        looptoken = JitCellToken()
+        self.cpu.compile_loop(ops.inputargs, ops.operations, looptoken)
         self.cpu.set_future_value_int(0, 0)
-        self.cpu.execute_token(ops.token)
-        assert ops.token._x86_debug_checksum == sum([op.getopnum()
+        self.cpu.execute_token(looptoken)
+        assert looptoken._x86_debug_checksum == sum([op.getopnum()
                                                      for op in ops.operations])
