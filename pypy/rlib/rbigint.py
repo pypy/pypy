@@ -1790,7 +1790,7 @@ def _AsULonglong_ignore_sign(v):
     i = v.numdigits() - 1
     while i >= 0:
         prev = x
-        x = (x << SHIFT) + v.widedigit(i)
+        x = (x << SHIFT) + r_ulonglong(v.widedigit(i))
         if (x >> SHIFT) != prev:
                 raise OverflowError(
                     "long int too large to convert to unsigned long long int")
