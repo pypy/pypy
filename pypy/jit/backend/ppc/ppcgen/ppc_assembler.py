@@ -602,7 +602,13 @@ class AssemblerPPC(OpAssembler):
         self.write_pending_failure_recoveries()
         loop_start = self.materialize_loop(looptoken, False)
         looptoken._ppc_bootstrap_code = loop_start
-        looptoken._ppc_direct_bootstrap_code = loop_start + direct_bootstrap_code
+
+        real_start = loop_start + direct_bootstrap_code
+        if IS_PPC_32:
+            looptoken._ppc_direct_bootstrap_code = real_start
+        else:
+            looptoken._ppc_direct_bootstrap_code = self.gen_64_bit_func_descr(real_start)
+
         real_start = loop_start + start_pos
         if IS_PPC_32:
             looptoken.ppc_code = real_start
