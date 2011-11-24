@@ -52,8 +52,12 @@ def _find_shape_and_elems(space, w_iterable):
 def shape_agreement(space, shape1, shape2):
     ret = _shape_agreement(shape1, shape2)
     if len(ret) < max(len(shape1), len(shape2)):
-        raise OperationError(space.w_ValueError, space.wrap(
-            "shape mismatch: objects cannot be broadcast to a single shape"))
+        raise OperationError(space.w_ValueError,
+            space.wrap("operands could not be broadcast together with shapes (%s) (%s)" % (
+                ",".join([str(x) for x in shape1]),
+                ",".join([str(x) for x in shape2]),
+            ))
+        )
     return ret
 
 def _shape_agreement(shape1, shape2):

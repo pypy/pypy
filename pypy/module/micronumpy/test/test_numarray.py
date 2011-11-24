@@ -912,7 +912,8 @@ class AppTestMultiDim(BaseNumpyAppTest):
         from numpypy import zeros
         a = zeros((4, 3, 2))
         b = zeros((4, 2))
-        raises(ValueError, b.__add__, a)
+        exc = raises(ValueError, lambda: a + b)
+        assert str(exc.value) == "operands could not be broadcast together with shapes (4,3,2) (4,2)"
 
     def test_reduce(self):
         from numpypy import array
@@ -977,7 +978,7 @@ class AppTestRepr(BaseNumpyAppTest):
         a = array((range(5), range(5, 10)), dtype="int16")
         b = a[1, 2:]
         assert repr(b) == "array([7, 8, 9], dtype=int16)"
-        #This is the way cpython numpy does it - an empty slice prints its shape
+        # an empty slice prints its shape
         b = a[2:1, ]
         assert repr(b) == "array([], shape=(0, 5), dtype=int16)"
 
