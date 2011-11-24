@@ -44,10 +44,11 @@ class W_Ufunc(Wrappable):
             )
         return self.call(space, __args__.arguments_w)
 
-    @unwrap_spec(called_on_array=bool)
-    def descr_reduce(self, space, w_obj, called_on_array=False):
-        from pypy.module.micronumpy.interp_numarray import convert_to_array, Scalar
+    def descr_reduce(self, space, w_obj):
+        return self.reduce(space, w_obj, multidim=False)
 
+    def reduce(self, space, w_obj, multidim):
+        from pypy.module.micronumpy.interp_numarray import convert_to_array, Scalar
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
                 "supported for binary functions"))
@@ -65,10 +66,9 @@ class W_Ufunc(Wrappable):
         )
         start = obj.start_iter(obj.shape)
         shapelen = len(obj.shape)
-        if not called_on_array:
-            if shapelen > 1:
-                raise OperationError(space.w_NotImplementedError,
-                                     space.wrap("not implemented yet"))
+        if shapelen > 1 and not multidim:
+            raise OperationError(space.w_NotImplementedError,
+                space.wrap("not implemented yet"))
         if self.identity is None:
             if size == 0:
                 raise operationerrfmt(space.w_ValueError, "zero-size array to "
@@ -80,10 +80,10 @@ class W_Ufunc(Wrappable):
         new_sig = signature.Signature.find_sig([
             self.reduce_signature, obj.signature
         ])
-        return self.reduce(new_sig, shapelen, start, value, obj,
+        return self.reduce_loop(new_sig, shapelen, start, value, obj,
                            dtype).wrap(space)
 
-    def reduce(self, signature, shapelen, i, value, obj, dtype):
+    def reduce_loop(self, signature, shapelen, i, value, obj, dtype):
         while not i.done():
             reduce_driver.jit_merge_point(signature=signature,
                                           shapelen=shapelen, self=self,
