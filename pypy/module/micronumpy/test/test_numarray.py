@@ -640,12 +640,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         r = a.argmax()
         assert r == 2
         b = array([])
-        try:
-            b.argmax()
-        except:
-            pass
-        else:
-            raise Exception("Did not raise")
+        raises(ValueError, b.argmax)
 
         a = array(range(-5, 5))
         r = a.argmax()
@@ -909,8 +904,9 @@ class AppTestMultiDim(BaseNumpyAppTest):
 
     def test_argmax(self):
         from numpypy import array
-        a = array([[1, 2], [3, 4]])
-        raises(TypeError, a.argmax)
+        a = array([[1, 2], [3, 4], [5, 6]])
+        assert a.argmax() == 5
+        assert a[:2,].argmax() == 3
 
 class AppTestSupport(object):
     def setup_class(cls):
@@ -1001,7 +997,7 @@ class AppTestRepr(BaseNumpyAppTest):
         a = zeros((2, 2, 2))
         r = str(a)
         assert r == '[[[0.0 0.0]\n  [0.0 0.0]]\n\n [[0.0 0.0]\n  [0.0 0.0]]]'
-        
+
     def test_str_slice(self):
         from numpypy import array, zeros
         a = array(range(5), float)

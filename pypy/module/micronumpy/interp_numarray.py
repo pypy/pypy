@@ -389,36 +389,35 @@ class BaseArray(Wrappable):
 
     def _reduce_argmax_argmin_impl(op_name):
         reduce_driver = jit.JitDriver(greens=['shapelen', 'signature'],
-                         reds=['result', 'i', 'self', 'cur_best', 'dtype'])
+                         reds=['result', 'idx', 'i', 'self', 'cur_best', 'dtype'])
         def loop(self):
             i = self.start_iter()
-            result = i.get_offset()
             cur_best = self.eval(i)
             shapelen = len(self.shape)
             i = i.next(shapelen)
             dtype = self.find_dtype()
+            result = 0
+            idx = 1
             while not i.done():
                 reduce_driver.jit_merge_point(signature=self.signature,
                                               shapelen=shapelen,
                                               self=self, dtype=dtype,
-                                              i=i, result=result,
+                                              i=i, result=result, idx=idx,
                                               cur_best=cur_best)
                 new_best = getattr(dtype, op_name)(cur_best, self.eval(i))
                 if dtype.ne(new_best, cur_best):
-                    result = i.get_offset()
+                    result = idx
                     cur_best = new_best
                 i = i.next(shapelen)
+                idx += 1
             return result
         def impl(self, space):
             size = self.find_size()
-            if len(self.shape) > 1:
-                raise OperationError(space.w_TypeError,
-                                     space.wrap("argmin/max does not work on multidimensional arrays yet"))
             if size == 0:
                 raise OperationError(space.w_ValueError,
                     space.wrap("Can't call %s on zero-size arrays" \
                             % op_name))
-            return self.compute_index(space, loop(self))
+            return space.wrap(loop(self))
         return func_with_new_name(impl, "reduce_arg%s_impl" % op_name)
 
     def _all(self):
@@ -733,11 +732,6 @@ class BaseArray(Wrappable):
 
     def start_iter(self, res_shape=None):
         raise NotImplementedError
-
-    def compute_index(self, space, offset):
-        offset -= self.start
-        assert len(self.shape) == 1
-        return space.wrap(offset // self.strides[0])
 
 def convert_to_array(space, w_obj):
     if isinstance(w_obj, BaseArray):
