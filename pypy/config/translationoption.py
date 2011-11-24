@@ -398,6 +398,10 @@ def set_opt_level(config, level):
     # make_sure_not_resized often relies on it, so we always enable them
     config.translation.suggest(list_comprehension_operations=True)
 
+    # finally, make the choice of the gc definitive.  This will fail
+    # if we have specified strange inconsistent settings.
+    config.translation.gc = config.translation.gc
+
 # ----------------------------------------------------------------
 
 def set_platform(config):
