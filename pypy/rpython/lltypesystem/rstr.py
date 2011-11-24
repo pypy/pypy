@@ -316,7 +316,7 @@ class LLHelpers(AbstractLLHelpers):
         s.chars[0] = ch
         return s
 
-    @jit.look_inside_iff(lambda str: jit.isconstant(len(str.chars)) and len(str.chars) == 1)
+    # @jit.look_inside_iff(lambda str: jit.isconstant(len(str.chars)) and len(str.chars) == 1)
     @jit.oopspec("str.str2unicode(str)")
     def ll_str2unicode(str):
         lgt = len(str.chars)
