@@ -137,6 +137,15 @@ def descr_new_array(space, w_subtype, w_item_or_iterable, w_dtype=None,
 
 # Iterators for arrays
 # --------------------
+# all those iterators with the exception of BroadcastIterator iterate over the
+# entire array in C order (the last index changes the fastest). This will
+# yield all elements. Views iterate over indices and look towards strides and
+# backstrides to find the correct position. Notably the offset between
+# x[..., i + 1] and x[..., i] will be strides[-1]. Offset between
+# x[..., k + 1, 0] and x[..., k, i_max] will be backstrides[-2] etc.
+
+# BroadcastIterator works like that, but for indexes that don't change source
+# in the original array, strides[i] == backstrides[i] == 0
 
 class BaseIterator(object):
     def next(self, shapelen):
