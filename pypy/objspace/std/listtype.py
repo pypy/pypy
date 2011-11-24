@@ -11,7 +11,7 @@ list_insert   = SMM('insert', 3,
 list_extend   = SMM('extend', 2,
                     doc='L.extend(iterable) -- extend list by appending'
                         ' elements from the iterable')
-list_pop      = SMM('pop',    2, defaults=(-1,),
+list_pop      = SMM('pop',    2, defaults=(None,),
                     doc='L.pop([index]) -> item -- remove and return item at'
                         ' index (default last)')
 list_remove   = SMM('remove', 2,
@@ -43,7 +43,7 @@ register_all(vars(), globals())
 def descr__new__(space, w_listtype, __args__):
     from pypy.objspace.std.listobject import W_ListObject
     w_obj = space.allocate_instance(W_ListObject, w_listtype)
-    W_ListObject.__init__(w_obj, [])
+    W_ListObject.__init__(w_obj, space, [])
     return w_obj
 
 # ____________________________________________________________
