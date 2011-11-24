@@ -397,7 +397,7 @@ class BaseArray(Wrappable):
 
     def _reduce_ufunc_impl(ufunc_name):
         def impl(self, space):
-            return getattr(interp_ufuncs.get(space), ufunc_name).descr_reduce(space, self)
+            return getattr(interp_ufuncs.get(space), ufunc_name).descr_reduce(space, self, True)
         return func_with_new_name(impl, "reduce_%s_impl" % ufunc_name)
 
     descr_sum = _reduce_ufunc_impl("add")

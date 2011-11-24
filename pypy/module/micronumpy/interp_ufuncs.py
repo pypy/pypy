@@ -1,6 +1,6 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.module.micronumpy import interp_dtype, signature
 from pypy.rlib import jit
@@ -44,7 +44,8 @@ class W_Ufunc(Wrappable):
             )
         return self.call(space, __args__.arguments_w)
 
-    def descr_reduce(self, space, w_obj):
+    @unwrap_spec(called_on_array=bool)
+    def descr_reduce(self, space, w_obj, called_on_array=False):
         from pypy.module.micronumpy.interp_numarray import convert_to_array, Scalar
 
         if self.argcount != 2:
@@ -64,6 +65,10 @@ class W_Ufunc(Wrappable):
         )
         start = obj.start_iter(obj.shape)
         shapelen = len(obj.shape)
+        if not called_on_array:
+            if shapelen > 1:
+                raise OperationError(space.w_NotImplementedError,
+                                     space.wrap("not implemented yet"))
         if self.identity is None:
             if size == 0:
                 raise operationerrfmt(space.w_ValueError, "zero-size array to "
