@@ -978,7 +978,7 @@ class AppTestRepr(BaseNumpyAppTest):
         a = array((range(5), range(5, 10)), dtype="int16")
         b = a[1, 2:]
         assert repr(b) == "array([7, 8, 9], dtype=int16)"
-        #This is the way cpython numpy does it - an empty slice prints its shape
+        # an empty slice prints its shape
         b = a[2:1, ]
         assert repr(b) == "array([], shape=(0, 5), dtype=int16)"
 
