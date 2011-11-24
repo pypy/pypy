@@ -9,16 +9,23 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder
 from pypy.rlib.objectmodel import instantiate
 
-numpy_driver = jit.JitDriver(greens=['shapelen', 'signature'],
-                             reds=['result_size', 'i', 'ri', 'self',
-                                     'result'])
-all_driver = jit.JitDriver(greens=['shapelen', 'signature'],
-                           reds=['i', 'self', 'dtype'])
-any_driver = jit.JitDriver(greens=['shapelen', 'signature'],
-                           reds=['i', 'self', 'dtype'])
-slice_driver = jit.JitDriver(greens=['shapelen', 'signature'],
-                             reds=['self', 'source', 'source_iter',
-                                   'res_iter'])
+
+numpy_driver = jit.JitDriver(
+    greens=['shapelen', 'signature'],
+    reds=['result_size', 'i', 'ri', 'self', 'result']
+)
+all_driver = jit.JitDriver(
+    greens=['shapelen', 'signature'],
+    reds=['i', 'self', 'dtype']
+)
+any_driver = jit.JitDriver(
+    greens=['shapelen', 'signature'],
+    reds=['i', 'self', 'dtype']
+)
+slice_driver = jit.JitDriver(
+    greens=['shapelen', 'signature'],
+    reds=['self', 'source', 'source_iter', 'res_iter']
+)
 
 def _find_shape_and_elems(space, w_iterable):
     shape = [space.len_w(w_iterable)]
@@ -41,7 +48,6 @@ def _find_shape_and_elems(space, w_iterable):
             new_batch += space.listview(w_elem)
         shape.append(size)
         batch = new_batch
-
 
 def shape_agreement(space, shape1, shape2):
     ret = _shape_agreement(shape1, shape2)
@@ -388,8 +394,10 @@ class BaseArray(Wrappable):
     descr_min = _reduce_ufunc_impl("minimum")
 
     def _reduce_argmax_argmin_impl(op_name):
-        reduce_driver = jit.JitDriver(greens=['shapelen', 'signature'],
-                         reds=['result', 'idx', 'i', 'self', 'cur_best', 'dtype'])
+        reduce_driver = jit.JitDriver(
+            greens=['shapelen', 'signature'],
+            reds=['result', 'idx', 'i', 'self', 'cur_best', 'dtype']
+        )
         def loop(self):
             i = self.start_iter()
             cur_best = self.eval(i)
@@ -488,7 +496,7 @@ class BaseArray(Wrappable):
         if not concrete.find_size():
             res.append('[]')
             if len(self.shape) > 1:
-                #This is for numpy compliance: an empty slice reports its shape
+                # An empty slice reports its shape
                 res.append(", shape=(")
                 self_shape = str(self.shape)
                 res.append_slice(str(self_shape), 1, len(self_shape) - 1)
@@ -513,7 +521,8 @@ class BaseArray(Wrappable):
             builder.append('[]')
             return
         if size > 1000:
-            #Once this goes True it does not go back to False for recursive calls
+            # Once this goes True it does not go back to False for recursive
+            # calls
             use_ellipsis = True
         dtype = self.find_dtype()
         ndims = len(self.shape)
@@ -531,7 +540,8 @@ class BaseArray(Wrappable):
                             builder.append('\n' + indent)
                         else:
                             builder.append(indent)
-                    #create_slice requires len(chunks)>1 in order to reduce shape
+                    # create_slice requires len(chunks) > 1 in order to reduce
+                    # shape
                     view = self.create_slice(space, [(i, 0, 0, 1), (0, self.shape[1], 1, self.shape[1])])
                     view.to_str(space, comma, builder, indent=indent + ' ', use_ellipsis=use_ellipsis)
                 builder.append('\n' + indent + '..., ')
@@ -545,15 +555,17 @@ class BaseArray(Wrappable):
                         builder.append('\n' + indent)
                     else:
                         builder.append(indent)
-                #create_slice requires len(chunks)>1 in order to reduce shape
+                # create_slice requires len(chunks) > 1 in order to reduce
+                # shape
                 view = self.create_slice(space, [(i, 0, 0, 1), (0, self.shape[1], 1, self.shape[1])])
                 view.to_str(space, comma, builder, indent=indent + ' ', use_ellipsis=use_ellipsis)
                 i += 1
         elif ndims == 1:
             spacer = ',' * comma + ' '
             item = self.start
-            #An iterator would be a nicer way to walk along the 1d array, but how do
-            # I reset it if printing ellipsis? iterators have no "set_offset()"
+            # An iterator would be a nicer way to walk along the 1d array, but
+            # how do I reset it if printing ellipsis? iterators have no
+            # "set_offset()"
             i = 0
             if use_ellipsis:
                 for i in range(3):
@@ -563,9 +575,10 @@ class BaseArray(Wrappable):
                         builder.append(spacer)
                     builder.append(dtype.str_format(self.getitem(item)))
                     item += self.strides[0]
-                #Add a comma only if comma is False - this prevents adding two commas
+                # Add a comma only if comma is False - this prevents adding two
+                # commas
                 builder.append(spacer + '...' + ',' * (1 - comma))
-                #Ugly, but can this be done with an iterator?
+                # Ugly, but can this be done with an iterator?
                 item = self.start + self.backstrides[0] - 2 * self.strides[0]
                 i = self.shape[0] - 3
             while i < self.shape[0]:
@@ -608,8 +621,9 @@ class BaseArray(Wrappable):
             if v < 0:
                 v += self.shape[i]
             if v < 0 or v >= self.shape[i]:
-                raise OperationError(space.w_IndexError,
-                                     space.wrap("index (%d) out of range (0<=index<%d" % (i, self.shape[i])))
+                raise operationerrfmt(space.w_IndexError,
+                    "index (%d) out of range (0<=index<%d", i, self.shape[i],
+                )
             item += v * self.strides[i]
         return item
 
