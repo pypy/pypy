@@ -1408,13 +1408,18 @@ class RegAlloc(object):
         self.xrm.force_allocate_reg(tmpvar, selected_reg=xmmtmp)
         self.xrm.possibly_free_var(tmpvar)
         #
+        # we need to make sure that no variable is stored in ebp
+        for arg in inputargs:
+            if self.loc(arg) is ebp:
+                loc2 = self.fm.loc(arg)
+                self.assembler.mc.MOV(loc2, ebp)
+        self.rm.bindings_to_frame_reg.clear()
+        #
         for i in range(len(inputargs)):
             arg = inputargs[i]
             assert not isinstance(arg, Const)
             loc = self.loc(arg)
-            if loc is ebp:
-                assert 0, "XXX move it away from ebp"
-            assert not (loc is tmpreg or loc is xmmtmp)
+            assert not (loc is tmpreg or loc is xmmtmp or loc is ebp)
             if arg.type == FLOAT:
                 floatlocs[i] = loc
             else:
