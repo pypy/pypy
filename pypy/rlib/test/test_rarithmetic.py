@@ -343,7 +343,7 @@ def test_int_real_union():
 def test_compute_restype_incompatible():
     from pypy.rpython.lltypesystem.rffi import r_int_real, r_short, r_ushort
     testcases = [(r_uint, r_longlong), (r_int_real, r_uint),
-                (r_short, r_ushort), (r_ushort, r_uint)]
+                (r_short, r_ushort)]
     for t1, t2 in testcases:
         py.test.raises(AssertionError, compute_restype, t1, t2)
         py.test.raises(AssertionError, compute_restype, t2, t1)
