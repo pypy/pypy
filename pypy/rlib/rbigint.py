@@ -1540,8 +1540,8 @@ def _bigint_true_divide(a, b):
     assert extra_bits == 2 or extra_bits == 3
 
     # Round by remembering a modified copy of the low digit of x
-    mask = 1 << (extra_bits - 1)
-    low = x.udigit(0) | inexact
+    mask = r_uint(1 << (extra_bits - 1))
+    low = x.udigit(0) | r_uint(inexact)
     if (low & mask) != 0 and (low & (3*mask-1)) != 0:
         low += mask
     x_digit_0 = low & ~(mask-1)
