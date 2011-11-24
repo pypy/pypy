@@ -1427,6 +1427,23 @@ class RegAlloc(object):
         self.assembler.target_tokens_currently_compiling[descr] = None
         self.possibly_free_vars_for_op(op)
 
+##        from pypy.rpython.annlowlevel import llhelper
+##        def fn(addr):
+##            print '...label:', hex(addr), nonfloatlocs
+##        FUNC = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Void))
+##        ll_disp = llhelper(FUNC, fn)
+##        faddr = rffi.cast(lltype.Signed, ll_disp)
+##        for i in range(16):
+##            self.assembler.mc.PUSH_r(i)
+##        self.assembler.mc.CALL_l(0)
+##        self.assembler.mc.POP(edi)
+##        self.assembler.mc.MOV(r11, imm(faddr))
+##        self.assembler.mc.CALL(r11)
+##        for i in range(15, -1, -1):
+##            if i == esp.value:
+##                i -= 1
+##            self.assembler.mc.POP_r(i)
+
     def not_implemented_op(self, op):
         not_implemented("not implemented operation: %s" % op.getopname())
 

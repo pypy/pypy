@@ -3033,7 +3033,91 @@ class LLtypeBackendTest(BaseBackendTest):
         res = self.cpu.get_latest_value_int(0)
         assert res == -10
 
-        
+    def test_compile_bridge_with_target(self):
+        # This test creates a loopy piece of code in a bridge, and builds another
+        # unrelated loop that ends in a jump directly to this loopy bit of code.
+        # It catches a case in which we underestimate the needed frame_depth across
+        # the cross-loop JUMP, because we estimate it based on the frame_depth stored
+        # in the original loop.
+        i0 = BoxInt()
+        i1 = BoxInt()
+        looptoken1 = JitCellToken()
+        targettoken1 = TargetToken()
+        faildescr1 = BasicFailDescr(2)
+        inputargs = [i0]
+        operations = [
+            ResOperation(rop.INT_LE, [i0, ConstInt(1)], i1),
+            ResOperation(rop.GUARD_TRUE, [i1], None, descr=faildescr1),
+            ResOperation(rop.FINISH, [i0], None, descr=BasicFailDescr(1234)),
+            ]
+        operations[1].setfailargs([i0])
+        self.cpu.compile_loop(inputargs, operations, looptoken1)
+
+        def func(a, b, c, d, e, f, g, h, i):
+            assert a + 2 == b
+            assert a + 4 == c
+            assert a + 6 == d
+            assert a + 8 == e
+            assert a + 10 == f
+            assert a + 12 == g
+            assert a + 14 == h
+            assert a + 16 == i
+        FPTR = self.Ptr(self.FuncType([lltype.Signed]*9, lltype.Void))
+        func_ptr = llhelper(FPTR, func)
+        cpu = self.cpu
+        calldescr = cpu.calldescrof(deref(FPTR), (lltype.Signed,)*9, lltype.Void,
+                                    EffectInfo.MOST_GENERAL)
+        funcbox = self.get_funcbox(cpu, func_ptr)
+
+        i0 = BoxInt(); i1 = BoxInt(); i2 = BoxInt(); i3 = BoxInt(); i4 = BoxInt()
+        i5 = BoxInt(); i6 = BoxInt(); i7 = BoxInt(); i8 = BoxInt(); i9 = BoxInt()
+        i10 = BoxInt(); i11 = BoxInt(); i12 = BoxInt(); i13 = BoxInt(); i14 = BoxInt()
+        i15 = BoxInt(); i16 = BoxInt(); i17 = BoxInt(); i18 = BoxInt(); i19 = BoxInt()
+        i20 = BoxInt()
+        inputargs = [i0]
+        operations = [
+            ResOperation(rop.LABEL, [i0], None, descr=targettoken1),
+            ResOperation(rop.INT_ADD, [i0, ConstInt(1)], i1),
+            ResOperation(rop.INT_ADD, [i1, ConstInt(1)], i2),
+            ResOperation(rop.INT_ADD, [i2, ConstInt(1)], i3),
+            ResOperation(rop.INT_ADD, [i3, ConstInt(1)], i4),
+            ResOperation(rop.INT_ADD, [i4, ConstInt(1)], i5),
+            ResOperation(rop.INT_ADD, [i5, ConstInt(1)], i6),
+            ResOperation(rop.INT_ADD, [i6, ConstInt(1)], i7),
+            ResOperation(rop.INT_ADD, [i7, ConstInt(1)], i8),
+            ResOperation(rop.INT_ADD, [i8, ConstInt(1)], i9),
+            ResOperation(rop.INT_ADD, [i9, ConstInt(1)], i10),
+            ResOperation(rop.INT_ADD, [i10, ConstInt(1)], i11),
+            ResOperation(rop.INT_ADD, [i11, ConstInt(1)], i12),
+            ResOperation(rop.INT_ADD, [i12, ConstInt(1)], i13),
+            ResOperation(rop.INT_ADD, [i13, ConstInt(1)], i14),
+            ResOperation(rop.INT_ADD, [i14, ConstInt(1)], i15),
+            ResOperation(rop.INT_ADD, [i15, ConstInt(1)], i16),
+            ResOperation(rop.INT_ADD, [i16, ConstInt(1)], i17),
+            ResOperation(rop.INT_ADD, [i17, ConstInt(1)], i18),
+            ResOperation(rop.INT_ADD, [i18, ConstInt(1)], i19),
+            ResOperation(rop.CALL, [funcbox, i2, i4, i6, i8, i10, i12, i14, i16, i18],
+                         None, descr=calldescr),
+            ResOperation(rop.CALL, [funcbox, i2, i4, i6, i8, i10, i12, i14, i16, i18],
+                         None, descr=calldescr),
+            ResOperation(rop.INT_LT, [i19, ConstInt(100)], i20),
+            ResOperation(rop.GUARD_TRUE, [i20], None, descr=BasicFailDescr(42)),
+            ResOperation(rop.JUMP, [i19], None, descr=targettoken1),
+            ]
+        operations[-2].setfailargs([])
+        self.cpu.compile_bridge(faildescr1, inputargs, operations, looptoken1)
+
+        looptoken2 = JitCellToken()
+        inputargs = []
+        operations = [
+            ResOperation(rop.JUMP, [ConstInt(0)], None, descr=targettoken1),
+            ]
+        self.cpu.compile_loop(inputargs, operations, looptoken2)
+
+        fail = self.cpu.execute_token(looptoken2)
+        assert fail.identifier == 42
+
+
 class OOtypeBackendTest(BaseBackendTest):
 
     type_system = 'ootype'
