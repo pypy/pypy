@@ -912,7 +912,8 @@ class AppTestMultiDim(BaseNumpyAppTest):
         from numpypy import zeros
         a = zeros((4, 3, 2))
         b = zeros((4, 2))
-        raises(ValueError, b.__add__, a)
+        exc = raises(ValueError, lambda: a + b)
+        assert str(exc.value) == "operands could not be broadcast together with shapes (4,3,2) (4,2)"
 
     def test_reduce(self):
         from numpypy import array
