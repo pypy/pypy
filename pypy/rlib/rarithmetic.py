@@ -92,7 +92,7 @@ int is no longer necessarily the same size as the target int.
 We therefore can no longer use the int type as it is, but need
 to use long everywhere.
 """
-    
+
 def intmask(n):
     if isinstance(n, objectmodel.Symbolic):
         return n        # assume Symbolics don't overflow
@@ -133,8 +133,11 @@ def _should_widen_type(tp):
         r_class.BITS == LONG_BIT and r_class.SIGNED)
 _should_widen_type._annspecialcase_ = 'specialize:memo'
 
+# the replacement for sys.maxint
+maxint = int(LONG_TEST - 1)
+
 def is_valid_int(r):
-    return -sys.maxint - 1 <= r <= sys.maxint
+    return -maxint - 1 <= r <= maxint
 
 def ovfcheck(r):
     "NOT_RPYTHON"
