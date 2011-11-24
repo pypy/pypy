@@ -275,7 +275,20 @@ class TestNumpyJIt(LLJitMixin):
         # XXX the bridge here is scary. Hopefully jit-targets will fix that,
         #     otherwise it looks kind of good
         self.check_loops({})
-    
+
+    def define_broadcast():
+        return """
+        a = [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]]
+        b = [1, 2, 3, 4]
+        c = a + b
+        c -> 1 -> 2
+        """
+
+    def test_broadcast(self):
+        result = self.run("broadcast")
+        assert result == 10
+        py.test.skip("improve")
+        self.check_loops({})
 
 class TestNumpyOld(LLJitMixin):
     def setup_class(cls):

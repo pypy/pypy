@@ -211,26 +211,36 @@ class BroadcastIterator(BaseIterator):
             else:
                 self.strides.append(arr.strides[i])
                 self.backstrides.append(arr.backstrides[i])
-        self.shape_len = len(res_shape)
         self.res_shape = res_shape
         self.strides = [0] * (len(res_shape) - len(arr.shape)) + self.strides
         self.backstrides = [0] * (len(res_shape) - len(arr.shape)) + self.backstrides
         self._done = False
-        self.arr = arr
 
     @jit.unroll_safe
     def next(self, shapelen):
+        offset = self.offset
+        indices = [0] * shapelen
+        _done = False
+        for i in range(shapelen):
+            indices[i] = self.indices[i]
         for i in range(shapelen - 1, -1, -1):
-            if self.indices[i] < self.res_shape[i] - 1:
-                self.indices[i] += 1
-                self.offset += self.strides[i]
+            if indices[i] < self.res_shape[i] - 1:
+                indices[i] += 1
+                offset += self.strides[i]
                 break
             else:
-                self.indices[i] = 0
-                self.offset -= self.backstrides[i]
+                indices[i] = 0
+                offset -= self.backstrides[i]
         else:
-            self._done = True
-        return self
+            _done = True
+        res = instantiate(BroadcastIterator)
+        res.indices = indices
+        res.offset = offset
+        res._done = _done
+        res.strides = self.strides
+        res.backstrides = self.backstrides
+        res.res_shape = self.res_shape
+        return res
 
     def done(self):
         return self._done
