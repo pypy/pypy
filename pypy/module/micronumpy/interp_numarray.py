@@ -135,6 +135,9 @@ def descr_new_array(space, w_subtype, w_item_or_iterable, w_dtype=None,
         arr_iter = arr_iter.next(shapelen)
     return arr
 
+# Iterators for arrays
+# --------------------
+
 class BaseIterator(object):
     def next(self, shapelen):
         raise NotImplementedError
@@ -1074,10 +1077,7 @@ class NDimArray(BaseArray):
     def __del__(self):
         lltype.free(self.storage, flavor='raw', track_allocation=False)
 
-def zeros(space, w_size, w_dtype=None):
-    dtype = space.interp_w(interp_dtype.W_Dtype,
-        space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
-    )
+def _find_size_and_shape(space, w_size):
     if space.isinstance_w(w_size, space.w_int):
         size = space.int_w(w_size)
         shape = [size]
@@ -1088,22 +1088,20 @@ def zeros(space, w_size, w_dtype=None):
             item = space.int_w(w_item)
             size *= item
             shape.append(item)
+    return size, shape
+
+def zeros(space, w_size, w_dtype=None):
+    dtype = space.interp_w(interp_dtype.W_Dtype,
+        space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
+    )
+    size, shape = _find_size_and_shape(space, w_size)
     return space.wrap(NDimArray(size, shape[:], dtype=dtype))
 
 def ones(space, w_size, w_dtype=None):
     dtype = space.interp_w(interp_dtype.W_Dtype,
         space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
     )
-    if space.isinstance_w(w_size, space.w_int):
-        size = space.int_w(w_size)
-        shape = [size]
-    else:
-        size = 1
-        shape = []
-        for w_item in space.fixedview(w_size):
-            item = space.int_w(w_item)
-            size *= item
-            shape.append(item)
+    size, shape = _find_size_and_shape(space, w_size)
     arr = NDimArray(size, shape[:], dtype=dtype)
     one = dtype.adapt_val(1)
     arr.dtype.fill(arr.storage, one, 0, size)

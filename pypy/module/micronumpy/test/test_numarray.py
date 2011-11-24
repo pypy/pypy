@@ -908,6 +908,20 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert a.argmax() == 5
         assert a[:2,].argmax() == 3
 
+    def test_broadcast_wrong_shapes(self):
+        from numpypy import zeros
+        a = zeros((4, 3, 2))
+        b = zeros((4, 2))
+        raises(ValueError, b.__add__, a)
+
+    def test_reduce(self):
+        from numpypy import array
+        a = array([[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12]])
+        assert a.sum() == (13 * 12) / 2
+        b = a[1:, 1::2]
+        c = b + b
+        assert c.sum() == (6 + 8 + 10 + 12) * 2
+
 class AppTestSupport(object):
     def setup_class(cls):
         import struct
