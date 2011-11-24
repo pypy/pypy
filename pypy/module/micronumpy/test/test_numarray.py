@@ -768,6 +768,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a[1, 2, 0] = 3
         assert a[1, 2, 0] == 3
         assert a[1, 1, 0] == 0
+        assert a[1, -1, 0] == 3
 
     def test_slices(self):
         import numpypy
@@ -906,6 +907,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
         b[:] = (a + a)
         assert (b == zeros((4, 3, 5))).all()
 
+    def test_argmax(self):
+        from numpypy import array
+        a = array([[1, 2], [3, 4]])
+        raises(TypeError, a.argmax)
+
 class AppTestSupport(object):
     def setup_class(cls):
         import struct
@@ -994,8 +1000,7 @@ class AppTestRepr(BaseNumpyAppTest):
         assert str(a) == "[[0 0 0 ..., 0 0 0]\n [0 0 0 ..., 0 0 0]\n [0 0 0 ..., 0 0 0]\n ..., \n [0 0 0 ..., 0 0 0]\n [0 0 0 ..., 0 0 0]\n [0 0 0 ..., 0 0 0]]"
         a = zeros((2, 2, 2))
         r = str(a)
-        py.test.skip("this is not exactly right, fix it one day")
-        assert r == '[[[ 0.  0.]\n  [ 0.  0.]]\n\n [[ 0.  0.]\n  [ 0.  0.]]]'
+        assert r == '[[[0.0 0.0]\n  [0.0 0.0]]\n\n [[0.0 0.0]\n  [0.0 0.0]]]'
         
     def test_str_slice(self):
         from numpypy import array, zeros

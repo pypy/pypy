@@ -401,6 +401,9 @@ class BaseArray(Wrappable):
             return result
         def impl(self, space):
             size = self.find_size()
+            if len(self.shape) > 1:
+                raise OperationError(space.w_TypeError,
+                                     space.wrap("argmin/max does not work on multidimensional arrays yet"))
             if size == 0:
                 raise OperationError(space.w_ValueError,
                     space.wrap("Can't call %s on zero-size arrays" \
@@ -601,9 +604,6 @@ class BaseArray(Wrappable):
             item += v * self.strides[i]
         return item
 
-    def get_root_shape(self):
-        return self.shape
-
     def _single_item_result(self, space, w_idx):
         """ The result of getitem/setitem is a single item if w_idx
         is a list of scalars that match the size of shape
@@ -726,14 +726,8 @@ class BaseArray(Wrappable):
 
     def compute_index(self, space, offset):
         offset -= self.start
-        if len(self.shape) == 1:
-            return space.wrap(offset // self.strides[0])
-        indices_w = []
-        for shard in self.strides:
-            r = offset // shard
-            indices_w.append(space.wrap(r))
-            offset -= shard * r
-        return space.newtuple(indices_w)
+        assert len(self.shape) == 1
+        return space.wrap(offset // self.strides[0])
 
 def convert_to_array(space, w_obj):
     if isinstance(w_obj, BaseArray):
@@ -1008,9 +1002,6 @@ class NDimSlice(ViewArray):
 
     def setitem(self, item, value):
         self.parent.setitem(item, value)
-
-    def get_root_shape(self):
-        return self.parent.get_root_shape()
 
 class NDimArray(BaseArray):
     """ A class representing contiguous array. We know that each iteration
