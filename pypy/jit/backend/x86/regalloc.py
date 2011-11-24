@@ -1412,16 +1412,37 @@ class RegAlloc(object):
             arg = inputargs[i]
             assert not isinstance(arg, Const)
             loc = self.loc(arg)
+            if loc is ebp:
+                assert 0, "XXX move it away from ebp"
             assert not (loc is tmpreg or loc is xmmtmp)
             if arg.type == FLOAT:
                 floatlocs[i] = loc
             else:
                 nonfloatlocs[i] = loc
+            if isinstance(loc, RegLoc):
+                self.fm.forget_frame_allocation(arg)
         descr._x86_arglocs = nonfloatlocs, floatlocs
         descr._x86_loop_code = self.assembler.mc.get_relative_pos()
         descr._x86_clt = self.assembler.current_clt
         self.assembler.target_tokens_currently_compiling[descr] = None
         self.possibly_free_vars_for_op(op)
+
+##        from pypy.rpython.annlowlevel import llhelper
+##        def fn(addr):
+##            print '...label:', hex(addr), nonfloatlocs
+##        FUNC = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Void))
+##        ll_disp = llhelper(FUNC, fn)
+##        faddr = rffi.cast(lltype.Signed, ll_disp)
+##        for i in range(16):
+##            self.assembler.mc.PUSH_r(i)
+##        self.assembler.mc.CALL_l(0)
+##        self.assembler.mc.POP(edi)
+##        self.assembler.mc.MOV(r11, imm(faddr))
+##        self.assembler.mc.CALL(r11)
+##        for i in range(15, -1, -1):
+##            if i == esp.value:
+##                i -= 1
+##            self.assembler.mc.POP_r(i)
 
     def not_implemented_op(self, op):
         not_implemented("not implemented operation: %s" % op.getopname())

@@ -525,31 +525,53 @@ class RandomLoop(object):
                     startvars.append(BoxFloat(r.random_float_storage()))
                 else:
                     startvars.append(BoxInt(r.random_integer()))
+            allow_delay = True
+        else:
+            allow_delay = False
         assert len(dict.fromkeys(startvars)) == len(startvars)
         self.startvars = startvars
         self.prebuilt_ptr_consts = []
         self.r = r
-        self.build_random_loop(cpu, builder_factory, r, startvars)
+        self.build_random_loop(cpu, builder_factory, r, startvars, allow_delay)
 
-    def build_random_loop(self, cpu, builder_factory, r, startvars):
+    def build_random_loop(self, cpu, builder_factory, r, startvars, allow_delay):
 
         loop = TreeLoop('test_random_function')
         loop.inputargs = startvars[:]
         loop.operations = []
         loop._jitcelltoken = JitCellToken()
-        loop._targettoken = TargetToken()
-        loop.operations.append(ResOperation(rop.LABEL, loop.inputargs, None,
-                                            loop._targettoken))
         builder = builder_factory(cpu, loop, startvars[:])
-        self.generate_ops(builder, r, loop, startvars)
+        if allow_delay:
+            needs_a_label = True
+        else:
+            self.insert_label(loop, 0, r)
+            needs_a_label = False
+        self.generate_ops(builder, r, loop, startvars, needs_a_label=needs_a_label)
         self.builder = builder
         self.loop = loop
+        dump(loop)
         cpu.compile_loop(loop.inputargs, loop.operations, loop._jitcelltoken)
 
-    def generate_ops(self, builder, r, loop, startvars):
+    def insert_label(self, loop, position, r):
+        assert not hasattr(loop, '_targettoken')
+        for i in range(position):
+            op = loop.operations[i]
+            if (not op.has_no_side_effect()
+                    or not isinstance(op.result, (BoxInt, BoxFloat))):
+                position = i
+                break       # cannot move the LABEL later
+            randompos = r.randrange(0, len(self.startvars)+1)
+            self.startvars.insert(randompos, op.result)
+        loop._targettoken = TargetToken()
+        loop.operations.insert(position, ResOperation(rop.LABEL, self.startvars, None,
+                                                      loop._targettoken))
+
+    def generate_ops(self, builder, r, loop, startvars, needs_a_label=False):
         block_length = pytest.config.option.block_length
+        istart = 0
 
         for i in range(block_length):
+            istart = len(loop.operations)
             try:
                 op = r.choice(builder.OPERATIONS)
                 op.filter(builder)
@@ -558,6 +580,12 @@ class RandomLoop(object):
                 pass
             if builder.should_fail_by is not None:
                 break
+            if needs_a_label and r.random() < 0.2:
+                self.insert_label(loop, istart, r)
+                needs_a_label = False
+        if needs_a_label:
+            self.insert_label(loop, istart, r)
+
         endvars = []
         used_later = {}
         for op in loop.operations:
@@ -582,6 +610,17 @@ class RandomLoop(object):
             self.expected[v] = v.value
         if pytest.config.option.output:
             builder.print_loop()
+
+    def runjitcelltoken(self):
+        if self.startvars == self.loop.inputargs:
+            return self.loop._jitcelltoken
+        if not hasattr(self, '_initialjumploop_celltoken'):
+            self._initialjumploop_celltoken = JitCellToken()
+            self.cpu.compile_loop(self.startvars[:],
+                                  [ResOperation(rop.JUMP, self.startvars[:], None,
+                                                descr=self.loop._targettoken)],
+                                  self._initialjumploop_celltoken)
+        return self._initialjumploop_celltoken
 
     def get_fail_args(self):
         if self.should_fail_by.is_guard():
@@ -617,7 +656,7 @@ class RandomLoop(object):
                 cpu.set_future_value_float(i, box.value)
             else:
                 raise NotImplementedError(box)
-        fail = cpu.execute_token(self.loop._jitcelltoken)
+        fail = cpu.execute_token(self.runjitcelltoken())
         assert fail is self.should_fail_by.getdescr()
         for i, v in enumerate(self.get_fail_args()):
             if isinstance(v, (BoxFloat, ConstFloat)):
@@ -685,6 +724,7 @@ class RandomLoop(object):
             args = [x.clonebox() for x in subset]
             rl = RandomLoop(self.builder.cpu, self.builder.fork,
                                      r, args)
+            dump(rl.loop)
             self.cpu.compile_loop(rl.loop.inputargs, rl.loop.operations,
                                   rl.loop._jitcelltoken)
             # done
@@ -702,10 +742,18 @@ class RandomLoop(object):
             self.dont_generate_more = True
         if r.random() < .05:
             return False
+        dump(subloop)
         self.builder.cpu.compile_bridge(fail_descr, fail_args,
                                         subloop.operations,
                                         self.loop._jitcelltoken)
         return True
+
+def dump(loop):
+    print >> sys.stderr, loop
+    if hasattr(loop, 'inputargs'):
+        print >> sys.stderr, '\t', loop.inputargs
+    for op in loop.operations:
+        print >> sys.stderr, '\t', op
 
 def check_random_function(cpu, BuilderClass, r, num=None, max=None):
     loop = RandomLoop(cpu, BuilderClass, r)

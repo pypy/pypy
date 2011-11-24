@@ -34,8 +34,8 @@ class TestRecompilation(BaseTestRegalloc):
         jump(i1, descr=targettoken)
         '''
         loop = self.interpret(ops, [0])
-        previous = loop.token._x86_frame_depth
-        assert loop.token._x86_param_depth == 0
+        previous = loop._jitcelltoken.compiled_loop_token.frame_depth
+        assert loop._jitcelltoken.compiled_loop_token.param_depth == 0
         assert self.getint(0) == 20
         ops = '''
         [i1]
@@ -115,8 +115,8 @@ class TestRecompilation(BaseTestRegalloc):
         '''
         bridge = self.attach_bridge(ops, loop, 6)
         guard_op = loop.operations[6]
-        loop_frame_depth = loop.token._x86_frame_depth
-        assert loop.token._x86_param_depth == 0
+        loop_frame_depth = loop._jitcelltoken.compiled_loop_token.frame_depth
+        assert loop._jitcelltoken.compiled_loop_token.param_depth == 0
         # XXX: Maybe add enough ops to force stack on 64-bit as well?
         if IS_X86_32:
             assert guard_op.getdescr()._x86_bridge_frame_depth > loop_frame_depth
