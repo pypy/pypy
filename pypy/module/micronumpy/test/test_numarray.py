@@ -756,6 +756,7 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert numpypy.array([[1], [2], [3]]).shape == (3, 1)
         assert len(numpypy.zeros((3, 1, 2))) == 3
         raises(TypeError, len, numpypy.zeros(()))
+        raises(ValueError, numpypy.array, [[1, 2], 3])
 
     def test_getsetitem(self):
         import numpypy
@@ -991,6 +992,11 @@ class AppTestRepr(BaseNumpyAppTest):
 
         a = zeros((400, 400), dtype=int)
         assert str(a) == "[[0 0 0 ..., 0 0 0]\n [0 0 0 ..., 0 0 0]\n [0 0 0 ..., 0 0 0]\n ..., \n [0 0 0 ..., 0 0 0]\n [0 0 0 ..., 0 0 0]\n [0 0 0 ..., 0 0 0]]"
+        a = zeros((2, 2, 2))
+        r = str(a)
+        py.test.skip("this is not exactly right, fix it one day")
+        assert r == '[[[ 0.  0.]\n  [ 0.  0.]]\n\n [[ 0.  0.]\n  [ 0.  0.]]]'
+        
     def test_str_slice(self):
         from numpypy import array, zeros
         a = array(range(5), float)
