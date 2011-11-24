@@ -597,8 +597,6 @@ class MMap(object):
 def _check_map_size(size):
     if size < 0:
         raise RTypeError("memory mapped size must be positive")
-    if rffi.cast(size_t, size) != size:
-        raise ROverflowError("memory mapped size is too large (limited by C int)")
 
 if _POSIX:
     def mmap(fileno, length, flags=MAP_SHARED,
