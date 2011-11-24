@@ -611,6 +611,17 @@ class RandomLoop(object):
         if pytest.config.option.output:
             builder.print_loop()
 
+    def runjitcelltoken(self):
+        if self.startvars == self.loop.inputargs:
+            return self.loop._jitcelltoken
+        if not hasattr(self, '_initialjumploop_celltoken'):
+            self._initialjumploop_celltoken = JitCellToken()
+            self.cpu.compile_loop(self.startvars[:],
+                                  [ResOperation(rop.JUMP, self.startvars[:], None,
+                                                descr=self.loop._targettoken)],
+                                  self._initialjumploop_celltoken)
+        return self._initialjumploop_celltoken
+
     def get_fail_args(self):
         if self.should_fail_by.is_guard():
             assert self.should_fail_by.getfailargs() is not None
@@ -645,7 +656,7 @@ class RandomLoop(object):
                 cpu.set_future_value_float(i, box.value)
             else:
                 raise NotImplementedError(box)
-        fail = cpu.execute_token(self.loop._jitcelltoken)
+        fail = cpu.execute_token(self.runjitcelltoken())
         assert fail is self.should_fail_by.getdescr()
         for i, v in enumerate(self.get_fail_args()):
             if isinstance(v, (BoxFloat, ConstFloat)):
