@@ -9,7 +9,7 @@ from pypy.tool.sourcetools import func_with_new_name
 
 
 reduce_driver = jit.JitDriver(
-    greens = ["signature"],
+    greens = ['shapelen', "signature"],
     reds = ["i", "self", "dtype", "value", "obj"]
 )
 
@@ -63,26 +63,29 @@ class W_Ufunc(Wrappable):
             promote_to_largest=True
         )
         start = obj.start_iter(obj.shape)
+        shapelen = len(obj.shape)
         if self.identity is None:
             if size == 0:
                 raise operationerrfmt(space.w_ValueError, "zero-size array to "
                     "%s.reduce without identity", self.name)
             value = obj.eval(start).convert_to(dtype)
-            start = start.next()
+            start = start.next(shapelen)
         else:
             value = self.identity.convert_to(dtype)
         new_sig = signature.Signature.find_sig([
             self.reduce_signature, obj.signature
         ])
-        return self.reduce(new_sig, start, value, obj, dtype).wrap(space)
+        return self.reduce(new_sig, shapelen, start, value, obj,
+                           dtype).wrap(space)
 
-    def reduce(self, signature, i, value, obj, dtype):
+    def reduce(self, signature, shapelen, i, value, obj, dtype):
         while not i.done():
-            reduce_driver.jit_merge_point(signature=signature, self=self,
+            reduce_driver.jit_merge_point(signature=signature,
+                                          shapelen=shapelen, self=self,
                                           value=value, obj=obj, i=i,
                                           dtype=dtype)
             value = self.func(dtype, value, obj.eval(i).convert_to(dtype))
-            i = i.next()
+            i = i.next(shapelen)
         return value
 
 class W_Ufunc1(W_Ufunc):

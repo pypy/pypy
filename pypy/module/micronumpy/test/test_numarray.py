@@ -655,6 +655,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert r == 4
         r = (a + a).argmax()
         assert r == 9
+        a = array([1, 0, 0])
+        assert a.argmax() == 0
+        a = array([0, 0, 1])
+        assert a.argmax() == 2
 
     def test_argmin(self):
         from numpypy import array
