@@ -24,7 +24,7 @@ class BaseCompiledMixin(object):
         from pypy.annotation import model as annmodel
 
         for arg in args:
-            assert isinstance(arg, int)
+            assert isinstance(arg, (int, long))
 
         self.pre_translation_hook()
         t = self._get_TranslationContext()

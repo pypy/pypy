@@ -542,7 +542,7 @@ class TestLLtype(BaseTestRbuiltin, LLRtypeMixin):
         if r_longlong is not r_int:
             assert isinstance(res, r_longlong)
         else:
-            assert isinstance(res, int)
+            assert isinstance(res, (int, long))
         #
         def llfn(v):
             return rffi.cast(rffi.ULONGLONG, v)
