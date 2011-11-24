@@ -348,6 +348,7 @@ class Optimizer(Optimization):
         self.opaque_pointers = {}
         self.replaces_guard = {}
         self._newoperations = []
+        self.seen_results = {}
         self.optimizer = self
         self.optpure = None
         self.optearlyforce = None
@@ -542,6 +543,10 @@ class Optimizer(Optimization):
                 op = self.store_final_boxes_in_guard(op)
         elif op.can_raise():
             self.exception_might_have_happened = True
+        if op.result:
+            if op.result in self.seen_results:
+                raise ValueError, "invalid optimization"
+            self.seen_results[op.result] = None
         self._newoperations.append(op)
 
     def replace_op(self, old_op, new_op):
