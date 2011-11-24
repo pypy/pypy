@@ -137,7 +137,7 @@ _should_widen_type._annspecialcase_ = 'specialize:memo'
 maxint = int(LONG_TEST - 1)
 
 def is_valid_int(r, force_type=True):
-    if force_type_type:
+    if force_type:
         assert isinstance(r, (int, long))
     else:
         if not isinstance(r, (int, long)):
