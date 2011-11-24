@@ -979,8 +979,8 @@ class Stats(object):
         self.loops = []
         self.locations = []
         self.aborted_keys = []
-        self.invalidated_token_numbers = set()
-        self.jitcell_token_wrefs = set()
+        self.invalidated_token_numbers = set()    # <- not RPython
+        self.jitcell_token_wrefs = []
 
     def clear(self):
         del self.loops[:]
@@ -992,7 +992,7 @@ class Stats(object):
         self.aborted_count = 0
 
     def add_jitcell_token(self, token):
-        self.jitcell_token_wrefs.add(weakref.ref(token))
+        self.jitcell_token_wrefs.append(weakref.ref(token))
         
     def set_history(self, history):
         self.operations = history.operations
