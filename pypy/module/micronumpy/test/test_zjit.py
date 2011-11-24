@@ -47,17 +47,15 @@ class TestNumpyJIt(LLJitMixin):
         def f(i):
             interp = InterpreterState(codes[i])
             interp.run(space)
-            res = interp.results[-1]
-            assert isinstance(res, BaseArray)
-            w_res = res.eval(res.start_iter())
-            if isinstance(w_res, BoolObject):
-                return float(w_res.boolval)
-            elif isinstance(w_res, FloatObject):
-                return w_res.floatval
-            elif isinstance(w_res, IntObject):
-                return w_res.intval
-            else:
-                return -42.
+            w_res = interp.results[-1]
+            if isinstance(w_res, BaseArray):
+                w_res = w_res.eval(w_res.start_iter())
+
+            if isinstance(w_res, interp_boxes.W_Float64Box):
+                return w_res.value
+            elif isinstance(w_res, interp_boxes.W_BoolBox):
+                return float(w_res.value)
+            raise TypeError(w_res)
 
         if self.graph is None:
             interp, graph = self.meta_interp(f, [i],
@@ -79,8 +77,8 @@ class TestNumpyJIt(LLJitMixin):
 
     def test_add(self):
         result = self.run("add")
-        self.check_loops({'getarrayitem_raw': 2, 'float_add': 1,
-                          'setarrayitem_raw': 1, 'int_add': 3,
+        self.check_loops({'getinteriorfield_raw': 2, 'float_add': 1,
+                          'setinteriorfield_raw': 1, 'int_add': 3,
                           'int_ge': 1, 'guard_false': 1, 'jump': 1})
         assert result == 3 + 3
 
@@ -242,8 +240,8 @@ class TestNumpyJIt(LLJitMixin):
         result = self.run("slice")
         assert result == 18
         py.test.skip("Few remaining arraylen_gc left")
-        self.check_loops({'int_mul': 2, 'getarrayitem_raw': 2, 'float_add': 1,
-                          'setarrayitem_raw': 1, 'int_add': 3,
+        self.check_loops({'int_mul': 2, 'getinteriorfield_raw': 2, 'float_add': 1,
+                          'setinteriorfield_raw': 1, 'int_add': 3,
                           'int_lt': 1, 'guard_true': 1, 'jump': 1})
 
     def define_multidim():
@@ -256,9 +254,9 @@ class TestNumpyJIt(LLJitMixin):
     def test_multidim(self):
         result = self.run('multidim')
         assert result == 8
-        self.check_loops({'float_add': 1, 'getarrayitem_raw': 2,
+        self.check_loops({'float_add': 1, 'getinteriorfield_raw': 2,
                           'guard_false': 1, 'int_add': 3, 'int_ge': 1,
-                          'jump': 1, 'setarrayitem_raw': 1})
+                          'jump': 1, 'setinteriorfield_raw': 1})
         # int_add might be 1 here if we try slightly harder with
         # reusing indexes or some optimization
 
