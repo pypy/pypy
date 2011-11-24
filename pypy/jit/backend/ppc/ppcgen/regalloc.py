@@ -201,6 +201,12 @@ class Regalloc(object):
     def next_instruction(self):
         self.rm.next_instruction()
 
+    def force_spill_var(self, var):
+        if var.type == FLOAT:
+            assert 0, "not implemented yet"
+        else:
+            self.rm.force_spill_var(var)
+
     def before_call(self, force_store=[], save_all_regs=False):
         self.rm.before_call(force_store, save_all_regs)
 
@@ -720,6 +726,24 @@ class Regalloc(object):
 
     prepare_debug_merge_point = void
     prepare_jit_debug = void
+
+    def prepare_force_token(self, op):
+        res_loc = self.force_allocate_reg(op.result)
+        self.possibly_free_var(op.result)
+        return [res_loc]
+
+    def prepare_guard_call_may_force(self, op, guard_op):
+        faildescr = guard_op.getdescr()
+        fail_index = self.cpu.get_fail_descr_number(faildescr)
+        self.assembler._write_fail_index(fail_index)
+        args = [imm(rffi.cast(lltype.Signed, op.getarg(0).getint()))]
+        for v in guard_op.getfailargs():
+            if v in self.rm.reg_bindings:
+                self.force_spill_var(v)
+        self.assembler.emit_call(op, args, self, fail_index)
+        locs = self._prepare_guard(guard_op)
+        self.possibly_free_vars(guard_op.getfailargs())
+        return locs
 
     def prepare_guard_call_assembler(self, op, guard_op):
         descr = op.getdescr()
