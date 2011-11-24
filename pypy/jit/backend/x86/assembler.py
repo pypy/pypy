@@ -690,7 +690,10 @@ class Assembler386(object):
                    ResOperation(rop.INT_ADD, [box, ConstInt(1)], box2),
                    ResOperation(rop.SETFIELD_RAW, [c_adr, box2],
                                 None, descr=self.debug_counter_descr)]
-            operations = ops + operations
+            if operations[0].getopnum() == rop.LABEL:
+                operations = [operations[0]] + ops + operations[1:]
+            else:
+                operations =  ops + operations
         return operations
 
     def _assemble(self, regalloc, operations):
