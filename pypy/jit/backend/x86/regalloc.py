@@ -1412,6 +1412,8 @@ class RegAlloc(object):
             arg = inputargs[i]
             assert not isinstance(arg, Const)
             loc = self.loc(arg)
+            if loc is ebp:
+                assert 0, "XXX move it away from ebp"
             assert not (loc is tmpreg or loc is xmmtmp)
             if arg.type == FLOAT:
                 floatlocs[i] = loc
