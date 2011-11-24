@@ -37,6 +37,9 @@ class FrameManager(object):
         self.frame_depth += size
         return newloc
 
+    def forget_frame_allocation(self, box):
+        self.frame_bindings.pop(box, None)
+
     def reserve_location_in_frame(self, size):
         frame_depth = self.frame_depth
         self.frame_depth += size

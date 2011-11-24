@@ -1417,6 +1417,8 @@ class RegAlloc(object):
                 floatlocs[i] = loc
             else:
                 nonfloatlocs[i] = loc
+            if isinstance(loc, RegLoc):
+                self.fm.forget_frame_allocation(arg)
         descr._x86_arglocs = nonfloatlocs, floatlocs
         descr._x86_loop_code = self.assembler.mc.get_relative_pos()
         descr._x86_clt = self.assembler.current_clt
