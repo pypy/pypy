@@ -992,6 +992,7 @@ class Stats(object):
         self.aborted_count = 0
 
     def add_jitcell_token(self, token):
+        assert isinstance(token, JitCellToken)
         self.jitcell_token_wrefs.add(weakref.ref(token))
         
     def set_history(self, history):
