@@ -111,6 +111,16 @@ class BaseFieldDescr(AbstractDescr):
     def repr_of_descr(self):
         return '<%s %s %s>' % (self._clsname, self.name, self.offset)
 
+class DynamicFieldDescr(BaseFieldDescr):
+    def __init__(self, offset, fieldsize, is_pointer, is_float, is_signed):
+        self.offset = offset
+        self._fieldsize = fieldsize
+        self._is_pointer_field = is_pointer
+        self._is_float_field = is_float
+        self._is_field_signed = is_signed
+
+    def get_field_size(self, translate_support_code):
+        return self._fieldsize
 
 class NonGcPtrFieldDescr(BaseFieldDescr):
     _clsname = 'NonGcPtrFieldDescr'
@@ -182,6 +192,7 @@ class BaseArrayDescr(AbstractDescr):
     def repr_of_descr(self):
         return '<%s>' % self._clsname
 
+
 class NonGcPtrArrayDescr(BaseArrayDescr):
     _clsname = 'NonGcPtrArrayDescr'
     def get_item_size(self, translate_support_code):
@@ -210,6 +221,13 @@ class BaseArrayNoLengthDescr(BaseArrayDescr):
 
     def get_ofs_length(self, translate_support_code):
         return -1
+
+class DynamicArrayNoLengthDescr(BaseArrayNoLengthDescr):
+    def __init__(self, itemsize):
+        self.itemsize = itemsize
+
+    def get_item_size(self, translate_support_code):
+        return self.itemsize
 
 class NonGcPtrArrayNoLengthDescr(BaseArrayNoLengthDescr):
     _clsname = 'NonGcPtrArrayNoLengthDescr'
