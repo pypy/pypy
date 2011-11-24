@@ -92,7 +92,7 @@ int is no longer necessarily the same size as the target int.
 We therefore can no longer use the int type as it is, but need
 to use long everywhere.
 """
-
+    
 def intmask(n):
     if isinstance(n, objectmodel.Symbolic):
         return n        # assume Symbolics don't overflow
