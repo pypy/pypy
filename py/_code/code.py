@@ -307,7 +307,7 @@ class ExceptionInfo(object):
                     self._striptext = 'AssertionError: '
         self._excinfo = tup
         self.type, self.value, tb = self._excinfo
-        self.typename = self.type.__name__
+        self.typename = getattr(self.type, "__name__", "???")
         self.traceback = py.code.Traceback(tb)
 
     def __repr__(self):
