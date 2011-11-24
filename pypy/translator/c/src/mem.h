@@ -73,7 +73,13 @@ pypy_asm_gcroot(void* _r1)
 
 #define pypy_asm_gc_nocollect(f) "/* GC_NOCOLLECT " #f " */"
 
-#define pypy_asm_keepalive(v)    __asm { }
+#ifndef _WIN64
+#  define pypy_asm_keepalive(v)    __asm { }
+#else
+   /* is there soething cheaper? */
+#  define pypy_asm_keepalive(v)    _ReadWriteBarrier();
+#endif
+
 static __declspec(noinline) void pypy_asm_stack_bottom() { }
 
 #define OP_GC_ASMGCROOT_STATIC(i, r)   r =      \
