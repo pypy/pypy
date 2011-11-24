@@ -270,7 +270,12 @@ We are using
   - *slicing*:
     the slice start must be within bounds. The stop doesn't need to, but it must
     not be smaller than the start.  All negative indexes are disallowed, except for
-    the [:-1] special case.  No step.
+    the [:-1] special case.  No step.  Slice deletion follows the same rules.
+    
+  - *slice assignment*:
+    only supports ``lst[x:y] = sublist``, if ``len(sublist) == y - x``.
+    In other words, slice assignment cannot change the total length of the list,
+    but just replace items.
 
   - *other operators*:
     ``+``, ``+=``, ``in``, ``*``, ``*=``, ``==``, ``!=`` work as expected.

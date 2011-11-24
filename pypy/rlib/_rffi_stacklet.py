@@ -8,16 +8,21 @@ import sys
 
 cdir = py.path.local(pypydir) / 'translator' / 'c'
 
-_sep_mods = []
-if sys.platform == 'win32':
-    _sep_mods = [cdir / "src/stacklet/switch_x86_msvc.asm"]
-    
 eci = ExternalCompilationInfo(
     include_dirs = [cdir],
     includes = ['src/stacklet/stacklet.h'],
     separate_module_sources = ['#include "src/stacklet/stacklet.c"\n'],
-    separate_module_files = _sep_mods
 )
+if sys.platform == 'win32':
+    eci.separate_module_files += (cdir / "src/stacklet/switch_x86_msvc.asm", )
+    eci.export_symbols += (
+        'stacklet_newthread',
+        'stacklet_deletethread',
+        'stacklet_new',
+        'stacklet_switch',
+        'stacklet_destroy',
+        '_stacklet_translate_pointer',
+        )
 
 rffi_platform.verify_eci(eci.convert_sources_to_files())
 

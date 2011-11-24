@@ -300,7 +300,7 @@ def unmarshal_Tuple(space, u, tc):
 register(TYPE_TUPLE, unmarshal_Tuple)
 
 def marshal_w__List(space, w_list, m):
-    items = w_list.wrappeditems[:]
+    items = w_list.getitems()[:]
     m.put_tuple_w(TYPE_LIST, items)
 
 def unmarshal_List(space, u, tc):
