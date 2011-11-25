@@ -453,38 +453,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
                                  self.wrap("Expected tuple of length 3"))
         return self.int_w(l_w[0]), self.int_w(l_w[1]), self.int_w(l_w[2])
 
-    def id(self, w_obj):
-        from pypy.rlib.rbigint import rbigint
-        from pypy.rlib import objectmodel
-        from pypy.rlib.longlong2float import float2longlong
-        w_type = self.type(w_obj)
-        if w_type is self.w_int:
-            tag = 1
-            return self.or_(self.lshift(w_obj, self.wrap(3)), self.wrap(tag))
-        elif w_type is self.w_long:
-            tag = 3
-            return self.or_(self.lshift(w_obj, self.wrap(3)), self.wrap(tag))
-        elif w_type is self.w_float:
-            tag = 5
-            val = float2longlong(self.float_w(w_obj))
-            w_obj = self.newlong_from_rbigint(rbigint.fromrarith_int(val))
-            return self.or_(self.lshift(w_obj, self.wrap(3)), self.wrap(tag))
-        elif w_type is self.w_complex:
-            real = self.float_w(self.getattr(w_obj, self.wrap("real")))
-            imag = self.float_w(self.getattr(w_obj, self.wrap("imag")))
-            tag = 5
-            real_b = rbigint.fromrarith_int(float2longlong(real))
-            imag_b = rbigint.fromrarith_int(float2longlong(imag))
-            val = real_b.lshift(8 * 8).or_(imag_b).lshift(3).or_(rbigint.fromint(3))
-            return self.newlong_from_rbigint(val)
-        elif w_type is self.w_str:
-            res = objectmodel.compute_unique_id(self.str_w(w_obj))
-        elif w_type is self.w_unicode:
-            res = objectmodel.compute_unique_id(self.unicode_w(w_obj))
-        else:
-            res = objectmodel.compute_unique_id(w_obj)
-        return self.wrap(res)
-
     def is_true(self, w_obj):
         # a shortcut for performance
         # NOTE! this method is typically overridden by builtinshortcut.py.

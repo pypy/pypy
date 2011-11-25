@@ -191,6 +191,9 @@ class W_Root(object):
     def is_w(self, space, w_other):
         return self is w_other
 
+    def id(self, space):
+        return space.wrap(compute_unique_id(self))
+
     def str_w(self, space):
         w_msg = typed_unwrap_error_msg(space, "string", self)
         raise OperationError(space.w_TypeError, w_msg)
@@ -693,6 +696,9 @@ class ObjSpace(object):
         # "if x is object").
         return w_two.is_w(self, w_one)
 
+    def id(self, w_obj):
+        return w_obj.id(self)
+
     def hash_w(self, w_obj):
         """shortcut for space.int_w(space.hash(w_obj))"""
         return self.int_w(self.hash(w_obj))
@@ -1030,9 +1036,6 @@ class ObjSpace(object):
 
     def isinstance_w(self, w_obj, w_type):
         return self.is_true(self.isinstance(w_obj, w_type))
-
-    def id(self, w_obj):
-        return self.wrap(compute_unique_id(w_obj))
 
     # The code below only works
     # for the simple case (new-style instance).
