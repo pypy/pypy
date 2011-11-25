@@ -697,10 +697,12 @@ def detect_list_comprehension(graph):
             if op.opname == 'getattr' and op.args[1] == c_append:
                 vlist = variable_families.find_rep(op.args[0])
                 if vlist in newlist_v:
-                    op2 = block.operations[i+1]
-                    if (op2.opname == 'simple_call' and len(op2.args) == 2
-                        and op2.args[0] is op.result):
-                        append_v.append((op.args[0], op.result, block))
+                    for j in range(i + 1, len(block.operations)):
+                        op2 = block.operations[j]
+                        if (op2.opname == 'simple_call' and len(op2.args) == 2
+                            and op2.args[0] is op.result):
+                            append_v.append((op.args[0], op.result, block))
+                            break
     if not append_v:
         return
     detector = ListComprehensionDetector(graph, loops, newlist_v,
