@@ -756,6 +756,8 @@ class MiniMarkGC(MovingGCBase):
 
     def can_move(self, obj):
         """Overrides the parent can_move()."""
+        if not self.is_valid_gc_object(obj):
+            return False
         return self.is_in_nursery(obj)
 
 
