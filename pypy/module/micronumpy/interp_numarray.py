@@ -316,8 +316,7 @@ class BaseArray(Wrappable):
     _attrs_ = ["invalidates", "signature", "shape", "strides", "backstrides",
                "start", 'order']
 
-    _immutable_fields_ = ['shape[*]', "strides[*]", "backstrides[*]", 'start',
-                          "order"]
+    _immutable_fields_ = ['start', "order"]
 
     strides = None
     start = 0
@@ -327,21 +326,24 @@ class BaseArray(Wrappable):
         self.shape = shape
         self.order = order
         if self.strides is None:
-            strides = []
-            backstrides = []
-            s = 1
-            shape_rev = shape[:]
-            if order == 'C':
-                shape_rev.reverse()
-            for sh in shape_rev:
-                strides.append(s)
-                backstrides.append(s * (sh - 1))
-                s *= sh
-            if order == 'C':
-                strides.reverse()
-                backstrides.reverse()
-            self.strides = strides[:]
-            self.backstrides = backstrides[:]
+            self.calc_strides(shape)
+
+    def calc_strides(self, shape):
+        strides = []
+        backstrides = []
+        s = 1
+        shape_rev = shape[:]
+        if self.order == 'C':
+            shape_rev.reverse()
+        for sh in shape_rev:
+            strides.append(s)
+            backstrides.append(s * (sh - 1))
+            s *= sh
+        if self.order == 'C':
+            strides.reverse()
+            backstrides.reverse()
+        self.strides = strides[:]
+        self.backstrides = backstrides[:]
 
     def invalidated(self):
         if self.invalidates:
@@ -494,7 +496,43 @@ class BaseArray(Wrappable):
 
     def descr_get_shape(self, space):
         return space.newtuple([space.wrap(i) for i in self.shape])
-
+    
+    def descr_set_shape(self, space, w_iterable):
+        concrete = self.get_concrete()
+        new_size = 0
+        new_shape = []
+        if not space.issequence_w(w_iterable):
+            new_size = space.int_w(w_iterable)
+            if new_size < 0:
+                new_size = self.find_size()
+            new_shape = [new_size, ]
+        else:
+            neg_dim = -1
+            batch = space.listview(w_iterable)
+            new_size = 1
+            if len(batch) < 1:
+                new_size = 0
+            new_shape = []
+            i = 0
+            for elem in batch:
+                s = space.int_w(elem)
+                if s < 0:
+                    if neg_dim >= 0:
+                        raise OperationError(space.w_ValueError, space.wrap(
+                                 "can only specify one unknown dimension"))
+                    s = 1
+                    neg_dim = i
+                new_size *= s
+                new_shape.append(s)
+                i += 1
+            if neg_dim >= 0:
+                new_shape[neg_dim] = self.find_size() / new_size
+                new_size *= new_shape[neg_dim]
+        if new_size != self.find_size():
+            raise OperationError(space.w_ValueError,
+                    space.wrap("total size of new array must be unchanged"))
+        concrete.setshape(space, new_shape)
+        
     def descr_get_size(self, space):
         return space.wrap(self.find_size())
 
@@ -744,6 +782,18 @@ class BaseArray(Wrappable):
         return NDimSlice(self, new_sig, start, strides[:], backstrides[:],
                          shape[:])
 
+    def descr_reshape(self, space, w_iterable):
+        new_sig = signature.Signature.find_sig([
+            NDimSlice.signature, self.signature,
+        ])
+        #Does the [:] actually create a copy?
+        #I should do it explicitly
+        arr = NDimSlice(self, new_sig, self.start, self.strides[:],
+                self.backstrides[:], self.shape[:])
+
+        arr.descr_set_shape(space, w_iterable)
+        return arr
+
     def descr_mean(self, space):
         return space.wrap(space.float_w(self.descr_sum(space)) / self.find_size())
 
@@ -827,6 +877,9 @@ class Scalar(BaseArray):
 
     def to_str(self, space, comma, builder, indent=' ', use_ellipsis=False):
         builder.append(self.dtype.str_format(self.value))
+
+    def setshape(self, space, new_shape):
+        pass 
 
 class VirtualArray(BaseArray):
     """
@@ -997,6 +1050,82 @@ class ViewArray(BaseArray):
             return space.wrap(self.shape[0])
         return space.wrap(1)
 
+    def setshape(self, space, new_shape):
+        if len(self.shape) < 1:
+            return
+        elif len(self.shape) < 2:
+            #REVIEWER: this code could be refactored into calc_strides
+            #but then calc_strides would have to accept a factor of the
+            #current stride
+            strides = []
+            backstrides = []
+            self.shape = new_shape[:]
+            s = self.strides[0]
+            if self.order == 'C':
+                new_shape.reverse()
+            for sh in new_shape:
+                strides.append(s)
+                backstrides.append(s * (sh - 1))
+                s *= sh
+            if self.order == 'C':
+                strides.reverse()
+                backstrides.reverse()
+            self.strides = strides[:]
+            self.backstrides = backstrides[:]
+            return
+        #REVIEWER: wordy comment to explain what the intention was. Please
+        #edit or remove.
+        #We know that the product of new_shape is correct.
+        #Now we must check that the new shape does not create stepping conflicts
+        # for the strides It works like this:
+        # - Determine the right-to-lef tor left-to-right fastest iterating 
+        #   dimension. Note it is not enough just to check self.order, since a
+        #   transpose reverses everything.
+        # - Start recalculating the strides, by each dimension. Keep a running 
+        #   cumprod of the old shape up to this dimension vs. the new shape up 
+        #   to this dimension. Every time the products match, update the stride
+        #   currently in use.
+        # - The strides for each of the matching pieces must also match, 
+        # - The stride will always be based on the old stride of the lowest
+        #   dimension in the chunk, since 
+        new_dims = range(len(new_shape)) 
+        old_dims = range(len(self.shape))
+        if self.strides[0]> self.strides[-1]:
+            #This is the normal thing to do
+            new_dims.reverse()
+            old_dims.reverse()
+        nd = 0
+        od = 0
+        prod_old = 1
+        prod_new = self.strides[old_dims[od]]
+        cur_old_stride = self.strides[old_dims[od]]
+        new_strides = [0]*len(new_shape)
+        while nd < len(new_dims):
+            new_strides[new_dims[nd]] = cur_old_stride
+            prod_new *= new_shape[nd]
+            while prod_new >= prod_old:
+                if prod_new == prod_old:
+                    #Finished an old dim on a match. All is good
+                    od += 1
+                    prod_old *= self.shape[old_dims[od]]
+                    cur_old_stride = self.strides[old_dims[od]]
+                elif prod_new > prod_old:
+                    #Crossed over onto a different old_dim. 
+                    #Strides must be "equal" as per steps
+                    od += 1
+                    if self.strides[old_dims[od]] / self.shape[old_dims[od - 1]] \
+                               <>  self.strides[old_dims[od-1]]:
+                        raise OperationError(space.w_AttributeError, space.wrap(
+                          "incompatible shape for a non-contiguous array"))
+                    prod_old *= self.shape[old_dims[od]]
+            nd += 1 
+        new_backstrides = [0]*len(new_shape)
+        for nd in range(len(new_shape)):
+            new_backstrides[nd] = (new_shape[nd] - 1) * new_strides[nd]
+        self.strides = new_strides
+        self.backstrides = new_backstrides
+        self.shape = new_shape
+        
 class VirtualView(VirtualArray):
     pass
 
@@ -1094,6 +1223,10 @@ class NDimArray(BaseArray):
         self.invalidated()
         self.dtype.setitem(self.storage, item, value)
 
+    def setshape(self, space, new_shape):
+        self.shape = new_shape
+        self.calc_strides(new_shape)
+
     def start_iter(self, res_shape=None):
         if self.order == 'C':
             if res_shape is not None and res_shape != self.shape:
@@ -1173,7 +1306,7 @@ BaseArray.typedef = TypeDef(
     __str__ = interp2app(BaseArray.descr_str),
 
     dtype = GetSetProperty(BaseArray.descr_get_dtype),
-    shape = GetSetProperty(BaseArray.descr_get_shape),
+    shape = GetSetProperty(BaseArray.descr_get_shape, BaseArray.descr_set_shape),
     size = GetSetProperty(BaseArray.descr_get_size),
 
     T = GetSetProperty(BaseArray.descr_get_transpose),
@@ -1190,4 +1323,5 @@ BaseArray.typedef = TypeDef(
     dot = interp2app(BaseArray.descr_dot),
 
     copy = interp2app(BaseArray.descr_copy),
+    reshape = interp2app(BaseArray.descr_reshape),
 )
