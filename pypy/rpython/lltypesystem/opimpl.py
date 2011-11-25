@@ -4,6 +4,8 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.lltypesystem.lloperation import opimpls
 from pypy.rlib import debug
+from pypy.rlib.rarithmetic import is_valid_int
+
 
 # ____________________________________________________________
 # Implementation of the 'canfold' operations
@@ -173,7 +175,7 @@ def op_direct_arrayitems(obj):
 
 def op_direct_ptradd(obj, index):
     checkptr(obj)
-    assert isinstance(index, (int, long))
+    assert is_valid_int(index)
     return lltype.direct_ptradd(obj, index)
 
 
@@ -189,23 +191,23 @@ def op_int_add(x, y):
     return intmask(x + y)
 
 def op_int_sub(x, y):
-    if not isinstance(x, (int, long)):
+    if not is_valid_int(x, force_type=False):
         from pypy.rpython.lltypesystem import llgroup
         assert isinstance(x, llgroup.CombinedSymbolic)
-    assert isinstance(y, (int, long))
+    assert is_valid_int(y))
     return intmask(x - y)
 
 def op_int_ge(x, y):
     # special case for 'AddressOffset >= 0'
     assert isinstance(x, (int, long, llmemory.AddressOffset))
-    assert isinstance(y, (int, long))
+    assert is_valid_int(y)
     return x >= y
 
 def op_int_lt(x, y):
     # special case for 'AddressOffset < 0'
     # hack for win64
     assert isinstance(x, (int, long, llmemory.AddressOffset))
-    assert isinstance(y, (int, long))
+    assert is_valid_int(y)
     return x < y
 
 def op_int_between(a, b, c):
@@ -215,25 +217,25 @@ def op_int_between(a, b, c):
     return a <= b < c
 
 def op_int_and(x, y):
-    if not isinstance(x, (int, long)):
+    if not is_valid_int(x, force_type=False):
         from pypy.rpython.lltypesystem import llgroup
         assert isinstance(x, llgroup.CombinedSymbolic)
-    assert isinstance(y, (int, long))
+    assert is_valid_int(y)
     return x & y
 
 def op_int_or(x, y):
-    if not isinstance(x, (int, long)):
+    if not is_valid_int(x, force_type=False):
         from pypy.rpython.lltypesystem import llgroup
         assert isinstance(x, llgroup.CombinedSymbolic)
-    assert isinstance(y, (int, long))
+    assert is_valid_int(y)
     return x | y
 
 def op_int_xor(x, y):
     # used in computing hashes
     if isinstance(x, AddressAsInt): x = llmemory.cast_adr_to_int(x.adr)
     if isinstance(y, AddressAsInt): y = llmemory.cast_adr_to_int(y.adr)
-    assert isinstance(x, (int, long))
-    assert isinstance(y, (int, long))
+    assert is_valid_int(x)
+    assert is_valid_int(y)
     return x ^ y
 
 def op_int_mul(x, y):
@@ -242,10 +244,10 @@ def op_int_mul(x, y):
     return intmask(x * y)
 
 def op_int_rshift(x, y):
-    if not isinstance(x, (int, long)):
+    if not is_valid_int(x, force_type=False):
         from pypy.rpython.lltypesystem import llgroup
         assert isinstance(x, llgroup.CombinedSymbolic)
-    assert isinstance(y, (int, long))
+    assert is_valid_int(y)
     return x >> y
 
 def op_int_floordiv(x, y):
@@ -283,22 +285,22 @@ def op_llong_mod(x, y):
 
 def op_uint_lshift(x, y):
     assert isinstance(x, r_uint)
-    assert isinstance(y, (int, long))
+    assert is_valid_int(y)
     return r_uint(x << y)
 
 def op_uint_rshift(x, y):
     assert isinstance(x, r_uint)
-    assert isinstance(y, (int, long))
+    assert is_valid_int(y)
     return r_uint(x >> y)
 
 def op_llong_lshift(x, y):
     assert isinstance(x, r_longlong_arg)
-    assert isinstance(y, (int, long))
+    assert is_valid_int(y)
     return r_longlong_result(x << y)
 
 def op_llong_rshift(x, y):
     assert isinstance(x, r_longlong_arg)
-    assert isinstance(y, (int, long))
+    assert is_valid_int(y)
     return r_longlong_result(x >> y)
 
 def op_ullong_lshift(x, y):
@@ -308,7 +310,7 @@ def op_ullong_lshift(x, y):
 
 def op_ullong_rshift(x, y):
     assert isinstance(x, r_ulonglong)
-    assert isinstance(y, (int, long))
+    assert is_valid_int(y)
     return r_ulonglong(x >> y)
 
 def op_same_as(x):
@@ -321,7 +323,7 @@ op_cast_primitive.need_result_type = True
 
 def op_cast_int_to_float(i):
     # assert type(i) is int
-    assert isinstance(i, (int, long))
+    assert is_valid_int(i)
     return float(i)
 
 def op_cast_uint_to_float(u):
@@ -344,7 +346,7 @@ def op_cast_ulonglong_to_float(i):
 
 def op_cast_int_to_char(b):
     #assert type(b) is int
-    assert isinstance(b, (int, long))
+    assert is_valid_int(b)
     return chr(b)
 
 def op_cast_bool_to_int(b):
@@ -388,12 +390,12 @@ def op_cast_unichar_to_int(b):
     return ord(b)
 
 def op_cast_int_to_unichar(b):
-    assert isinstance(b, (int, long))
+    assert is_valid_int(b)
     return unichr(b)
 
 def op_cast_int_to_uint(b):
     # assert type(b) is int
-    assert isinstance(b, (int, long))
+    assert is_valid_int(b)
     return r_uint(b)
 
 def op_cast_uint_to_int(b):
@@ -401,7 +403,7 @@ def op_cast_uint_to_int(b):
     return intmask(b)
 
 def op_cast_int_to_longlong(b):
-    assert isinstance(b, (int, long))
+    assert is_valid_int(b)
     return r_longlong_result(b)
 
 def op_truncate_longlong_to_int(b):
@@ -572,7 +574,7 @@ def op_is_group_member_nonzero(memberoffset):
     if isinstance(memberoffset, llgroup.GroupMemberOffset):
         return memberoffset.index != 0
     else:
-        assert isinstance(memberoffset, (int, long))
+        assert is_valid_int(memberoffset)
         return memberoffset != 0
 
 def op_extract_ushort(combinedoffset):

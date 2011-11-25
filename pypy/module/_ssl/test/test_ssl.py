@@ -1,6 +1,8 @@
 from pypy.conftest import gettestobjspace
 import os
 import py
+from pypy.rlib.rarithmetic import is_valid_int
+
 
 class AppTestSSL:
     def setup_class(cls):
@@ -29,7 +31,7 @@ class AppTestSSL:
         assert isinstance(_ssl.SSL_ERROR_EOF, int)
         assert isinstance(_ssl.SSL_ERROR_INVALID_ERROR_CODE, int)
 
-        assert isinstance(_ssl.OPENSSL_VERSION_NUMBER, (int, long))
+        assert is_valid_int(_ssl.OPENSSL_VERSION_NUMBER)
         assert isinstance(_ssl.OPENSSL_VERSION_INFO, tuple)
         assert len(_ssl.OPENSSL_VERSION_INFO) == 5
         assert isinstance(_ssl.OPENSSL_VERSION, str)

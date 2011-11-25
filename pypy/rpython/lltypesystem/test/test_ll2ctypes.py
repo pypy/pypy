@@ -17,6 +17,7 @@ from pypy.rpython.test.test_llinterp import interpret
 from pypy.annotation.annrpython import RPythonAnnotator
 from pypy.rpython.rtyper import RPythonTyper
 from pypy.rlib.rarithmetic import r_uint, get_long_pattern, is_emulated_long
+from pypy.rlib.rarithmetic import is_valid_int
 
 if False:    # for now, please keep it False by default
     from pypy.rpython.lltypesystem import ll2ctypes
@@ -1070,7 +1071,7 @@ class TestLL2Ctypes(object):
                 return sys.maxint/2 * 3
 
         res = cast_adr_to_int(someaddr())
-        assert isinstance(res, (int, long))
+        assert is_emulated_long(res)
         assert res == -sys.maxint/2 - 3
 
     def test_cast_gcref_back_and_forth(self):
@@ -1323,7 +1324,7 @@ class TestLL2Ctypes(object):
         p = lltype.malloc(S, flavor='raw')
         a = llmemory.cast_ptr_to_adr(p)
         i = llmemory.cast_adr_to_int(a, "forced")
-        assert isinstance(i, (int, long))
+        assert is_valid_int(i)
         assert i == llmemory.cast_adr_to_int(a, "forced")
         lltype.free(p, flavor='raw')
 

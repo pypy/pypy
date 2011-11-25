@@ -141,7 +141,7 @@ def is_valid_int(r, force_type=True):
         assert isinstance(r, (int, long))
     else:
         if not isinstance(r, (int, long)):
-            return True
+            return False
     return -maxint - 1 <= r <= maxint
 
 def ovfcheck(r):
