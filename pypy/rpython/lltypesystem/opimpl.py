@@ -194,7 +194,7 @@ def op_int_sub(x, y):
     if not is_valid_int(x, force_type=False):
         from pypy.rpython.lltypesystem import llgroup
         assert isinstance(x, llgroup.CombinedSymbolic)
-    assert is_valid_int(y))
+    assert is_valid_int(y)
     return intmask(x - y)
 
 def op_int_ge(x, y):

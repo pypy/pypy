@@ -28,7 +28,7 @@ from pypy.rlib.rarithmetic import is_valid_int
 
 
 def erase_int(x):
-    assert is_valid_int(x))
+    assert is_valid_int(x)
     res = 2 * x + 1
     if res > sys.maxint or res < -sys.maxint - 1:
         raise OverflowError

@@ -1018,7 +1018,7 @@ class LLFrame(object):
     # Overflow-detecting variants
 
     def op_int_neg_ovf(self, x):
-        assert is_valid_int(x))
+        assert is_valid_int(x)
         try:
             return ovfcheck(-x)
         except OverflowError:
