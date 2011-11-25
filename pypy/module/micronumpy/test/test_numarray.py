@@ -1041,3 +1041,19 @@ class AppTestRepr(BaseNumpyAppTest):
         assert str(b) == "[7 8 9]"
         b = a[2:1, ]
         assert str(b) == "[]"
+
+
+class AppTestRanges(BaseNumpyAppTest):
+    def test_arange(self):
+        from numpypy import arange, array, dtype
+        a = arange(3)
+        assert (a == [0, 1, 2]).all()
+        assert a.dtype is dtype(int)
+        a = arange(3.0)
+        assert (a == [0., 1., 2.]).all()
+        assert a.dtype is dtype(float)
+        a = arange(3, 7)
+        assert (a == [3, 4, 5, 6]).all()
+        assert a.dtype is dtype(int)
+        a = arange(3, 7, 2)
+        assert (a == [3, 5]).all()

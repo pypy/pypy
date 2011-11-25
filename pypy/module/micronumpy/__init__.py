@@ -57,4 +57,5 @@ class Module(MixedModule):
         'mean': 'app_numpy.mean',
         'inf': 'app_numpy.inf',
         'e': 'app_numpy.e',
+        'arange': 'app_numpy.arange',
     }
