@@ -140,7 +140,7 @@ class ArgChain(object):
             self.last.next = arg
             self.last = arg
         self.numargs += 1
-    
+
 
 class AbstractArg(object):
     next = None
@@ -234,7 +234,7 @@ class Func(AbstractFuncPtr):
         # It is important that there is no other operation in the middle, else
         # the optimizer will fail to recognize the pattern and won't turn it
         # into a fast CALL.  Note that "arg = arg.next" is optimized away,
-        # assuming that archain is completely virtual.
+        # assuming that argchain is completely virtual.
         self = jit.promote(self)
         if argchain.numargs != len(self.argtypes):
             raise TypeError, 'Wrong number of arguments: %d expected, got %d' %\
@@ -410,3 +410,22 @@ class CDLL(object):
 
     def getaddressindll(self, name):
         return dlsym(self.lib, name)
+
+@jit.oopspec("libffi_array_getitem(ffitype, width, addr, index, offset)")
+def array_getitem(ffitype, width, addr, index, offset):
+    for TYPE, ffitype2 in clibffi.ffitype_map:
+        if ffitype is ffitype2:
+            addr = rffi.ptradd(addr, index * width)
+            addr = rffi.ptradd(addr, offset)
+            return rffi.cast(rffi.CArrayPtr(TYPE), addr)[0]
+    assert False
+
+@jit.oopspec("libffi_array_setitem(ffitype, width, addr, index, offset, value)")
+def array_setitem(ffitype, width, addr, index, offset, value):
+    for TYPE, ffitype2 in clibffi.ffitype_map:
+        if ffitype is ffitype2:
+            addr = rffi.ptradd(addr, index * width)
+            addr = rffi.ptradd(addr, offset)
+            rffi.cast(rffi.CArrayPtr(TYPE), addr)[0] = value
+            return
+    assert False

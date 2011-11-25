@@ -879,6 +879,16 @@ class ObjSpace(object):
         """
         return self.unpackiterable(w_iterable, expected_length)
 
+    def listview_str(self, w_list):
+        """ Return a list of unwrapped strings out of a list of strings. If the
+        argument is not a list or does not contain only strings, return None.
+        May return None anyway.
+        """
+        return None
+
+    def newlist_str(self, list_s):
+        return self.newlist([self.wrap(s) for s in list_s])
+
     @jit.unroll_safe
     def exception_match(self, w_exc_type, w_check_class):
         """Checks if the given exception type matches 'w_check_class'."""

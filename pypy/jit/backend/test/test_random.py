@@ -495,9 +495,9 @@ def get_cpu():
     if pytest.config.option.backend == 'llgraph':
         from pypy.jit.backend.llgraph.runner import LLtypeCPU
         return LLtypeCPU(None)
-    elif pytest.config.option.backend == 'x86':
-        from pypy.jit.backend.x86.runner import CPU386
-        return CPU386(None, None)
+    elif pytest.config.option.backend == 'cpu':
+        from pypy.jit.backend.detect_cpu import getcpuclass
+        return getcpuclass()(None, None)
     else:
         assert 0, "unknown backend %r" % pytest.config.option.backend
 

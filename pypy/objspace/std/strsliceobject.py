@@ -1,6 +1,7 @@
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
+from pypy.objspace.std.stringobject import W_AbstractStringObject
 from pypy.objspace.std.stringobject import W_StringObject
 from pypy.objspace.std.unicodeobject import delegate_String2Unicode
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
@@ -12,7 +13,7 @@ from pypy.objspace.std.stringtype import wrapstr, wrapchar, sliced, \
      stringendswith, stringstartswith
 
 
-class W_StringSliceObject(W_Object):
+class W_StringSliceObject(W_AbstractStringObject):
     from pypy.objspace.std.stringtype import str_typedef as typedef
 
     def __init__(w_self, str, start, stop):

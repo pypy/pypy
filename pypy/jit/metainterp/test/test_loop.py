@@ -1,5 +1,5 @@
 import py
-from pypy.rlib.jit import JitDriver, hint
+from pypy.rlib.jit import JitDriver, hint, set_param
 from pypy.rlib.objectmodel import compute_hash
 from pypy.jit.metainterp.warmspot import ll_meta_interp, get_stats
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
@@ -371,7 +371,7 @@ class LoopTest(object):
         myjitdriver = JitDriver(greens = ['pos'], reds = ['i', 'j', 'n', 'x'])
         bytecode = "IzJxji"
         def f(n, threshold):
-            myjitdriver.set_param('threshold', threshold)        
+            set_param(myjitdriver, 'threshold', threshold)        
             i = j = x = 0
             pos = 0
             op = '-'
@@ -418,7 +418,7 @@ class LoopTest(object):
         myjitdriver = JitDriver(greens = ['pos'], reds = ['i', 'j', 'n', 'x'])
         bytecode = "IzJxji"
         def f(nval, threshold):
-            myjitdriver.set_param('threshold', threshold)        
+            set_param(myjitdriver, 'threshold', threshold)        
             i, j, x = A(0), A(0), A(0)
             n = A(nval)
             pos = 0
