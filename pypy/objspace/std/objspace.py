@@ -453,45 +453,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
                                  self.wrap("Expected tuple of length 3"))
         return self.int_w(l_w[0]), self.int_w(l_w[1]), self.int_w(l_w[2])
 
-    def is_(self, w_one, w_two):
-        return self.newbool(self.is_w(w_one, w_two))
-
-    def is_w(self, w_one, w_two):
-        from pypy.rlib.longlong2float import float2longlong
-        w_typeone = self.type(w_one)
-        # cannot use self.is_w here to not get infinite recursion
-        if w_typeone is self.w_int:
-            return (self.type(w_two) is self.w_int and
-                    self.int_w(w_one) == self.int_w(w_two))
-        elif w_typeone is self.w_float:
-            if self.type(w_two) is not self.w_float:
-                return False
-            one = float2longlong(self.float_w(w_one))
-            two = float2longlong(self.float_w(w_two))
-            return one == two
-        elif w_typeone is self.w_long:
-            return (self.type(w_two) is self.w_long and
-                    self.bigint_w(w_one).eq(self.bigint_w(w_two)))
-        elif w_typeone is self.w_complex:
-            if self.type(w_two) is not self.w_complex:
-                return False
-            real1 = self.float_w(self.getattr(w_one, self.wrap("real")))
-            real2 = self.float_w(self.getattr(w_two, self.wrap("real")))
-            imag1 = self.float_w(self.getattr(w_one, self.wrap("imag")))
-            imag2 = self.float_w(self.getattr(w_two, self.wrap("imag")))
-            real1 = float2longlong(real1)
-            real2 = float2longlong(real2)
-            imag1 = float2longlong(imag1)
-            imag2 = float2longlong(imag2)
-            return real1 == real2 and imag1 == imag2
-        elif w_typeone is self.w_str:
-            return (self.type(w_two) is self.w_str and
-                    self.str_w(w_one) is self.str_w(w_two))
-        elif w_typeone is self.w_unicode:
-            return (self.type(w_two) is self.w_unicode and
-                    self.unicode_w(w_one) is self.unicode_w(w_two))
-        return w_one is w_two
-
     def id(self, w_obj):
         from pypy.rlib.rbigint import rbigint
         from pypy.rlib import objectmodel

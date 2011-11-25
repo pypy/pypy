@@ -188,6 +188,9 @@ class W_Root(object):
 
     # -------------------------------------------------------------------
 
+    def is_w(self, space, w_other):
+        return self is w_other
+
     def str_w(self, space):
         w_msg = typed_unwrap_error_msg(space, "string", self)
         raise OperationError(space.w_TypeError, w_msg)
@@ -681,9 +684,14 @@ class ObjSpace(object):
         """shortcut for space.is_true(space.eq(w_obj1, w_obj2))"""
         return self.is_w(w_obj1, w_obj2) or self.is_true(self.eq(w_obj1, w_obj2))
 
-    def is_w(self, w_obj1, w_obj2):
-        """shortcut for space.is_true(space.is_(w_obj1, w_obj2))"""
-        return self.is_true(self.is_(w_obj1, w_obj2))
+    def is_(self, w_one, w_two):
+        return self.newbool(self.is_w(w_one, w_two))
+
+    def is_w(self, w_one, w_two):
+        # done by a method call on w_two (and not on w_one, because of the
+        # expected programming style where we say "if x is None" or
+        # "if x is object").
+        return w_two.is_w(self, w_one)
 
     def hash_w(self, w_obj):
         """shortcut for space.int_w(space.hash(w_obj))"""

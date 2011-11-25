@@ -21,7 +21,21 @@ from pypy.tool.sourcetools import func_with_new_name
 import math
 from pypy.objspace.std.intobject import W_IntObject
 
-class W_FloatObject(W_Object):
+class W_AbstractFloatObject(W_Object):
+    __slots__ = ()
+
+    def is_w(self, space, w_other):
+        from pypy.rlib.longlong2float import float2longlong
+        if not isinstance(w_other, W_AbstractFloatObject):
+            return False
+        if self.user_overridden_class or w_other.user_overridden_class:
+            return self is w_other
+        one = float2longlong(space.float_w(self))
+        two = float2longlong(space.float_w(w_other))
+        return one == two
+
+
+class W_FloatObject(W_AbstractFloatObject):
     """This is a reimplementation of the CPython "PyFloatObject"
        it is assumed that the constructor takes a real Python float as
        an argument"""
