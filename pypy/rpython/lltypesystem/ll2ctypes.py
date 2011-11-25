@@ -20,6 +20,7 @@ from pypy.rpython.extfunc import ExtRegistryEntry
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.tool.uid import fixid
 from pypy.rlib.rarithmetic import r_singlefloat, r_longfloat, base_int, intmask
+from pypy.rlib.rarithmetic import is_emulated_long
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter, LLException
 from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
@@ -93,9 +94,17 @@ _eci_cache = {}
 
 def _setup_ctypes_cache():
     from pypy.rpython.lltypesystem import rffi
+
+    if is_emulated_long:
+        signed_as_ctype = ctypes.c_longlong
+        unsigned_as_ctypes = ctypes.c_ulonglong
+    else:
+        signed_as_ctype = ctypes.c_long
+        unsigned_as_ctypes = ctypes.c_ulong
+
     _ctypes_cache.update({
-        lltype.Signed:   ctypes.c_long,
-        lltype.Unsigned: ctypes.c_ulong,
+        lltype.Signed:   signed_as_ctype,
+        lltype.Unsigned: unsigned_as_ctypes,
         lltype.Char:     ctypes.c_ubyte,
         rffi.DOUBLE:     ctypes.c_double,
         rffi.FLOAT:      ctypes.c_float,
@@ -189,8 +198,13 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
         raise e
 
     class CArray(ctypes.Structure):
+        if is_emulated_long:
+            lentype = ctypes.c_longlong
+        else:
+            lentype = ctypes.c_long
+
         if not A._hints.get('nolength'):
-            _fields_ = [('length', ctypes.c_long),
+            _fields_ = [('length', lentype),
                         ('items',  max_n * ctypes_item)]
         else:
             _fields_ = [('items',  max_n * ctypes_item)]

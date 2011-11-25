@@ -148,7 +148,11 @@ class TestLL2Ctypes(object):
         ac = lltype2ctypes(a, normalize=False)
         assert isinstance(ac.contents, ctypes.Structure)
         assert ac.contents.length == 10
-        assert ac.contents._fields_[0] == ('length', ctypes.c_long)
+        if is_emulated_long:
+            lentype = ctypes.c_longlong
+        else:
+            lentype = ctypes.c_long
+        assert ac.contents._fields_[0] == ('length', lentype)
         assert ac.contents.items[1] == 101
         ac.contents.items[2] = 456
         assert a[2] == 456
