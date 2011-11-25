@@ -786,6 +786,8 @@ class BaseArray(Wrappable):
         new_sig = signature.Signature.find_sig([
             NDimSlice.signature, self.signature,
         ])
+        #Does the [:] actually create a copy?
+        #I should do it explicitly
         arr = NDimSlice(self, new_sig, self.start, self.strides[:],
                 self.backstrides[:], self.shape[:])
 
