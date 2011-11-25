@@ -757,6 +757,20 @@ class BaseArray(Wrappable):
         return space.wrap(space.is_true(self.get_concrete().eval(
             self.start_iter(self.shape)).wrap(space)))
 
+    def descr_get_transpose(self, space):
+        new_sig = signature.Signature.find_sig([
+            NDimSlice.signature, self.signature
+        ])
+        strides = []
+        backstrides = []
+        shape = []
+        for i in range(len(self.shape) - 1, -1, -1):
+            strides.append(self.strides[i])
+            backstrides.append(self.backstrides[i])
+            shape.append(self.shape[i])
+        return space.wrap(NDimSlice(self, new_sig, self.start, strides[:], 
+                           backstrides[:], shape[:]))
+
     def getitem(self, item):
         raise NotImplementedError
 
@@ -1161,6 +1175,8 @@ BaseArray.typedef = TypeDef(
     dtype = GetSetProperty(BaseArray.descr_get_dtype),
     shape = GetSetProperty(BaseArray.descr_get_shape),
     size = GetSetProperty(BaseArray.descr_get_size),
+
+    T = GetSetProperty(BaseArray.descr_get_transpose),
 
     mean = interp2app(BaseArray.descr_mean),
     sum = interp2app(BaseArray.descr_sum),
