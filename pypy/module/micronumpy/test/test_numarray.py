@@ -934,6 +934,19 @@ class AppTestMultiDim(BaseNumpyAppTest):
         c = b + b
         assert c.sum() == (6 + 8 + 10 + 12) * 2
 
+    def test_transpose(self):
+        from numpypy import array
+        a = array(((range(3), range(3, 6)),
+                   (range(6, 9), range(9, 12)),
+                   (range(12, 15), range(15, 18)),
+                   (range(18, 21), range(21, 24))))
+        assert a.shape == (4, 2, 3)
+        b = a.T
+        assert b.shape == (3, 2, 4)
+        assert(b[0, :, 0] == [0, 3]).all()
+        b[:, 0, 0] = 1000
+        assert(a[0, 0, :] == [1000, 1000, 1000]).all()
+
 
 class AppTestSupport(object):
     def setup_class(cls):
