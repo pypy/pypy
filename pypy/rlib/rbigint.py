@@ -229,7 +229,7 @@ class rbigint(object):
         sign = self.sign
         if intmask(x) < 0 and (sign > 0 or (x << 1) != 0):
             raise OverflowError
-        return intmask(x * sign)
+        return intmask(intmask(x) * sign)
 
     def tolonglong(self):
         return _AsLongLong(self)
@@ -1384,7 +1384,7 @@ def _AsDouble(n):
 
     # Now remove the excess 2 bits, rounding to nearest integer (with
     # ties rounded to even).
-    q = (q >> 2) + (bool(q & 2) and bool(q & 5))
+    q = (q >> 2) + r_uint((bool(q & 2) and bool(q & 5)))
 
     if exp > DBL_MAX_EXP or (exp == DBL_MAX_EXP and
                              q == r_ulonglong(1) << DBL_MANT_DIG):
@@ -1833,8 +1833,8 @@ def _hash(v):
         if x < v.udigit(i):
             x += 1
         i -= 1
-    x = intmask(x * sign)
-    return x
+    res = intmask(intmask(x) * sign)
+    return res
 
 #_________________________________________________________________
 
