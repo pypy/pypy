@@ -334,23 +334,29 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.shape == (3, 2, 2)
         a.shape = 12
         assert a.shape == (12, )
-        exc = raises(ValueError, "b = a.reshape((3, 10))")
-        assert str(exc.value) == "total size of new array must be unchanged"
         exc = raises(ValueError, "a.shape = 10")
         assert str(exc.value) == "total size of new array must be unchanged"
+    def test_reshape(self):
+        from numpypy import array, zeros
+        a = array(range(12))
+        exc = raises(ValueError, "b = a.reshape((3, 10))")
+        assert str(exc.value) == "total size of new array must be unchanged"
+        b = a.reshape((3, 4))
+        assert (b == [range(4), range(4, 8), range(8, 12)]).all()
+        b[:, 0] = 1000
+        assert (a == [1000, 1, 2, 3, 1000, 5, 6, 7, 1000, 9, 10, 11]).all()
         a = zeros((4, 2, 3))
+        a.shape = (12, 2)
+    def test_slice_reshape(self):
+        from numpypy import array, zeros
+        a = array(range(12))
         b = a[::2, :, :]
         b.shape = (2,6)
         exc = raises(AttributeError, "b.shape = 12")
         assert str(exc.value) == \
                            "incompatible shape for a non-contiguous array"
         b.shape = (2, 6)
-        a.shape = (12, 2)
         a = array(range(12))
-        b = a.reshape((3, 4))
-        assert (b == [range(4), range(4, 8), range(8, 12)]).all()
-        b[:, 0] = 1000
-        assert (a == [1000, 1, 2, 3, 1000, 5, 6, 7, 1000, 9, 10, 11]).all()
 
     def test_add(self):
         from numpypy import array
