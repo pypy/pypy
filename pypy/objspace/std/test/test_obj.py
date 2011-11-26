@@ -248,12 +248,6 @@ class AppTestObject:
                 if a is b:
                     assert a == b
 
-    def test_identity_bug(self):
-        x = 0x4000000000000000L
-        y = 2j
-        assert id(x) != id(y)
-
-
 def test_isinstance_shortcut():
     from pypy.objspace.std import objspace
     space = objspace.StdObjSpace()

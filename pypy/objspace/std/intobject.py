@@ -26,14 +26,6 @@ class W_AbstractIntObject(W_Object):
             return self is w_other
         return space.int_w(self) == space.int_w(w_other)
 
-    def id(self, space):
-        if self.user_overridden_class:
-            return W_Object.id(self, space)
-        from pypy.objspace.std.model import IDTAG_INT as tag
-        b = space.bigint_w(self)
-        b = b.lshift(3).or_(rbigint.fromint(tag))
-        return space.newlong_from_rbigint(b)
-
 
 class W_IntObject(W_AbstractIntObject):
     __slots__ = 'intval'

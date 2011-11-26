@@ -5,7 +5,6 @@ from pypy.objspace.std.model import registerimplementation, W_Object
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.floatobject import W_FloatObject, _hash_float
 from pypy.objspace.std.longobject import W_LongObject
-from pypy.rlib.rbigint import rbigint
 from pypy.rlib.rfloat import (
     formatd, DTSF_STR_PRECISION, isinf, isnan, copysign)
 
@@ -30,18 +29,6 @@ class W_AbstractComplexObject(W_Object):
         imag1 = float2longlong(imag1)
         imag2 = float2longlong(imag2)
         return real1 == real2 and imag1 == imag2
-
-    def id(self, space):
-        if self.user_overridden_class:
-            return W_Object.id(self, space)
-        from pypy.rlib.longlong2float import float2longlong
-        from pypy.objspace.std.model import IDTAG_COMPLEX as tag
-        real = space.float_w(space.getattr(self, space.wrap("real")))
-        imag = space.float_w(space.getattr(self, space.wrap("imag")))
-        real_b = rbigint.fromrarith_int(float2longlong(real))
-        imag_b = rbigint.fromrarith_int(float2longlong(imag))
-        val = real_b.lshift(64).or_(imag_b).lshift(3).or_(rbigint.fromint(tag))
-        return space.newlong_from_rbigint(val)
 
 
 class W_ComplexObject(W_AbstractComplexObject):

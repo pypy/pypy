@@ -5,7 +5,6 @@ from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter import gateway
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.objectmodel import we_are_translated, compute_hash, specialize
-from pypy.rlib.objectmodel import compute_unique_id
 from pypy.objspace.std.inttype import wrapint
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std import slicetype, newformat
@@ -31,11 +30,6 @@ class W_AbstractStringObject(W_Object):
         if self.user_overridden_class or w_other.user_overridden_class:
             return False
         return space.str_w(self) is space.str_w(w_other)
-
-    def id(self, space):
-        if self.user_overridden_class:
-            return W_Object.id(self, space)
-        return space.wrap(compute_unique_id(space.str_w(self)))
 
 
 class W_StringObject(W_AbstractStringObject):

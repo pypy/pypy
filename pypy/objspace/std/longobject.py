@@ -18,14 +18,6 @@ class W_AbstractLongObject(W_Object):
             return self is w_other
         return space.bigint_w(self).eq(space.bigint_w(w_other))
 
-    def id(self, space):
-        if self.user_overridden_class:
-            return W_Object.id(self, space)
-        from pypy.objspace.std.model import IDTAG_LONG as tag
-        b = space.bigint_w(self)
-        b = b.lshift(3).or_(rbigint.fromint(tag))
-        return space.newlong_from_rbigint(b)
-
 
 class W_LongObject(W_AbstractLongObject):
     """This is a wrapper of rbigint."""
