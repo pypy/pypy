@@ -166,7 +166,7 @@ class fakearenaaddress(llmemory.fakeaddress):
         return '<arenaaddr %s + %d>' % (self.arena, self.offset)
 
     def __add__(self, other):
-        if is_valid_int(other):
+        if is_valid_int(other, force_type=False):
             position = self.offset + other
         elif isinstance(other, llmemory.AddressOffset):
             # this is really some Do What I Mean logic.  There are two
