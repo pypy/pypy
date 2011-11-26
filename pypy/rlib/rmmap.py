@@ -222,6 +222,7 @@ elif _MS_WINDOWS:
             # XXX should be propagate the real type, allowing
             # for 2*sys.maxint?
             high = high_ref[0]
+            high = rffi.cast(lltype.Signed, high)
             # low might just happen to have the value INVALID_FILE_SIZE
             # so we need to check the last error also
             INVALID_FILE_SIZE = -1
@@ -544,7 +545,7 @@ class MMap(object):
             FILE_BEGIN = 0
             high_ref = lltype.malloc(PLONG.TO, 1, flavor='raw')
             try:
-                high_ref[0] = newsize_high
+                high_ref[0] = rffi.cast(LONG, newsize_high)
                 SetFilePointer(self.file_handle, newsize_low, high_ref,
                                FILE_BEGIN)
             finally:
