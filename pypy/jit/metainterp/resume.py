@@ -93,14 +93,14 @@ PENDINGFIELDSP = lltype.Ptr(lltype.GcArray(PENDINGFIELDSTRUCT))
 
 TAGMASK = 3
 
-def tag(value, tagbits, giveup=True):
+class TagOverflow(Exception):
+    pass
+
+def tag(value, tagbits):
     assert 0 <= tagbits <= 3
     sx = value >> 13
     if sx != 0 and sx != -1:
-        if giveup:
-            from pypy.jit.metainterp import compile
-            compile.giveup()
-        raise ValueError
+        raise TagOverflow
     return rffi.r_short(value<<2|tagbits)
 
 def untag(value):
@@ -154,8 +154,8 @@ class ResumeDataLoopMemo(object):
                 # unhappiness, probably a symbolic
                 return self._newconst(const)
             try:
-                return tag(val, TAGINT, giveup=False)
-            except ValueError:
+                return tag(val, TAGINT)
+            except TagOverflow:
                 pass
             tagged = self.large_ints.get(val, UNASSIGNED)
             if not tagged_eq(tagged, UNASSIGNED):
@@ -431,8 +431,7 @@ class ResumeDataVirtualAdder(object):
                 fieldnum = self._gettagged(fieldbox)
                 # the index is limited to 2147483647 (64-bit machines only)
                 if itemindex > 2147483647:
-                    from pypy.jit.metainterp import compile
-                    compile.giveup()
+                    raise TagOverflow
                 itemindex = rffi.cast(rffi.INT, itemindex)
                 #
                 rd_pendingfields[i].lldescr  = lldescr
