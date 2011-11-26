@@ -20,7 +20,7 @@ from pypy.rpython.extfunc import ExtRegistryEntry
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
 from pypy.tool.uid import fixid
 from pypy.rlib.rarithmetic import r_singlefloat, r_longfloat, base_int, intmask
-from pypy.rlib.rarithmetic import is_emulated_long
+from pypy.rlib.rarithmetic import is_emulated_long, maxint
 from pypy.annotation import model as annmodel
 from pypy.rpython.llinterp import LLInterpreter, LLException
 from pypy.rpython.lltypesystem.rclass import OBJECT, OBJECT_VTABLE
@@ -69,7 +69,7 @@ def do_allocation_in_far_regions():
     global far_regions
     if not far_regions:
         from pypy.rlib import rmmap
-        if sys.maxint > 0x7FFFFFFF:
+        if maxint > 0x7FFFFFFF:
             PIECESIZE = 0x80000000
         else:
             if sys.platform == 'linux':
@@ -186,7 +186,7 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
     ITEM = A.OF
     ctypes_item = get_ctypes_type(ITEM, delayed_builders)
     # Python 2.5 ctypes can raise OverflowError on 64-bit builds
-    for n in [sys.maxint, 2**31]:
+    for n in [maxint, 2**31]:
         MAX_SIZE = n/64
         try:
             PtrType = ctypes.POINTER(MAX_SIZE * ctypes_item)
@@ -226,7 +226,7 @@ def build_ctypes_array(A, delayed_builders, max_n=0):
             if cls._ptrtype:
                 return cls._ptrtype
             # ctypes can raise OverflowError on 64-bit builds
-            for n in [sys.maxint, 2**31]:
+            for n in [maxint, 2**31]:
                 cls.MAX_SIZE = n/64
                 try:
                     cls._ptrtype = ctypes.POINTER(cls.MAX_SIZE * ctypes_item)
@@ -594,7 +594,7 @@ class _array_of_unknown_length(_parentable_mixin, lltype._parentable):
 
     def getbounds(self):
         # we have no clue, so we allow whatever index
-        return 0, sys.maxint
+        return 0, maxint
 
     def getitem(self, index, uninitialized_ok=False):
         res = self._storage.contents._getitem(index, boundscheck=False)
@@ -1353,8 +1353,8 @@ def cast_adr_to_int(addr):
             res = force_cast(lltype.Signed, addr.ptr)
     else:
         res = addr._cast_to_int()
-    if res > sys.maxint:
-        res = res - 2*(sys.maxint + 1)
+    if res > maxint:
+        res = res - 2*(maxint + 1)
         assert int(res) == res
         return int(res)
     return res
