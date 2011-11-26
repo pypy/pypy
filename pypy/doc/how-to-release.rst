@@ -1,6 +1,3 @@
-.. include:: needswork.txt
-
-.. needs work, it talks about svn. also, it is not really user documentation
 
 Making a PyPy Release
 =======================
@@ -12,11 +9,8 @@ As a meta rule setting up issues in the tracker for items here may help not
 forgetting things. A set of todo files may also work.
 
 Check and prioritize all issues for the release, postpone some if necessary,
-create new  issues also as necessary. A meeting (or meetings) should be
-organized to decide what things are priorities, should go in and work for
-the release. 
-
-An important thing is to get the documentation into an up-to-date state!
+create new  issues also as necessary. An important thing is to get
+the documentation into an up-to-date state!
 
 Release Steps
 ----------------

@@ -14,7 +14,7 @@ from pypy.rlib import rerased
 from pypy.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
     loop_invariant, elidable, promote, jit_debug, assert_green,
     AssertGreenFailed, unroll_safe, current_trace_length, look_inside_iff,
-    isconstant, isvirtual, promote_string)
+    isconstant, isvirtual, promote_string, set_param)
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.ootypesystem import ootype
@@ -1250,15 +1250,18 @@ class BasicTests:
                 n -= 1
                 x += n
             return x
-        def f(n, threshold):
-            myjitdriver.set_param('threshold', threshold)
+        def f(n, threshold, arg):
+            if arg:
+                set_param(myjitdriver, 'threshold', threshold)
+            else:
+                set_param(None, 'threshold', threshold)
             return g(n)
 
-        res = self.meta_interp(f, [10, 3])
+        res = self.meta_interp(f, [10, 3, 1])
         assert res == 9 + 8 + 7 + 6 + 5 + 4 + 3 + 2 + 1 + 0
         self.check_tree_loop_count(2)
 
-        res = self.meta_interp(f, [10, 13])
+        res = self.meta_interp(f, [10, 13, 0])
         assert res == 9 + 8 + 7 + 6 + 5 + 4 + 3 + 2 + 1 + 0
         self.check_tree_loop_count(0)
 
@@ -2312,8 +2315,8 @@ class BasicTests:
                                 get_printable_location=get_printable_location)
         bytecode = "0j10jc20a3"
         def f():
-            myjitdriver.set_param('threshold', 7)
-            myjitdriver.set_param('trace_eagerness', 1)
+            set_param(myjitdriver, 'threshold', 7)
+            set_param(myjitdriver, 'trace_eagerness', 1)
             i = j = c = a = 1
             while True:
                 myjitdriver.jit_merge_point(i=i, j=j, c=c, a=a)
@@ -2591,7 +2594,7 @@ class BasicTests:
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a'])
 
         def f(n, limit):
-            myjitdriver.set_param('retrace_limit', limit)
+            set_param(myjitdriver, 'retrace_limit', limit)
             sa = i = a = 0
             while i < n:
                 myjitdriver.jit_merge_point(n=n, i=i, sa=sa, a=a)
@@ -2609,8 +2612,8 @@ class BasicTests:
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a'])
 
         def f(n, limit):
-            myjitdriver.set_param('retrace_limit', 3)
-            myjitdriver.set_param('max_retrace_guards', limit)
+            set_param(myjitdriver, 'retrace_limit', 3)
+            set_param(myjitdriver, 'max_retrace_guards', limit)
             sa = i = a = 0
             while i < n:
                 myjitdriver.jit_merge_point(n=n, i=i, sa=sa, a=a)
@@ -2629,7 +2632,7 @@ class BasicTests:
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a',
                                                      'node'])
         def f(n, limit):
-            myjitdriver.set_param('retrace_limit', limit)
+            set_param(myjitdriver, 'retrace_limit', limit)
             sa = i = a = 0
             node = [1, 2, 3]
             node[1] = n
@@ -2652,10 +2655,10 @@ class BasicTests:
         myjitdriver = JitDriver(greens = ['pc'], reds = ['n', 'i', 'sa'])
         bytecode = "0+sI0+SI"
         def f(n):
-            myjitdriver.set_param('threshold', 3)
-            myjitdriver.set_param('trace_eagerness', 1)
-            myjitdriver.set_param('retrace_limit', 5)
-            myjitdriver.set_param('function_threshold', -1)
+            set_param(None, 'threshold', 3)
+            set_param(None, 'trace_eagerness', 1)
+            set_param(None, 'retrace_limit', 5)
+            set_param(None, 'function_threshold', -1)
             pc = sa = i = 0
             while pc < len(bytecode):
                 myjitdriver.jit_merge_point(pc=pc, n=n, sa=sa, i=i)
@@ -2712,9 +2715,9 @@ class BasicTests:
         myjitdriver = JitDriver(greens = ['pc'], reds = ['n', 'a', 'i', 'j', 'sa'])
         bytecode = "ij+Jj+JI"
         def f(n, a):
-            myjitdriver.set_param('threshold', 5)
-            myjitdriver.set_param('trace_eagerness', 1)
-            myjitdriver.set_param('retrace_limit', 2)
+            set_param(None, 'threshold', 5)
+            set_param(None, 'trace_eagerness', 1)
+            set_param(None, 'retrace_limit', 2)
             pc = sa = i = j = 0
             while pc < len(bytecode):
                 myjitdriver.jit_merge_point(pc=pc, n=n, sa=sa, i=i, j=j, a=a)
@@ -2777,8 +2780,8 @@ class BasicTests:
                 return B(self.val + 1)
         myjitdriver = JitDriver(greens = [], reds = ['sa', 'a'])
         def f():
-            myjitdriver.set_param('threshold', 3)
-            myjitdriver.set_param('trace_eagerness', 2)
+            set_param(None, 'threshold', 3)
+            set_param(None, 'trace_eagerness', 2)
             a = A(0)
             sa = 0
             while a.val < 8:
@@ -2808,8 +2811,8 @@ class BasicTests:
                 return B(self.val + 1)
         myjitdriver = JitDriver(greens = [], reds = ['sa', 'b', 'a'])
         def f(b):
-            myjitdriver.set_param('threshold', 6)
-            myjitdriver.set_param('trace_eagerness', 4)
+            set_param(None, 'threshold', 6)
+            set_param(None, 'trace_eagerness', 4)
             a = A(0)
             sa = 0
             while a.val < 15:
@@ -2846,10 +2849,10 @@ class BasicTests:
         myjitdriver = JitDriver(greens = ['pc'], reds = ['n', 'i', 'sa'])
         bytecode = "0+sI0+SI"
         def f(n):
-            myjitdriver.set_param('threshold', 3)
-            myjitdriver.set_param('trace_eagerness', 1)
-            myjitdriver.set_param('retrace_limit', 5)
-            myjitdriver.set_param('function_threshold', -1)
+            set_param(None, 'threshold', 3)
+            set_param(None, 'trace_eagerness', 1)
+            set_param(None, 'retrace_limit', 5)
+            set_param(None, 'function_threshold', -1)
             pc = sa = i = 0
             while pc < len(bytecode):
                 myjitdriver.jit_merge_point(pc=pc, n=n, sa=sa, i=i)

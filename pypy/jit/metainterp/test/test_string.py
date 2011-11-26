@@ -486,7 +486,7 @@ class StringTests:
             def __init__(self, s):
                 self.defaultencoding = s
         _str = self._str
-        sys = Sys(_str('ascii'))        
+        sys = Sys(_str('ascii'))
         mydriver = JitDriver(reds = ['n', 'sa'], greens = [])
         def f(n):
             sa = 0
@@ -505,7 +505,7 @@ class StringTests:
 
     def test_promote_string(self):
         driver = JitDriver(greens = [], reds = ['n'])
-        
+
         def f(n):
             while n < 21:
                 driver.jit_merge_point(n=n)

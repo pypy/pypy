@@ -340,6 +340,8 @@ def _make_execute_list():
                          rop.DEBUG_MERGE_POINT,
                          rop.JIT_DEBUG,
                          rop.SETARRAYITEM_RAW,
+                         rop.GETINTERIORFIELD_RAW,
+                         rop.SETINTERIORFIELD_RAW,
                          rop.CALL_RELEASE_GIL,
                          rop.QUASIIMMUT_FIELD,
                          ):      # list of opcodes never executed by pyjitpl

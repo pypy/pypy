@@ -87,14 +87,36 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
     def _get_descr(self):
         raise NotImplementedError
 
-    def _is_immutable_and_filled_with_constants(self, optforce):
+    def _is_immutable_and_filled_with_constants(self, memo=None):
+        # check if it is possible to force the given structure into a
+        # compile-time constant: this is allowed only if it is declared
+        # immutable, if all fields are already filled, and if each field
+        # is either a compile-time constant or (recursively) a structure
+        # which also answers True to the same question.
+        #
+        # check that all fields are filled.  The following equality check
+        # also fails if count == -1, meaning "not an immutable at all".
         count = self._get_descr().count_fields_if_immutable()
-        if count != len(self._fields):    # always the case if count == -1
+        if count != len(self._fields):
             return False
+        #
+        # initialize 'memo'
+        if memo is None:
+            memo = {}
+        elif self in memo:
+            return True   # recursive case: assume yes
+        memo[self] = None
+        #
         for value in self._fields.itervalues():
-            subbox = value.force_box(optforce)
-            if not isinstance(subbox, Const):
-                return False
+            if value.is_constant():
+                pass            # it is a constant value: ok
+            elif (isinstance(value, AbstractVirtualStructValue)
+                  and value.is_virtual()):
+                # recursive check
+                if not value._is_immutable_and_filled_with_constants(memo):
+                    return False
+            else:
+                return False    # not a constant at all
         return True
 
     def force_at_end_of_preamble(self, already_forced, optforce):
@@ -114,7 +136,7 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
         if not we_are_translated():
             op.name = 'FORCE ' + self.source_op.name
 
-        if self._is_immutable_and_filled_with_constants(optforce):
+        if self._is_immutable_and_filled_with_constants():
             box = optforce.optimizer.constant_fold(op)
             self.make_constant(box)
             for ofs, value in self._fields.iteritems():
