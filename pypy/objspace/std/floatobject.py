@@ -21,10 +21,33 @@ from pypy.tool.sourcetools import func_with_new_name
 import math
 from pypy.objspace.std.intobject import W_IntObject
 
-class W_FloatObject(W_Object):
-    """This is a reimplementation of the CPython "PyFloatObject"
-       it is assumed that the constructor takes a real Python float as
-       an argument"""
+class W_AbstractFloatObject(W_Object):
+    __slots__ = ()
+
+    def is_w(self, space, w_other):
+        from pypy.rlib.longlong2float import float2longlong
+        if not isinstance(w_other, W_AbstractFloatObject):
+            return False
+        if self.user_overridden_class or w_other.user_overridden_class:
+            return self is w_other
+        one = float2longlong(space.float_w(self))
+        two = float2longlong(space.float_w(w_other))
+        return one == two
+
+    def id(self, space):
+        if self.user_overridden_class:
+            return W_Object.id(self, space)
+        from pypy.rlib.longlong2float import float2longlong
+        from pypy.objspace.std.model import IDTAG_FLOAT as tag
+        val = float2longlong(space.float_w(self))
+        b = rbigint.fromrarith_int(val)
+        b = b.lshift(3).or_(rbigint.fromint(tag))
+        return space.newlong_from_rbigint(b)
+
+
+class W_FloatObject(W_AbstractFloatObject):
+    """This is a implementation of the app-level 'float' type.
+    The constructor takes an RPython float as an argument."""
     from pypy.objspace.std.floattype import float_typedef as typedef
     _immutable_fields_ = ['floatval']
 

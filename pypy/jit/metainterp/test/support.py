@@ -158,9 +158,6 @@ class JitMixin:
         get_stats().check_resops(expected=expected, **check)
 
     
-    def check_loops(self, expected=None, everywhere=False, **check):
-        get_stats().check_loops(expected=expected, everywhere=everywhere,
-                                **check)        
 
     def check_trace_count(self, count): # was check_loop_count
         # The number of traces compiled
