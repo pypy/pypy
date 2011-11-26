@@ -1,6 +1,7 @@
 from pypy.rlib.libffi import types
 from pypy.jit.codewriter.longlong import is_64_bit
 from pypy.jit.backend.llsupport.ffisupport import *
+from pypy.rlib.rarithmetic import is_emulated_long
 
 
 class FakeCPU:
@@ -38,7 +39,7 @@ def test_call_descr_dynamic():
     assert descr.get_result_size(False) == 1
     assert descr.is_result_signed() == False
 
-    if not is_64_bit:
+    if not is_64_bit or is_emulated_long:
         descr = get_call_descr_dynamic(FakeCPU(), [], types.slonglong,
                                        None, 42)
         assert descr is None   # missing longlongs
