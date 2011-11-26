@@ -191,7 +191,7 @@ class W_Root(object):
     def is_w(self, space, w_other):
         return self is w_other
 
-    def id(self, space):
+    def unique_id(self, space):
         return space.wrap(compute_unique_id(self))
 
     def str_w(self, space):
@@ -697,7 +697,7 @@ class ObjSpace(object):
         return w_two.is_w(self, w_one)
 
     def id(self, w_obj):
-        return w_obj.id(self)
+        return w_obj.unique_id(self)
 
     def hash_w(self, w_obj):
         """shortcut for space.int_w(space.hash(w_obj))"""

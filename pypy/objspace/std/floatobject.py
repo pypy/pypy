@@ -34,9 +34,9 @@ class W_AbstractFloatObject(W_Object):
         two = float2longlong(space.float_w(w_other))
         return one == two
 
-    def id(self, space):
+    def unique_id(self, space):
         if self.user_overridden_class:
-            return W_Object.id(self, space)
+            return W_Object.unique_id(self, space)
         from pypy.rlib.longlong2float import float2longlong
         from pypy.objspace.std.model import IDTAG_FLOAT as tag
         val = float2longlong(space.float_w(self))
