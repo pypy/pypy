@@ -7,6 +7,8 @@ from pypy.tool.udir import udir
 from pypy.conftest import gettestobjspace
 from pypy.tool.autopath import pypydir
 from pypy.rpython.module.ll_os import RegisterOs
+from pypy.rlib.rarithmetic import is_valid_int
+
 import os
 import py
 import sys
@@ -147,7 +149,7 @@ class AppTestPosix:
 
             posix.stat_float_times(False)
             st = posix.stat(path)
-            assert isinstance(st.st_mtime, (int, long))
+            assert is_valid_int(st.st_mtime)
             assert st[7] == st.st_atime
         finally:
             posix.stat_float_times(current)

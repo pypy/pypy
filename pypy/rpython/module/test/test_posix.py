@@ -1,6 +1,8 @@
 import py
 from pypy.rpython.test.tool import BaseRtypingTest, LLRtypeMixin, OORtypeMixin
 from pypy.tool.udir import udir
+from pypy.rlib.rarithmetic import is_valid_int
+
 import os
 exec 'import %s as posix' % os.name
 
@@ -21,7 +23,7 @@ class BaseTestPosix(BaseRtypingTest):
             ff = posix.open(path, posix.O_RDONLY, 0777)
             return ff
         func = self.interpret(f, [])
-        assert isinstance(func, (int, long))
+        assert is_valid_int(func)
 
     def test_fstat(self):
         def fo(fi):
@@ -61,7 +63,7 @@ class BaseTestPosix(BaseRtypingTest):
         assert isinstance(times, tuple)
         assert len(times) == 5
         for value in times:
-            assert isinstance(value, (int, long))
+            assert is_valid_int(value)
 
 
     def test_lseek(self):

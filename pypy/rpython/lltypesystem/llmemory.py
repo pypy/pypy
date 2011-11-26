@@ -8,6 +8,8 @@ import weakref
 from pypy.rlib.objectmodel import Symbolic
 from pypy.rpython.lltypesystem import lltype
 from pypy.tool.uid import uid
+from pypy.rlib.rarithmetic import is_valid_int
+
 
 class AddressOffset(Symbolic):
 
@@ -28,7 +30,7 @@ class AddressOffset(Symbolic):
     def __ge__(self, other):
         if self is other:
             return True
-        elif (isinstance(other, (int, long)) and other == 0 and
+        elif (is_valid_int(other, force_type=False) and other == 0 and
             self.known_nonneg()):
             return True
         else:

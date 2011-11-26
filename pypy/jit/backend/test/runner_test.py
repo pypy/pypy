@@ -16,7 +16,7 @@ from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.llinterp import LLException
 from pypy.jit.codewriter import heaptracker, longlong
-from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask, is_valid_int
 
 def boxfloat(x):
     return BoxFloat(longlong.getfloatstorage(x))
@@ -454,7 +454,7 @@ class BaseBackendTest(Runner):
         if cpu.supports_floats:
             def func(f, i):
                 assert isinstance(f, float)
-                assert isinstance(i, (int, long))
+                assert is_valid_int(i)
                 return f - float(i)
             FPTR = self.Ptr(self.FuncType([lltype.Float, lltype.Signed],
                                           lltype.Float))

@@ -1,6 +1,6 @@
 from pypy.objspace.flow.model import FunctionGraph, Constant, Variable, c_last_exception
 from pypy.rlib.rarithmetic import intmask, r_uint, ovfcheck, r_longlong
-from pypy.rlib.rarithmetic import r_ulonglong
+from pypy.rlib.rarithmetic import r_ulonglong, is_valid_int
 from pypy.rpython.lltypesystem import lltype, llmemory, lloperation, llheap
 from pypy.rpython.lltypesystem import rclass
 from pypy.rpython.ootypesystem import ootype
@@ -1018,22 +1018,22 @@ class LLFrame(object):
     # Overflow-detecting variants
 
     def op_int_neg_ovf(self, x):
-        assert isinstance(x, (int, long))
+        assert is_valid_int(x)
         try:
             return ovfcheck(-x)
         except OverflowError:
             self.make_llexception()
 
     def op_int_abs_ovf(self, x):
-        assert isinstance(x, (int, long))
+        assert is_valid_int(x)
         try:
             return ovfcheck(abs(x))
         except OverflowError:
             self.make_llexception()
 
     def op_int_lshift_ovf(self, x, y):
-        assert isinstance(x, (int, long))
-        assert isinstance(y, (int, long))
+        assert is_valid_int(x)
+        assert is_valid_int(y)
         try:
             return ovfcheck(x << y)
         except OverflowError:

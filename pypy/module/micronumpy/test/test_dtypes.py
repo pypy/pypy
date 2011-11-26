@@ -1,4 +1,5 @@
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
+from pypy.rlib.rarithmetic import is_valid_int
 
 
 class AppTestDtypes(BaseNumpyAppTest):
@@ -48,9 +49,9 @@ class AppTestDtypes(BaseNumpyAppTest):
 
         a = array([0, 1, 2, 3], dtype=long)
         # int on 64-bit, long in 32-bit
-        assert isinstance(a[0], (int, long))
+        assert is_valid_int(a[0])
         b = a.copy()
-        assert isinstance(b[0], (int, long))
+        assert is_valid_int(b[0])
 
         a = array([0, 1, 2, 3], dtype=bool)
         assert a[0] is False_
@@ -75,14 +76,14 @@ class AppTestDtypes(BaseNumpyAppTest):
         from numpypy import zeros
         a = zeros(10, dtype=long)
         for i in range(10):
-            assert isinstance(a[i], (int, long))
+            assert is_valid_int(a[i])
             assert a[1] == 0
 
     def test_ones_long(self):
         from numpypy import ones
         a = ones(10, dtype=long)
         for i in range(10):
-            assert isinstance(a[i], (int, long))
+            assert is_valid_int(a[i])
             assert a[1] == 1
 
     def test_overflow(self):

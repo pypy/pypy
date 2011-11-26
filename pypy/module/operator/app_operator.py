@@ -5,6 +5,8 @@ This module exports a set of operators as functions. E.g. operator.add(x,y) is
 equivalent to x+y.
 '''
 from __pypy__ import builtinify
+from pypy.rlib.rarithmetic import is_valid_int
+
 
 def countOf(a,b): 
     'countOf(a, b) -- Return the number of times b occurs in a.'
@@ -53,7 +55,7 @@ def isSequenceType(obj,):
 
 def repeat(obj, num):
     'repeat(a, b) -- Return a * b, where a is a sequence, and b is an integer.'
-    if not isinstance(num, (int, long)):
+    if not is_valid_int(num):
         raise TypeError, 'an integer is required'
     if not isSequenceType(obj):
         raise TypeError, "non-sequence object can't be repeated"
