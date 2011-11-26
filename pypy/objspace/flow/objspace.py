@@ -97,6 +97,12 @@ class FlowObjSpace(ObjSpace):
         self.executioncontext.recorder = previous_recorder
         self.concrete_mode -= 1
 
+    def is_w(self, w_one, w_two):
+        return self.is_true(self.is_(w_one, w_two))
+
+    is_ = None     # real version added by add_operations()
+    id  = None     # real version added by add_operations()
+
     def newdict(self):
         if self.concrete_mode:
             return Constant({})

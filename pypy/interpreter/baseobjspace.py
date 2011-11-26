@@ -188,6 +188,10 @@ class W_Root(object):
 
     # -------------------------------------------------------------------
 
+    def is_w(self, space, w_other):
+        return self is w_other
+
+    def unique_id(self, space):
     def str_w(self, space):
         w_msg = typed_unwrap_error_msg(space, "string", self)
         raise OperationError(space.w_TypeError, w_msg)
@@ -684,6 +688,7 @@ class ObjSpace(object):
     def is_w(self, w_obj1, w_obj2):
         """shortcut for space.is_true(space.is_(w_obj1, w_obj2))"""
         return self.is_true(self.is_(w_obj1, w_obj2))
+        return w_obj.unique_id(self)
 
     def hash_w(self, w_obj):
         """shortcut for space.int_w(space.hash(w_obj))"""
