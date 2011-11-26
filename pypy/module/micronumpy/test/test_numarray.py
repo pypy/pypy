@@ -947,6 +947,16 @@ class AppTestMultiDim(BaseNumpyAppTest):
         b[:, 0, 0] = 1000
         assert(a[0, 0, :] == [1000, 1000, 1000]).all()
 
+    def test_flatiter(self):
+        from numpypy import array
+        a = array([[10,30],[40,60]])
+        f_iter = a.flat
+        assert f_iter.next() == 10
+        assert f_iter.next() == 30
+        assert f_iter.next() == 40
+        assert f_iter.next() == 60
+        raises(StopIteration, "f_iter.next()")
+
 
 class AppTestSupport(object):
     def setup_class(cls):

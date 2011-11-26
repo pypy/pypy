@@ -312,6 +312,7 @@ class ConstantIterator(BaseIterator):
     def get_offset(self):
         return 0
 
+
 class BaseArray(Wrappable):
     _attrs_ = ["invalidates", "signature", "shape", "strides", "backstrides",
                "start", 'order']
@@ -771,6 +772,9 @@ class BaseArray(Wrappable):
         return space.wrap(NDimSlice(self, new_sig, self.start, strides[:], 
                            backstrides[:], shape[:]))
 
+    def descr_get_flatiter(self, space):
+        return space.wrap(FlatIterator(self))
+
     def getitem(self, item):
         raise NotImplementedError
 
@@ -1177,6 +1181,7 @@ BaseArray.typedef = TypeDef(
     size = GetSetProperty(BaseArray.descr_get_size),
 
     T = GetSetProperty(BaseArray.descr_get_transpose),
+    flat = GetSetProperty(BaseArray.descr_get_flatiter),
 
     mean = interp2app(BaseArray.descr_mean),
     sum = interp2app(BaseArray.descr_sum),
@@ -1190,4 +1195,34 @@ BaseArray.typedef = TypeDef(
     dot = interp2app(BaseArray.descr_dot),
 
     copy = interp2app(BaseArray.descr_copy),
+)
+
+def descr_new_flatiter(space, w_object):
+    assert isinstance(w_object,BaseArray)
+    i = FlatIterator(w_object)
+    return i
+
+
+class FlatIterator(Wrappable):
+    _attrs_ = ["next"]
+
+    _immutable_fields_ = ['shapelen', ]
+
+    def __init__(self, arr):
+        self.arr = arr.get_concrete()
+        self.iter = arr.start_iter()
+        self.shapelen = len(arr.shape)
+
+    def descr_next(self, space):
+        if self.iter.done():
+            raise OperationError(space.w_StopIteration,space.wrap(''))
+        retVal = self.arr.eval(self.iter)
+        self.iter = self.iter.next(self.shapelen)
+        return retVal.wrap(space)
+            
+
+FlatIterator.typedef = TypeDef(
+    'flatiter',
+    __new__ = interp2app(descr_new_flatiter),
+    next = interp2app(FlatIterator.descr_next),
 )
