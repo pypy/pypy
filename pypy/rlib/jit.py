@@ -738,3 +738,12 @@ class ExtSetParam(ExtRegistryEntry):
         return hop.genop('jit_marker', vlist,
                          resulttype=lltype.Void)
 
+
+class JitPortal(object):
+    """ This is the main connector between the JIT and the interpreter.
+    Several methods on portal will be invoked at various stages of JIT running
+    like JIT loops compiled, aborts etc.
+
+    An instance of this class might be returned by the policy.get_jit_portal
+    method in order to function.
+    """
