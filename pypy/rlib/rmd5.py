@@ -318,7 +318,7 @@ class RMD5(object):
         """
 
         leninBuf = len(inBuf)
-        self.count += leninBuf
+        self.count += r_uint(leninBuf)
         index = len(self.input)
         partLen = 64 - index
         assert partLen > 0
