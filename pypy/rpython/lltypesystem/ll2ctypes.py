@@ -14,7 +14,7 @@ if sys.version_info >= (2, 6):
 else:
     load_library_kwargs = {}
 
-import os
+import os, platform as host_platform
 from pypy.rpython.lltypesystem import lltype, llmemory
 from pypy.rpython.extfunc import ExtRegistryEntry
 from pypy.rlib.objectmodel import Symbolic, ComputedIntSymbolic
@@ -32,6 +32,12 @@ try:
 except ImportError:
     class tlsobject(object):
         pass
+
+_POSIX = os.name == "posix"
+_MS_WINDOWS = os.name == "nt"
+_LINUX = "linux" in sys.platform
+_64BIT = "64bit" in host_platform.architecture()[0]
+
 
 # ____________________________________________________________
 
@@ -69,17 +75,20 @@ def do_allocation_in_far_regions():
     global far_regions
     if not far_regions:
         from pypy.rlib import rmmap
-        if maxint > 0x7FFFFFFF:
+        if _64BIT:
             PIECESIZE = 0x80000000
         else:
-            if sys.platform == 'linux':
+            if _LINUX:
                 PIECESIZE = 0x10000000
             else:
                 PIECESIZE = 0x08000000
         PIECES = 10
-        m = rmmap.mmap(-1, PIECES * PIECESIZE,
-                       rmmap.MAP_PRIVATE|rmmap.MAP_ANONYMOUS|rmmap.MAP_NORESERVE,
-                       rmmap.PROT_READ|rmmap.PROT_WRITE)
+        flags = 0
+        if _LINUX:
+            flags = (rmmap.MAP_PRIVATE|rmmap.MAP_ANONYMOUS|rmmap.MAP_NORESERVE,
+                     rmmap.PROT_READ|rmmap.PROT_WRITE)
+            
+        m = rmmap.mmap(-1, PIECES * PIECESIZE, flags)
         m.close = lambda : None    # leak instead of giving a spurious
                                    # error at CPython's shutdown
         m._ll2ctypes_pieces = []
