@@ -837,7 +837,8 @@ class __extend__(pyframe.PyFrame):
         raise Yield
 
     def jump_absolute(self, jumpto, next_instr, ec):
-        return jumpto
+        check_nonneg(jumpto)
+        return r_uint(jumpto)
 
     def JUMP_FORWARD(self, jumpby, next_instr):
         next_instr += jumpby
