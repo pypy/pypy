@@ -295,8 +295,7 @@ class MiscOpAssembler(object):
         descr = op.getdescr()
         assert isinstance(descr, LoopToken)
         if descr._ppc_bootstrap_code == 0:
-            curpos = self.mc.get_rel_pos()
-            self.mc.b(descr._ppc_loop_code - curpos)
+            self.mc.b_offset(descr._ppc_loop_code)
         else:
             target = descr._ppc_bootstrap_code + descr._ppc_loop_code
             self.mc.b_abs(target)
