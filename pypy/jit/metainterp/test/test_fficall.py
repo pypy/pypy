@@ -144,10 +144,8 @@ class FfiLookupTests(object):
                     return result_point[0].x * result_point[0].y
 
         assert self.meta_interp(main, [10]) == main(10) == 9000
-        self.check_loops({"int_add": 3, "jump": 1, "int_lt": 1, "guard_true": 1,
-                          "getinteriorfield_raw": 4, "setinteriorfield_raw": 2
-        })
-
+        self.check_resops({'jump': 2, 'int_lt': 2, 'setinteriorfield_raw': 4,
+                           'getinteriorfield_raw': 8, 'int_add': 6, 'guard_true': 2})
 
 class TestFfiCall(FfiCallTests, LLJitMixin):
     supports_all = False
