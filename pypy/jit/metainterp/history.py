@@ -999,12 +999,9 @@ class Stats(object):
                 "found %d %r, expected %d" % (found, insn, expected_count))
         return insns
 
-    def check_loops(self, expected=None, everywhere=False, **check):
+    def check_resops(self, expected=None, **check):
         insns = {}
         for loop in self.loops:
-            if not everywhere:
-                if getattr(loop, '_ignore_during_counting', False):
-                    continue
             insns = loop.summary(adding_insns=insns)
         if expected is not None:
             insns.pop('debug_merge_point', None)
@@ -1015,7 +1012,7 @@ class Stats(object):
             assert found == expected_count, (
                 "found %d %r, expected %d" % (found, insn, expected_count))
         return insns
-
+        
     def check_consistency(self):
         "NOT_RPYTHON"
         for loop in self.loops:

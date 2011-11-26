@@ -96,7 +96,7 @@ class TestJitRSre(support.LLJitMixin):
     def test_fast_search(self):
         res = self.meta_interp_search(r"<foo\w+>", "e<f<f<foxd<f<fh<foobar>ua")
         assert res == 15
-        self.check_loops(guard_value=0)
+        self.check_resops(guard_value=0)
 
     def test_regular_search(self):
         res = self.meta_interp_search(r"<\w+>", "eiofweoxdiwhdoh<foobar>ua")
@@ -120,7 +120,7 @@ class TestJitRSre(support.LLJitMixin):
     def test_aorbstar(self):
         res = self.meta_interp_match("(a|b)*a", "a" * 100)
         assert res == 100
-        self.check_loops(guard_value=0)
+        self.check_resops(guard_value=0)
 
 
     # group guards tests
@@ -165,4 +165,4 @@ class TestJitRSre(support.LLJitMixin):
     def test_find_repetition_end_fastpath(self):
         res = self.meta_interp_search(r"b+", "a"*30 + "b")
         assert res == 30
-        self.check_loops(call=0)
+        self.check_resops(call=0)
