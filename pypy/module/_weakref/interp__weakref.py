@@ -1,7 +1,7 @@
 import py
 from pypy.interpreter.baseobjspace import Wrappable, W_Root
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.gateway import interp2app, ObjSpace, NoneNotWrapped
+from pypy.interpreter.gateway import interp2app, ObjSpace
 from pypy.interpreter.typedef import TypeDef
 from pypy.rlib import jit
 import weakref
@@ -294,11 +294,11 @@ def make_proxy_with_callback(space, w_obj, w_callable):
     lifeline = getlifelinewithcallbacks(space, w_obj)
     return lifeline.make_proxy_with_callback(w_obj, w_callable)
 
-def proxy(space, w_obj, w_callable=NoneNotWrapped):
+def proxy(space, w_obj, w_callable=None):
     """Create a proxy object that weakly references 'obj'.
 'callback', if given, is called with the proxy as an argument when 'obj'
 is about to be finalized."""
-    if w_callable is None:
+    if space.is_w(w_callable, space.w_None):
         return get_or_make_proxy(space, w_obj)
     else:
         return make_proxy_with_callback(space, w_obj, w_callable)
