@@ -158,10 +158,6 @@ class JitMixin:
     def check_resops(self, expected=None, **check):
         get_stats().check_resops(expected=expected, **check)
 
-    
-    def check_loops(self, expected=None, everywhere=False, **check):
-        get_stats().check_loops(expected=expected, everywhere=everywhere,
-                                **check)        
     def check_loop_count(self, count):
         """NB. This is a hack; use check_tree_loop_count() or
         check_enter_count() for the real thing.
