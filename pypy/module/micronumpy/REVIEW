@@ -1,0 +1,10 @@
+arange does not work for floats because they'll get automatically marked as ints
+it also does not test that it works correctly with floats (it does not)
+
+the flatiter should raise OperationError if object is not of BaseArray type
+
+there are no tests for creation of numpy.flatiter
+
+_attrs_ can be ommited entirely, but this is broken (it has to contain all attributes like __slots__)
+
+transpose should be tested at the very least on odd number of dimensions, like 1 or 3. Ot should also handle scalar (somehow)
