@@ -10,28 +10,7 @@ from pypy.rlib.rfloat import (
 
 import math
 
-
-class W_AbstractComplexObject(W_Object):
-    __slots__ = ()
-
-    def is_w(self, space, w_other):
-        from pypy.rlib.longlong2float import float2longlong
-        if not isinstance(w_other, W_AbstractComplexObject):
-            return False
-        if self.user_overridden_class or w_other.user_overridden_class:
-            return self is w_other
-        real1 = space.float_w(space.getattr(self,    space.wrap("real")))
-        real2 = space.float_w(space.getattr(w_other, space.wrap("real")))
-        imag1 = space.float_w(space.getattr(self,    space.wrap("imag")))
-        imag2 = space.float_w(space.getattr(w_other, space.wrap("imag")))
-        real1 = float2longlong(real1)
-        real2 = float2longlong(real2)
-        imag1 = float2longlong(imag1)
-        imag2 = float2longlong(imag2)
-        return real1 == real2 and imag1 == imag2
-
-
-class W_ComplexObject(W_AbstractComplexObject):
+class W_ComplexObject(W_Object):
     """This is a reimplementation of the CPython "PyComplexObject"
     """
     from pypy.objspace.std.complextype import complex_typedef as typedef

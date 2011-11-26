@@ -22,16 +22,6 @@ from pypy.objspace.std.stringtype import stringstartswith, stringendswith
 class W_AbstractUnicodeObject(W_Object):
     __slots__ = ()
 
-    def is_w(self, space, w_other):
-        if not isinstance(w_other, W_AbstractUnicodeObject):
-            return False
-        if self is w_other:
-            return True
-        if self.user_overridden_class or w_other.user_overridden_class:
-            return False
-        return space.unicode_w(self) is space.unicode_w(w_other)
-
-
 class W_UnicodeObject(W_AbstractUnicodeObject):
     from pypy.objspace.std.unicodetype import unicode_typedef as typedef
     _immutable_fields_ = ['_value']

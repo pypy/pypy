@@ -147,28 +147,6 @@ class AppTestObject:
         s = "a"
         assert self.unwrap_wrap_str(s) is s
 
-    def test_is_on_subclasses(self):
-        for typ in [int, long, float, complex, str, unicode]:
-            class mytyp(typ):
-                pass
-            if not self.cpython_apptest and typ not in (str, unicode):
-                assert typ(42) is typ(42)
-            assert mytyp(42) is not mytyp(42)
-            assert mytyp(42) is not typ(42)
-            assert typ(42) is not mytyp(42)
-            x = mytyp(42)
-            assert x is x
-            assert x is not "43"
-            assert x is not None
-            assert "43" is not x
-            assert None is not x
-            x = typ(42)
-            assert x is x
-            assert x is not "43"
-            assert x is not None
-            assert "43" is not x
-            assert None is not x
-
     def test_id_on_primitives(self):
         if self.cpython_apptest:
             skip("cpython behaves differently")

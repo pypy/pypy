@@ -22,16 +22,6 @@ from pypy.objspace.std.formatting import mod_format
 class W_AbstractStringObject(W_Object):
     __slots__ = ()
 
-    def is_w(self, space, w_other):
-        if not isinstance(w_other, W_AbstractStringObject):
-            return False
-        if self is w_other:
-            return True
-        if self.user_overridden_class or w_other.user_overridden_class:
-            return False
-        return space.str_w(self) is space.str_w(w_other)
-
-
 class W_StringObject(W_AbstractStringObject):
     from pypy.objspace.std.stringtype import str_typedef as typedef
     _immutable_fields_ = ['_value']
