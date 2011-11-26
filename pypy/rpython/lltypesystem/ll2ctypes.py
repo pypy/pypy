@@ -87,7 +87,9 @@ def do_allocation_in_far_regions():
         if _LINUX:
             flags = (rmmap.MAP_PRIVATE|rmmap.MAP_ANONYMOUS|rmmap.MAP_NORESERVE,
                      rmmap.PROT_READ|rmmap.PROT_WRITE)
-            
+        if _MS_WINDOWS:
+            flags = rmmap.MEM_RESERVE
+            # XXX seems not to work
         m = rmmap.mmap(-1, PIECES * PIECESIZE, flags)
         m.close = lambda : None    # leak instead of giving a spurious
                                    # error at CPython's shutdown

@@ -707,7 +707,7 @@ if _POSIX:
     
 elif _MS_WINDOWS:
     def mmap(fileno, length, flags=0, tagname="", access=_ACCESS_DEFAULT, offset=0):
-        # XXX flags is unused by now.
+        # XXX flags is or-ed into access by now.
         
         # check size boundaries
         _check_map_size(length)
@@ -790,6 +790,7 @@ elif _MS_WINDOWS:
             offset_hi = 0
             offset_lo = offset
 
+        flProtect |= flags
         m.map_handle = CreateFileMapping(m.file_handle, NULL, flProtect,
                                          size_hi, size_lo, m.tagname)
 
@@ -806,6 +807,11 @@ elif _MS_WINDOWS:
             rwin32.CloseHandle(m.map_handle)
         m.map_handle = INVALID_HANDLE
         raise winerror
+
+    class Hint:
+        pos = -0x4fff0000   # for reproducible results
+    hint = Hint()
+    # XXX this has no effect on windows
 
     def alloc(map_size):
         """Allocate memory.  This is intended to be used by the JIT,
