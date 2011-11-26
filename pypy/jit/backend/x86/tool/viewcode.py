@@ -34,7 +34,7 @@ pypy.tool.udir = mod
 # I am porting it in a lazy fashion...  See py-utils/xam.py
 
 if sys.platform == "win32":
-    XXX   # lots more in Psyco
+    pass   # lots more in Psyco
 
 def machine_code_dump(data, originaddr, backend_name, label_list=None):
     objdump_backend_option = {
