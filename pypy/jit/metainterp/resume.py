@@ -93,11 +93,13 @@ PENDINGFIELDSP = lltype.Ptr(lltype.GcArray(PENDINGFIELDSTRUCT))
 
 TAGMASK = 3
 
-def tag(value, tagbits):
-    if tagbits >> 2:
-        raise ValueError
+def tag(value, tagbits, giveup=True):
+    assert 0 <= tagbits <= 3
     sx = value >> 13
     if sx != 0 and sx != -1:
+        if giveup:
+            from pypy.jit.metainterp import compile
+            compile.giveup()
         raise ValueError
     return rffi.r_short(value<<2|tagbits)
 
@@ -152,7 +154,7 @@ class ResumeDataLoopMemo(object):
                 # unhappiness, probably a symbolic
                 return self._newconst(const)
             try:
-                return tag(val, TAGINT)
+                return tag(val, TAGINT, giveup=False)
             except ValueError:
                 pass
             tagged = self.large_ints.get(val, UNASSIGNED)
