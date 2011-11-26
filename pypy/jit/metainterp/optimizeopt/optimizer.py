@@ -569,7 +569,7 @@ class Optimizer(Optimization):
             if len(newboxes) > self.metainterp_sd.options.failargs_limit:
                 raise resume.TagOverflow
         except resume.TagOverflow:
-            compile.giveup()
+            raise compile.giveup()
         descr.store_final_boxes(op, newboxes)
         #
         if op.getopnum() == rop.GUARD_VALUE:
