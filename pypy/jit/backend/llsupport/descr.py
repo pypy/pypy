@@ -149,16 +149,28 @@ def get_field_descr(gccache, STRUCT, fieldname):
         cachedict[fieldname] = fielddescr
         return fielddescr
 
-def get_field_arraylen_descr(gccache, ARRAY):
+def get_field_arraylen_descr(gccache, ARRAY_OR_STRUCT):
     cache = gccache._cache_arraylen
+    if isinstance(ARRAY_OR_STRUCT, lltype.GcArray):
+        # assume that they all have the length at the same offset
+        key = 'array'
+    else:
+        # assume that it is STR or UNICODE
+        assert isinstance(ARRAY_OR_STRUCT.chars, lltype.Array)
+        key = ARRAY_OR_STRUCT
     try:
-        return cache[ARRAY]
+        return cache[key]
     except KeyError:
         tsc = gccache.translate_support_code
-        (_, _, ofs) = symbolic.get_array_token(ARRAY, tsc)
+        (_, _, ofs) = symbolic.get_array_token(ARRAY_OR_STRUCT, tsc)
+        if key == 'array' and tsc:
+            (_, _, baseofs) = symbolic.get_array_token(_A, tsc)
+            assert baseofs == ofs, ("arrays %r and %r don't have the length "
+                                    "field at the same offset!" %
+                                    (ARRAY_OR_STRUCT, _A))
         SignedFieldDescr = getFieldDescrClass(lltype.Signed)
         result = SignedFieldDescr("len", ofs)
-        cache[ARRAY] = result
+        cache[key] = result
         return result
 
 # ____________________________________________________________

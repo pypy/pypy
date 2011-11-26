@@ -54,6 +54,15 @@ class RewriteTests(object):
                 pass
             WORD = globals()['WORD']
             #
+            str_basesize = self.gc_ll_descr.str_basesize
+            str_itemsize = self.gc_ll_descr.str_itemsize
+            strlendescr = get_field_arraylen_descr(self.gc_ll_descr, rstr.STR)
+            #
+            unicode_basesize = self.gc_ll_descr.unicode_basesize
+            unicode_itemsize = self.gc_ll_descr.unicode_itemsize
+            unicodelendescr = get_field_arraylen_descr(self.gc_ll_descr,
+                                                       rstr.UNICODE)
+            #
             ops = parse(frm_operations, namespace=locals())
             expected = parse(to_operations % Evaluator(locals()),
                              namespace=locals())
@@ -144,6 +153,18 @@ class TestBoehm(RewriteTests):
             [i1]
             p0 = malloc_gc(%(str_basesize)d, i1, %(str_itemsize)d)
             setfield_gc(p0, i1, descr=strlendescr)
+            jump()
+        """)
+
+    def test_newunicode(self):
+        self.check_rewrite("""
+            [i1]
+            p0 = newunicode(10)
+            jump()
+        """, """
+            [i1]
+            p0 = malloc_gc(%(unicode_basesize)d, 10, %(unicode_itemsize)d)
+            setfield_gc(p0, 10, descr=unicodelendescr)
             jump()
         """)
 

@@ -36,6 +36,14 @@ class GcLLDescription(GcCache):
         else:
             self.fielddescr_vtable = get_field_descr(self, rclass.OBJECT,
                                                      'typeptr')
+        (self.str_basesize, self.str_itemsize, self.str_ofs_length
+         ) = symbolic.get_array_token(rstr.STR, self.translate_support_code)
+        (self.unicode_basesize, self.unicode_itemsize, self.unicode_ofs_length
+         ) = symbolic.get_array_token(rstr.UNICODE,self.translate_support_code)
+        self.field_strlen_descr = get_field_arraylen_descr(self, rstr.STR)
+        self.field_unicodelen_descr = get_field_arraylen_descr(self,
+                                                               rstr.UNICODE)
+
     def _freeze_(self):
         return True
     def initialize(self):
@@ -134,10 +142,6 @@ class GcLLDescr_boehm(GcLLDescription):
             [lltype.Signed] * 4, llmemory.GCREF))
 
 
-        (str_basesize, str_itemsize, str_ofs_length
-         ) = symbolic.get_array_token(rstr.STR, self.translate_support_code)
-        (unicode_basesize, unicode_itemsize, unicode_ofs_length
-         ) = symbolic.get_array_token(rstr.UNICODE, self.translate_support_code)
         def malloc_str(length):
             return self.malloc_array(
                 str_basesize, str_itemsize, str_ofs_length, length

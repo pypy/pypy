@@ -82,20 +82,33 @@ class GcRewriterAssembler(object):
         elif opnum == rop.NEW_ARRAY:
             descr = op.getdescr()
             assert isinstance(descr, BaseArrayDescr)
-            #...
-            c_basesize = ConstInt(descr.get_base_size(self.tsc))
-            c_itemsize = ConstInt(descr.get_item_size(self.tsc))
-            v_length = op.getarg(0)
-            op = ResOperation(rop.MALLOC_GC, [c_basesize,
-                                              v_length,
-                                              c_itemsize],
-                              op.result)
-            self.newops.append(op)
-            op = ResOperation(rop.SETFIELD_GC, [op.result, v_length],
-                              None, descr=descr.field_arraylen_descr)
-            self.newops.append(op)
+            self.handle_new_array(descr.get_base_size(self.tsc),
+                                  descr.get_item_size(self.tsc),
+                                  descr.field_arraylen_descr,
+                                  op)
+        elif opnum == rop.NEWSTR:
+            self.handle_new_array(self.gc_ll_descr.str_basesize,
+                                  self.gc_ll_descr.str_itemsize,
+                                  self.gc_ll_descr.field_strlen_descr,
+                                  op)
+        elif opnum == rop.NEWUNICODE:
+            self.handle_new_array(self.gc_ll_descr.unicode_basesize,
+                                  self.gc_ll_descr.unicode_itemsize,
+                                  self.gc_ll_descr.field_unicodelen_descr,
+                                  op)
         else:
             raise NotImplementedError(op.getopname())
+
+    def handle_new_array(self, base_size, item_size, arraylen_descr, op):
+        v_length = op.getarg(0)
+        op = ResOperation(rop.MALLOC_GC, [ConstInt(base_size),
+                                          v_length,
+                                          ConstInt(item_size)],
+                          op.result)
+        self.newops.append(op)
+        op = ResOperation(rop.SETFIELD_GC, [op.result, v_length],
+                          None, descr=arraylen_descr)
+        self.newops.append(op)
 
 ##                if op.getopnum() == rop.NEW:
 ##                    descr = op.getdescr()
