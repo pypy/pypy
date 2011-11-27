@@ -107,7 +107,7 @@ class BasicTests:
         res = self.meta_interp(f, [6, 7])
         assert res == 1323
         self.check_loop_count(1)
-        self.check_resops(int_mul=3)
+        self.check_simple_loop(int_mul=1)
 
     def test_loop_variant_mul_ovf(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
@@ -124,7 +124,7 @@ class BasicTests:
         res = self.meta_interp(f, [6, 7])
         assert res == 1323
         self.check_loop_count(1)
-        self.check_resops(int_mul_ovf=3)
+        self.check_simple_loop(int_mul_ovf=1)
 
     def test_loop_invariant_mul1(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
@@ -139,6 +139,7 @@ class BasicTests:
         res = self.meta_interp(f, [6, 7])
         assert res == 252
         self.check_loop_count(1)
+        self.check_simple_loop(int_mul=0)
         self.check_resops({'jump': 2, 'int_gt': 2, 'int_add': 2,
                            'int_mul': 1, 'guard_true': 2, 'int_sub': 2})
 
@@ -157,6 +158,7 @@ class BasicTests:
         res = self.meta_interp(f, [6, 7])
         assert res == 308
         self.check_loop_count(1)
+        self.check_simple_loop(int_mul_ovf=0)
         self.check_resops({'jump': 2, 'int_lshift': 2, 'int_gt': 2,
                            'int_mul_ovf': 1, 'int_add': 4,
                            'guard_true': 2, 'guard_no_overflow': 1,
