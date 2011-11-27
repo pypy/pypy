@@ -148,6 +148,15 @@ class LoopWithIds(Function):
     def allops(self, *args, **kwds):
         return list(self._allops(*args, **kwds))
 
+    def simple_loop_ops(self):
+        ops = self.allops()
+        labels = [op for op in self.allops() if op.name == 'label']
+        jumpop = ops[-1]
+        assert jumpop.name == 'jump'
+        assert jumpop.getdescr() == labels[-1].getdescr()
+        i = ops.index(labels[-1])
+        return ops[i+1:]
+
     def format_ops(self, id=None, **kwds):
         if id is None:
             ops = self.allops(**kwds)
@@ -172,13 +181,13 @@ class LoopWithIds(Function):
         return list(self._ops_by_id(*args, **kwds))
 
     def match(self, expected_src, **kwds):
-        ops = list(self.allops())
-        matcher = OpMatcher(ops, src=self.format_ops())
+        ops = list(self.simple_loop_ops())
+        matcher = OpMatcher(ops)
         return matcher.match(expected_src, **kwds)
 
     def match_by_id(self, id, expected_src, **kwds):
         ops = list(self.ops_by_id(id, **kwds))
-        matcher = OpMatcher(ops, src=self.format_ops(id))
+        matcher = OpMatcher(ops)
         return matcher.match(expected_src)
 
 class InvalidMatch(Exception):
@@ -210,9 +219,9 @@ class InvalidMatch(Exception):
 
 class OpMatcher(object):
 
-    def __init__(self, ops, src=None):
+    def __init__(self, ops):
         self.ops = ops
-        self.src = src
+        self.src = '\n'.join(map(str, ops))
         self.alpha_map = {}
 
     @classmethod
