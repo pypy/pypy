@@ -1052,6 +1052,9 @@ class Stats(object):
         insns = {}
         for loop in self.get_all_loops():
             insns = loop.summary(adding_insns=insns)
+        return self._check_insns(insns, expected, check)
+
+    def _check_insns(self, insns, expected, check):
         if expected is not None:
             insns.pop('debug_merge_point', None)
             insns.pop('label', None)
@@ -1062,6 +1065,30 @@ class Stats(object):
             assert found == expected_count, (
                 "found %d %r, expected %d" % (found, insn, expected_count))
         return insns
+
+    def check_simple_loop(self, expected=None, **check):
+        # Usefull in the simplest case when we have only one trace ending with
+        # a jump back to itself and possibly a few bridges ending with finnish.
+        # Only the operations within the loop formed by that single jump will
+        # be counted.
+        loops = self.get_all_loops()
+        assert len(loops) == 1
+        loop = loops[0]
+        jumpop = loop.operations[-1]
+        assert jumpop.getopnum() == rop.JUMP
+        assert self.check_resops(jump=1)
+        labels = [op for op in loop.operations if op.getopnum() == rop.LABEL]
+        targets = [op._descr_wref() for op in labels]
+        assert None not in targets # TargetToken was freed, give up
+        target = jumpop._descr_wref()
+        assert target
+        assert targets.count(target) == 1
+        i = loop.operations.index(labels[targets.index(target)])
+        insns = {}
+        for op in loop.operations[i:]:
+            opname = op.getopname()
+            insns[opname] = insns.get(opname, 0) + 1
+        return self._check_insns(insns, expected, check)
         
     def check_loops(self, expected=None, everywhere=False, **check):
         insns = {}
