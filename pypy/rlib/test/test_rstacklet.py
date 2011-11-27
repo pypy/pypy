@@ -1,4 +1,4 @@
-import gc
+import gc, sys
 import py
 from pypy.rpython.tool.rffi_platform import CompilationError
 try:
@@ -224,6 +224,8 @@ class BaseTestStacklet(StandaloneTests):
             config.translation.continuation = True
             config.translation.gcrootfinder = cls.gcrootfinder
             GCROOTFINDER = cls.gcrootfinder
+        if cls.gcrootfinder == "asmgcc" and sys.platform == "win32":
+            py.test.skip("fails with asmgcc on win32")
         cls.config = config
         cls.old_values = Runner.config, Runner.STATUSMAX
         Runner.config = config
