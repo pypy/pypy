@@ -812,7 +812,7 @@ class Scalar(BaseArray):
         self.value = value
 
     def find_size(self):
-        raise ValueError
+        return 1
 
     def get_concrete(self):
         return self
