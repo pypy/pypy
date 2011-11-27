@@ -954,20 +954,20 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = array(range(5))
         b = a.T
         assert(b == range(5)).all()
-        a=numpypy.array((range(10),range(20,30)))
-        b=a.T
-        assert(b[:,0] == a[0,:]).all()
+        a = numpypy.array((range(10), range(20, 30)))
+        b = a.T
+        assert(b[:, 0] == a[0, :]).all()
 
     def test_flatiter(self):
-        from numpypy import array
-        a = array([[10,30],[40,60]])
+        from numpypy import array, flatiter
+        a = array([[10, 30], [40, 60]])
         f_iter = a.flat
         assert f_iter.next() == 10
         assert f_iter.next() == 30
         assert f_iter.next() == 40
         assert f_iter.next() == 60
         raises(StopIteration, "f_iter.next()")
-        raises(TypeError, "numpy.flatiter()")
+        raises(TypeError, "flatiter()")
 
 
 class AppTestSupport(object):
@@ -1092,7 +1092,6 @@ class AppTestRanges(BaseNumpyAppTest):
         assert a.dtype is dtype(int)
         a = arange(3, 7, 2)
         assert (a == [3, 5]).all()
-        a = arange(3,dtype=float)
+        a = arange(3, dtype=float)
         assert (a == [0., 1., 2.]).all()
         assert a.dtype is dtype(float)
-        

@@ -1208,7 +1208,9 @@ BaseArray.typedef = TypeDef(
 )
 
 def descr_new_flatiter(space, w_object):
-    assert isinstance(w_object, BaseArray)
+    if not isinstance(w_object, BaseArray):
+        raise OperationError(space.w_TypeError, space.wrap(
+             "cannot create 'numpypy.flatiter' instances"))
     i = FlatIterator(w_object)
     return i
 
