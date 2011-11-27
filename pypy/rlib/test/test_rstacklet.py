@@ -224,12 +224,12 @@ class BaseTestStacklet(StandaloneTests):
             config.translation.continuation = True
             config.translation.gcrootfinder = cls.gcrootfinder
             GCROOTFINDER = cls.gcrootfinder
-        if cls.gcrootfinder == "asmgcc" and sys.platform == "win32":
-            py.test.skip("fails with asmgcc on win32")
         cls.config = config
         cls.old_values = Runner.config, Runner.STATUSMAX
         Runner.config = config
         Runner.STATUSMAX = 25000
+        if cls.gcrootfinder == "asmgcc" and sys.platform == "win32":
+            py.test.skip("fails with asmgcc on win32")
 
     def teardown_class(cls):
         Runner.config, Runner.STATUSMAX = cls.old_values
