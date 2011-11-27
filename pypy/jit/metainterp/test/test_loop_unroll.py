@@ -8,7 +8,8 @@ class LoopUnrollTest(test_loop.LoopTest):
     enable_opts = ALL_OPTS_NAMES
     
     automatic_promotion_result = {
-        'int_add' : 3, 'int_gt' : 1, 'guard_false' : 1, 'jump' : 1, 
+        'int_gt': 2, 'guard_false': 2, 'jump': 2, 'int_add': 6,
+        'guard_value': 1        
     }
 
     # ====> test_loop.py
