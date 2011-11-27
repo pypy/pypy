@@ -1244,10 +1244,10 @@ class OptimizeOptTest(BaseTestWithUnroll):
         i1 = int_add(i0, 1)
         p1 = new_with_vtable(ConstClass(node_vtable2))
         p2 = new_with_vtable(ConstClass(node_vtable2))
-        setfield_gc(p0, p1, descr=nextdescr)
+        setfield_gc(p2, i1, descr=valuedescr)
         setfield_gc(p2, p1, descr=nextdescr)
         setfield_gc(p1, p2, descr=nextdescr)
-        setfield_gc(p2, i1, descr=valuedescr)
+        setfield_gc(p0, p1, descr=nextdescr)
         jump(p1)
         """
         self.optimize_loop(ops, loop, preamble)
