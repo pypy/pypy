@@ -497,43 +497,7 @@ class BaseArray(Wrappable):
 
     def descr_get_shape(self, space):
         return space.newtuple([space.wrap(i) for i in self.shape])
-    
-    def descr_set_shape(self, space, w_iterable):
-        concrete = self.get_concrete()
-        new_size = 0
-        new_shape = []
-        if not space.issequence_w(w_iterable):
-            new_size = space.int_w(w_iterable)
-            if new_size < 0:
-                new_size = self.find_size()
-            new_shape = [new_size, ]
-        else:
-            neg_dim = -1
-            batch = space.listview(w_iterable)
-            new_size = 1
-            if len(batch) < 1:
-                new_size = 0
-            new_shape = []
-            i = 0
-            for elem in batch:
-                s = space.int_w(elem)
-                if s < 0:
-                    if neg_dim >= 0:
-                        raise OperationError(space.w_ValueError, space.wrap(
-                                 "can only specify one unknown dimension"))
-                    s = 1
-                    neg_dim = i
-                new_size *= s
-                new_shape.append(s)
-                i += 1
-            if neg_dim >= 0:
-                new_shape[neg_dim] = self.find_size() / new_size
-                new_size *= new_shape[neg_dim]
-        if new_size != self.find_size():
-            raise OperationError(space.w_ValueError,
-                    space.wrap("total size of new array must be unchanged"))
-        concrete.setshape(space, new_shape)
-        
+            
     def descr_get_size(self, space):
         return space.wrap(self.find_size())
 
@@ -788,25 +752,6 @@ class BaseArray(Wrappable):
         ])
         return NDimSlice(self, new_sig, start, strides[:], backstrides[:],
                          shape[:])
-
-    def descr_reshape(self, space, w_iterable):
-        new_sig = signature.Signature.find_sig([
-            NDimSlice.signature, self.signature,
-        ])
-        concrete = self.get_concrete()
-        #concrete = self
-        ndims = len(self.shape)
-        strides = [0]*ndims
-        backstrides = [0]*ndims
-        shape = []*ndims
-        for i in range(len(concrete.shape)):
-            strides[i] = concrete.strides[i]
-            backstrides[i] = concrete.backstrides[i]
-            shape[i] = concrete.shape[i]
-        arr = NDimSlice(self, new_sig, self.start, strides,
-                backstrides, shape)
-        arr.descr_set_shape(space, w_iterable)
-        return arr
 
     def descr_mean(self, space):
         return space.wrap(space.float_w(self.descr_sum(space)) / self.find_size())
@@ -1324,7 +1269,7 @@ BaseArray.typedef = TypeDef(
     __str__ = interp2app(BaseArray.descr_str),
 
     dtype = GetSetProperty(BaseArray.descr_get_dtype),
-    shape = GetSetProperty(BaseArray.descr_get_shape, BaseArray.descr_set_shape),
+    shape = GetSetProperty(BaseArray.descr_get_shape),
     size = GetSetProperty(BaseArray.descr_get_size),
 
     T = GetSetProperty(BaseArray.descr_get_transpose),
@@ -1342,14 +1287,11 @@ BaseArray.typedef = TypeDef(
     dot = interp2app(BaseArray.descr_dot),
 
     copy = interp2app(BaseArray.descr_copy),
-    reshape = interp2app(BaseArray.descr_reshape),
 )
 
 
 class FlatIterator(Wrappable):
-    _attrs_ = ["next"]
-
-    _immutable_fields_ = ['shapelen', ]
+    _immutable_fields_ = ['shapelen', 'arr']
 
     def __init__(self, arr):
         self.arr = arr.get_concrete()
