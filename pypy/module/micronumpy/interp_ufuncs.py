@@ -1,6 +1,6 @@
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
 from pypy.module.micronumpy import interp_dtype, signature
 from pypy.rlib import jit
@@ -9,8 +9,8 @@ from pypy.tool.sourcetools import func_with_new_name
 
 
 reduce_driver = jit.JitDriver(
-    greens = ["signature"],
-    reds = ["i", "size", "self", "dtype", "value", "obj"]
+    greens = ['shapelen', "signature"],
+    reds = ["i", "self", "dtype", "value", "obj"]
 )
 
 class W_Ufunc(Wrappable):
@@ -45,8 +45,10 @@ class W_Ufunc(Wrappable):
         return self.call(space, __args__.arguments_w)
 
     def descr_reduce(self, space, w_obj):
-        from pypy.module.micronumpy.interp_numarray import convert_to_array, Scalar
+        return self.reduce(space, w_obj, multidim=False)
 
+    def reduce(self, space, w_obj, multidim):
+        from pypy.module.micronumpy.interp_numarray import convert_to_array, Scalar
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
                 "supported for binary functions"))
@@ -62,28 +64,33 @@ class W_Ufunc(Wrappable):
             space, obj.find_dtype(),
             promote_to_largest=True
         )
-        start = 0
+        start = obj.start_iter(obj.shape)
+        shapelen = len(obj.shape)
+        if shapelen > 1 and not multidim:
+            raise OperationError(space.w_NotImplementedError,
+                space.wrap("not implemented yet"))
         if self.identity is None:
             if size == 0:
                 raise operationerrfmt(space.w_ValueError, "zero-size array to "
                     "%s.reduce without identity", self.name)
-            value = obj.eval(0).convert_to(dtype)
-            start += 1
+            value = obj.eval(start).convert_to(dtype)
+            start = start.next(shapelen)
         else:
             value = self.identity.convert_to(dtype)
         new_sig = signature.Signature.find_sig([
             self.reduce_signature, obj.signature
         ])
-        return self.reduce(new_sig, start, value, obj, dtype, size).wrap(space)
+        return self.reduce_loop(new_sig, shapelen, start, value, obj,
+                           dtype).wrap(space)
 
-    def reduce(self, signature, start, value, obj, dtype, size):
-        i = start
-        while i < size:
-            reduce_driver.jit_merge_point(signature=signature, self=self,
+    def reduce_loop(self, signature, shapelen, i, value, obj, dtype):
+        while not i.done():
+            reduce_driver.jit_merge_point(signature=signature,
+                                          shapelen=shapelen, self=self,
                                           value=value, obj=obj, i=i,
-                                          dtype=dtype, size=size)
+                                          dtype=dtype)
             value = self.func(dtype, value, obj.eval(i).convert_to(dtype))
-            i += 1
+            i = i.next(shapelen)
         return value
 
 class W_Ufunc1(W_Ufunc):
@@ -111,7 +118,7 @@ class W_Ufunc1(W_Ufunc):
             return self.func(res_dtype, w_obj.value.convert_to(res_dtype)).wrap(space)
 
         new_sig = signature.Signature.find_sig([self.signature, w_obj.signature])
-        w_res = Call1(new_sig, res_dtype, w_obj)
+        w_res = Call1(new_sig, w_obj.shape, res_dtype, w_obj, w_obj.order)
         w_obj.add_invalidates(w_res)
         return w_res
 
@@ -130,7 +137,7 @@ class W_Ufunc2(W_Ufunc):
 
     def call(self, space, args_w):
         from pypy.module.micronumpy.interp_numarray import (Call2,
-            convert_to_array, Scalar)
+            convert_to_array, Scalar, shape_agreement)
 
         [w_lhs, w_rhs] = args_w
         w_lhs = convert_to_array(space, w_lhs)
@@ -153,7 +160,9 @@ class W_Ufunc2(W_Ufunc):
         new_sig = signature.Signature.find_sig([
             self.signature, w_lhs.signature, w_rhs.signature
         ])
-        w_res = Call2(new_sig, calc_dtype, res_dtype, w_lhs, w_rhs)
+        new_shape = shape_agreement(space, w_lhs.shape, w_rhs.shape)
+        w_res = Call2(new_sig, new_shape, calc_dtype,
+                      res_dtype, w_lhs, w_rhs)
         w_lhs.add_invalidates(w_res)
         w_rhs.add_invalidates(w_res)
         return w_res
@@ -309,6 +318,8 @@ class UfuncState(object):
             ("fabs", "fabs", 1, {"promote_to_float": True}),
             ("floor", "floor", 1, {"promote_to_float": True}),
             ("exp", "exp", 1, {"promote_to_float": True}),
+
+            ('sqrt', 'sqrt', 1, {'promote_to_float': True}),
 
             ("sin", "sin", 1, {"promote_to_float": True}),
             ("cos", "cos", 1, {"promote_to_float": True}),

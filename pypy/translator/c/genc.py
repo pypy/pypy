@@ -542,7 +542,7 @@ class CStandaloneBuilder(CBuilder):
             mk.rule(*rule)
 
         if self.config.translation.gcrootfinder == 'asmgcc':
-            trackgcfiles = [cfile[:-2] for cfile in mk.cfiles]
+            trackgcfiles = [cfile[:cfile.rfind('.')] for cfile in mk.cfiles]
             if self.translator.platform.name == 'msvc':
                 trackgcfiles = [f for f in trackgcfiles
                                 if f.startswith(('implement', 'testing',
@@ -579,7 +579,7 @@ class CStandaloneBuilder(CBuilder):
             if self.translator.platform.name == 'msvc':
                 lblofiles = []
                 for cfile in mk.cfiles:
-                    f = cfile[:-2]
+                    f = cfile[:cfile.rfind('.')]
                     if f in trackgcfiles:
                         ofile = '%s.lbl.obj' % (f,)
                     else:

@@ -668,6 +668,7 @@ def ll_pop(func, l, index):
     ll_delitem_nonneg(dum_nocheck, l, index)
     return res
 
+@jit.look_inside_iff(lambda l: jit.isvirtual(l))
 def ll_reverse(l):
     length = l.ll_length()
     i = 0
@@ -678,7 +679,6 @@ def ll_reverse(l):
         l.ll_setitem_fast(length_1_i, tmp)
         i += 1
         length_1_i -= 1
-ll_reverse.oopspec = 'list.reverse(l)'
 
 def ll_getitem_nonneg(func, l, index):
     ll_assert(index >= 0, "unexpectedly negative list getitem index")

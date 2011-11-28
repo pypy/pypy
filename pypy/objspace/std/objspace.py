@@ -301,7 +301,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return wraptuple(self, list_w)
 
     def newlist(self, list_w):
-        return W_ListObject(list_w)
+        return W_ListObject(self, list_w)
+
+    def newlist_str(self, list_s):
+        return W_ListObject.newlist_str(self, list_s)
 
     def newdict(self, module=False, instance=False, classofinstance=None,
                 strdict=False):
@@ -391,7 +394,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if isinstance(w_obj, W_TupleObject):
             t = w_obj.wrappeditems[:]
         elif isinstance(w_obj, W_ListObject):
-            t = w_obj.wrappeditems[:]
+            t = w_obj.getitems_copy()
         else:
             return ObjSpace.unpackiterable(self, w_obj, expected_length)
         if expected_length != -1 and len(t) != expected_length:
@@ -405,7 +408,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if isinstance(w_obj, W_TupleObject):
             t = w_obj.wrappeditems
         elif isinstance(w_obj, W_ListObject):
-            t = w_obj.wrappeditems[:]
+            # XXX this can copy twice
+            t = w_obj.getitems()[:]
         else:
             if unroll:
                 return make_sure_not_resized(ObjSpace.unpackiterable_unroll(
@@ -423,7 +427,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
 
     def listview(self, w_obj, expected_length=-1):
         if isinstance(w_obj, W_ListObject):
-            t = w_obj.wrappeditems
+            t = w_obj.getitems()
         elif isinstance(w_obj, W_TupleObject):
             t = w_obj.wrappeditems[:]
         else:
@@ -431,6 +435,11 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if expected_length != -1 and len(t) != expected_length:
             raise self._wrap_expected_length(expected_length, len(t))
         return t
+
+    def listview_str(self, w_obj):
+        if isinstance(w_obj, W_ListObject):
+            return w_obj.getitems_str()
+        return None
 
     def sliceindices(self, w_slice, w_length):
         if isinstance(w_slice, W_SliceObject):
@@ -443,15 +452,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
             raise OperationError(self.w_ValueError,
                                  self.wrap("Expected tuple of length 3"))
         return self.int_w(l_w[0]), self.int_w(l_w[1]), self.int_w(l_w[2])
-
-    def is_(self, w_one, w_two):
-        if w_one is w_two:
-            return self.w_True
-        return self.w_False
-
-    # short-cut
-    def is_w(self, w_one, w_two):
-        return w_one is w_two
 
     def is_true(self, w_obj):
         # a shortcut for performance
