@@ -1345,13 +1345,6 @@ BaseArray.typedef = TypeDef(
     reshape = interp2app(BaseArray.descr_reshape),
 )
 
-def descr_new_flatiter(space, w_object):
-    if not isinstance(w_object, BaseArray):
-        raise OperationError(space.w_TypeError, space.wrap(
-             "cannot create 'numpypy.flatiter' instances"))
-    i = FlatIterator(w_object)
-    return i
-
 
 class FlatIterator(Wrappable):
     _attrs_ = ["next"]
@@ -1373,6 +1366,5 @@ class FlatIterator(Wrappable):
 
 FlatIterator.typedef = TypeDef(
     'flatiter',
-    __new__ = interp2app(descr_new_flatiter),
     next = interp2app(FlatIterator.descr_next),
 )
