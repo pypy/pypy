@@ -227,7 +227,7 @@ class BroadcastIterator(BaseIterator):
         self.strides = []
         self.backstrides = []
         for i in range(len(arr.shape)):
-            if arr.shape[i]==1:
+            if arr.shape[i] == 1:
                 self.strides.append(0)
                 self.backstrides.append(0)
             else:
@@ -721,6 +721,9 @@ class BaseArray(Wrappable):
     def descr_getitem(self, space, w_idx):
         if self._single_item_result(space, w_idx):
             concrete = self.get_concrete()
+            if len(concrete.shape) < 1:
+                raise OperationError(space.w_IndexError, space.wrap(
+                        "0-d arrays can't be indexed"))
             item = concrete._index_of_single_item(space, w_idx)
             return concrete.getitem(item).wrap(space)
         chunks = self._prepare_slice_args(space, w_idx)
@@ -730,6 +733,9 @@ class BaseArray(Wrappable):
         self.invalidated()
         concrete = self.get_concrete()
         if self._single_item_result(space, w_idx):
+            if len(concrete.shape) < 1:
+                raise OperationError(space.w_IndexError, space.wrap(
+                        "0-d arrays can't be indexed"))
             item = concrete._index_of_single_item(space, w_idx)
             concrete.setitem_w(space, item, w_value)
             return
@@ -816,17 +822,20 @@ class BaseArray(Wrappable):
             self.start_iter(self.shape)).wrap(space)))
 
     def descr_get_transpose(self, space):
+        concrete = self.get_concrete()
+        if len(concrete.shape) < 2:
+            return space.wrap(self)
         new_sig = signature.Signature.find_sig([
             NDimSlice.signature, self.signature
         ])
         strides = []
         backstrides = []
         shape = []
-        for i in range(len(self.shape) - 1, -1, -1):
-            strides.append(self.strides[i])
-            backstrides.append(self.backstrides[i])
-            shape.append(self.shape[i])
-        return space.wrap(NDimSlice(self, new_sig, self.start, strides[:], 
+        for i in range(len(concrete.shape) - 1, -1, -1):
+            strides.append(concrete.strides[i])
+            backstrides.append(concrete.backstrides[i])
+            shape.append(concrete.shape[i])
+        return space.wrap(NDimSlice(concrete, new_sig, self.start, strides[:],
                            backstrides[:], shape[:]))
 
     def descr_get_flatiter(self, space):
@@ -869,7 +878,7 @@ class Scalar(BaseArray):
         self.value = value
 
     def find_size(self):
-        raise ValueError
+        return 1
 
     def get_concrete(self):
         return self
@@ -878,7 +887,7 @@ class Scalar(BaseArray):
         return self.dtype
 
     def getitem(self, item):
-        return self.value
+        raise NotImplementedError
 
     def eval(self, iter):
         return self.value
@@ -889,8 +898,6 @@ class Scalar(BaseArray):
     def to_str(self, space, comma, builder, indent=' ', use_ellipsis=False):
         builder.append(self.dtype.str_format(self.value))
 
-    def setshape(self, space, new_shape):
-        pass 
 
 class VirtualArray(BaseArray):
     """
@@ -1339,7 +1346,9 @@ BaseArray.typedef = TypeDef(
 )
 
 def descr_new_flatiter(space, w_object):
-    assert isinstance(w_object,BaseArray)
+    if not isinstance(w_object, BaseArray):
+        raise OperationError(space.w_TypeError, space.wrap(
+             "cannot create 'numpypy.flatiter' instances"))
     i = FlatIterator(w_object)
     return i
 
@@ -1356,11 +1365,11 @@ class FlatIterator(Wrappable):
 
     def descr_next(self, space):
         if self.iter.done():
-            raise OperationError(space.w_StopIteration,space.wrap(''))
+            raise OperationError(space.w_StopIteration, space.wrap(''))
         retVal = self.arr.eval(self.iter)
         self.iter = self.iter.next(self.shapelen)
         return retVal.wrap(space)
-            
+
 
 FlatIterator.typedef = TypeDef(
     'flatiter',

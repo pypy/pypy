@@ -214,9 +214,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpypy import array
         a = array(range(5))
         assert a[3] == 3
-        a = array(1)
-        assert a[0] == 1
-        assert a.shape == ()
+        #Wrong on two counts: numpy does not allow assigning to Scalar,
+        # and Scalar.shape is not a test of iterator_init, is it?
+        #a = array(1)
+        #assert a[0] == 1
+        #assert a.shape == ()
 
     def test_getitem(self):
         from numpypy import array
@@ -304,7 +306,10 @@ class AppTestNumArray(BaseNumpyAppTest):
     def test_scalar(self):
         from numpypy import array
         a = array(3)
-        assert a[0] == 3
+        #assert a[0] == 3
+        raises(IndexError, "a[0]")
+        assert a.size == 1
+        assert a.shape == ()
 
     def test_len(self):
         from numpypy import array
@@ -983,16 +988,23 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert(b[0, :, 0] == [0, 3]).all()
         b[:, 0, 0] = 1000
         assert(a[0, 0, :] == [1000, 1000, 1000]).all()
+        a = array(range(5))
+        b = a.T
+        assert(b == range(5)).all()
+        a = numpypy.array((range(10), range(20, 30)))
+        b = a.T
+        assert(b[:, 0] == a[0, :]).all()
 
     def test_flatiter(self):
-        from numpypy import array
-        a = array([[10,30],[40,60]])
+        from numpypy import array, flatiter
+        a = array([[10, 30], [40, 60]])
         f_iter = a.flat
         assert f_iter.next() == 10
         assert f_iter.next() == 30
         assert f_iter.next() == 40
         assert f_iter.next() == 60
         raises(StopIteration, "f_iter.next()")
+        raises(TypeError, "flatiter()")
 
 
 class AppTestSupport(object):
@@ -1117,7 +1129,7 @@ class AppTestRanges(BaseNumpyAppTest):
         assert a.dtype is dtype(int)
         a = arange(3, 7, 2)
         assert (a == [3, 5]).all()
-        a = arange(3,dtype=float)
+        a = arange(3, dtype=float)
         assert (a == [0., 1., 2.]).all()
         assert a.dtype is dtype(float)
         a = arange(0, 0.8, 0.1)
