@@ -269,7 +269,7 @@ class ConstInt(Const):
 
     def __init__(self, value):
         if not we_are_translated():
-            if is_valid_int(value, force_type=False):
+            if is_valid_int(value):
                 value = int(value)    # bool -> int
             else:
                 assert isinstance(value, Symbolic)

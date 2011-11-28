@@ -136,13 +136,9 @@ _should_widen_type._annspecialcase_ = 'specialize:memo'
 # the replacement for sys.maxint
 maxint = int(LONG_TEST - 1)
 
-def is_valid_int(r, force_type=True):
-    if force_type:
-        assert isinstance(r, (int, long))
-    else:
-        if not isinstance(r, (int, long)):
-            return False
-    return -maxint - 1 <= r <= maxint
+def is_valid_int(r):
+    return isinstance(r, (int, long)) and (
+        -maxint - 1 <= r <= maxint)
 
 def ovfcheck(r):
     "NOT_RPYTHON"
@@ -151,7 +147,7 @@ def ovfcheck(r):
     assert not isinstance(r, r_uint), "unexpected ovf check on unsigned"
     assert not isinstance(r, r_longlong), "ovfcheck not supported on r_longlong"
     assert not isinstance(r, r_ulonglong), "ovfcheck not supported on r_ulonglong"
-    if not is_valid_int(r, force_type=False):
+    if not is_valid_int(r):
         # checks only if applicable to r's type.
         # this happens in the garbage collector.
         raise OverflowError, "signed integer expression did overflow"

@@ -191,7 +191,7 @@ def op_int_add(x, y):
     return intmask(x + y)
 
 def op_int_sub(x, y):
-    if not is_valid_int(x, force_type=False):
+    if not is_valid_int(x):
         from pypy.rpython.lltypesystem import llgroup
         assert isinstance(x, llgroup.CombinedSymbolic)
     assert is_valid_int(y)
@@ -217,14 +217,14 @@ def op_int_between(a, b, c):
     return a <= b < c
 
 def op_int_and(x, y):
-    if not is_valid_int(x, force_type=False):
+    if not is_valid_int(x):
         from pypy.rpython.lltypesystem import llgroup
         assert isinstance(x, llgroup.CombinedSymbolic)
     assert is_valid_int(y)
     return x & y
 
 def op_int_or(x, y):
-    if not is_valid_int(x, force_type=False):
+    if not is_valid_int(x):
         from pypy.rpython.lltypesystem import llgroup
         assert isinstance(x, llgroup.CombinedSymbolic)
     assert is_valid_int(y)
@@ -244,7 +244,7 @@ def op_int_mul(x, y):
     return intmask(x * y)
 
 def op_int_rshift(x, y):
-    if not is_valid_int(x, force_type=False):
+    if not is_valid_int(x):
         from pypy.rpython.lltypesystem import llgroup
         assert isinstance(x, llgroup.CombinedSymbolic)
     assert is_valid_int(y)

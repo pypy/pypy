@@ -30,7 +30,7 @@ class AddressOffset(Symbolic):
     def __ge__(self, other):
         if self is other:
             return True
-        elif (is_valid_int(other, force_type=False) and other == 0 and
+        elif (is_valid_int(other) and other == 0 and
             self.known_nonneg()):
             return True
         else:

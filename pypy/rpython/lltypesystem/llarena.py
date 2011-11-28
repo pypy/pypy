@@ -166,7 +166,7 @@ class fakearenaaddress(llmemory.fakeaddress):
         return '<arenaaddr %s + %d>' % (self.arena, self.offset)
 
     def __add__(self, other):
-        if is_valid_int(other, force_type=False):
+        if is_valid_int(other):
             position = self.offset + other
         elif isinstance(other, llmemory.AddressOffset):
             # this is really some Do What I Mean logic.  There are two
@@ -186,7 +186,7 @@ class fakearenaaddress(llmemory.fakeaddress):
     def __sub__(self, other):
         if isinstance(other, llmemory.AddressOffset):
             other = llmemory.raw_malloc_usage(other)
-        if is_valid_int(other, force_type=False):
+        if is_valid_int(other):
             return self.arena.getaddr(self.offset - other)
         if isinstance(other, fakearenaaddress):
             if self.arena is not other.arena:

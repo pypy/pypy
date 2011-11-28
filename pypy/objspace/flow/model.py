@@ -548,7 +548,7 @@ def checkgraph(graph):
                     cases = [link.exitcase for link in block.exits]
                     has_default = cases[-1] == 'default'
                     for n in cases[:len(cases)-has_default]:
-                        if is_valid_int(n, force_type=False):
+                        if is_valid_int(n):
                             continue
                         if isinstance(n, (str, unicode)) and len(n) == 1:
                             continue

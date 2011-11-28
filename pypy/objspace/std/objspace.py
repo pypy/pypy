@@ -160,7 +160,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if isinstance(x, OperationError):
             raise TypeError, ("attempt to wrap already wrapped exception: %s"%
                               (x,))
-        if is_valid_int(x, force_type=False):
+        if is_valid_int(x):
             if isinstance(x, bool):
                 return self.newbool(x)
             else:
