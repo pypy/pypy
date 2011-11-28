@@ -49,9 +49,11 @@ class GcRewriterAssembler(object):
             # ---------- write barriers ----------
             if self.gc_ll_descr.write_barrier_descr is not None:
                 if op.getopnum() == rop.SETFIELD_GC:
-                    op = self.handle_write_barrier_setfield(op)
-                elif op.getopnum() == rop.SETARRAYITEM_GC:
-                    op = self.handle_write_barrier_setarrayitem(op)
+                    self.handle_write_barrier_setfield(op)
+                    continue
+                if op.getopnum() == rop.SETARRAYITEM_GC:
+                    self.handle_write_barrier_setarrayitem(op)
+                    continue
             # ----------
             self.newops.append(op)
         return self.newops
@@ -142,7 +144,7 @@ class GcRewriterAssembler(object):
                                          bool(v.value)): # store a non-NULL
                 self.gen_write_barrier(op.getarg(0), v)
                 op = op.copy_and_change(rop.SETFIELD_RAW)
-        return op
+        self.newops.append(op)
 
     def handle_write_barrier_setarrayitem(self, op):
         val = op.getarg(0)
@@ -154,7 +156,7 @@ class GcRewriterAssembler(object):
                 self.gen_write_barrier_array(op.getarg(0),
                                              op.getarg(1), v)
                 op = op.copy_and_change(rop.SETARRAYITEM_RAW)
-        return op
+        self.newops.append(op)
 
     def gen_malloc_const(self, size, v_result):
         size = self.round_up_for_allocation(size)
