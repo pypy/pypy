@@ -43,6 +43,9 @@ class GcLLDescription(GcCache):
         self.field_strlen_descr = get_field_arraylen_descr(self, rstr.STR)
         self.field_unicodelen_descr = get_field_arraylen_descr(self,
                                                                rstr.UNICODE)
+        self.fielddescr_tid = None   # unless overridden
+        self.str_type_id     = llop.combine_ushort(lltype.Signed, 0, 0)
+        self.unicode_type_id = llop.combine_ushort(lltype.Signed, 0, 0)
 
     def _freeze_(self):
         return True
@@ -50,9 +53,7 @@ class GcLLDescription(GcCache):
         pass
     def do_write_barrier(self, gcref_struct, gcref_newptr):
         pass
-    def can_inline_malloc(self, descr):
-        return False
-    def can_inline_malloc_varsize(self, descr, num_elem):
+    def can_use_nursery_malloc(self, size):
         return False
     def has_write_barrier_class(self):
         return None
@@ -610,6 +611,9 @@ class WriteBarrierDescr(AbstractDescr):
 class GcLLDescr_framework(GcLLDescription):
     DEBUG = False    # forced to True by x86/test/test_zrpy_gc.py
 
+    TIDFLAG_HAS_FINALIZER       = 1 << llgroup.HALFSHIFT
+    TIDFLAG_HAS_LIGHT_FINALIZER = 1 << (llgroup.HALFSHIFT+1)
+
     def __init__(self, gcdescr, translator, rtyper, llop1=llop):
         from pypy.rpython.memory.gctypelayout import check_typeid
         from pypy.rpython.memory.gcheader import GCHeaderBuilder
@@ -658,8 +662,8 @@ class GcLLDescr_framework(GcLLDescription):
         # make a malloc function, with two arguments
         def malloc_basic(size, tid):
             type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
-            has_finalizer = bool(tid & (1<<llgroup.HALFSHIFT))
-            has_light_finalizer = bool(tid & (1<<(llgroup.HALFSHIFT + 1)))
+            has_finalizer = bool(tid & self.TIDFLAG_HAS_FINALIZER)
+            has_light_finalizer = bool(tid & self.TIDFLAG_HAS_LIGHT_FINALIZER)
             check_typeid(type_id)
             res = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
                                                   type_id, size,
@@ -699,8 +703,8 @@ class GcLLDescr_framework(GcLLDescription):
          ) = symbolic.get_array_token(rstr.STR, True)
         (unicode_basesize, unicode_itemsize, unicode_ofs_length
          ) = symbolic.get_array_token(rstr.UNICODE, True)
-        str_type_id = self.layoutbuilder.get_type_id(rstr.STR)
-        unicode_type_id = self.layoutbuilder.get_type_id(rstr.UNICODE)
+        self.str_type_id = self.layoutbuilder.get_type_id(rstr.STR)
+        self.unicode_type_id = self.layoutbuilder.get_type_id(rstr.UNICODE)
         #
         def malloc_str(length):
             return llop1.do_malloc_varsize_clear(
@@ -760,10 +764,11 @@ class GcLLDescr_framework(GcLLDescription):
     def init_size_descr(self, S, descr):
         type_id = self.layoutbuilder.get_type_id(S)
         assert not self.layoutbuilder.is_weakref_type(S)
-        has_finalizer = bool(self.layoutbuilder.has_finalizer(S))
-        has_light_finalizer = bool(self.layoutbuilder.has_light_finalizer(S))
-        flags = (int(has_finalizer) << llgroup.HALFSHIFT |
-                 int(has_light_finalizer) << (llgroup.HALFSHIFT + 1))
+        flags = 0
+        if self.layoutbuilder.has_finalizer(S):
+            flags |= self.TIDFLAG_HAS_FINALIZER
+        if self.layoutbuilder.has_light_finalizer(S):
+            flags |= self.TIDFLAG_HAS_LIGHT_FINALIZER
         descr.tid = llop.combine_ushort(lltype.Signed, type_id, flags)
 
     def init_array_descr(self, A, descr):
@@ -809,24 +814,8 @@ class GcLLDescr_framework(GcLLDescription):
             funcptr(llmemory.cast_ptr_to_adr(gcref_struct),
                     llmemory.cast_ptr_to_adr(gcref_newptr))
 
-    def can_inline_malloc(self, descr):
-        assert isinstance(descr, BaseSizeDescr)
-        if descr.size < self.max_size_of_young_obj:
-            has_finalizer = bool(descr.tid & (1<<llgroup.HALFSHIFT))
-            if has_finalizer:
-                return False
-            return True
-        return False
-
-    def can_inline_malloc_varsize(self, arraydescr, num_elem):
-        assert isinstance(arraydescr, BaseArrayDescr)
-        basesize = arraydescr.get_base_size(self.translate_support_code)
-        itemsize = arraydescr.get_item_size(self.translate_support_code)
-        try:
-            size = ovfcheck(basesize + ovfcheck(itemsize * num_elem))
-            return size < self.max_size_of_young_obj
-        except OverflowError:
-            return False
+    def can_use_nursery_malloc(self, size):
+        return size < self.max_size_of_young_obj
 
     def has_write_barrier_class(self):
         return WriteBarrierDescr

@@ -113,8 +113,8 @@ class TestBoehm(RewriteTests):
             jump()
         """, """
             []
-            p0 = malloc_gc(%(adescr.get_base_size(False))d,         \
-                           10, %(adescr.get_item_size(False))d)
+            p0 = malloc_gc(%(adescr.get_base_size(False) + \
+                             10 * adescr.get_item_size(False))d, 0, 0)
             setfield_gc(p0, 10, descr=alendescr)
             jump()
         """)
@@ -163,7 +163,7 @@ class TestBoehm(RewriteTests):
             jump()
         """, """
             [i1]
-            p0 = malloc_gc(%(unicode_basesize)d, 10, %(unicode_itemsize)d)
+            p0 = malloc_gc(%(unicode_basesize + 10 * unicode_itemsize)d, 0, 0)
             setfield_gc(p0, 10, descr=unicodelendescr)
             jump()
         """)
@@ -182,6 +182,11 @@ class TestFramework(RewriteTests):
         gcdescr = get_description(config_)
         self.gc_ll_descr = GcLLDescr_framework(gcdescr, FakeTranslator(),
                                                None, None)
+        #
+        class FakeCPU(object):
+            def sizeof(self, STRUCT):
+                return SizeDescrWithVTable(100)
+        self.cpu = FakeCPU()
 
     def test_rewrite_assembler_new_to_malloc(self):
         self.check_rewrite("""
@@ -298,7 +303,10 @@ class TestFramework(RewriteTests):
             jump()
         """)
 
-    def test_rewrite_assembler_maximal_size(self):
+    def test_rewrite_assembler_maximal_size_1(self):
+        xxx
+
+    def test_rewrite_assembler_maximal_size_2(self):
         xxx
 
     def test_rewrite_assembler_variable_size(self):
