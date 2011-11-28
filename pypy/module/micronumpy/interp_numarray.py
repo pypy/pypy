@@ -1152,6 +1152,12 @@ def ones(space, w_size, w_dtype=None):
     arr.dtype.fill(arr.storage, one, 0, size)
     return space.wrap(arr)
 
+def dot(space, w_obj, w_obj2):
+    w_arr = convert_to_array(space, w_obj)
+    if isinstance(w_arr, Scalar):
+        return convert_to_array(space, w_obj2).descr_dot(space, w_arr)
+    return w_arr.descr_dot(space, w_obj2)
+
 BaseArray.typedef = TypeDef(
     'numarray',
     __new__ = interp2app(descr_new_array),

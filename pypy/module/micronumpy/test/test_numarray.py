@@ -687,12 +687,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert c.any() == False
 
     def test_dot(self):
-        from numpypy import array
+        from numpypy import array, dot
         a = array(range(5))
         assert a.dot(a) == 30.0
 
         a = array(range(5))
         assert a.dot(range(5)) == 30
+        assert dot(range(5), range(5)) == 30
+        assert (dot(5, [1, 2, 3]) == [5, 10, 15]).all()
 
     def test_dot_constant(self):
         from numpypy import array

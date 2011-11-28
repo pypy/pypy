@@ -12,6 +12,7 @@ class Module(MixedModule):
         'zeros': 'interp_numarray.zeros',
         'empty': 'interp_numarray.zeros',
         'ones': 'interp_numarray.ones',
+        'dot': 'interp_numarray.dot',
         'fromstring': 'interp_support.fromstring',
         'flatiter': 'interp_numarray.W_FlatIterator',
 
