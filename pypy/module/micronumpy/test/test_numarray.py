@@ -210,6 +210,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[3] = 22
         assert b[3] == 3
 
+        a = array(1)
+        assert a.copy() == a
+
     def test_iterator_init(self):
         from numpypy import array
         a = array(range(5))

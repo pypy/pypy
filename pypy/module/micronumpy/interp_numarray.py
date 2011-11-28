@@ -521,10 +521,7 @@ class BaseArray(Wrappable):
         return space.wrap(self.find_size())
 
     def descr_copy(self, space):
-        concrete = self.get_concrete()
-        array = NDimArray(concrete.size, concrete.shape[:], concrete.dtype, concrete.order)
-        rffi.c_memcpy(array.storage, concrete.storage, array.size * array.dtype.num_bytes)
-        return array
+        return self.get_concrete().copy()
 
     def descr_len(self, space):
         return self.get_concrete().descr_len(space)
@@ -866,6 +863,9 @@ class Scalar(BaseArray):
     def to_str(self, space, comma, builder, indent=' ', use_ellipsis=False):
         builder.append(self.dtype.str_format(self.value))
 
+    def copy(self):
+        return Scalar(self.dtype, self.value)
+
 
 class VirtualArray(BaseArray):
     """
@@ -1119,6 +1119,11 @@ class NDimArray(BaseArray):
 
     def eval(self, iter):
         return self.dtype.getitem(self.storage, iter.get_offset())
+
+    def copy(self):
+        array = NDimArray(self.size, self.shape[:], self.dtype, self.order)
+        rffi.c_memcpy(array.storage, self.storage, self.size * self.dtype.num_bytes)
+        return array
 
     def descr_len(self, space):
         if len(self.shape):
