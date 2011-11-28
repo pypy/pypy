@@ -185,9 +185,11 @@ def makeipaddr(name, result=None):
                 0 <= d1 <= 255 and
                 0 <= d2 <= 255 and
                 0 <= d3 <= 255):
-                return makeipv4addr(intmask(htonl(
-                    (intmask(d0 << 24)) | (d1 << 16) | (d2 << 8) | (d3 << 0))),
-                                    result)
+
+                addr = intmask(d0 << 24) | (d1 << 16) | (d2 << 8) | (d3 << 0)
+                addr = rffi.cast(rffi.UINT, addr)
+                addr = htonl(addr)
+                return makeipv4addr(addr, result)
 
     # generic host name to IP conversion
     info = getaddrinfo(name, None, family=family, address_to_fill=result)
@@ -238,7 +240,7 @@ if 'AF_PACKET' in constants:
         def get_protocol(self):
             a = self.lock(_c.sockaddr_ll)
             proto = rffi.getintfield(a, 'c_sll_protocol')
-            proto = rffi.cast(rffi.UINT, proto)
+            proto = rffi.cast(rffi.USHORT, proto)
             res = ntohs(proto)
             self.unlock()
             return res
@@ -280,7 +282,7 @@ class INETAddress(IPAddress):
     def __init__(self, host, port):
         makeipaddr(host, self)
         a = self.lock(_c.sockaddr_in)
-        port = rffi.cast(rffi.UINT, port)
+        port = rffi.cast(rffi.USHORT, port)
         rffi.setintfield(a, 'c_sin_port', htons(port))
         self.unlock()
 

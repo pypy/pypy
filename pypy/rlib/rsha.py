@@ -224,7 +224,7 @@ class RSHA(object):
         """
 
         leninBuf = len(inBuf)
-        self.count += r_uint(leninBuf)
+        self.count += leninBuf
         index = len(self.input)
         partLen = 64 - index
         assert partLen > 0
