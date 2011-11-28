@@ -28,6 +28,8 @@ class GcLLDescription(GcCache):
     minimal_size_in_nursery = 0
     get_malloc_slowpath_addr = None
 
+    TIDFLAG_HAS_FINALIZER = 0
+
     def __init__(self, gcdescr, translator=None, rtyper=None):
         GcCache.__init__(self, translator is not None, rtyper)
         self.gcdescr = gcdescr

@@ -28,7 +28,7 @@ class GcRewriterAssembler(object):
         self.tsc = self.gc_ll_descr.translate_support_code
         self.newops = []
         self.known_lengths = {}
-        self.current_mallocs = {}     # set of variables
+        self.recent_mallocs = {}     # set of variables
 
     def rewrite(self, operations):
         # we can only remember one malloc since the next malloc can possibly
@@ -46,7 +46,7 @@ class GcRewriterAssembler(object):
                 self.handle_malloc_operation(op)
                 continue
             elif op.can_malloc():
-                self.forget_previous_malloc()
+                self.emitting_an_operation_that_can_collect()
             # ---------- write barriers ----------
             if self.gc_ll_descr.write_barrier_descr is not None:
                 if op.getopnum() == rop.SETFIELD_GC:
@@ -59,9 +59,7 @@ class GcRewriterAssembler(object):
             self.newops.append(op)
         return self.newops
 
-    def forget_previous_malloc(self):
-        self._op_malloc_nursery = None
-        self.current_mallocs.clear()
+    # ----------
 
     def handle_malloc_operation(self, op):
         opnum = op.getopnum()
@@ -102,25 +100,15 @@ class GcRewriterAssembler(object):
     def handle_new_fixedsize(self, descr, op):
         assert isinstance(descr, BaseSizeDescr)
         size = descr.size
-        if (self.gc_ll_descr.can_use_nursery_malloc(size)
-                and not (descr.tid & self.gc_ll_descr.TIDFLAG_HAS_FINALIZER)):
+        if not (descr.tid & self.gc_ll_descr.TIDFLAG_HAS_FINALIZER):
             self.gen_malloc_nursery(size, op.result)
         else:
             self.gen_malloc_gc(size, op.result)
         self.gen_initialize_tid(op.result, descr.tid)
 
-    def gen_malloc_gc(self, size, v_result):
-        c_size = ConstInt(size)
-        c_zero = self.c_zero
-        op = ResOperation(rop.MALLOC_GC, [c_size, c_zero, c_zero], v_result)
-        self.newops.append(op)
-        self.forget_previous_malloc()
-        self.current_mallocs[v_result] = None
-
     def handle_new_array(self, tid, base_size, item_size, arraylen_descr, op):
         v_length = op.getarg(0)
         total_size = -1
-        use_nursery = False
         if isinstance(v_length, ConstInt):
             num_elem = v_length.getint()
             try:
@@ -128,69 +116,43 @@ class GcRewriterAssembler(object):
                 total_size = ovfcheck(base_size + var_size)
             except OverflowError:
                 pass
-            else:
-                use_nursery = self.gc_ll_descr.can_use_nursery_malloc(
-                    total_size)
-        if use_nursery:
+        if total_size >= 0:
             self.gen_malloc_nursery(total_size, op.result)
-        elif total_size >= 0:
-            self.gen_malloc_gc(total_size, op.result)
         else:
-            op = ResOperation(rop.MALLOC_GC, [ConstInt(base_size),
-                                              v_length,
-                                              ConstInt(item_size)],
-                              op.result)
-            self.newops.append(op)
+            self.gen_malloc_gc(base_size, op.result,
+                               v_length, ConstInt(item_size))
         self.gen_initialize_tid(op.result, tid)
         self.gen_initialize_len(op.result, v_length, arraylen_descr)
 
-##                if op.getopnum() == rop.NEW:
-##                    descr = op.getdescr()
-##                    assert isinstance(descr, BaseSizeDescr)
-##                    self.gen_malloc_const(descr.size, op.result)
-##                    self.gen_initialize_tid(op.result, descr.tid)
-##                    continue
-##                if op.getopnum() == rop.NEW_ARRAY:
-##                    v_newlength = op.getarg(0)
-##                    if isinstance(v_newlength, ConstInt):
-##                        newlength = v_newlength.getint()
-##                        self.known_lengths[op.result] = newlength
-##                        descr = op.getdescr()
-##                        assert isinstance(descr, BaseArrayDescr)
-##                        basesize = descr.get_base_size(self.tsc)
-##                        itemsize = descr.get_item_size(self.tsc)
-##                        fullsize = basesize + newlength * itemsize
-##                        self.gen_malloc_const(fullsize, op.result)
-##                        self.gen_initialize_tid(op.result, descr.tid)
-##                        self.gen_initialize_len(op.result, v_newlength, descr)
-##                        continue
-##                    yyyyy
-##                xxxx
+    # ----------
 
-    def handle_write_barrier_setfield(self, op):
-        val = op.getarg(0)
-        # no need for a write barrier in the case of previous malloc
-        if val not in self.current_mallocs:
-            v = op.getarg(1)
-            if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
-                                         bool(v.value)): # store a non-NULL
-                self.gen_write_barrier(op.getarg(0), v)
-                op = op.copy_and_change(rop.SETFIELD_RAW)
-        self.newops.append(op)
+    def emitting_an_operation_that_can_collect(self):
+        # must be called whenever we emit an operation that can collect:
+        # forgets the previous MALLOC_NURSERY, if any; and empty the
+        # set 'recent_mallocs', so that future SETFIELDs will generate
+        # a write barrier as usual.
+        self._op_malloc_nursery = None
+        self.recent_mallocs.clear()
 
-    def handle_write_barrier_setarrayitem(self, op):
-        val = op.getarg(0)
-        # no need for a write barrier in the case of previous malloc
-        if val not in self.current_mallocs:
-            v = op.getarg(2)
-            if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
-                                         bool(v.value)): # store a non-NULL
-                self.gen_write_barrier_array(op.getarg(0),
-                                             op.getarg(1), v)
-                op = op.copy_and_change(rop.SETARRAYITEM_RAW)
+    def gen_malloc_gc(self, size, v_result,
+                      v_num_elem=c_zero, c_item_size=c_zero):
+        """Generate a MALLOC_GC."""
+        c_size = ConstInt(size)
+        self.emitting_an_operation_that_can_collect()
+        op = ResOperation(rop.MALLOC_GC, [c_size, v_num_elem, c_item_size],
+                          v_result)
         self.newops.append(op)
+        # mark 'v_result' as freshly malloced
+        self.recent_mallocs[v_result] = None
 
     def gen_malloc_nursery(self, size, v_result):
+        """Try to generate or update a MALLOC_NURSERY.
+        If that fails, generate a plain MALLOC_GC instead.
+        """
+        if not self.gc_ll_descr.can_use_nursery_malloc(size):
+            self.gen_malloc_gc(size, v_result)
+            return
+        #
         size = self.round_up_for_allocation(size)
         op = None
         #
@@ -198,26 +160,23 @@ class GcRewriterAssembler(object):
             # already a MALLOC_NURSERY: increment its total size
             total_size = self._op_malloc_nursery.getarg(0).getint()
             total_size += size
-            if not self.gc_ll_descr.can_use_nursery_malloc(total_size):
-                # size overflow! forget the existing malloc_nursery
-                self.forget_previous_malloc()
-            else:
+            if self.gc_ll_descr.can_use_nursery_malloc(total_size):
+                # if the total size is still reasonable, merge it
                 self._op_malloc_nursery.setarg(0, ConstInt(total_size))
                 op = ResOperation(rop.INT_ADD,
                                   [self._v_last_malloced_nursery,
                                    ConstInt(self._previous_size)],
                                   v_result)
         if op is None:
-            # it is the first we see: emit MALLOC_NURSERY
-            op = ResOperation(rop.MALLOC_NURSERY,
-                              [ConstInt(size)],
-                              v_result)
+            # if we failed to merge with a previous MALLOC_NURSERY, emit one
+            self.emitting_an_operation_that_can_collect()
+            op = ResOperation(rop.MALLOC_NURSERY, [ConstInt(size)], v_result)
             self._op_malloc_nursery = op
         #
         self.newops.append(op)
         self._previous_size = size
         self._v_last_malloced_nursery = v_result
-        self.current_mallocs[v_result] = None
+        self.recent_mallocs[v_result] = None
 
     def gen_initialize_tid(self, v_newgcobj, tid):
         if self.gc_ll_descr.fielddescr_tid is not None:
@@ -232,6 +191,31 @@ class GcRewriterAssembler(object):
         op = ResOperation(rop.SETFIELD_GC,
                           [v_newgcobj, v_length], None,
                           descr=arraylen_descr)
+        self.newops.append(op)
+
+    # ----------
+
+    def handle_write_barrier_setfield(self, op):
+        val = op.getarg(0)
+        # no need for a write barrier in the case of previous malloc
+        if val not in self.recent_mallocs:
+            v = op.getarg(1)
+            if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
+                                         bool(v.value)): # store a non-NULL
+                self.gen_write_barrier(op.getarg(0), v)
+                op = op.copy_and_change(rop.SETFIELD_RAW)
+        self.newops.append(op)
+
+    def handle_write_barrier_setarrayitem(self, op):
+        val = op.getarg(0)
+        # no need for a write barrier in the case of previous malloc
+        if val not in self.recent_mallocs:
+            v = op.getarg(2)
+            if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
+                                         bool(v.value)): # store a non-NULL
+                self.gen_write_barrier_array(op.getarg(0),
+                                             op.getarg(1), v)
+                op = op.copy_and_change(rop.SETARRAYITEM_RAW)
         self.newops.append(op)
 
     def gen_write_barrier(self, v_base, v_value):
