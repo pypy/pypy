@@ -1021,21 +1021,16 @@ class Stats(object):
         # a jump back to itself and possibly a few bridges ending with finnish.
         # Only the operations within the loop formed by that single jump will
         # be counted.
+
+        # XXX hacked version, ignore and remove me when jit-targets is merged.
         loops = self.get_all_loops()
+        loops = [loop for loop in loops if 'Preamble' not in repr(loop)] #XXX
         assert len(loops) == 1
-        loop = loops[0]
+        loop, = loops
         jumpop = loop.operations[-1]
         assert jumpop.getopnum() == rop.JUMP
-        assert self.check_resops(jump=1)
-        labels = [op for op in loop.operations if op.getopnum() == rop.LABEL]
-        targets = [op._descr_wref() for op in labels]
-        assert None not in targets # TargetToken was freed, give up
-        target = jumpop._descr_wref()
-        assert target
-        assert targets.count(target) == 1
-        i = loop.operations.index(labels[targets.index(target)])
         insns = {}
-        for op in loop.operations[i:]:
+        for op in loop.operations:
             opname = op.getopname()
             insns[opname] = insns.get(opname, 0) + 1
         return self._check_insns(insns, expected, check)
