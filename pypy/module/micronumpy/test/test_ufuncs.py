@@ -111,6 +111,8 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for i in range(3):
             assert c[i] == a[i] / b[i]
 
+        assert (divide(array([-10]), array([2])) == array([-5])).all()
+
     def test_fabs(self):
         from numpypy import array, fabs
         from math import fabs as math_fabs

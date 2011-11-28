@@ -131,6 +131,7 @@ def create_low_level_dtype(num, kind, name, aliases, applevel_types, T, valtype,
 
 
 def binop(func):
+    func._annspecialcase_ = "specialize:call_location"
     @functools.wraps(func)
     def impl(self, v1, v2):
         return self.adapt_val(func(self,
@@ -320,6 +321,18 @@ class IntegerArithmeticDtype(ArithmeticTypeMixin):
     @binop
     def mod(self, v1, v2):
         return v1 % v2
+    @binop
+    def pow(self, v1, v2):
+        res = 1
+        while v2 > 0:
+            if v2 & 1:
+                res *= v1
+            v2 >>= 1
+            if v2 == 0:
+                break
+            v1 *= v1
+        return res
+
 
 class SignedIntegerArithmeticDtype(IntegerArithmeticDtype):
     _mixin_ = True
