@@ -883,6 +883,18 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [r_uint])
         assert s == annmodel.SomeInteger(nonneg = True, unsigned = True)
 
+    def test_merge_ruint_nonneg_signed(self):
+        def f(a, b):
+            if a:
+                c = a
+            else:
+                assert b >= 0
+                c = b
+            return c
+        a = self.RPythonAnnotator()
+        s = a.build_types(f, [r_uint, int])
+        assert s == annmodel.SomeInteger(nonneg = True, unsigned = True)
+
 
     def test_prebuilt_long_that_is_not_too_long(self):
         small_constant = 12L
