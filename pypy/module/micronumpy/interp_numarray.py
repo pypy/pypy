@@ -4,7 +4,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.module.micronumpy import interp_ufuncs, interp_dtype, signature
 from pypy.rlib import jit
-from pypy.rpython.lltypesystem import lltype
+from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder
 from pypy.rlib.objectmodel import instantiate
@@ -521,7 +521,10 @@ class BaseArray(Wrappable):
         return space.wrap(self.find_size())
 
     def descr_copy(self, space):
-        return space.call_function(space.gettypefor(BaseArray), self, self.find_dtype())
+        concrete = self.get_concrete()
+        array = NDimArray(concrete.size, concrete.shape[:], concrete.dtype, concrete.order)
+        rffi.c_memcpy(array.storage, concrete.storage, array.size * array.dtype.num_bytes)
+        return array
 
     def descr_len(self, space):
         return self.get_concrete().descr_len(space)
@@ -1239,7 +1242,7 @@ BaseArray.typedef = TypeDef(
 
 class W_FlatIterator(ViewArray):
     signature = signature.BaseSignature()
-    
+
     @jit.unroll_safe
     def __init__(self, arr):
         size = 1
