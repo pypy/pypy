@@ -23,10 +23,6 @@ class RTypeError(Exception):
     def __init__(self, message):
         self.message = message
 
-class ROverflowError(Exception):
-    def __init__(self, message):
-        self.message = message
-
 includes = ["sys/types.h"]
 if _POSIX:
     includes += ['unistd.h', 'sys/mman.h']
