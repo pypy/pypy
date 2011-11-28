@@ -838,7 +838,7 @@ class __extend__(pyframe.PyFrame):
 
     def jump_absolute(self, jumpto, next_instr, ec):
         check_nonneg(jumpto)
-        return r_uint(jumpto)
+        return jumpto
 
     def JUMP_FORWARD(self, jumpby, next_instr):
         next_instr += jumpby
@@ -1279,7 +1279,7 @@ class FrameBlock(object):
 
     def handle(self, frame, unroller):
         next_instr = self.really_handle(frame, unroller)   # JIT hack
-        return next_instr
+        return r_uint(next_instr)
 
     def really_handle(self, frame, unroller):
         """ Purely abstract method
