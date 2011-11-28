@@ -3,6 +3,7 @@ from pypy.translator.stm._rffi_stm import *
 from pypy.translator.stm.rstm import *
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib.rarithmetic import r_longlong, r_singlefloat
+from pypy.rlib.debug import debug_print
 
 
 A = lltype.Struct('A', ('x', lltype.Signed), ('y', lltype.Signed),
@@ -178,17 +179,17 @@ class TestRStm(StmTests):
     def test_compiled_stm_getfield(self):
         def entry_point(argv):
             test_stm_getfield()
-            print 'ok!'
+            debug_print('ok!')
             return 0
         t, cbuilder = self.compile(entry_point)
-        data = cbuilder.cmdexec('')
-        assert data == 'ok!\n'
+        _, data = cbuilder.cmdexec('', err=True)
+        assert data.endswith('ok!\n')
 
     def test_compiled_stm_setfield(self):
         def entry_point(argv):
             test_stm_setfield()
-            print 'ok!'
+            debug_print('ok!')
             return 0
         t, cbuilder = self.compile(entry_point)
-        data = cbuilder.cmdexec('')
-        assert data == 'ok!\n'
+        _, data = cbuilder.cmdexec('', err=True)
+        assert data.endswith('ok!\n')
