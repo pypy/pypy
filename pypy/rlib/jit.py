@@ -450,55 +450,6 @@ class JitDriver(object):
         # special-cased by ExtRegistryEntry
         pass
 
-    def _set_param(self, name, value):
-        # special-cased by ExtRegistryEntry
-        # (internal, must receive a constant 'name')
-        # if value is DEFAULT, sets the default value.
-        assert name in PARAMETERS
-
-    @specialize.arg(0, 1)
-    def set_param(self, name, value):
-        """Set one of the tunable JIT parameter."""
-        self._set_param(name, value)
-
-    @specialize.arg(0, 1)
-    def set_param_to_default(self, name):
-        """Reset one of the tunable JIT parameters to its default value."""
-        self._set_param(name, DEFAULT)
-
-    def set_user_param(self, text):
-        """Set the tunable JIT parameters from a user-supplied string
-        following the format 'param=value,param=value', or 'off' to
-        disable the JIT.  For programmatic setting of parameters, use
-        directly JitDriver.set_param().
-        """
-        if text == 'off':
-            self.set_param('threshold', -1)
-            self.set_param('function_threshold', -1)
-            return
-        if text == 'default':
-            for name1, _ in unroll_parameters:
-                self.set_param_to_default(name1)
-            return
-        for s in text.split(','):
-            s = s.strip(' ')
-            parts = s.split('=')
-            if len(parts) != 2:
-                raise ValueError
-            name = parts[0]
-            value = parts[1]
-            if name == 'enable_opts':
-                self.set_param('enable_opts', value)
-            else:
-                for name1, _ in unroll_parameters:
-                    if name1 == name and name1 != 'enable_opts':
-                        try:
-                            self.set_param(name1, int(value))
-                        except ValueError:
-                            raise
-    set_user_param._annspecialcase_ = 'specialize:arg(0)'
-
-
     def on_compile(self, logger, looptoken, operations, type, *greenargs):
         """ A hook called when loop is compiled. Overwrite
         for your own jitdriver if you want to do something special, like
@@ -524,16 +475,61 @@ class JitDriver(object):
         self.jit_merge_point = self.jit_merge_point
         self.can_enter_jit = self.can_enter_jit
         self.loop_header = self.loop_header
-        self._set_param = self._set_param
-
         class Entry(ExtEnterLeaveMarker):
             _about_ = (self.jit_merge_point, self.can_enter_jit)
 
         class Entry(ExtLoopHeader):
             _about_ = self.loop_header
 
-        class Entry(ExtSetParam):
-            _about_ = self._set_param
+def _set_param(driver, name, value):
+    # special-cased by ExtRegistryEntry
+    # (internal, must receive a constant 'name')
+    # if value is DEFAULT, sets the default value.
+    assert name in PARAMETERS
+
+@specialize.arg(0, 1)
+def set_param(driver, name, value):
+    """Set one of the tunable JIT parameter. Driver can be None, then all
+    drivers have this set """
+    _set_param(driver, name, value)
+
+@specialize.arg(0, 1)
+def set_param_to_default(driver, name):
+    """Reset one of the tunable JIT parameters to its default value."""
+    _set_param(driver, name, DEFAULT)
+
+def set_user_param(driver, text):
+    """Set the tunable JIT parameters from a user-supplied string
+    following the format 'param=value,param=value', or 'off' to
+    disable the JIT.  For programmatic setting of parameters, use
+    directly JitDriver.set_param().
+    """
+    if text == 'off':
+        set_param(driver, 'threshold', -1)
+        set_param(driver, 'function_threshold', -1)
+        return
+    if text == 'default':
+        for name1, _ in unroll_parameters:
+            set_param_to_default(driver, name1)
+        return
+    for s in text.split(','):
+        s = s.strip(' ')
+        parts = s.split('=')
+        if len(parts) != 2:
+            raise ValueError
+        name = parts[0]
+        value = parts[1]
+        if name == 'enable_opts':
+            set_param(driver, 'enable_opts', value)
+        else:
+            for name1, _ in unroll_parameters:
+                if name1 == name and name1 != 'enable_opts':
+                    try:
+                        set_param(driver, name1, int(value))
+                    except ValueError:
+                        raise
+set_user_param._annspecialcase_ = 'specialize:arg(0)'
+
 
 # ____________________________________________________________
 #
@@ -705,8 +701,9 @@ class ExtLoopHeader(ExtRegistryEntry):
                          resulttype=lltype.Void)
 
 class ExtSetParam(ExtRegistryEntry):
+    _about_ = _set_param
 
-    def compute_result_annotation(self, s_name, s_value):
+    def compute_result_annotation(self, s_driver, s_name, s_value):
         from pypy.annotation import model as annmodel
         assert s_name.is_constant()
         if not self.bookkeeper.immutablevalue(DEFAULT).contains(s_value):
@@ -722,21 +719,22 @@ class ExtSetParam(ExtRegistryEntry):
         from pypy.objspace.flow.model import Constant
 
         hop.exception_cannot_occur()
-        driver = self.instance.im_self
-        name = hop.args_s[0].const
+        driver = hop.inputarg(lltype.Void, arg=0)
+        name = hop.args_s[1].const
         if name == 'enable_opts':
             repr = string_repr
         else:
             repr = lltype.Signed
-        if (isinstance(hop.args_v[1], Constant) and
-            hop.args_v[1].value is DEFAULT):
+        if (isinstance(hop.args_v[2], Constant) and
+            hop.args_v[2].value is DEFAULT):
             value = PARAMETERS[name]
             v_value = hop.inputconst(repr, value)
         else:
-            v_value = hop.inputarg(repr, arg=1)
+            v_value = hop.inputarg(repr, arg=2)
         vlist = [hop.inputconst(lltype.Void, "set_param"),
-                 hop.inputconst(lltype.Void, driver),
+                 driver,
                  hop.inputconst(lltype.Void, name),
                  v_value]
         return hop.genop('jit_marker', vlist,
                          resulttype=lltype.Void)
+

@@ -171,7 +171,7 @@ class VRefTests:
             return 1
         #
         self.meta_interp(f, [10])
-        self.check_loops(new_with_vtable=1)   # the vref
+        self.check_resops(new_with_vtable=2) # the vref
         self.check_aborted_count(0)
 
     def test_simple_all_removed(self):
@@ -205,8 +205,7 @@ class VRefTests:
                 virtual_ref_finish(vref, xy)
         #
         self.meta_interp(f, [15])
-        self.check_loops(new_with_vtable=0,     # all virtualized
-                         new_array=0)
+        self.check_resops(new_with_vtable=0, new_array=0)
         self.check_aborted_count(0)
 
     def test_simple_no_access(self):
@@ -242,7 +241,7 @@ class VRefTests:
                 virtual_ref_finish(vref, xy)
         #
         self.meta_interp(f, [15])
-        self.check_loops(new_with_vtable=1,     # the vref: xy doesn't need to be forced
+        self.check_resops(new_with_vtable=2,     # the vref: xy doesn't need to be forced
                          new_array=0)           # and neither xy.next1/2/3
         self.check_aborted_count(0)
 
@@ -280,8 +279,8 @@ class VRefTests:
                 exctx.topframeref = vref_None
         #
         self.meta_interp(f, [15])
-        self.check_loops(new_with_vtable=2,   # XY(), the vref
-                         new_array=3)         # next1/2/3
+        self.check_resops(new_with_vtable=4,   # XY(), the vref
+                          new_array=6)         # next1/2/3
         self.check_aborted_count(0)
 
     def test_simple_force_sometimes(self):
@@ -320,8 +319,8 @@ class VRefTests:
         #
         res = self.meta_interp(f, [30])
         assert res == 13
-        self.check_loops(new_with_vtable=1,   # the vref, but not XY()
-                         new_array=0)         # and neither next1/2/3
+        self.check_resops(new_with_vtable=2,   # the vref, but not XY()
+                          new_array=0)         # and neither next1/2/3
         self.check_loop_count(1)
         self.check_aborted_count(0)
 
@@ -362,7 +361,7 @@ class VRefTests:
         #
         res = self.meta_interp(f, [30])
         assert res == 13
-        self.check_loops(new_with_vtable=0, # all virtualized in the n!=13 loop
+        self.check_resops(new_with_vtable=0, # all virtualized in the n!=13 loop
                          new_array=0)
         self.check_loop_count(1)
         self.check_aborted_count(0)
@@ -412,7 +411,7 @@ class VRefTests:
         res = self.meta_interp(f, [72])
         assert res == 6
         self.check_loop_count(2)     # the loop and the bridge
-        self.check_loops(new_with_vtable=2,  # loop: nothing; bridge: vref, xy
+        self.check_resops(new_with_vtable=2,  # loop: nothing; bridge: vref, xy
                          new_array=2)        # bridge: next4, next5
         self.check_aborted_count(0)
 
@@ -442,8 +441,8 @@ class VRefTests:
         #
         res = self.meta_interp(f, [15])
         assert res == 1
-        self.check_loops(new_with_vtable=2,     # vref, xy
-                         new_array=1)           # next1
+        self.check_resops(new_with_vtable=4,     # vref, xy
+                          new_array=2)           # next1
         self.check_aborted_count(0)
 
     def test_recursive_call_1(self):
@@ -543,7 +542,7 @@ class VRefTests:
         #
         res = self.meta_interp(f, [15])
         assert res == 1
-        self.check_loops(new_with_vtable=2)     # vref, xy
+        self.check_resops(new_with_vtable=4)     # vref, xy
 
     def test_cannot_use_invalid_virtualref(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])

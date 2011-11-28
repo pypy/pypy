@@ -316,6 +316,8 @@ class LLHelpers(AbstractLLHelpers):
         s.chars[0] = ch
         return s
 
+    # @jit.look_inside_iff(lambda str: jit.isconstant(len(str.chars)) and len(str.chars) == 1)
+    @jit.oopspec("str.str2unicode(str)")
     def ll_str2unicode(str):
         lgt = len(str.chars)
         s = mallocunicode(lgt)
@@ -324,7 +326,6 @@ class LLHelpers(AbstractLLHelpers):
                 raise UnicodeDecodeError
             s.chars[i] = cast_primitive(UniChar, str.chars[i])
         return s
-    ll_str2unicode.oopspec = 'str.str2unicode(str)'
 
     @jit.elidable
     def ll_strhash(s):

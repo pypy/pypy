@@ -1,10 +1,7 @@
 import py
-from pypy.jit.metainterp.warmspot import ll_meta_interp
 from pypy.jit.metainterp.warmspot import get_stats
-from pypy.rlib.jit import JitDriver
-from pypy.rlib.jit import unroll_safe
+from pypy.rlib.jit import JitDriver, set_param, unroll_safe
 from pypy.jit.backend.llgraph import runner
-from pypy.jit.metainterp.history import BoxInt
 
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from pypy.jit.metainterp.optimizeopt import ALL_OPTS_NAMES
@@ -97,18 +94,18 @@ class WarmspotTests(object):
                 n = A().m(n)
             return n
         def f(n, enable_opts):
-            myjitdriver.set_param('enable_opts', hlstr(enable_opts))
+            set_param(None, 'enable_opts', hlstr(enable_opts))
             return g(n)
 
         # check that the set_param will override the default
         res = self.meta_interp(f, [10, llstr('')])
         assert res == 0
-        self.check_loops(new_with_vtable=1)
+        self.check_resops(new_with_vtable=1)
 
         res = self.meta_interp(f, [10, llstr(ALL_OPTS_NAMES)],
                                enable_opts='')
         assert res == 0
-        self.check_loops(new_with_vtable=0)
+        self.check_resops(new_with_vtable=0)
 
     def test_unwanted_loops(self):
         mydriver = JitDriver(reds = ['n', 'total', 'm'], greens = [])
@@ -163,7 +160,7 @@ class WarmspotTests(object):
             return n
         self.meta_interp(f, [50], backendopt=True)
         self.check_enter_count_at_most(2)
-        self.check_loops(call=0)
+        self.check_resops(call=0)
 
     def test_loop_header(self):
         # artificial test: we enter into the JIT only when can_enter_jit()
@@ -187,7 +184,7 @@ class WarmspotTests(object):
         assert f(15) == 1
         res = self.meta_interp(f, [15], backendopt=True)
         assert res == 1
-        self.check_loops(int_add=1)   # I get 13 without the loop_header()
+        self.check_resops(int_add=2)   # I get 13 without the loop_header()
 
     def test_omit_can_enter_jit(self):
         # Simple test comparing the effects of always giving a can_enter_jit(),
@@ -249,8 +246,8 @@ class WarmspotTests(object):
                 m = m - 1
         self.meta_interp(f1, [8])
         self.check_loop_count(1)
-        self.check_loops({'int_sub': 1, 'int_gt': 1, 'guard_true': 1,
-                          'jump': 1})
+        self.check_resops({'jump': 2, 'guard_true': 2, 'int_gt': 2,
+                           'int_sub': 2})
 
     def test_void_red_variable(self):
         mydriver = JitDriver(greens=[], reds=['a', 'm'])
