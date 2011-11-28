@@ -464,8 +464,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array(range(5), float)
         b = a ** a
         for i in range(5):
-            print b[i], i ** i
             assert b[i] == i ** i
+
+        a = array(range(5))
+        assert (a ** 2 == a * a).all()
 
     def test_pow_other(self):
         from numpypy import array
