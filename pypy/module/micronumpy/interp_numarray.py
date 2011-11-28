@@ -102,11 +102,12 @@ def descr_new_array(space, w_subtype, w_item_or_iterable, w_dtype=None,
                     w_order=NoneNotWrapped):
     # find scalar
     if not space.issequence_w(w_item_or_iterable):
-        w_dtype = interp_ufuncs.find_dtype_for_scalar(space,
-                                                      w_item_or_iterable,
-                                                      w_dtype)
+        if space.is_w(w_dtype, space.w_None):
+            w_dtype = interp_ufuncs.find_dtype_for_scalar(space,
+                                                          w_item_or_iterable)
         dtype = space.interp_w(interp_dtype.W_Dtype,
-           space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
+            space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
+        )
         return scalar_w(space, dtype, w_item_or_iterable)
     if w_order is None:
         order = 'C'
