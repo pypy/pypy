@@ -963,7 +963,10 @@ class AppTestMultiDim(BaseNumpyAppTest):
         assert f_iter.next() == 60
         raises(StopIteration, "f_iter.next()")
         raises(TypeError, "flatiter()")
-
+        s = 0
+        for k in a.flat:
+            s += k
+        assert s == 140
 
 class AppTestSupport(object):
     def setup_class(cls):

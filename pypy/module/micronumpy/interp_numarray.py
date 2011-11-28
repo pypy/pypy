@@ -1225,8 +1225,12 @@ class W_FlatIterator(Wrappable):
         self.iter = self.iter.next(self.shapelen)
         return result.wrap(space)
 
+    def descr_iter(self):
+        return self
+
 
 W_FlatIterator.typedef = TypeDef(
     'flatiter',
     next = interp2app(W_FlatIterator.descr_next),
+    __iter__ = interp2app(W_FlatIterator.descr_iter),
 )
