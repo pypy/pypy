@@ -618,6 +618,7 @@ class BaseArray(Wrappable):
         concrete.to_str(space, 0, ret, ' ')
         return space.wrap(ret.build())
 
+    @jit.unroll_safe
     def _index_of_single_item(self, space, w_idx):
         if space.isinstance_w(w_idx, space.w_int):
             idx = space.int_w(w_idx)
@@ -646,6 +647,7 @@ class BaseArray(Wrappable):
             item += v * self.strides[i]
         return item
 
+    @jit.unroll_safe
     def _single_item_result(self, space, w_idx):
         """ The result of getitem/setitem is a single item if w_idx
         is a list of scalars that match the size of shape

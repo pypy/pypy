@@ -69,8 +69,8 @@ translation_optiondescription = OptionDescription(
                      "statistics": [("translation.gctransformer", "framework")],
                      "generation": [("translation.gctransformer", "framework")],
                      "hybrid": [("translation.gctransformer", "framework")],
-                     "boehm": [("translation.gctransformer", "boehm"),
-                               ("translation.continuation", False)],  # breaks
+                     "boehm": [("translation.continuation", False),  # breaks
+                               ("translation.gctransformer", "boehm")],
                      "markcompact": [("translation.gctransformer", "framework")],
                      "minimark": [("translation.gctransformer", "framework")],
                      },
