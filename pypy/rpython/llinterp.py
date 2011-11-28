@@ -1057,7 +1057,9 @@ class LLFrame(object):
                 return r
                 '''%locals()
         elif operator == '%':
-            code = '''r = %(checkfn)s(x %% y)
+            ## overflow check on % does not work with emulated int
+            code = '''%(checkfn)s(x // y)
+                r = x %% y
                 if x^y < 0 and x%%y != 0:
                     r -= y
                 return r
