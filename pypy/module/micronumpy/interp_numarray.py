@@ -677,6 +677,7 @@ class BaseArray(Wrappable):
                 return False
         return True
 
+    @jit.unroll_safe
     def _prepare_slice_args(self, space, w_idx):
         if (space.isinstance_w(w_idx, space.w_int) or
             space.isinstance_w(w_idx, space.w_slice)):
@@ -718,6 +719,7 @@ class BaseArray(Wrappable):
         view = self.create_slice(space, chunks)
         view.setslice(space, w_value)
 
+    @jit.unroll_safe
     def create_slice(self, space, chunks):
         if len(chunks) == 1:
             start, stop, step, lgt = chunks[0]
