@@ -98,6 +98,66 @@ def _shape_agreement(shape1, shape2):
         endshape[i] = remainder[i]
     return endshape
 
+#Recalculating strides. Find the steps that the iteration does for each
+#dimension, given the stride and shape. Then try to create a new stride that
+#fits the new shape, using those steps. If there is a shape/step mismatch
+#(meaning that the realignment of elements crosses from one step into another)
+#return None so that the caller can raise an exception.
+def calc_new_strides(new_shape, old_shape, old_strides):
+    #Return the proper strides for new_shape, or None
+    # if the mapping crosses stepping boundaries
+
+    #Assumes that nelems have been matched, len(shape) > 1 for old_shape and
+    # len(new_shape) > 0
+    steps = []
+    last_step = 1
+    oldI = 0
+    new_strides = []
+    if old_strides[0] < old_strides[-1]:
+        for i in range(len(old_shape)):
+            steps.append(old_strides[i] / last_step)
+            last_step = old_shape[i] * old_strides[i]
+        cur_step = steps[0]
+        n_new_elems_used = 1
+        n_old_elems_to_use = old_shape[0]
+        for s in new_shape:
+            new_strides.append(cur_step * n_new_elems_used)
+            n_new_elems_used *= s
+            while n_new_elems_used > n_old_elems_to_use:
+                oldI += 1
+                if steps[oldI] != steps[oldI - 1]:
+                    return None
+                n_old_elems_to_use *= old_shape[oldI]
+            if n_new_elems_used == n_old_elems_to_use:
+                oldI += 1
+                if oldI >= len(old_shape):
+                    break
+                cur_step = steps[oldI]
+                n_old_elems_to_use *= old_shape[oldI]
+    else:
+        for i in range(len(old_shape) - 1, -1, -1):
+            steps.insert(0, old_strides[i] / last_step)
+            last_step = old_shape[i] * old_strides[i]
+        cur_step = steps[-1]
+        n_new_elems_used = 1
+        oldI = -1
+        n_old_elems_to_use = old_shape[-1]
+        for s in new_shape[::-1]:
+            new_strides.insert(0, cur_step * n_new_elems_used)
+            n_new_elems_used *= s
+            while n_new_elems_used > n_old_elems_to_use:
+                oldI -= 1
+                if steps[oldI] != steps[oldI + 1]:
+                    return None
+                n_old_elems_to_use *= old_shape[oldI]
+            if n_new_elems_used == n_old_elems_to_use:
+                oldI -= 1
+                if oldI < -len(old_shape):
+                    break
+                cur_step = steps[oldI]
+                n_old_elems_to_use *= old_shape[oldI]
+    return new_strides
+
 def descr_new_array(space, w_subtype, w_item_or_iterable, w_dtype=None,
                     w_order=NoneNotWrapped):
     # find scalar
@@ -497,7 +557,7 @@ class BaseArray(Wrappable):
 
     def descr_get_shape(self, space):
         return space.newtuple([space.wrap(i) for i in self.shape])
-    
+
     def descr_set_shape(self, space, w_iterable):
         concrete = self.get_concrete()
         new_size = 0
@@ -533,7 +593,7 @@ class BaseArray(Wrappable):
             raise OperationError(space.w_ValueError,
                     space.wrap("total size of new array must be unchanged"))
         concrete.setshape(space, new_shape)
-        
+
     def descr_get_size(self, space):
         return space.wrap(self.find_size())
 
@@ -784,15 +844,17 @@ class BaseArray(Wrappable):
                          shape[:])
 
     def descr_reshape(self, space, w_iterable):
+        '''Return a reshaped view into the original array's data
+        '''
         new_sig = signature.Signature.find_sig([
             NDimSlice.signature, self.signature,
         ])
         concrete = self.get_concrete()
         #concrete = self
-        ndims = len(self.shape)
-        strides = [0]*ndims
-        backstrides = [0]*ndims
-        shape = []*ndims
+        ndims = len(concrete.shape)
+        strides = [0] * ndims
+        backstrides = [0] * ndims
+        shape = [0] * ndims
         for i in range(len(concrete.shape)):
             strides[i] = concrete.strides[i]
             backstrides[i] = concrete.backstrides[i]
@@ -890,7 +952,7 @@ class Scalar(BaseArray):
         builder.append(self.dtype.str_format(self.value))
 
     def setshape(self, space, new_shape):
-        pass 
+        pass
 
 class VirtualArray(BaseArray):
     """
@@ -1066,11 +1128,9 @@ class ViewArray(BaseArray):
             return
         elif len(self.shape) < 2:
             #REVIEWER: this code could be refactored into calc_strides
-            #but then calc_strides would have to accept a factor of the
-            #current stride
+            #but then calc_strides would have to accept a stepping factor
             strides = []
             backstrides = []
-            self.shape = new_shape[:]
             s = self.strides[0]
             if self.order == 'C':
                 new_shape.reverse()
@@ -1081,62 +1141,22 @@ class ViewArray(BaseArray):
             if self.order == 'C':
                 strides.reverse()
                 backstrides.reverse()
+                new_shape.reverse()
             self.strides = strides[:]
             self.backstrides = backstrides[:]
+            self.shape = new_shape[:]
             return
-        #REVIEWER: wordy comment to explain what the intention was. Please
-        #edit or remove.
-        #We know that the product of new_shape is correct.
-        #Now we must check that the new shape does not create stepping conflicts
-        # for the strides It works like this:
-        # - Determine the right-to-lef tor left-to-right fastest iterating 
-        #   dimension. Note it is not enough just to check self.order, since a
-        #   transpose reverses everything.
-        # - Start recalculating the strides, by each dimension. Keep a running 
-        #   cumprod of the old shape up to this dimension vs. the new shape up 
-        #   to this dimension. Every time the products match, update the stride
-        #   currently in use.
-        # - The strides for each of the matching pieces must also match, 
-        # - The stride will always be based on the old stride of the lowest
-        #   dimension in the chunk, since 
-        new_dims = range(len(new_shape)) 
-        old_dims = range(len(self.shape))
-        if self.strides[0]> self.strides[-1]:
-            #This is the normal thing to do
-            new_dims.reverse()
-            old_dims.reverse()
-        nd = 0
-        od = 0
-        prod_old = 1
-        prod_new = self.strides[old_dims[od]]
-        cur_old_stride = self.strides[old_dims[od]]
-        new_strides = [0]*len(new_shape)
-        while nd < len(new_dims):
-            new_strides[new_dims[nd]] = cur_old_stride
-            prod_new *= new_shape[nd]
-            while prod_new >= prod_old:
-                if prod_new == prod_old:
-                    #Finished an old dim on a match. All is good
-                    od += 1
-                    prod_old *= self.shape[old_dims[od]]
-                    cur_old_stride = self.strides[old_dims[od]]
-                elif prod_new > prod_old:
-                    #Crossed over onto a different old_dim. 
-                    #Strides must be "equal" as per steps
-                    od += 1
-                    if self.strides[old_dims[od]] / self.shape[old_dims[od - 1]] \
-                               <>  self.strides[old_dims[od-1]]:
-                        raise OperationError(space.w_AttributeError, space.wrap(
+        new_strides = calc_new_strides(new_shape, self.shape, self.strides)
+        if new_strides is None:
+            raise OperationError(space.w_AttributeError, space.wrap(
                           "incompatible shape for a non-contiguous array"))
-                    prod_old *= self.shape[old_dims[od]]
-            nd += 1 
-        new_backstrides = [0]*len(new_shape)
+        new_backstrides = [0] * len(new_shape)
         for nd in range(len(new_shape)):
             new_backstrides[nd] = (new_shape[nd] - 1) * new_strides[nd]
-        self.strides = new_strides
-        self.backstrides = new_backstrides
-        self.shape = new_shape
-        
+        self.strides = new_strides[:]
+        self.backstrides = new_backstrides[:]
+        self.shape = new_shape[:]
+
 class VirtualView(VirtualArray):
     pass
 
