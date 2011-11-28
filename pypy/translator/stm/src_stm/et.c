@@ -959,11 +959,7 @@ void stm_write_float(long *addr, float val)
 #if PYPY_LONG_BIT == 32
   stm_write_word(addr, ii);         /* 32 bits */
 #else
-  if (((long)(char*)addr) & 7)
-    stm_write_partial_word(4, (((char *)addr) - 4),
-                           4, ii);                   /* 64 bits, unaligned */
-  else
-    stm_write_partial_word(4, (char *)addr, 0, ii);    /* 64 bits, aligned */
+  stm_write_partial_word(4, (char *)addr, ii);   /* 64 bits */
 #endif
 }
 
