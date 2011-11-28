@@ -968,9 +968,9 @@ class Call1(VirtualArray):
         call_sig = sig.components[0]
         assert isinstance(call_sig, signature.Call1)
         if self.forced_result is not None:
-            return 'Call1(%s, forced=%s)' % (call_sig.func.func_name,
+            return 'Call1(%s, forced=%s)' % (call_sig.name,
                                              self.forced_result.debug_repr())
-        return 'Call1(%s, %s)' % (call_sig.func.func_name,
+        return 'Call1(%s, %s)' % (call_sig.name,
                                   self.values.debug_repr())
 
 class Call2(VirtualArray):
@@ -1018,9 +1018,9 @@ class Call2(VirtualArray):
         call_sig = sig.components[0]
         assert isinstance(call_sig, signature.Call2)
         if self.forced_result is not None:
-            return 'Call2(%s, forced=%s)' % (call_sig.func.func_name,
+            return 'Call2(%s, forced=%s)' % (call_sig.name,
                 self.forced_result.debug_repr())
-        return 'Call2(%s, %s, %s)' % (call_sig.func.func_name,
+        return 'Call2(%s, %s, %s)' % (call_sig.name,
             self.left.debug_repr(),
             self.right.debug_repr())
 
