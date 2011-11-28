@@ -811,6 +811,9 @@ class BaseArray(Wrappable):
     def start_iter(self, res_shape=None):
         raise NotImplementedError
 
+    def descr_debug_repr(self, space):
+        return space.wrap(self.debug_repr())
+
 def convert_to_array(space, w_obj):
     if isinstance(w_obj, BaseArray):
         return w_obj
@@ -865,6 +868,8 @@ class Scalar(BaseArray):
     def copy(self):
         return Scalar(self.dtype, self.value)
 
+    def debug_repr(self):
+        return 'Scalar'
 
 class VirtualArray(BaseArray):
     """
@@ -957,6 +962,15 @@ class Call1(VirtualArray):
             return self.forced_result.start_iter(res_shape)
         return Call1Iterator(self.values.start_iter(res_shape))
 
+    def debug_repr(self):
+        call_sig = self.signature.components[0]
+        assert isinstance(call_sig, signature.Call1)
+        if self.forced_result is not None:
+            return 'Call1(%s, forced=%s)' % (call_sig.func.func_name,
+                                             self.forced_result.debug_repr())
+        return 'Call1(%s, %s)' % (call_sig.func.func_name,
+                                  self.values.debug_repr())
+
 class Call2(VirtualArray):
     """
     Intermediate class for performing binary operations.
@@ -995,6 +1009,16 @@ class Call2(VirtualArray):
         call_sig = sig.components[0]
         assert isinstance(call_sig, signature.Call2)
         return call_sig.func(self.calc_dtype, lhs, rhs)
+
+    def debug_repr(self):
+        call_sig = self.signature.components[0]
+        assert isinstance(call_sig, signature.Call2)
+        if self.forced_result is not None:
+            return 'Call2(%s, forced=%s)' % (call_sig.func.func_name,
+                self.forced_result.debug_repr())
+        return 'Call2(%s, %s, %s)' % (call_sig.func.func_name,
+            self.left.debug_repr(),
+            self.right.debug_repr())
 
 class ViewArray(BaseArray):
     """
@@ -1035,9 +1059,6 @@ class ViewArray(BaseArray):
             return space.wrap(self.shape[0])
         return space.wrap(1)
 
-
-class VirtualView(VirtualArray):
-    pass
 
 class NDimSlice(ViewArray):
     signature = signature.BaseSignature()
@@ -1089,6 +1110,9 @@ class NDimSlice(ViewArray):
 
     def setitem(self, item, value):
         self.parent.setitem(item, value)
+
+    def debug_repr(self):
+        return 'Slice(%s)' % self.parent.debug_repr()
 
 class NDimArray(BaseArray):
     """ A class representing contiguous array. We know that each iteration
@@ -1148,6 +1172,9 @@ class NDimArray(BaseArray):
                 return BroadcastIterator(self, res_shape)
             return ArrayIterator(self.size)
         raise NotImplementedError  # use ViewIterator simply, test it
+
+    def debug_repr(self):
+        return 'Array'
 
     def __del__(self):
         lltype.free(self.storage, flavor='raw', track_allocation=False)
@@ -1225,6 +1252,7 @@ BaseArray.typedef = TypeDef(
 
     __repr__ = interp2app(BaseArray.descr_repr),
     __str__ = interp2app(BaseArray.descr_str),
+    __debug_repr__ = interp2app(BaseArray.descr_debug_repr),
 
     dtype = GetSetProperty(BaseArray.descr_get_dtype),
     shape = GetSetProperty(BaseArray.descr_get_shape),
@@ -1286,6 +1314,9 @@ class W_FlatIterator(ViewArray):
 
     def descr_iter(self):
         return self
+
+    def debug_repr(self):
+        return 'FlatIter(%s)' % self.arr.debug_repr()
 
 
 W_FlatIterator.typedef = TypeDef(
