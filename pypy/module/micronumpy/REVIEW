@@ -1,4 +1,6 @@
 
+arange(True) should return an array of ints, not bools
+
 the flatiter should raise OperationError if object is not of BaseArray type
 
 there are no tests for creation of numpy.flatiter
