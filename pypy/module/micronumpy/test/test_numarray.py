@@ -970,6 +970,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
             s += k
         assert s == 140
 
+    def test_flatiter_array_conv(self):
+        from numpypy import array, dot
+        a = array([1, 2, 3])
+        assert dot(a.flat, a.flat) == 14
+
 class AppTestSupport(object):
     def setup_class(cls):
         import struct
