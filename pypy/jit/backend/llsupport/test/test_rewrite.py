@@ -54,10 +54,12 @@ class RewriteTests(object):
                 pass
             WORD = globals()['WORD']
             #
+            str_type_id  = self.gc_ll_descr.str_type_id
             str_basesize = self.gc_ll_descr.str_basesize
             str_itemsize = self.gc_ll_descr.str_itemsize
             strlendescr = get_field_arraylen_descr(self.gc_ll_descr, rstr.STR)
             #
+            unicode_type_id  = self.gc_ll_descr.unicode_type_id
             unicode_basesize = self.gc_ll_descr.unicode_basesize
             unicode_itemsize = self.gc_ll_descr.unicode_itemsize
             unicodelendescr = get_field_arraylen_descr(self.gc_ll_descr,
@@ -78,7 +80,7 @@ class TestBoehm(RewriteTests):
     def setup_method(self, meth):
         class FakeCPU(object):
             def sizeof(self, STRUCT):
-                return SizeDescrWithVTable(100)
+                return SizeDescrWithVTable(102)
         self.cpu = FakeCPU()
         self.gc_ll_descr = GcLLDescr_boehm(None, None, None)
 
@@ -139,7 +141,7 @@ class TestBoehm(RewriteTests):
             jump()
         """, """
             [p1]
-            p0 = malloc_gc(100, 0, 0)
+            p0 = malloc_gc(102, 0, 0)
             setfield_gc(p0, ConstClass(o_vtable), descr=vtable_descr)
             jump()
         """)
@@ -185,7 +187,9 @@ class TestFramework(RewriteTests):
         #
         class FakeCPU(object):
             def sizeof(self, STRUCT):
-                return SizeDescrWithVTable(100)
+                descr = SizeDescrWithVTable(102)
+                descr.tid = 9315
+                return descr
         self.cpu = FakeCPU()
 
     def test_rewrite_assembler_new_to_malloc(self):
@@ -257,7 +261,7 @@ class TestFramework(RewriteTests):
             jump()
         """, """
             []
-            p0 = malloc_nursery(%(adescr.get_base_size(False) + 8)d)
+            p0 = malloc_nursery(%(bdescr.get_base_size(False) + 8)d)
             setfield_gc(p0, 8765, descr=tiddescr)
             setfield_gc(p0, 6, descr=blendescr)
             jump()
@@ -273,16 +277,16 @@ class TestFramework(RewriteTests):
             jump()
         """, """
             []
-            p0 = malloc_nursery(%(4 * (adescr.get_base_size(False) + 8))d)
+            p0 = malloc_nursery(%(4 * (bdescr.get_base_size(False) + 8))d)
             setfield_gc(p0, 8765, descr=tiddescr)
             setfield_gc(p0, 5, descr=blendescr)
-            p1 = int_add(p0, %(adescr.get_base_size(False) + 8)d)
+            p1 = int_add(p0, %(bdescr.get_base_size(False) + 8)d)
             setfield_gc(p1, 8765, descr=tiddescr)
             setfield_gc(p1, 5, descr=blendescr)
-            p2 = int_add(p1, %(adescr.get_base_size(False) + 8)d)
+            p2 = int_add(p1, %(bdescr.get_base_size(False) + 8)d)
             setfield_gc(p2, 8765, descr=tiddescr)
             setfield_gc(p2, 5, descr=blendescr)
-            p3 = int_add(p2, %(adescr.get_base_size(False) + 8)d)
+            p3 = int_add(p2, %(bdescr.get_base_size(False) + 8)d)
             setfield_gc(p3, 8765, descr=tiddescr)
             setfield_gc(p3, 5, descr=blendescr)
             jump()
@@ -303,28 +307,92 @@ class TestFramework(RewriteTests):
             jump()
         """)
 
+    def test_rewrite_assembler_variable_size(self):
+        self.check_rewrite("""
+            [i0]
+            p0 = new_array(i0, descr=bdescr)
+            jump(i0)
+        """, """
+            [i0]
+            p0 = malloc_gc(%(bdescr.get_base_size(False))d, i0, 1)
+            setfield_gc(p0, 8765, descr=tiddescr)
+            setfield_gc(p0, i0, descr=blendescr)
+            jump(i0)
+        """)
+
     def test_rewrite_assembler_maximal_size_1(self):
-        xxx
+        self.gc_ll_descr.max_size_of_young_obj = 100
+        self.check_rewrite("""
+            []
+            p0 = new_array(100, descr=bdescr)
+            jump()
+        """, """
+            []
+            p0 = malloc_gc(%(bdescr.get_base_size(False) + 100)d, 0, 0)
+            setfield_gc(p0, 8765, descr=tiddescr)
+            setfield_gc(p0, 100, descr=blendescr)
+            jump()
+        """)
 
     def test_rewrite_assembler_maximal_size_2(self):
-        xxx
-
-    def test_rewrite_assembler_variable_size(self):
-        xxx
-
-    def test_rewrite_assembler_new_with_vtable(self):
+        self.gc_ll_descr.max_size_of_young_obj = 300
         self.check_rewrite("""
-            [p1]
-            p0 = new_with_vtable(descr=vdescr)
+            []
+            p0 = new_array(101, descr=bdescr)
+            p1 = new_array(102, descr=bdescr)  # two new_arrays can be combined
+            p2 = new_array(103, descr=bdescr)  # but not all three
+            jump()
+        """, """
+            []
+            p0 = malloc_nursery(%(2 * (bdescr.get_base_size(False) + 104))d)
+            setfield_gc(p0, 8765, descr=tiddescr)
+            setfield_gc(p0, 101, descr=blendescr)
+            p1 = int_add(p0, %(bdescr.get_base_size(False) + 104)d)
+            setfield_gc(p1, 8765, descr=tiddescr)
+            setfield_gc(p1, 102, descr=blendescr)
+            p2 = malloc_nursery(%(bdescr.get_base_size(False) + 104)d)
+            setfield_gc(p2, 8765, descr=tiddescr)
+            setfield_gc(p2, 103, descr=blendescr)
+            jump()
+        """)
+
+    def test_new_with_vtable(self):
+        self.check_rewrite("""
+            []
+            p0 = new_with_vtable(ConstClass(o_vtable))
             jump()
         """, """
             [p1]
-            p0 = malloc_nursery(%(vdescr.size)d)
-            setfield_gc(p0, 1234, descr=tiddescr)
-            ...
+            p0 = malloc_nursery(104)      # rounded up
+            setfield_gc(p0, 9315, descr=tiddescr)
+            setfield_gc(p0, ConstClass(o_vtable), descr=vtable_descr)
+            jump()
+        """)
+
+    def test_new_with_vtable_too_big(self):
+        self.gc_ll_descr.max_size_of_young_obj = 100
+        self.check_rewrite("""
+            []
+            p0 = new_with_vtable(ConstClass(o_vtable))
+            jump()
+        """, """
+            [p1]
+            p0 = malloc_gc(102, 0, 0)
+            setfield_gc(p0, 9315, descr=tiddescr)
+            setfield_gc(p0, ConstClass(o_vtable), descr=vtable_descr)
             jump()
         """)
 
     def test_rewrite_assembler_newstr_newunicode(self):
-        xxx
-
+        self.check_rewrite("""
+            [i2]
+            p0 = newstr(10)
+            p1 = newunicode(10)
+            p2 = newunicode(i2)
+            jump()
+        """, """
+            [i2]
+            p0 = malloc_nursery(%(str_basesize + 10 * str_itemsize)d)
+            setfield_gc(p0, %(str_type_id)d, descr=tiddescr)
+            jump()
+        """)
