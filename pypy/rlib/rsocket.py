@@ -17,7 +17,7 @@ a drop-in replacement for the 'socket' module.
 
 from pypy.rlib.objectmodel import instantiate, keepalive_until_here
 from pypy.rlib import _rsocket_rffi as _c
-from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.lltypesystem.rffi import sizeof, offsetof
 
@@ -168,7 +168,7 @@ def makeipaddr(name, result=None):
 
     # IPv4 also supports the special name "<broadcast>".
     if name == '<broadcast>':
-        return makeipv4addr(intmask(INADDR_BROADCAST), result)
+        return makeipv4addr(r_uint(INADDR_BROADCAST), result)
 
     # "dd.dd.dd.dd" format.
     digits = name.split('.')
