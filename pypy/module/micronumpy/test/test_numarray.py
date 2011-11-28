@@ -1120,4 +1120,5 @@ class AppTestRanges(BaseNumpyAppTest):
         a = arange(3,dtype=float)
         assert (a == [0., 1., 2.]).all()
         assert a.dtype is dtype(float)
-        
+        a = arange(0, 0.8, 0.1)
+        assert len(a) == 8

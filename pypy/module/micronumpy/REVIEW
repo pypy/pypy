@@ -1,5 +1,3 @@
-arange does not work for floats because they'll get automatically marked as ints
-it also does not test that it works correctly with floats (it does not)
 
 the flatiter should raise OperationError if object is not of BaseArray type
 
