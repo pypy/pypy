@@ -963,7 +963,9 @@ class Call1(VirtualArray):
         return Call1Iterator(self.values.start_iter(res_shape))
 
     def debug_repr(self):
-        call_sig = self.signature.components[0]
+        sig = self.signature
+        assert isinstance(sig, signature.Signature)
+        call_sig = sig.components[0]
         assert isinstance(call_sig, signature.Call1)
         if self.forced_result is not None:
             return 'Call1(%s, forced=%s)' % (call_sig.func.func_name,
@@ -1011,7 +1013,9 @@ class Call2(VirtualArray):
         return call_sig.func(self.calc_dtype, lhs, rhs)
 
     def debug_repr(self):
-        call_sig = self.signature.components[0]
+        sig = self.signature
+        assert isinstance(sig, signature.Signature)
+        call_sig = sig.components[0]
         assert isinstance(call_sig, signature.Call2)
         if self.forced_result is not None:
             return 'Call2(%s, forced=%s)' % (call_sig.func.func_name,
