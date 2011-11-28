@@ -726,12 +726,11 @@ class BaseArray(Wrappable):
             concrete.setitem_w(space, item, w_value)
             return
         if isinstance(w_value, BaseArray):
-            # for now we just copy if setting part of an array from
-            # part of itself. can be improved.
+            # for now we just copy if setting part of an array from part of
+            # itself. can be improved.
             if (concrete.get_root_storage() ==
                 w_value.get_concrete().get_root_storage()):
-                w_value = space.call_function(space.gettypefor(BaseArray), w_value)
-                assert isinstance(w_value, BaseArray)
+                w_value = w_value.descr_copy(space)
         else:
             w_value = convert_to_array(space, w_value)
         chunks = self._prepare_slice_args(space, w_idx)
