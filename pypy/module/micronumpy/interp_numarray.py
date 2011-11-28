@@ -757,12 +757,9 @@ class BaseArray(Wrappable):
         return space.wrap(space.float_w(self.descr_sum(space)) / self.find_size())
 
     def descr_nonzero(self, space):
-        try:
-            if self.find_size() > 1:
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()"))
-        except ValueError:
-            pass
+        if self.find_size() > 1:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()"))
         return space.wrap(space.is_true(self.get_concrete().eval(
             self.start_iter(self.shape)).wrap(space)))
 
