@@ -214,11 +214,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         from numpypy import array
         a = array(range(5))
         assert a[3] == 3
-        #Wrong on two counts: numpy does not allow assigning to Scalar,
-        # and Scalar.shape is not a test of iterator_init, is it?
-        #a = array(1)
-        #assert a[0] == 1
-        #assert a.shape == ()
 
     def test_getitem(self):
         from numpypy import array
@@ -1097,3 +1092,4 @@ class AppTestRanges(BaseNumpyAppTest):
         assert a.dtype is dtype(float)
         a = arange(0, 0.8, 0.1)
         assert len(a) == 8
+        assert arange(False, True, True).dtype is dtype(int)

@@ -497,7 +497,7 @@ class BaseArray(Wrappable):
 
     def descr_get_shape(self, space):
         return space.newtuple([space.wrap(i) for i in self.shape])
-            
+
     def descr_get_size(self, space):
         return space.wrap(self.find_size())
 
@@ -783,7 +783,7 @@ class BaseArray(Wrappable):
                            backstrides[:], shape[:]))
 
     def descr_get_flatiter(self, space):
-        return space.wrap(FlatIterator(self))
+        return space.wrap(W_FlatIterator(self))
 
     def getitem(self, item):
         raise NotImplementedError
@@ -1012,82 +1012,7 @@ class ViewArray(BaseArray):
             return space.wrap(self.shape[0])
         return space.wrap(1)
 
-    def setshape(self, space, new_shape):
-        if len(self.shape) < 1:
-            return
-        elif len(self.shape) < 2:
-            #REVIEWER: this code could be refactored into calc_strides
-            #but then calc_strides would have to accept a factor of the
-            #current stride
-            strides = []
-            backstrides = []
-            self.shape = new_shape[:]
-            s = self.strides[0]
-            if self.order == 'C':
-                new_shape.reverse()
-            for sh in new_shape:
-                strides.append(s)
-                backstrides.append(s * (sh - 1))
-                s *= sh
-            if self.order == 'C':
-                strides.reverse()
-                backstrides.reverse()
-            self.strides = strides[:]
-            self.backstrides = backstrides[:]
-            return
-        #REVIEWER: wordy comment to explain what the intention was. Please
-        #edit or remove.
-        #We know that the product of new_shape is correct.
-        #Now we must check that the new shape does not create stepping conflicts
-        # for the strides It works like this:
-        # - Determine the right-to-lef tor left-to-right fastest iterating 
-        #   dimension. Note it is not enough just to check self.order, since a
-        #   transpose reverses everything.
-        # - Start recalculating the strides, by each dimension. Keep a running 
-        #   cumprod of the old shape up to this dimension vs. the new shape up 
-        #   to this dimension. Every time the products match, update the stride
-        #   currently in use.
-        # - The strides for each of the matching pieces must also match, 
-        # - The stride will always be based on the old stride of the lowest
-        #   dimension in the chunk, since 
-        new_dims = range(len(new_shape)) 
-        old_dims = range(len(self.shape))
-        if self.strides[0]> self.strides[-1]:
-            #This is the normal thing to do
-            new_dims.reverse()
-            old_dims.reverse()
-        nd = 0
-        od = 0
-        prod_old = 1
-        prod_new = self.strides[old_dims[od]]
-        cur_old_stride = self.strides[old_dims[od]]
-        new_strides = [0]*len(new_shape)
-        while nd < len(new_dims):
-            new_strides[new_dims[nd]] = cur_old_stride
-            prod_new *= new_shape[nd]
-            while prod_new >= prod_old:
-                if prod_new == prod_old:
-                    #Finished an old dim on a match. All is good
-                    od += 1
-                    prod_old *= self.shape[old_dims[od]]
-                    cur_old_stride = self.strides[old_dims[od]]
-                elif prod_new > prod_old:
-                    #Crossed over onto a different old_dim. 
-                    #Strides must be "equal" as per steps
-                    od += 1
-                    if self.strides[old_dims[od]] / self.shape[old_dims[od - 1]] \
-                               <>  self.strides[old_dims[od-1]]:
-                        raise OperationError(space.w_AttributeError, space.wrap(
-                          "incompatible shape for a non-contiguous array"))
-                    prod_old *= self.shape[old_dims[od]]
-            nd += 1 
-        new_backstrides = [0]*len(new_shape)
-        for nd in range(len(new_shape)):
-            new_backstrides[nd] = (new_shape[nd] - 1) * new_strides[nd]
-        self.strides = new_strides
-        self.backstrides = new_backstrides
-        self.shape = new_shape
-        
+
 class VirtualView(VirtualArray):
     pass
 
@@ -1184,10 +1109,6 @@ class NDimArray(BaseArray):
     def setitem(self, item, value):
         self.invalidated()
         self.dtype.setitem(self.storage, item, value)
-
-    def setshape(self, space, new_shape):
-        self.shape = new_shape
-        self.calc_strides(new_shape)
 
     def start_iter(self, res_shape=None):
         if self.order == 'C':
@@ -1289,7 +1210,7 @@ BaseArray.typedef = TypeDef(
 )
 
 
-class FlatIterator(Wrappable):
+class W_FlatIterator(Wrappable):
     _immutable_fields_ = ['shapelen', 'arr']
 
     def __init__(self, arr):
@@ -1300,12 +1221,12 @@ class FlatIterator(Wrappable):
     def descr_next(self, space):
         if self.iter.done():
             raise OperationError(space.w_StopIteration, space.wrap(''))
-        retVal = self.arr.eval(self.iter)
+        result = self.arr.eval(self.iter)
         self.iter = self.iter.next(self.shapelen)
-        return retVal.wrap(space)
+        return result.wrap(space)
 
 
-FlatIterator.typedef = TypeDef(
+W_FlatIterator.typedef = TypeDef(
     'flatiter',
-    next = interp2app(FlatIterator.descr_next),
+    next = interp2app(W_FlatIterator.descr_next),
 )
