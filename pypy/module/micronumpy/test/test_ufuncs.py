@@ -319,6 +319,12 @@ class AppTestUfuncs(BaseNumpyAppTest):
         for v in [1.0, -1.0]:
             assert arctanh(v) == math.copysign(float("inf"), v)
 
+    def test_sqrt(self):
+        from numpypy import sqrt
+        import math
+        assert (sqrt([1, 2, 3]) == [math.sqrt(1), math.sqrt(2),
+                                    math.sqrt(3)]).all()
+
     def test_reduce_errors(self):
         from numpypy import sin, add
 

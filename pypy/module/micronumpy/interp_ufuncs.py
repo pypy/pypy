@@ -319,6 +319,8 @@ class UfuncState(object):
             ("floor", "floor", 1, {"promote_to_float": True}),
             ("exp", "exp", 1, {"promote_to_float": True}),
 
+            ('sqrt', 'sqrt', 1, {'promote_to_float': True}),
+
             ("sin", "sin", 1, {"promote_to_float": True}),
             ("cos", "cos", 1, {"promote_to_float": True}),
             ("tan", "tan", 1, {"promote_to_float": True}),

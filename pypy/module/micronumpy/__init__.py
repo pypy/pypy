@@ -49,6 +49,7 @@ class Module(MixedModule):
         ("sign", "sign"),
         ("sin", "sin"),
         ("subtract", "subtract"),
+        ('sqrt', 'sqrt'),
         ("tan", "tan"),
     ]:
         interpleveldefs[exposed] = "interp_ufuncs.get(space).%s" % impl

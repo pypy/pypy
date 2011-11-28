@@ -293,6 +293,9 @@ class FloatArithmeticDtype(ArithmeticTypeMixin):
         if not -1.0 < v < 1.0:
             return rfloat.NAN
         return math.atanh(v)
+    @unaryop
+    def sqrt(self, v):
+        return math.sqrt(v)
 
 class IntegerArithmeticDtype(ArithmeticTypeMixin):
     _mixin_ = True
