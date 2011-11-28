@@ -347,6 +347,11 @@ class FakeMetaInterpStaticData(object):
         self.config = get_pypy_config(translating=True)
         self.config.translation.jit_ffi = True
 
+    class logger_noopt:
+        @classmethod
+        def log_loop(*args):
+            pass
+
     class warmrunnerdesc:
         class memory_manager:
             retrace_limit = 5
