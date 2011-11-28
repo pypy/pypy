@@ -818,6 +818,24 @@ if hasattr(posix, 'spawnv'):
         func()
         assert open(filename).read() == "2"
 
+if hasattr(posix, 'spawnve'):
+    def test_spawnve():
+        filename = str(udir.join('test_spawnve.txt'))
+        progname = str(sys.executable)
+        scriptpath = udir.join('test_spawnve.py')
+        scriptpath.write('import os\n' +
+                         'f=open(%r,"w")\n' % filename +
+                         'f.write(os.environ["FOOBAR"])\n' +
+                         'f.close\n')
+        scriptname = str(scriptpath)
+        def does_stuff():
+            l = [progname, scriptname]
+            pid = os.spawnve(os.P_NOWAIT, progname, l, {'FOOBAR': '42'})
+            os.waitpid(pid, 0)
+        func = compile(does_stuff, [])
+        func()
+        assert open(filename).read() == "42"
+
 def test_utime():
     path = str(udir.ensure("test_utime.txt"))
     from time import time, sleep

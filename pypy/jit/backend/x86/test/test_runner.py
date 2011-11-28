@@ -455,6 +455,9 @@ class TestX86(LLtypeBackendTest):
                                                 EffectInfo.MOST_GENERAL,
                                                 ffi_flags=-1)
             calldescr.get_call_conv = lambda: ffi      # <==== hack
+            # ^^^ we patch get_call_conv() so that the test also makes sense
+            #     on Linux, because clibffi.get_call_conv() would always
+            #     return FFI_DEFAULT_ABI on non-Windows platforms.
             funcbox = ConstInt(rawstart)
             i1 = BoxInt()
             i2 = BoxInt()

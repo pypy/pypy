@@ -6,7 +6,7 @@ from pypy.jit.metainterp.optimizeopt.intutils import IntBound, IntUnbounded, \
                                                      IntLowerBound, MININT, MAXINT
 from pypy.jit.metainterp.optimizeopt.util import (make_dispatcher_method,
     args_dict)
-from pypy.jit.metainterp.resoperation import rop, ResOperation
+from pypy.jit.metainterp.resoperation import rop, ResOperation, AbstractResOp
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.tool.pairtype import extendabletype
 from pypy.rlib.debug import debug_start, debug_stop, debug_print
@@ -247,9 +247,10 @@ CONST_0      = ConstInt(0)
 CONST_1      = ConstInt(1)
 CVAL_ZERO    = ConstantValue(CONST_0)
 CVAL_ZERO_FLOAT = ConstantValue(Const._new(0.0))
-CVAL_UNINITIALIZED_ZERO = ConstantValue(CONST_0)
 llhelper.CVAL_NULLREF = ConstantValue(llhelper.CONST_NULL)
 oohelper.CVAL_NULLREF = ConstantValue(oohelper.CONST_NULL)
+REMOVED = AbstractResOp(None)
+
 
 class Optimization(object):
     next_optimization = None
@@ -261,6 +262,7 @@ class Optimization(object):
         raise NotImplementedError
 
     def emit_operation(self, op):
+        self.last_emitted_operation = op
         self.next_optimization.propagate_forward(op)
 
     # FIXME: Move some of these here?
@@ -328,13 +330,13 @@ class Optimization(object):
     def forget_numberings(self, box):
         self.optimizer.forget_numberings(box)
 
+
 class Optimizer(Optimization):
 
-    def __init__(self, metainterp_sd, loop, optimizations=None, bridge=False):
+    def __init__(self, metainterp_sd, loop, optimizations=None):
         self.metainterp_sd = metainterp_sd
         self.cpu = metainterp_sd.cpu
         self.loop = loop
-        self.bridge = bridge
         self.values = {}
         self.interned_refs = self.cpu.ts.new_ref_dict()
         self.interned_ints = {}
@@ -342,11 +344,11 @@ class Optimizer(Optimization):
         self.bool_boxes = {}
         self.producer = {}
         self.pendingfields = []
-        self.exception_might_have_happened = False
         self.quasi_immutable_deps = None
         self.opaque_pointers = {}
         self.replaces_guard = {}
         self._newoperations = []
+        self.seen_results = {}
         self.optimizer = self
         self.optpure = None
         self.optearlyforce = None
@@ -364,6 +366,7 @@ class Optimizer(Optimization):
             optimizations[-1].next_optimization = self
             for o in optimizations:
                 o.optimizer = self
+                o.last_emitted_operation = None
                 o.setup()
         else:
             optimizations = []
@@ -498,7 +501,6 @@ class Optimizer(Optimization):
             return CVAL_ZERO
 
     def propagate_all_forward(self):
-        self.exception_might_have_happened = self.bridge
         self.clear_newoperations()
         for op in self.loop.operations:
             self.first_optimization.propagate_forward(op)
@@ -541,6 +543,10 @@ class Optimizer(Optimization):
                 op = self.store_final_boxes_in_guard(op)
         elif op.can_raise():
             self.exception_might_have_happened = True
+        if op.result:
+            if op.result in self.seen_results:
+                raise ValueError, "invalid optimization"
+            self.seen_results[op.result] = None
         self._newoperations.append(op)
 
     def replace_op(self, old_op, new_op):
@@ -558,9 +564,12 @@ class Optimizer(Optimization):
         descr = op.getdescr()
         assert isinstance(descr, compile.ResumeGuardDescr)
         modifier = resume.ResumeDataVirtualAdder(descr, self.resumedata_memo)
-        newboxes = modifier.finish(self.values, self.pendingfields)
-        if len(newboxes) > self.metainterp_sd.options.failargs_limit: # XXX be careful here
-            compile.giveup()
+        try:
+            newboxes = modifier.finish(self.values, self.pendingfields)
+            if len(newboxes) > self.metainterp_sd.options.failargs_limit:
+                raise resume.TagOverflow
+        except resume.TagOverflow:
+            raise compile.giveup()
         descr.store_final_boxes(op, newboxes)
         #
         if op.getopnum() == rop.GUARD_VALUE:

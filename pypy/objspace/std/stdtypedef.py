@@ -32,11 +32,14 @@ def issubtypedef(a, b):
     from pypy.objspace.std.objecttype import object_typedef
     if b is object_typedef:
         return True
-    while a is not b:
-        if a is None:
-            return False
-        a = a.base
-    return True
+    if a is None:
+        return False
+    if a is b:
+        return True
+    for a1 in a.bases:
+        if issubtypedef(a1, b):
+            return True
+    return False
 
 std_dict_descr = GetSetProperty(descr_get_dict, descr_set_dict, descr_del_dict,
                     doc="dictionary for instance variables (if defined)")
@@ -75,8 +78,8 @@ class TypeCache(SpaceCache):
         if typedef is object_typedef:
             bases_w = []
         else:
-            base = typedef.base or object_typedef
-            bases_w = [space.gettypeobject(base)]
+            bases = typedef.bases or [object_typedef]
+            bases_w = [space.gettypeobject(base) for base in bases]
 
         # wrap everything
         dict_w = {}

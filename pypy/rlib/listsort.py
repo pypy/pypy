@@ -1,4 +1,4 @@
-from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift
+from pypy.rlib.rarithmetic import ovfcheck
 
 
 ## ------------------------------------------------------------------------
@@ -10,6 +10,7 @@ from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift
 def make_timsort_class():
 
     class TimSort:
+
         """TimSort(list).sort()
 
         Sorts the list in-place, using the overridable method lt() for comparison.
@@ -136,7 +137,7 @@ def make_timsort_class():
                     if lower(a.list[p + ofs], key):
                         lastofs = ofs
                         try:
-                            ofs = ovfcheck_lshift(ofs, 1)
+                            ofs = ovfcheck(ofs << 1)
                         except OverflowError:
                             ofs = maxofs
                         else:
@@ -161,7 +162,7 @@ def make_timsort_class():
                         # key <= a[hint - ofs]
                         lastofs = ofs
                         try:
-                            ofs = ovfcheck_lshift(ofs, 1)
+                            ofs = ovfcheck(ofs << 1)
                         except OverflowError:
                             ofs = maxofs
                         else:
@@ -550,7 +551,6 @@ def make_timsort_class():
             assert len(self.pending) == 1
             assert self.pending[0].base == 0
             assert self.pending[0].len == self.listlength
-
 
     class ListSlice:
         "A sublist of a list."

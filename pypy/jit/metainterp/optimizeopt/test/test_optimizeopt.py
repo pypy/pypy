@@ -931,17 +931,14 @@ class OptimizeOptTest(BaseTestWithUnroll):
         [i]
         guard_no_exception() []
         i1 = int_add(i, 3)
-        guard_no_exception() []
         i2 = call(i1, descr=nonwritedescr)
         guard_no_exception() [i1, i2]
-        guard_no_exception() []
         i3 = call(i2, descr=nonwritedescr)
         jump(i1)       # the exception is considered lost when we loop back
         """
-        # note that 'guard_no_exception' at the very start is kept around
-        # for bridges, but not for loops
         preamble = """
         [i]
+        guard_no_exception() []    # occurs at the start of bridges, so keep it
         i1 = int_add(i, 3)
         i2 = call(i1, descr=nonwritedescr)
         guard_no_exception() [i1, i2]
@@ -950,6 +947,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         expected = """
         [i]
+        guard_no_exception() []    # occurs at the start of bridges, so keep it
         i1 = int_add(i, 3)
         i2 = call(i1, descr=nonwritedescr)
         guard_no_exception() [i1, i2]
@@ -957,6 +955,23 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(i1)
         """
         self.optimize_loop(ops, expected, preamble)
+
+    def test_bug_guard_no_exception(self):
+        ops = """
+        []
+        i0 = call(123, descr=nonwritedescr)
+        p0 = call(0, "xy", descr=s2u_descr)      # string -> unicode
+        guard_no_exception() []
+        escape(p0)
+        jump()
+        """
+        expected = """
+        []
+        i0 = call(123, descr=nonwritedescr)
+        escape(u"xy")
+        jump()
+        """
+        self.optimize_loop(ops, expected)
 
     # ----------
 
@@ -1175,6 +1190,75 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump(i3, i2, i1)
         """
         self.optimize_loop(ops, expected, preamble)
+
+    def test_virtual_recursive(self):
+        ops = """
+        [p0]
+        p41 = getfield_gc(p0, descr=nextdescr)
+        i0 = getfield_gc(p41, descr=valuedescr)
+        p1 = new_with_vtable(ConstClass(node_vtable2))
+        p2 = new_with_vtable(ConstClass(node_vtable2))
+        setfield_gc(p2, p1, descr=nextdescr)
+        setfield_gc(p1, p2, descr=nextdescr)
+        i1 = int_add(i0, 1)
+        setfield_gc(p2, i1, descr=valuedescr)
+        jump(p1)
+        """
+        preamble = """
+        [p0]
+        p41 = getfield_gc(p0, descr=nextdescr)
+        i0 = getfield_gc(p41, descr=valuedescr)
+        i3 = int_add(i0, 1)
+        jump(i3)
+        """
+        expected = """
+        [i0]
+        i1 = int_add(i0, 1)
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected, preamble)
+
+    def test_virtual_recursive_forced(self):
+        ops = """
+        [p0]
+        p41 = getfield_gc(p0, descr=nextdescr)
+        i0 = getfield_gc(p41, descr=valuedescr)
+        p1 = new_with_vtable(ConstClass(node_vtable2))
+        p2 = new_with_vtable(ConstClass(node_vtable2))
+        setfield_gc(p2, p1, descr=nextdescr)
+        setfield_gc(p1, p2, descr=nextdescr)
+        i1 = int_add(i0, 1)
+        setfield_gc(p2, i1, descr=valuedescr)
+        setfield_gc(p0, p1, descr=nextdescr)
+        jump(p1)
+        """
+        preamble = """
+        [p0]
+        p41 = getfield_gc(p0, descr=nextdescr)
+        i0 = getfield_gc(p41, descr=valuedescr)
+        i1 = int_add(i0, 1)
+        p1 = new_with_vtable(ConstClass(node_vtable2))
+        p2 = new_with_vtable(ConstClass(node_vtable2))
+        setfield_gc(p2, i1, descr=valuedescr)
+        setfield_gc(p2, p1, descr=nextdescr)
+        setfield_gc(p1, p2, descr=nextdescr)
+        setfield_gc(p0, p1, descr=nextdescr)
+        jump(p1)
+        """
+        loop = """
+        [p0]
+        p41 = getfield_gc(p0, descr=nextdescr)
+        i0 = getfield_gc(p41, descr=valuedescr)
+        i1 = int_add(i0, 1)
+        p1 = new_with_vtable(ConstClass(node_vtable2))
+        p2 = new_with_vtable(ConstClass(node_vtable2))
+        setfield_gc(p0, p1, descr=nextdescr)
+        setfield_gc(p2, p1, descr=nextdescr)
+        setfield_gc(p1, p2, descr=nextdescr)
+        setfield_gc(p2, i1, descr=valuedescr)
+        jump(p1)
+        """
+        self.optimize_loop(ops, loop, preamble)
 
     def test_virtual_constant_isnull(self):
         ops = """
@@ -2168,13 +2252,13 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p0, i0, p1, i1, i2]
         setfield_gc(p0, i1, descr=valuedescr)
-        copystrcontent(p0, i0, p1, i1, i2)
+        copystrcontent(p0, p1, i0, i1, i2)
         escape()
         jump(p0, i0, p1, i1, i2)
         """
         expected = """
         [p0, i0, p1, i1, i2]
-        copystrcontent(p0, i0, p1, i1, i2)
+        copystrcontent(p0, p1, i0, i1, i2)
         setfield_gc(p0, i1, descr=valuedescr)
         escape()
         jump(p0, i0, p1, i1, i2)
@@ -5423,6 +5507,96 @@ class OptimizeOptTest(BaseTestWithUnroll):
         jump()
         """
         self.optimize_loop(ops, expected)
+        # ----------
+        ops = """
+        [p1]
+        p0 = new_with_vtable(ConstClass(ptrobj_immut_vtable))
+        setfield_gc(p0, p1, descr=immut_ptrval)
+        escape(p0)
+        jump(p1)
+        """
+        self.optimize_loop(ops, ops)
+        # ----------
+        ops = """
+        []
+        p0 = new_with_vtable(ConstClass(ptrobj_immut_vtable))
+        p1 = new_with_vtable(ConstClass(intobj_immut_vtable))
+        setfield_gc(p1, 1242, descr=immut_intval)
+        setfield_gc(p0, p1, descr=immut_ptrval)
+        escape(p0)
+        jump()
+        """
+        class PtrObj1242(object):
+            _TYPE = llmemory.GCREF.TO
+            def __eq__(slf, other):
+                if slf is other:
+                    return 1
+                p1 = other.container.ptrval
+                p1cast = lltype.cast_pointer(lltype.Ptr(self.INTOBJ_IMMUT), p1)
+                return p1cast.intval == 1242
+        self.namespace['ptrobj1242'] = lltype._ptr(llmemory.GCREF,
+                                                   PtrObj1242())
+        expected = """
+        []
+        escape(ConstPtr(ptrobj1242))
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_immutable_constantfold_recursive(self):
+        ops = """
+        []
+        p0 = new_with_vtable(ConstClass(ptrobj_immut_vtable))
+        setfield_gc(p0, p0, descr=immut_ptrval)
+        escape(p0)
+        jump()
+        """
+        from pypy.rpython.lltypesystem import lltype, llmemory
+        class PtrObjSelf(object):
+            _TYPE = llmemory.GCREF.TO
+            def __eq__(slf, other):
+                if slf is other:
+                    return 1
+                p1 = other.container.ptrval
+                p1cast = lltype.cast_pointer(lltype.Ptr(self.PTROBJ_IMMUT), p1)
+                return p1cast.ptrval == p1
+        self.namespace['ptrobjself'] = lltype._ptr(llmemory.GCREF,
+                                                   PtrObjSelf())
+        expected = """
+        []
+        escape(ConstPtr(ptrobjself))
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+        #
+        ops = """
+        []
+        p0 = new_with_vtable(ConstClass(ptrobj_immut_vtable))
+        p1 = new_with_vtable(ConstClass(ptrobj_immut_vtable))
+        setfield_gc(p0, p1, descr=immut_ptrval)
+        setfield_gc(p1, p0, descr=immut_ptrval)
+        escape(p0)
+        jump()
+        """
+        class PtrObjSelf2(object):
+            _TYPE = llmemory.GCREF.TO
+            def __eq__(slf, other):
+                if slf is other:
+                    return 1
+                p1 = other.container.ptrval
+                p1cast = lltype.cast_pointer(lltype.Ptr(self.PTROBJ_IMMUT), p1)
+                p2 = p1cast.ptrval
+                assert p2 != p1
+                p2cast = lltype.cast_pointer(lltype.Ptr(self.PTROBJ_IMMUT), p2)
+                return p2cast.ptrval == p1
+        self.namespace['ptrobjself2'] = lltype._ptr(llmemory.GCREF,
+                                                    PtrObjSelf2())
+        expected = """
+        []
+        escape(ConstPtr(ptrobjself2))
+        jump()
+        """
+        self.optimize_loop(ops, expected)
 
     # ----------
     def optimize_strunicode_loop(self, ops, optops, preamble):
@@ -6281,12 +6455,15 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_str2unicode_constant(self):
         ops = """
         []
+        escape(1213)
         p0 = call(0, "xy", descr=s2u_descr)      # string -> unicode
+        guard_no_exception() []
         escape(p0)
         jump()
         """
         expected = """
         []
+        escape(1213)
         escape(u"xy")
         jump()
         """
@@ -6296,6 +6473,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         ops = """
         [p0]
         p1 = call(0, p0, descr=s2u_descr)      # string -> unicode
+        guard_no_exception() []
         escape(p1)
         jump(p1)
         """
@@ -7407,7 +7585,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
         expected = """
         [p22, p18, i1, i2]
         call(i2, descr=nonwritedescr)
-        setfield_gc(p22, i1, descr=valuedescr)        
+        setfield_gc(p22, i1, descr=valuedescr)
         jump(p22, p18, i1, i1)
         """
         self.optimize_loop(ops, expected, preamble, expected_short=short)
@@ -7434,7 +7612,7 @@ class OptimizeOptTest(BaseTestWithUnroll):
     def test_cache_setarrayitem_across_loop_boundaries(self):
         ops = """
         [p1]
-        p2 = getarrayitem_gc(p1, 3, descr=arraydescr)        
+        p2 = getarrayitem_gc(p1, 3, descr=arraydescr)
         guard_nonnull_class(p2, ConstClass(node_vtable)) []
         call(p2, descr=nonwritedescr)
         p3 = new_with_vtable(ConstClass(node_vtable))

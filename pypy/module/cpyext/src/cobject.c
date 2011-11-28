@@ -77,7 +77,7 @@ PyCObject_GetDesc(PyObject *self)
 }
 
 void *
-PyCObject_Import(char *module_name, char *name)
+PyCObject_Import(const char *module_name, const char *name)
 {
     PyObject *m, *c;
     void *r = NULL;

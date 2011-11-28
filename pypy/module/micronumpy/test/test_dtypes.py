@@ -3,7 +3,7 @@ from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
 
 class AppTestDtypes(BaseNumpyAppTest):
     def test_dtype(self):
-        from numpy import dtype
+        from numpypy import dtype
 
         d = dtype('?')
         assert d.num == 0
@@ -14,7 +14,7 @@ class AppTestDtypes(BaseNumpyAppTest):
         raises(TypeError, dtype, 1042)
 
     def test_dtype_with_types(self):
-        from numpy import dtype
+        from numpypy import dtype
 
         assert dtype(bool).num == 0
         assert dtype(int).num == 7
@@ -22,13 +22,13 @@ class AppTestDtypes(BaseNumpyAppTest):
         assert dtype(float).num == 12
 
     def test_array_dtype_attr(self):
-        from numpy import array, dtype
+        from numpypy import array, dtype
 
         a = array(range(5), long)
         assert a.dtype is dtype(long)
 
     def test_repr_str(self):
-        from numpy import dtype
+        from numpypy import dtype
 
         assert repr(dtype) == "<type 'numpy.dtype'>"
         d = dtype('?')
@@ -36,57 +36,57 @@ class AppTestDtypes(BaseNumpyAppTest):
         assert str(d) == "bool"
 
     def test_bool_array(self):
-        import numpy
+        from numpypy import array, False_, True_
 
-        a = numpy.array([0, 1, 2, 2.5], dtype='?')
-        assert a[0] is numpy.False_
+        a = array([0, 1, 2, 2.5], dtype='?')
+        assert a[0] is False_
         for i in xrange(1, 4):
-            assert a[i] is numpy.True_
+            assert a[i] is True_
 
     def test_copy_array_with_dtype(self):
-        import numpy
+        from numpypy import array, False_, True_
 
-        a = numpy.array([0, 1, 2, 3], dtype=long)
+        a = array([0, 1, 2, 3], dtype=long)
         # int on 64-bit, long in 32-bit
         assert isinstance(a[0], (int, long))
         b = a.copy()
         assert isinstance(b[0], (int, long))
 
-        a = numpy.array([0, 1, 2, 3], dtype=bool)
-        assert a[0] is numpy.False_
+        a = array([0, 1, 2, 3], dtype=bool)
+        assert a[0] is False_
         b = a.copy()
-        assert b[0] is numpy.False_
+        assert b[0] is False_
 
     def test_zeros_bool(self):
-        import numpy
+        from numpypy import zeros, False_
 
-        a = numpy.zeros(10, dtype=bool)
+        a = zeros(10, dtype=bool)
         for i in range(10):
-            assert a[i] is numpy.False_
+            assert a[i] is False_
 
     def test_ones_bool(self):
-        import numpy
+        from numpypy import ones, True_
 
-        a = numpy.ones(10, dtype=bool)
+        a = ones(10, dtype=bool)
         for i in range(10):
-            assert a[i] is numpy.True_
+            assert a[i] is True_
 
     def test_zeros_long(self):
-        from numpy import zeros
+        from numpypy import zeros
         a = zeros(10, dtype=long)
         for i in range(10):
             assert isinstance(a[i], (int, long))
             assert a[1] == 0
 
     def test_ones_long(self):
-        from numpy import ones
+        from numpypy import ones
         a = ones(10, dtype=long)
         for i in range(10):
             assert isinstance(a[i], (int, long))
             assert a[1] == 1
 
     def test_overflow(self):
-        from numpy import array, dtype
+        from numpypy import array, dtype
         assert array([128], 'b')[0] == -128
         assert array([256], 'B')[0] == 0
         assert array([32768], 'h')[0] == -32768
@@ -98,7 +98,7 @@ class AppTestDtypes(BaseNumpyAppTest):
         raises(OverflowError, "array([2**64], 'Q')")
 
     def test_bool_binop_types(self):
-        from numpy import array, dtype
+        from numpypy import array, dtype
         types = [
             '?', 'b', 'B', 'h', 'H', 'i', 'I', 'l', 'L', 'q', 'Q', 'f', 'd'
         ]
@@ -107,7 +107,7 @@ class AppTestDtypes(BaseNumpyAppTest):
             assert (a + array([0], t)).dtype is dtype(t)
 
     def test_binop_types(self):
-        from numpy import array, dtype
+        from numpypy import array, dtype
         tests = [('b','B','h'), ('b','h','h'), ('b','H','i'), ('b','i','i'),
                  ('b','l','l'), ('b','q','q'), ('b','Q','d'), ('B','h','h'),
                  ('B','H','H'), ('B','i','i'), ('B','I','I'), ('B','l','l'),
@@ -129,7 +129,7 @@ class AppTestDtypes(BaseNumpyAppTest):
             assert (array([1], d1) + array([1], d2)).dtype is dtype(dout)
 
     def test_add_int8(self):
-        from numpy import array, dtype
+        from numpypy import array, dtype
 
         a = array(range(5), dtype="int8")
         b = a + a
@@ -138,7 +138,7 @@ class AppTestDtypes(BaseNumpyAppTest):
             assert b[i] == i * 2
 
     def test_add_int16(self):
-        from numpy import array, dtype
+        from numpypy import array, dtype
 
         a = array(range(5), dtype="int16")
         b = a + a
@@ -147,7 +147,7 @@ class AppTestDtypes(BaseNumpyAppTest):
             assert b[i] == i * 2
 
     def test_add_uint32(self):
-        from numpy import array, dtype
+        from numpypy import array, dtype
 
         a = array(range(5), dtype="I")
         b = a + a
@@ -156,12 +156,12 @@ class AppTestDtypes(BaseNumpyAppTest):
             assert b[i] == i * 2
 
     def test_shape(self):
-        from numpy import dtype
+        from numpypy import dtype
 
         assert dtype(long).shape == ()
 
     def test_cant_subclass(self):
-        from numpy import dtype
+        from numpypy import dtype
 
         # You can't subclass dtype
         raises(TypeError, type, "Foo", (dtype,), {})

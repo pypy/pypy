@@ -25,11 +25,14 @@ option_to_typename = {
                         "ropeobject.W_RopeIterObject"],
     "withropeunicode": ["ropeunicodeobject.W_RopeUnicodeObject",
                         "ropeunicodeobject.W_RopeUnicodeIterObject"],
-    "withrangelist"  : ["rangeobject.W_RangeListObject",
-                        "rangeobject.W_RangeIterObject"],
     "withtproxy" : ["proxyobject.W_TransparentList",
                     "proxyobject.W_TransparentDict"],
 }
+
+IDTAG_INT     = 1
+IDTAG_LONG    = 3
+IDTAG_FLOAT   = 5
+IDTAG_COMPLEX = 7
 
 class StdTypeModel:
 
@@ -252,12 +255,6 @@ class StdTypeModel:
                                        strbufobject.delegate_buf2str),
                 (unicodeobject.W_UnicodeObject,
                                        strbufobject.delegate_buf2unicode)
-                ]
-        if config.objspace.std.withrangelist:
-            from pypy.objspace.std import rangeobject
-            self.typeorder[rangeobject.W_RangeListObject] += [
-                (listobject.W_ListObject,
-                                       rangeobject.delegate_range2list),
                 ]
         if config.objspace.std.withsmalltuple:
             from pypy.objspace.std import smalltupleobject

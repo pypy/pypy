@@ -155,32 +155,36 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
                     dest_start + length <= source_start)
 
     # XXX --- custom version for STM ---
-    # the old version first:
-##    TP = lltype.typeOf(source).TO
-##    assert TP == lltype.typeOf(dest).TO
-##    if isinstance(TP.OF, lltype.Ptr) and TP.OF.TO._gckind == 'gc':
-##        # perform a write barrier that copies necessary flags from
-##        # source to dest
-##        if not llop.gc_writebarrier_before_copy(lltype.Bool, source, dest,
-##                                                source_start, dest_start,
-##                                                length):
-##            # if the write barrier is not supported, copy by hand
-##            for i in range(length):
-##                dest[i + dest_start] = source[i + source_start]
-##            return
-##    source_addr = llmemory.cast_ptr_to_adr(source)
-##    dest_addr   = llmemory.cast_ptr_to_adr(dest)
-##    cp_source_addr = (source_addr + llmemory.itemoffsetof(TP, 0) +
-##                      llmemory.sizeof(TP.OF) * source_start)
-##    cp_dest_addr = (dest_addr + llmemory.itemoffsetof(TP, 0) +
-##                    llmemory.sizeof(TP.OF) * dest_start)
-
-##    llmemory.raw_memcopy(cp_source_addr, cp_dest_addr,
-##                         llmemory.sizeof(TP.OF) * length)
-##    keepalive_until_here(source)
-##    keepalive_until_here(dest)
     for i in range(length):
         dest[i + dest_start] = source[i + source_start]
+    return
+    # XXX --- the rest is never translated so far ---
+
+    TP = lltype.typeOf(source).TO
+    assert TP == lltype.typeOf(dest).TO
+    if isinstance(TP.OF, lltype.Ptr) and TP.OF.TO._gckind == 'gc':
+        # perform a write barrier that copies necessary flags from
+        # source to dest
+        if not llop.gc_writebarrier_before_copy(lltype.Bool, source, dest,
+                                                source_start, dest_start,
+                                                length):
+            # if the write barrier is not supported, copy by hand
+            i = 0
+            while i < length:
+                dest[i + dest_start] = source[i + source_start]
+                i += 1
+            return
+    source_addr = llmemory.cast_ptr_to_adr(source)
+    dest_addr   = llmemory.cast_ptr_to_adr(dest)
+    cp_source_addr = (source_addr + llmemory.itemoffsetof(TP, 0) +
+                      llmemory.sizeof(TP.OF) * source_start)
+    cp_dest_addr = (dest_addr + llmemory.itemoffsetof(TP, 0) +
+                    llmemory.sizeof(TP.OF) * dest_start)
+
+    llmemory.raw_memcopy(cp_source_addr, cp_dest_addr,
+                         llmemory.sizeof(TP.OF) * length)
+    keepalive_until_here(source)
+    keepalive_until_here(dest)
 
 def ll_shrink_array(p, smallerlength):
     from pypy.rpython.lltypesystem.lloperation import llop
@@ -229,8 +233,8 @@ def no_collect(func):
     func._gc_no_collect_ = True
     return func
 
-def is_light_finalizer(func):
-    func._is_light_finalizer_ = True
+def must_be_light_finalizer(func):
+    func._must_be_light_finalizer_ = True
     return func
 
 # ____________________________________________________________
@@ -273,6 +277,24 @@ def _keep_object(x):
         return type(x).__module__ != '__builtin__'   # keep non-builtins
     except Exception:
         return False      # don't keep objects whose _freeze_() method explodes
+
+def add_memory_pressure(estimate):
+    """Add memory pressure for OpaquePtrs."""
+    pass
+
+class AddMemoryPressureEntry(ExtRegistryEntry):
+    _about_ = add_memory_pressure
+
+    def compute_result_annotation(self, s_nbytes):
+        from pypy.annotation import model as annmodel
+        return annmodel.s_None
+
+    def specialize_call(self, hop):
+        [v_size] = hop.inputargs(lltype.Signed)
+        hop.exception_cannot_occur()
+        return hop.genop('gc_add_memory_pressure', [v_size],
+                         resulttype=lltype.Void)
+
 
 def get_rpy_memory_usage(gcref):
     "NOT_RPYTHON"
