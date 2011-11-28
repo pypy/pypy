@@ -320,10 +320,15 @@ class AppTestUfuncs(BaseNumpyAppTest):
             assert arctanh(v) == math.copysign(float("inf"), v)
 
     def test_sqrt(self):
-        from numpypy import sqrt
         import math
-        assert (sqrt([1, 2, 3]) == [math.sqrt(1), math.sqrt(2),
-                                    math.sqrt(3)]).all()
+        from numpypy import sqrt
+
+        nan, inf = float("nan"), float("inf")
+        data = [1, 2, 3, inf]
+        results = [math.sqrt(1), math.sqrt(2), math.sqrt(3), inf]
+        assert (sqrt(data) == results).all()
+        assert math.isnan(sqrt(-1))
+        assert math.isnan(sqrt(nan))
 
     def test_reduce_errors(self):
         from numpypy import sin, add

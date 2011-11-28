@@ -295,7 +295,10 @@ class FloatArithmeticDtype(ArithmeticTypeMixin):
         return math.atanh(v)
     @unaryop
     def sqrt(self, v):
-        return math.sqrt(v)
+        try:
+            return math.sqrt(v)
+        except ValueError:
+            return rfloat.NAN
 
 class IntegerArithmeticDtype(ArithmeticTypeMixin):
     _mixin_ = True
