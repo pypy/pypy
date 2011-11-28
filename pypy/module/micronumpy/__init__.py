@@ -13,6 +13,7 @@ class Module(MixedModule):
         'empty': 'interp_numarray.zeros',
         'ones': 'interp_numarray.ones',
         'fromstring': 'interp_support.fromstring',
+        'flatiter': 'interp_numarray.W_FlatIterator',
 
         'True_': 'space.w_True',
         'False_': 'space.w_False',
@@ -57,4 +58,5 @@ class Module(MixedModule):
         'mean': 'app_numpy.mean',
         'inf': 'app_numpy.inf',
         'e': 'app_numpy.e',
+        'arange': 'app_numpy.arange',
     }

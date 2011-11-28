@@ -221,6 +221,7 @@ class FloatArithmeticDtype(ArithmeticTypeMixin):
 
     @binop
     def div(self, v1, v2):
+        # XXX this won't work after translation, probably requires ovfcheck
         try:
             return v1 / v2
         except ZeroDivisionError:

@@ -227,7 +227,7 @@ class BroadcastIterator(BaseIterator):
         self.strides = []
         self.backstrides = []
         for i in range(len(arr.shape)):
-            if arr.shape[i]==1:
+            if arr.shape[i] == 1:
                 self.strides.append(0)
                 self.backstrides.append(0)
             else:
@@ -312,12 +312,12 @@ class ConstantIterator(BaseIterator):
     def get_offset(self):
         return 0
 
+
 class BaseArray(Wrappable):
     _attrs_ = ["invalidates", "signature", "shape", "strides", "backstrides",
                "start", 'order']
 
-    _immutable_fields_ = ['shape[*]', "strides[*]", "backstrides[*]", 'start',
-                          "order"]
+    _immutable_fields_ = ['start', "order"]
 
     strides = None
     start = 0
@@ -327,21 +327,24 @@ class BaseArray(Wrappable):
         self.shape = shape
         self.order = order
         if self.strides is None:
-            strides = []
-            backstrides = []
-            s = 1
-            shape_rev = shape[:]
-            if order == 'C':
-                shape_rev.reverse()
-            for sh in shape_rev:
-                strides.append(s)
-                backstrides.append(s * (sh - 1))
-                s *= sh
-            if order == 'C':
-                strides.reverse()
-                backstrides.reverse()
-            self.strides = strides[:]
-            self.backstrides = backstrides[:]
+            self.calc_strides(shape)
+
+    def calc_strides(self, shape):
+        strides = []
+        backstrides = []
+        s = 1
+        shape_rev = shape[:]
+        if self.order == 'C':
+            shape_rev.reverse()
+        for sh in shape_rev:
+            strides.append(s)
+            backstrides.append(s * (sh - 1))
+            s *= sh
+        if self.order == 'C':
+            strides.reverse()
+            backstrides.reverse()
+        self.strides = strides[:]
+        self.backstrides = backstrides[:]
 
     def invalidated(self):
         if self.invalidates:
@@ -684,6 +687,9 @@ class BaseArray(Wrappable):
     def descr_getitem(self, space, w_idx):
         if self._single_item_result(space, w_idx):
             concrete = self.get_concrete()
+            if len(concrete.shape) < 1:
+                raise OperationError(space.w_IndexError, space.wrap(
+                        "0-d arrays can't be indexed"))
             item = concrete._index_of_single_item(space, w_idx)
             return concrete.getitem(item).wrap(space)
         chunks = self._prepare_slice_args(space, w_idx)
@@ -693,6 +699,9 @@ class BaseArray(Wrappable):
         self.invalidated()
         concrete = self.get_concrete()
         if self._single_item_result(space, w_idx):
+            if len(concrete.shape) < 1:
+                raise OperationError(space.w_IndexError, space.wrap(
+                        "0-d arrays can't be indexed"))
             item = concrete._index_of_single_item(space, w_idx)
             concrete.setitem_w(space, item, w_value)
             return
@@ -750,14 +759,31 @@ class BaseArray(Wrappable):
         return space.wrap(space.float_w(self.descr_sum(space)) / self.find_size())
 
     def descr_nonzero(self, space):
-        try:
-            if self.find_size() > 1:
-                raise OperationError(space.w_ValueError, space.wrap(
-                    "The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()"))
-        except ValueError:
-            pass
+        if self.find_size() > 1:
+            raise OperationError(space.w_ValueError, space.wrap(
+                "The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()"))
         return space.wrap(space.is_true(self.get_concrete().eval(
             self.start_iter(self.shape)).wrap(space)))
+
+    def descr_get_transpose(self, space):
+        concrete = self.get_concrete()
+        if len(concrete.shape) < 2:
+            return space.wrap(self)
+        new_sig = signature.Signature.find_sig([
+            NDimSlice.signature, self.signature
+        ])
+        strides = []
+        backstrides = []
+        shape = []
+        for i in range(len(concrete.shape) - 1, -1, -1):
+            strides.append(concrete.strides[i])
+            backstrides.append(concrete.backstrides[i])
+            shape.append(concrete.shape[i])
+        return space.wrap(NDimSlice(concrete, new_sig, self.start, strides[:],
+                           backstrides[:], shape[:]))
+
+    def descr_get_flatiter(self, space):
+        return space.wrap(W_FlatIterator(self))
 
     def getitem(self, item):
         raise NotImplementedError
@@ -796,7 +822,7 @@ class Scalar(BaseArray):
         self.value = value
 
     def find_size(self):
-        raise ValueError
+        return 1
 
     def get_concrete(self):
         return self
@@ -805,7 +831,7 @@ class Scalar(BaseArray):
         return self.dtype
 
     def getitem(self, item):
-        return self.value
+        raise NotImplementedError
 
     def eval(self, iter):
         return self.value
@@ -815,6 +841,7 @@ class Scalar(BaseArray):
 
     def to_str(self, space, comma, builder, indent=' ', use_ellipsis=False):
         builder.append(self.dtype.str_format(self.value))
+
 
 class VirtualArray(BaseArray):
     """
@@ -984,6 +1011,7 @@ class ViewArray(BaseArray):
         if self.shape:
             return space.wrap(self.shape[0])
         return space.wrap(1)
+
 
 class VirtualView(VirtualArray):
     pass
@@ -1164,6 +1192,9 @@ BaseArray.typedef = TypeDef(
     shape = GetSetProperty(BaseArray.descr_get_shape),
     size = GetSetProperty(BaseArray.descr_get_size),
 
+    T = GetSetProperty(BaseArray.descr_get_transpose),
+    flat = GetSetProperty(BaseArray.descr_get_flatiter),
+
     mean = interp2app(BaseArray.descr_mean),
     sum = interp2app(BaseArray.descr_sum),
     prod = interp2app(BaseArray.descr_prod),
@@ -1176,4 +1207,26 @@ BaseArray.typedef = TypeDef(
     dot = interp2app(BaseArray.descr_dot),
 
     copy = interp2app(BaseArray.descr_copy),
+)
+
+
+class W_FlatIterator(Wrappable):
+    _immutable_fields_ = ['shapelen', 'arr']
+
+    def __init__(self, arr):
+        self.arr = arr.get_concrete()
+        self.iter = arr.start_iter()
+        self.shapelen = len(arr.shape)
+
+    def descr_next(self, space):
+        if self.iter.done():
+            raise OperationError(space.w_StopIteration, space.wrap(''))
+        result = self.arr.eval(self.iter)
+        self.iter = self.iter.next(self.shapelen)
+        return result.wrap(space)
+
+
+W_FlatIterator.typedef = TypeDef(
+    'flatiter',
+    next = interp2app(W_FlatIterator.descr_next),
 )
