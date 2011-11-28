@@ -1121,7 +1121,11 @@ class NDimArray(BaseArray):
 
     def copy(self):
         array = NDimArray(self.size, self.shape[:], self.dtype, self.order)
-        rffi.c_memcpy(array.storage, self.storage, self.size * self.dtype.num_bytes)
+        rffi.c_memcpy(
+            rffi.cast(rffi.VOIDP, array.storage),
+            rffi.cast(rffi.VOIDP, self.storage),
+            self.size * self.dtype.num_bytes
+        )
         return array
 
     def descr_len(self, space):
