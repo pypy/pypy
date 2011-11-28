@@ -149,7 +149,7 @@ class UnrollOptimizer(Optimization):
 
         short_boxes = ShortBoxes(self.optimizer, inputargs + constant_inputargs.keys())
         for i in range(len(original_jump_args)):
-            if original_jump_args[i] is not jump_args[i]:
+            if original_jump_args[i] is not jump_args[i] and not values[i].is_virtual():
                 short_boxes.alias(original_jump_args[i], jump_args[i])
 
         self.optimizer.clear_newoperations()

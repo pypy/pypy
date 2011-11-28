@@ -7027,6 +7027,20 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_duplicated_aliased_virtual(self):
+        ops = """
+        [p1, p2]
+        p3 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p3, p3, descr=nextdescr)
+        p4 = getfield_gc(p3, descr=nextdescr)
+        jump(p3, p4)
+        """
+        expected = """
+        []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
     def test_chained_virtuals(self):
         ops = """
         [p0, p1]
