@@ -9,7 +9,7 @@ from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm.arch import WORD, FUNC_ALIGN, PC_OFFSET, N_REGISTERS_SAVED_BY_MALLOC
 from pypy.jit.backend.arm.codebuilder import ARMv7Builder, OverwritingBuilder
 from pypy.jit.backend.arm.regalloc import (Regalloc, ARMFrameManager, ARMv7RegisterMananger,
-                                        _check_imm_arg, TempInt,
+                                        check_imm_arg, TempInt,
                                         TempPtr,
                                         operations as regalloc_operations,
                                         operations_with_guard as regalloc_operations_with_guard)
@@ -245,7 +245,8 @@ class AssemblerARM(ResOpAssembler):
                 i += 4
                 if group == self.FLOAT_TYPE:
                     value = decode64(stack, frame_depth - stack_loc*WORD)
-                    self.fail_boxes_float.setitem(fail_index, value)
+                    fvalue = longlong2float(value)
+                    self.fail_boxes_float.setitem(fail_index, fvalue)
                     continue
                 else:
                     value = decode32(stack, frame_depth - stack_loc*WORD)
@@ -914,14 +915,14 @@ class AssemblerARM(ResOpAssembler):
                 temp = r.lr
             else:
                 temp = r.ip
-            offset = ConstInt(loc.position*WORD)
-            if not _check_imm_arg(offset, size=0xFFF):
+            offset = loc.position*WORD
+            if not check_imm_arg(offset, size=0xFFF):
                 self.mc.PUSH([temp.value], cond=cond)
-                self.mc.gen_load_int(temp.value, -offset.value, cond=cond)
+                self.mc.gen_load_int(temp.value, -offset, cond=cond)
                 self.mc.STR_rr(prev_loc.value, r.fp.value, temp.value, cond=cond)
                 self.mc.POP([temp.value], cond=cond)
             else:
-                self.mc.STR_ri(prev_loc.value, r.fp.value, imm=-1*offset.value, cond=cond)
+                self.mc.STR_ri(prev_loc.value, r.fp.value, imm=-offset, cond=cond)
         else:
             assert 0, 'unsupported case'
 
@@ -931,27 +932,27 @@ class AssemblerARM(ResOpAssembler):
             assert prev_loc.type != FLOAT, 'trying to load from an incompatible location into a core register'
             assert loc is not r.lr, 'lr is not supported as a target when moving from the stack'
             # unspill a core register
-            offset = ConstInt(prev_loc.position*WORD)
-            if not _check_imm_arg(offset, size=0xFFF):
+            offset = prev_loc.position*WORD
+            if not check_imm_arg(offset, size=0xFFF):
                 self.mc.PUSH([r.lr.value], cond=cond)
                 pushed = True
-                self.mc.gen_load_int(r.lr.value, -offset.value, cond=cond)
+                self.mc.gen_load_int(r.lr.value, -offset, cond=cond)
                 self.mc.LDR_rr(loc.value, r.fp.value, r.lr.value, cond=cond)
             else:
-                self.mc.LDR_ri(loc.value, r.fp.value, imm=-offset.value, cond=cond)
+                self.mc.LDR_ri(loc.value, r.fp.value, imm=-offset, cond=cond)
             if pushed:
                 self.mc.POP([r.lr.value], cond=cond)
         elif loc.is_vfp_reg():
             assert prev_loc.type == FLOAT, 'trying to load from an incompatible location into a float register'
             # load spilled value into vfp reg
-            offset = ConstInt(prev_loc.position*WORD)
+            offset = prev_loc.position*WORD
             self.mc.PUSH([r.ip.value], cond=cond)
             pushed = True
-            if not _check_imm_arg(offset):
-                self.mc.gen_load_int(r.ip.value, offset.value, cond=cond)
+            if not check_imm_arg(offset):
+                self.mc.gen_load_int(r.ip.value, offset, cond=cond)
                 self.mc.SUB_rr(r.ip.value, r.fp.value, r.ip.value, cond=cond)
             else:
-                self.mc.SUB_ri(r.ip.value, r.fp.value, offset.value, cond=cond)
+                self.mc.SUB_ri(r.ip.value, r.fp.value, offset, cond=cond)
             self.mc.VLDR(loc.value, r.ip.value, cond=cond)
             if pushed:
                 self.mc.POP([r.ip.value], cond=cond)
@@ -973,12 +974,12 @@ class AssemblerARM(ResOpAssembler):
             assert loc.type == FLOAT, 'trying to store to an incompatible location from a float register'
             # spill vfp register
             self.mc.PUSH([r.ip.value], cond=cond)
-            offset = ConstInt(loc.position*WORD)
-            if not _check_imm_arg(offset):
-                self.mc.gen_load_int(r.ip.value, offset.value, cond=cond)
+            offset = loc.position*WORD
+            if not check_imm_arg(offset):
+                self.mc.gen_load_int(r.ip.value, offset, cond=cond)
                 self.mc.SUB_rr(r.ip.value, r.fp.value, r.ip.value, cond=cond)
             else:
-                self.mc.SUB_ri(r.ip.value, r.fp.value, offset.value, cond=cond)
+                self.mc.SUB_ri(r.ip.value, r.fp.value, offset, cond=cond)
             self.mc.VSTR(prev_loc.value, r.ip.value, cond=cond)
             self.mc.POP([r.ip.value], cond=cond)
         else:
@@ -1016,17 +1017,17 @@ class AssemblerARM(ResOpAssembler):
             self.mc.POP([r.ip.value], cond=cond)
         elif vfp_loc.is_stack() and vfp_loc.type == FLOAT:
             # load spilled vfp value into two core registers
-            offset = ConstInt((vfp_loc.position)*WORD)
-            if not _check_imm_arg(offset, size=0xFFF):
+            offset = vfp_loc.position*WORD
+            if not check_imm_arg(offset, size=0xFFF):
                 self.mc.PUSH([r.ip.value], cond=cond)
-                self.mc.gen_load_int(r.ip.value, -offset.value, cond=cond)
+                self.mc.gen_load_int(r.ip.value, -offset, cond=cond)
                 self.mc.LDR_rr(reg1.value, r.fp.value, r.ip.value, cond=cond)
                 self.mc.ADD_ri(r.ip.value, r.ip.value, imm=WORD, cond=cond)
                 self.mc.LDR_rr(reg2.value, r.fp.value, r.ip.value, cond=cond)
                 self.mc.POP([r.ip.value], cond=cond)
             else:
-                self.mc.LDR_ri(reg1.value, r.fp.value, imm=-offset.value, cond=cond)
-                self.mc.LDR_ri(reg2.value, r.fp.value, imm=-offset.value+WORD, cond=cond)
+                self.mc.LDR_ri(reg1.value, r.fp.value, imm=-offset, cond=cond)
+                self.mc.LDR_ri(reg2.value, r.fp.value, imm=-offset+WORD, cond=cond)
         else:
             assert 0, 'unsupported case'
 
@@ -1038,17 +1039,17 @@ class AssemblerARM(ResOpAssembler):
             self.mc.VMOV_cr(vfp_loc.value, reg1.value, reg2.value, cond=cond)
         elif vfp_loc.is_stack():
             # move from two core registers to a float stack location
-            offset = ConstInt((vfp_loc.position)*WORD)
-            if not _check_imm_arg(offset, size=0xFFF):
+            offset = vfp_loc.position*WORD
+            if not check_imm_arg(offset, size=0xFFF):
                 self.mc.PUSH([r.ip.value], cond=cond)
-                self.mc.gen_load_int(r.ip.value, -offset.value, cond=cond)
+                self.mc.gen_load_int(r.ip.value, -offset, cond=cond)
                 self.mc.STR_rr(reg1.value, r.fp.value, r.ip.value, cond=cond)
                 self.mc.ADD_ri(r.ip.value, r.ip.value, imm=WORD, cond=cond)
                 self.mc.STR_rr(reg2.value, r.fp.value, r.ip.value, cond=cond)
                 self.mc.POP([r.ip.value], cond=cond)
             else:
-                self.mc.STR_ri(reg1.value, r.fp.value, imm=-offset.value, cond=cond)
-                self.mc.STR_ri(reg2.value, r.fp.value, imm=-offset.value+WORD, cond=cond)
+                self.mc.STR_ri(reg1.value, r.fp.value, imm=-offset, cond=cond)
+                self.mc.STR_ri(reg2.value, r.fp.value, imm=-offset+WORD, cond=cond)
         else:
             assert 0, 'unsupported case'
 
@@ -1106,7 +1107,7 @@ class AssemblerARM(ResOpAssembler):
         self.mc.gen_load_int(r.r0.value, nursery_free_adr)
         self.mc.LDR_ri(r.r0.value, r.r0.value)
 
-        if _check_imm_arg(ConstInt(size)):
+        if check_imm_arg(size):
             self.mc.ADD_ri(r.r1.value, r.r0.value, size)
         else:
             self.mc.gen_load_int(r.r1.value, size)

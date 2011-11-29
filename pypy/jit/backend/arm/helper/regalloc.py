@@ -3,17 +3,25 @@ from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm.codebuilder import AbstractARMv7Builder
 from pypy.jit.metainterp.history import ConstInt, BoxInt, Box, FLOAT
 from pypy.jit.metainterp.history import ConstInt
+from pypy.rlib.objectmodel import we_are_translated
 
-# XXX create a version that does not need a ConstInt
-def _check_imm_arg(arg, size=0xFF, allow_zero=True):
+def check_imm_arg(arg, size=0xFF, allow_zero=True):
+    assert not isinstance(arg, ConstInt)
+    if not we_are_translated():
+        if not isinstance(arg, int):
+            import pdb; pdb.set_trace()
+    i = arg
+    if allow_zero:
+        lower_bound = i >= 0
+    else:
+        lower_bound = i > 0
+    return i <= size and lower_bound
+
+def check_imm_box(arg, size=0xFF, allow_zero=True):
     if isinstance(arg, ConstInt):
-        i = arg.getint()
-        if allow_zero:
-            lower_bound = i >= 0
-        else:
-            lower_bound = i > 0
-        return i <= size and lower_bound
+        return check_imm_arg(arg.getint(), size, allow_zero)
     return False
+
 
 def prepare_op_ri(name=None, imm_size=0xFF, commutative=True, allow_zero=True):
     def f(self, op, fcond):
@@ -21,8 +29,8 @@ def prepare_op_ri(name=None, imm_size=0xFF, commutative=True, allow_zero=True):
         a0 = op.getarg(0)
         a1 = op.getarg(1)
         boxes = list(op.getarglist())
-        imm_a0 = _check_imm_arg(a0, imm_size, allow_zero=allow_zero)
-        imm_a1 = _check_imm_arg(a1, imm_size, allow_zero=allow_zero)
+        imm_a0 = check_imm_box(a0, imm_size, allow_zero=allow_zero)
+        imm_a1 = check_imm_box(a1, imm_size, allow_zero=allow_zero)
         if not imm_a0 and imm_a1:
             l0 = self._ensure_value_is_boxed(a0)
             l1 = self.make_sure_var_in_reg(a1, boxes)
@@ -101,7 +109,7 @@ def prepare_cmp_op(name=None):
         assert fcond is not None
         boxes = list(op.getarglist())
         arg0, arg1 = boxes
-        imm_a1 = _check_imm_arg(arg1)
+        imm_a1 = check_imm_box(arg1)
 
         l0 = self._ensure_value_is_boxed(arg0, forbidden_vars=boxes)
         if imm_a1:

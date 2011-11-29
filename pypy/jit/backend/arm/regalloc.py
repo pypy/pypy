@@ -8,7 +8,9 @@ from pypy.jit.backend.arm.helper.regalloc import (prepare_op_by_helper_call,
                                                     prepare_op_ri,
                                                     prepare_cmp_op,
                                                     prepare_float_op,
-                                                    _check_imm_arg)
+                                                    check_imm_arg,
+                                                    check_imm_box
+                                                    )
 from pypy.jit.backend.arm.jump import remap_frame_layout_mixed
 from pypy.jit.backend.arm.arch import MY_COPY_OF_REGS, WORD
 from pypy.jit.codewriter import longlong
@@ -102,7 +104,8 @@ class VFPRegisterManager(RegisterManager):
         assert type == FLOAT # for now
         box = TempFloat()
         self.temp_boxes.append(box)
-        return self.force_allocate_reg(box, forbidden_vars=forbidden_vars, selected_reg=selected_reg)
+        reg = self.force_allocate_reg(box, forbidden_vars=forbidden_vars, selected_reg=selected_reg)
+        return reg
 
 
 class ARMv7RegisterMananger(RegisterManager):
@@ -135,6 +138,7 @@ class ARMv7RegisterMananger(RegisterManager):
         else:
             assert isinstance(c, ConstPtr)
             return locations.ImmLocation(rffi.cast(lltype.Signed, c.value))
+        assert 0
 
     def ensure_value_is_boxed(self, thing, forbidden_vars=None):
         box = None
@@ -156,7 +160,8 @@ class ARMv7RegisterMananger(RegisterManager):
         assert type == INT or type == REF
         box = TempBox()
         self.temp_boxes.append(box)
-        return self.force_allocate_reg(box, forbidden_vars=forbidden_vars, selected_reg=selected_reg)
+        reg = self.force_allocate_reg(box, forbidden_vars=forbidden_vars, selected_reg=selected_reg)
+        return reg
 
 class Regalloc(object):
 
@@ -335,8 +340,8 @@ class Regalloc(object):
     def _prepare_op_int_add(self, op, fcond):
         boxes = list(op.getarglist())
         a0, a1 = boxes
-        imm_a0 = _check_imm_arg(a0)
-        imm_a1 = _check_imm_arg(a1)
+        imm_a0 = check_imm_box(a0)
+        imm_a1 = check_imm_box(a1)
         if not imm_a0 and imm_a1:
             l0 = self._ensure_value_is_boxed(a0)
             l1 = self.make_sure_var_in_reg(a1, boxes)
@@ -357,8 +362,8 @@ class Regalloc(object):
 
     def _prepare_op_int_sub(self, op, fcond):
         a0, a1 = boxes = op.getarglist()
-        imm_a0 = _check_imm_arg(a0)
-        imm_a1 = _check_imm_arg(a1)
+        imm_a0 = check_imm_box(a0)
+        imm_a1 = check_imm_box(a1)
         if not imm_a0 and imm_a1:
             l0 = self._ensure_value_is_boxed(a0, boxes)
             l1 = self.make_sure_var_in_reg(a1, boxes)
@@ -517,7 +522,7 @@ class Regalloc(object):
     def prepare_op_guard_value(self, op, fcond):
         boxes = list(op.getarglist())
         a0, a1 = boxes
-        imm_a1 = _check_imm_arg(a1)
+        imm_a1 = check_imm_box(a1)
         l0 = self._ensure_value_is_boxed(a0, boxes)
         if not imm_a1:
             l1 = self._ensure_value_is_boxed(a1, boxes)
@@ -616,11 +621,11 @@ class Regalloc(object):
         ofs, size, ptr = self._unpack_fielddescr(op.getdescr())
         base_loc = self._ensure_value_is_boxed(a0, boxes)
         value_loc = self._ensure_value_is_boxed(a1, boxes)
-        c_ofs = ConstInt(ofs)
-        if _check_imm_arg(c_ofs):
+        if check_imm_arg(ofs):
             ofs_loc = imm(ofs)
         else:
-            ofs_loc = self._ensure_value_is_boxed(c_ofs, boxes)
+            ofs_loc = self.get_scratch_reg(INT, boxes)
+            self.assembler.load(ofs_loc, imm(ofs))
         return [value_loc, base_loc, ofs_loc, imm(size)]
 
     prepare_op_setfield_raw = prepare_op_setfield_gc
@@ -629,11 +634,12 @@ class Regalloc(object):
         a0 = op.getarg(0)
         ofs, size, ptr = self._unpack_fielddescr(op.getdescr())
         base_loc = self._ensure_value_is_boxed(a0)
-        c_ofs = ConstInt(ofs)
-        if _check_imm_arg(c_ofs):
-            ofs_loc = imm(ofs)
+        immofs = imm(ofs)
+        if check_imm_arg(ofs):
+            ofs_loc = immofs
         else:
-            ofs_loc = self._ensure_value_is_boxed(c_ofs)
+            ofs_loc = self.get_scratch_reg(INT, [a0])
+            self.assembler.load(ofs_loc, immofs)
         self.possibly_free_vars_for_op(op)
         self.free_temp_vars()
         res = self.force_allocate_reg(op.result)
@@ -649,11 +655,12 @@ class Regalloc(object):
         args = op.getarglist()
         base_loc = self._ensure_value_is_boxed(op.getarg(0), args)
         index_loc = self._ensure_value_is_boxed(op.getarg(1), args)
-        c_ofs = ConstInt(ofs)
-        if _check_imm_arg(c_ofs):
-            ofs_loc = imm(ofs)
+        immofs = imm(ofs)
+        if check_imm_arg(ofs):
+            ofs_loc = immofs
         else:
-            ofs_loc = self._ensure_value_is_boxed(c_ofs, args)
+            ofs_loc = self.get_scratch_reg(INT, args)
+            self.assembler.load(ofs_loc, immofs)
         self.possibly_free_vars_for_op(op)
         self.free_temp_vars()
         result_loc = self.force_allocate_reg(op.result)
@@ -668,11 +675,12 @@ class Regalloc(object):
         base_loc = self._ensure_value_is_boxed(op.getarg(0), args)
         index_loc = self._ensure_value_is_boxed(op.getarg(1), args)
         value_loc = self._ensure_value_is_boxed(op.getarg(2), args)
-        c_ofs = ConstInt(ofs)
-        if _check_imm_arg(c_ofs):
-            ofs_loc = imm(ofs)
+        immofs = imm(ofs)
+        if check_imm_arg(ofs):
+            ofs_loc = immofs
         else:
-            ofs_loc = self._ensure_value_is_boxed(c_ofs, op.getarglist())
+            ofs_loc = self.get_scratch_reg(INT, args)
+            self.assembler.load(ofs_loc, immofs)
         return [base_loc, index_loc, value_loc, ofs_loc, imm(ofs),
                                         imm(itemsize), imm(fieldsize)]
 
@@ -695,7 +703,7 @@ class Regalloc(object):
         base_loc  = self._ensure_value_is_boxed(a0, args)
         ofs_loc = self._ensure_value_is_boxed(a1, args)
         value_loc = self._ensure_value_is_boxed(a2, args)
-        assert _check_imm_arg(ConstInt(base_ofs))
+        assert check_imm_arg(base_ofs)
         return [value_loc, base_loc, ofs_loc, imm(scale), imm(base_ofs)]
     prepare_op_setarrayitem_raw = prepare_op_setarrayitem_gc
 
@@ -708,7 +716,7 @@ class Regalloc(object):
         self.possibly_free_vars_for_op(op)
         self.free_temp_vars()
         res = self.force_allocate_reg(op.result)
-        assert _check_imm_arg(ConstInt(base_ofs))
+        assert check_imm_arg(base_ofs)
         return [res, base_loc, ofs_loc, imm(scale), imm(base_ofs)]
 
     prepare_op_getarrayitem_raw = prepare_op_getarrayitem_gc
@@ -719,13 +727,12 @@ class Regalloc(object):
         l0 = self._ensure_value_is_boxed(op.getarg(0))
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.STR,
                                          self.cpu.translate_support_code)
-        ofs_box = ConstInt(ofs_length)
-        imm_ofs = _check_imm_arg(ofs_box)
-
-        if imm_ofs:
-            l1 = self.make_sure_var_in_reg(ofs_box, args)
+        immofs = imm(ofs_length)
+        if check_imm_arg(ofs_length):
+            l1 = immofs
         else:
-            l1 = self._ensure_value_is_boxed(ofs_box, args)
+            l1 = self.get_scratch_reg(INT, args)
+            self.assembler.load(l1, immofs)
 
         self.possibly_free_vars_for_op(op)
         self.free_temp_vars()
@@ -739,7 +746,7 @@ class Regalloc(object):
         base_loc = self._ensure_value_is_boxed(boxes[0])
 
         a1 = boxes[1]
-        imm_a1 = _check_imm_arg(a1)
+        imm_a1 = check_imm_box(a1)
         if imm_a1:
             ofs_loc = self.make_sure_var_in_reg(a1, boxes)
         else:
@@ -771,13 +778,12 @@ class Regalloc(object):
         l0 = self._ensure_value_is_boxed(op.getarg(0))
         basesize, itemsize, ofs_length = symbolic.get_array_token(rstr.UNICODE,
                                          self.cpu.translate_support_code)
-        ofs_box = ConstInt(ofs_length)
-        imm_ofs = _check_imm_arg(ofs_box)
-
-        if imm_ofs:
-            l1 = imm(ofs_length)
+        immofs = imm(ofs_length)
+        if check_imm_arg(ofs_length):
+            l1 = immofs
         else:
-            l1 = self._ensure_value_is_boxed(ofs_box)
+            l1 = self.get_scratch_reg(INT, [op.getarg(0)])
+            self.assembler.load(l1, immofs)
 
         self.possibly_free_vars_for_op(op)
         self.free_temp_vars()
@@ -810,7 +816,7 @@ class Regalloc(object):
 
     def prepare_op_same_as(self, op, fcond):
         arg = op.getarg(0)
-        imm_arg = _check_imm_arg(arg)
+        imm_arg = check_imm_box(arg)
         if imm_arg:
             argloc = self.make_sure_var_in_reg(arg)
         else:
@@ -952,14 +958,17 @@ class Regalloc(object):
         v = op.getarg(0)
         res_v = op.result
         boxes = [v, res_v]
-        itemsize_box = ConstInt(itemsize)
-        ofs_items_box = ConstInt(ofs_items)
-        if _check_imm_arg(ofs_items_box):
-            ofs_items_loc = self.convert_to_imm(ofs_items_box)
+        immofs = imm(ofs_items)
+        if check_imm_arg(ofs_items):
+            ofs_items_loc = immofs
         else:
-            ofs_items_loc = self._ensure_value_is_boxed(ofs_items_box, boxes)
+            ofs_items_loc = self.get_scratch_reg(INT, boxes)
+            self.assembler.load(ofs_items_loc, immofs)
         vloc = self._ensure_value_is_boxed(v, [res_v])
-        size = self._ensure_value_is_boxed(itemsize_box, boxes)
+
+        size = self.get_scratch_reg(INT, boxes)
+        self.assembler.load(itemsize)
+
         self.assembler._regalloc_malloc_varsize(size, size_box,
                                 vloc, vbox, ofs_items_loc, self, res_v)
         base_loc = self.make_sure_var_in_reg(res_v)
