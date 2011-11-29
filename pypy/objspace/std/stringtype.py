@@ -365,6 +365,38 @@ def descr_fromhex(space, w_type, w_hexstring):
         W_StringObject.__init__(w_obj, chars)
         return w_obj
 
+def descr_maketrans(space, w_type, w_from, w_to):
+    """bytes.maketrans(frm, to) -> translation table
+    
+    Return a translation table (a bytes object of length 256) suitable
+    for use in the bytes or bytearray translate method where each byte
+    in frm is mapped to the byte at the same position in to.
+    The bytes objects frm and to must be of the same length."""
+    base_table = [chr(i) for i in range(256)]
+    list_from = makebytesdata_w(space, w_from)
+    list_to = makebytesdata_w(space, w_to)
+    
+    if len(list_from) != len(list_to):
+        raise OperationError(space.w_ValueError, space.wrap(
+                "maketrans arguments must have same length"))
+    
+    for i in range(len(list_from)):
+        pos_from = ord(list_from[i])
+        char_to = list_to[i]
+        base_table[pos_from] = char_to
+    
+    chars = ''.join(base_table)
+    if space.config.objspace.std.withrope:
+        from pypy.objspace.std.ropeobject import rope, W_RopeObject
+        w_obj = space.allocate_instance(W_RopeObject, w_type)
+        W_RopeObject.__init__(w_obj, rope.LiteralStringNode(chars))
+        return w_obj
+    else:
+        from pypy.objspace.std.stringobject import W_StringObject
+        w_obj = space.allocate_instance(W_StringObject, w_type)
+        W_StringObject.__init__(w_obj, chars)
+        return w_obj
+
 # ____________________________________________________________
 
 str_typedef = StdTypeDef("bytes",
@@ -378,7 +410,8 @@ str_typedef = StdTypeDef("bytes",
               '    - a text string encoded using the specified encoding\n'
               '    - a bytes or a buffer object\n'
               '    - any object implementing the buffer API.',
-    fromhex = gateway.interp2app(descr_fromhex, as_classmethod=True)
+    fromhex = gateway.interp2app(descr_fromhex, as_classmethod=True),
+    maketrans = gateway.interp2app(descr_maketrans, as_classmethod=True),
     )
 
 str_typedef.registermethods(globals())

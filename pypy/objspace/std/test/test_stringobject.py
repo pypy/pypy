@@ -728,6 +728,34 @@ class AppTestStringObject:
         x = b"A" * (2**16)
         raises(OverflowError, x.replace, b'', x)
 
+    def test_compatibility(self):
+        #a whole bunch of methods should accept bytearray/memoryview without complaining...
+        #I don't know how slavishly we should follow the cpython spec here, since it appears
+        #quite arbitrary in which methods accept only bytes as secondary arguments or
+        #anything with the buffer protocol
+        
+        b = b'hello world'
+        b2 = b'ello'
+        #not testing result, just lack of TypeError
+        for bb in (b2, bytearray(b2), memoryview(b2)):
+            assert b.split(bb)
+            assert b.rsplit(bb)
+            assert b.split(bb[:1])
+            assert b.rsplit(bb[:1])
+            assert b.join((bb, bb)) # cpython accepts bytes and
+                                    # bytearray only, not buffer
+            assert bb in b
+            assert b.find(bb)
+            assert b.rfind(bb)
+            assert b.strip(bb)
+            assert b.rstrip(bb)
+            assert b.lstrip(bb)
+            assert not b.startswith(bb)
+            assert not b.startswith((bb, bb))
+            assert not b.endswith(bb)
+            assert not b.endswith((bb, bb))
+            assert b.maketrans(bb, bb)
+
 class AppTestPrebuilt(AppTestStringObject):
     def setup_class(cls):
         cls.space = gettestobjspace(**{"objspace.std.withprebuiltchar": True})

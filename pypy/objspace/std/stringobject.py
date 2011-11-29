@@ -250,10 +250,10 @@ def str_split__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
 
     return space.newlist(res_w)
 
-def str_split__String_String_ANY(space, w_self, w_by, w_maxsplit=-1):
+def str_split__String_ANY_ANY(space, w_self, w_by, w_maxsplit=-1):
     maxsplit = space.int_w(w_maxsplit)
     value = w_self._value
-    by = w_by._value
+    by = space.bufferstr_w(w_by)
     bylen = len(by)
     if bylen == 0:
         raise OperationError(space.w_ValueError, space.wrap("empty separator"))
@@ -324,12 +324,19 @@ def str_rsplit__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
 def make_rsplit_with_delim(funcname, sliced):
     from pypy.tool.sourcetools import func_with_new_name
 
+    if 'Unicode' in funcname:
+        def unwrap_sep(space, w_by):
+            return w_by.value
+    else:
+        def unwrap_sep(space, w_by):
+            return space.bufferstr_w(w_by)
+
     def fn(space, w_self, w_by, w_maxsplit=-1):
         maxsplit = space.int_w(w_maxsplit)
         res_w = []
         value = w_self._value
         end = len(value)
-        by = w_by._value
+        by = unwrap_sep(space, w_by)
         bylen = len(by)
         if bylen == 0:
             raise OperationError(space.w_ValueError, space.wrap("empty separator"))
@@ -348,8 +355,8 @@ def make_rsplit_with_delim(funcname, sliced):
 
     return func_with_new_name(fn, funcname)
 
-str_rsplit__String_String_ANY = make_rsplit_with_delim('str_rsplit__String_String_ANY',
-                                                       sliced)
+str_rsplit__String_ANY_ANY = make_rsplit_with_delim(
+    'str_rsplit__String_ANY_ANY', sliced)
 
 def str_join__String_ANY(space, w_self, w_list):
     list_w = space.listview(w_list)
@@ -372,18 +379,22 @@ def _str_join_many_items(space, w_self, list_w, size):
     reslen = len(self) * (size - 1)
     for i in range(size):
         w_s = list_w[i]
-        if not space.isinstance_w(w_s, space.w_bytes):
+        try:
+            item = space.bufferstr_w(w_s)
+        except OperationError, e:
+            if not e.match(space, space.w_TypeError):
+                raise
             raise operationerrfmt(
                 space.w_TypeError,
                 "sequence item %d: expected bytes, %s "
                 "found", i, space.type(w_s).getname(space))
-        reslen += len(space.bytes_w(w_s))
+        reslen += len(item)
 
     sb = StringBuilder(reslen)
     for i in range(size):
         if self and i != 0:
             sb.append(self)
-        sb.append(space.bytes_w(list_w[i]))
+        sb.append(space.bufferstr_w(list_w[i]))
     return space.wrapbytes(sb.build())
 
 def str_rjust__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
@@ -426,6 +437,11 @@ def _convert_idx_params(space, w_self, w_start, w_end, upper_bound=False):
             space, lenself, w_start, w_end, upper_bound=upper_bound)
     return (self, start, end)
 
+def contains__String_ANY(space, w_self, w_sub):
+    self = w_self._value
+    sub = space.bufferstr_w(w_sub)
+    return space.newbool(self.find(sub) >= 0)
+
 def contains__String_String(space, w_self, w_sub):
     self = w_self._value
     sub = w_sub._value
@@ -436,13 +452,23 @@ def contains__String_Int(space, w_self, w_char):
     char = w_char.intval
     return space.newbool(self.find(chr(char)) >= 0)
 
+def str_find__String_ANY_ANY_ANY(space, w_self, w_sub, w_start, w_end):
+    (self, start, end) = _convert_idx_params(space, w_self, w_start, w_end)
+    res = self.find(space.bufferstr_w(w_sub), start, end)
+    return space.wrap(res)
+
 def str_find__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
-    (self, start, end) =  _convert_idx_params(space, w_self, w_start, w_end)
+    (self, start, end) = _convert_idx_params(space, w_self, w_start, w_end)
     res = self.find(w_sub._value, start, end)
     return space.wrap(res)
 
+def str_rfind__String_ANY_ANY_ANY(space, w_self, w_sub, w_start, w_end):
+    (self, start, end) = _convert_idx_params(space, w_self, w_start, w_end)
+    res = self.rfind(space.bufferstr_w(w_sub), start, end)
+    return space.wrap(res)
+
 def str_rfind__String_String_ANY_ANY(space, w_self, w_sub, w_start, w_end):
-    (self, start, end) =  _convert_idx_params(space, w_self, w_start, w_end)
+    (self, start, end) = _convert_idx_params(space, w_self, w_start, w_end)
     res = self.rfind(w_sub._value, start, end)
     return space.wrap(res)
 
@@ -554,7 +580,7 @@ def str_replace__String_String_String_ANY(space, w_self, w_sub, w_by, w_maxsplit
 def _strip(space, w_self, w_chars, left, right):
     "internal function called by str_xstrip methods"
     u_self = w_self._value
-    u_chars = w_chars._value
+    u_chars = space.bufferstr_w(w_chars)
 
     lpos = 0
     rpos = len(u_self)
@@ -590,20 +616,20 @@ def _strip_none(space, w_self, left, right):
     assert rpos >= lpos    # annotator hint, don't remove
     return sliced(space, u_self, lpos, rpos, w_self)
 
-def str_strip__String_String(space, w_self, w_chars):
+def str_strip__String_ANY(space, w_self, w_chars):
     return _strip(space, w_self, w_chars, left=1, right=1)
 
 def str_strip__String_None(space, w_self, w_chars):
     return _strip_none(space, w_self, left=1, right=1)
 
-def str_rstrip__String_String(space, w_self, w_chars):
+def str_rstrip__String_ANY(space, w_self, w_chars):
     return _strip(space, w_self, w_chars, left=0, right=1)
 
 def str_rstrip__String_None(space, w_self, w_chars):
     return _strip_none(space, w_self, left=0, right=1)
 
 
-def str_lstrip__String_String(space, w_self, w_chars):
+def str_lstrip__String_ANY(space, w_self, w_chars):
     return _strip(space, w_self, w_chars, left=1, right=0)
 
 def str_lstrip__String_None(space, w_self, w_chars):
@@ -633,6 +659,12 @@ def str_count__String_String_ANY_ANY(space, w_self, w_arg, w_start, w_end):
     u_self, u_start, u_end = _convert_idx_params(space, w_self, w_start, w_end)
     return wrapint(space, u_self.count(w_arg._value, u_start, u_end))
 
+def str_endswith__String_ANY_ANY_ANY(space, w_self, w_suffix, w_start, w_end):
+    (u_self, start, end) = _convert_idx_params(space, w_self, w_start,
+                                               w_end, True)
+    return space.newbool(stringendswith(u_self, space.bufferstr_w(w_suffix),
+                                           start, end))
+
 def str_endswith__String_String_ANY_ANY(space, w_self, w_suffix, w_start, w_end):
     (u_self, start, end) = _convert_idx_params(space, w_self, w_start,
                                                w_end, True)
@@ -642,14 +674,16 @@ def str_endswith__String_Tuple_ANY_ANY(space, w_self, w_suffixes, w_start, w_end
     (u_self, start, end) = _convert_idx_params(space, w_self, w_start,
                                                w_end, True)
     for w_suffix in space.fixedview(w_suffixes):
-        if space.isinstance_w(w_suffix, space.w_unicode):
-            w_u = space.call_function(space.w_unicode, w_self)
-            return space.call_method(w_u, "endswith", w_suffixes, w_start,
-                                     w_end)
-        suffix = space.bytes_w(w_suffix)
+        suffix = space.bufferstr_w(w_suffix)
         if stringendswith(u_self, suffix, start, end):
             return space.w_True
     return space.w_False
+
+def str_startswith__String_ANY_ANY_ANY(space, w_self, w_prefix, w_start, w_end):
+    (u_self, start, end) = _convert_idx_params(space, w_self, w_start,
+                                               w_end, True)
+    return space.newbool(stringstartswith(u_self, space.bufferstr_w(w_prefix),
+                                          start, end))
 
 def str_startswith__String_String_ANY_ANY(space, w_self, w_prefix, w_start, w_end):
     (u_self, start, end) = _convert_idx_params(space, w_self, w_start,
@@ -660,11 +694,7 @@ def str_startswith__String_Tuple_ANY_ANY(space, w_self, w_prefixes, w_start, w_e
     (u_self, start, end) = _convert_idx_params(space, w_self,
                                                w_start, w_end, True)
     for w_prefix in space.fixedview(w_prefixes):
-        if space.isinstance_w(w_prefix, space.w_unicode):
-            w_u = space.call_function(space.w_unicode, w_self)
-            return space.call_method(w_u, "startswith", w_prefixes, w_start,
-                                     w_end)
-        prefix = space.bytes_w(w_prefix)
+        prefix = space.bufferstr_w(w_prefix)
         if stringstartswith(u_self, prefix, start, end):
             return space.w_True
     return space.w_False
