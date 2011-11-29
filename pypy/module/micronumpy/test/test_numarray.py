@@ -176,8 +176,7 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_size(self):
         from numpypy import array
-        # XXX fixed on multidim branch
-        #assert array(3).size == 1
+        assert array(3).size == 1
         a = array([1, 2, 3])
         assert a.size == 3
         assert (a + a).size == 3
@@ -302,12 +301,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[3] == 0.
 
     def test_scalar(self):
-        from numpypy import array
+        from numpypy import array, dtype
         a = array(3)
         #assert a[0] == 3
         raises(IndexError, "a[0]")
         assert a.size == 1
         assert a.shape == ()
+        assert a.dtype is dtype(int)
 
     def test_len(self):
         from numpypy import array
@@ -749,6 +749,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert not bool(array(0))
         assert bool(array([1]))
         assert not bool(array([0]))
+
+    def test_slice_assignment(self):
+        from numpypy import arange
+        a = arange(5)
+        a[::-1] = a
+        assert (a == [0, 1, 2, 1, 0]).all()
 
 
 class AppTestMultiDim(BaseNumpyAppTest):

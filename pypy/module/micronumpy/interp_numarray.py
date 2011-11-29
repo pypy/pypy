@@ -102,11 +102,12 @@ def descr_new_array(space, w_subtype, w_item_or_iterable, w_dtype=None,
                     w_order=NoneNotWrapped):
     # find scalar
     if not space.issequence_w(w_item_or_iterable):
-        w_dtype = interp_ufuncs.find_dtype_for_scalar(space,
-                                                      w_item_or_iterable,
-                                                      w_dtype)
+        if space.is_w(w_dtype, space.w_None):
+            w_dtype = interp_ufuncs.find_dtype_for_scalar(space,
+                                                          w_item_or_iterable)
         dtype = space.interp_w(interp_dtype.W_Dtype,
-           space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype))
+            space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
+        )
         return scalar_w(space, dtype, w_item_or_iterable)
     if w_order is None:
         order = 'C'
@@ -179,10 +180,10 @@ class ArrayIterator(BaseIterator):
         return self.offset
 
 class OneDimIterator(BaseIterator):
-    def __init__(self, start, step, size):
+    def __init__(self, start, step, stop):
         self.offset = start
         self.step = step
-        self.size = size
+        self.size = stop * step + start
 
     def next(self, shapelen):
         arr = instantiate(OneDimIterator)
@@ -192,7 +193,7 @@ class OneDimIterator(BaseIterator):
         return arr
 
     def done(self):
-        return self.offset >= self.size
+        return self.offset == self.size
 
     def get_offset(self):
         return self.offset
@@ -717,21 +718,15 @@ class BaseArray(Wrappable):
 
     def descr_setitem(self, space, w_idx, w_value):
         self.invalidated()
-        concrete = self.get_concrete()
         if self._single_item_result(space, w_idx):
+            concrete = self.get_concrete()
             if len(concrete.shape) < 1:
                 raise OperationError(space.w_IndexError, space.wrap(
                         "0-d arrays can't be indexed"))
             item = concrete._index_of_single_item(space, w_idx)
             concrete.setitem_w(space, item, w_value)
             return
-        if isinstance(w_value, BaseArray):
-            # for now we just copy if setting part of an array from part of
-            # itself. can be improved.
-            if (concrete.get_root_storage() ==
-                w_value.get_concrete().get_root_storage()):
-                w_value = w_value.descr_copy(space)
-        else:
+        if not isinstance(w_value, BaseArray):
             w_value = convert_to_array(space, w_value)
         chunks = self._prepare_slice_args(space, w_idx)
         view = self.create_slice(space, chunks)
@@ -968,9 +963,9 @@ class Call1(VirtualArray):
         call_sig = sig.components[0]
         assert isinstance(call_sig, signature.Call1)
         if self.forced_result is not None:
-            return 'Call1(%s, forced=%s)' % (call_sig.func.func_name,
+            return 'Call1(%s, forced=%s)' % (call_sig.name,
                                              self.forced_result.debug_repr())
-        return 'Call1(%s, %s)' % (call_sig.func.func_name,
+        return 'Call1(%s, %s)' % (call_sig.name,
                                   self.values.debug_repr())
 
 class Call2(VirtualArray):
@@ -1018,9 +1013,9 @@ class Call2(VirtualArray):
         call_sig = sig.components[0]
         assert isinstance(call_sig, signature.Call2)
         if self.forced_result is not None:
-            return 'Call2(%s, forced=%s)' % (call_sig.func.func_name,
+            return 'Call2(%s, forced=%s)' % (call_sig.name,
                 self.forced_result.debug_repr())
-        return 'Call2(%s, %s, %s)' % (call_sig.func.func_name,
+        return 'Call2(%s, %s, %s)' % (call_sig.name,
             self.left.debug_repr(),
             self.right.debug_repr())
 
@@ -1108,8 +1103,8 @@ class NDimSlice(ViewArray):
     def start_iter(self, res_shape=None):
         if res_shape is not None and res_shape != self.shape:
             return BroadcastIterator(self, res_shape)
-        # XXX there is a possible optimization here with SingleDimViewIterator
-        #     ignore for now
+        if len(self.shape) == 1:
+            return OneDimIterator(self.start, self.strides[0], self.shape[0])
         return ViewIterator(self)
 
     def setitem(self, item, value):
