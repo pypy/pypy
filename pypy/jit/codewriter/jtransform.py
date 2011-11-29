@@ -1134,7 +1134,7 @@ class Transformer(object):
 
     def rewrite_op_llong_is_true(self, op):
         v = varoftype(op.args[0].concretetype)
-        op0 = SpaceOperation('cast_int_to_longlong',
+        op0 = SpaceOperation('cast_primitive',
                              [Constant(0, lltype.Signed)],
                              v)
         args = [op.args[0], v]
