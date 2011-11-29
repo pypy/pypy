@@ -112,6 +112,7 @@ class AppTestStringObject:
         assert b"".split(b'x') == [b'']
         assert b" ".split() == []
         assert b"a".split() == [b'a']
+        assert b"a".split(b"aa") == [b'a']
         assert b"a".split(b"a", 1) == [b'', b'']
         assert b" ".split(b" ", 1) == [b'', b'']
         assert b"aa".split(b"a", 2) == [b'', b'', b'']
@@ -131,6 +132,8 @@ class AppTestStringObject:
         assert b'a//b//c//d'.split(b'//') == [b'a', b'b', b'c', b'd']
         assert b'endcase test'.split(b'test') == [b'endcase ', b'']
         raises(ValueError, b'abc'.split, b'')
+        raises(TypeError, b'abc'.split, 123)
+        raises(TypeError, b'abc'.split, None, 1.0)
 
     def test_rsplit(self):
         assert b"".rsplit() == []
@@ -155,9 +158,6 @@ class AppTestStringObject:
         assert b'a//b//c//d'.rsplit(b'//') == [b'a', b'b', b'c', b'd']
         assert b'endcase test'.rsplit(b'test') == [b'endcase ', b'']
         raises(ValueError, b'abc'.rsplit, b'')
-
-    def test_split_splitchar(self):
-        assert b"/a/b/c".split(b'/') == [b'',b'a',b'b',b'c']
 
     def test_title(self):
         assert b"brown fox".title() == b"Brown Fox"
@@ -200,8 +200,13 @@ class AppTestStringObject:
         assert b'abc'.rjust(3) == b'abc'
         assert b'abc'.rjust(2) == b'abc'
         assert b'abc'.rjust(5, b'*') == b'**abc'     # Python 2.4
+        assert b'abc'.rjust(0) == b'abc'
+        assert b'abc'.rjust(-1) == b'abc'
+        raises(TypeError, b'abc'.rjust, 5.0)
         raises(TypeError, b'abc'.rjust, 5, '*')
         raises(TypeError, b'abc'.rjust, 5, b'xx')
+        raises(TypeError, b'abc'.rjust, 5, bytearray(b' '))
+        raises(TypeError, b'abc'.rjust, 5, 32)
 
     def test_ljust(self):
         s = b"abc"
@@ -282,7 +287,10 @@ class AppTestStringObject:
         assert b'abc'.center(3) == b'abc'
         assert b'abc'.center(2) == b'abc'
         assert b'abc'.center(5, b'*') == b'*abc*'     # Python 2.4
+        assert b'abc'.center(0) == b'abc'
+        assert b'abc'.center(-1) == b'abc'
         raises(TypeError, b'abc'.center, 4, b'cba')
+        raises(TypeError, b'abc'.center, 5, bytearray(b' '))
         assert b' abc'.center(7) == b'   abc '
 
     def test_count(self):
@@ -307,6 +315,8 @@ class AppTestStringObject:
         assert b''.startswith(b'') is True
         assert b''.startswith(b'a') is False
         assert b'x'.startswith(b'xx') is False
+        assert b'hello'.startswith((bytearray(b'he'), bytearray(b'hel')))
+        assert b'hello'.startswith((b'he', None, 123))
         assert b'y'.startswith(b'xx') is False
 
     def test_startswith_more(self):
@@ -380,6 +390,9 @@ class AppTestStringObject:
         assert b'xy'.expandtabs() == b'xy'
         assert b''.expandtabs() == b''
 
+        assert b'x\t\t'.expandtabs(-1) == b'x'
+        assert b'x\t\t'.expandtabs(0) == b'x'
+
         raises(OverflowError, b"t\tt\t".expandtabs, sys.maxint)
 
     def test_expandtabs_overflows_gracefully(self):
@@ -416,6 +429,9 @@ class AppTestStringObject:
         assert b'abcdefghiabc'.find(b'def', 4) == -1
         assert b'abcdef'.find(b'', 13) == -1
         assert b'abcdefg'.find(b'def', 5, None) == -1
+        assert b'abcdef'.find(b'd', 6, 0) == -1
+        assert b'abcdef'.find(b'd', 3, 3) == -1
+        raises(TypeError, b'abcdef'.find, b'd', 1.0)
 
     def test_index(self):
         from sys import maxint
@@ -647,9 +663,13 @@ class AppTestStringObject:
         assert not b'd' in b'abc'
         assert 97 in b'a'
         raises(TypeError, b'a'.__contains__, 1.0)
+        raises(ValueError, b'a'.__contains__, 256)
+        raises(ValueError, b'a'.__contains__, -1)
+        raises(TypeError, b'a'.__contains__, None)
 
     def test_decode(self):
         assert b'hello'.decode('ascii') == 'hello'
+        raises(UnicodeDecodeError, b'he\x97lo'.decode, 'ascii')
 
     def test_encode(self):
         assert 'hello'.encode() == b'hello'

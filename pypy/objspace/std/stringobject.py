@@ -450,7 +450,11 @@ def contains__String_String(space, w_self, w_sub):
 def contains__String_Int(space, w_self, w_char):
     self = w_self._value
     char = w_char.intval
-    return space.newbool(self.find(chr(char)) >= 0)
+    if 0 <= char < 256:
+        return space.newbool(self.find(chr(char)) >= 0)
+    else:
+        raise OperationError(space.w_ValueError,
+                             space.wrap("character must be in range(256)"))
 
 def str_find__String_ANY_ANY_ANY(space, w_self, w_sub, w_start, w_end):
     (self, start, end) = _convert_idx_params(space, w_self, w_start, w_end)
@@ -701,6 +705,9 @@ def str_startswith__String_Tuple_ANY_ANY(space, w_self, w_prefixes, w_start, w_e
 
 def _tabindent(u_token, u_tabsize):
     "calculates distance behind the token to the next tabstop"
+
+    if u_tabsize <= 0:
+        return u_tabsize
 
     distance = u_tabsize
     if u_token:
