@@ -1072,9 +1072,6 @@ class NDimSlice(ViewArray):
         for sh in shape:
             self.size *= sh
 
-    def get_root_storage(self):
-        return self.parent.get_concrete().get_root_storage()
-
     def find_size(self):
         return self.size
 
@@ -1126,9 +1123,6 @@ class NDimArray(BaseArray):
 
     def get_concrete(self):
         return self
-
-    def get_root_storage(self):
-        return self.storage
 
     def find_size(self):
         return self.size
