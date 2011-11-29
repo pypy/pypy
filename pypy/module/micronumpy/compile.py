@@ -69,8 +69,12 @@ class FakeSpace(object):
             if start < 0:
                 start += size
             if stop < 0:
-                stop += size
-            return (start, stop, step, size//step)
+                stop += size + 1
+            if step < 0:
+                lgt = (stop - start + 1) / step + 1
+            else:
+                lgt = (stop - start - 1) / step + 1
+            return (start, stop, step, lgt)
 
     @specialize.argtype(1)
     def wrap(self, obj):
@@ -216,22 +220,12 @@ class ArrayAssignment(Node):
 
     def execute(self, interp):
         arr = interp.variables[self.name]
+        w_index = self.index.execute(interp)
+        # cast to int
+        if isinstance(w_index, FloatObject):
+            w_index = IntObject(int(w_index.floatval))
+        w_val = self.expr.execute(interp)
         assert isinstance(arr, BaseArray)
-        if isinstance(self.index, SliceConstant):
-            w_index = self.index.wrap(interp.space)
-            w_val = self.expr.execute(interp)
-        else:
-            w_index = self.index.execute(interp)
-            assert isinstance(w_index, BaseArray)
-            w_index = w_index.eval(arr.start_iter())
-            # cast to int
-            if isinstance(w_index, FloatObject):
-                w_index = IntObject(int(w_index.floatval))
-            elif isinstance(w_index, interp_boxes.W_Float64Box):
-                w_index = IntObject(int(w_index.value))
-            w_val = self.expr.execute(interp)
-            assert isinstance(w_val, BaseArray)
-            w_val = w_val.eval(arr.start_iter())
         arr.descr_setitem(interp.space, w_index, w_val)
 
     def __repr__(self):
@@ -259,6 +253,10 @@ class Operator(Node):
             w_rhs = self.rhs.wrap(interp.space)
         else:
             w_rhs = self.rhs.execute(interp)
+        if not isinstance(w_lhs, BaseArray):
+            # scalar
+            dtype = get_dtype_cache(interp.space).w_float64dtype
+            w_lhs = scalar_w(interp.space, dtype, w_lhs)
         assert isinstance(w_lhs, BaseArray)
         if self.name == '+':
             w_res = w_lhs.descr_add(interp.space, w_rhs)
@@ -267,8 +265,10 @@ class Operator(Node):
         elif self.name == '-':
             w_res = w_lhs.descr_sub(interp.space, w_rhs)
         elif self.name == '->':
-            if isinstance(w_rhs, Scalar):
-                w_rhs = w_rhs.eval(w_rhs.start_iter()).descr_int(interp.space)
+            assert not isinstance(w_rhs, Scalar)
+            if isinstance(w_rhs, FloatObject):
+                w_rhs = IntObject(int(w_rhs.floatval))
+            assert isinstance(w_lhs, BaseArray)
             w_res = w_lhs.descr_getitem(interp.space, w_rhs)
         else:
             raise NotImplementedError
@@ -292,8 +292,7 @@ class FloatConstant(Node):
         return space.wrap(self.v)
 
     def execute(self, interp):
-        dtype = get_dtype_cache(interp.space).w_float64dtype
-        return Scalar(dtype, dtype.box(self.v))
+        return interp.space.wrap(self.v)
 
 class RangeConstant(Node):
     def __init__(self, v):
@@ -341,6 +340,9 @@ class SliceConstant(Node):
         self.step = step
 
     def wrap(self, space):
+        return SliceObject(self.start, self.stop, self.step)
+
+    def execute(self, interp):
         return SliceObject(self.start, self.stop, self.step)
 
     def __repr__(self):

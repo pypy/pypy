@@ -711,7 +711,7 @@ class MiniMarkGC(MovingGCBase):
             #
             # Record the newly allocated object and its full malloced size.
             # The object is young or old depending on the argument.
-            self.rawmalloced_total_size += allocsize
+            self.rawmalloced_total_size += r_uint(allocsize)
             if can_make_young:
                 if not self.young_rawmalloced_objects:
                     self.young_rawmalloced_objects = self.AddressDict()
@@ -886,8 +886,8 @@ class MiniMarkGC(MovingGCBase):
         #return (num_bits + (LONG_BIT - 1)) >> LONG_BIT_SHIFT
         # --- Optimized version:
         return intmask(
-            ((r_uint(length) + ((LONG_BIT << self.card_page_shift) - 1)) >>
-             (self.card_page_shift + LONG_BIT_SHIFT)))
+          ((r_uint(length) + r_uint((LONG_BIT << self.card_page_shift) - 1)) >>
+           (self.card_page_shift + LONG_BIT_SHIFT)))
 
     def card_marking_bytes_for_length(self, length):
         # --- Unoptimized version:
@@ -895,7 +895,7 @@ class MiniMarkGC(MovingGCBase):
         #return (num_bits + 7) >> 3
         # --- Optimized version:
         return intmask(
-            ((r_uint(length) + ((8 << self.card_page_shift) - 1)) >>
+            ((r_uint(length) + r_uint((8 << self.card_page_shift) - 1)) >>
              (self.card_page_shift + 3)))
 
     def debug_check_consistency(self):
@@ -1523,7 +1523,7 @@ class MiniMarkGC(MovingGCBase):
         llarena.arena_reserve(arena, totalsize)
         #
         size_gc_header = self.gcheaderbuilder.size_gc_header
-        self.rawmalloced_total_size += raw_malloc_usage(totalsize)
+        self.rawmalloced_total_size += r_uint(raw_malloc_usage(totalsize))
         self.old_rawmalloced_objects.append(arena + size_gc_header)
         return arena
 
@@ -1689,7 +1689,7 @@ class MiniMarkGC(MovingGCBase):
                 allocsize += extra_words * WORD
             #
             llarena.arena_free(arena)
-            self.rawmalloced_total_size -= allocsize
+            self.rawmalloced_total_size -= r_uint(allocsize)
 
     def free_unvisited_rawmalloc_objects(self):
         list = self.old_rawmalloced_objects

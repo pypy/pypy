@@ -10,6 +10,7 @@ from pypy.rpython.lltypesystem import lltype, rffi
 
 
 def simple_unary_op(func):
+    specialize.argtype(1)(func)
     @functools.wraps(func)
     def dispatcher(self, v):
         return self.box(
@@ -21,6 +22,7 @@ def simple_unary_op(func):
     return dispatcher
 
 def simple_binary_op(func):
+    specialize.argtype(1, 2)(func)
     @functools.wraps(func)
     def dispatcher(self, v1, v2):
         return self.box(
@@ -33,6 +35,7 @@ def simple_binary_op(func):
     return dispatcher
 
 def raw_binary_op(func):
+    specialize.argtype(1, 2)(func)
     @functools.wraps(func)
     def dispatcher(self, v1, v2):
         return func(self,

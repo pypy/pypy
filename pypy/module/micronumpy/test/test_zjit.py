@@ -11,7 +11,8 @@ from pypy.jit.metainterp.warmspot import reset_stats
 from pypy.module.micronumpy import interp_boxes, interp_ufuncs, signature
 from pypy.module.micronumpy.compile import (numpy_compile, FakeSpace,
     FloatObject, IntObject, BoolObject, Parser, InterpreterState)
-from pypy.module.micronumpy.interp_numarray import BaseArray, NDimArray, NDimSlice
+from pypy.module.micronumpy.interp_numarray import (NDimArray, NDimSlice,
+     BaseArray)
 from pypy.rlib.nonconst import NonConstant
 from pypy.rpython.annlowlevel import llstr, hlstr
 
@@ -242,10 +243,28 @@ class TestNumpyJIt(LLJitMixin):
     def test_slice(self):
         result = self.run("slice")
         assert result == 18
-        py.test.skip("Few remaining arraylen_gc left")
-        self.check_simple_loop({'int_mul': 2, 'getinteriorfield_raw': 2, 'float_add': 1,
+        self.check_simple_loop({'getinteriorfield_raw': 2,
+                                'float_add': 1,
+                                'setinteriorfield_raw': 1,
+                                'int_add': 3,
+                                'int_ge': 1, 'guard_false': 1,
+                                'jump': 1})
+
+    def define_slice2():
+        return """
+        a = |30|
+        s1 = a -> :20:2
+        s2 = a -> :30:3
+        b = s1 + s2
+        b -> 3
+        """
+
+    def test_slice2(self):
+        result = self.run("slice2")
+        assert result == 15
+        self.check_simple_loop({'getinteriorfield_raw': 2, 'float_add': 1,
                                 'setinteriorfield_raw': 1, 'int_add': 3,
-                                'int_lt': 1, 'guard_true': 1, 'jump': 1})
+                                'int_ge': 1, 'guard_false': 1, 'jump': 1})
 
     def define_multidim():
         return """
@@ -306,10 +325,10 @@ class TestNumpyJIt(LLJitMixin):
     def test_setslice(self):
         result = self.run("setslice")
         assert result == 11.0
-        py.test.skip("generates 2 loops ATM, investigate")
-        self.check_simple_loop({'getarrayitem_raw': 2, 'float_add' : 1,
-                                'setarrayitem_raw': 1, 'int_add': 2,
-                                'int_lt': 1, 'guard_true': 1, 'jump': 1})
+        self.check_loop_count(1)
+        self.check_simple_loop({'getinteriorfield_raw': 2, 'float_add' : 1,
+                                'setinteriorfield_raw': 1, 'int_add': 3,
+                                'int_eq': 1, 'guard_false': 1, 'jump': 1})
 
 class TestNumpyOld(LLJitMixin):
     def setup_class(cls):
@@ -319,49 +338,6 @@ class TestNumpyOld(LLJitMixin):
 
         cls.space = FakeSpace()
         cls.float64_dtype = get_dtype_cache(cls.space).w_float64dtype
-
-    def test_slice(self):
-        def f(i):
-            step = 3
-            ar = SingleDimArray(step*i, dtype=self.float64_dtype)
-            new_sig = signature.Signature.find_sig([
-                SingleDimSlice.signature, ar.signature
-            ])
-            s = SingleDimSlice(0, step*i, step, i, ar, new_sig)
-            v = interp_ufuncs.get(self.space).add.call(self.space, [s, s])
-            v = v.get_concrete().eval(3)
-            assert isinstance(v, interp_boxes.W_Float64Box)
-            return v.value
-
-        result = self.meta_interp(f, [5], listops=True, backendopt=True)
-        self.check_loops({'int_mul': 1, 'getinteriorfield_raw': 2, 'float_add': 1,
-                          'setinteriorfield_raw': 1, 'int_add': 1,
-                          'int_lt': 1, 'guard_true': 1, 'jump': 1})
-        assert result == f(5)
-
-    def test_slice2(self):
-        def f(i):
-            step1 = 2
-            step2 = 3
-            ar = NDimArray(step2*i, dtype=self.float64_dtype)
-            new_sig = signature.Signature.find_sig([
-                NDimSlice.signature, ar.signature
-            ])
-            s1 = NDimSlice(0, step1*i, step1, i, ar, new_sig)
-            new_sig = signature.Signature.find_sig([
-                NDimSlice.signature, s1.signature
-            ])
-            s2 = NDimSlice(0, step2*i, step2, i, ar, new_sig)
-            v = interp_ufuncs.get(self.space).add.call(self.space, [s1, s2])
-            v = v.get_concrete().eval(3)
-            assert isinstance(v, interp_boxes.W_Float64Box)
-            return v.value
-
-        result = self.meta_interp(f, [5], listops=True, backendopt=True)
-        self.check_simple_loop({'int_mul': 2, 'getinteriorfield_raw': 2, 'float_add': 1,
-                                'setinteriorfield_raw': 1, 'int_add': 1,
-                                'int_lt': 1, 'guard_true': 1, 'jump': 1})
-        assert result == f(5)
 
     def test_int32_sum(self):
         py.test.skip("pypy/jit/backend/llimpl.py needs to be changed to "

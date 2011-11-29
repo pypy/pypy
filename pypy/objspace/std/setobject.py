@@ -453,12 +453,12 @@ def hash__Frozenset(space, w_set):
     multi = r_uint(1822399083) + r_uint(1822399083) + 1
     if w_set.hash != 0:
         return space.wrap(w_set.hash)
-    hash = 1927868237
-    hash *= (len(w_set.setdata) + 1)
+    hash = r_uint(1927868237)
+    hash *= r_uint(len(w_set.setdata) + 1)
     for w_item in w_set.setdata:
         h = space.hash_w(w_item)
-        value = ((h ^ (h << 16) ^ 89869747)  * multi)
-        hash = intmask(hash ^ value)
+        value = (r_uint(h ^ (h << 16) ^ 89869747)  * multi)
+        hash = hash ^ value
     hash = hash * 69069 + 907133923
     if hash == 0:
         hash = 590923713
