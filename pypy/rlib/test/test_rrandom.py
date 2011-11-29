@@ -1,4 +1,5 @@
 from pypy.rlib.rrandom import Random, N, r_uint
+from pypy.rlib.rarithmetic import intmask
 import _random
 
 # the numbers were created by using CPython's _randommodule.c
@@ -24,13 +25,13 @@ def test_numbers():
 
 def test_init_by_array():
     rnd = Random()
-    rnd.init_by_array([1, 2, 3, 4])
+    rnd.init_by_array([r_uint(n) for n in [1, 2, 3, 4]])
     assert rnd.state[:14] == [2147483648, 1269538435, 699006892, 381364451,
             172015551, 3237099449, 3609464087, 2187366456, 654585064,
             2665903765, 3735624613, 1241943673, 2038528247, 3774211972]
     # try arrays of various sizes to test for corner cases
     for size in [N, N - 1, N + 1, N // 2, 2 * N]:
-        rnd.init_by_array(range(N))
+        rnd.init_by_array([r_uint(n) for n in range(N)])
 
 def test_jumpahead():
     rnd = Random()
@@ -47,8 +48,8 @@ def test_translate():
     def f(x, y):
         rnd = Random(x)
         rnd.init_by_array([x, y])
-        rnd.jumpahead(y)
+        rnd.jumpahead(intmask(y))
         return rnd.genrand32(), rnd.random()
     t = Translation(f)
-    fc = t.compile_c([int, int])
-    assert fc(1, 2) == f(1, 2)
+    fc = t.compile_c([r_uint, r_uint])
+    assert fc(r_uint(1), r_uint(2)) == f(r_uint(1), r_uint(2))

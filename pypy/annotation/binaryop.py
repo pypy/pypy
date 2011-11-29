@@ -252,7 +252,26 @@ class __extend__(pairtype(SomeInteger, SomeInteger)):
     # unsignedness is considered a rare and contagious disease
 
     def union((int1, int2)):
-        knowntype = rarithmetic.compute_restype(int1.knowntype, int2.knowntype)
+        if int1.unsigned == int2.unsigned:
+            knowntype = rarithmetic.compute_restype(int1.knowntype, int2.knowntype)
+        else:
+            t1 = int1.knowntype
+            if t1 is bool:
+                t1 = int
+            t2 = int2.knowntype
+            if t2 is bool:
+                t2 = int
+
+            if t2 is int:
+                if int2.nonneg == False:
+                    raise UnionError, "Merging %s and a possibly negative int is not allowed" % t1
+                knowntype = t1
+            elif t1 is int:
+                if int1.nonneg == False:
+                    raise UnionError, "Merging %s and a possibly negative int is not allowed" % t2
+                knowntype = t2
+            else:
+                raise UnionError, "Merging these types (%s, %s) is not supported" % (t1, t2)
         return SomeInteger(nonneg=int1.nonneg and int2.nonneg,
                            knowntype=knowntype)
 
