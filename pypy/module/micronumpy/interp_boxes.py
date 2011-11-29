@@ -239,6 +239,7 @@ W_ULongBox.typedef = TypeDef("u" + long_name, W_UnsignedIntgerBox.typedef,
 
 W_Int64Box.typedef = TypeDef("int64", (W_SignedIntegerBox.typedef,) + MIXIN_64,
     __module__ = "numpy",
+    __new__ = interp2app(W_Int64Box.descr__new__.im_func),
 )
 
 W_UInt64Box.typedef = TypeDef("uint64", W_UnsignedIntgerBox.typedef,

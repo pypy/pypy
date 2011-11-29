@@ -44,13 +44,13 @@ class AppTestDtypes(BaseNumpyAppTest):
             assert a[i] is True_
 
     def test_copy_array_with_dtype(self):
-        from numpypy import array, False_, True_
+        from numpypy import array, False_, True_, int64
 
         a = array([0, 1, 2, 3], dtype=long)
         # int on 64-bit, long in 32-bit
-        assert isinstance(a[0], (int, long))
+        assert isinstance(a[0], int64)
         b = a.copy()
-        assert isinstance(b[0], (int, long))
+        assert isinstance(b[0], int64)
 
         a = array([0, 1, 2, 3], dtype=bool)
         assert a[0] is False_
@@ -72,17 +72,17 @@ class AppTestDtypes(BaseNumpyAppTest):
             assert a[i] is True_
 
     def test_zeros_long(self):
-        from numpypy import zeros
+        from numpypy import zeros, int64
         a = zeros(10, dtype=long)
         for i in range(10):
-            assert isinstance(a[i], (int, long))
+            assert isinstance(a[i], int64)
             assert a[1] == 0
 
     def test_ones_long(self):
-        from numpypy import ones
+        from numpypy import ones, int64
         a = ones(10, dtype=long)
         for i in range(10):
-            assert isinstance(a[i], (int, long))
+            assert isinstance(a[i], int64)
             assert a[1] == 1
 
     def test_overflow(self):
@@ -212,6 +212,18 @@ class AppTestTypes(BaseNumpyAppTest):
 
         assert numpy.int_ is numpy.dtype(int).type
         assert numpy.int_.mro() == [numpy.int_, numpy.signedinteger, numpy.integer, numpy.number, numpy.generic, int, object]
+
+    def test_int64(self):
+        import sys
+        import numpypy as numpy
+
+        if sys.maxint == 2 ** 63 -1:
+            assert numpy.int64.mro() == [numpy.int64, numpy.signedinteger, numpy.integer, numpy.number, numpy.generic, int, object]
+        else:
+            assert numpy.int64.mro() == [numpy.int64, numpy.signedinteger, numpy.integer, numpy.number, numpy.generic, object]
+
+        assert numpy.dtype(numpy.int64).type is numpy.int64
+        assert numpy.int64(3) == 3
 
     def test_float64(self):
         import numpypy as numpy
