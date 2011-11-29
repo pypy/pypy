@@ -328,10 +328,10 @@ class TestNumpyJIt(LLJitMixin):
     def test_setslice(self):
         result = self.run("setslice")
         assert result == 11.0
-        py.test.skip("generates 2 loops ATM, investigate")
+        self.check_loop_count(1)
         self.check_simple_loop({'getarrayitem_raw': 2, 'float_add' : 1,
-                                'setarrayitem_raw': 1, 'int_add': 2,
-                                'int_lt': 1, 'guard_true': 1, 'jump': 1})
+                                'setarrayitem_raw': 1, 'int_add': 3,
+                                'int_eq': 1, 'guard_false': 1, 'jump': 1})
 
 class TestNumpyOld(LLJitMixin):
     def setup_class(cls):

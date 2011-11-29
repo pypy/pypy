@@ -718,8 +718,8 @@ class BaseArray(Wrappable):
 
     def descr_setitem(self, space, w_idx, w_value):
         self.invalidated()
-        concrete = self.get_concrete()
         if self._single_item_result(space, w_idx):
+            concrete = self.get_concrete()
             if len(concrete.shape) < 1:
                 raise OperationError(space.w_IndexError, space.wrap(
                         "0-d arrays can't be indexed"))
