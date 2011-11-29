@@ -270,10 +270,7 @@ class AssemblerPPC(OpAssembler):
                 if group == self.FLOAT_TYPE:
                     assert 0, "not implemented yet"
                 else:
-		    if IS_PPC_32:
-                        value = decode32(spilling_area, spilling_depth - stack_location * WORD)
-		    else:
-                        value = decode64(spilling_area, spilling_depth - stack_location * WORD)
+                    value = decode32(spilling_area, spilling_depth - stack_location * WORD)
             else: # REG_LOC
                 reg = ord(enc[i])
                 if group == self.FLOAT_TYPE:
@@ -281,10 +278,12 @@ class AssemblerPPC(OpAssembler):
                     self.fail_boxes_float.setitem(fail_index, value)
                     continue
                 else:
+                    # XXX dirty, fix
+                    sub = r.managed_regs_sub(reg)
                     if IS_PPC_32:
-                        value = decode32(regs, (reg - 3) * WORD)
+                        value = decode32(regs, (reg - sub) * WORD)
                     else:
-                        value = decode64(regs, (reg - 3) * WORD)
+                        value = decode64(regs, (reg - sub) * WORD)
     
             if group == self.INT_TYPE:
                 self.fail_boxes_int.setitem(fail_index, value)
@@ -325,8 +324,10 @@ class AssemblerPPC(OpAssembler):
                 loc = regalloc.frame_manager.frame_pos(stack_loc, INT)
                 j += 4
             else: # REG_LOC
-                #loc = r.all_regs[ord(res)]
-                loc = r.MANAGED_REGS[ord(res) - 3]
+                reg = ord(res)
+                # XXX dirty, fix
+                sub = r.managed_regs_sub(reg)
+                loc = r.MANAGED_REGS[reg - sub]
             j += 1
             locs.append(loc)
         return locs
