@@ -7,7 +7,7 @@ from pypy.rlib.debug import debug_print
 from pypy.rlib.libffi import Func
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
-from pypy.rpython.lltypesystem import llmemory
+from pypy.rpython.lltypesystem import llmemory, rffi
 
 
 class FuncInfo(object):
@@ -237,7 +237,7 @@ class OptFfiCall(Optimization):
         else:
             assert False, "unsupported ffitype or kind"
         #
-        fieldsize = ffitype.c_size
+        fieldsize = rffi.getintfield(ffitype, 'c_size')
         return self.optimizer.cpu.interiorfielddescrof_dynamic(
             offset, width, fieldsize, is_pointer, is_float, is_signed
         )

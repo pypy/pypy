@@ -65,6 +65,15 @@ class Runner:
             self.tasks[0].withdepth(self.random.genrand32() % 50)
             assert len(self.tasks[0].lst) == 0
 
+    @here_is_a_test
+    def test_destroy(self):
+        # this used to give MemoryError in shadowstack tests
+        for i in range(100000):
+            self.status = 0
+            h = self.sthread.new(switchbackonce_callback,
+                                 rffi.cast(llmemory.Address, 321))
+            self.sthread.destroy(h)
+
     def any_alive(self):
         for task in self.tasks:
             if task.h:

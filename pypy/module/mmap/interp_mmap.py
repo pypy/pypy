@@ -3,7 +3,7 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec, NoneNotWrapped
 from pypy.rlib import rmmap
-from pypy.rlib.rmmap import RValueError, RTypeError, ROverflowError
+from pypy.rlib.rmmap import RValueError, RTypeError
 
 
 class W_MMap(Wrappable):
@@ -212,8 +212,6 @@ if rmmap._POSIX:
             raise OperationError(space.w_ValueError, space.wrap(e.message))
         except RTypeError, e:
             raise OperationError(space.w_TypeError, space.wrap(e.message))
-        except ROverflowError, e:
-            raise OperationError(space.w_OverflowError, space.wrap(e.message))
         return space.wrap(self)
 
 elif rmmap._MS_WINDOWS:
@@ -233,8 +231,6 @@ elif rmmap._MS_WINDOWS:
             raise OperationError(space.w_ValueError, space.wrap(e.message))
         except RTypeError, e:
             raise OperationError(space.w_TypeError, space.wrap(e.message))
-        except ROverflowError, e:
-            raise OperationError(space.w_OverflowError, space.wrap(e.message))
         return space.wrap(self)
 
 W_MMap.typedef = TypeDef("mmap",

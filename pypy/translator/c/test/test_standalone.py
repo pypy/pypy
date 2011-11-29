@@ -224,7 +224,7 @@ class TestStandalone(StandaloneTests):
         filename = str(udir.join('test_standalone_largefile'))
         r4800000000 = r_longlong(4800000000L)
         def entry_point(argv):
-            assert str(r4800000000 + len(argv)) == '4800000003'
+            assert str(r4800000000 + r_longlong(len(argv))) == '4800000003'
             fd = os.open(filename, os.O_RDWR | os.O_CREAT, 0644)
             os.lseek(fd, r4800000000, 0)
             newpos = os.lseek(fd, 0, 1)
