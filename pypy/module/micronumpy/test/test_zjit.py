@@ -11,7 +11,8 @@ from pypy.jit.metainterp.warmspot import reset_stats
 from pypy.module.micronumpy import interp_ufuncs, signature
 from pypy.module.micronumpy.compile import (numpy_compile, FakeSpace,
     FloatObject, IntObject, BoolObject, Parser, InterpreterState)
-from pypy.module.micronumpy.interp_numarray import NDimArray, NDimSlice
+from pypy.module.micronumpy.interp_numarray import NDimArray, NDimSlice,\
+     BaseArray
 from pypy.rlib.nonconst import NonConstant
 from pypy.rpython.annlowlevel import llstr, hlstr
 
@@ -48,6 +49,7 @@ class TestNumpyJIt(LLJitMixin):
             interp = InterpreterState(codes[i])
             interp.run(space)
             res = interp.results[-1]
+            assert isinstance(res, BaseArray)
             w_res = res.eval(res.start_iter()).wrap(interp.space)
             if isinstance(w_res, BoolObject):
                 return float(w_res.boolval)
@@ -301,6 +303,19 @@ class TestNumpyJIt(LLJitMixin):
         py.test.skip("improve")
         self.check_loops({})
 
+    def define_set_slice():
+        return """
+        a = |30|
+        b = |30|
+        b[:] = a + a
+        b -> 3
+        """
+
+    def test_set_slice(self):
+        result = self.run("set_slice")
+        assert result == 6
+        self.check_loop_count(1)
+
 class TestNumpyOld(LLJitMixin):
     def setup_class(cls):
         py.test.skip("old")
@@ -331,26 +346,6 @@ class TestNumpyOld(LLJitMixin):
                           'setarrayitem_raw': 1, 'int_add': 1,
                           'int_lt': 1, 'guard_true': 1, 'jump': 1})
         assert result == f(5)
-
-    def test_setslice(self):
-        space = self.space
-        float64_dtype = self.float64_dtype
-
-        def f(i):
-            step = NonConstant(3)
-            ar = NDimArray(step*i, dtype=float64_dtype)
-            ar2 = NDimArray(i, dtype=float64_dtype)
-            ar2.get_concrete().setitem(1, float64_dtype.box(5.5))
-            arg = ar2.descr_add(space, ar2)
-            ar.setslice(space, 0, step*i, step, i, arg)
-            return ar.get_concrete().eval(3).val
-
-        result = self.meta_interp(f, [5], listops=True, backendopt=True)
-        self.check_loops({'getarrayitem_raw': 2,
-                          'float_add' : 1,
-                          'setarrayitem_raw': 1, 'int_add': 2,
-                          'int_lt': 1, 'guard_true': 1, 'jump': 1})
-        assert result == 11.0
 
     def test_int32_sum(self):
         py.test.skip("pypy/jit/backend/llimpl.py needs to be changed to "

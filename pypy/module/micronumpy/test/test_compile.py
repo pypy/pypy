@@ -191,3 +191,12 @@ class TestRunner(object):
         b -> 1 -> 1
         """)
         assert interp.results[0].value.val == 8
+
+    def test_set_slice(self):
+        interp = self.run("""
+        a = |30|
+        b = |30|
+        b[:] = a + a
+        b -> 3
+        """)
+        assert interp.results[0].value.val == 6
