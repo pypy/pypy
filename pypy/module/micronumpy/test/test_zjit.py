@@ -333,19 +333,6 @@ class TestNumpyJIt(LLJitMixin):
                                 'setarrayitem_raw': 1, 'int_add': 2,
                                 'int_lt': 1, 'guard_true': 1, 'jump': 1})
 
-    def define_set_slice():
-        return """
-        a = |30|
-        b = |30|
-        b[:] = a + a
-        b -> 3
-        """
-
-    def test_set_slice(self):
-        result = self.run("set_slice")
-        assert result == 6
-        self.check_loop_count(1)
-
 class TestNumpyOld(LLJitMixin):
     def setup_class(cls):
         py.test.skip("old")
