@@ -70,7 +70,7 @@ class FakeSpace(object):
                 start += size
             if stop < 0:
                 stop += size
-            return (start, stop, step, size//step)
+            return (start, stop, step, (stop - start)//step + 1)
 
     @specialize.argtype(1)
     def wrap(self, obj):

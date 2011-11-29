@@ -246,10 +246,31 @@ class TestNumpyJIt(LLJitMixin):
     def test_slice(self):
         result = self.run("slice")
         assert result == 18
-        py.test.skip("Few remaining arraylen_gc left")
+        # arraylen_gc are removed by the backend, would be good if they weren't
+        # here though
         self.check_simple_loop({'int_mul': 2, 'getarrayitem_raw': 2, 'float_add': 1,
                           'setarrayitem_raw': 1, 'int_add': 3,
-                          'int_lt': 1, 'guard_true': 1, 'jump': 1})
+                          'int_lt': 1, 'guard_true': 1, 'jump': 1,
+                          'arraylen_gc': 4})
+
+    def define_slice2():
+        return """
+        a = |30|
+        s1 = a -> :20:2
+        s2 = a -> :30:3
+        b = s1 + s2
+        b -> 3
+        """
+
+    def test_slice2(self):
+        result = self.run("slice2")
+        assert result == 15
+        # arraylen_gc are removed by the backend, would be good if they weren't
+        # here though
+        self.check_simple_loop({'int_mul': 2, 'getarrayitem_raw': 2, 'float_add': 1,
+                                'setarrayitem_raw': 1, 'int_add': 1,
+                                'int_lt': 1, 'guard_true': 1, 'jump': 1,
+                                'arraylen_gc': 4})
 
     def define_multidim():
         return """
@@ -336,28 +357,6 @@ class TestNumpyOld(LLJitMixin):
 
         cls.space = FakeSpace()
         cls.float64_dtype = cls.space.fromcache(W_Float64Dtype)
-
-    def test_slice2(self):
-        def f(i):
-            step1 = 2
-            step2 = 3
-            ar = NDimArray(step2*i, dtype=self.float64_dtype)
-            new_sig = signature.Signature.find_sig([
-                NDimSlice.signature, ar.signature
-            ])
-            s1 = NDimSlice(0, step1*i, step1, i, ar, new_sig)
-            new_sig = signature.Signature.find_sig([
-                NDimSlice.signature, s1.signature
-            ])
-            s2 = NDimSlice(0, step2*i, step2, i, ar, new_sig)
-            v = interp_ufuncs.get(self.space).add.call(self.space, [s1, s2])
-            return v.get_concrete().eval(3).val
-
-        result = self.meta_interp(f, [5], listops=True, backendopt=True)
-        self.check_simple_loop({'int_mul': 2, 'getarrayitem_raw': 2, 'float_add': 1,
-                          'setarrayitem_raw': 1, 'int_add': 1,
-                          'int_lt': 1, 'guard_true': 1, 'jump': 1})
-        assert result == f(5)
 
     def test_int32_sum(self):
         py.test.skip("pypy/jit/backend/llimpl.py needs to be changed to "
