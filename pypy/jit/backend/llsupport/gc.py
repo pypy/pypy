@@ -25,10 +25,6 @@ from pypy.rpython.memory.gctransform import asmgcroot
 # ____________________________________________________________
 
 class GcLLDescription(GcCache):
-    minimal_size_in_nursery = 0
-    get_malloc_slowpath_addr = None
-
-    TIDFLAG_HAS_FINALIZER = 0
 
     def __init__(self, gcdescr, translator=None, rtyper=None):
         GcCache.__init__(self, translator is not None, rtyper)
@@ -45,9 +41,6 @@ class GcLLDescription(GcCache):
         self.field_strlen_descr = get_field_arraylen_descr(self, rstr.STR)
         self.field_unicodelen_descr = get_field_arraylen_descr(self,
                                                                rstr.UNICODE)
-        self.fielddescr_tid = None   # unless overridden
-        self.str_type_id     = llop.combine_ushort(lltype.Signed, 0, 0)
-        self.unicode_type_id = llop.combine_ushort(lltype.Signed, 0, 0)
 
     def _freeze_(self):
         return True
@@ -62,12 +55,53 @@ class GcLLDescription(GcCache):
     def freeing_block(self, start, stop):
         pass
 
-    def get_funcptr_for_newarray(self):
-        return llhelper(self.GC_MALLOC_ARRAY, self.malloc_array)
-    def get_funcptr_for_newstr(self):
-        return llhelper(self.GC_MALLOC_STR_UNICODE, self.malloc_str)
-    def get_funcptr_for_newunicode(self):
-        return llhelper(self.GC_MALLOC_STR_UNICODE, self.malloc_unicode)
+    def get_funcptr_for_malloc_gc_fixed(self):
+        """Returns a function pointer to a function that implements
+        the simple case of MALLOC_GC: the case where the variable size
+        is zero.  The function pointer has signature (size) -> GCREF."""
+        raise NotImplementedError
+
+    def get_funcptr_for_malloc_gc_variable(self):
+        """Returns a function pointer to a function that implements
+        the complex case of MALLOC_GC: the case where the variable size
+        is not known to be zero.  The signature is:
+            (base_size, num_elem, item_size) -> GCREF"""
+        raise NotImplementedError
+
+    def gc_malloc(self, sizedescr):
+        """Blackhole: do a 'bh_new'.  Also used for 'bh_new_with_vtable',
+        with the vtable pointer set manually afterwards."""
+        assert isinstance(sizedescr, BaseSizeDescr)
+        res = self.get_funcptr_for_malloc_gc_fixed()(sizedescr.size)
+        if res:
+            pass # XXX tid
+        return res
+
+    def gc_malloc_array(self, arraydescr, num_elem):
+        assert isinstance(arraydescr, BaseArrayDescr)
+        ofs_length = arraydescr.get_ofs_length(self.translate_support_code)
+        basesize = arraydescr.get_base_size(self.translate_support_code)
+        itemsize = arraydescr.get_item_size(self.translate_support_code)
+        return self._gc_malloc_array(basesize, num_elem, itemsize, ofs_length)
+
+    def _gc_malloc_array(self, basesize, num_elem, itemsize, ofs_length):
+        mallocptr = self.get_funcptr_for_malloc_gc_variable()
+        res = mallocptr(basesize, num_elem, itemsize)
+        if res:
+            # XXX tid
+            arrayptr = rffi.cast(rffi.CArrayPtr(lltype.Signed), res)
+            arrayptr[ofs_length/WORD] = num_elem
+        return res
+
+    def gc_malloc_str(self, num_elem):
+        return self._gc_malloc_array(self.str_basesize, num_elem,
+                                     self.str_itemsize,
+                                     self.str_ofs_length)
+
+    def gc_malloc_unicode(self, num_elem):
+        return self._gc_malloc_array(self.unicode_basesize, num_elem,
+                                     self.unicode_itemsize,
+                                     self.unicode_ofs_length)
 
     def _record_constptrs(self, op, gcrefs_output_list):
         for i in range(op.numargs()):
@@ -89,9 +123,13 @@ class GcLLDescription(GcCache):
 # ____________________________________________________________
 
 class GcLLDescr_boehm(GcLLDescription):
-    moving_gc = False
-    gcrootmap = None
-    write_barrier_descr = None
+    moving_gc             = False
+    gcrootmap             = None
+    write_barrier_descr   = None
+    fielddescr_tid        = None
+    TIDFLAG_HAS_FINALIZER = 0
+    str_type_id           = 0
+    unicode_type_id       = 0
 
     @classmethod
     def configure_boehm_once(cls):
@@ -101,6 +139,16 @@ class GcLLDescr_boehm(GcLLDescription):
             return cls.malloc_fn_ptr
         from pypy.rpython.tool import rffi_platform
         compilation_info = rffi_platform.configure_boehm()
+
+        # on some platform GC_init is required before any other
+        # GC_* functions, call it here for the benefit of tests
+        # XXX move this to tests
+        init_fn_ptr = rffi.llexternal("GC_init",
+                                      [], lltype.Void,
+                                      compilation_info=compilation_info,
+                                      sandboxsafe=True,
+                                      _nowrapper=True)
+        init_fn_ptr()
 
         # Versions 6.x of libgc needs to use GC_local_malloc().
         # Versions 7.x of libgc removed this function; GC_malloc() has
@@ -121,84 +169,29 @@ class GcLLDescr_boehm(GcLLDescription):
                                         sandboxsafe=True,
                                         _nowrapper=True)
         cls.malloc_fn_ptr = malloc_fn_ptr
-        cls.compilation_info = compilation_info
         return malloc_fn_ptr
 
     def __init__(self, gcdescr, translator, rtyper):
         GcLLDescription.__init__(self, gcdescr, translator, rtyper)
         # grab a pointer to the Boehm 'malloc' function
-        malloc_fn_ptr = self.configure_boehm_once()
-        self.funcptr_for_new = malloc_fn_ptr
-
-        def malloc_array(basesize, itemsize, ofs_length, num_elem):
+        self.malloc_fn_ptr = self.configure_boehm_once()
+        #
+        def malloc_gc_variable(basesize, num_elem, itemsize):
             try:
                 size = ovfcheck(basesize + ovfcheck(itemsize * num_elem))
             except OverflowError:
                 return lltype.nullptr(llmemory.GCREF.TO)
-            res = self.funcptr_for_new(size)
-            if not res:
-                return res
-            rffi.cast(rffi.CArrayPtr(lltype.Signed), res)[ofs_length/WORD] = num_elem
-            return res
-        self.malloc_array = malloc_array
-        self.GC_MALLOC_ARRAY = lltype.Ptr(lltype.FuncType(
-            [lltype.Signed] * 4, llmemory.GCREF))
+            return self.malloc_fn_ptr(size)
+        #
+        self.malloc_gc_variable = malloc_gc_variable
+        self.MALLOC_GC_VARIABLE = lltype.Ptr(
+            lltype.FuncType([lltype.Signed] * 3, llmemory.GCREF))
 
+    def get_funcptr_for_malloc_gc_fixed(self):
+        return self.malloc_fn_ptr
 
-        def malloc_str(length):
-            return self.malloc_array(
-                str_basesize, str_itemsize, str_ofs_length, length
-            )
-        def malloc_unicode(length):
-            return self.malloc_array(
-                unicode_basesize, unicode_itemsize, unicode_ofs_length, length
-            )
-        self.malloc_str = malloc_str
-        self.malloc_unicode = malloc_unicode
-        self.GC_MALLOC_STR_UNICODE = lltype.Ptr(lltype.FuncType(
-            [lltype.Signed], llmemory.GCREF))
-
-
-        # on some platform GC_init is required before any other
-        # GC_* functions, call it here for the benefit of tests
-        # XXX move this to tests
-        init_fn_ptr = rffi.llexternal("GC_init",
-                                      [], lltype.Void,
-                                      compilation_info=self.compilation_info,
-                                      sandboxsafe=True,
-                                      _nowrapper=True)
-
-        init_fn_ptr()
-
-    def gc_malloc(self, sizedescr):
-        assert isinstance(sizedescr, BaseSizeDescr)
-        return self.funcptr_for_new(sizedescr.size)
-
-    def gc_malloc_array(self, arraydescr, num_elem):
-        assert isinstance(arraydescr, BaseArrayDescr)
-        ofs_length = arraydescr.get_ofs_length(self.translate_support_code)
-        basesize = arraydescr.get_base_size(self.translate_support_code)
-        itemsize = arraydescr.get_item_size(self.translate_support_code)
-        return self.malloc_array(basesize, itemsize, ofs_length, num_elem)
-
-    def gc_malloc_str(self, num_elem):
-        return self.malloc_str(num_elem)
-
-    def gc_malloc_unicode(self, num_elem):
-        return self.malloc_unicode(num_elem)
-
-    def args_for_new(self, sizedescr):
-        assert isinstance(sizedescr, BaseSizeDescr)
-        return [sizedescr.size]
-
-    def args_for_new_array(self, arraydescr):
-        ofs_length = arraydescr.get_ofs_length(self.translate_support_code)
-        basesize = arraydescr.get_base_size(self.translate_support_code)
-        itemsize = arraydescr.get_item_size(self.translate_support_code)
-        return [basesize, itemsize, ofs_length]
-
-    def get_funcptr_for_new(self):
-        return self.funcptr_for_new
+    def get_funcptr_for_malloc_gc_variable(self):
+        return llhelper(self.MALLOC_GC_VARIABLE, self.malloc_gc_variable)
 
 # ____________________________________________________________
 # All code below is for the hybrid or minimark GC

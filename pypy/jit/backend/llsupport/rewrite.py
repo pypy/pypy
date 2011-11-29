@@ -109,7 +109,9 @@ class GcRewriterAssembler(object):
     def handle_new_array(self, tid, base_size, item_size, arraylen_descr, op):
         v_length = op.getarg(0)
         total_size = -1
-        if isinstance(v_length, ConstInt):
+        if item_size == 0:
+            total_size = base_size
+        elif isinstance(v_length, ConstInt):
             num_elem = v_length.getint()
             try:
                 var_size = ovfcheck(item_size * num_elem)
