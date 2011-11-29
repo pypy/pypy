@@ -38,11 +38,14 @@ int pypy_main_function(int argc, char *argv[])
     pypy_asm_stack_bottom();
     instrument_setup();
 
+#ifndef MS_WINDOWS
+    /* this message does no longer apply to win64 :-) */
     if (sizeof(void*) != SIZEOF_LONG) {
         errmsg = "only support platforms where sizeof(void*) == sizeof(long),"
                  " for now";
         goto error;
     }
+#endif
 
 #ifdef MS_WINDOWS
     pypy_Windows_startup();
