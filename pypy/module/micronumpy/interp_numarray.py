@@ -180,10 +180,10 @@ class ArrayIterator(BaseIterator):
         return self.offset
 
 class OneDimIterator(BaseIterator):
-    def __init__(self, start, step, size):
+    def __init__(self, start, step, stop):
         self.offset = start
         self.step = step
-        self.size = size
+        self.size = stop * step + start
 
     def next(self, shapelen):
         arr = instantiate(OneDimIterator)
@@ -193,7 +193,7 @@ class OneDimIterator(BaseIterator):
         return arr
 
     def done(self):
-        return self.offset >= self.size
+        return self.offset == self.size
 
     def get_offset(self):
         return self.offset
@@ -1109,8 +1109,8 @@ class NDimSlice(ViewArray):
     def start_iter(self, res_shape=None):
         if res_shape is not None and res_shape != self.shape:
             return BroadcastIterator(self, res_shape)
-        # XXX there is a possible optimization here with SingleDimViewIterator
-        #     ignore for now
+        if len(self.shape) == 1:
+            return OneDimIterator(self.start, self.strides[0], self.shape[0])
         return ViewIterator(self)
 
     def setitem(self, item, value):

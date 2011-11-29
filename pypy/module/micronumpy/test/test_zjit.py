@@ -246,12 +246,12 @@ class TestNumpyJIt(LLJitMixin):
     def test_slice(self):
         result = self.run("slice")
         assert result == 18
-        # arraylen_gc are removed by the backend, would be good if they weren't
-        # here though
-        self.check_simple_loop({'int_mul': 2, 'getarrayitem_raw': 2, 'float_add': 1,
-                          'setarrayitem_raw': 1, 'int_add': 3,
-                          'int_lt': 1, 'guard_true': 1, 'jump': 1,
-                          'arraylen_gc': 4})
+        self.check_simple_loop({'getarrayitem_raw': 2,
+                                'float_add': 1,
+                                'setarrayitem_raw': 1,
+                                'int_add': 3,
+                                'int_ge': 1, 'guard_false': 1,
+                                'jump': 1})
 
     def define_slice2():
         return """
@@ -265,12 +265,9 @@ class TestNumpyJIt(LLJitMixin):
     def test_slice2(self):
         result = self.run("slice2")
         assert result == 15
-        # arraylen_gc are removed by the backend, would be good if they weren't
-        # here though
-        self.check_simple_loop({'int_mul': 2, 'getarrayitem_raw': 2, 'float_add': 1,
-                                'setarrayitem_raw': 1, 'int_add': 1,
-                                'int_lt': 1, 'guard_true': 1, 'jump': 1,
-                                'arraylen_gc': 4})
+        self.check_simple_loop({'getarrayitem_raw': 2, 'float_add': 1,
+                                'setarrayitem_raw': 1, 'int_add': 3,
+                                'int_ge': 1, 'guard_false': 1, 'jump': 1})
 
     def define_multidim():
         return """
