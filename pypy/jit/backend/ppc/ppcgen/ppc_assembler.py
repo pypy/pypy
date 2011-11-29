@@ -34,6 +34,7 @@ from pypy.jit.metainterp.history import (BoxInt, ConstInt, ConstPtr,
 from pypy.jit.backend.x86.support import values_array
 from pypy.rlib import rgc
 from pypy.rpython.annlowlevel import llhelper
+from pypy.rlib.objectmodel import we_are_translated
 
 memcpy_fn = rffi.llexternal('memcpy', [llmemory.Address, llmemory.Address,
                                        rffi.SIZE_T], lltype.Void,
@@ -187,6 +188,7 @@ class AssemblerPPC(OpAssembler):
             self.mc.stdu(r.SP.value, r.SP.value, -frame_depth)
             self.mc.mflr(r.r0.value)
             self.mc.std(r.r0.value, r.SP.value, frame_depth + 2 * WORD)
+            self.mc.std(r.SPP.value, r.SP.value, WORD)
 
         # compute spilling pointer (SPP)
         self.mc.addi(r.SPP.value, r.SP.value, frame_depth
@@ -266,13 +268,12 @@ class AssemblerPPC(OpAssembler):
                 stack_location = decode32(enc, i+1)
                 i += 4
                 if group == self.FLOAT_TYPE:
-                    value = decode64(stack, frame_depth - stack_location*WORD)
-                    self.fail_boxes_float.setitem(fail_index, value)
-                    continue
+                    assert 0, "not implemented yet"
                 else:
-                    #value = decode32(spilling_area, spilling_area - stack_location * WORD)
-                    #import pdb; pdb.set_trace()
-                    value = decode32(spilling_area, spilling_depth - stack_location * WORD)
+		    if IS_PPC_32:
+                        value = decode32(spilling_area, spilling_depth - stack_location * WORD)
+		    else:
+                        value = decode64(spilling_area, spilling_depth - stack_location * WORD)
             else: # REG_LOC
                 reg = ord(enc[i])
                 if group == self.FLOAT_TYPE:
@@ -597,7 +598,7 @@ class AssemblerPPC(OpAssembler):
         self._make_prologue(regalloc_head, frame_depth)
      
         direct_bootstrap_code = self.mc.currpos()
-        self.gen_direct_bootstrap_code(loophead, looptoken, inputargs, frame_depth)
+        #self.gen_direct_bootstrap_code(loophead, looptoken, inputargs, frame_depth)
 
         self.write_pending_failure_recoveries()
         loop_start = self.materialize_loop(looptoken, False)
@@ -615,6 +616,11 @@ class AssemblerPPC(OpAssembler):
         else:
             looptoken.ppc_code = self.gen_64_bit_func_descr(real_start)
         self.process_pending_guards(loop_start)
+        if not we_are_translated():
+            print 'Loop', inputargs, operations
+            self.mc._dump_trace(loop_start, 'loop_%s.asm' % self.cpu.total_compiled_loops)
+            print 'Done assembling loop with token %r' % looptoken
+
         self._teardown()
 
     def assemble_bridge(self, faildescr, inputargs, operations, looptoken, log):
