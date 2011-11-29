@@ -258,6 +258,9 @@ def _ll_1_llong_invert(xll):
     y = ~r_ulonglong(xll)
     return u_to_longlong(y)
 
+def _ll_1_ullong_invert(xull):
+    return ~xull
+
 def _ll_2_llong_lt(xll, yll):
     return xll < yll
 
@@ -276,16 +279,22 @@ def _ll_2_llong_gt(xll, yll):
 def _ll_2_llong_ge(xll, yll):
     return xll >= yll
 
-def _ll_2_llong_ult(xull, yull):
+def _ll_2_ullong_eq(xull, yull):
+    return xull == yull
+
+def _ll_2_ullong_ne(xull, yull):
+    return xull != yull
+
+def _ll_2_ullong_ult(xull, yull):
     return xull < yull
 
-def _ll_2_llong_ule(xull, yull):
+def _ll_2_ullong_ule(xull, yull):
     return xull <= yull
 
-def _ll_2_llong_ugt(xull, yull):
+def _ll_2_ullong_ugt(xull, yull):
     return xull > yull
 
-def _ll_2_llong_uge(xull, yull):
+def _ll_2_ullong_uge(xull, yull):
     return xull >= yull
 
 def _ll_2_llong_add(xll, yll):
@@ -312,14 +321,41 @@ def _ll_2_llong_xor(xll, yll):
     z = r_ulonglong(xll) ^ r_ulonglong(yll)
     return u_to_longlong(z)
 
+def _ll_2_ullong_add(xull, yull):
+    z = (xull) + (yull)
+    return (z)
+
+def _ll_2_ullong_sub(xull, yull):
+    z = (xull) - (yull)
+    return (z)
+
+def _ll_2_ullong_mul(xull, yull):
+    z = (xull) * (yull)
+    return (z)
+
+def _ll_2_ullong_and(xull, yull):
+    z = (xull) & (yull)
+    return (z)
+
+def _ll_2_ullong_or(xull, yull):
+    z = (xull) | (yull)
+    return (z)
+
+def _ll_2_ullong_xor(xull, yull):
+    z = (xull) ^ (yull)
+    return (z)
+
 def _ll_2_llong_lshift(xll, y):
     z = r_ulonglong(xll) << y
-    return u_to_longlong(z)
+    return (z)
+
+def _ll_2_ullong_lshift(xull, y):
+    return xull << y
 
 def _ll_2_llong_rshift(xll, y):
     return xll >> y
 
-def _ll_2_llong_urshift(xull, y):
+def _ll_2_ullong_urshift(xull, y):
     return xull >> y
 
 def _ll_1_llong_from_int(x):
