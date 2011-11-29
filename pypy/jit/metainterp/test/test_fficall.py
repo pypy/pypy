@@ -67,23 +67,23 @@ class FfiCallTests(_TestLibffiCall):
              'byval': False}
         supported = all(d[check] for check in jitif)
         if supported:
-            self.check_loops(
-                call_release_gil=1,   # a CALL_RELEASE_GIL, and no other CALLs
+            self.check_resops(
+                call_release_gil=2,   # a CALL_RELEASE_GIL, and no other CALLs
                 call=0,
                 call_may_force=0,
-                guard_no_exception=1,
-                guard_not_forced=1,
-                int_add=1,
-                int_lt=1,
-                guard_true=1,
-                jump=1)
+                guard_no_exception=2,
+                guard_not_forced=2,
+                int_add=2,
+                int_lt=2,
+                guard_true=2,
+                jump=2)
         else:
-            self.check_loops(
+            self.check_resops(
                 call_release_gil=0,   # no CALL_RELEASE_GIL
-                int_add=1,
-                int_lt=1,
-                guard_true=1,
-                jump=1)
+                int_add=2,
+                int_lt=2,
+                guard_true=2,
+                jump=2)
         return res
 
     def test_byval_result(self):
@@ -144,10 +144,8 @@ class FfiLookupTests(object):
                     return result_point[0].x * result_point[0].y
 
         assert self.meta_interp(main, [10]) == main(10) == 9000
-        self.check_loops({"int_add": 3, "jump": 1, "int_lt": 1, "guard_true": 1,
-                          "getinteriorfield_raw": 4, "setinteriorfield_raw": 2
-        })
-
+        self.check_resops({'jump': 2, 'int_lt': 2, 'setinteriorfield_raw': 4,
+                           'getinteriorfield_raw': 8, 'int_add': 6, 'guard_true': 2})
 
 class TestFfiCall(FfiCallTests, LLJitMixin):
     supports_all = False

@@ -177,6 +177,16 @@ class TestRunner(object):
         """)
         assert interp.results[0].value == 6
 
+    def test_setslice(self):
+        interp = self.run("""
+        a = |30|
+        b = |10|
+        b[1] = 5
+        a[::3] = b
+        a -> 3
+        """)
+        assert interp.results[0].value == 5
+
     def test_multidim_getitem(self):
         interp = self.run("""
         a = [[1,2]]

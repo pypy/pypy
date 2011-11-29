@@ -217,13 +217,21 @@ class ArrayAssignment(Node):
     def execute(self, interp):
         arr = interp.variables[self.name]
         assert isinstance(arr, BaseArray)
-        w_index = self.index.execute(interp).eval(arr.start_iter())
-        # cast to int
-        if isinstance(w_index, FloatObject):
-            w_index = IntObject(int(w_index.floatval))
-        elif isinstance(w_index, interp_boxes.W_Float64Box):
-            w_index = IntObject(int(w_index.value))
-        w_val = self.expr.execute(interp).eval(arr.start_iter())
+        if isinstance(self.index, SliceConstant):
+            w_index = self.index.wrap(interp.space)
+            w_val = self.expr.execute(interp)
+        else:
+            w_index = self.index.execute(interp)
+            assert isinstance(w_index, BaseArray)
+            w_index = w_index.eval(arr.start_iter())
+            # cast to int
+            if isinstance(w_index, FloatObject):
+                w_index = IntObject(int(w_index.floatval))
+            elif isinstance(w_index, interp_boxes.W_Float64Box):
+                w_index = IntObject(int(w_index.value))
+            w_val = self.expr.execute(interp)
+            assert isinstance(w_val, BaseArray)
+            w_val = w_val.eval(arr.start_iter())
         arr.descr_setitem(interp.space, w_index, w_val)
 
     def __repr__(self):
