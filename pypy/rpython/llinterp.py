@@ -1019,6 +1019,7 @@ class LLFrame(object):
 
     def op_int_neg_ovf(self, x):
         assert is_valid_int(x)
+        assert isinstance(x, (int, long))
         try:
             return ovfcheck(-x)
         except OverflowError:
@@ -1026,6 +1027,7 @@ class LLFrame(object):
 
     def op_int_abs_ovf(self, x):
         assert is_valid_int(x)
+        assert isinstance(x, (int, long))
         try:
             return ovfcheck(abs(x))
         except OverflowError:
@@ -1034,6 +1036,7 @@ class LLFrame(object):
     def op_int_lshift_ovf(self, x, y):
         assert is_valid_int(x)
         assert is_valid_int(y)
+        assert isinstance(y, (int, long))
         try:
             return ovfcheck(x << y)
         except OverflowError:
