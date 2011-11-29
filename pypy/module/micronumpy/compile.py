@@ -97,7 +97,7 @@ class FakeSpace(object):
         return w_obj
 
     def float_w(self, w_obj):
-        assert isinstance(w_obj, FloatObject)        
+        assert isinstance(w_obj, FloatObject)
         return w_obj.floatval
 
     def int_w(self, w_obj):
@@ -208,11 +208,15 @@ class ArrayAssignment(Node):
 
     def execute(self, interp):
         arr = interp.variables[self.name]
-        w_index = self.index.execute(interp).eval(arr.start_iter()).wrap(interp.space)
-        # cast to int
-        if isinstance(w_index, FloatObject):
-            w_index = IntObject(int(w_index.floatval))
-        w_val = self.expr.execute(interp).eval(arr.start_iter()).wrap(interp.space)
+        if isinstance(self.index, SliceConstant):
+            w_index = self.index.wrap(interp.space)
+            w_val = self.expr.execute(interp)
+        else:
+            w_index = self.index.execute(interp).eval(arr.start_iter()).wrap(interp.space)
+            # cast to int
+            if isinstance(w_index, FloatObject):
+                w_index = IntObject(int(w_index.floatval))
+            w_val = self.expr.execute(interp).eval(arr.start_iter()).wrap(interp.space)
         arr.descr_setitem(interp.space, w_index, w_val)
 
     def __repr__(self):
@@ -246,7 +250,7 @@ class Operator(Node):
         elif self.name == '*':
             w_res = w_lhs.descr_mul(interp.space, w_rhs)
         elif self.name == '-':
-            w_res = w_lhs.descr_sub(interp.space, w_rhs)            
+            w_res = w_lhs.descr_sub(interp.space, w_rhs)
         elif self.name == '->':
             if isinstance(w_rhs, Scalar):
                 w_rhs = w_rhs.eval(w_rhs.start_iter()).wrap(interp.space)
@@ -477,8 +481,8 @@ class Parser(object):
                 else:
                     step = 1
         return SliceConstant(start, stop, step)
-            
-        
+
+
     def parse_expression(self, tokens):
         stack = []
         while tokens.remaining():
@@ -532,7 +536,7 @@ class Parser(object):
             if token.name == 'array_right':
                 return elems
             assert token.name == 'coma'
-        
+
     def parse_statement(self, tokens):
         if (tokens.get(0).name == 'identifier' and
             tokens.get(1).name == 'assign'):

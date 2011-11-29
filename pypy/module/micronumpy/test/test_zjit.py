@@ -295,6 +295,24 @@ class TestNumpyJIt(LLJitMixin):
         py.test.skip("improve")
         self.check_simple_loop({})
 
+    def define_setslice():
+        return """
+        a = |30|
+        b = |10|
+        b[1] = 5.5
+        c = b + b
+        a[0:30:3] = c
+        a -> 3
+        """
+
+    def test_setslice(self):
+        result = self.run("setslice")
+        assert result == 11.0
+        py.test.skip("generates 2 loops ATM, investigate")
+        self.check_simple_loop({'getarrayitem_raw': 2, 'float_add' : 1,
+                                'setarrayitem_raw': 1, 'int_add': 2,
+                                'int_lt': 1, 'guard_true': 1, 'jump': 1})
+
 class TestNumpyOld(LLJitMixin):
     def setup_class(cls):
         py.test.skip("old")
@@ -325,26 +343,6 @@ class TestNumpyOld(LLJitMixin):
                           'setarrayitem_raw': 1, 'int_add': 1,
                           'int_lt': 1, 'guard_true': 1, 'jump': 1})
         assert result == f(5)
-
-    def test_setslice(self):
-        space = self.space
-        float64_dtype = self.float64_dtype
-
-        def f(i):
-            step = NonConstant(3)
-            ar = NDimArray(step*i, dtype=float64_dtype)
-            ar2 = NDimArray(i, dtype=float64_dtype)
-            ar2.get_concrete().setitem(1, float64_dtype.box(5.5))
-            arg = ar2.descr_add(space, ar2)
-            ar.setslice(space, 0, step*i, step, i, arg)
-            return ar.get_concrete().eval(3).val
-
-        result = self.meta_interp(f, [5], listops=True, backendopt=True)
-        self.check_simple_loop({'getarrayitem_raw': 2,
-                          'float_add' : 1,
-                          'setarrayitem_raw': 1, 'int_add': 2,
-                          'int_lt': 1, 'guard_true': 1, 'jump': 1})
-        assert result == 11.0
 
     def test_int32_sum(self):
         py.test.skip("pypy/jit/backend/llimpl.py needs to be changed to "
