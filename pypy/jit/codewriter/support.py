@@ -347,7 +347,7 @@ def _ll_2_ullong_xor(xull, yull):
 
 def _ll_2_llong_lshift(xll, y):
     z = r_ulonglong(xll) << y
-    return (z)
+    return u_to_longlong(z)
 
 def _ll_2_ullong_lshift(xull, y):
     return xull << y
