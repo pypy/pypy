@@ -471,6 +471,15 @@ class VirtualizedSandboxedProc(SandboxedProc):
             # don't try to read more than 256KB at once here
             return f.read(min(size, 256*1024))
 
+    def do_ll_os__ll_os_fstat(self, fd):
+        try:
+            f = self.open_fds[fd]
+        except KeyError:
+            return super(VirtualizedSandboxedProc, self).do_ll_os__ll_os_fstat(fd)
+        else:
+            return os.stat(f.name)      # Isn't there a better way to do this?
+    do_ll_os__ll_os_fstat.resulttype = s_StatResult
+
     def do_ll_os__ll_os_lseek(self, fd, pos, how):
         f = self.get_file(fd)
         f.seek(pos, how)
