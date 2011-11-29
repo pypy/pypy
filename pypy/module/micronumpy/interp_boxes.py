@@ -18,7 +18,7 @@ def new_dtype_getter(name):
     def new(space, w_subtype, w_value):
         dtype = get_dtype(space)
         return dtype.itemtype.coerce_subtype(space, w_subtype, w_value)
-    return new, staticmethod(get_dtype)
+    return func_with_new_name(new, name + "_box_new"), staticmethod(get_dtype)
 
 class PrimitiveBox(object):
     _mixin_ = True
