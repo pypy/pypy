@@ -263,7 +263,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[1] == 0.
         assert a[3] == 1.
         b[::-1] = b
-        assert b[0] == 1.
+        assert b[0] == 0.
         assert b[1] == 0.
 
     def test_setslice_of_slice_array(self):
@@ -751,11 +751,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert not bool(array([0]))
 
     def test_slice_assignment(self):
-        from numpypy import arange
-        a = arange(5)
+        from numpypy import array
+        a = array(range(5))
         a[::-1] = a
         assert (a == [0, 1, 2, 1, 0]).all()
-
+        # but we force intermediates
+        a = array(range(5))
+        a[::-1] = a + a
+        assert (a == [8, 6, 4, 2, 0]).all()
 
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
