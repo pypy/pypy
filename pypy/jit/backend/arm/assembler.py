@@ -245,7 +245,7 @@ class AssemblerARM(ResOpAssembler):
                 i += 4
                 if group == self.FLOAT_TYPE:
                     value = decode64(stack, frame_depth - stack_loc*WORD)
-                    fvalue = longlong2float(value)
+                    fvalue = rffi.cast(longlong.FLOATSTORAGE, value)
                     self.fail_boxes_float.setitem(fail_index, fvalue)
                     continue
                 else:
