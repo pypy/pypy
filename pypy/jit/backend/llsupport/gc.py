@@ -127,7 +127,6 @@ class GcLLDescr_boehm(GcLLDescription):
     gcrootmap             = None
     write_barrier_descr   = None
     fielddescr_tid        = None
-    TIDFLAG_HAS_FINALIZER = 0
     str_type_id           = 0
     unicode_type_id       = 0
 
@@ -606,24 +605,40 @@ class WriteBarrierDescr(AbstractDescr):
 class GcLLDescr_framework(GcLLDescription):
     DEBUG = False    # forced to True by x86/test/test_zrpy_gc.py
 
-    TIDFLAG_HAS_FINALIZER       = 1 << llgroup.HALFSHIFT
-    TIDFLAG_HAS_LIGHT_FINALIZER = 1 << (llgroup.HALFSHIFT+1)
-
-    def __init__(self, gcdescr, translator, rtyper, llop1=llop):
+    def __init__(self, gcdescr, translator, rtyper, llop1=llop,
+                 really_not_translated=False):
         from pypy.rpython.memory.gctypelayout import check_typeid
         from pypy.rpython.memory.gcheader import GCHeaderBuilder
         from pypy.rpython.memory.gctransform import framework
         GcLLDescription.__init__(self, gcdescr, translator, rtyper)
-        assert self.translate_support_code, "required with the framework GC"
         self.translator = translator
         self.llop1 = llop1
+        if really_not_translated:
+            assert not self.translate_support_code  # but half does not work
+            self._initialize_for_tests()
+        else:
+            assert self.translate_support_code,"required with the framework GC"
+            self._check_valid_gc()
+            self._make_gcrootmap()
+            self._make_layoutbuilder()
+            self._setup_gcclass()
 
+    def _initialize_for_tests(self):
+        self.layoutbuilder = None
+        self.str_type_id = 10083        # random, for tests only
+        self.unicode_type_id = 10085
+        self.fielddescr_tid = AbstractDescr()
+        self.max_size_of_young_obj = 1000
+        self.write_barrier_descr = None
+
+    def _check_valid_gc(self):
         # we need the hybrid or minimark GC for rgc._make_sure_does_not_move()
         # to work
-        if gcdescr.config.translation.gc not in ('hybrid', 'minimark'):
+        if self.gcdescr.config.translation.gc not in ('hybrid', 'minimark'):
             raise NotImplementedError("--gc=%s not implemented with the JIT" %
                                       (gcdescr.config.translation.gc,))
 
+    def _make_gcrootmap(self):
         # to find roots in the assembler, make a GcRootMap
         name = gcdescr.config.translation.gcrootfinder
         try:
@@ -634,6 +649,7 @@ class GcLLDescr_framework(GcLLDescription):
         gcrootmap = cls(gcdescr)
         self.gcrootmap = gcrootmap
 
+    def _make_layoutbuilder(self):
         # make a TransformerLayoutBuilder and save it on the translator
         # where it can be fished and reused by the FrameworkGCTransformer
         self.layoutbuilder = framework.TransformerLayoutBuilder(translator)
@@ -641,6 +657,7 @@ class GcLLDescr_framework(GcLLDescription):
         self.translator._jit2gc = {'layoutbuilder': self.layoutbuilder}
         gcrootmap.add_jit2gc_hooks(self.translator._jit2gc)
 
+    def _setup_gcclass(self):
         self.GCClass = self.layoutbuilder.GCClass
         self.moving_gc = self.GCClass.moving_gc
         self.HDRPTR = lltype.Ptr(self.GCClass.HDR)
@@ -657,14 +674,10 @@ class GcLLDescr_framework(GcLLDescription):
         # make a malloc function, with two arguments
         def malloc_basic(size, tid):
             type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
-            has_finalizer = bool(tid & self.TIDFLAG_HAS_FINALIZER)
-            has_light_finalizer = bool(tid & self.TIDFLAG_HAS_LIGHT_FINALIZER)
             check_typeid(type_id)
             res = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
                                                   type_id, size,
-                                                  has_finalizer,
-                                                  has_light_finalizer,
-                                                  False)
+                                                  False, False, False)
             # In case the operation above failed, we are returning NULL
             # from this function to assembler.  There is also an RPython
             # exception set, typically MemoryError; but it's easier and
@@ -757,18 +770,15 @@ class GcLLDescr_framework(GcLLDescription):
         self.gcrootmap.initialize()
 
     def init_size_descr(self, S, descr):
-        type_id = self.layoutbuilder.get_type_id(S)
-        assert not self.layoutbuilder.is_weakref_type(S)
-        flags = 0
-        if self.layoutbuilder.has_finalizer(S):
-            flags |= self.TIDFLAG_HAS_FINALIZER
-        if self.layoutbuilder.has_light_finalizer(S):
-            flags |= self.TIDFLAG_HAS_LIGHT_FINALIZER
-        descr.tid = llop.combine_ushort(lltype.Signed, type_id, flags)
+        if self.layoutbuilder is not None:
+            type_id = self.layoutbuilder.get_type_id(S)
+            assert not self.layoutbuilder.is_weakref_type(S)
+            descr.tid = llop.combine_ushort(lltype.Signed, type_id, 0)
 
     def init_array_descr(self, A, descr):
-        type_id = self.layoutbuilder.get_type_id(A)
-        descr.tid = llop.combine_ushort(lltype.Signed, type_id, 0)
+        if self.layoutbuilder is not None:
+            type_id = self.layoutbuilder.get_type_id(A)
+            descr.tid = llop.combine_ushort(lltype.Signed, type_id, 0)
 
     def gc_malloc(self, sizedescr):
         assert isinstance(sizedescr, BaseSizeDescr)

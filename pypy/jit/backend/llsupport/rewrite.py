@@ -100,10 +100,7 @@ class GcRewriterAssembler(object):
     def handle_new_fixedsize(self, descr, op):
         assert isinstance(descr, BaseSizeDescr)
         size = descr.size
-        if not (descr.tid & self.gc_ll_descr.TIDFLAG_HAS_FINALIZER):
-            self.gen_malloc_nursery(size, op.result)
-        else:
-            self.gen_malloc_gc(size, op.result)
+        self.gen_malloc_nursery(size, op.result)
         self.gen_initialize_tid(op.result, descr.tid)
 
     def handle_new_array(self, tid, base_size, item_size, arraylen_descr, op):

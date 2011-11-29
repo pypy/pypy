@@ -15,64 +15,57 @@ class Evaluator(object):
 
 class RewriteTests(object):
     def check_rewrite(self, frm_operations, to_operations):
-        self.gc_ll_descr.translate_support_code = False
-        try:
-            S = lltype.GcStruct('S', ('x', lltype.Signed),
-                                     ('y', lltype.Signed))
-            sdescr = get_size_descr(self.gc_ll_descr, S)
-            sdescr.tid = 1234
-            #
-            T = lltype.GcStruct('T', ('y', lltype.Signed),
-                                     ('z', lltype.Signed),
-                                     ('t', lltype.Signed))
-            tdescr = get_size_descr(self.gc_ll_descr, T)
-            tdescr.tid = 5678
-            #
-            A = lltype.GcArray(lltype.Signed)
-            adescr = get_array_descr(self.gc_ll_descr, A)
-            adescr.tid = 4321
-            alendescr = get_field_arraylen_descr(self.gc_ll_descr, A)
-            #
-            B = lltype.GcArray(lltype.Char)
-            bdescr = get_array_descr(self.gc_ll_descr, B)
-            bdescr.tid = 8765
-            blendescr = get_field_arraylen_descr(self.gc_ll_descr, B)
-            #
-            E = lltype.GcStruct('Empty')
-            edescr = get_size_descr(self.gc_ll_descr, E)
-            edescr.tid = 9000
-            #
-            vtable_descr = self.gc_ll_descr.fielddescr_vtable
-            O = lltype.GcStruct('O', ('parent', rclass.OBJECT),
-                                     ('x', lltype.Signed))
-            o_vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
-            register_known_gctype(self.cpu, o_vtable, O)
-            #
-            try:
-                tiddescr = self.gc_ll_descr.fielddescr_tid
-            except AttributeError:   # Boehm
-                pass
-            WORD = globals()['WORD']
-            #
-            str_type_id  = self.gc_ll_descr.str_type_id
-            str_basesize = self.gc_ll_descr.str_basesize
-            str_itemsize = self.gc_ll_descr.str_itemsize
-            strlendescr = get_field_arraylen_descr(self.gc_ll_descr, rstr.STR)
-            #
-            unicode_type_id  = self.gc_ll_descr.unicode_type_id
-            unicode_basesize = self.gc_ll_descr.unicode_basesize
-            unicode_itemsize = self.gc_ll_descr.unicode_itemsize
-            unicodelendescr = get_field_arraylen_descr(self.gc_ll_descr,
-                                                       rstr.UNICODE)
-            #
-            ops = parse(frm_operations, namespace=locals())
-            expected = parse(to_operations % Evaluator(locals()),
-                             namespace=locals())
-            operations = self.gc_ll_descr.rewrite_assembler(self.cpu,
-                                                            ops.operations,
-                                                            [])
-        finally:
-            self.gc_ll_descr.translate_support_code = True
+        S = lltype.GcStruct('S', ('x', lltype.Signed),
+                                 ('y', lltype.Signed))
+        sdescr = get_size_descr(self.gc_ll_descr, S)
+        sdescr.tid = 1234
+        #
+        T = lltype.GcStruct('T', ('y', lltype.Signed),
+                                 ('z', lltype.Signed),
+                                 ('t', lltype.Signed))
+        tdescr = get_size_descr(self.gc_ll_descr, T)
+        tdescr.tid = 5678
+        #
+        A = lltype.GcArray(lltype.Signed)
+        adescr = get_array_descr(self.gc_ll_descr, A)
+        adescr.tid = 4321
+        alendescr = get_field_arraylen_descr(self.gc_ll_descr, A)
+        #
+        B = lltype.GcArray(lltype.Char)
+        bdescr = get_array_descr(self.gc_ll_descr, B)
+        bdescr.tid = 8765
+        blendescr = get_field_arraylen_descr(self.gc_ll_descr, B)
+        #
+        E = lltype.GcStruct('Empty')
+        edescr = get_size_descr(self.gc_ll_descr, E)
+        edescr.tid = 9000
+        #
+        vtable_descr = self.gc_ll_descr.fielddescr_vtable
+        O = lltype.GcStruct('O', ('parent', rclass.OBJECT),
+                                 ('x', lltype.Signed))
+        o_vtable = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
+        register_known_gctype(self.cpu, o_vtable, O)
+        #
+        tiddescr = self.gc_ll_descr.fielddescr_tid
+        WORD = globals()['WORD']
+        #
+        str_type_id  = self.gc_ll_descr.str_type_id
+        str_basesize = self.gc_ll_descr.str_basesize
+        str_itemsize = self.gc_ll_descr.str_itemsize
+        strlendescr = get_field_arraylen_descr(self.gc_ll_descr, rstr.STR)
+        #
+        unicode_type_id  = self.gc_ll_descr.unicode_type_id
+        unicode_basesize = self.gc_ll_descr.unicode_basesize
+        unicode_itemsize = self.gc_ll_descr.unicode_itemsize
+        unicodelendescr = get_field_arraylen_descr(self.gc_ll_descr,
+                                                   rstr.UNICODE)
+        #
+        ops = parse(frm_operations, namespace=locals())
+        expected = parse(to_operations % Evaluator(locals()),
+                         namespace=locals())
+        operations = self.gc_ll_descr.rewrite_assembler(self.cpu,
+                                                        ops.operations,
+                                                        [])
         equaloplists(operations, expected.operations)
 
 
@@ -179,11 +172,9 @@ class TestFramework(RewriteTests):
                 gcrootfinder = 'asmgcc'
                 gctransformer = 'framework'
                 gcremovetypeptr = False
-        class FakeTranslator(object):
-            config = config_
         gcdescr = get_description(config_)
-        self.gc_ll_descr = GcLLDescr_framework(gcdescr, FakeTranslator(),
-                                               None, None)
+        self.gc_ll_descr = GcLLDescr_framework(gcdescr, None, None, None,
+                                               really_not_translated=True)
         #
         class FakeCPU(object):
             def sizeof(self, STRUCT):
@@ -386,13 +377,21 @@ class TestFramework(RewriteTests):
     def test_rewrite_assembler_newstr_newunicode(self):
         self.check_rewrite("""
             [i2]
-            p0 = newstr(10)
+            p0 = newstr(14)
             p1 = newunicode(10)
             p2 = newunicode(i2)
             jump()
         """, """
             [i2]
-            p0 = malloc_nursery(%(str_basesize + 10 * str_itemsize)d)
+            p0 = malloc_nursery(%(str_basesize + 16 * str_itemsize + \
+                                  unicode_basesize + 10 * unicode_itemsize)d)
             setfield_gc(p0, %(str_type_id)d, descr=tiddescr)
+            setfield_gc(p0, 14, descr=strlendescr)
+            p1 = int_add(p0, %(str_basesize + 16 * str_itemsize)d)
+            setfield_gc(p1, %(unicode_type_id)d, descr=tiddescr)
+            setfield_gc(p1, 10, descr=unicodelendescr)
+            p2 = malloc_gc(%(unicode_basesize)d, i2, %(unicode_itemsize)d)
+            setfield_gc(p2, %(unicode_type_id)d, descr=tiddescr)
+            setfield_gc(p2, i2, descr=unicodelendescr)
             jump()
         """)
