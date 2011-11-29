@@ -832,7 +832,7 @@ class interp2app(Wrappable):
                 defs_w.append(None)
             else:
                 spec = unwrap_spec[i]
-                if spec in ['bufferstr']:
+                if isinstance(val, str) and spec not in [str]:
                     defs_w.append(space.wrapbytes(val))
                 else:
                     defs_w.append(space.wrap(val))

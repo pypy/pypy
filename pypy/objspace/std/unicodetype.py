@@ -35,7 +35,7 @@ unicode_capitalize = SMM('capitalize', 1,
                          doc='S.capitalize() -> unicode\n\nReturn a'
                              ' capitalized version of S, i.e. make the first'
                              ' character\nhave upper case.')
-unicode_center     = SMM('center', 3, defaults=(' ',),
+unicode_center     = SMM('center', 3, defaults=(u' ',),
                          doc='S.center(width[, fillchar]) -> unicode\n\nReturn'
                              ' S centered in a Unicode string of length width.'
                              ' Padding is\ndone using the specified fill'
@@ -112,7 +112,7 @@ unicode_join       = SMM('join', 2,
                              ' which is the concatenation of the strings in'
                              ' the\nsequence.  The separator between elements'
                              ' is S.')
-unicode_ljust      = SMM('ljust', 3, defaults=(' ',),
+unicode_ljust      = SMM('ljust', 3, defaults=(u' ',),
                          doc='S.ljust(width[, fillchar]) -> int\n\nReturn S'
                              ' left justified in a Unicode string of length'
                              ' width. Padding is\ndone using the specified'
@@ -120,7 +120,7 @@ unicode_ljust      = SMM('ljust', 3, defaults=(' ',),
 unicode_lower      = SMM('lower', 1,
                          doc='S.lower() -> unicode\n\nReturn a copy of the'
                              ' string S converted to lowercase.')
-unicode_rjust      = SMM('rjust', 3, defaults=(' ',),
+unicode_rjust      = SMM('rjust', 3, defaults=(u' ',),
                          doc='S.rjust(width[, fillchar]) -> unicode\n\nReturn'
                              ' S right justified in a Unicode string of length'
                              ' width. Padding is\ndone using the specified'

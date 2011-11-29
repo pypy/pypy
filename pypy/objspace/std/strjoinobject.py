@@ -29,7 +29,7 @@ class W_StringJoinObject(W_AbstractStringObject):
 
     def unwrap(w_self, space):
         return w_self.force()
-    str_w = unwrap
+    bytes_w = unwrap
 
 registerimplementation(W_StringJoinObject)
 
@@ -51,7 +51,7 @@ def add__StringJoin_StringJoin(space, w_self, w_other):
 def add__StringJoin_String(space, w_self, w_other):
     if len(w_self.joined_strs) > w_self.until:
         w_self.force(True)
-    other = space.str_w(w_other)
+    other = space.bytes_w(w_other)
     w_self.joined_strs.append(other)
     return W_StringJoinObject(w_self.joined_strs)
 

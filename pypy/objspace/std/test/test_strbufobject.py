@@ -12,36 +12,36 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
         import __pypy__
         # cannot do "Hello, " + "World!" because cpy2.5 optimises this
         # away on AST level
-        s = "Hello, ".__add__("World!")
-        assert type(s) is str
+        s = b"Hello, ".__add__(b"World!")
+        assert type(s) is bytes
         assert 'W_StringBufferObject' in __pypy__.internal_repr(s)
 
     def test_add_twice(self):
-        x = "a".__add__("b")
-        y = x + "c"
-        c = x + "d"
-        assert y == "abc"
-        assert c == "abd"
+        x = b"a".__add__(b"b")
+        y = x + b"c"
+        c = x + b"d"
+        assert y == b"abc"
+        assert c == b"abd"
 
     def test_add(self):
         import __pypy__
-        all = ""
+        all = b""
         for i in range(20):
-            all += str(i)
+            all += str(i).encode()
         assert 'W_StringBufferObject' in __pypy__.internal_repr(all)
-        assert all == "012345678910111213141516171819"
+        assert all == b"012345678910111213141516171819"
 
     def test_hash(self):
         import __pypy__
         def join(s): return s[:len(s) // 2] + s[len(s) // 2:]
-        t = 'a' * 101
+        t = b'a' * 101
         s = join(t)
         assert 'W_StringBufferObject' in __pypy__.internal_repr(s)
         assert hash(s) == hash(t)
 
     def test_len(self):
-        s = "a".__add__("b")
-        r = "c".__add__("d")
+        s = b"a".__add__(b"b")
+        r = b"c".__add__(b"d")
         t = s + r
         assert len(s) == 2
         assert len(r) == 2
@@ -49,30 +49,30 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
 
     def test_add_strbuf(self):
         # make three strbuf objects
-        s = 'a'.__add__('b')
-        t = 'x'.__add__('c')
-        u = 'y'.__add__('d')
+        s = b'a'.__add__(b'b')
+        t = b'x'.__add__(b'c')
+        u = b'y'.__add__(b'd')
 
         # add two different strbufs to the same string
         v = s + t
         w = s + u
 
         # check that insanity hasn't resulted.
-        assert v == "abxc"
-        assert w == "abyd"
+        assert v == b"abxc"
+        assert w == b"abyd"
 
     def test_more_adding_fun(self):
-        s = 'a'.__add__('b') # s is a strbuf now
-        t = s + 'c'
-        u = s + 'd'
-        v = s + 'e'
-        assert v == 'abe'
-        assert u == 'abd'
-        assert t == 'abc'
+        s = b'a'.__add__(b'b') # s is a strbuf now
+        t = s + b'c'
+        u = s + b'd'
+        v = s + b'e'
+        assert v == b'abe'
+        assert u == b'abd'
+        assert t == b'abc'
 
     def test_buh_even_more(self):
-        a = 'a'.__add__('b')
-        b = a + 'c'
-        c = '0'.__add__('1')
+        a = b'a'.__add__(b'b')
+        b = a + b'c'
+        c = b'0'.__add__(b'1')
         x = c + a
-        assert x == '01ab'
+        assert x == b'01ab'

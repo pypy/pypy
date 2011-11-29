@@ -389,7 +389,7 @@ def _str_join_many_items(space, w_self, list_w, size):
 def str_rjust__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
     u_arg = space.int_w(w_arg)
     u_self = w_self._value
-    fillchar = space.str_w(w_fillchar)
+    fillchar = space.bytes_w(w_fillchar)
     if len(fillchar) != 1:
         raise OperationError(space.w_TypeError,
             space.wrap("rjust() argument 2 must be a single character"))
@@ -405,7 +405,7 @@ def str_rjust__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
 def str_ljust__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
     u_self = w_self._value
     u_arg = space.int_w(w_arg)
-    fillchar = space.str_w(w_fillchar)
+    fillchar = space.bytes_w(w_fillchar)
     if len(fillchar) != 1:
         raise OperationError(space.w_TypeError,
             space.wrap("ljust() argument 2 must be a single character"))
@@ -614,7 +614,7 @@ def str_lstrip__String_None(space, w_self, w_chars):
 def str_center__String_ANY_ANY(space, w_self, w_arg, w_fillchar):
     u_self = w_self._value
     u_arg  = space.int_w(w_arg)
-    fillchar = space.str_w(w_fillchar)
+    fillchar = space.bytes_w(w_fillchar)
     if len(fillchar) != 1:
         raise OperationError(space.w_TypeError,
             space.wrap("center() argument 2 must be a single character"))
@@ -966,7 +966,7 @@ def str_translate__String_ANY_ANY(space, w_string, w_table, w_deletechars=''):
                 space.wrap("translation table must be 256 characters long"))
 
     string = w_string._value
-    deletechars = space.str_w(w_deletechars)
+    deletechars = space.bytes_w(w_deletechars)
     if len(deletechars) == 0:
         buf = StringBuilder(len(string))
         for char in string:

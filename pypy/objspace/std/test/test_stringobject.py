@@ -199,8 +199,9 @@ class AppTestStringObject:
         assert b'abc'.rjust(6) == b'   abc'
         assert b'abc'.rjust(3) == b'abc'
         assert b'abc'.rjust(2) == b'abc'
-        assert b'abc'.rjust(5, '*') == b'**abc'     # Python 2.4
-        raises(TypeError, b'abc'.rjust, 5, 'xx')
+        assert b'abc'.rjust(5, b'*') == b'**abc'     # Python 2.4
+        raises(TypeError, b'abc'.rjust, 5, '*')
+        raises(TypeError, b'abc'.rjust, 5, b'xx')
 
     def test_ljust(self):
         s = b"abc"
@@ -212,8 +213,9 @@ class AppTestStringObject:
         assert b'abc'.ljust(6) == b'abc   '
         assert b'abc'.ljust(3) == b'abc'
         assert b'abc'.ljust(2) == b'abc'
-        assert b'abc'.ljust(5, '*') == b'abc**'     # Python 2.4
-        raises(TypeError, b'abc'.ljust, 6, '')
+        assert b'abc'.ljust(5, b'*') == b'abc**'     # Python 2.4
+        raises(TypeError, b'abc'.ljust, 5, '*')
+        raises(TypeError, b'abc'.ljust, 6, b'')
 
     def test_replace(self):
         assert b'one!two!three!'.replace(b'!', b'@', 1) == b'one@two!three!'
@@ -279,8 +281,8 @@ class AppTestStringObject:
         assert b'abc'.center(6) == b' abc  '
         assert b'abc'.center(3) == b'abc'
         assert b'abc'.center(2) == b'abc'
-        assert b'abc'.center(5, '*') == b'*abc*'     # Python 2.4
-        raises(TypeError, b'abc'.center, 4, 'cba')
+        assert b'abc'.center(5, b'*') == b'*abc*'     # Python 2.4
+        raises(TypeError, b'abc'.center, 4, b'cba')
         assert b' abc'.center(7) == b'   abc '
 
     def test_count(self):
@@ -597,19 +599,20 @@ class AppTestStringObject:
             return tbl
 
         table = maketrans(b'abc', b'xyz')
-        assert b'xyzxyz' == b'xyzabcdef'.translate(table, 'def')
-        assert b'xyzxyz' == b'xyzabcdef'.translate(memoryview(table), 'def')
+        assert b'xyzxyz' == b'xyzabcdef'.translate(table, b'def')
+        assert b'xyzxyz' == b'xyzabcdef'.translate(memoryview(table), b'def')
 
         table = maketrans(b'a', b'A')
         assert b'Abc' == b'abc'.translate(table)
         assert b'xyz' == b'xyz'.translate(table)
-        assert b'yz' ==  b'xyz'.translate(table, 'x')
+        assert b'yz' ==  b'xyz'.translate(table, b'x')
+        raises(TypeError, b'xyz'.translate, table, 'x')
 
-        raises(ValueError, b'xyz'.translate, b'too short', 'strip')
+        raises(ValueError, b'xyz'.translate, b'too short', b'strip')
         raises(ValueError, b'xyz'.translate, b'too short')
         raises(ValueError, b'xyz'.translate, b'too long'*33)
 
-        assert b'yz' == b'xyz'.translate(None, 'x')     # 2.6
+        assert b'yz' == b'xyz'.translate(None, b'x')     # 2.6
 
     def test_iter(self):
         l=[]
