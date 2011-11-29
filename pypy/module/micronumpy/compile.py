@@ -69,8 +69,12 @@ class FakeSpace(object):
             if start < 0:
                 start += size
             if stop < 0:
-                stop += size
-            return (start, stop, step, (stop - start)//step + 1)
+                stop += size + 1
+            if step < 0:
+                lgt = (stop - start + 1) / step + 1
+            else:
+                lgt = (stop - start - 1) / step + 1
+            return (start, stop, step, lgt)
 
     @specialize.argtype(1)
     def wrap(self, obj):
