@@ -97,7 +97,7 @@ class FakeSpace(object):
         return w_obj
 
     def float_w(self, w_obj):
-        assert isinstance(w_obj, FloatObject)        
+        assert isinstance(w_obj, FloatObject)
         return w_obj.floatval
 
     def int_w(self, w_obj):
@@ -251,7 +251,7 @@ class Operator(Node):
         elif self.name == '*':
             w_res = w_lhs.descr_mul(interp.space, w_rhs)
         elif self.name == '-':
-            w_res = w_lhs.descr_sub(interp.space, w_rhs)            
+            w_res = w_lhs.descr_sub(interp.space, w_rhs)
         elif self.name == '->':
             assert not isinstance(w_rhs, Scalar)
             if isinstance(w_rhs, FloatObject):
@@ -483,8 +483,8 @@ class Parser(object):
                 else:
                     step = 1
         return SliceConstant(start, stop, step)
-            
-        
+
+
     def parse_expression(self, tokens):
         stack = []
         while tokens.remaining():
@@ -538,7 +538,7 @@ class Parser(object):
             if token.name == 'array_right':
                 return elems
             assert token.name == 'coma'
-        
+
     def parse_statement(self, tokens):
         if (tokens.get(0).name == 'identifier' and
             tokens.get(1).name == 'assign'):
