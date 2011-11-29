@@ -1,4 +1,9 @@
-import py
+import py, os
+
+if os.name <> 'nt':
+    NULLPATHNAME = '/dev/null'
+else:
+    NULLPATHNAME = 'NUL'
 
 class NullPyPathLocal(py.path.local):
 
@@ -6,7 +11,7 @@ class NullPyPathLocal(py.path.local):
         return self.__class__(py.path.local.join(self, *args))
 
     def open(self, mode):
-        return open('/dev/null', mode)
+        return open(NULLPATHNAME, mode)
 
     def __repr__(self):
         return py.path.local.__repr__(self) + ' [fake]'
