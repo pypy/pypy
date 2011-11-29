@@ -462,7 +462,8 @@ def hash__Frozenset(space, w_set):
     hash = hash * 69069 + 907133923
     if hash == 0:
         hash = 590923713
-    w_set.hash = intmask(hash)
+    hash = intmask(hash)
+    w_set.hash = hash
 
     return space.wrap(hash)
 
