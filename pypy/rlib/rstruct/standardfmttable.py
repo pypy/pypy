@@ -206,7 +206,7 @@ def make_int_unpacker(size, signed, _memo={}):
                 if signed and i == 0 and x >= 128:
                     x -= 256
                 intvalue <<= 8
-                intvalue |= x
+                intvalue |= inttype(x)
                 idx += 1
         else:
             for i in unroll_range_size:

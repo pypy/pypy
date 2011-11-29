@@ -10,7 +10,7 @@ from pypy.interpreter import pytraceback
 from pypy.rlib.objectmodel import we_are_translated, instantiate
 from pypy.rlib.jit import hint
 from pypy.rlib.debug import make_sure_not_resized, check_nonneg
-from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.rlib import jit
 from pypy.tool import stdlib_opcode
 from pypy.tool.stdlib_opcode import host_bytecode_spec
@@ -167,7 +167,7 @@ class PyFrame(eval.Frame):
                 # Execution starts just after the last_instr.  Initially,
                 # last_instr is -1.  After a generator suspends it points to
                 # the YIELD_VALUE instruction.
-                next_instr = self.last_instr + 1
+                next_instr = r_uint(self.last_instr + 1)
                 if next_instr != 0:
                     self.pushvalue(w_inputvalue)
             #
@@ -691,6 +691,7 @@ def unpickle_block(space, w_tup):
     handlerposition = space.int_w(w_handlerposition)
     valuestackdepth = space.int_w(w_valuestackdepth)
     assert valuestackdepth >= 0
+    assert handlerposition >= 0
     blk = instantiate(get_block_class(opname))
     blk.handlerposition = handlerposition
     blk.valuestackdepth = valuestackdepth
