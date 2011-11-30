@@ -599,7 +599,7 @@ class AssemblerPPC(OpAssembler):
         self._make_prologue(regalloc_head, frame_depth)
      
         direct_bootstrap_code = self.mc.currpos()
-        #self.gen_direct_bootstrap_code(loophead, looptoken, inputargs, frame_depth)
+        self.gen_direct_bootstrap_code(loophead, looptoken, inputargs, frame_depth)
 
         self.write_pending_failure_recoveries()
         loop_start = self.materialize_loop(looptoken, False)
