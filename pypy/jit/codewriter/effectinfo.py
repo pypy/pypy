@@ -241,15 +241,6 @@ class QuasiImmutAnalyzer(BoolGraphAnalyzer):
         return op.opname == 'jit_force_quasi_immutable'
 
 class RandomEffectsAnalyzer(BoolGraphAnalyzer):
-    def analyze_direct_call(self, graph, seen=None):
-        if hasattr(graph, "func") and hasattr(graph.func, "_ptr"):
-            # the attribute _ptr is stored on the function 'graph.func'
-            # by rffi.llexternal().  It's a hack...
-            if graph.func._ptr._obj.random_effects_on_gcobjs:
-                return True
-        return super(RandomEffectsAnalyzer, self).analyze_direct_call(graph,
-                                                                      seen)
-
     def analyze_external_call(self, op, seen=None):
         try:
             funcobj = op.args[0].value._obj

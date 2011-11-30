@@ -245,7 +245,6 @@ def llexternal(name, args, result, _callable=None,
     wrapper._annspecialcase_ = 'specialize:ll'
     wrapper._always_inline_ = True
     # for debugging, stick ll func ptr to that
-    # (nowadays used in a not-for-debugging way by jit/codewriter/effectinfo)
     wrapper._ptr = funcptr
     wrapper = func_with_new_name(wrapper, name)
 
