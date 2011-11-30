@@ -990,9 +990,12 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
         target_ofs = offset - pos
         self.bc(condition, 2, target_ofs)
 
-    def b_abs(self, address):
-        self.load_imm(r.r0, address)
-        self.mtctr(0)
+    def b_abs(self, address, trap=False):
+        self.alloc_scratch_reg(address)
+        self.mtctr(r.r0.value)
+        self.free_scratch_reg()
+        if trap:
+            self.trap()
         self.bctr()
 
     def bl_abs(self, address):
