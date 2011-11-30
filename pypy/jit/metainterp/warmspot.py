@@ -255,10 +255,8 @@ class WarmRunnerDesc(object):
         s_binding = self.translator.annotator.binding
         jd._portal_args_s = [s_binding(v) for v in args]
         graph = copygraph(graph)
-        graph.startblock.isstartblock = False
         [jmpp] = find_jit_merge_points([graph])
         graph.startblock = support.split_before_jit_merge_point(*jmpp)
-        graph.startblock.isstartblock = True
         # a crash in the following checkgraph() means that you forgot
         # to list some variable in greens=[] or reds=[] in JitDriver,
         # or that a jit_merge_point() takes a constant as an argument.
