@@ -1109,6 +1109,14 @@ class NDimSlice(ViewArray):
     def debug_repr(self):
         return 'Slice(%s)' % self.parent.debug_repr()
 
+    def copy(self):
+        array = NDimArray(self.size, self.shape[:], self.find_dtype())
+        iter = self.start_iter()
+        while not iter.done():
+            array.setitem(iter.offset, self.getitem(iter.offset))
+            iter = iter.next(len(self.shape))
+        return array
+
 class NDimArray(BaseArray):
     """ A class representing contiguous array. We know that each iteration
     by say ufunc will increase the data index by one

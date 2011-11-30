@@ -764,6 +764,19 @@ class AppTestNumArray(BaseNumpyAppTest):
         a[::-1] = a + a
         assert (a == [8, 6, 4, 2, 0]).all()
 
+    def test_debug_repr(self):
+        from numpypy import zeros, sin
+        a = zeros(1)
+        assert a.__debug_repr__() == 'Array'
+        assert (a + a).__debug_repr__() == 'Call2(add, Array, Array)'
+        assert (a[::2]).__debug_repr__() == 'Slice(Array)'
+        assert (a + 2).__debug_repr__() == 'Call2(add, Array, Scalar)'
+        assert (a + a.flat).__debug_repr__() == 'Call2(add, Array, FlatIter(Array))'
+        assert sin(a).__debug_repr__() == 'Call1(sin, Array)'
+        b = a + a
+        b[0] = 3
+        assert b.__debug_repr__() == 'Call2(add, forced=Array)'
+
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
         import numpypy
@@ -993,18 +1006,11 @@ class AppTestMultiDim(BaseNumpyAppTest):
         a = array([1, 2, 3])
         assert dot(a.flat, a.flat) == 14
 
-    def test_debug_repr(self):
-        from numpypy import zeros, sin
-        a = zeros(1)
-        assert a.__debug_repr__() == 'Array'
-        assert (a + a).__debug_repr__() == 'Call2(add, Array, Array)'
-        assert (a[::2]).__debug_repr__() == 'Slice(Array)'
-        assert (a + 2).__debug_repr__() == 'Call2(add, Array, Scalar)'
-        assert (a + a.flat).__debug_repr__() == 'Call2(add, Array, FlatIter(Array))'
-        assert sin(a).__debug_repr__() == 'Call1(sin, Array)'
-        b = a + a
-        b[0] = 3
-        assert b.__debug_repr__() == 'Call2(add, forced=Array)'
+    def test_slice_copy(self):
+        from numpypy import zeros
+        a = zeros((10, 10))
+        b = a[0].copy()
+        assert (b == zeros(10)).all()
 
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):

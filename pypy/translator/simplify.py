@@ -397,7 +397,8 @@ def rec_op_has_side_effects(translator, op, seen=None):
 def transform_dead_op_vars(graph, translator=None):
     """Remove dead operations and variables that are passed over a link
     but not used in the target block. Input is a graph."""
-    return transform_dead_op_vars_in_blocks(list(graph.iterblocks()), translator)
+    return transform_dead_op_vars_in_blocks(list(graph.iterblocks()),
+                                            [graph], translator)
 
 # the set of operations that can safely be removed
 # (they have no side effects, at least in R-Python)
@@ -419,11 +420,19 @@ CanRemoveBuiltins = {
     hasattr: True,
     }
 
-def transform_dead_op_vars_in_blocks(blocks, translator=None):
+def find_start_blocks(graphs):
+    start_blocks = set()
+    for graph in graphs:
+        start_blocks.add(graph.startblock)
+    return start_blocks
+
+def transform_dead_op_vars_in_blocks(blocks, graphs, translator=None):
     """Remove dead operations and variables that are passed over a link
     but not used in the target block. Input is a set of blocks"""
     read_vars = {}  # set of variables really used
     variable_flow = {}  # map {Var: list-of-Vars-it-depends-on}
+    set_of_blocks = set(blocks)
+    start_blocks = find_start_blocks(graphs)
 
     def canremove(op, block):
         if op.opname not in CanRemove:
@@ -451,7 +460,7 @@ def transform_dead_op_vars_in_blocks(blocks, translator=None):
 
         if block.exits:
             for link in block.exits:
-                if link.target not in blocks:
+                if link.target not in set_of_blocks:
                     for arg, targetarg in zip(link.args, link.target.inputargs):
                         read_vars[arg] = True
                         read_vars[targetarg] = True
@@ -465,7 +474,7 @@ def transform_dead_op_vars_in_blocks(blocks, translator=None):
                 read_vars[arg] = True
         # an input block's inputargs should not be modified, even if some
         # of the function's input arguments are not actually used
-        if block.isstartblock:
+        if block in start_blocks:
             for arg in block.inputargs:
                 read_vars[arg] = True
 
