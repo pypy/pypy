@@ -131,7 +131,7 @@ def create_low_level_dtype(num, kind, name, aliases, applevel_types, T, valtype,
 
 
 def binop(func):
-    func._annspecialcase_ = "specialize:call_location"
+    specialize.argtype(1, 2)(func)
     @functools.wraps(func)
     def impl(self, v1, v2):
         return self.adapt_val(func(self,
@@ -141,6 +141,7 @@ def binop(func):
     return impl
 
 def raw_binop(func):
+    specialize.argtype(1, 2)(func)
     # Returns the result unwrapped.
     @functools.wraps(func)
     def impl(self, v1, v2):
@@ -151,6 +152,7 @@ def raw_binop(func):
     return impl
 
 def unaryop(func):
+    specialize.argtype(1)(func)
     @functools.wraps(func)
     def impl(self, v):
         return self.adapt_val(func(self, self.for_computation(self.unbox(v))))
