@@ -1111,8 +1111,7 @@ class NDimSlice(ViewArray):
         return 'Slice(%s)' % self.parent.debug_repr()
 
     def copy(self):
-        array = NDimArray(self.size, self.shape[:], self.parent.dtype,
-                          self.parent.order)
+        array = NDimArray(self.size, self.shape[:], self.find_dtype())
         iter = self.start_iter()
         while not iter.done():
             array.setitem(iter.offset, self.getitem(iter.offset))
