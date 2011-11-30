@@ -424,6 +424,7 @@ def transform_dead_op_vars_in_blocks(blocks, translator=None):
     but not used in the target block. Input is a set of blocks"""
     read_vars = {}  # set of variables really used
     variable_flow = {}  # map {Var: list-of-Vars-it-depends-on}
+    set_of_blocks = set(blocks)
 
     def canremove(op, block):
         if op.opname not in CanRemove:
@@ -451,7 +452,7 @@ def transform_dead_op_vars_in_blocks(blocks, translator=None):
 
         if block.exits:
             for link in block.exits:
-                if link.target not in blocks:
+                if link.target not in set_of_blocks:
                     for arg, targetarg in zip(link.args, link.target.inputargs):
                         read_vars[arg] = True
                         read_vars[targetarg] = True
