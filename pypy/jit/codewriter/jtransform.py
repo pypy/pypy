@@ -15,6 +15,8 @@ from pypy.rpython.rclass import IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY
 from pypy.translator.simplify import get_funcobj
 from pypy.translator.unsimplify import varoftype
 
+class UnsupportedMallocFlags(Exception):
+    pass
 
 def transform_graph(graph, cpu=None, callcontrol=None, portal_jd=None):
     """Transform a control flow graph to make it suitable for
@@ -481,6 +483,10 @@ class Transformer(object):
 
     def rewrite_op_malloc_varsize(self, op):
         if op.args[1].value['flavor'] == 'raw':
+            d = op.args[1].value.copy()
+            d.pop('flavor')
+            if d:
+                raise UnsupportedMallocFlags(d)
             ARRAY = op.args[0].value
             return self._do_builtin_call(op, 'raw_malloc',
                                          [op.args[2]],
