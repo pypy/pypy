@@ -487,6 +487,7 @@ class Transformer(object):
             d.pop('flavor')
             add_memory_pressure = d.pop('add_memory_pressure', False)
             zero = d.pop('zero', False)
+            track_allocation = d.pop('track_allocation', True)
             if d:
                 raise UnsupportedMallocFlags(d)
             ARRAY = op.args[0].value
@@ -495,6 +496,8 @@ class Transformer(object):
                 name += '_zero'
             if add_memory_pressure:
                 name += '_add_memory_pressure'
+            if not track_allocation:
+                name += '_no_track_allocation'
             return self._do_builtin_call(op, name,
                                          [op.args[2]],
                                          extra = (ARRAY,),

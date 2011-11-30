@@ -621,6 +621,32 @@ class LLtypeHelpers:
                                  add_memory_pressure=True)
         return _ll_1_raw_malloc
 
+    def build_ll_1_raw_malloc_no_track_allocation(ARRAY):
+        def _ll_1_raw_malloc(n):
+            return lltype.malloc(ARRAY, n, flavor='raw',
+                                 track_allocation=False)
+        return _ll_1_raw_malloc
+
+    def build_ll_1_raw_malloc_zero_no_track_allocation(ARRAY):
+        def _ll_1_raw_malloc(n):
+            return lltype.malloc(ARRAY, n, flavor='raw', zero=True,
+                                 track_allocation=False)
+        return _ll_1_raw_malloc
+
+    def build_ll_1_raw_malloc_zero_add_memory_pressure_no_track_allocation(ARRAY):
+        def _ll_1_raw_malloc(n):
+            return lltype.malloc(ARRAY, n, flavor='raw', zero=True,
+                                 add_memory_pressure=True,
+                                 track_allocation=False)
+        return _ll_1_raw_malloc
+
+    def build_ll_1_raw_malloc_add_memory_pressure_no_track_allocation(ARRAY):
+        def _ll_1_raw_malloc(n):
+            return lltype.malloc(ARRAY, n, flavor='raw',
+                                 add_memory_pressure=True,
+                                 track_allocation=False)
+        return _ll_1_raw_malloc
+
     def build_ll_1_raw_free(ARRAY):
         def _ll_1_raw_free(p):
             lltype.free(p, flavor='raw')
