@@ -50,6 +50,25 @@ def write_message(g, msg, resulttype=None):
             marshal.dump(msg, g)
         else:
             marshal.dump(msg, g, 0)
+    elif resulttype is s_StatResult:
+        # Hand-coded marshal for stat results that mimics what rmarshal expects.
+        # marshal.dump(tuple(msg)) would have been too easy. rmarshal insists
+        # on 64-bit ints at places, even when the value fits in 32 bits.
+        import struct
+        st = tuple(msg)
+        fmt = "iIIiiiIfff"
+        buf = []
+        buf.append(struct.pack("<ci", '(', len(st)))
+        for c, v in zip(fmt, st):
+            if c == 'i':
+                buf.append(struct.pack("<ci", c, v))
+            elif c == 'I':
+                buf.append(struct.pack("<cq", c, v))
+            elif c == 'f':
+                fstr = "%g" % v
+                buf.append(struct.pack("<cB", c, len(fstr)))
+                buf.append(fstr)
+        g.write(''.join(buf))
     else:
         # use the exact result type for encoding
         from pypy.rlib.rmarshal import get_marshaller
