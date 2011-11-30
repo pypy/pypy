@@ -1,7 +1,6 @@
-import sys
+import sys, os
 import py
 from pypy.tool.nullpath import NullPyPathLocal, NULLPATHNAME
-
 
 def test_nullpath(tmpdir):
     path = NullPyPathLocal(tmpdir)
@@ -10,4 +9,4 @@ def test_nullpath(tmpdir):
     assert isinstance(foo_txt, NullPyPathLocal)
     #
     f = foo_txt.open('w')
-    assert f.name == NULLPATHNAME
+    assert f.name == os.devnull
