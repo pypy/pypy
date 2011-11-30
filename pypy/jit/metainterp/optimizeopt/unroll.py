@@ -148,9 +148,13 @@ class UnrollOptimizer(Optimization):
                 constant_inputargs[box] = const
 
         short_boxes = ShortBoxes(self.optimizer, inputargs + constant_inputargs.keys())
+        aliased_vrituals = {}
         for i in range(len(original_jump_args)):
-            if original_jump_args[i] is not jump_args[i] and not values[i].is_virtual():
-                short_boxes.alias(original_jump_args[i], jump_args[i])
+            if original_jump_args[i] is not jump_args[i]:
+                if values[i].is_virtual():
+                    aliased_vrituals[original_jump_args[i]] = jump_args[i] 
+                else:
+                    short_boxes.alias(original_jump_args[i], jump_args[i])
 
         self.optimizer.clear_newoperations()
         for box in short_inputargs:
@@ -166,7 +170,8 @@ class UnrollOptimizer(Optimization):
         target_token.short_preamble = [ResOperation(rop.LABEL, short_inputargs, None)]
         target_token.start_resumedescr = start_resumedescr
         target_token.exported_state = ExportedState(constant_inputargs, short_boxes,
-                                                    inputarg_setup_ops, self.optimizer)
+                                                    inputarg_setup_ops, self.optimizer,
+                                                    aliased_vrituals)
 
     def import_state(self, targetop):
         self.did_import = False
@@ -228,6 +233,9 @@ class UnrollOptimizer(Optimization):
                     #self.optimizer.getvalue(op.result).box = op.result # FIXME: HACK!!!
         self.optimizer.flush()
         self.optimizer.emitting_dissabled = False
+
+        for box, key_box in exported_state.aliased_vrituals.items():
+            self.optimizer.make_equal_to(box, self.getvalue(key_box))
 
     def close_bridge(self, start_label):
         inputargs = self.inputargs        
@@ -576,9 +584,9 @@ class ValueImporter(object):
 
 class ExportedState(object):
     def __init__(self, constant_inputargs,
-                 short_boxes, inputarg_setup_ops, optimizer):
+                 short_boxes, inputarg_setup_ops, optimizer, aliased_vrituals):
         self.constant_inputargs = constant_inputargs
         self.short_boxes = short_boxes
         self.inputarg_setup_ops = inputarg_setup_ops
         self.optimizer = optimizer
-        
+        self.aliased_vrituals = aliased_vrituals

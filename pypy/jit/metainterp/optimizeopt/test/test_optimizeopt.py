@@ -7041,6 +7041,26 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_imported_aliased_virtual_in_failargs(self):
+        ops = """
+        [p1, p2, i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) [p1, p2]
+        p3 = new_with_vtable(ConstClass(node_vtable))
+        setfield_gc(p3, p3, descr=nextdescr)
+        p4 = getfield_gc(p3, descr=nextdescr)
+        i1 = int_add(i0, 1)
+        jump(p3, p4, i1)
+        """
+        expected = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i1 = int_add(i0, 1)        
+        jump(i1)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_chained_virtuals(self):
         ops = """
         [p0, p1]
