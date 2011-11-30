@@ -7,6 +7,9 @@ class GcDescription:
         self.config = config
 
 
+class GC_none(GcDescription):
+    malloc_zero_filled = True
+
 class GC_boehm(GcDescription):
     malloc_zero_filled = True
 
