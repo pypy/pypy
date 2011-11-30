@@ -599,53 +599,21 @@ class LLtypeHelpers:
             return p
         return _ll_0_alloc_with_del
 
-    def build_ll_1_raw_malloc(ARRAY):
-        def _ll_1_raw_malloc(n):
-            return lltype.malloc(ARRAY, n, flavor='raw')
-        return _ll_1_raw_malloc
+    def build_raw_malloc_builder(zero=False, add_memory_pressure=False, track_allocation=True):
+        def build_ll_1_raw_malloc(ARRAY):
+            def _ll_1_raw_malloc(n):
+                return lltype.malloc(ARRAY, n, flavor='raw', zero=zero, add_memory_pressure=add_memory_pressure)
+            return _ll_1_raw_malloc
+        return build_ll_1_raw_malloc
 
-    def build_ll_1_raw_malloc_zero(ARRAY):
-        def _ll_1_raw_malloc(n):
-            return lltype.malloc(ARRAY, n, flavor='raw', zero=True)
-        return _ll_1_raw_malloc
-
-    def build_ll_1_raw_malloc_zero_add_memory_pressure(ARRAY):
-        def _ll_1_raw_malloc(n):
-            return lltype.malloc(ARRAY, n, flavor='raw', zero=True,
-                                 add_memory_pressure=True)
-        return _ll_1_raw_malloc
-
-    def build_ll_1_raw_malloc_add_memory_pressure(ARRAY):
-        def _ll_1_raw_malloc(n):
-            return lltype.malloc(ARRAY, n, flavor='raw',
-                                 add_memory_pressure=True)
-        return _ll_1_raw_malloc
-
-    def build_ll_1_raw_malloc_no_track_allocation(ARRAY):
-        def _ll_1_raw_malloc(n):
-            return lltype.malloc(ARRAY, n, flavor='raw',
-                                 track_allocation=False)
-        return _ll_1_raw_malloc
-
-    def build_ll_1_raw_malloc_zero_no_track_allocation(ARRAY):
-        def _ll_1_raw_malloc(n):
-            return lltype.malloc(ARRAY, n, flavor='raw', zero=True,
-                                 track_allocation=False)
-        return _ll_1_raw_malloc
-
-    def build_ll_1_raw_malloc_zero_add_memory_pressure_no_track_allocation(ARRAY):
-        def _ll_1_raw_malloc(n):
-            return lltype.malloc(ARRAY, n, flavor='raw', zero=True,
-                                 add_memory_pressure=True,
-                                 track_allocation=False)
-        return _ll_1_raw_malloc
-
-    def build_ll_1_raw_malloc_add_memory_pressure_no_track_allocation(ARRAY):
-        def _ll_1_raw_malloc(n):
-            return lltype.malloc(ARRAY, n, flavor='raw',
-                                 add_memory_pressure=True,
-                                 track_allocation=False)
-        return _ll_1_raw_malloc
+    build_ll_1_raw_malloc = build_raw_malloc_builder()
+    build_ll_1_raw_malloc_zero = build_raw_malloc_builder(zero=True)
+    build_ll_1_raw_malloc_zero_add_memory_pressure = build_raw_malloc_builder(zero=True, add_memory_pressure=True)
+    build_ll_1_raw_malloc_add_memory_pressure = build_raw_malloc_builder(add_memory_pressure=True)
+    build_ll_1_raw_malloc_no_track_allocation = build_raw_malloc_builder(track_allocation=False)
+    build_ll_1_raw_malloc_zero_no_track_allocation = build_raw_malloc_builder(zero=True, track_allocation=False)
+    build_ll_1_raw_malloc_zero_add_memory_pressure_no_track_allocation = build_raw_malloc_builder(zero=True, add_memory_pressure=True, track_allocation=False)
+    build_ll_1_raw_malloc_add_memory_pressure_no_track_allocation = build_raw_malloc_builder(add_memory_pressure=True, track_allocation=False)
 
     def build_ll_1_raw_free(ARRAY):
         def _ll_1_raw_free(p):
