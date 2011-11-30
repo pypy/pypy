@@ -255,10 +255,10 @@ class RandomEffectsAnalyzer(BoolGraphAnalyzer):
             funcobj = op.args[0].value._obj
             if funcobj.random_effects_on_gcobjs:
                 return True
-        except lltype.DelayedPointer:
+        except (AttributeError, lltype.DelayedPointer):
             pass
-        return super(RandomEffectsAnalyzer, self).analyze_external_call(op,
-                                                                        seen)
+        return super(RandomEffectsAnalyzer, self).analyze_external_call(
+            op, seen)
 
     def analyze_simple_operation(self, op, graphinfo):
         return False
