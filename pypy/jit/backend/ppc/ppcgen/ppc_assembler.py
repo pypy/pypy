@@ -491,7 +491,8 @@ class AssemblerPPC(OpAssembler):
         self.mc.free_scratch_reg()
 
         # load values passed on the stack to the corresponding locations
-        stack_position = self.GPR_SAVE_AREA_AND_FORCE_INDEX
+        stack_position = self.GPR_SAVE_AREA_AND_FORCE_INDEX\
+                         + BACKCHAIN_SIZE
 
         count = 0
         for i in range(reg_args, len(inputargs)):
