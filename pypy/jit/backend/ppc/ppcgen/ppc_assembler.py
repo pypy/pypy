@@ -916,7 +916,8 @@ class AssemblerPPC(OpAssembler):
                 assert 0, "not implemented yet"
             # XXX this code has to be verified
             assert not self.stack_in_use
-            self.regalloc_mov(loc, r.r0)
+            target = StackLocation(0) # write to force index field           
+            self.regalloc_mov(loc, target)
             self.stack_in_use = True
         elif loc.is_reg():
             self.mc.addi(r.SP.value, r.SP.value, -WORD) # decrease stack pointer
@@ -940,7 +941,8 @@ class AssemblerPPC(OpAssembler):
                 assert 0, "not implemented yet"
             # XXX this code has to be verified
             assert self.stack_in_use
-            self.regalloc_mov(r.r0, loc)
+            from_loc = StackLocation(0)
+            self.regalloc_mov(from_loc, loc)
             self.stack_in_use = False
         elif loc.is_reg():
             # pop value
