@@ -20,9 +20,8 @@ class SendTests(object):
             return c
         res = self.meta_interp(f, [1])
         assert res == 2
-        self.check_loops({'jump': 1,
-                          'int_sub': 1, 'int_gt' : 1,
-                          'guard_true': 1})    # all folded away
+        self.check_resops({'jump': 2, 'guard_true': 2, 'int_gt': 2,
+                           'int_sub': 2}) # all folded away
 
     def test_red_builtin_send(self):
         myjitdriver = JitDriver(greens = [], reds = ['i', 'counter'])
@@ -41,12 +40,9 @@ class SendTests(object):
             return res
         res = self.meta_interp(f, [1], policy=StopAtXPolicy(externfn))
         assert res == 2
-        if self.type_system == 'ootype':
-            self.check_loops(call=1, oosend=1) # 'len' remains
-        else:
-            # 'len' becomes a getfield('num_items') for now in lltype,
-            # which is itself encoded as a 'getfield_gc'
-            self.check_loops(call=1, getfield_gc=1)
+        # 'len' becomes a getfield('num_items') for now in lltype,
+        # which is itself encoded as a 'getfield_gc'
+        self.check_resops(call=2, getfield_gc=2)
 
     def test_send_to_single_target_method(self):
         myjitdriver = JitDriver(greens = [], reds = ['i', 'counter'])
@@ -70,11 +66,10 @@ class SendTests(object):
         res = self.meta_interp(f, [1], policy=StopAtXPolicy(externfn),
                                backendopt=True)
         assert res == 43
-        self.check_loops({'call': 1, 'guard_no_exception': 1,
-                          'getfield_gc': 1,
-                          'int_add': 1,
-                          'jump': 1, 'int_gt' : 1, 'guard_true' : 1,
-                          'int_sub' : 1})
+        self.check_resops({'int_gt': 2, 'getfield_gc': 2,
+                           'guard_true': 2, 'int_sub': 2, 'jump': 2,
+                           'call': 2, 'guard_no_exception': 2,
+                           'int_add': 2})
 
     def test_red_send_to_green_receiver(self):
         myjitdriver = JitDriver(greens = ['i'], reds = ['counter', 'j'])
@@ -97,7 +92,7 @@ class SendTests(object):
             return res
         res = self.meta_interp(f, [4, -1])
         assert res == 145
-        self.check_loops(int_add = 1, everywhere=True)
+        self.check_resops(int_add=1)
 
     def test_oosend_base(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'w'])
@@ -132,7 +127,7 @@ class SendTests(object):
         assert res == 17
         res = self.meta_interp(f, [4, 14])
         assert res == 1404
-        self.check_loops(guard_class=0, new_with_vtable=0, new=0)
+        self.check_resops(guard_class=1, new=0, new_with_vtable=0)
 
     def test_three_receivers(self):
         myjitdriver = JitDriver(greens = [], reds = ['y'])
@@ -205,8 +200,7 @@ class SendTests(object):
         # of the body in a single bigger loop with no failing guard except
         # the final one.
         self.check_loop_count(1)
-        self.check_loops(guard_class=0,
-                                int_add=2, int_sub=2)
+        self.check_resops(guard_class=1, int_add=4, int_sub=4)
         self.check_jumps(14)
 
     def test_oosend_guard_failure_2(self):
@@ -247,8 +241,7 @@ class SendTests(object):
         res = self.meta_interp(f, [4, 28])
         assert res == f(4, 28)
         self.check_loop_count(1)
-        self.check_loops(guard_class=0,
-                                int_add=2, int_sub=2)
+        self.check_resops(guard_class=1, int_add=4, int_sub=4)
         self.check_jumps(14)
 
     def test_oosend_different_initial_class(self):
@@ -285,8 +278,8 @@ class SendTests(object):
         # However, this doesn't match the initial value of 'w'.
         # XXX This not completely easy to check...
         self.check_loop_count(1)
-        self.check_loops(int_add=0, int_lshift=1, guard_class=0,
-                         new_with_vtable=0, new=0)
+        self.check_resops(guard_class=1, new_with_vtable=0, int_lshift=2,
+                          int_add=0, new=0)
 
     def test_indirect_call_unknown_object_1(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y'])
@@ -566,10 +559,7 @@ class SendTests(object):
         policy = StopAtXPolicy(new, A.foo.im_func, B.foo.im_func)
         res = self.meta_interp(fn, [0, 20], policy=policy)
         assert res == 42
-        if self.type_system == 'ootype':
-            self.check_loops(oosend=1)
-        else:
-            self.check_loops(call=1)
+        self.check_resops(call=2)
 
 
     def test_residual_oosend_with_void(self):
@@ -597,10 +587,7 @@ class SendTests(object):
         policy = StopAtXPolicy(new, A.foo.im_func)
         res = self.meta_interp(fn, [1, 20], policy=policy)
         assert res == 41
-        if self.type_system == 'ootype':
-            self.check_loops(oosend=1)
-        else:
-            self.check_loops(call=1)
+        self.check_resops(call=2)
 
     def test_constfold_pure_oosend(self):
         myjitdriver = JitDriver(greens=[], reds = ['i', 'obj'])
@@ -621,10 +608,7 @@ class SendTests(object):
         policy = StopAtXPolicy(A.foo.im_func)
         res = self.meta_interp(fn, [1, 20], policy=policy)
         assert res == 42
-        if self.type_system == 'ootype':
-            self.check_loops(oosend=0)
-        else:
-            self.check_loops(call=0)
+        self.check_resops(call=0)
 
     def test_generalize_loop(self):
         myjitdriver = JitDriver(greens=[], reds = ['i', 'obj'])

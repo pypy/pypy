@@ -31,8 +31,9 @@ class VirtualTests:
         res = self.meta_interp(f, [10])
         assert res == 55 * 10
         self.check_loop_count(1)
-        self.check_loops(new=0, new_with_vtable=0,
-                                getfield_gc=0, setfield_gc=0)
+        self.check_resops(new_with_vtable=0, setfield_gc=0,
+                          getfield_gc=2, new=0)
+
 
     def test_virtualized2(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'node1', 'node2'])
@@ -53,8 +54,8 @@ class VirtualTests:
                 n -= 1
             return node1.value * node2.value
         assert f(10) == self.meta_interp(f, [10])
-        self.check_loops(new=0, new_with_vtable=0,
-                         getfield_gc=0, setfield_gc=0)
+        self.check_resops(new_with_vtable=0, setfield_gc=0, getfield_gc=2,
+                          new=0)
 
     def test_virtualized_circular1(self):
         class MyNode():
@@ -79,8 +80,8 @@ class VirtualTests:
         res = self.meta_interp(f, [10])
         assert res == 55 * 10
         self.check_loop_count(1)
-        self.check_loops(new=0, new_with_vtable=0,
-                                getfield_gc=0, setfield_gc=0)
+        self.check_resops(new_with_vtable=0, setfield_gc=0,
+                          getfield_gc=3, new=0)
 
     def test_virtualized_float(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
@@ -97,7 +98,7 @@ class VirtualTests:
         res = self.meta_interp(f, [10])
         assert res == f(10)
         self.check_loop_count(1)
-        self.check_loops(new=0, float_add=0)
+        self.check_resops(new=0, float_add=1)
 
     def test_virtualized_float2(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
@@ -115,7 +116,8 @@ class VirtualTests:
         res = self.meta_interp(f, [10])
         assert res == f(10)
         self.check_loop_count(1)
-        self.check_loops(new=0, float_add=1)
+        self.check_resops(new=0, float_add=2)
+
 
     def test_virtualized_2(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
@@ -139,8 +141,8 @@ class VirtualTests:
         res = self.meta_interp(f, [10])
         assert res == 55 * 30
         self.check_loop_count(1)
-        self.check_loops(new=0, new_with_vtable=0,
-                                getfield_gc=0, setfield_gc=0)
+        self.check_resops(new_with_vtable=0, setfield_gc=0, getfield_gc=2,
+                          new=0)
 
     def test_nonvirtual_obj_delays_loop(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
@@ -160,8 +162,8 @@ class VirtualTests:
         res = self.meta_interp(f, [500])
         assert res == 640
         self.check_loop_count(1)
-        self.check_loops(new=0, new_with_vtable=0,
-                                getfield_gc=0, setfield_gc=0)
+        self.check_resops(new_with_vtable=0, setfield_gc=0,
+                          getfield_gc=1, new=0)
 
     def test_two_loops_with_virtual(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
@@ -184,8 +186,9 @@ class VirtualTests:
         res = self.meta_interp(f, [18])
         assert res == f(18)
         self.check_loop_count(2)
-        self.check_loops(new=0, new_with_vtable=0,
-                                getfield_gc=0, setfield_gc=0)
+        self.check_resops(new_with_vtable=0, setfield_gc=0,
+                          getfield_gc=2, new=0)
+
         
     def test_two_loops_with_escaping_virtual(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])
@@ -212,8 +215,8 @@ class VirtualTests:
         res = self.meta_interp(f, [20], policy=StopAtXPolicy(externfn))
         assert res == f(20)
         self.check_loop_count(3)
-        self.check_loops(**{self._new_op: 1})
-        self.check_loops(int_mul=0, call=1)
+        self.check_resops(**{self._new_op: 1})
+        self.check_resops(int_mul=0, call=1)
 
     def test_two_virtuals(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'prev'])
@@ -236,7 +239,7 @@ class VirtualTests:
 
         res = self.meta_interp(f, [12])
         assert res == 78
-        self.check_loops(new_with_vtable=0, new=0)
+        self.check_resops(new_with_vtable=0, new=0)
 
     def test_specialied_bridge(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'res'])
@@ -281,7 +284,7 @@ class VirtualTests:
 
         res = self.meta_interp(f, [20])
         assert res == 9
-        self.check_loops(new_with_vtable=0, new=0)
+        self.check_resops(new_with_vtable=0, new=0)
 
     def test_immutable_constant_getfield(self):
         myjitdriver = JitDriver(greens = ['stufflist'], reds = ['n', 'i'])
@@ -307,7 +310,7 @@ class VirtualTests:
 
         res = self.meta_interp(f, [10, 1, 0], listops=True)
         assert res == 0
-        self.check_loops(getfield_gc=0)
+        self.check_resops(getfield_gc=0)
 
     def test_escapes(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'parent'])
@@ -336,7 +339,7 @@ class VirtualTests:
 
         res = self.meta_interp(f, [10], policy=StopAtXPolicy(g))
         assert res == 3
-        self.check_loops(**{self._new_op: 1}) 
+        self.check_resops(**{self._new_op: 1}) 
 
     def test_virtual_on_virtual(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'parent'])
@@ -366,7 +369,7 @@ class VirtualTests:
 
         res = self.meta_interp(f, [10])
         assert res == 2
-        self.check_loops(new=0, new_with_vtable=0) 
+        self.check_resops(new=0, new_with_vtable=0)
 
     def test_bridge_from_interpreter(self):
         mydriver = JitDriver(reds = ['n', 'f'], greens = [])
@@ -841,7 +844,7 @@ class VirtualMiscTests:
                 del t2
             return i
         assert self.meta_interp(f, []) == 10
-        self.check_loops(new_array=0)
+        self.check_resops(new_array=0)
 
     def test_virtual_streq_bug(self):
         mydriver = JitDriver(reds = ['i', 's', 'a'], greens = [])
@@ -942,8 +945,8 @@ class VirtualMiscTests:
 
         res = self.meta_interp(f, [16])
         assert res == f(16)
-        self.check_loops(getfield_gc=2)
-        
+        self.check_resops(getfield_gc=7)
+     
 
 # ____________________________________________________________
 # Run 1: all the tests instantiate a real RPython class
@@ -985,10 +988,8 @@ class TestLLtype_Instance(VirtualTests, LLJitMixin):
         res = self.meta_interp(f, [10])
         assert res == 20
         self.check_loop_count(1)
-        self.check_loops(new=0, new_with_vtable=0,
-                                getfield_gc=0, setfield_gc=0)
-
-
+        self.check_resops(new_with_vtable=0, setfield_gc=0, getfield_gc=0,
+                          new=0)
 
 class TestOOtype_Instance(VirtualTests, OOJitMixin):
     _new_op = 'new_with_vtable'

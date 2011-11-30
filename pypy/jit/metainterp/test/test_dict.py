@@ -91,7 +91,7 @@ class DictTests:
         res1 = f(100)
         res2 = self.meta_interp(f, [100], listops=True)
         assert res1 == res2
-        self.check_loops(int_mod=1) # the hash was traced and eq, but cached
+        self.check_resops(int_mod=2) # the hash was traced and eq, but cached
 
     def test_dict_setdefault(self):
         myjitdriver = JitDriver(greens = [], reds = ['total', 'dct'])
@@ -107,7 +107,7 @@ class DictTests:
         assert f(100) == 50
         res = self.meta_interp(f, [100], listops=True)
         assert res == 50
-        self.check_loops(new=0, new_with_vtable=0)
+        self.check_resops(new=0, new_with_vtable=0)
 
     def test_dict_as_counter(self):
         myjitdriver = JitDriver(greens = [], reds = ['total', 'dct'])
@@ -128,7 +128,7 @@ class DictTests:
         assert f(100) == 50
         res = self.meta_interp(f, [100], listops=True)
         assert res == 50
-        self.check_loops(int_mod=1) # key + eq, but cached
+        self.check_resops(int_mod=2) # key + eq, but cached
 
     def test_repeated_lookup(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'd'])
@@ -153,12 +153,13 @@ class DictTests:
 
         res = self.meta_interp(f, [100], listops=True)
         assert res == f(50)
-        self.check_loops({"call": 5, "getfield_gc": 1, "getinteriorfield_gc": 1,
-                          "guard_false": 1, "guard_no_exception": 4,
-                          "guard_true": 1, "int_and": 1, "int_gt": 1,
-                          "int_is_true": 1, "int_sub": 1, "jump": 1,
-                          "new_with_vtable": 1, "new": 1, "new_array": 1,
-                          "setfield_gc": 3, })
+        self.check_resops({'new_array': 2, 'getfield_gc': 2,
+                           'guard_true': 2, 'jump': 2,
+                           'new_with_vtable': 2, 'getinteriorfield_gc': 2,
+                           'setfield_gc': 6, 'int_gt': 2, 'int_sub': 2,
+                           'call': 10, 'int_and': 2,
+                           'guard_no_exception': 8, 'new': 2,
+                           'guard_false': 2, 'int_is_true': 2})
 
 
 class TestOOtype(DictTests, OOJitMixin):

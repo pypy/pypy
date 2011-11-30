@@ -50,6 +50,13 @@ def get_strategy_from_list_objects(space, list_w):
     else:
         return space.fromcache(StringListStrategy)
 
+    # check for floats
+    for w_obj in list_w:
+        if not is_W_FloatObject(w_obj):
+            break
+    else:
+        return space.fromcache(FloatListStrategy)
+
     return space.fromcache(ObjectListStrategy)
 
 def is_W_IntObject(w_object):
@@ -60,7 +67,9 @@ def is_W_StringObject(w_object):
     from pypy.objspace.std.stringobject import W_StringObject
     return type(w_object) is W_StringObject
 
-
+def is_W_FloatObject(w_object):
+    from pypy.objspace.std.floatobject import W_FloatObject
+    return type(w_object) is W_FloatObject
 
 class W_ListObject(W_AbstractListObject):
     from pypy.objspace.std.listtype import list_typedef as typedef
@@ -364,6 +373,8 @@ class EmptyListStrategy(ListStrategy):
             strategy = self.space.fromcache(IntegerListStrategy)
         elif is_W_StringObject(w_item):
             strategy = self.space.fromcache(StringListStrategy)
+        elif is_W_FloatObject(w_item):
+            strategy = self.space.fromcache(FloatListStrategy)
         else:
             strategy = self.space.fromcache(ObjectListStrategy)
 
@@ -905,6 +916,32 @@ class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
         if reverse:
             l.reverse()
 
+class FloatListStrategy(AbstractUnwrappedStrategy, ListStrategy):
+    _none_value = 0.0
+
+    def wrap(self, floatval):
+        return self.space.wrap(floatval)
+
+    def unwrap(self, w_float):
+        return self.space.float_w(w_float)
+
+    erase, unerase = rerased.new_erasing_pair("float")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def is_correct_type(self, w_obj):
+        return is_W_FloatObject(w_obj)
+
+    def list_is_correct_type(self, w_list):
+        return w_list.strategy is self.space.fromcache(FloatListStrategy)
+
+    def sort(self, w_list, reverse):
+        l = self.unerase(w_list.lstorage)
+        sorter = FloatSort(l, len(l))
+        sorter.sort()
+        if reverse:
+            l.reverse()
+
 class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     _none_value = None
 
@@ -933,6 +970,7 @@ class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
 
     def getitems_str(self, w_list):
         return self.unerase(w_list.lstorage)
+
 
 # _______________________________________________________
 
@@ -1282,6 +1320,7 @@ def list_reverse__List(space, w_list):
 
 TimSort = make_timsort_class()
 IntBaseTimSort = make_timsort_class()
+FloatBaseTimSort = make_timsort_class()
 StringBaseTimSort = make_timsort_class()
 
 class KeyContainer(baseobjspace.W_Root):
@@ -1299,6 +1338,10 @@ class SimpleSort(TimSort):
         return space.is_true(space.lt(a, b))
 
 class IntSort(IntBaseTimSort):
+    def lt(self, a, b):
+        return a < b
+
+class FloatSort(FloatBaseTimSort):
     def lt(self, a, b):
         return a < b
 
