@@ -554,6 +554,20 @@ def test_raw_malloc():
     assert op1.opname == '-live-'
     assert op1.args == []
 
+def test_raw_malloc_zero():
+    S = rffi.CArray(lltype.Signed)
+    v1 = varoftype(lltype.Signed)
+    v = varoftype(lltype.Ptr(S))
+    flags = Constant({'flavor': 'raw', 'zero': True}, lltype.Void)
+    op = SpaceOperation('malloc_varsize', [Constant(S, lltype.Void), flags,
+                                           v1], v)
+    tr = Transformer(FakeCPU(), FakeResidualCallControl())
+    op0, op1 = tr.rewrite_operation(op)
+    assert op0.opname == 'residual_call_ir_i'
+    assert op0.args[0].value == 'raw_malloc_zero'    # pseudo-function as a str
+    assert op1.opname == '-live-'
+    assert op1.args == []
+
 def test_raw_malloc_unsupported_flag():
     S = rffi.CArray(lltype.Signed)
     v1 = varoftype(lltype.Signed)

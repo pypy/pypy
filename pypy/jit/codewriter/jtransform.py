@@ -485,10 +485,17 @@ class Transformer(object):
         if op.args[1].value['flavor'] == 'raw':
             d = op.args[1].value.copy()
             d.pop('flavor')
+            add_memory_pressure = d.pop('add_memory_pressure', False)
+            zero = d.pop('zero', False)
             if d:
                 raise UnsupportedMallocFlags(d)
             ARRAY = op.args[0].value
-            return self._do_builtin_call(op, 'raw_malloc',
+            name = 'raw_malloc'
+            if zero:
+                name += '_zero'
+            if add_memory_pressure:
+                name += '_add_memory_pressure'
+            return self._do_builtin_call(op, name,
                                          [op.args[2]],
                                          extra = (ARRAY,),
                                          extrakey = ARRAY)

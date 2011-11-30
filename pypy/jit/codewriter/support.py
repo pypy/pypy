@@ -604,6 +604,23 @@ class LLtypeHelpers:
             return lltype.malloc(ARRAY, n, flavor='raw')
         return _ll_1_raw_malloc
 
+    def build_ll_1_raw_malloc_zero(ARRAY):
+        def _ll_1_raw_malloc(n):
+            return lltype.malloc(ARRAY, n, flavor='raw', zero=True)
+        return _ll_1_raw_malloc
+
+    def build_ll_1_raw_malloc_zero_add_memory_pressure(ARRAY):
+        def _ll_1_raw_malloc(n):
+            return lltype.malloc(ARRAY, n, flavor='raw', zero=True,
+                                 add_memory_pressure=True)
+        return _ll_1_raw_malloc
+
+    def build_ll_1_raw_malloc_add_memory_pressure(ARRAY):
+        def _ll_1_raw_malloc(n):
+            return lltype.malloc(ARRAY, n, flavor='raw',
+                                 add_memory_pressure=True)
+        return _ll_1_raw_malloc
+
     def build_ll_1_raw_free(ARRAY):
         def _ll_1_raw_free(p):
             lltype.free(p, flavor='raw')
