@@ -802,11 +802,13 @@ class AssemblerPPC(OpAssembler):
         memaddr = self.gen_descr_encoding(descr, args, arglocs)
 
         # store addr in force index field
+        self.mc.alloc_scratch_reg()
         self.mc.load_imm(r.r0, memaddr)
         if IS_PPC_32:
             self.mc.stw(r.r0.value, r.SPP.value, 0)
         else:
             self.mc.std(r.r0.value, r.SPP.value, 0)
+        self.mc.free_scratch_reg()
 
         if save_exc:
             path = self._leave_jitted_hook_save_exc
