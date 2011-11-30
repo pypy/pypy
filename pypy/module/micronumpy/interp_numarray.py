@@ -501,6 +501,15 @@ class BaseArray(Wrappable):
     descr_argmin = _reduce_argmax_argmin_impl("min")
 
     def descr_dot(self, space, w_other):
+        '''Dot product of two arrays.
+    
+    For 2-D arrays it is equivalent to matrix multiplication, and for 1-D
+    arrays to inner product of vectors (without complex conjugation). For
+    N dimensions it is a sum product over the last axis of `a` and
+    the second-to-last of `b`::
+    
+        dot(a, b)[i,j,k,m] = sum(a[i,j,:] * b[k,:,m])'''
+        #numpy's doc string :) 
         w_other = convert_to_array(space, w_other)
         if isinstance(w_other, Scalar):
             return self.descr_mul(space, w_other)
