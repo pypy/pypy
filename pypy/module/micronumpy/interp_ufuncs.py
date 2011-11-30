@@ -161,6 +161,7 @@ class W_Ufunc2(W_Ufunc):
             self.signature, w_lhs.signature, w_rhs.signature
         ])
         new_shape = shape_agreement(space, w_lhs.shape, w_rhs.shape)
+        edf = jkl
         w_res = Call2(new_sig, new_shape, calc_dtype,
                       res_dtype, w_lhs, w_rhs)
         w_lhs.add_invalidates(w_res)

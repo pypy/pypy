@@ -709,6 +709,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert b.shape == (4, 3)
         c = a.dot(b)
         assert (c == [[[14, 38,62], [38, 126, 214], [62, 214, 366]], 
+                   [[86, 302, 518], [110, 390, 670], [134, 478, 822]]]).all()
 
     def test_dot_constant(self):
         from numpypy import array

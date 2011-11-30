@@ -513,10 +513,40 @@ class BaseArray(Wrappable):
         w_other = convert_to_array(space, w_other)
         if isinstance(w_other, Scalar):
             return self.descr_mul(space, w_other)
-        else:
+        elif len(self.shape) < 2 and len(w_other.shape) < 2:
             w_res = self.descr_mul(space, w_other)
             assert isinstance(w_res, BaseArray)
             return w_res.descr_sum(space)
+        #Do the dims match?
+        my_critical_dim_size = self.shape[-1]
+        other_critical_dim_size = w_other.shape[0] 
+        if len(w_other.shape) > 2:
+            other_critical_dim_size = w_other.shape[-2]
+        if my_critical_dim_size != other_critical_dim_size:
+            raise OperationError(space.w_ValueError, space.wrap(
+                                            "objects are not aligned"))
+        out_shape = self.shape[:-1] + w_other.shape[0:-2] + w_other.shape[-1:]
+        out_size = 1
+        for os in out_shape:
+            out_size *= os
+        dtype = interp_ufuncs.find_binop_result_dtype(space, 
+                                     self.find_dtype(), w_other.find_dtype())
+        #TODO: what should the order be? C or F?
+        arr = NDimArray(out_size, out_shape, dtype=dtype)
+        return arr
+        out_iter = ArrayIterator(out_size)
+        me_iter = BroadcastIterator(self,self.shape[:len(self.size)-1] + [1])
+        other_iter = BroadcastIter(self, 
+                               w_other.shape[:-2] + [1] + w_other.shape[-1])
+        call2 = instantiate(Call2)
+        call2.left = self
+        call2.right = w_other
+        call2.calc_dtype = None
+        call2.size = my_critical_dim_size
+        
+        while not out_iter.done():
+            pass
+           
 
     def get_concrete(self):
         raise NotImplementedError
