@@ -207,7 +207,19 @@ class Transformer(object):
         if op.args[0] in self.vable_array_vars:
             self.vable_array_vars[op.result]= self.vable_array_vars[op.args[0]]
 
-    rewrite_op_cast_pointer = rewrite_op_same_as
+    def rewrite_op_cast_pointer(self, op):
+        newop = self.rewrite_op_same_as(op)
+        assert newop is None
+        if (self._is_rclass_instance(op.args[0]) and
+                self._is_rclass_instance(op.result)):
+            FROM = op.args[0].concretetype.TO
+            TO = op.result.concretetype.TO
+            if lltype._castdepth(TO, FROM) > 0:
+                vtable = heaptracker.get_vtable_for_gcstruct(self.cpu, TO)
+                const_vtable = Constant(vtable, lltype.typeOf(vtable))
+                return [None, # hack, do the right renaming from op.args[0] to op.result
+                        SpaceOperation("record_known_class", [op.args[0], const_vtable], None)]
+
     def rewrite_op_cast_bool_to_int(self, op): pass
     def rewrite_op_cast_bool_to_uint(self, op): pass
     def rewrite_op_cast_char_to_int(self, op): pass
