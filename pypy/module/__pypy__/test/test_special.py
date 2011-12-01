@@ -57,17 +57,18 @@ class AppTest(object):
 
     def test_list_strategy(self):
         from __pypy__ import list_strategy
-        l = [1,2,3]
+
+        l = [1, 2, 3]
         assert list_strategy(l) == "int"
-        l = ["a","b","c"]
+        l = ["a", "b", "c"]
         assert list_strategy(l) == "str"
-        l = [1.1,2.2,3.3]
+        l = [1.1, 2.2, 3.3]
         assert list_strategy(l) == "float"
         l = range(3)
         assert list_strategy(l) == "range"
-        l = [1,"b",3]
+        l = [1, "b", 3]
         assert list_strategy(l) == "object"
         l = []
         assert list_strategy(l) == "empty"
         o = 5
-        assert list_strategy(o) == None
+        raises(TypeError, list_strategy, 5)
