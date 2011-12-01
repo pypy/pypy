@@ -64,7 +64,7 @@ class TestW_IntObject:
                 f1 = wrapint(self.space, x)
                 f2 = wrapint(self.space, y)
                 result = self.space.unwrap(self.space.add(f1, f2))
-                assert result == x+y and
+                assert result == x+y
 
     def test_sub(self):
         for x in [1, 100, sys.maxint // 2 - 50,
