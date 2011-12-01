@@ -79,16 +79,20 @@ class types(object):
 
 types._import()
 
+# this was '_fits_into_long', which is not adequate, because long is
+# not necessary the type where we compute with. Actually meant is
+# the type 'Signed'.
+
 @specialize.arg(0)
-def _fits_into_long(TYPE):
+def _fits_into_signed(TYPE):
     if isinstance(TYPE, lltype.Ptr):
-        return True # pointers always fits into longs
+        return True # pointers always fits into Signeds
     if not isinstance(TYPE, lltype.Primitive):
         return False
     if TYPE is lltype.Void or TYPE is rffi.FLOAT or TYPE is rffi.DOUBLE:
         return False
     sz = rffi.sizeof(TYPE)
-    return sz <= rffi.sizeof(rffi.LONG)
+    return sz <= rffi.sizeof(rffi.SIGNED)
 
 
 # ======================================================================
@@ -115,7 +119,7 @@ class ArgChain(object):
     def arg(self, val):
         TYPE = lltype.typeOf(val)
         _check_type(TYPE)
-        if _fits_into_long(TYPE):
+        if _fits_into_signed(TYPE):
             cls = IntArg
             val = rffi.cast(rffi.LONG, val)
         elif TYPE is rffi.DOUBLE:
@@ -250,7 +254,7 @@ class Func(AbstractFuncPtr):
         if is_struct:
             assert types.is_struct(self.restype)
             res = self._do_call_raw(self.funcsym, ll_args)
-        elif _fits_into_long(RESULT):
+        elif _fits_into_signed(RESULT):
             assert not types.is_struct(self.restype)
             res = self._do_call_int(self.funcsym, ll_args)
         elif RESULT is rffi.DOUBLE:

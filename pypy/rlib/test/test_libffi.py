@@ -1,6 +1,6 @@
 import sys
 
-import py
+import py, autopath
 
 from pypy.rlib.libffi import (CDLL, Func, get_libc_name, ArgChain, types,
     IS_32_BIT, array_getitem, array_setitem)
@@ -121,7 +121,9 @@ class TestLibffiCall(BaseFfiTest):
                         exports.append(match.group(1))
         #
         c_file.write(py.code.Source('\n'.join(snippets)))
-        eci = ExternalCompilationInfo(export_symbols=exports)
+        eci = ExternalCompilationInfo(
+            export_symbols=exports,
+            include_dirs = [str(py.path.local(autopath.pypydir).join('translator', 'c'))])
         cls.libfoo_name = str(platform.compile([c_file], eci, 'x',
                                                standalone=False))
 
@@ -235,9 +237,11 @@ class TestLibffiCall(BaseFfiTest):
 
     def test_pointer_as_argument(self):
         """#include <stdlib.h>
-            long inc(long* x)
+           #include "src/signed_defn.h"
+           
+            Signed inc(Signed* x)
             {
-                long oldval;
+                Signed oldval;
                 if (x == NULL)
                     return -1;
                 oldval = *x;
@@ -247,14 +251,13 @@ class TestLibffiCall(BaseFfiTest):
         """
         libfoo = self.get_libfoo()
         func = (libfoo, 'inc', [types.pointer], types.slong)
-        LONGP = lltype.Ptr(rffi.CArray(rffi.LONG))
-        null = lltype.nullptr(LONGP.TO)
-        res = self.call(func, [null], rffi.LONG)
+        null = lltype.nullptr(rffi.SIGNEDP.TO)
+        res = self.call(func, [null], rffi.SIGNED)
         assert res == -1
         #
         ptr_result = lltype.malloc(LONGP.TO, 1, flavor='raw')
         ptr_result[0] = 41
-        res = self.call(func, [ptr_result], rffi.LONG)
+        res = self.call(func, [ptr_result], rffi.SIGNED)
         if self.__class__ is TestLibffiCall:
             # the function was called only once
             assert res == 41
@@ -436,7 +439,7 @@ class TestLibffiCall(BaseFfiTest):
         libfoo = CDLL(self.libfoo_name)
         make_point = (libfoo, 'make_point', [types.slong, types.slong], ffi_point)
         #
-        PTR = lltype.Ptr(rffi.CArray(rffi.LONG))
+        PTR = lltype.Ptr(rffi.CArray(rffi.SIGNED))
         p = self.call(make_point, [12, 34], PTR, is_struct=True,
                       jitif=["byval"])
         assert p[0] == 12
