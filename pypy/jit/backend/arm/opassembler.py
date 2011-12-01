@@ -155,10 +155,10 @@ class IntOpAsslember(object):
     emit_guard_uint_lt = gen_emit_cmp_op_guard('uint_lt', c.LO)
     emit_guard_uint_ge = gen_emit_cmp_op_guard('uint_ge', c.HS)
 
-    emit_op_ptr_eq = emit_op_int_eq
-    emit_op_ptr_ne = emit_op_int_ne
-    emit_guard_ptr_eq = emit_guard_int_eq
-    emit_guard_ptr_ne = emit_guard_int_ne
+    emit_op_ptr_eq = emit_op_instance_ptr_eq = emit_op_int_eq
+    emit_op_ptr_ne = emit_op_instance_ptr_ne = emit_op_int_ne
+    emit_guard_ptr_eq = emit_guard_instance_ptr_eq = emit_guard_int_eq
+    emit_guard_ptr_ne = emit_guard_instance_ptr_ne = emit_guard_int_ne
 
     emit_op_int_add_ovf = emit_op_int_add
     emit_op_int_sub_ovf = emit_op_int_sub
