@@ -28,6 +28,9 @@ class OptSimplify(Optimization):
     def optimize_MARK_OPAQUE_PTR(self, op):
         pass
 
+    def optimize_RECORD_KNOWN_CLASS(self, op):
+        pass
+
 
 dispatch_opt = make_dispatcher_method(OptSimplify, 'optimize_',
         default=OptSimplify.emit_operation)

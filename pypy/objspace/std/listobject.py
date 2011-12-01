@@ -326,6 +326,8 @@ class EmptyListStrategy(ListStrategy):
     to the added item.
     W_Lists do not switch back to EmptyListStrategy when becoming empty again."""
 
+    _applevel_repr = "empty"
+
     def __init__(self, space):
         ListStrategy.__init__(self, space)
         # cache an empty list that is used whenever getitems is called (i.e. sorting)
@@ -425,6 +427,8 @@ class RangeListStrategy(ListStrategy):
     and elements are calculated based on these values.
     On any operation destroying the range (inserting, appending non-ints)
     the strategy is switched to IntegerListStrategy."""
+
+    _applevel_repr = "range"
 
     def switch_to_integer_strategy(self, w_list):
         items = self._getitems_range(w_list, False)
@@ -864,6 +868,7 @@ class AbstractUnwrappedStrategy(object):
 
 class ObjectListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     _none_value = None
+    _applevel_repr = "object"
 
     def unwrap(self, w_obj):
         return w_obj
@@ -892,6 +897,7 @@ class ObjectListStrategy(AbstractUnwrappedStrategy, ListStrategy):
 
 class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     _none_value = 0
+    _applevel_repr = "int"
 
     def wrap(self, intval):
         return self.space.wrap(intval)
@@ -918,6 +924,7 @@ class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
 
 class FloatListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     _none_value = 0.0
+    _applevel_repr = "float"
 
     def wrap(self, floatval):
         return self.space.wrap(floatval)
@@ -944,6 +951,7 @@ class FloatListStrategy(AbstractUnwrappedStrategy, ListStrategy):
 
 class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     _none_value = None
+    _applevel_repr = "str"
 
     def wrap(self, stringval):
         return self.space.wrap(stringval)
