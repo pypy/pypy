@@ -8,7 +8,7 @@ from pypy.tool.uid import Hashable
 from pypy.tool.identity_dict import identity_dict
 from pypy.tool import leakfinder
 from types import NoneType
-from pypy.rlib.rarithmetic import maxint, is_valid_int
+from pypy.rlib.rarithmetic import maxint, is_valid_int, is_emulated_long
 import weakref
 
 class State(object):
@@ -681,6 +681,11 @@ def build_number(name, type):
         raise ValueError('No matching lowlevel type for %r'%type)
     number = _numbertypes[type] = Number(name, type)
     return number
+
+if is_emulated_long:
+    SignedFmt = 'll'
+else:
+    SignedFmt = 'l'
 
 Signed   = build_number("Signed", int)
 Unsigned = build_number("Unsigned", r_uint)
