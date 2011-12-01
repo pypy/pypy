@@ -30,6 +30,7 @@ class BadToken(Exception):
     pass
 
 SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any", "unegative"]
+TWO_ARG_FUNCTIONS = ["dot"]
 
 class FakeSpace(object):
     w_ValueError = None
@@ -381,17 +382,28 @@ class FunctionCall(Node):
                 w_res = neg.call(interp.space, [arr])
             else:
                 assert False # unreachable code
-            if isinstance(w_res, BaseArray):
-                return w_res
-            if isinstance(w_res, FloatObject):
-                dtype = interp.space.fromcache(W_Float64Dtype)
-            elif isinstance(w_res, BoolObject):
-                dtype = interp.space.fromcache(W_BoolDtype)
-            else:
-                dtype = None
-            return scalar_w(interp.space, dtype, w_res)
+        elif self.name in TWO_ARG_FUNCTIONS:
+            if len(self.args) != 2:
+                raise ArgumentMismatch
+            arr0 = self.args[0].execute(interp)
+            arr1 = self.args[1].execute(interp)
+            if not isinstance(arr0, BaseArray):
+                raise ArgumentNotAnArray
+            if not isinstance(arr1, BaseArray):
+                raise ArgumentNotAnArray
+            elif self.name == "dot":
+                w_res = arr0.descr_dot(interp.space, arr1)
         else:
             raise WrongFunctionName
+        if isinstance(w_res, BaseArray):
+            return w_res
+        if isinstance(w_res, FloatObject):
+            dtype = interp.space.fromcache(W_Float64Dtype)
+        elif isinstance(w_res, BoolObject):
+            dtype = interp.space.fromcache(W_BoolDtype)
+        else:
+            dtype = None
+        return scalar_w(interp.space, dtype, w_res)
 
 _REGEXES = [
     ('-?[\d\.]+', 'number'),
@@ -525,6 +537,9 @@ class Parser(object):
         args = []
         tokens.pop() # lparen
         while tokens.get(0).name != 'paren_right':
+            if tokens.get(0).name == 'coma':
+                tokens.pop()
+                continue
             args.append(self.parse_expression(tokens))
         return FunctionCall(name, args)
 
