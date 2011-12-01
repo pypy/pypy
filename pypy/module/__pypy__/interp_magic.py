@@ -4,7 +4,6 @@ from pypy.interpreter.gateway import unwrap_spec
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.objspace.std.typeobject import MethodCache
 from pypy.objspace.std.mapdict import IndexCache
-from pypy.objspace.std.listobject import W_ListObject, IntegerListStrategy, StringListStrategy, FloatListStrategy, RangeListStrategy, EmptyListStrategy, ObjectListStrategy
 
 def internal_repr(space, w_object):
     return space.wrap('%r' % (w_object,))
@@ -75,7 +74,8 @@ def do_what_I_mean(space):
     return space.wrap(42)
 
 def list_strategy(space, w_list):
+    from pypy.objspace.std.listobject import W_ListObject
     str_type = None
     if isinstance(w_list, W_ListObject):
-        str_type = w_list.strategy._type
+        str_type = w_list.strategy._applevel_repr
     return space.wrap(str_type)
