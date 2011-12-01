@@ -50,6 +50,13 @@ def get_strategy_from_list_objects(space, list_w):
     else:
         return space.fromcache(StringListStrategy)
 
+    # check for floats
+    for w_obj in list_w:
+        if not is_W_FloatObject(w_obj):
+            break
+    else:
+        return space.fromcache(FloatListStrategy)
+
     return space.fromcache(ObjectListStrategy)
 
 def is_W_IntObject(w_object):
@@ -60,7 +67,9 @@ def is_W_StringObject(w_object):
     from pypy.objspace.std.stringobject import W_StringObject
     return type(w_object) is W_StringObject
 
-
+def is_W_FloatObject(w_object):
+    from pypy.objspace.std.floatobject import W_FloatObject
+    return type(w_object) is W_FloatObject
 
 class W_ListObject(W_AbstractListObject):
     from pypy.objspace.std.listtype import list_typedef as typedef
@@ -317,6 +326,8 @@ class EmptyListStrategy(ListStrategy):
     to the added item.
     W_Lists do not switch back to EmptyListStrategy when becoming empty again."""
 
+    _applevel_repr = "empty"
+
     def __init__(self, space):
         ListStrategy.__init__(self, space)
         # cache an empty list that is used whenever getitems is called (i.e. sorting)
@@ -364,6 +375,8 @@ class EmptyListStrategy(ListStrategy):
             strategy = self.space.fromcache(IntegerListStrategy)
         elif is_W_StringObject(w_item):
             strategy = self.space.fromcache(StringListStrategy)
+        elif is_W_FloatObject(w_item):
+            strategy = self.space.fromcache(FloatListStrategy)
         else:
             strategy = self.space.fromcache(ObjectListStrategy)
 
@@ -414,6 +427,8 @@ class RangeListStrategy(ListStrategy):
     and elements are calculated based on these values.
     On any operation destroying the range (inserting, appending non-ints)
     the strategy is switched to IntegerListStrategy."""
+
+    _applevel_repr = "range"
 
     def switch_to_integer_strategy(self, w_list):
         items = self._getitems_range(w_list, False)
@@ -853,6 +868,7 @@ class AbstractUnwrappedStrategy(object):
 
 class ObjectListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     _none_value = None
+    _applevel_repr = "object"
 
     def unwrap(self, w_obj):
         return w_obj
@@ -881,6 +897,7 @@ class ObjectListStrategy(AbstractUnwrappedStrategy, ListStrategy):
 
 class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     _none_value = 0
+    _applevel_repr = "int"
 
     def wrap(self, intval):
         return self.space.wrap(intval)
@@ -905,8 +922,36 @@ class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
         if reverse:
             l.reverse()
 
+class FloatListStrategy(AbstractUnwrappedStrategy, ListStrategy):
+    _none_value = 0.0
+    _applevel_repr = "float"
+
+    def wrap(self, floatval):
+        return self.space.wrap(floatval)
+
+    def unwrap(self, w_float):
+        return self.space.float_w(w_float)
+
+    erase, unerase = rerased.new_erasing_pair("float")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def is_correct_type(self, w_obj):
+        return is_W_FloatObject(w_obj)
+
+    def list_is_correct_type(self, w_list):
+        return w_list.strategy is self.space.fromcache(FloatListStrategy)
+
+    def sort(self, w_list, reverse):
+        l = self.unerase(w_list.lstorage)
+        sorter = FloatSort(l, len(l))
+        sorter.sort()
+        if reverse:
+            l.reverse()
+
 class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     _none_value = None
+    _applevel_repr = "str"
 
     def wrap(self, stringval):
         return self.space.wrap(stringval)
@@ -933,6 +978,7 @@ class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
 
     def getitems_str(self, w_list):
         return self.unerase(w_list.lstorage)
+
 
 # _______________________________________________________
 
@@ -1282,6 +1328,7 @@ def list_reverse__List(space, w_list):
 
 TimSort = make_timsort_class()
 IntBaseTimSort = make_timsort_class()
+FloatBaseTimSort = make_timsort_class()
 StringBaseTimSort = make_timsort_class()
 
 class KeyContainer(baseobjspace.W_Root):
@@ -1299,6 +1346,10 @@ class SimpleSort(TimSort):
         return space.is_true(space.lt(a, b))
 
 class IntSort(IntBaseTimSort):
+    def lt(self, a, b):
+        return a < b
+
+class FloatSort(FloatBaseTimSort):
     def lt(self, a, b):
         return a < b
 

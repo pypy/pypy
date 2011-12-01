@@ -92,7 +92,6 @@ class AsmGcRootFrameworkGCTransformer(FrameworkGCTransformer):
         # make a copy of the graph that will reload the values
         graph2 = copygraph(fnptr._obj.graph)
         block2 = graph2.startblock
-        block2.isstartblock = False
         block1 = Block([])
         reloadedvars = []
         for v, c_p in zip(block2.inputargs, sra):
@@ -109,7 +108,6 @@ class AsmGcRootFrameworkGCTransformer(FrameworkGCTransformer):
                                                         [w], v))
             reloadedvars.append(v)
         block1.closeblock(Link(reloadedvars, block2))
-        block1.isstartblock = True
         graph2.startblock = block1
         FUNC2 = lltype.FuncType([], FUNC1.RESULT)
         fnptr2 = lltype.functionptr(FUNC2,
