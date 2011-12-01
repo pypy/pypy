@@ -491,6 +491,9 @@ class OptRewrite(Optimization):
         self.pure(rop.CAST_PTR_TO_INT, [op.result], op.getarg(0))
         self.emit_operation(op)
 
+    def optimize_SAME_AS(self, op):
+        self.make_equal_to(op.result, self.getvalue(op.getarg(0)))
+
 dispatch_opt = make_dispatcher_method(OptRewrite, 'optimize_',
         default=OptRewrite.emit_operation)
 optimize_guards = _findall(OptRewrite, 'optimize_', 'GUARD')
