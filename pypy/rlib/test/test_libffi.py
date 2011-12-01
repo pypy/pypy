@@ -439,7 +439,7 @@ class TestLibffiCall(BaseFfiTest):
         libfoo = CDLL(self.libfoo_name)
         make_point = (libfoo, 'make_point', [types.slong, types.slong], ffi_point)
         #
-        PTR = lltype.Ptr(rffi.CArray(rffi.SIGNED))
+        PTR = lltype.Ptr(rffi.CArray(rffi.LONG))
         p = self.call(make_point, [12, 34], PTR, is_struct=True,
                       jitif=["byval"])
         assert p[0] == 12
