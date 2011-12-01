@@ -78,4 +78,5 @@ def list_strategy(space, w_list):
     if isinstance(w_list, W_ListObject):
         return space.wrap(w_list.strategy._applevel_repr)
     else:
-        raise OperationError(space.w_TypeError, space.wrap("Can only get the list strategy of a list"))
+        w_msg = space.wrap("Can only get the list strategy of a list")
+        raise OperationError(space.w_TypeError, w_msg)
