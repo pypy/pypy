@@ -1,5 +1,5 @@
 import py
-from pypy.rlib.jit import JitDriver, promote
+from pypy.rlib.jit import JitDriver, promote, dont_look_inside
 from pypy.rlib.objectmodel import compute_unique_id
 from pypy.jit.codewriter.policy import StopAtXPolicy
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
@@ -763,6 +763,42 @@ class VirtualTests:
             return x.value
         res = self.meta_interp(f, [0x1F, 0x11])
         assert res == f(0x1F, 0x11)
+
+    def test_retrace_not_matching_bridge(self):
+        @dont_look_inside
+        def external(node):
+            return node.value + 1
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'node', 'node2'])
+        class A():
+            def new(self):
+                return A()
+            def val(self, i):
+                return i + 7
+        class B(A):
+            def new(self):
+                return B()
+            def val(self, i):
+                return i + 42
+        def f(n):
+            node = self._new()
+            node2 = A()
+            node.value = 0
+            i = 0
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, i=i, node=node, node2=node2)
+                next = self._new()
+                next.value = node.value + n + node2.val(i)
+                if i != 7:
+                    next.value += external(next)
+                else:
+                    node2 = B()
+                node = next
+                node2 = node2.new()
+
+                i += 1
+            return node.value 
+        res = self.meta_interp(f, [10], repeat=10)
+        assert res == f(10)
 
 class VirtualMiscTests:
 

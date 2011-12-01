@@ -14,6 +14,9 @@ from pypy.rlib.debug import debug_start, debug_stop, debug_print
 from pypy.rlib.objectmodel import we_are_translated
 import os
 
+class BadVirtualState(Exception):
+    pass
+
 class AbstractVirtualStateInfo(resume.AbstractVirtualInfo):
     position = -1
 
@@ -104,7 +107,8 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
 
     def enum_forced_boxes(self, boxes, value, optimizer):
         assert isinstance(value, virtualize.AbstractVirtualStructValue)
-        assert value.is_virtual()
+        if not value.is_virtual():
+            raise BadVirtualState
         for i in range(len(self.fielddescrs)):
             v = value._fields[self.fielddescrs[i]]
             s = self.fieldstate[i]
@@ -181,7 +185,8 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
 
     def enum_forced_boxes(self, boxes, value, optimizer):
         assert isinstance(value, virtualize.VArrayValue)
-        assert value.is_virtual()
+        if not value.is_virtual():
+            raise BadVirtualState
         for i in range(len(self.fieldstate)):
             v = value._items[i]
             s = self.fieldstate[i]
@@ -249,7 +254,8 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
 
     def enum_forced_boxes(self, boxes, value, optimizer):
         assert isinstance(value, virtualize.VArrayStructValue)
-        assert value.is_virtual()
+        if not value.is_virtual():
+            raise BadVirtualState
         p = 0
         for i in range(len(self.fielddescrs)):
             for j in range(len(self.fielddescrs[i])):

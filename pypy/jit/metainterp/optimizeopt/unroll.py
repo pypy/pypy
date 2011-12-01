@@ -1,5 +1,5 @@
 from pypy.jit.codewriter.effectinfo import EffectInfo
-from pypy.jit.metainterp.optimizeopt.virtualstate import VirtualStateAdder, ShortBoxes
+from pypy.jit.metainterp.optimizeopt.virtualstate import VirtualStateAdder, ShortBoxes, BadVirtualState
 from pypy.jit.metainterp.compile import ResumeGuardDescr
 from pypy.jit.metainterp.history import TreeLoop, TargetToken, JitCellToken
 from pypy.jit.metainterp.jitexc import JitException
@@ -272,7 +272,11 @@ class UnrollOptimizer(Optimization):
         # Construct jumpargs from the virtual state
         original_jumpargs = jumpop.getarglist()[:]
         values = [self.getvalue(arg) for arg in jumpop.getarglist()]
-        jumpargs = virtual_state.make_inputargs(values, self.optimizer)
+        try:
+            jumpargs = virtual_state.make_inputargs(values, self.optimizer)
+        except BadVirtualState:
+            # FIXME: Produce jump to preamble instead (see test_retrace_not_matching_bridge)
+            raise InvalidLoop
         jumpop.initarglist(jumpargs)
 
         # Inline the short preamble at the end of the loop
