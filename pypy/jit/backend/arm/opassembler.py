@@ -199,7 +199,7 @@ class GuardOpAssembler(object):
            print 'Failargs: ', op.getfailargs()
 
         pos = self.mc.currpos()
-        self.mc.NOP()
+        self.mc.BKPT()
         self.pending_guards.append(GuardToken(descr,
                                     failargs=op.getfailargs(),
                                     faillocs=arglocs,
@@ -495,7 +495,7 @@ class OpAssembler(object):
         self.mc.TST_ri(r.ip.value, imm=ofs)
 
         jz_location = self.mc.currpos()
-        self.mc.NOP()
+        self.mc.BKPT()
 
         # the following is supposed to be the slow path, so whenever possible
         # we choose the most compact encoding over the most efficient one.
@@ -958,7 +958,7 @@ class ForceOpAssembler(object):
         regalloc.possibly_free_var(resbox)
 
         fast_jmp_pos = self.mc.currpos()
-        self.mc.NOP()
+        self.mc.BKPT()
 
         # Path A: use assembler helper
         #if values are equal we take the fast path
@@ -981,7 +981,7 @@ class ForceOpAssembler(object):
         # jump to merge point
         jmp_pos = self.mc.currpos()
         #jmp_location = self.mc.curraddr()
-        self.mc.NOP()
+        self.mc.BKPT()
 
         # Path B: load return value and reset token
         # Fast Path using result boxes

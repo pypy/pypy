@@ -6,11 +6,18 @@ from pypy.jit.backend.arm.instruction_builder import define_instructions
 
 from pypy.rlib.rmmap import alloc, PTR
 from pypy.rpython.annlowlevel import llhelper
-from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rpython.lltypesystem import lltype, rffi, llmemory
 from pypy.jit.metainterp.history import ConstInt, BoxInt, AbstractFailDescr
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from pypy.tool.udir import udir
+
+__clear_cache = rffi.llexternal(
+    "__clear_cache",
+    [llmemory.Address, llmemory.Address],
+    lltype.Void,
+    _nowrapper=True,
+    sandboxsafe=True)
 
 def binary_helper_call(name):
     signature = getattr(arch, 'arm_%s_sign' % name)
@@ -284,8 +291,14 @@ class ARMv7Builder(BlockBuilderMixin, AbstractARMv7Builder):
                 gcrootmap.put(rawstart + pos, mark)
         return rawstart
 
+    def clear_cache(self, addr):
+        startaddr = rffi.cast(llmemory.Address, addr)
+        endaddr = rffi.cast(llmemory.Address, addr + self.get_relative_pos())
+        __clear_cache(startaddr, endaddr)
+
     def copy_to_raw_memory(self, addr):
         self._copy_to_raw_memory(addr)
+        self.clear_cache(addr)
         self._dump(addr, "jit-backend-dump", 'arm')
 
     def currpos(self):
