@@ -749,8 +749,11 @@ def record_known_class(value, cls):
 class Entry(ExtRegistryEntry):
     _about_ = record_known_class
 
-    def compute_result_annotation(self, *args):
-        pass
+    def compute_result_annotation(self, s_inst, s_cls):
+        from pypy.annotation import model as annmodel
+        assert s_cls.is_constant()
+        assert not s_inst.can_be_none()
+        assert isinstance(s_inst, annmodel.SomeInstance)
 
     def specialize_call(self, hop):
         from pypy.rpython.lltypesystem import lltype, rclass
