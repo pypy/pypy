@@ -75,7 +75,8 @@ def do_what_I_mean(space):
 
 def list_strategy(space, w_list):
     from pypy.objspace.std.listobject import W_ListObject
-    str_type = None
     if isinstance(w_list, W_ListObject):
-        str_type = w_list.strategy._applevel_repr
-    return space.wrap(str_type)
+        return space.wrap(w_list.strategy._applevel_repr)
+    else:
+        w_msg = space.wrap("Can only get the list strategy of a list")
+        raise OperationError(space.w_TypeError, w_msg)
