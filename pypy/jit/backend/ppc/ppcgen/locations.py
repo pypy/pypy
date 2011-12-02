@@ -1,5 +1,13 @@
 from pypy.jit.metainterp.history import INT, FLOAT, REF
-from pypy.jit.backend.arm.arch import WORD
+import sys
+
+# XXX import from arch.py, currently we have a circular import
+if sys.maxint == (2**31 - 1):
+    WORD = 4
+else:
+    WORD = 8
+DWORD = 2 * WORD
+
 class AssemblerLocation(object):
     _immutable_ = True
     type = INT
@@ -33,6 +41,23 @@ class RegisterLocation(AssemblerLocation):
         return 'r%d' % self.value
 
     def is_reg(self):
+        return True
+
+    def as_key(self):
+        return self.value
+
+class FPRegisterLocation(RegisterLocation):
+    _immutable_ = True
+    type = FLOAT 
+    width = DWORD
+
+    def __repr__(self):
+        return 'fp%d' % self.value
+
+    def is_reg(self):
+        return False
+
+    def is_fp_reg(self):
         return True
 
     def as_key(self):

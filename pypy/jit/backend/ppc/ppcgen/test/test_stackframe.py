@@ -14,7 +14,7 @@
             |                         |          |
             ---------------------------         --
             |                         |          |
-            |   FLOAT/INT CONVERSION  |          |>> ? * WORD
+            |   FLOAT/INT CONVERSION  |          |>> 4 (?) * WORD
             |                         |          |
             ---------------------------         --
             |       FORCE  INDEX      | WORD     | 1 WORD

@@ -11,7 +11,9 @@ from pypy.jit.backend.ppc.ppcgen.codebuilder import PPCBuilder
 from pypy.jit.backend.ppc.ppcgen.jump import remap_frame_layout
 from pypy.jit.backend.ppc.ppcgen.arch import (IS_PPC_32, IS_PPC_64, WORD,
                                               NONVOLATILES,
-                                              GPR_SAVE_AREA, BACKCHAIN_SIZE)
+                                              GPR_SAVE_AREA, BACKCHAIN_SIZE,
+                                              FPR_SAVE_AREA,
+                                              FLOAT_INT_CONVERSION, FORCE_INDEX)
 from pypy.jit.backend.ppc.ppcgen.helper.assembler import (gen_emit_cmp_op, 
                                                           encode32, decode32,
                                                           decode64,
@@ -127,6 +129,7 @@ class AssemblerPPC(OpAssembler):
         self.fail_boxes_count = 0
         self.current_clt = None
         self._regalloc = None
+        self.max_stack_params = 0
 
     def _save_nonvolatiles(self):
         for i, reg in enumerate(NONVOLATILES):
@@ -546,6 +549,7 @@ class AssemblerPPC(OpAssembler):
         self.datablockwrapper = MachineDataBlockWrapper(self.cpu.asmmemmgr,
                                                         allblocks)
         self.stack_in_use = False
+        self.max_stack_params = 0
 
     def setup_once(self):
         gc_ll_descr = self.cpu.gc_ll_descr
@@ -712,6 +716,7 @@ class AssemblerPPC(OpAssembler):
         self._regalloc = None
         assert self.datablockwrapper is None
         self.stack_in_use = False
+        self.max_stack_params = 0
 
     def _walk_operations(self, operations, regalloc):
         self._regalloc = regalloc
@@ -770,10 +775,21 @@ class AssemblerPPC(OpAssembler):
         return mc.materialize(self.cpu.asmmemmgr, [], 
                               self.cpu.gc_ll_descr.gcrootmap)
 
+    #def compute_frame_depth(self, regalloc):
+    #    frame_depth = (GPR_SAVE_AREA                        # GPR space
+    #                   + WORD                               # FORCE INDEX
+    #                   + regalloc.frame_manager.frame_depth * WORD)
+    #    return frame_depth
     def compute_frame_depth(self, regalloc):
-        frame_depth = (GPR_SAVE_AREA                        # GPR space
-                       + WORD                               # FORCE INDEX
-                       + regalloc.frame_manager.frame_depth * WORD)
+        frame_depth = (  GPR_SAVE_AREA
+                       + FPR_SAVE_AREA
+                       + FLOAT_INT_CONVERSION
+                       + FORCE_INDEX
+                       + regalloc.frame_manager.frame_depth * WORD
+                       + len(r.MANAGED_REGS) * WORD
+                       + self.max_stack_params * WORD
+                       + BACKCHAIN_SIZE)
+
         return frame_depth
     
     def materialize_loop(self, looptoken, show):
