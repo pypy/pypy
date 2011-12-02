@@ -738,3 +738,26 @@ class ExtSetParam(ExtRegistryEntry):
         return hop.genop('jit_marker', vlist,
                          resulttype=lltype.Void)
 
+def record_known_class(value, cls):
+    """
+    Assure the JIT that value is an instance of cls. This is not a precise
+    class check, unlike a guard_class.
+    """
+    assert isinstance(value, cls)
+
+
+class Entry(ExtRegistryEntry):
+    _about_ = record_known_class
+
+    def compute_result_annotation(self, *args):
+        pass
+
+    def specialize_call(self, hop):
+        from pypy.rpython.lltypesystem import lltype, rclass
+        classrepr = rclass.get_type_repr(hop.rtyper)
+
+        hop.exception_cannot_occur()
+        v_inst = hop.inputarg(hop.args_r[0], arg=0)
+        v_cls = hop.inputarg(classrepr, arg=1)
+        return hop.genop('jit_record_known_class', [v_inst, v_cls],
+                         resulttype=lltype.Void)

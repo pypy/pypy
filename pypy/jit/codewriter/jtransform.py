@@ -220,6 +220,9 @@ class Transformer(object):
                 return [None, # hack, do the right renaming from op.args[0] to op.result
                         SpaceOperation("record_known_class", [op.args[0], const_vtable], None)]
 
+    def rewrite_op_jit_record_known_class(self, op):
+        return SpaceOperation("record_known_class", [op.args[0], op.args[1]], None)
+
     def rewrite_op_cast_bool_to_int(self, op): pass
     def rewrite_op_cast_bool_to_uint(self, op): pass
     def rewrite_op_cast_char_to_int(self, op): pass
