@@ -98,6 +98,66 @@ def _shape_agreement(shape1, shape2):
         endshape[i] = remainder[i]
     return endshape
 
+#Recalculating strides. Find the steps that the iteration does for each
+#dimension, given the stride and shape. Then try to create a new stride that
+#fits the new shape, using those steps. If there is a shape/step mismatch
+#(meaning that the realignment of elements crosses from one step into another)
+#return None so that the caller can raise an exception.
+def calc_new_strides(new_shape, old_shape, old_strides):
+    #Return the proper strides for new_shape, or None
+    # if the mapping crosses stepping boundaries
+
+    #Assumes that nelems have been matched, len(shape) > 1 for old_shape and
+    # len(new_shape) > 0
+    steps = []
+    last_step = 1
+    oldI = 0
+    new_strides = []
+    if old_strides[0] < old_strides[-1]:
+        for i in range(len(old_shape)):
+            steps.append(old_strides[i] / last_step)
+            last_step = old_shape[i] * old_strides[i]
+        cur_step = steps[0]
+        n_new_elems_used = 1
+        n_old_elems_to_use = old_shape[0]
+        for s in new_shape:
+            new_strides.append(cur_step * n_new_elems_used)
+            n_new_elems_used *= s
+            while n_new_elems_used > n_old_elems_to_use:
+                oldI += 1
+                if steps[oldI] != steps[oldI - 1]:
+                    return None
+                n_old_elems_to_use *= old_shape[oldI]
+            if n_new_elems_used == n_old_elems_to_use:
+                oldI += 1
+                if oldI >= len(old_shape):
+                    break
+                cur_step = steps[oldI]
+                n_old_elems_to_use *= old_shape[oldI]
+    else:
+        for i in range(len(old_shape) - 1, -1, -1):
+            steps.insert(0, old_strides[i] / last_step)
+            last_step = old_shape[i] * old_strides[i]
+        cur_step = steps[-1]
+        n_new_elems_used = 1
+        oldI = -1
+        n_old_elems_to_use = old_shape[-1]
+        for s in new_shape[::-1]:
+            new_strides.insert(0, cur_step * n_new_elems_used)
+            n_new_elems_used *= s
+            while n_new_elems_used > n_old_elems_to_use:
+                oldI -= 1
+                if steps[oldI] != steps[oldI + 1]:
+                    return None
+                n_old_elems_to_use *= old_shape[oldI]
+            if n_new_elems_used == n_old_elems_to_use:
+                oldI -= 1
+                if oldI < -len(old_shape):
+                    break
+                cur_step = steps[oldI]
+                n_old_elems_to_use *= old_shape[oldI]
+    return new_strides
+
 def descr_new_array(space, w_subtype, w_item_or_iterable, w_dtype=None,
                     w_order=NoneNotWrapped):
     # find scalar
@@ -518,6 +578,42 @@ class BaseArray(Wrappable):
     def descr_get_shape(self, space):
         return space.newtuple([space.wrap(i) for i in self.shape])
 
+    def descr_set_shape(self, space, w_iterable):
+        concrete = self.get_concrete()
+        new_size = 0
+        new_shape = []
+        if not space.issequence_w(w_iterable):
+            new_size = space.int_w(w_iterable)
+            if new_size < 0:
+                new_size = self.find_size()
+            new_shape = [new_size, ]
+        else:
+            neg_dim = -1
+            batch = space.listview(w_iterable)
+            new_size = 1
+            if len(batch) < 1:
+                new_size = 0
+            new_shape = []
+            i = 0
+            for elem in batch:
+                s = space.int_w(elem)
+                if s < 0:
+                    if neg_dim >= 0:
+                        raise OperationError(space.w_ValueError, space.wrap(
+                                 "can only specify one unknown dimension"))
+                    s = 1
+                    neg_dim = i
+                new_size *= s
+                new_shape.append(s)
+                i += 1
+            if neg_dim >= 0:
+                new_shape[neg_dim] = self.find_size() / new_size
+                new_size *= new_shape[neg_dim]
+        if new_size != self.find_size():
+            raise OperationError(space.w_ValueError,
+                    space.wrap("total size of new array must be unchanged"))
+        concrete.setshape(space, new_shape)
+
     def descr_get_size(self, space):
         return space.wrap(self.find_size())
 
@@ -770,6 +866,27 @@ class BaseArray(Wrappable):
         return NDimSlice(self, new_sig, start, strides[:], backstrides[:],
                          shape[:])
 
+    def descr_reshape(self, space, w_iterable):
+        """Return a reshaped view into the original array's data
+        """
+        new_sig = signature.Signature.find_sig([
+            NDimSlice.signature, self.signature,
+        ])
+        concrete = self.get_concrete()
+        #concrete = self
+        ndims = len(concrete.shape)
+        strides = [0] * ndims
+        backstrides = [0] * ndims
+        shape = [0] * ndims
+        for i in range(len(concrete.shape)):
+            strides[i] = concrete.strides[i]
+            backstrides[i] = concrete.backstrides[i]
+            shape[i] = concrete.shape[i]
+        arr = NDimSlice(self, new_sig, self.start, strides,
+                backstrides, shape)
+        arr.descr_set_shape(space, w_iterable)
+        return arr
+
     def descr_mean(self, space):
         return space.wrap(space.float_w(self.descr_sum(space)) / self.find_size())
 
@@ -865,6 +982,10 @@ class Scalar(BaseArray):
 
     def debug_repr(self):
         return 'Scalar'
+
+    def setshape(self, space, new_shape):
+        # XXX shouldn't it raise?
+        pass
 
 class VirtualArray(BaseArray):
     """
@@ -1058,6 +1179,39 @@ class ViewArray(BaseArray):
             return space.wrap(self.shape[0])
         return space.wrap(1)
 
+    def setshape(self, space, new_shape):
+        if len(self.shape) < 1:
+            return
+        elif len(self.shape) < 2:
+            #REVIEWER: this code could be refactored into calc_strides
+            #but then calc_strides would have to accept a stepping factor
+            strides = []
+            backstrides = []
+            s = self.strides[0]
+            if self.order == 'C':
+                new_shape.reverse()
+            for sh in new_shape:
+                strides.append(s)
+                backstrides.append(s * (sh - 1))
+                s *= sh
+            if self.order == 'C':
+                strides.reverse()
+                backstrides.reverse()
+                new_shape.reverse()
+            self.strides = strides[:]
+            self.backstrides = backstrides[:]
+            self.shape = new_shape[:]
+            return
+        new_strides = calc_new_strides(new_shape, self.shape, self.strides)
+        if new_strides is None:
+            raise OperationError(space.w_AttributeError, space.wrap(
+                          "incompatible shape for a non-contiguous array"))
+        new_backstrides = [0] * len(new_shape)
+        for nd in range(len(new_shape)):
+            new_backstrides[nd] = (new_shape[nd] - 1) * new_strides[nd]
+        self.strides = new_strides[:]
+        self.backstrides = new_backstrides[:]
+        self.shape = new_shape[:]
 
 class NDimSlice(ViewArray):
     signature = signature.BaseSignature()
@@ -1174,6 +1328,10 @@ class NDimArray(BaseArray):
             return ArrayIterator(self.size)
         raise NotImplementedError  # use ViewIterator simply, test it
 
+    def setshape(self, space, new_shape):
+        self.shape = new_shape
+        self.calc_strides(new_shape)
+
     def debug_repr(self):
         return 'Array'
 
@@ -1256,7 +1414,8 @@ BaseArray.typedef = TypeDef(
     __debug_repr__ = interp2app(BaseArray.descr_debug_repr),
 
     dtype = GetSetProperty(BaseArray.descr_get_dtype),
-    shape = GetSetProperty(BaseArray.descr_get_shape),
+    shape = GetSetProperty(BaseArray.descr_get_shape,
+                           BaseArray.descr_set_shape),
     size = GetSetProperty(BaseArray.descr_get_size),
 
     T = GetSetProperty(BaseArray.descr_get_transpose),
@@ -1274,6 +1433,7 @@ BaseArray.typedef = TypeDef(
     dot = interp2app(BaseArray.descr_dot),
 
     copy = interp2app(BaseArray.descr_copy),
+    reshape = interp2app(BaseArray.descr_reshape),
 )
 
 
