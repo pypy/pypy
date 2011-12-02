@@ -144,11 +144,9 @@ class AssemblerPPC(OpAssembler):
             if reg.value == r.SPP.value:
                 continue
             if IS_PPC_32:
-                #self.mc.stw(reg.value, r.SPP.value, WORD + WORD * i)
                 self.mc.stw(reg.value, r.SPP.value, 
                         self.OFFSET_SPP_TO_GPR_SAVE_AREA + WORD * i)
             else:
-                #self.mc.std(reg.value, r.SPP.value, WORD + WORD * i)
                 self.mc.std(reg.value, r.SPP.value, 
                         self.OFFSET_SPP_TO_GPR_SAVE_AREA + WORD * i)
 
@@ -157,29 +155,11 @@ class AssemblerPPC(OpAssembler):
         """
         for i, reg in enumerate(NONVOLATILES):
             if IS_PPC_32:
-                #mc.lwz(reg.value, spp_reg.value, WORD + WORD * i)
                 mc.lwz(reg.value, spp_reg.value, 
                         self.OFFSET_SPP_TO_GPR_SAVE_AREA + WORD * i)
             else:
-                #mc.ld(reg.value, spp_reg.value, WORD + WORD * i)
                 mc.ld(reg.value, spp_reg.value, 
                         self.OFFSET_SPP_TO_GPR_SAVE_AREA + WORD * i)
-
-    # Fetches the identifier from a descr object.
-    # If it has no identifier, then an unused identifier
-    # is generated
-    # XXX could be overwritten later on, better approach?
-    def _get_identifier_from_descr(self, descr):
-        try:
-            identifier = descr.identifier
-        except AttributeError:
-            identifier = None
-        if identifier is not None:
-            return identifier
-        keys = self.cpu.saved_descr.keys()
-        if keys == []:
-            return 1
-        return max(keys) + 1
 
     def get_asmmemmgr_blocks(self, looptoken):
         clt = looptoken.compiled_loop_token
@@ -211,8 +191,6 @@ class AssemblerPPC(OpAssembler):
             self.mc.std(r.SPP.value, r.SP.value, WORD)
 
         # compute spilling pointer (SPP)
-        #self.mc.addi(r.SPP.value, r.SP.value, frame_depth
-        #             - self.GPR_SAVE_AREA_AND_FORCE_INDEX)
         self.mc.addi(r.SPP.value, r.SP.value, 
                 frame_depth - self.OFFSET_SPP_TO_OLD_BACKCHAIN)
         self._save_nonvolatiles()
@@ -294,7 +272,6 @@ class AssemblerPPC(OpAssembler):
                 else:
                     value = decode32(spilling_area, spilling_depth - stack_location * WORD)
             else: # REG_LOC
-                #import pdb; pdb.set_trace()
                 reg = ord(enc[i])
                 if group == self.FLOAT_TYPE:
                     assert 0, "not implemented yet"
@@ -377,19 +354,7 @@ class AssemblerPPC(OpAssembler):
     #   - jump back to the calling code
     def _gen_exit_path(self):
         mc = PPCBuilder() 
-        # compute offset to new SP
-        ##size = WORD * (len(r.MANAGED_REGS)) + BACKCHAIN_SIZE
-        # set SP
-        ##if IS_PPC_32:
-        ##    mc.stwu(r.SP.value, r.SP.value, -size)
-        ##else:
-        ##    mc.stdu(r.SP.value, r.SP.value, -size)
         self._save_managed_regs(mc)
-        # adjust SP (r1)
-        # XXX do quadword alignment
-        #while size % (4 * WORD) != 0:
-        #    size += WORD
-        #
         decode_func_addr = llhelper(self.recovery_func_sign,
                 self.failure_recovery_func)
         if IS_PPC_32:
@@ -403,10 +368,9 @@ class AssemblerPPC(OpAssembler):
 
         # load parameters into parameter registers
         if IS_PPC_32:
-            #mc.lwz(r.r3.value, r.SPP.value, 0)     # address of state encoding 
             mc.lwz(r.r3.value, r.SPP.value, self.ENCODING_AREA)     # address of state encoding 
         else:
-            mc.ld(r.r3.value, r.SPP.value, 0)     
+            mc.ld(r.r3.value, r.SPP.value, self.ENCODING_AREA)     
         mc.mr(r.r4.value, r.SP.value)          # load stack pointer
         mc.mr(r.r5.value, r.SPP.value)         # load spilling pointer
         #
@@ -424,30 +388,19 @@ class AssemblerPPC(OpAssembler):
         if IS_PPC_64:
             mc.ld(r.r2.value, r.SP.value, 3 * WORD)
         #
-        ##mc.addi(r.SP.value, r.SP.value, size)
         # save SPP in r5
         # (assume that r5 has been written to failboxes)
         mc.mr(r.r5.value, r.SPP.value)
         self._restore_nonvolatiles(mc, r.r5)
         # load old backchain into r4
-        #offset_to_old_backchain = (  FPR_SAVE_AREA
-        #                           + GPR_SAVE_AREA
-        #                           + FLOAT_INT_CONVERSION
-        #                           + FORCE_INDEX
-        #                           + self.ENCODING_AREA)
         if IS_PPC_32:
-            #mc.lwz(r.r4.value, r.r5.value, offset_to_old_backchain) 
             mc.lwz(r.r4.value, r.r5.value, self.OFFSET_SPP_TO_OLD_BACKCHAIN + WORD) 
         else:
-            ##mc.ld(r.r4.value, r.r5.value, offset_to_old_backchain + WORD)
-            #mc.ld(r.r4.value, r.r5.value, offset_to_old_backchain)
             mc.ld(r.r4.value, r.r5.value, self.OFFSET_SPP_TO_OLD_BACKCHAIN + 2 * WORD)
         mc.mtlr(r.r4.value)     # restore LR
         # From SPP, we have a constant offset to the old backchain. We use the
         # SPP to re-establish the old backchain because this exit stub is
         # generated before we know how much space the entire frame will need.
-        ##mc.addi(r.SP.value, r.r5.value, self.GPR_SAVE_AREA_AND_FORCE_INDEX) # restore old SP
-        #mc.addi(r.SP.value, r.r5.value, offset_to_old_backchain) # restore old SP
         mc.addi(r.SP.value, r.r5.value, self.OFFSET_SPP_TO_OLD_BACKCHAIN) # restore old SP
         mc.blr()
         mc.prepare_insts_blocks()
@@ -460,10 +413,8 @@ class AssemblerPPC(OpAssembler):
         for i in range(len(r.MANAGED_REGS)):
             reg = r.MANAGED_REGS[i]
             if IS_PPC_32:
-                #mc.stw(reg.value, r.SP.value, i * WORD + BACKCHAIN_SIZE)
                 mc.stw(reg.value, r.SPP.value, i * WORD)
             else:
-                #mc.std(reg.value, r.SP.value, i * WORD + BACKCHAIN_SIZE)
                 mc.std(reg.value, r.SPP.value, i * WORD)
 
     # Load parameters from fail args into locations (stack or registers)
@@ -523,8 +474,6 @@ class AssemblerPPC(OpAssembler):
         self.mc.free_scratch_reg()
 
         # load values passed on the stack to the corresponding locations
-        #stack_position = self.GPR_SAVE_AREA_AND_FORCE_INDEX\
-        #                 + BACKCHAIN_SIZE
         stack_position = self.OFFSET_SPP_TO_OLD_BACKCHAIN\
                          + BACKCHAIN_SIZE
 
@@ -809,11 +758,6 @@ class AssemblerPPC(OpAssembler):
         return mc.materialize(self.cpu.asmmemmgr, [], 
                               self.cpu.gc_ll_descr.gcrootmap)
 
-    #def compute_frame_depth(self, regalloc):
-    #    frame_depth = (GPR_SAVE_AREA                        # GPR space
-    #                   + WORD                               # FORCE INDEX
-    #                   + regalloc.frame_manager.frame_depth * WORD)
-    #    return frame_depth
     def compute_frame_depth(self, regalloc):
         frame_depth = (  GPR_SAVE_AREA
                        + FPR_SAVE_AREA

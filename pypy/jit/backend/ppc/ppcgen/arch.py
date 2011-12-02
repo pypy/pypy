@@ -11,7 +11,7 @@ if sys.maxint == (2**31 - 1):
 else:
     WORD = 8
     IS_PPC_32 = False
-    BACKCHAIN_SIZE = 6
+    BACKCHAIN_SIZE = 4
 
 DWORD                   = 2 * WORD
 IS_PPC_64               = not IS_PPC_32
