@@ -160,6 +160,7 @@ class TestNumArrayDirect(object):
 
     def test_calc_new_strides(self):
 	from pypy.module.micronumpy.interp_numarray import calc_new_strides
+        assert calc_new_strides([2, 4], [4, 2], [4, 2]) == [8, 2]
         assert calc_new_strides([2, 4, 3], [8, 3], [1, 16]) == [1, 2, 16]
         assert calc_new_strides([2, 3, 4], [8, 3], [1, 16]) is None
         assert calc_new_strides([8, 3], [2, 4, 3], [48, 6, 1]) == [6, 1]
@@ -346,6 +347,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.shape == (12, )
         exc = raises(ValueError, "a.shape = 10")
         assert str(exc.value) == "total size of new array must be unchanged"
+        a = array(3)
+        a.shape = ()
+        #numpy allows this
+        a.shape = (1,)
 
     def test_reshape(self):
         from numpypy import array, zeros
@@ -369,12 +374,28 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert str(exc.value) == \
                            "incompatible shape for a non-contiguous array"
         b = a[::2, :, :].reshape((2, 6))
+        assert b.shape == (2, 6)
         b = arange(20)[1:17:2]
         b.shape = (4, 2)
         assert (b == [[1, 3], [5, 7], [9, 11], [13, 15]]).all()
         b.reshape((2, 4))
         assert (b == [[1, 3, 5, 7], [9, 11, 13, 15]]).all()
 
+        z=arange(96).reshape((12, -1))
+        assert z.shape == (12, 8)
+        y=z.reshape(4,3,8)
+        v=y[:,::2,:]
+        w = y.reshape(96)
+        u = v.reshape(64)
+        assert y[1, 2, 1] == z[5, 1]
+        y[1, 2, 1] = 1000
+        #z, y, w, v are views of eachother
+        assert z[5, 1] == 1000
+        assert v[1, 1, 1] == 1000
+        assert w[41] == 1000
+        #u is not a view, it is a copy!
+        assert u[25] == 41 
+        
     def test_add(self):
         from numpypy import array
         a = array(range(5))
