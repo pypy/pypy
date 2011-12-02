@@ -26,10 +26,6 @@
             |                         |          |
             |       SPILLING AREA     |          |>> regalloc.frame_manager.frame_depth * WORD
             |  (LOCAL VARIABLE SPACE) |          |
-            ---------------------------         --
-            |                         |          |
-            |   PARAMETER SAVE AREA   |          |>> use MAX(number of parameters 
-            |                         |          |   passed on stack in emit_call) * WORD
             ---------------------------         --  
             |        TOC POINTER      | WORD     |
             ---------------------------          |
