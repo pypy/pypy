@@ -2,6 +2,8 @@
 from pypy.jit.metainterp.history import BoxInt, ConstInt, BoxFloat, INT, FLOAT
 from pypy.jit.backend.llsupport.regalloc import FrameManager
 from pypy.jit.backend.llsupport.regalloc import RegisterManager as BaseRegMan
+from pypy.jit.tool.oparser import parse
+from pypy.jit.backend.detect_cpu import getcpuclass
 
 def newboxes(*values):
     return [BoxInt(v) for v in values]

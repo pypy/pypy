@@ -27,6 +27,7 @@ class Module(MixedModule):
         'builtinify'                : 'interp_magic.builtinify',
         'lookup_special'            : 'interp_magic.lookup_special',
         'do_what_I_mean'            : 'interp_magic.do_what_I_mean',
+        'list_strategy'             : 'interp_magic.list_strategy',
     }
 
     submodules = {
