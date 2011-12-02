@@ -761,6 +761,13 @@ class BaseBackendTest(Runner):
         r = self.execute_operation(rop.PTR_NE, [null_box, u1_box], 'int')
         assert r.value == 1
 
+        # These operations are supposed to be the same as PTR_EQ/PTR_NE
+        # just checking that the operations are defined in the backend.
+        r = self.execute_operation(rop.INSTANCE_PTR_EQ, [u1_box, u2_box], 'int')
+        assert r.value == 0
+        r = self.execute_operation(rop.INSTANCE_PTR_NE, [u2_box, u1_box], 'int')
+        assert r.value == 1
+
     def test_array_basic(self):
         a_box, A = self.alloc_array_of(rffi.SHORT, 342)
         arraydescr = self.cpu.arraydescrof(A)
