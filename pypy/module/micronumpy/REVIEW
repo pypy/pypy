@@ -1,1 +1,0 @@
-* setitem_w no longer calls invalidated(), why? doesn't it break some stuff?
