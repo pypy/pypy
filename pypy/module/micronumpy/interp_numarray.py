@@ -798,6 +798,7 @@ class Scalar(BaseArray):
     _attrs_ = ["dtype", "value", "shape"]
 
     def __init__(self, dtype, value):
+        self.shape = self.strides = []
         BaseArray.__init__(self, [], 'C')
         self.dtype = dtype
         self.value = value
