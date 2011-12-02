@@ -122,7 +122,7 @@ class W_UInt16Box(W_UnsignedIntgerBox, PrimitiveBox):
     descr__new__, get_dtype = new_dtype_getter("uint16")
 
 class W_Int32Box(W_SignedIntegerBox, PrimitiveBox):
-    pass
+    descr__new__, get_dtype = new_dtype_getter("int32")
 
 class W_UInt32Box(W_UnsignedIntgerBox, PrimitiveBox):
     descr__new__, get_dtype = new_dtype_getter("uint32")
@@ -211,6 +211,7 @@ W_UInt8Box.typedef = TypeDef("uint8", W_UnsignedIntgerBox.typedef,
 
 W_Int16Box.typedef = TypeDef("int16", W_SignedIntegerBox.typedef,
     __module__ = "numpypy",
+    __new__ = interp2app(W_Int16Box.descr__new__.im_func),
 )
 
 W_UInt16Box.typedef = TypeDef("uint16", W_UnsignedIntgerBox.typedef,
@@ -219,6 +220,7 @@ W_UInt16Box.typedef = TypeDef("uint16", W_UnsignedIntgerBox.typedef,
 
 W_Int32Box.typedef = TypeDef("int32", W_SignedIntegerBox.typedef,
     __module__ = "numpypy",
+    __new__ = interp2app(W_Int32Box.descr__new__.im_func),
 )
 
 W_UInt32Box.typedef = TypeDef("uint32", W_UnsignedIntgerBox.typedef,

@@ -25,6 +25,8 @@ class Module(MixedModule):
         'signedinteger': 'interp_boxes.W_SignedIntegerBox',
         'bool_': 'interp_boxes.W_BoolBox',
         'int8': 'interp_boxes.W_Int8Box',
+        'int16': 'interp_boxes.W_Int16Box',
+        'int32': 'interp_boxes.W_Int32Box',
         'int64': 'interp_boxes.W_Int64Box',
         'int_': 'interp_boxes.W_LongBox',
         'inexact': 'interp_boxes.W_InexactBox',

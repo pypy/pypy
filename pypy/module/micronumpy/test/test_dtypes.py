@@ -30,7 +30,7 @@ class AppTestDtypes(BaseNumpyAppTest):
     def test_repr_str(self):
         from numpypy import dtype
 
-        assert repr(dtype) == "<type 'numpy.dtype'>"
+        assert repr(dtype) == "<type 'numpypy.dtype'>"
         d = dtype('?')
         assert repr(d) == "dtype('bool')"
         assert str(d) == "bool"
@@ -173,7 +173,7 @@ class AppTestTypes(BaseNumpyAppTest):
         raises(TypeError, numpy.number, 0)
         raises(TypeError, numpy.integer, 0)
         exc = raises(TypeError, numpy.signedinteger, 0)
-        assert str(exc.value) == "cannot create 'numpy.signedinteger' instances"
+        assert str(exc.value) == "cannot create 'numpypy.signedinteger' instances"
 
         raises(TypeError, numpy.floating, 0)
         raises(TypeError, numpy.inexact, 0)
@@ -206,6 +206,21 @@ class AppTestTypes(BaseNumpyAppTest):
         assert x != 128
         assert type(x) is numpy.int8
         assert repr(x) == "-128"
+
+        assert type(int(x)) is int
+        assert int(x) == -128
+
+    def test_int16(self):
+        import numpypy as numpy
+
+        x = numpy.int16(3)
+        assert x == 3
+
+    def test_int32(self):
+        import numpypy as numpy
+
+        x = numpy.int32(23)
+        assert x == 23
 
     def test_int_(self):
         import numpypy as numpy
