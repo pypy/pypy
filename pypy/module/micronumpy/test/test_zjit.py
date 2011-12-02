@@ -11,7 +11,7 @@ from pypy.jit.metainterp.warmspot import reset_stats
 from pypy.module.micronumpy import interp_boxes, interp_ufuncs, signature
 from pypy.module.micronumpy.compile import (numpy_compile, FakeSpace,
     FloatObject, IntObject, BoolObject, Parser, InterpreterState)
-from pypy.module.micronumpy.interp_numarray import (NDimArray, NDimSlice,
+from pypy.module.micronumpy.interp_numarray import (W_NDimArray, NDimSlice,
      BaseArray)
 from pypy.rlib.nonconst import NonConstant
 from pypy.rpython.annlowlevel import llstr, hlstr
@@ -352,7 +352,7 @@ class TestNumpyOld(LLJitMixin):
                 dtype = float64_dtype
             else:
                 dtype = int32_dtype
-            ar = NDimArray(n, [n], dtype=dtype)
+            ar = W_NDimArray(n, [n], dtype=dtype)
             i = 0
             while i < n:
                 ar.get_concrete().setitem(i, int32_dtype.box(7))

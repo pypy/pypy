@@ -1,6 +1,6 @@
 from pypy.conftest import gettestobjspace
 from pypy.module.micronumpy.interp_dtype import get_dtype_cache
-from pypy.module.micronumpy.interp_numarray import NDimArray, Scalar
+from pypy.module.micronumpy.interp_numarray import W_NDimArray, Scalar
 from pypy.module.micronumpy.interp_ufuncs import (find_binop_result_dtype,
         find_unaryop_result_dtype)
 
@@ -14,7 +14,7 @@ class TestSignature(object):
         float64_dtype = get_dtype_cache(space).w_float64dtype
         bool_dtype = get_dtype_cache(space).w_booldtype
 
-        ar = NDimArray(10, [10], dtype=float64_dtype)
+        ar = W_NDimArray(10, [10], dtype=float64_dtype)
         v1 = ar.descr_add(space, ar)
         v2 = ar.descr_add(space, Scalar(float64_dtype, 2.0))
         assert v1.signature is not v2.signature
@@ -23,7 +23,7 @@ class TestSignature(object):
         v4 = ar.descr_add(space, ar)
         assert v1.signature is v4.signature
 
-        bool_ar = NDimArray(10, [10], dtype=bool_dtype)
+        bool_ar = W_NDimArray(10, [10], dtype=bool_dtype)
         v5 = ar.descr_add(space, bool_ar)
         assert v5.signature is not v1.signature
         assert v5.signature is not v2.signature
@@ -33,7 +33,7 @@ class TestSignature(object):
     def test_slice_signature(self, space):
         float64_dtype = get_dtype_cache(space).w_float64dtype
 
-        ar = NDimArray(10, [10], dtype=float64_dtype)
+        ar = W_NDimArray(10, [10], dtype=float64_dtype)
         v1 = ar.descr_getitem(space, space.wrap(slice(1, 3, 1)))
         v2 = ar.descr_getitem(space, space.wrap(slice(4, 6, 1)))
         assert v1.signature is v2.signature

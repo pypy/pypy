@@ -37,36 +37,36 @@ class AppTestUfuncs(BaseNumpyAppTest):
         assert minimum(2.0, 3.0) == 2.0
 
     def test_sequence(self):
-        from numpypy import array, negative, minimum
+        from numpypy import array, ndarray, negative, minimum
         a = array(range(3))
         b = [2.0, 1.0, 0.0]
         c = 1.0
         b_neg = negative(b)
-        assert isinstance(b_neg, array)
+        assert isinstance(b_neg, ndarray)
         for i in range(3):
             assert b_neg[i] == -b[i]
         min_a_b = minimum(a, b)
-        assert isinstance(min_a_b, array)
+        assert isinstance(min_a_b, ndarray)
         for i in range(3):
             assert min_a_b[i] == min(a[i], b[i])
         min_b_a = minimum(b, a)
-        assert isinstance(min_b_a, array)
+        assert isinstance(min_b_a, ndarray)
         for i in range(3):
             assert min_b_a[i] == min(a[i], b[i])
         min_a_c = minimum(a, c)
-        assert isinstance(min_a_c, array)
+        assert isinstance(min_a_c, ndarray)
         for i in range(3):
             assert min_a_c[i] == min(a[i], c)
         min_c_a = minimum(c, a)
-        assert isinstance(min_c_a, array)
+        assert isinstance(min_c_a, ndarray)
         for i in range(3):
             assert min_c_a[i] == min(a[i], c)
         min_b_c = minimum(b, c)
-        assert isinstance(min_b_c, array)
+        assert isinstance(min_b_c, ndarray)
         for i in range(3):
             assert min_b_c[i] == min(b[i], c)
         min_c_b = minimum(c, b)
-        assert isinstance(min_c_b, array)
+        assert isinstance(min_c_b, ndarray)
         for i in range(3):
             assert min_c_b[i] == min(b[i], c)
 

@@ -9,7 +9,7 @@ from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
 from pypy.module.micronumpy import interp_boxes
 from pypy.module.micronumpy.interp_dtype import get_dtype_cache
 from pypy.module.micronumpy.interp_numarray import (Scalar, BaseArray,
-     descr_new_array, scalar_w, NDimArray)
+     scalar_w, W_NDimArray, array)
 from pypy.module.micronumpy import interp_ufuncs
 from pypy.rlib.objectmodel import specialize, instantiate
 
@@ -53,7 +53,7 @@ class FakeSpace(object):
         self.fromcache = InternalSpaceCache(self).getorbuild
 
     def issequence_w(self, w_obj):
-        return isinstance(w_obj, ListObject) or isinstance(w_obj, NDimArray)
+        return isinstance(w_obj, ListObject) or isinstance(w_obj, W_NDimArray)
 
     def isinstance_w(self, w_obj, w_tp):
         return w_obj.tp == w_tp
@@ -303,8 +303,7 @@ class RangeConstant(Node):
             [interp.space.wrap(float(i)) for i in range(self.v)]
         )
         dtype = get_dtype_cache(interp.space).w_float64dtype
-        return descr_new_array(interp.space, None, w_list, w_dtype=dtype,
-                               w_order=None)
+        return array(interp.space, w_list, w_dtype=dtype, w_order=None)
 
     def __repr__(self):
         return 'Range(%s)' % self.v
@@ -326,8 +325,7 @@ class ArrayConstant(Node):
     def execute(self, interp):
         w_list = self.wrap(interp.space)
         dtype = get_dtype_cache(interp.space).w_float64dtype
-        return descr_new_array(interp.space, None, w_list, w_dtype=dtype,
-                               w_order=None)
+        return array(interp.space, w_list, w_dtype=dtype, w_order=None)
 
     def __repr__(self):
         return "[" + ", ".join([repr(item) for item in self.items]) + "]"
