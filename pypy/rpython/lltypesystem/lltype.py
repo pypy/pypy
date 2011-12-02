@@ -683,7 +683,7 @@ def build_number(name, type):
     return number
 
 if is_emulated_long:
-    SignedFmt = 'll'
+    SignedFmt = 'q'
 else:
     SignedFmt = 'l'
 
