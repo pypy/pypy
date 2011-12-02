@@ -14,6 +14,8 @@ _POSIX = os.name == "posix"
 _MS_WINDOWS = os.name == "nt"
 _LINUX = "linux" in sys.platform
 _64BIT = "64bit" in platform.architecture()[0]
+_ARM = platform.machine().startswith('arm')
+_PPC = platform.machine().startswith('ppc')
 
 class RValueError(Exception):
     def __init__(self, message):
@@ -112,7 +114,11 @@ c_memmove, _ = external('memmove', [PTR, PTR, size_t], lltype.Void)
 
 if _POSIX:
     has_mremap = cConfig['has_mremap']
-    c_mmap, c_mmap_safe = external('mmap', [PTR, size_t, rffi.INT, rffi.INT,
+    if _ARM or _PPC:
+        funcname = 'mmap64'
+    else:
+        funcname = 'mmap'
+    c_mmap, c_mmap_safe = external(funcname, [PTR, size_t, rffi.INT, rffi.INT,
                                rffi.INT, off_t], PTR)
     _, c_munmap_safe = external('munmap', [PTR, size_t], rffi.INT)
     c_msync, _ = external('msync', [PTR, size_t, rffi.INT], rffi.INT)

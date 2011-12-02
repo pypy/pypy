@@ -1024,9 +1024,6 @@ def get_ctypes_callable(funcptr, calling_conv):
 
     old_eci = funcptr._obj.compilation_info
     funcname = funcptr._obj._name
-    #XXX Fix this, hack for ARM
-    if funcname == 'mmap':
-        funcname = 'mmap64'
     if hasattr(old_eci, '_with_ctypes'):
         old_eci = old_eci._with_ctypes
 
