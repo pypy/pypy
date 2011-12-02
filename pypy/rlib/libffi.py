@@ -35,6 +35,7 @@ class types(object):
         cls.ulong = clibffi.cast_type_to_ffitype(rffi.ULONG)
         cls.slonglong = clibffi.cast_type_to_ffitype(rffi.LONGLONG)
         cls.ulonglong = clibffi.cast_type_to_ffitype(rffi.ULONGLONG)
+        cls.signed = clibffi.cast_type_to_ffitype(rffi.SIGNED)
         cls.wchar_t = clibffi.cast_type_to_ffitype(lltype.UniChar)
         del cls._import
 
@@ -121,7 +122,7 @@ class ArgChain(object):
         _check_type(TYPE)
         if _fits_into_signed(TYPE):
             cls = IntArg
-            val = rffi.cast(rffi.LONG, val)
+            val = rffi.cast(rffi.SIGNED, val)
         elif TYPE is rffi.DOUBLE:
             cls = FloatArg
         elif TYPE is rffi.LONGLONG or TYPE is rffi.ULONGLONG:
@@ -313,7 +314,7 @@ class Func(AbstractFuncPtr):
 
     @jit.oopspec('libffi_call_int(self, funcsym, ll_args)')
     def _do_call_int(self, funcsym, ll_args):
-        return self._do_call(funcsym, ll_args, rffi.LONG)
+        return self._do_call(funcsym, ll_args, rffi.SIGNED)
 
     @jit.oopspec('libffi_call_float(self, funcsym, ll_args)')
     def _do_call_float(self, funcsym, ll_args):
@@ -326,7 +327,7 @@ class Func(AbstractFuncPtr):
     @jit.dont_look_inside
     def _do_call_raw(self, funcsym, ll_args):
         # same as _do_call_int, but marked as jit.dont_look_inside
-        return self._do_call(funcsym, ll_args, rffi.LONG)
+        return self._do_call(funcsym, ll_args, rffi.SIGNED)
 
     @jit.oopspec('libffi_call_longlong(self, funcsym, ll_args)')
     def _do_call_longlong(self, funcsym, ll_args):
@@ -364,7 +365,7 @@ class Func(AbstractFuncPtr):
             TP = lltype.Ptr(rffi.CArray(RESULT))
             buf = rffi.cast(TP, ll_result)
             if types.is_struct(self.restype):
-                assert RESULT == rffi.LONG
+                assert RESULT == rffi.SIGNED
                 # for structs, we directly return the buffer and transfer the
                 # ownership
                 res = rffi.cast(RESULT, buf)
