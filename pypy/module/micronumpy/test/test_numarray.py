@@ -378,8 +378,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = arange(20)[1:17:2]
         b.shape = (4, 2)
         assert (b == [[1, 3], [5, 7], [9, 11], [13, 15]]).all()
-        b.reshape((2, 4))
-        assert (b == [[1, 3, 5, 7], [9, 11, 13, 15]]).all()
+        c = b.reshape((2, 4))
+        assert (c == [[1, 3, 5, 7], [9, 11, 13, 15]]).all()
 
         z=arange(96).reshape((12, -1))
         assert z.shape == (12, 8)

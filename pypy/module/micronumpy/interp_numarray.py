@@ -111,7 +111,11 @@ def get_shape_from_iterable(space, old_size, w_iterable):
         batch = space.listview(w_iterable)
         new_size = 1
         if len(batch) < 1:
-            new_size = 0
+            if old_size ==1:
+                #Scalars can have an empty size.
+                new_size = 1
+            else:
+                new_size = 0
         new_shape = []
         i = 0
         for elem in batch:
