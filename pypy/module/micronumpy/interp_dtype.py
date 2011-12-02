@@ -84,7 +84,7 @@ class W_Dtype(Wrappable):
         return space.newtuple([])
 
 W_Dtype.typedef = TypeDef("dtype",
-    __module__ = "numpy",
+    __module__ = "numpypy",
     __new__ = interp2app(W_Dtype.descr__new__.im_func),
 
     __str__= interp2app(W_Dtype.descr_str),

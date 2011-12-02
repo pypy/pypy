@@ -168,7 +168,7 @@ class W_Ufunc2(W_Ufunc):
 
 
 W_Ufunc.typedef = TypeDef("ufunc",
-    __module__ = "numpy",
+    __module__ = "numpypy",
 
     __call__ = interp2app(W_Ufunc.descr_call),
     __repr__ = interp2app(W_Ufunc.descr_repr),

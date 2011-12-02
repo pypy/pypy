@@ -154,7 +154,7 @@ class W_Float64Box(W_FloatingBox, PrimitiveBox):
 
 
 W_GenericBox.typedef = TypeDef("generic",
-    __module__ = "numpy",
+    __module__ = "numpypy",
 
     __new__ = interp2app(W_GenericBox.descr__new__.im_func),
 
@@ -184,45 +184,45 @@ W_GenericBox.typedef = TypeDef("generic",
 )
 
 W_BoolBox.typedef = TypeDef("bool_", W_GenericBox.typedef,
-    __module__ = "numpy",
+    __module__ = "numpypy",
     __new__ = interp2app(W_BoolBox.descr__new__.im_func),
 )
 
 W_NumberBox.typedef = TypeDef("number", W_GenericBox.typedef,
-    __module__ = "numpy",
+    __module__ = "numpypy",
 )
 
 W_IntegerBox.typedef = TypeDef("integer", W_NumberBox.typedef,
-    __module__ = "numpy",
+    __module__ = "numpypy",
 )
 
 W_SignedIntegerBox.typedef = TypeDef("signedinteger", W_IntegerBox.typedef,
-    __module__ = "numpy",
+    __module__ = "numpypy",
 )
 
 W_Int8Box.typedef = TypeDef("int8", W_SignedIntegerBox.typedef,
-    __module__ = "numpy",
+    __module__ = "numpypy",
     __new__ = interp2app(W_Int8Box.descr__new__.im_func),
 )
 
 W_UInt8Box.typedef = TypeDef("uint8", W_UnsignedIntgerBox.typedef,
-    __module__ = "numpy",
+    __module__ = "numpypy",
 )
 
 W_Int16Box.typedef = TypeDef("int16", W_SignedIntegerBox.typedef,
-    __module__ = "numpy",
+    __module__ = "numpypy",
 )
 
 W_UInt16Box.typedef = TypeDef("uint16", W_UnsignedIntgerBox.typedef,
-    __module__ = "numpy",
+    __module__ = "numpypy",
 )
 
 W_Int32Box.typedef = TypeDef("int32", W_SignedIntegerBox.typedef,
-    __module__ = "numpy",
+    __module__ = "numpypy",
 )
 
 W_UInt32Box.typedef = TypeDef("uint32", W_UnsignedIntgerBox.typedef,
-    __module__ = "numpy",
+    __module__ = "numpypy",
 )
 
 if LONG_BIT == 32:
@@ -230,36 +230,36 @@ if LONG_BIT == 32:
 elif LONG_BIT == 64:
     long_name = "int64"
 W_LongBox.typedef = TypeDef(long_name, (W_SignedIntegerBox.typedef, int_typedef,),
-    __module__ = "numpy",
+    __module__ = "numpypy",
 )
 
 W_ULongBox.typedef = TypeDef("u" + long_name, W_UnsignedIntgerBox.typedef,
-    __module__ = "numpy",
+    __module__ = "numpypy",
 )
 
 W_Int64Box.typedef = TypeDef("int64", (W_SignedIntegerBox.typedef,) + MIXIN_64,
-    __module__ = "numpy",
+    __module__ = "numpypy",
     __new__ = interp2app(W_Int64Box.descr__new__.im_func),
 )
 
 W_UInt64Box.typedef = TypeDef("uint64", W_UnsignedIntgerBox.typedef,
-    __module__ = "numpy",
+    __module__ = "numpypy",
 )
 
 W_InexactBox.typedef = TypeDef("inexact", W_NumberBox.typedef,
-    __module__ = "numpy",
+    __module__ = "numpypy",
 )
 
 W_FloatingBox.typedef = TypeDef("floating", W_InexactBox.typedef,
-    __module__ = "numpy",
+    __module__ = "numpypy",
 )
 
 W_Float32Box.typedef = TypeDef("float32", W_FloatingBox.typedef,
-    __module__ = "numpy",
+    __module__ = "numpypy",
 )
 
 W_Float64Box.typedef = TypeDef("float64", (W_FloatingBox.typedef, float_typedef),
-    __module__ = "numpy",
+    __module__ = "numpypy",
 
     __new__ = interp2app(W_Float64Box.descr__new__.im_func),
 )
