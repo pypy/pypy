@@ -2,9 +2,10 @@
 
                 PyPy PPC Stackframe
 
-
-            ---------------------------         --
-            |                         |          |
+                                                                               OLD  FRAME
+            |         BACK CHAIN      |                                        
+  - - - - - --------------------------- - - - - -- - - - - - - - - - 
+            |                         |          |                             CURRENT FRAME
             |      FPR SAVE AREA      |          |>> len(NONVOLATILES_FPR) * WORD
             |                         |          |
             ---------------------------         --
@@ -16,6 +17,8 @@
             |   FLOAT/INT CONVERSION  |          |>> ? * WORD
             |                         |          |
             ---------------------------         --
+            |       FORCE  INDEX      | WORD     | 1 WORD
+    SPP ->  ---------------------------         --
             |                         |          |
             |       SPILLING AREA     |          |>> regalloc.frame_manager.frame_depth * WORD
             |  (LOCAL VARIABLE SPACE) |          |
