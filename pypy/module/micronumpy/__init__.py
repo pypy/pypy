@@ -5,10 +5,11 @@ class Module(MixedModule):
     applevel_name = 'numpypy'
 
     interpleveldefs = {
-        'array': 'interp_numarray.NDimArray',
+        'ndarray': 'interp_numarray.W_NDimArray',
         'dtype': 'interp_dtype.W_Dtype',
         'ufunc': 'interp_ufuncs.W_Ufunc',
 
+        'array': 'interp_numarray.array',
         'zeros': 'interp_numarray.zeros',
         'empty': 'interp_numarray.zeros',
         'ones': 'interp_numarray.ones',
