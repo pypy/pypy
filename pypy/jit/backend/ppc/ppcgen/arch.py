@@ -7,12 +7,13 @@ import sys
 if sys.maxint == (2**31 - 1):
     WORD = 4
     IS_PPC_32 = True
+    BACKCHAIN_SIZE = 2
 else:
     WORD = 8
     IS_PPC_32 = False
+    BACKCHAIN_SIZE = 6
 
 DWORD                   = 2 * WORD
-BACKCHAIN_SIZE          = 6 * WORD
 IS_PPC_64               = not IS_PPC_32
 MY_COPY_OF_REGS         = 0
 

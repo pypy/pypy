@@ -14,7 +14,7 @@
             |                         |          |
             ---------------------------         --
             |                         |          |
-            |   FLOAT/INT CONVERSION  |          |>> 4 (?) * WORD
+            |   FLOAT/INT CONVERSION  |          |>> 1 * WORD
             |                         |          |
             ---------------------------         --
             |       FORCE  INDEX      | WORD     | 1 WORD
@@ -26,7 +26,11 @@
             |                         |          |
             |       SPILLING AREA     |          |>> regalloc.frame_manager.frame_depth * WORD
             |  (LOCAL VARIABLE SPACE) |          |
-            ---------------------------         --  
+            ---------------------------         --
+            |                         |          |
+            |  PARAMETER SAVE AREA    |          |>> max_stack_params * WORD
+            |                         |          |
+            ---------------------------a        --
             |        TOC POINTER      | WORD     |
             ---------------------------          |
             |       < RESERVED >      | WORD     |

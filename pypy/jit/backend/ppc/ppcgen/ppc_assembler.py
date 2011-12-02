@@ -111,9 +111,14 @@ class AssemblerPPC(OpAssembler):
     have been generated.
     '''
 
-    GPR_SAVE_AREA_AND_FORCE_INDEX = GPR_SAVE_AREA + WORD
+    #GPR_SAVE_AREA_AND_FORCE_INDEX = GPR_SAVE_AREA + WORD
                                   # ^^^^^^^^^^^^^   ^^^^
                                   # save GRP regs   force index
+    ENCODING_AREA               = len(r.MANAGED_REGS) * WORD
+    OFFSET_SPP_TO_GPR_SAVE_AREA = (FORCE_INDEX + FLOAT_INT_CONVERSION
+                                   + ENCODING_AREA)
+    OFFSET_SPP_TO_OLD_BACKCHAIN = (OFFSET_SPP_TO_GPR_SAVE_AREA
+                                   + GPR_SAVE_AREA + FPR_SAVE_AREA)
 
     def __init__(self, cpu, failargs_limit=1000):
         self.cpu = cpu
@@ -132,21 +137,33 @@ class AssemblerPPC(OpAssembler):
         self.max_stack_params = 0
 
     def _save_nonvolatiles(self):
+        """ save nonvolatile GPRs in GPR SAVE AREA 
+        """
         for i, reg in enumerate(NONVOLATILES):
             # save r31 later on
             if reg.value == r.SPP.value:
                 continue
             if IS_PPC_32:
-                self.mc.stw(reg.value, r.SPP.value, WORD + WORD * i)
+                #self.mc.stw(reg.value, r.SPP.value, WORD + WORD * i)
+                self.mc.stw(reg.value, r.SPP.value, 
+                        self.OFFSET_SPP_TO_GPR_SAVE_AREA + WORD * i)
             else:
-                self.mc.std(reg.value, r.SPP.value, WORD + WORD * i)
+                #self.mc.std(reg.value, r.SPP.value, WORD + WORD * i)
+                self.mc.std(reg.value, r.SPP.value, 
+                        self.OFFSET_SPP_TO_GPR_SAVE_AREA + WORD * i)
 
     def _restore_nonvolatiles(self, mc, spp_reg):
+        """ restore nonvolatile GPRs from GPR SAVE AREA
+        """
         for i, reg in enumerate(NONVOLATILES):
             if IS_PPC_32:
-                mc.lwz(reg.value, spp_reg.value, WORD + WORD * i)
+                #mc.lwz(reg.value, spp_reg.value, WORD + WORD * i)
+                mc.lwz(reg.value, spp_reg.value, 
+                        self.OFFSET_SPP_TO_GPR_SAVE_AREA + WORD * i)
             else:
-                mc.ld(reg.value, spp_reg.value, WORD + WORD * i)
+                #mc.ld(reg.value, spp_reg.value, WORD + WORD * i)
+                mc.ld(reg.value, spp_reg.value, 
+                        self.OFFSET_SPP_TO_GPR_SAVE_AREA + WORD * i)
 
     # Fetches the identifier from a descr object.
     # If it has no identifier, then an unused identifier
@@ -194,8 +211,10 @@ class AssemblerPPC(OpAssembler):
             self.mc.std(r.SPP.value, r.SP.value, WORD)
 
         # compute spilling pointer (SPP)
-        self.mc.addi(r.SPP.value, r.SP.value, frame_depth
-                     - self.GPR_SAVE_AREA_AND_FORCE_INDEX)
+        #self.mc.addi(r.SPP.value, r.SP.value, frame_depth
+        #             - self.GPR_SAVE_AREA_AND_FORCE_INDEX)
+        self.mc.addi(r.SPP.value, r.SP.value, 
+                frame_depth - self.OFFSET_SPP_TO_OLD_BACKCHAIN)
         self._save_nonvolatiles()
         # save r31, use r30 as scratch register
         # this is safe because r30 has been saved already
@@ -275,18 +294,17 @@ class AssemblerPPC(OpAssembler):
                 else:
                     value = decode32(spilling_area, spilling_depth - stack_location * WORD)
             else: # REG_LOC
+                #import pdb; pdb.set_trace()
                 reg = ord(enc[i])
                 if group == self.FLOAT_TYPE:
-                    value = decode64(vfp_regs, reg*2*WORD)
-                    self.fail_boxes_float.setitem(fail_index, value)
-                    continue
+                    assert 0, "not implemented yet"
                 else:
                     # XXX dirty, fix
-                    sub = r.managed_regs_sub(reg)
+                    #sub = r.managed_regs_sub(reg)
                     if IS_PPC_32:
-                        value = decode32(regs, (reg - sub) * WORD)
+                        value = decode32(regs, (reg - 3) * WORD)
                     else:
-                        value = decode64(regs, (reg - sub) * WORD)
+                        value = decode64(regs, (reg - 3) * WORD)
     
             if group == self.INT_TYPE:
                 self.fail_boxes_int.setitem(fail_index, value)
@@ -360,12 +378,12 @@ class AssemblerPPC(OpAssembler):
     def _gen_exit_path(self):
         mc = PPCBuilder() 
         # compute offset to new SP
-        size = WORD * (len(r.MANAGED_REGS)) + BACKCHAIN_SIZE
+        ##size = WORD * (len(r.MANAGED_REGS)) + BACKCHAIN_SIZE
         # set SP
-        if IS_PPC_32:
-            mc.stwu(r.SP.value, r.SP.value, -size)
-        else:
-            mc.stdu(r.SP.value, r.SP.value, -size)
+        ##if IS_PPC_32:
+        ##    mc.stwu(r.SP.value, r.SP.value, -size)
+        ##else:
+        ##    mc.stdu(r.SP.value, r.SP.value, -size)
         self._save_managed_regs(mc)
         # adjust SP (r1)
         # XXX do quadword alignment
@@ -385,14 +403,15 @@ class AssemblerPPC(OpAssembler):
 
         # load parameters into parameter registers
         if IS_PPC_32:
-            mc.lwz(r.r3.value, r.SPP.value, 0)     # address of state encoding 
+            #mc.lwz(r.r3.value, r.SPP.value, 0)     # address of state encoding 
+            mc.lwz(r.r3.value, r.SPP.value, self.ENCODING_AREA)     # address of state encoding 
         else:
             mc.ld(r.r3.value, r.SPP.value, 0)     
         mc.mr(r.r4.value, r.SP.value)          # load stack pointer
         mc.mr(r.r5.value, r.SPP.value)         # load spilling pointer
         #
         # load address of decoding function into r0
-        mc.load_imm(r.r0, addr)
+        mc.alloc_scratch_reg(addr)
         if IS_PPC_64:
             mc.std(r.r2.value, r.SP.value, 3 * WORD)
             # load TOC pointer and environment pointer
@@ -400,42 +419,52 @@ class AssemblerPPC(OpAssembler):
             mc.load_imm(r.r11, r11_value)
         # ... and branch there
         mc.mtctr(r.r0.value)
+        mc.free_scratch_reg()
         mc.bctrl()
         if IS_PPC_64:
             mc.ld(r.r2.value, r.SP.value, 3 * WORD)
         #
-        mc.addi(r.SP.value, r.SP.value, size)
+        ##mc.addi(r.SP.value, r.SP.value, size)
         # save SPP in r5
         # (assume that r5 has been written to failboxes)
         mc.mr(r.r5.value, r.SPP.value)
         self._restore_nonvolatiles(mc, r.r5)
         # load old backchain into r4
-        offset_to_old_backchain = self.GPR_SAVE_AREA_AND_FORCE_INDEX + WORD
+        #offset_to_old_backchain = (  FPR_SAVE_AREA
+        #                           + GPR_SAVE_AREA
+        #                           + FLOAT_INT_CONVERSION
+        #                           + FORCE_INDEX
+        #                           + self.ENCODING_AREA)
         if IS_PPC_32:
-            mc.lwz(r.r4.value, r.r5.value, offset_to_old_backchain) 
+            #mc.lwz(r.r4.value, r.r5.value, offset_to_old_backchain) 
+            mc.lwz(r.r4.value, r.r5.value, self.OFFSET_SPP_TO_OLD_BACKCHAIN + WORD) 
         else:
-            mc.ld(r.r4.value, r.r5.value, offset_to_old_backchain + WORD)
+            ##mc.ld(r.r4.value, r.r5.value, offset_to_old_backchain + WORD)
+            #mc.ld(r.r4.value, r.r5.value, offset_to_old_backchain)
+            mc.ld(r.r4.value, r.r5.value, self.OFFSET_SPP_TO_OLD_BACKCHAIN + 2 * WORD)
         mc.mtlr(r.r4.value)     # restore LR
-
-        # From SPP, we have a constant offset of GPR_SAVE_AREA_AND_FORCE_INDEX 
-        # to the old backchain. We use the SPP to re-establish the old backchain
-        # because this exit stub is generated before we know how much space
-        # the entire frame will need.
-        mc.addi(r.SP.value, r.r5.value, self.GPR_SAVE_AREA_AND_FORCE_INDEX) # restore old SP
+        # From SPP, we have a constant offset to the old backchain. We use the
+        # SPP to re-establish the old backchain because this exit stub is
+        # generated before we know how much space the entire frame will need.
+        ##mc.addi(r.SP.value, r.r5.value, self.GPR_SAVE_AREA_AND_FORCE_INDEX) # restore old SP
+        #mc.addi(r.SP.value, r.r5.value, offset_to_old_backchain) # restore old SP
+        mc.addi(r.SP.value, r.r5.value, self.OFFSET_SPP_TO_OLD_BACKCHAIN) # restore old SP
         mc.blr()
         mc.prepare_insts_blocks()
         return mc.materialize(self.cpu.asmmemmgr, [],
                                    self.cpu.gc_ll_descr.gcrootmap)
 
-    # Save all registers which are managed by the register
-    # allocator on top of the stack before decoding.
     def _save_managed_regs(self, mc):
+        """ store managed registers in ENCODING AREA
+        """
         for i in range(len(r.MANAGED_REGS)):
             reg = r.MANAGED_REGS[i]
             if IS_PPC_32:
-                mc.stw(reg.value, r.SP.value, i * WORD + BACKCHAIN_SIZE)
+                #mc.stw(reg.value, r.SP.value, i * WORD + BACKCHAIN_SIZE)
+                mc.stw(reg.value, r.SPP.value, i * WORD)
             else:
-                mc.std(reg.value, r.SP.value, i * WORD + BACKCHAIN_SIZE)
+                #mc.std(reg.value, r.SP.value, i * WORD + BACKCHAIN_SIZE)
+                mc.std(reg.value, r.SPP.value, i * WORD)
 
     # Load parameters from fail args into locations (stack or registers)
     def gen_bootstrap_code(self, nonfloatlocs, inputargs):
@@ -494,7 +523,9 @@ class AssemblerPPC(OpAssembler):
         self.mc.free_scratch_reg()
 
         # load values passed on the stack to the corresponding locations
-        stack_position = self.GPR_SAVE_AREA_AND_FORCE_INDEX\
+        #stack_position = self.GPR_SAVE_AREA_AND_FORCE_INDEX\
+        #                 + BACKCHAIN_SIZE
+        stack_position = self.OFFSET_SPP_TO_OLD_BACKCHAIN\
                          + BACKCHAIN_SIZE
 
         count = 0
@@ -630,6 +661,9 @@ class AssemblerPPC(OpAssembler):
         self._teardown()
 
     def assemble_bridge(self, faildescr, inputargs, operations, looptoken, log):
+    
+        assert 0, "Bridges do not work yet because they need to dynamically adjust the SP"
+
         self.setup(looptoken, operations)
         assert isinstance(faildescr, AbstractFailDescr)
         code = faildescr._failure_recovery_code
@@ -785,8 +819,8 @@ class AssemblerPPC(OpAssembler):
                        + FPR_SAVE_AREA
                        + FLOAT_INT_CONVERSION
                        + FORCE_INDEX
+                       + self.ENCODING_AREA
                        + regalloc.frame_manager.frame_depth * WORD
-                       + len(r.MANAGED_REGS) * WORD
                        + self.max_stack_params * WORD
                        + BACKCHAIN_SIZE)
 
@@ -819,12 +853,11 @@ class AssemblerPPC(OpAssembler):
         memaddr = self.gen_descr_encoding(descr, args, arglocs)
 
         # store addr in force index field
-        self.mc.alloc_scratch_reg()
-        self.mc.load_imm(r.r0, memaddr)
+        self.mc.alloc_scratch_reg(memaddr)
         if IS_PPC_32:
-            self.mc.stw(r.r0.value, r.SPP.value, 0)
+            self.mc.stw(r.r0.value, r.SPP.value, self.ENCODING_AREA)
         else:
-            self.mc.std(r.r0.value, r.SPP.value, 0)
+            self.mc.std(r.r0.value, r.SPP.value, self.ENCODING_AREA)
         self.mc.free_scratch_reg()
 
         if save_exc:

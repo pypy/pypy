@@ -366,6 +366,8 @@ class MiscOpAssembler(object):
             self.mc.std(r.r0.value, r.SP.value, stack_space + 2 * WORD)
 
         # then we push everything on the stack
+        self.max_stack_params = max(self.max_stack_params, len(stack_args))\
+                                + MAX_REG_PARAMS
         for i, arg in enumerate(stack_args):
             if IS_PPC_32:
                 abi = 2
