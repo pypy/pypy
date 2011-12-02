@@ -1432,6 +1432,10 @@ def do_getinteriorfield_raw_int(array, index, width, ofs):
     res = _getinteriorfield_raw(libffi.types.slong, array, index, width, ofs)
     return res
 
+def do_getinteriorfield_raw_float(array, index, width, ofs):
+    res = _getinteriorfield_raw(libffi.types.double, array, index, width, ofs)
+    return res
+
 def _getfield_raw(struct, fieldnum):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]
     ptr = cast_from_int(lltype.Ptr(STRUCT), struct)
@@ -1516,6 +1520,7 @@ def new_setinteriorfield_raw(ffitype):
         return libffi.array_setitem(ffitype, width, addr, index, ofs, newvalue)
     return do_setinteriorfield_raw
 do_setinteriorfield_raw_int = new_setinteriorfield_raw(libffi.types.slong)
+do_setinteriorfield_raw_float = new_setinteriorfield_raw(libffi.types.double)
 
 def do_setfield_raw_int(struct, fieldnum, newvalue):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]

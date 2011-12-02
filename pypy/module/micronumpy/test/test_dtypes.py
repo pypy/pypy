@@ -30,7 +30,7 @@ class AppTestDtypes(BaseNumpyAppTest):
     def test_repr_str(self):
         from numpypy import dtype
 
-        assert repr(dtype) == "<type 'numpy.dtype'>"
+        assert repr(dtype) == "<type 'numpypy.dtype'>"
         d = dtype('?')
         assert repr(d) == "dtype('bool')"
         assert str(d) == "bool"
@@ -44,13 +44,13 @@ class AppTestDtypes(BaseNumpyAppTest):
             assert a[i] is True_
 
     def test_copy_array_with_dtype(self):
-        from numpypy import array, False_, True_
+        from numpypy import array, False_, True_, int64
 
         a = array([0, 1, 2, 3], dtype=long)
         # int on 64-bit, long in 32-bit
-        assert isinstance(a[0], (int, long))
+        assert isinstance(a[0], int64)
         b = a.copy()
-        assert isinstance(b[0], (int, long))
+        assert isinstance(b[0], int64)
 
         a = array([0, 1, 2, 3], dtype=bool)
         assert a[0] is False_
@@ -72,17 +72,17 @@ class AppTestDtypes(BaseNumpyAppTest):
             assert a[i] is True_
 
     def test_zeros_long(self):
-        from numpypy import zeros
+        from numpypy import zeros, int64
         a = zeros(10, dtype=long)
         for i in range(10):
-            assert isinstance(a[i], (int, long))
+            assert isinstance(a[i], int64)
             assert a[1] == 0
 
     def test_ones_long(self):
-        from numpypy import ones
+        from numpypy import ones, int64
         a = ones(10, dtype=long)
         for i in range(10):
-            assert isinstance(a[i], (int, long))
+            assert isinstance(a[i], int64)
             assert a[1] == 1
 
     def test_overflow(self):
@@ -165,3 +165,99 @@ class AppTestDtypes(BaseNumpyAppTest):
 
         # You can't subclass dtype
         raises(TypeError, type, "Foo", (dtype,), {})
+
+class AppTestTypes(BaseNumpyAppTest):
+    def test_abstract_types(self):
+        import numpypy as numpy
+        raises(TypeError, numpy.generic, 0)
+        raises(TypeError, numpy.number, 0)
+        raises(TypeError, numpy.integer, 0)
+        exc = raises(TypeError, numpy.signedinteger, 0)
+        assert str(exc.value) == "cannot create 'numpypy.signedinteger' instances"
+
+        raises(TypeError, numpy.floating, 0)
+        raises(TypeError, numpy.inexact, 0)
+
+    def test_bool(self):
+        import numpypy as numpy
+
+        assert numpy.bool_.mro() == [numpy.bool_, numpy.generic, object]
+        assert numpy.bool_(3) is numpy.True_
+        assert numpy.bool_("") is numpy.False_
+        assert type(numpy.True_) is type(numpy.False_) is numpy.bool_
+
+        class X(numpy.bool_):
+            pass
+
+        assert type(X(True)) is numpy.bool_
+        assert X(True) is numpy.True_
+
+    def test_int8(self):
+        import numpypy as numpy
+
+        assert numpy.int8.mro() == [numpy.int8, numpy.signedinteger, numpy.integer, numpy.number, numpy.generic, object]
+
+        a = numpy.array([1, 2, 3], numpy.int8)
+        assert type(a[1]) is numpy.int8
+        assert numpy.dtype("int8").type is numpy.int8
+
+        x = numpy.int8(128)
+        assert x == -128
+        assert x != 128
+        assert type(x) is numpy.int8
+        assert repr(x) == "-128"
+
+        assert type(int(x)) is int
+        assert int(x) == -128
+
+    def test_int16(self):
+        import numpypy as numpy
+
+        x = numpy.int16(3)
+        assert x == 3
+
+    def test_int32(self):
+        import numpypy as numpy
+
+        x = numpy.int32(23)
+        assert x == 23
+
+    def test_int_(self):
+        import numpypy as numpy
+
+        assert numpy.int_ is numpy.dtype(int).type
+        assert numpy.int_.mro() == [numpy.int_, numpy.signedinteger, numpy.integer, numpy.number, numpy.generic, int, object]
+
+    def test_int64(self):
+        import sys
+        import numpypy as numpy
+
+        if sys.maxint == 2 ** 63 -1:
+            assert numpy.int64.mro() == [numpy.int64, numpy.signedinteger, numpy.integer, numpy.number, numpy.generic, int, object]
+        else:
+            assert numpy.int64.mro() == [numpy.int64, numpy.signedinteger, numpy.integer, numpy.number, numpy.generic, object]
+
+        assert numpy.dtype(numpy.int64).type is numpy.int64
+        assert numpy.int64(3) == 3
+
+    def test_float64(self):
+        import numpypy as numpy
+
+        assert numpy.float64.mro() == [numpy.float64, numpy.floating, numpy.inexact, numpy.number, numpy.generic, float, object]
+
+        a = numpy.array([1, 2, 3], numpy.float64)
+        assert type(a[1]) is numpy.float64
+        assert numpy.dtype(float).type is numpy.float64
+
+        assert numpy.float64(2.0) == 2.0
+
+    def test_subclass_type(self):
+        import numpypy as numpy
+
+        class X(numpy.float64):
+            def m(self):
+                return self + 2
+
+        b = X(10)
+        assert type(b) is X
+        assert b.m() == 12

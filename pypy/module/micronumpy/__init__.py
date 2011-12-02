@@ -16,8 +16,22 @@ class Module(MixedModule):
         'fromstring': 'interp_support.fromstring',
         'flatiter': 'interp_numarray.W_FlatIterator',
 
-        'True_': 'space.w_True',
-        'False_': 'space.w_False',
+        'True_': 'types.Bool.True',
+        'False_': 'types.Bool.False',
+
+        'generic': 'interp_boxes.W_GenericBox',
+        'number': 'interp_boxes.W_NumberBox',
+        'integer': 'interp_boxes.W_IntegerBox',
+        'signedinteger': 'interp_boxes.W_SignedIntegerBox',
+        'bool_': 'interp_boxes.W_BoolBox',
+        'int8': 'interp_boxes.W_Int8Box',
+        'int16': 'interp_boxes.W_Int16Box',
+        'int32': 'interp_boxes.W_Int32Box',
+        'int64': 'interp_boxes.W_Int64Box',
+        'int_': 'interp_boxes.W_LongBox',
+        'inexact': 'interp_boxes.W_InexactBox',
+        'floating': 'interp_boxes.W_FloatingBox',
+        'float64': 'interp_boxes.W_Float64Box',
     }
 
     # ufuncs
