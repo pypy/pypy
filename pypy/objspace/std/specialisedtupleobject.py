@@ -9,7 +9,7 @@ from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import compute_hash
 from pypy.rlib.unroll import unrolling_iterable
 
-class ANY(type):
+class Any(object):
     pass
 
 class NotSpecialised(Exception):
@@ -62,10 +62,10 @@ def make_specialised_class(typetuple):
     
     class cls(W_SpecialisedTupleObject):
         def __init__(self, space, values):
-            print cls,cls.__class__, values
+            #print cls,cls.__class__, values
             assert len(values) == nValues
             for i in iter_n:
-                if typetuple[i] != ANY:
+                if typetuple[i] != Any:
                     assert isinstance(values[i], typetuple[i])
             self.space = space
             for i in iter_n:
@@ -86,7 +86,7 @@ def make_specialised_class(typetuple):
                 elif val_type == str:
                     if space.type(param) != space.w_str:
                         raise NotSpecialised
-                elif val_type == ANY:
+                elif val_type == Any:
                     pass
                 else:
                     raise NotSpecialised 
@@ -98,7 +98,7 @@ def make_specialised_class(typetuple):
                     unwrappedparams[i] = space.float_w(paramlist[i])
                 elif typetuple[i] == str:
                     unwrappedparams[i] = space.str_w(paramlist[i])
-                elif typetuple[i] == ANY:
+                elif typetuple[i] == Any:
                     unwrappedparams[i] = paramlist[i]
                 else:
                     raise NotSpecialised 
@@ -110,7 +110,7 @@ def make_specialised_class(typetuple):
         def tolist(self):
             list_w = [None] * nValues            
             for i in iter_n:
-                if typetuple[i] == ANY:
+                if typetuple[i] == Any:
                     list_w[i] = getattr(self, 'value%s' % i)
                 else:
                     list_w[i] = self.space.wrap(getattr(self, 'value%s' % i))
@@ -119,7 +119,7 @@ def make_specialised_class(typetuple):
         def _to_unwrapped_list(self):
             list_w = [None] * nValues            
             for i in iter_n:
-                if typetuple[i] == ANY:
+                if typetuple[i] == Any:
                     list_w[i] = space.unwrap(getattr(self, 'value%s' % i))#xxx
                 else:
                     list_w[i] = getattr(self, 'value%s' % i)
@@ -131,7 +131,7 @@ def make_specialised_class(typetuple):
             z = 2
             for i in iter_n:
                 value = getattr(self, 'value%s' % i)
-                if typetuple[i] == ANY:
+                if typetuple[i] == Any:
                     y = space.int_w(space.hash(value))    
                 elif typetuple[i] == float: # get correct hash for float which is an integer & other less frequent cases
                     y = _hash_float(space, value)
@@ -147,7 +147,7 @@ def make_specialised_class(typetuple):
             if not isinstance(w_other, cls): #so we will be sure we are comparing same types
                 raise FailedToImplement
             for i in iter_n:
-                if typetuple[i] == ANY:
+                if typetuple[i] == Any:
                     if not self.space.is_true(self.space.eq(getattr(self, 'value%s' % i), getattr(w_other, 'value%s' % i))):
                        return False
                 else:
@@ -167,7 +167,7 @@ def make_specialised_class(typetuple):
                 raise FailedToImplement
             ncmp = min(self.length(), w_other.length())
             for i in iter_n:
-                if typetuple[i] == ANY:#like space.eq on wrapped or two params?
+                if typetuple[i] == Any:#like space.eq on wrapped or two params?
                     raise FailedToImplement
                 if ncmp > i:
                     l_val = getattr(self, 'value%s' % i)
@@ -179,7 +179,7 @@ def make_specialised_class(typetuple):
         def getitem(self, index):
             for i in iter_n:
                 if index == i:
-                    if typetuple[i] == ANY:
+                    if typetuple[i] == Any:
                         return getattr(self, 'value%s' % i)
                     else:
                         return self.space.wrap(getattr(self, 'value%s' % i))
@@ -188,16 +188,13 @@ def make_specialised_class(typetuple):
     cls.__name__ = 'W_SpecialisedTupleObject' + ''.join([t.__name__.capitalize() for t in typetuple])      
     _specialisations.append(cls)
     return cls
-    
-    
-W_SpecialisedTupleObjectIntInt     = make_specialised_class((int,int))
-W_SpecialisedTupleObjectIntAny     = make_specialised_class((int, ANY))
-W_SpecialisedTupleObjectIntIntInt  = make_specialised_class((int,int,int))
-W_SpecialisedTupleObjectFloatFloat = make_specialised_class((float,float))
-W_SpecialisedTupleObjectStrStr     = make_specialised_class((str, str))
-W_SpecialisedTupleObjectStrAny     = make_specialised_class((str, ANY))
-W_SpecialisedTupleObjectIntFloatStr= make_specialised_class((int, float, str))
-W_SpecialisedTupleObjectIntStrFloatAny= make_specialised_class((int, float, str, ANY))
+
+make_specialised_class((float, float))
+for _typ1 in [int, str, Any]:
+    for _typ2 in [int, str, Any]:
+        make_specialised_class((_typ1, _typ2))
+
+# ____________________________________________________________
 
 registerimplementation(W_SpecialisedTupleObject)
 
