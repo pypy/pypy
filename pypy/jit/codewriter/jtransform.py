@@ -210,6 +210,8 @@ class Transformer(object):
     def rewrite_op_cast_pointer(self, op):
         newop = self.rewrite_op_same_as(op)
         assert newop is None
+        return
+        # disabled for now
         if (self._is_rclass_instance(op.args[0]) and
                 self._is_rclass_instance(op.result)):
             FROM = op.args[0].concretetype.TO
