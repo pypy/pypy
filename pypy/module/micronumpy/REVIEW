@@ -1,0 +1,5 @@
+* Why we pass __module__ = 'numpy' to typedefs? Most stuff in pypy has
+  __module__ == '__builtin__' for good or bad, but if so, we should pass numpypy
+* why int16/int32 are not exported in __init__.py?
+* W_GenericBox.descr_int is not tested
+* setitem_w no longer calls invalidated(), why? doesn't it break some stuff?
