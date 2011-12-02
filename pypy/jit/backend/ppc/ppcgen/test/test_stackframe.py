@@ -18,14 +18,14 @@
             |                         |          |
             ---------------------------         --
             |       FORCE  INDEX      | WORD     | 1 WORD
-    SPP ->  ---------------------------         --
-            |                         |          |
-            |       SPILLING AREA     |          |>> regalloc.frame_manager.frame_depth * WORD
-            |  (LOCAL VARIABLE SPACE) |          |
             ---------------------------         --
             |                         |          |
             |      ENCODING AREA      |          |>> len(MANAGED_REGS) * WORD
             |      (ALLOCA AREA)      |          |
+    SPP ->  ---------------------------         --
+            |                         |          |
+            |       SPILLING AREA     |          |>> regalloc.frame_manager.frame_depth * WORD
+            |  (LOCAL VARIABLE SPACE) |          |
             ---------------------------         --
             |                         |          |
             |   PARAMETER SAVE AREA   |          |>> use MAX(number of parameters 
