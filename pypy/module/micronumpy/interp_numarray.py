@@ -780,9 +780,7 @@ def convert_to_array(space, w_obj):
         return w_obj
     elif space.issequence_w(w_obj):
         # Convert to array.
-        w_obj = space.call_function(space.gettypefor(BaseArray), w_obj)
-        assert isinstance(w_obj, BaseArray)
-        return w_obj
+        return array(space, w_obj, w_order=None)
     else:
         # If it's a scalar
         dtype = interp_ufuncs.find_dtype_for_scalar(space, w_obj)
