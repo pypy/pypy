@@ -15,6 +15,7 @@ reduce_driver = jit.JitDriver(
 
 class W_Ufunc(Wrappable):
     _attrs_ = ["name", "promote_to_float", "promote_bools", "identity"]
+    _immutable_fields_ = ["promote_to_float", "promote_bools"]
 
     def __init__(self, name, promote_to_float, promote_bools, identity):
         self.name = name
@@ -123,6 +124,7 @@ class W_Ufunc1(W_Ufunc):
 
 
 class W_Ufunc2(W_Ufunc):
+    _immutable_fields_ = ["comparison_func", "func"]
     argcount = 2
 
     def __init__(self, func, name, promote_to_float=False, promote_bools=False,
