@@ -536,7 +536,8 @@ class AppTestSocket:
 
         clientsock = _socket.socket(_socket.AF_UNIX)
         clientsock.connect(sockpath)
-        s, addr = serversock._accept()
+        fileno, addr = serversock._accept()
+        s = _socket.socket(fileno=fileno)
         assert not addr
 
         s.send(b'X')
@@ -588,7 +589,8 @@ class AppTestSocketTCP:
         from _socket import socket, timeout
         cli = socket()
         cli.connect(self.serv.getsockname())
-        t, addr = self.serv._accept()
+        fileno, addr = self.serv._accept()
+        t = socket(fileno=fileno)
         cli.settimeout(1.0)
         # test recv() timeout
         t.send(b'*')
@@ -623,7 +625,8 @@ class AppTestSocketTCP:
         MSG = b'dupa was here\n'
         cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         cli.connect(self.serv.getsockname())
-        conn, addr = self.serv._accept()
+        fileno, addr = self.serv._accept()
+        conn = socket.socket(fileno=fileno)
         buf = buffer(MSG)
         conn.send(buf)
         buf = array.array('b', b' '*1024)
@@ -638,7 +641,8 @@ class AppTestSocketTCP:
         MSG = b'dupa was here\n'
         cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         cli.connect(self.serv.getsockname())
-        conn, addr = self.serv._accept()
+        fileno, addr = self.serv._accept()
+        conn = socket.socket(fileno=fileno)
         buf = buffer(MSG)
         conn.send(buf)
         buf = array.array('b', b' '*1024)
