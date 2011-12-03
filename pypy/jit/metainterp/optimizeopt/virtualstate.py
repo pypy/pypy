@@ -110,7 +110,10 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
         if not value.is_virtual():
             raise BadVirtualState
         for i in range(len(self.fielddescrs)):
-            v = value._fields[self.fielddescrs[i]]
+            try:
+                v = value._fields[self.fielddescrs[i]]
+            except KeyError:
+                raise BadVirtualState
             s = self.fieldstate[i]
             if s.position > self.position:
                 s.enum_forced_boxes(boxes, v, optimizer)
@@ -188,7 +191,10 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
         if not value.is_virtual():
             raise BadVirtualState
         for i in range(len(self.fieldstate)):
-            v = value._items[i]
+            try:
+                v = value._items[i]
+            except IndexError:
+                raise BadVirtualState
             s = self.fieldstate[i]
             if s.position > self.position:
                 s.enum_forced_boxes(boxes, v, optimizer)
@@ -259,7 +265,12 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
         p = 0
         for i in range(len(self.fielddescrs)):
             for j in range(len(self.fielddescrs[i])):
-                v = value._items[i][self.fielddescrs[i][j]]
+                try:
+                    v = value._items[i][self.fielddescrs[i][j]]
+                except IndexError:
+                    raise BadVirtualState
+                except KeyError:
+                    raise BadVirtualState
                 s = self.fieldstate[p]
                 if s.position > self.position:
                     s.enum_forced_boxes(boxes, v, optimizer)

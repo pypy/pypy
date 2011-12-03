@@ -101,6 +101,17 @@ class BaseTestMultiLabel(BaseTest):
         """
         with raises(InvalidLoop):
             self.optimize_loop(ops, ops)
+
+    def test_virtual_arrays_with_nonmatching_lens(self):
+        ops = """
+        [p1]
+        p2 = new_array(3, descr=arraydescr)
+        label(p2)
+        p4 = new_array(2, descr=arraydescr)        
+        jump(p4)
+        """
+        with raises(InvalidLoop):
+            self.optimize_loop(ops, ops)
         
     
 class TestLLtype(BaseTestMultiLabel, LLtypeMixin):
