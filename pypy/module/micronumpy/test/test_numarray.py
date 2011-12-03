@@ -209,8 +209,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[2] == 4
 
     def test_copy(self):
-        from numpypy import array
-        a = array(range(5))
+        from numpypy import arange, array
+        a = arange(5)
         b = a.copy()
         for i in xrange(5):
             assert b[i] == a[i]
@@ -383,7 +383,7 @@ class AppTestNumArray(BaseNumpyAppTest):
 
         z=arange(96).reshape((12, -1))
         assert z.shape == (12, 8)
-        y=z.reshape(4,3,8)
+        y=z.reshape((4,3,8))
         v=y[:,::2,:]
         w = y.reshape(96)
         u = v.reshape(64)
@@ -395,7 +395,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert w[41] == 1000
         #u is not a view, it is a copy!
         assert u[25] == 41 
-        
+
+    def test_reshape_varargs(self):
+        skip("How do I do varargs in rpython? reshape should accept a"
+             " variable number of arguments")
+        z=arange(96).reshape(12, -1)
+        y=z.reshape(4,3,8)
+    
     def test_add(self):
         from numpypy import array
         a = array(range(5))

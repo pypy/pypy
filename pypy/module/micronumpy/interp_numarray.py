@@ -101,7 +101,7 @@ def _shape_agreement(shape1, shape2):
 def get_shape_from_iterable(space, old_size, w_iterable):
     new_size = 0
     new_shape = []
-    if not space.issequence_w(w_iterable):
+    if space.isinstance_w(w_iterable, space.w_int):
         new_size = space.int_w(w_iterable)
         if new_size < 0:
             new_size = old_size
@@ -109,6 +109,9 @@ def get_shape_from_iterable(space, old_size, w_iterable):
     else:
         neg_dim = -1
         batch = space.listview(w_iterable)
+        #Allow for shape = (1,2,3) or shape = ((1,2,3))
+        if len(batch)>1 and space.issequence_w(batch[0]):
+            batch = space.listview(batch[0])
         new_size = 1
         if len(batch) < 1:
             if old_size ==1:
@@ -875,11 +878,11 @@ class BaseArray(Wrappable):
         return NDimSlice(self, new_sig, start, strides[:], backstrides[:],
                          shape[:])
 
-    def descr_reshape(self, space, w_iterable):
+    def descr_reshape(self, space, w_args):
         """Return a reshaped view into the original array's data
         """
         concrete = self.get_concrete()
-        new_shape = get_shape_from_iterable(space, concrete.find_size(), w_iterable)
+        new_shape = get_shape_from_iterable(space, concrete.find_size(), w_args)
         #Since we got to here, prod(new_shape) == self.size
         new_strides = calc_new_strides(new_shape, concrete.shape, concrete.strides)
         if new_strides:
@@ -895,7 +898,7 @@ class BaseArray(Wrappable):
         else:
             #Create copy with contiguous data
             arr = concrete.copy()
-            arr.set_shape(space, new_shape)
+            arr.setshape(space, new_shape)
         return arr
 
     def descr_mean(self, space):
