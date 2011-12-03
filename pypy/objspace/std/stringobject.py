@@ -326,7 +326,7 @@ def make_rsplit_with_delim(funcname, sliced):
 
     if 'Unicode' in funcname:
         def unwrap_sep(space, w_by):
-            return w_by.value
+            return w_by._value
     else:
         def unwrap_sep(space, w_by):
             return space.bufferstr_w(w_by)
