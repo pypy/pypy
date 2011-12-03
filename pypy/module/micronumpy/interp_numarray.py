@@ -110,11 +110,11 @@ def get_shape_from_iterable(space, old_size, w_iterable):
         neg_dim = -1
         batch = space.listview(w_iterable)
         #Allow for shape = (1,2,3) or shape = ((1,2,3))
-        if len(batch)>1 and space.issequence_w(batch[0]):
+        if len(batch) > 1 and space.issequence_w(batch[0]):
             batch = space.listview(batch[0])
         new_size = 1
         if len(batch) < 1:
-            if old_size ==1:
+            if old_size == 1:
                 #Scalars can have an empty size.
                 new_size = 1
             else:
@@ -208,7 +208,7 @@ def descr_new_array(space, w_subtype, w_item_or_iterable, w_dtype=None,
             w_dtype = interp_ufuncs.find_dtype_for_scalar(space,
                                                           w_item_or_iterable)
         dtype = space.interp_w(interp_dtype.W_Dtype,
-            space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
+           space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
         )
         return scalar_w(space, dtype, w_item_or_iterable)
     if w_order is None:
@@ -581,6 +581,7 @@ class BaseArray(Wrappable):
                 return False
             i = i.next(shapelen)
         return True
+
     def descr_all(self, space):
         return space.wrap(self._all())
 
@@ -596,6 +597,7 @@ class BaseArray(Wrappable):
                 return True
             i = i.next(shapelen)
         return False
+
     def descr_any(self, space):
         return space.wrap(self._any())
 
@@ -620,10 +622,10 @@ class BaseArray(Wrappable):
     def descr_get_shape(self, space):
         return space.newtuple([space.wrap(i) for i in self.shape])
 
-
     def descr_set_shape(self, space, w_iterable):
         concrete = self.get_concrete()
-        new_shape = get_shape_from_iterable(space, concrete.find_size(), w_iterable)
+        new_shape = get_shape_from_iterable(space, 
+                            concrete.find_size(), w_iterable)
         concrete.setshape(space, new_shape)
 
     def descr_get_size(self, space):
@@ -882,9 +884,11 @@ class BaseArray(Wrappable):
         """Return a reshaped view into the original array's data
         """
         concrete = self.get_concrete()
-        new_shape = get_shape_from_iterable(space, concrete.find_size(), w_args)
+        new_shape = get_shape_from_iterable(space, 
+                                            concrete.find_size(), w_args)
         #Since we got to here, prod(new_shape) == self.size
-        new_strides = calc_new_strides(new_shape, concrete.shape, concrete.strides)
+        new_strides = calc_new_strides(new_shape, 
+                                       concrete.shape, concrete.strides)
         if new_strides:
             #We can create a view, strides somehow match up.
             new_sig = signature.Signature.find_sig([

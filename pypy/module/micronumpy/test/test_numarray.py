@@ -159,13 +159,12 @@ class TestNumArrayDirect(object):
                 [5, 2], [4, 3, 5, 2]) == [4, 3, 5, 2]
 
     def test_calc_new_strides(self):
-	from pypy.module.micronumpy.interp_numarray import calc_new_strides
+        from pypy.module.micronumpy.interp_numarray import calc_new_strides
         assert calc_new_strides([2, 4], [4, 2], [4, 2]) == [8, 2]
         assert calc_new_strides([2, 4, 3], [8, 3], [1, 16]) == [1, 2, 16]
         assert calc_new_strides([2, 3, 4], [8, 3], [1, 16]) is None
-        assert calc_new_strides([8, 3], [2, 4, 3], [48, 6, 1]) == [6, 1]
         assert calc_new_strides([24], [2, 4, 3], [48, 6, 1]) is None
-        assert calc_new_strides([24], [2, 4, 3], [48, 6, 2]) is None
+        assert calc_new_strides([24], [2, 4, 3], [24, 6, 2]) == [2]
 
 class AppTestNumArray(BaseNumpyAppTest):
     def test_type(self):
@@ -386,10 +385,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         c = b.reshape((2, 4))
         assert (c == [[1, 3, 5, 7], [9, 11, 13, 15]]).all()
 
-        z=arange(96).reshape((12, -1))
+        z = arange(96).reshape((12, -1))
         assert z.shape == (12, 8)
-        y=z.reshape((4,3,8))
-        v=y[:,::2,:]
+        y = z.reshape((4, 3, 8))
+        v = y[:, ::2, :]
         w = y.reshape(96)
         u = v.reshape(64)
         assert y[1, 2, 1] == z[5, 1]
@@ -399,14 +398,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert v[1, 1, 1] == 1000
         assert w[41] == 1000
         #u is not a view, it is a copy!
-        assert u[25] == 41 
+        assert u[25] == 41
 
     def test_reshape_varargs(self):
         skip("How do I do varargs in rpython? reshape should accept a"
              " variable number of arguments")
-        z=arange(96).reshape(12, -1)
-        y=z.reshape(4,3,8)
-    
+        z = arange(96).reshape(12, -1)
+        y = z.reshape(4, 3, 8)
+
     def test_add(self):
         from numpypy import array
         a = array(range(5))
