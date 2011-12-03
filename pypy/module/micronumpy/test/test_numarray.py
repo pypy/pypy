@@ -1218,3 +1218,14 @@ class AppTestRanges(BaseNumpyAppTest):
         a = arange(0, 0.8, 0.1)
         assert len(a) == 8
         assert arange(False, True, True).dtype is dtype(int)
+
+
+class AppTestRanges(BaseNumpyAppTest):
+    def test_app_reshape(self):
+        from numpypy import arange, array, dtype, reshape
+        a = arange(12)
+        b = reshape(a, (3, 4))
+        assert b.shape == (3, 4)
+        a = range(12)
+        b = reshape(a, (3, 4))
+        assert b.shape == (3, 4)

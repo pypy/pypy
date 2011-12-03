@@ -881,8 +881,17 @@ class BaseArray(Wrappable):
                          shape[:])
 
     def descr_reshape(self, space, w_args):
-        """Return a reshaped view into the original array's data
-        """
+        """reshape(...)
+    a.reshape(shape)
+    
+    Returns an array containing the same data with a new shape.
+    
+    Refer to `%s.reshape` for full documentation.
+    
+    See Also
+    --------
+    numpy.reshape : equivalent function
+""" % 'numpypy'
         concrete = self.get_concrete()
         new_shape = get_shape_from_iterable(space, 
                                             concrete.find_size(), w_args)

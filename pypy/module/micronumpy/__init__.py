@@ -61,4 +61,5 @@ class Module(MixedModule):
         'inf': 'app_numpy.inf',
         'e': 'app_numpy.e',
         'arange': 'app_numpy.arange',
+        'reshape': 'app_numpy.reshape',
     }
