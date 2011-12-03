@@ -550,6 +550,14 @@ class AppTestSocket:
         clientsock.close()
         s.close()
 
+    def test_subclass(self):
+        # Socket is not created in __new__, but in __init__.
+        import socket
+        class Socket_IPV6(socket.socket):
+            def __init__(self):
+                socket.socket.__init__(self, family=socket.AF_INET6)
+        assert Socket_IPV6().family == socket.AF_INET6
+
 
 class AppTestSocketTCP:
     def setup_class(cls):

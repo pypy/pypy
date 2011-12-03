@@ -16,6 +16,22 @@ class SignalChecker:
         self.space.getexecutioncontext().checksignals()
 
 class W_RSocket(Wrappable, RSocket):
+    def descr_new(space, w_subtype, __args__):
+        sock = space.allocate_instance(W_RSocket, w_subtype)
+        return space.wrap(sock)
+
+    @unwrap_spec(family=int, type=int, proto=int)
+    def descr_init(self, space, family=AF_INET, type=SOCK_STREAM, proto=0,
+                   w_fileno=None):
+        try:
+            if not space.is_w(w_fileno, space.w_None):
+                W_RSocket.__init__(self, family, type, proto,
+                                   fd=space.c_filedescriptor_w(w_fileno))
+            else:
+                W_RSocket.__init__(self, family, type, proto)
+        except SocketError, e:
+            raise converted_error(space, e)
+
     def _accept_w(self, space):
         """_accept() -> (socket object, address info)
 
@@ -409,21 +425,6 @@ def makefile(self, mode="r", buffersize=-1):
     return os.fdopen(newfd, mode, buffersize)
 ''', filename =__file__).interphook('makefile')
 
-@unwrap_spec(family=int, type=int, proto=int)
-def newsocket(space, w_subtype, family=AF_INET,
-              type=SOCK_STREAM, proto=0, w_fileno=NoneNotWrapped):
-    sock = space.allocate_instance(W_RSocket, w_subtype)
-    try:
-        if w_fileno:
-            W_RSocket.__init__(sock, family, type, proto,
-                               fd=space.c_filedescriptor_w(w_fileno))
-        else:
-            W_RSocket.__init__(sock, family, type, proto)
-    except SocketError, e:
-        raise converted_error(space, e)
-    return space.wrap(sock)
-descr_socket_new = interp2app(newsocket)
-
 # ____________________________________________________________
 # Error handling
 
@@ -518,7 +519,8 @@ settimeout(None | float) -- set or clear the timeout
 shutdown(how) -- shut down traffic in one or both directions
 
  [*] not available on all platforms!""",
-    __new__ = descr_socket_new,
+    __new__ = interp2app(W_RSocket.descr_new.im_func),
+    __init__ = interp2app(W_RSocket.descr_init),
     type = interp_attrproperty('type', W_RSocket),
     proto = interp_attrproperty('proto', W_RSocket),
     family = interp_attrproperty('family', W_RSocket),
