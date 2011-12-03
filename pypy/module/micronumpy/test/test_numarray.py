@@ -220,6 +220,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array(1)
         assert a.copy() == a
 
+        a = arange(8)
+        b = a[::2]
+        c = b.copy()
+        assert (c == b).all()
+
     def test_iterator_init(self):
         from numpypy import array
         a = array(range(5))
