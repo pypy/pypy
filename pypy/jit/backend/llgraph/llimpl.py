@@ -20,7 +20,7 @@ from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.backend.llgraph import symbolic
 from pypy.jit.codewriter import longlong
 
-from pypy.rlib import libffi
+from pypy.rlib import libffi, clibffi
 from pypy.rlib.objectmodel import ComputedIntSymbolic, we_are_translated
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rlib.rarithmetic import r_longlong, r_ulonglong, r_uint
@@ -1514,13 +1514,17 @@ do_setinteriorfield_gc_int = new_setinteriorfield_gc(cast_from_int)
 do_setinteriorfield_gc_float = new_setinteriorfield_gc(cast_from_floatstorage)
 do_setinteriorfield_gc_ptr = new_setinteriorfield_gc(cast_from_ptr)
 
-def new_setinteriorfield_raw(ffitype):
+def new_setinteriorfield_raw(cast_func, ffitype):
     def do_setinteriorfield_raw(array, index, newvalue, width, ofs):
         addr = rffi.cast(rffi.VOIDP, array)
+        for TYPE, ffitype2 in clibffi.ffitype_map:
+            if ffitype2 is ffitype:
+                newvalue = cast_func(TYPE, newvalue)
+                break
         return libffi.array_setitem(ffitype, width, addr, index, ofs, newvalue)
     return do_setinteriorfield_raw
-do_setinteriorfield_raw_int = new_setinteriorfield_raw(libffi.types.slong)
-do_setinteriorfield_raw_float = new_setinteriorfield_raw(libffi.types.double)
+do_setinteriorfield_raw_int = new_setinteriorfield_raw(cast_from_int, libffi.types.slong)
+do_setinteriorfield_raw_float = new_setinteriorfield_raw(cast_from_floatstorage, libffi.types.double)
 
 def do_setfield_raw_int(struct, fieldnum, newvalue):
     STRUCT, fieldname = symbolic.TokenToField[fieldnum]
