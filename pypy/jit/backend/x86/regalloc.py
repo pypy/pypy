@@ -168,26 +168,22 @@ class RegAlloc(object):
         operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
                                                        allgcrefs)
         # compute longevity of variables
-        longevity = self._compute_vars_longevity(inputargs, operations)
+        longevity, useful = self._compute_vars_longevity(inputargs, operations)
         self.longevity = longevity
         self.rm = gpr_reg_mgr_cls(longevity,
                                   frame_manager = self.fm,
                                   assembler = self.assembler)
         self.xrm = xmm_reg_mgr_cls(longevity, frame_manager = self.fm,
                                    assembler = self.assembler)
-        return operations
+        return operations, useful
 
     def prepare_loop(self, inputargs, operations, looptoken, allgcrefs):
-        operations = self._prepare(inputargs, operations, allgcrefs)
-        jump = operations[-1]
-        loop_consts = self._compute_loop_consts(inputargs, jump, looptoken)
-        self.loop_consts = loop_consts
-        return self._process_inputargs(inputargs), operations
+        operations, useful = self._prepare(inputargs, operations, allgcrefs)
+        return self._process_inputargs(inputargs, useful), operations
 
     def prepare_bridge(self, prev_depths, inputargs, arglocs, operations,
                        allgcrefs):
-        operations = self._prepare(inputargs, operations, allgcrefs)
-        self.loop_consts = {}
+        operations, _ = self._prepare(inputargs, operations, allgcrefs)
         self._update_bindings(arglocs, inputargs)
         self.fm.frame_depth = prev_depths[0]
         self.param_depth = prev_depths[1]
@@ -196,7 +192,7 @@ class RegAlloc(object):
     def reserve_param(self, n):
         self.param_depth = max(self.param_depth, n)
 
-    def _process_inputargs(self, inputargs):
+    def _process_inputargs(self, inputargs, useful):
         # XXX we can sort out here by longevity if we need something
         # more optimal
         floatlocs = [None] * len(inputargs)
@@ -212,7 +208,7 @@ class RegAlloc(object):
             arg = inputargs[i]
             assert not isinstance(arg, Const)
             reg = None
-            if arg not in self.loop_consts and self.longevity[arg][1] > -1:
+            if self.longevity[arg][1] > -1 and arg in useful:
                 if arg.type == FLOAT:
                     # xxx is it really a good idea?  at the first CALL they
                     # will all be flushed anyway
@@ -288,15 +284,15 @@ class RegAlloc(object):
         else:
             return self.xrm.make_sure_var_in_reg(var, forbidden_vars)
 
-    def _compute_loop_consts(self, inputargs, jump, looptoken):
-        if jump.getopnum() != rop.JUMP or jump.getdescr() is not looptoken:
-            loop_consts = {}
-        else:
-            loop_consts = {}
-            for i in range(len(inputargs)):
-                if inputargs[i] is jump.getarg(i):
-                    loop_consts[inputargs[i]] = i
-        return loop_consts
+    #def _compute_loop_consts(self, inputargs, jump, looptoken):
+    #    if jump.getopnum() != rop.JUMP or jump.getdescr() is not looptoken:
+    #        loop_consts = {}
+    #    else:
+    #        loop_consts = {}
+    #        for i in range(len(inputargs)):
+    #            if inputargs[i] is jump.getarg(i):
+    #                loop_consts[inputargs[i]] = i
+    #    return loop_consts
 
     def _update_bindings(self, locs, inputargs):
         # XXX this should probably go to llsupport/regalloc.py
@@ -451,8 +447,14 @@ class RegAlloc(object):
     def _compute_vars_longevity(self, inputargs, operations):
         # compute a dictionary that maps variables to index in
         # operations that is a "last-time-seen"
+
+        # returns a pair longevity/useful. Non-useful variables are ones that
+        # never appear in the assembler or it does not matter if they appear on
+        # stack or in registers. Main example is loop arguments that go
+        # only to guard operations or to jump or to finish
         produced = {}
         last_used = {}
+        useful = {}
         for i in range(len(operations)-1, -1, -1):
             op = operations[i]
             if op.result:
@@ -460,8 +462,11 @@ class RegAlloc(object):
                     continue
                 assert op.result not in produced
                 produced[op.result] = i
+            opnum = op.getopnum()
             for j in range(op.numargs()):
                 arg = op.getarg(j)
+                if opnum != rop.JUMP and opnum != rop.FINISH:
+                    useful[arg] = None
                 if isinstance(arg, Box) and arg not in last_used:
                     last_used[arg] = i
             if op.is_guard():
@@ -487,7 +492,7 @@ class RegAlloc(object):
                 longevity[arg] = (0, last_used[arg])
                 del last_used[arg]
         assert len(last_used) == 0
-        return longevity
+        return longevity, useful
 
     def loc(self, v):
         if v is None: # xxx kludgy

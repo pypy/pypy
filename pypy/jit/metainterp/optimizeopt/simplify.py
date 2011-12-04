@@ -31,6 +31,9 @@ class OptSimplify(Optimization):
     def optimize_MARK_OPAQUE_PTR(self, op):
         pass
 
+    def optimize_RECORD_KNOWN_CLASS(self, op):
+        pass
+
     def optimize_LABEL(self, op):
         self.last_label_descr = op.getdescr()
         self.emit_operation(op)

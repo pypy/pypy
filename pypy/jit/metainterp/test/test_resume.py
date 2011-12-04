@@ -23,11 +23,11 @@ def test_tag():
     assert tag(-3, 2) == rffi.r_short(-3<<2|2)
     assert tag((1<<13)-1, 3) == rffi.r_short(((1<<15)-1)|3)
     assert tag(-1<<13, 3) == rffi.r_short((-1<<15)|3)
-    py.test.raises(ValueError, tag, 3, 5)
-    py.test.raises(ValueError, tag, 1<<13, 0)
-    py.test.raises(ValueError, tag, (1<<13)+1, 0)
-    py.test.raises(ValueError, tag, (-1<<13)-1, 0)
-    py.test.raises(ValueError, tag, (-1<<13)-5, 0)
+    py.test.raises(AssertionError, tag, 3, 5)
+    py.test.raises(TagOverflow, tag, 1<<13, 0)
+    py.test.raises(TagOverflow, tag, (1<<13)+1, 0)
+    py.test.raises(TagOverflow, tag, (-1<<13)-1, 0)
+    py.test.raises(TagOverflow, tag, (-1<<13)-5, 0)
 
 def test_untag():
     assert untag(tag(3, 1)) == (3, 1)
@@ -1318,8 +1318,7 @@ def test_virtual_adder_pending_fields_and_arrayitems():
     assert rffi.cast(lltype.Signed, pf[1].fieldnum) == 1062
     assert rffi.cast(lltype.Signed, pf[1].itemindex) == 2147483647
     #
-    from pypy.jit.metainterp.pyjitpl import SwitchToBlackhole
-    py.test.raises(SwitchToBlackhole, modifier._add_pending_fields,
+    py.test.raises(TagOverflow, modifier._add_pending_fields,
                    [(array_a, 42, 63, 2147483648)])
 
 def test_resume_reader_fields_and_arrayitems():

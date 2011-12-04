@@ -411,6 +411,10 @@ class CDLL(object):
     def getaddressindll(self, name):
         return dlsym(self.lib, name)
 
+# These specialize.call_location's should really be specialize.arg(0), however
+# you can't hash a pointer obj, which the specialize machinery wants to do.
+# Given the present usage of these functions, it's good enough.
+@specialize.call_location()
 @jit.oopspec("libffi_array_getitem(ffitype, width, addr, index, offset)")
 def array_getitem(ffitype, width, addr, index, offset):
     for TYPE, ffitype2 in clibffi.ffitype_map:
@@ -420,6 +424,7 @@ def array_getitem(ffitype, width, addr, index, offset):
             return rffi.cast(rffi.CArrayPtr(TYPE), addr)[0]
     assert False
 
+@specialize.call_location()
 @jit.oopspec("libffi_array_setitem(ffitype, width, addr, index, offset, value)")
 def array_setitem(ffitype, width, addr, index, offset, value):
     for TYPE, ffitype2 in clibffi.ffitype_map:

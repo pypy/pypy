@@ -1,6 +1,6 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
-from pypy.module.micronumpy.interp_dtype import W_Float64Dtype
+from pypy.module.micronumpy.interp_dtype import get_dtype_cache
 from pypy.rlib.rstruct.runpack import runpack
 from pypy.rpython.lltypesystem import lltype, rffi
 
@@ -9,7 +9,7 @@ FLOAT_SIZE = rffi.sizeof(lltype.Float)
 
 @unwrap_spec(s=str)
 def fromstring(space, s):
-    from pypy.module.micronumpy.interp_numarray import NDimArray
+    from pypy.module.micronumpy.interp_numarray import W_NDimArray
     length = len(s)
 
     if length % FLOAT_SIZE == 0:
@@ -18,8 +18,8 @@ def fromstring(space, s):
         raise OperationError(space.w_ValueError, space.wrap(
             "string length %d not divisable by %d" % (length, FLOAT_SIZE)))
 
-    dtype = space.fromcache(W_Float64Dtype)
-    a = NDimArray(number, [number], dtype=dtype)
+    dtype = get_dtype_cache(space).w_float64dtype
+    a = W_NDimArray(number, [number], dtype=dtype)
 
     start = 0
     end = FLOAT_SIZE
