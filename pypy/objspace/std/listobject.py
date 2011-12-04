@@ -922,9 +922,6 @@ class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
         if reverse:
             l.reverse()
 
-<<<<<<< local
-class UnicodeListStrategy(AbstractUnwrappedStrategy, ListStrategy):
-=======
 class FloatListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     _none_value = 0.0
     _applevel_repr = "float"
@@ -952,8 +949,7 @@ class FloatListStrategy(AbstractUnwrappedStrategy, ListStrategy):
         if reverse:
             l.reverse()
 
-class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
->>>>>>> other
+class UnicodeListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     _none_value = None
     _applevel_repr = "str"
 
@@ -1306,12 +1302,8 @@ def list_reverse__List(space, w_list):
 
 TimSort = make_timsort_class()
 IntBaseTimSort = make_timsort_class()
-<<<<<<< local
-UnicodeBaseTimSort = make_timsort_class()
-=======
 FloatBaseTimSort = make_timsort_class()
-StringBaseTimSort = make_timsort_class()
->>>>>>> other
+UnicodeBaseTimSort = make_timsort_class()
 
 class KeyContainer(baseobjspace.W_Root):
     def __init__(self, w_key, w_item):
@@ -1331,15 +1323,11 @@ class IntSort(IntBaseTimSort):
     def lt(self, a, b):
         return a < b
 
-<<<<<<< local
-class UnicodeSort(UnicodeBaseTimSort):
-=======
 class FloatSort(FloatBaseTimSort):
     def lt(self, a, b):
         return a < b
 
-class StringSort(StringBaseTimSort):
->>>>>>> other
+class UnicodeSort(UnicodeBaseTimSort):
     def lt(self, a, b):
         return a < b
 
