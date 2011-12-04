@@ -29,12 +29,12 @@ class W_AbstractStringObject(W_Object):
             return True
         if self.user_overridden_class or w_other.user_overridden_class:
             return False
-        return space.str_w(self) is space.str_w(w_other)
+        return space.bytes_w(self) is space.bytes_w(w_other)
 
     def unique_id(self, space):
         if self.user_overridden_class:
             return W_Object.unique_id(self, space)
-        return space.wrap(compute_unique_id(space.str_w(self)))
+        return space.wrap(compute_unique_id(space.bytes_w(self)))
 
 
 class W_StringObject(W_AbstractStringObject):
