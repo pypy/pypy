@@ -1,5 +1,5 @@
-# Note that PyPy contains also a built-in implementation of 'itertools';
-# when translated with default options, this one is not used.
+# Note that PyPy contains also a built-in module 'itertools' which will
+# hide this one if compiled in.
 
 """Functional tools for creating and using iterators.
 
