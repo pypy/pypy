@@ -98,8 +98,13 @@ if WIN32:
     INVALID_HANDLE_VALUE = rffi.cast(HANDLE, -1)
     PFILETIME = rffi.CArrayPtr(FILETIME)
 
-    GetLastError = winexternal('GetLastError', [], DWORD, threadsafe=False)
-    SetLastError = winexternal('SetLastError', [DWORD], lltype.Void)
+    _GetLastError = winexternal('GetLastError', [], DWORD, threadsafe=False)
+    _SetLastError = winexternal('SetLastError', [DWORD], lltype.Void)
+
+    def GetLastError():
+        return rffi.cast(lltype.Signed, _GetLastError())
+    def SetLastError(err):
+        _SetLastError(rffi.cast(DWORD, err))
 
     # In tests, the first call to GetLastError is always wrong, because error
     # is hidden by operations in ll2ctypes.  Call it now.
@@ -184,12 +189,12 @@ if WIN32:
             msglen = FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER |
                                    FORMAT_MESSAGE_FROM_SYSTEM,
                                    None,
-                                   code,
+                                   rffi.cast(DWORD, code),
                                    DEFAULT_LANGUAGE,
                                    rffi.cast(rffi.CCHARP, buf),
                                    0, None)
 
-            if msglen <= 2 or msglen > sys.maxint:
+            if msglen <= 2:   # includes the case msglen < 0
                 return fake_FormatError(code)
 
             # FormatMessage always appends \r\n.
