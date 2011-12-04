@@ -106,7 +106,8 @@ class AbstractVirtualStructStateInfo(AbstractVirtualStateInfo):
         raise NotImplementedError
 
     def enum_forced_boxes(self, boxes, value, optimizer):
-        assert isinstance(value, virtualize.AbstractVirtualStructValue)
+        if not isinstance(value, virtualize.AbstractVirtualStructValue):
+            raise BadVirtualState
         if not value.is_virtual():
             raise BadVirtualState
         for i in range(len(self.fielddescrs)):
@@ -187,7 +188,8 @@ class VArrayStateInfo(AbstractVirtualStateInfo):
             self.arraydescr is other.arraydescr)
 
     def enum_forced_boxes(self, boxes, value, optimizer):
-        assert isinstance(value, virtualize.VArrayValue)
+        if not isinstance(value, virtualize.VArrayValue):
+            raise BadVirtualState
         if not value.is_virtual():
             raise BadVirtualState
         for i in range(len(self.fieldstate)):
@@ -259,7 +261,8 @@ class VArrayStructStateInfo(AbstractVirtualStateInfo):
             s.enum(virtual_state)
 
     def enum_forced_boxes(self, boxes, value, optimizer):
-        assert isinstance(value, virtualize.VArrayStructValue)
+        if not isinstance(value, virtualize.VArrayStructValue):
+            raise BadVirtualState
         if not value.is_virtual():
             raise BadVirtualState
         p = 0
