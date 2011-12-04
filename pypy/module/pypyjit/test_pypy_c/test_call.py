@@ -142,7 +142,7 @@ class TestCall(BaseTestPyPyC):
             i19 = int_add_ovf(i10, i17)
             guard_no_overflow(descr=...)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, i19, p7, i17, i9, i10, p11, p12, p13, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, p5, i19, p7, i17, i9, i10, p11, p12, p13, descr=...)
         """)
 
     def test_static_classmethod_call(self):
@@ -174,7 +174,7 @@ class TestCall(BaseTestPyPyC):
             guard_no_overflow(descr=...)
             i18 = force_token()
             --TICK--
-            jump(..., descr=<Loop0>)
+            jump(..., descr=...)
         """)
 
     def test_default_and_kw(self):
@@ -394,7 +394,7 @@ class TestCall(BaseTestPyPyC):
             guard_not_invalidated(descr=...)
             i120 = int_add(i5, 1)
             --TICK--
-            jump(..., descr=<Loop0>)
+            jump(..., descr=...)
         """)
 
     def test_global_closure_has_constant_cells(self):
@@ -438,7 +438,7 @@ class TestCall(BaseTestPyPyC):
             i33 = int_add_ovf(i15, i32)
             guard_no_overflow(descr=...)
             --TICK--
-            jump(p0, p1, p2, p5, i33, i32, p23, p30, p24, descr=<Loop0>)
+            jump(p0, p1, p2, p5, i33, i32, p23, p30, p24, descr=...)
         """)
 
     def test_local_closure_is_virtual(self):
@@ -461,7 +461,7 @@ class TestCall(BaseTestPyPyC):
             p22 = new_with_vtable(ConstClass(W_IntObject))
             setfield_gc(p22, i13, descr=<SignedFieldDescr pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
             setfield_gc(p4, p22, descr=<GcPtrFieldDescr pypy.interpreter.nestedscope.Cell.inst_w_value .*>)
-            jump(p0, p1, p2, p3, p4, p7, p22, p7, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, p7, p22, p7, descr=...)
         """)
 
     def test_kwargs_virtual(self):
