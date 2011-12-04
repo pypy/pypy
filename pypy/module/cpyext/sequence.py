@@ -56,7 +56,7 @@ def PySequence_Fast_GET_ITEM(space, w_obj, index):
     PySequence_Fast(), o is not NULL, and that i is within bounds.
     """
     if isinstance(w_obj, listobject.W_ListObject):
-        w_res = w_obj.wrappeditems[index]
+        w_res = w_obj.getitem(index)
     else:
         assert isinstance(w_obj, tupleobject.W_TupleObject)
         w_res = w_obj.wrappeditems[index]
@@ -70,7 +70,7 @@ def PySequence_Fast_GET_SIZE(space, w_obj):
     PySequence_Fast_GET_SIZE() is faster because it can assume o is a list
     or tuple."""
     if isinstance(w_obj, listobject.W_ListObject):
-        return len(w_obj.wrappeditems)
+        return w_obj.length()
     assert isinstance(w_obj, tupleobject.W_TupleObject)
     return len(w_obj.wrappeditems)
 

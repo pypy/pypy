@@ -519,6 +519,7 @@ class AppTestStringObject:
         assert b"-".join([b'a', b'b']) == b'a-b'
         text = b'text'
         assert b"".join([text]) is text
+        assert b" -- ".join([text]) is text
         raises(TypeError, b''.join, 1)
         raises(TypeError, b''.join, [1])
         raises(TypeError, b''.join, [[1]])

@@ -282,6 +282,10 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                              ("objspace.std.withmethodcache", True),
                        ]),
 
+        BoolOption("withliststrategies",
+                   "enable optimized ways to store lists of primitives ",
+                   default=True),
+
         BoolOption("withtypeversion",
                    "version type objects when changing them",
                    cmdline=None,

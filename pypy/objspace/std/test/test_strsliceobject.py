@@ -110,12 +110,6 @@ class AppTestStringObject(test_stringobject.AppTestStringObject):
         assert 'W_StringSliceObject' in __pypy__.internal_repr(s)
         assert hash(s) & 0x7fffffff == 0x7e0bce58
 
-    def test_split_produces_strslices(self):
-        import __pypy__
-        l = (b"X" * 100 + b"," + b"Y" * 100).split(b",")
-        assert "W_StringSliceObject" in __pypy__.internal_repr(l[0])
-        assert "W_StringSliceObject" in __pypy__.internal_repr(l[1])
-
     def test_strip_produces_strslices(self):
         import __pypy__
         s = (b"abc" + b"X" * 100 + b"," + b"Y" * 100 + b"abc").strip(b"abc")

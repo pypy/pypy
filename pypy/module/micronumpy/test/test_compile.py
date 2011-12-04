@@ -5,7 +5,7 @@ from pypy.module.micronumpy.compile import *
 class TestCompiler(object):
     def compile(self, code):
         return numpy_compile(code)
-    
+
     def test_vars(self):
         code = """
         a = 2
@@ -25,7 +25,7 @@ class TestCompiler(object):
         st = interp.code.statements[0]
         assert st.expr.items == [FloatConstant(1), FloatConstant(2),
                                  FloatConstant(3)]
-    
+
     def test_array_literal2(self):
         code = "a = [[1],[2],[3]]"
         interp = self.compile(code)
@@ -102,10 +102,11 @@ class TestRunner(object):
         code = """
         a = [1,2,3,4]
         b = [4,5,6,5]
-        a + b
+        c = a + b
+        c -> 3
         """
         interp = self.run(code)
-        assert interp.results[0]._getnums(False) == ["5.0", "7.0", "9.0", "9.0"]
+        assert interp.results[-1].value.val == 9
 
     def test_array_getitem(self):
         code = """
@@ -115,7 +116,7 @@ class TestRunner(object):
         """
         interp = self.run(code)
         assert interp.results[0].value.val == 3 + 6
-        
+
     def test_range_getitem(self):
         code = """
         r = |20| + 3
@@ -161,10 +162,73 @@ class TestRunner(object):
         assert interp.results[0].value.val == 256
 
     def test_slice(self):
-        py.test.skip("in progress")
         interp = self.run("""
         a = [1,2,3,4]
         b = a -> :
         b -> 3
         """)
-        assert interp.results[0].value.val == 3
+        assert interp.results[0].value.val == 4
+
+    def test_slice_step(self):
+        interp = self.run("""
+        a = |30|
+        b = a -> ::2
+        b -> 3
+        """)
+        assert interp.results[0].value.val == 6
+
+    def test_setslice(self):
+        interp = self.run("""
+        a = |30|
+        b = |10|
+        b[1] = 5
+        a[::3] = b
+        a -> 3
+        """)
+        assert interp.results[0].value.val == 5
+
+
+    def test_slice2(self):
+        interp = self.run("""
+        a = |30|
+        s1 = a -> 0:20:2
+        s2 = a -> 0:30:3
+        b = s1 + s2
+        b -> 3
+        """)
+        assert interp.results[0].value.val == 15
+
+    def test_multidim_getitem(self):
+        interp = self.run("""
+        a = [[1,2]]
+        a -> 0 -> 1
+        """)
+        assert interp.results[0].value.val == 2
+
+    def test_multidim_getitem_2(self):
+        interp = self.run("""
+        a = [[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]]
+        b = a + a
+        b -> 1 -> 1
+        """)
+        assert interp.results[0].value.val == 8
+
+    def test_set_slice(self):
+        interp = self.run("""
+        a = |30|
+        b = |30|
+        b[:] = a + a
+        b -> 3
+        """)
+        assert interp.results[0].value.val == 6
+
+    def test_set_slice2(self):
+        interp = self.run("""
+        a = |30|
+        b = |10|
+        b[1] = 5.5
+        c = b + b
+        a[0:30:3] = c
+        a -> 3
+        """)
+        assert interp.results[0].value.val == 11        

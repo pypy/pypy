@@ -188,6 +188,12 @@ class W_Root(object):
 
     # -------------------------------------------------------------------
 
+    def is_w(self, space, w_other):
+        return self is w_other
+
+    def unique_id(self, space):
+        return space.wrap(compute_unique_id(self))
+
     def bytes_w(self, space):
         w_msg = typed_unwrap_error_msg(space, "bytes", self)
         raise OperationError(space.w_TypeError, w_msg)
@@ -686,9 +692,17 @@ class ObjSpace(object):
         """shortcut for space.is_true(space.eq(w_obj1, w_obj2))"""
         return self.is_w(w_obj1, w_obj2) or self.is_true(self.eq(w_obj1, w_obj2))
 
-    def is_w(self, w_obj1, w_obj2):
-        """shortcut for space.is_true(space.is_(w_obj1, w_obj2))"""
-        return self.is_true(self.is_(w_obj1, w_obj2))
+    def is_(self, w_one, w_two):
+        return self.newbool(self.is_w(w_one, w_two))
+
+    def is_w(self, w_one, w_two):
+        # done by a method call on w_two (and not on w_one, because of the
+        # expected programming style where we say "if x is None" or
+        # "if x is object").
+        return w_two.is_w(self, w_one)
+
+    def id(self, w_obj):
+        return w_obj.unique_id(self)
 
     def hash_w(self, w_obj):
         """shortcut for space.int_w(space.hash(w_obj))"""
@@ -884,6 +898,16 @@ class ObjSpace(object):
         """
         return self.unpackiterable(w_iterable, expected_length)
 
+    def listview_str(self, w_list):
+        """ Return a list of unwrapped strings out of a list of strings. If the
+        argument is not a list or does not contain only strings, return None.
+        May return None anyway.
+        """
+        return None
+
+    def newlist_str(self, list_s):
+        return self.newlist([self.wrap(s) for s in list_s])
+
     @jit.unroll_safe
     def exception_match(self, w_exc_type, w_check_class):
         """Checks if the given exception type matches 'w_check_class'."""
@@ -1006,9 +1030,6 @@ class ObjSpace(object):
 
     def isinstance_w(self, w_obj, w_type):
         return self.is_true(self.isinstance(w_obj, w_type))
-
-    def id(self, w_obj):
-        return self.wrap(compute_unique_id(w_obj))
 
     # The code below only works
     # for the simple case (new-style instance).

@@ -523,7 +523,7 @@ class TestMethod:
         assert isinstance(meth2, Method)
         assert meth2.call_args(args) == obj1
         # Check method returned from unbound_method.__get__()
-        w_meth3 = descr_function_get(space, func, None, space.type(obj2))
+        w_meth3 = descr_function_get(space, func, space.w_None, space.type(obj2))
         meth3 = space.unwrap(w_meth3)
         assert meth3 is func
 

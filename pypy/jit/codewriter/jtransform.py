@@ -1053,35 +1053,20 @@ class Transformer(object):
     # jit.codewriter.support.
 
     for _op, _oopspec in [('llong_invert',  'INVERT'),
-                          ('ullong_invert', 'INVERT'),
                           ('llong_lt',      'LT'),
                           ('llong_le',      'LE'),
                           ('llong_eq',      'EQ'),
                           ('llong_ne',      'NE'),
                           ('llong_gt',      'GT'),
                           ('llong_ge',      'GE'),
-                          ('ullong_lt',     'ULT'),
-                          ('ullong_le',     'ULE'),
-                          ('ullong_eq',     'EQ'),
-                          ('ullong_ne',     'NE'),
-                          ('ullong_gt',     'UGT'),
-                          ('ullong_ge',     'UGE'),
                           ('llong_add',     'ADD'),
                           ('llong_sub',     'SUB'),
                           ('llong_mul',     'MUL'),
                           ('llong_and',     'AND'),
                           ('llong_or',      'OR'),
                           ('llong_xor',     'XOR'),
-                          ('ullong_add',    'ADD'),
-                          ('ullong_sub',    'SUB'),
-                          ('ullong_mul',    'MUL'),
-                          ('ullong_and',    'AND'),
-                          ('ullong_or',     'OR'),
-                          ('ullong_xor',    'XOR'),
                           ('llong_lshift',  'LSHIFT'),
                           ('llong_rshift',  'RSHIFT'),
-                          ('ullong_lshift', 'LSHIFT'),
-                          ('ullong_rshift', 'URSHIFT'),
                           ('cast_int_to_longlong',     'FROM_INT'),
                           ('truncate_longlong_to_int', 'TO_INT'),
                           ('cast_float_to_longlong',   'FROM_FLOAT'),
@@ -1104,6 +1089,21 @@ class Transformer(object):
                           ('cast_uint_to_ulonglong',    'FROM_UINT'),
                           ('cast_float_to_ulonglong',   'FROM_FLOAT'),
                           ('cast_ulonglong_to_float',   'U_TO_FLOAT'),
+                          ('ullong_invert', 'INVERT'),
+                          ('ullong_lt',     'ULT'),
+                          ('ullong_le',     'ULE'),
+                          ('ullong_eq',     'EQ'),
+                          ('ullong_ne',     'NE'),
+                          ('ullong_gt',     'UGT'),
+                          ('ullong_ge',     'UGE'),
+                          ('ullong_add',    'ADD'),
+                          ('ullong_sub',    'SUB'),
+                          ('ullong_mul',    'MUL'),
+                          ('ullong_and',    'AND'),
+                          ('ullong_or',     'OR'),
+                          ('ullong_xor',    'XOR'),
+                          ('ullong_lshift', 'LSHIFT'),
+                          ('ullong_rshift', 'URSHIFT'),
                          ]:
         exec py.code.Source('''
             def rewrite_op_%s(self, op):
@@ -1134,7 +1134,7 @@ class Transformer(object):
 
     def rewrite_op_llong_is_true(self, op):
         v = varoftype(op.args[0].concretetype)
-        op0 = SpaceOperation('cast_int_to_longlong',
+        op0 = SpaceOperation('cast_primitive',
                              [Constant(0, lltype.Signed)],
                              v)
         args = [op.args[0], v]

@@ -9,10 +9,7 @@ from pypy.rlib.rstring import StringBuilder
 from pypy.rlib.debug import check_annotation
 from pypy.objspace.std import stringobject
 from pypy.objspace.std.intobject import W_IntObject
-from pypy.objspace.std.listobject import (
-    _delitem_slice_helper, _setitem_slice_helper,
-    get_positive_index
-)
+from pypy.objspace.std.listobject import get_positive_index
 from pypy.objspace.std.listtype import get_list_index
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.objspace.std.stringobject import W_StringObject
@@ -541,7 +538,7 @@ def setitem__Bytearray_Slice_ANY(space, w_bytearray, w_slice, w_other):
     oldsize = len(w_bytearray.data)
     start, stop, step, slicelength = w_slice.indices4(space, oldsize)
     sequence2 = makebytesdata_w(space, w_other)
-    setitem_slice_helper(space, w_bytearray.data, start, step, slicelength, sequence2, empty_elem='\x00')
+    _setitem_slice_helper(space, w_bytearray.data, start, step, slicelength, sequence2, empty_elem='\x00')
 
 def delitem__Bytearray_ANY(space, w_bytearray, w_idx):
     idx = get_list_index(space, w_idx)
@@ -555,13 +552,84 @@ def delitem__Bytearray_ANY(space, w_bytearray, w_idx):
 def delitem__Bytearray_Slice(space, w_bytearray, w_slice):
     start, stop, step, slicelength = w_slice.indices4(space,
                                                       len(w_bytearray.data))
-    delitem_slice_helper(space, w_bytearray.data, start, step, slicelength)
+    _delitem_slice_helper(space, w_bytearray.data, start, step, slicelength)
 
-# create new helper functions with different list type specialisation
-delitem_slice_helper = func_with_new_name(_delitem_slice_helper,
-                                          'delitem_slice_helper')
-setitem_slice_helper = func_with_new_name(_setitem_slice_helper,
-                                          'setitem_slice_helper')
+#XXX share the code again with the stuff in listobject.py
+def _delitem_slice_helper(space, items, start, step, slicelength):
+    if slicelength==0:
+        return
+
+    if step < 0:
+        start = start + step * (slicelength-1)
+        step = -step
+
+    if step == 1:
+        assert start >= 0
+        assert slicelength >= 0
+        del items[start:start+slicelength]
+    else:
+        n = len(items)
+        i = start
+
+        for discard in range(1, slicelength):
+            j = i+1
+            i += step
+            while j < i:
+                items[j-discard] = items[j]
+                j += 1
+
+        j = i+1
+        while j < n:
+            items[j-slicelength] = items[j]
+            j += 1
+        start = n - slicelength
+        assert start >= 0 # annotator hint
+        del items[start:]
+
+def _setitem_slice_helper(space, items, start, step, slicelength, sequence2,
+                          empty_elem):
+    assert slicelength >= 0
+    oldsize = len(items)
+    len2 = len(sequence2)
+    if step == 1:  # Support list resizing for non-extended slices
+        delta = slicelength - len2
+        if delta < 0:
+            delta = -delta
+            newsize = oldsize + delta
+            # XXX support this in rlist!
+            items += [empty_elem] * delta
+            lim = start+len2
+            i = newsize - 1
+            while i >= lim:
+                items[i] = items[i-delta]
+                i -= 1
+        elif start >= 0:
+            del items[start:start+delta]
+        else:
+            assert delta==0   # start<0 is only possible with slicelength==0
+    elif len2 != slicelength:  # No resize for extended slices
+        raise operationerrfmt(space.w_ValueError, "attempt to "
+              "assign sequence of size %d to extended slice of size %d",
+              len2, slicelength)
+
+    if sequence2 is items:
+        if step > 0:
+            # Always copy starting from the right to avoid
+            # having to make a shallow copy in the case where
+            # the source and destination lists are the same list.
+            i = len2 - 1
+            start += i*step
+            while i >= 0:
+                items[start] = sequence2[i]
+                start -= step
+                i -= 1
+            return
+        else:
+            # Make a shallow copy to more easily handle the reversal case
+            sequence2 = list(sequence2)
+    for i in range(len2):
+        items[start] = sequence2[i]
+        start += step
 
 def _strip(space, w_bytearray, u_chars, left, right):
     # note: mostly copied from stringobject._strip

@@ -5,14 +5,16 @@ class Module(MixedModule):
     applevel_name = 'numpypy'
 
     interpleveldefs = {
-        'array': 'interp_numarray.SingleDimArray',
+        'array': 'interp_numarray.NDimArray',
         'dtype': 'interp_dtype.W_Dtype',
         'ufunc': 'interp_ufuncs.W_Ufunc',
 
         'zeros': 'interp_numarray.zeros',
         'empty': 'interp_numarray.zeros',
         'ones': 'interp_numarray.ones',
+        'dot': 'interp_numarray.dot',
         'fromstring': 'interp_support.fromstring',
+        'flatiter': 'interp_numarray.W_FlatIterator',
 
         'True_': 'space.w_True',
         'False_': 'space.w_False',
@@ -48,6 +50,7 @@ class Module(MixedModule):
         ("sign", "sign"),
         ("sin", "sin"),
         ("subtract", "subtract"),
+        ('sqrt', 'sqrt'),
         ("tan", "tan"),
     ]:
         interpleveldefs[exposed] = "interp_ufuncs.get(space).%s" % impl
@@ -57,4 +60,5 @@ class Module(MixedModule):
         'mean': 'app_numpy.mean',
         'inf': 'app_numpy.inf',
         'e': 'app_numpy.e',
+        'arange': 'app_numpy.arange',
     }

@@ -63,10 +63,13 @@ class TestObjSpace:
     def test_unpackiterable(self):
         space = self.space
         w = space.wrap
-        l = [w(1), w(2), w(3), w(4)]
+        l = [space.newlist([]) for l in range(4)]
         w_l = space.newlist(l)
-        assert space.unpackiterable(w_l) == l
-        assert space.unpackiterable(w_l, 4) == l
+        l1 = space.unpackiterable(w_l)
+        l2 = space.unpackiterable(w_l, 4)
+        for i in range(4):
+            assert space.is_w(l1[i], l[i])
+            assert space.is_w(l2[i], l[i])
         err = raises(OperationError, space.unpackiterable, w_l, 3)
         assert err.value.match(space, space.w_ValueError)
         err = raises(OperationError, space.unpackiterable, w_l, 5)

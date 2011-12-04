@@ -271,7 +271,7 @@ class OpMatcher(object):
         thread_ticker_check = """
             guard_not_invalidated?
             ticker0 = getfield_raw(ticker_address, descr=<SignedFieldDescr pypysig_long_struct.c_value .*>)
-            ticker1 = int_sub(ticker0, 1)
+            ticker1 = int_sub(ticker0, _)
             setfield_raw(ticker_address, ticker1, descr=<SignedFieldDescr pypysig_long_struct.c_value .*>)
             ticker_cond0 = int_lt(ticker1, 0)
             guard_false(ticker_cond0, descr=...)

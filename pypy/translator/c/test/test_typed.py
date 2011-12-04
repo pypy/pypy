@@ -261,7 +261,7 @@ class TestTypedTestCase(CompilationTestCase):
         f._annspecialcase_ = "specialize:argtype(0)"
         def g(n):
             if n > 0:
-                return f(r_longlong(0))
+                return intmask(f(r_longlong(0)))
             else:
                 return f(0)
 
