@@ -7,7 +7,7 @@ from pypy.translator.sandbox.sandlib import SimpleIOSandboxedProc
 from pypy.translator.sandbox.sandlib import VirtualizedSandboxedProc
 from pypy.translator.sandbox.sandlib import VirtualizedSocketProc
 from pypy.translator.sandbox.test.test_sandbox import compile
-from pypy.translator.sandbox.vfs import Dir, File
+from pypy.translator.sandbox.vfs import Dir, File, RealDir, RealFile
 
 
 class MockSandboxedProc(SandboxedProc):
@@ -142,6 +142,7 @@ class SandboxedProcWithFiles(VirtualizedSandboxedProc, SimpleIOSandboxedProc):
     def build_virtual_root(self):
         return Dir({
             'hi.txt': File("Hello, world!\n"),
+            'this.pyc': RealFile(__file__),
              })
 
 def test_too_many_opens():
@@ -155,10 +156,27 @@ def test_too_many_opens():
                 if txt != "Hello, world!\n":
                     print "Wrong content: %s" % txt
         except OSError, e:
+            # We expect to get EMFILE, for opening too many files.
             if e.errno != errno.EMFILE:
                 print "OSError: %s!" % (e.errno,)
         else:
-            print "We opened 500 files! Shouldn't have been able to."
+            print "We opened 500 fake files! Shouldn't have been able to."
+
+        for fd in open_files:
+            os.close(fd)
+
+        try:
+            open_files = []
+            for i in range(500):
+                fd = os.open('/this.pyc', os.O_RDONLY, 0777)
+                open_files.append(fd)
+        except OSError, e:
+            # We expect to get EMFILE, for opening too many files.
+            if e.errno != errno.EMFILE:
+                print "OSError: %s!" % (e.errno,)
+        else:
+            print "We opened 500 real files! Shouldn't have been able to."
+
         print "All ok!"
         return 0
     exe = compile(entry_point)
@@ -179,6 +197,7 @@ def test_fstat():
             fd = os.open('/hi.txt', os.O_RDONLY, 0777)
             st = os.stat('/hi.txt')
             fs = os.fstat(fd)
+            # RPython requires the index for stat to be a constant.. :(
             compare(st[0], fs[0], 0)
             compare(st[1], fs[1], 1)
             compare(st[2], fs[2], 2)
@@ -199,4 +218,3 @@ def test_fstat():
     output, error = proc.communicate("")
     assert output == "All ok!\n"
     assert error == ""
-
