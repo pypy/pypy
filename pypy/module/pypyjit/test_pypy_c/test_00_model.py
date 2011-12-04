@@ -317,14 +317,17 @@ class TestRunPyPyC(BaseTestPyPyC):
         loops = log.loops_by_filename(self.filepath)
         assert len(loops) == 1
         assert loops[0].filename == self.filepath
-        assert not loops[0].is_entry_bridge
+        assert len([op for op in loops[0].allops() if op.name == 'label']) == 0
+        assert len([op for op in loops[0].allops() if op.name == 'guard_nonnull_class']) == 0        
         #
         loops = log.loops_by_filename(self.filepath, is_entry_bridge=True)
         assert len(loops) == 1
-        assert loops[0].is_entry_bridge
+        assert len([op for op in loops[0].allops() if op.name == 'label']) == 0
+        assert len([op for op in loops[0].allops() if op.name == 'guard_nonnull_class']) > 0
         #
         loops = log.loops_by_filename(self.filepath, is_entry_bridge='*')
-        assert len(loops) == 2
+        assert len(loops) == 1
+        assert len([op for op in loops[0].allops() if op.name == 'label']) == 2
 
     def test_loops_by_id(self):
         def f():

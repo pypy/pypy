@@ -221,6 +221,14 @@ class PartialTraceWithIds(TraceWithIds):
     @property
     def ids(self):
         return self.trace.ids
+
+    @property
+    def filename(self):
+        return self.trace.filename
+    
+    @property
+    def code(self):
+        return self.trace.code
     
     
 class InvalidMatch(Exception):
