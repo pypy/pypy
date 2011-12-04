@@ -1,8 +1,9 @@
-
 import py
+
 from pypy.module.micronumpy.compile import (numpy_compile, Assignment,
     ArrayConstant, FloatConstant, Operator, Variable, RangeConstant, Execute,
     FunctionCall, FakeSpace)
+
 
 class TestCompiler(object):
     def compile(self, code):
