@@ -88,7 +88,7 @@ class TestMisc(BaseTestPyPyC):
             guard_true(i9, descr=...)
             f10 = float_add(f8, f5)
             --TICK--
-            jump(p0, p1, p2, p3, p4, f10, p6, f7, f8, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, f10, p6, f7, f8, descr=...)
         """)
 
 
@@ -159,7 +159,7 @@ class TestMisc(BaseTestPyPyC):
             i27 = int_add_ovf(i7, i18)
             guard_no_overflow(descr=...)
             --TICK--
-            jump(..., descr=<Loop0>)
+            jump(..., descr=...)
         """)
 
 
@@ -219,7 +219,7 @@ class TestMisc(BaseTestPyPyC):
             i28 = int_add_ovf(i10, i25)
             guard_no_overflow(descr=...)
             --TICK--
-            jump(p0, p1, p2, p3, p4, p5, p6, i28, i25, p9, p10, p11, p12, i19, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, p5, p6, i28, i25, p9, p10, p11, p12, i19, descr=...)
         """)
 
 
