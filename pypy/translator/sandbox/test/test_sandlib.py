@@ -167,3 +167,36 @@ def test_too_many_opens():
     output, error = proc.communicate("")
     assert output == "All ok!\n"
     assert error == ""
+
+def test_fstat():
+    def compare(a, b, i):
+        if a != b:
+            print "stat and fstat differ @%d: %s != %s" % (i, a, b)
+
+    def entry_point(argv):
+        try:
+            # Open a file, and compare stat and fstat
+            fd = os.open('/hi.txt', os.O_RDONLY, 0777)
+            st = os.stat('/hi.txt')
+            fs = os.fstat(fd)
+            compare(st[0], fs[0], 0)
+            compare(st[1], fs[1], 1)
+            compare(st[2], fs[2], 2)
+            compare(st[3], fs[3], 3)
+            compare(st[4], fs[4], 4)
+            compare(st[5], fs[5], 5)
+            compare(st[6], fs[6], 6)
+            compare(st[7], fs[7], 7)
+            compare(st[8], fs[8], 8)
+            compare(st[9], fs[9], 9)
+        except OSError, e:
+            print "OSError: %s" % (e.errno,)
+        print "All ok!"
+        return 0
+    exe = compile(entry_point)
+
+    proc = SandboxedProcWithFiles([exe])
+    output, error = proc.communicate("")
+    assert output == "All ok!\n"
+    assert error == ""
+

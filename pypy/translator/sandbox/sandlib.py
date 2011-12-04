@@ -409,7 +409,7 @@ class VirtualizedSandboxedProc(SandboxedProc):
     def __init__(self, *args, **kwds):
         super(VirtualizedSandboxedProc, self).__init__(*args, **kwds)
         self.virtual_root = self.build_virtual_root()
-        self.open_fds = {}   # {virtual_fd: real_file_object}
+        self.open_fds = {}   # {virtual_fd: (real_file_object, node)}
 
     def build_virtual_root(self):
         raise NotImplementedError("must be overridden")
@@ -451,19 +451,32 @@ class VirtualizedSandboxedProc(SandboxedProc):
     def do_ll_os__ll_os_isatty(self, fd):
         return self.virtual_console_isatty and fd in (0, 1, 2)
 
-    def allocate_fd(self, f):
+    def allocate_fd(self, f, node=None):
         for fd in self.virtual_fd_range:
             if fd not in self.open_fds:
-                self.open_fds[fd] = f
+                self.open_fds[fd] = (f, node)
                 return fd
         else:
             raise OSError(errno.EMFILE, "trying to open too many files")
 
-    def get_file(self, fd):
+    def get_fd(self, fd, throw=True):
+        """Get the objects implementing file descriptor `fd`.
+
+        Returns a pair, (open file, vfs node)
+
+        `throw`: if true, raise OSError for bad fd, else return (None, None).
+        """
         try:
-            return self.open_fds[fd]
+            f, node = self.open_fds[fd]
         except KeyError:
-            raise OSError(errno.EBADF, "bad file descriptor")
+            if throw:
+                raise OSError(errno.EBADF, "bad file descriptor")
+            return None, None
+        return f, node
+
+    def get_file(self, fd, throw=True):
+        """Return the open file for file descriptor `fd`."""
+        return self.get_fd(fd, throw)[0]
 
     def do_ll_os__ll_os_open(self, vpathname, flags, mode):
         node = self.get_node(vpathname)
@@ -471,7 +484,7 @@ class VirtualizedSandboxedProc(SandboxedProc):
             raise OSError(errno.EPERM, "write access denied")
         # all other flags are ignored
         f = node.open()
-        return self.allocate_fd(f)
+        return self.allocate_fd(f, node)
 
     def do_ll_os__ll_os_close(self, fd):
         f = self.get_file(fd)
@@ -479,9 +492,8 @@ class VirtualizedSandboxedProc(SandboxedProc):
         f.close()
 
     def do_ll_os__ll_os_read(self, fd, size):
-        try:
-            f = self.open_fds[fd]
-        except KeyError:
+        f = self.get_file(fd, throw=False)
+        if f is None:
             return super(VirtualizedSandboxedProc, self).do_ll_os__ll_os_read(
                 fd, size)
         else:
@@ -491,12 +503,8 @@ class VirtualizedSandboxedProc(SandboxedProc):
             return f.read(min(size, 256*1024))
 
     def do_ll_os__ll_os_fstat(self, fd):
-        try:
-            f = self.open_fds[fd]
-        except KeyError:
-            return super(VirtualizedSandboxedProc, self).do_ll_os__ll_os_fstat(fd)
-        else:
-            return os.stat(f.name)      # Isn't there a better way to do this?
+        f, node = self.get_fd(fd)
+        return node.stat()
     do_ll_os__ll_os_fstat.resulttype = s_StatResult
 
     def do_ll_os__ll_os_lseek(self, fd, pos, how):
@@ -539,13 +547,13 @@ class VirtualizedSocketProc(VirtualizedSandboxedProc):
 
     def do_ll_os__ll_os_read(self, fd, size):
         if fd in self.sockets:
-            return self.open_fds[fd].recv(size)
+            return self.get_file(fd).recv(size)
         return super(VirtualizedSocketProc, self).do_ll_os__ll_os_read(
             fd, size)
 
     def do_ll_os__ll_os_write(self, fd, data):
         if fd in self.sockets:
-            return self.open_fds[fd].send(data)
+            return self.get_file(fd).send(data)
         return super(VirtualizedSocketProc, self).do_ll_os__ll_os_write(
             fd, data)
 
