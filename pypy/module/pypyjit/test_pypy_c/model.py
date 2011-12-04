@@ -201,7 +201,7 @@ class PartialTraceWithIds(TraceWithIds):
     def simple_loop_ops(self, *args, **kwds):
         ops = list(self._allops(*args, **kwds))
         labels = [op for op in ops if op.name == 'label']
-        jumpop = ops[-1]
+        jumpop = self.chunks[-1].operations[-1]
         assert jumpop.name == 'jump'
         assert jumpop.getdescr() == labels[-1].getdescr()
         i = ops.index(labels[-1])
