@@ -138,6 +138,40 @@ class BaseTestMultiLabel(BaseTest):
         """
         with raises(InvalidLoop):
             self.optimize_loop(ops, ops)
+
+    def test_not_virtual(self):
+        ops = """
+        [p1]
+        p3 = new_with_vtable(ConstClass(node_vtable))
+        label(p3)
+        p4 = escape()
+        jump(p4)
+        """
+        with raises(InvalidLoop):
+            self.optimize_loop(ops, ops)
+
+    def test_not_virtual_array(self):
+        ops = """
+        [p1]
+        p3 = new_array(3, descr=arraydescr)
+        label(p3)
+        p4 = escape()
+        jump(p4)
+        """
+        with raises(InvalidLoop):
+            self.optimize_loop(ops, ops)
+
+    def test_not_virtual_arraystruct(self):
+        ops = """
+        [p1]
+        p3 = new_array(3, descr=complexarraydescr)
+        label(p3)
+        p4 = escape()
+        jump(p4)
+        """
+        with raises(InvalidLoop):
+            self.optimize_loop(ops, ops)
+
         
     
 class TestLLtype(BaseTestMultiLabel, LLtypeMixin):
