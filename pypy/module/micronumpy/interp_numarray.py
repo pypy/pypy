@@ -500,7 +500,7 @@ class BaseArray(Wrappable):
         dtype = interp_ufuncs.find_binop_result_dtype(space, 
                                      self.find_dtype(), w_other.find_dtype())
         #TODO: what should the order be? C or F?
-        arr = NDimArray(out_size, out_shape, dtype=dtype)
+        arr = W_NDimArray(out_size, out_shape, dtype=dtype)
         out_iter = ArrayIterator(out_size)
         #TODO: invalidate self, w_other with arr
         me_iter = BroadcastIterator(self,self.shape[:-1] + [1])
