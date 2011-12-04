@@ -504,7 +504,12 @@ if 'AF_UNIX' in constants:
                     self.get_path() == other.get_path())
 
         def as_object(self, fd, space):
-            return space.wrap(self.get_path())
+            path = self.get_path()
+            if _c.linux and len(path) > 0 and path[0] == '\x00':
+                # Linux abstract namespace
+                return space.wrapbytes(path)
+            else:
+                return space.wrap(path)
 
         def from_object(space, w_address):
             return UNIXAddress(space.str_w(w_address))
