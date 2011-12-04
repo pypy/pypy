@@ -5,8 +5,9 @@ class Module(MixedModule):
     See the socket module for documentation."""
 
     interpleveldefs = {
-        'sslwrap': 'interp_ssl.sslwrap',
         'SSLError': 'interp_ssl.get_error(space)',
+        '_SSLSocket': 'interp_ssl.SSLSocket',
+        '_SSLContext': 'interp_ssl.SSLContext',
         '_test_decode_cert': 'interp_ssl._test_decode_cert',
     }
 

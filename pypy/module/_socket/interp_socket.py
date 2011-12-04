@@ -108,6 +108,15 @@ class W_RSocket(Wrappable, RSocket):
         """
         return space.wrap(intmask(self.fd))
 
+    def detach_w(self, space):
+        """detach()
+
+        Close the socket object without closing the underlying file descriptor.
+        The object cannot be used after this call, but the file descriptor
+        can be reused for other purposes.  The file descriptor is returned."""
+        fd = self.detach()
+        return space.wrap(intmask(fd))
+
     def getpeername_w(self, space):
         """getpeername() -> address info
 
@@ -464,7 +473,7 @@ def converted_error(space, e):
 # ____________________________________________________________
 
 socketmethodnames = """
-_accept bind close connect connect_ex dup fileno
+_accept bind close connect connect_ex dup fileno detach
 getpeername getsockname getsockopt gettimeout listen makefile
 recv recvfrom send sendall sendto setblocking
 setsockopt settimeout shutdown _reuse _drop recv_into recvfrom_into

@@ -744,6 +744,11 @@ class RSocket(object):
             if res != 0:
                 raise self.error_handler()
 
+    def detach(self):
+        fd = self.fd
+        self.fd = _c.INVALID_SOCKET
+        return fd
+
     if _c.WIN32:
         def _connect(self, address):
             """Connect the socket to a remote address."""
