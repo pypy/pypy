@@ -123,6 +123,12 @@ def contains__Unicode_Unicode(space, w_container, w_item):
     return space.newbool(container.find(item) != -1)
 
 def unicode_join__Unicode_ANY(space, w_self, w_list):
+    l = space.listview_str(w_list)
+    if l is not None:
+        if len(l) == 1:
+            return space.wrap(l[0])
+        return space.wrap(w_self._value.join(l))
+
     list_w = space.unpackiterable(w_list)
     size = len(list_w)
 
@@ -555,7 +561,7 @@ def unicode_count__Unicode_Unicode_ANY_ANY(space, w_self, w_substr, w_start, w_e
 
 def unicode_split__Unicode_None_ANY(space, w_self, w_none, w_maxsplit):
     maxsplit = space.int_w(w_maxsplit)
-    res_w = []
+    res = []
     value = w_self._value
     length = len(value)
     i = 0
@@ -578,12 +584,12 @@ def unicode_split__Unicode_None_ANY(space, w_self, w_none, w_maxsplit):
             maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
         # the word is value[i:j]
-        res_w.append(W_UnicodeObject(value[i:j]))
+        res.append(value[i:j])
 
         # continue to look from the character following the space after the word
         i = j + 1
 
-    return space.newlist(res_w)
+    return space.newlist_str(res)
 
 def unicode_split__Unicode_Unicode_ANY(space, w_self, w_delim, w_maxsplit):
     self = w_self._value
@@ -594,7 +600,7 @@ def unicode_split__Unicode_Unicode_ANY(space, w_self, w_delim, w_maxsplit):
         raise OperationError(space.w_ValueError,
                              space.wrap('empty separator'))
     parts = _split_with(self, delim, maxsplit)
-    return space.newlist([W_UnicodeObject(part) for part in parts])
+    return space.newlist_str(parts)
 
 
 def unicode_rsplit__Unicode_None_ANY(space, w_self, w_none, w_maxsplit):

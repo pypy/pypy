@@ -236,7 +236,7 @@ def str_title__String(space, w_self):
 
 def str_split__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
     maxsplit = space.int_w(w_maxsplit)
-    res = []
+    res_w = []
     value = w_self._value
     length = len(value)
     i = 0
@@ -259,12 +259,12 @@ def str_split__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
             maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
         # the word is value[i:j]
-        res.append(value[i:j])
+        res_w.append(sliced(space, value, i, j, w_self))
 
         # continue to look from the character following the space after the word
         i = j + 1
 
-    return space.newlist_str(res)
+    return space.newlist(res_w)
 
 def str_split__String_ANY_ANY(space, w_self, w_by, w_maxsplit=-1):
     maxsplit = space.int_w(w_maxsplit)
@@ -275,25 +275,32 @@ def str_split__String_ANY_ANY(space, w_self, w_by, w_maxsplit=-1):
         raise OperationError(space.w_ValueError, space.wrap("empty separator"))
 
     if bylen == 1 and maxsplit < 0:
-        res = []
         start = 0
         # fast path: uses str.rfind(character) and str.count(character)
         by = by[0]    # annotator hack: string -> char
         count = value.count(by)
-        res = [None] * (count + 1)
+        res_w = [None] * (count + 1)
         end = len(value)
         while count >= 0:
             assert end >= 0
             prev = value.rfind(by, 0, end)
             start = prev + 1
             assert start >= 0
-            res[count] = value[start:end]
+            res_w[count] = sliced(space, value, start, end, w_self)
             count -= 1
             end = prev
     else:
-        res = split(value, by, maxsplit)
+        res_w = []
+        while maxsplit != 0:
+            next = value.find(by, start)
+            if next < 0:
+                break
+            res_w.append(sliced(space, value, start, next, w_self))
+            start = next + bylen
+            maxsplit -= 1   # NB. if it's already < 0, it stays < 0
+        res_w.append(sliced(space, value, start, len(value), w_self))
 
-    return space.newlist_str(res)
+    return space.newlist(res_w)
 
 def str_rsplit__String_None_ANY(space, w_self, w_none, w_maxsplit=-1):
     maxsplit = space.int_w(w_maxsplit)
@@ -368,11 +375,6 @@ str_rsplit__String_ANY_ANY = make_rsplit_with_delim(
     'str_rsplit__String_ANY_ANY', sliced)
 
 def str_join__String_ANY(space, w_self, w_list):
-    l = space.listview_str(w_list)
-    if l is not None:
-        if len(l) == 1:
-            return space.wrap(l[0])
-        return space.wrap(w_self._value.join(l))
     list_w = space.listview(w_list)
     size = len(list_w)
 
@@ -382,8 +384,7 @@ def str_join__String_ANY(space, w_self, w_list):
     if size == 1:
         w_s = list_w[0]
         # only one item,  return it if it's not a subclass of str
-        if (space.is_w(space.type(w_s), space.w_str) or
-            space.is_w(space.type(w_s), space.w_unicode)):
+        if space.is_w(space.type(w_s), space.w_str):
             return w_s
 
     return _str_join_many_items(space, w_self, list_w, size)
