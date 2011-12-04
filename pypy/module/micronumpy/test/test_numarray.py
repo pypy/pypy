@@ -1,7 +1,7 @@
 
 import py
 from pypy.module.micronumpy.test.test_base import BaseNumpyAppTest
-from pypy.module.micronumpy.interp_numarray import NDimArray, shape_agreement
+from pypy.module.micronumpy.interp_numarray import W_NDimArray, shape_agreement
 from pypy.module.micronumpy import signature
 from pypy.interpreter.error import OperationError
 from pypy.conftest import gettestobjspace
@@ -28,18 +28,18 @@ class TestNumArrayDirect(object):
         return self.space.newtuple(args_w)
 
     def test_strides_f(self):
-        a = NDimArray(100, [10, 5, 3], MockDtype(), 'F')
+        a = W_NDimArray(100, [10, 5, 3], MockDtype(), 'F')
         assert a.strides == [1, 10, 50]
         assert a.backstrides == [9, 40, 100]
 
     def test_strides_c(self):
-        a = NDimArray(100, [10, 5, 3], MockDtype(), 'C')
+        a = W_NDimArray(100, [10, 5, 3], MockDtype(), 'C')
         assert a.strides == [15, 3, 1]
         assert a.backstrides == [135, 12, 2]
 
     def test_create_slice_f(self):
         space = self.space
-        a = NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'F')
+        a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'F')
         s = a.create_slice(space, [(3, 0, 0, 1)])
         assert s.start == 3
         assert s.strides == [10, 50]
@@ -58,7 +58,7 @@ class TestNumArrayDirect(object):
 
     def test_create_slice_c(self):
         space = self.space
-        a = NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'C')
+        a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'C')
         s = a.create_slice(space, [(3, 0, 0, 1)])
         assert s.start == 45
         assert s.strides == [3, 1]
@@ -78,7 +78,7 @@ class TestNumArrayDirect(object):
 
     def test_slice_of_slice_f(self):
         space = self.space
-        a = NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'F')
+        a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'F')
         s = a.create_slice(space, [(5, 0, 0, 1)])
         assert s.start == 5
         s2 = s.create_slice(space, [(3, 0, 0, 1)])
@@ -96,7 +96,7 @@ class TestNumArrayDirect(object):
 
     def test_slice_of_slice_c(self):
         space = self.space
-        a = NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), order='C')
+        a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), order='C')
         s = a.create_slice(space, [(5, 0, 0, 1)])
         assert s.start == 15 * 5
         s2 = s.create_slice(space, [(3, 0, 0, 1)])
@@ -114,7 +114,7 @@ class TestNumArrayDirect(object):
 
     def test_negative_step_f(self):
         space = self.space
-        a = NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'F')
+        a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'F')
         s = a.create_slice(space, [(9, -1, -2, 5)])
         assert s.start == 9
         assert s.strides == [-2, 10, 50]
@@ -122,14 +122,14 @@ class TestNumArrayDirect(object):
 
     def test_negative_step_c(self):
         space = self.space
-        a = NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), order='C')
+        a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), order='C')
         s = a.create_slice(space, [(9, -1, -2, 5)])
         assert s.start == 135
         assert s.strides == [-30, 3, 1]
         assert s.backstrides == [-120, 12, 2]
 
     def test_index_of_single_item_f(self):
-        a = NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'F')
+        a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'F')
         r = a._index_of_single_item(self.space, self.newtuple(1, 2, 2))
         assert r == 1 + 2 * 10 + 2 * 50
         s = a.create_slice(self.space, [(0, 10, 1, 10), (2, 0, 0, 1)])
@@ -139,7 +139,7 @@ class TestNumArrayDirect(object):
         assert r == a._index_of_single_item(self.space, self.newtuple(1, 2, 1))
 
     def test_index_of_single_item_c(self):
-        a = NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'C')
+        a = W_NDimArray(10 * 5 * 3, [10, 5, 3], MockDtype(), 'C')
         r = a._index_of_single_item(self.space, self.newtuple(1, 2, 2))
         assert r == 1 * 3 * 5 + 2 * 3 + 2
         s = a.create_slice(self.space, [(0, 10, 1, 10), (2, 0, 0, 1)])
@@ -160,6 +160,21 @@ class TestNumArrayDirect(object):
 
 
 class AppTestNumArray(BaseNumpyAppTest):
+    def test_ndarray(self):
+        from numpypy import ndarray, array, dtype
+
+        assert type(ndarray) is type
+        assert type(array) is not type
+        a = ndarray((2, 3))
+        assert a.shape == (2, 3)
+        assert a.dtype == dtype(float)
+
+        raises(TypeError, ndarray, [[1], [2], [3]])
+
+        a = ndarray(3, dtype=int)
+        assert a.shape == (3,)
+        assert a.dtype is dtype(int)
+
     def test_type(self):
         from numpypy import array
         ar = array(range(5))
@@ -359,11 +374,11 @@ class AppTestNumArray(BaseNumpyAppTest):
             assert r[i] == i + 3
 
     def test_add_list(self):
-        from numpypy import array
+        from numpypy import array, ndarray
         a = array(range(5))
         b = list(reversed(range(5)))
         c = a + b
-        assert isinstance(c, array)
+        assert isinstance(c, ndarray)
         for i in range(5):
             assert c[i] == 4
 
@@ -719,7 +734,7 @@ class AppTestNumArray(BaseNumpyAppTest):
             assert b[i] == 2.5 * a[i]
 
     def test_dtype_guessing(self):
-        from numpypy import array, dtype
+        from numpypy import array, dtype, float64, int8, bool_
 
         assert array([True]).dtype is dtype(bool)
         assert array([True, False]).dtype is dtype(bool)
@@ -729,6 +744,10 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert array([1.2, True]).dtype is dtype(float)
         assert array([1.2, 5]).dtype is dtype(float)
         assert array([]).dtype is dtype(float)
+        assert array([float64(2)]).dtype is dtype(float)
+        assert array([int8(3)]).dtype is dtype("int8")
+        assert array([bool_(True)]).dtype is dtype(bool)
+        assert array([bool_(True), 3.0]).dtype is dtype(float)
 
     def test_comparison(self):
         import operator
@@ -1018,10 +1037,10 @@ class AppTestMultiDim(BaseNumpyAppTest):
         b = a[0].copy()
         assert (b == zeros(10)).all()
 
-class AppTestSupport(object):
+class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):
         import struct
-        cls.space = gettestobjspace(usemodules=('micronumpy',))
+        BaseNumpyAppTest.setup_class.im_func(cls)
         cls.w_data = cls.space.wrap(struct.pack('dddd', 1, 2, 3, 4))
 
     def test_fromstring(self):

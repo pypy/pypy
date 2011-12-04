@@ -98,47 +98,6 @@ def _shape_agreement(shape1, shape2):
         endshape[i] = remainder[i]
     return endshape
 
-def descr_new_array(space, w_subtype, w_item_or_iterable, w_dtype=None,
-                    w_order=NoneNotWrapped):
-    # find scalar
-    if not space.issequence_w(w_item_or_iterable):
-        if space.is_w(w_dtype, space.w_None):
-            w_dtype = interp_ufuncs.find_dtype_for_scalar(space,
-                                                          w_item_or_iterable)
-        dtype = space.interp_w(interp_dtype.W_Dtype,
-            space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
-        )
-        return scalar_w(space, dtype, w_item_or_iterable)
-    if w_order is None:
-        order = 'C'
-    else:
-        order = space.str_w(w_order)
-        if order != 'C':  # or order != 'F':
-            raise operationerrfmt(space.w_ValueError, "Unknown order: %s",
-                                  order)
-    shape, elems_w = _find_shape_and_elems(space, w_item_or_iterable)
-    # they come back in C order
-    size = len(elems_w)
-    if space.is_w(w_dtype, space.w_None):
-        w_dtype = None
-        for w_elem in elems_w:
-            w_dtype = interp_ufuncs.find_dtype_for_scalar(space, w_elem,
-                                                          w_dtype)
-            if w_dtype is space.fromcache(interp_dtype.W_Float64Dtype):
-                break
-    if w_dtype is None:
-        w_dtype = space.w_None
-    dtype = space.interp_w(interp_dtype.W_Dtype,
-        space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
-    )
-    arr = NDimArray(size, shape[:], dtype=dtype, order=order)
-    shapelen = len(shape)
-    arr_iter = arr.start_iter(arr.shape)
-    for i in range(len(elems_w)):
-        w_elem = elems_w[i]
-        dtype.setitem_w(space, arr.storage, arr_iter.offset, w_elem)
-        arr_iter = arr_iter.next(shapelen)
-    return arr
 
 # Iterators for arrays
 # --------------------
@@ -378,6 +337,13 @@ class BaseArray(Wrappable):
     def add_invalidates(self, other):
         self.invalidates.append(other)
 
+    def descr__new__(space, w_subtype, w_size, w_dtype=None):
+        dtype = space.interp_w(interp_dtype.W_Dtype,
+            space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
+        )
+        size, shape = _find_size_and_shape(space, w_size)
+        return space.wrap(W_NDimArray(size, shape[:], dtype=dtype))
+
     def _unaryop_impl(ufunc_name):
         def impl(self, space):
             return getattr(interp_ufuncs.get(space), ufunc_name).call(space, [self])
@@ -451,8 +417,8 @@ class BaseArray(Wrappable):
                                               self=self, dtype=dtype,
                                               i=i, result=result, idx=idx,
                                               cur_best=cur_best)
-                new_best = getattr(dtype, op_name)(cur_best, self.eval(i))
-                if dtype.ne(new_best, cur_best):
+                new_best = getattr(dtype.itemtype, op_name)(cur_best, self.eval(i))
+                if dtype.itemtype.ne(new_best, cur_best):
                     result = idx
                     cur_best = new_best
                 i = i.next(shapelen)
@@ -462,8 +428,7 @@ class BaseArray(Wrappable):
             size = self.find_size()
             if size == 0:
                 raise OperationError(space.w_ValueError,
-                    space.wrap("Can't call %s on zero-size arrays" \
-                            % op_name))
+                    space.wrap("Can't call %s on zero-size arrays" % op_name))
             return space.wrap(loop(self))
         return func_with_new_name(impl, "reduce_arg%s_impl" % op_name)
 
@@ -475,7 +440,7 @@ class BaseArray(Wrappable):
             all_driver.jit_merge_point(signature=self.signature,
                                        shapelen=shapelen, self=self,
                                        dtype=dtype, i=i)
-            if not dtype.bool(self.eval(i)):
+            if not dtype.itemtype.bool(self.eval(i)):
                 return False
             i = i.next(shapelen)
         return True
@@ -490,7 +455,7 @@ class BaseArray(Wrappable):
             any_driver.jit_merge_point(signature=self.signature,
                                        shapelen=shapelen, self=self,
                                        dtype=dtype, i=i)
-            if dtype.bool(self.eval(i)):
+            if dtype.itemtype.bool(self.eval(i)):
                 return True
             i = i.next(shapelen)
         return False
@@ -586,8 +551,8 @@ class BaseArray(Wrappable):
                 res.append(')')
         else:
             concrete.to_str(space, 1, res, indent='       ')
-        if (dtype is not space.fromcache(interp_dtype.W_Float64Dtype) and
-            dtype is not space.fromcache(interp_dtype.W_Int64Dtype)) or \
+        if (dtype is not interp_dtype.get_dtype_cache(space).w_float64dtype and
+            dtype is not interp_dtype.get_dtype_cache(space).w_int64dtype) or \
             not self.find_size():
             res.append(", dtype=" + dtype.name)
         res.append(")")
@@ -656,7 +621,7 @@ class BaseArray(Wrappable):
                         start = False
                     else:
                         builder.append(spacer)
-                    builder.append(dtype.str_format(self.getitem(item)))
+                    builder.append(dtype.itemtype.str_format(self.getitem(item)))
                     item += self.strides[0]
                 # Add a comma only if comma is False - this prevents adding two
                 # commas
@@ -669,7 +634,7 @@ class BaseArray(Wrappable):
                     start = False
                 else:
                     builder.append(spacer)
-                builder.append(dtype.str_format(self.getitem(item)))
+                builder.append(dtype.itemtype.str_format(self.getitem(item)))
                 item += self.strides[0]
                 i += 1
         else:
@@ -756,7 +721,7 @@ class BaseArray(Wrappable):
                 raise OperationError(space.w_IndexError, space.wrap(
                         "0-d arrays can't be indexed"))
             item = concrete._index_of_single_item(space, w_idx)
-            return concrete.getitem(item).wrap(space)
+            return concrete.getitem(item)
         chunks = self._prepare_slice_args(space, w_idx)
         return space.wrap(self.create_slice(space, chunks))
 
@@ -815,14 +780,15 @@ class BaseArray(Wrappable):
                          shape[:])
 
     def descr_mean(self, space):
-        return space.wrap(space.float_w(self.descr_sum(space)) / self.find_size())
+        return space.div(self.descr_sum(space), space.wrap(self.find_size()))
 
     def descr_nonzero(self, space):
         if self.find_size() > 1:
             raise OperationError(space.w_ValueError, space.wrap(
                 "The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()"))
-        return space.wrap(space.is_true(self.get_concrete().eval(
-            self.start_iter(self.shape)).wrap(space)))
+        return space.wrap(space.is_true(
+            self.get_concrete().eval(self.start_iter(self.shape))
+        ))
 
     def descr_get_transpose(self, space):
         concrete = self.get_concrete()
@@ -858,17 +824,14 @@ def convert_to_array(space, w_obj):
         return w_obj
     elif space.issequence_w(w_obj):
         # Convert to array.
-        w_obj = space.call_function(space.gettypefor(BaseArray), w_obj)
-        assert isinstance(w_obj, BaseArray)
-        return w_obj
+        return array(space, w_obj, w_order=None)
     else:
         # If it's a scalar
         dtype = interp_ufuncs.find_dtype_for_scalar(space, w_obj)
         return scalar_w(space, dtype, w_obj)
 
 def scalar_w(space, dtype, w_obj):
-    assert isinstance(dtype, interp_dtype.W_Dtype)
-    return Scalar(dtype, dtype.unwrap(space, w_obj))
+    return Scalar(dtype, dtype.coerce(space, w_obj))
 
 class Scalar(BaseArray):
     """
@@ -879,6 +842,7 @@ class Scalar(BaseArray):
     _attrs_ = ["dtype", "value", "shape"]
 
     def __init__(self, dtype, value):
+        self.shape = self.strides = []
         BaseArray.__init__(self, [], 'C')
         self.dtype = dtype
         self.value = value
@@ -902,7 +866,7 @@ class Scalar(BaseArray):
         return ConstantIterator()
 
     def to_str(self, space, comma, builder, indent=' ', use_ellipsis=False):
-        builder.append(self.dtype.str_format(self.value))
+        builder.append(self.dtype.itemtype.str_format(self.value))
 
     def copy(self):
         return Scalar(self.dtype, self.value)
@@ -928,7 +892,7 @@ class VirtualArray(BaseArray):
         i = 0
         signature = self.signature
         result_size = self.find_size()
-        result = NDimArray(result_size, self.shape, self.find_dtype())
+        result = W_NDimArray(result_size, self.shape, self.find_dtype())
         shapelen = len(self.shape)
         i = self.start_iter()
         ri = result.start_iter()
@@ -1155,14 +1119,14 @@ class NDimSlice(ViewArray):
         return 'Slice(%s)' % self.parent.debug_repr()
 
     def copy(self):
-        array = NDimArray(self.size, self.shape[:], self.find_dtype())
+        array = W_NDimArray(self.size, self.shape[:], self.find_dtype())
         iter = self.start_iter()
         while not iter.done():
             array.setitem(iter.offset, self.getitem(iter.offset))
             iter = iter.next(len(self.shape))
         return array
 
-class NDimArray(BaseArray):
+class W_NDimArray(BaseArray):
     """ A class representing contiguous array. We know that each iteration
     by say ufunc will increase the data index by one
     """
@@ -1189,11 +1153,11 @@ class NDimArray(BaseArray):
         return self.dtype.getitem(self.storage, iter.get_offset())
 
     def copy(self):
-        array = NDimArray(self.size, self.shape[:], self.dtype, self.order)
+        array = W_NDimArray(self.size, self.shape[:], self.dtype, self.order)
         rffi.c_memcpy(
-            rffi.cast(rffi.VOIDP, array.storage),
-            rffi.cast(rffi.VOIDP, self.storage),
-            self.size * self.dtype.num_bytes
+            array.storage,
+            self.storage,
+            self.size * self.dtype.itemtype.get_element_size()
         )
         return array
 
@@ -1204,8 +1168,7 @@ class NDimArray(BaseArray):
             "len() of unsized object"))
 
     def setitem_w(self, space, item, w_value):
-        self.invalidated()
-        self.dtype.setitem_w(space, self.storage, item, w_value)
+        return self.setitem(item, self.dtype.coerce(space, w_value))
 
     def setitem(self, item, value):
         self.invalidated()
@@ -1237,20 +1200,62 @@ def _find_size_and_shape(space, w_size):
             shape.append(item)
     return size, shape
 
+def array(space, w_item_or_iterable, w_dtype=None, w_order=NoneNotWrapped):
+    # find scalar
+    if not space.issequence_w(w_item_or_iterable):
+        if space.is_w(w_dtype, space.w_None):
+            w_dtype = interp_ufuncs.find_dtype_for_scalar(space,
+                                                          w_item_or_iterable)
+        dtype = space.interp_w(interp_dtype.W_Dtype,
+            space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
+        )
+        return scalar_w(space, dtype, w_item_or_iterable)
+    if w_order is None:
+        order = 'C'
+    else:
+        order = space.str_w(w_order)
+        if order != 'C':  # or order != 'F':
+            raise operationerrfmt(space.w_ValueError, "Unknown order: %s",
+                                  order)
+    shape, elems_w = _find_shape_and_elems(space, w_item_or_iterable)
+    # they come back in C order
+    size = len(elems_w)
+    if space.is_w(w_dtype, space.w_None):
+        w_dtype = None
+        for w_elem in elems_w:
+            w_dtype = interp_ufuncs.find_dtype_for_scalar(space, w_elem,
+                                                          w_dtype)
+            if w_dtype is interp_dtype.get_dtype_cache(space).w_float64dtype:
+                break
+    if w_dtype is None:
+        w_dtype = space.w_None
+    dtype = space.interp_w(interp_dtype.W_Dtype,
+        space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
+    )
+    arr = W_NDimArray(size, shape[:], dtype=dtype, order=order)
+    shapelen = len(shape)
+    arr_iter = arr.start_iter(arr.shape)
+    for i in range(len(elems_w)):
+        w_elem = elems_w[i]
+        dtype.setitem(arr.storage, arr_iter.offset, dtype.coerce(space, w_elem))
+        arr_iter = arr_iter.next(shapelen)
+    return arr
+
 def zeros(space, w_size, w_dtype=None):
     dtype = space.interp_w(interp_dtype.W_Dtype,
         space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
     )
     size, shape = _find_size_and_shape(space, w_size)
-    return space.wrap(NDimArray(size, shape[:], dtype=dtype))
+    return space.wrap(W_NDimArray(size, shape[:], dtype=dtype))
 
 def ones(space, w_size, w_dtype=None):
     dtype = space.interp_w(interp_dtype.W_Dtype,
         space.call_function(space.gettypefor(interp_dtype.W_Dtype), w_dtype)
     )
+
     size, shape = _find_size_and_shape(space, w_size)
-    arr = NDimArray(size, shape[:], dtype=dtype)
-    one = dtype.adapt_val(1)
+    arr = W_NDimArray(size, shape[:], dtype=dtype)
+    one = dtype.box(1)
     arr.dtype.fill(arr.storage, one, 0, size)
     return space.wrap(arr)
 
@@ -1261,9 +1266,9 @@ def dot(space, w_obj, w_obj2):
     return w_arr.descr_dot(space, w_obj2)
 
 BaseArray.typedef = TypeDef(
-    'numarray',
-    __new__ = interp2app(descr_new_array),
-
+    'ndarray',
+    __module__ = "numpypy",
+    __new__ = interp2app(BaseArray.descr__new__.im_func),
 
     __len__ = interp2app(BaseArray.descr_len),
     __getitem__ = interp2app(BaseArray.descr_getitem),
@@ -1352,10 +1357,10 @@ class W_FlatIterator(ViewArray):
 
     def descr_next(self, space):
         if self.iter.done():
-            raise OperationError(space.w_StopIteration, space.wrap(''))
+            raise OperationError(space.w_StopIteration, space.w_None)
         result = self.eval(self.iter)
         self.iter = self.iter.next(self.shapelen)
-        return result.wrap(space)
+        return result
 
     def descr_iter(self):
         return self

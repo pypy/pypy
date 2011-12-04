@@ -494,6 +494,7 @@ _oplist = [
     'COPYSTRCONTENT/5',       # src, dst, srcstart, dststart, length
     'COPYUNICODECONTENT/5',
     'QUASIIMMUT_FIELD/1d',    # [objptr], descr=SlowMutateDescr
+    'RECORD_KNOWN_CLASS/2',   # [objptr, clsptr]
 
     '_CANRAISE_FIRST', # ----- start of can_raise operations -----
     '_CALL_FIRST',
