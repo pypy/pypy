@@ -243,6 +243,18 @@ class MIFrame(object):
     def opimpl_mark_opaque_ptr(self, box):
         return self.execute(rop.MARK_OPAQUE_PTR, box)
 
+    @arguments("box", "box")
+    def opimpl_record_known_class(self, box, clsbox):
+        from pypy.rpython.lltypesystem import llmemory
+        if self.metainterp.heapcache.is_class_known(box):
+            return
+        adr = clsbox.getaddr()
+        bounding_class = llmemory.cast_adr_to_ptr(adr, rclass.CLASSTYPE)
+        if bounding_class.subclassrange_max - bounding_class.subclassrange_min == 1:
+            # precise class knowledge, this can be used
+            self.execute(rop.RECORD_KNOWN_CLASS, box, clsbox)
+            self.metainterp.heapcache.class_now_known(box)
+
     @arguments("box")
     def _opimpl_any_return(self, box):
         self.metainterp.finishframe(box)

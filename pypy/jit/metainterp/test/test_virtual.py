@@ -612,7 +612,7 @@ class VirtualTests:
             return node.value
         res = self.meta_interp(f, [48, 3], policy=StopAtXPolicy(externfn))
         assert res == f(48, 3)
-        self.check_loop_count(3)
+        self.check_loop_count(5)
         res = self.meta_interp(f, [40, 3], policy=StopAtXPolicy(externfn))
         assert res == f(40, 3)
         self.check_loop_count(3)
@@ -760,6 +760,27 @@ class VirtualTests:
             return x.value
         res = self.meta_interp(f, [0x1F, 0x11])
         assert res == f(0x1F, 0x11)
+
+    def test_duplicated_virtual(self):
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'node1', 'node2'])
+        def f(n):
+            node1 = self._new()
+            node1.value = 0
+            node2 = self._new()
+            node2.value = 1
+            while n > 0:
+                myjitdriver.jit_merge_point(n=n, node1=node1, node2=node2)
+                next = self._new()
+                next.value = node1.value + node2.value + n
+                node1 = next
+                node2 = next
+                n -= 1
+            return node1.value 
+        res = self.meta_interp(f, [10])
+        assert res == f(10)
+        self.check_resops(new_with_vtable=0, new=0)
+
+        
 
 class VirtualMiscTests:
 

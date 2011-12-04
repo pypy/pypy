@@ -1773,7 +1773,7 @@ if sys.platform == 'win32':
 
         @registering(rwin32.FormatError)
         def register_rwin32_FormatError(self):
-            return extdef([rwin32.DWORD], str,
+            return extdef([lltype.Signed], str,
                           "rwin32_FormatError",
                           llimpl=rwin32.llimpl_FormatError,
                           ooimpl=rwin32.fake_FormatError)

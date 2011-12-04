@@ -241,12 +241,15 @@ class QuasiImmutAnalyzer(BoolGraphAnalyzer):
         return op.opname == 'jit_force_quasi_immutable'
 
 class RandomEffectsAnalyzer(BoolGraphAnalyzer):
-    def analyze_direct_call(self, graph, seen=None):
-        if hasattr(graph, "func") and hasattr(graph.func, "_ptr"):
-            if graph.func._ptr._obj.random_effects_on_gcobjs:
+    def analyze_external_call(self, op, seen=None):
+        try:
+            funcobj = op.args[0].value._obj
+            if funcobj.random_effects_on_gcobjs:
                 return True
-        return super(RandomEffectsAnalyzer, self).analyze_direct_call(graph,
-                                                                      seen)
+        except (AttributeError, lltype.DelayedPointer):
+            return True   # better safe than sorry
+        return super(RandomEffectsAnalyzer, self).analyze_external_call(
+            op, seen)
 
     def analyze_simple_operation(self, op, graphinfo):
         return False

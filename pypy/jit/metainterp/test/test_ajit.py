@@ -14,7 +14,7 @@ from pypy.rlib import rerased
 from pypy.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
     loop_invariant, elidable, promote, jit_debug, assert_green,
     AssertGreenFailed, unroll_safe, current_trace_length, look_inside_iff,
-    isconstant, isvirtual, promote_string, set_param)
+    isconstant, isvirtual, promote_string, set_param, record_known_class)
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.ootypesystem import ootype
@@ -3583,6 +3583,132 @@ class BaseLLtypeTests(BasicTests):
         assert f(5) == 41
         translationoptions = {'withsmallfuncsets': 3}
         self.interp_operations(f, [5], translationoptions=translationoptions)
+
+
+    def test_annotation_gives_class_knowledge_to_tracer(self):
+        py.test.skip("disabled")
+        class Base(object):
+            pass
+        class A(Base):
+            def f(self):
+                return self.a
+            def g(self):
+                return self.a + 1
+        class B(Base):
+            def f(self):
+                return self.b
+            def g(self):
+                return self.b + 1
+        class C(B):
+            def f(self):
+                self.c += 1
+                return self.c
+            def g(self):
+                return self.c + 1
+        @dont_look_inside
+        def make(x):
+            if x > 0:
+                a = A()
+                a.a = x + 1
+            elif x < 0:
+                a = B()
+                a.b = -x
+            else:
+                a = C()
+                a.c = 10
+            return a
+        def f(x):
+            a = make(x)
+            if x > 0:
+                assert isinstance(a, A)
+                z = a.f()
+            elif x < 0:
+                assert isinstance(a, B)
+                z = a.f()
+            else:
+                assert isinstance(a, C)
+                z = a.f()
+            return z + a.g()
+        res1 = f(6)
+        res2 = self.interp_operations(f, [6])
+        assert res1 == res2
+        self.check_operations_history(guard_class=0, record_known_class=1)
+
+        res1 = f(-6)
+        res2 = self.interp_operations(f, [-6])
+        assert res1 == res2
+        # cannot use record_known_class here, because B has a subclass
+        self.check_operations_history(guard_class=1)
+
+        res1 = f(0)
+        res2 = self.interp_operations(f, [0])
+        assert res1 == res2
+        # here it works again
+        self.check_operations_history(guard_class=0, record_known_class=1)
+
+    def test_give_class_knowledge_to_tracer_explicitly(self):
+        from pypy.rpython.lltypesystem.lloperation import llop
+        class Base(object):
+            def f(self):
+                raise NotImplementedError
+            def g(self):
+                raise NotImplementedError
+        class A(Base):
+            def f(self):
+                return self.a
+            def g(self):
+                return self.a + 1
+        class B(Base):
+            def f(self):
+                return self.b
+            def g(self):
+                return self.b + 1
+        class C(B):
+            def f(self):
+                self.c += 1
+                return self.c
+            def g(self):
+                return self.c + 1
+        @dont_look_inside
+        def make(x):
+            if x > 0:
+                a = A()
+                a.a = x + 1
+            elif x < 0:
+                a = B()
+                a.b = -x
+            else:
+                a = C()
+                a.c = 10
+            return a
+        def f(x):
+            a = make(x)
+            if x > 0:
+                record_known_class(a, A)
+                z = a.f()
+            elif x < 0:
+                record_known_class(a, B)
+                z = a.f()
+            else:
+                record_known_class(a, C)
+                z = a.f()
+            return z + a.g()
+        res1 = f(6)
+        res2 = self.interp_operations(f, [6])
+        assert res1 == res2
+        self.check_operations_history(guard_class=0, record_known_class=1)
+
+        res1 = f(-6)
+        res2 = self.interp_operations(f, [-6])
+        assert res1 == res2
+        # cannot use record_known_class here, because B has a subclass
+        self.check_operations_history(guard_class=1)
+
+        res1 = f(0)
+        res2 = self.interp_operations(f, [0])
+        assert res1 == res2
+        # here it works again
+        self.check_operations_history(guard_class=0, record_known_class=1)
 
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):

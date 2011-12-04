@@ -91,9 +91,18 @@ class _Specialize(object):
 
         return decorated_func
 
+    def call_location(self):
+        """ Specializes the function for each call site.
+        """
+        def decorated_func(func):
+            func._annspecialcase_ = "specialize:call_location"
+            return func
+
+        return decorated_func
+
     def _wrap(self, args):
         return "("+','.join([repr(arg) for arg in args]) +")"
-        
+
 specialize = _Specialize()
 
 def enforceargs(*args):
@@ -125,7 +134,7 @@ class Symbolic(object):
 
     def __hash__(self):
         raise TypeError("Symbolics are not hashable!")
-    
+
     def __nonzero__(self):
         raise TypeError("Symbolics are not comparable")
 
@@ -155,7 +164,7 @@ class CDefinedIntSymbolic(Symbolic):
     def lltype(self):
         from pypy.rpython.lltypesystem import lltype
         return lltype.Signed
-    
+
 malloc_zero_filled = CDefinedIntSymbolic('MALLOC_ZERO_FILLED', default=0)
 running_on_llinterp = CDefinedIntSymbolic('RUNNING_ON_LLINTERP', default=1)
 # running_on_llinterp is meant to have the value 0 in all backends
@@ -221,7 +230,7 @@ class Entry(ExtRegistryEntry):
 
     def compute_result_annotation(self, s_sizehint):
         from pypy.annotation.model import SomeInteger
-        
+
         assert isinstance(s_sizehint, SomeInteger)
         return self.bookkeeper.newlist()
 

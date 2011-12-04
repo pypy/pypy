@@ -71,9 +71,7 @@ class CodecState(object):
         if self.unicodedata_handler:
             return self.unicodedata_handler
         try:
-            w_import = space.getattr(space.builtin, space.wrap("__import__"))
-            w_unicodedata = space.call_function(w_import,
-                                                space.wrap("unicodedata"))
+            w_unicodedata = space.getbuiltinmodule("unicodedata")
             w_getcode = space.getattr(w_unicodedata, space.wrap("_get_code"))
         except OperationError:
             return None
