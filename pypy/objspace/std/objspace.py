@@ -9,7 +9,7 @@ from pypy.objspace.std import (builtinshortcut, stdtypedef, frame, model,
 from pypy.objspace.descroperation import DescrOperation, raiseattrerror
 from pypy.rlib.objectmodel import instantiate, r_dict, specialize, is_annotation_constant
 from pypy.rlib.debug import make_sure_not_resized
-from pypy.rlib.rarithmetic import base_int, widen, is_valid_int
+from pypy.rlib.rarithmetic import base_int, widen, maxint
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib import jit
 
@@ -160,11 +160,15 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if isinstance(x, OperationError):
             raise TypeError, ("attempt to wrap already wrapped exception: %s"%
                               (x,))
-        if is_valid_int(x):
+        if isinstance(x, int):
             if isinstance(x, bool):
                 return self.newbool(x)
             else:
                 return self.newint(x)
+        # this is an inlined 'is_valid_int' which cannot be used
+        # due to the special annotation nature of 'wrap'.
+        if isinstance(x, long) and (-maxint - 1 <= x <= maxint):
+            return self.newint(x)
         if isinstance(x, str):
             return wrapstr(self, x)
         if isinstance(x, unicode):
