@@ -23,6 +23,7 @@ class Module(MixedModule):
     dropwhile(pred, seq) --> seq[n], seq[n+1], starting when pred fails
     groupby(iterable[, keyfunc]) --> sub-iterators grouped by value of keyfunc(v)
     """
+    applevel_name = '__builtin_itertools'
 
     interpleveldefs = {
         'chain'         : 'interp_itertools.W_Chain',
