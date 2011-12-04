@@ -274,8 +274,8 @@ def str_split__String_ANY_ANY(space, w_self, w_by, w_maxsplit=-1):
     if bylen == 0:
         raise OperationError(space.w_ValueError, space.wrap("empty separator"))
 
+    start = 0
     if bylen == 1 and maxsplit < 0:
-        start = 0
         # fast path: uses str.rfind(character) and str.count(character)
         by = by[0]    # annotator hack: string -> char
         count = value.count(by)
