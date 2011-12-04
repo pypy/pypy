@@ -1,14 +1,17 @@
 import py
-import os, StringIO
+import errno, os, StringIO
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rpython.lltypesystem import rffi
 from pypy.translator.sandbox.sandlib import SandboxedProc
 from pypy.translator.sandbox.sandlib import SimpleIOSandboxedProc
+from pypy.translator.sandbox.sandlib import VirtualizedSandboxedProc
 from pypy.translator.sandbox.sandlib import VirtualizedSocketProc
 from pypy.translator.sandbox.test.test_sandbox import compile
+from pypy.translator.sandbox.vfs import Dir, File
 
 
-class MySandboxedProc(SandboxedProc):
+class MockSandboxedProc(SandboxedProc):
+    """A sandbox process wrapper that replays expected syscalls."""
 
     def __init__(self, args, expected):
         SandboxedProc.__init__(self, args)
@@ -48,7 +51,7 @@ def test_lib():
         return 0
     exe = compile(entry_point)
 
-    proc = MySandboxedProc([exe, 'x1', 'y2'], expected = [
+    proc = MockSandboxedProc([exe, 'x1', 'y2'], expected = [
         ("open", ("/tmp/foobar", os.O_RDONLY, 0777), 77),
         ("read", (77, 123), "he\x00llo"),
         ("write", (77, "world\x00!\x00"), 42),
@@ -69,7 +72,7 @@ def test_foobar():
         return n
     exe = compile(entry_point)
 
-    proc = MySandboxedProc([exe, 'spam', 'egg'], expected = [
+    proc = MockSandboxedProc([exe, 'spam', 'egg'], expected = [
         ("foobar", ("spam",), 2),
         ("foobar", ("egg",), 0),
         ])
@@ -122,9 +125,45 @@ def test_oserror():
         return 0
     exe = compile(entry_point)
 
-    proc = MySandboxedProc([exe], expected = [
+    proc = MockSandboxedProc([exe], expected = [
         ("open", ("/tmp/foobar", os.O_RDONLY, 0777), OSError(-42, "baz")),
         ("close", (-42,), None),
         ])
     proc.handle_forever()
     assert proc.seen == len(proc.expected)
+
+
+class SandboxedProcWithFiles(VirtualizedSandboxedProc, SimpleIOSandboxedProc):
+    """A sandboxed process with a simple virtualized filesystem.
+
+    For testing file operations.
+
+    """
+    def build_virtual_root(self):
+        return Dir({
+            'hi.txt': File("Hello, world!\n"),
+             })
+
+def test_too_many_opens():
+    def entry_point(argv):
+        try:
+            open_files = []
+            for i in range(500):
+                fd = os.open('/hi.txt', os.O_RDONLY, 0777)
+                open_files.append(fd)
+                txt = os.read(fd, 100)
+                if txt != "Hello, world!\n":
+                    print "Wrong content: %s" % txt
+        except OSError, e:
+            if e.errno != errno.EMFILE:
+                print "OSError: %s!" % (e.errno,)
+        else:
+            print "We opened 500 files! Shouldn't have been able to."
+        print "All ok!"
+        return 0
+    exe = compile(entry_point)
+
+    proc = SandboxedProcWithFiles([exe])
+    output, error = proc.communicate("")
+    assert output == "All ok!\n"
+    assert error == ""
