@@ -228,7 +228,7 @@ class RegisterOs(BaseLazyRegistering):
     def extdef_for_os_function_returning_int(self, name, **kwds):
         c_func = self.llexternal(name, [], rffi.INT, **kwds)
         def c_func_llimpl():
-            res = rffi.cast(rffi.LONG, c_func())
+            res = rffi.cast(rffi.SIGNED, c_func())
             if res == -1:
                 raise OSError(rposix.get_errno(), "%s failed" % name)
             return res
@@ -240,7 +240,7 @@ class RegisterOs(BaseLazyRegistering):
     def extdef_for_os_function_accepting_int(self, name, **kwds):
         c_func = self.llexternal(name, [rffi.INT], rffi.INT, **kwds)
         def c_func_llimpl(arg):
-            res = rffi.cast(rffi.LONG, c_func(arg))
+            res = rffi.cast(rffi.SIGNED, c_func(arg))
             if res == -1:
                 raise OSError(rposix.get_errno(), "%s failed" % name)
         
@@ -252,7 +252,7 @@ class RegisterOs(BaseLazyRegistering):
     def extdef_for_os_function_accepting_2int(self, name, **kwds):
         c_func = self.llexternal(name, [rffi.INT, rffi.INT], rffi.INT, **kwds)
         def c_func_llimpl(arg, arg2):
-            res = rffi.cast(rffi.LONG, c_func(arg, arg2))
+            res = rffi.cast(rffi.SIGNED, c_func(arg, arg2))
             if res == -1:
                 raise OSError(rposix.get_errno(), "%s failed" % name)
         
@@ -264,7 +264,7 @@ class RegisterOs(BaseLazyRegistering):
     def extdef_for_os_function_accepting_0int(self, name, **kwds):
         c_func = self.llexternal(name, [], rffi.INT, **kwds)
         def c_func_llimpl():
-            res = rffi.cast(rffi.LONG, c_func())
+            res = rffi.cast(rffi.SIGNED, c_func())
             if res == -1:
                 raise OSError(rposix.get_errno(), "%s failed" % name)
         
@@ -276,7 +276,7 @@ class RegisterOs(BaseLazyRegistering):
     def extdef_for_os_function_int_to_int(self, name, **kwds):
         c_func = self.llexternal(name, [rffi.INT], rffi.INT, **kwds)
         def c_func_llimpl(arg):
-            res = rffi.cast(rffi.LONG, c_func(arg))
+            res = rffi.cast(rffi.SIGNED, c_func(arg))
             if res == -1:
                 raise OSError(rposix.get_errno(), "%s failed" % name)
             return res
@@ -754,7 +754,7 @@ class RegisterOs(BaseLazyRegistering):
         if self.GETPGRP_HAVE_ARG:
             c_func = self.llexternal(name, [rffi.INT], rffi.INT)
             def c_func_llimpl():
-                res = rffi.cast(rffi.LONG, c_func(0))
+                res = rffi.cast(rffi.SIGNED, c_func(0))
                 if res == -1:
                     raise OSError(rposix.get_errno(), "%s failed" % name)
                 return res
@@ -772,7 +772,7 @@ class RegisterOs(BaseLazyRegistering):
         if self.SETPGRP_HAVE_ARG:
             c_func = self.llexternal(name, [rffi.INT, rffi.INT], rffi.INT)
             def c_func_llimpl():
-                res = rffi.cast(rffi.LONG, c_func(0, 0))
+                res = rffi.cast(rffi.SIGNED, c_func(0, 0))
                 if res == -1:
                     raise OSError(rposix.get_errno(), "%s failed" % name)
 
@@ -1008,7 +1008,7 @@ class RegisterOs(BaseLazyRegistering):
             os_fsync = self.llexternal('_commit', [rffi.INT], rffi.INT)
 
         def fsync_llimpl(fd):
-            res = rffi.cast(rffi.LONG, os_fsync(rffi.cast(rffi.INT, fd)))
+            res = rffi.cast(rffi.SIGNED, os_fsync(rffi.cast(rffi.INT, fd)))
             if res < 0:
                 raise OSError(rposix.get_errno(), "fsync failed")
         return extdef([int], s_None,
@@ -1020,7 +1020,7 @@ class RegisterOs(BaseLazyRegistering):
         os_fdatasync = self.llexternal('fdatasync', [rffi.INT], rffi.INT)
 
         def fdatasync_llimpl(fd):
-            res = rffi.cast(rffi.LONG, os_fdatasync(rffi.cast(rffi.INT, fd)))
+            res = rffi.cast(rffi.SIGNED, os_fdatasync(rffi.cast(rffi.INT, fd)))
             if res < 0:
                 raise OSError(rposix.get_errno(), "fdatasync failed")
         return extdef([int], s_None,
@@ -1032,7 +1032,7 @@ class RegisterOs(BaseLazyRegistering):
         os_fchdir = self.llexternal('fchdir', [rffi.INT], rffi.INT)
 
         def fchdir_llimpl(fd):
-            res = rffi.cast(rffi.LONG, os_fchdir(rffi.cast(rffi.INT, fd)))
+            res = rffi.cast(rffi.SIGNED, os_fchdir(rffi.cast(rffi.INT, fd)))
             if res < 0:
                 raise OSError(rposix.get_errno(), "fchdir failed")
         return extdef([int], s_None,
@@ -1312,7 +1312,9 @@ class RegisterOs(BaseLazyRegistering):
                 result = os__cwait(status_p, pid, options)
                 # shift the status left a byte so this is more
                 # like the POSIX waitpid
-                status_p[0] <<= 8
+                tmp = rffi.cast(rffi.SIGNED, status_p[0])
+                tmp <<= 8
+                status_p[0] = rffi.cast(rffi.INT, tmp)
                 return result
         else:
             # Posix
