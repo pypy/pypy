@@ -47,32 +47,33 @@ class Log(object):
         storage = LoopStorage()
         traces = [SimpleParser.parse_from_input(rawtrace) for rawtrace in rawtraces]
         traces = storage.reconnect_loops(traces)
-        self.loops = [LoopWithIds.from_trace(trace, storage) for trace in traces]
+        self.loops = [TraceWithIds.from_trace(trace, storage) for trace in traces]
 
     def _filter(self, loop, is_entry_bridge=False):
-        return is_entry_bridge == '*' or loop.is_entry_bridge == is_entry_bridge
+        if is_entry_bridge == '*':
+            return loop
+        assert is_entry_bridge in (True, False)
+        return PartialTraceWithIds(loop, is_entry_bridge)
 
     def loops_by_filename(self, filename, **kwds):
         """
         Return all loops which start in the file ``filename``
         """
-        return [loop for loop in self.loops
-                if loop.filename == filename and self._filter(loop, **kwds)]
+        return [self._filter(loop, **kwds)  for loop in self.loops
+                if loop.filename == filename]
 
     def loops_by_id(self, id, **kwds):
         """
         Return all loops which contain the ID ``id``
         """
-        return [loop for loop in self.loops
-                if loop.has_id(id) and self._filter(loop, **kwds)]
+        return [self._filter(loop, **kwds) for loop in self.loops
+                if loop.has_id(id)]
 
     @classmethod
     def opnames(self, oplist):
         return [op.name for op in oplist]
 
-class LoopWithIds(Function):
-
-    is_entry_bridge = False
+class TraceWithIds(Function):
 
     def __init__(self, *args, **kwds):
         Function.__init__(self, *args, **kwds)
@@ -88,7 +89,6 @@ class LoopWithIds(Function):
     @classmethod
     def from_trace(cls, trace, storage):
         res = cls.from_operations(trace.operations, storage)
-        res.is_entry_bridge = 'entry bridge' in trace.comment
         return res
 
     def flatten_chunks(self):
@@ -117,7 +117,7 @@ class LoopWithIds(Function):
         #
         # 2. compute the ids of all the inlined functions
         for chunk in self.chunks:
-            if isinstance(chunk, LoopWithIds):
+            if isinstance(chunk, TraceWithIds):
                 chunk.compute_ids(ids)
 
     def get_set_of_opcodes(self):
@@ -144,18 +144,13 @@ class LoopWithIds(Function):
                    (opcode and opcode.__class__.__name__ == opcode_name):
                 for op in self._ops_for_chunk(chunk, include_debug_merge_points):
                     yield op
+            else:
+               for op in  chunk.operations:
+                   if op.name == 'label':
+                       yield op
 
     def allops(self, *args, **kwds):
         return list(self._allops(*args, **kwds))
-
-    def simple_loop_ops(self):
-        ops = self.allops()
-        labels = [op for op in self.allops() if op.name == 'label']
-        jumpop = ops[-1]
-        assert jumpop.name == 'jump'
-        assert jumpop.getdescr() == labels[-1].getdescr()
-        i = ops.index(labels[-1])
-        return ops[i+1:]
 
     def format_ops(self, id=None, **kwds):
         if id is None:
@@ -170,7 +165,7 @@ class LoopWithIds(Function):
     def _ops_by_id(self, id, include_debug_merge_points=False, opcode=None):
         opcode_name = opcode
         target_opcodes = self.ids[id]
-        loop_ops = self.simple_loop_ops()
+        loop_ops = self.allops(include_debug_merge_points, opcode)
         for chunk in self.flatten_chunks():
             opcode = chunk.getopcode()
             if opcode in target_opcodes and (opcode_name is None or
@@ -183,7 +178,7 @@ class LoopWithIds(Function):
         return list(self._ops_by_id(*args, **kwds))
 
     def match(self, expected_src, **kwds):
-        ops = list(self.simple_loop_ops())
+        ops = self.allops()
         matcher = OpMatcher(ops)
         return matcher.match(expected_src, **kwds)
 
@@ -192,6 +187,42 @@ class LoopWithIds(Function):
         matcher = OpMatcher(ops)
         return matcher.match(expected_src)
 
+class PartialTraceWithIds(TraceWithIds):
+    def __init__(self, trace, is_entry_bridge=False):
+        self.trace = trace
+        self.is_entry_bridge = is_entry_bridge
+    
+    def allops(self, *args, **kwds):
+        if self.is_entry_bridge:
+            return self.entry_bridge_ops(*args, **kwds)
+        else:
+            return self.simple_loop_ops(*args, **kwds)
+
+    def simple_loop_ops(self, *args, **kwds):
+        ops = list(self._allops(*args, **kwds))
+        labels = [op for op in ops if op.name == 'label']
+        jumpop = ops[-1]
+        assert jumpop.name == 'jump'
+        assert jumpop.getdescr() == labels[-1].getdescr()
+        i = ops.index(labels[-1])
+        return ops[i+1:]
+
+    def entry_bridge_ops(self, *args, **kwds):
+        ops = list(self._allops(*args, **kwds))
+        labels = [op for op in ops if op.name == 'label']
+        assert ops.index(labels[0]) == 0
+        i = ops.index(labels[1])
+        return ops[1:i]
+
+    @property
+    def chunks(self):
+        return self.trace.chunks
+
+    @property
+    def ids(self):
+        return self.trace.ids
+    
+    
 class InvalidMatch(Exception):
     opindex = None
 

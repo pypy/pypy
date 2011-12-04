@@ -99,7 +99,7 @@ class TestCall(BaseTestPyPyC):
             i15 = int_add_ovf(i12, 1)
             guard_no_overflow(descr=...)
             --TICK--
-            jump(p0, p1, p2, p3, p4, i15, i6, p7, p8, descr=<Loop0>)
+            jump(p0, p1, p2, p3, p4, i15, i6, p7, p8, descr=...)
         """)
 
     def test_method_call(self):
