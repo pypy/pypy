@@ -388,15 +388,17 @@ class BaseArray(Wrappable):
     descr_rpow = _binop_right_impl("power")
     descr_rmod = _binop_right_impl("mod")
 
-    def _reduce_ufunc_impl(ufunc_name):
+    def _reduce_ufunc_impl(ufunc_name, promote_to_largest):
         def impl(self, space):
-            return getattr(interp_ufuncs.get(space), ufunc_name).reduce(space, self, multidim=True)
+            return getattr(interp_ufuncs.get(space), ufunc_name).reduce(space,
+                   self, multidim=True, promote_to_largest=promote_to_largest)
         return func_with_new_name(impl, "reduce_%s_impl" % ufunc_name)
 
-    descr_sum = _reduce_ufunc_impl("add")
-    descr_prod = _reduce_ufunc_impl("multiply")
-    descr_max = _reduce_ufunc_impl("maximum")
-    descr_min = _reduce_ufunc_impl("minimum")
+    descr_sum = _reduce_ufunc_impl("add", False)
+    descr_prod = _reduce_ufunc_impl("multiply", False)
+    descr_max = _reduce_ufunc_impl("maximum", False)
+    descr_min = _reduce_ufunc_impl("minimum", False)
+    descr_sumpromote = _reduce_ufunc_impl("add", True)
 
     def _reduce_argmax_argmin_impl(op_name):
         reduce_driver = jit.JitDriver(
@@ -816,7 +818,7 @@ class BaseArray(Wrappable):
                          shape[:])
 
     def descr_mean(self, space):
-        return space.div(self.descr_sum(space), space.wrap(self.find_size()))
+        return space.div(self.descr_sumpromote(space), space.wrap(self.find_size()))
 
     def descr_nonzero(self, space):
         if self.find_size() > 1:

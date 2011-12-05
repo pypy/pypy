@@ -46,9 +46,9 @@ class W_Ufunc(Wrappable):
         return self.call(space, __args__.arguments_w)
 
     def descr_reduce(self, space, w_obj):
-        return self.reduce(space, w_obj, multidim=False)
+        return self.reduce(space, w_obj, multidim=False, promote_to_largest=False)
 
-    def reduce(self, space, w_obj, multidim):
+    def reduce(self, space, w_obj, multidim, promote_to_largest):
         from pypy.module.micronumpy.interp_numarray import convert_to_array, Scalar
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
@@ -63,7 +63,8 @@ class W_Ufunc(Wrappable):
         size = obj.find_size()
         dtype = find_unaryop_result_dtype(
             space, obj.find_dtype(),
-            promote_to_largest=True
+            promote_to_largest = promote_to_largest,
+            promote_bools = True,
         )
         start = obj.start_iter(obj.shape)
         shapelen = len(obj.shape)
