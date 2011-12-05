@@ -399,8 +399,10 @@ class FunctionCall(Node):
                 raise ArgumentNotAnArray
             if not isinstance(arr1, BaseArray):
                 raise ArgumentNotAnArray
-            elif self.name == "dot":
+            if self.name == "dot":
                 w_res = arr0.descr_dot(interp.space, arr1)
+            else:
+                assert False # unreachable code
         else:
             raise WrongFunctionName
         if isinstance(w_res, BaseArray):

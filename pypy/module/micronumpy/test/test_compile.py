@@ -235,6 +235,7 @@ class TestRunner(object):
         a -> 3
         """)
         assert interp.results[0].value == 11        
+
     def test_dot(self):
         interp = self.run("""
         a = [[1, 2], [3, 4]]
