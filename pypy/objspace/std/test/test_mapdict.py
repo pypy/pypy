@@ -25,17 +25,17 @@ class Object(Object):
     class typedef:
         hasdict = False
 
-def erase_storage_items(items):
-    return [IntAttribute.erase_item(item) for item in items]
+def erase_storage_items(items, eraser=PlainAttribute):
+    return [eraser.erase_item(item) for item in items]
 
-def unerase_storage_items(storage, uneraser=IntAttribute):
+def unerase_storage_items(storage, uneraser=PlainAttribute):
     return [uneraser.unerase_item(item) for item in storage]
 
 def test_plain_attribute():
 
     w_cls = "class"
-    aa = IntAttribute(("b", DICT),
-                        IntAttribute(("a", DICT),
+    aa = PlainAttribute(("b", DICT),
+                        PlainAttribute(("a", DICT),
                                        Terminator(space, w_cls)))
     assert aa.space is space
     assert aa.terminator.w_cls is w_cls
@@ -81,7 +81,8 @@ def test_search():
 def test_add_attribute():
     cls = Class()
     obj = cls.instantiate()
-    obj.setdictvalue(space, "a", 10)
+    obj.setdictvalue(space, "a", space.wrap(10))
+    print obj.map
     assert unerase_storage_items(obj.storage) == [10]
     assert obj.getdictvalue(space, "a") == 10
     assert obj.getdictvalue(space, "b") is None
@@ -159,9 +160,7 @@ def test_special():
     assert obj.getdictvalue(space, "a") == 50
     assert obj.getdictvalue(space, "b") == 60
     assert obj.getdictvalue(space, "c") == 70
-    #assert unerase_storage_items(obj.storage) == [50, 60, 70, lifeline1]
-    assert unerase_storage_items(obj.storage[:-1], IntAttribute) == [50, 60, 70]
-    assert unerase_storage_items(obj.storage[-1:], PlainAttribute) == [lifeline1]
+    assert unerase_storage_items(obj.storage) == [50, 60, 70, lifeline1]
     assert obj.getweakref() is lifeline1
 
     obj2 = c.instantiate()
@@ -169,9 +168,7 @@ def test_special():
     obj2.setdictvalue(space, "b", 160)
     obj2.setdictvalue(space, "c", 170)
     obj2.setweakref(space, lifeline2)
-    #assert unerase_storage_items(obj2.storage) == [150, 160, 170, lifeline2]
-    assert unerase_storage_items(obj2.storage[:-1], IntAttribute) == [150, 160, 170]
-    assert unerase_storage_items(obj2.storage[-1:], PlainAttribute) == [lifeline2]
+    assert unerase_storage_items(obj2.storage) == [150, 160, 170, lifeline2]
     assert obj2.getweakref() is lifeline2
 
     assert obj2.map is obj.map
@@ -282,9 +279,7 @@ def test_materialize_r_dict():
     assert flag
     materialize_r_dict(space, obj, d)
     assert d == {"a": 5, "b": 6, "c": 7}
-    #assert unerase_storage_items(obj.storage) == [50, 60, 70, w_d]
-    assert unerase_storage_items(obj.storage[:-1], IntAttribute) == [50, 60, 70]
-    assert unerase_storage_items(obj.storage[-1:], PlainAttribute) == [w_d]
+    assert unerase_storage_items(obj.storage) == [50, 60, 70, w_d]
 
 
 def test_size_prediction():
@@ -766,11 +761,20 @@ class AppTestWithMapDict(object):
     def test_delete_slot(self):
         class A(object):
             __slots__ = ['x']
-        
+
         a = A()
         a.x = 42
         del a.x
         raises(AttributeError, "a.x")
+
+    def test_subclassed_int(self):
+        class Integer(int):
+            pass
+
+        a = Integer()
+        a.x = 5
+
+        assert a.x == 5
 
 class AppTestWithMapDictAndCounters(object):
     def setup_class(cls):
