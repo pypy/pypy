@@ -6,9 +6,7 @@ for the outer process, which can run CPython or PyPy.
 
 import py
 import sys, os, posixpath, errno, stat, time
-from pypy.rpython.module.ll_os_stat import s_StatResult
 from pypy.tool.ansi_print import AnsiLog
-from pypy.rlib.rarithmetic import r_longlong
 import subprocess
 from pypy.tool.killsubprocess import killsubprocess
 
@@ -34,6 +32,9 @@ py.log.setconsumer("sandlib", MyAnsiLog())
 from pypy.tool.lib_pypy import import_from_lib_pypy
 marshal = import_from_lib_pypy('marshal')
 
+# Non-marshal result types
+RESULTTYPE_STATRESULT, RESULTTYPE_LONGLONG = range(2)
+
 def read_message(f, timeout=None):
     # warning: 'timeout' is not really reliable and should only be used
     # for testing.  Also, it doesn't work if the file f does any buffering.
@@ -50,7 +51,7 @@ def write_message(g, msg, resulttype=None):
             marshal.dump(msg, g)
         else:
             marshal.dump(msg, g, 0)
-    elif resulttype is s_StatResult:
+    elif resulttype is RESULTTYPE_STATRESULT:
         # Hand-coded marshal for stat results that mimics what rmarshal expects.
         # marshal.dump(tuple(msg)) would have been too easy. rmarshal insists
         # on 64-bit ints at places, even when the value fits in 32 bits.
@@ -69,12 +70,11 @@ def write_message(g, msg, resulttype=None):
                 buf.append(struct.pack("<cB", c, len(fstr)))
                 buf.append(fstr)
         g.write(''.join(buf))
+    elif resulttype is RESULTTYPE_LONGLONG:
+        import struct
+        g.write(struct.pack("<cq", 'I', msg))
     else:
-        # use the exact result type for encoding
-        from pypy.rlib.rmarshal import get_marshaller
-        buf = []
-        get_marshaller(resulttype)(buf, msg)
-        g.write(''.join(buf))
+        raise Exception("Can't marshal: %r (%r)" % (msg, resulttype))
 
 # keep the table in sync with rsandbox.reraise_error()
 EXCEPTION_TABLE = [
@@ -444,7 +444,7 @@ class VirtualizedSandboxedProc(SandboxedProc):
     def do_ll_os__ll_os_stat(self, vpathname):
         node = self.get_node(vpathname)
         return node.stat()
-    do_ll_os__ll_os_stat.resulttype = s_StatResult
+    do_ll_os__ll_os_stat.resulttype = RESULTTYPE_STATRESULT
 
     do_ll_os__ll_os_lstat = do_ll_os__ll_os_stat
 
@@ -505,13 +505,13 @@ class VirtualizedSandboxedProc(SandboxedProc):
     def do_ll_os__ll_os_fstat(self, fd):
         f, node = self.get_fd(fd)
         return node.stat()
-    do_ll_os__ll_os_fstat.resulttype = s_StatResult
+    do_ll_os__ll_os_fstat.resulttype = RESULTTYPE_STATRESULT
 
     def do_ll_os__ll_os_lseek(self, fd, pos, how):
         f = self.get_file(fd)
         f.seek(pos, how)
         return f.tell()
-    do_ll_os__ll_os_lseek.resulttype = r_longlong
+    do_ll_os__ll_os_lseek.resulttype = RESULTTYPE_LONGLONG
 
     def do_ll_os__ll_os_getcwd(self):
         return self.virtual_cwd
