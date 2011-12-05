@@ -411,6 +411,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         b = a * a
         for i in range(5):
             assert b[i] == i * i
+        assert b.dtype is numpypy.dtype(int)
 
         a = numpypy.array(range(5), dtype=bool)
         b = a * a
@@ -629,8 +630,10 @@ class AppTestNumArray(BaseNumpyAppTest):
     def test_sum(self):
         from numpypy import array
         a = array(range(5))
-        assert a.sum() == 10.0
-        assert a[:4].sum() == 6.0
+        b = a.sum()
+        assert b == 10
+        assert isinstance(b,int)
+        assert a[:4].sum() == 6
 
         a = array([True] * 5, bool)
         assert a.sum() == 5
