@@ -147,10 +147,10 @@ def test_aton_ntoa():
     packed = socket.inet_aton(ip)
     w_p = space.appexec([w_socket, space.wrap(ip)],
                         "(_socket, ip): return _socket.inet_aton(ip)")
-    assert space.unwrap(w_p) == packed
-    w_ip = space.appexec([w_socket, space.wrap(packed)],
+    assert space.bytes_w(w_p) == packed
+    w_ip = space.appexec([w_socket, w_p],
                          "(_socket, p): return _socket.inet_ntoa(p)")
-    assert space.unwrap(w_ip) == ip
+    assert space.unicode_w(w_ip) == ip
 
 def test_pton_ntop_ipv4():
     if not hasattr(socket, 'inet_pton'):

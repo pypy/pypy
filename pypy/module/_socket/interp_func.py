@@ -202,9 +202,9 @@ def inet_aton(space, ip):
         buf = rsocket.inet_aton(ip)
     except SocketError, e:
         raise converted_error(space, e)
-    return space.wrap(buf)
+    return space.wrapbytes(buf)
 
-@unwrap_spec(packed=str)
+@unwrap_spec(packed="bufferstr")
 def inet_ntoa(space, packed):
     """inet_ntoa(packed_ip) -> ip_address_string
 
