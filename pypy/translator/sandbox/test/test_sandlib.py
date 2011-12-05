@@ -218,3 +218,32 @@ def test_fstat():
     output, error = proc.communicate("")
     assert output == "All ok!\n"
     assert error == ""
+
+def test_lseek():
+    def char_should_be(c, should):
+        if c != should:
+            print "Wrong char: '%s' should be '%s'" % (c, should)
+
+    def entry_point(argv):
+        fd = os.open('/hi.txt', os.O_RDONLY, 0777)
+        char_should_be(os.read(fd, 1), "H")
+        new = os.lseek(fd, 3, os.SEEK_CUR)
+        if new != 4:
+            print "Wrong offset, %d should be 4" % new
+        char_should_be(os.read(fd, 1), "o")
+        new = os.lseek(fd, -3, os.SEEK_END)
+        if new != 11:
+            print "Wrong offset, %d should be 11" % new
+        char_should_be(os.read(fd, 1), "d")
+        new = os.lseek(fd, 7, os.SEEK_SET)
+        if new != 7:
+            print "Wrong offset, %d should be 7" % new
+        char_should_be(os.read(fd, 1), "w")
+        print "All ok!"
+        return 0
+    exe = compile(entry_point)
+
+    proc = SandboxedProcWithFiles([exe])
+    output, error = proc.communicate("")
+    assert output == "All ok!\n"
+    assert error == ""
