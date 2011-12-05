@@ -492,7 +492,6 @@ class CompileFrameworkTests(BaseFrameworkTests):
                 i += 1
             n -= x.foo
             return n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s
-        f(123, *[None]*11)  # check that the check() are ok
         return None, f, None
 
     def test_compile_framework_7_interior(self):
