@@ -173,9 +173,6 @@ class JitCell(BaseJitCell):
     wref_procedure_token = None
 
     def get_procedure_token(self):
-        if not we_are_translated():
-            from pypy.rlib import rgc
-            rgc.collect();
         if self.wref_procedure_token is not None:
             token = self.wref_procedure_token()
             if token and not token.invalidated:
