@@ -1255,11 +1255,12 @@ class RecursiveTests:
                 if i <= 0:      # <- guard
                     continue    # first make a loop
                 else:
-                    # then we fail the guard above, doing a recursive call
+                    # then we fail the guard above, doing a recursive call,
+                    # which will itself fail the same guard above, and so on
                     return portal(level + 1)
 
         self.meta_interp(portal, [0])
-        assert self.check_loop_count_at_most(3)   # and not, e.g., 24
+        self.check_loop_count_at_most(2)   # and not, e.g., 24
 
 
 class TestLLtype(RecursiveTests, LLJitMixin):
