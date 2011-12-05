@@ -121,11 +121,6 @@ class BaseIterator(object):
     def get_offset(self):
         raise NotImplementedError
 
-class DummyIterator(object):
-    '''Dummy placeholder
-    '''
-    pass
-    
 class ArrayIterator(BaseIterator):
     def __init__(self, size):
         self.offset = 0
@@ -359,10 +354,8 @@ class BaseArray(Wrappable):
     descr_abs = _unaryop_impl("absolute")
 
     def _binop_impl(ufunc_name):
-        def impl(self, space, w_other, w_selfiter=DummyIterator(), 
-                                      w_otheriter=DummyIterator()):
-            return getattr(interp_ufuncs.get(space), ufunc_name).call(space, 
-                                     [self, w_other, w_selfiter, w_otheriter])
+        def impl(self, space, w_other):
+            return getattr(interp_ufuncs.get(space), ufunc_name).call(space, [self, w_other])
         return func_with_new_name(impl, "binop_%s_impl" % ufunc_name)
 
     descr_add = _binop_impl("add")
@@ -987,15 +980,12 @@ class Call2(VirtualArray):
     """
     Intermediate class for performing binary operations.
     """
-    def __init__(self, signature, shape, calc_dtype, res_dtype, left, right, 
-                     liter = DummyIterator(), riter = DummyIterator()):
+    def __init__(self, signature, shape, calc_dtype, res_dtype, left, right):
         # XXX do something if left.order != right.order
         VirtualArray.__init__(self, signature, shape, res_dtype, left.order)
         self.left = left
         self.right = right
         self.calc_dtype = calc_dtype
-        self.liter = liter
-        self.riter = riter
         self.size = 1
         for s in self.shape:
             self.size *= s
@@ -1012,15 +1002,8 @@ class Call2(VirtualArray):
             return self.forced_result.start_iter(res_shape)
         if res_shape is None:
             res_shape = self.shape  # we still force the shape on children
-        if not getattr(self.liter, 'get_offest', ''):
-            _liter = self.left.start_iter(res_shape)
-        else:
-            _liter = self.liter
-        if not getattr(self.riter, 'get_offest', ''):
-            _riter = self.right.start_iter(res_shape)
-        else:
-            _riter = self.riter
-        return Call2Iterator(_liter, _riter)
+        return Call2Iterator(self.left.start_iter(res_shape),
+                             self.right.start_iter(res_shape))
 
     def _eval(self, iter):
         assert isinstance(iter, Call2Iterator)
