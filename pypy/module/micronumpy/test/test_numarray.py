@@ -718,6 +718,12 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a.dot(range(5)) == 30
         assert dot(range(5), range(5)) == 30
         assert (dot(5, [1, 2, 3]) == [5, 10, 15]).all()
+
+        a = array([range(4), range(4, 8), range(8, 12)])
+        b = array([range(3), range(3, 6), range(6, 9), range(9, 12)])
+        c = a.dot(b)
+        assert (c == [[ 42, 48, 54], [114, 136, 158], [186, 224, 262]]).all()
+
         a = array([[range(4), range(4, 8), range(8, 12)],
                    [range(12, 16), range(16, 20), range(20, 24)]])
         raises(ValueError, "a.dot(a)")

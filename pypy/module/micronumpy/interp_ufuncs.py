@@ -140,6 +140,7 @@ class W_Ufunc2(W_Ufunc):
     def call(self, space, args_w):
         from pypy.module.micronumpy.interp_numarray import (Call2,
             convert_to_array, Scalar, shape_agreement)
+        #TODO: use of w_ssd, w_osd can be optimized.
         if len(args_w)<4:
             [w_lhs, w_rhs] = args_w
             w_ssd = space.newlist([space.wrap(-1)]*2)
@@ -166,9 +167,17 @@ class W_Ufunc2(W_Ufunc):
         new_sig = signature.Signature.find_sig([
             self.signature, w_lhs.signature, w_rhs.signature
         ])
-        new_shape = shape_agreement(space, w_lhs.shape, w_rhs.shape)
+        new_shape = []
+        ssd = [space.int_w(s) for s in space.listview(w_ssd)]
+        osd = [space.int_w(s) for s in space.listview(w_osd)]
+        if  ssd[0]<0:
+            new_shape = shape_agreement(space, w_lhs.shape, w_rhs.shape)
+        else:
+            #Assumption (should have been checked in call): 
+            #w_lhs.shape[ssd[1]] == w_rhs.shape[osd[1]]
+            new_shape = [w_lhs.shape[ssd[1]]]
         w_res = Call2(new_sig, new_shape, calc_dtype,
-                      res_dtype, w_lhs, w_rhs, w_ssd, w_osd)
+                      res_dtype, w_lhs, w_rhs, ssd, osd)
         w_lhs.add_invalidates(w_res)
         w_rhs.add_invalidates(w_res)
         return w_res
