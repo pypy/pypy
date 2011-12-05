@@ -157,7 +157,7 @@ class BaseTestRegalloc(object):
         loop = self.parse(ops)
         regalloc = RegAlloc(self.cpu.assembler, False)
         regalloc.prepare_loop(loop.inputargs, loop.operations,
-                              loop.token, [])
+                              loop.original_jitcell_token, [])
         return regalloc
 
     def getint(self, index):
