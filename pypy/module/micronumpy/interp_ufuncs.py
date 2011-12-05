@@ -139,8 +139,12 @@ class W_Ufunc2(W_Ufunc):
     def call(self, space, args_w):
         from pypy.module.micronumpy.interp_numarray import (Call2,
             convert_to_array, Scalar, shape_agreement)
-
-        [w_lhs, w_rhs] = args_w
+        if len(args_w)<4:
+            [w_lhs, w_rhs] = args_w
+            w_ssd = space.newlist([space.wrap(-1)]*2)
+            w_osd = space.newlist([space.wrap(-1)]*2)
+        else:
+            [w_lhs, w_rhs, w_ssd, w_osd] = args_w
         w_lhs = convert_to_array(space, w_lhs)
         w_rhs = convert_to_array(space, w_rhs)
         calc_dtype = find_binop_result_dtype(space,
@@ -163,7 +167,7 @@ class W_Ufunc2(W_Ufunc):
         ])
         new_shape = shape_agreement(space, w_lhs.shape, w_rhs.shape)
         w_res = Call2(new_sig, new_shape, calc_dtype,
-                      res_dtype, w_lhs, w_rhs)
+                      res_dtype, w_lhs, w_rhs, w_ssd, w_osd)
         w_lhs.add_invalidates(w_res)
         w_rhs.add_invalidates(w_res)
         return w_res

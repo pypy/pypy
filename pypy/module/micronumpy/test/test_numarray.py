@@ -716,14 +716,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert dot(range(5), range(5)) == 30
         assert (dot(5, [1, 2, 3]) == [5, 10, 15]).all()
         a = array([[range(4), range(4, 8), range(8, 12)],
-                   [range(12, 16),range(16, 20),range(20, 24)]])
-        raises(ValueError,"a.dot(a)")
+                   [range(12, 16), range(16, 20), range(20, 24)]])
+        raises(ValueError, "a.dot(a)")
         b = a[0, :, :].T
         #Superfluous shape test makes the intention of the test clearer
-        assert a.shape == (2, 3, 4) 
+        assert a.shape == (2, 3, 4)
         assert b.shape == (4, 3)
         c = a.dot(b)
-        assert (c == [[[14, 38,62], [38, 126, 214], [62, 214, 366]], 
+        assert (c == [[[14, 38, 62], [38, 126, 214], [62, 214, 366]],
                    [[86, 302, 518], [110, 390, 670], [134, 478, 822]]]).all()
 
     def test_dot_constant(self):
