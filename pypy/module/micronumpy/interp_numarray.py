@@ -152,7 +152,7 @@ class OneDimIterator(BaseIterator):
         return arr
 
     def done(self):
-        return self.offset >= self.size
+        return self.offset == self.size
 
     def get_offset(self):
         return self.offset
@@ -556,7 +556,6 @@ class BaseArray(Wrappable):
             value = w_res.descr_sum(space)
             arr.setitem(out_iter.get_offset(), value)
             out_iter = out_iter.next(out_ndims)
-            ii += 1
         return arr
 
     def get_concrete(self):
