@@ -514,7 +514,7 @@ class BaseArray(Wrappable):
         other_critical_dim_stride = w_other.strides[0]
         out_shape = []
         if len(w_other.shape) > 1:
-            other_critical_dim = len(w_other.shape) - 1
+            other_critical_dim = len(w_other.shape) - 2
             other_critical_dim_size = w_other.shape[other_critical_dim]
             other_critical_dim_stride = w_other.strides[other_critical_dim]
             assert other_critical_dim >= 0
@@ -541,13 +541,14 @@ class BaseArray(Wrappable):
                                w_other.shape[:other_critical_dim] + [1] + \
                                            w_other.shape[other_critical_dim:])
         while not out_iter.done():
-            i = OneDimIterator(me_iter.get_offset(),
-                          self.strides[-1], self.shape[-1])
-            j = OneDimIterator(other_iter.get_offset(),
-                          other_critical_dim_stride, other_critical_dim_size)
-            #Heres what I would like to do, but how?
-            #value = sum(mult_with_iters(self, i, w_other, j))
-            #arr.setitem(out_iter, value)
+            w_ssd = space.newlist([space.wrap(me_iter.get_offset()), 
+                                   space.wrap(len(self.shape)-1)])
+            w_osd = space.newlist([space.wrap(other_iter.get_offset()), 
+                                   space.wrap(other_critical_dim)])
+            w_res = self.descr_mul1d(space, w_other, w_ssd, w_osd)
+            value = w_res.descr_sum(space)
+            abc=hgk
+            arr.setitem(out_iter, value)
             out_iter = out_iter.next(out_ndims)
             me_iter = me_iter.next(0)
             other_iter = other_iter.next(0)
