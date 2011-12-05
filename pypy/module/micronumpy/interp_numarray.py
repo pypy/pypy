@@ -482,30 +482,43 @@ class BaseArray(Wrappable):
             w_res = self.descr_mul(space, w_other)
             assert isinstance(w_res, BaseArray)
             return w_res.descr_sum(space)
+        dtype = interp_ufuncs.find_binop_result_dtype(space, 
+                                     self.find_dtype(), w_other.find_dtype())
+        if self.find_size() < 1 and w_other.find_size() <1:
+            #numpy compatability
+            return scalar_w(space, dtype,space.wrap(0))
         #Do the dims match?
         my_critical_dim_size = self.shape[-1]
         other_critical_dim_size = w_other.shape[0]
+        other_critical_dim = 0
         other_critical_dim_stride = w_other.strides[0] 
-        if len(w_other.shape) > 2:
-            other_critical_dim_size = w_other.shape[-2]
-            other_critical_dim_stride = w_other.strides[-2] 
+        out_shape = []
+        if len(w_other.shape) > 1:
+            other_critical_dim = len(w_other.shape)-1
+            other_critical_dim_size = w_other.shape[other_critical_dim]
+            other_critical_dim_stride = w_other.strides[other_critical_dim]
+            assert other_critical_dim >= 0
+            out_shape += self.shape[:-1] + w_other.shape[0:other_critical_dim] + w_other.shape[other_critical_dim:]
+        elif len(w_other.shape) > 0:
+            #dot does not reduce
+            out_shape += self.shape[:-1]
         if my_critical_dim_size != other_critical_dim_size:
             raise OperationError(space.w_ValueError, space.wrap(
                                             "objects are not aligned"))
-        out_shape = self.shape[:-1] + w_other.shape[0:-2] + w_other.shape[-1:]
         out_size = 1
         for os in out_shape:
             out_size *= os
         out_ndims = len(out_shape)
-        dtype = interp_ufuncs.find_binop_result_dtype(space, 
-                                     self.find_dtype(), w_other.find_dtype())
         #TODO: what should the order be? C or F?
         arr = W_NDimArray(out_size, out_shape, dtype=dtype)
         out_iter = ArrayIterator(out_size)
-        #TODO: invalidate self, w_other with arr
+        #TODO: invalidate self, w_other with arr ?
+        
         me_iter = BroadcastIterator(self,self.shape[:-1] + [1])
+        assert other_critical_dim >= 0
         other_iter = BroadcastIterator(self, 
-                               w_other.shape[:-2] + [1] + w_other.shape[-1:])
+                               w_other.shape[:other_critical_dim] + [1] + \
+                                           w_other.shape[other_critical_dim:])
         while not out_iter.done():
             i = OneDimIterator(me_iter.get_offset(), self.strides[-1], self.shape[-1])
             j = OneDimIterator(other_iter.get_offset(), other_critical_dim_stride, other_critical_dim_size)
