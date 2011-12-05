@@ -270,7 +270,9 @@ def getaddrinfo(space, w_host, w_port,
         port = None
     elif space.is_true(space.isinstance(w_port, space.w_int)):
         port = str(space.int_w(w_port))
-    elif space.is_true(space.isinstance(w_port, space.w_str)):
+    elif space.is_true(space.isinstance(w_port, space.w_bytes)):
+        port = space.bytes_w(w_port)
+    elif space.is_true(space.isinstance(w_port, space.w_unicode)):
         port = space.str_w(w_port)
     else:
         raise OperationError(space.w_TypeError,

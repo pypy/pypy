@@ -223,10 +223,12 @@ def test_getaddrinfo():
     w_l = space.appexec([w_socket, space.wrapbytes(host), space.wrap(port)],
                         "(_socket, host, port): return _socket.getaddrinfo(host, port)")
     assert space.unwrap(w_l) == info
-    py.test.skip("Unicode conversion is too slow")
     w_l = space.appexec([w_socket, space.wrap(host), space.wrap(port)],
                         "(_socket, host, port): return _socket.getaddrinfo(host, port)")
     assert space.unwrap(w_l) == info
+    w_l = space.appexec([w_socket, space.wrapbytes(host), space.wrap('smtp')],
+                        "(_socket, host, port): return _socket.getaddrinfo(host, port)")
+    assert space.unwrap(w_l) == socket.getaddrinfo(host, 'smtp')
 
 def test_unknown_addr_as_object():    
     c_addr = lltype.malloc(rsocket._c.sockaddr, flavor='raw')
