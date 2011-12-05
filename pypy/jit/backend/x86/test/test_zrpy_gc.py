@@ -490,6 +490,7 @@ class CompileFrameworkTests(BaseFrameworkTests):
                 check(a[i].y.i == n + i * 100 + 2)
                 check(a[i].z.i == n + i * 100 + 3)
                 i += 1
+            n -= x.foo
             return n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s
         f(123, *[None]*11)  # check that the check() are ok
         return None, f, None
