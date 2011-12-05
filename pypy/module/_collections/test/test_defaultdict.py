@@ -19,11 +19,22 @@ class AppTestBasic:
 
     def test_keyerror_without_factory(self):
         from _collections import defaultdict
-        d1 = defaultdict()
-        for key in ['foo', (1,)]:
-            try:
-                d1[key]
-            except KeyError, err:
-                assert err.args[0] == key
-            else:
-                assert 0, "expected KeyError"
+        for d1 in [defaultdict(), defaultdict(None)]:
+            for key in ['foo', (1,)]:
+                try:
+                    d1[key]
+                except KeyError, err:
+                    assert err.args[0] == key
+                else:
+                    assert 0, "expected KeyError"
+
+    def test_noncallable(self):
+        from _collections import defaultdict
+        raises(TypeError, defaultdict, [('a', 5)])
+        d = defaultdict(None, [('a', 5)])
+        assert d.items() == [('a', 5)]
+
+    def test_kwds(self):
+        from _collections import defaultdict
+        d = defaultdict(default_factory=5)
+        assert d.keys() == ['default_factory']
