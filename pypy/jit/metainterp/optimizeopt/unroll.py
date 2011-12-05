@@ -281,6 +281,13 @@ class UnrollOptimizer(Optimization):
 
         # Inline the short preamble at the end of the loop
         jmp_to_short_args = virtual_state.make_inputargs(values, self.optimizer, keyboxes=True)
+        assert len(short_inputargs) == len(jmp_to_short_args)
+        args = {}
+        for i in range(len(short_inputargs)):
+            if short_inputargs[i] in args:
+                if args[short_inputargs[i]] != jmp_to_short_args[i]:
+                    raise InvalidLoop
+            args[short_inputargs[i]] = jmp_to_short_args[i]
         self.short_inliner = Inliner(short_inputargs, jmp_to_short_args)
         for box, const in constant_inputargs.items():
             self.short_inliner.argmap[box] = const

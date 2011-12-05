@@ -172,6 +172,27 @@ class BaseTestMultiLabel(BaseTest):
         with raises(InvalidLoop):
             self.optimize_loop(ops, ops)
 
+    def test_virtual_turns_constant(self):
+        ops = """
+        [p1]
+        p3 = new_with_vtable(ConstClass(node_vtable))
+        label(p3)
+        guard_value(p3, ConstPtr(myptr)) []
+        jump(p3)
+        """
+        with raises(InvalidLoop):
+            self.optimize_loop(ops, ops)
+        
+    def test_virtuals_turns_not_equal(self):
+        ops = """
+        [p1, p2]
+        p3 = new_with_vtable(ConstClass(node_vtable))
+        label(p3, p3)
+        p4 = new_with_vtable(ConstClass(node_vtable))
+        jump(p3, p4)
+        """
+        with raises(InvalidLoop):
+            self.optimize_loop(ops, ops)
         
     
 class TestLLtype(BaseTestMultiLabel, LLtypeMixin):
