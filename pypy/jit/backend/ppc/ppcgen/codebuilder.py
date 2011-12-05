@@ -18,13 +18,15 @@ from pypy.jit.backend.llsupport.regalloc import (RegisterManager,
                                                  compute_vars_longevity)
 from pypy.jit.backend.llsupport import symbolic
 from pypy.jit.backend.model import CompiledLoopToken
-from pypy.rpython.lltypesystem import lltype, rffi, rstr
+from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 from pypy.jit.metainterp.resoperation import rop
 from pypy.jit.metainterp.history import (BoxInt, ConstInt, ConstPtr,
                                          ConstFloat, Box, INT, REF, FLOAT)
 from pypy.jit.backend.x86.support import values_array
 from pypy.tool.udir import udir
 from pypy.rlib.objectmodel import we_are_translated
+
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
 A = Form("frD", "frA", "frB", "XO3", "Rc")
 A1 = Form("frD", "frB", "XO3", "Rc")
@@ -918,6 +920,20 @@ def higher(w):
 def high(w):
     return (w >> 16) & 0x0000FFFF
 
+# XXX check this
+if we_are_translated():
+    eci = ExternalCompilationInfo(includes = ['asm_ppc.h'])
+
+    flush_icache = rffi.llexternal(
+        "LL_flush_icache",
+        [lltype.Signed, lltype.Signed],
+        lltype.Void,
+        compilation_info=eci,
+        _nowrapper=True,
+        sandboxsafe=True)
+else:
+    def flush_icache(x, y): pass
+
 class GuardToken(object):
     def __init__(self, descr, failargs, faillocs, offset,
                                         save_exc=False, is_invalidate=False):
@@ -1039,8 +1055,14 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
     def currpos(self):
         return self.get_rel_pos()
 
+    def flush_cache(self, addr):
+        startaddr = rffi.cast(lltype.Signed, addr)
+        size = rffi.cast(lltype.Signed, self.get_relative_pos())
+        flush_icache(startaddr, size)
+
     def copy_to_raw_memory(self, addr):
         self._copy_to_raw_memory(addr)
+        self.flush_cache(addr)
 
     def cmp_op(self, block, a, b, imm=False, signed=True):
         if IS_PPC_32:
