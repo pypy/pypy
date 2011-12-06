@@ -36,3 +36,39 @@ def arange(start, stop=None, step=1, dtype=None):
         j += 1
         i += step
     return arr
+
+def reshape(a, shape):
+    '''reshape(a, newshape)
+    Gives a new shape to an array without changing its data.
+    
+    Parameters
+    ----------
+    a : array_like
+        Array to be reshaped.
+    newshape : int or tuple of ints
+        The new shape should be compatible with the original shape. If
+        an integer, then the result will be a 1-D array of that length.
+        One shape dimension can be -1. In this case, the value is inferred
+        from the length of the array and remaining dimensions.
+    
+    Returns
+    -------
+    reshaped_array : ndarray
+        This will be a new view object if possible; otherwise, it will
+        be a copy.
+    
+    
+    See Also
+    --------
+    ndarray.reshape : Equivalent method.
+    
+    Notes
+    -----
+    
+    It is not always possible to change the shape of an array without
+    copying the data. If you want an error to be raise if the data is copied,
+    you should assign the new shape to the shape attribute of the array
+'''
+    if not hasattr(a, 'reshape'):
+        a = numpypy.array(a)
+    return a.reshape(shape)
