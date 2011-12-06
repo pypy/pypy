@@ -1,6 +1,6 @@
 from __future__ import with_statement
 from pypy.rpython.lltypesystem import rffi, lltype
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, wrap_oserror
 from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -8,6 +8,7 @@ from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib import rpoll, rsocket
 from pypy.rlib.ropenssl import *
+from pypy.rlib.rposix import get_errno
 
 from pypy.module._socket import interp_socket
 import weakref
@@ -186,17 +187,19 @@ class SSLContext(Wrappable):
             errno = get_errno()
             if errno:
                 libssl_ERR_clear_error()
-                raise_from_errno(space.w_IOError, errno)
+                raise wrap_oserror(space, OSError(errno, ''),
+                                   exception_name = 'w_IOError')
             else:
                 raise _ssl_seterror(space, None, -1)
 
-        ret = libssl_SSL_CTX_use_PrivateKey_file(ss.ctx, key_file,
+        ret = libssl_SSL_CTX_use_PrivateKey_file(self.ctx, keyfile,
                                                  SSL_FILETYPE_PEM)
         if ret != 1:
             errno = get_errno()
             if errno:
                 libssl_ERR_clear_error()
-                raise_from_errno(space.w_IOError, errno)
+                raise wrap_oserror(space, OSError(errno, ''),
+                                   exception_name = 'w_IOError')
             else:
                 raise _ssl_seterror(space, None, -1)
 
@@ -222,7 +225,8 @@ class SSLContext(Wrappable):
             errno = get_errno()
             if errno:
                 libssl_ERR_clear_error()
-                raise_from_errno(space.w_IOError, errno)
+                raise wrap_oserror(space, OSError(errno, ''),
+                                   exception_name = 'w_IOError')
             else:
                 raise _ssl_seterror(space, None, -1)
 
@@ -249,10 +253,10 @@ class SSLContext(Wrappable):
         w_stats = space.newdict()
         for name, ssl_func in SSL_CTX_STATS:
             w_value = space.wrap(ssl_func(self.ctx))
-            space.setitem_str(w_stats, attr, w_value)
+            space.setitem_str(w_stats, name, w_value)
         return w_stats
 
-    def set_default_verify_paths_w(self):
+    def set_default_verify_paths_w(self, space):
         ret = libssl_SSL_CTX_set_default_verify_paths(self.ctx)
         if ret != 1:
             raise _ssl_seterror(space, None, -1)
@@ -264,6 +268,11 @@ SSLContext.typedef = TypeDef(
     verify_mode = GetSetProperty(SSLContext.get_verify_mode_w,
                                  SSLContext.set_verify_mode_w),
     _wrap_socket = interp2app(SSLContext.wrap_socket_w),
+    set_ciphers = interp2app(SSLContext.set_ciphers_w),
+    load_cert_chain = interp2app(SSLContext.load_cert_chain_w),
+    load_verify_locations = interp2app(SSLContext.load_verify_locations_w),
+    session_stats = interp2app(SSLContext.session_stats_w),
+    set_default_verify_paths=interp2app(SSLContext.set_default_verify_paths_w),
 )
 
     

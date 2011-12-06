@@ -189,11 +189,13 @@ ssl_external('SSL_CTX_set_options', [SSL_CTX, rffi.INT], rffi.INT, macro=True)
 ssl_external('SSL_CTX_ctrl', [SSL_CTX, rffi.INT, rffi.INT, rffi.VOIDP], rffi.INT)
 ssl_external('SSL_CTX_set_verify', [SSL_CTX, rffi.INT, rffi.VOIDP], lltype.Void)
 ssl_external('SSL_CTX_get_verify_mode', [SSL_CTX], rffi.INT)
+ssl_external('SSL_CTX_set_default_verify_paths', [SSL_CTX], rffi.INT)
 ssl_external('SSL_CTX_set_cipher_list', [SSL_CTX, rffi.CCHARP], rffi.INT)
 ssl_external('SSL_CTX_load_verify_locations', [SSL_CTX, rffi.CCHARP, rffi.CCHARP], rffi.INT)
+ssl_external('SSL_CTX_check_private_key', [SSL_CTX], rffi.INT)
 ssl_external('SSL_CTX_set_session_id_context', [SSL_CTX, rffi.CCHARP, rffi.UINT], rffi.INT)
 SSL_CTX_STATS_NAMES = """
-    number connect connect_good connect_renegotiate accept accept_god
+    number connect connect_good connect_renegotiate accept accept_good
     accept_renegotiate hits misses timeouts cache_full""".split()
 SSL_CTX_STATS = unrolling_iterable(
     (name, external('SSL_CTX_sess_' + name, [SSL_CTX], rffi.LONG))
@@ -259,6 +261,7 @@ ssl_external('SSL_CIPHER_get_bits', [SSL_CIPHER, rffi.INTP], rffi.INT)
 
 ssl_external('ERR_get_error', [], rffi.INT)
 ssl_external('ERR_error_string', [rffi.ULONG, rffi.CCHARP], rffi.CCHARP)
+ssl_external('ERR_clear_error', [], lltype.Void)
 
 ssl_external('SSL_free', [SSL], lltype.Void, threadsafe=False)
 ssl_external('SSL_CTX_free', [SSL_CTX], lltype.Void, threadsafe=False)
