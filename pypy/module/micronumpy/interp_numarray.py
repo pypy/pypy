@@ -839,10 +839,10 @@ class BaseArray(Wrappable):
             strides += self.strides[s:]
             backstrides += self.backstrides[s:]
         new_sig = signature.Signature.find_sig([
-            NDimSlice.signature, self.signature,
+            W_NDimSlice.signature, self.signature,
         ])
-        return NDimSlice(self, new_sig, start, strides[:], backstrides[:],
-                         shape[:])
+        return W_NDimSlice(self, new_sig, start, strides[:], backstrides[:],
+                           shape[:])
 
     def descr_reshape(self, space, w_args):
         """reshape(...)
@@ -865,13 +865,13 @@ class BaseArray(Wrappable):
         if new_strides:
             #We can create a view, strides somehow match up.
             new_sig = signature.Signature.find_sig([
-                NDimSlice.signature, self.signature, ])
+                W_NDimSlice.signature, self.signature, ])
             ndims = len(new_shape)
             new_backstrides = [0] * ndims
             for nd in range(ndims):
                 new_backstrides[nd] = (new_shape[nd] - 1) * new_strides[nd]
-            arr = NDimSlice(self, new_sig, self.start, new_strides,
-                    new_backstrides, new_shape)
+            arr = W_NDimSlice(self, new_sig, self.start, new_strides,
+                              new_backstrides, new_shape)
         else:
             #Create copy with contiguous data
             arr = concrete.copy()
@@ -894,7 +894,7 @@ class BaseArray(Wrappable):
         if len(concrete.shape) < 2:
             return space.wrap(self)
         new_sig = signature.Signature.find_sig([
-            NDimSlice.signature, self.signature
+            W_NDimSlice.signature, self.signature
         ])
         strides = []
         backstrides = []
@@ -903,8 +903,8 @@ class BaseArray(Wrappable):
             strides.append(concrete.strides[i])
             backstrides.append(concrete.backstrides[i])
             shape.append(concrete.shape[i])
-        return space.wrap(NDimSlice(concrete, new_sig, self.start, strides[:],
-                           backstrides[:], shape[:]))
+        return space.wrap(W_NDimSlice(concrete, new_sig, self.start, strides[:],
+                                      backstrides[:], shape[:]))
 
     def descr_get_flatiter(self, space):
         return space.wrap(W_FlatIterator(self))
@@ -1204,12 +1204,12 @@ class ViewArray(BaseArray):
         self.backstrides = new_backstrides[:]
         self.shape = new_shape[:]
 
-class NDimSlice(ViewArray):
+class W_NDimSlice(ViewArray):
     signature = signature.BaseSignature()
 
     def __init__(self, parent, signature, start, strides, backstrides,
                  shape):
-        if isinstance(parent, NDimSlice):
+        if isinstance(parent, W_NDimSlice):
             parent = parent.parent
         ViewArray.__init__(self, parent, signature, strides, backstrides, shape)
         self.start = start
