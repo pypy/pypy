@@ -184,7 +184,8 @@ def calc_new_strides(new_shape, old_shape, old_strides):
         n_new_elems_used = 1
         oldI = -1
         n_old_elems_to_use = old_shape[-1]
-        for s in new_shape[::-1]:
+        for i in range(len(new_shape) - 1, -1, -1):
+            s = new_shape[i]
             new_strides.insert(0, cur_step * n_new_elems_used)
             n_new_elems_used *= s
             while n_new_elems_used > n_old_elems_to_use:
