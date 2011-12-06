@@ -42,7 +42,9 @@ class AbstractAttribute(object):
         try:
             attr.write_attr(obj, w_value) #obj._mapdict_write_storage(index, w_value)
         except OperationError:
-            firstattr = obj.map
+            if not e.match(self.space, self.space.w_TypeError):
+                raise
+            firstattr = obj._get_mapdict_map()
             firstattr.delete(obj, selector)
             firstattr.add_attr(obj, selector, w_value)
         return True
@@ -158,7 +160,7 @@ class AbstractAttribute(object):
             oldattr._size_estimate = size_est
         if attr.length() > obj._mapdict_storage_length():
             # note that attr.size_estimate() is always at least attr.length()
-            new_storage = [None] * attr.size_estimate()
+            new_storage = [PlainAttribute.erase_item(None)] * attr.size_estimate()
             for i in range(obj._mapdict_storage_length()):
                 new_storage[i] = obj._mapdict_read_storage(i)
             obj._set_mapdict_storage_and_map(new_storage, attr)
@@ -375,6 +377,7 @@ def get_attrclass_from_value(space, w_value):
     attrclass = PlainAttribute
     if is_taggable_int(space, w_value):
         attrclass = IntAttribute
+
     return attrclass
 
 def _become(w_obj, new_obj):
@@ -517,7 +520,7 @@ class ObjectMixin(object):
     def _init_empty(self, map):
         from pypy.rlib.debug import make_sure_not_resized
         self.map = map
-        self.storage = make_sure_not_resized([None] * map.size_estimate())
+        self.storage = make_sure_not_resized([PlainAttribute.erase_item(None)] * map.size_estimate())
 
     def _mapdict_read_storage(self, index):
         assert index >= 0
@@ -918,7 +921,7 @@ def LOOKUP_METHOD_mapdict_fill_cache_method(space, pycode, name, nameindex,
                                                               version_tag)
     if w_method is None or isinstance(w_method, TypeCell):
         return
-    _fill_cache(pycode, nameindex, map, version_tag, -1, w_method)
+    _fill_cache(pycode, nameindex, map, version_tag, None, w_method)
 
 # XXX fix me: if a function contains a loop with both LOAD_ATTR and
 # XXX LOOKUP_METHOD on the same attribute name, it keeps trashing and
