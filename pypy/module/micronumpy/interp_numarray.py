@@ -852,7 +852,7 @@ class BaseArray(Wrappable):
         if len(args_w) == 1:
             w_shape = args_w[0]
         else:
-            w_shape = space.newlist(args_w)
+            w_shape = space.newtuple(args_w)
         concrete = self.get_concrete()
         new_shape = get_shape_from_iterable(space,
                                             concrete.find_size(), w_shape)
