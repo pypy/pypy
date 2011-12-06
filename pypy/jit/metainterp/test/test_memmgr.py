@@ -241,10 +241,17 @@ def test_all():
 if __name__ == '__main__':
     # occurs in the subprocess
     for test in [_TestMemoryManager(), _TestIntegration()]:
-        for name in dir(test):
-            if name.startswith('test_'):
-                print
-                print '-'*79
-                print '----- Now running test', name, '-----'
-                print
-                getattr(test, name)()
+        if hasattr(test, 'setup_class'):
+            test.setup_class()
+        try:
+            for name in dir(test):
+                if name.startswith('test_'):
+                    print
+                    print '-'*79
+                    print '----- Now running test', name, '-----'
+                    print
+                    getattr(test, name)()
+        finally:
+            if hasattr(test, 'teardown_class'):
+                test.teardown_class()
+            
