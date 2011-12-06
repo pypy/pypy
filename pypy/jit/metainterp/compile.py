@@ -298,7 +298,7 @@ class ResumeDescr(AbstractFailDescr):
     pass
 
 class ResumeGuardDescr(ResumeDescr):
-    _counter = 0        # if < 0, there is one counter per value;
+    _counter = 0        # on a GUARD_VALUE, there is one counter per value;
     _counters = None    # they get stored in _counters then.
 
     # this class also gets the following attributes stored by resume.py code
@@ -309,10 +309,13 @@ class ResumeGuardDescr(ResumeDescr):
     rd_virtuals = None
     rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
 
-    CNT_INT   = -0x20000000
-    CNT_REF   = -0x40000000
-    CNT_FLOAT = -0x60000000
-    CNT_MASK  =  0x1FFFFFFF
+    CNT_BASE_MASK  =  0x0FFFFFFF     # the base counter value
+    CNT_BUSY_FLAG  =  0x10000000     # if set, busy tracing from the guard
+    CNT_TYPE_MASK  =  0x60000000     # mask for the type
+
+    CNT_INT        =  0x20000000
+    CNT_REF        =  0x40000000
+    CNT_FLOAT      =  0x60000000
 
     def store_final_boxes(self, guard_op, boxes):
         guard_op.setfailargs(boxes)
@@ -326,6 +329,8 @@ class ResumeGuardDescr(ResumeDescr):
         except ValueError:
             return     # xxx probably very rare
         else:
+            if i > self.CNT_BASE_MASK:
+                return    # probably never, but better safe than sorry
             if box.type == history.INT:
                 cnt = self.CNT_INT
             elif box.type == history.REF:
@@ -334,14 +339,17 @@ class ResumeGuardDescr(ResumeDescr):
                 cnt = self.CNT_FLOAT
             else:
                 assert 0, box.type
-            # we build the following value for _counter, which is always
-            # a negative value
+            assert cnt > self.CNT_BASE_MASK
             self._counter = cnt | i
 
     def handle_fail(self, metainterp_sd, jitdriver_sd):
         if self.must_compile(metainterp_sd, jitdriver_sd):
-            return self._trace_and_compile_from_bridge(metainterp_sd,
-                                                       jitdriver_sd)
+            self.start_compiling()
+            try:
+                return self._trace_and_compile_from_bridge(metainterp_sd,
+                                                           jitdriver_sd)
+            finally:
+                self.done_compiling()
         else:
             from pypy.jit.metainterp.blackhole import resume_in_blackhole
             resume_in_blackhole(metainterp_sd, jitdriver_sd, self)
@@ -359,12 +367,22 @@ class ResumeGuardDescr(ResumeDescr):
 
     def must_compile(self, metainterp_sd, jitdriver_sd):
         trace_eagerness = jitdriver_sd.warmstate.trace_eagerness
-        if self._counter >= 0:
+        #
+        if self._counter <= self.CNT_BASE_MASK:
+            # simple case: just counting from 0 to trace_eagerness
             self._counter += 1
             return self._counter >= trace_eagerness
-        else:
-            index = self._counter & self.CNT_MASK
-            typetag = self._counter & ~ self.CNT_MASK
+        #
+        # do we have the BUSY flag?  If so, we're tracing right now, e.g. in an
+        # outer invocation of the same function, so don't trace again for now.
+        elif self._counter & self.CNT_BUSY_FLAG:
+            return False
+        #
+        else: # we have a GUARD_VALUE that fails.  Make a _counters instance
+            # (only now, when the guard is actually failing at least once),
+            # and use it to record some statistics about the failing values.
+            index = self._counter & self.CNT_BASE_MASK
+            typetag = self._counter & self.CNT_TYPE_MASK
             counters = self._counters
             if typetag == self.CNT_INT:
                 intvalue = metainterp_sd.cpu.get_latest_value_int(index)
@@ -391,7 +409,16 @@ class ResumeGuardDescr(ResumeDescr):
                 assert 0, typetag
             return counter >= trace_eagerness
 
-    def reset_counter_from_failure(self):
+    def start_compiling(self):
+        # start tracing and compiling from this guard.
+        self._counter |= self.CNT_BUSY_FLAG
+
+    def done_compiling(self):
+        # done tracing and compiling from this guard.  Either the bridge has
+        # been successfully compiled, in which case whatever value we store
+        # in self._counter will not be seen any more, or not, in which case
+        # we should reset the counter to 0, in order to wait a bit until the
+        # next attempt.
         if self._counter >= 0:
             self._counter = 0
         self._counters = None
@@ -607,9 +634,6 @@ class ResumeFromInterpDescr(ResumeDescr):
         old_loop_tokens.append(new_loop_token)
         metainterp.set_compiled_merge_points(self.original_greenkey,
                                              old_loop_tokens)
-
-    def reset_counter_from_failure(self):
-        pass
 
 
 def compile_new_bridge(metainterp, old_loop_tokens, resumekey, retraced=False):
