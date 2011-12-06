@@ -714,11 +714,6 @@ class BaseArray(Wrappable):
     def _index_of_single_item(self, space, w_idx):
         if space.isinstance_w(w_idx, space.w_int):
             idx = space.int_w(w_idx)
-            if not self.shape:
-                if idx != 0:
-                    raise OperationError(space.w_IndexError,
-                                         space.wrap("index out of range"))
-                return 0
             if idx < 0:
                 idx = self.shape[0] + idx
             if idx < 0 or idx >= self.shape[0]:

@@ -330,8 +330,8 @@ class AppTestNumArray(BaseNumpyAppTest):
     def test_scalar(self):
         from numpypy import array, dtype
         a = array(3)
-        #assert a[0] == 3
         raises(IndexError, "a[0]")
+        raises(IndexError, "a[0] = 5")
         assert a.size == 1
         assert a.shape == ()
         assert a.dtype is dtype(int)
@@ -414,6 +414,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert w[41] == 1000
         # u is not a view, it is a copy!
         assert u[25] == 41
+
+        a = zeros((5, 2))
+        assert a.reshape(-1).shape == (10,)
 
         raises(ValueError, arange(10).reshape, (5, -1, -1))
 
