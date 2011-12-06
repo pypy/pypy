@@ -3,16 +3,16 @@ from pypy.jit.backend.arm import conditions as cond
 from pypy.jit.backend.arm import registers as reg
 from pypy.jit.backend.arm.arch import (WORD, FUNC_ALIGN)
 from pypy.jit.backend.arm.instruction_builder import define_instructions
-
+from pypy.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
+from pypy.jit.metainterp.history import ConstInt, BoxInt, AbstractFailDescr
+from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.rmmap import alloc, PTR
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rpython.lltypesystem import lltype, rffi, llmemory
-from pypy.jit.metainterp.history import ConstInt, BoxInt, AbstractFailDescr
-from pypy.rlib.objectmodel import we_are_translated
-from pypy.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from pypy.tool.udir import udir
+from pypy.translator.tool.cbuild import ExternalCompilationInfo
 
-__clear_cache = rffi.llexternal(
+clear_cache = rffi.llexternal(
     "__clear_cache",
     [llmemory.Address, llmemory.Address],
     lltype.Void,
@@ -292,9 +292,10 @@ class ARMv7Builder(BlockBuilderMixin, AbstractARMv7Builder):
         return rawstart
 
     def clear_cache(self, addr):
-        startaddr = rffi.cast(llmemory.Address, addr)
-        endaddr = rffi.cast(llmemory.Address, addr + self.get_relative_pos())
-        __clear_cache(startaddr, endaddr)
+        if we_are_translated():
+            startaddr = rffi.cast(llmemory.Address, addr)
+            endaddr = rffi.cast(llmemory.Address, addr + self.get_relative_pos())
+            clear_cache(startaddr, endaddr)
 
     def copy_to_raw_memory(self, addr):
         self._copy_to_raw_memory(addr)
