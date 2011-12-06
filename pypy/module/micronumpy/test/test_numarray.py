@@ -408,18 +408,19 @@ class AppTestNumArray(BaseNumpyAppTest):
         u = v.reshape(64)
         assert y[1, 2, 1] == z[5, 1]
         y[1, 2, 1] = 1000
-        #z, y, w, v are views of eachother
+        # z, y, w, v are views of eachother
         assert z[5, 1] == 1000
         assert v[1, 1, 1] == 1000
         assert w[41] == 1000
-        #u is not a view, it is a copy!
+        # u is not a view, it is a copy!
         assert u[25] == 41
 
     def test_reshape_varargs(self):
-        skip("How do I do varargs in rpython? reshape should accept a"
-             " variable number of arguments")
+        skip("unimplemented yet")
+        from numpypy import arange
         z = arange(96).reshape(12, -1)
         y = z.reshape(4, 3, 8)
+        assert y.shape == (4, 3, 8)
 
     def test_add(self):
         from numpypy import array

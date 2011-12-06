@@ -105,17 +105,17 @@ def get_shape_from_iterable(space, old_size, w_iterable):
         new_size = space.int_w(w_iterable)
         if new_size < 0:
             new_size = old_size
-        new_shape = [new_size, ]
+        new_shape = [new_size]
     else:
         neg_dim = -1
         batch = space.listview(w_iterable)
-        #Allow for shape = (1,2,3) or shape = ((1,2,3))
+        # Allow for shape = (1,2,3) or shape = ((1,2,3),)
         if len(batch) > 1 and space.issequence_w(batch[0]):
             batch = space.listview(batch[0])
         new_size = 1
         if len(batch) < 1:
             if old_size == 1:
-                #Scalars can have an empty size.
+                # Scalars can have an empty size.
                 new_size = 1
             else:
                 new_size = 0
@@ -140,16 +140,16 @@ def get_shape_from_iterable(space, old_size, w_iterable):
                 space.wrap("total size of new array must be unchanged"))
     return new_shape
 
-#Recalculating strides. Find the steps that the iteration does for each
-#dimension, given the stride and shape. Then try to create a new stride that
-#fits the new shape, using those steps. If there is a shape/step mismatch
-#(meaning that the realignment of elements crosses from one step into another)
-#return None so that the caller can raise an exception.
+# Recalculating strides. Find the steps that the iteration does for each
+# dimension, given the stride and shape. Then try to create a new stride that
+# fits the new shape, using those steps. If there is a shape/step mismatch
+# (meaning that the realignment of elements crosses from one step into another)
+# return None so that the caller can raise an exception.
 def calc_new_strides(new_shape, old_shape, old_strides):
-    #Return the proper strides for new_shape, or None
-    # if the mapping crosses stepping boundaries
+    # Return the proper strides for new_shape, or None if the mapping crosses
+    # stepping boundaries
 
-    #Assumes that prod(old_shape) ==prod(new_shape), len(old_shape) > 1 and
+    # Assumes that prod(old_shape) == prod(new_shape), len(old_shape) > 1, and
     # len(new_shape) > 0
     steps = []
     last_step = 1
@@ -589,7 +589,7 @@ class BaseArray(Wrappable):
 
     def descr_set_shape(self, space, w_iterable):
         concrete = self.get_concrete()
-        new_shape = get_shape_from_iterable(space, 
+        new_shape = get_shape_from_iterable(space,
                             concrete.find_size(), w_iterable)
         concrete.setshape(space, new_shape)
 
@@ -848,25 +848,26 @@ class BaseArray(Wrappable):
     def descr_reshape(self, space, w_args):
         """reshape(...)
     a.reshape(shape)
-    
+
     Returns an array containing the same data with a new shape.
-    
-    Refer to `%s.reshape` for full documentation.
-    
+
+    Refer to `numpypy.reshape` for full documentation.
+
     See Also
     --------
-    numpy.reshape : equivalent function
-""" % 'numpypy'
+    numpypy.reshape : equivalent function
+"""
         concrete = self.get_concrete()
-        new_shape = get_shape_from_iterable(space, 
+        new_shape = get_shape_from_iterable(space,
                                             concrete.find_size(), w_args)
-        #Since we got to here, prod(new_shape) == self.size
-        new_strides = calc_new_strides(new_shape, 
+        # Since we got to here, prod(new_shape) == self.size
+        new_strides = calc_new_strides(new_shape,
                                        concrete.shape, concrete.strides)
         if new_strides:
-            #We can create a view, strides somehow match up.
+            # We can create a view, strides somehow match up.
             new_sig = signature.Signature.find_sig([
-                W_NDimSlice.signature, self.signature, ])
+                W_NDimSlice.signature, self.signature
+            ])
             ndims = len(new_shape)
             new_backstrides = [0] * ndims
             for nd in range(ndims):
@@ -874,7 +875,7 @@ class BaseArray(Wrappable):
             arr = W_NDimSlice(self, new_sig, self.start, new_strides,
                               new_backstrides, new_shape)
         else:
-            #Create copy with contiguous data
+            # Create copy with contiguous data
             arr = concrete.copy()
             arr.setshape(space, new_shape)
         return arr
@@ -975,7 +976,7 @@ class Scalar(BaseArray):
         return 'Scalar'
 
     def setshape(self, space, new_shape):
-        # In order to get here, we already checked that prod(new_shape)==1,
+        # In order to get here, we already checked that prod(new_shape) == 1,
         # so in order to have a consistent API, let it go through.
         pass
 
@@ -1175,8 +1176,8 @@ class ViewArray(BaseArray):
         if len(self.shape) < 1:
             return
         elif len(self.shape) < 2:
-            #TODO: this code could be refactored into calc_strides
-            #but then calc_strides would have to accept a stepping factor
+            # TODO: this code could be refactored into calc_strides
+            # but then calc_strides would have to accept a stepping factor
             strides = []
             backstrides = []
             s = self.strides[0]
