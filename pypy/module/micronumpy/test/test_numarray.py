@@ -158,6 +158,13 @@ class TestNumArrayDirect(object):
         assert shape_agreement(self.space,
                 [5, 2], [4, 3, 5, 2]) == [4, 3, 5, 2]
 
+    def test_calc_new_strides(self):
+        from pypy.module.micronumpy.interp_numarray import calc_new_strides
+        assert calc_new_strides([2, 4], [4, 2], [4, 2]) == [8, 2]
+        assert calc_new_strides([2, 4, 3], [8, 3], [1, 16]) == [1, 2, 16]
+        assert calc_new_strides([2, 3, 4], [8, 3], [1, 16]) is None
+        assert calc_new_strides([24], [2, 4, 3], [48, 6, 1]) is None
+        assert calc_new_strides([24], [2, 4, 3], [24, 6, 2]) == [2]
 
 class AppTestNumArray(BaseNumpyAppTest):
     def test_ndarray(self):
@@ -216,8 +223,8 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[2] == 4
 
     def test_copy(self):
-        from numpypy import array
-        a = array(range(5))
+        from numpypy import arange, array
+        a = arange(5)
         b = a.copy()
         for i in xrange(5):
             assert b[i] == a[i]
@@ -226,6 +233,11 @@ class AppTestNumArray(BaseNumpyAppTest):
 
         a = array(1)
         assert a.copy() == a
+
+        a = arange(8)
+        b = a[::2]
+        c = b.copy()
+        assert (c == b).all()
 
     def test_iterator_init(self):
         from numpypy import array
@@ -338,6 +350,76 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert b.shape == (5,)
         c = a[:3]
         assert c.shape == (3,)
+
+    def test_set_shape(self):
+        from numpypy import array, zeros
+        a = array([])
+        a.shape = []
+        a = array(range(12))
+        a.shape = (3, 4)
+        assert (a == [range(4), range(4, 8), range(8, 12)]).all()
+        a.shape = (3, 2, 2)
+        assert a[1, 1, 1] == 7
+        a.shape = (3, -1, 2)
+        assert a.shape == (3, 2, 2)
+        a.shape = 12
+        assert a.shape == (12, )
+        exc = raises(ValueError, "a.shape = 10")
+        assert str(exc.value) == "total size of new array must be unchanged"
+        a = array(3)
+        a.shape = ()
+        #numpy allows this
+        a.shape = (1,)
+
+    def test_reshape(self):
+        from numpypy import array, zeros
+        a = array(range(12))
+        exc = raises(ValueError, "b = a.reshape((3, 10))")
+        assert str(exc.value) == "total size of new array must be unchanged"
+        b = a.reshape((3, 4))
+        assert b.shape == (3, 4)
+        assert (b == [range(4), range(4, 8), range(8, 12)]).all()
+        b[:, 0] = 1000
+        assert (a == [1000, 1, 2, 3, 1000, 5, 6, 7, 1000, 9, 10, 11]).all()
+        a = zeros((4, 2, 3))
+        a.shape = (12, 2)
+
+    def test_slice_reshape(self):
+        from numpypy import zeros, arange
+        a = zeros((4, 2, 3))
+        b = a[::2, :, :]
+        b.shape = (2, 6)
+        exc = raises(AttributeError, "b.shape = 12")
+        assert str(exc.value) == \
+                           "incompatible shape for a non-contiguous array"
+        b = a[::2, :, :].reshape((2, 6))
+        assert b.shape == (2, 6)
+        b = arange(20)[1:17:2]
+        b.shape = (4, 2)
+        assert (b == [[1, 3], [5, 7], [9, 11], [13, 15]]).all()
+        c = b.reshape((2, 4))
+        assert (c == [[1, 3, 5, 7], [9, 11, 13, 15]]).all()
+
+        z = arange(96).reshape((12, -1))
+        assert z.shape == (12, 8)
+        y = z.reshape((4, 3, 8))
+        v = y[:, ::2, :]
+        w = y.reshape(96)
+        u = v.reshape(64)
+        assert y[1, 2, 1] == z[5, 1]
+        y[1, 2, 1] = 1000
+        #z, y, w, v are views of eachother
+        assert z[5, 1] == 1000
+        assert v[1, 1, 1] == 1000
+        assert w[41] == 1000
+        #u is not a view, it is a copy!
+        assert u[25] == 41
+
+    def test_reshape_varargs(self):
+        skip("How do I do varargs in rpython? reshape should accept a"
+             " variable number of arguments")
+        z = arange(96).reshape(12, -1)
+        y = z.reshape(4, 3, 8)
 
     def test_add(self):
         from numpypy import array
@@ -1174,3 +1256,14 @@ class AppTestRanges(BaseNumpyAppTest):
         a = arange(0, 0.8, 0.1)
         assert len(a) == 8
         assert arange(False, True, True).dtype is dtype(int)
+
+
+class AppTestRanges(BaseNumpyAppTest):
+    def test_app_reshape(self):
+        from numpypy import arange, array, dtype, reshape
+        a = arange(12)
+        b = reshape(a, (3, 4))
+        assert b.shape == (3, 4)
+        a = range(12)
+        b = reshape(a, (3, 4))
+        assert b.shape == (3, 4)
