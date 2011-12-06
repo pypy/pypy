@@ -1212,6 +1212,51 @@ class BaseBackendTest(Runner):
             got = longlong.getrealfloat(self.cpu.get_latest_value_float(i))
             assert got == 13.5 + 6.73 * i
 
+    def test_compile_bridge_spilled_float(self):
+        if not self.cpu.supports_floats:
+            py.test.skip("requires floats")
+        fboxes = [BoxFloat() for i in range(3)]
+        faildescr1 = BasicFailDescr(100)
+        loopops = """
+        [i0,f1, f2]
+        f3 = float_add(f1, f2)
+        force_spill(f3)
+        force_spill(f1)
+        force_spill(f2)
+        guard_false(i0) [f1, f2, f3]
+        finish()"""
+        loop = parse(loopops)
+        looptoken = LoopToken()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        self.cpu.set_future_value_int(0, 1)
+        self.cpu.set_future_value_float(1, longlong.getfloatstorage(132.25))
+        self.cpu.set_future_value_float(2, longlong.getfloatstorage(0.75))
+        fail = self.cpu.execute_token(looptoken)
+        assert loop.operations[-2].getdescr() == fail
+        f1 = self.cpu.get_latest_value_float(0)
+        f2 = self.cpu.get_latest_value_float(1)
+        f3 = self.cpu.get_latest_value_float(2)
+        assert longlong.getrealfloat(f1) == 132.25
+        assert longlong.getrealfloat(f2) == 0.75
+        assert longlong.getrealfloat(f3) == 133.0
+
+        bridgeops = [
+            ResOperation(rop.FINISH, fboxes, None, descr=faildescr1),
+            ]
+        self.cpu.compile_bridge(loop.operations[-2].getdescr(), fboxes,
+                                                        bridgeops, looptoken)
+        self.cpu.set_future_value_int(0, 1)
+        self.cpu.set_future_value_float(1, longlong.getfloatstorage(132.25))
+        self.cpu.set_future_value_float(2, longlong.getfloatstorage(0.75))
+        fail = self.cpu.execute_token(looptoken)
+        assert fail.identifier == 100
+        f1 = self.cpu.get_latest_value_float(0)
+        f2 = self.cpu.get_latest_value_float(1)
+        f3 = self.cpu.get_latest_value_float(2)
+        assert longlong.getrealfloat(f1) == 132.25
+        assert longlong.getrealfloat(f2) == 0.75
+        assert longlong.getrealfloat(f3) == 133.0
+
     def test_integers_and_guards2(self):
         for opname, compare in [
             (rop.INT_IS_TRUE, lambda x: bool(x)),

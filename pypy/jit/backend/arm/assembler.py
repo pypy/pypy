@@ -244,7 +244,7 @@ class AssemblerARM(ResOpAssembler):
                 stack_loc = decode32(enc, i+1)
                 i += 4
                 if group == self.FLOAT_TYPE:
-                    value = decode64(stack, frame_depth - stack_loc*WORD)
+                    value = decode64(stack, frame_depth - (stack_loc+1)*WORD)
                     fvalue = rffi.cast(longlong.FLOATSTORAGE, value)
                     self.fail_boxes_float.setitem(fail_index, fvalue)
                     continue
@@ -408,7 +408,13 @@ class AssemblerARM(ResOpAssembler):
                 else:
                     assert loc.is_stack()
                     mem[j] = self.STACK_LOC
-                    encode32(mem, j+1, loc.position)
+                    if arg.type == FLOAT:
+                        # Float locs store the location number with an offset
+                        # of 1 -.- so we need to take this into account here
+                        # when generating the encoding
+                        encode32(mem, j+1, loc.position-1)
+                    else:
+                        encode32(mem, j+1, loc.position)
                     j += 5
             else:
                 mem[j] = self.EMPTY_LOC

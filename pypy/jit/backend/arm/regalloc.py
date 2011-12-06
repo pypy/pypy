@@ -53,6 +53,9 @@ class ARMFrameManager(FrameManager):
     def frame_pos(loc, type):
         num_words = ARMFrameManager.frame_size(type)
         if type == FLOAT:
+            # Make sure that loc is an even value
+            # the frame layout requires loc to be even!!
+            assert (loc & 1) == 0 
             return locations.StackLocation(loc+1, num_words=num_words, type=type)
         return locations.StackLocation(loc, num_words=num_words, type=type)
 
