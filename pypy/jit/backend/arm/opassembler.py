@@ -3,9 +3,7 @@ from pypy.jit.backend.arm import conditions as c
 from pypy.jit.backend.arm import locations
 from pypy.jit.backend.arm import registers as r
 from pypy.jit.backend.arm import shift
-from pypy.jit.backend.arm.arch import (WORD, FUNC_ALIGN, arm_int_div,
-                                        arm_int_div_sign, arm_int_mod_sign,
-                                        arm_int_mod, PC_OFFSET)
+from pypy.jit.backend.arm.arch import WORD, PC_OFFSET
 
 from pypy.jit.backend.arm.helper.assembler import (gen_emit_op_by_helper_call,
                                                     gen_emit_op_unary_cmp,
