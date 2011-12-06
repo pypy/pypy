@@ -41,7 +41,7 @@ class AbstractAttribute(object):
             return self.terminator._write_terminator(obj, selector, w_value)
         try:
             attr.write_attr(obj, w_value) #obj._mapdict_write_storage(index, w_value)
-        except OperationError:
+        except OperationError, e:
             if not e.match(self.space, self.space.w_TypeError):
                 raise
             firstattr = obj._get_mapdict_map()
