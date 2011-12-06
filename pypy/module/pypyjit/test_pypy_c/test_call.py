@@ -371,7 +371,7 @@ class TestCall(BaseTestPyPyC):
             p24 = new_array(1, descr=<GcPtrArrayDescr>)
             p26 = new_with_vtable(ConstClass(W_ListObject))
             setfield_gc(p0, i20, descr=<SignedFieldDescr .*PyFrame.vable_token .*>)
-            setfield_gc(p26, ConstPtr(ptr22), descr=<GcPtrFieldDescr pypy.objspace.std.listobject.W_ListObject.inst_strategy 12>)
+            setfield_gc(p26, ConstPtr(ptr22), descr=<GcPtrFieldDescr pypy.objspace.std.listobject.W_ListObject.inst_strategy .*>)
             setarrayitem_gc(p24, 0, p26, descr=<GcPtrArrayDescr>)
             setfield_gc(p22, p24, descr=<GcPtrFieldDescr .*Arguments.inst_arguments_w .*>)
             p32 = call_may_force(11376960, p18, p22, descr=<GcPtrCallDescr>)
@@ -462,4 +462,26 @@ class TestCall(BaseTestPyPyC):
             setfield_gc(p22, i13, descr=<SignedFieldDescr pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
             setfield_gc(p4, p22, descr=<GcPtrFieldDescr pypy.interpreter.nestedscope.Cell.inst_w_value .*>)
             jump(p0, p1, p2, p3, p4, p7, p22, p7, descr=<Loop0>)
+        """)
+
+    def test_kwargs_virtual(self):
+        def main(n):
+            def g(**kwargs):
+                return kwargs["x"] + 1
+
+            i = 0
+            while i < n:
+                i = g(x=i)
+            return i
+
+        log = self.run(main, [500])
+        assert log.result == 500
+        loop, = log.loops_by_filename(self.filepath)
+        assert loop.match("""
+            i2 = int_lt(i0, i1)
+            guard_true(i2, descr=...)
+            i3 = force_token()
+            i4 = int_add(i0, 1)
+            --TICK--
+            jump(..., descr=...)
         """)

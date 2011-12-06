@@ -77,3 +77,12 @@ def test_tagged_boehm():
     data = g.read()
     g.close()
     assert data.rstrip().endswith('ALL OK')
+
+def test_name_gcref():
+    from pypy.rpython.lltypesystem import lltype, llmemory, rclass
+    from pypy.translator.c import primitive
+    from pypy.translator.c.database import LowLevelDatabase
+    x = lltype.cast_int_to_ptr(rclass.OBJECTPTR, 19)
+    y = lltype.cast_opaque_ptr(llmemory.GCREF, x)
+    db = LowLevelDatabase()
+    assert primitive.name_gcref(y, db) == "((void*) 19)"

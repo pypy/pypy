@@ -140,7 +140,7 @@ class BasePosix(Platform):
             ('DEFAULT_TARGET', exe_name.basename),
             ('SOURCES', rel_cfiles),
             ('OBJECTS', rel_ofiles),
-            ('LIBS', self._libs(eci.libraries)),
+            ('LIBS', self._libs(eci.libraries) + list(self.extra_libs)),
             ('LIBDIRS', self._libdirs(rel_libdirs)),
             ('INCLUDEDIRS', self._includedirs(rel_includedirs)),
             ('CFLAGS', cflags),
@@ -157,7 +157,7 @@ class BasePosix(Platform):
 
         rules = [
             ('all', '$(DEFAULT_TARGET)', []),
-            ('$(TARGET)', '$(OBJECTS)', '$(CC_LINK) $(LDFLAGS) $(LDFLAGSEXTRA) -o $@ $(OBJECTS) $(LIBDIRS) $(LIBS) $(LINKFILES)'),
+            ('$(TARGET)', '$(OBJECTS)', '$(CC_LINK) $(LDFLAGSEXTRA) -o $@ $(OBJECTS) $(LIBDIRS) $(LIBS) $(LINKFILES) $(LDFLAGS)'),
             ('%.o', '%.c', '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)'),
             ]
 

@@ -48,13 +48,13 @@ def apply_jit(translator, backend_name="auto", inline=False,
     translator.warmrunnerdesc = warmrunnerdesc    # for later debugging
 
 def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
-                   listcomp=False, **kwds):
+                   listcomp=False, translationoptions={}, **kwds):
     if listcomp:
         extraconfigopts = {'translation.list_comprehension_operations': True}
     else:
         extraconfigopts = {}
-    if kwds.pop("taggedpointers", False):
-        extraconfigopts["translation.taggedpointers"] = True
+    for key, value in translationoptions.items():
+        extraconfigopts['translation.' + key] = value
     interp, graph = get_interpreter(function, args,
                                     backendopt=False,  # will be done below
                                     type_system=type_system,
@@ -62,7 +62,7 @@ def ll_meta_interp(function, args, backendopt=False, type_system='lltype',
     clear_tcache()
     return jittify_and_run(interp, graph, args, backendopt=backendopt, **kwds)
 
-def jittify_and_run(interp, graph, args, repeat=1,
+def jittify_and_run(interp, graph, args, repeat=1, graph_and_interp_only=False,
                     backendopt=False, trace_limit=sys.maxint,
                     inline=False, loop_longevity=0, retrace_limit=5,
                     function_threshold=4,
@@ -93,6 +93,8 @@ def jittify_and_run(interp, graph, args, repeat=1,
         jd.warmstate.set_param_max_retrace_guards(max_retrace_guards)
         jd.warmstate.set_param_enable_opts(enable_opts)
     warmrunnerdesc.finish()
+    if graph_and_interp_only:
+        return interp, graph
     res = interp.eval_graph(graph, args)
     if not kwds.get('translate_support_code', False):
         warmrunnerdesc.metainterp_sd.profiler.finish()
@@ -118,7 +120,8 @@ def _find_jit_marker(graphs, marker_name):
                 op = block.operations[i]
                 if (op.opname == 'jit_marker' and
                     op.args[0].value == marker_name and
-                    op.args[1].value.active):   # the jitdriver
+                    (op.args[1].value is None or
+                    op.args[1].value.active)):   # the jitdriver
                     results.append((graph, block, i))
     return results
 
@@ -156,6 +159,9 @@ def find_force_quasi_immutable(graphs):
 
 def get_stats():
     return pyjitpl._warmrunnerdesc.stats
+
+def reset_stats():
+    pyjitpl._warmrunnerdesc.stats.clear()
 
 def get_translator():
     return pyjitpl._warmrunnerdesc.translator
@@ -206,7 +212,7 @@ class WarmRunnerDesc(object):
         self.make_enter_functions()
         self.rewrite_jit_merge_points(policy)
 
-        verbose = not self.cpu.translate_support_code
+        verbose = False # not self.cpu.translate_support_code
         self.codewriter.make_jitcodes(verbose=verbose)
         self.rewrite_can_enter_jits()
         self.rewrite_set_param()
@@ -249,10 +255,8 @@ class WarmRunnerDesc(object):
         s_binding = self.translator.annotator.binding
         jd._portal_args_s = [s_binding(v) for v in args]
         graph = copygraph(graph)
-        graph.startblock.isstartblock = False
         [jmpp] = find_jit_merge_points([graph])
         graph.startblock = support.split_before_jit_merge_point(*jmpp)
-        graph.startblock.isstartblock = True
         # a crash in the following checkgraph() means that you forgot
         # to list some variable in greens=[] or reds=[] in JitDriver,
         # or that a jit_merge_point() takes a constant as an argument.
@@ -841,11 +845,18 @@ class WarmRunnerDesc(object):
         _, PTR_SET_PARAM_STR_FUNCTYPE = self.cpu.ts.get_FuncType(
             [lltype.Ptr(STR)], lltype.Void)
         def make_closure(jd, fullfuncname, is_string):
-            state = jd.warmstate
-            def closure(i):
-                if is_string:
-                    i = hlstr(i)
-                getattr(state, fullfuncname)(i)
+            if jd is None:
+                def closure(i):
+                    if is_string:
+                        i = hlstr(i)
+                    for jd in self.jitdrivers_sd:
+                        getattr(jd.warmstate, fullfuncname)(i)
+            else:
+                state = jd.warmstate
+                def closure(i):
+                    if is_string:
+                        i = hlstr(i)
+                    getattr(state, fullfuncname)(i)
             if is_string:
                 TP = PTR_SET_PARAM_STR_FUNCTYPE
             else:
@@ -854,12 +865,16 @@ class WarmRunnerDesc(object):
             return Constant(funcptr, TP)
         #
         for graph, block, i in find_set_param(graphs):
+            
             op = block.operations[i]
-            for jd in self.jitdrivers_sd:
-                if jd.jitdriver is op.args[1].value:
-                    break
+            if op.args[1].value is not None:
+                for jd in self.jitdrivers_sd:
+                    if jd.jitdriver is op.args[1].value:
+                        break
+                else:
+                    assert 0, "jitdriver of set_param() not found"
             else:
-                assert 0, "jitdriver of set_param() not found"
+                jd = None
             funcname = op.args[2].value
             key = jd, funcname
             if key not in closures:

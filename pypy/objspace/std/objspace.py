@@ -83,11 +83,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if self.config.objspace.std.withtproxy:
             transparent.setup(self)
 
-        for type, classes in self.model.typeorder.iteritems():
-            if len(classes) >= 3:
-                # W_Root, AnyXxx and actual object
-                self.gettypefor(type).interplevel_cls = classes[0][0]
-
+        self.setup_isinstance_cache()
 
     def get_builtin_types(self):
         return self.builtin_types
@@ -417,7 +413,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         else:
             if unroll:
                 return make_sure_not_resized(ObjSpace.unpackiterable_unroll(
-                    self, w_obj, expected_length)[:])
+                    self, w_obj, expected_length))
             else:
                 return make_sure_not_resized(ObjSpace.unpackiterable(
                     self, w_obj, expected_length)[:])
@@ -425,7 +421,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
             raise self._wrap_expected_length(expected_length, len(t))
         return make_sure_not_resized(t)
 
-    def fixedview_unroll(self, w_obj, expected_length=-1):
+    def fixedview_unroll(self, w_obj, expected_length):
+        assert expected_length >= 0
         return self.fixedview(w_obj, expected_length, unroll=True)
 
     def listview(self, w_obj, expected_length=-1):
@@ -455,77 +452,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
             raise OperationError(self.w_ValueError,
                                  self.wrap("Expected tuple of length 3"))
         return self.int_w(l_w[0]), self.int_w(l_w[1]), self.int_w(l_w[2])
-
-    def is_(self, w_one, w_two):
-        return self.newbool(self.is_w(w_one, w_two))
-
-    def is_w(self, w_one, w_two):
-        from pypy.rlib.longlong2float import float2longlong
-        w_typeone = self.type(w_one)
-        # cannot use self.is_w here to not get infinite recursion
-        if w_typeone is self.w_int:
-            return (self.type(w_two) is self.w_int and
-                    self.int_w(w_one) == self.int_w(w_two))
-        elif w_typeone is self.w_float:
-            if self.type(w_two) is not self.w_float:
-                return False
-            one = float2longlong(self.float_w(w_one))
-            two = float2longlong(self.float_w(w_two))
-            return one == two
-        elif w_typeone is self.w_long:
-            return (self.type(w_two) is self.w_long and
-                    self.bigint_w(w_one).eq(self.bigint_w(w_two)))
-        elif w_typeone is self.w_complex:
-            if self.type(w_two) is not self.w_complex:
-                return False
-            real1 = self.float_w(self.getattr(w_one, self.wrap("real")))
-            real2 = self.float_w(self.getattr(w_two, self.wrap("real")))
-            imag1 = self.float_w(self.getattr(w_one, self.wrap("imag")))
-            imag2 = self.float_w(self.getattr(w_two, self.wrap("imag")))
-            real1 = float2longlong(real1)
-            real2 = float2longlong(real2)
-            imag1 = float2longlong(imag1)
-            imag2 = float2longlong(imag2)
-            return real1 == real2 and imag1 == imag2
-        elif w_typeone is self.w_str:
-            return (self.type(w_two) is self.w_str and
-                    self.str_w(w_one) is self.str_w(w_two))
-        elif w_typeone is self.w_unicode:
-            return (self.type(w_two) is self.w_unicode and
-                    self.unicode_w(w_one) is self.unicode_w(w_two))
-        return w_one is w_two
-
-    def id(self, w_obj):
-        from pypy.rlib.rbigint import rbigint
-        from pypy.rlib import objectmodel
-        from pypy.rlib.longlong2float import float2longlong
-        w_type = self.type(w_obj)
-        if w_type is self.w_int:
-            tag = 1
-            return self.or_(self.lshift(w_obj, self.wrap(3)), self.wrap(tag))
-        elif w_type is self.w_long:
-            tag = 3
-            return self.or_(self.lshift(w_obj, self.wrap(3)), self.wrap(tag))
-        elif w_type is self.w_float:
-            tag = 5
-            val = float2longlong(self.float_w(w_obj))
-            w_obj = self.newlong_from_rbigint(rbigint.fromrarith_int(val))
-            return self.or_(self.lshift(w_obj, self.wrap(3)), self.wrap(tag))
-        elif w_type is self.w_complex:
-            real = self.float_w(self.getattr(w_obj, self.wrap("real")))
-            imag = self.float_w(self.getattr(w_obj, self.wrap("imag")))
-            tag = 5
-            real_b = rbigint.fromrarith_int(float2longlong(real))
-            imag_b = rbigint.fromrarith_int(float2longlong(imag))
-            val = real_b.lshift(8 * 8).or_(imag_b).lshift(3).or_(rbigint.fromint(3))
-            return self.newlong_from_rbigint(val)
-        elif w_type is self.w_str:
-            res = objectmodel.compute_unique_id(self.str_w(w_obj))
-        elif w_type is self.w_unicode:
-            res = objectmodel.compute_unique_id(self.unicode_w(w_obj))
-        else:
-            res = objectmodel.compute_unique_id(w_obj)
-        return self.wrap(res)
 
     def is_true(self, w_obj):
         # a shortcut for performance
@@ -650,7 +576,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             raise OperationError(self.w_TypeError,
                                  self.wrap("need type object"))
         if is_annotation_constant(w_type):
-            cls = w_type.interplevel_cls
+            cls = self._get_interplevel_cls(w_type)
             if cls is not None:
                 assert w_inst is not None
                 if isinstance(w_inst, cls):
@@ -660,3 +586,66 @@ class StdObjSpace(ObjSpace, DescrOperation):
     @specialize.arg_or_var(2)
     def isinstance_w(space, w_inst, w_type):
         return space._type_isinstance(w_inst, w_type)
+
+    def setup_isinstance_cache(self):
+        # This assumes that all classes in the stdobjspace implementing a
+        # particular app-level type are distinguished by a common base class.
+        # Alternatively, you can turn off the cache on specific classes,
+        # like e.g. proxyobject.  It is just a bit less performant but
+        # should not have any bad effect.
+        from pypy.objspace.std.model import W_Root, W_Object
+        #
+        # Build a dict {class: w_typeobject-or-None}.  The value None is used
+        # on classes that are known to be abstract base classes.
+        class2type = {}
+        class2type[W_Root] = None
+        class2type[W_Object] = None
+        for cls in self.model.typeorder.keys():
+            if getattr(cls, 'typedef', None) is None:
+                continue
+            if getattr(cls, 'ignore_for_isinstance_cache', False):
+                continue
+            w_type = self.gettypefor(cls)
+            w_oldtype = class2type.setdefault(cls, w_type)
+            assert w_oldtype is w_type
+        #
+        # Build the real dict {w_typeobject: class-or-base-class}.  For every
+        # w_typeobject we look for the most precise common base class of all
+        # the registered classes.  If no such class is found, we will find
+        # W_Object or W_Root, and complain.  Then you must either add an
+        # artificial common base class, or disable caching on one of the
+        # two classes with ignore_for_isinstance_cache.
+        def getmro(cls):
+            while True:
+                yield cls
+                if cls is W_Root:
+                    break
+                cls = cls.__bases__[0]
+        self._interplevel_classes = {}
+        for cls, w_type in class2type.items():
+            if w_type is None:
+                continue
+            if w_type not in self._interplevel_classes:
+                self._interplevel_classes[w_type] = cls
+            else:
+                cls1 = self._interplevel_classes[w_type]
+                mro1 = list(getmro(cls1))
+                for base in getmro(cls):
+                    if base in mro1:
+                        break
+                if base in class2type and class2type[base] is not w_type:
+                    if class2type.get(base) is None:
+                        msg = ("cannot find a common interp-level base class"
+                               " between %r and %r" % (cls1, cls))
+                    else:
+                        msg = ("%s is a base class of both %r and %r" % (
+                            class2type[base], cls1, cls))
+                    raise AssertionError("%r: %s" % (w_type, msg))
+                class2type[base] = w_type
+                self._interplevel_classes[w_type] = base
+
+    @specialize.memo()
+    def _get_interplevel_cls(self, w_type):
+        if not hasattr(self, "_interplevel_classes"):
+            return None # before running initialize
+        return self._interplevel_classes.get(w_type, None)

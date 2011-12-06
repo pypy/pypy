@@ -1,5 +1,5 @@
 """Tests for multiple JitDrivers."""
-from pypy.rlib.jit import JitDriver, unroll_safe
+from pypy.rlib.jit import JitDriver, unroll_safe, set_param
 from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin
 from pypy.jit.metainterp.warmspot import get_stats
 
@@ -88,7 +88,7 @@ class MultipleJitDriversTests(object):
         assert res == loop2(4, 40)
         # we expect only one int_sub, corresponding to the single
         # compiled instance of loop1()
-        self.check_loops(int_sub=1)
+        self.check_resops(int_sub=2)
         # the following numbers are not really expectations of the test
         # itself, but just the numbers that we got after looking carefully
         # at the generated machine code
@@ -113,7 +113,7 @@ class MultipleJitDriversTests(object):
             return n
         #
         def loop2(g, r):
-            myjitdriver1.set_param('function_threshold', 0)
+            set_param(None, 'function_threshold', 0)
             while r > 0:
                 myjitdriver2.can_enter_jit(g=g, r=r)
                 myjitdriver2.jit_merge_point(g=g, r=r)
@@ -154,7 +154,7 @@ class MultipleJitDriversTests(object):
         res = self.meta_interp(loop2, [4, 40], repeat=7, inline=True)
         assert res == loop2(4, 40)
         # we expect no int_sub, but a residual call
-        self.check_loops(int_sub=0, call=1)
+        self.check_resops(call=2, int_sub=0)
 
     def test_multiple_jits_trace_too_long(self):
         myjitdriver1 = JitDriver(greens=["n"], reds=["i", "box"])

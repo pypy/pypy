@@ -9,12 +9,14 @@ from pypy.conftest import option
 
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.codewriter import heaptracker, longlong
+from pypy.rlib.objectmodel import compute_identity_hash
 
 # ____________________________________________________________
 
 INT   = 'i'
 REF   = 'r'
 FLOAT = 'f'
+STRUCT = 's'
 HOLE  = '_'
 VOID  = 'v'
 
@@ -104,7 +106,7 @@ class AbstractValue(object):
     getref._annspecialcase_ = 'specialize:arg(1)'
 
     def _get_hash_(self):
-        raise NotImplementedError
+        return compute_identity_hash(self)
 
     def clonebox(self):
         raise NotImplementedError
@@ -132,6 +134,9 @@ class AbstractValue(object):
 
     def _get_str(self):
         raise NotImplementedError
+
+    def same_box(self, other):
+        return self is other
 
 class AbstractDescr(AbstractValue):
     __slots__ = ()
@@ -164,6 +169,11 @@ class AbstractDescr(AbstractValue):
         raise NotImplementedError
 
     def is_array_of_floats(self):
+        """ Implement for array descr
+        """
+        raise NotImplementedError
+
+    def is_array_of_structs(self):
         """ Implement for array descr
         """
         raise NotImplementedError
@@ -241,31 +251,14 @@ class Const(AbstractValue):
     def constbox(self):
         return self
 
+    def same_box(self, other):
+        return self.same_constant(other)
+
     def same_constant(self, other):
         raise NotImplementedError
 
     def __repr__(self):
         return 'Const(%s)' % self._getrepr_()
-
-    def __eq__(self, other):
-        "NOT_RPYTHON"
-        # Remember that you should not compare Consts with '==' in RPython.
-        # Consts have no special __hash__, in order to force different Consts
-        # from being considered as different keys when stored in dicts
-        # (as they always are after translation).  Use a dict_equal_consts()
-        # to get the other behavior (i.e. using this __eq__).
-        if self.__class__ is not other.__class__:
-            return False
-        try:
-            return self.value == other.value
-        except TypeError:
-            if (isinstance(self.value, Symbolic) and
-                isinstance(other.value, Symbolic)):
-                return self.value is other.value
-            raise
-
-    def __ne__(self, other):
-        return not (self == other)
 
 
 class ConstInt(Const):
@@ -688,33 +681,6 @@ def set_future_values(cpu, boxes):
 
 # ____________________________________________________________
 
-def dict_equal_consts():
-    "NOT_RPYTHON"
-    # Returns a dict in which Consts that compare as equal
-    # are identified when used as keys.
-    return r_dict(dc_eq, dc_hash)
-
-def dc_eq(c1, c2):
-    return c1 == c2
-
-def dc_hash(c):
-    "NOT_RPYTHON"
-    # This is called during translation only.  Avoid using identityhash(),
-    # to avoid forcing a hash, at least on lltype objects.
-    if not isinstance(c, Const):
-        return hash(c)
-    if isinstance(c.value, Symbolic):
-        return id(c.value)
-    try:
-        if isinstance(c, ConstPtr):
-            p = lltype.normalizeptr(c.value)
-            if p is not None:
-                return hash(p._obj)
-            else:
-                return 0
-        return c._get_hash_()
-    except lltype.DelayedPointer:
-        return -2      # xxx risk of changing hash...
 
 def make_hashable_int(i):
     from pypy.rpython.lltypesystem.ll2ctypes import NotCtypesAllocatedStructure
@@ -772,6 +738,7 @@ class LoopToken(AbstractDescr):
     failed_states = None
     retraced_count = 0
     terminating = False # see TerminatingLoopToken in compile.py
+    invalidated = False
     outermost_jitdriver_sd = None
     # and more data specified by the backend when the loop is compiled
     number = -1
@@ -962,6 +929,9 @@ class NoStats(object):
     def view(self, **kwds):
         pass
 
+    def clear(self):
+        pass
+
 class Stats(object):
     """For tests."""
 
@@ -974,6 +944,16 @@ class Stats(object):
         self.loops = []
         self.locations = []
         self.aborted_keys = []
+        self.invalidated_token_numbers = set()
+
+    def clear(self):
+        del self.loops[:]
+        del self.locations[:]
+        del self.aborted_keys[:]
+        self.invalidated_token_numbers.clear()
+        self.compiled_count = 0
+        self.enter_count = 0
+        self.aborted_count = 0
 
     def set_history(self, history):
         self.operations = history.operations
@@ -1019,13 +999,13 @@ class Stats(object):
                 "found %d %r, expected %d" % (found, insn, expected_count))
         return insns
 
-    def check_loops(self, expected=None, everywhere=False, **check):
+    def check_resops(self, expected=None, **check):
         insns = {}
         for loop in self.loops:
-            if not everywhere:
-                if getattr(loop, '_ignore_during_counting', False):
-                    continue
             insns = loop.summary(adding_insns=insns)
+        return self._check_insns(insns, expected, check)
+
+    def _check_insns(self, insns, expected, check):
         if expected is not None:
             insns.pop('debug_merge_point', None)
             assert insns == expected
@@ -1036,6 +1016,25 @@ class Stats(object):
                 "found %d %r, expected %d" % (found, insn, expected_count))
         return insns
 
+    def check_simple_loop(self, expected=None, **check):
+        # Usefull in the simplest case when we have only one trace ending with
+        # a jump back to itself and possibly a few bridges ending with finnish.
+        # Only the operations within the loop formed by that single jump will
+        # be counted.
+
+        # XXX hacked version, ignore and remove me when jit-targets is merged.
+        loops = self.get_all_loops()
+        loops = [loop for loop in loops if 'Preamble' not in repr(loop)] #XXX
+        assert len(loops) == 1
+        loop, = loops
+        jumpop = loop.operations[-1]
+        assert jumpop.getopnum() == rop.JUMP
+        insns = {}
+        for op in loop.operations:
+            opname = op.getopname()
+            insns[opname] = insns.get(opname, 0) + 1
+        return self._check_insns(insns, expected, check)
+        
     def check_consistency(self):
         "NOT_RPYTHON"
         for loop in self.loops:
@@ -1052,7 +1051,12 @@ class Stats(object):
             if loop in loops:
                 loops.remove(loop)
             loops.append(loop)
-        display_loops(loops, errmsg, extraloops)
+        highlight_loops = dict.fromkeys(extraloops, 1)
+        for loop in loops:
+            if hasattr(loop, '_looptoken_number') and (
+                    loop._looptoken_number in self.invalidated_token_numbers):
+                highlight_loops.setdefault(loop, 2)
+        display_loops(loops, errmsg, highlight_loops)
 
 # ----------------------------------------------------------------
 

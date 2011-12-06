@@ -23,10 +23,6 @@ class RTypeError(Exception):
     def __init__(self, message):
         self.message = message
 
-class ROverflowError(Exception):
-    def __init__(self, message):
-        self.message = message
-
 includes = ["sys/types.h"]
 if _POSIX:
     includes += ['unistd.h', 'sys/mman.h']
@@ -78,7 +74,7 @@ elif _MS_WINDOWS:
     from pypy.rlib.rwin32 import HANDLE, LPHANDLE
     from pypy.rlib.rwin32 import NULL_HANDLE, INVALID_HANDLE_VALUE
     from pypy.rlib.rwin32 import DWORD, WORD, DWORD_PTR, LPDWORD
-    from pypy.rlib.rwin32 import BOOL, LPVOID, LPCVOID, LPCSTR, SIZE_T
+    from pypy.rlib.rwin32 import BOOL, LPVOID, LPCSTR, SIZE_T
     from pypy.rlib.rwin32 import INT, LONG, PLONG
 
 # export the constants inside and outside. see __init__.py
@@ -174,9 +170,9 @@ elif _MS_WINDOWS:
     DuplicateHandle = winexternal('DuplicateHandle', [HANDLE, HANDLE, HANDLE, LPHANDLE, DWORD, BOOL, DWORD], BOOL)
     CreateFileMapping = winexternal('CreateFileMappingA', [HANDLE, rwin32.LPSECURITY_ATTRIBUTES, DWORD, DWORD, DWORD, LPCSTR], HANDLE)
     MapViewOfFile = winexternal('MapViewOfFile', [HANDLE, DWORD, DWORD, DWORD, SIZE_T], LPCSTR)##!!LPVOID)
-    UnmapViewOfFile = winexternal('UnmapViewOfFile', [LPCVOID], BOOL,
+    UnmapViewOfFile = winexternal('UnmapViewOfFile', [LPCSTR], BOOL,
                                   threadsafe=False)
-    FlushViewOfFile = winexternal('FlushViewOfFile', [LPCVOID, SIZE_T], BOOL)
+    FlushViewOfFile = winexternal('FlushViewOfFile', [LPCSTR, SIZE_T], BOOL)
     SetFilePointer = winexternal('SetFilePointer', [HANDLE, LONG, PLONG, DWORD], DWORD)
     SetEndOfFile = winexternal('SetEndOfFile', [HANDLE], BOOL)
     VirtualAlloc = winexternal('VirtualAlloc',
@@ -292,6 +288,9 @@ class MMap(object):
         elif _POSIX:
             self.closed = True
             if self.fd != -1:
+                # XXX this is buggy - raising in an RPython del is not a good
+                #     idea, we should swallow the exception or ignore the
+                #     underlaying close error code
                 os.close(self.fd)
                 self.fd = -1
             if self.size > 0:
@@ -594,8 +593,6 @@ class MMap(object):
 def _check_map_size(size):
     if size < 0:
         raise RTypeError("memory mapped size must be positive")
-    if rffi.cast(size_t, size) != size:
-        raise ROverflowError("memory mapped size is too large (limited by C int)")
 
 if _POSIX:
     def mmap(fileno, length, flags=MAP_SHARED,

@@ -14,6 +14,9 @@ from pypy.interpreter.argument import Signature
 
 UNROLL_CUTOFF = 5
 
+class W_AbstractListObject(W_Object):
+    __slots__ = ()
+
 def make_range_list(space, start, step, length):
     if length <= 0:
         strategy = space.fromcache(EmptyListStrategy)
@@ -47,6 +50,13 @@ def get_strategy_from_list_objects(space, list_w):
     else:
         return space.fromcache(StringListStrategy)
 
+    # check for floats
+    for w_obj in list_w:
+        if not is_W_FloatObject(w_obj):
+            break
+    else:
+        return space.fromcache(FloatListStrategy)
+
     return space.fromcache(ObjectListStrategy)
 
 def is_W_IntObject(w_object):
@@ -57,9 +67,11 @@ def is_W_StringObject(w_object):
     from pypy.objspace.std.stringobject import W_StringObject
     return type(w_object) is W_StringObject
 
+def is_W_FloatObject(w_object):
+    from pypy.objspace.std.floatobject import W_FloatObject
+    return type(w_object) is W_FloatObject
 
-
-class W_ListObject(W_Object):
+class W_ListObject(W_AbstractListObject):
     from pypy.objspace.std.listtype import list_typedef as typedef
 
     def __init__(w_self, space, wrappeditems):
@@ -189,6 +201,10 @@ class W_ListObject(W_Object):
         May raise IndexError."""
         return self.strategy.pop(self, index)
 
+    def pop_end(self):
+        """ Pop the last element from the list."""
+        return self.strategy.pop_end(self)
+
     def setitem(self, index, w_item):
         """Inserts a wrapped item at the given (unwrapped) index.
         May raise IndexError."""
@@ -282,6 +298,9 @@ class ListStrategy(object):
     def pop(self, w_list, index):
         raise NotImplementedError
 
+    def pop_end(self, w_list):
+        return self.pop(w_list, self.length(w_list) - 1)
+
     def setitem(self, w_list, index, w_item):
         raise NotImplementedError
 
@@ -306,6 +325,8 @@ class EmptyListStrategy(ListStrategy):
     is created and the strategy and storage of the W_List are changed depending
     to the added item.
     W_Lists do not switch back to EmptyListStrategy when becoming empty again."""
+
+    _applevel_repr = "empty"
 
     def __init__(self, space):
         ListStrategy.__init__(self, space)
@@ -354,6 +375,8 @@ class EmptyListStrategy(ListStrategy):
             strategy = self.space.fromcache(IntegerListStrategy)
         elif is_W_StringObject(w_item):
             strategy = self.space.fromcache(StringListStrategy)
+        elif is_W_FloatObject(w_item):
+            strategy = self.space.fromcache(FloatListStrategy)
         else:
             strategy = self.space.fromcache(ObjectListStrategy)
 
@@ -372,7 +395,7 @@ class EmptyListStrategy(ListStrategy):
         pass
 
     def pop(self, w_list, index):
-        # will not be called becuase IndexError was already raised in
+        # will not be called because IndexError was already raised in
         # list_pop__List_ANY
         raise IndexError
 
@@ -404,6 +427,8 @@ class RangeListStrategy(ListStrategy):
     and elements are calculated based on these values.
     On any operation destroying the range (inserting, appending non-ints)
     the strategy is switched to IntegerListStrategy."""
+
+    _applevel_repr = "range"
 
     def switch_to_integer_strategy(self, w_list):
         items = self._getitems_range(w_list, False)
@@ -527,21 +552,25 @@ class RangeListStrategy(ListStrategy):
         self.switch_to_integer_strategy(w_list)
         w_list.deleteslice(start, step, slicelength)
 
+    def pop_end(self, w_list):
+        start, step, length = self.unerase(w_list.lstorage)
+        w_result = self.wrap(start + (length - 1) * step)
+        new = self.erase((start, step, length - 1))
+        w_list.lstorage = new
+        return w_result
+
     def pop(self, w_list, index):
         l = self.unerase(w_list.lstorage)
         start = l[0]
         step = l[1]
         length = l[2]
         if index == 0:
-            r = self.getitem(w_list, index)
+            w_result = self.wrap(start)
             new = self.erase((start + step, step, length - 1))
             w_list.lstorage = new
-            return r
+            return w_result
         elif index == length - 1:
-            r = self.getitem(w_list, index)
-            new = self.erase((start, step, length - 1))
-            w_list.lstorage = new
-            return r
+            return self.pop_end(w_list)
         else:
             self.switch_to_integer_strategy(w_list)
             return w_list.pop(index)
@@ -812,6 +841,10 @@ class AbstractUnwrappedStrategy(object):
             assert start >= 0 # annotator hint
             del items[start:]
 
+    def pop_end(self, w_list):
+        l = self.unerase(w_list.lstorage)
+        return self.wrap(l.pop())
+
     def pop(self, w_list, index):
         l = self.unerase(w_list.lstorage)
         # not sure if RPython raises IndexError on pop
@@ -835,6 +868,7 @@ class AbstractUnwrappedStrategy(object):
 
 class ObjectListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     _none_value = None
+    _applevel_repr = "object"
 
     def unwrap(self, w_obj):
         return w_obj
@@ -863,6 +897,7 @@ class ObjectListStrategy(AbstractUnwrappedStrategy, ListStrategy):
 
 class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     _none_value = 0
+    _applevel_repr = "int"
 
     def wrap(self, intval):
         return self.space.wrap(intval)
@@ -887,8 +922,36 @@ class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
         if reverse:
             l.reverse()
 
+class FloatListStrategy(AbstractUnwrappedStrategy, ListStrategy):
+    _none_value = 0.0
+    _applevel_repr = "float"
+
+    def wrap(self, floatval):
+        return self.space.wrap(floatval)
+
+    def unwrap(self, w_float):
+        return self.space.float_w(w_float)
+
+    erase, unerase = rerased.new_erasing_pair("float")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def is_correct_type(self, w_obj):
+        return is_W_FloatObject(w_obj)
+
+    def list_is_correct_type(self, w_list):
+        return w_list.strategy is self.space.fromcache(FloatListStrategy)
+
+    def sort(self, w_list, reverse):
+        l = self.unerase(w_list.lstorage)
+        sorter = FloatSort(l, len(l))
+        sorter.sort()
+        if reverse:
+            l.reverse()
+
 class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     _none_value = None
+    _applevel_repr = "str"
 
     def wrap(self, stringval):
         return self.space.wrap(stringval)
@@ -916,6 +979,7 @@ class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     def getitems_str(self, w_list):
         return self.unerase(w_list.lstorage)
 
+
 # _______________________________________________________
 
 init_signature = Signature(['sequence'], None, None)
@@ -940,7 +1004,12 @@ def init__List(space, w_list, __args__):
 
 def _init_from_iterable(space, w_list, w_iterable):
     # in its own function to make the JIT look into init__List
-    # XXX this would need a JIT driver somehow?
+    # xxx special hack for speed
+    from pypy.interpreter.generator import GeneratorIterator
+    if isinstance(w_iterable, GeneratorIterator):
+        w_iterable.unpack_into_w(w_list)
+        return
+    # /xxx
     w_iterator = space.iter(w_iterable)
     while True:
         try:
@@ -1191,12 +1260,15 @@ def list_extend__List_ANY(space, w_list, w_any):
     w_list.extend(w_other)
     return space.w_None
 
-# note that the default value will come back wrapped!!!
-def list_pop__List_ANY(space, w_list, w_idx=-1):
+# default of w_idx is space.w_None (see listtype.py)
+def list_pop__List_ANY(space, w_list, w_idx):
     length = w_list.length()
     if length == 0:
         raise OperationError(space.w_IndexError,
                              space.wrap("pop from empty list"))
+    # clearly differentiate between list.pop() and list.pop(index)
+    if space.is_w(w_idx, space.w_None):
+        return w_list.pop_end() # cannot raise because list is not empty
     if space.isinstance_w(w_idx, space.w_float):
         raise OperationError(space.w_TypeError,
             space.wrap("integer argument expected, got float")
@@ -1225,8 +1297,8 @@ def list_remove__List_ANY(space, w_list, w_any):
 def list_index__List_ANY_ANY_ANY(space, w_list, w_any, w_start, w_stop):
     # needs to be safe against eq_w() mutating the w_list behind our back
     size = w_list.length()
-    i = slicetype.adapt_bound(space, size, w_start)
-    stop = slicetype.adapt_bound(space, size, w_stop)
+    i, stop = slicetype.unwrap_start_stop(
+            space, size, w_start, w_stop, True)
     while i < stop and i < w_list.length():
         if space.eq_w(w_list.getitem(i), w_any):
             return space.wrap(i)
@@ -1256,6 +1328,7 @@ def list_reverse__List(space, w_list):
 
 TimSort = make_timsort_class()
 IntBaseTimSort = make_timsort_class()
+FloatBaseTimSort = make_timsort_class()
 StringBaseTimSort = make_timsort_class()
 
 class KeyContainer(baseobjspace.W_Root):
@@ -1273,6 +1346,10 @@ class SimpleSort(TimSort):
         return space.is_true(space.lt(a, b))
 
 class IntSort(IntBaseTimSort):
+    def lt(self, a, b):
+        return a < b
+
+class FloatSort(FloatBaseTimSort):
     def lt(self, a, b):
         return a < b
 

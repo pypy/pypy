@@ -10,10 +10,11 @@ from pypy.jit.metainterp.test.support import LLJitMixin, OOJitMixin, noConst
 from pypy.jit.metainterp.typesystem import LLTypeHelper, OOTypeHelper
 from pypy.jit.metainterp.warmspot import get_stats
 from pypy.jit.metainterp.warmstate import set_future_value
+from pypy.rlib import rerased
 from pypy.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
     loop_invariant, elidable, promote, jit_debug, assert_green,
     AssertGreenFailed, unroll_safe, current_trace_length, look_inside_iff,
-    isconstant, isvirtual)
+    isconstant, isvirtual, promote_string, set_param, record_known_class)
 from pypy.rlib.rarithmetic import ovfcheck
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.ootypesystem import ootype
@@ -78,9 +79,8 @@ class BasicTests:
         res = self.meta_interp(f, [6, 7])
         assert res == 42
         self.check_loop_count(1)
-        self.check_loops({'guard_true': 1,
-                          'int_add': 1, 'int_sub': 1, 'int_gt': 1,
-                          'jump': 1})
+        self.check_resops({'jump': 2, 'int_gt': 2, 'int_add': 2, 'guard_true': 2, 'int_sub': 2})
+
         if self.basic:
             found = 0
             for op in get_stats().loops[0]._all_operations():
@@ -107,7 +107,7 @@ class BasicTests:
         res = self.meta_interp(f, [6, 7])
         assert res == 1323
         self.check_loop_count(1)
-        self.check_loops(int_mul=1)
+        self.check_simple_loop(int_mul=1)
 
     def test_loop_variant_mul_ovf(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
@@ -124,7 +124,7 @@ class BasicTests:
         res = self.meta_interp(f, [6, 7])
         assert res == 1323
         self.check_loop_count(1)
-        self.check_loops(int_mul_ovf=1)
+        self.check_simple_loop(int_mul_ovf=1)
 
     def test_loop_invariant_mul1(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
@@ -139,9 +139,10 @@ class BasicTests:
         res = self.meta_interp(f, [6, 7])
         assert res == 252
         self.check_loop_count(1)
-        self.check_loops({'guard_true': 1,
-                          'int_add': 1, 'int_sub': 1, 'int_gt': 1,
-                          'jump': 1})
+        self.check_simple_loop(int_mul=0)
+        self.check_resops({'jump': 2, 'int_gt': 2, 'int_add': 2,
+                           'int_mul': 1, 'guard_true': 2, 'int_sub': 2})
+
 
     def test_loop_invariant_mul_ovf(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
@@ -157,10 +158,11 @@ class BasicTests:
         res = self.meta_interp(f, [6, 7])
         assert res == 308
         self.check_loop_count(1)
-        self.check_loops({'guard_true': 1,
-                          'int_add': 2, 'int_sub': 1, 'int_gt': 1,
-                          'int_lshift': 1,
-                          'jump': 1})
+        self.check_simple_loop(int_mul_ovf=0)
+        self.check_resops({'jump': 2, 'int_lshift': 2, 'int_gt': 2,
+                           'int_mul_ovf': 1, 'int_add': 4,
+                           'guard_true': 2, 'guard_no_overflow': 1,
+                           'int_sub': 2})
 
     def test_loop_invariant_mul_bridge1(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
@@ -193,11 +195,9 @@ class BasicTests:
         res = self.meta_interp(f, [6, 32])
         assert res == 1167
         self.check_loop_count(3)
-        self.check_loops({'int_add': 3, 'int_lt': 2,
-                          'int_sub': 2, 'guard_false': 1,
-                          'jump': 2,
-                          'int_gt': 1, 'guard_true': 2})
-
+        self.check_resops({'int_lt': 3, 'int_gt': 2, 'int_add': 5,
+                           'guard_true': 3, 'int_sub': 4, 'jump': 4,
+                           'int_mul': 2, 'guard_false': 2})
 
     def test_loop_invariant_mul_bridge_maintaining2(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
@@ -215,10 +215,9 @@ class BasicTests:
         res = self.meta_interp(f, [6, 32])
         assert res == 1692
         self.check_loop_count(3)
-        self.check_loops({'int_add': 3, 'int_lt': 2,
-                          'int_sub': 2, 'guard_false': 1,
-                          'jump': 2,
-                          'int_gt': 1, 'guard_true': 2})
+        self.check_resops({'int_lt': 3, 'int_gt': 2, 'int_add': 5,
+                           'guard_true': 3, 'int_sub': 4, 'jump': 4,
+                           'int_mul': 2, 'guard_false': 2})
 
     def test_loop_invariant_mul_bridge_maintaining3(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x', 'm'])
@@ -236,10 +235,9 @@ class BasicTests:
         res = self.meta_interp(f, [6, 32, 16])
         assert res == 1692
         self.check_loop_count(3)
-        self.check_loops({'int_add': 2, 'int_lt': 1,
-                          'int_sub': 2, 'guard_false': 1,
-                          'jump': 2, 'int_mul': 1,
-                          'int_gt': 2, 'guard_true': 2})
+        self.check_resops({'int_lt': 2, 'int_gt': 4, 'guard_false': 2,
+                           'guard_true': 4, 'int_sub': 4, 'jump': 4,
+                           'int_mul': 3, 'int_add': 4})
 
     def test_loop_invariant_intbox(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'res', 'x'])
@@ -260,9 +258,9 @@ class BasicTests:
         res = self.meta_interp(f, [6, 7])
         assert res == 252
         self.check_loop_count(1)
-        self.check_loops({'guard_true': 1,
-                          'int_add': 1, 'int_sub': 1, 'int_gt': 1,
-                          'jump': 1})
+        self.check_resops({'jump': 2, 'int_gt': 2, 'int_add': 2,
+                           'getfield_gc_pure': 1, 'int_mul': 1,
+                           'guard_true': 2, 'int_sub': 2})
 
     def test_loops_are_transient(self):
         import gc, weakref
@@ -380,7 +378,7 @@ class BasicTests:
         assert res == 0
         # CALL_PURE is recorded in the history, but turned into a CALL
         # by optimizeopt.py
-        self.check_loops(int_sub=0, call=1, call_pure=0)
+        self.check_resops(call_pure=0, call=2, int_sub=0)
 
     def test_constfold_call_elidable(self):
         myjitdriver = JitDriver(greens = ['m'], reds = ['n'])
@@ -396,7 +394,7 @@ class BasicTests:
         res = self.meta_interp(f, [21, 5])
         assert res == -1
         # the CALL_PURE is constant-folded away by optimizeopt.py
-        self.check_loops(int_sub=1, call=0, call_pure=0)
+        self.check_resops(call_pure=0, call=0, int_sub=2)
 
     def test_constfold_call_elidable_2(self):
         myjitdriver = JitDriver(greens = ['m'], reds = ['n'])
@@ -416,7 +414,7 @@ class BasicTests:
         res = self.meta_interp(f, [21, 5])
         assert res == -1
         # the CALL_PURE is constant-folded away by optimizeopt.py
-        self.check_loops(int_sub=1, call=0, call_pure=0)
+        self.check_resops(call_pure=0, call=0, int_sub=2)
 
     def test_elidable_function_returning_object(self):
         myjitdriver = JitDriver(greens = ['m'], reds = ['n'])
@@ -441,7 +439,7 @@ class BasicTests:
         res = self.meta_interp(f, [21, 5])
         assert res == -1
         # the CALL_PURE is constant-folded away by optimizeopt.py
-        self.check_loops(int_sub=1, call=0, call_pure=0, getfield_gc=0)
+        self.check_resops(call_pure=0, call=0, getfield_gc=1, int_sub=2)
 
     def test_elidable_raising(self):
         myjitdriver = JitDriver(greens = ['m'], reds = ['n'])
@@ -462,12 +460,12 @@ class BasicTests:
         res = self.meta_interp(f, [22, 6])
         assert res == -3
         # the CALL_PURE is constant-folded away during tracing
-        self.check_loops(int_sub=1, call=0, call_pure=0)
+        self.check_resops(call_pure=0, call=0, int_sub=2)
         #
         res = self.meta_interp(f, [22, -5])
         assert res == 0
         # raises: becomes CALL and is not constant-folded away
-        self.check_loops(int_sub=1, call=1, call_pure=0)
+        self.check_resops(call_pure=0, call=2, int_sub=2)
 
     def test_elidable_raising_2(self):
         myjitdriver = JitDriver(greens = ['m'], reds = ['n'])
@@ -488,12 +486,12 @@ class BasicTests:
         res = self.meta_interp(f, [22, 6])
         assert res == -3
         # the CALL_PURE is constant-folded away by optimizeopt.py
-        self.check_loops(int_sub=1, call=0, call_pure=0)
+        self.check_resops(call_pure=0, call=0, int_sub=2)
         #
         res = self.meta_interp(f, [22, -5])
         assert res == 0
         # raises: becomes CALL and is not constant-folded away
-        self.check_loops(int_sub=1, call=1, call_pure=0)
+        self.check_resops(call_pure=0, call=2, int_sub=2)
 
     def test_constant_across_mp(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])
@@ -532,7 +530,7 @@ class BasicTests:
         policy = StopAtXPolicy(externfn)
         res = self.meta_interp(f, [31], policy=policy)
         assert res == 42
-        self.check_loops(int_mul=1, int_mod=0)
+        self.check_resops(int_mul=2, int_mod=0)
 
     def test_we_are_jitted(self):
         myjitdriver = JitDriver(greens = [], reds = ['y'])
@@ -834,7 +832,7 @@ class BasicTests:
             return n
         res = self.meta_interp(f, [20, 1, 2])
         assert res == 0
-        self.check_loops(call=0)
+        self.check_resops(call=0)
 
     def test_abs(self):
         myjitdriver = JitDriver(greens = [], reds = ['i', 't'])
@@ -864,9 +862,8 @@ class BasicTests:
         res = self.meta_interp(f, [6, 7])
         assert res == 42.0
         self.check_loop_count(1)
-        self.check_loops({'guard_true': 1,
-                          'float_add': 1, 'float_sub': 1, 'float_gt': 1,
-                          'jump': 1})
+        self.check_resops({'jump': 2, 'float_gt': 2, 'float_add': 2,
+                           'float_sub': 2, 'guard_true': 2})
 
     def test_print(self):
         myjitdriver = JitDriver(greens = [], reds = ['n'])
@@ -1037,7 +1034,7 @@ class BasicTests:
             return x
         res = self.meta_interp(f, [20], enable_opts='')
         assert res == f(20)
-        self.check_loops(call=0)
+        self.check_resops(call=0)
 
     def test_zerodivisionerror(self):
         # test the case of exception-raising operation that is not delegated
@@ -1255,15 +1252,18 @@ class BasicTests:
                 n -= 1
                 x += n
             return x
-        def f(n, threshold):
-            myjitdriver.set_param('threshold', threshold)
+        def f(n, threshold, arg):
+            if arg:
+                set_param(myjitdriver, 'threshold', threshold)
+            else:
+                set_param(None, 'threshold', threshold)
             return g(n)
 
-        res = self.meta_interp(f, [10, 3])
+        res = self.meta_interp(f, [10, 3, 1])
         assert res == 9 + 8 + 7 + 6 + 5 + 4 + 3 + 2 + 1 + 0
         self.check_tree_loop_count(2)
 
-        res = self.meta_interp(f, [10, 13])
+        res = self.meta_interp(f, [10, 13, 0])
         assert res == 9 + 8 + 7 + 6 + 5 + 4 + 3 + 2 + 1 + 0
         self.check_tree_loop_count(0)
 
@@ -1347,7 +1347,7 @@ class BasicTests:
         res = self.meta_interp(f, [6, 7])
         assert res == 42
         self.check_loop_count(1)
-        self.check_loops(call=1)
+        self.check_resops(call=2)
 
     def test_merge_guardclass_guardvalue(self):
         from pypy.rlib.objectmodel import instantiate
@@ -1374,8 +1374,7 @@ class BasicTests:
             return x
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
-        self.check_loops(guard_class=0, guard_value=3)
-        self.check_loops(guard_class=0, guard_value=6, everywhere=True)
+        self.check_resops(guard_class=0, guard_value=6)
 
     def test_merge_guardnonnull_guardclass(self):
         from pypy.rlib.objectmodel import instantiate
@@ -1403,11 +1402,9 @@ class BasicTests:
             return x
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
-        self.check_loops(guard_class=0, guard_nonnull=2,
-                         guard_nonnull_class=2, guard_isnull=1)
-        self.check_loops(guard_class=0, guard_nonnull=4,
-                         guard_nonnull_class=4, guard_isnull=2,
-                         everywhere=True)
+        self.check_resops(guard_class=0, guard_nonnull=4,
+                          guard_nonnull_class=4, guard_isnull=2)
+        
 
     def test_merge_guardnonnull_guardvalue(self):
         from pypy.rlib.objectmodel import instantiate
@@ -1434,11 +1431,9 @@ class BasicTests:
             return x
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
-        self.check_loops(guard_class=0, guard_nonnull=2, guard_value=2,
-                         guard_nonnull_class=0, guard_isnull=1)
-        self.check_loops(guard_class=0, guard_nonnull=4, guard_value=4,
-                         guard_nonnull_class=0, guard_isnull=2,
-                         everywhere=True)
+        self.check_resops(guard_value=4, guard_class=0, guard_nonnull=4,
+                          guard_nonnull_class=0, guard_isnull=2)
+        
 
     def test_merge_guardnonnull_guardvalue_2(self):
         from pypy.rlib.objectmodel import instantiate
@@ -1465,11 +1460,9 @@ class BasicTests:
             return x
         res = self.meta_interp(f, [299], listops=True)
         assert res == f(299)
-        self.check_loops(guard_class=0, guard_nonnull=2, guard_value=2,
-                         guard_nonnull_class=0, guard_isnull=1)
-        self.check_loops(guard_class=0, guard_nonnull=4, guard_value=4,
-                         guard_nonnull_class=0, guard_isnull=2,
-                         everywhere=True)
+        self.check_resops(guard_value=4, guard_class=0, guard_nonnull=4,
+                          guard_nonnull_class=0, guard_isnull=2)
+        
 
     def test_merge_guardnonnull_guardclass_guardvalue(self):
         from pypy.rlib.objectmodel import instantiate
@@ -1499,11 +1492,9 @@ class BasicTests:
             return x
         res = self.meta_interp(f, [399], listops=True)
         assert res == f(399)
-        self.check_loops(guard_class=0, guard_nonnull=3, guard_value=3,
-                         guard_nonnull_class=0, guard_isnull=1)
-        self.check_loops(guard_class=0, guard_nonnull=6, guard_value=6,
-                         guard_nonnull_class=0, guard_isnull=2,
-                         everywhere=True)
+        self.check_resops(guard_class=0, guard_nonnull=6, guard_value=6,
+                          guard_nonnull_class=0, guard_isnull=2)
+
 
     def test_residual_call_doesnt_lose_info(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'l'])
@@ -1529,8 +1520,7 @@ class BasicTests:
                 y.v = g(y.v) - y.v/y.v + lc/l[0] - 1
             return y.v
         res = self.meta_interp(f, [20], listops=True)
-        self.check_loops(getfield_gc=0, getarrayitem_gc=0)
-        self.check_loops(getfield_gc=1, getarrayitem_gc=0, everywhere=True)
+        self.check_resops(getarrayitem_gc=0, getfield_gc=1)
 
     def test_guard_isnull_nonnull(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'res'])
@@ -1558,7 +1548,7 @@ class BasicTests:
             return res
         res = self.meta_interp(f, [21])
         assert res == 42
-        self.check_loops(guard_nonnull=1, guard_isnull=1)
+        self.check_resops(guard_nonnull=2, guard_isnull=2)
 
     def test_loop_invariant1(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'res'])
@@ -1585,8 +1575,7 @@ class BasicTests:
             return res
         res = self.meta_interp(g, [21])
         assert res == 3 * 21
-        self.check_loops(call=0)
-        self.check_loops(call=1, everywhere=True)
+        self.check_resops(call=1)
 
     def test_bug_optimizeopt_mutates_ops(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'res', 'const', 'a'])
@@ -1706,7 +1695,7 @@ class BasicTests:
             return x
         res = self.meta_interp(f, [8])
         assert res == 0
-        self.check_loops(jit_debug=2)
+        self.check_resops(jit_debug=4)
 
     def test_assert_green(self):
         def f(x, promote_flag):
@@ -1748,9 +1737,10 @@ class BasicTests:
         res = self.meta_interp(g, [6, 7])
         assert res == 6*8 + 6**8
         self.check_loop_count(5)
-        self.check_loops({'guard_true': 2,
-                          'int_add': 1, 'int_mul': 1, 'int_sub': 2,
-                          'int_gt': 2, 'jump': 2})
+        self.check_resops({'guard_class': 2, 'int_gt': 4,
+                           'getfield_gc': 4, 'guard_true': 4,
+                           'int_sub': 4, 'jump': 4, 'int_mul': 2,
+                           'int_add': 2})
 
     def test_multiple_specialied_versions_array(self):
         myjitdriver = JitDriver(greens = [], reds = ['idx', 'y', 'x', 'res',
@@ -1791,7 +1781,7 @@ class BasicTests:
         res = self.meta_interp(g, [6, 14])
         assert res == g(6, 14)
         self.check_loop_count(9)
-        self.check_loops(getarrayitem_gc=8, everywhere=True)
+        self.check_resops(getarrayitem_gc=8)
 
     def test_multiple_specialied_versions_bridge(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'x', 'z', 'res'])
@@ -1979,8 +1969,8 @@ class BasicTests:
         res = self.meta_interp(g, [3, 23])
         assert res == 7068153
         self.check_loop_count(7)
-        self.check_loops(guard_true=4, guard_class=0, int_add=2, int_mul=2,
-                         guard_false=2)
+        self.check_resops(guard_true=6, guard_class=2, int_mul=3,
+                          int_add=3, guard_false=3)
 
     def test_dont_trace_every_iteration(self):
         myjitdriver = JitDriver(greens = [], reds = ['a', 'b', 'i', 'sa'])
@@ -2224,27 +2214,27 @@ class BasicTests:
             return sa
 
         assert self.meta_interp(f1, [5, 5]) == 50
-        self.check_loops(int_rshift=0, everywhere=True)
+        self.check_resops(int_rshift=0)
 
         for f in (f1, f2):
             assert self.meta_interp(f, [5, 6]) == 50
-            self.check_loops(int_rshift=3, everywhere=True)
+            self.check_resops(int_rshift=3)
 
             assert self.meta_interp(f, [10, 5]) == 100
-            self.check_loops(int_rshift=3, everywhere=True)
+            self.check_resops(int_rshift=3)
 
             assert self.meta_interp(f, [10, 6]) == 100
-            self.check_loops(int_rshift=3, everywhere=True)
+            self.check_resops(int_rshift=3)
 
             assert self.meta_interp(f, [5, 31]) == 0
-            self.check_loops(int_rshift=3, everywhere=True)
+            self.check_resops(int_rshift=3)
 
             bigval = 1
             while (bigval << 3).__class__ is int:
                 bigval = bigval << 1
 
             assert self.meta_interp(f, [bigval, 5]) == 0
-            self.check_loops(int_rshift=3, everywhere=True)
+            self.check_resops(int_rshift=3)
 
     def test_overflowing_shift_neg(self):
         myjitdriver = JitDriver(greens = [], reds = ['a', 'b', 'n', 'sa'])
@@ -2269,27 +2259,27 @@ class BasicTests:
             return sa
 
         assert self.meta_interp(f1, [-5, 5]) == -50
-        self.check_loops(int_rshift=0, everywhere=True)
+        self.check_resops(int_rshift=0)
 
         for f in (f1, f2):
             assert self.meta_interp(f, [-5, 6]) == -50
-            self.check_loops(int_rshift=3, everywhere=True)
+            self.check_resops(int_rshift=3)
 
             assert self.meta_interp(f, [-10, 5]) == -100
-            self.check_loops(int_rshift=3, everywhere=True)
+            self.check_resops(int_rshift=3)
 
             assert self.meta_interp(f, [-10, 6]) == -100
-            self.check_loops(int_rshift=3, everywhere=True)
+            self.check_resops(int_rshift=3)
 
             assert self.meta_interp(f, [-5, 31]) == 0
-            self.check_loops(int_rshift=3, everywhere=True)
+            self.check_resops(int_rshift=3)
 
             bigval = 1
             while (bigval << 3).__class__ is int:
                 bigval = bigval << 1
 
             assert self.meta_interp(f, [bigval, 5]) == 0
-            self.check_loops(int_rshift=3, everywhere=True)
+            self.check_resops(int_rshift=3)
 
     def test_pure_op_not_to_be_propagated(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'sa'])
@@ -2327,8 +2317,8 @@ class BasicTests:
                                 get_printable_location=get_printable_location)
         bytecode = "0j10jc20a3"
         def f():
-            myjitdriver.set_param('threshold', 7)
-            myjitdriver.set_param('trace_eagerness', 1)
+            set_param(myjitdriver, 'threshold', 7)
+            set_param(myjitdriver, 'trace_eagerness', 1)
             i = j = c = a = 1
             while True:
                 myjitdriver.jit_merge_point(i=i, j=j, c=c, a=a)
@@ -2429,8 +2419,7 @@ class BasicTests:
                 if counter > 10:
                     return 7
         assert self.meta_interp(build, []) == 7
-        self.check_loops(getfield_gc_pure=0)
-        self.check_loops(getfield_gc_pure=2, everywhere=True)
+        self.check_resops(getfield_gc_pure=2)
 
     def test_args_becomming_equal(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a', 'b'])
@@ -2563,7 +2552,7 @@ class BasicTests:
                 i += 1
             return sa
         assert self.meta_interp(f, [20]) == f(20)
-        self.check_loops(int_gt=1, int_lt=2, int_ge=0, int_le=0)
+        self.check_resops(int_lt=4, int_le=0, int_ge=0, int_gt=2)
 
     def test_intbounds_not_generalized1(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa'])
@@ -2580,7 +2569,8 @@ class BasicTests:
                 i += 1
             return sa
         assert self.meta_interp(f, [20]) == f(20)
-        self.check_loops(int_gt=1, int_lt=3, int_ge=2, int_le=1)
+        self.check_resops(int_lt=6, int_le=2, int_ge=4, int_gt=3)
+        
 
     def test_intbounds_not_generalized2(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'node'])
@@ -2600,13 +2590,13 @@ class BasicTests:
                 i += 1
             return sa
         assert self.meta_interp(f, [20]) == f(20)
-        self.check_loops(int_gt=1, int_lt=2, int_ge=1, int_le=1)
+        self.check_resops(int_lt=4, int_le=3, int_ge=3, int_gt=2)
 
     def test_retrace_limit1(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a'])
 
         def f(n, limit):
-            myjitdriver.set_param('retrace_limit', limit)
+            set_param(myjitdriver, 'retrace_limit', limit)
             sa = i = a = 0
             while i < n:
                 myjitdriver.jit_merge_point(n=n, i=i, sa=sa, a=a)
@@ -2624,8 +2614,8 @@ class BasicTests:
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a'])
 
         def f(n, limit):
-            myjitdriver.set_param('retrace_limit', 3)
-            myjitdriver.set_param('max_retrace_guards', limit)
+            set_param(myjitdriver, 'retrace_limit', 3)
+            set_param(myjitdriver, 'max_retrace_guards', limit)
             sa = i = a = 0
             while i < n:
                 myjitdriver.jit_merge_point(n=n, i=i, sa=sa, a=a)
@@ -2644,7 +2634,7 @@ class BasicTests:
         myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'sa', 'a',
                                                      'node'])
         def f(n, limit):
-            myjitdriver.set_param('retrace_limit', limit)
+            set_param(myjitdriver, 'retrace_limit', limit)
             sa = i = a = 0
             node = [1, 2, 3]
             node[1] = n
@@ -2667,10 +2657,10 @@ class BasicTests:
         myjitdriver = JitDriver(greens = ['pc'], reds = ['n', 'i', 'sa'])
         bytecode = "0+sI0+SI"
         def f(n):
-            myjitdriver.set_param('threshold', 3)
-            myjitdriver.set_param('trace_eagerness', 1)
-            myjitdriver.set_param('retrace_limit', 5)
-            myjitdriver.set_param('function_threshold', -1)
+            set_param(None, 'threshold', 3)
+            set_param(None, 'trace_eagerness', 1)
+            set_param(None, 'retrace_limit', 5)
+            set_param(None, 'function_threshold', -1)
             pc = sa = i = 0
             while pc < len(bytecode):
                 myjitdriver.jit_merge_point(pc=pc, n=n, sa=sa, i=i)
@@ -2727,9 +2717,9 @@ class BasicTests:
         myjitdriver = JitDriver(greens = ['pc'], reds = ['n', 'a', 'i', 'j', 'sa'])
         bytecode = "ij+Jj+JI"
         def f(n, a):
-            myjitdriver.set_param('threshold', 5)
-            myjitdriver.set_param('trace_eagerness', 1)
-            myjitdriver.set_param('retrace_limit', 2)
+            set_param(None, 'threshold', 5)
+            set_param(None, 'trace_eagerness', 1)
+            set_param(None, 'retrace_limit', 2)
             pc = sa = i = j = 0
             while pc < len(bytecode):
                 myjitdriver.jit_merge_point(pc=pc, n=n, sa=sa, i=i, j=j, a=a)
@@ -2792,8 +2782,8 @@ class BasicTests:
                 return B(self.val + 1)
         myjitdriver = JitDriver(greens = [], reds = ['sa', 'a'])
         def f():
-            myjitdriver.set_param('threshold', 3)
-            myjitdriver.set_param('trace_eagerness', 2)
+            set_param(None, 'threshold', 3)
+            set_param(None, 'trace_eagerness', 2)
             a = A(0)
             sa = 0
             while a.val < 8:
@@ -2823,8 +2813,8 @@ class BasicTests:
                 return B(self.val + 1)
         myjitdriver = JitDriver(greens = [], reds = ['sa', 'b', 'a'])
         def f(b):
-            myjitdriver.set_param('threshold', 6)
-            myjitdriver.set_param('trace_eagerness', 4)
+            set_param(None, 'threshold', 6)
+            set_param(None, 'trace_eagerness', 4)
             a = A(0)
             sa = 0
             while a.val < 15:
@@ -2854,17 +2844,17 @@ class BasicTests:
             return a[0].intvalue
         res = self.meta_interp(f, [100])
         assert res == -2
-        #self.check_loops(getarrayitem_gc=0, setarrayitem_gc=0) -- xxx?
+        self.check_resops(setarrayitem_gc=2, getarrayitem_gc=1)
 
     def test_retrace_ending_up_retracing_another_loop(self):
 
         myjitdriver = JitDriver(greens = ['pc'], reds = ['n', 'i', 'sa'])
         bytecode = "0+sI0+SI"
         def f(n):
-            myjitdriver.set_param('threshold', 3)
-            myjitdriver.set_param('trace_eagerness', 1)
-            myjitdriver.set_param('retrace_limit', 5)
-            myjitdriver.set_param('function_threshold', -1)
+            set_param(None, 'threshold', 3)
+            set_param(None, 'trace_eagerness', 1)
+            set_param(None, 'retrace_limit', 5)
+            set_param(None, 'function_threshold', -1)
             pc = sa = i = 0
             while pc < len(bytecode):
                 myjitdriver.jit_merge_point(pc=pc, n=n, sa=sa, i=i)
@@ -2954,7 +2944,7 @@ class BasicTests:
                 i += 1
         res = self.meta_interp(f, [32])
         assert res == f(32)
-        self.check_loops(arraylen_gc=2)
+        self.check_resops(arraylen_gc=3)
 
     def test_ulonglong_mod(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'sa', 'i'])
@@ -3141,9 +3131,9 @@ class BaseLLtypeTests(BasicTests):
                 a = A(a.i + 1)
 
         self.meta_interp(f, [])
-        self.check_loops(new_with_vtable=0)
+        self.check_resops(new_with_vtable=0)
         self.meta_interp(f, [], enable_opts='')
-        self.check_loops(new_with_vtable=1)
+        self.check_resops(new_with_vtable=1)
 
     def test_two_loopinvariant_arrays1(self):
         from pypy.rpython.lltypesystem import lltype, llmemory, rffi
@@ -3235,7 +3225,7 @@ class BaseLLtypeTests(BasicTests):
             return sa
         res = self.meta_interp(f, [32])
         assert res == f(32)
-        self.check_loops(arraylen_gc=2, everywhere=True)
+        self.check_resops(arraylen_gc=2)
 
     def test_release_gil_flush_heap_cache(self):
         if sys.platform == "win32":
@@ -3272,7 +3262,7 @@ class BaseLLtypeTests(BasicTests):
                 lock.release()
             return n
         res = self.meta_interp(f, [10, 1])
-        self.check_loops(getfield_gc=2)
+        self.check_resops(getfield_gc=4)
         assert res == f(10, 1)
 
     def test_jit_merge_point_with_raw_pointer(self):
@@ -3336,10 +3326,10 @@ class BaseLLtypeTests(BasicTests):
 
         res = self.meta_interp(main, [0, 10, 2], enable_opts='')
         assert res == main(0, 10, 2)
-        self.check_loops(call=1)
+        self.check_resops(call=1)
         res = self.meta_interp(main, [1, 10, 2], enable_opts='')
         assert res == main(1, 10, 2)
-        self.check_loops(call=0)
+        self.check_resops(call=0)
 
     def test_look_inside_iff_virtual(self):
         # There's no good reason for this to be look_inside_iff, but it's a test!
@@ -3364,10 +3354,10 @@ class BaseLLtypeTests(BasicTests):
                     i += f(A(2), n)
         res = self.meta_interp(main, [0], enable_opts='')
         assert res == main(0)
-        self.check_loops(call=1, getfield_gc=0)
+        self.check_resops(call=1, getfield_gc=0)
         res = self.meta_interp(main, [1], enable_opts='')
         assert res == main(1)
-        self.check_loops(call=0, getfield_gc=0)
+        self.check_resops(call=0, getfield_gc=0)
 
     def test_reuse_elidable_result(self):
         driver = JitDriver(reds=['n', 's'], greens = [])
@@ -3380,10 +3370,9 @@ class BaseLLtypeTests(BasicTests):
             return s
         res = self.meta_interp(main, [10])
         assert res == main(10)
-        self.check_loops({
-            'call': 1, 'guard_no_exception': 1, 'guard_true': 1, 'int_add': 2,
-            'int_gt': 1, 'int_sub': 1, 'strlen': 1, 'jump': 1,
-        })
+        self.check_resops({'int_gt': 2, 'strlen': 2, 'guard_true': 2,
+                           'int_sub': 2, 'jump': 2, 'call': 2,
+                           'guard_no_exception': 2, 'int_add': 4})
 
     def test_look_inside_iff_const_getarrayitem_gc_pure(self):
         driver = JitDriver(greens=['unroll'], reds=['s', 'n'])
@@ -3415,10 +3404,10 @@ class BaseLLtypeTests(BasicTests):
         res = self.meta_interp(main, [0, 10])
         assert res == main(0, 10)
         # 2 calls, one for f() and one for char_mul
-        self.check_loops(call=2)
+        self.check_resops(call=4)
         res = self.meta_interp(main, [1, 10])
         assert res == main(1, 10)
-        self.check_loops(call=0)
+        self.check_resops(call=0)
 
     def test_setarrayitem_followed_by_arraycopy(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'sa', 'x', 'y'])
@@ -3435,12 +3424,295 @@ class BaseLLtypeTests(BasicTests):
             return sa
         res = self.meta_interp(f, [16])
         assert res == f(16)
-        
+
+    def test_ptr_eq(self):
+        myjitdriver = JitDriver(greens = [], reds = ["n", "x"])
+        class A(object):
+            def __init__(self, v):
+                self.v = v
+        def f(n, x):
+            while n > 0:
+                myjitdriver.jit_merge_point(n=n, x=x)
+                z = 0 / x
+                a1 = A("key")
+                a2 = A("\x00")
+                n -= [a1, a2][z].v is not a2.v
+            return n
+        res = self.meta_interp(f, [10, 1])
+        assert res == 0
+
+    def test_instance_ptr_eq(self):
+        myjitdriver = JitDriver(greens = [], reds = ["n", "i", "a1", "a2"])
+        class A(object):
+            pass
+        def f(n):
+            a1 = A()
+            a2 = A()
+            i = 0
+            while n > 0:
+                myjitdriver.jit_merge_point(n=n, i=i, a1=a1, a2=a2)
+                if n % 2:
+                    a = a2
+                else:
+                    a = a1
+                i += a is a1
+                n -= 1
+            return i
+        res = self.meta_interp(f, [10])
+        assert res == f(10)
+        def f(n):
+            a1 = A()
+            a2 = A()
+            i = 0
+            while n > 0:
+                myjitdriver.jit_merge_point(n=n, i=i, a1=a1, a2=a2)
+                if n % 2:
+                    a = a2
+                else:
+                    a = a1
+                if a is a2:
+                    i += 1
+                n -= 1
+            return i
+        res = self.meta_interp(f, [10])
+        assert res == f(10)
+
+    def test_virtual_array_of_structs(self):
+        myjitdriver = JitDriver(greens = [], reds=["n", "d"])
+        def f(n):
+            d = None
+            while n > 0:
+                myjitdriver.jit_merge_point(n=n, d=d)
+                d = {"q": 1}
+                if n % 2:
+                    d["k"] = n
+                else:
+                    d["z"] = n
+                n -= len(d) - d["q"]
+            return n
+        res = self.meta_interp(f, [10])
+        assert res == 0
+
+    def test_virtual_dict_constant_keys(self):
+        myjitdriver = JitDriver(greens = [], reds = ["n"])
+        def g(d):
+            return d["key"] - 1
+
+        def f(n):
+            while n > 0:
+                myjitdriver.jit_merge_point(n=n)
+                x = {"key": n}
+                n = g(x)
+                del x["key"]
+            return n
+
+        res = self.meta_interp(f, [10])
+        assert res == 0
+        self.check_resops({'jump': 2, 'guard_true': 2, 'int_gt': 2,
+                           'int_sub': 2})
+
+    def test_virtual_opaque_ptr(self):
+        myjitdriver = JitDriver(greens = [], reds = ["n"])
+        erase, unerase = rerased.new_erasing_pair("x")
+        @look_inside_iff(lambda x: isvirtual(x))
+        def g(x):
+            return x[0]
+        def f(n):
+            while n > 0:
+                myjitdriver.jit_merge_point(n=n)
+                x = []
+                y = erase(x)
+                z = unerase(y)
+                z.append(1)
+                n -= g(z)
+            return n
+        res = self.meta_interp(f, [10])
+        assert res == 0
+        self.check_resops({'jump': 2, 'guard_true': 2, 'int_gt': 2,
+                           'int_sub': 2})
+
+
+    def test_virtual_opaque_dict(self):
+        myjitdriver = JitDriver(greens = [], reds = ["n"])
+        erase, unerase = rerased.new_erasing_pair("x")
+        @look_inside_iff(lambda x: isvirtual(x))
+        def g(x):
+            return x[0]["key"] - 1
+        def f(n):
+            while n > 0:
+                myjitdriver.jit_merge_point(n=n)
+                x = [{}]
+                x[0]["key"] = n
+                x[0]["other key"] = n
+                y = erase(x)
+                z = unerase(y)
+                n = g(x)
+            return n
+        res = self.meta_interp(f, [10])
+        assert res == 0
+        self.check_resops({'int_gt': 2, 'getfield_gc': 1, 'int_eq': 1,
+                           'guard_true': 2, 'int_sub': 2, 'jump': 2,
+                           'guard_false': 1})
+
+
+    def test_convert_from_SmallFunctionSetPBCRepr_to_FunctionsPBCRepr(self):
+        f1 = lambda n: n+1
+        f2 = lambda n: n+2
+        f3 = lambda n: n+3
+        f4 = lambda n: n+4
+        f5 = lambda n: n+5
+        f6 = lambda n: n+6
+        f7 = lambda n: n+7
+        f8 = lambda n: n+8
+        def h(n, x):
+            return x(n)
+        h._dont_inline = True
+        def g(n, x):
+            return h(n, x)
+        g._dont_inline = True
+        def f(n):
+            n = g(n, f1)
+            n = g(n, f2)
+            n = h(n, f3)
+            n = h(n, f4)
+            n = h(n, f5)
+            n = h(n, f6)
+            n = h(n, f7)
+            n = h(n, f8)
+            return n
+        assert f(5) == 41
+        translationoptions = {'withsmallfuncsets': 3}
+        self.interp_operations(f, [5], translationoptions=translationoptions)
+
+
+    def test_annotation_gives_class_knowledge_to_tracer(self):
+        py.test.skip("disabled")
+        class Base(object):
+            pass
+        class A(Base):
+            def f(self):
+                return self.a
+            def g(self):
+                return self.a + 1
+        class B(Base):
+            def f(self):
+                return self.b
+            def g(self):
+                return self.b + 1
+        class C(B):
+            def f(self):
+                self.c += 1
+                return self.c
+            def g(self):
+                return self.c + 1
+        @dont_look_inside
+        def make(x):
+            if x > 0:
+                a = A()
+                a.a = x + 1
+            elif x < 0:
+                a = B()
+                a.b = -x
+            else:
+                a = C()
+                a.c = 10
+            return a
+        def f(x):
+            a = make(x)
+            if x > 0:
+                assert isinstance(a, A)
+                z = a.f()
+            elif x < 0:
+                assert isinstance(a, B)
+                z = a.f()
+            else:
+                assert isinstance(a, C)
+                z = a.f()
+            return z + a.g()
+        res1 = f(6)
+        res2 = self.interp_operations(f, [6])
+        assert res1 == res2
+        self.check_operations_history(guard_class=0, record_known_class=1)
+
+        res1 = f(-6)
+        res2 = self.interp_operations(f, [-6])
+        assert res1 == res2
+        # cannot use record_known_class here, because B has a subclass
+        self.check_operations_history(guard_class=1)
+
+        res1 = f(0)
+        res2 = self.interp_operations(f, [0])
+        assert res1 == res2
+        # here it works again
+        self.check_operations_history(guard_class=0, record_known_class=1)
+
+    def test_give_class_knowledge_to_tracer_explicitly(self):
+        from pypy.rpython.lltypesystem.lloperation import llop
+        class Base(object):
+            def f(self):
+                raise NotImplementedError
+            def g(self):
+                raise NotImplementedError
+        class A(Base):
+            def f(self):
+                return self.a
+            def g(self):
+                return self.a + 1
+        class B(Base):
+            def f(self):
+                return self.b
+            def g(self):
+                return self.b + 1
+        class C(B):
+            def f(self):
+                self.c += 1
+                return self.c
+            def g(self):
+                return self.c + 1
+        @dont_look_inside
+        def make(x):
+            if x > 0:
+                a = A()
+                a.a = x + 1
+            elif x < 0:
+                a = B()
+                a.b = -x
+            else:
+                a = C()
+                a.c = 10
+            return a
+        def f(x):
+            a = make(x)
+            if x > 0:
+                record_known_class(a, A)
+                z = a.f()
+            elif x < 0:
+                record_known_class(a, B)
+                z = a.f()
+            else:
+                record_known_class(a, C)
+                z = a.f()
+            return z + a.g()
+        res1 = f(6)
+        res2 = self.interp_operations(f, [6])
+        assert res1 == res2
+        self.check_operations_history(guard_class=0, record_known_class=1)
+
+        res1 = f(-6)
+        res2 = self.interp_operations(f, [-6])
+        assert res1 == res2
+        # cannot use record_known_class here, because B has a subclass
+        self.check_operations_history(guard_class=1)
+
+        res1 = f(0)
+        res2 = self.interp_operations(f, [0])
+        assert res1 == res2
+        # here it works again
+        self.check_operations_history(guard_class=0, record_known_class=1)
 
 
 class TestLLtype(BaseLLtypeTests, LLJitMixin):
     def test_tagged(self):
-        py.test.skip("implement me")
         from pypy.rlib.objectmodel import UnboxedValue
         class Base(object):
             __slots__ = ()
@@ -3491,4 +3763,51 @@ class TestLLtype(BaseLLtypeTests, LLJitMixin):
                     o = o.dec()
                 pc += 1
             return pc
-        res = self.meta_interp(main, [False, 100, True], taggedpointers=True)
+        topt = {'taggedpointers': True}
+        res = self.meta_interp(main, [False, 100, True],
+                               translationoptions=topt)
+
+    def test_rerased(self):
+        eraseX, uneraseX = rerased.new_erasing_pair("X")
+        #
+        class X:
+            def __init__(self, a, b):
+                self.a = a
+                self.b = b
+        #
+        def f(i, j):
+            # 'j' should be 0 or 1, not other values
+            if j > 0:
+                e = eraseX(X(i, j))
+            else:
+                try:
+                    e = rerased.erase_int(i)
+                except OverflowError:
+                    return -42
+            if j & 1:
+                x = uneraseX(e)
+                return x.a - x.b
+            else:
+                return rerased.unerase_int(e)
+        #
+        topt = {'taggedpointers': True}
+        x = self.interp_operations(f, [-128, 0], translationoptions=topt)
+        assert x == -128
+        bigint = sys.maxint//2 + 1
+        x = self.interp_operations(f, [bigint, 0], translationoptions=topt)
+        assert x == -42
+        x = self.interp_operations(f, [1000, 1], translationoptions=topt)
+        assert x == 999
+
+    def test_ll_arraycopy(self):
+        from pypy.rlib import rgc
+        A = lltype.GcArray(lltype.Char)
+        a = lltype.malloc(A, 10)
+        for i in range(10): a[i] = chr(i)
+        b = lltype.malloc(A, 10)
+        #
+        def f(c, d, e):
+            rgc.ll_arraycopy(a, b, c, d, e)
+            return 42
+        self.interp_operations(f, [1, 2, 3])
+        self.check_operations_history(call=1, guard_no_exception=0)

@@ -13,7 +13,6 @@ from pypy.rpython.annlowlevel import cast_base_ptr_to_instance
 from pypy.translator.simplify import get_funcobj
 from pypy.translator.unsimplify import split_block
 from pypy.objspace.flow.model import Constant
-from pypy import conftest
 from pypy.translator.translator import TranslationContext
 from pypy.annotation.policy import AnnotatorPolicy
 from pypy.annotation import model as annmodel
@@ -38,9 +37,11 @@ def _annotation(a, x):
     return a.typeannotation(t)
 
 def annotate(func, values, inline=None, backendoptimize=True,
-             type_system="lltype"):
+             type_system="lltype", translationoptions={}):
     # build the normal ll graphs for ll_function
     t = TranslationContext()
+    for key, value in translationoptions.items():
+        setattr(t.config.translation, key, value)
     annpolicy = AnnotatorPolicy()
     annpolicy.allow_someobjects = False
     a = t.buildannotator(policy=annpolicy)
@@ -48,15 +49,13 @@ def annotate(func, values, inline=None, backendoptimize=True,
     a.build_types(func, argtypes, main_entry_point=True)
     rtyper = t.buildrtyper(type_system = type_system)
     rtyper.specialize()
-    if inline:
-        auto_inlining(t, threshold=inline)
+    #if inline:
+    #    auto_inlining(t, threshold=inline)
     if backendoptimize:
         from pypy.translator.backendopt.all import backend_optimizations
         backend_optimizations(t, inline_threshold=inline or 0,
                 remove_asserts=True, really_remove_asserts=True)
 
-    #if conftest.option.view:
-    #    t.view()
     return rtyper
 
 def getgraph(func, values):
@@ -232,6 +231,17 @@ def _ll_1_int_abs(x):
     else:
         return x
 
+def _ll_1_cast_uint_to_float(x):
+    # XXX on 32-bit platforms, this should be done using cast_longlong_to_float
+    # (which is a residual call right now in the x86 backend)
+    return llop.cast_uint_to_float(lltype.Float, x)
+
+def _ll_1_cast_float_to_uint(x):
+    # XXX on 32-bit platforms, this should be done using cast_float_to_longlong
+    # (which is a residual call right now in the x86 backend)
+    return llop.cast_float_to_uint(lltype.Unsigned, x)
+
+
 # math support
 # ------------
 
@@ -247,6 +257,9 @@ def u_to_longlong(x):
 def _ll_1_llong_invert(xll):
     y = ~r_ulonglong(xll)
     return u_to_longlong(y)
+
+def _ll_1_ullong_invert(xull):
+    return ~xull
 
 def _ll_2_llong_lt(xll, yll):
     return xll < yll
@@ -266,16 +279,22 @@ def _ll_2_llong_gt(xll, yll):
 def _ll_2_llong_ge(xll, yll):
     return xll >= yll
 
-def _ll_2_llong_ult(xull, yull):
+def _ll_2_ullong_eq(xull, yull):
+    return xull == yull
+
+def _ll_2_ullong_ne(xull, yull):
+    return xull != yull
+
+def _ll_2_ullong_ult(xull, yull):
     return xull < yull
 
-def _ll_2_llong_ule(xull, yull):
+def _ll_2_ullong_ule(xull, yull):
     return xull <= yull
 
-def _ll_2_llong_ugt(xull, yull):
+def _ll_2_ullong_ugt(xull, yull):
     return xull > yull
 
-def _ll_2_llong_uge(xull, yull):
+def _ll_2_ullong_uge(xull, yull):
     return xull >= yull
 
 def _ll_2_llong_add(xll, yll):
@@ -302,14 +321,41 @@ def _ll_2_llong_xor(xll, yll):
     z = r_ulonglong(xll) ^ r_ulonglong(yll)
     return u_to_longlong(z)
 
+def _ll_2_ullong_add(xull, yull):
+    z = (xull) + (yull)
+    return (z)
+
+def _ll_2_ullong_sub(xull, yull):
+    z = (xull) - (yull)
+    return (z)
+
+def _ll_2_ullong_mul(xull, yull):
+    z = (xull) * (yull)
+    return (z)
+
+def _ll_2_ullong_and(xull, yull):
+    z = (xull) & (yull)
+    return (z)
+
+def _ll_2_ullong_or(xull, yull):
+    z = (xull) | (yull)
+    return (z)
+
+def _ll_2_ullong_xor(xull, yull):
+    z = (xull) ^ (yull)
+    return (z)
+
 def _ll_2_llong_lshift(xll, y):
     z = r_ulonglong(xll) << y
     return u_to_longlong(z)
 
+def _ll_2_ullong_lshift(xull, y):
+    return xull << y
+
 def _ll_2_llong_rshift(xll, y):
     return xll >> y
 
-def _ll_2_llong_urshift(xull, y):
+def _ll_2_ullong_urshift(xull, y):
     return xull >> y
 
 def _ll_1_llong_from_int(x):
@@ -456,6 +502,8 @@ class LLtypeHelpers:
         return LLtypeHelpers._dictnext_items(lltype.Ptr(RES), iter)
     _ll_1_dictiter_nextitems.need_result_type = True
 
+    _ll_1_dict_resize = ll_rdict.ll_dict_resize
+
     # ---------- strings and unicode ----------
 
     _ll_1_str_str2unicode = ll_rstr.LLHelpers.ll_str2unicode
@@ -551,10 +599,21 @@ class LLtypeHelpers:
             return p
         return _ll_0_alloc_with_del
 
-    def build_ll_1_raw_malloc(ARRAY):
-        def _ll_1_raw_malloc(n):
-            return lltype.malloc(ARRAY, n, flavor='raw')
-        return _ll_1_raw_malloc
+    def build_raw_malloc_builder(zero=False, add_memory_pressure=False, track_allocation=True):
+        def build_ll_1_raw_malloc(ARRAY):
+            def _ll_1_raw_malloc(n):
+                return lltype.malloc(ARRAY, n, flavor='raw', zero=zero, add_memory_pressure=add_memory_pressure)
+            return _ll_1_raw_malloc
+        return build_ll_1_raw_malloc
+
+    build_ll_1_raw_malloc = build_raw_malloc_builder()
+    build_ll_1_raw_malloc_zero = build_raw_malloc_builder(zero=True)
+    build_ll_1_raw_malloc_zero_add_memory_pressure = build_raw_malloc_builder(zero=True, add_memory_pressure=True)
+    build_ll_1_raw_malloc_add_memory_pressure = build_raw_malloc_builder(add_memory_pressure=True)
+    build_ll_1_raw_malloc_no_track_allocation = build_raw_malloc_builder(track_allocation=False)
+    build_ll_1_raw_malloc_zero_no_track_allocation = build_raw_malloc_builder(zero=True, track_allocation=False)
+    build_ll_1_raw_malloc_zero_add_memory_pressure_no_track_allocation = build_raw_malloc_builder(zero=True, add_memory_pressure=True, track_allocation=False)
+    build_ll_1_raw_malloc_add_memory_pressure_no_track_allocation = build_raw_malloc_builder(add_memory_pressure=True, track_allocation=False)
 
     def build_ll_1_raw_free(ARRAY):
         def _ll_1_raw_free(p):

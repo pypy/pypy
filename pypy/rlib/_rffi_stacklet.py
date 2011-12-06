@@ -3,16 +3,27 @@ from pypy.tool.autopath import pypydir
 from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
 from pypy.rpython.tool import rffi_platform
+import sys
 
 
 cdir = py.path.local(pypydir) / 'translator' / 'c'
-
 
 eci = ExternalCompilationInfo(
     include_dirs = [cdir],
     includes = ['src/stacklet/stacklet.h'],
     separate_module_sources = ['#include "src/stacklet/stacklet.c"\n'],
 )
+if sys.platform == 'win32':
+    eci.separate_module_files += (cdir / "src/stacklet/switch_x86_msvc.asm", )
+    eci.export_symbols += (
+        'stacklet_newthread',
+        'stacklet_deletethread',
+        'stacklet_new',
+        'stacklet_switch',
+        'stacklet_destroy',
+        '_stacklet_translate_pointer',
+        )
+
 rffi_platform.verify_eci(eci.convert_sources_to_files())
 
 def llexternal(name, args, result, **kwds):

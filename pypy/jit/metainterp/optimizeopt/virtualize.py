@@ -59,7 +59,7 @@ class AbstractVirtualValue(optimizer.OptValue):
 
     def import_from(self, other, optimizer):
         raise NotImplementedError("should not be called at this level")
-    
+
 def get_fielddescrlist_cache(cpu):
     if not hasattr(cpu, '_optimizeopt_fielddescrlist_cache'):
         result = descrlist_dict()
@@ -87,14 +87,36 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
     def _get_descr(self):
         raise NotImplementedError
 
-    def _is_immutable_and_filled_with_constants(self, optforce):
+    def _is_immutable_and_filled_with_constants(self, memo=None):
+        # check if it is possible to force the given structure into a
+        # compile-time constant: this is allowed only if it is declared
+        # immutable, if all fields are already filled, and if each field
+        # is either a compile-time constant or (recursively) a structure
+        # which also answers True to the same question.
+        #
+        # check that all fields are filled.  The following equality check
+        # also fails if count == -1, meaning "not an immutable at all".
         count = self._get_descr().count_fields_if_immutable()
-        if count != len(self._fields):    # always the case if count == -1
+        if count != len(self._fields):
             return False
+        #
+        # initialize 'memo'
+        if memo is None:
+            memo = {}
+        elif self in memo:
+            return True   # recursive case: assume yes
+        memo[self] = None
+        #
         for value in self._fields.itervalues():
-            subbox = value.force_box(optforce)
-            if not isinstance(subbox, Const):
-                return False
+            if value.is_constant():
+                pass            # it is a constant value: ok
+            elif (isinstance(value, AbstractVirtualStructValue)
+                  and value.is_virtual()):
+                # recursive check
+                if not value._is_immutable_and_filled_with_constants(memo):
+                    return False
+            else:
+                return False    # not a constant at all
         return True
 
     def force_at_end_of_preamble(self, already_forced, optforce):
@@ -113,8 +135,8 @@ class AbstractVirtualStructValue(AbstractVirtualValue):
         #
         if not we_are_translated():
             op.name = 'FORCE ' + self.source_op.name
-            
-        if self._is_immutable_and_filled_with_constants(optforce):
+
+        if self._is_immutable_and_filled_with_constants():
             box = optforce.optimizer.constant_fold(op)
             self.make_constant(box)
             for ofs, value in self._fields.iteritems():
@@ -239,12 +261,12 @@ class VArrayValue(AbstractVirtualValue):
         for index in range(len(self._items)):
             self._items[index] = self._items[index].force_at_end_of_preamble(already_forced, optforce)
         return self
-    
+
     def _really_force(self, optforce):
         assert self.source_op is not None
         if not we_are_translated():
             self.source_op.name = 'FORCE ' + self.source_op.name
-        optforce.emit_operation(self.source_op)        
+        optforce.emit_operation(self.source_op)
         self.box = box = self.source_op.result
         for index in range(len(self._items)):
             subvalue = self._items[index]
@@ -271,20 +293,91 @@ class VArrayValue(AbstractVirtualValue):
     def _make_virtual(self, modifier):
         return modifier.make_varray(self.arraydescr)
 
+class VArrayStructValue(AbstractVirtualValue):
+    def __init__(self, arraydescr, size, keybox, source_op=None):
+        AbstractVirtualValue.__init__(self, keybox, source_op)
+        self.arraydescr = arraydescr
+        self._items = [{} for _ in xrange(size)]
+
+    def getlength(self):
+        return len(self._items)
+
+    def getinteriorfield(self, index, ofs, default):
+        return self._items[index].get(ofs, default)
+
+    def setinteriorfield(self, index, ofs, itemvalue):
+        assert isinstance(itemvalue, optimizer.OptValue)
+        self._items[index][ofs] = itemvalue
+
+    def _really_force(self, optforce):
+        assert self.source_op is not None
+        if not we_are_translated():
+            self.source_op.name = 'FORCE ' + self.source_op.name
+        optforce.emit_operation(self.source_op)
+        self.box = box = self.source_op.result
+        for index in range(len(self._items)):
+            iteritems = self._items[index].iteritems()
+            # random order is fine, except for tests
+            if not we_are_translated():
+                iteritems = list(iteritems)
+                iteritems.sort(key = lambda (x, y): x.sort_key())
+            for descr, value in iteritems:
+                subbox = value.force_box(optforce)
+                op = ResOperation(rop.SETINTERIORFIELD_GC,
+                    [box, ConstInt(index), subbox], None, descr=descr
+                )
+                optforce.emit_operation(op)
+
+    def _get_list_of_descrs(self):
+        descrs = []
+        for item in self._items:
+            item_descrs = item.keys()
+            sort_descrs(item_descrs)
+            descrs.append(item_descrs)
+        return descrs
+
+    def get_args_for_fail(self, modifier):
+        if self.box is None and not modifier.already_seen_virtual(self.keybox):
+            itemdescrs = self._get_list_of_descrs()
+            itemboxes = []
+            for i in range(len(self._items)):
+                for descr in itemdescrs[i]:
+                    itemboxes.append(self._items[i][descr].get_key_box())
+            modifier.register_virtual_fields(self.keybox, itemboxes)
+            for i in range(len(self._items)):
+                for descr in itemdescrs[i]:
+                    self._items[i][descr].get_args_for_fail(modifier)
+
+    def force_at_end_of_preamble(self, already_forced, optforce):
+        if self in already_forced:
+            return self
+        already_forced[self] = self
+        for index in range(len(self._items)):
+            for descr in self._items[index].keys():
+                self._items[index][descr] = self._items[index][descr].force_at_end_of_preamble(already_forced, optforce)
+        return self
+
+    def _make_virtual(self, modifier):
+        return modifier.make_varraystruct(self.arraydescr, self._get_list_of_descrs())
+
+
 class OptVirtualize(optimizer.Optimization):
     "Virtualize objects until they escape."
 
     def new(self):
         return OptVirtualize()
-        
+
     def make_virtual(self, known_class, box, source_op=None):
         vvalue = VirtualValue(self.optimizer.cpu, known_class, box, source_op)
         self.make_equal_to(box, vvalue)
         return vvalue
 
     def make_varray(self, arraydescr, size, box, source_op=None):
-        constvalue = self.new_const_item(arraydescr)
-        vvalue = VArrayValue(arraydescr, constvalue, size, box, source_op)
+        if arraydescr.is_array_of_structs():
+            vvalue = VArrayStructValue(arraydescr, size, box, source_op)
+        else:
+            constvalue = self.new_const_item(arraydescr)
+            vvalue = VArrayValue(arraydescr, constvalue, size, box, source_op)
         self.make_equal_to(box, vvalue)
         return vvalue
 
@@ -427,6 +520,34 @@ class OptVirtualize(optimizer.Optimization):
             indexbox = self.get_constant_box(op.getarg(1))
             if indexbox is not None:
                 value.setitem(indexbox.getint(), self.getvalue(op.getarg(2)))
+                return
+        value.ensure_nonnull()
+        self.emit_operation(op)
+
+    def optimize_GETINTERIORFIELD_GC(self, op):
+        value = self.getvalue(op.getarg(0))
+        if value.is_virtual():
+            indexbox = self.get_constant_box(op.getarg(1))
+            if indexbox is not None:
+                descr = op.getdescr()
+                fieldvalue = value.getinteriorfield(
+                    indexbox.getint(), descr, None
+                )
+                if fieldvalue is None:
+                    fieldvalue = self.new_const(descr)
+                self.make_equal_to(op.result, fieldvalue)
+                return
+        value.ensure_nonnull()
+        self.emit_operation(op)
+
+    def optimize_SETINTERIORFIELD_GC(self, op):
+        value = self.getvalue(op.getarg(0))
+        if value.is_virtual():
+            indexbox = self.get_constant_box(op.getarg(1))
+            if indexbox is not None:
+                value.setinteriorfield(
+                    indexbox.getint(), op.getdescr(), self.getvalue(op.getarg(2))
+                )
                 return
         value.ensure_nonnull()
         self.emit_operation(op)

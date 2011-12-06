@@ -495,9 +495,9 @@ def get_cpu():
     if pytest.config.option.backend == 'llgraph':
         from pypy.jit.backend.llgraph.runner import LLtypeCPU
         return LLtypeCPU(None)
-    elif pytest.config.option.backend == 'x86':
-        from pypy.jit.backend.x86.runner import CPU386
-        return CPU386(None, None)
+    elif pytest.config.option.backend == 'cpu':
+        from pypy.jit.backend.detect_cpu import getcpuclass
+        return getcpuclass()(None, None)
     else:
         assert 0, "unknown backend %r" % pytest.config.option.backend
 
@@ -595,6 +595,10 @@ class RandomLoop(object):
             for name, value in fields.items():
                 if isinstance(name, str):
                     setattr(container, name, value)
+                elif isinstance(value, dict):
+                    item = container.getitem(name)
+                    for key1, value1 in value.items():
+                        setattr(item, key1, value1)
                 else:
                     container.setitem(name, value)
 

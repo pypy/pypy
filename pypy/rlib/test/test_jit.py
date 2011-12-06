@@ -139,12 +139,11 @@ class BaseTestJIT(BaseRtypingTest):
 
     def test_isconstant(self):
         def f(n):
-            assert n >= 0
             assert isconstant(n) is False
             l = []
             l.append(n)
             return len(l)
-        res = self.interpret(f, [234])
+        res = self.interpret(f, [-234])
         assert res == 1
 
 

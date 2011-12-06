@@ -214,11 +214,15 @@ class _AppTestSelect:
 
     def test_poll(self):
         import select
-        class A(object):
-            def __int__(self):
-                return 3
-        
-        select.poll().poll(A()) # assert did not crash
+        readend, writeend = self.getpair()
+        try:
+            class A(object):
+                def __int__(self):
+                    return readend.fileno()
+            select.poll().poll(A()) # assert did not crash
+        finally:
+            readend.close()
+            writeend.close()
 
 class AppTestSelectWithPipes(_AppTestSelect):
     "Use a pipe to get pairs of file descriptors"

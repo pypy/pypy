@@ -3,11 +3,10 @@ import random
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.interpreter.error import OperationError
 
-from pypy.conftest import gettestobjspace
+from pypy.conftest import gettestobjspace, option
 
 
 class TestW_ListObject(object):
-
     def test_is_true(self):
         w = self.space.wrap
         w_list = W_ListObject(self.space, [])
@@ -103,7 +102,7 @@ class TestW_ListObject(object):
             w_list = W_ListObject(self.space, [w(i) for i in testlist])
             w_result = self.space.getitem(w_list, w_slice)
             assert self.space.unwrap(w_result) == expected
-        
+
         for testlist in [[], [5,3,99]]:
             for start in [-2, 0, 1, 10]:
                 for end in [-1, 2, 999]:
@@ -125,7 +124,7 @@ class TestW_ListObject(object):
             w_rhslist = W_ListObject(self.space, [w(i) for i in rhslist])
             self.space.setitem(w_lhslist, w_slice, w_rhslist)
             assert self.space.unwrap(w_lhslist) == expected
-        
+
 
         test1([5,7,1,4], 1, 3, [9,8],  [5,9,8,4])
         test1([5,7,1,4], 1, 3, [9],    [5,9,4])
@@ -229,7 +228,7 @@ class TestW_ListObject(object):
 
     def test_eq(self):
         w = self.space.wrap
-        
+
         w_list0 = W_ListObject(self.space, [])
         w_list1 = W_ListObject(self.space, [w(5), w(3), w(99)])
         w_list2 = W_ListObject(self.space, [w(5), w(3), w(99)])
@@ -247,7 +246,7 @@ class TestW_ListObject(object):
                            self.space.w_False)
     def test_ne(self):
         w = self.space.wrap
-        
+
         w_list0 = W_ListObject(self.space, [])
         w_list1 = W_ListObject(self.space, [w(5), w(3), w(99)])
         w_list2 = W_ListObject(self.space, [w(5), w(3), w(99)])
@@ -265,7 +264,7 @@ class TestW_ListObject(object):
                            self.space.w_True)
     def test_lt(self):
         w = self.space.wrap
-        
+
         w_list0 = W_ListObject(self.space, [])
         w_list1 = W_ListObject(self.space, [w(5), w(3), w(99)])
         w_list2 = W_ListObject(self.space, [w(5), w(3), w(99)])
@@ -284,10 +283,10 @@ class TestW_ListObject(object):
                            self.space.w_True)
         assert self.space.eq_w(self.space.lt(w_list4, w_list3),
                            self.space.w_True)
-        
+
     def test_ge(self):
         w = self.space.wrap
-        
+
         w_list0 = W_ListObject(self.space, [])
         w_list1 = W_ListObject(self.space, [w(5), w(3), w(99)])
         w_list2 = W_ListObject(self.space, [w(5), w(3), w(99)])
@@ -306,10 +305,10 @@ class TestW_ListObject(object):
                            self.space.w_False)
         assert self.space.eq_w(self.space.ge(w_list4, w_list3),
                            self.space.w_False)
-        
+
     def test_gt(self):
         w = self.space.wrap
-        
+
         w_list0 = W_ListObject(self.space, [])
         w_list1 = W_ListObject(self.space, [w(5), w(3), w(99)])
         w_list2 = W_ListObject(self.space, [w(5), w(3), w(99)])
@@ -328,10 +327,10 @@ class TestW_ListObject(object):
                            self.space.w_False)
         assert self.space.eq_w(self.space.gt(w_list4, w_list3),
                            self.space.w_False)
-        
+
     def test_le(self):
         w = self.space.wrap
-        
+
         w_list0 = W_ListObject(self.space, [])
         w_list1 = W_ListObject(self.space, [w(5), w(3), w(99)])
         w_list2 = W_ListObject(self.space, [w(5), w(3), w(99)])
@@ -353,10 +352,14 @@ class TestW_ListObject(object):
 
 
 class AppTestW_ListObject(object):
+    def setup_class(cls):
+        import sys
+        on_cpython = (option.runappdirect and
+                            not hasattr(sys, 'pypy_translation_info'))
+        cls.w_on_cpython = cls.space.wrap(on_cpython)
 
     def test_getstrategyfromlist_w(self):
         l0 = ["a", "2", "a", True]
-
         # this raised TypeError on ListStrategies
         l1 = ["a", "2", True, "a"]
         l2 = [1, "2", "a", "a"]
@@ -467,9 +470,15 @@ class AppTestW_ListObject(object):
         l.extend(iter([1, 2, 3, 4]))
         assert l is l0
         assert l == [1, 1, 2, 3, 4]
+
         l = l0 = ['a']
         l.extend(iter(['b', 'c', 'd']))
         assert l == ['a', 'b', 'c', 'd']
+        assert l is l0
+
+        l = l0 = [1.2]
+        l.extend(iter([2.3, 3.4, 4.5]))
+        assert l == [1.2, 2.3, 3.4, 4.5]
         assert l is l0
 
     def test_sort(self):
@@ -489,6 +498,10 @@ class AppTestW_ListObject(object):
         l = ["c", "a", "d", "b"]
         l.sort(reverse=True)
         assert l == ["d", "c", "b", "a"]
+
+        l = [3.3, 2.2, 4.4, 1.1, 3.1, 5.5]
+        l.sort()
+        assert l == [1.1, 2.2, 3.1, 3.3, 4.4, 5.5]
 
     def test_sort_cmp(self):
         def lencmp(a,b): return cmp(len(a), len(b))
@@ -543,11 +556,19 @@ class AppTestW_ListObject(object):
         assert l[-2] == 6
         raises(IndexError, "l[len(l)]")
         raises(IndexError, "l[-len(l)-1]")
+
         l = ['a', 'b', 'c']
         assert l[0] == 'a'
         assert l[-1] == 'c'
         assert l[-2] == 'b'
         raises(IndexError, "l[len(l)]")
+
+        l = [1.1, 2.2, 3.3]
+        assert l[0] == 1.1
+        assert l[-1] == 3.3
+        assert l[-2] == 2.2
+        raises(IndexError, "l[len(l)]")
+
         l = []
         raises(IndexError, "l[1]")
 
@@ -585,6 +606,16 @@ class AppTestW_ListObject(object):
         assert l is l0
         raises(IndexError, "del l[0]")
 
+        l = l0 = [1.1, 2.2, 3.3]
+        del l[0]
+        assert l == [2.2, 3.3]
+        del l[-1]
+        assert l == [2.2]
+        del l[-1]
+        assert l == []
+        assert l is l0
+        raises(IndexError, "del l[0]")
+
         l = range(10)
         del l[5]
         assert l == [0, 1, 2, 3, 4, 6, 7, 8, 9]
@@ -605,7 +636,7 @@ class AppTestW_ListObject(object):
         assert l[::] == l
         assert l[0::-2] == l
         assert l[-1::-5] == l
-        
+
         l = ['']
         assert l[1:] == []
         assert l[1::2] == []
@@ -624,9 +655,15 @@ class AppTestW_ListObject(object):
         del l[:]
         assert l is l0
         assert l == []
+
         l = ['a', 'b']
         del l[:]
         assert l == []
+
+        l = [1.1, 2.2]
+        del l[:]
+        assert l == []
+
         l = range(5)
         del l[:]
         assert l == []
@@ -636,6 +673,11 @@ class AppTestW_ListObject(object):
         l += [4,5]
         assert l is l0
         assert l == [1,2,3,4,5]
+
+        l = l0 = [1.1,2.2,3.3]
+        l += [4.4,5.5]
+        assert l is l0
+        assert l == [1.1,2.2,3.3,4.4,5.5]
 
         l = l0 = ['a', 'b', 'c']
         l1 = l[:]
@@ -682,7 +724,7 @@ class AppTestW_ListObject(object):
         l *= (-1)
         assert l is l0
         assert l == []
-        
+
         l = l0 = ['a', 'b']
         l *= 2
         assert l is l0
@@ -693,6 +735,11 @@ class AppTestW_ListObject(object):
         l = ['a']
         l *= -5
         assert l == []
+
+        l = l0 = [1.1, 2.2]
+        l *= 2
+        assert l is l0
+        assert l == [1.1, 2.2, 1.1, 2.2]
 
         l = range(2)
         l *= 2
@@ -708,7 +755,7 @@ class AppTestW_ListObject(object):
         c = range(10)
         assert c.index(0) == 0
         raises(ValueError, c.index, 10)
-        
+
         c = list('hello world')
         assert c.index('l') == 2
         raises(ValueError, c.index, '!')
@@ -728,7 +775,19 @@ class AppTestW_ListObject(object):
         assert c.index(0) == 0
         raises(ValueError, c.index, 3)
 
-    def test_assign_slice(self):
+        c = [0.0, 2.2, 4.4]
+        assert c.index(0) == 0.0
+        raises(ValueError, c.index, 3)
+
+    def test_index_cpython_bug(self):
+        if self.on_cpython:
+            skip("cpython has a bug here")
+        c = list('hello world')
+        assert c.index('l', None, None) == 2
+        assert c.index('l', 3, None) == 3
+        assert c.index('l', None, 4) == 2
+
+    def test_ass_slice(self):
         l = range(6)
         l[1:3] = 'abc'
         assert l == [0, 'a', 'b', 'c', 3, 4, 5]
@@ -768,6 +827,36 @@ class AppTestW_ListObject(object):
         l[::3] = ('a', 'b')
         assert l == ['a', 1, 2, 'b', 4, 5]
 
+        l = [0.0, 1.1, 2.2, 3.3, 4.4, 5.5]
+        l[::3] = ('a', 'b')
+        assert l == ['a', 1.1, 2.2, 'b', 4.4, 5.5]
+
+    def test_setslice_with_self(self):
+        l = [1,2,3,4]
+        l[:] = l
+        assert l == [1,2,3,4]
+
+        l = [1,2,3,4]
+        l[0:2] = l
+        assert l == [1,2,3,4,3,4]
+
+        l = [1,2,3,4]
+        l[0:2] = l
+        assert l == [1,2,3,4,3,4]
+
+        l = [1,2,3,4,5,6,7,8,9,10]
+        raises(ValueError, "l[5::-1] = l")
+
+        l = [1,2,3,4,5,6,7,8,9,10]
+        raises(ValueError, "l[::2] = l")
+
+        l = [1,2,3,4,5,6,7,8,9,10]
+        l[5:] = l
+        assert l == [1,2,3,4,5,1,2,3,4,5,6,7,8,9,10]
+
+        l = [1,2,3,4,5,6]
+        l[::-1] = l
+        assert l == [6,5,4,3,2,1]
 
     def test_recursive_repr(self):
         l = []
@@ -797,6 +886,10 @@ class AppTestW_ListObject(object):
         l = [1,2,3]
         l.append("a")
         assert l == [1,2,3,"a"]
+
+        l = [1.1, 2.2, 3.3]
+        l.append(4.4)
+        assert l == [1.1, 2.2, 3.3, 4.4]
 
     def test_count(self):
         c = list('hello')
@@ -838,6 +931,10 @@ class AppTestW_ListObject(object):
         l.pop()
         assert l == range(9)
 
+        l = [1.1, 2.2, 3.3]
+        l.pop()
+        assert l == [1.1, 2.2]
+
         l = []
         raises(IndexError, l.pop, 0)
 
@@ -860,16 +957,19 @@ class AppTestW_ListObject(object):
         l2 = ["1", "2", "3", "4"]
         l3 = range(5)
         l4 = [1, 2, 3, "4"]
+        l5 = [1.1, 2.2, 3.3, 4.4]
 
         raises(IndexError, l1.pop, -5)
         raises(IndexError, l2.pop, -5)
         raises(IndexError, l3.pop, -6)
         raises(IndexError, l4.pop, -5)
+        raises(IndexError, l5.pop, -5)
 
         assert l1.pop(-2) == 3
         assert l2.pop(-2) == "3"
         assert l3.pop(-2) == 3
         assert l4.pop(-2) == 3
+        assert l5.pop(-2) == 3.3
 
     def test_remove(self):
         c = list('hello world')
@@ -887,6 +987,13 @@ class AppTestW_ListObject(object):
         assert l == [0, 1, 3, 4]
         l = [0, 3, 5]
         raises(ValueError, c.remove, 2)
+
+        l = [0.0, 1.1, 2.2, 3.3, 4.4]
+        l.remove(2.2)
+        assert l == [0.0, 1.1, 3.3, 4.4]
+        l = [0.0, 3.3, 5.5]
+        raises(ValueError, c.remove, 2)
+        raises(ValueError, c.remove, 2.2)
 
     def test_reverse(self):
         c = list('hello world')
@@ -978,7 +1085,6 @@ class AppTestW_ListObject(object):
         s = u"\ufffd\ufffd\ufffd"
         assert s.encode("ascii", "replace") == "???"
         assert s.encode("ascii", "ignore") == ""
-
         l1 = [s.encode("ascii", "replace")]
         assert l1[0] == "???"
 
@@ -987,6 +1093,20 @@ class AppTestW_ListObject(object):
 
         l3 = [s]
         assert l1[0].encode("ascii", "replace") == "???"
+
+    def test_list_from_set(self):
+        l = ['a']
+        l.__init__(set('b'))
+        assert l == ['b']
+
+    def test_list_from_generator(self):
+        l = ['a']
+        g = (i*i for i in range(5))
+        l.__init__(g)
+        assert l == [0, 1, 4, 9, 16]
+        l.__init__(g)
+        assert l == []
+        assert list(g) == []
 
 class AppTestForRangeLists(AppTestW_ListObject):
 
@@ -1077,6 +1197,7 @@ class AppTestForRangeLists(AppTestW_ListObject):
         l = range(3)
         l.reverse()
         assert l == [2,1,0]
+
 
 class AppTestListFastSubscr:
 

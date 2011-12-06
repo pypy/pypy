@@ -12,17 +12,10 @@ class Darwin(posix.BasePosix):
 
     so_ext = 'dylib'
 
-    # NOTE: GCC 4.2 will fail at runtime due to subtle issues, possibly
-    # related to GC roots. Using LLVM-GCC or Clang will break the build.
-    default_cc = 'gcc-4.0'
-
-    def __init__(self, cc=None):
-        if cc is None:
-            try:
-                cc = os.environ['CC']
-            except KeyError:
-                cc = self.default_cc
-        self.cc = cc
+    # NOTE: With asmgcc GCC 4.2 will fail at runtime due to subtle issues,
+    # possibly related to GC roots. Using LLVM-GCC or Clang will break the
+    # build. On Darwin asmgcc is not the default anymore, so it is fine to use
+    # whatever gcc we find on the system
 
     def _args_for_shared(self, args):
         return (list(self.shared_only)
@@ -70,6 +63,11 @@ class Darwin_i386(Darwin):
     name = "darwin_i386"
     link_flags = ('-arch', 'i386')
     cflags = ('-arch', 'i386', '-O3', '-fomit-frame-pointer')
+
+class Darwin_PowerPC(Darwin):#xxx fixme, mwp
+    name = "darwin_powerpc"
+    link_flags = ()
+    cflags = ('-O3', '-fomit-frame-pointer')
 
 class Darwin_x86_64(Darwin):
     name = "darwin_x86_64"

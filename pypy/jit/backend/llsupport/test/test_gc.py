@@ -247,12 +247,14 @@ class FakeLLOp(object):
         self.record = []
 
     def do_malloc_fixedsize_clear(self, RESTYPE, type_id, size,
-                                  has_finalizer, contains_weakptr):
+                                  has_finalizer, has_light_finalizer,
+                                  contains_weakptr):
         assert not contains_weakptr
+        assert not has_finalizer           # in these tests
+        assert not has_light_finalizer     # in these tests
         p = llmemory.raw_malloc(size)
         p = llmemory.cast_adr_to_ptr(p, RESTYPE)
-        flags = int(has_finalizer) << 16
-        tid = llop.combine_ushort(lltype.Signed, type_id, flags)
+        tid = llop.combine_ushort(lltype.Signed, type_id, 0)
         self.record.append(("fixedsize", repr(size), tid, p))
         return p
 
@@ -567,6 +569,28 @@ class TestFramework(object):
             assert operations[1].getarg(1) == v_index
             assert operations[1].getarg(2) == v_value
             assert operations[1].getdescr() == array_descr
+
+    def test_rewrite_assembler_5(self):
+        S = lltype.GcStruct('S')
+        A = lltype.GcArray(lltype.Struct('A', ('x', lltype.Ptr(S))))
+        interiordescr = get_interiorfield_descr(self.gc_ll_descr, A,
+                                                A.OF, 'x')
+        wbdescr = self.gc_ll_descr.write_barrier_descr
+        ops = parse("""
+        [p1, p2]
+        setinteriorfield_gc(p1, 0, p2, descr=interiordescr)
+        jump(p1, p2)
+        """, namespace=locals())
+        expected = parse(""" 
+        [p1, p2]
+        cond_call_gc_wb(p1, p2, descr=wbdescr)
+        setinteriorfield_raw(p1, 0, p2, descr=interiordescr)
+        jump(p1, p2)
+        """, namespace=locals())
+        operations = get_deep_immutable_oplist(ops.operations)
+        operations = self.gc_ll_descr.rewrite_assembler(self.fake_cpu,
+                                                        operations, [])
+        equaloplists(operations, expected.operations)
 
     def test_rewrite_assembler_initialization_store(self):
         S = lltype.GcStruct('S', ('parent', OBJECT),

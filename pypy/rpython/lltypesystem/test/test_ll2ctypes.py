@@ -8,6 +8,7 @@ from pypy.rpython.lltypesystem.ll2ctypes import standard_c_lib
 from pypy.rpython.lltypesystem.ll2ctypes import uninitialized2ctypes
 from pypy.rpython.lltypesystem.ll2ctypes import ALLOCATED, force_cast
 from pypy.rpython.lltypesystem.ll2ctypes import cast_adr_to_int, get_ctypes_type
+from pypy.rpython.lltypesystem.ll2ctypes import _llgcopaque
 from pypy.rpython.annlowlevel import llhelper
 from pypy.rlib import rposix
 from pypy.translator.tool.cbuild import ExternalCompilationInfo
@@ -1123,6 +1124,9 @@ class TestLL2Ctypes(object):
 
         #assert lltype.cast_ptr_to_int(ref1) == intval
 
+        x = rffi.cast(llmemory.GCREF, -17)
+        assert lltype.cast_ptr_to_int(x) == -17
+
     def test_ptr_truth(self):
         abc = rffi.cast(lltype.Ptr(lltype.FuncType([], lltype.Void)), 0)
         assert not abc
@@ -1346,6 +1350,11 @@ class TestLL2Ctypes(object):
         round = ctypes2lltype(llmemory.GCREF, lltype2ctypes(opaque.hide()))
         assert Opaque.show(round) is opaque
 
+    def test_array_of_structs(self):
+        A = lltype.GcArray(lltype.Struct('x', ('v', lltype.Signed)))
+        a = lltype.malloc(A, 5)
+        a2 = ctypes2lltype(lltype.Ptr(A), lltype2ctypes(a))
+        assert a2._obj.getitem(0)._obj._parentstructure() is a2._obj
 
 class TestPlatform(object):
     def test_lib_on_libpaths(self):
@@ -1387,3 +1396,7 @@ class TestPlatform(object):
         f = rffi.llexternal('f', [rffi.INT, rffi.INT], rffi.INT,
                             compilation_info=eci)
         assert f(3, 4) == 7
+
+    def test_llgcopaque_eq(self):
+        assert _llgcopaque(1) != None
+        assert _llgcopaque(0) == None
