@@ -415,8 +415,9 @@ class AppTestNumArray(BaseNumpyAppTest):
         # u is not a view, it is a copy!
         assert u[25] == 41
 
+        raises(ValueError, arange(10).reshape, (5, -1, -1))
+
     def test_reshape_varargs(self):
-        skip("unimplemented yet")
         from numpypy import arange
         z = arange(96).reshape(12, -1)
         y = z.reshape(4, 3, 8)

@@ -109,9 +109,6 @@ def get_shape_from_iterable(space, old_size, w_iterable):
     else:
         neg_dim = -1
         batch = space.listview(w_iterable)
-        # Allow for shape = (1,2,3) or shape = ((1,2,3),)
-        if len(batch) > 1 and space.issequence_w(batch[0]):
-            batch = space.listview(batch[0])
         new_size = 1
         if len(batch) < 1:
             if old_size == 1:
@@ -845,7 +842,7 @@ class BaseArray(Wrappable):
         return W_NDimSlice(self, new_sig, start, strides[:], backstrides[:],
                            shape[:])
 
-    def descr_reshape(self, space, w_args):
+    def descr_reshape(self, space, args_w):
         """reshape(...)
     a.reshape(shape)
 
@@ -857,9 +854,13 @@ class BaseArray(Wrappable):
     --------
     numpypy.reshape : equivalent function
 """
+        if len(args_w) == 1:
+            w_shape = args_w[0]
+        else:
+            w_shape = space.newlist(args_w)
         concrete = self.get_concrete()
         new_shape = get_shape_from_iterable(space,
-                                            concrete.find_size(), w_args)
+                                            concrete.find_size(), w_shape)
         # Since we got to here, prod(new_shape) == self.size
         new_strides = calc_new_strides(new_shape,
                                        concrete.shape, concrete.strides)
