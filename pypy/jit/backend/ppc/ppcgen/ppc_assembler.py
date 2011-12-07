@@ -237,7 +237,7 @@ class AssemblerPPC(OpAssembler):
         assert spilling_depth >= 0
         assert spp_loc > stack_loc
 
-        regs = rffi.cast(rffi.CCHARP, stack_loc + BACKCHAIN_SIZE)
+        regs = rffi.cast(rffi.CCHARP, spp_loc)
         i = -1
         fail_index = -1
         while(True):
@@ -258,12 +258,7 @@ class AssemblerPPC(OpAssembler):
                     value = decode32(enc, i+1)
                     i += 4
                 else:
-                    assert group == self.FLOAT_TYPE
-                    adr = decode32(enc, i+1)
-                    value = rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[0]
-                    self.fail_boxes_float.setitem(fail_index, value)
-                    i += 4
-                    continue
+                    assert 0, "not implemented yet"
             elif res == self.STACK_LOC:
                 stack_location = decode32(enc, i+1)
                 i += 4
@@ -276,12 +271,11 @@ class AssemblerPPC(OpAssembler):
                 if group == self.FLOAT_TYPE:
                     assert 0, "not implemented yet"
                 else:
-                    # XXX dirty, fix
-                    #sub = r.managed_regs_sub(reg)
+                    regindex = r.get_managed_reg_index(reg)
                     if IS_PPC_32:
-                        value = decode32(regs, (reg - 3) * WORD)
+                        value = decode32(regs, regindex * WORD)
                     else:
-                        value = decode64(regs, (reg - 3) * WORD)
+                        value = decode64(regs, regindex * WORD)
     
             if group == self.INT_TYPE:
                 self.fail_boxes_int.setitem(fail_index, value)
@@ -323,9 +317,7 @@ class AssemblerPPC(OpAssembler):
                 j += 4
             else: # REG_LOC
                 reg = ord(res)
-                # XXX dirty, fix
-                sub = r.managed_regs_sub(reg)
-                loc = r.MANAGED_REGS[reg - sub]
+                loc = r.MANAGED_REGS[r.get_managed_reg_index(reg)]
             j += 1
             locs.append(loc)
         return locs
@@ -656,8 +648,7 @@ class AssemblerPPC(OpAssembler):
                     mem[j] = self.REF_TYPE
                     j += 1
                 elif arg.type == FLOAT:
-                    mem[j] = self.FLOAT_TYPE
-                    j += 1
+                    assert 0, "not implemented yet"
                 else:
                     assert 0, 'unknown type'
 
@@ -678,7 +669,6 @@ class AssemblerPPC(OpAssembler):
                 mem[j] = self.EMPTY_LOC
                 j += 1
             i += 1
-                # XXX 64 bit adjustment needed
 
         mem[j] = chr(0xFF)
 
@@ -909,7 +899,7 @@ class AssemblerPPC(OpAssembler):
                 assert 0, "not implemented yet"
             # XXX this code has to be verified
             assert not self.stack_in_use
-            target = StackLocation(0) # write to force index field           
+            target = StackLocation(self.ENCODING_AREA) # write to force index field           
             self.regalloc_mov(loc, target)
             self.stack_in_use = True
         elif loc.is_reg():
@@ -934,7 +924,7 @@ class AssemblerPPC(OpAssembler):
                 assert 0, "not implemented yet"
             # XXX this code has to be verified
             assert self.stack_in_use
-            from_loc = StackLocation(0)
+            from_loc = StackLocation(self.ENCODING_AREA)
             self.regalloc_mov(from_loc, loc)
             self.stack_in_use = False
         elif loc.is_reg():
@@ -996,9 +986,9 @@ class AssemblerPPC(OpAssembler):
     def _write_fail_index(self, fail_index):
         self.mc.load_imm(r.r0, fail_index)
         if IS_PPC_32:
-            self.mc.stw(r.r0.value, r.SPP.value, 0)
+            self.mc.stw(r.r0.value, r.SPP.value, self.ENCODING_AREA)
         else:
-            self.mc.std(r.r0.value, r.SPP.value, 0)
+            self.mc.std(r.r0.value, r.SPP.value, self.ENCODING_AREA)
             
     def load(self, loc, value):
         assert loc.is_reg() and value.is_imm()

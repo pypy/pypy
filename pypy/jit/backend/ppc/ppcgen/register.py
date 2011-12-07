@@ -32,8 +32,7 @@ MANAGED_REGS = [r3, r4, r5, r6, r7, r8, r9, r10,
 
 PARAM_REGS = [r3, r4, r5, r6, r7, r8, r9, r10]
 
-# XXX fix this at some point
-def managed_regs_sub(reg):
+def get_managed_reg_index(reg):
     if reg > r13.value:
-        return 4
-    return 3
+        return reg - 4
+    return reg - 3
