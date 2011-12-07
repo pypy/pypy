@@ -131,6 +131,10 @@ class FakeObjSpace(ObjSpace):
             expected_length = 3
         return [W_Root()] * expected_length
 
+    def allocate_instance(self, cls, w_subtype):
+        "NOT_RPYTHON"
+        xxx
+
     # ----------
 
     def translates(self, func=None, argtypes=None):
@@ -138,19 +142,28 @@ class FakeObjSpace(ObjSpace):
             if argtypes is None:
                 nb_args = func.func_code.co_argcount
                 argtypes = [W_Root] * nb_args
+        else:
+            func = lambda: None
+            argtypes = []
         #
         t = TranslationContext()
         self.t = t     # for debugging
         ann = t.buildannotator()
-        if func is not None:
-            ann.build_types(func, argtypes)
-        # annotate all _seen_extras, knowing that annotating some may
-        # grow the list
-        i = 0
-        while i < len(self._seen_extras):
-            print self._seen_extras
-            ann.build_types(self._seen_extras[i], [])
-            i += 1
+        #
+        done = 0
+        while True:
+            # annotate all _seen_extras, knowing that annotating some may
+            # grow the list
+            while done < len(self._seen_extras):
+                print self._seen_extras
+                ann.build_types(self._seen_extras[done], [],
+                                complete_now=False)
+                done += 1
+            # when the list stops growing, really complete
+            ann.build_types(func, argtypes, complete_now=True)
+            # if the list did not grow because of completion, we are done
+            if done == len(self._seen_extras):
+                break
         #t.viewcg()
         t.buildrtyper().specialize()
         t.checkgraphs()
