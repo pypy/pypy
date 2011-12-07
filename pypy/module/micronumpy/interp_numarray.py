@@ -916,6 +916,14 @@ class BaseArray(Wrappable):
     def descr_debug_repr(self, space):
         return space.wrap(self.debug_repr())
 
+    def descr_array_iface(self, space):
+        concrete = self.get_concrete()
+        addr = rffi.cast(lltype.Signed, concrete.storage)
+        w_d = space.newdict()
+        space.setitem_str(w_d, 'data', space.newtuple([space.wrap(addr),
+                                                       space.w_False]))
+        return w_d
+
 def convert_to_array(space, w_obj):
     if isinstance(w_obj, BaseArray):
         return w_obj
@@ -1444,6 +1452,7 @@ BaseArray.typedef = TypeDef(
     __repr__ = interp2app(BaseArray.descr_repr),
     __str__ = interp2app(BaseArray.descr_str),
     __debug_repr__ = interp2app(BaseArray.descr_debug_repr),
+    __array_interface__ = GetSetProperty(BaseArray.descr_array_iface),
 
     dtype = GetSetProperty(BaseArray.descr_get_dtype),
     shape = GetSetProperty(BaseArray.descr_get_shape,

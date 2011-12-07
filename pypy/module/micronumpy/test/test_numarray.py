@@ -1114,6 +1114,12 @@ class AppTestMultiDim(BaseNumpyAppTest):
         b = a[0].copy()
         assert (b == zeros(10)).all()
 
+    def test_array_interface(self):
+        from numpypy import array
+        a = array([1, 2, 3])
+        i = a.__array_interface__
+        assert isinstance(i['data'][0], int)
+
 class AppTestSupport(BaseNumpyAppTest):
     def setup_class(cls):
         import struct
