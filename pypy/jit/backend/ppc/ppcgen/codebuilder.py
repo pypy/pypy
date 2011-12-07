@@ -1015,8 +1015,9 @@ class PPCBuilder(BlockBuilderMixin, PPCAssembler):
         self.bctr()
 
     def bl_abs(self, address):
-        self.load_imm(r.r0, address)
+        self.alloc_scratch_reg(address)
         self.mtctr(r.r0.value)
+        self.free_scratch_reg()
         self.bctrl()
 
     def prepare_insts_blocks(self, show=False):
