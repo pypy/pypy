@@ -7,6 +7,9 @@ def test__bisect():
 def test__random():
     checkmodule('_random')
 
+def test_cStringIO():
+    checkmodule('cStringIO')
+
 def test_itertools():
     checkmodule('itertools')
 
