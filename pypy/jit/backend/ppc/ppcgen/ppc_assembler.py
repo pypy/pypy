@@ -756,7 +756,7 @@ class AssemblerPPC(OpAssembler):
                        + self.ENCODING_AREA
                        + regalloc.frame_manager.frame_depth * WORD
                        + self.max_stack_params * WORD
-                       + BACKCHAIN_SIZE)
+                       + BACKCHAIN_SIZE * WORD)
 
         return frame_depth
     
