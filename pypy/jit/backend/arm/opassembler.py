@@ -318,7 +318,48 @@ class OpAssembler(object):
         return fcond
 
     def emit_op_finish(self, op, arglocs, regalloc, fcond):
-        self._gen_path_to_exit_path(op.getdescr(), op.getarglist(), arglocs, c.AL)
+        for i in range(len(arglocs) -1):
+            loc = arglocs[i]
+            box = op.getarg(i)
+            if loc is None:
+                continue
+            if loc.is_reg():
+                if box.type == REF:
+                    adr = self.fail_boxes_ptr.get_addr_for_num(i)
+                elif box.type == INT:
+                    adr = self.fail_boxes_int.get_addr_for_num(i)
+                else:
+                    assert 0
+                self.mc.gen_load_int(r.ip.value, adr)
+                self.mc.STR_ri(loc.value, r.ip.value)
+            elif loc.is_vfp_reg():
+                assert box.type == FLOAT
+                adr = self.fail_boxes_float.get_addr_for_num(i)
+                self.mc.gen_load_int(r.ip.value, adr)
+                self.mc.VSTR(loc.value, r.ip.value)
+            elif loc.is_stack() or loc.is_imm() or loc.is_imm_float():
+                if box.type == FLOAT:
+                    adr = self.fail_boxes_float.get_addr_for_num(i)
+                    self.mov_loc_loc(loc, r.vfp_ip)
+                    self.mc.gen_load_int(r.ip.value, adr)
+                    self.mc.VSTR(r.vfp_ip.value, r.ip.value)
+                elif box.type == REF or box.type == INT:
+                    if box.type == REF:
+                        adr = self.fail_boxes_ptr.get_addr_for_num(i)
+                    elif box.type == INT:
+                        adr = self.fail_boxes_int.get_addr_for_num(i)
+                    self.mov_loc_loc(loc, r.ip)
+                    self.mc.gen_load_int(r.lr.value, adr)
+                    self.mc.STR_ri(r.ip.value, r.lr.value)
+            else:
+                assert 0
+        # note: no exception should currently be set in llop.get_exception_addr
+        # even if this finish may be an exit_frame_with_exception (in this case
+        # the exception instance is in arglocs[0]).
+        addr = self.cpu.get_on_leave_jitted_int(save_exception=False)
+        self.mc.BL(addr)
+        self.mc.gen_load_int(r.r0.value, arglocs[-1].value)
+        self.gen_func_epilog()
         return fcond
 
     def emit_op_call(self, op, args, regalloc, fcond, force_index=-1):
