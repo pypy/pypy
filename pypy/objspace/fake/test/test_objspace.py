@@ -60,3 +60,8 @@ class TestTranslate:
         space.translates(lambda: space.is_true(W_Root()))
         py.test.raises(AssertionError,
                        space.translates, lambda: space.is_true(42))
+
+    def test_unpackiterable(self):
+        space = self.space
+        space.translates(lambda: (space.unpackiterable(W_Root()),
+                                  space.unpackiterable(W_Root(), 42)))

@@ -64,6 +64,12 @@ class FakeObjSpace(ObjSpace):
         assert issubclass(cls, W_Root)
         return W_Root()
 
+    def unpackiterable(self, w_iterable, expected_length=-1):
+        is_root(w_iterable)
+        if expected_length < 0:
+            expected_length = 3
+        return [W_Root()] * expected_length
+
     # ----------
 
     def translates(self, func, argtypes=None):
