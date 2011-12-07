@@ -836,16 +836,16 @@ class BaseArray(Wrappable):
 
     def descr_reshape(self, space, args_w):
         """reshape(...)
-    a.reshape(shape)
+        a.reshape(shape)
 
-    Returns an array containing the same data with a new shape.
-
-    Refer to `numpypy.reshape` for full documentation.
-
-    See Also
-    --------
-    numpypy.reshape : equivalent function
-"""
+        Returns an array containing the same data with a new shape.
+        
+        Refer to `numpypy.reshape` for full documentation.
+        
+        See Also
+        --------
+        numpypy.reshape : equivalent function
+        """
         if len(args_w) == 1:
             w_shape = args_w[0]
         else:
