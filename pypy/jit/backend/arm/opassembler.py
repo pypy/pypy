@@ -197,7 +197,14 @@ class GuardOpAssembler(object):
            print 'Failargs: ', op.getfailargs()
 
         pos = self.mc.currpos()
-        self.mc.BKPT()
+        # For all guards that are not GUARD_NOT_INVALIDATED we emit a
+        # breakpoint to ensure the location is patched correctly. In the case
+        # of GUARD_NOT_INVALIDATED we use just a NOP, because it is only
+        # eventually patched at a later point.
+        if is_guard_not_invalidated:
+            self.mc.NOP()
+        else:
+            self.mc.BKPT()
         self.pending_guards.append(GuardToken(descr,
                                     failargs=op.getfailargs(),
                                     faillocs=arglocs,
