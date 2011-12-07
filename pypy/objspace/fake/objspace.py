@@ -1,6 +1,5 @@
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
-from pypy.interpreter import argument
-from pypy.translator.driver import TranslationDriver
+from pypy.interpreter import argument, gateway
 from pypy.annotation.model import SomeInstance, s_None
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.lltypesystem import lltype
@@ -8,6 +7,7 @@ from pypy.tool.sourcetools import compile2, func_with_new_name
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.nonconst import NonConstant
+from pypy.translator.translator import TranslationContext
 
 
 def is_root(w_obj):
@@ -38,7 +38,7 @@ class Entry(ExtRegistryEntry):
 class FakeObjSpace(ObjSpace):
 
     def __init__(self):
-        self.seen_wrap = []
+        self._seen_extras = []
         ObjSpace.__init__(self)
 
     def is_true(self, w_obj):
@@ -50,10 +50,20 @@ class FakeObjSpace(ObjSpace):
         return W_Root()
 
     def wrap(self, x):
-        if not we_are_translated():
-            self.seen_wrap.append(x)
+        if isinstance(x, gateway.interp2app):
+            self._see_interp2app(x)
         return W_Root()
     wrap._annspecialcase_ = "specialize:argtype(1)"
+
+    def _see_interp2app(self, interp2app):
+        "NOT_RPYTHON"
+        activation = interp2app._code.activation
+        scopelen = interp2app._code.sig.scope_length()
+        scope_w = [W_Root()] * scopelen
+        def check():
+            w_result = activation._run(self, scope_w)
+            is_root(w_result)
+        self._seen_extras.append(check)
 
     def call_args(self, w_func, args):
         is_root(w_func)
@@ -72,14 +82,20 @@ class FakeObjSpace(ObjSpace):
 
     # ----------
 
-    def translates(self, func, argtypes=None):
-        if argtypes is None:
-            nb_args = func.func_code.co_argcount
-            argtypes = [W_Root] * nb_args
+    def translates(self, func=None, argtypes=None):
+        if func is not None:
+            if argtypes is None:
+                nb_args = func.func_code.co_argcount
+                argtypes = [W_Root] * nb_args
         #
-        driver = TranslationDriver()
-        driver.setup(func, argtypes)
-        driver.proceed(['rtype_lltype'])
+        t = TranslationContext()
+        ann = t.buildannotator()
+        if func is not None:
+            ann.build_types(func, argtypes)
+        for check in self._seen_extras:
+            ann.build_types(check, [])
+        t.buildrtyper().specialize()
+        t.checkgraphs()
 
 
 def setup():
