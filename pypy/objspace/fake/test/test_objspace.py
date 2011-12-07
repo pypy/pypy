@@ -1,6 +1,8 @@
 import py
 from pypy.objspace.fake.objspace import FakeObjSpace, W_Root
 from pypy.interpreter.argument import Arguments
+from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.baseobjspace import Wrappable
 from pypy.rlib.unroll import unrolling_iterable
 
 def test_create():
@@ -53,7 +55,9 @@ class TestTranslate:
 
     def test_gettypefor(self):
         space = self.space
-        space.translates(lambda: space.gettypefor(W_Root))
+        class W_Foo(Wrappable):
+            typedef = TypeDef("foo")
+        space.translates(lambda: space.gettypefor(W_Foo))
 
     def test_is_true(self):
         space = self.space
