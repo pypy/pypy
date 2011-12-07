@@ -348,6 +348,7 @@ class MiscOpAssembler(object):
                 n += WORD
                 stack_args.append(None)
 
+        """
         # adjust SP and compute size of parameter save area
         if IS_PPC_32:
             stack_space = BACKCHAIN_SIZE + len(stack_args) * WORD
@@ -364,10 +365,13 @@ class MiscOpAssembler(object):
             self.mc.stdu(r.SP.value, r.SP.value, -stack_space)
             self.mc.mflr(r.r0.value)
             self.mc.std(r.r0.value, r.SP.value, stack_space + 2 * WORD)
+        """
 
+        # compute maximum of parameters passed
+        self.max_stack_params = max(self.max_stack_params, len(stack_args))
+
+        """
         # then we push everything on the stack
-        self.max_stack_params = max(self.max_stack_params, len(stack_args))\
-                                + MAX_REG_PARAMS
         for i, arg in enumerate(stack_args):
             if IS_PPC_32:
                 abi = 2
@@ -380,6 +384,25 @@ class MiscOpAssembler(object):
                 self.mc.stw(r.r0.value, r.SP.value, offset)
             else:
                 self.mc.std(r.r0.value, r.SP.value, offset)
+        """
+
+        # compute offset at which parameters are stored
+        if IS_PPC_32:
+            param_offset = BACKCHAIN_SIZE * WORD
+        else:
+            param_offset = ((BACKCHAIN_SIZE + MAX_REG_PARAMS)
+                    * WORD) # space for first 8 parameters
+
+        self.mc.alloc_scratch_reg()
+        for i, arg in enumerate(stack_args):
+            offset = param_offset + i * WORD
+            if arg is not None:
+                self.mc.load_imm(r.r0, arg.value)
+            if IS_PPC_32:
+                self.mc.stw(r.r0.value, r.SP.value, offset)
+            else:
+                self.mc.std(r.r0.value, r.SP.value, offset)
+        self.mc.free_scratch_reg()
 
         # collect variables that need to go in registers
         # and the registers they will be stored in 
@@ -411,6 +434,7 @@ class MiscOpAssembler(object):
         # remap values stored in core registers
         remap_frame_layout(self, non_float_locs, non_float_regs, r.r0)
 
+        """
         #the actual call
         if IS_PPC_32:
             self.mc.bl_abs(adr)
@@ -426,6 +450,13 @@ class MiscOpAssembler(object):
             self.mc.ld(r.r0.value, r.SP.value, stack_space + 2 * WORD)
         self.mc.mtlr(r.r0.value)
         self.mc.addi(r.SP.value, r.SP.value, stack_space)
+        """
+
+        # the actual call
+        if IS_PPC_32:
+            self.mc.bl_abs(adr)
+        else:
+            assert 0
 
         self.mark_gc_roots(force_index)
         regalloc.possibly_free_vars(args)
