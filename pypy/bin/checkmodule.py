@@ -7,7 +7,7 @@ pypy/module/<module-name>/.  Useful for testing whether a
 modules compiles without doing a full translation.
 """
 import autopath
-import sys
+import sys, os
 
 from pypy.objspace.fake.checkmodule import checkmodule
 
@@ -23,6 +23,13 @@ def main(argv):
         print >> sys.stderr, "Bad command line"
         print >> sys.stderr, __doc__
         sys.exit(1)
+    if os.path.sep in modname:
+        if os.path.basename(modname) == '':
+            modname = os.path.dirname(modname)
+        if os.path.basename(os.path.dirname(modname)) != 'module':
+            print >> sys.stderr, "Must give '../module/xxx', or just 'xxx'."
+            sys.exit(1)
+        modname = os.path.basename(modname)
     try:
         checkmodule(modname)
     except Exception, e:
