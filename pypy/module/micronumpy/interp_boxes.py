@@ -4,7 +4,6 @@ from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.floattype import float_typedef
 from pypy.objspace.std.inttype import int_typedef
-from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
 
@@ -33,9 +32,8 @@ class W_GenericBox(Wrappable):
     _attrs_ = ()
 
     def descr__new__(space, w_subtype, __args__):
-        assert isinstance(w_subtype, W_TypeObject)
         raise operationerrfmt(space.w_TypeError, "cannot create '%s' instances",
-            w_subtype.get_module_type_name()
+            w_subtype.getname(space, '?')
         )
 
     def descr_str(self, space):

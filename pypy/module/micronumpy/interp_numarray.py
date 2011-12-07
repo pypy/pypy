@@ -852,7 +852,7 @@ class BaseArray(Wrappable):
         if len(args_w) == 1:
             w_shape = args_w[0]
         else:
-            w_shape = space.newlist(args_w)
+            w_shape = space.newtuple(args_w)
         concrete = self.get_concrete()
         new_shape = get_shape_from_iterable(space,
                                             concrete.find_size(), w_shape)
@@ -916,6 +916,15 @@ class BaseArray(Wrappable):
     def descr_debug_repr(self, space):
         return space.wrap(self.debug_repr())
 
+    def descr_array_iface(self, space):
+        concrete = self.get_concrete()
+        storage = concrete.get_storage(space)
+        addr = rffi.cast(lltype.Signed, storage)
+        w_d = space.newdict()
+        space.setitem_str(w_d, 'data', space.newtuple([space.wrap(addr),
+                                                       space.w_False]))
+        return w_d
+
 def convert_to_array(space, w_obj):
     if isinstance(w_obj, BaseArray):
         return w_obj
@@ -975,6 +984,9 @@ class Scalar(BaseArray):
         # In order to get here, we already checked that prod(new_shape) == 1,
         # so in order to have a consistent API, let it go through.
         pass
+
+    def get_storage(self, space):
+        raise OperationError(space.w_TypeError, space.wrap("Cannot get array interface on scalars in pypy"))
 
 class VirtualArray(BaseArray):
     """
@@ -1263,6 +1275,9 @@ class W_NDimSlice(ViewArray):
             a_iter = a_iter.next(len(array.shape))
         return array
 
+    def get_storage(self, space):
+        return self.parent.get_storage(space)
+
 class W_NDimArray(BaseArray):
     """ A class representing contiguous array. We know that each iteration
     by say ufunc will increase the data index by one
@@ -1324,6 +1339,9 @@ class W_NDimArray(BaseArray):
 
     def debug_repr(self):
         return 'Array'
+
+    def get_storage(self, space):
+        return self.storage
 
     def __del__(self):
         lltype.free(self.storage, flavor='raw', track_allocation=False)
@@ -1444,6 +1462,7 @@ BaseArray.typedef = TypeDef(
     __repr__ = interp2app(BaseArray.descr_repr),
     __str__ = interp2app(BaseArray.descr_str),
     __debug_repr__ = interp2app(BaseArray.descr_debug_repr),
+    __array_interface__ = GetSetProperty(BaseArray.descr_array_iface),
 
     dtype = GetSetProperty(BaseArray.descr_get_dtype),
     shape = GetSetProperty(BaseArray.descr_get_shape,

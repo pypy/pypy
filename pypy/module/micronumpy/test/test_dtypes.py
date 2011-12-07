@@ -174,7 +174,7 @@ class AppTestTypes(BaseNumpyAppTest):
         raises(TypeError, numpy.number, 0)
         raises(TypeError, numpy.integer, 0)
         exc = raises(TypeError, numpy.signedinteger, 0)
-        assert str(exc.value) == "cannot create 'numpypy.signedinteger' instances"
+        assert str(exc.value) == "cannot create 'signedinteger' instances"
 
         raises(TypeError, numpy.floating, 0)
         raises(TypeError, numpy.inexact, 0)
