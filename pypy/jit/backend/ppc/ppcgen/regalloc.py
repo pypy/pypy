@@ -145,7 +145,7 @@ class Regalloc(object):
             if loc.is_reg():
                 self.rm.reg_bindings[arg] = loc
             elif loc.is_vfp_reg():
-                self.vfprm.reg_bindings[arg] = loc
+                assert 0, "not implemented yet"
             else:
                 assert loc.is_stack()
                 self.frame_manager.frame_bindings[arg] = loc
