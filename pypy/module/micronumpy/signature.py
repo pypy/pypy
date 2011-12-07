@@ -35,9 +35,6 @@ class Signature(object):
     def hash(self):
         return compute_hash(self)
 
-    def _freeze_(self):
-        self._hash = id(self)
-
 class ViewSignature(Signature):
     def __init__(self, child):
         self.child = child
