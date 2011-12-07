@@ -6,7 +6,7 @@
             |         BACK CHAIN      |                                        
   - - - - - --------------------------- - - - - -- - - - - - - - - - 
             |                         |          |                             CURRENT FRAME
-            |      FPR SAVE AREA      |          |>> len(NONVOLATILES_FPR) * WORD
+            |      FPR SAVE AREA      |          |>> len(NONVOLATILES_FPR) * DOUBLEWORD
             |                         |          |
             ---------------------------         --
             |                         |          |
@@ -17,7 +17,7 @@
             |   FLOAT/INT CONVERSION  |          |>> 1 * WORD
             |                         |          |
             ---------------------------         --
-            |       FORCE  INDEX      | WORD     | 1 WORD
+            |       FORCE  INDEX      | WORD     |>> 1 WORD
             ---------------------------         --
             |                         |          |
             |      ENCODING AREA      |          |>> len(MANAGED_REGS) * WORD
@@ -30,16 +30,12 @@
             |                         |          |
             |  PARAMETER SAVE AREA    |          |>> max_stack_params * WORD
             |                         |          |
-            ---------------------------a        --
-            |        TOC POINTER      | WORD     |
+            ---------------------------         --
+  (64 Bit)  |        TOC POINTER      | WORD     |
             ---------------------------          |
-            |       < RESERVED >      | WORD     |
-            ---------------------------          |
-            |       < RESERVED >      | WORD     |
-            ---------------------------          |>> 6 WORDS
             |         SAVED LR        | WORD     |
-            ---------------------------          |
-            |         SAVED CR        | WORD     |
+            ---------------------------          |>> 4 WORDS (64 Bit)
+  (64 Bit)  |         SAVED CR        | WORD     |   2 WORDS (32 Bit)
             ---------------------------          |
             |        BACK CHAIN       | WORD     |
      SP ->  ---------------------------         --
