@@ -1,5 +1,7 @@
 from pypy.rlib.objectmodel import r_dict, compute_identity_hash, compute_hash
 from pypy.rlib.rarithmetic import intmask
+from pypy.module.micronumpy.interp_iter import ViewIterator, ArrayIterator, \
+     BroadcastIterator, OneDimIterator
 
 
 # def components_eq(lhs, rhs):
@@ -35,6 +37,9 @@ class Signature(object):
     def hash(self):
         return compute_hash(self)
 
+    def create_iter(self, array, cache):
+        raise NotImplementedError
+
 class ViewSignature(Signature):
     def __init__(self, child):
         self.child = child
@@ -50,9 +55,15 @@ class ViewSignature(Signature):
     def debug_repr(self):
         return 'Slice(%s)' % self.child.debug_repr()
 
+    def create_iter(self, array, cache):
+        xxxx
+
 class ArraySignature(Signature):
     def debug_repr(self):
         return 'Array'
+
+    def create_iter(self, array, cache):
+        xxx
 
 class ScalarSignature(Signature):
     def debug_repr(self):
