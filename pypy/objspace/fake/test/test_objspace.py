@@ -1,4 +1,5 @@
 from pypy.objspace.fake.objspace import FakeObjSpace, W_Root
+from pypy.interpreter.argument import Arguments
 from pypy.rlib.unroll import unrolling_iterable
 
 def test_create():
@@ -41,3 +42,12 @@ class TestTranslate:
         space = self.space
         space.translates(lambda: (space.wrap(42), space.wrap(42.5),
                                   space.wrap("foo")))
+
+    def test_call_args(self):
+        space = self.space
+        args = Arguments(space, [W_Root()])
+        space.translates(lambda: space.call_args(W_Root(), args))
+
+    def test_gettypefor(self):
+        space = self.space
+        space.translates(lambda: space.gettypefor(W_Root))
