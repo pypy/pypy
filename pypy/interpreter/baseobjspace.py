@@ -1607,6 +1607,8 @@ ObjSpace.ExceptionTable = [
     'UnicodeError',
     'ValueError',
     'ZeroDivisionError',
+    'UnicodeEncodeError',
+    'UnicodeDecodeError',
     ]
 
 ## Irregular part of the interface:

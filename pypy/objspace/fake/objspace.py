@@ -146,6 +146,24 @@ class FakeObjSpace(ObjSpace):
         check = func_with_new_name(check, 'check__' + interp2app.name)
         self._seen_extras.append(check)
 
+    def call_obj_args(self, w_callable, w_obj, args):
+        is_root(w_callable)
+        is_root(w_obj)
+        is_arguments(args)
+        return w_some_obj()
+
+    def call(self, w_callable, w_args, w_kwds=None):
+        is_root(w_callable)
+        is_root(w_args)
+        is_root(w_kwds)
+        return w_some_obj()
+
+    def call_function(self, w_func, *args_w):
+        is_root(w_func)
+        for w_arg in list(args_w):
+            is_root(w_arg)
+        return w_some_obj()
+
     def call_args(self, w_func, args):
         is_root(w_func)
         is_arguments(args)
@@ -206,7 +224,8 @@ class FakeObjSpace(ObjSpace):
 def setup():
     for name in (ObjSpace.ConstantTable +
                  ObjSpace.ExceptionTable +
-                 ['int', 'str', 'float', 'long', 'tuple', 'list', 'dict']):
+                 ['int', 'str', 'float', 'long', 'tuple', 'list',
+                  'dict', 'unicode']):
         setattr(FakeObjSpace, 'w_' + name, w_some_obj())
     #
     for (name, _, arity, _) in ObjSpace.MethodTable:
