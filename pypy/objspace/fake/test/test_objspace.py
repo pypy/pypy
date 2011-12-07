@@ -27,3 +27,17 @@ class TestTranslate:
                     getattr(space, name)(*args_w)
             #
             space.translates(f)
+
+    def test_newdict(self):
+        space = self.space
+        space.translates(lambda: (space.newdict(),
+                                  space.newdict(strdict=True)))
+
+    def test_constants(self):
+        space = self.space
+        space.translates(lambda: (space.w_None, space.w_True, space.w_False))
+
+    def test_wrap(self):
+        space = self.space
+        space.translates(lambda: (space.wrap(42), space.wrap(42.5),
+                                  space.wrap("foo")))
