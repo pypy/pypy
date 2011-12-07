@@ -1,8 +1,7 @@
 import py
-from pypy.objspace.fake.checkmodule import checkmodule
 from pypy.objspace.fake.objspace import FakeObjSpace, is_root
 from pypy.interpreter.baseobjspace import Wrappable
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.gateway import interp2app, W_Root, ObjSpace
 
 
@@ -35,6 +34,17 @@ def test_wrap_interp2app_int():
     space.translates()
     assert check
 
+def test_wrap_GetSetProperty():
+    see, check = make_checker()
+    def foobar(w_obj, space):
+        is_root(w_obj)
+        see()
+        return space.w_None
+    space = FakeObjSpace()
+    space.wrap(GetSetProperty(foobar))
+    space.translates()
+    assert check
+
 
 def test_gettypefor_untranslated():
     see, check = make_checker()
@@ -51,7 +61,3 @@ def test_gettypefor_untranslated():
     assert not check
     space.translates()
     assert check
-
-
-def test_itertools_module():
-    checkmodule('itertools')

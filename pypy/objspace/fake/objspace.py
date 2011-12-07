@@ -1,7 +1,7 @@
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace
 from pypy.interpreter.baseobjspace import Wrappable, SpaceCache
 from pypy.interpreter import argument, gateway
-from pypy.interpreter.typedef import TypeDef
+from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.annotation.model import SomeInstance, s_None
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.lltypesystem import lltype
@@ -113,11 +113,13 @@ class FakeObjSpace(ObjSpace):
         return w_some_obj()
 
     def newtuple(self, list_w):
-        is_root(list_w[NonConstant(0)])
+        for w_x in list_w:
+            is_root(w_x)
         return w_some_obj()
 
     def newlist(self, list_w):
-        is_root(list_w[NonConstant(0)])
+        for w_x in list_w:
+            is_root(w_x)
         return w_some_obj()
 
     def newslice(self, w_start, w_end, w_step):
@@ -131,8 +133,11 @@ class FakeObjSpace(ObjSpace):
         raise NotImplementedError
 
     def wrap(self, x):
-        if isinstance(x, gateway.interp2app):
-            self._see_interp2app(x)
+        if not we_are_translated():
+            if isinstance(x, gateway.interp2app):
+                self._see_interp2app(x)
+            if isinstance(x, GetSetProperty):
+                self._see_getsetproperty(x)
         return w_some_obj()
     wrap._annspecialcase_ = "specialize:argtype(1)"
 
@@ -145,6 +150,21 @@ class FakeObjSpace(ObjSpace):
             is_root(w_result)
         check = func_with_new_name(check, 'check__' + interp2app.name)
         self._seen_extras.append(check)
+
+    def _see_getsetproperty(self, getsetproperty):
+        "NOT_RPYTHON"
+        space = self
+        def checkprop():
+            getsetproperty.fget(getsetproperty, space, w_some_obj())
+            if getsetproperty.fset is not None:
+                getsetproperty.fset(getsetproperty, space, w_some_obj(),
+                                    w_some_obj())
+            if getsetproperty.fdel is not None:
+                getsetproperty.fdel(getsetproperty, space, w_some_obj())
+        if not getsetproperty.name.startswith('<'):
+            checkprop = func_with_new_name(checkprop,
+                                           'checkprop__' + getsetproperty.name)
+        self._seen_extras.append(checkprop)
 
     def call_obj_args(self, w_callable, w_obj, args):
         is_root(w_callable)
@@ -187,6 +207,18 @@ class FakeObjSpace(ObjSpace):
         return instantiate(cls)
     allocate_instance._annspecialcase_ = "specialize:arg(1)"
 
+    def decode_index(self, w_index_or_slice, seqlength):
+        is_root(w_index_or_slice)
+        return (NonConstant(42), NonConstant(42), NonConstant(42))
+
+    def decode_index4(self, w_index_or_slice, seqlength):
+        is_root(w_index_or_slice)
+        return (NonConstant(42), NonConstant(42),
+                NonConstant(42), NonConstant(42))
+
+    def exec_(self, *args, **kwds):
+        pass
+
     # ----------
 
     def translates(self, func=None, argtypes=None):
@@ -225,7 +257,8 @@ def setup():
     for name in (ObjSpace.ConstantTable +
                  ObjSpace.ExceptionTable +
                  ['int', 'str', 'float', 'long', 'tuple', 'list',
-                  'dict', 'unicode']):
+                  'dict', 'unicode', 'complex', 'slice', 'bool',
+                  'type']):
         setattr(FakeObjSpace, 'w_' + name, w_some_obj())
     #
     for (name, _, arity, _) in ObjSpace.MethodTable:
@@ -254,3 +287,13 @@ class TypeCache(SpaceCache):
         for value in typedef.rawdict.values():
             cache.space.wrap(value)
         return w_some_obj()
+
+class FakeCompiler(object):
+    pass
+FakeObjSpace.default_compiler = FakeCompiler()
+
+class FakeModule(object):
+    def get(self, name):
+        name + "xx"   # check that it's a string
+        return w_some_obj()
+FakeObjSpace.sys = FakeModule()

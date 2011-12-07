@@ -69,3 +69,6 @@ class TestTranslate:
         space = self.space
         space.translates(lambda: (space.unpackiterable(W_Root()),
                                   space.unpackiterable(W_Root(), 42)))
+
+    def test_newlist(self):
+        self.space.newlist([W_Root(), W_Root()])
