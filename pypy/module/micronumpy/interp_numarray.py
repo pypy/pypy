@@ -918,7 +918,8 @@ class BaseArray(Wrappable):
 
     def descr_array_iface(self, space):
         concrete = self.get_concrete()
-        addr = rffi.cast(lltype.Signed, concrete.storage)
+        storage = concrete.get_storage(space)
+        addr = rffi.cast(lltype.Signed, storage)
         w_d = space.newdict()
         space.setitem_str(w_d, 'data', space.newtuple([space.wrap(addr),
                                                        space.w_False]))
@@ -983,6 +984,9 @@ class Scalar(BaseArray):
         # In order to get here, we already checked that prod(new_shape) == 1,
         # so in order to have a consistent API, let it go through.
         pass
+
+    def get_storage(self, space):
+        raise OperationError(space.w_TypeError, space.wrap("Cannot get array interface on scalars in pypy"))
 
 class VirtualArray(BaseArray):
     """
@@ -1271,6 +1275,9 @@ class W_NDimSlice(ViewArray):
             a_iter = a_iter.next(len(array.shape))
         return array
 
+    def get_storage(self, space):
+        return self.parent.storage
+
 class W_NDimArray(BaseArray):
     """ A class representing contiguous array. We know that each iteration
     by say ufunc will increase the data index by one
@@ -1332,6 +1339,9 @@ class W_NDimArray(BaseArray):
 
     def debug_repr(self):
         return 'Array'
+
+    def get_storage(self, space):
+        return self.storage
 
     def __del__(self):
         lltype.free(self.storage, flavor='raw', track_allocation=False)
