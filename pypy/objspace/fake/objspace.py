@@ -1,5 +1,6 @@
-from pypy.interpreter.baseobjspace import W_Root, ObjSpace
+from pypy.interpreter.baseobjspace import W_Root, ObjSpace, SpaceCache
 from pypy.interpreter import argument, gateway
+from pypy.interpreter.typedef import TypeDef
 from pypy.annotation.model import SomeInstance, s_None
 from pypy.rpython.extregistry import ExtRegistryEntry
 from pypy.rpython.lltypesystem import lltype
@@ -106,11 +107,11 @@ class FakeObjSpace(ObjSpace):
     def _see_interp2app(self, interp2app):
         "NOT_RPYTHON"
         activation = interp2app._code.activation
-        scopelen = interp2app._code.sig.scope_length()
-        scope_w = [W_Root()] * scopelen
         def check():
+            scope_w = [W_Root()] * NonConstant(42)
             w_result = activation._run(self, scope_w)
             is_root(w_result)
+        check = func_with_new_name(check, 'check__' + interp2app.name)
         self._seen_extras.append(check)
 
     def call_args(self, w_func, args):
@@ -119,8 +120,10 @@ class FakeObjSpace(ObjSpace):
         return W_Root()
 
     def gettypefor(self, cls):
-        assert issubclass(cls, W_Root)
-        return W_Root()
+        return self.gettypeobject(cls.typedef)
+
+    def gettypeobject(self, typedef):
+        return self.fromcache(TypeCache).getorbuild(typedef)
 
     def unpackiterable(self, w_iterable, expected_length=-1):
         is_root(w_iterable)
@@ -137,11 +140,17 @@ class FakeObjSpace(ObjSpace):
                 argtypes = [W_Root] * nb_args
         #
         t = TranslationContext()
+        self.t = t     # for debugging
         ann = t.buildannotator()
         if func is not None:
             ann.build_types(func, argtypes)
-        for check in self._seen_extras:
-            ann.build_types(check, [])
+        # annotate all _seen_extras, knowing that annotating some may
+        # grow the list
+        i = 0
+        while i < len(self._seen_extras):
+            print self._seen_extras
+            ann.build_types(self._seen_extras[i], [])
+            i += 1
         #t.viewcg()
         t.buildrtyper().specialize()
         t.checkgraphs()
@@ -170,3 +179,12 @@ def setup():
         assert hasattr(FakeObjSpace, name)    # missing?
 
 setup()
+
+# ____________________________________________________________
+
+class TypeCache(SpaceCache):
+    def build(cache, typedef):
+        assert isinstance(typedef, TypeDef)
+        for value in typedef.rawdict.values():
+            cache.space.wrap(value)
+        return W_Root()

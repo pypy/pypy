@@ -37,15 +37,20 @@ def test_wrap_interp2app_int():
 
 
 def test_gettypefor_untranslated():
-    py.test.skip("in-progress")
+    see, check = make_checker()
     class W_Foo(Wrappable):
-        pass
+        def do_it(self, space, w_x):
+            is_root(w_x)
+            see()
+            return W_Root()
     W_Foo.typedef = TypeDef('foo',
                             __module__ = 'barmod',
                             do_it = interp2app(W_Foo.do_it))
-    see, check = make_checker()
     space = FakeObjSpace()
     space.gettypefor(W_Foo)
+    assert not check
+    space.translates()
+    assert check
 
 def test_itertools_module():
     checkmodule('itertools')
