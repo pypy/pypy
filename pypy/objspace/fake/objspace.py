@@ -128,6 +128,12 @@ class FakeObjSpace(ObjSpace):
         is_root(w_step)
         return w_some_obj()
 
+    def newint(self, x):
+        return w_some_obj()
+
+    def newfloat(self, x):
+        return w_some_obj()
+
     def marshal_w(self, w_obj):
         "NOT_RPYTHON"
         raise NotImplementedError
