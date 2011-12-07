@@ -1276,7 +1276,7 @@ class W_NDimSlice(ViewArray):
         return array
 
     def get_storage(self, space):
-        return self.parent.get_storage()
+        return self.parent.get_storage(space)
 
 class W_NDimArray(BaseArray):
     """ A class representing contiguous array. We know that each iteration
