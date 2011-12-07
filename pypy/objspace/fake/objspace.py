@@ -7,6 +7,7 @@ from pypy.rpython.lltypesystem import lltype
 from pypy.tool.sourcetools import compile2, func_with_new_name
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.rlib.nonconst import NonConstant
 
 
 def is_root(w_obj):
@@ -40,9 +41,9 @@ class FakeObjSpace(ObjSpace):
         self.seen_wrap = []
         ObjSpace.__init__(self)
 
-    w_None = W_Root()
-    w_False = W_Root()
-    w_True = W_Root()
+    def is_true(self, w_obj):
+        is_root(w_obj)
+        return NonConstant(False)
 
     def newdict(self, module=False, instance=False, classofinstance=None,
                 strdict=False):
@@ -76,6 +77,11 @@ class FakeObjSpace(ObjSpace):
 
 
 def setup():
+    for name in (ObjSpace.ConstantTable +
+                 ObjSpace.ExceptionTable +
+                 ['int', 'str', 'float', 'long', 'tuple', 'list', 'dict']):
+        setattr(FakeObjSpace, 'w_' + name, W_Root())
+    #
     for (name, _, arity, _) in ObjSpace.MethodTable:
         args = ['w_%d' % i for i in range(arity)]
         d = {'is_root': is_root,

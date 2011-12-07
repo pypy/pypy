@@ -1,3 +1,4 @@
+import py
 from pypy.objspace.fake.objspace import FakeObjSpace, W_Root
 from pypy.interpreter.argument import Arguments
 from pypy.rlib.unroll import unrolling_iterable
@@ -36,7 +37,9 @@ class TestTranslate:
 
     def test_constants(self):
         space = self.space
-        space.translates(lambda: (space.w_None, space.w_True, space.w_False))
+        space.translates(lambda: (space.w_None, space.w_True, space.w_False,
+                                  space.w_int, space.w_str,
+                                  space.w_TypeError))
 
     def test_wrap(self):
         space = self.space
@@ -51,3 +54,9 @@ class TestTranslate:
     def test_gettypefor(self):
         space = self.space
         space.translates(lambda: space.gettypefor(W_Root))
+
+    def test_is_true(self):
+        space = self.space
+        space.translates(lambda: space.is_true(W_Root()))
+        py.test.raises(AssertionError,
+                       space.translates, lambda: space.is_true(42))
