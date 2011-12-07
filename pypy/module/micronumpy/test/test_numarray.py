@@ -878,8 +878,7 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert sin(a).__debug_repr__() == 'Call1(sin, Array)'
         b = a + a
         b[0] = 3
-        skip("not there")
-        assert b.__debug_repr__() == 'Call2(add, forced=Array)'
+        assert b.__debug_repr__() == 'Forced'
 
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):

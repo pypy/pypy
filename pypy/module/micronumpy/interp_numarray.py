@@ -998,6 +998,7 @@ class VirtualArray(BaseArray):
     def force_if_needed(self):
         if self.forced_result is None:
             self.forced_result = self.compute()
+            self.signature = self.find_dtype().forced_signature
             self._del_sources()
 
     def get_concrete(self):

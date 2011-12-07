@@ -106,7 +106,8 @@ class Call2(Signature):
                                       self.right.debug_repr())
 
 class ForcedSignature(Signature):
-    pass
+    def debug_repr(self):
+        return 'Forced'
 
 class ReduceSignature(Call2):
     pass
