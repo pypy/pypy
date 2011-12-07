@@ -258,7 +258,7 @@ def setup():
                  ObjSpace.ExceptionTable +
                  ['int', 'str', 'float', 'long', 'tuple', 'list',
                   'dict', 'unicode', 'complex', 'slice', 'bool',
-                  'type']):
+                  'type', 'basestring']):
         setattr(FakeObjSpace, 'w_' + name, w_some_obj())
     #
     for (name, _, arity, _) in ObjSpace.MethodTable:
@@ -297,3 +297,4 @@ class FakeModule(object):
         name + "xx"   # check that it's a string
         return w_some_obj()
 FakeObjSpace.sys = FakeModule()
+FakeObjSpace.sys.filesystemencoding = 'foobar'

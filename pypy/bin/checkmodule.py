@@ -23,8 +23,16 @@ def main(argv):
         print >> sys.stderr, "Bad command line"
         print >> sys.stderr, __doc__
         sys.exit(1)
-    checkmodule(modname)
-    print 'Passed.'
+    try:
+        checkmodule(modname)
+    except Exception, e:
+        import traceback, pdb
+        traceback.print_exc()
+        pdb.post_mortem(sys.exc_info()[2])
+        return 1
+    else:
+        print 'Passed.'
+        return 0
 
 if __name__ == '__main__':
-    main(sys.argv)
+    sys.exit(main(sys.argv))
