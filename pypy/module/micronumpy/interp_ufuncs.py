@@ -78,9 +78,8 @@ class W_Ufunc(Wrappable):
             start = start.next(shapelen)
         else:
             value = self.identity.convert_to(dtype)
-        new_sig = signature.Signature.find_sig([
-            self.reduce_signature, obj.signature
-        ])
+        new_sig = signature.find_sig(
+            signature.ReduceSignature(self.func, obj.signature))
         return self.reduce_loop(new_sig, shapelen, start, value, obj, dtype)
 
     def reduce_loop(self, signature, shapelen, i, value, obj, dtype):
@@ -101,7 +100,6 @@ class W_Ufunc1(W_Ufunc):
 
         W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity)
         self.func = func
-        self.signature = signature.Call1(func)
 
     def call(self, space, args_w):
         from pypy.module.micronumpy.interp_numarray import (Call1,
@@ -117,7 +115,8 @@ class W_Ufunc1(W_Ufunc):
         if isinstance(w_obj, Scalar):
             return self.func(res_dtype, w_obj.value.convert_to(res_dtype))
 
-        new_sig = signature.Signature.find_sig([self.signature, w_obj.signature])
+        new_sig = signature.find_sig(signature.Call1(self.func,
+                                                     w_obj.signature))
         w_res = Call1(new_sig, w_obj.shape, res_dtype, w_obj, w_obj.order)
         w_obj.add_invalidates(w_res)
         return w_res
@@ -133,8 +132,6 @@ class W_Ufunc2(W_Ufunc):
         W_Ufunc.__init__(self, name, promote_to_float, promote_bools, identity)
         self.func = func
         self.comparison_func = comparison_func
-        self.signature = signature.Call2(func)
-        self.reduce_signature = signature.BaseSignature()
 
     def call(self, space, args_w):
         from pypy.module.micronumpy.interp_numarray import (Call2,
@@ -158,9 +155,9 @@ class W_Ufunc2(W_Ufunc):
                 w_rhs.value.convert_to(calc_dtype)
             )
 
-        new_sig = signature.Signature.find_sig([
-            self.signature, w_lhs.signature, w_rhs.signature
-        ])
+        new_sig = signature.find_sig(signature.Call2(self.func,
+                                                     w_lhs.signature,
+                                                     w_rhs.signature))
         new_shape = shape_agreement(space, w_lhs.shape, w_rhs.shape)
         w_res = Call2(new_sig, new_shape, calc_dtype,
                       res_dtype, w_lhs, w_rhs)

@@ -21,7 +21,6 @@ class W_Dtype(Wrappable):
     _immutable_fields_ = ["itemtype", "num", "kind"]
 
     def __init__(self, itemtype, num, kind, name, char, w_box_type, alternate_constructors=[]):
-        self.signature = signature.BaseSignature()
         self.itemtype = itemtype
         self.num = num
         self.kind = kind
@@ -29,6 +28,10 @@ class W_Dtype(Wrappable):
         self.char = char
         self.w_box_type = w_box_type
         self.alternate_constructors = alternate_constructors
+        self.array_signature = signature.ArraySignature()
+        self.scalar_signature = signature.ScalarSignature()
+        #self.flatiter_signature = signature.FlatiterSignature()
+        #self.view_signature = signature.ViewSignature()
 
     def malloc(self, length):
         # XXX find out why test_zjit explodes with tracking of allocations

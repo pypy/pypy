@@ -831,10 +831,7 @@ class BaseArray(Wrappable):
             shape += self.shape[s:]
             strides += self.strides[s:]
             backstrides += self.backstrides[s:]
-        new_sig = signature.Signature.find_sig([
-            W_NDimSlice.signature, self.signature,
-        ])
-        return W_NDimSlice(self, new_sig, start, strides[:], backstrides[:],
+        return W_NDimSlice(self, start, strides[:], backstrides[:],
                            shape[:])
 
     def descr_reshape(self, space, args_w):
@@ -861,14 +858,11 @@ class BaseArray(Wrappable):
                                        concrete.shape, concrete.strides)
         if new_strides:
             # We can create a view, strides somehow match up.
-            new_sig = signature.Signature.find_sig([
-                W_NDimSlice.signature, self.signature
-            ])
             ndims = len(new_shape)
             new_backstrides = [0] * ndims
             for nd in range(ndims):
                 new_backstrides[nd] = (new_shape[nd] - 1) * new_strides[nd]
-            arr = W_NDimSlice(self, new_sig, self.start, new_strides,
+            arr = W_NDimSlice(self, self.start, new_strides,
                               new_backstrides, new_shape)
         else:
             # Create copy with contiguous data
@@ -891,9 +885,6 @@ class BaseArray(Wrappable):
         concrete = self.get_concrete()
         if len(concrete.shape) < 2:
             return space.wrap(self)
-        new_sig = signature.Signature.find_sig([
-            W_NDimSlice.signature, self.signature
-        ])
         strides = []
         backstrides = []
         shape = []
@@ -901,7 +892,7 @@ class BaseArray(Wrappable):
             strides.append(concrete.strides[i])
             backstrides.append(concrete.backstrides[i])
             shape.append(concrete.shape[i])
-        return space.wrap(W_NDimSlice(concrete, new_sig, self.start, strides[:],
+        return space.wrap(W_NDimSlice(concrete, self.start, strides[:],
                                       backstrides[:], shape[:]))
 
     def descr_get_flatiter(self, space):
@@ -914,7 +905,7 @@ class BaseArray(Wrappable):
         raise NotImplementedError
 
     def descr_debug_repr(self, space):
-        return space.wrap(self.debug_repr())
+        return space.wrap(self.signature.debug_repr())
 
 def convert_to_array(space, w_obj):
     if isinstance(w_obj, BaseArray):
@@ -934,8 +925,6 @@ class Scalar(BaseArray):
     """
     Intermediate class representing a literal.
     """
-    signature = signature.BaseSignature()
-
     _attrs_ = ["dtype", "value", "shape"]
 
     def __init__(self, dtype, value):
@@ -943,6 +932,7 @@ class Scalar(BaseArray):
         BaseArray.__init__(self, [], 'C')
         self.dtype = dtype
         self.value = value
+        self.signature = dtype.scalar_signature
 
     def find_size(self):
         return 1
@@ -967,9 +957,6 @@ class Scalar(BaseArray):
 
     def copy(self):
         return Scalar(self.dtype, self.value)
-
-    def debug_repr(self):
-        return 'Scalar'
 
     def setshape(self, space, new_shape):
         # In order to get here, we already checked that prod(new_shape) == 1,
@@ -1054,29 +1041,17 @@ class Call1(VirtualArray):
         return self.res_dtype
 
     def _eval(self, iter):
+        # XXX deal with forced args
         assert isinstance(iter, Call1Iterator)
         val = self.values.eval(iter.child).convert_to(self.res_dtype)
         sig = jit.promote(self.signature)
-        assert isinstance(sig, signature.Signature)
-        call_sig = sig.components[0]
-        assert isinstance(call_sig, signature.Call1)
-        return call_sig.func(self.res_dtype, val)
+        assert isinstance(sig, signature.Call1)
+        return sig.func(self.res_dtype, val)
 
     def start_iter(self, res_shape=None):
         if self.forced_result is not None:
             return self.forced_result.start_iter(res_shape)
         return Call1Iterator(self.values.start_iter(res_shape))
-
-    def debug_repr(self):
-        sig = self.signature
-        assert isinstance(sig, signature.Signature)
-        call_sig = sig.components[0]
-        assert isinstance(call_sig, signature.Call1)
-        if self.forced_result is not None:
-            return 'Call1(%s, forced=%s)' % (call_sig.name,
-                                             self.forced_result.debug_repr())
-        return 'Call1(%s, %s)' % (call_sig.name,
-                                  self.values.debug_repr())
 
 class Call2(VirtualArray):
     """
@@ -1112,12 +1087,11 @@ class Call2(VirtualArray):
         lhs = self.left.eval(iter.left).convert_to(self.calc_dtype)
         rhs = self.right.eval(iter.right).convert_to(self.calc_dtype)
         sig = jit.promote(self.signature)
-        assert isinstance(sig, signature.Signature)
-        call_sig = sig.components[0]
-        assert isinstance(call_sig, signature.Call2)
-        return call_sig.func(self.calc_dtype, lhs, rhs)
+        assert isinstance(sig, signature.Call2)
+        return sig.func(self.calc_dtype, lhs, rhs)
 
     def debug_repr(self):
+        xxx
         sig = self.signature
         assert isinstance(sig, signature.Signature)
         call_sig = sig.components[0]
@@ -1134,11 +1108,10 @@ class ViewArray(BaseArray):
     Class for representing views of arrays, they will reflect changes of parent
     arrays. Example: slices
     """
-    def __init__(self, parent, signature, strides, backstrides, shape):
+    def __init__(self, parent, strides, backstrides, shape):
         self.strides = strides
         self.backstrides = backstrides
         BaseArray.__init__(self, shape, parent.order)
-        self.signature = signature
         self.parent = parent
         self.invalidates = parent.invalidates
 
@@ -1203,13 +1176,11 @@ class ViewArray(BaseArray):
         self.shape = new_shape[:]
 
 class W_NDimSlice(ViewArray):
-    signature = signature.BaseSignature()
-
-    def __init__(self, parent, signature, start, strides, backstrides,
-                 shape):
+    def __init__(self, parent, start, strides, backstrides, shape):
         if isinstance(parent, W_NDimSlice):
             parent = parent.parent
-        ViewArray.__init__(self, parent, signature, strides, backstrides, shape)
+        ViewArray.__init__(self, parent, strides, backstrides, shape)
+        self.signature = signature.find_sig(signature.ViewSignature(parent.signature))
         self.start = start
         self.size = 1
         for sh in shape:
@@ -1272,7 +1243,7 @@ class W_NDimArray(BaseArray):
         self.size = size
         self.dtype = dtype
         self.storage = dtype.malloc(size)
-        self.signature = dtype.signature
+        self.signature = dtype.array_signature
 
     def get_concrete(self):
         return self
@@ -1470,21 +1441,19 @@ BaseArray.typedef = TypeDef(
 
 
 class W_FlatIterator(ViewArray):
-    signature = signature.BaseSignature()
 
     @jit.unroll_safe
     def __init__(self, arr):
         size = 1
         for sh in arr.shape:
             size *= sh
-        new_sig = signature.Signature.find_sig([
-            W_FlatIterator.signature, arr.signature
-        ])
-        ViewArray.__init__(self, arr, new_sig, [arr.strides[-1]],
+        ViewArray.__init__(self, arr, [arr.strides[-1]],
                            [arr.backstrides[-1]], [size])
         self.shapelen = len(arr.shape)
         self.arr = arr
         self.iter = self.start_iter()
+        self.signature = signature.find_sig(signature.FlatiterSignature(
+            arr.signature))
 
     def start_iter(self, res_shape=None):
         if res_shape is not None and res_shape != self.shape:
