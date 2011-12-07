@@ -7,6 +7,7 @@ from pypy.tool.sourcetools import compile2, func_with_new_name
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.rlib.nonconst import NonConstant
+from pypy.rlib.rarithmetic import r_uint
 from pypy.translator.translator import TranslationContext
 
 
@@ -41,13 +42,60 @@ class FakeObjSpace(ObjSpace):
         self._seen_extras = []
         ObjSpace.__init__(self)
 
+    def str_w(self, w_obj):
+        is_root(w_obj)
+        return NonConstant("foobar")
+
+    def int_w(self, w_obj):
+        is_root(w_obj)
+        return NonConstant(-42)
+
+    def float_w(self, w_obj):
+        is_root(w_obj)
+        return NonConstant(42.5)
+
+    def uint_w(self, w_obj):
+        is_root(w_obj)
+        return r_uint(NonConstant(42))
+
+    def bigint_w(self, w_obj):
+        from pypy.rlib.rbigint import rbigint
+        is_root(w_obj)
+        return rbigint.fromint(NonConstant(42))
+
+    def unicode_w(self, w_obj):
+        is_root(w_obj)
+        return NonConstant(u"foobar")
+
     def is_true(self, w_obj):
         is_root(w_obj)
         return NonConstant(False)
 
+    def unwrap(self, w_obj):
+        "NOT_RPYTHON"
+        raise NotImplementedError
+
     def newdict(self, module=False, instance=False, classofinstance=None,
                 strdict=False):
         return W_Root()
+
+    def newtuple(self, list_w):
+        is_root(list_w[NonConstant(0)])
+        return W_Root()
+
+    def newlist(self, list_w):
+        is_root(list_w[NonConstant(0)])
+        return W_Root()
+
+    def newslice(self, w_start, w_end, w_step):
+        is_root(w_start)
+        is_root(w_end)
+        is_root(w_step)
+        return W_Root()
+
+    def marshal_w(self, w_obj):
+        "NOT_RPYTHON"
+        raise NotImplementedError
 
     def wrap(self, x):
         if isinstance(x, gateway.interp2app):
@@ -94,6 +142,7 @@ class FakeObjSpace(ObjSpace):
             ann.build_types(func, argtypes)
         for check in self._seen_extras:
             ann.build_types(check, [])
+        #t.viewcg()
         t.buildrtyper().specialize()
         t.checkgraphs()
 
@@ -116,5 +165,8 @@ def setup():
                '; '.join(['is_root(%s)' % arg for arg in args]))) in d
         meth = func_with_new_name(d['meth'], name)
         setattr(FakeObjSpace, name, meth)
+    #
+    for name in ObjSpace.IrregularOpTable:
+        assert hasattr(FakeObjSpace, name)    # missing?
 
 setup()
