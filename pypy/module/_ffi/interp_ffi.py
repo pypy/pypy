@@ -509,6 +509,6 @@ W_CDLL.typedef = TypeDef(
 def get_libc(space):
     from pypy.rlib.clibffi import get_libc_name
     try:
-        return space.wrap(W_CDLL(space, get_libc_name()))
+        return space.wrap(W_CDLL(space, get_libc_name(), -1))
     except OSError, e:
         raise wrap_oserror(space, e)
