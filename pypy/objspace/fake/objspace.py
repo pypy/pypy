@@ -11,6 +11,7 @@ from pypy.rlib.objectmodel import instantiate, we_are_translated
 from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.rarithmetic import r_uint
 from pypy.translator.translator import TranslationContext
+from pypy.tool.option import make_config
 
 
 class W_MyObject(Wrappable):
@@ -227,13 +228,14 @@ class FakeObjSpace(ObjSpace):
 
     # ----------
 
-    def translates(self, func=None, argtypes=None):
+    def translates(self, func=None, argtypes=None, **kwds):
+        config = make_config(None, **kwds)
         if func is not None:
             if argtypes is None:
                 nb_args = func.func_code.co_argcount
                 argtypes = [W_Root] * nb_args
         #
-        t = TranslationContext()
+        t = TranslationContext(config=config)
         self.t = t     # for debugging
         ann = t.buildannotator()
         if func is not None:
