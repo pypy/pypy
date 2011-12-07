@@ -52,5 +52,6 @@ def test_gettypefor_untranslated():
     space.translates()
     assert check
 
+
 def test_itertools_module():
     checkmodule('itertools')
