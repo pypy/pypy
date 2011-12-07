@@ -12,6 +12,3 @@ def test_cStringIO():
 
 def test_itertools():
     checkmodule('itertools')
-
-def test_micronumpy():
-    checkmodule('micronumpy')
