@@ -79,7 +79,9 @@ class W_Ufunc(Wrappable):
         else:
             value = self.identity.convert_to(dtype)
         new_sig = signature.find_sig(
-            signature.ReduceSignature(self.func, obj.signature))
+            signature.ReduceSignature(self.func, self.name,
+                                      dtype.scalar_signature,
+                                      obj.signature))
         return self.reduce_loop(new_sig, shapelen, start, value, obj, dtype)
 
     def reduce_loop(self, signature, shapelen, i, value, obj, dtype):
@@ -116,6 +118,7 @@ class W_Ufunc1(W_Ufunc):
             return self.func(res_dtype, w_obj.value.convert_to(res_dtype))
 
         new_sig = signature.find_sig(signature.Call1(self.func,
+                                                     self.name,
                                                      w_obj.signature))
         w_res = Call1(new_sig, w_obj.shape, res_dtype, w_obj, w_obj.order)
         w_obj.add_invalidates(w_res)
@@ -156,6 +159,7 @@ class W_Ufunc2(W_Ufunc):
             )
 
         new_sig = signature.find_sig(signature.Call2(self.func,
+                                                     self.name,
                                                      w_lhs.signature,
                                                      w_rhs.signature))
         new_shape = shape_agreement(space, w_lhs.shape, w_rhs.shape)

@@ -1041,12 +1041,11 @@ class Call1(VirtualArray):
         return self.res_dtype
 
     def _eval(self, iter):
-        # XXX deal with forced args
         assert isinstance(iter, Call1Iterator)
         val = self.values.eval(iter.child).convert_to(self.res_dtype)
         sig = jit.promote(self.signature)
         assert isinstance(sig, signature.Call1)
-        return sig.func(self.res_dtype, val)
+        return sig.unfunc(self.res_dtype, val)
 
     def start_iter(self, res_shape=None):
         if self.forced_result is not None:
@@ -1088,20 +1087,7 @@ class Call2(VirtualArray):
         rhs = self.right.eval(iter.right).convert_to(self.calc_dtype)
         sig = jit.promote(self.signature)
         assert isinstance(sig, signature.Call2)
-        return sig.func(self.calc_dtype, lhs, rhs)
-
-    def debug_repr(self):
-        xxx
-        sig = self.signature
-        assert isinstance(sig, signature.Signature)
-        call_sig = sig.components[0]
-        assert isinstance(call_sig, signature.Call2)
-        if self.forced_result is not None:
-            return 'Call2(%s, forced=%s)' % (call_sig.name,
-                self.forced_result.debug_repr())
-        return 'Call2(%s, %s, %s)' % (call_sig.name,
-            self.left.debug_repr(),
-            self.right.debug_repr())
+        return sig.binfunc(self.calc_dtype, lhs, rhs)
 
 class ViewArray(BaseArray):
     """
@@ -1221,9 +1207,6 @@ class W_NDimSlice(ViewArray):
     def setitem(self, item, value):
         self.parent.setitem(item, value)
 
-    def debug_repr(self):
-        return 'Slice(%s)' % self.parent.debug_repr()
-
     def copy(self):
         array = W_NDimArray(self.size, self.shape[:], self.find_dtype())
         iter = self.start_iter()
@@ -1292,9 +1275,6 @@ class W_NDimArray(BaseArray):
     def setshape(self, space, new_shape):
         self.shape = new_shape
         self.calc_strides(new_shape)
-
-    def debug_repr(self):
-        return 'Array'
 
     def __del__(self):
         lltype.free(self.storage, flavor='raw', track_allocation=False)
@@ -1476,9 +1456,6 @@ class W_FlatIterator(ViewArray):
 
     def descr_iter(self):
         return self
-
-    def debug_repr(self):
-        return 'FlatIter(%s)' % self.arr.debug_repr()
 
 
 W_FlatIterator.typedef = TypeDef(

@@ -185,6 +185,7 @@ class TestNumpyJIt(LLJitMixin):
         # sure it was optimized correctly.
         # XXX the comment above is wrong now.  We need preferrably a way to
         # count the two loops separately
+        py.test.skip(":(")
         self.check_resops({'setinteriorfield_raw': 4, 'guard_nonnull': 1, 'getfield_gc': 41,
                            'guard_class': 22, 'int_add': 8, 'float_mul': 2,
                            'guard_isnull': 2, 'jump': 4, 'int_ge': 4,

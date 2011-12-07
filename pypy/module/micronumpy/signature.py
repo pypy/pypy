@@ -1,4 +1,4 @@
-from pypy.rlib.objectmodel import r_dict, compute_identity_hash
+from pypy.rlib.objectmodel import r_dict, compute_identity_hash, compute_hash
 from pypy.rlib.rarithmetic import intmask
 
 
@@ -33,14 +33,17 @@ class Signature(object):
         return self is other
 
     def hash(self):
-        return compute_identity_hash(self)
+        return compute_hash(self)
+
+    def _freeze_(self):
+        self._hash = id(self)
 
 class ViewSignature(Signature):
     def __init__(self, child):
         self.child = child
     
     def eq(self, other):
-        if type(self) != type(other):
+        if type(self) is not type(other):
             return False
         return self.child.eq(other.child)
 
@@ -63,43 +66,49 @@ class FlatiterSignature(ViewSignature):
         return 'FlatIter(%s)' % self.child.debug_repr()
 
 class Call1(Signature):
-    def __init__(self, func, child):
-        self.func = func
+    def __init__(self, func, name, child):
+        self.unfunc = func
+        self.name = name
         self.child = child
 
     def hash(self):
-        return compute_identity_hash(self.func) ^ (self.child.hash() << 1)
+        return compute_hash(self.name) ^ self.child.hash() << 1
 
     def eq(self, other):
-        if type(other) != type(self):
+        if type(other) is not type(self):
             return False
-        return self.child.eq(other.child)
+        return self.unfunc is other.unfunc and self.child.eq(other.child)
 
     def debug_repr(self):
-        return 'Call1(%s, %s)' % (self.func.func_name,
+        return 'Call1(%s, %s)' % (self.name,
                                   self.child.debug_repr())
 
 class Call2(Signature):
-    def __init__(self, func, left, right):
-        self.func = func
+    def __init__(self, func, name, left, right):
+        self.binfunc = func
+        self.name = name
         self.left = left
         self.right = right
 
     def hash(self):
-        return (compute_identity_hash(self.func) ^ (self.left.hash() << 1) ^
+        return (compute_hash(self.name) ^ (self.left.hash() << 1) ^
                 (self.right.hash() << 2))
 
     def eq(self, other):
-        if type(other) != type(self):
+        if type(other) is not type(self):
             return False
-        return self.left.eq(other.left) and self.right.eq(other.right)
+        return (self.binfunc is other.binfunc and
+                self.left.eq(other.left) and self.right.eq(other.right))
 
     def debug_repr(self):
-        return 'Call2(%s, %s, %s)' % (self.func.func_name,
+        return 'Call2(%s, %s, %s)' % (self.name,
                                       self.left.debug_repr(),
                                       self.right.debug_repr())
 
-class ReduceSignature(Call1):
+class ForcedSignature(Signature):
+    pass
+
+class ReduceSignature(Call2):
     pass
 
 # class Signature(BaseSignature):
