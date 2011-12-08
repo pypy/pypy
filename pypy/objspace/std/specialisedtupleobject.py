@@ -53,17 +53,9 @@ def make_specialised_class(typetuple):
     iter_n = unrolling_iterable(range(nValues))
     
     class cls(W_SpecialisedTupleObject):
-        def __init__(self, space, *values):
+        def __init__(self, space, *values_w):
             self.space = space
-            assert len(values) == nValues
-            for i in iter_n:
-                if typetuple[i] != object:
-                    assert isinstance(values[i], typetuple[i])
-                setattr(self, 'value%s' % i, values[i])
-
-        @classmethod
-        def make(cls, space, *values_w):
-            unwrappedparams = ()
+            assert len(values_w) == nValues
             for i in iter_n:
                 w_obj = values_w[i]
                 val_type = typetuple[i]
@@ -77,8 +69,7 @@ def make_specialised_class(typetuple):
                     unwrapped = w_obj
                 else:
                     raise AssertionError
-                unwrappedparams += (unwrapped,)
-            return cls(space, *unwrappedparams)
+                setattr(self, 'value%s' % i, unwrapped)
 
         def length(self):
             return nValues
@@ -197,33 +188,33 @@ def makespecialisedtuple(space, list_w):
         #
         if w_type1 is space.w_int:
             if w_type2 is space.w_int:
-                return Cls_ii.make(space, w_arg1, w_arg2)
+                return Cls_ii(space, w_arg1, w_arg2)
             elif w_type2 is space.w_str:
-                return Cls_is.make(space, w_arg1, w_arg2)
+                return Cls_is(space, w_arg1, w_arg2)
             else:
-                return Cls_io.make(space, w_arg1, w_arg2)
+                return Cls_io(space, w_arg1, w_arg2)
         #
         elif w_type1 is space.w_str:
             if w_type2 is space.w_int:
-                return Cls_si.make(space, w_arg1, w_arg2)
+                return Cls_si(space, w_arg1, w_arg2)
             elif w_type2 is space.w_str:
-                return Cls_ss.make(space, w_arg1, w_arg2)
+                return Cls_ss(space, w_arg1, w_arg2)
             else:
-                return Cls_so.make(space, w_arg1, w_arg2)
+                return Cls_so(space, w_arg1, w_arg2)
         #
         elif w_type1 is space.w_float and w_type2 is space.w_float:
-            return Cls_ff.make(space, w_arg1, w_arg2)
+            return Cls_ff(space, w_arg1, w_arg2)
         #
         else:
             if w_type2 is space.w_int:
-                return Cls_oi.make(space, w_arg1, w_arg2)
+                return Cls_oi(space, w_arg1, w_arg2)
             elif w_type2 is space.w_str:
-                return Cls_os.make(space, w_arg1, w_arg2)
+                return Cls_os(space, w_arg1, w_arg2)
             else:
-                return Cls_oo.make(space, w_arg1, w_arg2)
+                return Cls_oo(space, w_arg1, w_arg2)
         #
     elif len(list_w) == 3:
-        return Cls_ooo.make(space, list_w[0], list_w[1], list_w[2])
+        return Cls_ooo(space, list_w[0], list_w[1], list_w[2])
     else:
         raise NotSpecialised
 
