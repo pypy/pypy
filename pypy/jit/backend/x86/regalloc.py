@@ -1318,6 +1318,29 @@ class RegAlloc(object):
             self.rm.possibly_free_var(tmpbox_low)
         self.rm.possibly_free_var(tmpbox_high)
 
+    def compute_hint_frame_locations(self, operations):
+        # optimization only: fill in the 'hint_frame_locations' dictionary
+        # of rm and xrm based on the JUMP at the end of the loop, by looking
+        # at where we would like the boxes to be after the jump.
+        op = operations[-1]
+        if op.getopnum() != rop.JUMP:
+            return
+        descr = op.getdescr()
+        assert isinstance(descr, LoopToken)
+        nonfloatlocs, floatlocs = self.assembler.target_arglocs(descr)
+        for i in range(op.numargs()):
+            box = op.getarg(i)
+            if isinstance(box, Box):
+                loc = nonfloatlocs[i]
+                if isinstance(loc, StackLoc):
+                    assert box.type != FLOAT
+                    self.rm.hint_frame_locations[box] = loc
+                else:
+                    loc = floatlocs[i]
+                    if isinstance(loc, StackLoc):
+                        assert box.type == FLOAT
+                        self.xrm.hint_frame_locations[box] = loc
+
     def consider_jump(self, op):
         assembler = self.assembler
         assert self.jump_target_descr is None
