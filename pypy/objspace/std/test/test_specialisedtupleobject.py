@@ -53,6 +53,7 @@ class TestW_SpecialisedTupleObject():
         hash_test([1,(1,2)])
         hash_test([1,('a',2)])
         hash_test([1,()])
+        hash_test([1,2,3])
 
 
 class AppTestW_SpecialisedTupleObject:

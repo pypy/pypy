@@ -98,7 +98,7 @@ def make_specialised_class(typetuple):
             # XXX duplicate logic from tupleobject.py
             mult = 1000003
             x = 0x345678
-            z = 2
+            z = nValues
             for i in iter_n:
                 value = getattr(self, 'value%s' % i)
                 if typetuple[i] == object:
