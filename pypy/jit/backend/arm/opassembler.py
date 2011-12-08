@@ -348,6 +348,8 @@ class OpAssembler(object):
                         adr = self.fail_boxes_ptr.get_addr_for_num(i)
                     elif box.type == INT:
                         adr = self.fail_boxes_int.get_addr_for_num(i)
+                    else:
+                        assert 0
                     self.mov_loc_loc(loc, r.ip)
                     self.mc.gen_load_int(r.lr.value, adr)
                     self.mc.STR_ri(r.ip.value, r.lr.value)
