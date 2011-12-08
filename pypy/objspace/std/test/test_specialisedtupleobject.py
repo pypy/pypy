@@ -53,14 +53,7 @@ class TestW_SpecialisedTupleObject():
         hash_test([1,(1,2)])
         hash_test([1,('a',2)])
         hash_test([1,()])
-        
-    def test_setitem(self):
-        py.test.skip('skip for now, only needed for cpyext')
-        w_specialisedtuple = self.space.newtuple([self.space.wrap(1)])
-        w_specialisedtuple.setitem(0, self.space.wrap(5))
-        list_w = w_specialisedtuple.tolist()
-        assert len(list_w) == 1
-        assert self.space.eq_w(list_w[0], self.space.wrap(5))        
+
 
 class AppTestW_SpecialisedTupleObject:
 
