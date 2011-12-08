@@ -195,7 +195,6 @@ class AssemblerPPC(OpAssembler):
             stack_loc   : pointer to top of the stack
             spp_loc     : pointer to begin of the spilling area
             '''
-
         enc = rffi.cast(rffi.CCHARP, mem_loc)
         managed_size = WORD * len(r.MANAGED_REGS)
         # XXX do some sanity considerations
@@ -339,7 +338,6 @@ class AssemblerPPC(OpAssembler):
         # load address of decoding function into r0
         mc.alloc_scratch_reg(addr)
         if IS_PPC_64:
-            mc.li(r.r2.value, 99)
             mc.std(r.r2.value, r.SP.value, 3 * WORD)
             # load TOC pointer and environment pointer
             mc.load_imm(r.r2, r2_value)
