@@ -13,7 +13,7 @@ from pypy.tool.udir import udir
 
 class CodeWriter(object):
     callcontrol = None    # for tests
-    debug = True
+    debug = False
 
     def __init__(self, cpu=None, jitdrivers_sd=[]):
         self.cpu = cpu
