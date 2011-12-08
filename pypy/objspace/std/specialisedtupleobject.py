@@ -8,6 +8,7 @@ from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.rlib.rarithmetic import intmask
 from pypy.rlib.objectmodel import compute_hash
 from pypy.rlib.unroll import unrolling_iterable
+from pypy.tool.sourcetools import func_with_new_name
 
 class NotSpecialised(Exception):
     pass
@@ -21,8 +22,8 @@ class W_SpecialisedTupleObject(W_AbstractTupleObject):
         reprlist = [repr(item) for item in self._to_unwrapped_list()]
         return "%s(%s)" % (self.__class__.__name__, ', '.join(reprlist))
 
-    def tolist(self):
-        raise NotImplementedError
+    #def tolist(self):   --- inherited from W_AbstractTupleObject
+    #    raise NotImplementedError
 
     def _to_unwrapped_list(self):
         "NOT_RPYTHON"
@@ -45,6 +46,9 @@ class W_SpecialisedTupleObject(W_AbstractTupleObject):
 
     def unwrap(self, space):
         return tuple(self._to_unwrapped_list())
+
+    def delegating(self):
+        pass     # for tests only
 
 
 def make_specialised_class(typetuple):
@@ -83,6 +87,9 @@ def make_specialised_class(typetuple):
                     value = self.space.wrap(value)
                 list_w[i] = value
             return list_w
+
+        # same source code, but builds and returns a resizable list
+        getitems_copy = func_with_new_name(tolist, 'getitems_copy')
 
         def _to_unwrapped_list(self):
             "NOT_RPYTHON"
@@ -224,6 +231,7 @@ def makespecialisedtuple(space, list_w):
 registerimplementation(W_SpecialisedTupleObject)
 
 def delegate_SpecialisedTuple2Tuple(space, w_specialised):
+    w_specialised.delegating()
     return W_TupleObject(w_specialised.tolist())
 
 def len__SpecialisedTuple(space, w_tuple):

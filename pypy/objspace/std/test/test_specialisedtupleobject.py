@@ -63,11 +63,11 @@ class AppTestW_SpecialisedTupleObject:
         def forbid_delegation(space, w_tuple):
             def delegation_forbidden():
                 # haaaack
-                if sys._getframe(2).f_code.co_name == '_mm_repr_tupleS0':
-                    return old_tolist()
-                raise NotImplementedError, w_tuple
-            old_tolist = w_tuple.tolist
-            w_tuple.tolist = delegation_forbidden
+                co = sys._getframe(2).f_code
+                if co.co_name.startswith('_mm_repr_tuple'):
+                    return
+                raise OperationError(space.w_ReferenceError, w_tuple)
+            w_tuple.delegating = delegation_forbidden
             return w_tuple
         cls.w_forbid_delegation = cls.space.wrap(gateway.interp2app(forbid_delegation))
 
@@ -95,6 +95,10 @@ class AppTestW_SpecialisedTupleObject:
         #
         obj = (1, 2, 3)
         assert self.isspecialised(obj, '_ooo')
+
+    def test_delegation(self):
+        t = self.forbid_delegation((42, 43))
+        raises(ReferenceError, t.__getslice__, 0, 1)
 
     def test_len(self):
         t = self.forbid_delegation((42,43))
