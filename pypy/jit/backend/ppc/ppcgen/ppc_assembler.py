@@ -10,7 +10,7 @@ from pypy.jit.backend.ppc.ppcgen.symbol_lookup import lookup
 from pypy.jit.backend.ppc.ppcgen.codebuilder import PPCBuilder
 from pypy.jit.backend.ppc.ppcgen.jump import remap_frame_layout
 from pypy.jit.backend.ppc.ppcgen.arch import (IS_PPC_32, IS_PPC_64, WORD,
-                                              NONVOLATILES,
+                                              NONVOLATILES, MAX_REG_PARAMS,
                                               GPR_SAVE_AREA, BACKCHAIN_SIZE,
                                               FPR_SAVE_AREA,
                                               FLOAT_INT_CONVERSION, FORCE_INDEX)
@@ -80,40 +80,6 @@ class AssemblerPPC(OpAssembler):
     EMPTY_LOC = '\xFE'
     END_OF_LOCS = '\xFF'
 
-
-    '''
-    PyPy's PPC stack frame layout
-    =============================
-
-    .                          .
-    .                          . 
-    ----------------------------
-    |         BACKCHAIN        |       OLD  FRAME
-    ------------------------------------------------------
-    |                          |       PyPy Frame
-    |      GPR  SAVE  AREA     |
-    |                          |
-    ----------------------------
-    |       FORCE  INDEX       |
-    ----------------------------  <- Spilling Pointer (SPP) 
-    |                          |
-    |       SPILLING  AREA     |
-    |                          |
-    ----------------------------  <- Stack Pointer (SP)
-
-    The size of the GPR save area and the force index area fixed:
-
-        GPR SAVE AREA: len(NONVOLATILES) * WORD
-        FORCE INDEX  : WORD
-
-
-    The size of the spilling area is known when the trace operations
-    have been generated.
-    '''
-
-    #GPR_SAVE_AREA_AND_FORCE_INDEX = GPR_SAVE_AREA + WORD
-                                  # ^^^^^^^^^^^^^   ^^^^
-                                  # save GRP regs   force index
     ENCODING_AREA               = len(r.MANAGED_REGS) * WORD
     OFFSET_SPP_TO_GPR_SAVE_AREA = (FORCE_INDEX + FLOAT_INT_CONVERSION
                                    + ENCODING_AREA)
@@ -229,6 +195,7 @@ class AssemblerPPC(OpAssembler):
             stack_loc   : pointer to top of the stack
             spp_loc     : pointer to begin of the spilling area
             '''
+
         enc = rffi.cast(rffi.CCHARP, mem_loc)
         managed_size = WORD * len(r.MANAGED_REGS)
         # XXX do some sanity considerations
@@ -346,6 +313,7 @@ class AssemblerPPC(OpAssembler):
     #   - jump back to the calling code
     def _gen_exit_path(self):
         mc = PPCBuilder() 
+        mc.mr(r.r6.value, r.r3.value)
         self._save_managed_regs(mc)
         decode_func_addr = llhelper(self.recovery_func_sign,
                 self.failure_recovery_func)
@@ -358,6 +326,8 @@ class AssemblerPPC(OpAssembler):
             r2_value = descr[1]
             r11_value = descr[2]
 
+
+
         # load parameters into parameter registers
         if IS_PPC_32:
             mc.lwz(r.r3.value, r.SPP.value, self.ENCODING_AREA)     # address of state encoding 
@@ -369,6 +339,7 @@ class AssemblerPPC(OpAssembler):
         # load address of decoding function into r0
         mc.alloc_scratch_reg(addr)
         if IS_PPC_64:
+            mc.li(r.r2.value, 99)
             mc.std(r.r2.value, r.SP.value, 3 * WORD)
             # load TOC pointer and environment pointer
             mc.load_imm(r.r2, r2_value)
@@ -749,13 +720,22 @@ class AssemblerPPC(OpAssembler):
                               self.cpu.gc_ll_descr.gcrootmap)
 
     def compute_frame_depth(self, regalloc):
+        PARAMETER_AREA = self.max_stack_params * WORD
+        if IS_PPC_64:
+            PARAMETER_AREA += MAX_REG_PARAMS * WORD
+        SPILLING_AREA = regalloc.frame_manager.frame_depth * WORD
+
+        print "PARAMETER SAVE AREA = %d" % PARAMETER_AREA
+        print "SPILLING AREA       = %d" % SPILLING_AREA
+        print "OFFSET TO ENCODING  = %d" % (PARAMETER_AREA + SPILLING_AREA)
+
         frame_depth = (  GPR_SAVE_AREA
                        + FPR_SAVE_AREA
                        + FLOAT_INT_CONVERSION
                        + FORCE_INDEX
                        + self.ENCODING_AREA
-                       + regalloc.frame_manager.frame_depth * WORD
-                       + self.max_stack_params * WORD
+                       + SPILLING_AREA
+                       + PARAMETER_AREA
                        + BACKCHAIN_SIZE * WORD)
 
         return frame_depth
