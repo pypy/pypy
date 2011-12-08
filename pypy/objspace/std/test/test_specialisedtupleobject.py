@@ -3,7 +3,7 @@ from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.objspace.std.specialisedtupleobject import W_SpecialisedTupleObject
 from pypy.objspace.std.specialisedtupleobject import _specialisations
 from pypy.interpreter.error import OperationError
-from pypy.conftest import gettestobjspace
+from pypy.conftest import gettestobjspace, option
 from pypy.objspace.std.test import test_tupleobject
 from pypy.interpreter import gateway
 
@@ -69,7 +69,12 @@ class AppTestW_SpecialisedTupleObject:
                 raise OperationError(space.w_ReferenceError, w_tuple)
             w_tuple.delegating = delegation_forbidden
             return w_tuple
-        cls.w_forbid_delegation = cls.space.wrap(gateway.interp2app(forbid_delegation))
+        if option.runappdirect:
+            cls.w_forbid_delegation = lambda self, x: x
+            cls.test_delegation = lambda self: skip("runappdirect")
+        else:
+            cls.w_forbid_delegation = cls.space.wrap(
+                gateway.interp2app(forbid_delegation))
 
     def w_isspecialised(self, obj, expected=''):
         import __pypy__
