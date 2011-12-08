@@ -134,7 +134,7 @@ class AbstractAttribute(object):
 
     @jit.elidable
     def _get_new_attr(self, name, index, attrclass):
-        key = name, index, attrclass
+        key = name, index, attrclass.key_for_attr_cache
         cache = self.cache_attrs
         if cache is None:
             cache = self.cache_attrs = {}
@@ -334,6 +334,7 @@ class AbstractStoredAttribute(AbstractAttribute):
         return "<PlainAttribute %s %s %r>" % (self.selector, self.position, self.back)
 
 class PlainAttribute(AbstractStoredAttribute):
+    key_for_attr_cache = 0
 
     erase_item, unerase_item = rerased.new_erasing_pair("mapdict storage object item")
     erase_item = staticmethod(erase_item)
@@ -349,6 +350,7 @@ class PlainAttribute(AbstractStoredAttribute):
         obj._mapdict_write_storage(self.position, erased)
 
 class IntAttribute(AbstractStoredAttribute):
+    key_for_attr_cache = 1
 
     erase_item, unerase_item = rerased.erase_int, rerased.unerase_int
     erase_item = staticmethod(erase_item)
