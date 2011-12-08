@@ -222,5 +222,4 @@ class AppTestW_SpecialisedTupleObject:
 
 
 class AppTestAll(test_tupleobject.AppTestW_TupleObject):
-    def test_mul_identity(self):
-        skip("not working with specialisedtuple")
+    pass
