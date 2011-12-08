@@ -112,7 +112,7 @@ def _setup_ctypes_cache():
         rffi.LONGLONG:   ctypes.c_longlong,
         rffi.ULONGLONG:  ctypes.c_ulonglong,
         rffi.SIZE_T:     ctypes.c_size_t,
-        lltype.Bool:     getattr(ctypes, "c_bool", ctypes.c_long),
+        lltype.Bool:     getattr(ctypes, "c_bool", ctypes.c_byte),
         llmemory.Address:  ctypes.c_void_p,
         llmemory.GCREF:    ctypes.c_void_p,
         llmemory.WeakRef:  ctypes.c_void_p, # XXX
@@ -1163,10 +1163,14 @@ def force_cast(RESTYPE, value):
         value = value.adr
     if isinstance(value, llmemory.fakeaddress):
         value = value.ptr or 0
+    if isinstance(value, r_singlefloat):
+        value = float(value)
     TYPE1 = lltype.typeOf(value)
     cvalue = lltype2ctypes(value)
     cresulttype = get_ctypes_type(RESTYPE)
-    if isinstance(TYPE1, lltype.Ptr):
+    if RESTYPE == TYPE1:
+        return value
+    elif isinstance(TYPE1, lltype.Ptr):
         if isinstance(RESTYPE, lltype.Ptr):
             # shortcut: ptr->ptr cast
             cptr = ctypes.cast(cvalue, cresulttype)

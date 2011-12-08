@@ -20,7 +20,7 @@ class Module(MixedModule):
         interpleveldefs['pause'] = 'interp_signal.pause'
         interpleveldefs['siginterrupt'] = 'interp_signal.siginterrupt'
 
-    if hasattr(cpy_signal, 'setitimer'):
+    if os.name == 'posix':
         interpleveldefs['setitimer'] = 'interp_signal.setitimer'
         interpleveldefs['getitimer'] = 'interp_signal.getitimer'
         for name in ['ITIMER_REAL', 'ITIMER_VIRTUAL', 'ITIMER_PROF']:

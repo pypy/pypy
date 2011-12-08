@@ -229,7 +229,7 @@ class rbigint(object):
         sign = self.sign
         if intmask(x) < 0 and (sign > 0 or (x << 1) != 0):
             raise OverflowError
-        return intmask(x * sign)
+        return intmask(intmask(x) * sign)
 
     def tolonglong(self):
         return _AsLongLong(self)
@@ -921,7 +921,7 @@ def _k_mul(a, b):
     ah, al = _kmul_split(a, shift)
     assert ah.sign == 1    # the split isn't degenerate
 
-    if a == b:
+    if a is b:
         bh = ah
         bl = al
     else:
@@ -975,26 +975,21 @@ def _k_mul(a, b):
     i = ret.numdigits() - shift  # # digits after shift
     _v_isub(ret, shift, i, t2, t2.numdigits())
     _v_isub(ret, shift, i, t1, t1.numdigits())
-    del t1, t2
 
     # 6. t3 <- (ah+al)(bh+bl), and add into result.
     t1 = _x_add(ah, al)
-    del ah, al
 
-    if a == b:
+    if a is b:
         t2 = t1
     else:
         t2 = _x_add(bh, bl)
-    del bh, bl
 
     t3 = _k_mul(t1, t2)
-    del t1, t2
     assert t3.sign >=0
 
     # Add t3.  It's not obvious why we can't run out of room here.
     # See the (*) comment after this function.
     _v_iadd(ret, shift, i, t3, t3.numdigits())
-    del t3
 
     ret._normalize()
     return ret
@@ -1085,7 +1080,6 @@ def _k_lopsided_mul(a, b):
         # Add into result.
         _v_iadd(ret, nbdone, ret.numdigits() - nbdone,
                  product, product.numdigits())
-        del product
 
         bsize -= nbtouse
         nbdone += nbtouse
@@ -1390,7 +1384,7 @@ def _AsDouble(n):
 
     # Now remove the excess 2 bits, rounding to nearest integer (with
     # ties rounded to even).
-    q = (q >> 2) + (bool(q & 2) and bool(q & 5))
+    q = (q >> 2) + r_uint((bool(q & 2) and bool(q & 5)))
 
     if exp > DBL_MAX_EXP or (exp == DBL_MAX_EXP and
                              q == r_ulonglong(1) << DBL_MANT_DIG):
@@ -1546,8 +1540,8 @@ def _bigint_true_divide(a, b):
     assert extra_bits == 2 or extra_bits == 3
 
     # Round by remembering a modified copy of the low digit of x
-    mask = 1 << (extra_bits - 1)
-    low = x.udigit(0) | inexact
+    mask = r_uint(1 << (extra_bits - 1))
+    low = x.udigit(0) | r_uint(inexact)
     if (low & mask) != 0 and (low & (3*mask-1)) != 0:
         low += mask
     x_digit_0 = low & ~(mask-1)
@@ -1796,7 +1790,7 @@ def _AsULonglong_ignore_sign(v):
     i = v.numdigits() - 1
     while i >= 0:
         prev = x
-        x = (x << SHIFT) + v.widedigit(i)
+        x = (x << SHIFT) + r_ulonglong(v.widedigit(i))
         if (x >> SHIFT) != prev:
                 raise OverflowError(
                     "long int too large to convert to unsigned long long int")
@@ -1839,8 +1833,8 @@ def _hash(v):
         if x < v.udigit(i):
             x += 1
         i -= 1
-    x = intmask(x * sign)
-    return x
+    res = intmask(intmask(x) * sign)
+    return res
 
 #_________________________________________________________________
 

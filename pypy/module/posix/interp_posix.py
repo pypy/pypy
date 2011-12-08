@@ -760,6 +760,14 @@ Execute an executable path with arguments, replacing current process.
     except OSError, e:
         raise wrap_oserror(space, e)
 
+def _env2interp(space, w_env):
+    env = {}
+    w_keys = space.call_method(w_env, 'keys')
+    for w_key in space.unpackiterable(w_keys):
+        w_value = space.getitem(w_env, w_key)
+        env[space.str_w(w_key)] = space.str_w(w_value)
+    return env
+
 def execve(space, w_command, w_args, w_env):
     """ execve(path, args, env)
 
@@ -771,11 +779,7 @@ Execute a path with arguments and environment, replacing current process.
     """
     command = fsencode_w(space, w_command)
     args = [fsencode_w(space, w_arg) for w_arg in space.unpackiterable(w_args)]
-    env = {}
-    w_keys = space.call_method(w_env, 'keys')
-    for w_key in space.unpackiterable(w_keys):
-        w_value = space.getitem(w_env, w_key)
-        env[space.str_w(w_key)] = space.str_w(w_value)
+    env = _env2interp(space, w_env)
     try:
         os.execve(command, args, env)
     except OSError, e:
@@ -786,6 +790,16 @@ def spawnv(space, mode, path, w_args):
     args = [space.str_w(w_arg) for w_arg in space.unpackiterable(w_args)]
     try:
         ret = os.spawnv(mode, path, args)
+    except OSError, e:
+        raise wrap_oserror(space, e)
+    return space.wrap(ret)
+
+@unwrap_spec(mode=int, path=str)
+def spawnve(space, mode, path, w_args, w_env):
+    args = [space.str_w(w_arg) for w_arg in space.unpackiterable(w_args)]
+    env = _env2interp(space, w_env)
+    try:
+        ret = os.spawnve(mode, path, args, env)
     except OSError, e:
         raise wrap_oserror(space, e)
     return space.wrap(ret)

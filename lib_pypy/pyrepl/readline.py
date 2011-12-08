@@ -231,7 +231,11 @@ class _ReadlineWrapper(object):
         return ''.join(chars)
 
     def _histline(self, line):
-        return unicode(line.rstrip('\n'), ENCODING)
+        line = line.rstrip('\n')
+        try:
+            return unicode(line, ENCODING)
+        except UnicodeDecodeError:   # bah, silently fall back...
+            return unicode(line, 'utf-8')
 
     def get_history_length(self):
         return self.saved_history_length
@@ -268,7 +272,10 @@ class _ReadlineWrapper(object):
         f = open(os.path.expanduser(filename), 'w')
         for entry in history:
             if isinstance(entry, unicode):
-                entry = entry.encode(ENCODING)
+                try:
+                    entry = entry.encode(ENCODING)
+                except UnicodeEncodeError:   # bah, silently fall back...
+                    entry = entry.encode('utf-8')
             entry = entry.replace('\n', '\r\n')   # multiline history support
             f.write(entry + '\n')
         f.close()

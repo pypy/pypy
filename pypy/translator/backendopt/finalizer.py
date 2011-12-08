@@ -4,7 +4,7 @@ from pypy.rpython.lltypesystem import lltype
 
 class FinalizerError(Exception):
     """ __del__ marked as lightweight finalizer, but the analyzer did
-    not agreed
+    not agree
     """
 
 class FinalizerAnalyzer(graphanalyze.BoolGraphAnalyzer):
@@ -23,7 +23,7 @@ class FinalizerAnalyzer(graphanalyze.BoolGraphAnalyzer):
     def analyze_light_finalizer(self, graph):
         result = self.analyze_direct_call(graph)
         if (result is self.top_result() and
-            getattr(graph.func, '_is_light_finalizer_', False)):
+            getattr(graph.func, '_must_be_light_finalizer_', False)):
             raise FinalizerError(FinalizerError.__doc__, graph)
         return result
     

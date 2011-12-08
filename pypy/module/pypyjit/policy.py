@@ -17,7 +17,7 @@ class PyPyJitPolicy(JitPolicy):
                        'imp', 'sys', 'array', '_ffi', 'itertools', 'operator',
                        'posix', '_socket', '_sre', '_lsprof', '_weakref',
                        '__pypy__', 'cStringIO', '_collections', 'struct',
-                       'mmap']:
+                       'mmap', 'marshal']:
             return True
         return False
 

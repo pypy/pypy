@@ -3,12 +3,15 @@
 It should not be imported by the module itself
 """
 
+import re
+
 from pypy.interpreter.baseobjspace import InternalSpaceCache, W_Root
-from pypy.module.micronumpy.interp_dtype import W_Float64Dtype, W_BoolDtype
+from pypy.module.micronumpy import interp_boxes
+from pypy.module.micronumpy.interp_dtype import get_dtype_cache
 from pypy.module.micronumpy.interp_numarray import (Scalar, BaseArray,
-     descr_new_array, scalar_w, NDimArray)
+     scalar_w, W_NDimArray, array)
 from pypy.module.micronumpy import interp_ufuncs
-from pypy.rlib.objectmodel import specialize
+from pypy.rlib.objectmodel import specialize, instantiate
 
 
 class BogusBytecode(Exception):
@@ -21,6 +24,12 @@ class ArgumentNotAnArray(Exception):
     pass
 
 class WrongFunctionName(Exception):
+    pass
+
+class TokenizerError(Exception):
+    pass
+
+class BadToken(Exception):
     pass
 
 SINGLE_ARG_FUNCTIONS = ["sum", "prod", "max", "min", "all", "any", "unegative"]
@@ -42,15 +51,12 @@ class FakeSpace(object):
     def __init__(self):
         """NOT_RPYTHON"""
         self.fromcache = InternalSpaceCache(self).getorbuild
-        self.w_float64dtype = W_Float64Dtype(self)
 
     def issequence_w(self, w_obj):
-        return isinstance(w_obj, ListObject) or isinstance(w_obj, NDimArray)
+        return isinstance(w_obj, ListObject) or isinstance(w_obj, W_NDimArray)
 
     def isinstance_w(self, w_obj, w_tp):
-        if w_obj.tp == w_tp:
-            return True
-        return False
+        return w_obj.tp == w_tp
 
     def decode_index4(self, w_idx, size):
         if isinstance(w_idx, IntObject):
@@ -63,8 +69,12 @@ class FakeSpace(object):
             if start < 0:
                 start += size
             if stop < 0:
-                stop += size
-            return (start, stop, step, size//step)
+                stop += size + 1
+            if step < 0:
+                lgt = (stop - start + 1) / step + 1
+            else:
+                lgt = (stop - start - 1) / step + 1
+            return (start, stop, step, lgt)
 
     @specialize.argtype(1)
     def wrap(self, obj):
@@ -87,11 +97,13 @@ class FakeSpace(object):
     fixedview = listview
 
     def float(self, w_obj):
-        assert isinstance(w_obj, FloatObject)
-        return w_obj
+        if isinstance(w_obj, FloatObject):
+            return w_obj
+        assert isinstance(w_obj, interp_boxes.W_GenericBox)
+        return self.float(w_obj.descr_float(self))
 
     def float_w(self, w_obj):
-        assert isinstance(w_obj, FloatObject)        
+        assert isinstance(w_obj, FloatObject)
         return w_obj.floatval
 
     def int_w(self, w_obj):
@@ -102,7 +114,10 @@ class FakeSpace(object):
         raise NotImplementedError
 
     def int(self, w_obj):
-        return w_obj
+        if isinstance(w_obj, IntObject):
+            return w_obj
+        assert isinstance(w_obj, interp_boxes.W_GenericBox)
+        return self.int(w_obj.descr_int(self))
 
     def is_true(self, w_obj):
         assert isinstance(w_obj, BoolObject)
@@ -124,6 +139,9 @@ class FakeSpace(object):
     def interp_w(self, tp, what):
         assert isinstance(what, tp)
         return what
+
+    def allocate_instance(self, klass, w_subtype):
+        return instantiate(klass)
 
     def len_w(self, w_obj):
         if isinstance(w_obj, ListObject):
@@ -192,7 +210,7 @@ class Assignment(Node):
         interp.variables[self.name] = self.expr.execute(interp)
 
     def __repr__(self):
-        return "%% = %r" % (self.name, self.expr)
+        return "%r = %r" % (self.name, self.expr)
 
 class ArrayAssignment(Node):
     def __init__(self, name, index, expr):
@@ -202,11 +220,12 @@ class ArrayAssignment(Node):
 
     def execute(self, interp):
         arr = interp.variables[self.name]
-        w_index = self.index.execute(interp).eval(0).wrap(interp.space)
+        w_index = self.index.execute(interp)
         # cast to int
         if isinstance(w_index, FloatObject):
             w_index = IntObject(int(w_index.floatval))
-        w_val = self.expr.execute(interp).eval(0).wrap(interp.space)
+        w_val = self.expr.execute(interp)
+        assert isinstance(arr, BaseArray)
         arr.descr_setitem(interp.space, w_index, w_val)
 
     def __repr__(self):
@@ -214,7 +233,7 @@ class ArrayAssignment(Node):
 
 class Variable(Node):
     def __init__(self, name):
-        self.name = name
+        self.name = name.strip(" ")
 
     def execute(self, interp):
         return interp.variables[self.name]
@@ -234,23 +253,28 @@ class Operator(Node):
             w_rhs = self.rhs.wrap(interp.space)
         else:
             w_rhs = self.rhs.execute(interp)
+        if not isinstance(w_lhs, BaseArray):
+            # scalar
+            dtype = get_dtype_cache(interp.space).w_float64dtype
+            w_lhs = scalar_w(interp.space, dtype, w_lhs)
         assert isinstance(w_lhs, BaseArray)
         if self.name == '+':
             w_res = w_lhs.descr_add(interp.space, w_rhs)
         elif self.name == '*':
             w_res = w_lhs.descr_mul(interp.space, w_rhs)
         elif self.name == '-':
-            w_res = w_lhs.descr_sub(interp.space, w_rhs)            
+            w_res = w_lhs.descr_sub(interp.space, w_rhs)
         elif self.name == '->':
-            if isinstance(w_rhs, Scalar):
-                w_rhs = w_rhs.eval(0).wrap(interp.space)
-                assert isinstance(w_rhs, FloatObject)
+            assert not isinstance(w_rhs, Scalar)
+            if isinstance(w_rhs, FloatObject):
                 w_rhs = IntObject(int(w_rhs.floatval))
+            assert isinstance(w_lhs, BaseArray)
             w_res = w_lhs.descr_getitem(interp.space, w_rhs)
         else:
             raise NotImplementedError
-        if not isinstance(w_res, BaseArray):
-            dtype = interp.space.fromcache(W_Float64Dtype)
+        if (not isinstance(w_res, BaseArray) and
+            not isinstance(w_res, interp_boxes.W_GenericBox)):
+            dtype = get_dtype_cache(interp.space).w_float64dtype
             w_res = scalar_w(interp.space, dtype, w_res)
         return w_res
 
@@ -268,9 +292,7 @@ class FloatConstant(Node):
         return space.wrap(self.v)
 
     def execute(self, interp):
-        dtype = interp.space.fromcache(W_Float64Dtype)
-        assert isinstance(dtype, W_Float64Dtype)
-        return Scalar(dtype, dtype.box(self.v))
+        return interp.space.wrap(self.v)
 
 class RangeConstant(Node):
     def __init__(self, v):
@@ -278,9 +300,10 @@ class RangeConstant(Node):
 
     def execute(self, interp):
         w_list = interp.space.newlist(
-            [interp.space.wrap(float(i)) for i in range(self.v)])
-        dtype = interp.space.fromcache(W_Float64Dtype)
-        return descr_new_array(interp.space, None, w_list, w_dtype=dtype)
+            [interp.space.wrap(float(i)) for i in range(self.v)]
+        )
+        dtype = get_dtype_cache(interp.space).w_float64dtype
+        return array(interp.space, w_list, w_dtype=dtype, w_order=None)
 
     def __repr__(self):
         return 'Range(%s)' % self.v
@@ -301,8 +324,8 @@ class ArrayConstant(Node):
 
     def execute(self, interp):
         w_list = self.wrap(interp.space)
-        dtype = interp.space.fromcache(W_Float64Dtype)
-        return descr_new_array(interp.space, None, w_list, w_dtype=dtype)
+        dtype = get_dtype_cache(interp.space).w_float64dtype
+        return array(interp.space, w_list, w_dtype=dtype, w_order=None)
 
     def __repr__(self):
         return "[" + ", ".join([repr(item) for item in self.items]) + "]"
@@ -315,6 +338,9 @@ class SliceConstant(Node):
         self.step = step
 
     def wrap(self, space):
+        return SliceObject(self.start, self.stop, self.step)
+
+    def execute(self, interp):
         return SliceObject(self.start, self.stop, self.step)
 
     def __repr__(self):
@@ -332,7 +358,7 @@ class Execute(Node):
 
 class FunctionCall(Node):
     def __init__(self, name, args):
-        self.name = name
+        self.name = name.strip(" ")
         self.args = args
 
     def __repr__(self):
@@ -366,127 +392,183 @@ class FunctionCall(Node):
             if isinstance(w_res, BaseArray):
                 return w_res
             if isinstance(w_res, FloatObject):
-                dtype = interp.space.fromcache(W_Float64Dtype)
+                dtype = get_dtype_cache(interp.space).w_float64dtype
             elif isinstance(w_res, BoolObject):
-                dtype = interp.space.fromcache(W_BoolDtype)
+                dtype = get_dtype_cache(interp.space).w_booldtype
+            elif isinstance(w_res, interp_boxes.W_GenericBox):
+                dtype = w_res.get_dtype(interp.space)
             else:
                 dtype = None
             return scalar_w(interp.space, dtype, w_res)
         else:
             raise WrongFunctionName
 
+_REGEXES = [
+    ('-?[\d\.]+', 'number'),
+    ('\[', 'array_left'),
+    (':', 'colon'),
+    ('\w+', 'identifier'),
+    ('\]', 'array_right'),
+    ('(->)|[\+\-\*\/]', 'operator'),
+    ('=', 'assign'),
+    (',', 'coma'),
+    ('\|', 'pipe'),
+    ('\(', 'paren_left'),
+    ('\)', 'paren_right'),
+]
+REGEXES = []
+
+for r, name in _REGEXES:
+    REGEXES.append((re.compile(r' *(' + r + ')'), name))
+del _REGEXES
+
+class Token(object):
+    def __init__(self, name, v):
+        self.name = name
+        self.v = v
+
+    def __repr__(self):
+        return '(%s, %s)' % (self.name, self.v)
+
+empty = Token('', '')
+
+class TokenStack(object):
+    def __init__(self, tokens):
+        self.tokens = tokens
+        self.c = 0
+
+    def pop(self):
+        token = self.tokens[self.c]
+        self.c += 1
+        return token
+
+    def get(self, i):
+        if self.c + i >= len(self.tokens):
+            return empty
+        return self.tokens[self.c + i]
+
+    def remaining(self):
+        return len(self.tokens) - self.c
+
+    def push(self):
+        self.c -= 1
+
+    def __repr__(self):
+        return repr(self.tokens[self.c:])
+
 class Parser(object):
-    def parse_identifier(self, id):
-        id = id.strip(" ")
-        #assert id.isalpha()
-        return Variable(id)
+    def tokenize(self, line):
+        tokens = []
+        while True:
+            for r, name in REGEXES:
+                m = r.match(line)
+                if m is not None:
+                    g = m.group(0)
+                    tokens.append(Token(name, g))
+                    line = line[len(g):]
+                    if not line:
+                        return TokenStack(tokens)
+                    break
+            else:
+                raise TokenizerError(line)
 
-    def parse_expression(self, expr):
-        tokens = [i for i in expr.split(" ") if i]
-        if len(tokens) == 1:
-            return self.parse_constant_or_identifier(tokens[0])
+    def parse_number_or_slice(self, tokens):
+        start_tok = tokens.pop()
+        if start_tok.name == 'colon':
+            start = 0
+        else:
+            if tokens.get(0).name != 'colon':
+                return FloatConstant(start_tok.v)
+            start = int(start_tok.v)
+            tokens.pop()
+        if not tokens.get(0).name in ['colon', 'number']:
+            stop = -1
+            step = 1
+        else:
+            next = tokens.pop()
+            if next.name == 'colon':
+                stop = -1
+                step = int(tokens.pop().v)
+            else:
+                stop = int(next.v)
+                if tokens.get(0).name == 'colon':
+                    tokens.pop()
+                    step = int(tokens.pop().v)
+                else:
+                    step = 1
+        return SliceConstant(start, stop, step)
+
+
+    def parse_expression(self, tokens):
         stack = []
-        tokens.reverse()
-        while tokens:
+        while tokens.remaining():
             token = tokens.pop()
-            if token == ')':
-                raise NotImplementedError
-            elif self.is_identifier_or_const(token):
-                if stack:
-                    name = stack.pop().name
-                    lhs = stack.pop()
-                    rhs = self.parse_constant_or_identifier(token)
-                    stack.append(Operator(lhs, name, rhs))
+            if token.name == 'identifier':
+                if tokens.remaining() and tokens.get(0).name == 'paren_left':
+                    stack.append(self.parse_function_call(token.v, tokens))
                 else:
-                    stack.append(self.parse_constant_or_identifier(token))
+                    stack.append(Variable(token.v))
+            elif token.name == 'array_left':
+                stack.append(ArrayConstant(self.parse_array_const(tokens)))
+            elif token.name == 'operator':
+                stack.append(Variable(token.v))
+            elif token.name == 'number' or token.name == 'colon':
+                tokens.push()
+                stack.append(self.parse_number_or_slice(tokens))
+            elif token.name == 'pipe':
+                stack.append(RangeConstant(tokens.pop().v))
+                end = tokens.pop()
+                assert end.name == 'pipe'
             else:
-                stack.append(Variable(token))
-        assert len(stack) == 1
-        return stack[-1]
+                tokens.push()
+                break
+        stack.reverse()
+        lhs = stack.pop()
+        while stack:
+            op = stack.pop()
+            assert isinstance(op, Variable)
+            rhs = stack.pop()
+            lhs = Operator(lhs, op.name, rhs)
+        return lhs
 
-    def parse_constant(self, v):
-        lgt = len(v)-1
-        assert lgt >= 0
-        if ':' in v:
-            # a slice
-            if v == ':':
-                return SliceConstant(0, 0, 0)
-            else:
-                l = v.split(':')
-                if len(l) == 2:
-                    one = l[0]
-                    two = l[1]
-                    if not one:
-                        one = 0
-                    else:
-                        one = int(one)
-                    return SliceConstant(int(l[0]), int(l[1]), 1)
-                else:
-                    three = int(l[2])
-                    # all can be empty
-                    if l[0]:
-                        one = int(l[0])
-                    else:
-                        one = 0
-                    if l[1]:
-                        two = int(l[1])
-                    else:
-                        two = -1
-                    return SliceConstant(one, two, three)
-                
-        if v[0] == '[':
-            return ArrayConstant([self.parse_constant(elem)
-                                  for elem in v[1:lgt].split(",")])
-        if v[0] == '|':
-            return RangeConstant(v[1:lgt])
-        return FloatConstant(v)
-
-    def is_identifier_or_const(self, v):
-        c = v[0]
-        if ((c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or
-            (c >= '0' and c <= '9') or c in '-.[|:'):
-            if v == '-' or v == "->":
-                return False
-            return True
-        return False
-
-    def parse_function_call(self, v):
-        l = v.split('(')
-        assert len(l) == 2
-        name = l[0]
-        cut = len(l[1]) - 1
-        assert cut >= 0
-        args = [self.parse_constant_or_identifier(id)
-                for id in l[1][:cut].split(",")]
+    def parse_function_call(self, name, tokens):
+        args = []
+        tokens.pop() # lparen
+        while tokens.get(0).name != 'paren_right':
+            args.append(self.parse_expression(tokens))
         return FunctionCall(name, args)
 
-    def parse_constant_or_identifier(self, v):
-        c = v[0]
-        if (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z'):
-            if '(' in v:
-                return self.parse_function_call(v)
-            return self.parse_identifier(v)
-        return self.parse_constant(v)
+    def parse_array_const(self, tokens):
+        elems = []
+        while True:
+            token = tokens.pop()
+            if token.name == 'number':
+                elems.append(FloatConstant(token.v))
+            elif token.name == 'array_left':
+                elems.append(ArrayConstant(self.parse_array_const(tokens)))
+            else:
+                raise BadToken()
+            token = tokens.pop()
+            if token.name == 'array_right':
+                return elems
+            assert token.name == 'coma'
 
-    def parse_array_subscript(self, v):
-        v = v.strip(" ")
-        l = v.split("[")
-        lgt = len(l[1]) - 1
-        assert lgt >= 0
-        rhs = self.parse_constant_or_identifier(l[1][:lgt])
-        return l[0], rhs
-        
-    def parse_statement(self, line):
-        if '=' in line:
-            lhs, rhs = line.split("=")
-            lhs = lhs.strip(" ")
-            if '[' in lhs:
-                name, index = self.parse_array_subscript(lhs)
-                return ArrayAssignment(name, index, self.parse_expression(rhs))
-            else: 
-                return Assignment(lhs, self.parse_expression(rhs))
-        else:
-            return Execute(self.parse_expression(line))
+    def parse_statement(self, tokens):
+        if (tokens.get(0).name == 'identifier' and
+            tokens.get(1).name == 'assign'):
+            lhs = tokens.pop().v
+            tokens.pop()
+            rhs = self.parse_expression(tokens)
+            return Assignment(lhs, rhs)
+        elif (tokens.get(0).name == 'identifier' and
+              tokens.get(1).name == 'array_left'):
+            name = tokens.pop().v
+            tokens.pop()
+            index = self.parse_expression(tokens)
+            tokens.pop()
+            tokens.pop()
+            return ArrayAssignment(name, index, self.parse_expression(tokens))
+        return Execute(self.parse_expression(tokens))
 
     def parse(self, code):
         statements = []
@@ -495,7 +577,8 @@ class Parser(object):
                 line = line.split('#', 1)[0]
             line = line.strip(" ")
             if line:
-                statements.append(self.parse_statement(line))
+                tokens = self.tokenize(line)
+                statements.append(self.parse_statement(tokens))
         return Code(statements)
 
 def numpy_compile(code):

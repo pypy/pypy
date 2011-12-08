@@ -243,6 +243,18 @@ class MIFrame(object):
     def opimpl_mark_opaque_ptr(self, box):
         return self.execute(rop.MARK_OPAQUE_PTR, box)
 
+    @arguments("box", "box")
+    def opimpl_record_known_class(self, box, clsbox):
+        from pypy.rpython.lltypesystem import llmemory
+        if self.metainterp.heapcache.is_class_known(box):
+            return
+        adr = clsbox.getaddr()
+        bounding_class = llmemory.cast_adr_to_ptr(adr, rclass.CLASSTYPE)
+        if bounding_class.subclassrange_max - bounding_class.subclassrange_min == 1:
+            # precise class knowledge, this can be used
+            self.execute(rop.RECORD_KNOWN_CLASS, box, clsbox)
+            self.metainterp.heapcache.class_now_known(box)
+
     @arguments("box")
     def _opimpl_any_return(self, box):
         self.metainterp.finishframe(box)
@@ -1345,10 +1357,8 @@ class MIFrame(object):
             if effect == effectinfo.EF_LOOPINVARIANT:
                 return self.execute_varargs(rop.CALL_LOOPINVARIANT, allboxes,
                                             descr, False, False)
-            exc = (effect != effectinfo.EF_CANNOT_RAISE and
-                   effect != effectinfo.EF_ELIDABLE_CANNOT_RAISE)
-            pure = (effect == effectinfo.EF_ELIDABLE_CAN_RAISE or
-                    effect == effectinfo.EF_ELIDABLE_CANNOT_RAISE)
+            exc = effectinfo.check_can_raise()
+            pure = effectinfo.check_is_elidable()
             return self.execute_varargs(rop.CALL, allboxes, descr, exc, pure)
 
     def do_residual_or_indirect_call(self, funcbox, calldescr, argboxes):
@@ -1780,7 +1790,6 @@ class MetaInterp(object):
         self.staticdata.profiler.count(reason)
         debug_print('~~~ ABORTING TRACING')
         self.staticdata.stats.aborted()
-        self.resumekey.reset_counter_from_failure()
 
     def blackhole_if_trace_too_long(self):
         warmrunnerstate = self.jitdriver_sd.warmstate

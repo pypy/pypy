@@ -50,7 +50,8 @@ class BaseMallocRemovalTest(object):
         # we do the loop ourselves instead of calling remove_simple_mallocs()
         while True:
             progress = remover.remove_mallocs_once(graph)
-            simplify.transform_dead_op_vars_in_blocks(list(graph.iterblocks()))
+            simplify.transform_dead_op_vars_in_blocks(list(graph.iterblocks()),
+                                                      [graph])
             if progress and option.view:
                 t.view()
             if expected_result is not Ellipsis:

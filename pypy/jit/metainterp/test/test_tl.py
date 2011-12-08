@@ -72,16 +72,16 @@ class ToyLanguageTests:
         res = self.meta_interp(main, [0, 6], listops=True,
                                backendopt=True)
         assert res == 5040
-        self.check_loops({'int_mul':1, 'jump':1,
-                          'int_sub':1, 'int_le':1, 'guard_false':1})
+        self.check_resops({'jump': 2, 'int_le': 2, 'guard_value': 1,
+                           'int_mul': 2, 'guard_false': 2, 'int_sub': 2})
 
     def test_tl_2(self):
         main = self._get_main()
         res = self.meta_interp(main, [1, 10], listops=True,
                                backendopt=True)
         assert res == main(1, 10)
-        self.check_loops({'int_sub':1, 'int_le':1,
-                          'guard_false':1, 'jump':1})
+        self.check_resops({'int_le': 2, 'int_sub': 2, 'jump': 2,
+                           'guard_false': 2, 'guard_value': 1})
 
     def test_tl_call(self, listops=True, policy=None):
         from pypy.jit.tl.tl import interp

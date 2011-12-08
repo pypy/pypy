@@ -7,14 +7,7 @@ from  types import IntType, FloatType, StringType
 
 def wraptuple(space, list_w):
     from pypy.objspace.std.tupleobject import W_TupleObject
-    from pypy.objspace.std.smalltupleobject import W_SmallTupleObject2
-    from pypy.objspace.std.smalltupleobject import W_SmallTupleObject3
-    from pypy.objspace.std.smalltupleobject import W_SmallTupleObject4
-    from pypy.objspace.std.smalltupleobject import W_SmallTupleObject5
-    from pypy.objspace.std.smalltupleobject import W_SmallTupleObject6
-    from pypy.objspace.std.smalltupleobject import W_SmallTupleObject7
-    from pypy.objspace.std.smalltupleobject import W_SmallTupleObject8
-            
+
     if space.config.objspace.std.withspecialisedtuple:
         from specialisedtupleobject import makespecialisedtuple, NotSpecialised
         try:
@@ -23,6 +16,13 @@ def wraptuple(space, list_w):
             pass
 
     if space.config.objspace.std.withsmalltuple:
+        from pypy.objspace.std.smalltupleobject import W_SmallTupleObject2
+        from pypy.objspace.std.smalltupleobject import W_SmallTupleObject3
+        from pypy.objspace.std.smalltupleobject import W_SmallTupleObject4
+        from pypy.objspace.std.smalltupleobject import W_SmallTupleObject5
+        from pypy.objspace.std.smalltupleobject import W_SmallTupleObject6
+        from pypy.objspace.std.smalltupleobject import W_SmallTupleObject7
+        from pypy.objspace.std.smalltupleobject import W_SmallTupleObject8
         if len(list_w) == 2:
             return W_SmallTupleObject2(list_w)
         if len(list_w) == 3:

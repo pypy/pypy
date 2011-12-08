@@ -1,7 +1,8 @@
 from pypy.interpreter.error import OperationError
-from pypy.objspace.std.model import registerimplementation, W_Object
+from pypy.objspace.std.model import registerimplementation
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.multimethod import FailedToImplement
+from pypy.objspace.std.tupleobject import W_AbstractTupleObject
 from pypy.objspace.std.tupleobject import W_TupleObject
 from pypy.objspace.std.sliceobject import W_SliceObject, normalize_simple_slice
 from pypy.rlib.rarithmetic import intmask
@@ -11,7 +12,7 @@ from pypy.rlib.unroll import unrolling_iterable
 class NotSpecialised(Exception):
     pass
 
-class W_SpecialisedTupleObject(W_Object):
+class W_SpecialisedTupleObject(W_AbstractTupleObject):
     from pypy.objspace.std.tupletype import tuple_typedef as typedef
     __slots__ = []
 
