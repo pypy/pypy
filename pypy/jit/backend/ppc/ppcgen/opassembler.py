@@ -348,43 +348,8 @@ class MiscOpAssembler(object):
                 n += WORD
                 stack_args.append(None)
 
-        """
-        # adjust SP and compute size of parameter save area
-        if IS_PPC_32:
-            stack_space = BACKCHAIN_SIZE + len(stack_args) * WORD
-            while stack_space % (4 * WORD) != 0:
-                stack_space += 1
-            self.mc.stwu(r.SP.value, r.SP.value, -stack_space)
-            self.mc.mflr(r.r0.value)
-            self.mc.stw(r.r0.value, r.SP.value, stack_space + WORD)
-        else:
-            # ABI fixed frame + 8 GPRs + arguments
-            stack_space = (6 + MAX_REG_PARAMS + len(stack_args)) * WORD
-            while stack_space % (2 * WORD) != 0:
-                stack_space += 1
-            self.mc.stdu(r.SP.value, r.SP.value, -stack_space)
-            self.mc.mflr(r.r0.value)
-            self.mc.std(r.r0.value, r.SP.value, stack_space + 2 * WORD)
-        """
-
         # compute maximum of parameters passed
         self.max_stack_params = max(self.max_stack_params, len(stack_args))
-
-        """
-        # then we push everything on the stack
-        for i, arg in enumerate(stack_args):
-            if IS_PPC_32:
-                abi = 2
-            else:
-                abi = 6 + MAX_REG_PARAMS
-            offset = (abi + i) * WORD
-            if arg is not None:
-                self.mc.load_imm(r.r0, arg.value)
-            if IS_PPC_32:
-                self.mc.stw(r.r0.value, r.SP.value, offset)
-            else:
-                self.mc.std(r.r0.value, r.SP.value, offset)
-        """
 
         # compute offset at which parameters are stored
         if IS_PPC_32:
@@ -433,24 +398,6 @@ class MiscOpAssembler(object):
 
         # remap values stored in core registers
         remap_frame_layout(self, non_float_locs, non_float_regs, r.r0)
-
-        """
-        #the actual call
-        if IS_PPC_32:
-            self.mc.bl_abs(adr)
-            self.mc.lwz(r.r0.value, r.SP.value, stack_space + WORD)
-        else:
-            self.mc.std(r.r2.value, r.SP.value, 3 * WORD)
-            self.mc.load_from_addr(r.r0, adr)
-            self.mc.load_from_addr(r.r2, adr + WORD)
-            self.mc.load_from_addr(r.r11, adr + 2 * WORD)
-            self.mc.mtctr(r.r0.value)
-            self.mc.bctrl()
-            self.mc.ld(r.r2.value, r.SP.value, 3 * WORD)
-            self.mc.ld(r.r0.value, r.SP.value, stack_space + 2 * WORD)
-        self.mc.mtlr(r.r0.value)
-        self.mc.addi(r.SP.value, r.SP.value, stack_space)
-        """
 
         # the actual call
         if IS_PPC_32:
