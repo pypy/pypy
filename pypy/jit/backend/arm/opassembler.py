@@ -1028,8 +1028,9 @@ class ForceOpAssembler(object):
 
         # jump to merge point
         jmp_pos = self.mc.currpos()
-        #jmp_location = self.mc.curraddr()
-        self.mc.BKPT()
+        # This location is not necessarily patched later, depending on how many
+        # instructions we emit from here to the merge point below.
+        self.mc.NOP()
 
         # Path B: load return value and reset token
         # Fast Path using result boxes
