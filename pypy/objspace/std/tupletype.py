@@ -2,8 +2,6 @@ import sys
 from pypy.interpreter import gateway
 from pypy.objspace.std.register_all import register_all
 from pypy.objspace.std.stdtypedef import StdTypeDef, SMM
-from  types import IntType, FloatType, StringType
-
 
 def wraptuple(space, list_w):
     from pypy.objspace.std.tupleobject import W_TupleObject
