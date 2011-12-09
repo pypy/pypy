@@ -7,7 +7,6 @@
 #include <limits.h>
 
 #include <stdlib.h>
-#include "src/signed_defn.h"
 
 #ifdef _WIN32
 #include <process.h>

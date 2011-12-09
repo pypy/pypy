@@ -8,8 +8,6 @@
 #  include "Python.h"
 #endif
 
-#include "signed_defn.h"
-
 #ifdef _WIN32
 #  include <io.h>   /* needed, otherwise _lseeki64 truncates to 32-bits (??) */
 #endif

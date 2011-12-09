@@ -1,6 +1,6 @@
 import sys
 
-import py, autopath
+import py
 
 from pypy.rlib.libffi import (CDLL, Func, get_libc_name, ArgChain, types,
     IS_32_BIT, array_getitem, array_setitem)
@@ -100,6 +100,7 @@ class TestLibffiCall(BaseFfiTest):
     def setup_class(cls):
         from pypy.tool.udir import udir
         from pypy.translator.tool.cbuild import ExternalCompilationInfo
+        from pypy.translator.tool.cbuild import STANDARD_HEADER
         from pypy.translator.platform import platform
 
         BaseFfiTest.setup_class()
@@ -120,10 +121,8 @@ class TestLibffiCall(BaseFfiTest):
                     for match in re.finditer(" ([a-z_]+)\(", meth.__doc__):
                         exports.append(match.group(1))
         #
-        c_file.write(py.code.Source('\n'.join(snippets)))
-        eci = ExternalCompilationInfo(
-            export_symbols=exports,
-            include_dirs=[str(py.path.local(autopath.pypydir).join('translator', 'c'))])
+        c_file.write(STANDARD_HEADER + py.code.Source('\n'.join(snippets)))
+        eci = ExternalCompilationInfo(export_symbols=exports)
         cls.libfoo_name = str(platform.compile([c_file], eci, 'x',
                                                standalone=False))
 
@@ -158,8 +157,7 @@ class TestLibffiCall(BaseFfiTest):
     # ------------------------------------------------------------------------
 
     def test_very_simple(self):
-        """ #include "src/signed_defn.h"
-
+        """
             int diff_xy(int x, Signed y)
             {
                 return x - y;
@@ -238,8 +236,6 @@ class TestLibffiCall(BaseFfiTest):
 
     def test_pointer_as_argument(self):
         """#include <stdlib.h>
-           #include "src/signed_defn.h"
-           
             Signed inc(Signed* x)
             {
                 Signed oldval;
@@ -276,8 +272,7 @@ class TestLibffiCall(BaseFfiTest):
             lltype.free(ptr_result, flavor='raw')
 
     def test_return_pointer(self):
-        """ #include "src/signed_defn.h"
-
+        """
             struct pair {
                 Signed a;
                 Signed b;
@@ -395,8 +390,7 @@ class TestLibffiCall(BaseFfiTest):
 
 
     def test_byval_argument(self):
-        """ #include "src/signed_defn.h"
-
+        """
             struct Point {
                 Signed x;
                 Signed y;
@@ -426,8 +420,7 @@ class TestLibffiCall(BaseFfiTest):
         lltype.free(ffi_point_struct, flavor='raw')
 
     def test_byval_result(self):
-        """ #include "src/signed_defn.h"
-
+        """
             struct Point make_point(Signed x, Signed y) {
                 struct Point p;
                 p.x = x;

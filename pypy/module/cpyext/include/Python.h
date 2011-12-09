@@ -35,8 +35,6 @@
 # define Py_LOCAL_INLINE(type) static __inline type __fastcall
 #endif
 
-#include "signed_defn.h"
-
 /* Deprecated DL_IMPORT and DL_EXPORT macros */
 #ifdef _WIN32
 # if defined(Py_BUILD_CORE)
