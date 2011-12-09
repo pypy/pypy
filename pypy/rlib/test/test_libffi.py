@@ -100,7 +100,7 @@ class TestLibffiCall(BaseFfiTest):
     def setup_class(cls):
         from pypy.tool.udir import udir
         from pypy.translator.tool.cbuild import ExternalCompilationInfo
-        from pypy.translator.tool.cbuild import STANDARD_HEADER
+        from pypy.translator.tool.cbuild import STANDARD_DEFINES
         from pypy.translator.platform import platform
 
         BaseFfiTest.setup_class()
@@ -121,7 +121,7 @@ class TestLibffiCall(BaseFfiTest):
                     for match in re.finditer(" ([a-z_]+)\(", meth.__doc__):
                         exports.append(match.group(1))
         #
-        c_file.write(STANDARD_HEADER + py.code.Source('\n'.join(snippets)))
+        c_file.write(STANDARD_DEFINES + str(py.code.Source('\n'.join(snippets))))
         eci = ExternalCompilationInfo(export_symbols=exports)
         cls.libfoo_name = str(platform.compile([c_file], eci, 'x',
                                                standalone=False))
