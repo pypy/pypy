@@ -408,8 +408,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if isinstance(w_obj, W_AbstractTupleObject):
             t = w_obj.tolist()
         elif isinstance(w_obj, W_ListObject):
-            # XXX this can copy twice
-            t = w_obj.getitems()[:]
+            if unroll:
+                t = w_obj.getitems_unroll()
+            else:
+                t = w_obj.getitems_fixedsize()
         else:
             if unroll:
                 return make_sure_not_resized(ObjSpace.unpackiterable_unroll(

@@ -348,3 +348,50 @@ class TestRegalloc(object):
         spilled2 = rm.force_allocate_reg(b5)
         assert spilled2 is loc
         rm._check_invariants()
+
+
+    def test_hint_frame_locations_1(self):
+        b0, b1 = newboxes(0, 1)
+        longevity = {b0: (0, 1), b1: (0, 1)}
+        fm = TFrameManager()
+        asm = MockAsm()
+        rm = RegisterManager(longevity, frame_manager=fm, assembler=asm)
+        rm.hint_frame_locations[b0] = "some_stack_loc"
+        rm.freed_frame_locations["some_stack_loc"] = None
+        rm.force_allocate_reg(b0)
+        rm.force_allocate_reg(b1)
+        rm.force_spill_var(b0)
+        rm.force_spill_var(b1)
+        assert rm.loc(b0) == "some_stack_loc"
+        assert isinstance(rm.loc(b1), FakeFramePos)
+        rm._check_invariants()
+
+    def test_hint_frame_locations_2(self):
+        b0, b1, b2 = newboxes(0, 1, 2)
+        longevity = {b0: (0, 1), b1: (0, 2), b2: (0, 2)}
+        fm = TFrameManager()
+        asm = MockAsm()
+        rm = RegisterManager(longevity, frame_manager=fm, assembler=asm)
+        rm.force_allocate_reg(b0)
+        rm.force_allocate_reg(b1)
+        rm.force_allocate_reg(b2)
+        rm.force_spill_var(b0)
+        loc = rm.loc(b0)
+        assert isinstance(loc, FakeFramePos)
+        rm.position = 1
+        assert loc not in rm.freed_frame_locations
+        rm.possibly_free_var(b0)
+        assert loc in rm.freed_frame_locations
+        #
+        rm.hint_frame_locations[b1] = loc
+        rm.force_spill_var(b1)
+        loc1 = rm.loc(b1)
+        assert loc1 is loc
+        assert rm.freed_frame_locations == {}
+        #
+        rm.hint_frame_locations[b2] = loc
+        rm.force_spill_var(b2)
+        loc2 = rm.loc(b2)
+        assert loc2 is not loc1     # because it's not in freed_frame_locations
+        #
+        rm._check_invariants()
