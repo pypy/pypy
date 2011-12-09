@@ -83,15 +83,7 @@ class DelTests:
         self.check_resops(call=1)   # for the case B(), but not for the case A()
 
     def test_keepalive(self):
-        # Fails for now, bcause the keepalive operation doesn't become
-        # anything more than a '-live-' in the jitcodes.  We end up with
-        # operations that are reordered as follows:
-        #    - x = ll_alloc_with_del()
-        #    - setfield(x.state, state)
-        #    - setfield(state.num, 1000)
-        # but when run on CPython with reference counting, __del__ is
-        # invoked between the 2nd and the 3rd line, i.e. too early.
-        py.test.skip("XXX fails")
+        py.test.skip("XXX fails")   # hum, I think the test itself is broken
         #
         mydriver = JitDriver(reds = ['n', 'states'], greens = [])
         class State:
