@@ -42,8 +42,10 @@ class TFrameManager(FrameManager):
     def frame_size(self, box_type):
         if box_type == FLOAT:
             return 2
-        else:
+        elif box_type == INT:
             return 1
+        else:
+            raise ValueError(box_type)
     def get_loc_index(self, loc):
         assert isinstance(loc, FakeFramePos)
         return loc.pos

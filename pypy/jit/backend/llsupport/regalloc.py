@@ -69,7 +69,7 @@ class FrameManager(object):
         self.bindings[box] = loc
         #
         index = self.get_loc_index(loc)
-        endindex = index + self.frame_size(box)
+        endindex = index + self.frame_size(box.type)
         while len(self.used) < endindex:
             self.used.append(False)
         while index < endindex:
