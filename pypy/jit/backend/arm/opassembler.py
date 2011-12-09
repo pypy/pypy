@@ -1113,7 +1113,7 @@ class ForceOpAssembler(object):
                 regs_to_save.append(reg)
         assert gcrootmap.is_shadow_stack
         with saved_registers(self.mc, regs_to_save):
-            self._emit_call(-1, self.releasegil_addr, [], self._regalloc, fcond)
+            self._emit_call(NO_FORCE_INDEX, self.releasegil_addr, [], self._regalloc, fcond)
 
     def call_reacquire_gil(self, gcrootmap, save_loc, fcond):
         # save the previous result into the stack temporarily.
@@ -1127,7 +1127,7 @@ class ForceOpAssembler(object):
             regs_to_save.append(r.ip) # for alingment
         assert gcrootmap.is_shadow_stack
         with saved_registers(self.mc, regs_to_save):
-            self._emit_call(-1, self.reacqgil_addr, [], self._regalloc, fcond)
+            self._emit_call(NO_FORCE_INDEX, self.reacqgil_addr, [], self._regalloc, fcond)
 
     def write_new_force_index(self):
         # for shadowstack only: get a new, unused force_index number and
