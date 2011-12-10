@@ -167,7 +167,7 @@ class FfiLookupTests(object):
                 return f(data, n)
 
         assert self.meta_interp(main, [10]) == 2000
-        self.check_resops({'jump': 2, 'int_lt': 2, 'getinteriorfield_raw': 2,
+        self.check_resops({'jump': 1, 'int_lt': 2, 'getinteriorfield_raw': 2,
                            'guard_true': 2, 'int_add': 4})
 
 

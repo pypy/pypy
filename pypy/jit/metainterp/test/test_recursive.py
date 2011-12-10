@@ -1260,7 +1260,7 @@ class RecursiveTests:
                     return portal(level + 1)
 
         self.meta_interp(portal, [0])
-        self.check_loop_count_at_most(2)   # and not, e.g., 24
+        self.check_trace_count_at_most(2)   # and not, e.g., 24
 
 
 class TestLLtype(RecursiveTests, LLJitMixin):
