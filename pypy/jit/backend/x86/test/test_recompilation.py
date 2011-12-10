@@ -116,9 +116,9 @@ class TestRecompilation(BaseTestRegalloc):
         i11 = int_add(i12, i6)
         jump(i3, i12, i11, i10, i6, i7, descr=targettoken)
         '''
+        loop_frame_depth = loop._jitcelltoken.compiled_loop_token.frame_depth
         bridge = self.attach_bridge(ops, loop, 6)
         guard_op = loop.operations[6]
-        loop_frame_depth = loop._jitcelltoken.compiled_loop_token.frame_depth
         assert loop._jitcelltoken.compiled_loop_token.param_depth == 0
         # the force_spill() forces the stack to grow
         assert guard_op.getdescr()._x86_bridge_frame_depth > loop_frame_depth
