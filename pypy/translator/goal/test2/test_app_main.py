@@ -821,6 +821,8 @@ class AppTestAppMain:
             newpath = app_main.get_library_path('/tmp/pypy-c') # stdlib not found
             assert newpath == sys.path
             newpath = app_main.get_library_path(self.fake_exe)
+            if newpath[0].endswith('__extensions__'):
+                newpath = newpath[1:]
             # we get at least 'expected_path', and maybe more (e.g.plat-linux2)
             assert newpath[:len(self.expected_path)] == self.expected_path
         finally:
