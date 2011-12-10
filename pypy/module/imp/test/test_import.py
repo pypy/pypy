@@ -150,6 +150,7 @@ class AppTestImport:
 
     def setup_class(cls): # interpreter-level
         cls.space = gettestobjspace(usemodules=['itertools'])
+        cls.w_runappdirect = cls.space.wrap(conftest.option.runappdirect)
         cls.saved_modules = _setup(cls.space)
         #XXX Compile class
 
@@ -575,6 +576,7 @@ class AppTestImport:
             assert False, 'should not work'
 
     def test_shadow_builtin(self):
+        if self.runappdirect: skip("hard to test: module is already imported")
         # 'import gc' is supposed to always find the built-in module;
         # like CPython, it is a built-in module, so it shadows everything,
         # even though there is a gc.py.
@@ -586,6 +588,7 @@ class AppTestImport:
         del sys.modules['gc']
 
     def test_shadow_extension_1(self):
+        if self.runappdirect: skip("hard to test: module is already imported")
         # 'import itertools' is supposed to find itertools.py if there is
         # one in sys.path.
         import sys
@@ -597,6 +600,7 @@ class AppTestImport:
         del sys.modules['itertools']
 
     def test_shadow_extension_2(self):
+        if self.runappdirect: skip("hard to test: module is already imported")
         # 'import itertools' is supposed to find the built-in module even
         # if there is also one in sys.path as long as it is *after* the
         # special entry '.../lib_pypy/__extensions__'.  (Note that for now
