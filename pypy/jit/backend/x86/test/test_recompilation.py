@@ -44,6 +44,7 @@ class TestRecompilation(BaseTestRegalloc):
         i5 = int_add(i4, 1)
         i6 = int_add(i5, 1)
         i7 = int_add(i5, i4)
+        force_spill(i5)
         i8 = int_add(i7, 1)
         i9 = int_add(i8, 1)
         finish(i3, i4, i5, i6, i7, i8, i9, descr=fdescr2)
@@ -51,10 +52,9 @@ class TestRecompilation(BaseTestRegalloc):
         bridge = self.attach_bridge(ops, loop, -2)
         descr = loop.operations[3].getdescr()
         new = descr._x86_bridge_frame_depth
-        assert descr._x86_bridge_param_depth == 0        
-        # XXX: Maybe add enough ops to force stack on 64-bit as well?
-        if IS_X86_32:
-            assert new > previous
+        assert descr._x86_bridge_param_depth == 0
+        # the force_spill() forces the stack to grow
+        assert new > previous
         self.cpu.set_future_value_int(0, 0)
         fail = self.run(loop)
         assert fail.identifier == 2
@@ -109,6 +109,9 @@ class TestRecompilation(BaseTestRegalloc):
         i8 = int_add(i3, 1)
         i6 = int_add(i8, i10)
         i7 = int_add(i3, i6)
+        force_spill(i6)
+        force_spill(i7)
+        force_spill(i8)
         i12 = int_add(i7, i8)
         i11 = int_add(i12, i6)
         jump(i3, i12, i11, i10, i6, i7, descr=targettoken)
@@ -117,9 +120,8 @@ class TestRecompilation(BaseTestRegalloc):
         guard_op = loop.operations[6]
         loop_frame_depth = loop._jitcelltoken.compiled_loop_token.frame_depth
         assert loop._jitcelltoken.compiled_loop_token.param_depth == 0
-        # XXX: Maybe add enough ops to force stack on 64-bit as well?
-        if IS_X86_32:
-            assert guard_op.getdescr()._x86_bridge_frame_depth > loop_frame_depth
+        # the force_spill() forces the stack to grow
+        assert guard_op.getdescr()._x86_bridge_frame_depth > loop_frame_depth
         assert guard_op.getdescr()._x86_bridge_param_depth == 0
         self.cpu.set_future_value_int(0, 0)
         self.cpu.set_future_value_int(1, 0)

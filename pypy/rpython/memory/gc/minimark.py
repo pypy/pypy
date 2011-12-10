@@ -2,8 +2,7 @@
 
 Environment variables can be used to fine-tune the following parameters:
 
- PYPY_GC_NURSERY        The nursery size.  Defaults to half the size of
-                        the L2 cache.  Try values like '1.2MB'.  Small values
+ PYPY_GC_NURSERY        The nursery size.  Defaults to '4MB'.  Small values
                         (like 1 or 1KB) are useful for debugging.
 
  PYPY_GC_MAJOR_COLLECT  Major collection memory factor.  Default is '1.82',
@@ -61,7 +60,7 @@ from pypy.tool.sourcetools import func_with_new_name
 #
 #  * young objects: allocated in the nursery if they are not too large, or
 #    raw-malloced otherwise.  The nursery is a fixed-size memory buffer of
-#    half the size of the L2 cache.  When full, we do a minor collection;
+#    4MB by default.  When full, we do a minor collection;
 #    the surviving objects from the nursery are moved outside, and the
 #    non-surviving raw-malloced objects are freed.  All surviving objects
 #    become old.
@@ -329,7 +328,8 @@ class MiniMarkGC(MovingGCBase):
             # size (needed to handle mallocs just below 'large_objects') but
             # hacking at the current nursery position in collect_and_reserve().
             if newsize <= 0:
-                newsize = env.estimate_best_nursery_size()
+                newsize = 4*1024*1024   # fixed to 4MB by default
+                #        (it was env.estimate_best_nursery_size())
                 if newsize <= 0:
                     newsize = defaultsize
             if newsize < minsize:

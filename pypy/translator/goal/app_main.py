@@ -672,7 +672,7 @@ if __name__ == '__main__':
     def pypy_initial_path(s):
         from pypy.module.sys.state import getinitialpath
         try:
-            return getinitialpath(s)
+            return getinitialpath(None, s)
         except OSError:
             return None
 
