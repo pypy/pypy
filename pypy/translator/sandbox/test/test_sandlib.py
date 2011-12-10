@@ -247,3 +247,18 @@ def test_lseek():
     output, error = proc.communicate("")
     assert output == "All ok!\n"
     assert error == ""
+
+def test_getuid():
+    def entry_point(argv):
+        import os
+        print "uid is %s" % os.getuid()
+        print "euid is %s" % os.geteuid()
+        print "gid is %s" % os.getgid()
+        print "egid is %s" % os.getegid()
+        return 0
+    exe = compile(entry_point)
+
+    proc = SandboxedProcWithFiles([exe])
+    output, error = proc.communicate("")
+    assert output == "uid is 1000\neuid is 1000\ngid is 1000\negid is 1000\n"
+    assert error == ""

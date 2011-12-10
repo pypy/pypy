@@ -9,6 +9,7 @@ import sys, os, posixpath, errno, stat, time
 from pypy.tool.ansi_print import AnsiLog
 import subprocess
 from pypy.tool.killsubprocess import killsubprocess
+from pypy.translator.sandbox.vfs import UID, GID
 
 class MyAnsiLog(AnsiLog):
     KW_TO_COLOR = {
@@ -523,6 +524,14 @@ class VirtualizedSandboxedProc(SandboxedProc):
     def do_ll_os__ll_os_listdir(self, vpathname):
         node = self.get_node(vpathname)
         return node.keys()
+
+    def do_ll_os__ll_os_getuid(self):
+        return UID
+    do_ll_os__ll_os_geteuid = do_ll_os__ll_os_getuid
+
+    def do_ll_os__ll_os_getgid(self):
+        return GID
+    do_ll_os__ll_os_getegid = do_ll_os__ll_os_getgid
 
 
 class VirtualizedSocketProc(VirtualizedSandboxedProc):
