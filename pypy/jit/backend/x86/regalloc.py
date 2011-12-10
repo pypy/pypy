@@ -1325,7 +1325,7 @@ class RegAlloc(object):
 
     def compute_hint_frame_locations(self, operations):
         # optimization only: fill in the 'hint_frame_locations' dictionary
-        # of rm and xrm based on the JUMP at the end of the loop, by looking
+        # of 'fm' based on the JUMP at the end of the loop, by looking
         # at where we would like the boxes to be after the jump.
         op = operations[-1]
         if op.getopnum() != rop.JUMP:
@@ -1337,6 +1337,11 @@ class RegAlloc(object):
             # if the target LABEL was already compiled, i.e. if it belongs
             # to some already-compiled piece of code
             self._compute_hint_frame_locations_from_descr(descr)
+        #else:
+        #   The loop ends in a JUMP going back to a LABEL in the same loop.
+        #   We cannot fill 'hint_frame_locations' immediately, but we can
+        #   wait until the corresponding consider_label() to know where the
+        #   we would like the boxes to be after the jump.
 
     def _compute_hint_frame_locations_from_descr(self, descr):
         nonfloatlocs, floatlocs = descr._x86_arglocs
