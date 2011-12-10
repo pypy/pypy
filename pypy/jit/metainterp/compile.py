@@ -214,7 +214,7 @@ def compile_retrace(metainterp, greenkey, start,
         assert isinstance(target_token, TargetToken)
         assert target_token.exported_state
         part.operations = [label] + \
-                          [ResOperation(rop.JUMP, target_token.exported_state.original_jump_args,
+                          [ResOperation(rop.JUMP, target_token.exported_state.jump_args,
                                         None, descr=loop_jitcell_token)]
         try:
             optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts,
