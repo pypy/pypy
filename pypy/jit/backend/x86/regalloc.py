@@ -164,6 +164,7 @@ class RegAlloc(object):
         # to be read/used by the assembler too
         self.jump_target_descr = None
         self.close_stack_struct = 0
+        self.final_jump_op = None
 
     def _prepare(self, inputargs, operations, allgcrefs):
         self.fm = X86FrameManager()
@@ -1329,11 +1330,20 @@ class RegAlloc(object):
         op = operations[-1]
         if op.getopnum() != rop.JUMP:
             return
+        self.final_jump_op = op
         descr = op.getdescr()
         assert isinstance(descr, TargetToken)
-        nonfloatlocs, floatlocs = self.assembler.target_arglocs(descr)
-        for i in range(op.numargs()):
-            box = op.getarg(i)
+        if descr._x86_loop_code != 0:
+            # if the target LABEL was already compiled, i.e. if it belongs
+            # to some already-compiled piece of code
+            self._compute_hint_frame_locations_from_descr(descr)
+
+    def _compute_hint_frame_locations_from_descr(self, descr):
+        nonfloatlocs, floatlocs = descr._x86_arglocs
+        jump_op = self.final_jump_op
+        assert len(nonfloatlocs) == jump_op.numargs()
+        for i in range(jump_op.numargs()):
+            box = jump_op.getarg(i)
             if isinstance(box, Box):
                 loc = nonfloatlocs[i]
                 if isinstance(loc, StackLoc):
@@ -1460,12 +1470,20 @@ class RegAlloc(object):
             else:
                 nonfloatlocs[i] = loc
             if isinstance(loc, RegLoc):
-                self.fm.forget_frame_allocation(arg)
+                self.fm.mark_as_free(arg)
         descr._x86_arglocs = nonfloatlocs, floatlocs
         descr._x86_loop_code = self.assembler.mc.get_relative_pos()
         descr._x86_clt = self.assembler.current_clt
         self.assembler.target_tokens_currently_compiling[descr] = None
         self.possibly_free_vars_for_op(op)
+        #
+        # if the LABEL's descr is precisely the target of the JUMP at the
+        # end of the same loop, i.e. if what we are compiling is a single
+        # loop that ends up jumping to this LABEL, then we can now provide
+        # the hints about the expected position of the spilled variables.
+        jump_op = self.final_jump_op
+        if jump_op is not None and jump_op.getdescr() is descr:
+            self._compute_hint_frame_locations_from_descr(descr)
 
 ##        from pypy.rpython.annlowlevel import llhelper
 ##        def fn(addr):
@@ -1539,3 +1557,7 @@ def _get_scale(size):
 def not_implemented(msg):
     os.write(2, '[x86/regalloc] %s\n' % msg)
     raise NotImplementedError(msg)
+
+# xxx hack: set a default value for TargetToken._x86_loop_code.
+# If 0, we know that it is a LABEL that was not compiled yet.
+TargetToken._x86_loop_code = 0
