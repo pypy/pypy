@@ -1559,5 +1559,5 @@ def not_implemented(msg):
     raise NotImplementedError(msg)
 
 # xxx hack: set a default value for TargetToken._x86_loop_code.
-# If -1, we know that it is a LABEL that was not compiled yet.
+# If 0, we know that it is a LABEL that was not compiled yet.
 TargetToken._x86_loop_code = 0
