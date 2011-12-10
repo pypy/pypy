@@ -117,3 +117,14 @@ class TestDicts(BaseTestPyPyC):
             --TICK--
             jump(p0, p1, p2, p3, p4, i35, p13, i7, descr=...)
         """)
+
+    def test_floatlist_unpack_without_calls(self):
+        def fn(n):
+            l = [2.3, 3.4, 4.5]
+            for i in range(n):
+                x, y, z = l # ID: look
+        #
+        log = self.run(fn, [1000])
+        loop, = log.loops_by_filename(self.filepath)
+        ops = loop.ops_by_id('look')
+        assert 'call' not in log.opnames(ops)

@@ -8,13 +8,12 @@ import py
 from pypy.jit.metainterp import pyjitpl
 from pypy.jit.metainterp.test.support import LLJitMixin
 from pypy.jit.metainterp.warmspot import reset_stats
-from pypy.module.micronumpy import interp_boxes, interp_ufuncs, signature
-from pypy.module.micronumpy.compile import (numpy_compile, FakeSpace,
-    FloatObject, IntObject, BoolObject, Parser, InterpreterState)
-from pypy.module.micronumpy.interp_numarray import (W_NDimArray, NDimSlice,
+from pypy.module.micronumpy import interp_boxes
+from pypy.module.micronumpy.compile import (FakeSpace,
+    IntObject, Parser, InterpreterState)
+from pypy.module.micronumpy.interp_numarray import (W_NDimArray,
      BaseArray)
 from pypy.rlib.nonconst import NonConstant
-from pypy.rpython.annlowlevel import llstr, hlstr
 
 
 class TestNumpyJIt(LLJitMixin):

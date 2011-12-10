@@ -1238,6 +1238,31 @@ class RecursiveTests:
         self.meta_interp(portal, [0, 0, 0], inline=True)
         self.check_resops(call_may_force=0, call=0)
 
+    def test_dont_repeatedly_trace_from_the_same_guard(self):
+        driver = JitDriver(greens = [], reds = ['level', 'i'])
+
+        def portal(level):
+            if level == 0:
+                i = -10
+            else:
+                i = 0
+            #
+            while True:
+                driver.jit_merge_point(level=level, i=i)
+                if level == 25:
+                    return 42
+                i += 1
+                if i <= 0:      # <- guard
+                    continue    # first make a loop
+                else:
+                    # then we fail the guard above, doing a recursive call,
+                    # which will itself fail the same guard above, and so on
+                    return portal(level + 1)
+
+        self.meta_interp(portal, [0])
+        self.check_loop_count_at_most(2)   # and not, e.g., 24
+
+
 class TestLLtype(RecursiveTests, LLJitMixin):
     pass
 

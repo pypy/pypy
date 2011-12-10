@@ -173,7 +173,7 @@ class AppTestTypes(BaseNumpyAppTest):
         raises(TypeError, numpy.number, 0)
         raises(TypeError, numpy.integer, 0)
         exc = raises(TypeError, numpy.signedinteger, 0)
-        assert str(exc.value) == "cannot create 'numpypy.signedinteger' instances"
+        assert str(exc.value) == "cannot create 'signedinteger' instances"
 
         raises(TypeError, numpy.floating, 0)
         raises(TypeError, numpy.inexact, 0)
@@ -239,6 +239,13 @@ class AppTestTypes(BaseNumpyAppTest):
 
         assert numpy.dtype(numpy.int64).type is numpy.int64
         assert numpy.int64(3) == 3
+
+    def test_float32(self):
+        import numpypy as numpy
+
+        assert numpy.float32.mro() == [numpy.float32, numpy.floating, numpy.inexact, numpy.number, numpy.generic, object]
+
+        assert numpy.float32(12) == numpy.float64(12)
 
     def test_float64(self):
         import numpypy as numpy

@@ -1796,7 +1796,6 @@ class MetaInterp(object):
         self.staticdata.profiler.count(reason)
         debug_print('~~~ ABORTING TRACING')
         self.staticdata.stats.aborted()
-        self.resumekey.reset_counter_from_failure()
 
     def blackhole_if_trace_too_long(self):
         warmrunnerstate = self.jitdriver_sd.warmstate

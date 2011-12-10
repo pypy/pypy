@@ -87,9 +87,10 @@ if not _WIN32:
         """
         if mode == -1:
             if RTLD_LOCAL is not None:
-                mode = RTLD_LOCAL | RTLD_NOW
+                mode = RTLD_LOCAL
             else:
-                mode = RTLD_NOW
+                mode = 0
+        mode |= RTLD_NOW
         res = c_dlopen(name, rffi.cast(rffi.INT, mode))
         if not res:
             err = dlerror()
