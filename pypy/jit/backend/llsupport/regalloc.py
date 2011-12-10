@@ -65,12 +65,6 @@ class FrameManager(object):
         self.bindings[box] = newloc
         return newloc
 
-    def forget_frame_allocation(self, box):
-        try:
-            del self.frame_bindings[box]
-        except KeyError:
-            pass
-
     def set_binding(self, box, loc):
         self.bindings[box] = loc
         #
