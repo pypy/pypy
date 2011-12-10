@@ -238,6 +238,7 @@ class FakeObjSpace(ObjSpace):
         t = TranslationContext(config=config)
         self.t = t     # for debugging
         ann = t.buildannotator()
+        ann.policy.allow_someobjects = False
         if func is not None:
             ann.build_types(func, argtypes, complete_now=False)
         #
