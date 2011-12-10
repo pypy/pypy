@@ -1333,7 +1333,7 @@ class RegAlloc(object):
         self.final_jump_op = op
         descr = op.getdescr()
         assert isinstance(descr, TargetToken)
-        if descr._x86_loop_code != -1:
+        if descr._x86_loop_code != 0:
             # if the target LABEL was already compiled, i.e. if it belongs
             # to some already-compiled piece of code
             self._compute_hint_frame_locations_from_descr(descr)
@@ -1341,6 +1341,7 @@ class RegAlloc(object):
     def _compute_hint_frame_locations_from_descr(self, descr):
         nonfloatlocs, floatlocs = descr._x86_arglocs
         jump_op = self.final_jump_op
+        assert len(nonfloatlocs) == jump_op.numargs()
         for i in range(jump_op.numargs()):
             box = jump_op.getarg(i)
             if isinstance(box, Box):
@@ -1559,4 +1560,4 @@ def not_implemented(msg):
 
 # xxx hack: set a default value for TargetToken._x86_loop_code.
 # If -1, we know that it is a LABEL that was not compiled yet.
-TargetToken._x86_loop_code = -1
+TargetToken._x86_loop_code = 0
