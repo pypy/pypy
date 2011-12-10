@@ -49,6 +49,11 @@ def _to_opaque(value):
         value._the_opaque_pointer = op
         return op
 
+def _normalize(value):
+    if isinstance(value, lltype._ptr):
+        value = lltype.top_container(value._obj)
+    return value
+
 def from_opaque_string(s):
     if isinstance(s, str):
         return s
@@ -348,13 +353,13 @@ def compile_add_loop_token(loop, descr):
     op = loop.operations[-1]
     op.descr = weakref.ref(descr)
 
+TARGET_TOKENS = weakref.WeakKeyDictionary()
+
 def compile_add_target_token(loop, descr):
-    compiled_version = loop
     loop = _from_opaque(loop)
     op = loop.operations[-1]
-    descr.compiled_version = compiled_version
-    descr.target_opindex = len(loop.operations)
-    descr.target_arguments = op.args
+    descrobj = _normalize(descr)
+    TARGET_TOKENS[descrobj] = loop, len(loop.operations), op.args
 
 def compile_add_var(loop, intvar):
     loop = _from_opaque(loop)
@@ -392,18 +397,9 @@ def compile_add_ref_result(loop, TYPE):
 
 def compile_add_jump_target(loop, targettoken):
     loop = _from_opaque(loop)
-    if isinstance(targettoken, history.JitCellToken):
-        assert False
-        loop_target = _from_opaque(targettoken.compiled_loop_token.compiled_version)
-        target_opindex = 0
-        target_inputargs = loop_target.inputargs
-    elif isinstance(targettoken, history.TargetToken):
-        loop_target = _from_opaque(targettoken.compiled_version)
-        target_opindex = targettoken.target_opindex
-        target_inputargs = targettoken.target_arguments
-    else:
-        assert False
-
+    descrobj = _normalize(targettoken)
+    loop_target, target_opindex, target_inputargs = TARGET_TOKENS[descrobj]
+    #
     op = loop.operations[-1]
     op.jump_target = loop_target
     op.jump_target_opindex = target_opindex
@@ -1823,6 +1819,7 @@ setannotation(compile_start_float_var, annmodel.SomeInteger())
 setannotation(compile_add, annmodel.s_None)
 setannotation(compile_add_descr, annmodel.s_None)
 setannotation(compile_add_descr_arg, annmodel.s_None)
+setannotation(compile_add_target_token, annmodel.s_None)
 setannotation(compile_add_var, annmodel.s_None)
 setannotation(compile_add_int_const, annmodel.s_None)
 setannotation(compile_add_ref_const, annmodel.s_None)
