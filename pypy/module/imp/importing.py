@@ -506,7 +506,7 @@ def find_module(space, modulename, w_modulename, partname, w_path,
         for w_pathitem in space.unpackiterable(w_path):
             # sys.path_hooks import hook
             if (w_lib_extensions is not None and
-                    space.is_w(w_pathitem, w_lib_extensions)):
+                    space.eq_w(w_pathitem, w_lib_extensions)):
                 return delayed_builtin
             if use_loader:
                 w_loader = find_in_path_hooks(space, w_modulename, w_pathitem)
