@@ -171,7 +171,7 @@ class UnrollOptimizer(Optimization):
         target_token.start_resumedescr = start_resumedescr
         target_token.exported_state = ExportedState(constant_inputargs, short_boxes,
                                                     inputarg_setup_ops, self.optimizer,
-                                                    aliased_vrituals)
+                                                    aliased_vrituals, original_jump_args)
 
     def import_state(self, targetop):
         self.did_import = False
@@ -275,7 +275,6 @@ class UnrollOptimizer(Optimization):
         try:
             jumpargs = virtual_state.make_inputargs(values, self.optimizer)
         except BadVirtualState:
-            # FIXME: Produce jump to preamble instead (see test_retrace_not_matching_bridge)
             raise InvalidLoop
         jumpop.initarglist(jumpargs)
 
@@ -340,13 +339,11 @@ class UnrollOptimizer(Optimization):
         if not virtual_state.generalization_of(final_virtual_state, bad):
             # We ended up with a virtual state that is not compatible
             # and we are thus unable to jump to the start of the loop
-            # XXX Is it possible to end up here? If so, consider:
-            #    - Fallback on having the preamble jump to itself?
-            #    - Would virtual_state.generate_guards make sense here?
             final_virtual_state.debug_print("Bad virtual state at end of loop, ",
                                             bad)
             debug_stop('jit-log-virtualstate')
             raise InvalidLoop
+            
         debug_stop('jit-log-virtualstate')
 
         maxguards = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.max_retrace_guards
@@ -595,9 +592,11 @@ class ValueImporter(object):
 
 class ExportedState(object):
     def __init__(self, constant_inputargs,
-                 short_boxes, inputarg_setup_ops, optimizer, aliased_vrituals):
+                 short_boxes, inputarg_setup_ops, optimizer, aliased_vrituals,
+                 original_jump_args):
         self.constant_inputargs = constant_inputargs
         self.short_boxes = short_boxes
         self.inputarg_setup_ops = inputarg_setup_ops
         self.optimizer = optimizer
         self.aliased_vrituals = aliased_vrituals
+        self.original_jump_args = original_jump_args

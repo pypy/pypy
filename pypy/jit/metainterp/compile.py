@@ -209,7 +209,18 @@ def compile_retrace(metainterp, greenkey, start,
     try:
         optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts)
     except InvalidLoop:
-        return None
+        # Fall back on jumping to preamble
+        target_token = label.getdescr()
+        assert isinstance(target_token, TargetToken)
+        assert target_token.exported_state
+        part.operations = [label] + \
+                          [ResOperation(rop.JUMP, target_token.exported_state.original_jump_args,
+                                        None, descr=loop_jitcell_token)]
+        try:
+            optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts,
+                           inline_short_preamble=False)
+        except InvalidLoop:
+            return None
     assert part.operations[-1].getopnum() != rop.LABEL
     target_token = label.getdescr()
     assert isinstance(target_token, TargetToken)

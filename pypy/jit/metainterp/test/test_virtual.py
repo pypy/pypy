@@ -820,6 +820,91 @@ class VirtualTests:
             return node.value 
         res = self.meta_interp(f, [10], repeat=10)
         assert res == f(10)
+        self.check_resops(jump=2)
+
+    def test_nested_loops(self):
+        class Int(object):
+            def __init__(self, val):
+                self.val = val
+        myjitdriver = JitDriver(greens = ['pc'], reds = ['n', 'sa', 'i', 'j'])
+        bytecode = "iajb+JI"
+        def f(n):
+            pc = sa = 0
+            i = j = Int(0)
+            while pc < len(bytecode):
+                myjitdriver.jit_merge_point(pc=pc, n=n, sa=sa, i=i, j=j)
+                op = bytecode[pc]
+                if op == 'i':
+                    i = Int(0)
+                elif op == 'j':
+                    j = Int(0)
+                elif op == '+':
+                    sa += i.val * j.val
+                elif op == 'a':
+                    i = Int(i.val + 1)
+                elif op == 'b':
+                    j = Int(j.val + 1)
+                elif op == 'J':
+                    if j.val < n:
+                        pc -= 2
+                        myjitdriver.can_enter_jit(pc=pc, n=n, sa=sa, i=i, j=j)
+                        continue
+                elif op == 'I':
+                    if i.val < n:
+                        pc -= 5
+                        myjitdriver.can_enter_jit(pc=pc, n=n, sa=sa, i=i, j=j)
+                        continue
+                pc += 1
+            return sa
+
+        res = self.meta_interp(f, [10])
+        assert res == f(10)
+        self.check_aborted_count(0)
+        self.check_target_token_count(3)
+
+    def test_nested_loops_bridge(self):
+        class Int(object):
+            def __init__(self, val):
+                self.val = val
+        myjitdriver = JitDriver(greens = ['pc'], reds = ['n', 'sa', 'i', 'j'])
+        bytecode = "iajb+JI"
+        def f(n):
+            pc = sa = 0
+            i = j = Int(0)
+            while pc < len(bytecode):
+                myjitdriver.jit_merge_point(pc=pc, n=n, sa=sa, i=i, j=j)
+                op = bytecode[pc]
+                if op == 'i':
+                    i = Int(0)
+                elif op == 'j':
+                    j = Int(0)
+                elif op == '+':
+                    if i.val < n-8:
+                        sa += 7
+                    if j.val < n-16:
+                        sa += 42
+                    sa += i.val * j.val
+                elif op == 'a':
+                    i = Int(i.val + 1)
+                elif op == 'b':
+                    j = Int(j.val + 1)
+                elif op == 'J':
+                    if j.val < n:
+                        pc -= 2
+                        myjitdriver.can_enter_jit(pc=pc, n=n, sa=sa, i=i, j=j)
+                        continue
+                elif op == 'I':
+                    if i.val < n:
+                        pc -= 5
+                        myjitdriver.can_enter_jit(pc=pc, n=n, sa=sa, i=i, j=j)
+                        continue
+                pc += 1
+            return sa
+
+        res = self.meta_interp(f, [32])
+        assert res == f(32)
+        self.check_aborted_count(0)
+        self.check_target_token_count(3)
 
 class VirtualMiscTests:
 
