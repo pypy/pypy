@@ -438,7 +438,7 @@ class TestCall(BaseTestPyPyC):
             i33 = int_add_ovf(i15, i32)
             guard_no_overflow(descr=...)
             --TICK--
-            jump(p0, p1, p2, p5, i33, i32, p23, p30, p24, descr=...)
+            p39 = same_as(...) # Should be killed by backend
         """)
 
     def test_local_closure_is_virtual(self):
