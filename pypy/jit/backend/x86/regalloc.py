@@ -1330,7 +1330,7 @@ class RegAlloc(object):
         if op.getopnum() != rop.JUMP:
             return
         descr = op.getdescr()
-        assert isinstance(descr, LoopToken)
+        assert isinstance(descr, TargetToken)
         nonfloatlocs, floatlocs = self.assembler.target_arglocs(descr)
         for i in range(op.numargs()):
             box = op.getarg(i)
