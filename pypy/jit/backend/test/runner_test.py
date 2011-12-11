@@ -2955,8 +2955,7 @@ class LLtypeBackendTest(BaseBackendTest):
         operations[6].setfailargs([i1])
 
         self.cpu.compile_loop(inputargs, operations, looptoken)
-        self.cpu.set_future_value_int(0, 2)
-        fail = self.cpu.execute_token(looptoken)
+        fail = self.cpu.execute_token(looptoken, 2)
         assert fail.identifier == 2
         res = self.cpu.get_latest_value_int(0)
         assert res == 10
@@ -2968,8 +2967,7 @@ class LLtypeBackendTest(BaseBackendTest):
             ]
         self.cpu.compile_bridge(faildescr, inputargs, operations, looptoken)
         
-        self.cpu.set_future_value_int(0, 2)
-        fail = self.cpu.execute_token(looptoken)
+        fail = self.cpu.execute_token(looptoken, 2)
         assert fail.identifier == 3
         res = self.cpu.get_latest_value_int(0)
         assert res == -10
