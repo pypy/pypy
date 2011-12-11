@@ -43,10 +43,10 @@ def PySequence_Fast(space, w_obj, m):
     members of the result.  Returns NULL on failure.  If the object is not a
     sequence, raises TypeError with m as the message text."""
     if (isinstance(w_obj, listobject.W_ListObject) or
-        isinstance(w_obj, listobject.W_TupleObject)):
+        isinstance(w_obj, tupleobject.W_TupleObject)):
         return w_obj
     try:
-        return listobject.W_TupleObject(space.fixedview(w_obj))
+        return tupleobject.W_TupleObject(space.fixedview(w_obj))
     except OperationError:
         raise OperationError(space.w_TypeError, space.wrap(rffi.charp2str(m)))
 
