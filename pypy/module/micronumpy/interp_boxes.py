@@ -91,9 +91,6 @@ class W_GenericBox(Wrappable):
     descr_neg = _unaryop_impl("negative")
     descr_abs = _unaryop_impl("absolute")
 
-    def descr_tolist(self, space):
-        return self.get_dtype(space).itemtype.to_builtin_type(space, self)
-
 
 class W_BoolBox(W_GenericBox, PrimitiveBox):
     descr__new__, get_dtype = new_dtype_getter("bool")
@@ -182,8 +179,6 @@ W_GenericBox.typedef = TypeDef("generic",
 
     __neg__ = interp2app(W_GenericBox.descr_neg),
     __abs__ = interp2app(W_GenericBox.descr_abs),
-
-    tolist = interp2app(W_GenericBox.descr_tolist),
 )
 
 W_BoolBox.typedef = TypeDef("bool_", W_GenericBox.typedef,

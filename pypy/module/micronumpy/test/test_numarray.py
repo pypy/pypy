@@ -879,45 +879,6 @@ class AppTestNumArray(BaseNumpyAppTest):
         b[0] = 3
         assert b.__debug_repr__() == 'Call2(add, forced=Array)'
 
-    def test_tolist_scalar(self):
-        from numpypy import int32, bool_
-        x = int32(23)
-        assert x.tolist() == 23
-        assert type(x.tolist()) is int
-        y = bool_(True)
-        assert y.tolist() is True
-
-    def test_tolist_zerodim(self):
-        from numpypy import array
-        x = array(3)
-        assert x.tolist() == 3
-        assert type(x.tolist()) is int
-
-    def test_tolist_singledim(self):
-        from numpypy import array
-        a = array(range(5))
-        assert a.tolist() == [0, 1, 2, 3, 4]
-        assert type(a.tolist()[0]) is int
-        b = array([0.2, 0.4, 0.6])
-        assert b.tolist() == [0.2, 0.4, 0.6]
-
-    def test_tolist_multidim(self):
-        from numpypy import array
-        a = array([[1, 2], [3, 4]])
-        assert a.tolist() == [[1, 2], [3, 4]]
-
-    def test_tolist_view(self):
-        from numpypy import array
-        a = array([[1,2],[3,4]])
-        assert (a + a).tolist() == [[2, 4], [6, 8]]
-
-    def test_tolist_slice(self):
-        from numpypy import array
-        a = array([[17.1, 27.2], [40.3, 50.3]])
-        assert a[:,0].tolist() == [17.1, 40.3]
-        assert a[0].tolist() == [17.1, 27.2]
-
-
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
         import numpypy
