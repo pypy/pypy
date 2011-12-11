@@ -48,6 +48,7 @@ class FakeSpace(object):
     w_long = "long"
     w_tuple = 'tuple'
     w_slice = "slice"
+    w_str = "str"
 
     def __init__(self):
         """NOT_RPYTHON"""
@@ -85,6 +86,8 @@ class FakeSpace(object):
             return BoolObject(obj)
         elif isinstance(obj, int):
             return IntObject(obj)
+        elif isinstance(obj, str):
+            return StringObject(obj)
         elif isinstance(obj, W_Root):
             return obj
         raise NotImplementedError
@@ -119,6 +122,16 @@ class FakeSpace(object):
             return w_obj
         assert isinstance(w_obj, interp_boxes.W_GenericBox)
         return self.int(w_obj.descr_int(self))
+
+    def str_w(self, w_obj):
+        if isinstance(w_obj, StringObject):
+            return w_obj._value
+        raise NotImplementedError
+    
+    def str(self, w_obj):
+        if isinstance(w_obj, StringObject):
+            return w_obj
+        raise NotImplementedError
 
     def is_true(self, w_obj):
         assert isinstance(w_obj, BoolObject)
@@ -168,6 +181,11 @@ class IntObject(W_Root):
     tp = FakeSpace.w_int
     def __init__(self, intval):
         self.intval = intval
+
+class StringObject(W_Root):
+    tp = FakeSpace.w_str
+    def __init__(self, s):
+        self._value = s
 
 class ListObject(W_Root):
     tp = FakeSpace.w_list
