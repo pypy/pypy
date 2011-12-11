@@ -876,6 +876,17 @@ class BaseArray(Wrappable):
             arr.setshape(space, new_shape)
         return arr
 
+    def descr_tolist(self, space):
+        if len(self.shape) == 0:
+            assert isinstance(self, Scalar)
+            return self.value.descr_tolist(space)
+        w_result = space.newlist([])
+        for i in range(self.shape[0]):
+            space.call_method(w_result, "append",
+                space.call_method(self.descr_getitem(space, space.wrap(i)), "tolist")
+            )
+        return w_result
+
     def descr_mean(self, space):
         return space.div(self.descr_sum(space), space.wrap(self.find_size()))
 
@@ -1485,6 +1496,7 @@ BaseArray.typedef = TypeDef(
 
     copy = interp2app(BaseArray.descr_copy),
     reshape = interp2app(BaseArray.descr_reshape),
+    tolist = interp2app(BaseArray.descr_tolist),
 )
 
 
