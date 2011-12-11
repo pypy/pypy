@@ -209,6 +209,7 @@ def compile_retrace(metainterp, greenkey, start,
     try:
         optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts)
     except InvalidLoop:
+        return None # XXX: Dissable for now
         # Fall back on jumping to preamble
         target_token = label.getdescr()
         assert isinstance(target_token, TargetToken)
