@@ -92,11 +92,11 @@ class AbstractCPU(object):
         attached to the failing guard, or the one attached to the FINISH.
         Use get_latest_value_xxx() afterwards to read the result(s).
         """
-        argkinds = [history.getkind(lltype.typeOf(x))[0] for x in args]
-        execute = self.make_execute_token(*argkinds)
+        argtypes = [lltype.typeOf(x) for x in args]
+        execute = self.make_execute_token(*argtypes)
         return execute(looptoken, *args)
 
-    def make_execute_token(self, *argkinds):
+    def make_execute_token(self, *argtypes):
         """Must make and return an execute_token() function that will be
         called with the given argtypes.
         """

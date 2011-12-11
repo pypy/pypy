@@ -260,23 +260,20 @@ class BaseCPU(model.AbstractCPU):
         self.latest_frame = frame
         return fail_index
 
-    def make_execute_token(self, *argkinds):
-        nb_args = len(argkinds)
-        unroll_argkinds = unrolling_iterable(list(enumerate(argkinds)))
+    def make_execute_token(self, *argtypes):
+        nb_args = len(argtypes)
+        unroll_argtypes = unrolling_iterable(list(enumerate(argtypes)))
         #
         def execute_token(loop_token, *args):
             assert len(args) == nb_args
-            for index, kind in unroll_argkinds:
+            for index, TYPE in unroll_argtypes:
                 x = args[index]
-                TYPE = lltype.typeOf(x)
-                if kind == INT:
-                    assert TYPE == lltype.Signed
+                assert TYPE == lltype.typeOf(x)
+                if TYPE == lltype.Signed:
                     llimpl.set_future_value_int(index, x)
-                elif kind == REF:
-                    assert TYPE == llmemory.GCREF
+                elif TYPE == llmemory.GCREF:
                     llimpl.set_future_value_ref(index, x)
-                elif kind == FLOAT:
-                    assert TYPE == longlong.FLOATSTORAGE
+                elif TYPE == longlong.FLOATSTORAGE:
                     llimpl.set_future_value_float(index, x)
                 else:
                     assert 0

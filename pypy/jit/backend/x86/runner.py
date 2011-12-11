@@ -3,6 +3,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory, rffi
 from pypy.rpython.lltypesystem.lloperation import llop
 from pypy.rpython.llinterp import LLInterpreter
 from pypy.rlib.objectmodel import we_are_translated
+from pypy.jit.codewriter import longlong
 from pypy.jit.metainterp import history, compile
 from pypy.jit.backend.x86.assembler import Assembler386
 from pypy.jit.backend.x86.arch import FORCE_INDEX_OFS
@@ -21,7 +22,6 @@ class AbstractX86CPU(AbstractLLCPU):
     supports_floats = True
     supports_singlefloats = True
 
-    BOOTSTRAP_TP = lltype.FuncType([], lltype.Signed)
     dont_keepalive_stuff = False # for tests
     with_threads = False
 
@@ -122,27 +122,35 @@ class AbstractX86CPU(AbstractLLCPU):
         # the FORCE_TOKEN operation and this helper both return 'ebp'.
         return self.assembler.fail_ebp
 
-    def execute_token(self, executable_token):
-        addr = executable_token._x86_bootstrap_code
-        #llop.debug_print(lltype.Void, ">>>> Entering", addr)
-        func = rffi.cast(lltype.Ptr(self.BOOTSTRAP_TP), addr)
-        fail_index = self._execute_call(func)
-        #llop.debug_print(lltype.Void, "<<<< Back")
-        return self.get_fail_descr_from_number(fail_index)
-
-    def _execute_call(self, func):
-        # help flow objspace
-        prev_interpreter = None
-        if not self.translate_support_code:
-            prev_interpreter = LLInterpreter.current_interpreter
-            LLInterpreter.current_interpreter = self.debug_ll_interpreter
-        res = 0
-        try:
-            res = func()
-        finally:
+    def make_execute_token(self, *argkinds):
+        ARGS = []
+        for kind in argkinds:
+            if kind == history.INT:
+                ARGS.append(lltype.Signed)
+            elif kind == history.REF:
+                ARGS.append(llmemory.GCREF)
+            elif kind == history.FLOAT:
+                ARGS.append(longlong.FLOATSTORAGE)
+            else:
+                assert 0
+        FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, lltype.Signed))
+        #
+        def execute_token(executable_token, *args):
+            addr = executable_token._x86_direct_bootstrap_code
+            func = rffi.cast(FUNCPTR, addr)
+            #llop.debug_print(lltype.Void, ">>>> Entering", addr)
+            prev_interpreter = None   # help flow space
             if not self.translate_support_code:
-                LLInterpreter.current_interpreter = prev_interpreter
-        return res
+                prev_interpreter = LLInterpreter.current_interpreter
+                LLInterpreter.current_interpreter = self.debug_ll_interpreter
+            try:
+                fail_index = func(*args)
+            finally:
+                if not self.translate_support_code:
+                    LLInterpreter.current_interpreter = prev_interpreter
+            #llop.debug_print(lltype.Void, "<<<< Back")
+            return self.get_fail_descr_from_number(fail_index)
+        return execute_token
 
     def cast_ptr_to_int(x):
         adr = llmemory.cast_ptr_to_adr(x)

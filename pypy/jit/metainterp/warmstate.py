@@ -283,8 +283,17 @@ class WarmEnterState(object):
         range_red_args = unrolling_iterable(
             range(num_green_args, num_green_args + jitdriver_sd.num_red_args))
         # get a new specialized copy of the method
-        func_execute_token = self.cpu.make_execute_token(
-            *[kind[0] for kind in jitdriver_sd.red_args_types])
+        ARGS = []
+        for kind in jitdriver_sd.red_args_types:
+            if kind == 'int':
+                ARGS.append(lltype.Signed)
+            elif kind == 'ref':
+                ARGS.append(llmemory.GCREF)
+            elif kind == 'float':
+                ARGS.append(longlong.FLOATSTORAGE)
+            else:
+                assert 0, kind
+        func_execute_token = self.cpu.make_execute_token(*ARGS)
 
         def execute_assembler(loop_token, *args):
             # Call the backend to run the 'looptoken' with the given
