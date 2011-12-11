@@ -282,11 +282,7 @@ class TestX86(LLtypeBackendTest):
                     ops[-2].setfailargs([i1])
                     looptoken = JitCellToken()
                     self.cpu.compile_loop([b], ops, looptoken)
-                    if op == rop.INT_IS_TRUE:
-                        self.cpu.set_future_value_int(0, b.value)
-                    else:
-                        self.cpu.set_future_value_ref(0, b.value)
-                    self.cpu.execute_token(looptoken)
+                    self.cpu.execute_token(looptoken, b.value)
                     result = self.cpu.get_latest_value_int(0)
                     if guard == rop.GUARD_FALSE:
                         assert result == execute(self.cpu, None,

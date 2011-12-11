@@ -91,15 +91,6 @@ class AbstractX86CPU(AbstractLLCPU):
         return self.assembler.assemble_bridge(faildescr, inputargs, operations,
                                               original_loop_token, log=log)
 
-    def set_future_value_int(self, index, intvalue):
-        self.assembler.fail_boxes_int.setitem(index, intvalue)
-
-    def set_future_value_float(self, index, floatvalue):
-        self.assembler.fail_boxes_float.setitem(index, floatvalue)
-
-    def set_future_value_ref(self, index, ptrvalue):
-        self.assembler.fail_boxes_ptr.setitem(index, ptrvalue)
-
     def get_latest_value_int(self, index):
         return self.assembler.fail_boxes_int.getitem(index)
 
@@ -122,17 +113,7 @@ class AbstractX86CPU(AbstractLLCPU):
         # the FORCE_TOKEN operation and this helper both return 'ebp'.
         return self.assembler.fail_ebp
 
-    def make_execute_token(self, *argkinds):
-        ARGS = []
-        for kind in argkinds:
-            if kind == history.INT:
-                ARGS.append(lltype.Signed)
-            elif kind == history.REF:
-                ARGS.append(llmemory.GCREF)
-            elif kind == history.FLOAT:
-                ARGS.append(longlong.FLOATSTORAGE)
-            else:
-                assert 0
+    def make_execute_token(self, *ARGS):
         FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, lltype.Signed))
         #
         def execute_token(executable_token, *args):
