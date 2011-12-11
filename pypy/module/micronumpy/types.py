@@ -77,6 +77,9 @@ class Primitive(object):
         w_obj.__init__(self._coerce(space, w_item).value)
         return w_obj
 
+    def to_builtin_type(self, space, box):
+        return space.wrap(self.unbox(box))
+
     def _coerce(self, space, w_item):
         raise NotImplementedError
 
