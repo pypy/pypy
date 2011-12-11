@@ -261,8 +261,10 @@ class BaseCPU(model.AbstractCPU):
         return fail_index
 
     def execute_token(self, loop_token):
-        """Calls the assembler generated for the given loop.
-        Returns the ResOperation that failed, of type rop.FAIL.
+        """Calls the fake 'assembler' generated for the given loop.
+        Returns the descr of the last executed operation: either the one
+        attached to the failing guard, or the one attached to the FINISH.
+        Use set_future_value_xxx() before, and get_latest_value_xxx() after.
         """
         fail_index = self._execute_token(loop_token)
         return self.get_fail_descr_from_number(fail_index)
