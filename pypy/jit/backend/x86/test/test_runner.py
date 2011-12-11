@@ -328,9 +328,8 @@ class TestX86(LLtypeBackendTest):
                     inputargs = [i for i in (a, b) if isinstance(i, Box)]
                     looptoken = JitCellToken()
                     self.cpu.compile_loop(inputargs, ops, looptoken)
-                    for i, box in enumerate(inputargs):
-                        self.cpu.set_future_value_int(i, box.value)
-                    self.cpu.execute_token(looptoken)
+                    inputvalues = [box.value for box in inputargs]
+                    self.cpu.execute_token(looptoken, *inputvalues)
                     result = self.cpu.get_latest_value_int(0)
                     expected = execute(self.cpu, None, op, None, a, b).value
                     if guard == rop.GUARD_FALSE:
@@ -396,8 +395,7 @@ class TestX86(LLtypeBackendTest):
         assert address >= loopaddress + loopsize
         assert size >= 10 # randomish number
 
-        self.cpu.set_future_value_int(0, 2)
-        fail = self.cpu.execute_token(looptoken)
+        fail = self.cpu.execute_token(looptoken, 2)
         assert fail.identifier == 2
         res = self.cpu.get_latest_value_int(0)
         assert res == 20
@@ -503,9 +501,7 @@ class TestX86(LLtypeBackendTest):
             looptoken = JitCellToken()
             self.cpu.compile_loop([i1, i2], ops, looptoken)
 
-            self.cpu.set_future_value_int(0, 123450)
-            self.cpu.set_future_value_int(1, 123408)
-            fail = self.cpu.execute_token(looptoken)
+            fail = self.cpu.execute_token(looptoken, 123450, 123408)
             assert fail.identifier == 0
             assert self.cpu.get_latest_value_int(0) == 42
             assert self.cpu.get_latest_value_int(1) == 42
@@ -537,8 +533,7 @@ class TestDebuggingAssembler(object):
             self.cpu.assembler.set_debug(True)
             looptoken = JitCellToken()
             self.cpu.compile_loop(ops.inputargs, ops.operations, looptoken)
-            self.cpu.set_future_value_int(0, 0)
-            self.cpu.execute_token(looptoken)
+            self.cpu.execute_token(looptoken, 0)
             # check debugging info
             struct = self.cpu.assembler.loop_run_counters[0]
             assert struct.i == 10
@@ -561,7 +556,6 @@ class TestDebuggingAssembler(object):
         self.cpu.assembler.set_debug(True)
         looptoken = JitCellToken()
         self.cpu.compile_loop(ops.inputargs, ops.operations, looptoken)
-        self.cpu.set_future_value_int(0, 0)
-        self.cpu.execute_token(looptoken)
+        self.cpu.execute_token(looptoken, 0)
         assert looptoken._x86_debug_checksum == sum([op.getopnum()
                                                      for op in ops.operations])

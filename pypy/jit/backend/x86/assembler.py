@@ -421,10 +421,8 @@ class Assembler386(object):
 
     def assemble_loop(self, loopname, inputargs, operations, looptoken, log):
         '''adds the following attributes to looptoken:
-               _x86_loop_code       (an integer giving an address)
-               _x86_bootstrap_code  (an integer giving an address)
-               _x86_direct_bootstrap_code  ( "    "     "    "   )
-               _x86_arglocs
+               _x86_function_addr   (address of the generated func, as an int)
+               _x86_loop_code       (debug: addr of the start of the ResOps)
                _x86_debug_checksum
         '''
         # XXX this function is too longish and contains some code
@@ -445,12 +443,11 @@ class Assembler386(object):
             operations = self._inject_debugging_code(looptoken, operations)
 
         regalloc = RegAlloc(self, self.cpu.translate_support_code)
-        arglocs, operations = regalloc.prepare_loop(inputargs, operations,
-                                                    looptoken, clt.allgcrefs)
-        looptoken._x86_arglocs = arglocs
-
-        bootstrappos = self.mc.get_relative_pos()
-        stackadjustpos = self._assemble_bootstrap_code(inputargs, arglocs)
+        #
+        self._call_header_with_stack_check()
+        stackadjustpos = self._patchable_stackadjust()
+        operations = regalloc.prepare_loop(inputargs, operations,
+                                           looptoken, clt.allgcrefs)
         looppos = self.mc.get_relative_pos()
         looptoken._x86_loop_code = looppos
         clt.frame_depth = -1     # temporarily
@@ -458,19 +455,17 @@ class Assembler386(object):
         frame_depth, param_depth = self._assemble(regalloc, operations)
         clt.frame_depth = frame_depth
         clt.param_depth = param_depth
-
-        directbootstrappos = self.mc.get_relative_pos()
-        self._assemble_bootstrap_direct_call(arglocs, looppos,
-                                             frame_depth+param_depth)
+        #
+        size_excluding_failure_stuff = self.mc.get_relative_pos()
         self.write_pending_failure_recoveries()
-        fullsize = self.mc.get_relative_pos()
+        full_size = self.mc.get_relative_pos()
         #
         rawstart = self.materialize_loop(looptoken)
         debug_start("jit-backend-addr")
         debug_print("Loop %d (%s) has address %x to %x (bootstrap %x)" % (
             looptoken.number, loopname,
             rawstart + looppos,
-            rawstart + directbootstrappos,
+            rawstart + size_excluding_failure_stuff,
             rawstart))
         debug_stop("jit-backend-addr")
         self._patch_stackadjust(rawstart + stackadjustpos,
@@ -481,18 +476,17 @@ class Assembler386(object):
         if not we_are_translated():
             # used only by looptoken.dump() -- useful in tests
             looptoken._x86_rawstart = rawstart
-            looptoken._x86_fullsize = fullsize
+            looptoken._x86_fullsize = full_size
             looptoken._x86_ops_offset = ops_offset
+        looptoken._x86_function_addr = rawstart
 
-        looptoken._x86_bootstrap_code = rawstart + bootstrappos
-        looptoken._x86_direct_bootstrap_code = rawstart + directbootstrappos
         self.fixup_target_tokens(rawstart)
         self.teardown()
         # oprofile support
         if self.cpu.profile_agent is not None:
             name = "Loop # %s: %s" % (looptoken.number, loopname)
             self.cpu.profile_agent.native_code_written(name,
-                                                       rawstart, fullsize)
+                                                       rawstart, full_size)
         return ops_offset
 
     def assemble_bridge(self, faildescr, inputargs, operations,
@@ -802,98 +796,6 @@ class Assembler386(object):
             self.mc.MOV_ri(ebx.value, rst)           # MOV ebx, rootstacktop
             self.mc.SUB_mi8((ebx.value, 0), 2*WORD)  # SUB [ebx], 2*WORD
 
-    def _assemble_bootstrap_direct_call(self, arglocs, jmppos, stackdepth):
-        if IS_X86_64:
-            return self._assemble_bootstrap_direct_call_64(arglocs, jmppos, stackdepth)
-        # XXX pushing ebx esi and edi is a bit pointless, since we store
-        #     all regsiters anyway, for the case of guard_not_forced
-        # XXX this can be improved greatly. Right now it'll behave like
-        #     a normal call
-        nonfloatlocs, floatlocs = arglocs
-        self._call_header_with_stack_check()
-        self.mc.LEA_rb(esp.value, self._get_offset_of_ebp_from_esp(stackdepth))
-        offset = 2 * WORD
-        tmp = eax
-        xmmtmp = xmm0
-        for i in range(len(nonfloatlocs)):
-            loc = nonfloatlocs[i]
-            if loc is not None:
-                if isinstance(loc, RegLoc):
-                    assert not loc.is_xmm
-                    self.mc.MOV_rb(loc.value, offset)
-                else:
-                    self.mc.MOV_rb(tmp.value, offset)
-                    self.mc.MOV(loc, tmp)
-                offset += WORD
-            loc = floatlocs[i]
-            if loc is not None:
-                if isinstance(loc, RegLoc):
-                    assert loc.is_xmm
-                    self.mc.MOVSD_xb(loc.value, offset)
-                else:
-                    self.mc.MOVSD_xb(xmmtmp.value, offset)
-                    assert isinstance(loc, StackLoc)
-                    self.mc.MOVSD_bx(loc.value, xmmtmp.value)
-                offset += 2 * WORD
-        endpos = self.mc.get_relative_pos() + 5
-        self.mc.JMP_l(jmppos - endpos)
-        assert endpos == self.mc.get_relative_pos()
-
-    def _assemble_bootstrap_direct_call_64(self, arglocs, jmppos, stackdepth):
-        # XXX: Very similar to _emit_call_64
-
-        src_locs = []
-        dst_locs = []
-        xmm_src_locs = []
-        xmm_dst_locs = []
-        get_from_stack = []
-
-        # In reverse order for use with pop()
-        unused_gpr = [r9, r8, ecx, edx, esi, edi]
-        unused_xmm = [xmm7, xmm6, xmm5, xmm4, xmm3, xmm2, xmm1, xmm0]
-
-        nonfloatlocs, floatlocs = arglocs
-        self._call_header_with_stack_check()
-        self.mc.LEA_rb(esp.value, self._get_offset_of_ebp_from_esp(stackdepth))
-
-        # The lists are padded with Nones
-        assert len(nonfloatlocs) == len(floatlocs)
-
-        for i in range(len(nonfloatlocs)):
-            loc = nonfloatlocs[i]
-            if loc is not None:
-                if len(unused_gpr) > 0:
-                    src_locs.append(unused_gpr.pop())
-                    dst_locs.append(loc)
-                else:
-                    get_from_stack.append((loc, False))
-
-            floc = floatlocs[i]
-            if floc is not None:
-                if len(unused_xmm) > 0:
-                    xmm_src_locs.append(unused_xmm.pop())
-                    xmm_dst_locs.append(floc)
-                else:
-                    get_from_stack.append((floc, True))
-
-        remap_frame_layout(self, src_locs, dst_locs, X86_64_SCRATCH_REG)
-        remap_frame_layout(self, xmm_src_locs, xmm_dst_locs, X86_64_XMM_SCRATCH_REG)
-
-        for i in range(len(get_from_stack)):
-            loc, is_xmm = get_from_stack[i]
-            if is_xmm:
-                self.mc.MOVSD_xb(X86_64_XMM_SCRATCH_REG.value, (2 + i) * WORD)
-                self.mc.MOVSD(loc, X86_64_XMM_SCRATCH_REG)
-            else:
-                self.mc.MOV_rb(X86_64_SCRATCH_REG.value, (2 + i) * WORD)
-                # XXX: We're assuming that "loc" won't require regloc to
-                # clobber the scratch register
-                self.mc.MOV(loc, X86_64_SCRATCH_REG)
-
-        endpos = self.mc.get_relative_pos() + 5
-        self.mc.JMP_l(jmppos - endpos)
-        assert endpos == self.mc.get_relative_pos()
-
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         # some minimal sanity checking
         oldnonfloatlocs, oldfloatlocs = oldlooptoken._x86_arglocs
@@ -908,45 +810,6 @@ class Assembler386(object):
         mc = codebuf.MachineCodeBlockWrapper()
         mc.JMP(imm(target))
         mc.copy_to_raw_memory(oldadr)
-
-    def _assemble_bootstrap_code(self, inputargs, arglocs):
-        nonfloatlocs, floatlocs = arglocs
-        self._call_header()
-        stackadjustpos = self._patchable_stackadjust()
-        tmp = eax
-        xmmtmp = xmm0
-        self.mc.begin_reuse_scratch_register()
-        for i in range(len(nonfloatlocs)):
-            loc = nonfloatlocs[i]
-            if loc is None:
-                continue
-            if isinstance(loc, RegLoc):
-                target = loc
-            else:
-                target = tmp
-            if inputargs[i].type == REF:
-                adr = self.fail_boxes_ptr.get_addr_for_num(i)
-                self.mc.MOV(target, heap(adr))
-                self.mc.MOV(heap(adr), imm0)
-            else:
-                adr = self.fail_boxes_int.get_addr_for_num(i)
-                self.mc.MOV(target, heap(adr))
-            if target is not loc:
-                assert isinstance(loc, StackLoc)
-                self.mc.MOV_br(loc.value, target.value)
-        for i in range(len(floatlocs)):
-            loc = floatlocs[i]
-            if loc is None:
-                continue
-            adr = self.fail_boxes_float.get_addr_for_num(i)
-            if isinstance(loc, RegLoc):
-                self.mc.MOVSD(loc, heap(adr))
-            else:
-                self.mc.MOVSD(xmmtmp, heap(adr))
-                assert isinstance(loc, StackLoc)
-                self.mc.MOVSD_bx(loc.value, xmmtmp.value)
-        self.mc.end_reuse_scratch_register()
-        return stackadjustpos
 
     def dump(self, text):
         if not self.verbose:
@@ -2104,9 +1967,9 @@ class Assembler386(object):
         # returns in eax the fail_index
 
         # now we return from the complete frame, which starts from
-        # _assemble_bootstrap_code().  The LEA in _call_footer below throws
-        # away most of the frame, including all the PUSHes that we did just
-        # above.
+        # _call_header_with_stack_check().  The LEA in _call_footer below
+        # throws away most of the frame, including all the PUSHes that we
+        # did just above.
 
         self._call_footer()
         rawstart = mc.materialize(self.cpu.asmmemmgr, [])

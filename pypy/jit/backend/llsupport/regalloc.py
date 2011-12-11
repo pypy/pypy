@@ -69,6 +69,8 @@ class FrameManager(object):
         self.bindings[box] = loc
         #
         index = self.get_loc_index(loc)
+        if index < 0:
+            return
         endindex = index + self.frame_size(box.type)
         while len(self.used) < endindex:
             self.used.append(False)
@@ -91,6 +93,8 @@ class FrameManager(object):
         #
         size = self.frame_size(box.type)
         baseindex = self.get_loc_index(loc)
+        if baseindex < 0:
+            return
         for i in range(size):
             index = baseindex + i
             assert 0 <= index < len(self.used)
@@ -98,7 +102,8 @@ class FrameManager(object):
 
     def try_to_reuse_location(self, box, loc):
         index = self.get_loc_index(loc)
-        assert index >= 0
+        if index < 0:
+            return False
         size = self.frame_size(box.type)
         for i in range(size):
             while (index + i) >= len(self.used):
@@ -158,7 +163,7 @@ class RegisterManager(object):
         if not we_are_translated() and self.box_types is not None:
             assert isinstance(v, TempBox) or v.type in self.box_types
 
-    def possibly_free_var(self, v):
+    def possibly_free_var(self, v, _hint_dont_reuse_quickly=False):
         """ If v is stored in a register and v is not used beyond the
             current position, then free it.  Must be called at some
             point for all variables that might be in registers.
@@ -168,7 +173,10 @@ class RegisterManager(object):
             return
         if v not in self.longevity or self.longevity[v][1] <= self.position:
             if v in self.reg_bindings:
-                self.free_regs.append(self.reg_bindings[v])
+                if _hint_dont_reuse_quickly:
+                    self.free_regs.insert(0, self.reg_bindings[v])
+                else:
+                    self.free_regs.append(self.reg_bindings[v])
                 del self.reg_bindings[v]
             if self.frame_manager is not None:
                 self.frame_manager.mark_as_free(v)
