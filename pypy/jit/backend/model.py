@@ -1,5 +1,6 @@
 from pypy.rlib.debug import debug_start, debug_print, debug_stop
 from pypy.jit.metainterp import history
+from pypy.rpython.lltypesystem import lltype
 
 
 class AbstractCPU(object):
@@ -91,7 +92,8 @@ class AbstractCPU(object):
         attached to the failing guard, or the one attached to the FINISH.
         Use get_latest_value_xxx() afterwards to read the result(s).
         """
-        execute = self.make_execute_token(*[history.getkind(x) for x in args])
+        argkinds = [history.getkind(lltype.typeOf(x))[0] for x in args]
+        execute = self.make_execute_token(*argkinds)
         return execute(looptoken, *args)
 
     def make_execute_token(self, *argkinds):
