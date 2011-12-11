@@ -42,11 +42,11 @@ def PySequence_Fast(space, w_obj, m):
     which case o is returned.  Use PySequence_Fast_GET_ITEM() to access the
     members of the result.  Returns NULL on failure.  If the object is not a
     sequence, raises TypeError with m as the message text."""
-    if (space.is_true(space.isinstance(w_obj, space.w_list)) or
-        space.is_true(space.isinstance(w_obj, space.w_tuple))):
+    if (isinstance(w_obj, listobject.W_ListObject) or
+        isinstance(w_obj, tupleobject.W_TupleObject)):
         return w_obj
     try:
-        return space.newtuple(space.fixedview(w_obj))
+        return tupleobject.W_TupleObject(space.fixedview(w_obj))
     except OperationError:
         raise OperationError(space.w_TypeError, space.wrap(rffi.charp2str(m)))
 

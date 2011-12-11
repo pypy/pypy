@@ -252,6 +252,10 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                    "use small tuples",
                    default=False),
 
+        BoolOption("withspecialisedtuple",
+                   "use specialised tuples",
+                   default=False),
+
         BoolOption("withrope", "use ropes as the string implementation",
                    default=False,
                    requires=[("objspace.std.withstrslice", False),
@@ -365,6 +369,7 @@ def set_pypy_opt_level(config, level):
         config.objspace.std.suggest(optimized_list_getitem=True)
         config.objspace.std.suggest(getattributeshortcut=True)
         config.objspace.std.suggest(newshortcut=True)
+        config.objspace.std.suggest(withspecialisedtuple=True)
         #if not IS_64_BITS:
         #    config.objspace.std.suggest(withsmalllong=True)
 
