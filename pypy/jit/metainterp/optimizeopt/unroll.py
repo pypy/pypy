@@ -188,7 +188,7 @@ class UnrollOptimizer(Optimization):
             return
         self.did_import = True
         
-        self.short = target_token.short_preamble
+        self.short = target_token.short_preamble[:]
         self.short_seen = {}
         self.short_boxes = exported_state.short_boxes.clone()
         for box, const in exported_state.constant_inputargs.items():
