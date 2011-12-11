@@ -193,6 +193,7 @@ class AppTestTypes(BaseNumpyAppTest):
 
         assert type(X(True)) is numpy.bool_
         assert X(True) is numpy.True_
+        assert numpy.bool_("False") is numpy.True_
 
     def test_int8(self):
         import numpypy as numpy
@@ -211,6 +212,10 @@ class AppTestTypes(BaseNumpyAppTest):
 
         assert type(int(x)) is int
         assert int(x) == -128
+        assert numpy.int8('50') == numpy.int8(50)
+        raises(ValueError, numpy.int8, '50.2')
+        assert numpy.int8('127') == 127
+        assert numpy.int8('128') == -128
 
     def test_uint8(self):
         import numpypy as numpy
@@ -232,6 +237,8 @@ class AppTestTypes(BaseNumpyAppTest):
 
         assert numpy.uint8(255) == 255
         assert numpy.uint8(256) == 0
+        assert numpy.uint8('255') == 255
+        assert numpy.uint8('256') == 0
 
     def test_int16(self):
         import numpypy as numpy
@@ -240,12 +247,16 @@ class AppTestTypes(BaseNumpyAppTest):
         assert x == 3
         assert numpy.int16(32767) == 32767
         assert numpy.int16(32768) == -32768
+        assert numpy.int16('32767') == 32767
+        assert numpy.int16('32768') == -32768
 
     def test_uint16(self):
         import numpypy as numpy
 
         assert numpy.uint16(65535) == 65535
         assert numpy.uint16(65536) == 0
+        assert numpy.uint16('65535') == 65535
+        assert numpy.uint16('65536') == 0
 
     def test_int32(self):
         import numpypy as numpy
@@ -254,12 +265,16 @@ class AppTestTypes(BaseNumpyAppTest):
         assert x == 23
         assert numpy.int32(2147483647) == 2147483647
         assert numpy.int32(2147483648) == -2147483648
+        assert numpy.int32('2147483647') == 2147483647
+        assert numpy.int32('2147483648') == -2147483648
 
     def test_uint32(self):
         import numpypy as numpy
 
         assert numpy.uint32(4294967295) == 4294967295
         assert numpy.uint32(4294967296) == 0
+        assert numpy.uint32('4294967295') == 4294967295
+        assert numpy.uint32('4294967296') == 0
 
     def test_int_(self):
         import numpypy as numpy
@@ -281,6 +296,9 @@ class AppTestTypes(BaseNumpyAppTest):
 
         assert numpy.int64(9223372036854775807) == 9223372036854775807
         raises(OverflowError, numpy.int64, 9223372036854775808)
+        
+        assert numpy.int64('9223372036854775807') == 9223372036854775807
+        raises(OverflowError, numpy.int64, '9223372036854775808')
 
     def test_uint64(self):
         import sys
@@ -304,6 +322,8 @@ class AppTestTypes(BaseNumpyAppTest):
         assert numpy.float32.mro() == [numpy.float32, numpy.floating, numpy.inexact, numpy.number, numpy.generic, object]
 
         assert numpy.float32(12) == numpy.float64(12)
+        assert numpy.float32('23.4') == numpy.float32(23.4)
+        raises(ValueError, numpy.float32, '23.2df')
 
     def test_float64(self):
         import numpypy as numpy
@@ -315,6 +335,8 @@ class AppTestTypes(BaseNumpyAppTest):
         assert numpy.dtype(float).type is numpy.float64
 
         assert numpy.float64(2.0) == 2.0
+        assert numpy.float64('23.4') == numpy.float64(23.4)
+        raises(ValueError, numpy.float64, '23.2df')
 
     def test_subclass_type(self):
         import numpypy as numpy
