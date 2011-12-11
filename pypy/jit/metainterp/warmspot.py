@@ -771,16 +771,16 @@ class WarmRunnerDesc(object):
 
         def assembler_call_helper(failindex, virtualizableref):
             fail_descr = self.cpu.get_fail_descr_from_number(failindex)
-            while True:
-                if vinfo is not None:
-                    virtualizable = lltype.cast_opaque_ptr(
-                        vinfo.VTYPEPTR, virtualizableref)
-                    vinfo.reset_vable_token(virtualizable)
-                try:
-                    loop_token = fail_descr.handle_fail(self.metainterp_sd, jd)
-                except JitException, e:
-                    return handle_jitexception(e)
-                fail_descr = self.execute_token(loop_token)
+            if vinfo is not None:
+                virtualizable = lltype.cast_opaque_ptr(
+                    vinfo.VTYPEPTR, virtualizableref)
+                vinfo.reset_vable_token(virtualizable)
+            try:
+                fail_descr.handle_fail(self.metainterp_sd, jd)
+            except JitException, e:
+                return handle_jitexception(e)
+            else:
+                assert 0, "should have raised"
 
         jd._assembler_call_helper = assembler_call_helper # for debugging
         jd._assembler_helper_ptr = self.helper_func(

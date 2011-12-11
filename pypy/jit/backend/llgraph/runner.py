@@ -264,8 +264,16 @@ class BaseCPU(model.AbstractCPU):
         """Calls the assembler generated for the given loop.
         Returns the ResOperation that failed, of type rop.FAIL.
         """
-        # XXX RPythonize me
-        for index, x in enumerate(args):
+        if we_are_translated():
+            assert len(args) <= 10
+            iterator = unrolling_iterable_10
+        else:
+            iterator = range(len(args))
+        #
+        for index in iterator:
+            if index == len(args):
+                break
+            x = args[index]
             TYPE = lltype.typeOf(x)
             if TYPE == lltype.Signed:
                 llimpl.set_future_value_int(index, x)
@@ -691,6 +699,8 @@ class OOtypeCPU_xxx_disabled(BaseCPU):
         # XXX: return None if METH.RESULT is Void
         return x
 
+
+unrolling_iterable_10 = unrolling_iterable(range(10))
 
 def make_getargs(ARGS):
     argsiter = unrolling_iterable(ARGS)
