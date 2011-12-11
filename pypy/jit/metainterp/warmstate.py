@@ -296,7 +296,7 @@ class WarmEnterState(object):
             # 'vable_token' field afterwards
             if vinfo is not None:
                 virtualizable = args[index_of_virtualizable]
-                virtualizable = vinfo.cast_to_vtype(virtualizable)
+                virtualizable = vinfo.cast_gcref_to_vtype(virtualizable)
                 vinfo.reset_vable_token(virtualizable)
             #
             # Record in the memmgr that we just ran this loop,

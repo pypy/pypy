@@ -2011,7 +2011,8 @@ class MetaInterp(object):
         "NOT_RPYTHON"
         args = []
         num_green_args = self.jitdriver_sd.num_green_args
-        for box in live_arg_boxes[num_green_args:]:
+        num_red_args = self.jitdriver_sd.num_red_args
+        for box in live_arg_boxes[num_green_args:num_green_args+num_red_args]:
             if   box.type == history.INT: args.append(box.getint())
             elif box.type == history.REF: args.append(box.getref_base())
             elif box.type == history.FLOAT: args.append(box.getfloatstorage())
