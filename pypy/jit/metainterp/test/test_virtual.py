@@ -822,6 +822,44 @@ class VirtualTests:
         assert res == f(10)
         self.check_resops(jump=2)
 
+    def test_retrace_not_matching_bridge_str(self):
+        @dont_look_inside
+        def external(node):
+            return node.value + 1
+        myjitdriver = JitDriver(greens = [], reds = ['n', 'i', 'node', 'node2', 's'])
+        class A():
+            def new(self):
+                return A()
+            def val(self, i):
+                return i + 7
+        class B(A):
+            def new(self):
+                return B()
+            def val(self, i):
+                return i + 42
+        def f(n):
+            s = '*' * n
+            node = self._new()
+            node2 = A()
+            node.value = 0
+            i = 0
+            while i < n:
+                myjitdriver.jit_merge_point(n=n, i=i, node=node, node2=node2, s=s)
+                next = self._new()
+                next.value = node.value + n + node2.val(i)
+                if i != 7:
+                    next.value += external(next)
+                else:
+                    node2 = B()
+                node = next
+                node2 = node2.new()
+                node.value += len(s)
+                i += 1
+            return node.value 
+        res = self.meta_interp(f, [10], repeat=10)
+        assert res == f(10)
+        self.check_resops(jump=2)
+
     def test_nested_loops(self):
         class Int(object):
             def __init__(self, val):

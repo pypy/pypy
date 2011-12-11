@@ -566,18 +566,27 @@ class ShortBoxes(object):
         self.aliases = {}
         self.rename = {}
         self.optimizer = optimizer
-        for box in surviving_boxes:
-            self.potential_ops[box] = None
-        optimizer.produce_potential_short_preamble_ops(self)
 
-        self.short_boxes = {}
-        self.short_boxes_in_production = {}
+        if surviving_boxes is not None:
+            for box in surviving_boxes:
+                self.potential_ops[box] = None
+            optimizer.produce_potential_short_preamble_ops(self)
 
-        for box in self.potential_ops.keys():
-            try:
-                self.produce_short_preamble_box(box)
-            except BoxNotProducable:
-                pass
+            self.short_boxes = {}
+            self.short_boxes_in_production = {}
+
+            for box in self.potential_ops.keys():
+                try:
+                    self.produce_short_preamble_box(box)
+                except BoxNotProducable:
+                    pass
+
+    def clone(self):
+        sb = ShortBoxes(self.optimizer, None)
+        sb.aliases.update(self.aliases)
+        sb.short_boxes = {}
+        sb.short_boxes.update(self.short_boxes)
+        return sb
 
     def prioritized_alternatives(self, box):
         if box not in self.alternatives:

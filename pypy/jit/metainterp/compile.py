@@ -175,6 +175,8 @@ def compile_loop(metainterp, greenkey, start,
     for label in all_target_tokens:
         assert isinstance(label, TargetToken)
         label.original_jitcell_token = jitcell_token
+        if label.virtual_state and label.short_preamble:
+            metainterp_sd.logger_ops.log_short_preamble([], label.short_preamble)
     jitcell_token.target_tokens = all_target_tokens
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, "loop")
     record_loop_or_bridge(metainterp_sd, loop)
@@ -209,7 +211,7 @@ def compile_retrace(metainterp, greenkey, start,
     try:
         optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts)
     except InvalidLoop:
-        return None # XXX: Dissable for now
+        #return None # XXX: Dissable for now
         # Fall back on jumping to preamble
         target_token = label.getdescr()
         assert isinstance(target_token, TargetToken)

@@ -190,7 +190,7 @@ class UnrollOptimizer(Optimization):
         
         self.short = target_token.short_preamble
         self.short_seen = {}
-        self.short_boxes = exported_state.short_boxes
+        self.short_boxes = exported_state.short_boxes.clone()
         for box, const in exported_state.constant_inputargs.items():
             self.short_seen[box] = True
         self.imported_state = exported_state
@@ -216,6 +216,7 @@ class UnrollOptimizer(Optimization):
         for op in exported_state.inputarg_setup_ops:
             self.optimizer.send_extra_operation(op)
         seen = {}
+        
         for op in self.short_boxes.operations():
             self.ensure_short_op_emitted(op, self.optimizer, seen)
             if op and op.result:
