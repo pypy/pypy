@@ -809,15 +809,14 @@ def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redboxes,
     version of the code may end up replacing it.
     """
     # 'redboxes' is only used to know the types of red arguments.
-    inputargs = [box.clonebox() for box in redboxes]
     jitcell_token = make_jitcell_token(jitdriver_sd)
     # 'nb_red_args' might be smaller than len(redboxes),
     # because it doesn't include the virtualizable boxes.
-    XXX   # review and fix me :-)
     nb_red_args = jitdriver_sd.num_red_args
+    inputargs = [box.clonebox() for box in redboxes[:nb_red_args]]
     k = jitdriver_sd.portal_runner_adr
     funcbox = history.ConstInt(heaptracker.adr2int(k))
-    callargs = [funcbox] + greenboxes + inputargs[:nb_red_args]
+    callargs = [funcbox] + greenboxes + inputargs
     #
     result_type = jitdriver_sd.result_type
     if result_type == history.INT:
