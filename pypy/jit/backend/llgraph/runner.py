@@ -260,32 +260,31 @@ class BaseCPU(model.AbstractCPU):
         self.latest_frame = frame
         return fail_index
 
-    def execute_token(self, loop_token, *args):
-        """Calls the assembler generated for the given loop.
-        Returns the ResOperation that failed, of type rop.FAIL.
-        """
-        if we_are_translated():
-            assert len(args) <= 10
-            iterator = unrolling_iterable_10
-        else:
-            iterator = range(len(args))
+    def make_execute_token(self, *argkinds):
+        nb_args = len(argkinds)
+        unroll_argkinds = unrolling_iterable(list(enumerate(argkinds)))
         #
-        for index in iterator:
-            if index == len(args):
-                break
-            x = args[index]
-            TYPE = lltype.typeOf(x)
-            if TYPE == lltype.Signed:
-                llimpl.set_future_value_int(index, x)
-            elif TYPE == llmemory.GCREF:
-                llimpl.set_future_value_ref(index, x)
-            elif TYPE == longlong.FLOATSTORAGE:
-                llimpl.set_future_value_float(index, x)
-            else:
-                raise ValueError(TYPE)
+        def execute_token(loop_token, *args):
+            assert len(args) == nb_args
+            for index, kind in unroll_argkinds:
+                x = args[index]
+                TYPE = lltype.typeOf(x)
+                if kind == INT:
+                    assert TYPE == lltype.Signed
+                    llimpl.set_future_value_int(index, x)
+                elif kind == REF:
+                    assert TYPE == llmemory.GCREF
+                    llimpl.set_future_value_ref(index, x)
+                elif kind == FLOAT:
+                    assert TYPE == longlong.FLOATSTORAGE
+                    llimpl.set_future_value_float(index, x)
+                else:
+                    assert 0
+            #
+            fail_index = self._execute_token(loop_token)
+            return self.get_fail_descr_from_number(fail_index)
         #
-        fail_index = self._execute_token(loop_token)
-        return self.get_fail_descr_from_number(fail_index)
+        return execute_token
 
     def get_latest_value_int(self, index):
         return llimpl.frame_int_getvalue(self.latest_frame, index)
@@ -699,8 +698,6 @@ class OOtypeCPU_xxx_disabled(BaseCPU):
         # XXX: return None if METH.RESULT is Void
         return x
 
-
-unrolling_iterable_10 = unrolling_iterable(range(10))
 
 def make_getargs(ARGS):
     argsiter = unrolling_iterable(ARGS)

@@ -85,12 +85,18 @@ class AbstractCPU(object):
         raise NotImplementedError
 
     def execute_token(self, looptoken, *args):
-        """Execute the generated code referenced by the looptoken.
+        """NOT_RPYTHON (for tests only)
+        Execute the generated code referenced by the looptoken.
         Returns the descr of the last executed operation: either the one
         attached to the failing guard, or the one attached to the FINISH.
         Use get_latest_value_xxx() afterwards to read the result(s).
-        (This method is automatically specialized by the front-end if
-        needed, for various types and numbers of *args.)
+        """
+        execute = self.make_execute_token(*[history.getkind(x) for x in args])
+        return execute(looptoken, *args)
+
+    def make_execute_token(self, *argkinds):
+        """Must make and return an execute_token() function that will be
+        called with the given argtypes.
         """
         raise NotImplementedError
 

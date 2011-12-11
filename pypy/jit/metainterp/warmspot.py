@@ -522,9 +522,9 @@ class WarmRunnerDesc(object):
         greens_v, reds_v = support.decode_hp_hint_args(op)
         ALLARGS = [v.concretetype for v in (greens_v + reds_v)]
         jd._green_args_spec = [v.concretetype for v in greens_v]
-        jd._red_args_types = [history.getkind(v.concretetype) for v in reds_v]
+        jd.red_args_types = [history.getkind(v.concretetype) for v in reds_v]
         jd.num_green_args = len(jd._green_args_spec)
-        jd.num_red_args = len(jd._red_args_types)
+        jd.num_red_args = len(jd.red_args_types)
         RESTYPE = graph.getreturnvar().concretetype
         (jd._JIT_ENTER_FUNCTYPE,
          jd._PTR_JIT_ENTER_FUNCTYPE) = self.cpu.ts.get_FuncType(ALLARGS, lltype.Void)
