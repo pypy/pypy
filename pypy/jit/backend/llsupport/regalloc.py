@@ -16,34 +16,100 @@ class FrameManager(object):
     """ Manage frame positions
     """
     def __init__(self):
-        self.frame_bindings = {}
-        self.frame_depth    = 0
+        self.bindings = {}
+        self.used = []      # list of bools
+        self.hint_frame_locations = {}
+
+    frame_depth = property(lambda:xxx, lambda:xxx)   # XXX kill me
+
+    def get_frame_depth(self):
+        return len(self.used)
 
     def get(self, box):
-        return self.frame_bindings.get(box, None)
+        return self.bindings.get(box, None)
 
     def loc(self, box):
+        """Return or create the frame location associated with 'box'."""
+        # first check if it's already in the frame_manager
         try:
-            return self.frame_bindings[box]
+            return self.bindings[box]
         except KeyError:
-            return self.get_new_loc(box)
+            pass
+        # check if we have a hint for this box
+        if box in self.hint_frame_locations:
+            # if we do, try to reuse the location for this box
+            loc = self.hint_frame_locations[box]
+            if self.try_to_reuse_location(box, loc):
+                return loc
+        # no valid hint.  make up a new free location
+        return self.get_new_loc(box)
 
     def get_new_loc(self, box):
         size = self.frame_size(box.type)
-        self.frame_depth += ((-self.frame_depth) & (size-1))
-        # ^^^ frame_depth is rounded up to a multiple of 'size', assuming
+        # frame_depth is rounded up to a multiple of 'size', assuming
         # that 'size' is a power of two.  The reason for doing so is to
         # avoid obscure issues in jump.py with stack locations that try
         # to move from position (6,7) to position (7,8).
-        newloc = self.frame_pos(self.frame_depth, box.type)
-        self.frame_bindings[box] = newloc
-        self.frame_depth += size
+        while self.get_frame_depth() & (size - 1):
+            self.used.append(False)
+        #
+        index = self.get_frame_depth()
+        newloc = self.frame_pos(index, box.type)
+        for i in range(size):
+            self.used.append(True)
+        #
+        if not we_are_translated():    # extra testing
+            testindex = self.get_loc_index(newloc)
+            assert testindex == index
+        #
+        self.bindings[box] = newloc
         return newloc
 
+    def set_binding(self, box, loc):
+        self.bindings[box] = loc
+        #
+        index = self.get_loc_index(loc)
+        endindex = index + self.frame_size(box.type)
+        while len(self.used) < endindex:
+            self.used.append(False)
+        while index < endindex:
+            self.used[index] = True
+            index += 1
+
     def reserve_location_in_frame(self, size):
-        frame_depth = self.frame_depth
-        self.frame_depth += size
+        frame_depth = self.get_frame_depth()
+        for i in range(size):
+            self.used.append(True)
         return frame_depth
+
+    def mark_as_free(self, box):
+        try:
+            loc = self.bindings[box]
+        except KeyError:
+            return    # already gone
+        del self.bindings[box]
+        #
+        size = self.frame_size(box.type)
+        baseindex = self.get_loc_index(loc)
+        for i in range(size):
+            index = baseindex + i
+            assert 0 <= index < len(self.used)
+            self.used[index] = False
+
+    def try_to_reuse_location(self, box, loc):
+        index = self.get_loc_index(loc)
+        assert index >= 0
+        size = self.frame_size(box.type)
+        for i in range(size):
+            while (index + i) >= len(self.used):
+                self.used.append(False)
+            if self.used[index + i]:
+                return False    # already in use
+        # good, we can reuse the location
+        for i in range(size):
+            self.used[index + i] = True
+        self.bindings[box] = loc
+        return True
 
     # abstract methods that need to be overwritten for specific assemblers
     @staticmethod
@@ -52,6 +118,10 @@ class FrameManager(object):
     @staticmethod
     def frame_size(type):
         return 1
+    @staticmethod
+    def get_loc_index(loc):
+        raise NotImplementedError("Purely abstract")
+
 
 class RegisterManager(object):
     """ Class that keeps track of register allocations
@@ -70,8 +140,6 @@ class RegisterManager(object):
         self.position = -1
         self.frame_manager = frame_manager
         self.assembler = assembler
-        self.hint_frame_locations = {}     # {Box: StackLoc}
-        self.freed_frame_locations = {}    # {StackLoc: None}
 
     def is_still_alive(self, v):
         # Check if 'v' is alive at the current position.
@@ -103,9 +171,7 @@ class RegisterManager(object):
                 self.free_regs.append(self.reg_bindings[v])
                 del self.reg_bindings[v]
             if self.frame_manager is not None:
-                if v in self.frame_manager.frame_bindings:
-                    loc = self.frame_manager.frame_bindings[v]
-                    self.freed_frame_locations[loc] = None
+                self.frame_manager.mark_as_free(v)
 
     def possibly_free_vars(self, vars):
         """ Same as 'possibly_free_var', but for all v in vars.
@@ -177,23 +243,6 @@ class RegisterManager(object):
                 self.reg_bindings[v] = loc
                 return loc
 
-    def _frame_loc(self, v):
-        # first check if it's already in the frame_manager
-        try:
-            return self.frame_manager.frame_bindings[v]
-        except KeyError:
-            pass
-        # check if we have a hint for this box
-        if v in self.hint_frame_locations:
-            # if we do, check that the hinted location is known to be free
-            loc = self.hint_frame_locations[v]
-            if loc in self.freed_frame_locations:
-                del self.freed_frame_locations[loc]
-                self.frame_manager.frame_bindings[v] = loc
-                return loc
-        # no valid hint.  make up a new free location
-        return self.frame_manager.get_new_loc(v)
-
     def _spill_var(self, v, forbidden_vars, selected_reg,
                    need_lower_byte=False):
         v_to_spill = self._pick_variable_to_spill(v, forbidden_vars,
@@ -201,7 +250,7 @@ class RegisterManager(object):
         loc = self.reg_bindings[v_to_spill]
         del self.reg_bindings[v_to_spill]
         if self.frame_manager.get(v_to_spill) is None:
-            newloc = self._frame_loc(v_to_spill)
+            newloc = self.frame_manager.loc(v_to_spill)
             self.assembler.regalloc_mov(loc, newloc)
         return loc
 
@@ -278,7 +327,7 @@ class RegisterManager(object):
         except KeyError:
             if box in self.bindings_to_frame_reg:
                 return self.frame_reg
-            return self._frame_loc(box)
+            return self.frame_manager.loc(box)
 
     def return_constant(self, v, forbidden_vars=[], selected_reg=None):
         """ Return the location of the constant v.  If 'selected_reg' is
@@ -326,7 +375,7 @@ class RegisterManager(object):
             self.reg_bindings[v] = loc
             self.assembler.regalloc_mov(prev_loc, loc)
         else:
-            loc = self._frame_loc(v)
+            loc = self.frame_manager.loc(v)
             self.assembler.regalloc_mov(prev_loc, loc)
 
     def force_result_in_reg(self, result_v, v, forbidden_vars=[]):
@@ -345,7 +394,7 @@ class RegisterManager(object):
             self.reg_bindings[result_v] = loc
             return loc
         if v not in self.reg_bindings:
-            prev_loc = self._frame_loc(v)
+            prev_loc = self.frame_manager.loc(v)
             loc = self.force_allocate_reg(v, forbidden_vars)
             self.assembler.regalloc_mov(prev_loc, loc)
         assert v in self.reg_bindings
@@ -365,7 +414,7 @@ class RegisterManager(object):
     def _sync_var(self, v):
         if not self.frame_manager.get(v):
             reg = self.reg_bindings[v]
-            to = self._frame_loc(v)
+            to = self.frame_manager.loc(v)
             self.assembler.regalloc_mov(reg, to)
         # otherwise it's clean
 

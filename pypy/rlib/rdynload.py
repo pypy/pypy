@@ -115,7 +115,8 @@ if not _WIN32:
 if _WIN32:
     DLLHANDLE = rwin32.HMODULE
 
-    def dlopen(name):
+    def dlopen(name, mode=-1):
+        # mode is unused on windows, but a consistant signature
         res = rwin32.LoadLibrary(name)
         if not res:
             err = rwin32.GetLastError()

@@ -138,6 +138,10 @@ class X86FrameManager(FrameManager):
             return 2
         else:
             return 1
+    @staticmethod
+    def get_loc_index(loc):
+        assert isinstance(loc, StackLoc)
+        return loc.position
 
 if WORD == 4:
     gpr_reg_mgr_cls = X86RegisterManager
@@ -184,7 +188,6 @@ class RegAlloc(object):
                        allgcrefs):
         operations, _ = self._prepare(inputargs, operations, allgcrefs)
         self._update_bindings(arglocs, inputargs)
-        self.fm.frame_depth = prev_depths[0]
         self.param_depth = prev_depths[1]
         return operations
 
@@ -307,7 +310,7 @@ class RegAlloc(object):
                     self.xrm.reg_bindings[arg] = loc
                     used[loc] = None
                 else:
-                    self.fm.frame_bindings[arg] = loc
+                    self.fm.set_binding(arg, loc)
             else:
                 if isinstance(loc, RegLoc):
                     if loc is ebp:
@@ -316,7 +319,7 @@ class RegAlloc(object):
                         self.rm.reg_bindings[arg] = loc
                         used[loc] = None
                 else:
-                    self.fm.frame_bindings[arg] = loc
+                    self.fm.set_binding(arg, loc)
         self.rm.free_regs = []
         for reg in self.rm.all_regs:
             if reg not in used:
@@ -352,7 +355,7 @@ class RegAlloc(object):
     def get_current_depth(self):
         # return (self.fm.frame_depth, self.param_depth), but trying to share
         # the resulting tuple among several calls
-        arg0 = self.fm.frame_depth
+        arg0 = self.fm.get_frame_depth()
         arg1 = self.param_depth
         result = self.assembler._current_depths_cache
         if result[0] != arg0 or result[1] != arg1:
@@ -1334,12 +1337,12 @@ class RegAlloc(object):
                 loc = nonfloatlocs[i]
                 if isinstance(loc, StackLoc):
                     assert box.type != FLOAT
-                    self.rm.hint_frame_locations[box] = loc
+                    self.fm.hint_frame_locations[box] = loc
                 else:
                     loc = floatlocs[i]
                     if isinstance(loc, StackLoc):
                         assert box.type == FLOAT
-                        self.xrm.hint_frame_locations[box] = loc
+                        self.fm.hint_frame_locations[box] = loc
 
     def consider_jump(self, op):
         assembler = self.assembler
@@ -1385,7 +1388,7 @@ class RegAlloc(object):
 
     def get_mark_gc_roots(self, gcrootmap, use_copy_area=False):
         shape = gcrootmap.get_basic_shape(IS_X86_64)
-        for v, val in self.fm.frame_bindings.items():
+        for v, val in self.fm.bindings.items():
             if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
                 assert isinstance(val, StackLoc)
                 gcrootmap.add_frame_offset(shape, get_ebp_ofs(val.position))
