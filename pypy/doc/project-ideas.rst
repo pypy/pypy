@@ -17,17 +17,26 @@ own improvement ideas. In any case, if you feel like working on some of those
 projects, or anything else in PyPy, pop up on IRC or write to us on the
 `mailing list`_.
 
+Make big integers faster
+-------------------------
+
+PyPy's implementation of the Python ``long`` type is slower than CPython's.
+Find out why and optimize them.
+
+Make bytearray type fast
+------------------------
+
+PyPy's bytearray type is very inefficient. It would be an interesting
+task to look into possible optimizations on this.
+
 Numpy improvements
 ------------------
 
-This is more of a project-container than a single project. Possible ideas:
+The numpy is rapidly progressing in pypy, so feel free to come to IRC and
+ask for proposed topic. A not necesarilly up-to-date `list of topics`_
+is also available.
 
-* experiment with auto-vectorization using SSE or implement vectorization
-  without automatically detecting it for array operations.
-
-* improve numpy, for example implement memory views.
-
-* interface with fortran/C libraries.
+.. _`list of topics`: https://bitbucket.org/pypy/extradoc/src/extradoc/planning/micronumpy.txt
 
 Improving the jitviewer
 ------------------------

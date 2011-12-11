@@ -2,17 +2,43 @@ from pypy.interpreter.mixedmodule import MixedModule
 
 
 class Module(MixedModule):
-    applevel_name = 'numpy'
+    applevel_name = 'numpypy'
 
     interpleveldefs = {
-        'array': 'interp_numarray.SingleDimArray',
+        'ndarray': 'interp_numarray.W_NDimArray',
         'dtype': 'interp_dtype.W_Dtype',
         'ufunc': 'interp_ufuncs.W_Ufunc',
 
+        'array': 'interp_numarray.array',
         'zeros': 'interp_numarray.zeros',
         'empty': 'interp_numarray.zeros',
         'ones': 'interp_numarray.ones',
+        'dot': 'interp_numarray.dot',
         'fromstring': 'interp_support.fromstring',
+        'flatiter': 'interp_numarray.W_FlatIterator',
+
+        'True_': 'types.Bool.True',
+        'False_': 'types.Bool.False',
+
+        'generic': 'interp_boxes.W_GenericBox',
+        'number': 'interp_boxes.W_NumberBox',
+        'integer': 'interp_boxes.W_IntegerBox',
+        'signedinteger': 'interp_boxes.W_SignedIntegerBox',
+        'unsignedinteger': 'interp_boxes.W_UnsignedIntegerBox',
+        'bool_': 'interp_boxes.W_BoolBox',
+        'int8': 'interp_boxes.W_Int8Box',
+        'uint8': 'interp_boxes.W_UInt8Box',
+        'int16': 'interp_boxes.W_Int16Box',
+        'uint16': 'interp_boxes.W_UInt16Box',
+        'int32': 'interp_boxes.W_Int32Box',
+        'uint32': 'interp_boxes.W_UInt32Box',
+        'int64': 'interp_boxes.W_Int64Box',
+        'uint64': 'interp_boxes.W_UInt64Box',
+        'int_': 'interp_boxes.W_LongBox',
+        'inexact': 'interp_boxes.W_InexactBox',
+        'floating': 'interp_boxes.W_FloatingBox',
+        'float32': 'interp_boxes.W_Float32Box',
+        'float64': 'interp_boxes.W_Float64Box',
     }
 
     # ufuncs
@@ -45,6 +71,7 @@ class Module(MixedModule):
         ("sign", "sign"),
         ("sin", "sin"),
         ("subtract", "subtract"),
+        ('sqrt', 'sqrt'),
         ("tan", "tan"),
     ]:
         interpleveldefs[exposed] = "interp_ufuncs.get(space).%s" % impl
@@ -54,4 +81,6 @@ class Module(MixedModule):
         'mean': 'app_numpy.mean',
         'inf': 'app_numpy.inf',
         'e': 'app_numpy.e',
+        'arange': 'app_numpy.arange',
+        'reshape': 'app_numpy.reshape',
     }

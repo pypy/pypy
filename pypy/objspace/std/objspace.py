@@ -83,11 +83,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if self.config.objspace.std.withtproxy:
             transparent.setup(self)
 
-        for type, classes in self.model.typeorder.iteritems():
-            if len(classes) >= 3:
-                # W_Root, AnyXxx and actual object
-                self.gettypefor(type).interplevel_cls = classes[0][0]
-
+        self.setup_isinstance_cache()
 
     def get_builtin_types(self):
         return self.builtin_types
@@ -305,7 +301,10 @@ class StdObjSpace(ObjSpace, DescrOperation):
         return wraptuple(self, list_w)
 
     def newlist(self, list_w):
-        return W_ListObject(list_w)
+        return W_ListObject(self, list_w)
+
+    def newlist_str(self, list_s):
+        return W_ListObject.newlist_str(self, list_s)
 
     def newdict(self, module=False, instance=False, classofinstance=None,
                 strdict=False):
@@ -395,7 +394,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if isinstance(w_obj, W_TupleObject):
             t = w_obj.wrappeditems[:]
         elif isinstance(w_obj, W_ListObject):
-            t = w_obj.wrappeditems[:]
+            t = w_obj.getitems_copy()
         else:
             return ObjSpace.unpackiterable(self, w_obj, expected_length)
         if expected_length != -1 and len(t) != expected_length:
@@ -409,11 +408,14 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if isinstance(w_obj, W_TupleObject):
             t = w_obj.wrappeditems
         elif isinstance(w_obj, W_ListObject):
-            t = w_obj.wrappeditems[:]
+            if unroll:
+                t = w_obj.getitems_unroll()
+            else:
+                t = w_obj.getitems_fixedsize()
         else:
             if unroll:
                 return make_sure_not_resized(ObjSpace.unpackiterable_unroll(
-                    self, w_obj, expected_length)[:])
+                    self, w_obj, expected_length))
             else:
                 return make_sure_not_resized(ObjSpace.unpackiterable(
                     self, w_obj, expected_length)[:])
@@ -421,12 +423,13 @@ class StdObjSpace(ObjSpace, DescrOperation):
             raise self._wrap_expected_length(expected_length, len(t))
         return make_sure_not_resized(t)
 
-    def fixedview_unroll(self, w_obj, expected_length=-1):
+    def fixedview_unroll(self, w_obj, expected_length):
+        assert expected_length >= 0
         return self.fixedview(w_obj, expected_length, unroll=True)
 
     def listview(self, w_obj, expected_length=-1):
         if isinstance(w_obj, W_ListObject):
-            t = w_obj.wrappeditems
+            t = w_obj.getitems()
         elif isinstance(w_obj, W_TupleObject):
             t = w_obj.wrappeditems[:]
         else:
@@ -434,6 +437,11 @@ class StdObjSpace(ObjSpace, DescrOperation):
         if expected_length != -1 and len(t) != expected_length:
             raise self._wrap_expected_length(expected_length, len(t))
         return t
+
+    def listview_str(self, w_obj):
+        if isinstance(w_obj, W_ListObject):
+            return w_obj.getitems_str()
+        return None
 
     def sliceindices(self, w_slice, w_length):
         if isinstance(w_slice, W_SliceObject):
@@ -446,15 +454,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
             raise OperationError(self.w_ValueError,
                                  self.wrap("Expected tuple of length 3"))
         return self.int_w(l_w[0]), self.int_w(l_w[1]), self.int_w(l_w[2])
-
-    def is_(self, w_one, w_two):
-        if w_one is w_two:
-            return self.w_True
-        return self.w_False
-
-    # short-cut
-    def is_w(self, w_one, w_two):
-        return w_one is w_two
 
     def is_true(self, w_obj):
         # a shortcut for performance
@@ -579,7 +578,7 @@ class StdObjSpace(ObjSpace, DescrOperation):
             raise OperationError(self.w_TypeError,
                                  self.wrap("need type object"))
         if is_annotation_constant(w_type):
-            cls = w_type.interplevel_cls
+            cls = self._get_interplevel_cls(w_type)
             if cls is not None:
                 assert w_inst is not None
                 if isinstance(w_inst, cls):
@@ -589,3 +588,66 @@ class StdObjSpace(ObjSpace, DescrOperation):
     @specialize.arg_or_var(2)
     def isinstance_w(space, w_inst, w_type):
         return space._type_isinstance(w_inst, w_type)
+
+    def setup_isinstance_cache(self):
+        # This assumes that all classes in the stdobjspace implementing a
+        # particular app-level type are distinguished by a common base class.
+        # Alternatively, you can turn off the cache on specific classes,
+        # like e.g. proxyobject.  It is just a bit less performant but
+        # should not have any bad effect.
+        from pypy.objspace.std.model import W_Root, W_Object
+        #
+        # Build a dict {class: w_typeobject-or-None}.  The value None is used
+        # on classes that are known to be abstract base classes.
+        class2type = {}
+        class2type[W_Root] = None
+        class2type[W_Object] = None
+        for cls in self.model.typeorder.keys():
+            if getattr(cls, 'typedef', None) is None:
+                continue
+            if getattr(cls, 'ignore_for_isinstance_cache', False):
+                continue
+            w_type = self.gettypefor(cls)
+            w_oldtype = class2type.setdefault(cls, w_type)
+            assert w_oldtype is w_type
+        #
+        # Build the real dict {w_typeobject: class-or-base-class}.  For every
+        # w_typeobject we look for the most precise common base class of all
+        # the registered classes.  If no such class is found, we will find
+        # W_Object or W_Root, and complain.  Then you must either add an
+        # artificial common base class, or disable caching on one of the
+        # two classes with ignore_for_isinstance_cache.
+        def getmro(cls):
+            while True:
+                yield cls
+                if cls is W_Root:
+                    break
+                cls = cls.__bases__[0]
+        self._interplevel_classes = {}
+        for cls, w_type in class2type.items():
+            if w_type is None:
+                continue
+            if w_type not in self._interplevel_classes:
+                self._interplevel_classes[w_type] = cls
+            else:
+                cls1 = self._interplevel_classes[w_type]
+                mro1 = list(getmro(cls1))
+                for base in getmro(cls):
+                    if base in mro1:
+                        break
+                if base in class2type and class2type[base] is not w_type:
+                    if class2type.get(base) is None:
+                        msg = ("cannot find a common interp-level base class"
+                               " between %r and %r" % (cls1, cls))
+                    else:
+                        msg = ("%s is a base class of both %r and %r" % (
+                            class2type[base], cls1, cls))
+                    raise AssertionError("%r: %s" % (w_type, msg))
+                class2type[base] = w_type
+                self._interplevel_classes[w_type] = base
+
+    @specialize.memo()
+    def _get_interplevel_cls(self, w_type):
+        if not hasattr(self, "_interplevel_classes"):
+            return None # before running initialize
+        return self._interplevel_classes.get(w_type, None)

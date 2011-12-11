@@ -167,14 +167,14 @@ def test_attach_unoptimized_bridge_from_interp():
     state = WarmEnterState(None, FakeJitDriverSD())
     get_jitcell = state.make_jitcell_getter()
     class FakeLoopToken(object):
-        pass
+        invalidated = False
     looptoken = FakeLoopToken()
-    state.attach_unoptimized_bridge_from_interp([ConstInt(5),
-                                                 constfloat(2.25)],
-                                                looptoken)
+    state.attach_procedure_to_interp([ConstInt(5),
+                                      constfloat(2.25)],
+                                     looptoken)
     cell1 = get_jitcell(True, 5, 2.25)
     assert cell1.counter < 0
-    assert cell1.get_entry_loop_token() is looptoken
+    assert cell1.get_procedure_token() is looptoken
 
 def test_make_jitdriver_callbacks_1():
     class FakeWarmRunnerDesc:

@@ -170,3 +170,7 @@ class Module(MixedModule):
     def get_flag(self, name):
         space = self.space
         return space.int_w(space.getattr(self.get('flags'), space.wrap(name)))
+
+    def get_state(self, space):
+        from pypy.module.sys import state
+        return state.get(space)

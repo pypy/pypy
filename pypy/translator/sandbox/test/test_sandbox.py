@@ -80,7 +80,7 @@ def test_dup2_access():
     assert tail == ""
 
 def test_stat_ftruncate():
-    from pypy.rpython.module.ll_os_stat import s_StatResult
+    from pypy.translator.sandbox.sandlib import RESULTTYPE_STATRESULT
     from pypy.rlib.rarithmetic import r_longlong
     r0x12380000007 = r_longlong(0x12380000007)
 
@@ -93,7 +93,7 @@ def test_stat_ftruncate():
     g, f = os.popen2(exe, "t", 0)
     st = os.stat_result((55, 0, 0, 0, 0, 0, 0x12380000007, 0, 0, 0))
     expect(f, g, "ll_os.ll_os_stat", ("somewhere",), st,
-           resulttype = s_StatResult)
+           resulttype = RESULTTYPE_STATRESULT)
     expect(f, g, "ll_os.ll_os_ftruncate", (55, 0x12380000007), None)
     g.close()
     tail = f.read()

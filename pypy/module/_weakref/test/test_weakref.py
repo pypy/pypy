@@ -324,6 +324,7 @@ class AppTestProxy(object):
         class A(object): pass
         a = A()
         assert _weakref.proxy(a) is _weakref.proxy(a)
+        assert _weakref.proxy(a) is _weakref.proxy(a, None)
 
     def test_callable_proxy(self):
         import _weakref, gc

@@ -154,7 +154,6 @@ class AbstractMatchContext(object):
         return (fmarks[groupnum], fmarks[groupnum+1])
 
     def group(self, groupnum=0):
-        "NOT_RPYTHON"   # compatibility
         frm, to = self.span(groupnum)
         if 0 <= frm <= to:
             return self._string[frm:to]
@@ -391,6 +390,8 @@ class MaxUntilMatchResult(AbstractUntilMatchResult):
             if self.num_pending >= min:
                 while enum is not None and ptr == ctx.match_end:
                     enum = enum.move_to_next_result(ctx)
+                    # matched marks for zero-width assertions
+                    marks = ctx.match_marks
             #
             if enum is not None:
                 # matched one more 'item'.  record it and continue.

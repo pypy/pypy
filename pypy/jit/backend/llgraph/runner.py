@@ -23,8 +23,10 @@ class MiniStats:
 class Descr(history.AbstractDescr):
 
     def __init__(self, ofs, typeinfo, extrainfo=None, name=None,
-                 arg_types=None, count_fields_if_immut=-1, ffi_flags=0):
+                 arg_types=None, count_fields_if_immut=-1, ffi_flags=0, width=-1):
+
         self.ofs = ofs
+        self.width = width
         self.typeinfo = typeinfo
         self.extrainfo = extrainfo
         self.name = name
@@ -119,14 +121,14 @@ class BaseCPU(model.AbstractCPU):
         return False
 
     def getdescr(self, ofs, typeinfo='?', extrainfo=None, name=None,
-                 arg_types=None, count_fields_if_immut=-1, ffi_flags=0):
+                 arg_types=None, count_fields_if_immut=-1, ffi_flags=0, width=-1):
         key = (ofs, typeinfo, extrainfo, name, arg_types,
-               count_fields_if_immut, ffi_flags)
+               count_fields_if_immut, ffi_flags, width)
         try:
             return self._descrs[key]
         except KeyError:
             descr = Descr(ofs, typeinfo, extrainfo, name, arg_types,
-                          count_fields_if_immut, ffi_flags)
+                          count_fields_if_immut, ffi_flags, width)
             self._descrs[key] = descr
             return descr
 
@@ -140,17 +142,17 @@ class BaseCPU(model.AbstractCPU):
         old, oldindex = faildescr._compiled_fail
         llimpl.compile_redirect_fail(old, oldindex, c)
 
-    def compile_loop(self, inputargs, operations, looptoken, log=True, name=''):
+    def compile_loop(self, inputargs, operations, jitcell_token, log=True, name=''):
         """In a real assembler backend, this should assemble the given
         list of operations.  Here we just generate a similar CompiledLoop
         instance.  The code here is RPython, whereas the code in llimpl
         is not.
         """
         c = llimpl.compile_start()
-        clt = model.CompiledLoopToken(self, looptoken.number)
+        clt = model.CompiledLoopToken(self, jitcell_token.number)
         clt.loop_and_bridges = [c]
         clt.compiled_version = c
-        looptoken.compiled_loop_token = clt
+        jitcell_token.compiled_loop_token = clt
         self._compile_loop_or_bridge(c, inputargs, operations)
 
     def free_loop_and_bridges(self, compiled_loop_token):
@@ -179,10 +181,13 @@ class BaseCPU(model.AbstractCPU):
             descr = op.getdescr()
             if isinstance(descr, Descr):
                 llimpl.compile_add_descr(c, descr.ofs, descr.typeinfo,
-                                         descr.arg_types)
-            if (isinstance(descr, history.LoopToken) and
-                op.getopnum() != rop.JUMP):
+                                         descr.arg_types, descr.extrainfo,
+                                         descr.width)
+            if isinstance(descr, history.JitCellToken):
+                assert op.getopnum() != rop.JUMP
                 llimpl.compile_add_loop_token(c, descr)
+            if isinstance(descr, history.TargetToken) and op.getopnum() == rop.LABEL:
+                llimpl.compile_add_target_token(c, descr)
             if self.is_oo and isinstance(descr, (OODescr, MethDescr)):
                 # hack hack, not rpython
                 c._obj.externalobj.operations[-1].setdescr(descr)
@@ -236,9 +241,7 @@ class BaseCPU(model.AbstractCPU):
         assert op.is_final()
         if op.getopnum() == rop.JUMP:
             targettoken = op.getdescr()
-            assert isinstance(targettoken, history.LoopToken)
-            compiled_version = targettoken.compiled_loop_token.compiled_version
-            llimpl.compile_add_jump_target(c, compiled_version)
+            llimpl.compile_add_jump_target(c, targettoken)
         elif op.getopnum() == rop.FINISH:
             faildescr = op.getdescr()
             index = self.get_fail_descr_number(faildescr)
@@ -327,10 +330,22 @@ class LLtypeCPU(BaseCPU):
 
     def interiorfielddescrof(self, A, fieldname):
         S = A.OF
-        ofs2 = symbolic.get_size(A)
+        width = symbolic.get_size(A)
         ofs, size = symbolic.get_field_token(S, fieldname)
         token = history.getkind(getattr(S, fieldname))
-        return self.getdescr(ofs, token[0], name=fieldname, extrainfo=ofs2)
+        return self.getdescr(ofs, token[0], name=fieldname, width=width)
+
+    def interiorfielddescrof_dynamic(self, offset, width, fieldsize,
+        is_pointer, is_float, is_signed):
+
+        if is_pointer:
+            typeinfo = REF
+        elif is_float:
+            typeinfo = FLOAT
+        else:
+            typeinfo = INT
+        # we abuse the arg_types field to distinguish dynamic and static descrs
+        return Descr(offset, typeinfo, arg_types='dynamic', name='<dynamic interior field>', width=width)
 
     def calldescrof(self, FUNC, ARGS, RESULT, extrainfo):
         arg_types = []
@@ -368,6 +383,7 @@ class LLtypeCPU(BaseCPU):
 
     def arraydescrof(self, A):
         assert A.OF != lltype.Void
+        assert isinstance(A, lltype.GcArray) or A._hints.get('nolength', False)
         size = symbolic.get_size(A)
         if isinstance(A.OF, lltype.Ptr) or isinstance(A.OF, lltype.Primitive):
             token = history.getkind(A.OF)[0]

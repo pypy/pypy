@@ -124,7 +124,8 @@ def as_ffi_pointer(value, ffitype):
     # for now, we always allow types.pointer, else a lot of tests
     # break. We need to rethink how pointers are represented, though
     if my_ffitype is not ffitype and ffitype is not _ffi.types.void_p:
-        raise ArgumentError, "expected %s instance, got %s" % (type(value), ffitype)
+        raise ArgumentError("expected %s instance, got %s" % (type(value),
+                                                              ffitype))
     return value._get_buffer_value()
 
 def _cast_addr(obj, _, tp):

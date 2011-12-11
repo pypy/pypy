@@ -4,7 +4,7 @@ from pypy.rpython.lltypesystem import lltype, llmemory
 
 from pypy.jit.tool.oparser import parse, OpParser
 from pypy.jit.metainterp.resoperation import rop
-from pypy.jit.metainterp.history import AbstractDescr, BoxInt, LoopToken
+from pypy.jit.metainterp.history import AbstractDescr, BoxInt, JitCellToken
 
 class BaseTestOparser(object):
 
@@ -119,10 +119,10 @@ class BaseTestOparser(object):
         jump()
         '''
         loop = self.parse(x)
-        assert loop.operations[0].getdescr() is loop.token
+        assert loop.operations[0].getdescr() is loop.original_jitcell_token
 
     def test_jump_target_other(self):
-        looptoken = LoopToken()
+        looptoken = JitCellToken()
         looptoken.I_am_a_descr = True # for the mock case
         x = '''
         []

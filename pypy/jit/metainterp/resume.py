@@ -93,12 +93,14 @@ PENDINGFIELDSP = lltype.Ptr(lltype.GcArray(PENDINGFIELDSTRUCT))
 
 TAGMASK = 3
 
+class TagOverflow(Exception):
+    pass
+
 def tag(value, tagbits):
-    if tagbits >> 2:
-        raise ValueError
+    assert 0 <= tagbits <= 3
     sx = value >> 13
     if sx != 0 and sx != -1:
-        raise ValueError
+        raise TagOverflow
     return rffi.r_short(value<<2|tagbits)
 
 def untag(value):
@@ -126,6 +128,7 @@ TAGVIRTUAL  = 3
 UNASSIGNED = tag(-1<<13, TAGBOX)
 UNASSIGNEDVIRTUAL = tag(-1<<13, TAGVIRTUAL)
 NULLREF = tag(-1, TAGCONST)
+UNINITIALIZED = tag(-2, TAGCONST)   # used for uninitialized string characters
 
 
 class ResumeDataLoopMemo(object):
@@ -139,7 +142,7 @@ class ResumeDataLoopMemo(object):
         self.numberings = {}
         self.cached_boxes = {}
         self.cached_virtuals = {}
-    
+
         self.nvirtuals = 0
         self.nvholes = 0
         self.nvreused = 0
@@ -152,7 +155,7 @@ class ResumeDataLoopMemo(object):
                 return self._newconst(const)
             try:
                 return tag(val, TAGINT)
-            except ValueError:
+            except TagOverflow:
                 pass
             tagged = self.large_ints.get(val, UNASSIGNED)
             if not tagged_eq(tagged, UNASSIGNED):
@@ -272,6 +275,9 @@ class ResumeDataVirtualAdder(object):
 
     def make_varray(self, arraydescr):
         return VArrayInfo(arraydescr)
+
+    def make_varraystruct(self, arraydescr, fielddescrs):
+        return VArrayStructInfo(arraydescr, fielddescrs)
 
     def make_vstrplain(self, is_unicode=False):
         if is_unicode:
@@ -402,7 +408,7 @@ class ResumeDataVirtualAdder(object):
                 virtuals[num] = vinfo
 
         if self._invalidation_needed(len(liveboxes), nholes):
-            memo.clear_box_virtual_numbers()           
+            memo.clear_box_virtual_numbers()
 
     def _invalidation_needed(self, nliveboxes, nholes):
         memo = self.memo
@@ -425,8 +431,7 @@ class ResumeDataVirtualAdder(object):
                 fieldnum = self._gettagged(fieldbox)
                 # the index is limited to 2147483647 (64-bit machines only)
                 if itemindex > 2147483647:
-                    from pypy.jit.metainterp import compile
-                    compile.giveup()
+                    raise TagOverflow
                 itemindex = rffi.cast(rffi.INT, itemindex)
                 #
                 rd_pendingfields[i].lldescr  = lldescr
@@ -436,6 +441,8 @@ class ResumeDataVirtualAdder(object):
         self.storage.rd_pendingfields = rd_pendingfields
 
     def _gettagged(self, box):
+        if box is None:
+            return UNINITIALIZED
         if isinstance(box, Const):
             return self.memo.getconst(box)
         else:
@@ -455,7 +462,7 @@ class AbstractVirtualInfo(object):
 
     def debug_prints(self):
         raise NotImplementedError
-        
+
 class AbstractVirtualStructInfo(AbstractVirtualInfo):
     def __init__(self, fielddescrs):
         self.fielddescrs = fielddescrs
@@ -537,6 +544,29 @@ class VArrayInfo(AbstractVirtualInfo):
         for i in self.fieldnums:
             debug_print("\t\t", str(untag(i)))
 
+
+class VArrayStructInfo(AbstractVirtualInfo):
+    def __init__(self, arraydescr, fielddescrs):
+        self.arraydescr = arraydescr
+        self.fielddescrs = fielddescrs
+
+    def debug_prints(self):
+        debug_print("\tvarraystructinfo", self.arraydescr)
+        for i in self.fieldnums:
+            debug_print("\t\t", str(untag(i)))
+
+    @specialize.argtype(1)
+    def allocate(self, decoder, index):
+        array = decoder.allocate_array(self.arraydescr, len(self.fielddescrs))
+        decoder.virtuals_cache[index] = array
+        p = 0
+        for i in range(len(self.fielddescrs)):
+            for j in range(len(self.fielddescrs[i])):
+                decoder.setinteriorfield(i, self.fielddescrs[i][j], array, self.fieldnums[p])
+                p += 1
+        return array
+
+
 class VStrPlainInfo(AbstractVirtualInfo):
     """Stands for the string made out of the characters of all fieldnums."""
 
@@ -546,7 +576,9 @@ class VStrPlainInfo(AbstractVirtualInfo):
         string = decoder.allocate_string(length)
         decoder.virtuals_cache[index] = string
         for i in range(length):
-            decoder.string_setitem(string, i, self.fieldnums[i])
+            charnum = self.fieldnums[i]
+            if not tagged_eq(charnum, UNINITIALIZED):
+                decoder.string_setitem(string, i, charnum)
         return string
 
     def debug_prints(self):
@@ -599,7 +631,9 @@ class VUniPlainInfo(AbstractVirtualInfo):
         string = decoder.allocate_unicode(length)
         decoder.virtuals_cache[index] = string
         for i in range(length):
-            decoder.unicode_setitem(string, i, self.fieldnums[i])
+            charnum = self.fieldnums[i]
+            if not tagged_eq(charnum, UNINITIALIZED):
+                decoder.unicode_setitem(string, i, charnum)
         return string
 
     def debug_prints(self):
@@ -884,6 +918,17 @@ class ResumeDataBoxReader(AbstractResumeDataReader):
         self.metainterp.execute_and_record(rop.SETFIELD_GC, descr,
                                            structbox, fieldbox)
 
+    def setinteriorfield(self, index, descr, array, fieldnum):
+        if descr.is_pointer_field():
+            kind = REF
+        elif descr.is_float_field():
+            kind = FLOAT
+        else:
+            kind = INT
+        fieldbox = self.decode_box(fieldnum, kind)
+        self.metainterp.execute_and_record(rop.SETINTERIORFIELD_GC, descr,
+                                           array, ConstInt(index), fieldbox)
+
     def setarrayitem_int(self, arraydescr, arraybox, index, fieldnum):
         self._setarrayitem(arraydescr, arraybox, index, fieldnum, INT)
 
@@ -1163,6 +1208,17 @@ class ResumeDataDirectReader(AbstractResumeDataReader):
         else:
             newvalue = self.decode_int(fieldnum)
             self.cpu.bh_setfield_gc_i(struct, descr, newvalue)
+
+    def setinteriorfield(self, index, descr, array, fieldnum):
+        if descr.is_pointer_field():
+            newvalue = self.decode_ref(fieldnum)
+            self.cpu.bh_setinteriorfield_gc_r(array, index, descr, newvalue)
+        elif descr.is_float_field():
+            newvalue = self.decode_float(fieldnum)
+            self.cpu.bh_setinteriorfield_gc_f(array, index, descr, newvalue)
+        else:
+            newvalue = self.decode_int(fieldnum)
+            self.cpu.bh_setinteriorfield_gc_i(array, index, descr, newvalue)
 
     def setarrayitem_int(self, arraydescr, array, index, fieldnum):
         newvalue = self.decode_int(fieldnum)

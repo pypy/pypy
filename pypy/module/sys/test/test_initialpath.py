@@ -13,7 +13,7 @@ def build_hierarchy(prefix):
 
 def test_stdlib_in_prefix(tmpdir):
     dirs = build_hierarchy(tmpdir)
-    path = getinitialpath(str(tmpdir))
+    path = getinitialpath(None, str(tmpdir))
     # we get at least 'dirs', and maybe more (e.g. plat-linux2)
     assert path[:len(dirs)] == map(str, dirs)
 
@@ -21,7 +21,7 @@ def test_include_libtk(tmpdir):
     lib_pypy, lib_python_modified, lib_python = build_hierarchy(tmpdir)
     lib_tk_modified = lib_python_modified.join('lib-tk')
     lib_tk = lib_python.join('lib-tk')
-    path = getinitialpath(str(tmpdir))
+    path = getinitialpath(None, str(tmpdir))
     i = path.index(str(lib_tk_modified))
     j = path.index(str(lib_tk))
     assert i < j

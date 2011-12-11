@@ -6,7 +6,7 @@ from pypy.objspace.std.multimethod import FailedToImplementArgs
 from pypy.objspace.std.noneobject import W_NoneObject
 from pypy.objspace.std.register_all import register_all
 from pypy.rlib import jit
-from pypy.rlib.rarithmetic import ovfcheck, ovfcheck_lshift, LONG_BIT, r_uint
+from pypy.rlib.rarithmetic import ovfcheck, LONG_BIT, r_uint
 from pypy.rlib.rbigint import rbigint
 
 """
@@ -16,7 +16,26 @@ from rarithmetic to explicitly check for overflows,
 something CPython does not do anymore.
 """
 
-class W_IntObject(W_Object):
+class W_AbstractIntObject(W_Object):
+    __slots__ = ()
+
+    def is_w(self, space, w_other):
+        if not isinstance(w_other, W_AbstractIntObject):
+            return False
+        if self.user_overridden_class or w_other.user_overridden_class:
+            return self is w_other
+        return space.int_w(self) == space.int_w(w_other)
+
+    def unique_id(self, space):
+        if self.user_overridden_class:
+            return W_Object.unique_id(self, space)
+        from pypy.objspace.std.model import IDTAG_INT as tag
+        b = space.bigint_w(self)
+        b = b.lshift(3).or_(rbigint.fromint(tag))
+        return space.newlong_from_rbigint(b)
+
+
+class W_IntObject(W_AbstractIntObject):
     __slots__ = 'intval'
     _immutable_fields_ = ['intval']
 
@@ -245,7 +264,7 @@ def lshift__Int_Int(space, w_int1, w_int2):
     b = w_int2.intval
     if r_uint(b) < LONG_BIT: # 0 <= b < LONG_BIT
         try:
-            c = ovfcheck_lshift(a, b)
+            c = ovfcheck(a << b)
         except OverflowError:
             raise FailedToImplementArgs(space.w_OverflowError,
                                     space.wrap("integer left shift"))

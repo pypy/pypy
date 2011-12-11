@@ -3,7 +3,7 @@ class Boxes(object):
 
 def get_real_model():
     class LoopModel(object):
-        from pypy.jit.metainterp.history import TreeLoop, LoopToken
+        from pypy.jit.metainterp.history import TreeLoop, JitCellToken
         from pypy.jit.metainterp.history import Box, BoxInt, BoxFloat
         from pypy.jit.metainterp.history import ConstInt, ConstObj, ConstPtr, ConstFloat
         from pypy.jit.metainterp.history import BasicFailDescr
@@ -33,13 +33,13 @@ def get_real_model():
     return LoopModel
 
 def get_mock_model():
-    class LoopModel(object):
+    class MockLoopModel(object):
 
         class TreeLoop(object):
             def __init__(self, name):
                 self.name = name
 
-        class LoopToken(object):
+        class JitCellToken(object):
             I_am_a_descr = True
 
         class BasicFailDescr(object):
@@ -107,9 +107,9 @@ def get_mock_model():
         class llhelper(object):
             pass
 
-    LoopModel.llhelper.BoxRef = LoopModel.BoxRef
+    MockLoopModel.llhelper.BoxRef = MockLoopModel.BoxRef
 
-    return LoopModel
+    return MockLoopModel
 
 
 def get_model(use_mock):

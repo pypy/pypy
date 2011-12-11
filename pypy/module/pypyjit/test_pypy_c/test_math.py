@@ -1,3 +1,4 @@
+import py
 from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 
 
@@ -28,7 +29,7 @@ class TestMath(BaseTestPyPyC):
             f5 = float_add(f0, f4)
             i4 = int_add(i0, 1)
             --TICK--
-            jump(..., descr=<Loop0>)
+            jump(..., descr=...)
         """)
 
     def test_sin_cos(self):
@@ -49,10 +50,7 @@ class TestMath(BaseTestPyPyC):
             guard_true(i2, descr=...)
             guard_not_invalidated(descr=...)
             f1 = cast_int_to_float(i0)
-            i3 = float_eq(f1, inf)
-            i4 = float_eq(f1, -inf)
-            i5 = int_or(i3, i4)
-            i6 = int_is_true(i5)
+            i6 = --ISINF--(f1)
             guard_false(i6, descr=...)
             f2 = call(ConstClass(sin), f1, descr=<FloatCallDescr>)
             f3 = call(ConstClass(cos), f1, descr=<FloatCallDescr>)
@@ -64,6 +62,7 @@ class TestMath(BaseTestPyPyC):
         """)
 
     def test_fmod(self):
+        py.test.skip("test relies on the old and broken ll_math_fmod")
         def main(n):
             import math
 

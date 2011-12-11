@@ -648,11 +648,10 @@ class GcLLDescr_framework(GcLLDescription):
         # make a malloc function, with two arguments
         def malloc_basic(size, tid):
             type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
-            has_finalizer = bool(tid & (1<<llgroup.HALFSHIFT))
             check_typeid(type_id)
             res = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
                                                   type_id, size,
-                                                  has_finalizer, False)
+                                                  False, False, False)
             # In case the operation above failed, we are returning NULL
             # from this function to assembler.  There is also an RPython
             # exception set, typically MemoryError; but it's easier and
@@ -723,7 +722,7 @@ class GcLLDescr_framework(GcLLDescription):
             # also use it to allocate varsized objects.  The tid
             # and possibly the length are both set afterward.
             gcref = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
-                                        0, size, False, False)
+                                        0, size, False, False, False)
             return rffi.cast(lltype.Signed, gcref)
         self.malloc_slowpath = malloc_slowpath
         self.MALLOC_SLOWPATH = lltype.FuncType([lltype.Signed], lltype.Signed)
@@ -746,9 +745,8 @@ class GcLLDescr_framework(GcLLDescription):
     def init_size_descr(self, S, descr):
         type_id = self.layoutbuilder.get_type_id(S)
         assert not self.layoutbuilder.is_weakref_type(S)
-        has_finalizer = bool(self.layoutbuilder.has_finalizer(S))
-        flags = int(has_finalizer) << llgroup.HALFSHIFT
-        descr.tid = llop.combine_ushort(lltype.Signed, type_id, flags)
+        assert not self.layoutbuilder.has_finalizer(S)
+        descr.tid = llop.combine_ushort(lltype.Signed, type_id, 0)
 
     def init_array_descr(self, A, descr):
         type_id = self.layoutbuilder.get_type_id(A)
@@ -825,6 +823,15 @@ class GcLLDescr_framework(GcLLDescription):
                                             bool(v.value)): # store a non-NULL
                         self._gen_write_barrier(newops, op.getarg(0), v)
                         op = op.copy_and_change(rop.SETFIELD_RAW)
+            # ---------- write barrier for SETINTERIORFIELD_GC ------
+            if op.getopnum() == rop.SETINTERIORFIELD_GC:
+                val = op.getarg(0)
+                if val is not last_malloc:
+                    v = op.getarg(2)
+                    if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
+                                            bool(v.value)): # store a non-NULL
+                        self._gen_write_barrier(newops, op.getarg(0), v)
+                        op = op.copy_and_change(rop.SETINTERIORFIELD_RAW)
             # ---------- write barrier for SETARRAYITEM_GC ----------
             if op.getopnum() == rop.SETARRAYITEM_GC:
                 val = op.getarg(0)

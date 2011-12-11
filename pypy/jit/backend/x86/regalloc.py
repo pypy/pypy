@@ -5,7 +5,8 @@
 import os
 from pypy.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
                                          ResOperation, BoxPtr, ConstFloat,
-                                         BoxFloat, LoopToken, INT, REF, FLOAT)
+                                         BoxFloat, INT, REF, FLOAT,
+                                         TargetToken, JitCellToken)
 from pypy.jit.backend.x86.regloc import *
 from pypy.rpython.lltypesystem import lltype, rffi, rstr
 from pypy.rlib.objectmodel import we_are_translated
@@ -138,6 +139,10 @@ class X86FrameManager(FrameManager):
             return 2
         else:
             return 1
+    @staticmethod
+    def get_loc_index(loc):
+        assert isinstance(loc, StackLoc)
+        return loc.position
 
 if WORD == 4:
     gpr_reg_mgr_cls = X86RegisterManager
@@ -159,6 +164,7 @@ class RegAlloc(object):
         # to be read/used by the assembler too
         self.jump_target_descr = None
         self.close_stack_struct = 0
+        self.final_jump_op = None
 
     def _prepare(self, inputargs, operations, allgcrefs):
         self.fm = X86FrameManager()
@@ -167,35 +173,30 @@ class RegAlloc(object):
         operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
                                                        allgcrefs)
         # compute longevity of variables
-        longevity = self._compute_vars_longevity(inputargs, operations)
+        longevity, useful = self._compute_vars_longevity(inputargs, operations)
         self.longevity = longevity
         self.rm = gpr_reg_mgr_cls(longevity,
                                   frame_manager = self.fm,
                                   assembler = self.assembler)
         self.xrm = xmm_reg_mgr_cls(longevity, frame_manager = self.fm,
                                    assembler = self.assembler)
-        return operations
+        return operations, useful
 
     def prepare_loop(self, inputargs, operations, looptoken, allgcrefs):
-        operations = self._prepare(inputargs, operations, allgcrefs)
-        jump = operations[-1]
-        loop_consts = self._compute_loop_consts(inputargs, jump, looptoken)
-        self.loop_consts = loop_consts
-        return self._process_inputargs(inputargs), operations
+        operations, useful = self._prepare(inputargs, operations, allgcrefs)
+        return self._process_inputargs(inputargs, useful), operations
 
     def prepare_bridge(self, prev_depths, inputargs, arglocs, operations,
                        allgcrefs):
-        operations = self._prepare(inputargs, operations, allgcrefs)
-        self.loop_consts = {}
+        operations, _ = self._prepare(inputargs, operations, allgcrefs)
         self._update_bindings(arglocs, inputargs)
-        self.fm.frame_depth = prev_depths[0]
         self.param_depth = prev_depths[1]
         return operations
 
     def reserve_param(self, n):
         self.param_depth = max(self.param_depth, n)
 
-    def _process_inputargs(self, inputargs):
+    def _process_inputargs(self, inputargs, useful):
         # XXX we can sort out here by longevity if we need something
         # more optimal
         floatlocs = [None] * len(inputargs)
@@ -211,7 +212,7 @@ class RegAlloc(object):
             arg = inputargs[i]
             assert not isinstance(arg, Const)
             reg = None
-            if arg not in self.loop_consts and self.longevity[arg][1] > -1:
+            if self.longevity[arg][1] > -1 and arg in useful:
                 if arg.type == FLOAT:
                     # xxx is it really a good idea?  at the first CALL they
                     # will all be flushed anyway
@@ -287,15 +288,15 @@ class RegAlloc(object):
         else:
             return self.xrm.make_sure_var_in_reg(var, forbidden_vars)
 
-    def _compute_loop_consts(self, inputargs, jump, looptoken):
-        if jump.getopnum() != rop.JUMP or jump.getdescr() is not looptoken:
-            loop_consts = {}
-        else:
-            loop_consts = {}
-            for i in range(len(inputargs)):
-                if inputargs[i] is jump.getarg(i):
-                    loop_consts[inputargs[i]] = i
-        return loop_consts
+    #def _compute_loop_consts(self, inputargs, jump, looptoken):
+    #    if jump.getopnum() != rop.JUMP or jump.getdescr() is not looptoken:
+    #        loop_consts = {}
+    #    else:
+    #        loop_consts = {}
+    #        for i in range(len(inputargs)):
+    #            if inputargs[i] is jump.getarg(i):
+    #                loop_consts[inputargs[i]] = i
+    #    return loop_consts
 
     def _update_bindings(self, locs, inputargs):
         # XXX this should probably go to llsupport/regalloc.py
@@ -311,7 +312,7 @@ class RegAlloc(object):
                     self.xrm.reg_bindings[arg] = loc
                     used[loc] = None
                 else:
-                    self.fm.frame_bindings[arg] = loc
+                    self.fm.set_binding(arg, loc)
             else:
                 if isinstance(loc, RegLoc):
                     if loc is ebp:
@@ -320,7 +321,7 @@ class RegAlloc(object):
                         self.rm.reg_bindings[arg] = loc
                         used[loc] = None
                 else:
-                    self.fm.frame_bindings[arg] = loc
+                    self.fm.set_binding(arg, loc)
         self.rm.free_regs = []
         for reg in self.rm.all_regs:
             if reg not in used:
@@ -356,7 +357,7 @@ class RegAlloc(object):
     def get_current_depth(self):
         # return (self.fm.frame_depth, self.param_depth), but trying to share
         # the resulting tuple among several calls
-        arg0 = self.fm.frame_depth
+        arg0 = self.fm.get_frame_depth()
         arg1 = self.param_depth
         result = self.assembler._current_depths_cache
         if result[0] != arg0 or result[1] != arg1:
@@ -450,8 +451,14 @@ class RegAlloc(object):
     def _compute_vars_longevity(self, inputargs, operations):
         # compute a dictionary that maps variables to index in
         # operations that is a "last-time-seen"
+
+        # returns a pair longevity/useful. Non-useful variables are ones that
+        # never appear in the assembler or it does not matter if they appear on
+        # stack or in registers. Main example is loop arguments that go
+        # only to guard operations or to jump or to finish
         produced = {}
         last_used = {}
+        useful = {}
         for i in range(len(operations)-1, -1, -1):
             op = operations[i]
             if op.result:
@@ -459,8 +466,11 @@ class RegAlloc(object):
                     continue
                 assert op.result not in produced
                 produced[op.result] = i
+            opnum = op.getopnum()
             for j in range(op.numargs()):
                 arg = op.getarg(j)
+                if opnum != rop.JUMP and opnum != rop.FINISH:
+                    useful[arg] = None
                 if isinstance(arg, Box) and arg not in last_used:
                     last_used[arg] = i
             if op.is_guard():
@@ -486,7 +496,7 @@ class RegAlloc(object):
                 longevity[arg] = (0, last_used[arg])
                 del last_used[arg]
         assert len(last_used) == 0
-        return longevity
+        return longevity, useful
 
     def loc(self, v):
         if v is None: # xxx kludgy
@@ -883,7 +893,7 @@ class RegAlloc(object):
 
     def consider_call_assembler(self, op, guard_op):
         descr = op.getdescr()
-        assert isinstance(descr, LoopToken)
+        assert isinstance(descr, JitCellToken)
         jd = descr.outermost_jitdriver_sd
         assert jd is not None
         size = jd.portal_calldescr.get_result_size(self.translate_support_code)
@@ -1042,16 +1052,32 @@ class RegAlloc(object):
         t = self._unpack_interiorfielddescr(op.getdescr())
         ofs, itemsize, fieldsize, _ = t
         args = op.getarglist()
-        tmpvar = TempBox()
-        base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        index_loc = self.rm.force_result_in_reg(tmpvar, op.getarg(1),
-                                                args)
-        # we're free to modify index now
-        value_loc = self.make_sure_var_in_reg(op.getarg(2), args)
-        self.possibly_free_vars(args)
-        self.rm.possibly_free_var(tmpvar)
+        if fieldsize.value == 1:
+            need_lower_byte = True
+        else:
+            need_lower_byte = False
+        box_base, box_index, box_value = args
+        base_loc = self.rm.make_sure_var_in_reg(box_base, args)
+        index_loc = self.rm.make_sure_var_in_reg(box_index, args)
+        value_loc = self.make_sure_var_in_reg(box_value, args,
+                                              need_lower_byte=need_lower_byte)
+        # If 'index_loc' is not an immediate, then we need a 'temp_loc' that
+        # is a register whose value will be destroyed.  It's fine to destroy
+        # the same register as 'index_loc', but not the other ones.
+        self.rm.possibly_free_var(box_index)
+        if not isinstance(index_loc, ImmedLoc):
+            tempvar = TempBox()
+            temp_loc = self.rm.force_allocate_reg(tempvar, [box_base,
+                                                            box_value])
+            self.rm.possibly_free_var(tempvar)
+        else:
+            temp_loc = None
+        self.rm.possibly_free_var(box_base)
+        self.possibly_free_var(box_value)
         self.PerformDiscard(op, [base_loc, ofs, itemsize, fieldsize,
-                                 index_loc, value_loc])
+                                 index_loc, temp_loc, value_loc])
+
+    consider_setinteriorfield_raw = consider_setinteriorfield_gc
 
     def consider_strsetitem(self, op):
         args = op.getarglist()
@@ -1122,15 +1148,29 @@ class RegAlloc(object):
         else:
             sign_loc = imm0
         args = op.getarglist()
-        tmpvar = TempBox()
         base_loc = self.rm.make_sure_var_in_reg(op.getarg(0), args)
-        index_loc = self.rm.force_result_in_reg(tmpvar, op.getarg(1),
-                                                args)
-        self.rm.possibly_free_vars_for_op(op)
-        self.rm.possibly_free_var(tmpvar)
-        result_loc = self.force_allocate_reg(op.result)
+        index_loc = self.rm.make_sure_var_in_reg(op.getarg(1), args)
+        # 'base' and 'index' are put in two registers (or one if 'index'
+        # is an immediate).  'result' can be in the same register as
+        # 'index' but must be in a different register than 'base'.
+        self.rm.possibly_free_var(op.getarg(1))
+        result_loc = self.force_allocate_reg(op.result, [op.getarg(0)])
+        assert isinstance(result_loc, RegLoc)
+        # two cases: 1) if result_loc is a normal register, use it as temp_loc
+        if not result_loc.is_xmm:
+            temp_loc = result_loc
+        else:
+            # 2) if result_loc is an xmm register, we (likely) need another
+            # temp_loc that is a normal register.  It can be in the same
+            # register as 'index' but not 'base'.
+            tempvar = TempBox()
+            temp_loc = self.rm.force_allocate_reg(tempvar, [op.getarg(0)])
+            self.rm.possibly_free_var(tempvar)
+        self.rm.possibly_free_var(op.getarg(0))
         self.Perform(op, [base_loc, ofs, itemsize, fieldsize,
-                          index_loc, sign_loc], result_loc)
+                          index_loc, temp_loc, sign_loc], result_loc)
+
+    consider_getinteriorfield_raw = consider_getinteriorfield_gc
 
     def consider_int_is_true(self, op, guard_op):
         # doesn't need arg to be in a register
@@ -1283,13 +1323,50 @@ class RegAlloc(object):
             self.rm.possibly_free_var(tmpbox_low)
         self.rm.possibly_free_var(tmpbox_high)
 
+    def compute_hint_frame_locations(self, operations):
+        # optimization only: fill in the 'hint_frame_locations' dictionary
+        # of 'fm' based on the JUMP at the end of the loop, by looking
+        # at where we would like the boxes to be after the jump.
+        op = operations[-1]
+        if op.getopnum() != rop.JUMP:
+            return
+        self.final_jump_op = op
+        descr = op.getdescr()
+        assert isinstance(descr, TargetToken)
+        if descr._x86_loop_code != 0:
+            # if the target LABEL was already compiled, i.e. if it belongs
+            # to some already-compiled piece of code
+            self._compute_hint_frame_locations_from_descr(descr)
+        #else:
+        #   The loop ends in a JUMP going back to a LABEL in the same loop.
+        #   We cannot fill 'hint_frame_locations' immediately, but we can
+        #   wait until the corresponding consider_label() to know where the
+        #   we would like the boxes to be after the jump.
+
+    def _compute_hint_frame_locations_from_descr(self, descr):
+        nonfloatlocs, floatlocs = descr._x86_arglocs
+        jump_op = self.final_jump_op
+        assert len(nonfloatlocs) == jump_op.numargs()
+        for i in range(jump_op.numargs()):
+            box = jump_op.getarg(i)
+            if isinstance(box, Box):
+                loc = nonfloatlocs[i]
+                if isinstance(loc, StackLoc):
+                    assert box.type != FLOAT
+                    self.fm.hint_frame_locations[box] = loc
+                else:
+                    loc = floatlocs[i]
+                    if isinstance(loc, StackLoc):
+                        assert box.type == FLOAT
+                        self.fm.hint_frame_locations[box] = loc
+
     def consider_jump(self, op):
         assembler = self.assembler
         assert self.jump_target_descr is None
         descr = op.getdescr()
-        assert isinstance(descr, LoopToken)
+        assert isinstance(descr, TargetToken)
+        nonfloatlocs, floatlocs = descr._x86_arglocs
         self.jump_target_descr = descr
-        nonfloatlocs, floatlocs = assembler.target_arglocs(self.jump_target_descr)
         # compute 'tmploc' to be all_regs[0] by spilling what is there
         box = TempBox()
         box1 = TempBox()
@@ -1327,7 +1404,7 @@ class RegAlloc(object):
 
     def get_mark_gc_roots(self, gcrootmap, use_copy_area=False):
         shape = gcrootmap.get_basic_shape(IS_X86_64)
-        for v, val in self.fm.frame_bindings.items():
+        for v, val in self.fm.bindings.items():
             if (isinstance(v, BoxPtr) and self.rm.stays_alive(v)):
                 assert isinstance(val, StackLoc)
                 gcrootmap.add_frame_offset(shape, get_ebp_ofs(val.position))
@@ -1361,6 +1438,74 @@ class RegAlloc(object):
     def consider_force_token(self, op):
         # the FORCE_TOKEN operation returns directly 'ebp'
         self.rm.force_allocate_frame_reg(op.result)
+
+    def consider_label(self, op):
+        # XXX big refactoring needed?
+        descr = op.getdescr()
+        assert isinstance(descr, TargetToken)
+        inputargs = op.getarglist()
+        floatlocs = [None] * len(inputargs)
+        nonfloatlocs = [None] * len(inputargs)
+        #
+        # we need to make sure that the tmpreg and xmmtmp are free
+        tmpreg = X86RegisterManager.all_regs[0]
+        tmpvar = TempBox()
+        self.rm.force_allocate_reg(tmpvar, selected_reg=tmpreg)
+        self.rm.possibly_free_var(tmpvar)
+        #
+        xmmtmp = X86XMMRegisterManager.all_regs[0]
+        tmpvar = TempBox()
+        self.xrm.force_allocate_reg(tmpvar, selected_reg=xmmtmp)
+        self.xrm.possibly_free_var(tmpvar)
+        #
+        # we need to make sure that no variable is stored in ebp
+        for arg in inputargs:
+            if self.loc(arg) is ebp:
+                loc2 = self.fm.loc(arg)
+                self.assembler.mc.MOV(loc2, ebp)
+        self.rm.bindings_to_frame_reg.clear()
+        #
+        for i in range(len(inputargs)):
+            arg = inputargs[i]
+            assert not isinstance(arg, Const)
+            loc = self.loc(arg)
+            assert not (loc is tmpreg or loc is xmmtmp or loc is ebp)
+            if arg.type == FLOAT:
+                floatlocs[i] = loc
+            else:
+                nonfloatlocs[i] = loc
+            if isinstance(loc, RegLoc):
+                self.fm.mark_as_free(arg)
+        descr._x86_arglocs = nonfloatlocs, floatlocs
+        descr._x86_loop_code = self.assembler.mc.get_relative_pos()
+        descr._x86_clt = self.assembler.current_clt
+        self.assembler.target_tokens_currently_compiling[descr] = None
+        self.possibly_free_vars_for_op(op)
+        #
+        # if the LABEL's descr is precisely the target of the JUMP at the
+        # end of the same loop, i.e. if what we are compiling is a single
+        # loop that ends up jumping to this LABEL, then we can now provide
+        # the hints about the expected position of the spilled variables.
+        jump_op = self.final_jump_op
+        if jump_op is not None and jump_op.getdescr() is descr:
+            self._compute_hint_frame_locations_from_descr(descr)
+
+##        from pypy.rpython.annlowlevel import llhelper
+##        def fn(addr):
+##            print '...label:', hex(addr), nonfloatlocs
+##        FUNC = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Void))
+##        ll_disp = llhelper(FUNC, fn)
+##        faddr = rffi.cast(lltype.Signed, ll_disp)
+##        for i in range(16):
+##            self.assembler.mc.PUSH_r(i)
+##        self.assembler.mc.CALL_l(0)
+##        self.assembler.mc.POP(edi)
+##        self.assembler.mc.MOV(r11, imm(faddr))
+##        self.assembler.mc.CALL(r11)
+##        for i in range(15, -1, -1):
+##            if i == esp.value:
+##                i -= 1
+##            self.assembler.mc.POP_r(i)
 
     def not_implemented_op(self, op):
         not_implemented("not implemented operation: %s" % op.getopname())
@@ -1404,8 +1549,11 @@ def get_ebp_ofs(position):
     # i.e. the n'th word beyond the fixed frame size.
     return -WORD * (FRAME_FIXED_SIZE + position)
 
+def _valid_addressing_size(size):
+    return size == 1 or size == 2 or size == 4 or size == 8
+
 def _get_scale(size):
-    assert size == 1 or size == 2 or size == 4 or size == 8
+    assert _valid_addressing_size(size)
     if size < 4:
         return size - 1         # 1, 2 => 0, 1
     else:
@@ -1414,3 +1562,7 @@ def _get_scale(size):
 def not_implemented(msg):
     os.write(2, '[x86/regalloc] %s\n' % msg)
     raise NotImplementedError(msg)
+
+# xxx hack: set a default value for TargetToken._x86_loop_code.
+# If 0, we know that it is a LABEL that was not compiled yet.
+TargetToken._x86_loop_code = 0

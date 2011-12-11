@@ -36,12 +36,12 @@ def test_really_run():
     assert info.tracing_no == 1
     assert info.asm_no == 1
     assert info.blackhole_no == 1
-    assert info.backend_no == 2
+    assert info.backend_no == 1
     assert info.ops.total == 2
     assert info.recorded_ops.total == 2
     assert info.recorded_ops.calls == 0
     assert info.guards == 1
-    assert info.opt_ops == 11
+    assert info.opt_ops == 13
     assert info.opt_guards == 2
     assert info.forcings == 0
 

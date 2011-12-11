@@ -392,6 +392,7 @@ def build_exported_objects():
         'Slice': 'space.gettypeobject(W_SliceObject.typedef)',
         'StaticMethod': 'space.gettypeobject(StaticMethod.typedef)',
         'CFunction': 'space.gettypeobject(cpyext.methodobject.W_PyCFunctionObject.typedef)',
+        'WrapperDescr': 'space.gettypeobject(cpyext.methodobject.W_PyCMethodObject.typedef)'
         }.items():
         GLOBALS['Py%s_Type#' % (cpyname, )] = ('PyTypeObject*', pypyexpr)
 
@@ -863,6 +864,7 @@ def build_eci(building_bridge, export_symbols, code):
         elif sys.platform.startswith('linux'):
             compile_extra.append("-Werror=implicit-function-declaration")
         export_symbols_eci.append('pypyAPI')
+        compile_extra.append('-g')
     else:
         kwds["includes"] = ['Python.h'] # this is our Python.h
 

@@ -40,13 +40,15 @@ class Signature(BaseSignature):
         return Signature._known_sigs.setdefault(components, Signature(components))
 
 class Call1(BaseSignature):
-    _immutable_fields_ = ["func"]
+    _immutable_fields_ = ["func", "name"]
 
     def __init__(self, func):
         self.func = func
+        self.name = func.func_name
 
 class Call2(BaseSignature):
-    _immutable_fields_ = ["func"]
+    _immutable_fields_ = ["func", "name"]
 
     def __init__(self, func):
         self.func = func
+        self.name = func.func_name
