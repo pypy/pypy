@@ -309,12 +309,11 @@ class Assembler386(object):
                 mc.MOVSD_sx(8*i, i)     # xmm0 to xmm7
         #
         if IS_X86_32:
-            mc.LEA_rb(eax.value, +8)
             stack_size += 2*WORD
             mc.PUSH_r(eax.value)        # alignment
-            mc.PUSH_r(eax.value)
+            mc.PUSH_r(esp.value)
         elif IS_X86_64:
-            mc.LEA_rb(edi.value, +16)
+            mc.MOV_rr(edi.value, esp.value)
         #
         # esp is now aligned to a multiple of 16 again
         mc.CALL(imm(slowpathaddr))
@@ -325,7 +324,7 @@ class Assembler386(object):
         jnz_location = mc.get_relative_pos()
         #
         if IS_X86_32:
-            mc.ADD_ri(esp.value, 2*WORD)
+            mc.ADD_ri(esp.value, 2*WORD)    # cancel the two PUSHes above
         elif IS_X86_64:
             # restore the registers
             for i in range(7, -1, -1):
