@@ -737,10 +737,23 @@ class JitCellToken(AbstractDescr):
 
 class TargetToken(AbstractDescr):
     def __init__(self, targeting_jitcell_token=None):
-        # The jitcell to which jumps might result in a jump to this label
+        # Warning, two different jitcell_tokens here!
+        #
+        # * 'targeting_jitcell_token' is only useful for the front-end,
+        #   and it means: consider the LABEL that uses this TargetToken.
+        #   At this position, the state is logically the one given
+        #   by targeting_jitcell_token.  So e.g. if we want to enter the
+        #   JIT with some given green args, if the jitcell matches, then
+        #   we can jump to this LABEL.
+        #
+        # * 'original_jitcell_token' is information from the backend's
+        #   point of view: it means that this TargetToken is used in
+        #   a LABEL that belongs to either:
+        #   - a loop; then 'original_jitcell_token' is this loop
+        #   - or a bridge; then 'original_jitcell_token' is the loop
+        #     out of which we made this bridge
+        #
         self.targeting_jitcell_token = targeting_jitcell_token
-        
-        # The jitcell where the trace containing the label with this TargetToken begins
         self.original_jitcell_token = None
 
         self.virtual_state = None
