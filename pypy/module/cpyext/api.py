@@ -1055,6 +1055,7 @@ def make_generic_cpy_call(FT, decref_args, expect_null):
         boxed_args = ()
         to_decref = []
         assert len(args) == len(FT.ARGS)
+        import pdb; pdb.set_trace()
         for i, ARG in unrolling_arg_types:
             arg = args[i]
             if is_PyObject(ARG):
