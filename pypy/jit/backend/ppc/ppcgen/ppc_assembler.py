@@ -436,7 +436,7 @@ class AssemblerPPC(OpAssembler):
 
         # load values passed on the stack to the corresponding locations
         stack_position = self.OFFSET_SPP_TO_OLD_BACKCHAIN\
-                         + BACKCHAIN_SIZE
+                         + BACKCHAIN_SIZE * WORD
 
         count = 0
         for i in range(reg_args, len(inputargs)):
