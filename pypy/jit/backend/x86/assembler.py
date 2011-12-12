@@ -1754,10 +1754,10 @@ class Assembler386(object):
     DESCR_INT       = 0x01
     DESCR_FLOAT     = 0x02
     DESCR_SPECIAL   = 0x03
-    # XXX: 4*8 works on i386, should we optimize for that case?
-    CODE_FROMSTACK  = 4*16
+    CODE_FROMSTACK  = 4 * (8 + 8*IS_X86_64)
     CODE_STOP       = 0 | DESCR_SPECIAL
     CODE_HOLE       = 4 | DESCR_SPECIAL
+    CODE_INPUTARG   = 8 | DESCR_SPECIAL
 
     def write_failure_recovery_description(self, mc, failargs, locs):
         for i in range(len(failargs)):
@@ -1773,7 +1773,11 @@ class Assembler386(object):
                     raise AssertionError("bogus kind")
                 loc = locs[i]
                 if isinstance(loc, StackLoc):
-                    n = self.CODE_FROMSTACK//4 + loc.position
+                    pos = loc.position
+                    if pos < 0:
+                        mc.writechar(chr(self.CODE_INPUTARG))
+                        pos = ~pos
+                    n = self.CODE_FROMSTACK//4 + pos
                 else:
                     assert isinstance(loc, RegLoc)
                     n = loc.value
@@ -1793,6 +1797,7 @@ class Assembler386(object):
         descr_to_box_type = [REF, INT, FLOAT]
         bytecode = rffi.cast(rffi.UCHARP, bytecode)
         arglocs = []
+        code_inputarg = False
         while 1:
             # decode the next instruction from the bytecode
             code = rffi.cast(lltype.Signed, bytecode[0])
@@ -1811,10 +1816,16 @@ class Assembler386(object):
                             break
                 kind = code & 3
                 code = (code - self.CODE_FROMSTACK) >> 2
+                if code_inputarg:
+                    code = ~code
+                    code_inputarg = False
                 loc = X86FrameManager.frame_pos(code, descr_to_box_type[kind])
             elif code == self.CODE_STOP:
                 break
             elif code == self.CODE_HOLE:
+                continue
+            elif code == self.CODE_INPUTARG:
+                code_inputarg = True
                 continue
             else:
                 # 'code' identifies a register
@@ -1831,6 +1842,7 @@ class Assembler386(object):
     def grab_frame_values(self, bytecode, frame_addr, allregisters):
         # no malloc allowed here!!
         self.fail_ebp = allregisters[16 + ebp.value]
+        code_inputarg = False
         num = 0
         value_hi = 0
         while 1:
@@ -1851,6 +1863,9 @@ class Assembler386(object):
                 # load the value from the stack
                 kind = code & 3
                 code = (code - self.CODE_FROMSTACK) >> 2
+                if code_inputarg:
+                    code = ~code
+                    code_inputarg = False
                 stackloc = frame_addr + get_ebp_ofs(code)
                 value = rffi.cast(rffi.LONGP, stackloc)[0]
                 if kind == self.DESCR_FLOAT and WORD == 4:
@@ -1862,6 +1877,9 @@ class Assembler386(object):
                 if kind == self.DESCR_SPECIAL:
                     if code == self.CODE_HOLE:
                         num += 1
+                        continue
+                    if code == self.CODE_INPUTARG:
+                        code_inputarg = True
                         continue
                     assert code == self.CODE_STOP
                     break
