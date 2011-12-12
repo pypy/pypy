@@ -5,6 +5,7 @@ import numpypy
 
 inf = float("inf")
 e = math.e
+pi = math.pi
 
 
 def average(a):
@@ -18,6 +19,20 @@ def mean(a):
         a = numpypy.array(a)
     return a.mean()
 
+def sum(a):
+    if not hasattr(a, "sum"):
+        a = numpypy.array(a)
+    return a.sum()
+
+def min(a):
+    if not hasattr(a, "min"):
+        a = numpypy.array(a)
+    return a.min()
+
+def max(a):
+    if not hasattr(a, "max"):
+        a = numpypy.array(a)
+    return a.max()
 
 def arange(start, stop=None, step=1, dtype=None):
     '''arange([start], stop[, step], dtype=None)
