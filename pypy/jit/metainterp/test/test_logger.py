@@ -5,7 +5,7 @@ from pypy.jit.metainterp import logger
 from pypy.jit.metainterp.typesystem import llhelper
 from StringIO import StringIO
 from pypy.jit.metainterp.optimizeopt.util import equaloplists
-from pypy.jit.metainterp.history import AbstractDescr, LoopToken, BasicFailDescr
+from pypy.jit.metainterp.history import AbstractDescr, JitCellToken, BasicFailDescr
 from pypy.jit.backend.model import AbstractCPU
 
 
@@ -131,7 +131,7 @@ class TestLogger(object):
         equaloplists(loop.operations, oloop.operations)
 
     def test_jump(self):
-        namespace = {'target': LoopToken()}
+        namespace = {'target': JitCellToken()}
         namespace['target'].number = 3
         inp = '''
         [i0]

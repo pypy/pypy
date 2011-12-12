@@ -4,7 +4,7 @@
 
 import py
 from pypy.jit.metainterp.history import BoxInt, ConstInt,\
-     BoxPtr, ConstPtr, TreeLoop
+     BoxPtr, ConstPtr, TreeLoop, TargetToken
 from pypy.jit.metainterp.resoperation import rop, ResOperation
 from pypy.jit.codewriter import heaptracker
 from pypy.jit.codewriter.effectinfo import EffectInfo
@@ -113,6 +113,8 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
     descr0 = cpu.fielddescrof(S, 'int')
     ptr0 = struct_ref
 
+    targettoken = TargetToken()
+
     namespace = locals().copy()
 
     def test_basic(self):
@@ -136,6 +138,7 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
     def test_bug_0(self):
         ops = '''
         [i0, i1, i2, i3, i4, i5, i6, i7, i8]
+        label(i0, i1, i2, i3, i4, i5, i6, i7, i8, descr=targettoken)
         guard_value(i2, 1) [i2, i3, i4, i5, i6, i7, i0, i1, i8]
         guard_class(i4, 138998336) [i4, i5, i6, i7, i0, i1, i8]
         i11 = getfield_gc(i4, descr=descr0)
@@ -163,7 +166,7 @@ class TestRegallocGcIntegration(BaseTestRegalloc):
         guard_false(i32) [i4, i6, i7, i0, i1, i24]
         i33 = getfield_gc(i0, descr=descr0)
         guard_value(i33, ConstPtr(ptr0)) [i4, i6, i7, i0, i1, i33, i24]
-        jump(i0, i1, 1, 17, i4, ConstPtr(ptr0), i6, i7, i24)
+        jump(i0, i1, 1, 17, i4, ConstPtr(ptr0), i6, i7, i24, descr=targettoken)
         '''
         self.interpret(ops, [0, 0, 0, 0, 0, 0, 0, 0, 0], run=False)
 

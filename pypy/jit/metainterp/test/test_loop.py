@@ -36,7 +36,7 @@ class LoopTest(object):
             return res * 2
         res = self.meta_interp(f, [6, 7])
         assert res == 84
-        self.check_loop_count(1)
+        self.check_trace_count(1)
 
     def test_loop_with_delayed_setfield(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res', 'a'])
@@ -58,7 +58,7 @@ class LoopTest(object):
             return res * 2
         res = self.meta_interp(f, [6, 13])
         assert res == f(6, 13)
-        self.check_loop_count(1)
+        self.check_trace_count(1)
         if self.enable_opts:
             self.check_resops(setfield_gc=2, getfield_gc=0)
 
@@ -90,9 +90,9 @@ class LoopTest(object):
         res = self.meta_interp(f, [6, 33], policy=StopAtXPolicy(l))
         assert res == f(6, 33)
         if self.enable_opts:
-            self.check_loop_count(3)
+            self.check_trace_count(2)
         else:
-            self.check_loop_count(2)
+            self.check_trace_count(2)
 
     def test_alternating_loops(self):
         myjitdriver = JitDriver(greens = [], reds = ['pattern'])
@@ -108,9 +108,9 @@ class LoopTest(object):
             return 42
         self.meta_interp(f, [0xF0F0F0])
         if self.enable_opts:
-            self.check_loop_count(3)
+            self.check_trace_count(3)
         else:
-            self.check_loop_count(2)
+            self.check_trace_count(2)
 
     def test_interp_simple(self):
         myjitdriver = JitDriver(greens = ['i'], reds = ['x', 'y'])
@@ -135,7 +135,7 @@ class LoopTest(object):
             return x
         res = self.meta_interp(f, [100, 30])
         assert res == 42
-        self.check_loop_count(0)
+        self.check_trace_count(0)
 
     def test_green_prevents_loop(self):
         myjitdriver = JitDriver(greens = ['i'], reds = ['x', 'y'])
@@ -154,7 +154,7 @@ class LoopTest(object):
             return x
         res = self.meta_interp(f, [100, 5])
         assert res == f(100, 5)
-        self.check_loop_count(0)
+        self.check_trace_count(0)
 
     def test_interp_single_loop(self):
         myjitdriver = JitDriver(greens = ['i'], reds = ['x', 'y'])
@@ -179,7 +179,7 @@ class LoopTest(object):
             return x
         res = self.meta_interp(f, [5, 8])
         assert res == 42
-        self.check_loop_count(1)
+        self.check_trace_count(1)
         # the 'int_eq' and following 'guard' should be constant-folded
         if 'unroll' in self.enable_opts:
             self.check_resops(int_eq=0, guard_true=2, guard_false=0)
@@ -194,7 +194,10 @@ class LoopTest(object):
                     assert isinstance(liveboxes[0], history.BoxInt)
                     assert isinstance(liveboxes[1], history.BoxInt)
                     found += 1
-            assert found == 1
+            if 'unroll' in self.enable_opts:
+                assert found == 2
+            else:
+                assert found == 1
 
     def test_interp_many_paths(self):
         myjitdriver = JitDriver(greens = ['i'], reds = ['x', 'node'])
@@ -229,7 +232,7 @@ class LoopTest(object):
         expected = f(node1)
         res = self.meta_interp(f, [node1])
         assert res == expected
-        self.check_loop_count_at_most(19)
+        self.check_trace_count_at_most(19)
 
     def test_interp_many_paths_2(self):
         myjitdriver = JitDriver(greens = ['i'], reds = ['x', 'node'])
@@ -268,7 +271,7 @@ class LoopTest(object):
         expected = f(node1)
         res = self.meta_interp(f, [node1])
         assert res == expected
-        self.check_loop_count_at_most(19)
+        self.check_trace_count_at_most(19)
 
     def test_nested_loops(self):
         myjitdriver = JitDriver(greens = ['i'], reds = ['x', 'y'])
@@ -601,11 +604,11 @@ class LoopTest(object):
         assert res == expected
 
         if self.enable_opts:
-            self.check_loop_count(2)
-            self.check_tree_loop_count(2)   # 1 loop, 1 bridge from interp
+            self.check_trace_count(2)
+            self.check_jitcell_token_count(1)   # 1 loop with bridge from interp
         else:
-            self.check_loop_count(2)
-            self.check_tree_loop_count(1)   # 1 loop, callable from the interp
+            self.check_trace_count(2)
+            self.check_jitcell_token_count(1)   # 1 loop, callable from the interp
 
     def test_example(self):
         myjitdriver = JitDriver(greens = ['i'],
@@ -646,10 +649,10 @@ class LoopTest(object):
 
         res = self.meta_interp(main_interpreter_loop, [1])
         assert res == 102
-        self.check_loop_count(1)
+        self.check_trace_count(1)
         if 'unroll' in self.enable_opts:
             self.check_resops({'int_add' : 6, 'int_gt' : 2,
-                               'guard_false' : 2, 'jump' : 2})
+                               'guard_false' : 2, 'jump' : 1})
         else:
             self.check_resops({'int_add' : 3, 'int_gt' : 1,
                                'guard_false' : 1, 'jump' : 1})
@@ -691,7 +694,7 @@ class LoopTest(object):
 
         res = self.meta_interp(main_interpreter_loop, [1])
         assert res == main_interpreter_loop(1)
-        self.check_loop_count(1)
+        self.check_trace_count(1)
         # These loops do different numbers of ops based on which optimizer we
         # are testing with.
         self.check_resops(self.automatic_promotion_result)
@@ -753,7 +756,7 @@ class LoopTest(object):
         res = self.meta_interp(interpret, [1])
         assert res == interpret(1)
         # XXX it's unsure how many loops should be there
-        self.check_loop_count(3)
+        self.check_trace_count(3)
 
     def test_path_with_operations_not_from_start(self):
         jitdriver = JitDriver(greens = ['k'], reds = ['n', 'z'])

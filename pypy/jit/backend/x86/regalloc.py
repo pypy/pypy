@@ -5,7 +5,8 @@
 import os
 from pypy.jit.metainterp.history import (Box, Const, ConstInt, ConstPtr,
                                          ResOperation, BoxPtr, ConstFloat,
-                                         BoxFloat, LoopToken, INT, REF, FLOAT)
+                                         BoxFloat, INT, REF, FLOAT,
+                                         TargetToken, JitCellToken)
 from pypy.jit.backend.x86.regloc import *
 from pypy.rpython.lltypesystem import lltype, rffi, rstr
 from pypy.rlib.objectmodel import we_are_translated
@@ -163,6 +164,7 @@ class RegAlloc(object):
         # to be read/used by the assembler too
         self.jump_target_descr = None
         self.close_stack_struct = 0
+        self.final_jump_op = None
 
     def _prepare(self, inputargs, operations, allgcrefs):
         self.fm = X86FrameManager()
@@ -891,7 +893,7 @@ class RegAlloc(object):
 
     def consider_call_assembler(self, op, guard_op):
         descr = op.getdescr()
-        assert isinstance(descr, LoopToken)
+        assert isinstance(descr, JitCellToken)
         jd = descr.outermost_jitdriver_sd
         assert jd is not None
         size = jd.portal_calldescr.get_result_size(self.translate_support_code)
@@ -1323,16 +1325,30 @@ class RegAlloc(object):
 
     def compute_hint_frame_locations(self, operations):
         # optimization only: fill in the 'hint_frame_locations' dictionary
-        # of rm and xrm based on the JUMP at the end of the loop, by looking
+        # of 'fm' based on the JUMP at the end of the loop, by looking
         # at where we would like the boxes to be after the jump.
         op = operations[-1]
         if op.getopnum() != rop.JUMP:
             return
+        self.final_jump_op = op
         descr = op.getdescr()
-        assert isinstance(descr, LoopToken)
-        nonfloatlocs, floatlocs = self.assembler.target_arglocs(descr)
-        for i in range(op.numargs()):
-            box = op.getarg(i)
+        assert isinstance(descr, TargetToken)
+        if descr._x86_loop_code != 0:
+            # if the target LABEL was already compiled, i.e. if it belongs
+            # to some already-compiled piece of code
+            self._compute_hint_frame_locations_from_descr(descr)
+        #else:
+        #   The loop ends in a JUMP going back to a LABEL in the same loop.
+        #   We cannot fill 'hint_frame_locations' immediately, but we can
+        #   wait until the corresponding consider_label() to know where the
+        #   we would like the boxes to be after the jump.
+
+    def _compute_hint_frame_locations_from_descr(self, descr):
+        nonfloatlocs, floatlocs = descr._x86_arglocs
+        jump_op = self.final_jump_op
+        assert len(nonfloatlocs) == jump_op.numargs()
+        for i in range(jump_op.numargs()):
+            box = jump_op.getarg(i)
             if isinstance(box, Box):
                 loc = nonfloatlocs[i]
                 if isinstance(loc, StackLoc):
@@ -1348,9 +1364,9 @@ class RegAlloc(object):
         assembler = self.assembler
         assert self.jump_target_descr is None
         descr = op.getdescr()
-        assert isinstance(descr, LoopToken)
+        assert isinstance(descr, TargetToken)
+        nonfloatlocs, floatlocs = descr._x86_arglocs
         self.jump_target_descr = descr
-        nonfloatlocs, floatlocs = assembler.target_arglocs(self.jump_target_descr)
         # compute 'tmploc' to be all_regs[0] by spilling what is there
         box = TempBox()
         box1 = TempBox()
@@ -1423,6 +1439,74 @@ class RegAlloc(object):
         # the FORCE_TOKEN operation returns directly 'ebp'
         self.rm.force_allocate_frame_reg(op.result)
 
+    def consider_label(self, op):
+        # XXX big refactoring needed?
+        descr = op.getdescr()
+        assert isinstance(descr, TargetToken)
+        inputargs = op.getarglist()
+        floatlocs = [None] * len(inputargs)
+        nonfloatlocs = [None] * len(inputargs)
+        #
+        # we need to make sure that the tmpreg and xmmtmp are free
+        tmpreg = X86RegisterManager.all_regs[0]
+        tmpvar = TempBox()
+        self.rm.force_allocate_reg(tmpvar, selected_reg=tmpreg)
+        self.rm.possibly_free_var(tmpvar)
+        #
+        xmmtmp = X86XMMRegisterManager.all_regs[0]
+        tmpvar = TempBox()
+        self.xrm.force_allocate_reg(tmpvar, selected_reg=xmmtmp)
+        self.xrm.possibly_free_var(tmpvar)
+        #
+        # we need to make sure that no variable is stored in ebp
+        for arg in inputargs:
+            if self.loc(arg) is ebp:
+                loc2 = self.fm.loc(arg)
+                self.assembler.mc.MOV(loc2, ebp)
+        self.rm.bindings_to_frame_reg.clear()
+        #
+        for i in range(len(inputargs)):
+            arg = inputargs[i]
+            assert not isinstance(arg, Const)
+            loc = self.loc(arg)
+            assert not (loc is tmpreg or loc is xmmtmp or loc is ebp)
+            if arg.type == FLOAT:
+                floatlocs[i] = loc
+            else:
+                nonfloatlocs[i] = loc
+            if isinstance(loc, RegLoc):
+                self.fm.mark_as_free(arg)
+        descr._x86_arglocs = nonfloatlocs, floatlocs
+        descr._x86_loop_code = self.assembler.mc.get_relative_pos()
+        descr._x86_clt = self.assembler.current_clt
+        self.assembler.target_tokens_currently_compiling[descr] = None
+        self.possibly_free_vars_for_op(op)
+        #
+        # if the LABEL's descr is precisely the target of the JUMP at the
+        # end of the same loop, i.e. if what we are compiling is a single
+        # loop that ends up jumping to this LABEL, then we can now provide
+        # the hints about the expected position of the spilled variables.
+        jump_op = self.final_jump_op
+        if jump_op is not None and jump_op.getdescr() is descr:
+            self._compute_hint_frame_locations_from_descr(descr)
+
+##        from pypy.rpython.annlowlevel import llhelper
+##        def fn(addr):
+##            print '...label:', hex(addr), nonfloatlocs
+##        FUNC = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Void))
+##        ll_disp = llhelper(FUNC, fn)
+##        faddr = rffi.cast(lltype.Signed, ll_disp)
+##        for i in range(16):
+##            self.assembler.mc.PUSH_r(i)
+##        self.assembler.mc.CALL_l(0)
+##        self.assembler.mc.POP(edi)
+##        self.assembler.mc.MOV(r11, imm(faddr))
+##        self.assembler.mc.CALL(r11)
+##        for i in range(15, -1, -1):
+##            if i == esp.value:
+##                i -= 1
+##            self.assembler.mc.POP_r(i)
+
     def not_implemented_op(self, op):
         not_implemented("not implemented operation: %s" % op.getopname())
 
@@ -1478,3 +1562,7 @@ def _get_scale(size):
 def not_implemented(msg):
     os.write(2, '[x86/regalloc] %s\n' % msg)
     raise NotImplementedError(msg)
+
+# xxx hack: set a default value for TargetToken._x86_loop_code.
+# If 0, we know that it is a LABEL that was not compiled yet.
+TargetToken._x86_loop_code = 0
