@@ -981,15 +981,19 @@ class Stats(object):
         self.aborted_keys = []
         self.invalidated_token_numbers = set()    # <- not RPython
         self.jitcell_token_wrefs = []
+        self.jitcell_dicts = []                   # <- not RPython
 
     def clear(self):
         del self.loops[:]
         del self.locations[:]
         del self.aborted_keys[:]
+        del self.jitcell_token_wrefs[:]
         self.invalidated_token_numbers.clear()
         self.compiled_count = 0
         self.enter_count = 0
         self.aborted_count = 0
+        for dict in self.jitcell_dicts:
+            dict.clear()
 
     def add_jitcell_token(self, token):
         assert isinstance(token, JitCellToken)

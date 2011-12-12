@@ -439,6 +439,10 @@ class WarmEnterState(object):
             return x
         #
         jitcell_dict = r_dict(comparekey, hashkey)
+        try:
+            self.warmrunnerdesc.stats.jitcell_dicts.append(jitcell_dict)
+        except AttributeError:
+            pass
         #
         def get_jitcell(build, *greenargs):
             try:
