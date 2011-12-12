@@ -649,14 +649,8 @@ class RandomLoop(object):
         exc = cpu.grab_exc_value()
         assert not exc
 
-        for i, box in enumerate(self.startvars):
-            if isinstance(box, BoxInt):
-                cpu.set_future_value_int(i, box.value)
-            elif isinstance(box, BoxFloat):
-                cpu.set_future_value_float(i, box.value)
-            else:
-                raise NotImplementedError(box)
-        fail = cpu.execute_token(self.runjitcelltoken())
+        arguments = [box.value for box in self.startvars]
+        fail = cpu.execute_token(self.runjitcelltoken(), *arguments)
         assert fail is self.should_fail_by.getdescr()
         for i, v in enumerate(self.get_fail_args()):
             if isinstance(v, (BoxFloat, ConstFloat)):
