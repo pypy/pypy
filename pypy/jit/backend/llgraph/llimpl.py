@@ -330,7 +330,11 @@ def compile_start_ref_var(loop, TYPE):
 
 def compile_started_vars(clt):
     if not hasattr(clt, '_debug_argtypes'):    # only when compiling the loop
-        clt._debug_argtypes = [v.concretetype for v in _variables]
+        argtypes = [v.concretetype for v in _variables]
+        try:
+            clt._debug_argtypes = argtypes
+        except AttributeError:    # when translated
+            pass
 
 def compile_add(loop, opnum):
     loop = _from_opaque(loop)
@@ -407,7 +411,10 @@ def compile_add_jump_target(loop, targettoken, source_clt):
     (loop_target, target_opindex, target_inputargs, target_clt
         ) = TARGET_TOKENS[descrobj]
     #
-    assert source_clt._debug_argtypes == target_clt._debug_argtypes
+    try:
+        assert source_clt._debug_argtypes == target_clt._debug_argtypes
+    except AttributeError:   # when translated
+        pass
     #
     op = loop.operations[-1]
     op.jump_target = loop_target
@@ -1828,6 +1835,7 @@ setannotation(compile_start, s_CompiledLoop)
 setannotation(compile_start_int_var, annmodel.SomeInteger())
 setannotation(compile_start_ref_var, annmodel.SomeInteger())
 setannotation(compile_start_float_var, annmodel.SomeInteger())
+setannotation(compile_started_vars, annmodel.s_None)
 setannotation(compile_add, annmodel.s_None)
 setannotation(compile_add_descr, annmodel.s_None)
 setannotation(compile_add_descr_arg, annmodel.s_None)
