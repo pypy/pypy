@@ -207,6 +207,7 @@ def compile_retrace(metainterp, greenkey, start,
                       [h_ops[i].clone() for i in range(start, len(h_ops))] + \
                       [ResOperation(rop.JUMP, jumpargs, None, descr=loop_jitcell_token)]
     label = part.operations[0]
+    orignial_label = label.clone()
     assert label.getopnum() == rop.LABEL
     try:
         optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts)
@@ -216,12 +217,13 @@ def compile_retrace(metainterp, greenkey, start,
         target_token = label.getdescr()
         assert isinstance(target_token, TargetToken)
         assert target_token.exported_state
-        part.operations = [label] + \
+        part.operations = [orignial_label] + \
                           [ResOperation(rop.JUMP, target_token.exported_state.jump_args,
                                         None, descr=loop_jitcell_token)]
         try:
             optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts,
                            inline_short_preamble=False)
+            
         except InvalidLoop:
             return None
     assert part.operations[-1].getopnum() != rop.LABEL

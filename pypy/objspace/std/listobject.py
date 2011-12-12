@@ -694,14 +694,16 @@ class AbstractUnwrappedStrategy(object):
         return self.wrap(r)
 
     @jit.look_inside_iff(lambda self, w_list:
-            jit.isconstant(w_list.length()) and w_list.length() < UNROLL_CUTOFF)
+           jit.isconstant(w_list.length()) and w_list.length() < UNROLL_CUTOFF)
     def getitems_copy(self, w_list):
         return [self.wrap(item) for item in self.unerase(w_list.lstorage)]
 
     @jit.unroll_safe
     def getitems_unroll(self, w_list):
         return [self.wrap(item) for item in self.unerase(w_list.lstorage)]
-    @jit.dont_look_inside
+
+    @jit.look_inside_iff(lambda self, w_list:
+           jit.isconstant(w_list.length()) and w_list.length() < UNROLL_CUTOFF)
     def getitems_fixedsize(self, w_list):
         return self.getitems_unroll(w_list)
 
