@@ -99,7 +99,7 @@ class BaseLLStringRepr(Repr):
             return p
 
     def make_iterator_repr(self):
-        return self.iterator_repr
+        return self.repr.iterator_repr
 
     def can_ll_be_null(self, s_value):
         # XXX unicode
