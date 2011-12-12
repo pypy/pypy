@@ -729,6 +729,10 @@ class AssemblerPPC(OpAssembler):
                        + PARAMETER_AREA
                        + BACKCHAIN_SIZE * WORD)
 
+        # align stack pointer
+        while frame_depth % (4 * WORD) != 0:
+            frame_depth += WORD
+
         return frame_depth
     
     def materialize_loop(self, looptoken, show):
