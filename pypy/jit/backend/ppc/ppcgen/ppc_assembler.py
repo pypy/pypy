@@ -251,7 +251,6 @@ class AssemblerPPC(OpAssembler):
             else:
                 assert 0, 'unknown type'
 
-
         assert enc[i] == self.END_OF_LOCS
         descr = decode32(enc, i+1)
         self.fail_boxes_count = fail_index
@@ -290,12 +289,6 @@ class AssemblerPPC(OpAssembler):
 
     def _gen_leave_jitted_hook_code(self, save_exc=False):
         mc = PPCBuilder()
-
-        # PLAN:
-        # =====
-        # save caller save registers AND(!) r0 
-        # (r0 contains address of state encoding)
-
         mc.b_abs(self.exit_code_adr)
         mc.prepare_insts_blocks()
         return mc.materialize(self.cpu.asmmemmgr, [],
@@ -312,7 +305,6 @@ class AssemblerPPC(OpAssembler):
     #   - jump back to the calling code
     def _gen_exit_path(self):
         mc = PPCBuilder() 
-        mc.mr(r.r6.value, r.r3.value)
         self._save_managed_regs(mc)
         decode_func_addr = llhelper(self.recovery_func_sign,
                 self.failure_recovery_func)
@@ -324,8 +316,6 @@ class AssemblerPPC(OpAssembler):
             addr = descr[0]
             r2_value = descr[1]
             r11_value = descr[2]
-
-
 
         # load parameters into parameter registers
         if IS_PPC_32:
