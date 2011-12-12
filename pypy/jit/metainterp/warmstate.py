@@ -554,8 +554,9 @@ class WarmEnterState(object):
             jd.on_compile = lambda *args: None
             jd.on_compile_bridge = lambda *args: None
 
-        def get_assembler_token(greenkey, redboxes):
-            # 'redboxes' is only used to know the types of red arguments
+        redargtypes = ''.join([kind[0] for kind in jd.red_args_types])
+
+        def get_assembler_token(greenkey):
             cell = self.jit_cell_at_key(greenkey)
             procedure_token = cell.get_procedure_token()
             if procedure_token is None:
@@ -564,7 +565,7 @@ class WarmEnterState(object):
                     cell.counter = 0      # but was freed in the meantime.
                 memmgr = warmrunnerdesc.memory_manager
                 procedure_token = compile_tmp_callback(cpu, jd, greenkey,
-                                                   redboxes, memmgr)
+                                                       redargtypes, memmgr)
                 cell.set_procedure_token(procedure_token)
             return procedure_token
         self.get_assembler_token = get_assembler_token

@@ -2423,22 +2423,6 @@ class MetaInterp(object):
                                             abox, ConstInt(j), itembox)
             assert i + 1 == len(self.virtualizable_boxes)
 
-    def gen_load_from_other_virtualizable(self, vinfo, vbox):
-        boxes = []
-        assert vinfo is not None
-        for i in range(vinfo.num_static_extra_boxes):
-            descr = vinfo.static_field_descrs[i]
-            boxes.append(self.execute_and_record(rop.GETFIELD_GC, descr, vbox))
-        virtualizable = vinfo.unwrap_virtualizable_box(vbox)
-        for k in range(vinfo.num_arrays):
-            descr = vinfo.array_field_descrs[k]
-            abox = self.execute_and_record(rop.GETFIELD_GC, descr, vbox)
-            descr = vinfo.array_descrs[k]
-            for j in range(vinfo.get_array_length(virtualizable, k)):
-                boxes.append(self.execute_and_record(rop.GETARRAYITEM_GC, descr,
-                                                     abox, ConstInt(j)))
-        return boxes
-
     def replace_box(self, oldbox, newbox):
         assert isinstance(oldbox, Box)
         for frame in self.framestack:
@@ -2510,14 +2494,8 @@ class MetaInterp(object):
         greenargs = arglist[1:num_green_args+1]
         args = arglist[num_green_args+1:]
         assert len(args) == targetjitdriver_sd.num_red_args
-        vinfo = targetjitdriver_sd.virtualizable_info
-        if vinfo is not None:
-            index = targetjitdriver_sd.index_of_virtualizable
-            vbox = args[index]
-            args = args + self.gen_load_from_other_virtualizable(vinfo, vbox)
-            # ^^^ and not "+=", which makes 'args' a resizable list
         warmrunnerstate = targetjitdriver_sd.warmstate
-        token = warmrunnerstate.get_assembler_token(greenargs, args)
+        token = warmrunnerstate.get_assembler_token(greenargs)
         op = op.copy_and_change(rop.CALL_ASSEMBLER, args=args, descr=token)
         self.history.operations.append(op)
 

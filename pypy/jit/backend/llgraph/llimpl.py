@@ -987,6 +987,7 @@ class Frame(object):
         self._may_force = self.opindex
         try:
             inpargs = _from_opaque(ctl.compiled_version).inputargs
+            assert len(inpargs) == len(args)
             for i, inparg in enumerate(inpargs):
                 TYPE = inparg.concretetype
                 if TYPE is lltype.Signed:

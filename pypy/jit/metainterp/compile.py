@@ -802,18 +802,22 @@ class PropagateExceptionDescr(AbstractFailDescr):
         assert exception, "PropagateExceptionDescr: no exception??"
         raise metainterp_sd.ExitFrameWithExceptionRef(cpu, exception)
 
-def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redboxes,
+def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
                          memory_manager=None):
     """Make a LoopToken that corresponds to assembler code that just
     calls back the interpreter.  Used temporarily: a fully compiled
     version of the code may end up replacing it.
     """
-    # 'redboxes' is only used to know the types of red arguments.
     jitcell_token = make_jitcell_token(jitdriver_sd)
-    # 'nb_red_args' might be smaller than len(redboxes),
-    # because it doesn't include the virtualizable boxes.
     nb_red_args = jitdriver_sd.num_red_args
-    inputargs = [box.clonebox() for box in redboxes[:nb_red_args]]
+    assert len(redargtypes) == nb_red_args
+    inputargs = []
+    for kind in redargtypes:
+        if   kind == history.INT:   box = BoxInt()
+        elif kind == history.REF:   box = BoxPtr()
+        elif kind == history.FLOAT: box = BoxFloat()
+        else: raise AssertionError
+        inputargs.append(box)
     k = jitdriver_sd.portal_runner_adr
     funcbox = history.ConstInt(heaptracker.adr2int(k))
     callargs = [funcbox] + greenboxes + inputargs
