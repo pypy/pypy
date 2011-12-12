@@ -141,26 +141,15 @@ class UnrollOptimizer(Optimization):
         inputargs = virtual_state.make_inputargs(values, self.optimizer)
         short_inputargs = virtual_state.make_inputargs(values, self.optimizer, keyboxes=True)
 
-        constant_inputargs = {}
-        for box in jump_args: 
-            const = self.get_constant_box(box)
-            if const:
-                constant_inputargs[box] = const
-
-        short_boxes = ShortBoxes(self.optimizer, inputargs + constant_inputargs.keys())
-        aliased_vrituals = {}
-        for i in range(len(original_jump_args)):
-            if original_jump_args[i] is not jump_args[i]:
-                if values[i].is_virtual():
-                    aliased_vrituals[original_jump_args[i]] = jump_args[i] 
-                else:
-                    short_boxes.alias(original_jump_args[i], jump_args[i])
+        short_boxes = ShortBoxes(self.optimizer, inputargs)
 
         self.optimizer.clear_newoperations()
-        for box in short_inputargs:
-            value = self.getvalue(box)
-            if value.is_virtual():
-                value.force_box(self.optimizer)
+        for i in range(len(original_jump_args)):
+            if values[i].is_virtual():
+                values[i].force_box(self.optimizer)
+            if original_jump_args[i] is not jump_args[i]:
+                op = ResOperation(rop.SAME_AS, [jump_args[i]], original_jump_args[i])
+                self.optimizer.emit_operation(op)
         inputarg_setup_ops = self.optimizer.get_newoperations()
 
         target_token = targetop.getdescr()
@@ -169,9 +158,9 @@ class UnrollOptimizer(Optimization):
         target_token.virtual_state = virtual_state
         target_token.short_preamble = [ResOperation(rop.LABEL, short_inputargs, None)]
         target_token.start_resumedescr = start_resumedescr
-        target_token.exported_state = ExportedState(constant_inputargs, short_boxes,
+        target_token.exported_state = ExportedState(short_boxes,
                                                     inputarg_setup_ops, self.optimizer,
-                                                    aliased_vrituals, jump_args)
+                                                    jump_args)
 
     def import_state(self, targetop):
         self.did_import = False
@@ -191,8 +180,6 @@ class UnrollOptimizer(Optimization):
         self.short = target_token.short_preamble[:]
         self.short_seen = {}
         self.short_boxes = exported_state.short_boxes.clone()
-        for box, const in exported_state.constant_inputargs.items():
-            self.short_seen[box] = True
         self.imported_state = exported_state
         self.inputargs = targetop.getarglist()
         self.initial_virtual_state = target_token.virtual_state
@@ -207,9 +194,6 @@ class UnrollOptimizer(Optimization):
             value = self.optimizer.getvalue(box)
             value.import_from(preamble_value, self.optimizer)
 
-        for newbox, oldbox in self.short_boxes.aliases.items():
-            self.optimizer.make_equal_to(newbox, self.optimizer.getvalue(oldbox))
-        
         # Setup the state of the new optimizer by emiting the
         # short operations and discarding the result
         self.optimizer.emitting_dissabled = True
@@ -231,12 +215,8 @@ class UnrollOptimizer(Optimization):
                     self.short_boxes.alias(newresult, op.result)
                     op = ResOperation(rop.SAME_AS, [op.result], newresult)
                     self.optimizer._newoperations = [op] + self.optimizer._newoperations # XXX
-                    #self.optimizer.getvalue(op.result).box = op.result # FIXME: HACK!!!
         self.optimizer.flush()
         self.optimizer.emitting_dissabled = False
-
-        for box, key_box in exported_state.aliased_vrituals.items():
-            self.optimizer.make_equal_to(box, self.getvalue(key_box))
 
     def close_bridge(self, start_label):
         inputargs = self.inputargs        
@@ -266,7 +246,6 @@ class UnrollOptimizer(Optimization):
     def close_loop(self, jumpop):
         virtual_state = self.initial_virtual_state
         short_inputargs = self.short[0].getarglist()
-        constant_inputargs = self.imported_state.constant_inputargs
         inputargs = self.inputargs
         short_jumpargs = inputargs[:]
 
@@ -289,8 +268,6 @@ class UnrollOptimizer(Optimization):
                     raise InvalidLoop
             args[short_inputargs[i]] = jmp_to_short_args[i]
         self.short_inliner = Inliner(short_inputargs, jmp_to_short_args)
-        for box, const in constant_inputargs.items():
-            self.short_inliner.argmap[box] = const
         for op in self.short[1:]:
             newop = self.short_inliner.inline_op(op)
             self.optimizer.send_extra_operation(newop)
@@ -381,8 +358,6 @@ class UnrollOptimizer(Optimization):
                 newargs[i] = a.clonebox()
                 boxmap[a] = newargs[i]
         inliner = Inliner(short_inputargs, newargs)
-        for box, const in self.imported_state.constant_inputargs.items():
-            inliner.argmap[box] = const
         for i in range(len(short)):
             short[i] = inliner.inline_op(short[i])
 
@@ -592,12 +567,9 @@ class ValueImporter(object):
         self.unroll.add_op_to_short(self.op, False, True)        
 
 class ExportedState(object):
-    def __init__(self, constant_inputargs,
-                 short_boxes, inputarg_setup_ops, optimizer, aliased_vrituals,
+    def __init__(self, short_boxes, inputarg_setup_ops, optimizer,
                  jump_args):
-        self.constant_inputargs = constant_inputargs
         self.short_boxes = short_boxes
         self.inputarg_setup_ops = inputarg_setup_ops
         self.optimizer = optimizer
-        self.aliased_vrituals = aliased_vrituals
         self.jump_args = jump_args
