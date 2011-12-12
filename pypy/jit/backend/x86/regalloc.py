@@ -1490,6 +1490,12 @@ class RegAlloc(object):
                 nonfloatlocs[i] = loc
             if isinstance(loc, RegLoc):
                 self.fm.mark_as_free(arg)
+        #
+        # if we are too close to the start of the loop, the label's target may
+        # get overridden by redirect_call_assembler().  (rare case)
+        while self.assembler.mc.get_relative_pos() < 13:
+            self.assembler.mc.NOP()
+        #
         descr._x86_arglocs = nonfloatlocs, floatlocs
         descr._x86_loop_code = self.assembler.mc.get_relative_pos()
         descr._x86_clt = self.assembler.current_clt

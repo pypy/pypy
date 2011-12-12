@@ -804,10 +804,11 @@ class Assembler386(object):
         # we overwrite the instructions at the old _x86_direct_bootstrap_code
         # to start with a JMP to the new _x86_direct_bootstrap_code.
         # Ideally we should rather patch all existing CALLs, but well.
-        oldadr = oldlooptoken._x86_direct_bootstrap_code
-        target = newlooptoken._x86_direct_bootstrap_code
+        oldadr = oldlooptoken._x86_function_addr
+        target = newlooptoken._x86_function_addr
         mc = codebuf.MachineCodeBlockWrapper()
         mc.JMP(imm(target))
+        assert mc.get_relative_pos() <= 13  #keep in sync with consider_label()
         mc.copy_to_raw_memory(oldadr)
 
     def dump(self, text):
