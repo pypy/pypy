@@ -423,6 +423,7 @@ class Assembler386(object):
         '''adds the following attributes to looptoken:
                _x86_function_addr   (address of the generated func, as an int)
                _x86_loop_code       (debug: addr of the start of the ResOps)
+               _x86_debug_nbargs    (debug: total # of args)
                _x86_debug_checksum
         '''
         # XXX this function is too longish and contains some code
@@ -450,6 +451,7 @@ class Assembler386(object):
                                            looptoken, clt.allgcrefs)
         looppos = self.mc.get_relative_pos()
         looptoken._x86_loop_code = looppos
+        looptoken._x86_debug_nbargs = len(inputargs)
         clt.frame_depth = -1     # temporarily
         clt.param_depth = -1     # temporarily
         frame_depth, param_depth = self._assemble(regalloc, operations)
@@ -798,10 +800,7 @@ class Assembler386(object):
 
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         # some minimal sanity checking
-        oldnonfloatlocs, oldfloatlocs = oldlooptoken._x86_arglocs
-        newnonfloatlocs, newfloatlocs = newlooptoken._x86_arglocs
-        assert len(oldnonfloatlocs) == len(newnonfloatlocs)
-        assert len(oldfloatlocs) == len(newfloatlocs)
+        assert oldlooptoken._x86_debug_nbargs == newlooptoken._x86_debug_nbargs
         # we overwrite the instructions at the old _x86_direct_bootstrap_code
         # to start with a JMP to the new _x86_direct_bootstrap_code.
         # Ideally we should rather patch all existing CALLs, but well.
@@ -2235,10 +2234,10 @@ class Assembler386(object):
         self.mc.MOV_bi(FORCE_INDEX_OFS, fail_index)
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
-        assert len(arglocs) - 2 == len(descr._x86_arglocs[0])
+        assert len(arglocs) - 2 == descr._x86_debug_nbargs
         #
-        # Write a call to the direct_bootstrap_code of the target assembler
-        self._emit_call(fail_index, imm(descr._x86_direct_bootstrap_code),
+        # Write a call to the target assembler
+        self._emit_call(fail_index, imm(descr._x86_function_addr),
                         arglocs, 2, tmp=eax)
         if op.result is None:
             assert result_loc is None
