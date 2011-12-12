@@ -6,6 +6,7 @@ from pypy.jit.metainterp.history import BasicFailDescr, TreeLoop
 from pypy.jit.metainterp.history import BoxInt, ConstInt, JitCellToken
 from pypy.jit.metainterp.history import BoxPtr, ConstPtr, TargetToken
 from pypy.jit.metainterp.history import BoxFloat, ConstFloat, Const
+from pypy.jit.metainterp.history import INT, FLOAT
 from pypy.jit.metainterp.resoperation import ResOperation, rop
 from pypy.jit.metainterp.executor import execute_nonspec
 from pypy.jit.metainterp.resoperation import opname
@@ -711,10 +712,21 @@ class RandomLoop(object):
             # to build_bridge().)
 
             # First make up the other loop...
-            subset = bridge_builder.subset_of_intvars(r)
-            subset = [i for i in subset if i in fail_args]
-            if len(subset) == 0:
-                return False
+            #
+            # New restriction: must have the same argument count and types
+            # as the original loop
+            subset = []
+            for box in self.startvars:
+                srcbox = r.choice(fail_args)
+                if srcbox.type != box.type:
+                    if box.type == INT:
+                        srcbox = ConstInt(r.random_integer())
+                    elif box.type == FLOAT:
+                        srcbox = ConstFloat(r.random_float_storage())
+                    else:
+                        raise AssertionError(box.type)
+                subset.append(srcbox)
+            #
             args = [x.clonebox() for x in subset]
             rl = RandomLoop(self.builder.cpu, self.builder.fork,
                                      r, args)
