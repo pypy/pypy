@@ -1367,51 +1367,54 @@ class RegAlloc(object):
         #   we would like the boxes to be after the jump.
 
     def _compute_hint_frame_locations_from_descr(self, descr):
-        nonfloatlocs, floatlocs = descr._x86_arglocs
+        arglocs = descr._x86_arglocs
         jump_op = self.final_jump_op
-        assert len(nonfloatlocs) == jump_op.numargs()
+        assert len(arglocs) == jump_op.numargs()
         for i in range(jump_op.numargs()):
             box = jump_op.getarg(i)
             if isinstance(box, Box):
-                loc = nonfloatlocs[i]
+                loc = arglocs[i]
                 if isinstance(loc, StackLoc):
-                    assert box.type != FLOAT
                     self.fm.hint_frame_locations[box] = loc
-                else:
-                    loc = floatlocs[i]
-                    if isinstance(loc, StackLoc):
-                        assert box.type == FLOAT
-                        self.fm.hint_frame_locations[box] = loc
 
     def consider_jump(self, op):
         assembler = self.assembler
         assert self.jump_target_descr is None
         descr = op.getdescr()
         assert isinstance(descr, TargetToken)
-        nonfloatlocs, floatlocs = descr._x86_arglocs
+        arglocs = descr._x86_arglocs
         self.jump_target_descr = descr
         # compute 'tmploc' to be all_regs[0] by spilling what is there
-        box = TempBox()
-        box1 = TempBox()
+        tmpbox1 = TempBox()
+        tmpbox2 = TempBox()
         tmpreg = X86RegisterManager.all_regs[0]
-        tmploc = self.rm.force_allocate_reg(box, selected_reg=tmpreg)
+        self.rm.force_allocate_reg(tmpbox1, selected_reg=tmpreg)
         xmmtmp = X86XMMRegisterManager.all_regs[0]
-        self.xrm.force_allocate_reg(box1, selected_reg=xmmtmp)
+        self.xrm.force_allocate_reg(tmpbox2, selected_reg=xmmtmp)
         # Part about non-floats
-        # XXX we don't need a copy, we only just the original list
-        src_locations1 = [self.loc(op.getarg(i)) for i in range(op.numargs())
-                         if op.getarg(i).type != FLOAT]
-        assert tmploc not in nonfloatlocs
-        dst_locations1 = [loc for loc in nonfloatlocs if loc is not None]
+        src_locations1 = []
+        dst_locations1 = []
         # Part about floats
-        src_locations2 = [self.loc(op.getarg(i)) for i in range(op.numargs())
-                         if op.getarg(i).type == FLOAT]
-        dst_locations2 = [loc for loc in floatlocs if loc is not None]
+        src_locations2 = []
+        dst_locations2 = []
+        # Build the four lists
+        for i in range(op.numargs()):
+            box = op.getarg(i)
+            src_loc = self.loc(box)
+            dst_loc = arglocs[i]
+            assert dst_loc != tmpreg and dst_loc != xmmtmp
+            if box.type != FLOAT:
+                src_locations1.append(src_loc)
+                dst_locations1.append(dst_loc)
+            else:
+                src_locations2.append(src_loc)
+                dst_locations2.append(dst_loc)
+        # Do the remapping
         remap_frame_layout_mixed(assembler,
-                                 src_locations1, dst_locations1, tmploc,
+                                 src_locations1, dst_locations1, tmpreg,
                                  src_locations2, dst_locations2, xmmtmp)
-        self.rm.possibly_free_var(box)
-        self.xrm.possibly_free_var(box1)
+        self.rm.possibly_free_var(tmpbox1)
+        self.xrm.possibly_free_var(tmpbox2)
         self.possibly_free_vars_for_op(op)
         assembler.closing_jump(self.jump_target_descr)
 
@@ -1463,12 +1466,10 @@ class RegAlloc(object):
         self.rm.force_allocate_frame_reg(op.result)
 
     def consider_label(self, op):
-        # XXX big refactoring needed?
         descr = op.getdescr()
         assert isinstance(descr, TargetToken)
         inputargs = op.getarglist()
-        floatlocs = [None] * len(inputargs)
-        nonfloatlocs = [None] * len(inputargs)
+        arglocs = [None] * len(inputargs)
         #
         # we need to make sure that the tmpreg and xmmtmp are free
         tmpreg = X86RegisterManager.all_regs[0]
@@ -1493,10 +1494,7 @@ class RegAlloc(object):
             assert not isinstance(arg, Const)
             loc = self.loc(arg)
             assert not (loc is tmpreg or loc is xmmtmp or loc is ebp)
-            if arg.type == FLOAT:
-                floatlocs[i] = loc
-            else:
-                nonfloatlocs[i] = loc
+            arglocs[i] = loc
             if isinstance(loc, RegLoc):
                 self.fm.mark_as_free(arg)
         #
@@ -1504,7 +1502,7 @@ class RegAlloc(object):
         # get overridden by redirect_call_assembler().  (rare case)
         self.flush_loop()
         #
-        descr._x86_arglocs = nonfloatlocs, floatlocs
+        descr._x86_arglocs = arglocs
         descr._x86_loop_code = self.assembler.mc.get_relative_pos()
         descr._x86_clt = self.assembler.current_clt
         self.assembler.target_tokens_currently_compiling[descr] = None
@@ -1517,23 +1515,6 @@ class RegAlloc(object):
         jump_op = self.final_jump_op
         if jump_op is not None and jump_op.getdescr() is descr:
             self._compute_hint_frame_locations_from_descr(descr)
-
-##        from pypy.rpython.annlowlevel import llhelper
-##        def fn(addr):
-##            print '...label:', hex(addr), nonfloatlocs
-##        FUNC = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Void))
-##        ll_disp = llhelper(FUNC, fn)
-##        faddr = rffi.cast(lltype.Signed, ll_disp)
-##        for i in range(16):
-##            self.assembler.mc.PUSH_r(i)
-##        self.assembler.mc.CALL_l(0)
-##        self.assembler.mc.POP(edi)
-##        self.assembler.mc.MOV(r11, imm(faddr))
-##        self.assembler.mc.CALL(r11)
-##        for i in range(15, -1, -1):
-##            if i == esp.value:
-##                i -= 1
-##            self.assembler.mc.POP_r(i)
 
     def not_implemented_op(self, op):
         not_implemented("not implemented operation: %s" % op.getopname())
