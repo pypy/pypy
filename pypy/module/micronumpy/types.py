@@ -197,7 +197,7 @@ class Integer(Primitive):
     _mixin_ = True
 
     def _coerce(self, space, w_item):
-        return self.box(space.int_w(space.int(w_item)))
+        return self.box(space.int_w(space.call_function(space.w_int, w_item)))
 
     def str_format(self, box):
         value = self.unbox(box)
@@ -295,7 +295,7 @@ class Float(Primitive):
     _mixin_ = True
 
     def _coerce(self, space, w_item):
-        return self.box(space.float_w(space.float(w_item)))
+        return self.box(space.float_w(space.call_function(space.w_float, w_item)))
 
     def str_format(self, box):
         value = self.unbox(box)
