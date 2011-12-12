@@ -44,7 +44,6 @@ class StackLoc(AssemblerLocation):
     _location_code = 'b'
 
     def __init__(self, position, ebp_offset, num_words, type):
-        assert ebp_offset < 0   # so no confusion with RegLoc.value
         self.position = position
         self.value = ebp_offset
         self.width = num_words * WORD

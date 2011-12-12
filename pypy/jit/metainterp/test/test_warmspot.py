@@ -303,18 +303,11 @@ class TestWarmspotDirect(object):
         exc_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
         cls.exc_vtable = exc_vtable
 
-        class FakeLoopToken:
+        class FakeFailDescr(object):
             def __init__(self, no):
                 self.no = no
-                self.generation = 0
-
-        class FakeFailDescr(object):
-            def __init__(self, looptoken):
-                assert isinstance(looptoken, FakeLoopToken)
-                self.looptoken = looptoken
-            
             def handle_fail(self, metainterp_sd, jitdrivers_sd):
-                no = self.looptoken.no
+                no = self.no
                 if no == 0:
                     raise metainterp_sd.warmrunnerdesc.DoneWithThisFrameInt(3)
                 if no == 1:
@@ -326,7 +319,7 @@ class TestWarmspotDirect(object):
                     raise metainterp_sd.warmrunnerdesc.ExitFrameWithExceptionRef(
                         metainterp_sd.cpu,
                         lltype.cast_opaque_ptr(llmemory.GCREF, exc))
-                return self.looptoken
+                assert 0
 
         class FakeDescr:
             def as_vtable_size_descr(self):
@@ -353,11 +346,10 @@ class TestWarmspotDirect(object):
             sizeof       = nodescr
 
             def get_fail_descr_from_number(self, no):
-                return FakeFailDescr(FakeLoopToken(no))
+                return FakeFailDescr(no)
 
-            def execute_token(self, token):
-                assert token.no == 2
-                return FakeFailDescr(FakeLoopToken(1))
+            def make_execute_token(self, *ARGS):
+                return "not callable"
 
         driver = JitDriver(reds = ['red'], greens = ['green'])
         
@@ -381,7 +373,6 @@ class TestWarmspotDirect(object):
         [jd] = self.desc.jitdrivers_sd
         assert jd._assembler_call_helper(0, 0) == 3
         assert jd._assembler_call_helper(1, 0) == 10
-        assert jd._assembler_call_helper(2, 0) == 10
         try:
             jd._assembler_call_helper(3, 0)
         except LLException, lle:

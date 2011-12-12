@@ -55,6 +55,7 @@ class FakeMetaInterp:
         warmstate = FakeState()
         on_compile = staticmethod(lambda *args: None)
         on_compile_bridge = staticmethod(lambda *args: None)
+        virtualizable_info = None
 
 def test_compile_loop():
     cpu = FakeCPU()
@@ -171,23 +172,17 @@ def test_compile_tmp_callback():
         result_type = INT
     #
     loop_token = compile_tmp_callback(cpu, FakeJitDriverSD(),
-                                      [ConstInt(12), ConstInt(34)],
-                                      [BoxInt(56), ConstInt(78), BoxInt(90)])
+                                      [ConstInt(12), ConstInt(34)], "ii")
     #
     raiseme = None
-    cpu.set_future_value_int(0, -156)
-    cpu.set_future_value_int(1, -178)
-    cpu.set_future_value_int(2, -190)     # passed in, but dropped
-    fail_descr = cpu.execute_token(loop_token)
+    # only two arguments must be passed in
+    fail_descr = cpu.execute_token(loop_token, -156, -178)
     assert fail_descr is FakeJitDriverSD().portal_finishtoken
     #
     EXC = lltype.GcStruct('EXC')
     llexc = lltype.malloc(EXC)
     raiseme = LLException("exception class", llexc)
-    cpu.set_future_value_int(0, -156)
-    cpu.set_future_value_int(1, -178)
-    cpu.set_future_value_int(2, -190)
-    fail_descr = cpu.execute_token(loop_token)
+    fail_descr = cpu.execute_token(loop_token, -156, -178)
     assert isinstance(fail_descr, compile.PropagateExceptionDescr)
     got = cpu.grab_exc_value()
     assert lltype.cast_opaque_ptr(lltype.Ptr(EXC), got) == llexc
@@ -196,10 +191,7 @@ def test_compile_tmp_callback():
         class ExitFrameWithExceptionRef(Exception):
             pass
     FakeMetaInterpSD.cpu = cpu
-    cpu.set_future_value_int(0, -156)
-    cpu.set_future_value_int(1, -178)
-    cpu.set_future_value_int(2, -190)
-    fail_descr = cpu.execute_token(loop_token)
+    fail_descr = cpu.execute_token(loop_token, -156, -178)
     try:
         fail_descr.handle_fail(FakeMetaInterpSD(), None)
     except FakeMetaInterpSD.ExitFrameWithExceptionRef, e:

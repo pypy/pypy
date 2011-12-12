@@ -328,6 +328,14 @@ def compile_start_ref_var(loop, TYPE):
     _variables.append(v)
     return r
 
+def compile_started_vars(clt):
+    if not hasattr(clt, '_debug_argtypes'):    # only when compiling the loop
+        argtypes = [v.concretetype for v in _variables]
+        try:
+            clt._debug_argtypes = argtypes
+        except AttributeError:    # when 'clt' is actually a translated
+            pass                  # GcStruct
+
 def compile_add(loop, opnum):
     loop = _from_opaque(loop)
     loop.operations.append(Operation(opnum))
@@ -355,11 +363,13 @@ def compile_add_loop_token(loop, descr):
 
 TARGET_TOKENS = weakref.WeakKeyDictionary()
 
-def compile_add_target_token(loop, descr):
+def compile_add_target_token(loop, descr, clt):
+    # here, 'clt' is the compiled_loop_token of the original loop that
+    # we are compiling
     loop = _from_opaque(loop)
     op = loop.operations[-1]
     descrobj = _normalize(descr)
-    TARGET_TOKENS[descrobj] = loop, len(loop.operations), op.args
+    TARGET_TOKENS[descrobj] = loop, len(loop.operations), op.args, clt
 
 def compile_add_var(loop, intvar):
     loop = _from_opaque(loop)
@@ -395,17 +405,25 @@ def compile_add_ref_result(loop, TYPE):
     _variables.append(v)
     return r
 
-def compile_add_jump_target(loop, targettoken):
+def compile_add_jump_target(loop, targettoken, source_clt):
     loop = _from_opaque(loop)
     descrobj = _normalize(targettoken)
-    loop_target, target_opindex, target_inputargs = TARGET_TOKENS[descrobj]
+    (loop_target, target_opindex, target_inputargs, target_clt
+        ) = TARGET_TOKENS[descrobj]
+    #
+    try:
+        assert source_clt._debug_argtypes == target_clt._debug_argtypes
+    except AttributeError:   # when translated
+        pass
     #
     op = loop.operations[-1]
     op.jump_target = loop_target
     op.jump_target_opindex = target_opindex
     op.jump_target_inputargs = target_inputargs
     assert op.opnum == rop.JUMP
-    assert len(op.args) == len(target_inputargs)
+    assert [v.concretetype for v in op.args] == (
+           [v.concretetype for v in target_inputargs])
+    #
     if loop_target == loop:
         log.info("compiling new loop")
     else:
@@ -987,6 +1005,7 @@ class Frame(object):
         self._may_force = self.opindex
         try:
             inpargs = _from_opaque(ctl.compiled_version).inputargs
+            assert len(inpargs) == len(args)
             for i, inparg in enumerate(inpargs):
                 TYPE = inparg.concretetype
                 if TYPE is lltype.Signed:
@@ -1816,6 +1835,7 @@ setannotation(compile_start, s_CompiledLoop)
 setannotation(compile_start_int_var, annmodel.SomeInteger())
 setannotation(compile_start_ref_var, annmodel.SomeInteger())
 setannotation(compile_start_float_var, annmodel.SomeInteger())
+setannotation(compile_started_vars, annmodel.s_None)
 setannotation(compile_add, annmodel.s_None)
 setannotation(compile_add_descr, annmodel.s_None)
 setannotation(compile_add_descr_arg, annmodel.s_None)

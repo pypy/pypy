@@ -522,9 +522,9 @@ class WarmRunnerDesc(object):
         greens_v, reds_v = support.decode_hp_hint_args(op)
         ALLARGS = [v.concretetype for v in (greens_v + reds_v)]
         jd._green_args_spec = [v.concretetype for v in greens_v]
-        jd._red_args_types = [history.getkind(v.concretetype) for v in reds_v]
+        jd.red_args_types = [history.getkind(v.concretetype) for v in reds_v]
         jd.num_green_args = len(jd._green_args_spec)
-        jd.num_red_args = len(jd._red_args_types)
+        jd.num_red_args = len(jd.red_args_types)
         RESTYPE = graph.getreturnvar().concretetype
         (jd._JIT_ENTER_FUNCTYPE,
          jd._PTR_JIT_ENTER_FUNCTYPE) = self.cpu.ts.get_FuncType(ALLARGS, lltype.Void)
@@ -771,16 +771,16 @@ class WarmRunnerDesc(object):
 
         def assembler_call_helper(failindex, virtualizableref):
             fail_descr = self.cpu.get_fail_descr_from_number(failindex)
-            while True:
-                if vinfo is not None:
-                    virtualizable = lltype.cast_opaque_ptr(
-                        vinfo.VTYPEPTR, virtualizableref)
-                    vinfo.reset_vable_token(virtualizable)
-                try:
-                    loop_token = fail_descr.handle_fail(self.metainterp_sd, jd)
-                except JitException, e:
-                    return handle_jitexception(e)
-                fail_descr = self.execute_token(loop_token)
+            if vinfo is not None:
+                virtualizable = lltype.cast_opaque_ptr(
+                    vinfo.VTYPEPTR, virtualizableref)
+                vinfo.reset_vable_token(virtualizable)
+            try:
+                fail_descr.handle_fail(self.metainterp_sd, jd)
+            except JitException, e:
+                return handle_jitexception(e)
+            else:
+                assert 0, "should have raised"
 
         jd._assembler_call_helper = assembler_call_helper # for debugging
         jd._assembler_helper_ptr = self.helper_func(
@@ -910,10 +910,3 @@ class WarmRunnerDesc(object):
         graphs = self.translator.graphs
         for graph, block, i in find_force_quasi_immutable(graphs):
             self.replace_force_quasiimmut_with_direct_call(block.operations[i])
-
-    # ____________________________________________________________
-
-    def execute_token(self, loop_token):
-        fail_descr = self.cpu.execute_token(loop_token)
-        self.memory_manager.keep_loop_alive(loop_token)
-        return fail_descr
