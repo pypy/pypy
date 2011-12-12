@@ -179,7 +179,7 @@ class TestString(BaseTestPyPyC):
         log = self.run(main, [1000])
         assert log.result == main(1000)
         loops = log.loops_by_filename(self.filepath)
-        assert len(loops) == 2
+        assert len(loops) == 1
         for loop in loops:
             loop.match_by_id('getattr','''
             guard_not_invalidated(descr=...)
