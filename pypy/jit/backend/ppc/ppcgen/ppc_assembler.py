@@ -162,12 +162,15 @@ class AssemblerPPC(OpAssembler):
         self._save_nonvolatiles()
         # save r31, use r30 as scratch register
         # this is safe because r30 has been saved already
+        assert NONVOLATILES[-1] == r.SPP
+        ofs_to_r31 = (self.OFFSET_SPP_TO_GPR_SAVE_AREA +
+                      WORD * (len(NONVOLATILES)-1))
         if IS_PPC_32:
             self.mc.lwz(r.r30.value, r.SP.value, WORD)
-            self.mc.stw(r.r30.value, r.SPP.value, WORD * len(NONVOLATILES))
+            self.mc.stw(r.r30.value, r.SPP.value, ofs_to_r31)
         else:
             self.mc.ld(r.r30.value, r.SP.value, WORD)
-            self.mc.std(r.r30.value, r.SPP.value, WORD * len(NONVOLATILES))
+            self.mc.std(r.r30.value, r.SPP.value, ofs_to_r31)
 
     def setup_failure_recovery(self):
 
@@ -733,8 +736,11 @@ class AssemblerPPC(OpAssembler):
         self.datablockwrapper.done()
         self.datablockwrapper = None
         allblocks = self.get_asmmemmgr_blocks(looptoken)
-        return self.mc.materialize(self.cpu.asmmemmgr, allblocks, 
-                                   self.cpu.gc_ll_descr.gcrootmap)
+        start = self.mc.materialize(self.cpu.asmmemmgr, allblocks, 
+                                    self.cpu.gc_ll_descr.gcrootmap)
+        from pypy.rlib.rarithmetic import r_uint
+        print "=== Loop start is at %s ===" % hex(r_uint(start))
+        return start
 
     def write_pending_failure_recoveries(self):
         for tok in self.pending_guards:
