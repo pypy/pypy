@@ -117,6 +117,9 @@ class AbstractX86CPU(AbstractLLCPU):
         FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, lltype.Signed))
         #
         def execute_token(executable_token, *args):
+            clt = executable_token.compiled_loop_token
+            assert len(args) == clt._debug_nbargs
+            #
             addr = executable_token._x86_function_addr
             func = rffi.cast(FUNCPTR, addr)
             #llop.debug_print(lltype.Void, ">>>> Entering", addr)

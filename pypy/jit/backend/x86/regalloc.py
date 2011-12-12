@@ -165,6 +165,7 @@ class RegAlloc(object):
         self.jump_target_descr = None
         self.close_stack_struct = 0
         self.final_jump_op = None
+        self.min_bytes_before_label = 0
 
     def _prepare(self, inputargs, operations, allgcrefs):
         self.fm = X86FrameManager()
@@ -188,6 +189,7 @@ class RegAlloc(object):
         # note: we need to make a copy of inputargs because possibly_free_vars
         # is also used on op args, which is a non-resizable list
         self.possibly_free_vars(list(inputargs))
+        self.min_bytes_before_label = 13
         return operations
 
     def prepare_bridge(self, prev_depths, inputargs, arglocs, operations,
@@ -460,7 +462,14 @@ class RegAlloc(object):
             i += 1
         assert not self.rm.reg_bindings
         assert not self.xrm.reg_bindings
+        self.flush_loop()
         self.assembler.mc.mark_op(None) # end of the loop
+
+    def flush_loop(self):
+        # rare case: if the loop is too short, pad with NOPs
+        mc = self.assembler.mc
+        while mc.get_relative_pos() < self.min_bytes_before_label:
+            mc.NOP()
 
     def _compute_vars_longevity(self, inputargs, operations):
         # compute a dictionary that maps variables to index in
@@ -1493,8 +1502,7 @@ class RegAlloc(object):
         #
         # if we are too close to the start of the loop, the label's target may
         # get overridden by redirect_call_assembler().  (rare case)
-        while self.assembler.mc.get_relative_pos() < 13:
-            self.assembler.mc.NOP()
+        self.flush_loop()
         #
         descr._x86_arglocs = nonfloatlocs, floatlocs
         descr._x86_loop_code = self.assembler.mc.get_relative_pos()

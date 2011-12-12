@@ -423,7 +423,6 @@ class Assembler386(object):
         '''adds the following attributes to looptoken:
                _x86_function_addr   (address of the generated func, as an int)
                _x86_loop_code       (debug: addr of the start of the ResOps)
-               _x86_debug_nbargs    (debug: total # of args)
                _x86_debug_checksum
         '''
         # XXX this function is too longish and contains some code
@@ -447,11 +446,11 @@ class Assembler386(object):
         #
         self._call_header_with_stack_check()
         stackadjustpos = self._patchable_stackadjust()
+        clt._debug_nbargs = len(inputargs)
         operations = regalloc.prepare_loop(inputargs, operations,
                                            looptoken, clt.allgcrefs)
         looppos = self.mc.get_relative_pos()
         looptoken._x86_loop_code = looppos
-        looptoken._x86_debug_nbargs = len(inputargs)
         clt.frame_depth = -1     # temporarily
         clt.param_depth = -1     # temporarily
         frame_depth, param_depth = self._assemble(regalloc, operations)
@@ -800,7 +799,9 @@ class Assembler386(object):
 
     def redirect_call_assembler(self, oldlooptoken, newlooptoken):
         # some minimal sanity checking
-        assert oldlooptoken._x86_debug_nbargs == newlooptoken._x86_debug_nbargs
+        old_nbargs = oldlooptoken.compiled_loop_token._debug_nbargs
+        new_nbargs = newlooptoken.compiled_loop_token._debug_nbargs
+        assert old_nbargs == new_nbargs
         # we overwrite the instructions at the old _x86_direct_bootstrap_code
         # to start with a JMP to the new _x86_direct_bootstrap_code.
         # Ideally we should rather patch all existing CALLs, but well.
@@ -808,7 +809,7 @@ class Assembler386(object):
         target = newlooptoken._x86_function_addr
         mc = codebuf.MachineCodeBlockWrapper()
         mc.JMP(imm(target))
-        assert mc.get_relative_pos() <= 13  #keep in sync with consider_label()
+        assert mc.get_relative_pos() <= 13  # keep in sync with prepare_loop()
         mc.copy_to_raw_memory(oldadr)
 
     def dump(self, text):
@@ -2235,7 +2236,7 @@ class Assembler386(object):
         self.mc.MOV_bi(FORCE_INDEX_OFS, fail_index)
         descr = op.getdescr()
         assert isinstance(descr, JitCellToken)
-        assert len(arglocs) - 2 == descr._x86_debug_nbargs
+        assert len(arglocs) - 2 == descr.compiled_loop_token._debug_nbargs
         #
         # Write a call to the target assembler
         self._emit_call(fail_index, imm(descr._x86_function_addr),
@@ -2469,6 +2470,14 @@ class Assembler386(object):
                     self.gcrootmap_retaddr_forced = -1
 
     def closing_jump(self, target_token):
+        # The backend's logic assumes that the target code is in a piece of
+        # assembler that was also called with the same number of arguments,
+        # so that the locations [ebp+8..] of the input arguments are valid
+        # stack locations both before and after the jump.
+        my_nbargs = self.current_clt._debug_nbargs
+        target_nbargs = target_token._x86_clt._debug_nbargs
+        assert my_nbargs == target_nbargs
+        #
         target = target_token._x86_loop_code
         if target_token in self.target_tokens_currently_compiling:
             curpos = self.mc.get_relative_pos() + 5

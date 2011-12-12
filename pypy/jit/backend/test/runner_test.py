@@ -3047,13 +3047,13 @@ class LLtypeBackendTest(BaseBackendTest):
         self.cpu.compile_bridge(faildescr1, inputargs, operations, looptoken1)
 
         looptoken2 = JitCellToken()
-        inputargs = []
+        inputargs = [BoxInt()]
         operations = [
             ResOperation(rop.JUMP, [ConstInt(0)], None, descr=targettoken1),
             ]
         self.cpu.compile_loop(inputargs, operations, looptoken2)
 
-        fail = self.cpu.execute_token(looptoken2)
+        fail = self.cpu.execute_token(looptoken2, -9)
         assert fail.identifier == 42
 
 
