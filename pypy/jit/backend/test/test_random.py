@@ -617,8 +617,13 @@ class RandomLoop(object):
             return self.loop._jitcelltoken
         if not hasattr(self, '_initialjumploop_celltoken'):
             self._initialjumploop_celltoken = JitCellToken()
-            self.cpu.compile_loop(self.startvars[:],
-                                  [ResOperation(rop.JUMP, self.startvars[:], None,
+            args = []
+            for box in self.startvars:
+                if box not in self.loop.inputargs:
+                    box = box.constbox()
+                args.append(box)
+            self.cpu.compile_loop(self.loop.inputargs,
+                                  [ResOperation(rop.JUMP, args, None,
                                                 descr=self.loop._targettoken)],
                                   self._initialjumploop_celltoken)
         return self._initialjumploop_celltoken
@@ -650,7 +655,7 @@ class RandomLoop(object):
         exc = cpu.grab_exc_value()
         assert not exc
 
-        arguments = [box.value for box in self.startvars]
+        arguments = [box.value for box in self.loop.inputargs]
         fail = cpu.execute_token(self.runjitcelltoken(), *arguments)
         assert fail is self.should_fail_by.getdescr()
         for i, v in enumerate(self.get_fail_args()):
@@ -716,7 +721,7 @@ class RandomLoop(object):
             # New restriction: must have the same argument count and types
             # as the original loop
             subset = []
-            for box in self.startvars:
+            for box in self.loop.inputargs:
                 srcbox = r.choice(fail_args)
                 if srcbox.type != box.type:
                     if box.type == INT:

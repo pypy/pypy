@@ -414,7 +414,8 @@ def compile_add_jump_target(loop, targettoken, source_clt):
     op.jump_target_opindex = target_opindex
     op.jump_target_inputargs = target_inputargs
     assert op.opnum == rop.JUMP
-    assert len(op.args) == len(target_inputargs)
+    assert [v.concretetype for v in op.args] == (
+           [v.concretetype for v in target_inputargs])
     #
     if loop_target == loop:
         log.info("compiling new loop")
