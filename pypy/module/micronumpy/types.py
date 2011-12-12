@@ -8,6 +8,7 @@ from pypy.rlib import rfloat, libffi, clibffi
 from pypy.rlib.objectmodel import specialize
 from pypy.rlib.rarithmetic import LONG_BIT, widen
 from pypy.rpython.lltypesystem import lltype, rffi
+from pypy.rlib.rstruct.runpack import runpack
 
 
 def simple_unary_op(func):
@@ -55,6 +56,8 @@ class BaseType(object):
 
 class Primitive(object):
     _mixin_ = True
+    char = "?"
+    
     def get_element_size(self):
         return rffi.sizeof(self.T)
 
@@ -101,6 +104,11 @@ class Primitive(object):
             libffi.array_setitem(clibffi.cast_type_to_ffitype(self.T),
                 width, storage, i, offset, value
             )
+
+    def runpack_str(self, s):
+        if self.char == "?":
+            raise NotImplementedError
+        return self.box(runpack(self.char, s))
 
     @simple_binary_op
     def add(self, v1, v2):
@@ -241,26 +249,32 @@ class Integer(Primitive):
 class Int8(BaseType, Integer):
     T = rffi.SIGNEDCHAR
     BoxType = interp_boxes.W_Int8Box
+    char = "b"
 
 class UInt8(BaseType, Integer):
     T = rffi.UCHAR
     BoxType = interp_boxes.W_UInt8Box
+    char = "B"
 
 class Int16(BaseType, Integer):
     T = rffi.SHORT
     BoxType = interp_boxes.W_Int16Box
+    char = "h"
 
 class UInt16(BaseType, Integer):
     T = rffi.USHORT
     BoxType = interp_boxes.W_UInt16Box
+    char = "H"
 
 class Int32(BaseType, Integer):
     T = rffi.INT
     BoxType = interp_boxes.W_Int32Box
+    char = "i"
 
 class UInt32(BaseType, Integer):
     T = rffi.UINT
     BoxType = interp_boxes.W_UInt32Box
+    char = "I"
 
 class Long(BaseType, Integer):
     T = rffi.LONG
@@ -273,10 +287,12 @@ class ULong(BaseType, Integer):
 class Int64(BaseType, Integer):
     T = rffi.LONGLONG
     BoxType = interp_boxes.W_Int64Box
+    char = "q"
 
 class UInt64(BaseType, Integer):
     T = rffi.ULONGLONG
     BoxType = interp_boxes.W_UInt64Box
+    char = "Q"
 
     def _coerce(self, space, w_item):
         try:
@@ -403,7 +419,9 @@ class Float(Primitive):
 class Float32(BaseType, Float):
     T = rffi.FLOAT
     BoxType = interp_boxes.W_Float32Box
+    char = "f"
 
 class Float64(BaseType, Float):
     T = rffi.DOUBLE
     BoxType = interp_boxes.W_Float64Box
+    char = "d"

@@ -1168,13 +1168,69 @@ class AppTestSupport(BaseNumpyAppTest):
         import struct
         BaseNumpyAppTest.setup_class.im_func(cls)
         cls.w_data = cls.space.wrap(struct.pack('dddd', 1, 2, 3, 4))
+        cls.w_fdata = cls.space.wrap(struct.pack('f', 2.3))
+        cls.w_float32val = cls.space.wrap(struct.pack('f', 5.2))
+        cls.w_float64val = cls.space.wrap(struct.pack('d', 300.4))
 
     def test_fromstring(self):
-        from numpypy import fromstring
+        from numpypy import fromstring, uint8, float32, int32
         a = fromstring(self.data)
         for i in range(4):
             assert a[i] == i + 1
-        raises(ValueError, fromstring, "abc")
+        b = fromstring('\x01\x02', dtype=uint8)
+        assert a[0] == 1
+        assert a[1] == 2
+        c = fromstring(self.fdata, dtype=float32)
+        assert c[0] == float32(2.3)
+        d = fromstring("1 2", sep=' ', count=2, dtype=uint8)
+        assert len(d) == 2
+        assert d[0] == 1
+        assert d[1] == 2
+        e = fromstring('3, 4,5', dtype=uint8, sep=',')
+        assert len(e) == 3
+        assert e[0] == 3
+        assert e[1] == 4
+        assert e[2] == 5
+        f = fromstring('\x01\x02\x03\x04\x05', dtype=uint8, count=3)
+        assert len(f) == 3
+        assert f[0] == 1
+        assert f[1] == 2
+        assert f[2] == 3
+        raises(ValueError, fromstring, "3.4 2.0 3.8 2.2", dtype=int32, sep=" ")
+        
+    def test_fromstring_types(self):
+        from numpypy import fromstring
+        from numpypy import int8, int16, int32, int64
+        from numpypy import uint8, uint16, uint32
+        from numpypy import float32, float64
+        a = fromstring('\xFF', dtype=int8)
+        assert a[0] == -1
+        b = fromstring('\xFF', dtype=uint8)
+        assert b[0] == 255
+        c = fromstring('\xFF\xFF', dtype=int16)
+        assert c[0] == -1
+        d = fromstring('\xFF\xFF', dtype=uint16)
+        assert d[0] == 65535
+        e = fromstring('\xFF\xFF\xFF\xFF', dtype=int32)
+        assert e[0] == -1
+        f = fromstring('\xFF\xFF\xFF\xFF', dtype=uint32)
+        assert f[0] == 4294967295
+        g = fromstring('\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF', dtype=int64)
+        assert g[0] == -1
+        h = fromstring(self.float32val, dtype=float32)
+        assert h[0] == float32(5.2)
+        i = fromstring(self.float64val, dtype=float64)
+        assert i[0] == float64(300.4)
+        
+        
+    def test_fromstring_invalid(self):
+        from numpypy import fromstring, uint16, uint8
+        #default dtype is 64-bit float, so 3 bytes should fail
+        raises(ValueError, fromstring, "\x01\x02\x03")
+        #3 bytes is not modulo 2 bytes (int16)
+        raises(ValueError, fromstring, "\x01\x03\x03", dtype=uint16)
+        #5 bytes is larger than 3 bytes
+        raises(ValueError, fromstring, "\x01\x02\x03", count=5, dtype=uint8)
 
 
 class AppTestRepr(BaseNumpyAppTest):
