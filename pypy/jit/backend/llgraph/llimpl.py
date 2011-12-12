@@ -333,8 +333,8 @@ def compile_started_vars(clt):
         argtypes = [v.concretetype for v in _variables]
         try:
             clt._debug_argtypes = argtypes
-        except AttributeError:    # when translated
-            pass
+        except AttributeError:    # when 'clt' is actually a translated
+            pass                  # GcStruct
 
 def compile_add(loop, opnum):
     loop = _from_opaque(loop)
