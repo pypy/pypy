@@ -328,6 +328,10 @@ def compile_start_ref_var(loop, TYPE):
     _variables.append(v)
     return r
 
+def compile_started_vars(clt):
+    if not hasattr(clt, '_debug_argtypes'):    # only when compiling the loop
+        clt._debug_argtypes = [v.concretetype for v in _variables]
+
 def compile_add(loop, opnum):
     loop = _from_opaque(loop)
     loop.operations.append(Operation(opnum))
@@ -355,11 +359,13 @@ def compile_add_loop_token(loop, descr):
 
 TARGET_TOKENS = weakref.WeakKeyDictionary()
 
-def compile_add_target_token(loop, descr):
+def compile_add_target_token(loop, descr, clt):
+    # here, 'clt' is the compiled_loop_token of the original loop that
+    # we are compiling
     loop = _from_opaque(loop)
     op = loop.operations[-1]
     descrobj = _normalize(descr)
-    TARGET_TOKENS[descrobj] = loop, len(loop.operations), op.args
+    TARGET_TOKENS[descrobj] = loop, len(loop.operations), op.args, clt
 
 def compile_add_var(loop, intvar):
     loop = _from_opaque(loop)
@@ -395,10 +401,13 @@ def compile_add_ref_result(loop, TYPE):
     _variables.append(v)
     return r
 
-def compile_add_jump_target(loop, targettoken):
+def compile_add_jump_target(loop, targettoken, source_clt):
     loop = _from_opaque(loop)
     descrobj = _normalize(targettoken)
-    loop_target, target_opindex, target_inputargs = TARGET_TOKENS[descrobj]
+    (loop_target, target_opindex, target_inputargs, target_clt
+        ) = TARGET_TOKENS[descrobj]
+    #
+    assert source_clt._debug_argtypes == target_clt._debug_argtypes
     #
     op = loop.operations[-1]
     op.jump_target = loop_target
@@ -406,6 +415,7 @@ def compile_add_jump_target(loop, targettoken):
     op.jump_target_inputargs = target_inputargs
     assert op.opnum == rop.JUMP
     assert len(op.args) == len(target_inputargs)
+    #
     if loop_target == loop:
         log.info("compiling new loop")
     else:
