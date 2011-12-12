@@ -191,16 +191,7 @@ class Integer(Primitive):
     _mixin_ = True
 
     def _coerce(self, space, w_item):
-        if space.isinstance_w(w_item, space.w_str):
-            try:
-                val = int(space.str_w(space.str(w_item)))
-            except ValueError:
-                raise OperationError(space.w_ValueError, space.wrap("Invalid integer value"))
-            if not isinstance(val, int):
-                raise OperationError(space.w_OverflowError, space.wrap("Value out of range"))
-        else:
-            val = space.int_w(space.int(w_item))
-        return self.box(val)
+        return self.box(space.int_w(space.call_function(space.w_int, w_item)))
 
     def str_format(self, box):
         value = self.unbox(box)
@@ -298,14 +289,7 @@ class Float(Primitive):
     _mixin_ = True
 
     def _coerce(self, space, w_item):
-        if space.isinstance_w(w_item, space.w_str):
-            try:
-                val = float(space.str_w(space.str(w_item)))
-            except ValueError:
-                raise OperationError(space.w_ValueError, space.wrap("Invalid float value"))
-        else:
-            val = space.float_w(space.float(w_item))
-        return self.box(val)
+        return self.box(space.float_w(space.call_function(space.w_float, w_item)))
 
     def str_format(self, box):
         value = self.unbox(box)
