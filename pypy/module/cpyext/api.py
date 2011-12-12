@@ -317,6 +317,10 @@ def cpython_struct(name, fields, forward=None, level=1):
 
 INTERPLEVEL_API = {}
 FUNCTIONS = {}
+
+# These are C symbols which cpyext will export, but which are defined in .c
+# files somewhere in the implementation of cpyext (rather than being defined in
+# RPython).
 SYMBOLS_C = [
     'Py_FatalError', 'PyOS_snprintf', 'PyOS_vsnprintf', 'PyArg_Parse',
     'PyArg_ParseTuple', 'PyArg_UnpackTuple', 'PyArg_ParseTupleAndKeywords',
@@ -1055,7 +1059,6 @@ def make_generic_cpy_call(FT, decref_args, expect_null):
         boxed_args = ()
         to_decref = []
         assert len(args) == len(FT.ARGS)
-        import pdb; pdb.set_trace()
         for i, ARG in unrolling_arg_types:
             arg = args[i]
             if is_PyObject(ARG):
