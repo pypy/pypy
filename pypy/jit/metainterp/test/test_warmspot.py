@@ -348,8 +348,8 @@ class TestWarmspotDirect(object):
             def get_fail_descr_from_number(self, no):
                 return FakeFailDescr(no)
 
-            def execute_token(self, token, *args):
-                assert 0
+            def make_execute_token(self, *ARGS):
+                return "not callable"
 
         driver = JitDriver(reds = ['red'], greens = ['green'])
         

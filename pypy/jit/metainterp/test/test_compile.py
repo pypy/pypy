@@ -172,8 +172,7 @@ def test_compile_tmp_callback():
         result_type = INT
     #
     loop_token = compile_tmp_callback(cpu, FakeJitDriverSD(),
-                                      [ConstInt(12), ConstInt(34)],
-                                      [BoxInt(56), ConstInt(78), BoxInt(90)])
+                                      [ConstInt(12), ConstInt(34)], "ii")
     #
     raiseme = None
     # only two arguments must be passed in
