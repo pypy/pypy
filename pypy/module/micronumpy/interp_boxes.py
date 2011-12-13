@@ -86,6 +86,7 @@ class W_GenericBox(Wrappable):
     descr_ge = _binop_impl("greater_equal")
 
     descr_radd = _binop_right_impl("add")
+    descr_rsub = _binop_right_impl("subtract")
     descr_rmul = _binop_right_impl("multiply")
 
     descr_neg = _unaryop_impl("negative")
@@ -170,7 +171,8 @@ W_GenericBox.typedef = TypeDef("generic",
     __mul__ = interp2app(W_GenericBox.descr_mul),
     __div__ = interp2app(W_GenericBox.descr_div),
 
-    __radd__ = interp2app(W_GenericBox.descr_add),
+    __radd__ = interp2app(W_GenericBox.descr_radd),
+    __rsub__ = interp2app(W_GenericBox.descr_rsub),
     __rmul__ = interp2app(W_GenericBox.descr_rmul),
 
     __eq__ = interp2app(W_GenericBox.descr_eq),
