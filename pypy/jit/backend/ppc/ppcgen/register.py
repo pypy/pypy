@@ -20,10 +20,11 @@ NONVOLATILES_FLOAT  = [f14, f15, f16, f17, f18, f19, f20, f21, f22, f23,
                     f24, f25, f26, f27, f28, f29, f30, f31]
 
 
-SPP = r31
-SP  = r1
-TOC = r2
-RES = r3
+SCRATCH = r0
+SP      = r1
+TOC     = r2
+RES     = r3
+SPP     = r31
 
 MANAGED_REGS = [r3, r4, r5, r6, r7, r8, r9, r10,
                 r11, r12, r14, r15, r16, r17, r18, 
