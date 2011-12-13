@@ -374,30 +374,6 @@ class UnrollOptimizer(Optimization):
         target_token.exported_state = None
 
         
-    def FIXME_old_stuff():
-            preamble_optimizer = self.optimizer
-            loop.preamble.quasi_immutable_deps = (
-                self.optimizer.quasi_immutable_deps)
-            self.optimizer = self.optimizer.new()
-            loop.quasi_immutable_deps = self.optimizer.quasi_immutable_deps
-
-            
-            loop.inputargs = inputargs
-            args = [preamble_optimizer.getvalue(self.short_boxes.original(a)).force_box(preamble_optimizer)\
-                    for a in inputargs]
-            jmp = ResOperation(rop.JUMP, args, None)
-            jmp.setdescr(loop.token)
-            loop.preamble.operations.append(jmp)
-
-            loop.operations = self.optimizer.get_newoperations()
-            maxguards = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.max_retrace_guards
-            
-            if self.optimizer.emitted_guards > maxguards:
-                loop.preamble.token.retraced_count = sys.maxint
-
-            if short:
-                pass
-
     def ensure_short_op_emitted(self, op, optimizer, seen):
         if op is None:
             return
