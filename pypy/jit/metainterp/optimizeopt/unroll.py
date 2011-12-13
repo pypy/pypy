@@ -199,8 +199,8 @@ class UnrollOptimizer(Optimization):
         self.optimizer.emitting_dissabled = True
         for op in exported_state.inputarg_setup_ops:
             self.optimizer.send_extra_operation(op)
+
         seen = {}
-        
         for op in self.short_boxes.operations():
             self.ensure_short_op_emitted(op, self.optimizer, seen)
             if op and op.result:
@@ -211,10 +211,7 @@ class UnrollOptimizer(Optimization):
                     self.optimizer.importable_values[value] = imp
                 newvalue = self.optimizer.getvalue(op.result)
                 newresult = newvalue.get_key_box()
-                if newresult is not op.result and not newvalue.is_constant():
-                    self.short_boxes.alias(newresult, op.result)
-                    op = ResOperation(rop.SAME_AS, [op.result], newresult)
-                    self.optimizer._newoperations = [op] + self.optimizer._newoperations # XXX
+                assert newresult is op.result or newvalue.is_constant()
         self.optimizer.flush()
         self.optimizer.emitting_dissabled = False
 
@@ -373,7 +370,6 @@ class UnrollOptimizer(Optimization):
         target_token.short_preamble = self.short
         target_token.exported_state = None
 
-        
     def ensure_short_op_emitted(self, op, optimizer, seen):
         if op is None:
             return
