@@ -66,6 +66,10 @@ def remap_frame_layout(assembler, src_locations, dst_locations, tmpreg):
 
 def _move(assembler, src, dst, tmpreg):
     if dst.is_memory_reference() and src.is_memory_reference():
+        if tmpreg is None:
+            assembler.regalloc_push(src)
+            assembler.regalloc_pop(dst)
+            return
         assembler.regalloc_mov(src, tmpreg)
         src = tmpreg
     assembler.regalloc_mov(src, dst)

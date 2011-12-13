@@ -1387,13 +1387,6 @@ class RegAlloc(object):
         assert isinstance(descr, TargetToken)
         arglocs = descr._x86_arglocs
         self.jump_target_descr = descr
-        # compute 'tmploc' to be all_regs[0] by spilling what is there
-        tmpbox1 = TempBox()
-        tmpbox2 = TempBox()
-        tmpreg = X86RegisterManager.all_regs[0]
-        self.rm.force_allocate_reg(tmpbox1, selected_reg=tmpreg)
-        xmmtmp = X86XMMRegisterManager.all_regs[0]
-        self.xrm.force_allocate_reg(tmpbox2, selected_reg=xmmtmp)
         # Part about non-floats
         src_locations1 = []
         dst_locations1 = []
@@ -1405,19 +1398,23 @@ class RegAlloc(object):
             box = op.getarg(i)
             src_loc = self.loc(box)
             dst_loc = arglocs[i]
-            assert dst_loc != tmpreg and dst_loc != xmmtmp
             if box.type != FLOAT:
                 src_locations1.append(src_loc)
                 dst_locations1.append(dst_loc)
             else:
                 src_locations2.append(src_loc)
                 dst_locations2.append(dst_loc)
+        # Do we have a temp var?
+        if IS_X86_64:
+            tmpreg = X86_64_SCRATCH_REG
+            xmmtmp = X86_64_XMM_SCRATCH_REG
+        else:
+            tmpreg = None
+            xmmtmp = None
         # Do the remapping
         remap_frame_layout_mixed(assembler,
                                  src_locations1, dst_locations1, tmpreg,
                                  src_locations2, dst_locations2, xmmtmp)
-        self.rm.possibly_free_var(tmpbox1)
-        self.xrm.possibly_free_var(tmpbox2)
         self.possibly_free_vars_for_op(op)
         assembler.closing_jump(self.jump_target_descr)
 
@@ -1484,17 +1481,6 @@ class RegAlloc(object):
             if self.last_real_usage.get(arg, -1) <= position:
                 self.force_spill_var(arg)
         #
-        # we need to make sure that the tmpreg and xmmtmp are free
-        tmpreg = X86RegisterManager.all_regs[0]
-        tmpvar = TempBox()
-        self.rm.force_allocate_reg(tmpvar, selected_reg=tmpreg)
-        self.rm.possibly_free_var(tmpvar, _hint_dont_reuse_quickly=True)
-        #
-        xmmtmp = X86XMMRegisterManager.all_regs[0]
-        tmpvar = TempBox()
-        self.xrm.force_allocate_reg(tmpvar, selected_reg=xmmtmp)
-        self.xrm.possibly_free_var(tmpvar, _hint_dont_reuse_quickly=True)
-        #
         # we need to make sure that no variable is stored in ebp
         for arg in inputargs:
             if self.loc(arg) is ebp:
@@ -1506,7 +1492,7 @@ class RegAlloc(object):
             arg = inputargs[i]
             assert isinstance(arg, Box)
             loc = self.loc(arg)
-            assert not (loc is tmpreg or loc is xmmtmp or loc is ebp)
+            assert loc is not ebp
             arglocs[i] = loc
             if isinstance(loc, RegLoc):
                 self.fm.mark_as_free(arg)
