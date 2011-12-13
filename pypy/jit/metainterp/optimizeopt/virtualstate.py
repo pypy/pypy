@@ -580,12 +580,6 @@ class ShortBoxes(object):
                 except BoxNotProducable:
                     pass
 
-    def clone(self):
-        sb = ShortBoxes(self.optimizer, None)
-        sb.short_boxes = {}
-        sb.short_boxes.update(self.short_boxes)
-        return sb
-
     def prioritized_alternatives(self, box):
         if box not in self.alternatives:
             return [self.potential_ops[box]]

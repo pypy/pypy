@@ -179,7 +179,7 @@ class UnrollOptimizer(Optimization):
         
         self.short = target_token.short_preamble[:]
         self.short_seen = {}
-        self.short_boxes = exported_state.short_boxes.clone()
+        self.short_boxes = exported_state.short_boxes
         self.imported_state = exported_state
         self.inputargs = targetop.getarglist()
         self.initial_virtual_state = target_token.virtual_state
