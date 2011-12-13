@@ -145,15 +145,15 @@ class AssemblerPPC(OpAssembler):
         if IS_PPC_32:
             # save it in previous frame (Backchain)
             self.mc.stwu(r.SP.value, r.SP.value, -frame_depth)
-            self.mc.mflr(r.r0.value)  # move old link register
+            self.mc.mflr(r.SCRATCH.value)  # move old link register
             # save old link register in previous frame
-            self.mc.stw(r.r0.value, r.SP.value, frame_depth + WORD) 
+            self.mc.stw(r.SCRATCH.value, r.SP.value, frame_depth + WORD) 
             # save r31 at the bottom of the stack frame
             self.mc.stw(r.SPP.value, r.SP.value, WORD)
         else:
             self.mc.stdu(r.SP.value, r.SP.value, -frame_depth)
-            self.mc.mflr(r.r0.value)
-            self.mc.std(r.r0.value, r.SP.value, frame_depth + 2 * WORD)
+            self.mc.mflr(r.SCRATCH.value)
+            self.mc.std(r.SCRATCH.value, r.SP.value, frame_depth + 2 * WORD)
             self.mc.std(r.SPP.value, r.SP.value, WORD)
 
         # compute spilling pointer (SPP)
@@ -328,7 +328,7 @@ class AssemblerPPC(OpAssembler):
         mc.mr(r.r4.value, r.SP.value)          # load stack pointer
         mc.mr(r.r5.value, r.SPP.value)         # load spilling pointer
         #
-        # load address of decoding function into r0
+        # load address of decoding function into SCRATCH
         mc.alloc_scratch_reg(addr)
         if IS_PPC_64:
             mc.std(r.r2.value, r.SP.value, 3 * WORD)
@@ -336,7 +336,7 @@ class AssemblerPPC(OpAssembler):
             mc.load_imm(r.r2, r2_value)
             mc.load_imm(r.r11, r11_value)
         # ... and branch there
-        mc.mtctr(r.r0.value)
+        mc.mtctr(r.SCRATCH.value)
         mc.free_scratch_reg()
         mc.bctrl()
         if IS_PPC_64:
@@ -386,10 +386,10 @@ class AssemblerPPC(OpAssembler):
             if loc.is_reg():
                 reg = loc
             else:
-                reg = r.r0
+                reg = r.SCRATCH
             self.mc.load_from_addr(reg, addr)
             if loc.is_stack():
-                self.regalloc_mov(r.r0, loc)
+                self.regalloc_mov(r.SCRATCH, loc)
 
     def gen_direct_bootstrap_code(self, loophead, looptoken, inputargs, frame_depth):
         self._make_frame(frame_depth)
@@ -424,7 +424,7 @@ class AssemblerPPC(OpAssembler):
 
         # remap values stored in core registers
         self.mc.alloc_scratch_reg()
-        remap_frame_layout(self, nonfloat_args, nonfloat_regs, r.r0)
+        remap_frame_layout(self, nonfloat_args, nonfloat_regs, r.SCRATCH)
         self.mc.free_scratch_reg()
 
         # load values passed on the stack to the corresponding locations
@@ -453,10 +453,10 @@ class AssemblerPPC(OpAssembler):
                     count += 1
                     self.mc.alloc_scratch_reg()
                     if IS_PPC_32:
-                        self.mc.lwz(r.r0.value, r.SPP.value, stack_position)
+                        self.mc.lwz(r.SCRATCH.value, r.SPP.value, stack_position)
                     else:
-                        self.mc.ld(r.r0.value, r.SPP.value, stack_position)
-                    self.mov_loc_loc(r.r0, loc)
+                        self.mc.ld(r.SCRATCH.value, r.SPP.value, stack_position)
+                    self.mov_loc_loc(r.SCRATCH, loc)
                     self.mc.free_scratch_reg()
                 else:
                     assert 0, 'invalid location'
@@ -767,9 +767,9 @@ class AssemblerPPC(OpAssembler):
         # store addr in force index field
         self.mc.alloc_scratch_reg(memaddr)
         if IS_PPC_32:
-            self.mc.stw(r.r0.value, r.SPP.value, self.ENCODING_AREA)
+            self.mc.stw(r.SCRATCH.value, r.SPP.value, self.ENCODING_AREA)
         else:
-            self.mc.std(r.r0.value, r.SPP.value, self.ENCODING_AREA)
+            self.mc.std(r.SCRATCH.value, r.SPP.value, self.ENCODING_AREA)
         self.mc.free_scratch_reg()
 
         if save_exc:
@@ -819,12 +819,14 @@ class AssemblerPPC(OpAssembler):
                 return
             # move immediate value to memory
             elif loc.is_stack():
+                self.mc.alloc_scratch_reg()
                 offset = loc.as_key() * WORD - WORD
-                self.mc.load_imm(r.r0.value, value)
+                self.mc.load_imm(r.SCRATCH.value, value)
                 if IS_PPC_32:
-                    self.mc.stw(r.r0.value, r.SPP.value, offset)
+                    self.mc.stw(r.SCRATCH.value, r.SPP.value, offset)
                 else:
-                    self.mc.std(r.r0.value, r.SPP.value, offset)
+                    self.mc.std(r.SCRATCH.value, r.SPP.value, offset)
+                self.mc.free_scratch_reg()
                 return
             assert 0, "not supported location"
         elif prev_loc.is_stack():
@@ -840,12 +842,14 @@ class AssemblerPPC(OpAssembler):
             # move in memory
             elif loc.is_stack():
                 target_offset = loc.as_key() * WORD - WORD
+                self.mc.alloc_scratch_reg()
                 if IS_PPC_32:
-                    self.mc.lwz(r.r0.value, r.SPP.value, offset)
-                    self.mc.stw(r.r0.value, r.SPP.value, target_offset)
+                    self.mc.lwz(r.SCRATCH.value, r.SPP.value, offset)
+                    self.mc.stw(r.SCRATCH.value, r.SPP.value, target_offset)
                 else:
-                    self.mc.ld(r.r0.value, r.SPP.value, offset)
-                    self.mc.std(r.r0.value, r.SPP.value, target_offset)
+                    self.mc.ld(r.SCRATCH.value, r.SPP.value, offset)
+                    self.mc.std(r.SCRATCH.value, r.SPP.value, target_offset)
+                self.mc.free_scratch_reg()
                 return
             assert 0, "not supported location"
         elif prev_loc.is_reg():
@@ -869,7 +873,7 @@ class AssemblerPPC(OpAssembler):
 
     def regalloc_push(self, loc):
         """Pushes the value stored in loc to the stack
-        Can trash the current value of r0 when pushing a stack
+        Can trash the current value of SCRATCH when pushing a stack
         loc"""
 
         if loc.is_stack():
@@ -896,7 +900,7 @@ class AssemblerPPC(OpAssembler):
 
     def regalloc_pop(self, loc):
         """Pops the value on top of the stack to loc. Can trash the current
-        value of r0 when popping to a stack loc"""
+        value of SCRATCH when popping to a stack loc"""
         if loc.is_stack():
             if loc.type == FLOAT:
                 assert 0, "not implemented yet"
@@ -962,11 +966,11 @@ class AssemblerPPC(OpAssembler):
             return 0
 
     def _write_fail_index(self, fail_index):
-        self.mc.load_imm(r.r0, fail_index)
+        self.mc.load_imm(r.SCRATCH, fail_index)
         if IS_PPC_32:
-            self.mc.stw(r.r0.value, r.SPP.value, self.ENCODING_AREA)
+            self.mc.stw(r.SCRATCH.value, r.SPP.value, self.ENCODING_AREA)
         else:
-            self.mc.std(r.r0.value, r.SPP.value, self.ENCODING_AREA)
+            self.mc.std(r.SCRATCH.value, r.SPP.value, self.ENCODING_AREA)
             
     def load(self, loc, value):
         assert loc.is_reg() and value.is_imm()

@@ -362,11 +362,12 @@ class MiscOpAssembler(object):
         for i, arg in enumerate(stack_args):
             offset = param_offset + i * WORD
             if arg is not None:
-                self.mc.load_imm(r.r0, arg.value)
+                #self.mc.load_imm(r.SCRATCH, arg.value)
+                self.regalloc_mov(regalloc.loc(arg), r.SCRATCH)
             if IS_PPC_32:
-                self.mc.stw(r.r0.value, r.SP.value, offset)
+                self.mc.stw(r.SCRATCH.value, r.SP.value, offset)
             else:
-                self.mc.std(r.r0.value, r.SP.value, offset)
+                self.mc.std(r.SCRATCH.value, r.SP.value, offset)
         self.mc.free_scratch_reg()
 
         # collect variables that need to go in registers
@@ -397,16 +398,16 @@ class MiscOpAssembler(object):
         regalloc.before_call(save_all_regs=2)
 
         # remap values stored in core registers
-        remap_frame_layout(self, non_float_locs, non_float_regs, r.r0)
+        remap_frame_layout(self, non_float_locs, non_float_regs, r.SCRATCH)
 
         # the actual call
         if IS_PPC_32:
             self.mc.bl_abs(adr)
         else:
-            self.mc.load_from_addr(r.r0, adr)
-            self.mc.load_from_addr(r.r2, adr + WORD)
+            self.mc.load_from_addr(r.SCRATCH, adr)
+            self.mc.load_from_addr(r.TOC, adr + WORD)
             self.mc.load_from_addr(r.r11, adr + 2 * WORD)
-            self.mc.mtctr(r.r0.value)
+            self.mc.mtctr(r.SCRATCH.value)
             self.mc.bctrl()
             
 
@@ -855,12 +856,12 @@ class ForceOpAssembler(object):
                 raise AssertionError(kind)
         # check value
         resloc = regalloc.try_allocate_reg(resbox)
-        assert resloc is r.r3
+        assert resloc is r.RES
         self.mc.alloc_scratch_reg(value)
         if IS_PPC_32:
-            self.mc.cmpw(0, resloc.value, r.r0.value)
+            self.mc.cmpw(0, resloc.value, r.SCRATCH.value)
         else:
-            self.mc.cmpd(0, resloc.value, r.r0.value)
+            self.mc.cmpd(0, resloc.value, r.SCRATCH.value)
         self.mc.free_scratch_reg()
         regalloc.possibly_free_var(resbox)
 
@@ -874,21 +875,22 @@ class ForceOpAssembler(object):
         jd = descr.outermost_jitdriver_sd
         assert jd is not None
         asm_helper_adr = self.cpu.cast_adr_to_int(jd.assembler_helper_adr)
-        with saved_registers(self.mc, r.NONVOLATILES + [r.r3]):
-            # resbox is already in r3
-            self.mov_loc_loc(arglocs[1], r.r4)
-            if IS_PPC_32:
-                self.mc.bl_abs(asm_helper_adr)
-            else:
-                self.mc.load_from_addr(r.r0, asm_helper_adr)
-                self.mc.load_from_addr(r.r2, asm_helper_adr + WORD)
-                self.mc.load_from_addr(r.r11, asm_helper_adr + 2 * WORD)
-                self.mc.mtctr(r.r0.value)
-                self.mc.bctrl()
-            if op.result:
-                resloc = regalloc.after_call(op.result)
-                if resloc.is_vfp_reg():
-                    assert 0, "not implemented yet"
+
+        # do call to helper function
+        self.mov_loc_loc(arglocs[1], r.r4)
+        if IS_PPC_32:
+            self.mc.bl_abs(asm_helper_adr)
+        else:
+            self.mc.load_from_addr(r.SCRATCH, asm_helper_adr)
+            self.mc.load_from_addr(r.TOC, asm_helper_adr + WORD)
+            self.mc.load_from_addr(r.r11, asm_helper_adr + 2 * WORD)
+            self.mc.mtctr(r.r0.value)
+            self.mc.bctrl()
+
+        if op.result:
+            resloc = regalloc.after_call(op.result)
+            if resloc.is_vfp_reg():
+                assert 0, "not implemented yet"
 
         # jump to merge point
         jmp_pos = self.mc.currpos()
@@ -898,8 +900,10 @@ class ForceOpAssembler(object):
         # Fast Path using result boxes
         # patch the jump to the fast path
         offset = self.mc.currpos() - fast_jmp_pos
-        pmc = OverwritingBuilder(self.mc, fast_jmp_pos, WORD)
-        pmc.b(offset)
+        pmc = OverwritingBuilder(self.mc, fast_jmp_pos, 1)
+        # 12 and 2 mean: jump if the 3rd bit in CR is set
+        pmc.bc(12, 2, offset)
+        pmc.overwrite()
 
         # Reset the vable token --- XXX really too much special logic here:-(
         if jd.index_of_virtualizable >= 0:
@@ -909,12 +913,12 @@ class ForceOpAssembler(object):
             ofs = fielddescr.offset
             resloc = regalloc.force_allocate_reg(resbox)
             self.alloc_scratch_reg()
-            self.mov_loc_loc(arglocs[1], r.r0)
+            self.mov_loc_loc(arglocs[1], r.SCRATCH)
             self.mc.li(resloc.value, 0)
             if IS_PPC_32:
-                self.mc.stwx(resloc.value, 0, r.r0.value)
+                self.mc.stwx(resloc.value, 0, r.SCRATCH.value)
             else:
-                self.mc.stdx(resloc.value, 0, r.r0.value)
+                self.mc.stdx(resloc.value, 0, r.SCRATCH.value)
             self.free_scratch_reg()
             regalloc.possibly_free_var(resbox)
 
@@ -936,21 +940,25 @@ class ForceOpAssembler(object):
                 assert 0, "not implemented yet"
             else:
                 if IS_PPC_32:
-                    self.mc.lwzx(resloc.value, 0, r.r0.value)
+                    self.mc.lwzx(resloc.value, 0, r.SCRATCH.value)
                 else:
-                    self.mc.ldx(resloc.value, 0, r.r0.value)
+                    self.mc.ldx(resloc.value, 0, r.SCRATCH.value)
             self.mc.free_scratch_reg()
 
         # merge point
         offset = self.mc.currpos() - jmp_pos
+        if offset >= 0:
+            pmc = OverwritingBuilder(self.mc, jmp_pos, 1)
+            pmc.b(offset)
+            pmc.overwrite()
 
         self.mc.alloc_scratch_reg()
         if IS_PPC_32:
-            self.mc.cmpwi(0, r.r0.value, 0)
-            self.mc.lwz(r.r0.value, r.SPP.value, 0)
+            self.mc.cmpwi(0, r.SCRATCH.value, 0)
+            self.mc.lwz(r.SCRATCH.value, r.SPP.value, 0)
         else:
-            self.mc.cmpdi(0, r.r0.value, 0)
-            self.mc.ld(r.r0.value, r.SPP.value, 0)
+            self.mc.cmpdi(0, r.SCRATCH.value, 0)
+            self.mc.ld(r.SCRATCH.value, r.SPP.value, 0)
         self.mc.cror(2, 1, 2)
         self.mc.free_scratch_reg()
 
