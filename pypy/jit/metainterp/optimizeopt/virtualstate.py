@@ -563,7 +563,6 @@ class ShortBoxes(object):
         self.potential_ops = {}
         self.alternatives = {}
         self.synthetic = {}
-        self.aliases = {}
         self.rename = {}
         self.optimizer = optimizer
 
@@ -583,7 +582,6 @@ class ShortBoxes(object):
 
     def clone(self):
         sb = ShortBoxes(self.optimizer, None)
-        sb.aliases.update(self.aliases)
         sb.short_boxes = {}
         sb.short_boxes.update(self.short_boxes)
         return sb
@@ -690,13 +688,3 @@ class ShortBoxes(object):
 
     def has_producer(self, box):
         return box in self.short_boxes
-
-    def alias(self, newbox, oldbox):
-        if not isinstance(oldbox, Const) and newbox not in self.short_boxes:
-            self.short_boxes[newbox] = self.short_boxes[oldbox]
-        self.aliases[newbox] = oldbox
-
-    def original(self, box):
-        while box in self.aliases:
-            box = self.aliases[box]
-        return box
