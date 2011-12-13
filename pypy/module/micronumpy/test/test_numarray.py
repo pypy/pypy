@@ -491,6 +491,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         for i in range(5):
             assert b[i] == i - 5
 
+    def test_scalar_subtract(self):
+        from numpypy import int32
+        assert int32(2) - 1 == 1
+        assert 1 - int32(2) == -1
+
     def test_mul(self):
         import numpypy
 
@@ -868,16 +873,17 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_debug_repr(self):
         from numpypy import zeros, sin
+        from numpypy.pypy import debug_repr
         a = zeros(1)
-        assert a.__debug_repr__() == 'Array'
-        assert (a + a).__debug_repr__() == 'Call2(add, Array, Array)'
-        assert (a[::2]).__debug_repr__() == 'Slice(Array)'
-        assert (a + 2).__debug_repr__() == 'Call2(add, Array, Scalar)'
-        assert (a + a.flat).__debug_repr__() == 'Call2(add, Array, FlatIter(Array))'
-        assert sin(a).__debug_repr__() == 'Call1(sin, Array)'
+        assert debug_repr(a) == 'Array'
+        assert debug_repr(a + a) == 'Call2(add, Array, Array)'
+        assert debug_repr(a[::2]) == 'Slice(Array)'
+        assert debug_repr(a + 2) == 'Call2(add, Array, Scalar)'
+        assert debug_repr(a + a.flat) == 'Call2(add, Array, FlatIter(Array))'
+        assert debug_repr(sin(a)) == 'Call1(sin, Array)'
         b = a + a
         b[0] = 3
-        assert b.__debug_repr__() == 'Call2(add, forced=Array)'
+        assert debug_repr(b) == 'Call2(add, forced=Array)'
 
     def test_tolist_scalar(self):
         from numpypy import int32, bool_
