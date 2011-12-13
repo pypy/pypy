@@ -925,9 +925,6 @@ class BaseArray(Wrappable):
     def start_iter(self, res_shape=None):
         raise NotImplementedError
 
-    def descr_debug_repr(self, space):
-        return space.wrap(self.debug_repr())
-
     def descr_array_iface(self, space):
         concrete = self.get_concrete()
         storage = concrete.get_storage(space)
@@ -1466,7 +1463,6 @@ BaseArray.typedef = TypeDef(
 
     __repr__ = interp2app(BaseArray.descr_repr),
     __str__ = interp2app(BaseArray.descr_str),
-    __debug_repr__ = interp2app(BaseArray.descr_debug_repr),
     __array_interface__ = GetSetProperty(BaseArray.descr_array_iface),
 
     dtype = GetSetProperty(BaseArray.descr_get_dtype),
