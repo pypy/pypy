@@ -945,19 +945,20 @@ class GuardToken(object):
         self.save_exc = save_exc
 
 class OverwritingBuilder(PPCAssembler):
-    def __init__(self, cb, start, size):
+    def __init__(self, cb, start, num_insts):
         PPCAssembler.__init__(self)
         self.cb = cb
         self.index = start
-        self.end = start + size
+        self.num_insts = num_insts
 
     def currpos(self):
-        return self.index
+        assert 0, "not implemented"
 
-    def writechar(self, char):
-        assert self.index <= self.end
-        self.cb.overwrite(self.index, char)
-        self.index += 1
+    def overwrite(self):
+        assert len(self.insts) <= self.num_insts
+        startindex  = self.index / 4
+        for i, new_inst in enumerate(self.insts):
+            self.cb.insts[i + startindex] = new_inst
 
 class PPCBuilder(BlockBuilderMixin, PPCAssembler):
     def __init__(self, failargs_limit=1000, r0_in_use=False):
