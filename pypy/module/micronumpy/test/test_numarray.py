@@ -724,34 +724,23 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_identity(self):
         from numpypy import identity, array
-        from numpypy import int32, float64
+        from numpypy import int32, float64, dtype
         a = identity(0)
         assert len(a) == 0
-        assert repr(a.dtype) == "dtype('float64')"
+        assert a.dtype == dtype('float64')
         assert a.shape == (0,0)
         b = identity(1, dtype=int32)
         assert len(b) == 1
         assert b[0][0] == 1
         assert b.shape == (1,1)
-        assert repr(b.dtype) == "dtype('int32')"
+        assert b.dtype == dtype('int32')
         c = identity(2)
         assert c.shape == (2,2)
-        assert c[0][0] == 1.0
-        assert c[0][1] == 0.0
-        assert c[1][0] == 0.0
-        assert c[1][1] == 1.0
+        assert (c == [[1,0],[0,1]]).all()
         d = identity(3, dtype='int32')
         assert d.shape == (3,3)
-        assert repr(d.dtype) == "dtype('int32')"
-        assert d[0][0] == 1.0
-        assert d[0][1] == 0.0
-        assert d[0][2] == 0.0
-        assert d[1][0] == 0.0
-        assert d[1][1] == 1.0
-        assert d[1][2] == 0.0
-        assert d[2][0] == 0.0
-        assert d[2][1] == 0.0
-        assert d[2][2] == 1.0
+        assert d.dtype == dtype('int32')
+        assert (d == [[1,0,0],[0,1,0],[0,0,1]]).all()
 
     def test_prod(self):
         from numpypy import array
