@@ -1196,7 +1196,17 @@ class AppTestSupport(BaseNumpyAppTest):
         assert f[0] == 1
         assert f[1] == 2
         assert f[2] == 3
-        raises(ValueError, fromstring, "3.4 2.0 3.8 2.2", dtype=int32, sep=" ")
+        g = fromstring("1  2    3 ", dtype=uint8, sep=" ")
+        assert len(g) == 3
+        assert g[0] == 1
+        assert g[1] == 2
+        assert g[2] == 3
+        #FIXME: below should work
+        #h = fromstring("1, , 2, 3", dtype=uint8, sep=",")
+        #assert len(h) == 3
+        #assert h[0] == 1
+        #assert h[1] == 2
+        #assert h[2] == 3
         
     def test_fromstring_types(self):
         from numpypy import fromstring
@@ -1224,13 +1234,15 @@ class AppTestSupport(BaseNumpyAppTest):
         
         
     def test_fromstring_invalid(self):
-        from numpypy import fromstring, uint16, uint8
+        from numpypy import fromstring, uint16, uint8, int32
         #default dtype is 64-bit float, so 3 bytes should fail
         raises(ValueError, fromstring, "\x01\x02\x03")
         #3 bytes is not modulo 2 bytes (int16)
         raises(ValueError, fromstring, "\x01\x03\x03", dtype=uint16)
         #5 bytes is larger than 3 bytes
         raises(ValueError, fromstring, "\x01\x02\x03", count=5, dtype=uint8)
+        #can't cast floats to ints with fromstring
+        raises(ValueError, fromstring, "3.4 2.0 3.8 2.2", dtype=int32, sep=" ")
 
 
 class AppTestRepr(BaseNumpyAppTest):
