@@ -174,12 +174,11 @@ class RegAlloc(object):
         operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
                                                        allgcrefs)
         # compute longevity of variables
-        longevity = self._compute_vars_longevity(inputargs, operations)
-        self.longevity = longevity
-        self.rm = gpr_reg_mgr_cls(longevity,
+        self._compute_vars_longevity(inputargs, operations)
+        self.rm = gpr_reg_mgr_cls(self.longevity,
                                   frame_manager = self.fm,
                                   assembler = self.assembler)
-        self.xrm = xmm_reg_mgr_cls(longevity, frame_manager = self.fm,
+        self.xrm = xmm_reg_mgr_cls(self.longevity, frame_manager = self.fm,
                                    assembler = self.assembler)
         return operations
 
@@ -481,7 +480,7 @@ class RegAlloc(object):
         # only to guard operations or to jump or to finish
         produced = {}
         last_used = {}
-        #useful = {}
+        last_real_usage = {}
         for i in range(len(operations)-1, -1, -1):
             op = operations[i]
             if op.result:
@@ -492,10 +491,13 @@ class RegAlloc(object):
             opnum = op.getopnum()
             for j in range(op.numargs()):
                 arg = op.getarg(j)
-                #if opnum != rop.JUMP and opnum != rop.FINISH:
-                #    useful[arg] = None
-                if isinstance(arg, Box) and arg not in last_used:
+                if not isinstance(arg, Box):
+                    continue
+                if arg not in last_used:
                     last_used[arg] = i
+                if opnum != rop.JUMP and opnum != rop.LABEL:
+                    if arg not in last_real_usage:
+                        last_real_usage[arg] = i
             if op.is_guard():
                 for arg in op.getfailargs():
                     if arg is None: # hole
@@ -503,7 +505,8 @@ class RegAlloc(object):
                     assert isinstance(arg, Box)
                     if arg not in last_used:
                         last_used[arg] = i
-
+        self.last_real_usage = last_real_usage
+        #
         longevity = {}
         for arg in produced:
             if arg in last_used:
@@ -519,7 +522,7 @@ class RegAlloc(object):
                 longevity[arg] = (0, last_used[arg])
                 del last_used[arg]
         assert len(last_used) == 0
-        return longevity#, useful
+        self.longevity = longevity
 
     def loc(self, v):
         if v is None: # xxx kludgy
@@ -1471,6 +1474,16 @@ class RegAlloc(object):
         inputargs = op.getarglist()
         arglocs = [None] * len(inputargs)
         #
+        # we use force_spill() on the boxes that are not going to be really
+        # used any more in the loop, but that are kept alive anyway
+        # by being in a next LABEL's or a JUMP's argument or fail_args
+        # of some guard
+        position = self.rm.position
+        for arg in inputargs:
+            assert isinstance(arg, Box)
+            if self.last_real_usage.get(arg, -1) <= position:
+                self.force_spill_var(arg)
+        #
         # we need to make sure that the tmpreg and xmmtmp are free
         tmpreg = X86RegisterManager.all_regs[0]
         tmpvar = TempBox()
@@ -1491,7 +1504,7 @@ class RegAlloc(object):
         #
         for i in range(len(inputargs)):
             arg = inputargs[i]
-            assert not isinstance(arg, Const)
+            assert isinstance(arg, Box)
             loc = self.loc(arg)
             assert not (loc is tmpreg or loc is xmmtmp or loc is ebp)
             arglocs[i] = loc
