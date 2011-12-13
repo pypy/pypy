@@ -210,9 +210,9 @@ class PartialTraceWithIds(TraceWithIds):
     def entry_bridge_ops(self, *args, **kwds):
         ops = list(self._allops(*args, **kwds))
         labels = [op for op in ops if op.name == 'label']
-        assert ops.index(labels[0]) == 0
-        i = ops.index(labels[1])
-        return ops[1:i]
+        i0 = ops.index(labels[0])
+        i1 = ops.index(labels[1])
+        return ops[i0+1:i1]
 
     @property
     def chunks(self):
