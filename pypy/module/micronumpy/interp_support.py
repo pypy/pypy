@@ -2,13 +2,16 @@ from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.module.micronumpy import interp_dtype
+from pypy.objspace.std.strutil import strip_spaces
 
 
 FLOAT_SIZE = rffi.sizeof(lltype.Float)
 
 def _fromstring_text(space, s, count, sep, length, dtype):
-    import string
     from pypy.module.micronumpy.interp_numarray import W_NDimArray
+
+    sep_stripped = strip_spaces(sep)
+    skip_bad_vals = True if len(sep_stripped) == 0 else False
 
     A = []
     num_items = 0
@@ -18,10 +21,28 @@ def _fromstring_text(space, s, count, sep, length, dtype):
         nextptr = s.find(sep, ptr)
         if nextptr < 0:
             nextptr = length
-        piece = s[ptr:nextptr]
-        #FIXME: need to check piece.isspace() also, but does not translate
-        if len(piece) > 0:
-            val = dtype.coerce(space, space.wrap(piece))
+        piece = strip_spaces(s[ptr:nextptr])
+        if len(piece) > 0 or not skip_bad_vals:
+            if len(piece) == 0 and not skip_bad_vals:
+                val = dtype.itemtype.default_fromstring(space)
+            else:
+                try:
+                    val = dtype.coerce(space, space.wrap(piece))
+                except OperationError, e:
+                    if not e.match(space, space.w_ValueError):
+                        raise
+                    gotit = False
+                    while not gotit and len(piece) > 0:
+                        piece = piece[:-1]
+                        try:
+                            val = dtype.coerce(space, space.wrap(piece))
+                            gotit = True
+                        except OperationError, e:
+                            if not e.match(space, space.w_ValueError):
+                                raise
+                    if not gotit:
+                        val = dtype.itemtype.default_fromstring(space)
+                    nextptr = length
             A.append(val)
             num_items += 1
         ptr = nextptr + 1

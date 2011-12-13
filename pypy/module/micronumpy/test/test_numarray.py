@@ -1173,7 +1173,7 @@ class AppTestSupport(BaseNumpyAppTest):
         cls.w_float64val = cls.space.wrap(struct.pack('d', 300.4))
 
     def test_fromstring(self):
-        from numpypy import fromstring, uint8, float32, int32
+        from numpypy import fromstring, array, uint8, float32, int32
         a = fromstring(self.data)
         for i in range(4):
             assert a[i] == i + 1
@@ -1201,12 +1201,28 @@ class AppTestSupport(BaseNumpyAppTest):
         assert g[0] == 1
         assert g[1] == 2
         assert g[2] == 3
-        #FIXME: below should work
-        #h = fromstring("1, , 2, 3", dtype=uint8, sep=",")
-        #assert len(h) == 3
-        #assert h[0] == 1
-        #assert h[1] == 2
-        #assert h[2] == 3
+        h = fromstring("1, , 2, 3", dtype=uint8, sep=",")
+        assert h.tolist() == [1,0,2,3]
+        i = fromstring("1    2 3", dtype=uint8, sep=" ")
+        assert i.tolist() == [1,2,3]
+        j = fromstring("1\t\t\t\t2\t3", dtype=uint8, sep="\t")
+        assert j.tolist() == [1,2,3]
+        k = fromstring("1,x,2,3", dtype=uint8, sep=",")
+        assert k.tolist() == [1,0]
+        l = fromstring("1,x,2,3", dtype='float32', sep=",")
+        assert l.tolist() == [1.0,-1.0]
+        m = fromstring("1,,2,3", sep=",")
+        assert m.tolist() == [1.0,-1.0,2.0,3.0]
+        n = fromstring("3.4 2.0 3.8 2.2", dtype=int32, sep=" ")
+        assert n.tolist() == [3]
+        o = fromstring("1.0 2f.0f 3.8 2.2", dtype=float32, sep=" ")
+        assert len(o) == 2
+        assert o[0] == 1.0
+        assert o[1] == 2.0
+        p = fromstring("1.0,,2.0,3.0", sep=",")
+        assert p.tolist() == [1.0, -1.0, 2.0, 3.0]
+        q = fromstring("1.0,,2.0,3.0", sep=" ")
+        assert q.tolist() == [1.0]
         
     def test_fromstring_types(self):
         from numpypy import fromstring
@@ -1241,8 +1257,6 @@ class AppTestSupport(BaseNumpyAppTest):
         raises(ValueError, fromstring, "\x01\x03\x03", dtype=uint16)
         #5 bytes is larger than 3 bytes
         raises(ValueError, fromstring, "\x01\x02\x03", count=5, dtype=uint8)
-        #can't cast floats to ints with fromstring
-        raises(ValueError, fromstring, "3.4 2.0 3.8 2.2", dtype=int32, sep=" ")
 
 
 class AppTestRepr(BaseNumpyAppTest):

@@ -87,6 +87,9 @@ class Primitive(object):
     def _coerce(self, space, w_item):
         raise NotImplementedError
 
+    def default_fromstring(self, space):
+        raise NotImplementedError
+
     def read(self, storage, width, i, offset):
         return self.box(libffi.array_getitem(clibffi.cast_type_to_ffitype(self.T),
             width, storage, i, offset
@@ -213,6 +216,9 @@ class Integer(Primitive):
 
     def for_computation(self, v):
         return widen(v)
+    
+    def default_fromstring(self, space):
+        return self._coerce(space, space.wrap(0))
 
     @simple_binary_op
     def div(self, v1, v2):
@@ -319,6 +325,9 @@ class Float(Primitive):
 
     def for_computation(self, v):
         return float(v)
+
+    def default_fromstring(self, space):
+        return self._coerce(space, space.wrap(-1.0))
 
     @simple_binary_op
     def div(self, v1, v2):
