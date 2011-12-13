@@ -791,7 +791,8 @@ class BaseArray(Wrappable):
                 raise OperationError(space.w_IndexError, space.wrap(
                         "0-d arrays can't be indexed"))
             item = concrete._index_of_single_item(space, w_idx)
-            concrete.setitem(item, concrete.dtype.coerce(space, w_value))
+            dtype = concrete.find_dtype()
+            concrete.setitem(item, dtype.coerce(space, w_value))
             return
         if not isinstance(w_value, BaseArray):
             w_value = convert_to_array(space, w_value)
