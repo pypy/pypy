@@ -35,8 +35,9 @@ from pypy.rpython.lltypesystem import lltype, rffi, rstr, llmemory
 NO_FORCE_INDEX = -1
 
 class GuardToken(object):
-    def __init__(self, descr, failargs, faillocs, offset, fcond=c.AL,
-                                        save_exc=False, is_invalidate=False):
+    def __init__(self, descr, failargs, faillocs, offset,
+                            save_exc, fcond=c.AL, is_invalidate=False):
+        assert isinstance(save_exc, bool)
         self.descr = descr
         self.offset = offset
         self.is_invalidate = is_invalidate
@@ -99,9 +100,9 @@ class IntOpAsslember(object):
         self.mc.CMP_rr(r.ip.value, res.value, shifttype=shift.ASR, imm=31, cond=fcond)
 
         if guard.getopnum() == rop.GUARD_OVERFLOW:
-            fcond = self._emit_guard(guard, failargs, c.NE)
+            fcond = self._emit_guard(guard, failargs, c.NE, save_exc=False)
         elif guard.getopnum() == rop.GUARD_NO_OVERFLOW:
-            fcond = self._emit_guard(guard, failargs, c.EQ)
+            fcond = self._emit_guard(guard, failargs, c.EQ, save_exc=False)
         else:
             assert 0
         return fcond
@@ -188,7 +189,9 @@ class GuardOpAssembler(object):
 
     _mixin_ = True
 
-    def _emit_guard(self, op, arglocs, fcond, save_exc=False, is_guard_not_invalidated=False):
+    def _emit_guard(self, op, arglocs, fcond, save_exc, is_guard_not_invalidated=False):
+        assert isinstance(save_exc, bool)
+        assert isinstance(fcond, int)
         descr = op.getdescr()
         assert isinstance(descr, AbstractFailDescr)
 
@@ -209,16 +212,16 @@ class GuardOpAssembler(object):
                                     failargs=op.getfailargs(),
                                     faillocs=arglocs,
                                     offset=pos,
-                                    fcond=fcond,
+                                    save_exc=save_exc,
                                     is_invalidate=is_guard_not_invalidated,
-                                    save_exc=save_exc))
+                                    fcond=fcond))
         return c.AL
 
     def _emit_guard_overflow(self, guard, failargs, fcond):
         if guard.getopnum() == rop.GUARD_OVERFLOW:
-            fcond = self._emit_guard(guard, failargs, c.VS)
+            fcond = self._emit_guard(guard, failargs, c.VS, save_exc=False)
         elif guard.getopnum() == rop.GUARD_NO_OVERFLOW:
-            fcond = self._emit_guard(guard, failargs, c.VC)
+            fcond = self._emit_guard(guard, failargs, c.VC, save_exc=False)
         else:
             assert 0
         return fcond
@@ -227,14 +230,14 @@ class GuardOpAssembler(object):
         l0 = arglocs[0]
         failargs = arglocs[1:]
         self.mc.CMP_ri(l0.value, 0)
-        fcond = self._emit_guard(op, failargs, c.NE)
+        fcond = self._emit_guard(op, failargs, c.NE, save_exc=False)
         return fcond
 
     def emit_op_guard_false(self, op, arglocs, regalloc, fcond):
         l0 = arglocs[0]
         failargs = arglocs[1:]
         self.mc.CMP_ri(l0.value, 0)
-        fcond = self._emit_guard(op, failargs, c.EQ)
+        fcond = self._emit_guard(op, failargs, c.EQ, save_exc=False)
         return fcond
 
     def emit_op_guard_value(self, op, arglocs, regalloc, fcond):
@@ -251,17 +254,17 @@ class GuardOpAssembler(object):
             assert l1.is_vfp_reg()
             self.mc.VCMP(l0.value, l1.value)
             self.mc.VMRS(cond=fcond)
-        fcond = self._emit_guard(op, failargs, c.EQ)
+        fcond = self._emit_guard(op, failargs, c.EQ, save_exc=False)
         return fcond
 
     emit_op_guard_nonnull = emit_op_guard_true
     emit_op_guard_isnull = emit_op_guard_false
 
     def emit_op_guard_no_overflow(self, op, arglocs, regalloc, fcond):
-        return self._emit_guard(op, arglocs, c.VC)
+        return self._emit_guard(op, arglocs, c.VC, save_exc=False)
 
     def emit_op_guard_overflow(self, op, arglocs, regalloc, fcond):
-        return self._emit_guard(op, arglocs, c.VS)
+        return self._emit_guard(op, arglocs, c.VS, save_exc=False)
 
     # from ../x86/assembler.py:1265
     def emit_op_guard_class(self, op, arglocs, regalloc, fcond):
@@ -273,14 +276,14 @@ class GuardOpAssembler(object):
 
         self.mc.CMP_ri(arglocs[0].value, 0)
         if offset is not None:
-            self._emit_guard(op, arglocs[3:], c.NE)
+            self._emit_guard(op, arglocs[3:], c.NE, save_exc=False)
         else:
             raise NotImplementedError
         self._cmp_guard_class(op, arglocs, regalloc, fcond)
         return fcond
 
     def emit_op_guard_not_invalidated(self, op, locs, regalloc, fcond):
-        return self._emit_guard(op, locs, fcond, is_guard_not_invalidated=True)
+        return self._emit_guard(op, locs, fcond, save_exc=False, is_guard_not_invalidated=True)
 
     def _cmp_guard_class(self, op, locs, regalloc, fcond):
         offset = locs[2]
@@ -295,7 +298,7 @@ class GuardOpAssembler(object):
             raise NotImplementedError
             # XXX port from x86 backend once gc support is in place
 
-        return self._emit_guard(op, locs[3:], c.EQ)
+        return self._emit_guard(op, locs[3:], c.EQ, save_exc=False)
 
 
 class OpAssembler(object):
@@ -497,7 +500,7 @@ class OpAssembler(object):
 
         self.mc.CMP_rr(r.ip.value, loc.value)
         self._emit_guard(op, failargs, c.EQ, save_exc=True)
-        self.mc.gen_load_int(loc.value, pos_exc_value.value, fcond)
+        self.mc.gen_load_int(loc.value, pos_exc_value.value)
         if resloc:
             self.mc.LDR_ri(resloc.value, loc.value)
         self.mc.MOV_ri(r.ip.value, 0)

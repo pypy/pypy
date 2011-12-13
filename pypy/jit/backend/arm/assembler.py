@@ -155,7 +155,7 @@ class AssemblerARM(ResOpAssembler):
         self.releasegil_addr  = rffi.cast(lltype.Signed, releasegil_func)
         self.reacqgil_addr = rffi.cast(lltype.Signed, reacqgil_func)
 
-    def _gen_leave_jitted_hook_code(self, save_exc=False):
+    def _gen_leave_jitted_hook_code(self, save_exc):
         mc = ARMv7Builder()
         # XXX add a check if cpu supports floats
         with saved_registers(mc, r.caller_resp + [r.ip], r.caller_vfp_resp):
@@ -428,12 +428,14 @@ class AssemblerARM(ResOpAssembler):
         encode32(mem, j+1, n)
         return memaddr
 
-    def _gen_path_to_exit_path(self, descr, args, arglocs, fcond=c.AL, save_exc=False):
+    def _gen_path_to_exit_path(self, descr, args, arglocs, save_exc, fcond=c.AL):
+        assert isinstance(save_exc, bool)
         memaddr = self.gen_descr_encoding(descr, args, arglocs)
-        self.gen_exit_code(self.mc, memaddr, fcond, save_exc)
+        self.gen_exit_code(self.mc, memaddr, save_exc, fcond)
         return memaddr
 
-    def gen_exit_code(self, mc, memaddr, fcond=c.AL, save_exc=False):
+    def gen_exit_code(self, mc, memaddr, save_exc, fcond=c.AL):
+        assert isinstance(save_exc, bool)
         self.mc.gen_load_int(r.ip.value, memaddr)
         #mc.LDR_ri(r.ip.value, r.pc.value, imm=WORD)
         if save_exc:
@@ -888,7 +890,7 @@ class AssemblerARM(ResOpAssembler):
 
     # regalloc support
     def load(self, loc, value):
-        assert (loc.is_reg() and value.is_imm() 
+        assert (loc.is_reg() and value.is_imm()
                     or loc.is_vfp_reg() and value.is_imm_float())
         if value.is_imm():
             self.mc.gen_load_int(loc.value, value.getint())
