@@ -81,6 +81,7 @@ class Module(MixedModule):
         'mean': 'app_numpy.mean',
         'sum': 'app_numpy.sum',
         'min': 'app_numpy.min',
+        'identity': 'app_numpy.identity',
         'max': 'app_numpy.max',
         'inf': 'app_numpy.inf',
         'e': 'app_numpy.e',
