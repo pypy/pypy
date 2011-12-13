@@ -1079,7 +1079,8 @@ class ForceOpAssembler(object):
         self.mc.LDR_ri(r.ip.value, r.fp.value)
         self.mc.CMP_ri(r.ip.value, 0)
 
-        self._emit_guard(guard_op, regalloc._prepare_guard(guard_op), c.GE)
+        self._emit_guard(guard_op, regalloc._prepare_guard(guard_op),
+                                                    c.GE, save_exc=True)
         return fcond
 
 
@@ -1098,7 +1099,7 @@ class ForceOpAssembler(object):
         self.mc.LDR_ri(r.ip.value, r.fp.value)
         self.mc.CMP_ri(r.ip.value, 0)
 
-        self._emit_guard(guard_op, arglocs, c.GE)
+        self._emit_guard(guard_op, arglocs, c.GE, save_exc=True)
         return fcond
 
     emit_guard_call_release_gil = emit_guard_call_may_force
