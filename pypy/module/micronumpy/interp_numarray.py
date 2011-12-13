@@ -791,7 +791,7 @@ class BaseArray(Wrappable):
                 raise OperationError(space.w_IndexError, space.wrap(
                         "0-d arrays can't be indexed"))
             item = concrete._index_of_single_item(space, w_idx)
-            concrete.setitem_w(space, item, w_value)
+            concrete.setitem(item, concrete.dtype.coerce(space, w_value))
             return
         if not isinstance(w_value, BaseArray):
             w_value = convert_to_array(space, w_value)
@@ -1178,10 +1178,6 @@ class ViewArray(BaseArray):
     def eval(self, iter):
         return self.parent.getitem(iter.get_offset())
 
-    @unwrap_spec(item=int)
-    def setitem_w(self, space, item, w_value):
-        return self.parent.setitem_w(space, item, w_value)
-
     def setitem(self, item, value):
         # This is currently not possible to be called from anywhere.
         raise NotImplementedError
@@ -1329,9 +1325,6 @@ class W_NDimArray(BaseArray):
             return space.wrap(self.shape[0])
         raise OperationError(space.w_TypeError, space.wrap(
             "len() of unsized object"))
-
-    def setitem_w(self, space, item, w_value):
-        return self.setitem(item, self.dtype.coerce(space, w_value))
 
     def setitem(self, item, value):
         self.invalidated()
