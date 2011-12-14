@@ -697,6 +697,8 @@ def make_string_mappings(strtype):
         return b.build()
 
     # str -> char*
+    # Can't inline this because of the raw address manipulation.
+    @jit.dont_look_inside
     def get_nonmovingbuffer(data):
         """
         Either returns a non-moving copy or performs neccessary pointer
