@@ -186,7 +186,7 @@ class Form(object):
         for fname in specializations:
             field = self.fieldmap[fname]
             if field not in self.fields:
-                raise FormException, "no nothin bout '%s'"%k
+                raise FormException, "no nothin bout '%s'"%fname
             s[field] = specializations[fname]
         return IDesc(self.fieldmap, self.fields, s)
 

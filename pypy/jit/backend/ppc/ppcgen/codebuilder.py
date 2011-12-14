@@ -63,7 +63,7 @@ XFX = Form("CRM", "rS", "XO1")
 MI = Form("rA", "rS", "SH", "MB", "ME", "Rc")
 MB = Form("rA", "rS", "rB", "MB", "ME", "Rc")
 MDI = Form("rA", "rS", "sh", "mbe", "XO5", "Rc")
-MDS = Form("rA", "rS", "rB", "mbe", "XO5", "Rc")
+MDS = Form("rA", "rS", "rB", "mbe", "XO7", "Rc")
 
 class BasicPPCAssembler(Assembler):
 
@@ -459,10 +459,10 @@ class BasicPPCAssembler(Assembler):
 
     rfid  = X(19, XO1=18)
 
-    rldcl   = MDS(30, XO5=8, Rc=0)
-    rldclx  = MDS(30, XO5=8, Rc=1)
-    rldcr   = MDS(30, XO5=9, Rc=0)
-    rldcrx  = MDS(30, XO5=9, Rc=1)
+    rldcl   = MDS(30, XO7=8, Rc=0)
+    rldclx  = MDS(30, XO7=8, Rc=1)
+    rldcr   = MDS(30, XO7=9, Rc=0)
+    rldcrx  = MDS(30, XO7=9, Rc=1)
 
     rldic   = MDI(30, XO5=2, Rc=0)
     rldicx  = MDI(30, XO5=2, Rc=1)
