@@ -17,7 +17,8 @@ from pypy.jit.backend.ppc.ppcgen.arch import (IS_PPC_32, IS_PPC_64, WORD,
 from pypy.jit.backend.ppc.ppcgen.helper.assembler import (gen_emit_cmp_op, 
                                                           encode32, decode32,
                                                           decode64,
-                                                          count_reg_args)
+                                                          count_reg_args,
+                                                          Saved_Volatiles)
 import pypy.jit.backend.ppc.ppcgen.register as r
 import pypy.jit.backend.ppc.ppcgen.condition as c
 from pypy.jit.metainterp.history import (Const, ConstPtr, LoopToken,
@@ -292,6 +293,11 @@ class AssemblerPPC(OpAssembler):
 
     def _gen_leave_jitted_hook_code(self, save_exc=False):
         mc = PPCBuilder()
+
+        with Saved_Volatiles(mc):
+            addr = self.cpu.get_on_leave_jitted_int(save_exception=save_exc)
+            mc.bl_abs(addr)
+
         mc.b_abs(self.exit_code_adr)
         mc.prepare_insts_blocks()
         return mc.materialize(self.cpu.asmmemmgr, [],
@@ -505,7 +511,7 @@ class AssemblerPPC(OpAssembler):
         self.memcpy_addr = self.cpu.cast_ptr_to_int(memcpy_fn)
         self.setup_failure_recovery()
         self.exit_code_adr = self._gen_exit_path()
-        #self._leave_jitted_hook_save_exc = self._gen_leave_jitted_hook_code(True)
+        self._leave_jitted_hook_save_exc = self._gen_leave_jitted_hook_code(True)
         self._leave_jitted_hook = self._gen_leave_jitted_hook_code(False)
 
     def assemble_loop(self, inputargs, operations, looptoken, log):

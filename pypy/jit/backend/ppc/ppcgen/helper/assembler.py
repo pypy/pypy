@@ -122,3 +122,28 @@ class saved_registers(object):
                 space = (6 + MAX_REG_PARAMS + len(self.regs)) * WORD
             self.mc.addi(r.SP.value, r.SP.value, space)
 
+class Saved_Volatiles(object):
+    """ used in _gen_leave_jitted_hook_code to save volatile registers
+        in ENCODING AREA around calls
+    """
+
+    def __init__(self, codebuilder):
+        self.mc = codebuilder
+
+    def __enter__(self):
+        """ before a call, volatile registers are saved in ENCODING AREA
+        """
+        for i, reg in enumerate(r.VOLATILES):
+            if IS_PPC_32:
+                self.mc.stw(reg.value, r.SPP.value, i * WORD)
+            else:
+                self.mc.std(reg.value, r.SPP.value, i * WORD)
+
+    def __exit__(self, *args):
+        """ after call, volatile registers have to be restored
+        """
+        for i, reg in enumerate(r.VOLATILES):
+            if IS_PPC_32:
+                self.mc.lwz(reg.value, r.SPP.value, i * WORD)
+            else:
+                self.mc.ld(reg.value, r.SPP.value, i * WORD)
