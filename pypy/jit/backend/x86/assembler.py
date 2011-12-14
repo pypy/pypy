@@ -838,7 +838,7 @@ class Assembler386(object):
         if isinstance(loc, RegLoc) and loc.is_xmm:
             self.mc.SUB_ri(esp.value, 8)   # = size of doubles
             self.mc.MOVSD_sx(0, loc.value)
-        elif WORD == 4 and isinstance(loc, StackLoc) and loc.width == 8:
+        elif WORD == 4 and isinstance(loc, StackLoc) and loc.get_width() == 8:
             # XXX evil trick
             self.mc.PUSH_b(get_ebp_ofs(loc.position))
             self.mc.PUSH_b(get_ebp_ofs(loc.position + 1))
@@ -849,7 +849,7 @@ class Assembler386(object):
         if isinstance(loc, RegLoc) and loc.is_xmm:
             self.mc.MOVSD_xs(loc.value, 0)
             self.mc.ADD_ri(esp.value, 8)   # = size of doubles
-        elif WORD == 4 and isinstance(loc, StackLoc) and loc.width == 8:
+        elif WORD == 4 and isinstance(loc, StackLoc) and loc.get_width() == 8:
             # XXX evil trick
             self.mc.POP_b(get_ebp_ofs(loc.position + 1))
             self.mc.POP_b(get_ebp_ofs(loc.position))
@@ -1019,18 +1019,18 @@ class Assembler386(object):
                     self.mc.MOVSD_sx(p, loc.value)
                 else:
                     self.mc.MOV_sr(p, loc.value)
-            p += round_up_to_4(loc.width)
+            p += loc.get_width()
         p = 0
         for i in range(start, n):
             loc = arglocs[i]
             if not isinstance(loc, RegLoc):
-                if loc.width == 8:
+                if loc.get_width() == 8:
                     self.mc.MOVSD(xmm0, loc)
                     self.mc.MOVSD_sx(p, xmm0.value)
                 else:
                     self.mc.MOV(tmp, loc)
                     self.mc.MOV_sr(p, tmp.value)
-            p += round_up_to_4(loc.width)
+            p += loc.get_width()
         self._regalloc.reserve_param(p//WORD)
         # x is a location
         self.mc.CALL(x)
@@ -2083,7 +2083,7 @@ class Assembler386(object):
                         argtypes=op.getdescr().get_arg_types(),
                         callconv=op.getdescr().get_call_conv())
 
-        if IS_X86_32 and isinstance(resloc, StackLoc) and resloc.width == 8:
+        if IS_X86_32 and isinstance(resloc, StackLoc) and resloc.type == FLOAT:
             # a float or a long long return
             if op.getdescr().get_return_type() == 'L':
                 self.mc.MOV_br(resloc.value, eax.value)      # long long
@@ -2567,11 +2567,6 @@ for name, value in Assembler386.__dict__.iteritems():
         opname = name[len('genop_'):]
         num = getattr(rop, opname.upper())
         genop_list[num] = value
-
-def round_up_to_4(size):
-    if size < 4:
-        return 4
-    return size
 
 # XXX: ri386 migration shims:
 def addr_add(reg_or_imm1, reg_or_imm2, offset=0, scale=0):

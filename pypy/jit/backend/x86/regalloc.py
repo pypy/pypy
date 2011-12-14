@@ -130,9 +130,9 @@ class X86FrameManager(FrameManager):
     @staticmethod
     def frame_pos(i, box_type):
         if IS_X86_32 and box_type == FLOAT:
-            return StackLoc(i, get_ebp_ofs(i+1), 2, box_type)
+            return StackLoc(i, get_ebp_ofs(i+1), box_type)
         else:
-            return StackLoc(i, get_ebp_ofs(i), 1, box_type)
+            return StackLoc(i, get_ebp_ofs(i), box_type)
     @staticmethod
     def frame_size(box_type):
         if IS_X86_32 and box_type == FLOAT:

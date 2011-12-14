@@ -94,7 +94,7 @@ def remap_frame_layout_mixed(assembler,
         dstloc = dst_locations2[i]
         if isinstance(loc, StackLoc):
             key = loc._getregkey()
-            if (key in dst_keys or (loc.width > WORD and
+            if (key in dst_keys or (loc.get_width() > WORD and
                                     (key + WORD) in dst_keys)):
                 assembler.regalloc_push(loc)
                 extrapushes.append(dstloc)
