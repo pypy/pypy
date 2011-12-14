@@ -716,10 +716,6 @@ class AssemblerPPC(OpAssembler):
             PARAMETER_AREA += MAX_REG_PARAMS * WORD
         SPILLING_AREA = regalloc.frame_manager.frame_depth * WORD
 
-        print "PARAMETER SAVE AREA = %d" % PARAMETER_AREA
-        print "SPILLING AREA       = %d" % SPILLING_AREA
-        print "OFFSET TO ENCODING  = %d" % (PARAMETER_AREA + SPILLING_AREA)
-
         frame_depth = (  GPR_SAVE_AREA
                        + FPR_SAVE_AREA
                        + FLOAT_INT_CONVERSION
