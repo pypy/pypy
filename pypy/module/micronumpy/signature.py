@@ -1,7 +1,7 @@
 from pypy.rlib.objectmodel import r_dict, compute_identity_hash, compute_hash
 from pypy.rlib.rarithmetic import intmask
 from pypy.module.micronumpy.interp_iter import ViewIterator, ArrayIterator, \
-     BroadcastIterator, OneDimIterator
+     BroadcastIterator, OneDimIterator, ConstantIterator
 
 
 # def components_eq(lhs, rhs):
@@ -31,14 +31,11 @@ def find_sig(sig):
     return known_sigs.setdefault(sig, sig)
 
 class Signature(object):
-    def eq(self, other):
-        return self is other
-
-    def hash(self):
-        return compute_hash(self)
-
-    def create_iter(self, array, cache):
+    def create_iter(self, array, cache, res_shape=None):
         raise NotImplementedError
+
+    def invent_numbering(self):
+        pass # XXX
 
 class ViewSignature(Signature):
     def __init__(self, child):
@@ -55,17 +52,33 @@ class ViewSignature(Signature):
     def debug_repr(self):
         return 'Slice(%s)' % self.child.debug_repr()
 
-    def create_iter(self, array, cache):
-        xxxx
-
 class ArraySignature(Signature):
+    def __init__(self, dtype):
+        self.dtype = dtype
+
+    def eq(self, other):
+        if type(self) is not type(other):
+            return False
+        return self.dtype is other.dtype
+
+    def hash(self):
+        return compute_identity_hash(self.dtype)
+
     def debug_repr(self):
         return 'Array'
 
-    def create_iter(self, array, cache):
-        xxx
-
 class ScalarSignature(Signature):
+    def __init__(self, dtype):
+        self.dtype = dtype
+
+    def eq(self, other):
+        if type(self) is not type(other):
+            return False
+        return self.dtype is other.dtype
+
+    def hash(self):
+        return compute_identity_hash(self.dtype)
+
     def debug_repr(self):
         return 'Scalar'
 
@@ -74,16 +87,15 @@ class FlatiterSignature(ViewSignature):
         return 'FlatIter(%s)' % self.child.debug_repr()
 
 class Call1(Signature):
-    def __init__(self, func, name, child):
+    def __init__(self, func, child):
         self.unfunc = func
-        self.name = name
         self.child = child
 
     def hash(self):
-        return compute_hash(self.name) ^ self.child.hash() << 1
+        return compute_identity_hash(self.unfunc) ^ self.child.hash() << 1
 
     def eq(self, other):
-        if type(other) is not type(self):
+        if type(self) is not type(other):
             return False
         return self.unfunc is other.unfunc and self.child.eq(other.child)
 
@@ -92,18 +104,17 @@ class Call1(Signature):
                                   self.child.debug_repr())
 
 class Call2(Signature):
-    def __init__(self, func, name, left, right):
+    def __init__(self, func, left, right):
         self.binfunc = func
-        self.name = name
         self.left = left
         self.right = right
 
     def hash(self):
-        return (compute_hash(self.name) ^ (self.left.hash() << 1) ^
+        return (compute_identity_hash(self.binfunc) ^ (self.left.hash() << 1) ^
                 (self.right.hash() << 2))
 
     def eq(self, other):
-        if type(other) is not type(self):
+        if type(self) is not type(other):
             return False
         return (self.binfunc is other.binfunc and
                 self.left.eq(other.left) and self.right.eq(other.right))
@@ -113,36 +124,5 @@ class Call2(Signature):
                                       self.left.debug_repr(),
                                       self.right.debug_repr())
 
-class ForcedSignature(Signature):
-    def debug_repr(self):
-        return 'Forced'
-
 class ReduceSignature(Call2):
     pass
-
-# class Signature(BaseSignature):
-#     _known_sigs = r_dict(components_eq, components_hash)
-
-#     _attrs_ = ["components"]
-#     _immutable_fields_ = ["components[*]"]
-
-#     def __init__(self, components):
-#         self.components = components
-
-#     @staticmethod
-#     def find_sig(components):
-#         return Signature._known_sigs.setdefault(components, Signature(components))
-
-# class Call1(BaseSignature):
-#     _immutable_fields_ = ["func", "name"]
-
-#     def __init__(self, func):
-#         self.func = func
-#         self.name = func.func_name
-
-# class Call2(BaseSignature):
-#     _immutable_fields_ = ["func", "name"]
-
-#     def __init__(self, func):
-#         self.func = func
-#         self.name = func.func_name

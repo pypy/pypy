@@ -8,9 +8,6 @@ from pypy.conftest import gettestobjspace
 
 
 class MockDtype(object):
-    array_signature = signature.ArraySignature()
-    scalar_signature = signature.ScalarSignature()
-
     def malloc(self, size):
         return None
 

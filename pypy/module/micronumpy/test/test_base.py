@@ -17,18 +17,18 @@ class TestSignature(object):
         ar = W_NDimArray(10, [10], dtype=float64_dtype)
         v1 = ar.descr_add(space, ar)
         v2 = ar.descr_add(space, Scalar(float64_dtype, 2.0))
-        assert v1.signature is not v2.signature
+        assert v1.find_sig() is not v2.find_sig()
         v3 = ar.descr_add(space, Scalar(float64_dtype, 1.0))
-        assert v2.signature is v3.signature
+        assert v2.find_sig() is v3.find_sig()
         v4 = ar.descr_add(space, ar)
-        assert v1.signature is v4.signature
+        assert v1.find_sig() is v4.find_sig()
 
         bool_ar = W_NDimArray(10, [10], dtype=bool_dtype)
         v5 = ar.descr_add(space, bool_ar)
-        assert v5.signature is not v1.signature
-        assert v5.signature is not v2.signature
+        assert v5.find_sig() is not v1.find_sig()
+        assert v5.find_sig() is not v2.find_sig()
         v6 = ar.descr_add(space, bool_ar)
-        assert v5.signature is v6.signature
+        assert v5.find_sig() is v6.find_sig()
 
     def test_slice_signature(self, space):
         float64_dtype = get_dtype_cache(space).w_float64dtype
@@ -36,11 +36,11 @@ class TestSignature(object):
         ar = W_NDimArray(10, [10], dtype=float64_dtype)
         v1 = ar.descr_getitem(space, space.wrap(slice(1, 3, 1)))
         v2 = ar.descr_getitem(space, space.wrap(slice(4, 6, 1)))
-        assert v1.signature is v2.signature
+        assert v1.find_sig() is v2.find_sig()
 
         v3 = v2.descr_add(space, v1)
         v4 = v1.descr_add(space, v2)
-        assert v3.signature is v4.signature
+        assert v3.find_sig() is v4.find_sig()
 
 class TestUfuncCoerscion(object):
     def test_binops(self, space):

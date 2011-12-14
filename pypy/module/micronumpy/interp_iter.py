@@ -2,6 +2,13 @@
 from pypy.rlib import jit
 from pypy.rlib.objectmodel import instantiate
 
+class NumpyEvalFrame(object):
+    def __init__(self, iterators):
+        self.iterators = iterators
+
+    def next(self, shapelen):
+        xxx
+
 # Iterators for arrays
 # --------------------
 # all those iterators with the exception of BroadcastIterator iterate over the

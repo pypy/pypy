@@ -117,10 +117,7 @@ class W_Ufunc1(W_Ufunc):
         if isinstance(w_obj, Scalar):
             return self.func(res_dtype, w_obj.value.convert_to(res_dtype))
 
-        new_sig = signature.find_sig(signature.Call1(self.func,
-                                                     self.name,
-                                                     w_obj.signature))
-        w_res = Call1(new_sig, w_obj.shape, res_dtype, w_obj, w_obj.order)
+        w_res = Call1(self.func, w_obj.shape, res_dtype, w_obj, w_obj.order)
         w_obj.add_invalidates(w_res)
         return w_res
 
@@ -158,12 +155,8 @@ class W_Ufunc2(W_Ufunc):
                 w_rhs.value.convert_to(calc_dtype)
             )
 
-        new_sig = signature.find_sig(signature.Call2(self.func,
-                                                     self.name,
-                                                     w_lhs.signature,
-                                                     w_rhs.signature))
         new_shape = shape_agreement(space, w_lhs.shape, w_rhs.shape)
-        w_res = Call2(new_sig, new_shape, calc_dtype,
+        w_res = Call2(self.func, new_shape, calc_dtype,
                       res_dtype, w_lhs, w_rhs)
         w_lhs.add_invalidates(w_res)
         w_rhs.add_invalidates(w_res)

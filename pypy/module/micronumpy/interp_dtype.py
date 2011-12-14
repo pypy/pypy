@@ -28,11 +28,6 @@ class W_Dtype(Wrappable):
         self.char = char
         self.w_box_type = w_box_type
         self.alternate_constructors = alternate_constructors
-        self.array_signature = signature.ArraySignature()
-        self.scalar_signature = signature.ScalarSignature()
-        self.forced_signature = signature.ForcedSignature()
-        #self.flatiter_signature = signature.FlatiterSignature()
-        #self.view_signature = signature.ViewSignature()
 
     def malloc(self, length):
         # XXX find out why test_zjit explodes with tracking of allocations

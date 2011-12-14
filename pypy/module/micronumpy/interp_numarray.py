@@ -7,8 +7,7 @@ from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder
-from pypy.rlib.objectmodel import instantiate
-
+from pypy.module.micronumpy.interp_iter import NumpyEvalFrame, ArrayIterator
 
 numpy_driver = jit.JitDriver(
     greens=['shapelen', 'signature'],
@@ -199,7 +198,7 @@ def calc_new_strides(new_shape, old_shape, old_strides):
     return new_strides
 
 class BaseArray(Wrappable):
-    _attrs_ = ["invalidates", "signature", "shape", "strides", "backstrides",
+    _attrs_ = ["invalidates", "shape", "strides", "backstrides",
                "start", 'order']
 
     _immutable_fields_ = ['start', "order"]
@@ -310,7 +309,7 @@ class BaseArray(Wrappable):
             reds=['result', 'idx', 'i', 'self', 'cur_best', 'dtype']
         )
         def loop(self):
-            i = self.start_iter()
+            i = self.signature.create_iter(self, {})
             cur_best = self.eval(i)
             shapelen = len(self.shape)
             i = i.next(shapelen)
@@ -709,10 +708,18 @@ class BaseArray(Wrappable):
         raise NotImplementedError
 
     def start_iter(self, res_shape=None):
-        raise NotImplementedError
+        all_iters = self.signature.create_iter(self, {}, res_shape)
+        return NumpyEvalFrame(all_iters)
 
     def descr_debug_repr(self, space):
         return space.wrap(self.signature.debug_repr())
+
+    def find_sig(self):
+        """ find a correct signature for the array
+        """
+        sig = self.create_sig()
+        sig.invent_numbering()
+        return signature.find_sig(sig)
 
 def convert_to_array(space, w_obj):
     if isinstance(w_obj, BaseArray):
@@ -739,7 +746,6 @@ class Scalar(BaseArray):
         BaseArray.__init__(self, [], 'C')
         self.dtype = dtype
         self.value = value
-        self.signature = dtype.scalar_signature
 
     def find_size(self):
         return 1
@@ -756,9 +762,6 @@ class Scalar(BaseArray):
     def eval(self, iter):
         return self.value
 
-    def start_iter(self, res_shape=None):
-        return ConstantIterator()
-
     def to_str(self, space, comma, builder, indent=' ', use_ellipsis=False):
         builder.append(self.dtype.itemtype.str_format(self.value))
 
@@ -770,14 +773,16 @@ class Scalar(BaseArray):
         # so in order to have a consistent API, let it go through.
         pass
 
+    def create_sig(self):
+        return signature.ScalarSignature(self.dtype)
+
 class VirtualArray(BaseArray):
     """
     Class for representing virtual arrays, such as binary ops or ufuncs
     """
-    def __init__(self, signature, shape, res_dtype, order):
+    def __init__(self, shape, res_dtype, order):
         BaseArray.__init__(self, shape, order)
         self.forced_result = None
-        self.signature = signature
         self.res_dtype = res_dtype
 
     def _del_sources(self):
@@ -786,10 +791,10 @@ class VirtualArray(BaseArray):
 
     def compute(self):
         i = 0
-        signature = self.signature
         result_size = self.find_size()
         result = W_NDimArray(result_size, self.shape, self.find_dtype())
         shapelen = len(self.shape)
+        xxx
         i = self.start_iter()
         ri = result.start_iter()
         while not ri.done():
@@ -805,7 +810,6 @@ class VirtualArray(BaseArray):
     def force_if_needed(self):
         if self.forced_result is None:
             self.forced_result = self.compute()
-            self.signature = self.find_dtype().forced_signature
             self._del_sources()
 
     def get_concrete(self):
@@ -834,10 +838,11 @@ class VirtualArray(BaseArray):
 
 
 class Call1(VirtualArray):
-    def __init__(self, signature, shape, res_dtype, values, order):
-        VirtualArray.__init__(self, signature, shape, res_dtype,
+    def __init__(self, ufunc, shape, res_dtype, values, order):
+        VirtualArray.__init__(self, shape, res_dtype,
                               values.order)
         self.values = values
+        self.ufunc = ufunc
 
     def _del_sources(self):
         self.values = None
@@ -855,18 +860,16 @@ class Call1(VirtualArray):
         assert isinstance(sig, signature.Call1)
         return sig.unfunc(self.res_dtype, val)
 
-    def start_iter(self, res_shape=None):
-        if self.forced_result is not None:
-            return self.forced_result.start_iter(res_shape)
-        return Call1Iterator(self.values.start_iter(res_shape))
+    def create_sig(self):
+        return signature.Call1(self.ufunc, self.values.create_sig())
 
 class Call2(VirtualArray):
     """
     Intermediate class for performing binary operations.
     """
-    def __init__(self, signature, shape, calc_dtype, res_dtype, left, right):
-        # XXX do something if left.order != right.order
-        VirtualArray.__init__(self, signature, shape, res_dtype, left.order)
+    def __init__(self, ufunc, shape, calc_dtype, res_dtype, left, right):
+        VirtualArray.__init__(self, shape, res_dtype, left.order)
+        self.ufunc = ufunc
         self.left = left
         self.right = right
         self.calc_dtype = calc_dtype
@@ -881,14 +884,6 @@ class Call2(VirtualArray):
     def _find_size(self):
         return self.size
 
-    def start_iter(self, res_shape=None):
-        if self.forced_result is not None:
-            return self.forced_result.start_iter(res_shape)
-        if res_shape is None:
-            res_shape = self.shape  # we still force the shape on children
-        return Call2Iterator(self.left.start_iter(res_shape),
-                             self.right.start_iter(res_shape))
-
     def _eval(self, iter):
         assert isinstance(iter, Call2Iterator)
         lhs = self.left.eval(iter.left).convert_to(self.calc_dtype)
@@ -896,6 +891,10 @@ class Call2(VirtualArray):
         sig = jit.promote(self.signature)
         assert isinstance(sig, signature.Call2)
         return sig.binfunc(self.calc_dtype, lhs, rhs)
+
+    def create_sig(self):
+        return signature.Call2(self.ufunc, self.left.create_sig(),
+                               self.right.create_sig())
 
 class ViewArray(BaseArray):
     """
@@ -974,7 +973,6 @@ class W_NDimSlice(ViewArray):
         if isinstance(parent, W_NDimSlice):
             parent = parent.parent
         ViewArray.__init__(self, parent, strides, backstrides, shape)
-        self.signature = signature.find_sig(signature.ViewSignature(parent.signature))
         self.start = start
         self.size = 1
         for sh in shape:
@@ -1005,12 +1003,12 @@ class W_NDimSlice(ViewArray):
             source_iter = source_iter.next(shapelen)
             res_iter = res_iter.next(shapelen)
 
-    def start_iter(self, res_shape=None):
-        if res_shape is not None and res_shape != self.shape:
-            return BroadcastIterator(self, res_shape)
-        if len(self.shape) == 1:
-            return OneDimIterator(self.start, self.strides[0], self.shape[0])
-        return ViewIterator(self)
+    # def start_iter(self, res_shape=None):
+    #     if res_shape is not None and res_shape != self.shape:
+    #         return BroadcastIterator(self, res_shape)
+    #     if len(self.shape) == 1:
+    #         return OneDimIterator(self.start, self.strides[0], self.shape[0])
+    #     return ViewIterator(self)
 
     def setitem(self, item, value):
         self.parent.setitem(item, value)
@@ -1025,6 +1023,9 @@ class W_NDimSlice(ViewArray):
             a_iter = a_iter.next(len(array.shape))
         return array
 
+    def create_sig(self):
+        return signature.ViewSignature(self.parent.create_sig())
+
 class W_NDimArray(BaseArray):
     """ A class representing contiguous array. We know that each iteration
     by say ufunc will increase the data index by one
@@ -1034,7 +1035,6 @@ class W_NDimArray(BaseArray):
         self.size = size
         self.dtype = dtype
         self.storage = dtype.malloc(size)
-        self.signature = dtype.array_signature
 
     def get_concrete(self):
         return self
@@ -1073,16 +1073,19 @@ class W_NDimArray(BaseArray):
         self.invalidated()
         self.dtype.setitem(self.storage, item, value)
 
-    def start_iter(self, res_shape=None):
-        if self.order == 'C':
-            if res_shape is not None and res_shape != self.shape:
-                return BroadcastIterator(self, res_shape)
-            return ArrayIterator(self.size)
-        raise NotImplementedError  # use ViewIterator simply, test it
+    # def start_iter(self, res_shape=None):
+    #     if self.order == 'C':
+    #         if res_shape is not None and res_shape != self.shape:
+    #             return BroadcastIterator(self, res_shape)
+    #         return ArrayIterator(self.size)
+    #     raise NotImplementedError  # use ViewIterator simply, test it
 
     def setshape(self, space, new_shape):
         self.shape = new_shape
         self.calc_strides(new_shape)
+
+    def create_sig(self):
+        return signature.ArraySignature(self.dtype)
 
     def __del__(self):
         lltype.free(self.storage, flavor='raw', track_allocation=False)
@@ -1134,11 +1137,11 @@ def array(space, w_item_or_iterable, w_dtype=None, w_order=NoneNotWrapped):
     )
     arr = W_NDimArray(size, shape[:], dtype=dtype, order=order)
     shapelen = len(shape)
-    iters = arr.signature.create_iterator()
-    arr_iter = arr.start_iter(arr.shape)
+    arr_iter = ArrayIterator(arr)
     for i in range(len(elems_w)):
         w_elem = elems_w[i]
-        dtype.setitem(arr.storage, arr_iter.offset, dtype.coerce(space, w_elem))
+        dtype.setitem(arr.storage, arr_iter.offset,
+                      dtype.coerce(space, w_elem))
         arr_iter = arr_iter.next(shapelen)
     return arr
 
@@ -1241,14 +1244,12 @@ class W_FlatIterator(ViewArray):
         self.shapelen = len(arr.shape)
         self.arr = arr
         self.iter = self.start_iter()
-        self.signature = signature.find_sig(signature.FlatiterSignature(
-            arr.signature))
 
-    def start_iter(self, res_shape=None):
-        if res_shape is not None and res_shape != self.shape:
-            return BroadcastIterator(self, res_shape)
-        return OneDimIterator(self.arr.start, self.strides[0],
-                              self.shape[0])
+    # def start_iter(self, res_shape=None):
+    #     if res_shape is not None and res_shape != self.shape:
+    #         return BroadcastIterator(self, res_shape)
+    #     return OneDimIterator(self.arr.start, self.strides[0],
+    #                           self.shape[0])
 
     def find_dtype(self):
         return self.arr.find_dtype()
