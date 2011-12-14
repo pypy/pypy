@@ -77,7 +77,7 @@ class ArraySignature(ConcreteSignature):
 
     def _create_iter(self, iterlist, arr, res_shape):
         if self.iter_no >= len(iterlist):
-            iter = ArrayIterator(arr)
+            iter = ArrayIterator(arr.size)
             iterlist.append(iter)
 
     def eval(self, frame, arr):

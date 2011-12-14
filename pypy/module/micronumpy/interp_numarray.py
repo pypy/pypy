@@ -793,7 +793,7 @@ class VirtualArray(BaseArray):
         shapelen = len(self.shape)
         signature = self.find_sig()
         frame = signature.create_frame(self)
-        ri = ArrayIterator(result)
+        ri = ArrayIterator(result_size)
         while not ri.done():
             numpy_driver.jit_merge_point(signature=signature,
                                          shapelen=shapelen,
