@@ -309,28 +309,30 @@ class BaseArray(Wrappable):
 
     def _reduce_argmax_argmin_impl(op_name):
         reduce_driver = jit.JitDriver(
-            greens=['shapelen', 'signature'],
-            reds=['result', 'idx', 'i', 'self', 'cur_best', 'dtype']
+            greens=['shapelen', 'sig'],
+            reds=['result', 'idx', 'frame', 'self', 'cur_best', 'dtype']
         )
         def loop(self):
-            i = self.signature.create_iter(self, {})
-            cur_best = self.eval(i)
+            sig = self.find_sig()
+            frame = sig.create_frame(self)
+            cur_best = sig.eval(frame, self)
             shapelen = len(self.shape)
-            i = i.next(shapelen)
+            frame.next(shapelen)
             dtype = self.find_dtype()
             result = 0
             idx = 1
-            while not i.done():
-                reduce_driver.jit_merge_point(signature=self.signature,
+            while not frame.done():
+                reduce_driver.jit_merge_point(sig=sig,
                                               shapelen=shapelen,
                                               self=self, dtype=dtype,
-                                              i=i, result=result, idx=idx,
+                                              frame=frame, result=result,
+                                              idx=idx,
                                               cur_best=cur_best)
-                new_best = getattr(dtype.itemtype, op_name)(cur_best, self.eval(i))
+                new_best = getattr(dtype.itemtype, op_name)(cur_best, sig.eval(frame, self))
                 if dtype.itemtype.ne(new_best, cur_best):
                     result = idx
                     cur_best = new_best
-                i = i.next(shapelen)
+                frame.next(shapelen)
                 idx += 1
             return result
         def impl(self, space):
@@ -689,9 +691,11 @@ class BaseArray(Wrappable):
         if self.find_size() > 1:
             raise OperationError(space.w_ValueError, space.wrap(
                 "The truth value of an array with more than one element is ambiguous. Use a.any() or a.all()"))
+        concr = self.get_concrete()
+        sig = concr.find_sig()
+        frame = sig.create_frame(self)
         return space.wrap(space.is_true(
-            self.get_concrete().eval(self.start_iter(self.shape))
-        ))
+            sig.eval(frame, concr)))
 
     def descr_get_transpose(self, space):
         concrete = self.get_concrete()
@@ -714,7 +718,7 @@ class BaseArray(Wrappable):
         raise NotImplementedError
 
     def descr_debug_repr(self, space):
-        return space.wrap(self.signature.debug_repr())
+        return space.wrap(self.find_sig().debug_repr())
 
     def find_sig(self):
         """ find a correct signature for the array

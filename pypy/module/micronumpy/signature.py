@@ -96,6 +96,7 @@ class ArraySignature(ConcreteSignature):
             iterlist.append(iter)
 
     def eval(self, frame, arr):
+        arr = arr.get_concrete()
         iter = frame.iterators[self.iter_no]
         return arr.dtype.getitem(arr.storage, iter.offset)
 
@@ -132,6 +133,7 @@ class ViewSignature(Signature):
             iterlist.append(iter)
 
     def eval(self, frame, arr):
+        arr = arr.get_concrete()
         iter = frame.iterators[self.iter_no]
         return arr.find_dtype().getitem(arr.parent.storage, iter.offset)
 
@@ -156,8 +158,7 @@ class Call1(Signature):
         return self.unfunc is other.unfunc and self.child.eq(other.child)
 
     def debug_repr(self):
-        return 'Call1(%s, %s)' % (self.name,
-                                  self.child.debug_repr())
+        return 'Call1(%s)' % (self.child.debug_repr())
 
     def _invent_numbering(self, cache):
         self.child._invent_numbering(cache)
@@ -199,9 +200,8 @@ class Call2(Signature):
         return self.binfunc(arr.calc_dtype, lhs, rhs)
 
     def debug_repr(self):
-        return 'Call2(%s, %s, %s)' % (self.name,
-                                      self.left.debug_repr(),
-                                      self.right.debug_repr())
+        return 'Call2(%s, %s)' % (self.left.debug_repr(),
+                                  self.right.debug_repr())
 
 class ReduceSignature(Call2):
     def _create_iter(self, iterlist, arr, res_shape):
