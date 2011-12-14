@@ -531,8 +531,11 @@ class Transformer(object):
                                   op.result)
 
     def rewrite_op_free(self, op):
-        flags = op.args[1].value
-        assert flags['flavor'] == 'raw'
+        d = op.args[1].value.copy()
+        assert d['flavor'] == 'raw'
+        d.pop('flavor')
+        if d:
+            raise UnsupportedMallocFlags(d)
         ARRAY = op.args[0].concretetype.TO
         return self._do_builtin_call(op, 'raw_free', [op.args[0]],
                                      extra = (ARRAY,), extrakey = ARRAY)
