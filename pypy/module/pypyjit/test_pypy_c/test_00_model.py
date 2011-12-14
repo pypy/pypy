@@ -45,8 +45,10 @@ class BaseTestPyPyC(object):
         cmdline = [sys.executable]
         if not import_site:
             cmdline.append('-S')
-        for key, value in jitopts.iteritems():
-            cmdline += ['--jit', '%s=%s' % (key, value)]
+        if jitopts:
+            jitcmdline = ['%s=%s' % (key, value)
+                          for key, value in jitopts.items()]
+            cmdline += ['--jit', ','.join(jitcmdline)]
         cmdline.append(str(self.filepath))
         #
         print cmdline, logfile

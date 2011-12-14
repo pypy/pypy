@@ -491,6 +491,11 @@ class AppTestNumArray(BaseNumpyAppTest):
         for i in range(5):
             assert b[i] == i - 5
 
+    def test_scalar_subtract(self):
+        from numpypy import int32
+        assert int32(2) - 1 == 1
+        assert 1 - int32(2) == -1
+
     def test_mul(self):
         import numpypy
 
@@ -722,6 +727,26 @@ class AppTestNumArray(BaseNumpyAppTest):
         a = array([True] * 5, bool)
         assert a.sum() == 5
 
+    def test_identity(self):
+        from numpypy import identity, array
+        from numpypy import int32, float64, dtype
+        a = identity(0)
+        assert len(a) == 0
+        assert a.dtype == dtype('float64')
+        assert a.shape == (0,0)
+        b = identity(1, dtype=int32)
+        assert len(b) == 1
+        assert b[0][0] == 1
+        assert b.shape == (1,1)
+        assert b.dtype == dtype('int32')
+        c = identity(2)
+        assert c.shape == (2,2)
+        assert (c == [[1,0],[0,1]]).all()
+        d = identity(3, dtype='int32')
+        assert d.shape == (3,3)
+        assert d.dtype == dtype('int32')
+        assert (d == [[1,0,0],[0,1,0],[0,0,1]]).all()
+
     def test_prod(self):
         from numpypy import array
         a = array(range(1, 6))
@@ -868,16 +893,17 @@ class AppTestNumArray(BaseNumpyAppTest):
 
     def test_debug_repr(self):
         from numpypy import zeros, sin
+        from numpypy.pypy import debug_repr
         a = zeros(1)
-        assert a.__debug_repr__() == 'Array'
-        assert (a + a).__debug_repr__() == 'Call2(add, Array, Array)'
-        assert (a[::2]).__debug_repr__() == 'Slice(Array)'
-        assert (a + 2).__debug_repr__() == 'Call2(add, Array, Scalar)'
-        assert (a + a.flat).__debug_repr__() == 'Call2(add, Array, FlatIter(Array))'
-        assert sin(a).__debug_repr__() == 'Call1(sin, Array)'
+        assert debug_repr(a) == 'Array'
+        assert debug_repr(a + a) == 'Call2(add, Array, Array)'
+        assert debug_repr(a[::2]) == 'Slice(Array)'
+        assert debug_repr(a + 2) == 'Call2(add, Array, Scalar)'
+        assert debug_repr(a + a.flat) == 'Call2(add, Array, FlatIter(Array))'
+        assert debug_repr(sin(a)) == 'Call1(sin, Array)'
         b = a + a
         b[0] = 3
-        assert b.__debug_repr__() == 'Call2(add, forced=Array)'
+        assert debug_repr(b) == 'Call2(add, forced=Array)'
 
     def test_tolist_scalar(self):
         from numpypy import int32, bool_

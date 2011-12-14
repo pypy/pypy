@@ -210,9 +210,9 @@ class PartialTraceWithIds(TraceWithIds):
     def entry_bridge_ops(self, *args, **kwds):
         ops = list(self._allops(*args, **kwds))
         labels = [op for op in ops if op.name == 'label']
-        assert ops.index(labels[0]) == 0
-        i = ops.index(labels[1])
-        return ops[1:i]
+        i0 = ops.index(labels[0])
+        i1 = ops.index(labels[1])
+        return ops[i0+1:i1]
 
     @property
     def chunks(self):
@@ -409,7 +409,7 @@ class OpMatcher(object):
         """
         iter_exp_ops = iter(expected_ops)
         iter_ops = RevertableIterator(self.ops)
-        for opindex, exp_op in enumerate(iter_exp_ops):
+        for exp_op in iter_exp_ops:
             try:
                 if exp_op == '...':
                     # loop until we find an operation which matches
@@ -430,7 +430,7 @@ class OpMatcher(object):
                 if exp_op[4] is False:    # optional operation
                     iter_ops.revert_one()
                     continue       # try to match with the next exp_op
-                e.opindex = opindex
+                e.opindex = iter_ops.index - 1
                 raise
         #
         # make sure we exhausted iter_ops

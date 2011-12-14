@@ -38,6 +38,7 @@ from pypy.rlib.clibffi import FFI_DEFAULT_ABI
 from pypy.jit.backend.x86.jump import remap_frame_layout
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter import longlong
+from pypy.rlib.rarithmetic import intmask
 
 # darwin requires the stack to be 16 bytes aligned on calls. Same for gcc 4.5.0,
 # better safe than sorry
@@ -837,7 +838,7 @@ class Assembler386(object):
         if isinstance(loc, RegLoc) and loc.is_xmm:
             self.mc.SUB_ri(esp.value, 8)   # = size of doubles
             self.mc.MOVSD_sx(0, loc.value)
-        elif WORD == 4 and isinstance(loc, StackLoc) and loc.width == 8:
+        elif WORD == 4 and isinstance(loc, StackLoc) and loc.get_width() == 8:
             # XXX evil trick
             self.mc.PUSH_b(get_ebp_ofs(loc.position))
             self.mc.PUSH_b(get_ebp_ofs(loc.position + 1))
@@ -848,12 +849,24 @@ class Assembler386(object):
         if isinstance(loc, RegLoc) and loc.is_xmm:
             self.mc.MOVSD_xs(loc.value, 0)
             self.mc.ADD_ri(esp.value, 8)   # = size of doubles
-        elif WORD == 4 and isinstance(loc, StackLoc) and loc.width == 8:
+        elif WORD == 4 and isinstance(loc, StackLoc) and loc.get_width() == 8:
             # XXX evil trick
             self.mc.POP_b(get_ebp_ofs(loc.position + 1))
             self.mc.POP_b(get_ebp_ofs(loc.position))
         else:
             self.mc.POP(loc)
+
+    def regalloc_immedmem2mem(self, from_loc, to_loc):
+        # move a ConstFloatLoc directly to a StackLoc, as two MOVs
+        # (even on x86-64, because the immediates are encoded as 32 bits)
+        assert isinstance(from_loc, ConstFloatLoc)
+        assert isinstance(to_loc,   StackLoc)
+        low_part  = rffi.cast(rffi.CArrayPtr(rffi.INT), from_loc.value)[0]
+        high_part = rffi.cast(rffi.CArrayPtr(rffi.INT), from_loc.value)[1]
+        low_part  = intmask(low_part)
+        high_part = intmask(high_part)
+        self.mc.MOV_bi(to_loc.value,     low_part)
+        self.mc.MOV_bi(to_loc.value + 4, high_part)
 
     def regalloc_perform(self, op, arglocs, resloc):
         genop_list[op.getopnum()](self, op, arglocs, resloc)
@@ -1006,18 +1019,18 @@ class Assembler386(object):
                     self.mc.MOVSD_sx(p, loc.value)
                 else:
                     self.mc.MOV_sr(p, loc.value)
-            p += round_up_to_4(loc.width)
+            p += loc.get_width()
         p = 0
         for i in range(start, n):
             loc = arglocs[i]
             if not isinstance(loc, RegLoc):
-                if loc.width == 8:
+                if loc.get_width() == 8:
                     self.mc.MOVSD(xmm0, loc)
                     self.mc.MOVSD_sx(p, xmm0.value)
                 else:
                     self.mc.MOV(tmp, loc)
                     self.mc.MOV_sr(p, tmp.value)
-            p += round_up_to_4(loc.width)
+            p += loc.get_width()
         self._regalloc.reserve_param(p//WORD)
         # x is a location
         self.mc.CALL(x)
@@ -2070,7 +2083,7 @@ class Assembler386(object):
                         argtypes=op.getdescr().get_arg_types(),
                         callconv=op.getdescr().get_call_conv())
 
-        if IS_X86_32 and isinstance(resloc, StackLoc) and resloc.width == 8:
+        if IS_X86_32 and isinstance(resloc, StackLoc) and resloc.type == FLOAT:
             # a float or a long long return
             if op.getdescr().get_return_type() == 'L':
                 self.mc.MOV_br(resloc.value, eax.value)      # long long
@@ -2554,11 +2567,6 @@ for name, value in Assembler386.__dict__.iteritems():
         opname = name[len('genop_'):]
         num = getattr(rop, opname.upper())
         genop_list[num] = value
-
-def round_up_to_4(size):
-    if size < 4:
-        return 4
-    return size
 
 # XXX: ri386 migration shims:
 def addr_add(reg_or_imm1, reg_or_imm2, offset=0, scale=0):

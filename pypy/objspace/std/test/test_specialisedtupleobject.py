@@ -33,15 +33,15 @@ class TestW_SpecialisedTupleObject():
         N_space = gettestobjspace(**{"objspace.std.withspecialisedtuple": False})
         S_space = gettestobjspace(**{"objspace.std.withspecialisedtuple": True})
         
-        def hash_test(values):
+        def hash_test(values, must_be_specialized=True):
             N_values_w = [N_space.wrap(value) for value in values]
             S_values_w = [S_space.wrap(value) for value in values]
             N_w_tuple = N_space.newtuple(N_values_w)
             S_w_tuple = S_space.newtuple(S_values_w)
-    
-            assert isinstance(S_w_tuple, W_SpecialisedTupleObject)
+
+            if must_be_specialized:
+                assert isinstance(S_w_tuple, W_SpecialisedTupleObject)
             assert isinstance(N_w_tuple, W_TupleObject)
-            assert not N_space.is_true(N_space.eq(N_w_tuple, S_w_tuple))
             assert S_space.is_true(S_space.eq(N_w_tuple, S_w_tuple))
             assert S_space.is_true(S_space.eq(N_space.hash(N_w_tuple), S_space.hash(S_w_tuple)))
 
@@ -53,7 +53,7 @@ class TestW_SpecialisedTupleObject():
         hash_test([1,(1,2)])
         hash_test([1,('a',2)])
         hash_test([1,()])
-        hash_test([1,2,3])
+        hash_test([1,2,3], must_be_specialized=False)
 
 
 class AppTestW_SpecialisedTupleObject:
@@ -83,6 +83,8 @@ class AppTestW_SpecialisedTupleObject:
         return ("SpecialisedTupleObject" + expected) in r
 
     def test_createspecialisedtuple(self):
+        have = ['ii', 'ff', 'oo']
+        #
         spec = {int: 'i',
                 float: 'f',
                 str: 's',
@@ -92,14 +94,14 @@ class AppTestW_SpecialisedTupleObject:
             for y in [43, 4.3, "bar", []]:
                 expected1 = spec[type(x)]
                 expected2 = spec[type(y)]
-                if (expected1 == 'f') ^ (expected2 == 'f'):
-                    if expected1 == 'f': expected1 = 'o'
-                    if expected2 == 'f': expected2 = 'o'
+                if expected1 + expected2 not in have:
+                    expected1 = expected2 = 'o'
                 obj = (x, y)
                 assert self.isspecialised(obj, '_' + expected1 + expected2)
         #
-        obj = (1, 2, 3)
-        assert self.isspecialised(obj, '_ooo')
+        if 'ooo' in have:
+            obj = (1, 2, 3)
+            assert self.isspecialised(obj, '_ooo')
 
     def test_delegation(self):
         t = self.forbid_delegation((42, 43))
@@ -214,6 +216,8 @@ class AppTestW_SpecialisedTupleObject:
         raises(IndexError, "t[-3]")
 
     def test_three_tuples(self):
+        if not self.isspecialised((1, 2, 3)):
+            skip("don't have specialization for 3-tuples")
         b = self.forbid_delegation((1, 2, 3))
         c = (1,)
         d = c + (2, 3)
@@ -221,6 +225,16 @@ class AppTestW_SpecialisedTupleObject:
         assert b == d
 
     def test_mongrel(self):
+        a = self.forbid_delegation((2.2, '333'))
+        assert self.isspecialised(a)
+        assert len(a) == 2
+        assert a[0] == 2.2 and a[1] == '333'
+        b = ('333',)
+        assert a == (2.2,) + b
+        assert not a != (2.2,) + b
+        #
+        if not self.isspecialised((1, 2, 3)):
+            skip("don't have specialization for 3-tuples")
         a = self.forbid_delegation((1, 2.2, '333'))
         assert self.isspecialised(a)
         assert len(a) == 3
