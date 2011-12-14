@@ -605,7 +605,8 @@ class LLtypeHelpers:
         def build_ll_1_raw_malloc_varsize(ARRAY):
             def _ll_1_raw_malloc_varsize(n):
                 return lltype.malloc(ARRAY, n, flavor='raw', zero=zero,
-                                     add_memory_pressure=add_memory_pressure)
+                                     add_memory_pressure=add_memory_pressure,
+                                     track_allocation=track_allocation)
             return _ll_1_raw_malloc_varsize
         return build_ll_1_raw_malloc_varsize
 
@@ -632,7 +633,8 @@ class LLtypeHelpers:
         def build_ll_0_raw_malloc_fixedsize(STRUCT):
             def _ll_0_raw_malloc_fixedsize():
                 return lltype.malloc(STRUCT, flavor='raw', zero=zero,
-                                     add_memory_pressure=add_memory_pressure)
+                                     add_memory_pressure=add_memory_pressure,
+                                     track_allocation=track_allocation)
             return _ll_0_raw_malloc_fixedsize
         return build_ll_0_raw_malloc_fixedsize
 
@@ -653,10 +655,19 @@ class LLtypeHelpers:
     build_ll_0_raw_malloc_fixedsize_add_memory_pressure_no_track_allocation = (
         build_raw_malloc_fixedsize_builder(add_memory_pressure=True, track_allocation=False))
 
-    def build_ll_1_raw_free(ARRAY):
-        def _ll_1_raw_free(p):
-            lltype.free(p, flavor='raw')
-        return _ll_1_raw_free
+    def build_raw_free_builder(track_allocation=True):
+        def build_ll_1_raw_free(ARRAY):
+            def _ll_1_raw_free(p):
+                lltype.free(p, flavor='raw',
+                            track_allocation=track_allocation)
+            return _ll_1_raw_free
+        return build_ll_1_raw_free
+
+    build_ll_1_raw_free = (
+        build_raw_free_builder())
+    build_ll_1_raw_free_no_track_allocation = (
+        build_raw_free_builder(track_allocation=False))
+
 
 class OOtypeHelpers:
 

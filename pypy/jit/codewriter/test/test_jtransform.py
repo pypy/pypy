@@ -590,6 +590,23 @@ def test_raw_malloc_fixedsize():
     assert op1.opname == '-live-'
     assert op1.args == []
 
+def test_raw_free():
+    S = lltype.Struct('dummy', ('x', lltype.Signed))
+    for flag in [True, False]:
+        flags = Constant({'flavor': 'raw', 'track_allocation': flag},
+                         lltype.Void)
+        op = SpaceOperation('free', [varoftype(lltype.Ptr(S)), flags],
+                            varoftype(lltype.Void))
+        tr = Transformer(FakeCPU(), FakeResidualCallControl())
+        op0, op1 = tr.rewrite_operation(op)
+        assert op0.opname == 'residual_call_ir_v'
+        if flag:
+            pseudo_op_name = 'raw_free'
+        else:
+            pseudo_op_name = 'raw_free_no_track_allocation'
+        assert op0.args[0].value == pseudo_op_name   # pseudo-function as a str
+        assert op1.opname == '-live-'
+
 def test_rename_on_links():
     v1 = Variable()
     v2 = Variable(); v2.concretetype = llmemory.Address

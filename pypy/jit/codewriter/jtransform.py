@@ -536,11 +536,15 @@ class Transformer(object):
         d = op.args[1].value.copy()
         assert d['flavor'] == 'raw'
         d.pop('flavor')
+        track_allocation = d.pop('track_allocation', True)
         if d:
             raise UnsupportedMallocFlags(d)
-        ARRAY = op.args[0].concretetype.TO
-        return self._do_builtin_call(op, 'raw_free', [op.args[0]],
-                                     extra = (ARRAY,), extrakey = ARRAY)
+        STRUCT = op.args[0].concretetype.TO
+        name = 'raw_free'
+        if not track_allocation:
+            name += '_no_track_allocation'
+        return self._do_builtin_call(op, name, [op.args[0]],
+                                     extra = (STRUCT,), extrakey = STRUCT)
 
     def rewrite_op_getarrayitem(self, op):
         ARRAY = op.args[0].concretetype.TO
