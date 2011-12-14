@@ -1,5 +1,5 @@
 import math
-from pypy.rlib.rarithmetic import r_int64
+from pypy.rlib.rarithmetic import r_int64, r_uint
 from pypy.rlib.debug import debug_start, debug_print, debug_stop
 from pypy.rlib.objectmodel import we_are_translated
 
@@ -81,3 +81,8 @@ class MemoryManager(object):
             # a single one is not enough for all tests :-(
             rgc.collect(); rgc.collect(); rgc.collect()
         debug_stop("jit-mem-collect")
+
+    def get_current_generation_uint(self):
+        """Return the current generation, possibly truncated to a uint.
+        To use only as an approximation for decaying counters."""
+        return r_uint(self.current_generation)

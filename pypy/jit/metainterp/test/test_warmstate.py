@@ -1,3 +1,4 @@
+import math
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi
 from pypy.rpython.ootypesystem import ootype
@@ -8,7 +9,7 @@ from pypy.jit.metainterp.warmstate import WarmEnterState, JitCell
 from pypy.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr
 from pypy.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr
 from pypy.jit.codewriter import longlong
-from pypy.rlib.rarithmetic import r_singlefloat
+from pypy.rlib.rarithmetic import r_singlefloat, r_uint
 
 def boxfloat(x):
     return BoxFloat(longlong.getfloatstorage(x))
@@ -277,4 +278,11 @@ def test_make_jitdriver_callbacks_5():
     assert res is True
 
 def test_decay_counters():
-    xxx
+    cell = JitCell(r_uint(5))
+    cell.counter = 100
+    cell.adjust_counter(r_uint(5), math.log(0.9))
+    assert cell.counter == 100
+    cell.adjust_counter(r_uint(6), math.log(0.9))
+    assert cell.counter == 90
+    cell.adjust_counter(r_uint(9), math.log(0.9))
+    assert cell.counter == int(90 * (0.9**3))

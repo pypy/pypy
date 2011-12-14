@@ -1,10 +1,10 @@
-import sys, weakref
+import sys, weakref, math
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi
 from pypy.rpython.ootypesystem import ootype
 from pypy.rpython.annlowlevel import hlstr, cast_base_ptr_to_instance
 from pypy.rpython.annlowlevel import cast_object_to_ptr
 from pypy.rlib.objectmodel import specialize, we_are_translated, r_dict
-from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.rlib.nonconst import NonConstant
 from pypy.rlib.unroll import unrolling_iterable
 from pypy.rlib.jit import PARAMETERS
@@ -153,6 +153,24 @@ class JitCell(BaseJitCell):
     dont_trace_here = False
     wref_procedure_token = None
 
+    def __init__(self, generation):
+        # The stored 'counter' value follows an exponential decay model.
+        # Conceptually after every generation, it decays by getting
+        # multiplied by a constant <= 1.0.  In practice, decaying occurs
+        # lazily: the following field records the latest seen generation
+        # number, and adjustment is done by adjust_counter() when needed.
+        self.latest_generation_seen = generation
+
+    def adjust_counter(self, generation, log_decay_factor):
+        if generation != self.latest_generation_seen:
+            # The latest_generation_seen is older than the current generation.
+            # Adjust by multiplying self.counter N times by decay_factor, i.e.
+            # by decay_factor ** N, which is equal to exp(log(decay_factor)*N).
+            N = generation - self.latest_generation_seen
+            factor = math.exp(log_decay_factor * N)
+            self.counter = int(self.counter * factor)
+            self.latest_generation_seen = generation
+
     def get_procedure_token(self):
         if self.wref_procedure_token is not None:
             token = self.wref_procedure_token()
@@ -214,10 +232,15 @@ class WarmEnterState(object):
         self.inlining = value
 
     def set_param_decay_halflife(self, value):
-        if value <= 0:    # use 0 or -1 to mean "no decay"
-            self.decay_factor = 1.0
+        # Use 0 or -1 to mean "no decay".  Initialize the internal variable
+        # 'log_decay_factor'.  It is choosen such that by multiplying the
+        # counter on loops by 'exp(log_decay_factor)' (<= 1.0) every
+        # generation, then the counter will be divided by two after 'value'
+        # generations have passed.
+        if value <= 0:
+            self.log_decay_factor = 0.0    # log(1.0)
         else:
-            self.decay_factor = 0.5 ** (1.0 / value)
+            self.log_decay_factor = math.log(0.5) / value
 
     def set_param_enable_opts(self, value):
         from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT, ALL_OPTS_NAMES
@@ -288,6 +311,11 @@ class WarmEnterState(object):
         confirm_enter_jit = self.confirm_enter_jit
         range_red_args = unrolling_iterable(
             range(num_green_args, num_green_args + jitdriver_sd.num_red_args))
+        memmgr = self.warmrunnerdesc.memory_manager
+        if memmgr is not None:
+            get_current_generation = memmgr.get_current_generation_uint
+        else:
+            get_current_generation = lambda: r_uint(0)
         # get a new specialized copy of the method
         ARGS = []
         for kind in jitdriver_sd.red_args_types:
@@ -332,6 +360,8 @@ class WarmEnterState(object):
 
             if cell.counter >= 0:
                 # update the profiling counter
+                cell.adjust_counter(get_current_generation(),
+                                    self.log_decay_factor)
                 n = cell.counter + threshold
                 if n <= self.THRESHOLD_LIMIT:       # bound not reached
                     cell.counter = n
@@ -424,6 +454,15 @@ class WarmEnterState(object):
         #
         return jit_getter
 
+    def _new_jitcell(self):
+        warmrunnerdesc = self.warmrunnerdesc
+        if (warmrunnerdesc is not None and
+                warmrunnerdesc.memory_manager is not None):
+            gen = warmrunnerdesc.memory_manager.get_current_generation_uint()
+        else:
+            gen = r_uint(0)
+        return JitCell(gen)
+
     def _make_jitcell_getter_default(self):
         "NOT_RPYTHON"
         jitdriver_sd = self.jitdriver_sd
@@ -459,7 +498,7 @@ class WarmEnterState(object):
             except KeyError:
                 if not build:
                     return None
-                cell = JitCell()
+                cell = self._new_jitcell()
                 jitcell_dict[greenargs] = cell
             return cell
         return get_jitcell
@@ -491,7 +530,7 @@ class WarmEnterState(object):
             if not build:
                 return cell
             if cell is None:
-                cell = JitCell()
+                cell = self._new_jitcell()
                 # <hacks>
                 if we_are_translated():
                     cellref = cast_object_to_ptr(BASEJITCELL, cell)

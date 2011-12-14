@@ -1557,13 +1557,6 @@ class MetaInterp(object):
     in_recursion = 0
 
     def __init__(self, staticdata, jitdriver_sd):
-        try:
-            jitdriver_sd.warmstate.decay_counters
-        except AttributeError:   # for tests
-            pass
-        else:
-            jitdriver_sd.warmstate.decay_counters()
-        #
         self.staticdata = staticdata
         self.cpu = staticdata.cpu
         self.jitdriver_sd = jitdriver_sd
