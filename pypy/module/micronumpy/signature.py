@@ -69,9 +69,9 @@ class Signature(object):
             cache[self] = no
         self.iter_no = no
 
-    def create_frame(self, arr, res_shape=None):
+    def create_frame(self, arr):
         iterlist = []
-        self._create_iter(iterlist, arr, res_shape)
+        self._create_iter(iterlist, arr)
         return NumpyEvalFrame(iterlist)
 
 class ConcreteSignature(Signature):
@@ -90,10 +90,9 @@ class ArraySignature(ConcreteSignature):
     def debug_repr(self):
         return 'Array'
 
-    def _create_iter(self, iterlist, arr, res_shape):
+    def _create_iter(self, iterlist, arr):
         if self.iter_no >= len(iterlist):
-            iter = ArrayIterator(arr.size)
-            iterlist.append(iter)
+            iterlist.append(ArrayIterator(arr.size))
 
     def eval(self, frame, arr):
         arr = arr.get_concrete()
@@ -104,7 +103,7 @@ class ScalarSignature(ConcreteSignature):
     def debug_repr(self):
         return 'Scalar'
 
-    def _create_iter(self, iterlist, arr, res_shape):
+    def _create_iter(self, iterlist, arr):
         if self.iter_no >= len(iterlist):
             iter = ConstantIterator()
             iterlist.append(iter)
@@ -127,10 +126,9 @@ class ViewSignature(Signature):
     def debug_repr(self):
         return 'Slice(%s)' % self.child.debug_repr()
 
-    def _create_iter(self, iterlist, arr, res_shape):
+    def _create_iter(self, iterlist, arr):
         if self.iter_no >= len(iterlist):
-            iter = ViewIterator(arr)
-            iterlist.append(iter)
+            iterlist.append(ViewIterator(arr))
 
     def eval(self, frame, arr):
         arr = arr.get_concrete()
@@ -141,7 +139,7 @@ class FlatiterSignature(ViewSignature):
     def debug_repr(self):
         return 'FlatIter(%s)' % self.child.debug_repr()
 
-    def _create_iter(self, iterlist, arr, res_shape):
+    def _create_iter(self, iterlist, arr):
         XXX
 
 class Call1(Signature):
@@ -163,8 +161,8 @@ class Call1(Signature):
     def _invent_numbering(self, cache):
         self.child._invent_numbering(cache)
 
-    def _create_iter(self, iterlist, arr, res_shape):
-        self.child._create_iter(iterlist, arr.values, res_shape)
+    def _create_iter(self, iterlist, arr):
+        self.child._create_iter(iterlist, arr.values)
 
     def eval(self, frame, arr):
         v = self.child.eval(frame, arr.values).convert_to(arr.res_dtype)
@@ -190,9 +188,9 @@ class Call2(Signature):
         self.left._invent_numbering(cache)
         self.right._invent_numbering(cache)
 
-    def _create_iter(self, iterlist, arr, res_shape):
-        self.left._create_iter(iterlist, arr.left, res_shape)
-        self.right._create_iter(iterlist, arr.right, res_shape)
+    def _create_iter(self, iterlist, arr):
+        self.left._create_iter(iterlist, arr.left)
+        self.right._create_iter(iterlist, arr.right)
 
     def eval(self, frame, arr):
         lhs = self.left.eval(frame, arr.left).convert_to(arr.calc_dtype)
@@ -204,8 +202,8 @@ class Call2(Signature):
                                   self.right.debug_repr())
 
 class ReduceSignature(Call2):
-    def _create_iter(self, iterlist, arr, res_shape):
-        self.right._create_iter(iterlist, arr, res_shape)
+    def _create_iter(self, iterlist, arr):
+        self.right._create_iter(iterlist, arr)
 
     def _invent_numbering(self, cache):
         self.right._invent_numbering(cache)

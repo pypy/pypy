@@ -7,7 +7,8 @@ from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder
-from pypy.module.micronumpy.interp_iter import ArrayIterator, ViewIterator
+from pypy.module.micronumpy.interp_iter import ArrayIterator, ViewIterator,\
+     OneDimIterator
 
 numpy_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
@@ -1214,11 +1215,12 @@ class W_FlatIterator(ViewArray):
         size = 1
         for sh in arr.shape:
             size *= sh
-        ViewArray.__init__(self, arr, [arr.strides[-1]],
+        ViewArray.__init__(self, arr.get_concrete(), [arr.strides[-1]],
                            [arr.backstrides[-1]], [size])
         self.shapelen = len(arr.shape)
         self.arr = arr
-        self.iter = self.start_iter()
+        self.iter = OneDimIterator(self.arr.start, self.strides[0],
+                                   arr.shape[0])
 
     def find_dtype(self):
         return self.arr.find_dtype()
