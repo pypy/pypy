@@ -7,11 +7,12 @@ from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder
-from pypy.module.micronumpy.interp_iter import NumpyEvalFrame, ArrayIterator
+from pypy.module.micronumpy.interp_iter import ArrayIterator
 
 numpy_driver = jit.JitDriver(
     greens=['shapelen', 'signature'],
-    reds=['result_size', 'i', 'ri', 'self', 'result']
+    virtualizables=['frame'],
+    reds=['result_size', 'frame', 'ri', 'self', 'result']
 )
 all_driver = jit.JitDriver(
     greens=['shapelen', 'signature'],
@@ -759,9 +760,6 @@ class Scalar(BaseArray):
     def getitem(self, item):
         raise NotImplementedError
 
-    def eval(self, iter):
-        return self.value
-
     def to_str(self, space, comma, builder, indent=' ', use_ellipsis=False):
         builder.append(self.dtype.itemtype.str_format(self.value))
 
@@ -790,20 +788,22 @@ class VirtualArray(BaseArray):
         raise NotImplementedError
 
     def compute(self):
-        i = 0
         result_size = self.find_size()
         result = W_NDimArray(result_size, self.shape, self.find_dtype())
         shapelen = len(self.shape)
-        xxx
-        i = self.start_iter()
-        ri = result.start_iter()
+        signature = self.find_sig()
+        frame = signature.create_frame(self)
+        ri = ArrayIterator(result)
         while not ri.done():
             numpy_driver.jit_merge_point(signature=signature,
                                          shapelen=shapelen,
-                                         result_size=result_size, i=i, ri=ri,
+                                         result_size=result_size,
+                                         frame=frame,
+                                         ri=ri,
                                          self=self, result=result)
-            result.dtype.setitem(result.storage, ri.offset, self.eval(i))
-            i = i.next(shapelen)
+            result.dtype.setitem(result.storage, ri.offset,
+                                 signature.eval(frame, self))
+            frame.next(shapelen)
             ri = ri.next(shapelen)
         return result
 
@@ -815,11 +815,6 @@ class VirtualArray(BaseArray):
     def get_concrete(self):
         self.force_if_needed()
         return self.forced_result
-
-    def eval(self, iter):
-        if self.forced_result is not None:
-            return self.forced_result.eval(iter)
-        return self._eval(iter)
 
     def getitem(self, item):
         return self.get_concrete().getitem(item)
@@ -853,14 +848,9 @@ class Call1(VirtualArray):
     def _find_dtype(self):
         return self.res_dtype
 
-    def _eval(self, iter):
-        assert isinstance(iter, Call1Iterator)
-        val = self.values.eval(iter.child).convert_to(self.res_dtype)
-        sig = jit.promote(self.signature)
-        assert isinstance(sig, signature.Call1)
-        return sig.unfunc(self.res_dtype, val)
-
     def create_sig(self):
+        if self.forced_result is not None:
+            return self.forced_result.create_sig()
         return signature.Call1(self.ufunc, self.values.create_sig())
 
 class Call2(VirtualArray):
@@ -884,15 +874,9 @@ class Call2(VirtualArray):
     def _find_size(self):
         return self.size
 
-    def _eval(self, iter):
-        assert isinstance(iter, Call2Iterator)
-        lhs = self.left.eval(iter.left).convert_to(self.calc_dtype)
-        rhs = self.right.eval(iter.right).convert_to(self.calc_dtype)
-        sig = jit.promote(self.signature)
-        assert isinstance(sig, signature.Call2)
-        return sig.binfunc(self.calc_dtype, lhs, rhs)
-
     def create_sig(self):
+        if self.forced_result is not None:
+            return self.forced_result.create_sig()
         return signature.Call2(self.ufunc, self.left.create_sig(),
                                self.right.create_sig())
 
@@ -1047,9 +1031,6 @@ class W_NDimArray(BaseArray):
 
     def getitem(self, item):
         return self.dtype.getitem(self.storage, item)
-
-    def eval(self, iter):
-        return self.dtype.getitem(self.storage, iter.get_offset())
 
     def copy(self):
         array = W_NDimArray(self.size, self.shape[:], self.dtype, self.order)

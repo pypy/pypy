@@ -1,8 +1,7 @@
-from pypy.rlib.objectmodel import r_dict, compute_identity_hash, compute_hash
-from pypy.rlib.rarithmetic import intmask
+from pypy.rlib.objectmodel import r_dict, compute_identity_hash
 from pypy.module.micronumpy.interp_iter import ViewIterator, ArrayIterator, \
      BroadcastIterator, OneDimIterator, ConstantIterator
-
+from pypy.rlib.jit import hint, unroll_safe
 
 # def components_eq(lhs, rhs):
 #     if len(lhs) != len(rhs):
@@ -30,10 +29,19 @@ known_sigs = r_dict(sigeq, sighash)
 def find_sig(sig):
     return known_sigs.setdefault(sig, sig)
 
-class Signature(object):
-    def create_iter(self, array, cache, res_shape=None):
-        raise NotImplementedError
+class NumpyEvalFrame(object):
+    _virtualizable2_ = ['iterators[*]']
 
+    def __init__(self, iterators):
+        self = hint(self, access_directly=True)
+        self.iterators = iterators
+
+    @unroll_safe
+    def next(self, shapelen):
+        for i in range(len(self.iterators)):
+            self.iterators[i] = self.iterators[i].next(shapelen)
+
+class Signature(object):
     def invent_numbering(self):
         cache = r_dict(sigeq, sighash)
         self._invent_numbering(cache)
@@ -44,7 +52,12 @@ class Signature(object):
         except KeyError:
             no = len(cache)
             cache[self] = no
-        self.iter_no = no    
+        self.iter_no = no
+
+    def create_frame(self, arr, res_shape=None):
+        iterlist = []
+        self._create_iter(iterlist, arr, res_shape)
+        return NumpyEvalFrame(iterlist)
 
 class ConcreteSignature(Signature):
     def __init__(self, dtype):
@@ -62,9 +75,26 @@ class ArraySignature(ConcreteSignature):
     def debug_repr(self):
         return 'Array'
 
+    def _create_iter(self, iterlist, arr, res_shape):
+        if self.iter_no >= len(iterlist):
+            iter = ArrayIterator(arr)
+            iterlist.append(iter)
+
+    def eval(self, frame, arr):
+        iter = frame.iterators[self.iter_no]
+        return arr.dtype.getitem(arr.storage, iter.offset)
+
 class ScalarSignature(ConcreteSignature):
     def debug_repr(self):
         return 'Scalar'
+
+    def _create_iter(self, iterlist, arr, res_shape):
+        if self.iter_no >= len(iterlist):
+            iter = ConstantIterator()
+            iterlist.append(iter)
+
+    def eval(self, frame, arr):
+        return arr.value
 
 class ViewSignature(Signature):
     def __init__(self, child):
@@ -81,9 +111,17 @@ class ViewSignature(Signature):
     def debug_repr(self):
         return 'Slice(%s)' % self.child.debug_repr()
 
+    def _create_iter(self, iterlist, arr, res_shape):
+        if self.iter_no >= len(iterlist):
+            iter = ViewIterator(arr)
+            iterlist.append(iter)
+
 class FlatiterSignature(ViewSignature):
     def debug_repr(self):
         return 'FlatIter(%s)' % self.child.debug_repr()
+
+    def _create_iter(self, iterlist, arr, res_shape):
+        XXX
 
 class Call1(Signature):
     def __init__(self, func, child):
@@ -105,6 +143,13 @@ class Call1(Signature):
     def _invent_numbering(self, cache):
         self.values._invent_numbering(cache)
 
+    def _create_iter(self, iterlist, arr, res_shape):
+        self.child._create_iter(iterlist, arr.values, res_shape)
+
+    def eval(self, frame, arr):
+        v = self.child.eval(frame, arr.values).convert_to(arr.res_dtype)
+        return self.unfunc(arr.res_dtype, v)
+
 class Call2(Signature):
     def __init__(self, func, left, right):
         self.binfunc = func
@@ -124,6 +169,15 @@ class Call2(Signature):
     def _invent_numbering(self, cache):
         self.left._invent_numbering(cache)
         self.right._invent_numbering(cache)
+
+    def _create_iter(self, iterlist, arr, res_shape):
+        self.left._create_iter(iterlist, arr.left, res_shape)
+        self.right._create_iter(iterlist, arr.right, res_shape)
+
+    def eval(self, frame, arr):
+        lhs = self.left.eval(frame, arr.left).convert_to(arr.calc_dtype)
+        rhs = self.right.eval(frame, arr.right).convert_to(arr.calc_dtype)
+        return self.binfunc(arr.calc_dtype, lhs, rhs)
 
     def debug_repr(self):
         return 'Call2(%s, %s, %s)' % (self.name,

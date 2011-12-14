@@ -2,13 +2,6 @@
 from pypy.rlib import jit
 from pypy.rlib.objectmodel import instantiate
 
-class NumpyEvalFrame(object):
-    def __init__(self, iterators):
-        self.iterators = iterators
-
-    def next(self, shapelen):
-        xxx
-
 # Iterators for arrays
 # --------------------
 # all those iterators with the exception of BroadcastIterator iterate over the
@@ -158,38 +151,6 @@ class BroadcastIterator(BaseIterator):
 
     def get_offset(self):
         return self.offset
-
-class Call2Iterator(BaseIterator):
-    def __init__(self, left, right):
-        self.left = left
-        self.right = right
-
-    def next(self, shapelen):
-        return Call2Iterator(self.left.next(shapelen),
-                             self.right.next(shapelen))
-
-    def done(self):
-        if isinstance(self.left, ConstantIterator):
-            return self.right.done()
-        return self.left.done()
-
-    def get_offset(self):
-        if isinstance(self.left, ConstantIterator):
-            return self.right.get_offset()
-        return self.left.get_offset()
-
-class Call1Iterator(BaseIterator):
-    def __init__(self, child):
-        self.child = child
-
-    def next(self, shapelen):
-        return Call1Iterator(self.child.next(shapelen))
-
-    def done(self):
-        return self.child.done()
-
-    def get_offset(self):
-        return self.child.get_offset()
 
 class ConstantIterator(BaseIterator):
     def next(self, shapelen):
