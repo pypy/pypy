@@ -310,6 +310,38 @@ class MiscOpAssembler(object):
     emit_cast_ptr_to_int = emit_same_as
     emit_cast_int_to_ptr = emit_same_as
 
+    def emit_guard_exception(self, op, arglocs, regalloc):
+        loc, loc1, resloc, pos_exc_value, pos_exception = arglocs[:5]
+        failargs = arglocs[5:]
+        self.mc.load_imm(loc1, pos_exception.value)
+
+        self.mc.alloc_scratch_reg()
+        if IS_PPC_32:
+            self.mc.lwz(r.SCRATCH.value, loc1.value, 0)
+            self.mc.cmpw(0, r.SCRATCH.value, loc.value)
+        else:
+            self.mc.ld(r.SCRATCH.value, loc1.value, 0)
+            self.mc.cmpd(0, r.SCRATCH.value, loc.value)
+        self.mc.free_scratch_reg()
+
+        self._emit_guard(op, failargs, c.EQ, save_exc=True)
+        self.mc.load_imm(loc, pos_exc_value.value)
+
+        if resloc:
+            if IS_PPC_32:
+                self.mc.lwz(resloc.value, loc.value, 0)
+            else:
+                self.mc.ld(resloc.value, loc.value, 0)
+
+        self.mc.alloc_scratch_reg(0)
+        if IS_PPC_32:
+            self.mc.stw(r.SCRATCH.value, loc.value, 0)
+            self.mc.stw(r.SCRATCH.value, loc1.value, 0)
+        else:
+            self.mc.sd(r.SCRATCH.value, loc.value, 0)
+            self.mc.sd(r.SCRATCH.value, loc1.value, 0)
+        self.mc.free_scratch_reg()
+
     def emit_call(self, op, args, regalloc, force_index=-1):
         adr = args[0].value
         arglist = op.getarglist()[1:]

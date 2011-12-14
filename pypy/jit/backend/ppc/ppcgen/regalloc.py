@@ -337,6 +337,26 @@ class Regalloc(object):
 
     prepare_guard_overflow = prepare_guard_no_overflow
 
+    def prepare_guard_exception(self, op):
+        boxes = list(op.getarglist())
+        arg0 = ConstInt(rffi.cast(lltype.Signed, op.getarg(0).getint()))
+        loc, box = self._ensure_value_is_boxed(arg0)
+        boxes.append(box)
+        box = TempInt()
+        loc1 = self.force_allocate_reg(box, boxes)
+        boxes.append(box)
+        if op.result in self.longevity:
+            resloc = self.force_allocate_reg(op.result, boxes)
+            boxes.append(op.result)
+        else:
+            resloc = None
+        pos_exc_value = imm(self.cpu.pos_exc_value())
+        pos_exception = imm(self.cpu.pos_exception())
+        arglocs = self._prepare_guard(op, [loc, loc1, resloc, pos_exc_value, pos_exception])
+        self.possibly_free_vars(boxes)
+        self.possibly_free_vars(op.getfailargs())
+        return arglocs
+
     def prepare_guard_value(self, op):
         boxes = list(op.getarglist())
         b0, b1 = boxes
