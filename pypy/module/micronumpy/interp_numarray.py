@@ -10,7 +10,7 @@ from pypy.rlib.rstring import StringBuilder
 from pypy.module.micronumpy.interp_iter import ArrayIterator
 
 numpy_driver = jit.JitDriver(
-    greens=['shapelen', 'signature'],
+    greens=['shapelen', 'sig'],
     virtualizables=['frame'],
     reds=['result_size', 'frame', 'ri', 'self', 'result']
 )
@@ -708,19 +708,13 @@ class BaseArray(Wrappable):
     def getitem(self, item):
         raise NotImplementedError
 
-    def start_iter(self, res_shape=None):
-        all_iters = self.signature.create_iter(self, {}, res_shape)
-        return NumpyEvalFrame(all_iters)
-
     def descr_debug_repr(self, space):
         return space.wrap(self.signature.debug_repr())
 
     def find_sig(self):
         """ find a correct signature for the array
         """
-        sig = self.create_sig()
-        sig.invent_numbering()
-        return signature.find_sig(sig)
+        return signature.find_sig(self.create_sig())
 
 def convert_to_array(space, w_obj):
     if isinstance(w_obj, BaseArray):
@@ -791,18 +785,18 @@ class VirtualArray(BaseArray):
         result_size = self.find_size()
         result = W_NDimArray(result_size, self.shape, self.find_dtype())
         shapelen = len(self.shape)
-        signature = self.find_sig()
-        frame = signature.create_frame(self)
+        sig = self.find_sig()
+        frame = sig.create_frame(self)
         ri = ArrayIterator(result_size)
         while not ri.done():
-            numpy_driver.jit_merge_point(signature=signature,
+            numpy_driver.jit_merge_point(sig=sig,
                                          shapelen=shapelen,
                                          result_size=result_size,
                                          frame=frame,
                                          ri=ri,
                                          self=self, result=result)
             result.dtype.setitem(result.storage, ri.offset,
-                                 signature.eval(frame, self))
+                                 sig.eval(frame, self))
             frame.next(shapelen)
             ri = ri.next(shapelen)
         return result
@@ -987,13 +981,6 @@ class W_NDimSlice(ViewArray):
             source_iter = source_iter.next(shapelen)
             res_iter = res_iter.next(shapelen)
 
-    # def start_iter(self, res_shape=None):
-    #     if res_shape is not None and res_shape != self.shape:
-    #         return BroadcastIterator(self, res_shape)
-    #     if len(self.shape) == 1:
-    #         return OneDimIterator(self.start, self.strides[0], self.shape[0])
-    #     return ViewIterator(self)
-
     def setitem(self, item, value):
         self.parent.setitem(item, value)
 
@@ -1053,13 +1040,6 @@ class W_NDimArray(BaseArray):
     def setitem(self, item, value):
         self.invalidated()
         self.dtype.setitem(self.storage, item, value)
-
-    # def start_iter(self, res_shape=None):
-    #     if self.order == 'C':
-    #         if res_shape is not None and res_shape != self.shape:
-    #             return BroadcastIterator(self, res_shape)
-    #         return ArrayIterator(self.size)
-    #     raise NotImplementedError  # use ViewIterator simply, test it
 
     def setshape(self, space, new_shape):
         self.shape = new_shape
@@ -1225,12 +1205,6 @@ class W_FlatIterator(ViewArray):
         self.shapelen = len(arr.shape)
         self.arr = arr
         self.iter = self.start_iter()
-
-    # def start_iter(self, res_shape=None):
-    #     if res_shape is not None and res_shape != self.shape:
-    #         return BroadcastIterator(self, res_shape)
-    #     return OneDimIterator(self.arr.start, self.strides[0],
-    #                           self.shape[0])
 
     def find_dtype(self):
         return self.arr.find_dtype()

@@ -27,7 +27,12 @@ def sighash(sig):
 known_sigs = r_dict(sigeq, sighash)
 
 def find_sig(sig):
-    return known_sigs.setdefault(sig, sig)
+    try:
+        return known_sigs[sig]
+    except KeyError:
+        sig.invent_numbering()
+        known_sigs[sig] = sig
+        return sig
 
 class NumpyEvalFrame(object):
     _virtualizable2_ = ['iterators[*]']
@@ -35,6 +40,16 @@ class NumpyEvalFrame(object):
     def __init__(self, iterators):
         self = hint(self, access_directly=True)
         self.iterators = iterators
+        self.final_iter = None
+        for i, iter in enumerate(self.iterators):
+            if not isinstance(iter, ConstantIterator) or not isinstance(iter, BroadcastIterator):
+                self.final_iter = i
+                break
+        else:
+            raise Exception("Cannot find a non-broadcast non-constant iter")
+
+    def done(self):
+        return self.iterators[self.final_iter].done()
 
     @unroll_safe
     def next(self, shapelen):
@@ -185,4 +200,11 @@ class Call2(Signature):
                                       self.right.debug_repr())
 
 class ReduceSignature(Call2):
-    pass
+    def _create_iter(self, iterlist, arr, res_shape):
+        self.right._create_iter(iterlist, arr, res_shape)
+
+    def _invent_numbering(self, cache):
+        self.right._invent_numbering(cache)
+
+    def eval(self, frame, arr):
+        return self.right.eval(frame, arr)

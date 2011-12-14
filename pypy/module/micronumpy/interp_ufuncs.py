@@ -2,15 +2,16 @@ from pypy.interpreter.baseobjspace import Wrappable
 from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty
-from pypy.module.micronumpy import interp_boxes, interp_dtype, signature, types
+from pypy.module.micronumpy import interp_boxes, interp_dtype, types
+from pypy.module.micronumpy.signature import ReduceSignature, ScalarSignature, find_sig
 from pypy.rlib import jit
 from pypy.rlib.rarithmetic import LONG_BIT
 from pypy.tool.sourcetools import func_with_new_name
 
-
 reduce_driver = jit.JitDriver(
-    greens = ['shapelen', "signature"],
-    reds = ["i", "self", "dtype", "value", "obj"]
+    greens = ['shapelen', "sig"],
+    virtualizables = ["frame"],
+    reds = ["frame", "self", "dtype", "value", "obj"]
 )
 
 class W_Ufunc(Wrappable):
@@ -49,7 +50,8 @@ class W_Ufunc(Wrappable):
         return self.reduce(space, w_obj, multidim=False)
 
     def reduce(self, space, w_obj, multidim):
-        from pypy.module.micronumpy.interp_numarray import convert_to_array, Scalar
+        from pypy.module.micronumpy.interp_numarray import convert_to_array, Scalar, Call2
+        
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
                 "supported for binary functions"))
@@ -65,8 +67,10 @@ class W_Ufunc(Wrappable):
             space, obj.find_dtype(),
             promote_to_largest=True
         )
-        start = obj.start_iter(obj.shape)
         shapelen = len(obj.shape)
+        sig = find_sig(ReduceSignature(self.func, ScalarSignature(dtype),
+                                       obj.create_sig()))
+        frame = sig.create_frame(obj)
         if shapelen > 1 and not multidim:
             raise OperationError(space.w_NotImplementedError,
                 space.wrap("not implemented yet"))
@@ -74,24 +78,20 @@ class W_Ufunc(Wrappable):
             if size == 0:
                 raise operationerrfmt(space.w_ValueError, "zero-size array to "
                     "%s.reduce without identity", self.name)
-            value = obj.eval(start).convert_to(dtype)
-            start = start.next(shapelen)
+            value = sig.eval(frame, obj).convert_to(dtype)
+            frame.next(shapelen)
         else:
             value = self.identity.convert_to(dtype)
-        new_sig = signature.find_sig(
-            signature.ReduceSignature(self.func, self.name,
-                                      dtype.scalar_signature,
-                                      obj.signature))
-        return self.reduce_loop(new_sig, shapelen, start, value, obj, dtype)
+        return self.reduce_loop(shapelen, sig, frame, value, obj, dtype)
 
-    def reduce_loop(self, signature, shapelen, i, value, obj, dtype):
-        while not i.done():
-            reduce_driver.jit_merge_point(signature=signature,
+    def reduce_loop(self, shapelen, sig, frame, value, obj, dtype):
+        while not frame.done():
+            reduce_driver.jit_merge_point(sig=sig,
                                           shapelen=shapelen, self=self,
-                                          value=value, obj=obj, i=i,
+                                          value=value, obj=obj, frame=frame,
                                           dtype=dtype)
-            value = self.func(dtype, value, obj.eval(i).convert_to(dtype))
-            i = i.next(shapelen)
+            value = self.func(dtype, value, sig.eval(frame, obj).convert_to(dtype))
+            frame.next(shapelen)
         return value
 
 class W_Ufunc1(W_Ufunc):

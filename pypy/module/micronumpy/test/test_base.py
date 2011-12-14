@@ -4,7 +4,6 @@ from pypy.module.micronumpy.interp_numarray import W_NDimArray, Scalar
 from pypy.module.micronumpy.interp_ufuncs import (find_binop_result_dtype,
         find_unaryop_result_dtype)
 
-
 class BaseNumpyAppTest(object):
     def setup_class(cls):
         cls.space = gettestobjspace(usemodules=['micronumpy'])
