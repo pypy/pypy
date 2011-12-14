@@ -26,9 +26,9 @@ class W_AbstractIntObject(W_Object):
             return self is w_other
         return space.int_w(self) == space.int_w(w_other)
 
-    def unique_id(self, space):
+    def immutable_unique_id(self, space):
         if self.user_overridden_class:
-            return W_Object.unique_id(self, space)
+            return None
         from pypy.objspace.std.model import IDTAG_INT as tag
         b = space.bigint_w(self)
         b = b.lshift(3).or_(rbigint.fromint(tag))
