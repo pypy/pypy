@@ -34,6 +34,11 @@ class TestSignature(object):
         assert v5.find_sig() is not v2.find_sig()
         v6 = ar.descr_add(space, bool_ar)
         assert v5.find_sig() is v6.find_sig()
+        v7 = v6.descr_add(space, v6)
+        sig7 = v7.find_sig()
+        assert sig7.left.left.iter_no == sig7.right.left.iter_no
+        assert sig7.left.left.iter_no != sig7.right.right.iter_no
+        assert sig7.left.right.iter_no == sig7.right.right.iter_no
 
     def test_slice_signature(self, space):
         float64_dtype = get_dtype_cache(space).w_float64dtype
