@@ -18,9 +18,9 @@ class W_AbstractLongObject(W_Object):
             return self is w_other
         return space.bigint_w(self).eq(space.bigint_w(w_other))
 
-    def unique_id(self, space):
+    def immutable_unique_id(self, space):
         if self.user_overridden_class:
-            return W_Object.unique_id(self, space)
+            return None
         from pypy.objspace.std.model import IDTAG_LONG as tag
         b = space.bigint_w(self)
         b = b.lshift(3).or_(rbigint.fromint(tag))
