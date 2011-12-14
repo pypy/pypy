@@ -97,4 +97,5 @@ class Module(MixedModule):
         'pi': 'app_numpy.pi',
         'arange': 'app_numpy.arange',
         'reshape': 'app_numpy.reshape',
+        'concatenate': 'app_numpy.concatenate',
     }

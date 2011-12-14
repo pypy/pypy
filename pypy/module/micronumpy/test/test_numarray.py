@@ -923,6 +923,31 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[:,0].tolist() == [17.1, 40.3]
         assert a[0].tolist() == [17.1, 27.2]
 
+    def test_concatenate(self):
+        from numpypy import array, concatenate
+        a1 = array([0,1,2])
+        a2 = array([3,4,5])
+        a = concatenate((a1, a2))
+        assert len(a) == 6
+        assert (a == [0,1,2,3,4,5]).all()
+        b1 = array([[1, 2], [3, 4]])
+        b2 = array([[5, 6]])
+        b = concatenate((b1, b2), axis=0)
+        assert (b == [[1, 2],[3, 4],[5, 6]]).all()
+        c = concatenate((b1, b2.T), axis=1)
+        assert (c == [[1, 2, 5],[3, 4, 6]]).all()
+        
+        bad_axis = raises(ValueError, concatenate, (a1,a2), axis=1)
+        assert str(bad_axis.value) == "bad axis argument"
+        
+        concat_zero = raises(ValueError, concatenate, ())
+        assert str(concat_zero.value) == \
+            "concatenation of zero-length sequences is impossible"
+        
+        dims_disagree = raises(ValueError, concatenate, (a1, b1), axis=0)
+        assert str(dims_disagree.value) == \
+            "array dimensions must agree except for axis being concatenated"
+
 
 class AppTestMultiDim(BaseNumpyAppTest):
     def test_init(self):
