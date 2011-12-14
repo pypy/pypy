@@ -213,6 +213,12 @@ class WarmEnterState(object):
     def set_param_inlining(self, value):
         self.inlining = value
 
+    def set_param_decay_halflife(self, value):
+        if value <= 0:    # use 0 or -1 to mean "no decay"
+            self.decay_factor = 1.0
+        else:
+            self.decay_factor = 0.5 ** (1.0 / value)
+
     def set_param_enable_opts(self, value):
         from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT, ALL_OPTS_NAMES
 

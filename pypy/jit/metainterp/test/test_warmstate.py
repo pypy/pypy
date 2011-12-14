@@ -275,3 +275,6 @@ def test_make_jitdriver_callbacks_5():
     state.make_jitdriver_callbacks()
     res = state.can_never_inline(5, 42.5)
     assert res is True
+
+def test_decay_counters():
+    xxx
