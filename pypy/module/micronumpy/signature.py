@@ -35,7 +35,36 @@ class Signature(object):
         raise NotImplementedError
 
     def invent_numbering(self):
-        pass # XXX
+        cache = r_dict(sigeq, sighash)
+        self._invent_numbering(cache)
+
+    def _invent_numbering(self, cache):
+        try:
+            no = cache[self]
+        except KeyError:
+            no = len(cache)
+            cache[self] = no
+        self.iter_no = no    
+
+class ConcreteSignature(Signature):
+    def __init__(self, dtype):
+        self.dtype = dtype
+
+    def eq(self, other):
+        if type(self) is not type(other):
+            return False
+        return self.dtype is other.dtype
+
+    def hash(self):
+        return compute_identity_hash(self.dtype)
+
+class ArraySignature(ConcreteSignature):
+    def debug_repr(self):
+        return 'Array'
+
+class ScalarSignature(ConcreteSignature):
+    def debug_repr(self):
+        return 'Scalar'
 
 class ViewSignature(Signature):
     def __init__(self, child):
@@ -51,36 +80,6 @@ class ViewSignature(Signature):
 
     def debug_repr(self):
         return 'Slice(%s)' % self.child.debug_repr()
-
-class ArraySignature(Signature):
-    def __init__(self, dtype):
-        self.dtype = dtype
-
-    def eq(self, other):
-        if type(self) is not type(other):
-            return False
-        return self.dtype is other.dtype
-
-    def hash(self):
-        return compute_identity_hash(self.dtype)
-
-    def debug_repr(self):
-        return 'Array'
-
-class ScalarSignature(Signature):
-    def __init__(self, dtype):
-        self.dtype = dtype
-
-    def eq(self, other):
-        if type(self) is not type(other):
-            return False
-        return self.dtype is other.dtype
-
-    def hash(self):
-        return compute_identity_hash(self.dtype)
-
-    def debug_repr(self):
-        return 'Scalar'
 
 class FlatiterSignature(ViewSignature):
     def debug_repr(self):
@@ -103,6 +102,9 @@ class Call1(Signature):
         return 'Call1(%s, %s)' % (self.name,
                                   self.child.debug_repr())
 
+    def _invent_numbering(self, cache):
+        self.values._invent_numbering(cache)
+
 class Call2(Signature):
     def __init__(self, func, left, right):
         self.binfunc = func
@@ -118,6 +120,10 @@ class Call2(Signature):
             return False
         return (self.binfunc is other.binfunc and
                 self.left.eq(other.left) and self.right.eq(other.right))
+
+    def _invent_numbering(self, cache):
+        self.left._invent_numbering(cache)
+        self.right._invent_numbering(cache)
 
     def debug_repr(self):
         return 'Call2(%s, %s, %s)' % (self.name,

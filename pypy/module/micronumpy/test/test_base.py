@@ -17,9 +17,14 @@ class TestSignature(object):
         ar = W_NDimArray(10, [10], dtype=float64_dtype)
         v1 = ar.descr_add(space, ar)
         v2 = ar.descr_add(space, Scalar(float64_dtype, 2.0))
-        assert v1.find_sig() is not v2.find_sig()
+        sig1 = v1.find_sig()
+        sig2 = v2.find_sig()
+        assert v1 is not v2
+        assert sig1.left.iter_no == sig1.right.iter_no
+        assert sig2.left.iter_no != sig2.right.iter_no
         v3 = ar.descr_add(space, Scalar(float64_dtype, 1.0))
-        assert v2.find_sig() is v3.find_sig()
+        sig3 = v3.find_sig()
+        assert sig2 is sig3
         v4 = ar.descr_add(space, ar)
         assert v1.find_sig() is v4.find_sig()
 
