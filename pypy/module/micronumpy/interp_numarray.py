@@ -7,7 +7,7 @@ from pypy.rlib import jit
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.tool.sourcetools import func_with_new_name
 from pypy.rlib.rstring import StringBuilder
-from pypy.module.micronumpy.interp_iter import ArrayIterator
+from pypy.module.micronumpy.interp_iter import ArrayIterator, ViewIterator
 
 numpy_driver = jit.JitDriver(
     greens=['shapelen', 'sig'],
@@ -15,16 +15,19 @@ numpy_driver = jit.JitDriver(
     reds=['result_size', 'frame', 'ri', 'self', 'result']
 )
 all_driver = jit.JitDriver(
-    greens=['shapelen', 'signature'],
-    reds=['i', 'self', 'dtype']
+    greens=['shapelen', 'sig'],
+    virtualizables=['frame'],
+    reds=['frame', 'self', 'dtype']
 )
 any_driver = jit.JitDriver(
-    greens=['shapelen', 'signature'],
-    reds=['i', 'self', 'dtype']
+    greens=['shapelen', 'sig'],
+    virtualizables=['frame'],
+    reds=['frame', 'self', 'dtype']
 )
 slice_driver = jit.JitDriver(
-    greens=['shapelen', 'signature'],
-    reds=['self', 'source', 'source_iter', 'res_iter']
+    greens=['shapelen', 'sig'],
+    virtualizables=['frame'],
+    reds=['self', 'frame', 'source', 'res_iter']
 )
 
 def _find_shape_and_elems(space, w_iterable):
@@ -340,15 +343,16 @@ class BaseArray(Wrappable):
 
     def _all(self):
         dtype = self.find_dtype()
-        i = self.start_iter()
+        sig = self.find_sig()
+        frame = sig.create_frame(self)
         shapelen = len(self.shape)
-        while not i.done():
-            all_driver.jit_merge_point(signature=self.signature,
+        while not frame.done():
+            all_driver.jit_merge_point(sig=sig,
                                        shapelen=shapelen, self=self,
-                                       dtype=dtype, i=i)
-            if not dtype.itemtype.bool(self.eval(i)):
+                                       dtype=dtype, frame=frame)
+            if not dtype.itemtype.bool(sig.eval(frame, self)):
                 return False
-            i = i.next(shapelen)
+            frame.next(shapelen)
         return True
 
     def descr_all(self, space):
@@ -356,15 +360,16 @@ class BaseArray(Wrappable):
 
     def _any(self):
         dtype = self.find_dtype()
-        i = self.start_iter()
+        sig = self.find_sig()
+        frame = sig.create_frame(self)
         shapelen = len(self.shape)
-        while not i.done():
-            any_driver.jit_merge_point(signature=self.signature,
+        while not frame.done():
+            any_driver.jit_merge_point(sig=sig, frame=frame,
                                        shapelen=shapelen, self=self,
-                                       dtype=dtype, i=i)
-            if dtype.itemtype.bool(self.eval(i)):
+                                       dtype=dtype)
+            if dtype.itemtype.bool(sig.eval(frame, self)):
                 return True
-            i = i.next(shapelen)
+            frame.next(shapelen)
         return False
 
     def descr_any(self, space):
@@ -950,6 +955,10 @@ class W_NDimSlice(ViewArray):
     def __init__(self, parent, start, strides, backstrides, shape):
         if isinstance(parent, W_NDimSlice):
             parent = parent.parent
+        else:
+            # XXX this should not force the array, but it did before the
+            #     refactoring anyway, just in a more obscure way
+            parent = parent.get_concrete()
         ViewArray.__init__(self, parent, strides, backstrides, shape)
         self.start = start
         self.size = 1
@@ -967,18 +976,19 @@ class W_NDimSlice(ViewArray):
         self._sliceloop(w_value, res_shape)
 
     def _sliceloop(self, source, res_shape):
-        source_iter = source.start_iter(res_shape)
-        res_iter = self.start_iter(res_shape)
+        sig = source.find_sig()
+        frame = sig.create_frame(source)
+        res_iter = ViewIterator(self)
         shapelen = len(res_shape)
         while not res_iter.done():
-            slice_driver.jit_merge_point(signature=source.signature,
+            slice_driver.jit_merge_point(sig=sig,
+                                         frame=frame,
                                          shapelen=shapelen,
                                          self=self, source=source,
-                                         res_iter=res_iter,
-                                         source_iter=source_iter)
-            self.setitem(res_iter.offset, source.eval(source_iter).convert_to(
+                                         res_iter=res_iter)
+            self.setitem(res_iter.offset, sig.eval(frame, source).convert_to(
                 self.find_dtype()))
-            source_iter = source_iter.next(shapelen)
+            frame.next(shapelen)
             res_iter = res_iter.next(shapelen)
 
     def setitem(self, item, value):
@@ -986,8 +996,8 @@ class W_NDimSlice(ViewArray):
 
     def copy(self):
         array = W_NDimArray(self.size, self.shape[:], self.find_dtype())
-        iter = self.start_iter()
-        a_iter = array.start_iter()
+        iter = ViewIterator(self)
+        a_iter = ArrayIterator(array.size)
         while not iter.done():
             array.setitem(a_iter.offset, self.getitem(iter.offset))
             iter = iter.next(len(self.shape))

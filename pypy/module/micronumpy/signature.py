@@ -35,7 +35,7 @@ def find_sig(sig):
         return sig
 
 class NumpyEvalFrame(object):
-    _virtualizable2_ = ['iterators[*]']
+    _virtualizable2_ = ['iterators[*]', 'final_iter']
 
     def __init__(self, iterators):
         self = hint(self, access_directly=True)
@@ -131,6 +131,10 @@ class ViewSignature(Signature):
             iter = ViewIterator(arr)
             iterlist.append(iter)
 
+    def eval(self, frame, arr):
+        iter = frame.iterators[self.iter_no]
+        return arr.find_dtype().getitem(arr.parent.storage, iter.offset)
+
 class FlatiterSignature(ViewSignature):
     def debug_repr(self):
         return 'FlatIter(%s)' % self.child.debug_repr()
@@ -156,7 +160,7 @@ class Call1(Signature):
                                   self.child.debug_repr())
 
     def _invent_numbering(self, cache):
-        self.values._invent_numbering(cache)
+        self.child._invent_numbering(cache)
 
     def _create_iter(self, iterlist, arr, res_shape):
         self.child._create_iter(iterlist, arr.values, res_shape)
