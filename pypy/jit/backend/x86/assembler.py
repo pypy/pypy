@@ -38,6 +38,7 @@ from pypy.rlib.clibffi import FFI_DEFAULT_ABI
 from pypy.jit.backend.x86.jump import remap_frame_layout
 from pypy.jit.codewriter.effectinfo import EffectInfo
 from pypy.jit.codewriter import longlong
+from pypy.rlib.rarithmetic import intmask
 
 # darwin requires the stack to be 16 bytes aligned on calls. Same for gcc 4.5.0,
 # better safe than sorry
@@ -854,6 +855,18 @@ class Assembler386(object):
             self.mc.POP_b(get_ebp_ofs(loc.position))
         else:
             self.mc.POP(loc)
+
+    def regalloc_immedmem2mem(self, from_loc, to_loc):
+        # move a ConstFloatLoc directly to a StackLoc, as two MOVs
+        # (even on x86-64, because the immediates are encoded as 32 bits)
+        assert isinstance(from_loc, ConstFloatLoc)
+        assert isinstance(to_loc,   StackLoc)
+        low_part  = rffi.cast(rffi.CArrayPtr(rffi.INT), from_loc.value)[0]
+        high_part = rffi.cast(rffi.CArrayPtr(rffi.INT), from_loc.value)[1]
+        low_part  = intmask(low_part)
+        high_part = intmask(high_part)
+        self.mc.MOV_bi(to_loc.value,     low_part)
+        self.mc.MOV_bi(to_loc.value + 4, high_part)
 
     def regalloc_perform(self, op, arglocs, resloc):
         genop_list[op.getopnum()](self, op, arglocs, resloc)

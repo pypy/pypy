@@ -44,6 +44,10 @@ class StackLoc(AssemblerLocation):
     _location_code = 'b'
 
     def __init__(self, position, ebp_offset, num_words, type):
+        # _getregkey() returns self.value; the value returned must not
+        # conflict with RegLoc._getregkey().  It doesn't a bit by chance,
+        # so let it fail the following assert if it no longer does.
+        assert not (0 <= ebp_offset < 8 + 8 * IS_X86_64)
         self.position = position
         self.value = ebp_offset
         self.width = num_words * WORD
@@ -91,7 +95,10 @@ class RegLoc(AssemblerLocation):
         else:
             return eax
 
-class ImmedLoc(AssemblerLocation):
+class ImmediateAssemblerLocation(AssemblerLocation):
+    _immutable_ = True
+
+class ImmedLoc(ImmediateAssemblerLocation):
     _immutable_ = True
     width = WORD
     _location_code = 'i'
@@ -179,7 +186,7 @@ class AddressLoc(AssemblerLocation):
             raise AssertionError(self._location_code)
         return result
 
-class ConstFloatLoc(AssemblerLocation):
+class ConstFloatLoc(ImmediateAssemblerLocation):
     # XXX: We have to use this class instead of just AddressLoc because
     # we want a width of 8  (... I think.  Check this!)
     _immutable_ = True
@@ -193,7 +200,7 @@ class ConstFloatLoc(AssemblerLocation):
         return '<ConstFloatLoc @%s>' % (self.value,)
 
 if IS_X86_32:
-    class FloatImmedLoc(AssemblerLocation):
+    class FloatImmedLoc(ImmediateAssemblerLocation):
         # This stands for an immediate float.  It cannot be directly used in
         # any assembler instruction.  Instead, it is meant to be decomposed
         # in two 32-bit halves.  On 64-bit, FloatImmedLoc() is a function
