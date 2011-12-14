@@ -310,6 +310,19 @@ class MiscOpAssembler(object):
     emit_cast_ptr_to_int = emit_same_as
     emit_cast_int_to_ptr = emit_same_as
 
+    def emit_guard_no_exception(self, op, arglocs, regalloc):
+        loc = arglocs[0]
+        failargs = arglocs[1:]
+
+        if IS_PPC_32:
+            self.mc.lwz(loc.value, loc.value, 0)
+            self.mc.cmpwi(0, loc.value, 0)
+        else:
+            self.mc.ld(loc.value, loc.value, 0)
+            self.mc.cmpdi(0, loc.value, 0)
+
+        self._emit_guard(op, failargs, c.NE, save_exc=True)
+
     def emit_guard_exception(self, op, arglocs, regalloc):
         loc, loc1, resloc, pos_exc_value, pos_exception = arglocs[:5]
         failargs = arglocs[5:]

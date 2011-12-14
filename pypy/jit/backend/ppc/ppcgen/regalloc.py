@@ -357,6 +357,14 @@ class Regalloc(object):
         self.possibly_free_vars(op.getfailargs())
         return arglocs
 
+    def prepare_guard_no_exception(self, op):
+        loc, box = self._ensure_value_is_boxed(
+                    ConstInt(self.cpu.pos_exception()))
+        arglocs = self._prepare_guard(op, [loc])
+        self.possibly_free_var(box)
+        self.possibly_free_vars(op.getfailargs())
+        return arglocs
+
     def prepare_guard_value(self, op):
         boxes = list(op.getarglist())
         b0, b1 = boxes
