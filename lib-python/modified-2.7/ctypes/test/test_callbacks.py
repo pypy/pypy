@@ -1,5 +1,6 @@
 import unittest
 from ctypes import *
+from ctypes.test import xfail
 import _ctypes_test
 
 class Callbacks(unittest.TestCase):
