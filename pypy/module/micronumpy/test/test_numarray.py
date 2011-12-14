@@ -936,6 +936,14 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert (b == [[1, 2],[3, 4],[5, 6]]).all()
         c = concatenate((b1, b2.T), axis=1)
         assert (c == [[1, 2, 5],[3, 4, 6]]).all()
+        d = concatenate(([0],[1]))
+        assert (d == [0,1]).all()
+        e1 = array([[0,1],[2,3]])
+        e = concatenate(e1)
+        assert (e == [0,1,2,3]).all()
+        f1 = array([0,1])
+        f = concatenate((f1, [2], f1, [7]))
+        assert (f == [0,1,2,0,1,7]).all()
         
         bad_axis = raises(ValueError, concatenate, (a1,a2), axis=1)
         assert str(bad_axis.value) == "bad axis argument"

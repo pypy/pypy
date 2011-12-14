@@ -55,13 +55,13 @@ def concatenate(array_iter, axis=0):
     if len(arrays) == 0:
         raise ValueError("concatenation of zero-length sequences is impossible")
     
-    out_array = numpypy.zeros(shape)
+    out_array = numpypy.empty(shape)
     slicing_index = [slice(None)] * len(shape)
-    axis_ptr = 0
+    axis_start = 0
     for a in arrays:
-        slicing_index[axis] = slice(axis_ptr, axis_ptr + a.shape[axis])
+        slicing_index[axis] = slice(axis_start, axis_start + a.shape[axis])
         out_array[tuple(slicing_index)] = a
-        axis_ptr += a.shape[axis]
+        axis_start += a.shape[axis]
     
     return out_array
     
