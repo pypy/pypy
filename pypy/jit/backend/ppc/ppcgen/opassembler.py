@@ -324,7 +324,7 @@ class MiscOpAssembler(object):
             self.mc.cmpd(0, r.SCRATCH.value, loc.value)
         self.mc.free_scratch_reg()
 
-        self._emit_guard(op, failargs, c.EQ, save_exc=True)
+        self._emit_guard(op, failargs, c.NE, save_exc=True)
         self.mc.load_imm(loc, pos_exc_value.value)
 
         if resloc:
