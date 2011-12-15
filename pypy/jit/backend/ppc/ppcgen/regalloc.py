@@ -770,6 +770,8 @@ class Regalloc(object):
         self.rm.possibly_free_vars(argboxes)
         return arglocs
 
+    prepare_cond_call_gc_wb_array = prepare_cond_call_gc_wb
+
     def prepare_force_token(self, op):
         res_loc = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)

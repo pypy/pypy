@@ -911,6 +911,7 @@ class AllocOpAssembler(object):
         if IS_PPC_32:
             # compute the position of the bit we want to test
             bitpos = (3 - byte_offset) * 8 + n
+                    # ^^^^^^^^^^^^^^^ due to endianess
             # put this bit to the rightmost bitposition of r0
             self.mc.rlwinm(r.SCRATCH.value, r.SCRATCH.value, 32 - bitpos, 31, 31)
             # test whether this bit is set
@@ -941,6 +942,8 @@ class AllocOpAssembler(object):
         pmc = OverwritingBuilder(self.mc, jz_location, 1)
         pmc.bc(4, 2, offset) # jump if the two values are equal
         pmc.overwrite()
+
+    emit_cond_call_gc_wb_array = emit_cond_call_gc_wb
 
 class ForceOpAssembler(object):
 
