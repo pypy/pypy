@@ -346,6 +346,7 @@ def _make_execute_list():
                          rop.QUASIIMMUT_FIELD,
                          rop.MALLOC_GC,
                          rop.MALLOC_NURSERY,
+                         rop.LABEL,
                          ):      # list of opcodes never executed by pyjitpl
                 continue
             raise AssertionError("missing %r" % (key,))

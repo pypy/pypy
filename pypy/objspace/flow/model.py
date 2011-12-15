@@ -38,7 +38,6 @@ class FunctionGraph(object):
     def __init__(self, name, startblock, return_var=None):
         self.name        = name    # function name (possibly mangled already)
         self.startblock  = startblock
-        self.startblock.isstartblock = True
         # build default returnblock
         self.returnblock = Block([return_var or Variable()])
         self.returnblock.operations = ()
@@ -171,11 +170,10 @@ class Link(object):
 
 
 class Block(object):
-    __slots__ = """isstartblock inputargs operations exitswitch
+    __slots__ = """inputargs operations exitswitch
                 exits blockcolor""".split()
     
     def __init__(self, inputargs):
-        self.isstartblock = False
         self.inputargs = list(inputargs)  # mixed list of variable/const XXX 
         self.operations = []              # list of SpaceOperation(s)
         self.exitswitch = None            # a variable or
@@ -452,7 +450,6 @@ def copygraph(graph, shallow=False, varmap={}, shallowvars=False):
         newblock.closeblock(*newlinks)
 
     newstartblock = blockmap[graph.startblock]
-    newstartblock.isstartblock = True
     newgraph = FunctionGraph(graph.name, newstartblock)
     newgraph.returnblock = blockmap[graph.returnblock]
     newgraph.exceptblock = blockmap[graph.exceptblock]
@@ -490,7 +487,6 @@ def checkgraph(graph):
 
 
         for block in graph.iterblocks():
-            assert bool(block.isstartblock) == (block is graph.startblock)
             assert type(block.exits) is tuple, (
                 "block.exits is a %s (closeblock() or recloseblock() missing?)"
                 % (type(block.exits).__name__,))

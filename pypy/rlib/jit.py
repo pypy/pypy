@@ -176,7 +176,6 @@ def oopspec(spec):
     return decorator
 
 @oopspec("jit.isconstant(value)")
-@specialize.ll()
 def isconstant(value):
     """
     While tracing, returns whether or not the value is currently known to be
@@ -186,9 +185,9 @@ def isconstant(value):
     This is for advanced usage only.
     """
     return NonConstant(False)
+isconstant._annspecialcase_ = "specialize:call_location"
 
 @oopspec("jit.isvirtual(value)")
-@specialize.ll()
 def isvirtual(value):
     """
     Returns if this value is virtual, while tracing, it's relatively
@@ -197,6 +196,7 @@ def isvirtual(value):
     This is for advanced usage only.
     """
     return NonConstant(False)
+isvirtual._annspecialcase_ = "specialize:call_location"
 
 class Entry(ExtRegistryEntry):
     _about_ = hint
@@ -395,6 +395,7 @@ PARAMETERS = {'threshold': 1039, # just above 1024, prime
               'retrace_limit': 5,
               'max_retrace_guards': 15,
               'enable_opts': 'all',
+              'decay_halflife': 40,
               }
 unroll_parameters = unrolling_iterable(PARAMETERS.items())
 DEFAULT = object()
@@ -738,3 +739,29 @@ class ExtSetParam(ExtRegistryEntry):
         return hop.genop('jit_marker', vlist,
                          resulttype=lltype.Void)
 
+def record_known_class(value, cls):
+    """
+    Assure the JIT that value is an instance of cls. This is not a precise
+    class check, unlike a guard_class.
+    """
+    assert isinstance(value, cls)
+
+
+class Entry(ExtRegistryEntry):
+    _about_ = record_known_class
+
+    def compute_result_annotation(self, s_inst, s_cls):
+        from pypy.annotation import model as annmodel
+        assert s_cls.is_constant()
+        assert not s_inst.can_be_none()
+        assert isinstance(s_inst, annmodel.SomeInstance)
+
+    def specialize_call(self, hop):
+        from pypy.rpython.lltypesystem import lltype, rclass
+        classrepr = rclass.get_type_repr(hop.rtyper)
+
+        hop.exception_cannot_occur()
+        v_inst = hop.inputarg(hop.args_r[0], arg=0)
+        v_cls = hop.inputarg(classrepr, arg=1)
+        return hop.genop('jit_record_known_class', [v_inst, v_cls],
+                         resulttype=lltype.Void)

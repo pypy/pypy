@@ -1,6 +1,5 @@
 """codegen helpers and AST constant folding."""
 import sys
-import itertools
 
 from pypy.interpreter.astcompiler import ast, consts, misc
 from pypy.tool import stdlib_opcode as ops
@@ -146,8 +145,7 @@ unary_folders = {
 }
 unrolling_unary_folders = unrolling_iterable(unary_folders.items())
 
-for folder in itertools.chain(binary_folders.itervalues(),
-                              unary_folders.itervalues()):
+for folder in binary_folders.values() + unary_folders.values():
     folder._always_inline_ = True
 del folder
 

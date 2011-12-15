@@ -138,29 +138,30 @@ class BaseCPU(model.AbstractCPU):
         clt = original_loop_token.compiled_loop_token
         clt.loop_and_bridges.append(c)
         clt.compiling_a_bridge()
-        self._compile_loop_or_bridge(c, inputargs, operations)
+        self._compile_loop_or_bridge(c, inputargs, operations, clt)
         old, oldindex = faildescr._compiled_fail
         llimpl.compile_redirect_fail(old, oldindex, c)
 
-    def compile_loop(self, inputargs, operations, looptoken, log=True, name=''):
+    def compile_loop(self, inputargs, operations, jitcell_token,
+                     log=True, name=''):
         """In a real assembler backend, this should assemble the given
         list of operations.  Here we just generate a similar CompiledLoop
         instance.  The code here is RPython, whereas the code in llimpl
         is not.
         """
         c = llimpl.compile_start()
-        clt = model.CompiledLoopToken(self, looptoken.number)
+        clt = model.CompiledLoopToken(self, jitcell_token.number)
         clt.loop_and_bridges = [c]
         clt.compiled_version = c
-        looptoken.compiled_loop_token = clt
-        self._compile_loop_or_bridge(c, inputargs, operations)
+        jitcell_token.compiled_loop_token = clt
+        self._compile_loop_or_bridge(c, inputargs, operations, clt)
 
     def free_loop_and_bridges(self, compiled_loop_token):
         for c in compiled_loop_token.loop_and_bridges:
             llimpl.mark_as_free(c)
         model.AbstractCPU.free_loop_and_bridges(self, compiled_loop_token)
 
-    def _compile_loop_or_bridge(self, c, inputargs, operations):
+    def _compile_loop_or_bridge(self, c, inputargs, operations, clt):
         var2index = {}
         for box in inputargs:
             if isinstance(box, history.BoxInt):
@@ -172,10 +173,11 @@ class BaseCPU(model.AbstractCPU):
                 var2index[box] = llimpl.compile_start_float_var(c)
             else:
                 raise Exception("box is: %r" % (box,))
-        self._compile_operations(c, operations, var2index)
+        llimpl.compile_started_vars(clt)
+        self._compile_operations(c, operations, var2index, clt)
         return c
 
-    def _compile_operations(self, c, operations, var2index):
+    def _compile_operations(self, c, operations, var2index, clt):
         for op in operations:
             llimpl.compile_add(c, op.getopnum())
             descr = op.getdescr()
@@ -183,9 +185,11 @@ class BaseCPU(model.AbstractCPU):
                 llimpl.compile_add_descr(c, descr.ofs, descr.typeinfo,
                                          descr.arg_types, descr.extrainfo,
                                          descr.width)
-            if (isinstance(descr, history.LoopToken) and
-                op.getopnum() != rop.JUMP):
+            if isinstance(descr, history.JitCellToken):
+                assert op.getopnum() != rop.JUMP
                 llimpl.compile_add_loop_token(c, descr)
+            if isinstance(descr, history.TargetToken) and op.getopnum() == rop.LABEL:
+                llimpl.compile_add_target_token(c, descr, clt)
             if self.is_oo and isinstance(descr, (OODescr, MethDescr)):
                 # hack hack, not rpython
                 c._obj.externalobj.operations[-1].setdescr(descr)
@@ -239,9 +243,7 @@ class BaseCPU(model.AbstractCPU):
         assert op.is_final()
         if op.getopnum() == rop.JUMP:
             targettoken = op.getdescr()
-            assert isinstance(targettoken, history.LoopToken)
-            compiled_version = targettoken.compiled_loop_token.compiled_version
-            llimpl.compile_add_jump_target(c, compiled_version)
+            llimpl.compile_add_jump_target(c, targettoken, clt)
         elif op.getopnum() == rop.FINISH:
             faildescr = op.getdescr()
             index = self.get_fail_descr_number(faildescr)
@@ -260,21 +262,28 @@ class BaseCPU(model.AbstractCPU):
         self.latest_frame = frame
         return fail_index
 
-    def execute_token(self, loop_token):
-        """Calls the assembler generated for the given loop.
-        Returns the ResOperation that failed, of type rop.FAIL.
-        """
-        fail_index = self._execute_token(loop_token)
-        return self.get_fail_descr_from_number(fail_index)
-
-    def set_future_value_int(self, index, intvalue):
-        llimpl.set_future_value_int(index, intvalue)
-
-    def set_future_value_ref(self, index, objvalue):
-        llimpl.set_future_value_ref(index, objvalue)
-
-    def set_future_value_float(self, index, floatvalue):
-        llimpl.set_future_value_float(index, floatvalue)
+    def make_execute_token(self, *argtypes):
+        nb_args = len(argtypes)
+        unroll_argtypes = unrolling_iterable(list(enumerate(argtypes)))
+        #
+        def execute_token(loop_token, *args):
+            assert len(args) == nb_args
+            for index, TYPE in unroll_argtypes:
+                x = args[index]
+                assert TYPE == lltype.typeOf(x)
+                if TYPE == lltype.Signed:
+                    llimpl.set_future_value_int(index, x)
+                elif TYPE == llmemory.GCREF:
+                    llimpl.set_future_value_ref(index, x)
+                elif TYPE == longlong.FLOATSTORAGE:
+                    llimpl.set_future_value_float(index, x)
+                else:
+                    assert 0
+            #
+            fail_index = self._execute_token(loop_token)
+            return self.get_fail_descr_from_number(fail_index)
+        #
+        return execute_token
 
     def get_latest_value_int(self, index):
         return llimpl.frame_int_getvalue(self.latest_frame, index)

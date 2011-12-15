@@ -476,12 +476,13 @@ class TestLowLevelType(test_typed.CompilationTestCase):
         def f(n):
             result = ()
             for cls in classes:
+                nn = cls(n)
                 for OP in operators:
                     x = getmin(cls)
-                    res1 = OP(x, n)
+                    res1 = OP(x, nn)
                     result = result + (res1,)
                     x = getmax(cls)
-                    res1 = OP(x, n)
+                    res1 = OP(x, nn)
                     result = result + (res1,)
             return result
 

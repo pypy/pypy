@@ -52,6 +52,9 @@ class GcRewriterAssembler(object):
                 if op.getopnum() == rop.SETFIELD_GC:
                     self.handle_write_barrier_setfield(op)
                     continue
+                if op.getopnum() == rop.SETINTERIORFIELD_GC:
+                    self.handle_write_barrier_setinteriorfield(op)
+                    continue
                 if op.getopnum() == rop.SETARRAYITEM_GC:
                     self.handle_write_barrier_setarrayitem(op)
                     continue
@@ -203,6 +206,17 @@ class GcRewriterAssembler(object):
                                          bool(v.value)): # store a non-NULL
                 self.gen_write_barrier(op.getarg(0), v)
                 op = op.copy_and_change(rop.SETFIELD_RAW)
+        self.newops.append(op)
+
+    def handle_write_barrier_setinteriorfield(self, op):
+        val = op.getarg(0)
+        # no need for a write barrier in the case of previous malloc
+        if val not in self.recent_mallocs:
+            v = op.getarg(2)
+            if isinstance(v, BoxPtr) or (isinstance(v, ConstPtr) and
+                                         bool(v.value)): # store a non-NULL
+                self.gen_write_barrier(op.getarg(0), v)
+                op = op.copy_and_change(rop.SETINTERIORFIELD_RAW)
         self.newops.append(op)
 
     def handle_write_barrier_setarrayitem(self, op):
