@@ -59,14 +59,16 @@ class NumpyEvalFrame(object):
 class Signature(object):
     def invent_numbering(self):
         cache = r_dict(sigeq, sighash)
-        self._invent_numbering(cache)
+        allnumbers = []
+        self._invent_numbering(cache, allnumbers)
 
-    def _invent_numbering(self, cache):
+    def _invent_numbering(self, cache, allnumbers):
         try:
             no = cache[self]
         except KeyError:
-            no = len(cache)
+            no = len(allnumbers)
             cache[self] = no
+            allnumbers.append(no)
         self.iter_no = no
 
     def create_frame(self, arr):
@@ -116,17 +118,21 @@ class ViewSignature(Signature):
         self.child = child
     
     def eq(self, other):
-        return False # two views are not identical for now
-        # They would be if steps in all dimensions are equal
-        #if type(self) is not type(other):
-        #    return False
-        #return self.child.eq(other.child)
+        if type(self) is not type(other):
+            return False
+        return self.child.eq(other.child)
 
     def hash(self):
         return self.child.hash() ^ 0x12345
 
     def debug_repr(self):
         return 'Slice(%s)' % self.child.debug_repr()
+
+    def _invent_numbering(self, cache, allnumbers):
+        # always invent a new number for view
+        no = len(allnumbers)
+        allnumbers.append(no)
+        self.iter_no = no
 
     def _create_iter(self, iterlist, arr):
         if self.iter_no >= len(iterlist):
@@ -160,8 +166,8 @@ class Call1(Signature):
     def debug_repr(self):
         return 'Call1(%s)' % (self.child.debug_repr())
 
-    def _invent_numbering(self, cache):
-        self.child._invent_numbering(cache)
+    def _invent_numbering(self, cache, allnumbers):
+        self.child._invent_numbering(cache, allnumbers)
 
     def _create_iter(self, iterlist, arr):
         self.child._create_iter(iterlist, arr.values)
@@ -186,9 +192,9 @@ class Call2(Signature):
         return (self.binfunc is other.binfunc and
                 self.left.eq(other.left) and self.right.eq(other.right))
 
-    def _invent_numbering(self, cache):
-        self.left._invent_numbering(cache)
-        self.right._invent_numbering(cache)
+    def _invent_numbering(self, cache, allnumbers):
+        self.left._invent_numbering(cache, allnumbers)
+        self.right._invent_numbering(cache, allnumbers)
 
     def _create_iter(self, iterlist, arr):
         self.left._create_iter(iterlist, arr.left)
@@ -207,8 +213,8 @@ class ReduceSignature(Call2):
     def _create_iter(self, iterlist, arr):
         self.right._create_iter(iterlist, arr)
 
-    def _invent_numbering(self, cache):
-        self.right._invent_numbering(cache)
+    def _invent_numbering(self, cache, allnumbers):
+        self.right._invent_numbering(cache, allnumbers)
 
     def eval(self, frame, arr):
         return self.right.eval(frame, arr)
