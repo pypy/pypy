@@ -40,9 +40,8 @@ class NumpyEvalFrame(object):
     def __init__(self, iterators):
         self = hint(self, access_directly=True)
         self.iterators = iterators
-        self.final_iter = None
         for i, iter in enumerate(self.iterators):
-            if not isinstance(iter, ConstantIterator) or not isinstance(iter, BroadcastIterator):
+            if not isinstance(iter, ConstantIterator):# or not isinstance(iter, BroadcastIterator):
                 self.final_iter = i
                 break
         else:
@@ -93,11 +92,16 @@ class ArraySignature(ConcreteSignature):
         return 'Array'
 
     def _create_iter(self, iterlist, arr):
+        from pypy.module.micronumpy.interp_numarray import W_NDimArray
+        arr = arr.get_concrete()
+        assert isinstance(arr, W_NDimArray)
         if self.iter_no >= len(iterlist):
             iterlist.append(ArrayIterator(arr.size))
 
     def eval(self, frame, arr):
+        from pypy.module.micronumpy.interp_numarray import W_NDimArray
         arr = arr.get_concrete()
+        assert isinstance(arr, W_NDimArray)
         iter = frame.iterators[self.iter_no]
         return arr.dtype.getitem(arr.storage, iter.offset)
 
@@ -111,6 +115,8 @@ class ScalarSignature(ConcreteSignature):
             iterlist.append(iter)
 
     def eval(self, frame, arr):
+        from pypy.module.micronumpy.interp_numarray import Scalar
+        assert isinstance(arr, Scalar)
         return arr.value
 
 class ViewSignature(Signature):
@@ -139,6 +145,8 @@ class ViewSignature(Signature):
             iterlist.append(ViewIterator(arr))
 
     def eval(self, frame, arr):
+        from pypy.module.micronumpy.interp_numarray import W_NDimSlice
+        assert isinstance(arr, W_NDimSlice)
         arr = arr.get_concrete()
         iter = frame.iterators[self.iter_no]
         return arr.find_dtype().getitem(arr.parent.storage, iter.offset)
@@ -148,7 +156,7 @@ class FlatiterSignature(ViewSignature):
         return 'FlatIter(%s)' % self.child.debug_repr()
 
     def _create_iter(self, iterlist, arr):
-        XXX
+        raise NotImplementedError
 
 class Call1(Signature):
     def __init__(self, func, child):
@@ -170,9 +178,13 @@ class Call1(Signature):
         self.child._invent_numbering(cache, allnumbers)
 
     def _create_iter(self, iterlist, arr):
+        from pypy.module.micronumpy.interp_numarray import Call1
+        assert isinstance(arr, Call1)
         self.child._create_iter(iterlist, arr.values)
 
     def eval(self, frame, arr):
+        from pypy.module.micronumpy.interp_numarray import Call1
+        assert isinstance(arr, Call1)
         v = self.child.eval(frame, arr.values).convert_to(arr.res_dtype)
         return self.unfunc(arr.res_dtype, v)
 
@@ -197,10 +209,15 @@ class Call2(Signature):
         self.right._invent_numbering(cache, allnumbers)
 
     def _create_iter(self, iterlist, arr):
+        from pypy.module.micronumpy.interp_numarray import Call2
+        
+        assert isinstance(arr, Call2)
         self.left._create_iter(iterlist, arr.left)
         self.right._create_iter(iterlist, arr.right)
 
     def eval(self, frame, arr):
+        from pypy.module.micronumpy.interp_numarray import Call2
+        assert isinstance(arr, Call2)
         lhs = self.left.eval(frame, arr.left).convert_to(arr.calc_dtype)
         rhs = self.right.eval(frame, arr.right).convert_to(arr.calc_dtype)
         return self.binfunc(arr.calc_dtype, lhs, rhs)

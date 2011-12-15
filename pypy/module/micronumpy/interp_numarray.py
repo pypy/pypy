@@ -893,6 +893,7 @@ class ViewArray(BaseArray):
         self.strides = strides
         self.backstrides = backstrides
         BaseArray.__init__(self, shape, parent.order)
+        assert isinstance(parent, W_NDimArray)
         self.parent = parent
         self.invalidates = parent.invalidates
 
@@ -1113,7 +1114,7 @@ def array(space, w_item_or_iterable, w_dtype=None, w_order=NoneNotWrapped):
     )
     arr = W_NDimArray(size, shape[:], dtype=dtype, order=order)
     shapelen = len(shape)
-    arr_iter = ArrayIterator(arr)
+    arr_iter = ArrayIterator(arr.size)
     for i in range(len(elems_w)):
         w_elem = elems_w[i]
         dtype.setitem(arr.storage, arr_iter.offset,

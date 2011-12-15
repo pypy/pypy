@@ -48,9 +48,11 @@ class TestNumpyJIt(LLJitMixin):
             interp = InterpreterState(codes[i])
             interp.run(space)
             w_res = interp.results[-1]
-            if isinstance(w_res, BaseArray):
-                w_res = w_res.eval(w_res.start_iter())
-
+            if isinstance(w_res, W_NDimArray):
+                concr = w_res.get_concrete()
+                sig = concr.find_sig()
+                frame = sig.create_frame(w_res)
+                w_res = sig.eval(frame, concr)
             if isinstance(w_res, interp_boxes.W_Float64Box):
                 return w_res.value
             elif isinstance(w_res, interp_boxes.W_BoolBox):
