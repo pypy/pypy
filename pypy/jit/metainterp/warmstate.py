@@ -490,9 +490,38 @@ class WarmEnterState(object):
             self.warmrunnerdesc.stats.jitcell_dicts.append(jitcell_dict)
         except AttributeError:
             pass
-        memmgr = self.warmrunnerdesc.memory_manager
+        #
+        memmgr = self.warmrunnerdesc and self.warmrunnerdesc.memory_manager
         if memmgr:
-            memmgr.record_jitcell_dict(self, jitcell_dict)
+            def _cleanup_dict():
+                minimum = min(self.increment_threshold,
+                              self.increment_function_threshold)
+                currentgen = memmgr.get_current_generation_uint()
+                killme = []
+                for key, cell in jitcell_dict.iteritems():
+                    if cell.counter >= 0:
+                        cell.adjust_counter(currentgen, self.log_decay_factor)
+                        if cell.counter < minimum:
+                            killme.append(key)
+                for key in killme:
+                    del jitcell_dict[key]
+            #
+            def _maybe_cleanup_dict():
+                # If no tracing goes on at all because the jitcells are
+                # each time for new greenargs, the dictionary grows forever.
+                # So every one in a (rare) while, we decide to force an
+                # artificial next_generation() and _cleanup_dict().
+                self._trigger_automatic_cleanup += 1
+                if self._trigger_automatic_cleanup > 20000:
+                    self._trigger_automatic_cleanup = 0
+                    memmgr.next_generation(do_cleanups_now=False)
+                    _cleanup_dict()
+            #
+            self._trigger_automatic_cleanup = 0
+            memmgr.record_jitcell_dict(_cleanup_dict)
+        else:
+            def _maybe_cleanup_dict():
+                pass
         #
         def get_jitcell(build, *greenargs):
             try:
@@ -500,6 +529,7 @@ class WarmEnterState(object):
             except KeyError:
                 if not build:
                     return None
+                _maybe_cleanup_dict()
                 cell = self._new_jitcell()
                 jitcell_dict[greenargs] = cell
             return cell

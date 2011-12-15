@@ -50,9 +50,9 @@ class MemoryManager(object):
             self.check_frequency = check_frequency
             self.next_check = self.current_generation + 1
 
-    def next_generation(self):
+    def next_generation(self, do_cleanups_now=True):
         self.current_generation += 1
-        if self.current_generation == self.next_check:
+        if do_cleanups_now and self.current_generation >= self.next_check:
             self._kill_old_loops_now()
             self._cleanup_jitcell_dicts()
             self.next_check = self.current_generation + self.check_frequency
@@ -89,7 +89,7 @@ class MemoryManager(object):
         To use only as an approximation for decaying counters."""
         return r_uint(self.current_generation)
 
-    def record_jitcell_dict(self, warmstate, jitcell_dict):
+    def record_jitcell_dict(self, callback):
         """NOT_RPYTHON.  The given jitcell_dict is a dict that needs
         occasional clean-ups of old cells.  A cell is old if it never
         reached the threshold, and its counter decayed to a tiny value."""
@@ -97,17 +97,7 @@ class MemoryManager(object):
         # so we have to make a different function for each one.  These
         # functions are chained to each other: each calls the previous one.
         def cleanup_dict():
-            minimum = min(warmstate.increment_threshold,
-                          warmstate.increment_function_threshold)
-            current = self.get_current_generation_uint()
-            killme = []
-            for key, cell in jitcell_dict.iteritems():
-                if cell.counter >= 0:
-                    cell.adjust_counter(current, warmstate.log_decay_factor)
-                    if cell.counter < minimum:
-                        killme.append(key)
-            for key in killme:
-                del jitcell_dict[key]
+            callback()
             cleanup_previous()
         #
         cleanup_previous = self._cleanup_jitcell_dicts
