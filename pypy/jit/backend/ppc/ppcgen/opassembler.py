@@ -10,12 +10,13 @@ from pypy.jit.metainterp.history import (LoopToken, AbstractFailDescr, FLOAT,
                                          INT)
 from pypy.rlib.objectmodel import we_are_translated
 from pypy.jit.backend.ppc.ppcgen.helper.assembler import (count_reg_args,
-                                                          saved_registers)
+                                                          Saved_Volatiles)
 from pypy.jit.backend.ppc.ppcgen.jump import remap_frame_layout
 from pypy.jit.backend.ppc.ppcgen.codebuilder import OverwritingBuilder
 from pypy.jit.backend.ppc.ppcgen.regalloc import TempPtr, TempInt
 from pypy.jit.backend.llsupport import symbolic
 from pypy.rpython.lltypesystem import rstr, rffi, lltype
+from pypy.jit.metainterp.resoperation import rop
 
 NO_FORCE_INDEX = -1
 
@@ -868,6 +869,78 @@ class AllocOpAssembler(object):
 
     emit_jit_debug = emit_debug_merge_point
 
+    def emit_cond_call_gc_wb(self, op, arglocs, regalloc):
+        # Write code equivalent to write_barrier() in the GC: it checks
+        # a flag in the object at arglocs[0], and if set, it calls the
+        # function remember_young_pointer() from the GC.  The two arguments
+        # to the call are in arglocs[:2].  The rest, arglocs[2:], contains
+        # registers that need to be saved and restored across the call.
+        descr = op.getdescr()
+        if we_are_translated():
+            cls = self.cpu.gc_ll_descr.has_write_barrier_class()
+            assert cls is not None and isinstance(descr, cls)
+
+        opnum = op.getopnum()
+        if opnum == rop.COND_CALL_GC_WB:
+            N = 2
+            addr = descr.get_write_barrier_fn(self.cpu)
+        elif opnum == rop.COND_CALL_GC_WB_ARRAY:
+            N = 3
+            addr = descr.get_write_barrier_from_array_fn(self.cpu)
+            assert addr != 0
+        else:
+            raise AssertionError(opnum)
+        loc_base = arglocs[0]
+
+        self.mc.alloc_scratch_reg()
+        if IS_PPC_32:
+            self.mc.lwz(r.SCRATCH.value, loc_base.value, 0)
+        else:
+            self.mc.ld(r.SCRATCH.value, loc_base.value, 0)
+
+        # offset to the byte we are interested in
+        byte_offset = descr.jit_wb_if_flag_byteofs
+        single_byte = descr.jit_wb_if_flag_singlebyte
+
+        # examine which bit in the byte is set
+        for i in range(8):
+            if 1 << i == single_byte:
+                n = i
+                break
+
+        if IS_PPC_32:
+            # compute the position of the bit we want to test
+            bitpos = (3 - byte_offset) * 8 + n
+            # put this bit to the rightmost bitposition of r0
+            self.mc.rlwinm(r.SCRATCH.value, r.SCRATCH.value, 32 - bitpos, 31, 31)
+            # test whether this bit is set
+            self.mc.cmpwi(0, r.SCRATCH.value, 1)
+        else:
+            assert 0, "not implemented yet"
+        self.mc.free_scratch_reg()
+
+        jz_location = self.mc.currpos()
+        self.mc.nop()
+
+        # the following is supposed to be the slow path, so whenever possible
+        # we choose the most compact encoding over the most efficient one.
+        with Saved_Volatiles(self.mc):
+            if N == 2:
+                callargs = [r.r3, r.r4]
+            else:
+                callargs = [r.r3, r.r4, r.r5]
+            remap_frame_layout(self, arglocs, callargs, r.SCRATCH)
+            func = rffi.cast(lltype.Signed, addr)
+            #
+            # misaligned stack in the call, but it's ok because the write barrier
+            # is not going to call anything more.  
+            self.mc.bl_abs(func)
+
+        # patch the JZ above
+        offset = self.mc.currpos() - jz_location
+        pmc = OverwritingBuilder(self.mc, jz_location, 1)
+        pmc.bc(4, 2, offset) # jump if the two values are equal
+        pmc.overwrite()
 
 class ForceOpAssembler(object):
 

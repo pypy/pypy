@@ -755,6 +755,21 @@ class Regalloc(object):
     prepare_debug_merge_point = void
     prepare_jit_debug = void
 
+    def prepare_cond_call_gc_wb(self, op):
+        assert op.result is None
+        N = op.numargs()
+        # we force all arguments in a reg (unless they are Consts),
+        # because it will be needed anyway by the following setfield_gc
+        # or setarrayitem_gc. It avoids loading it twice from the memory.
+        arglocs = []
+        argboxes = []
+        for i in range(N):
+            loc, box = self._ensure_value_is_boxed(op.getarg(i), argboxes)
+            arglocs.append(loc)
+            argboxes.append(box)
+        self.rm.possibly_free_vars(argboxes)
+        return arglocs
+
     def prepare_force_token(self, op):
         res_loc = self.force_allocate_reg(op.result)
         self.possibly_free_var(op.result)
