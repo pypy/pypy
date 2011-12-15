@@ -61,6 +61,9 @@ class NumpyEvalFrame(object):
             self.iterators[i] = self.iterators[i].next(shapelen)
 
 class Signature(object):
+    _attrs_ = ['iter_no']
+    _immutable_fields_ = ['iter_no']
+    
     def invent_numbering(self):
         cache = r_dict(sigeq, sighash)
         allnumbers = []
@@ -81,12 +84,15 @@ class Signature(object):
         return NumpyEvalFrame(iterlist)
 
 class ConcreteSignature(Signature):
+    _immutable_fields_ = ['dtype']
+
     def __init__(self, dtype):
         self.dtype = dtype
 
     def eq(self, other):
         if type(self) is not type(other):
             return False
+        assert isinstance(other, ConcreteSignature)
         return self.dtype is other.dtype
 
     def hash(self):
@@ -108,7 +114,7 @@ class ArraySignature(ConcreteSignature):
         arr = arr.get_concrete()
         assert isinstance(arr, W_NDimArray)
         iter = frame.iterators[self.iter_no]
-        return arr.dtype.getitem(arr.storage, iter.offset)
+        return self.dtype.getitem(arr.storage, iter.offset)
 
 class ScalarSignature(ConcreteSignature):
     def debug_repr(self):
@@ -125,12 +131,15 @@ class ScalarSignature(ConcreteSignature):
         return arr.value
 
 class ViewSignature(Signature):
+    _immutable_fields_ = ['child']
+
     def __init__(self, child):
         self.child = child
     
     def eq(self, other):
         if type(self) is not type(other):
             return False
+        assert isinstance(other, ViewSignature)
         return self.child.eq(other.child)
 
     def hash(self):
@@ -164,6 +173,8 @@ class FlatiterSignature(ViewSignature):
         raise NotImplementedError
 
 class Call1(Signature):
+    _immutable_fields_ = ['unfunc', 'name', 'child']
+
     def __init__(self, func, name, child):
         self.unfunc = func
         self.child = child
@@ -175,6 +186,7 @@ class Call1(Signature):
     def eq(self, other):
         if type(self) is not type(other):
             return False
+        assert isinstance(other, Call1)
         return self.unfunc is other.unfunc and self.child.eq(other.child)
 
     def debug_repr(self):
@@ -195,11 +207,14 @@ class Call1(Signature):
         return self.unfunc(arr.res_dtype, v)
 
 class Call2(Signature):
-    def __init__(self, func, name, left, right):
+    _immutable_fields_ = ['binfunc', 'name', 'calc_dtype', 'left', 'right']
+    
+    def __init__(self, func, name, calc_dtype, left, right):
         self.binfunc = func
         self.left = left
         self.right = right
         self.name = name
+        self.calc_dtype = calc_dtype
 
     def hash(self):
         return (compute_hash(self.name) ^ (self.left.hash() << 1) ^
@@ -208,7 +223,9 @@ class Call2(Signature):
     def eq(self, other):
         if type(self) is not type(other):
             return False
+        assert isinstance(other, Call2)
         return (self.binfunc is other.binfunc and
+                self.calc_dtype is other.calc_dtype and
                 self.left.eq(other.left) and self.right.eq(other.right))
 
     def _invent_numbering(self, cache, allnumbers):
@@ -225,9 +242,9 @@ class Call2(Signature):
     def eval(self, frame, arr):
         from pypy.module.micronumpy.interp_numarray import Call2
         assert isinstance(arr, Call2)
-        lhs = self.left.eval(frame, arr.left).convert_to(arr.calc_dtype)
-        rhs = self.right.eval(frame, arr.right).convert_to(arr.calc_dtype)
-        return self.binfunc(arr.calc_dtype, lhs, rhs)
+        lhs = self.left.eval(frame, arr.left).convert_to(self.calc_dtype)
+        rhs = self.right.eval(frame, arr.right).convert_to(self.calc_dtype)
+        return self.binfunc(self.calc_dtype, lhs, rhs)
 
     def debug_repr(self):
         return 'Call2(%s, %s)' % (self.left.debug_repr(),

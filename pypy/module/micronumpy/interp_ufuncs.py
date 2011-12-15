@@ -68,7 +68,7 @@ class W_Ufunc(Wrappable):
             promote_to_largest=True
         )
         shapelen = len(obj.shape)
-        sig = find_sig(ReduceSignature(self.func, self.name,
+        sig = find_sig(ReduceSignature(self.func, self.name, dtype,
                                        ScalarSignature(dtype),
                                        obj.create_sig()))
         frame = sig.create_frame(obj)
@@ -98,6 +98,8 @@ class W_Ufunc(Wrappable):
 class W_Ufunc1(W_Ufunc):
     argcount = 1
 
+    _immutable_fields_ = ["func", "name"]
+
     def __init__(self, func, name, promote_to_float=False, promote_bools=False,
         identity=None):
 
@@ -125,7 +127,7 @@ class W_Ufunc1(W_Ufunc):
 
 
 class W_Ufunc2(W_Ufunc):
-    _immutable_fields_ = ["comparison_func", "func"]
+    _immutable_fields_ = ["comparison_func", "func", "name"]
     argcount = 2
 
     def __init__(self, func, name, promote_to_float=False, promote_bools=False,
@@ -158,7 +160,8 @@ class W_Ufunc2(W_Ufunc):
             )
 
         new_shape = shape_agreement(space, w_lhs.shape, w_rhs.shape)
-        w_res = Call2(self.func, self.name, new_shape, calc_dtype,
+        w_res = Call2(self.func, self.name,
+                      new_shape, calc_dtype,
                       res_dtype, w_lhs, w_rhs)
         w_lhs.add_invalidates(w_res)
         w_rhs.add_invalidates(w_res)

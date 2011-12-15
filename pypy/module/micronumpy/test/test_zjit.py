@@ -130,15 +130,18 @@ class TestNumpyJIt(LLJitMixin):
                                 "float_mul": 1, "int_add": 1,
                                 "int_ge": 1, "guard_false": 1, "jump": 1})
 
-    def test_max(self):
-        py.test.skip("broken, investigate")
-        result = self.run("""
+    def define_max():
+        return """
         a = |30|
         a[13] = 128
         b = a + a
         max(b)
-        """)
+        """
+
+    def test_max(self):
+        result = self.run("max")
         assert result == 256
+        py.test.skip("not there yet, getting though")
         self.check_simple_loop({"getinteriorfield_raw": 2, "float_add": 1,
                                 "float_mul": 1, "int_add": 1,
                                 "int_lt": 1, "guard_true": 1, "jump": 1})

@@ -882,7 +882,8 @@ class Call2(VirtualArray):
     def create_sig(self):
         if self.forced_result is not None:
             return self.forced_result.create_sig()
-        return signature.Call2(self.ufunc, self.name, self.left.create_sig(),
+        return signature.Call2(self.ufunc, self.name, self.calc_dtype,
+                               self.left.create_sig(),
                                self.right.create_sig())
 
 class ViewArray(BaseArray):
