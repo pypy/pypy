@@ -7755,6 +7755,22 @@ class OptimizeOptTest(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected)
 
+    def test_setinteriorfield_should_not_clear_cache(self):
+        ops = """
+        [i0, p0]
+        i2 = getfield_gc(p0, descr=adescr)
+        i3 = call(i2, descr=nonwritedescr)
+        setinteriorfield_raw(i0, i2, i3)
+        jump(i0, p0)
+        """
+        expected = """
+        [i0, p0, i2]
+        i3 = call(i2, descr=nonwritedescr)
+        setinteriorfield_raw(i0, i2, i3)
+        jump(i0, p0, i2)
+        """
+        self.optimize_loop(ops, expected)
+
 class TestLLtype(OptimizeOptTest, LLtypeMixin):
     pass
 
