@@ -702,6 +702,9 @@ class GcLLDescr_framework(GcLLDescription):
         # make the varsize malloc function, with three arguments
         def malloc_gc_variable(basesize, num_elem, itemsize):
             xx
+        self.malloc_gc_variable = malloc_gc_variable
+        self.MALLOC_GC_VARIABLE = lltype.Ptr(
+            lltype.FuncType([lltype.Signed] * 3, llmemory.GCREF))
         #
         self.WB_FUNCPTR = lltype.Ptr(lltype.FuncType(
             [llmemory.Address, llmemory.Address], lltype.Void))

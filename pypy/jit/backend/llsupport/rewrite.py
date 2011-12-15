@@ -36,7 +36,6 @@ class GcRewriterAssembler(object):
         # one, both for performance and to reduce the number of write
         # barriers.  We do this on each "basic block" of operations, which in
         # this case means between CALLs or unknown-size mallocs.
-        # (XXX later: or LABELs)
         #
         for op in operations:
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
@@ -45,7 +44,7 @@ class GcRewriterAssembler(object):
             if op.is_malloc():
                 self.handle_malloc_operation(op)
                 continue
-            elif op.can_malloc():
+            elif op.can_malloc() or op.getopnum() == rop.LABEL:
                 self.emitting_an_operation_that_can_collect()
             # ---------- write barriers ----------
             if self.gc_ll_descr.write_barrier_descr is not None:
