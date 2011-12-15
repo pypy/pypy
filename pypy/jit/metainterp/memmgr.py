@@ -21,6 +21,7 @@ from pypy.rlib.objectmodel import we_are_translated
 #
 
 class MemoryManager(object):
+    NO_NEXT_CHECK = r_int64(2 ** 63 - 1)
 
     def __init__(self):
         self.check_frequency = -1
@@ -36,13 +37,13 @@ class MemoryManager(object):
         # According to my estimates it's about 5e9 years given 1000 loops
         # per second
         self.current_generation = r_int64(1)
-        self.next_check = r_int64(-1)
+        self.next_check = self.NO_NEXT_CHECK
         self.alive_loops = {}
         self._cleanup_jitcell_dicts = lambda: None
 
     def set_max_age(self, max_age, check_frequency=0):
         if max_age <= 0:
-            self.next_check = r_int64(-1)
+            self.next_check = self.NO_NEXT_CHECK
         else:
             self.max_age = max_age
             if check_frequency <= 0:
