@@ -1200,6 +1200,7 @@ class AppTestSupport(BaseNumpyAppTest):
 
     def test_fromstring(self):
         from numpypy import fromstring, array, uint8, float32, int32
+        import sys
         a = fromstring(self.data)
         for i in range(4):
             assert a[i] == i + 1
@@ -1251,8 +1252,15 @@ class AppTestSupport(BaseNumpyAppTest):
         assert (q == [1.0]).all()
         r = fromstring("\x01\x00\x02", dtype='bool')
         assert (r == [True, False, True]).all()
-        s = fromstring("1,2,3,,5", dtype="bool", sep=",")
+        s = fromstring("1,2,3,,5", dtype=bool, sep=",")
         assert (s == [True, True, True, False, True]).all()
+        t = fromstring("", bool)
+        assert (t == []).all()
+        u = fromstring("\x01\x00\x00\x00\x00\x00\x00\x00", dtype=int)
+        if sys.maxint > 2 ** 31 - 1:
+            assert (u == [1]).all()
+        else:
+            assert (u == [1, 0]).all()
         
     def test_fromstring_types(self):
         from numpypy import fromstring
@@ -1270,7 +1278,7 @@ class AppTestSupport(BaseNumpyAppTest):
         e = fromstring('\xFF\xFF\xFF\xFF', dtype=int32)
         assert e[0] == -1
         f = fromstring('\xFF\xFF\xFF\xFF', dtype=uint32)
-        assert f[0] == 4294967295
+        assert repr(f[0]) == '4294967295'
         g = fromstring('\xFF\xFF\xFF\xFF\xFF\xFF\xFF\xFF', dtype=int64)
         assert g[0] == -1
         h = fromstring(self.float32val, dtype=float32)
