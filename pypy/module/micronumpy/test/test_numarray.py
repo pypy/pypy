@@ -924,12 +924,13 @@ class AppTestNumArray(BaseNumpyAppTest):
         assert a[0].tolist() == [17.1, 27.2]
 
     def test_concatenate(self):
-        from numpypy import array, concatenate
+        from numpypy import array, concatenate, dtype
         a1 = array([0,1,2])
         a2 = array([3,4,5])
         a = concatenate((a1, a2))
         assert len(a) == 6
         assert (a == [0,1,2,3,4,5]).all()
+        assert a.dtype is dtype(int)
         b1 = array([[1, 2], [3, 4]])
         b2 = array([[5, 6]])
         b = concatenate((b1, b2), axis=0)
