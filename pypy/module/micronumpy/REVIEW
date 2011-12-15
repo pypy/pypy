@@ -1,18 +1,6 @@
 Review items
 ============
 
-Fixed
------
-* Rather than `True if len(sep_stripped) == 0 else False` just use:
-  `len(sep_stripped) == 0`.
-* Rather than name the variable `A`, name it `items` or somsething like that.
-* Rather than using `ptr`, use `idx`, since it's not really a pointer.
-* Same comment about comparing array equality as before.
-* Rather than name the attribute `char`, name it `format_code`.
-* `default_fromstring` can do `self.box(-1.0)`, instead of the coerce thing.
-* Rather than doing a string format to raise an error (L67), use
-  `operationerrfmt`.
-
 Notes
 -----
 * Tests for both bool and long dtypes with this.
@@ -21,5 +9,9 @@ Notes
   seem to install it to check to make sure my tests are correct.
   There are already some tests for int64. Is that what you meant
   by long types?)
-* No need for the `self.char == "?"` default.
-  (jterrace: Does not translate without it)
+  * http://bpaste.net/show/20968/ is a log of me playing with bool `fromstring`
+    in 1.6, I can't seem to make it work with text parsing at all (or I'm an
+    idiot, I'm open to both interpretations), however binary parsing works so
+    maybe just do that for now.
+  * by long I mean `dtype(int)`, which is different from either
+    `dtype("int32")` or `dtype("int64")` (for reasons beyond my comprehension)
