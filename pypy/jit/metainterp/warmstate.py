@@ -494,8 +494,11 @@ class WarmEnterState(object):
         memmgr = self.warmrunnerdesc and self.warmrunnerdesc.memory_manager
         if memmgr:
             def _cleanup_dict():
-                minimum = min(self.increment_threshold,
-                              self.increment_function_threshold)
+                minimum = sys.maxint
+                if self.increment_threshold > 0:
+                    minimum = min(minimum, self.increment_threshold)
+                if self.increment_function_threshold > 0:
+                    minimum = min(minimum, self.increment_function_threshold)
                 currentgen = memmgr.get_current_generation_uint()
                 killme = []
                 for key, cell in jitcell_dict.iteritems():
@@ -503,6 +506,9 @@ class WarmEnterState(object):
                         cell.adjust_counter(currentgen, self.log_decay_factor)
                         if cell.counter < minimum:
                             killme.append(key)
+                    elif (cell.counter == -1
+                          and cell.get_procedure_token() is None):
+                        killme.append(key)
                 for key in killme:
                     del jitcell_dict[key]
             #
@@ -518,6 +524,7 @@ class WarmEnterState(object):
                     _cleanup_dict()
             #
             self._trigger_automatic_cleanup = 0
+            self._jitcell_dict = jitcell_dict       # for tests
             memmgr.record_jitcell_dict(_cleanup_dict)
         else:
             def _maybe_cleanup_dict():
