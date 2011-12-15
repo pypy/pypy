@@ -48,13 +48,15 @@ class TestNumpyJIt(LLJitMixin):
             interp = InterpreterState(codes[i])
             interp.run(space)
             w_res = interp.results[-1]
-            if isinstance(w_res, W_NDimArray):
+            if isinstance(w_res, BaseArray):
                 concr = w_res.get_concrete()
                 sig = concr.find_sig()
-                frame = sig.create_frame(w_res)
+                frame = sig.create_frame(concr)
                 w_res = sig.eval(frame, concr)
             if isinstance(w_res, interp_boxes.W_Float64Box):
                 return w_res.value
+            if isinstance(w_res, interp_boxes.W_Int64Box):
+                return float(w_res.value)
             elif isinstance(w_res, interp_boxes.W_BoolBox):
                 return float(w_res.value)
             raise TypeError(w_res)
@@ -108,7 +110,7 @@ class TestNumpyJIt(LLJitMixin):
         result = self.run("sum")
         assert result == 2 * sum(range(30))
         self.check_simple_loop({"getinteriorfield_raw": 2, "float_add": 2,
-                                "int_add": 2, "int_ge": 1, "guard_false": 1,
+                                "int_add": 1, "int_ge": 1, "guard_false": 1,
                                 "jump": 1})
 
     def define_prod():
@@ -125,7 +127,7 @@ class TestNumpyJIt(LLJitMixin):
             expected *= i * 2
         assert result == expected
         self.check_simple_loop({"getinteriorfield_raw": 2, "float_add": 1,
-                                "float_mul": 1, "int_add": 2,
+                                "float_mul": 1, "int_add": 1,
                                 "int_ge": 1, "guard_false": 1, "jump": 1})
 
     def test_max(self):
@@ -166,7 +168,7 @@ class TestNumpyJIt(LLJitMixin):
         result = self.run("any")
         assert result == 1
         self.check_simple_loop({"getinteriorfield_raw": 2, "float_add": 1,
-                                "float_ne": 1, "int_add": 2,
+                                "float_ne": 1, "int_add": 1,
                                 "int_ge": 1, "jump": 1,
                                 "guard_false": 2})
 
@@ -206,7 +208,7 @@ class TestNumpyJIt(LLJitMixin):
         result = self.run("ufunc")
         assert result == -6
         self.check_simple_loop({"getinteriorfield_raw": 2, "float_add": 1, "float_neg": 1,
-                                "setinteriorfield_raw": 1, "int_add": 3,
+                                "setinteriorfield_raw": 1, "int_add": 2,
                                 "int_ge": 1, "guard_false": 1, "jump": 1})
 
     def define_specialization():
