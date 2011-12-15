@@ -56,7 +56,7 @@ class BaseType(object):
 
 class Primitive(object):
     _mixin_ = True
-    char = "?"
+    format_code = '?'
     
     def get_element_size(self):
         return rffi.sizeof(self.T)
@@ -109,9 +109,7 @@ class Primitive(object):
             )
 
     def runpack_str(self, s):
-        if self.char == "?":
-            raise NotImplementedError
-        return self.box(runpack(self.char, s))
+        return self.box(runpack(self.format_code, s))
 
     @simple_binary_op
     def add(self, v1, v2):
@@ -175,6 +173,7 @@ class Primitive(object):
 class Bool(BaseType, Primitive):
     T = lltype.Bool
     BoxType = interp_boxes.W_BoolBox
+    format_code = '?'
 
     True = BoxType(True)
     False = BoxType(False)
@@ -203,6 +202,9 @@ class Bool(BaseType, Primitive):
 
     def for_computation(self, v):
         return int(v)
+    
+    def default_fromstring(self, space):
+        return self.box(False)
 
 class Integer(Primitive):
     _mixin_ = True
@@ -218,7 +220,7 @@ class Integer(Primitive):
         return widen(v)
     
     def default_fromstring(self, space):
-        return self._coerce(space, space.wrap(0))
+        return self.box(0)
 
     @simple_binary_op
     def div(self, v1, v2):
@@ -255,32 +257,32 @@ class Integer(Primitive):
 class Int8(BaseType, Integer):
     T = rffi.SIGNEDCHAR
     BoxType = interp_boxes.W_Int8Box
-    char = "b"
+    format_code = "b"
 
 class UInt8(BaseType, Integer):
     T = rffi.UCHAR
     BoxType = interp_boxes.W_UInt8Box
-    char = "B"
+    format_code = "B"
 
 class Int16(BaseType, Integer):
     T = rffi.SHORT
     BoxType = interp_boxes.W_Int16Box
-    char = "h"
+    format_code = "h"
 
 class UInt16(BaseType, Integer):
     T = rffi.USHORT
     BoxType = interp_boxes.W_UInt16Box
-    char = "H"
+    format_code = "H"
 
 class Int32(BaseType, Integer):
     T = rffi.INT
     BoxType = interp_boxes.W_Int32Box
-    char = "i"
+    format_code = "i"
 
 class UInt32(BaseType, Integer):
     T = rffi.UINT
     BoxType = interp_boxes.W_UInt32Box
-    char = "I"
+    format_code = "I"
 
 class Long(BaseType, Integer):
     T = rffi.LONG
@@ -293,12 +295,12 @@ class ULong(BaseType, Integer):
 class Int64(BaseType, Integer):
     T = rffi.LONGLONG
     BoxType = interp_boxes.W_Int64Box
-    char = "q"
+    format_code = "q"
 
 class UInt64(BaseType, Integer):
     T = rffi.ULONGLONG
     BoxType = interp_boxes.W_UInt64Box
-    char = "Q"
+    format_code = "Q"
 
     def _coerce(self, space, w_item):
         try:
@@ -327,7 +329,7 @@ class Float(Primitive):
         return float(v)
 
     def default_fromstring(self, space):
-        return self._coerce(space, space.wrap(-1.0))
+        return self.box(-1.0)
 
     @simple_binary_op
     def div(self, v1, v2):
@@ -428,9 +430,9 @@ class Float(Primitive):
 class Float32(BaseType, Float):
     T = rffi.FLOAT
     BoxType = interp_boxes.W_Float32Box
-    char = "f"
+    format_code = "f"
 
 class Float64(BaseType, Float):
     T = rffi.DOUBLE
     BoxType = interp_boxes.W_Float64Box
-    char = "d"
+    format_code = "d"

@@ -1228,27 +1228,31 @@ class AppTestSupport(BaseNumpyAppTest):
         assert g[1] == 2
         assert g[2] == 3
         h = fromstring("1, , 2, 3", dtype=uint8, sep=",")
-        assert h.tolist() == [1,0,2,3]
+        assert (h == [1,0,2,3]).all()
         i = fromstring("1    2 3", dtype=uint8, sep=" ")
-        assert i.tolist() == [1,2,3]
+        assert (i == [1,2,3]).all()
         j = fromstring("1\t\t\t\t2\t3", dtype=uint8, sep="\t")
-        assert j.tolist() == [1,2,3]
+        assert (j == [1,2,3]).all()
         k = fromstring("1,x,2,3", dtype=uint8, sep=",")
-        assert k.tolist() == [1,0]
+        assert (k == [1,0]).all()
         l = fromstring("1,x,2,3", dtype='float32', sep=",")
-        assert l.tolist() == [1.0,-1.0]
+        assert (l == [1.0,-1.0]).all()
         m = fromstring("1,,2,3", sep=",")
-        assert m.tolist() == [1.0,-1.0,2.0,3.0]
+        assert (m == [1.0,-1.0,2.0,3.0]).all()
         n = fromstring("3.4 2.0 3.8 2.2", dtype=int32, sep=" ")
-        assert n.tolist() == [3]
+        assert (n == [3]).all()
         o = fromstring("1.0 2f.0f 3.8 2.2", dtype=float32, sep=" ")
         assert len(o) == 2
         assert o[0] == 1.0
         assert o[1] == 2.0
         p = fromstring("1.0,,2.0,3.0", sep=",")
-        assert p.tolist() == [1.0, -1.0, 2.0, 3.0]
+        assert (p == [1.0, -1.0, 2.0, 3.0]).all()
         q = fromstring("1.0,,2.0,3.0", sep=" ")
-        assert q.tolist() == [1.0]
+        assert (q == [1.0]).all()
+        r = fromstring("\x01\x00\x02", dtype='bool')
+        assert (r == [True, False, True]).all()
+        s = fromstring("1,2,3,,5", dtype="bool", sep=",")
+        assert (s == [True, True, True, False, True]).all()
         
     def test_fromstring_types(self):
         from numpypy import fromstring

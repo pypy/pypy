@@ -1,14 +1,25 @@
 Review items
 ============
 
+Fixed
+-----
 * Rather than `True if len(sep_stripped) == 0 else False` just use:
   `len(sep_stripped) == 0`.
 * Rather than name the variable `A`, name it `items` or somsething like that.
 * Rather than using `ptr`, use `idx`, since it's not really a pointer.
-* Rather than doing a string format to raise an error (L67), use
-  `operationerrfmt`.
 * Same comment about comparing array equality as before.
-* No need for the `self.char == "?"` default.
 * Rather than name the attribute `char`, name it `format_code`.
 * `default_fromstring` can do `self.box(-1.0)`, instead of the coerce thing.
+* Rather than doing a string format to raise an error (L67), use
+  `operationerrfmt`.
+
+Notes
+-----
 * Tests for both bool and long dtypes with this.
+  (jterrace: fromstring with bool segfaults on my numpy 1.5.1.
+  Supposedly it has been fixed in later versions, but I can't
+  seem to install it to check to make sure my tests are correct.
+  There are already some tests for int64. Is that what you meant
+  by long types?)
+* No need for the `self.char == "?"` default.
+  (jterrace: Does not translate without it)

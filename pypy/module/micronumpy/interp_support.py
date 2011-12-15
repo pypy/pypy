@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import OperationError, operationerrfmt
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.module.micronumpy import interp_dtype
@@ -11,17 +11,17 @@ def _fromstring_text(space, s, count, sep, length, dtype):
     from pypy.module.micronumpy.interp_numarray import W_NDimArray
 
     sep_stripped = strip_spaces(sep)
-    skip_bad_vals = True if len(sep_stripped) == 0 else False
+    skip_bad_vals = len(sep_stripped) == 0
 
-    A = []
+    items = []
     num_items = 0
-    ptr = 0
+    idx = 0
     
-    while (num_items < count or count == -1) and ptr < len(s):
-        nextptr = s.find(sep, ptr)
-        if nextptr < 0:
-            nextptr = length
-        piece = strip_spaces(s[ptr:nextptr])
+    while (num_items < count or count == -1) and idx < len(s):
+        nextidx = s.find(sep, idx)
+        if nextidx < 0:
+            nextidx = length
+        piece = strip_spaces(s[idx:nextidx])
         if len(piece) > 0 or not skip_bad_vals:
             if len(piece) == 0 and not skip_bad_vals:
                 val = dtype.itemtype.default_fromstring(space)
@@ -42,17 +42,17 @@ def _fromstring_text(space, s, count, sep, length, dtype):
                                 raise
                     if not gotit:
                         val = dtype.itemtype.default_fromstring(space)
-                    nextptr = length
-            A.append(val)
+                    nextidx = length
+            items.append(val)
             num_items += 1
-        ptr = nextptr + 1
+        idx = nextidx + 1
     
     if count > num_items:
         raise OperationError(space.w_ValueError, space.wrap(
             "string is smaller than requested size"))
 
     a = W_NDimArray(num_items, [num_items], dtype=dtype)
-    for i, val in enumerate(A):
+    for i, val in enumerate(items):
         a.dtype.setitem(a.storage, i, val)
     
     return space.wrap(a)
@@ -64,8 +64,9 @@ def _fromstring_bin(space, s, count, length, dtype):
     if count == -1:
         count = length / itemsize
     if length % itemsize != 0:
-        raise OperationError(space.w_ValueError, space.wrap(
-            "string length %d not divisable by item size %d" % (length, itemsize)))
+        raise operationerrfmt(space.w_ValueError,
+                              "string length %d not divisable by item size %d",
+                              length, itemsize)
     if count * itemsize > length:
         raise OperationError(space.w_ValueError, space.wrap(
             "string is smaller than requested size"))
