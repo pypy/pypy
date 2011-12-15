@@ -80,7 +80,7 @@ class TestNumpyJIt(LLJitMixin):
     def test_add(self):
         result = self.run("add")
         self.check_simple_loop({'getinteriorfield_raw': 2, 'float_add': 1,
-                                'setinteriorfield_raw': 1, 'int_add': 3,
+                                'setinteriorfield_raw': 1, 'int_add': 2,
                                 'int_ge': 1, 'guard_false': 1, 'jump': 1})
         assert result == 3 + 3
 

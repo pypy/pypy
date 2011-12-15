@@ -782,10 +782,11 @@ class VirtualArray(BaseArray):
     """
     Class for representing virtual arrays, such as binary ops or ufuncs
     """
-    def __init__(self, shape, res_dtype, order):
+    def __init__(self, name, shape, res_dtype, order):
         BaseArray.__init__(self, shape, order)
         self.forced_result = None
         self.res_dtype = res_dtype
+        self.name = name
 
     def _del_sources(self):
         # Function for deleting references to source arrays, to allow garbage-collecting them
@@ -837,8 +838,8 @@ class VirtualArray(BaseArray):
 
 
 class Call1(VirtualArray):
-    def __init__(self, ufunc, shape, res_dtype, values, order):
-        VirtualArray.__init__(self, shape, res_dtype,
+    def __init__(self, ufunc, name, shape, res_dtype, values, order):
+        VirtualArray.__init__(self, name, shape, res_dtype,
                               values.order)
         self.values = values
         self.ufunc = ufunc
@@ -855,14 +856,14 @@ class Call1(VirtualArray):
     def create_sig(self):
         if self.forced_result is not None:
             return self.forced_result.create_sig()
-        return signature.Call1(self.ufunc, self.values.create_sig())
+        return signature.Call1(self.ufunc, self.name, self.values.create_sig())
 
 class Call2(VirtualArray):
     """
     Intermediate class for performing binary operations.
     """
-    def __init__(self, ufunc, shape, calc_dtype, res_dtype, left, right):
-        VirtualArray.__init__(self, shape, res_dtype, left.order)
+    def __init__(self, ufunc, name, shape, calc_dtype, res_dtype, left, right):
+        VirtualArray.__init__(self, name, shape, res_dtype, left.order)
         self.ufunc = ufunc
         self.left = left
         self.right = right
@@ -881,7 +882,7 @@ class Call2(VirtualArray):
     def create_sig(self):
         if self.forced_result is not None:
             return self.forced_result.create_sig()
-        return signature.Call2(self.ufunc, self.left.create_sig(),
+        return signature.Call2(self.ufunc, self.name, self.left.create_sig(),
                                self.right.create_sig())
 
 class ViewArray(BaseArray):

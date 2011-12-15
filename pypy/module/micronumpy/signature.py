@@ -1,7 +1,7 @@
-from pypy.rlib.objectmodel import r_dict, compute_identity_hash
+from pypy.rlib.objectmodel import r_dict, compute_identity_hash, compute_hash
 from pypy.module.micronumpy.interp_iter import ViewIterator, ArrayIterator, \
      BroadcastIterator, OneDimIterator, ConstantIterator
-from pypy.rlib.jit import hint, unroll_safe
+from pypy.rlib.jit import hint, unroll_safe, promote
 
 # def components_eq(lhs, rhs):
 #     if len(lhs) != len(rhs):
@@ -37,18 +37,23 @@ def find_sig(sig):
 class NumpyEvalFrame(object):
     _virtualizable2_ = ['iterators[*]', 'final_iter']
 
+    @unroll_safe
     def __init__(self, iterators):
-        self = hint(self, access_directly=True)
-        self.iterators = iterators
-        for i, iter in enumerate(self.iterators):
+        self = hint(self, access_directly=True, fresh_virtualizable=True)
+        self.iterators = iterators[:]
+        for i in range(len(self.iterators)):
+            iter = self.iterators[i]
             if not isinstance(iter, ConstantIterator):# or not isinstance(iter, BroadcastIterator):
                 self.final_iter = i
                 break
         else:
-            raise Exception("Cannot find a non-broadcast non-constant iter")
+            self.final_iter = -1
 
     def done(self):
-        return self.iterators[self.final_iter].done()
+        final_iter = promote(self.final_iter)
+        if final_iter < 0:
+            return False
+        return self.iterators[final_iter].done()
 
     @unroll_safe
     def next(self, shapelen):
@@ -159,12 +164,13 @@ class FlatiterSignature(ViewSignature):
         raise NotImplementedError
 
 class Call1(Signature):
-    def __init__(self, func, child):
+    def __init__(self, func, name, child):
         self.unfunc = func
         self.child = child
+        self.name = name
 
     def hash(self):
-        return compute_identity_hash(self.unfunc) ^ self.child.hash() << 1
+        return compute_hash(self.name) ^ self.child.hash() << 1
 
     def eq(self, other):
         if type(self) is not type(other):
@@ -172,7 +178,7 @@ class Call1(Signature):
         return self.unfunc is other.unfunc and self.child.eq(other.child)
 
     def debug_repr(self):
-        return 'Call1(%s)' % (self.child.debug_repr())
+        return 'Call1(%s, %s)' % (self.name, self.child.debug_repr())
 
     def _invent_numbering(self, cache, allnumbers):
         self.child._invent_numbering(cache, allnumbers)
@@ -189,13 +195,14 @@ class Call1(Signature):
         return self.unfunc(arr.res_dtype, v)
 
 class Call2(Signature):
-    def __init__(self, func, left, right):
+    def __init__(self, func, name, left, right):
         self.binfunc = func
         self.left = left
         self.right = right
+        self.name = name
 
     def hash(self):
-        return (compute_identity_hash(self.binfunc) ^ (self.left.hash() << 1) ^
+        return (compute_hash(self.name) ^ (self.left.hash() << 1) ^
                 (self.right.hash() << 2))
 
     def eq(self, other):

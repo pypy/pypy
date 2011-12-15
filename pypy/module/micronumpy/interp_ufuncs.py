@@ -50,7 +50,7 @@ class W_Ufunc(Wrappable):
         return self.reduce(space, w_obj, multidim=False)
 
     def reduce(self, space, w_obj, multidim):
-        from pypy.module.micronumpy.interp_numarray import convert_to_array, Scalar, Call2
+        from pypy.module.micronumpy.interp_numarray import convert_to_array, Scalar
         
         if self.argcount != 2:
             raise OperationError(space.w_ValueError, space.wrap("reduce only "
@@ -68,7 +68,8 @@ class W_Ufunc(Wrappable):
             promote_to_largest=True
         )
         shapelen = len(obj.shape)
-        sig = find_sig(ReduceSignature(self.func, ScalarSignature(dtype),
+        sig = find_sig(ReduceSignature(self.func, self.name,
+                                       ScalarSignature(dtype),
                                        obj.create_sig()))
         frame = sig.create_frame(obj)
         if shapelen > 1 and not multidim:
@@ -117,7 +118,8 @@ class W_Ufunc1(W_Ufunc):
         if isinstance(w_obj, Scalar):
             return self.func(res_dtype, w_obj.value.convert_to(res_dtype))
 
-        w_res = Call1(self.func, w_obj.shape, res_dtype, w_obj, w_obj.order)
+        w_res = Call1(self.func, self.name, w_obj.shape, res_dtype, w_obj,
+                      w_obj.order)
         w_obj.add_invalidates(w_res)
         return w_res
 
@@ -156,7 +158,7 @@ class W_Ufunc2(W_Ufunc):
             )
 
         new_shape = shape_agreement(space, w_lhs.shape, w_rhs.shape)
-        w_res = Call2(self.func, new_shape, calc_dtype,
+        w_res = Call2(self.func, self.name, new_shape, calc_dtype,
                       res_dtype, w_lhs, w_rhs)
         w_lhs.add_invalidates(w_res)
         w_rhs.add_invalidates(w_res)
