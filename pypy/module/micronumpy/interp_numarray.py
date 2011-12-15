@@ -581,6 +581,7 @@ class BaseArray(Wrappable):
     def descr_get_dtype(self, space):
         return space.wrap(self.find_dtype())
 
+    @jit.unroll_safe
     def descr_get_shape(self, space):
         return space.newtuple([space.wrap(i) for i in self.shape])
 
