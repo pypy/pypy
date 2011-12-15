@@ -72,7 +72,8 @@ class GcLLDescription(GcCache):
         """Blackhole: do a 'bh_new'.  Also used for 'bh_new_with_vtable',
         with the vtable pointer set manually afterwards."""
         assert isinstance(sizedescr, BaseSizeDescr)
-        res = self.get_funcptr_for_malloc_gc_fixed()(sizedescr.size)
+        mallocptr = self.get_funcptr_for_malloc_gc_fixed()
+        res = mallocptr(sizedescr.size)
         if res:
             pass # XXX tid
         return res
@@ -622,6 +623,7 @@ class GcLLDescr_framework(GcLLDescription):
             self._make_gcrootmap()
             self._make_layoutbuilder()
             self._setup_gcclass()
+            self._make_functions()
 
     def _initialize_for_tests(self):
         self.layoutbuilder = None
@@ -671,24 +673,28 @@ class GcLLDescr_framework(GcLLDescription):
         assert self.GCClass.inline_simple_malloc
         assert self.GCClass.inline_simple_malloc_varsize
 
-        # make a malloc function, with two arguments
-        def malloc_basic(size, tid):
-            type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
-            check_typeid(type_id)
+    def _make_functions(self):
+        # make the fixed malloc function, with one argument
+        def malloc_gc_fixed(size):
+            type_id = rffi.cast(llgroup.HALFWORD, 0)    # missing here
             res = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
                                                   type_id, size,
                                                   False, False, False)
+            #llop.debug_print(lltype.Void, "\tmalloc_basic", size, "-->", res)
             # In case the operation above failed, we are returning NULL
             # from this function to assembler.  There is also an RPython
             # exception set, typically MemoryError; but it's easier and
             # faster to check for the NULL return value, as done by
             # translator/exceptiontransform.py.
-            #llop.debug_print(lltype.Void, "\tmalloc_basic", size, type_id,
-            #                 "-->", res)
             return res
-        self.malloc_basic = malloc_basic
-        self.GC_MALLOC_BASIC = lltype.Ptr(lltype.FuncType(
-            [lltype.Signed, lltype.Signed], llmemory.GCREF))
+        self.malloc_gc_fixed = malloc_gc_fixed
+        self.MALLOC_GC_FIXED = lltype.Ptr(
+            lltype.FuncType([lltype.Signed], llmemory.GCREF))
+        #
+        # make the varsize malloc function, with three arguments
+        def malloc_gc_variable(basesize, num_elem, itemsize):
+            xx
+        #
         self.WB_FUNCPTR = lltype.Ptr(lltype.FuncType(
             [llmemory.Address, llmemory.Address], lltype.Void))
         self.WB_ARRAY_FUNCPTR = lltype.Ptr(lltype.FuncType(
@@ -753,6 +759,19 @@ class GcLLDescr_framework(GcLLDescription):
             return rffi.cast(lltype.Signed, gcref)
         self.malloc_slowpath = malloc_slowpath
         self.MALLOC_SLOWPATH = lltype.FuncType([lltype.Signed], lltype.Signed)
+
+    def get_funcptr_for_malloc_gc_fixed(self):
+        """Returns a function pointer to a function that implements
+        the simple case of MALLOC_GC: the case where the variable size
+        is zero.  The function pointer has signature (size) -> GCREF."""
+        xx
+
+    def get_funcptr_for_malloc_gc_variable(self):
+        """Returns a function pointer to a function that implements
+        the complex case of MALLOC_GC: the case where the variable size
+        is not known to be zero.  The signature is:
+            (base_size, num_elem, item_size) -> GCREF"""
+        xx
 
     def get_nursery_free_addr(self):
         nurs_addr = llop.gc_adr_of_nursery_free(llmemory.Address)

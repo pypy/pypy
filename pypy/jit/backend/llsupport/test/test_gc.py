@@ -15,12 +15,12 @@ def test_boehm():
     gc_ll_descr = GcLLDescr_boehm(None, None, None)
     #
     record = []
-    prev_funcptr_for_new = gc_ll_descr.funcptr_for_new
-    def my_funcptr_for_new(size):
-        p = prev_funcptr_for_new(size)
+    prev_malloc_fn_ptr = gc_ll_descr.malloc_fn_ptr
+    def my_malloc_fn_ptr(size):
+        p = prev_malloc_fn_ptr(size)
         record.append((size, p))
         return p
-    gc_ll_descr.funcptr_for_new = my_funcptr_for_new
+    gc_ll_descr.malloc_fn_ptr = my_malloc_fn_ptr
     #
     # ---------- gc_malloc ----------
     S = lltype.GcStruct('S', ('x', lltype.Signed))
