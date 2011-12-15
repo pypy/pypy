@@ -56,8 +56,7 @@ class BaseType(object):
 
 class Primitive(object):
     _mixin_ = True
-    format_code = '?'
-    
+
     def get_element_size(self):
         return rffi.sizeof(self.T)
 
@@ -173,7 +172,7 @@ class Primitive(object):
 class Bool(BaseType, Primitive):
     T = lltype.Bool
     BoxType = interp_boxes.W_BoolBox
-    format_code = '?'
+    format_code = "?"
 
     True = BoxType(True)
     False = BoxType(False)
@@ -202,7 +201,7 @@ class Bool(BaseType, Primitive):
 
     def for_computation(self, v):
         return int(v)
-    
+
     def default_fromstring(self, space):
         return self.box(False)
 
@@ -218,7 +217,7 @@ class Integer(Primitive):
 
     def for_computation(self, v):
         return widen(v)
-    
+
     def default_fromstring(self, space):
         return self.box(0)
 
@@ -287,11 +286,12 @@ class UInt32(BaseType, Integer):
 class Long(BaseType, Integer):
     T = rffi.LONG
     BoxType = interp_boxes.W_LongBox
-    format_code = 'l'
+    format_code = "l"
 
 class ULong(BaseType, Integer):
     T = rffi.ULONG
     BoxType = interp_boxes.W_ULongBox
+    format_code = "L"
 
 class Int64(BaseType, Integer):
     T = rffi.LONGLONG

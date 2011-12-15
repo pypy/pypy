@@ -133,7 +133,7 @@ class W_LongBox(W_SignedIntegerBox, PrimitiveBox):
     descr__new__, get_dtype = new_dtype_getter("long")
 
 class W_ULongBox(W_UnsignedIntegerBox, PrimitiveBox):
-    pass
+    descr__new__, get_dtype = new_dtype_getter("ulong")
 
 class W_Int64Box(W_SignedIntegerBox, PrimitiveBox):
     descr__new__, get_dtype = new_dtype_getter("int64")

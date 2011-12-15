@@ -1197,10 +1197,12 @@ class AppTestSupport(BaseNumpyAppTest):
         cls.w_fdata = cls.space.wrap(struct.pack('f', 2.3))
         cls.w_float32val = cls.space.wrap(struct.pack('f', 5.2))
         cls.w_float64val = cls.space.wrap(struct.pack('d', 300.4))
+        cls.w_ulongval = cls.space.wrap(struct.pack('L', 12))
 
     def test_fromstring(self):
-        from numpypy import fromstring, array, uint8, float32, int32
         import sys
+        from numpypy import fromstring, array, uint8, float32, int32
+
         a = fromstring(self.data)
         for i in range(4):
             assert a[i] == i + 1
@@ -1261,12 +1263,11 @@ class AppTestSupport(BaseNumpyAppTest):
             assert (u == [1]).all()
         else:
             assert (u == [1, 0]).all()
-        
+
     def test_fromstring_types(self):
-        from numpypy import fromstring
-        from numpypy import int8, int16, int32, int64
-        from numpypy import uint8, uint16, uint32
-        from numpypy import float32, float64
+        from numpypy import (fromstring, int8, int16, int32, int64, uint8,
+            uint16, uint32, float32, float64)
+
         a = fromstring('\xFF', dtype=int8)
         assert a[0] == -1
         b = fromstring('\xFF', dtype=uint8)
@@ -1285,8 +1286,10 @@ class AppTestSupport(BaseNumpyAppTest):
         assert h[0] == float32(5.2)
         i = fromstring(self.float64val, dtype=float64)
         assert i[0] == float64(300.4)
-        
-        
+        j = fromstring(self.ulongval, dtype='L')
+        assert j[0] == 12
+
+
     def test_fromstring_invalid(self):
         from numpypy import fromstring, uint16, uint8, int32
         #default dtype is 64-bit float, so 3 bytes should fail
