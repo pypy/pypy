@@ -29,15 +29,15 @@ from pypy.translator.sandbox.vfs import Dir, RealDir, RealFile
 from pypy.tool.lib_pypy import LIB_ROOT
 
 class PyPySandboxedProc(VirtualizedSandboxedProc, SimpleIOSandboxedProc):
-    debug = True
     argv0 = '/bin/pypy-c'
     virtual_cwd = '/tmp'
     virtual_env = {}
     virtual_console_isatty = True
 
-    def __init__(self, executable, arguments, tmpdir=None):
+    def __init__(self, executable, arguments, tmpdir=None, debug=True):
         self.executable = executable = os.path.abspath(executable)
         self.tmpdir = tmpdir
+        self.debug = debug
         super(PyPySandboxedProc, self).__init__([self.argv0] + arguments,
                                                 executable=executable)
 
@@ -67,12 +67,13 @@ class PyPySandboxedProc(VirtualizedSandboxedProc, SimpleIOSandboxedProc):
 
 if __name__ == '__main__':
     from getopt import getopt      # and not gnu_getopt!
-    options, arguments = getopt(sys.argv[1:], 't:h', 
+    options, arguments = getopt(sys.argv[1:], 't:hq', 
                                 ['tmp=', 'heapsize=', 'timeout=', 'log=',
-                                 'help'])
+                                 'quiet', 'help'])
     tmpdir = None
     timeout = None
     logfile = None
+    debug = True
     extraoptions = []
 
     def help():
@@ -104,6 +105,8 @@ if __name__ == '__main__':
             timeout = int(value)
         elif option == '--log':
             logfile = value
+        elif option in ['-q', '--quiet']:
+            debug = False
         elif option in ['-h', '--help']:
             help()
         else:
@@ -113,7 +116,7 @@ if __name__ == '__main__':
         help()
 
     sandproc = PyPySandboxedProc(arguments[0], extraoptions + arguments[1:],
-                                 tmpdir=tmpdir)
+                                 tmpdir=tmpdir, debug=debug)
     if timeout is not None:
         sandproc.settimeout(timeout, interrupt_main=True)
     if logfile is not None:

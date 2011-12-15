@@ -6,23 +6,27 @@ for the outer process, which can run CPython or PyPy.
 
 import py
 import sys, os, posixpath, errno, stat, time
-from pypy.tool.ansi_print import AnsiLog
 import subprocess
 from pypy.tool.killsubprocess import killsubprocess
 from pypy.translator.sandbox.vfs import UID, GID
 
-class MyAnsiLog(AnsiLog):
-    KW_TO_COLOR = {
-        'call': ((34,), False),
-        'result': ((34,), False),
-        'exception': ((34,), False),
-        'vpath': ((35,), False),
-        'timeout': ((1, 31), True),
-        }
+def create_log():
+    """Make and return a log for the sandbox to use, if needed."""
+    # This import is local to avoid importing pypy if we don't need to.
+    from pypy.tool.ansi_print import AnsiLog
 
-log = py.log.Producer("sandlib")
-py.log.setconsumer("sandlib", MyAnsiLog())
+    class MyAnsiLog(AnsiLog):
+        KW_TO_COLOR = {
+            'call': ((34,), False),
+            'result': ((34,), False),
+            'exception': ((34,), False),
+            'vpath': ((35,), False),
+            'timeout': ((1, 31), True),
+            }
 
+    log = py.log.Producer("sandlib")
+    py.log.setconsumer("sandlib", MyAnsiLog())
+    return log
 
 # Note: we use lib_pypy/marshal.py instead of the built-in marshal
 # for two reasons.  The built-in module could be made to segfault
@@ -126,6 +130,7 @@ class SandboxedProc(object):
     for the external functions xxx that you want to support.
     """
     debug = False
+    log = None
     os_level_sandboxing = False   # Linux only: /proc/PID/seccomp
 
     def __init__(self, args, executable=None):
@@ -141,6 +146,9 @@ class SandboxedProc(object):
         self.popenlock = None
         self.currenttimeout = None
         self.currentlyidlefrom = None
+
+        if self.debug:
+            self.log = create_log()
 
     def withlock(self, function, *args, **kwds):
         lock = self.popenlock
@@ -169,7 +177,8 @@ class SandboxedProc(object):
                 if delay <= 0.0:
                     break   # expired!
                 time.sleep(min(delay*1.001, 1))
-            log.timeout("timeout!")
+            if self.log:
+                self.log.timeout("timeout!")
             self.kill()
             #if interrupt_main:
             #    if hasattr(os, 'kill'):
@@ -246,22 +255,22 @@ class SandboxedProc(object):
                 args   = read_message(child_stdout)
             except EOFError, e:
                 break
-            if self.debug and not self.is_spam(fnname, *args):
-                log.call('%s(%s)' % (fnname,
+            if self.log and not self.is_spam(fnname, *args):
+                self.log.call('%s(%s)' % (fnname,
                                      ', '.join([shortrepr(x) for x in args])))
             try:
                 answer, resulttype = self.handle_message(fnname, *args)
             except Exception, e:
                 tb = sys.exc_info()[2]
                 write_exception(child_stdin, e, tb)
-                if self.debug:
+                if self.log:
                     if str(e):
-                        log.exception('%s: %s' % (e.__class__.__name__, e))
+                        self.log.exception('%s: %s' % (e.__class__.__name__, e))
                     else:
-                        log.exception('%s' % (e.__class__.__name__,))
+                        self.log.exception('%s' % (e.__class__.__name__,))
             else:
-                if self.debug and not self.is_spam(fnname, *args):
-                    log.result(shortrepr(answer))
+                if self.log and not self.is_spam(fnname, *args):
+                    self.log.result(shortrepr(answer))
                 try:
                     write_message(child_stdin, 0)  # error code - 0 for ok
                     write_message(child_stdin, answer, resulttype)
@@ -440,7 +449,8 @@ class VirtualizedSandboxedProc(SandboxedProc):
             node = dirnode.join(name)
         else:
             node = dirnode
-        log.vpath('%r => %r' % (vpath, node))
+        if self.log:
+            self.log.vpath('%r => %r' % (vpath, node))
         return node
 
     def do_ll_os__ll_os_stat(self, vpathname):
