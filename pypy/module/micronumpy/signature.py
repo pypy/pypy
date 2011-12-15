@@ -116,9 +116,11 @@ class ViewSignature(Signature):
         self.child = child
     
     def eq(self, other):
-        if type(self) is not type(other):
-            return False
-        return self.child.eq(other.child)
+        return False # two views are not identical for now
+        # They would be if steps in all dimensions are equal
+        #if type(self) is not type(other):
+        #    return False
+        #return self.child.eq(other.child)
 
     def hash(self):
         return self.child.hash() ^ 0x12345
