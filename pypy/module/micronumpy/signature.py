@@ -104,17 +104,33 @@ class ArraySignature(ConcreteSignature):
 
     def _create_iter(self, iterlist, arr):
         from pypy.module.micronumpy.interp_numarray import W_NDimArray
-        arr = arr.get_concrete()
         assert isinstance(arr, W_NDimArray)
         if self.iter_no >= len(iterlist):
             iterlist.append(ArrayIterator(arr.size))
 
     def eval(self, frame, arr):
         from pypy.module.micronumpy.interp_numarray import W_NDimArray
-        arr = arr.get_concrete()
         assert isinstance(arr, W_NDimArray)
         iter = frame.iterators[self.iter_no]
         return self.dtype.getitem(arr.storage, iter.offset)
+
+class ForcedSignature(ArraySignature):
+    def debug_repr(self):
+        return 'ForcedArray'
+
+    def _create_iter(self, iterlist, arr):
+        from pypy.module.micronumpy.interp_numarray import VirtualArray
+        assert isinstance(arr, VirtualArray)
+        arr = arr.forced_result
+        if self.iter_no >= len(iterlist):
+            iterlist.append(ArrayIterator(arr.size))
+
+    def eval(self, frame, arr):
+        from pypy.module.micronumpy.interp_numarray import VirtualArray
+        assert isinstance(arr, VirtualArray)
+        arr = arr.forced_result
+        iter = frame.iterators[self.iter_no]
+        return self.dtype.getitem(arr.storage, iter.offset)    
 
 class ScalarSignature(ConcreteSignature):
     def debug_repr(self):

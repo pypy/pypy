@@ -190,14 +190,12 @@ class TestNumpyJIt(LLJitMixin):
         # This is the sum of the ops for both loops, however if you remove the
         # optimization then you end up with 2 float_adds, so we can still be
         # sure it was optimized correctly.
-        # XXX the comment above is wrong now.  We need preferrably a way to
-        # count the two loops separately
-        py.test.skip(":(")
-        self.check_resops({'setinteriorfield_raw': 4, 'guard_nonnull': 1, 'getfield_gc': 41,
-                           'guard_class': 22, 'int_add': 8, 'float_mul': 2,
-                           'guard_isnull': 2, 'jump': 4, 'int_ge': 4,
+        self.check_resops({'setinteriorfield_raw': 4, 'getfield_gc': 19,
+                           'getfield_gc_pure': 6,
+                           'guard_class': 8, 'int_add': 8, 'float_mul': 2,
+                           'jump': 4, 'int_ge': 4,
                            'getinteriorfield_raw': 4, 'float_add': 2, 'guard_false': 4,
-                           'guard_value': 2})
+                           })
 
     def define_ufunc():
         return """

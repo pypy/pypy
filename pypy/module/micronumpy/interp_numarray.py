@@ -855,7 +855,7 @@ class Call1(VirtualArray):
 
     def create_sig(self):
         if self.forced_result is not None:
-            return self.forced_result.create_sig()
+            return signature.ForcedSignature(self.forced_result.dtype)
         return signature.Call1(self.ufunc, self.name, self.values.create_sig())
 
 class Call2(VirtualArray):
@@ -881,7 +881,7 @@ class Call2(VirtualArray):
 
     def create_sig(self):
         if self.forced_result is not None:
-            return self.forced_result.create_sig()
+            return signature.ForcedSignature(self.forced_result.dtype)
         return signature.Call2(self.ufunc, self.name, self.calc_dtype,
                                self.left.create_sig(),
                                self.right.create_sig())
@@ -1019,6 +1019,8 @@ class W_NDimArray(BaseArray):
     """ A class representing contiguous array. We know that each iteration
     by say ufunc will increase the data index by one
     """
+    _immutable_fields_ = ['storage']
+    
     def __init__(self, size, shape, dtype, order='C'):
         BaseArray.__init__(self, shape, order)
         self.size = size

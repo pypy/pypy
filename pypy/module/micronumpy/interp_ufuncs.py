@@ -91,7 +91,8 @@ class W_Ufunc(Wrappable):
                                           shapelen=shapelen, self=self,
                                           value=value, obj=obj, frame=frame,
                                           dtype=dtype)
-            value = self.func(dtype, value, sig.eval(frame, obj).convert_to(dtype))
+            assert isinstance(sig, ReduceSignature)
+            value = sig.binfunc(dtype, value, sig.eval(frame, obj).convert_to(dtype))
             frame.next(shapelen)
         return value
 
