@@ -393,11 +393,11 @@ class Func(AbstractFuncPtr):
 
 # XXX: it partially duplicate the code in clibffi.py
 class CDLL(object):
-    def __init__(self, libname):
+    def __init__(self, libname, mode=-1):
         """Load the library, or raises DLOpenError."""
         self.lib = rffi.cast(DLLHANDLE, 0)
         with rffi.scoped_str2charp(libname) as ll_libname:
-            self.lib = dlopen(ll_libname)
+            self.lib = dlopen(ll_libname, mode)
 
     def __del__(self):
         if self.lib:
@@ -411,6 +411,10 @@ class CDLL(object):
     def getaddressindll(self, name):
         return dlsym(self.lib, name)
 
+# These specialize.call_location's should really be specialize.arg(0), however
+# you can't hash a pointer obj, which the specialize machinery wants to do.
+# Given the present usage of these functions, it's good enough.
+@specialize.call_location()
 @jit.oopspec("libffi_array_getitem(ffitype, width, addr, index, offset)")
 def array_getitem(ffitype, width, addr, index, offset):
     for TYPE, ffitype2 in clibffi.ffitype_map:
@@ -420,6 +424,7 @@ def array_getitem(ffitype, width, addr, index, offset):
             return rffi.cast(rffi.CArrayPtr(TYPE), addr)[0]
     assert False
 
+@specialize.call_location()
 @jit.oopspec("libffi_array_setitem(ffitype, width, addr, index, offset, value)")
 def array_setitem(ffitype, width, addr, index, offset, value):
     for TYPE, ffitype2 in clibffi.ffitype_map:

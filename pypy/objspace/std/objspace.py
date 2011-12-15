@@ -29,7 +29,7 @@ from pypy.objspace.std.setobject import W_SetObject, W_FrozensetObject
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.smallintobject import W_SmallIntObject
 from pypy.objspace.std.stringobject import W_StringObject
-from pypy.objspace.std.tupleobject import W_TupleObject
+from pypy.objspace.std.tupleobject import W_AbstractTupleObject
 from pypy.objspace.std.typeobject import W_TypeObject
 
 # types
@@ -388,8 +388,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
                 self.wrap("expected length %d, got %d" % (expected, got)))
 
     def unpackiterable(self, w_obj, expected_length=-1):
-        if isinstance(w_obj, W_TupleObject):
-            t = w_obj.wrappeditems[:]
+        if isinstance(w_obj, W_AbstractTupleObject):
+            t = w_obj.getitems_copy()
         elif isinstance(w_obj, W_ListObject):
             t = w_obj.getitems_copy()
         else:
@@ -402,11 +402,13 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def fixedview(self, w_obj, expected_length=-1, unroll=False):
         """ Fast paths
         """
-        if isinstance(w_obj, W_TupleObject):
-            t = w_obj.wrappeditems
+        if isinstance(w_obj, W_AbstractTupleObject):
+            t = w_obj.tolist()
         elif isinstance(w_obj, W_ListObject):
-            # XXX this can copy twice
-            t = w_obj.getitems()[:]
+            if unroll:
+                t = w_obj.getitems_unroll()
+            else:
+                t = w_obj.getitems_fixedsize()
         else:
             if unroll:
                 return make_sure_not_resized(ObjSpace.unpackiterable_unroll(
@@ -425,8 +427,8 @@ class StdObjSpace(ObjSpace, DescrOperation):
     def listview(self, w_obj, expected_length=-1):
         if isinstance(w_obj, W_ListObject):
             t = w_obj.getitems()
-        elif isinstance(w_obj, W_TupleObject):
-            t = w_obj.wrappeditems[:]
+        elif isinstance(w_obj, W_AbstractTupleObject):
+            t = w_obj.getitems_copy()
         else:
             return ObjSpace.unpackiterable(self, w_obj, expected_length)
         if expected_length != -1 and len(t) != expected_length:
@@ -449,77 +451,6 @@ class StdObjSpace(ObjSpace, DescrOperation):
             raise OperationError(self.w_ValueError,
                                  self.wrap("Expected tuple of length 3"))
         return self.int_w(l_w[0]), self.int_w(l_w[1]), self.int_w(l_w[2])
-
-    def is_(self, w_one, w_two):
-        return self.newbool(self.is_w(w_one, w_two))
-
-    def is_w(self, w_one, w_two):
-        from pypy.rlib.longlong2float import float2longlong
-        w_typeone = self.type(w_one)
-        # cannot use self.is_w here to not get infinite recursion
-        if w_typeone is self.w_int:
-            return (self.type(w_two) is self.w_int and
-                    self.int_w(w_one) == self.int_w(w_two))
-        elif w_typeone is self.w_float:
-            if self.type(w_two) is not self.w_float:
-                return False
-            one = float2longlong(self.float_w(w_one))
-            two = float2longlong(self.float_w(w_two))
-            return one == two
-        elif w_typeone is self.w_long:
-            return (self.type(w_two) is self.w_long and
-                    self.bigint_w(w_one).eq(self.bigint_w(w_two)))
-        elif w_typeone is self.w_complex:
-            if self.type(w_two) is not self.w_complex:
-                return False
-            real1 = self.float_w(self.getattr(w_one, self.wrap("real")))
-            real2 = self.float_w(self.getattr(w_two, self.wrap("real")))
-            imag1 = self.float_w(self.getattr(w_one, self.wrap("imag")))
-            imag2 = self.float_w(self.getattr(w_two, self.wrap("imag")))
-            real1 = float2longlong(real1)
-            real2 = float2longlong(real2)
-            imag1 = float2longlong(imag1)
-            imag2 = float2longlong(imag2)
-            return real1 == real2 and imag1 == imag2
-        elif w_typeone is self.w_str:
-            return (self.type(w_two) is self.w_str and
-                    self.str_w(w_one) is self.str_w(w_two))
-        elif w_typeone is self.w_unicode:
-            return (self.type(w_two) is self.w_unicode and
-                    self.unicode_w(w_one) is self.unicode_w(w_two))
-        return w_one is w_two
-
-    def id(self, w_obj):
-        from pypy.rlib.rbigint import rbigint
-        from pypy.rlib import objectmodel
-        from pypy.rlib.longlong2float import float2longlong
-        w_type = self.type(w_obj)
-        if w_type is self.w_int:
-            tag = 1
-            return self.or_(self.lshift(w_obj, self.wrap(3)), self.wrap(tag))
-        elif w_type is self.w_long:
-            tag = 3
-            return self.or_(self.lshift(w_obj, self.wrap(3)), self.wrap(tag))
-        elif w_type is self.w_float:
-            tag = 5
-            val = float2longlong(self.float_w(w_obj))
-            w_obj = self.newlong_from_rbigint(rbigint.fromrarith_int(val))
-            return self.or_(self.lshift(w_obj, self.wrap(3)), self.wrap(tag))
-        elif w_type is self.w_complex:
-            real = self.float_w(self.getattr(w_obj, self.wrap("real")))
-            imag = self.float_w(self.getattr(w_obj, self.wrap("imag")))
-            tag = 5
-            real_b = rbigint.fromrarith_int(float2longlong(real))
-            imag_b = rbigint.fromrarith_int(float2longlong(imag))
-            val = real_b.lshift(8 * 8).or_(imag_b).lshift(3).or_(rbigint.fromint(3))
-            return self.newlong_from_rbigint(val)
-        elif w_type is self.w_str:
-            res = objectmodel.compute_unique_id(self.str_w(w_obj))
-        elif w_type is self.w_unicode:
-            res = objectmodel.compute_unique_id(self.unicode_w(w_obj))
-        else:
-            res = objectmodel.compute_unique_id(w_obj)
-        return self.wrap(res)
 
     def is_true(self, w_obj):
         # a shortcut for performance

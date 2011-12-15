@@ -9,8 +9,9 @@ from pypy.objspace.std import slicetype
 from pypy.interpreter import gateway, baseobjspace
 from pypy.rlib.objectmodel import instantiate, specialize
 from pypy.rlib.listsort import make_timsort_class
-from pypy.rlib import rerased, jit
+from pypy.rlib import rerased, jit, debug
 from pypy.interpreter.argument import Signature
+from pypy.tool.sourcetools import func_with_new_name
 
 UNROLL_CUTOFF = 5
 
@@ -50,6 +51,13 @@ def get_strategy_from_list_objects(space, list_w):
     else:
         return space.fromcache(StringListStrategy)
 
+    # check for floats
+    for w_obj in list_w:
+        if not is_W_FloatObject(w_obj):
+            break
+    else:
+        return space.fromcache(FloatListStrategy)
+
     return space.fromcache(ObjectListStrategy)
 
 def is_W_IntObject(w_object):
@@ -60,7 +68,9 @@ def is_W_StringObject(w_object):
     from pypy.objspace.std.stringobject import W_StringObject
     return type(w_object) is W_StringObject
 
-
+def is_W_FloatObject(w_object):
+    from pypy.objspace.std.floatobject import W_FloatObject
+    return type(w_object) is W_FloatObject
 
 class W_ListObject(W_AbstractListObject):
     from pypy.objspace.std.listtype import list_typedef as typedef
@@ -160,6 +170,19 @@ class W_ListObject(W_AbstractListObject):
         """Returns a list of all items after wrapping them. The result can
         share with the storage, if possible."""
         return self.strategy.getitems(self)
+
+    def getitems_fixedsize(self):
+        """Returns a fixed-size list of all items after wrapping them."""
+        l = self.strategy.getitems_fixedsize(self)
+        debug.make_sure_not_resized(l)
+        return l
+
+    def getitems_unroll(self):
+        """Returns a fixed-size list of all items after wrapping them. The JIT
+        will fully unroll this function.  """
+        l = self.strategy.getitems_unroll(self)
+        debug.make_sure_not_resized(l)
+        return l
 
     def getitems_copy(self):
         """Returns a copy of all items in the list. Same as getitems except for
@@ -317,6 +340,8 @@ class EmptyListStrategy(ListStrategy):
     to the added item.
     W_Lists do not switch back to EmptyListStrategy when becoming empty again."""
 
+    _applevel_repr = "empty"
+
     def __init__(self, space):
         ListStrategy.__init__(self, space)
         # cache an empty list that is used whenever getitems is called (i.e. sorting)
@@ -355,6 +380,8 @@ class EmptyListStrategy(ListStrategy):
 
     def getitems_copy(self, w_list):
         return []
+    getitems_fixedsize = func_with_new_name(getitems_copy, "getitems_fixedsize")
+    getitems_unroll = getitems_fixedsize
 
     def getstorage_copy(self, w_list):
         return self.erase(None)
@@ -364,6 +391,8 @@ class EmptyListStrategy(ListStrategy):
             strategy = self.space.fromcache(IntegerListStrategy)
         elif is_W_StringObject(w_item):
             strategy = self.space.fromcache(StringListStrategy)
+        elif is_W_FloatObject(w_item):
+            strategy = self.space.fromcache(FloatListStrategy)
         else:
             strategy = self.space.fromcache(ObjectListStrategy)
 
@@ -414,6 +443,8 @@ class RangeListStrategy(ListStrategy):
     and elements are calculated based on these values.
     On any operation destroying the range (inserting, appending non-ints)
     the strategy is switched to IntegerListStrategy."""
+
+    _applevel_repr = "range"
 
     def switch_to_integer_strategy(self, w_list):
         items = self._getitems_range(w_list, False)
@@ -481,7 +512,6 @@ class RangeListStrategy(ListStrategy):
         # tuple is unmutable
         return w_list.lstorage
 
-
     @specialize.arg(2)
     def _getitems_range(self, w_list, wrap_items):
         l = self.unerase(w_list.lstorage)
@@ -503,6 +533,13 @@ class RangeListStrategy(ListStrategy):
             n += 1
 
         return r
+
+    @jit.dont_look_inside
+    def getitems_fixedsize(self, w_list):
+        return self._getitems_range_unroll(w_list, True)
+    def getitems_unroll(self, w_list):
+        return self._getitems_range_unroll(w_list, True)
+    _getitems_range_unroll = jit.unroll_safe(func_with_new_name(_getitems_range, "_getitems_range_unroll"))
 
     def getslice(self, w_list, start, stop, step, length):
         v = self.unerase(w_list.lstorage)
@@ -657,9 +694,18 @@ class AbstractUnwrappedStrategy(object):
         return self.wrap(r)
 
     @jit.look_inside_iff(lambda self, w_list:
-            jit.isconstant(w_list.length()) and w_list.length() < UNROLL_CUTOFF)
+           jit.isconstant(w_list.length()) and w_list.length() < UNROLL_CUTOFF)
     def getitems_copy(self, w_list):
         return [self.wrap(item) for item in self.unerase(w_list.lstorage)]
+
+    @jit.unroll_safe
+    def getitems_unroll(self, w_list):
+        return [self.wrap(item) for item in self.unerase(w_list.lstorage)]
+
+    @jit.look_inside_iff(lambda self, w_list:
+           jit.isconstant(w_list.length()) and w_list.length() < UNROLL_CUTOFF)
+    def getitems_fixedsize(self, w_list):
+        return self.getitems_unroll(w_list)
 
     def getstorage_copy(self, w_list):
         items = self.unerase(w_list.lstorage)[:]
@@ -853,6 +899,7 @@ class AbstractUnwrappedStrategy(object):
 
 class ObjectListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     _none_value = None
+    _applevel_repr = "object"
 
     def unwrap(self, w_obj):
         return w_obj
@@ -881,6 +928,7 @@ class ObjectListStrategy(AbstractUnwrappedStrategy, ListStrategy):
 
 class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     _none_value = 0
+    _applevel_repr = "int"
 
     def wrap(self, intval):
         return self.space.wrap(intval)
@@ -905,8 +953,36 @@ class IntegerListStrategy(AbstractUnwrappedStrategy, ListStrategy):
         if reverse:
             l.reverse()
 
+class FloatListStrategy(AbstractUnwrappedStrategy, ListStrategy):
+    _none_value = 0.0
+    _applevel_repr = "float"
+
+    def wrap(self, floatval):
+        return self.space.wrap(floatval)
+
+    def unwrap(self, w_float):
+        return self.space.float_w(w_float)
+
+    erase, unerase = rerased.new_erasing_pair("float")
+    erase = staticmethod(erase)
+    unerase = staticmethod(unerase)
+
+    def is_correct_type(self, w_obj):
+        return is_W_FloatObject(w_obj)
+
+    def list_is_correct_type(self, w_list):
+        return w_list.strategy is self.space.fromcache(FloatListStrategy)
+
+    def sort(self, w_list, reverse):
+        l = self.unerase(w_list.lstorage)
+        sorter = FloatSort(l, len(l))
+        sorter.sort()
+        if reverse:
+            l.reverse()
+
 class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
     _none_value = None
+    _applevel_repr = "str"
 
     def wrap(self, stringval):
         return self.space.wrap(stringval)
@@ -933,6 +1009,7 @@ class StringListStrategy(AbstractUnwrappedStrategy, ListStrategy):
 
     def getitems_str(self, w_list):
         return self.unerase(w_list.lstorage)
+
 
 # _______________________________________________________
 
@@ -1282,6 +1359,7 @@ def list_reverse__List(space, w_list):
 
 TimSort = make_timsort_class()
 IntBaseTimSort = make_timsort_class()
+FloatBaseTimSort = make_timsort_class()
 StringBaseTimSort = make_timsort_class()
 
 class KeyContainer(baseobjspace.W_Root):
@@ -1299,6 +1377,10 @@ class SimpleSort(TimSort):
         return space.is_true(space.lt(a, b))
 
 class IntSort(IntBaseTimSort):
+    def lt(self, a, b):
+        return a < b
+
+class FloatSort(FloatBaseTimSort):
     def lt(self, a, b):
         return a < b
 

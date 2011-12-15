@@ -100,7 +100,6 @@ class W_BaseConnection(Wrappable):
 
         res, newbuf = self.do_recv_string(
             space, self.BUFFER_SIZE, maxlength)
-        res = intmask(res) # XXX why?
         try:
             if newbuf:
                 return space.wrap(rffi.charpsize2str(newbuf, res))
@@ -117,7 +116,6 @@ class W_BaseConnection(Wrappable):
 
         res, newbuf = self.do_recv_string(
             space, length - offset, PY_SSIZE_T_MAX)
-        res = intmask(res) # XXX why?
         try:
             if newbuf:
                 raise BufferTooShort(space, space.wrap(
@@ -148,7 +146,6 @@ class W_BaseConnection(Wrappable):
 
         res, newbuf = self.do_recv_string(
             space, self.BUFFER_SIZE, PY_SSIZE_T_MAX)
-        res = intmask(res) # XXX why?
         try:
             if newbuf:
                 w_received = space.wrap(rffi.charpsize2str(newbuf, res))
@@ -413,7 +410,7 @@ class W_PipeConnection(W_BaseConnection):
                                self.buffer, min(self.BUFFER_SIZE, buflength),
                                read_ptr, rffi.NULL)
             if result:
-                return read_ptr[0], lltype.nullptr(rffi.CCHARP.TO)
+                return intmask(read_ptr[0]), lltype.nullptr(rffi.CCHARP.TO)
 
             err = rwin32.GetLastError()
             if err == ERROR_BROKEN_PIPE:
@@ -476,7 +473,7 @@ class W_PipeConnection(W_BaseConnection):
         block = timeout < 0
         if not block:
             # XXX does not check for overflow
-            deadline = _GetTickCount() + int(1000 * timeout + 0.5)
+            deadline = intmask(_GetTickCount()) + int(1000 * timeout + 0.5)
         else:
             deadline = 0
 
@@ -500,7 +497,7 @@ class W_PipeConnection(W_BaseConnection):
                 return True
 
             if not block:
-                now = _GetTickCount()
+                now = intmask(_GetTickCount())
                 if now > deadline:
                     return False
                 diff = deadline - now

@@ -1,7 +1,8 @@
 import py
 from pypy.rlib.objectmodel import instantiate
 from pypy.jit.metainterp.optimizeopt.test.test_util import (
-    LLtypeMixin, BaseTest, FakeMetaInterpStaticData)
+    LLtypeMixin, BaseTest, FakeMetaInterpStaticData, convert_old_style_to_targets)
+from pypy.jit.metainterp.history import TargetToken, JitCellToken
 from pypy.jit.metainterp.test.test_compile import FakeLogger
 import pypy.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import pypy.jit.metainterp.optimizeopt.virtualize as virtualize
@@ -10,7 +11,6 @@ from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
 from pypy.jit.metainterp import executor, compile, resume, history
 from pypy.jit.metainterp.resoperation import rop, opname, ResOperation
 from pypy.rlib.rarithmetic import LONG_BIT
-
 
 def test_store_final_boxes_in_guard():
     from pypy.jit.metainterp.compile import ResumeGuardDescr
@@ -116,9 +116,13 @@ class BaseTestBasic(BaseTest):
     enable_opts = "intbounds:rewrite:virtualize:string:earlyforce:pure:heap"
 
     def optimize_loop(self, ops, optops, call_pure_results=None):
-
         loop = self.parse(ops)
-        expected = self.parse(optops)
+        token = JitCellToken() 
+        loop.operations = [ResOperation(rop.LABEL, loop.inputargs, None, descr=TargetToken(token))] + \
+                          loop.operations
+        if loop.operations[-1].getopnum() == rop.JUMP:
+            loop.operations[-1].setdescr(token)
+        expected = convert_old_style_to_targets(self.parse(optops), jump=True)
         self._do_optimize_loop(loop, call_pure_results)
         print '\n'.join([str(o) for o in loop.operations])
         self.assert_equal(loop, expected)

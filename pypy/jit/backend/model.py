@@ -1,5 +1,6 @@
 from pypy.rlib.debug import debug_start, debug_print, debug_stop
 from pypy.jit.metainterp import history
+from pypy.rpython.lltypesystem import lltype
 
 
 class AbstractCPU(object):
@@ -84,24 +85,21 @@ class AbstractCPU(object):
         """Print a disassembled version of looptoken to stdout"""
         raise NotImplementedError
 
-    def execute_token(self, looptoken):
-        """Execute the generated code referenced by the looptoken.
+    def execute_token(self, looptoken, *args):
+        """NOT_RPYTHON (for tests only)
+        Execute the generated code referenced by the looptoken.
         Returns the descr of the last executed operation: either the one
         attached to the failing guard, or the one attached to the FINISH.
-        Use set_future_value_xxx() before, and get_latest_value_xxx() after.
+        Use get_latest_value_xxx() afterwards to read the result(s).
         """
-        raise NotImplementedError
+        argtypes = [lltype.typeOf(x) for x in args]
+        execute = self.make_execute_token(*argtypes)
+        return execute(looptoken, *args)
 
-    def set_future_value_int(self, index, intvalue):
-        """Set the value for the index'th argument for the loop to run."""
-        raise NotImplementedError
-
-    def set_future_value_float(self, index, floatvalue):
-        """Set the value for the index'th argument for the loop to run."""
-        raise NotImplementedError
-
-    def set_future_value_ref(self, index, objvalue):
-        """Set the value for the index'th argument for the loop to run."""
+    def make_execute_token(self, *argtypes):
+        """Must make and return an execute_token() function that will be
+        called with the given argtypes.
+        """
         raise NotImplementedError
 
     def get_latest_value_int(self, index):

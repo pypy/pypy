@@ -6,11 +6,10 @@ for the outer process, which can run CPython or PyPy.
 
 import py
 import sys, os, posixpath, errno, stat, time
-from pypy.rpython.module.ll_os_stat import s_StatResult
 from pypy.tool.ansi_print import AnsiLog
-from pypy.rlib.rarithmetic import r_longlong
 import subprocess
 from pypy.tool.killsubprocess import killsubprocess
+from pypy.translator.sandbox.vfs import UID, GID
 
 class MyAnsiLog(AnsiLog):
     KW_TO_COLOR = {
@@ -34,6 +33,10 @@ py.log.setconsumer("sandlib", MyAnsiLog())
 from pypy.tool.lib_pypy import import_from_lib_pypy
 marshal = import_from_lib_pypy('marshal')
 
+# Non-marshal result types
+RESULTTYPE_STATRESULT = object()
+RESULTTYPE_LONGLONG = object()
+
 def read_message(f, timeout=None):
     # warning: 'timeout' is not really reliable and should only be used
     # for testing.  Also, it doesn't work if the file f does any buffering.
@@ -50,12 +53,30 @@ def write_message(g, msg, resulttype=None):
             marshal.dump(msg, g)
         else:
             marshal.dump(msg, g, 0)
-    else:
-        # use the exact result type for encoding
-        from pypy.rlib.rmarshal import get_marshaller
+    elif resulttype is RESULTTYPE_STATRESULT:
+        # Hand-coded marshal for stat results that mimics what rmarshal expects.
+        # marshal.dump(tuple(msg)) would have been too easy. rmarshal insists
+        # on 64-bit ints at places, even when the value fits in 32 bits.
+        import struct
+        st = tuple(msg)
+        fmt = "iIIiiiIfff"
         buf = []
-        get_marshaller(resulttype)(buf, msg)
+        buf.append(struct.pack("<ci", '(', len(st)))
+        for c, v in zip(fmt, st):
+            if c == 'i':
+                buf.append(struct.pack("<ci", c, v))
+            elif c == 'I':
+                buf.append(struct.pack("<cq", c, v))
+            elif c == 'f':
+                fstr = "%g" % v
+                buf.append(struct.pack("<cB", c, len(fstr)))
+                buf.append(fstr)
         g.write(''.join(buf))
+    elif resulttype is RESULTTYPE_LONGLONG:
+        import struct
+        g.write(struct.pack("<cq", 'I', msg))
+    else:
+        raise Exception("Can't marshal: %r (%r)" % (msg, resulttype))
 
 # keep the table in sync with rsandbox.reraise_error()
 EXCEPTION_TABLE = [
@@ -390,7 +411,7 @@ class VirtualizedSandboxedProc(SandboxedProc):
     def __init__(self, *args, **kwds):
         super(VirtualizedSandboxedProc, self).__init__(*args, **kwds)
         self.virtual_root = self.build_virtual_root()
-        self.open_fds = {}   # {virtual_fd: real_file_object}
+        self.open_fds = {}   # {virtual_fd: (real_file_object, node)}
 
     def build_virtual_root(self):
         raise NotImplementedError("must be overridden")
@@ -425,26 +446,39 @@ class VirtualizedSandboxedProc(SandboxedProc):
     def do_ll_os__ll_os_stat(self, vpathname):
         node = self.get_node(vpathname)
         return node.stat()
-    do_ll_os__ll_os_stat.resulttype = s_StatResult
+    do_ll_os__ll_os_stat.resulttype = RESULTTYPE_STATRESULT
 
     do_ll_os__ll_os_lstat = do_ll_os__ll_os_stat
 
     def do_ll_os__ll_os_isatty(self, fd):
         return self.virtual_console_isatty and fd in (0, 1, 2)
 
-    def allocate_fd(self, f):
+    def allocate_fd(self, f, node=None):
         for fd in self.virtual_fd_range:
             if fd not in self.open_fds:
-                self.open_fds[fd] = f
+                self.open_fds[fd] = (f, node)
                 return fd
         else:
             raise OSError(errno.EMFILE, "trying to open too many files")
 
-    def get_file(self, fd):
+    def get_fd(self, fd, throw=True):
+        """Get the objects implementing file descriptor `fd`.
+
+        Returns a pair, (open file, vfs node)
+
+        `throw`: if true, raise OSError for bad fd, else return (None, None).
+        """
         try:
-            return self.open_fds[fd]
+            f, node = self.open_fds[fd]
         except KeyError:
-            raise OSError(errno.EBADF, "bad file descriptor")
+            if throw:
+                raise OSError(errno.EBADF, "bad file descriptor")
+            return None, None
+        return f, node
+
+    def get_file(self, fd, throw=True):
+        """Return the open file for file descriptor `fd`."""
+        return self.get_fd(fd, throw)[0]
 
     def do_ll_os__ll_os_open(self, vpathname, flags, mode):
         node = self.get_node(vpathname)
@@ -452,7 +486,7 @@ class VirtualizedSandboxedProc(SandboxedProc):
             raise OSError(errno.EPERM, "write access denied")
         # all other flags are ignored
         f = node.open()
-        return self.allocate_fd(f)
+        return self.allocate_fd(f, node)
 
     def do_ll_os__ll_os_close(self, fd):
         f = self.get_file(fd)
@@ -460,9 +494,8 @@ class VirtualizedSandboxedProc(SandboxedProc):
         f.close()
 
     def do_ll_os__ll_os_read(self, fd, size):
-        try:
-            f = self.open_fds[fd]
-        except KeyError:
+        f = self.get_file(fd, throw=False)
+        if f is None:
             return super(VirtualizedSandboxedProc, self).do_ll_os__ll_os_read(
                 fd, size)
         else:
@@ -471,11 +504,16 @@ class VirtualizedSandboxedProc(SandboxedProc):
             # don't try to read more than 256KB at once here
             return f.read(min(size, 256*1024))
 
+    def do_ll_os__ll_os_fstat(self, fd):
+        f, node = self.get_fd(fd)
+        return node.stat()
+    do_ll_os__ll_os_fstat.resulttype = RESULTTYPE_STATRESULT
+
     def do_ll_os__ll_os_lseek(self, fd, pos, how):
         f = self.get_file(fd)
         f.seek(pos, how)
         return f.tell()
-    do_ll_os__ll_os_lseek.resulttype = r_longlong
+    do_ll_os__ll_os_lseek.resulttype = RESULTTYPE_LONGLONG
 
     def do_ll_os__ll_os_getcwd(self):
         return self.virtual_cwd
@@ -487,6 +525,14 @@ class VirtualizedSandboxedProc(SandboxedProc):
     def do_ll_os__ll_os_listdir(self, vpathname):
         node = self.get_node(vpathname)
         return node.keys()
+
+    def do_ll_os__ll_os_getuid(self):
+        return UID
+    do_ll_os__ll_os_geteuid = do_ll_os__ll_os_getuid
+
+    def do_ll_os__ll_os_getgid(self):
+        return GID
+    do_ll_os__ll_os_getegid = do_ll_os__ll_os_getgid
 
 
 class VirtualizedSocketProc(VirtualizedSandboxedProc):
@@ -511,13 +557,13 @@ class VirtualizedSocketProc(VirtualizedSandboxedProc):
 
     def do_ll_os__ll_os_read(self, fd, size):
         if fd in self.sockets:
-            return self.open_fds[fd].recv(size)
+            return self.get_file(fd).recv(size)
         return super(VirtualizedSocketProc, self).do_ll_os__ll_os_read(
             fd, size)
 
     def do_ll_os__ll_os_write(self, fd, data):
         if fd in self.sockets:
-            return self.open_fds[fd].send(data)
+            return self.get_file(fd).send(data)
         return super(VirtualizedSocketProc, self).do_ll_os__ll_os_write(
             fd, data)
 

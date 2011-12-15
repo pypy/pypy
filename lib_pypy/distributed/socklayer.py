@@ -2,7 +2,7 @@
 import py
 from socket import socket
 
-XXX needs import adaptation as 'green' is removed from py lib for years 
+raise ImportError("XXX needs import adaptation as 'green' is removed from py lib for years")
 from py.impl.green.msgstruct import decodemessage, message
 from socket import socket, AF_INET, SOCK_STREAM
 import marshal

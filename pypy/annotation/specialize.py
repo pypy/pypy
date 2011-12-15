@@ -36,9 +36,7 @@ def flatten_star_args(funcdesc, args_s):
             newtup = SpaceOperation('newtuple', starargs, argscopy[-1])
             newstartblock.operations.append(newtup)
             newstartblock.closeblock(Link(argscopy, graph.startblock))
-            graph.startblock.isstartblock = False
             graph.startblock = newstartblock
-            newstartblock.isstartblock = True
             argnames = argnames + ['.star%d' % i for i in range(nb_extra_args)]
             graph.signature = Signature(argnames)
             # note that we can mostly ignore defaults: if nb_extra_args > 0, 

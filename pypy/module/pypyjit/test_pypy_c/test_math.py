@@ -29,7 +29,7 @@ class TestMath(BaseTestPyPyC):
             f5 = float_add(f0, f4)
             i4 = int_add(i0, 1)
             --TICK--
-            jump(..., descr=<Loop0>)
+            jump(..., descr=...)
         """)
 
     def test_sin_cos(self):
