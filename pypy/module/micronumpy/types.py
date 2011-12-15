@@ -208,7 +208,6 @@ class Bool(BaseType, Primitive):
 
 class Integer(Primitive):
     _mixin_ = True
-    format_code = 'l'
 
     def _coerce(self, space, w_item):
         return self.box(space.int_w(space.call_function(space.w_int, w_item)))
@@ -288,6 +287,7 @@ class UInt32(BaseType, Integer):
 class Long(BaseType, Integer):
     T = rffi.LONG
     BoxType = interp_boxes.W_LongBox
+    format_code = 'l'
 
 class ULong(BaseType, Integer):
     T = rffi.ULONG
