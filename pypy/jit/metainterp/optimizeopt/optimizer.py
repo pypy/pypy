@@ -500,8 +500,9 @@ class Optimizer(Optimization):
         else:
             return CVAL_ZERO
 
-    def propagate_all_forward(self):
-        self.clear_newoperations()
+    def propagate_all_forward(self, clear=True):
+        if clear:
+            self.clear_newoperations()
         for op in self.loop.operations:
             self.first_optimization.propagate_forward(op)
         self.loop.operations = self.get_newoperations()
@@ -564,9 +565,12 @@ class Optimizer(Optimization):
         descr = op.getdescr()
         assert isinstance(descr, compile.ResumeGuardDescr)
         modifier = resume.ResumeDataVirtualAdder(descr, self.resumedata_memo)
-        newboxes = modifier.finish(self.values, self.pendingfields)
-        if len(newboxes) > self.metainterp_sd.options.failargs_limit: # XXX be careful here
-            compile.giveup()
+        try:
+            newboxes = modifier.finish(self.values, self.pendingfields)
+            if len(newboxes) > self.metainterp_sd.options.failargs_limit:
+                raise resume.TagOverflow
+        except resume.TagOverflow:
+            raise compile.giveup()
         descr.store_final_boxes(op, newboxes)
         #
         if op.getopnum() == rop.GUARD_VALUE:

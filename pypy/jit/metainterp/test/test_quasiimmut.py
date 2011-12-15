@@ -294,7 +294,8 @@ class QuasiImmutTests(object):
             return total
 
         res = self.meta_interp(main, [])
-        self.check_tree_loop_count(6)
+        self.check_trace_count(6)
+        self.check_jitcell_token_count(3)
         assert res == main()
 
     def test_change_during_running(self):
@@ -305,7 +306,7 @@ class QuasiImmutTests(object):
                 self.a = a
         @dont_look_inside
         def residual_call(foo, x):
-            if x == 5:
+            if x == 10:
                 foo.a += 1
         def f(a, x):
             foo = Foo(a)
@@ -319,9 +320,9 @@ class QuasiImmutTests(object):
                 x -= 1
             return total
         #
-        assert f(100, 15) == 3009
-        res = self.meta_interp(f, [100, 15])
-        assert res == 3009
+        assert f(100, 30) == 6019
+        res = self.meta_interp(f, [100, 30])
+        assert res == 6019
         self.check_resops(guard_not_invalidated=8, guard_not_forced=0,
                           call_may_force=0, getfield_gc=0)
 
@@ -434,7 +435,7 @@ class QuasiImmutTests(object):
                 self.lst = lst
         @dont_look_inside
         def residual_call(foo, x):
-            if x == 5:
+            if x == 10:
                 lst2 = [0, 0]
                 lst2[1] = foo.lst[1] + 1
                 foo.lst = lst2
@@ -452,9 +453,9 @@ class QuasiImmutTests(object):
                 x -= 1
             return total
         #
-        assert f(100, 15) == 3009
-        res = self.meta_interp(f, [100, 15])
-        assert res == 3009
+        assert f(100, 30) == 6019
+        res = self.meta_interp(f, [100, 30])
+        assert res == 6019
         self.check_resops(call_may_force=0, getfield_gc=0,
                           getarrayitem_gc_pure=0, guard_not_forced=0,
                           getarrayitem_gc=0, guard_not_invalidated=8)
@@ -477,7 +478,7 @@ class QuasiImmutTests(object):
             return foo.step
         res = self.meta_interp(f, [60])
         assert res == 1
-        self.check_tree_loop_count(4)   # at least not 2 like before
+        self.check_jitcell_token_count(2)
 
 
 class TestLLtypeGreenFieldsTests(QuasiImmutTests, LLJitMixin):

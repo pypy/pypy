@@ -11,6 +11,7 @@
 #endif /* MIN */
 
 #define RUNNING_ON_LLINTERP	0
+#define OP_JIT_RECORD_KNOWN_CLASS(i, c, r)  /* nothing */
 
 #define FAIL_EXCEPTION(exc, msg) \
 	{ \

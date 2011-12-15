@@ -261,7 +261,7 @@ class TestTypedTestCase(CompilationTestCase):
         f._annspecialcase_ = "specialize:argtype(0)"
         def g(n):
             if n > 0:
-                return f(r_longlong(0))
+                return intmask(f(r_longlong(0)))
             else:
                 return f(0)
 
@@ -274,6 +274,14 @@ class TestTypedTestCase(CompilationTestCase):
             return int(i)
         fn = self.getcompiled(f, [r_longlong])
         assert fn(0) == 0
+
+    def test_upcast_int(self):
+        from pypy.rpython.lltypesystem import rffi
+        def f(v):
+            v = rffi.cast(rffi.USHORT, v)
+            return intmask(v)
+        fn = self.getcompiled(f, [int])
+        assert fn(0x1234CDEF) == 0xCDEF
 
     def test_function_ptr(self):
         def f1():

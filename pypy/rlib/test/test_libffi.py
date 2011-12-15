@@ -443,3 +443,4 @@ class TestLibffiCall(BaseFfiTest):
         assert p[1] == 34
         lltype.free(p, flavor='raw')
         lltype.free(ffi_point_struct, flavor='raw')
+        

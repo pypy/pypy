@@ -10,8 +10,6 @@ from pypy.jit.metainterp.jitexc import JitException
 counters="""
 TRACING
 BACKEND
-RUNNING
-BLACKHOLE
 OPS
 RECORDED_OPS
 GUARDS
@@ -64,18 +62,6 @@ class EmptyProfiler(BaseProfiler):
         pass
 
     def end_backend(self):
-        pass
-
-    def start_running(self):
-        pass
-
-    def end_running(self):
-        pass
-
-    def start_blackhole(self):
-        pass
-
-    def end_blackhole(self):
         pass
 
     def count(self, kind, inc=1):
@@ -133,16 +119,6 @@ class Profiler(BaseProfiler):
     def start_backend(self):   self._start(BACKEND)
     def end_backend(self):     self._end  (BACKEND)
 
-    # Don't record times for 'running' and 'blackhole' because there are
-    # too many of them: calling time.time() is a major blocker.
-    # If you are interested in these numbers, use 'PYPYLOG=file' and
-    # look at the resulting file with pypy/tool/logparser.py.
-    def start_running(self): self.count(RUNNING)
-    def end_running(self):   pass
-
-    def start_blackhole(self): self.count(BLACKHOLE)
-    def end_blackhole(self):   pass
-
     def count(self, kind, inc=1):
         self.counters[kind] += inc        
     
@@ -164,8 +140,6 @@ class Profiler(BaseProfiler):
         calls = self.calls
         self._print_line_time("Tracing", cnt[TRACING],   tim[TRACING])
         self._print_line_time("Backend", cnt[BACKEND],   tim[BACKEND])
-        self._print_intline("Running asm", cnt[RUNNING])
-        self._print_intline("Blackhole", cnt[BLACKHOLE])
         line = "TOTAL:      \t\t%f" % (self.tk - self.starttime, )
         debug_print(line)
         self._print_intline("ops", cnt[OPS])

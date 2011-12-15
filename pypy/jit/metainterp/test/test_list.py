@@ -225,7 +225,7 @@ class ListTests:
             return s
         res = self.meta_interp(f, [15], listops=True)
         assert res == f(15)
-        self.check_resops({'jump': 2, 'int_gt': 2, 'int_add': 2,
+        self.check_resops({'jump': 1, 'int_gt': 2, 'int_add': 2,
                            'guard_true': 2, 'int_sub': 2})
 
 class TestOOtype(ListTests, OOJitMixin):
