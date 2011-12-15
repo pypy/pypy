@@ -163,7 +163,7 @@ def get_field_arraylen_descr(gccache, ARRAY_OR_STRUCT):
     except KeyError:
         tsc = gccache.translate_support_code
         (_, _, ofs) = symbolic.get_array_token(ARRAY_OR_STRUCT, tsc)
-        if key == 'array' and tsc:
+        if key == 'array' and not tsc:
             (_, _, baseofs) = symbolic.get_array_token(_A, tsc)
             assert baseofs == ofs, ("arrays %r and %r don't have the length "
                                     "field at the same offset!" %
