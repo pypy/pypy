@@ -38,6 +38,7 @@ class MemoryManager(object):
         self.current_generation = r_int64(1)
         self.next_check = r_int64(-1)
         self.alive_loops = {}
+        self._cleanup_jitcell_dicts = lambda: None
 
     def set_max_age(self, max_age, check_frequency=0):
         if max_age <= 0:
@@ -53,6 +54,7 @@ class MemoryManager(object):
         self.current_generation += 1
         if self.current_generation == self.next_check:
             self._kill_old_loops_now()
+            self._cleanup_jitcell_dicts()
             self.next_check = self.current_generation + self.check_frequency
 
     def keep_loop_alive(self, looptoken):
@@ -86,3 +88,27 @@ class MemoryManager(object):
         """Return the current generation, possibly truncated to a uint.
         To use only as an approximation for decaying counters."""
         return r_uint(self.current_generation)
+
+    def record_jitcell_dict(self, warmstate, jitcell_dict):
+        """NOT_RPYTHON.  The given jitcell_dict is a dict that needs
+        occasional clean-ups of old cells.  A cell is old if it never
+        reached the threshold, and its counter decayed to a tiny value."""
+        # note that the various jitcell_dicts have different RPython types,
+        # so we have to make a different function for each one.  These
+        # functions are chained to each other: each calls the previous one.
+        def cleanup_dict():
+            minimum = min(warmstate.increment_threshold,
+                          warmstate.increment_function_threshold)
+            current = self.get_current_generation_uint()
+            killme = []
+            for key, cell in jitcell_dict.iteritems():
+                if cell.counter >= 0:
+                    cell.adjust_counter(current, warmstate.log_decay_factor)
+                    if cell.counter < minimum:
+                        killme.append(key)
+            for key in killme:
+                del jitcell_dict[key]
+            cleanup_previous()
+        #
+        cleanup_previous = self._cleanup_jitcell_dicts
+        self._cleanup_jitcell_dicts = cleanup_dict

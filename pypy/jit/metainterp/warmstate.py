@@ -190,7 +190,6 @@ class JitCell(BaseJitCell):
 
 class WarmEnterState(object):
     THRESHOLD_LIMIT = sys.maxint // 2
-    default_jitcell_dict = None
 
     def __init__(self, warmrunnerdesc, jitdriver_sd):
         "NOT_RPYTHON"
@@ -491,6 +490,9 @@ class WarmEnterState(object):
             self.warmrunnerdesc.stats.jitcell_dicts.append(jitcell_dict)
         except AttributeError:
             pass
+        memmgr = self.warmrunnerdesc.memory_manager
+        if memmgr:
+            memmgr.record_jitcell_dict(self, jitcell_dict)
         #
         def get_jitcell(build, *greenargs):
             try:
@@ -509,6 +511,10 @@ class WarmEnterState(object):
         get_jitcell_at_ptr = self.jitdriver_sd._get_jitcell_at_ptr
         set_jitcell_at_ptr = self.jitdriver_sd._set_jitcell_at_ptr
         lltohlhack = {}
+        # note that there is no equivalent of record_jitcell_dict()
+        # in the case of custom getters.  We assume that the interpreter
+        # stores the JitCells on some objects that can go away by GC,
+        # like the PyCode objects in PyPy.
         #
         def get_jitcell(build, *greenargs):
             fn = support.maybe_on_top_of_llinterp(rtyper, get_jitcell_at_ptr)
