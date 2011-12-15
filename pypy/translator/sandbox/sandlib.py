@@ -4,7 +4,6 @@ was translated from RPython code with --sandbox.  This library is
 for the outer process, which can run CPython or PyPy.
 """
 
-import py
 import sys, os, posixpath, errno, stat, time
 import subprocess
 from pypy.tool.killsubprocess import killsubprocess
@@ -12,7 +11,8 @@ from pypy.translator.sandbox.vfs import UID, GID
 
 def create_log():
     """Make and return a log for the sandbox to use, if needed."""
-    # This import is local to avoid importing pypy if we don't need to.
+    # These imports are local to avoid importing pypy if we don't need to.
+    import py
     from pypy.tool.ansi_print import AnsiLog
 
     class MyAnsiLog(AnsiLog):
