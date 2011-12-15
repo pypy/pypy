@@ -948,6 +948,10 @@ class AllocOpAssembler(object):
 class ForceOpAssembler(object):
 
     _mixin_ = True
+    
+    def emit_force_token(self, op, arglocs, regalloc):
+        res_loc = arglocs[0]
+        self.mc.mr(res_loc.value, r.SPP.value)
 
     # from: ../x86/assembler.py:1668
     # XXX Split into some helper methods
