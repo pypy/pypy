@@ -24,10 +24,8 @@ class TestGenerators(BaseTestPyPyC):
         # to the interpreter hoping to immediately run the JITted
         # code; but instead, we Trace again, just because another
         # counter was also about to reach its limit...
-        loop, = log.loops_by_filename(self.filepath, is_entry_bridge='*')
+        loop, = log.loops_by_filename(self.filepath)
         assert loop.match_by_id("generator", """
-            ...
-            label(..., descr=...)
             i16 = force_token()
             p45 = new_with_vtable(ConstClass(W_IntObject))
             setfield_gc(p45, i29, descr=<SignedFieldDescr .*>)
