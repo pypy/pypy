@@ -271,7 +271,7 @@ class AssemblerARM(ResOpAssembler):
 
         assert enc[i] == self.END_OF_LOCS
         descr = decode32(enc, i+1)
-        self.fail_boxes_count = fail_index + 1
+        self.fail_boxes_count = fail_index
         self.fail_force_index = frame_loc
         return descr
 
