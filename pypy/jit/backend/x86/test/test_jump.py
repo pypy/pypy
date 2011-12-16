@@ -71,6 +71,18 @@ def test_simple_framelocs():
                              ('mov', eax, s24),
                              ('mov', s12, edi)]
 
+def test_no_tmp_reg():
+    assembler = MockAssembler()
+    s8 = frame_pos(0, INT)
+    s12 = frame_pos(13, INT)
+    s20 = frame_pos(20, INT)
+    s24 = frame_pos(221, INT)
+    remap_frame_layout(assembler, [s8, eax, s12], [s20, s24, edi], None)
+    assert assembler.ops == [('push', s8),
+                             ('pop', s20),
+                             ('mov', eax, s24),
+                             ('mov', s12, edi)]
+
 def test_reordering():
     assembler = MockAssembler()
     s8 = frame_pos(8, INT)

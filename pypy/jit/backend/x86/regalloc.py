@@ -130,9 +130,9 @@ class X86FrameManager(FrameManager):
     @staticmethod
     def frame_pos(i, box_type):
         if IS_X86_32 and box_type == FLOAT:
-            return StackLoc(i, get_ebp_ofs(i+1), 2, box_type)
+            return StackLoc(i, get_ebp_ofs(i+1), box_type)
         else:
-            return StackLoc(i, get_ebp_ofs(i), 1, box_type)
+            return StackLoc(i, get_ebp_ofs(i), box_type)
     @staticmethod
     def frame_size(box_type):
         if IS_X86_32 and box_type == FLOAT:
@@ -174,12 +174,11 @@ class RegAlloc(object):
         operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
                                                        allgcrefs)
         # compute longevity of variables
-        longevity = self._compute_vars_longevity(inputargs, operations)
-        self.longevity = longevity
-        self.rm = gpr_reg_mgr_cls(longevity,
+        self._compute_vars_longevity(inputargs, operations)
+        self.rm = gpr_reg_mgr_cls(self.longevity,
                                   frame_manager = self.fm,
                                   assembler = self.assembler)
-        self.xrm = xmm_reg_mgr_cls(longevity, frame_manager = self.fm,
+        self.xrm = xmm_reg_mgr_cls(self.longevity, frame_manager = self.fm,
                                    assembler = self.assembler)
         return operations
 
@@ -481,7 +480,7 @@ class RegAlloc(object):
         # only to guard operations or to jump or to finish
         produced = {}
         last_used = {}
-        #useful = {}
+        last_real_usage = {}
         for i in range(len(operations)-1, -1, -1):
             op = operations[i]
             if op.result:
@@ -492,10 +491,13 @@ class RegAlloc(object):
             opnum = op.getopnum()
             for j in range(op.numargs()):
                 arg = op.getarg(j)
-                #if opnum != rop.JUMP and opnum != rop.FINISH:
-                #    useful[arg] = None
-                if isinstance(arg, Box) and arg not in last_used:
+                if not isinstance(arg, Box):
+                    continue
+                if arg not in last_used:
                     last_used[arg] = i
+                if opnum != rop.JUMP and opnum != rop.LABEL:
+                    if arg not in last_real_usage:
+                        last_real_usage[arg] = i
             if op.is_guard():
                 for arg in op.getfailargs():
                     if arg is None: # hole
@@ -503,7 +505,8 @@ class RegAlloc(object):
                     assert isinstance(arg, Box)
                     if arg not in last_used:
                         last_used[arg] = i
-
+        self.last_real_usage = last_real_usage
+        #
         longevity = {}
         for arg in produced:
             if arg in last_used:
@@ -519,7 +522,7 @@ class RegAlloc(object):
                 longevity[arg] = (0, last_used[arg])
                 del last_used[arg]
         assert len(last_used) == 0
-        return longevity#, useful
+        self.longevity = longevity
 
     def loc(self, v):
         if v is None: # xxx kludgy
@@ -1384,13 +1387,6 @@ class RegAlloc(object):
         assert isinstance(descr, TargetToken)
         arglocs = descr._x86_arglocs
         self.jump_target_descr = descr
-        # compute 'tmploc' to be all_regs[0] by spilling what is there
-        tmpbox1 = TempBox()
-        tmpbox2 = TempBox()
-        tmpreg = X86RegisterManager.all_regs[0]
-        self.rm.force_allocate_reg(tmpbox1, selected_reg=tmpreg)
-        xmmtmp = X86XMMRegisterManager.all_regs[0]
-        self.xrm.force_allocate_reg(tmpbox2, selected_reg=xmmtmp)
         # Part about non-floats
         src_locations1 = []
         dst_locations1 = []
@@ -1402,19 +1398,23 @@ class RegAlloc(object):
             box = op.getarg(i)
             src_loc = self.loc(box)
             dst_loc = arglocs[i]
-            assert dst_loc != tmpreg and dst_loc != xmmtmp
             if box.type != FLOAT:
                 src_locations1.append(src_loc)
                 dst_locations1.append(dst_loc)
             else:
                 src_locations2.append(src_loc)
                 dst_locations2.append(dst_loc)
+        # Do we have a temp var?
+        if IS_X86_64:
+            tmpreg = X86_64_SCRATCH_REG
+            xmmtmp = X86_64_XMM_SCRATCH_REG
+        else:
+            tmpreg = None
+            xmmtmp = None
         # Do the remapping
         remap_frame_layout_mixed(assembler,
                                  src_locations1, dst_locations1, tmpreg,
                                  src_locations2, dst_locations2, xmmtmp)
-        self.rm.possibly_free_var(tmpbox1)
-        self.xrm.possibly_free_var(tmpbox2)
         self.possibly_free_vars_for_op(op)
         assembler.closing_jump(self.jump_target_descr)
 
@@ -1471,16 +1471,15 @@ class RegAlloc(object):
         inputargs = op.getarglist()
         arglocs = [None] * len(inputargs)
         #
-        # we need to make sure that the tmpreg and xmmtmp are free
-        tmpreg = X86RegisterManager.all_regs[0]
-        tmpvar = TempBox()
-        self.rm.force_allocate_reg(tmpvar, selected_reg=tmpreg)
-        self.rm.possibly_free_var(tmpvar, _hint_dont_reuse_quickly=True)
-        #
-        xmmtmp = X86XMMRegisterManager.all_regs[0]
-        tmpvar = TempBox()
-        self.xrm.force_allocate_reg(tmpvar, selected_reg=xmmtmp)
-        self.xrm.possibly_free_var(tmpvar, _hint_dont_reuse_quickly=True)
+        # we use force_spill() on the boxes that are not going to be really
+        # used any more in the loop, but that are kept alive anyway
+        # by being in a next LABEL's or a JUMP's argument or fail_args
+        # of some guard
+        position = self.rm.position
+        for arg in inputargs:
+            assert isinstance(arg, Box)
+            if self.last_real_usage.get(arg, -1) <= position:
+                self.force_spill_var(arg)
         #
         # we need to make sure that no variable is stored in ebp
         for arg in inputargs:
@@ -1491,9 +1490,9 @@ class RegAlloc(object):
         #
         for i in range(len(inputargs)):
             arg = inputargs[i]
-            assert not isinstance(arg, Const)
+            assert isinstance(arg, Box)
             loc = self.loc(arg)
-            assert not (loc is tmpreg or loc is xmmtmp or loc is ebp)
+            assert loc is not ebp
             arglocs[i] = loc
             if isinstance(loc, RegLoc):
                 self.fm.mark_as_free(arg)

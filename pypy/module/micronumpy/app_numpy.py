@@ -13,6 +13,11 @@ def average(a):
     # weighting, just the average part!
     return mean(a)
 
+def identity(n, dtype=None):
+    a = numpypy.zeros((n,n), dtype=dtype)
+    for i in range(n):
+        a[i][i] = 1
+    return a
 
 def mean(a):
     if not hasattr(a, "mean"):

@@ -1,8 +1,18 @@
 from pypy.interpreter.mixedmodule import MixedModule
 
 
+class PyPyModule(MixedModule):
+    interpleveldefs = {
+        'debug_repr': 'interp_extras.debug_repr',
+    }
+    appleveldefs = {}
+
 class Module(MixedModule):
     applevel_name = 'numpypy'
+
+    submodules = {
+        'pypy': PyPyModule
+    }
 
     interpleveldefs = {
         'ndarray': 'interp_numarray.W_NDimArray',
@@ -81,6 +91,7 @@ class Module(MixedModule):
         'mean': 'app_numpy.mean',
         'sum': 'app_numpy.sum',
         'min': 'app_numpy.min',
+        'identity': 'app_numpy.identity',
         'max': 'app_numpy.max',
         'inf': 'app_numpy.inf',
         'e': 'app_numpy.e',
