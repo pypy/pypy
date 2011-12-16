@@ -249,7 +249,7 @@ def test_random_mixed():
         while len(result) < count:
             x = fn()
             keys = [x._getregkey()]
-            if isinstance(x, StackLoc) and x.width > WORD:
+            if isinstance(x, StackLoc) and x.get_width() > WORD:
                 keys.append(keys[0] + WORD)
             for key in keys:
                 if key in seen:
@@ -267,7 +267,7 @@ def test_random_mixed():
         for i, loc in enumerate(locations):
             if isinstance(loc, RegLoc):
                 if loc.is_xmm:
-                    if loc.width > WORD:
+                    if loc.get_width() > WORD:
                         newvalue = ('value-xmm-%d' % i,
                                     'value-xmm-hiword-%d' % i)
                     else:
@@ -276,8 +276,8 @@ def test_random_mixed():
                 else:
                     regs1[loc.value] = 'value-int-%d' % i
             elif isinstance(loc, StackLoc):
-                stack[loc.value] = 'value-width%d-%d' % (loc.width, i)
-                if loc.width > WORD:
+                stack[loc.value] = 'value-width%d-%d' % (loc.get_width(), i)
+                if loc.get_width() > WORD:
                     stack[loc.value+WORD] = 'value-hiword-%d' % i
             else:
                 assert isinstance(loc, ImmedLoc)
@@ -299,7 +299,7 @@ def test_random_mixed():
         #
         def read(loc, expected_width=None):
             if expected_width is not None:
-                assert loc.width == expected_width
+                assert loc.get_width() == expected_width
             if isinstance(loc, RegLoc):
                 if loc.is_xmm:
                     return regs2[loc.value]
@@ -307,7 +307,7 @@ def test_random_mixed():
                     return regs1[loc.value]
             if isinstance(loc, StackLoc):
                 got = stack[loc.value]
-                if loc.width > WORD:
+                if loc.get_width() > WORD:
                     got = (got, stack[loc.value+WORD])
                 return got
             if isinstance(loc, ImmedLoc):
@@ -321,7 +321,7 @@ def test_random_mixed():
                 else:
                     regs1[loc.value] = newvalue
             elif isinstance(loc, StackLoc):
-                if loc.width > WORD:
+                if loc.get_width() > WORD:
                     newval1, newval2 = newvalue
                     stack[loc.value] = newval1
                     stack[loc.value+WORD] = newval2
