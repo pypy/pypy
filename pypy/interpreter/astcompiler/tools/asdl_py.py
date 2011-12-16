@@ -79,6 +79,7 @@ class ASTNodeVisitor(ASDLVisitor):
         else:
             self.emit("class %s(AST):" % (base,))
             if sum.attributes:
+                self.emit("")
                 args = ", ".join(attr.name.value for attr in sum.attributes)
                 self.emit("def __init__(self, %s):" % (args,), 1)
                 for attr in sum.attributes:
@@ -195,17 +196,13 @@ class ASTNodeVisitor(ASDLVisitor):
     def visitConstructor(self, cons, base, extra_attributes):
         self.emit("class %s(%s):" % (cons.name, base))
         self.emit("")
-        for field in self.data.cons_attributes[cons]:
-            subst = (field.name, self.data.field_masks[field])
-            self.emit("_%s_mask = %i" % subst, 1)
-        self.emit("")
         self.make_constructor(cons.fields, cons, extra_attributes, base)
         self.emit("")
         self.emit("def walkabout(self, visitor):", 1)
         self.emit("visitor.visit_%s(self)" % (cons.name,), 2)
         self.emit("")
         self.make_mutate_over(cons, cons.name)
-        self.make_var_syncer(cons.fields + self.data.cons_attributes[cons],
+        self.make_var_syncer(self.data.cons_attributes[cons] + cons.fields,
                              cons, cons.name)
 
     def visitField(self, field):
@@ -324,7 +321,7 @@ class AppExposeVisitor(ASDLVisitor):
 
     def visitSum(self, sum, name):
         for field in sum.attributes:
-            self.make_property(field, name, True)
+            self.make_property(field, name)
         self.make_typedef(name, "AST", sum.attributes,
                           fields_name="_attributes")
         if not is_simple_sum(sum):
@@ -400,13 +397,10 @@ class AppExposeVisitor(ASDLVisitor):
     def visitField(self, field, name):
         self.make_property(field, name)
 
-    def make_property(self, field, name, different_masks=False):
+    def make_property(self, field, name):
         func = "def %s_get_%s(space, w_self):" % (name, field.name)
         self.emit(func)
-        if different_masks:
-            flag = "w_self._%s_mask" % (field.name,)
-        else:
-            flag = self.data.field_masks[field]
+        flag = self.data.field_masks[field]
         if not field.seq:
             self.emit("if w_self.w_dict is not None:", 1)
             self.emit("    w_obj = w_self.getdictvalue(space, '%s')" % (field.name,), 1)
@@ -505,7 +499,10 @@ class ASDLData(object):
             optional_mask = 0
             for i, field in enumerate(fields):
                 flag = 1 << i
-                field_masks[field] = flag
+                if field not in field_masks:
+                    field_masks[field] = flag
+                else:
+                    assert field_masks[field] == flag
                 if field.opt:
                     optional_mask |= flag
                 else:
@@ -518,9 +515,9 @@ class ASDLData(object):
                 if is_simple_sum(sum):
                     simple_types.add(tp.name.value)
                 else:
+                    attrs = [field for field in sum.attributes]
                     for cons in sum.types:
-                        attrs = [copy_field(field) for field in sum.attributes]
-                        add_masks(cons.fields + attrs, cons)
+                        add_masks(attrs + cons.fields, cons)
                         cons_attributes[cons] = attrs
             else:
                 prod = tp.value
