@@ -14,6 +14,7 @@ class TestSignature(object):
         bool_dtype = get_dtype_cache(space).w_booldtype
 
         ar = W_NDimArray(10, [10], dtype=float64_dtype)
+        ar2 = W_NDimArray(10, [10], dtype=float64_dtype)
         v1 = ar.descr_add(space, ar)
         v2 = ar.descr_add(space, Scalar(float64_dtype, 2.0))
         sig1 = v1.find_sig()
@@ -21,6 +22,10 @@ class TestSignature(object):
         assert v1 is not v2
         assert sig1.left.iter_no == sig1.right.iter_no
         assert sig2.left.iter_no != sig2.right.iter_no
+        assert sig1.left.array_no == sig1.right.array_no
+        sig1b = ar2.descr_add(space, ar).find_sig()
+        assert sig1b.left.array_no != sig1b.right.array_no
+        assert sig1b is not sig1
         v3 = ar.descr_add(space, Scalar(float64_dtype, 1.0))
         sig3 = v3.find_sig()
         assert sig2 is sig3

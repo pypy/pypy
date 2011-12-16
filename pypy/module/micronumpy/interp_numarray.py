@@ -708,7 +708,7 @@ class BaseArray(Wrappable):
     def find_sig(self):
         """ find a correct signature for the array
         """
-        return signature.find_sig(self.create_sig())
+        return signature.find_sig(self.create_sig(), self)
 
 def convert_to_array(space, w_obj):
     if isinstance(w_obj, BaseArray):
