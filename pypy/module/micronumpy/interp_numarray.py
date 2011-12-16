@@ -203,37 +203,16 @@ def calc_new_strides(new_shape, old_shape, old_strides):
     return new_strides
 
 class BaseArray(Wrappable):
-    _attrs_ = ["invalidates", "shape", "strides", "backstrides",
-               "start", 'order']
+    _attrs_ = ["invalidates", "shape"]
 
-    _immutable_fields_ = ['start', "order"]
+    _immutable_fields_ = []
 
     strides = None
     start = 0
 
-    def __init__(self, shape, order):
+    def __init__(self, shape):
         self.invalidates = []
         self.shape = shape
-        self.order = order
-        if self.strides is None:
-            self.calc_strides(shape)
-
-    def calc_strides(self, shape):
-        strides = []
-        backstrides = []
-        s = 1
-        shape_rev = shape[:]
-        if self.order == 'C':
-            shape_rev.reverse()
-        for sh in shape_rev:
-            strides.append(s)
-            backstrides.append(s * (sh - 1))
-            s *= sh
-        if self.order == 'C':
-            strides.reverse()
-            backstrides.reverse()
-        self.strides = strides[:]
-        self.backstrides = backstrides[:]
 
     def invalidated(self):
         if self.invalidates:
@@ -403,7 +382,10 @@ class BaseArray(Wrappable):
         concrete = self.get_concrete()
         new_shape = get_shape_from_iterable(space,
                             concrete.find_size(), w_iterable)
-        concrete.setshape(space, new_shape)
+        if isinstance(self, ConcreteArray):
+            # scalars don't have to do anything, just check if the shape
+            # is still empty
+            concrete.setshape(space, new_shape)
 
     def descr_get_size(self, space):
         return space.wrap(self.find_size())
@@ -556,10 +538,8 @@ class BaseArray(Wrappable):
         """
         shape_len = len(self.shape)
         if shape_len == 0:
-            if not space.isinstance_w(w_idx, space.w_int):
-                raise OperationError(space.w_IndexError, space.wrap(
-                    "wrong index"))
-            return True
+            raise OperationError(space.w_IndexError, space.wrap(
+                "0-d arrays can't be indexed"))
         if shape_len == 1:
             if space.isinstance_w(w_idx, space.w_int):
                 return True
@@ -590,6 +570,7 @@ class BaseArray(Wrappable):
     def descr_getitem(self, space, w_idx):
         if self._single_item_result(space, w_idx):
             concrete = self.get_concrete()
+            assert isinstance(concrete, ConcreteArray)
             if len(concrete.shape) < 1:
                 raise OperationError(space.w_IndexError, space.wrap(
                         "0-d arrays can't be indexed"))
@@ -602,6 +583,7 @@ class BaseArray(Wrappable):
         self.invalidated()
         if self._single_item_result(space, w_idx):
             concrete = self.get_concrete()
+            assert isinstance(concrete, ConcreteArray)
             if len(concrete.shape) < 1:
                 raise OperationError(space.w_IndexError, space.wrap(
                         "0-d arrays can't be indexed"))
@@ -616,37 +598,39 @@ class BaseArray(Wrappable):
 
     @jit.unroll_safe
     def create_slice(self, space, chunks):
+        concr = self.get_concrete()
+        assert isinstance(concr, ConcreteArray)
         if len(chunks) == 1:
             start, stop, step, lgt = chunks[0]
             if step == 0:
                 shape = self.shape[1:]
-                strides = self.strides[1:]
-                backstrides = self.backstrides[1:]
+                strides = concr.strides[1:]
+                backstrides = concr.backstrides[1:]
             else:
                 shape = [lgt] + self.shape[1:]
-                strides = [self.strides[0] * step] + self.strides[1:]
-                backstrides = [(lgt - 1) * self.strides[0] * step] + self.backstrides[1:]
-            start *= self.strides[0]
-            start += self.start
+                strides = [concr.strides[0] * step] + concr.strides[1:]
+                backstrides = [(lgt - 1) * concr.strides[0] * step] + concr.backstrides[1:]
+            start *= concr.strides[0]
+            start += concr.start
         else:
             shape = []
             strides = []
             backstrides = []
-            start = self.start
+            start = concr.start
             i = -1
             for i, (start_, stop, step, lgt) in enumerate(chunks):
                 if step != 0:
                     shape.append(lgt)
-                    strides.append(self.strides[i] * step)
-                    backstrides.append(self.strides[i] * (lgt - 1) * step)
-                start += self.strides[i] * start_
+                    strides.append(concr.strides[i] * step)
+                    backstrides.append(concr.strides[i] * (lgt - 1) * step)
+                start += concr.strides[i] * start_
             # add a reminder
             s = i + 1
             assert s >= 0
-            shape += self.shape[s:]
-            strides += self.strides[s:]
-            backstrides += self.backstrides[s:]
-        return W_NDimSlice(self, start, strides[:], backstrides[:],
+            shape += concr.shape[s:]
+            strides += concr.strides[s:]
+            backstrides += concr.backstrides[s:]
+        return W_NDimSlice(concr, start, strides[:], backstrides[:],
                            shape[:])
 
     def descr_reshape(self, space, args_w):
@@ -747,8 +731,8 @@ class Scalar(BaseArray):
     _attrs_ = ["dtype", "value", "shape"]
 
     def __init__(self, dtype, value):
-        self.shape = self.strides = []
-        BaseArray.__init__(self, [], 'C')
+        self.shape = []
+        BaseArray.__init__(self, [])
         self.dtype = dtype
         self.value = value
 
@@ -782,8 +766,8 @@ class VirtualArray(BaseArray):
     """
     Class for representing virtual arrays, such as binary ops or ufuncs
     """
-    def __init__(self, name, shape, res_dtype, order):
-        BaseArray.__init__(self, shape, order)
+    def __init__(self, name, shape, res_dtype):
+        BaseArray.__init__(self, shape)
         self.forced_result = None
         self.res_dtype = res_dtype
         self.name = name
@@ -838,9 +822,8 @@ class VirtualArray(BaseArray):
 
 
 class Call1(VirtualArray):
-    def __init__(self, ufunc, name, shape, res_dtype, values, order):
-        VirtualArray.__init__(self, name, shape, res_dtype,
-                              values.order)
+    def __init__(self, ufunc, name, shape, res_dtype, values):
+        VirtualArray.__init__(self, name, shape, res_dtype)
         self.values = values
         self.ufunc = ufunc
 
@@ -863,7 +846,7 @@ class Call2(VirtualArray):
     Intermediate class for performing binary operations.
     """
     def __init__(self, ufunc, name, shape, calc_dtype, res_dtype, left, right):
-        VirtualArray.__init__(self, name, shape, res_dtype, left.order)
+        VirtualArray.__init__(self, name, shape, res_dtype)
         self.ufunc = ufunc
         self.left = left
         self.right = right
@@ -886,7 +869,34 @@ class Call2(VirtualArray):
                                self.left.create_sig(),
                                self.right.create_sig())
 
-class ViewArray(BaseArray):
+class ConcreteArray(BaseArray):
+    """ An array that have actual storage, whether owned or not
+    """
+    def __init__(self, shape, order):
+        self.order = order
+        if self.strides is None:
+            self.calc_strides(shape)
+        BaseArray.__init__(self, shape)
+
+    def calc_strides(self, shape):
+        strides = []
+        backstrides = []
+        s = 1
+        shape_rev = shape[:]
+        if self.order == 'C':
+            shape_rev.reverse()
+        for sh in shape_rev:
+            strides.append(s)
+            backstrides.append(s * (sh - 1))
+            s *= sh
+        if self.order == 'C':
+            strides.reverse()
+            backstrides.reverse()
+        self.strides = strides[:]
+        self.backstrides = backstrides[:]
+
+
+class ConcreteViewArray(ConcreteArray):
     """
     Class for representing views of arrays, they will reflect changes of parent
     arrays. Example: slices
@@ -894,13 +904,14 @@ class ViewArray(BaseArray):
     def __init__(self, parent, strides, backstrides, shape):
         self.strides = strides
         self.backstrides = backstrides
-        BaseArray.__init__(self, shape, parent.order)
+        ConcreteArray.__init__(self, shape, parent.order)
         assert isinstance(parent, W_NDimArray)
         self.parent = parent
         self.invalidates = parent.invalidates
 
     def get_concrete(self):
-        # in fact, ViewArray never gets "concrete" as it never stores data.
+        # in fact, ConcreteViewArray never gets "concrete" as it never
+        # stores data.
         # This implementation is needed for BaseArray getitem/setitem to work,
         # can be refactored.
         self.parent.get_concrete()
@@ -959,7 +970,7 @@ class ViewArray(BaseArray):
         self.backstrides = new_backstrides[:]
         self.shape = new_shape[:]
 
-class W_NDimSlice(ViewArray):
+class W_NDimSlice(ConcreteViewArray):
     def __init__(self, parent, start, strides, backstrides, shape):
         if isinstance(parent, W_NDimSlice):
             parent = parent.parent
@@ -967,7 +978,7 @@ class W_NDimSlice(ViewArray):
             # XXX this should not force the array, but it did before the
             #     refactoring anyway, just in a more obscure way
             parent = parent.get_concrete()
-        ViewArray.__init__(self, parent, strides, backstrides, shape)
+        ConcreteViewArray.__init__(self, parent, strides, backstrides, shape)
         self.start = start
         self.size = 1
         for sh in shape:
@@ -1015,14 +1026,14 @@ class W_NDimSlice(ViewArray):
     def create_sig(self):
         return signature.ViewSignature(self.parent.create_sig())
 
-class W_NDimArray(BaseArray):
+class W_NDimArray(ConcreteArray):
     """ A class representing contiguous array. We know that each iteration
     by say ufunc will increase the data index by one
     """
     _immutable_fields_ = ['storage']
     
     def __init__(self, size, shape, dtype, order='C'):
-        BaseArray.__init__(self, shape, order)
+        ConcreteArray.__init__(self, shape, order)
         self.size = size
         self.dtype = dtype
         self.storage = dtype.malloc(size)
@@ -1213,15 +1224,15 @@ BaseArray.typedef = TypeDef(
 )
 
 
-class W_FlatIterator(ViewArray):
+class W_FlatIterator(ConcreteViewArray):
 
     @jit.unroll_safe
     def __init__(self, arr):
         size = 1
         for sh in arr.shape:
             size *= sh
-        ViewArray.__init__(self, arr.get_concrete(), [arr.strides[-1]],
-                           [arr.backstrides[-1]], [size])
+        ConcreteViewArray.__init__(self, arr.get_concrete(), [arr.strides[-1]],
+                                   [arr.backstrides[-1]], [size])
         self.shapelen = len(arr.shape)
         self.arr = arr
         self.iter = OneDimIterator(self.arr.start, self.strides[0],

@@ -1,4 +1,5 @@
 from pypy.rlib.objectmodel import r_dict, compute_identity_hash, compute_hash
+from pypy.rlib.rarithmetic import intmask
 from pypy.module.micronumpy.interp_iter import ViewIterator, ArrayIterator, \
      BroadcastIterator, OneDimIterator, ConstantIterator
 from pypy.rlib.jit import hint, unroll_safe, promote
@@ -63,7 +64,7 @@ class NumpyEvalFrame(object):
 class Signature(object):
     _attrs_ = ['iter_no']
     _immutable_fields_ = ['iter_no']
-    
+
     def invent_numbering(self):
         cache = r_dict(sigeq, sighash)
         allnumbers = []
@@ -171,6 +172,9 @@ class ViewSignature(Signature):
         self.iter_no = no
 
     def _create_iter(self, iterlist, arr):
+        from pypy.module.micronumpy.interp_numarray import ConcreteViewArray
+
+        assert isinstance(arr, ConcreteViewArray)
         if self.iter_no >= len(iterlist):
             iterlist.append(ViewIterator(arr))
 
@@ -197,7 +201,7 @@ class Call1(Signature):
         self.name = name
 
     def hash(self):
-        return compute_hash(self.name) ^ self.child.hash() << 1
+        return compute_hash(self.name) ^ intmask(self.child.hash() << 1)
 
     def eq(self, other):
         if type(self) is not type(other):
@@ -233,8 +237,8 @@ class Call2(Signature):
         self.calc_dtype = calc_dtype
 
     def hash(self):
-        return (compute_hash(self.name) ^ (self.left.hash() << 1) ^
-                (self.right.hash() << 2))
+        return (compute_hash(self.name) ^ intmask(self.left.hash() << 1) ^
+                intmask(self.right.hash() << 2))
 
     def eq(self, other):
         if type(self) is not type(other):

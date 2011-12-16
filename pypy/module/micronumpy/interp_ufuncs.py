@@ -121,8 +121,7 @@ class W_Ufunc1(W_Ufunc):
         if isinstance(w_obj, Scalar):
             return self.func(res_dtype, w_obj.value.convert_to(res_dtype))
 
-        w_res = Call1(self.func, self.name, w_obj.shape, res_dtype, w_obj,
-                      w_obj.order)
+        w_res = Call1(self.func, self.name, w_obj.shape, res_dtype, w_obj)
         w_obj.add_invalidates(w_res)
         return w_res
 
