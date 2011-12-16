@@ -262,6 +262,7 @@ class AssemblerARM(ResOpAssembler):
             if group == self.INT_TYPE:
                 self.fail_boxes_int.setitem(fail_index, value)
             elif group == self.REF_TYPE:
+                assert (value & 3) == 0, "misaligned pointer"
                 tgt = self.fail_boxes_ptr.get_addr_for_num(fail_index)
                 rffi.cast(rffi.LONGP, tgt)[0] = value
             else:
@@ -270,7 +271,7 @@ class AssemblerARM(ResOpAssembler):
 
         assert enc[i] == self.END_OF_LOCS
         descr = decode32(enc, i+1)
-        self.fail_boxes_count = fail_index
+        self.fail_boxes_count = fail_index + 1
         self.fail_force_index = frame_loc
         return descr
 
