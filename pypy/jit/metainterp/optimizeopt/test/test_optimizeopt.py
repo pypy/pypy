@@ -4,7 +4,7 @@ from pypy.jit.metainterp.optimizeopt.test.test_util import (
     LLtypeMixin, BaseTest, Storage, _sortboxes, convert_old_style_to_targets)
 import pypy.jit.metainterp.optimizeopt.optimizer as optimizeopt
 import pypy.jit.metainterp.optimizeopt.virtualize as virtualize
-from pypy.jit.metainterp.optimizeopt import optimize_loop_1, ALL_OPTS_DICT, build_opt_chain
+from pypy.jit.metainterp.optimizeopt import ALL_OPTS_DICT, build_opt_chain
 from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp.history import AbstractDescr, ConstInt, BoxInt
 from pypy.jit.metainterp.history import TreeLoop, JitCellToken, TargetToken
