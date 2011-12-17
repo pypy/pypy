@@ -116,6 +116,18 @@ class UnrollOptimizer(Optimization):
                     self.optimizer.send_extra_operation(jumpop)
                 return
 
+            if cell_token.target_tokens:
+                limit = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.retrace_limit
+                if cell_token.retraced_count < limit:
+                    cell_token.retraced_count += 1
+                    debug_print('Retracing (%d/%d)' % (cell_token.retraced_count, limit))
+                else:
+                    debug_print("Retrace count reached, jumping to preamble")
+                    assert cell_token.target_tokens[0].virtual_state is None
+                    jumpop.setdescr(cell_token.target_tokens[0])
+                    self.optimizer.send_extra_operation(jumpop)
+                    return True
+
         # Found nothing to jump to, emit a label instead
         self.optimizer.flush()
         KillHugeIntBounds(self.optimizer).apply()
@@ -544,20 +556,7 @@ class UnrollOptimizer(Optimization):
                     self.optimizer.send_extra_operation(jumpop)
                 return True
         debug_stop('jit-log-virtualstate')
-
-        if self.did_import:
-            return False
-        limit = self.optimizer.metainterp_sd.warmrunnerdesc.memory_manager.retrace_limit
-        if cell_token.retraced_count<limit:
-            cell_token.retraced_count += 1
-            debug_print('Retracing (%d/%d)' % (cell_token.retraced_count, limit))
-            return False
-        else:
-            debug_print("Retrace count reached, jumping to preamble")
-            assert cell_token.target_tokens[0].virtual_state is None
-            jumpop.setdescr(cell_token.target_tokens[0])
-            self.optimizer.send_extra_operation(jumpop)
-            return True
+        return False
 
 class ValueImporter(object):
     def __init__(self, unroll, value, op):
