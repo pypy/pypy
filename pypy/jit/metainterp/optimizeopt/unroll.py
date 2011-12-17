@@ -132,7 +132,6 @@ class UnrollOptimizer(Optimization):
         start_resumedescr = self.optimizer.loop.start_resumedescr.clone_if_mutable()
         assert isinstance(start_resumedescr, ResumeGuardDescr)
         start_resumedescr.rd_snapshot = self.fix_snapshot(jump_args, start_resumedescr.rd_snapshot)
-        # FIXME: I dont thnik we need fix_snapshot anymore
 
         modifier = VirtualStateAdder(self.optimizer)
         virtual_state = modifier.get_virtual_state(jump_args)
@@ -188,7 +187,6 @@ class UnrollOptimizer(Optimization):
         self.short = target_token.short_preamble[:]
         self.short_seen = {}
         self.short_boxes = exported_state.short_boxes
-        self.imported_state = exported_state
         self.inputargs = targetop.getarglist()
         self.initial_virtual_state = target_token.virtual_state
         self.start_resumedescr = target_token.start_resumedescr
