@@ -172,8 +172,11 @@ class UnrollOptimizer(Optimization):
     def import_state(self, targetop):
         self.did_import = False
         if not targetop:
+            self.inputargs = self.optimizer.loop.inputargs
             # FIXME: Set up some sort of empty state with no virtuals?
             return
+        self.inputargs = targetop.getarglist()
+        
         target_token = targetop.getdescr()
         if not target_token:
             return
@@ -188,7 +191,6 @@ class UnrollOptimizer(Optimization):
         self.short_seen = {}
         self.short_boxes = exported_state.short_boxes
         self.short_resume_at_jump_descr = target_token.resume_at_jump_descr
-        self.inputargs = targetop.getarglist()
         self.initial_virtual_state = target_token.virtual_state
 
         seen = {}
