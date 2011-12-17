@@ -222,7 +222,7 @@ class UnrollOptimizer(Optimization):
         self.optimizer.emitting_dissabled = False
 
     def close_bridge(self, start_label):
-        inputargs = self.inputargs        
+        inputargs = self.inputargs
         short_jumpargs = inputargs[:]
 
         # We dont need to inline the short preamble we are creating as we are conneting
@@ -232,8 +232,6 @@ class UnrollOptimizer(Optimization):
         newoperations = self.optimizer.get_newoperations()
         self.boxes_created_this_iteration = {}
         i = 0
-        while newoperations[i].getopnum() != rop.LABEL:
-            i += 1
         while i < len(newoperations):
             op = newoperations[i]
             self.boxes_created_this_iteration[op.result] = True
@@ -279,8 +277,6 @@ class UnrollOptimizer(Optimization):
         newoperations = self.optimizer.get_newoperations()
         self.boxes_created_this_iteration = {}
         i = j = 0
-        while newoperations[i].getopnum() != rop.LABEL:
-            i += 1
         while i < len(newoperations) or j < len(jumpargs):
             if i == len(newoperations):
                 while j < len(jumpargs):
