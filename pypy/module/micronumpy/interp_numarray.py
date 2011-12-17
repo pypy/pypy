@@ -394,7 +394,10 @@ class BaseArray(Wrappable):
         return self.get_concrete().copy()
 
     def descr_len(self, space):
-        return self.get_concrete().descr_len(space)
+        if len(self.shape):
+            return space.wrap(self.shape[0])
+        raise OperationError(space.w_TypeError, space.wrap(
+            "len() of unsized object"))
 
     def descr_repr(self, space):
         res = StringBuilder()
@@ -931,11 +934,6 @@ class ConcreteViewArray(ConcreteArray):
         # This is currently not possible to be called from anywhere.
         raise NotImplementedError
 
-    def descr_len(self, space):
-        if self.shape:
-            return space.wrap(self.shape[0])
-        return space.wrap(1)
-
     def setshape(self, space, new_shape):
         if len(self.shape) < 1:
             return
@@ -1058,12 +1056,6 @@ class W_NDimArray(ConcreteArray):
             self.size * self.dtype.itemtype.get_element_size()
         )
         return array
-
-    def descr_len(self, space):
-        if len(self.shape):
-            return space.wrap(self.shape[0])
-        raise OperationError(space.w_TypeError, space.wrap(
-            "len() of unsized object"))
 
     def setitem_w(self, space, item, w_value):
         return self.setitem(item, self.dtype.coerce(space, w_value))
