@@ -679,18 +679,19 @@ class GcLLDescr_framework(GcLLDescription):
     def _make_functions(self):
         llop1 = self.llop1
 
-        def malloc_nursery(size):
+        def malloc_nursery_slowpath(size):
             """Allocate 'size' null bytes out of the nursery.
-            Note that the fast path is typically inlined by the backend.
-            """
+            Note that the fast path is typically inlined by the backend."""
             type_id = rffi.cast(llgroup.HALFWORD, 0)    # missing here
             return llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
                                                    type_id, size,
                                                    False, False, False)
-        self.generate_function('malloc_nursery', malloc_nursery,
+        self.generate_function('malloc_nursery', malloc_nursery_slowpath,
                                [lltype.Signed])
 
         def malloc_array(itemsize, tid, num_elem):
+            """Allocate an array with a variable-size num_elem.
+            Only works for standard arrays."""
             type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
             check_typeid(type_id)
             return llop1.do_malloc_varsize_clear(
@@ -699,6 +700,28 @@ class GcLLDescr_framework(GcLLDescription):
                 self.array_length_ofs)
         self.generate_function('malloc_array', malloc_array,
                                [lltype.Signed] * 3)
+
+        def malloc_str(length):
+            return llop1.do_malloc_varsize_clear(
+                llmemory.GCREF,
+                str_type_id, length, str_basesize, str_itemsize,
+                str_ofs_length)
+        self.generate_function('malloc_str', malloc_str,
+                               [lltype.Signed])
+
+        def malloc_unicode(length):
+            return llop1.do_malloc_varsize_clear(
+                llmemory.GCREF,
+                unicode_type_id, length, unicode_basesize, unicode_itemsize,
+                unicode_ofs_length)
+        self.generate_function('malloc_unicode', malloc_unicode,
+                               [lltype.Signed])
+
+        # Rarely called: allocate a fixed-size amount of bytes, but
+        # not in the nursery, because it is too big.  Implemented like
+        # malloc_nursery_slowpath() above.
+        self.generate_function('malloc_fixedsize', malloc_nursery_slowpath,
+                               [lltype.Signed])
 
 ##        # make the fixed malloc function, with one argument
 ##        def malloc_gc_fixed(size):

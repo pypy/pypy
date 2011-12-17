@@ -332,7 +332,8 @@ class TestFramework(RewriteTests):
             jump()
         """, """
             []
-            p0 = malloc_gc(%(bdescr.get_base_size(False) + 100)d, 0, 0)
+            p0 = call_malloc_gc(ConstClass(malloc_fixedsize), \
+                                %(bdescr.get_base_size(False) + 100)d)
             setfield_gc(p0, 8765, descr=tiddescr)
             setfield_gc(p0, 100, descr=blendescr)
             jump()
@@ -348,13 +349,15 @@ class TestFramework(RewriteTests):
             jump()
         """, """
             []
-            p0 = malloc_nursery(%(2 * (bdescr.get_base_size(False) + 104))d)
+            p0 = call_malloc_nursery(ConstClass(malloc_nursery), \
+                              %(2 * (bdescr.get_base_size(False) + 104))d)
             setfield_gc(p0, 8765, descr=tiddescr)
             setfield_gc(p0, 101, descr=blendescr)
             p1 = int_add(p0, %(bdescr.get_base_size(False) + 104)d)
             setfield_gc(p1, 8765, descr=tiddescr)
             setfield_gc(p1, 102, descr=blendescr)
-            p2 = malloc_nursery(%(bdescr.get_base_size(False) + 104)d)
+            p2 = call_malloc_nursery(ConstClass(malloc_nursery), \
+                              %(bdescr.get_base_size(False) + 104)d)
             setfield_gc(p2, 8765, descr=tiddescr)
             setfield_gc(p2, 103, descr=blendescr)
             jump()
@@ -367,7 +370,8 @@ class TestFramework(RewriteTests):
             jump()
         """, """
             [p1]
-            p0 = malloc_nursery(104)      # rounded up
+            p0 = call_malloc_nursery(ConstClass(malloc_nursery), \
+                                     104)      # rounded up
             setfield_gc(p0, 9315, descr=tiddescr)
             setfield_gc(p0, ConstClass(o_vtable), descr=vtable_descr)
             jump()
@@ -381,7 +385,7 @@ class TestFramework(RewriteTests):
             jump()
         """, """
             [p1]
-            p0 = malloc_gc(102, 0, 0)
+            p0 = call_malloc_gc(ConstClass(malloc_fixedsize), 102)
             setfield_gc(p0, 9315, descr=tiddescr)
             setfield_gc(p0, ConstClass(o_vtable), descr=vtable_descr)
             jump()
@@ -393,18 +397,19 @@ class TestFramework(RewriteTests):
             p0 = newstr(14)
             p1 = newunicode(10)
             p2 = newunicode(i2)
+            p3 = newstr(i2)
             jump()
         """, """
             [i2]
-            p0 = malloc_nursery(%(str_basesize + 16 * str_itemsize + \
+            p0 = call_malloc_nursery(ConstClass(malloc_nursery),     \
+                                %(str_basesize + 16 * str_itemsize + \
                                   unicode_basesize + 10 * unicode_itemsize)d)
             setfield_gc(p0, %(str_type_id)d, descr=tiddescr)
             setfield_gc(p0, 14, descr=strlendescr)
             p1 = int_add(p0, %(str_basesize + 16 * str_itemsize)d)
             setfield_gc(p1, %(unicode_type_id)d, descr=tiddescr)
             setfield_gc(p1, 10, descr=unicodelendescr)
-            p2 = malloc_gc(%(unicode_basesize)d, i2, %(unicode_itemsize)d)
-            setfield_gc(p2, %(unicode_type_id)d, descr=tiddescr)
-            setfield_gc(p2, i2, descr=unicodelendescr)
+            p2 = call_malloc_gc(ConstClass(malloc_unicode), i2)
+            p3 = call_malloc_gc(ConstClass(malloc_str), i2)
             jump()
         """)

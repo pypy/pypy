@@ -125,7 +125,15 @@ class GcRewriterAssembler(object):
             self.gen_initialize_tid(op.result, tid)
             self.gen_initialize_len(op.result, v_length, arraylen_descr)
         else:
-            self.gen_malloc_array(item_size, tid, v_length, op.result)
+            opnum = op.getopnum()
+            if opnum == rop.NEW_ARRAY:
+                self.gen_malloc_array(item_size, tid, v_length, op.result)
+            elif opnum == rop.NEWSTR:
+                self.gen_malloc_str(v_length, op.result)
+            elif opnum == rop.NEWUNICODE:
+                self.gen_malloc_unicode(v_length, op.result)
+            else:
+                raise NotImplementedError(op.getopname())
 
     # ----------
 
@@ -157,6 +165,16 @@ class GcRewriterAssembler(object):
         self._gen_call_malloc_gc([self.gc_ll_descr.c_malloc_array_fn,
                                   ConstInt(itemsize),
                                   ConstInt(tid),
+                                  v_num_elem], v_result)
+
+    def gen_malloc_str(self, v_num_elem, v_result):
+        """Generate a CALL_MALLOC_GC(malloc_str_fn, ...)."""
+        self._gen_call_malloc_gc([self.gc_ll_descr.c_malloc_str_fn,
+                                  v_num_elem], v_result)
+
+    def gen_malloc_unicode(self, v_num_elem, v_result):
+        """Generate a CALL_MALLOC_GC(malloc_unicode_fn, ...)."""
+        self._gen_call_malloc_gc([self.gc_ll_descr.c_malloc_unicode_fn,
                                   v_num_elem], v_result)
 
     def gen_malloc_nursery(self, size, v_result):
