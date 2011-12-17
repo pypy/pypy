@@ -51,7 +51,6 @@ class UnrollOptimizer(Optimization):
     distinction anymore)"""
 
     inline_short_preamble = True
-    did_import = False
     
     def __init__(self, metainterp_sd, loop, optimizations):
         self.optimizer = UnrollableOptimizer(metainterp_sd, loop, optimizations)
@@ -202,7 +201,6 @@ class UnrollOptimizer(Optimization):
                                                     exported_values)
 
     def import_state(self, targetop):
-        self.did_import = False
         if not targetop: # Trace did not start with a label
             self.inputargs = self.optimizer.loop.inputargs
             self.short = None
@@ -220,8 +218,6 @@ class UnrollOptimizer(Optimization):
             virtual_state = modifier.get_virtual_state(self.inputargs)
             self.initial_virtual_state = virtual_state
             return
-        
-        self.did_import = True
         
         self.short = target_token.short_preamble[:]
         self.short_seen = {}
