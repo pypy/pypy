@@ -129,7 +129,8 @@ def compile_loop(metainterp, greenkey, start,
         part.resume_at_jump_descr = resume_at_jump_descr
         part.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(jitcell_token))] + \
                           [h_ops[i].clone() for i in range(start, len(h_ops))] + \
-                          [ResOperation(rop.JUMP, jumpargs, None, descr=jitcell_token)]
+                          [ResOperation(rop.LABEL, jumpargs, None, descr=jitcell_token)]
+
         try:
             optimize_trace(metainterp_sd, part, jitdriver_sd.warmstate.enable_opts)
         except InvalidLoop:

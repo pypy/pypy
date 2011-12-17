@@ -71,7 +71,6 @@ class UnrollOptimizer(Optimization):
         loop = self.optimizer.loop
         self.optimizer.clear_newoperations()
 
-
         start_label = loop.operations[0]
         if start_label.getopnum() == rop.LABEL:
             loop.operations = loop.operations[1:]
@@ -82,7 +81,7 @@ class UnrollOptimizer(Optimization):
             start_label = None            
 
         jumpop = loop.operations[-1]
-        if jumpop.getopnum() == rop.JUMP:
+        if jumpop.getopnum() == rop.JUMP or jumpop.getopnum() == rop.LABEL:
             loop.operations = loop.operations[:-1]
         else:
             jumpop = None
@@ -92,28 +91,30 @@ class UnrollOptimizer(Optimization):
 
         if not jumpop:
             return
-        
-        if self.jump_to_already_compiled_trace(jumpop):
-            # Found a compiled trace to jump to
-            if self.short:
-                # Construct our short preamble
-                self.close_bridge(start_label)
-            return
 
         cell_token = jumpop.getdescr()
         assert isinstance(cell_token, JitCellToken)
         stop_label = ResOperation(rop.LABEL, jumpop.getarglist(), None, TargetToken(cell_token))
 
-        if self.did_import and self.jump_to_start_label(start_label, stop_label):
-            # Initial label matches, jump to it
-            jumpop = ResOperation(rop.JUMP, stop_label.getarglist(), None,
-                                  descr=start_label.getdescr())
-            if self.short:
-                # Construct our short preamble
-                self.close_loop(start_label, jumpop)
-            else:
-                self.optimizer.send_extra_operation(jumpop)
-            return
+        
+        if jumpop.getopnum() == rop.JUMP:
+            if self.jump_to_already_compiled_trace(jumpop):
+                # Found a compiled trace to jump to
+                if self.short:
+                    # Construct our short preamble
+                    self.close_bridge(start_label)
+                return
+
+            if self.jump_to_start_label(start_label, stop_label):
+                # Initial label matches, jump to it
+                jumpop = ResOperation(rop.JUMP, stop_label.getarglist(), None,
+                                      descr=start_label.getdescr())
+                if self.short:
+                    # Construct our short preamble
+                    self.close_loop(start_label, jumpop)
+                else:
+                    self.optimizer.send_extra_operation(jumpop)
+                return
 
         # Found nothing to jump to, emit a label instead
         self.optimizer.flush()

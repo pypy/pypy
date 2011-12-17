@@ -435,7 +435,7 @@ class BaseTest(object):
         token = JitCellToken() 
         preamble.operations = [ResOperation(rop.LABEL, inputargs, None, descr=TargetToken(token))] + \
                               operations +  \
-                              [ResOperation(rop.JUMP, jump_args, None, descr=token)]
+                              [ResOperation(rop.LABEL, jump_args, None, descr=token)]
         self._do_optimize_loop(preamble, call_pure_results)
 
         assert preamble.operations[-1].getopnum() == rop.LABEL
