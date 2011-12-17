@@ -42,8 +42,8 @@ class AppTestStreams:
                 self.pos += size
                 return res
         #
-        r = self.HzStreamReader(FakeFile("!~{abcd~}xyz~{efgh"))
-        for expected in u'!\u5f95\u6c85xyz\u5f50\u73b7':
+        r = self.HzStreamReader(FakeFile(b"!~{abcd~}xyz~{efgh"))
+        for expected in '!\u5f95\u6c85xyz\u5f50\u73b7':
             c = r.read(1)
             assert c == expected
         c = r.read(1)
@@ -56,15 +56,15 @@ class AppTestStreams:
             def read(self):
                 return self.data
         #
-        r = self.HzStreamReader(FakeFile("!~{a"), "replace")
+        r = self.HzStreamReader(FakeFile(b"!~{a"), "replace")
         c = r.read()
-        assert c == u'!\ufffd'
+        assert c == '!\ufffd'
         #
-        r = self.HzStreamReader(FakeFile("!~{a"))
+        r = self.HzStreamReader(FakeFile(b"!~{a"))
         r.errors = "replace"
         assert r.errors == "replace"
         c = r.read()
-        assert c == u'!\ufffd'
+        assert c == '!\ufffd'
 
     def test_writer(self):
         class FakeFile:
@@ -74,10 +74,10 @@ class AppTestStreams:
                 self.output.append(data)
         #
         w = self.HzStreamWriter(FakeFile())
-        for input in u'!\u5f95\u6c85xyz\u5f50\u73b7':
+        for input in '!\u5f95\u6c85xyz\u5f50\u73b7':
             w.write(input)
-        assert w.stream.output == ['!', '~{ab~}', '~{cd~}', 'x', 'y', 'z',
-                                   '~{ef~}', '~{gh~}']
+        assert w.stream.output == [b'!', b'~{ab~}', b'~{cd~}', b'x', b'y', b'z',
+                                   b'~{ef~}', b'~{gh~}']
 
     def test_no_flush(self):
         class FakeFile:
@@ -87,7 +87,7 @@ class AppTestStreams:
                 self.output.append(data)
         #
         w = self.ShiftJisx0213StreamWriter(FakeFile())
-        w.write(u'\u30ce')
-        w.write(u'\u304b')
-        w.write(u'\u309a')
-        assert w.stream.output == ['\x83m', '', '\x82\xf5']
+        w.write('\u30ce')
+        w.write('\u304b')
+        w.write('\u309a')
+        assert w.stream.output == [b'\x83m', b'', b'\x82\xf5']

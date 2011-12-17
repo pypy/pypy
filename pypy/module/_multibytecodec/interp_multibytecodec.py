@@ -12,7 +12,7 @@ class MultibyteCodec(Wrappable):
         self.name = name
         self.codec = codec
 
-    @unwrap_spec(input=str, errors="str_or_None")
+    @unwrap_spec(input='bufferstr', errors="str_or_None")
     def decode(self, space, input, errors=None):
         if errors is None:
             errors = 'strict'
@@ -41,7 +41,7 @@ class MultibyteCodec(Wrappable):
             raise wrap_unicodeencodeerror(space, e, input, self.name)
         except RuntimeError:
             raise wrap_runtimeerror(space)
-        return space.newtuple([space.wrap(output),
+        return space.newtuple([space.wrapbytes(output),
                                space.wrap(len(input))])
 
 
@@ -69,7 +69,7 @@ def wrap_unicodedecodeerror(space, e, input, name):
         space.w_UnicodeDecodeError,
         space.newtuple([
             space.wrap(name),
-            space.wrap(input),
+            space.wrapbytes(input),
             space.wrap(e.start),
             space.wrap(e.end),
             space.wrap(e.reason)]))
