@@ -633,8 +633,8 @@ class BaseArray(Wrappable):
             shape += concr.shape[s:]
             strides += concr.strides[s:]
             backstrides += concr.backstrides[s:]
-        return W_NDimSlice(concr, start, strides[:], backstrides[:],
-                           shape[:])
+        return W_NDimSlice(start, strides[:], backstrides[:],
+                           shape[:], concr)
 
     def descr_reshape(self, space, args_w):
         """reshape(...)
@@ -664,8 +664,8 @@ class BaseArray(Wrappable):
             new_backstrides = [0] * ndims
             for nd in range(ndims):
                 new_backstrides[nd] = (new_shape[nd] - 1) * new_strides[nd]
-            arr = W_NDimSlice(self, self.start, new_strides,
-                              new_backstrides, new_shape)
+            arr = W_NDimSlice(self.start, new_strides, new_backstrides,
+                              new_shape, self)
         else:
             # Create copy with contiguous data
             arr = concrete.copy()
@@ -696,8 +696,8 @@ class BaseArray(Wrappable):
             strides.append(concrete.strides[i])
             backstrides.append(concrete.backstrides[i])
             shape.append(concrete.shape[i])
-        return space.wrap(W_NDimSlice(concrete, self.start, strides[:],
-                                      backstrides[:], shape[:]))
+        return space.wrap(W_NDimSlice(self.start, strides[:],
+                                      backstrides[:], shape[:], concrete))
 
     def descr_get_flatiter(self, space):
         return space.wrap(W_FlatIterator(self))
@@ -875,11 +875,39 @@ class Call2(VirtualArray):
 class ConcreteArray(BaseArray):
     """ An array that have actual storage, whether owned or not
     """
-    def __init__(self, shape, order):
+    def __init__(self, size, shape, dtype, order='C', parent=None):
+        self.size = size
+        self.parent = parent
+        if parent is not None:
+            self.storage = parent.storage
+        else:
+            self.storage = dtype.malloc(size)
         self.order = order
+        self.dtype = dtype
         if self.strides is None:
             self.calc_strides(shape)
         BaseArray.__init__(self, shape)
+        if parent is not None:
+            self.invalidates = parent.invalidates
+
+    def get_concrete(self):
+        return self
+
+    def find_size(self):
+        return self.size
+
+    def find_dtype(self):
+        return self.dtype
+
+    def getitem(self, item):
+        return self.dtype.getitem(self.storage, item)
+
+    def setitem_w(self, space, item, w_value):
+        return self.setitem(item, self.dtype.coerce(space, w_value))
+
+    def setitem(self, item, value):
+        self.invalidated()
+        self.dtype.setitem(self.storage, item, value)
 
     def calc_strides(self, shape):
         strides = []
@@ -898,41 +926,51 @@ class ConcreteArray(BaseArray):
         self.strides = strides[:]
         self.backstrides = backstrides[:]
 
-
-class ConcreteViewArray(ConcreteArray):
-    """
-    Class for representing views of arrays, they will reflect changes of parent
-    arrays. Example: slices
-    """
-    def __init__(self, parent, strides, backstrides, shape):
+class W_NDimSlice(ConcreteArray):
+    def __init__(self, start, strides, backstrides, shape, parent):
+        if isinstance(parent, W_NDimSlice):
+            parent = parent.parent
+        size = 1
+        for sh in shape:
+            size *= sh
         self.strides = strides
         self.backstrides = backstrides
-        ConcreteArray.__init__(self, shape, parent.order)
-        assert isinstance(parent, W_NDimArray)
-        self.parent = parent
-        self.invalidates = parent.invalidates
+        ConcreteArray.__init__(self, size, shape, parent.dtype, parent.order,
+                               parent)
+        self.start = start
 
-    def get_concrete(self):
-        # in fact, ConcreteViewArray never gets "concrete" as it never
-        # stores data.
-        # This implementation is needed for BaseArray getitem/setitem to work,
-        # can be refactored.
-        self.parent.get_concrete()
-        return self
+    def setslice(self, space, w_value):
+        res_shape = shape_agreement(space, self.shape, w_value.shape)
+        self._sliceloop(w_value, res_shape)
 
-    def getitem(self, item):
-        return self.parent.getitem(item)
+    def _sliceloop(self, source, res_shape):
+        sig = source.find_sig()
+        frame = sig.create_frame(source)
+        res_iter = ViewIterator(self)
+        shapelen = len(res_shape)
+        while not res_iter.done():
+            slice_driver.jit_merge_point(sig=sig,
+                                         frame=frame,
+                                         shapelen=shapelen,
+                                         self=self, source=source,
+                                         res_iter=res_iter)
+            self.setitem(res_iter.offset, sig.eval(frame, source).convert_to(
+                self.find_dtype()))
+            frame.next(shapelen)
+            res_iter = res_iter.next(shapelen)
 
-    def eval(self, iter):
-        return self.parent.getitem(iter.get_offset())
+    def copy(self):
+        array = W_NDimArray(self.size, self.shape[:], self.find_dtype())
+        iter = ViewIterator(self)
+        a_iter = ArrayIterator(array.size)
+        while not iter.done():
+            array.setitem(a_iter.offset, self.getitem(iter.offset))
+            iter = iter.next(len(self.shape))
+            a_iter = a_iter.next(len(array.shape))
+        return array
 
-    @unwrap_spec(item=int)
-    def setitem_w(self, space, item, w_value):
-        return self.parent.setitem_w(space, item, w_value)
-
-    def setitem(self, item, value):
-        # This is currently not possible to be called from anywhere.
-        raise NotImplementedError
+    def create_sig(self):
+        return signature.ViewSignature(self.parent.create_sig())
 
     def setshape(self, space, new_shape):
         if len(self.shape) < 1:
@@ -968,85 +1006,11 @@ class ConcreteViewArray(ConcreteArray):
         self.backstrides = new_backstrides[:]
         self.shape = new_shape[:]
 
-class W_NDimSlice(ConcreteViewArray):
-    def __init__(self, parent, start, strides, backstrides, shape):
-        if isinstance(parent, W_NDimSlice):
-            parent = parent.parent
-        else:
-            # XXX this should not force the array, but it did before the
-            #     refactoring anyway, just in a more obscure way
-            parent = parent.get_concrete()
-        ConcreteViewArray.__init__(self, parent, strides, backstrides, shape)
-        self.start = start
-        self.size = 1
-        for sh in shape:
-            self.size *= sh
-
-    def find_size(self):
-        return self.size
-
-    def find_dtype(self):
-        return self.parent.find_dtype()
-
-    def setslice(self, space, w_value):
-        res_shape = shape_agreement(space, self.shape, w_value.shape)
-        self._sliceloop(w_value, res_shape)
-
-    def _sliceloop(self, source, res_shape):
-        sig = source.find_sig()
-        frame = sig.create_frame(source)
-        res_iter = ViewIterator(self)
-        shapelen = len(res_shape)
-        while not res_iter.done():
-            slice_driver.jit_merge_point(sig=sig,
-                                         frame=frame,
-                                         shapelen=shapelen,
-                                         self=self, source=source,
-                                         res_iter=res_iter)
-            self.setitem(res_iter.offset, sig.eval(frame, source).convert_to(
-                self.find_dtype()))
-            frame.next(shapelen)
-            res_iter = res_iter.next(shapelen)
-
-    def setitem(self, item, value):
-        self.parent.setitem(item, value)
-
-    def copy(self):
-        array = W_NDimArray(self.size, self.shape[:], self.find_dtype())
-        iter = ViewIterator(self)
-        a_iter = ArrayIterator(array.size)
-        while not iter.done():
-            array.setitem(a_iter.offset, self.getitem(iter.offset))
-            iter = iter.next(len(self.shape))
-            a_iter = a_iter.next(len(array.shape))
-        return array
-
-    def create_sig(self):
-        return signature.ViewSignature(self.parent.create_sig())
-
 class W_NDimArray(ConcreteArray):
     """ A class representing contiguous array. We know that each iteration
     by say ufunc will increase the data index by one
     """
     _immutable_fields_ = ['storage']
-    
-    def __init__(self, size, shape, dtype, order='C'):
-        ConcreteArray.__init__(self, shape, order)
-        self.size = size
-        self.dtype = dtype
-        self.storage = dtype.malloc(size)
-
-    def get_concrete(self):
-        return self
-
-    def find_size(self):
-        return self.size
-
-    def find_dtype(self):
-        return self.dtype
-
-    def getitem(self, item):
-        return self.dtype.getitem(self.storage, item)
 
     def copy(self):
         array = W_NDimArray(self.size, self.shape[:], self.dtype, self.order)
@@ -1056,13 +1020,6 @@ class W_NDimArray(ConcreteArray):
             self.size * self.dtype.itemtype.get_element_size()
         )
         return array
-
-    def setitem_w(self, space, item, w_value):
-        return self.setitem(item, self.dtype.coerce(space, w_value))
-
-    def setitem(self, item, value):
-        self.invalidated()
-        self.dtype.setitem(self.storage, item, value)
 
     def setshape(self, space, new_shape):
         self.shape = new_shape
@@ -1216,15 +1173,15 @@ BaseArray.typedef = TypeDef(
 )
 
 
-class W_FlatIterator(ConcreteViewArray):
+class W_FlatIterator(ConcreteArray):
 
     @jit.unroll_safe
     def __init__(self, arr):
         size = 1
         for sh in arr.shape:
             size *= sh
-        ConcreteViewArray.__init__(self, arr.get_concrete(), [arr.strides[-1]],
-                                   [arr.backstrides[-1]], [size])
+        ConcreteArray.__init__(self, arr.get_concrete(), [arr.strides[-1]],
+                               [arr.backstrides[-1]], [size])
         self.shapelen = len(arr.shape)
         self.arr = arr
         self.iter = OneDimIterator(self.arr.start, self.strides[0],

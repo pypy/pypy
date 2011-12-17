@@ -132,21 +132,21 @@ class ArraySignature(ConcreteSignature):
         return 'Array'
 
     def _invent_array_numbering(self, arr, cache):
-        from pypy.module.micronumpy.interp_numarray import W_NDimArray
-        assert isinstance(arr, W_NDimArray)
+        from pypy.module.micronumpy.interp_numarray import ConcreteArray
+        assert isinstance(arr, ConcreteArray)
         self.array_no = _add_ptr_to_cache(arr.storage, cache)
 
     def _create_iter(self, iterlist, arraylist, arr):
-        from pypy.module.micronumpy.interp_numarray import W_NDimArray
-        assert isinstance(arr, W_NDimArray)
+        from pypy.module.micronumpy.interp_numarray import ConcreteArray
+        assert isinstance(arr, ConcreteArray)
         if self.iter_no >= len(iterlist):
             iterlist.append(ArrayIterator(arr.size))
         if self.array_no >= len(arraylist):
             arraylist.append(arr.storage)
 
     def eval(self, frame, arr):
-        from pypy.module.micronumpy.interp_numarray import W_NDimArray
-        assert isinstance(arr, W_NDimArray)
+        from pypy.module.micronumpy.interp_numarray import ConcreteArray
+        assert isinstance(arr, ConcreteArray)
         iter = frame.iterators[self.iter_no]
         return self.dtype.getitem(frame.arrays[self.array_no], iter.offset)
 
@@ -193,21 +193,7 @@ class ScalarSignature(ConcreteSignature):
         assert isinstance(arr, Scalar)
         return arr.value
 
-class ViewSignature(Signature):
-    _immutable_fields_ = ['child']
-
-    def __init__(self, child):
-        self.child = child
-    
-    def eq(self, other, compare_array_no=True):
-        if type(self) is not type(other):
-            return False
-        assert isinstance(other, ViewSignature)
-        return self.child.eq(other.child, compare_array_no)
-
-    def hash(self):
-        return self.child.hash() ^ 0x12345
-
+class ViewSignature(ArraySignature):
     def debug_repr(self):
         return 'Slice(%s)' % self.child.debug_repr()
 
@@ -216,28 +202,6 @@ class ViewSignature(Signature):
         no = len(allnumbers)
         allnumbers.append(no)
         self.iter_no = no
-
-    def _invent_array_numbering(self, arr, cache):
-        from pypy.module.micronumpy.interp_numarray import ConcreteViewArray
-        assert isinstance(arr, ConcreteViewArray)
-        self.array_no = _add_ptr_to_cache(arr.parent.storage, cache)
-
-    def _create_iter(self, iterlist, arraylist, arr):
-        from pypy.module.micronumpy.interp_numarray import ConcreteViewArray
-
-        assert isinstance(arr, ConcreteViewArray)
-        if self.iter_no >= len(iterlist):
-            iterlist.append(ViewIterator(arr))
-        if self.array_no >= len(arraylist):
-            arraylist.append(arr.parent.storage)
-
-    def eval(self, frame, arr):
-        from pypy.module.micronumpy.interp_numarray import W_NDimSlice
-        assert isinstance(arr, W_NDimSlice)
-        arr = arr.get_concrete()
-        iter = frame.iterators[self.iter_no]
-        return arr.find_dtype().getitem(frame.arrays[self.array_no],
-                                        iter.offset)
 
 class FlatiterSignature(ViewSignature):
     def debug_repr(self):
