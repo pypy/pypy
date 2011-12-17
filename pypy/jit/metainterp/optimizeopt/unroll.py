@@ -158,7 +158,17 @@ class UnrollOptimizer(Optimization):
         target_token.virtual_state = virtual_state
         target_token.short_preamble = [ResOperation(rop.LABEL, short_inputargs, None)]
         target_token.start_resumedescr = start_resumedescr
-        target_token.exported_state = ExportedState(short_boxes, inputarg_setup_ops, self.optimizer)
+
+        exported_values = {}
+        for box in inputargs:
+            exported_values[box] = self.optimizer.getvalue(box)
+        for op in short_boxes.operations():
+            if op and op.result:
+                box = op.result
+                exported_values[box] = self.optimizer.getvalue(box)
+            
+        target_token.exported_state = ExportedState(short_boxes, inputarg_setup_ops,
+                                                    exported_values)
 
     def import_state(self, targetop):
         self.did_import = False
@@ -188,7 +198,7 @@ class UnrollOptimizer(Optimization):
             if box in seen:
                 continue
             seen[box] = True
-            preamble_value = exported_state.optimizer.getvalue(box)
+            preamble_value = exported_state.exported_values[box]
             value = self.optimizer.getvalue(box)
             value.import_from(preamble_value, self.optimizer)
 
@@ -202,7 +212,7 @@ class UnrollOptimizer(Optimization):
         for op in self.short_boxes.operations():
             self.ensure_short_op_emitted(op, self.optimizer, seen)
             if op and op.result:
-                preamble_value = exported_state.optimizer.getvalue(op.result)
+                preamble_value = exported_state.exported_values[op.result]
                 value = self.optimizer.getvalue(op.result)
                 if not value.is_virtual():
                     imp = ValueImporter(self, preamble_value, op)
@@ -537,7 +547,7 @@ class ValueImporter(object):
         self.unroll.add_op_to_short(self.op, False, True)        
 
 class ExportedState(object):
-    def __init__(self, short_boxes, inputarg_setup_ops, optimizer):
+    def __init__(self, short_boxes, inputarg_setup_ops, exported_values):
         self.short_boxes = short_boxes
         self.inputarg_setup_ops = inputarg_setup_ops
-        self.optimizer = optimizer
+        self.exported_values = exported_values
