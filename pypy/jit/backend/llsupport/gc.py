@@ -561,26 +561,34 @@ class WriteBarrierDescr(AbstractDescr):
         self.fielddescr_tid = get_field_descr(gc_ll_descr, GCClass.HDR, 'tid')
         #
         self.jit_wb_if_flag = GCClass.JIT_WB_IF_FLAG
-        self.jit_wb_if_flag_byteofs, self.jit_wb_if_flag_singlebyte = (
+        (self.jit_wb_if_flag_byteofs,
+         self.jit_wb_if_flag_singlebyte,
+         self.jit_wb_if_flag_bitpos) = (
             self.extract_flag_byte(self.jit_wb_if_flag))
         #
         if hasattr(GCClass, 'JIT_WB_CARDS_SET'):
             self.jit_wb_cards_set = GCClass.JIT_WB_CARDS_SET
             self.jit_wb_card_page_shift = GCClass.JIT_WB_CARD_PAGE_SHIFT
-            self.jit_wb_cards_set_byteofs, self.jit_wb_cards_set_singlebyte = (
+            (self.jit_wb_cards_set_byteofs,
+             self.jit_wb_cards_set_singlebyte,
+             self.jit_wb_cards_set_bitpos) = (
                 self.extract_flag_byte(self.jit_wb_cards_set))
         else:
             self.jit_wb_cards_set = 0
 
     def extract_flag_byte(self, flag_word):
         # if convenient for the backend, we compute the info about
-        # the flag as (byte-offset, single-byte-flag).
+        # the flag as (byte-offset, single-byte-flag, bit-position-in-word).
+        # Note that flag_word == 1 << bit_position_in_word.
         import struct
         value = struct.pack("l", flag_word)
         assert value.count('\x00') == len(value) - 1    # only one byte is != 0
         i = 0
         while value[i] == '\x00': i += 1
-        return (i, struct.unpack('b', value[i])[0])
+        bitpos = 0
+        while flag_word > (1 << bitpos): bitpos += 1
+        assert flag_word == (1 << bitpos)
+        return (i, struct.unpack('b', value[i])[0], bitpos)
 
     def get_write_barrier_fn(self, cpu):
         llop1 = self.llop1
