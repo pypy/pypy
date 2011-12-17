@@ -328,25 +328,13 @@ class SSLSocket(Wrappable):
         self.w_socket = None
         self.ssl = lltype.nullptr(SSL.TO)
         self.peer_cert = lltype.nullptr(X509.TO)
-        self._server = lltype.malloc(rffi.CCHARP.TO, X509_NAME_MAXLEN, flavor='raw')
-        self._server[0] = '\0'
-        self._issuer = lltype.malloc(rffi.CCHARP.TO, X509_NAME_MAXLEN, flavor='raw')
-        self._issuer[0] = '\0'
         self.shutdown_seen_zero = False
-
-    def server(self, space):
-        return space.wrap(rffi.charp2str(self._server))
-
-    def issuer(self, space):
-        return space.wrap(rffi.charp2str(self._issuer))
 
     def __del__(self):
         if self.peer_cert:
             libssl_X509_free(self.peer_cert)
         if self.ssl:
             libssl_SSL_free(self.ssl)
-        lltype.free(self._server, flavor='raw')
-        lltype.free(self._issuer, flavor='raw')
 
     @unwrap_spec(data='bufferstr')
     def write(self, space, data):
@@ -513,13 +501,6 @@ class SSLSocket(Wrappable):
         if self.peer_cert:
             libssl_X509_free(self.peer_cert)
         self.peer_cert = libssl_SSL_get_peer_certificate(self.ssl)
-        if self.peer_cert:
-            libssl_X509_NAME_oneline(
-                libssl_X509_get_subject_name(self.peer_cert),
-                self._server, X509_NAME_MAXLEN)
-            libssl_X509_NAME_oneline(
-                libssl_X509_get_issuer_name(self.peer_cert),
-                self._issuer, X509_NAME_MAXLEN)
 
     def shutdown(self, space):
         w_socket = self._get_socket(space)
@@ -827,8 +808,6 @@ def _create_tuple_for_attribute(space, name, value):
     return space.newtuple([w_name, w_value])
 
 SSLSocket.typedef = TypeDef("_SSLSocket",
-    server = interp2app(SSLSocket.server),
-    issuer = interp2app(SSLSocket.issuer),
     write = interp2app(SSLSocket.write),
     pending = interp2app(SSLSocket.pending),
     read = interp2app(SSLSocket.read),

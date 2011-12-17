@@ -95,20 +95,6 @@ class AppTestConnectedSSL:
         self.s.close()
         del ss; gc.collect()
 
-    def test_server(self):
-        import ssl, gc
-        ss = ssl.wrap_socket(self.s)
-        assert isinstance(ss.server(), str)
-        self.s.close()
-        del ss; gc.collect()
-
-    def test_issuer(self):
-        import ssl, gc
-        ss = ssl.wrap_socket(self.s)
-        assert isinstance(ss.issuer(), str)
-        self.s.close()
-        del ss; gc.collect()
-
     def test_write(self):
         import ssl, gc
         ss = ssl.wrap_socket(self.s)
@@ -142,18 +128,16 @@ class AppTestConnectedSSL:
         del ss; gc.collect()
 
     def test_shutdown(self):
-        import ssl, sys, gc
-        ss = socket.ssl(self.s)
+        import socket, ssl, sys, gc
+        ss = ssl.wrap_socket(self.s)
         ss.write(b"hello\n")
         try:
-            result = ss.shutdown()
+            ss.shutdown(socket.SHUT_RDWR)
         except socket.error, e:
-            # xxx obscure case; throwing errno 0 is pretty odd...
             if e.errno == 0:
-                skip("Shutdown raised errno 0. CPython does this too")
+                pass  # xxx obscure case; throwing errno 0 is pretty odd...
             raise
-        assert result is self.s._sock
-        raises(ssl.SSLError, ss.write, b"hello\n")
+        raises(AttributeError, ss.write, b"hello\n")
         del ss; gc.collect()
 
 class AppTestConnectedSSL_Timeout(AppTestConnectedSSL):
