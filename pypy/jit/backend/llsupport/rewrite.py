@@ -85,7 +85,7 @@ class GcRewriterAssembler(object):
             self.handle_new_array(descr.tid,
                                   descr.get_base_size(self.tsc),
                                   descr.get_item_size(self.tsc),
-                                  descr.field_arraylen_descr,
+                                  descr.get_field_arraylen_descr(),
                                   op)
         elif opnum == rop.NEWSTR:
             self.handle_new_array(self.gc_ll_descr.str_type_id,
@@ -162,10 +162,17 @@ class GcRewriterAssembler(object):
 
     def gen_malloc_array(self, itemsize, tid, v_num_elem, v_result):
         """Generate a CALL_MALLOC_GC(malloc_array_fn, ...)."""
-        self._gen_call_malloc_gc([self.gc_ll_descr.c_malloc_array_fn,
-                                  ConstInt(itemsize),
-                                  ConstInt(tid),
-                                  v_num_elem], v_result)
+        if self.gc_ll_descr.has_tid:
+            args = [self.gc_ll_descr.c_malloc_array_fn,
+                    ConstInt(itemsize),
+                    ConstInt(tid),
+                    v_num_elem]
+        else:
+            args = [self.gc_ll_descr.c_malloc_array_fn,
+                    ConstInt(basesize),
+                    ConstInt(itemsize),
+                    v_num_elem]
+        self._gen_call_malloc_gc(args, v_result)
 
     def gen_malloc_str(self, v_num_elem, v_result):
         """Generate a CALL_MALLOC_GC(malloc_str_fn, ...)."""

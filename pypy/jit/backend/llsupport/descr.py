@@ -6,11 +6,6 @@ from pypy.jit.metainterp.history import AbstractDescr, getkind
 from pypy.jit.metainterp import history
 from pypy.jit.codewriter import heaptracker, longlong
 
-# The point of the class organization in this file is to make instances
-# as compact as possible.  This is done by not storing the field size or
-# the 'is_pointer_field' flag in the instance itself but in the class
-# (in methods actually) using a few classes instead of just one.
-
 
 class GcCache(object):
     def __init__(self, translate_support_code, rtyper=None):
@@ -79,229 +74,108 @@ def get_size_descr(gccache, STRUCT):
 # ____________________________________________________________
 # FieldDescrs
 
-class BaseFieldDescr(AbstractDescr):
-    offset = 0      # help translation
-    name = ''
-    _clsname = ''
+FLAG_POINTER  = 'P'
+FLAG_FLOAT    = 'F'
+FLAG_UNSIGNED = 'U'
+FLAG_SIGNED   = 'S'
+FLAG_STRUCT   = 'X'
 
-    def __init__(self, name, offset):
+class FieldDescr(AbstractDescr):
+    name = ''
+    offset = 0      # help translation
+    field_size = 0
+    flag = '\x00'
+
+    def __init__(self, name, offset, field_size, flag):
         self.name = name
         self.offset = offset
+        self.field_size = field_size
+        self.flag = flag
 
     def sort_key(self):
         return self.offset
 
-    def get_field_size(self, translate_support_code):
-        raise NotImplementedError
-
-    _is_pointer_field = False   # unless overridden by GcPtrFieldDescr
-    _is_float_field = False     # unless overridden by FloatFieldDescr
-    _is_field_signed = False    # unless overridden by XxxFieldDescr
-
-    def is_pointer_field(self):
-        return self._is_pointer_field
-
-    def is_float_field(self):
-        return self._is_float_field
-
-    def is_field_signed(self):
-        return self._is_field_signed
-
     def repr_of_descr(self):
-        return '<%s %s %s>' % (self._clsname, self.name, self.offset)
+        return '<Field%s %s %s>' % (self.flag, self.name, self.offset)
 
-class DynamicFieldDescr(BaseFieldDescr):
-    def __init__(self, offset, fieldsize, is_pointer, is_float, is_signed):
-        self.offset = offset
-        self._fieldsize = fieldsize
-        self._is_pointer_field = is_pointer
-        self._is_float_field = is_float
-        self._is_field_signed = is_signed
-
-    def get_field_size(self, translate_support_code):
-        return self._fieldsize
-
-class NonGcPtrFieldDescr(BaseFieldDescr):
-    _clsname = 'NonGcPtrFieldDescr'
-    def get_field_size(self, translate_support_code):
-        return symbolic.get_size_of_ptr(translate_support_code)
-
-class GcPtrFieldDescr(NonGcPtrFieldDescr):
-    _clsname = 'GcPtrFieldDescr'
-    _is_pointer_field = True
-
-def getFieldDescrClass(TYPE):
-    return getDescrClass(TYPE, BaseFieldDescr, GcPtrFieldDescr,
-                         NonGcPtrFieldDescr, 'Field', 'get_field_size',
-                         '_is_float_field', '_is_field_signed')
 
 def get_field_descr(gccache, STRUCT, fieldname):
     cache = gccache._cache_field
     try:
         return cache[STRUCT][fieldname]
     except KeyError:
-        offset, _ = symbolic.get_field_token(STRUCT, fieldname,
-                                             gccache.translate_support_code)
+        offset, size = symbolic.get_field_token(STRUCT, fieldname,
+                                                gccache.translate_support_code)
         FIELDTYPE = getattr(STRUCT, fieldname)
+        flag = get_type_flag(FIELDTYPE)
         name = '%s.%s' % (STRUCT._name, fieldname)
-        fielddescr = getFieldDescrClass(FIELDTYPE)(name, offset)
+        fielddescr = FieldDescr(name, offset, size, flag)
         cachedict = cache.setdefault(STRUCT, {})
         cachedict[fieldname] = fielddescr
         return fielddescr
 
+def get_type_flag(TYPE):
+    if isinstance(TYPE, lltype.Ptr):
+        if TYPE.TO._gckind == 'gc':
+            return FLAG_POINTER
+        else:
+            return FLAG_UNSIGNED
+    if isinstance(TYPE, lltype.Struct):
+        return FLAG_STRUCT
+    if TYPE is lltype.Float or is_longlong(TYPE):
+        return FLAG_FLOAT
+    if (TYPE is not lltype.Bool and isinstance(TYPE, lltype.Number) and
+           rffi.cast(TYPE, -1) == -1):
+        return FLAG_SIGNED
+    return FLAG_UNSIGNED
+
 def get_field_arraylen_descr(gccache, ARRAY_OR_STRUCT):
     cache = gccache._cache_arraylen
-    if isinstance(ARRAY_OR_STRUCT, lltype.GcArray):
-        # assume that they all have the length at the same offset
-        key = 'array'
-    else:
-        # assume that it is STR or UNICODE
-        assert isinstance(ARRAY_OR_STRUCT.chars, lltype.Array)
-        key = ARRAY_OR_STRUCT
     try:
-        return cache[key]
+        return cache[ARRAY_OR_STRUCT]
     except KeyError:
         tsc = gccache.translate_support_code
         (_, _, ofs) = symbolic.get_array_token(ARRAY_OR_STRUCT, tsc)
-        if key == 'array' and not tsc:
-            (_, _, baseofs) = symbolic.get_array_token(_A, tsc)
-            assert baseofs == ofs, ("arrays %r and %r don't have the length "
-                                    "field at the same offset!" %
-                                    (ARRAY_OR_STRUCT, _A))
-        SignedFieldDescr = getFieldDescrClass(lltype.Signed)
-        result = SignedFieldDescr("len", ofs)
-        cache[key] = result
+        size = symbolic.get_size(lltype.Signed, tsc)
+        result = FieldDescr("len", ofs, size, get_type_flag(lltype.Signed))
+        cache[ARRAY_OR_STRUCT] = result
         return result
 
 # ____________________________________________________________
 # ArrayDescrs
 
-_A = lltype.GcArray(lltype.Signed)     # a random gcarray
-_AF = lltype.GcArray(lltype.Float)     # an array of C doubles
 
+class ArrayDescr(AbstractDescr):
+    tid = 0
+    basesize = 0       # workaround for the annotator
+    itemsize = 0
+    lendescr = None
+    flag = '\x00'
 
-class BaseArrayDescr(AbstractDescr):
-    _clsname = ''
-    tid = llop.combine_ushort(lltype.Signed, 0, 0)
-
-    def get_base_size(self, translate_support_code):
-        basesize, _, _ = symbolic.get_array_token(_A, translate_support_code)
-        return basesize
-
-    def get_ofs_length(self, translate_support_code):
-        _, _, ofslength = symbolic.get_array_token(_A, translate_support_code)
-        return ofslength
-
-    def get_item_size(self, translate_support_code):
-        raise NotImplementedError
-
-    _is_array_of_pointers = False      # unless overridden by GcPtrArrayDescr
-    _is_array_of_floats   = False      # unless overridden by FloatArrayDescr
-    _is_array_of_structs  = False      # unless overridden by StructArrayDescr
-    _is_item_signed       = False      # unless overridden by XxxArrayDescr
-
-    def is_array_of_pointers(self):
-        return self._is_array_of_pointers
-
-    def is_array_of_floats(self):
-        return self._is_array_of_floats
-
-    def is_array_of_structs(self):
-        return self._is_array_of_structs
-
-    def is_item_signed(self):
-        return self._is_item_signed
+    def __init__(self, basesize, itemsize, lendescr, flag):
+        self.basesize = basesize
+        self.itemsize = itemsize
+        self.lendescr = lendescr    # or None, if no length
+        self.flag = flag
 
     def repr_of_descr(self):
-        return '<%s>' % self._clsname
+        return '<Array%s %s>' % (self.flag, self.itemsize)
 
-
-class NonGcPtrArrayDescr(BaseArrayDescr):
-    _clsname = 'NonGcPtrArrayDescr'
-    def get_item_size(self, translate_support_code):
-        return symbolic.get_size_of_ptr(translate_support_code)
-
-class GcPtrArrayDescr(NonGcPtrArrayDescr):
-    _clsname = 'GcPtrArrayDescr'
-    _is_array_of_pointers = True
-
-class FloatArrayDescr(BaseArrayDescr):
-    _clsname = 'FloatArrayDescr'
-    _is_array_of_floats = True
-    def get_base_size(self, translate_support_code):
-        basesize, _, _ = symbolic.get_array_token(_AF, translate_support_code)
-        return basesize
-    def get_item_size(self, translate_support_code):
-        return symbolic.get_size(lltype.Float, translate_support_code)
-
-class StructArrayDescr(BaseArrayDescr):
-    _clsname = 'StructArrayDescr'
-    _is_array_of_structs = True
-
-class BaseArrayNoLengthDescr(BaseArrayDescr):
-    def get_base_size(self, translate_support_code):
-        return 0
-
-    def get_ofs_length(self, translate_support_code):
-        return -1
-
-class DynamicArrayNoLengthDescr(BaseArrayNoLengthDescr):
-    def __init__(self, itemsize):
-        self.itemsize = itemsize
-
-    def get_item_size(self, translate_support_code):
-        return self.itemsize
-
-class NonGcPtrArrayNoLengthDescr(BaseArrayNoLengthDescr):
-    _clsname = 'NonGcPtrArrayNoLengthDescr'
-    def get_item_size(self, translate_support_code):
-        return symbolic.get_size_of_ptr(translate_support_code)
-
-class GcPtrArrayNoLengthDescr(NonGcPtrArrayNoLengthDescr):
-    _clsname = 'GcPtrArrayNoLengthDescr'
-    _is_array_of_pointers = True
-
-def getArrayDescrClass(ARRAY):
-    if ARRAY.OF is lltype.Float:
-        return FloatArrayDescr
-    elif isinstance(ARRAY.OF, lltype.Struct):
-        class Descr(StructArrayDescr):
-            _clsname = '%sArrayDescr' % ARRAY.OF._name
-            def get_item_size(self, translate_support_code):
-                return symbolic.get_size(ARRAY.OF, translate_support_code)
-        Descr.__name__ = Descr._clsname
-        return Descr
-    return getDescrClass(ARRAY.OF, BaseArrayDescr, GcPtrArrayDescr,
-                         NonGcPtrArrayDescr, 'Array', 'get_item_size',
-                         '_is_array_of_floats', '_is_item_signed')
-
-def getArrayNoLengthDescrClass(ARRAY):
-    return getDescrClass(ARRAY.OF, BaseArrayNoLengthDescr, GcPtrArrayNoLengthDescr,
-                         NonGcPtrArrayNoLengthDescr, 'ArrayNoLength', 'get_item_size',
-                         '_is_array_of_floats', '_is_item_signed')
 
 def get_array_descr(gccache, ARRAY):
     cache = gccache._cache_array
     try:
         return cache[ARRAY]
     except KeyError:
-        # we only support Arrays that are either GcArrays, or raw no-length
-        # non-gc Arrays.
+        assert isinstance(ARRAY, lltype.Array)
         if ARRAY._hints.get('nolength', False):
-            assert not isinstance(ARRAY, lltype.GcArray)
-            arraydescr = getArrayNoLengthDescrClass(ARRAY)()
+            lendescr = None
         else:
-            assert isinstance(ARRAY, lltype.GcArray)
-            arraydescr = getArrayDescrClass(ARRAY)()
-            arraydescr.field_arraylen_descr = get_field_arraylen_descr(
-                gccache, ARRAY)
-        # verify basic assumption that all arrays' basesize and ofslength
-        # are equal
-        basesize, itemsize, ofslength = symbolic.get_array_token(ARRAY, False)
-        assert basesize == arraydescr.get_base_size(False)
-        assert itemsize == arraydescr.get_item_size(False)
-        if not ARRAY._hints.get('nolength', False):
-            assert ofslength == arraydescr.get_ofs_length(False)
+            lendescr = get_field_arraylen_descr(gccache, ARRAY)
+        tsc = gccache.translate_support_code
+        basesize, itemsize, _ = symbolic.get_array_token(ARRAY, tsc)
+        flag = get_type_flag(ARRAY.OF)
+        arraydescr = ArrayDescr(basesize, itemsize, lendescr, flag)
         if isinstance(ARRAY, lltype.GcArray):
             gccache.init_array_descr(ARRAY, arraydescr)
         cache[ARRAY] = arraydescr
@@ -311,18 +185,13 @@ def get_array_descr(gccache, ARRAY):
 # InteriorFieldDescr
 
 class InteriorFieldDescr(AbstractDescr):
-    arraydescr = BaseArrayDescr()     # workaround for the annotator
-    fielddescr = BaseFieldDescr('', 0)
+    arraydescr = ArrayDescr(0, 0, None, '\x00')  # workaround for the annotator
+    fielddescr = FieldDescr('', 0, 0, '\x00')
 
     def __init__(self, arraydescr, fielddescr):
+        assert arraydescr.flag == FLAG_STRUCT
         self.arraydescr = arraydescr
         self.fielddescr = fielddescr
-
-    def is_pointer_field(self):
-        return self.fielddescr.is_pointer_field()
-
-    def is_float_field(self):
-        return self.fielddescr.is_float_field()
 
     def sort_key(self):
         return self.fielddescr.sort_key()
@@ -330,15 +199,15 @@ class InteriorFieldDescr(AbstractDescr):
     def repr_of_descr(self):
         return '<InteriorFieldDescr %s>' % self.fielddescr.repr_of_descr()
 
-def get_interiorfield_descr(gc_ll_descr, ARRAY, FIELDTP, name):
+def get_interiorfield_descr(gc_ll_descr, ARRAY, name):
     cache = gc_ll_descr._cache_interiorfield
     try:
-        return cache[(ARRAY, FIELDTP, name)]
+        return cache[(ARRAY, name)]
     except KeyError:
         arraydescr = get_array_descr(gc_ll_descr, ARRAY)
-        fielddescr = get_field_descr(gc_ll_descr, FIELDTP, name)
+        fielddescr = get_field_descr(gc_ll_descr, ARRAY.OF, name)
         descr = InteriorFieldDescr(arraydescr, fielddescr)
-        cache[(ARRAY, FIELDTP, name)] = descr
+        cache[(ARRAY, name)] = descr
         return descr
 
 # ____________________________________________________________
@@ -473,21 +342,11 @@ class BaseCallDescr(AbstractDescr):
 
 
 class BaseIntCallDescr(BaseCallDescr):
-    # Base class of the various subclasses of descrs corresponding to
-    # calls having a return kind of 'int' (including non-gc pointers).
-    # The inheritance hierarchy is a bit different than with other Descr
-    # classes because of the 'call_stub' attribute, which is of type
-    #
-    #     lambda func, args_i, args_r, args_f --> int/ref/float/void
-    #
-    # The purpose of BaseIntCallDescr is to be the parent of all classes
-    # in which 'call_stub' has a return kind of 'int'.
+    # Calls having a return kind of 'int' (including non-gc pointers).
     _return_type = history.INT
     call_stub = staticmethod(lambda func, args_i, args_r, args_f: 0)
 
-    _is_result_signed = False      # can be overridden in XxxCallDescr
-    def is_result_signed(self):
-        return self._is_result_signed
+#...
 
 class DynamicIntCallDescr(BaseIntCallDescr):
     """

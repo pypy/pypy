@@ -120,6 +120,7 @@ class GcLLDescr_boehm(GcLLDescription):
     gcrootmap             = None
     write_barrier_descr   = None
     fielddescr_tid        = None
+    has_tid               = False
     str_type_id           = 0
     unicode_type_id       = 0
 
@@ -166,15 +167,49 @@ class GcLLDescr_boehm(GcLLDescription):
     def __init__(self, gcdescr, translator, rtyper):
         GcLLDescription.__init__(self, gcdescr, translator, rtyper)
         # grab a pointer to the Boehm 'malloc' function
-        malloc_fn_ptr = self.configure_boehm_once()
-        self.malloc_fn_ptr = malloc_fn_ptr
-        #
+        self.malloc_fn_ptr = self.configure_boehm_once()
+        self._make_functions()
+
+    def _make_functions(self):
+        malloc_fn_ptr = self.malloc_fn_ptr
+
         def malloc_fixedsize(size):
             res = malloc_fn_ptr(size)
             if not res:
                 raise MemoryError
             return res
         self.generate_function('malloc_fixedsize', malloc_fixedsize,
+                               [lltype.Signed])
+
+        def malloc_array(basesize, itemsize, num_elem):
+            xxx
+            try:
+                totalsize = ovfcheck(basesize + ovfcheck(itemsize * num_elem))
+            except OverflowError:
+                raise MemoryError
+            res = malloc_fn_ptr(totalsize)
+            if not res:
+                raise MemoryError
+            arrayptr = rffi.cast(rffi.CArrayPtr(lltype.Signed), res)
+            arrayptr[ofs_length/WORD] = num_elem
+            return res
+        self.generate_function('malloc_array', malloc_array,
+                               [lltype.Signed] * 3)
+
+        def malloc_str(length):
+            return llop1.do_malloc_varsize_clear(
+                llmemory.GCREF,
+                str_type_id, length, str_basesize, str_itemsize,
+                str_ofs_length)
+        self.generate_function('malloc_str', malloc_str,
+                               [lltype.Signed])
+
+        def malloc_unicode(length):
+            return llop1.do_malloc_varsize_clear(
+                llmemory.GCREF,
+                unicode_type_id, length, unicode_basesize, unicode_itemsize,
+                unicode_ofs_length)
+        self.generate_function('malloc_unicode', malloc_unicode,
                                [lltype.Signed])
 
     def _gc_malloc(self, size, tid):
@@ -607,6 +642,7 @@ class WriteBarrierDescr(AbstractDescr):
 
 class GcLLDescr_framework(GcLLDescription):
     DEBUG = False    # forced to True by x86/test/test_zrpy_gc.py
+    has_tid = True
 
     def __init__(self, gcdescr, translator, rtyper, llop1=llop,
                  really_not_translated=False):

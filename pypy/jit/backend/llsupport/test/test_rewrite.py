@@ -127,7 +127,7 @@ class TestBoehm(RewriteTests):
             jump()
         """, """
             [i1]
-            p0 = call_malloc_gc(ConstClass(malloc_varsize), \
+            p0 = call_malloc_gc(ConstClass(malloc_array), \
                                 %(adescr.get_base_size(False))d, \
                                 i1, \
                                 %(adescr.get_item_size(False))d)
