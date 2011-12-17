@@ -20,6 +20,7 @@ from pypy.rlib import _rsocket_rffi as _c
 from pypy.rlib.rarithmetic import intmask, r_uint
 from pypy.rpython.lltypesystem import lltype, rffi
 from pypy.rpython.lltypesystem.rffi import sizeof, offsetof
+INVALID_SOCKET = _c.INVALID_SOCKET
 
 def mallocbuf(buffersize):
     return lltype.malloc(rffi.CCHARP.TO, buffersize, flavor='raw')

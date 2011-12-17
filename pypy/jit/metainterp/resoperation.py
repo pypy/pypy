@@ -369,6 +369,8 @@ _oplist = [
     'FINISH/*d',
     '_FINAL_LAST',
 
+    'LABEL/*d',
+
     '_GUARD_FIRST',
     '_GUARD_FOLDABLE_FIRST',
     'GUARD_TRUE/1d',
@@ -379,11 +381,11 @@ _oplist = [
     'GUARD_ISNULL/1d',
     'GUARD_NONNULL_CLASS/2d',
     '_GUARD_FOLDABLE_LAST',
-    'GUARD_NO_EXCEPTION/0d',
-    'GUARD_EXCEPTION/1d',
+    'GUARD_NO_EXCEPTION/0d',    # may be called with an exception currently set
+    'GUARD_EXCEPTION/1d',       # may be called with an exception currently set
     'GUARD_NO_OVERFLOW/0d',
     'GUARD_OVERFLOW/0d',
-    'GUARD_NOT_FORCED/0d',
+    'GUARD_NOT_FORCED/0d',      # may be called with an exception currently set
     'GUARD_NOT_INVALIDATED/0d',
     '_GUARD_LAST', # ----- end of guard operations -----
 

@@ -54,7 +54,11 @@ class TypeDef:
 #  Hash support
 
 def default_identity_hash(space, w_obj):
-    return space.wrap(compute_identity_hash(w_obj))
+    w_unique_id = w_obj.immutable_unique_id(space)
+    if w_unique_id is None:     # common case
+        return space.wrap(compute_identity_hash(w_obj))
+    else:
+        return space.hash(w_unique_id)
 
 # ____________________________________________________________
 #

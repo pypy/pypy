@@ -473,7 +473,7 @@ class W_PipeConnection(W_BaseConnection):
         block = timeout < 0
         if not block:
             # XXX does not check for overflow
-            deadline = _GetTickCount() + int(1000 * timeout + 0.5)
+            deadline = intmask(_GetTickCount()) + int(1000 * timeout + 0.5)
         else:
             deadline = 0
 
@@ -497,7 +497,7 @@ class W_PipeConnection(W_BaseConnection):
                 return True
 
             if not block:
-                now = _GetTickCount()
+                now = intmask(_GetTickCount())
                 if now > deadline:
                     return False
                 diff = deadline - now

@@ -744,7 +744,7 @@ if __name__ == '__main__':
         return ["../lib-python/3.2", "../lib_pypy", ".."]
         from pypy.module.sys.state import getinitialpath
         try:
-            return getinitialpath(s)
+            return getinitialpath(None, s)
         except OSError:
             return None
     sys.pypy_initial_path = pypy_initial_path

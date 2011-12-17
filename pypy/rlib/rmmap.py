@@ -420,7 +420,11 @@ class MMap(object):
                 low, high = _get_file_size(self.file_handle)
                 if not high and low <= sys.maxint:
                     return low
+                # not so sure if the signed/unsigned strictness is a good idea:
+                high = rffi.cast(lltype.Unsigned, high)
+                low = rffi.cast(lltype.Unsigned, low)
                 size = (high << 32) + low
+                size = rffi.cast(lltype.Signed, size)
         elif _POSIX:
             st = os.fstat(self.fd)
             size = st[stat.ST_SIZE]

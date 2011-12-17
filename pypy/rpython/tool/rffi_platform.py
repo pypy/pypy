@@ -56,6 +56,12 @@ def getdefineddouble(macro, c_header_source):
         DEFINED = DefinedConstantDouble(macro)
     return configure(CConfig)['DEFINED']
 
+def getdefinedinteger(macro, c_header_source):
+    class CConfig:
+        _compilation_info_ = eci_from_header(c_header_source)
+        DEFINED = DefinedConstantInteger(macro)
+    return configure(CConfig)['DEFINED']
+
 def has(name, c_header_source, include_dirs=None):
     class CConfig:
         _compilation_info_ = eci_from_header(c_header_source, include_dirs)

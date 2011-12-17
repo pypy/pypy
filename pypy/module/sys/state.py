@@ -24,7 +24,7 @@ class State:
         # Initialize the default path
         pypydir = os.path.dirname(os.path.abspath(pypy.__file__))
         srcdir = os.path.dirname(pypydir)
-        path = getinitialpath(srcdir)
+        path = getinitialpath(self, srcdir)
         self.w_path = space.newlist([space.wrap(p) for p in path])
 
 def checkdir(path):
@@ -35,7 +35,7 @@ def checkdir(path):
 
 platform = sys.platform
 
-def getinitialpath(prefix):
+def getinitialpath(state, prefix):
     from pypy.module.sys.version import CPYTHON_VERSION
     dirname = '%d.%d' % (CPYTHON_VERSION[0],
                          CPYTHON_VERSION[1])
@@ -49,6 +49,12 @@ def getinitialpath(prefix):
     checkdir(lib_pypy)
 
     importlist = []
+    #
+    if state is not None:    # 'None' for testing only
+        lib_extensions = os.path.join(lib_pypy, '__extensions__')
+        state.w_lib_extensions = state.space.wrap(lib_extensions)
+        importlist.append(lib_extensions)
+    #
     importlist.append(lib_pypy)
     importlist.append(python_std_lib_modified)
     importlist.append(python_std_lib)
@@ -71,7 +77,7 @@ def getinitialpath(prefix):
 @unwrap_spec(srcdir=str)
 def pypy_initial_path(space, srcdir):
     try:
-        path = getinitialpath(srcdir)
+        path = getinitialpath(get(space), srcdir)
     except OSError:
         return space.w_None
     else:

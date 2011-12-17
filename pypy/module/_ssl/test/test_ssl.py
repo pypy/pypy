@@ -142,12 +142,17 @@ class AppTestConnectedSSL:
         del ss; gc.collect()
 
     def test_shutdown(self):
-        import ssl, ssl, sys, gc
-        if sys.platform == 'darwin':
-            skip("get also on CPython: error: [Errno 0]")
-        ss = ssl.wrap_socket(self.s)
+        import ssl, sys, gc
+        ss = socket.ssl(self.s)
         ss.write(b"hello\n")
-        assert ss.shutdown() is self.s._sock
+        try:
+            result = ss.shutdown()
+        except socket.error, e:
+            # xxx obscure case; throwing errno 0 is pretty odd...
+            if e.errno == 0:
+                skip("Shutdown raised errno 0. CPython does this too")
+            raise
+        assert result is self.s._sock
         raises(ssl.SSLError, ss.write, b"hello\n")
         del ss; gc.collect()
 

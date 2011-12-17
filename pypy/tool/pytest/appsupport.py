@@ -63,7 +63,10 @@ class AppFrame(py.code.Frame):
     exec_ = eval
 
     def repr(self, w_value):
-        return self.space.unwrap(self.space.repr(w_value))
+        try:
+            return self.space.unwrap(self.space.repr(w_value))
+        except Exception, e:
+            return "<Sorry, exception while trying to do repr, %r>"%e
 
     def is_true(self, w_value):
         return self.space.is_true(w_value)

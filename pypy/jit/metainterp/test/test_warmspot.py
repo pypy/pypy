@@ -200,7 +200,7 @@ class WarmspotTests(object):
                     m -= 1
             self.meta_interp(f2, [i2])
             try:
-                self.check_tree_loop_count(1)
+                self.check_jitcell_token_count(1)
                 break
             except AssertionError:
                 print "f2: no loop generated for i2==%d" % i2
@@ -215,7 +215,7 @@ class WarmspotTests(object):
                     m -= 1
             self.meta_interp(f1, [i1])
             try:
-                self.check_tree_loop_count(1)
+                self.check_jitcell_token_count(1)
                 break
             except AssertionError:
                 print "f1: no loop generated for i1==%d" % i1
@@ -235,8 +235,8 @@ class WarmspotTests(object):
         self.meta_interp(f1, [8])
         # it should generate one "loop" only, which ends in a FINISH
         # corresponding to the return from f2.
-        self.check_tree_loop_count(1)
-        self.check_loop_count(0)
+        self.check_trace_count(1)
+        self.check_resops(jump=0)
 
     def test_simple_loop(self):
         mydriver = JitDriver(greens=[], reds=['m'])
@@ -245,8 +245,8 @@ class WarmspotTests(object):
                 mydriver.jit_merge_point(m=m)
                 m = m - 1
         self.meta_interp(f1, [8])
-        self.check_loop_count(1)
-        self.check_resops({'jump': 2, 'guard_true': 2, 'int_gt': 2,
+        self.check_trace_count(1)
+        self.check_resops({'jump': 1, 'guard_true': 2, 'int_gt': 2,
                            'int_sub': 2})
 
     def test_void_red_variable(self):
@@ -303,18 +303,11 @@ class TestWarmspotDirect(object):
         exc_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
         cls.exc_vtable = exc_vtable
 
-        class FakeLoopToken:
+        class FakeFailDescr(object):
             def __init__(self, no):
                 self.no = no
-                self.generation = 0
-
-        class FakeFailDescr(object):
-            def __init__(self, looptoken):
-                assert isinstance(looptoken, FakeLoopToken)
-                self.looptoken = looptoken
-            
             def handle_fail(self, metainterp_sd, jitdrivers_sd):
-                no = self.looptoken.no
+                no = self.no
                 if no == 0:
                     raise metainterp_sd.warmrunnerdesc.DoneWithThisFrameInt(3)
                 if no == 1:
@@ -326,7 +319,7 @@ class TestWarmspotDirect(object):
                     raise metainterp_sd.warmrunnerdesc.ExitFrameWithExceptionRef(
                         metainterp_sd.cpu,
                         lltype.cast_opaque_ptr(llmemory.GCREF, exc))
-                return self.looptoken
+                assert 0
 
         class FakeDescr:
             def as_vtable_size_descr(self):
@@ -353,11 +346,10 @@ class TestWarmspotDirect(object):
             sizeof       = nodescr
 
             def get_fail_descr_from_number(self, no):
-                return FakeFailDescr(FakeLoopToken(no))
+                return FakeFailDescr(no)
 
-            def execute_token(self, token):
-                assert token.no == 2
-                return FakeFailDescr(FakeLoopToken(1))
+            def make_execute_token(self, *ARGS):
+                return "not callable"
 
         driver = JitDriver(reds = ['red'], greens = ['green'])
         
@@ -381,7 +373,6 @@ class TestWarmspotDirect(object):
         [jd] = self.desc.jitdrivers_sd
         assert jd._assembler_call_helper(0, 0) == 3
         assert jd._assembler_call_helper(1, 0) == 10
-        assert jd._assembler_call_helper(2, 0) == 10
         try:
             jd._assembler_call_helper(3, 0)
         except LLException, lle:

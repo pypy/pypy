@@ -20,7 +20,7 @@ class SendTests(object):
             return c
         res = self.meta_interp(f, [1])
         assert res == 2
-        self.check_resops({'jump': 2, 'guard_true': 2, 'int_gt': 2,
+        self.check_resops({'jump': 1, 'guard_true': 2, 'int_gt': 2,
                            'int_sub': 2}) # all folded away
 
     def test_red_builtin_send(self):
@@ -67,7 +67,7 @@ class SendTests(object):
                                backendopt=True)
         assert res == 43
         self.check_resops({'int_gt': 2, 'getfield_gc': 2,
-                           'guard_true': 2, 'int_sub': 2, 'jump': 2,
+                           'guard_true': 2, 'int_sub': 2, 'jump': 1,
                            'call': 2, 'guard_no_exception': 2,
                            'int_add': 2})
 
@@ -160,7 +160,7 @@ class SendTests(object):
             res = self.meta_interp(f, [j], policy=policy)
             assert res == 42
             self.check_enter_count_at_most(5)
-            self.check_loop_count_at_most(5)
+            self.check_trace_count_at_most(5)
 
     def test_oosend_guard_failure(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'w'])
@@ -199,7 +199,7 @@ class SendTests(object):
         # InvalidLoop condition, and was then unrolled, giving two copies
         # of the body in a single bigger loop with no failing guard except
         # the final one.
-        self.check_loop_count(1)
+        self.check_trace_count(1)
         self.check_resops(guard_class=1, int_add=4, int_sub=4)
         self.check_jumps(14)
 
@@ -240,7 +240,7 @@ class SendTests(object):
         assert res == f(3, 28)
         res = self.meta_interp(f, [4, 28])
         assert res == f(4, 28)
-        self.check_loop_count(1)
+        self.check_trace_count(1)
         self.check_resops(guard_class=1, int_add=4, int_sub=4)
         self.check_jumps(14)
 
@@ -277,7 +277,7 @@ class SendTests(object):
         # looking only at the loop, we deduce that the class of 'w' is 'W2'.
         # However, this doesn't match the initial value of 'w'.
         # XXX This not completely easy to check...
-        self.check_loop_count(1)
+        self.check_trace_count(1)
         self.check_resops(guard_class=1, new_with_vtable=0, int_lshift=2,
                           int_add=0, new=0)
 
@@ -306,7 +306,7 @@ class SendTests(object):
             return x
         res = self.meta_interp(f, [198], policy=StopAtXPolicy(externfn))
         assert res == f(198)
-        self.check_loop_count(4)
+        self.check_trace_count(4)
 
     def test_indirect_call_unknown_object_2(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'state'])
@@ -340,9 +340,9 @@ class SendTests(object):
         res = self.meta_interp(f, [198],
                                policy=StopAtXPolicy(State.externfn.im_func))
         assert res == f(198)
-        # we get two TreeLoops: an initial one, and one entering from
-        # the interpreter
-        self.check_tree_loop_count(2)
+        # we get two TargetTokens, one for the loop and one for the preamble
+        self.check_jitcell_token_count(1)        
+        self.check_target_token_count(2)        
 
     def test_indirect_call_unknown_object_3(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'z', 'state'])
@@ -377,9 +377,10 @@ class SendTests(object):
         res = self.meta_interp(f, [198],
                                policy=StopAtXPolicy(State.externfn.im_func))
         assert res == f(198)
-        # we get four TreeLoops: one for each of the 3 getvalue functions,
-        # and one entering from the interpreter
-        self.check_tree_loop_count(4)
+        # we get four TargetTokens: one for each of the 3 getvalue functions,
+        # and one entering from the interpreter (the preamble)
+        self.check_jitcell_token_count(1)
+        self.check_target_token_count(4)
 
     def test_two_behaviors(self):
         py.test.skip("XXX fix me!!!!!!! problem in optimize.py")
@@ -403,7 +404,7 @@ class SendTests(object):
         # is true if we replace "if cases[y]" above with "if not cases[y]"
         # -- so there is no good reason that it fails.
         self.check_loops(new_with_vtable=0)
-        self.check_loop_count(2)
+        self.check_trace_count(2)
 
     def test_behavior_change_after_a_while(self):
         myjitdriver = JitDriver(greens = [], reds = ['y', 'x'])
@@ -431,9 +432,10 @@ class SendTests(object):
         assert res == 200
         # we expect 2 versions of the loop, 1 entry bridge,
         # and 1 bridge going from the
-        # loop back to the start of the entry bridge
-        self.check_loop_count(3)        # 2 loop + 1 bridge
-        self.check_tree_loop_count(3)   # 2 loop + 1 entry bridge  (argh)
+        # loop back to the loop
+        self.check_trace_count(2)        # preamble/loop  and  1 bridge
+        self.check_jitcell_token_count(1) 
+        self.check_target_token_count(3) # preamble, Int1, Int2
         self.check_aborted_count(0)
 
     def test_three_cases(self):
@@ -454,7 +456,7 @@ class SendTests(object):
             return node.x
         res = self.meta_interp(f, [55])
         assert res == f(55)
-        self.check_tree_loop_count(4)
+        self.check_trace_count(3)
 
     def test_three_classes(self):
         class Base:
@@ -484,7 +486,7 @@ class SendTests(object):
             return n
         res = self.meta_interp(f, [55], policy=StopAtXPolicy(extern))
         assert res == f(55)
-        self.check_tree_loop_count(2)
+        self.check_jitcell_token_count(1)
 
     def test_bug1(self):
         myjitdriver = JitDriver(greens = [], reds = ['n', 'node'])

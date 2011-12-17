@@ -118,6 +118,10 @@ class CConfig:
         'struct GENERAL_NAME_st',
         [('type', rffi.INT),
          ])
+    EVP_MD_st = rffi_platform.Struct(
+        'EVP_MD',
+        [('md_size', rffi.INT),
+         ('block_size', rffi.INT)])
     EVP_MD_SIZE = rffi_platform.SizeOf('EVP_MD')
     EVP_MD_CTX_SIZE = rffi_platform.SizeOf('EVP_MD_CTX')
 
@@ -285,7 +289,7 @@ ssl_external('PEM_read_bio_X509_AUX',
              [BIO, rffi.VOIDP, rffi.VOIDP, rffi.VOIDP], X509)
 
 EVP_MD_CTX = rffi.COpaquePtr('EVP_MD_CTX', compilation_info=eci)
-EVP_MD     = rffi.COpaquePtr('EVP_MD', compilation_info=eci)
+EVP_MD     = lltype.Ptr(EVP_MD_st)
 
 OpenSSL_add_all_digests = external(
     'OpenSSL_add_all_digests', [], lltype.Void)
