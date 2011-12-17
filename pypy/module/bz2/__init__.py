@@ -12,8 +12,8 @@ sequential (de)compression."""
         'BZ2Decompressor': 'interp_bz2.W_BZ2Decompressor',
         'compress': 'interp_bz2.compress',
         'decompress': 'interp_bz2.decompress',
-        'BZ2File': 'interp_bz2.W_BZ2File',
     }
 
     appleveldefs = {
+        'BZ2File': 'app_bz2file.BZ2File',
     }
