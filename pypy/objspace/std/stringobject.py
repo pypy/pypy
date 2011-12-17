@@ -514,44 +514,41 @@ def _string_replace(space, input, sub, by, maxsplit):
     if maxsplit == 0:
         return space.wrap(input)
 
-    #print "from replace, input: %s, sub: %s, by: %s" % (input, sub, by)
+    # An ok guess at the default size
+    builder = StringBuilder(len(input))
+    first = True
 
     if not sub:
         upper = len(input)
         if maxsplit > 0 and maxsplit < upper + 2:
             upper = maxsplit - 1
             assert upper >= 0
-        substrings_w = [""]
+        first = False
         for i in range(upper):
-            c = input[i]
-            substrings_w.append(c)
-        substrings_w.append(input[upper:])
+            builder.append(by)
+            builder.append(input[i])
+        builder.append(by)
+        builder.append_slice(input, upper, len(input))
     else:
         start = 0
         sublen = len(sub)
-        substrings_w = []
 
         while maxsplit != 0:
             next = input.find(sub, start)
             if next < 0:
                 break
-            substrings_w.append(input[start:next])
+            if not first:
+                builder.append(by)
+            first = False
+            builder.append_slice(input, start, next)
             start = next + sublen
             maxsplit -= 1   # NB. if it's already < 0, it stays < 0
 
-        substrings_w.append(input[start:])
+        if not first:
+            builder.append(by)
+        builder.append_slice(input, start, len(input))
 
-    try:
-        # XXX conservative estimate. If your strings are that close
-        # to overflowing, bad luck.
-        one = ovfcheck(len(substrings_w) * len(by))
-        ovfcheck(one + len(input))
-    except OverflowError:
-        raise OperationError(
-            space.w_OverflowError,
-            space.wrap("replace string is too long"))
-
-    return space.wrap(by.join(substrings_w))
+    return space.wrap(builder.build())
 
 
 def str_replace__String_ANY_ANY_ANY(space, w_self, w_sub, w_by, w_maxsplit):

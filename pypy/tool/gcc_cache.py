@@ -11,9 +11,6 @@ def cache_file_path(c_files, eci, cachename):
     # Import 'platform' every time, the compiler may have been changed
     from pypy.translator.platform import platform
     cache_dir = cache_dir_root.join(cachename).ensure(dir=1)
-    c_files.extend([py.path.local(f) for f in eci.separate_module_files])
-    eci = ExternalCompilationInfo(**eci._copy_attributes())
-    eci.separate_module_files = ()
     filecontents = [c_file.read() for c_file in c_files]
     key = repr((filecontents, eci, platform.key()))
     hash = md5(key).hexdigest()
