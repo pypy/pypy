@@ -42,6 +42,15 @@ class GcLLDescription(GcCache):
         self.field_unicodelen_descr = get_field_arraylen_descr(self,
                                                                rstr.UNICODE)
 
+    def _ready(self):
+        MALLOC_FIXEDSIZE = lltype.Ptr(
+            lltype.FuncType([lltype.Signed], llmemory.GCREF))
+        self.malloc_fixedsize_fn = llhelper(MALLOC_FIXEDSIZE,
+                                            self.malloc_fixedsize)
+        self.c_malloc_fixedsize_fn = ConstInt(
+            heaptracker.adr2int(llmemory.cast_ptr_to_adr(
+                self.malloc_fixedsize_fn)))
+
     def _freeze_(self):
         return True
     def initialize(self):
@@ -55,28 +64,11 @@ class GcLLDescription(GcCache):
     def freeing_block(self, start, stop):
         pass
 
-    def get_funcptr_for_malloc_gc_fixed(self):
-        """Returns a function pointer to a function that implements
-        the simple case of MALLOC_GC: the case where the variable size
-        is zero.  The function pointer has signature (size) -> GCREF."""
-        raise NotImplementedError
-
-    def get_funcptr_for_malloc_gc_variable(self):
-        """Returns a function pointer to a function that implements
-        the complex case of MALLOC_GC: the case where the variable size
-        is not known to be zero.  The signature is:
-            (base_size, num_elem, item_size) -> GCREF"""
-        raise NotImplementedError
-
     def gc_malloc(self, sizedescr):
         """Blackhole: do a 'bh_new'.  Also used for 'bh_new_with_vtable',
         with the vtable pointer set manually afterwards."""
         assert isinstance(sizedescr, BaseSizeDescr)
-        mallocptr = self.get_funcptr_for_malloc_gc_fixed()
-        res = mallocptr(sizedescr.size)
-        if res:
-            self._set_tid(res, sizedescr.tid)
-        return res
+        return self._gc_malloc(sizedescr.size, sizedescr.tid)
 
     def gc_malloc_array(self, arraydescr, num_elem):
         assert isinstance(arraydescr, BaseArrayDescr)
@@ -97,18 +89,6 @@ class GcLLDescription(GcCache):
                                      self.unicode_itemsize,
                                      self.unicode_ofs_length,
                                      self.unicode_type_id)
-
-    def _gc_malloc_array(self, basesize, num_elem, itemsize, ofs_length, tid):
-        mallocptr = self.get_funcptr_for_malloc_gc_variable()
-        res = mallocptr(basesize, num_elem, itemsize)
-        if res:
-            self._set_tid(res, tid)
-            arrayptr = rffi.cast(rffi.CArrayPtr(lltype.Signed), res)
-            arrayptr[ofs_length/WORD] = num_elem
-        return res
-
-    def _set_tid(self, gcptr, tid):
-        pass    # unless overridden
 
     def _record_constptrs(self, op, gcrefs_output_list):
         for i in range(op.numargs()):
@@ -180,24 +160,35 @@ class GcLLDescr_boehm(GcLLDescription):
     def __init__(self, gcdescr, translator, rtyper):
         GcLLDescription.__init__(self, gcdescr, translator, rtyper)
         # grab a pointer to the Boehm 'malloc' function
-        self.malloc_fn_ptr = self.configure_boehm_once()
+        malloc_fn_ptr = self.configure_boehm_once()
+        self.malloc_fn_ptr = malloc_fn_ptr
         #
-        def malloc_gc_variable(basesize, num_elem, itemsize):
-            try:
-                size = ovfcheck(basesize + ovfcheck(itemsize * num_elem))
-            except OverflowError:
-                return lltype.nullptr(llmemory.GCREF.TO)
-            return self.malloc_fn_ptr(size)
+        def malloc_fixedsize(size):
+            res = malloc_fn_ptr(size)
+            if not res:
+                raise MemoryError
+            return res
+        self.malloc_fixedsize = malloc_fixedsize
         #
-        self.malloc_gc_variable = malloc_gc_variable
-        self.MALLOC_GC_VARIABLE = lltype.Ptr(
-            lltype.FuncType([lltype.Signed] * 3, llmemory.GCREF))
+        self._ready()
 
-    def get_funcptr_for_malloc_gc_fixed(self):
-        return self.malloc_fn_ptr
+    def _gc_malloc(self, size, tid):
+        # Boehm: 'tid' is ignored
+        return self.malloc_fixedsize(size)
 
-    def get_funcptr_for_malloc_gc_variable(self):
-        return llhelper(self.MALLOC_GC_VARIABLE, self.malloc_gc_variable)
+    def _gc_malloc_array(self, basesize, num_elem, itemsize, ofs_length, tid):
+        # Boehm: 'tid' is ignored
+        try:
+            totalsize = ovfcheck(basesize + ovfcheck(itemsize * num_elem))
+        except OverflowError:
+            raise MemoryError
+        res = self.malloc_fn_ptr(totalsize)
+        if not res:
+            raise MemoryError
+        arrayptr = rffi.cast(rffi.CArrayPtr(lltype.Signed), res)
+        arrayptr[ofs_length/WORD] = num_elem
+        return res
+
 
 # ____________________________________________________________
 # All code below is for the hybrid or minimark GC

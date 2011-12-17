@@ -472,8 +472,6 @@ _oplist = [
     'NEW_ARRAY/1d',
     'NEWSTR/1',
     'NEWUNICODE/1',
-    'MALLOC_GC/3',       # added by llsupport/gc: malloc of C1+N*C2 bytes
-    'MALLOC_NURSERY/1',  # added by llsupport/gc: nursery malloc, const bytes
     '_MALLOC_LAST',
     'FORCE_TOKEN/0',
     'VIRTUAL_REF/2',         # removed before it's passed to the backend
@@ -510,6 +508,8 @@ _oplist = [
     #'OOSEND',                     # ootype operation
     #'OOSEND_PURE',                # ootype operation
     'CALL_PURE/*d',             # removed before it's passed to the backend
+    'CALL_MALLOC_GC/*d',      # like CALL, but NULL => propagate MemoryError
+    'CALL_MALLOC_NURSERY/2d', # nursery malloc, const number of bytes, zeroed
     '_CALL_LAST',
     '_CANRAISE_LAST', # ----- end of can_raise operations -----
 

@@ -11,8 +11,11 @@ class GcRewriterAssembler(object):
     #
     # - Remove the DEBUG_MERGE_POINTs.
     #
-    # - Turn all NEW_xxx to MALLOC_GC operations, possibly followed by
-    #   SETFIELDs in order to initialize their GC fields.
+    # - Turn all NEW_xxx to either a CALL_MALLOC_GC, or a CALL_MALLOC_NURSERY
+    #   followed by SETFIELDs in order to initialize their GC fields.  The
+    #   two advantages of CALL_MALLOC_NURSERY is that it inlines the common
+    #   path, and we need only one such operation to allocate several blocks
+    #   of memory at once.
     #
     # - Add COND_CALLs to the write barrier before SETFIELD_GC and
     #   SETARRAYITEM_GC operations.
@@ -40,7 +43,7 @@ class GcRewriterAssembler(object):
         for op in operations:
             if op.getopnum() == rop.DEBUG_MERGE_POINT:
                 continue
-            # ---------- fold the NEWxxx operations into MALLOC_GC ----------
+            # ---------- turn NEWxxx into CALL_MALLOC_xxx ----------
             if op.is_malloc():
                 self.handle_malloc_operation(op)
                 continue
@@ -116,11 +119,12 @@ class GcRewriterAssembler(object):
                 var_size = ovfcheck(item_size * num_elem)
                 total_size = ovfcheck(base_size + var_size)
             except OverflowError:
-                pass
+                pass    # total_size is still -1
         if total_size >= 0:
             self.gen_malloc_nursery(total_size, op.result)
         else:
-            self.gen_malloc_gc(base_size, op.result,
+            xxx
+            self.gen_new_array(base_size, op.result,
                                v_length, ConstInt(item_size))
         self.gen_initialize_tid(op.result, tid)
         self.gen_initialize_len(op.result, v_length, arraylen_descr)
@@ -135,12 +139,14 @@ class GcRewriterAssembler(object):
         self._op_malloc_nursery = None
         self.recent_mallocs.clear()
 
-    def gen_malloc_gc(self, size, v_result,
-                      v_num_elem=c_zero, c_item_size=c_zero):
-        """Generate a MALLOC_GC."""
-        c_size = ConstInt(size)
+    def gen_malloc_fixedsize(self, size, v_result):
+        """Generate a CALL_MALLOC_GC(malloc_fixedsize_fn, Const(size)).
+        Note that with the framework GC, this should be called very rarely.
+        """
         self.emitting_an_operation_that_can_collect()
-        op = ResOperation(rop.MALLOC_GC, [c_size, v_num_elem, c_item_size],
+        c_size = ConstInt(size)
+        op = ResOperation(rop.CALL_MALLOC_GC,
+                          [self.gc_ll_descr.c_malloc_fixedsize_fn, c_size],
                           v_result)
         self.newops.append(op)
         # mark 'v_result' as freshly malloced
@@ -151,8 +157,7 @@ class GcRewriterAssembler(object):
         If that fails, generate a plain MALLOC_GC instead.
         """
         if not self.gc_ll_descr.can_use_nursery_malloc(size):
-            self.gen_malloc_gc(size, v_result)
-            return
+            return self.gen_malloc_fixedsize(size, v_result)
         #
         size = self.round_up_for_allocation(size)
         op = None
@@ -178,6 +183,7 @@ class GcRewriterAssembler(object):
         self._previous_size = size
         self._v_last_malloced_nursery = v_result
         self.recent_mallocs[v_result] = None
+        return True
 
     def gen_initialize_tid(self, v_newgcobj, tid):
         if self.gc_ll_descr.fielddescr_tid is not None:

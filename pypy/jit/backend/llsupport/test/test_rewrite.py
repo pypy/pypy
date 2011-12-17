@@ -15,6 +15,8 @@ class Evaluator(object):
 
 class RewriteTests(object):
     def check_rewrite(self, frm_operations, to_operations):
+        malloc_fixedsize = self.gc_ll_descr.malloc_fixedsize_fn
+        #
         S = lltype.GcStruct('S', ('x', lltype.Signed),
                                  ('y', lltype.Signed))
         sdescr = get_size_descr(self.gc_ll_descr, S)
@@ -84,7 +86,7 @@ class TestBoehm(RewriteTests):
             jump()
         """, """
             [p1]
-            p0 = malloc_gc(%(sdescr.size)d, 0, 0)
+            p0 = call_malloc_gc(ConstClass(malloc_fixedsize), %(sdescr.size)d)
             jump()
         """)
 
@@ -96,8 +98,8 @@ class TestBoehm(RewriteTests):
             jump()
         """, """
             []
-            p0 = malloc_gc(%(sdescr.size)d, 0, 0)
-            p1 = malloc_gc(%(sdescr.size)d, 0, 0)
+            p0 = call_malloc_gc(ConstClass(malloc_fixedsize), %(sdescr.size)d)
+            p1 = call_malloc_gc(ConstClass(malloc_fixedsize), %(sdescr.size)d)
             jump()
         """)
 
@@ -108,8 +110,9 @@ class TestBoehm(RewriteTests):
             jump()
         """, """
             []
-            p0 = malloc_gc(%(adescr.get_base_size(False) + \
-                             10 * adescr.get_item_size(False))d, 0, 0)
+            p0 = call_malloc_gc(ConstClass(malloc_fixedsize), \
+                                %(adescr.get_base_size(False) + \
+                                10 * adescr.get_item_size(False))d)
             setfield_gc(p0, 10, descr=alendescr)
             jump()
         """)
@@ -121,8 +124,10 @@ class TestBoehm(RewriteTests):
             jump()
         """, """
             [i1]
-            p0 = malloc_gc(%(adescr.get_base_size(False))d,         \
-                           i1, %(adescr.get_item_size(False))d)
+            p0 = call_malloc_gc(ConstClass(malloc_varsize), \
+                                %(adescr.get_base_size(False))d, \
+                                i1, \
+                                %(adescr.get_item_size(False))d)
             setfield_gc(p0, i1, descr=alendescr)
             jump()
         """)

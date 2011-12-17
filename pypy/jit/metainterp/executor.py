@@ -344,8 +344,8 @@ def _make_execute_list():
                          rop.SETINTERIORFIELD_RAW,
                          rop.CALL_RELEASE_GIL,
                          rop.QUASIIMMUT_FIELD,
-                         rop.MALLOC_GC,
-                         rop.MALLOC_NURSERY,
+                         rop.CALL_MALLOC_GC,
+                         rop.CALL_MALLOC_NURSERY,
                          rop.LABEL,
                          ):      # list of opcodes never executed by pyjitpl
                 continue
