@@ -1,3 +1,4 @@
+import math
 from pypy.rpython.test.test_llinterp import interpret
 from pypy.rpython.lltypesystem import lltype, llmemory, rstr, rffi
 from pypy.rpython.ootypesystem import ootype
@@ -8,7 +9,7 @@ from pypy.jit.metainterp.warmstate import WarmEnterState, JitCell
 from pypy.jit.metainterp.history import BoxInt, BoxFloat, BoxPtr
 from pypy.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr
 from pypy.jit.codewriter import longlong
-from pypy.rlib.rarithmetic import r_singlefloat
+from pypy.rlib.rarithmetic import r_singlefloat, r_uint
 
 def boxfloat(x):
     return BoxFloat(longlong.getfloatstorage(x))
@@ -151,29 +152,6 @@ def test_make_jitcell_getter_custom():
     assert get_jitcell(False, 42, 0.25) is cell4
     assert cell1 is not cell3 is not cell4 is not cell1
 
-def test_make_set_future_values():
-    future_values = {}
-    class FakeCPU:
-        def set_future_value_int(self, j, value):
-            future_values[j] = "int", value
-        def set_future_value_float(self, j, value):
-            future_values[j] = "float", value
-    class FakeWarmRunnerDesc:
-        cpu = FakeCPU()
-        memory_manager = None
-    class FakeJitDriverSD:
-        _red_args_types = ["int", "float"]
-        virtualizable_info = None
-    #
-    state = WarmEnterState(FakeWarmRunnerDesc(), FakeJitDriverSD())
-    set_future_values = state.make_set_future_values()
-    set_future_values(5, 42.5)
-    assert future_values == {
-        0: ("int", 5),
-        1: ("float", longlong.getfloatstorage(42.5)),
-    }
-    assert set_future_values is state.make_set_future_values()
-
 def test_make_unwrap_greenkey():
     class FakeJitDriverSD:
         _green_args_spec = [lltype.Signed, lltype.Float]
@@ -210,6 +188,7 @@ def test_make_jitdriver_callbacks_1():
         _confirm_enter_jit_ptr = None
         _can_never_inline_ptr = None
         _should_unroll_one_iteration_ptr = None
+        red_args_types = []
     class FakeCell:
         dont_trace_here = False
     state = WarmEnterState(FakeWarmRunnerDesc(), FakeJitDriverSD())
@@ -239,6 +218,7 @@ def test_make_jitdriver_callbacks_3():
         _can_never_inline_ptr = None
         _get_jitcell_at_ptr = None
         _should_unroll_one_iteration_ptr = None
+        red_args_types = []
     state = WarmEnterState(FakeWarmRunnerDesc(), FakeJitDriverSD())
     state.make_jitdriver_callbacks()
     res = state.get_location_str([ConstInt(5), constfloat(42.5)])
@@ -264,6 +244,7 @@ def test_make_jitdriver_callbacks_4():
         _can_never_inline_ptr = None
         _get_jitcell_at_ptr = None
         _should_unroll_one_iteration_ptr = None
+        red_args_types = []
 
     state = WarmEnterState(FakeWarmRunnerDesc(), FakeJitDriverSD())
     state.make_jitdriver_callbacks()
@@ -289,8 +270,83 @@ def test_make_jitdriver_callbacks_5():
         _can_never_inline_ptr = llhelper(CAN_NEVER_INLINE, can_never_inline)
         _get_jitcell_at_ptr = None
         _should_unroll_one_iteration_ptr = None
+        red_args_types = []
 
     state = WarmEnterState(FakeWarmRunnerDesc(), FakeJitDriverSD())
     state.make_jitdriver_callbacks()
     res = state.can_never_inline(5, 42.5)
     assert res is True
+
+def test_decay_counters():
+    cell = JitCell(r_uint(5))
+    cell.counter = 100
+    cell.adjust_counter(r_uint(5), math.log(0.9))
+    assert cell.counter == 100
+    cell.adjust_counter(r_uint(6), math.log(0.9))
+    assert cell.counter == 90
+    cell.adjust_counter(r_uint(9), math.log(0.9))
+    assert cell.counter == int(90 * (0.9**3))
+
+def test_cleanup_jitcell_dict():
+    from pypy.jit.metainterp.memmgr import MemoryManager
+    class FakeWarmRunnerDesc:
+        memory_manager = MemoryManager()
+        class cpu:
+            pass
+    class FakeJitDriverSD:
+        _green_args_spec = [lltype.Signed]
+    #
+    # Test creating tons of jitcells that remain at 0
+    warmstate = WarmEnterState(FakeWarmRunnerDesc(), FakeJitDriverSD())
+    get_jitcell = warmstate._make_jitcell_getter_default()
+    cell1 = get_jitcell(True, -1)
+    assert len(warmstate._jitcell_dict) == 1
+    assert FakeWarmRunnerDesc.memory_manager.current_generation == 1
+    #
+    for i in range(1, 20005):
+        get_jitcell(True, i)     # should trigger a clean-up at 20001
+        assert len(warmstate._jitcell_dict) == (i % 20000) + 1
+    assert FakeWarmRunnerDesc.memory_manager.current_generation == 2
+    #
+    # Same test, with one jitcell that has a counter of BASE instead of 0
+    warmstate = WarmEnterState(FakeWarmRunnerDesc(), FakeJitDriverSD())
+    warmstate.set_param_decay_halflife(2)
+    warmstate.set_param_threshold(5)
+    warmstate.set_param_function_threshold(0)
+    get_jitcell = warmstate._make_jitcell_getter_default()
+    cell2 = get_jitcell(True, -2)
+    cell2.counter = BASE = warmstate.increment_threshold * 3
+    #
+    for i in range(0, 20005):
+        get_jitcell(True, i)
+        assert len(warmstate._jitcell_dict) == (i % 19999) + 2
+    #
+    assert cell2 in warmstate._jitcell_dict.values()
+    assert cell2.counter == int(BASE * math.sqrt(0.5))   # decayed once
+    assert FakeWarmRunnerDesc.memory_manager.current_generation == 3
+    #
+    # Same test, with jitcells that are compiled and free by the memmgr
+    warmstate = WarmEnterState(FakeWarmRunnerDesc(), FakeJitDriverSD())
+    get_jitcell = warmstate._make_jitcell_getter_default()
+    get_jitcell(True, -1)
+    assert FakeWarmRunnerDesc.memory_manager.current_generation == 3
+    #
+    for i in range(1, 20005):
+        cell = get_jitcell(True, i)
+        cell.counter = -1
+        cell.wref_procedure_token = None    # or a dead weakref, equivalently
+        assert len(warmstate._jitcell_dict) == (i % 20000) + 1
+    assert FakeWarmRunnerDesc.memory_manager.current_generation == 4
+    #
+    # Same test, with counter == -2 (rare case, kept alive)
+    warmstate = WarmEnterState(FakeWarmRunnerDesc(), FakeJitDriverSD())
+    get_jitcell = warmstate._make_jitcell_getter_default()
+    cell = get_jitcell(True, -1)
+    cell.counter = -2
+    assert FakeWarmRunnerDesc.memory_manager.current_generation == 4
+    #
+    for i in range(1, 20005):
+        cell = get_jitcell(True, i)
+        cell.counter = -2
+        assert len(warmstate._jitcell_dict) == i + 1
+    assert FakeWarmRunnerDesc.memory_manager.current_generation == 5

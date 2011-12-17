@@ -16,8 +16,7 @@ from pypy.jit.codewriter import longlong
 #
 
 class AssemblerLocation(object):
-    # XXX: Is adding "width" here correct?
-    _attrs_ = ('value', 'width', '_location_code')
+    _attrs_ = ('value', '_location_code')
     _immutable_ = True
     def _getregkey(self):
         return self.value
@@ -27,6 +26,9 @@ class AssemblerLocation(object):
 
     def location_code(self):
         return self._location_code
+
+    def get_width(self):
+        raise NotImplementedError
 
     def value_r(self): return self.value
     def value_b(self): return self.value
@@ -43,13 +45,20 @@ class StackLoc(AssemblerLocation):
     _immutable_ = True
     _location_code = 'b'
 
-    def __init__(self, position, ebp_offset, num_words, type):
-        assert ebp_offset < 0   # so no confusion with RegLoc.value
+    def __init__(self, position, ebp_offset, type):
+        # _getregkey() returns self.value; the value returned must not
+        # conflict with RegLoc._getregkey().  It doesn't a bit by chance,
+        # so let it fail the following assert if it no longer does.
+        assert not (0 <= ebp_offset < 8 + 8 * IS_X86_64)
         self.position = position
         self.value = ebp_offset
-        self.width = num_words * WORD
         # One of INT, REF, FLOAT
         self.type = type
+
+    def get_width(self):
+        if self.type == FLOAT:
+            return 8
+        return WORD
 
     def __repr__(self):
         return '%d(%%ebp)' % (self.value,)
@@ -64,16 +73,19 @@ class RegLoc(AssemblerLocation):
         self.value = regnum
         self.is_xmm = is_xmm
         if self.is_xmm:
-            self.width = 8
             self._location_code = 'x'
         else:
-            self.width = WORD
             self._location_code = 'r'
     def __repr__(self):
         if self.is_xmm:
             return rx86.R.xmmnames[self.value]
         else:
             return rx86.R.names[self.value]
+
+    def get_width(self):
+        if self.is_xmm:
+            return 8
+        return WORD
 
     def lowest8bits(self):
         assert not self.is_xmm
@@ -92,9 +104,11 @@ class RegLoc(AssemblerLocation):
         else:
             return eax
 
-class ImmedLoc(AssemblerLocation):
+class ImmediateAssemblerLocation(AssemblerLocation):
     _immutable_ = True
-    width = WORD
+
+class ImmedLoc(ImmediateAssemblerLocation):
+    _immutable_ = True
     _location_code = 'i'
 
     def __init__(self, value):
@@ -104,6 +118,9 @@ class ImmedLoc(AssemblerLocation):
 
     def getint(self):
         return self.value
+
+    def get_width(self):
+        return WORD
 
     def __repr__(self):
         return "ImmedLoc(%d)" % (self.value)
@@ -117,7 +134,6 @@ class ImmedLoc(AssemblerLocation):
 class AddressLoc(AssemblerLocation):
     _immutable_ = True
 
-    width = WORD
     # The address is base_loc + (scaled_loc << scale) + static_offset
     def __init__(self, base_loc, scaled_loc, scale=0, static_offset=0):
         assert 0 <= scale < 4
@@ -145,6 +161,9 @@ class AddressLoc(AssemblerLocation):
         attr = dict.get(self._location_code, '?')
         info = getattr(self, attr, '?')
         return '<AddressLoc %r: %s>' % (self._location_code, info)
+
+    def get_width(self):
+        return WORD
 
     def value_a(self):
         return self.loc_a
@@ -180,31 +199,33 @@ class AddressLoc(AssemblerLocation):
             raise AssertionError(self._location_code)
         return result
 
-class ConstFloatLoc(AssemblerLocation):
-    # XXX: We have to use this class instead of just AddressLoc because
-    # we want a width of 8  (... I think.  Check this!)
+class ConstFloatLoc(ImmediateAssemblerLocation):
     _immutable_ = True
-    width = 8
     _location_code = 'j'
 
     def __init__(self, address):
         self.value = address
 
+    def get_width(self):
+        return 8
+
     def __repr__(self):
         return '<ConstFloatLoc @%s>' % (self.value,)
 
 if IS_X86_32:
-    class FloatImmedLoc(AssemblerLocation):
+    class FloatImmedLoc(ImmediateAssemblerLocation):
         # This stands for an immediate float.  It cannot be directly used in
         # any assembler instruction.  Instead, it is meant to be decomposed
         # in two 32-bit halves.  On 64-bit, FloatImmedLoc() is a function
         # instead; see below.
         _immutable_ = True
-        width = 8
         _location_code = '#'     # don't use me
 
         def __init__(self, floatstorage):
             self.aslonglong = floatstorage
+
+        def get_width(self):
+            return 8
 
         def low_part(self):
             return intmask(self.aslonglong)

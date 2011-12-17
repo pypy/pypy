@@ -250,22 +250,6 @@ class TestNumpyJIt(LLJitMixin):
                                 'int_ge': 1, 'guard_false': 1,
                                 'jump': 1})
 
-    def define_slice2():
-        return """
-        a = |30|
-        s1 = a -> :20:2
-        s2 = a -> :30:3
-        b = s1 + s2
-        b -> 3
-        """
-
-    def test_slice2(self):
-        result = self.run("slice2")
-        assert result == 15
-        self.check_simple_loop({'getinteriorfield_raw': 2, 'float_add': 1,
-                                'setinteriorfield_raw': 1, 'int_add': 3,
-                                'int_ge': 1, 'guard_false': 1, 'jump': 1})
-
     def define_multidim():
         return """
         a = [[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]]

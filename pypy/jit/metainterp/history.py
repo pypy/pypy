@@ -124,9 +124,6 @@ class AbstractValue(object):
     def sort_key(self):
         raise NotImplementedError
 
-    def set_future_value(self, cpu, j):
-        raise NotImplementedError
-
     def nonnull(self):
         raise NotImplementedError
 
@@ -289,9 +286,6 @@ class ConstInt(Const):
     def _get_hash_(self):
         return make_hashable_int(self.value)
 
-    def set_future_value(self, cpu, j):
-        cpu.set_future_value_int(j, self.value)
-
     def same_constant(self, other):
         if isinstance(other, ConstInt):
             return self.value == other.value
@@ -328,9 +322,6 @@ class ConstFloat(Const):
 
     def _get_hash_(self):
         return longlong.gethash(self.value)
-
-    def set_future_value(self, cpu, j):
-        cpu.set_future_value_float(j, self.value)
 
     def same_constant(self, other):
         if isinstance(other, ConstFloat):
@@ -377,9 +368,6 @@ class ConstPtr(Const):
 
     def getaddr(self):
         return llmemory.cast_ptr_to_adr(self.value)
-
-    def set_future_value(self, cpu, j):
-        cpu.set_future_value_ref(j, self.value)
 
     def same_constant(self, other):
         if isinstance(other, ConstPtr):
@@ -431,9 +419,6 @@ class ConstObj(Const):
             return ootype.identityhash(self.value)
         else:
             return 0
-
-    def set_future_value(self, cpu, j):
-        cpu.set_future_value_ref(j, self.value)
 
 ##    def getaddr(self):
 ##        # so far this is used only when calling
@@ -540,9 +525,6 @@ class BoxInt(Box):
     def _get_hash_(self):
         return make_hashable_int(self.value)
 
-    def set_future_value(self, cpu, j):
-        cpu.set_future_value_int(j, self.value)
-
     def nonnull(self):
         return self.value != 0
 
@@ -574,9 +556,6 @@ class BoxFloat(Box):
 
     def _get_hash_(self):
         return longlong.gethash(self.value)
-
-    def set_future_value(self, cpu, j):
-        cpu.set_future_value_float(j, self.value)
 
     def nonnull(self):
         return self.value != longlong.ZEROF
@@ -619,9 +598,6 @@ class BoxPtr(Box):
             return lltype.identityhash(self.value)
         else:
             return 0
-
-    def set_future_value(self, cpu, j):
-        cpu.set_future_value_ref(j, self.value)
 
     def nonnull(self):
         return bool(self.value)
@@ -667,18 +643,11 @@ class BoxObj(Box):
     def nonnull(self):
         return bool(self.value)
 
-    def set_future_value(self, cpu, j):
-        cpu.set_future_value_ref(j, self.value)
-
     def repr_rpython(self):
         return repr_rpython(self, 'bo')
 
     _getrepr_ = repr_object
 
-
-def set_future_values(cpu, boxes):
-    for j in range(len(boxes)):
-        boxes[j].set_future_value(cpu, j)
 
 # ____________________________________________________________
 
@@ -768,10 +737,23 @@ class JitCellToken(AbstractDescr):
 
 class TargetToken(AbstractDescr):
     def __init__(self, targeting_jitcell_token=None):
-        # The jitcell to which jumps might result in a jump to this label
+        # Warning, two different jitcell_tokens here!
+        #
+        # * 'targeting_jitcell_token' is only useful for the front-end,
+        #   and it means: consider the LABEL that uses this TargetToken.
+        #   At this position, the state is logically the one given
+        #   by targeting_jitcell_token.  So e.g. if we want to enter the
+        #   JIT with some given green args, if the jitcell matches, then
+        #   we can jump to this LABEL.
+        #
+        # * 'original_jitcell_token' is information from the backend's
+        #   point of view: it means that this TargetToken is used in
+        #   a LABEL that belongs to either:
+        #   - a loop; then 'original_jitcell_token' is this loop
+        #   - or a bridge; then 'original_jitcell_token' is the loop
+        #     out of which we made this bridge
+        #
         self.targeting_jitcell_token = targeting_jitcell_token
-        
-        # The jitcell where the trace containing the label with this TargetToken begins
         self.original_jitcell_token = None
 
         self.virtual_state = None
@@ -981,15 +963,19 @@ class Stats(object):
         self.aborted_keys = []
         self.invalidated_token_numbers = set()    # <- not RPython
         self.jitcell_token_wrefs = []
+        self.jitcell_dicts = []                   # <- not RPython
 
     def clear(self):
         del self.loops[:]
         del self.locations[:]
         del self.aborted_keys[:]
+        del self.jitcell_token_wrefs[:]
         self.invalidated_token_numbers.clear()
         self.compiled_count = 0
         self.enter_count = 0
         self.aborted_count = 0
+        for dict in self.jitcell_dicts:
+            dict.clear()
 
     def add_jitcell_token(self, token):
         assert isinstance(token, JitCellToken)

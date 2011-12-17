@@ -177,52 +177,55 @@ def make_specialised_class(typetuple):
 
 _specialisations = []
 Cls_ii = make_specialised_class((int, int))
-Cls_is = make_specialised_class((int, str))
-Cls_io = make_specialised_class((int, object))
-Cls_si = make_specialised_class((str, int))
-Cls_ss = make_specialised_class((str, str))
-Cls_so = make_specialised_class((str, object))
-Cls_oi = make_specialised_class((object, int))
-Cls_os = make_specialised_class((object, str))
+#Cls_is = make_specialised_class((int, str))
+#Cls_io = make_specialised_class((int, object))
+#Cls_si = make_specialised_class((str, int))
+#Cls_ss = make_specialised_class((str, str))
+#Cls_so = make_specialised_class((str, object))
+#Cls_oi = make_specialised_class((object, int))
+#Cls_os = make_specialised_class((object, str))
 Cls_oo = make_specialised_class((object, object))
 Cls_ff = make_specialised_class((float, float))
-Cls_ooo = make_specialised_class((object, object, object))
+#Cls_ooo = make_specialised_class((object, object, object))
 
 def makespecialisedtuple(space, list_w):
     if len(list_w) == 2:
         w_arg1, w_arg2 = list_w
         w_type1 = space.type(w_arg1)
-        w_type2 = space.type(w_arg2)
+        #w_type2 = space.type(w_arg2)
         #
         if w_type1 is space.w_int:
+            w_type2 = space.type(w_arg2)
             if w_type2 is space.w_int:
                 return Cls_ii(space, w_arg1, w_arg2)
-            elif w_type2 is space.w_str:
-                return Cls_is(space, w_arg1, w_arg2)
-            else:
-                return Cls_io(space, w_arg1, w_arg2)
+            #elif w_type2 is space.w_str:
+            #    return Cls_is(space, w_arg1, w_arg2)
+            #else:
+            #    return Cls_io(space, w_arg1, w_arg2)
         #
-        elif w_type1 is space.w_str:
-            if w_type2 is space.w_int:
-                return Cls_si(space, w_arg1, w_arg2)
-            elif w_type2 is space.w_str:
-                return Cls_ss(space, w_arg1, w_arg2)
-            else:
-                return Cls_so(space, w_arg1, w_arg2)
+        #elif w_type1 is space.w_str:
+        #    if w_type2 is space.w_int:
+        #        return Cls_si(space, w_arg1, w_arg2)
+        #    elif w_type2 is space.w_str:
+        #        return Cls_ss(space, w_arg1, w_arg2)
+        #    else:
+        #        return Cls_so(space, w_arg1, w_arg2)
         #
-        elif w_type1 is space.w_float and w_type2 is space.w_float:
-            return Cls_ff(space, w_arg1, w_arg2)
+        elif w_type1 is space.w_float:
+            w_type2 = space.type(w_arg2)
+            if w_type2 is space.w_float:
+                return Cls_ff(space, w_arg1, w_arg2)
         #
-        else:
-            if w_type2 is space.w_int:
-                return Cls_oi(space, w_arg1, w_arg2)
-            elif w_type2 is space.w_str:
-                return Cls_os(space, w_arg1, w_arg2)
-            else:
-                return Cls_oo(space, w_arg1, w_arg2)
+        #else:
+        #    if w_type2 is space.w_int:
+        #        return Cls_oi(space, w_arg1, w_arg2)
+        #    elif w_type2 is space.w_str:
+        #        return Cls_os(space, w_arg1, w_arg2)
+        #    else:
+        return Cls_oo(space, w_arg1, w_arg2)
         #
-    elif len(list_w) == 3:
-        return Cls_ooo(space, list_w[0], list_w[1], list_w[2])
+    #elif len(list_w) == 3:
+    #    return Cls_ooo(space, list_w[0], list_w[1], list_w[2])
     else:
         raise NotSpecialised
 

@@ -31,9 +31,9 @@ class W_AbstractComplexObject(W_Object):
         imag2 = float2longlong(imag2)
         return real1 == real2 and imag1 == imag2
 
-    def unique_id(self, space):
+    def immutable_unique_id(self, space):
         if self.user_overridden_class:
-            return W_Object.unique_id(self, space)
+            return None
         from pypy.rlib.longlong2float import float2longlong
         from pypy.objspace.std.model import IDTAG_COMPLEX as tag
         real = space.float_w(space.getattr(self, space.wrap("real")))

@@ -11,7 +11,7 @@ from pypy.tool.sourcetools import func_with_new_name
 from pypy.jit.metainterp.resoperation import ResOperation, rop, get_deep_immutable_oplist
 from pypy.jit.metainterp.history import TreeLoop, Box, History, JitCellToken, TargetToken
 from pypy.jit.metainterp.history import AbstractFailDescr, BoxInt
-from pypy.jit.metainterp.history import BoxPtr, BoxObj, BoxFloat, Const
+from pypy.jit.metainterp.history import BoxPtr, BoxObj, BoxFloat, Const, ConstInt
 from pypy.jit.metainterp import history
 from pypy.jit.metainterp.typesystem import llhelper, oohelper
 from pypy.jit.metainterp.optimize import InvalidLoop
@@ -254,7 +254,44 @@ def compile_retrace(metainterp, greenkey, start,
     record_loop_or_bridge(metainterp_sd, loop)
     return target_token
 
+def patch_new_loop_to_load_virtualizable_fields(loop, jitdriver_sd):
+    vinfo = jitdriver_sd.virtualizable_info
+    extra_ops = []
+    inputargs = loop.inputargs
+    vable_box = inputargs[jitdriver_sd.index_of_virtualizable]
+    i = jitdriver_sd.num_red_args
+    loop.inputargs = inputargs[:i]
+    for descr in vinfo.static_field_descrs:
+        assert i < len(inputargs)
+        box = inputargs[i]
+        extra_ops.append(
+            ResOperation(rop.GETFIELD_GC, [vable_box], box, descr))
+        i += 1
+    arrayindex = 0
+    for descr in vinfo.array_field_descrs:
+        vable = vable_box.getref_base()
+        arraylen = vinfo.get_array_length(vable, arrayindex)
+        arraybox = BoxPtr()
+        extra_ops.append(
+            ResOperation(rop.GETFIELD_GC, [vable_box], arraybox, descr))
+        arraydescr = vinfo.array_descrs[arrayindex]
+        assert i + arraylen <= len(inputargs)
+        for index in range(arraylen):
+            box = inputargs[i]
+            extra_ops.append(
+                ResOperation(rop.GETARRAYITEM_GC,
+                             [arraybox, ConstInt(index)],
+                             box, descr=arraydescr))
+            i += 1
+        arrayindex += 1
+    assert i == len(inputargs)
+    loop.operations = extra_ops + loop.operations
+
 def send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, loop, type):
+    vinfo = jitdriver_sd.virtualizable_info
+    if vinfo is not None:
+        patch_new_loop_to_load_virtualizable_fields(loop, jitdriver_sd)
+
     original_jitcell_token = loop.original_jitcell_token
     jitdriver_sd.on_compile(metainterp_sd.logger_ops, original_jitcell_token,
                             loop.operations, type, greenkey)
@@ -435,14 +472,14 @@ class ResumeGuardDescr(ResumeDescr):
         if self.must_compile(metainterp_sd, jitdriver_sd):
             self.start_compiling()
             try:
-                return self._trace_and_compile_from_bridge(metainterp_sd,
-                                                           jitdriver_sd)
+                self._trace_and_compile_from_bridge(metainterp_sd,
+                                                    jitdriver_sd)
             finally:
                 self.done_compiling()
         else:
             from pypy.jit.metainterp.blackhole import resume_in_blackhole
             resume_in_blackhole(metainterp_sd, jitdriver_sd, self)
-            assert 0, "unreachable"
+        assert 0, "unreachable"
 
     def _trace_and_compile_from_bridge(self, metainterp_sd, jitdriver_sd):
         # 'jitdriver_sd' corresponds to the outermost one, i.e. the one
@@ -451,7 +488,7 @@ class ResumeGuardDescr(ResumeDescr):
         # jitdrivers.
         from pypy.jit.metainterp.pyjitpl import MetaInterp
         metainterp = MetaInterp(metainterp_sd, jitdriver_sd)
-        return metainterp.handle_guard_failure(self)
+        metainterp.handle_guard_failure(self)
     _trace_and_compile_from_bridge._dont_inline_ = True
 
     def must_compile(self, metainterp_sd, jitdriver_sd):
@@ -767,21 +804,25 @@ class PropagateExceptionDescr(AbstractFailDescr):
         assert exception, "PropagateExceptionDescr: no exception??"
         raise metainterp_sd.ExitFrameWithExceptionRef(cpu, exception)
 
-def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redboxes,
+def compile_tmp_callback(cpu, jitdriver_sd, greenboxes, redargtypes,
                          memory_manager=None):
     """Make a LoopToken that corresponds to assembler code that just
     calls back the interpreter.  Used temporarily: a fully compiled
     version of the code may end up replacing it.
     """
-    # 'redboxes' is only used to know the types of red arguments.
-    inputargs = [box.clonebox() for box in redboxes]
     jitcell_token = make_jitcell_token(jitdriver_sd)
-    # 'nb_red_args' might be smaller than len(redboxes),
-    # because it doesn't include the virtualizable boxes.
     nb_red_args = jitdriver_sd.num_red_args
+    assert len(redargtypes) == nb_red_args
+    inputargs = []
+    for kind in redargtypes:
+        if   kind == history.INT:   box = BoxInt()
+        elif kind == history.REF:   box = BoxPtr()
+        elif kind == history.FLOAT: box = BoxFloat()
+        else: raise AssertionError
+        inputargs.append(box)
     k = jitdriver_sd.portal_runner_adr
     funcbox = history.ConstInt(heaptracker.adr2int(k))
-    callargs = [funcbox] + greenboxes + inputargs[:nb_red_args]
+    callargs = [funcbox] + greenboxes + inputargs
     #
     result_type = jitdriver_sd.result_type
     if result_type == history.INT:
