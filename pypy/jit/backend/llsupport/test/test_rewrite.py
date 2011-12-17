@@ -319,9 +319,8 @@ class TestFramework(RewriteTests):
             jump(i0)
         """, """
             [i0]
-            p0 = malloc_gc(%(bdescr.get_base_size(False))d, i0, 1)
-            setfield_gc(p0, 8765, descr=tiddescr)
-            setfield_gc(p0, i0, descr=blendescr)
+            p0 = call_malloc_gc(ConstClass(malloc_array), 1,  \
+                                %(bdescr.tid)d, i0)
             jump(i0)
         """)
 

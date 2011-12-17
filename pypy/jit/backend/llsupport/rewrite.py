@@ -122,12 +122,10 @@ class GcRewriterAssembler(object):
                 pass    # total_size is still -1
         if total_size >= 0:
             self.gen_malloc_nursery(total_size, op.result)
+            self.gen_initialize_tid(op.result, tid)
+            self.gen_initialize_len(op.result, v_length, arraylen_descr)
         else:
-            xxx
-            self.gen_new_array(base_size, op.result,
-                               v_length, ConstInt(item_size))
-        self.gen_initialize_tid(op.result, tid)
-        self.gen_initialize_len(op.result, v_length, arraylen_descr)
+            self.gen_malloc_array(item_size, tid, v_length, op.result)
 
     # ----------
 
@@ -139,18 +137,27 @@ class GcRewriterAssembler(object):
         self._op_malloc_nursery = None
         self.recent_mallocs.clear()
 
+    def _gen_call_malloc_gc(self, args, v_result):
+        """Generate a CALL_MALLOC_GC with the given args."""
+        self.emitting_an_operation_that_can_collect()
+        op = ResOperation(rop.CALL_MALLOC_GC, args, v_result)
+        self.newops.append(op)
+        # mark 'v_result' as freshly malloced
+        self.recent_mallocs[v_result] = None
+
     def gen_malloc_fixedsize(self, size, v_result):
         """Generate a CALL_MALLOC_GC(malloc_fixedsize_fn, Const(size)).
         Note that with the framework GC, this should be called very rarely.
         """
-        self.emitting_an_operation_that_can_collect()
-        c_size = ConstInt(size)
-        op = ResOperation(rop.CALL_MALLOC_GC,
-                          [self.gc_ll_descr.c_malloc_fixedsize_fn, c_size],
-                          v_result)
-        self.newops.append(op)
-        # mark 'v_result' as freshly malloced
-        self.recent_mallocs[v_result] = None
+        self._gen_call_malloc_gc([self.gc_ll_descr.c_malloc_fixedsize_fn,
+                                  ConstInt(size)], v_result)
+
+    def gen_malloc_array(self, itemsize, tid, v_num_elem, v_result):
+        """Generate a CALL_MALLOC_GC(malloc_array_fn, ...)."""
+        self._gen_call_malloc_gc([self.gc_ll_descr.c_malloc_array_fn,
+                                  ConstInt(itemsize),
+                                  ConstInt(tid),
+                                  v_num_elem], v_result)
 
     def gen_malloc_nursery(self, size, v_result):
         """Try to generate or update a CALL_MALLOC_NURSERY.

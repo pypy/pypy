@@ -690,6 +690,16 @@ class GcLLDescr_framework(GcLLDescription):
         self.generate_function('malloc_nursery', malloc_nursery,
                                [lltype.Signed])
 
+        def malloc_array(itemsize, tid, num_elem):
+            type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
+            check_typeid(type_id)
+            return llop1.do_malloc_varsize_clear(
+                llmemory.GCREF,
+                type_id, num_elem, self.array_basesize, itemsize,
+                self.array_length_ofs)
+        self.generate_function('malloc_array', malloc_array,
+                               [lltype.Signed] * 3)
+
 ##        # make the fixed malloc function, with one argument
 ##        def malloc_gc_fixed(size):
 ##            type_id = rffi.cast(llgroup.HALFWORD, 0)    # missing here
@@ -720,17 +730,6 @@ class GcLLDescr_framework(GcLLDescription):
 ##            [llmemory.Address, lltype.Signed, llmemory.Address], lltype.Void))
 ##        self.write_barrier_descr = WriteBarrierDescr(self)
 ##        self.fielddescr_tid = self.write_barrier_descr.fielddescr_tid
-##        #
-##        def malloc_array(itemsize, tid, num_elem):
-##            type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
-##            check_typeid(type_id)
-##            return llop1.do_malloc_varsize_clear(
-##                llmemory.GCREF,
-##                type_id, num_elem, self.array_basesize, itemsize,
-##                self.array_length_ofs)
-##        ###self.malloc_array = malloc_array
-##        self.GC_MALLOC_ARRAY = lltype.Ptr(lltype.FuncType(
-##            [lltype.Signed] * 3, llmemory.GCREF))
 ##        #
 ##        (str_basesize, str_itemsize, str_ofs_length
 ##         ) = symbolic.get_array_token(rstr.STR, True)
