@@ -3,7 +3,7 @@ from pypy.jit.metainterp.optimizeopt.virtualstate import VirtualStateAdder, Shor
 from pypy.jit.metainterp.compile import ResumeGuardDescr
 from pypy.jit.metainterp.history import TreeLoop, TargetToken, JitCellToken
 from pypy.jit.metainterp.jitexc import JitException
-from pypy.jit.metainterp.optimize import InvalidLoop, RetraceLoop
+from pypy.jit.metainterp.optimize import InvalidLoop
 from pypy.jit.metainterp.optimizeopt.optimizer import *
 from pypy.jit.metainterp.optimizeopt.generalize import KillHugeIntBounds
 from pypy.jit.metainterp.inliner import Inliner

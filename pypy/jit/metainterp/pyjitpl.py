@@ -1548,11 +1548,6 @@ class MetaInterpGlobalData(object):
 
 # ____________________________________________________________
 
-class RetraceState(object):
-    def __init__(self, metainterp, live_arg_boxes):
-        self.merge_point = len(metainterp.current_merge_points) - 1
-        self.live_arg_boxes = live_arg_boxes
-
 class MetaInterp(object):
     in_recursion = 0
 
@@ -2109,43 +2104,6 @@ class MetaInterp(object):
             assert isinstance(target_token, TargetToken)
             jitcell_token = target_token.targeting_jitcell_token
             self.raise_continue_running_normally(live_arg_boxes, jitcell_token)
-
-    def compile_bridge_and_loop(self, original_boxes, live_arg_boxes, start,
-                                bridge_arg_boxes, resume_at_jump_descr):
-        num_green_args = self.jitdriver_sd.num_green_args
-        original_inputargs = self.history.inputargs
-        greenkey = original_boxes[:num_green_args]
-        old_loop_tokens = self.get_compiled_merge_points(greenkey)
-        original_operations = self.history.operations
-        self.history.inputargs = original_boxes[num_green_args:]
-        greenkey = original_boxes[:num_green_args]
-        self.history.record(rop.JUMP, live_arg_boxes[num_green_args:], None)
-        loop_token = compile.compile_new_loop(self, [], greenkey, start,
-                                              resume_at_jump_descr, False)
-        self.history.operations.pop()     # remove the JUMP
-        if loop_token is None:
-            self.history.inputargs = original_inputargs
-            self.history.operations = original_operations
-            return
-
-        if loop_token.short_preamble:
-            old_loop_tokens[0].short_preamble.extend(loop_token.short_preamble)
-
-        self.history.inputargs = original_inputargs
-        self.history.operations = self.history.operations[:start]
-
-        self.history.record(rop.JUMP, bridge_arg_boxes[num_green_args:], None)
-        try:
-            target_loop_token = compile.compile_new_bridge(self,
-                                                           #[loop_token],
-                                                           old_loop_tokens,
-                                                           self.resumekey,
-                                                           True)
-        except RetraceLoop:
-            assert False
-        assert target_loop_token is not None
-        self.raise_continue_running_normally(live_arg_boxes,
-                                             old_loop_tokens[0])
 
     def compile_done_with_this_frame(self, exitbox):
         self.gen_store_back_in_virtualizable()
