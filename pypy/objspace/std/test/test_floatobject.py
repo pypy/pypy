@@ -773,6 +773,8 @@ class AppTestFloatHex:
 
     def test_invalid(self):
         raises(ValueError, float.fromhex, "0P")
+        # A fullwidth Unicode digit
+        raises(ValueError, float.fromhex, "0x1p\uff10")
 
     def test_division_edgecases(self):
         import math
