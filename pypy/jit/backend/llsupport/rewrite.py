@@ -153,8 +153,8 @@ class GcRewriterAssembler(object):
         self.recent_mallocs[v_result] = None
 
     def gen_malloc_nursery(self, size, v_result):
-        """Try to generate or update a MALLOC_NURSERY.
-        If that fails, generate a plain MALLOC_GC instead.
+        """Try to generate or update a CALL_MALLOC_NURSERY.
+        If that fails, generate a plain CALL_MALLOC_GC instead.
         """
         if not self.gc_ll_descr.can_use_nursery_malloc(size):
             return self.gen_malloc_fixedsize(size, v_result)
@@ -164,11 +164,11 @@ class GcRewriterAssembler(object):
         #
         if self._op_malloc_nursery is not None:
             # already a MALLOC_NURSERY: increment its total size
-            total_size = self._op_malloc_nursery.getarg(0).getint()
+            total_size = self._op_malloc_nursery.getarg(1).getint()
             total_size += size
             if self.gc_ll_descr.can_use_nursery_malloc(total_size):
                 # if the total size is still reasonable, merge it
-                self._op_malloc_nursery.setarg(0, ConstInt(total_size))
+                self._op_malloc_nursery.setarg(1, ConstInt(total_size))
                 op = ResOperation(rop.INT_ADD,
                                   [self._v_last_malloced_nursery,
                                    ConstInt(self._previous_size)],
@@ -176,7 +176,10 @@ class GcRewriterAssembler(object):
         if op is None:
             # if we failed to merge with a previous MALLOC_NURSERY, emit one
             self.emitting_an_operation_that_can_collect()
-            op = ResOperation(rop.MALLOC_NURSERY, [ConstInt(size)], v_result)
+            op = ResOperation(rop.CALL_MALLOC_NURSERY,
+                              [self.gc_ll_descr.c_malloc_nursery_fn,
+                               ConstInt(size)],
+                              v_result)
             self._op_malloc_nursery = op
         #
         self.newops.append(op)

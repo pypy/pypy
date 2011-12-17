@@ -41,15 +41,21 @@ class GcLLDescription(GcCache):
         self.field_strlen_descr = get_field_arraylen_descr(self, rstr.STR)
         self.field_unicodelen_descr = get_field_arraylen_descr(self,
                                                                rstr.UNICODE)
+        self._generated_functions = []
 
-    def _ready(self):
-        MALLOC_FIXEDSIZE = lltype.Ptr(
-            lltype.FuncType([lltype.Signed], llmemory.GCREF))
-        self.malloc_fixedsize_fn = llhelper(MALLOC_FIXEDSIZE,
-                                            self.malloc_fixedsize)
-        self.c_malloc_fixedsize_fn = ConstInt(
-            heaptracker.adr2int(llmemory.cast_ptr_to_adr(
-                self.malloc_fixedsize_fn)))
+    def generate_function(self, funcname, func, ARGS, RESULT=llmemory.GCREF):
+        """Generates a variant of malloc with the given name and the given
+        arguments.  It should raise MemoryError and return NULL if out of
+        memory.
+        """
+        FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, RESULT))
+        ll_func = llhelper(FUNCPTR, func)
+        c_ll_func = ConstInt(
+            heaptracker.adr2int(llmemory.cast_ptr_to_adr(ll_func)))
+        setattr(self, '%s'      % funcname, func)
+        setattr(self, '%s_fn'   % funcname, ll_func)
+        setattr(self, 'c_%s_fn' % funcname, c_ll_func)
+        self._generated_functions.append(funcname)
 
     def _freeze_(self):
         return True
@@ -168,9 +174,8 @@ class GcLLDescr_boehm(GcLLDescription):
             if not res:
                 raise MemoryError
             return res
-        self.malloc_fixedsize = malloc_fixedsize
-        #
-        self._ready()
+        self.generate_function('malloc_fixedsize', malloc_fixedsize,
+                               [lltype.Signed])
 
     def _gc_malloc(self, size, tid):
         # Boehm: 'tid' is ignored
@@ -618,7 +623,7 @@ class GcLLDescr_framework(GcLLDescription):
             self._make_gcrootmap()
             self._make_layoutbuilder()
             self._setup_gcclass()
-            self._make_functions()
+        self._make_functions()
 
     def _initialize_for_tests(self):
         self.layoutbuilder = None
@@ -673,37 +678,49 @@ class GcLLDescr_framework(GcLLDescription):
 
     def _make_functions(self):
         llop1 = self.llop1
-        # make the fixed malloc function, with one argument
-        def malloc_gc_fixed(size):
+
+        def malloc_nursery(size):
+            """Allocate 'size' null bytes out of the nursery.
+            Note that the fast path is typically inlined by the backend.
+            """
             type_id = rffi.cast(llgroup.HALFWORD, 0)    # missing here
-            res = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
-                                                  type_id, size,
-                                                  False, False, False)
-            #llop.debug_print(lltype.Void, "\tmalloc_basic", size, "-->", res)
-            # In case the operation above failed, we are returning NULL
-            # from this function to assembler.  There is also an RPython
-            # exception set, typically MemoryError; but it's easier and
-            # faster to check for the NULL return value, as done by
-            # translator/exceptiontransform.py.
-            return res
-        self.malloc_gc_fixed = malloc_gc_fixed
-        self.MALLOC_GC_FIXED = lltype.Ptr(
-            lltype.FuncType([lltype.Signed], llmemory.GCREF))
-        #
-        # make the varsize malloc function, with three arguments
-        def malloc_gc_variable(basesize, num_elem, itemsize):
-            xx
-        self.malloc_gc_variable = malloc_gc_variable
-        self.MALLOC_GC_VARIABLE = lltype.Ptr(
-            lltype.FuncType([lltype.Signed] * 3, llmemory.GCREF))
-        #
-        self.WB_FUNCPTR = lltype.Ptr(lltype.FuncType(
-            [llmemory.Address, llmemory.Address], lltype.Void))
-        self.WB_ARRAY_FUNCPTR = lltype.Ptr(lltype.FuncType(
-            [llmemory.Address, lltype.Signed, llmemory.Address], lltype.Void))
-        self.write_barrier_descr = WriteBarrierDescr(self)
-        self.fielddescr_tid = self.write_barrier_descr.fielddescr_tid
-        #
+            return llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
+                                                   type_id, size,
+                                                   False, False, False)
+        self.generate_function('malloc_nursery', malloc_nursery,
+                               [lltype.Signed])
+
+##        # make the fixed malloc function, with one argument
+##        def malloc_gc_fixed(size):
+##            type_id = rffi.cast(llgroup.HALFWORD, 0)    # missing here
+##            res = llop1.do_malloc_fixedsize_clear(llmemory.GCREF,
+##                                                  type_id, size,
+##                                                  False, False, False)
+##            #llop.debug_print(lltype.Void, "\tmalloc_basic", size, "-->", res)
+##            # In case the operation above failed, we are returning NULL
+##            # from this function to assembler.  There is also an RPython
+##            # exception set, typically MemoryError; but it's easier and
+##            # faster to check for the NULL return value, as done by
+##            # translator/exceptiontransform.py.
+##            return res
+##        self.malloc_gc_fixed = malloc_gc_fixed
+##        self.MALLOC_GC_FIXED = lltype.Ptr(
+##            lltype.FuncType([lltype.Signed], llmemory.GCREF))
+##        #
+##        # make the varsize malloc function, with three arguments
+##        def malloc_gc_variable(basesize, num_elem, itemsize):
+##            xx
+##        self.malloc_gc_variable = malloc_gc_variable
+##        self.MALLOC_GC_VARIABLE = lltype.Ptr(
+##            lltype.FuncType([lltype.Signed] * 3, llmemory.GCREF))
+##        #
+##        self.WB_FUNCPTR = lltype.Ptr(lltype.FuncType(
+##            [llmemory.Address, llmemory.Address], lltype.Void))
+##        self.WB_ARRAY_FUNCPTR = lltype.Ptr(lltype.FuncType(
+##            [llmemory.Address, lltype.Signed, llmemory.Address], lltype.Void))
+##        self.write_barrier_descr = WriteBarrierDescr(self)
+##        self.fielddescr_tid = self.write_barrier_descr.fielddescr_tid
+##        #
 ##        def malloc_array(itemsize, tid, num_elem):
 ##            type_id = llop.extract_ushort(llgroup.HALFWORD, tid)
 ##            check_typeid(type_id)

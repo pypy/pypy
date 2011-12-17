@@ -15,8 +15,6 @@ class Evaluator(object):
 
 class RewriteTests(object):
     def check_rewrite(self, frm_operations, to_operations):
-        malloc_fixedsize = self.gc_ll_descr.malloc_fixedsize_fn
-        #
         S = lltype.GcStruct('S', ('x', lltype.Signed),
                                  ('y', lltype.Signed))
         sdescr = get_size_descr(self.gc_ll_descr, S)
@@ -62,9 +60,14 @@ class RewriteTests(object):
         unicodelendescr = get_field_arraylen_descr(self.gc_ll_descr,
                                                    rstr.UNICODE)
         #
-        ops = parse(frm_operations, namespace=locals())
-        expected = parse(to_operations % Evaluator(locals()),
-                         namespace=locals())
+        namespace = locals().copy()
+        #
+        for funcname in self.gc_ll_descr._generated_functions:
+            namespace[funcname] = getattr(self.gc_ll_descr, '%s_fn' % funcname)
+        #
+        ops = parse(frm_operations, namespace=namespace)
+        expected = parse(to_operations % Evaluator(namespace),
+                         namespace=namespace)
         operations = self.gc_ll_descr.rewrite_assembler(self.cpu,
                                                         ops.operations,
                                                         [])
@@ -195,7 +198,8 @@ class TestFramework(RewriteTests):
             jump()
         """, """
             [p1]
-            p0 = malloc_nursery(%(sdescr.size)d)
+            p0 = call_malloc_nursery(ConstClass(malloc_nursery), \
+                                     %(sdescr.size)d)
             setfield_gc(p0, 1234, descr=tiddescr)
             jump()
         """)
@@ -209,7 +213,8 @@ class TestFramework(RewriteTests):
             jump()
         """, """
             []
-            p0 = malloc_nursery(%(sdescr.size + tdescr.size + sdescr.size)d)
+            p0 = call_malloc_nursery(ConstClass(malloc_nursery), \
+                               %(sdescr.size + tdescr.size + sdescr.size)d)
             setfield_gc(p0, 1234, descr=tiddescr)
             p1 = int_add(p0, %(sdescr.size)d)
             setfield_gc(p1, 5678, descr=tiddescr)
