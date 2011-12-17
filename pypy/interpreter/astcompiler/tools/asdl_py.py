@@ -115,7 +115,7 @@ class ASTNodeVisitor(ASDLVisitor):
             else:
                 names.append(repr(field.name.value))
         sub = (", ".join(names), name.value)
-        self.emit("missing_field(space, self.initialization_state, [%s], %r)"
+        self.emit("self.missing_field(space, [%s], %r)"
                   % sub, 3)
         self.emit("else:", 2)
         # Fill in all the default fields.
@@ -452,6 +452,11 @@ class AppExposeVisitor(ASDLVisitor):
                     config = (field.name, field.type, repr(field.opt))
                     self.emit("w_self.%s = space.interp_w(%s, w_new_value, %s)" %
                               config, 2)
+                    if field.type.value not in self.data.prod_simple:
+                        self.emit("if type(w_self.%s) is %s:" % (
+                                field.name, field.type), 2)
+                        self.emit("raise OperationError(space.w_TypeError, "
+                                  "space.w_None)", 3)
             else:
                 level = 2
                 if field.opt and field.type.value != "int":
@@ -585,6 +590,24 @@ class AST(Wrappable):
             space.setattr(self, w_name,
                           space.getitem(w_state, w_name))
 
+    def missing_field(self, space, required, host):
+        "Find which required field is missing."
+        state = self.initialization_state
+        for i in range(len(required)):
+            if (state >> i) & 1:
+                continue  # field is present
+            missing = required[i]
+            if missing is None:
+                continue  # field is optional
+            w_obj = self.getdictvalue(space, missing)
+            if w_obj is None:
+                err = "required field \\"%s\\" missing from %s"
+                raise operationerrfmt(space.w_TypeError, err, missing, host)
+            else:
+                err = "incorrect type for field \\"%s\\" in %s"
+                raise operationerrfmt(space.w_TypeError, err, missing, host)
+        raise AssertionError("should not reach here")
+
 
 class NodeVisitorNotImplemented(Exception):
     pass
@@ -628,15 +651,6 @@ AST.typedef = typedef.TypeDef("AST",
 )
 
 
-def missing_field(space, state, required, host):
-    "Find which required field is missing."
-    for i in range(len(required)):
-        if not (state >> i) & 1:
-            missing = required[i]
-            if missing is not None:
-                 err = "required field \\"%s\\" missing from %s"
-                 raise operationerrfmt(space.w_TypeError, err, missing, host)
-    raise AssertionError("should not reach here")
 
 
 """

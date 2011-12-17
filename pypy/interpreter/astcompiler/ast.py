@@ -51,6 +51,24 @@ class AST(Wrappable):
             space.setattr(self, w_name,
                           space.getitem(w_state, w_name))
 
+    def missing_field(self, space, required, host):
+        "Find which required field is missing."
+        state = self.initialization_state
+        for i in range(len(required)):
+            if (state >> i) & 1:
+                continue  # field is present
+            missing = required[i]
+            if missing is None:
+                continue  # field is optional
+            w_obj = self.getdictvalue(space, missing)
+            if w_obj is None:
+                err = "required field \"%s\" missing from %s"
+                raise operationerrfmt(space.w_TypeError, err, missing, host)
+            else:
+                err = "incorrect type for field \"%s\" in %s"
+                raise operationerrfmt(space.w_TypeError, err, missing, host)
+        raise AssertionError("should not reach here")
+
 
 class NodeVisitorNotImplemented(Exception):
     pass
@@ -94,15 +112,6 @@ AST.typedef = typedef.TypeDef("AST",
 )
 
 
-def missing_field(space, state, required, host):
-    "Find which required field is missing."
-    for i in range(len(required)):
-        if not (state >> i) & 1:
-            missing = required[i]
-            if missing is not None:
-                 err = "required field \"%s\" missing from %s"
-                 raise operationerrfmt(space.w_TypeError, err, missing, host)
-    raise AssertionError("should not reach here")
 
 
 class mod(AST):
@@ -125,7 +134,7 @@ class Module(mod):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 1:
-            missing_field(space, self.initialization_state, ['body'], 'Module')
+            self.missing_field(space, ['body'], 'Module')
         else:
             pass
         w_list = self.w_body
@@ -157,7 +166,7 @@ class Interactive(mod):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 1:
-            missing_field(space, self.initialization_state, ['body'], 'Interactive')
+            self.missing_field(space, ['body'], 'Interactive')
         else:
             pass
         w_list = self.w_body
@@ -187,7 +196,7 @@ class Expression(mod):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 1:
-            missing_field(space, self.initialization_state, ['body'], 'Expression')
+            self.missing_field(space, ['body'], 'Expression')
         else:
             pass
         self.body.sync_app_attrs(space)
@@ -210,7 +219,7 @@ class Suite(mod):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 1:
-            missing_field(space, self.initialization_state, ['body'], 'Suite')
+            self.missing_field(space, ['body'], 'Suite')
         else:
             pass
         w_list = self.w_body
@@ -256,7 +265,7 @@ class FunctionDef(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 63:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'name', 'args', 'body', 'decorator_list'], 'FunctionDef')
+            self.missing_field(space, ['lineno', 'col_offset', 'name', 'args', 'body', 'decorator_list'], 'FunctionDef')
         else:
             pass
         self.args.sync_app_attrs(space)
@@ -309,7 +318,7 @@ class ClassDef(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 63:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'name', 'bases', 'body', 'decorator_list'], 'ClassDef')
+            self.missing_field(space, ['lineno', 'col_offset', 'name', 'bases', 'body', 'decorator_list'], 'ClassDef')
         else:
             pass
         w_list = self.w_bases
@@ -361,7 +370,7 @@ class Return(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~4) ^ 3:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', None], 'Return')
+            self.missing_field(space, ['lineno', 'col_offset', None], 'Return')
         else:
             if not self.initialization_state & 4:
                 self.value = None
@@ -387,7 +396,7 @@ class Delete(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 7:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'targets'], 'Delete')
+            self.missing_field(space, ['lineno', 'col_offset', 'targets'], 'Delete')
         else:
             pass
         w_list = self.w_targets
@@ -422,7 +431,7 @@ class Assign(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 15:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'targets', 'value'], 'Assign')
+            self.missing_field(space, ['lineno', 'col_offset', 'targets', 'value'], 'Assign')
         else:
             pass
         w_list = self.w_targets
@@ -457,7 +466,7 @@ class AugAssign(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 31:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'target', 'op', 'value'], 'AugAssign')
+            self.missing_field(space, ['lineno', 'col_offset', 'target', 'op', 'value'], 'AugAssign')
         else:
             pass
         self.target.sync_app_attrs(space)
@@ -486,7 +495,7 @@ class Print(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~4) ^ 27:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', None, 'values', 'nl'], 'Print')
+            self.missing_field(space, ['lineno', 'col_offset', None, 'values', 'nl'], 'Print')
         else:
             if not self.initialization_state & 4:
                 self.dest = None
@@ -530,7 +539,7 @@ class For(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 63:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'target', 'iter', 'body', 'orelse'], 'For')
+            self.missing_field(space, ['lineno', 'col_offset', 'target', 'iter', 'body', 'orelse'], 'For')
         else:
             pass
         self.target.sync_app_attrs(space)
@@ -581,7 +590,7 @@ class While(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 31:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'test', 'body', 'orelse'], 'While')
+            self.missing_field(space, ['lineno', 'col_offset', 'test', 'body', 'orelse'], 'While')
         else:
             pass
         self.test.sync_app_attrs(space)
@@ -631,7 +640,7 @@ class If(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 31:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'test', 'body', 'orelse'], 'If')
+            self.missing_field(space, ['lineno', 'col_offset', 'test', 'body', 'orelse'], 'If')
         else:
             pass
         self.test.sync_app_attrs(space)
@@ -680,7 +689,7 @@ class With(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~8) ^ 23:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'context_expr', None, 'body'], 'With')
+            self.missing_field(space, ['lineno', 'col_offset', 'context_expr', None, 'body'], 'With')
         else:
             if not self.initialization_state & 8:
                 self.optional_vars = None
@@ -722,7 +731,7 @@ class Raise(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~28) ^ 3:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', None, None, None], 'Raise')
+            self.missing_field(space, ['lineno', 'col_offset', None, None, None], 'Raise')
         else:
             if not self.initialization_state & 4:
                 self.type = None
@@ -764,7 +773,7 @@ class TryExcept(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 31:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'body', 'handlers', 'orelse'], 'TryExcept')
+            self.missing_field(space, ['lineno', 'col_offset', 'body', 'handlers', 'orelse'], 'TryExcept')
         else:
             pass
         w_list = self.w_body
@@ -821,7 +830,7 @@ class TryFinally(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 15:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'body', 'finalbody'], 'TryFinally')
+            self.missing_field(space, ['lineno', 'col_offset', 'body', 'finalbody'], 'TryFinally')
         else:
             pass
         w_list = self.w_body
@@ -865,7 +874,7 @@ class Assert(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~8) ^ 7:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'test', None], 'Assert')
+            self.missing_field(space, ['lineno', 'col_offset', 'test', None], 'Assert')
         else:
             if not self.initialization_state & 8:
                 self.msg = None
@@ -892,7 +901,7 @@ class Import(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 7:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'names'], 'Import')
+            self.missing_field(space, ['lineno', 'col_offset', 'names'], 'Import')
         else:
             pass
         w_list = self.w_names
@@ -927,7 +936,7 @@ class ImportFrom(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~20) ^ 11:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', None, 'names', None], 'ImportFrom')
+            self.missing_field(space, ['lineno', 'col_offset', None, 'names', None], 'ImportFrom')
         else:
             if not self.initialization_state & 4:
                 self.module = None
@@ -967,7 +976,7 @@ class Exec(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~24) ^ 7:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'body', None, None], 'Exec')
+            self.missing_field(space, ['lineno', 'col_offset', 'body', None, None], 'Exec')
         else:
             if not self.initialization_state & 8:
                 self.globals = None
@@ -996,7 +1005,7 @@ class Global(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 7:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'names'], 'Global')
+            self.missing_field(space, ['lineno', 'col_offset', 'names'], 'Global')
         else:
             pass
         w_list = self.w_names
@@ -1024,7 +1033,7 @@ class Expr(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 7:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'value'], 'Expr')
+            self.missing_field(space, ['lineno', 'col_offset', 'value'], 'Expr')
         else:
             pass
         self.value.sync_app_attrs(space)
@@ -1044,7 +1053,7 @@ class Pass(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 3:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset'], 'Pass')
+            self.missing_field(space, ['lineno', 'col_offset'], 'Pass')
         else:
             pass
 
@@ -1063,7 +1072,7 @@ class Break(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 3:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset'], 'Break')
+            self.missing_field(space, ['lineno', 'col_offset'], 'Break')
         else:
             pass
 
@@ -1082,7 +1091,7 @@ class Continue(stmt):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 3:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset'], 'Continue')
+            self.missing_field(space, ['lineno', 'col_offset'], 'Continue')
         else:
             pass
 
@@ -1112,7 +1121,7 @@ class BoolOp(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 15:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'op', 'values'], 'BoolOp')
+            self.missing_field(space, ['lineno', 'col_offset', 'op', 'values'], 'BoolOp')
         else:
             pass
         w_list = self.w_values
@@ -1146,7 +1155,7 @@ class BinOp(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 31:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'left', 'op', 'right'], 'BinOp')
+            self.missing_field(space, ['lineno', 'col_offset', 'left', 'op', 'right'], 'BinOp')
         else:
             pass
         self.left.sync_app_attrs(space)
@@ -1170,7 +1179,7 @@ class UnaryOp(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 15:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'op', 'operand'], 'UnaryOp')
+            self.missing_field(space, ['lineno', 'col_offset', 'op', 'operand'], 'UnaryOp')
         else:
             pass
         self.operand.sync_app_attrs(space)
@@ -1194,7 +1203,7 @@ class Lambda(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 15:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'args', 'body'], 'Lambda')
+            self.missing_field(space, ['lineno', 'col_offset', 'args', 'body'], 'Lambda')
         else:
             pass
         self.args.sync_app_attrs(space)
@@ -1221,7 +1230,7 @@ class IfExp(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 31:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'test', 'body', 'orelse'], 'IfExp')
+            self.missing_field(space, ['lineno', 'col_offset', 'test', 'body', 'orelse'], 'IfExp')
         else:
             pass
         self.test.sync_app_attrs(space)
@@ -1251,7 +1260,7 @@ class Dict(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 15:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'keys', 'values'], 'Dict')
+            self.missing_field(space, ['lineno', 'col_offset', 'keys', 'values'], 'Dict')
         else:
             pass
         w_list = self.w_keys
@@ -1294,7 +1303,7 @@ class Set(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 7:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'elts'], 'Set')
+            self.missing_field(space, ['lineno', 'col_offset', 'elts'], 'Set')
         else:
             pass
         w_list = self.w_elts
@@ -1329,7 +1338,7 @@ class ListComp(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 15:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'elt', 'generators'], 'ListComp')
+            self.missing_field(space, ['lineno', 'col_offset', 'elt', 'generators'], 'ListComp')
         else:
             pass
         self.elt.sync_app_attrs(space)
@@ -1365,7 +1374,7 @@ class SetComp(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 15:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'elt', 'generators'], 'SetComp')
+            self.missing_field(space, ['lineno', 'col_offset', 'elt', 'generators'], 'SetComp')
         else:
             pass
         self.elt.sync_app_attrs(space)
@@ -1403,7 +1412,7 @@ class DictComp(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 31:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'key', 'value', 'generators'], 'DictComp')
+            self.missing_field(space, ['lineno', 'col_offset', 'key', 'value', 'generators'], 'DictComp')
         else:
             pass
         self.key.sync_app_attrs(space)
@@ -1440,7 +1449,7 @@ class GeneratorExp(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 15:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'elt', 'generators'], 'GeneratorExp')
+            self.missing_field(space, ['lineno', 'col_offset', 'elt', 'generators'], 'GeneratorExp')
         else:
             pass
         self.elt.sync_app_attrs(space)
@@ -1473,7 +1482,7 @@ class Yield(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~4) ^ 3:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', None], 'Yield')
+            self.missing_field(space, ['lineno', 'col_offset', None], 'Yield')
         else:
             if not self.initialization_state & 4:
                 self.value = None
@@ -1503,7 +1512,7 @@ class Compare(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 31:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'left', 'ops', 'comparators'], 'Compare')
+            self.missing_field(space, ['lineno', 'col_offset', 'left', 'ops', 'comparators'], 'Compare')
         else:
             pass
         self.left.sync_app_attrs(space)
@@ -1556,7 +1565,7 @@ class Call(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~96) ^ 31:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'func', 'args', 'keywords', None, None], 'Call')
+            self.missing_field(space, ['lineno', 'col_offset', 'func', 'args', 'keywords', None, None], 'Call')
         else:
             if not self.initialization_state & 32:
                 self.starargs = None
@@ -1605,7 +1614,7 @@ class Repr(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 7:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'value'], 'Repr')
+            self.missing_field(space, ['lineno', 'col_offset', 'value'], 'Repr')
         else:
             pass
         self.value.sync_app_attrs(space)
@@ -1626,7 +1635,7 @@ class Num(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 7:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'n'], 'Num')
+            self.missing_field(space, ['lineno', 'col_offset', 'n'], 'Num')
         else:
             pass
 
@@ -1646,7 +1655,7 @@ class Str(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 7:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 's'], 'Str')
+            self.missing_field(space, ['lineno', 'col_offset', 's'], 'Str')
         else:
             pass
 
@@ -1669,7 +1678,7 @@ class Attribute(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 31:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'value', 'attr', 'ctx'], 'Attribute')
+            self.missing_field(space, ['lineno', 'col_offset', 'value', 'attr', 'ctx'], 'Attribute')
         else:
             pass
         self.value.sync_app_attrs(space)
@@ -1694,7 +1703,7 @@ class Subscript(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 31:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'value', 'slice', 'ctx'], 'Subscript')
+            self.missing_field(space, ['lineno', 'col_offset', 'value', 'slice', 'ctx'], 'Subscript')
         else:
             pass
         self.value.sync_app_attrs(space)
@@ -1717,7 +1726,7 @@ class Name(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 15:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'id', 'ctx'], 'Name')
+            self.missing_field(space, ['lineno', 'col_offset', 'id', 'ctx'], 'Name')
         else:
             pass
 
@@ -1741,7 +1750,7 @@ class List(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 15:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'elts', 'ctx'], 'List')
+            self.missing_field(space, ['lineno', 'col_offset', 'elts', 'ctx'], 'List')
         else:
             pass
         w_list = self.w_elts
@@ -1775,7 +1784,7 @@ class Tuple(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 15:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'elts', 'ctx'], 'Tuple')
+            self.missing_field(space, ['lineno', 'col_offset', 'elts', 'ctx'], 'Tuple')
         else:
             pass
         w_list = self.w_elts
@@ -1805,7 +1814,7 @@ class Const(expr):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 7:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', 'value'], 'Const')
+            self.missing_field(space, ['lineno', 'col_offset', 'value'], 'Const')
         else:
             pass
 
@@ -1878,7 +1887,7 @@ class Ellipsis(slice):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 0:
-            missing_field(space, self.initialization_state, [], 'Ellipsis')
+            self.missing_field(space, [], 'Ellipsis')
         else:
             pass
 
@@ -1905,7 +1914,7 @@ class Slice(slice):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~7) ^ 0:
-            missing_field(space, self.initialization_state, [None, None, None], 'Slice')
+            self.missing_field(space, [None, None, None], 'Slice')
         else:
             if not self.initialization_state & 1:
                 self.lower = None
@@ -1938,7 +1947,7 @@ class ExtSlice(slice):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 1:
-            missing_field(space, self.initialization_state, ['dims'], 'ExtSlice')
+            self.missing_field(space, ['dims'], 'ExtSlice')
         else:
             pass
         w_list = self.w_dims
@@ -1968,7 +1977,7 @@ class Index(slice):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 1:
-            missing_field(space, self.initialization_state, ['value'], 'Index')
+            self.missing_field(space, ['value'], 'Index')
         else:
             pass
         self.value.sync_app_attrs(space)
@@ -2231,7 +2240,7 @@ class comprehension(AST):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 7:
-            missing_field(space, self.initialization_state, ['target', 'iter', 'ifs'], 'comprehension')
+            self.missing_field(space, ['target', 'iter', 'ifs'], 'comprehension')
         else:
             pass
         self.target.sync_app_attrs(space)
@@ -2277,7 +2286,7 @@ class ExceptHandler(excepthandler):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~12) ^ 19:
-            missing_field(space, self.initialization_state, ['lineno', 'col_offset', None, None, 'body'], 'ExceptHandler')
+            self.missing_field(space, ['lineno', 'col_offset', None, None, 'body'], 'ExceptHandler')
         else:
             if not self.initialization_state & 4:
                 self.type = None
@@ -2322,7 +2331,7 @@ class arguments(AST):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~6) ^ 9:
-            missing_field(space, self.initialization_state, ['args', None, None, 'defaults'], 'arguments')
+            self.missing_field(space, ['args', None, None, 'defaults'], 'arguments')
         else:
             if not self.initialization_state & 2:
                 self.vararg = None
@@ -2365,7 +2374,7 @@ class keyword(AST):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~0) ^ 3:
-            missing_field(space, self.initialization_state, ['arg', 'value'], 'keyword')
+            self.missing_field(space, ['arg', 'value'], 'keyword')
         else:
             pass
         self.value.sync_app_attrs(space)
@@ -2385,7 +2394,7 @@ class alias(AST):
 
     def sync_app_attrs(self, space):
         if (self.initialization_state & ~2) ^ 1:
-            missing_field(space, self.initialization_state, ['name', None], 'alias')
+            self.missing_field(space, ['name', None], 'alias')
         else:
             if not self.initialization_state & 2:
                 self.asname = None
@@ -2871,6 +2880,8 @@ def Expression_get_body(space, w_self):
 def Expression_set_body(space, w_self, w_new_value):
     try:
         w_self.body = space.interp_w(expr, w_new_value, False)
+        if type(w_self.body) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -3216,6 +3227,8 @@ def Return_get_value(space, w_self):
 def Return_set_value(space, w_self, w_new_value):
     try:
         w_self.value = space.interp_w(expr, w_new_value, True)
+        if type(w_self.value) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -3320,6 +3333,8 @@ def Assign_get_value(space, w_self):
 def Assign_set_value(space, w_self, w_new_value):
     try:
         w_self.value = space.interp_w(expr, w_new_value, False)
+        if type(w_self.value) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -3367,6 +3382,8 @@ def AugAssign_get_target(space, w_self):
 def AugAssign_set_target(space, w_self, w_new_value):
     try:
         w_self.target = space.interp_w(expr, w_new_value, False)
+        if type(w_self.target) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -3411,6 +3428,8 @@ def AugAssign_get_value(space, w_self):
 def AugAssign_set_value(space, w_self, w_new_value):
     try:
         w_self.value = space.interp_w(expr, w_new_value, False)
+        if type(w_self.value) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -3458,6 +3477,8 @@ def Print_get_dest(space, w_self):
 def Print_set_dest(space, w_self, w_new_value):
     try:
         w_self.dest = space.interp_w(expr, w_new_value, True)
+        if type(w_self.dest) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -3544,6 +3565,8 @@ def For_get_target(space, w_self):
 def For_set_target(space, w_self, w_new_value):
     try:
         w_self.target = space.interp_w(expr, w_new_value, False)
+        if type(w_self.target) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -3565,6 +3588,8 @@ def For_get_iter(space, w_self):
 def For_set_iter(space, w_self, w_new_value):
     try:
         w_self.iter = space.interp_w(expr, w_new_value, False)
+        if type(w_self.iter) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -3649,6 +3674,8 @@ def While_get_test(space, w_self):
 def While_set_test(space, w_self, w_new_value):
     try:
         w_self.test = space.interp_w(expr, w_new_value, False)
+        if type(w_self.test) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -3732,6 +3759,8 @@ def If_get_test(space, w_self):
 def If_set_test(space, w_self, w_new_value):
     try:
         w_self.test = space.interp_w(expr, w_new_value, False)
+        if type(w_self.test) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -3815,6 +3844,8 @@ def With_get_context_expr(space, w_self):
 def With_set_context_expr(space, w_self, w_new_value):
     try:
         w_self.context_expr = space.interp_w(expr, w_new_value, False)
+        if type(w_self.context_expr) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -3836,6 +3867,8 @@ def With_get_optional_vars(space, w_self):
 def With_set_optional_vars(space, w_self, w_new_value):
     try:
         w_self.optional_vars = space.interp_w(expr, w_new_value, True)
+        if type(w_self.optional_vars) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -3901,6 +3934,8 @@ def Raise_get_type(space, w_self):
 def Raise_set_type(space, w_self, w_new_value):
     try:
         w_self.type = space.interp_w(expr, w_new_value, True)
+        if type(w_self.type) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -3922,6 +3957,8 @@ def Raise_get_inst(space, w_self):
 def Raise_set_inst(space, w_self, w_new_value):
     try:
         w_self.inst = space.interp_w(expr, w_new_value, True)
+        if type(w_self.inst) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -3943,6 +3980,8 @@ def Raise_get_tback(space, w_self):
 def Raise_set_tback(space, w_self, w_new_value):
     try:
         w_self.tback = space.interp_w(expr, w_new_value, True)
+        if type(w_self.tback) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -4131,6 +4170,8 @@ def Assert_get_test(space, w_self):
 def Assert_set_test(space, w_self, w_new_value):
     try:
         w_self.test = space.interp_w(expr, w_new_value, False)
+        if type(w_self.test) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -4152,6 +4193,8 @@ def Assert_get_msg(space, w_self):
 def Assert_set_msg(space, w_self, w_new_value):
     try:
         w_self.msg = space.interp_w(expr, w_new_value, True)
+        if type(w_self.msg) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -4329,6 +4372,8 @@ def Exec_get_body(space, w_self):
 def Exec_set_body(space, w_self, w_new_value):
     try:
         w_self.body = space.interp_w(expr, w_new_value, False)
+        if type(w_self.body) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -4350,6 +4395,8 @@ def Exec_get_globals(space, w_self):
 def Exec_set_globals(space, w_self, w_new_value):
     try:
         w_self.globals = space.interp_w(expr, w_new_value, True)
+        if type(w_self.globals) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -4371,6 +4418,8 @@ def Exec_get_locals(space, w_self):
 def Exec_set_locals(space, w_self, w_new_value):
     try:
         w_self.locals = space.interp_w(expr, w_new_value, True)
+        if type(w_self.locals) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -4460,6 +4509,8 @@ def Expr_get_value(space, w_self):
 def Expr_set_value(space, w_self, w_new_value):
     try:
         w_self.value = space.interp_w(expr, w_new_value, False)
+        if type(w_self.value) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -4673,6 +4724,8 @@ def BinOp_get_left(space, w_self):
 def BinOp_set_left(space, w_self, w_new_value):
     try:
         w_self.left = space.interp_w(expr, w_new_value, False)
+        if type(w_self.left) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -4717,6 +4770,8 @@ def BinOp_get_right(space, w_self):
 def BinOp_set_right(space, w_self, w_new_value):
     try:
         w_self.right = space.interp_w(expr, w_new_value, False)
+        if type(w_self.right) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -4787,6 +4842,8 @@ def UnaryOp_get_operand(space, w_self):
 def UnaryOp_set_operand(space, w_self, w_new_value):
     try:
         w_self.operand = space.interp_w(expr, w_new_value, False)
+        if type(w_self.operand) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -4854,6 +4911,8 @@ def Lambda_get_body(space, w_self):
 def Lambda_set_body(space, w_self, w_new_value):
     try:
         w_self.body = space.interp_w(expr, w_new_value, False)
+        if type(w_self.body) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -4900,6 +4959,8 @@ def IfExp_get_test(space, w_self):
 def IfExp_set_test(space, w_self, w_new_value):
     try:
         w_self.test = space.interp_w(expr, w_new_value, False)
+        if type(w_self.test) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -4921,6 +4982,8 @@ def IfExp_get_body(space, w_self):
 def IfExp_set_body(space, w_self, w_new_value):
     try:
         w_self.body = space.interp_w(expr, w_new_value, False)
+        if type(w_self.body) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -4942,6 +5005,8 @@ def IfExp_get_orelse(space, w_self):
 def IfExp_set_orelse(space, w_self, w_new_value):
     try:
         w_self.orelse = space.interp_w(expr, w_new_value, False)
+        if type(w_self.orelse) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -5092,6 +5157,8 @@ def ListComp_get_elt(space, w_self):
 def ListComp_set_elt(space, w_self, w_new_value):
     try:
         w_self.elt = space.interp_w(expr, w_new_value, False)
+        if type(w_self.elt) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -5156,6 +5223,8 @@ def SetComp_get_elt(space, w_self):
 def SetComp_set_elt(space, w_self, w_new_value):
     try:
         w_self.elt = space.interp_w(expr, w_new_value, False)
+        if type(w_self.elt) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -5220,6 +5289,8 @@ def DictComp_get_key(space, w_self):
 def DictComp_set_key(space, w_self, w_new_value):
     try:
         w_self.key = space.interp_w(expr, w_new_value, False)
+        if type(w_self.key) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -5241,6 +5312,8 @@ def DictComp_get_value(space, w_self):
 def DictComp_set_value(space, w_self, w_new_value):
     try:
         w_self.value = space.interp_w(expr, w_new_value, False)
+        if type(w_self.value) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -5306,6 +5379,8 @@ def GeneratorExp_get_elt(space, w_self):
 def GeneratorExp_set_elt(space, w_self, w_new_value):
     try:
         w_self.elt = space.interp_w(expr, w_new_value, False)
+        if type(w_self.elt) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -5370,6 +5445,8 @@ def Yield_get_value(space, w_self):
 def Yield_set_value(space, w_self, w_new_value):
     try:
         w_self.value = space.interp_w(expr, w_new_value, True)
+        if type(w_self.value) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -5415,6 +5492,8 @@ def Compare_get_left(space, w_self):
 def Compare_set_left(space, w_self, w_new_value):
     try:
         w_self.left = space.interp_w(expr, w_new_value, False)
+        if type(w_self.left) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -5498,6 +5577,8 @@ def Call_get_func(space, w_self):
 def Call_set_func(space, w_self, w_new_value):
     try:
         w_self.func = space.interp_w(expr, w_new_value, False)
+        if type(w_self.func) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -5553,6 +5634,8 @@ def Call_get_starargs(space, w_self):
 def Call_set_starargs(space, w_self, w_new_value):
     try:
         w_self.starargs = space.interp_w(expr, w_new_value, True)
+        if type(w_self.starargs) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -5574,6 +5657,8 @@ def Call_get_kwargs(space, w_self):
 def Call_set_kwargs(space, w_self, w_new_value):
     try:
         w_self.kwargs = space.interp_w(expr, w_new_value, True)
+        if type(w_self.kwargs) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -5625,6 +5710,8 @@ def Repr_get_value(space, w_self):
 def Repr_set_value(space, w_self, w_new_value):
     try:
         w_self.value = space.interp_w(expr, w_new_value, False)
+        if type(w_self.value) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -5760,6 +5847,8 @@ def Attribute_get_value(space, w_self):
 def Attribute_set_value(space, w_self, w_new_value):
     try:
         w_self.value = space.interp_w(expr, w_new_value, False)
+        if type(w_self.value) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -5851,6 +5940,8 @@ def Subscript_get_value(space, w_self):
 def Subscript_set_value(space, w_self, w_new_value):
     try:
         w_self.value = space.interp_w(expr, w_new_value, False)
+        if type(w_self.value) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -5872,6 +5963,8 @@ def Subscript_get_slice(space, w_self):
 def Subscript_set_slice(space, w_self, w_new_value):
     try:
         w_self.slice = space.interp_w(slice, w_new_value, False)
+        if type(w_self.slice) is slice:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -6261,6 +6354,8 @@ def Slice_get_lower(space, w_self):
 def Slice_set_lower(space, w_self, w_new_value):
     try:
         w_self.lower = space.interp_w(expr, w_new_value, True)
+        if type(w_self.lower) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -6282,6 +6377,8 @@ def Slice_get_upper(space, w_self):
 def Slice_set_upper(space, w_self, w_new_value):
     try:
         w_self.upper = space.interp_w(expr, w_new_value, True)
+        if type(w_self.upper) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -6303,6 +6400,8 @@ def Slice_get_step(space, w_self):
 def Slice_set_step(space, w_self, w_new_value):
     try:
         w_self.step = space.interp_w(expr, w_new_value, True)
+        if type(w_self.step) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -6392,6 +6491,8 @@ def Index_get_value(space, w_self):
 def Index_set_value(space, w_self, w_new_value):
     try:
         w_self.value = space.interp_w(expr, w_new_value, False)
+        if type(w_self.value) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -6661,6 +6762,8 @@ def comprehension_get_target(space, w_self):
 def comprehension_set_target(space, w_self, w_new_value):
     try:
         w_self.target = space.interp_w(expr, w_new_value, False)
+        if type(w_self.target) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -6682,6 +6785,8 @@ def comprehension_get_iter(space, w_self):
 def comprehension_set_iter(space, w_self, w_new_value):
     try:
         w_self.iter = space.interp_w(expr, w_new_value, False)
+        if type(w_self.iter) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -6798,6 +6903,8 @@ def ExceptHandler_get_type(space, w_self):
 def ExceptHandler_set_type(space, w_self, w_new_value):
     try:
         w_self.type = space.interp_w(expr, w_new_value, True)
+        if type(w_self.type) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -6819,6 +6926,8 @@ def ExceptHandler_get_name(space, w_self):
 def ExceptHandler_set_name(space, w_self, w_new_value):
     try:
         w_self.name = space.interp_w(expr, w_new_value, True)
+        if type(w_self.name) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
@@ -7016,6 +7125,8 @@ def keyword_get_value(space, w_self):
 def keyword_set_value(space, w_self, w_new_value):
     try:
         w_self.value = space.interp_w(expr, w_new_value, False)
+        if type(w_self.value) is expr:
+            raise OperationError(space.w_TypeError, space.w_None)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise
