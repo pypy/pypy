@@ -101,10 +101,11 @@ class UnrollOptimizer(Optimization):
                 # Found a compiled trace to jump to
                 if self.short:
                     # Construct our short preamble
+                    assert start_label
                     self.close_bridge(start_label)
                 return
 
-            if self.jump_to_start_label(start_label, stop_label):
+            if start_label and self.jump_to_start_label(start_label, stop_label):
                 # Initial label matches, jump to it
                 jumpop = ResOperation(rop.JUMP, stop_label.getarglist(), None,
                                       descr=start_label.getdescr())
@@ -125,7 +126,7 @@ class UnrollOptimizer(Optimization):
                     assert cell_token.target_tokens[0].virtual_state is None
                     jumpop.setdescr(cell_token.target_tokens[0])
                     self.optimizer.send_extra_operation(jumpop)
-                    return True
+                    return
 
         # Found nothing to jump to, emit a label instead
         self.optimizer.flush()
