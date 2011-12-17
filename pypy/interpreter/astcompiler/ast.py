@@ -2229,8 +2229,6 @@ class ExceptHandler(excepthandler):
     def mutate_over(self, visitor):
         if self.type:
             self.type = self.type.mutate_over(visitor)
-        if self.name:
-            self.name = self.name.mutate_over(visitor)
         if self.body:
             visitor._mutate_sequence(self.body)
         return visitor.visit_ExceptHandler(self)
@@ -2245,8 +2243,6 @@ class ExceptHandler(excepthandler):
                 self.name = None
         if self.type:
             self.type.sync_app_attrs(space)
-        if self.name:
-            self.name.sync_app_attrs(space)
         w_list = self.w_body
         if w_list is not None:
             list_w = space.listview(w_list)
@@ -2699,8 +2695,6 @@ class GenericASTVisitor(ASTVisitor):
     def visit_ExceptHandler(self, node):
         if node.type:
             node.type.walkabout(self)
-        if node.name:
-            node.name.walkabout(self)
         self.visit_sequence(node.body)
 
     def visit_arguments(self, node):
@@ -6718,9 +6712,10 @@ def ExceptHandler_get_name(space, w_self):
 
 def ExceptHandler_set_name(space, w_self, w_new_value):
     try:
-        w_self.name = space.interp_w(expr, w_new_value, True)
-        if type(w_self.name) is expr:
-            raise OperationError(space.w_TypeError, space.w_None)
+        if space.is_w(w_new_value, space.w_None):
+            w_self.name = None
+        else:
+            w_self.name = space.str_w(w_new_value)
     except OperationError, e:
         if not e.match(space, space.w_TypeError):
             raise

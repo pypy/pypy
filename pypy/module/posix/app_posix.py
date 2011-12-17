@@ -71,7 +71,7 @@ if osname == 'posix':
             return
         try:
             fcntl.fcntl(fd, fcntl.F_GETFD)
-        except IOError, e:
+        except IOError as e:
             raise OSError(e.errno, e.strerror, e.filename)
 else:
     def _validate_fd(fd):

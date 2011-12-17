@@ -25,7 +25,7 @@ def run_exitfuncs():
             continue
         try:
             func(*args, **kwargs)
-        except BaseException, e:
+        except BaseException as e:
             if not isinstance(e, SystemExit):
                 import traceback
                 last_type, last_exc, last_tb = sys.exc_info()

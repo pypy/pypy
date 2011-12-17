@@ -364,16 +364,16 @@ class ASTBuilder(object):
 
     def handle_except_clause(self, exc, body):
         test = None
-        target = None
+        name = None
         suite = self.handle_suite(body)
         child_count = len(exc.children)
         if child_count >= 2:
             test = self.handle_expr(exc.children[1])
         if child_count == 4:
-            target_child = exc.children[3]
-            target = self.handle_expr(target_child)
-            self.set_context(target, ast.Store)
-        return ast.ExceptHandler(test, target, suite, exc.lineno, exc.column)
+            name_node = exc.children[3]
+            name = name_node.value
+            self.check_forbidden_name(name, name_node)
+        return ast.ExceptHandler(test, name, suite, exc.lineno, exc.column)
 
     def handle_try_stmt(self, try_node):
         body = self.handle_suite(try_node.children[2])

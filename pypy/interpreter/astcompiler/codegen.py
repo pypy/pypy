@@ -524,7 +524,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.emit_jump(ops.POP_JUMP_IF_FALSE, next_except, True)
             self.emit_op(ops.POP_TOP)
             if handler.name:
-                handler.name.walkabout(self)
+                self.name_op(handler.name, ast.Store);
             else:
                 self.emit_op(ops.POP_TOP)
             self.emit_op(ops.POP_TOP)
