@@ -230,7 +230,8 @@ class TestFramework(RewriteTests):
             jump()
         """, """
             []
-            p0 = malloc_nursery(%(adescr.get_base_size(False) +        \
+            p0 = call_malloc_nursery(ConstClass(malloc_nursery), \
+                                %(adescr.get_base_size(False) +  \
                                   10 * adescr.get_item_size(False))d)
             setfield_gc(p0, 4321, descr=tiddescr)
             setfield_gc(p0, 10, descr=alendescr)
@@ -245,7 +246,8 @@ class TestFramework(RewriteTests):
             jump()
         """, """
             []
-            p0 = malloc_nursery(%(sdescr.size +                        \
+            p0 = call_malloc_nursery(ConstClass(malloc_nursery),       \
+                                %(sdescr.size +                        \
                                   adescr.get_base_size(False) +        \
                                   10 * adescr.get_item_size(False))d)
             setfield_gc(p0, 1234, descr=tiddescr)
@@ -262,7 +264,8 @@ class TestFramework(RewriteTests):
             jump()
         """, """
             []
-            p0 = malloc_nursery(%(bdescr.get_base_size(False) + 8)d)
+            p0 = call_malloc_nursery(ConstClass(malloc_nursery),   \
+                                     %(bdescr.get_base_size(False) + 8)d)
             setfield_gc(p0, 8765, descr=tiddescr)
             setfield_gc(p0, 6, descr=blendescr)
             jump()
@@ -278,7 +281,8 @@ class TestFramework(RewriteTests):
             jump()
         """, """
             []
-            p0 = malloc_nursery(%(4 * (bdescr.get_base_size(False) + 8))d)
+            p0 = call_malloc_nursery(ConstClass(malloc_nursery), \
+                                     %(4 * (bdescr.get_base_size(False) + 8))d)
             setfield_gc(p0, 8765, descr=tiddescr)
             setfield_gc(p0, 5, descr=blendescr)
             p1 = int_add(p0, %(bdescr.get_base_size(False) + 8)d)
@@ -301,7 +305,7 @@ class TestFramework(RewriteTests):
             jump()
         """, """
             []
-            p0 = malloc_nursery(%(4*WORD)d)
+            p0 = call_malloc_nursery(ConstClass(malloc_nursery), %(4*WORD)d)
             setfield_gc(p0, 9000, descr=tiddescr)
             p1 = int_add(p0, %(2*WORD)d)
             setfield_gc(p1, 9000, descr=tiddescr)
