@@ -187,9 +187,9 @@ class UnrollOptimizer(Optimization):
         self.short = target_token.short_preamble[:]
         self.short_seen = {}
         self.short_boxes = exported_state.short_boxes
+        self.short_resume_at_jump_descr = target_token.resume_at_jump_descr
         self.inputargs = targetop.getarglist()
         self.initial_virtual_state = target_token.virtual_state
-        self.resume_at_jump_descr = target_token.resume_at_jump_descr
 
         seen = {}
         for box in self.inputargs:
@@ -364,7 +364,7 @@ class UnrollOptimizer(Optimization):
         for i in range(len(short)):
             short[i] = inliner.inline_op(short[i])
 
-        target_token.resume_at_jump_descr = self.resume_at_jump_descr.clone_if_mutable()            
+        target_token.resume_at_jump_descr = target_token.resume_at_jump_descr.clone_if_mutable()
         inliner.inline_descr_inplace(target_token.resume_at_jump_descr)
 
         # Forget the values to allow them to be freed
@@ -403,7 +403,7 @@ class UnrollOptimizer(Optimization):
             if not isinstance(a, Const) and a not in self.short_seen:
                 self.add_op_to_short(self.short_boxes.producer(a), emit, guards_needed)
         if op.is_guard():
-            descr = self.resume_at_jump_descr.clone_if_mutable()
+            descr = self.short_resume_at_jump_descr.clone_if_mutable()
             op.setdescr(descr)
 
         if guards_needed and self.short_boxes.has_producer(op.result):
