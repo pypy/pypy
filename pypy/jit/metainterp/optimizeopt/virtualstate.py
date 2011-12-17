@@ -580,6 +580,10 @@ class ShortBoxes(object):
                 except BoxNotProducable:
                     pass
 
+            self.short_boxes_in_production = None # Not needed anymore
+        else:
+            self.short_boxes = {}
+
     def prioritized_alternatives(self, box):
         if box not in self.alternatives:
             return [self.potential_ops[box]]

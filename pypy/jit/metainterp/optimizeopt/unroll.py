@@ -91,38 +91,57 @@ class UnrollOptimizer(Optimization):
         self.optimizer.propagate_all_forward(clear=False)
 
         if not jumpop:
-            return 
+            return
+        
         if self.jump_to_already_compiled_trace(jumpop):
             # Found a compiled trace to jump to
-            if self.did_import:
-
+            if self.short:
+                # Construct our short preamble
                 self.close_bridge(start_label)
-                self.finilize_short_preamble(start_label)
             return
 
         cell_token = jumpop.getdescr()
         assert isinstance(cell_token, JitCellToken)
         stop_label = ResOperation(rop.LABEL, jumpop.getarglist(), None, TargetToken(cell_token))
 
-        if not self.did_import: # Enforce the previous behaviour of always peeling  exactly one iteration (for now)
-            self.optimizer.flush()
-            KillHugeIntBounds(self.optimizer).apply()
+        if self.did_import and self.jump_to_start_label(start_label, stop_label):
+            # Initial label matches, jump to it
+            jumpop = ResOperation(rop.JUMP, stop_label.getarglist(), None,
+                                  descr=start_label.getdescr())
+            if self.short:
+                # Construct our short preamble
+                self.close_loop(start_label, jumpop)
+            else:
+                self.optimizer.send_extra_operation(jumpop)
+            return
 
-            loop.operations = self.optimizer.get_newoperations()
-            self.export_state(stop_label)
-            loop.operations.append(stop_label)            
-        else:
-            assert stop_label
-            assert start_label
-            stop_target = stop_label.getdescr()
-            start_target = start_label.getdescr()
-            assert isinstance(stop_target, TargetToken)
-            assert isinstance(start_target, TargetToken)
-            assert stop_target.targeting_jitcell_token is start_target.targeting_jitcell_token
-            jumpop = ResOperation(rop.JUMP, stop_label.getarglist(), None, descr=start_label.getdescr())
+        # Found nothing to jump to, emit a label instead
+        self.optimizer.flush()
+        KillHugeIntBounds(self.optimizer).apply()
 
-            self.close_loop(jumpop)
-            self.finilize_short_preamble(start_label)
+        loop.operations = self.optimizer.get_newoperations()
+        self.export_state(stop_label)
+        loop.operations.append(stop_label)
+
+    def jump_to_start_label(self, start_label, stop_label):
+        if not start_label or not stop_label:
+            return False
+        
+        stop_target = stop_label.getdescr()
+        start_target = start_label.getdescr()
+        assert isinstance(stop_target, TargetToken)
+        assert isinstance(start_target, TargetToken)
+        if stop_target.targeting_jitcell_token is not start_target.targeting_jitcell_token:
+            return False
+
+        return True
+
+        #args = stop_label.getarglist()
+        #modifier = VirtualStateAdder(self.optimizer)
+        #virtual_state = modifier.get_virtual_state(args)
+        #if self.initial_virtual_state.generalization_of(virtual_state):
+        #    return True
+        
 
     def export_state(self, targetop):
         original_jump_args = targetop.getarglist()
@@ -171,18 +190,24 @@ class UnrollOptimizer(Optimization):
 
     def import_state(self, targetop):
         self.did_import = False
-        if not targetop:
+        if not targetop: # Trace did not start with a label
             self.inputargs = self.optimizer.loop.inputargs
-            # FIXME: Set up some sort of empty state with no virtuals?
+            self.short = None
+            self.initial_virtual_state = None
             return
+
         self.inputargs = targetop.getarglist()
-        
         target_token = targetop.getdescr()
         assert isinstance(target_token, TargetToken)
         exported_state = target_token.exported_state
         if not exported_state:
-            # FIXME: Set up some sort of empty state with no virtuals
+            # No state exported, construct one without virtuals
+            self.short = None
+            modifier = VirtualStateAdder(self.optimizer)
+            virtual_state = modifier.get_virtual_state(self.inputargs)
+            self.initial_virtual_state = virtual_state
             return
+        
         self.did_import = True
         
         self.short = target_token.short_preamble[:]
@@ -243,8 +268,9 @@ class UnrollOptimizer(Optimization):
             i += 1
             newoperations = self.optimizer.get_newoperations()
         self.short.append(ResOperation(rop.JUMP, short_jumpargs, None, descr=start_label.getdescr()))
-        
-    def close_loop(self, jumpop):
+        self.finilize_short_preamble(start_label)
+
+    def close_loop(self, start_label, jumpop):
         virtual_state = self.initial_virtual_state
         short_inputargs = self.short[0].getarglist()
         inputargs = self.inputargs
@@ -328,6 +354,8 @@ class UnrollOptimizer(Optimization):
             target_token = jumpop.getdescr()
             assert isinstance(target_token, TargetToken)
             target_token.targeting_jitcell_token.retraced_count = sys.maxint
+            
+        self.finilize_short_preamble(start_label)
             
     def finilize_short_preamble(self, start_label):
         short = self.short
